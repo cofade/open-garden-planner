@@ -685,3 +685,79 @@ def test_the_release_workflow_still_attests_build_provenance() -> None:
         "exact file Defender quarantined in issue #356, attesting only the "
         "installer does not let a user verify it"
     )
+
+
+def test_ci_still_scans_for_secrets_across_the_whole_repo() -> None:
+    """A live Agent API write token was committed and pushed (PR #369, #319).
+
+    Pins the four things that make the gate actually load-bearing, each of
+    which a plausible edit could silently drop while every other assertion here
+    stays green:
+
+    * the scan existing at all;
+    * running over the FULL HISTORY rather than the tip commit — the token
+      entered history three commits before it was deleted, so a
+      tip-only scan passes on the very commit that removed it;
+    * failing on findings (`detect` without `--exit-code 0`, and with
+      `--redact` so a re-run cannot republish the secret into the log);
+    * the security job still running Bandit too, since gitleaks and SAST are
+      complementary and Bandit catches what a secret scanner does not.
+
+    Bandit alone could never have caught this: `ci.yml` runs it as
+    `-r src/`, and the file was at the repo root — outside the scope — and
+    Bandit has no rule for a credential in a URL query string anyway. That
+    gap is why this test exists rather than trusting the workflow by eye.
+    """
+    text = (_REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+    assert "gitleaks" in text, (
+        "ci.yml no longer runs gitleaks — the repo has no other secret scan, "
+        "and a committed credential is exactly the failure no other gate covers"
+    )
+
+    uses_line = re.search(r"uses:\s*gitleaks/gitleaks-action@v(\d+)", text)
+    assert uses_line, "gitleaks is present but not wired as a pinned action"
+
+    major = int(uses_line.group(1))
+    assert major >= 2, (
+        f"gitleaks-action major {major} is below the supported floor (v2) — "
+        "an unsupported major can fail to run at all, which reads as a pass"
+    )
+
+    step_start = text.index("gitleaks-action@")
+    next_step = re.search(r"\n {6}- (?:name|uses):", text[step_start:])
+    step_block = (
+        text[step_start : step_start + next_step.start()]
+        if next_step
+        else text[step_start:]
+    )
+
+    assert "detect" in step_block, (
+        "the gitleaks step no longer runs `detect` (a `protect`-only config "
+        "checks nothing on a push)"
+    )
+    # Read the `args:` value itself, not the whole step block: a COMMENT in
+    # ci.yml that names a flag (e.g. explaining why it must NOT be passed)
+    # must not satisfy or trip an assertion about that flag's presence.
+    args_match = re.search(r"args:\s*(.+)", step_block)
+    assert args_match, "the gitleaks step passes no args"
+    args_line = args_match.group(1)
+
+    assert "--log-opts" in args_line and "--all" in args_line, (
+        "gitleaks is not scoped to the full history — a tip-only scan passes "
+        "on the commit that DELETED a leaked secret, which is exactly the "
+        "commit that made this gate necessary"
+    )
+    assert "--exit-code 0" not in args_line, (
+        "gitleaks is configured not to fail — a scan that reports a leaked "
+        "credential and exits 0 is a log line, not a gate"
+    )
+    assert "--redact" in args_line, (
+        "gitleaks is not redacting, so a re-run would reprint the very "
+        "credential it found into the job log"
+    )
+
+    assert "bandit" in text, (
+        "ci.yml no longer runs Bandit — gitleaks is a secret scanner, not a "
+        "replacement for SAST"
+    )

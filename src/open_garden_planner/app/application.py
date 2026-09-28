@@ -995,42 +995,42 @@ class GardenPlannerApp(QMainWindow):
         Resolves the bed's own plants when the caller did not supply them, so
         an unknown ``bed_id`` is reported as such instead of looking like an
         empty bed (P1-5).
+
+        Bed membership in this codebase is the ``parent_bed_id`` PROPERTY on
+        ``GardenItem`` — NOT Qt item parenting. ``bed.childItems()`` returns
+        ``[]`` for every real bed (``setParentItem`` is used only for label
+        items), so the first version of this silently reported every bed as
+        empty and answered ``overall="neutral"`` for a bed whose real answer
+        was ``"critical"`` — a fabricated clean result, the exact failure class
+        this tool exists to avoid. Membership is read the way
+        ``queries.plants_in_bed`` does, and ``bed_exists`` is resolved
+        UNCONDITIONALLY so supplying ``bed_plants`` cannot bypass the
+        existence check.
         """
         from open_garden_planner.agent_api.domain import check_placement_for_agent
 
         bed_exists: bool | None = None
+        try:
+            target_id = UUID(bed_id)
+        except (ValueError, TypeError, AttributeError):
+            target_id = None
+
         resolved = bed_plants
-        if resolved is None:
-            try:
-                target_id = UUID(bed_id)
-            except (ValueError, TypeError, AttributeError):
-                target_id = None
+        if target_id is not None:
+            bed = self.canvas_scene.find_item_by_id(target_id)
+            if bed is None:
+                bed_exists = False
+            else:
+                bed_exists = True
+                if resolved is None:
+                    resolved = self._agent_bed_species_keys(target_id)
+        else:
             bed_exists = False
-            if target_id is not None:
-                item = self.canvas_scene.find_item_by_id(target_id)
-                if item is not None:
-                    bed_exists = True
-                    resolved = []
-                    try:
-                        children = item.childItems()
-                    except Exception:
-                        children = []
-                    for child in children:
-                        meta = getattr(child, "metadata", {}) or {}
-                        species_data = (
-                            meta.get("plant_species") if isinstance(meta, dict) else None
-                        )
-                        name = ""
-                        if isinstance(species_data, dict):
-                            name = (
-                                species_data.get("common_name")
-                                or species_data.get("scientific_name")
-                                or ""
-                            )
-                        if not name:
-                            name = getattr(child, "plant_species", "") or ""
-                        if name:
-                            resolved.append(name.lower())
+
+        if resolved is None and bed_exists is not False:
+            # Bed exists but we could not enumerate it — say so rather than
+            # implying the bed is empty.
+            bed_exists = None
 
         return check_placement_for_agent(
             self._companion_service,
@@ -1039,6 +1039,42 @@ class GardenPlannerApp(QMainWindow):
             bed_plants=resolved,
             bed_exists=bed_exists,
         ).model_dump()
+
+    def _agent_bed_species_keys(self, bed_id: UUID) -> list[str]:
+        """Species keys of the plants linked to ``bed_id``.
+
+        Reads the ``parent_bed_id`` PROPERTY, which is how this codebase
+        records bed membership (``queries.plants_in_bed`` does the same, and
+        ``canvas_scene``/``commands`` maintain it). Returns ``None`` only if
+        the scene cannot be walked at all, so the caller can tell "the bed is
+        empty" apart from "I could not look".
+        """
+        try:
+            items = list(self.canvas_scene.items())
+        except Exception:
+            return None
+
+        out: list[str] = []
+        for item in items:
+            if getattr(item, "parent_bed_id", None) != bed_id:
+                continue
+            # species_name, NOT metadata["plant_species"] alone: a plant
+            # assigned via the gallery or the agent's set_species tool only
+            # has the metadata record, and reading the attribute too is what
+            # queries._species_name already does (P1-2).
+            name = getattr(item, "plant_species", "") or ""
+            if not name:
+                meta = getattr(item, "metadata", {}) or {}
+                species_data = meta.get("plant_species") if isinstance(meta, dict) else None
+                if isinstance(species_data, dict):
+                    name = (
+                        species_data.get("common_name")
+                        or species_data.get("scientific_name")
+                        or ""
+                    )
+            if name:
+                out.append(str(name).lower())
+        return out
 
     def _agent_linked_roof_ridge(self, item: Any) -> list[Any]:
         """A HOUSE's linked ``ROOF_RIDGE`` item, if any — mirroring

@@ -2828,7 +2828,7 @@ _P3C_TRANSLATIONS: dict[str, dict[str, str]] = {
         "replaces what is planted": "ersetzt die Bepflanzung",
         "No compatible set found among the plants already in this bed and their companions.": "Keine kompatible Kombination unter den bereits in diesem Beet gepflanzten Pflanzen und ihren Begleitpflanzen gefunden.",
         "{plant} clashes with {others} already in this bed.": "{plant} verträgt sich nicht mit {others}, die bereits in diesem Beet stehen.",
-        "{plant} has no compatible set with the other plants in this bed.": "{plant} ergibt mit den anderen Pflanzen in diesem Beet keine kompatible Kombination.",
+        "{plant} is not part of any of these sets.": "{plant} ist in keiner dieser Kombinationen enthalten.",
     },
     "ConstraintListItem": {
         "Coincident": "Deckungsgleich",

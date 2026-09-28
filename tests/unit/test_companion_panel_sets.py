@@ -127,10 +127,41 @@ class TestFindSetsForBed:
         # corn and tomato are antagonistic in the bundled data.
         result = find_sets_for_bed(service, ["corn", "tomato"], size=3)
         assert result["conflicts"], "an antagonistic bed pair must be reported"
-        clashing = {c["species_key"] for c in result["conflicts"]}
-        assert clashing
         for conflict in result["conflicts"]:
             assert conflict["antagonistic_to"], "a conflict must name what it clashes with"
+
+    def test_non_antagonistic_pair_is_not_a_conflict(
+        self, service: CompanionPlantingService
+    ) -> None:
+        """P1-3: absent from a 3-set is NOT a clash.
+
+        Regression: conflicts used to include any bed plant missing from every
+        set, which reported "mint has no compatible set with cabbage" when the
+        bundled data says the pair is beneficial — it simply has no third
+        mutual partner at size 3.
+        """
+        result = find_sets_for_bed(service, ["cabbage", "mint"], size=3)
+        assert result["conflicts"] == [], (
+            "a beneficial pair with no 3-clique must not be reported as a conflict"
+        )
+        # The step-down finds the 2-clique, so both plants are covered and
+        # there is nothing left to report as uncovered either.
+        assert result["searched_size"] == 2
+        assert result["uncovered"] == []
+
+    def test_search_steps_down_when_no_set_of_requested_size(
+        self, service: CompanionPlantingService
+    ) -> None:
+        """A real 2-clique pair must not dead-end at size 3 (P1-3)."""
+        result = find_sets_for_bed(service, ["cabbage", "mint"], size=3)
+        assert result["searched_size"] == 2
+        assert result["sets"], "stepping down must find the 2-clique"
+
+    def test_step_down_not_used_when_requested_size_available(
+        self, service: CompanionPlantingService
+    ) -> None:
+        result = find_sets_for_bed(service, ["corn", "bean"], size=3)
+        assert result["searched_size"] == 3
 
     def test_conflicting_bed_still_returns_something_useful(
         self, service: CompanionPlantingService
@@ -161,7 +192,7 @@ class TestCompatibleSetDialog:
         self, qtbot: Any, service: CompanionPlantingService
     ) -> None:
         result = find_sets_for_bed(service, ["corn", "bean"], size=3)
-        dialog = CompatibleSetDialog(result["sets"], result["bed_plants"], [], None)
+        dialog = CompatibleSetDialog(result["sets"], result["bed_plants"], [], [], None)
         qtbot.addWidget(dialog)
         assert dialog._list.count() == len(result["sets"])
 
@@ -169,7 +200,7 @@ class TestCompatibleSetDialog:
         self, qtbot: Any, service: CompanionPlantingService
     ) -> None:
         result = find_sets_for_bed(service, ["corn", "bean"], size=3)
-        dialog = CompatibleSetDialog(result["sets"], result["bed_plants"], [], None)
+        dialog = CompatibleSetDialog(result["sets"], result["bed_plants"], [], [], None)
         qtbot.addWidget(dialog)
         assert dialog._list.currentRow() == 0
 
@@ -178,26 +209,34 @@ class TestCompatibleSetDialog:
     ) -> None:
         result = find_sets_for_bed(service, ["corn", "tomato"], size=3)
         dialog = CompatibleSetDialog(
-            result["sets"], result["bed_plants"], result["conflicts"], None
+            result["sets"], result["bed_plants"], result["conflicts"], [], None
         )
         qtbot.addWidget(dialog)
-        labels = [
-            dialog.findChild(type(w), w.objectName() or "")
-            for w in dialog.findChildren(object)
-        ]
-        # The dialog must carry a label naming each conflict species.
         texts = [w.text() for w in dialog.findChildren(object) if hasattr(w, "text")]
         for conflict in result["conflicts"]:
             assert any(conflict["species_key"] in t for t in texts), (
                 f"conflict {conflict['species_key']} not surfaced in the dialog"
             )
-        assert labels is not None
+
+    def test_uncovered_is_not_worded_as_a_clash(
+        self, qtbot: Any, service: CompanionPlantingService
+    ) -> None:
+        """P1-3: an uncovered plant must not be announced as a clash."""
+        result = find_sets_for_bed(service, ["cabbage", "mint"], size=3)
+        dialog = CompatibleSetDialog(
+            result["sets"], result["bed_plants"], result["conflicts"],
+            result["uncovered"], None,
+        )
+        qtbot.addWidget(dialog)
+        texts = [w.text() for w in dialog.findChildren(object) if hasattr(w, "text")]
+        for t in texts:
+            assert "clashes with" not in t
 
     def test_get_selected_set_returns_members(
         self, qtbot: Any, service: CompanionPlantingService
     ) -> None:
         result = find_sets_for_bed(service, ["corn", "bean"], size=3)
-        dialog = CompatibleSetDialog(result["sets"], result["bed_plants"], [], None)
+        dialog = CompatibleSetDialog(result["sets"], result["bed_plants"], [], [], None)
         qtbot.addWidget(dialog)
         dialog._on_accept()
         assert dialog.get_selected_set() == result["sets"][0]["members"]

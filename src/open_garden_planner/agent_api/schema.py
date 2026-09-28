@@ -694,6 +694,17 @@ class CompatibleSet(BaseModel):
         "'bundled_only' if some members are from the provider, 'partial' if "
         "some members have no data at all."
     )
+    covers: list[str] = Field(
+        default_factory=list,
+        description="Which of the bed's CURRENT plants this set already "
+        "satisfies — the ranking key for a bed-scoped search, and the reason "
+        "this set is offered. Empty for a plain candidate search.",
+    )
+    covers_all: bool = Field(
+        default=False,
+        description="True when this set keeps every plant currently in the bed. "
+        "False for a plain candidate search.",
+    )
 
 
 class PlacementCheck(BaseModel):

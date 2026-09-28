@@ -556,7 +556,7 @@
   },
   "369": {
     "is_pr": true,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "feat(US-D3.1,D2.7): agent domain intelligence tools + get_history"
   }
 }

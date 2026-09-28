@@ -214,9 +214,16 @@ def find_sets_for_bed(
         A dict with:
           ``sets``       — ranked sets, each carrying ``covers`` (bed members
                            included) and ``covers_all`` (bool).
-          ``conflicts``  — bed plants that cannot join ANY returned set, each
-                           with the bed plants they are antagonistic to. Empty
-                           when every bed plant is in at least one set.
+          ``conflicts``  — ONLY bed plants that are genuinely antagonistic to
+                           another bed plant, each naming what it clashes with.
+                           Empty when no bed pair is antagonistic. A bed plant
+                           that merely fits no set of the requested SIZE is
+                           reported in ``uncovered`` instead — "not in any
+                           3-clique" is not a clash, and calling it one told
+                           users mint does not go with cabbage when the bundled
+                           data says it does.
+          ``uncovered``  — bed plants in no returned set, with no claim made
+                           about why.
           ``bed_plants`` — the canonical bed-plant keys (echoed back).
     """
     if size < 2 or size > 5:
@@ -238,8 +245,19 @@ def find_sets_for_bed(
             if other not in candidates:
                 candidates.append(other)
 
-    # No must_include — rank by coverage instead.
-    raw_sets = find_compatible_sets(service, candidates, size=size)
+    # No must_include — rank by coverage instead. Try the requested size first,
+    # then step DOWN: a 2-clique pair is still real advice even when no third
+    # mutual partner exists, and returning nothing for it (or calling it a
+    # conflict) is the dead end this function exists to avoid.
+    raw_sets: list[dict[str, Any]] = []
+    searched_size = size
+    for candidate_size in range(size, 1, -1):
+        raw_sets = find_compatible_sets(
+            service, candidates, size=candidate_size
+        )
+        searched_size = candidate_size
+        if raw_sets:
+            break
 
     covered: set[str] = set()
     for entry in raw_sets:
@@ -252,10 +270,10 @@ def find_sets_for_bed(
         key=lambda e: (-len(e["covers"]), not e["covers_all"], -e["score"], e["members"])
     )
 
-    # Which bed plants clash with another bed plant? This is checked against
-    # the bed's own contents, NOT against set coverage: an antagonistic pair can
+    # ONLY genuine bed-internal antagonism is a conflict. Checked against the
+    # bed's own contents, not against set coverage: an antagonistic pair can
     # never share a clique, so each member is trivially "in some set" via
-    # different sets and coverage alone would report no conflict at all.
+    # different sets, and a coverage-only check would report nothing at all.
     conflicts: list[dict[str, Any]] = []
     for key in bed_keys:
         clashes = []
@@ -267,10 +285,16 @@ def find_sets_for_bed(
                 clashes.append(other)
         if clashes:
             conflicts.append({"species_key": key, "antagonistic_to": clashes})
-        elif key not in covered:
-            conflicts.append({"species_key": key, "antagonistic_to": []})
 
-    return {"sets": raw_sets, "conflicts": conflicts, "bed_plants": bed_keys}
+    uncovered = [key for key in bed_keys if key not in covered]
+
+    return {
+        "sets": raw_sets,
+        "conflicts": conflicts,
+        "uncovered": uncovered,
+        "bed_plants": bed_keys,
+        "searched_size": searched_size,
+    }
 
 
 def suggest_companions(

@@ -435,7 +435,11 @@ class CompanionPanel(QWidget):
         result = find_sets_for_bed(self._service, bed_plants, size=3)
 
         dialog = CompatibleSetDialog(
-            result["sets"], result["bed_plants"], result["conflicts"], self
+            result["sets"],
+            result["bed_plants"],
+            result["conflicts"],
+            result["uncovered"],
+            self,
         )
         if dialog.exec() == QDialog.DialogCode.Accepted:
             selected = dialog.get_selected_set()
@@ -453,22 +457,26 @@ class CompanionPanel(QWidget):
         return None
 
     def _get_bed_plants(self, bed_id: str) -> list[str]:
-        """Return species keys of plants in the given bed."""
+        """Return species keys of plants in the given bed.
+
+        Returns ``[]`` for a bed with no plants. A scene that cannot be walked
+        at all raises — an ``except Exception: pass`` here turned any failure
+        into "bed is empty", which the caller cannot distinguish from a real
+        empty bed, and the action then opened an empty dialog for the same
+        reason it did before the parent_bed_id fix.
+        """
         if self._canvas_scene is None:
             return []
         plants: list[str] = []
-        try:
-            for item in self._canvas_scene.items():
-                if not hasattr(item, "plant_species"):
-                    continue
-                # parent_bed_id is a property on GardenItem, not in metadata
-                parent = getattr(item, "parent_bed_id", None)
-                if parent and str(parent) == bed_id:
-                    sp = self._species_name(item)
-                    if sp:
-                        plants.append(sp.lower())
-        except Exception:
-            pass
+        for item in self._canvas_scene.items():
+            if not hasattr(item, "plant_species"):
+                continue
+            # parent_bed_id is a property on GardenItem, not in metadata
+            parent = getattr(item, "parent_bed_id", None)
+            if parent and str(parent) == bed_id:
+                sp = self._species_name(item)
+                if sp:
+                    plants.append(sp.lower())
         return plants
 
     def _highlight_members(self, members: list[str]) -> None:
@@ -496,12 +504,14 @@ class CompatibleSetDialog(QDialog):
         sets: list[dict],
         existing_plants: list[str],
         conflicts: list[dict] | None = None,
+        uncovered: list[str] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._sets = sets
         self._existing_plants = existing_plants
         self._conflicts = conflicts or []
+        self._uncovered = uncovered or []
         self._selected: list[str] = []
         self._setup_ui()
 
@@ -552,20 +562,26 @@ class CompatibleSetDialog(QDialog):
             set_text_role(label, "hint")
             layout.addWidget(label)
 
-        # Name the conflicts explicitly. "Nothing found" without saying WHY is
-        # the same misleading-silence problem as the set search itself.
+        # Name genuine bed-internal clashes. A plant that merely fits no set of
+        # this size is NOT a clash — saying so told users mint does not go with
+        # cabbage when the bundled data says it does.
         for conflict in self._conflicts:
-            clashes = conflict.get("antagonistic_to", [])
-            if clashes:
-                text = self.tr("{plant} clashes with {others} already in this bed.").format(
-                    plant=conflict["species_key"], others=", ".join(clashes)
-                )
-            else:
-                text = self.tr(
-                    "{plant} has no compatible set with the other plants in this bed."
-                ).format(plant=conflict["species_key"])
+            text = self.tr("{plant} clashes with {others} already in this bed.").format(
+                plant=conflict["species_key"],
+                others=", ".join(conflict.get("antagonistic_to", [])),
+            )
             label = QLabel(text)
             set_text_role(label, "h2", "warning")
+            label.setWordWrap(True)
+            layout.addWidget(label)
+
+        for name in self._uncovered:
+            if any(c["species_key"] == name for c in self._conflicts):
+                continue
+            label = QLabel(
+                self.tr("{plant} is not part of any of these sets.").format(plant=name)
+            )
+            set_text_role(label, "hint")
             label.setWordWrap(True)
             layout.addWidget(label)
 

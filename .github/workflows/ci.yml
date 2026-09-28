@@ -82,3 +82,36 @@ jobs:
 
       - name: Run Bandit (fail on HIGH severity)
         run: bandit -r src/ --severity-level high
+
+      # Full-repo secret scan, NOT just src/.
+      #
+      # Added after a live Agent API write token was committed to the repo
+      # root in a throwaway verification script and pushed (PR #369, 2026-09-29).
+      # Bandit never saw it: it runs `-r src/`, and a root-level file is outside
+      # that scope. Bandit also has no rule for a credential in a URL query
+      # string, so even in scope it would not have flagged the pattern. The
+      # token had to be rotated by hand.
+      #
+      # gitleaks scans the whole tree AND the full history of the checked-out
+      # ref, so it covers both the miss above and its replacement class. This
+      # repo's own precedent applies: gate commands get regression pins
+      # (test_gate_commands.py), because a release-critical step with no pin
+      # silently degrades for releases at a time.
+      - name: Set up Go for gitleaks
+        uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+
+      - name: Run gitleaks (full history, fail on any finding)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          # Required by the action; used only to fetch tags for --log-opts.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # --all scans the WHOLE history, not just the commits this push
+          # touched. Without it the scan passes on the very commit that
+          # deletes a leaked secret — which is the commit that makes this
+          # gate necessary in the first place. --redact keeps a re-run from
+          # reprinting the credential into the job log. No --exit-code 0:
+          # a scan that finds a secret and exits 0 is a log line, not a gate.
+          args: detect --redact --no-banner --log-opts="--all"

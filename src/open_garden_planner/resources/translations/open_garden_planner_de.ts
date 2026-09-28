@@ -11213,5 +11213,9 @@ Details: {error}</translation>
             <source>{plant} has no compatible set with the other plants in this bed.</source>
             <translation>{plant} ergibt mit den anderen Pflanzen in diesem Beet keine kompatible Kombination.</translation>
         </message>
+        <message>
+            <source>{plant} is not part of any of these sets.</source>
+            <translation>{plant} ist in keiner dieser Kombinationen enthalten.</translation>
+        </message>
     </context>
 </TS>

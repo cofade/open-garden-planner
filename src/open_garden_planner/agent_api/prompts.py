@@ -107,6 +107,8 @@ def render_plan_polyculture_bed_prompt(
     compatible_sets: list[CompatibleSet],
     existing_plants: list[str],
     conflicts: list[dict[str, Any]] | None = None,
+    uncovered: list[str] | None = None,
+    searched_size: int | None = None,
 ) -> str:
     """Compose a polyculture bed planning request (US-D3.1).
 
@@ -115,14 +117,19 @@ def render_plan_polyculture_bed_prompt(
         compatible_sets: Compatible sets, already ranked by how many of the
             bed's current plants each one satisfies (``find_sets_for_bed``).
         existing_plants: Species keys already in the bed.
-        conflicts: Bed plants that fit no returned set, each with the bed
-            plants it is antagonistic to. Naming them is what keeps an empty
-            result from reading as "add more plants", which cannot help.
+        conflicts: Bed plants genuinely antagonistic to another bed plant.
+            Naming them is what keeps an empty result from reading as "add more
+            plants", which cannot help.
+        uncovered: Bed plants in no returned set. Deliberately NOT called a
+            conflict — absent from a 3-set is not a clash.
+        searched_size: The set size actually searched, when it differs from the
+            requested one.
 
     Returns:
         Prompt text asking the agent to plan a polyculture bed.
     """
     conflicts = conflicts or []
+    uncovered = uncovered or []
     lines = [
         f"Plan a polyculture bed for bed '{bed_id}'.",
         "",
@@ -135,24 +142,34 @@ def render_plan_polyculture_bed_prompt(
         lines.append("## Conflicts among the plants already in this bed")
         for conflict in conflicts:
             clashes = conflict.get("antagonistic_to", [])
-            if clashes:
-                lines.append(
-                    f"- {conflict['species_key']} is antagonistic to "
-                    f"{', '.join(clashes)} (also in this bed)"
-                )
-            else:
-                lines.append(
-                    f"- {conflict['species_key']} fits no compatible set with "
-                    "the other plants in this bed"
-                )
+            lines.append(
+                f"- {conflict['species_key']} is antagonistic to "
+                f"{', '.join(clashes)} (also in this bed)"
+            )
+        lines.append("")
+
+    if uncovered and not conflicts:
+        lines.append("## Plants not included in any set below")
+        lines.append(
+            "- " + ", ".join(uncovered) + " — no clash on record; simply not a"
+            " member of the sets found, which is not a conflict"
+        )
         lines.append("")
 
     if compatible_sets:
-        lines.append("## Compatible sets (ranked by how much of the bed they keep)")
+        header = "## Compatible sets (ranked by how much of the bed they keep)"
+        if searched_size:
+            header = (
+                f"## Compatible sets of {searched_size} plants "
+                "(ranked by how much of the bed they keep)"
+            )
+        lines.append(header)
         for i, s in enumerate(compatible_sets[:5], 1):
+            keeps = ", ".join(s.covers) if s.covers else "none of the current plants"
+            all_current = " — keeps everything" if s.covers_all else ""
             lines.append(
                 f"{i}. {', '.join(s.members)} (score: {s.score:.1f}, "
-                f"coverage: {s.coverage})"
+                f"coverage: {s.coverage}, keeps: {keeps}{all_current})"
             )
         lines.append("")
         lines.append(
@@ -174,7 +191,9 @@ def render_plan_polyculture_bed_prompt(
             lines[-1] += " Try a different bed, or different species."
     lines.append("")
     lines.append(
-        "Use the suggest_companions and find_compatible_sets tools if you "
-        "need more options."
+        "Use the suggest_companions and find_sets_for_bed tools if you need "
+        "more options. find_compatible_sets searches a candidate palette you "
+        "name and does not know what is already planted, so it is the right "
+        "tool only when you are not asking about a specific bed."
     )
     return "\n".join(lines)
