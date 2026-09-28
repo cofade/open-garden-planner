@@ -61,6 +61,10 @@ def _stub_providers() -> AgentProviders:
         set_layer_property=_boom,
         undo=_boom,
         redo=_boom,
+        get_history=_boom,
+        suggest_companions=_boom,
+        find_compatible_sets=_boom,
+        check_placement=_boom,
     )
 
 

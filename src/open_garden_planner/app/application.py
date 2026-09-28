@@ -911,6 +911,74 @@ class GardenPlannerApp(QMainWindow):
             "can_redo": manager.can_redo,
         }
 
+    def _agent_get_history(self) -> dict[str, Any]:
+        """Read the undo/redo stack state (US-D2.7, read-only)."""
+        from open_garden_planner.agent_api.history import history_from_command_manager
+
+        return self._agent_bridge.run_on_main(
+            lambda: history_from_command_manager(
+                self.canvas_view.command_manager
+            ).model_dump()
+        )
+
+    def _agent_suggest_companions(
+        self,
+        species_key: str,
+        exclude_antagonists_of: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Suggest companion plants for a species (US-D3.1, read-only)."""
+        from open_garden_planner.agent_api.domain import suggest_companions_for_agent
+
+        return self._agent_bridge.run_on_main(
+            lambda: [
+                s.model_dump()
+                for s in suggest_companions_for_agent(
+                    self._companion_service,
+                    species_key,
+                    exclude_antagonists_of=exclude_antagonists_of,
+                )
+            ]
+        )
+
+    def _agent_find_compatible_sets(
+        self,
+        candidates: list[str],
+        size: int = 3,
+        must_include: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Find mutually compatible sets of plants (US-D3.1, read-only)."""
+        from open_garden_planner.agent_api.domain import find_compatible_sets_for_agent
+
+        return self._agent_bridge.run_on_main(
+            lambda: [
+                s.model_dump()
+                for s in find_compatible_sets_for_agent(
+                    self._companion_service,
+                    candidates,
+                    size=size,
+                    must_include=must_include,
+                )
+            ]
+        )
+
+    def _agent_check_placement(
+        self,
+        species_key: str,
+        bed_id: str,
+        bed_plants: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Check whether a species is well-placed in a bed (US-D3.1, read-only)."""
+        from open_garden_planner.agent_api.domain import check_placement_for_agent
+
+        return self._agent_bridge.run_on_main(
+            lambda: check_placement_for_agent(
+                self._companion_service,
+                species_key,
+                bed_id,
+                bed_plants=bed_plants,
+            ).model_dump()
+        )
+
     def _agent_linked_roof_ridge(self, item: Any) -> list[Any]:
         """A HOUSE's linked ``ROOF_RIDGE`` item, if any — mirroring
         ``CanvasView._delete_selected_items``'s ``ridge_item_id`` expansion so
@@ -2222,6 +2290,10 @@ class GardenPlannerApp(QMainWindow):
             set_layer_property=self._agent_set_layer_property,
             undo=self._agent_undo,
             redo=self._agent_redo,
+            get_history=self._agent_get_history,
+            suggest_companions=self._agent_suggest_companions,
+            find_compatible_sets=self._agent_find_compatible_sets,
+            check_placement=self._agent_check_placement,
         )
 
     def _stop_agent_api(self) -> None:

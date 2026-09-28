@@ -158,6 +158,16 @@ class CommandManager(QObject):
         return len(self._redo_stack) > 0
 
     @property
+    def undo_depth(self) -> int:
+        """Number of commands on the undo stack (US-D2.7)."""
+        return len(self._undo_stack)
+
+    @property
+    def redo_depth(self) -> int:
+        """Number of commands on the redo stack (US-D2.7)."""
+        return len(self._redo_stack)
+
+    @property
     def undo_description(self) -> str | None:
         """Description of the command that would be undone."""
         if self._undo_stack:

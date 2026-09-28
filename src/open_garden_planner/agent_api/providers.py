@@ -205,10 +205,26 @@ class AgentProviders:
             global, GUI-shared LIFO history stack. Refuses an empty stack.
         redo: **Write (MCP history).** Reapplies exactly one command on the
             global, GUI-shared LIFO history stack. Refuses an empty stack.
+        get_history: **Read (US-D2.7).** Returns the current undo/redo stack
+            state — depths and next undo/redo texts — without mutating the
+            stack. Read-only; no token required.
+        suggest_companions: **Read (US-D3.1).** Returns ranked companion
+            suggestions for a species. Takes (species_key,
+            exclude_antagonists_of). Read-only.
+        find_compatible_sets: **Read (US-D3.1).** Finds mutually compatible
+            sets of plants among candidates. Takes (candidates, size,
+            must_include). Read-only.
+        check_placement: **Read (US-D3.1).** Checks whether a species is
+            well-placed in a bed. Takes (species_key, bed_id, bed_plants).
+            Read-only.
     """
 
     snapshot: Callable[[], dict[str, Any]]
     diagnostics: Callable[[], list[dict[str, Any]]]
+    get_history: Callable[[], dict[str, Any]]
+    suggest_companions: Callable[..., list[dict[str, Any]]]
+    find_compatible_sets: Callable[..., list[dict[str, Any]]]
+    check_placement: Callable[..., dict[str, Any]]
     render: Callable[
         [tuple[float, float, float, float] | None, list[str] | None, int],
         dict[str, Any],

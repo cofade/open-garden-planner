@@ -78,14 +78,18 @@ from open_garden_planner.agent_api.mapping import (
 from open_garden_planner.agent_api.providers import AgentProviders
 from open_garden_planner.agent_api.render import DEFAULT_IMAGE_PX
 from open_garden_planner.agent_api.schema import (
+    CompanionSuggestion,
+    CompatibleSet,
     Diagnostic,
     ExportResult,
     GeometryResult,
     HistoryResult,
+    HistoryState,
     Layer,
     Measurement,
     ObjectDetail,
     ObjectRef,
+    PlacementCheck,
     PlanLifecycleResult,
     PlanSummary,
     RenderMeta,
@@ -502,6 +506,92 @@ def build_server(
         """
         records = await anyio.to_thread.run_sync(providers.diagnostics)
         return diagnostics_from_records(records, kind=kind)
+
+    @mcp.tool()
+    async def get_history() -> HistoryState:
+        """Report the current undo/redo stack state (US-D2.7, read-only).
+
+        Lets an agent assert the D2 undo contract — "one call = one undo step"
+        and "refusals leave the stack untouched" — without reading the GUI's
+        Edit menu. This is the same global LIFO stack Ctrl+Z / undo / redo
+        use; calling this tool never mutates it.
+
+        Returns:
+            HistoryState with undo_depth, redo_depth, next_undo_text, and
+            next_redo_text (the same strings the GUI's Edit menu shows).
+        """
+        result = await anyio.to_thread.run_sync(providers.get_history)
+        return HistoryState(**result)
+
+    # --- US-D3.1: domain-intelligence tools (read-only) ----------------------
+
+    @mcp.tool()
+    async def suggest_companions(
+        species_key: str,
+        exclude_antagonists_of: list[str] | None = None,
+    ) -> list[CompanionSuggestion]:
+        """Suggest companion plants for a species, ranked by benefit (US-D3.1).
+
+        Returns a ranked list of beneficial companions with reasons and
+        source attribution. Antagonists of the excluded species are filtered
+        out. Read-only; no token required.
+
+        Args:
+            species_key: The species to find companions for (common name,
+                scientific name, or alias).
+            exclude_antagonists_of: Optional list of species keys whose
+                antagonists should be excluded (e.g. plants already in the bed).
+        """
+        result = await anyio.to_thread.run_sync(
+            lambda: providers.suggest_companions(species_key, exclude_antagonists_of)
+        )
+        return [CompanionSuggestion(**item) for item in result]
+
+    @mcp.tool()
+    async def find_compatible_sets(
+        candidates: list[str],
+        size: int = 3,
+        must_include: list[str] | None = None,
+    ) -> list[CompatibleSet]:
+        """Find mutually compatible sets of plants among candidates (US-D3.1).
+
+        Uses Bron–Kerbosch over the beneficial companion graph, with
+        antagonist edges as hard exclusions. Each set is a maximal clique of
+        mutually beneficial, non-antagonistic species. Read-only; no token
+        required.
+
+        Args:
+            candidates: Species keys to consider (up to 60).
+            size: Target set size, 2–5 (default 3).
+            must_include: Species keys that must be in every returned set
+                (e.g. plants already in the bed).
+        """
+        result = await anyio.to_thread.run_sync(
+            lambda: providers.find_compatible_sets(candidates, size, must_include)
+        )
+        return [CompatibleSet(**item) for item in result]
+
+    @mcp.tool()
+    async def check_placement(
+        species_key: str,
+        bed_id: str,
+        bed_plants: list[str] | None = None,
+    ) -> PlacementCheck:
+        """Check whether a species is well-placed in a bed (US-D3.1).
+
+        Reports antagonists and companions already present in the bed,
+        plus spacing and soil compatibility. Reuses the existing diagnostics
+        logic — never a second implementation. Read-only; no token required.
+
+        Args:
+            species_key: The species to check.
+            bed_id: The bed to check against.
+            bed_plants: Species keys of plants already in the bed.
+        """
+        result = await anyio.to_thread.run_sync(
+            lambda: providers.check_placement(species_key, bed_id, bed_plants)
+        )
+        return PlacementCheck(**result)
 
     @mcp.tool()
     async def list_layers() -> list[Layer]:
@@ -1486,6 +1576,42 @@ def build_server(
         snapshot = await anyio.to_thread.run_sync(providers.snapshot)
         return agent_prompts.render_describe_garden_prompt(
             plan_summary_from_snapshot(snapshot), queries.list_objects(snapshot)
+        )
+
+    @mcp.prompt(name="plan-polyculture-bed")
+    async def plan_polyculture_bed(bed_id: str) -> str:
+        """Plan a polyculture bed using compatible sets (US-D3.1).
+
+        Finds compatible sets among the bed's current plants plus common
+        companions, then asks the agent to choose the best set.
+        """
+        snapshot = await anyio.to_thread.run_sync(providers.snapshot)
+        # Find the bed and its plants
+        bed_obj = queries.get_object(snapshot, bed_id)
+        existing_plants: list[str] = []
+        if bed_obj and hasattr(bed_obj, "child_item_ids"):
+            for child_id in bed_obj.child_item_ids:
+                child = queries.get_object(snapshot, child_id)
+                if child and child.species_key:
+                    existing_plants.append(child.species_key)
+
+        # Get candidates: existing plants + their companions
+        candidates = list(existing_plants)
+        for plant in existing_plants:
+            suggestions = await anyio.to_thread.run_sync(
+                lambda p=plant: providers.suggest_companions(p, None)
+            )
+            for s in suggestions:
+                if s["species_key"] not in candidates:
+                    candidates.append(s["species_key"])
+
+        # Find compatible sets
+        sets = await anyio.to_thread.run_sync(
+            lambda: providers.find_compatible_sets(candidates, 3, existing_plants)
+        )
+
+        return agent_prompts.render_plan_polyculture_bed_prompt(
+            bed_id, [CompatibleSet(**s) for s in sets], existing_plants
         )
 
     return mcp

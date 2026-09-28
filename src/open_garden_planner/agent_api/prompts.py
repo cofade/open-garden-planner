@@ -11,7 +11,12 @@ mirroring ``mapping.py``/``diagnostics.py``.
 
 from __future__ import annotations
 
-from open_garden_planner.agent_api.schema import Diagnostic, ObjectRef, PlanSummary
+from open_garden_planner.agent_api.schema import (
+    CompatibleSet,
+    Diagnostic,
+    ObjectRef,
+    PlanSummary,
+)
 
 # describe-garden inlines the full object list; cap it so a very large garden
 # can't balloon the prompt — the text itself points agents at list_objects/
@@ -92,4 +97,51 @@ def render_describe_garden_prompt(summary: PlanSummary, objects: list[ObjectRef]
         "size or organization. Use the list_objects/get_object tools if you "
         "need more detail on a specific object.",
     ]
+    return "\n".join(lines)
+
+
+def render_plan_polyculture_bed_prompt(
+    bed_id: str,
+    compatible_sets: list[CompatibleSet],
+    existing_plants: list[str],
+) -> str:
+    """Compose a polyculture bed planning request (US-D3.1).
+
+    Args:
+        bed_id: The bed to plan for.
+        compatible_sets: The compatible sets found by find_compatible_sets.
+        existing_plants: Species keys already in the bed.
+
+    Returns:
+        Prompt text asking the agent to plan a polyculture bed.
+    """
+    lines = [
+        f"Plan a polyculture bed for bed '{bed_id}'.",
+        "",
+    ]
+    if existing_plants:
+        lines.append(f"Already planted: {', '.join(existing_plants)}")
+        lines.append("")
+    if compatible_sets:
+        lines.append("## Compatible sets found")
+        for i, s in enumerate(compatible_sets[:5], 1):
+            lines.append(
+                f"{i}. {', '.join(s.members)} (score: {s.score:.1f}, "
+                f"coverage: {s.coverage})"
+            )
+        lines.append("")
+        lines.append(
+            "Choose the best set for this bed, considering the existing plants "
+            "and the garden's overall layout. Explain your reasoning."
+        )
+    else:
+        lines.append(
+            "No compatible sets found among the candidates. Consider adding "
+            "more species to the bed or choosing different companions."
+        )
+    lines.append("")
+    lines.append(
+        "Use the suggest_companions and find_compatible_sets tools if you "
+        "need more options."
+    )
     return "\n".join(lines)

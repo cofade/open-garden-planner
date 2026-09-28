@@ -108,6 +108,10 @@ def _providers(scene: Any) -> AgentProviders:
         set_layer_property=lambda **_kw: _unused("set_layer_property"),
         undo=lambda: _unused("undo"),
         redo=lambda: _unused("redo"),
+        get_history=lambda: _unused("get_history"),
+        suggest_companions=lambda *_a, **_k: _unused("suggest_companions"),
+        find_compatible_sets=lambda *_a, **_k: _unused("find_compatible_sets"),
+        check_placement=lambda *_a, **_k: _unused("check_placement"),
     )
 
 

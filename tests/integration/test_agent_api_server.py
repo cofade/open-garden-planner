@@ -99,6 +99,11 @@ def _providers(scene: Any) -> AgentProviders:
         set_layer_property=lambda **_kw: _unused("set_layer_property"),
         undo=lambda: _unused("undo"),
         redo=lambda: _unused("redo"),
+        # US-D2.7 + US-D3.1 providers (unused by these read-only tests).
+        get_history=lambda: _unused("get_history"),
+        suggest_companions=lambda *_a, **_k: _unused("suggest_companions"),
+        find_compatible_sets=lambda *_a, **_k: _unused("find_compatible_sets"),
+        check_placement=lambda *_a, **_k: _unused("check_placement"),
     )
 
 
@@ -382,7 +387,7 @@ def test_prompts_end_to_end(canvas: Any, qtbot: Any) -> None:
         qtbot.waitUntil(lambda: result.get("done", False), timeout=15000)
         assert result.get("error") is None, result.get("error")
 
-        assert result["names"] == {"audit-plan", "describe-garden"}
+        assert result["names"] == {"audit-plan", "describe-garden", "plan-polyculture-bed"}
         assert "Beds/containers: 1" in result["audit_text"]
         assert "Plants: 1" in result["audit_text"]
         assert "Apple" in result["describe_text"]

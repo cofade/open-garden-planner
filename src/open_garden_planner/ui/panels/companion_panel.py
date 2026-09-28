@@ -9,6 +9,8 @@ import math
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
     QHBoxLayout,
     QLabel,
     QListWidget,
@@ -22,6 +24,7 @@ from open_garden_planner.services.companion_planting_service import (
     CompanionPlantingService,
     CompanionRelationship,
 )
+from open_garden_planner.services.companion_sets import suggest_companions
 from open_garden_planner.ui.icons import get_icon, get_pixmap
 from open_garden_planner.ui.theme import set_text_role, theme_color
 
@@ -142,6 +145,14 @@ class CompanionPanel(QWidget):
         actions_row.addWidget(self._refresh_permapeople_btn)
 
         layout.addLayout(actions_row)
+
+        # === COMPATIBLE SET ACTION (US-D3.1, issue #319) ===
+        self._suggest_set_btn = QPushButton(self.tr("Suggest a compatible set…"))
+        self._suggest_set_btn.setToolTip(
+            self.tr("Find mutually compatible plant sets for this bed")
+        )
+        self._suggest_set_btn.clicked.connect(self._on_suggest_compatible_set)
+        layout.addWidget(self._suggest_set_btn)
 
         good_header = QLabel(self.tr("Good Companions"))
         set_text_role(good_header, "h2", "success")
@@ -396,3 +407,149 @@ class CompanionPanel(QWidget):
         if hasattr(rel, "_source"):
             return self.tr("Permapeople")
         return self.tr("Bundled")
+
+    # ------------------------------------------------------------------
+    # Compatible set action (US-D3.1, issue #319)
+    # ------------------------------------------------------------------
+
+    def _on_suggest_compatible_set(self) -> None:
+        """Show a dialog with compatible sets for the selected plant's bed."""
+        from open_garden_planner.services.companion_sets import find_compatible_sets
+
+        if not hasattr(self, "_current_item") or self._current_item is None:
+            return
+
+        # Find the bed this plant is in
+        bed_id = self._get_current_bed_id()
+        if not bed_id:
+            return
+
+        # Get plants already in the bed
+        bed_plants = self._get_bed_plants(bed_id)
+        candidates = list(bed_plants)
+
+        # Add companions of existing plants
+        for plant in bed_plants:
+            try:
+                suggestions = suggest_companions(self._service, plant)
+                for s in suggestions:
+                    if s["species_key"] not in candidates:
+                        candidates.append(s["species_key"])
+            except Exception:
+                continue
+
+        # Find compatible sets
+        try:
+            sets = find_compatible_sets(
+                self._service, candidates, size=3, must_include=bed_plants
+            )
+        except Exception:
+            sets = []
+
+        # Show dialog
+        dialog = CompatibleSetDialog(sets, bed_plants, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            selected = dialog.get_selected_set()
+            if selected:
+                self._emit_insert_request(selected)
+
+    def _get_current_bed_id(self) -> str | None:
+        """Return the bed ID of the currently selected plant, if any."""
+        if not hasattr(self, "_current_item") or self._current_item is None:
+            return None
+        # Try to get parent_bed_id from metadata
+        meta = getattr(self._current_item, "metadata", {}) or {}
+        if isinstance(meta, dict):
+            bed_id = meta.get("parent_bed_id")
+            if bed_id:
+                return str(bed_id)
+        return None
+
+    def _get_bed_plants(self, bed_id: str) -> list[str]:
+        """Return species keys of plants in the given bed."""
+        if self._canvas_scene is None:
+            return []
+        plants: list[str] = []
+        try:
+            for item in self._canvas_scene.items():
+                if not hasattr(item, "plant_species"):
+                    continue
+                meta = getattr(item, "metadata", {}) or {}
+                if isinstance(meta, dict):
+                    parent = meta.get("parent_bed_id")
+                    if str(parent) == bed_id:
+                        sp = self._species_name(item)
+                        if sp:
+                            plants.append(sp.lower())
+        except Exception:
+            pass
+        return plants
+
+    def _emit_insert_request(self, members: list[str]) -> None:
+        """Emit a signal to insert the selected members into the bed."""
+        # This is a GUI action — the actual insertion would be done by the
+        # application via the GUI create path. For now, we emit the signal
+        # for each member.
+        for member in members:
+            self.highlight_species_requested.emit(member)
+
+
+class CompatibleSetDialog(QDialog):
+    """Dialog showing compatible plant sets for a bed (US-D3.1)."""
+
+    def __init__(
+        self,
+        sets: list[dict],
+        existing_plants: list[str],
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self._sets = sets
+        self._existing_plants = existing_plants
+        self._selected: list[str] = []
+        self._setup_ui()
+
+    def _setup_ui(self) -> None:
+        self.setWindowTitle(self.tr("Compatible Plant Sets"))
+        layout = QVBoxLayout(self)
+
+        if self._existing_plants:
+            label = QLabel(
+                self.tr("Already in bed: %1").replace(
+                    "%1", ", ".join(self._existing_plants)
+                )
+            )
+            set_text_role(label, "hint")
+            layout.addWidget(label)
+
+        self._list = QListWidget()
+        self._list.setAlternatingRowColors(True)
+        for s in self._sets:
+            members_str = ", ".join(s["members"])
+            score = s.get("score", 0)
+            item = QListWidgetItem(f"{members_str}  (score: {score:.1f})")
+            item.setData(Qt.ItemDataRole.UserRole, s["members"])
+            self._list.addItem(item)
+        layout.addWidget(self._list)
+
+        if not self._sets:
+            label = QLabel(self.tr("No compatible sets found."))
+            set_text_role(label, "hint")
+            layout.addWidget(label)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self._on_accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def _on_accept(self) -> None:
+        item = self._list.currentItem()
+        if item:
+            self._selected = item.data(Qt.ItemDataRole.UserRole)
+        self.accept()
+
+    def get_selected_set(self) -> list[str]:
+        """Return the selected set's member list."""
+        return self._selected
