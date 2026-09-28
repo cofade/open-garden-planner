@@ -441,7 +441,7 @@ class CompanionPanel(QWidget):
         # Find compatible sets
         try:
             sets = find_compatible_sets(
-                self._service, candidates, size=3, must_include=bed_plants
+                self._service, candidates, size=2, must_include=bed_plants
             )
         except Exception:
             sets = []
@@ -457,7 +457,11 @@ class CompanionPanel(QWidget):
         """Return the bed ID of the currently selected plant, if any."""
         if not hasattr(self, "_current_item") or self._current_item is None:
             return None
-        # Try to get parent_bed_id from metadata
+        # Check parent_bed_id attribute first (canvas items store it here)
+        bed_id = getattr(self._current_item, "parent_bed_id", None)
+        if bed_id:
+            return str(bed_id)
+        # Fall back to metadata dict
         meta = getattr(self._current_item, "metadata", {}) or {}
         if isinstance(meta, dict):
             bed_id = meta.get("parent_bed_id")
