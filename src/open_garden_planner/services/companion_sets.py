@@ -152,13 +152,9 @@ def find_compatible_sets(
         all_bundled = True
         any_data = False
         for m in members:
-            meta = service._plant_meta.get(m, {})
-            if meta:
+            # Use public API: get_all_plant_names() returns bundled plants
+            if m in service.get_all_plant_names():
                 any_data = True
-                # Check if it's a provider rule (has _source attribute)
-                # We can't easily check this here, so we use a heuristic:
-                # if the plant is in the bundled DB, it's bundled
-                pass
             else:
                 all_bundled = False
 
@@ -237,11 +233,7 @@ def suggest_companions(
             continue
 
         name = service.get_display_name(other)
-        source = "bundled"
-        if hasattr(rel, "_source"):
-            source = str(rel._source)
-        elif rel.is_custom:
-            source = "custom"
+        source = service.get_relationship_source(rel)
 
         reasons = [f"beneficial to {species_key}"]
         if other in two_hop:

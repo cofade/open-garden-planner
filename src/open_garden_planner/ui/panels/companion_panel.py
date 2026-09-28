@@ -451,7 +451,7 @@ class CompanionPanel(QWidget):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             selected = dialog.get_selected_set()
             if selected:
-                self._emit_insert_request(selected)
+                self._highlight_members(selected)
 
     def _get_current_bed_id(self) -> str | None:
         """Return the bed ID of the currently selected plant, if any."""
@@ -485,11 +485,12 @@ class CompanionPanel(QWidget):
             pass
         return plants
 
-    def _emit_insert_request(self, members: list[str]) -> None:
-        """Emit a signal to insert the selected members into the bed."""
-        # This is a GUI action — the actual insertion would be done by the
-        # application via the GUI create path. For now, we emit the signal
-        # for each member.
+    def _highlight_members(self, members: list[str]) -> None:
+        """Highlight the selected members on the canvas (if already placed).
+
+        This is a GUI-only action — it does not insert new plants. The
+        actual insertion would require a separate create-plants path.
+        """
         for member in members:
             self.highlight_species_requested.emit(member)
 

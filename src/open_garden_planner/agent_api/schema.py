@@ -712,13 +712,19 @@ class PlacementCheck(BaseModel):
         default_factory=list,
         description="Species keys of beneficial companions already in the bed."
     )
-    spacing_ok: bool = Field(
-        description="True if the species' spacing requirements can be met."
+    spacing_ok: bool | None = Field(
+        default=None,
+        description="True if the species' spacing requirements can be met, "
+        "False if not, or None if not yet checked (spacing diagnostics "
+        "are available via get_diagnostics)."
     )
-    soil_ok: bool = Field(
-        description="True if the bed's soil/pH matches the species' requirements."
+    soil_ok: bool | None = Field(
+        default=None,
+        description="True if the bed's soil/pH matches the species' "
+        "requirements, False if not, or None if not yet checked (soil "
+        "diagnostics are available via get_diagnostics)."
     )
     overall: str = Field(
-        description="'good' if no issues, 'warning' if minor issues, 'critical' "
-        "if major issues."
+        description="'good' if companions present, 'neutral' if no known "
+        "relationships, 'critical' if antagonists present."
     )

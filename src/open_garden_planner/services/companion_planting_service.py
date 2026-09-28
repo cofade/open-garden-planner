@@ -400,6 +400,22 @@ class CompanionPlantingService:
         """Return the number of provider-sourced companion rules loaded."""
         return len(self._provider_rules)
 
+    def get_relationship_source(self, rel: CompanionRelationship) -> str:
+        """Return the source label for a relationship.
+
+        Args:
+            rel: The companion relationship.
+
+        Returns:
+            'custom' for user-defined rules, 'permapeople' for provider-sourced
+            rules, or 'bundled' for the bundled database.
+        """
+        if rel.is_custom:
+            return "custom"
+        if hasattr(rel, "_source"):
+            return str(rel._source)
+        return "bundled"
+
     def _save_custom_rules(self) -> None:
         """Persist custom rules to the app-data directory."""
         custom_path = get_app_data_dir() / _CUSTOM_RULES_FILENAME

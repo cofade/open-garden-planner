@@ -107,11 +107,11 @@ def check_placement_for_agent(
             elif rel.type == "beneficial":
                 companions_present.append(plant)
 
-    # Spacing and soil checks would reuse the existing diagnostics logic
-    # For now, we report them as OK (the full diagnostics are available
-    # via get_diagnostics)
-    spacing_ok = True
-    soil_ok = True
+    # Spacing and soil checks are not yet implemented here — the full
+    # diagnostics are available via get_diagnostics. Return None to
+    # indicate "not checked" rather than a misleading True.
+    spacing_ok = None
+    soil_ok = None
 
     # Determine overall status
     if antagonists_present:
@@ -119,7 +119,7 @@ def check_placement_for_agent(
     elif companions_present:
         overall = "good"
     else:
-        overall = "warning"
+        overall = "neutral"
 
     return PlacementCheck(
         species_key=species_key,
