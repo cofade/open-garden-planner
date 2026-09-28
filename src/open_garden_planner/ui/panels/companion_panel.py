@@ -454,40 +454,13 @@ class CompanionPanel(QWidget):
                 self._highlight_members(selected)
 
     def _get_current_bed_id(self) -> str | None:
-        """Return the bed ID of the currently selected plant, if any.
-
-        Checks metadata first, then falls back to geometric containment.
-        """
+        """Return the bed ID of the currently selected plant, if any."""
         if not hasattr(self, "_current_item") or self._current_item is None:
             return None
-        # Check parent_bed_id attribute first (canvas items store it here)
+        # parent_bed_id is a property on GardenItem (stored as _parent_bed_id UUID)
         bed_id = getattr(self._current_item, "parent_bed_id", None)
         if bed_id:
             return str(bed_id)
-        # Fall back to metadata dict
-        meta = getattr(self._current_item, "metadata", {}) or {}
-        if isinstance(meta, dict):
-            bed_id = meta.get("parent_bed_id")
-            if bed_id:
-                return str(bed_id)
-        # Fall back: find a bed whose bounding box contains this plant
-        if self._canvas_scene is None:
-            return None
-        try:
-            plant_rect = self._current_item.sceneBoundingRect()
-            plant_center = plant_rect.center()
-            for item in self._canvas_scene.items():
-                if not hasattr(item, "object_type"):
-                    continue
-                ot = getattr(item, "object_type", "")
-                if ot not in ("RAISED_BED", "GARDEN_BED", "CONTAINER", "CONTAINER_ROUND", "WALL_PLANTER"):
-                    continue
-                if item.sceneBoundingRect().contains(plant_center):
-                    item_id = getattr(item, "id", None)
-                    if item_id:
-                        return str(item_id)
-        except Exception:
-            pass
         return None
 
     def _get_bed_plants(self, bed_id: str) -> list[str]:
