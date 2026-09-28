@@ -553,5 +553,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(US-G1,G2,G3): plant data attribution, profile header, and Permapeople companions"
+  },
+  "369": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "feat(US-D3.1,D2.7): agent domain intelligence tools + get_history"
   }
 }
