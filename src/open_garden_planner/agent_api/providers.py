@@ -214,6 +214,9 @@ class AgentProviders:
         find_compatible_sets: **Read (US-D3.1).** Finds mutually compatible
             sets of plants among candidates. Takes (candidates, size,
             must_include). Read-only.
+        find_sets_for_bed: **Read (US-D3.1).** Ranks compatible sets by how
+            many of a bed's current plants each one satisfies, and reports the
+            bed plants that fit no set. Takes (bed_plants, size). Read-only.
         check_placement: **Read (US-D3.1).** Checks whether a species is
             well-placed in a bed. Takes (species_key, bed_id, bed_plants).
             Read-only.
@@ -224,6 +227,7 @@ class AgentProviders:
     get_history: Callable[[], dict[str, Any]]
     suggest_companions: Callable[..., list[dict[str, Any]]]
     find_compatible_sets: Callable[..., list[dict[str, Any]]]
+    find_sets_for_bed: Callable[..., dict[str, Any]]
     check_placement: Callable[..., dict[str, Any]]
     render: Callable[
         [tuple[float, float, float, float] | None, list[str] | None, int],

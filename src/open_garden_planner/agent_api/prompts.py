@@ -11,6 +11,8 @@ mirroring ``mapping.py``/``diagnostics.py``.
 
 from __future__ import annotations
 
+from typing import Any
+
 from open_garden_planner.agent_api.schema import (
     CompatibleSet,
     Diagnostic,
@@ -104,17 +106,23 @@ def render_plan_polyculture_bed_prompt(
     bed_id: str,
     compatible_sets: list[CompatibleSet],
     existing_plants: list[str],
+    conflicts: list[dict[str, Any]] | None = None,
 ) -> str:
     """Compose a polyculture bed planning request (US-D3.1).
 
     Args:
         bed_id: The bed to plan for.
-        compatible_sets: The compatible sets found by find_compatible_sets.
+        compatible_sets: Compatible sets, already ranked by how many of the
+            bed's current plants each one satisfies (``find_sets_for_bed``).
         existing_plants: Species keys already in the bed.
+        conflicts: Bed plants that fit no returned set, each with the bed
+            plants it is antagonistic to. Naming them is what keeps an empty
+            result from reading as "add more plants", which cannot help.
 
     Returns:
         Prompt text asking the agent to plan a polyculture bed.
     """
+    conflicts = conflicts or []
     lines = [
         f"Plan a polyculture bed for bed '{bed_id}'.",
         "",
@@ -122,8 +130,25 @@ def render_plan_polyculture_bed_prompt(
     if existing_plants:
         lines.append(f"Already planted: {', '.join(existing_plants)}")
         lines.append("")
+
+    if conflicts:
+        lines.append("## Conflicts among the plants already in this bed")
+        for conflict in conflicts:
+            clashes = conflict.get("antagonistic_to", [])
+            if clashes:
+                lines.append(
+                    f"- {conflict['species_key']} is antagonistic to "
+                    f"{', '.join(clashes)} (also in this bed)"
+                )
+            else:
+                lines.append(
+                    f"- {conflict['species_key']} fits no compatible set with "
+                    "the other plants in this bed"
+                )
+        lines.append("")
+
     if compatible_sets:
-        lines.append("## Compatible sets found")
+        lines.append("## Compatible sets (ranked by how much of the bed they keep)")
         for i, s in enumerate(compatible_sets[:5], 1):
             lines.append(
                 f"{i}. {', '.join(s.members)} (score: {s.score:.1f}, "
@@ -131,14 +156,22 @@ def render_plan_polyculture_bed_prompt(
             )
         lines.append("")
         lines.append(
-            "Choose the best set for this bed, considering the existing plants "
-            "and the garden's overall layout. Explain your reasoning."
+            "Choose the set that agrees with the most of what is already "
+            "planted. If the conflicts above rule out keeping everything, say "
+            "which plant should move, and explain your reasoning."
         )
     else:
         lines.append(
-            "No compatible sets found among the candidates. Consider adding "
-            "more species to the bed or choosing different companions."
+            "No compatible set was found among the plants already in this bed "
+            "and their companions."
         )
+        if conflicts:
+            lines[-1] += (
+                " The plants listed under conflicts above are why: adding more "
+                "species cannot fix a pair that is already antagonistic."
+            )
+        else:
+            lines[-1] += " Try a different bed, or different species."
     lines.append("")
     lines.append(
         "Use the suggest_companions and find_compatible_sets tools if you "

@@ -961,6 +961,18 @@ class GardenPlannerApp(QMainWindow):
             ]
         )
 
+    def _agent_find_sets_for_bed(
+        self,
+        bed_plants: list[str],
+        size: int = 3,
+    ) -> dict[str, Any]:
+        """Rank compatible sets by bed coverage (US-D3.1, read-only)."""
+        from open_garden_planner.services.companion_sets import find_sets_for_bed
+
+        return self._agent_bridge.run_on_main(
+            lambda: find_sets_for_bed(self._companion_service, bed_plants, size=size)
+        )
+
     def _agent_check_placement(
         self,
         species_key: str,
@@ -968,16 +980,65 @@ class GardenPlannerApp(QMainWindow):
         bed_plants: list[str] | None = None,
     ) -> dict[str, Any]:
         """Check whether a species is well-placed in a bed (US-D3.1, read-only)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_check_placement(species_key, bed_id, bed_plants)
+        )
+
+    def _do_agent_check_placement(
+        self,
+        species_key: str,
+        bed_id: str,
+        bed_plants: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Main-thread body of the read-only MCP ``check_placement`` tool.
+
+        Resolves the bed's own plants when the caller did not supply them, so
+        an unknown ``bed_id`` is reported as such instead of looking like an
+        empty bed (P1-5).
+        """
         from open_garden_planner.agent_api.domain import check_placement_for_agent
 
-        return self._agent_bridge.run_on_main(
-            lambda: check_placement_for_agent(
-                self._companion_service,
-                species_key,
-                bed_id,
-                bed_plants=bed_plants,
-            ).model_dump()
-        )
+        bed_exists: bool | None = None
+        resolved = bed_plants
+        if resolved is None:
+            try:
+                target_id = UUID(bed_id)
+            except (ValueError, TypeError, AttributeError):
+                target_id = None
+            bed_exists = False
+            if target_id is not None:
+                item = self.canvas_scene.find_item_by_id(target_id)
+                if item is not None:
+                    bed_exists = True
+                    resolved = []
+                    try:
+                        children = item.childItems()
+                    except Exception:
+                        children = []
+                    for child in children:
+                        meta = getattr(child, "metadata", {}) or {}
+                        species_data = (
+                            meta.get("plant_species") if isinstance(meta, dict) else None
+                        )
+                        name = ""
+                        if isinstance(species_data, dict):
+                            name = (
+                                species_data.get("common_name")
+                                or species_data.get("scientific_name")
+                                or ""
+                            )
+                        if not name:
+                            name = getattr(child, "plant_species", "") or ""
+                        if name:
+                            resolved.append(name.lower())
+
+        return check_placement_for_agent(
+            self._companion_service,
+            species_key,
+            bed_id,
+            bed_plants=resolved,
+            bed_exists=bed_exists,
+        ).model_dump()
 
     def _agent_linked_roof_ridge(self, item: Any) -> list[Any]:
         """A HOUSE's linked ``ROOF_RIDGE`` item, if any — mirroring
@@ -2293,6 +2354,7 @@ class GardenPlannerApp(QMainWindow):
             get_history=self._agent_get_history,
             suggest_companions=self._agent_suggest_companions,
             find_compatible_sets=self._agent_find_compatible_sets,
+            find_sets_for_bed=self._agent_find_sets_for_bed,
             check_placement=self._agent_check_placement,
         )
 

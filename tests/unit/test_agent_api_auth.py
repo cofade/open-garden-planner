@@ -64,6 +64,7 @@ def _stub_providers() -> AgentProviders:
         get_history=_boom,
         suggest_companions=_boom,
         find_compatible_sets=_boom,
+        find_sets_for_bed=_boom,
         check_placement=_boom,
     )
 

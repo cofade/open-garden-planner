@@ -16,6 +16,8 @@ from open_garden_planner.agent_api.schema import (
     PlacementCheck,
 )
 from open_garden_planner.services.companion_planting_service import (
+    ANTAGONISTIC,
+    BENEFICIAL,
     CompanionPlantingService,
 )
 from open_garden_planner.services.companion_sets import (
@@ -77,18 +79,24 @@ def check_placement_for_agent(
     bed_id: str,
     *,
     bed_plants: list[str] | None = None,
+    bed_exists: bool | None = None,
 ) -> PlacementCheck:
     """Check whether a species is well-placed in a bed.
 
-    Reuses the existing diagnostics logic — never a second implementation.
-    The bed_plants parameter should be the list of species keys already in
-    the bed (from the snapshot).
+    Reuses the existing companion relationship logic — never a second
+    implementation.
 
     Args:
         service: The companion planting service.
         species_key: The species to check.
         bed_id: The bed to check against.
-        bed_plants: Species keys of plants already in the bed.
+        bed_plants: Species keys of plants already in the bed. When omitted,
+            the caller must supply ``bed_exists`` so an unknown bed is not
+            silently reported as an empty one.
+        bed_exists: Whether ``bed_id`` resolves to a real bed. ``None`` means
+            the caller could not tell, which is reported as ``"unknown"`` —
+            the honest answer, rather than ``"neutral"``, which reads as
+            "I looked and there was nothing to find".
 
     Returns:
         A PlacementCheck model with the results.
@@ -102,22 +110,28 @@ def check_placement_for_agent(
     for plant in bed_plants:
         rel = service.get_relationship(species_key, plant)
         if rel is not None:
-            if rel.type == "antagonistic":
+            if rel.type == ANTAGONISTIC:
                 antagonists_present.append(plant)
-            elif rel.type == "beneficial":
+            elif rel.type == BENEFICIAL:
                 companions_present.append(plant)
 
-    # Spacing and soil checks are not yet implemented here — the full
-    # diagnostics are available via get_diagnostics. Return None to
-    # indicate "not checked" rather than a misleading True.
+    # Spacing and soil checks are not implemented here — the full diagnostics
+    # are available via get_diagnostics. None means "not checked", never a
+    # misleading True.
     spacing_ok = None
     soil_ok = None
 
-    # Determine overall status
-    if antagonists_present:
+    # Determine overall status. An unresolvable bed must not be reported as a
+    # clean "neutral": that is the same silent-negative failure as claiming a
+    # spacing check passed (P1-5).
+    if bed_exists is False:
+        overall = "unknown_bed"
+    elif antagonists_present:
         overall = "critical"
     elif companions_present:
         overall = "good"
+    elif bed_exists is None and not bed_plants:
+        overall = "unknown"
     else:
         overall = "neutral"
 

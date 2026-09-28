@@ -155,6 +155,11 @@ def _run_selftest() -> int:
                 set_layer_property=_never,
                 undo=_never,
                 redo=_never,
+                get_history=_never,
+                suggest_companions=_never,
+                find_compatible_sets=_never,
+                find_sets_for_bed=_never,
+                check_placement=_never,
             ),
             port=free_port,
         )

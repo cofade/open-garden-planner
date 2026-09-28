@@ -725,6 +725,8 @@ class PlacementCheck(BaseModel):
         "diagnostics are available via get_diagnostics)."
     )
     overall: str = Field(
-        description="'good' if companions present, 'neutral' if no known "
-        "relationships, 'critical' if antagonists present."
+        description="'good' if companions present and no antagonists, 'neutral' "
+        "if the bed has plants but none relate to this species, 'critical' if "
+        "an antagonist is present, 'unknown_bed' if bed_id does not resolve to "
+        "a real bed, or 'unknown' if the bed's contents could not be read."
     )

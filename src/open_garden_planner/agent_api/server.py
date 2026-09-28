@@ -1595,23 +1595,19 @@ def build_server(
                 if child and child.species_key:
                     existing_plants.append(child.species_key)
 
-        # Get candidates: existing plants + their companions
-        candidates = list(existing_plants)
-        for plant in existing_plants:
-            suggestions = await anyio.to_thread.run_sync(
-                lambda p=plant: providers.suggest_companions(p, None)
-            )
-            for s in suggestions:
-                if s["species_key"] not in candidates:
-                    candidates.append(s["species_key"])
-
-        # Find compatible sets
-        sets = await anyio.to_thread.run_sync(
-            lambda: providers.find_compatible_sets(candidates, 3, existing_plants)
+        # Rank sets by bed coverage and surface conflicts. NOT
+        # find_compatible_sets(must_include=existing_plants) — that returns
+        # nothing unless the bed already is a complete clique (P0-2), and then
+        # the prompt advises "add more species", which cannot help.
+        result = await anyio.to_thread.run_sync(
+            lambda: providers.find_sets_for_bed(existing_plants, 3)
         )
 
         return agent_prompts.render_plan_polyculture_bed_prompt(
-            bed_id, [CompatibleSet(**s) for s in sets], existing_plants
+            bed_id,
+            [CompatibleSet(**s) for s in result["sets"]],
+            result["bed_plants"],
+            result["conflicts"],
         )
 
     return mcp
