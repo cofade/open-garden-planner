@@ -472,13 +472,12 @@ class CompanionPanel(QWidget):
             for item in self._canvas_scene.items():
                 if not hasattr(item, "plant_species"):
                     continue
-                meta = getattr(item, "metadata", {}) or {}
-                if isinstance(meta, dict):
-                    parent = meta.get("parent_bed_id")
-                    if str(parent) == bed_id:
-                        sp = self._species_name(item)
-                        if sp:
-                            plants.append(sp.lower())
+                # parent_bed_id is a property on GardenItem, not in metadata
+                parent = getattr(item, "parent_bed_id", None)
+                if parent and str(parent) == bed_id:
+                    sp = self._species_name(item)
+                    if sp:
+                        plants.append(sp.lower())
         except Exception:
             pass
         return plants
