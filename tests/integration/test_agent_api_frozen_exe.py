@@ -82,6 +82,7 @@ def _providers() -> AgentProviders:
         get_history=_unused,
         suggest_companions=_unused,
         find_compatible_sets=_unused,
+        find_sets_for_bed=_unused,
         check_placement=_unused,
     )
 

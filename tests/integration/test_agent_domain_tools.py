@@ -24,6 +24,7 @@ from open_garden_planner.agent_api.domain import (
 )
 from open_garden_planner.agent_api.history import history_from_command_manager
 from open_garden_planner.core import ProjectManager
+from open_garden_planner.services.companion_sets import find_sets_for_bed
 from open_garden_planner.services.companion_planting_service import (
     CompanionPlantingService,
 )
@@ -98,6 +99,9 @@ def _providers(scene: Any, command_manager: Any) -> AgentProviders:
                 companion_service, candidates, size=size, must_include=must_include
             )
         ],
+        find_sets_for_bed=lambda bed_plants, size: find_sets_for_bed(
+            companion_service, bed_plants, size=size
+        ),
         check_placement=lambda species_key, bed_id, bed_plants: check_placement_for_agent(
             companion_service, species_key, bed_id, bed_plants=bed_plants
         ).model_dump(),

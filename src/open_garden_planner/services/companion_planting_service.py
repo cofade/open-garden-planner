@@ -43,6 +43,12 @@ class CompanionRelationship:
     reason: str
     reason_de: str = field(default="")
     is_custom: bool = field(default=False)
+    # Where the rule came from: "bundled", "custom", or "permapeople".
+    # A DECLARED field, not a dynamically attached attribute: the reverse copy
+    # built in _add_to_adjacency copies declared fields only, so a dynamic
+    # ``_source`` was silently dropped and the same rule reported
+    # 'permapeople' in one direction and 'bundled' in the other (P1-3).
+    source: str = field(default="bundled")
 
 
 class CompanionPlantingService:
@@ -238,10 +244,11 @@ class CompanionPlantingService:
     def _add_to_adjacency(self, rel: CompanionRelationship) -> None:
         """Insert a relationship into the adjacency index in both directions.
 
-        The reverse direction must carry the same ``reason`` AND ``reason_de``
-        — otherwise queries in the reverse direction (e.g. basil↔fennel when
-        the DB stores fennel↔basil) fall back to English because ``reason_de``
-        is empty on the reversed copy.
+        The reverse direction must carry the same ``reason``, ``reason_de`` AND
+        ``source`` — otherwise queries in the reverse direction (e.g. basil↔fennel
+        when the DB stores fennel↔basil) fall back to English because
+        ``reason_de`` is empty on the reversed copy, and a provider-sourced rule
+        reports itself as bundled data.
         """
         self._adjacency.setdefault(rel.plant_a, []).append(rel)
         reversed_rel = CompanionRelationship(
@@ -251,6 +258,7 @@ class CompanionPlantingService:
             reason=rel.reason,
             reason_de=rel.reason_de,
             is_custom=rel.is_custom,
+            source=rel.source,
         )
         self._adjacency.setdefault(rel.plant_b, []).append(reversed_rel)
 
@@ -357,9 +365,8 @@ class CompanionPlantingService:
                     reason=comp.get("reason", ""),
                     reason_de="",
                     is_custom=False,
+                    source=comp.get("source", "permapeople"),
                 )
-                # Mark as provider-sourced via a custom attribute
-                rule._source = comp.get("source", "provider")
                 self._provider_rules.append(rule)
                 self._add_to_adjacency(rule)
 
@@ -391,8 +398,8 @@ class CompanionPlantingService:
                 reason=comp.get("reason", ""),
                 reason_de="",
                 is_custom=False,
+                source=comp.get("source", "permapeople"),
             )
-            rule._source = comp.get("source", "provider")
             self._provider_rules.append(rule)
             self._add_to_adjacency(rule)
 
@@ -407,14 +414,13 @@ class CompanionPlantingService:
             rel: The companion relationship.
 
         Returns:
-            'custom' for user-defined rules, 'permapeople' for provider-sourced
-            rules, or 'bundled' for the bundled database.
+            'custom' for user-defined rules, or the relationship's declared
+            ``source`` field ('bundled' / 'permapeople') otherwise. Custom wins
+            because a user rule replaces the bundled pair outright.
         """
         if rel.is_custom:
             return "custom"
-        if hasattr(rel, "_source"):
-            return str(rel._source)
-        return "bundled"
+        return rel.source or "bundled"
 
     def _save_custom_rules(self) -> None:
         """Persist custom rules to the app-data directory."""

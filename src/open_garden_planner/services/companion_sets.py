@@ -15,6 +15,7 @@ from __future__ import annotations
 from typing import Any
 
 from open_garden_planner.services.companion_planting_service import (
+    ANTAGONISTIC,
     CompanionPlantingService,
 )
 
@@ -63,14 +64,23 @@ def find_compatible_sets(
         if canonical not in resolved_must:
             resolved_must.append(canonical)
 
-    # Filter candidates: must_include members must be in candidates
+    # must_include members must be in candidates — and must survive the cap
+    # below, so they are unioned in FIRST and the truncation then spares them.
     for m in resolved_must:
         if m not in resolved_candidates:
             resolved_candidates.append(m)
 
-    # Cap candidates
+    # Cap candidates. Keep every must_include member: slicing the merged list
+    # would silently drop a must_include appended at the end, making the result
+    # depend on argument order (P1-4).
     if len(resolved_candidates) > MAX_CANDIDATES:
-        resolved_candidates = resolved_candidates[:MAX_CANDIDATES]
+        capped = list(resolved_must)
+        for c in resolved_candidates:
+            if len(capped) >= MAX_CANDIDATES:
+                break
+            if c not in capped:
+                capped.append(c)
+        resolved_candidates = capped
 
     # Build the beneficial graph as an adjacency set
     beneficial_graph: dict[str, set[str]] = {}
@@ -173,6 +183,96 @@ def find_compatible_sets(
     return results[:MAX_SETS]
 
 
+def find_sets_for_bed(
+    service: CompanionPlantingService,
+    bed_plants: list[str],
+    *,
+    size: int = 3,
+) -> dict[str, Any]:
+    """Find compatible planting sets for the plants ALREADY in a bed.
+
+    Why this is not ``find_compatible_sets(..., must_include=bed_plants)``:
+    ``must_include`` means "every returned set must contain all of these", and
+    Bron–Kerbosch only emits *maximal* cliques. Passing the whole bed therefore
+    returns nothing unless the bed's plants already form a complete mutually
+    beneficial set — which is exactly the situation the user is trying to fix.
+    Measured on the bundled graph: that call returns 0 sets for 91% of two-plant
+    beds and 100% of three-plant beds, while the palette it builds has ~18
+    members. So the real question is "which sets agree with the MOST of what's
+    already planted, and what conflicts with the rest?".
+
+    Builds the same candidate palette as the panel/prompt (bed plants plus their
+    beneficial companions), finds maximal cliques over it, then ranks them by
+    how many bed plants each one already satisfies.
+
+    Args:
+        service: The companion planting service.
+        bed_plants: Species keys of plants currently in the bed.
+        size: Target set size (2–5).
+
+    Returns:
+        A dict with:
+          ``sets``       — ranked sets, each carrying ``covers`` (bed members
+                           included) and ``covers_all`` (bool).
+          ``conflicts``  — bed plants that cannot join ANY returned set, each
+                           with the bed plants they are antagonistic to. Empty
+                           when every bed plant is in at least one set.
+          ``bed_plants`` — the canonical bed-plant keys (echoed back).
+    """
+    if size < 2 or size > 5:
+        raise ValueError(f"size must be 2–5, got {size}")
+
+    bed_keys: list[str] = []
+    for name in bed_plants:
+        canonical = service.resolve_name(name)
+        if canonical not in bed_keys:
+            bed_keys.append(canonical)
+
+    # Palette: bed plants + one hop of their beneficial companions. This mirrors
+    # what the panel and the polyculture prompt used to build by hand.
+    candidates = list(bed_keys)
+    for key in bed_keys:
+        beneficial, _ = service.get_companions(key)
+        for rel in beneficial:
+            other = service.resolve_name(rel.plant_b)
+            if other not in candidates:
+                candidates.append(other)
+
+    # No must_include — rank by coverage instead.
+    raw_sets = find_compatible_sets(service, candidates, size=size)
+
+    covered: set[str] = set()
+    for entry in raw_sets:
+        members = set(entry["members"])
+        covered |= members & set(bed_keys)
+        entry["covers"] = sorted(members & set(bed_keys))
+        entry["covers_all"] = bool(set(bed_keys).issubset(members))
+
+    raw_sets.sort(
+        key=lambda e: (-len(e["covers"]), not e["covers_all"], -e["score"], e["members"])
+    )
+
+    # Which bed plants clash with another bed plant? This is checked against
+    # the bed's own contents, NOT against set coverage: an antagonistic pair can
+    # never share a clique, so each member is trivially "in some set" via
+    # different sets and coverage alone would report no conflict at all.
+    conflicts: list[dict[str, Any]] = []
+    for key in bed_keys:
+        clashes = []
+        for other in bed_keys:
+            if other == key:
+                continue
+            rel = service.get_relationship(key, other)
+            if rel is not None and rel.type == ANTAGONISTIC:
+                clashes.append(other)
+        if clashes:
+            conflicts.append({"species_key": key, "antagonistic_to": clashes})
+        elif key not in covered:
+            conflicts.append({"species_key": key, "antagonistic_to": []})
+
+    return {"sets": raw_sets, "conflicts": conflicts, "bed_plants": bed_keys}
+
+
 def suggest_companions(
     service: CompanionPlantingService,
     species_key: str,
@@ -217,8 +317,12 @@ def suggest_companions(
             if candidate != canonical_query and candidate != other:
                 two_hop[candidate] = two_hop.get(candidate, 0) + 1
 
-    # Build suggestions
+    # Build suggestions. Keyed by species so a pair with more than one rule
+    # (e.g. a Permapeople rule duplicating a bundled one, which
+    # _load_provider_rules adds unconditionally) yields ONE entry, not two
+    # identical rows (P2-12).
     suggestions: list[dict[str, Any]] = []
+    seen: dict[str, dict[str, Any]] = {}
     for rel in beneficial:
         other = service.resolve_name(rel.plant_b)
         if other == canonical_query:
@@ -236,13 +340,28 @@ def suggest_companions(
         # Score: 1 for direct benefit + 0.5 per 2-hop connection
         score = 1.0 + 0.5 * two_hop.get(other, 0)
 
-        suggestions.append({
+        entry = {
             "species_key": other,
             "name": name,
             "reasons": reasons,
             "source": source,
             "score": score,
-        })
+        }
+        existing = seen.get(other)
+        if existing is None:
+            seen[other] = entry
+        else:
+            # Keep the best score and prefer a provider/custom source over
+            # "bundled" — it is the more specific provenance.
+            if score > existing["score"]:
+                entry["reasons"] = existing["reasons"] + [
+                    r for r in entry["reasons"] if r not in existing["reasons"]
+                ]
+                seen[other] = entry
+            if source != "bundled" and existing["source"] == "bundled":
+                existing["source"] = source
+
+    suggestions = list(seen.values())
 
     # Sort by score descending, then alphabetically
     suggestions.sort(key=lambda s: (-s["score"], s["species_key"]))

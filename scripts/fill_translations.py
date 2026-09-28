@@ -2815,6 +2815,20 @@ _P3C_TRANSLATIONS: dict[str, dict[str, str]] = {
     },
     "CompanionPanel": {
         "= already nearby in plan  (click to select)": "= bereits in der Nähe im Plan  (klicken zum Auswählen)",
+        # US-D3.1 (#319): the compatible-set action.
+        "Suggest a compatible set…": "Kompatible Kombination vorschlagen …",
+        "Find mutually compatible plant sets for this bed": "Finde gegenseitig kompatible Pflanzkombinationen für dieses Beet",
+    },
+    "CompatibleSetDialog": {
+        "Compatible Plant Sets": "Kompatible Pflanzkombinationen",
+        "Already in bed: {plants}": "Bereits im Beet: {plants}",
+        "{members}  (score: {score:.1f}) — {note}": "{members}  (Bewertung: {score:.1f}) — {note}",
+        "keeps all {count} already planted": "behält alle {count} bereits gepflanzten",
+        "keeps {count} of {total} already planted": "behält {count} von {total} bereits gepflanzten",
+        "replaces what is planted": "ersetzt die Bepflanzung",
+        "No compatible set found among the plants already in this bed and their companions.": "Keine kompatible Kombination unter den bereits in diesem Beet gepflanzten Pflanzen und ihren Begleitpflanzen gefunden.",
+        "{plant} clashes with {others} already in this bed.": "{plant} verträgt sich nicht mit {others}, die bereits in diesem Beet stehen.",
+        "{plant} has no compatible set with the other plants in this bed.": "{plant} ergibt mit den anderen Pflanzen in diesem Beet keine kompatible Kombination.",
     },
     "ConstraintListItem": {
         "Coincident": "Deckungsgleich",
