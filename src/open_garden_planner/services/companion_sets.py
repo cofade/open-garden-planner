@@ -36,7 +36,7 @@ def find_compatible_sets(
     Args:
         service: The companion planting service (provides the graph).
         candidates: Species keys to consider (e.g. ["corn", "bean", "squash"]).
-        size: Target set size (3–5). Sets smaller than this are excluded.
+        size: Target set size (2–5). Sets smaller than this are excluded.
         must_include: Species keys that must be in every returned set
             (e.g. plants already in the bed).
 
@@ -148,19 +148,13 @@ def find_compatible_sets(
                 if b in beneficial_graph.get(a, set()):
                     edge_count += 1
 
-        # Coverage: check if all members have bundled data
-        all_bundled = True
-        any_data = False
-        for m in members:
-            # Use public API: get_all_plant_names() returns bundled plants
-            if m in service.get_all_plant_names():
-                any_data = True
-            else:
-                all_bundled = False
+        # Coverage: check if all members are in the bundled database
+        all_in_db = all(m in service.get_all_plant_names() for m in members)
+        any_in_db = any(m in service.get_all_plant_names() for m in members)
 
-        if all_bundled and any_data:
+        if all_in_db:
             coverage = "full"
-        elif any_data:
+        elif any_in_db:
             coverage = "bundled_only"
         else:
             coverage = "partial"

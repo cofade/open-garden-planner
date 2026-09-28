@@ -253,6 +253,63 @@ class TestDomainToolsIntegration:
         assert "next_undo_text" in data
         assert "next_redo_text" in data
 
+    def test_check_placement_over_mcp(self, qtbot: Any) -> None:
+        """check_placement should return placement info over MCP."""
+        scene = _make_scene()
+        command_manager = _make_command_manager()
+        providers = _providers(scene, command_manager)
+        server = AgentApiServer(providers, port=_free_port())
+        server.start()
+        assert server.is_running
+
+        result: dict[str, Any] = {}
+
+        async def _run() -> None:
+            from mcp import ClientSession
+
+            try:
+                from mcp.client.streamable_http import (
+                    streamable_http_client as http_client,
+                )
+            except ImportError:
+                from mcp.client.streamable_http import (
+                    streamablehttp_client as http_client,
+                )
+
+            async with (
+                http_client(server.url) as (read, write, _),
+                ClientSession(read, write) as session,
+            ):
+                await session.initialize()
+                call = await session.call_tool(
+                    "check_placement",
+                    {
+                        "species_key": "tomato",
+                        "bed_id": "bed-1",
+                        "bed_plants": ["basil", "potato"],
+                    },
+                )
+                result["data"] = call.structuredContent
+                result["isError"] = call.isError
+
+        _run_with_qt_loop(qtbot, _run())
+        server.stop()
+
+        assert not result.get("isError")
+        data = result.get("data")
+        assert "species_key" in data
+        assert "bed_id" in data
+        assert "antagonists_present" in data
+        assert "companions_present" in data
+        assert "spacing_ok" in data
+        assert "soil_ok" in data
+        assert "overall" in data
+        # Tomato and potato are antagonistic
+        assert "potato" in data["antagonists_present"]
+        # Tomato and basil are beneficial
+        assert "basil" in data["companions_present"]
+        assert data["overall"] == "critical"
+
     def test_get_history_does_not_mutate_stack(self, qtbot: Any) -> None:
         """Calling get_history must not change the undo/redo depths."""
         scene = _make_scene()
