@@ -26,6 +26,20 @@
       "url": "https://www.rhs.org.uk/seeds/seed-viability"
     }
   ],
+  "license": {
+    "spdx": "CC-BY-SA-4.0",
+    "name": "Creative Commons Attribution-ShareAlike 4.0 International",
+    "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+  },
+  "attribution": {
+    "sources": [
+      "Oregon State University Extension Service — Seed Viability Chart",
+      "Johnny's Selected Seeds — Seed Saving and Seed Viability",
+      "Mother Earth News — How Long Do Seeds Last?",
+      "Royal Horticultural Society (RHS) — Seed Viability and Germination"
+    ],
+    "note": "Curated from published seed viability references. Derived data, not verbatim copies."
+  },
   "_default": {
     "shelf_life_years": 3,
     "reduced_after_years": 2,

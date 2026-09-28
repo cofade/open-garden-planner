@@ -4779,6 +4779,26 @@ Verwenden Sie 'Eigene erstellen', um Pflanzen hinzuzufügen, oder das Pflanzen-M
             <source>Bundled</source>
             <translation>Mitgeliefert</translation>
         </message>
+        <message>
+            <source>Data: {source} · CC BY-SA 4.0</source>
+            <translation>Daten: {source} · CC BY-SA 4.0</translation>
+        </message>
+        <message>
+            <source>Data: {source} · attribution required</source>
+            <translation>Daten: {source} · Namensnennung erforderlich</translation>
+        </message>
+        <message>
+            <source>Data: {source} · free for personal/commercial use</source>
+            <translation>Daten: {source} · frei für private/kommerzielle Nutzung</translation>
+        </message>
+        <message>
+            <source>Data Sources &amp;&amp; Licenses</source>
+            <translation>Datenquellen &amp;&amp; Lizenzen</translation>
+        </message>
+        <message>
+            <source>Data Sources &amp; Licenses</source>
+            <translation>Datenquellen &amp; Lizenzen</translation>
+        </message>
     </context>
     <context>
         <name>PlantSearchDialog</name>

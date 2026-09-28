@@ -1,6 +1,19 @@
 {
   "version": "1.1",
   "description": "Curated companion planting database for common vegetables, herbs, and flowers. Relationships are bidirectional — if A benefits B, looking up B also returns A. Sources: RHS Companion Planting guide, Louise Riotte 'Carrots Love Tomatoes', Rodale's 'Companion Planting for Vegetables'.",
+  "license": {
+    "spdx": "CC-BY-SA-4.0",
+    "name": "Creative Commons Attribution-ShareAlike 4.0 International",
+    "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+  },
+  "attribution": {
+    "sources": [
+      "RHS Companion Planting guide",
+      "Louise Riotte — Carrots Love Tomatoes",
+      "Rodale — Companion Planting for Vegetables"
+    ],
+    "note": "Curated from published companion planting references. Derived data, not verbatim copies."
+  },
   "plants": {
     "tomato": {
       "scientific_name": "Solanum lycopersicum",

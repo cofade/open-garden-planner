@@ -124,6 +124,7 @@ class PlantSpeciesData:
     # Source tracking
     data_source: str = ""  # e.g., "perenual", "permapeople", "trefle", "custom"
     source_id: str = ""  # ID in the source database
+    slug: str = ""  # URL slug for the source provider (e.g., Permapeople)
     description: str = ""
 
     # Planting calendar (weeks relative to last frost date; negative = before frost)
@@ -198,6 +199,7 @@ class PlantSpeciesData:
             "thumbnail_url": self.thumbnail_url,
             "data_source": self.data_source,
             "source_id": self.source_id,
+            "slug": self.slug,
             "description": self.description,
             "indoor_sow_start": self.indoor_sow_start,
             "indoor_sow_end": self.indoor_sow_end,
@@ -271,6 +273,7 @@ class PlantSpeciesData:
             thumbnail_url=data.get("thumbnail_url", ""),
             data_source=data.get("data_source", ""),
             source_id=data.get("source_id", ""),
+            slug=data.get("slug", ""),
             description=data.get("description", ""),
             indoor_sow_start=data.get("indoor_sow_start"),
             indoor_sow_end=data.get("indoor_sow_end"),

@@ -40,6 +40,7 @@ from open_garden_planner.ui.plant_species_assignment import (
     confirm_apply_database_values,
     plant_source_label,
 )
+from open_garden_planner.ui.theme import set_text_role, theme_color
 
 
 class ClickableDateEdit(QDateEdit):
@@ -222,6 +223,58 @@ class PlantDatabasePanel(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(2, 4, 2, 4)
         layout.setSpacing(8)
+
+        # === PROFILE HEADER (US-G2, issue #317) ===
+        self._profile_header = QWidget()
+        profile_layout = QHBoxLayout(self._profile_header)
+        profile_layout.setContentsMargins(0, 0, 0, 0)
+        profile_layout.setSpacing(8)
+
+        # Thumbnail
+        self._profile_thumbnail = QLabel()
+        self._profile_thumbnail.setFixedSize(96, 96)
+        self._profile_thumbnail.setStyleSheet(
+            f"background-color: {theme_color('surface_alt')};"
+            f" border: 1px solid {theme_color('border')};"
+            " border-radius: 4px;"
+        )
+        self._profile_thumbnail.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        profile_layout.addWidget(self._profile_thumbnail)
+
+        # Text content
+        profile_text = QVBoxLayout()
+        profile_text.setSpacing(2)
+
+        self._profile_name = QLabel()
+        self._profile_name.setWordWrap(True)
+        self._profile_name.setStyleSheet("font-weight: bold; font-size: 14px;")
+        profile_text.addWidget(self._profile_name)
+
+        self._profile_scientific = QLabel()
+        self._profile_scientific.setWordWrap(True)
+        set_text_role(self._profile_scientific, "hint")
+        profile_text.addWidget(self._profile_scientific)
+
+        self._profile_description = QLabel()
+        self._profile_description.setWordWrap(True)
+        set_text_role(self._profile_description, "secondary")
+        profile_text.addWidget(self._profile_description)
+
+        self._profile_source = QLabel()
+        self._profile_source.setWordWrap(True)
+        set_text_role(self._profile_source, "hint")
+        profile_text.addWidget(self._profile_source)
+
+        # Links row
+        self._profile_links = QLabel()
+        self._profile_links.setWordWrap(True)
+        set_text_role(self._profile_links, "hint")
+        self._profile_links.setOpenExternalLinks(True)
+        profile_text.addWidget(self._profile_links)
+
+        profile_text.addStretch()
+        profile_layout.addLayout(profile_text)
+        layout.addWidget(self._profile_header)
 
         # Button row at top
         button_layout = QHBoxLayout()
@@ -1428,6 +1481,130 @@ class PlantDatabasePanel(QWidget):
                 parent_widget.set_info_tooltip(source_text)
                 break
             parent_widget = parent_widget.parent()
+
+        # === SOURCE LICENCE LINE ===
+        # Show licence/attribution line for API-sourced plants
+        from open_garden_planner.ui.plant_species_assignment import plant_source_license
+        license_text = plant_source_license(plant_data.data_source)
+        if license_text:
+            if not hasattr(self, "_license_label"):
+                self._license_label = QLabel()
+                self._license_label.setWordWrap(True)
+                set_text_role(self._license_label, "hint")
+                # Insert after the button row, before the scroll area
+                self.layout().insertWidget(2, self._license_label)
+            self._license_label.setText(license_text)
+            self._license_label.setVisible(True)
+        elif hasattr(self, "_license_label"):
+            self._license_label.setVisible(False)
+
+        # === PROFILE HEADER (US-G2, issue #317) ===
+        self._update_profile_header(plant_data)
+
+    def _update_profile_header(self, plant_data: PlantSpeciesData) -> None:
+        """Update the profile header with plant data (US-G2, issue #317).
+
+        Shows thumbnail, names, description, source, and external links.
+        """
+        from open_garden_planner.services.plant_api.thumbnail_loader import (
+            get_cached_thumbnail,
+        )
+
+        # Name
+        name_parts = []
+        if plant_data.common_name:
+            name_parts.append(plant_data.common_name)
+        if plant_data.scientific_name:
+            name_parts.append(f"({plant_data.scientific_name})")
+        self._profile_name.setText(" ".join(name_parts) if name_parts else "—")
+
+        # Scientific name (separate line for readability)
+        self._profile_scientific.setText(plant_data.scientific_name or "")
+
+        # Description (truncated to 3 lines)
+        desc = plant_data.description or ""
+        if len(desc) > 200:
+            desc = desc[:200] + "…"
+        self._profile_description.setText(desc)
+        self._profile_description.setVisible(bool(plant_data.description))
+
+        # Source + licence
+        from open_garden_planner.ui.plant_species_assignment import (
+            plant_source_label,
+            plant_source_license,
+        )
+        source_label = plant_source_label(plant_data.data_source)
+        license_text = plant_source_license(plant_data.data_source)
+        source_parts = [source_label]
+        if license_text:
+            source_parts.append(license_text)
+        self._profile_source.setText(" · ".join(source_parts))
+        self._profile_source.setVisible(bool(source_label))
+
+        # External links
+        links = []
+        sci_name = plant_data.scientific_name
+        if sci_name:
+            from urllib.parse import quote
+            encoded_name = quote(sci_name)
+            # Wikipedia
+            from open_garden_planner.app.settings import get_settings
+            settings = get_settings()
+            lang = settings.language if hasattr(settings, "language") else "en"
+            if lang == "de":
+                links.append(
+                    f"<a href='https://de.wikipedia.org/wiki/{encoded_name}'>Wikipedia</a>"
+                )
+            else:
+                links.append(
+                    f"<a href='https://en.wikipedia.org/wiki/{encoded_name}'>Wikipedia</a>"
+                )
+            # PFAF
+            links.append(
+                f"<a href='https://pfaf.org/user/Plant.aspx?LatinName={encoded_name}'>PFAF</a>"
+            )
+            # POWO
+            links.append(
+                f"<a href='https://powo.science.kew.org/results?q={encoded_name}'>POWO</a>"
+            )
+        # Provider's own page
+        if plant_data.data_source == "permapeople" and plant_data.slug:
+            links.append(
+                f"<a href='https://permapeople.org/plants/{plant_data.slug}'>Permapeople</a>"
+            )
+        self._profile_links.setText(" · ".join(links) if links else "")
+        self._profile_links.setVisible(bool(links))
+
+        # Thumbnail
+        thumb_url = plant_data.thumbnail_url or plant_data.image_url
+        if thumb_url:
+            cached = get_cached_thumbnail(thumb_url)
+            if cached:
+                from PyQt6.QtGui import QPixmap
+                pixmap = QPixmap(str(cached))
+                if not pixmap.isNull():
+                    scaled = pixmap.scaled(
+                        96, 96,
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation,
+                    )
+                    self._profile_thumbnail.setPixmap(scaled)
+                else:
+                    self._profile_thumbnail.setText("🌱")
+            else:
+                # Show placeholder while loading
+                self._profile_thumbnail.setText("🌱")
+        else:
+            self._profile_thumbnail.setText("🌱")
+
+        # Show the header if there's any content
+        has_content = bool(
+            plant_data.common_name
+            or plant_data.scientific_name
+            or plant_data.description
+            or thumb_url
+        )
+        self._profile_header.setVisible(has_content)
 
     def _apply_species_to_item(
         self, plant_item: QGraphicsItem, species_dict: dict

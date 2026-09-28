@@ -98,6 +98,10 @@ class AppSettings:
     KEY_PERMAPEOPLE_KEY_ID = "api_keys/permapeople_key_id"
     KEY_PERMAPEOPLE_KEY_SECRET = "api_keys/permapeople_key_secret"
 
+    # Plant data (US-G2, issue #317)
+    KEY_DOWNLOAD_PLANT_IMAGES = "plants/download_images"
+    KEY_FETCH_COMPANION_DATA = "plants/fetch_companion_data"
+
     # Default values
     DEFAULT_AUTOSAVE_ENABLED = True
     DEFAULT_SHOW_WELCOME = True
@@ -147,6 +151,10 @@ class AppSettings:
     # so repeat applications don't require retyping.
     DEFAULT_FILLET_LAST_RADIUS_CM = 25.0
     DEFAULT_CHAMFER_LAST_DISTANCE_CM = 25.0
+
+    # Plant data (US-G2, issue #317)
+    DEFAULT_DOWNLOAD_PLANT_IMAGES = True
+    DEFAULT_FETCH_COMPANION_DATA = True
 
     def __init__(self) -> None:
         """Initialize the settings manager."""
@@ -598,6 +606,32 @@ class AppSettings:
     @chamfer_last_distance_cm.setter
     def chamfer_last_distance_cm(self, value: float) -> None:
         self._settings.setValue(self.KEY_CHAMFER_LAST_DISTANCE_CM, float(value))
+
+    @property
+    def download_plant_images(self) -> bool:
+        """Whether to download plant images for the database panel (US-G2)."""
+        return self._settings.value(
+            self.KEY_DOWNLOAD_PLANT_IMAGES,
+            self.DEFAULT_DOWNLOAD_PLANT_IMAGES,
+            type=bool,
+        )
+
+    @download_plant_images.setter
+    def download_plant_images(self, value: bool) -> None:
+        self._settings.setValue(self.KEY_DOWNLOAD_PLANT_IMAGES, bool(value))
+
+    @property
+    def fetch_companion_data(self) -> bool:
+        """Whether to fetch companion data from Permapeople (US-G3)."""
+        return self._settings.value(
+            self.KEY_FETCH_COMPANION_DATA,
+            self.DEFAULT_FETCH_COMPANION_DATA,
+            type=bool,
+        )
+
+    @fetch_companion_data.setter
+    def fetch_companion_data(self, value: bool) -> None:
+        self._settings.setValue(self.KEY_FETCH_COMPANION_DATA, bool(value))
 
     @property
     def agent_api_enabled(self) -> bool:

@@ -6590,9 +6590,12 @@ class GardenPlannerApp(QMainWindow):
         # Create custom about dialog to show logo
         dialog = QDialog(self)
         dialog.setWindowTitle(self.tr("About Open Garden Planner"))
-        dialog.setFixedSize(450, 280)
+        dialog.setFixedSize(450, 320)
 
-        layout = QHBoxLayout(dialog)
+        layout = QVBoxLayout(dialog)
+
+        # Top row: logo + text
+        top_layout = QHBoxLayout()
 
         # Logo on the left
         icon_path = Path(__file__).parent.parent / "resources" / "icons" / "OGP_logo.png"
@@ -6605,7 +6608,7 @@ class GardenPlannerApp(QMainWindow):
             )
             logo_label.setPixmap(scaled_pixmap)
             logo_label.setAlignment(Qt.AlignmentFlag.AlignTop)
-            layout.addWidget(logo_label)
+            top_layout.addWidget(logo_label)
 
         # Text on the right
         text_layout = QVBoxLayout()
@@ -6634,9 +6637,90 @@ class GardenPlannerApp(QMainWindow):
         text_layout.addWidget(link_label)
 
         text_layout.addStretch()
-        layout.addLayout(text_layout)
+        top_layout.addLayout(text_layout)
+        layout.addLayout(top_layout)
+
+        # Data sources button
+        from PyQt6.QtWidgets import QPushButton
+        data_sources_btn = QPushButton(self.tr("Data Sources && Licenses"))
+        data_sources_btn.clicked.connect(lambda: self._on_data_sources_about())
+        layout.addWidget(data_sources_btn)
 
         dialog.exec()
+
+    def _on_data_sources_about(self) -> None:
+        """Show data sources and licenses dialog."""
+        from PyQt6.QtWidgets import QDialog, QTextEdit, QVBoxLayout
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self.tr("Data Sources && Licenses"))
+        dialog.setMinimumSize(500, 400)
+
+        layout = QVBoxLayout(dialog)
+
+        text_edit = QTextEdit()
+        text_edit.setReadOnly(True)
+        text_edit.setHtml(self._get_data_sources_html())
+        layout.addWidget(text_edit)
+
+        dialog.exec()
+
+    def _get_data_sources_html(self) -> str:
+        """Build the HTML content for the data sources & licenses dialog."""
+        parts = [
+            self.tr("<h3>Data Sources & Licenses</h3>"),
+            self.tr("<p>Open Garden Planner uses data from the following sources:</p>"),
+            self.tr("<h4>Online plant databases</h4>"),
+            "<ul>",
+            self.tr(
+                "<li><b>Permapeople</b> — "
+                "<a href='https://permapeople.org'>permapeople.org</a><br>"
+                "License: CC BY-SA 4.0 (Creative Commons Attribution-ShareAlike 4.0)<br>"
+                "Data is curated from public horticultural sources and available "
+                "under a share-alike license.</li>"
+            ),
+            self.tr(
+                "<li><b>Trefle</b> — "
+                "<a href='https://trefle.io'>trefle.io</a><br>"
+                "Attribution required per their API terms of service.</li>"
+            ),
+            self.tr(
+                "<li><b>Perenual</b> — "
+                "<a href='https://perenual.com'>perenual.com</a><br>"
+                "Free for personal and commercial use.</li>"
+            ),
+            "</ul>",
+            self.tr("<h4>Bundled data</h4>"),
+            "<ul>",
+            self.tr(
+                "<li><b>Species database</b> — RHS, Cornell University, "
+                "Royal Botanic Gardens Kew, USDA/GRIN-Global, "
+                "University of Minnesota, Oregon State University</li>"
+            ),
+            self.tr(
+                "<li><b>Companion planting</b> — RHS Companion Planting guide, "
+                "Louise Riotte 'Carrots Love Tomatoes', "
+                "Rodale's 'Companion Planting for Vegetables'</li>"
+            ),
+            self.tr(
+                "<li><b>Seed viability</b> — Oregon State University Extension, "
+                "Johnny's Selected Seeds, Mother Earth News, RHS</li>"
+            ),
+            self.tr(
+                "<li><b>Soil amendments</b> — Rodale, RHS, USDA Extension</li>"
+            ),
+            "</ul>",
+            self.tr("<h4>Icons</h4>"),
+            "<ul>",
+            self.tr("<li><b>Tabler Icons</b> — MIT License</li>"),
+            self.tr("<li><b>UI icons</b> — GPLv3 (original work)</li>"),
+            "</ul>",
+            self.tr(
+                "<p>All bundled data files are licensed under CC BY-SA 4.0. "
+                "See <code>resources/data/PROVENANCE.md</code> for details.</p>"
+            ),
+        ]
+        return "".join(parts)
 
     # Public methods for updating status bar
 
