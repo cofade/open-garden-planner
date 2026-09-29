@@ -1182,21 +1182,28 @@ reproduced the unrotated case and left rotation broken.
 Consequences:
 
 * **Self-healing and undo-safe on every polygon-apply path.** Restoring the
-  polygon *is* restoring the ridge, so no extra undo bookkeeping is needed —
+  polygon *is* restoring the ridge, so no extra undo bookkeeping is needed -
   but only because **every** path that writes a polygon's geometry re-derives
-  the ridge. There are five: `_move_vertex_to`, `_insert_vertex`/`_remove_vertex`
-  (via `_after_vertex_topology_change`), `_apply_rotation`, `_apply_resize`, and
-  the `ResizeItemCommand` apply closure. The fifth was missed by the first
-  implementation of this fix and caught only in senior review — it left a HOUSE
-  resize undo restoring the polygon while the ridge stayed sized for the
-  *resized* house (**300 cm** of drift on a 300->600 cm resize, persisted into
-  the `.ogp`). That closure is now `polygon_resize_apply`, module-level rather
-  than a closure inside `_on_resize_end` specifically so a test can drive the
-  production function instead of re-implementing it. **A sixth polygon-apply
-  path that skips the sync will silently rot this invariant** — the durable
-  lesson is not "recompute instead of project" on its own, but "a derived child
-  must be re-derived by *every* writer of its owner's state", because a derived
-  child adjusted from its own current position becomes state that nothing owns.
+  the ridge. There are six: `_move_vertex_to`, `_insert_vertex`/`_remove_vertex`
+  (via `_after_vertex_topology_change`), `_apply_rotation`, `_apply_resize`, the
+  `ResizeItemCommand` apply closure, and the constraint solver's polygon restore
+  in `canvas_view`. The fifth was missed by the first implementation of this fix
+  and caught only in senior review - it left a HOUSE resize undo restoring the
+  polygon while the ridge stayed sized for the *resized* house (**300 cm** of
+  drift on a 300->600 cm resize, persisted into the `.ogp`). That closure is now
+  `polygon_resize_apply`, module-level rather than a closure inside
+  `_on_resize_end` specifically so a test can drive the production function
+  instead of re-implementing it. The sixth came out of the same review round:
+  `canvas_view`'s solver `finally` restored the polygon with a bare `setPolygon`
+  while its **polyline** sibling restored through `_move_vertex_to`, which does
+  re-derive - an asymmetry that left the ridge computed for the temporary trial
+  geometry whenever a solve raised. **A seventh polygon-write path that skips the
+  sync will silently rot this invariant** - the durable lesson is not "recompute
+  instead of project" on its own, but "a derived child must be re-derived by
+  *every* writer of its owner's state", because a derived child adjusted from
+  its own current position becomes state that nothing owns. Re-derive the
+  enumeration with `grep -rn "setPolygon\|setPoints" src/` when adding a path.
+
 * **A hand-dragged ridge endpoint is not sticky.** `PolylineItem._move_vertex_to`
   still constrains a hand-dragged endpoint onto the owner's outline, so the drag
   is honoured; the next polygon edit returns it to canonical. The reason is the

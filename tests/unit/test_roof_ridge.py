@@ -32,6 +32,7 @@ import math
 
 import pytest
 from PyQt6.QtCore import QPointF
+from PyQt6.QtGui import QPolygonF
 from PyQt6.QtWidgets import QGraphicsScene
 
 from open_garden_planner.core.object_types import ObjectType
@@ -312,6 +313,53 @@ class TestResizeUndo:
         command.undo()
         assert _max_deviation(house, ridge) <= RIDGE_EPS_CM, (
             "ridge drifted after a second undo - drift must not accumulate"
+        )
+
+    def test_resize_end_registers_the_canonical_apply_function(
+        self, qtbot: object
+    ) -> None:
+        """The production path must *use* ``polygon_resize_apply``, not a copy.
+
+        The test above builds its own ``ResizeItemCommand``, so on its own it
+        proves the module-level function syncs and that undo replays
+        ``apply_func`` -- but not that ``_on_resize_end`` passes that function.
+        Reinstating a local closure there without the sync is the exact shape
+        that caused the 300 cm hole, and every other test would still pass.
+        """
+        from open_garden_planner.core.commands import ResizeItemCommand
+        from open_garden_planner.ui.canvas.items.polygon_item import (
+            polygon_resize_apply,
+        )
+
+        scene = QGraphicsScene()
+        house, _ridge = _house_with_ridge(scene=scene)
+
+        registered: list[object] = []
+
+        class _Manager:
+            def execute(self, command: object) -> None:
+                registered.append(command)
+
+            def register_applied(self, command: object) -> None:
+                registered.append(command)
+
+        scene.get_command_manager = lambda: _Manager()  # type: ignore[attr-defined]
+
+        initial_polygon = QPolygonF(house.polygon())
+        initial_pos = QPointF(house.pos())
+        house._resize_initial_polygon = initial_polygon
+
+        # A real geometry change, then the release that registers the command.
+        house._apply_resize(0.0, 0.0, 600.0, 200.0, initial_pos.x(), initial_pos.y())
+        house._on_resize_end(initial_polygon.boundingRect(), initial_pos)
+
+        assert registered, "precondition: the resize registered a command"
+        command = registered[0]
+        assert isinstance(command, ResizeItemCommand)
+        assert command._apply_func is polygon_resize_apply, (
+            "_on_resize_end must hand ResizeItemCommand the canonical apply "
+            "function; a local closure here silently reintroduces the "
+            "resize-undo ridge hole"
         )
 
 

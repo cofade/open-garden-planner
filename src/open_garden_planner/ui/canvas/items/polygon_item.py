@@ -218,7 +218,10 @@ def polygon_resize_apply(item: QGraphicsItem, geom: dict[str, Any]) -> None:
     drive the production function instead of re-implementing it: a test that
     copies the apply logic passes while the real one stays broken.
     ``setPos`` fires ``_move_ridge_by_delta`` first; the recompute below
-    overwrites it wholesale. See ADR-046.
+    overwrites it wholesale. ``_update_area_label`` is here so this path and
+    ``_apply_resize`` (the live drag) do not disagree: ``setPos`` only fires
+    ``itemChange`` when the position actually changes, so a resize that holds
+    ``pos`` fixed would otherwise leave a stale area label. See ADR-046.
     """
     if not isinstance(item, PolygonItem):
         return
@@ -227,6 +230,7 @@ def polygon_resize_apply(item: QGraphicsItem, geom: dict[str, Any]) -> None:
     item.setPos(geom["pos_x"], geom["pos_y"])
     item.update_resize_handles()
     item._position_label()
+    item._update_area_label()
     # Derived state: a HOUSE's roof ridge is a function of the polygon, so
     # every polygon-apply path must re-derive it. Adding a new apply path
     # without this call silently rots the invariant.
