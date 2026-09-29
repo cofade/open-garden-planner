@@ -141,6 +141,59 @@ class TestCheckPlacementResolvesTheBed:
         result = app._do_agent_check_placement("tomato", bed.item_id_str, [])
         assert result["overall"] == "neutral"
 
+    def test_metadata_only_plant_is_found(self, app: Any, qtbot: Any) -> None:
+        """P2-6: pin the metadata-only branch — the state SetSpeciesCommand leaves.
+
+        A plant assigned by species search or by the agent's set_species tool
+        has ``plant_species == ""`` and its species ONLY in
+        ``metadata["plant_species"]``. That branch is the whole point of the
+        P1-2 fix, and neither fake modelled it, so the divergence fixed in
+        P2-1 (attribute-first vs metadata-first) was masked on both sides.
+        """
+        scene = CanvasScene()
+        bed = RectangleItem(0, 0, 300, 200, object_type=ObjectType.RAISED_BED)
+        scene.addItem(bed)
+        plant = CircleItem(100, 100, 20, object_type=ObjectType.PERENNIAL)
+        # The real SetSpeciesCommand state: empty attribute, metadata only.
+        # `metadata` is a read-only property, so mutate the dict in place —
+        # which is exactly what the command does.
+        plant.plant_species = ""
+        plant.metadata["plant_species"] = {
+            "common_name": "corn",
+            "scientific_name": "Zea mays",
+        }
+        plant.parent_bed_id = bed.item_id
+        scene.addItem(plant)
+        app.canvas_scene = scene
+        app.canvas_view = type("V", (), {"command_manager": None, "scene": scene})()
+
+        result = app._do_agent_check_placement("tomato", bed.item_id_str)
+        assert result["antagonists_present"] == ["corn"], (
+            "a metadata-only plant was not found in its bed"
+        )
+        assert result["overall"] == "critical"
+
+    def test_non_bed_object_reports_unknown_bed(self, app: Any, qtbot: Any) -> None:
+        """P1-1: a resolvable NON-bed id must not report a clean 'neutral'.
+
+        Existence is not enough — a plant's own id also resolves. Reporting
+        "neutral" says "I inspected this bed's plants and none relate" about an
+        object that is not a bed, which is the fabrication ADR-045's honesty
+        invariant forbids and which the published schema explicitly rules out
+        ("'unknown_bed' if bed_id does not resolve to a real bed").
+        """
+        scene = CanvasScene()
+        plant = CircleItem(100, 100, 20, object_type=ObjectType.PERENNIAL)
+        plant.plant_species = "corn"
+        scene.addItem(plant)
+        app.canvas_scene = scene
+        app.canvas_view = type("V", (), {"command_manager": None, "scene": scene})()
+
+        result = app._do_agent_check_placement("tomato", plant.item_id_str)
+        assert result["overall"] == "unknown_bed", (
+            "a plant id must not be reported as an inspected empty bed"
+        )
+
     def test_real_empty_bed_is_neutral(self, app: Any, qtbot: Any) -> None:
         scene = CanvasScene()
         bed = RectangleItem(0, 0, 300, 200, object_type=ObjectType.RAISED_BED)

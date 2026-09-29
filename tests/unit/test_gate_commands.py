@@ -751,6 +751,16 @@ class TestCheckNoSecrets:
         ("aws access key id", "aws", 'KEY = "AKIA' + "A" * 16 + '"'),
         ("github pat", "ghp", 'TOKEN = "ghp_' + "b" * 40 + '"'),
         ("slack token", "slack", 'T = "xoxb-' + "c" * 24 + '"'),
+        # The Agent API token's OTHER supported delivery channel. Not
+        # hypothetical: _bearer_token_middleware accepts it and
+        # WriteAuthError's guidance tells users to fall back to it. A gate
+        # written for a write-token incident that only covered ?token= would
+        # have missed half the surface.
+        (
+            "ogp agent-api token as bearer",
+            "bearer",
+            'HEADERS = {"Authorization": "Bearer ' + "d" * 43 + '"}',
+        ),
         # Assembled from fragments: the checker's own test file must not contain a
         # credential-shaped LITERAL, or it fails its own gate. Concatenation
         # defeats the single-regex-per-line match while producing the exact

@@ -221,16 +221,39 @@ class TestCompatibleSetDialog:
     def test_uncovered_is_not_worded_as_a_clash(
         self, qtbot: Any, service: CompanionPlantingService
     ) -> None:
-        """P1-3: an uncovered plant must not be announced as a clash."""
-        result = find_sets_for_bed(service, ["cabbage", "mint"], size=3)
+        """P1-3: an uncovered plant must not be announced as a clash.
+
+        Uses a bed that genuinely yields ``uncovered``. The earlier version used
+        cabbage+mint, which the step-down resolves to a 2-clique — so
+        ``uncovered`` was EMPTY and the dialog rendered no clash labels for any
+        reason, making the assertion vacuous. It also asserts the neutral
+        wording is PRESENT, so this fails both when a clash reappears and when
+        the neutral line is lost.
+        """
+        result = find_sets_for_bed(service, ["onion", "beet"], size=3)
+        assert result["uncovered"], (
+            "fixture no longer produces uncovered, so this test is vacuous — "
+            "pick a bed that does"
+        )
+        assert result["conflicts"] == [], "onion/beet are not bundled antagonists"
+
         dialog = CompatibleSetDialog(
-            result["sets"], result["bed_plants"], result["conflicts"],
-            result["uncovered"], None,
+            result["sets"],
+            result["bed_plants"],
+            result["conflicts"],
+            result["uncovered"],
+            None,
         )
         qtbot.addWidget(dialog)
         texts = [w.text() for w in dialog.findChildren(object) if hasattr(w, "text")]
-        for t in texts:
-            assert "clashes with" not in t
+
+        for text in texts:
+            assert "clashes with" not in text, (
+                f"an uncovered plant was announced as a clash: {text}"
+            )
+        assert any("not part of any of these sets" in text for text in texts), (
+            f"the neutral uncovered line is missing: {texts}"
+        )
 
     def test_get_selected_set_returns_members(
         self, qtbot: Any, service: CompanionPlantingService

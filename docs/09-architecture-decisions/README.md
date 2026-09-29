@@ -1123,8 +1123,13 @@ The independent review caught four P1s, all fixed before the PR: **(1)** the urg
 
 | bed | `must_include=bed_plants` | first `find_sets_for_bed` | current |
 |-----|--------------------------|--------------------------|---------|
-| 2 plants | 9% | 61% | **100%**, 0 false conflicts |
-| 3 plants | 0% | 74% | **100%**, 0 false conflicts |
+| 2 plants | 9% | 61% | **399/400 (99.75%)**, 0 false conflicts |
+| 3 plants | 0% | 74% | **400/400**, 0 false conflicts |
+
+The single two-plant bed that still returns nothing has no 2-clique at all
+— there is genuinely nothing mutually compatible to suggest, which is an
+honest empty result rather than a dead end. Rounding that to "100%" would
+have been the same overstatement this package was corrected for.
 
 **Consequences.** The panel and the prompt produce something actionable for every bed measured: ranked options plus, when relevant, the specific pair that rules out keeping everything. This also removes a false piece of advice — the old empty-result path told the user to "consider adding more species to the bed", which provably cannot help when the blocker is two plants already present. `find_compatible_sets()` keeps its original `must_include` semantics for direct API use and for US-F2 guild role slots.
 

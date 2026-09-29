@@ -24,6 +24,7 @@ from open_garden_planner.agent_api.domain import (
 )
 from open_garden_planner.agent_api.history import history_from_command_manager
 from open_garden_planner.core import ProjectManager
+from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.services.companion_sets import find_sets_for_bed
 from open_garden_planner.services.companion_planting_service import (
     CompanionPlantingService,
@@ -365,7 +366,11 @@ def _make_scene() -> Any:
     scene = CanvasScene()
     # Add a simple bed
     bed = RectangleItem(0, 0, 200, 100)
-    bed.object_type = "RAISED_BED"
+    # The ObjectType ENUM, not the string: is_plant_parent_type() — which
+    # the check_placement bed resolution now depends on — returns False for a
+    # plain string, so a string here is a trap for any later test that
+    # routes this scene through that path.
+    bed.object_type = ObjectType.RAISED_BED
     scene.addItem(bed)
     return scene
 

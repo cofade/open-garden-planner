@@ -494,9 +494,11 @@ class CompatibleSetDialog(QDialog):
 
     Sets are ranked by how many of the bed's CURRENT plants each one already
     satisfies, so the top row is the set that agrees with the most of what is
-    already planted. Bed plants that cannot join any set are reported as
-    conflicts rather than silently dropped — the alternative (demanding every
-    set contain the whole bed) returns nothing for most real beds.
+    already planted. ``conflicts`` carries only bed plants that are genuinely
+    ANTAGONISTIC to another bed plant — absence from a set is not a clash, and
+    is listed separately as ``uncovered`` with neutral wording, because calling
+    it a conflict once told users a bundled-beneficial pair did not work
+    together.
     """
 
     def __init__(

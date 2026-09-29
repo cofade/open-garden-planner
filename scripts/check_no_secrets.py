@@ -71,6 +71,16 @@ RULES: list[tuple[str, re.Pattern[str], str]] = [
         "dialog instead of committing one.",
     ),
     (
+        "ogp-agent-api-token-bearer",
+        re.compile(r"\bBearer\s+[A-Za-z0-9_\-]{40,50}\b"),
+        "The same Agent API write token delivered as an Authorization header. "
+        "This is NOT a hypothetical channel: _bearer_token_middleware accepts "
+        "it, and WriteAuthError's own guidance tells users to fall back to it "
+        "when a client drops the header on tool-call requests. A gate for a "
+        "write-token incident that covered only the URL channel would be half "
+        "a gate.",
+    ),
+    (
         "aws-access-key-id",
         re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
         "AWS access key ID.",
@@ -119,6 +129,7 @@ RULES: list[tuple[str, re.Pattern[str], str]] = [
 _ALLOW_MARKERS = (
     "?token=<40-50 chars>",
     "?token=[A-Za-z0-9_",
+    "Bearer\\s+[A-Za-z0-9_\\-]{40,50}",
     "AKIA[0-9A-Z]",
     "ghp|gho|ghu|ghs|ghr",
     "github_pat_",

@@ -225,6 +225,11 @@ def find_sets_for_bed(
           ``uncovered``  — bed plants in no returned set, with no claim made
                            about why.
           ``bed_plants`` — the canonical bed-plant keys (echoed back).
+          ``searched_size`` — the set size actually used, which is DOWN from
+                           the requested one when no clique of that size
+                           exists. Both callers surface it, so a caller can
+                           tell "nothing of size 3 exists" from "nothing here
+                           is compatible at all".
     """
     if size < 2 or size > 5:
         raise ValueError(f"size must be 2–5, got {size}")

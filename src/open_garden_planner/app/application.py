@@ -1008,6 +1008,7 @@ class GardenPlannerApp(QMainWindow):
         existence check.
         """
         from open_garden_planner.agent_api.domain import check_placement_for_agent
+        from open_garden_planner.core.object_types import is_plant_parent_type
 
         bed_exists: bool | None = None
         try:
@@ -1018,7 +1019,17 @@ class GardenPlannerApp(QMainWindow):
         resolved = bed_plants
         if target_id is not None:
             bed = self.canvas_scene.find_item_by_id(target_id)
-            if bed is None:
+            # Existence is NOT enough: a plant's own id, or a shape's, also
+            # resolves. Reporting "neutral" for a non-bed says "I inspected
+            # this bed's plants and none relate" about an object that is not a
+            # bed — the same fabrication ADR-045's honesty invariant forbids,
+            # and the published contract says an id that names no bed is
+            # `unknown_bed`. `is_plant_parent_type` is the codebase's own
+            # predicate for "can hold plants" and covers every bed type plus
+            # TRELLIS.
+            if bed is None or not is_plant_parent_type(
+                getattr(bed, "object_type", None)
+            ):
                 bed_exists = False
             else:
                 bed_exists = True
@@ -1058,20 +1069,16 @@ class GardenPlannerApp(QMainWindow):
         for item in items:
             if getattr(item, "parent_bed_id", None) != bed_id:
                 continue
-            # species_name, NOT metadata["plant_species"] alone: a plant
-            # assigned via the gallery or the agent's set_species tool only
-            # has the metadata record, and reading the attribute too is what
-            # queries._species_name already does (P1-2).
-            name = getattr(item, "plant_species", "") or ""
-            if not name:
-                meta = getattr(item, "metadata", {}) or {}
-                species_data = meta.get("plant_species") if isinstance(meta, dict) else None
-                if isinstance(species_data, dict):
-                    name = (
-                        species_data.get("common_name")
-                        or species_data.get("scientific_name")
-                        or ""
-                    )
+            # Delegate to the SHARED resolver rather than re-implementing the
+            # precedence. This was attribute-first while
+            # `_companion_species_name` and `queries._species_name` are
+            # metadata-first, so on a plant where both are set and DISAGREE
+            # (a gallery drop sets both; a later species-search assignment
+            # overwrites only the metadata) the agent resolved the stale
+            # attribute and found zero relationships while the panel found real
+            # ones. One resolver, one answer (the same divergence class ADR-045's
+            # addendum is about).
+            name = self._companion_species_name(item)
             if name:
                 out.append(str(name).lower())
         return out
