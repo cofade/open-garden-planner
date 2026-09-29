@@ -1,4 +1,9 @@
 {
+  "114": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#110,#111): Hedge tiled texture polygon + roof ridge with mirrored tiles"
+  },
   "12": {
     "is_pr": true,
     "state": "MERGED",
@@ -528,6 +533,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "US-D2.7: get_history - expose the undo/redo stack to the agent (Package D2, epic #237)"
+  },
+  "363": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Two contact links in ISSUE_TEMPLATE config point at non-existent templates (bug_report.md, feature_request.md)"
   },
   "364": {
     "is_pr": false,

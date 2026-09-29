@@ -306,43 +306,64 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         return None
 
     def _update_ridge_on_boundary(self) -> None:
-        """Re-project the ridge endpoints onto the current polygon boundary.
+        """Recompute the linked roof ridge from the current polygon (issue #364).
 
-        Called after polygon resize, vertex edit, or rotation so that the
-        ridge stays attached to the polygon's outer edge.
+        Called after a vertex edit, resize, or rotation. The ridge is
+        **derived** geometry, so it is recomputed here through
+        :func:`~open_garden_planner.core.roof_ridge.compute_roof_ridge_endpoints`
+        — the one canonical computation shared with creation — rather than
+        adjusted from wherever it currently sits.
+
+        Two properties follow from recomputing instead of projecting, and both
+        were defects before (see ADR-046 and §11.4):
+
+        * **It is self-healing and undo-safe.** An earlier version re-projected
+          the ridge's *existing* endpoints onto the boundary, which is a
+          membrane: once an endpoint landed on the wrong edge it had no way
+          back to canonical, and because the write bypassed the command system
+          an undo that restored the polygon left the ridge behind. Drift
+          accumulated over repeated edit/undo cycles. Deriving the ridge purely
+          from the polygon means restoring the polygon *is* restoring the
+          ridge, with no extra undo bookkeeping.
+        * **It is rotation- and scale-correct.** The canonical endpoints are
+          computed in the polygon's LOCAL frame and mapped through this item's
+          full transform, so a rotated house gets a ridge along its rotated
+          long axis. The projection path kept the old orientation, so a house
+          rotated 90 degrees kept a ridge at 0 degrees — 180 cm off — and
+          ``_paint_with_ridge`` mirrors the roof texture along this line, so
+          the roof itself was wrong too.
+
+        A ridge endpoint dragged by hand (see ``PolylineItem._move_vertex_to``,
+        which still constrains it to this outline) is therefore *not* sticky: the
+        next polygon edit returns it to canonical. That is the recorded
+        decision — the ridge and the roof texture derived from it must agree.
         """
+        from open_garden_planner.core.roof_ridge import compute_roof_ridge_endpoints
+        from open_garden_planner.ui.canvas.items import PolylineItem
+
         ridge = self._find_ridge()
-        if ridge is None:
+        if ridge is None or not isinstance(ridge, PolylineItem):
             return
 
         poly = self.polygon()
         if poly.count() < 3:
             return
 
-        from open_garden_planner.ui.canvas.items import PolylineItem
+        # Compute in the LOCAL frame (pos is the origin), then map through this
+        # item's full transform — including rotation and scale.
+        local_1, local_2 = compute_roof_ridge_endpoints(poly, QPointF(0.0, 0.0))
+        new_pts = [
+            ridge.mapFromScene(self.mapToScene(local_1)),
+            ridge.mapFromScene(self.mapToScene(local_2)),
+        ]
 
-        if not isinstance(ridge, PolylineItem):
-            return
-
-        pts = ridge.points  # scene-space (ridge pos is usually 0,0)
-        if len(pts) < 2:
-            return
-
-        new_pts: list[QPointF] = []
-        for pt in pts:
-            # Convert ridge scene-coord → polygon item-local coord
-            local = self.mapFromScene(ridge.mapToScene(pt))
-            projected = _project_to_polygon_boundary(poly, local)
-            # Convert back to ridge item-local coords
-            scene_pt = self.mapToScene(projected)
-            new_pts.append(ridge.mapFromScene(scene_pt))
-
-        # Update ridge geometry directly
         ridge._points = new_pts
         ridge._rebuild_path()
-        if hasattr(ridge, '_update_vertex_handles') and ridge.is_vertex_edit_mode:
+        if getattr(ridge, "is_vertex_edit_mode", False) and hasattr(
+            ridge, "_update_vertex_handles"
+        ):
             ridge._update_vertex_handles()
-        if hasattr(ridge, '_position_label'):
+        if hasattr(ridge, "_position_label"):
             ridge._position_label()
 
     def _paint_with_ridge(self, painter: QPainter, ridge: "QGraphicsItem") -> None:

@@ -2742,10 +2742,15 @@ def test_vertex_tools_refuse_rect_backed_items(qtbot: Any, monkeypatch: Any) -> 
         win._stop_agent_api()
 
 
-def test_house_vertex_topology_reprojects_linked_ridge_and_undoes_cleanly(
+def test_house_vertex_topology_recomputes_linked_ridge_and_undoes_cleanly(
     qtbot: Any, monkeypatch: Any
 ) -> None:
-    """US-D2.6 preserves the existing HOUSE/ridge invariant on add/delete."""
+    """US-D2.6 preserves the existing HOUSE/ridge invariant on add/delete.
+
+    Since #364 the sync *recomputes* the ridge from the polygon rather than
+    re-projecting its existing endpoints, so this still asserts "attached to
+    the boundary" but the mechanism is now a pure function of the polygon.
+    """
     import copy
 
     from open_garden_planner.core.object_types import ObjectType
@@ -2790,9 +2795,8 @@ def test_house_vertex_topology_reprojects_linked_ridge_and_undoes_cleanly(
         added = win._do_agent_add_vertex(str(house.item_id), 3, 100.0, 220.0)
         assert added["vertex_count"] == 5
         ridge_top = ridge.mapToScene(ridge._points[-1])
-        # The old endpoint is now interior, so the existing nearest-boundary
-        # projection moves it onto the enlarged outline rather than merely
-        # stretching the ridge to an arbitrary new point.
+        # The old endpoint is now interior, so the ridge is recomputed onto the
+        # enlarged outline rather than merely stretched to an arbitrary point.
         assert ridge_top.y() > 150.0
         assert win._project_manager._serialize_item(ridge) != ridge_baseline
         assert ridge_is_attached()

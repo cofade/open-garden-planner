@@ -1136,3 +1136,73 @@ have been the same overstatement this package was corrected for.
 **Addendum — the honesty invariant (four instances in one PR).** This PR independently hit the same anti-pattern four times, and the pattern is worth recording as a contract: **a component that did not check something must not report a result that reads as a successful check.** (a) `check_placement` hardcoded `spacing_ok = True` when it had not evaluated spacing; (b) it accepted a `bed_id` it never resolved, so an unknown bed reported `overall="neutral"`; (c) the set search's broad `except Exception` turned any failure into "No compatible sets found."; (d) the conflict report called a plant that merely fit no 3-set a "clash" — the same fabrication, one level up, and the most damaging of the four because it stated something **false** about the data rather than merely nothing. All four now report what they know: `None` for an un-evaluated check, `"unknown_bed"` / `"unknown"` for an unresolvable target, a raised error instead of a swallowed one, and `uncovered` as a claim-free list. Test pins: `tests/unit/test_companion_panel_sets.py` covers the bed-membership lookups, `find_sets_for_bed` and the dialog wording; `tests/integration/test_agent_check_placement_bed.py` drives the real main-thread `check_placement` body against a real scene (it was untested, which is why (b) survived a fix that did not fix it); `tests/unit/test_companion_sets.py` covers the search.
 
 **Addendum — `parent_bed_id` is a property, not metadata (found by the live manual pass).** `_get_current_bed_id()` / `_get_bed_plants()` first read `item.metadata["parent_bed_id"]`, which is never present: on `GardenItem` it is a real property backed by a `_parent_bed_id` UUID. Both silently returned nothing, so the panel action opened an empty dialog. Fixed to read the property; the fake in `tests/unit/test_companion_panel_sets.py` models it as a property and keeps `metadata` free of that key, so the original bug cannot be reintroduced silently. Related: `CompanionRelationship.source` became a **declared** dataclass field for the same reason — the reverse adjacency copy in `_add_to_adjacency` copies declared fields only, so a dynamically attached `_source` was lost and the same Permapeople rule reported `permapeople` in one direction and `bundled` in the other. Cross-refs: FR-AGENT-23, FR-AGENT-24, §8.19, issue #319, issue #362.
+
+## ADR-046: Derived geometry is recomputed, never projected (issue #364)
+
+**Status**: Accepted (2026-09-29). Fixes the HOUSE/ROOF_RIDGE sync; #363
+(issue-template links) shipped in the same package and is unrelated to this
+decision.
+
+**Context.** A HOUSE auto-creates a linked `ROOF_RIDGE` polyline along its
+longest bounding-box axis, clipped to the polygon boundary. The canonical
+computation is `core/roof_ridge.compute_roof_ridge_endpoints()`, extracted in
+US-D2.5 so that the drawing tool (`PolygonTool._create_roof_ridge`) and the
+Agent API (`application.py`) produce identical ridges - the "one canonical path"
+discipline.
+
+`PolygonItem._update_ridge_on_boundary()` did **not** use it. Introduced with
+the roof-ridge feature itself (`818e3fb`, #114) and last touched by US-D2.6
+(`4e0a312`, #330), it re-projected the ridge's *existing* endpoints onto the
+current boundary via `_project_to_polygon_boundary`. Two measured defects:
+
+* **Drift undo cannot repair.** Adding a vertex moved the second endpoint onto
+  the newly introduced slanted edge; undo restored the polygon exactly and left
+  the ridge behind (36 cm on a 300x200 cm house). The write bypassed the
+  command system, so no undo step covered it, and drift accumulated over
+  repeated cycles.
+* **No rotation or scale awareness - larger than the reported bug.** The
+  membrane kept the ridge's prior orientation, so a house rotated 30/90 degrees
+  kept a ridge at 0 degrees, deviating 75 cm / 180 cm from geometric truth.
+  Since `_paint_with_ridge` mirrors the roof texture along the ridge line,
+  every rotated house also rendered a wrongly-oriented roof.
+
+**Decision.** The ridge is **derived** geometry and is recomputed from the
+owner's polygon on every sync, through the same canonical function used at
+creation:
+
+    compute_roof_ridge_endpoints(polygon, QPointF(0, 0))   # LOCAL frame
+      -> house.mapToScene() -> ridge.mapFromScene()         # full transform
+
+Computing in the local frame and mapping through the item's transform - rather
+than adding `pos` to local points as creation does - is what makes it correct
+for a rotated or scaled house. The creation formula is only valid for an
+unrotated item; the issue's own suggested fix (call it with `pos`) would have
+reproduced the unrotated case and left rotation broken.
+
+Consequences:
+
+* **Self-healing and undo-safe by construction.** Restoring the polygon *is*
+  restoring the ridge, so no extra undo bookkeeping is needed. This is the
+  durable lesson: a derived child must be *recomputed* from its owner, never
+  *adjusted* from its own current state, or it becomes state that nothing owns.
+* **A hand-dragged ridge endpoint is not sticky.** `PolylineItem._move_vertex_to`
+  still constrains a hand-dragged endpoint onto the owner's outline, so the drag
+  is honoured; the next polygon edit returns it to canonical. Chosen over
+  preserving the manual placement, because the roof texture is derived from the
+  ridge and preserving the two independently would let them disagree.
+* **`_project_to_polygon_boundary` is kept**, still used by
+  `PolylineItem._move_vertex_to` to constrain that hand drag.
+* **A ridge drift already saved into an `.ogp` self-heals on the next polygon
+  edit**, not at load time: a deserialized house restores its rotation *before*
+  its ridge enters the scene, so the sync no-ops (`_find_ridge()` returns
+  `None`). A load-time resync was considered and deliberately left out - it
+  widens the blast radius into the deserializer for a cosmetic gain. Recorded
+  here rather than discovered later.
+
+**Alternatives rejected.** (a) *Make the projection reversible* - capture ridge
+points in every vertex command and restore them in `undo`/`redo`. Rejected:
+threading a second geometry through four command classes to preserve state that
+should not exist. (b) *Re-project on undo only* - rejected: undo and edit share
+one apply path, so "on undo" needs a new signal the architecture does not carry.
+
+**Cross-refs:** section 11.4, issue #364, US-D2.6 (#330), issue #114.
