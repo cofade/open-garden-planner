@@ -9,6 +9,8 @@ import math
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
     QHBoxLayout,
     QLabel,
     QListWidget,
@@ -142,6 +144,14 @@ class CompanionPanel(QWidget):
         actions_row.addWidget(self._refresh_permapeople_btn)
 
         layout.addLayout(actions_row)
+
+        # === COMPATIBLE SET ACTION (US-D3.1, issue #319) ===
+        self._suggest_set_btn = QPushButton(self.tr("Suggest a compatible set…"))
+        self._suggest_set_btn.setToolTip(
+            self.tr("Find mutually compatible plant sets for this bed")
+        )
+        self._suggest_set_btn.clicked.connect(self._on_suggest_compatible_set)
+        layout.addWidget(self._suggest_set_btn)
 
         good_header = QLabel(self.tr("Good Companions"))
         set_text_role(good_header, "h2", "success")
@@ -390,9 +400,217 @@ class CompanionPanel(QWidget):
 
     def _get_source_label(self, rel: CompanionRelationship) -> str:
         """Return the source label for a relationship (Bundled / Custom / Permapeople)."""
-        if getattr(rel, "is_custom", False):
+        source = self._service.get_relationship_source(rel)
+        if source == "custom":
             return self.tr("Custom")
-        # Check if it's a provider rule
-        if hasattr(rel, "_source"):
+        if source == "permapeople":
             return self.tr("Permapeople")
         return self.tr("Bundled")
+
+    # ------------------------------------------------------------------
+    # Compatible set action (US-D3.1, issue #319)
+    # ------------------------------------------------------------------
+
+    def _on_suggest_compatible_set(self) -> None:
+        """Show a dialog with compatible sets for the selected plant's bed."""
+        from open_garden_planner.services.companion_sets import find_sets_for_bed
+
+        if not hasattr(self, "_current_item") or self._current_item is None:
+            return
+
+        # Find the bed this plant is in
+        bed_id = self._get_current_bed_id()
+        if not bed_id:
+            return
+
+        # Get plants already in the bed
+        bed_plants = self._get_bed_plants(bed_id)
+        if not bed_plants:
+            return
+
+        # Rank sets by how much of the bed they satisfy, and report conflicts.
+        # Deliberately NOT find_compatible_sets(must_include=bed_plants) — that
+        # returns nothing unless the bed already IS a complete clique, which is
+        # the very situation the user is trying to resolve (P0-2).
+        result = find_sets_for_bed(self._service, bed_plants, size=3)
+
+        dialog = CompatibleSetDialog(
+            result["sets"],
+            result["bed_plants"],
+            result["conflicts"],
+            result["uncovered"],
+            self,
+        )
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            selected = dialog.get_selected_set()
+            if selected:
+                self._highlight_members(selected)
+
+    def _get_current_bed_id(self) -> str | None:
+        """Return the bed ID of the currently selected plant, if any."""
+        if not hasattr(self, "_current_item") or self._current_item is None:
+            return None
+        # parent_bed_id is a property on GardenItem (stored as _parent_bed_id UUID)
+        bed_id = getattr(self._current_item, "parent_bed_id", None)
+        if bed_id:
+            return str(bed_id)
+        return None
+
+    def _get_bed_plants(self, bed_id: str) -> list[str]:
+        """Return species keys of plants in the given bed.
+
+        Returns ``[]`` for a bed with no plants. A scene that cannot be walked
+        at all raises — an ``except Exception: pass`` here turned any failure
+        into "bed is empty", which the caller cannot distinguish from a real
+        empty bed, and the action then opened an empty dialog for the same
+        reason it did before the parent_bed_id fix.
+        """
+        if self._canvas_scene is None:
+            return []
+        plants: list[str] = []
+        for item in self._canvas_scene.items():
+            if not hasattr(item, "plant_species"):
+                continue
+            # parent_bed_id is a property on GardenItem, not in metadata
+            parent = getattr(item, "parent_bed_id", None)
+            if parent and str(parent) == bed_id:
+                sp = self._species_name(item)
+                if sp:
+                    plants.append(sp.lower())
+        return plants
+
+    def _highlight_members(self, members: list[str]) -> None:
+        """Highlight the selected members on the canvas (if already placed).
+
+        This is a GUI-only action — it does not insert new plants. The
+        actual insertion would require a separate create-plants path.
+        """
+        for member in members:
+            self.highlight_species_requested.emit(member)
+
+
+class CompatibleSetDialog(QDialog):
+    """Dialog showing compatible plant sets for a bed (US-D3.1).
+
+    Sets are ranked by how many of the bed's CURRENT plants each one already
+    satisfies, so the top row is the set that agrees with the most of what is
+    already planted. ``conflicts`` carries only bed plants that are genuinely
+    ANTAGONISTIC to another bed plant — absence from a set is not a clash, and
+    is listed separately as ``uncovered`` with neutral wording, because calling
+    it a conflict once told users a bundled-beneficial pair did not work
+    together.
+    """
+
+    def __init__(
+        self,
+        sets: list[dict],
+        existing_plants: list[str],
+        conflicts: list[dict] | None = None,
+        uncovered: list[str] | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self._sets = sets
+        self._existing_plants = existing_plants
+        self._conflicts = conflicts or []
+        self._uncovered = uncovered or []
+        self._selected: list[str] = []
+        self._setup_ui()
+
+    def _setup_ui(self) -> None:
+        self.setWindowTitle(self.tr("Compatible Plant Sets"))
+        layout = QVBoxLayout(self)
+
+        if self._existing_plants:
+            # Inline {named} fields, NOT Qt's positional %1. `.format()` on a
+            # "%1" string is a SILENT no-op -- there is no {field} to fill, so
+            # it returned the literal and the bed's plants were never shown at
+            # all. The registered translations for these three strings are in
+            # {named} form, so this is also the only variant present in the
+            # .ts; a %1 literal matches neither the table nor the output,
+            # which is why the i18n gate was structurally blind to it.
+            label = QLabel(
+                self.tr("Already in bed: {plants}").format(
+                    plants=", ".join(self._existing_plants)
+                )
+            )
+            set_text_role(label, "hint")
+            layout.addWidget(label)
+
+        bed_count = len(self._existing_plants)
+        self._list = QListWidget()
+        self._list.setAlternatingRowColors(True)
+        for entry in self._sets:
+            members_str = ", ".join(entry["members"])
+            score = entry.get("score", 0.0)
+            covers = entry.get("covers", [])
+            if entry.get("covers_all") and bed_count:
+                suffix = self.tr("keeps all {count} already planted").format(
+                    count=bed_count
+                )
+            elif covers:
+                suffix = self.tr("keeps {count} of {total} already planted").format(
+                    count=len(covers), total=bed_count
+                )
+            else:
+                suffix = self.tr("replaces what is planted")
+            item = QListWidgetItem(
+                self.tr("{members}  (score: {score:.1f}) — {note}").format(
+                    members=members_str, score=score, note=suffix
+                )
+            )
+            item.setData(Qt.ItemDataRole.UserRole, entry["members"])
+            self._list.addItem(item)
+        if self._sets:
+            self._list.setCurrentRow(0)
+        layout.addWidget(self._list)
+
+        if not self._sets:
+            label = QLabel(
+                self.tr(
+                    "No compatible set found among the plants already in this bed "
+                    "and their companions."
+                )
+            )
+            set_text_role(label, "hint")
+            layout.addWidget(label)
+
+        # Name genuine bed-internal clashes. A plant that merely fits no set of
+        # this size is NOT a clash — saying so told users mint does not go with
+        # cabbage when the bundled data says it does.
+        for conflict in self._conflicts:
+            text = self.tr("{plant} clashes with {others} already in this bed.").format(
+                plant=conflict["species_key"],
+                others=", ".join(conflict.get("antagonistic_to", [])),
+            )
+            label = QLabel(text)
+            set_text_role(label, "h2", "warning")
+            label.setWordWrap(True)
+            layout.addWidget(label)
+
+        for name in self._uncovered:
+            if any(c["species_key"] == name for c in self._conflicts):
+                continue
+            label = QLabel(
+                self.tr("{plant} is not part of any of these sets.").format(plant=name)
+            )
+            set_text_role(label, "hint")
+            label.setWordWrap(True)
+            layout.addWidget(label)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self._on_accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def _on_accept(self) -> None:
+        item = self._list.currentItem()
+        if item:
+            self._selected = item.data(Qt.ItemDataRole.UserRole)
+        self.accept()
+
+    def get_selected_set(self) -> list[str]:
+        """Return the selected set's member list."""
+        return self._selected

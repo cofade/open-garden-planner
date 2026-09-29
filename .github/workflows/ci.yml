@@ -82,3 +82,25 @@ jobs:
 
       - name: Run Bandit (fail on HIGH severity)
         run: bandit -r src/ --severity-level high
+
+      # Credential scan over EVERY tracked file, not just src/.
+      #
+      # Added after a live Agent API write token was committed to the repo root
+      # in a throwaway verification script and pushed (PR #369, 2026-09-29).
+      # Bandit never saw it: it runs `-r src/`, and the file was at the repo
+      # root — outside that scope — and Bandit has no rule for a credential in
+      # a URL query string, which is exactly how OGP's token travels.
+      #
+      # gitleaks was tried first and rejected on measurement, not taste: its
+      # `generic-api-key` rule matches identifier NAMES, and this repo's
+      # vocabulary is full of them (`species_key`, `exclude_antagonists_of`, a
+      # "Shift+Arrow Keys" row in the translation table) — 29 findings, zero
+      # real secrets. Suppressing that rule is not viable either, because it is
+      # the rule that catches an OGP token. An `[[allowlists]]` scoped by rule
+      # + path was silently ignored under `[extend] useDefault`: identical
+      # finding count with and without it. A gate nobody can keep green is a
+      # gate that ends up catching nothing, so this targets the specific
+      # credential formats instead — see scripts/check_no_secrets.py for the
+      # rejected alternatives and the reasoning.
+      - name: Check for committed secrets
+        run: python scripts/check_no_secrets.py

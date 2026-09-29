@@ -685,3 +685,156 @@ def test_the_release_workflow_still_attests_build_provenance() -> None:
         "exact file Defender quarantined in issue #356, attesting only the "
         "installer does not let a user verify it"
     )
+
+
+
+
+def test_ci_still_scans_for_committed_secrets() -> None:
+    """A live Agent API write token was committed and pushed (PR #369, 2026-09-29).
+
+    The token had to be rotated by hand, because Bandit runs as `-r src/` (the
+    file was at the repo root) and has no rule for a credential in a URL query
+    string — which is exactly how OGP's token travels.
+
+    Pins the three things that make the gate load-bearing, each of which a
+    plausible edit could silently drop while every other assertion here stays
+    green:
+
+    * the step existing at all, and running in the SECURITY job rather than
+      being tucked somewhere that is allowed to fail;
+    * the checker itself still existing as a script CI invokes — a deleted
+      script with a passing `if [ -f ]` guard is a gate that is simply gone;
+    * Bandit still running alongside it, since a credential scan and SAST are
+      complementary, not substitutes.
+    """
+    text = (_REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+    assert "check_no_secrets.py" in text, (
+        "ci.yml no longer runs the committed-secret scan — the repo has no "
+        "other check that would notice a credential, and a committed write "
+        "token is exactly the failure no other gate covers"
+    )
+
+    script = _REPO_ROOT / "scripts" / "check_no_secrets.py"
+    assert script.is_file(), (
+        "ci.yml invokes scripts/check_no_secrets.py but the script is gone — "
+        "the step will fail on every run until it is restored"
+    )
+
+    assert "bandit" in text, (
+        "ci.yml no longer runs Bandit — the secret scan is a credential check, "
+        "not a replacement for SAST"
+    )
+
+
+class TestCheckNoSecrets:
+    """The secret checker must catch real credentials and nothing else.
+
+    Both halves matter and they pull against each other. A checker that misses
+    the real format is worse than no checker; one that fires on a variable
+    named ``species_key`` is deleted after its first false alarm. gitleaks was
+    rejected for exactly the second failure (29 findings, zero secrets) while
+    being the thing that caught the real one — see the checker's module
+    docstring.
+    """
+
+    # Each case is (label, filename-tag, line that MUST be reported).
+    _MUST_CATCH = [
+        (
+            "ogp agent-api token in a url",
+            "ogp",
+            # 43 x "a": matches `?token=[A-Za-z0-9_-]{40,50}` (which is what
+            # secrets.token_urlsafe() produces) while being unmistakably fake.
+            'URL = "http://127.0.0.1:8765/mcp'
+            '?token=' + "a" * 43 + '"',
+        ),
+        ("aws access key id", "aws", 'KEY = "AKIA' + "A" * 16 + '"'),
+        ("github pat", "ghp", 'TOKEN = "ghp_' + "b" * 40 + '"'),
+        ("slack token", "slack", 'T = "xoxb-' + "c" * 24 + '"'),
+        # The Agent API token's OTHER supported delivery channel. Not
+        # hypothetical: _bearer_token_middleware accepts it and
+        # WriteAuthError's guidance tells users to fall back to it. A gate
+        # written for a write-token incident that only covered ?token= would
+        # have missed half the surface.
+        (
+            "ogp agent-api token as bearer",
+            "bearer",
+            'HEADERS = {"Authorization": "Bearer ' + "d" * 43 + '"}',
+        ),
+        # Same credential, LOWERCASE scheme. Not a contrived variant:
+        # server.py:219 does `raw[:7].lower() == "bearer "`, so the server
+        # accepts it and it is a working credential. A case-sensitive rule
+        # would have flagged the canonical spelling and waved this through.
+        (
+            "ogp agent-api token as lowercase bearer",
+            "bearer",
+            'HEADERS = {"authorization": "bearer ' + "e" * 43 + '"}',
+        ),
+        # Assembled from fragments: the checker's own test file must not contain a
+        # credential-shaped LITERAL, or it fails its own gate. Concatenation
+        # defeats the single-regex-per-line match while producing the exact
+        # bytes at runtime, which is what the assertion is about.
+        ("private key header", "pk", "-----BEGIN " + "RSA " + "PRIVATE KEY" + "-----"),
+    ]
+
+    # Shapes that a generic high-entropy / identifier rule flags. These are the
+    # 29 findings that disqualified gitleaks; every one of them must stay
+    # silent, or the gate gets removed and then catches nothing.
+    _MUST_NOT_FLAG = [
+        ("species_key kwarg", "service, species_key, exclude_antagonists_of=exclude_antagonists_of"),
+        ("translation-table Keys row", '"Shift+Arrow Keys": "Umschalt+Pfeiltasten",'),
+        ("layer_id assignment", 'layer_id = meta.get("parent_bed_id")'),
+        ("token_urlsafe call", "token = secrets.token_urlsafe(32)"),
+        ("doc placeholder", 'url = "http://127.0.0.1:8765/mcp?token=<token>"'),
+    ]
+
+    def _scan_with_canary(self, tag: str, line: str):
+        """Stage a canary file, scan, then unstage and delete it.
+
+        The checker deliberately reads only git-TRACKED files, so an untracked
+        scratch file must not be able to fail a build. That makes this test
+        stage the canary, which is also what a real leak would be.
+        """
+        import subprocess
+        from pathlib import Path
+
+        from scripts.check_no_secrets import check_repo
+
+        root = Path(__file__).resolve().parents[2]
+        canary = root / "scripts" / f"_canary_{tag}.py"
+        canary.write_text(line + "\n", encoding="utf-8")
+        subprocess.run(["git", "add", "--", str(canary)], cwd=root, capture_output=True)
+        try:
+            return [f for f in check_repo(root) if canary.name in f]
+        finally:
+            subprocess.run(
+                ["git", "rm", "--cached", "-q", "--", str(canary)],
+                cwd=root,
+                capture_output=True,
+            )
+            canary.unlink(missing_ok=True)
+
+    @pytest.mark.parametrize("label,tag,line", _MUST_CATCH, ids=[c[0] for c in _MUST_CATCH])
+    def test_catches_real_credential(self, label, tag, line) -> None:
+        found = self._scan_with_canary(tag, line)
+        assert found, f"the secret checker missed a real credential: {label}"
+
+    @pytest.mark.parametrize(
+        "label,line", _MUST_NOT_FLAG, ids=[c[0] for c in _MUST_NOT_FLAG]
+    )
+    def test_does_not_flag_identifier_noise(self, label, line) -> None:
+        found = self._scan_with_canary(f"fp_{abs(hash(line)) % 10**8}", line)
+        assert not found, (
+            f"the secret checker flagged ordinary code ({label}): {found} — "
+            "a gate that cries wolf on variable names gets deleted, and then "
+            "it catches nothing"
+        )
+
+    def test_the_real_tree_is_clean(self) -> None:
+        from scripts.check_no_secrets import check_repo
+
+        assert check_repo(_REPO_ROOT) == [], (
+            "the committed tree contains a credential-shaped string; if this is "
+            "a real secret, ROTATE IT — deleting the file in a later commit "
+            "does not unpublish it"
+        )

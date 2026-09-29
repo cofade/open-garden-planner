@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import pytest
+
+from open_garden_planner.services import companion_cache
 from open_garden_planner.services.companion_cache import (
     clear_cache,
     get_cached_companions,
@@ -10,6 +13,27 @@ from open_garden_planner.services.companion_cache import (
 from open_garden_planner.services.companion_planting_service import (
     CompanionPlantingService,
 )
+
+
+@pytest.fixture(autouse=True)
+def _isolated_cache(monkeypatch, tmp_path):
+    """Give every test in this module a private cache dir AND an empty in-memory cache.
+
+    Patching ``get_cache_dir`` alone was not enough, and that is why
+    ``test_clear_cache`` was RED in any full-suite run while passing alone:
+    ``companion_cache`` memoises the parsed file in a module-level
+    ``_memory_cache``, which survives ``monkeypatch`` teardown. A sibling test
+    that called ``add_provider_companions`` populated it, so the next test's
+    ``set_cached_companions`` added to a STALE dict and ``clear_cache()``
+    reported its entries too. Pre-existing since #318; the suite's only red,
+    which is worse than useless — a red gate nobody trusts.
+    """
+    monkeypatch.setattr(
+        "open_garden_planner.services.companion_cache.get_cache_dir",
+        lambda: tmp_path,
+    )
+    monkeypatch.setattr(companion_cache, "_memory_cache", None)
+    yield
 
 
 class TestCompanionCache:

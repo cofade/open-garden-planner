@@ -617,3 +617,127 @@ class HistoryResult(BaseModel):
     can_redo: bool = Field(
         description="Whether another redo operation is available after this call."
     )
+
+
+class HistoryState(BaseModel):
+    """Read-only snapshot of the global undo/redo stack state (US-D2.7).
+
+    Lets an agent assert the D2 undo contract — "one call = one undo step"
+    and "refusals leave the stack untouched" — without reading the GUI's
+    Edit menu. Read-only: never mutates the stack.
+    """
+
+    undo_depth: int = Field(
+        description="Number of commands currently on the undo stack."
+    )
+    redo_depth: int = Field(
+        description="Number of commands currently on the redo stack."
+    )
+    next_undo_text: str | None = Field(
+        default=None,
+        description="Description of the command the next undo would reverse "
+        "(the same string the GUI's Edit menu shows), or null if the undo "
+        "stack is empty.",
+    )
+    next_redo_text: str | None = Field(
+        default=None,
+        description="Description of the command the next redo would reapply "
+        "(the same string the GUI's Edit menu shows), or null if the redo "
+        "stack is empty.",
+    )
+
+
+# --- US-D3.1: domain-intelligence tools ------------------------------------
+
+
+class CompanionSuggestion(BaseModel):
+    """One companion suggestion with ranking metadata (US-D3.1)."""
+
+    species_key: str = Field(
+        description="Canonical species key (lowercase common name)."
+    )
+    name: str = Field(description="Display name of the companion plant.")
+    reasons: list[str] = Field(
+        default_factory=list,
+        description="Why this plant is suggested (e.g. 'beneficial to apple', "
+        "'beneficial to chives').",
+    )
+    source: str = Field(
+        description="Where the relationship data came from: 'bundled', 'custom', "
+        "or 'permapeople'."
+    )
+    score: float = Field(
+        description="Ranking score — higher is better. Computed from the number "
+        "of beneficial edges to the query and to already-present bed members, "
+        "minus antagonisms."
+    )
+
+
+class CompatibleSet(BaseModel):
+    """A mutually compatible set of plants (US-D3.1).
+
+    Computed via Bron–Kerbosch over the beneficial companion graph, with
+    antagonist edges as hard exclusions. Each set is a maximal clique of
+    mutually beneficial, non-antagonistic species.
+    """
+
+    members: list[str] = Field(
+        description="Species keys in the set, sorted alphabetically."
+    )
+    size: int = Field(description="Number of plants in the set.")
+    score: float = Field(
+        description="Compatibility score — higher is better. Based on the "
+        "number of beneficial edges within the set."
+    )
+    coverage: str = Field(
+        description="Data coverage: 'full' if all members have bundled data, "
+        "'bundled_only' if some members are from the provider, 'partial' if "
+        "some members have no data at all."
+    )
+    covers: list[str] = Field(
+        default_factory=list,
+        description="Which of the bed's CURRENT plants this set already "
+        "satisfies — the ranking key for a bed-scoped search, and the reason "
+        "this set is offered. Empty for a plain candidate search.",
+    )
+    covers_all: bool = Field(
+        default=False,
+        description="True when this set keeps every plant currently in the bed. "
+        "False for a plain candidate search.",
+    )
+
+
+class PlacementCheck(BaseModel):
+    """Result of checking whether a species is well-placed in a bed (US-D3.1).
+
+    Reuses the existing diagnostics logic — never a second implementation.
+    """
+
+    species_key: str = Field(description="The species that was checked.")
+    bed_id: str = Field(description="The bed that was checked.")
+    antagonists_present: list[str] = Field(
+        default_factory=list,
+        description="Species keys of antagonistic plants already in the bed."
+    )
+    companions_present: list[str] = Field(
+        default_factory=list,
+        description="Species keys of beneficial companions already in the bed."
+    )
+    spacing_ok: bool | None = Field(
+        default=None,
+        description="True if the species' spacing requirements can be met, "
+        "False if not, or None if not yet checked (spacing diagnostics "
+        "are available via get_diagnostics)."
+    )
+    soil_ok: bool | None = Field(
+        default=None,
+        description="True if the bed's soil/pH matches the species' "
+        "requirements, False if not, or None if not yet checked (soil "
+        "diagnostics are available via get_diagnostics)."
+    )
+    overall: str = Field(
+        description="'good' if companions present and no antagonists, 'neutral' "
+        "if the bed has plants but none relate to this species, 'critical' if "
+        "an antagonist is present, 'unknown_bed' if bed_id does not resolve to "
+        "a real bed, or 'unknown' if the bed's contents could not be read."
+    )

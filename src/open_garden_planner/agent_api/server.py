@@ -78,14 +78,18 @@ from open_garden_planner.agent_api.mapping import (
 from open_garden_planner.agent_api.providers import AgentProviders
 from open_garden_planner.agent_api.render import DEFAULT_IMAGE_PX
 from open_garden_planner.agent_api.schema import (
+    CompanionSuggestion,
+    CompatibleSet,
     Diagnostic,
     ExportResult,
     GeometryResult,
     HistoryResult,
+    HistoryState,
     Layer,
     Measurement,
     ObjectDetail,
     ObjectRef,
+    PlacementCheck,
     PlanLifecycleResult,
     PlanSummary,
     RenderMeta,
@@ -502,6 +506,143 @@ def build_server(
         """
         records = await anyio.to_thread.run_sync(providers.diagnostics)
         return diagnostics_from_records(records, kind=kind)
+
+    @mcp.tool()
+    async def get_history() -> HistoryState:
+        """Report the current undo/redo stack state (US-D2.7, read-only).
+
+        Lets an agent assert the D2 undo contract — "one call = one undo step"
+        and "refusals leave the stack untouched" — without reading the GUI's
+        Edit menu. This is the same global LIFO stack Ctrl+Z / undo / redo
+        use; calling this tool never mutates it.
+
+        Returns:
+            HistoryState with undo_depth, redo_depth, next_undo_text, and
+            next_redo_text (the same strings the GUI's Edit menu shows).
+        """
+        result = await anyio.to_thread.run_sync(providers.get_history)
+        return HistoryState(**result)
+
+    # --- US-D3.1: domain-intelligence tools (read-only) ----------------------
+
+    @mcp.tool()
+    async def suggest_companions(
+        species_key: str,
+        exclude_antagonists_of: list[str] | None = None,
+    ) -> list[CompanionSuggestion]:
+        """Suggest companion plants for a species, ranked by benefit (US-D3.1).
+
+        Returns a ranked list of beneficial companions with reasons and
+        source attribution. Antagonists of the excluded species are filtered
+        out. Read-only; no token required.
+
+        Args:
+            species_key: The species to find companions for (common name,
+                scientific name, or alias).
+            exclude_antagonists_of: Optional list of species keys whose
+                antagonists should be excluded (e.g. plants already in the bed).
+        """
+        result = await anyio.to_thread.run_sync(
+            lambda: providers.suggest_companions(species_key, exclude_antagonists_of)
+        )
+        return [CompanionSuggestion(**item) for item in result]
+
+    @mcp.tool()
+    async def find_compatible_sets(
+        candidates: list[str],
+        size: int = 3,
+        must_include: list[str] | None = None,
+    ) -> list[CompatibleSet]:
+        """Find mutually compatible sets of plants among candidates (US-D3.1).
+
+        Uses Bron–Kerbosch over the beneficial companion graph, with
+        antagonist edges as hard exclusions. Each set is a maximal clique of
+        mutually beneficial, non-antagonistic species. Read-only; no token
+        required.
+
+        Args:
+            candidates: Species keys to consider. Capped at 60 PLUS anything in
+                must_include, which is never dropped by the cap.
+            size: Minimum set size, 2–5. This is a FLOOR, not an exact target:
+                a request for 4 or 5 legitimately returns nothing when the graph
+                has no clique that large.
+            must_include: Species keys that must be in every returned set
+                (e.g. plants already in the bed). NOTE: requiring a whole bed's
+                plants makes the result empty for most real beds — use
+                find_sets_for_bed, which ranks by bed coverage instead.
+        """
+        result = await anyio.to_thread.run_sync(
+            lambda: providers.find_compatible_sets(candidates, size, must_include)
+        )
+        return [CompatibleSet(**item) for item in result]
+
+    @mcp.tool()
+    async def find_sets_for_bed(bed_plants: list[str], size: int = 3) -> dict[str, Any]:
+        """Compatible planting sets for the plants ALREADY in a bed, ranked.
+
+        This is the tool to reach for when the question is "what should I plant
+        in this bed?" rather than "which plants go together?". It is NOT
+        find_compatible_sets with must_include=bed_plants: maximal-clique search
+        only emits maximal sets, so requiring every bed plant to appear in every
+        set returns nothing for most real beds (measured: 91% of two-plant beds,
+        100% of three-plant beds) — which is exactly the situation the caller is
+        trying to resolve.
+
+        Builds a palette from the given plants plus their beneficial companions,
+        finds the mutually compatible sets, and ranks them by how many of
+        ``bed_plants`` each one already satisfies.
+
+        A bed-internal antagonism is reported in ``conflicts`` and is the only
+        thing that blocks keeping everything. ``uncovered`` lists plants in no
+        returned set and makes NO claim about why — a plant absent because no
+        third mutual partner exists is not a clash.
+
+        Args:
+            bed_plants: Species keys of the plants currently in the bed.
+            size: Preferred set size, 2–5. The search steps DOWN from this
+                rather than returning nothing when no set of exactly this size
+                exists; ``searched_size`` reports what was actually used.
+        """
+        result = await anyio.to_thread.run_sync(
+            lambda: providers.find_sets_for_bed(bed_plants, size)
+        )
+        return {
+            "sets": result["sets"],
+            "conflicts": result["conflicts"],
+            "uncovered": result["uncovered"],
+            "bed_plants": result["bed_plants"],
+            "searched_size": result["searched_size"],
+        }
+
+    @mcp.tool()
+    async def check_placement(
+        species_key: str,
+        bed_id: str,
+        bed_plants: list[str] | None = None,
+    ) -> PlacementCheck:
+        """Check a species against the plants already in a bed (US-D3.1).
+
+        Reports which of the bed's plants are antagonistic or beneficial to the
+        species, read from the same companion database the GUI's Companion panel
+        uses. Read-only; no token required.
+
+        NOT CHECKED HERE: spacing and soil. Both come back as null on purpose —
+        the full diagnostics are available via get_diagnostics, and reporting a
+        fabricated True would be worse than reporting nothing.
+
+        Args:
+            species_key: The species to check.
+            bed_id: The bed to check against. It is RESOLVED, so an id that
+                names no bed reports overall='unknown_bed' rather than looking
+                like an empty bed.
+            bed_plants: Optional override for the bed's contents. Omit it to
+                read the bed's real plants from the plan; pass it only to ask
+                about a hypothetical arrangement.
+        """
+        result = await anyio.to_thread.run_sync(
+            lambda: providers.check_placement(species_key, bed_id, bed_plants)
+        )
+        return PlacementCheck(**result)
 
     @mcp.tool()
     async def list_layers() -> list[Layer]:
@@ -1486,6 +1627,52 @@ def build_server(
         snapshot = await anyio.to_thread.run_sync(providers.snapshot)
         return agent_prompts.render_describe_garden_prompt(
             plan_summary_from_snapshot(snapshot), queries.list_objects(snapshot)
+        )
+
+    @mcp.prompt(name="plan-polyculture-bed")
+    async def plan_polyculture_bed(bed_id: str) -> str:
+        """Plan a polyculture bed using compatible sets (US-D3.1).
+
+        Finds compatible sets among the bed's current plants plus common
+        companions, then asks the agent to choose the best set.
+        """
+        snapshot = await anyio.to_thread.run_sync(providers.snapshot)
+        # Find the bed and its plants
+        bed_obj = queries.get_object(snapshot, bed_id)
+        existing_plants: list[str] = []
+        if bed_obj and hasattr(bed_obj, "child_item_ids"):
+            for child_id in bed_obj.child_item_ids:
+                child = queries.get_object(snapshot, child_id)
+                # species_NAME, not species_key: ObjectDetail.species_key is
+                # populated from the top-level `plant_species` ATTRIBUTE, which
+                # only a gallery-picked plant has — a plant assigned by species
+                # search, or by the agent's own set_species tool, stores the
+                # record in metadata and leaves the attribute unset, so
+                # species_key is None. queries._species_name covers both cases
+                # and is exactly what this needs (P1-2). Reading species_key
+                # here silently dropped every search-assigned plant, so a bed
+                # of them rendered as empty AND the corn/tomato antagonism this
+                # prompt exists to surface was never reported.
+                if child is not None:
+                    name = child.species_name or child.species_key
+                    if name:
+                        existing_plants.append(name)
+
+        # Rank sets by bed coverage and surface conflicts. NOT
+        # find_compatible_sets(must_include=existing_plants) — that returns
+        # nothing unless the bed already is a complete clique (P0-2), and then
+        # the prompt advises "add more species", which cannot help.
+        result = await anyio.to_thread.run_sync(
+            lambda: providers.find_sets_for_bed(existing_plants, 3)
+        )
+
+        return agent_prompts.render_plan_polyculture_bed_prompt(
+            bed_id,
+            [CompatibleSet(**s) for s in result["sets"]],
+            result["bed_plants"],
+            result["conflicts"],
+            result["uncovered"],
+            result["searched_size"],
         )
 
     return mcp

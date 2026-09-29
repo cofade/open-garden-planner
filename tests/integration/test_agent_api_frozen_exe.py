@@ -79,6 +79,11 @@ def _providers() -> AgentProviders:
         set_layer_property=_unused,
         undo=_unused,
         redo=_unused,
+        get_history=_unused,
+        suggest_companions=_unused,
+        find_compatible_sets=_unused,
+        find_sets_for_bed=_unused,
+        check_placement=_unused,
     )
 
 

@@ -1021,6 +1021,14 @@
             <source>= already nearby in plan  (click to select)</source>
             <translation>= bereits in der Nähe im Plan  (klicken zum Auswählen)</translation>
         </message>
+        <message>
+            <source>Suggest a compatible set…</source>
+            <translation>Kompatible Kombination vorschlagen …</translation>
+        </message>
+        <message>
+            <source>Find mutually compatible plant sets for this bed</source>
+            <translation>Finde gegenseitig kompatible Pflanzkombinationen für dieses Beet</translation>
+        </message>
     </context>
     <context>
         <name>ConstraintConflictDialog</name>
@@ -11165,6 +11173,49 @@ Details: {error}</translation>
         <message>
             <source>Send to Back</source>
             <translation>Ganz nach hinten</translation>
+        </message>
+    </context>
+    <context>
+        <name>CompatibleSetDialog</name>
+        <message>
+            <source>Compatible Plant Sets</source>
+            <translation>Kompatible Pflanzkombinationen</translation>
+        </message>
+        <message>
+            <source>Already in bed: {plants}</source>
+            <translation>Bereits im Beet: {plants}</translation>
+        </message>
+        <message>
+            <source>{members}  (score: {score:.1f}) — {note}</source>
+            <translation>{members}  (Bewertung: {score:.1f}) — {note}</translation>
+        </message>
+        <message>
+            <source>keeps all {count} already planted</source>
+            <translation>behält alle {count} bereits gepflanzten</translation>
+        </message>
+        <message>
+            <source>keeps {count} of {total} already planted</source>
+            <translation>behält {count} von {total} bereits gepflanzten</translation>
+        </message>
+        <message>
+            <source>replaces what is planted</source>
+            <translation>ersetzt die Bepflanzung</translation>
+        </message>
+        <message>
+            <source>No compatible set found among the plants already in this bed and their companions.</source>
+            <translation>Keine kompatible Kombination unter den bereits in diesem Beet gepflanzten Pflanzen und ihren Begleitpflanzen gefunden.</translation>
+        </message>
+        <message>
+            <source>{plant} clashes with {others} already in this bed.</source>
+            <translation>{plant} verträgt sich nicht mit {others}, die bereits in diesem Beet stehen.</translation>
+        </message>
+        <message>
+            <source>{plant} has no compatible set with the other plants in this bed.</source>
+            <translation>{plant} ergibt mit den anderen Pflanzen in diesem Beet keine kompatible Kombination.</translation>
+        </message>
+        <message>
+            <source>{plant} is not part of any of these sets.</source>
+            <translation>{plant} ist in keiner dieser Kombinationen enthalten.</translation>
         </message>
     </context>
 </TS>

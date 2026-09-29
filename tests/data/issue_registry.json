@@ -336,7 +336,7 @@
   },
   "311": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "US-G1: In-app data attribution & licence notice — Permapeople (CC BY-SA 4.0), Trefle, Perenual, bundled data (Package G — Plant data quality; compliance, do first)"
   },
   "312": {
@@ -351,12 +351,12 @@
   },
   "317": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "US-G2: Plant profile header — image, description, external links (Wikipedia / PFAF / POWO) in Plant Details (Package G, independent)"
   },
   "318": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "US-G3: Fetch companion/antagonist data from Permapeople /plants/{id}/companions with local cache + source tags (Package G, after US-G1 #311)"
   },
   "319": {
@@ -548,5 +548,15 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#366,#365): registry-driven client onboarding + agent document lifecycle tools"
+  },
+  "368": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(US-G1,G2,G3): plant data attribution, profile header, and Permapeople companions"
+  },
+  "369": {
+    "is_pr": true,
+    "state": "CLOSED",
+    "title": "feat(US-D3.1,D2.7): agent domain intelligence tools + get_history"
   }
 }

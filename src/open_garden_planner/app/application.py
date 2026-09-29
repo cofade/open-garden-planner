@@ -911,6 +911,178 @@ class GardenPlannerApp(QMainWindow):
             "can_redo": manager.can_redo,
         }
 
+    def _agent_get_history(self) -> dict[str, Any]:
+        """Read the undo/redo stack state (US-D2.7, read-only)."""
+        from open_garden_planner.agent_api.history import history_from_command_manager
+
+        return self._agent_bridge.run_on_main(
+            lambda: history_from_command_manager(
+                self.canvas_view.command_manager
+            ).model_dump()
+        )
+
+    def _agent_suggest_companions(
+        self,
+        species_key: str,
+        exclude_antagonists_of: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Suggest companion plants for a species (US-D3.1, read-only)."""
+        from open_garden_planner.agent_api.domain import suggest_companions_for_agent
+
+        return self._agent_bridge.run_on_main(
+            lambda: [
+                s.model_dump()
+                for s in suggest_companions_for_agent(
+                    self._companion_service,
+                    species_key,
+                    exclude_antagonists_of=exclude_antagonists_of,
+                )
+            ]
+        )
+
+    def _agent_find_compatible_sets(
+        self,
+        candidates: list[str],
+        size: int = 3,
+        must_include: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Find mutually compatible sets of plants (US-D3.1, read-only)."""
+        from open_garden_planner.agent_api.domain import find_compatible_sets_for_agent
+
+        return self._agent_bridge.run_on_main(
+            lambda: [
+                s.model_dump()
+                for s in find_compatible_sets_for_agent(
+                    self._companion_service,
+                    candidates,
+                    size=size,
+                    must_include=must_include,
+                )
+            ]
+        )
+
+    def _agent_find_sets_for_bed(
+        self,
+        bed_plants: list[str],
+        size: int = 3,
+    ) -> dict[str, Any]:
+        """Rank compatible sets by bed coverage (US-D3.1, read-only)."""
+        from open_garden_planner.services.companion_sets import find_sets_for_bed
+
+        return self._agent_bridge.run_on_main(
+            lambda: find_sets_for_bed(self._companion_service, bed_plants, size=size)
+        )
+
+    def _agent_check_placement(
+        self,
+        species_key: str,
+        bed_id: str,
+        bed_plants: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Check whether a species is well-placed in a bed (US-D3.1, read-only)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_check_placement(species_key, bed_id, bed_plants)
+        )
+
+    def _do_agent_check_placement(
+        self,
+        species_key: str,
+        bed_id: str,
+        bed_plants: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Main-thread body of the read-only MCP ``check_placement`` tool.
+
+        Resolves the bed's own plants when the caller did not supply them, so
+        an unknown ``bed_id`` is reported as such instead of looking like an
+        empty bed (P1-5).
+
+        Bed membership in this codebase is the ``parent_bed_id`` PROPERTY on
+        ``GardenItem`` — NOT Qt item parenting. ``bed.childItems()`` returns
+        ``[]`` for every real bed (``setParentItem`` is used only for label
+        items), so the first version of this silently reported every bed as
+        empty and answered ``overall="neutral"`` for a bed whose real answer
+        was ``"critical"`` — a fabricated clean result, the exact failure class
+        this tool exists to avoid. Membership is read the way
+        ``queries.plants_in_bed`` does, and ``bed_exists`` is resolved
+        UNCONDITIONALLY so supplying ``bed_plants`` cannot bypass the
+        existence check.
+        """
+        from open_garden_planner.agent_api.domain import check_placement_for_agent
+        from open_garden_planner.core.object_types import is_plant_parent_type
+
+        bed_exists: bool | None = None
+        try:
+            target_id = UUID(bed_id)
+        except (ValueError, TypeError, AttributeError):
+            target_id = None
+
+        resolved = bed_plants
+        if target_id is not None:
+            bed = self.canvas_scene.find_item_by_id(target_id)
+            # Existence is NOT enough: a plant's own id, or a shape's, also
+            # resolves. Reporting "neutral" for a non-bed says "I inspected
+            # this bed's plants and none relate" about an object that is not a
+            # bed — the same fabrication ADR-045's honesty invariant forbids,
+            # and the published contract says an id that names no bed is
+            # `unknown_bed`. `is_plant_parent_type` is the codebase's own
+            # predicate for "can hold plants" and covers every bed type plus
+            # TRELLIS.
+            if bed is None or not is_plant_parent_type(
+                getattr(bed, "object_type", None)
+            ):
+                bed_exists = False
+            else:
+                bed_exists = True
+                if resolved is None:
+                    resolved = self._agent_bed_species_keys(target_id)
+        else:
+            bed_exists = False
+
+        if resolved is None and bed_exists is not False:
+            # Bed exists but we could not enumerate it — say so rather than
+            # implying the bed is empty.
+            bed_exists = None
+
+        return check_placement_for_agent(
+            self._companion_service,
+            species_key,
+            bed_id,
+            bed_plants=resolved,
+            bed_exists=bed_exists,
+        ).model_dump()
+
+    def _agent_bed_species_keys(self, bed_id: UUID) -> list[str]:
+        """Species keys of the plants linked to ``bed_id``.
+
+        Reads the ``parent_bed_id`` PROPERTY, which is how this codebase
+        records bed membership (``queries.plants_in_bed`` does the same, and
+        ``canvas_scene``/``commands`` maintain it). Returns ``None`` only if
+        the scene cannot be walked at all, so the caller can tell "the bed is
+        empty" apart from "I could not look".
+        """
+        try:
+            items = list(self.canvas_scene.items())
+        except Exception:
+            return None
+
+        out: list[str] = []
+        for item in items:
+            if getattr(item, "parent_bed_id", None) != bed_id:
+                continue
+            # Delegate to the SHARED resolver rather than re-implementing the
+            # precedence. This was attribute-first while
+            # `_companion_species_name` and `queries._species_name` are
+            # metadata-first, so on a plant where both are set and DISAGREE
+            # (a gallery drop sets both; a later species-search assignment
+            # overwrites only the metadata) the agent resolved the stale
+            # attribute and found zero relationships while the panel found real
+            # ones. One resolver, one answer (the same divergence class ADR-045's
+            # addendum is about).
+            name = self._companion_species_name(item)
+            if name:
+                out.append(str(name).lower())
+        return out
+
     def _agent_linked_roof_ridge(self, item: Any) -> list[Any]:
         """A HOUSE's linked ``ROOF_RIDGE`` item, if any — mirroring
         ``CanvasView._delete_selected_items``'s ``ridge_item_id`` expansion so
@@ -2222,6 +2394,11 @@ class GardenPlannerApp(QMainWindow):
             set_layer_property=self._agent_set_layer_property,
             undo=self._agent_undo,
             redo=self._agent_redo,
+            get_history=self._agent_get_history,
+            suggest_companions=self._agent_suggest_companions,
+            find_compatible_sets=self._agent_find_compatible_sets,
+            find_sets_for_bed=self._agent_find_sets_for_bed,
+            check_placement=self._agent_check_placement,
         )
 
     def _stop_agent_api(self) -> None:
