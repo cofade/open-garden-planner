@@ -761,6 +761,15 @@ class TestCheckNoSecrets:
             "bearer",
             'HEADERS = {"Authorization": "Bearer ' + "d" * 43 + '"}',
         ),
+        # Same credential, LOWERCASE scheme. Not a contrived variant:
+        # server.py:219 does `raw[:7].lower() == "bearer "`, so the server
+        # accepts it and it is a working credential. A case-sensitive rule
+        # would have flagged the canonical spelling and waved this through.
+        (
+            "ogp agent-api token as lowercase bearer",
+            "bearer",
+            'HEADERS = {"authorization": "bearer ' + "e" * 43 + '"}',
+        ),
         # Assembled from fragments: the checker's own test file must not contain a
         # credential-shaped LITERAL, or it fails its own gate. Concatenation
         # defeats the single-regex-per-line match while producing the exact

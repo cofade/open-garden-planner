@@ -72,13 +72,16 @@ RULES: list[tuple[str, re.Pattern[str], str]] = [
     ),
     (
         "ogp-agent-api-token-bearer",
-        re.compile(r"\bBearer\s+[A-Za-z0-9_\-]{40,50}\b"),
+        re.compile(r"\b[Bb]earer\s+[A-Za-z0-9_\-]{40,50}\b"),
         "The same Agent API write token delivered as an Authorization header. "
         "This is NOT a hypothetical channel: _bearer_token_middleware accepts "
         "it, and WriteAuthError's own guidance tells users to fall back to it "
         "when a client drops the header on tool-call requests. A gate for a "
         "write-token incident that covered only the URL channel would be half "
-        "a gate.",
+        "a gate. The scheme is matched case-insensitively because the server "
+        "accepts it that way -- `server.py` does `raw[:7].lower() == "
+        "'bearer '` -- so a lowercase `bearer <token>` is a WORKING credential "
+        "and a case-sensitive rule would miss it.",
     ),
     (
         "aws-access-key-id",
@@ -129,7 +132,7 @@ RULES: list[tuple[str, re.Pattern[str], str]] = [
 _ALLOW_MARKERS = (
     "?token=<40-50 chars>",
     "?token=[A-Za-z0-9_",
-    "Bearer\\s+[A-Za-z0-9_\\-]{40,50}",
+    "earer\\s+[A-Za-z0-9_\\-]{40,50}",
     "AKIA[0-9A-Z]",
     "ghp|gho|ghu|ghs|ghr",
     "github_pat_",

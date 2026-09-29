@@ -343,20 +343,42 @@ class TestDomainToolsIntegration:
                 ClientSession(read, write) as session,
             ):
                 await session.initialize()
-                # Call get_history multiple times
+                # Call get_history multiple times, KEEPING each payload.
+                # Reading `command_manager.undo_depth` afterwards is not the
+                # same assertion: the manager is only zero because nothing
+                # ever pushed to it, so that check would pass even if every
+                # call lied about its depth. Comparing the three returned
+                # payloads to each other is what FR-AGENT-24 actually claims,
+                # and it is a real invariant — a mutating call would show up
+                # as a differing depth between consecutive reads.
+                payloads: list[dict[str, Any]] = []
                 for _ in range(3):
                     call = await session.call_tool("get_history", {})
                     result["isError"] = call.isError
-                # Stack should be unchanged
-                result["undo_depth"] = command_manager.undo_depth
-                result["redo_depth"] = command_manager.redo_depth
+                    # FastMCP puts the returned pydantic model's own fields at
+                    # the top level of structuredContent (the same shape the
+                    # check_placement test above relies on).
+                    payloads.append(dict(call.structuredContent or {}))
+                result["payloads"] = payloads
 
         _run_with_qt_loop(qtbot, _run())
         server.stop()
 
         assert not result.get("isError")
-        assert result.get("undo_depth") == 0
-        assert result.get("redo_depth") == 0
+        payloads = result.get("payloads") or []
+        assert len(payloads) == 3
+        first = payloads[0]
+        assert first["undo_depth"] == 0
+        assert first["redo_depth"] == 0
+        # Every call reported the same depths, and none of them reports a
+        # phantom step (a "you could undo this" hint must be absent when the
+        # stack is empty, not a fabricated label).
+        for payload in payloads:
+            assert payload["undo_depth"] == first["undo_depth"]
+            assert payload["redo_depth"] == first["redo_depth"]
+        assert first.get("next_undo_text") in (None, ""), (
+            "an empty undo stack must not advertise an undo label"
+        )
 
 
 def _make_scene() -> Any:
