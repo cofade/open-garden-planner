@@ -687,77 +687,135 @@ def test_the_release_workflow_still_attests_build_provenance() -> None:
     )
 
 
-def test_ci_still_scans_for_secrets_across_the_whole_repo() -> None:
-    """A live Agent API write token was committed and pushed (PR #369, #319).
 
-    Pins the four things that make the gate actually load-bearing, each of
-    which a plausible edit could silently drop while every other assertion here
-    stays green:
 
-    * the scan existing at all;
-    * running over the FULL HISTORY rather than the tip commit — the token
-      entered history three commits before it was deleted, so a
-      tip-only scan passes on the very commit that removed it;
-    * failing on findings (`detect` without `--exit-code 0`, and with
-      `--redact` so a re-run cannot republish the secret into the log);
-    * the security job still running Bandit too, since gitleaks and SAST are
-      complementary and Bandit catches what a secret scanner does not.
+def test_ci_still_scans_for_committed_secrets() -> None:
+    """A live Agent API write token was committed and pushed (PR #369, 2026-09-29).
 
-    Bandit alone could never have caught this: `ci.yml` runs it as
-    `-r src/`, and the file was at the repo root — outside the scope — and
-    Bandit has no rule for a credential in a URL query string anyway. That
-    gap is why this test exists rather than trusting the workflow by eye.
+    The token had to be rotated by hand, because Bandit runs as `-r src/` (the
+    file was at the repo root) and has no rule for a credential in a URL query
+    string — which is exactly how OGP's token travels.
+
+    Pins the three things that make the gate load-bearing, each of which a
+    plausible edit could silently drop while every other assertion here stays
+    green:
+
+    * the step existing at all, and running in the SECURITY job rather than
+      being tucked somewhere that is allowed to fail;
+    * the checker itself still existing as a script CI invokes — a deleted
+      script with a passing `if [ -f ]` guard is a gate that is simply gone;
+    * Bandit still running alongside it, since a credential scan and SAST are
+      complementary, not substitutes.
     """
     text = (_REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
 
-    assert "gitleaks" in text, (
-        "ci.yml no longer runs gitleaks — the repo has no other secret scan, "
-        "and a committed credential is exactly the failure no other gate covers"
+    assert "check_no_secrets.py" in text, (
+        "ci.yml no longer runs the committed-secret scan — the repo has no "
+        "other check that would notice a credential, and a committed write "
+        "token is exactly the failure no other gate covers"
     )
 
-    uses_line = re.search(r"uses:\s*gitleaks/gitleaks-action@v(\d+)", text)
-    assert uses_line, "gitleaks is present but not wired as a pinned action"
-
-    major = int(uses_line.group(1))
-    assert major >= 2, (
-        f"gitleaks-action major {major} is below the supported floor (v2) — "
-        "an unsupported major can fail to run at all, which reads as a pass"
-    )
-
-    step_start = text.index("gitleaks-action@")
-    next_step = re.search(r"\n {6}- (?:name|uses):", text[step_start:])
-    step_block = (
-        text[step_start : step_start + next_step.start()]
-        if next_step
-        else text[step_start:]
-    )
-
-    assert "detect" in step_block, (
-        "the gitleaks step no longer runs `detect` (a `protect`-only config "
-        "checks nothing on a push)"
-    )
-    # Read the `args:` value itself, not the whole step block: a COMMENT in
-    # ci.yml that names a flag (e.g. explaining why it must NOT be passed)
-    # must not satisfy or trip an assertion about that flag's presence.
-    args_match = re.search(r"args:\s*(.+)", step_block)
-    assert args_match, "the gitleaks step passes no args"
-    args_line = args_match.group(1)
-
-    assert "--log-opts" in args_line and "--all" in args_line, (
-        "gitleaks is not scoped to the full history — a tip-only scan passes "
-        "on the commit that DELETED a leaked secret, which is exactly the "
-        "commit that made this gate necessary"
-    )
-    assert "--exit-code 0" not in args_line, (
-        "gitleaks is configured not to fail — a scan that reports a leaked "
-        "credential and exits 0 is a log line, not a gate"
-    )
-    assert "--redact" in args_line, (
-        "gitleaks is not redacting, so a re-run would reprint the very "
-        "credential it found into the job log"
+    script = _REPO_ROOT / "scripts" / "check_no_secrets.py"
+    assert script.is_file(), (
+        "ci.yml invokes scripts/check_no_secrets.py but the script is gone — "
+        "the step will fail on every run until it is restored"
     )
 
     assert "bandit" in text, (
-        "ci.yml no longer runs Bandit — gitleaks is a secret scanner, not a "
-        "replacement for SAST"
+        "ci.yml no longer runs Bandit — the secret scan is a credential check, "
+        "not a replacement for SAST"
     )
+
+
+class TestCheckNoSecrets:
+    """The secret checker must catch real credentials and nothing else.
+
+    Both halves matter and they pull against each other. A checker that misses
+    the real format is worse than no checker; one that fires on a variable
+    named ``species_key`` is deleted after its first false alarm. gitleaks was
+    rejected for exactly the second failure (29 findings, zero secrets) while
+    being the thing that caught the real one — see the checker's module
+    docstring.
+    """
+
+    # Each case is (label, filename-tag, line that MUST be reported).
+    _MUST_CATCH = [
+        (
+            "ogp agent-api token in a url",
+            "ogp",
+            # 43 x "a": matches `?token=[A-Za-z0-9_-]{40,50}` (which is what
+            # secrets.token_urlsafe() produces) while being unmistakably fake.
+            'URL = "http://127.0.0.1:8765/mcp'
+            '?token=' + "a" * 43 + '"',
+        ),
+        ("aws access key id", "aws", 'KEY = "AKIA' + "A" * 16 + '"'),
+        ("github pat", "ghp", 'TOKEN = "ghp_' + "b" * 40 + '"'),
+        ("slack token", "slack", 'T = "xoxb-' + "c" * 24 + '"'),
+        # Assembled from fragments: the checker's own test file must not contain a
+        # credential-shaped LITERAL, or it fails its own gate. Concatenation
+        # defeats the single-regex-per-line match while producing the exact
+        # bytes at runtime, which is what the assertion is about.
+        ("private key header", "pk", "-----BEGIN " + "RSA " + "PRIVATE KEY" + "-----"),
+    ]
+
+    # Shapes that a generic high-entropy / identifier rule flags. These are the
+    # 29 findings that disqualified gitleaks; every one of them must stay
+    # silent, or the gate gets removed and then catches nothing.
+    _MUST_NOT_FLAG = [
+        ("species_key kwarg", "service, species_key, exclude_antagonists_of=exclude_antagonists_of"),
+        ("translation-table Keys row", '"Shift+Arrow Keys": "Umschalt+Pfeiltasten",'),
+        ("layer_id assignment", 'layer_id = meta.get("parent_bed_id")'),
+        ("token_urlsafe call", "token = secrets.token_urlsafe(32)"),
+        ("doc placeholder", 'url = "http://127.0.0.1:8765/mcp?token=<token>"'),
+    ]
+
+    def _scan_with_canary(self, tag: str, line: str):
+        """Stage a canary file, scan, then unstage and delete it.
+
+        The checker deliberately reads only git-TRACKED files, so an untracked
+        scratch file must not be able to fail a build. That makes this test
+        stage the canary, which is also what a real leak would be.
+        """
+        import subprocess
+        from pathlib import Path
+
+        from scripts.check_no_secrets import check_repo
+
+        root = Path(__file__).resolve().parents[2]
+        canary = root / "scripts" / f"_canary_{tag}.py"
+        canary.write_text(line + "\n", encoding="utf-8")
+        subprocess.run(["git", "add", "--", str(canary)], cwd=root, capture_output=True)
+        try:
+            return [f for f in check_repo(root) if canary.name in f]
+        finally:
+            subprocess.run(
+                ["git", "rm", "--cached", "-q", "--", str(canary)],
+                cwd=root,
+                capture_output=True,
+            )
+            canary.unlink(missing_ok=True)
+
+    @pytest.mark.parametrize("label,tag,line", _MUST_CATCH, ids=[c[0] for c in _MUST_CATCH])
+    def test_catches_real_credential(self, label, tag, line) -> None:
+        found = self._scan_with_canary(tag, line)
+        assert found, f"the secret checker missed a real credential: {label}"
+
+    @pytest.mark.parametrize(
+        "label,line", _MUST_NOT_FLAG, ids=[c[0] for c in _MUST_NOT_FLAG]
+    )
+    def test_does_not_flag_identifier_noise(self, label, line) -> None:
+        found = self._scan_with_canary(f"fp_{abs(hash(line)) % 10**8}", line)
+        assert not found, (
+            f"the secret checker flagged ordinary code ({label}): {found} — "
+            "a gate that cries wolf on variable names gets deleted, and then "
+            "it catches nothing"
+        )
+
+    def test_the_real_tree_is_clean(self) -> None:
+        from scripts.check_no_secrets import check_repo
+
+        assert check_repo(_REPO_ROOT) == [], (
+            "the committed tree contains a credential-shaped string; if this is "
+            "a real secret, ROTATE IT — deleting the file in a later commit "
+            "does not unpublish it"
+        )
