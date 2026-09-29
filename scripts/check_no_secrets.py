@@ -150,7 +150,6 @@ _ALLOW_MARKERS = (
     "AIza[0-9A-Za-z_",
     "sk_live_",
     "-----BEGIN (?:RSA ",
-    "Bearer eyJ",
     "secrets.token_urlsafe",
 )
 

@@ -73,7 +73,13 @@ def _tr_literals(class_name: str) -> list[str]:
 
 
 def _de_messages() -> dict[tuple[str, str], str]:
-    """(context, source) -> German translation, read from the real .ts."""
+    """(context, source) -> German translation, read from the real .ts.
+
+    Keyed by context as well as source, and callers REQUIRE the class-name
+    context. Matching source text across every context let a literal registered
+    only under ``CompanionPanel`` satisfy a call from ``CompatibleSetDialog`` --
+    which renders untranslated, because Qt resolves a lookup by class name.
+    """
     root = ET.parse(_TRANSLATIONS_DIR / "open_garden_planner_de.ts").getroot()
     out: dict[tuple[str, str], str] = {}
     for ctx in root.findall("context"):
@@ -87,7 +93,8 @@ def _de_messages() -> dict[tuple[str, str], str]:
     return out
 
 
-DIALOG_LITERALS = _tr_literals("CompatibleSetDialog")
+DIALOG_CONTEXT = "CompatibleSetDialog"  # Qt resolves a lookup by class name
+DIALOG_LITERALS = _tr_literals(DIALOG_CONTEXT)
 PANEL_LITERALS = _tr_literals("CompanionPanel")
 DIALOG_PAIRINGS = _tr_pairings("CompatibleSetDialog")
 PANEL_PAIRINGS = _tr_pairings("CompanionPanel")
@@ -140,20 +147,25 @@ class TestTrLiteralsAreRegistered:
 
     @pytest.mark.parametrize("literal", DIALOG_LITERALS)
     def test_dialog_literal_is_registered_and_translated(self, literal: str) -> None:
+        """Must be registered under THIS class's context, not just somewhere."""
         messages = _de_messages()
-        hits = [(ctx, text) for (ctx, src), text in messages.items() if src == literal]
-        assert hits, (
-            f"{literal!r} is not registered in the German .ts under any context, so "
-            f"it renders untranslated. A tr() literal that is never registered is "
-            f"INVISIBLE to test_german_ts_has_no_unfinished, which only inspects "
-            f"messages already in the table -- this is the blind spot the %1 P1 hid in."
+        elsewhere = sorted(
+            ctx for (ctx, src) in messages if src == literal and ctx != DIALOG_CONTEXT
         )
-        for ctx, text in hits:
-            assert text.strip(), f"{literal!r} in [{ctx}] has an empty translation"
-            assert text.strip() != literal, (
-                f"{literal!r} in [{ctx}] is registered with the ENGLISH text as its "
-                f"German translation, so it renders untranslated at runtime"
-            )
+        text = messages.get((DIALOG_CONTEXT, literal))
+        assert text is not None, (
+            f"{literal!r} is not registered under context {DIALOG_CONTEXT!r} in the "
+            f"German .ts, so it renders untranslated."
+            + (f" It is only registered under {elsewhere!r}." if elsewhere else "")
+            + " A tr() literal that is never registered is INVISIBLE to "
+            "test_german_ts_has_no_unfinished, which only inspects messages "
+            "already in the table -- that is the blind spot the %1 P1 hid in."
+        )
+        assert text.strip(), f"{literal!r} in [{DIALOG_CONTEXT}] has an empty translation"
+        assert text.strip() != literal, (
+            f"{literal!r} in [{DIALOG_CONTEXT}] is registered with the ENGLISH text "
+            f"as its German translation, so it renders untranslated at runtime"
+        )
 
 
 @pytest.fixture(autouse=True)

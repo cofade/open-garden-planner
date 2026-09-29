@@ -258,9 +258,22 @@ class TestCompatibleSetDialog:
         assert any(joined in t for t in texts), (
             f"no single string shows the bed's plants as a list ({joined!r}): {texts}"
         )
-        assert re.search(r"\b[1-9][0-9]*\b", "\n".join(texts)), (
-            f"no interpolated count appears in the rendered text: {texts}"
-        )
+
+        # Each row's coverage suffix must carry the RIGHT numbers, computed the
+        # same way the dialog computes them. A bare "some non-zero integer
+        # appears" check survived hardcoding every count to 1/1, which proves
+        # numbers land but not that they are the numbers.
+        bed_count = len(result["bed_plants"])
+        for i, entry in enumerate(result["sets"]):
+            covers = entry.get("covers", [])
+            if entry.get("covers_all") and bed_count:
+                expect = f"keeps all {bed_count} already planted"
+            elif covers:
+                expect = f"keeps {len(covers)} of {bed_count} already planted"
+            else:
+                expect = "replaces what is planted"
+            row = dialog._list.item(i).text()
+            assert expect in row, f"row {i} should read {expect!r}, got {row!r}"
 
     def test_conflicts_are_rendered(
         self, qtbot: Any, service: CompanionPlantingService
