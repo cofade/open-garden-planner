@@ -1181,23 +1181,43 @@ reproduced the unrotated case and left rotation broken.
 
 Consequences:
 
-* **Self-healing and undo-safe by construction.** Restoring the polygon *is*
-  restoring the ridge, so no extra undo bookkeeping is needed. This is the
-  durable lesson: a derived child must be *recomputed* from its owner, never
-  *adjusted* from its own current state, or it becomes state that nothing owns.
+* **Self-healing and undo-safe on every polygon-apply path.** Restoring the
+  polygon *is* restoring the ridge, so no extra undo bookkeeping is needed —
+  but only because **every** path that writes a polygon's geometry re-derives
+  the ridge. There are five: `_move_vertex_to`, `_insert_vertex`/`_remove_vertex`
+  (via `_after_vertex_topology_change`), `_apply_rotation`, `_apply_resize`, and
+  the `ResizeItemCommand` apply closure. The fifth was missed by the first
+  implementation of this fix and caught only in senior review — it left a HOUSE
+  resize undo restoring the polygon while the ridge stayed sized for the
+  *resized* house (**300 cm** of drift on a 300->600 cm resize, persisted into
+  the `.ogp`). That closure is now `polygon_resize_apply`, module-level rather
+  than a closure inside `_on_resize_end` specifically so a test can drive the
+  production function instead of re-implementing it. **A sixth polygon-apply
+  path that skips the sync will silently rot this invariant** — the durable
+  lesson is not "recompute instead of project" on its own, but "a derived child
+  must be re-derived by *every* writer of its owner's state", because a derived
+  child adjusted from its own current position becomes state that nothing owns.
 * **A hand-dragged ridge endpoint is not sticky.** `PolylineItem._move_vertex_to`
   still constrains a hand-dragged endpoint onto the owner's outline, so the drag
-  is honoured; the next polygon edit returns it to canonical. Chosen over
-  preserving the manual placement, because the roof texture is derived from the
-  ridge and preserving the two independently would let them disagree.
+  is honoured; the next polygon edit returns it to canonical. The reason is the
+  derived-state invariant above — a second, manually-placed source of truth for
+  the same geometry is precisely what this change removes — and not any claim
+  about the texture disagreeing, which cannot happen: the texture is re-derived
+  from whatever the ridge currently is, so a hand placement never puts the two
+  out of sync. The same reasoning drops a user-inserted third ridge vertex on
+  the next polygon edit: the derived ridge is exactly the two canonical
+  endpoints. That is a deliberate capability loss on a user-editable item, and
+  it is accepted here for the same reason.
 * **`_project_to_polygon_boundary` is kept**, still used by
   `PolylineItem._move_vertex_to` to constrain that hand drag.
 * **A ridge drift already saved into an `.ogp` self-heals on the next polygon
-  edit**, not at load time: a deserialized house restores its rotation *before*
-  its ridge enters the scene, so the sync no-ops (`_find_ridge()` returns
-  `None`). A load-time resync was considered and deliberately left out - it
-  widens the blast radius into the deserializer for a cosmetic gain. Recorded
-  here rather than discovered later.
+  edit**, not at load time. The cause is *not* serialization order: it is that
+  `_deserialize_item_core` calls `_apply_rotation` on the house before the item
+  is added to the scene, so `self.scene()` is `None` and `_find_ridge()` bails
+  out early — a no-scene guard, independent of which item the file lists first.
+  A load-time resync was considered and deliberately left out; it widens the
+  blast radius into the deserializer for a cosmetic gain. Recorded here rather
+  than discovered later.
 
 **Alternatives rejected.** (a) *Make the projection reversible* - capture ridge
 points in every vertex command and restore them in `undo`/`redo`. Rejected:

@@ -203,6 +203,36 @@ def _show_properties_dialog(item: QGraphicsPolygonItem) -> None:
         item.setPen(pen)
 
 
+def polygon_resize_apply(item: QGraphicsItem, geom: dict[str, Any]) -> None:
+    """Apply a resize geometry dict to a ``PolygonItem`` - the ONE apply path.
+
+    ``ResizeItemCommand`` calls this for ``execute``, ``undo`` **and** ``redo``,
+    so this is the path an undo of a HOUSE resize re-enters, and it must
+    re-derive the linked roof ridge exactly as ``_apply_resize`` does for the
+    live drag. Found by the #364 senior-review round: it did not, which left
+    the polygon restored and the ridge still sized for the *resized* house -
+    measured 300 cm of drift on a 300->600 cm resize, persisted into the
+    ``.ogp`` because the ridge is itself a serialized item.
+
+    Module-level rather than a closure inside ``_on_resize_end`` so a test can
+    drive the production function instead of re-implementing it: a test that
+    copies the apply logic passes while the real one stays broken.
+    ``setPos`` fires ``_move_ridge_by_delta`` first; the recompute below
+    overwrites it wholesale. See ADR-046.
+    """
+    if not isinstance(item, PolygonItem):
+        return
+    vertices = [QPointF(v["x"], v["y"]) for v in geom["vertices"]]
+    item.setPolygon(QPolygonF(vertices))
+    item.setPos(geom["pos_x"], geom["pos_y"])
+    item.update_resize_handles()
+    item._position_label()
+    # Derived state: a HOUSE's roof ridge is a function of the polygon, so
+    # every polygon-apply path must re-derive it. Adding a new apply path
+    # without this call silently rots the invariant.
+    item._update_ridge_on_boundary()
+
+
 class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGraphicsPolygonItem):
     """A polygon shape on the garden canvas.
 
@@ -359,12 +389,11 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
 
         ridge._points = new_pts
         ridge._rebuild_path()
-        if getattr(ridge, "is_vertex_edit_mode", False) and hasattr(
-            ridge, "_update_vertex_handles"
-        ):
+        # `ridge` is already known to be a PolylineItem, so these attributes
+        # exist; the old hasattr/getattr guards were dead and are dropped.
+        if ridge.is_vertex_edit_mode:
             ridge._update_vertex_handles()
-        if hasattr(ridge, "_position_label"):
-            ridge._position_label()
+        ridge._position_label()
 
     def _paint_with_ridge(self, painter: QPainter, ridge: "QGraphicsItem") -> None:
         """Paint HOUSE polygon with tile texture mirrored on each side of the ridge."""
@@ -735,15 +764,9 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
 
         from open_garden_planner.core.commands import ResizeItemCommand
 
-        def apply_geometry(item: QGraphicsItem, geom: dict[str, Any]) -> None:
-            """Apply geometry to the item."""
-            if isinstance(item, PolygonItem):
-                # Reconstruct polygon from vertices
-                vertices = [QPointF(v['x'], v['y']) for v in geom['vertices']]
-                item.setPolygon(QPolygonF(vertices))
-                item.setPos(geom['pos_x'], geom['pos_y'])
-                item.update_resize_handles()
-                item._position_label()
+        # The module-level apply path, shared with the tests so they drive the
+        # production function rather than a copy of it.
+        apply_geometry = polygon_resize_apply
 
         # Convert polygon vertices to serializable format
         def polygon_to_vertices(poly: QPolygonF) -> list[dict[str, float]]:

@@ -18,8 +18,12 @@ The two failures this pins, both reproduced before the fix:
   off at 30 degrees, 180 cm at 90 degrees). The roof texture mirrors along the
   ridge (``_paint_with_ridge``), so the roof itself was wrong too.
 
-Both are parametrised over rotation and scale: the defect is exactly zero at
-rotation 0, so a test that only covers the default proves nothing.
+Both are parametrised over rotation and scale, because the *orientation* defect
+is exactly zero at rotation 0 while the *drift* defect reproduces at every
+transform — including unrotated, which is how #364 was filed. Against the
+unfixed code 20 of these 25 cases fail; the 5 that pass are the 4
+boundary-invariant cases (satisfied by the old projection at any transform, by
+construction) and the unrotated rotation-tracking case.
 """
 
 # ruff: noqa: ARG002
@@ -237,6 +241,78 @@ class TestRidgeDriftOnUndo:
             assert projected == local, (
                 f"ridge endpoint {local} is not on the polygon boundary"
             )
+
+
+class TestResizeUndo:
+    """#364 review finding: ``ResizeItemCommand.undo`` re-enters a second path.
+
+    ``_apply_resize`` syncs the ridge, so the live drag was always correct. But
+    undo/redo of the registered ``ResizeItemCommand`` replays the closure built
+    in ``_on_resize_end``, which is a *different* apply function — and it
+    restored the polygon while leaving the ridge sized for the resized house:
+    300 cm of drift on a 300->600 cm resize, persisted into the ``.ogp``.
+
+    This is the failure mode ADR-046 warns about: adding a fifth polygon-apply
+    path without re-deriving the ridge silently rots the invariant. No test in
+    the suite resized a HOUSE, which is why a green 6509-test run missed it.
+    """
+
+    @pytest.mark.parametrize(("rotation", "scale"), TRANSFORMS)
+    def test_undo_of_a_house_resize_restores_the_ridge(
+        self, qtbot: object, rotation: float, scale: float
+    ) -> None:
+        """Drive the real ``ResizeItemCommand`` through undo/redo.
+
+        The command is given the item's own apply closure, so the path under
+        test is the production one — not a re-implementation that would pass
+        while the real closure stayed broken.
+        """
+        from open_garden_planner.core.commands import ResizeItemCommand
+        from open_garden_planner.ui.canvas.items.polygon_item import (
+            polygon_resize_apply,
+        )
+
+        scene = QGraphicsScene()
+        house, ridge = _house_with_ridge(rotation=rotation, scale=scale, scene=scene)
+
+        def geometry() -> dict[str, object]:
+            poly = house.polygon()
+            return {
+                "vertices": [
+                    {"x": poly.at(i).x(), "y": poly.at(i).y()}
+                    for i in range(poly.count())
+                ],
+                "pos_x": house.pos().x(),
+                "pos_y": house.pos().y(),
+            }
+
+        original = geometry()
+
+        # The live drag — this path already synced.
+        house._apply_resize(0.0, 0.0, 600.0, 200.0, house.pos().x(), house.pos().y())
+        assert _max_deviation(house, ridge) <= RIDGE_EPS_CM, (
+            "precondition: the live resize keeps the ridge canonical"
+        )
+        resized = geometry()
+        assert resized != original, "precondition: the resize actually changed geometry"
+
+        command = ResizeItemCommand(house, original, resized, polygon_resize_apply)
+
+        command.undo()
+        deviation = _max_deviation(house, ridge)
+        assert deviation <= RIDGE_EPS_CM, (
+            f"ridge drifted {deviation:.2f} cm after a HOUSE resize undo "
+            f"(rotation={rotation}, scale={scale})"
+        )
+
+        # Redo replays execute(); the same apply closure, so it must hold too.
+        command.execute()
+        assert _max_deviation(house, ridge) <= RIDGE_EPS_CM, "ridge drifted after redo"
+
+        command.undo()
+        assert _max_deviation(house, ridge) <= RIDGE_EPS_CM, (
+            "ridge drifted after a second undo - drift must not accumulate"
+        )
 
 
 class TestHandMovedRidgeEndpoint:
