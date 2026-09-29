@@ -72,16 +72,20 @@ RULES: list[tuple[str, re.Pattern[str], str]] = [
     ),
     (
         "ogp-agent-api-token-bearer",
-        re.compile(r"\b[Bb]earer\s+[A-Za-z0-9_\-]{40,50}\b"),
+        re.compile(r"\bbearer\s+[A-Za-z0-9_\-]{40,50}\b", re.IGNORECASE),
         "The same Agent API write token delivered as an Authorization header. "
         "This is NOT a hypothetical channel: _bearer_token_middleware accepts "
         "it, and WriteAuthError's own guidance tells users to fall back to it "
         "when a client drops the header on tool-call requests. A gate for a "
         "write-token incident that covered only the URL channel would be half "
-        "a gate. The scheme is matched case-insensitively because the server "
+        "a gate. The scheme is matched with re.IGNORECASE because the server "
         "accepts it that way -- `server.py` does `raw[:7].lower() == "
-        "'bearer '` -- so a lowercase `bearer <token>` is a WORKING credential "
-        "and a case-sensitive rule would miss it.",
+        "'bearer '` -- so ANY casing (`bearer`, `Bearer`, `BEARER`, `BeArEr`) is "
+        "a WORKING credential. This was `\\b[Bb]earer\\b` for one round, which "
+        "covered 2 of the 64 possible casings while its own docstring claimed "
+        "case-insensitivity; IGNORECASE matches the server exactly and carries "
+        "the same false-positive risk, because the token body is still "
+        "constrained to 40-50 base64url characters.",
     ),
     (
         "aws-access-key-id",
@@ -121,9 +125,15 @@ RULES: list[tuple[str, re.Pattern[str], str]] = [
     ),
     (
         "jwt-bearer",
-        re.compile(r"\bBearer\s+eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\."),
+        re.compile(
+            r"\bbearer\s+eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.",
+            re.IGNORECASE,
+        ),
         "A bearer JWT in source. Test fixtures must use a syntactically "
-        "obvious placeholder, never a real token.",
+        "obvious placeholder, never a real token. Case-insensitive scheme for "
+        "the same reason as ogp-agent-api-token-bearer: an Authorization scheme "
+        "is case-insensitive per RFC 7235, so `bearer eyJ...` is the same "
+        "credential as `Bearer eyJ...` and must not be an exempt variant.",
     ),
 ]
 

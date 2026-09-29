@@ -522,8 +522,17 @@ class CompatibleSetDialog(QDialog):
         layout = QVBoxLayout(self)
 
         if self._existing_plants:
+            # Inline {named} fields, NOT Qt's positional %1. `.format()` on a
+            # "%1" string is a SILENT no-op -- there is no {field} to fill, so
+            # it returned the literal and the bed's plants were never shown at
+            # all. The registered translations for these three strings are in
+            # {named} form, so this is also the only variant present in the
+            # .ts; a %1 literal matches neither the table nor the output,
+            # which is why the i18n gate was structurally blind to it.
             label = QLabel(
-                self.tr("Already in bed: %1").format(plants=", ".join(self._existing_plants))
+                self.tr("Already in bed: {plants}").format(
+                    plants=", ".join(self._existing_plants)
+                )
             )
             set_text_role(label, "hint")
             layout.addWidget(label)
@@ -536,9 +545,11 @@ class CompatibleSetDialog(QDialog):
             score = entry.get("score", 0.0)
             covers = entry.get("covers", [])
             if entry.get("covers_all") and bed_count:
-                suffix = self.tr("keeps all %1 already planted").format(count=bed_count)
+                suffix = self.tr("keeps all {count} already planted").format(
+                    count=bed_count
+                )
             elif covers:
-                suffix = self.tr("keeps %1 of %2 already planted").format(
+                suffix = self.tr("keeps {count} of {total} already planted").format(
                     count=len(covers), total=bed_count
                 )
             else:

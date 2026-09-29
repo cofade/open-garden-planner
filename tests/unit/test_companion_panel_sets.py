@@ -13,6 +13,7 @@ pre-existing suite could see because it never exercised the panel path:
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import pytest
@@ -203,6 +204,63 @@ class TestCompatibleSetDialog:
         dialog = CompatibleSetDialog(result["sets"], result["bed_plants"], [], [], None)
         qtbot.addWidget(dialog)
         assert dialog._list.currentRow() == 0
+
+    def test_no_placeholder_ever_reaches_the_user(
+        self, qtbot: Any, service: CompanionPlantingService
+    ) -> None:
+        """Regression: the dialog must never display a raw ``%N`` placeholder.
+
+        Three strings were written with Qt's positional ``%1`` but interpolated
+        with Python ``str.format()``, which has no ``%N`` field and therefore
+        returned the literal unchanged. The user saw "Already in bed: %1" and
+        every coverage count was raw -- on the most repeated string in the
+        dialog.
+
+        ``test_german_ts_has_no_unfinished`` was structurally blind to this: the
+        registered translations are in ``{named}`` form, so they match neither
+        the code literal nor its output, and the i18n gate only sees *registered*
+        messages. A ``tr()`` literal that was never registered is invisible to
+        it. This asserts on the RENDERED text, which is the only layer where the
+        defect is observable.
+        """
+        result = find_sets_for_bed(service, ["corn", "bean"], size=3)
+        dialog = CompatibleSetDialog(result["sets"], result["bed_plants"], [], [], None)
+        qtbot.addWidget(dialog)
+
+        texts = [w.text() for w in dialog.findChildren(object) if hasattr(w, "text")]
+        texts += [dialog._list.item(i).text() for i in range(dialog._list.count())]
+        assert texts, "no text widgets found to check"
+
+        leaked = [t for t in texts if re.search(r"%[0-9]", t)]
+        assert not leaked, f"a raw placeholder reached the user: {leaked}"
+
+    def test_interpolated_values_actually_land(
+        self, qtbot: Any, service: CompanionPlantingService
+    ) -> None:
+        """The bed's plants and the coverage counts must appear VERBATIM.
+
+        The companion to the no-placeholder test: a bare placeholder check would
+        also pass on a dialog that simply DROPPED the information. The species
+        and the numbers must be on screen.
+        """
+        result = find_sets_for_bed(service, ["corn", "bean"], size=3)
+        dialog = CompatibleSetDialog(result["sets"], result["bed_plants"], [], [], None)
+        qtbot.addWidget(dialog)
+
+        texts = [w.text() for w in dialog.findChildren(object) if hasattr(w, "text")]
+        texts += [dialog._list.item(i).text() for i in range(dialog._list.count())]
+
+        # One string must carry the WHOLE joined list. Asserting per-plant over
+        # the whole blob is not enough: every bed plant also appears in the set
+        # rows as a member, so that version passed even when the "Already in
+        # bed" label had its value dropped entirely.
+        joined = ", ".join(result["bed_plants"])
+        assert any(joined in t for t in texts), (
+            f"no single string shows the bed's plants as a list ({joined!r}): {texts}"
+        )
+        assert re.search(r"\b[1-9][0-9]*\b", "\n".join(texts)), (
+            f"no interpolated count appears in the rendered text: {texts}"
+        )
 
     def test_conflicts_are_rendered(
         self, qtbot: Any, service: CompanionPlantingService
