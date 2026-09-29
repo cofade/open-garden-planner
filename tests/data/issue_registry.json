@@ -361,7 +361,7 @@
   },
   "319": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "US-D3.1: suggest_companions / find_compatible_set / check_placement — first domain-intelligence tools + Companion-panel action (Package D3, epic #237; after US-G3 #318 for coverage)"
   },
   "320": {
@@ -526,7 +526,7 @@
   },
   "362": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "US-D2.7: get_history - expose the undo/redo stack to the agent (Package D2, epic #237)"
   },
   "364": {
@@ -558,5 +558,10 @@
     "is_pr": true,
     "state": "CLOSED",
     "title": "feat(US-D3.1,D2.7): agent domain intelligence tools + get_history"
+  },
+  "370": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(US-D3.1,D2.7): agent domain-intelligence tools + get_history"
   }
 }
