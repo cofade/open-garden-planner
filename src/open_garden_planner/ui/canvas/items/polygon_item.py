@@ -401,8 +401,15 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
 
     def _paint_with_ridge(self, painter: QPainter, ridge: "QGraphicsItem") -> None:
         """Paint HOUSE polygon with tile texture mirrored on each side of the ridge."""
-        # Get ridge endpoints in item-local coordinates
-        pts = ridge.points  # list[QPointF] in item-local coords of the ridge item
+        # Get ridge endpoints in item-local coordinates of THIS polygon.
+        #
+        # Since #364 the ridge's points are SCENE coordinates, not ridge-item
+        # locals: `_update_ridge_on_boundary` computes them in the polygon's
+        # local frame and maps them out with `mapToScene`. So scene -> local is
+        # `ridge.mapToScene` then `self.mapFromScene`. Do not add a second
+        # `house.mapToScene` on top — that rotates the axis twice and is
+        # precisely the bug that made the #372 test sample off-axis (§11.4).
+        pts = ridge.points
         if len(pts) < 2:
             return
         p1 = self.mapFromScene(ridge.mapToScene(pts[0]))
@@ -480,10 +487,24 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         # ``R(angle).(0,1) = (-sin a, cos a)`` -- exactly ``n``. So
         # ``left_path`` is the half the texture's true down-slope points into,
         # and it is the half that must keep the NORMAL brush. The previous
-        # code handed it the mirrored one, so that half's tiles lapped back up
-        # toward the ridge: water would run uphill under the laps. It was
-        # wrong at EVERY ridge angle, which is why horizontal and vertical
-        # houses were both affected.
+        # code handed it the mirrored one, so its tiles lapped back up toward
+        # the ridge: water would run uphill under the laps.
+        #
+        # Note this is NOT a one-sided defect. The two clip halves are mirror
+        # images across the ridge, so they read the same outward sequence and
+        # the inversion appeared on BOTH halves (``BRRBRR`` either way) rather
+        # than on one. It was wrong at EVERY ridge angle -- measured identical
+        # across all 24 fifteen-degree steps from 0 to 345 -- which is why
+        # horizontal and vertical houses were both affected.
+        #
+        # This depends on the ORDER of the ridge's points, not just the line:
+        # reversing them flips which half `n = (-uy, ux)` selects and re-breaks
+        # both halves. Every production writer emits `(t_min, t_max)` in that
+        # order — `compute_roof_ridge_endpoints` orders its two crossings by the
+        # line parameter, and both callers (creation and
+        # `_update_ridge_on_boundary`) keep that order. A hand drag of a ridge
+        # endpoint can reorder them, but it is not sticky: the next polygon edit
+        # recomputes them canonically.
         #
         # The two-sided clip + oversized drawRect shape is load-bearing and
         # must not be flattened: Qt does not serialize the painter clip into
@@ -491,7 +512,8 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         # shadow group with the next texture group 1:1 (§11.4).
         #
         # Pinned by tests/unit/test_roof_tile_orientation.py, parametrised
-        # over ridge angle.
+        # over nine ridge angles; 9 of its 12 cases fail against the previous
+        # assignment.
         painter.save()
         painter.setClipPath(left_path)
         painter.setBrush(normal_brush)

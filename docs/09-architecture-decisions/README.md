@@ -1241,9 +1241,9 @@ one apply path, so "on undo" needs a new signal the architecture does not carry.
 ### ADR-046 addendum: roof-tile down-slope is gravity-relative, not name-relative (issue #372)
 
 **Status**: Accepted (2026-09-30). Found during the #364 manual test; shipped in
-the same PR. **Pre-existing** - the membrane path renders identically on master
-(measured `gx=238417 gy=371805` on both trees), so this is not a #364
-regression.
+the same PR. **Pre-existing**, not a #364 regression: master's membrane path
+produces the same drift figures, and `git diff eed0895..HEAD` touches
+`_paint_with_ridge` only in a docstring.
 
 **Context.** `_paint_with_ridge` splits a HOUSE along its ridge and fills each
 half with the tile texture, one mirrored. The roof-tile texture has a fixed
@@ -1260,10 +1260,12 @@ no relation to which side is downhill. Rasterizing both clip regions:
 | horizontal (+X) | LOWER half |
 | vertical (+Y) | LEFT half |
 
-So the half needing the texture's true down-slope was the one being mirrored,
-and its tiles lapped back up toward the ridge - water would run uphill under
-the laps. Wrong at **every** ridge angle, which is why horizontal and vertical
-houses were both affected.
+So the half needing the texture's true down-slope was the one being mirrored.
+Because the two clip halves are mirror images of each other across the ridge,
+they read the *same* outward sequence, so the inversion showed up on **both**
+halves at once -- `BRRBRR` either way, mirror-symmetrically -- not on one side.
+Water would run uphill under the laps. Wrong at **every** ridge angle, which is
+why horizontal and vertical houses were both affected.
 
 **Measured, through the production paint path** (two-colour probe brush on the
 item, walking outward from the ridge; `R` = the texture's up-slope phase,
@@ -1273,9 +1275,13 @@ item, walking outward from the ridge; `R` = the texture's up-slope phase,
     pre-fix  +n BRRBRR   -n BRRBRR      (first transition B->R)
 
 Both are mirror-symmetric -- the *split* is unchanged by the fix -- so only the
-absolute phase separates them. At 90 and 270 the ridge runs along the sample
-axis and every sample lands inside one phase, so those angles carry no
-direction and are covered by the mirror-pair assertion instead.
+absolute phase separates them, and a half-vs-half comparison cannot tell the
+two builds apart. Sweeping every 15 degrees from 0 to 345 gives these two
+strings and no others, on both halves: the result is **angle-independent**,
+because the defect tracked *which half received the mirror* rather than any
+particular orientation. (An earlier draft of the test excluded 90 and 270 on the
+claim that the ridge then runs along the sample axis; that claim was an artifact
+of a double-applied transform in the harness itself - see §11.4.)
 
 **Decision.** The down-slope half always receives the **normal** brush. The
 arithmetic that makes this a swap rather than a probe: `normal_tx` is
@@ -1290,8 +1296,9 @@ and a vertical-ridge house.
 upslope* - equivalent in result, but needs a containment probe and a fallback
 for degenerate polygons. The identity above is exact and needs no branch.
 (b) *Rotate by `-angle` instead* - measured with the same probe: `rotate(-a)`
-puts the down-slope along `-n` at 0/180 but **not** at 90/270, so it is wrong
-in a different way.
+is **identical** to `rotate(+a)` at 0 and 180 degrees, so it leaves the defect
+untouched there, and it differs at 90 and 270, where the texture's `+Y` lands
+along `-n` instead of `n`. Wrong in a different way, and only at some angles.
 
 **Preserved deliberately.** The two-sided `setClipPath` + oversized `drawRect`
 shape is load-bearing: Qt does not serialize the painter clip into SVG, and
@@ -1302,7 +1309,7 @@ next texture group 1:1 (§11.4). Only the brush assignment changed.
 had **no discriminating power** (peak correlation ~0.03 either way, and the
 diagonal case tied at 0.020 vs 0.019) - a few hundred sampled pixels span barely
 one texture period. The two-colour probe is what settled it, and
-`tests/unit/test_roof_tile_orientation.py` uses it, parametrised over eight
-ridge angles.
+`tests/unit/test_roof_tile_orientation.py` uses it, parametrised over nine
+ridge angles; 9 of its 12 cases fail against the unfixed brush assignment.
 
 **Cross-refs:** §11.4, issue #372, issue #114, ADR-046.
