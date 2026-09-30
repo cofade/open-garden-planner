@@ -431,16 +431,19 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
 
         brush = self.brush()
 
-        # Align tile rows perpendicular to ridge, tiling origin at ridge midpoint.
-        # QBrush.setTransform(T) means: local point (x,y) samples texture at T^-1.(x,y).
-        # We want texture to tile outward from the ridge on each side.
+        # Rotate the tile texture to the ridge, tiling origin at the midpoint.
+        # QBrush.setTransform(T) means: a local point (x,y) samples the texture
+        # at T^-1.(x,y). Because the sampling is the inverse, the texture's own
+        # +Y (its down-slope, see the assignment note below) lands in the world
+        # at R(angle).(0,1) = the ridge's left-perpendicular.
         normal_tx = QTransform()
         normal_tx.translate(mid_x, mid_y)
         normal_tx.rotate(angle_deg)
         normal_brush = QBrush(brush)
         normal_brush.setTransform(normal_tx)
 
-        # Mirrored brush: flip the perpendicular axis so tiles mirror across the ridge
+        # Mirrored brush: reflects the down-slope across the ridge, for the
+        # half that faces the other way (issue #372).
         mirrored_tx = QTransform()
         mirrored_tx.translate(mid_x, mid_y)
         mirrored_tx.rotate(angle_deg)
@@ -458,17 +461,46 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
             ext * 2.0,
         )
 
-        # Paint right side (normal texture — tiles go "right" from ridge)
+        # Paint the two halves of the roof (issue #372).
+        #
+        # The assignment is gravity-relative, and it used to be name-relative.
+        # ``_split_path_by_line`` names its halves by the left-perpendicular
+        # ``n = (-uy, ux)``, which follows the ridge's *direction* and has
+        # nothing to do with which side is downhill -- for a +X ridge
+        # ``left_path`` is the LOWER half, for a +Y ridge it is the LEFT half.
+        #
+        # Meanwhile the roof-tile texture has a fixed, non-negotiable
+        # direction: each tile's rounded free edge points +Y and laps the tile
+        # below it, so +Y is down-slope. Measured from the texture, a dark
+        # lapse line sits near y=10 with the light free edge beneath.
+        #
+        # The arithmetic that decides the assignment: ``normal_tx`` is
+        # ``translate(mid) . rotate(angle)`` and a QBrush transform samples the
+        # texture at ``T^-1 . p``, so the texture's +Y lands in the world at
+        # ``R(angle).(0,1) = (-sin a, cos a)`` -- exactly ``n``. So
+        # ``left_path`` is the half the texture's true down-slope points into,
+        # and it is the half that must keep the NORMAL brush. The previous
+        # code handed it the mirrored one, so that half's tiles lapped back up
+        # toward the ridge: water would run uphill under the laps. It was
+        # wrong at EVERY ridge angle, which is why horizontal and vertical
+        # houses were both affected.
+        #
+        # The two-sided clip + oversized drawRect shape is load-bearing and
+        # must not be flattened: Qt does not serialize the painter clip into
+        # SVG, and ``ExportService._fix_svg_qt_texture_clipping`` pairs each
+        # shadow group with the next texture group 1:1 (§11.4).
+        #
+        # Pinned by tests/unit/test_roof_tile_orientation.py, parametrised
+        # over ridge angle.
         painter.save()
-        painter.setClipPath(right_path)
+        painter.setClipPath(left_path)
         painter.setBrush(normal_brush)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRect(fill_rect)
         painter.restore()
 
-        # Paint left side (mirrored texture — tiles go "left" from ridge)
         painter.save()
-        painter.setClipPath(left_path)
+        painter.setClipPath(right_path)
         painter.setBrush(mirrored_brush)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRect(fill_rect)

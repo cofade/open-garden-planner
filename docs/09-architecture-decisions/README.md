@@ -1237,3 +1237,60 @@ should not exist. (b) *Re-project on undo only* — rejected: undo and edit shar
 one apply path, so "on undo" needs a new signal the architecture does not carry.
 
 **Cross-refs:** section 11.4, issue #364, US-D2.6 (#330), issue #114.
+
+### ADR-046 addendum: roof-tile down-slope is gravity-relative, not name-relative (issue #372)
+
+**Status**: Accepted (2026-09-30). Found during the #364 manual test; shipped in
+the same PR. **Pre-existing** - the membrane path renders identically on master
+(measured `gx=238417 gy=371805` on both trees), so this is not a #364
+regression.
+
+**Context.** `_paint_with_ridge` splits a HOUSE along its ridge and fills each
+half with the tile texture, one mirrored. The roof-tile texture has a fixed
+direction: each tile's rounded free edge points `+Y` and laps the tile below
+it (measured from the texture - a dark lapse line near `y=10`, the light free
+edge beneath), so `+Y` is **down-slope**.
+
+The halves were assigned by `_split_path_by_line`'s naming, which follows the
+left-perpendicular `n = (-uy, ux)` and therefore the ridge's *direction*, with
+no relation to which side is downhill. Rasterizing both clip regions:
+
+| Ridge | `left_path` (was given the **mirror**) |
+|---|---|
+| horizontal (+X) | LOWER half |
+| vertical (+Y) | LEFT half |
+
+So the half needing the texture's true down-slope was the one being mirrored,
+and its tiles lapped back up toward the ridge - water would run uphill under
+the laps. Wrong at **every** ridge angle, which is why horizontal and vertical
+houses were both affected.
+
+**Decision.** The down-slope half always receives the **normal** brush. The
+arithmetic that makes this a swap rather than a probe: `normal_tx` is
+`translate(mid) . rotate(angle)` and a `QBrush` transform samples the texture at
+`T^-1 . p`, so the texture's `+Y` lands in the world at
+`R(angle).(0,1) = (-sin a, cos a)` - exactly `n`. `left_path` is the half the
+down-slope points into, so it takes the normal brush. Verified with a
+two-colour probe texture at every angle, and by rendering both a horizontal-
+and a vertical-ridge house.
+
+**Alternatives rejected.** (a) *Select the mirror by probing which side is
+upslope* - equivalent in result, but needs a containment probe and a fallback
+for degenerate polygons. The identity above is exact and needs no branch.
+(b) *Rotate by `-angle` instead* - measured with the same probe: `rotate(-a)`
+puts the down-slope along `-n` at 0/180 but **not** at 90/270, so it is wrong
+in a different way.
+
+**Preserved deliberately.** The two-sided `setClipPath` + oversized `drawRect`
+shape is load-bearing: Qt does not serialize the painter clip into SVG, and
+`ExportService._fix_svg_qt_texture_clipping` pairs each shadow group with the
+next texture group 1:1 (§11.4). Only the brush assignment changed.
+
+**Testing note.** Correlating the real 256 px tile texture was tried first and
+had **no discriminating power** (peak correlation ~0.03 either way, and the
+diagonal case tied at 0.020 vs 0.019) - a few hundred sampled pixels span barely
+one texture period. The two-colour probe is what settled it, and
+`tests/unit/test_roof_tile_orientation.py` uses it, parametrised over eight
+ridge angles.
+
+**Cross-refs:** §11.4, issue #372, issue #114, ADR-046.

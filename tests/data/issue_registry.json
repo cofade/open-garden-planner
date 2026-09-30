@@ -573,5 +573,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(US-D3.1,D2.7): agent domain-intelligence tools + get_history"
+  },
+  "372": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "HOUSE roof tiles lap toward the ridge: the mirrored half is chosen by the ridge's direction, not by which side is downhill"
   }
 }
