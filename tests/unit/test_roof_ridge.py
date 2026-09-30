@@ -21,9 +21,12 @@ The two failures this pins, both reproduced before the fix:
 Both are parametrised over rotation and scale, because the *orientation* defect
 is exactly zero at rotation 0 while the *drift* defect reproduces at every
 transform — including unrotated, which is how #364 was filed. Against the
-unfixed code 20 of these 25 cases fail; the 5 that pass are the 4
-boundary-invariant cases (satisfied by the old projection at any transform, by
-construction) and the unrotated rotation-tracking case.
+unfixed code 16 of these 25 cases fail; the 4 that pass are the boundary-invariant
+cases (satisfied by the old projection at any transform, by construction) and the
+unrotated rotation-tracking case. The 4 `TestResizeUndo` cases are counted
+separately: they import the function this fix introduces, so against master they
+stop at an `ImportError` rather than observing anything — their real proof is that
+removing the single sync line from the fixed tree fails all 4 at 300 cm.
 """
 
 # ruff: noqa: ARG002

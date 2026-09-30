@@ -1147,7 +1147,7 @@ decision.
 longest bounding-box axis, clipped to the polygon boundary. The canonical
 computation is `core/roof_ridge.compute_roof_ridge_endpoints()`, extracted in
 US-D2.5 so that the drawing tool (`PolygonTool._create_roof_ridge`) and the
-Agent API (`application.py`) produce identical ridges - the "one canonical path"
+Agent API (`application.py`) produce identical ridges — the "one canonical path"
 discipline.
 
 `PolygonItem._update_ridge_on_boundary()` did **not** use it. Introduced with
@@ -1160,7 +1160,7 @@ current boundary via `_project_to_polygon_boundary`. Two measured defects:
   the ridge behind (36 cm on a 300x200 cm house). The write bypassed the
   command system, so no undo step covered it, and drift accumulated over
   repeated cycles.
-* **No rotation or scale awareness - larger than the reported bug.** The
+* **No rotation or scale awareness — larger than the reported bug.** The
   membrane kept the ridge's prior orientation, so a house rotated 30/90 degrees
   kept a ridge at 0 degrees, deviating 75 cm / 180 cm from geometric truth.
   Since `_paint_with_ridge` mirrors the roof texture along the ridge line,
@@ -1173,8 +1173,8 @@ creation:
     compute_roof_ridge_endpoints(polygon, QPointF(0, 0))   # LOCAL frame
       -> house.mapToScene() -> ridge.mapFromScene()         # full transform
 
-Computing in the local frame and mapping through the item's transform - rather
-than adding `pos` to local points as creation does - is what makes it correct
+Computing in the local frame and mapping through the item's transform — rather
+than adding `pos` to local points as creation does — is what makes it correct
 for a rotated or scaled house. The creation formula is only valid for an
 unrotated item; the issue's own suggested fix (call it with `pos`) would have
 reproduced the unrotated case and left rotation broken.
@@ -1182,27 +1182,31 @@ reproduced the unrotated case and left rotation broken.
 Consequences:
 
 * **Self-healing and undo-safe on every polygon-apply path.** Restoring the
-  polygon *is* restoring the ridge, so no extra undo bookkeeping is needed -
+  polygon *is* restoring the ridge, so no extra undo bookkeeping is needed —
   but only because **every** path that writes a polygon's geometry re-derives
   the ridge. There are six: `_move_vertex_to`, `_insert_vertex`/`_remove_vertex`
-  (via `_after_vertex_topology_change`), `_apply_rotation`, `_apply_resize`, the
+  and `_add_vertex_at_edge`/`_delete_vertex` as well as `_insert_vertex`/`_remove_vertex` (all four via `_after_vertex_topology_change`), `_apply_rotation`, `_apply_resize`, the
   `ResizeItemCommand` apply closure, and the constraint solver's polygon restore
   in `canvas_view`. The fifth was missed by the first implementation of this fix
-  and caught only in senior review - it left a HOUSE resize undo restoring the
+  and caught only in senior review — it left a HOUSE resize undo restoring the
   polygon while the ridge stayed sized for the *resized* house (**300 cm** of
   drift on a 300->600 cm resize, persisted into the `.ogp`). That closure is now
   `polygon_resize_apply`, module-level rather than a closure inside
   `_on_resize_end` specifically so a test can drive the production function
   instead of re-implementing it. The sixth came out of the same review round:
-  `canvas_view`'s solver `finally` restored the polygon with a bare `setPolygon`
-  while its **polyline** sibling restored through `_move_vertex_to`, which does
-  re-derive - an asymmetry that left the ridge computed for the temporary trial
-  geometry whenever a solve raised. **A seventh polygon-write path that skips the
-  sync will silently rot this invariant** - the durable lesson is not "recompute
+  `canvas_view`'s solver `finally` restored the polygon with a bare `setPolygon`,
+  bypassing `PolygonItem._move_vertex_to` — the one override that re-derives -
+  so after the trial move the ridge was left computed for the trial geometry.
+  Transient on a successful solve, which re-applies the moves through a command;
+  persisted when the solve raises, since nothing re-applies them. **A seventh polygon-write path that skips the
+  sync will silently rot this invariant** — the durable lesson is not "recompute
   instead of project" on its own, but "a derived child must be re-derived by
   *every* writer of its owner's state", because a derived child adjusted from
   its own current position becomes state that nothing owns. Re-derive the
-  enumeration with `grep -rn "setPolygon\|setPoints" src/` when adding a path.
+  enumeration with `grep -rn "setPolygon\|setPoints\|setRotation\|setScale\|setTransform" src/`
+  when adding a path — and remember that a rotation or scale changes the ridge
+  without touching the polygon at all, so a polygon-only grep misses the path whose
+  absence recreates the orientation defect.
 
 * **A hand-dragged ridge endpoint is not sticky.** `PolylineItem._move_vertex_to`
   still constrains a hand-dragged endpoint onto the owner's outline, so the drag
@@ -1226,10 +1230,10 @@ Consequences:
   blast radius into the deserializer for a cosmetic gain. Recorded here rather
   than discovered later.
 
-**Alternatives rejected.** (a) *Make the projection reversible* - capture ridge
+**Alternatives rejected.** (a) *Make the projection reversible* — capture ridge
 points in every vertex command and restore them in `undo`/`redo`. Rejected:
 threading a second geometry through four command classes to preserve state that
-should not exist. (b) *Re-project on undo only* - rejected: undo and edit share
+should not exist. (b) *Re-project on undo only* — rejected: undo and edit share
 one apply path, so "on undo" needs a new signal the architecture does not carry.
 
 **Cross-refs:** section 11.4, issue #364, US-D2.6 (#330), issue #114.
