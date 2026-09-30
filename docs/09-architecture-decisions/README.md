@@ -1184,10 +1184,14 @@ Consequences:
 * **Self-healing and undo-safe on every polygon-apply path.** Restoring the
   polygon *is* restoring the ridge, so no extra undo bookkeeping is needed —
   but only because **every** path that writes a polygon's geometry re-derives
-  the ridge. There are six: `_move_vertex_to`, `_insert_vertex`/`_remove_vertex`
-  and `_add_vertex_at_edge`/`_delete_vertex` as well as `_insert_vertex`/`_remove_vertex` (all four via `_after_vertex_topology_change`), `_apply_rotation`, `_apply_resize`, the
-  `ResizeItemCommand` apply closure, and the constraint solver's polygon restore
-  in `canvas_view`. The fifth was missed by the first implementation of this fix
+  the ridge. There are **six sites**, and the list is deliberately flat rather
+  than grouped by method name, because the count is the point: 1)
+  `PolygonItem._move_vertex_to`, 2) `_after_vertex_topology_change` (which
+  `_insert_vertex`, `_remove_vertex`, `_add_vertex_at_edge` and `_delete_vertex`
+  all funnel through — four entry points, **one** apply site), 3)
+  `PolygonItem._apply_rotation`, 4) `PolygonItem._apply_resize`, 5) the
+  `ResizeItemCommand` apply closure, and 6) the constraint solver's polygon
+  restore in `canvas_view`. The fifth was missed by the first implementation of this fix
   and caught only in senior review — it left a HOUSE resize undo restoring the
   polygon while the ridge stayed sized for the *resized* house (**300 cm** of
   drift on a 300->600 cm resize, persisted into the `.ogp`). That closure is now
@@ -1295,10 +1299,18 @@ and a vertical-ridge house.
 **Alternatives rejected.** (a) *Select the mirror by probing which side is
 upslope* - equivalent in result, but needs a containment probe and a fallback
 for degenerate polygons. The identity above is exact and needs no branch.
-(b) *Rotate by `-angle` instead* - measured with the same probe: `rotate(-a)`
-is **identical** to `rotate(+a)` at 0 and 180 degrees, so it leaves the defect
-untouched there, and it differs at 90 and 270, where the texture's `+Y` lands
-along `-n` instead of `n`. Wrong in a different way, and only at some angles.
+(b) *Rotate by `-angle` instead* - measured with the same probe, and this is
+  the sharpest illustration of a trap in this whole episode: `angle` here is
+  the ridge direction in the polygon's **local** frame, which
+  `compute_roof_ridge_endpoints` pins to the longest bounding-box axis. For a
+  **landscape** house that is 0 at every rotation, so `rotate(-a)` and
+  `rotate(+a)` are the *same transform* and a rotation sweep cannot tell the
+  mutant from the correct code at all - measured, the negated sign still reads
+  `RBBRBB` at every rotation of a landscape house. For a **portrait** house
+  `angle` is 90 and the negated sign reads `BRRBRR`, i.e. it is caught. So the
+  alternative is wrong in the case that matters and right-looking in the case
+  that hides it, which is why the test cases span both geometries
+  (`tests/unit/test_roof_tile_orientation.py`).
 
 **Preserved deliberately.** The two-sided `setClipPath` + oversized `drawRect`
 shape is load-bearing: Qt does not serialize the painter clip into SVG, and
@@ -1309,7 +1321,9 @@ next texture group 1:1 (§11.4). Only the brush assignment changed.
 had **no discriminating power** (peak correlation ~0.03 either way, and the
 diagonal case tied at 0.020 vs 0.019) - a few hundred sampled pixels span barely
 one texture period. The two-colour probe is what settled it, and
-`tests/unit/test_roof_tile_orientation.py` uses it, parametrised over nine
-ridge angles; 9 of its 12 cases fail against the unfixed brush assignment.
+`tests/unit/test_roof_tile_orientation.py` uses it, over **eight
+house/rotation cases** spanning landscape, portrait and square; 8 of its 11 cases
+fail against the unfixed brush assignment. Landscape cases alone would leave the
+`rotate()` sign unpinned — see alternative (b).
 
 **Cross-refs:** §11.4, issue #372, issue #114, ADR-046.

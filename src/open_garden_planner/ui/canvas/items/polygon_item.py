@@ -497,23 +497,29 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         # across all 24 fifteen-degree steps from 0 to 345 -- which is why
         # horizontal and vertical houses were both affected.
         #
-        # This depends on the ORDER of the ridge's points, not just the line:
-        # reversing them flips which half `n = (-uy, ux)` selects and re-breaks
-        # both halves. Every production writer emits `(t_min, t_max)` in that
-        # order — `compute_roof_ridge_endpoints` orders its two crossings by the
-        # line parameter, and both callers (creation and
-        # `_update_ridge_on_boundary`) keep that order. A hand drag of a ridge
-        # endpoint can reorder them, but it is not sticky: the next polygon edit
-        # recomputes them canonically.
+        # This depends on the ridge's point ORDER only through the *along-ridge*
+        # axis, and it does NOT change the lap direction. Reversing the two
+        # points flips the texture coordinate u while leaving v alone, i.e. it
+        # mirrors the tile pattern along the ridge: measured with a probe
+        # symmetric in x, reversal changes 0.00% of the painted pixels, while a
+        # probe asymmetric in x changes 44-93%. So a reversed ridge is a
+        # cosmetic along-ridge mirror, not the laps defect this fix is about.
+        #
+        # The order is nevertheless canonical, and every production writer
+        # emits it: `compute_roof_ridge_endpoints` orders its two crossings by
+        # the line parameter (verified: 0 inversions across 36 shape variants),
+        # and both callers -- creation and `_update_ridge_on_boundary` -- keep
+        # that order. A hand drag of a ridge endpoint can reorder them, but it
+        # is not sticky: the next polygon edit recomputes them canonically.
         #
         # The two-sided clip + oversized drawRect shape is load-bearing and
         # must not be flattened: Qt does not serialize the painter clip into
         # SVG, and ``ExportService._fix_svg_qt_texture_clipping`` pairs each
         # shadow group with the next texture group 1:1 (§11.4).
         #
-        # Pinned by tests/unit/test_roof_tile_orientation.py, parametrised
-        # over nine ridge angles; 9 of its 12 cases fail against the previous
-        # assignment.
+        # Pinned by tests/unit/test_roof_tile_orientation.py over eight
+        # house/rotation cases spanning landscape, portrait and square; 8 of its
+        # 11 cases fail against the previous brush assignment.
         painter.save()
         painter.setClipPath(left_path)
         painter.setBrush(normal_brush)

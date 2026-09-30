@@ -47,21 +47,32 @@ Three instruments were tried and rejected before this one:
 What works is sampling a **single pixel at a series of distances** outward from
 the ridge and reading the resulting colour *sequence*. The probe tiles, so one
 pixel is ambiguous -- but the phase of the sequence is not. Measured, sweeping
-every 15 degrees from 0 to 345:
+every 15 degrees from 0 to 345 on both landscape and portrait houses:
 
     fixed     R B B R B B      pre-fix:  B R R B R R
 
-on **both** halves, identically at **every** angle. The pre-fix code put the
-phase the wrong way round on both halves, so the laps pointed back toward the
-ridge.
+on **both** halves, identically at **every** angle and **both** aspect ratios.
+The pre-fix code put the phase the wrong way round on both halves, so the laps
+pointed back toward the ridge.
 
 The angle-independence is the point, not a convenience: the defect was never
-angle-specific -- it tracked *which half got the mirror*, and the swap is
-exact in the brush's own frame, so rotation cannot rescue or cause it. An
-earlier draft of this file excluded 90 and 270 degrees on the claim that "the
-ridge then runs along the sample axis and every sample lands in one phase".
-That claim was an artifact of the ``_ridge_axis`` double-rotation bug below;
-with it fixed, 90 and 270 are as informative as any other angle.
+angle-specific -- it tracked *which half got the mirror*, and the swap is exact
+in the brush's own frame. An earlier draft of this file excluded 90 and 270
+degrees on the claim that "the ridge then runs along the sample axis and every
+sample lands in one phase". That claim was an artifact of the
+``_ridge_axis`` double-rotation bug below; with it fixed, 90 and 270 are as
+informative as any other angle.
+
+One thing the sweep could *not* do, and a second bug this file also contained:
+sweeping the house's **rotation** never varies the angle that
+``normal_tx.rotate()`` receives. That angle is the ridge's direction in the
+polygon's **local** frame, which ``compute_roof_ridge_endpoints`` pins to the
+longest bounding-box axis -- 0 for a landscape house at every rotation, 90 for a
+portrait one at every rotation (measured by spying on the value). Since
+``rotate(-a)`` and ``rotate(+a)`` are the same transform when ``a`` is 0, a
+rotation-only sweep cannot tell a negated sign from a correct one, and the
+"swap, not a probe" argument rests on that sign. So the cases span both
+geometries; see ``HOUSE_CASES``.
 """
 
 # ruff: noqa: ARG002
@@ -77,30 +88,56 @@ from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.roof_ridge import compute_roof_ridge_endpoints
 from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem
 
-#: Ridge angles for the orientation assertion. The defect is present at every
-#: angle and so is the fix, so these are ordinary rotation coverage, chosen to
-#: span all four quadrants plus the axes -- not a search for whichever angles
-#: happen to fail. A sweep of every 15 degrees from 0 to 345 was measured and
-#: reads identically at all of them (see the module docstring).
-RIDGE_ANGLE_VALUES = (0.0, 30.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 315.0)
+#: The test cases, as ``(house_w, house_h, rotation)``.
+#:
+#: These are **two independent dimensions**, and conflating them is what made an
+#: earlier version of this file weaker than it looked. ``rotation`` is the
+#: house item's own transform. The angle that ``_paint_with_ridge`` actually
+#: feeds to ``normal_tx.rotate()`` is a *different* thing: the ridge's angle in
+#: the polygon's **local** frame, which ``compute_roof_ridge_endpoints`` fixes
+#: to the longest bounding-box axis. For a landscape house that is 0 at every
+#: rotation; for a **portrait** house it is 90 at every rotation.
+#:
+#: This matters because ``rotate(-angle)`` and ``rotate(+angle)`` are identical
+#: when the angle is 0. Measured with the ``rotate`` sign negated: a landscape
+#: house still reads ``RBBRBB`` at every rotation -- the mutant is completely
+#: invisible -- while a portrait house reads ``BRRBRR`` and is caught. So the
+#: portrait cases are what pin the sign, and the "swap, not a probe" argument in
+#: ADR-046 rests on that sign. Sweeping rotation alone would leave the single
+#: term the argument depends on untested.
+HOUSE_CASE_VALUES = (
+    (400.0, 250.0, 0.0),  # landscape, local ridge angle 0
+    (400.0, 250.0, 45.0),
+    (400.0, 250.0, 90.0),
+    (250.0, 400.0, 0.0),  # portrait, local ridge angle 90
+    (250.0, 400.0, 45.0),
+    (250.0, 400.0, 90.0),
+    (250.0, 400.0, 180.0),
+    (300.0, 300.0, 30.0),  # square: width >= height, so local angle 0
+)
 
-RIDGE_ANGLES = [pytest.param(a, id=f"ridge{int(a)}") for a in RIDGE_ANGLE_VALUES]
+HOUSE_CASES = [
+    pytest.param(w, h, r, id=f"{'landscape' if w > h else ('square' if w == h else 'portrait')}_rot{int(r)}")
+    for w, h, r in HOUSE_CASE_VALUES
+]
 
 #: Probe colours. The texture's ``+Y`` -- its down-slope -- is BLUE.
 DOWN_SLOPE = "#0000ff"
 UP_SLOPE = "#ff0000"
 
-#: A wide house, so the ridge is horizontal and the half-height is generous
-#: enough to sample several probe periods either side of it.
-HOUSE_W = 400.0
-HOUSE_H = 250.0
-
 #: Sample distances (cm) from the ridge midpoint, along the ridge's
 #: left-perpendicular. The first distance clears the ridge's painted body
 #: (three hardcoded pens up to 8.0 wide, i.e. a 4.0 half-width, plus ``r=4``
 #: end caps and antialiasing) at every angle. The ridge is hidden outright by
-#: ``_render``, so this margin is belt-and-braces -- but it means the assertion
-#: does not silently depend on the decoration's stroke width.
+#: ``_render``, and that suppression was verified *not* to be load-bearing --
+#: deleting it leaves all cases passing -- so this margin is belt-and-braces,
+#: and it also means no case depends on the decoration's stroke width.
+#:
+#: The deepest distance (120) must stay inside the half-width of the narrower
+#: dimension: for a portrait house the samples run horizontally, so 120 has to
+#: fit inside 250/2 = 125. That margin is thin, so ``_is_informative`` rejects
+#: any sequence containing ``?`` rather than letting a run-off-the-roof sample
+#: pass.
 SAMPLE_DISTANCES = (20, 40, 60, 80, 100, 120)
 
 RENDER_WIDTH = 400
@@ -116,7 +153,9 @@ def _probe_pixmap() -> QPixmap:
     return pm
 
 
-def _house_with_probe(rotation: float) -> tuple[QGraphicsScene, PolygonItem]:
+def _house_with_probe(
+    rotation: float, house_w: float, house_h: float
+) -> tuple[QGraphicsScene, PolygonItem]:
     """A HOUSE carrying the probe as its own brush, with a linked ridge.
 
     ``_paint_with_ridge`` reads ``self.brush()``, so installing the probe here
@@ -131,9 +170,9 @@ def _house_with_probe(rotation: float) -> tuple[QGraphicsScene, PolygonItem]:
     house = PolygonItem(
         [
             QPointF(0.0, 0.0),
-            QPointF(HOUSE_W, 0.0),
-            QPointF(HOUSE_W, HOUSE_H),
-            QPointF(0.0, HOUSE_H),
+            QPointF(house_w, 0.0),
+            QPointF(house_w, house_h),
+            QPointF(0.0, house_h),
         ],
         object_type=ObjectType.HOUSE,
     )
@@ -254,17 +293,20 @@ def _outward_sequence(
 
 
 def _is_informative(sequence: str) -> bool:
-    """Did the samples actually straddle a probe phase boundary?
+    """Did the samples actually land on the roof and straddle a probe phase?
 
-    Without this, a degenerate sequence (``??????`` off the roof, or ``RRRRRR``
-    inside one phase) compares equal to itself and makes a mirror assertion
-    pass for free.
+    Without this, a degenerate sequence compares equal to itself and makes a
+    mirror assertion pass for free. Two ways to be degenerate, both reachable:
+    ``??????`` when the samples run off the roof (the deepest sample is 120 cm
+    against a half-width of 125 for a portrait house -- a thin margin), and
+    ``RRRRRR`` when they all land inside one phase. So require no ``?`` at all,
+    and both colours present.
     """
-    return "R" in sequence and "B" in sequence
+    return "?" not in sequence and "R" in sequence and "B" in sequence
 
 
 def _is_mirror_pair(plus: str, minus: str) -> bool:
-    """Do the two halves read the same outward sequence?
+    """Do the two halves read the same, informative, outward sequence?
 
     A correct roof's two halves are mirror images across the ridge, so walking
     outward from it on either side meets the same tile phase in the same order.
@@ -272,8 +314,12 @@ def _is_mirror_pair(plus: str, minus: str) -> bool:
     so it is asserted separately, and that is what makes it useful: it
     attributes a failure of the orientation test to the brush *assignment*
     rather than to the split.
+
+    Requiring both halves to be informative is what stops the comparison
+    passing vacuously; the informativeness is also asserted on its own, so a
+    failure says *which* of the two things went wrong.
     """
-    return _is_informative(plus) and plus == minus
+    return _is_informative(plus) and _is_informative(minus) and plus == minus
 
 
 def _phase_runs_outward(sequence: str) -> bool:
@@ -300,8 +346,8 @@ def _phase_runs_outward(sequence: str) -> bool:
     return sequence.index("B") > sequence.index("R")
 
 
-def _both_sequences(rotation: float) -> tuple[str, str]:
-    scene, house = _house_with_probe(rotation)
+def _both_sequences(rotation: float, house_w: float, house_h: float) -> tuple[str, str]:
+    scene, house = _house_with_probe(rotation, house_w, house_h)
     axis = _ridge_axis(house)
     img = _render(scene, house)
     return (
@@ -310,23 +356,32 @@ def _both_sequences(rotation: float) -> tuple[str, str]:
     )
 
 
-@pytest.mark.parametrize("angle", RIDGE_ANGLES)
-def test_tiles_lap_away_from_the_ridge(angle: float, qtbot: object) -> None:
-    """Both halves must run down-slope *outward*, at every ridge angle.
+@pytest.mark.parametrize(("house_w", "house_h", "rotation"), HOUSE_CASES)
+def test_tiles_lap_away_from_the_ridge(
+    house_w: float, house_h: float, rotation: float, qtbot: object
+) -> None:
+    """Both halves must run down-slope *outward*, in every orientation.
 
     Driving the production ``_paint_with_ridge``: reverting the fix (giving
-    ``left_path`` the mirrored brush) reverses the phase on both halves at
-    every angle, ``RBBRBB`` becoming ``BRRBRR``.
+    ``left_path`` the mirrored brush) reverses the phase on both halves,
+    ``RBBRBB`` becoming ``BRRBRR``. Negating the ``rotate`` sign is caught by
+    the portrait cases only -- see ``HOUSE_CASES``.
     """
-    plus, minus = _both_sequences(angle)
+    plus, minus = _both_sequences(rotation, house_w, house_h)
 
+    assert _is_informative(plus) and _is_informative(minus), (
+        f"{house_w:.0f}x{house_h:.0f} at {rotation} deg: samples were not "
+        f"informative ({plus!r} / {minus!r}); the house, render size or "
+        "sample distances changed"
+    )
     assert _phase_runs_outward(plus), (
-        f"ridge {angle} deg: the +n half laps TOWARD the ridge "
-        f"(sequence {plus!r}); water would run uphill under the laps"
+        f"{house_w:.0f}x{house_h:.0f} at {rotation} deg: the +n half laps "
+        f"TOWARD the ridge (sequence {plus!r}); water would run uphill under "
+        "the laps"
     )
     assert _phase_runs_outward(minus), (
-        f"ridge {angle} deg: the -n half laps TOWARD the ridge "
-        f"(sequence {minus!r})"
+        f"{house_w:.0f}x{house_h:.0f} at {rotation} deg: the -n half laps "
+        f"TOWARD the ridge (sequence {minus!r})"
     )
 
 
@@ -340,24 +395,25 @@ def test_both_halves_are_mirror_images(qtbot: object) -> None:
     ``test_tiles_lap_away_from_the_ridge`` can be attributed to the assignment
     rather than to the split.
 
-    ``_is_mirror_pair`` requires the sequences to be informative, so a sample
+    ``_is_informative`` requires the sequences to be informative, so a sample
     point that strayed off the roof fails here rather than passing vacuously.
     """
-    for angle in RIDGE_ANGLE_VALUES:
-        plus, minus = _both_sequences(angle)
+    for house_w, house_h, rotation in HOUSE_CASE_VALUES:
+        plus, minus = _both_sequences(rotation, house_w, house_h)
         assert _is_informative(plus) and _is_informative(minus), (
-            f"ridge {angle} deg: samples were not informative "
-            f"({plus!r} / {minus!r}); the test house or render size changed"
+            f"{house_w:.0f}x{house_h:.0f} at {rotation} deg: samples were not "
+            f"informative ({plus!r} / {minus!r})"
         )
-        assert plus == minus, (
-            f"ridge {angle} deg: halves disagree ({plus!r} vs {minus!r}), so "
-            "the split itself is wrong rather than the brush assignment"
+        assert _is_mirror_pair(plus, minus), (
+            f"{house_w:.0f}x{house_h:.0f} at {rotation} deg: halves disagree "
+            f"({plus!r} vs {minus!r}), so the split itself is wrong rather than "
+            "the brush assignment"
         )
 
 
 def test_the_roof_is_actually_painted_at_the_sample_points(qtbot: object) -> None:
     """Guard against a blank or unprobed canvas making the above vacuous."""
-    scene, house = _house_with_probe(0.0)
+    scene, house = _house_with_probe(0.0, 400.0, 250.0)
     axis = _ridge_axis(house)
     img = _render(scene, house)
     plus = _outward_sequence(img, house, axis, True)
