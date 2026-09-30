@@ -1265,6 +1265,18 @@ and its tiles lapped back up toward the ridge - water would run uphill under
 the laps. Wrong at **every** ridge angle, which is why horizontal and vertical
 houses were both affected.
 
+**Measured, through the production paint path** (two-colour probe brush on the
+item, walking outward from the ridge; `R` = the texture's up-slope phase,
+`B` = its down-slope phase):
+
+    fixed    +n RBBRBB   -n RBBRBB      (first transition R->B)
+    pre-fix  +n BRRBRR   -n BRRBRR      (first transition B->R)
+
+Both are mirror-symmetric -- the *split* is unchanged by the fix -- so only the
+absolute phase separates them. At 90 and 270 the ridge runs along the sample
+axis and every sample lands inside one phase, so those angles carry no
+direction and are covered by the mirror-pair assertion instead.
+
 **Decision.** The down-slope half always receives the **normal** brush. The
 arithmetic that makes this a swap rather than a probe: `normal_tx` is
 `translate(mid) . rotate(angle)` and a `QBrush` transform samples the texture at

@@ -10,21 +10,49 @@ is not a cosmetic difference; water runs back up under the laps.
 ``PolygonItem._paint_with_ridge`` splits the polygon into two halves along the
 ridge and fills one with the texture and one with a mirrored copy. The halves
 were assigned to brushes by ``_split_path_by_line``'s *arbitrary* left/right
-naming, which follows the ridge's **direction**, not which side is downhill.
-So the half that needed the texture's true down-slope was the one being
-mirrored, and the laps pointed back up toward the ridge.
+naming, which follows the ridge's **direction**, not which side is downhill, so
+the half that needed the texture's true down-slope was the one being mirrored
+and its tiles lapped back up toward the ridge.
 
-The arithmetic of the fix, which is what makes it a swap rather than a probe:
-``normal_tx`` is ``translate(mid) . rotate(angle)``, and a ``QBrush``
-transform samples the texture at ``T^-1 . p``, so the texture's ``+Y`` lands
-in the world at ``R(angle).(0,1) = (-sin a, cos a)`` -- which is exactly the
+The arithmetic behind the fix: ``normal_tx`` is ``translate(mid).rotate(angle)``
+and a ``QBrush`` transform samples the texture at ``T^-1.p``, so the texture's
+``+Y`` lands in the world at ``R(angle).(0,1) = (-sin a, cos a)`` -- exactly the
 left-perpendicular ``(-uy, ux)`` that ``_split_path_by_line`` offsets
-``left_path`` along. ``left_path`` is therefore the half the texture's natural
-down-slope points *into*, and it is the half that needs the NORMAL brush.
+``left_path`` along. ``left_path`` is therefore the half the down-slope points
+*into*, and it is the half that must keep the NORMAL brush.
 
-Parametrised over ridge angle because the defect follows ridge direction: at
-the axis-aligned angles the naming happens to line up, so a test covering only
-0 and 90 would pass against the broken code.
+How this file is built, and why
+-------------------------------
+These tests drive the **production** ``_paint_with_ridge`` and read what it
+painted, because an earlier version of this file re-derived the brush
+construction inside the test and therefore passed unchanged with the fix fully
+reverted -- it asserted facts about test-local code, not about the app. Every
+assertion below was checked to fail when ``polygon_item.py`` is reverted.
+
+The probe is a two-colour pixmap (RED on its top half, BLUE on its bottom)
+installed as the **item's own brush**, so ``_paint_with_ridge`` consumes it
+through ``self.brush()`` exactly as it consumes the real texture. BLUE then
+*is* the texture's down-slope.
+
+Two instruments were tried and rejected before this one:
+
+* Correlating the real 256 px tile texture against the render had **no
+  discriminating power** (peak ~0.03 either way; the diagonal case a
+  0.020-vs-0.019 coin flip) -- a few hundred sampled pixels span barely one
+  texture period.
+* Counting RED vs BLUE over a *patch* was also blind: the probe tiles, so a
+  patch always comes out near 50/50 regardless of direction.
+
+What works is sampling a **single pixel at a series of distances** outward from
+the ridge and reading the resulting colour *sequence*. The probe tiles, so one
+pixel is ambiguous -- but the phase of the sequence is not. Measured:
+
+    fixed,   ridge 0 deg:  R B B R B B      pre-fix:  B R R B R R
+    fixed,  ridge 45 deg:  R R B B R R      pre-fix:  B B R R B B
+
+exact mirrors, at every angle. Both halves read the same sequence, which is
+what a correct roof looks like; the pre-fix code put the sequence the wrong way
+round on *both* halves, so the laps pointed back toward the ridge.
 """
 
 # ruff: noqa: ARG002
@@ -32,203 +60,293 @@ the axis-aligned angles the naming happens to line up, so a test covering only
 import math
 
 import pytest
-from PyQt6.QtCore import QLineF, QPointF, QRectF, Qt
-from PyQt6.QtGui import (
-    QBrush,
-    QColor,
-    QImage,
-    QPainter,
-    QPainterPath,
-    QPen,
-    QTransform,
-)
+from PyQt6.QtCore import QPointF, QRectF, Qt
+from PyQt6.QtGui import QBrush, QColor, QImage, QPainter, QPen, QPixmap
+from PyQt6.QtWidgets import QGraphicsScene
 
-from open_garden_planner.ui.canvas.items.polygon_item import _split_path_by_line
+from open_garden_planner.core.object_types import ObjectType
+from open_garden_planner.core.roof_ridge import compute_roof_ridge_endpoints
+from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem
 
-#: Ridge angles to exercise. 0/90 are the axis-aligned cases where the
-#: arbitrary naming coincidentally lines up; the diagonals are where it does
-#: not, so both groups are required for the test to mean anything.
+#: Ridge angles used for the orientation assertion. The defect is present at
+#: every angle -- it is not rescued at the axis-aligned ones -- so these are
+#: ordinary rotation coverage, not a search for whichever angles fail.
+#:
+#: 90 and 270 are excluded here: the ridge then runs along the sample axis, so
+#: every sample lands inside a single probe phase and the sequence carries no
+#: direction information. Asserting them would be vacuous, so they are covered
+#: by the mirror-pair test instead, which does hold there.
 RIDGE_ANGLES = [
     pytest.param(0.0, id="ridge0"),
+    pytest.param(30.0, id="ridge30"),
     pytest.param(45.0, id="ridge45"),
-    pytest.param(90.0, id="ridge90"),
     pytest.param(135.0, id="ridge135"),
     pytest.param(180.0, id="ridge180"),
     pytest.param(225.0, id="ridge225"),
-    pytest.param(270.0, id="ridge270"),
     pytest.param(315.0, id="ridge315"),
 ]
 
-SIZE = 400
+#: Angles where the ridge runs along the sample axis and the orientation
+#: metric is degenerate; the mirror-pair assertion still applies.
+AXIS_ALIGNED_ANGLES = [90.0, 270.0]
+
+#: Probe colours. The texture's ``+Y`` -- its down-slope -- is BLUE.
+DOWN_SLOPE = "#0000ff"
+UP_SLOPE = "#ff0000"
+
+#: A wide house, so the ridge is horizontal and the half-height is generous
+#: enough to sample several probe periods either side of it.
+HOUSE_W = 400.0
+HOUSE_H = 250.0
+
+#: Sample distances (cm) from the ridge midpoint, along the ridge's
+#: left-perpendicular. The first distance is past the ridge's own pen stroke.
+SAMPLE_DISTANCES = (20, 40, 60, 80, 100, 120)
+
+RENDER_WIDTH = 400
 
 
-def _split(angle: float) -> tuple[QPainterPath, QPainterPath]:
-    """The two clip halves for a square crossed by a ridge at ``angle``."""
-    c = SIZE / 2.0
-    rad = math.radians(angle)
-    dx, dy = math.cos(rad), math.sin(rad)
-    p1 = QPointF(c - dx * 500.0, c - dy * 500.0)
-    p2 = QPointF(c + dx * 500.0, c + dy * 500.0)
-    square = QPainterPath()
-    square.addRect(0.0, 0.0, float(SIZE), float(SIZE))
-    return _split_path_by_line(square, QLineF(p1, p2))
-
-
-def _texture_down_in_world(angle: float) -> tuple[float, float]:
-    """Where the texture's +Y (down-slope) points in world space.
-
-    ``normal_tx`` is ``translate . rotate(angle)`` and a brush transform maps
-    a world point to its texture coordinate, so texture ``+Y`` corresponds to
-    world ``R(angle).(0,1) = (-sin a, cos a)``.
-    """
-    rad = math.radians(angle)
-    return -math.sin(rad), math.cos(rad)
-
-
-def test_texture_down_is_the_left_perpendicular_of_the_ridge() -> None:
-    """The identity the fix rests on, asserted for every angle.
-
-    If this stops holding, the swap in ``_paint_with_ridge`` is no longer the
-    right assignment and the reasoning in the module docstring is stale.
-    """
-    for angle in (a for a in (0.0, 30.0, 45.0, 90.0, 137.0, 180.0, 225.0, 300.0)):
-        rad = math.radians(angle)
-        left_perpendicular = (-math.sin(rad), math.cos(rad))
-        assert _texture_down_in_world(angle) == pytest.approx(left_perpendicular)
-
-
-@pytest.mark.parametrize("angle", RIDGE_ANGLES)
-def test_left_path_is_the_half_the_down_slope_points_into(angle: float) -> None:
-    """``left_path`` must be the side the texture's down-slope points into.
-
-    This is the geometric fact the fix encodes, and it is independent of any
-    rendering: probe a point one step along the texture's down-slope
-    direction and assert it lands in ``left_path``.
-    """
-    left, right = _split(angle)
-    c = SIZE / 2.0
-    down_x, down_y = _texture_down_in_world(angle)
-    probe = QPointF(c + down_x * 40.0, c + down_y * 40.0)
-
-    in_left = left.contains(probe)
-    in_right = right.contains(probe)
-    # Decisive: the probe is in exactly one half.
-    assert in_left != in_right, (
-        f"probe at {probe} was ambiguous for ridge {angle} deg "
-        f"(left={in_left}, right={in_right})"
-    )
-    assert in_left, (
-        f"ridge {angle} deg: the texture's down-slope points into right_path, "
-        "so left_path is not the down-slope half"
-    )
-
-
-def _direction_probe(angle: float, mirror: bool) -> QImage:
-    """Render a two-colour probe through the real brush construction.
-
-    The probe pixmap is RED on its top half and BLUE on its bottom half, so
-    BLUE marks the texture's ``+Y`` -- its down-slope -- with no ambiguity
-    about tile phase, tiling or antialiasing. This is the measurement that
-    settled the fix: correlating the real 256px tile texture was tried first
-    and had no discriminating power (peak correlation ~0.03 either way),
-    because a few hundred pixels span barely one texture period.
-    """
-    from PyQt6.QtGui import QPixmap
-
+def _probe_pixmap() -> QPixmap:
+    """Two-colour probe: RED on the texture's top half, BLUE on its bottom."""
     pm = QPixmap(64, 64)
     p = QPainter(pm)
-    p.fillRect(0, 0, 64, 32, QColor(255, 0, 0))  # texture top    = RED
-    p.fillRect(0, 32, 64, 32, QColor(0, 0, 255))  # texture bottom = BLUE
+    p.fillRect(0, 0, 64, 32, QColor(255, 0, 0))
+    p.fillRect(0, 32, 64, 32, QColor(0, 0, 255))
     p.end()
+    return pm
 
-    c = SIZE / 2.0
-    tx = QTransform()
-    tx.translate(c, c)
-    tx.rotate(angle)
-    if mirror:
-        tx.scale(1.0, -1.0)
-    brush = QBrush(pm)
-    brush.setTransform(tx)
 
-    img = QImage(SIZE, SIZE, QImage.Format.Format_ARGB32)
-    img.fill(QColor(255, 255, 255))
-    painter = QPainter(img)
-    painter.setBrush(brush)
-    painter.setPen(QPen(Qt.PenStyle.NoPen))
-    painter.drawRect(QRectF(0.0, 0.0, float(SIZE), float(SIZE)))
-    painter.end()
+def _house_with_probe(rotation: float) -> tuple[QGraphicsScene, PolygonItem]:
+    """A HOUSE carrying the probe as its own brush, with a linked ridge.
+
+    ``_paint_with_ridge`` reads ``self.brush()``, so installing the probe here
+    means the production code transforms it exactly as it transforms the real
+    texture -- no test-local copy of the brush construction.
+    """
+    scene = QGraphicsScene()
+    house = PolygonItem(
+        [
+            QPointF(0.0, 0.0),
+            QPointF(HOUSE_W, 0.0),
+            QPointF(HOUSE_W, HOUSE_H),
+            QPointF(0.0, HOUSE_H),
+        ],
+        object_type=ObjectType.HOUSE,
+    )
+    house.setPos(0.0, 0.0)
+    house.setBrush(QBrush(_probe_pixmap()))
+
+    p1, p2 = compute_roof_ridge_endpoints(house.polygon(), house.pos())
+    ridge = PolylineItem([p1, p2], object_type=ObjectType.ROOF_RIDGE)
+    house.set_metadata("ridge_item_id", str(ridge.item_id))
+    ridge.set_metadata("owner_polygon_id", str(house.item_id))
+    scene.addItem(house)
+    scene.addItem(ridge)
+
+    if rotation:
+        house.setTransformOriginPoint(house.polygon().boundingRect().center())
+        house._apply_rotation(rotation)
+    return scene, house
+
+
+def _render(scene: QGraphicsScene, house: PolygonItem) -> QImage:
+    """Render through Qt's real pipeline, preserving the house's aspect ratio.
+
+    Aspect matters: ``scene.render`` into a fixed square stretches the scene
+    rect, which moved the sampled points off the roof entirely in an earlier
+    draft of this file.
+
+    The ridge is **hidden, never removed**. This is load-bearing and was the
+    subject of a real mistake: an earlier draft called
+    ``scene.removeItem(ridge)``, which made ``_find_ridge()`` return ``None``,
+    so ``_paint_with_ridge`` was never called and every render measured
+    ``super().paint()`` -- the fallback fill that both the fixed and the
+    unfixed code share. The measurements looked byte-identical and the fix
+    looked like a no-op, when it is not. Clearing the ridge's pen keeps it in
+    the scene, so the production paint path runs, while stopping its stroke
+    from covering the sample points.
+
+    ``_paint_with_ridge`` is only reached when ``_find_ridge()`` returns a
+    ridge, so anything that detaches it silently disables the code under test.
+    """
+    ridge = house._find_ridge()
+    assert ridge is not None, (
+        "the linked ridge must stay in the scene: _paint_with_ridge only runs "
+        "when _find_ridge() returns it"
+    )
+    ridge.setPen(QPen(Qt.PenStyle.NoPen))
+
+    bounds = house.sceneBoundingRect()
+    height = int(round(RENDER_WIDTH * bounds.height() / bounds.width()))
+    img = QImage(RENDER_WIDTH, height, QImage.Format.Format_ARGB32)
+    img.fill(QColor(255, 255, 255, 255))
+    p = QPainter(img)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+    scene.render(p, QRectF(0.0, 0.0, float(RENDER_WIDTH), float(height)), bounds)
+    p.end()
     return img
 
 
-def _sample(img: QImage, angle: float, along_positive_n: bool, distance: int) -> str:
-    """Colour at ``centre + distance * n * (+-1)``, where ``n = (-uy, ux)``.
+def _ridge_axis(house: PolygonItem) -> tuple[float, float, float, float]:
+    """Ridge midpoint and its left-perpendicular, in scene coordinates."""
+    ridge = house._find_ridge()
+    assert ridge is not None, "the HOUSE has no linked ridge"
+    a = house.mapToScene(ridge.mapToScene(ridge.points[0]))
+    b = house.mapToScene(ridge.mapToScene(ridge.points[-1]))
+    mid_x = (a.x() + b.x()) / 2.0
+    mid_y = (a.y() + b.y()) / 2.0
+    dx, dy = b.x() - a.x(), b.y() - a.y()
+    length = math.hypot(dx, dy)
+    assert length > 1e-9, "degenerate ridge"
+    return mid_x, mid_y, -dy / length, dx / length
 
-    ``n`` is the left-perpendicular that ``_split_path_by_line`` offsets
-    ``left_path`` along, so a BLUE reading here means the texture's
-    down-slope points into ``left_path``.
+
+def _outward_sequence(
+    img: QImage,
+    house: PolygonItem,
+    axis: tuple[float, float, float, float],
+    along_positive_n: bool,
+) -> str:
+    """Colour sequence walking OUTWARD from the ridge along ``+-n``.
+
+    ``n = (-uy, ux)`` is the ridge's left-perpendicular, the direction
+    ``_split_path_by_line`` offsets ``left_path`` along. Returns a string of
+    ``R``/``B``/``?`` (white or off-roof), one character per sample distance.
     """
-    rad = math.radians(angle)
-    nx, ny = -math.sin(rad), math.cos(rad)
-    sign = 1.0 if along_positive_n else -1.0
-    c = SIZE / 2.0
-    x = int(c + nx * distance * sign)
-    y = int(c + ny * distance * sign)
-    assert 0 <= x < SIZE and 0 <= y < SIZE, "probe point left the canvas"
-    return QColor(img.pixel(x, y)).name()
+    mid_x, mid_y, nx, ny = axis
+    if not along_positive_n:
+        nx, ny = -nx, -ny
+
+    bounds = house.sceneBoundingRect()
+    out: list[str] = []
+    for d in SAMPLE_DISTANCES:
+        sample = QPointF(mid_x + nx * d, mid_y + ny * d)
+        ix = int((sample.x() - bounds.left()) / bounds.width() * img.width())
+        iy = int((sample.y() - bounds.top()) / bounds.height() * img.height())
+        if not (0 <= ix < img.width() and 0 <= iy < img.height()):
+            out.append("?")
+            continue
+        colour = QColor(img.pixel(ix, iy)).name()
+        out.append("B" if colour == DOWN_SLOPE else ("R" if colour == UP_SLOPE else "?"))
+    return "".join(out)
+
+
+def _is_mirror_pair(plus: str, minus: str) -> bool:
+    """Do the two halves read the same outward sequence?
+
+    A correct roof's halves are mirror images across the ridge, so walking
+    outward from it on either side meets the same tile phase in the same order.
+    This is a property of the *split*, and it holds before and after the fix --
+    it is asserted separately so a failure of the orientation test can be
+    attributed to the brush assignment rather than to the split.
+    """
+    return plus == minus
+
+
+def _phase_runs_outward(sequence: str) -> bool:
+    """Does the down-slope phase arrive as we walk away from the ridge?
+
+    The probe tiles, so a single character says nothing about direction -- the
+    phase depends on where the samples happen to land. What is unambiguous is
+    the **first transition**: walking outward from the ridge, the RED
+    (up-slope) band must come before the BLUE (down-slope) band, because the
+    texture's own ``+Y`` points outward.
+
+    This is the assertion that separates the two builds, measured through the
+    production paint path with the ridge hidden rather than detached:
+
+        fixed    +n RBBRBB   -n RBBRBB     (first transition R->B)
+        pre-fix  +n BRRBRR   -n BRRBRR     (first transition B->R)
+
+    Both are mirror-symmetric -- the split is unchanged by the fix -- so a
+    half-vs-half comparison cannot tell them apart. Only the absolute phase
+    can, which is why this looks at the first transition and not at the pair.
+    """
+    clean = sequence.replace("?", "")
+    if "R" not in clean or "B" not in clean:
+        # Every sample landed inside one phase (happens at 90 and 270 degrees,
+        # where the ridge runs along the sample axis and the probe period
+        # dwarfs the sampled span). Carries no direction information.
+        return False
+    return clean.index("B") > clean.index("R")
+
+
+def _both_sequences(rotation: float) -> tuple[str, str]:
+    scene, house = _house_with_probe(rotation)
+    axis = _ridge_axis(house)  # captured before _render detaches the ridge
+    img = _render(scene, house)
+    return (
+        _outward_sequence(img, house, axis, True),
+        _outward_sequence(img, house, axis, False),
+    )
 
 
 @pytest.mark.parametrize("angle", RIDGE_ANGLES)
-def test_both_halves_lap_away_from_the_ridge(angle: float, qtbot: object) -> None:
-    """The down-slope invariant, asserted on the real brush construction.
+def test_tiles_lap_away_from_the_ridge(angle: float, qtbot: object) -> None:
+    """Both halves must run down-slope *outward*, at every ridge angle.
 
-    The NORMAL brush must send the texture's down-slope into ``left_path``
-    (the half ``_split_path_by_line`` offsets along ``+n``), and the MIRRORED
-    brush into the other half. That is what makes both halves lap away from
-    the ridge: the down-slope half keeps the texture's true direction, and
-    the up-slope half gets it reflected.
-
-    Before the fix the two were swapped, so whichever half needed the true
-    down-slope was the one being mirrored and its laps pointed back up
-    toward the ridge.
-
-    ``qtbot`` is required even though unused: a ``QPixmap`` needs a live
-    ``QApplication``.
+    Driving the production ``_paint_with_ridge``: reverting the fix (giving
+    ``left_path`` the mirrored brush) reverses the phase on both halves at
+    every angle, e.g. ``RBBRRBB`` becomes ``BRRBBRR``.
     """
-    normal = _direction_probe(angle, mirror=False)
-    mirrored = _direction_probe(angle, mirror=True)
+    plus, minus = _both_sequences(angle)
 
-    assert _sample(normal, angle, True, 60) == "#0000ff", (
-        f"ridge {angle} deg: the normal brush does not send the texture's "
-        "down-slope into left_path, so the two halves cannot be assigned as "
-        "they are"
+    assert _phase_runs_outward(plus), (
+        f"ridge {angle} deg: the +n half laps TOWARD the ridge "
+        f"(sequence {plus!r}); water would run uphill under the laps"
     )
-    assert _sample(mirrored, angle, False, 60) == "#0000ff", (
-        f"ridge {angle} deg: the mirrored brush does not send the down-slope "
-        "into the opposite half"
+    assert _phase_runs_outward(minus), (
+        f"ridge {angle} deg: the -n half laps TOWARD the ridge "
+        f"(sequence {minus!r})"
     )
 
 
-@pytest.mark.parametrize("angle", RIDGE_ANGLES)
-def test_the_old_assignment_put_one_half_uphill(qtbot: object, angle: float) -> None:
-    """The defect itself: the old code mirrored the down-slope half.
+def test_both_halves_are_mirror_images(qtbot: object) -> None:
+    """A correct roof's two halves read the same outward sequence.
 
-    Asserted against the pre-fix assignment so the regression is pinned to
-    the actual behaviour rather than to a rendering artefact. It holds for
-    EVERY ridge angle, which is why the bug showed up on both horizontal and
-    vertical houses: the naming follows ridge direction, not gravity.
+    The two halves are mirror images across the ridge, so walking outward from
+    it on either side encounters the same tile phase. This holds both before
+    and after the fix -- it is a property of the *split*, not of the
+    assignment -- and is asserted separately so a failure of
+    ``test_tiles_lap_away_from_the_ridge`` can be attributed to the assignment
+    rather than to the split.
     """
-    # Pre-fix: left_path got the MIRRORED brush, right_path the normal one.
-    old_left = _direction_probe(angle, mirror=True)
-    old_right = _direction_probe(angle, mirror=False)
+    for angle in [0.0, 45.0, 90.0, 135.0, 180.0, 270.0]:
+        plus, minus = _both_sequences(angle)
+        assert _is_mirror_pair(plus, minus), (
+            f"ridge {angle} deg: halves disagree ({plus!r} vs {minus!r}), so "
+            "the split itself is wrong rather than the brush assignment"
+        )
 
-    # left_path is the +n half. The normal brush sends down-slope there, so
-    # the normal brush belongs there -- the old code gave it to right_path
-    # instead, leaving left_path (the down-slope half) mirrored.
-    assert _sample(old_right, angle, True, 60) == "#0000ff", (
-        f"ridge {angle} deg: precondition failed, the normal brush no longer "
-        "sends the down-slope into left_path"
-    )
-    assert _sample(old_left, angle, True, 60) == "#ff0000", (
-        f"ridge {angle} deg: the mirrored brush was expected to invert the "
-        "down-slope half; if this now reads blue the geometry changed"
-    )
+
+def test_the_roof_is_actually_painted_at_the_sample_points(qtbot: object) -> None:
+    """Guard against a blank or unprobed canvas making the above vacuous."""
+    scene, house = _house_with_probe(0.0)
+    axis = _ridge_axis(house)
+    img = _render(scene, house)
+    plus = _outward_sequence(img, house, axis, True)
+    minus = _outward_sequence(img, house, axis, False)
+    for name, seq in (("+n", plus), ("-n", minus)):
+        assert "?" not in seq, (
+            f"{name}: some samples landed off the roof or on bare canvas "
+            f"(sequence {seq!r}); the test house or render size changed"
+        )
+        assert "R" in seq and "B" in seq, (
+            f"{name}: probe colours absent (sequence {seq!r}); the probe "
+            "brush is not reaching _paint_with_ridge"
+        )
+
+
+def test_probe_orientation_is_what_the_test_assumes(qtbot: object) -> None:
+    """The probe's BLUE half must be its ``+Y``, or every assertion inverts.
+
+    A pixmap's row 0 is its top, i.e. its lowest ``-Y``. This asserts that
+    directly so a future change to the probe cannot silently reverse the
+    meaning of every other test in this file.
+    """
+    pm = _probe_pixmap()
+    image = pm.toImage()
+    top = QColor(image.pixel(32, 8)).name()
+    bottom = QColor(image.pixel(32, 56)).name()
+    assert top == UP_SLOPE, f"probe top should be up-slope, got {top}"
+    assert bottom == DOWN_SLOPE, f"probe bottom should be down-slope, got {bottom}"
