@@ -200,6 +200,115 @@ def _unwrap(call) -> object:
     return data
 
 
+async def emit_sample(port: int, token: str, out_dir: Path) -> dict:
+    """Leave behind two artefacts the owner can look at, no MCP calls needed.
+
+    The owner is a GUI user, not an MCP client: asking them to hand-write tool
+    calls is asking them to do the agent's job. So this writes a real .ogp that
+    already contains a bed AND a succession plan, plus a PNG render of the bed
+    area, and prints the paths.
+
+    Returns a dict of what it produced so the caller can report it.
+    """
+    from mcp import ClientSession
+    from mcp.client.streamable_http import streamable_http_client as http_client
+
+    out: dict = {"errors": []}
+    url = f"http://127.0.0.1:{port}/mcp?token={token}"
+    async with http_client(url) as (r, w, _), ClientSession(r, w) as session:
+        await session.initialize()
+
+        c = await session.call_tool(
+            "create_object",
+            {"object_type": "RAISED_BED", "x": 0, "y": 0, "width": 200,
+             "height": 100, "name": "Sample Bed"},
+        )
+        bed_id = (_unwrap(c) or {}).get("item_id")
+        if not bed_id:
+            out["errors"].append("create_object failed: %s"
+                                 % (c.content[0].text if c.content else ""))
+            return out
+        out["bed_id"] = bed_id
+
+        # A plan that is current "now" as well as historically, so the badge has
+        # something to show whichever date the app opens with.
+        import datetime as _dt
+
+        today = _dt.date.today()
+        # Find a gap we can fill: ask the tool, then take the first window.
+        g = await session.call_tool("find_succession_gaps", {"bed_id": bed_id})
+        gaps = _unwrap(g) or []
+        if not gaps:
+            out["errors"].append("no gaps to fill")
+            return out
+        # Pick a window that CONTAINS today (so the badge marks it current) and
+        # the next future one. Filling an arbitrary gap - the first one is early
+        # spring, i.e. months past - renders a badge with a single line, because
+        # `_refresh_succession_indicators` deliberately skips past entries. The
+        # sample is more useful with a current and an upcoming crop.
+        def _contains_today(g: dict) -> bool:
+            return g["start_date"] <= today.isoformat() <= g["end_date"]
+
+        current = next((g for g in gaps if _contains_today(g)), None)
+        future = next(
+            (g for g in gaps if g["start_date"] > today.isoformat()), None
+        )
+        if current is None and future is None:
+            out["errors"].append("no usable window (today is outside the season)")
+            return out
+        out["windows"] = [
+            (g["segment"], g["start_date"], g["end_date"])
+            for g in (current, future) if g is not None
+        ]
+
+        entries = []
+        if current is not None:
+            entries.append({"species_key": "allium sativum", "common_name": "Garlic",
+                            "start_date": current["start_date"],
+                            "end_date": current["end_date"]})
+        if future is not None:
+            entries.append({"species_key": "lactuca sativa", "common_name": "Lettuce",
+                            "start_date": future["start_date"],
+                            "end_date": future["end_date"]})
+        c = await session.call_tool(
+            "set_succession_plan", {"bed_id": bed_id, "entries": entries}
+        )
+        out["write_error"] = c.isError
+        out["write_text"] = (c.content[0].text if c.content else "")[:200]
+
+        # Save the document where the owner can open it.
+        target = out_dir / "us-d3.2-succession-sample.ogp"
+        c = await session.call_tool("save_plan", {"file_path": str(target)})
+        out["save_error"] = c.isError
+        out["save_text"] = (c.content[0].text if c.content else "")[:200]
+        out["ogp"] = str(target) if target.exists() else None
+
+        # Render the bed area so the badge can be checked without a human.
+        # The parameter is `image_width_px`, and the PNG arrives as an
+        # ImageContent block in `content`, NOT as bytes in structuredContent.
+        c = await session.call_tool(
+            "render_canvas_image",
+            {"x": -150.0, "y": -120.0, "width": 500.0, "height": 340.0,
+             "image_width_px": 1000},
+        )
+        png_bytes = None
+        for block in (c.content or []):
+            data = getattr(block, "data", None)
+            if data:
+                import base64
+
+                png_bytes = base64.b64decode(data)
+                break
+        if png_bytes:
+            png_path = out_dir / "us-d3.2-succession-sample.png"
+            png_path.write_bytes(png_bytes)
+            out["png"] = str(png_path)
+        else:
+            kinds = [type(b).__name__ for b in (c.content or [])]
+            out["errors"].append(f"render produced no image block; content={kinds}")
+    return out
+
+
 async def drive(port: int, token: str) -> dict:
     from mcp import ClientSession
     from mcp.client.streamable_http import streamable_http_client as http_client
@@ -583,6 +692,13 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--exe", default=str(DEFAULT_EXE))
     ap.add_argument(
+        "--emit-sample",
+        action="store_true",
+        help="Write a ready-to-open .ogp (bed + succession plan) and a PNG render "
+             "of it, then print the paths. For the owner to look at, so they never "
+             "have to make an MCP call themselves.",
+    )
+    ap.add_argument(
         "--repair",
         action="store_true",
         help="Restore the documented defaults and exit. Use if a previous run was "
@@ -631,7 +747,10 @@ def main() -> int:
         token = apply_settings(port)
         proc = subprocess.Popen([str(exe), str(plan)])
         wait_for_port(port, proc)
-        out = asyncio.run(drive(port, token))
+        if args.emit_sample:
+            out = asyncio.run(emit_sample(port, token, tmp))
+        else:
+            out = asyncio.run(drive(port, token))
     except Exception as exc:  # noqa: BLE001 - report, never traceback-only
         out["errors"].append(f"harness error: {exc!r}")
         traceback.print_exc()
@@ -644,6 +763,22 @@ def main() -> int:
                 proc.kill()
         for line in restore_settings(before):
             print("settings: " + line)
+
+    if args.emit_sample:
+        if out.get("errors"):
+            for e in out["errors"]:
+                print("  ERROR " + e)
+        if out.get("ogp"):
+            print(f"plan file : {out['ogp']}")
+        if out.get("png"):
+            print(f"render    : {out['png']}")
+        for seg, s, e in out.get("windows") or []:
+            print(f"filled    : {seg} {s} -> {e}")
+        print(f"bed id    : {out.get('bed_id')}")
+        ok_emit = bool(out.get("ogp")) and bool(out.get("png")) and not out["errors"]
+        print()
+        print("EMIT: " + ("OK" if ok_emit else "FAIL"))
+        return 0 if ok_emit else 1
 
     # Run the checks even when the harness errored: a partial result is more
     # informative than "FAIL" with no detail.
