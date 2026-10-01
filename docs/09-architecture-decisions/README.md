@@ -1136,3 +1136,204 @@ have been the same overstatement this package was corrected for.
 **Addendum — the honesty invariant (four instances in one PR).** This PR independently hit the same anti-pattern four times, and the pattern is worth recording as a contract: **a component that did not check something must not report a result that reads as a successful check.** (a) `check_placement` hardcoded `spacing_ok = True` when it had not evaluated spacing; (b) it accepted a `bed_id` it never resolved, so an unknown bed reported `overall="neutral"`; (c) the set search's broad `except Exception` turned any failure into "No compatible sets found."; (d) the conflict report called a plant that merely fit no 3-set a "clash" — the same fabrication, one level up, and the most damaging of the four because it stated something **false** about the data rather than merely nothing. All four now report what they know: `None` for an un-evaluated check, `"unknown_bed"` / `"unknown"` for an unresolvable target, a raised error instead of a swallowed one, and `uncovered` as a claim-free list. Test pins: `tests/unit/test_companion_panel_sets.py` covers the bed-membership lookups, `find_sets_for_bed` and the dialog wording; `tests/integration/test_agent_check_placement_bed.py` drives the real main-thread `check_placement` body against a real scene (it was untested, which is why (b) survived a fix that did not fix it); `tests/unit/test_companion_sets.py` covers the search.
 
 **Addendum — `parent_bed_id` is a property, not metadata (found by the live manual pass).** `_get_current_bed_id()` / `_get_bed_plants()` first read `item.metadata["parent_bed_id"]`, which is never present: on `GardenItem` it is a real property backed by a `_parent_bed_id` UUID. Both silently returned nothing, so the panel action opened an empty dialog. Fixed to read the property; the fake in `tests/unit/test_companion_panel_sets.py` models it as a property and keeps `metadata` free of that key, so the original bug cannot be reintroduced silently. Related: `CompanionRelationship.source` became a **declared** dataclass field for the same reason — the reverse adjacency copy in `_add_to_adjacency` copies declared fields only, so a dynamically attached `_source` was lost and the same Permapeople rule reported `permapeople` in one direction and `bundled` in the other. Cross-refs: FR-AGENT-23, FR-AGENT-24, §8.19, issue #319, issue #362.
+
+## ADR-046: Derived geometry is recomputed, never projected (issue #364)
+
+**Status**: Accepted (2026-09-29). Fixes the HOUSE/ROOF_RIDGE sync; #363
+(issue-template links) shipped in the same package and is unrelated to this
+decision.
+
+**Context.** A HOUSE auto-creates a linked `ROOF_RIDGE` polyline along its
+longest bounding-box axis, clipped to the polygon boundary. The canonical
+computation is `core/roof_ridge.compute_roof_ridge_endpoints()`, extracted in
+US-D2.5 so that the drawing tool (`PolygonTool._create_roof_ridge`) and the
+Agent API (`application.py`) produce identical ridges — the "one canonical path"
+discipline.
+
+`PolygonItem._update_ridge_on_boundary()` did **not** use it. Introduced with
+the roof-ridge feature itself (`818e3fb`, #114) and last touched by US-D2.6
+(`4e0a312`, #330), it re-projected the ridge's *existing* endpoints onto the
+current boundary via `_project_to_polygon_boundary`. Two measured defects:
+
+* **Drift undo cannot repair.** Adding a vertex moved the second endpoint onto
+  the newly introduced slanted edge; undo restored the polygon exactly and left
+  the ridge behind (36 cm on a 300x200 cm house). The write bypassed the
+  command system, so no undo step covered it, and drift accumulated over
+  repeated cycles.
+* **No rotation or scale awareness — larger than the reported bug.** The
+  membrane kept the ridge's prior orientation, so a house rotated 30/90 degrees
+  kept a ridge at 0 degrees, deviating 75 cm / 180 cm from geometric truth.
+  Since `_paint_with_ridge` mirrors the roof texture along the ridge line,
+  every rotated house also rendered a wrongly-oriented roof.
+
+**Decision.** The ridge is **derived** geometry and is recomputed from the
+owner's polygon on every sync, through the same canonical function used at
+creation:
+
+    compute_roof_ridge_endpoints(polygon, QPointF(0, 0))   # LOCAL frame
+      -> house.mapToScene() -> ridge.mapFromScene()         # full transform
+
+Computing in the local frame and mapping through the item's transform — rather
+than adding `pos` to local points as creation does — is what makes it correct
+for a rotated or scaled house. The creation formula is only valid for an
+unrotated item; the issue's own suggested fix (call it with `pos`) would have
+reproduced the unrotated case and left rotation broken.
+
+Consequences:
+
+* **Self-healing and undo-safe on every polygon-apply path.** Restoring the
+  polygon *is* restoring the ridge, so no extra undo bookkeeping is needed —
+  but only because **every** path that writes a polygon's geometry re-derives
+  the ridge. There are **six sites**, and the list is deliberately flat rather
+  than grouped by method name, because the count is the point: 1)
+  `PolygonItem._move_vertex_to`, 2) `_after_vertex_topology_change` (which
+  `_insert_vertex`, `_remove_vertex`, `_add_vertex_at_edge` and `_delete_vertex`
+  all funnel through — four entry points, **one** apply site), 3)
+  `PolygonItem._apply_rotation`, 4) `PolygonItem._apply_resize`, 5) the
+  `ResizeItemCommand` apply closure, and 6) the constraint solver's polygon
+  restore in `canvas_view`. The fifth was missed by the first implementation of this fix
+  and caught only in senior review — it left a HOUSE resize undo restoring the
+  polygon while the ridge stayed sized for the *resized* house (**300 cm** of
+  drift on a 300->600 cm resize, persisted into the `.ogp`). That closure is now
+  `polygon_resize_apply`, module-level rather than a closure inside
+  `_on_resize_end` specifically so a test can drive the production function
+  instead of re-implementing it. The sixth came out of the same review round:
+  `canvas_view`'s solver `finally` restored the polygon with a bare `setPolygon`,
+  bypassing `PolygonItem._move_vertex_to` — the one override that re-derives -
+  so after the trial move the ridge was left computed for the trial geometry.
+  Transient on a successful solve, which re-applies the moves through a command;
+  persisted when the solve raises, since nothing re-applies them. **A seventh polygon-write path that skips the
+  sync will silently rot this invariant** — the durable lesson is not "recompute
+  instead of project" on its own, but "a derived child must be re-derived by
+  *every* writer of its owner's state", because a derived child adjusted from
+  its own current position becomes state that nothing owns. Re-derive the
+  enumeration with `grep -rn "setPolygon\|setPoints\|setRotation\|setScale\|setTransform" src/`
+  when adding a path — and remember that a rotation or scale changes the ridge
+  without touching the polygon at all, so a polygon-only grep misses the path whose
+  absence recreates the orientation defect.
+
+  **The benign hits, recorded so nobody re-litigates them.** That grep returns
+  15 sites; only the six above are HOUSE writers. Checked and inert:
+  `background_image_item.py` (`setScale`/`setRotation`, never a HOUSE) and
+  `dxf_service.py:454` (`EllipseItem`). Two hits *look* alarming and are not
+  writers either: `corner_edit_base.py:298,318` (`clone.setRotation`) and
+  `polygon_tool.py:196` (a preview `setPolygon`) both build **fresh** items
+  that carry no `ridge_item_id`, so `_find_ridge()` returns `None` and there is
+  no derived child to re-derive. The test that decides it is not "is this a
+  polygon write" but "does the item have a linked ridge".
+
+* **A hand-dragged ridge endpoint is not sticky.** `PolylineItem._move_vertex_to`
+  still constrains a hand-dragged endpoint onto the owner's outline, so the drag
+  is honoured; the next polygon edit returns it to canonical. The reason is the
+  derived-state invariant above — a second, manually-placed source of truth for
+  the same geometry is precisely what this change removes — and not any claim
+  about the texture disagreeing, which cannot happen: the texture is re-derived
+  from whatever the ridge currently is, so a hand placement never puts the two
+  out of sync. The same reasoning drops a user-inserted third ridge vertex on
+  the next polygon edit: the derived ridge is exactly the two canonical
+  endpoints. That is a deliberate capability loss on a user-editable item, and
+  it is accepted here for the same reason.
+* **`_project_to_polygon_boundary` is kept**, still used by
+  `PolylineItem._move_vertex_to` to constrain that hand drag.
+* **A ridge drift already saved into an `.ogp` self-heals on the next polygon
+  edit**, not at load time. The cause is *not* serialization order: it is that
+  `_deserialize_item_core` calls `_apply_rotation` on the house before the item
+  is added to the scene, so `self.scene()` is `None` and `_find_ridge()` bails
+  out early — a no-scene guard, independent of which item the file lists first.
+  A load-time resync was considered and deliberately left out; it widens the
+  blast radius into the deserializer for a cosmetic gain. Recorded here rather
+  than discovered later.
+
+**Alternatives rejected.** (a) *Make the projection reversible* — capture ridge
+points in every vertex command and restore them in `undo`/`redo`. Rejected:
+threading a second geometry through four command classes to preserve state that
+should not exist. (b) *Re-project on undo only* — rejected: undo and edit share
+one apply path, so "on undo" needs a new signal the architecture does not carry.
+
+**Cross-refs:** section 11.4, issue #364, US-D2.6 (#330), issue #114.
+
+### ADR-046 addendum: roof-tile down-slope is gravity-relative, not name-relative (issue #372)
+
+**Status**: Accepted (2026-09-30). Found during the #364 manual test; shipped in
+the same PR. **Pre-existing**, not a #364 regression: master's membrane path
+produces the same drift figures, and `git diff eed0895..HEAD` touches
+`_paint_with_ridge` only in a docstring.
+
+**Context.** `_paint_with_ridge` splits a HOUSE along its ridge and fills each
+half with the tile texture, one mirrored. The roof-tile texture has a fixed
+direction: each tile's rounded free edge points `+Y` and laps the tile below
+it (measured from the texture - a dark lapse line near `y=10`, the light free
+edge beneath), so `+Y` is **down-slope**.
+
+The halves were assigned by `_split_path_by_line`'s naming, which follows the
+left-perpendicular `n = (-uy, ux)` and therefore the ridge's *direction*, with
+no relation to which side is downhill. Rasterizing both clip regions:
+
+| Ridge | `left_path` (was given the **mirror**) |
+|---|---|
+| horizontal (+X) | LOWER half |
+| vertical (+Y) | LEFT half |
+
+So the half needing the texture's true down-slope was the one being mirrored.
+Because the two clip halves are mirror images of each other across the ridge,
+they read the *same* outward sequence, so the inversion showed up on **both**
+halves at once -- `BRRBRR` either way, mirror-symmetrically -- not on one side.
+Water would run uphill under the laps. Wrong at **every** ridge angle, which is
+why horizontal and vertical houses were both affected.
+
+**Measured, through the production paint path** (two-colour probe brush on the
+item, walking outward from the ridge; `R` = the texture's up-slope phase,
+`B` = its down-slope phase):
+
+    fixed    +n RBBRBB   -n RBBRBB      (first transition R->B)
+    pre-fix  +n BRRBRR   -n BRRBRR      (first transition B->R)
+
+Both are mirror-symmetric -- the *split* is unchanged by the fix -- so only the
+absolute phase separates them, and a half-vs-half comparison cannot tell the
+two builds apart. Sweeping every 15 degrees from 0 to 345 gives these two
+strings and no others, on both halves: the result is **angle-independent**,
+because the defect tracked *which half received the mirror* rather than any
+particular orientation. (An earlier draft of the test excluded 90 and 270 on the
+claim that the ridge then runs along the sample axis; that claim was an artifact
+of a double-applied transform in the harness itself - see §11.4.)
+
+**Decision.** The down-slope half always receives the **normal** brush. The
+arithmetic that makes this a swap rather than a probe: `normal_tx` is
+`translate(mid) . rotate(angle)` and a `QBrush` transform samples the texture at
+`T^-1 . p`, so the texture's `+Y` lands in the world at
+`R(angle).(0,1) = (-sin a, cos a)` - exactly `n`. `left_path` is the half the
+down-slope points into, so it takes the normal brush. Verified with a
+two-colour probe texture at every angle, and by rendering both a horizontal-
+and a vertical-ridge house.
+
+**Alternatives rejected.** (a) *Select the mirror by probing which side is
+upslope* - equivalent in result, but needs a containment probe and a fallback
+for degenerate polygons. The identity above is exact and needs no branch.
+(b) *Rotate by `-angle` instead* - measured with the same probe, and this is
+  the sharpest illustration of a trap in this whole episode: `angle` here is
+  the ridge direction in the polygon's **local** frame, which
+  `compute_roof_ridge_endpoints` pins to the longest bounding-box axis. For a
+  **landscape** house that is 0 at every rotation, so `rotate(-a)` and
+  `rotate(+a)` are the *same transform* and a rotation sweep cannot tell the
+  mutant from the correct code at all - measured, the negated sign still reads
+  `RBBRBB` at every rotation of a landscape house. For a **portrait** house
+  `angle` is 90 and the negated sign reads `BRRBRR`, i.e. it is caught. So the
+  alternative is wrong in the case that matters and right-looking in the case
+  that hides it, which is why the test cases span both geometries
+  (`tests/unit/test_roof_tile_orientation.py`).
+
+**Preserved deliberately.** The two-sided `setClipPath` + oversized `drawRect`
+shape is load-bearing: Qt does not serialize the painter clip into SVG, and
+`ExportService._fix_svg_qt_texture_clipping` pairs each shadow group with the
+next texture group 1:1 (§11.4). Only the brush assignment changed.
+
+**Testing note.** Correlating the real 256 px tile texture was tried first and
+had **no discriminating power** (peak correlation ~0.03 either way, and the
+diagonal case tied at 0.020 vs 0.019) - a few hundred sampled pixels span barely
+one texture period. The two-colour probe is what settled it, and
+`tests/unit/test_roof_tile_orientation.py` uses it, over **eight
+house/rotation cases** spanning landscape, portrait and square; 8 of its 11 cases
+fail against the unfixed brush assignment. Landscape cases alone would leave the
+`rotate()` sign unpinned — see alternative (b).
+
+**Cross-refs:** §11.4, issue #372, issue #114, ADR-046.

@@ -3290,6 +3290,12 @@ class CanvasView(QGraphicsView):
         finally:
             if original_polygon is not None and isinstance(item, PolygonItem):
                 item.setPolygon(original_polygon)
+                # The polyline branch below restores through `_move_vertex_to`,
+                # which re-derives a ROOF_RIDGE (ADR-046); a bare `setPolygon`
+                # does not, so a HOUSE whose solve raised would keep a ridge
+                # computed for the temporary trial geometry. Restoring the
+                # polygon must restore the derived ridge with it.
+                item._update_ridge_on_boundary()
             elif original_points is not None and isinstance(item, PolylineItem):
                 for i, pt in enumerate(original_points):
                     item._move_vertex_to(i, pt)

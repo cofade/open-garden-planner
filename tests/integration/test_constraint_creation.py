@@ -171,3 +171,95 @@ class TestDistanceConstraintCreation:
         )
         assert c1.constraint_id != c2.constraint_id
         assert len(graph.constraints) == 2
+
+    def test_solver_restore_rederives_a_house_ridge(
+        self, canvas: CanvasView, qtbot: object, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The solver's trial-geometry restore must re-derive the linked ridge.
+
+        ``_compute_edge_length_constraint_moves`` snapshots a polygon's
+        geometry, lets the solver move it, and restores the snapshot in a
+        ``finally``. That restore used a bare ``setPolygon`` while its
+        polyline sibling restored through ``_move_vertex_to`` -- the one
+        override that re-derives a HOUSE's roof ridge (ADR-046).
+
+        On a *successful* solve the leftover is transient, because the caller
+        re-applies the moves through a command. When the solve **raises**,
+        nothing re-applies them: the polygon is restored and the ridge is left
+        computed for the trial geometry, on a dirty-able document. That is the
+        case pinned here.
+        """
+        from open_garden_planner.core.object_types import ObjectType
+        from open_garden_planner.core.roof_ridge import compute_roof_ridge_endpoints
+        from open_garden_planner.ui.canvas.items import PolylineItem
+
+        house = _draw_polygon(
+            canvas,
+            [QPointF(0, 0), QPointF(300, 0), QPointF(300, 200), QPointF(0, 200)],
+        )
+        # Build the linked ridge the way PolygonTool._create_roof_ridge does.
+        p1, p2 = compute_roof_ridge_endpoints(house.polygon(), house.pos())
+        ridge = PolylineItem([p1, p2], object_type=ObjectType.ROOF_RIDGE)
+        house.set_metadata("ridge_item_id", str(ridge.item_id))
+        ridge.set_metadata("owner_polygon_id", str(house.item_id))
+        canvas.scene().addItem(ridge)
+
+        def ridge_deviation_cm() -> float:
+            n1, n2 = compute_roof_ridge_endpoints(house.polygon(), QPointF(0.0, 0.0))
+            canonical = (house.mapToScene(n1), house.mapToScene(n2))
+            live = (
+                ridge.mapToScene(ridge.points[0]),
+                ridge.mapToScene(ridge.points[-1]),
+            )
+            return max(
+                math.dist(
+                    (live[i].x(), live[i].y()),
+                    (canonical[i].x(), canonical[i].y()),
+                )
+                for i in (0, 1)
+            )
+
+        graph = canvas._canvas_scene.constraint_graph
+        # Two constraints, both touching vertex 0, so the method takes the
+        # solver branch (a single constraint would early-return before the
+        # try/finally this test is about).
+        graph.add_constraint(
+            AnchorRef(house.item_id, AnchorType.CORNER, 0),
+            AnchorRef(house.item_id, AnchorType.CORNER, 1),
+            300.0,
+            constraint_type=ConstraintType.EDGE_LENGTH,
+        )
+        graph.add_constraint(
+            AnchorRef(house.item_id, AnchorType.CORNER, 3),
+            AnchorRef(house.item_id, AnchorType.CORNER, 0),
+            200.0,
+            constraint_type=ConstraintType.EDGE_LENGTH,
+        )
+        assert len(graph.constraints) == 2
+        original = [house.polygon().at(i) for i in range(house.polygon().count())]
+
+        def _explode(*_args: object, **_kwargs: object) -> None:
+            raise RuntimeError("solver exploded")
+
+        monkeypatch.setattr(canvas, "_compute_constraint_solve_moves", _explode)
+
+        command = AddConstraintCommand(
+            graph,
+            AnchorRef(house.item_id, AnchorType.CORNER, 0),
+            AnchorRef(house.item_id, AnchorType.CORNER, 1),
+            400.0,
+            constraint_type=ConstraintType.EDGE_LENGTH,
+        )
+        with pytest.raises(RuntimeError):
+            canvas._compute_edge_length_constraint_moves(command)
+
+        # The polygon is restored...
+        assert [
+            house.polygon().at(i) for i in range(house.polygon().count())
+        ] == original
+        # ...and so must the ridge derived from it, not left on trial geometry.
+        deviation = ridge_deviation_cm()
+        assert deviation <= 0.5, (
+            f"ridge left {deviation:.2f} cm from canonical after the solver "
+            "restored the polygon — the restore must re-derive derived geometry"
+        )

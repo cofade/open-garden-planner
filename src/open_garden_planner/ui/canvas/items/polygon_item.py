@@ -203,6 +203,40 @@ def _show_properties_dialog(item: QGraphicsPolygonItem) -> None:
         item.setPen(pen)
 
 
+def polygon_resize_apply(item: QGraphicsItem, geom: dict[str, Any]) -> None:
+    """Apply a resize geometry dict to a ``PolygonItem`` - the ONE apply path.
+
+    ``ResizeItemCommand`` calls this for ``execute``, ``undo`` **and** ``redo``,
+    so this is the path an undo of a HOUSE resize re-enters, and it must
+    re-derive the linked roof ridge exactly as ``_apply_resize`` does for the
+    live drag. Found by the #364 senior-review round: it did not, which left
+    the polygon restored and the ridge still sized for the *resized* house -
+    measured 300 cm of drift on a 300->600 cm resize, persisted into the
+    ``.ogp`` because the ridge is itself a serialized item.
+
+    Module-level rather than a closure inside ``_on_resize_end`` so a test can
+    drive the production function instead of re-implementing it: a test that
+    copies the apply logic passes while the real one stays broken.
+    ``setPos`` fires ``_move_ridge_by_delta`` first; the recompute below
+    overwrites it wholesale. ``_update_area_label`` is here so this path and
+    ``_apply_resize`` (the live drag) do not disagree: ``setPos`` only fires
+    ``itemChange`` when the position actually changes, so a resize that holds
+    ``pos`` fixed would otherwise leave a stale area label. See ADR-046.
+    """
+    if not isinstance(item, PolygonItem):
+        return
+    vertices = [QPointF(v["x"], v["y"]) for v in geom["vertices"]]
+    item.setPolygon(QPolygonF(vertices))
+    item.setPos(geom["pos_x"], geom["pos_y"])
+    item.update_resize_handles()
+    item._position_label()
+    item._update_area_label()
+    # Derived state: a HOUSE's roof ridge is a function of the polygon, so
+    # every polygon-apply path must re-derive it. Adding a new apply path
+    # without this call silently rots the invariant.
+    item._update_ridge_on_boundary()
+
+
 class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGraphicsPolygonItem):
     """A polygon shape on the garden canvas.
 
@@ -306,49 +340,76 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         return None
 
     def _update_ridge_on_boundary(self) -> None:
-        """Re-project the ridge endpoints onto the current polygon boundary.
+        """Recompute the linked roof ridge from the current polygon (issue #364).
 
-        Called after polygon resize, vertex edit, or rotation so that the
-        ridge stays attached to the polygon's outer edge.
+        Called after a vertex edit, resize, or rotation. The ridge is
+        **derived** geometry, so it is recomputed here through
+        :func:`~open_garden_planner.core.roof_ridge.compute_roof_ridge_endpoints`
+        — the one canonical computation shared with creation — rather than
+        adjusted from wherever it currently sits.
+
+        Two properties follow from recomputing instead of projecting, and both
+        were defects before (see ADR-046 and §11.4):
+
+        * **It is self-healing and undo-safe.** An earlier version re-projected
+          the ridge's *existing* endpoints onto the boundary, which is a
+          membrane: once an endpoint landed on the wrong edge it had no way
+          back to canonical, and because the write bypassed the command system
+          an undo that restored the polygon left the ridge behind. Drift
+          accumulated over repeated edit/undo cycles. Deriving the ridge purely
+          from the polygon means restoring the polygon *is* restoring the
+          ridge, with no extra undo bookkeeping.
+        * **It is rotation- and scale-correct.** The canonical endpoints are
+          computed in the polygon's LOCAL frame and mapped through this item's
+          full transform, so a rotated house gets a ridge along its rotated
+          long axis. The projection path kept the old orientation, so a house
+          rotated 90 degrees kept a ridge at 0 degrees — 180 cm off — and
+          ``_paint_with_ridge`` mirrors the roof texture along this line, so
+          the roof itself was wrong too.
+
+        A ridge endpoint dragged by hand (see ``PolylineItem._move_vertex_to``,
+        which still constrains it to this outline) is therefore *not* sticky: the
+        next polygon edit returns it to canonical. That is the recorded
+        decision — the ridge and the roof texture derived from it must agree.
         """
+        from open_garden_planner.core.roof_ridge import compute_roof_ridge_endpoints
+        from open_garden_planner.ui.canvas.items import PolylineItem
+
         ridge = self._find_ridge()
-        if ridge is None:
+        if ridge is None or not isinstance(ridge, PolylineItem):
             return
 
         poly = self.polygon()
         if poly.count() < 3:
             return
 
-        from open_garden_planner.ui.canvas.items import PolylineItem
+        # Compute in the LOCAL frame (pos is the origin), then map through this
+        # item's full transform — including rotation and scale.
+        local_1, local_2 = compute_roof_ridge_endpoints(poly, QPointF(0.0, 0.0))
+        new_pts = [
+            ridge.mapFromScene(self.mapToScene(local_1)),
+            ridge.mapFromScene(self.mapToScene(local_2)),
+        ]
 
-        if not isinstance(ridge, PolylineItem):
-            return
-
-        pts = ridge.points  # scene-space (ridge pos is usually 0,0)
-        if len(pts) < 2:
-            return
-
-        new_pts: list[QPointF] = []
-        for pt in pts:
-            # Convert ridge scene-coord → polygon item-local coord
-            local = self.mapFromScene(ridge.mapToScene(pt))
-            projected = _project_to_polygon_boundary(poly, local)
-            # Convert back to ridge item-local coords
-            scene_pt = self.mapToScene(projected)
-            new_pts.append(ridge.mapFromScene(scene_pt))
-
-        # Update ridge geometry directly
         ridge._points = new_pts
         ridge._rebuild_path()
-        if hasattr(ridge, '_update_vertex_handles') and ridge.is_vertex_edit_mode:
+        # `ridge` is already known to be a PolylineItem, so these attributes
+        # exist; the old hasattr/getattr guards were dead and are dropped.
+        if ridge.is_vertex_edit_mode:
             ridge._update_vertex_handles()
-        if hasattr(ridge, '_position_label'):
-            ridge._position_label()
+        ridge._position_label()
 
     def _paint_with_ridge(self, painter: QPainter, ridge: "QGraphicsItem") -> None:
         """Paint HOUSE polygon with tile texture mirrored on each side of the ridge."""
-        # Get ridge endpoints in item-local coordinates
-        pts = ridge.points  # list[QPointF] in item-local coords of the ridge item
+        # Get ridge endpoints in item-local coordinates of THIS polygon.
+        #
+        # Since #364 the ridge's points are SCENE coordinates, not ridge-item
+        # locals: `_update_ridge_on_boundary` computes them in the polygon's
+        # local frame and maps them out with `mapToScene`. So scene -> local is
+        # `ridge.mapToScene` then `self.mapFromScene`. Do not add a second
+        # `house.mapToScene` on top — that rotates the axis twice and is
+        # precisely the bug that made the #372 test sample off-axis (§11.4).
+        pts = ridge.points
         if len(pts) < 2:
             return
         p1 = self.mapFromScene(ridge.mapToScene(pts[0]))
@@ -377,16 +438,19 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
 
         brush = self.brush()
 
-        # Align tile rows perpendicular to ridge, tiling origin at ridge midpoint.
-        # QBrush.setTransform(T) means: local point (x,y) samples texture at T^-1.(x,y).
-        # We want texture to tile outward from the ridge on each side.
+        # Rotate the tile texture to the ridge, tiling origin at the midpoint.
+        # QBrush.setTransform(T) means: a local point (x,y) samples the texture
+        # at T^-1.(x,y). Because the sampling is the inverse, the texture's own
+        # +Y (its down-slope, see the assignment note below) lands in the world
+        # at R(angle).(0,1) = the ridge's left-perpendicular.
         normal_tx = QTransform()
         normal_tx.translate(mid_x, mid_y)
         normal_tx.rotate(angle_deg)
         normal_brush = QBrush(brush)
         normal_brush.setTransform(normal_tx)
 
-        # Mirrored brush: flip the perpendicular axis so tiles mirror across the ridge
+        # Mirrored brush: reflects the down-slope across the ridge, for the
+        # half that faces the other way (issue #372).
         mirrored_tx = QTransform()
         mirrored_tx.translate(mid_x, mid_y)
         mirrored_tx.rotate(angle_deg)
@@ -404,17 +468,67 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
             ext * 2.0,
         )
 
-        # Paint right side (normal texture — tiles go "right" from ridge)
+        # Paint the two halves of the roof (issue #372).
+        #
+        # The assignment is gravity-relative, and it used to be name-relative.
+        # ``_split_path_by_line`` names its halves by the left-perpendicular
+        # ``n = (-uy, ux)``, which follows the ridge's *direction* and has
+        # nothing to do with which side is downhill -- for a +X ridge
+        # ``left_path`` is the LOWER half, for a +Y ridge it is the LEFT half.
+        #
+        # Meanwhile the roof-tile texture has a fixed, non-negotiable
+        # direction: each tile's rounded free edge points +Y and laps the tile
+        # below it, so +Y is down-slope. Measured from the texture, a dark
+        # lapse line sits near y=10 with the light free edge beneath.
+        #
+        # The arithmetic that decides the assignment: ``normal_tx`` is
+        # ``translate(mid) . rotate(angle)`` and a QBrush transform samples the
+        # texture at ``T^-1 . p``, so the texture's +Y lands in the world at
+        # ``R(angle).(0,1) = (-sin a, cos a)`` -- exactly ``n``. So
+        # ``left_path`` is the half the texture's true down-slope points into,
+        # and it is the half that must keep the NORMAL brush. The previous
+        # code handed it the mirrored one, so its tiles lapped back up toward
+        # the ridge: water would run uphill under the laps.
+        #
+        # Note this is NOT a one-sided defect. The two clip halves are mirror
+        # images across the ridge, so they read the same outward sequence and
+        # the inversion appeared on BOTH halves (``BRRBRR`` either way) rather
+        # than on one. It was wrong at EVERY ridge angle -- measured identical
+        # across all 24 fifteen-degree steps from 0 to 345 -- which is why
+        # horizontal and vertical houses were both affected.
+        #
+        # This depends on the ridge's point ORDER only through the *along-ridge*
+        # axis, and it does NOT change the lap direction. Reversing the two
+        # points flips the texture coordinate u while leaving v alone, i.e. it
+        # mirrors the tile pattern along the ridge: measured with a probe
+        # symmetric in x, reversal changes 0.00% of the painted pixels, while a
+        # probe asymmetric in x changes 44-93%. So a reversed ridge is a
+        # cosmetic along-ridge mirror, not the laps defect this fix is about.
+        #
+        # The order is nevertheless canonical, and every production writer
+        # emits it: `compute_roof_ridge_endpoints` orders its two crossings by
+        # the line parameter (verified: 0 inversions across 36 shape variants),
+        # and both callers -- creation and `_update_ridge_on_boundary` -- keep
+        # that order. A hand drag of a ridge endpoint can reorder them, but it
+        # is not sticky: the next polygon edit recomputes them canonically.
+        #
+        # The two-sided clip + oversized drawRect shape is load-bearing and
+        # must not be flattened: Qt does not serialize the painter clip into
+        # SVG, and ``ExportService._fix_svg_qt_texture_clipping`` pairs each
+        # shadow group with the next texture group 1:1 (§11.4).
+        #
+        # Pinned by tests/unit/test_roof_tile_orientation.py over eight
+        # house/rotation cases spanning landscape, portrait and square; 8 of its
+        # 11 cases fail against the previous brush assignment.
         painter.save()
-        painter.setClipPath(right_path)
+        painter.setClipPath(left_path)
         painter.setBrush(normal_brush)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRect(fill_rect)
         painter.restore()
 
-        # Paint left side (mirrored texture — tiles go "left" from ridge)
         painter.save()
-        painter.setClipPath(left_path)
+        painter.setClipPath(right_path)
         painter.setBrush(mirrored_brush)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRect(fill_rect)
@@ -714,15 +828,9 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
 
         from open_garden_planner.core.commands import ResizeItemCommand
 
-        def apply_geometry(item: QGraphicsItem, geom: dict[str, Any]) -> None:
-            """Apply geometry to the item."""
-            if isinstance(item, PolygonItem):
-                # Reconstruct polygon from vertices
-                vertices = [QPointF(v['x'], v['y']) for v in geom['vertices']]
-                item.setPolygon(QPolygonF(vertices))
-                item.setPos(geom['pos_x'], geom['pos_y'])
-                item.update_resize_handles()
-                item._position_label()
+        # The module-level apply path, shared with the tests so they drive the
+        # production function rather than a copy of it.
+        apply_geometry = polygon_resize_apply
 
         # Convert polygon vertices to serializable format
         def polygon_to_vertices(poly: QPolygonF) -> list[dict[str, float]]:
