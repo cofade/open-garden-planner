@@ -1557,6 +1557,74 @@ save/load, render, and delete through the existing paths. The benchmark
 hardening for #354 is documented in FR-SNAP-06 and ADR-020: one warm-up plus
 five samples, with median build/query limits calibrated for shared runners.
 
+**Domain-intelligence tools (US-D3.1 #319, US-D3.2 #331).** D3 wrapped domain engines
+that already existed and were already Qt-free, and made them reachable. Both slices
+add one Qt-free module, `agent_api/domain.py`, holding the pure functions; the
+`AgentProviders` callables in `application.py` marshal them across
+`MainThreadBridge.run_on_main`. Three conventions carry across both slices and are
+what the next D3 slice should follow:
+
+- **Honest degradation beats a plausible empty answer.** A component that did not
+  check something must not report a result that reads as a successful check. D3.1
+  returns `spacing_ok`/`soil_ok` as `None` ("not checked", never a fabricated
+  `True`) and `overall: "unknown_bed"` for an id that resolves to nothing (never
+  `"neutral"`, which reads as "I looked and there was nothing"). D3.2 reports
+  `has_plan: false` for "no plan" as distinct from an empty plan, and
+  `coverage: "no_frost_dates"` **together with** month-based fallback segments
+  rather than an empty segment list.
+- **Deterministic ranking with a stable final tiebreak.** D3.1 caps candidates at
+  60 and results at 50 and pins identical ordering on repeat calls. D3.2 sorts on
+  `(fits_window desc, days_to_maturity asc, species_key asc)`; both are pinned by
+  a same-input-twice test *and* a reversed-input-order test, because a suite that
+  only re-runs the same order cannot see an unstable tiebreak.
+- **`species_key` is derived, never invented (ADR-016).** It is a module-level
+  function over a dict (`models/plant_data.py`), not an attribute of a species
+  record, and its priority is `source_id -> scientific_name -> common_name` - so a
+  bundled plant's key is its **scientific** name. `"beans"` is not a valid key;
+  `"phaseolus vulgaris"` is. An implementation that reads a `species_key`
+  attribute silently gets `""` for every candidate.
+
+**Machine fields vs display strings.** Across the agent surface, fields an agent
+should *branch on* are the English API contract. The tool-side free text (D3.2's
+`reasons[]`) is **English and never localised** — ADR-033 makes MCP output an
+English contract — so it is documentation, not something to parse. D3.2's
+`reasons[]` and D3.3's generated task titles are therefore different problems:
+the latter DO cross the boundary translated, and D3.3 owns that decision.
+D3.2's `suggest_succession` is the worked example: branch on
+`species_key` / `family` / `days_to_maturity` / `fits_window`; `reasons[]` is
+prose. Note the asymmetry that makes this necessary - `services/task_generator.py`
+and `services/soil_service.py` build their task titles and amendment names with
+`QCoreApplication.translate`, because the GUI is their primary consumer, so those
+strings cross an API boundary localised. US-D3.3 (#332) owns the decision for
+tasks and US-D3.4 (#333) must match it; do not force English at the generator.
+
+**A rotation rule that looks reusable and is not.** D3.2's
+`suggest_succession` must exclude a candidate that conflicts with a crop planted
+*earlier in the same succession plan*. `CropRotationService.check_plant_placement`
+cannot supply that: it compares the candidate only against `records[0]`, the single
+most recent planting record, so it cannot see "tomato after the garlic entry three
+slots ago" - and succession entries never enter rotation history at all, since only
+the Crop Rotation panel writes `PlantingRecord`s. Succession is several crops in
+ONE season; that service models one record per season across years. So the
+**cross-year** 3-year family cooldown is reused verbatim via
+`get_recommendation(bed_id).avoid_families` (already Qt-free, already feeding
+`get_diagnostics`), while the **within-plan** rule is new logic confined to
+`agent_api/domain.py`. Calling the existing method would have looked correct,
+passed a casual test, and excluded almost nothing.
+
+**Season segments are four, and the no-location fallback is shared.**
+`models/succession.py::SEASON_SEGMENTS` is `early_spring`, `late_spring`, `summer`,
+`fall` - frost-relative boundaries documented in the module docstring. Segments are
+contiguous and inclusive at both ends, so a date exactly on the
+`early_spring`/`late_spring` boundary resolves to `early_spring`
+(`date_to_segment` returns the first match). A plan with no geo-location has no
+frost dates; the calendar-month fallback that handles that lived in
+`succession_plan_dialog.py` as a private table, and D3.2 **moved** it to
+`models/succession.py` as `compute_fallback_segments`, with
+`resolve_season_segments(year, location) -> (segments, are_fallback)` as the single
+entry point both the dialog and the agent call. Copying it would have let an agent
+and the GUI disagree about what "summer" means for the same bed.
+
 ## 8.20 Solar Coordinate Discipline (Phase 14 sun/shade)
 
 The one rule: **do all solar/shadow math in scene centimeters, once, and

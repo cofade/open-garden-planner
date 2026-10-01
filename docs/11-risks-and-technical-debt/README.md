@@ -313,6 +313,53 @@ guard.
 
 **A derived texture's orientation is gravity-relative, and naming a half "left" does not make it the downhill side** (issue #372, 2026-09-30). Symptom: a HOUSE's roof tiles lapped back **up toward the ridge** on both halves - they read the same outward sequence, being mirror images of each other, so the inversion could not show on one side only - so water would run uphill under the laps, reported by the owner as "regardless of whether I paint a vertical or horizontal house, it is always the wrong direction", a phrasing that is the whole diagnosis. The two first theories were both wrong in an instructive way: the *rotation* was not broken (the transform was computed and applied correctly, provable in isolation), and the *texture* was not upside-down (its `+Y` is genuinely down-slope: a dark lapse line near `y=10` with the light free edge beneath). The halves were assigned by `_split_path_by_line`'s `left`/`right` naming, which follows the left-perpendicular `n = (-uy, ux)` and therefore the ridge's **direction** - for a +X ridge `left_path` is the LOWER half, for a +Y ridge it is the LEFT half. The half that needed the texture's true down-slope was the one being handed the mirror, so the error tracked ridge direction rather than gravity and appeared at every angle. Measured through the production paint path, the two builds differ in **absolute phase** while staying mirror-symmetric: fixed `RBBRBB`, pre-fix `BRRBRR` on both halves. Third lesson, and the one that nearly cost the fix itself: **check that your measuring instrument reaches the code under test.** A test harness called `scene.removeItem(ridge)` to stop the ridge's stroke covering its sample points - which made `_find_ridge()` return `None`, which means `_paint_with_ridge` is never called at all. Every render then measured `super().paint()`, the fallback fill that both builds share, and the fix hashed byte-identical. A "no-op" measured by an instrument that bypasses the code is not evidence of a no-op; when the reviewer reported that the test did not call production code, the correct response was to re-measure the *fix* with a corrected instrument, not to conclude from the broken one. Hide the obstacle with `setVisible(False)` - **not** by clearing its pen, which does nothing here because `_paint_roof_ridge` strokes three *hardcoded* pens and never reads `self.pen()` - and never remove the thing whose presence gates the code path. The same class of bug appeared twice more in the same file: the ridge points were run through `house.mapToScene` although they are already scene space (since #364), so the harness sampled 30 degrees off the real ridge normal at 30 degrees of rotation and invented a "degenerate" band at 90/270 that does not exist. **A fourth trap was a test that looked thorough and pinned nothing:** it swept the house's *rotation* across nine angles and called that angle coverage, but the angle `_paint_with_ridge` feeds to `normal_tx.rotate()` is the ridge direction in the polygon's **local** frame, which `compute_roof_ridge_endpoints` pins to the longest bounding-box axis - 0 for a landscape house at *every* rotation, 90 for a portrait one at every rotation (measured by spying on the value). Since `rotate(-a)` and `rotate(+a)` are the same transform when `a` is 0, a rotation-only sweep is structurally blind to a negated sign, which is the very term the swap argument rests on. Adding a portrait house caught it immediately: negated, the landscape cases still read `RBBRBB` and all four portrait cases read `BRRBRR`. **When a test sweeps a transformation, check which quantity the code under test actually consumes** - an item transform, a local-frame angle and a scene-frame angle are three different things, and only one of them is what a rotation sweep moves. The fix is a swap, not a probe, because of an exact identity: `normal_tx` is `translate . rotate(angle)` and a `QBrush` samples the texture at `T^-1.p`, so texture `+Y` lands at `R(angle).(0,1) = (-sin a, cos a)` - precisely `n`. **Lesson: a geometric naming convention is not a physical one.** Whenever a half, a side, or a region is named by geometry (left/right, near/far, first/second), check that the name survives rotation before branching on it. Second lesson, about the measurement itself: correlating the real 256 px tile texture against the render had **no discriminating power** - peak correlation ~0.03 either way, with the diagonal case a 0.020-vs-0.019 coin flip - because a few hundred sampled pixels span barely one texture period, and a metric that cannot separate right from wrong will happily pass broken code. The fix came from replacing the texture with a **two-colour probe** (red on top, blue on bottom, so blue *is* the down-slope) and sampling a six-point sequence outward from the ridge. When a rendering assertion will not separate, change what it measures rather than loosening the threshold. And note what it took to see this at all: a green 6515-test suite, because nothing in `tests/` had ever looked at a rendered roof pixel.
 
+**An issue's "verified repo facts" are a claim about the code, not the code — and a rule that
+sounds reusable can be structurally blind to the case in front of you** (US-D3.2, #331)
+
+Four of #331's own "verified repo facts" were wrong, and three of the four would have produced
+a plausible, tested, wrong implementation:
+
+1. It described **three** season segments (`spring`/`summer`/`fall`). `models/succession.py`
+   has always had **four** (`early_spring`/`late_spring`/`summer`/`fall`), with boundaries in the
+   module docstring. Building to the issue's prose mislabels a third of the growing season. The
+   issue's *acceptance criterion* ("labels matching the module's own segment definitions - pinned
+   against the documented formulas, not against a re-implementation") was the correct instruction
+   and was followed instead. **An acceptance criterion that contradicts the issue's own context
+   is usually the accurate one.**
+2. It said a plan with no geo-location has "unknown" season segments, implying new code. The
+   succession **dialog already had** a calendar-month fallback, as a private table. Copying it
+   would have given an agent and the GUI two definitions of "summer" for the same bed. It was
+   moved to `models/succession.py` and both callers now use
+   `resolve_season_segments(year, location) -> (segments, are_fallback)`.
+   **`is the behaviour absent, or just absent from where you looked?`** An issue describing
+   something as missing is evidence about the issue, not about the repo.
+3. It said to reuse `crop_rotation_service` "rather than re-derive family rules". The cross-year
+   cooldown *is* reused verbatim. But the acceptance criterion - never propose a crop that
+   conflicts with **an earlier entry in the same bed** - is unmeetable by
+   `check_plant_placement`, which compares a candidate only against `records[0]`, the single most
+   recent planting record. It cannot see "tomato after the garlic entry three slots ago".
+   Succession is several crops in ONE season; that service models one record per season across
+   YEARS. And succession entries never enter rotation history at all, because only the Crop
+   Rotation panel writes `PlantingRecord`s. **A reusable-looking method can be blind to the shape
+   of the question.** Two unrelated mismatches (arity and history-provenance) had to be checked
+   separately, and either alone would have produced a call that looked right, passed a casual
+   test, and excluded almost nothing.
+4. `commands.py:2472` for `SetSuccessionPlanCommand` was ~216 lines stale (it is at 2688).
+
+**Lesson: verify every `file:line` and every "reuse X" instruction against the code before writing
+a line, and treat an issue's context section as a hypothesis.** The costs here were cheap only
+because the check was done first; the third one in particular would have shipped a tool that
+excluded almost nothing while reporting a rotation check it had not performed.
+
+**Corollary - `species_key` is a function, not a field.** The first draft of `suggest_succession`
+read `getattr(record, "species_key", "")` off each candidate and got `""` for all 118 bundled
+species, so every call returned an empty list - a result that reads as "no candidates", the exact
+silence this project forbids. `species_key(species_dict)` (`models/plant_data.py`, ADR-016) is a
+module-level function whose priority is `source_id -> scientific_name -> common_name`, so a
+bundled plant's key is its **scientific** name: `"phaseolus vulgaris"`, not `"beans"`. Nine unit
+tests failed identically, which is what identified the shared root cause instead of nine separate
+bugs. **When many tests fail the same way, find the shared assumption before fixing any of them.**
+
 ## 11.5 Community and Governance
 
 **Feature Requests**: Open to community input, pivots, and voting. The goal is to avoid a dead project — community engagement is welcome.

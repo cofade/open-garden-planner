@@ -18,6 +18,9 @@ from open_garden_planner.agent_api.schema import (
     Diagnostic,
     ObjectRef,
     PlanSummary,
+    SuccessionGap,
+    SuccessionPlanView,
+    SuccessionSuggestion,
 )
 
 # describe-garden inlines the full object list; cap it so a very large garden
@@ -195,5 +198,97 @@ def render_plan_polyculture_bed_prompt(
         "more options. find_compatible_sets searches a candidate palette you "
         "name and does not know what is already planted, so it is the right "
         "tool only when you are not asking about a specific bed."
+    )
+    return "\n".join(lines)
+
+
+def render_plan_succession_prompt(
+    bed_id: str,
+    plan: SuccessionPlanView,
+    gaps: list[SuccessionGap],
+    candidates: list[SuccessionSuggestion],
+) -> str:
+    """Compose the ``plan-succession`` brief (US-D3.2).
+
+    The plan, its gaps and the ranked candidates are supplied by the caller so
+    this stays a pure renderer; the agent-facing text is English by contract
+    (ADR-033: MCP surfaces are an English API).
+    """
+    lines = [
+        f"# Succession plan for bed {bed_id} ({plan.year})",
+        "",
+    ]
+
+    if plan.segments_are_fallback:
+        lines.append(
+            "NOTE: this plan has no geo-location, so there are no frost dates "
+            "and the season segments below are approximate calendar-month "
+            "boundaries rather than computed from a climate. Say so when you "
+            "propose dates, and prefer the plan's existing slots as anchors."
+        )
+        lines.append("")
+
+    if plan.entries:
+        lines.append("## Current slots")
+        for entry in plan.entries:
+            season = entry.season or "outside the growing season"
+            marker = " (running now)" if (
+                plan.current_entry is not None
+                and plan.current_entry.id == entry.id
+            ) else ""
+            lines.append(
+                f"- {entry.common_name or entry.species_key}: "
+                f"{entry.start_date} to {entry.end_date} ({season}){marker}"
+            )
+        lines.append("")
+    else:
+        lines.append(
+            "This bed has no succession plan yet, so the whole growing season "
+            "is open."
+        )
+        lines.append("")
+
+    if gaps:
+        lines.append("## Uncovered windows")
+        for gap in gaps:
+            lines.append(
+                f"- {gap.start_date} to {gap.end_date} "
+                f"({gap.segment}, {gap.days} days)"
+            )
+        lines.append("")
+    else:
+        lines.append("Every growing-season window is already covered.")
+        lines.append("")
+
+    if candidates:
+        lines.append("## Ranked candidates for the first open window")
+        for i, c in enumerate(candidates[:8], 1):
+            fit = "fits" if c.fits_window else "fit unconfirmed or too slow"
+            maturity = (
+                f"~{c.days_to_maturity} days"
+                if c.days_to_maturity is not None
+                else "maturity unknown"
+            )
+            lines.append(f"{i}. {c.name} ({maturity}, {fit})")
+        lines.append("")
+    else:
+        lines.append(
+            "No candidate survived the rotation and antagonism filters for the "
+            "open window. Either widen the candidate species list, or accept "
+            "that this window is best left empty."
+        )
+        lines.append("")
+
+    lines.extend(
+        [
+            "Propose a full-season plan for this bed: a slot for each "
+            "uncovered window, with species and start/end dates that do not "
+            "overlap each other or the slots already there.",
+            "",
+            "When you write it back with set_succession_plan, send the COMPLETE "
+            "slot list for the year - that call replaces the plan rather than "
+            "appending to it. That is one undo step, so a single undo restores "
+            "the previous plan.",
+        ]
     )
     return "\n".join(lines)

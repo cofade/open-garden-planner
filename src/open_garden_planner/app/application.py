@@ -84,9 +84,99 @@ from open_garden_planner.ui.widgets import (
 )
 
 if TYPE_CHECKING:
+    import datetime
+
     from open_garden_planner.agent_api import AgentApiServer
 
 logger = logging.getLogger(__name__)
+
+
+def _entry_species_names(entry: dict[str, Any]) -> list[str]:
+    """Every name an entry can be resolved by, machine key FIRST.
+
+    ``species_key`` is the machine contract and ``common_name`` is display text
+    (that is how the curated schema documents them, and what
+    ``set_succession_plan`` validates). An earlier version preferred
+    ``common_name``; since the validator never checks it, an agent could store
+    ``{species_key: "solanum lycopersicum", common_name: "Cabbage"}`` and the
+    rotation filter would then exclude the WRONG family - Brassicaceae instead
+    of Solanaceae. Key first, display name only as the fallback for a
+    free-text slot.
+    """
+    names: list[str] = []
+    for field in ("species_key", "common_name", "scientific_name"):
+        value = str(entry.get(field, "") or "").strip()
+        if value and value not in names:
+            names.append(value)
+    return names
+
+
+def _lookup_entry_species(entry: dict[str, Any]) -> dict | None:
+    """Resolve a succession entry to a bundled species record, or None."""
+    from open_garden_planner.services.bundled_species_db import lookup_species
+
+    for name in _entry_species_names(entry):
+        found = lookup_species(name)
+        if found is not None:
+            return found
+    return None
+
+
+def _read_crop_rotation_record(raw: object) -> Any:
+    """Deserialize one `crop_rotation` row, or return None if it is unusable.
+
+    A ``.ogp`` is untrusted input (architecture invariant 14), so the catch is
+    deliberately broad rather than an enumerated list of exception families: a
+    previous version listed four types and still let a row through, because
+    `PlantingRecord.from_dict` only does `data["year"]` and never type-checks it.
+    A STRING or None year then survives deserialization and raises `TypeError`
+    later, inside `get_records_for_area`'s sort - i.e. outside the loop that
+    was supposed to protect it, and inside a Qt signal handler whose own guard
+    catches only `RuntimeError`. That is an uncaught exception in the event
+    loop, the `qFatal()`/abort shape #366 recorded.
+
+    So the row is validated, not just parsed: `year` must really be an int.
+    """
+    from open_garden_planner.models.crop_rotation import PlantingRecord
+
+    try:
+        record = PlantingRecord.from_dict(raw)  # type: ignore[arg-type]
+        if not isinstance(record.year, int) or isinstance(record.year, bool):
+            raise ValueError(f"year is not an int: {record.year!r}")
+        return record
+    except Exception:  # noqa: BLE001 - untrusted .ogp ingestion seam
+        logger.warning(
+            "Skipping an unreadable crop-rotation record; crop rotation "
+            "indicators and the family cooldown stay incomplete until it is fixed"
+        )
+        return None
+
+
+def _parse_agent_date(
+    value: str | None,
+    fallback: "datetime.date",
+    field: str,
+) -> "datetime.date":
+    """Parse an agent-supplied ISO date, falling back when omitted.
+
+    Agent read tools that answer "what is current" accept an injected date so
+    the answer is reproducible and testable — a suite that pins "today"
+    silently rots the day after it is written, and an agent that cannot name the
+    date it reasoned about cannot explain its own answer. Omitting the field
+    still means "today"; supplying a malformed one is refused rather than
+    quietly ignored, because a wrong reference date produces a confidently wrong
+    current_entry.
+    """
+    import datetime
+
+    if value is None or value == "":
+        return fallback
+    try:
+        return datetime.date.fromisoformat(str(value))
+    except ValueError:
+        raise ValueError(
+            f"{field}={value!r} is not an ISO date. Use YYYY-MM-DD."
+        ) from None
 
 
 def _records_equivalent(a: object, b: object) -> bool:
@@ -1082,6 +1172,377 @@ class GardenPlannerApp(QMainWindow):
             if name:
                 out.append(str(name).lower())
         return out
+
+    # --- US-D3.2 (issue #331): succession ------------------------------------
+    #
+    # The FIRST agent writes into ProjectData rather than the QGraphicsScene.
+    # Succession plans live on ``ProjectManager.succession_plans``, so the write
+    # path is a command on the project manager, not an item mutation — but it is
+    # still exactly one undoable command through the shared CommandManager
+    # (architecture invariants #3/#4/#13), mirroring what the GUI's own
+    # ``_open_succession_plan_dialog`` does.
+
+    def _agent_resolve_soil_bed(self, bed_id: str) -> Any:
+        """Resolve ``bed_id`` to a soil-capable canvas item, or raise.
+
+        Succession planning attaches to a BED, so this uses ``is_bed_type``
+        (soil-capable: GARDEN_BED, RAISED_BED, CONTAINER, CONTAINER_ROUND,
+        WALL_PLANTER) rather than the looser ``is_plant_parent_type`` that
+        ``check_placement`` uses. A TRELLIS is a plant parent but holds no soil,
+        so a succession plan on one is refused rather than silently accepted —
+        the difference is deliberate and commented so it is not "corrected" later.
+        """
+        from open_garden_planner.core.object_types import is_bed_type
+
+        try:
+            target = UUID(bed_id)
+        except (ValueError, TypeError, AttributeError):
+            raise ValueError(
+                f"{bed_id!r} is not a valid bed id. Use the stable UUID from "
+                "list_objects or get_object."
+            ) from None
+
+        item = self.canvas_scene.find_item_by_id(target)
+        if item is None:
+            raise ValueError(
+                f"No object with id {bed_id!r} exists in this plan. Read "
+                "list_objects for the beds it contains."
+            )
+        if not is_bed_type(getattr(item, "object_type", None)):
+            raise ValueError(
+                f"{bed_id!r} is a "
+                f"{getattr(item, 'object_type', None)} — succession planning "
+                "needs a soil-capable bed (GARDEN_BED, RAISED_BED, CONTAINER, "
+                "CONTAINER_ROUND or WALL_PLANTER)."
+            )
+        return item
+
+    def _agent_succession_plan_raw(self, bed_id: str) -> dict | None:
+        """The bed's raw succession plan dict, or None when it has no plan."""
+        return self._project_manager.succession_plans.get(bed_id)
+
+    def _agent_get_succession_plan(
+        self,
+        bed_id: str,
+        year: int | None = None,
+        today: str | None = None,
+    ) -> dict[str, Any]:
+        """Read a bed's succession plan (US-D3.2, read-only)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_get_succession_plan(bed_id, year, today)
+        )
+
+    def _do_agent_get_succession_plan(
+        self,
+        bed_id: str,
+        year: int | None,
+        today: str | None,
+    ) -> dict[str, Any]:
+        """Main-thread body of the read-only ``get_succession_plan`` tool."""
+        import datetime
+
+        from open_garden_planner.agent_api.domain import get_succession_plan_for_agent
+
+        self._agent_resolve_soil_bed(bed_id)
+        reference = _parse_agent_date(today, datetime.date.today(), "today")
+        view = get_succession_plan_for_agent(
+            self._agent_succession_plan_raw(bed_id),
+            bed_id,
+            year=year,
+            today=reference,
+            location=self._project_manager.location,
+        )
+        return view.model_dump()
+
+    def _agent_find_succession_gaps(
+        self,
+        bed_id: str,
+        year: int | None = None,
+        today: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Report a bed's uncovered growing-season ranges (US-D3.2, read-only)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_find_succession_gaps(bed_id, year, today)
+        )
+
+    def _do_agent_find_succession_gaps(
+        self,
+        bed_id: str,
+        year: int | None,
+        today: str | None,
+    ) -> list[dict[str, Any]]:
+        """Main-thread body of the read-only ``find_succession_gaps`` tool."""
+        import datetime
+
+        from open_garden_planner.agent_api.domain import find_succession_gaps_for_agent
+
+        self._agent_resolve_soil_bed(bed_id)
+        reference = _parse_agent_date(today, datetime.date.today(), "today")
+        return [
+            gap.model_dump()
+            for gap in find_succession_gaps_for_agent(
+                self._agent_succession_plan_raw(bed_id),
+                year=year,
+                today=reference,
+                location=self._project_manager.location,
+            )
+        ]
+
+    def _agent_suggest_succession(
+        self,
+        bed_id: str,
+        gap_start: str,
+        gap_end: str,
+        candidates: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Rank crops for a succession gap (US-D3.2, read-only)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_suggest_succession(
+                bed_id, gap_start, gap_end, candidates
+            )
+        )
+
+    def _do_agent_suggest_succession(
+        self,
+        bed_id: str,
+        gap_start: str,
+        gap_end: str,
+        candidates: list[str] | None,
+    ) -> list[dict[str, Any]]:
+        """Main-thread body of the read-only ``suggest_succession`` tool."""
+        from open_garden_planner.agent_api.domain import suggest_succession_for_agent
+
+        self._agent_resolve_soil_bed(bed_id)
+        plan_raw = self._agent_succession_plan_raw(bed_id)
+        records = self._agent_species_records(candidates)
+        within = self._agent_plan_families_before(plan_raw, gap_start)
+        avoid = self._agent_rotation_avoid_families(bed_id)
+        neighbours = self._agent_concurrent_species_keys(plan_raw, gap_start, gap_end)
+
+        return [
+            s.model_dump()
+            for s in suggest_succession_for_agent(
+                candidates=records,
+                gap_start=gap_start,
+                gap_end=gap_end,
+                avoid_families=avoid,
+                within_plan_families=within,
+                neighbour_keys=neighbours,
+                service=self._companion_service,
+            )
+        ]
+
+    def _agent_species_records(self, candidates: list[str] | None) -> list[dict]:
+        """Resolve species names/keys to bundled species records.
+
+        An unresolvable name yields NO record rather than a blank placeholder, so
+        it cannot be suggested as a crop with no family and no maturity.
+        """
+
+        names = candidates or []
+        from open_garden_planner.services.bundled_species_db import lookup_species
+
+        records: list[dict] = []
+        for name in names:
+            found = lookup_species(str(name))
+            if found is not None:
+                records.append(dict(found))
+        return records
+
+    def _agent_plan_families_before(self, plan_raw: dict | None, gap_start: str) -> list[str]:
+        """Botanical families the bed already plans BEFORE a gap starts.
+
+        Succession is several crops in ONE season, which is why
+        ``CropRotationService.check_plant_placement`` cannot answer this: it
+        compares a candidate only against ``records[0]``, the single most recent
+        planting record, and therefore cannot see "tomato after the garlic entry
+        three slots ago". Succession entries also never enter the rotation
+        history (only the Crop Rotation panel writes those). So the within-plan
+        rule is computed here, from the plan itself, and the cross-YEAR rule is
+        still delegated to the service by ``_agent_rotation_avoid_families``.
+        """
+        from open_garden_planner.agent_api.domain import parse_iso_date
+
+        if not plan_raw:
+            return []
+        start = parse_iso_date(gap_start)
+        families: list[str] = []
+        for entry in plan_raw.get("entries", []):
+            entry_start = parse_iso_date(str(entry.get("start_date", "")))
+            if start is None or entry_start is None or entry_start >= start:
+                continue
+            found = _lookup_entry_species(entry)
+            if found is not None and found.get("family"):
+                families.append(str(found["family"]))
+        return families
+
+    def _agent_rotation_avoid_families(self, bed_id: str) -> list[str]:
+        """Cross-year family cooldown from the existing rotation service.
+
+        Reuses ``CropRotationService.get_recommendation`` verbatim — the 3-year
+        same-family rule is its job and is already Qt-free. With no recorded
+        history it reports UNKNOWN and no families to avoid, which correctly
+        constrains nothing.
+        """
+        from open_garden_planner.models.crop_rotation import CropRotationHistory, PlantingRecord
+        from open_garden_planner.services.crop_rotation_service import CropRotationService
+
+        # One malformed record must not silently disable the cooldown for
+        # EVERY bed, which a comprehension plus a broad catch did: a record
+        # missing `year` raised and returned [] for the whole garden.
+        records: list[PlantingRecord] = [
+            rec
+            for rec in (
+                _read_crop_rotation_record(raw)
+                for raw in self._project_manager.crop_rotation.get("records", [])
+            )
+            if rec is not None
+        ]
+        service = CropRotationService(CropRotationHistory(records=records))
+        return list(service.get_recommendation(bed_id).avoid_families)
+
+    def _agent_concurrent_species_keys(
+        self, plan_raw: dict | None, gap_start: str, gap_end: str
+    ) -> list[str]:
+        """Species planted in the plan OVERLAPPING a gap — the antagonism peers."""
+        from open_garden_planner.agent_api.domain import parse_iso_date
+
+        if not plan_raw:
+            return []
+        start = parse_iso_date(gap_start)
+        end = parse_iso_date(gap_end)
+        if start is None or end is None:
+            return []
+        keys: list[str] = []
+        for entry in plan_raw.get("entries", []):
+            entry_start = parse_iso_date(str(entry.get("start_date", "")))
+            entry_end = parse_iso_date(str(entry.get("end_date", "")))
+            if entry_start is None or entry_end is None:
+                continue
+            if entry_start <= end and entry_end >= start:
+                keys.extend(_entry_species_names(entry))
+        return keys
+
+    def _agent_set_succession_plan(
+        self,
+        bed_id: str,
+        entries: list[dict[str, Any]] | None,
+        year: int | None = None,
+    ) -> dict[str, Any]:
+        """Write a bed's succession plan (US-D3.2, token-gated write)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_set_succession_plan(bed_id, entries, year)
+        )
+
+    def _do_agent_set_succession_plan(
+        self,
+        bed_id: str,
+        entries: list[dict[str, Any]] | None,
+        year: int | None,
+    ) -> dict[str, Any]:
+        """Main-thread body of the token-gated ``set_succession_plan`` tool.
+
+        Validation happens BEFORE the command is built, so a refused call never
+        touches ``ProjectManager.succession_plans`` and never pushes onto the
+        undo stack — the refusal path is asserted, not assumed.
+
+        Mirrors ``_open_succession_plan_dialog``'s orchestration exactly: one
+        ``SetSuccessionPlanCommand`` executed through the shared CommandManager.
+        The canvas succession badge is refreshed by the already-wired
+        ``succession_plans_changed`` signal chain, not by a duplicated call here.
+        """
+        import datetime
+
+        from open_garden_planner.agent_api.domain import (
+            SuccessionPlanError,
+            build_succession_plan_for_agent,
+        )
+        from open_garden_planner.agent_api.schema import WriteResult
+        from open_garden_planner.core.commands import SetSuccessionPlanCommand
+
+        self._agent_resolve_soil_bed(bed_id)
+
+        resolved_year = year or datetime.date.today().year
+        if resolved_year < 1900 or resolved_year > 2200:
+            raise ValueError(
+                f"year {resolved_year} is out of range; pass a four-digit year."
+            )
+
+        known = self._agent_known_species_keys()
+        if not known:
+            logger.warning(
+                "Species roster unavailable; succession writes will accept any "
+                "species_key, so the rotation and companion checks cannot run "
+                "on them."
+            )
+
+        try:
+            plan = build_succession_plan_for_agent(
+                entries,
+                bed_id,
+                resolved_year,
+                known_species_keys=known or None,
+            )
+        except SuccessionPlanError as exc:
+            raise ValueError(str(exc)) from exc
+
+        cmd = SetSuccessionPlanCommand(self._project_manager, bed_id, plan)
+        self.canvas_view.command_manager.execute(cmd)
+        return WriteResult(
+            action="set_succession_plan",
+            undo_description=(
+                "Delete succession plan"
+                if plan is None
+                else f"Set succession plan ({len(plan.entries)} entries)"
+            ),
+        ).model_dump()
+
+    def _agent_known_species_keys(self) -> set[str]:
+        """Every canonical species key this plan accepts: bundled DB + placed plants.
+
+        The write validator needs KEYS, so this derives them directly with the
+        canonical ``species_key()`` (ADR-016) instead of collecting names and
+        re-resolving them.
+
+        That distinction is the whole point for placed plants. A Permapeople or
+        custom species has a ``source_id`` that is its canonical key, and its
+        name resolves to NOTHING in the bundled DB - so an earlier version that
+        pushed placed-plant names back through ``lookup_species`` got None for
+        every one of them. The roster then missed them and ``set_succession_plan``
+        refused a species the app had just shown the agent, while the sibling
+        tool ``set_species`` accepted it. Three agents disagreeing about the same
+        plant is worse than any one of them being wrong.
+        """
+        from open_garden_planner.models.plant_data import species_key
+        from open_garden_planner.services.bundled_species_db import get_species_db
+
+        keys: set[str] = set()
+
+        def _add(record: object) -> None:
+            if not isinstance(record, dict):
+                return
+            key = species_key(record)
+            if key and key != "_unknown":
+                keys.add(key)
+
+        try:
+            for record in get_species_db().values():
+                _add(record)
+        except Exception:  # noqa: BLE001 - a validation aid must never be the thing
+            # that fails a write; without the bundled roster the species check is
+            # skipped rather than turned into a blanket refusal. The placed-plant
+            # pass below still runs.
+            logger.warning("Could not enumerate bundled species for validation")
+
+        try:
+            for item in self.canvas_scene.items():
+                meta = getattr(item, "metadata", None)
+                species = (meta or {}).get("plant_species")
+                _add(species)
+        except Exception:  # noqa: BLE001 - see above
+            logger.warning("Could not enumerate placed plants for validation")
+
+        return keys
 
     def _agent_linked_roof_ridge(self, item: Any) -> list[Any]:
         """A HOUSE's linked ``ROOF_RIDGE`` item, if any — mirroring
@@ -2399,6 +2860,10 @@ class GardenPlannerApp(QMainWindow):
             find_compatible_sets=self._agent_find_compatible_sets,
             find_sets_for_bed=self._agent_find_sets_for_bed,
             check_placement=self._agent_check_placement,
+            get_succession_plan=self._agent_get_succession_plan,
+            find_succession_gaps=self._agent_find_succession_gaps,
+            suggest_succession=self._agent_suggest_succession,
+            set_succession_plan=self._agent_set_succession_plan,
         )
 
     def _stop_agent_api(self) -> None:
@@ -7740,13 +8205,30 @@ class GardenPlannerApp(QMainWindow):
             self.location_label.setToolTip(tip)
 
     def _on_crop_rotation_changed(self, rotation_data: object) -> None:
-        """Update the crop rotation service when project data changes (US-10.6)."""
-        from open_garden_planner.models.crop_rotation import CropRotationHistory
+        """Update the crop rotation service when project data changes (US-10.6).
+
+        Deserialization is guarded because this runs inside a Qt signal handler:
+        a single malformed record in ``.ogp`` (``PlantingRecord.from_dict`` reads
+        ``data["year"]`` as a required key) used to raise a ``KeyError`` straight
+        out of the slot, which in a signal handler means an exception inside the
+        event loop rather than a reportable error. Per-record tolerance keeps the
+        readable rows and drops only the broken one, matching
+        ``_agent_rotation_avoid_families``.
+        """
+        from open_garden_planner.models.crop_rotation import (
+            CropRotationHistory,
+            PlantingRecord,
+        )
 
         if rotation_data and isinstance(rotation_data, dict):
-            self._crop_rotation_service.history = CropRotationHistory.from_dict(
-                rotation_data
-            )
+            records: list[PlantingRecord] = [
+                rec
+                for rec in (
+                    _read_crop_rotation_record(raw) for raw in rotation_data.get("records", [])
+                )
+                if rec is not None
+            ]
+            self._crop_rotation_service.history = CropRotationHistory(records=records)
         else:
             self._crop_rotation_service.history = CropRotationHistory()
         self._update_bed_rotation_indicators()

@@ -50,7 +50,7 @@ from open_garden_planner.models.succession import (
     SEASON_SEGMENTS,
     SuccessionEntry,
     SuccessionPlan,
-    compute_season_segments,
+    resolve_season_segments,
 )
 from open_garden_planner.ui.icons import get_icon
 from open_garden_planner.ui.theme import set_text_role, theme_color
@@ -82,24 +82,8 @@ def _segment_label(key: str) -> str:
     """Translate a season-segment key for the current UI locale."""
     return QCoreApplication.translate("SuccessionPlanDialog", _SEGMENT_LABELS[key])
 
-# Fallback boundaries (calendar-month-based) when no location is set.
-# (month, day) tuples for start and end of each segment.
-_FALLBACK_BOUNDARIES: dict[str, tuple[tuple[int, int], tuple[int, int]]] = {
-    "early_spring": ((2, 1), (3, 31)),
-    "late_spring": ((4, 1), (5, 31)),
-    "summer": ((6, 1), (8, 31)),
-    "fall": ((9, 1), (11, 15)),
-}
-
-
-def _fallback_segments(year: int) -> dict[str, tuple[datetime.date, datetime.date]]:
-    return {
-        key: (
-            datetime.date(year, start[0], start[1]),
-            datetime.date(year, end[0], end[1]),
-        )
-        for key, (start, end) in _FALLBACK_BOUNDARIES.items()
-    }
+# Fallback boundaries moved to models/succession.py by US-D3.2 so the Agent API
+# segments a no-location bed identically instead of keeping a second copy.
 
 
 def _date_to_segment_label(
@@ -448,16 +432,11 @@ class SuccessionPlanDialog(QDialog):
         year: int,
         frost_dates: dict[str, Any] | None,
     ) -> dict[str, tuple[datetime.date, datetime.date]]:
-        if frost_dates and frost_dates.get("frost_dates"):
-            fd = frost_dates["frost_dates"]
-            last = fd.get("last_spring_frost", "")
-            fall = fd.get("first_fall_frost", "")
-            if last and fall:
-                try:
-                    return compute_season_segments(last, fall, year)
-                except (ValueError, KeyError):
-                    pass
-        return _fallback_segments(year)
+        # Delegates to the shared resolver so the GUI and the Agent API segment a
+        # bed the same way (US-D3.2). ``frost_dates`` here is the plan's whole
+        # ``location`` dict, which is what the resolver expects.
+        segments, _are_fallback = resolve_season_segments(year, frost_dates)
+        return segments
 
     # ── UI construction ──────────────────────────────────────────────────────
 

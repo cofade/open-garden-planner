@@ -93,6 +93,9 @@ from open_garden_planner.agent_api.schema import (
     PlanLifecycleResult,
     PlanSummary,
     RenderMeta,
+    SuccessionGap,
+    SuccessionPlanView,
+    SuccessionSuggestion,
     WriteResult,
 )
 from open_garden_planner.services.bundled_species_db import get_species_db
@@ -645,6 +648,139 @@ def build_server(
         return PlacementCheck(**result)
 
     @mcp.tool()
+    async def get_succession_plan(
+        bed_id: str,
+        year: int | None = None,
+        today: str | None = None,
+    ) -> SuccessionPlanView:
+        """A bed's succession plan: what is in it, and what is next (US-D3.2).
+
+        Succession is several sequential crops in ONE bed within a season. This
+        returns the bed's slots sorted by date, which slot is running on
+        ``today``, which comes next, and the season segments so you can reason
+        in seasons rather than raw dates.
+
+        The four season segments are 'early_spring', 'late_spring', 'summer' and
+        'fall'. They are frost-relative (computed from the plan's geo-location)
+        when the plan HAS one; otherwise they fall back to approximate
+        calendar-month boundaries and the response says so twice — check
+        ``coverage`` and ``segments_are_fallback`` before treating a segment date
+        as authoritative.
+
+        A bed with no plan reports ``has_plan: false``. That is different from an
+        empty plan, which reports ``has_plan: true`` with no entries. Read-only;
+        no token required.
+
+        Args:
+            bed_id: The bed's stable UUID. It must be a soil-capable bed
+                (GARDEN_BED, RAISED_BED, CONTAINER, CONTAINER_ROUND or
+                WALL_PLANTER) — a TRELLIS is refused, because it holds no soil.
+            year: Plan year. Defaults to the stored plan's year, else the
+                current year.
+            today: ISO 'YYYY-MM-DD' reference date for current_entry/next_entry.
+                Defaults to the real today; pass it explicitly to make a
+                reasoning step reproducible, and the response echoes it back as
+                ``reference_date``.
+        """
+        result = await anyio.to_thread.run_sync(
+            lambda: providers.get_succession_plan(bed_id, year, today)
+        )
+        return SuccessionPlanView(**result)
+
+    @mcp.tool()
+    async def find_succession_gaps(
+        bed_id: str,
+        year: int | None = None,
+        today: str | None = None,
+    ) -> list[SuccessionGap]:
+        """When is this bed free? The uncovered ranges of its growing season.
+
+        This is the question you actually want answered ("what can I put in bed 3
+        after the garlic comes out in July?"), so it is a tool rather than
+        something every client computes differently. Each range carries its
+        season label and an inclusive day count, and the ranges are returned in
+        season order.
+
+        A slot whose dates are unparseable covers NOTHING, so a malformed entry
+        shows up as a gap rather than silently reading as a full bed.
+
+        Feed a range straight into suggest_succession's ``gap_start``/``gap_end``.
+        Read-only; no token required.
+
+        Args:
+            bed_id: The bed's stable UUID (soil-capable types only).
+            year: Plan year; defaults to the stored plan's year.
+            today: ISO 'YYYY-MM-DD' reference date, used only to default the plan
+                year when ``year`` is omitted. The gaps are a property of the
+                plan and the season segments, not of this date, so each gap
+                carries no timestamp of its own.
+        """
+        result = await anyio.to_thread.run_sync(
+            lambda: providers.find_succession_gaps(bed_id, year, today)
+        )
+        return [SuccessionGap(**item) for item in result]
+
+    @mcp.tool()
+    async def suggest_succession(
+        bed_id: str,
+        gap_start: str,
+        gap_end: str,
+        candidates: list[str] | None = None,
+    ) -> list[SuccessionSuggestion]:
+        """Rank crops for one succession gap in this bed.
+
+        Filters candidates two ways, in order: a crop whose botanical family
+        the bed already used EARLIER IN THIS PLAN, or whose family is inside the
+        3-year crop-rotation cooldown, is excluded; and what survives is ranked by
+        whether its days-to-maturity fits the gap. A crop antagonistic to a
+        neighbour overlapping the window is excluded too, but see the limit
+        noted below before reading anything into that.
+
+        ``candidates`` is a list of species names/keys to consider — leave it out
+        and nothing is suggested (an unrestricted search over 118 species would
+        be noise). Read the bundled species via the garden://species resource or
+        get_object payloads to build the list.
+
+        HONEST LIMITS, so you do not over-read the result:
+
+        * ``fits_window: false`` means the crop is too slow for the gap OR its
+          maturity is unknown. It does NOT mean the crop was rejected — check
+          ``days_to_maturity`` to tell those apart. An unknown maturity is never
+          reported as a fit.
+        * An empty list means every candidate was excluded, which is a real
+          answer: widen ``candidates`` or shorten the gap.
+        * A gap is uncovered BY CONSTRUCTION, so nothing in this bed's own plan
+          overlaps it and there is normally no concurrent neighbour to exclude.
+          The antagonism filter only bites when a slot from OUTSIDE this plan
+          overlaps the window; when none does it excludes nothing, and the
+          absence of a rejection is not evidence that a candidate is
+          antagonist-free.
+        * ``family`` empty means no rotation claim could be made for that crop,
+          not that it is rotation-safe.
+
+        The ``reasons`` strings are English and NOT localised (MCP output is an
+        English API contract, ADR-033) — they are for a human reading the
+        result and must not be parsed. Branch on ``species_key``, ``family``,
+        ``days_to_maturity`` and ``fits_window``.
+
+        Read-only; no token required.
+
+        Args:
+            bed_id: The bed's stable UUID (soil-capable types only). Supplies
+                the plan the exclusions are computed against.
+            gap_start: ISO 'YYYY-MM-DD' start of the window to fill — usually a
+                range straight from find_succession_gaps.
+            gap_end: ISO 'YYYY-MM-DD' end of the window.
+            candidates: Species names or keys to consider. Omit for none.
+        """
+        result = await anyio.to_thread.run_sync(
+            lambda: providers.suggest_succession(
+                bed_id, gap_start, gap_end, candidates
+            )
+        )
+        return [SuccessionSuggestion(**item) for item in result]
+
+    @mcp.tool()
     async def list_layers() -> list[Layer]:
         """List the plan's layers, top of the stack first (US-D2.4).
 
@@ -1019,6 +1155,53 @@ def build_server(
             _require_write_auth(write_token)
             result = await anyio.to_thread.run_sync(providers.redo)
             return HistoryResult(**result)
+
+        # --- US-D3.2: succession write --------------------------------------
+
+        @mcp.tool()
+        async def set_succession_plan(
+            bed_id: str,
+            entries: list[dict] | None = None,
+            year: int | None = None,
+        ) -> WriteResult:
+            """Write a bed's succession plan, or delete it (US-D3.2).
+
+            This REPLACES the bed's whole plan for the year, the same way the
+            GUI's succession dialog does when you press OK - it is not an append.
+            Read the current plan first (get_succession_plan) and send the full
+            set of slots you want to keep.
+
+            ONE call is ONE undo step, including a delete, so a single Ctrl+Z (or
+            a single ``undo`` call) restores the previous plan exactly. Use
+            ``entries: []`` - or omit it - to DELETE the plan.
+
+            Refused, leaving both the plan and the undo stack untouched, when the
+            id is unknown or is not a soil-capable bed (a TRELLIS holds no soil);
+            two slots overlap in time (one bed cannot grow two crops on the same
+            days); a date is not ISO YYYY-MM-DD; a slot ends before it starts; or
+            a species_key is in neither the bundled database nor the plan.
+
+            Each slot must end at least one day BEFORE the next one begins. A
+            one-day overlap - one slot ending the very day the next starts - is
+            refused, because one bed cannot grow two crops on the same day.
+            find_succession_gaps already returns windows in exactly that shape:
+            consecutive gaps are adjacent, never overlapping, so filling every
+            reported gap in order is accepted.
+            This is a write tool and requires the Agent API token.
+
+            Args:
+                bed_id: The bed's stable UUID. Soil-capable types only.
+                entries: The complete slot list, each
+                    {species_key, common_name, start_date, end_date, notes} with
+                    ISO dates. Send [] to delete the plan. ``common_name`` is
+                    display text; the machine contract is ``species_key``.
+                year: Plan year. Defaults to the current year.
+            """
+            _require_write_auth(write_token)
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.set_succession_plan(bed_id, entries, year)
+            )
+            return WriteResult(**result)
 
         # --- US-D2.2: resize / rotate --------------------------------------
 
@@ -1673,6 +1856,42 @@ def build_server(
             result["conflicts"],
             result["uncovered"],
             result["searched_size"],
+        )
+
+    @mcp.prompt(name="plan-succession")
+    async def plan_succession(bed_id: str) -> str:
+        """Compose a full-season succession brief for one bed (US-D3.2).
+
+        Gathers the bed's current plan, its uncovered windows, and ranked
+        candidates for the first open window, then asks the agent for a complete
+        slot list it can write back with set_succession_plan.
+        """
+        plan_raw = await anyio.to_thread.run_sync(
+            lambda: providers.get_succession_plan(bed_id, None, None)
+        )
+        plan = SuccessionPlanView(**plan_raw)
+        gaps = [
+            SuccessionGap(**g)
+            for g in await anyio.to_thread.run_sync(
+                lambda: providers.find_succession_gaps(bed_id, None, None)
+            )
+        ]
+
+        suggestions: list[SuccessionSuggestion] = []
+        if gaps:
+            first = gaps[0]
+            names = [record.get("common_name", "") for record in get_species_db().values()]
+            suggestions = [
+                SuccessionSuggestion(**s)
+                for s in await anyio.to_thread.run_sync(
+                    lambda: providers.suggest_succession(
+                        bed_id, first.start_date, first.end_date, names
+                    )
+                )
+            ]
+
+        return agent_prompts.render_plan_succession_prompt(
+            bed_id, plan, gaps, suggestions
         )
 
     return mcp

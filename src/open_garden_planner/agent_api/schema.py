@@ -444,6 +444,8 @@ class WriteResult(BaseModel):
         "delete_layer",
         "set_active_layer",
         "set_layer_property",
+        # US-D3.2: the first write into ProjectData rather than the scene.
+        "set_succession_plan",
     ] = Field(description="The mutation performed.")
     undo_description: str = Field(
         description="Human-readable label of the primary undo step this created "
@@ -740,4 +742,136 @@ class PlacementCheck(BaseModel):
         "if the bed has plants but none relate to this species, 'critical' if "
         "an antagonist is present, 'unknown_bed' if bed_id does not resolve to "
         "a real bed, or 'unknown' if the bed's contents could not be read."
+    )
+
+
+# --- US-D3.2: succession tools ----------------------------------------------
+
+
+class SeasonSegment(BaseModel):
+    """One frost-relative (or month-fallback) growing segment of a year."""
+
+    segment: str = Field(
+        description="Segment key: 'early_spring', 'late_spring', 'summer' or "
+        "'fall'. These four are the codebase's own vocabulary (SEASON_SEGMENTS)."
+    )
+    start_date: str = Field(description="Inclusive start date, ISO 'YYYY-MM-DD'.")
+    end_date: str = Field(description="Inclusive end date, ISO 'YYYY-MM-DD'.")
+
+
+class SuccessionEntryView(BaseModel):
+    """One planned crop slot in a bed's succession plan."""
+
+    id: str = Field(description="Stable entry id (the plan's own UUID).")
+    species_key: str = Field(
+        description="Canonical species key (ADR-016) — the machine contract. "
+        "May be empty when the slot was entered as free text."
+    )
+    common_name: str = Field(description="Display name for the crop.")
+    scientific_name: str = Field(
+        default="", description="Scientific name, when known."
+    )
+    start_date: str = Field(description="Start date, ISO 'YYYY-MM-DD'.")
+    end_date: str = Field(description="End date, ISO 'YYYY-MM-DD'.")
+    notes: str = Field(default="", description="Free-text notes, if any.")
+    season: str | None = Field(
+        default=None,
+        description="The season segment containing start_date, or null when the "
+        "slot falls outside every segment.",
+    )
+
+
+class SuccessionPlanView(BaseModel):
+    """A bed's succession plan for one year, plus what is in it right now."""
+
+    bed_id: str = Field(description="The bed this plan belongs to.")
+    year: int = Field(description="The year this answer describes.")
+    plan_year: int | None = Field(
+        default=None,
+        description="The year the bed actually HAS a plan for, when that differs "
+        "from `year`. Set only on a year mismatch: the bed holds a plan, but not "
+        "for the year you asked about, so `has_plan` is false for that year.",
+    )
+    has_plan: bool = Field(
+        description="False when the bed has NO plan at all. The entries list is "
+        "then empty and this flag is what distinguishes 'no plan' from 'an empty "
+        "plan'."
+    )
+    entries: list[SuccessionEntryView] = Field(
+        default_factory=list,
+        description="Entries sorted ascending by start_date."
+    )
+    current_entry: SuccessionEntryView | None = Field(
+        default=None,
+        description="The entry whose date range contains the reference date, or "
+        "null when the bed is between slots."
+    )
+    next_entry: SuccessionEntryView | None = Field(
+        default=None,
+        description="The first entry starting after the reference date, or null."
+    )
+    segments: list[SeasonSegment] = Field(
+        default_factory=list,
+        description="The season segments for this plan's year, so an agent can "
+        "reason in seasons rather than raw dates."
+    )
+    segments_are_fallback: bool = Field(
+        default=False,
+        description="True when the plan has no geo-location, so `segments` are "
+        "approximate calendar-month boundaries rather than computed from frost "
+        "dates. Always check this before treating a segment date as authoritative."
+    )
+    coverage: str = Field(
+        description="Data coverage: 'full' with frost-derived segments, or "
+        "'no_frost_dates' when the plan has no location and the segments are "
+        "month-based approximations."
+    )
+    reference_date: str = Field(
+        description="The ISO date current_entry/next_entry were evaluated "
+        "against, so a caller can reproduce the answer."
+    )
+
+
+class SuccessionGap(BaseModel):
+    """An uncovered date range inside one season segment."""
+
+    segment: str = Field(description="Season segment key this gap sits in.")
+    start_date: str = Field(description="Inclusive start date, ISO.")
+    end_date: str = Field(description="Inclusive end date, ISO.")
+    days: int = Field(description="Length of the gap in days, inclusive of both ends.")
+
+
+class SuccessionSuggestion(BaseModel):
+    """A ranked candidate crop for a succession gap."""
+
+    species_key: str = Field(
+        description="Canonical species key (ADR-016) — the machine contract."
+    )
+    name: str = Field(description="Display name.")
+    family: str = Field(
+        default="",
+        description="Botanical family, used for the crop-rotation check. Empty "
+        "when the species record carries no family, in which case no rotation "
+        "exclusion can be made for it.",
+    )
+    days_to_maturity: int | None = Field(
+        default=None,
+        description="Days to maturity from the species record, or null when "
+        "unknown. Null means the window fit could not be checked, NOT that it "
+        "fits.",
+    )
+    fits_window: bool = Field(
+        description="True when days_to_maturity is known and fits inside the "
+        "gap. False when it is known not to fit, or when it is unknown — an "
+        "unknown maturity is reported as not-confirmed rather than assumed."
+    )
+    reasons: list[str] = Field(
+        default_factory=list,
+        description="Short English explanations of the ranking. NOT localised: "
+        "MCP tool output is an English API contract (ADR-033), so this text "
+        "is a convenience for a human reading the result and must not be "
+        "parsed. Branch on the machine fields instead."
+    )
+    source: str = Field(
+        description="Where the species record came from: 'bundled' or 'unknown'."
     )

@@ -2,6 +2,7 @@
 
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 from dotenv import load_dotenv
 
@@ -123,43 +124,23 @@ def _run_selftest() -> int:
         free_port = probe.getsockname()[1]
         probe.close()
 
+        # Populate EVERY provider field from the dataclass itself rather than
+        # listing them. The explicit list this replaced was a drift guard that
+        # fired in the wrong direction: adding a provider field and forgetting
+        # THIS file failed the selftest, even though the selftest's own job is
+        # only to prove a real AgentApiServer binds (the #291 check). It never
+        # verified application.py's wiring, which is the thing actually worth
+        # catching — and a missing field there is a startup TypeError the app
+        # hits immediately anyway. Deriving the fields keeps the tripwire (every
+        # value is still `_never`, so an accidental provider call still fails
+        # loudly) and can never drift.
         server = AgentApiServer(
             AgentProviders(
-                snapshot=lambda: {},
-                diagnostics=lambda: [],
-                render=_never,
-                save_plan=_never,
-                new_plan=_never,
-                open_plan=_never,
-                export_pdf=_never,
-                export_dxf=_never,
-                export_csv=_never,
-                create_object=_never,
-                get_geometry=_never,
-                move_object=_never,
-                set_object_position=_never,
-                delete_object=_never,
-                resize_object=_never,
-                rotate_object=_never,
-                set_vertex=_never,
-                add_vertex=_never,
-                delete_vertex=_never,
-                set_species=_never,
-                set_parent_bed=_never,
-                arrange_object=_never,
-                set_object_layer=_never,
-                create_layer=_never,
-                rename_layer=_never,
-                delete_layer=_never,
-                set_active_layer=_never,
-                set_layer_property=_never,
-                undo=_never,
-                redo=_never,
-                get_history=_never,
-                suggest_companions=_never,
-                find_compatible_sets=_never,
-                find_sets_for_bed=_never,
-                check_placement=_never,
+                # cast keeps mypy happy: `**dict` cannot be matched against the
+                # dataclass's per-field Callable types, and the explicit list this
+                # replaced was giving that check for free. mypy is not in CI, so
+                # a silent regression here would otherwise go unnoticed.
+                **cast("dict[str, Any]", dict.fromkeys(AgentProviders.__dataclass_fields__, _never))
             ),
             port=free_port,
         )
