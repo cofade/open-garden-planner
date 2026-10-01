@@ -536,12 +536,12 @@
   },
   "363": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Two contact links in ISSUE_TEMPLATE config point at non-existent templates (bug_report.md, feature_request.md)"
   },
   "364": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "HOUSE roof ridge drifts off its polygon on vertex edits and never recovers on undo/redo (membrane projection, not recompute)"
   },
   "365": {
@@ -574,9 +574,14 @@
     "state": "MERGED",
     "title": "feat(US-D3.1,D2.7): agent domain-intelligence tools + get_history"
   },
+  "371": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(#364,#363): recompute the HOUSE roof ridge instead of re-projecting it"
+  },
   "372": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "HOUSE roof tiles lap toward the ridge: the mirrored half is chosen by the ridge's direction, not by which side is downhill"
   }
 }
