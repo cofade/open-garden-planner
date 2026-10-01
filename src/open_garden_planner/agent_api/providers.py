@@ -88,7 +88,8 @@ class SetSuccessionPlanProvider(Protocol):
     Same reasoning as :class:`CreateObjectProvider`: the ``year: int | None`` /
     ``bed_id: str`` / ``entries: list | None`` trio would be type-identical under
     a transposition, which would silently write a plan to the wrong bed or year.
-    ``server.py`` calls this by keyword.
+    Spelling it as a Protocol keeps the parameter NAMES part of the contract,
+    exactly as for :class:`CreateObjectProvider`.
     """
 
     def __call__(

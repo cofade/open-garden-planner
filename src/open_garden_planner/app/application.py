@@ -84,16 +84,49 @@ from open_garden_planner.ui.widgets import (
 )
 
 if TYPE_CHECKING:
+    import datetime
+
     from open_garden_planner.agent_api import AgentApiServer
 
 logger = logging.getLogger(__name__)
 
 
+def _entry_species_names(entry: dict[str, Any]) -> list[str]:
+    """Every name an entry can be resolved by, machine key FIRST.
+
+    ``species_key`` is the machine contract and ``common_name`` is display text
+    (that is how the curated schema documents them, and what
+    ``set_succession_plan`` validates). An earlier version preferred
+    ``common_name``; since the validator never checks it, an agent could store
+    ``{species_key: "solanum lycopersicum", common_name: "Cabbage"}`` and the
+    rotation filter would then exclude the WRONG family - Brassicaceae instead
+    of Solanaceae. Key first, display name only as the fallback for a
+    free-text slot.
+    """
+    names: list[str] = []
+    for field in ("species_key", "common_name", "scientific_name"):
+        value = str(entry.get(field, "") or "").strip()
+        if value and value not in names:
+            names.append(value)
+    return names
+
+
+def _lookup_entry_species(entry: dict[str, Any]) -> dict | None:
+    """Resolve a succession entry to a bundled species record, or None."""
+    from open_garden_planner.services.bundled_species_db import lookup_species
+
+    for name in _entry_species_names(entry):
+        found = lookup_species(name)
+        if found is not None:
+            return found
+    return None
+
+
 def _parse_agent_date(
     value: str | None,
-    fallback,
+    fallback: "datetime.date",
     field: str,
-):
+) -> "datetime.date":
     """Parse an agent-supplied ISO date, falling back when omitted.
 
     Agent read tools that answer "what is current" accept an injected date so
@@ -1297,20 +1330,17 @@ class GardenPlannerApp(QMainWindow):
         rule is computed here, from the plan itself, and the cross-YEAR rule is
         still delegated to the service by ``_agent_rotation_avoid_families``.
         """
-        from open_garden_planner.agent_api.domain import _parse_iso
-        from open_garden_planner.services.bundled_species_db import lookup_species
+        from open_garden_planner.agent_api.domain import parse_iso_date
 
         if not plan_raw:
             return []
-        start = _parse_iso(gap_start)
+        start = parse_iso_date(gap_start)
         families: list[str] = []
         for entry in plan_raw.get("entries", []):
-            entry_start = _parse_iso(str(entry.get("start_date", "")))
+            entry_start = parse_iso_date(str(entry.get("start_date", "")))
             if start is None or entry_start is None or entry_start >= start:
                 continue
-            found = lookup_species(
-                entry.get("common_name") or entry.get("species_key") or ""
-            )
+            found = _lookup_entry_species(entry)
             if found is not None and found.get("family"):
                 families.append(str(found["family"]))
         return families
@@ -1326,40 +1356,41 @@ class GardenPlannerApp(QMainWindow):
         from open_garden_planner.models.crop_rotation import CropRotationHistory, PlantingRecord
         from open_garden_planner.services.crop_rotation_service import CropRotationService
 
-        try:
-            history = CropRotationHistory(
-                records=[
-                    PlantingRecord.from_dict(rec)
-                    for rec in self._project_manager.crop_rotation.get("records", [])
-                ]
-            )
-        except (AttributeError, KeyError, TypeError, ValueError):
-            return []
-        service = CropRotationService(history)
+        # One malformed record must not silently disable the cooldown for
+        # EVERY bed, which a comprehension plus a broad catch did: a record
+        # missing `year` raised and returned [] for the whole garden.
+        records: list[PlantingRecord] = []
+        for rec in self._project_manager.crop_rotation.get("records", []):
+            try:
+                records.append(PlantingRecord.from_dict(rec))
+            except (AttributeError, KeyError, TypeError, ValueError):
+                logger.warning(
+                    "Skipping an unreadable crop-rotation record; the family "
+                    "cooldown is weaker for every bed until it is fixed"
+                )
+        service = CropRotationService(CropRotationHistory(records=records))
         return list(service.get_recommendation(bed_id).avoid_families)
 
     def _agent_concurrent_species_keys(
         self, plan_raw: dict | None, gap_start: str, gap_end: str
     ) -> list[str]:
         """Species planted in the plan OVERLAPPING a gap — the antagonism peers."""
-        from open_garden_planner.agent_api.domain import _parse_iso
+        from open_garden_planner.agent_api.domain import parse_iso_date
 
         if not plan_raw:
             return []
-        start = _parse_iso(gap_start)
-        end = _parse_iso(gap_end)
+        start = parse_iso_date(gap_start)
+        end = parse_iso_date(gap_end)
         if start is None or end is None:
             return []
         keys: list[str] = []
         for entry in plan_raw.get("entries", []):
-            entry_start = _parse_iso(str(entry.get("start_date", "")))
-            entry_end = _parse_iso(str(entry.get("end_date", "")))
+            entry_start = parse_iso_date(str(entry.get("start_date", "")))
+            entry_end = parse_iso_date(str(entry.get("end_date", "")))
             if entry_start is None or entry_end is None:
                 continue
             if entry_start <= end and entry_end >= start:
-                key = str(entry.get("species_key", "") or "")
-                if key:
-                    keys.append(key)
+                keys.extend(_entry_species_names(entry))
         return keys
 
     def _agent_set_succession_plan(
@@ -1417,10 +1448,19 @@ class GardenPlannerApp(QMainWindow):
             key = species_key(found)
             if key and key != "_unknown":
                 known.add(key)
+        if not known:
+            logger.warning(
+                "Species roster unavailable; succession writes will accept any "
+                "species_key, so the rotation and companion checks cannot run "
+                "on them."
+            )
 
         try:
             plan = build_succession_plan_for_agent(
-                entries, bed_id, resolved_year, known_species_keys=known or None
+                entries,
+                bed_id,
+                resolved_year,
+                known_species_keys=known or None,
             )
         except SuccessionPlanError as exc:
             raise ValueError(str(exc)) from exc

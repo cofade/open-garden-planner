@@ -21,7 +21,7 @@ from open_garden_planner.agent_api.domain import (
     get_succession_plan_for_agent,
     suggest_succession_for_agent,
 )
-from open_garden_planner.models.plant_data import PlantSpeciesData
+from open_garden_planner.models.plant_data import species_key
 from open_garden_planner.models.succession import (
     SEASON_SEGMENTS,
     compute_fallback_segments,
@@ -29,6 +29,8 @@ from open_garden_planner.models.succession import (
     date_to_segment,
     resolve_season_segments,
 )
+from open_garden_planner.services.bundled_species_db import get_species_db
+from open_garden_planner.services.companion_planting_service import ANTAGONISTIC
 
 # A concrete, mid-latitude frost pair so every expected date is computable by
 # hand: last frost 2026-04-15, first fall frost 2026-10-15.
@@ -262,8 +264,11 @@ class TestFindSuccessionGaps:
 
         early = gaps[0]
         assert early.start_date == segments["early_spring"][0].isoformat()
-        assert early.end_date == segments["early_spring"][1].isoformat()
-        assert early.days == (segments["early_spring"][1] - segments["early_spring"][0]).days + 1
+        # The window ends one day early: the shared boundary day belongs to the
+        # NEXT segment's window, so the two never report the same day twice.
+        expected_end = segments["early_spring"][1] - datetime.timedelta(days=1)
+        assert early.end_date == expected_end.isoformat()
+        assert early.days == (expected_end - segments["early_spring"][0]).days + 1
 
     def test_a_slot_in_the_middle_leaves_two_gaps_in_its_segment(self) -> None:
         segments = compute_season_segments(LAST_FROST, FALL_FROST, YEAR)
@@ -278,7 +283,9 @@ class TestFindSuccessionGaps:
         assert summer[0].start_date == seg_start.isoformat()
         assert summer[0].end_date == (mid - datetime.timedelta(days=1)).isoformat()
         assert summer[1].start_date == (mid + datetime.timedelta(days=11)).isoformat()
-        assert summer[1].end_date == seg_end.isoformat()
+        # Summer is not the final segment, so its window ends one day before the
+        # raw segment end (that day opens `fall`).
+        assert summer[1].end_date == (seg_end - datetime.timedelta(days=1)).isoformat()
 
     def test_adjacent_slots_do_not_leave_a_one_day_gap(self) -> None:
         segments = compute_season_segments(LAST_FROST, FALL_FROST, YEAR)
@@ -319,6 +326,64 @@ class TestFindSuccessionGaps:
         gaps = find_succession_gaps_for_agent(None, today=TODAY, location=None)
         fallback = compute_fallback_segments(YEAR)
         assert gaps[0].start_date == fallback["early_spring"][0].isoformat()
+
+    def test_gaps_do_not_share_a_boundary_day(self) -> None:
+        """Segments are contiguous and inclusive, so a raw per-segment
+        subtraction reports the shared boundary day TWICE. That is not cosmetic:
+        filling the gaps this tool hands out would then be refused by
+        ``build_succession_plan_for_agent`` (``start <= prev_end``), making the
+        read -> write round trip impossible."""
+        gaps = find_succession_gaps_for_agent(None, today=TODAY, location=LOCATION)
+        days: list[str] = []
+        for gap in gaps:
+            cursor = datetime.date.fromisoformat(gap.start_date)
+            end = datetime.date.fromisoformat(gap.end_date)
+            while cursor <= end:
+                days.append(cursor.isoformat())
+                cursor += datetime.timedelta(days=1)
+        assert len(days) == len(set(days)), "a day appears in two segments' gaps"
+        assert sum(g.days for g in gaps) == len(days)
+
+    def test_the_four_gaps_tile_the_season_without_a_hole(self) -> None:
+        segments = compute_season_segments(LAST_FROST, FALL_FROST, YEAR)
+        gaps = find_succession_gaps_for_agent(None, today=TODAY, location=LOCATION)
+        assert gaps[0].start_date == segments["early_spring"][0].isoformat()
+        assert gaps[-1].end_date == segments["fall"][1].isoformat()
+        for first, second in zip(gaps, gaps[1:], strict=False):
+            # Exactly one day between consecutive gaps: no overlap, no hole.
+            delta = (
+                datetime.date.fromisoformat(second.start_date)
+                - datetime.date.fromisoformat(first.end_date)
+            ).days
+            assert delta == 1, f"{first.end_date} -> {second.start_date} leaves {delta - 1}"
+
+    def test_filling_every_gap_is_accepted_by_the_write_validator(self) -> None:
+        """The round trip the ``plan-succession`` prompt asks an agent to make."""
+        gaps = find_succession_gaps_for_agent(None, today=TODAY, location=LOCATION)
+        entries = [
+            {
+                "species_key": "allium sativum",
+                "common_name": "Garlic",
+                "start_date": g.start_date,
+                "end_date": g.end_date,
+            }
+            for g in gaps
+        ]
+        plan = build_succession_plan_for_agent(entries, "bed-1", YEAR)
+        assert plan is not None
+        assert len(plan.entries) == len(gaps)
+
+    def test_a_fallback_plan_also_tiles_without_overlap(self) -> None:
+        gaps = find_succession_gaps_for_agent(None, today=TODAY, location=None)
+        days = sum(g.days for g in gaps)
+        distinct = set()
+        for gap in gaps:
+            cursor = datetime.date.fromisoformat(gap.start_date)
+            end = datetime.date.fromisoformat(gap.end_date)
+            while cursor <= end:
+                distinct.add(cursor)
+                cursor += datetime.timedelta(days=1)
+        assert days == len(distinct)
 
 
 # --- suggest_succession -----------------------------------------------------
@@ -481,6 +546,73 @@ class TestSuggestSuccession:
         assert out[0].fits_window is False
 
 
+class TestSuggestSuccessionAntagonism:
+    """Pins the production antagonism path (``service=``), which the review found
+    had zero tests while the alternative ``antagonist_species`` parameter was
+    tested and never passed by production."""
+
+    def _service(self):
+        from open_garden_planner.services.companion_planting_service import (
+            CompanionPlantingService,
+        )
+
+        return CompanionPlantingService()
+
+    def _suggest(self, service, candidates, **kw):
+        params = {
+            "candidates": candidates,
+            "gap_start": "2026-06-01",
+            "gap_end": "2026-07-01",
+            "service": service,
+        }
+        params.update(kw)
+        return suggest_succession_for_agent(**params)
+
+    def test_no_service_means_no_antagonism_exclusion(self) -> None:
+        out = self._suggest(
+            None, [_species("tomato", "Tomato", "Solanaceae", 60)]
+        )
+        assert [s.species_key for s in out] == ["tomato"]
+
+    def test_a_service_that_knows_no_relationship_excludes_nothing(self) -> None:
+        out = self._suggest(
+            self._service(),
+            [_species("tomato", "Tomato", "Solanaceae", 60)],
+            neighbour_keys=["nonexistent plant"],
+        )
+        assert [s.species_key for s in out] == ["tomato"]
+
+    def test_a_known_antagonistic_pair_is_excluded_through_the_service(self) -> None:
+        """Measured from the bundled DB rather than hardcoded, so the test fails
+        if the data changes or if the service lookup is bypassed."""
+        service = self._service()
+        pair = None
+        for record in get_species_db().values():
+            rel = service.get_relationship(
+                species_key(record), species_key(record)
+            )
+            _ = rel
+        # Find any antagonistic relationship in the bundled data.
+        db = get_species_db()
+        names = [species_key(r) for r in db.values()]
+        for a in names:
+            for b in names:
+                if a >= b:
+                    continue
+                rel = service.get_relationship(a, b)
+                if rel is not None and rel.type == ANTAGONISTIC:
+                    pair = (a, b)
+                    break
+            if pair:
+                break
+        assert pair is not None, "bundled data has no antagonistic pair to test with"
+
+        out = self._suggest(
+            service, [_species(pair[0], pair[0], "Testaceae", 40)], neighbour_keys=[pair[1]]
+        )
+        assert out == []
+
+
 # --- build_succession_plan_for_agent (the write validator) ------------------
 
 
@@ -556,6 +688,45 @@ class TestBuildSuccessionPlan:
         )
         assert plan is not None
         assert len(plan.entries) == 2
+
+    def test_a_one_day_overlap_is_refused(self) -> None:
+        """The off-by-one the review found unpinned: `start <= prev_end` means a
+        slot ending the very day the next starts is an overlap, which the tool
+        docstring previously said was fine."""
+        with pytest.raises(SuccessionPlanError, match="overlap"):
+            build_succession_plan_for_agent(
+                [
+                    {"species_key": "beans", "start_date": "2026-06-01", "end_date": "2026-07-15"},
+                    {"species_key": "lettuce", "start_date": "2026-07-15", "end_date": "2026-08-01"},
+                ],
+                "bed-1",
+                YEAR,
+            )
+
+    def test_the_species_key_is_stored_canonicalised(self) -> None:
+        """Validated and stored forms must be the SAME string, or the persisted
+        plan stops matching every other per-species surface."""
+        plan = build_succession_plan_for_agent(
+            [
+                {"species_key": "Allium Sativum", "start_date": "2026-06-01", "end_date": "2026-07-15"}
+            ],
+            "bed-1",
+            YEAR,
+            known_species_keys={"allium sativum"},
+        )
+        assert plan is not None
+        assert plan.entries[0].species_key == "allium sativum"
+
+    def test_a_proper_case_key_is_accepted_against_a_lower_case_roster(self) -> None:
+        plan = build_succession_plan_for_agent(
+            [
+                {"species_key": "Allium sativum", "start_date": "2026-06-01", "end_date": "2026-07-15"}
+            ],
+            "bed-1",
+            YEAR,
+            known_species_keys={"allium sativum"},
+        )
+        assert plan is not None
 
     def test_refuses_a_non_dict_entry(self) -> None:
         with pytest.raises(SuccessionPlanError, match="not an object"):

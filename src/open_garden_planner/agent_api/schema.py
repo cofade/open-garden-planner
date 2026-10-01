@@ -861,9 +861,10 @@ class SuccessionSuggestion(BaseModel):
     )
     reasons: list[str] = Field(
         default_factory=list,
-        description="Display strings (the user's current UI language) explaining "
-        "the ranking. These are NOT part of the English API contract — branch on "
-        "the machine fields instead."
+        description="Short English explanations of the ranking. NOT localised: "
+        "MCP tool output is an English API contract (ADR-033), so this text "
+        "is a convenience for a human reading the result and must not be "
+        "parsed. Branch on the machine fields instead."
     )
     source: str = Field(
         description="Where the species record came from: 'bundled' or 'unknown'."

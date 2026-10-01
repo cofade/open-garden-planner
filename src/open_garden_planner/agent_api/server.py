@@ -729,11 +729,12 @@ def build_server(
     ) -> list[SuccessionSuggestion]:
         """Rank crops for one succession gap in this bed.
 
-        Filters candidates three ways, in order: a crop whose botanical family
+        Filters candidates two ways, in order: a crop whose botanical family
         the bed already used EARLIER IN THIS PLAN, or whose family is inside the
-        3-year crop-rotation cooldown, is excluded; so is a crop antagonistic to
-        something planted in the plan over the same dates; and what survives is
-        ranked by whether its days-to-maturity fits the gap.
+        3-year crop-rotation cooldown, is excluded; and what survives is ranked by
+        whether its days-to-maturity fits the gap. A crop antagonistic to a
+        neighbour overlapping the window is excluded too, but see the limit
+        noted below before reading anything into that.
 
         ``candidates`` is a list of species names/keys to consider — leave it out
         and nothing is suggested (an unrestricted search over 118 species would
@@ -748,12 +749,19 @@ def build_server(
           reported as a fit.
         * An empty list means every candidate was excluded, which is a real
           answer: widen ``candidates`` or shorten the gap.
+        * A gap is uncovered BY CONSTRUCTION, so nothing in this bed's own plan
+          overlaps it and there is normally no concurrent neighbour to exclude.
+          The antagonism filter only bites when a slot from OUTSIDE this plan
+          overlaps the window; when none does it excludes nothing, and the
+          absence of a rejection is not evidence that a candidate is
+          antagonist-free.
         * ``family`` empty means no rotation claim could be made for that crop,
           not that it is rotation-safe.
 
-        The ``reasons`` strings are DISPLAY text in the user's current UI
-        language and are not part of this English API contract — branch on
-        ``species_key``, ``family``, ``days_to_maturity`` and ``fits_window``.
+        The ``reasons`` strings are English and NOT localised (MCP output is an
+        English API contract, ADR-033) — they are for a human reading the
+        result and must not be parsed. Branch on ``species_key``, ``family``,
+        ``days_to_maturity`` and ``fits_window``.
 
         Read-only; no token required.
 

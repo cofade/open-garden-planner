@@ -169,8 +169,13 @@ def check_placement_for_agent(
 # ever reaches the output.
 
 
-def _parse_iso(value: str) -> datetime.date | None:
-    """Parse an ISO date, returning None for anything unparseable."""
+def parse_iso_date(value: str) -> datetime.date | None:
+    """Parse an ISO date, returning None for anything unparseable.
+
+    Public because the GUI-side providers in ``application.py`` need the same
+    tolerant parse; a private name imported across module boundaries is two
+    things at once that then drift (P2 in the #331 review).
+    """
     if not value:
         return None
     try:
@@ -248,7 +253,7 @@ def _entry_view(
     entry: SuccessionEntry,
     segments: dict[str, tuple[datetime.date, datetime.date]],
 ) -> SuccessionEntryView:
-    start = _parse_iso(entry.start_date)
+    start = parse_iso_date(entry.start_date)
     return SuccessionEntryView(
         id=entry.id,
         species_key=entry.species_key,
@@ -284,19 +289,48 @@ def find_succession_gaps_for_agent(
 
     covered: list[tuple[datetime.date, datetime.date]] = []
     for entry in plan.entries if plan is not None else []:
-        start = _parse_iso(entry.start_date)
-        end = _parse_iso(entry.end_date)
+        start = parse_iso_date(entry.start_date)
+        end = parse_iso_date(entry.end_date)
         if start is None or end is None or end < start:
             continue
         covered.append((start, end))
 
     gaps: list[SuccessionGap] = []
-    for key in SEASON_SEGMENTS:
-        if key not in segments:
-            continue
-        seg_start, seg_end = segments[key]
+    for key, seg_start, seg_end in _disjoint_windows(segments):
         gaps.extend(_uncovered(key, seg_start, seg_end, covered))
     return gaps
+
+
+def _disjoint_windows(
+    segments: dict[str, tuple[datetime.date, datetime.date]],
+) -> list[tuple[str, datetime.date, datetime.date]]:
+    """Return the segments as windows that do NOT share a boundary day.
+
+    ``compute_season_segments`` produces contiguous, inclusive ranges, so
+    ``early_spring`` ends on the same day ``late_spring`` starts. That is correct
+    for *labeling* a date (``date_to_segment`` resolves the overlap to the first
+    match, and the plan view reports the true ranges), but subtracting coverage
+    per segment against those ranges makes a shared boundary day appear as
+    uncovered in BOTH neighbours: an empty plan reports 257 gap-days for a
+    254-day season.
+
+    That is not merely cosmetic. ``build_succession_plan_for_agent`` refuses
+    ``start <= prev_end``, so filling the gaps this tool hands out would be
+    REFUSED - the read -> write round trip the ``plan-succession`` prompt
+    instructs would be impossible. Clipping each window's end to the next
+    window's start minus one day makes the gaps contiguous and non-overlapping;
+    the final segment keeps its true inclusive end.
+    """
+    keys = [key for key in SEASON_SEGMENTS if key in segments]
+    windows: list[tuple[str, datetime.date, datetime.date]] = []
+    for i, key in enumerate(keys):
+        start, end = segments[key]
+        if i + 1 < len(keys):
+            next_start = segments[keys[i + 1]][0]
+            if next_start - datetime.timedelta(days=1) < end:
+                end = next_start - datetime.timedelta(days=1)
+        windows.append((key, start, end))
+    return windows
 
 
 def _uncovered(
@@ -400,8 +434,8 @@ def suggest_succession_for_agent(
     neighbours = [k for k in (neighbour_keys or []) if k]
     antagonists = {k.lower() for k in (antagonist_species or []) if k}
 
-    start = _parse_iso(gap_start)
-    end = _parse_iso(gap_end)
+    start = parse_iso_date(gap_start)
+    end = parse_iso_date(gap_end)
     window_days = (end - start).days + 1 if start and end and end >= start else 0
 
     scored: list[tuple[bool, int, str, SuccessionSuggestion]] = []
@@ -498,10 +532,14 @@ def _reasons(
         reasons.append(
             f"Needs ~{maturity} days but the gap is only {window_days} days"
         )
-    if family:
+    # Only claim a rotation check when one was actually consulted. Appending
+    # "no rotation conflict" for a family-bearing candidate on an empty
+    # avoid|within set asserts a check that never ran - #319's honesty lesson
+    # (c), verbatim.
+    if family and rotation_checked:
         reasons.append(f"No rotation conflict ({family} unused in this bed)")
-    elif rotation_checked:
-        reasons.append("No rotation conflict")
+    elif not family:
+        reasons.append("No family on record, so no rotation claim is made")
     return reasons
 
 
@@ -543,30 +581,40 @@ def build_succession_plan_for_agent(
     if not entries:
         return None
 
-    parsed: list[tuple[int, datetime.date, datetime.date, dict]] = []
+    parsed: list[tuple[int, datetime.date, datetime.date, str, dict]] = []
     for index, raw in enumerate(entries):
         if not isinstance(raw, dict):
             raise SuccessionPlanError(f"Entry {index} is not an object")
 
-        species_key = str(raw.get("species_key", "") or "").strip()
-        if not species_key:
+        raw_key = str(raw.get("species_key", "") or "").strip()
+        if not raw_key:
             raise SuccessionPlanError(
                 f"Entry {index} has no species_key; succession slots must name a "
                 "species so rotation and companion checks can be made"
             )
+        # Canonicalise before validating AND before storing. The roster is
+        # canonical (species_key lowercases the scientific name), so an exact
+        # membership test refused "Allium sativum" and "Garlic" while the
+        # sibling tools `set_species` and `suggest_succession`'s `candidates`
+        # both accept them - three tools disagreeing on the same string. Storing
+        # the canonical form also keeps the persisted plan comparable with every
+        # other per-species surface.
+        species_key = raw_key.lower()
         if known_species_keys is not None and species_key not in known_species_keys:
             raise SuccessionPlanError(
-                f"Unknown species_key {species_key!r}. Read get_plan_summary or "
-                "list_objects for the species this plan knows about."
+                f"Unknown species_key {raw_key!r}. A species key is the canonical "
+                "lowercased form (ADR-016), which for a bundled plant is its "
+                "scientific name - 'allium sativum', not 'Garlic'. Read the "
+                "garden://species resource for the names this plan knows about."
             )
 
-        start = _parse_iso(str(raw.get("start_date", "") or ""))
+        start = parse_iso_date(str(raw.get("start_date", "") or ""))
         if start is None:
             raise SuccessionPlanError(
                 f"Entry {index} ({species_key}) has a missing or non-ISO "
                 f"start_date: {raw.get('start_date')!r}. Use YYYY-MM-DD."
             )
-        end = _parse_iso(str(raw.get("end_date", "") or ""))
+        end = parse_iso_date(str(raw.get("end_date", "") or ""))
         if end is None:
             raise SuccessionPlanError(
                 f"Entry {index} ({species_key}) has a missing or non-ISO "
@@ -577,10 +625,10 @@ def build_succession_plan_for_agent(
                 f"Entry {index} ({species_key}) ends {end} before it starts "
                 f"{start}."
             )
-        parsed.append((index, start, end, raw))
+        parsed.append((index, start, end, species_key, raw))
 
     parsed.sort(key=lambda row: (row[1], row[2], row[0]))
-    for (prev_i, _prev_start, prev_end, prev_raw), (i, start, _end, _raw) in zip(
+    for (prev_i, _prev_start, prev_end, _pk, prev_raw), (i, start, _end, _k, _raw) in zip(
         parsed, parsed[1:], strict=False
     ):
         if start <= prev_end:
@@ -596,14 +644,14 @@ def build_succession_plan_for_agent(
         year=year,
         entries=[
             SuccessionEntry(
-                species_key=str(raw.get("species_key", "") or "").strip(),
+                species_key=canonical_key,
                 common_name=str(raw.get("common_name", "") or "").strip(),
                 scientific_name=str(raw.get("scientific_name", "") or "").strip(),
                 start_date=start.isoformat(),
                 end_date=end.isoformat(),
                 notes=str(raw.get("notes", "") or ""),
             )
-            for _index, start, end, raw in parsed
+            for _index, start, end, canonical_key, raw in parsed
         ],
     )
     return plan
