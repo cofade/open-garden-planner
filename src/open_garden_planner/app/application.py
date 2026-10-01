@@ -8168,13 +8168,32 @@ class GardenPlannerApp(QMainWindow):
             self.location_label.setToolTip(tip)
 
     def _on_crop_rotation_changed(self, rotation_data: object) -> None:
-        """Update the crop rotation service when project data changes (US-10.6)."""
-        from open_garden_planner.models.crop_rotation import CropRotationHistory
+        """Update the crop rotation service when project data changes (US-10.6).
+
+        Deserialization is guarded because this runs inside a Qt signal handler:
+        a single malformed record in ``.ogp`` (``PlantingRecord.from_dict`` reads
+        ``data["year"]`` as a required key) used to raise a ``KeyError`` straight
+        out of the slot, which in a signal handler means an exception inside the
+        event loop rather than a reportable error. Per-record tolerance keeps the
+        readable rows and drops only the broken one, matching
+        ``_agent_rotation_avoid_families``.
+        """
+        from open_garden_planner.models.crop_rotation import (
+            CropRotationHistory,
+            PlantingRecord,
+        )
 
         if rotation_data and isinstance(rotation_data, dict):
-            self._crop_rotation_service.history = CropRotationHistory.from_dict(
-                rotation_data
-            )
+            records: list[PlantingRecord] = []
+            for raw in rotation_data.get("records", []):
+                try:
+                    records.append(PlantingRecord.from_dict(raw))
+                except (AttributeError, KeyError, TypeError, ValueError):
+                    logger.warning(
+                        "Skipping an unreadable crop-rotation record; crop "
+                        "rotation indicators are incomplete until it is fixed"
+                    )
+            self._crop_rotation_service.history = CropRotationHistory(records=records)
         else:
             self._crop_rotation_service.history = CropRotationHistory()
         self._update_bed_rotation_indicators()

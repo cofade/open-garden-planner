@@ -742,3 +742,46 @@ class TestBuildSuccessionPlan:
                 "bed-1",
                 YEAR,
             )
+
+class TestHonestReasons:
+    """A component that did not check something must not report a result that
+    reads as a successful check (ADR-045 lesson (c)).
+
+    An earlier version appended "No rotation conflict (<family> unused in this
+    bed)" for ANY candidate carrying a family - including when no rotation data
+    had been consulted at all, which asserts a check that never ran. Reverting
+    the `and rotation_checked` half of the condition survived the whole suite,
+    so it is pinned here.
+    """
+
+    def _suggest(self, **kw):
+        params = {
+            "candidates": [_species("beans", "Beans", "Fabaceae", 40)],
+            "gap_start": "2026-06-01",
+            "gap_end": "2026-07-15",
+        }
+        params.update(kw)
+        return suggest_succession_for_agent(**params)
+
+    def test_no_rotation_claim_when_no_rotation_data_was_consulted(self) -> None:
+        reasons = self._suggest()[0].reasons
+        assert not any("No rotation conflict" in r for r in reasons)
+
+    def test_the_candidate_really_does_carry_a_family(self) -> None:
+        """Guards the test above: without a family the clause is unreachable and
+        the assertion would pass for the wrong reason."""
+        assert self._suggest()[0].family == "Fabaceae"
+
+    def test_a_rotation_claim_appears_once_families_were_consulted(self) -> None:
+        reasons = self._suggest(avoid_families=["Brassicaceae"])[0].reasons
+        assert any("No rotation conflict" in r for r in reasons)
+
+    def test_a_familyless_candidate_says_so_rather_than_claiming_safety(self) -> None:
+        out = suggest_succession_for_agent(
+            candidates=[_species("mystery", "Mystery", "", 40)],
+            gap_start="2026-06-01",
+            gap_end="2026-07-15",
+            avoid_families=["Brassicaceae"],
+        )
+        assert any("no family" in r.lower() for r in out[0].reasons)
+        assert not any("No rotation conflict" in r for r in out[0].reasons)

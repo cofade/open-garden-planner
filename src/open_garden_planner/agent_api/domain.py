@@ -390,7 +390,8 @@ def suggest_succession_for_agent(
 ) -> list[SuccessionSuggestion]:
     """Rank candidate crops for one succession gap, deterministically.
 
-    Three filters, in this order:
+    Three filters, in this order (the antagonism filter is a no-op for a window
+    this bed's own plan left uncovered, which is the normal case):
 
     1. **Rotation conflict** — a candidate whose botanical family appears in
        ``within_plan_families`` (families of crops the bed already plans EARLIER

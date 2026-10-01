@@ -710,10 +710,10 @@ def build_server(
         Args:
             bed_id: The bed's stable UUID (soil-capable types only).
             year: Plan year; defaults to the stored plan's year.
-            today: ISO 'YYYY-MM-DD' reference date. Accepted for symmetry with
-                get_succession_plan and echoed in each result's context; gaps
-                themselves are a property of the plan and segments, not of
-                ``today``.
+            today: ISO 'YYYY-MM-DD' reference date, used only to default the plan
+                year when ``year`` is omitted. The gaps are a property of the
+                plan and the season segments, not of this date, so each gap
+                carries no timestamp of its own.
         """
         result = await anyio.to_thread.run_sync(
             lambda: providers.find_succession_gaps(bed_id, year, today)
@@ -1181,7 +1181,12 @@ def build_server(
             days); a date is not ISO YYYY-MM-DD; a slot ends before it starts; or
             a species_key is in neither the bundled database nor the plan.
 
-            Slots that merely TOUCH (one ends the day the next starts) are fine.
+            Each slot must end at least one day BEFORE the next one begins. A
+            one-day overlap - one slot ending the very day the next starts - is
+            refused, because one bed cannot grow two crops on the same day.
+            find_succession_gaps already returns windows in exactly that shape:
+            consecutive gaps are adjacent, never overlapping, so filling every
+            reported gap in order is accepted.
             This is a write tool and requires the Agent API token.
 
             Args:

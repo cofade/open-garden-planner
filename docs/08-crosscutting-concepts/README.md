@@ -1585,9 +1585,12 @@ what the next D3 slice should follow:
   attribute silently gets `""` for every candidate.
 
 **Machine fields vs display strings.** Across the agent surface, fields an agent
-should *branch on* are the English API contract; free-text explanations are display
-strings in the user's current UI language and are documented as such in the tool
-docstring. D3.2's `suggest_succession` is the worked example: branch on
+should *branch on* are the English API contract. The tool-side free text (D3.2's
+`reasons[]`) is **English and never localised** — ADR-033 makes MCP output an
+English contract — so it is documentation, not something to parse. D3.2's
+`reasons[]` and D3.3's generated task titles are therefore different problems:
+the latter DO cross the boundary translated, and D3.3 owns that decision.
+D3.2's `suggest_succession` is the worked example: branch on
 `species_key` / `family` / `days_to_maturity` / `fits_window`; `reasons[]` is
 prose. Note the asymmetry that makes this necessary - `services/task_generator.py`
 and `services/soil_service.py` build their task titles and amendment names with

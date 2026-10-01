@@ -157,13 +157,23 @@ class TestProductionWriteAndBadge:
         assert cm.undo_depth == before
 
     def test_the_write_marks_the_project_dirty(self, app_with_beds: Any) -> None:
+        """`is_dirty` is the user's unsaved-changes guard, so a write that does
+        not set it means closing the app silently discards the agent's plan.
+
+        The baseline has to be established explicitly: the fixture's own
+        ``set_location`` marks the document dirty, so asserting `is_dirty` after
+        the write proved nothing - deleting ``mark_dirty()`` from
+        ``ProjectManager.set_succession_plan`` left this test green.
+        """
         win, bed, _trellis = app_with_beds
         pm = win._project_manager
-        # Set up a clean baseline through the GUI's own accessor, then write.
+        pm.mark_clean()
+        assert pm.is_dirty is False
+
         win._do_agent_set_succession_plan(
             str(bed.item_id), [_slot(GARLIC, "Garlic", "2026-06-01", "2026-07-01")], 2026
         )
-        assert pm.is_dirty
+        assert pm.is_dirty is True
 
     def test_the_bed_badge_updates_without_an_explicit_refresh_call(
         self, app_with_beds: Any
@@ -332,6 +342,53 @@ class TestProductionSuggestionFilters:
     def test_with_no_history_no_family_is_avoided(self, app_with_beds: Any) -> None:
         win, bed, _trellis = app_with_beds
         assert win._agent_rotation_avoid_families(str(bed.item_id)) == []
+
+    def test_one_unreadable_record_does_not_disable_the_cooldown(
+        self, app_with_beds: Any
+    ) -> None:
+        """A comprehension plus a broad catch returned [] for the WHOLE garden
+        when any single record failed to deserialize - so one bad row silently
+        removed the family cooldown from every bed. Only that row may be lost."""
+        win, bed, _trellis = app_with_beds
+        pm = win._project_manager
+        good = {
+            "year": datetime.date.today().year - 1,
+            "season": "summer",
+            "species_name": "Tomato",
+            "common_name": "Tomato",
+            "family": "Solanaceae",
+            "nutrient_demand": "heavy",
+            "area_id": str(bed.item_id),
+        }
+        # Missing "year" - PlantingRecord.from_dict requires it.
+        bad = dict(good)
+        del bad["year"]
+        pm.set_crop_rotation({"records": [bad, good]})
+
+        assert "Solanaceae" in win._agent_rotation_avoid_families(str(bed.item_id))
+
+    def test_a_free_text_slot_resolves_by_scientific_name(self, app_with_beds: Any) -> None:
+        """``_entry_species_names`` tries scientific_name too, so an entry stored
+        with only a scientific name still resolves."""
+        win, bed, _trellis = app_with_beds
+        plan = {
+            "bed_id": str(bed.item_id),
+            "year": 2026,
+            "entries": [
+                {
+                    "id": "x",
+                    "species_key": "",
+                    "common_name": "",
+                    "scientific_name": "Allium sativum",
+                    "start_date": "2026-06-01",
+                    "end_date": "2026-07-01",
+                }
+            ],
+        }
+        assert win._agent_plan_families_before(plan, "2026-08-01") == ["Amaryllidaceae"]
+        assert win._agent_concurrent_species_keys(plan, "2026-06-15", "2026-06-20") == [
+            "Allium sativum"
+        ]
 
     def test_candidates_resolve_through_the_bundled_db(self, app_with_beds: Any) -> None:
         """Pins that ``_agent_species_records`` resolves a display name; returning
