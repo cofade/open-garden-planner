@@ -14,8 +14,8 @@ transport and the domain logic, and it cannot cover three things:
 This script launches the built exe, connects with the same ``mcp``
 streamable-HTTP client a real harness uses, and drives the tools end to end.
 
-    venv/Scripts/python.exe scripts/dogfood_agent_api.py            # succession
-    venv/Scripts/python.exe scripts/dogfood_agent_api.py --tool all
+    venv/Scripts/python.exe scripts/dogfood_agent_api.py            # drive the tools
+    venv/Scripts/python.exe scripts/dogfood_agent_api.py --repair   # restore defaults
 
 It requires no credentials and no network: the token is generated locally and
 the server is loopback-only.
@@ -89,6 +89,10 @@ def snapshot_settings() -> dict:
         "writes": s.agent_api_writes_enabled,
         "port": s.agent_api_port,
         "token": s._settings.value(s.KEY_AGENT_API_TOKEN, "", type=str),
+        # Opening the scratch plan goes through add_recent_file, which persists
+        # to QSettings. Un-snapshotted, every run pushes a real plan out of the
+        # developer's 10-slot MRU list -- the SAFETY note claimed otherwise.
+        "recent": s._settings.value(s.KEY_RECENT_FILES, "", type=str),
     }
 
 
@@ -117,6 +121,10 @@ def restore_settings(before: dict) -> list[str]:
             s._settings.setValue(s.KEY_AGENT_API_TOKEN, before["token"])
         else:
             s._settings.remove(s.KEY_AGENT_API_TOKEN)
+        if before.get("recent"):
+            s._settings.setValue(s.KEY_RECENT_FILES, before["recent"])
+        else:
+            s._settings.remove(s.KEY_RECENT_FILES)
         s.sync()
         problems.append(
             f"enabled={s.agent_api_enabled} writes={s.agent_api_writes_enabled} "
@@ -262,8 +270,13 @@ async def drive(port: int, token: str) -> dict:
             entries = ([{"species_key": "allium sativum", "common_name": "Garlic",
                          "start_date": first["start_date"], "end_date": first["end_date"]}]
                        if first else [])
+            # No explicit `year`: the write must resolve its year by the SAME rule
+            # the reads do (today's year), or a hardcoded 2026 makes this check
+            # silently vacuous from 2027 onward - the gaps would be 2027 windows
+            # and the write a 2026 plan, so "the written window is no longer a
+            # gap" would pass while testing nothing.
             c = await session.call_tool(
-                "set_succession_plan", {"bed_id": bed_id, "entries": entries, "year": 2026}
+                "set_succession_plan", {"bed_id": bed_id, "entries": entries}
             )
             out["write_error"] = c.isError
             out["write_text"] = (c.content[0].text if c.content else "")[:300]
@@ -292,9 +305,13 @@ async def drive(port: int, token: str) -> dict:
 
             # Re-write, then delete.
             c = await session.call_tool(
-                "set_succession_plan", {"bed_id": bed_id, "entries": entries, "year": 2026}
+                "set_succession_plan", {"bed_id": bed_id, "entries": entries}
             )
             out["rewrite_error"] = c.isError
+            # Read back before deleting: if the rewrite AND the delete were both
+            # no-ops, `has_plan False again` would still pass.
+            c = await session.call_tool("get_succession_plan", {"bed_id": bed_id})
+            out["plan_after_rewrite"] = _unwrap(c)
             c = await session.call_tool("set_succession_plan",
                                         {"bed_id": bed_id, "entries": []})
             out["delete_error"] = c.isError
@@ -308,24 +325,46 @@ async def drive(port: int, token: str) -> dict:
             out["unknown_bed_error"] = c.isError
             out["unknown_bed_text"] = (c.content[0].text if c.content else "")[:200]
 
+            # Dates derived from the season we are actually in, so this stays
+            # meaningful in any year.
+            y = out["gaps"][0]["start_date"][:4] if out["gaps"] else "2026"
             c = await session.call_tool(
                 "set_succession_plan",
                 {"bed_id": bed_id, "entries": [
-                    {"species_key": "allium sativum", "start_date": "2026-06-01",
-                     "end_date": "2026-07-15"},
-                    {"species_key": "lactuca sativa", "start_date": "2026-07-01",
-                     "end_date": "2026-08-01"}], "year": 2026})
+                    {"species_key": "allium sativum", "start_date": f"{y}-06-01",
+                     "end_date": f"{y}-07-15"},
+                    {"species_key": "lactuca sativa", "start_date": f"{y}-07-01",
+                     "end_date": f"{y}-08-01"}]})
             out["overlap_error"] = c.isError
             out["overlap_text"] = (c.content[0].text if c.content else "")[:200]
 
-            # --- prompt (NOTE: session.get_prompt, not call_tool)
-            try:
-                p = await session.get_prompt("plan-succession", {"bed_id": bed_id})
-                msgs = getattr(p, "messages", None) or []
-                out["prompt_text"] = getattr(msgs[0].content, "text", "") if msgs else ""
-            except Exception as exc:  # noqa: BLE001
-                out["prompt_text"] = ""
-                out["errors"].append(f"get_prompt raised {exc!r}")
+            # A refusal must leave BOTH the plan and the undo stack untouched -
+            # the documented promise, and invisible to an `isError` check alone.
+            # Capture the baseline HERE: by now the stack holds
+            # create + write + write + delete, so comparing against the depth
+            # after the FIRST write compares the wrong two moments.
+            c = await session.call_tool("get_history", {})
+            out["hist_before_refusals"] = _unwrap(c)
+            c = await session.call_tool("get_succession_plan", {"bed_id": bed_id})
+            out["plan_after_refusals"] = _unwrap(c)
+            c = await session.call_tool("get_history", {})
+            out["hist_after_refusals"] = _unwrap(c)
+
+            # --- prompt, fetched TWICE: once with a plan present (so the brief
+            # must carry slots and candidates) and once after the delete (so the
+            # empty-plan branch is exercised too).
+            # NOTE: session.get_prompt, not call_tool.
+            for tag in ("with_plan", "no_plan"):
+                try:
+                    pr = await session.get_prompt(
+                        "plan-succession", {"bed_id": bed_id})
+                    msgs = getattr(pr, "messages", None) or []
+                    out["prompt_" + tag] = (
+                        getattr(msgs[0].content, "text", "") if msgs else "")
+                except Exception as exc:  # noqa: BLE001
+                    out["prompt_" + tag] = ""
+                    out["errors"].append(f"get_prompt ({tag}) raised {exc!r}")
+            out["prompt_text"] = out["prompt_with_plan"]
     return out
 
 
@@ -343,14 +382,19 @@ class Checker:
               + (("  -- " + detail) if detail and not cond else ""))
 
 
-def run_checks(out: dict, tool: str) -> bool:
+def run_checks(out: dict) -> bool:
     c = Checker()
     if out["errors"]:
         for e in out["errors"]:
             print("  ERROR " + e)
         c.ok = False
 
-    if tool in ("succession", "all"):
+    if True:
+        print("\n=== transport sanity ===")
+        c("create_object succeeded", not out.get("create_error"), str(out.get("create_text", "")))
+        c("suggest_succession did not error", not out.get("suggest_error"))
+        c("gaps call did not error", not out.get("gaps_error"), str(out.get("gaps_text", "")))
+
         print("\n=== surface ===")
         for t in ("get_succession_plan", "find_succession_gaps",
                   "suggest_succession", "set_succession_plan"):
@@ -385,6 +429,36 @@ def run_checks(out: dict, tool: str) -> bool:
         c("gap days never overlap", len(days) == len(set(days)),
           f"{len(days)} expanded days vs {len(set(days))} distinct")
 
+        # GROUND TRUTH: empty_plan() authored last_spring_frost=04-15 and
+        # first_fall_frost=10-15. Derive the expected season bounds here with
+        # plain date arithmetic rather than the app's own helper, so a uniform
+        # off-by-N in frost handling cannot pass (the write uses the same window,
+        # so a shifted window would otherwise be self-consistent and invisible).
+        if gaps:
+            g0 = gaps[0]["start_date"]
+            yr = int(g0[:4])
+            last_frost = datetime.date(yr, 4, 15)
+            fall_frost = datetime.date(yr, 10, 15)
+            expect_first = (last_frost - datetime.timedelta(weeks=8)).isoformat()
+            expect_last = (fall_frost + datetime.timedelta(weeks=2)).isoformat()
+            c("first window starts 8 weeks before last frost",
+              gaps[0]["start_date"] == expect_first,
+              f"{gaps[0]['start_date']} != {expect_first}")
+            c("last window ends 2 weeks after first fall frost",
+              gaps[-1]["end_date"] == expect_last,
+              f"{gaps[-1]['end_date']} != {expect_last}")
+            # Disjoint clip: the first window stops a day short of the shared
+            # boundary that late_spring starts on.
+            expect_first_end = (last_frost - datetime.timedelta(weeks=2)
+                                - datetime.timedelta(days=1)).isoformat()
+            c("first window ends a day before the boundary (disjoint clip)",
+              gaps[0]["end_date"] == expect_first_end,
+              f"{gaps[0]['end_date']} != {expect_first_end}")
+            c("windows carry the four segment labels in order",
+              [g["segment"] for g in gaps] ==
+              ["early_spring", "late_spring", "summer", "fall"],
+              str([g.get("segment") for g in gaps]))
+
         print("\n=== suggestions ===")
         s = out.get("suggestions") or []
         c("suggestions returned", len(s) > 0, f"{len(s)} suggestions")
@@ -407,6 +481,14 @@ def run_checks(out: dict, tool: str) -> bool:
                     break
             c("fits_window agrees with maturity + window", consistent, detail)
             c("at least one confirmed fit", any(x.get("fits_window") for x in s))
+            # Documented order: fits first, then shortest maturity, then key.
+            keyed = [(not x.get("fits_window"),
+                      x.get("days_to_maturity") if isinstance(x.get("days_to_maturity"), int)
+                      else 10**6,
+                      x.get("species_key") or "") for x in s]
+            c("results follow the documented rank order", keyed == sorted(keyed),
+              str([x.get("species_key") for x in s]))
+            out["top_suggestion"] = s[0].get("name")
             print(f"       top: {s[0].get('name')} (family={s[0].get('family')}, "
                   f"{s[0].get('days_to_maturity')}d, fits={s[0].get('fits_window')}) "
                   f"of {len(s)} candidates in a {gap_days}-day window")
@@ -454,15 +536,38 @@ def run_checks(out: dict, tool: str) -> bool:
           f"{len(out.get('gaps_after_undo') or [])} vs {len(out.get('gaps') or [])}")
 
         print("\n=== delete ===")
+        c("rewrite accepted", not out.get("rewrite_error"))
+        rw = out.get("plan_after_rewrite") or {}
+        c("rewrite reads back as present", rw.get("has_plan") is True, str(rw.get("has_plan")))
         c("delete accepted", not out.get("delete_error"))
         c("has_plan False again", (out.get("plan_after_delete") or {}).get("has_plan") is False)
 
         print("\n=== refusals ===")
         c("unknown bed refused", out.get("unknown_bed_error"), str(out.get("unknown_bed_text", "")))
+        c("unknown bed says WHY", "no object with id" in (out.get("unknown_bed_text") or "").lower(),
+          str(out.get("unknown_bed_text", "")))
         c("overlapping slots refused", out.get("overlap_error"), str(out.get("overlap_text", "")))
+        c("overlap says WHY", "overlap" in (out.get("overlap_text") or "").lower(),
+          str(out.get("overlap_text", "")))
+        # The documented promise: a refusal leaves the plan AND the undo stack
+        # untouched. An isError check cannot see a mutating refusal.
+        pr = out.get("plan_after_refusals") or {}
+        c("refusals left the plan deleted", pr.get("has_plan") is False, str(pr.get("has_plan")))
+        ha = out.get("hist_after_refusals") or {}
+        hb = out.get("hist_before_refusals") or {}
+        c("refusals added no undo step",
+          (ha.get("undo_depth") or 0) == (hb.get("undo_depth") or 0),
+          f"{ha.get('undo_depth')} vs baseline {hb.get('undo_depth')}")
 
         print("\n=== prompt ===")
+        # The empty-plan branch (fetched after the delete) must SAY there is no
+        # plan; the with-plan branch must name a real ranked candidate.
+        pn = out.get("prompt_no_plan") or ""
+        c("empty-plan brief says so", "no succession plan" in pn.lower(), repr(pn[:100]))
+        top = out.get("top_suggestion")
         pt = out.get("prompt_text") or ""
+        if top:
+            c("brief names the top ranked candidate", top in pt, repr(top))
         # A length test alone passes for any 41-char string. Require the CONTENT
         # a real brief must carry, which also proves the renderer received live
         # data rather than a stub.
@@ -477,7 +582,6 @@ def run_checks(out: dict, tool: str) -> bool:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--exe", default=str(DEFAULT_EXE))
-    ap.add_argument("--tool", default="succession", choices=["succession", "all"])
     ap.add_argument(
         "--repair",
         action="store_true",
@@ -492,6 +596,17 @@ def main() -> int:
         s, _app = _app_settings()
         s.agent_api_writes_enabled = False
         s.agent_api_port = 8765
+
+        # Also drop scratch paths an earlier, less careful run left in the MRU
+        # list. Only ever this harness's own temp dirs -- never a real plan.
+        def _is_scratch(path: object) -> bool:
+            low = str(path).lower()
+            return "ogp-dogfood" in low or "ogp-verify" in low
+
+        kept = [f for f in s.recent_files if not _is_scratch(f)]
+        if len(kept) != len(s.recent_files):
+            print(f"recent_files: removed {len(s.recent_files) - len(kept)} scratch entries")
+            s.recent_files = kept
         s.sync()
         print(f"repaired: writes={s.agent_api_writes_enabled} port={s.agent_api_port} "
               f"(token left as-is)")
@@ -532,7 +647,7 @@ def main() -> int:
 
     # Run the checks even when the harness errored: a partial result is more
     # informative than "FAIL" with no detail.
-    ok = run_checks(out, args.tool) and not out["errors"]
+    ok = run_checks(out) and not out["errors"]
     print("\nDOGFOOD: " + ("PASS" if ok else "FAIL"))
     return 0 if ok else 1
 
