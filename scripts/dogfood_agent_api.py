@@ -92,7 +92,11 @@ def snapshot_settings() -> dict:
         # Opening the scratch plan goes through add_recent_file, which persists
         # to QSettings. Un-snapshotted, every run pushes a real plan out of the
         # developer's 10-slot MRU list -- the SAFETY note claimed otherwise.
-        "recent": s._settings.value(s.KEY_RECENT_FILES, "", type=str),
+        # Read it through the PROPERTY, which is already list[str]: reading the
+        # raw key with type=str happens to work only because Qt stores a
+        # QStringList, and a plain string there would explode into one char per
+        # entry on restore.
+        "recent": list(s.recent_files),
     }
 
 
@@ -121,10 +125,7 @@ def restore_settings(before: dict) -> list[str]:
             s._settings.setValue(s.KEY_AGENT_API_TOKEN, before["token"])
         else:
             s._settings.remove(s.KEY_AGENT_API_TOKEN)
-        if before.get("recent"):
-            s._settings.setValue(s.KEY_RECENT_FILES, before["recent"])
-        else:
-            s._settings.remove(s.KEY_RECENT_FILES)
+        s.recent_files = list(before.get("recent") or [])
         s.sync()
         problems.append(
             f"enabled={s.agent_api_enabled} writes={s.agent_api_writes_enabled} "
@@ -806,7 +807,13 @@ def main() -> int:
         if out.get("rotation_record"):
             print(f"history   : {out['rotation_record']}")
         print(f"bed id    : {out.get('bed_id')}")
-        ok_emit = bool(out.get("ogp")) and bool(out.get("png")) and not out["errors"]
+        ok_emit = (
+            bool(out.get("ogp"))
+            and bool(out.get("png"))
+            and not out["errors"]
+            and not out.get("write_error")
+            and not out.get("save_error")
+        )
         print()
         print("EMIT: " + ("OK" if ok_emit else "FAIL"))
         return 0 if ok_emit else 1

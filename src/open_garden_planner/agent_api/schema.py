@@ -785,7 +785,13 @@ class SuccessionPlanView(BaseModel):
     """A bed's succession plan for one year, plus what is in it right now."""
 
     bed_id: str = Field(description="The bed this plan belongs to.")
-    year: int = Field(description="The plan year.")
+    year: int = Field(description="The year this answer describes.")
+    plan_year: int | None = Field(
+        default=None,
+        description="The year the bed actually HAS a plan for, when that differs "
+        "from `year`. Set only on a year mismatch: the bed holds a plan, but not "
+        "for the year you asked about, so `has_plan` is false for that year.",
+    )
     has_plan: bool = Field(
         description="False when the bed has NO plan at all. The entries list is "
         "then empty and this flag is what distinguishes 'no plan' from 'an empty "

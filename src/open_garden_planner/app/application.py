@@ -122,6 +122,36 @@ def _lookup_entry_species(entry: dict[str, Any]) -> dict | None:
     return None
 
 
+def _read_crop_rotation_record(raw: object) -> Any:
+    """Deserialize one `crop_rotation` row, or return None if it is unusable.
+
+    A ``.ogp`` is untrusted input (architecture invariant 14), so the catch is
+    deliberately broad rather than an enumerated list of exception families: a
+    previous version listed four types and still let a row through, because
+    `PlantingRecord.from_dict` only does `data["year"]` and never type-checks it.
+    A STRING or None year then survives deserialization and raises `TypeError`
+    later, inside `get_records_for_area`'s sort - i.e. outside the loop that
+    was supposed to protect it, and inside a Qt signal handler whose own guard
+    catches only `RuntimeError`. That is an uncaught exception in the event
+    loop, the `qFatal()`/abort shape #366 recorded.
+
+    So the row is validated, not just parsed: `year` must really be an int.
+    """
+    from open_garden_planner.models.crop_rotation import PlantingRecord
+
+    try:
+        record = PlantingRecord.from_dict(raw)  # type: ignore[arg-type]
+        if not isinstance(record.year, int) or isinstance(record.year, bool):
+            raise ValueError(f"year is not an int: {record.year!r}")
+        return record
+    except Exception:  # noqa: BLE001 - untrusted .ogp ingestion seam
+        logger.warning(
+            "Skipping an unreadable crop-rotation record; crop rotation "
+            "indicators and the family cooldown stay incomplete until it is fixed"
+        )
+        return None
+
+
 def _parse_agent_date(
     value: str | None,
     fallback: "datetime.date",
@@ -1308,9 +1338,10 @@ class GardenPlannerApp(QMainWindow):
         An unresolvable name yields NO record rather than a blank placeholder, so
         it cannot be suggested as a crop with no family and no maturity.
         """
-        from open_garden_planner.services.bundled_species_db import lookup_species
 
         names = candidates or []
+        from open_garden_planner.services.bundled_species_db import lookup_species
+
         records: list[dict] = []
         for name in names:
             found = lookup_species(str(name))
@@ -1359,15 +1390,14 @@ class GardenPlannerApp(QMainWindow):
         # One malformed record must not silently disable the cooldown for
         # EVERY bed, which a comprehension plus a broad catch did: a record
         # missing `year` raised and returned [] for the whole garden.
-        records: list[PlantingRecord] = []
-        for rec in self._project_manager.crop_rotation.get("records", []):
-            try:
-                records.append(PlantingRecord.from_dict(rec))
-            except (AttributeError, KeyError, TypeError, ValueError):
-                logger.warning(
-                    "Skipping an unreadable crop-rotation record; the family "
-                    "cooldown is weaker for every bed until it is fixed"
-                )
+        records: list[PlantingRecord] = [
+            rec
+            for rec in (
+                _read_crop_rotation_record(raw)
+                for raw in self._project_manager.crop_rotation.get("records", [])
+            )
+            if rec is not None
+        ]
         service = CropRotationService(CropRotationHistory(records=records))
         return list(service.get_recommendation(bed_id).avoid_families)
 
@@ -1429,8 +1459,6 @@ class GardenPlannerApp(QMainWindow):
         )
         from open_garden_planner.agent_api.schema import WriteResult
         from open_garden_planner.core.commands import SetSuccessionPlanCommand
-        from open_garden_planner.models.plant_data import species_key
-        from open_garden_planner.services.bundled_species_db import lookup_species
 
         self._agent_resolve_soil_bed(bed_id)
 
@@ -1440,14 +1468,7 @@ class GardenPlannerApp(QMainWindow):
                 f"year {resolved_year} is out of range; pass a four-digit year."
             )
 
-        known: set[str] = set()
-        for name in self._agent_all_known_species_names():
-            found = lookup_species(name)
-            if found is None:
-                continue
-            key = species_key(found)
-            if key and key != "_unknown":
-                known.add(key)
+        known = self._agent_known_species_keys()
         if not known:
             logger.warning(
                 "Species roster unavailable; succession writes will accept any "
@@ -1476,36 +1497,52 @@ class GardenPlannerApp(QMainWindow):
             ),
         ).model_dump()
 
-    def _agent_all_known_species_names(self) -> list[str]:
-        """Every species name the plan knows: bundled DB plus placed plants.
+    def _agent_known_species_keys(self) -> set[str]:
+        """Every canonical species key this plan accepts: bundled DB + placed plants.
 
-        Used to validate agent-supplied ``species_key``s without re-implementing
-        the bundled DB's alias indexes.
+        The write validator needs KEYS, so this derives them directly with the
+        canonical ``species_key()`` (ADR-016) instead of collecting names and
+        re-resolving them.
+
+        That distinction is the whole point for placed plants. A Permapeople or
+        custom species has a ``source_id`` that is its canonical key, and its
+        name resolves to NOTHING in the bundled DB - so an earlier version that
+        pushed placed-plant names back through ``lookup_species`` got None for
+        every one of them. The roster then missed them and ``set_succession_plan``
+        refused a species the app had just shown the agent, while the sibling
+        tool ``set_species`` accepted it. Three agents disagreeing about the same
+        plant is worse than any one of them being wrong.
         """
+        from open_garden_planner.models.plant_data import species_key
         from open_garden_planner.services.bundled_species_db import get_species_db
 
-        names: list[str] = []
+        keys: set[str] = set()
+
+        def _add(record: object) -> None:
+            if not isinstance(record, dict):
+                return
+            key = species_key(record)
+            if key and key != "_unknown":
+                keys.add(key)
+
         try:
             for record in get_species_db().values():
-                name = record.get("common_name") or record.get("scientific_name")
-                if name:
-                    names.append(str(name))
+                _add(record)
         except Exception:  # noqa: BLE001 - a validation aid must never be the thing
-            # that fails a write; without the roster the species check is skipped
-            # rather than turned into a blanket refusal.
+            # that fails a write; without the bundled roster the species check is
+            # skipped rather than turned into a blanket refusal. The placed-plant
+            # pass below still runs.
             logger.warning("Could not enumerate bundled species for validation")
 
         try:
             for item in self.canvas_scene.items():
-                meta = getattr(item, "metadata", None) or {}
-                species = meta.get("plant_species")
-                if isinstance(species, dict):
-                    name = species.get("common_name") or species.get("scientific_name")
-                    if name:
-                        names.append(str(name))
+                meta = getattr(item, "metadata", None)
+                species = (meta or {}).get("plant_species")
+                _add(species)
         except Exception:  # noqa: BLE001 - see above
             logger.warning("Could not enumerate placed plants for validation")
-        return names
+
+        return keys
 
     def _agent_linked_roof_ridge(self, item: Any) -> list[Any]:
         """A HOUSE's linked ``ROOF_RIDGE`` item, if any — mirroring
@@ -8184,15 +8221,13 @@ class GardenPlannerApp(QMainWindow):
         )
 
         if rotation_data and isinstance(rotation_data, dict):
-            records: list[PlantingRecord] = []
-            for raw in rotation_data.get("records", []):
-                try:
-                    records.append(PlantingRecord.from_dict(raw))
-                except (AttributeError, KeyError, TypeError, ValueError):
-                    logger.warning(
-                        "Skipping an unreadable crop-rotation record; crop "
-                        "rotation indicators are incomplete until it is fixed"
-                    )
+            records: list[PlantingRecord] = [
+                rec
+                for rec in (
+                    _read_crop_rotation_record(raw) for raw in rotation_data.get("records", [])
+                )
+                if rec is not None
+            ]
             self._crop_rotation_service.history = CropRotationHistory(records=records)
         else:
             self._crop_rotation_service.history = CropRotationHistory()

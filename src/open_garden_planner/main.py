@@ -2,6 +2,7 @@
 
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 from dotenv import load_dotenv
 
@@ -135,7 +136,11 @@ def _run_selftest() -> int:
         # loudly) and can never drift.
         server = AgentApiServer(
             AgentProviders(
-                **dict.fromkeys(AgentProviders.__dataclass_fields__, _never)
+                # cast keeps mypy happy: `**dict` cannot be matched against the
+                # dataclass's per-field Callable types, and the explicit list this
+                # replaced was giving that check for free. mypy is not in CI, so
+                # a silent regression here would otherwise go unnoticed.
+                **cast("dict[str, Any]", dict.fromkeys(AgentProviders.__dataclass_fields__, _never))
             ),
             port=free_port,
         )

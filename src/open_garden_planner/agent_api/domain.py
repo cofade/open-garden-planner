@@ -224,8 +224,20 @@ def get_succession_plan_for_agent(
         empty entries — never a fabricated empty plan that reads as "the bed is
         deliberately left fallow".
     """
-    plan = SuccessionPlan.from_dict(plan_dict) if plan_dict else None
-    resolved_year = year or (plan.year if plan is not None else today.year)
+    stored = SuccessionPlan.from_dict(plan_dict) if plan_dict else None
+    resolved_year = year or (stored.year if stored is not None else today.year)
+
+    # A bed may hold a plan for one year only. Answering a question about 2027
+    # with the 2026 plan reported `has_plan: true`, 2026 dates, and
+    # `season: null` on every entry - which reads as a data fault rather than a
+    # year mismatch. So an explicit year that does not match the stored plan
+    # gets an honest empty answer, and `plan_year` says what IS there.
+    plan = stored
+    plan_year: int | None = None
+    if plan is not None and year is not None and plan.year != year:
+        plan_year = plan.year
+        plan = None
+
     segments, are_fallback = resolve_season_segments(resolved_year, location)
 
     entries = plan.entries_sorted() if plan is not None else []
@@ -238,6 +250,7 @@ def get_succession_plan_for_agent(
     return SuccessionPlanView(
         bed_id=bed_id,
         year=resolved_year,
+        plan_year=plan_year,
         has_plan=plan is not None,
         entries=views,
         current_entry=_entry_view(current, segments) if current is not None else None,
@@ -438,12 +451,26 @@ def suggest_succession_for_agent(
     start = parse_iso_date(gap_start)
     end = parse_iso_date(gap_end)
     window_days = (end - start).days + 1 if start and end and end >= start else 0
+    # window_days == 0 means the window itself is unusable - malformed, or
+    # inverted. Saying "the gap is only 0 days" about a window that does not
+    # exist is a confidently wrong statement, and set_succession_plan refuses
+    # the same dates. Say the window is unusable instead.
+    window_usable = window_days > 0
 
     scored: list[tuple[bool, int, str, SuccessionSuggestion]] = []
+    seen_keys: set[str] = set()
     for record in candidates:
         if not isinstance(record, dict):
             continue
         key = species_key(record)
+        # Two different names can resolve to the SAME bundled record (an alias,
+        # or the common name and the scientific name). Scoring both produced two
+        # rows with an identical sort key, so Python's stable sort preserved
+        # INPUT order - the ranking was not actually deterministic, and the
+        # answer listed a crop twice. Dedupe on the resolved key.
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
         # ADR-016 returns "_unknown" when every name field is blank; that is not
         # a species an agent can act on, so it is skipped rather than suggested.
         if not key or key == "_unknown":
@@ -471,7 +498,14 @@ def suggest_succession_for_agent(
                     family=family,
                     days_to_maturity=maturity,
                     fits_window=fits,
-                    reasons=_reasons(fits, maturity, window_days, family, bool(avoid | within)),
+                    reasons=_reasons(
+                        fits,
+                        maturity,
+                        window_days,
+                        family,
+                        bool(avoid | within),
+                        window_usable,
+                    ),
                     source="bundled",
                 ),
             )
@@ -518,6 +552,7 @@ def _reasons(
     window_days: int,
     family: str,
     rotation_checked: bool,
+    window_usable: bool = True,
 ) -> list[str]:
     """Build the display-string reason list.
 
@@ -525,6 +560,12 @@ def _reasons(
     docstring): an agent branches on ``fits_window``/``family``, not on these.
     """
     reasons: list[str] = []
+    if not window_usable:
+        reasons.append(
+            "The requested window is unusable (malformed or end before start), "
+            "so no window fit was evaluated"
+        )
+        return reasons
     if fits and maturity is not None:
         reasons.append(f"Matures in ~{maturity} days, fits the {window_days}-day gap")
     elif maturity is None:
