@@ -241,37 +241,35 @@ async def emit_sample(port: int, token: str, out_dir: Path) -> dict:
         if not gaps:
             out["errors"].append("no gaps to fill")
             return out
-        # Pick a window that CONTAINS today (so the badge marks it current) and
-        # the next future one. Filling an arbitrary gap - the first one is early
-        # spring, i.e. months past - renders a badge with a single line, because
-        # `_refresh_succession_indicators` deliberately skips past entries. The
-        # sample is more useful with a current and an upcoming crop.
-        def _contains_today(g: dict) -> bool:
-            return g["start_date"] <= today.isoformat() <= g["end_date"]
-
-        current = next((g for g in gaps if _contains_today(g)), None)
-        future = next(
-            (g for g in gaps if g["start_date"] > today.isoformat()), None
+        # Plan NEXT YEAR. The badge deliberately hides finished slots, so a plan
+        # for the current season shows at most the slot running today - which
+        # demonstrated nothing. Every slot in a future season shows.
+        next_year = today.year + 1
+        g = await session.call_tool(
+            "find_succession_gaps", {"bed_id": bed_id, "year": next_year}
         )
-        if current is None and future is None:
-            out["errors"].append("no usable window (today is outside the season)")
+        windows = _unwrap(g) or []
+        if len(windows) < 3:
+            out["errors"].append(f"need 3 windows for {next_year}, got {len(windows)}")
             return out
         out["windows"] = [
-            (g["segment"], g["start_date"], g["end_date"])
-            for g in (current, future) if g is not None
+            (w["segment"], w["start_date"], w["end_date"]) for w in windows[:3]
         ]
 
-        entries = []
-        if current is not None:
-            entries.append({"species_key": "allium sativum", "common_name": "Garlic",
-                            "start_date": current["start_date"],
-                            "end_date": current["end_date"]})
-        if future is not None:
-            entries.append({"species_key": "lactuca sativa", "common_name": "Lettuce",
-                            "start_date": future["start_date"],
-                            "end_date": future["end_date"]})
+        # The chain the project's own domain notes use as the example:
+        # radish -> beans -> lettuce. Three different botanical families, so the
+        # crop-rotation exclusion has something to reason about.
+        entries = [
+            {"species_key": "raphanus sativus", "common_name": "Radish",
+             "start_date": windows[0]["start_date"], "end_date": windows[0]["end_date"]},
+            {"species_key": "phaseolus vulgaris", "common_name": "Bean (Bush)",
+             "start_date": windows[1]["start_date"], "end_date": windows[1]["end_date"]},
+            {"species_key": "lactuca sativa", "common_name": "Lettuce",
+             "start_date": windows[2]["start_date"], "end_date": windows[2]["end_date"]},
+        ]
         c = await session.call_tool(
-            "set_succession_plan", {"bed_id": bed_id, "entries": entries}
+            "set_succession_plan",
+            {"bed_id": bed_id, "entries": entries, "year": next_year},
         )
         out["write_error"] = c.isError
         out["write_text"] = (c.content[0].text if c.content else "")[:200]
@@ -282,6 +280,34 @@ async def emit_sample(port: int, token: str, out_dir: Path) -> dict:
         out["save_error"] = c.isError
         out["save_text"] = (c.content[0].text if c.content else "")[:200]
         out["ogp"] = str(target) if target.exists() else None
+
+        # `crop_rotation` is a SEPARATE ProjectData field from
+        # `succession_plans`, and there is no agent tool for it: only the crop
+        # rotation panel's "Add Planting Record..." button writes it. So the
+        # history is patched into the saved file here. Without it the owner opens
+        # the sample and finds the rotation panel empty, which reads as a bug.
+        if out.get("ogp"):
+            import json as _json
+
+            saved = Path(out["ogp"])
+            doc = _json.loads(saved.read_text(encoding="utf-8"))
+            doc["crop_rotation"] = {
+                "records": [
+                    {
+                        "year": today.year - 1,
+                        "season": "summer",
+                        "species_name": "Cucumis sativus",
+                        "common_name": "Cucumber",
+                        "family": "Cucurbitaceae",
+                        "nutrient_demand": "heavy",
+                        "area_id": bed_id,
+                    }
+                ]
+            }
+            saved.write_text(_json.dumps(doc, indent=2), encoding="utf-8")
+            out["rotation_record"] = (
+                f"Cucumber (Cucurbitaceae), {today.year - 1}"
+            )
 
         # Render the bed area so the badge can be checked without a human.
         # The parameter is `image_width_px`, and the PNG arrives as an
@@ -774,6 +800,8 @@ def main() -> int:
             print(f"render    : {out['png']}")
         for seg, s, e in out.get("windows") or []:
             print(f"filled    : {seg} {s} -> {e}")
+        if out.get("rotation_record"):
+            print(f"history   : {out['rotation_record']}")
         print(f"bed id    : {out.get('bed_id')}")
         ok_emit = bool(out.get("ogp")) and bool(out.get("png")) and not out["errors"]
         print()
