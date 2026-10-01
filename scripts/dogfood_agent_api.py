@@ -659,8 +659,11 @@ def run_checks(out: dict) -> bool:
         delta = (a.get("undo_depth") or 0) - (b.get("undo_depth") or 0)
         c("exactly ONE undo step", delta == 1,
           f"before={b.get('undo_depth')} after={a.get('undo_depth')}")
-        c("undo text mentions succession",
-          "uccession" in (a.get("next_undo_text") or ""), repr(a.get("next_undo_text")))
+        # NOT an English literal. Command descriptions are translated (the
+        # "Commands" i18n context), so this reads "Folgepflanzung festlegen"
+        # under a German UI. Assert the label exists, not what it says.
+        label = (a.get("next_undo_text") or "").strip()
+        c("undo step carries a label", bool(label), repr(a.get("next_undo_text")))
 
         print("\n=== undo ===")
         c("undo accepted", not out.get("undo_error"))
