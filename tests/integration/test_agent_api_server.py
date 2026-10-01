@@ -80,6 +80,10 @@ def _providers(scene: Any) -> AgentProviders:
         # Scene providers are unused by these read-only server tests.
         create_object=lambda *_a, **_k: _unused("create_object"),
         get_geometry=lambda *_a, **_k: _unused("get_geometry"),
+        get_succession_plan=lambda *_a, **_k: _unused("get_succession_plan"),
+        find_succession_gaps=lambda *_a, **_k: _unused("find_succession_gaps"),
+        suggest_succession=lambda *_a, **_k: _unused("suggest_succession"),
+        set_succession_plan=lambda *_a, **_k: _unused("set_succession_plan"),
         move_object=lambda *_a, **_k: _unused("move_object"),
         set_object_position=lambda *_a, **_k: _unused("set_object_position"),
         delete_object=lambda *_a, **_k: _unused("delete_object"),
@@ -388,7 +392,12 @@ def test_prompts_end_to_end(canvas: Any, qtbot: Any) -> None:
         qtbot.waitUntil(lambda: result.get("done", False), timeout=15000)
         assert result.get("error") is None, result.get("error")
 
-        assert result["names"] == {"audit-plan", "describe-garden", "plan-polyculture-bed"}
+        assert result["names"] == {
+            "audit-plan",
+            "describe-garden",
+            "plan-polyculture-bed",
+            "plan-succession",
+        }
         assert "Beds/containers: 1" in result["audit_text"]
         assert "Plants: 1" in result["audit_text"]
         assert "Apple" in result["describe_text"]

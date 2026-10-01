@@ -82,6 +82,23 @@ class SetLayerPropertyProvider(Protocol):
     ) -> dict[str, Any]: ...
 
 
+class SetSuccessionPlanProvider(Protocol):
+    """The `set_succession_plan` provider's call signature, named parameters.
+
+    Same reasoning as :class:`CreateObjectProvider`: the ``year: int | None`` /
+    ``bed_id: str`` / ``entries: list | None`` trio would be type-identical under
+    a transposition, which would silently write a plan to the wrong bed or year.
+    ``server.py`` calls this by keyword.
+    """
+
+    def __call__(
+        self,
+        bed_id: str,
+        entries: list[dict[str, Any]] | None,
+        year: int | None,
+    ) -> dict[str, Any]: ...
+
+
 @dataclass(frozen=True)
 class AgentProviders:
     """Main-thread-marshaled data sources the MCP tools read from.
@@ -220,6 +237,25 @@ class AgentProviders:
         check_placement: **Read (US-D3.1).** Checks whether a species is
             well-placed in a bed. Takes (species_key, bed_id, bed_plants).
             Read-only.
+        get_succession_plan: **Read (US-D3.2).** Returns a bed's succession
+            plan for a year, curated, with the season segments, the current and
+            next slot against an injected reference date, and an explicit
+            ``coverage`` marker when the plan has no frost dates. Takes
+            (bed_id, year, today). Read-only.
+        find_succession_gaps: **Read (US-D3.2).** Returns the growing-season
+            date ranges a bed's plan leaves uncovered, each with its season
+            label. Takes (bed_id, year, today). Read-only.
+        suggest_succession: **Read (US-D3.2).** Ranks candidate crops for one
+            succession gap, excluding crop-rotation conflicts and antagonists.
+            Takes (bed_id, gap_start, gap_end, candidates). Read-only.
+        set_succession_plan: **Write (US-D3.2).** Replaces a bed's succession
+            plan, or deletes it when ``entries`` is empty/None. Takes
+            ``(bed_id, entries, year)``; runs exactly one undoable
+            ``SetSuccessionPlanCommand`` on the main thread — the FIRST agent
+            write into ``ProjectData`` rather than the scene graph — and returns
+            a plain ``WriteResult``-shaped dict. Raises on an unknown bed, a
+            non-soil-container target, overlapping ranges or malformed dates,
+            leaving both the plan state and the undo stack untouched.
     """
 
     snapshot: Callable[[], dict[str, Any]]
@@ -229,6 +265,10 @@ class AgentProviders:
     find_compatible_sets: Callable[..., list[dict[str, Any]]]
     find_sets_for_bed: Callable[..., dict[str, Any]]
     check_placement: Callable[..., dict[str, Any]]
+    get_succession_plan: Callable[..., dict[str, Any]]
+    find_succession_gaps: Callable[..., dict[str, Any]]
+    suggest_succession: Callable[..., list[dict[str, Any]]]
+    set_succession_plan: SetSuccessionPlanProvider
     render: Callable[
         [tuple[float, float, float, float] | None, list[str] | None, int],
         dict[str, Any],

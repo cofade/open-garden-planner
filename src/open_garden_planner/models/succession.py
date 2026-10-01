@@ -9,6 +9,13 @@ Season segments are computed frost-relative from the project location:
   - late_spring  : last_frost - 2w  →  last_frost + 4w
   - summer       : last_frost + 4w  →  fall_frost  - 4w
   - fall         : fall_frost  - 4w →  fall_frost  + 2w
+
+A plan with no geo-location has no frost dates, so
+:func:`compute_fallback_segments` supplies calendar-month boundaries instead.
+It lives HERE, beside :func:`compute_season_segments`, rather than in the dialog
+that first needed it (US-D3.2): the Agent API's ``get_succession_plan`` needs
+the same answer, and two copies of a month table would let an agent and the GUI
+disagree about what "summer" means for the same bed.
 """
 
 from __future__ import annotations
@@ -73,12 +80,87 @@ def date_to_segment(
     d: datetime.date,
     segments: dict[str, tuple[datetime.date, datetime.date]],
 ) -> str | None:
-    """Return the segment key that contains ``d``, or None if outside all segments."""
+    """Return the segment key that contains ``d``, or None if outside all segments.
+
+    Boundaries are INCLUSIVE on both sides and segments are contiguous, so a
+    date exactly on a shared boundary (e.g. ``last_frost - 2w``, which is both
+    ``early_spring``'s end and ``late_spring``'s start) belongs to the FIRST
+    matching segment in :data:`SEASON_SEGMENTS` order. Callers that care must
+    not assume the boundary belongs to the later segment.
+    """
     for key in SEASON_SEGMENTS:
         start, end = segments[key]
         if start <= d <= end:
             return key
     return None
+
+
+# Calendar-month boundaries used when no geo-location (hence no frost dates) is
+# set. Each entry is ``((start_month, start_day), (end_month, end_day))``.
+# Moved here from succession_plan_dialog by US-D3.2 — see the module docstring.
+_FALLBACK_BOUNDARIES: dict[str, tuple[tuple[int, int], tuple[int, int]]] = {
+    "early_spring": ((2, 1), (3, 31)),
+    "late_spring": ((4, 1), (5, 31)),
+    "summer": ((6, 1), (8, 31)),
+    "fall": ((9, 1), (11, 15)),
+}
+
+
+def compute_fallback_segments(
+    year: int,
+) -> dict[str, tuple[datetime.date, datetime.date]]:
+    """Return month-based season segments for a plan with no frost dates.
+
+    These are a rough climate-agnostic approximation, NOT the frost-relative
+    segments :func:`compute_season_segments` produces. Callers that use them
+    must say so in their output (the agent's ``segments_are_fallback`` flag)
+    rather than presenting them as if they were computed from a location.
+
+    Args:
+        year: Calendar year for absolute date calculation.
+
+    Returns:
+        Dict mapping segment key → (start_date, end_date).
+    """
+    return {
+        key: (
+            datetime.date(year, start[0], start[1]),
+            datetime.date(year, end[0], end[1]),
+        )
+        for key, (start, end) in _FALLBACK_BOUNDARIES.items()
+    }
+
+
+def resolve_season_segments(
+    year: int,
+    location: dict[str, Any] | None,
+) -> tuple[dict[str, tuple[datetime.date, datetime.date]], bool]:
+    """Return ``(segments, are_fallback)`` for a plan, preferring real frost dates.
+
+    The single entry point both the GUI dialog and the Agent API use, so a bed
+    can never be segmented one way on screen and another way for an agent. The
+    bool reports whether frost-relative segmentation was actually possible.
+
+    Args:
+        year: Calendar year.
+        location: The plan's ``ProjectManager.location`` dict, or None. Only its
+            nested ``frost_dates`` sub-dict is read.
+
+    Returns:
+        ``(segments, False)`` when both frost dates are present and parse,
+        otherwise ``(compute_fallback_segments(year), True)``.
+    """
+    frost_dates = (location or {}).get("frost_dates")
+    if not frost_dates:
+        return compute_fallback_segments(year), True
+    last = frost_dates.get("last_spring_frost", "")
+    fall = frost_dates.get("first_fall_frost", "")
+    if last and fall:
+        try:
+            return compute_season_segments(last, fall, year), False
+        except (ValueError, KeyError):
+            pass
+    return compute_fallback_segments(year), True
 
 
 @dataclass

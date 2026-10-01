@@ -42,6 +42,10 @@ def _stub_providers() -> AgentProviders:
         export_csv=lambda *_a: {},
         create_object=_boom,
         get_geometry=_boom,
+        get_succession_plan=_boom,
+        find_succession_gaps=_boom,
+        suggest_succession=_boom,
+        set_succession_plan=_boom,
         move_object=_boom,
         set_object_position=_boom,
         delete_object=_boom,
@@ -134,6 +138,10 @@ WRITE_TOOL_NAMES = frozenset(
         "open_plan",
         "undo",
         "redo",
+        # US-D3.2: the first agent write into ProjectData rather than the scene
+        # graph. Gated exactly like delete_object - it replaces or deletes a
+        # stored plan.
+        "set_succession_plan",
     }
 )
 

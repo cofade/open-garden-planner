@@ -89,6 +89,10 @@ def _providers(scene: Any) -> AgentProviders:
         # Scene providers are unused by these read-only render tests.
         create_object=lambda *_a, **_k: _unused("create_object"),
         get_geometry=lambda *_a, **_k: _unused("get_geometry"),
+        get_succession_plan=lambda *_a, **_k: _unused("get_succession_plan"),
+        find_succession_gaps=lambda *_a, **_k: _unused("find_succession_gaps"),
+        suggest_succession=lambda *_a, **_k: _unused("suggest_succession"),
+        set_succession_plan=lambda *_a, **_k: _unused("set_succession_plan"),
         move_object=lambda *_a, **_k: _unused("move_object"),
         set_object_position=lambda *_a, **_k: _unused("set_object_position"),
         delete_object=lambda *_a, **_k: _unused("delete_object"),
