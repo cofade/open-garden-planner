@@ -20,13 +20,24 @@ The two failures this pins, both reproduced before the fix:
 
 Both are parametrised over rotation and scale, because the *orientation* defect
 is exactly zero at rotation 0 while the *drift* defect reproduces at every
-transform — including unrotated, which is how #364 was filed. Against the
-unfixed code 16 of these 25 cases fail; the 4 that pass are the boundary-invariant
-cases (satisfied by the old projection at any transform, by construction) and the
-unrotated rotation-tracking case. The 4 `TestResizeUndo` cases are counted
-separately: they import the function this fix introduces, so against master they
-stop at an `ImportError` rather than observing anything — their real proof is that
-removing the single sync line from the fixed tree fails all 4 at 300 cm.
+transform — including unrotated, which is how #364 was filed.
+
+This module collects **26** cases (`TestRidgeDriftOnUndo` 20, `TestResizeUndo` 5,
+`TestHandMovedRidgeEndpoint` 1). Measured against master's `polygon_item.py` and
+`canvas_view.py`: **21 fail, 5 pass**. The 5 that pass are the four
+boundary-invariant `test_ridge_stays_on_the_polygon_boundary` cases — satisfied
+by the old projection at any transform, by construction — plus
+`test_ridge_tracks_the_house_through_rotation[unrotated]`, whose orientation
+defect is zero at rotation 0. So **15 of the 20** `TestRidgeDriftOnUndo` cases
+fail, and the remaining 6 failures are the whole of `TestResizeUndo` (5) and
+`TestHandMovedRidgeEndpoint` (1).
+
+The `TestResizeUndo` cases are worth stating separately: they import the
+function this fix introduces, so against master they stop at an `ImportError`
+rather than observing anything. Their real proof is that removing the single
+sync line from the fixed tree fails all 4 parametrised cases at 300 cm. That
+is also why the module-level "21 of 26" is not the whole argument — the sync
+line ablation, not the master diff, is what pins `polygon_resize_apply`.
 """
 
 # ruff: noqa: ARG002

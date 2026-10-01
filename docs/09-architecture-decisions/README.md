@@ -1212,6 +1212,16 @@ Consequences:
   without touching the polygon at all, so a polygon-only grep misses the path whose
   absence recreates the orientation defect.
 
+  **The benign hits, recorded so nobody re-litigates them.** That grep returns
+  15 sites; only the six above are HOUSE writers. Checked and inert:
+  `background_image_item.py` (`setScale`/`setRotation`, never a HOUSE) and
+  `dxf_service.py:454` (`EllipseItem`). Two hits *look* alarming and are not
+  writers either: `corner_edit_base.py:298,318` (`clone.setRotation`) and
+  `polygon_tool.py:196` (a preview `setPolygon`) both build **fresh** items
+  that carry no `ridge_item_id`, so `_find_ridge()` returns `None` and there is
+  no derived child to re-derive. The test that decides it is not "is this a
+  polygon write" but "does the item have a linked ridge".
+
 * **A hand-dragged ridge endpoint is not sticky.** `PolylineItem._move_vertex_to`
   still constrains a hand-dragged endpoint onto the owner's outline, so the drag
   is honoured; the next polygon edit returns it to canonical. The reason is the
