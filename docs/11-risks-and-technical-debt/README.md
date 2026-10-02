@@ -457,11 +457,20 @@ shutdown waits for open connections, which such a client never closes, so
 (no-client) path was fast and green. **A lifecycle defect whose reproduction
 requires a concurrent peer will not be found by a single-threaded test of the
 happy path.** Pinned by `tests/integration/test_agent_api_shutdown.py`, which
-opens a real SSE stream, holds it, and asserts `stop()` returns inside
-`_STOP_TIMEOUT_S` with no WARNING/ERROR. Recorded because the fix is
-counter-intuitive: uvicorn's `force_exit` alone **does not** work here (measured
-— the MCP session/SSE tasks keep the loop alive past it); the reliable fix is to
-cancel the loop's tasks and stop the loop directly.
+opens a real SSE stream, holds it, and asserts `stop()` returns in under 4 s with
+no WARNING/ERROR. Recorded because the fix is counter-intuitive: uvicorn's
+`force_exit` alone **does not** work here (measured — the MCP session/SSE tasks
+keep the loop alive past it); the reliable fix is to cancel the loop's tasks and
+stop the loop directly. **The test itself then taught a second lesson.** Its
+first version asserted `elapsed < _STOP_TIMEOUT_S` — a 5 s budget *sitting
+exactly on the 5 s join timeout it guards*. It passed standalone and in a
+slice, then failed three tests in one full-suite run and passed the next:
+**a threshold on the boundary it is meant to detect is a flake, not a check.**
+The fix uses a 4 s limit that cleanly separates the ~0.6 s healthy path from the
+~10 s regression, and asserts on the server's **own** thread handle rather than
+a global `threading.enumerate()` scan (which a leak in any other test could
+fail). A flaky test is worse than a missing one: it trains the reader to rerun
+instead of investigate.
 
 **4. Two surfaces that disagree while both are correct (#378).** The rotation
 panel showed "every crop is suitable" for a bed that had a succession plan,
