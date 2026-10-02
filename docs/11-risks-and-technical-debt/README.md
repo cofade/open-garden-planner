@@ -472,6 +472,20 @@ a global `threading.enumerate()` scan (which a leak in any other test could
 fail). A flaky test is worse than a missing one: it trains the reader to rerun
 instead of investigate.
 
+**3b. A review fix can itself regress, and only the full suite caught it.** The
+senior review found a real P1: a move the clamp erased entirely still pushed a
+dead undo step. The first fix refused any call whose *clamped result* was zero —
+and `move_object(item_id, 0, 0)` has a clamped result of zero, because it was
+**already zero**. That is a legal no-op a caller uses to re-read an object's
+current centre, and an existing test
+(`test_move_returned_center_matches_read_layer_with_badge`) depends on it. The
+review's own slice passed; the 6736-test suite flagged it. **The refusal must
+key on the attempt, not the result: "the request was non-zero and the clamp
+erased it", never "the result is zero".** Both directions are now pinned. The
+sharper lesson is about review scope — *a P1 fix is new code and needs the same
+full battery as the original change*, not the reviewer's slice that validated
+the defect.
+
 **4. Two surfaces that disagree while both are correct (#378).** The rotation
 panel showed "every crop is suitable" for a bed that had a succession plan,
 because the plan is *planned* data and the panel reads *grown* data. Neither
