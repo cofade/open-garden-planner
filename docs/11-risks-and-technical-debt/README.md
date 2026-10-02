@@ -360,6 +360,63 @@ bundled plant's key is its **scientific** name: `"phaseolus vulgaris"`, not `"be
 tests failed identically, which is what identified the shared root cause instead of nine separate
 bugs. **When many tests fail the same way, find the shared assumption before fixing any of them.**
 
+
+### 11.4.1 Three guards in the wrong place (US-D3.2 final pre-merge review, #374)
+
+The `set_succession_plan` work passed 6635 tests, an out-of-process dogfood
+harness, and a real manual test in the built exe. The final review still found
+three defects, and all three are the same mistake: **a guard that sits at the
+wrong boundary**. Each one was fixed and pinned by
+`tests/unit/test_agent_succession_review_fixes.py` (21 tests, each failing
+against the pre-fix code).
+
+1. **A guard around the parse does not cover the parse's consequences.**
+   `PlantingRecord.from_dict` does `data["year"]` and never type-checks, so a
+   `.ogp` carrying `{"year": "2025"}` produced a record whose `year` was the
+   *string* `"2025"`. Both readers caught four enumerated exception types around
+   the `from_dict` call - and the row sailed through, because nothing had thrown
+   *yet*. The `TypeError` arrived later, inside `get_records_for_area`'s sort:
+   outside the loop the guard was protecting, and inside a Qt signal handler
+   whose own handler catches only `RuntimeError`. That is an uncaught exception
+   in the event loop, the `qFatal()`/abort shape #366 recorded. **Enumerating
+   exception types at an ingestion seam is a guess about a parser you do not
+   control; catch broadly (invariant 14: a `.ogp` is untrusted input) AND
+   validate the field you actually depend on** - here
+   `_read_crop_rotation_record` in `app/application.py` catches `Exception` and
+   requires `isinstance(rec.year, int)`. A list year, a `None` year and a
+   missing year are now all dropped instead of detonating later.
+
+2. **Re-resolving a name through the bundled DB silently drops every
+   non-bundled species.** The write validator collected species *names* from the
+   bundled database plus the plants placed on the canvas, then pushed all of
+   them back through `lookup_species` to get keys. A Permapeople or custom
+   species has no bundled record, so it resolved to `None` and was skipped: the
+   roster missed every custom plant, and `set_succession_plan` refused a species
+   the app had just shown the agent - while the sibling tool `set_species`
+   accepted it. **Three agent tools disagreeing about one plant is a worse
+   failure than any one of them being wrong**, and it was invisible because
+   every bundled species worked. The validator now derives keys directly,
+   `_agent_known_species_keys()` calling `species_key(dict)` (ADR-016) on the
+   plant's own `metadata["plant_species"]`, never a round trip through the
+   bundled index. Same class as the `species_key` corollary above: **derive the
+   key; do not resolve a name back to the thing you already had.**
+
+3. **A stored object that holds one year must not answer a question about
+   another year.** `get_succession_plan(bed_id, year=2027)` on a bed holding a
+   2026 plan returned `has_plan: true`, 2026 entry dates, and `season: null` on
+   every entry - because the season is derived from the requested year and the
+   dates are not. `null` reads as a data fault, not as "that is next year's
+   question", so the agent had no way to tell a mismatch from corruption. The
+   view now reports `has_plan: false` and carries a `plan_year` field naming the
+   year the bed actually has. **When a store is keyed by a dimension the caller
+   supplies, an explicit parameter that does not match the store is a miss, not
+   a hint to return the wrong row** - and the miss must be legible in the
+   response shape.
+
+The common thread: each guard was written where the *code* was, not where the
+*trust boundary* or the *key space* is. Review found all three; the suite and the
+dogfood harness found none of them.
+
 ## 11.5 Community and Governance
 
 **Feature Requests**: Open to community input, pivots, and voting. The goal is to avoid a dead project — community engagement is welcome.

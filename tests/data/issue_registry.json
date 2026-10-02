@@ -426,7 +426,7 @@
   },
   "331": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "US-D3.2: Succession tools — get_succession_plan / find_succession_gaps / suggest_succession / set_succession_plan + plan-succession prompt (Package D3, epic #237)"
   },
   "333": {
@@ -583,5 +583,10 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "HOUSE roof tiles lap toward the ridge: the mirrored half is chosen by the ridge's direction, not by which side is downhill"
+  },
+  "374": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(US-D3.2): succession agent tools — first agent write into ProjectData (#331)"
   }
 }
