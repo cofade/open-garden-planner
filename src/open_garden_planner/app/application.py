@@ -907,8 +907,9 @@ class GardenPlannerApp(QMainWindow):
         )
         if requested_was_nonzero and clamp_erased_the_move:
             raise ValueError(
-                f"{item_id} is already at the canvas edge; the requested move was "
-                "clamped to no displacement. Nothing to change."
+                f"{item_id} (with anything it carries) is already at the canvas "
+                "edge; the requested move was clamped to no displacement. "
+                "Nothing to change."
             )
         if clamped_dx != delta.x() or clamped_dy != delta.y():
             item_deltas = [
