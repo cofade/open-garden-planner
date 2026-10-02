@@ -59,6 +59,23 @@ def _tr(source: str) -> str:
     return QCoreApplication.translate("CropRotationPanel", source)
 
 
+def _parse_succession_plan(raw: object):
+    """Parse a stored succession-plan dict, or return None when it is unusable.
+
+    The one parse used by both the panel's render path and its
+    "is there a plan?" check, so the recommendation text and the section it
+    points at can never disagree about whether a plan exists (#378 review).
+    """
+    if not raw:
+        return None
+    from open_garden_planner.models.succession import SuccessionPlan
+
+    try:
+        return SuccessionPlan.from_dict(raw)  # type: ignore[arg-type]
+    except (AttributeError, TypeError, ValueError):
+        return None
+
+
 def _demand_label(key: str) -> str:
     """Return the translated demand label for a nutrient-demand key."""
     labels = {
@@ -367,14 +384,19 @@ class CropRotationPanel(QWidget):
         self._plan_list.hide()
 
     def _has_succession_plan(self) -> bool:
-        """True when the current bed carries a succession plan."""
+        """True when the current bed carries a PARSEABLE succession plan.
+
+        Uses the same parse as :meth:`_display_succession_plan`, so the
+        recommendation text never points at a section that is hidden because the
+        plan could not be read (issue #378 review).
+        """
         pm = self._project_manager
         if pm is None or self._current_area_id is None:
             return False
         plans = getattr(pm, "succession_plans", None)
         if not isinstance(plans, dict):
             return False
-        return bool(plans.get(self._current_area_id))
+        return _parse_succession_plan(plans.get(self._current_area_id)) is not None
 
     def _display_succession_plan(self, area_id: str) -> None:
         """Show the bed's succession plan as 'planned this season', not history.
@@ -388,15 +410,8 @@ class CropRotationPanel(QWidget):
         pm = self._project_manager
         plans = getattr(pm, "succession_plans", None) if pm is not None else None
         raw = plans.get(area_id) if isinstance(plans, dict) else None
-        if not raw:
-            self._hide_succession_plan()
-            return
-
-        from open_garden_planner.models.succession import SuccessionPlan
-
-        try:
-            plan = SuccessionPlan.from_dict(raw)
-        except (AttributeError, TypeError, ValueError):
+        plan = _parse_succession_plan(raw)
+        if plan is None:
             self._hide_succession_plan()
             return
 

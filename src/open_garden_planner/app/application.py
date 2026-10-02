@@ -882,6 +882,23 @@ class GardenPlannerApp(QMainWindow):
             canvas.width(),
             canvas.height(),
         )
+        # A move the clamp erases entirely is a no-op, not a move. Without this
+        # it still executed a MoveItemsCommand that changed nothing but pushed a
+        # dead undo step — a Ctrl+Z that visibly does nothing (issue #380
+        # review). Refuse instead, matching the existing unclamped no-op guard
+        # in _do_agent_set_object_position, so the stack stays untouched.
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            GEOMETRY_ROUNDTRIP_EPS_CM,
+        )
+
+        if (
+            abs(clamped_dx) <= GEOMETRY_ROUNDTRIP_EPS_CM
+            and abs(clamped_dy) <= GEOMETRY_ROUNDTRIP_EPS_CM
+        ):
+            raise ValueError(
+                f"{item_id} is already at the canvas edge; the requested move was "
+                "clamped to no displacement. Nothing to change."
+            )
         if clamped_dx != delta.x() or clamped_dy != delta.y():
             item_deltas = [
                 (moved_item, _QPointF(clamped_dx, clamped_dy))

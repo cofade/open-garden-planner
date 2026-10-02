@@ -99,6 +99,16 @@ def rect_intersects_canvas(
 ) -> bool:
     """True when *rect* overlaps the canvas rect at all.
 
+    The rect is supplied by the caller, and the two callers deliberately use
+    different bounding boxes: the agent's ``ObjectRef.outside_canvas`` flag
+    (``agent_api/queries``) passes the **serialised, unrotated** bbox — the same
+    one the read tools report — while the live diagnostic harvest
+    (``core/project.diagnostics_snapshot``) passes the **rotation-expanded**
+    ``sceneBoundingRect()``. So for a strongly rotated object near an edge the
+    flag and the diagnostic can disagree; that is a known, documented
+    simplification, not a second clamp rule (the clamp itself always uses live
+    bounding rects).
+
     An empty/zero-size canvas (width or height <= 0) returns True so a
     degenerate plan does not flag every object as off-plan.
     """

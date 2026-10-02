@@ -5908,27 +5908,28 @@ class CanvasView(QGraphicsView):
     ) -> list[tuple[QGraphicsItem, QPointF]]:
         """Clamp per-item deltas so each item stays inside the canvas.
 
+        Uses the same shared math as ``_clamp_delta_to_canvas`` so the two GUI
+        paths and the agent path cannot drift (issue #380; review P2-1).
+
         Args:
             item_deltas: List of (item, delta) tuples.
 
         Returns:
             Clamped list of (item, delta) tuples.
         """
+        from open_garden_planner.core.canvas_bounds import clamp_delta_within_canvas
+
         canvas = self._canvas_scene.canvas_rect
         result: list[tuple[QGraphicsItem, QPointF]] = []
         for item, delta in item_deltas:
             rect = item.sceneBoundingRect()
-            moved = rect.translated(delta)
-            dx = delta.x()
-            dy = delta.y()
-            if moved.left() < canvas.left():
-                dx = canvas.left() - rect.left()
-            elif moved.right() > canvas.right():
-                dx = canvas.right() - rect.right()
-            if moved.top() < canvas.top():
-                dy = canvas.top() - rect.top()
-            elif moved.bottom() > canvas.bottom():
-                dy = canvas.bottom() - rect.bottom()
+            dx, dy = clamp_delta_within_canvas(
+                [(rect.left(), rect.top(), rect.right(), rect.bottom())],
+                delta.x(),
+                delta.y(),
+                canvas.width(),
+                canvas.height(),
+            )
             result.append((item, QPointF(dx, dy)))
         return result
 

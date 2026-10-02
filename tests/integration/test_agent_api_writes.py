@@ -2109,6 +2109,69 @@ def test_move_object_is_clamped_to_the_canvas(canvas: Any, qtbot: Any) -> None:
     view.command_manager.undo()
 
 
+def test_move_fully_clamped_away_is_refused_without_an_undo_step(
+    canvas: Any, qtbot: Any
+) -> None:
+    """issue #380 review: a move the clamp erases is a no-op, not a dead undo step.
+
+    Pushing the object further off the edge it already touches must refuse, not
+    execute a MoveItemsCommand that changes nothing but adds a Ctrl+Z that
+    visibly does nothing.
+    """
+    view = canvas
+    scene = view.scene()
+    canvas_rect = scene.canvas_rect
+    # Flush against the top edge: centre y at the circle's radius.
+    radius = 30.0
+    circle = CircleItem(
+        canvas_rect.width() / 2.0,
+        radius,
+        radius,
+        object_type=ObjectType.TREE,
+    )
+    scene.addItem(circle)
+    item_id = str(circle.item_id)
+    # One real move first, so a pushed step would be visible.
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            await session.call_tool(
+                "move_object", {"item_id": item_id, "dx": 10.0, "dy": 0.0}
+            )
+            depth_before = (await session.call_tool("get_history", {})).structuredContent
+            body.depth_before = depth_before  # type: ignore[attr-defined]
+            # Now try to move further off the SAME edge: fully clamped away.
+            call = await session.call_tool(
+                "move_object", {"item_id": item_id, "dx": 0.0, "dy": -500.0}
+            )
+            body.refused = call.isError  # type: ignore[attr-defined]
+            body.depth_after = (  # type: ignore[attr-defined]
+                await session.call_tool("get_history", {})
+            ).structuredContent
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.refused is True  # type: ignore[attr-defined]
+    assert (
+        body.depth_after["undo_depth"]  # type: ignore[attr-defined]
+        == body.depth_before["undo_depth"]  # type: ignore[attr-defined]
+    ), "a fully-clamped-away move must not push an undo step"
+
+
+
 def test_off_plan_object_is_flagged_and_diagnosed(canvas: Any, qtbot: Any) -> None:
     """issue #380: a legacy off-plan object is discoverable, not invisible."""
     view = canvas
@@ -2150,8 +2213,6 @@ def test_off_plan_object_is_flagged_and_diagnosed(canvas: Any, qtbot: Any) -> No
 
 def test_absurd_position_is_still_refused(canvas: Any, qtbot: Any) -> None:
     """issue #380: clamping keeps the gross-input guard — 1e9 is refused."""
-    from uuid import UUID
-
     view = canvas
     scene = view.scene()
     before = len([i for i in scene.items() if i.parentItem() is None])

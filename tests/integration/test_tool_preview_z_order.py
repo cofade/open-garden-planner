@@ -99,10 +99,14 @@ class TestPreviewOutranksBed:
 
 
 def test_preview_band_constants_match_the_source() -> None:
-    """Drift guard: every module in the issue's real affected set is covered.
+    """Drift guard: every preview-building module is either in the band or has
+    its own established one.
 
     Re-derived from source rather than the issue's list, which omitted
-    construction_tool.py and wrongly included text/fillet/chamfer.
+    construction_tool.py and wrongly named three modules that build no preview.
+    The scan covers BOTH construction styles (direct `QGraphics*Item(...)` and
+    `scene.add*()`), because measure_tool/constraint_tool use the latter and the
+    original census missed them for exactly that reason.
     """
     from pathlib import Path
 
@@ -115,12 +119,20 @@ def test_preview_band_constants_match_the_source() -> None:
         / "core"
         / "tools"
     )
-    ctor = re.compile(r"QGraphics(?:EllipseItem|LineItem|PathItem|RectItem|PolygonItem)\(")
+    ctor = re.compile(
+        r"QGraphics(?:EllipseItem|LineItem|PathItem|RectItem|PolygonItem)\("
+        r"|scene\(\)\.add(?:Ellipse|Line|Path|Rect|Polygon|Text)\("
+        r"|\.add(?:Ellipse|Line|Path|Rect|Polygon|Text)\("
+    )
     # Modules that already govern their preview z with their own established
-    # constant and are NOT part of the #377 defect (verified in the plan):
-    # offset_tool uses the transient-preview band 9999; trim_tool uses
-    # _HIGHLIGHT_Z (the corner-edit/trim highlight band).
-    established = {"offset_tool.py", "trim_tool.py"}
+    # constant and are NOT part of the #377 defect: offset_tool (9999),
+    # trim_tool (_HIGHLIGHT_Z), measure_tool / constraint_tool (1000-1003).
+    established = {
+        "offset_tool.py",
+        "trim_tool.py",
+        "measure_tool.py",
+        "constraint_tool.py",
+    }
     offenders = []
     for path in sorted(tools_dir.glob("*_tool.py")):
         if path.name in established:

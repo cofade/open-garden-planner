@@ -42,6 +42,17 @@ _PREVIEW_TOOL_MODULES = (
 
 _CONSTRUCTOR = re.compile(
     r"QGraphics(?:EllipseItem|LineItem|PathItem|RectItem|PolygonItem)\("
+    r"|scene\(\)\.add(?:Ellipse|Line|Path|Rect|Polygon|Text)\("
+    r"|\.add(?:Ellipse|Line|Path|Rect|Polygon|Text)\("
+)
+
+# Modules whose preview z is governed by their OWN established constant and are
+# therefore deliberately outside the #377 band: `offset_tool` uses the
+# transient-preview value 9999, and `measure_tool`/`constraint_tool` use the
+# tool-overlay band 1000-1003. They build previews via `scene.add*()` rather than
+# direct constructors, which is why the issue's own census missed them entirely.
+_ESTABLISHED_OTHER_BAND = frozenset(
+    {"offset_tool.py", "measure_tool.py", "constraint_tool.py", "trim_tool.py"}
 )
 
 
@@ -95,8 +106,8 @@ def test_every_preview_constructor_gets_a_z_value(module_name: str) -> None:
 
     This is what would have caught the issue's own incomplete module list. It is a
     heuristic — it looks for ``setZValue`` within the eight lines after each
-    ``QGraphics*Item(`` construction — but it fails loudly on the exact mistake
-    that caused #377.
+    preview construction (direct constructor OR ``scene.add*()``) — but it fails
+    loudly on the exact mistake that caused #377.
     """
     lines = (_TOOLS_DIR / module_name).read_text(encoding="utf-8").splitlines()
     missing = []
@@ -108,4 +119,22 @@ def test_every_preview_constructor_gets_a_z_value(module_name: str) -> None:
     assert not missing, (
         f"{module_name}: preview constructor(s) at line(s) {missing} have no nearby "
         "setZValue — the preview would draw behind beds and objects (#377)."
+    )
+
+
+@pytest.mark.parametrize("module_name", sorted(_ESTABLISHED_OTHER_BAND))
+def test_established_modules_still_set_a_z_value(module_name: str) -> None:
+    """The modules with their own band must still govern their previews.
+
+    They are excluded from the #377 band because they already have one, not
+    because z-ordering is unhandled there — so a regression that dropped their
+    ``setZValue`` calls must still fail.
+    """
+    lines = (_TOOLS_DIR / module_name).read_text(encoding="utf-8").splitlines()
+    preview_lines = [i for i, line in enumerate(lines) if _CONSTRUCTOR.search(line)]
+    if not preview_lines:
+        return
+    assert any("setZValue" in line for line in lines), (
+        f"{module_name} builds previews but never calls setZValue; it is expected "
+        "to govern them with its own established band."
     )

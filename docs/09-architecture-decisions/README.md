@@ -1167,7 +1167,7 @@ Two things made the original rationale untenable. First, the same slack applied 
 
 **Vertex writes are deliberately out of scope.** `set_vertex`/`add_vertex`/`delete_vertex` (D2.6) can also move geometry off-plan, and they are not among the GUI's five clamp sites. They are covered by the `outside_canvas` flag only. Widening the clamp to them would be new behaviour with no GUI precedent, so it is recorded here rather than done.
 
-**Consequences.** FR-AGENT-26 records the contract; §11.4 records the reversal; the two existing unit tests that pinned the old "staging slack is reachable" reading were rewritten to pin the new one (accepted by the gross guard, then clamped by the caller). Every clamped write remains exactly one undo step, which the integration suite asserts over the real MCP transport.
+**Consequences.** FR-AGENT-26 records the contract; §11.4 records the reversal; the two existing unit tests that pinned the old "staging slack is reachable" reading were rewritten to pin the new one (accepted by the gross guard, then clamped by the caller). Every clamped write remains exactly one undo step, which the integration suite asserts over the real MCP transport. **A move whose delta the clamp erases entirely is REFUSED**, not executed as a no-op: without that, the tool ran a `MoveItemsCommand` that changed nothing and pushed a dead undo step — a Ctrl+Z that visibly does nothing (found in review). That matches the pre-existing unclamped no-op guard in `set_object_position`, and a test asserts the undo depth is unchanged.
 
 ### ADR-036 addendum: the rotation panel shows a succession plan as PLANNED, never as history (issue #378)
 

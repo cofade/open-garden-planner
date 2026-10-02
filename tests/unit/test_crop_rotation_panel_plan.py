@@ -9,9 +9,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
-from PyQt6.QtWidgets import QWidget
-
 from open_garden_planner.services.crop_rotation_service import CropRotationService
 from open_garden_planner.ui.panels.crop_rotation_panel import CropRotationPanel
 
