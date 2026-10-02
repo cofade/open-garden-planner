@@ -23,6 +23,7 @@ numbers so a genuine regression and a slow runner are distinguishable.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import socket
 import threading
@@ -128,6 +129,28 @@ def test_stop_without_a_client_is_prompt(caplog: Any) -> None:
     _assert_own_server_thread_stopped(server)
 
 
+def _wait_for_established_stream(server: AgentApiServer, timeout: float = 10.0) -> bool:
+    """Wait until the server has a live SSE task, not just a TCP connection.
+
+    Polling the loop's task list is the real precondition: ``force_exit`` alone
+    failed because the MCP *session/SSE tasks* keep the loop alive, so a stream
+    that has connected but not yet spawned those tasks would not exercise the
+    defect. A fixed sleep is a race (review P2-6) — a slow machine could reach
+    ``stop()`` before the task existed, making the test pass vacuously.
+    """
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        loop = server._loop  # noqa: SLF001 - the handle the fix stores
+        if loop is not None and not loop.is_closed():
+            for task in asyncio.all_tasks(loop):
+                name = task.get_name()
+                coro = str(task.get_coro())
+                if "sse" in name.lower() or "sse" in coro.lower() or "EventSource" in coro:
+                    return True
+        time.sleep(0.05)
+    return False
+
+
 def test_stop_with_a_streaming_client_is_prompt(caplog: Any) -> None:
     """The #373 regression: an open SSE stream must not delay shutdown 10 s."""
     import httpx
@@ -156,8 +179,10 @@ def test_stop_with_a_streaming_client_is_prompt(caplog: Any) -> None:
 
     holder = threading.Thread(target=_hold_stream, daemon=True)
     holder.start()
-    # Let the connection establish and the SSE task come to life.
-    time.sleep(1.0)
+    # Wait for the SSE task itself, not a fixed delay (review P2-6).
+    assert _wait_for_established_stream(server), (
+        "the SSE stream never established a task; the test cannot exercise #373"
+    )
 
     try:
         with caplog.at_level(logging.WARNING, logger="open_garden_planner.agent_api.server"):
