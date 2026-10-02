@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsPathItem
 from open_garden_planner.core.object_types import ObjectType
 
 from .base_tool import BaseTool, ToolType
+from .preview_z import PREVIEW_Z_HANDLE, PREVIEW_Z_LINE
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -153,6 +154,7 @@ class PolylineTool(BaseTool):
         """Create preview path item."""
         self._preview_path = QGraphicsPathItem()
         self._preview_path.setPen(QPen(QColor(0, 100, 255), 2, Qt.PenStyle.DashLine))
+        self._preview_path.setZValue(PREVIEW_Z_LINE)
         self._view.scene().addItem(self._preview_path)
 
     def _add_vertex_marker(self, pos: QPointF) -> None:
@@ -166,6 +168,7 @@ class PolylineTool(BaseTool):
         )
         marker.setPen(QPen(QColor(0, 100, 255), 1))
         marker.setBrush(QBrush(QColor(0, 100, 255)))
+        marker.setZValue(PREVIEW_Z_HANDLE)
         self._view.scene().addItem(marker)
         self._vertex_markers.append(marker)
 

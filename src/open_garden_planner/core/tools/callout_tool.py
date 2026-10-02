@@ -7,6 +7,7 @@ from PyQt6.QtGui import QKeyEvent, QMouseEvent, QPen
 from PyQt6.QtWidgets import QGraphicsLineItem
 
 from .base_tool import BaseTool, ToolType
+from .preview_z import PREVIEW_Z_LINE
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -42,6 +43,7 @@ class CalloutTool(BaseTool):
             pen = QPen(Qt.GlobalColor.darkGray, 1, Qt.PenStyle.DashLine)
             pen.setCosmetic(True)
             self._preview.setPen(pen)
+            self._preview.setZValue(PREVIEW_Z_LINE)
             scene.addItem(self._preview)
         return True
 

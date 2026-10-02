@@ -22,6 +22,7 @@ def _record(item_id: str, **flags: Any) -> dict[str, Any]:
         "capacity_overrun": False,
         "soil_mismatch_level": None,
         "rotation_status": None,
+        "outside_canvas": False,
     }
     base.update(flags)
     return base
@@ -79,6 +80,25 @@ class TestDiagnosticsMapping:
         ]
         out = diagnostics_from_records(records, kind="soil_mismatch")
         assert [d.item_ids[0] for d in out] == ["b"]
+
+    def test_outside_canvas_maps_to_its_kind(self) -> None:
+        """issue #380: an object fully off-plan is a warning kind."""
+        out = diagnostics_from_records([_record("a", name="Bed", outside_canvas=True)])
+        assert len(out) == 1
+        assert out[0].kind == "outside_canvas"
+        assert out[0].severity == "warning"
+        assert "outside the plan canvas" in out[0].message
+
+    def test_outside_canvas_false_is_silent(self) -> None:
+        assert diagnostics_from_records([_record("a", outside_canvas=False)]) == []
+
+    def test_outside_canvas_kind_filter(self) -> None:
+        records = [
+            _record("a", outside_canvas=True),
+            _record("b", antagonist_warning=True),
+        ]
+        out = diagnostics_from_records(records, kind="outside_canvas")
+        assert [d.item_ids[0] for d in out] == ["a"]
 
     def test_empty(self) -> None:
         assert diagnostics_from_records([]) == []

@@ -154,6 +154,15 @@ def _layer_names_by_id(snapshot: dict[str, Any]) -> dict[str, str]:
     }
 
 
+def _canvas_size(snapshot: dict[str, Any]) -> tuple[float, float]:
+    """Return ``(width, height)`` of the plan canvas in cm, or ``(0.0, 0.0)``."""
+    canvas = snapshot.get("canvas") or {}
+    try:
+        return float(canvas.get("width", 0.0)), float(canvas.get("height", 0.0))
+    except (TypeError, ValueError):
+        return 0.0, 0.0
+
+
 def _stack_indices(objects: list[dict[str, Any]]) -> dict[str, int]:
     """Map each object's ``item_id`` to its 0-based position within its layer.
 
@@ -237,9 +246,12 @@ def _object_ref(
     obj: dict[str, Any],
     layer_names: dict[str, str],
     stack_indices: dict[str, int],
+    canvas_size: tuple[float, float] = (0.0, 0.0),
 ) -> ObjectRef:
+    from open_garden_planner.core.canvas_bounds import rect_intersects_canvas
+
     cx, cy = object_center(obj)
-    _, _, w, h = object_bbox(obj)
+    x, y, w, h = object_bbox(obj)
     lid = str(obj.get("layer_id") or "")
     item_id = str(obj.get("item_id", ""))
     return ObjectRef(
@@ -254,6 +266,9 @@ def _object_ref(
         width_cm=w,
         height_cm=h,
         stack_index=stack_indices.get(item_id) if lid else None,
+        outside_canvas=not rect_intersects_canvas(
+            (x, y, x + w, y + h), canvas_size[0], canvas_size[1]
+        ),
     )
 
 
@@ -261,8 +276,9 @@ def _object_detail(
     obj: dict[str, Any],
     layer_names: dict[str, str],
     stack_indices: dict[str, int],
+    canvas_size: tuple[float, float] = (0.0, 0.0),
 ) -> ObjectDetail:
-    ref = _object_ref(obj, layer_names, stack_indices)
+    ref = _object_ref(obj, layer_names, stack_indices, canvas_size)
     return ObjectDetail(
         **ref.model_dump(),
         rotation_deg=float(obj.get("rotation_angle", obj.get("rotation", 0.0)) or 0.0),
@@ -309,6 +325,7 @@ def list_objects(
     """
     layer_names = _layer_names_by_id(snapshot)
     stack_indices = _stack_indices(snapshot.get("objects") or [])
+    canvas_size = _canvas_size(snapshot)
     out: list[Any] = []
     for obj in snapshot.get("objects") or []:
         if type is not None and not _type_matches(obj, type):
@@ -317,7 +334,9 @@ def list_objects(
             continue
         if parent is not None and not _has_parent(obj, parent):
             continue
-        out.append(obj if raw else _object_ref(obj, layer_names, stack_indices))
+        out.append(
+            obj if raw else _object_ref(obj, layer_names, stack_indices, canvas_size)
+        )
     return out
 
 
@@ -331,7 +350,12 @@ def get_object(
     if raw:
         return obj
     stack_indices = _stack_indices(snapshot.get("objects") or [])
-    return _object_detail(obj, _layer_names_by_id(snapshot), stack_indices)
+    return _object_detail(
+        obj,
+        _layer_names_by_id(snapshot),
+        stack_indices,
+        _canvas_size(snapshot),
+    )
 
 
 def objects_in_region(
@@ -351,11 +375,14 @@ def objects_in_region(
     rx0, ry0, rx1, ry1 = x, y, x + width, y + height
     layer_names = _layer_names_by_id(snapshot)
     stack_indices = _stack_indices(snapshot.get("objects") or [])
+    canvas_size = _canvas_size(snapshot)
     out: list[Any] = []
     for obj in snapshot.get("objects") or []:
         bx, by, bw, bh = object_bbox(obj)
         if bx <= rx1 and bx + bw >= rx0 and by <= ry1 and by + bh >= ry0:
-            out.append(obj if raw else _object_ref(obj, layer_names, stack_indices))
+            out.append(
+                obj if raw else _object_ref(obj, layer_names, stack_indices, canvas_size)
+            )
     return out
 
 
@@ -366,8 +393,9 @@ def objects_in(
     target = str(parent_id)
     layer_names = _layer_names_by_id(snapshot)
     stack_indices = _stack_indices(snapshot.get("objects") or [])
+    canvas_size = _canvas_size(snapshot)
     out: list[Any] = [
-        obj if raw else _object_ref(obj, layer_names, stack_indices)
+        obj if raw else _object_ref(obj, layer_names, stack_indices, canvas_size)
         for obj in snapshot.get("objects") or []
         if _has_parent(obj, target)
     ]
@@ -381,8 +409,9 @@ def plants_in_bed(
     target = str(bed_id)
     layer_names = _layer_names_by_id(snapshot)
     stack_indices = _stack_indices(snapshot.get("objects") or [])
+    canvas_size = _canvas_size(snapshot)
     out: list[Any] = [
-        obj if raw else _object_ref(obj, layer_names, stack_indices)
+        obj if raw else _object_ref(obj, layer_names, stack_indices, canvas_size)
         for obj in snapshot.get("objects") or []
         if _has_parent(obj, target)
         and obj.get("object_type") in _PLANT_TYPE_NAMES
@@ -402,6 +431,7 @@ def nearest_objects(
     """The ``k`` objects whose centres are closest to point ``(x, y)``."""
     layer_names = _layer_names_by_id(snapshot)
     stack_indices = _stack_indices(snapshot.get("objects") or [])
+    canvas_size = _canvas_size(snapshot)
     scored: list[tuple[float, dict[str, Any]]] = []
     for obj in snapshot.get("objects") or []:
         if type is not None and not _type_matches(obj, type):
@@ -411,7 +441,8 @@ def nearest_objects(
     scored.sort(key=lambda pair: pair[0])
     chosen = scored[:k] if k > 0 else []  # k<=0 returns none (k is a hard cap)
     out: list[Any] = [
-        obj if raw else _object_ref(obj, layer_names, stack_indices) for _, obj in chosen
+        obj if raw else _object_ref(obj, layer_names, stack_indices, canvas_size)
+        for _, obj in chosen
     ]
     return out
 

@@ -248,13 +248,16 @@ def require_reachable_position(
     canvas_width_cm: float,
     canvas_height_cm: float,
 ) -> None:
-    """Refuse a centre far outside the plan, which no GUI gesture could reach.
+    """Refuse a centre absurdly far outside the plan.
 
-    The canvas spans ``(0, 0)`` to ``(width, height)``; we allow one full canvas
-    of slack on every side so an agent can stage an object just off-plan, but
-    refuse coordinates that are effectively unreachable (an object at 1e9 is
-    invisible, unselectable, and un-deletable through the GUI — yet the tool
-    would otherwise report success and echo the coordinates back).
+    This is the gross-input guard only: it rejects a coordinate no GUI gesture
+    could produce (an object at 1e9 is invisible, unselectable, and
+    un-deletable). Positions up to one canvas beyond each edge are accepted
+    HERE, but the caller (``application._do_agent_create_object`` /
+    ``_agent_apply_object_move``) then clamps the object back onto the canvas
+    with ``core.canvas_bounds`` — issue #380. So an accepted-but-outside
+    position is always brought on-plan before the object is committed; it is no
+    longer staged off-plan.
     """
     if not (-canvas_width_cm <= centre_x <= 2 * canvas_width_cm) or not (
         -canvas_height_cm <= centre_y <= 2 * canvas_height_cm
@@ -264,7 +267,7 @@ def require_reachable_position(
             f"to be reachable. This plan's canvas is "
             f"{canvas_width_cm:g} x {canvas_height_cm:g} cm, spanning (0, 0) to "
             f"({canvas_width_cm:g}, {canvas_height_cm:g}); positions up to one "
-            "canvas beyond each edge are accepted."
+            "canvas beyond each edge are accepted and then clamped onto the canvas."
         )
 
 

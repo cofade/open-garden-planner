@@ -1515,6 +1515,7 @@ class CanvasView(QGraphicsView):
         Args:
             items: The items to constrain.
         """
+        from open_garden_planner.core.canvas_bounds import clamp_shift_within_canvas
         from open_garden_planner.ui.canvas.items import BackgroundImageItem
 
         # Filter out background images — they should move freely beyond the canvas
@@ -1523,22 +1524,11 @@ class CanvasView(QGraphicsView):
             return
 
         canvas = self._canvas_scene.canvas_rect
-        combined = clampable[0].sceneBoundingRect()
-        for item in clampable[1:]:
-            combined = combined.united(item.sceneBoundingRect())
-
-        dx = 0.0
-        dy = 0.0
-
-        if combined.left() < canvas.left():
-            dx = canvas.left() - combined.left()
-        elif combined.right() > canvas.right():
-            dx = canvas.right() - combined.right()
-
-        if combined.top() < canvas.top():
-            dy = canvas.top() - combined.top()
-        elif combined.bottom() > canvas.bottom():
-            dy = canvas.bottom() - combined.bottom()
+        rects = [
+            (r.left(), r.top(), r.right(), r.bottom())
+            for r in (item.sceneBoundingRect() for item in clampable)
+        ]
+        dx, dy = clamp_shift_within_canvas(rects, canvas.width(), canvas.height())
 
         if dx != 0 or dy != 0:
             for item in items:
@@ -1558,6 +1548,7 @@ class CanvasView(QGraphicsView):
         Returns:
             A clamped delta that keeps all items within the canvas boundary.
         """
+        from open_garden_planner.core.canvas_bounds import clamp_delta_within_canvas
         from open_garden_planner.ui.canvas.items import BackgroundImageItem
 
         clampable = [i for i in items if not isinstance(i, BackgroundImageItem)]
@@ -1565,28 +1556,13 @@ class CanvasView(QGraphicsView):
             return delta
 
         canvas = self._canvas_scene.canvas_rect
-
-        # Compute combined bounding rect of clampable items
-        combined = clampable[0].sceneBoundingRect()
-        for item in clampable[1:]:
-            combined = combined.united(item.sceneBoundingRect())
-
-        # Predict where the rect would end up
-        moved = combined.translated(delta)
-
-        dx = delta.x()
-        dy = delta.y()
-
-        if moved.left() < canvas.left():
-            dx = canvas.left() - combined.left()
-        elif moved.right() > canvas.right():
-            dx = canvas.right() - combined.right()
-
-        if moved.top() < canvas.top():
-            dy = canvas.top() - combined.top()
-        elif moved.bottom() > canvas.bottom():
-            dy = canvas.bottom() - combined.bottom()
-
+        rects = [
+            (r.left(), r.top(), r.right(), r.bottom())
+            for r in (item.sceneBoundingRect() for item in clampable)
+        ]
+        dx, dy = clamp_delta_within_canvas(
+            rects, delta.x(), delta.y(), canvas.width(), canvas.height()
+        )
         return QPointF(dx, dy)
 
     def snap_point(self, point: QPointF) -> QPointF:

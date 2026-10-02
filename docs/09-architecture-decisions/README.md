@@ -1149,6 +1149,41 @@ No `FILE_VERSION` change: succession plans already serialise under the additive 
 
 Recording this rather than quietly writing a second family-cooldown implementation is the point: the alternative was a plausible-looking `check_plant_placement` call that would have silently passed every test while excluding almost nothing.
 
+### ADR-036 addendum: agent writes ARE canvas-clamped — an off-plan staging capability is retired (issue #380)
+
+**Status**: Accepted (2026-10-02) | The agent write path now clamps to the canvas, joining the GUI, and the earlier "stage an object just off-plan" design is deliberately retired.
+
+**The asymmetry and why it was wrong.** The GUI clamps an object to the plan canvas — which spans `(0, 0)` to `(width, height)` in scene cm — in five places: interactive drag (`canvas_view._clamp_dragged_items_to_canvas`), arrow-key nudge (`_clamp_delta_to_canvas`), the properties panel's numeric X/Y, the mirror tool, and the resize handle. The agent path clamped nothing: `agent_api/creates.require_reachable_position` allowed **one full canvas of slack on every side**, and its docstring recorded the reason — so "an agent can stage an object just off-plan". Loose input beyond that (an object at `1e9`) was refused because it is invisible, unselectable and un-deletable through the GUI.
+
+Two things made the original rationale untenable. First, the same slack applied to `move_object` and `set_object_position`, because all the clamping lives in the Qt view layer and `core/commands.py` contains none of it — so tightening only `create_object`, as the issue first framed it, would have missed the movement half entirely. Second, **nothing brings a stranded object back**: the GUI clamp touches only the items being moved, so an off-plan object is not pulled in by moving some other object, and there is no reconcile-on-load sweep. "Stage off-plan" therefore meant "hide it where the user cannot find it".
+
+**Decision — option (c): clamp, and make the capability that remains discoverable.**
+
+1. **One clamp rule, in one place.** New Qt-free `core/canvas_bounds.py` holds `clamp_shift_within_canvas`, `clamp_delta_within_canvas` and `rect_intersects_canvas` over plain `(left, top, right, bottom)` tuples. The GUI's `_clamp_items_to_canvas`/`_clamp_delta_to_canvas` were rewritten to call it, and the agent create/move paths call it too. This is the repo's standing "one canonical path, never a second one" rule: a second copy of the edge-selection rule would drift, and nothing would tell us when one stopped matching the other. A parity test drives a real `CanvasView._clamp_items_to_canvas` and asserts it produces the same shift as the shared function for the same rect.
+2. **`create_object` clamps the whole creation group.** A HOUSE and its derived ROOF_RIDGE shift together, so they cannot be clamped apart. The clamp is applied in `application._do_agent_create_object` — not in `creates.py`, which stays Qt-free — where the live bounding rects exist.
+3. **`move_object`/`set_object_position` clamp the moved group** — the item plus any contained plants it carries — in `_agent_apply_object_move`, so a move that would strand an object is trimmed to the canvas edge. `BackgroundImageItem` is exempt, matching the GUI (a background image is meant to extend past the plot).
+4. **The gross-input guard stays.** `require_reachable_position` still refuses absurd coordinates and still leaves the scene **and** the undo stack untouched; it is now documented as the refuse-absurd guard, no longer as a staging allowance.
+5. **A pre-existing off-plan object is made discoverable**, which neither clamping nor documentation can do on its own: `ObjectRef`/`ObjectDetail` gain `outside_canvas` (bounding-box based — true only when the box does not intersect the canvas at all; an empty canvas never flags, so a degenerate plan does not light up), and `get_diagnostics` gains an `outside_canvas` kind, produced by the existing `ProjectManager.diagnostics_snapshot` harvest rather than a new producer.
+
+**Vertex writes are deliberately out of scope.** `set_vertex`/`add_vertex`/`delete_vertex` (D2.6) can also move geometry off-plan, and they are not among the GUI's five clamp sites. They are covered by the `outside_canvas` flag only. Widening the clamp to them would be new behaviour with no GUI precedent, so it is recorded here rather than done.
+
+**Consequences.** FR-AGENT-26 records the contract; §11.4 records the reversal; the two existing unit tests that pinned the old "staging slack is reachable" reading were rewritten to pin the new one (accepted by the gross guard, then clamped by the caller). Every clamped write remains exactly one undo step, which the integration suite asserts over the real MCP transport.
+
+### ADR-036 addendum: the rotation panel shows a succession plan as PLANNED, never as history (issue #378)
+
+**Status**: Accepted (2026-10-02) | `CropRotationPanel` gains a display-only "Planned This Season" section; `CropRotationService` is untouched.
+
+**The visible disagreement.** A bed can carry a succession plan (several planned crop slots in one season) and show a succession badge on the canvas, while the crop rotation panel beside it reports "no planting history — every crop is suitable" and the bed's rotation indicator stays unset. The two features are independent by construction: `ProjectData.succession_plans` is what is *planned*, `ProjectData.crop_rotation` is what was *grown*, and only the Crop Rotation panel's "Add Planting Record…" button writes the latter. Nothing is broken — but an agent that has just been told, by `suggest_succession`, to exclude a crop for rotation reasons gives an answer the panel next to it cannot explain, which is the least useful place to stop.
+
+The issue listed three options. **Option 1 is taken**: the panel reads the plan directly and shows it as a separate, clearly-labelled section, with each planned crop's botanical family and an explicit note that these are planned, not history. When a plan exists and no history does, the recommendation text names the gap — "the rotation advice cannot see this bed's planned crops" — instead of a bare "every crop is suitable".
+
+**Option 2 is rejected, and the rejection is the load-bearing part.** Feeding the plan into `CropRotationService.get_recommendation` (or `check_plant_placement`) would change the **3-year cross-year cooldown semantics for every caller**, because the service would begin treating planned crops as grown ones. That is a silent behaviour change to a shared service to fix a display problem. The plan therefore never enters the service, and a test asserts `get_recommendation` returns identical `status`/`suggested_demand`/`avoid_families` before and after a plan is present.
+
+**The panel refreshes from the existing signal.** It connects to `ProjectManager.succession_plans_changed` — the same signal the canvas badge chain already uses — rather than polling or duplicating a refresh call, so a plan set through the GUI dialog or an agent's `set_succession_plan` updates the section live. An unresolvable `species_key` (e.g. an API-imported species with no bundled record) still lists its row with "family unknown" rather than being dropped.
+
+**Consequences.** FR and §8 docs updated; the ADR-036 US-D3.2 addendum's `suggest_succession` exclusions are now explainable from the GUI, which satisfies the stronger branch of the issue's acceptance criteria. No `FILE_VERSION` change.
+
+
 ## ADR-045: Compatible-set search — maximal cliques, ranked by bed coverage (issue #319, US-D3.1)
 
 **Problem.** Permapeople's "companion plant combinations" page computes mutually compatible 3/4/5-plant sets from a companion graph. Exposing that to OGP needs two decisions the D3.1 issue body left open: which graph algorithm, and what "compatible set for THIS bed" means when the bed already contains plants.

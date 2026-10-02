@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsLineItem
 from open_garden_planner.core.object_types import ObjectType
 
 from .base_tool import BaseTool, ToolType
+from .preview_z import PREVIEW_Z_FILL, PREVIEW_Z_LINE
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -89,6 +90,7 @@ class CircleTool(BaseTool):
                 QPen(QColor(0, 100, 255), 1, Qt.PenStyle.DashLine)
             )
             self._preview_circle.setBrush(QBrush(QColor(100, 100, 255, 50)))
+            self._preview_circle.setZValue(PREVIEW_Z_FILL)
             self._view.scene().addItem(self._preview_circle)
 
             # Create preview line from center to rim
@@ -96,6 +98,7 @@ class CircleTool(BaseTool):
             self._preview_line.setPen(
                 QPen(QColor(100, 100, 100), 1, Qt.PenStyle.DashLine)
             )
+            self._preview_line.setZValue(PREVIEW_Z_LINE)
             self._view.scene().addItem(self._preview_line)
 
             return True
@@ -233,11 +236,13 @@ class CircleTool(BaseTool):
                 QPen(QColor(0, 100, 255), 1, Qt.PenStyle.DashLine)
             )
             self._preview_circle.setBrush(QBrush(QColor(100, 100, 255, 50)))
+            self._preview_circle.setZValue(PREVIEW_Z_FILL)
             self._view.scene().addItem(self._preview_circle)
             self._preview_line = QGraphicsLineItem()
             self._preview_line.setPen(
                 QPen(QColor(100, 100, 100), 1, Qt.PenStyle.DashLine)
             )
+            self._preview_line.setZValue(PREVIEW_Z_LINE)
             self._view.scene().addItem(self._preview_line)
             return True
         self._finalize_circle(QPointF(point))

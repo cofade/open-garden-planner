@@ -109,6 +109,17 @@ class CropRotationPanel(QWidget):
     def set_project_manager(self, pm: Any) -> None:
         """Attach the project manager for saving rotation records."""
         self._project_manager = pm
+        # A succession plan can change while the panel is open (the GUI plan
+        # dialog, or an agent's set_succession_plan). Re-render on that signal so
+        # the "Planned This Season" section never shows stale data (issue #378).
+        changed = getattr(pm, "succession_plans_changed", None)
+        if changed is not None and hasattr(changed, "connect"):
+            changed.connect(self._on_succession_plans_changed)
+
+    def _on_succession_plans_changed(self, _plans: object = None) -> None:
+        """Re-render the current bed when its succession plan changes."""
+        if self._current_area_id is not None:
+            self.update_for_bed(self._cached_item, self._current_area_id)
 
     def apply_theme_colors(self, _colors: dict[str, str]) -> None:
         """Re-render on theme switch — the status colors are palette-driven."""
@@ -133,11 +144,13 @@ class CropRotationPanel(QWidget):
             self._add_record_btn.setEnabled(False)
             self._edit_record_btn.setEnabled(False)
             self._delete_record_btn.setEnabled(False)
+            self._hide_succession_plan()
             return
 
         self._add_record_btn.setEnabled(True)
         rec = self._service.get_recommendation(area_id)
         self._display_recommendation(rec, item)
+        self._display_succession_plan(area_id)
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -193,6 +206,29 @@ class CropRotationPanel(QWidget):
         self._history_list.setMaximumHeight(140)
         self._history_list.setAlternatingRowColors(True)
         layout.addWidget(self._history_list)
+
+        # Succession plan ("planned this season") — display-only, NOT history.
+        # Kept visually and semantically separate from the rotation history
+        # above: it is what is *planned*, not what was *grown* (issue #378).
+        self._plan_header = QLabel(self.tr("Planned This Season"))
+        set_text_role(self._plan_header, "h2")
+        self._plan_header.setStyleSheet("margin-top: 6px;")
+        layout.addWidget(self._plan_header)
+
+        self._plan_note = QLabel(
+            self.tr(
+                "Planned crops are not planting history and do not affect the "
+                "rotation advice above."
+            )
+        )
+        self._plan_note.setWordWrap(True)
+        set_text_role(self._plan_note, color_role="text_disabled")
+        self._plan_note.setStyleSheet("font-size: 10px; font-style: italic;")
+        layout.addWidget(self._plan_note)
+
+        self._plan_list = QListWidget()
+        self._plan_list.setMaximumHeight(120)
+        layout.addWidget(self._plan_list)
 
         # Buttons: add / edit / delete
         btn_layout = QHBoxLayout()
@@ -252,8 +288,20 @@ class CropRotationPanel(QWidget):
             f"font-weight: bold; color: {color}; font-size: 12px;"
         )
 
-        # Recommendation reason (translate known service strings)
-        self._recommendation_label.setText(self._translate_reason(rec.reason))
+        # Recommendation reason (translate known service strings). When there is
+        # no history but a succession plan exists, replace the bare
+        # "every crop is suitable" wording with an unambiguous statement: the
+        # advice cannot see the plan (issue #378). The plain reason stays when
+        # no plan exists (regression).
+        if rec.status is RotationStatus.UNKNOWN and self._has_succession_plan():
+            self._recommendation_label.setText(
+                self.tr(
+                    "No planting history yet, so the rotation advice cannot see "
+                    "this bed's planned crops. See the succession plan below."
+                )
+            )
+        else:
+            self._recommendation_label.setText(self._translate_reason(rec.reason))
 
         # Suggested demand
         demand_text = _demand_label(rec.suggested_demand)
@@ -306,6 +354,94 @@ class CropRotationPanel(QWidget):
         )
         self._edit_record_btn.setEnabled(has_record)
         self._delete_record_btn.setEnabled(has_record)
+
+    # ------------------------------------------------------------------
+    # Succession plan section (issue #378) — display-only, never history
+    # ------------------------------------------------------------------
+
+    def _hide_succession_plan(self) -> None:
+        """Hide the succession-plan section."""
+        self._plan_list.clear()
+        self._plan_header.hide()
+        self._plan_note.hide()
+        self._plan_list.hide()
+
+    def _has_succession_plan(self) -> bool:
+        """True when the current bed carries a succession plan."""
+        pm = self._project_manager
+        if pm is None or self._current_area_id is None:
+            return False
+        plans = getattr(pm, "succession_plans", None)
+        if not isinstance(plans, dict):
+            return False
+        return bool(plans.get(self._current_area_id))
+
+    def _display_succession_plan(self, area_id: str) -> None:
+        """Show the bed's succession plan as 'planned this season', not history.
+
+        Reads ``ProjectManager.succession_plans`` directly. It deliberately does
+        NOT feed the plan into :class:`CropRotationService`: succession slots are
+        *planned*, not *grown*, and counting them as history would change the
+        service's cross-year cooldown semantics for every caller (issue #378
+        option 2, rejected — see the ADR).
+        """
+        pm = self._project_manager
+        plans = getattr(pm, "succession_plans", None) if pm is not None else None
+        raw = plans.get(area_id) if isinstance(plans, dict) else None
+        if not raw:
+            self._hide_succession_plan()
+            return
+
+        from open_garden_planner.models.succession import SuccessionPlan
+
+        try:
+            plan = SuccessionPlan.from_dict(raw)
+        except (AttributeError, TypeError, ValueError):
+            self._hide_succession_plan()
+            return
+
+        self._plan_list.clear()
+        for entry in plan.entries_sorted():
+            label = entry.common_name or entry.scientific_name or entry.species_key
+            family = self._resolve_family(entry.species_key, entry.scientific_name)
+            text = f"{label} \u2014 {family}" if family else self.tr(
+                "{name} \u2014 family unknown"
+            ).replace("{name}", label)
+            item = QListWidgetItem(text)
+            item.setFlags(Qt.ItemFlag.NoItemFlags)
+            self._plan_list.addItem(item)
+
+        if self._plan_list.count() == 0:
+            placeholder = QListWidgetItem(self.tr("(plan has no crop slots)"))
+            placeholder.setFlags(Qt.ItemFlag.NoItemFlags)
+            placeholder.setForeground(self.palette().placeholderText())
+            self._plan_list.addItem(placeholder)
+
+        self._plan_header.show()
+        self._plan_note.show()
+        self._plan_list.show()
+
+    @staticmethod
+    def _resolve_family(species_key: str, scientific_name: str) -> str:
+        """Botanical family for a succession entry, or '' when unresolvable.
+
+        The bundled DB is the only family source available to the panel; an
+        API-imported species has no bundled record, so it degrades to '' and the
+        row says "family unknown" rather than being dropped.
+        """
+        from open_garden_planner.services.bundled_species_db import (
+            get_species_entry,
+            lookup_species,
+        )
+
+        record = None
+        if species_key:
+            record = lookup_species(species_key)
+        if record is None and scientific_name:
+            record = get_species_entry(scientific_name)
+        if record is None:
+            return ""
+        return str(record.get("family", "") or "")
 
     def _on_add_record(self) -> None:
         """Open a dialog to add a planting record for the current bed."""

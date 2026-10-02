@@ -201,6 +201,79 @@ class TestStackIndex:
         assert detail.stack_index == 1
 
 
+class TestOutsideCanvas:
+    """issue #380: ObjectRef.outside_canvas flags a fully off-plan object."""
+
+    def test_in_plan_objects_are_false(self) -> None:
+        out = queries.list_objects(_snapshot())
+        assert all(o.outside_canvas is False for o in out)
+
+    def test_off_plan_object_is_true(self) -> None:
+        snapshot = _snapshot()
+        snapshot["objects"].append(
+            {
+                "type": "rectangle",
+                "item_id": "stranded1",
+                "x": -500.0,
+                "y": -500.0,
+                "width": 100.0,
+                "height": 50.0,
+                "object_type": "RAISED_BED",
+            }
+        )
+        by_id = {o.item_id: o.outside_canvas for o in queries.list_objects(snapshot)}
+        assert by_id["stranded1"] is True
+        assert by_id["bed1"] is False
+
+    def test_get_object_reports_the_flag(self) -> None:
+        snapshot = _snapshot()
+        snapshot["objects"].append(
+            {
+                "type": "circle",
+                "item_id": "stranded2",
+                "center_x": 5000.0,
+                "center_y": 5000.0,
+                "radius": 10.0,
+                "object_type": "TREE",
+            }
+        )
+        detail = queries.get_object(snapshot, "stranded2")
+        assert isinstance(detail, ObjectDetail)
+        assert detail.outside_canvas is True
+
+    def test_zero_size_canvas_never_flags(self) -> None:
+        snapshot = _snapshot()
+        snapshot["canvas"] = {"width": 0.0, "height": 0.0}
+        snapshot["objects"].append(
+            {
+                "type": "rectangle",
+                "item_id": "anywhere",
+                "x": 9000.0,
+                "y": 9000.0,
+                "width": 10.0,
+                "height": 10.0,
+            }
+        )
+        by_id = {o.item_id: o.outside_canvas for o in queries.list_objects(snapshot)}
+        assert by_id["anywhere"] is False
+
+    def test_spatial_queries_also_carry_the_flag(self) -> None:
+        snapshot = _snapshot()
+        snapshot["objects"].append(
+            {
+                "type": "rectangle",
+                "item_id": "stranded3",
+                "x": -300.0,
+                "y": -300.0,
+                "width": 100.0,
+                "height": 50.0,
+            }
+        )
+        out = queries.objects_in_region(snapshot, -400.0, -400.0, 250.0, 250.0)
+        by_id = {o.item_id: o.outside_canvas for o in out}
+        assert by_id["stranded3"] is True
+
+
 class TestGetObject:
     def test_curated_detail(self) -> None:
         detail = queries.get_object(_snapshot(), "p1")

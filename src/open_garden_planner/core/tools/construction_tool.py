@@ -13,6 +13,7 @@ from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QMouseEvent, QPen
 from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsLineItem
 
 from .base_tool import BaseTool, ToolType
+from .preview_z import PREVIEW_Z_LINE
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -56,6 +57,7 @@ class ConstructionLineTool(BaseTool):
             )
             pen = QPen(_PREVIEW_COLOR, 1.2, Qt.PenStyle.DashLine)
             self._preview.setPen(pen)
+            self._preview.setZValue(PREVIEW_Z_LINE)
             self._view.scene().addItem(self._preview)
         else:
             # Second click: finalize the line
@@ -94,6 +96,7 @@ class ConstructionLineTool(BaseTool):
             self._start = QPointF(point)
             self._preview = QGraphicsLineItem(QLineF(self._start, self._start))
             self._preview.setPen(QPen(_PREVIEW_COLOR, 1.2, Qt.PenStyle.DashLine))
+            self._preview.setZValue(PREVIEW_Z_LINE)
             self._view.scene().addItem(self._preview)
             return True
         self._finish(QPointF(point))
@@ -149,6 +152,7 @@ class ConstructionCircleTool(BaseTool):
             pen = QPen(_PREVIEW_COLOR, 1.2, Qt.PenStyle.DashLine)
             self._preview.setPen(pen)
             self._preview.setBrush(QBrush(Qt.BrushStyle.NoBrush))
+            self._preview.setZValue(PREVIEW_Z_LINE)
             self._view.scene().addItem(self._preview)
         else:
             self._finish(snapped)
@@ -193,6 +197,7 @@ class ConstructionCircleTool(BaseTool):
             self._preview = QGraphicsEllipseItem(point.x(), point.y(), 0, 0)
             self._preview.setPen(QPen(_PREVIEW_COLOR, 1.2, Qt.PenStyle.DashLine))
             self._preview.setBrush(QBrush(Qt.BrushStyle.NoBrush))
+            self._preview.setZValue(PREVIEW_Z_LINE)
             self._view.scene().addItem(self._preview)
             return True
         self._finish(QPointF(point))

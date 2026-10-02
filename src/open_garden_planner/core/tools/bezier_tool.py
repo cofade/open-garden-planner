@@ -42,6 +42,7 @@ from PyQt6.QtWidgets import (
 )
 
 from .base_tool import BaseTool, ToolType
+from .preview_z import PREVIEW_Z_HANDLE, PREVIEW_Z_LINE
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -185,28 +186,33 @@ class BezierTool(BaseTool):
             self._preview_path = QGraphicsPathItem()
             pen = QPen(_PREVIEW_COLOR, _PREVIEW_WIDTH, Qt.PenStyle.DashLine)
             self._preview_path.setPen(pen)
+            self._preview_path.setZValue(PREVIEW_Z_LINE)
             self._view.scene().addItem(self._preview_path)
         if self._handle_line_out is None:
             self._handle_line_out = QGraphicsLineItem()
             self._handle_line_out.setPen(
                 QPen(_HANDLE_LINE_COLOR, 0.8, Qt.PenStyle.DotLine)
             )
+            self._handle_line_out.setZValue(PREVIEW_Z_LINE)
             self._view.scene().addItem(self._handle_line_out)
         if self._handle_line_in is None:
             self._handle_line_in = QGraphicsLineItem()
             self._handle_line_in.setPen(
                 QPen(_HANDLE_LINE_COLOR, 0.8, Qt.PenStyle.DotLine)
             )
+            self._handle_line_in.setZValue(PREVIEW_Z_LINE)
             self._view.scene().addItem(self._handle_line_in)
         if self._handle_dot_out is None:
             self._handle_dot_out = QGraphicsEllipseItem()
             self._handle_dot_out.setBrush(QBrush(_HANDLE_LINE_COLOR))
             self._handle_dot_out.setPen(QPen(Qt.PenStyle.NoPen))
+            self._handle_dot_out.setZValue(PREVIEW_Z_HANDLE)
             self._view.scene().addItem(self._handle_dot_out)
         if self._handle_dot_in is None:
             self._handle_dot_in = QGraphicsEllipseItem()
             self._handle_dot_in.setBrush(QBrush(_HANDLE_LINE_COLOR))
             self._handle_dot_in.setPen(QPen(Qt.PenStyle.NoPen))
+            self._handle_dot_in.setZValue(PREVIEW_Z_HANDLE)
             self._view.scene().addItem(self._handle_dot_in)
 
     def _refresh_preview(self, cursor: QPointF) -> None:

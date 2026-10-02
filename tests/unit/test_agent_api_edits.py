@@ -265,7 +265,14 @@ class TestScenePointValidation:
                 canvas_height_cm=1500.0,
             )
 
-    def test_one_canvas_of_staging_slack_is_reachable(self) -> None:
+    def test_one_canvas_of_slack_is_still_accepted_by_the_gross_guard(self) -> None:
+        """The reachability guard accepts slack; the CALLER clamps it (#380).
+
+        The gross-input guard is not the clamp. A point up to one canvas beyond
+        an edge is accepted here; ``application._agent_apply_object_move`` then
+        clamps the object back onto the canvas. The clamp itself is tested in
+        ``test_canvas_bounds.py`` and the agent integration suite.
+        """
         assert validate_scene_point(
             -2000.0,
             3000.0,

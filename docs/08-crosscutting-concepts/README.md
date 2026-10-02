@@ -1557,6 +1557,30 @@ save/load, render, and delete through the existing paths. The benchmark
 hardening for #354 is documented in FR-SNAP-06 and ADR-020: one warm-up plus
 five samples, with median build/query limits calibrated for shared runners.
 
+**Canvas clamping (issue #380).** Agent writes are clamped to the plan canvas,
+joining the GUI, and the earlier "stage an object just off-plan" allowance is
+retired. The rule lives once, Qt-free, in `core/canvas_bounds.py`
+(`clamp_shift_within_canvas`, `clamp_delta_within_canvas`,
+`rect_intersects_canvas` over `(left, top, right, bottom)` tuples). The GUI's
+`CanvasView._clamp_items_to_canvas` / `_clamp_delta_to_canvas` call it, and so do
+`GardenPlannerApp._clamp_agent_items_to_canvas` (creation) and
+`_agent_apply_object_move` (move / absolute position). It is applied in the
+application layer, where live bounding rects exist — `agent_api/creates.py` stays
+further Qt-free. `create_object` shifts the whole creation group (a HOUSE and its
+linked ridge together); a move clamps the item plus any plants it carries, so an
+offset that would strand the group is trimmed to the edge. `BackgroundImageItem`
+is exempt, matching the GUI. `require_reachable_position` remains only as the
+refuse-absurd gross guard and still leaves the scene and undo stack untouched on
+refusal. An object already saved off-plan by an older build — which clamping
+cannot recover, because the GUI clamp touches only the items being moved — is
+made discoverable instead: `ObjectRef`/`ObjectDetail` carry `outside_canvas`
+(bounding-box based; an empty canvas never flags) and `get_diagnostics` gains an
+`outside_canvas` kind, harvested by the existing
+`ProjectManager.diagnostics_snapshot`. `set_vertex`/`add_vertex`/`delete_vertex`
+are **not** clamped (they are outside the GUI's five clamp sites) and are covered
+by the flag only — a deliberate scope boundary recorded in the ADR-036
+addendum.
+
 **Domain-intelligence tools (US-D3.1 #319, US-D3.2 #331).** D3 wrapped domain engines
 that already existed and were already Qt-free, and made them reachable. Both slices
 add one Qt-free module, `agent_api/domain.py`, holding the pure functions; the
@@ -2184,6 +2208,7 @@ Every fixed-z overlay in the app, low to high, alongside the per-layer band
 | **Per-layer document items** | `layer.z_order * 100 + (0, 100)` (open interval) | Every ordinary document item, per-object stacking order within its layer (8.25.2) — this is the band #338 subdivides |
 | Dimension/constraint lines | `900` (line/witness), `901` (label/handle, `DIMENSION_LINE_Z + 1`) | `dimension_lines.py` |
 | Tool overlay highlights | `999` (corner-edit/trim highlight), `1000` (measure-tool line, on-top ellipse), `1003` (constraint-tool selected marker) | `core/tools/*` in-progress-gesture previews |
+| **Shape-tool preview band** | `999` (fill), `1000` (line/path), `1001` (label), `1002` (vertex/handle) — `core/tools/preview_z.py` | The in-progress preview of every shape tool (`circle`, `rectangle`, `ellipse`, `polygon`, `polyline`, `arc`, `bezier`, `mirror`, `callout`, `select`, `construction`). Issue #377: these previously had **no** z-value and drew behind any bed they overlapped. Every value MUST stay below the minimap cutoff below. |
 | Transient previews | `9999` | Offset-tool preview path, paste/duplicate drag preview |
 | Soil health badge | `10002` | `SoilBadgeItem` (always on top of its bed) |
 | Minimap overlay-hide cutoff | `10000` (`minimap_widget._OVERLAY_Z_MIN`) | Threshold above which the minimap thumbnail hides an item as a screen-space overlay (§8.9.5) — a named constant, not a bare `100` (see the corrected note in §8.9.5) |

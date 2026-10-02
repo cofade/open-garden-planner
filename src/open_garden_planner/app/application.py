@@ -631,6 +631,14 @@ class GardenPlannerApp(QMainWindow):
             linked_items.append(ridge)
 
         items = [item, *linked_items]
+        # Clamp the whole creation group onto the canvas (issue #380). The GUI
+        # clamps every object it draws; before this an agent could create one
+        # entirely off-plan and it became invisible and unselectable. `creates`
+        # stays Qt-free — the clamp is applied here, where the live bounding
+        # rects are available, and uses the same shared math the GUI drag path
+        # does (core/canvas_bounds).
+        self._clamp_agent_items_to_canvas(items)
+
         if linked_items:
             create_cmd = CreateItemsCommand(self.canvas_scene, items, "objects")
         else:
@@ -774,6 +782,35 @@ class GardenPlannerApp(QMainWindow):
             item_deltas=item_deltas,
         )
 
+    def _clamp_agent_items_to_canvas(self, items: list[Any]) -> None:
+        """Shift a group of newly created items so it lies inside the canvas.
+
+        The agent counterpart of ``CanvasView._clamp_items_to_canvas`` (issue
+        #380), using the same shared math so the two cannot drift. Background
+        images are exempt, matching the GUI. A no-op when everything is already
+        inside.
+        """
+        from open_garden_planner.core.canvas_bounds import clamp_shift_within_canvas
+        from open_garden_planner.ui.canvas.items import BackgroundImageItem
+
+        clampable = [i for i in items if not isinstance(i, BackgroundImageItem)]
+        if not clampable:
+            return
+        canvas = self.canvas_scene.canvas_rect
+        rects = [
+            (
+                bounded.sceneBoundingRect().left(),
+                bounded.sceneBoundingRect().top(),
+                bounded.sceneBoundingRect().right(),
+                bounded.sceneBoundingRect().bottom(),
+            )
+            for bounded in clampable
+        ]
+        dx, dy = clamp_shift_within_canvas(rects, canvas.width(), canvas.height())
+        if dx != 0 or dy != 0:
+            for bounded in clampable:
+                bounded.moveBy(dx, dy)
+
     def _agent_preflight_object_move(
         self,
         item_deltas: list[tuple[Any, Any]],
@@ -817,6 +854,41 @@ class GardenPlannerApp(QMainWindow):
             self._agent_preflight_object_move(
                 item_deltas, item_id, constraint_tool_name
             )
+
+        # Clamp the move so the whole group stays on the canvas (issue #380) —
+        # the GUI clamps drags and nudges; the agent path did not, so it could
+        # push an object entirely off-plan in one call. Shared math with the GUI
+        # (core/canvas_bounds). Background images are exempt, as in the GUI.
+        from PyQt6.QtCore import QPointF as _QPointF
+
+        from open_garden_planner.core.canvas_bounds import clamp_delta_within_canvas
+        from open_garden_planner.ui.canvas.items import BackgroundImageItem
+
+        canvas = self.canvas_scene.canvas_rect
+        clampable_rects = [
+            (
+                moved_item.sceneBoundingRect().left(),
+                moved_item.sceneBoundingRect().top(),
+                moved_item.sceneBoundingRect().right(),
+                moved_item.sceneBoundingRect().bottom(),
+            )
+            for moved_item, _ in item_deltas
+            if not isinstance(moved_item, BackgroundImageItem)
+        ]
+        clamped_dx, clamped_dy = clamp_delta_within_canvas(
+            clampable_rects,
+            delta.x(),
+            delta.y(),
+            canvas.width(),
+            canvas.height(),
+        )
+        if clamped_dx != delta.x() or clamped_dy != delta.y():
+            item_deltas = [
+                (moved_item, _QPointF(clamped_dx, clamped_dy))
+                for moved_item, _ in item_deltas
+            ]
+            delta = _QPointF(clamped_dx, clamped_dy)
+
         if len(item_deltas) == 1:
             move_cmd = MoveItemsCommand([item], delta)
         else:

@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import QGraphicsRectItem
 from open_garden_planner.core.object_types import ObjectType
 
 from .base_tool import BaseTool, ToolType
+from .preview_z import PREVIEW_Z_FILL
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -71,6 +72,7 @@ class RectangleTool(BaseTool):
         self._preview_item = QGraphicsRectItem()
         self._preview_item.setPen(QPen(QColor(0, 100, 255), 1, Qt.PenStyle.DashLine))
         self._preview_item.setBrush(QBrush(QColor(100, 100, 255, 50)))
+        self._preview_item.setZValue(PREVIEW_Z_FILL)
         self._view.scene().addItem(self._preview_item)
 
         return True
@@ -150,6 +152,7 @@ class RectangleTool(BaseTool):
                 QPen(QColor(0, 100, 255), 1, Qt.PenStyle.DashLine)
             )
             self._preview_item.setBrush(QBrush(QColor(100, 100, 255, 50)))
+            self._preview_item.setZValue(PREVIEW_Z_FILL)
             self._view.scene().addItem(self._preview_item)
             return True
         start = self._start_point

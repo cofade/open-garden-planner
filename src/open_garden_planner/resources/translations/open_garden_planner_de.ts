@@ -1579,6 +1579,26 @@ Verwenden Sie das Randbedingungen-Werkzeug (K), um eine hinzuzufügen.</translat
             <source>Winter</source>
             <translation type="vanished">Winter</translation>
         </message>
+        <message>
+            <source>Planned This Season</source>
+            <translation>Geplant für diese Saison</translation>
+        </message>
+        <message>
+            <source>Planned crops are not planting history and do not affect the rotation advice above.</source>
+            <translation>Geplante Kulturen sind keine Pflanzhistorie und beeinflussen die Fruchtfolge-Empfehlung oben nicht.</translation>
+        </message>
+        <message>
+            <source>(plan has no crop slots)</source>
+            <translation>(Plan enthält keine Kulturposten)</translation>
+        </message>
+        <message>
+            <source>{name} — family unknown</source>
+            <translation>{name} — Familie unbekannt</translation>
+        </message>
+        <message>
+            <source>No planting history yet, so the rotation advice cannot see this bed's planned crops. See the succession plan below.</source>
+            <translation>Noch keine Pflanzhistorie, daher kann die Fruchtfolge-Empfehlung die geplanten Kulturen dieses Beets nicht berücksichtigen. Siehe den Anbaufolge-Plan unten.</translation>
+        </message>
     </context>
     <context>
         <name>CustomPlantsDialog</name>

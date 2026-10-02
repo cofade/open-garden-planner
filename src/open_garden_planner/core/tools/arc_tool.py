@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import QGraphicsLineItem, QGraphicsPathItem
 from open_garden_planner.core.cad_geometry import arc_from_three_points, arc_to_painter_path
 
 from .base_tool import BaseTool, ToolType
+from .preview_z import PREVIEW_Z_LINE
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -143,6 +144,7 @@ class ArcTool(BaseTool):
         self._preview_line = QGraphicsLineItem()
         pen = QPen(_PREVIEW_COLOR, _PREVIEW_WIDTH, Qt.PenStyle.DashLine)
         self._preview_line.setPen(pen)
+        self._preview_line.setZValue(PREVIEW_Z_LINE)
         self._view.scene().addItem(self._preview_line)
 
     def _update_preview_line(self, cursor: QPointF) -> None:
@@ -158,6 +160,7 @@ class ArcTool(BaseTool):
         self._preview_path = QGraphicsPathItem()
         pen = QPen(_PREVIEW_COLOR, _PREVIEW_WIDTH, Qt.PenStyle.DashLine)
         self._preview_path.setPen(pen)
+        self._preview_path.setZValue(PREVIEW_Z_LINE)
         self._view.scene().addItem(self._preview_path)
         # Re-purpose the straight line as the start→end chord indicator.
         if self._preview_line is not None and self._p1 is not None and self._p2 is not None:

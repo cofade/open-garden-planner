@@ -2008,3 +2008,186 @@ def test_unauthenticated_layer_tools_are_rejected(canvas: Any, qtbot: Any) -> No
     assert rect.layer_id == scene.active_layer.id
     assert rect.isVisible()
     assert view.command_manager.can_undo is False
+
+
+def test_create_object_is_clamped_to_the_canvas(canvas: Any, qtbot: Any) -> None:
+    """issue #380: an off-plan create is clamped on-plan instead of stranded."""
+    from uuid import UUID
+
+    view = canvas
+    scene = view.scene()
+    canvas_rect = scene.canvas_rect
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            call = await session.call_tool(
+                "create_object",
+                {
+                    "object_type": "RAISED_BED",
+                    "x": -400.0,
+                    "y": -400.0,
+                    "width": 200.0,
+                    "height": 100.0,
+                },
+            )
+            body.result = call.structuredContent  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    created = body.result  # type: ignore[attr-defined]
+    item = scene.find_item_by_id(UUID(created["item_id"]))
+    assert item is not None
+    rect = item.sceneBoundingRect()
+    # The whole object lies inside the canvas after the clamp.
+    assert rect.left() >= canvas_rect.left() - 0.01
+    assert rect.top() >= canvas_rect.top() - 0.01
+    assert rect.right() <= canvas_rect.right() + 0.01
+    assert rect.bottom() <= canvas_rect.bottom() + 0.01
+    # The returned position reflects the clamped object.
+    assert created["x"] > 0
+
+    # One undoable step.
+    assert view.command_manager.can_undo
+    view.command_manager.undo()
+    assert scene.find_item_by_id(UUID(created["item_id"])) is None
+
+
+def test_move_object_is_clamped_to_the_canvas(canvas: Any, qtbot: Any) -> None:
+    """issue #380: a move that would strand an object is trimmed to the edge."""
+    view = canvas
+    scene = view.scene()
+    circle = CircleItem(200, 200, 30, object_type=ObjectType.TREE)
+    scene.addItem(circle)
+    item_id = str(circle.item_id)
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            # A huge negative offset would put the plant far off-plan.
+            call = await session.call_tool(
+                "move_object", {"item_id": item_id, "dx": -5000.0, "dy": -5000.0}
+            )
+            body.result = call.structuredContent  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    rect = circle.sceneBoundingRect()
+    canvas_rect = scene.canvas_rect
+    assert rect.left() >= canvas_rect.left() - 0.01
+    assert rect.top() >= canvas_rect.top() - 0.01
+    # Exactly one undo step (no reparent happened).
+    moved = body.result  # type: ignore[attr-defined]
+    assert moved["bed_membership_changed"] is False
+    assert view.command_manager.can_undo
+    view.command_manager.undo()
+
+
+def test_off_plan_object_is_flagged_and_diagnosed(canvas: Any, qtbot: Any) -> None:
+    """issue #380: a legacy off-plan object is discoverable, not invisible."""
+    view = canvas
+    scene = view.scene()
+    # A pre-existing object placed entirely off-plan (e.g. from an older file).
+    stranded = CircleItem(-500, -500, 30, object_type=ObjectType.TREE)
+    scene.addItem(stranded)
+    stranded_id = str(stranded.item_id)
+
+    server = AgentApiServer(_providers(view), port=_free_port())
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        async with (
+            http_client(url) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            listed = await session.call_tool("list_objects", {})
+            body.refs = listed.structuredContent["result"]  # type: ignore[attr-defined]
+            diags = await session.call_tool(
+                "get_diagnostics", {"kind": "outside_canvas"}
+            )
+            body.diags = diags.structuredContent["result"]  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    flagged = {o["item_id"]: o["outside_canvas"] for o in body.refs}  # type: ignore[attr-defined]
+    assert flagged[stranded_id] is True
+    diags = body.diags  # type: ignore[attr-defined]
+    entries = diags if isinstance(diags, list) else (diags.get("diagnostics") or [])
+    kinds = [d["kind"] for d in entries if isinstance(d, dict)]
+    assert "outside_canvas" in kinds
+
+
+def test_absurd_position_is_still_refused(canvas: Any, qtbot: Any) -> None:
+    """issue #380: clamping keeps the gross-input guard — 1e9 is refused."""
+    from uuid import UUID
+
+    view = canvas
+    scene = view.scene()
+    before = len([i for i in scene.items() if i.parentItem() is None])
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            call = await session.call_tool(
+                "create_object",
+                {
+                    "object_type": "RAISED_BED",
+                    "x": 1e9,
+                    "y": 1e9,
+                    "width": 200.0,
+                    "height": 100.0,
+                },
+            )
+            body.result = call  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.result.isError  # type: ignore[attr-defined]
+    after = len([i for i in scene.items() if i.parentItem() is None])
+    assert after == before
+    assert view.command_manager.can_undo is False
+

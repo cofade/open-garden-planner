@@ -150,6 +150,14 @@ class ObjectRef(BaseModel):
         "is excluded from arranging entirely and always refuses the tool "
         "call.",
     )
+    outside_canvas: bool = Field(
+        default=False,
+        description="True when the object's bounding box does not overlap the "
+        "canvas at all — it is fully off-plan and therefore invisible and "
+        "unselectable in the app. Computed from the bounding box, so a very "
+        "large rotation is not expanded into the check. Use move_object or "
+        "set_object_position to bring such an object back on-plan.",
+    )
 
 
 class ObjectDetail(ObjectRef):

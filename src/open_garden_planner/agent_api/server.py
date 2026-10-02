@@ -55,6 +55,7 @@ direct: a plain ``str`` return is wrapped as
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import contextvars
 import logging
 import secrets
@@ -970,6 +971,10 @@ def build_server(
             read without converting anything. The canvas is CAD Y-up: a larger
             y is further NORTH.
 
+            The object is CLAMPED to the canvas: a centre outside the canvas is
+            shifted back so the whole object lies inside. An object cannot be
+            created fully off-plan (where it would be invisible).
+
             A new plant is stamped with today's planting date (which drives the
             growth, shadow and sun-hours views) and, when 'species' matches the
             bundled species database, is auto-populated with that species' data.
@@ -1053,6 +1058,10 @@ def build_server(
             it becomes two only when reparenting happens (see the result's
             children_moved/bed_membership_changed/new_parent_bed_id).
 
+            The move is CLAMPED to the canvas: an offset that would push the
+            object (or a plant it carries) fully off-plan is trimmed so the
+            object stays at the canvas edge instead.
+
             Fails if the object (or a plant it contains) participates in a
             geometric constraint. This refusal is permanent for one-shot agent
             moves: call get_geometry on the blocking object to inspect the
@@ -1093,6 +1102,9 @@ def build_server(
             permanently refuses constrained geometry rather than silently
             skipping the GUI's multi-item live solver. It also refuses group
             members, journal pins, and objects on locked layers.
+
+            The resulting position is CLAMPED to the canvas, so the object
+            cannot be placed fully off-plan.
 
             Args:
                 item_id: Stable UUID from list_objects/get_object.
@@ -1918,6 +1930,7 @@ class AgentApiServer:
         self._writes_enabled = writes_enabled
         self._thread: threading.Thread | None = None
         self._server: uvicorn.Server | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
         self._lock = threading.Lock()
 
     @property
@@ -2022,12 +2035,25 @@ class AgentApiServer:
         logger.warning("Agent API server did not report ready within %.0fs",
                        _READY_TIMEOUT_S)
 
-    @staticmethod
-    def _run(server: uvicorn.Server) -> None:
+    def _run(self, server: uvicorn.Server) -> None:
+        """Own the server's event loop on this background thread.
+
+        The loop handle is stored on ``self`` so :meth:`stop` can reach across
+        the thread boundary (``call_soon_threadsafe``) to unwind it — see the
+        shutdown fix in :meth:`stop` (issue #373).
+        """
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
+        self._loop = loop
         try:
             loop.run_until_complete(server.serve())
+        except RuntimeError as exc:
+            # A deliberate stop() calls loop.stop(), which makes
+            # run_until_complete raise "Event loop stopped before Future
+            # completed". That is the expected shutdown path (#373), not a crash,
+            # so it must not be logged as one.
+            if "Event loop stopped" not in str(exc):
+                logger.exception("Agent API server crashed")
         except Exception:  # noqa: BLE001 - log and let the thread end
             logger.exception("Agent API server crashed")
         finally:
@@ -2042,6 +2068,21 @@ class AgentApiServer:
                 )
             loop.close()
 
+    def _cancel_loop_tasks(self) -> None:
+        """Cancel every task on the server loop and ask it to stop.
+
+        Runs ON the loop thread (via ``call_soon_threadsafe``). Cancelling the
+        outstanding MCP session / SSE / lifespan tasks is what lets
+        ``run_until_complete(server.serve())`` return, so the thread can be
+        joined promptly even while a client holds the SSE stream open (#373).
+        """
+        loop = self._loop
+        if loop is None:
+            return
+        for task in asyncio.all_tasks(loop):
+            task.cancel()
+        loop.stop()
+
     def stop(self, timeout: float = _STOP_TIMEOUT_S) -> None:
         """Stop the server (idempotent), joining the background thread.
 
@@ -2050,12 +2091,30 @@ class AgentApiServer:
         crash later, somewhere unrelated, during Qt teardown. So a join that
         expires gets a second bounded chance, and surviving THAT is an ERROR
         rather than a warning — a leak nobody can see is a leak nobody fixes.
+
+        An MCP client holding the SSE stream open used to defeat that: uvicorn's
+        graceful shutdown waits for open connections, which such a client never
+        closes, so ``serve()`` never returned and both joins expired (measured
+        2026-10-02: 10.0 s with a client streaming, 0.19 s without — issue #373).
+        Cancelling the loop's tasks and stopping the loop directly unwinds it
+        promptly; a dropped client stream at shutdown is the correct outcome.
         """
         with self._lock:
             server = self._server
             thread = self._thread
+            loop = self._loop
             if server is not None:
                 server.should_exit = True
+                # force_exit skips uvicorn's connection drain. Measured alone it
+                # did NOT fix #373 (the MCP session/SSE tasks keep the loop
+                # alive past it), but it is still set so uvicorn does not begin a
+                # graceful wait before our cancellation lands.
+                if getattr(server, "force_exit", None) is not None:
+                    server.force_exit = True
+            if loop is not None and not loop.is_closed():
+                with contextlib.suppress(RuntimeError):
+                    # Loop closed between the check and the call — nothing to do.
+                    loop.call_soon_threadsafe(self._cancel_loop_tasks)
             if thread is not None:
                 thread.join(timeout=timeout)
                 if thread.is_alive():
@@ -2076,3 +2135,6 @@ class AgentApiServer:
                     )
             self._thread = None
             self._server = None
+            self._loop = None
+
+
