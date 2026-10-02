@@ -2171,6 +2171,54 @@ def test_move_fully_clamped_away_is_refused_without_an_undo_step(
     ), "a fully-clamped-away move must not push an undo step"
 
 
+def test_zero_delta_move_is_still_allowed(canvas: Any, qtbot: Any) -> None:
+    """A requested delta of exactly zero is a legal no-op, not a refusal.
+
+    It is the documented way a caller re-reads an object's current centre (and
+    an existing badge test relies on it). The clamp-erased refusal must fire only
+    when the REQUEST was non-zero, or this call breaks (issue #380 review fix:
+    the first version of that guard was too broad and did exactly that).
+    """
+    view = canvas
+    scene = view.scene()
+    canvas_rect = scene.canvas_rect
+    # Place it flush at the top edge, where a clamp would erase any upward move.
+    circle = CircleItem(
+        canvas_rect.width() / 2.0, 30.0, 30.0, object_type=ObjectType.TREE
+    )
+    scene.addItem(circle)
+    item_id = str(circle.item_id)
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            call = await session.call_tool(
+                "move_object", {"item_id": item_id, "dx": 0.0, "dy": 0.0}
+            )
+            body.refused = call.isError  # type: ignore[attr-defined]
+            body.result = call.structuredContent  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.refused is False  # type: ignore[attr-defined]
+    # Reported centre is the read-layer centre, as before.
+    assert body.result["item_id"] == item_id  # type: ignore[attr-defined]
+
+
+
 
 def test_off_plan_object_is_flagged_and_diagnosed(canvas: Any, qtbot: Any) -> None:
     """issue #380: a legacy off-plan object is discoverable, not invisible."""
