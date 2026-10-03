@@ -1,0 +1,82 @@
+# TEMPORARY — ADR-047 / Phase 17 Package L0 evidence. DELETE BEFORE MERGE.
+#
+# Builds the frozen Windows exe and runs the dormant Qt Quick 3D spike inside
+# it (the decisive packaging gate, ADR-047 criterion 1) on windows-latest —
+# a GPU-less runner, so Qt picks Direct3D 11 on the Microsoft Basic Render
+# Driver (WARP class). fps numbers here are NOT the owner-GPU numbers; the
+# owner runs the same command on real hardware. Triggered on push to the spike
+# branch because workflow_dispatch only works for workflows on the default
+# branch.
+name: Spike Q3D (temporary)
+
+on:
+  push:
+    branches: [claude/upbeat-keller-jig1p6]
+    paths:
+      - "src/open_garden_planner/spike_q3d/**"
+      - "src/open_garden_planner/main.py"
+      - "installer/ogp.spec"
+      - ".github/workflows/spike-q3d.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frozen-render:
+    name: Frozen exe renders the Qt Quick 3D spike
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install pyinstaller
+
+      - name: Build frozen exe
+        run: python -m PyInstaller installer/ogp.spec --noconfirm
+
+      - name: Measure dist footprint
+        shell: pwsh
+        run: |
+          $dist = "dist/OpenGardenPlanner"
+          $total = (Get-ChildItem $dist -Recurse -File | Measure-Object Length -Sum).Sum / 1MB
+          $q3d = (Get-ChildItem $dist -Recurse -File | Where-Object { $_.FullName -match 'Quick3D|ShaderTools' } | Measure-Object Length -Sum).Sum / 1MB
+          $qt3d = (Get-ChildItem $dist -Recurse -File | Where-Object { $_.Name -match '^Qt63D' } | Measure-Object Length -Sum).Sum / 1MB
+          "dist_total_mb=$([math]::Round($total,1))" | Tee-Object -FilePath footprint.txt
+          "quick3d_and_shadertools_mb=$([math]::Round($q3d,1))" | Tee-Object -FilePath footprint.txt -Append
+          "qt3d_dlls_mb=$([math]::Round($qt3d,1))" | Tee-Object -FilePath footprint.txt -Append
+
+      - name: Selftest (unchanged release gate)
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist/OpenGardenPlanner/OpenGardenPlanner.exe -ArgumentList "--selftest" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Write-Error "selftest exit $($p.ExitCode)"; exit 1 }
+
+      - name: Frozen spike render
+        shell: pwsh
+        run: |
+          $argv = @("--spike-q3d", "--plan", "tests/fixtures/plans/bench_small.ogp",
+                    "--out", "spike-out", "--presets", "low,high", "--shots", "golden_hour,noon,walk",
+                    "--fps-seconds", "3", "--iou", "--orient")
+          $p = Start-Process -FilePath dist/OpenGardenPlanner/OpenGardenPlanner.exe -ArgumentList $argv -Wait -PassThru
+          Write-Host "spike exit=$($p.ExitCode)"
+          if (Test-Path spike-out/metrics.json) { Get-Content spike-out/metrics.json }
+          if ($p.ExitCode -ne 0) { exit 1 }
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spike-q3d-windows-evidence
+          path: |
+            spike-out/
+            footprint.txt
