@@ -458,7 +458,8 @@ shutdown waits for open connections, which such a client never closes, so
 requires a concurrent peer will not be found by a single-threaded test of the
 happy path.** Pinned by `tests/integration/test_agent_api_shutdown.py`, which
 opens a real SSE stream, holds it, and asserts `stop()` returns in under 4 s with
-no WARNING/ERROR. Recorded because the fix is counter-intuitive: uvicorn's
+no "did not stop"/"STILL RUNNING" record (and, for the no-client stop, no record at
+ERROR level from *any* logger). Recorded because the fix is counter-intuitive: uvicorn's
 `force_exit` alone **does not** work here (measured — the MCP session/SSE tasks
 keep the loop alive past it); the reliable fix is to cancel the loop's tasks and
 stop the loop directly. **The test itself then taught a second lesson.** Its
@@ -471,6 +472,22 @@ The fix uses a 4 s limit that cleanly separates the ~0.6 s healthy path from the
 a global `threading.enumerate()` scan (which a leak in any other test could
 fail). A flaky test is worse than a missing one: it trains the reader to rerun
 instead of investigate.
+
+**3a. A fix that is right for the pathological case can be wrong for the common
+one (#373 review).** The first #373 fix cancelled every task on every `stop()`.
+That cured the 10 s hang, but it also cancelled uvicorn's *lifespan* task before
+its graceful shutdown could run, so **every** close — including the no-client one
+that was already fast and clean on master — now logged a `CancelledError`
+traceback at ERROR on the very console #373 was filed from. The test asserted two
+log substrings, so it stayed green and the doc claimed "no WARNING/ERROR". `stop()`
+now **escalates**: `should_exit` first (~0.2 s, quiet), then — only if the thread
+outlasts `_GRACEFUL_STOP_S` (1 s) — force-exit, cancel the loop's tasks and stop
+the loop. A flag set by `stop()` (not CPython's "Event loop stopped" message text)
+tells `_run` that the resulting `RuntimeError` is deliberate. The forced path
+with a client streaming still logs the cancelled request/lifespan tracebacks —
+dropping a live stream is abnormal, and that is honest noise. **Lesson: when a
+fix changes the common path to cure the rare one, assert the common path stayed
+as quiet as before — against every logger, not the two strings you remember.**
 
 **3b. A review fix can itself regress, and only the full suite caught it.** The
 senior review found a real P1: a move the clamp erased entirely still pushed a

@@ -8,8 +8,13 @@ un-deletable through the GUI (issue #380).
 
 Rather than add a sixth copy of the rule, this module holds it once, Qt-free,
 over plain tuples. ``CanvasView._clamp_items_to_canvas`` /
-``_clamp_delta_to_canvas`` call it, and so does the agent write path — so the two
-cannot drift.
+``_clamp_delta_to_canvas`` call it, and so does the agent write path — so those
+paths cannot drift from each other. The properties panel's numeric X/Y, the
+mirror tool and the resize handle still carry their own copies and have not been
+migrated yet.
+
+The canvas is assumed to span ``(0, 0)`` to ``(width, height)`` (it is, by
+construction: ``CanvasScene.canvas_rect``); callers pass only the size.
 
 A rect is ``(left, top, right, bottom)`` in scene cm. A canvas spans
 ``(0, 0)`` to ``(width, height)``.
@@ -115,4 +120,6 @@ def rect_intersects_canvas(
     if canvas_width <= 0 or canvas_height <= 0:
         return True
     left, top, right, bottom = rect
-    return not (right <= 0.0 or left >= canvas_width or bottom <= 0.0 or top >= canvas_height)
+    # Inclusive: a box that merely touches the canvas edge (a zero-width fence
+    # drawn along x=0 with grid snap) is visible, so it is not off-plan.
+    return not (right < 0.0 or left > canvas_width or bottom < 0.0 or top > canvas_height)

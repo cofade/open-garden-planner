@@ -114,7 +114,7 @@ def test_stop_without_a_client_is_prompt(caplog: Any) -> None:
     server = AgentApiServer(_providers(), port=_free_port())
     server.start()
     try:
-        with caplog.at_level(logging.WARNING, logger="open_garden_planner.agent_api.server"):
+        with caplog.at_level(logging.WARNING):
             started = time.monotonic()
             server.stop()
             elapsed = time.monotonic() - started
@@ -124,6 +124,15 @@ def test_stop_without_a_client_is_prompt(caplog: Any) -> None:
         )
         assert "did not stop within" not in caplog.text
         assert "STILL RUNNING" not in caplog.text
+        # A graceful close must be QUIET. Cancelling uvicorn's lifespan task
+        # unconditionally logged a CancelledError traceback at ERROR on every
+        # stop (senior review, PR #381) — the very console surface #373 was
+        # filed from — so assert on ANY logger, not two substrings.
+        noisy = [r for r in caplog.records if r.levelno >= logging.ERROR]
+        assert not noisy, (
+            "a graceful stop() logged at ERROR: "
+            + "; ".join(f"{r.name}: {r.getMessage()[:80]}" for r in noisy)
+        )
     finally:
         server.stop()
     _assert_own_server_thread_stopped(server)

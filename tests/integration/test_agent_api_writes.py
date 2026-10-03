@@ -2300,3 +2300,80 @@ def test_absurd_position_is_still_refused(canvas: Any, qtbot: Any) -> None:
     assert after == before
     assert view.command_manager.can_undo is False
 
+
+
+def test_clamped_house_create_and_position_are_one_undo_step_each(
+    canvas: Any, qtbot: Any
+) -> None:
+    """issue #380 review: pin undo depth for the group (HOUSE + ridge) and absolute paths.
+
+    The earlier clamp tests only asserted ``can_undo``; a clamp that split the
+    HOUSE and its ridge into two steps, or a ``set_object_position`` that pushed
+    an extra step, would have passed them.
+    """
+    from uuid import UUID
+
+    view = canvas
+    scene = view.scene()
+    canvas_rect = scene.canvas_rect
+    depth0 = view.command_manager.undo_depth
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            house = await session.call_tool(
+                "create_object",
+                {
+                    "object_type": "HOUSE",
+                    "points": [[-500, -500], [-100, -500], [-100, -300], [-500, -300]],
+                },
+            )
+            body.house = house.structuredContent  # type: ignore[attr-defined]
+            history = await session.call_tool("get_history", {})
+            body.depth_after_create = history.structuredContent["undo_depth"]  # type: ignore[attr-defined]
+            circle = await session.call_tool(
+                "create_object",
+                {"object_type": "TREE", "x": 300.0, "y": 300.0, "radius": 30.0},
+            )
+            body.circle = circle.structuredContent  # type: ignore[attr-defined]
+            moved = await session.call_tool(
+                "set_object_position",
+                {"item_id": body.circle["item_id"], "x": -3000.0, "y": -2000.0},  # type: ignore[attr-defined]
+            )
+            body.position_refused = moved.isError  # type: ignore[attr-defined]
+            history = await session.call_tool("get_history", {})
+            body.depth_after_position = history.structuredContent["undo_depth"]  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.position_refused is False  # type: ignore[attr-defined]
+    # HOUSE + its ridge are ONE step; the tree create is one; the position is one.
+    assert body.depth_after_create == depth0 + 1  # type: ignore[attr-defined]
+    assert body.depth_after_position == depth0 + 3  # type: ignore[attr-defined]
+
+    house = scene.find_item_by_id(UUID(body.house["item_id"]))  # type: ignore[attr-defined]
+    assert house is not None
+    for item in scene.items():
+        if item.parentItem() is None and item.sceneBoundingRect().width() < 1e6:
+            if getattr(item, "item_id", None) is None:
+                continue
+            rect = item.sceneBoundingRect()
+            assert rect.left() >= canvas_rect.left() - 0.01
+            assert rect.top() >= canvas_rect.top() - 0.01
+    tree = scene.find_item_by_id(UUID(body.circle["item_id"]))  # type: ignore[attr-defined]
+    assert tree is not None
+    assert tree.sceneBoundingRect().left() >= canvas_rect.left() - 0.01
+    assert tree.sceneBoundingRect().top() >= canvas_rect.top() - 0.01

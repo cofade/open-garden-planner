@@ -103,6 +103,19 @@ class TestRectIntersectsCanvas:
     def test_fully_below_is_outside(self) -> None:
         assert not rect_intersects_canvas((100, 900, 200, 1000), W, H)
 
+    @pytest.mark.parametrize(
+        "rect",
+        [
+            (0, 100, 0, 500),  # zero-width line on the left edge
+            (100, 0, 500, 0),  # zero-height line on the top edge
+            (W, 100, W, 500),  # zero-width line on the right edge
+            (100, H, 500, H),  # zero-height line on the bottom edge
+            (-50, 100, 0, 200),  # box abutting the left edge
+        ],
+    )
+    def test_edge_touching_box_is_on_the_canvas(self, rect: tuple) -> None:
+        assert rect_intersects_canvas(rect, W, H)
+
     @pytest.mark.parametrize("cw,ch", [(0.0, 800.0), (1000.0, 0.0)])
     def test_degenerate_canvas_never_flags(self, cw: float, ch: float) -> None:
         assert rect_intersects_canvas((5000, 5000, 5100, 5100), cw, ch)

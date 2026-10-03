@@ -292,7 +292,7 @@ class Diagnostic(BaseModel):
 
     kind: str = Field(
         description="One of: 'companion_conflict', 'spacing_overlap', 'soil_mismatch', "
-        "'capacity_overrun', 'crop_rotation'.",
+        "'capacity_overrun', 'crop_rotation', 'outside_canvas'.",
     )
     severity: str = Field(description="'info', 'warning', or 'critical'.")
     item_ids: list[str] = Field(

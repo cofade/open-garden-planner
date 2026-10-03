@@ -1559,7 +1559,7 @@ five samples, with median build/query limits calibrated for shared runners.
 
 **Canvas clamping (issue #380).** Agent writes are clamped to the plan canvas,
 joining the GUI, and the earlier "stage an object just off-plan" allowance is
-retired. The rule lives once, Qt-free, in `core/canvas_bounds.py`
+retired. The rule lives once for the canvas-view clamp paths and the agent paths (the properties panel's numeric X/Y, the mirror tool and the resize handle still carry their own copies — not yet migrated), Qt-free, in `core/canvas_bounds.py`
 (`clamp_shift_within_canvas`, `clamp_delta_within_canvas`,
 `rect_intersects_canvas` over `(left, top, right, bottom)` tuples). The GUI's
 `CanvasView._clamp_items_to_canvas` / `_clamp_delta_to_canvas` call it, and so do
