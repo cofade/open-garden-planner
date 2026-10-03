@@ -1103,6 +1103,8 @@ bed/plant `ObjectType` name sets, drift-guarded by `tests/unit/test_agent_api_ma
   and the Qt-free `diagnostics.py` maps them to `Diagnostic`. Positive indicators
   (spacing `"ideal"`, rotation `"good"`) are not reported; values reflect the last
   computed badge state (may lag a debounce tick — fine for read-only inspection).
+  The one exception is `outside_canvas` (#380): it is not a badge flag but is
+  computed on every call from each item's live `sceneBoundingRect()`.
 
 **Vision tool (US-D1.3).** `render_canvas_image(x?, y?, width?, height?, layers?,
 image_width_px?)` returns a PNG of the live canvas plus a `RenderMeta` block,

@@ -7,15 +7,17 @@ Symptom: closing the app took ~10 s, with the log
 
 Root cause (measured 2026-10-02): uvicorn's graceful shutdown waits for open
 connections, and an MCP client holding the SSE stream open never closes it, so
-``serve()`` never returned and both joins expired. Cancelling the loop's tasks
-and stopping the loop directly unwinds it. These tests drive the real server
+``serve()`` never returned and both joins expired. ``stop()`` now escalates:
+a graceful ``should_exit`` first, then (after ``_GRACEFUL_STOP_S``) cancelling the
+loop's tasks and stopping the loop. These tests drive the real server
 over the real transport.
 
 **Why the thresholds are not `_STOP_TIMEOUT_S`.** The defect is a 10 s
 shutdown; the fix is sub-second. Asserting ``elapsed < 5.0`` sits exactly on the
 join timeout and flakes under a loaded full-suite run (observed: this file
 passed standalone and in a slice, then failed three tests in an 18-minute run).
-Measured stop times: ~0.5-1.1 s and 10.02 s. ``_PROMPT_SHUTDOWN_MAX_S``
+Measured stop times: ~0.2 s with no client, ~1.3-2.2 s with a client streaming
+(the graceful bound plus the forced unwind), and 10.02 s for the regression. ``_PROMPT_SHUTDOWN_MAX_S``
 therefore sits at 4.0 s — well above the ~1 s a healthy stop takes even on a busy
 machine, and well below the ~10 s a regression costs. A failure names both
 numbers so a genuine regression and a slow runner are distinguishable.
@@ -32,7 +34,8 @@ from typing import Any
 
 from open_garden_planner.agent_api import AgentApiServer, AgentProviders
 
-#: A healthy stop is ~0.5-1.0 s even under load; a #373 regression is ~10 s.
+#: A healthy stop is ~0.2 s idle and ~1.3-2.2 s with a streaming client (the
+#: graceful bound is part of that); a #373 regression is ~10 s.
 #: 4.0 s cleanly separates them without sitting on the 5 s join timeout.
 _PROMPT_SHUTDOWN_MAX_S = 4.0
 
@@ -205,6 +208,9 @@ def test_stop_with_a_streaming_client_is_prompt(caplog: Any) -> None:
         )
         assert "did not stop within" not in caplog.text
         assert "STILL RUNNING" not in caplog.text
+        # The forced path ends run_until_complete with a deliberate RuntimeError;
+        # if the _forced_stop flag stops working it is logged as a crash.
+        assert "crashed" not in caplog.text
     finally:
         release.set()
         holder.join(timeout=3.0)

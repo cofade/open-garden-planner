@@ -484,8 +484,12 @@ now **escalates**: `should_exit` first (~0.2 s, quiet), then — only if the thr
 outlasts `_GRACEFUL_STOP_S` (1 s) — force-exit, cancel the loop's tasks and stop
 the loop. A flag set by `stop()` (not CPython's "Event loop stopped" message text)
 tells `_run` that the resulting `RuntimeError` is deliberate. The forced path
-with a client streaming still logs the cancelled request/lifespan tracebacks —
-dropping a live stream is abnormal, and that is honest noise. **Lesson: when a
+with a client streaming still logs two ERROR tracebacks (the cancelled SSE
+request and uvicorn's lifespan task). **That is a decision, not an oversight:**
+uvicorn logs the lifespan traceback whenever its task is cancelled, and `_run`'s
+`finally` cancels every leftover task anyway, so avoiding it would mean letting
+lifespan shutdown run, which is exactly what a held SSE stream prevents. Dropping
+a live stream is abnormal; the noise is the honest signal. **Lesson: when a
 fix changes the common path to cure the rare one, assert the common path stayed
 as quiet as before — against every logger, not the two strings you remember.**
 
