@@ -1412,3 +1412,42 @@ fail against the unfixed brush assignment. Landscape cases alone would leave the
 `rotate()` sign unpinned — see alternative (b).
 
 **Cross-refs:** §11.4, issue #372, issue #114, ADR-046.
+
+## ADR-047: 3D Renderer — Qt Quick 3D replaces Qt 3D (supersedes ADR-038's engine choice) — GO/NO-GO spike (Phase 17, Package L0)
+
+**Status**: Proposed — spike in progress (Package L0 "Proof of Beauty", 2026-10-03). This entry was committed with its criteria **before** any GO evidence was gathered; the evidence log below is filled in as measured. | **Context**: Owner goal (2026-10-03): make the 3D mode "modern, beautiful, really usable" in a *Lush Cinematic* look, experience + analyze (editing stays 2D), fully procedural models. ADR-038 chose PyQt6-3D (Qt 3D) among PyQt6-3D, PyVista, pyqtgraph.opengl and a 2.5D fallback — **Qt Quick 3D was never evaluated**. Since then: Qt 3D is deprecated since Qt 6.8 and no longer part of official Qt releases (Riverbank still ships PyQt6-3D up to 6.11.0); its forward renderer has no shadow maps, no image-based lighting and no post-processing out of the box (the US-E6 "lighting-only" MVP), and its separately-versioned wheel pair is the #277 failure class. Qt Quick 3D ships **inside the already-pinned wheels** (`PyQt6==6.11.0` provides `QtQuick3D` with `QQuick3DGeometry` + `QQuick3DTextureData`; `PyQt6-Qt6==6.11.0` provides the runtime incl. Helpers/Effects/Particles/AssetUtils QML modules) and offers PBR, IBL, cascaded soft shadows (blue-noise PCF in 6.11), SSAO, `ExtendedSceneEnvironment` (tonemapping, glow, DOF, LUT, fog; SSGI/SSR in 6.11), particles and custom materials. Timebox: 6 working days, hard stop.
+
+**Decision criteria (GO requires all):**
+
+| # | Criterion | GO threshold |
+|---|---|---|
+| 1 | **Packaging (DECISIVE)** | frozen `dist/OpenGardenPlanner.exe` renders production-shaped QML for `tests/fixtures/plans/bench_small.ogp` on the owner's Windows machine (auto-screenshot + clean exit), **and** a selftest render passes on `windows-latest` |
+| 2 | Graphics API coexistence | the active RHI backend is logged (D3D11 vs OpenGL) in the real process (WebEngine imported at startup); the Google-Maps picker still works before and after the 3D view has been shown in the same session |
+| 3 | Embedding | `QQuickWidget` inside the main window keeps 2D canvas pan frame time in Split mode ≤ 1.3× baseline and shows no visible window recreation — otherwise the `QQuickView` container host is chosen (policy outcome, not a kill) |
+| 4 | Frame rate | High ≥ 60 fps on a dedicated GPU, Medium ≥ 30 fps on an integrated GPU (or 1440p on the owner's machine as proxy), 1080p, `bench_small` |
+| 5 | Open time | cold open ≤ 6 s (first ever, shader compile), warm ≤ 2.5 s |
+| 6 | Python geometry path | updating a 100k-vertex `QQuick3DGeometry` ≤ 10 ms on the main thread; creating 1,000 Models ≤ 300 ms; no leak on destroy |
+| 7 | Picking | a QML `pickAt(x, y)` helper resolves 20/20 test clicks to the right item |
+| 8 | Shadow agreement | top-down shadow-map footprint of a box caster vs `core/shadow_geometry` polygon: IoU ≥ 0.85 at 15°/35°/60° sun elevation |
+| 9 | Size | installed size ≤ +60 MB net after trimming unused Quick 3D modules (≤ +150 MB only with explicit owner acceptance) |
+| 10 | Stability | 50 show/hide cycles, 10 project reloads, app close while animating, full pytest run: zero aborts |
+| 11 | Beauty | owner sign-off of the beauty sheet within 2 rounds (independent `ogp-3d-reviewer` verdict attached) |
+| 12 | License | GPL-3.0-compatible, verified from the wheel's LICENSE files and recorded in third-party notices |
+
+**Kill criteria (pre-committed):**
+- **K1** — criterion 1 still fails after one focused day of packaging work → NO-GO.
+- **K2** — criterion 2 can only be satisfied by breaking the map picker → NO-GO.
+- **K3** — Medium < 20 fps on an integrated GPU at render scale 0.75 with shadows on, unless the owner accepts a dedicated-GPU requirement → NO-GO.
+- **K4** — beauty rejected twice → NO-GO.
+- **K5** — a reproducible abort in the stability soak with no root cause by day 6 → NO-GO.
+- **K6** — size above +150 MB without owner acceptance → NO-GO.
+- **Policy outcomes, not kills:** criterion 8 < 0.85 → engine shadows ship as *illustrative* and the analytic 2D shadows are draped onto the 3D ground (mandatory); Linux CI rendering infeasible → render tests run on Windows/dev box only; criterion 3 fails → `QQuickView` host.
+- **NO-GO path:** the engine-agnostic, Qt-free cores (scene contract v2 + diff, built-world and plant-v0 builders) are kept and a Qt 3D sink is written for them (vertex-coloured materials, live sync, no camera reset). No work is thrown away.
+
+**Candidates:** (a) Qt Quick 3D hosted in a `QQuickWidget` inside the main window; (b) Qt Quick 3D in a `QQuickView` + `QWidget.createWindowContainer`; (c) baseline: the shipped Qt 3D view (US-E6/E7) for the before/after beauty comparison.
+
+**Evidence log** (filled in as measured; machine and versions stated per entry):
+
+1. *Linux render feasibility (M10 — not a GO criterion; this one probe ran before the table above was committed, to know whether CI-side evidence was possible at all)*: cloud container, Python 3.11.15, PyQt6 6.11.0 / PyQt6-Qt6 6.11.0, Xvfb + Mesa llvmpipe (LLVM 20.1.2, OpenGL 4.5): a `View3D` with `ExtendedSceneEnvironment`, `ProceduralSkyTextureData` light probe, a shadow-casting `DirectionalLight` and PBR models renders (`GraphicsApi.OpenGL`). Requirements found: `libegl1` (PyQt6's QtQuick3D binding links libEGL), `libxcb-cursor0` (xcb plugin ≥ 6.5); the `offscreen` QPA plugin selects the **software** scene-graph backend, which cannot render 3D — Linux render tests need `xvfb-run` + `QT_QPA_PLATFORM=xcb` + `QSG_RHI_BACKEND=opengl`. Pitfall: calling `QQuick3D.idealSurfaceFormat()` **before** the `QGuiApplication` exists segfaults (PyQt6 6.11, Linux).
+
+**Decision**: pending (owner GO on the L0 evidence draft PR).
