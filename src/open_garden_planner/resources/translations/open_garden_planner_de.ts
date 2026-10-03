@@ -3635,6 +3635,14 @@ Details: {error}</translation>
             <source>Cannot delete the layer because its replacement layer is locked.</source>
             <translation>Die Ebene kann nicht gelöscht werden, weil die Ersetzungsebene gesperrt ist.</translation>
         </message>
+        <message>
+            <source>Remove soil test</source>
+            <translation>Bodenprobe entfernen</translation>
+        </message>
+        <message>
+            <source>Plan-wide default</source>
+            <translation>Gesamter Plan</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>

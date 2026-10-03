@@ -17,6 +17,7 @@ from typing import Any
 import pytest
 
 from open_garden_planner.agent_api.providers import AgentProviders
+from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
 from open_garden_planner.agent_api.server import (
     WriteAuthError,
     _bearer_token_middleware,
@@ -65,6 +66,7 @@ def _stub_providers() -> AgentProviders:
         set_layer_property=_boom,
         undo=_boom,
         redo=_boom,
+        **TASK_SOIL_STUBS,
         get_history=_boom,
         suggest_companions=_boom,
         find_compatible_sets=_boom,
@@ -93,7 +95,7 @@ def test_require_write_auth_rejects_non_ascii_without_raising_typeerror() -> Non
     """secrets.compare_digest raises TypeError on non-ASCII str input; a
     malformed/hostile Authorization header must fail closed as a normal
     WriteAuthError, never propagate an unhandled exception."""
-    _presented_token.set("café")
+    _presented_token.set("cafÃ©")
     with pytest.raises(WriteAuthError):
         _require_write_auth("s3cret")
 
@@ -107,7 +109,7 @@ def test_require_write_auth_rejects_when_no_token_configured() -> None:
 
 #: Every scene-mutating tool, which must ALL sit behind the ADR-036 double gate.
 #: Named explicitly rather than derived, so adding a write tool without adding
-#: it here fails ``test_gate_covers_every_write_tool`` below — the guard exists
+#: it here fails ``test_gate_covers_every_write_tool`` below â€” the guard exists
 #: because the original tests only named move_object/delete_object, so a new
 #: write tool registered outside the gate would have gone unnoticed.
 WRITE_TOOL_NAMES = frozenset(
@@ -124,6 +126,14 @@ WRITE_TOOL_NAMES = frozenset(
         "set_species",
         "set_parent_bed",
         "arrange_object",
+        # US-D3.3 / US-D3.4: manual-task writes and the soil-test write. The
+        # manual-task writes mutate ProjectManager.manual_tasks and the soil
+        # write mutates ProjectManager.soil_tests - stored document state, not
+        # scene state - so they carry the same gate as set_succession_plan.
+        "add_manual_task",
+        "edit_manual_task",
+        "delete_manual_task",
+        "record_soil_test",
         # US-D2.4: layer write tools.
         "set_object_layer",
         "create_layer",
@@ -148,7 +158,7 @@ WRITE_TOOL_NAMES = frozenset(
 
 def test_gate_covers_every_write_tool() -> None:
     """The tools that appear when writes are enabled are EXACTLY the ones this
-    file knows about — so a new write tool must be added to WRITE_TOOL_NAMES,
+    file knows about â€” so a new write tool must be added to WRITE_TOOL_NAMES,
     and one registered outside the ``if writes_active:`` block is caught here."""
     ungated = set(_tool_names(build_server(_stub_providers(), writes_enabled=False)))
     gated = set(
@@ -317,7 +327,7 @@ def test_middleware_leaves_scope_untouched_when_token_in_header() -> None:
 
 def test_middleware_strips_query_token_even_when_header_present() -> None:
     # A query token is stripped from the scope regardless of whether a header is
-    # also present — the secret must never survive downstream.
+    # also present â€” the secret must never survive downstream.
     got = _run_middleware_full(
         [(b"authorization", b"Bearer h")], query_string=b"token=s3cret&keep=1"
     )

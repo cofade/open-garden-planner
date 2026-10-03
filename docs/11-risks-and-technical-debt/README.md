@@ -524,6 +524,89 @@ exercises.** Three of the four were unreachable by any existing test *by
 construction* (empty canvas, single-threaded stop, input-only assertion), and the
 fourth was not a code defect at all.
 
+### 11.4.3 Six defects a single package found, and what each one was really about (US-D3.3 #332 + US-D3.4 #333)
+
+Every one of these was found **while building the tests for this package**, not by
+the tests failing against shipped behaviour — which is the point. In five of six
+cases the code I had just written was confidently wrong, and in the sixth a drift
+guard was too weak to notice. Four are worth reading twice, because the shape
+recurs in this codebase.
+
+**1. `health_level(record, "ca")` silently returns the OVERALL rating.**
+`SoilService.health_level` rates `ph`, `n`, `p`, `k` and `overall` — its
+`ALL_PARAMS` is exactly those five, and an unrecognised parameter **falls through
+to the `overall` branch** rather than raising. My first `SoilStatus` called it for
+all six nutrients, so every bed reported its whole health as calcium's. It reads
+as a plausible number, so no assertion style catches it by accident. Fixed by
+routing only `RATED_PARAMETERS` through the service and making
+`SoilReading.health_level` optional, where `None` means *"no rating exists"* —
+deliberately distinct from `'unknown'`, which means *not tested*. **A fall-through
+default is a silent wrong answer, and a nullable field is the honest way to say
+"this was never computed".**
+
+**2. `TASK_SOURCES` listed two values no generator can emit — and my drift guard
+was too weak to notice.** I took the source names from the issue text, which said
+`soil_amendment` and `soil_mismatch`. Both soil generators actually emit
+`source="soil"`; `task_type` is what distinguishes them. So `TASK_SOURCES` had
+seven entries for six real values, and the guard I wrote first asserted only
+`emitted <= TASK_SOURCES` — a **subset** check, which passes on extra entries. The
+field failure would have been nasty and quiet: `get_tasks(source="soil_mismatch")`
+returns an empty list forever, and `get_tasks(source="soil")` — the value that
+works — is **refused** as unknown. Two lessons: a drift guard must assert
+**equality in both directions**, and a guard that can pass vacuously should assert
+it saw something (`assert task_calls >= 7`), because a guard reading the wrong
+scope reports success forever. The guard is now AST-based over the module, not
+fixture-driven, precisely because four of the seven generators need live inputs a
+bare `PlanState` cannot supply — a fixture roster silently under-reports.
+
+**3. `get_effective_record` applies the hierarchy invisibly, so its answer cannot
+be attributed.** With only a plan-wide soil test recorded, the service returns the
+global record *for a bed* — by design, and correctly for the GUI. An agent handed
+that has no way left to tell it from a real bed reading. `record_source` now
+carries the provenance, and the provider resolves the two histories directly to
+recover it. **A function that returns a value but discards how it got there is
+half an API for a machine consumer.**
+
+**4. Credentials-shaped input needs the *shape* validated, not just the range.**
+`SoilTestRecord` stores the Rapitest kit scale **and** optional lab `*_ppm`
+floats. `40` is a plausible ppm nitrogen reading and an invalid kit level. Worse:
+**nothing in `services/` reads the `*_ppm` fields at all** — `health_level`,
+`calculate_amendments` and the mismatch check all read `*_level`, and no code
+converts between the scales (US-12.10c owns that). So the worst case was not a
+wrong number but a record that reports UNKNOWN health, recommends nothing, finds
+no mismatches — and looks complete to the caller. The tool now refuses ppm by
+name and takes kit-only parameters whose *names state the scale*. Related: the
+ranges are **per-nutrient** (`k_level` is `1–4`; the kit has no K0; secondaries
+are `0–2`), so one shared range check would have accepted a potassium `0` the
+engine then reads as Deficient-but-measured.
+
+**5. `credits` is a 3-tuple and I unpacked it as a 2-tuple.** `(kind, current,
+target)`, not `(kind, delta)`. A `ValueError` at the first recommendation, caught
+by the field-for-field equality test — which is exactly the test that existed to
+prove the wrapper computes nothing. **An equality test earns its keep on the first
+call, not on the happy path.**
+
+**6. The `app` fixture's modal teardown hung the run.** My tests dirty the plan,
+and pytestqt closes the window in its own teardown, where `closeEvent` raises a
+modal unsaved-changes dialog. Clearing `_dirty` in a fixture finalizer does not
+help: the finalizer can run *after* pytestqt already closed the window. Fixing it
+on the instance (`_confirm_discard_changes = lambda *_: False`) works regardless of
+ordering. **A test that hangs is a test that has told you something about ordering.**
+
+Two smaller notes for the next person. `WriteResult.action` is a `Literal`, so a
+new write action fails at *runtime* with a pydantic error rather than at import —
+the tool is registered, the server starts, and the call fails. And
+`ProjectManager.manual_tasks` stores `ManualTask.to_dict()` values, **not**
+objects, which is easy to assume otherwise and costs an `AttributeError`.
+
+The shared lesson is narrower than §11.4.2's and worth stating separately: **the
+defects in this package were all cases of a plausible-looking value that was not
+the value the engine means.** A fall-through branch, a name copied from prose, a
+hierarchy applied invisibly, a range that looked uniform and is not three times
+over. Each was found by a test that compared against the *engine* rather than
+against an expected literal — and every one of them would have passed a test
+written from the issue text instead.
+
 ## 11.5 Community and Governance
 
 **Feature Requests**: Open to community input, pivots, and voting. The goal is to avoid a dead project — community engagement is welcome.

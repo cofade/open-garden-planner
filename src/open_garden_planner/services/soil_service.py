@@ -101,8 +101,26 @@ _RANK = {
     HealthLevel.POOR: 2,
 }
 
-# Default target on the 0–4 Rapitest scale for Ca/Mg/S secondaries (Medium / Sufficient).
+# Default target on the 0–2 Rapitest scale for Ca/Mg/S secondaries (Medium / Sufficient).
 _SECONDARY_TARGET = 2
+
+# Stable English mismatch reason codes (US-D3.4). Each is the machine contract
+# beside the localised sentence built by `get_mismatch_details`; they are the
+# complete set, and `tests/unit/test_agent_soil_tools.py` drift-guards them so a
+# new reason cannot ship without one.
+MISMATCH_PH_LOW = "ph_low"
+MISMATCH_PH_HIGH = "ph_high"
+MISMATCH_N_HIGH_DEMAND = "n_high_demand"
+MISMATCH_P_HIGH_DEMAND = "p_high_demand"
+MISMATCH_K_HIGH_DEMAND = "k_high_demand"
+
+MISMATCH_REASON_CODES: tuple[str, ...] = (
+    MISMATCH_PH_LOW,
+    MISMATCH_PH_HIGH,
+    MISMATCH_N_HIGH_DEMAND,
+    MISMATCH_P_HIGH_DEMAND,
+    MISMATCH_K_HIGH_DEMAND,
+)
 
 # Smallest pH delta worth correcting — anything below is within measurement noise.
 _PH_EPSILON = 0.1
@@ -524,12 +542,42 @@ class SoilService:
 
         Returns [] when record is None or plant_specs is empty.
         Severity is determined by the caller: 1 entry → amber, ≥2 → red.
+
+        A projection of :meth:`get_mismatch_details` over the display text. Both
+        this signature and both in-app callers are unchanged (US-D3.4) - the
+        codes are the same judgements, not a second implementation of them.
+        """
+        return [
+            (spec, [text for _code, text in reasons])
+            for spec, reasons in SoilService.get_mismatch_details(record, plant_specs)
+        ]
+
+    @staticmethod
+    def get_mismatch_details(
+        record: SoilTestRecord | None,
+        plant_specs: list[PlantSpeciesData],
+    ) -> list[tuple[PlantSpeciesData, list[tuple[str, str]]]]:
+        """Return ``(spec, [(reason_code, display_text)])`` per conflicting plant.
+
+        The single source of the mismatch judgement (US-D3.4). Every reason is
+        built here once and carries a stable English ``reason_code`` beside the
+        localised text, so a machine consumer branches on the code and a human
+        reads the sentence.
+
+        Why the code exists: these strings are built with
+        ``QCoreApplication.translate``, so a German UI produces German prose. The
+        Agent API surface is documented as an English API contract (§8.19 /
+        ADR-034), and returning localised prose through it is precisely the
+        defect the code prevents. Inferring a code from the finished sentence in
+        the agent layer would be a *second* implementation of this judgement -
+        which is how the Tasks tab and the planting calendar came to disagree in
+        #227/#228.
         """
         if record is None:
             return []
-        results: list[tuple[PlantSpeciesData, list[str]]] = []
+        results: list[tuple[PlantSpeciesData, list[tuple[str, str]]]] = []
         for spec in plant_specs:
-            reasons: list[str] = []
+            reasons: list[tuple[str, str]] = []
             name = spec.common_name or spec.scientific_name or QCoreApplication.translate(
                 "SoilService", "Plant"
             )
@@ -544,39 +592,54 @@ class SoilService:
                 # tomato with ph_min=5.8 should warn at pH 5.7, not just 5.4.
                 if record.ph < spec.ph_min - 0.05:
                     reasons.append(
-                        QCoreApplication.translate(
-                            "SoilService",
-                            "{name} needs pH ≥{min:.1f}, current {cur:.1f}",
-                        ).format(name=name, min=spec.ph_min, cur=record.ph)
+                        (
+                            MISMATCH_PH_LOW,
+                            QCoreApplication.translate(
+                                "SoilService",
+                                "{name} needs pH ≥{min:.1f}, current {cur:.1f}",
+                            ).format(name=name, min=spec.ph_min, cur=record.ph),
+                        )
                     )
                 elif record.ph > spec.ph_max + 0.05:
                     reasons.append(
-                        QCoreApplication.translate(
-                            "SoilService",
-                            "{name} needs pH ≤{max:.1f}, current {cur:.1f}",
-                        ).format(name=name, max=spec.ph_max, cur=record.ph)
+                        (
+                            MISMATCH_PH_HIGH,
+                            QCoreApplication.translate(
+                                "SoilService",
+                                "{name} needs pH ≤{max:.1f}, current {cur:.1f}",
+                            ).format(name=name, max=spec.ph_max, cur=record.ph),
+                        )
                     )
             n_d, p_d, k_d = _effective_demand(spec)
             if n_d == "high" and record.n_level is not None and record.n_level < 2:
                 reasons.append(
-                    QCoreApplication.translate(
-                        "SoilService",
-                        "{name} is a heavy N feeder (current level: {lvl})",
-                    ).format(name=name, lvl=record.n_level)
+                    (
+                        MISMATCH_N_HIGH_DEMAND,
+                        QCoreApplication.translate(
+                            "SoilService",
+                            "{name} is a heavy N feeder (current level: {lvl})",
+                        ).format(name=name, lvl=record.n_level),
+                    )
                 )
             if p_d == "high" and record.p_level is not None and record.p_level < 2:
                 reasons.append(
-                    QCoreApplication.translate(
-                        "SoilService",
-                        "{name} is a heavy P feeder (current level: {lvl})",
-                    ).format(name=name, lvl=record.p_level)
+                    (
+                        MISMATCH_P_HIGH_DEMAND,
+                        QCoreApplication.translate(
+                            "SoilService",
+                            "{name} is a heavy P feeder (current level: {lvl})",
+                        ).format(name=name, lvl=record.p_level),
+                    )
                 )
             if k_d == "high" and record.k_level is not None and record.k_level < 2:
                 reasons.append(
-                    QCoreApplication.translate(
-                        "SoilService",
-                        "{name} is a heavy K feeder (current level: {lvl})",
-                    ).format(name=name, lvl=record.k_level)
+                    (
+                        MISMATCH_K_HIGH_DEMAND,
+                        QCoreApplication.translate(
+                            "SoilService",
+                            "{name} is a heavy K feeder (current level: {lvl})",
+                        ).format(name=name, lvl=record.k_level),
+                    )
                 )
             if reasons:
                 results.append((spec, reasons))

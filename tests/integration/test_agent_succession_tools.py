@@ -4,7 +4,7 @@ Boots the Agent API server in-process on an ephemeral port and drives it with
 the real MCP streamable-HTTP client.
 
 The write tool is wired to the REAL ``SetSuccessionPlanCommand`` on a REAL
-``ProjectManager`` and ``CommandManager`` — not a stub. D3.2 is the first agent
+``ProjectManager`` and ``CommandManager`` â€” not a stub. D3.2 is the first agent
 write into ``ProjectData`` rather than the scene graph, so the properties worth
 proving are "exactly one undo step", "the refusal path touches nothing", and
 "undo restores the previous plan exactly". A stubbed provider would pass all
@@ -53,6 +53,9 @@ LOCATION: dict[str, Any] = {
 TODAY = datetime.date(2026, 6, 15)
 
 
+from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
+
+
 def _free_port() -> int:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(("127.0.0.1", 0))
@@ -65,7 +68,7 @@ def _pump(qtbot: Any, coro: Any) -> None:
     """Run `coro` on a worker thread while the Qt loop keeps running.
 
     Required because every provider hops through ``MainThreadBridge.run_on_main``,
-    which blocks until the MAIN thread services the queued call — so the client
+    which blocks until the MAIN thread services the queued call â€” so the client
     cannot share the main thread with the loop pump.
     """
     loop = asyncio.new_event_loop()
@@ -231,6 +234,7 @@ class SuccessionHarness:
             set_layer_property=lambda *a: {},
             undo=lambda: bridge.run_on_main(lambda: {}),
             redo=lambda: bridge.run_on_main(lambda: {}),
+            **TASK_SOIL_STUBS,
             get_history=lambda: bridge.run_on_main(
                 lambda: history_from_command_manager(cm).model_dump()
             ),

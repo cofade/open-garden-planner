@@ -417,6 +417,7 @@ def build_plan_state(
     frost_alerts: list | None = None,
     soil_service: Any | None = None,
     prop_plans: dict[str, PropagationPlan] | None = None,
+    today: datetime.date | None = None,
 ) -> PlanState:
     """Snapshot the live scene + project into a Qt-free :class:`PlanState`.
 
@@ -429,6 +430,16 @@ def build_plan_state(
     per-species propagation plans, gated by the calendar's propagation toggle);
     the Tasks tab passes ``None`` so pricking-out / hardening-off steps stay
     calendar-only.
+
+    ``today`` overrides the reference date (US-D3.3). It defaults to the wall
+    clock, so both GUI callers are unaffected, but a caller that must be
+    reproducible passes it explicitly: every generator and
+    :func:`classify_urgency` already reads ``PlanState.today`` rather than
+    calling ``date.today()`` themselves, so this one parameter is the whole
+    seam. Without it an agent read of "what is due" is untestable (a suite that
+    pins "today" silently rots the day after it is written) and an agent cannot
+    name the date it reasoned about. This mirrors ``_parse_agent_date`` on the
+    application side, which owns parsing and refusal of a malformed value.
     """
     from open_garden_planner.core.object_types import (  # noqa: PLC0415
         get_translated_display_name,
@@ -440,7 +451,7 @@ def build_plan_state(
     )
     from open_garden_planner.models.task import ManualTask  # noqa: PLC0415
 
-    today = datetime.date.today()
+    today = today or datetime.date.today()
     year = today.year
 
     last_frost: datetime.date | None = None

@@ -2,8 +2,8 @@
 
 Boots ``AgentApiServer`` in-process against a real scene (mirroring
 ``test_agent_api_server.py``/``test_agent_api_render.py``'s pattern), drives a
-real MCP client, and verifies the file each tool writes is genuinely valid —
-not just "no exception raised" — by round-tripping it through the same
+real MCP client, and verifies the file each tool writes is genuinely valid â€”
+not just "no exception raised" â€” by round-tripping it through the same
 libraries the GUI's own export tests use (``ezdxf.readfile``, the PDF magic
 header, ``csv.DictReader``).
 """
@@ -39,9 +39,12 @@ from open_garden_planner.services.soil_service import SoilService
 from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
 
 
+from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
+
+
 @pytest.fixture(autouse=True)
 def _redirect_documents_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Never touch the real Documents folder — default-path tests stay hermetic."""
+    """Never touch the real Documents folder â€” default-path tests stay hermetic."""
     monkeypatch.setattr(paths_module, "get_documents_dir", lambda: tmp_path)
 
 
@@ -112,6 +115,7 @@ def _providers(
         set_layer_property=lambda **_kw: _unused("set_layer_property"),
         undo=lambda: _unused("undo"),
         redo=lambda: _unused("redo"),
+        **TASK_SOIL_STUBS,
         get_history=lambda: _unused("get_history"),
         suggest_companions=lambda *_a, **_k: _unused("suggest_companions"),
         find_compatible_sets=lambda *_a, **_k: _unused("find_compatible_sets"),
@@ -171,7 +175,7 @@ def _run(
 ) -> None:
     """Drive ``body`` against ``server`` and block until done, writing into ``result``.
 
-    ``result`` must be the same dict object ``body`` closes over — mutated in
+    ``result`` must be the same dict object ``body`` closes over â€” mutated in
     place, not replaced, so ``body``'s writes and this function's done/error
     bookkeeping land on one shared object.
     """

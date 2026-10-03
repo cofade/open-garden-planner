@@ -429,6 +429,11 @@
     "state": "CLOSED",
     "title": "US-D3.2: Succession tools — get_succession_plan / find_succession_gaps / suggest_succession / set_succession_plan + plan-succession prompt (Package D3, epic #237)"
   },
+  "332": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "US-D3.3: Calendar & task tools — get_tasks / get_task_calendar / manual-task writes + plan-my-week prompt (Package D3, epic #237)"
+  },
   "333": {
     "is_pr": false,
     "state": "OPEN",
@@ -586,7 +591,7 @@
   },
   "373": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "App shutdown waits ~10 seconds for the Agent API server thread"
   },
   "374": {
@@ -596,17 +601,17 @@
   },
   "377": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Plant/shape drag preview is drawn behind beds and objects — invisible until you release"
   },
   "378": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Crop rotation panel ignores an existing succession plan"
   },
   "380": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Agent writes are not canvas-clamped: an object can be created or moved entirely off-plan and becomes invisible"
   }
 }

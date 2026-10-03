@@ -18,7 +18,7 @@ join timeout and flakes under a loaded full-suite run (observed: this file
 passed standalone and in a slice, then failed three tests in an 18-minute run).
 Measured stop times: ~0.2 s with no client, ~1.3-2.2 s with a client streaming
 (the graceful bound plus the forced unwind), and 10.02 s for the regression. ``_PROMPT_SHUTDOWN_MAX_S``
-therefore sits at 4.0 s — well above the ~1 s a healthy stop takes even on a busy
+therefore sits at 4.0 s â€” well above the ~1 s a healthy stop takes even on a busy
 machine, and well below the ~10 s a regression costs. A failure names both
 numbers so a genuine regression and a slow runner are distinguishable.
 """
@@ -39,6 +39,9 @@ from open_garden_planner.agent_api import AgentApiServer, AgentProviders
 #: 4.0 s cleanly separates them without sitting on the 5 s join timeout.
 _PROMPT_SHUTDOWN_MAX_S = 4.0
 
+
+
+from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
 
 
 def _free_port() -> int:
@@ -89,6 +92,7 @@ def _providers() -> AgentProviders:
         set_layer_property=_unused,
         undo=_unused,
         redo=_unused,
+        **TASK_SOIL_STUBS,
         get_history=_unused,
         suggest_companions=_unused,
         find_compatible_sets=_unused,
@@ -98,7 +102,7 @@ def _providers() -> AgentProviders:
 
 
 def _assert_own_server_thread_stopped(server: AgentApiServer) -> None:
-    """The server's OWN thread is gone — not a global scan.
+    """The server's OWN thread is gone â€” not a global scan.
 
     A global ``threading.enumerate()`` scan for ``SERVER_THREAD_NAME`` couples
     this file to every other test that builds a server: a leak elsewhere (the
@@ -129,8 +133,8 @@ def test_stop_without_a_client_is_prompt(caplog: Any) -> None:
         assert "STILL RUNNING" not in caplog.text
         # A graceful close must be QUIET. Cancelling uvicorn's lifespan task
         # unconditionally logged a CancelledError traceback at ERROR on every
-        # stop (senior review, PR #381) — the very console surface #373 was
-        # filed from — so assert on ANY logger, not two substrings.
+        # stop (senior review, PR #381) â€” the very console surface #373 was
+        # filed from â€” so assert on ANY logger, not two substrings.
         noisy = [r for r in caplog.records if r.levelno >= logging.ERROR]
         assert not noisy, (
             "a graceful stop() logged at ERROR: "
@@ -147,7 +151,7 @@ def _wait_for_established_stream(server: AgentApiServer, timeout: float = 10.0) 
     Polling the loop's task list is the real precondition: ``force_exit`` alone
     failed because the MCP *session/SSE tasks* keep the loop alive, so a stream
     that has connected but not yet spawned those tasks would not exercise the
-    defect. A fixed sleep is a race (review P2-6) — a slow machine could reach
+    defect. A fixed sleep is a race (review P2-6) â€” a slow machine could reach
     ``stop()`` before the task existed, making the test pass vacuously.
     """
     deadline = time.monotonic() + timeout
@@ -203,7 +207,7 @@ def test_stop_with_a_streaming_client_is_prompt(caplog: Any) -> None:
             elapsed = time.monotonic() - started
         assert elapsed < _PROMPT_SHUTDOWN_MAX_S, (
             f"stop() took {elapsed:.2f}s with a streaming client (limit "
-            f"{_PROMPT_SHUTDOWN_MAX_S}s) — the #373 slow shutdown has regressed "
+            f"{_PROMPT_SHUTDOWN_MAX_S}s) â€” the #373 slow shutdown has regressed "
             "(a regression costs ~10s)"
         )
         assert "did not stop within" not in caplog.text

@@ -79,6 +79,7 @@ from open_garden_planner.agent_api.mapping import (
 from open_garden_planner.agent_api.providers import AgentProviders
 from open_garden_planner.agent_api.render import DEFAULT_IMAGE_PX
 from open_garden_planner.agent_api.schema import (
+    AmendmentPlanView,
     CompanionSuggestion,
     CompatibleSet,
     Diagnostic,
@@ -87,6 +88,7 @@ from open_garden_planner.agent_api.schema import (
     HistoryResult,
     HistoryState,
     Layer,
+    ManualTaskResult,
     Measurement,
     ObjectDetail,
     ObjectRef,
@@ -94,9 +96,13 @@ from open_garden_planner.agent_api.schema import (
     PlanLifecycleResult,
     PlanSummary,
     RenderMeta,
+    SoilMismatchListView,
+    SoilStatus,
     SuccessionGap,
     SuccessionPlanView,
     SuccessionSuggestion,
+    TaskCalendarView,
+    TaskListView,
     WriteResult,
 )
 from open_garden_planner.services.bundled_species_db import get_species_db
@@ -791,6 +797,233 @@ def build_server(
         return [SuccessionSuggestion(**item) for item in result]
 
     @mcp.tool()
+    async def get_tasks(
+        from_date: str | None = None,
+        to_date: str | None = None,
+        source: str | None = None,
+        bed_id: str | None = None,
+        species_key: str | None = None,
+        include_dismissed: bool = False,
+        today: str | None = None,
+    ) -> TaskListView:
+        """The garden's task calendar for a date window (US-D3.3).
+
+        This is the whole task engine - seven generators over the live plan -
+        reachable for the first time. It answers "what should I do this week?".
+
+        Defaults to today +/- 30 days. Pass `today` to make the answer
+        reproducible: the same inputs always return the same tasks, and an
+        omitted `today` means the real current date.
+
+        Each task carries the generator's own fields PLUS two the engine does not
+        store: `urgency`, computed at render time from the dates and the
+        reference date ('today', 'overdue', 'this_week', 'upcoming', or null when
+        not actionable), and `status`, read from the same store the Tasks tab
+        uses ('open', 'done', 'snoozed', 'dismissed' or 'archived').
+
+        TWO KINDS OF FIELD, and the difference matters:
+
+        * `task_id`, `task_type` and `source` are stable English machine keys and
+          part of this API's contract. Branch on these.
+        * `title` and `notes` are DISPLAY STRINGS in the user's current UI
+          language, because the generators build them through Qt's translation
+          layer. They are NOT part of the English contract. Never parse them,
+          and never match on them — under a German UI they are German.
+
+        `coverage` says what the answer is built on:
+
+        * 'full' - the plan has a location, so frost dates exist and the
+          calendar and propagation tasks were generated.
+        * 'no_frost_dates' - the plan has NO geo-location, so there are no
+          frost dates and NO calendar or propagation tasks exist. Every other
+          task kind (manual, succession, soil, frost) is still returned. This is
+          NOT 'there is nothing to do' — the engine could not compute the
+          planting calendar. Say so rather than reporting an empty week.
+
+        Generated tasks cannot be edited or deleted: they are derived state
+        rebuilt on every call. Use add_manual_task for new work, and tell the
+        user to dismiss or complete a task in the Tasks tab — a status change is
+        not an undoable agent write, so it is deliberately not exposed here.
+
+        Read-only; no token required.
+
+        Args:
+            from_date: ISO window start. Defaults to `today` minus 30 days.
+            to_date: ISO window end. Defaults to `today` plus 30 days.
+            source: Keep only this source: 'calendar', 'propagation',
+                'succession', 'soil_amendment', 'soil_mismatch', 'frost' or
+                'manual'. An unknown value is refused, not ignored.
+            bed_id: Keep only tasks linked to this bed.
+            species_key: Keep only tasks for this canonical species key.
+            include_dismissed: Show dismissed tasks, each with its status.
+            today: ISO reference date for urgency and status. Defaults to the
+                real current date.
+        """
+        result = await anyio.to_thread.run_sync(
+            lambda: providers.get_tasks(
+                from_date, to_date, source, bed_id, species_key, include_dismissed, today
+            )
+        )
+        return TaskListView(**result)
+
+    @mcp.tool()
+    async def get_task_calendar(year: int | None = None, today: str | None = None) -> TaskCalendarView:
+        """Month-by-month overview of the task load (US-D3.3).
+
+        Use this first when you want to see how busy the year is before pulling
+        the individual tasks — `get_tasks` for the detail, this for the shape.
+
+        A task is counted in EVERY month its window touches, so a three-week
+        task spanning a month boundary appears in both. `total` therefore counts
+        task-months, not distinct tasks.
+
+        `actionable` counts the tasks whose urgency is not null — the ones worth
+        reading. A task with no urgency is not urgent and is not in that count,
+        but it is still in `total` and in `by_urgency` under 'none'.
+
+        `coverage` carries the same meaning as in `get_tasks`: 'no_frost_dates'
+        means the plan has no location, so no calendar or propagation tasks could
+        be generated. It never means the year is empty.
+
+        As in `get_tasks`, `by_source` and `by_urgency` keys are stable English
+        machine keys.
+
+        Read-only; no token required.
+
+        Args:
+            year: Four-digit year. Defaults to the reference date's year.
+            today: ISO reference date. Defaults to the real current date.
+        """
+        result = await anyio.to_thread.run_sync(
+            lambda: providers.get_task_calendar(year, today)
+        )
+        return TaskCalendarView(**result)
+
+    @mcp.tool()
+    async def get_soil_status(bed_id: str | None = None, today: str | None = None) -> SoilStatus:
+        """One bed's soil readings and what they mean (US-D3.4).
+
+        Answers the question `get_diagnostics` cannot: it tells you a plant
+        disagrees with its soil, and this tells you the actual pH and NPK, how
+        healthy each is, and when the soil was last tested.
+
+        `record_source` says WHICH record answered, and you must relay it:
+
+        * 'bed' - the bed's own most recent test.
+        * 'global' - the PLAN-WIDE default's most recent test, because this bed
+          has none of its own. These readings are a plan-wide assumption, not a
+          measurement of this bed.
+        * 'none' - neither exists; `coverage` is 'no_soil_test'.
+
+        `coverage: 'no_soil_test'` means UNTESTED, never 'the soil is fine'. There
+        is no such thing as a passing grade for a missing test.
+
+        Omit `bed_id` to get every soil-capable bed in the plan.
+
+        `levels` is keyed by the stable nutrient key 'n', 'p', 'k', 'ca', 'mg',
+        's'. Each carries the recorded kit level and its derived `health_level`
+        ('unknown', 'good', 'fair', 'poor'). A null level means not tested, and
+        its health_level is 'unknown' — that is a gap in the data, not a poor
+        reading.
+
+        `overall_health_level` is the WORST non-unknown level across pH and the
+        six nutrients, and 'unknown' only when every input is unknown.
+
+        `is_test_overdue` is the app's own seasonal staleness check. When it is
+        true, say the reading is old rather than recommending against it.
+
+        Read-only; no token required.
+
+        Args:
+            bed_id: Soil-capable bed UUID, or omit for every bed.
+            today: ISO reference date for the overdue check. Defaults to the
+                real current date.
+        """
+        result = await anyio.to_thread.run_sync(
+            lambda: providers.get_soil_status(bed_id, today)
+        )
+        return SoilStatus(**result)
+
+    @mcp.tool()
+    async def recommend_amendments(bed_id: str, today: str | None = None) -> AmendmentPlanView:
+        """What to add to this bed's soil, and how much (US-D3.4).
+
+        The engine the GUI's own recommendation dialog uses, returned in full:
+        for each amendment, its stable id, the amount in grams for THIS bed, the
+        nutrient or property it acts on, and the reading it moves.
+
+        TWO KINDS OF FIELD:
+
+        * `amendment_id`, `target_kind` and `fixes` are stable English machine
+          keys. Branch on these.
+        * `display_name` is a DISPLAY STRING in the user's current UI language.
+          It is NOT part of this API's contract — never match on it.
+
+        `quantity_g` is already scaled to the bed's area, so do not scale it
+        again. A recommendation of 0 g means the engine considered the substance
+        and decided none is needed; it is not a rounding artefact.
+
+        `coverage: 'no_soil_test'` with an empty list means the bed is UNTESTED,
+        not that it needs nothing.
+
+        An empty `recommendations` list with `coverage: 'ok'` is a real answer:
+        every measured value is at or near target. Say that, rather than
+        inventing work.
+
+        Read-only; no token required.
+
+        Args:
+            bed_id: Soil-capable bed UUID.
+            today: ISO reference date. Defaults to the real current date.
+        """
+        result = await anyio.to_thread.run_sync(
+            lambda: providers.recommend_amendments(bed_id, today)
+        )
+        return AmendmentPlanView(**result)
+
+    @mcp.tool()
+    async def get_soil_mismatches(bed_id: str | None = None, today: str | None = None) -> SoilMismatchListView:
+        """Which plants in a bed disagree with its soil, and on what (US-D3.4).
+
+        `get_diagnostics` already reports a soil-mismatch FLAG per plant; this
+        returns the plants and the numbers behind those flags. The two agree by
+        construction — if they ever disagree, that is a bug worth reporting.
+
+        `reason_codes` are stable English machine keys, and they are what you
+        should reason with:
+
+            'ph_low' / 'ph_high'      the soil's pH is outside the plant's range
+            'n_high_demand'           the plant is a heavy N feeder and N is low
+            'p_high_demand'           the plant is a heavy P feeder and P is low
+            'k_high_demand'           the plant is a heavy K feeder and K is low
+
+        `reasons` holds the matching sentences, DISPLAY STRINGS in the user's
+        current UI language, paired positionally with `reason_codes`. Never parse
+        them — the numbers in them are formatted for a human.
+
+        Note the asymmetry the codes make explicit: a pH mismatch is reported for
+        ANY plant whose range the soil falls outside, whereas a nutrient
+        mismatch needs BOTH a heavy feeder AND a low reading. A plant absent from
+        this list is not necessarily happy — it may simply not have declared a
+        requirement that the soil breaks.
+
+        `coverage` is 'no_soil_test' when neither the bed nor the plan has a
+        record, which means UNTESTED rather than 'no disagreements'.
+
+        Omit `bed_id` to check every soil-capable bed.
+
+        Read-only; no token required.
+
+        Args:
+            bed_id: Soil-capable bed UUID, or omit for every bed.
+            today: ISO reference date. Defaults to the real current date.
+        """
+        result = await anyio.to_thread.run_sync(
+            lambda: providers.get_soil_mismatches(bed_id, today)
+        )
+        return SoilMismatchListView(**result)
+
+    @mcp.tool()
     async def list_layers() -> list[Layer]:
         """List the plan's layers, top of the stack first (US-D2.4).
 
@@ -1223,6 +1456,191 @@ def build_server(
             _require_write_auth(write_token)
             result = await anyio.to_thread.run_sync(
                 lambda: providers.set_succession_plan(bed_id, entries, year)
+            )
+            return WriteResult(**result)
+
+        # --- US-D3.3: manual-task writes ------------------------------------
+
+        @mcp.tool()
+        async def add_manual_task(
+            title: str,
+            date: str | None = None,
+            notes: str | None = None,
+            bed_id: str | None = None,
+        ) -> ManualTaskResult:
+            """File one user-authored task (US-D3.3).
+
+            Use this for work the garden engine cannot derive - a reminder to
+            order seed, a note to visit a supplier. For anything the engine CAN
+            derive (sowing, transplanting, frost, soil work), read get_tasks
+            first: the derived tasks already exist and are regenerated on every
+            call, so a manual copy of one will drift.
+
+            ONE call is ONE undo step, so a single Ctrl+Z removes it.
+
+            Refused, leaving the task list and the undo stack untouched, when the
+            title is empty; `date` is not an ISO YYYY-MM-DD date; or `bed_id` is
+            not a bed in this plan.
+
+            This is a write tool and requires the Agent API token.
+
+            Args:
+                title: What to do. Required, non-empty.
+                date: Optional ISO due date. Omit for an undated task, which
+                    always appears in a filtered read.
+                notes: Optional detail.
+                bed_id: Optional bed UUID to link the task to.
+            """
+            _require_write_auth(write_token)
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.add_manual_task(
+                    title=title, date=date, notes=notes, bed_id=bed_id, task_id=None
+                )
+            )
+            return ManualTaskResult(**result)
+
+        @mcp.tool()
+        async def edit_manual_task(
+            task_id: str,
+            title: str,
+            date: str | None = None,
+            notes: str | None = None,
+            bed_id: str | None = None,
+        ) -> ManualTaskResult:
+            """Change one manual task (US-D3.3). ONE undo step.
+
+            Send every field you want the task to have afterwards: this replaces
+            the stored values rather than merging into them, so an omitted
+            optional field is cleared. Read the task with get_tasks first.
+
+            Refused, leaving the task list and the undo stack untouched, when the
+            id is unknown; the task is GENERATED (calendar, propagation,
+            succession, soil, amendment, mismatch or frost) rather than manual -
+            generated tasks are derived state rebuilt on every call, so editing
+            one would be silently undone by the next read; the title is empty; or
+            `date` / `bed_id` is invalid.
+
+            This is a write tool and requires the Agent API token.
+
+            Args:
+                task_id: The manual task's id, from get_tasks.
+                title: The new title. Required, non-empty.
+                date: New ISO due date, or omit to make it undated.
+                notes: New notes, or omit to clear.
+                bed_id: New bed link, or omit to clear.
+            """
+            _require_write_auth(write_token)
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.edit_manual_task(
+                    title=title, date=date, notes=notes, bed_id=bed_id, task_id=task_id
+                )
+            )
+            return ManualTaskResult(**result)
+
+        @mcp.tool()
+        async def delete_manual_task(task_id: str) -> ManualTaskResult:
+            """Delete one manual task (US-D3.3). ONE undo step.
+
+            Refused, leaving the task list and the undo stack untouched, when the
+            id is unknown or names a GENERATED task. A generated task cannot be
+            deleted because it is not stored - it is rebuilt from the plan on
+            every call, so deleting it would achieve nothing and would report a
+            success that does not survive the next read.
+
+            Dismissal and completion of a task are also refused, for any task:
+            that is a task-status write, and it is not undoable, so it would be
+            the one agent write a single Ctrl+Z could not reverse. The user does
+            that in the Tasks tab.
+
+            This is a write tool and requires the Agent API token.
+
+            Args:
+                task_id: The manual task's id, from get_tasks.
+            """
+            _require_write_auth(write_token)
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.delete_manual_task(task_id)
+            )
+            return ManualTaskResult(**result)
+
+        # --- US-D3.4: soil-test write ----------------------------------------
+
+        @mcp.tool()
+        async def record_soil_test(
+            bed_id: str | None = None,
+            ph: float | None = None,
+            n_level: int | None = None,
+            p_level: int | None = None,
+            k_level: int | None = None,
+            ca_level: int | None = None,
+            mg_level: int | None = None,
+            s_level: int | None = None,
+            soil_texture: str | None = None,
+            test_date: str | None = None,
+            notes: str | None = None,
+        ) -> WriteResult:
+            """Record a soil test on the Rapitest KIT scale (US-D3.4).
+
+            The nutrient arguments are CATEGORICAL KIT READINGS, not laboratory
+            values. Each nutrient has its own range, and passing a number from
+            the wrong one is refused rather than stored:
+
+                n_level, p_level   integers 0-4
+                k_level            integer 1-4 (the kit has no zero for K)
+                ca_level, mg_level, s_level   integers 0-2
+
+            A lab report in ppm is NOT accepted here, and this is deliberate: the
+            plan stores lab ppm values separately, but no engine reads them - the
+            health ratings, the amendment recommendations and the mismatch checks
+            all read the kit levels. A test recorded from ppm alone would report
+            unknown health and recommend nothing while looking complete. Enter a
+            lab report in the Soil Test dialog instead.
+
+            ONE call is ONE undo step, so a single Ctrl+Z removes the record.
+
+            Refused, leaving the soil-test store and the undo stack untouched,
+            when any level is outside its own range or is not a whole number; pH
+            is outside 0.0-14.0 or not finite; `bed_id` is unknown or names an
+            object that holds no soil (a TRELLIS is a plant parent but holds no
+            soil, so it is refused); `soil_texture` is not one of sandy, loamy,
+            clayey, compacted; `test_date` is not ISO YYYY-MM-DD or is in the
+            future; or NO reading at all was supplied.
+
+            Pass bed_id=None to record the plan-wide default, the same target the
+            GUI offers. get_soil_status then reports that reading as coming from
+            the plan rather than from any one bed.
+
+            This is a write tool and requires the Agent API token.
+
+            Args:
+                bed_id: Soil-capable bed UUID, or omit for the plan-wide default.
+                ph: Measured pH, 0.0-14.0.
+                n_level: Nitrogen kit level, 0-4.
+                p_level: Phosphorus kit level, 0-4.
+                k_level: Potassium kit level, 1-4.
+                ca_level: Calcium kit level, 0-2.
+                mg_level: Magnesium kit level, 0-2.
+                s_level: Sulfur kit level, 0-2.
+                soil_texture: One of sandy, loamy, clayey, compacted.
+                test_date: ISO date the sample was taken. Defaults to today;
+                    a future date is refused.
+                notes: Free-text detail.
+            """
+            _require_write_auth(write_token)
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.record_soil_test(
+                    bed_id=bed_id,
+                    ph=ph,
+                    n_level=n_level,
+                    p_level=p_level,
+                    k_level=k_level,
+                    ca_level=ca_level,
+                    mg_level=mg_level,
+                    s_level=s_level,
+                    soil_texture=soil_texture,
+                    test_date=test_date,
+                    notes=notes,
+                )
             )
             return WriteResult(**result)
 
@@ -1915,6 +2333,92 @@ def build_server(
 
         return agent_prompts.render_plan_succession_prompt(
             bed_id, plan, gaps, suggestions
+        )
+
+    @mcp.prompt(name="plan-my-week")
+    async def plan_my_week(today: str | None = None) -> str:
+        """Compose a prioritised seven-day garden brief (US-D3.3).
+
+        Gathers the current task window, the month-bucketed overview, the plan
+        summary and the open diagnostics, then asks for the coming week ranked
+        by what is time-critical.
+
+        When the plan has no geo-location there are no frost dates and no
+        calendar tasks; the brief says so explicitly rather than presenting an
+        empty week.
+
+        Args:
+            today: ISO reference date. Defaults to the real current date; pass
+                it to render a reproducible brief.
+        """
+        task_raw = await anyio.to_thread.run_sync(
+            lambda: providers.get_tasks(
+                None, None, None, None, None, None, today
+            )
+        )
+        task_list = TaskListView(**task_raw)
+        calendar = TaskCalendarView(
+            **await anyio.to_thread.run_sync(
+                lambda: providers.get_task_calendar(None, today)
+            )
+        )
+        # Two separate hops (benign TOCTOU), exactly as `audit-plan` does: this is
+        # read-only advisory text, so a snapshot drifting by one scene edit
+        # between hops has no correctness consequence here.
+        snapshot = await anyio.to_thread.run_sync(providers.snapshot)
+        records = await anyio.to_thread.run_sync(providers.diagnostics)
+        return agent_prompts.render_plan_my_week_prompt(
+            task_list,
+            calendar,
+            plan_summary_from_snapshot(snapshot),
+            diagnostics_from_records(records),
+        )
+
+    @mcp.prompt(name="plan-soil-amendments")
+    async def plan_soil_amendments(bed_id: str) -> str:
+        """Compose a prioritised soil-amendment brief for one bed (US-D3.4).
+
+        Gathers the bed's effective soil record, its amendment recommendations,
+        the plants that disagree with that soil and what is growing there, then
+        asks for a prioritised amendment plan with timing.
+
+        An untested bed yields a brief that asks for a test. It is never
+        presented as healthy.
+        """
+        status = SoilStatus(
+            **await anyio.to_thread.run_sync(
+                lambda: providers.get_soil_status(bed_id, None)
+            )
+        )
+        plan = AmendmentPlanView(
+            **await anyio.to_thread.run_sync(
+                lambda: providers.recommend_amendments(bed_id, None)
+            )
+        )
+        mismatches = SoilMismatchListView(
+            **await anyio.to_thread.run_sync(
+                lambda: providers.get_soil_mismatches(bed_id, None)
+            )
+        )
+        # "What is growing here" comes from the snapshot + queries, the same
+        # path `plan-polyculture-bed` uses. `child.species_name or
+        # child.species_key`, because ObjectDetail.species_key is populated only
+        # from the top-level attribute a gallery-picked plant carries — a
+        # search-assigned or agent-assigned plant keeps its record in metadata
+        # and leaves the attribute unset.
+        snapshot = await anyio.to_thread.run_sync(providers.snapshot)
+        planted: list[str] = []
+        bed_obj = queries.get_object(snapshot, bed_id)
+        if bed_obj is not None:
+            for child_id in getattr(bed_obj, "child_item_ids", ()) or ():
+                child = queries.get_object(snapshot, child_id)
+                if child is None:
+                    continue
+                name = child.species_name or child.species_key
+                if name:
+                    planted.append(name)
+        return agent_prompts.render_plan_soil_amendments_prompt(
+            status, plan, mismatches, planted
         )
 
     return mcp
