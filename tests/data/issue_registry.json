@@ -584,9 +584,29 @@
     "state": "CLOSED",
     "title": "HOUSE roof tiles lap toward the ridge: the mirrored half is chosen by the ridge's direction, not by which side is downhill"
   },
+  "373": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "App shutdown waits ~10 seconds for the Agent API server thread"
+  },
   "374": {
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(US-D3.2): succession agent tools — first agent write into ProjectData (#331)"
+  },
+  "377": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Plant/shape drag preview is drawn behind beds and objects — invisible until you release"
+  },
+  "378": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Crop rotation panel ignores an existing succession plan"
+  },
+  "380": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Agent writes are not canvas-clamped: an object can be created or moved entirely off-plan and becomes invisible"
   }
 }

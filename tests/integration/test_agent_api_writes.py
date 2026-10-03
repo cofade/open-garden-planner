@@ -2008,3 +2008,372 @@ def test_unauthenticated_layer_tools_are_rejected(canvas: Any, qtbot: Any) -> No
     assert rect.layer_id == scene.active_layer.id
     assert rect.isVisible()
     assert view.command_manager.can_undo is False
+
+
+def test_create_object_is_clamped_to_the_canvas(canvas: Any, qtbot: Any) -> None:
+    """issue #380: an off-plan create is clamped on-plan instead of stranded."""
+    from uuid import UUID
+
+    view = canvas
+    scene = view.scene()
+    canvas_rect = scene.canvas_rect
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            call = await session.call_tool(
+                "create_object",
+                {
+                    "object_type": "RAISED_BED",
+                    "x": -400.0,
+                    "y": -400.0,
+                    "width": 200.0,
+                    "height": 100.0,
+                },
+            )
+            body.result = call.structuredContent  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    created = body.result  # type: ignore[attr-defined]
+    item = scene.find_item_by_id(UUID(created["item_id"]))
+    assert item is not None
+    rect = item.sceneBoundingRect()
+    # The whole object lies inside the canvas after the clamp.
+    assert rect.left() >= canvas_rect.left() - 0.01
+    assert rect.top() >= canvas_rect.top() - 0.01
+    assert rect.right() <= canvas_rect.right() + 0.01
+    assert rect.bottom() <= canvas_rect.bottom() + 0.01
+    # The returned position reflects the clamped object.
+    assert created["x"] > 0
+
+    # One undoable step.
+    assert view.command_manager.can_undo
+    view.command_manager.undo()
+    assert scene.find_item_by_id(UUID(created["item_id"])) is None
+
+
+def test_move_object_is_clamped_to_the_canvas(canvas: Any, qtbot: Any) -> None:
+    """issue #380: a move that would strand an object is trimmed to the edge."""
+    view = canvas
+    scene = view.scene()
+    circle = CircleItem(200, 200, 30, object_type=ObjectType.TREE)
+    scene.addItem(circle)
+    item_id = str(circle.item_id)
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            # A huge negative offset would put the plant far off-plan.
+            call = await session.call_tool(
+                "move_object", {"item_id": item_id, "dx": -5000.0, "dy": -5000.0}
+            )
+            body.result = call.structuredContent  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    rect = circle.sceneBoundingRect()
+    canvas_rect = scene.canvas_rect
+    assert rect.left() >= canvas_rect.left() - 0.01
+    assert rect.top() >= canvas_rect.top() - 0.01
+    # Exactly one undo step (no reparent happened).
+    moved = body.result  # type: ignore[attr-defined]
+    assert moved["bed_membership_changed"] is False
+    assert view.command_manager.can_undo
+    view.command_manager.undo()
+
+
+def test_move_fully_clamped_away_is_refused_without_an_undo_step(
+    canvas: Any, qtbot: Any
+) -> None:
+    """issue #380 review: a move the clamp erases is a no-op, not a dead undo step.
+
+    Pushing the object further off the edge it already touches must refuse, not
+    execute a MoveItemsCommand that changes nothing but adds a Ctrl+Z that
+    visibly does nothing.
+    """
+    view = canvas
+    scene = view.scene()
+    canvas_rect = scene.canvas_rect
+    # Flush against the top edge: centre y at the circle's radius.
+    radius = 30.0
+    circle = CircleItem(
+        canvas_rect.width() / 2.0,
+        radius,
+        radius,
+        object_type=ObjectType.TREE,
+    )
+    scene.addItem(circle)
+    item_id = str(circle.item_id)
+    # One real move first, so a pushed step would be visible.
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            await session.call_tool(
+                "move_object", {"item_id": item_id, "dx": 10.0, "dy": 0.0}
+            )
+            depth_before = (await session.call_tool("get_history", {})).structuredContent
+            body.depth_before = depth_before  # type: ignore[attr-defined]
+            # Now try to move further off the SAME edge: fully clamped away.
+            call = await session.call_tool(
+                "move_object", {"item_id": item_id, "dx": 0.0, "dy": -500.0}
+            )
+            body.refused = call.isError  # type: ignore[attr-defined]
+            body.depth_after = (  # type: ignore[attr-defined]
+                await session.call_tool("get_history", {})
+            ).structuredContent
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.refused is True  # type: ignore[attr-defined]
+    assert (
+        body.depth_after["undo_depth"]  # type: ignore[attr-defined]
+        == body.depth_before["undo_depth"]  # type: ignore[attr-defined]
+    ), "a fully-clamped-away move must not push an undo step"
+
+
+def test_zero_delta_move_is_still_allowed(canvas: Any, qtbot: Any) -> None:
+    """A requested delta of exactly zero is a legal no-op, not a refusal.
+
+    It is the documented way a caller re-reads an object's current centre (and
+    an existing badge test relies on it). The clamp-erased refusal must fire only
+    when the REQUEST was non-zero, or this call breaks (issue #380 review fix:
+    the first version of that guard was too broad and did exactly that).
+    """
+    view = canvas
+    scene = view.scene()
+    canvas_rect = scene.canvas_rect
+    # Place it flush at the top edge, where a clamp would erase any upward move.
+    circle = CircleItem(
+        canvas_rect.width() / 2.0, 30.0, 30.0, object_type=ObjectType.TREE
+    )
+    scene.addItem(circle)
+    item_id = str(circle.item_id)
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            call = await session.call_tool(
+                "move_object", {"item_id": item_id, "dx": 0.0, "dy": 0.0}
+            )
+            body.refused = call.isError  # type: ignore[attr-defined]
+            body.result = call.structuredContent  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.refused is False  # type: ignore[attr-defined]
+    # Reported centre is the read-layer centre, as before.
+    assert body.result["item_id"] == item_id  # type: ignore[attr-defined]
+
+
+
+
+def test_off_plan_object_is_flagged_and_diagnosed(canvas: Any, qtbot: Any) -> None:
+    """issue #380: a legacy off-plan object is discoverable, not invisible."""
+    view = canvas
+    scene = view.scene()
+    # A pre-existing object placed entirely off-plan (e.g. from an older file).
+    stranded = CircleItem(-500, -500, 30, object_type=ObjectType.TREE)
+    scene.addItem(stranded)
+    stranded_id = str(stranded.item_id)
+
+    server = AgentApiServer(_providers(view), port=_free_port())
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        async with (
+            http_client(url) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            listed = await session.call_tool("list_objects", {})
+            body.refs = listed.structuredContent["result"]  # type: ignore[attr-defined]
+            diags = await session.call_tool(
+                "get_diagnostics", {"kind": "outside_canvas"}
+            )
+            body.diags = diags.structuredContent["result"]  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    flagged = {o["item_id"]: o["outside_canvas"] for o in body.refs}  # type: ignore[attr-defined]
+    assert flagged[stranded_id] is True
+    diags = body.diags  # type: ignore[attr-defined]
+    entries = diags if isinstance(diags, list) else (diags.get("diagnostics") or [])
+    kinds = [d["kind"] for d in entries if isinstance(d, dict)]
+    assert "outside_canvas" in kinds
+
+
+def test_absurd_position_is_still_refused(canvas: Any, qtbot: Any) -> None:
+    """issue #380: clamping keeps the gross-input guard — 1e9 is refused."""
+    view = canvas
+    scene = view.scene()
+    before = len([i for i in scene.items() if i.parentItem() is None])
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            call = await session.call_tool(
+                "create_object",
+                {
+                    "object_type": "RAISED_BED",
+                    "x": 1e9,
+                    "y": 1e9,
+                    "width": 200.0,
+                    "height": 100.0,
+                },
+            )
+            body.result = call  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.result.isError  # type: ignore[attr-defined]
+    after = len([i for i in scene.items() if i.parentItem() is None])
+    assert after == before
+    assert view.command_manager.can_undo is False
+
+
+
+def test_clamped_house_create_and_position_are_one_undo_step_each(
+    canvas: Any, qtbot: Any
+) -> None:
+    """issue #380 review: pin undo depth for the group (HOUSE + ridge) and absolute paths.
+
+    The earlier clamp tests only asserted ``can_undo``; a clamp that split the
+    HOUSE and its ridge into two steps, or a ``set_object_position`` that pushed
+    an extra step, would have passed them.
+    """
+    from uuid import UUID
+
+    view = canvas
+    scene = view.scene()
+    canvas_rect = scene.canvas_rect
+    depth0 = view.command_manager.undo_depth
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            house = await session.call_tool(
+                "create_object",
+                {
+                    "object_type": "HOUSE",
+                    "points": [[-500, -500], [-100, -500], [-100, -300], [-500, -300]],
+                },
+            )
+            body.house = house.structuredContent  # type: ignore[attr-defined]
+            history = await session.call_tool("get_history", {})
+            body.depth_after_create = history.structuredContent["undo_depth"]  # type: ignore[attr-defined]
+            circle = await session.call_tool(
+                "create_object",
+                {"object_type": "TREE", "x": 300.0, "y": 300.0, "radius": 30.0},
+            )
+            body.circle = circle.structuredContent  # type: ignore[attr-defined]
+            moved = await session.call_tool(
+                "set_object_position",
+                {"item_id": body.circle["item_id"], "x": -3000.0, "y": -2000.0},  # type: ignore[attr-defined]
+            )
+            body.position_refused = moved.isError  # type: ignore[attr-defined]
+            history = await session.call_tool("get_history", {})
+            body.depth_after_position = history.structuredContent["undo_depth"]  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.position_refused is False  # type: ignore[attr-defined]
+    # HOUSE + its ridge are ONE step; the tree create is one; the position is one.
+    assert body.depth_after_create == depth0 + 1  # type: ignore[attr-defined]
+    assert body.depth_after_position == depth0 + 3  # type: ignore[attr-defined]
+
+    house = scene.find_item_by_id(UUID(body.house["item_id"]))  # type: ignore[attr-defined]
+    assert house is not None
+    for item in scene.items():
+        if item.parentItem() is None and item.sceneBoundingRect().width() < 1e6:
+            if getattr(item, "item_id", None) is None:
+                continue
+            rect = item.sceneBoundingRect()
+            assert rect.left() >= canvas_rect.left() - 0.01
+            assert rect.top() >= canvas_rect.top() - 0.01
+    tree = scene.find_item_by_id(UUID(body.circle["item_id"]))  # type: ignore[attr-defined]
+    assert tree is not None
+    assert tree.sceneBoundingRect().left() >= canvas_rect.left() - 0.01
+    assert tree.sceneBoundingRect().top() >= canvas_rect.top() - 0.01

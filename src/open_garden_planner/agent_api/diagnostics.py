@@ -81,6 +81,19 @@ def diagnostics_from_records(
                     message=f"{label} conflicts with crop-rotation guidance ({rotation}).",
                 )
             )
+        if record.get("outside_canvas"):
+            out.append(
+                Diagnostic(
+                    kind="outside_canvas",
+                    severity="warning",
+                    item_ids=ids,
+                    message=(
+                        f"{label} is entirely outside the plan canvas — it is "
+                        "invisible in the app. Move it back on-plan with "
+                        "move_object or set_object_position."
+                    ),
+                )
+            )
 
     if kind is not None:
         out = [d for d in out if d.kind == kind]

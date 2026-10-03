@@ -7,6 +7,7 @@ from PyQt6.QtGui import QBrush, QColor, QMouseEvent, QPen
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsRectItem
 
 from .base_tool import BaseTool, ToolType
+from .preview_z import PREVIEW_Z_FILL
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -83,6 +84,7 @@ class SelectTool(BaseTool):
 
         if self._box_item is None:
             self._box_item = QGraphicsRectItem()
+            self._box_item.setZValue(PREVIEW_Z_FILL)
             self._view.scene().addItem(self._box_item)
 
         self._box_item.setRect(rect)

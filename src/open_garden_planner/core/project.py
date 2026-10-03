@@ -906,9 +906,11 @@ class ProjectManager(QObject):
         :func:`open_garden_planner.agent_api.diagnostics.diagnostics_from_records`
         turns those into the agent schema. Never mutates the scene.
         """
+        from open_garden_planner.core.canvas_bounds import rect_intersects_canvas
         from open_garden_planner.ui.canvas.items import GardenItemMixin
         from open_garden_planner.ui.canvas.items.group_item import GroupItem
 
+        canvas_rect = getattr(scene, "canvas_rect", None)
         records: list[dict[str, Any]] = []
         for item in scene.items():
             if not isinstance(item, GardenItemMixin):
@@ -922,6 +924,14 @@ class ProjectManager(QObject):
             capacity = bool(getattr(item, "capacity_overrun", False))
             soil = getattr(item, "soil_mismatch_level", None)
             rotation = getattr(item, "rotation_status", None)
+            outside = False
+            if canvas_rect is not None:
+                rect = item.sceneBoundingRect()
+                outside = not rect_intersects_canvas(
+                    (rect.left(), rect.top(), rect.right(), rect.bottom()),
+                    canvas_rect.width(),
+                    canvas_rect.height(),
+                )
             # Only "overlap"/"suboptimal"/"violation" and the soil levels are
             # warnings; "ideal"/"good" are positive indicators, not problems.
             has_warning = (
@@ -930,6 +940,7 @@ class ProjectManager(QObject):
                 or capacity
                 or soil in ("warning", "critical")
                 or rotation in ("suboptimal", "violation")
+                or outside
             )
             if not has_warning:
                 continue
@@ -947,6 +958,7 @@ class ProjectManager(QObject):
                     "capacity_overrun": capacity,
                     "soil_mismatch_level": soil,
                     "rotation_status": rotation,
+                    "outside_canvas": outside,
                 }
             )
         return records

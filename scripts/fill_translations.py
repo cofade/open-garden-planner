@@ -1068,6 +1068,37 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "frost alerts": "Frostwarnungen",
     },
 
+    # ── CropRotationPanel (issue #378 — succession plan shown as non-history) ──
+    "CropRotationPanel": {
+        "No bed selected": "Kein Beet ausgewählt",
+        "Planting History": "Pflanzhistorie",
+        "Add Planting Record...": "Pflanzung hinzufügen...",
+        "Edit": "Bearbeiten",
+        "Delete": "Löschen",
+        "Unnamed Bed": "Unbenanntes Beet",
+        "Good Rotation": "Gute Fruchtfolge",
+        "Suboptimal Rotation": "Suboptimale Fruchtfolge",
+        "Rotation Violation": "Fruchtfolge-Verstoß",
+        "No History": "Keine Historie",
+        "Next: %1": "Nächstes: %1",
+        "Avoid: %1": "Vermeiden: %1",
+        "(no records yet)": "(noch keine Einträge)",
+        "Delete Record": "Eintrag löschen",
+        "Delete this planting record?": "Diesen Pflanzeintrag löschen?",
+        "Planned This Season": "Geplant für diese Saison",
+        "Planned crops are not planting history and do not affect the "
+        "rotation advice above.":
+            "Geplante Kulturen sind keine Pflanzhistorie und beeinflussen die "
+            "Fruchtfolge-Empfehlung oben nicht.",
+        "(plan has no crop slots)": "(Plan enthält keine Kulturposten)",
+        "{name} — family unknown": "{name} — Familie unbekannt",
+        "No planting history yet, so the rotation advice cannot see "
+        "this bed's planned crops. See the succession plan below.":
+            "Noch keine Pflanzhistorie, daher kann die Fruchtfolge-Empfehlung "
+            "die geplanten Kulturen dieses Beets nicht berücksichtigen. Siehe "
+            "den Anbaufolge-Plan unten.",
+    },
+
     # ── LayerListItem ──
     "LayerListItem": {
         "Toggle visibility": "Sichtbarkeit umschalten",

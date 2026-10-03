@@ -2429,6 +2429,19 @@ Shipped via this PR: Windows Defender flagged the installer as `Trojan:Script/Wa
 
 ---
 
+## Manual-pass follow-up: four defects (#373, #377, #378, #380)
+
+Shipped together in one PR. Four defects found while dogfooding the agent tooling and the D3.2 manual pass.
+
+| Status | Issue | Description |
+| ------ | ----- | ----------- |
+| ✅ | #377 | **Tool previews drew behind beds.** Every shape tool's in-progress preview primitive kept Qt's default `z = 0` while real items get a derived z inside `(0, 100)`, so the dashed preview was invisible whenever the gesture overlapped a bed. Fixed by the new `core/tools/preview_z.py`, which holds the reserved preview band (`999`–`1002`, below the minimap's `10000` cutoff) for the 11 modules that build a preview. The issue's own module list was incomplete: it omitted `construction_tool.py` and wrongly included three modules that build no preview item at all; a drift guard re-derives the set from source. See §8.25.6, §11.4. |
+| ✅ | #378 | **Crop-rotation panel ignored an existing succession plan.** A bed could show a succession badge while the panel beside it said "every crop is suitable". The panel now shows a display-only **"Planned This Season"** section (planned crops with their botanical family, clearly *not* history) and an explicit message when there is a plan but no history. `CropRotationService` is unchanged — the plan is deliberately **not** fed into `get_recommendation`, which would change the 3-year cooldown for every caller (the rejected option in the issue). See ADR-036 addendum. |
+| ✅ | #373 | **App shutdown waited ~10 s for the Agent API thread.** Root-caused with instrumentation: an MCP client holding the SSE stream open never closes it, and uvicorn's graceful shutdown waits for open connections, so `serve()` never returned and both 5 s joins expired. Fixed by cancelling the loop's tasks and stopping the loop directly on `stop()` (measured 10.03 s → 0.58 s with a streaming client; 0.00 s without). `force_exit` alone did **not** fix it. See §11.4. |
+| ✅ | #380 | **Agent writes were not canvas-clamped.** The GUI clamps objects to the canvas at five sites; the agent path did not, so `create_object`/`move_object` could strand an object entirely off-plan where it was invisible and un-deletable. New Qt-free `core/canvas_bounds.py` holds the rule once, called by both the GUI drag paths and the agent paths, so they cannot drift. Adds `ObjectRef.outside_canvas` and a `get_diagnostics` kind `outside_canvas` so an already-saved off-plan object is discoverable. This is a deliberate reversal of the earlier "stage an object just off-plan" rationale. See ADR-036 addendum, FR-AGENT-26, §8.19. |
+
+---
+
 ## Phase 13: Agent Integration — Package D (MCP Server) ✅ D1/D2.0–D2.6 shipped; D3 planned
 
 **Goal**: Expose the garden plan to AI agents (Claude, Cursor, any MCP client) so they can read, visualise, export, and — behind the explicit write gate — edit it. The running app embeds a **Model Context Protocol server over streamable-HTTP** on `127.0.0.1` (on by default for reads, loopback-only; toggle to disable). D1 shipped the read/visualise/export surface; D2.0–D2.6 shipped the token-gated creation, domain editing, layer, global-history, and low-level geometry tools; D3 remains. See ADR-033/034/036, FR-26, §8.19, and GitHub epic #237.

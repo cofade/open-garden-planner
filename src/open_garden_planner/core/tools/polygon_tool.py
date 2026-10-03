@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsLineItem, QGraphicsPo
 from open_garden_planner.core.object_types import ObjectType
 
 from .base_tool import BaseTool, ToolType
+from .preview_z import PREVIEW_Z_FILL, PREVIEW_Z_HANDLE, PREVIEW_Z_LINE
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -167,12 +168,14 @@ class PolygonTool(BaseTool):
         # Rubber band line
         self._preview_line = QGraphicsLineItem()
         self._preview_line.setPen(QPen(QColor(0, 100, 255), 1, Qt.PenStyle.DashLine))
+        self._preview_line.setZValue(PREVIEW_Z_LINE)
         self._view.scene().addItem(self._preview_line)
 
         # Preview polygon fill
         self._preview_polygon = QGraphicsPolygonItem()
         self._preview_polygon.setPen(QPen(QColor(0, 100, 255), 1, Qt.PenStyle.DashLine))
         self._preview_polygon.setBrush(QBrush(QColor(100, 100, 255, 50)))
+        self._preview_polygon.setZValue(PREVIEW_Z_FILL)
         self._view.scene().addItem(self._preview_polygon)
 
     def _add_vertex_marker(self, pos: QPointF) -> None:
@@ -186,6 +189,7 @@ class PolygonTool(BaseTool):
         )
         marker.setPen(QPen(QColor(0, 100, 255), 1))
         marker.setBrush(QBrush(QColor(0, 100, 255)))
+        marker.setZValue(PREVIEW_Z_HANDLE)
         self._view.scene().addItem(marker)
         self._vertex_markers.append(marker)
 

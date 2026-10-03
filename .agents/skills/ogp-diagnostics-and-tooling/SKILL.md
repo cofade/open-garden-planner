@@ -195,7 +195,7 @@ state during a debugging session — no print instrumentation, no restart.
 | `objects_in(parent_id, raw?)` / `plants_in_bed(bed_id, raw?)` | containment |
 | `nearest_objects(x, y, k?, type?, raw?)` | k closest centres to a point |
 | `measure_distance(id_a, id_b)` | centre-to-centre distance in cm |
-| `get_diagnostics(kind?)` | the plan's **already-computed** canvas warnings (`companion_conflict`, `spacing_overlap`, `soil_mismatch`, `capacity_overrun`, `crop_rotation`) |
+| `get_diagnostics(kind?)` | the plan's **already-computed** canvas warnings (`companion_conflict`, `spacing_overlap`, `soil_mismatch`, `capacity_overrun`, `crop_rotation`, plus `outside_canvas`, which is computed live from each item's bounding box, not from a badge flag) |
 | `render_canvas_image(x?, y?, width?, height?, layers?, image_width_px?)` | PNG of the live canvas + `RenderMeta` |
 
 Debugging patterns:

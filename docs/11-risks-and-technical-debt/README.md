@@ -417,6 +417,113 @@ The common thread: each guard was written where the *code* was, not where the
 *trust boundary* or the *key space* is. Review found all three; the suite and the
 dogfood harness found none of them.
 
+### 11.4.2 The four bugs a manual pass found that a green suite could not (#377, #380, #373)
+
+Four defects, each invisible to the suite for a different structural reason.
+They are recorded together because the *reason* each was invisible is the
+lesson, not the fix.
+
+**1. A preview whose z-value nobody set (#377).** Every drawing tool builds a
+bare `QGraphics*Item` preview and adds it to the scene. Qt gives it the default
+`z = 0`. Every real document item gets a *derived* z strictly inside `(0, 100)`
+from `CanvasScene._refresh_layer_z`. So the preview lost to every bed and shape
+it overlapped and was invisible for the whole drag — while the post-release item
+`pop`ped in front, which is why it read as a placement problem and not a
+rendering one. **The green suite could not see it because no test had ever drawn
+a preview over an existing item**: every tool test drew on an empty canvas, where
+`z = 0` is enough. Pinned by `tests/integration/test_tool_preview_z_order.py`
+(a real bed in the scene, press/move, assert the preview outranks it) and by a
+source-scan drift guard in `tests/unit/test_preview_z.py` that re-derives the
+affected module set — because **the issue's own list of 13 modules was wrong**:
+it omitted `construction_tool.py` (which does build previews) and named three
+modules that build none. A bug report is a symptom description, not a census.
+
+**2. A contract the test asserted at the wrong layer (#380).** The agent path
+allowed one full canvas of slack; the test
+`test_one_canvas_of_staging_slack_is_reachable` asserted the slack point was
+*accepted*. That passed on the day it was written and would keep passing after
+the object was stranded, because it tested the *guard*, not the *outcome*. The
+defect is that the guard returns the position and the caller did nothing with it.
+**An assertion on the input-acceptance of a guard says nothing about what the
+system did with the accepted input.** The fix moved the rule to one shared
+function (`core/canvas_bounds.py`) and the test now asserts the *outcome* — the
+object lies inside the canvas — over the real MCP transport.
+
+**3. A shutdown that only fails with a client attached (#373).** `stop()`'s two
+5-second joins expired, but only some of the time: **0.19 s with no client,
+10.03 s with an MCP client holding the SSE stream open**. uvicorn's graceful
+shutdown waits for open connections, which such a client never closes, so
+`serve()` never returned. No test held a client across a stop, so the default
+(no-client) path was fast and green. **A lifecycle defect whose reproduction
+requires a concurrent peer will not be found by a single-threaded test of the
+happy path.** Pinned by `tests/integration/test_agent_api_shutdown.py`, which
+opens a real SSE stream, holds it, and asserts `stop()` returns in under 4 s with
+no "did not stop"/"STILL RUNNING" record (and, for the no-client stop, no record at
+ERROR level from *any* logger). Recorded because the fix is counter-intuitive: uvicorn's
+`force_exit` alone **does not** work here (measured — the MCP session/SSE tasks
+keep the loop alive past it); the reliable fix is to cancel the loop's tasks and
+stop the loop directly. **The test itself then taught a second lesson.** Its
+first version asserted `elapsed < _STOP_TIMEOUT_S` — a 5 s budget *sitting
+exactly on the 5 s join timeout it guards*. It passed standalone and in a
+slice, then failed three tests in one full-suite run and passed the next:
+**a threshold on the boundary it is meant to detect is a flake, not a check.**
+The fix uses a 4 s limit that cleanly separates the ~0.6 s healthy path from the
+~10 s regression, and asserts on the server's **own** thread handle rather than
+a global `threading.enumerate()` scan (which a leak in any other test could
+fail). A flaky test is worse than a missing one: it trains the reader to rerun
+instead of investigate.
+
+**3a. A fix that is right for the pathological case can be wrong for the common
+one (#373 review).** The first #373 fix cancelled every task on every `stop()`.
+That cured the 10 s hang, but it also cancelled uvicorn's *lifespan* task before
+its graceful shutdown could run, so **every** close — including the no-client one
+that was already fast and clean on master — now logged a `CancelledError`
+traceback at ERROR on the very console #373 was filed from. The test asserted two
+log substrings, so it stayed green and the doc claimed "no WARNING/ERROR". `stop()`
+now **escalates**: `should_exit` first (~0.2 s, quiet), then — only if the thread
+outlasts `_GRACEFUL_STOP_S` (1 s) — force-exit, cancel the loop's tasks and stop
+the loop. A flag set by `stop()` (not CPython's "Event loop stopped" message text)
+tells `_run` that the resulting `RuntimeError` is deliberate. The forced path
+with a client streaming still logs two ERROR tracebacks (the cancelled SSE
+request and uvicorn's lifespan task). **That is a decision, not an oversight:**
+uvicorn logs the lifespan traceback whenever its task is cancelled, and `_run`'s
+`finally` cancels every leftover task anyway, so avoiding it would mean letting
+lifespan shutdown run, which is exactly what a held SSE stream prevents. Dropping
+a live stream is abnormal; the noise is the honest signal. **Lesson: when a
+fix changes the common path to cure the rare one, assert the common path stayed
+as quiet as before — against every logger, not the two strings you remember.**
+
+**3b. A review fix can itself regress, and only the full suite caught it.** The
+senior review found a real P1: a move the clamp erased entirely still pushed a
+dead undo step. The first fix refused any call whose *clamped result* was zero —
+and `move_object(item_id, 0, 0)` has a clamped result of zero, because it was
+**already zero**. That is a legal no-op a caller uses to re-read an object's
+current centre, and an existing test
+(`test_move_returned_center_matches_read_layer_with_badge`) depends on it. The
+review's own slice passed; the 6736-test suite flagged it. **The refusal must
+key on the attempt, not the result: "the request was non-zero and the clamp
+erased it", never "the result is zero".** Both directions are now pinned. The
+sharper lesson is about review scope — *a P1 fix is new code and needs the same
+full battery as the original change*, not the reviewer's slice that validated
+the defect.
+
+**4. Two surfaces that disagree while both are correct (#378).** The rotation
+panel showed "every crop is suitable" for a bed that had a succession plan,
+because the plan is *planned* data and the panel reads *grown* data. Neither
+surface had a bug; the defect was that one surface could not explain the other's
+answer. **This is not a test-coverage failure at all** — no unit test of either
+feature can fail, because both behave exactly as specified. It was found by a
+human opening both next to each other. The fix is display-only, and the
+load-bearing decision is what was **not** done: feeding the plan into
+`CropRotationService` would have changed the 3-year cooldown for every caller, so
+the plan stays out of the service and a test pins `get_recommendation`'s output
+as identical with and without a plan.
+
+The shared lesson: **a green suite is evidence only about the paths it
+exercises.** Three of the four were unreachable by any existing test *by
+construction* (empty canvas, single-threaded stop, input-only assertion), and the
+fourth was not a code defect at all.
+
 ## 11.5 Community and Governance
 
 **Feature Requests**: Open to community input, pivots, and voting. The goal is to avoid a dead project — community engagement is welcome.

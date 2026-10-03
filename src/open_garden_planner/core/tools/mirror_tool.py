@@ -28,6 +28,7 @@ from open_garden_planner.core.cad_geometry import snap_point_to_axis_step
 from open_garden_planner.core.mirror_geometry import build_mirrored_item
 
 from .base_tool import BaseTool, ToolType
+from .preview_z import PREVIEW_Z_LINE
 
 if TYPE_CHECKING:
     from PyQt6.QtWidgets import QGraphicsItem
@@ -340,6 +341,7 @@ class MirrorTool(BaseTool):
         pen = QPen(_PREVIEW_COLOR, _PREVIEW_WIDTH, Qt.PenStyle.DashLine)
         pen.setCosmetic(True)
         self._preview_line.setPen(pen)
+        self._preview_line.setZValue(PREVIEW_Z_LINE)
         self._view.scene().addItem(self._preview_line)
 
     def _update_preview_line(self, cursor: QPointF) -> None:
