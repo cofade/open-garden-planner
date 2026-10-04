@@ -114,6 +114,42 @@ SPECIES_LOOK: dict[str, tuple[str, str, str, str]] = {
 }
 
 
+@dataclass(frozen=True)
+class CanopyForm:
+    """The shape of a deciduous crown, per species — form only: ``fit_to`` still makes the
+    bounding box the plan's height × spread.
+
+    ``trunk``: clear trunk (the crown's base) as a fraction of the height; ``taper``:
+    crown width at its base vs its top (> 0 egg or pyramid, < 0 vase); ``droop``: how far
+    leaf tips hang (``leaves``); ``bark``: wood colour; ``leaf_scale``: the 2D sprite
+    table's per-species leaf size (``scripts/generate_plant_sprites.py`` SPECIES).
+    The default IS the L0 crown (one ellipsoid on a 0.34 trunk) for unknown species.
+    """
+
+    trunk: float = 0.34
+    taper: float = 0.0
+    droop: float = 0.15
+    bark: str = "#5a4632"
+    leaf_scale: float = 1.0
+
+
+# Habit per species (standard dendrology descriptions): apple rounded and spreading on a
+# short trunk; pear upright, broadly pyramidal; cherry broad oval; plum rounded; birch a
+# narrow ovoid crown reaching low, pendulous twigs, white bark (ACCENTS["white"]);
+# magnolia low-branched and broad, wider above; maple and walnut broad and rounded.
+CANOPY_FORM: dict[str, CanopyForm] = {
+    "apple tree": CanopyForm(trunk=0.26, taper=0.15, droop=0.3),
+    "pear tree": CanopyForm(trunk=0.24, taper=0.45, droop=0.1),
+    "cherry tree": CanopyForm(trunk=0.30, taper=0.1, droop=0.15),
+    "plum tree": CanopyForm(trunk=0.28, taper=0.05, droop=0.25),
+    "birch": CanopyForm(trunk=0.2, taper=0.25, droop=0.65, bark=ACCENTS["white"],
+                        leaf_scale=0.75),
+    "magnolia": CanopyForm(trunk=0.12, taper=-0.45, droop=0.05, leaf_scale=1.1),
+    "maple": CanopyForm(trunk=0.3, taper=0.0, droop=0.15, leaf_scale=1.1),
+    "walnut tree": CanopyForm(trunk=0.32, taper=0.0, droop=0.15, leaf_scale=1.1),
+}
+
+
 def srgb_to_linear(hex_color: str) -> np.ndarray:
     """``#rrggbb`` → linear RGB float32 (vertex colours are not sRGB-decoded)."""
     rgb = np.array([int(hex_color[i:i + 2], 16) for i in (1, 3, 5)], dtype=np.float64) / 255.0
@@ -302,15 +338,18 @@ def spheres(centers: np.ndarray, radii: np.ndarray | float, color: str | np.ndar
     v = sv[None, :, :] * r[:, None, None]
     v[:, :, 2] *= squash
     pos = (v + centers[:, None, :]).reshape(-1, 3)
-    nrm = np.broadcast_to(sv[None], (k, len(sv), 3)).reshape(-1, 3)
+    # a squashed sphere's normals take the inverse-transpose of the squash (the unit
+    # sphere's own normals lit the BBQ kettle as if it were round)
+    ellipsoid = _normalize(sv / np.array([1.0, 1.0, squash], np.float32)).astype(np.float32)
+    nrm = np.broadcast_to(ellipsoid[None], (k, len(sv), 3)).reshape(-1, 3)
     idx = (sf[None, :, :] + (np.arange(k) * len(sv))[:, None, None]).reshape(-1)
     col = color if isinstance(color, np.ndarray) and color.ndim == 2 else None
     cols = np.repeat(col, len(sv), axis=0) if col is not None else _rgba(color, len(pos))
     return _mesh(pos, nrm, cols, np.zeros((len(pos), 2)), idx)
 
 
-def cylinder(p0: Sequence[float], p1: Sequence[float], r0: float, r1: float, color: str,
-             sides: int = 8) -> MeshData:
+def cylinder(p0: Sequence[float], p1: Sequence[float], r0: float, r1: float,
+             color: str | np.ndarray, sides: int = 8) -> MeshData:
     return tubes(np.asarray([p0], np.float32), np.asarray([p1], np.float32),
                  np.asarray([r0], np.float32), np.asarray([r1], np.float32), color, sides)
 
@@ -531,20 +570,31 @@ def _ellipsoid_points(rng: np.random.Generator, n: int, radii: np.ndarray,
 
 
 def space_colonization_tree(seed: int, height: float, spread: float, palette: str,
-                            accent: tuple[str, str] = ("", ""), leaf_scale: float = 1.0) -> MeshData:
+                            accent: tuple[str, str] = ("", ""), leaf_scale: float = 1.0,
+                            form: CanopyForm | None = None) -> MeshData:
     """A deciduous tree grown by space colonization (Runions et al. 2007).
 
-    Trunk ≈ 35 % of the height, crown an ellipsoid of the measured spread; the
-    pipe model (r_parent^2.5 = Σ r_child^2.5) sizes the branches; twigs carry
-    spherized micro-leaves; optional fruit/flowers from the sprite accents.
-    The bounding box matches ``height`` × ``spread`` (fidelity gate).
+    The crown sits on a clear trunk of ``form.trunk`` × the height and fills an
+    ellipsoid of the measured spread, tapered by ``form.taper``; the pipe model
+    (r_parent^2.5 = Σ r_child^2.5) sizes the branches; twigs carry spherized
+    micro-leaves; optional fruit/flowers from the sprite accents. The bounding
+    box matches ``height`` × ``spread`` (fidelity gate, via ``fit_to``).
     """
+    form = form or CanopyForm()
     rng = np.random.default_rng(seed)
-    trunk_h = height * 0.34
+    trunk_h = height * form.trunk
     crown_h = height - trunk_h
     crown_c = np.array([0.0, 0.0, trunk_h + crown_h * 0.5])
     radii = np.array([spread * 0.5, spread * 0.5, crown_h * 0.5])
+
+    def taper_xy(z: np.ndarray) -> np.ndarray:
+        """Crown width factor at height z: 1 + taper at the crown's base, 1 - taper at its top."""
+        zn = np.clip((z - crown_c[2]) / radii[2], -1.0, 1.0)
+        return 1.0 - form.taper * zn
+
     attractors = _ellipsoid_points(rng, 520, radii * 0.92) + crown_c
+    if form.taper:
+        attractors[:, :2] *= taper_xy(attractors[:, 2])[:, None]
     seg = max(height / 28.0, 6.0)
     influence, kill = seg * 7.0, seg * 1.6
     nodes = [np.array([0.0, 0.0, 0.0])]
@@ -606,7 +656,7 @@ def space_colonization_tree(seed: int, height: float, spread: float, palette: st
             continued[p] = is_cont[i] = True
             branch[i] = branch[p]
     shade = np.random.default_rng(seed + 1).uniform(0.92, 1.08, n_branches).astype(np.float32)
-    bark = _rgba("#5a4632", len(seg_i))
+    bark = _rgba(form.bark, len(seg_i))
     bark[:, :3] *= shade[branch[seg_i]][:, None]
     wood = limb_tubes(pts, par, radius, is_cont, bark, sides=7)
     # foliage: leaf clusters on every thin branch inside the crown; the leaf count
@@ -617,18 +667,20 @@ def space_colonization_tree(seed: int, height: float, spread: float, palette: st
         twig = np.arange(len(pts))
     a, b, c = radii
     surface = 4 * math.pi * (((a * b) ** 1.6 + (a * c) ** 1.6 + (b * c) ** 1.6) / 3) ** (1 / 1.6)
-    leaf_l = float(np.clip(height * 0.04, 9.0, 22.0) * leaf_scale)
+    leaf_l = float(np.clip(height * 0.04, 9.0, 22.0) * leaf_scale * form.leaf_scale)
     n_target = int(np.clip(surface / (0.5 * leaf_l * leaf_l * 0.6) * 1.6, 1500, 16000))
     per = max(2, n_target // len(twig))
     centers = np.repeat(pts[twig], per, axis=0) + rng.normal(0, seg * 1.1, (len(twig) * per, 3))
     rel = (centers - crown_c) / radii
+    if form.taper:  # depth inside the TAPERED crown (the fake-AO darkening)
+        rel[:, :2] /= taper_xy(centers[:, 2])[:, None]
     depth = np.clip(np.linalg.norm(rel, axis=1), 0.0, 1.0)
     t = np.clip((centers[:, 2] - trunk_h) / crown_h, 0, 1) * 0.6 + depth * 0.4
     cols = _palette_colors(palette, t, rng, depth)
     leaf_len = np.full(len(centers), leaf_l)
     foliage = leaves(centers.astype(np.float32), (centers - crown_c).astype(np.float32),
                      leaf_len * rng.uniform(0.8, 1.2, len(centers)), leaf_len * 0.6, cols, rng,
-                     center=crown_c.astype(np.float32))
+                     center=crown_c.astype(np.float32), droop=form.droop)
     parts = [wood, foliage]
     kind, accent_name = accent
     if kind == "fruit" and accent_name in ACCENTS:
@@ -776,18 +828,25 @@ def blades(seed: int, height: float, spread: float, palette: str,
         # exactly the blade's tip (the f = 1 centre above), so a head sits ON its blade
         tips = np.array([[math.cos(a) * lean[i] * hgt[i], math.sin(a) * lean[i] * hgt[i],
                           hgt[i]] for i, a in enumerate(ang)])
-        sel = tips[rng.choice(n, max(1, n // 4), replace=False)]
+        # the blade's direction at its tip, d/df of the centre line at f = 1: a head faces
+        # along its own stem's lean (they all faced straight up)
+        tangent = _normalize(np.stack([2.0 * lean * np.cos(ang), 2.0 * lean * np.sin(ang),
+                                       np.ones(n)], axis=1))
+        pick = rng.choice(n, max(1, n // 4), replace=False)
+        sel = tips[pick]
         if kind == "pompom":
             parts.append(spheres(sel, np.clip(spread * 0.08, 1.5, 3.0), ACCENTS[name]))
         else:
-            parts.append(flowers(sel, np.tile([0.0, 0.0, 1.0], (len(sel), 1)),
-                                 np.clip(spread * 0.18, 3.0, 7.0), ACCENTS[name], "#f2cf4e", rng,
-                                 petals=6))
+            parts.append(flowers(sel, tangent[pick], np.clip(spread * 0.18, 3.0, 7.0),
+                                 ACCENTS[name], "#f2cf4e", rng, petals=6))
     return MeshData.concat(parts)
 
 
-def sunflower(seed: int, height: float, spread: float) -> MeshData:
-    """Stem, broad leaves, and a head facing EAST (mature heads do; buds track the sun)."""
+def sunflower(seed: int, height: float, spread: float, head: bool = True) -> MeshData:
+    """Stem, broad leaves, and a head facing EAST (mature heads do; buds track the sun).
+
+    ``head`` False (out of the frost-free season) leaves stem and leaves only.
+    """
     rng = np.random.default_rng(seed)
     stem = cylinder((0, 0, 0), (0, 0, height * 0.95), 1.6, 1.0, "#4f7a2c")
     zs = np.linspace(height * 0.15, height * 0.8, 7)
@@ -796,6 +855,8 @@ def sunflower(seed: int, height: float, spread: float) -> MeshData:
     leafs = leaves(lp.astype(np.float32), lo.astype(np.float32), np.full(7, spread * 0.32),
                    np.full(7, spread * 0.24), _palette_colors("fresh", np.full(7, 0.6), rng), rng,
                    spherize=0.0)
+    if not head:
+        return MeshData.concat([stem, leafs])
     face = _normalize(np.array([[1.0, rng.normal(0, 0.15), 0.35]]))  # east, tilted up
     head_c = np.array([[0.0, 0.0, height * 0.95]]) + face * 4.0
     head = flowers(head_c, face, spread * 0.22, ACCENTS["gold"], "#5b3a1a", rng, petals=16)
@@ -855,20 +916,35 @@ def fit_height(mesh: MeshData, height: float, top: float | None = None) -> MeshD
 
 
 def plant_mesh(species: str, seed: int, height: float, spread: float,
-               object_type: str) -> MeshData:
-    """A plant of the given species, fitted to ``height`` × ``spread`` at the origin."""
-    return fit_to(_plant_shape(species, seed, height, spread, object_type), height, spread)
+               object_type: str, in_season: bool = True) -> MeshData:
+    """A plant of the given species, fitted to ``height`` × ``spread`` at the origin.
+
+    ``in_season`` False drops the fruit and flower accents (``SEASONAL_ACCENTS``):
+    the caller decides it from the PLAN's frost dates (``runner.in_frost_free_season``),
+    never from what looks nicer. Foliage and form are unchanged — the growth model has
+    no seasonal leaf-off (``core/growth_model.py``), and bare crowns are an owner question.
+    """
+    return fit_to(_plant_shape(species, seed, height, spread, object_type, in_season),
+                  height, spread)
+
+
+# Accent kinds that are fruit or flowers — they exist only in the frost-free season.
+# "heart" (a cabbage's head) is leaves, coloured from the plant's own palette: it stays.
+SEASONAL_ACCENTS = frozenset({"fruit", "flower", "cluster", "spike", "pompom"})
 
 
 def _plant_shape(species: str, seed: int, height: float, spread: float,
-                 object_type: str) -> MeshData:
+                 object_type: str, in_season: bool = True) -> MeshData:
     """Dispatch a plant to its archetype; centred on the origin (caller translates)."""
     archetype, palette, kind, accent = SPECIES_LOOK.get(
         species.lower(),
         ("canopy" if object_type == "TREE" else "mound", "fresh", "", ""),
     )
+    if not in_season and kind in SEASONAL_ACCENTS:
+        kind, accent = "", ""
     if archetype == "canopy":
-        return space_colonization_tree(seed, height, spread, palette, (kind, accent))
+        return space_colonization_tree(seed, height, spread, palette, (kind, accent),
+                                       form=CANOPY_FORM.get(species.lower()))
     if archetype == "conifer":
         return conifer(seed, height, spread, palette)
     if archetype == "rosette":
@@ -876,7 +952,7 @@ def _plant_shape(species: str, seed: int, height: float, spread: float,
     if archetype == "blades":
         return blades(seed, height, spread, palette, (kind, accent))
     if archetype == "sunflower":
-        return sunflower(seed, height, spread)
+        return sunflower(seed, height, spread, head=bool(kind))
     if archetype == "feathery":
         return mound(seed, height, spread, palette, (kind, accent), narrow=True)
     if archetype == "climber":
@@ -988,6 +1064,9 @@ def _offset_convex(poly: Polygon, dist: float) -> Polygon:
     return out
 
 
+RIDGE_CAP_SHADE = 0.8  # ridge cap = roof colour × this, in linear light
+
+
 def gable_house(footprint: Polygon, ridge: tuple[Point, Point], ridge_height: float,
                 wall: str = "#efe4cf", roof: str = "#b4553d", pitch_deg: float = 38.0,
                 overhang: float = 35.0) -> MeshData:
@@ -1015,8 +1094,12 @@ def gable_house(footprint: Polygon, ridge: tuple[Point, Point], ridge_height: fl
     ext = (ax - lx / ll * overhang, ay - ly / ll * overhang)
     ext_b = (bx + lx / ll * overhang, by + ly / ll * overhang)
     # the ridge cap is the top of the house: build it at z = 0, measure how far
-    # its hexagon rises above its axis, and hang everything else below it
-    cap = cylinder((ext[0], ext[1], 0.0), (ext_b[0], ext_b[1], 0.0), 7.0, 7.0, "#8e3f2d", sides=6)
+    # its hexagon rises above its axis, and hang everything else below it. Its colour
+    # is the roof's, × RIDGE_CAP_SHADE in linear light (a fixed terracotta cap sat on
+    # the shingle shed roof)
+    cap_rgba = _rgba(roof, 1)
+    cap_rgba[:, :3] *= RIDGE_CAP_SHADE
+    cap = cylinder((ext[0], ext[1], 0.0), (ext_b[0], ext_b[1], 0.0), 7.0, 7.0, cap_rgba, sides=6)
     cap_z = ridge_height - float(cap.positions[:, 2].max())
     apex = cap_z - 6.0  # slab mid-plane at the ridge line; the slab tops meet the cap axis
     dmax = max(dist(p) for p in footprint) or 1.0

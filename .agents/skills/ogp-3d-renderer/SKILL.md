@@ -82,7 +82,12 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
 - **Fog vs sky:** the skybox is drawn × `probeExposure`, `Fog` is not — fog = sky horizon ×
   probe exposure × 0.8 (linear) meets the sky within ±1.3 luma. The sky's
   `groundHorizonColor` shows in a sliver under a far-clipped ground plane: give it the sky
-  horizon colour, not the fog colour (that drew a dark line).
+  horizon colour, not the fog colour (that drew a dark line). That alone still left a
+  1–3 px dark line (dip 9–10 luma, llvmpipe): `ProceduralSkyTextureData`'s default
+  `groundCurve` 0.02 is ~32 % of the way to `groundBottomColor` 0.7° below the horizon —
+  about one texel of the sky texture — so the filtered horizon row darkens. `groundCurve`
+  0.1 with `groundEnergy` 1.0 measured 0.1–0.2 (the brighter lower sky lifts shaded walls
+  ~5 luma; ground shadows unchanged).
 - **PrincipledMaterial and water:** its grazing sky reflection ignores `specularAmount`,
   `fresnelScale` and `fresnelPower`, and its image-light diffuse is scaled by
   (1 − `specularAmount`). A custom material may sample the probe with Qt's

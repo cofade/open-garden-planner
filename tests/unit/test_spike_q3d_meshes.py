@@ -26,6 +26,12 @@ PLANTS = [
     ("Lavender", "PERENNIAL", 90.0, 120.0),
     ("Hydrangea", "SHRUB", 150.0, 110.0),
     ("Unknown Plant", "SHRUB", 120.0, 100.0),
+    # each canopy form (trunk, taper, leaf size) still fits the data
+    ("Pear Tree", "TREE", 450.0, 280.0),
+    ("Magnolia", "TREE", 300.0, 220.0),
+    ("Cherry Tree", "TREE", 480.0, 360.0),
+    ("Plum Tree", "TREE", 400.0, 300.0),
+    ("Maple", "TREE", 700.0, 500.0),
 ]
 
 
@@ -280,21 +286,30 @@ def test_fit_height_shares_one_scale_across_an_items_meshes() -> None:
 # ── look fixes pinned (L0 review P1) ──
 
 
-def test_flower_heads_sit_on_their_blade_tips() -> None:
-    """Lily/iris/tulip heads floated 2 % above and 10 % inside their blade tips."""
+def test_flower_heads_sit_on_their_blade_tips_facing_along_the_blade() -> None:
+    """Lily/iris/tulip heads floated 2 % above and 10 % inside their blade tips (L0), then
+    all faced straight up whatever their blade's lean (creator round 2)."""
     seed = M.item_seed("lily-test")
     with_heads = M.blades(seed, 100.0, 60.0, "crisp", ("flower", "orange"))
     n_blade_verts = M.blades(seed, 100.0, 60.0, "crisp", ("", "")).vertex_count
-    blade_tips = with_heads.positions[:n_blade_verts].reshape(-1, 10, 3)[:, -2:].mean(axis=1)
+    rings = with_heads.positions[:n_blade_verts].reshape(-1, 5, 2, 3)  # blade x ring x edge
+    blade_tips = rings[:, -1].mean(axis=1)   # the centre line at f = 1
+    below = rings[:, -2].mean(axis=1)        # ... and at f = 0.75
     heads = with_heads.positions[n_blade_verts:]
     sphere_v = len(M._SPHERE_V)
     k = len(heads) // (sphere_v + 6 * 4)  # per head: one disk sphere + six 4-vertex petals
     assert k >= 1 and len(heads) == k * (sphere_v + 24)
     disks = heads[: k * sphere_v].reshape(k, sphere_v, 3).mean(axis=1)  # = disk centres
     radius = float(np.clip(60.0 * 0.18, 3.0, 7.0))
-    lifted = blade_tips + np.array([0.0, 0.0, radius * 0.15], np.float32)  # disk sits on the head
-    gap = np.linalg.norm(disks[:, None, :] - lifted[None, :, :], axis=2).min(axis=1)
-    assert float(gap.max()) < 0.05
+    dist = np.linalg.norm(disks[:, None, :] - blade_tips[None, :, :], axis=2)
+    own = dist.argmin(axis=1)
+    # the disk sits ON its own blade's tip (a 0.15-radius lift along the head's facing)
+    assert float(np.abs(dist[np.arange(k), own] - radius * 0.15).max()) < 0.05
+    facing = M._normalize(disks - blade_tips[own])
+    last_segment = M._normalize(blade_tips[own] - below[own])
+    assert float((facing * last_segment).sum(axis=1).min()) > 0.99  # along the blade
+    tilt = np.degrees(np.arccos(np.clip(facing[:, 2], -1.0, 1.0)))
+    assert float(tilt.min()) > 12.0  # lean 0.15..0.55 → 16.7°..47.7° off vertical
 
 
 def test_trunk_is_one_bark_shade_not_bands() -> None:
@@ -351,3 +366,152 @@ def test_limb_tubes_neither_twist_nor_turn_inside_out() -> None:
     assert float(dots.min()) > 0.9  # every face faces out
     seg = mesh.positions.reshape(-1, 2, 7, 3)
     np.testing.assert_allclose(seg[1:12, 0], seg[0:11, 1], atol=1e-4)  # shared joint rings
+
+
+# ── fruit and flowers only in season (3D creator round 2, reviewer P1) ──
+#
+# ``in_season`` comes from the plan's frost dates (runner.in_frost_free_season); here
+# the builder side: out of season no accent geometry, in season some, and the truth
+# gates hold either way. Accent geometry is found by its EXACT colour (fruit, clusters,
+# spikes, pompoms in the accent colour; every flower has a fixed-colour disk).
+
+SEASONAL_KINDS = {"fruit", "flower", "cluster", "spike", "pompom"}
+FLOWER_DISKS = ("#f7e3a0", "#f0d060", "#f2cf4e", "#5b3a1a", "#4a2e14")
+SEASONAL_PLANTS = [  # one per archetype x accent kind
+    ("Apple Tree", "TREE", 420.0, 340.0),    # canopy, fruit
+    ("Magnolia", "TREE", 300.0, 220.0),      # canopy, flower
+    ("Tomato", "PERENNIAL", 200.0, 90.0),    # mound, fruit (+ green tomatoes)
+    ("Hydrangea", "SHRUB", 150.0, 110.0),    # mound, cluster
+    ("Lavender", "PERENNIAL", 60.0, 55.0),   # mound (narrow), spike
+    ("Peony", "PERENNIAL", 90.0, 55.0),      # mound, flower
+    ("Lily", "PERENNIAL", 120.0, 55.0),      # blades, flower
+    ("Chives", "PERENNIAL", 40.0, 30.0),     # blades, pompom
+    ("Sunflower", "PERENNIAL", 300.0, 90.0),  # sunflower head
+    ("Runner Bean", "PERENNIAL", 250.0, 60.0),  # climber, flower
+    ("Cosmos", "PERENNIAL", 100.0, 60.0),    # feathery, flower
+]
+
+
+def _markers() -> np.ndarray:
+    names = {a for _arch, _p, kind, a in M.SPECIES_LOOK.values() if kind in SEASONAL_KINDS}
+    names.add("tomato_green")
+    return np.array([M.srgb_to_linear(M.ACCENTS[n]) for n in sorted(names)]
+                    + [M.srgb_to_linear(c) for c in FLOWER_DISKS])
+
+
+def _n_accent(mesh: M.MeshData) -> int:
+    rgb = mesh.colors[:, :3]
+    return int((np.abs(rgb[:, None, :] - _markers()[None]).max(axis=2) < 1e-6).any(axis=1).sum())
+
+
+def test_seasonal_accent_kinds_are_exactly_fruit_and_flowers() -> None:
+    assert M.SEASONAL_ACCENTS == SEASONAL_KINDS  # "heart" (a cabbage head) is leaves
+
+
+@pytest.mark.parametrize(("species", "ot", "height", "spread"), SEASONAL_PLANTS)
+def test_out_of_season_drops_fruit_and_flowers(species: str, ot: str, height: float,
+                                              spread: float) -> None:
+    seed = M.item_seed("season-" + species)
+    summer = M.plant_mesh(species, seed, height, spread, ot, in_season=True)
+    winter = M.plant_mesh(species, seed, height, spread, ot, in_season=False)
+    assert _n_accent(summer) > 0
+    assert _n_accent(winter) == 0
+    assert winter.vertex_count < summer.vertex_count
+    for mesh in (summer, winter):  # the truth gates hold in every season
+        lo, hi = mesh.bounds()
+        assert lo[2] == pytest.approx(0.0, abs=0.5)
+        assert hi[2] == pytest.approx(height, rel=0.03)
+        assert max(hi[0] - lo[0], hi[1] - lo[1]) == pytest.approx(spread, rel=0.10)
+        assert not np.isnan(mesh.positions).any() and not np.isnan(mesh.normals).any()
+
+
+@pytest.mark.parametrize(("species", "ot", "height", "spread"), [
+    ("Cabbage", "PERENNIAL", 50.0, 90.0),   # the heart is leaves: it stays
+    ("Spruce", "TREE", 800.0, 240.0),
+    ("Birch", "TREE", 900.0, 280.0),
+    ("Lettuce", "PERENNIAL", 30.0, 30.0),
+    ("Unknown Plant", "SHRUB", 120.0, 100.0),
+])
+def test_season_leaves_plants_without_fruit_or_flowers_alone(species: str, ot: str,
+                                                             height: float, spread: float) -> None:
+    seed = M.item_seed("season-" + species)
+    summer = M.plant_mesh(species, seed, height, spread, ot, in_season=True)
+    winter = M.plant_mesh(species, seed, height, spread, ot, in_season=False)
+    assert np.array_equal(summer.positions, winter.positions)
+    assert np.array_equal(summer.colors, winter.colors)
+
+
+@pytest.mark.parametrize("squash", [0.5, 0.6, 0.8, 0.85, 1.0])
+def test_squashed_sphere_normals_are_the_ellipsoids(squash: float) -> None:
+    """The BBQ kettle (squash 0.8) and the flower disks kept the unit sphere's normals."""
+    r, c = 30.0, np.array([5.0, -3.0, 70.0], np.float32)
+    mesh = M.spheres(c[None], r, "#2a2a2e", squash=squash, smooth=True)
+    p = mesh.positions - c
+    analytic = M._normalize(p / np.array([r * r, r * r, (r * squash) ** 2], np.float32))
+    angle = np.degrees(np.arccos(np.clip((mesh.normals * analytic).sum(axis=1), -1.0, 1.0)))
+    assert float(angle.max()) < 0.05
+    np.testing.assert_allclose(np.linalg.norm(mesh.normals, axis=1), 1.0, atol=1e-5)
+
+
+@pytest.mark.parametrize("roof", ["#b4553d", "#78695a"])
+def test_ridge_cap_takes_the_roofs_colour(roof: str) -> None:
+    """The shed's shingle roof (#78695a) wore a fixed terracotta cap (#8e3f2d)."""
+    mesh = M.gable_house(RECT, ((0.0, 100.0), (300.0, 100.0)), 250.0, roof=roof,
+                         pitch_deg=25.0, overhang=20.0)
+    top = mesh.positions[:, 2] > 250.0 - 0.5   # only the cap reaches the ridge height
+    assert top.any()
+    expected = M.srgb_to_linear(roof) * M.RIDGE_CAP_SHADE
+    np.testing.assert_allclose(mesh.colors[top, :3], np.broadcast_to(expected, (int(top.sum()), 3)),
+                               atol=1e-6)
+
+
+# ── per-species canopy form (creator round 2, stretch): the five bench deciduous
+# species shared ONE normalised silhouette — a 0.34 trunk under an ellipsoid ──
+
+
+def _crown(form: M.CanopyForm | None, seed: int = 7, h: float = 450.0, s: float = 300.0):
+    """(crown base / height, lower-third / upper-third crown width, mesh) at one size."""
+    mesh = M.fit_to(M.space_colonization_tree(seed, h, s, "fresh", form=form), h, s)
+    leaf = mesh.uv[:, 0] > 0  # micro-leaves carry a wind weight; wood and accents carry 0
+    z = mesh.positions[leaf, 2]
+    r = np.hypot(mesh.positions[leaf, 0], mesh.positions[leaf, 1])
+    base = float(np.percentile(z, 1))
+    third = (h - base) / 3.0
+    lower = np.percentile(r[(z > base) & (z < base + third)], 95)
+    upper = np.percentile(r[z > h - third], 95)
+    return base / h, float(lower / upper), mesh
+
+
+def test_unknown_species_keep_the_l0_crown() -> None:
+    assert M.CanopyForm() == M.CanopyForm(trunk=0.34, taper=0.0, droop=0.15, bark="#5a4632",
+                                          leaf_scale=1.0)
+    assert "unknown oak" not in M.CANOPY_FORM
+
+
+@pytest.mark.parametrize("seed", [7, 8, 9])
+def test_trunk_and_taper_shape_the_crown(seed: int) -> None:
+    low, *_ = _crown(M.CanopyForm(trunk=0.15), seed)
+    high, *_ = _crown(M.CanopyForm(trunk=0.45), seed)
+    assert high - low > 0.15  # the crown starts where the trunk ends
+    _b, pyramid, _m = _crown(M.CanopyForm(taper=0.45), seed)
+    _b, ellipsoid, _m = _crown(M.CanopyForm(), seed)
+    _b, vase, _m = _crown(M.CanopyForm(taper=-0.45), seed)
+    assert pyramid > ellipsoid + 0.2 and vase < ellipsoid - 0.1 and vase < 1.0
+
+
+def test_the_bench_deciduous_species_have_distinct_forms() -> None:
+    bench = ("apple tree", "cherry tree", "pear tree", "birch", "magnolia")
+    forms = [M.CANOPY_FORM[name] for name in bench]
+    assert len({(f.trunk, f.taper) for f in forms}) == len(bench)
+    assert M.CANOPY_FORM["pear tree"].taper > 0.3       # upright, broadly pyramidal
+    assert M.CANOPY_FORM["magnolia"].taper < 0           # low-branched, wider above
+    assert M.CANOPY_FORM["magnolia"].trunk < M.CANOPY_FORM["birch"].trunk < 0.34
+
+
+def test_birch_bark_is_the_2d_white() -> None:
+    _b, _t, mesh = _crown(M.CANOPY_FORM["birch"])
+    wood = (mesh.uv[:, 0] == 0) & (mesh.positions[:, 2] < 60.0)  # the trunk's foot
+    assert wood.sum() > 10
+    white = M.srgb_to_linear(M.ACCENTS["white"])
+    ratio = mesh.colors[wood, :3] / white
+    assert float(ratio.min()) > 0.9 and float(ratio.max()) < 1.1  # one shade per branch, ±8 %

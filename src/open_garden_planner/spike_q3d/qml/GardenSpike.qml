@@ -101,8 +101,10 @@ Item {
             glowQualityHigh: root.preset === "ultra"
             fog: Fog {
                 // blends the endless meadow into the sky's horizon: the colour is the
-                // per-mood fogColor (sky horizon x probe exposure x 0.8, runner.look_for)
-                enabled: !root.orthoTopDown && root.preset !== "low"
+                // per-mood fogColor (sky horizon x probe exposure x 0.8, runner.look_for).
+                // On at EVERY preset: without it low drew a one-row cliff where the meadow
+                // meets the sky (84.5 luma at golden hour, creator round 2)
+                enabled: !root.orthoTopDown
                 color: root.fogColor
                 depthEnabled: true
                 depthNear: 2600
@@ -121,7 +123,8 @@ Item {
             ssrEnabled: root.preset === "ultra" && root.allowSsr
             sharpnessAmount: 0.08
             colorAdjustmentsEnabled: true
-            adjustmentSaturation: root.night ? 0.85 : 1.06
+            // night 0.85 measured MORE saturated than noon (0.550 vs 0.537): a dimmed day
+            adjustmentSaturation: root.night ? 0.6 : 1.06
             adjustmentContrast: 1.04
         }
 
@@ -142,7 +145,15 @@ Item {
                     groundHorizonColor: root.skyHorizon
                     sunColor: root.sunDiscColor
                     skyEnergy: root.night ? 0.25 : 1.0
-                    groundEnergy: root.night ? 0.15 : 0.9
+                    // The sliver of ground hemisphere between the far-clipped meadow and
+                    // the true horizon drew a 1-3 px darker line in every fogged view: 1.0
+                    // by day matches the sky's horizon (0.9 was darker), and groundCurve
+                    // 0.1 keeps the dark groundBottomColor out of the horizon texels — the
+                    // default 0.02 is ~32 % of the way to it 0.7 deg below the horizon
+                    // (morning dip 10.8 -> 0.2 luma; shaded walls +5 luma from the
+                    // brighter lower sky, ground shadows unchanged; creator round 2)
+                    groundEnergy: root.night ? 0.15 : 1.0
+                    groundCurve: 0.1
                     sunEnergy: root.night ? 0.0 : 1.0
                     textureQuality: ProceduralSkyTextureData.SkyTextureQualityHigh
                 }
@@ -180,7 +191,10 @@ Item {
             brightness: root.sunBrightness
             ambientColor: Qt.rgba(0, 0, 0, 1)
             castsShadow: true
-            shadowFactor: root.night ? 40 : 82
+            // night: the fixed moon (az 165, elev 38) grazes the house's east gable at
+            // n.l ~ 0.20 and the shadow map stair-stepped there; a soft, faint moon
+            // shadow (factor 25, PCF radius 8) removes the staircase (creator round 2)
+            shadowFactor: root.night ? 25 : 82
             // low: High + one cascade — Medium without cascades stair-stepped and
             // acned the roof (morning_low, L0 review)
             shadowMapQuality: root.preset === "low" ? Light.ShadowMapQualityHigh
@@ -193,7 +207,7 @@ Item {
             softShadowQuality: root.preset === "low" ? Light.PCF4
                              : root.preset === "medium" ? Light.PCF8
                              : root.preset === "high" ? Light.PCF16 : Light.PCF32
-            pcfFactor: 2.0
+            pcfFactor: root.night ? 8.0 : 2.0
             // 1024-texel maps (low, medium) showed acne and a staircase on a sun-grazed roof
             // at bias 5 (morning: 33-40 % of the slope darker than high); 15 measured clean,
             // IoU gate unchanged (low 0.963/0.968/0.937, medium 0.967/0.973/0.937)
@@ -260,7 +274,9 @@ Item {
             property vector3d uWater: root.waterColor
             property real uBody: 0.5      // = the principled IBL diffuse's (1 - specularAmount)
             property real uReflect: 0.15  // bench board: golden hour 212.7 deg, noon 197.3 (2D 205.5)
-            property real uRough: 0.05    // a crisp sun glint (0.3 blew it over the pond)
+            // a crisp sun glint: 0.3 blew it over the pond, 0.05 still clipped ~23 % of
+            // the visible pond at morning (creator round 2)
+            property real uRough: 0.02
             shadingMode: CustomMaterial.Shaded
             fragmentShader: "water.frag"
         }

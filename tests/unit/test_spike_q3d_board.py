@@ -21,6 +21,7 @@ from collections import defaultdict
 from datetime import date
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from open_garden_planner.spike_q3d import meshes as M
@@ -37,11 +38,12 @@ def _load():
     from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 
     scene = CanvasScene()
-    ProjectManager().load(scene, PLAN)
-    return scene
+    pm = ProjectManager()
+    pm.load(scene, PLAN)
+    return scene, pm.location
 
 
-def _board(scene, at: date) -> dict[str, list[tuple]]:
+def _board(scene, at: date, location=None) -> dict[str, list[tuple]]:
     """item id → [(mesh, kind, casts)] exactly as the spike would hand them to the engine."""
     rows: dict[str, list[tuple]] = defaultdict(list)
 
@@ -49,16 +51,18 @@ def _board(scene, at: date) -> dict[str, list[tuple]]:
         rows[item_id].append((mesh, kind, casts))
         return item_id
 
-    runner.build_models(scene, at, 110.0, False, make_model=record)
+    runner.build_models(scene, at, 110.0, False, make_model=record, location=location)
     return rows
 
 
 @pytest.fixture(scope="module")
 def plan(qapp):  # noqa: ARG001 — a QApplication for the CanvasScene
-    scene = _load()
+    scene, location = _load()
     items = {str(i.item_id): i for i in scene.items()
              if hasattr(i, "item_id") and getattr(i, "object_type", None) is not None}
-    return scene, items, {JUNE: _board(scene, JUNE), DECEMBER: _board(scene, DECEMBER)}
+    # built with the plan's OWN location, as the spike's board builds them
+    return scene, items, {JUNE: _board(scene, JUNE, location),
+                          DECEMBER: _board(scene, DECEMBER, location)}
 
 
 @pytest.mark.parametrize("at", [JUNE, DECEMBER], ids=["june", "december"])
@@ -151,6 +155,131 @@ def test_the_december_board_shows_the_december_plan(plan) -> None:
     assert tops[DECEMBER] > tops[JUNE] * 1.1
 
 
+# ── the season comes from the plan's frost dates, never from the look ──
+#
+# The 3D creator round-1 board showed red fruit and open flowers on 21 December. Fruit
+# and flowers are now shown only inside the plan's frost-free season
+# (location["frost_dates"], the keys the task generator reads); the fixture carries
+# Berlin's (04-09 .. 10-31). Accent geometry is found by its EXACT colour: fruit,
+# clusters, spikes and pompoms are drawn in their accent colour, every flower has a
+# disk of a fixed colour (meshes.py: tree "#f7e3a0", mound "#f0d060", blades
+# "#f2cf4e", sunflower "#5b3a1a" and "#4a2e14"); petals are jittered and not needed.
+
+FRUIT_AND_FLOWER_KINDS = {"fruit", "flower", "cluster", "spike", "pompom"}
+DISK_COLORS = ("#f7e3a0", "#f0d060", "#f2cf4e", "#5b3a1a", "#4a2e14")
+
+
+def _accent_markers() -> np.ndarray:
+    names = {accent for _a, _p, kind, accent in M.SPECIES_LOOK.values()
+             if kind in FRUIT_AND_FLOWER_KINDS}
+    names.add("tomato_green")  # the unripe tomatoes beside the red ones
+    return np.array([M.srgb_to_linear(M.ACCENTS[n]) for n in sorted(names)]
+                    + [M.srgb_to_linear(c) for c in DISK_COLORS])
+
+
+def _accent_vertices(parts, markers) -> int:
+    total = 0
+    for mesh, _kind, _casts in parts:
+        rgb = mesh.colors[:, :3]
+        hit = (np.abs(rgb[:, None, :] - markers[None, :, :]).max(axis=2) < 1e-6).any(axis=1)
+        total += int(hit.sum())
+    return total
+
+
+def _seasonal_plants(items) -> dict[str, str]:
+    """item id → species, for every plant whose look carries fruit or flowers."""
+    out = {}
+    for iid, item in items.items():
+        name = ((item.metadata.get("plant_species") or {}).get("common_name") or "").lower()
+        look = M.SPECIES_LOOK.get(name)
+        if item.object_type.name in PLANTS and look and look[2] in FRUIT_AND_FLOWER_KINDS:
+            out[iid] = name
+    return out
+
+
+def test_the_plan_carries_the_frost_dates_the_season_is_read_from(qapp) -> None:  # noqa: ARG001
+    _scene, location = _load()
+    assert location["frost_dates"] == {"last_spring_frost": "04-09", "first_fall_frost": "10-31"}
+    assert runner.in_frost_free_season(location, JUNE) is True
+    assert runner.in_frost_free_season(location, DECEMBER) is False
+
+
+def test_december_shows_no_fruit_or_flowers_june_shows_them(plan) -> None:
+    _scene, items, boards = plan
+    markers = _accent_markers()
+    seasonal = _seasonal_plants(items)
+    assert len(seasonal) >= 30, sorted(seasonal.values())  # not vacuous: the bench is full of them
+    june = {iid: _accent_vertices(boards[JUNE][iid], markers) for iid in seasonal}
+    december = {iid: _accent_vertices(boards[DECEMBER][iid], markers) for iid in seasonal}
+    assert {seasonal[i] for i, n in june.items() if n == 0} == set()       # every one in June
+    assert {seasonal[i] for i, n in december.items() if n > 0} == set()   # none in December
+    # and nothing else on the December board wears a fruit or flower colour
+    assert sum(_accent_vertices(parts, markers) for parts in boards[DECEMBER].values()) == 0
+
+
+def test_without_frost_dates_the_accents_stay(plan) -> None:
+    """No data, no seasonal claim: a plan without frost dates keeps fruit and flowers."""
+    scene, items, _boards = plan
+    markers = _accent_markers()
+    seasonal = _seasonal_plants(items)
+    for location in (None, {"latitude": 52.52, "longitude": 13.405}):
+        board = _board(scene, DECEMBER, location)
+        bare = {seasonal[i] for i in seasonal if _accent_vertices(board[i], markers) == 0}
+        assert bare == set(), (location, sorted(bare))
+
+
+def test_out_of_season_plants_keep_their_truth_gates(plan) -> None:
+    """Dropping accents must not move a plant's height or spread off the data."""
+    from open_garden_planner.ui.canvas.sun_shadow_controller import _plant_canopy_radius_cm
+
+    _scene, items, boards = plan
+    checked = 0
+    for iid in _seasonal_plants(items):
+        item = items[iid]
+        mesh = boards[DECEMBER][iid][0][0]
+        radius = _plant_canopy_radius_cm(item, DECEMBER) or item.radius
+        span = max(float(np.ptp(mesh.positions[:, 0])), float(np.ptp(mesh.positions[:, 1])))
+        assert span == pytest.approx(2.0 * radius, rel=0.10), item.name
+        checked += 1
+    assert checked >= 30
+
+
+@pytest.mark.parametrize(("frost", "day", "expected"), [
+    ({"last_spring_frost": "04-09", "first_fall_frost": "10-31"}, date(2026, 6, 21), True),
+    ({"last_spring_frost": "04-09", "first_fall_frost": "10-31"}, date(2026, 12, 21), False),
+    ({"last_spring_frost": "04-09", "first_fall_frost": "10-31"}, date(2026, 4, 9), True),
+    ({"last_spring_frost": "04-09", "first_fall_frost": "10-31"}, date(2026, 4, 8), False),
+    ({"last_spring_frost": "04-09", "first_fall_frost": "10-31"}, date(2026, 10, 31), True),
+    ({"last_spring_frost": "04-09", "first_fall_frost": "10-31"}, date(2026, 11, 1), False),
+    # one date only: the window is open on the other side
+    ({"last_spring_frost": "04-09"}, date(2026, 3, 1), False),
+    ({"last_spring_frost": "04-09"}, date(2026, 12, 21), True),
+    ({"first_fall_frost": "10-31"}, date(2026, 12, 21), False),
+    ({"first_fall_frost": "10-31"}, date(2026, 1, 15), True),
+    # a spring date after the fall date wraps the new year (southern hemisphere)
+    ({"last_spring_frost": "09-20", "first_fall_frost": "05-10"}, date(2026, 12, 21), True),
+    ({"last_spring_frost": "09-20", "first_fall_frost": "05-10"}, date(2026, 7, 1), False),
+    ({"last_spring_frost": "09-20", "first_fall_frost": "05-10"}, date(2026, 5, 10), True),
+    # no usable data: no seasonal claim
+    ({}, date(2026, 12, 21), True),
+    ({"last_spring_frost": "13-40", "first_fall_frost": "04/09"}, date(2026, 12, 21), True),
+    ({"last_spring_frost": 409, "first_fall_frost": None}, date(2026, 12, 21), True),
+    # the leap day is a valid entry in any year
+    ({"last_spring_frost": "02-29", "first_fall_frost": "10-31"}, date(2026, 2, 28), False),
+])
+def test_frost_free_season_reads_the_plans_frost_dates(frost: dict, day: date,
+                                                       expected: bool) -> None:
+    assert runner.in_frost_free_season({"frost_dates": frost}, day) is expected
+
+
+def test_no_location_makes_no_seasonal_claim() -> None:
+    assert runner.in_frost_free_season(None, DECEMBER) is True
+    assert runner.in_frost_free_season({"latitude": 52.52}, DECEMBER) is True
+    # malformed (a hand-edited file): no data, not a crash in the 3D build
+    assert runner.in_frost_free_season({"frost_dates": "04-09"}, DECEMBER) is True
+    assert runner.in_frost_free_season({"frost_dates": None}, DECEMBER) is True
+
+
 # ── the board loop (Qt-free): each shot is grabbed with ITS date's models ──
 
 
@@ -228,3 +357,20 @@ def test_look_derives_the_fog_and_never_paints_the_ground() -> None:
     assert runner.look_for(golden)["fogColor"] == "#a28b6d"
     assert runner.scale_linear("#ffffff", 1.0) == "#ffffff"
     assert runner.scale_linear("#808080", 0.5) == "#5c5c5c"
+
+
+def test_sun_colour_ramps_continuously_between_the_rigs() -> None:
+    """15°/6° steps gave December noon (14.0°) a warmer sun than June golden hour (15.2°)."""
+    noon, golden, low = runner.SUN_NOON, runner.SUN_GOLDEN, runner.SUN_LOW
+    assert runner.sun_light(30.0) == noon and runner.sun_light(60.9) == noon
+    assert runner.sun_light(6.0) == golden and runner.sun_light(5.9) == low
+    elevs = np.linspace(6.0, 29.99, 200)
+    blue = [M.srgb_to_linear(runner.sun_light(e)[0])[2] for e in elevs]
+    bright = [runner.sun_light(e)[1] for e in elevs]
+    assert np.all(np.diff(blue) >= 0)   # cooler as the sun climbs: never a warm step up
+    assert np.all(np.diff(bright) <= 0)
+    near = runner.sun_light(29.99)      # continuous into the noon rig
+    assert np.abs(M.srgb_to_linear(near[0]) - M.srgb_to_linear(noon[0])).max() < 0.01
+    assert abs(near[1] - noon[1]) < 0.01
+    dec, june_golden = runner.sun_light(14.04), runner.sun_light(15.23)
+    assert M.srgb_to_linear(dec[0])[2] <= M.srgb_to_linear(june_golden[0])[2]

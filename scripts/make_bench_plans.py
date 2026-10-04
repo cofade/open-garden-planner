@@ -12,10 +12,11 @@ are production ``.ogp`` files, not hand-rolled JSON:
 * ``bench_large.ogp`` — a 50 x 30 m allotment-style plan with 425 items
   (320 plants) for the performance budgets.
 
-Both are deterministic: positions come from a seeded ``random.Random`` and item
-ids are drawn from the same RNG (assigned exactly like ``core/project.py``'s
-loader does), so per-plant seeds — and therefore procedural plant shapes —
-stay stable across regenerations.
+Both sit in Berlin, with its frost dates (``BERLIN``). Both are deterministic:
+positions come from a seeded ``random.Random`` and item ids are drawn from the
+same RNG (assigned exactly like ``core/project.py``'s loader does), so
+per-plant seeds — and therefore procedural plant shapes — stay stable across
+regenerations.
 
 Usage::
 
@@ -37,6 +38,7 @@ over that process's per-run test key for the rest of the session.
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import os
 import random
@@ -71,7 +73,17 @@ from open_garden_planner.ui.canvas.items import (  # noqa: E402
 )
 
 OUT_DIR = REPO / "tests" / "fixtures" / "plans"
-BERLIN = {"latitude": 52.52, "longitude": 13.405}
+# Frost dates in the format the Location dialog writes and the task generator reads
+# ("MM-DD" under location["frost_dates"]). Source: WeatherSpark's typical growing
+# season for Berlin, "from around April 9 to around October 31" — the median start and
+# end of the longest non-freezing run per year (MERRA-2 reanalysis), the closest
+# published analogue of what services/climate_service.py derives from ERA5 (the median
+# last / first <= 0 °C day). The app's own lookup could not be run when this was set:
+# the archive host was blocked by the environment's egress policy. The 3D view reads
+# them to decide whether fruit and flowers are in season
+# (spike_q3d/runner.in_frost_free_season).
+BERLIN = {"latitude": 52.52, "longitude": 13.405,
+          "frost_dates": {"last_spring_frost": "04-09", "first_fall_frost": "10-31"}}
 # A fixed planting date keeps the growth model deterministic for any sim date.
 PLANTED = date(2026, 4, 15).isoformat()
 
@@ -333,7 +345,7 @@ def build_large() -> PlanBuilder:
 
 def _save(builder: PlanBuilder, path: Path) -> None:
     pm = ProjectManager()
-    pm.set_location(dict(BERLIN))
+    pm.set_location(copy.deepcopy(BERLIN))
     path.parent.mkdir(parents=True, exist_ok=True)
     pm.save(builder.scene, path)
 

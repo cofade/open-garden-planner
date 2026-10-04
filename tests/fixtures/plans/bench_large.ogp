@@ -1,7 +1,7 @@
 {
   "version": "1.4",
   "metadata": {
-    "modified": "2026-10-03T21:51:19.620577+00:00"
+    "modified": "2026-10-04T12:58:24.561498+00:00"
   },
   "canvas": {
     "width": 5000.0,
@@ -21696,6 +21696,10 @@
   ],
   "location": {
     "latitude": 52.52,
-    "longitude": 13.405
+    "longitude": 13.405,
+    "frost_dates": {
+      "last_spring_frost": "04-09",
+      "first_fall_frost": "10-31"
+    }
   }
 }

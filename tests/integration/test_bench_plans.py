@@ -41,7 +41,11 @@ def _types(scene: CanvasScene) -> Counter:
 class TestBenchSmall:
     def test_loads_with_location_and_canvas(self, qtbot) -> None:  # noqa: ARG002
         scene, pm = _load("bench_small.ogp")
-        assert pm.location == {"latitude": 52.52, "longitude": 13.405}
+        # the frost dates decide whether the 3D view shows fruit and flowers on a date
+        # (spike_q3d.runner.in_frost_free_season) — in the format the Location dialog writes
+        assert pm.location == {"latitude": 52.52, "longitude": 13.405,
+                               "frost_dates": {"last_spring_frost": "04-09",
+                                               "first_fall_frost": "10-31"}}
         assert (scene.width_cm, scene.height_cm) == (2400.0, 1600.0)
 
     def test_contains_every_3d_object_class(self, qtbot) -> None:  # noqa: ARG002

@@ -76,6 +76,8 @@ class BuildStats:
     # height / the builder's own top, per built item: fit_height() forces every top
     # to the data, so only this shows how far a builder was off before the fit
     fit_scales: dict[str, float] = field(default_factory=dict)
+    # the plan's frost-free season on the build date (fruit and flowers shown or not)
+    in_season: bool = True
 
     def add(self, kind: str, ms: float) -> None:
         self.build_ms[kind] = self.build_ms.get(kind, 0.0) + ms
@@ -221,6 +223,35 @@ def _write_metrics(out: Path, metrics: dict) -> None:
 # ── sun ──────────────────────────────────────────────────────────────────
 
 
+# The key light by sun elevation (ogp-lush-cinematic §3): the noon rig at and above
+# SUN_RAMP_HIGH_DEG, the golden rig at SUN_RAMP_LOW_DEG, a CONTINUOUS ramp between them
+# (colour mixed in linear light), the low-sun rig below. The old 15°/6° steps gave the
+# December noon sun (14.0°) a warmer colour than June's golden hour (15.2°).
+SUN_NOON = ("#fff1dc", 1.9)
+SUN_GOLDEN = ("#ffb878", 2.1)
+SUN_LOW = ("#ff9655", 1.7)
+SUN_RAMP_HIGH_DEG, SUN_RAMP_LOW_DEG = 30.0, 6.0
+
+
+def _linear_to_hex(lin: np.ndarray) -> str:
+    lin = np.clip(np.asarray(lin, np.float64), 0.0, 1.0)
+    srgb = np.where(lin <= 0.0031308, lin * 12.92, 1.055 * np.power(lin, 1 / 2.4) - 0.055)
+    return "#" + "".join(f"{round(float(c) * 255):02x}" for c in srgb)
+
+
+def sun_light(elev: float) -> tuple[str, float]:
+    """(colour, brightness) of the daytime key light at ``elev`` degrees."""
+    from open_garden_planner.spike_q3d.meshes import srgb_to_linear
+
+    if elev >= SUN_RAMP_HIGH_DEG:
+        return SUN_NOON
+    if elev < SUN_RAMP_LOW_DEG:
+        return SUN_LOW
+    t = (elev - SUN_RAMP_LOW_DEG) / (SUN_RAMP_HIGH_DEG - SUN_RAMP_LOW_DEG)
+    lo, hi = (srgb_to_linear(c).astype(np.float64) for c in (SUN_GOLDEN[0], SUN_NOON[0]))
+    return _linear_to_hex(lo + (hi - lo) * t), SUN_GOLDEN[1] + (SUN_NOON[1] - SUN_GOLDEN[1]) * t
+
+
 def sun_state(lat: float, lon: float, when_utc: datetime):
     from open_garden_planner.core.scene3d import sun_direction_scene
     from open_garden_planner.core.solar import solar_position
@@ -232,18 +263,48 @@ def sun_state(lat: float, lon: float, when_utc: datetime):
         d = sun_direction_scene(38.0, 165.0)
         return SunState(elev, az, (-d[0], -d[1], -d[2]), "#8ea4d6", 0.32, True)
     d = sun_direction_scene(elev, az)
-    if elev >= 30:
-        color, bright = "#fff1dc", 1.9
-    elif elev >= 15:
-        color, bright = "#ffdcaa", 2.0
-    elif elev >= 6:
-        color, bright = "#ffb878", 2.1
-    else:
-        color, bright = "#ff9655", 1.7
+    color, bright = sun_light(elev)
     return SunState(elev, az, (-d[0], -d[1], -d[2]), color, bright, False)
 
 
 # ── plan → meshes ────────────────────────────────────────────────────────
+
+
+def _frost_month_day(value: Any) -> tuple[int, int] | None:
+    """A frost date as (month, day), or None when absent or not a valid ``"MM-DD"``.
+
+    The format the plan stores and every reader parses (``task_generator._parse_frost``,
+    ``models/succession.py``): month and day split on "-". Checked against a LEAP year,
+    so "02-29" stays a valid date; a malformed value counts as no data.
+    """
+    if not isinstance(value, str):
+        return None
+    try:
+        month, day = (int(part) for part in value.split("-"))
+        date(2000, month, day)
+    except (ValueError, TypeError):
+        return None
+    return month, day
+
+
+def in_frost_free_season(location: dict[str, Any] | None, at: date) -> bool:
+    """True when ``at`` lies in the plan's frost-free season — fruit and flowers are shown.
+
+    The season is the plan's OWN data: ``location["frost_dates"]["last_spring_frost"]``
+    ≤ the day ≤ ``["first_fall_frost"]`` (both ``"MM-DD"``, inclusive) — the keys the
+    task generator and the succession model read. No frost dates means no seasonal
+    claim (True); with only one date the window is open on the other side; a spring
+    date after the fall date wraps the new year (a southern-hemisphere entry).
+    """
+    frost = location.get("frost_dates") if isinstance(location, dict) else None
+    if not isinstance(frost, dict):  # absent, or malformed in a hand-edited file: no data
+        frost = {}
+    spring = _frost_month_day(frost.get("last_spring_frost"))
+    fall = _frost_month_day(frost.get("first_fall_frost"))
+    day = (at.month, at.day)
+    if spring is not None and fall is not None and spring > fall:
+        return day >= spring or day <= fall
+    return (spring is None or day >= spring) and (fall is None or day <= fall)
 
 
 def _scene_points(item: Any, pts: list) -> list[tuple[float, float]]:
@@ -251,7 +312,7 @@ def _scene_points(item: Any, pts: list) -> list[tuple[float, float]]:
 
 
 def build_models(scene: Any, at: date, grass_density: float, with_grass: bool,
-                 make_model: Any = None):
+                 make_model: Any = None, location: dict[str, Any] | None = None):
     """Walk the live CanvasScene and emit one or two engine models per item.
 
     ``make_model(item_id, mesh, kind, casts)`` builds the engine object; the
@@ -263,6 +324,9 @@ def build_models(scene: Any, at: date, grass_density: float, with_grass: bool,
     a built item's meshes are fitted together so their top IS that height
     (``meshes.fit_height``); an item the resolver gives no height is drawn as
     decoration and casts NO shadow — exactly as in 2D, where it casts none.
+    ``location`` is the plan's (``ProjectManager.location``): its frost dates
+    decide whether fruit and flowers are in season on ``at``
+    (``in_frost_free_season``); without them every accent stays.
     """
     from open_garden_planner.core.object_height import effective_height_cm
     from open_garden_planner.spike_q3d import meshes as M
@@ -273,7 +337,7 @@ def build_models(scene: Any, at: date, grass_density: float, with_grass: bool,
         _plant_canopy_radius_cm,
     )
 
-    stats = BuildStats()
+    stats = BuildStats(in_season=in_frost_free_season(location, at))
     models: list[Any] = []
     by_id = {str(i.item_id): i for i in scene.items() if hasattr(i, "item_id")}
     tables = [i for i in by_id.values() if getattr(i, "object_type", None)
@@ -337,7 +401,8 @@ def build_models(scene: Any, at: date, grass_density: float, with_grass: bool,
             if parent is not None and parent.object_type.name in SOIL_PARENTS:
                 base = effective_height_cm(parent.object_type, parent.metadata, at_date=at) or 0.0
                 base -= 2.0  # soil sits just below the rim
-            mesh = M.plant_mesh(species, M.item_seed(iid), height, 2.0 * radius, name)
+            mesh = M.plant_mesh(species, M.item_seed(iid), height, 2.0 * radius, name,
+                                in_season=stats.in_season)
             emit(iid, M.translated(mesh, center.x(), center.y(), base), "foliage", h is not None)
             stats.add("plants", (time.perf_counter() - t0) * 1000.0)
             continue
@@ -533,9 +598,7 @@ def scale_linear(hex_color: str, factor: float) -> str:
     """``#rrggbb`` scaled by ``factor`` in LINEAR light, back to ``#rrggbb``."""
     from open_garden_planner.spike_q3d.meshes import srgb_to_linear
 
-    lin = np.clip(srgb_to_linear(hex_color).astype(np.float64) * factor, 0.0, 1.0)
-    srgb = np.where(lin <= 0.0031308, lin * 12.92, 1.055 * np.power(lin, 1 / 2.4) - 0.055)
-    return "#" + "".join(f"{round(float(c) * 255):02x}" for c in srgb)
+    return _linear_to_hex(srgb_to_linear(hex_color).astype(np.float64) * factor)
 
 
 def look_for(sun: Any) -> dict[str, Any]:
@@ -559,8 +622,10 @@ def look_for(sun: Any) -> dict[str, Any]:
         look = {"skyTop": "#4f7fc8", "skyHorizon": "#f4d2a6", "sunDiscColor": "#ffd09a",
                 "exposure": 1.15, "probe": 0.5}
     else:
+        # exposure 0.85 (was 0.92): noon_low clipped a channel on 4.6 % of the frame, the
+        # sun-lit roof at R 254; now 0.26 %, the lawn still luma 158 / saturation 0.64
         look = {"skyTop": "#3f78c9", "skyHorizon": "#cfe2f2", "sunDiscColor": "#fff0d8",
-                "exposure": 0.92, "probe": 0.55}
+                "exposure": 0.85, "probe": 0.55}
     look["fogColor"] = scale_linear(look["skyHorizon"], look["probe"] * FOG_OF_HORIZON)
     return look
 
@@ -597,7 +662,7 @@ class ModelsByDate:
 
     def report(self) -> dict[str, dict[str, Any]]:
         return {at.isoformat(): {"items": s.items, "models": s.models, "triangles": s.triangles,
-                                 "build_ms": round(ms, 1)}
+                                 "in_season": s.in_season, "build_ms": round(ms, 1)}
                 for at, (_m, s, ms) in sorted(self.sets.items())}
 
 
@@ -617,7 +682,8 @@ def shoot_board(renderer: Any, shots: list[Shot], presets: list[str], models: Mo
         for shot in shots:
             at = shot.when_utc.date()  # the 2D overlay's rule: sim_dt_utc.date()
             if models.activate(renderer, at):
-                log("models_for_date", date=at.isoformat(), models=len(renderer.models))
+                log("models_for_date", date=at.isoformat(), models=len(renderer.models),
+                    in_season=models.sets[at][1].in_season)
             sun = sun_for(shot.when_utc)
             renderer.set_look(look_for(sun))
             renderer.set_sun(sun)
@@ -805,16 +871,18 @@ def _run(args: argparse.Namespace, out: Path, log: SpikeLog, metrics: dict[str, 
     first_when = shots[0].when_utc if shots else datetime.now(UTC)
 
     models_by_date = ModelsByDate(
-        lambda at: build_models(scene, at, args.grass_density, not args.no_grass))
+        lambda at: build_models(scene, at, args.grass_density, not args.no_grass,
+                                location=pm.location))
     t0 = time.perf_counter()
     models = models_by_date.get(first_when.date())
     stats = models_by_date.sets[first_when.date()][1]
     metrics["build_models_ms"] = (time.perf_counter() - t0) * 1000
     metrics["build"] = {"date": first_when.date().isoformat(), "items": stats.items,
                         "models": stats.models, "triangles": stats.triangles,
+                        "in_season": stats.in_season,
                         "by_kind_ms": {k: round(v, 1) for k, v in stats.build_ms.items()}}
     log("models_built", ms=round(metrics["build_models_ms"], 1), models=stats.models,
-        triangles=stats.triangles, date=first_when.date().isoformat())
+        triangles=stats.triangles, date=first_when.date().isoformat(), in_season=stats.in_season)
     _write_metrics(out, metrics)
 
     if args.qml_dir is not None:  # every renderer of this run loads from there
@@ -899,11 +967,13 @@ def _run(args: argparse.Namespace, out: Path, log: SpikeLog, metrics: dict[str, 
         """File → Open again: the plan from disk into a new scene, a fresh ground
         bake and freshly built models (criterion 10's project reloads)."""
         fresh = CanvasScene()
-        ProjectManager().load(fresh, args.plan)
+        fresh_pm = ProjectManager()
+        fresh_pm.load(fresh, args.plan)
         renderer.set_ground(bake_ground(fresh, fresh.width_cm, fresh.height_cm), 0, 0,
                             fresh.width_cm, fresh.height_cm)
         models, _stats = build_models(fresh, models_by_date.active_date or first_when.date(),
-                                      args.grass_density, not args.no_grass)
+                                      args.grass_density, not args.no_grass,
+                                      location=fresh_pm.location)
         return models
 
     _measure(args, renderer, scene, ground, width, height, out, log, metrics,
