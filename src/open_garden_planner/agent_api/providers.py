@@ -100,6 +100,51 @@ class SetSuccessionPlanProvider(Protocol):
     ) -> dict[str, Any]: ...
 
 
+class SetSoilTestProvider(Protocol):
+    """The `record_soil_test` provider's call signature, named parameters included.
+
+    Same reasoning as :class:`CreateObjectProvider`, and sharper here: the six
+    `*_level` parameters are ALL `int | None` over six DIFFERENT ranges, so a
+    transposition would be type-identical and would write a nitrogen reading
+    into the potassium slot of a soil record. Spelling it as a Protocol keeps
+    the parameter NAMES part of the contract, and `server.py` calls it by
+    keyword.
+    """
+
+    def __call__(
+        self,
+        bed_id: str | None,
+        ph: float | None,
+        n_level: int | None,
+        p_level: int | None,
+        k_level: int | None,
+        ca_level: int | None,
+        mg_level: int | None,
+        s_level: int | None,
+        soil_texture: str | None,
+        test_date: str | None,
+        notes: str | None,
+    ) -> dict[str, Any]: ...
+
+
+class ManualTaskProvider(Protocol):
+    """The `add_manual_task` provider's call signature, named parameters included.
+
+    `title` and `date` are both plain strings and `notes` is an optional string,
+    so a positional transposition is type-identical and would file a task under
+    its own title. `server.py` calls it by keyword.
+    """
+
+    def __call__(
+        self,
+        title: str,
+        date: str | None,
+        notes: str | None,
+        bed_id: str | None,
+        task_id: str | None,
+    ) -> dict[str, Any]: ...
+
+
 @dataclass(frozen=True)
 class AgentProviders:
     """Main-thread-marshaled data sources the MCP tools read from.
@@ -257,6 +302,36 @@ class AgentProviders:
             a plain ``WriteResult``-shaped dict. Raises on an unknown bed, a
             non-soil-container target, overlapping ranges or malformed dates,
             leaving both the plan state and the undo stack untouched.
+        get_tasks: **Read (US-D3.3).** Curated task calendar for a date window,
+            with the render-time urgency and the shared task status folded in.
+            Takes keyword filters; read-only.
+        get_task_calendar: **Read (US-D3.3).** Month-bucketed counts by source
+            and urgency for one year. Takes ``(year, today)``; read-only.
+        add_manual_task: **Write (US-D3.3).** Files one user-authored task.
+            Takes ``(title, date, notes, bed_id, task_id)`` — ``task_id`` is
+            supplied only by an edit. Runs exactly one undoable
+            ``AddManualTaskCommand`` and returns a ``ManualTaskResult``.
+        edit_manual_task: **Write (US-D3.3).** Same signature as
+            ``add_manual_task``; runs one ``EditManualTaskCommand``. Refuses a
+            GENERATED task by name — generated tasks are derived state.
+        delete_manual_task: **Write (US-D3.3).** Takes ``(task_id,)``; runs one
+            ``DeleteManualTaskCommand``. Refuses a generated task by name.
+        get_soil_status: **Read (US-D3.4).** One bed's EFFECTIVE soil record —
+            its own latest, else the plan-wide default's latest — plus which of
+            the two answered, the per-nutrient health ratings and the overdue
+            check. Takes ``(bed_id, today)``; read-only.
+        recommend_amendments: **Read (US-D3.4).** ``calculate_amendments``
+            output, curated, with stable amendment ids beside display names.
+            Takes ``(bed_id, today)``; read-only.
+        get_soil_mismatches: **Read (US-D3.4).** Plants that disagree with
+            their bed's soil, as stable reason codes beside display text. Takes
+            ``(bed_id, today)``; ``bed_id=None`` checks every soil bed.
+        record_soil_test: **Write (US-D3.4).** Records a soil test on the
+            Rapitest KIT scale. Runs exactly one undoable
+            ``AddSoilTestCommand`` — the second agent write into ``ProjectData``
+            — and returns a ``WriteResult``. Raises before building the record
+            on any out-of-range reading, leaving ``soil_tests`` and the undo
+            stack untouched. Lab ppm values are refused by design.
     """
 
     snapshot: Callable[[], dict[str, Any]]
@@ -270,6 +345,15 @@ class AgentProviders:
     find_succession_gaps: Callable[..., dict[str, Any]]
     suggest_succession: Callable[..., list[dict[str, Any]]]
     set_succession_plan: SetSuccessionPlanProvider
+    get_tasks: Callable[..., dict[str, Any]]
+    get_task_calendar: Callable[..., dict[str, Any]]
+    add_manual_task: ManualTaskProvider
+    edit_manual_task: ManualTaskProvider
+    delete_manual_task: Callable[[str], dict[str, Any]]
+    get_soil_status: Callable[..., dict[str, Any]]
+    recommend_amendments: Callable[..., dict[str, Any]]
+    get_soil_mismatches: Callable[..., dict[str, Any]]
+    record_soil_test: SetSoilTestProvider
     render: Callable[
         [tuple[float, float, float, float] | None, list[str] | None, int],
         dict[str, Any],

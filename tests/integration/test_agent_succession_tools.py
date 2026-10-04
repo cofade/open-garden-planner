@@ -53,6 +53,9 @@ LOCATION: dict[str, Any] = {
 TODAY = datetime.date(2026, 6, 15)
 
 
+from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
+
+
 def _free_port() -> int:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(("127.0.0.1", 0))
@@ -231,6 +234,7 @@ class SuccessionHarness:
             set_layer_property=lambda *a: {},
             undo=lambda: bridge.run_on_main(lambda: {}),
             redo=lambda: bridge.run_on_main(lambda: {}),
+            **TASK_SOIL_STUBS,
             get_history=lambda: bridge.run_on_main(
                 lambda: history_from_command_manager(cm).model_dump()
             ),

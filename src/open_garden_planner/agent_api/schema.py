@@ -454,6 +454,10 @@ class WriteResult(BaseModel):
         "set_layer_property",
         # US-D3.2: the first write into ProjectData rather than the scene.
         "set_succession_plan",
+        # US-D3.4: the second ProjectData write — a soil test on a bed or on
+        # the plan-wide default. The manual-task writes (US-D3.3) return
+        # ManualTaskResult instead, which needs no action discriminator.
+        "record_soil_test",
     ] = Field(description="The mutation performed.")
     undo_description: str = Field(
         description="Human-readable label of the primary undo step this created "
@@ -882,4 +886,343 @@ class SuccessionSuggestion(BaseModel):
     )
     source: str = Field(
         description="Where the species record came from: 'bundled' or 'unknown'."
+    )
+
+
+# --- US-D3.3: calendar & task tools (issue #332) ------------------------------
+
+
+class TaskView(BaseModel):
+    """One task from the generator, plus its render-time urgency and status.
+
+    The two-field split below is the D3 localisation decision (ADR-034
+    addendum), and it is identical for every D3 tool:
+
+    * ``task_id``, ``task_type`` and ``source`` are **stable English machine
+      keys** and part of the API contract. Branch on these.
+    * ``title`` and ``notes`` are **display strings in the user's current UI
+      language** and explicitly NOT part of the English contract.
+    """
+
+    task_id: str = Field(
+        description="Stable task id. Pass it back to edit_manual_task / "
+        "delete_manual_task. Stable across calls for the same generated task."
+    )
+    source: str = Field(
+        description="Where the task came from: 'calendar', 'propagation', "
+        "'succession', 'soil', 'frost' or 'manual'. "
+        "A stable English machine key. The soil source includes both "
+        "amendment and mismatch tasks; task_type distinguishes them."
+    )
+    task_type: str = Field(
+        description="Stable English task-type key (the kind of work, e.g. "
+        "'sow_indoors'). This is the machine contract — branch on it, never "
+        "on `title`."
+    )
+    title: str = Field(
+        description="DISPLAY STRING in the user's current UI language. Not part "
+        "of the English API contract; do not parse it. Use `task_type` instead."
+    )
+    notes: str = Field(default="", description="Display string, same rule as `title`.")
+    start_date: str = Field(description="Inclusive start date, ISO 'YYYY-MM-DD'.")
+    end_date: str = Field(description="Inclusive end date, ISO 'YYYY-MM-DD'.")
+    bed_id: str | None = Field(
+        default=None, description="Linked bed UUID, or null when not bed-specific."
+    )
+    species_key: str = Field(
+        default="", description="Canonical species key (ADR-016), or empty."
+    )
+    item_ids: list[str] = Field(
+        default_factory=list, description="Canvas object ids this task refers to."
+    )
+    urgency: str | None = Field(
+        default=None,
+        description="Render-time bucket from `classify_urgency`: 'today', "
+        "'overdue', 'this_week', 'upcoming', or null when not actionable. "
+        "Computed from the dates and 'today', never stored on the task.",
+    )
+    status: str = Field(
+        description="Effective status from the shared task-status store: 'open', "
+        "'done', 'snoozed', 'dismissed' or 'archived'."
+    )
+    done_date: str | None = Field(
+        default=None, description="ISO date the task was marked done, or null."
+    )
+    snooze_until: str | None = Field(
+        default=None, description="ISO date the snooze ends, or null."
+    )
+    dismissible: bool = Field(
+        default=False, description="Whether the GUI offers a dismiss action."
+    )
+
+
+class TaskCalendarBucket(BaseModel):
+    """One month's task counts, broken down by source and urgency."""
+
+    month: str = Field(description="Month key, ISO 'YYYY-MM'.")
+    total: int = Field(
+        default=0,
+        description="Tasks whose window overlaps this month.",  # i18n-source: API contract
+    )
+    by_source: dict[str, int] = Field(
+        default_factory=dict, description="Count per stable `source` key."
+    )
+    by_urgency: dict[str, int] = Field(
+        default_factory=dict,
+        description="Count per urgency bucket; a task with no urgency is "
+        "counted under 'none'.",
+    )
+    actionable: int = Field(
+        default=0,
+        description="Tasks whose urgency is not null — the ones worth reading.",
+    )
+
+
+class TaskCalendarView(BaseModel):
+    """Month-bucketed overview of the task calendar."""
+
+    year: int = Field(description="The year this overview covers.")
+    today: str = Field(
+        description="The reference date used for urgency, ISO 'YYYY-MM-DD'."
+    )
+    coverage: str = Field(
+        description="What the answer is based on: 'full' when a frost date is "
+        "known, or 'no_frost_dates' when the plan has no geo-location. The "
+        "latter still returns every non-calendar task; it never means 'nothing "
+        "to do'."
+    )
+    total: int = Field(description="Total tasks across all months.")
+    months: list[TaskCalendarBucket] = Field(
+        default_factory=list,
+        description="Only months with at least one task, ascending.",
+    )
+
+
+class ManualTaskResult(BaseModel):
+    """Outcome of a manual-task write."""
+
+    task_id: str = Field(description="Id of the manual task written.")
+    title: str = Field(description="The stored title, echoed back.")
+    date: str = Field(
+        description="Stored due date, ISO 'YYYY-MM-DD'. Empty string = undated."
+    )
+    deleted: bool = Field(
+        default=False, description="True when this call removed the task."
+    )
+
+
+class TaskListView(BaseModel):
+    """A filtered task list plus the coverage marker that explains its edges.
+
+    A wrapper rather than a bare list, for one reason: the coverage marker has
+    to survive. A plan with no geo-location has no frost dates, so the calendar
+    generator returns nothing — and a bare ``[]`` from `get_tasks` would read as
+    "nothing to do" when in fact the engine never got the dates it needs.
+    """
+
+    today: str = Field(
+        description="The reference date urgency was computed against, ISO "
+        "'YYYY-MM-DD'. The same input always yields the same answer."
+    )
+    from_date: str = Field(description="Window start actually applied, ISO.")
+    to_date: str = Field(description="Window end actually applied, ISO.")
+    coverage: str = Field(
+        description="What the answer is based on: 'full' when a frost date is "
+        "known, or 'no_frost_dates' when the plan has no geo-location. The "
+        "latter still returns every non-calendar task (manual, succession, "
+        "soil) — it never means 'nothing to do'."
+    )
+    total: int = Field(description="Number of tasks in `tasks` after filtering.")
+    tasks: list[TaskView] = Field(
+        default_factory=list,
+        description="Tasks whose window overlaps the date filter, ascending by "  # i18n-source: API contract
+        "start_date then task_id for a deterministic order.",
+    )
+
+
+# --- US-D3.4: soil amendment tools (issue #333) -------------------------------
+
+
+class SoilReading(BaseModel):
+    """One nutrient's kit-scale level and its derived health rating."""
+
+    level: int | None = Field(
+        default=None,
+        description="Rapitest kit level as recorded (integer). Null = not tested.",
+    )
+    health_level: str | None = Field(
+        default=None,
+        description="Derived rating for 'n', 'p' and 'k' only: 'unknown', "
+        "'good', 'fair' or 'poor', straight from `SoilService.health_level`. "
+        "NULL for 'ca', 'mg' and 's': the engine reads those secondaries when "
+        "computing amendments but defines no health rating for them, and asking "
+        "it for one returns the OVERALL rating instead. Null here means 'no "
+        "rating exists', which is different from 'unknown', which means the "
+        "nutrient was not tested.",
+    )
+
+
+class SoilStatus(BaseModel):
+    """One bed's effective soil record and everything derived from it."""
+
+    bed_id: str = Field(
+        description="The bed, or the literal 'global' for the plan-wide default."
+    )
+    bed_name: str = Field(default="", description="Display label for the bed.")
+    record_source: str = Field(
+        description="Which record answered: 'bed' (its own latest), 'global' "
+        "(the plan-wide default's latest), or 'none'. The effective-record "
+        "hierarchy is invisible otherwise, so an agent would mis-attribute a "
+        "reading to the bed that never had one."
+    )
+    coverage: str = Field(
+        description="'ok' when a record answered, or 'no_soil_test' when neither "
+        "the bed nor the plan has one. 'no_soil_test' is never an empty object "
+        "that reads as 'soil is fine'."
+    )
+    test_date: str = Field(
+        default="", description="ISO date of the record, or empty when none."
+    )
+    ph: float | None = Field(default=None, description="Recorded pH, or null.")
+    ph_health_level: str = Field(
+        description="Derived pH rating, or 'unknown' when no pH was recorded."
+    )
+    overall_health_level: str = Field(
+        description="Worst non-unknown level across pH and N/P/K — the engine's "
+        "own 'overall', which does NOT consider the Ca/Mg/S secondaries. "
+        "'unknown' when all four are unknown."
+    )
+    is_test_overdue: bool = Field(
+        description="Whether the seasonal check says this test is overdue."
+    )
+    levels: dict[str, SoilReading] = Field(
+        default_factory=dict,
+        description="Per-nutrient reading keyed by the stable nutrient key: "
+        "'n', 'p', 'k', 'ca', 'mg', 's'.",
+    )
+
+
+class SoilStatusListView(BaseModel):
+    """Effective soil readings for the requested bed or every soil-capable bed."""
+
+    beds: list[SoilStatus] = Field(
+        description="Per-bed readings, sorted by bed UUID. Each bed carries its "
+        "own record_source and coverage; an empty list means there are no beds.",
+    )
+
+
+class AmendmentRecommendationView(BaseModel):
+    """One amendment recommendation, as the engine produced it."""
+
+    amendment_id: str = Field(
+        description="Stable English amendment key (`Amendment.id`). Branch on "
+        "this; it never changes with the UI language."
+    )
+    display_name: str = Field(
+        description="DISPLAY STRING in the user's current UI language. Not part "
+        "of the English API contract; do not parse it."
+    )
+    quantity_g: float = Field(description="Amount in grams for this bed.")
+    target_kind: str = Field(
+        description="What the amendment acts on: 'ph', 'n', 'p', 'k', 'ca', "
+        "'mg', 's' or 'structure'. A stable English key."
+    )
+    current_value: float = Field(
+        description="Numeric current value (pH, or the kit level)."
+    )
+    target_value: float = Field(
+        description="Numeric target value (pH, or the kit level)."
+    )
+    fixes: list[str] = Field(
+        default_factory=list,
+        description="Stable English fix codes this amendment addresses "
+        "(`Amendment.fixes`).",
+    )
+    credits: list[str] = Field(
+        default_factory=list,
+        description="Secondary nutrients this amendment also moves, as "
+        "'kind:current->target' strings, exactly as the engine formats them.",
+    )
+    structural_fix: str = Field(
+        default="", description="Structural fix code, or empty when not one."
+    )
+    release_speed: str = Field(
+        default="", description="Release speed: 'fast', 'medium' or 'slow'."
+    )
+    organic: bool = Field(default=True, description="Whether the amendment is organic.")
+
+
+class SoilMismatchView(BaseModel):
+    """One plant that disagrees with its bed's soil."""
+
+    species_key: str = Field(
+        description="Canonical species key (ADR-016) — the machine contract."
+    )
+    common_name: str = Field(default="", description="Display name.")
+    reason_codes: list[str] = Field(
+        default_factory=list,
+        description="Stable English reason keys — 'ph_low', 'ph_high', "
+        "'n_high_demand', 'p_high_demand', 'k_high_demand'. Branch on these."
+    )
+    reasons: list[str] = Field(
+        default_factory=list,
+        description="DISPLAY STRINGS in the user's current UI language, paired "
+        "positionally with `reason_codes`. Not part of the English contract."
+    )
+
+
+class AmendmentPlanView(BaseModel):
+    """Amendment recommendations plus the coverage marker that explains them."""
+
+    bed_id: str = Field(
+        description="The bed, or the literal 'global' for the plan-wide default."
+    )
+    coverage: str = Field(
+        description="'ok' when a soil record answered, or 'no_soil_test' when "
+        "neither the bed nor the plan has one. An empty `recommendations` with "
+        "'no_soil_test' means 'untested', never 'nothing to fix'."
+    )
+    today: str = Field(
+        description="Reference date used for the overdue check, ISO 'YYYY-MM-DD'."
+    )
+    total: int = Field(description="Number of recommendations returned.")
+    recommendations: list[AmendmentRecommendationView] = Field(
+        default_factory=list,
+        description="Recommendations in the engine's own order.",
+    )
+
+
+class SoilMismatchListView(BaseModel):
+    """Plant/soil disagreements plus the coverage marker that explains them."""
+
+    bed_id: str | None = Field(
+        default=None,
+        description="The bed, or null when every soil-capable bed was checked.",
+    )
+    coverage: str = Field(
+        description="'ok' when a soil record answered, 'no_soil_test' when "
+        "neither the bed nor the plan has one, or 'no_beds' when the plan has no "
+        "soil-capable bed to check."
+    )
+    today: str = Field(description="Reference date, ISO 'YYYY-MM-DD'.")
+    total: int = Field(description="Number of disagreeing plants returned.")
+    mismatches: list[SoilMismatchView] = Field(
+        default_factory=list,
+        description="Plants that disagree with their bed's soil, sorted by "
+        "species_key for a deterministic order.",
+    )
+
+
+class SoilMismatchBedsView(BaseModel):
+    """Soil disagreements grouped by bed, preserving each bed's coverage."""
+
+    coverage: str = Field(
+        description="'no_beds' when no bed was checked, 'no_soil_test' when all "
+        "are untested, 'partial_soil_tests' when some are untested, or 'ok' "
+        "when every bed has an effective test. Never a soil-health rating.",
+    )
+    today: str = Field(description="Reference date, ISO 'YYYY-MM-DD'.")
+    beds: dict[str, SoilMismatchListView] = Field(
+        description="Per-bed results keyed by bed UUID; each carries its own "
+        "coverage, total and mismatches. Sorted by bed UUID.",
     )

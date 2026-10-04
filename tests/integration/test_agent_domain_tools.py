@@ -33,6 +33,9 @@ from open_garden_planner.services.soil_service import SoilService
 from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
 
 
+from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
+
+
 def _free_port() -> int:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(("127.0.0.1", 0))
@@ -89,6 +92,7 @@ def _providers(scene: Any, command_manager: Any) -> AgentProviders:
         set_layer_property=lambda layer_id, visible, opacity, locked: {},
         undo=lambda: bridge.run_on_main(lambda: {}),
         redo=lambda: bridge.run_on_main(lambda: {}),
+        **TASK_SOIL_STUBS,
         get_history=lambda: bridge.run_on_main(
             lambda: history_from_command_manager(command_manager).model_dump()
         ),

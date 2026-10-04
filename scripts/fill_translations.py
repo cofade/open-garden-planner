@@ -710,6 +710,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Set a project-wide soil test used when individual beds have none":
             "Eine projektweite Bodenprobe festlegen, falls einzelne Beete keine eigene haben",
         "Soil test recorded": "Bodenprobe gespeichert",
+        # US-D3.4 - agent soil-test write. The tool's undo_description, shown in
+        # the Edit menu, so it must read as a user action.
+        "Remove soil test": "Bodenprobe entfernen",
+        # US-D3.4 - the plan-wide default soil target's display label, returned
+        # by get_soil_status when bed_id is omitted.
+        "Plan-wide default": "Gesamter Plan",
         "No changes": "Keine Änderungen",
         # US-12.7 — Pest/disease log
         "Pest/disease log recorded": "Schädlings-/Krankheitseintrag gespeichert",

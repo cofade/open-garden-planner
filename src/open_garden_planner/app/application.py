@@ -1598,6 +1598,595 @@ class GardenPlannerApp(QMainWindow):
             ),
         ).model_dump()
 
+    def _agent_set_frost_alerts(self, alerts: list) -> None:
+        """Keep an application-owned copy of the frost alerts (US-D3.3)."""
+        self._agent_frost_alerts = list(alerts or [])
+
+    # ── US-D3.3: calendar & task tools ───────────────────────────────────────
+
+    def _agent_build_task_state(
+        self, today: "datetime.date", *, year: int | None = None,
+        actionable_only: bool = True,
+    ) -> Any:
+        """Build the shared ``PlanState`` with an injected reference date.
+
+        One snapshot per tool call, exactly as the Tasks tab builds it, so an
+        agent and the user's own task list can never describe different tasks
+        from different inputs. ``today`` is threaded through
+        ``build_plan_state`` rather than read here, which is what makes the
+        whole answer reproducible.
+        """
+        from open_garden_planner.services.task_generator import build_plan_state
+
+        return build_plan_state(
+            self.canvas_scene,
+            self._project_manager,
+            getattr(self, "_agent_frost_alerts", None) or None,
+            self._soil_service,
+            today=today,
+            year=year,
+            actionable_only=actionable_only,
+            include_propagation=True,
+        )
+
+    def _agent_reference_date(self, today: str | None) -> "datetime.date":
+        """Parse the tool's injected reference date, defaulting to the wall clock."""
+        import datetime
+
+        return _parse_agent_date(today, datetime.date.today(), "today")
+
+    def _agent_get_tasks(
+        self,
+        from_date: str | None = None,
+        to_date: str | None = None,
+        source: str | None = None,
+        bed_id: str | None = None,
+        species_key: str | None = None,
+        include_dismissed: bool = False,
+        today: str | None = None,
+    ) -> dict[str, Any]:
+        """Read the task calendar (US-D3.3, read-only)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_get_tasks(
+                from_date, to_date, source, bed_id, species_key, include_dismissed, today
+            )
+        )
+
+    def _do_agent_get_tasks(
+        self,
+        from_date: str | None,
+        to_date: str | None,
+        source: str | None,
+        bed_id: str | None,
+        species_key: str | None,
+        include_dismissed: bool,
+        today: str | None,
+    ) -> dict[str, Any]:
+        """Main-thread body of the read-only ``get_tasks`` tool."""
+        import datetime
+
+        from open_garden_planner.agent_api.domain import (
+            TASK_SOURCES,
+            get_tasks_for_agent,
+        )
+        from open_garden_planner.services.task_generator import generate_for_date_window
+
+        if source is not None and source not in TASK_SOURCES:
+            raise ValueError(
+                f"source={source!r} is not a task source. Use one of: "
+                f"{', '.join(TASK_SOURCES)}."
+            )
+        if bed_id is not None:
+            self._agent_resolve_soil_bed(bed_id)
+
+        reference = self._agent_reference_date(today)
+        start = (
+            _parse_agent_date(from_date, reference - datetime.timedelta(days=30), "from_date")
+            if from_date
+            else None
+        )
+        end = (
+            _parse_agent_date(to_date, reference + datetime.timedelta(days=30), "to_date")
+            if to_date
+            else None
+        )
+
+        state = self._agent_build_task_state(
+            reference, actionable_only=from_date is None and to_date is None,
+        )
+        view = get_tasks_for_agent(
+            generate_for_date_window(
+                state,
+                start or reference - datetime.timedelta(days=30),
+                end or reference + datetime.timedelta(days=30),
+            ),
+            today=reference,
+            task_states=self._project_manager.task_states,
+            from_date=start,
+            to_date=end,
+            source=source,
+            bed_id=bed_id,
+            species_key=species_key,
+            include_dismissed=include_dismissed,
+            has_frost_dates=state.last_frost is not None,
+        )
+        return view.model_dump()
+
+    def _agent_get_task_calendar(
+        self,
+        year: int | None = None,
+        today: str | None = None,
+    ) -> dict[str, Any]:
+        """Read the month-bucketed task overview (US-D3.3, read-only)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_get_task_calendar(year, today)
+        )
+
+    def _do_agent_get_task_calendar(
+        self,
+        year: int | None,
+        today: str | None,
+    ) -> dict[str, Any]:
+        """Main-thread body of the read-only ``get_task_calendar`` tool."""
+        import datetime
+
+        from open_garden_planner.agent_api.domain import get_task_calendar_for_agent
+        from open_garden_planner.services.task_generator import generate_for_date_window
+
+        reference = self._agent_reference_date(today)
+        if year is not None and (year < 1900 or year > 2200):
+            raise ValueError(f"year {year} is out of range; pass a four-digit year.")
+        state = self._agent_build_task_state(reference, year=year, actionable_only=False)
+        view = get_task_calendar_for_agent(
+            generate_for_date_window(
+                state, datetime.date(state.year, 1, 1), datetime.date(state.year, 12, 31),
+            ),
+            today=reference,
+            year=year,
+            task_states=self._project_manager.task_states,
+            has_frost_dates=state.last_frost is not None,
+        )
+        return view.model_dump()
+
+    def _agent_add_manual_task(
+        self,
+        title: str,
+        date: str | None = None,
+        notes: str | None = None,
+        bed_id: str | None = None,
+        task_id: str | None = None,
+    ) -> dict[str, Any]:
+        """File or edit one manual task (US-D3.3, token-gated write)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_manual_task(
+                title, date, notes, bed_id, task_id, adding=task_id is None
+            )
+        )
+
+    def _agent_edit_manual_task(
+        self,
+        title: str,
+        date: str | None = None,
+        notes: str | None = None,
+        bed_id: str | None = None,
+        task_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Edit one manual task (US-D3.3, token-gated write).
+
+        Shares one body with ``add_manual_task``: the only difference is which
+        command runs, and a separate body would be a second validation path.
+        """
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_manual_task(
+                title, date, notes, bed_id, task_id, adding=False
+            )
+        )
+
+    def _do_agent_manual_task(
+        self,
+        title: str,
+        date: str | None,
+        notes: str | None,
+        bed_id: str | None,
+        task_id: str | None,
+        *,
+        adding: bool,
+    ) -> dict[str, Any]:
+        """Main-thread body of ``add_manual_task`` / ``edit_manual_task``.
+
+        Validation happens BEFORE the command is built, so a refused call never
+        touches ``ProjectManager.manual_tasks`` and never pushes onto the undo
+        stack. One command either way, so one call is exactly one undo step.
+        """
+        import datetime  # noqa: PLC0415 - local, as elsewhere in this module
+
+        from open_garden_planner.agent_api.schema import ManualTaskResult
+        from open_garden_planner.core.commands import (
+            AddManualTaskCommand,
+            EditManualTaskCommand,
+        )
+        from open_garden_planner.models.task import ManualTask
+
+        clean_title = (title or "").strip()
+        if not clean_title:
+            raise ValueError("title is required and must not be empty.")
+
+        resolved_date = ""
+        if date:
+            resolved_date = _parse_agent_date(
+                date, datetime.date.today(), "date"
+            ).isoformat()
+
+        if bed_id is not None:
+            self._agent_resolve_soil_bed(bed_id)
+
+        if not adding:
+            if not task_id:
+                raise ValueError("task_id is required to edit a task.")
+            if task_id not in self._project_manager.manual_tasks:
+                self._agent_refuse_generated_task(task_id)
+
+        task = ManualTask(
+            date=resolved_date,
+            title=clean_title,
+            notes=notes or "",
+            bed_id=bed_id,
+        )
+        if task_id:
+            task.id = task_id
+
+        cmd = (
+            AddManualTaskCommand(self._project_manager, task)
+            if adding
+            else EditManualTaskCommand(self._project_manager, task)
+        )
+        self.canvas_view.command_manager.execute(cmd)
+        self.tasks_view.schedule_refresh()
+        return ManualTaskResult(
+            task_id=task.id,
+            title=task.title,
+            date=task.date,
+        ).model_dump()
+
+    def _agent_refuse_generated_task(self, task_id: str) -> None:
+        """Refuse a non-manual task id, naming why (US-D3.3).
+
+        Raised when an id is not in ``manual_tasks``. The id is then either a
+        generated task — which is derived state, rebuilt from the plan on every
+        call, so editing or deleting it would be silently undone by the next
+        read — or simply unknown. Both are refusals, and the message says which
+        is which rather than pretending to know.
+        """
+        from open_garden_planner.agent_api.domain import TASK_SOURCES
+
+        raise ValueError(
+            f"No manual task has id {task_id!r}. Generated tasks "
+            f"({', '.join(s for s in TASK_SOURCES if s != 'manual')}) are "
+            "derived from the plan and are rebuilt on every read, so they cannot "
+            "be edited or deleted — editing one would be undone by the next "
+            "call. Use add_manual_task for new work, and dismiss or complete "
+            "this task in the Tasks tab."
+        )
+
+    def _agent_delete_manual_task(self, task_id: str) -> dict[str, Any]:
+        """Delete one manual task (US-D3.3, token-gated write)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_delete_manual_task(task_id)
+        )
+
+    def _do_agent_delete_manual_task(self, task_id: str) -> dict[str, Any]:
+        """Main-thread body of the token-gated ``delete_manual_task`` tool."""
+        from open_garden_planner.agent_api.schema import ManualTaskResult
+        from open_garden_planner.core.commands import DeleteManualTaskCommand
+
+        # `manual_tasks` stores ManualTask.to_dict() values, not objects.
+        existing = self._project_manager.manual_tasks.get(task_id)
+        if existing is None:
+            self._agent_refuse_generated_task(task_id)
+
+        self.canvas_view.command_manager.execute(
+            DeleteManualTaskCommand(self._project_manager, task_id)
+        )
+        self.tasks_view.schedule_refresh()
+        return ManualTaskResult(
+            task_id=task_id,
+            title=existing.get("title", ""),
+            date=existing.get("date", ""),
+            deleted=True,
+        ).model_dump()
+
+    # ── US-D3.4: soil amendment tools ────────────────────────────────────────
+
+    @staticmethod
+    def _agent_global_target_id() -> str:
+        """The plan-wide soil-test target id (the GUI's 'global' default)."""
+        from open_garden_planner.services.soil_service import GLOBAL_TARGET_ID
+
+        return GLOBAL_TARGET_ID
+
+    def _agent_soil_target(self, bed_id: str | None) -> tuple[str, str, bool]:
+        """Resolve ``bed_id`` to a soil-test target id, its label, and a flag.
+
+        Returns ``(target_id, display_name, is_global)``. ``bed_id=None`` means
+        the plan-wide default, the same target the GUI's context menu offers.
+        Anything else must be a soil-capable bed: a TRELLIS is a plant parent
+        but holds no soil, so it is refused here for soil reads exactly as it is
+        for a succession plan.
+        """
+        from open_garden_planner.services.soil_service import GLOBAL_TARGET_ID
+
+        if bed_id is None:
+            return GLOBAL_TARGET_ID, self.tr("Plan-wide default"), True
+        item = self._agent_resolve_soil_bed(bed_id)
+        name = getattr(item, "name", "") or str(bed_id)
+        return bed_id, name, False
+
+    def _agent_get_soil_status(
+        self,
+        bed_id: str | None = None,
+        today: str | None = None,
+    ) -> dict[str, Any]:
+        """Read one bed's effective soil record (US-D3.4, read-only).
+
+        ``bed_id=None`` covers every soil-capable bed, each labelled with its own
+        ``record_source``, so a bed answered by the plan default is never
+        mistaken for a bed that was tested.
+        """
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_get_soil_status(bed_id, today)
+        )
+
+    def _do_agent_get_soil_status(
+        self,
+        bed_id: str | None,
+        today: str | None,
+    ) -> dict[str, Any]:
+        """Main-thread body of the read-only ``get_soil_status`` tool."""
+        from open_garden_planner.agent_api.domain import _soil_status_from
+
+        reference = self._agent_reference_date(today)
+        if bed_id is not None:
+            targets = [self._agent_soil_target(bed_id)]
+        else:
+            targets = [
+                self._agent_soil_target(item_id)
+                for item_id in self._agent_soil_bed_ids()
+            ]
+
+        payload: dict[str, Any] = {"beds": []}
+        for target_id, name, _is_global in targets:
+            record, source, history = self._agent_effective_soil(target_id)
+            view = _soil_status_from(
+                bed_id=target_id,
+                bed_name=name,
+                record=record,
+                record_source=source,
+                history=history,
+                today=reference,
+                health_level=SoilService.health_level,
+                is_test_overdue=SoilService.is_test_overdue,
+            )
+            payload["beds"].append(view.model_dump())
+        return payload
+
+    def _agent_effective_soil(self, target_id: str) -> tuple[Any, str, Any]:
+        """The service's effective record, provenance and matching history."""
+        return self._soil_service.get_effective_record_with_source(target_id)
+
+    def _agent_soil_bed_ids(self) -> list[str]:
+        """Every soil-capable bed id in the plan, sorted."""
+        from open_garden_planner.core.object_types import is_bed_type
+
+        ids = [
+            str(item.item_id)
+            for item in self.canvas_scene.items()
+            if is_bed_type(getattr(item, "object_type", None))
+        ]
+        return sorted(ids)
+
+    def _agent_recommend_amendments(
+        self,
+        bed_id: str,
+        today: str | None = None,
+    ) -> dict[str, Any]:
+        """Read amendment recommendations for one bed (US-D3.4, read-only)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_recommend_amendments(bed_id, today)
+        )
+
+    def _do_agent_recommend_amendments(
+        self,
+        bed_id: str,
+        today: str | None,
+    ) -> dict[str, Any]:
+        """Main-thread body of the read-only ``recommend_amendments`` tool."""
+        from open_garden_planner.agent_api.domain import (
+            recommend_amendments_for_agent,
+        )
+        from open_garden_planner.app.settings import get_settings
+
+        reference = self._agent_reference_date(today)
+        target_id, _name, _is_global = self._agent_soil_target(bed_id)
+        record, _source, _history = self._agent_effective_soil(target_id)
+        recs = SoilService.calculate_amendments(
+            record,
+            bed_area_m2=(
+                self._lookup_bed_area_m2(target_id)
+                if target_id != self._agent_global_target_id()
+                else 0.0
+            ),
+        )
+        view = recommend_amendments_for_agent(
+            bed_id=target_id,
+            record=record,
+            today=reference,
+            recommendations=recs,
+            language=get_settings().language,
+        )
+        return view.model_dump()
+
+    def _agent_get_soil_mismatches(
+        self,
+        bed_id: str | None = None,
+        today: str | None = None,
+    ) -> dict[str, Any]:
+        """Read plant/soil disagreements (US-D3.4, read-only)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_get_soil_mismatches(bed_id, today)
+        )
+
+    def _do_agent_get_soil_mismatches(
+        self,
+        bed_id: str | None,
+        today: str | None,
+    ) -> dict[str, Any]:
+        """Main-thread body of the read-only ``get_soil_mismatches`` tool.
+
+        Builds the per-bed species lists the same way the canvas overlay does
+        (``child.metadata['plant_species']`` -> ``PlantSpeciesData.from_dict``),
+        so the agent's disagreements and the user's red/amber borders come from
+        one set of records rather than two lookups that can drift.
+        """
+        from open_garden_planner.agent_api.domain import (
+            get_soil_mismatches_for_agent,
+        )
+        from open_garden_planner.models.plant_data import PlantSpeciesData
+
+        reference = self._agent_reference_date(today)
+        wanted: set[str] | None = None
+        if bed_id is not None:
+            wanted = {self._agent_soil_target(bed_id)[0]}
+        else:
+            wanted = set(self._agent_soil_bed_ids())
+
+        all_items = list(self.canvas_scene.items())
+        by_bed: dict[str, Any] = {}
+        for item in all_items:
+            target_id = str(getattr(item, "item_id", ""))
+            if target_id not in wanted:
+                continue
+            record, _source, _history = self._agent_effective_soil(target_id)
+            if record is None:
+                by_bed[target_id] = get_soil_mismatches_for_agent(
+                    bed_id=target_id,
+                    today=reference,
+                    details=[],
+                    coverage="no_soil_test",
+                ).model_dump()
+                continue
+            child_ids = {str(c) for c in getattr(item, "_child_item_ids", []) or []}
+            specs: list[Any] = []
+            for child in all_items:
+                if str(getattr(child, "item_id", "")) not in child_ids:
+                    continue
+                ps_dict = (getattr(child, "metadata", None) or {}).get("plant_species")
+                if isinstance(ps_dict, dict) and ps_dict:
+                    with contextlib.suppress(Exception):
+                        specs.append(PlantSpeciesData.from_dict(ps_dict))
+            by_bed[target_id] = get_soil_mismatches_for_agent(
+                bed_id=target_id,
+                today=reference,
+                details=SoilService.get_mismatch_details(record, specs),
+            ).model_dump()
+
+        tested = sum(b["coverage"] == "ok" for b in by_bed.values())
+        coverage = (
+            "no_beds" if not by_bed else
+            "no_soil_test" if not tested else
+            "ok" if tested == len(by_bed) else "partial_soil_tests"
+        )
+        return {
+            "coverage": coverage,
+            "today": reference.isoformat(),
+            "beds": dict(sorted(by_bed.items())),
+        }
+
+    def _agent_record_soil_test(
+        self,
+        bed_id: str | None = None,
+        ph: float | None = None,
+        n_level: int | None = None,
+        p_level: int | None = None,
+        k_level: int | None = None,
+        ca_level: int | None = None,
+        mg_level: int | None = None,
+        s_level: int | None = None,
+        soil_texture: str | None = None,
+        test_date: str | None = None,
+        notes: str | None = None,
+    ) -> dict[str, Any]:
+        """Record a soil test on the Rapitest kit scale (US-D3.4, token-gated write)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_record_soil_test(
+                bed_id, ph, n_level, p_level, k_level, ca_level, mg_level,
+                s_level, soil_texture, test_date, notes,
+            )
+        )
+
+    def _do_agent_record_soil_test(
+        self,
+        bed_id: str | None,
+        ph: float | None,
+        n_level: int | None,
+        p_level: int | None,
+        k_level: int | None,
+        ca_level: int | None,
+        mg_level: int | None,
+        s_level: int | None,
+        soil_texture: str | None,
+        test_date: str | None,
+        notes: str | None,
+    ) -> dict[str, Any]:
+        """Main-thread body of the token-gated ``record_soil_test`` tool.
+
+        Validation runs BEFORE the command is built, so a refused call leaves
+        ``ProjectManager.soil_tests`` and the undo stack untouched — asserted in
+        the tests, not assumed.
+
+        Mirrors the GUI's soil-test orchestration: one ``AddSoilTestCommand``
+        through the shared CommandManager, then the same three refreshes the
+        dialog path performs, so the canvas mismatch borders, the seasonal
+        badges and the dashboard all agree with the new reading.
+        """
+        import datetime
+
+        from open_garden_planner.agent_api.domain import (
+            SoilTestError,
+            build_soil_record_for_agent,
+        )
+        from open_garden_planner.agent_api.schema import WriteResult
+        from open_garden_planner.core.commands import AddSoilTestCommand
+
+        target_id, _name, _is_global = self._agent_soil_target(bed_id)
+        try:
+            record = build_soil_record_for_agent(
+                ph=ph,
+                n_level=n_level,
+                p_level=p_level,
+                k_level=k_level,
+                ca_level=ca_level,
+                mg_level=mg_level,
+                s_level=s_level,
+                soil_texture=soil_texture,
+                test_date=test_date,
+                notes=notes,
+                today=datetime.date.today(),
+            )
+        except SoilTestError as exc:
+            raise ValueError(str(exc)) from exc
+
+        self.canvas_view.command_manager.execute(
+            AddSoilTestCommand(self._project_manager, target_id, record)
+        )
+        self.canvas_view.refresh_soil_mismatches()
+        self.canvas_view.refresh_soil_badges()
+        self.calendar_view.refresh()
+        self.tasks_view.schedule_refresh()
+        return WriteResult(
+            action="record_soil_test",
+            undo_description=self.tr("Remove soil test"),
+        ).model_dump()
+
     def _agent_known_species_keys(self) -> set[str]:
         """Every canonical species key this plan accepts: bundled DB + placed plants.
 
@@ -2965,6 +3554,15 @@ class GardenPlannerApp(QMainWindow):
             find_succession_gaps=self._agent_find_succession_gaps,
             suggest_succession=self._agent_suggest_succession,
             set_succession_plan=self._agent_set_succession_plan,
+            get_tasks=self._agent_get_tasks,
+            get_task_calendar=self._agent_get_task_calendar,
+            add_manual_task=self._agent_add_manual_task,
+            edit_manual_task=self._agent_edit_manual_task,
+            delete_manual_task=self._agent_delete_manual_task,
+            get_soil_status=self._agent_get_soil_status,
+            recommend_amendments=self._agent_recommend_amendments,
+            get_soil_mismatches=self._agent_get_soil_mismatches,
+            record_soil_test=self._agent_record_soil_test,
         )
 
     def _stop_agent_api(self) -> None:
@@ -4297,6 +4895,11 @@ class GardenPlannerApp(QMainWindow):
         self.addAction(tasks_shortcut)
         # Reuse the calendar's single weather fetch for frost tasks.
         self.calendar_view.frost_alerts_ready.connect(self.tasks_view.set_frost_alerts)
+        # ...and keep an application-owned copy for the agent's PlanState build
+        # (US-D3.3). Reading `tasks_view._frost_alerts` from here would couple
+        # the agent path to a private attribute of a widget; this is the same
+        # signal, fanned out to both consumers.
+        self.calendar_view.frost_alerts_ready.connect(self._agent_set_frost_alerts)
         # Regenerate (debounced inside the view) on relevant project changes.
         self._project_manager.location_changed.connect(
             lambda _: self.tasks_view.schedule_refresh()

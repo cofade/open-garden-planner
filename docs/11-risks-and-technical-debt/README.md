@@ -554,6 +554,159 @@ exercises.** Three of the four were unreachable by any existing test *by
 construction* (empty canvas, single-threaded stop, input-only assertion), and the
 fourth was not a code defect at all.
 
+### 11.4.3 Six defects a single package found, and what each one was really about (US-D3.3 #332 + US-D3.4 #333)
+
+Every one of these was found **while building the tests for this package**, not by
+the tests failing against shipped behaviour — which is the point. In five of six
+cases the code I had just written was confidently wrong, and in the sixth a drift
+guard was too weak to notice. Four are worth reading twice, because the shape
+recurs in this codebase.
+
+**1. `health_level(record, "ca")` silently returns the OVERALL rating.**
+`SoilService.health_level` rates `ph`, `n`, `p`, `k` and `overall` — its
+`ALL_PARAMS` is exactly those five, and an unrecognised parameter **falls through
+to the `overall` branch** rather than raising. My first `SoilStatus` called it for
+all six nutrients, so every bed reported its whole health as calcium's. It reads
+as a plausible number, so no assertion style catches it by accident. Fixed by
+routing only `RATED_PARAMETERS` through the service and making
+`SoilReading.health_level` optional, where `None` means *"no rating exists"* —
+deliberately distinct from `'unknown'`, which means *not tested*. **A fall-through
+default is a silent wrong answer, and a nullable field is the honest way to say
+"this was never computed".**
+
+**2. `TASK_SOURCES` listed two values no generator can emit — and my drift guard
+was too weak to notice.** I took the source names from the issue text, which said
+`soil_amendment` and `soil_mismatch`. Both soil generators actually emit
+`source="soil"`; `task_type` is what distinguishes them. So `TASK_SOURCES` had
+seven entries for six real values, and the guard I wrote first asserted only
+`emitted <= TASK_SOURCES` — a **subset** check, which passes on extra entries. The
+field failure would have been nasty and quiet: `get_tasks(source="soil_mismatch")`
+returns an empty list forever, and `get_tasks(source="soil")` — the value that
+works — is **refused** as unknown. Two lessons: a drift guard must assert
+**equality in both directions**, and a guard that can pass vacuously should assert
+it saw something (`assert task_calls >= 7`), because a guard reading the wrong
+scope reports success forever. The guard is now AST-based over the module, not
+fixture-driven, precisely because four of the seven generators need live inputs a
+bare `PlanState` cannot supply — a fixture roster silently under-reports.
+
+**3. `get_effective_record` applies the hierarchy invisibly, so its answer cannot
+be attributed.** With only a plan-wide soil test recorded, the service returns the
+global record *for a bed* — by design, and correctly for the GUI. An agent handed
+that has no way left to tell it from a real bed reading. `record_source` now
+carries the provenance, and the provider resolves the two histories directly to
+recover it. **A function that returns a value but discards how it got there is
+half an API for a machine consumer.**
+
+**4. Credentials-shaped input needs the *shape* validated, not just the range.**
+`SoilTestRecord` stores the Rapitest kit scale **and** optional lab `*_ppm`
+floats. `40` is a plausible ppm nitrogen reading and an invalid kit level. Worse:
+**nothing in `services/` reads the `*_ppm` fields at all** — `health_level`,
+`calculate_amendments` and the mismatch check all read `*_level`, and no code
+converts between the scales (US-12.10c owns that). So the worst case was not a
+wrong number but a record that reports UNKNOWN health, recommends nothing, finds
+no mismatches — and looks complete to the caller. The tool now refuses ppm by
+name and takes kit-only parameters whose *names state the scale*. Related: the
+ranges are **per-nutrient** (`k_level` is `1–4`; the kit has no K0; secondaries
+are `0–2`), so one shared range check would have accepted a potassium `0` the
+engine then reads as Deficient-but-measured.
+
+**5. `credits` is a 3-tuple and I unpacked it as a 2-tuple.** `(kind, current,
+target)`, not `(kind, delta)`. A `ValueError` at the first recommendation, caught
+by the field-for-field equality test — which is exactly the test that existed to
+prove the wrapper computes nothing. **An equality test earns its keep on the first
+call, not on the happy path.**
+
+**6. The `app` fixture's modal teardown hung the run.** My tests dirty the plan,
+and pytestqt closes the window in its own teardown, where `closeEvent` raises a
+modal unsaved-changes dialog. Clearing `_dirty` in a fixture finalizer does not
+help: the finalizer can run *after* pytestqt already closed the window. Fixing it
+on the instance (`_confirm_discard_changes = lambda *_: False`) works regardless of
+ordering. **A test that hangs is a test that has told you something about ordering.**
+
+Two smaller notes for the next person. `WriteResult.action` is a `Literal`, so a
+new write action fails at *runtime* with a pydantic error rather than at import —
+the tool is registered, the server starts, and the call fails. And
+`ProjectManager.manual_tasks` stores `ManualTask.to_dict()` values, **not**
+objects, which is easy to assume otherwise and costs an `AttributeError`.
+
+The shared lesson is narrower than §11.4.2's and worth stating separately: **the
+defects in this package were all cases of a plausible-looking value that was not
+the value the engine means.** A fall-through branch, a name copied from prose, a
+hierarchy applied invisibly, a range that looked uniform and is not three times
+over. Each was found by a test that compared against the *engine* rather than
+against an expected literal — and every one of them would have passed a test
+written from the issue text instead.
+
+### 11.4.4 Review and frozen-client findings in D3.3/D3.4 (#332/#333)
+
+- **Call the public tool with the production provider graph.** The first
+  handover reported 6951 passing tests, but a real MCP client against the frozen
+  exe found `get_soil_status` failing with six missing model fields,
+  `get_soil_mismatches` failing with missing `total`, and the soil prompt failing
+  likewise. Providers returned aggregate `beds` envelopes while the server
+  constructed single-bed models. The purported real-client suite only called
+  provider methods and prompt renderers directly. Explicit aggregate schemas
+  now preserve per-bed coverage; the prompt extracts its requested bed.
+  `TestRealMcpTransport` in `tests/integration/test_agent_task_soil_tools.py`
+  calls all nine tools and both prompts using `app._build_agent_providers()`.
+  Four status/prompt tests and a separate mismatch test were observed failing
+  before the fix. Stub registration and direct provider success are evidence
+  about different boundaries.
+- **Generate a requested period before applying urgency.** A plant with April
+  sowing and June/July harvest returned an empty, fully-covered annual calendar
+  when queried in October. Future years were also empty because `year` never
+  reached generation. `actionable_only=False` retains the schedule for agent
+  annual/explicit-window reads while GUI reminders keep their existing default.
+  A December-to-January task was dropped from both years; intervals are now
+  clipped to year boundaries. Pinned by
+  `test_calendar_generates_the_full_requested_year`,
+  `test_explicit_task_window_generates_its_calendar_tasks` and
+  `test_calendar_clips_cross_year_tasks`, all observed failing first. Propagation
+  was absent because no plans were supplied to its generator. The extracted
+  `build_propagation_plans` is now shared with the GUI and honors seed data and
+  user overrides; `test_propagation_tasks_use_the_gui_calculator` failed for both
+  current and future years before the fix.
+- **Provenance and staleness must follow the same selected record.** An old
+  global test was reported with `record_source=global` and
+  `is_test_overdue=false` because staleness checked the bed's empty history.
+  The service now resolves record/source/history together, and the existing
+  record-only method delegates to it. Pinned by
+  `test_global_fallback_uses_global_history_for_staleness` (failed first).
+- **Language and input types must be checked at the actual boundary.** A
+  German amendment test pinned English names, contrary to the API contract.
+  Recommendation names now use the existing `Amendment.display_name(language)`;
+  `test_amendment_names_follow_the_ui_language` failed first with English
+  `Dolomite lime`/`Compost` versus `Dolomitkalk`/`Kompost`. MCP's permissive
+  numeric validation also converted booleans and numeric strings into soil
+  readings before the stricter domain validator saw them. Strict numeric
+  annotations prevent that; three malformed-input transport cases failed first.
+  The translator unit test now requests `qtbot`: it previously depended on an
+  unrelated test creating QApplication, so a targeted run failed while the full
+  run passed.
+
+- **The requested year is not necessarily a task's frost-anchor year.** Round
+  two reproduced bundled garlic sowing on October 15–29, 2026 only when the
+  request extended into 2027. Bundled asparagus harvest uses offsets 104–156
+  weeks, so a 2026 calendar must also consider prior anchors. Period generation
+  now derives an anchor range from the actual calendar and propagation offsets,
+  filters overlapping dates and preserves canonical anchor-year IDs. Annual
+  calendars and task windows share this path. Both the garlic integration test
+  and `test_bundled_multiyear_harvest_includes_prior_frost_anchors` failed first.
+- **No recommendation is not a soil-health assessment.** An existing lab-only
+  record (`n_ppm=100`, no kit levels) correctly returned unknown health and no
+  amendments, yet the prompt claimed every measured value was near target.
+  Neutral prompt/tool prose now states the engine's limited conclusion and
+  names the unconverted lab readings. The real-client
+  `test_lab_only_reading_is_not_presented_as_near_target` failed first.
+- **Absolute dates need an absolute identity.** Wider frost-anchor generation
+  reapplied a saved March 10 propagation override for every anchor, making three
+  tasks in an annual read and five in a three-year read. The dates agreed but
+  anchor-year IDs differed, so deduplication failed. The shared propagation
+  generator now assigns overridden steps to their start-date year; relative
+  steps retain anchor-year IDs. GUI and agent therefore agree.
+  `test_absolute_propagation_override_has_one_shared_identity` failed first and
+  checks identity, one result, GUI convergence and annual month counts.
+
 ## 11.5 Community and Governance
 
 **Feature Requests**: Open to community input, pivots, and voting. The goal is to avoid a dead project — community engagement is welcome.

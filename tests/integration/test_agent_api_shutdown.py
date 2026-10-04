@@ -41,6 +41,9 @@ _PROMPT_SHUTDOWN_MAX_S = 4.0
 
 
 
+from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
+
+
 def _free_port() -> int:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(("127.0.0.1", 0))
@@ -89,6 +92,7 @@ def _providers() -> AgentProviders:
         set_layer_property=_unused,
         undo=_unused,
         redo=_unused,
+        **TASK_SOIL_STUBS,
         get_history=_unused,
         suggest_companions=_unused,
         find_compatible_sets=_unused,

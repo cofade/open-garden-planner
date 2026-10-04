@@ -429,6 +429,11 @@
     "state": "CLOSED",
     "title": "US-D3.2: Succession tools — get_succession_plan / find_succession_gaps / suggest_succession / set_succession_plan + plan-succession prompt (Package D3, epic #237)"
   },
+  "332": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "US-D3.3: Calendar & task tools — get_tasks / get_task_calendar / manual-task writes + plan-my-week prompt (Package D3, epic #237)"
+  },
   "333": {
     "is_pr": false,
     "state": "OPEN",
