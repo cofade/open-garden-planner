@@ -231,7 +231,7 @@
   },
   "237": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Package D - Agent Integration: embedded MCP server, editing and domain intelligence"
   },
   "240": {
@@ -431,12 +431,12 @@
   },
   "332": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "US-D3.3: Calendar & task tools — get_tasks / get_task_calendar / manual-task writes + plan-my-week prompt (Package D3, epic #237)"
   },
   "333": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "US-D3.4: Soil amendment tools — get_soil_status / recommend_amendments / get_soil_mismatches / record_soil_test + plan-soil-amendments prompt (Package D3, epic #237)"
   },
   "334": {
@@ -614,9 +614,19 @@
     "state": "CLOSED",
     "title": "Agent writes are not canvas-clamped: an object can be created or moved entirely off-plan and becomes invisible"
   },
+  "382": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(US-D3.3,US-D3.4): task and soil tools complete Package D"
+  },
   "392": {
     "is_pr": false,
     "state": "OPEN",
     "title": "Repository audit 2026-10 — hardening ledger (epic)"
+  },
+  "408": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Generated soil amendment task names remain English with German UI"
   }
 }
