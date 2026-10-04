@@ -167,9 +167,9 @@ def pick_probe(renderer: Any, width: float, height: float, n: int = 20) -> dict:
     again = 0
     for row in rows:
         target = _top_target(tris[row["target"]])
-        z = cpu_topmost_hit(tris, *target)[1] if target else 0.0
-        if target is None:
+        if target is None:  # cannot happen: rows only hold targets that had one
             continue
+        z = cpu_topmost_hit(tris, *target)[1]
         hit = renderer.pick(*renderer.project(target[0], target[1], z))
         again += bool(hit.get("hit")) and hit.get("id") == row["target"]
     return {"n": len(rows), "hits": hits, "hits_after_reattach": again,
