@@ -306,7 +306,7 @@ class AgentProviders:
             with the render-time urgency and the shared task status folded in.
             Takes keyword filters; read-only.
         get_task_calendar: **Read (US-D3.3).** Month-bucketed counts by source
-            and urgency for one year. Takes ``(today, year)``; read-only.
+            and urgency for one year. Takes ``(year, today)``; read-only.
         add_manual_task: **Write (US-D3.3).** Files one user-authored task.
             Takes ``(title, date, notes, bed_id, task_id)`` — ``task_id`` is
             supplied only by an edit. Runs exactly one undoable

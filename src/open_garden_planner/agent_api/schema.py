@@ -943,7 +943,7 @@ class TaskView(BaseModel):
     )
     status: str = Field(
         description="Effective status from the shared task-status store: 'open', "
-        "'done' or 'snoozed'."
+        "'done', 'snoozed', 'dismissed' or 'archived'."
     )
     done_date: str | None = Field(
         default=None, description="ISO date the task was marked done, or null."
