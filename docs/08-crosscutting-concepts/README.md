@@ -1690,8 +1690,12 @@ the reference date from the calendar year. GUI reminders keep `actionable_only=T
 annual agent calendars and explicit task windows retain inactive dated tasks,
 then classify urgency against the actual reference date. Cross-year windows are
 clipped to each requested year before month bucketing. `generate_for_date_window`
-uses one snapshot and the shared generators for each year, deduplicating absolute
-tasks. Propagation plans use the extracted `build_propagation_plans` calculator
+uses one snapshot and the shared generators for the frost-anchor years capable
+of overlapping the requested dates, deduplicating absolute tasks. The range is
+derived from species offsets and generated propagation steps: autumn garlic
+sowing precedes its anchor year, while asparagus harvest extends three years.
+Annual calendars use this same path; anchor-year task IDs remain stable.
+Propagation plans use the extracted `build_propagation_plans` calculator
 shared with the GUI, preserving seed-packet germination values and user overrides.
 Missing frost dates still prevent those plans from being computed.
 
@@ -1699,6 +1703,9 @@ Amendment display names use `Amendment.display_name(language)` with the app's
 language, just as the GUI does; stable amendment IDs do not change. Soil-write
 arguments use strict numeric MCP annotations so booleans and numeric strings
 cannot be coerced into readings before the domain validator sees them.
+An empty amendment list means the engine recommends nothing from the readings
+it can assess; it does not prove healthy soil. Existing GUI lab-only records
+may have no assessed kit values and keep an unknown health result.
 
 **Secondary nutrients have no health rating, and `None` is the honest answer.**
 `SoilService.health_level` rates `ph`, `n`, `p`, `k` and `overall` — its

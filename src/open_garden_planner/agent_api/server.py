@@ -981,9 +981,10 @@ def build_server(
         `coverage: 'no_soil_test'` with an empty list means the bed is UNTESTED,
         not that it needs nothing.
 
-        An empty `recommendations` list with `coverage: 'ok'` is a real answer:
-        every measured value is at or near target. Say that, rather than
-        inventing work.
+        An empty `recommendations` list with `coverage: 'ok'` means the engine
+        recommends no amendment from the readings it can assess. It does not
+        prove healthy soil: existing lab ppm readings are not converted to kit
+        levels. Check get_soil_status and report unknown readings honestly.
 
         Read-only; no token required.
 

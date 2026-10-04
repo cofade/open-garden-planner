@@ -1224,3 +1224,28 @@ the scratch probe and temporary test prints were removed before commit.
 Drive the public call with the production graph. Generate a period before
 classifying urgency, preserve the chosen record's provenance through derived
 checks, and test refusal before and after framework argument coercion.
+
+
+### Case study: D3 frost anchors and unassessed lab readings (2026-10-04)
+
+**Symptom.** Extending a task window into the next year changed its earlier-year
+results; an unknown lab-only soil record was described as near target.
+
+**Wrong theory.** Matching the requested calendar years was sufficient after
+year bucketing was fixed; an empty engine result implied healthy measured soil.
+
+**Key evidence.** Temporary regression prints showed [D3-ANCHOR] lacked
+llium sativum:direct_sow:2027 in the 2026-only result even though its dates
+were 2026-10-15 through 2026-10-29. [D3-LAB] showed unknown health and an empty
+plan beside the near-target prompt claim. Three regressions failed first.
+
+**Root cause.** Negative and multi-year frost offsets cross anchor-year
+boundaries; existing GUI lab ppm records are not converted to kit levels.
+
+**Fix.** Derive anchor years from the actual calendar/propagation offsets, then
+filter date overlaps through the same path for both annual and window reads.
+Keep empty-result prose neutral and explicitly mention unassessed lab readings.
+Temporary prints were removed.
+
+**Lesson.** Generate from dates, not matching year labels. An empty result
+establishes only what the engine assessed, not what the caller hopes it means.

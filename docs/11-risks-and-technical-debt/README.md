@@ -654,6 +654,21 @@ written from the issue text instead.
   unrelated test creating QApplication, so a targeted run failed while the full
   run passed.
 
+- **The requested year is not necessarily a task's frost-anchor year.** Round
+  two reproduced bundled garlic sowing on October 15–29, 2026 only when the
+  request extended into 2027. Bundled asparagus harvest uses offsets 104–156
+  weeks, so a 2026 calendar must also consider prior anchors. Period generation
+  now derives an anchor range from the actual calendar and propagation offsets,
+  filters overlapping dates and preserves canonical anchor-year IDs. Annual
+  calendars and task windows share this path. Both the garlic integration test
+  and `test_bundled_multiyear_harvest_includes_prior_frost_anchors` failed first.
+- **No recommendation is not a soil-health assessment.** An existing lab-only
+  record (`n_ppm=100`, no kit levels) correctly returned unknown health and no
+  amendments, yet the prompt claimed every measured value was near target.
+  Neutral prompt/tool prose now states the engine's limited conclusion and
+  names the unconverted lab readings. The real-client
+  `test_lab_only_reading_is_not_presented_as_near_target` failed first.
+
 ## 11.5 Community and Governance
 
 **Feature Requests**: Open to community input, pivots, and voting. The goal is to avoid a dead project — community engagement is welcome.

@@ -14,6 +14,7 @@ from open_garden_planner.services.task_generator import (
     classify_urgency,
     generate_all,
     generate_calendar_tasks,
+    generate_for_date_window,
     generate_frost_tasks,
     generate_manual_tasks,
     generate_propagation_tasks,
@@ -37,6 +38,25 @@ def _state(**overrides: object) -> PlanState:
     }
     base.update(overrides)
     return PlanState(**base)  # type: ignore[arg-type]
+
+
+def test_bundled_multiyear_harvest_includes_prior_frost_anchors() -> None:
+    from open_garden_planner.services.bundled_species_db import get_species_entry
+
+    species = get_species_entry("Asparagus officinalis")
+    assert species is not None
+    row = PlantRowInput(
+        display_name="Asparagus", species_key="asparagus officinalis",
+        harvest_start=species["harvest_start"], harvest_end=species["harvest_end"],
+    )
+    state = _state(
+        last_frost=datetime.date(2026, 4, 15), plant_rows=(row,), actionable_only=False,
+    )
+    tasks = generate_for_date_window(state, datetime.date(2026, 1, 1), datetime.date(2026, 12, 31))
+    assert {t.task_id for t in tasks} == {
+        "asparagus officinalis:harvest:2023", "asparagus officinalis:harvest:2024",
+    }
+    assert len(tasks) == 2
 
 
 class TestClassifyUrgency:

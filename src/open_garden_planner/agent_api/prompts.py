@@ -476,8 +476,9 @@ def render_plan_soil_amendments_prompt(
         lines.append("")
     else:
         lines.append(
-            "The engine recommends no amendment: every measured value is at or "
-            "near its target."
+            "The engine recommends no amendment from the readings it can assess. "
+            "This does not prove that the soil is healthy or every value is near "
+            "target: lab ppm readings are not converted to kit levels."
         )
         lines.append("")
 

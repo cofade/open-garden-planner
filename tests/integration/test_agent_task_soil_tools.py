@@ -254,6 +254,25 @@ class TestRealMcpTransport:
             assert "Do NOT describe the soil as fine" in text
         _exercise_mcp(qtbot, mcp_server, workflow)
 
+    def test_lab_only_reading_is_not_presented_as_near_target(
+        self, app: Any, qtbot: Any, mcp_server: Any, bed_id: str,
+    ) -> None:
+        from open_garden_planner.models.soil_test import SoilTestHistory, SoilTestRecord
+
+        app._project_manager.set_soil_test_history(bed_id, SoilTestHistory(
+            target_id=bed_id, records=[SoilTestRecord(date=TODAY, mode="lab", n_ppm=100.0)],
+        ))
+        async def workflow(session: Any) -> None:
+            status = await _call(session, "get_soil_status", bed_id=bed_id, today=TODAY)
+            assert status["beds"][0]["overall_health_level"] == "unknown"
+            plan = await _call(session, "recommend_amendments", bed_id=bed_id, today=TODAY)
+            assert plan["recommendations"] == []
+            prompt = await session.get_prompt("plan-soil-amendments", {"bed_id": bed_id})
+            text = prompt.messages[0].content.text
+            assert "near its target" not in text
+            assert "does not prove" in text
+        _exercise_mcp(qtbot, mcp_server, workflow)
+
     def test_soil_write_fallback_and_undo_over_mcp(
         self, app: Any, qtbot: Any, mcp_server: Any, bed_id: str,
     ) -> None:
@@ -307,6 +326,26 @@ class TestRealMcpTransport:
 
 
 class TestTaskReads:
+    def test_bundled_garlic_autumn_tasks_do_not_depend_on_window_end_year(self, app: Any) -> None:
+        from open_garden_planner.services.bundled_species_db import get_species_entry
+
+        species = get_species_entry("Allium sativum")
+        assert species is not None
+        plant = RectangleItem(0, 0, 40, 40)
+        plant.object_type = ObjectType.PERENNIAL
+        plant.metadata["plant_species"] = species
+        app.canvas_scene.addItem(plant)
+        def read(end: str) -> list[dict]:
+            return app._agent_get_tasks(
+                source="calendar", from_date="2026-01-01", to_date=end, today=TODAY,
+            )["tasks"]
+        narrow = read("2026-12-31")
+        wider = read("2027-12-31")
+        autumn = next(t for t in wider if t["task_id"] == "allium sativum:direct_sow:2027")
+        assert autumn in narrow
+        calendar = app._agent_get_task_calendar(year=2026, today=TODAY)
+        assert "2026-10" in [b["month"] for b in calendar["months"]]
+
     @pytest.mark.parametrize("year", [2026, 2027])
     def test_propagation_tasks_use_the_gui_calculator(self, app: Any, year: int) -> None:
         from open_garden_planner.services.task_generator import (

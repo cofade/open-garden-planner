@@ -1728,15 +1728,19 @@ class GardenPlannerApp(QMainWindow):
         today: str | None,
     ) -> dict[str, Any]:
         """Main-thread body of the read-only ``get_task_calendar`` tool."""
+        import datetime
+
         from open_garden_planner.agent_api.domain import get_task_calendar_for_agent
-        from open_garden_planner.services.task_generator import generate_all
+        from open_garden_planner.services.task_generator import generate_for_date_window
 
         reference = self._agent_reference_date(today)
         if year is not None and (year < 1900 or year > 2200):
             raise ValueError(f"year {year} is out of range; pass a four-digit year.")
         state = self._agent_build_task_state(reference, year=year, actionable_only=False)
         view = get_task_calendar_for_agent(
-            generate_all(state),
+            generate_for_date_window(
+                state, datetime.date(state.year, 1, 1), datetime.date(state.year, 12, 31),
+            ),
             today=reference,
             year=year,
             task_states=self._project_manager.task_states,

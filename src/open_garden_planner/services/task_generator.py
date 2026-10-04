@@ -605,20 +605,42 @@ def build_propagation_plans(
 def generate_for_date_window(
     state: PlanState, start: datetime.date, end: datetime.date,
 ) -> list[Task]:
-    """Run the shared generators for the calendar years a date window touches.
+    """Run the shared generators for frost anchors that can overlap the window.
 
     Uses one immutable snapshot. Absolute-date tasks (manual, succession, soil,
     frost) retain their identity and are deduplicated; frost-relative calendar
     tasks use each year's frost date and canonical year-addressed task ids.
-    The caller still applies the precise day filter and computes urgency against
-    state.today. No reference-date shift is used to force tasks to be actionable.
+    Species offsets can span several years or precede their frost anchor. Derive
+    the anchor range from those offsets, including generated propagation steps.
+    Absolute-date overrides do not expand it. Keep canonical anchor-year ids,
+    filter by date overlap, and leave urgency relative to state.today.
     """
     from dataclasses import replace  # noqa: PLC0415
 
     if start > end:
         raise ValueError("from_date must be on or before to_date.")
+    first_year, last_year = start.year, end.year
+    if state.last_frost is not None:
+        template = replace(state, actionable_only=False)
+        relative_tasks = generate_calendar_tasks(template)
+        if state.propagation_species:
+            relative_tasks += generate_propagation_tasks(replace(
+                template, prop_plans=build_propagation_plans(
+                    state.propagation_species, state.last_frost, {},
+                    state.propagation_seed_packets,
+                ),
+            ))
+        offsets = [
+            (date - state.last_frost).days
+            for task in relative_tasks
+            for date in (task.start_date, task.end_date)
+            if date is not None
+        ]
+        if offsets:
+            first_year = min(first_year, (start - datetime.timedelta(days=max(offsets))).year)
+            last_year = max(last_year, (end - datetime.timedelta(days=min(offsets))).year)
     tasks: dict[str, Task] = {}
-    for year in range(start.year, end.year + 1):
+    for year in range(first_year, last_year + 1):
         last_frost = (
             _parse_frost(state.last_frost.strftime("%m-%d"), year)
             if state.last_frost is not None else None
@@ -632,6 +654,10 @@ def generate_for_date_window(
                 ) if last_frost is not None else {}
             )
         for task in generate_all(replace(state, year=year, last_frost=last_frost, prop_plans=prop_plans)):
+            task_start = task.start_date or task.end_date
+            task_end = task.end_date or task.start_date
+            if task_start is not None and task_end is not None and (task_end < start or task_start > end):
+                continue
             tasks.setdefault(task.task_id, task)
     return list(tasks.values())
 
