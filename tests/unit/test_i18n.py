@@ -239,16 +239,22 @@ class TestTranslationRegistry:
 
         target = None
         for node in tree.body:
-            if isinstance(node, ast.Assign) and any(
-                isinstance(t, ast.Name) and t.id == "TRANSLATIONS"
-                for t in node.targets
+            if (
+                isinstance(node, ast.Assign)
+                and any(
+                    isinstance(t, ast.Name) and t.id == "TRANSLATIONS"
+                    for t in node.targets
+                )
             ) or (
                 isinstance(node, ast.AnnAssign)
                 and isinstance(node.target, ast.Name)
                 and node.target.id == "TRANSLATIONS"
             ):
                 target = node.value
-        assert isinstance(target, ast.Dict), "TRANSLATIONS dict literal not found"
+        assert isinstance(target, ast.Dict), (
+            "TRANSLATIONS is not a dict literal — the registry must stay a single "
+            "literal for this uniqueness check to mean anything"
+        )
 
         seen: dict[str, int] = {}
         duplicates: list[str] = []
