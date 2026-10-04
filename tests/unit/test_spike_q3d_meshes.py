@@ -47,11 +47,73 @@ def test_plant_bbox_is_the_data(species: str, ot: str, height: float, spread: fl
     assert not np.isnan(mesh.normals).any()
 
 
-@pytest.mark.parametrize(("species", "ot", "height", "spread"), PLANTS[:4])
+@pytest.mark.parametrize(("species", "ot", "height", "spread"), PLANTS)
 def test_triangle_budget(species: str, ot: str, height: float, spread: float) -> None:
     mesh = M.plant_mesh(species, 7, height, spread, ot)
-    budget = 25_000 if ot == "TREE" else 6_000
+    budget = M.TREE_TRIANGLE_BUDGET if ot == "TREE" else M.PLANT_TRIANGLE_BUDGET
+    assert (M.TREE_TRIANGLE_BUDGET, M.PLANT_TRIANGLE_BUDGET) == (25_000, 6_000)
     assert 0 < mesh.triangle_count <= budget
+
+
+# 3D reviewer pass 3 (P1): the leaf cap (16,000 = 32,000 triangles) and the conifer cap
+# (14,000 sprays) were over the 25,000 budget by construction, and the test above built
+# four small plants only. Every tree species, larger than the bench, with fruit/flowers on.
+TREE_SPECIES = sorted({*M.CANOPY_FORM, "spruce", "pine", "unknown oak"})
+
+
+@pytest.mark.parametrize("species", TREE_SPECIES)
+@pytest.mark.parametrize(("height", "spread"), [(1500.0, 900.0), (420.0, 640.0)])
+def test_tree_budget_holds_beyond_the_bench_sizes(species: str, height: float,
+                                                  spread: float) -> None:
+    mesh = M.plant_mesh(species, M.item_seed("budget-" + species), height, spread, "TREE",
+                        in_season=True)
+    assert mesh.triangle_count <= M.TREE_TRIANGLE_BUDGET
+    lo, hi = mesh.bounds()  # the cap changes leaf size, never the data
+    assert hi[2] - lo[2] == pytest.approx(height, rel=0.03)
+    assert max(hi[0] - lo[0], hi[1] - lo[1]) == pytest.approx(spread, rel=0.10)
+
+
+def _leaf_area(mesh: M.MeshData) -> float:
+    """Total area of the micro-leaves (two triangles each; they carry a wind weight)."""
+    tri = mesh.indices.reshape(-1, 3)
+    leaf = mesh.uv[tri[:, 0], 0] > 0
+    p = mesh.positions.astype(np.float64)[tri[leaf]]
+    return float(np.linalg.norm(np.cross(p[:, 1] - p[:, 0], p[:, 2] - p[:, 0]), axis=1).sum() / 2)
+
+
+@pytest.mark.parametrize(("species", "height", "spread"), [
+    ("birch", 1000.0, 520.0),        # small leaves (leaf_scale 0.75): the worst bench offender
+    ("magnolia", 380.0, 450.0),      # 140 flowers take 6,160 triangles off the leaves
+])
+def test_the_budget_caps_the_leaf_count_not_the_coverage(monkeypatch, species: str,
+                                                          height: float, spread: float) -> None:
+    """A capped crown gets fewer, LARGER leaves: the same leaf area (coverage 1.6)."""
+    form = M.CANOPY_FORM[species]
+    _a, palette, kind, accent = M.SPECIES_LOOK[species]
+    budget = M.TREE_TRIANGLE_BUDGET
+    capped = M.space_colonization_tree(5, height, spread, palette, (kind, accent), form=form)
+    monkeypatch.setattr(M, "TREE_TRIANGLE_BUDGET", 10**9)
+    free = M.space_colonization_tree(5, height, spread, palette, (kind, accent), form=form)
+    assert capped.triangle_count <= budget < free.triangle_count  # the cap really clipped
+    assert _leaf_area(capped) == pytest.approx(_leaf_area(free), rel=0.05)
+
+
+def test_conifer_sprays_keep_their_area_when_capped(monkeypatch) -> None:
+    budget = M.TREE_TRIANGLE_BUDGET
+    capped = M.conifer(3, 1100.0, 420.0, "teal")  # asks for 21,000 sprays
+    monkeypatch.setattr(M, "CONIFER_SPRAYS_MAX", 10**9)
+    free = M.conifer(3, 1100.0, 420.0, "teal")
+    assert capped.triangle_count <= budget < free.triangle_count
+    assert _leaf_area(capped) == pytest.approx(_leaf_area(free), rel=0.02)
+
+
+def test_spruce_trunk_ends_inside_the_crown() -> None:
+    """The trunk reached 0.97 × the height at 0.6 % radius: a bare stub over the leader."""
+    mesh = M.conifer(3, 800.0, 240.0, "dark")
+    wood = mesh.uv[:, 0] == 0
+    assert float(mesh.positions[wood, 2].max()) == pytest.approx(0.90 * 800.0, abs=1e-3)
+    top_ring = mesh.positions[wood][mesh.positions[wood, 2] > 0.90 * 800.0 - 1e-3]
+    assert float(np.hypot(top_ring[:, 0], top_ring[:, 1]).max()) < 1e-3  # a point, no stub
 
 
 def test_same_seed_same_mesh_within_tolerance() -> None:
@@ -453,6 +515,36 @@ def test_squashed_sphere_normals_are_the_ellipsoids(squash: float) -> None:
     np.testing.assert_allclose(np.linalg.norm(mesh.normals, axis=1), 1.0, atol=1e-5)
 
 
+def test_trampoline_mat_is_the_2d_rubber() -> None:
+    """The mat was #1d2126: in no 2D table and under the §2 albedo floor (~40)."""
+    import importlib.util
+    from pathlib import Path
+
+    script = Path(__file__).resolve().parents[2] / "scripts" / "generate_object_sprites.py"
+    spec = importlib.util.spec_from_file_location("generate_object_sprites", script)
+    assert spec and spec.loader
+    sprites = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(sprites)
+    assert sprites.MATERIALS["rubber"]["mid"] == M.TRAMPOLINE_MAT
+    mesh = M.trampoline(0.0, 0.0, 140.0, 90.0)
+    on_mat = np.abs(mesh.colors[:, :3] - M.srgb_to_linear(M.TRAMPOLINE_MAT)).max(axis=1) < 1e-6
+    assert on_mat.sum() >= 48  # the mat prism: 24-gon top + sides
+    rgb = [int(M.TRAMPOLINE_MAT[i:i + 2], 16) for i in (1, 3, 5)]
+    assert 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2] >= 40
+
+
+def test_smooth_props_are_round_at_close_range() -> None:
+    """The BBQ kettle's rim was a 16-gon (2× subdivided sphere) at 1.5 m in the walk shot."""
+    mesh = M.bbq_grill(0.0, 0.0, 30.0, 90.0)
+    kettle = mesh.positions[: len(M._SPHERE_SMOOTH_V)]
+    zc = 90.0 - 30.0 * 0.8
+    rim = kettle[np.abs(kettle[:, 2] - zc) < 1e-3]  # the equator ring
+    assert len(rim) == 32
+    assert mesh.triangle_count == len(M._SPHERE_SMOOTH_F) + 3 * 5 * 2  # kettle + 3 legs
+    # a 32-gon's flats sit within 0.5 % of the radius (a 16-gon: 1.9 %)
+    assert np.cos(np.pi / len(rim)) > 0.995
+
+
 @pytest.mark.parametrize("roof", ["#b4553d", "#78695a"])
 def test_ridge_cap_takes_the_roofs_colour(roof: str) -> None:
     """The shed's shingle roof (#78695a) wore a fixed terracotta cap (#8e3f2d)."""
@@ -508,10 +600,17 @@ def test_the_bench_deciduous_species_have_distinct_forms() -> None:
     assert M.CANOPY_FORM["magnolia"].trunk < M.CANOPY_FORM["birch"].trunk < 0.34
 
 
-def test_birch_bark_is_the_2d_white() -> None:
+def test_birch_bark_is_the_2d_white_in_shade() -> None:
+    """The 2D white × 0.7 in linear light: at full albedo its sun-lit side clipped (trunk
+    pixels at a channel ≥ 254, low: walk 874 → 13, december_noon 441 → 291; pass 3)."""
     _b, _t, mesh = _crown(M.CANOPY_FORM["birch"])
     wood = (mesh.uv[:, 0] == 0) & (mesh.positions[:, 2] < 60.0)  # the trunk's foot
     assert wood.sum() > 10
-    white = M.srgb_to_linear(M.ACCENTS["white"])
-    ratio = mesh.colors[wood, :3] / white
+    assert M.CANOPY_FORM["birch"].bark == M.ACCENTS["white"]  # the colour is the 2D table's
+    shaded = M.srgb_to_linear(M.ACCENTS["white"]) * M.WHITE_BARK_SHADE
+    ratio = mesh.colors[wood, :3] / shaded
     assert float(ratio.min()) > 0.9 and float(ratio.max()) < 1.1  # one shade per branch, ±8 %
+    assert M.WHITE_BARK_SHADE == 0.7
+    srgb = (np.where(shaded <= 0.0031308, shaded * 12.92,
+                     1.055 * np.power(shaded, 1 / 2.4) - 0.055) * 255).round()
+    assert srgb.min() >= 40 and srgb.max() <= 240  # inside the §2 albedo range

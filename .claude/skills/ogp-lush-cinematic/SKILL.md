@@ -28,7 +28,7 @@ OGP is a planning tool. A beautiful render that misstates the plan is a **P0**, 
 | North | ground texture is north-up; nothing is mirrored | orientation probe NCC: identity must win |
 | Sky | the sky's sun disc sits at the solar azimuth | sky probe error < 6° (spike, disc 25° off-centre: max 0.85° OpenGL, 1.4° D3D11) |
 | Date | season/growth shown = the plan's sim date | models are built for each shot's own date; every shot row records `sun_date` = `build_date` (`metrics.json`) |
-| Season | fruit and flowers only inside the plan's OWN frost-free season: `location["frost_dates"]` `last_spring_frost` ≤ day ≤ `first_fall_frost` (`"MM-DD"`, the keys the task generator reads); no frost dates → no seasonal claim (accents stay). Crowns never go bare: the growth model has no leaf-off — an owner question, not a look lever | `runner.in_frost_free_season`; every shot row's build records `in_season` (`metrics.json` `builds`); exact accent-colour markers in `test_spike_q3d_board.py` / `test_spike_q3d_meshes.py` |
+| Season | fruit and flowers only inside the plan's OWN frost-free season: `location["frost_dates"]` `last_spring_frost` ≤ day ≤ `first_fall_frost` (`"MM-DD"`, the keys the task generator reads); fruit whose species carries harvest weeks follows the planting calendar's harvest window instead — last spring frost + `harvest_start` … + `harvest_end` weeks (`task_generator.generate_calendar_tasks`; bench: tomato 18 Jun–27 Aug, sweet pepper 2 Jul–13 Aug, so the 21 June board shows no peppers); no frost dates → no seasonal claim (accents stay). Crowns never go bare: the growth model has no leaf-off — an owner question, not a look lever | `runner.in_frost_free_season`, `runner.in_harvest_window` / `accents_in_season`; every shot row's build records `in_season` (`metrics.json` `builds`); exact accent-colour markers in `test_spike_q3d_board.py` / `test_spike_q3d_meshes.py` |
 | Built heights | every built object's top = its resolved height ±1 % | builders exact to `h`, `fit_height` as the safety net; objects with no resolved height (rain barrel, fire pit) cast no shadow — as in 2D |
 | Faces | the sun lights the face that faces it | stored normal · winding normal ≥ 0.99 on every flat face (the first board lit the wrong roof slope) |
 
@@ -41,18 +41,33 @@ Never tune a domain number (species height, spread, planting date) to make a sho
 | Light | One key light = the real sun. Warm when low, neutral-white when high. The sky is the fill (image-based lighting) and must **not** out-shine the sun — the first spike renders read flat and blue precisely because the probe dominated. |
 | Colour | Plants and objects take colours only from the 2D tables (sprite `PALETTES`/`FRUITS`/`FLOWERS`, object `MATERIALS`). Seasonal colour is a function of those palettes, never a new literal. Albedo stays inside sRGB ~40–240 (no pure black/white surfaces). |
 | Form | Chunky, readable silhouettes; bevels on built things; vegetation slightly fuller than nature; real-world dimensions; nothing floats, nothing is cloned. |
-| Foliage | Geometric micro-leaves (2 triangles each), **no alpha cards** (aliasing + sort + shadow-pass problems). Normals spherized toward the crown centre (0.55–0.75) so a crown shades like one soft volume. Leaf count follows crown surface area (coverage ≈ 1.6), not a magic number. |
+| Foliage | Geometric micro-leaves (2 triangles each), **no alpha cards** (aliasing + sort + shadow-pass problems). Normals spherized toward the crown centre (0.55–0.75) so a crown shades like one soft volume. Leaf count follows crown surface area (coverage ≈ 1.6), not a magic number — inside the plant's triangle budget (tree 25,000, any other plant 6,000: `meshes.TREE_TRIANGLE_BUDGET`): wood and fruit/flowers first, then leaves; a crown over it gets fewer, LARGER leaves at the same coverage (conifers: ≤ 12,000 sprays, same spray area), never a sparser crown. Gate: every plant of both bench plans on both board dates. |
 | Atmosphere | Filmic/ACES tonemapping, gentle glow, depth fog whose colour equals the sky horizon (hides the meadow/sky seam) at **every** preset — low included, or the meadow meets the sky in a one-row cliff — SSAO from Medium up. DOF/vignette only in photo mode. |
 | Motion | Wind sways grass and crowns via shader values (uv.x = sway weight, uv.y = phase); animation only while the 3D view is visible; reduced-motion setting stops it. |
 
-## 3. Light rigs per mood (*spike* values, `look_for` / `sun_state` in `spike_q3d/runner.py`)
+## 3. Light rigs per mood (*spike* values, `look_for` / `sun_light` / `sun_state` in `spike_q3d/runner.py`)
 
-| Mood | Sun elevation | Sun colour / brightness | Sky top / horizon | Probe / exposure |
+By day the rig is three **anchors** joined by **continuous ramps** (`runner._day_ramp`):
+low → golden over 0.5° → 6°, golden → noon over 6° → 30°, the noon rig above. Every value
+ramps — sun colour and brightness, sky top / horizon, sun disc, probe, exposure (fog follows
+the horizon) — colours mixed in linear light, exposure in stops (log2), the rest linearly.
+Night is a separate rig below 0.5°. Steps made moods jump: the sun colour at 15°/6° (a
+14° December noon warmer than a 15° June golden hour), exposure 1.15 → 0.85 within a
+degree at 20°, sky/fog/probe at 8° and 20°.
+
+| Anchor | Sun elevation | Sun colour / brightness | Sky top / horizon (sun disc) | Probe / exposure |
 |---|---|---|---|---|
-| Noon | ≥ 30° | `#fff1dc` / 1.9 | `#3f78c9` / `#cfe2f2` | 0.55 / 0.85 (0.92 clipped a channel on 4.6 % of noon_low) |
-| Afternoon–golden | 6–30° | continuous ramp, mixed in linear light: `#fff1dc` / 1.9 at 30° → `#ffb878` / 2.1 at 6° (`runner.sun_light`; 15.2° → `#ffd0a8` / 2.02, 14.0° → `#ffcda3` / 2.03) — steps made a 14° December noon warmer than a 15° June golden hour | `#4f7fc8` / `#f4d2a6` | 0.50 / 1.15 |
-| Low sun | 0.5–6° | `#ff9655` / 1.7 | `#4a6fb0` / `#f2b47c` | 0.42 / 1.25 |
-| Night | < 0.5° | moonlight `#8ea4d6` / 0.32 from az 165°, elev 38°; soft faint moon shadows (factor 25, PCF 8); saturation 0.6 | `#070d22` / `#1b2747` | 0.35 / 2.4 |
+| Noon | ≥ 30° | `#fff1dc` / 1.9 | `#3f78c9` / `#cfe2f2` (`#fff0d8`) | 0.55 / 0.85 (0.92 clipped a channel on 4.6 % of noon_low) |
+| Golden | 6° | `#ffb878` / 2.1 | `#4f7fc8` / `#f4d2a6` (`#ffd09a`) | 0.50 / 1.15 |
+| Low sun | 0.5° | `#ff9655` / 1.7 | `#4a6fb0` / `#f2b47c` (`#ffb070`) | 0.42 / 1.25 |
+| Night | < 0.5° | moonlight `#8ea4d6` / 0.32 from az 165°, elev 38°; soft faint moon shadows (factor 25, PCF 8); saturation 0.6 | `#070d22` / `#1b2747` (`#9fb2e0`) | 0.35 / 2.4 |
+
+On the board (bench_small, Berlin): golden_hour 15.23° → sun `#ffd0a8` / 2.02, horizon
+`#e7d8c8`, probe 0.519, exposure 1.024 (was 1.15: mean luma 109.8 → 105.2, low);
+december_noon 14.04° → exposure 1.039 (clipped 2.45 → 1.56 % of the frame, low; 1.11 → 0.45 % high — what is
+left is the red channel of sun-facing warm faces: a 14° sun at 2.03 lights a vertical
+face at n·l ≈ 0.97); morning 26.16° → 0.892 (was 0.85); noon 60.9° and walk 42.2° keep the
+noon rig. A 15° "golden hour" is between rigs — truthfully less golden than the 6° anchor.
 
 ## 4. Material value ranges (PBR, roughness 0–1)
 
@@ -61,7 +76,7 @@ Never tune a domain number (species height, spread, planting date) to make a sho
 | Lawn blades, leaves | 0.75–0.85 | specular ≈ 0.25; vertex colours from palettes |
 | Bark, soil, mulch | 0.85–0.95 | |
 | Plaster walls | 0.85–0.95 | warm off-white, never `#ffffff` |
-| Roof tiles | 0.70–0.85 | terracotta `#b4553d` range (matches the 2D roof texture) |
+| Roof tiles | 0.70–0.85 | terracotta `#b4553d` range (matches the 2D roof texture); their own material (`roofMat`, roughness 0.80, specular 0.15: `gable_house_parts` emits the roof as kind `"roof"`). Specular is NOT what makes a sun-facing roof read coral at noon: PrincipledMaterial scales its image-light diffuse by (1 − `specularAmount`), so 0.35 → 0.15 lifted the sky diffuse 1.31× and cancelled the lost highlight (noon_low roof sRGB (248, 135, 92) → (248, 135, 90)); the coral is the per-channel filmic shoulder (R compressed, G linear: hue 12.1° → 16.7°, inside the 10° line) |
 | Wood (deck, fence, beds) | 0.60–0.80 | |
 | Terracotta pots | 0.80–0.90 | |
 | Water | 0.02 | 2D water colour `#4d92c5` (linear); a tight sun glint (0.05 still clipped ~23 % of the visible pond at morning, 0.3 blew it over the whole pond); a small custom shader (`qml/water.frag`) keeps its hue in every mood and adds a Fresnel × 0.15 sky reflection — PrincipledMaterial's grazing sky reflection turned the pond lavender at golden hour and ignores `specularAmount`/`fresnelScale`/`fresnelPower` |
@@ -135,6 +150,14 @@ Severity: **P0** = truth gate failed, mirrored/black/broken frame, unreadable sc
 | Squashed kettle (and flower disks) lit as round balls | unit-sphere normals kept after the squash | inverse-transpose of the squash (error 6.3° → 0 for the 0.8 kettle, 18.4° → 0 at 0.5) |
 | Blade flower heads (lily, tulip, iris) all facing straight up | fixed +z facing | each faces along its own blade's tip tangent (16.7–47.7° off vertical) |
 | Five deciduous species with one silhouette (0.34 trunk under an ellipsoid) | one crown recipe | `CANOPY_FORM` per species: trunk, taper, droop, bark, 2D `leaf_scale`; the default is bit-identical to L0 |
+| Trees over the 25,000-triangle budget (bench_small December: birch 30,808, spruce 28,016; bench_large: 14 / 15 trees over, max 40,954) | the 16,000-leaf cap (32,000 triangles) and the 14,000-spray conifer cap were over the budget by construction; `leaf_scale` 0.75 = 1.78× the leaves; the budget test built four small plants | leaves = (25,000 − wood − fruit/flowers) / 2, a capped crown keeps its coverage with larger leaves (placed count × l² constant; magnolia's 140 flowers cost 6,160 triangles, so no fixed margin); conifers ≤ 12,000 sprays, `ln` × √(n/12,000); gate: every plant of both bench plans on both board dates (max 24,994) |
+| Exposure 1.15 → 0.85 within one degree at 20°; sky, fog and probe stepped at 8° and 20°; the key light fell back to the low rig under 6° | stepped rigs | three anchors joined by continuous ramps (§3); december_noon clipped 2.45 → 1.56 % (low), 1.11 → 0.45 % (high) |
+| Birch trunk clipped on its lit side (441 px in december_noon, 874 px in walk at a channel ≥ 254, low) | the 2D white at full albedo | white × 0.7 in linear light (`WHITE_BARK_SHADE`, `#c6c3b8`, the ridge cap's rule): 291 / 13 px; a 14° sun still lights a vertical trunk at n·l ≈ 0.97 |
+| Bare spruce trunk stub above the leader | trunk to 0.97 × the height at 0.6 % radius | trunk ends at 0.90 × the height, radius 0 (dark bark pixels at the noon tip: 16 → 0) |
+| Trampoline mat a black hole (`#1d2126`) | a literal in no 2D table, under the albedo floor | the 2D `MATERIALS["rubber"]["mid"]` `#303336` (noon mat luma 56 → 81) |
+| BBQ kettle rim a 16-gon at 1.5 m (walk) | 2× subdivided sphere | 3× for `smooth=True` (512 triangles, a 32-gon) |
+| Red tomatoes from the 9 April last frost | fruit followed the frost window | fruit follows the planting calendar's harvest window (§1 Season); flowers keep the frost window |
+| Species crowns overlap (side-silhouette IoU across species, mean 0.730) | weak per-species forms | apple 0.20 / droop 0.45, pear taper 0.7, maple −0.15, walnut 0.40 / −0.2: mean 0.700 (within one species 0.786); 15 of 28 pairs stay above 0.70 — trunk and taper are weak levers once `fit_to` normalises every crown to the same box; the next lever is the crown envelope |
 
 ## 8. Owner taste log (append-only, newest last)
 

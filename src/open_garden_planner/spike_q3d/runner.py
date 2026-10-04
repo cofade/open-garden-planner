@@ -233,14 +233,25 @@ def _write_metrics(out: Path, metrics: dict) -> None:
 # ── sun ──────────────────────────────────────────────────────────────────
 
 
-# The key light by sun elevation (ogp-lush-cinematic §3): the noon rig at and above
-# SUN_RAMP_HIGH_DEG, the golden rig at SUN_RAMP_LOW_DEG, a CONTINUOUS ramp between them
-# (colour mixed in linear light), the low-sun rig below. The old 15°/6° steps gave the
-# December noon sun (14.0°) a warmer colour than June's golden hour (15.2°).
+# The day rig by sun elevation (ogp-lush-cinematic §3) is THREE anchors joined by
+# continuous ramps: the low-sun rig at SUN_LOW_DEG, the golden rig at SUN_RAMP_LOW_DEG,
+# the noon rig at and above SUN_RAMP_HIGH_DEG; night below SUN_LOW_DEG. Colours mix in
+# linear light, exposures in stops (log2), everything else linearly. Steps made moods
+# jump: the sun colour at 15°/6° (a 14.0° December noon warmer than a 15.2° June golden
+# hour), and the sky, fog, probe and exposure at 8° and 20° (exposure 1.15 → 0.85).
 SUN_NOON = ("#fff1dc", 1.9)
 SUN_GOLDEN = ("#ffb878", 2.1)
 SUN_LOW = ("#ff9655", 1.7)
-SUN_RAMP_HIGH_DEG, SUN_RAMP_LOW_DEG = 30.0, 6.0
+SUN_RAMP_HIGH_DEG, SUN_RAMP_LOW_DEG, SUN_LOW_DEG = 30.0, 6.0, 0.5
+# the matching sky, sun disc, exposure and light-probe exposure of each anchor
+LOOK_NOON = {"skyTop": "#3f78c9", "skyHorizon": "#cfe2f2", "sunDiscColor": "#fff0d8",
+             "exposure": 0.85, "probe": 0.55}
+LOOK_GOLDEN = {"skyTop": "#4f7fc8", "skyHorizon": "#f4d2a6", "sunDiscColor": "#ffd09a",
+               "exposure": 1.15, "probe": 0.5}
+LOOK_LOW = {"skyTop": "#4a6fb0", "skyHorizon": "#f2b47c", "sunDiscColor": "#ffb070",
+            "exposure": 1.25, "probe": 0.42}
+LOOK_NIGHT = {"skyTop": "#070d22", "skyHorizon": "#1b2747", "sunDiscColor": "#9fb2e0",
+              "exposure": 2.4, "probe": 0.35}
 
 
 def _linear_to_hex(lin: np.ndarray) -> str:
@@ -249,17 +260,52 @@ def _linear_to_hex(lin: np.ndarray) -> str:
     return "#" + "".join(f"{round(float(c) * 255):02x}" for c in srgb)
 
 
-def sun_light(elev: float) -> tuple[str, float]:
-    """(colour, brightness) of the daytime key light at ``elev`` degrees."""
+def _day_ramp(elev: float) -> tuple[int, float]:
+    """Which ramp ``elev`` lies on and how far: (0, s) low → golden, (1, t) golden → noon.
+
+    Clamped at both ends: at and above SUN_RAMP_HIGH_DEG it is (1, 1.0), the noon rig.
+    """
+    if elev < SUN_RAMP_LOW_DEG:
+        s = (elev - SUN_LOW_DEG) / (SUN_RAMP_LOW_DEG - SUN_LOW_DEG)
+        return 0, min(max(s, 0.0), 1.0)
+    t = (elev - SUN_RAMP_LOW_DEG) / (SUN_RAMP_HIGH_DEG - SUN_RAMP_LOW_DEG)
+    return 1, min(t, 1.0)
+
+
+def _mix_hex(a: str, b: str, t: float) -> str:
+    """``#rrggbb`` a → b at t, mixed in LINEAR light (anchors come back exactly)."""
     from open_garden_planner.spike_q3d.meshes import srgb_to_linear
 
-    if elev >= SUN_RAMP_HIGH_DEG:
-        return SUN_NOON
-    if elev < SUN_RAMP_LOW_DEG:
-        return SUN_LOW
-    t = (elev - SUN_RAMP_LOW_DEG) / (SUN_RAMP_HIGH_DEG - SUN_RAMP_LOW_DEG)
-    lo, hi = (srgb_to_linear(c).astype(np.float64) for c in (SUN_GOLDEN[0], SUN_NOON[0]))
-    return _linear_to_hex(lo + (hi - lo) * t), SUN_GOLDEN[1] + (SUN_NOON[1] - SUN_GOLDEN[1]) * t
+    if t <= 0.0:
+        return a
+    if t >= 1.0:
+        return b
+    lo, hi = (srgb_to_linear(c).astype(np.float64) for c in (a, b))
+    return _linear_to_hex(lo + (hi - lo) * t)
+
+
+def sun_light(elev: float) -> tuple[str, float]:
+    """(colour, brightness) of the daytime key light at ``elev`` degrees."""
+    ramp, t = _day_ramp(elev)
+    lo, hi = (SUN_LOW, SUN_GOLDEN) if ramp == 0 else (SUN_GOLDEN, SUN_NOON)
+    if t <= 0.0 or t >= 1.0:  # an anchor, exactly
+        return lo if t <= 0.0 else hi
+    return _mix_hex(lo[0], hi[0], t), lo[1] + (hi[1] - lo[1]) * t
+
+
+def day_look(elev: float) -> dict[str, Any]:
+    """Sky, sun disc, exposure and probe exposure of the day rig at ``elev`` degrees."""
+    ramp, t = _day_ramp(elev)
+    lo, hi = (LOOK_LOW, LOOK_GOLDEN) if ramp == 0 else (LOOK_GOLDEN, LOOK_NOON)
+    if t <= 0.0 or t >= 1.0:  # an anchor, exactly
+        return dict(lo if t <= 0.0 else hi)
+    look: dict[str, Any] = {k: _mix_hex(lo[k], hi[k], t)
+                            for k in ("skyTop", "skyHorizon", "sunDiscColor")}
+    # exposure in stops: 1.15 → 0.85 is −0.44 EV, and a linear mix would spend it unevenly
+    look["exposure"] = float(2.0 ** (math.log2(lo["exposure"]) * (1.0 - t)
+                                     + math.log2(hi["exposure"]) * t))
+    look["probe"] = lo["probe"] + (hi["probe"] - lo["probe"]) * t
+    return look
 
 
 def sun_state(lat: float, lon: float, when_utc: datetime):
@@ -269,7 +315,7 @@ def sun_state(lat: float, lon: float, when_utc: datetime):
 
     pos = solar_position(lat, lon, when_utc)
     elev, az = pos.elevation_deg, pos.azimuth_deg
-    if elev < 0.5:  # night: cool moonlight from high in the south
+    if elev < SUN_LOW_DEG:  # night: cool moonlight from high in the south
         d = sun_direction_scene(38.0, 165.0)
         return SunState(elev, az, (-d[0], -d[1], -d[2]), "#8ea4d6", 0.32, True)
     d = sun_direction_scene(elev, az)
@@ -317,6 +363,68 @@ def in_frost_free_season(location: dict[str, Any] | None, at: date) -> bool:
     return (spring is None or day >= spring) and (fall is None or day <= fall)
 
 
+def _weeks(value: Any) -> float | None:
+    """A calendar week offset (int or float, not bool), or None."""
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    return float(value)
+
+
+def in_harvest_window(location: dict[str, Any] | None, at: date,
+                      species: dict[str, Any] | None) -> bool | None:
+    """True when ``at`` lies in the species' harvest window — the planting calendar's rule.
+
+    ``services/task_generator.generate_calendar_tasks``: from the plan's last spring
+    frost + ``harvest_start`` weeks to + ``harvest_end`` weeks (the species' week
+    offsets from the last frost, ``plant_species`` metadata). The window is anchored on
+    the last frost of ``at``'s year, as the calendar does, and of the years either
+    side, so a window across the new year (a southern plan, a negative offset) holds.
+    None when there is no window to read — no last frost, an offset missing or
+    malformed, start after end, a 02-29 frost outside a leap year (the calendar has no
+    date then either): the caller keeps the frost-free season.
+    """
+    from datetime import timedelta
+
+    frost = location.get("frost_dates") if isinstance(location, dict) else None
+    spring = _frost_month_day(frost.get("last_spring_frost")) if isinstance(frost, dict) else None
+    if spring is None or not isinstance(species, dict):
+        return None
+    start, end = _weeks(species.get("harvest_start")), _weeks(species.get("harvest_end"))
+    if start is None or end is None or start > end:
+        return None
+    try:
+        date(at.year, *spring)
+    except ValueError:
+        return None
+    for year in (at.year - 1, at.year, at.year + 1):
+        try:
+            last_frost = date(year, *spring)
+        except ValueError:
+            continue
+        if last_frost + timedelta(weeks=start) <= at <= last_frost + timedelta(weeks=end):
+            return True
+    return False
+
+
+def accents_in_season(location: dict[str, Any] | None, at: date, species_name: str,
+                      species: dict[str, Any] | None, frost_free: bool) -> bool:
+    """Whether a plant of ``species_name`` shows its fruit or flowers on ``at``.
+
+    Fruit follows the species' harvest window where the plan and the species data
+    (``species``, the item's ``plant_species``) give one — ``in_harvest_window``: the 3D
+    view showed red tomatoes from the 9 April last frost, the calendar harvests them
+    from 18 June. Flowers, and fruit without a window, follow the plan's frost-free
+    season (``frost_free``).
+    """
+    from open_garden_planner.spike_q3d.meshes import SPECIES_LOOK
+
+    look = SPECIES_LOOK.get(species_name.lower())
+    if look is None or look[2] != "fruit":
+        return frost_free
+    harvest = in_harvest_window(location, at, species)
+    return frost_free if harvest is None else harvest
+
+
 def _scene_points(item: Any, pts: list) -> list[tuple[float, float]]:
     return [(item.mapToScene(p).x(), item.mapToScene(p).y()) for p in pts]
 
@@ -336,7 +444,9 @@ def build_models(scene: Any, at: date, grass_density: float, with_grass: bool,
     decoration and casts NO shadow — exactly as in 2D, where it casts none.
     ``location`` is the plan's (``ProjectManager.location``): its frost dates
     decide whether fruit and flowers are in season on ``at``
-    (``in_frost_free_season``); without them every accent stays.
+    (``in_frost_free_season``), and fruit whose species has a harvest window follows
+    that window, the planting calendar's (``accents_in_season``); without frost dates
+    every accent stays.
     """
     from open_garden_planner.core.object_height import effective_height_cm
     from open_garden_planner.spike_q3d import meshes as M
@@ -404,15 +514,16 @@ def build_models(scene: Any, at: date, grass_density: float, with_grass: bool,
             center = item.mapToScene(item.center)
             radius = _plant_canopy_radius_cm(item, at) or item.radius
             height = h if h else max(radius * 1.2, 20.0)  # no resolved height: decoration
-            species = (item.metadata.get("plant_species") or {}).get("common_name") or \
-                getattr(item, "plant_species", "") or ""
+            species_data = item.metadata.get("plant_species") or {}
+            species = species_data.get("common_name") or getattr(item, "plant_species", "") or ""
             base = 0.0
             parent = by_id.get(str(item.parent_bed_id)) if item.parent_bed_id else None
             if parent is not None and parent.object_type.name in SOIL_PARENTS:
                 base = effective_height_cm(parent.object_type, parent.metadata, at_date=at) or 0.0
                 base -= 2.0  # soil sits just below the rim
             mesh = M.plant_mesh(species, M.item_seed(iid), height, 2.0 * radius, name,
-                                in_season=stats.in_season)
+                                in_season=accents_in_season(location, at, species, species_data,
+                                                            stats.in_season))
             emit(iid, M.translated(mesh, center.x(), center.y(), base), "foliage", h is not None)
             stats.add("plants", (time.perf_counter() - t0) * 1000.0)
             continue
@@ -421,7 +532,8 @@ def build_models(scene: Any, at: date, grass_density: float, with_grass: bool,
             ridge = by_id.get(str(ridge_id)) if ridge_id else None
             if ridge is not None and isinstance(ridge, PolylineItem) and len(ridge.points) >= 2:
                 pts = _scene_points(ridge, ridge.points)
-                parts.append((M.gable_house(fp, (pts[0], pts[-1]), h or 450.0), "vc", True))
+                walls, roof = M.gable_house_parts(fp, (pts[0], pts[-1]), h or 450.0)
+                parts += [(walls, "vc", True), (roof, "roof", True)]
             else:
                 parts.append((M.prism(fp, h or 450.0, 0.0, "#efe4cf", "#9c8e7e"), "vc", True))
         elif name == "ROOF_RIDGE":
@@ -433,8 +545,9 @@ def build_models(scene: Any, at: date, grass_density: float, with_grass: bool,
             else:
                 ridge = (((min(xs) + max(xs)) / 2, min(ys)), ((min(xs) + max(xs)) / 2, max(ys)))
             # roof: the 2D shingle texture's mid tone (was a blue-grey #55606a)
-            parts.append((M.gable_house(fp, ridge, h or 250.0, wall="#9c7a54", roof="#78695a",
-                                        pitch_deg=25.0, overhang=20.0), "vc", True))
+            walls, roof = M.gable_house_parts(fp, ridge, h or 250.0, wall="#9c7a54",
+                                              roof="#78695a", pitch_deg=25.0, overhang=20.0)
+            parts += [(walls, "vc", True), (roof, "roof", True)]
         elif name == "GREENHOUSE":
             frame, glass = M.greenhouse(fp, h or 220.0)
             parts += [(frame, "vc", True), (glass, "glass", False)]
@@ -620,22 +733,13 @@ def look_for(sun: Any) -> dict[str, Any]:
     ``FOG_OF_HORIZON``) so the meadow melts into the sky without a band; the
     ground albedo is not part of the look at all (``MEADOW_ALBEDO``) — a mood
     is light, never paint.
+
+    By day the rig is CONTINUOUS in the sun's elevation (``day_look``, the same ramps
+    as the key light in ``sun_light``): it used to step at 8° and 20°. Noon exposure
+    0.85 (was 0.92): noon_low clipped a channel on 4.6 % of the frame, the sun-lit
+    roof at R 254; then 0.26 %, the lawn still luma 158 / saturation 0.64.
     """
-    look: dict[str, Any]
-    if sun.night:
-        look = {"skyTop": "#070d22", "skyHorizon": "#1b2747", "sunDiscColor": "#9fb2e0",
-                "exposure": 2.4, "probe": 0.35}
-    elif sun.elevation < 8:
-        look = {"skyTop": "#4a6fb0", "skyHorizon": "#f2b47c", "sunDiscColor": "#ffb070",
-                "exposure": 1.25, "probe": 0.42}
-    elif sun.elevation < 20:
-        look = {"skyTop": "#4f7fc8", "skyHorizon": "#f4d2a6", "sunDiscColor": "#ffd09a",
-                "exposure": 1.15, "probe": 0.5}
-    else:
-        # exposure 0.85 (was 0.92): noon_low clipped a channel on 4.6 % of the frame, the
-        # sun-lit roof at R 254; now 0.26 %, the lawn still luma 158 / saturation 0.64
-        look = {"skyTop": "#3f78c9", "skyHorizon": "#cfe2f2", "sunDiscColor": "#fff0d8",
-                "exposure": 0.85, "probe": 0.55}
+    look = dict(LOOK_NIGHT) if sun.night else day_look(sun.elevation)
     look["fogColor"] = scale_linear(look["skyHorizon"], look["probe"] * FOG_OF_HORIZON)
     return look
 

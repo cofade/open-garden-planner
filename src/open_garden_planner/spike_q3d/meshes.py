@@ -121,8 +121,9 @@ class CanopyForm:
 
     ``trunk``: clear trunk (the crown's base) as a fraction of the height; ``taper``:
     crown width at its base vs its top (> 0 egg or pyramid, < 0 vase); ``droop``: how far
-    leaf tips hang (``leaves``); ``bark``: wood colour; ``leaf_scale``: the 2D sprite
-    table's per-species leaf size (``scripts/generate_plant_sprites.py`` SPECIES).
+    leaf tips hang (``leaves``); ``bark``: wood colour, × ``bark_shade`` in linear light;
+    ``leaf_scale``: the 2D sprite table's per-species leaf size
+    (``scripts/generate_plant_sprites.py`` SPECIES).
     The default IS the L0 crown (one ellipsoid on a 0.34 trunk) for unknown species.
     """
 
@@ -131,22 +132,33 @@ class CanopyForm:
     droop: float = 0.15
     bark: str = "#5a4632"
     leaf_scale: float = 1.0
+    bark_shade: float = 1.0
+
+
+# White bark = the 2D white × this, in LINEAR light (the ridge cap's rule): at the full
+# #e8e4d8 the sun-lit side of the birch clipped (3D reviewer pass 3) — trunk pixels at a
+# channel ≥ 254, low preset: walk 874 → 13, december_noon 441 → 291 (a 14° sun lights a
+# vertical trunk at n·l ≈ 0.97).
+WHITE_BARK_SHADE = 0.7
 
 
 # Habit per species (standard dendrology descriptions): apple rounded and spreading on a
-# short trunk; pear upright, broadly pyramidal; cherry broad oval; plum rounded; birch a
-# narrow ovoid crown reaching low, pendulous twigs, white bark (ACCENTS["white"]);
-# magnolia low-branched and broad, wider above; maple and walnut broad and rounded.
+# short trunk, branches hanging under fruit; pear upright, pyramidal; cherry broad oval;
+# plum rounded; birch a narrow ovoid crown reaching low, pendulous twigs, white bark
+# (ACCENTS["white"]); magnolia low-branched and broad, wider above; maple broad, rounded,
+# slightly wider above; walnut a broad spreading dome on a tall clear trunk. Reviewer
+# pass 3 (side silhouettes at one size, review3/silhouettes.py): mean overlap across
+# species 0.730 → 0.700 with the apple, pear, maple and walnut values below.
 CANOPY_FORM: dict[str, CanopyForm] = {
-    "apple tree": CanopyForm(trunk=0.26, taper=0.15, droop=0.3),
-    "pear tree": CanopyForm(trunk=0.24, taper=0.45, droop=0.1),
+    "apple tree": CanopyForm(trunk=0.20, taper=0.15, droop=0.45),
+    "pear tree": CanopyForm(trunk=0.24, taper=0.7, droop=0.1),
     "cherry tree": CanopyForm(trunk=0.30, taper=0.1, droop=0.15),
     "plum tree": CanopyForm(trunk=0.28, taper=0.05, droop=0.25),
     "birch": CanopyForm(trunk=0.2, taper=0.25, droop=0.65, bark=ACCENTS["white"],
-                        leaf_scale=0.75),
+                        leaf_scale=0.75, bark_shade=WHITE_BARK_SHADE),
     "magnolia": CanopyForm(trunk=0.12, taper=-0.45, droop=0.05, leaf_scale=1.1),
-    "maple": CanopyForm(trunk=0.3, taper=0.0, droop=0.15, leaf_scale=1.1),
-    "walnut tree": CanopyForm(trunk=0.32, taper=0.0, droop=0.15, leaf_scale=1.1),
+    "maple": CanopyForm(trunk=0.3, taper=-0.15, droop=0.15, leaf_scale=1.1),
+    "walnut tree": CanopyForm(trunk=0.40, taper=-0.2, droop=0.15, leaf_scale=1.1),
 }
 
 
@@ -320,16 +332,18 @@ def _unit_sphere(subdiv: int = 1) -> tuple[np.ndarray, np.ndarray]:
 
 
 _SPHERE_V, _SPHERE_F = _unit_sphere(1)
-_SPHERE2_V, _SPHERE2_F = _unit_sphere(2)
+# close-up props: 3× subdivided, 512 triangles, a 32-gon at the equator (2× left the BBQ
+# kettle's rim a visible 16-gon at 1.5 m in the walk shot, reviewer pass 3)
+_SPHERE_SMOOTH_V, _SPHERE_SMOOTH_F = _unit_sphere(3)
 
 
 def spheres(centers: np.ndarray, radii: np.ndarray | float, color: str | np.ndarray,
             squash: float = 1.0, smooth: bool = False) -> MeshData:
     """Many low-poly spheres (fruit, flower clusters, heads) in one mesh.
 
-    ``smooth`` uses the 2x-subdivided sphere for close-up props (kettles, heads).
+    ``smooth`` uses the 3× subdivided sphere for close-up props (the BBQ kettle).
     """
-    sv, sf = (_SPHERE2_V, _SPHERE2_F) if smooth else (_SPHERE_V, _SPHERE_F)
+    sv, sf = (_SPHERE_SMOOTH_V, _SPHERE_SMOOTH_F) if smooth else (_SPHERE_V, _SPHERE_F)
     centers = np.asarray(centers, np.float32).reshape(-1, 3)
     k = len(centers)
     if k == 0:
@@ -555,6 +569,35 @@ def flowers(centers: np.ndarray, normals: np.ndarray, radius: float, petal: str,
 # ── plants ──────────────────────────────────────────────────────────────
 
 
+# Per-plant triangle budgets (ADR-047 plan §9, the reviewer's budget gate): a tree's
+# wood + leaves + fruit/flowers stay within TREE_TRIANGLE_BUDGET; any other plant
+# within PLANT_TRIANGLE_BUDGET (measured headroom on the bench plans: max 3,252, a
+# zucchini). A crown whose surface asks for more leaves than the budget leaves room
+# for gets FEWER, LARGER leaves with the same coverage (1.6) — never a sparser crown.
+TREE_TRIANGLE_BUDGET = 25_000
+PLANT_TRIANGLE_BUDGET = 6_000
+TREE_FLOWERS = 140  # flowers on a flowering tree (magnolia), in season
+FLOWER_PETALS = 6
+# needle sprays on a conifer, at most: 2 triangles each plus the 16-triangle trunk
+CONIFER_SPRAYS_MAX = 12_000
+
+
+def _tree_accent_triangles(accent: tuple[str, str], n_twig: int, spread: float) -> int:
+    """Triangles ``space_colonization_tree`` spends on fruit or flowers — an upper bound.
+
+    Counted BEFORE the leaves are placed, so the leaf budget can leave room for them
+    (140 magnolia flowers cost 6,160 triangles: a fixed margin did not cover them).
+    """
+    kind, name = accent
+    if name not in ACCENTS:
+        return 0
+    if kind == "fruit":
+        return min(n_twig, max(6, int(spread / 25))) * len(_SPHERE_F)
+    if kind == "flower":
+        return TREE_FLOWERS * (len(_SPHERE_F) + 2 * FLOWER_PETALS)
+    return 0
+
+
 def _ellipsoid_points(rng: np.random.Generator, n: int, radii: np.ndarray,
                       shell: float = 0.0) -> np.ndarray:
     """Uniform points inside an ellipsoid (or a shell of relative thickness)."""
@@ -657,7 +700,7 @@ def space_colonization_tree(seed: int, height: float, spread: float, palette: st
             branch[i] = branch[p]
     shade = np.random.default_rng(seed + 1).uniform(0.92, 1.08, n_branches).astype(np.float32)
     bark = _rgba(form.bark, len(seg_i))
-    bark[:, :3] *= shade[branch[seg_i]][:, None]
+    bark[:, :3] *= shade[branch[seg_i]][:, None] * form.bark_shade
     wood = limb_tubes(pts, par, radius, is_cont, bark, sides=7)
     # foliage: leaf clusters on every thin branch inside the crown; the leaf count
     # follows the crown's surface area so coverage (not a magic number) is the knob
@@ -668,8 +711,18 @@ def space_colonization_tree(seed: int, height: float, spread: float, palette: st
     a, b, c = radii
     surface = 4 * math.pi * (((a * b) ** 1.6 + (a * c) ** 1.6 + (b * c) ** 1.6) / 3) ** (1 / 1.6)
     leaf_l = float(np.clip(height * 0.04, 9.0, 22.0) * leaf_scale * form.leaf_scale)
-    n_target = int(np.clip(surface / (0.5 * leaf_l * leaf_l * 0.6) * 1.6, 1500, 16000))
+    # a micro-leaf covers 0.5 · l · 0.6 l; coverage 1.6 of the crown's surface
+    n_leaves = max(surface / (0.5 * leaf_l * leaf_l * 0.6) * 1.6, 1500.0)
+    # the budget: wood and accents first, two triangles per leaf for the rest. A crown
+    # over it keeps its coverage with fewer, larger leaves (n · l² stays the same): the
+    # old fixed cap of 16,000 leaves was 32,000 triangles by itself, and a small-leaved
+    # birch (leaf_scale 0.75 → 1.78× the leaves) reached 40,954 on the bench plans
+    n_max = (TREE_TRIANGLE_BUDGET - wood.triangle_count
+             - _tree_accent_triangles(accent, len(twig), spread)) // 2
+    n_target = int(min(n_leaves, n_max))
     per = max(2, n_target // len(twig))
+    if n_leaves > n_max:  # sized on the count actually PLACED (per rounds it down ≤ 5 %)
+        leaf_l *= math.sqrt(n_leaves / (len(twig) * per))
     centers = np.repeat(pts[twig], per, axis=0) + rng.normal(0, seg * 1.1, (len(twig) * per, 3))
     rel = (centers - crown_c) / radii
     if form.taper:  # depth inside the TAPERED crown (the fake-AO darkening)
@@ -688,17 +741,24 @@ def space_colonization_tree(seed: int, height: float, spread: float, palette: st
         fc = pts[twig[pick]] + rng.normal(0, seg * 0.4, (len(pick), 3)) - [0, 0, seg * 0.6]
         parts.append(spheres(fc, np.clip(spread * 0.012, 3.0, 6.0), ACCENTS[accent_name]))
     elif kind == "flower" and accent_name in ACCENTS:
-        pick = rng.choice(len(centers), size=min(len(centers), 140), replace=False)
+        pick = rng.choice(len(centers), size=min(len(centers), TREE_FLOWERS), replace=False)
         parts.append(flowers(centers[pick], _normalize(centers[pick] - crown_c), 9.0,
-                             ACCENTS[accent_name], "#f7e3a0", rng))
+                             ACCENTS[accent_name], "#f7e3a0", rng, petals=FLOWER_PETALS))
     return MeshData.concat(parts)
 
 
 def conifer(seed: int, height: float, spread: float, palette: str) -> MeshData:
-    """Stylised spruce: trunk + tiers of drooping needle sprays on a cone."""
+    """Stylised spruce: trunk + tiers of drooping needle sprays on a cone.
+
+    The trunk tapers to a point at 0.90 × the height, inside the top whorls (at 0.97
+    it poked out above the sparse leader as a bare stub). At most ``CONIFER_SPRAYS_MAX``
+    sprays (the tree budget); a cone that asks for more gets fewer, larger sprays with
+    the same total area (n · ln² unchanged).
+    """
     rng = np.random.default_rng(seed)
-    trunk = cylinder((0, 0, 0), (0, 0, height * 0.97), height * 0.02, height * 0.006, "#4b3a2a")
-    n = int(np.clip(height * spread / 22.0, 3000, 14000))
+    trunk = cylinder((0, 0, 0), (0, 0, height * 0.90), height * 0.02, 0.0, "#4b3a2a")
+    n_raw = height * spread / 22.0
+    n = int(np.clip(n_raw, 3000, CONIFER_SPRAYS_MAX))
     z = height * (0.12 + 0.86 * (1 - np.sqrt(rng.random(n))))  # denser near the bottom
     frac = (height - z) / (height * 0.88)
     r = spread * 0.5 * np.clip(frac, 0, 1) * rng.uniform(0.35, 1.0, n) ** 0.5
@@ -710,6 +770,8 @@ def conifer(seed: int, height: float, spread: float, palette: str) -> MeshData:
     depth = np.clip(r / (spread * 0.5 * np.clip(frac, 0.05, 1)), 0, 1)
     cols = _palette_colors(palette, depth * 0.7 + 0.15, rng, depth)
     ln = float(np.clip(height * 0.035, 10, 28))
+    if n_raw > CONIFER_SPRAYS_MAX:
+        ln *= math.sqrt(n_raw / CONIFER_SPRAYS_MAX)
     foliage = leaves(pos.astype(np.float32), out.astype(np.float32), np.full(n, ln),
                      np.full(n, ln * 0.42), cols, rng,
                      center=np.array([0, 0, height * 0.45], np.float32), spherize=0.55,
@@ -1070,7 +1132,17 @@ RIDGE_CAP_SHADE = 0.8  # ridge cap = roof colour × this, in linear light
 def gable_house(footprint: Polygon, ridge: tuple[Point, Point], ridge_height: float,
                 wall: str = "#efe4cf", roof: str = "#b4553d", pitch_deg: float = 38.0,
                 overhang: float = 35.0) -> MeshData:
-    """Walls to eave height + gable ends + a two-plane roof along the 2D ridge.
+    """The whole house as one mesh: ``gable_house_parts`` walls + roof, concatenated."""
+    return MeshData.concat(gable_house_parts(footprint, ridge, ridge_height, wall, roof,
+                                             pitch_deg, overhang))
+
+
+def gable_house_parts(footprint: Polygon, ridge: tuple[Point, Point], ridge_height: float,
+                      wall: str = "#efe4cf", roof: str = "#b4553d", pitch_deg: float = 38.0,
+                      overhang: float = 35.0) -> tuple[MeshData, MeshData]:
+    """(walls, roof): walls to eave height + gable ends, and a two-plane roof along the 2D
+    ridge with its soffit and ridge cap — two meshes, so the roof wears its own material
+    (``ogp-lush-cinematic`` §4 roof tiles; the runner emits it as kind ``"roof"``).
 
     Heights: the TOP of the mesh — the ridge cap — is ``ridge_height``, the
     house's effective height (D4: a HOUSE's ``object_height_cm`` is its ridge
@@ -1109,6 +1181,7 @@ def gable_house(footprint: Polygon, ridge: tuple[Point, Point], ridge_height: fl
         eave = min(220.0, apex * 0.75)
         slope = (apex - eave) / dmax
     parts = [prism(footprint, eave, 0.0, wall)]
+    roof_parts: list[MeshData] = []
     # gable end triangles where the ridge meets the outline
     for end in (ridge[0], ridge[1]):
         n = len(footprint)
@@ -1144,13 +1217,14 @@ def gable_house(footprint: Polygon, ridge: tuple[Point, Point], ridge_height: fl
         normal = _face_normal(top, idx)  # from the winding: this slope's own normal
         roof_col = _rgba(roof, len(top))
         roof_col[:, :3] *= np.random.default_rng(len(half)).uniform(0.94, 1.04, (len(top), 1))
-        parts.append(_mesh(top, np.repeat(normal[None], len(top), 0), roof_col,
-                           np.zeros((len(top), 2)), idx))
+        roof_parts.append(_mesh(top, np.repeat(normal[None], len(top), 0), roof_col,
+                                np.zeros((len(top), 2)), idx))
         under = top - np.array([0, 0, 12.0], np.float32)
-        parts.append(_mesh(under, np.repeat(-normal[None], len(top), 0), _rgba("#6b4a35", len(top)),
-                           np.zeros((len(top), 2)), idx.reshape(-1, 3)[:, [0, 2, 1]].reshape(-1)))
-    parts.append(translated(cap, 0.0, 0.0, cap_z))
-    return MeshData.concat(parts)
+        roof_parts.append(_mesh(under, np.repeat(-normal[None], len(top), 0),
+                                _rgba("#6b4a35", len(top)), np.zeros((len(top), 2)),
+                                idx.reshape(-1, 3)[:, [0, 2, 1]].reshape(-1)))
+    roof_parts.append(translated(cap, 0.0, 0.0, cap_z))
+    return MeshData.concat(parts), MeshData.concat(roof_parts)
 
 
 def polyline_posts_and_pickets(points: Sequence[Point], height: float, wood: str = "#a0744a",
@@ -1320,6 +1394,12 @@ def bench(cx: float, cy: float, w: float, d: float, height: float = 85.0) -> Mes
     return MeshData.concat(parts)
 
 
+# the 2D trampoline sprite's jumping mat: scripts/generate_object_sprites.py
+# MATERIALS["rubber"]["mid"] (the literal #1d2126 was in no 2D table and below the
+# §2 albedo floor of ~40)
+TRAMPOLINE_MAT = "#303336"
+
+
 def trampoline(cx: float, cy: float, r: float, height: float = 90.0) -> MeshData:
     """Frame ring on six legs; the ring tube's top is ``height``."""
     th = np.linspace(0, 2 * math.pi, 24, endpoint=False)
@@ -1331,7 +1411,7 @@ def trampoline(cx: float, cy: float, r: float, height: float = 90.0) -> MeshData
     legs = tubes(ring_a[::4], ring_a[::4] + [0, 0, ring_z], np.full(6, 2.5), np.full(6, 2.5),
                  "#6f7782", 6)
     mat_fp = [(cx + math.cos(t) * r * 0.9, cy + math.sin(t) * r * 0.9) for t in th]
-    mat = prism(mat_fp, 1.0, ring_z - 2.0, "#1d2126")
+    mat = prism(mat_fp, 1.0, ring_z - 2.0, TRAMPOLINE_MAT)
     return MeshData.concat([frame, legs, mat])
 
 

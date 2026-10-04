@@ -274,6 +274,11 @@ Item {
         }
 
         PrincipledMaterial { id: vcMat; vertexColorsEnabled: true; roughness: 0.78; specularAmount: 0.35 }
+        // roof tiles and shingles (ogp-lush-cinematic §4: roughness 0.70-0.85). Measured: the
+        // shared 0.35 specular is NOT what reads coral at noon — the image-light diffuse is
+        // x (1 - specularAmount), so 0.15 lifts it 1.31x and the noon roof moved only
+        // (248,135,92) -> (248,135,90); the coral is the filmic shoulder (creator round 3)
+        PrincipledMaterial { id: roofMat; vertexColorsEnabled: true; roughness: 0.80; specularAmount: 0.15 }
         PrincipledMaterial {
             id: whiteMat
             baseColor: "#ffffff"; roughness: 1.0; specularAmount: 0.0
@@ -330,6 +335,7 @@ Item {
                           : modelData.kind === "glass" ? glassMat
                           : modelData.kind === "water" ? waterMat
                           : modelData.kind === "white" ? whiteMat
+                          : modelData.kind === "roof" ? roofMat
                           : vcMat]
             }
         }
