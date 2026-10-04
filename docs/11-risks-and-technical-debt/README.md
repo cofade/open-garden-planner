@@ -611,9 +611,13 @@ OS) cannot judge a leak at all, and five points of private bytes cannot resolve
 10 MB/reload against WARP's ±30–60 MB swings. Re-fitting the gate after each
 failure was its own smell (senior review), so the final gate was fixed before
 the next run: 20 reloads, private bytes, a Theil–Sen slope, and a positive
-control on the same runner that must fire on 25 MB per reload. *Hold the one
-object in use, not every object that ever was; judge a leak by its slope, and
-trust a gate only after you have seen it fire on the machine it judges.*
+control on the same runner that must fire on 25 MB per reload. Windows run v9
+passed it at 1.5 MB/reload while private bytes still grew +129 MB over reloads
+2–20 and flattened by reload 12, cause unexplained: the gate answers "is there a
+trend over the last ten reloads", not "did memory grow", so the record carries the
+whole curve (ADR-047 entry 10). *Hold the one object in use, not every object
+that ever was; judge a leak by its slope, and trust a gate only after you have
+seen it fire on the machine it judges.*
 
 **9. An `x or default` threshold turns a perfect zero into a failure.** The
 evidence driver judged the projection check as
@@ -628,7 +632,8 @@ as a `QtWarningMsg` to stderr; the run exited 0 with `status: ok` while 449 pond
 pixels changed colour (senior review, measured). The frozen exe has no stderr,
 so on Windows nothing would have shown at all. The spike now records every Qt
 message through `qInstallMessageHandler` into its log and `metrics.json`, and a
-shader or QML error ends the run with exit 3; a render test breaks the shader on
+shader or QML error ends the run with exit 4 (not 3, which the MSVC CRT's
+`abort()` also returns on Windows); a render test breaks the shader on
 purpose as the positive control. *Any headless render path must read Qt's
 messages, not only its exit code.*
 
@@ -646,13 +651,30 @@ in an entry point, never at import time.*
 `ProceduralSkyTextureData` recomputes the whole sky synchronously on the GUI
 thread for each input change (~190 ms at high quality on llvmpipe). The spike
 bound its inputs to root properties and built a default sky at load, so one
-open regenerated it about six times and threw the first one away: ~4.6 s of
-CPU, filed under "QML load" or no bucket at all (senior review). Built once per
-sun change, inputs set at low quality and raised last, the frames are
-bit-identical and the QML load drops from 1715 to 67 ms. On a GPU, where the
-render itself is fast, this would have been the largest term against the 2.5 s
-warm-open budget. *An input bound live to an expensive generator is a hidden
-loop; time every bucket and require the buckets to add up.*
+open regenerated it for each look and sun input and threw the first one away:
+~4.7 s of CPU, filed under "QML load" or no bucket at all (senior review).
+Built once per sun change, inputs set at low quality and raised last, the
+frames are bit-identical and that cost drops to ~0.4 s (QML load 1709 → 70 ms,
+`set_look` 791 → 0.1 ms, `set_sun` 2192 → 344 ms; llvmpipe, 640×360, commit
+a275da2 — ADR-047 entry 6 and the `ogp-3d-renderer` skill cite the same run).
+*An input bound live to an expensive generator is a hidden loop; time every
+bucket and require the buckets to add up.*
+
+**13. A texture re-attached after a detach renders white, and a guard on
+identity did not see it.** The IoU and orientation probes clear the ground
+texture for their measurement; `preserved_state()` set the same
+`QQuick3DTextureData` back, and Qt Quick 3D drew the plan ground white until the
+next project reload (mean difference 13.1 on the frame, all of it in the ground
+half). `update()` alone does nothing; `setTextureData(textureData())` plus
+`update()`, or a fresh object, restores it: the texture twin of item 6.
+`preserved_state`'s guard checked that the shown texture was the one Python
+held, which stayed true throughout. A second-window frame comparison caught it
+(9.8 mean luma). The first diagnosis, a stale reference frame "fixed" with a
+settle wait, was validated by a run without `--iou`, the trigger, so it proved
+nothing (senior review, pass 4). Every restore is now checked in pixels
+(`probe_restore_frame_diff`: 9.83 before the fix, 0.0 after). *A validation run
+that omits the trigger proves nothing; check a contract in the currency it
+promises.*
 
 ## 11.5 Community and Governance
 

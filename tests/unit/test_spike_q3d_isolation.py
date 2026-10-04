@@ -119,3 +119,17 @@ def test_a_typo_in_any_flag_is_refused_before_any_work() -> None:
     with pytest.raises(ValueError, match="unknown shots"):  # shots need the plan's size
         runner._validate(runner._parse(["--spike-q3d", "--out", "x", "--shots", "nope"]),
                          {"noon"})
+
+
+def test_sky_keys_are_exactly_what_rebuild_sky_reads() -> None:
+    """preserved_state() rebuilds the sky when a SKY_KEYS property changed. The list is
+    kept by hand, so it is pinned to what GardenSpike.qml's rebuildSky() reads: a new
+    sky input missing from it would leave a probe's sky on screen (senior review)."""
+    import re
+
+    from open_garden_planner.spike_q3d.quick import SpikeRenderer
+
+    qml = (SPIKE / "qml" / "GardenSpike.qml").read_text(encoding="utf-8")
+    body = qml[qml.index("function rebuildSky()"):]
+    body = body[:body.index("\n        }\n")]
+    assert set(re.findall(r"root\.(\w+)", body)) == set(SpikeRenderer.SKY_KEYS)

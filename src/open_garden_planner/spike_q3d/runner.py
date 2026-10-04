@@ -83,8 +83,17 @@ class BuildStats:
         self.build_ms[kind] = self.build_ms.get(kind, 0.0) + ms
 
 
+class _ArgumentError(Exception):
+    """argparse's message, kept: it prints to stderr, which a windowed exe lacks."""
+
+
+class _Parser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:  # type: ignore[override]
+        raise _ArgumentError(message)
+
+
 def _parse(argv: list[str]) -> argparse.Namespace:
-    p = argparse.ArgumentParser(prog="--spike-q3d", add_help=True)
+    p = _Parser(prog="--spike-q3d", add_help=True)
     p.add_argument("--spike-q3d", action="store_true")
     p.add_argument("--plan", type=Path, default=DEFAULT_PLAN)
     p.add_argument("--out", type=Path, default=Path.cwd() / "spike_q3d_out")
@@ -197,7 +206,8 @@ class SpikeLog:
     def __init__(self, path: Path) -> None:
         self.path = path
         self._t0 = time.perf_counter()
-        self.file = path.open("w", encoding="utf-8", buffering=1)
+        path.write_text("", encoding="utf-8")  # a fresh log, then append-only: faulthandler
+        self.file = path.open("a", encoding="utf-8", buffering=1)  # writes via its own handle
 
     def __call__(self, phase: str, **fields: Any) -> None:
         detail = " ".join(f"{k}={v}" for k, v in fields.items())
@@ -743,12 +753,21 @@ QT_ERRORS_EXIT = 4  # not 3: the MSVC CRT's abort() also exits with 3 on Windows
 _CRASH_LOG: Any = None  # faulthandler's own handle on spike.log, open until the process ends
 
 
-def _early_error(message: str) -> None:
-    """Before spike.log exists there is no log; a windowed exe has no stderr either."""
+def _early_error(message: str, argv: list[str]) -> None:
+    """Before spike.log exists there is no log, and a windowed exe has no stderr: the
+    message goes to ``<--out>/spike-q3d-error.txt`` (where the driver prints and
+    uploads), else to the working directory."""
     if sys.stderr is not None:
         print(f"--spike-q3d: {message}", file=sys.stderr)
+    out = Path(".")
+    for idx, arg in enumerate(argv):
+        if arg == "--out" and idx + 1 < len(argv):
+            out = Path(argv[idx + 1])
+        elif arg.startswith("--out="):
+            out = Path(arg.partition("=")[2])
     with contextlib.suppress(OSError):
-        Path("spike-q3d-error.txt").write_text(message + "\n", encoding="utf-8")
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "spike-q3d-error.txt").write_text(message + "\n", encoding="utf-8")
 
 
 def run_spike_cli(argv: list[str]) -> int:
@@ -760,13 +779,13 @@ def run_spike_cli(argv: list[str]) -> int:
         out: Path = args.out
         out.mkdir(parents=True, exist_ok=True)
         log = SpikeLog(out / "spike.log")
-    except SystemExit as exc:
-        if not exc.code:
-            return 0  # --help
-        _early_error(f"invalid arguments (exit {exc.code})")
+    except SystemExit as exc:  # --help (argparse's own exit)
+        return int(exc.code or 0)
+    except _ArgumentError as exc:
+        _early_error(f"invalid arguments: {exc}", argv)
         return 2
     except Exception as exc:  # noqa: BLE001 - nowhere else to report it
-        _early_error(f"{type(exc).__name__}: {exc}")
+        _early_error(f"{type(exc).__name__}: {exc}", argv)
         return 2
     if args.cold:  # before the application exists: Qt reads these on first use
         os.environ.update(COLD_ENV)
@@ -947,6 +966,15 @@ def _run(args: argparse.Namespace, out: Path, log: SpikeLog, metrics: dict[str, 
                 args.fps_seconds)
     metrics["builds"] = models_by_date.report()
     _write_metrics(out, metrics)
+    # preserved_state()'s contract, checked in pixels: the view the probes leave
+    # behind must be the view they found (senior review: after --iou the plan
+    # ground came back white, and only a later frame comparison noticed).
+    restore_reference = None
+    if args.iou or args.orient:
+        from open_garden_planner.spike_q3d.probes import _image_to_array
+
+        renderer.wait_frames(2, label="probes_before")
+        restore_reference = _image_to_array(renderer.grab(label="probes_before"))
     if args.iou:
         from open_garden_planner.spike_q3d.probes import shadow_iou_probe
 
@@ -969,6 +997,15 @@ def _run(args: argparse.Namespace, out: Path, log: SpikeLog, metrics: dict[str, 
         log("orient_done", ground_ok=metrics["orientation"]["ground_texture_ok"],
             sky_ok=metrics["orientation"]["sky_ok"])
         _write_metrics(out, metrics)
+    if restore_reference is not None:
+        renderer.wait_frames(3, label="probes_after")
+        after = _image_to_array(renderer.grab(label="probes_after"))
+        diff = (float(np.abs(after - restore_reference).mean())
+                if after.shape == restore_reference.shape else None)
+        metrics["probe_restore_frame_diff"] = None if diff is None else round(diff, 3)
+        log("probes_restored", frame_diff=metrics["probe_restore_frame_diff"])
+        _write_metrics(out, metrics)
+
     def reload_project() -> list[Any]:
         """File → Open again: the plan from disk into a new scene, a fresh ground
         bake and freshly built models (criterion 10's project reloads)."""

@@ -22,7 +22,10 @@ rendering: ratios and pass/fail facts carry over, absolute times do not.
   quits while it runs; judged on that exit code.
 
 Every probe that moves the camera, preset, ground or sun runs inside
-``SpikeRenderer.preserved_state`` so no measurement depends on flag order.
+``SpikeRenderer.preserved_state`` so no measurement depends on flag order. That
+claim is checked in pixels, not assumed: the runner grabs the view before and
+after ``--iou``/``--orient`` (``probe_restore_frame_diff``). It was false until
+the ground texture was re-uploaded on restore (senior review, pass 4).
 """
 
 from __future__ import annotations
@@ -376,10 +379,9 @@ def second_window(renderer: Any, ground: Any, width: float, height: float, log: 
     from open_garden_planner.spike_q3d.probes import _image_to_array
     from open_garden_planner.spike_q3d.quick import SpikeRenderer
 
-    # Settle first: right after the previous probe restored its state, a grab showed
-    # the un-redrawn scene and read 9.8 mean luma off a second window that, measured
-    # on its own, matched the first exactly (0.0).
-    renderer.wait_frames(3, label="second_window_reference")
+    # The reference is the first window as the earlier probes left it: if
+    # preserved_state() failed to restore it, this comparison shows it (it caught
+    # the white ground after --iou, senior review pass 4).
     first_frame = _image_to_array(renderer.grab(label="second_window_reference"))
     t0 = time.perf_counter()
     second = SpikeRenderer(renderer.host_kind, renderer.size,
@@ -494,6 +496,9 @@ def pan_bench(scene: Any, renderer: Any, ground: Any, width: float, height: floa
                                  log=log)
             side.set_models(_fresh_models(renderer.models))
             side.set_ground(ground, 0, 0, width, height)
+            # the main view, sun and sky included: since the sky is no longer built at
+            # QML load, a side window without a sun would render with no sky or IBL
+            side.copy_view_from(renderer)
             split.addWidget(side.widget)
         else:
             split.addWidget(QWidget())

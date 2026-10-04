@@ -82,6 +82,10 @@ OUT_DIR = REPO / "tests" / "fixtures" / "plans"
 # the archive host was blocked by the environment's egress policy. The 3D view reads
 # them to decide whether fruit and flowers are in season
 # (spike_q3d/runner.in_frost_free_season).
+# Off by one day at each end, knowingly: WeatherSpark's bounds are the first and last
+# NON-freezing days, while these keys name the last and first FROST day, so a strict
+# transcription would be 04-08 and 11-01. That is inside WeatherSpark's own "around";
+# it was left as published rather than adjusted on an inference.
 BERLIN = {"latitude": 52.52, "longitude": 13.405,
           "frost_dates": {"last_spring_frost": "04-09", "first_fall_frost": "10-31"}}
 # A fixed planting date keeps the growth model deterministic for any sim date.

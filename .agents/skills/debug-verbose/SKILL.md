@@ -1224,26 +1224,47 @@ the first reload (a second model set, allocator arenas); only the trend separate
 an allocator settling. And a keep-alive list is a leak with a good excuse: hold the one
 object that is in use, not every object that ever was.
 
-## Case study: a second window that "differed" by 9.8 luma and did not (ADR-047 spike, fixed 2026-10-04)
+## Case study: a second window that "differed" by 9.8 luma: the comparison was right, the first diagnosis was not (ADR-047 spike, fixed 2026-10-04)
 
 **Symptom**: `--second-window` reported `frame_diff_vs_first` 9.8 mean luma on llvmpipe and
-9.75 on D3D11, so the second window seemed not to render the first window's view.
+9.75 on D3D11 (Windows v9), so the second window seemed not to render the first window's view.
 
-**Wrong theories**. (1) Temporal anti-aliasing not yet converged in the young window — but
-the low preset has no AA at all. (2) `copy_view_from` missing a property — the state keys
-come from the QML meta-object, so nothing was left out by hand.
+**Wrong theories**. (1) Temporal anti-aliasing not yet converged in the young window, but
+the low preset has no AA at all. (2) `copy_view_from` missing a property, but the state keys
+come from the QML meta-object, so nothing was left out by hand. (3) **A stale reference
+frame**, grabbed right after the previous probe restored its state, before a redraw. This
+one shipped as a fix (a three-frame settle before the reference grab), validated by a run
+that **left out `--iou`**, the probe that triggers the defect. Without the trigger the
+difference is 0.0 with or without the settle, so that run proved nothing, and the commit's
+"17 passed" came from a tree that never held both the assertion and the settle. Senior
+review ran the full flag set and read 9.83 again.
 
-**Key evidence**: one instrumented run saved both windows' frames *after* the second window
-rendered, and dumped both roots' state: the two PNGs differed by **0.0**. The same probe run
-alone (no other probe before it) reported 0.0 too. Only after `--pick --update-bench` did the
-number appear.
+**Key evidence** (senior review, pass 4): the first window grabbed before and after
+`shadow_iou_probe` alone differed by **13.1** mean luma, 0.0 in the top half and 26.2 in the
+bottom half: the plan ground (lawn, paths, pond) was white. No root state key had changed.
 
-**Root cause**: the reference frame of the first window was grabbed straight after the
-previous probe's `preserved_state()` restore, before the first window had redrawn; the
-second window was compared against a stale frame.
+```
+ground.update() alone                          diff 13.1   (no effect)
+ground.setTextureData(textureData()) + update  diff 0.0
+a fresh ImageTexture                           diff 0.0
+```
 
-**Fix**: `wait_frames(3)` on the first window before its reference grab; the render tier now
-asserts the difference stays below 1.0 after the full probe sequence.
+**Root cause**: the texture twin of the geometry rule in the case study above. The IoU and
+orientation probes set `groundTexture` to null, which detaches the `QQuick3DTextureData` from
+its QML `Texture`; `preserved_state()` set the *same* object back, and Qt Quick 3D draws a
+re-attached texture data object untextured (white) until its data is uploaded again. The
+first window kept a white ground until the soak's next reload; the second window, with its
+own texture, drew the right one. `preserved_state`'s identity guard passed throughout: it
+checked Python's bookkeeping (the shown texture is the one held), not the engine's pixels.
 
-**Lesson**: **settle both sides before you compare frames.** A probe that restores state
-leaves the *next* grab stale; a comparison is only as good as its reference.
+**Fix**: `preserved_state()` re-uploads the ground whenever it was detached; the settle wait
+is gone. Test-first: the runner grabs the first window before the probes and after them
+(`probe_restore_frame_diff`), the render tier asserts it below 1.0 (9.83 before the fix, 0.0
+after, with `--iou --orient --pick --update-bench --second-window`), and the CI driver checks
+it and `frame_diff_vs_first`.
+
+**Lesson**: **a validation run that omits the trigger proves nothing.** Before accepting a
+root cause, reproduce the failure with the exact flags that produced it, then show that same
+run passing with the fix; a fix validated where the bug cannot occur is a guess with a green
+tick. And a guard on bookkeeping (the right object is held) is not a check of the outcome
+(the right pixels are drawn): test a contract in the currency it promises.

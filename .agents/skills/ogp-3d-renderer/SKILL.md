@@ -26,7 +26,7 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
 | Need | What works | Measured trap |
 |---|---|---|
 | Custom geometry | `QQuick3DGeometry` subclass, `setVertexData`/`setIndexData` | — |
-| Textures from Python | `QQuick3DTextureData`, `Format.RGBA8` | — |
+| Textures from Python | `QQuick3DTextureData`, `Format.RGBA8` | detached from its `Texture` and attached again, the same object draws the surface **untextured (white)**; `update()` does not help, `setTextureData(textureData())` + `update()` (or a fresh object) does — §5 |
 | Instancing | not bound → merge meshes (static batching) | — |
 | Geometry lifetime | one `QQuick3DGeometry` per Model lifetime | once its Model is destroyed, the same geometry given to a new Model **renders and picks nothing** (frame = empty scene, 0/20 picks); `update()` does not help, a full re-upload (`set_mesh`) does |
 | `Repeater3D` over a JS array | fine for a fixed set | **any** change of the array destroys and recreates **every** delegate — combined with the row above, every model came back blank; use per-item creation or a list model with incremental inserts |
@@ -62,12 +62,12 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
   placed in the graphics scene" warning).
 - **`ProceduralSkyTextureData` regenerates the whole sky synchronously, on the GUI thread, on
   every input change** (~190 ms each at `SkyTextureQualityHigh`, llvmpipe). Never bind its
-  inputs live, and build no sky before the first sun is known: the spike's live-bound sky was
-  rebuilt about six times per open and its initial one was thrown away. Build it once per sun
-  change — create the data at `SkyTextureQualityLow`, set every input, raise the quality last
-  (one full generation). Measured (golden hour, 640×360, llvmpipe): QML load 1715 → 67 ms,
-  `set_look` 793 → 0.3 ms, `set_sun` 2188 → 348 ms, a mood + sun change 2973 → 372 ms;
-  frames bit-identical.
+  inputs live, and build no sky before the first sun is known: the spike's live-bound sky
+  regenerated for each look and sun input during an open, and its initial one was thrown away.
+  Build it once per sun change — create the data at `SkyTextureQualityLow`, set every input,
+  raise the quality last (one full generation). Measured once (llvmpipe, 640×360, golden hour;
+  commit a275da2, the number every record cites): QML load 1709 → 70 ms, `set_look` 791 →
+  0.1 ms, `set_sun` 2192 → 344 ms, a mood + sun change 3110 → 365 ms; frames bit-identical.
 - If the image-based light out-shines the sun, the whole frame reads flat and blue —
   `probeExposure` 0.35–0.55 against sun brightness 1.7–2.1 (rigs in `ogp-lush-cinematic` §3).
 - **Shadow truth** (box 100 × 100 × 200 cm, azimuth 225°, IoU of the engine's shadow-map
@@ -116,6 +116,14 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
 
 - A `QImage` → `QQuick3DTextureData` (RGBA8) on a `#Rectangle` needs **`flipV: true`**: texture
   rows are north-up. Orientation probe (`--orient`): NCC identity 0.94 vs flip_v −0.10.
+- **Re-attach renders white** (the texture twin of the geometry rule in §2): the IoU and
+  orientation probes set `groundTexture` to null, which detaches the `QQuick3DTextureData`;
+  setting the same object back left the plan ground white until the next reload (mean luma
+  difference 13.1 on the frame, all of it in the ground half; llvmpipe, 640×360).
+  `preserved_state()` re-uploads a detached ground. It was caught only because
+  `--second-window` compared frames, then misdiagnosed once as a stale reference by a run
+  without `--iou`; check a restore in pixels (`probe_restore_frame_diff` < 1), not by object
+  identity.
 - `QGraphicsScene.render()` always paints the canvas background — the spike swaps that exact
   colour for meadow; the production bake paints records directly (plan L1.5).
 - **Ownership:** a texture created in Python is owned by Python, so something must hold it while
@@ -129,6 +137,10 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
   10 MB/reload against ±30–60 MB swings (WARP v8; llvmpipe once read 14.3 at ±35 MB). Trust
   the gate only with its positive control on the same machine (`--soak-leak-mb 25` must fail
   it). Private bytes do not see VRAM: on a discrete GPU the gate is blind to GPU-side leaks.
+  The gate answers "a trend over the last ten reloads?", not "did memory grow?": WARP v9
+  passed at 1.5 MB/reload while private bytes grew +129 MB over reloads 2–20 and flattened by
+  reload 12 (cause unexplained), and its control over-read the 25 MB it held by 8.6 MB/reload.
+  Record the whole curve (`leak_curve_mb`) with the verdict.
 
 ## 6. Hosts
 
@@ -263,3 +275,4 @@ triangles (`scripts/bench_view3d.py`).
 | A custom material renders the wrong colour, run "ok" | shader compile error is a `QtWarningMsg` | record Qt messages; fail on shader/QML errors |
 | "Cold" open time on the second run of the day | Qt/Mesa disk caches from the first | `--cold`, and read `shader_caches.found_before_run` |
 | RSS climbs ~30 MB per project reload | append-only keep-alive list of ground textures | hold only the shown texture; judge by the tail slope |
+| Plan ground white after a probe; the second window "differs" by ~10 luma | the same `QQuick3DTextureData` re-attached after being detached | re-upload it on re-attach; assert `probe_restore_frame_diff` < 1 |

@@ -138,8 +138,9 @@ Item {
         // for each look and sun property even when it was about to be replaced,
         // and the initial sky at load was built only to be thrown away. Inputs are
         // set at the cheapest quality, then the quality is raised: one full
-        // generation. Measured (golden hour, 640x360): QML load 1715 -> 67 ms,
-        // set_look 793 -> 0.3 ms, set_sun 2188 -> 348 ms; frames bit-identical.
+        // generation. Measured once (llvmpipe, 640x360, golden hour; commit a275da2):
+        // QML load 1709 -> 70 ms, set_look 791 -> 0.1 ms, set_sun 2192 -> 344 ms;
+        // frames bit-identical.
         Component {
             id: skyDataComponent
             ProceduralSkyTextureData {

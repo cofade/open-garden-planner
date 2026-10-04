@@ -157,6 +157,7 @@ def test_measurement_run_closes_cleanly_while_really_animating(measured: tuple[d
     assert soak["wind_time_after"] > soak["wind_time_before"], soak
     assert soak["event_loop_exit_code"] == 0, soak  # informational; the witness is `code`
     assert metrics["qt_messages"]["errors"] == [], metrics["qt_messages"]
+    assert metrics["qt_messages"]["counts"]["warning"] == 0, metrics["qt_messages"]
 
 
 def test_soak_reloads_the_project_from_disk_without_a_leak(measured: tuple[dict, int]) -> None:
@@ -320,13 +321,29 @@ def test_open_time_knows_a_first_launch_from_a_warm_one(tmp_path: Path) -> None:
 def test_the_leak_gate_fires_on_a_known_leak(tmp_path: Path) -> None:
     """Positive control for the soak's leak gate: 25 MB kept alive per reload must
     read as a trend. A gate is only evidence once it has been seen to fire on the
-    machine it judges (senior review); the Windows workflow runs the same control."""
+    machine it judges (senior review); the Windows workflow runs the same control.
+
+    It runs the gate as pre-registered (100 cycles, 20 reloads, the slope over the
+    last ten) in the clean run's window, without its probes: they run before the
+    soak, so they move the starting level, not the slope. At 5 reloads the "second
+    half" was two or three points, a smoke check rather than a control (senior
+    review, pass 4)."""
     out = tmp_path / "out"
     proc = _spike(out, _render_env(tmp_path / "config_home"), "--presets", "low", "--shots",
-                  "golden_hour", "--size", "320x180", "--fps-seconds", "0", "--soak", "25",
+                  "golden_hour", "--size", "640x360", "--fps-seconds", "0", "--soak", "100",
                   "--soak-leak-mb", "25")
     assert proc.returncode == 0, proc.stderr[-2000:]
     soak = json.loads((out / "metrics.json").read_text(encoding="utf-8"))["soak"]
-    assert soak["project_reloads"] == 5
+    assert soak["project_reloads"] == 20
     assert soak["deliberate_leak_mb_per_reload"] == 25
-    assert soak["leak_slope_mb_per_reload"] > 10.0, soak["leak_curve_mb"]
+    assert soak["leak_slope_mb_per_reload"] >= 10.0, soak["leak_curve_mb"]  # fails the gate
+
+
+def test_probes_leave_the_view_as_they_found_it(spike_metrics: tuple[dict, Path],
+                                                measured: tuple[dict, int]) -> None:
+    """preserved_state()'s contract, in pixels: the frame after --iou/--orient equals
+    the frame before. After --iou the plan ground came back white (the same texture
+    object re-attached after being detached renders untextured), and nothing caught
+    it until a later frame comparison read 9.8 luma (senior review, pass 4)."""
+    for metrics in (spike_metrics[0], measured[0]):
+        assert metrics["probe_restore_frame_diff"] < 1.0, metrics["probe_restore_frame_diff"]

@@ -195,7 +195,9 @@ def _orientation(renderer: Any, out: Path, ground_img: Any, width: float,
     report["ground_texture_ok"] = max(scores, key=scores.get) == "identity"
     # (b) sky sun disc orientation: find the sun glow, convert its pixel to a compass bearing
     renderer.set_ground(None, 0, 0, width, height)
-    renderer.set_preset("low")  # no fog: the horizon haze must not out-shine the sun glow
+    renderer.set_preset("low")  # the plainest post-processing. Fog is on at every preset
+    # since creator round 2; the sun glow still reads above the haze (max error 0.79 deg
+    # on D3D11 in Windows run v10)
     sky: dict[str, Any] = {}
     errs: list[float | None] = []
     fov_v = 70.0

@@ -10,6 +10,7 @@ The classifier is Qt-free (unit-tested); only ``install`` touches Qt.
 
 from __future__ import annotations
 
+import contextlib
 import re
 import sys
 import threading
@@ -92,8 +93,9 @@ def install(messages: QtMessages) -> None:
         if category == "default":
             category = ""
         messages.add(names.get(mode, "warning"), text or "", category)
-        if sys.stderr is not None:
-            print(text, file=sys.stderr, flush=True)
+        if sys.stderr is not None:  # never raise in here: PyQt turns it into qFatal
+            with contextlib.suppress(Exception):
+                print(text, file=sys.stderr, flush=True)
 
     qInstallMessageHandler(handler)
 

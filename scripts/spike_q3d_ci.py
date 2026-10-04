@@ -134,12 +134,9 @@ def _attributed(open_ms: float | None, breakdown: object) -> bool:
 def _requested_sections(spike_args: list[str]) -> list[str]:
     flags = {arg.split("=", 1)[0] for arg in spike_args}
     sections = [section for flag, section in _REQUIRED_SECTIONS.items() if flag in flags]
-    for idx, arg in enumerate(spike_args):
-        if arg.startswith("--soak"):
-            count = arg.partition("=")[2] or (
-                spike_args[idx + 1] if idx + 1 < len(spike_args) else "0")
-            if count.isdigit() and int(count) > 0:
-                sections.append("soak")
+    count = _flag_value(spike_args, "--soak")  # exact flag: not --soak-leak-mb
+    if count is not None and count.isdigit() and int(count) > 0:
+        sections.append("soak")
     return sections
 
 
@@ -205,6 +202,13 @@ def _verdict(metrics: dict, spike_args: list[str] | None = None,
                     _below(pick.get("max_projection_err_px"), 1.0)),
                    ("picked points within 3 cm of the target",
                     _below(pick.get("max_xy_err_cm"), 3.0))]
+    if "probe_restore_frame_diff" in metrics:
+        checks.append(("the probes leave the view as they found it (< 1 luma)",
+                       _below(metrics.get("probe_restore_frame_diff"), 1.0)))
+    second = metrics.get("second_window")
+    if second:
+        checks.append(("the second window renders the first window's view (< 1 luma)",
+                       _below(second.get("frame_diff_vs_first"), 1.0)))
     coexist = metrics.get("coexist")
     if coexist:
         checks += [("WebEngine page drawn", coexist.get("web_ok") is True),
@@ -314,7 +318,9 @@ def main(argv: list[str]) -> int:
     failures = _verdict(json.loads(metrics_path.read_text(encoding="utf-8")), spike_args,
                         args.expect_caches)
     if args.expect_leak:  # the gate must fire on a known leak, on the same runner
-        if failures == [LEAK_CHECK]:
+        soak = json.loads(metrics_path.read_text(encoding="utf-8")).get("soak") or {}
+        slope = _num(soak.get("leak_slope_mb_per_reload"))
+        if failures == [LEAK_CHECK] and slope is not None and slope >= 10.0:
             print("positive control: the leak gate fired on the deliberate leak (PASS)")
             return 0
         print(f"::error::positive control: expected exactly [{LEAK_CHECK!r}], got {failures}")

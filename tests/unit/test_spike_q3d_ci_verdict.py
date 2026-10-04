@@ -133,3 +133,18 @@ def test_open_time_must_be_fully_attributed(driver) -> None:
                         "open time is fully attributed (breakdown within 100 ms)"]
     assert "the run records which shader caches it found" in driver._verdict(
         _metrics(shader_caches=None), ARGS)
+
+
+def test_frame_comparisons_are_checked(driver) -> None:
+    metrics = _metrics(probe_restore_frame_diff=9.83,
+                       second_window={"frame_diff_vs_first": 9.83})
+    assert driver._verdict(metrics, ARGS) == [
+        "the probes leave the view as they found it (< 1 luma)",
+        "the second window renders the first window's view (< 1 luma)"]
+    assert driver._verdict(_metrics(probe_restore_frame_diff=0.0,
+                                    second_window={"frame_diff_vs_first": 0.0}), ARGS) == []
+
+
+def test_the_leak_amount_flag_is_not_the_soak_flag(driver) -> None:
+    assert driver._requested_sections(["--soak-leak-mb", "25"]) == []
+    assert driver._requested_sections(["--soak", "100", "--soak-leak-mb", "25"]) == ["soak"]
