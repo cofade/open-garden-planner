@@ -17,10 +17,19 @@ Why a driver instead of a PowerShell ``Start-Process -Wait`` line:
   keeps its single home (``ogp-change-control`` §2.8, executed by
   ``release.yml``); this driver deliberately does not run ``--selftest``.
 
+A run is green only when the evidence says so, not merely when the process
+exits 0: every metric section present in ``metrics.json`` is checked against
+its ADR-047 threshold (``_verdict``) and printed as PASS/FAIL.
+
+``--frozen-smoke`` starts the bundle normally (no arguments) and requires it
+to still be running after 8 s — the shape of the release smoke, run here
+because this bundle carries the spike (ADR-038's spike evidence ran both).
+
 Usage::
 
     python scripts/spike_q3d_ci.py --unfrozen --out DIR --limit-s 600 -- [spike args]
     python scripts/spike_q3d_ci.py --frozen   --out DIR --limit-s 1500 -- [spike args]
+    python scripts/spike_q3d_ci.py --frozen-smoke --out DIR
 """
 
 from __future__ import annotations
@@ -70,6 +79,70 @@ def _report(out: Path, code: int | None, elapsed: float) -> None:
     print("::endgroup::")
 
 
+def _verdict(metrics: dict) -> list[str]:
+    """Every ADR-047 threshold the present metric sections can be judged on."""
+    checks: list[tuple[str, bool]] = [
+        ("status ok", metrics.get("status") == "ok"),
+        ("no frame-wait timeouts", metrics.get("wait_timeouts") == 0),
+    ]
+    by_preset = metrics.get("shadow_iou_by_preset") or {
+        "high": metrics.get("shadow_iou", {})}
+    for preset, probe in by_preset.items():
+        checks += [(f"shadow IoU {preset} {k} >= 0.85", v.get("iou", 0.0) >= 0.85)
+                   for k, v in probe.get("results", {}).items()]
+    checks.append(("open time measured to a finished readback",
+                   metrics.get("first_ready_ms", 0) >= (metrics.get("first_frame_ms") or 0) > 0))
+    orient = metrics.get("orientation")
+    if orient:
+        checks += [("ground north-up", bool(orient.get("ground_texture_ok"))),
+                   ("sky sun at the solar azimuth", bool(orient.get("sky_ok")))]
+    pick = metrics.get("pick")
+    if pick:
+        n = pick.get("n", 0)
+        checks += [("20 pick targets", n == 20),
+                   ("picks all hit", pick.get("hits") == n),
+                   ("picks hit after re-attach", pick.get("hits_after_reattach") == n),
+                   ("frame unchanged after re-attach", pick.get("reattach_frame_diff", 99) < 1.0),
+                   ("adversarial picks all hit",
+                    pick.get("adversarial_n", 0) >= 5
+                    and pick.get("adversarial_hits") == pick.get("adversarial_n")),
+                   ("click pixels match our own projection",
+                    (pick.get("max_projection_err_px") or 99) < 1.0)]
+    coexist = metrics.get("coexist")
+    if coexist:
+        checks += [("WebEngine page drawn", bool(coexist.get("web_ok"))),
+                   ("3D frame unchanged with WebEngine alive", bool(coexist.get("frame3d_ok")))]
+    soak = metrics.get("soak")
+    if soak:
+        checks += [("animation really ran before exit", bool(soak.get("animation_advanced"))),
+                   ("closed while animating, clean event-loop exit",
+                    soak.get("close_exit_code") == 0)]
+    failures = [name for name, ok in checks if not ok]
+    for name, ok in checks:
+        print(f"  {'PASS' if ok else 'FAIL'}  {name}")
+    return failures
+
+
+def _smoke() -> int:
+    """Normal start of the bundle (no arguments) must still be running after 8 s."""
+    if not FROZEN_BUNDLE.is_file():
+        print(f"frozen bundle missing: {FROZEN_BUNDLE}")
+        return 1
+    proc = subprocess.Popen(  # noqa: S603 - fixed argv, no shell
+        [str(FROZEN_BUNDLE.resolve())], stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+    time.sleep(8.0)
+    code = proc.poll()
+    if code is None:
+        proc.kill()
+        proc.wait(timeout=30)
+        print("smoke: still running after 8 s (PASS)")
+        return 0
+    print(f"::error::smoke: the bundle exited after < 8 s with code {code}")
+    return 1
+
+
 def main(argv: list[str]) -> int:
     if "--" in argv:
         split = argv.index("--")
@@ -80,12 +153,16 @@ def main(argv: list[str]) -> int:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--frozen", action="store_true", help="run the PyInstaller bundle")
     mode.add_argument("--unfrozen", action="store_true", help="run python -m open_garden_planner")
+    mode.add_argument("--frozen-smoke", action="store_true",
+                      help="normal start of the bundle must survive 8 s")
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--limit-s", type=float, default=1500.0, help="hard wall-clock limit")
     args = parser.parse_args(own)
 
     out: Path = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
+    if args.frozen_smoke:
+        return _smoke()
     if args.frozen:
         if not FROZEN_BUNDLE.is_file():
             print(f"frozen bundle missing: {FROZEN_BUNDLE}")
@@ -116,7 +193,17 @@ def main(argv: list[str]) -> int:
         return 124
     if code != 0:
         print(f"::error::spike exited with {code}")
-    return code
+        return code
+    metrics_path = out / "metrics.json"
+    if not metrics_path.is_file():
+        print("::error::no metrics.json")
+        return 1
+    print("verdict:")
+    failures = _verdict(json.loads(metrics_path.read_text(encoding="utf-8")))
+    if failures:
+        print(f"::error::evidence checks failed: {', '.join(failures)}")
+        return 1
+    return 0
 
 
 if __name__ == "__main__":

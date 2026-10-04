@@ -9,6 +9,8 @@ prototype core that graduates into ``core/`` — it must not import Qt at all.
 from __future__ import annotations
 
 import ast
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -17,6 +19,9 @@ ENGINE_MODULES = ("PyQt6.QtQuick3D", "PyQt6.QtQuick", "PyQt6.QtQml", "PyQt6.QtQu
 
 
 def _imports(path: Path) -> set[str]:
+    """Every imported module, including ``from PyQt6 import QtQuick3D`` spelled as
+    ``PyQt6.QtQuick3D`` (the repo's own style in main.py — the first version of this
+    scan recorded it as plain ``PyQt6`` and matched nothing)."""
     tree = ast.parse(path.read_text(encoding="utf-8"))
     names: set[str] = set()
     for node in ast.walk(tree):
@@ -24,6 +29,7 @@ def _imports(path: Path) -> set[str]:
             names.update(alias.name for alias in node.names)
         elif isinstance(node, ast.ImportFrom) and node.module:
             names.add(node.module)
+            names.update(f"{node.module}.{alias.name}" for alias in node.names)
     return names
 
 
@@ -41,16 +47,47 @@ def test_only_quick_module_imports_the_engine() -> None:
     assert offenders == []
 
 
-def test_spike_never_imported_at_startup(qtbot) -> None:
-    """Constructing the app loads neither the spike nor the Qt Quick 3D bindings."""
-    from open_garden_planner.app.application import GardenPlannerApp
+def test_scan_sees_the_from_package_import_spelling(tmp_path: Path) -> None:
+    probe = tmp_path / "probe.py"
+    probe.write_text("from PyQt6 import QtQuick3D\n", encoding="utf-8")
+    assert "PyQt6.QtQuick3D" in _imports(probe)
 
-    watched = ("open_garden_planner.spike_q3d", "PyQt6.QtQuick3D")
-    before = {m for m in sys.modules if m.startswith(watched)}
-    win = GardenPlannerApp()
-    qtbot.addWidget(win)
-    after = {m for m in sys.modules if m.startswith(watched)}
-    assert after == before
+
+def test_spike_never_imported_at_startup() -> None:
+    """Constructing the app loads neither the spike nor the Qt Quick 3D bindings.
+
+    In a fresh interpreter: an in-process ``sys.modules`` diff passes vacuously
+    once any earlier test has imported the spike (senior review).
+    """
+    code = (
+        "import sys\n"
+        "from PyQt6.QtWidgets import QApplication\n"
+        "app = QApplication([])\n"
+        "from open_garden_planner.app.application import GardenPlannerApp\n"
+        "win = GardenPlannerApp()\n"
+        "print(sorted(m for m in sys.modules if m.startswith("
+        "('open_garden_planner.spike_q3d', 'PyQt6.QtQuick3D'))))\n"
+    )
+    env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
+    proc = subprocess.run(  # noqa: S603 — fixed argv, our own code
+        [sys.executable, "-c", code], env=env, capture_output=True, text=True, timeout=170,
+    )
+    assert proc.returncode == 0, proc.stderr[-2000:]
+    assert proc.stdout.strip().splitlines()[-1] == "[]"
+
+
+def test_spike_points_settings_at_a_throwaway_store() -> None:
+    """Loading a plan records Recent Files: the spike must never touch the user's store."""
+    import open_garden_planner.app.settings as app_settings
+    from open_garden_planner.spike_q3d import runner
+
+    saved = (app_settings.ORGANIZATION_NAME, app_settings.APPLICATION_NAME)
+    try:
+        runner._isolate_settings()
+        assert app_settings.ORGANIZATION_NAME == runner.SETTINGS_ORGANIZATION
+        assert app_settings.ORGANIZATION_NAME != "cofade"
+    finally:  # keep this session's own test redirection (tests/conftest.py)
+        app_settings.ORGANIZATION_NAME, app_settings.APPLICATION_NAME = saved
 
 
 def test_main_dispatches_spike_flag_lazily() -> None:

@@ -73,7 +73,28 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
   Settings behind those numbers: `shadowBias` 5, `shadowMapFar` 9000, `lockShadowmapTexels`,
   the High preset's quality and PCF — but **no cascades**: the orthographic probe view forces
   `csmNumSplits: 0`, so the cascaded configuration of the beauty views is not covered yet.
-  The value depends on frame size (pixel grid), not on the backend.
+  The value depends on frame size (pixel grid), not on the backend. Low preset (High map,
+  one cascade, bias 15; the probe still runs without cascades): 0.963 / 0.968 / 0.937.
+- **Shadow bias at grazing light:** 1024-texel maps (low, medium) at `shadowBias` 5 left a
+  sun-grazed roof acned and stair-stepped (33–40 % of the slope); 15 measured clean with the IoU
+  gate unchanged. VeryHigh quality alone: 33 %; one cascade split: 8 %; 32-bit map: 15 %.
+- **Fog vs sky:** the skybox is drawn × `probeExposure`, `Fog` is not — fog = sky horizon ×
+  probe exposure × 0.8 (linear) meets the sky within ±1.3 luma. The sky's
+  `groundHorizonColor` shows in a sliver under a far-clipped ground plane: give it the sky
+  horizon colour, not the fog colour (that drew a dark line).
+- **PrincipledMaterial and water:** its grazing sky reflection ignores `specularAmount`,
+  `fresnelScale` and `fresnelPower`, and its image-light diffuse is scaled by
+  (1 − `specularAmount`). A custom material may sample the probe with Qt's
+  `qt_sampleDiffuse` / `qt_sampleGlossy` — but only inside `#if QSSG_ENABLE_LIGHT_PROBE`,
+  or the shader fails to compile in views without a probe (OpenGL verified; D3D11 is the
+  Windows evidence run's job).
+- **Double-sided leaves:** with `cullMode: NoCulling` back faces get the flipped normal — a
+  front-only light term turns grass into black stubble; light both sides.
+- **Anti-aliasing at low:** `fxaaEnabled` lives on `ExtendedSceneEnvironment`,
+  `specularAAEnabled` on `SceneEnvironment`; keep FXAA off in probe views (it softens the
+  measured pixels).
+- **Deterministic boards:** stop the wind and reset `windTime` to 0 — otherwise every frame
+  after an fps measurement freezes foliage at a run-dependent sway.
 - **SSGI renders a black frame on Mesa llvmpipe** (`--ssgi`; isolated by toggling SSGI and SSR
   separately) → opt-in until verified on real GPUs. SSR renders fine there.
 
@@ -178,3 +199,6 @@ triangles (`scripts/bench_view3d.py`).
 | Models blank and unpickable after a list change | geometry outlived its Model; array `Repeater3D` recreates all delegates | re-upload on re-attach; one geometry per Model lifetime |
 | A sun change stalls for a minute (WARP) | new sky light probe is prefiltered | rebuild only on noticeable sun moves; no IBL on software |
 | Windows RSS reads `None` | ctypes default `int` restype truncates the process pseudo-handle | declare `HANDLE` restype/argtypes |
+| `--iou` crashes / `--orient` says mirrored at 150 % display scale | pixel grid built from the logical size | build it from the grabbed image and `devicePixelRatio()` |
+| A measurement changes when the flag order changes | a probe left camera/preset/ground/sun behind | run probes inside `SpikeRenderer.preserved_state()` |
+| "Open time 2 s" but the first grab takes a minute (WARP) | `frameSwapped` marks submission | time show → first finished readback (`first_ready_ms`) |

@@ -45,17 +45,32 @@ def _poly_mask(polys: list, xs: np.ndarray, ys: np.ndarray) -> np.ndarray:
     return mask
 
 
+def _top_down_grid(width_px: int, height_px: int, px_per_cm: float) -> tuple[np.ndarray, np.ndarray]:
+    """Scene (x, y) of every pixel centre of a top-down view centred on the origin.
+
+    Built from the GRABBED image (device pixels): at a display scale of 1.5 the
+    grab is 1.5x the logical size, and a grid built from the logical size made
+    ``--iou`` crash and ``--orient`` report a mirrored ground (senior review).
+    """
+    cols = (np.arange(width_px) + 0.5 - width_px / 2) / px_per_cm
+    rows = (height_px / 2 - (np.arange(height_px) + 0.5)) / px_per_cm
+    return np.meshgrid(cols, rows)
+
+
 def shadow_iou_probe(renderer: Any, out: Path, preset: str = "high") -> dict:
     """IoU of the engine's shadow footprint vs the analytic 2D shadow, at ``preset``.
 
     Each preset has its own shadow-map quality and filtering, so the gate is
-    measured per preset (the L0 board only ever measured "high"). Restores
-    the models and the preset it found.
+    measured per preset (the L0 board only ever measured "high"). Everything it
+    changes is restored (``SpikeRenderer.preserved_state``).
     """
+    with renderer.preserved_state():
+        return _shadow_iou(renderer, out, preset)
+
+
+def _shadow_iou(renderer: Any, out: Path, preset: str) -> dict:
     from open_garden_planner.spike_q3d.quick import NumpyGeometry, SpikeModel, SunState
 
-    saved_models = renderer.models
-    saved_preset = str(renderer.root.property("preset"))
     side, height = 100.0, 200.0
     fp = [(-side / 2, -side / 2), (side / 2, -side / 2), (side / 2, side / 2), (-side / 2, side / 2)]
     caster = M.prism(fp, height, 0.0, "#d01010", "#ff0000")
@@ -65,13 +80,9 @@ def shadow_iou_probe(renderer: Any, out: Path, preset: str = "high") -> dict:
     renderer.set_models(models)
     renderer.root.setProperty("groundTexture", None)
     renderer.set_preset(preset)
-    w, h = renderer.size
-    mag = 0.5  # 1 px = 2 cm
+    mag = 0.5  # logical px per cm: 1 px = 2 cm
     renderer.set_top_down((0.0, 0.0), mag)
-    cols = (np.arange(w) + 0.5 - w / 2) / mag
-    rows = (h / 2 - (np.arange(h) + 0.5)) / mag
-    xs, ys = np.meshgrid(cols, rows)
-    footprint = M._point_in_polygon(xs, ys, fp)
+    grid: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None
     results = {}
     azimuth = 225.0
     for elev in (15.0, 35.0, 60.0):
@@ -82,6 +93,10 @@ def shadow_iou_probe(renderer: Any, out: Path, preset: str = "high") -> dict:
         img = renderer.grab(label=f"iou_{int(elev)}_{preset}")
         img.save(str(out / f"iou_{int(elev)}_{preset}.png"))
         arr = _image_to_array(img)
+        if grid is None:
+            gx, gy = _top_down_grid(arr.shape[1], arr.shape[0], mag * img.devicePixelRatio())
+            grid = (gx, gy, M._point_in_polygon(gx, gy, fp))
+        xs, ys, footprint = grid
         lum = _luma(arr)
         red = (arr[..., 0] > 1.4 * arr[..., 1]) & (arr[..., 0] > 60)
         # lit ground reference: far from the caster on the sun side (SW quadrant)
@@ -93,7 +108,6 @@ def shadow_iou_probe(renderer: Any, out: Path, preset: str = "high") -> dict:
         inter = np.logical_and(measured, analytic).sum()
         union = np.logical_or(measured, analytic).sum()
         iou = float(inter / union) if union else 0.0
-        # direction check: centroid of the measured shadow must point away from the sun
         if measured.any():
             mx, my = float(xs[measured].mean()), float(ys[measured].mean())
             ax, ay = float(xs[analytic].mean()), float(ys[analytic].mean())
@@ -105,17 +119,26 @@ def shadow_iou_probe(renderer: Any, out: Path, preset: str = "high") -> dict:
             "centroid_measured_cm": [round(mx, 1), round(my, 1)],
             "centroid_analytic_cm": [round(ax, 1), round(ay, 1)],
         }
-    renderer.set_models(saved_models)
-    renderer.set_preset(saved_preset)
     return {"preset": preset, "azimuth_deg": azimuth, "caster_cm": [side, side, height],
-            "px_per_cm": mag, "results": results}
+            "px_per_cm": mag, "device_pixel_ratio": img.devicePixelRatio(), "results": results}
+
+
+# The sky check looks this far left and right of the sun: the disc then sits
+# off-centre, where a wrong field-of-view or bearing mapping shows (a view aimed
+# straight at the sun only proves the direction — senior review).
+SKY_LOOK_OFFSETS_DEG = (-25.0, 25.0)
 
 
 def orientation_probe(renderer: Any, out: Path, ground_img: Any, width: float,
                       height: float) -> dict:
+    with renderer.preserved_state():
+        return _orientation(renderer, out, ground_img, width, height)
+
+
+def _orientation(renderer: Any, out: Path, ground_img: Any, width: float,
+                 height: float) -> dict:
     from open_garden_planner.spike_q3d.quick import SunState
 
-    saved_models = renderer.models
     report: dict[str, Any] = {}
     # (a) ground texture orientation: top-down render of the ground alone vs the bake
     renderer.set_models([])
@@ -129,9 +152,11 @@ def orientation_probe(renderer: Any, out: Path, ground_img: Any, width: float,
     img = renderer.grab(label="orient_ground")
     img.save(str(out / "orient_ground_topdown.png"))
     arr = _luma(_image_to_array(img))
-    # crop the rendered plan rectangle
-    pw, ph = round(width * mag), round(height * mag)
-    x0, y0 = (w - pw) // 2, (h - ph) // 2
+    # crop the rendered plan rectangle — in DEVICE pixels (the grab's size)
+    dpr = img.devicePixelRatio()
+    gh, gw = arr.shape
+    pw, ph = round(width * mag * dpr), round(height * mag * dpr)
+    x0, y0 = (gw - pw) // 2, (gh - ph) // 2
     crop = arr[y0:y0 + ph, x0:x0 + pw]
     bake = _luma(_image_to_array(ground_img.scaled(pw, ph)))
     def ncc(a: np.ndarray, b: np.ndarray) -> float:
@@ -147,43 +172,45 @@ def orientation_probe(renderer: Any, out: Path, ground_img: Any, width: float,
     # (b) sky sun disc orientation: find the sun glow, convert its pixel to a compass bearing
     renderer.set_ground(None, 0, 0, width, height)
     renderer.set_preset("low")  # no fog: the horizon haze must not out-shine the sun glow
-    sky = {}
+    sky: dict[str, Any] = {}
+    errs: list[float | None] = []
     fov_v = 70.0
     for sun_az in (90.0, 180.0, 270.0):
         d = sun_direction_scene(12.0, sun_az)
         renderer.set_sun(SunState(12.0, sun_az, (-d[0], -d[1], -d[2]), "#ffffff", 1.4, False))
-        found = None
-        for look_az in (0.0, 90.0, 180.0, 270.0):
+        views = {}
+        for offset in SKY_LOOK_OFFSETS_DEG:
+            look_az = (sun_az + offset) % 360.0
             tx = math.sin(math.radians(look_az)) * 1000
             ty = math.cos(math.radians(look_az)) * 1000
             renderer.set_camera((0.0, 0.0, 160.0),
                                 (tx, ty, 160.0 + 1000 * math.tan(math.radians(14))), fov_v)
-            renderer.wait_frames(4, label=f"sky_{int(sun_az)}_look_{int(look_az)}")
-            shot = renderer.grab(label=f"sky_{int(sun_az)}_look_{int(look_az)}")
-            arr = _image_to_array(shot)
+            label = f"sky_{int(sun_az)}_look_{int(look_az)}"
+            renderer.wait_frames(4, label=label)
+            arr = _image_to_array(renderer.grab(label=label))
             lum = _luma(arr)
-            top = lum[: int(lum.shape[0] * 0.55)]
-            warm = arr[: int(lum.shape[0] * 0.55), :, 0] - arr[: int(lum.shape[0] * 0.55), :, 2]
-            score = top + 0.8 * warm  # the disc is the brightest AND warmest sky spot
+            band = int(lum.shape[0] * 0.55)
+            score = lum[:band] + 0.8 * (arr[:band, :, 0] - arr[:band, :, 2])  # bright AND warm
             yx = np.unravel_index(np.argmax(score), score.shape)
             contrast = float(score[yx] - np.median(score))
-            if contrast > 40 and (found is None or contrast > found[2]):
-                w_img = lum.shape[1]
-                h_img = lum.shape[0]
-                fov_h = 2 * math.degrees(math.atan(math.tan(math.radians(fov_v / 2)) * w_img / h_img))
-                off = math.degrees(math.atan((yx[1] - w_img / 2) / (w_img / 2)
-                                             * math.tan(math.radians(fov_h / 2))))
-                found = (look_az, (look_az + off) % 360.0, contrast)
-        if found is None:
-            sky[f"sun_az_{int(sun_az)}"] = {"measured_az": None}
-            continue
-        err = ((found[1] - sun_az + 180) % 360) - 180
-        sky[f"sun_az_{int(sun_az)}"] = {"view_az": found[0], "measured_az": round(found[1], 1),
-                                        "error_deg": round(err, 1), "contrast": round(found[2], 1)}
+            if contrast <= 40:
+                views[f"{offset:+.0f}"] = {"measured_az": None}
+                errs.append(None)
+                continue
+            w_img, h_img = lum.shape[1], lum.shape[0]
+            fov_h = 2 * math.degrees(math.atan(math.tan(math.radians(fov_v / 2)) * w_img / h_img))
+            off = math.degrees(math.atan((yx[1] + 0.5 - w_img / 2) / (w_img / 2)
+                                         * math.tan(math.radians(fov_h / 2))))
+            measured = (look_az + off) % 360.0
+            err = ((measured - sun_az + 180) % 360) - 180
+            errs.append(err)
+            views[f"{offset:+.0f}"] = {"view_az": round(look_az, 1), "disc_offset_deg": round(off, 1),
+                                       "measured_az": round(measured, 1),
+                                       "error_deg": round(err, 2), "contrast": round(contrast, 1)}
+        sky[f"sun_az_{int(sun_az)}"] = views
     report["sky_sun_disc"] = sky
-    errs = [v.get("error_deg") for v in sky.values()]
-    report["sky_ok"] = all(e is not None and abs(e) < 6.0 for e in errs)
-    renderer.set_preset("high")
-    renderer.set_models(saved_models)
-    renderer.set_ground(ground_img, 0, 0, width, height)
+    report["sky_look_offsets_deg"] = list(SKY_LOOK_OFFSETS_DEG)
+    known = [abs(e) for e in errs if e is not None]
+    report["sky_max_abs_error_deg"] = round(max(known), 2) if known else None
+    report["sky_ok"] = bool(known) and len(known) == len(errs) and max(known) < 6.0
     return report

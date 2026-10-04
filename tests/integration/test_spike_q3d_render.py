@@ -26,26 +26,58 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 
-pytestmark = pytest.mark.skipif(
-    os.environ.get("OGP_RENDER3D") != "1" or not os.environ.get("DISPLAY"),
-    reason="render tier: set OGP_RENDER3D=1 and run under a display (xvfb-run)",
-)
+pytestmark = [
+    pytest.mark.skipif(
+        os.environ.get("OGP_RENDER3D") != "1" or not os.environ.get("DISPLAY"),
+        reason="render tier (Linux/X11 only): set OGP_RENDER3D=1 and run under xvfb-run",
+    ),
+    # each module fixture is a full render subprocess (~1.5-3 min on llvmpipe): the
+    # global 180 s per-test timeout would abort the setup the first test pays for
+    pytest.mark.timeout(1200),
+]
+
+PLAN = REPO / "tests" / "fixtures" / "plans" / "bench_small.ogp"
+
+
+def _render_env(config_home: Path, **extra: str) -> dict[str, str]:
+    """xcb + OpenGL, and a private settings home so a run can be checked for
+    writes to the user's store (loading a plan records Recent Files)."""
+    env = dict(os.environ, QT_QPA_PLATFORM="xcb", QSG_RHI_BACKEND="opengl",
+               XDG_CONFIG_HOME=str(config_home), **extra)
+    env.setdefault("LIBGL_ALWAYS_SOFTWARE", "1")
+    if hasattr(os, "geteuid") and os.geteuid() == 0:
+        env["QTWEBENGINE_DISABLE_SANDBOX"] = "1"  # Chromium refuses root with a sandbox
+    return env
+
+
+def _spike(out: Path, env: dict[str, str], *flags: str) -> subprocess.CompletedProcess:
+    return subprocess.run(  # noqa: S603 — fixed argv, our own module
+        [sys.executable, "-m", "open_garden_planner", "--spike-q3d", "--plan", str(PLAN),
+         "--out", str(out), *flags],
+        env=env, capture_output=True, text=True, timeout=1100, cwd=REPO,
+    )
 
 
 @pytest.fixture(scope="module")
 def spike_metrics(tmp_path_factory: pytest.TempPathFactory) -> tuple[dict, Path]:
     out = tmp_path_factory.mktemp("spike_q3d")
-    env = dict(os.environ, QT_QPA_PLATFORM="xcb", QSG_RHI_BACKEND="opengl")
-    env.setdefault("LIBGL_ALWAYS_SOFTWARE", "1")
-    proc = subprocess.run(  # noqa: S603 — fixed argv, our own module
-        [sys.executable, "-m", "open_garden_planner", "--spike-q3d",
-         "--plan", str(REPO / "tests" / "fixtures" / "plans" / "bench_small.ogp"),
-         "--out", str(out), "--presets", "medium", "--shots", "noon,december_noon",
-         "--size", "640x360", "--fps-seconds", "0", "--iou", "--orient"],
-        env=env, capture_output=True, text=True, timeout=900, cwd=REPO,
-    )
+    config_home = tmp_path_factory.mktemp("config_home")
+    proc = _spike(out, _render_env(config_home), "--presets", "medium",
+                  "--shots", "noon,december_noon", "--size", "640x360", "--fps-seconds", "0",
+                  "--iou", "--orient")
     assert proc.returncode == 0, proc.stderr[-2000:]
-    return json.loads((out / "metrics.json").read_text(encoding="utf-8")), out
+    metrics = json.loads((out / "metrics.json").read_text(encoding="utf-8"))
+    metrics["_config_home"] = str(config_home)
+    return metrics, out
+
+
+def test_the_users_settings_store_is_never_written(spike_metrics: tuple[dict, Path]) -> None:
+    """Loading a plan records Recent Files; the spike must write a throwaway store."""
+    from open_garden_planner.spike_q3d.runner import SETTINGS_ORGANIZATION
+
+    config_home = Path(spike_metrics[0]["_config_home"])
+    assert not (config_home / "cofade").exists(), sorted(p.name for p in config_home.iterdir())
+    assert (config_home / SETTINGS_ORGANIZATION).is_dir()
 
 
 def test_renders_a_real_frame(spike_metrics: tuple[dict, Path]) -> None:
@@ -66,9 +98,13 @@ def test_shadow_map_agrees_with_the_analytic_shadow(spike_metrics: tuple[dict, P
 
 
 def test_ground_is_north_up_and_sky_sun_follows_the_azimuth(spike_metrics: tuple[dict, Path]) -> None:
+    """The sky is checked OFF-centre (the disc 25 degrees left and right of the view
+    axis), where a wrong field of view or bearing mapping shows."""
     metrics, _ = spike_metrics
-    assert metrics["orientation"]["ground_texture_ok"], metrics["orientation"]["ground_texture_ncc"]
-    assert metrics["orientation"]["sky_ok"], metrics["orientation"]["sky_sun_disc"]
+    orient = metrics["orientation"]
+    assert orient["ground_texture_ok"], orient["ground_texture_ncc"]
+    assert orient["sky_ok"], orient["sky_sun_disc"]
+    assert orient["sky_max_abs_error_deg"] < 3.0, orient["sky_sun_disc"]
 
 
 def test_each_shot_shows_the_plan_on_its_sun_date(spike_metrics: tuple[dict, Path]) -> None:
@@ -95,30 +131,28 @@ def test_each_shot_shows_the_plan_on_its_sun_date(spike_metrics: tuple[dict, Pat
 def measured(tmp_path_factory: pytest.TempPathFactory) -> tuple[dict, int]:
     """The L0.2 measurement flags in one run (ADR-047 criteria 2, 3, 5, 6, 7, 10)."""
     out = tmp_path_factory.mktemp("spike_q3d_measure")
-    env = dict(os.environ, QT_QPA_PLATFORM="xcb", QSG_RHI_BACKEND="opengl")
-    env.setdefault("LIBGL_ALWAYS_SOFTWARE", "1")
-    if hasattr(os, "geteuid") and os.geteuid() == 0:
-        env["QTWEBENGINE_DISABLE_SANDBOX"] = "1"  # Chromium refuses root with a sandbox
-    proc = subprocess.run(  # noqa: S603 — fixed argv, our own module
-        [sys.executable, "-m", "open_garden_planner", "--spike-q3d",
-         "--plan", str(REPO / "tests" / "fixtures" / "plans" / "bench_small.ogp"),
-         "--out", str(out), "--presets", "low", "--shots", "golden_hour",
-         "--size", "640x360", "--fps-seconds", "0", "--watchdog-s", "840", "--iou",
-         "--pick", "--update-bench", "--warm", "--coexist", "--pan-bench", "--soak", "5"],
-        env=env, capture_output=True, text=True, timeout=900, cwd=REPO,
-    )
+    proc = _spike(out, _render_env(tmp_path_factory.mktemp("config_home")),
+                  "--presets", "low", "--shots", "golden_hour", "--size", "640x360",
+                  "--fps-seconds", "0", "--watchdog-s", "1000", "--iou", "--pick",
+                  "--update-bench", "--warm", "--coexist", "--pan-bench", "--soak", "5")
     log = (out / "spike.log").read_text(encoding="utf-8") if (out / "spike.log").exists() else ""
     assert (out / "metrics.json").exists(), proc.stderr[-2000:] + log[-2000:]
     return json.loads((out / "metrics.json").read_text(encoding="utf-8")), proc.returncode
 
 
-def test_measurement_run_finishes_clean_while_animating(measured: tuple[dict, int]) -> None:
+def test_measurement_run_closes_cleanly_while_really_animating(measured: tuple[dict, int]) -> None:
+    """Criterion 10, measured: the first version asserted a literal True while the
+    wind animation never ticked (senior review)."""
     metrics, code = measured
-    assert code == 0, metrics.get("error")  # criterion 10: exits 0 mid-animation
+    assert code == 0, metrics.get("error")
     assert metrics["status"] == "ok"
     assert metrics["wait_timeouts"] == 0
-    assert metrics["soak"]["exit_while_animating"] is True
-    assert metrics["soak"]["rss_end_mb"] - metrics["soak"]["rss_start_mb"] < 50.0
+    soak = metrics["soak"]
+    assert soak["animation_advanced"] is True, soak
+    assert soak["frames_while_animating"] >= 8, soak
+    assert soak["wind_time_after"] > soak["wind_time_before"], soak
+    assert soak["close_exit_code"] == 0, soak
+    assert soak["rss_end_mb"] - soak["rss_start_mb"] < 50.0
 
 
 def test_low_preset_shadow_map_agrees_with_the_analytic_shadow(measured: tuple[dict, int]) -> None:
@@ -139,12 +173,26 @@ def test_every_pick_names_the_item_the_cpu_oracle_expects(measured: tuple[dict, 
     assert pick["n"] == 20, pick
     assert pick["hits"] == 20, pick["misses"]
     assert pick["hits_after_reattach"] == 20, pick
+    assert pick["reattach_frame_diff"] < 1.0, pick  # pixels come back too, not only picks
+
+
+def test_adversarial_picks_defeat_a_bounding_box_picker(measured: tuple[dict, int]) -> None:
+    """Points inside a tall item's box but off its mesh: the easy targets alone let a
+    bounding-box picker score 18/20; these it must get right too. The click pixels
+    are checked against our own projection, not only the engine's."""
+    pick = measured[0]["pick"]
+    assert pick["adversarial_n"] >= 5, pick
+    assert pick["adversarial_hits"] == pick["adversarial_n"], pick["adversarial_misses"]
+    assert pick["max_projection_err_px"] < 1.0, pick
+    assert pick["max_xy_err_cm"] < 3.0, pick
 
 
 def test_webengine_and_quick3d_both_draw_in_one_process(measured: tuple[dict, int]) -> None:
     co = measured[0]["coexist"]
     assert co["web_loaded"] is True, co
     assert co["web_ok"], co        # the page colour, before AND after the 3D frame
+    # the 3D frame equals the same view rendered before WebEngine started, and that
+    # view has structure — "mean luma > 20" also passed an empty frame
     assert co["frame3d_ok"], co
 
 
@@ -153,5 +201,37 @@ def test_timing_measurements_are_recorded(measured: tuple[dict, int]) -> None:
     metrics = measured[0]
     assert metrics["update_bench"]["vertices"] >= 100_000
     assert metrics["update_bench"]["set_mesh_ms"]["median"] > 0
-    assert metrics["warm_start"]["first_frame_ms"] > 0
+    # open time ends on a finished readback, not on submission (senior review)
+    assert metrics["first_ready_ms"] >= metrics["first_frame_ms"] > 0
+    assert metrics["warm_start"]["first_ready_ms"] >= metrics["warm_start"]["first_frame_ms"] > 0
     assert metrics["pan_bench"]["ratio_median"] is not None
+
+
+@pytest.fixture(scope="module")
+def scaled(tmp_path_factory: pytest.TempPathFactory) -> dict:
+    """A stock 150 % display: the probes once built their pixel grid from the
+    logical size — ``--iou`` crashed and ``--orient`` reported a mirrored ground."""
+    out = tmp_path_factory.mktemp("spike_q3d_scaled")
+    proc = _spike(out, _render_env(tmp_path_factory.mktemp("config_home"), QT_SCALE_FACTOR="1.5"),
+                  "--presets", "low", "--shots", "noon", "--size", "640x360", "--fps-seconds", "0",
+                  "--iou", "--orient", "--pick")
+    assert proc.returncode == 0, proc.stderr[-2000:]
+    return json.loads((out / "metrics.json").read_text(encoding="utf-8"))
+
+
+def test_probes_hold_at_150_percent_display_scale(scaled: dict) -> None:
+    assert scaled["shadow_iou"]["device_pixel_ratio"] == 1.5
+    for elev, row in scaled["shadow_iou"]["results"].items():
+        assert row["iou"] >= 0.85, (elev, row)
+    assert scaled["orientation"]["ground_texture_ok"], scaled["orientation"]["ground_texture_ncc"]
+    assert scaled["orientation"]["sky_ok"], scaled["orientation"]["sky_sun_disc"]
+    assert scaled["pick"]["hits"] == scaled["pick"]["n"] == 20, scaled["pick"]
+
+
+def test_a_mistyped_flag_fails_instead_of_running_another_experiment(
+        tmp_path: Path) -> None:
+    proc = _spike(tmp_path, _render_env(tmp_path / "config_home"), "--presets", "lowww")
+    assert proc.returncode == 2
+    metrics = json.loads((tmp_path / "metrics.json").read_text(encoding="utf-8"))
+    assert metrics["status"] == "error"
+    assert "lowww" in metrics["error"]

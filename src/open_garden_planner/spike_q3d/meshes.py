@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import hashlib
 import math
-import random
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -1302,7 +1301,3 @@ def ground_quad(x0: float, y0: float, x1: float, y1: float, z: float = 0.0) -> M
     pos = np.array([[x0, y0, z], [x1, y0, z], [x1, y1, z], [x0, y1, z]], np.float32)
     uv = np.array([[0, 1], [1, 1], [1, 0], [0, 0]], np.float32)
     return _mesh(pos, np.tile([0, 0, 1.0], (4, 1)), _rgba("#ffffff", 4), uv, [0, 1, 2, 0, 2, 3])
-
-
-def rng_for(item_id: str, salt: str = "") -> random.Random:
-    return random.Random(item_seed(item_id, salt))

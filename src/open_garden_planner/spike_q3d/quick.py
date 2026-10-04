@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import time
 import weakref
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -182,6 +184,11 @@ class SpikeRenderer:
         if self.first_frame_ms is None and self._shown_at is not None:
             self.first_frame_ms = (time.perf_counter() - self._shown_at) * 1000.0
 
+    @property
+    def shown_at(self) -> float | None:
+        """``perf_counter()`` when ``show()`` was called (None before)."""
+        return self._shown_at
+
     def quick_window(self) -> QQuickWindow:
         return self.widget.quickWindow() if self.host_kind == "widget" else self.view
 
@@ -197,6 +204,37 @@ class SpikeRenderer:
             self.widget.hide()
         else:
             self.view.hide()
+
+    def close(self) -> None:
+        if self.host_kind == "widget":
+            self.widget.close()
+        else:
+            self.view.close()
+
+    # Everything a probe may change (senior review: probes that left the camera,
+    # preset, ground or sun behind made every later measurement order-dependent).
+    STATE_KEYS = ("preset", "groundTexture", "orthoTopDown", "orthoMagnification", "camPos",
+                  "camTarget", "camFov", "sunTravel", "sunRotation", "sunElevation",
+                  "skyLongitude", "sunColor", "sunBrightness", "night", "skyTop", "skyHorizon",
+                  "sunDiscColor", "fogColor", "exposure", "probeExposure", "animate")
+    SKY_KEYS = ("sunElevation", "skyLongitude", "night", "skyTop", "skyHorizon", "sunDiscColor")
+
+    @contextmanager
+    def preserved_state(self) -> Iterator[None]:
+        """Run a probe, then put back every property and model it may have changed."""
+        saved = {key: self.root.property(key) for key in self.STATE_KEYS}
+        models = self.models
+        try:
+            yield
+        finally:
+            sky_changed = any(self.root.property(k) != saved[k] for k in self.SKY_KEYS)
+            for key, value in saved.items():
+                self.root.setProperty(key, value)
+            self.set_models(models)
+            if sky_changed:  # the light probe is pre-filtered once per sky texture
+                self.root.setProperty("sunVersion", int(self.root.property("sunVersion")) + 1)
+            if not saved["orthoTopDown"]:  # re-aim the perspective camera at camTarget
+                self.root.setProperty("camVersion", int(self.root.property("camVersion")) + 1)
 
     def graphics_api(self) -> str:
         api = self.quick_window().rendererInterface().graphicsApi()

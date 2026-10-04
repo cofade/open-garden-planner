@@ -27,7 +27,9 @@ OGP is a planning tool. A beautiful render that misstates the plan is a **P0**, 
 | Shadows | engine shadow footprint of a box caster vs the analytic 2D shadow | IoU ≥ 0.85 at 15°/35°/60° (spike at 960×540: 0.98/0.98/0.96 on OpenGL **and** on Direct3D 11; 0.96/0.95/0.92 at 1280×720; orthographic, no cascades — table in `ogp-3d-renderer` §4) |
 | North | ground texture is north-up; nothing is mirrored | orientation probe NCC: identity must win |
 | Sky | the sky's sun disc sits at the solar azimuth | sky probe error < 6° (spike: within 0.7°, measured at the image centre) |
-| Date | season/growth shown = the plan's sim date | same date drives 2D shadows, heatmap and 3D |
+| Date | season/growth shown = the plan's sim date | models are built for each shot's own date; every shot row records `sun_date` = `build_date` (`metrics.json`) |
+| Built heights | every built object's top = its resolved height ±1 % | builders exact to `h`, `fit_height` as the safety net; objects with no resolved height (rain barrel, fire pit) cast no shadow — as in 2D |
+| Faces | the sun lights the face that faces it | stored normal · winding normal ≥ 0.99 on every flat face (the first board lit the wrong roof slope) |
 
 Never tune a domain number (species height, spread, planting date) to make a shot prettier.
 
@@ -61,7 +63,7 @@ Never tune a domain number (species height, spread, planting date) to make a sho
 | Roof tiles | 0.70–0.85 | terracotta `#b4553d` range (matches the 2D roof texture) |
 | Wood (deck, fence, beds) | 0.60–0.80 | |
 | Terracotta pots | 0.80–0.90 | |
-| Water | 0.02–0.06 | dark teal base; reflections come from the sky probe |
+| Water | 0.05 | 2D water colour `#4d92c5` (linear); a small custom shader (`qml/water.frag`) keeps its hue in every mood and adds a Fresnel × 0.15 sky reflection — PrincipledMaterial's grazing sky reflection turned the pond lavender at golden hour and ignores `specularAmount`/`fresnelScale`/`fresnelPower` |
 | Glass | 0.02–0.06 | opacity 0.2–0.35, blended, no depth write, casts no shadow |
 | Aluminium frames | 0.30–0.50 | |
 
@@ -111,6 +113,15 @@ Severity: **P0** = truth gate failed, mirrored/black/broken frame, unreadable sc
 | Hard meadow/sky seam | fog colour ≠ sky horizon | fog colour = sky horizon, depth 26→160 m |
 | Sparse "dead" crowns | fixed leaf count | leaf count from crown surface area |
 | Faceted kettle | 1× subdivided sphere | `smooth=True` for close-up props |
+| Wrong roof slope lit | each slab stored the other slope's normal | flat normals from the triangle winding; gate normal · winding ≥ 0.99 |
+| December shot full of June plants | models built once for June | build per shot date; `build_date` in every shot row |
+| BBQ +15.6 % tall, posts over the fence top | decoration added above `h` | builders exact to `h`, `fit_height` safety net |
+| White band at the horizon | fog ignores probe exposure, the skybox does not | fog = sky horizon × probe exposure × 0.8 (linear); meadow 4 km |
+| Night plan glows as an island | baked meadow ≠ meadow model albedo | one meadow albedo `#487f34`; night from light, never albedo |
+| Pond beige/lavender | PrincipledMaterial sky reflection | `water.frag` (see §4) |
+| Banded trunks | per-segment shade + 8.5 % ledges at joints | continuous limb tubes, one shade per branch |
+| Acne/staircase on a grazed roof (low) | Medium map, no cascades, bias 5 | High map + 1 cascade, bias 15 at low/medium |
+| Backlit crowns read as dark confetti | Lambert only from the front | foliage back-light term 0.35 (golden-hour crowns +18…34 luma) |
 
 ## 8. Owner taste log (append-only, newest last)
 

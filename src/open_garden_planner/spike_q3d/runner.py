@@ -107,9 +107,41 @@ def _parse(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--pan-bench", action="store_true",
                    help="criterion 3 (M2): 2D pan cost with/without a QQuickWidget")
     p.add_argument("--soak", type=int, default=0, metavar="N",
-                   help="criterion 10: N show/hide cycles, then exit while animating")
-    args, _unknown = p.parse_known_args(argv[1:])
+                   help="criterion 10: N show/hide cycles, then close while animating")
+    args, unknown = p.parse_known_args(argv[1:])
+    # A typo must not run a different experiment and still report "ok" (senior review).
+    args.unknown = unknown
     return args
+
+
+PRESETS = ("low", "medium", "high", "ultra")
+SETTINGS_ORGANIZATION = "cofade-ogp-tooling"
+SETTINGS_APPLICATION = "Open Garden Planner 3D spike"
+
+
+def _isolate_settings() -> None:
+    """Point every settings store at a throwaway key before anything builds one.
+
+    Loading a plan records it in Recent Files; evidence runs on the owner's
+    machine must never touch the user's own settings (the redirection
+    ``tests/conftest.py`` performs for the test suite).
+    """
+    import open_garden_planner.app.settings as app_settings
+
+    app_settings.ORGANIZATION_NAME = SETTINGS_ORGANIZATION
+    app_settings.APPLICATION_NAME = SETTINGS_APPLICATION
+
+
+def _validate(args: argparse.Namespace, shot_names: set[str]) -> None:
+    if args.unknown:
+        raise ValueError(f"unknown arguments: {' '.join(args.unknown)}")
+    bad = [p for p in args.presets.split(",") if p not in PRESETS]
+    if bad:
+        raise ValueError(f"unknown presets {bad}; choose from {list(PRESETS)}")
+    if args.shots != "all":
+        missing = set(args.shots.split(",")) - shot_names
+        if missing:
+            raise ValueError(f"unknown shots {sorted(missing)}; choose from {sorted(shot_names)}")
 
 
 class SpikeLog:
@@ -385,19 +417,23 @@ def bake_ground(scene: Any, width: float, height: float):
             item.setVisible(False)
             hidden.append(item)
     labels = scene.labels_enabled if hasattr(scene, "labels_enabled") else True
-    scene.set_labels_visible(False)
-    scene.set_shadows_enabled(False)
+    shadows = scene.shadows_enabled
     img = QImage(w, h, QImage.Format.Format_ARGB32)
     img.fill(Qt.GlobalColor.transparent)
-    painter = QPainter(img)
     try:
-        render_scene_region(scene, painter, QRectF(0, 0, w, h), QRectF(0, 0, width, height),
-                            y_flip=True)
-    finally:
-        painter.end()
-    for item in hidden:
-        item.setVisible(True)
-    scene.set_labels_visible(labels)
+        scene.set_labels_visible(False)
+        scene.set_shadows_enabled(False)
+        painter = QPainter(img)
+        try:
+            render_scene_region(scene, painter, QRectF(0, 0, w, h), QRectF(0, 0, width, height),
+                                y_flip=True)
+        finally:
+            painter.end()
+    finally:  # the scene is handed on to the 3D build: leave it as it was found
+        for item in hidden:
+            item.setVisible(True)
+        scene.set_labels_visible(labels)
+        scene.set_shadows_enabled(shadows)
     # scene.render() always paints the beige canvas background (drawBackground);
     # in 3D the empty plan reads as meadow, so swap that exact colour for grass
     # green (the production bake paints records directly and never sees it).
@@ -587,6 +623,7 @@ def default_shots(width: float, height: float) -> list[Shot]:
 
 def run_spike_cli(argv: list[str]) -> int:
     """Run the spike; never let a failure go unrecorded (see the module docstring)."""
+    _isolate_settings()
     args = _parse(argv)
     out: Path = args.out
     out.mkdir(parents=True, exist_ok=True)
@@ -653,6 +690,7 @@ def _run(args: argparse.Namespace, out: Path, log: SpikeLog, metrics: dict[str, 
     log("ground_baked", ms=round(metrics["ground_bake_ms"], 1), px=f"{ground.width()}x{ground.height()}")
 
     shots = default_shots(width, height)
+    _validate(args, {s.name for s in shots})
     if args.shots != "all":
         wanted = set(args.shots.split(","))
         shots = [s for s in shots if s.name in wanted]
@@ -701,8 +739,15 @@ def _run(args: argparse.Namespace, out: Path, log: SpikeLog, metrics: dict[str, 
     log("shown", exposed=renderer.is_exposed())
     renderer.wait_frames(2, timeout_s=max(args.frame_timeout_s, 300.0), label="first_frame")
     metrics["first_frame_ms"] = renderer.first_frame_ms
+    # ``frameSwapped`` marks submission; on a software rasteriser the real cost lands
+    # in the next readback (Windows v3: 2 s "first frame", then a 68 s grab). Open
+    # time is judged on show -> first finished readback (senior review).
+    renderer.grab(label="first_ready")
+    metrics["first_ready_ms"] = round((time.perf_counter() - (renderer.shown_at or t_start))
+                                      * 1000.0, 1)
     metrics["graphics_api"] = renderer.graphics_api()
-    log("first_frame", ms=round(metrics["first_frame_ms"] or -1.0, 1), api=metrics["graphics_api"])
+    log("first_frame", ms=round(metrics["first_frame_ms"] or -1.0, 1),
+        ready_ms=metrics["first_ready_ms"], api=metrics["graphics_api"])
     _write_metrics(out, metrics)
     shoot_board(renderer, shots, presets, models_by_date, sun_for, out, log, metrics,
                 args.fps_seconds)
@@ -732,8 +777,13 @@ def _run(args: argparse.Namespace, out: Path, log: SpikeLog, metrics: dict[str, 
         _write_metrics(out, metrics)
     _measure(args, renderer, scene, ground, width, height, out, log, metrics)
     metrics["wait_timeouts"] = renderer.wait_timeouts
+    if args.soak > 0:  # last: it closes the window and ends the event loop
+        from open_garden_planner.spike_q3d import measure
+
+        metrics["soak"].update(measure.close_while_animating(renderer, app, log))
+        _write_metrics(out, metrics)
     metrics["total_s"] = round(time.perf_counter() - t_start, 2)
     if sys.stdout is not None:
-        print(json.dumps({k: metrics[k] for k in ("graphics_api", "first_frame_ms", "build", "fps")
+        print(json.dumps({k: metrics[k] for k in ("graphics_api", "first_ready_ms", "build", "fps")
                           if k in metrics}, default=str), flush=True)
     del app

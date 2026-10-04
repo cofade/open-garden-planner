@@ -15,8 +15,13 @@ rendering: ratios and pass/fail facts carry over, absolute times do not.
   in one process, the way the app imports WebEngine before ``QApplication``.
 * ``pan_bench`` — criterion 3 (M2): 2D canvas pan cost with and without a
   ``QQuickWidget`` in the same top-level window.
-* ``soak`` — criterion 10: show/hide and model churn; the run then exits while
-  the wind animation is running.
+* ``soak`` — criterion 10: show/hide and model churn.
+* ``close_while_animating`` — criterion 10: the wind animation must really run
+  (wind time and frames advance), then the window is closed and the event loop
+  quits while it runs; judged on that exit code.
+
+Every probe that moves the camera, preset, ground or sun runs inside
+``SpikeRenderer.preserved_state`` so no measurement depends on flag order.
 """
 
 from __future__ import annotations
@@ -41,12 +46,15 @@ def _pump(ms: int) -> None:
 
 
 def _stats(values: list[float]) -> dict[str, float]:
+    """Median and max; a p95 only from 20 samples on (below that it IS the max)."""
     if not values:
         return {}
     ordered = sorted(values)
-    p95 = ordered[min(len(ordered) - 1, round(0.95 * (len(ordered) - 1)))]
-    return {"median": round(statistics.median(ordered), 2), "p95": round(p95, 2),
-            "max": round(ordered[-1], 2)}
+    out = {"n": len(ordered), "median": round(statistics.median(ordered), 2),
+           "max": round(ordered[-1], 2)}
+    if len(ordered) >= 20:
+        out["p95"] = round(ordered[round(0.95 * (len(ordered) - 1))], 2)
+    return out
 
 
 def rss_mb() -> float | None:
@@ -128,14 +136,84 @@ def _top_target(tri: np.ndarray) -> tuple[float, float] | None:
     return float(cent[k, 0]), float(cent[k, 1])
 
 
+def _oracle_meshes(models: list) -> dict[str, np.ndarray]:
+    """Every pickable model's triangles, merged per item id (frame + glass included)."""
+    merged: dict[str, list[np.ndarray]] = {}
+    for model in models:
+        if model.geometry.mesh.vertex_count:
+            merged.setdefault(model.itemId, []).append(_triangles(model.geometry.mesh))
+    return {item_id: np.concatenate(parts) for item_id, parts in merged.items()}
+
+
+def _robust_hit(tris: dict[str, np.ndarray], x: float, y: float,
+                eps: float = 0.5) -> tuple[str | None, float] | None:
+    """The oracle's answer if it is the same 0.5 cm around the point, else None."""
+    hit, z = cpu_topmost_hit(tris, x, y)
+    for dx, dy in ((eps, 0.0), (-eps, 0.0), (0.0, eps), (0.0, -eps)):
+        if cpu_topmost_hit(tris, x + dx, y + dy)[0] != hit:
+            return None
+    return hit, z
+
+
+def adversarial_targets(tris: dict[str, np.ndarray], k: int = 10,
+                        grid: int = 9) -> list[tuple[float, float, str | None, str]]:
+    """Points inside a tall item's bounding box whose topmost hit is ANOTHER item or nothing.
+
+    A picker that only tests bounding boxes returns the tall item there; a correct
+    one returns what the oracle says. The senior review measured that the easy
+    targets alone let a bounding-box picker score 18/20.
+    """
+    tall = sorted(((float(t[..., 2].max()), item_id) for item_id, t in tris.items()
+                   if not item_id.startswith("lawn-grass")), reverse=True)
+    out: list[tuple[float, float, str | None, str]] = []  # (x, y, expected, box owner)
+    for _, item_id in tall:
+        flat = tris[item_id].reshape(-1, 3)
+        lo, hi = flat.min(axis=0), flat.max(axis=0)
+        for fx in np.linspace(0.06, 0.94, grid):
+            for fy in np.linspace(0.06, 0.94, grid):
+                x = float(lo[0] + fx * (hi[0] - lo[0]))
+                y = float(lo[1] + fy * (hi[1] - lo[1]))
+                answer = _robust_hit(tris, x, y)
+                if answer is not None and answer[0] != item_id:
+                    out.append((x, y, answer[0], item_id))
+                    break
+            else:
+                continue
+            break
+        if len(out) >= k:
+            break
+    return out
+
+
+def top_down_pixel(x: float, y: float, center: tuple[float, float], px_per_cm: float,
+                   size: tuple[int, int]) -> tuple[float, float]:
+    """Where an orthographic top-down camera puts scene point (x, y) — our own math."""
+    w, h = size
+    return w / 2 + (x - center[0]) * px_per_cm, h / 2 - (y - center[1]) * px_per_cm
+
+
 def pick_probe(renderer: Any, width: float, height: float, n: int = 20) -> dict:
-    tris = {m.itemId: _triangles(m.geometry.mesh) for m in renderer.models
-            if m.geometry.mesh.vertex_count}
+    with renderer.preserved_state():
+        return _pick(renderer, width, height, n)
+
+
+def _pick(renderer: Any, width: float, height: float, n: int) -> dict:
+    from open_garden_planner.spike_q3d.probes import _image_to_array
+
+    tris = _oracle_meshes(renderer.models)
     w, h = renderer.size
+    center = (width / 2, height / 2)
     mag = min(w / width, h / height) * 0.98
-    renderer.set_top_down((width / 2, height / 2), mag)
+    renderer.set_top_down(center, mag)
     renderer.wait_frames(4, label="pick_view")
-    rows, times = [], []
+
+    def click(x: float, y: float, z: float) -> tuple[dict, float]:
+        px, py = renderer.project(x, y, z)
+        ox, oy = top_down_pixel(x, y, center, mag, (w, h))
+        hit = renderer.pick(px, py)
+        return hit, float(np.hypot(px - ox, py - oy))
+
+    rows, times, proj_err = [], [], []
     for item_id in sorted(tris):
         if len(rows) >= n or item_id.startswith("lawn-grass"):
             continue  # grass blades are pickable but too thin to aim at
@@ -149,21 +227,33 @@ def pick_probe(renderer: Any, width: float, height: float, n: int = 20) -> dict:
         if not (0 <= px < w and 0 <= py < h):
             continue
         t0 = time.perf_counter()
-        hit = renderer.pick(px, py)
+        hit, err_px = click(target[0], target[1], z)
         times.append((time.perf_counter() - t0) * 1000.0)
+        proj_err.append(err_px)
         got = hit.get("id") if hit.get("hit") else None
         err = None
         if got:  # engine frame (E, up, -N) → scene (E, N, up)
             err = round(float(np.hypot(hit["x"] - target[0], -hit["z"] - target[1])), 2)
         rows.append({"target": item_id, "hit": got, "ok": got == item_id, "xy_err_cm": err})
     hits = sum(r["ok"] for r in rows)
+
+    adversarial = []
+    for x, y, expected, owner in adversarial_targets(tris):
+        hit, err_px = click(x, y, 0.0)
+        proj_err.append(err_px)
+        got = hit.get("id") if hit.get("hit") else None
+        adversarial.append({"x": round(x, 1), "y": round(y, 1), "in_box_of": owner,
+                            "expected": expected, "hit": got, "ok": got == expected})
+
     # The same picks after every model was removed and re-added: pins the
-    # re-attach rule in SpikeRenderer.set_models (0/20 without it).
+    # re-attach rule in SpikeRenderer.set_models (0/20 without it) — by picks AND pixels.
+    before = _image_to_array(renderer.grab(label="pick_before_detach"))
     models = renderer.models
     renderer.set_models([])
     renderer.wait_frames(2, label="pick_detach")
     renderer.set_models(models)
     renderer.wait_frames(3, label="pick_reattach")
+    after = _image_to_array(renderer.grab(label="pick_after_reattach"))
     again = 0
     for row in rows:
         target = _top_target(tris[row["target"]])
@@ -172,7 +262,14 @@ def pick_probe(renderer: Any, width: float, height: float, n: int = 20) -> dict:
         z = cpu_topmost_hit(tris, *target)[1]
         hit = renderer.pick(*renderer.project(target[0], target[1], z))
         again += bool(hit.get("hit")) and hit.get("id") == row["target"]
+    errs = [r["xy_err_cm"] for r in rows if r["xy_err_cm"] is not None]
     return {"n": len(rows), "hits": hits, "hits_after_reattach": again,
+            "reattach_frame_diff": round(float(np.abs(before - after).mean()), 3),
+            "adversarial_n": len(adversarial),
+            "adversarial_hits": sum(a["ok"] for a in adversarial),
+            "adversarial_misses": [a for a in adversarial if not a["ok"]],
+            "max_xy_err_cm": round(max(errs), 2) if errs else None,
+            "max_projection_err_px": round(max(proj_err), 3) if proj_err else None,
             "pick_ms": _stats(times), "misses": [r for r in rows if not r["ok"]],
             "camera": "orthographic top-down"}
 
@@ -195,6 +292,11 @@ def _grid_mesh(side: int, phase: float) -> M.MeshData:
 
 
 def update_bench(renderer: Any, side: int = 317, runs: int = 10) -> dict:
+    with renderer.preserved_state():
+        return _update_bench(renderer, side, runs)
+
+
+def _update_bench(renderer: Any, side: int, runs: int) -> dict:
     from open_garden_planner.spike_q3d.quick import NumpyGeometry, SpikeModel
 
     saved = renderer.models
@@ -238,8 +340,10 @@ def warm_start(renderer: Any, ground: Any, width: float, height: float, log: Any
     second.root.setProperty("preset", renderer.root.property("preset"))
     second.show()
     second.wait_frames(2, label="warm_first_frame")
+    second.grab(label="warm_first_ready")  # a readback: the frame is really finished
     result = {"qml_load_ms": round(second.qml_load_ms, 1),
               "first_frame_ms": round(second.first_frame_ms or -1.0, 1),
+              "first_ready_ms": round((time.perf_counter() - (second.shown_at or t0)) * 1000.0, 1),
               "total_ms": round((time.perf_counter() - t0) * 1000.0, 1)}
     second.hide()
     second.set_models([])
@@ -257,10 +361,15 @@ def _center_rgb(image: Any) -> tuple[int, int, int]:
 
 def coexist_probe(renderer: Any, log: Any, timeout_s: float = 30.0) -> dict:
     from PyQt6.QtCore import QCoreApplication, QEventLoop, Qt, QTimer
-    from PyQt6.QtGui import QImage
     from PyQt6.QtWebEngineWidgets import QWebEngineView
 
+    from open_garden_planner.spike_q3d.probes import _image_to_array, _luma
+
     want = (58, 123, 213)  # #3a7bd5 — a page colour nothing else here uses
+    # The 3D half is judged against the SAME view rendered before WebEngine
+    # started: "mean luma > 20" also passed an empty frame (senior review).
+    renderer.wait_frames(3, label="coexist_reference")
+    reference = _image_to_array(renderer.grab(label="coexist_reference"))
     view = QWebEngineView()
     view.resize(320, 200)
     state: dict[str, Any] = {"loaded": None}
@@ -288,11 +397,9 @@ def coexist_probe(renderer: Any, log: Any, timeout_s: float = 30.0) -> dict:
     before = _web_rgb()
     log("coexist_web", loaded=state["loaded"], rgb=before)
     renderer.wait_frames(3, label="coexist_3d")
-    frame = renderer.grab(label="coexist_3d")
-    gray = frame.convertToFormat(QImage.Format.Format_Grayscale8)
-    ptr = gray.constBits()
-    ptr.setsize(gray.sizeInBytes())
-    luma = float(np.frombuffer(bytes(ptr), np.uint8).mean())
+    frame = _image_to_array(renderer.grab(label="coexist_3d"))
+    frame_diff = float(np.abs(frame - reference).mean())
+    structure = float(_luma(reference).std())
     after = _web_rgb()
 
     def _close(rgb: tuple[int, int, int]) -> bool:
@@ -307,7 +414,9 @@ def coexist_probe(renderer: Any, log: Any, timeout_s: float = 30.0) -> dict:
         "quick_graphics_api": renderer.graphics_api(),
         "web_loaded": state["loaded"], "web_rgb_before_3d": before, "web_rgb_after_3d": after,
         "web_ok": _close(before) and _close(after),
-        "frame3d_mean_luma": round(luma, 1), "frame3d_ok": luma > 20.0,
+        "frame3d_diff_vs_reference": round(frame_diff, 3),
+        "frame3d_reference_luma_std": round(structure, 1),
+        "frame3d_ok": frame_diff < 2.0 and structure > 10.0,
     }
 
 
@@ -394,6 +503,30 @@ def soak(renderer: Any, cycles: int) -> dict:
             renderer.set_models(models)
             renderer.wait_frames(1, label=f"soak_refill_{k}")
     rss_end = rss_mb()
-    renderer.set_animate(True)  # the process now exits mid-animation (criterion 10)
     return {"cycles": cycles, "reentry_ms": _stats(reentry), "rss_start_mb": rss_start,
-            "rss_end_mb": rss_end, "exit_while_animating": True}
+            "rss_end_mb": rss_end}
+
+
+def close_while_animating(renderer: Any, app: Any, log: Any, frames: int = 8) -> dict:
+    """Criterion 10's "app close while animating", measured instead of asserted.
+
+    The wind animation must really run first (wind time and the frame counter
+    advance — the first version returned a literal and the animation never
+    ticked), then the window is closed and the event loop quits while it runs.
+    A crash on that path takes the process down; a clean one returns 0 here.
+    """
+    from PyQt6.QtCore import QTimer
+
+    renderer.set_animate(True)
+    wind0, frames0 = float(renderer.root.property("windTime")), renderer.frames
+    renderer.wait_frames(frames, label="animate_before_close")
+    wind1, frames1 = float(renderer.root.property("windTime")), renderer.frames
+    QTimer.singleShot(0, renderer.close)
+    QTimer.singleShot(300, app.quit)
+    code = int(app.exec())
+    log("closed_while_animating", wind_time=round(wind1, 3), frames=frames1 - frames0,
+        exit_code=code)
+    return {"wind_time_before": round(wind0, 3), "wind_time_after": round(wind1, 3),
+            "frames_while_animating": frames1 - frames0,
+            "animation_advanced": wind1 > wind0 and frames1 - frames0 >= frames,
+            "close_exit_code": code}
