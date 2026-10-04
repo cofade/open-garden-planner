@@ -1,20 +1,26 @@
 {
- "schema_version": 1,
+ "schema_version": 2,
  "meta": {
-  "generated_at": "2026-10-03T22:16:26+00:00",
+  "generated_at": "2026-10-04T10:26:27+00:00",
   "commit": "84ead2e",
+  "tracked_files_modified": false,
   "python": "3.11.15",
   "platform": "linux",
+  "tool_versions": {
+   "mypy": "mypy 2.4.0 (compiled: yes)",
+   "ruff": "ruff 0.16.10",
+   "radon": "6.0.1"
+  },
   "load_average_start": [
-   0.11,
-   0.6,
-   0.92
+   0.15,
+   0.21,
+   0.46
   ],
   "disabled": [],
   "load_average_end": [
-   0.23,
-   0.6,
-   0.92
+   0.33,
+   0.25,
+   0.47
   ]
  },
  "loc": {
@@ -322,7 +328,7 @@
    "misc": 41
   },
   "unused_type_ignores": 229,
-  "seconds": 0.5
+  "seconds": 0.4
  },
  "lint": {
   "available": true,
@@ -362,7 +368,7 @@
   }
  },
  "layering": {
-  "rule": "no module-level imports of open_garden_planner.ui/.app from core, services, models, agent_api (architecture invariant 11; function-local imports are allowed)",
+  "rule": "module-level imports of open_garden_planner.ui/.app from core, services, models, agent_api: core->ui breaks architecture invariant 11, ->app contradicts the module map; function-local (invariant 11) and TYPE_CHECKING imports are counted, not flagged",
   "module_level_violations_total": 6,
   "module_level_per_layer": {
    "core": 4,
@@ -414,15 +420,20 @@
    }
   ],
   "function_local_ui_app_imports_per_layer": {
-   "core": 173,
-   "services": 27,
+   "core": 147,
+   "services": 24
+  },
+  "type_checking_ui_app_imports_per_layer": {
+   "core": 26,
+   "services": 3,
    "agent_api": 1
   },
   "module_level_qtwidgets_imports_per_layer_informational": {
    "core": 36,
    "services": 4,
    "agent_api": 1
-  }
+  },
+  "unparsed_files": []
  },
  "coverage": {
   "available": true,
@@ -469,7 +480,7 @@
     "line_pct": 95.4,
     "branch_pct": 87.9
    },
-   "(other)": {
+   "(root)": {
     "statements": 123,
     "line_pct": 38.2,
     "branch_pct": 25.0
@@ -544,20 +555,22 @@
     "test_functions": 2868
    }
   },
+  "unparsed_files": [],
   "note": "test functions, not parametrised cases; pytest --collect-only counts cases"
  },
  "git": {
   "available": true,
   "commits": 407,
   "commit_type_histogram": {
-   "feat": 160,
+   "feat": 161,
    "chore": 153,
    "fix": 53,
    "docs": 25,
-   "other": 10,
+   "other": 9,
    "refactor": 2,
    "add": 2,
-   "ci": 1
+   "ci": 1,
+   "refine": 1
   },
   "version_sync_commits": 122,
   "author_identities": 4,
@@ -660,9 +673,8 @@
   },
   "claude_md_bytes": 31938,
   "agents_md_bytes": 31938,
-  "claude_agents_identical": true,
   "skills": 21,
-  "skills_total_bytes": 648843,
+  "skill_md_total_bytes": 648843,
   "largest_skills": [
    {
     "path": ".claude/skills/debug-verbose/SKILL.md",

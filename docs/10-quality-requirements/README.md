@@ -95,6 +95,8 @@ Each feature requires hands-on testing before completion:
 - **On every push and PR** (`ci.yml`, as of 2026-10-03): agent-context parity, ruff over `src/`, the full
   pytest suite (Linux, Qt offscreen), Bandit at HIGH severity, and the committed-secrets scan. The frozen-exe
   gate runs on Windows only, locally before merge and in `release.yml` after it (change-control §2.8).
+- **Not a required status check**: none of these jobs is required on `master` today, so a red run
+  does not block a merge mechanically (#399, register row TD-016).
 - **Not enforced in CI**: mypy and coverage are configured in `pyproject.toml` but no CI step runs them
   (tracked in #401 and #402; register rows TD-020, TD-021).
 - **Coverage target**: >80 % on non-UI code (NFR-MAINT-02) is a target the §11.3 register tracks, not a gate;
