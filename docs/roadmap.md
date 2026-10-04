@@ -63,7 +63,7 @@ Every user-visible string must be wrapped for translation. See `docs/08-crosscut
 |--------|------|------------------------|---------------------------------------------------------------|
 | ✅     | DI-1 | SAST pipeline (Bandit) | HIGH-severity scan in CI; `bandit>=1.7.0` added as dev dep   |
 | 🔄     | DI-2 | Repository audit 2026-10 | Snapshot `docs/11-risks-and-technical-debt/audit-2026-10.md`; §11.3 rebuilt as the living register (ADR-047); epic #392 |
-| ✅     | DI-3 | i18n blind-spot hardening | Unique `TRANSLATIONS` keys + shared `active_language()` + full-tree ruff; issues #393/#408/#410; §11.4, ADR-045 addendum |
+| ✅     | DI-3 | i18n blind-spot hardening | Unique `TRANSLATIONS` keys + shared `active_language()` + full-tree ruff; issues #393/#408/#410; v1.29.2 (PR #411); §11.4, ADR-045 addendum |
 
 ---
 
