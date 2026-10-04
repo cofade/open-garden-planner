@@ -182,8 +182,8 @@ def _verdict(metrics: dict, spike_args: list[str] | None = None) -> list[str]:
         if "project_reloads" in soak:
             checks += [("every project reload rebuilt every model",
                         soak.get("models_per_reload_ok") is True),
-                       ("no RSS growth trend over the project reloads (< 10 MB/reload)",
-                        _below(soak.get("rss_tail_slope_mb_per_reload"), 10.0))]
+                       ("no memory growth trend over the project reloads (< 10 MB/reload)",
+                        _below(soak.get("leak_slope_mb_per_reload"), 10.0))]
     failures = [name for name, ok in checks if not ok]
     for name, ok in checks:
         print(f"  {'PASS' if ok else 'FAIL'}  {name}")

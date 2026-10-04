@@ -109,8 +109,10 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
   QML shows it — exactly the one shown. An append-only keep-alive list grew RSS by one baked
   ground (2400×1600 RGBA ≈ 15 MB + GPU copy) per project reload, linearly; holding only the
   shown texture and releasing the old one *after* the scene shows the new one settled (soak,
-  10 reloads, llvmpipe, slope −1.5 MB/reload). Judge leaks by `rss_tail_slope_mb_per_reload`,
-  never by total growth — the first reload adds ~70 MB either way.
+  10 reloads, llvmpipe, slope −1.5 MB/reload). Judge leaks by `leak_slope_mb_per_reload`
+  (Theil–Sen over the second half), never by total growth — the first reload adds ~70 MB
+  either way — and in committed memory: on Windows the working set swings by ±50 MB
+  (run v7: 800 → 707 → 766 MB, no leak), so the soak reads private bytes there.
 
 ## 6. Hosts
 

@@ -85,10 +85,10 @@ def test_a_low_iou_fails(driver) -> None:
 
 def test_a_leaking_reload_soak_fails(driver) -> None:
     soak = {"animation_advanced": True, "project_reloads": 10,
-            "models_per_reload_ok": True, "rss_tail_slope_mb_per_reload": 30.0}
+            "models_per_reload_ok": True, "leak_slope_mb_per_reload": 30.0}
     assert driver._verdict(_metrics(soak=soak), ARGS) == [
-        "no RSS growth trend over the project reloads (< 10 MB/reload)"]
-    soak["rss_tail_slope_mb_per_reload"] = None  # unreadable RSS must not pass
+        "no memory growth trend over the project reloads (< 10 MB/reload)"]
+    soak["leak_slope_mb_per_reload"] = None  # an unreadable value must not pass
     assert len(driver._verdict(_metrics(soak=soak), ARGS)) == 1
 
 

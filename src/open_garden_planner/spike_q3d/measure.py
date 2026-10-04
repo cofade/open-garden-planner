@@ -58,39 +58,63 @@ def _stats(values: list[float]) -> dict[str, float]:
     return out
 
 
+def _win_counters() -> Any:
+    """``PROCESS_MEMORY_COUNTERS_EX`` of this process, or None (Windows only)."""
+    import ctypes
+    from ctypes import wintypes
+
+    class _Counters(ctypes.Structure):
+        _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD),
+                    ("PeakWorkingSetSize", ctypes.c_size_t),
+                    ("WorkingSetSize", ctypes.c_size_t),
+                    ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                    ("PagefileUsage", ctypes.c_size_t),
+                    ("PeakPagefileUsage", ctypes.c_size_t),
+                    ("PrivateUsage", ctypes.c_size_t)]
+
+    counters = _Counters()
+    counters.cb = ctypes.sizeof(_Counters)
+    windll = ctypes.windll  # type: ignore[attr-defined]
+    # Declared types matter on 64-bit: the default int restype truncates the
+    # pseudo-handle and the call fails (Windows evidence run v3 read None).
+    windll.kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+    query = windll.psapi.GetProcessMemoryInfo
+    query.argtypes = [wintypes.HANDLE, ctypes.POINTER(_Counters), wintypes.DWORD]
+    query.restype = wintypes.BOOL
+    ok = query(windll.kernel32.GetCurrentProcess(), ctypes.byref(counters), counters.cb)
+    return counters if ok else None
+
+
 def rss_mb() -> float | None:
-    """Resident set size of this process in MiB (None where unmeasured)."""
+    """Resident set size (Windows: working set) of this process in MiB, or None."""
     if sys.platform.startswith("linux"):
         with open("/proc/self/statm", encoding="ascii") as fh:
             pages = int(fh.read().split()[1])
         return round(pages * os.sysconf("SC_PAGE_SIZE") / 2**20, 1)
     if sys.platform == "win32":
-        import ctypes
-        from ctypes import wintypes
-
-        class _Counters(ctypes.Structure):
-            _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD),
-                        ("PeakWorkingSetSize", ctypes.c_size_t),
-                        ("WorkingSetSize", ctypes.c_size_t),
-                        ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
-                        ("QuotaPagedPoolUsage", ctypes.c_size_t),
-                        ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
-                        ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
-                        ("PagefileUsage", ctypes.c_size_t),
-                        ("PeakPagefileUsage", ctypes.c_size_t)]
-
-        counters = _Counters()
-        counters.cb = ctypes.sizeof(_Counters)
-        windll = ctypes.windll  # type: ignore[attr-defined]
-        # Declared types matter on 64-bit: the default int restype truncates the
-        # pseudo-handle and the call fails (Windows evidence run v3 read None).
-        windll.kernel32.GetCurrentProcess.restype = wintypes.HANDLE
-        query = windll.psapi.GetProcessMemoryInfo
-        query.argtypes = [wintypes.HANDLE, ctypes.POINTER(_Counters), wintypes.DWORD]
-        query.restype = wintypes.BOOL
-        ok = query(windll.kernel32.GetCurrentProcess(), ctypes.byref(counters), counters.cb)
-        return round(counters.WorkingSetSize / 2**20, 1) if ok else None
+        counters = _win_counters()
+        return round(counters.WorkingSetSize / 2**20, 1) if counters else None
     return None
+
+
+LEAK_METRIC = "private_bytes" if sys.platform == "win32" else "rss"
+
+
+def leak_mb() -> float | None:
+    """The memory a leak shows up in, in MiB: RSS on Linux, private bytes on Windows.
+
+    The Windows working set is trimmed and regrown by the OS: run 7's reload soak
+    swung 800 → 707 → 766 MB with +8 MB end to end, and its tail slope read
+    10.9 MB/reload with no leak. Private bytes count what the process committed
+    (WARP's buffers live there too).
+    """
+    if sys.platform == "win32":
+        counters = _win_counters()
+        return round(counters.PrivateUsage / 2**20, 1) if counters else None
+    return rss_mb()
 
 
 # ── criterion 7: picking ────────────────────────────────────────────────
@@ -494,18 +518,20 @@ def pan_bench(scene: Any, renderer: Any, ground: Any, width: float, height: floa
 # ── criterion 10: soak ───────────────────────────────────────────────────
 
 
-def rss_tail_slope(curve: list[float | None]) -> float | None:
-    """MB per reload over the second half of an RSS curve (least squares).
+def tail_slope(curve: list[float | None]) -> float | None:
+    """MB per reload over the second half of a memory curve (Theil-Sen: the median
+    of all pairwise slopes, so one noisy reading cannot make or hide a trend).
 
     A leak keeps climbing at its per-reload size; an allocator settles after a
-    few steps, so the first half (and a single step) is not a trend. None when
-    there are fewer than three points or an unreadable RSS.
+    few steps, so the first half is not a trend. None when there are fewer than
+    three points or an unreadable value.
     """
     tail = curve[len(curve) // 2:]
     if len(tail) < 3 or any(v is None for v in tail):
         return None
-    x = np.arange(len(tail), dtype=np.float64)
-    return round(float(np.polyfit(x, np.asarray(tail, np.float64), 1)[0]), 2)
+    slopes = [(tail[j] - tail[i]) / (j - i)  # type: ignore[operator]
+              for i in range(len(tail)) for j in range(i + 1, len(tail))]
+    return round(float(np.median(slopes)), 2)
 
 
 def soak(renderer: Any, cycles: int, reload: Any = None) -> dict:
@@ -524,7 +550,7 @@ def soak(renderer: Any, cycles: int, reload: Any = None) -> dict:
     first_count = len(models)
     gc.collect()  # cyclic garbage is not a leak: collect before every reading
     rss_start = rss_mb()
-    reentry, reload_ms, counts, rss_curve = [], [], [], []
+    reentry, reload_ms, counts, curve = [], [], [], []
     for k in range(cycles):
         renderer.hide()
         _pump(30)
@@ -543,15 +569,15 @@ def soak(renderer: Any, cycles: int, reload: Any = None) -> dict:
             renderer.set_models(models)
             renderer.wait_frames(1, label=f"soak_refill_{k}")
             gc.collect()
-            rss_curve.append(rss_mb())
+            curve.append(leak_mb())
     gc.collect()
     rss_end = rss_mb()
     result = {"cycles": cycles, "reentry_ms": _stats(reentry), "rss_start_mb": rss_start,
-              "rss_end_mb": rss_end, "rss_after_refill_mb": rss_curve}
+              "rss_end_mb": rss_end, "leak_metric": LEAK_METRIC, "leak_curve_mb": curve}
     if reload is not None:
         result.update({"project_reloads": len(reload_ms), "reload_ms": _stats(reload_ms),
                        "models_per_reload_ok": all(c == first_count for c in counts),
-                       "rss_tail_slope_mb_per_reload": rss_tail_slope(rss_curve)})
+                       "leak_slope_mb_per_reload": tail_slope(curve)})
     return result
 
 

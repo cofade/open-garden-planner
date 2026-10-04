@@ -178,13 +178,30 @@ def test_soak_without_reload_refills_the_same_models(qtbot) -> None:
     assert renderer.models == ["a", "b"]
 
 
-def test_rss_tail_slope_tells_a_leak_from_a_settling_allocator() -> None:
-    leak = [771.0 + 30.0 * k for k in range(10)]
+def test_tail_slope_tells_a_leak_from_a_settling_allocator() -> None:
+    leak = [771.0 + 30.0 * k for k in range(10)]  # the keep-alive leak, llvmpipe
     settled = [771.0, 804.6, 799.4, 864.0, 864.1, 888.8, 888.9, 887.2, 887.2, 882.4]
-    assert measure.rss_tail_slope(leak) == pytest.approx(30.0)
-    assert measure.rss_tail_slope(settled) < 2.0  # measured, after the fix
-    assert measure.rss_tail_slope([700.0, 710.0, 720.0, 730.0]) is None  # tail too short
-    assert measure.rss_tail_slope([1.0, 2.0, 3.0, 4.0, None, 6.0]) is None  # unreadable
+    assert measure.tail_slope(leak) == pytest.approx(30.0)
+    assert measure.tail_slope(settled) < 2.0  # measured, after the fix
+    assert measure.tail_slope([700.0, 710.0, 720.0, 730.0]) is None  # tail too short
+    assert measure.tail_slope([1.0, 2.0, 3.0, 4.0, None, 6.0]) is None  # unreadable
+
+
+def test_tail_slope_is_robust_to_one_outlier() -> None:
+    # one high last reading: least squares over the tail says +12 MB/reload, over
+    # the 10 MB gate; the median of pairwise slopes stays at 0
+    flat = [800.0] * 9 + [860.0]
+    tail = np.asarray(flat[5:])
+    assert np.polyfit(np.arange(5.0), tail, 1)[0] == pytest.approx(12.0)
+    assert measure.tail_slope(flat) == pytest.approx(0.0)
+
+
+@pytest.mark.skipif(not sys.platform.startswith(("linux", "win32")), reason="probe platforms")
+def test_the_leak_metric_is_measured() -> None:
+    assert measure.LEAK_METRIC in ("rss", "private_bytes")
+    value = measure.leak_mb()
+    assert value is not None
+    assert value > 1.0
 
 
 def _project(az_deg: float, elev_deg: float, yaw_deg: float, pitch_deg: float,

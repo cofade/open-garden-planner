@@ -172,8 +172,8 @@ def test_soak_reloads_the_project_from_disk_without_a_leak(measured: tuple[dict,
     assert soak["cycles"] == 50
     assert soak["project_reloads"] == 10, soak
     assert soak["models_per_reload_ok"] is True, soak
-    assert soak["rss_tail_slope_mb_per_reload"] is not None, soak
-    assert soak["rss_tail_slope_mb_per_reload"] < 10.0, soak["rss_after_refill_mb"]
+    assert soak["leak_slope_mb_per_reload"] is not None, soak
+    assert soak["leak_slope_mb_per_reload"] < 10.0, soak["leak_curve_mb"]
 
 
 def test_low_preset_shadow_map_agrees_with_the_analytic_shadow(measured: tuple[dict, int]) -> None:
