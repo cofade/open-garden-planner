@@ -1452,28 +1452,31 @@ fail against the unfixed brush assignment. Landscape cases alone would leave the
 
 2. *Shadow agreement (criterion 8)*: box caster 100 × 100 × 200 cm, azimuth 225°. The probe (`--iou`) compares the engine's shadow-map footprint in a top-down **orthographic** view with the analytic `core/shadow_geometry` polygon on the same pixel grid. In that view the light uses **no cascades** (`csmNumSplits: 0`), so criterion 8 covers the shadow-map pipeline but not the cascaded configuration of the beauty views; a perspective probe with cascades is L1.4 work. IoU at 15° / 35° / 60°:
    - OpenGL on Mesa llvmpipe (container): 0.959 / 0.950 / 0.920 at 1280×720, and 0.980 / 0.985 / 0.964 at 960×540.
-   - Direct3D 11 on WARP at 960×540: **0.980 / 0.984 / 0.963**, identical in every Windows run (v2–v4, unfrozen and frozen).
+   - Direct3D 11 on WARP at 960×540: **0.980 / 0.984 / 0.963**, identical in every Windows run (v2–v6, unfrozen and frozen).
+   - Since 6f0c4f4 the probe runs per preset, because every preset has its own shadow-map quality: low 0.970 / 0.963 / 0.937 (D3D11, v6) and 0.963 / 0.968 / 0.937 (container, 1280×720).
 
    The value depends on the frame size, which sets the pixel grid, not on the backend.
 3. *Frame and sky orientation*:
-   - **Ground.** The baked north-up ground texture needs `flipV: true`. NCC of the identity variant vs the vertically flipped one: 0.943 vs −0.102 (container), 0.949 vs −0.111 (Windows v3/v4 frozen).
-   - **Sky.** `ProceduralSkyTextureData` draws its sun at compass bearing `sunLongitude − 90°`, so `sunLongitude = azimuth + 90°`. The sun disc appears in the view that faces the solar azimuth, with −0.6° … +0.7° error across frame sizes (container) and −0.1° (Windows). That reading sits at the image centre, where the pinhole mapping error is zero: it shows which way the sun is, not how precise the mapping is off-centre.
+   - **Ground.** The baked north-up ground texture needs `flipV: true`. NCC of the identity variant against the vertically flipped one: 0.943–0.954 vs −0.10…+0.01 (container), 0.949–0.956 vs −0.111…+0.016 (Windows v3, v4, v6 frozen). The probe's pixel grid comes from the grabbed image and its `devicePixelRatio`: built from the logical size, it reported a mirrored ground at 150 % display scale and `--iou` crashed there (senior review); a render test now runs both at `QT_SCALE_FACTOR=1.5`.
+   - **Sky.** `ProceduralSkyTextureData` draws its sun at compass bearing `sunLongitude − 90°`, so `sunLongitude = azimuth + 90°`. A disc at the image centre only shows which way the sun is (the pinhole mapping error is zero there), so the probe looks 25° left and right of the solar azimuth and locates the disc off-centre, at azimuths 90°/180°/270°: max abs error **0.85°** (container) and **1.4°** (D3D11, v6 frozen), against the probe's 6° bound.
    - **Light probe.** The environment pre-filters its light probe **once per Texture object**, so a sun change must build a fresh sky Texture.
 
    Re-run `--orient` after any Qt upgrade.
-4. *Picking (criterion 7)*: a QML `pickAt` helper (`View3D.pick`) is checked against a CPU oracle (the topmost triangle under a vertical ray over every pickable mesh) in a top-down orthographic view. The returned JS object arrives in Python as `QJSValue` (`.toVariant()`).
-   - **Results:** 20/20 at 0.15 ms median in the container. The frozen exe on Windows D3D11 (v4) scored 20/20, and 20/20 again after a detach/re-attach cycle.
-   - **Limits** (senior review): the targets are each item's own highest unoccluded triangle, the easiest possible clicks. A picker that only tests bounding boxes would still score 18/20, and the click pixels come from the engine's own projection.
-   - **Engine rule found on the way:** Windows v3 picked 0/20, reproduced on OpenGL. Once the Model using a `QQuick3DGeometry` is destroyed, handing that geometry to a new Model renders and picks nothing; the frame equals an empty scene's. `update()` does not restore it; a full re-upload of the data does. A `Repeater3D` over a JS array recreates **every** delegate on any array change, so a model present both before and after the change came back blank too. The spike re-uploads every previously shown geometry.
+4. *Picking (criterion 7)*: a QML `pickAt` helper (`View3D.pick`) is checked against a CPU oracle (the topmost triangle under a vertical ray over every pickable mesh, merged per item) in a top-down orthographic view. The returned JS object arrives in Python as `QJSValue` (`.toVariant()`).
+   - **Easy targets** (each item's highest unoccluded triangle): 20/20 at 0.15–0.24 ms median (container); 20/20 in the frozen exe on D3D11 (v4, v6; 0.19 ms median in v6). A picker that only tests bounding boxes would still score 18/20 on them (senior review), so they are not the evidence on their own.
+   - **Adversarial targets**, points inside a tall item's bounding box but off its mesh, where a bounding-box picker names the wrong item: **10/10** on OpenGL (container) and on D3D11 (v6 frozen). A unit test pins that the generator really produces such points.
+   - **Projection:** the click pixels come from the engine's `mapFrom3DScene`, so a wrong engine projection could aim and pick consistently wrong. An orthographic projection of our own agrees with it to **0.0 px**, and the picked point lies 0.0 cm from the target, on both backends (container; v6 frozen).
+   - **Engine rule found on the way:** Windows v3 picked 0/20, reproduced on OpenGL. Once the Model using a `QQuick3DGeometry` is destroyed, handing that geometry to a new Model renders and picks nothing; the frame equals an empty scene's. `update()` does not restore it; a full re-upload of the data does. A `Repeater3D` over a JS array recreates **every** delegate on any array change, so a model present both before and after the change came back blank too. The spike re-uploads every previously shown geometry, and the probe compares the frame before the detach with the frame after the re-attach: mean absolute difference 0.0 on both backends (container; v6 frozen).
    - **For L1.1/L1.3:** one geometry per Model lifetime, and per-item Model creation (or a list model with incremental inserts and removes) instead of re-assigning one array.
-5. *Python geometry path (criterion 6)*: replacing a 100k-vertex geometry (`NumpyGeometry.set_mesh`: frame mapping, interleave, `QByteArray` copy) takes **10.5 ms median** in the container (n = 10, max 25 ms). On the Windows runner it took 14.4 ms (v3) and 27.3 ms (v4); runner instances of the same code differ by 2×. That is borderline against ≤ 10 ms; the owner's hardware decides, and the interleave copy is the first optimisation target. The time to the next presented frame depends on the camera the previous probe left behind, so it is not a criterion number. "1,000 Models ≤ 300 ms" is not measured.
-6. *Open time (criterion 5)*: so far the spike measures **submission**, which makes these numbers optimistic. Criterion 5 must be judged on a measurement that ends with a readback.
-   - **What is measured:** `first_frame_ms` is the first `frameSwapped`: 14.9 s in the container, 2.0 s (v3) and 3.0 s (v4) in the frozen Windows exe.
-   - **Why it is optimistic:** on a software rasteriser the real cost lands in the next readback. In v3 the first grab after the first frame took 68 s.
-   - **Second renderer:** a second renderer in the same process was not faster (container 1.7 s + 15.1 s vs 1.7 s + 14.9 s). That is consistent with per-window pipeline caches, which is inferred, not verified.
-   - **Re-showing a hidden host** to its next presented frame: 7 ms median (container), 31–53 ms (Windows).
+5. *Python geometry path (criterion 6)*: replacing a 100k-vertex geometry (`NumpyGeometry.set_mesh`: frame mapping, interleave, `QByteArray` copy) takes **10.5 ms median** in the container (n = 10, max 25 ms). On the Windows runners the same code took 14.4 ms (v3), 27.3 ms (v4) and 36.4 ms (v6, max 71.5 ms); runner instances differ by up to 2.5×. That is borderline against ≤ 10 ms; the owner's hardware decides, and the interleave copy is the first optimisation target. The time to the next presented frame depends on the camera the previous probe left behind, so it is not a criterion number. "1,000 Models ≤ 300 ms" is not measured.
+6. *Open time (criterion 5)*: open time is measured from `show()` to the **first finished readback** (`first_ready_ms`), because the first `frameSwapped`/`afterRendering` (`first_frame_ms`) only marks submission: on a software rasteriser the real cost lands in the next readback (v3: 2.0 s "first frame", then a 68 s grab). The first runs reported submission only (senior review).
+   - **Container** (llvmpipe, 1280×720, 6f0c4f4, under concurrent load): first frame 25.8 s, ready 26.2 s.
+   - **Frozen Windows exe** (WARP, 960×540, v6): first frame 4.2 s, ready **63.0 s**. The difference is the first sky light probe's prefilter (entry 14), paid in the first readback.
+   - **Second renderer** in the same process: not faster (container: QML 2.6 s, ready 29.3 s vs 26.2 s for the first; v6 frozen: QML 3.7 s, ready 63.7 s vs 63.0 s). That is consistent with per-window pipeline caches, which is inferred, not verified.
+   - **Re-showing a hidden host** to its next presented frame: 6–7 ms median (container), 31–60 ms (Windows v3, v4, v6).
+   - All of this is software rendering; criterion 5 (cold ≤ 6 s, warm ≤ 2.5 s) is decided on the owner's GPU.
    - **Consequence for L1.3:** keep one 3D host alive.
-7. *Graphics API coexistence (criterion 2, M1)*: in one process, with WebEngine imported before `QApplication` as `main.py` does, a `QWebEngineView` page keeps its exact colour before and after a 3D frame (`--coexist`). This holds on OpenGL (container) and in the **frozen Windows exe on `Direct3D11Rhi`**. `AA_ShareOpenGLContexts` reads False after that import. The 3D half of the check was weak: "mean luma > 20" also passes an empty top-down frame over the white clear colour. The map-picker dialog itself is an owner test.
+7. *Graphics API coexistence (criterion 2, M1)*: in one process, with WebEngine imported before `QApplication` as `main.py` does, a `QWebEngineView` page keeps its exact colour before and after a 3D frame (`--coexist`). This holds on OpenGL (container) and in the **frozen Windows exe on `Direct3D11Rhi`**. `AA_ShareOpenGLContexts` reads False after that import. **The 3D half:** the 3D frame rendered with WebEngine alive equals the same view rendered before WebEngine started, mean absolute difference **0.0** against a reference with luma std 57.9, so not an empty frame (container), and 0.0 against luma std 59.5 in the frozen exe on `Direct3D11Rhi` (v6). The first version accepted "mean luma > 20", which an empty top-down frame over the white clear colour also passes (senior review). The map-picker dialog itself is an owner test.
 8. *Embedding cost (criterion 3, M2)*: 2D canvas pan step with event processing, `bench_small`, 120 steps, without and with a `QQuickWidget` in the same window:
 
    | Where | Without 3D widget | With 3D widget | Ratio |
@@ -1481,21 +1484,24 @@ fail against the unfixed brush assignment. Landscape cases alone would leave the
    | Container (software composition) | 5.5 ms | 7.9 ms | **×1.42** |
    | Windows WARP, frozen, run v3 | 2.8 ms | 15.9 ms | ×5.7 |
    | Windows WARP, frozen, run v4 | 4.4 ms | 15.8 ms | ×3.6 |
+   | Windows WARP, frozen, run v6 | 8.0 ms | 15.9 ms | ×2.0 |
 
-   With the widget present, one pan step took 36 s (v3) and 47 s (v4): the first composition after the 3D widget appeared. All of this is software composition, so the owner's hardware decides. The evidence so far favours the policy outcome, the `QQuickView` container host, for the split view. A synchronous `repaint()` does not include the flush; that first measurement read ×0.014.
+   With the widget present, one pan step took 36 s (v3), 47 s (v4) and 56 s (v6): the first composition after the 3D widget appeared. All of this is software composition, so the owner's hardware decides. The evidence so far favours the policy outcome, the `QQuickView` container host, for the split view. A synchronous `repaint()` does not include the flush; that first measurement read ×0.014.
 9. *Frame rate (criterion 4)*: software rasterisers only, not GPU numbers. Frame counts on a software rasteriser say little about cost (entry 6).
    - Mesa llvmpipe, 1280×720, `bench_small`: low 6.3, medium 1.75, high 1.28, ultra 1.2 fps.
-   - Frozen exe on WARP, 960×540: low 14.2 / 11.5, high 4.8 / 4.3 fps (v3 / v4).
-10. *Stability (criterion 10)*:
-    - **"App close while animating" is not yet measured.** The soak returned a literal `exit_while_animating: True`. Measurement showed the wind animation never ticked before the window was garbage-collected (senior review).
-    - **What replaces it:** N frames with the animation on, where `windTime` and the frame counter must advance. Then a real window close and `app.quit()` inside `app.exec()`, judged on that exit code.
-    - **Soak memory:** 10 cycles in the container, RSS 1010.0 → 1010.2 MB. 20 cycles in the frozen Windows exe (v4), 723.6 → 731.5 MB, with a full model re-upload every fifth cycle.
-11. *Size (criterion 9)*: Windows dist built from this branch and from master in the same job: **626.2 MB vs 624.5 MB = +1.7 MB**, identical in v2–v4, with 5 new files. The Qt Quick 3D runtime (Quick3D + ShaderTools, 21.1 MB) **already ships** with today's bundle; only `QtQuick3D.pyd` and the spike's QML files are new. Qt 3D's own DLLs are 5.8 MB.
-    - **Baseline method:** the master baseline was checked out over the branch tree in overlay mode, which left `spike_q3d/` in it. That is harmless because master's spec does not collect the folder; from v5 the baseline is a true replacement.
+   - Frozen exe on WARP, 960×540: low 14.2 / 11.5 / 7.2, high 4.8 / 4.3 / 3.7 fps (v3 / v4 / v6). Between v4 and v6 the creator round (75a6128) gave the low preset a larger shadow map, one cascade and FXAA, and the runner instance changed too; the drop is not isolated.
+10. *Stability (criterion 10)*: `--soak N` runs N hide/show cycles; every fifth cycle empties the scene and refills it. Then the window closes while the wind animation runs.
+    - **Close while animating:** 8 frames with the animation on, where `windTime` and the frame counter must advance, then a real window close and `app.quit()` inside `app.exec()`, judged on that exit code: **exit 0** on OpenGL (container) and in the frozen exe on D3D11 (v6). The first version returned a literal `True` while the animation never ticked (senior review).
+    - **Project reloads** (after v6): the refill is a full reload, the plan read from disk into a new scene, the ground re-baked and every model and geometry built new while the engine runs. So `--soak 50` is the criterion's "50 show/hide cycles, 10 project reloads". Container (llvmpipe, 640×360, render tier): 10 reloads at 562 ms median, RSS after each refill flat at 1695 → 1699 MB (slope −0.01 MB/reload), exit 0. D3D11: the next Windows run.
+    - **A leak the reloads found, in the spike's own code:** RSS grew linearly, one baked ground (2400×1600 RGBA ≈ 15 MB plus its GPU copy) per reload, 771 → 1035 MB over 10 reloads. `set_ground()` appended every texture to an append-only keep-alive list. Holding only the shown texture settles at ~885 MB; an A/B on llvmpipe isolated it, and the engine and the geometries released their memory. Both variants grew ~70 MB on the first reload, so the soak gates the RSS **slope over the second half of the reloads** (< 10 MB/reload), not the total growth (§11.4.3).
+    - **Earlier soaks** (same models re-set, no reloads): 10 cycles in the container, 1010.0 → 1010.2 MB; 20 cycles in the frozen exe, 723.6 → 731.5 MB (v4) and 692.0 → 725.4 MB (v6).
+    - **Not covered by the spike:** a full pytest run with the production 3D view (L1.3).
+11. *Size (criterion 9)*: Windows dist built from this branch and from master in the same job: **626.2–626.3 MB vs 624.5 MB = +1.7 MB**, the same in v2–v6, with 5–6 new files (v6 adds the creator's `water.frag`; output committed as [`windows-v6-footprint.txt`](adr-047-evidence/windows-v6-footprint.txt)). The Qt Quick 3D runtime (Quick3D + ShaderTools, 21.1 MB) **already ships** with today's bundle; only `QtQuick3D.pyd` and the spike's QML files are new. Qt 3D's own DLLs are 5.8 MB.
+    - **Baseline method:** the master baseline was checked out over the branch tree in overlay mode, which left `spike_q3d/` in it. That is harmless because master's spec does not collect the folder; from v6 the baseline is a true replacement, and the delta did not change.
     - **Side finding (§11.3):** master's release already ships about 21 MB of Qt Quick 3D runtime it never loads.
-12. *Packaging (criterion 1, CI half)*: the frozen Windows exe with the spike bundled passes the unchanged `--selftest` gate (v1). It renders `bench_small` through Qt Quick 3D on Direct3D 11 (v3 and v4, golden hour low and high).
+12. *Packaging (criterion 1, CI half)*: the frozen Windows exe with the spike bundled passes the unchanged `--selftest` gate (v1). It renders `bench_small` through Qt Quick 3D on Direct3D 11 (v3, v4 and v6, golden hour low and high).
     - **Gap:** the release `--selftest` does **not** import `QtQuick3D` (it checks the Qt 3D bindings), so a broken Quick 3D bundle would ship green today. L1.2 must extend `--selftest`; this is the #277/#291 lesson.
-    - The 8-second normal-start smoke of the bundle with the spike runs from v5.
+    - The 8-second normal-start smoke of the bundle with the spike passes (v6).
 13. *SSGI*: `ssgiEnabled` renders a black frame on Mesa llvmpipe (isolated by toggling SSGI and SSR separately); SSR renders. SSGI is opt-in until verified on a real GPU.
 14. *Windows evidence runs* (windows-latest, no GPU, Direct3D 11 on WARP):
 
@@ -1505,9 +1511,11 @@ fail against the unfixed brush assignment. Landscape cases alone would leave the
     | v2 | 37187375015 | Logged the cause: frames arrived about once a second, but one `grabWindow()` of the sky-lit scene took ~100 s. The frozen run failed on a missing `--plan`. |
     | v3 | 37188274098 | Exit 0 everywhere, but it picked 0/20 (entry 4). "Green" meant only the exit code. |
     | v4 | 37189802755 | After the re-attach fix: picks 20/20, and 20/20 after re-attach. One frame wait timed out (golden hour high got 3 of 6 frames in 45 s). |
+    | v5 | 37191065475 | Refactor-only re-run of v4's probes; green, not extracted. |
+    | v6 | 37199625103 | The first run judged on the thresholds: 20 of 21 checks passed, no frame-wait timeouts. The one FAIL was the driver's own bug: `(x or 99) < 1.0` read the measured 0.0 px projection error as 99. |
 
     - **Cost of a new sky light probe on WARP:** the first frames or grab after each sun change take 40–85 s. Later grabs of the same sky take 20–500 ms, and the basic render loop changes nothing (69 s vs 68 s). On a GPU this is a prefilter pass. For L1.4: rebuild the probe only when the sun has moved noticeably, and give the software fallback no image-based light.
-    - **From v5** the driver asserts every metric threshold it can judge, so the job is green only when the evidence is.
+    - **From v6** the driver asserts every metric threshold it can judge, so the job is green only when the evidence is. After v6 it checks numbers explicitly (a missing or null metric fails, a zero passes) and fails a requested probe that wrote nothing.
 15. *Licence (criterion 12)*: `PyQt6` 6.11.0 declares `GPL-3.0-only`; the `PyQt6-Qt6` 6.11.0 wheel, which carries the Qt Quick 3D runtime, ships an LGPL v3 licence file. Both are compatible with OGP's GPL-3.0; third-party notices name Qt Quick 3D when L1.2 ships it.
 16. *Beauty (criterion 11)*: the Beauty Board of `bench_small` (golden hour, noon, morning, December noon, night and walk at low/medium/high/ultra, with the shipped Qt 3D view as "before") was sent to the owner on 2026-10-03.
     - **First `ogp-3d-reviewer` pass** (2026-10-04, commit 0990371): **REJECT the board, not the engine.** Every engine truth probe passed, but the spike's own code had four truth defects: mirrored roof-slab normals, the December shot built with June plants, 11 built objects over the ±3 % height gate, and the geometry re-attach bug. It also had look defects: a horizon seam and fog band, a night "island", lawn hue −16°, the pond, floating flower heads, trunk banding, and low-preset shadow acne.
@@ -1517,17 +1525,17 @@ fail against the unfixed brush assignment. Landscape cases alone would leave the
 
 | # | Criterion | Status |
 |---|---|---|
-| 1 | Packaging | CI half ✓ (the frozen exe renders the spike on D3D11; `--selftest` is green but blind to Quick 3D); owner machine pending |
-| 2 | Graphics API coexistence | WebEngine page intact in one process on OpenGL and D3D11 (frozen); 3D half of the check being strengthened; map picker: owner |
-| 3 | Embedding | software only: ×1.42 (llvmpipe), ×3.6–5.7 (WARP); owner hardware decides; `QQuickView` favoured |
+| 1 | Packaging | CI half ✓ (the frozen exe renders the spike on D3D11 in v3, v4, v6; the 8-s normal-start smoke passes; `--selftest` is green but blind to Quick 3D); owner machine pending |
+| 2 | Graphics API coexistence | ✓ in one process, the WebEngine page and the 3D frame are both unchanged, on OpenGL and in the frozen exe on D3D11 (v6); map picker: owner |
+| 3 | Embedding | software only: ×1.42 (llvmpipe), ×2.0–5.7 (WARP); owner hardware decides; `QQuickView` favoured |
 | 4 | Frame rate | owner GPU pending |
-| 5 | Open time | submission-only so far (optimistic); readback-terminated measurement being added; owner GPU pending |
-| 6 | Geometry path | 10.5 ms (container) / 14–27 ms (runners), borderline; owner pending |
-| 7 | Picking | ✓ 20/20, also after re-attach (D3D11, v4); adversarial targets being added |
-| 8 | Shadow agreement | ✓ OpenGL and D3D11 (orthographic, no cascades) |
+| 5 | Open time | measured to the first finished readback; software only (26 s llvmpipe under load, 63 s WARP incl. the first sky-probe prefilter); owner GPU pending |
+| 6 | Geometry path | 10.5 ms (container) / 14–36 ms (runners), borderline; owner pending |
+| 7 | Picking | ✓ 20/20 easy and 10/10 adversarial targets, projection 0.0 px, also after re-attach, on OpenGL and D3D11 (v6) |
+| 8 | Shadow agreement | ✓ OpenGL and D3D11, low and high presets (orthographic, no cascades) |
 | 9 | Size | ✓ +1.7 MB |
-| 10 | Stability | soak memory ✓; **close while animating not yet measured**; 50 cycles + reloads: owner |
-| 11 | Beauty | first 3D review REJECT (spike-code defects) → creator round → re-review; owner pending |
+| 10 | Stability | close while animating ✓ (exit 0, OpenGL and D3D11); 50 cycles + 10 project reloads ✓ on OpenGL (slope −0.01 MB/reload after the keep-alive leak fix), D3D11 next run; full pytest run with the production view: L1.3 |
+| 11 | Beauty | first 3D review REJECT (spike-code defects) → creator round (75a6128) → 3D re-review in progress; owner pending |
 | 12 | Licence | ✓ |
 
 **Decision**: pending (owner GO on the L0 evidence draft PR).

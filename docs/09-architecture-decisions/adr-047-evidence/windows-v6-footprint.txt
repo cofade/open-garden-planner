@@ -1,0 +1,18 @@
+# Run 37199625103 (v6), commit 6f0c4f4, windows-latest. Extracted from the job log: the
+# "Measure branch dist footprint" step and the "Master baseline dist footprint" step
+# (master built from a true replacement of src/ and installer/ in the same job).
+# step: Measure branch dist footprint
+branch_dist_total_mb=626.3
+quick3d_and_shadertools_mb=21.1
+qt3d_dlls_mb=5.8
+# step: Master baseline dist footprint (honest delta)
+master_dist_total_mb=624.5
+branch_dist_total_mb=626.3
+delta_mb=1.7
+files_only_in_branch=6
+      0.06 MB  _internal/PyQt6/QtQuick3D.pyd
+      0.01 MB  _internal/open_garden_planner/spike_q3d/qml/GardenSpike.qml
+      0.00 MB  _internal/open_garden_planner/spike_q3d/qml/water.frag
+      0.00 MB  _internal/open_garden_planner/spike_q3d/qml/foliage.vert
+      0.00 MB  _internal/open_garden_planner/spike_q3d/qml/foliage.frag
+      0.00 MB  _internal/open_garden_planner/spike_q3d/qml/grass.vert

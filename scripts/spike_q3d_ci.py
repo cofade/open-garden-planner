@@ -18,8 +18,10 @@ Why a driver instead of a PowerShell ``Start-Process -Wait`` line:
   ``release.yml``); this driver deliberately does not run ``--selftest``.
 
 A run is green only when the evidence says so, not merely when the process
-exits 0: every metric section present in ``metrics.json`` is checked against
-its ADR-047 threshold (``_verdict``) and printed as PASS/FAIL.
+exits 0: every threshold ``_verdict`` knows is checked against the sections in
+``metrics.json`` and printed as PASS/FAIL, and a section whose flag was given
+but which is missing fails. The dist-size delta (criterion 9) is asserted by the
+workflow's baseline step, not here.
 
 ``--frozen-smoke`` starts the bundle normally (no arguments) and requires it
 to still be running after 8 s — the shape of the release smoke, run here
@@ -79,44 +81,104 @@ def _report(out: Path, code: int | None, elapsed: float) -> None:
     print("::endgroup::")
 
 
-def _verdict(metrics: dict) -> list[str]:
-    """Every ADR-047 threshold the present metric sections can be judged on."""
+def _num(value: object) -> float | None:
+    """A measured number, or None: a missing or null metric must never pass."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
+def _below(value: object, limit: float) -> bool:
+    num = _num(value)
+    return num is not None and num < limit
+
+
+def _at_least(value: object, limit: float) -> bool:
+    num = _num(value)
+    return num is not None and num >= limit
+
+
+# Each evidence flag and the metrics section it must leave behind: a probe that
+# was asked for and wrote nothing is a failure, not a pass with fewer checks.
+_REQUIRED_SECTIONS = {
+    "--iou": "shadow_iou_by_preset",
+    "--orient": "orientation",
+    "--pick": "pick",
+    "--update-bench": "update_bench",
+    "--warm": "warm_start",
+    "--coexist": "coexist",
+    "--pan-bench": "pan_bench",
+}
+
+
+def _requested_sections(spike_args: list[str]) -> list[str]:
+    flags = {arg.split("=", 1)[0] for arg in spike_args}
+    sections = [section for flag, section in _REQUIRED_SECTIONS.items() if flag in flags]
+    for idx, arg in enumerate(spike_args):
+        if arg.startswith("--soak"):
+            count = arg.partition("=")[2] or (
+                spike_args[idx + 1] if idx + 1 < len(spike_args) else "0")
+            if count.isdigit() and int(count) > 0:
+                sections.append("soak")
+    return sections
+
+
+def _verdict(metrics: dict, spike_args: list[str] | None = None) -> list[str]:
+    """Every ADR-047 threshold the present metric sections can be judged on.
+
+    Thresholds use explicit number checks: ``x or default`` turned a perfect
+    0.0 px projection error into a failure, and a null metric must fail rather
+    than raise or pass.
+    """
     checks: list[tuple[str, bool]] = [
         ("status ok", metrics.get("status") == "ok"),
         ("no frame-wait timeouts", metrics.get("wait_timeouts") == 0),
     ]
+    checks += [(f"{section} measured (its flag was given)", bool(metrics.get(section)))
+               for section in _requested_sections(spike_args or [])]
     by_preset = metrics.get("shadow_iou_by_preset") or {
-        "high": metrics.get("shadow_iou", {})}
+        "high": metrics.get("shadow_iou") or {}}
     for preset, probe in by_preset.items():
-        checks += [(f"shadow IoU {preset} {k} >= 0.85", v.get("iou", 0.0) >= 0.85)
-                   for k, v in probe.get("results", {}).items()]
+        checks += [(f"shadow IoU {preset} {k} >= 0.85", _at_least(v.get("iou"), 0.85))
+                   for k, v in (probe.get("results") or {}).items()]
+    first_frame = _num(metrics.get("first_frame_ms"))
+    first_ready = _num(metrics.get("first_ready_ms"))
     checks.append(("open time measured to a finished readback",
-                   metrics.get("first_ready_ms", 0) >= (metrics.get("first_frame_ms") or 0) > 0))
+                   first_frame is not None and first_frame > 0
+                   and first_ready is not None and first_ready >= first_frame))
     orient = metrics.get("orientation")
     if orient:
-        checks += [("ground north-up", bool(orient.get("ground_texture_ok"))),
-                   ("sky sun at the solar azimuth", bool(orient.get("sky_ok")))]
+        checks += [("ground north-up", orient.get("ground_texture_ok") is True),
+                   ("sky sun at the solar azimuth", orient.get("sky_ok") is True)]
     pick = metrics.get("pick")
     if pick:
-        n = pick.get("n", 0)
+        n = pick.get("n")
         checks += [("20 pick targets", n == 20),
                    ("picks all hit", pick.get("hits") == n),
                    ("picks hit after re-attach", pick.get("hits_after_reattach") == n),
-                   ("frame unchanged after re-attach", pick.get("reattach_frame_diff", 99) < 1.0),
+                   ("frame unchanged after re-attach",
+                    _below(pick.get("reattach_frame_diff"), 1.0)),
                    ("adversarial picks all hit",
-                    pick.get("adversarial_n", 0) >= 5
+                    _at_least(pick.get("adversarial_n"), 5)
                     and pick.get("adversarial_hits") == pick.get("adversarial_n")),
                    ("click pixels match our own projection",
-                    (pick.get("max_projection_err_px") or 99) < 1.0)]
+                    _below(pick.get("max_projection_err_px"), 1.0)),
+                   ("picked points within 3 cm of the target",
+                    _below(pick.get("max_xy_err_cm"), 3.0))]
     coexist = metrics.get("coexist")
     if coexist:
-        checks += [("WebEngine page drawn", bool(coexist.get("web_ok"))),
-                   ("3D frame unchanged with WebEngine alive", bool(coexist.get("frame3d_ok")))]
+        checks += [("WebEngine page drawn", coexist.get("web_ok") is True),
+                   ("3D frame unchanged with WebEngine alive", coexist.get("frame3d_ok") is True)]
     soak = metrics.get("soak")
     if soak:
-        checks += [("animation really ran before exit", bool(soak.get("animation_advanced"))),
+        checks += [("animation really ran before exit", soak.get("animation_advanced") is True),
                    ("closed while animating, clean event-loop exit",
                     soak.get("close_exit_code") == 0)]
+        if "project_reloads" in soak:
+            checks += [("every project reload rebuilt every model",
+                        soak.get("models_per_reload_ok") is True),
+                       ("no RSS growth trend over the project reloads (< 10 MB/reload)",
+                        _below(soak.get("rss_tail_slope_mb_per_reload"), 10.0))]
     failures = [name for name, ok in checks if not ok]
     for name, ok in checks:
         print(f"  {'PASS' if ok else 'FAIL'}  {name}")
@@ -176,7 +238,9 @@ def main(argv: list[str]) -> int:
     t0 = time.perf_counter()
     code: int | None
     # Unfrozen: capture Python's own streams (tracebacks before the spike log
-    # opens). Frozen: no handles at all, like a double-clicked GUI exe.
+    # opens). Frozen: DEVNULL. The exe has no console, but unlike a double-click
+    # it gets valid std handles, so this does NOT reproduce #291's no-handle
+    # condition; only the release gate's Start-Process launch does.
     with (out / "stdout.txt").open("wb") as so, (out / "stderr.txt").open("wb") as se:
         streams = (subprocess.DEVNULL, subprocess.DEVNULL) if args.frozen else (so, se)
         try:
@@ -199,7 +263,7 @@ def main(argv: list[str]) -> int:
         print("::error::no metrics.json")
         return 1
     print("verdict:")
-    failures = _verdict(json.loads(metrics_path.read_text(encoding="utf-8")))
+    failures = _verdict(json.loads(metrics_path.read_text(encoding="utf-8")), spike_args)
     if failures:
         print(f"::error::evidence checks failed: {', '.join(failures)}")
         return 1

@@ -596,6 +596,25 @@ copied the frozen-exe `Start-Process` gate shape and turned CI red through
 evidence run goes through a driver script with a hard timeout and does not
 repeat `--selftest`.
 
+**8. A keep-alive list is a leak with a good excuse.** A texture created in
+Python is owned by Python, so the spike appended every ground texture to a list
+to keep it alive while QML showed it. The first soak with real project reloads
+(plan from disk into a new scene, ground re-baked, every model and geometry new)
+exited 0 but grew RSS by one baked ground — 2400×1600 RGBA, ~15 MB plus its GPU
+copy — per reload, linearly (771 → 1035 MB over 10 reloads). Holding only the
+shown texture settled at ~885 MB. Both variants grew ~70 MB on the first reload,
+so total growth could not tell a leak from an allocator settling; the slope over
+the second half of the reloads can, and the soak now reports and gates it
+(< 10 MB/reload). *Hold the one object in use, not every object that ever was;
+judge a leak by its slope.*
+
+**9. An `x or default` threshold turns a perfect zero into a failure.** The
+evidence driver judged the projection check as
+`(pick.get("max_projection_err_px") or 99) < 1.0`, so a measured 0.0 px read as
+99 and failed the run. Thresholds now go through explicit number checks that
+fail on a missing or null metric instead of substituting a default, and a probe
+that was requested but wrote nothing fails the verdict.
+
 ## 11.5 Community and Governance
 
 **Feature Requests**: Open to community input, pivots, and voting. The goal is to avoid a dead project — community engagement is welcome.

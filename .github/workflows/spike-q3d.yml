@@ -99,7 +99,7 @@ jobs:
           python scripts/spike_q3d_ci.py --frozen --out spike-frozen --limit-s 1620 --
           --plan tests/fixtures/plans/bench_small.ogp
           --presets low,high --shots golden_hour --fps-seconds 2 --iou --orient
-          --pick --update-bench --warm --coexist --pan-bench --soak 20
+          --pick --update-bench --warm --coexist --pan-bench --soak 50
           --size 960x540 --grass-density 60 --frame-timeout-s 120 --watchdog-s 1560
 
       - name: Upload evidence
@@ -139,6 +139,9 @@ jobs:
           print(f"files_only_in_branch={len(new)}")
           for n in sorted(new, key=lambda n: -size[n])[:40]:
               print(f"  {size[n] / 2**20:8.2f} MB  {n}")
+          # ADR-047 criterion 9: <= +60 MB net (above that only with owner acceptance)
+          if branch - master > 60.0:
+              raise SystemExit(f"::error::dist delta {branch - master:.1f} MB > 60 MB (criterion 9)")
           PY
 
       - name: Verdict

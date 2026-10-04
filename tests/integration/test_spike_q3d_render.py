@@ -134,7 +134,7 @@ def measured(tmp_path_factory: pytest.TempPathFactory) -> tuple[dict, int]:
     proc = _spike(out, _render_env(tmp_path_factory.mktemp("config_home")),
                   "--presets", "low", "--shots", "golden_hour", "--size", "640x360",
                   "--fps-seconds", "0", "--watchdog-s", "1000", "--iou", "--pick",
-                  "--update-bench", "--warm", "--coexist", "--pan-bench", "--soak", "5")
+                  "--update-bench", "--warm", "--coexist", "--pan-bench", "--soak", "50")
     log = (out / "spike.log").read_text(encoding="utf-8") if (out / "spike.log").exists() else ""
     assert (out / "metrics.json").exists(), proc.stderr[-2000:] + log[-2000:]
     return json.loads((out / "metrics.json").read_text(encoding="utf-8")), proc.returncode
@@ -152,7 +152,23 @@ def test_measurement_run_closes_cleanly_while_really_animating(measured: tuple[d
     assert soak["frames_while_animating"] >= 8, soak
     assert soak["wind_time_after"] > soak["wind_time_before"], soak
     assert soak["close_exit_code"] == 0, soak
-    assert soak["rss_end_mb"] - soak["rss_start_mb"] < 50.0
+
+
+def test_soak_reloads_the_project_from_disk_without_a_leak(measured: tuple[dict, int]) -> None:
+    """Criterion 10: 50 show/hide cycles and 10 project reloads (the plan read into a
+    new scene, every model, geometry and the ground built new while the engine runs).
+
+    An append-only keep-alive list for ground textures grew RSS ~30 MB per reload,
+    linearly; holding only the shown texture lets it settle. A total-growth bound
+    cannot tell those apart (the allocator steps up early either way), the slope
+    over the second half can.
+    """
+    soak = measured[0]["soak"]
+    assert soak["cycles"] == 50
+    assert soak["project_reloads"] == 10, soak
+    assert soak["models_per_reload_ok"] is True, soak
+    assert soak["rss_tail_slope_mb_per_reload"] is not None, soak
+    assert soak["rss_tail_slope_mb_per_reload"] < 10.0, soak["rss_after_refill_mb"]
 
 
 def test_low_preset_shadow_map_agrees_with_the_analytic_shadow(measured: tuple[dict, int]) -> None:

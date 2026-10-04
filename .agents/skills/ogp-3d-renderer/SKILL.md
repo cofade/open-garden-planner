@@ -104,6 +104,12 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
   rows are north-up. Orientation probe (`--orient`): NCC identity 0.94 vs flip_v −0.10.
 - `QGraphicsScene.render()` always paints the canvas background — the spike swaps that exact
   colour for meadow; the production bake paints records directly (plan L1.5).
+- **Ownership:** a texture created in Python is owned by Python, so something must hold it while
+  QML shows it — exactly the one shown. An append-only keep-alive list grew RSS by one baked
+  ground (2400×1600 RGBA ≈ 15 MB + GPU copy) per project reload, linearly; holding only the
+  shown texture and releasing the old one *after* the scene shows the new one settled (soak,
+  10 reloads, llvmpipe, slope −1.5 MB/reload). Judge leaks by `rss_tail_slope_mb_per_reload`,
+  never by total growth — the first reload adds ~70 MB either way.
 
 ## 6. Hosts
 
@@ -120,20 +126,33 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
   asks ≤ ×1.3 on owner hardware. A synchronous
   `repaint()` does **not** include the flush/composition (it measured 0.08 ms "with 3D") —
   measure pan cost with `processEvents()`.
-- **A second renderer is not faster:** it took as long to its first frame as the first one
-  (llvmpipe: 15.1 s vs 14.9 s, `--warm`) — consistent with per-window pipeline caches
-  (inferred, not verified). Keep one host alive and
+- **A second renderer is not faster:** it took as long to its first finished readback as the
+  first one (llvmpipe, `--warm`, `first_ready_ms`: 29.3 s vs 26.2 s, both under concurrent
+  load) — consistent with per-window pipeline caches (inferred, not verified). Open time ends
+  on a finished readback, never on the first `afterRendering`/`frameSwapped`: on a software
+  rasteriser the submission returns early and the real cost lands in the next grab. Keep one
+  host alive and
   hide/show it: re-entry (show → next frame) median **7 ms** on llvmpipe, 31–53 ms on WARP
   (`--soak`; measured on a fully rendered scene — before the re-attach fix in §2, a soak that
   re-added models measured an empty garden).
 
 ## 7. Picking
 
-`pickAt(x, y)` in QML → `{hit, id, x, y, z}` (engine frame). Against a CPU oracle (topmost
-triangle under a vertical ray over every pickable mesh): **20/20**, 0.15 ms per pick
-(container and frozen Windows D3D11, orthographic top-down, `--pick`), and 20/20 again after a
-detach/re-attach cycle — which reads 0/20 without the re-upload rule in §2. Models must set
-`pickable: true`.
+`pickAt(x, y)` in QML → `{hit, id, x, y, z}` (engine frame). Models must set
+`pickable: true`. `--pick` checks it in a top-down orthographic view against a CPU oracle (the
+topmost triangle under a vertical ray over every pickable mesh, merged per item):
+
+- **Easy targets** (each item's highest unoccluded triangle): **20/20**, 0.15–0.24 ms per pick
+  (llvmpipe); 20/20 in the frozen Windows D3D11 exe. Easy targets alone prove little — a picker
+  that only tests bounding boxes scores 18/20 on them.
+- **Adversarial targets** (points inside a tall item's bounding box but off its mesh, where a
+  box picker names the wrong item): **10/10** on llvmpipe at 6f0c4f4.
+- **Independent projection:** the click pixel comes from the engine's `mapFrom3DScene`, so a
+  wrong engine projection could aim and pick consistently wrong. An orthographic projection of
+  our own (`measure.top_down_pixel`) agreed with it to **0.0 px**, and the picked point lay
+  **0.0 cm** from the target (llvmpipe, 6f0c4f4).
+- **Re-attach:** 20/20 again after a detach/re-attach cycle, and the frame is pixel-identical
+  (mean abs diff 0.0) — 0/20 and a blank frame without the re-upload rule in §2.
 
 ## 8. Screenshots and CI rendering
 
@@ -202,3 +221,4 @@ triangles (`scripts/bench_view3d.py`).
 | `--iou` crashes / `--orient` says mirrored at 150 % display scale | pixel grid built from the logical size | build it from the grabbed image and `devicePixelRatio()` |
 | A measurement changes when the flag order changes | a probe left camera/preset/ground/sun behind | run probes inside `SpikeRenderer.preserved_state()` |
 | "Open time 2 s" but the first grab takes a minute (WARP) | `frameSwapped` marks submission | time show → first finished readback (`first_ready_ms`) |
+| RSS climbs ~30 MB per project reload | append-only keep-alive list of ground textures | hold only the shown texture; judge by the tail slope |

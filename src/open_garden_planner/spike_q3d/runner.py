@@ -107,7 +107,8 @@ def _parse(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--pan-bench", action="store_true",
                    help="criterion 3 (M2): 2D pan cost with/without a QQuickWidget")
     p.add_argument("--soak", type=int, default=0, metavar="N",
-                   help="criterion 10: N show/hide cycles, then close while animating")
+                   help="criterion 10: N show/hide cycles, a project reload every "
+                        "fifth, then close while animating")
     args, unknown = p.parse_known_args(argv[1:])
     # A typo must not run a different experiment and still report "ok" (senior review).
     args.unknown = unknown
@@ -452,7 +453,8 @@ def bake_ground(scene: Any, width: float, height: float):
 
 
 def _measure(args: argparse.Namespace, renderer: Any, scene: Any, ground: Any, width: float,
-             height: float, out: Path, log: SpikeLog, metrics: dict[str, Any]) -> None:
+             height: float, out: Path, log: SpikeLog, metrics: dict[str, Any],
+             reload: Any = None) -> None:
     """The L0.2 measurement flags, in an order where none disturbs the next."""
     from open_garden_planner.spike_q3d import measure
 
@@ -464,7 +466,8 @@ def _measure(args: argparse.Namespace, renderer: Any, scene: Any, ground: Any, w
         ("coexist", args.coexist, lambda: measure.coexist_probe(renderer, log)),
         ("pan_bench", args.pan_bench,
          lambda: measure.pan_bench(scene, renderer, ground, width, height, log)),
-        ("soak", args.soak > 0, lambda: measure.soak(renderer, args.soak)),  # last: animates
+        ("soak", args.soak > 0,  # last: it ends by animating
+         lambda: measure.soak(renderer, args.soak, reload=reload)),
     ]
     for name, wanted, run in steps:
         if not wanted:
@@ -775,12 +778,25 @@ def _run(args: argparse.Namespace, out: Path, log: SpikeLog, metrics: dict[str, 
         log("orient_done", ground_ok=metrics["orientation"]["ground_texture_ok"],
             sky_ok=metrics["orientation"]["sky_ok"])
         _write_metrics(out, metrics)
-    _measure(args, renderer, scene, ground, width, height, out, log, metrics)
+    def reload_project() -> list[Any]:
+        """File → Open again: the plan from disk into a new scene, a fresh ground
+        bake and freshly built models (criterion 10's project reloads)."""
+        fresh = CanvasScene()
+        ProjectManager().load(fresh, args.plan)
+        renderer.set_ground(bake_ground(fresh, fresh.width_cm, fresh.height_cm), 0, 0,
+                            fresh.width_cm, fresh.height_cm)
+        models, _stats = build_models(fresh, models_by_date.active_date or first_when.date(),
+                                      args.grass_density, not args.no_grass)
+        return models
+
+    _measure(args, renderer, scene, ground, width, height, out, log, metrics,
+             reload=reload_project)
     metrics["wait_timeouts"] = renderer.wait_timeouts
     if args.soak > 0:  # last: it closes the window and ends the event loop
         from open_garden_planner.spike_q3d import measure
 
         metrics["soak"].update(measure.close_while_animating(renderer, app, log))
+        metrics["wait_timeouts"] = renderer.wait_timeouts  # incl. the animate-then-close wait
         _write_metrics(out, metrics)
     metrics["total_s"] = round(time.perf_counter() - t_start, 2)
     if sys.stdout is not None:

@@ -486,10 +486,37 @@ def pan_bench(scene: Any, renderer: Any, ground: Any, width: float, height: floa
 # ── criterion 10: soak ───────────────────────────────────────────────────
 
 
-def soak(renderer: Any, cycles: int) -> dict:
+def rss_tail_slope(curve: list[float | None]) -> float | None:
+    """MB per reload over the second half of an RSS curve (least squares).
+
+    A leak keeps climbing at its per-reload size; an allocator settles after a
+    few steps, so the first half (and a single step) is not a trend. None when
+    there are fewer than three points or an unreadable RSS.
+    """
+    tail = curve[len(curve) // 2:]
+    if len(tail) < 3 or any(v is None for v in tail):
+        return None
+    x = np.arange(len(tail), dtype=np.float64)
+    return round(float(np.polyfit(x, np.asarray(tail, np.float64), 1)[0]), 2)
+
+
+def soak(renderer: Any, cycles: int, reload: Any = None) -> dict:
+    """Criterion 10: ``cycles`` hide/show cycles; every fifth one empties the scene
+    and refills it.
+
+    With ``reload`` (a callable returning fresh models) the refill is a full
+    project reload — plan read from disk into a new scene, ground re-baked, every
+    model and geometry built new — so ``--soak 50`` is the criterion's "50
+    show/hide cycles, 10 project reloads", and the old geometries are released
+    while the engine runs (the QML-vs-Python lifetime risk the soak exists for).
+    """
+    import gc
+
     models = renderer.models
+    first_count = len(models)
+    gc.collect()  # cyclic garbage is not a leak: collect before every reading
     rss_start = rss_mb()
-    reentry = []
+    reentry, reload_ms, counts, rss_curve = [], [], [], []
     for k in range(cycles):
         renderer.hide()
         _pump(30)
@@ -500,11 +527,24 @@ def soak(renderer: Any, cycles: int) -> dict:
         if k % 5 == 4:
             renderer.set_models([])
             renderer.wait_frames(1, label=f"soak_empty_{k}")
+            if reload is not None:
+                t0 = time.perf_counter()
+                models = reload()
+                reload_ms.append((time.perf_counter() - t0) * 1000.0)
+                counts.append(len(models))
             renderer.set_models(models)
             renderer.wait_frames(1, label=f"soak_refill_{k}")
+            gc.collect()
+            rss_curve.append(rss_mb())
+    gc.collect()
     rss_end = rss_mb()
-    return {"cycles": cycles, "reentry_ms": _stats(reentry), "rss_start_mb": rss_start,
-            "rss_end_mb": rss_end}
+    result = {"cycles": cycles, "reentry_ms": _stats(reentry), "rss_start_mb": rss_start,
+              "rss_end_mb": rss_end, "rss_after_refill_mb": rss_curve}
+    if reload is not None:
+        result.update({"project_reloads": len(reload_ms), "reload_ms": _stats(reload_ms),
+                       "models_per_reload_ok": all(c == first_count for c in counts),
+                       "rss_tail_slope_mb_per_reload": rss_tail_slope(rss_curve)})
+    return result
 
 
 def close_while_animating(renderer: Any, app: Any, log: Any, frames: int = 8) -> dict:

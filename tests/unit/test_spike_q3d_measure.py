@@ -125,3 +125,63 @@ def test_rss_is_measured_where_supported() -> None:
     rss = measure.rss_mb()
     assert rss is not None
     assert rss > 1.0
+
+
+class _FakeRenderer:
+    """Records what the soak does to a renderer; no engine involved."""
+
+    def __init__(self, models: list[str]) -> None:
+        self.models = list(models)
+        self.calls: list[str] = []
+
+    def hide(self) -> None:
+        self.calls.append("hide")
+
+    def show(self) -> None:
+        self.calls.append("show")
+
+    def wait_frames(self, n: int, label: str = "") -> None:
+        self.calls.append(f"wait:{label}")
+
+    def set_models(self, models: list[str]) -> None:
+        self.models = list(models)
+        self.calls.append(f"set:{len(models)}")
+
+
+def test_soak_reloads_the_project_every_fifth_cycle(qtbot) -> None:
+    renderer = _FakeRenderer(["a", "b", "c"])
+    builds: list[int] = []
+
+    def reload() -> list[str]:
+        builds.append(len(builds))
+        return [f"fresh{len(builds)}-{k}" for k in range(3)]
+
+    result = measure.soak(renderer, 10, reload=reload)
+    assert result["project_reloads"] == 2 == len(builds)
+    assert result["models_per_reload_ok"] is True
+    # the scene is emptied before each reload and refilled with the NEW models
+    assert renderer.calls.count("set:0") == 2
+    assert renderer.models == ["fresh2-0", "fresh2-1", "fresh2-2"]
+
+
+def test_soak_flags_a_reload_that_lost_models(qtbot) -> None:
+    renderer = _FakeRenderer(["a", "b", "c"])
+    result = measure.soak(renderer, 5, reload=lambda: ["only-one"])
+    assert result["project_reloads"] == 1
+    assert result["models_per_reload_ok"] is False
+
+
+def test_soak_without_reload_refills_the_same_models(qtbot) -> None:
+    renderer = _FakeRenderer(["a", "b"])
+    result = measure.soak(renderer, 5)
+    assert "project_reloads" not in result
+    assert renderer.models == ["a", "b"]
+
+
+def test_rss_tail_slope_tells_a_leak_from_a_settling_allocator() -> None:
+    leak = [771.0 + 30.0 * k for k in range(10)]
+    settled = [771.0, 804.6, 799.4, 864.0, 864.1, 888.8, 888.9, 887.2, 887.2, 882.4]
+    assert measure.rss_tail_slope(leak) == pytest.approx(30.0)
+    assert measure.rss_tail_slope(settled) < 2.0  # measured, after the fix
+    assert measure.rss_tail_slope([700.0, 710.0, 720.0, 730.0]) is None  # tail too short
+    assert measure.rss_tail_slope([1.0, 2.0, 3.0, 4.0, None, 6.0]) is None  # unreadable

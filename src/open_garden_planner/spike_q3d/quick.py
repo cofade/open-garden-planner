@@ -150,7 +150,7 @@ class SpikeRenderer:
         self._log = log if log is not None else (lambda *_a, **_k: None)
         self._shown: weakref.WeakSet[SpikeModel] = weakref.WeakSet()
         self.models: list[SpikeModel] = []
-        self._keep: list[Any] = []
+        self._ground: ImageTexture | None = None
         t0 = time.perf_counter()
         url = QUrl.fromLocalFile(str(QML_DIR / "GardenSpike.qml"))
         if host == "widget":
@@ -230,6 +230,7 @@ class SpikeRenderer:
             sky_changed = any(self.root.property(k) != saved[k] for k in self.SKY_KEYS)
             for key, value in saved.items():
                 self.root.setProperty(key, value)
+            self._ground = saved["groundTexture"]  # keep the restored texture alive
             self.set_models(models)
             if sky_changed:  # the light probe is pre-filtered once per sky texture
                 self.root.setProperty("sunVersion", int(self.root.property("sunVersion")) + 1)
@@ -310,10 +311,14 @@ class SpikeRenderer:
     def set_ground(self, image: QImage | None, x0: float, y0: float, x1: float, y1: float) -> None:
         if image is None:
             self.root.setProperty("groundTexture", None)
+            self._ground = None
             return
         tex = ImageTexture(image)
-        self._keep.append(tex)
         self.root.setProperty("groundTexture", tex)
+        # Python owns the texture, so hold the one the scene shows — and only that
+        # one: an append-only keep-alive list grew RSS ~30 MB per project reload
+        # (soak, 10 reloads: linear 771 -> 1035 MB; holding one: flat at ~885 MB).
+        self._ground = tex
         self.root.setProperty("groundCenter", vec_to_engine((x0 + x1) / 2, (y0 + y1) / 2, 0))
         self.root.setProperty("groundWidth", float(x1 - x0))
         self.root.setProperty("groundDepth", float(y1 - y0))
