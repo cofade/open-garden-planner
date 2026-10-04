@@ -1112,3 +1112,78 @@ the fast default path stayed green. (2) The obvious library-supplied fix (`force
 wrong; only measuring it proved it. (3) A stack dump that shows a loop **idle in its selector**
 says "nothing is running and something is still awaited" - pair it with an asyncio task dump,
 which names the waiters the stack cannot.
+
+
+## Case study: models blank and unpickable after a probe swapped them out and back (ADR-047 spike, fixed 2026-10-04)
+
+**Symptom**: the Windows evidence run picked **0/20** where the container picked 20/20 with
+the same code. A board render after the same flags looked normal up to the probes and was
+not looked at afterwards.
+
+**Wrong theories**. (1) A Direct3D 11 vs OpenGL picking difference — plausible, because the
+container renders OpenGL and the runner D3D11 on WARP. (2) Display scaling on the runner.
+Both died on one reproduction: the Windows command ran `--iou --orient` *before* `--pick`;
+the container run had not. Running `--orient --pick` locally gave 0/20 on OpenGL too.
+
+**Key evidence**: an A/B over the swap itself, picks and a pixel diff against the first frame:
+
+```
+1 initial                         hits=20/20
+2 same objects re-attached        hits=0/20     frame == empty scene (diff 66.34 vs 66.34)
+3 fresh SpikeModel+NumpyGeometry  hits=20/20    frame == initial (diff 0.00)
+B re-attached + update():         hits=0
+C re-attached after set_mesh():   hits=20
+5 partial removal then restore    hits=19/20   <- after the first fix
+```
+
+**Root cause**: once the Model using a `QQuick3DGeometry` is destroyed, the same geometry
+handed to a new Model renders and picks nothing (the C++ object is alive — `sip.isdeleted`
+is False — but its data is gone); `update()` does not restore it, a full re-upload does. The
+probes restored the scene with the same model objects, so everything measured after them —
+picks, the soak, its re-entry times — ran against an empty garden. The first fix
+re-uploaded only models that had been removed and measured **19/20**: a `Repeater3D` over a
+JS array destroys and recreates **every** delegate on any change, so the one model that never
+left came back blank too.
+
+**Fix**: `SpikeRenderer.set_models` re-uploads every previously shown geometry; the pick probe
+re-checks after a detach/re-attach cycle and the render tier runs it after `--iou`.
+
+**Lesson**: (1) **A probe that mutates shared state must restore it through the same path the
+product uses** — and every measurement after it inherits its mistakes silently. (2) When a
+fix scores 19/20, the miss is the hypothesis test: here it was the model that had never been
+removed, which disproved "only removed models break". (3) Compare the *same flag order* on
+both machines before blaming the platform.
+
+## Case study: the 56-minute "hang" that was a stopwatch problem (ADR-047 spike, fixed 2026-10-04)
+
+**Symptom**: the temporary Windows workflow built the frozen exe, passed `--selftest`, then ran
+the spike for 56 minutes until the job limit killed it — no output, no metrics, 7 PNGs in the
+uploaded artifact (which could not be downloaded from the analysis container anyway).
+
+**Wrong theories**. (1) A deadlock in the threaded render loop. (2) The window never exposed on
+a headless runner, so no frame ever arrived. Neither could be tested: there was no evidence at
+all, because a GUI-subsystem exe has no stdout (`print` is a no-op — the #291 precedent) and
+`Start-Process -Wait` has no timeout.
+
+**Key evidence**: after the spike learned to write a flushed, timestamped `spike.log`, rewrite
+`metrics.json` after every phase and arm `faulthandler.dump_traceback_later` (verified first by
+forcing a 12 s watchdog, which named the exact `wait_frames` call), the next run said:
+
+```
+ 12.61s [wait] label=first_frame want=2 got=3 ms=6247.4 timeout=False exposed=True
+ 26.39s [wait] label=golden_hour_low want=6 got=6 ms=6344.1 timeout=False exposed=True
+ 97.03s [grab] label=golden_hour_low ms=69156.5 px=960x540
+```
+
+Frames arrived about once a second; one `grabWindow()` of the sky-lit scene took ~69–100 s.
+Later grabs of the same sky took 20–500 ms; every *new* sky light probe cost 40–85 s again.
+
+**Root cause**: not a hang — software rendering (WARP) of a freshly prefiltered sky light probe,
+paid in the first frames or grab after each sun change, times the many shots of run v1.
+
+**Fix**: headless evidence tooling writes its own log, per-phase metrics and a watchdog; the CI
+driver bounds the run with a hard timeout and prints the evidence into the job log; every grab
+is timed on its own.
+
+**Lesson**: **without timestamps, "slow" and "hung" are indistinguishable** — instrument
+before theorising, and give any process that must run headless its own evidence channel.

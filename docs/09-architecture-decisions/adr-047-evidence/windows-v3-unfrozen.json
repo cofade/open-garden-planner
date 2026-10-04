@@ -1,0 +1,140 @@
+{
+  "status": "ok",
+  "platform": "Windows-10-10.0.26100-SP0",
+  "python": "3.11.9",
+  "frozen": false,
+  "plan": "D:\\a\\open-garden-planner\\open-garden-planner\\tests\\fixtures\\plans\\bench_small.ogp",
+  "host": "view",
+  "size": [
+    960,
+    540
+  ],
+  "env": {
+    "QSG_RHI_BACKEND": null,
+    "QT_QPA_PLATFORM": null,
+    "QSG_RHI_PREFER_SOFTWARE_RENDERER": null,
+    "QSG_RENDER_LOOP": "basic"
+  },
+  "qt": "6.11.0",
+  "load_plan_ms": 11686.360499999977,
+  "ground_bake_ms": 62.582999999960975,
+  "build_models_ms": 327.0084999999767,
+  "build": {
+    "items": 99,
+    "models": 92,
+    "triangles": 185164,
+    "by_kind_ms": {
+      "RAIN_BARREL": 1.0,
+      "WHEELBARROW": 0.1,
+      "COMPOST_BIN": 0.1,
+      "TRAMPOLINE": 0.8,
+      "BIRD_BATH": 0.4,
+      "BENCH": 0.2,
+      "FIRE_PIT": 0.2,
+      "BBQ_GRILL": 0.3,
+      "CHAIR": 0.8,
+      "TABLE_RECTANGULAR": 0.2,
+      "plants": 287.9,
+      "TRELLIS": 0.6,
+      "CONTAINER_ROUND": 0.6,
+      "RAISED_BED": 0.2,
+      "GARDEN_BED": 0.0,
+      "PATH": 0.0,
+      "WALL": 0.1,
+      "HEDGE_POLYGON": 5.7,
+      "FENCE": 7.8,
+      "PERGOLA": 0.5,
+      "GARAGE_SHED": 0.7,
+      "GREENHOUSE": 1.1,
+      "HOUSE": 0.5,
+      "POND_POOL": 0.2,
+      "DRIVEWAY": 0.0,
+      "TERRACE_PATIO": 0.0,
+      "LAWN": 0.0,
+      "grass": 5.4
+    }
+  },
+  "qml_load_ms": 1050.4551999999876,
+  "scene_apply_ms": 6.4443999999639345,
+  "geometry_upload_ms_total": 29.871799999909854,
+  "first_frame_ms": 2121.208899999999,
+  "graphics_api": "Direct3D11Rhi",
+  "shots": [
+    {
+      "shot": "golden_hour",
+      "preset": "low",
+      "file": "golden_hour_low.png",
+      "sun_elev": 15.23,
+      "sun_az": 288.8,
+      "settle_ms": 75703.1,
+      "grab_ms": 69156.7
+    }
+  ],
+  "fps": {
+    "low": 18.77
+  },
+  "shadow_iou": {
+    "azimuth_deg": 225.0,
+    "caster_cm": [
+      100.0,
+      100.0,
+      200.0
+    ],
+    "px_per_cm": 0.5,
+    "results": {
+      "15deg": {
+        "iou": 0.9799,
+        "measured_px": 25636,
+        "analytic_px": 25260,
+        "lit_luma": 119.0,
+        "centroid_measured_cm": [
+          281.0,
+          279.0
+        ],
+        "centroid_analytic_cm": [
+          278.2,
+          277.4
+        ]
+      },
+      "35deg": {
+        "iou": 0.9839,
+        "measured_px": 10096,
+        "analytic_px": 10100,
+        "lit_luma": 241.2,
+        "centroid_measured_cm": [
+          125.9,
+          125.8
+        ],
+        "centroid_analytic_cm": [
+          125.5,
+          126.5
+        ]
+      },
+      "60deg": {
+        "iou": 0.9634,
+        "measured_px": 3952,
+        "analytic_px": 4100,
+        "lit_luma": 255.0,
+        "centroid_measured_cm": [
+          65.1,
+          65.1
+        ],
+        "centroid_analytic_cm": [
+          65.5,
+          66.5
+        ]
+      }
+    }
+  },
+  "wait_timeouts": 0,
+  "total_s": 104.87,
+  "_provenance": {
+    "workflow": "spike-q3d.yml (temporary)",
+    "run_id": "37188274098",
+    "run_url": "https://github.com/cofade/open-garden-planner/actions/runs/37188274098",
+    "commit": "2b69923",
+    "runner": "windows-latest (no GPU: Direct3D 11 on WARP)",
+    "mode": "unfrozen",
+    "extracted_from": "job log (artifact host unreachable from the analysis container)"
+  }
+}

@@ -41,9 +41,10 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
   (**linear**, not sRGB), uv f32×2 @40 (spike convention: u = wind weight, v = phase), indices
   U32; `setBounds` + `update()`.
 - **Update cost** of replacing a 100k-vertex geometry (`NumpyGeometry.set_mesh`: frame mapping +
-  interleave + copy): median **10.5 ms**, p95 25 ms (cloud container CPU, `--update-bench`).
-  GO criterion 6 says ≤ 10 ms — borderline on this CPU; measure on the owner box before
-  optimising, and look at the interleave copy first.
+  interleave + copy): median **10.5 ms** (n = 10, max 25 ms; cloud container CPU,
+  `--update-bench`), 14–27 ms on Windows runner instances. GO criterion 6 says ≤ 10 ms —
+  borderline; measure on the owner box before optimising, and look at the interleave copy
+  first.
 
 ## 4. Light, sky, shadows
 
@@ -52,8 +53,9 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
   (QML: "lookAt is not a function"). Light travel = −sun vector from `core/solar` (ADR-037).
 - **Property names differ:** Models use `castsShadows` / `receivesShadows`; Lights use
   `castsShadow`. The wrong one is a QML load error, not a warning.
-- `ProceduralSkyTextureData`: **`sunLongitude = azimuth + 90°`** (sky probe, error ±0.3°,
-  Linux GL). The environment pre-filters the light probe **once per Texture object** and ignores
+- `ProceduralSkyTextureData`: **`sunLongitude = azimuth + 90°`** (sky probe: the disc appears
+  in the view facing the solar azimuth, −0.6° … +0.7° across frame sizes on OpenGL, −0.1° on
+  D3D11 — measured at the image centre, so it proves the direction, not off-centre precision). The environment pre-filters the light probe **once per Texture object** and ignores
   later `textureData` changes, so build a fresh sky `Texture` on every sun change
   (`createObject(view.scene)`, destroy the old one — parenting to `view.scene` avoids the "not
   placed in the graphics scene" warning).
@@ -69,7 +71,9 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
   | Direct3D 11, WARP (windows-latest) | 960×540 | 0.980 | 0.984 | 0.963 |
 
   Settings behind those numbers: `shadowBias` 5, `shadowMapFar` 9000, `lockShadowmapTexels`,
-  quality/cascades/PCF per preset as in `GardenSpike.qml`.
+  the High preset's quality and PCF — but **no cascades**: the orthographic probe view forces
+  `csmNumSplits: 0`, so the cascaded configuration of the beauty views is not covered yet.
+  The value depends on frame size (pixel grid), not on the backend.
 - **SSGI renders a black frame on Mesa llvmpipe** (`--ssgi`; isolated by toggling SSGI and SSR
   separately) → opt-in until verified on real GPUs. SSR renders fine there.
 
@@ -95,8 +99,9 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
   asks ≤ ×1.3 on owner hardware. A synchronous
   `repaint()` does **not** include the flush/composition (it measured 0.08 ms "with 3D") —
   measure pan cost with `processEvents()`.
-- **Pipeline caches are per window:** a second renderer in the same process took as long to its
-  first frame as the first one (llvmpipe: 15.1 s vs 14.9 s, `--warm`). Keep one host alive and
+- **A second renderer is not faster:** it took as long to its first frame as the first one
+  (llvmpipe: 15.1 s vs 14.9 s, `--warm`) — consistent with per-window pipeline caches
+  (inferred, not verified). Keep one host alive and
   hide/show it: re-entry (show → next frame) median **7 ms** on llvmpipe, 31–53 ms on WARP
   (`--soak`; measured on a fully rendered scene — before the re-attach fix in §2, a soak that
   re-added models measured an empty garden).
@@ -116,8 +121,11 @@ detach/re-attach cycle — which reads 0/20 without the re-upload rule in §2. M
   in a container). Packages: `libegl1` (the QtQuick3D binding links libEGL), `libxcb-cursor0`
   (xcb plugin). As root, Qt WebEngine needs `QTWEBENGINE_DISABLE_SANDBOX=1`.
 - **Windows runner** (windows-latest, no GPU): `Direct3D11Rhi` on WARP. Frozen exe: QML load
-  1.0 s, first frame 2.0 s, 960×540 low 14.2 fps / high 4.8 fps. **Each new sky light probe
-  costs 40–70 s once** on WARP (in the frames or the grab right after a sun change); later
+  1.0–2.7 s, first *presented* frame 2.0–3.0 s, 960×540 low 11.5–14.2 fps / high 4.3–4.8 fps
+  (runs v3/v4, `docs/09-architecture-decisions/adr-047-evidence/`). `frameSwapped` marks
+  submission, not completion — on a software rasteriser the real cost lands in the next
+  readback, so time open-to-ready with a grab. **Each new sky light probe costs 40–85 s
+  once** on WARP (in the frames or the grab right after a sun change); later
   grabs of the same sky take 20–500 ms, and `QSG_RENDER_LOOP=basic` changes nothing. Never
   rebuild the probe per frame; on software rendering drop image-based light. Evidence run
   v1's 56-minute "hang" was this cost, times many shots, with no log.

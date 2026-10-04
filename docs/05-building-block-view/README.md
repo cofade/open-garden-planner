@@ -368,3 +368,18 @@ Black-box view of the visual-refresh subsystem. See §8.4 (theme/tokens), §8.21
 | `resources/textures/` | Generated "Lush" texture set: 24 × 256² RGB PNGs (1 px = 1 cm), seamless on a torus, tint-readable, with `PROVENANCE.md` (generator = provenance, per-file register). | consumed unchanged by `core/fill_patterns.py` |
 | `scripts/generate_object_sprites.py` | Procedural object-sprite generator (#308, Package 3a) — the single source of all 24 furniture/infrastructure SVGs: a `MATERIALS` anchor table + reusable material primitives (planks, discs/rings, fabric, metal, glass, water, granular fills, glow/flame) composed by one seeded builder per object; no baked shadow, viewBox = default footprint; `--check` verifies committed files byte-match regeneration (pinned into pytest by `tests/unit/test_object_sprite_conformance.py`). | builders → `resources/objects/*/*.svg` |
 | `resources/objects/` | Generated "Lush Object" set: 15 furniture + 9 infrastructure SVGs with the binding style contract (`README.md`, incl. the gated visual-weight band and the add-a-type checklist pointer) and `PROVENANCE.md`; consumed unchanged by `core/furniture_renderer.py`, letterboxed by `gallery_data.render_svg_thumbnail`. | files |
+
+## 5.8 Qt Quick 3D Spike — dormant evidence tooling (Phase 17 L0, ADR-047)
+
+Black-box view of the GO/NO-GO spike for the renderer switch. It is **not part of the product**: never imported at app start (pinned by `tests/unit/test_spike_q3d_isolation.py`), reached only via `--spike-q3d`, and either graduates into `core/scene3d/` + `ui/view3d/quick3d/` in Phase 17 L1 or is deleted. Its strings are untranslated by design (log and metrics only; the QML has no text — the ADR-038 spike precedent).
+
+| Building block | Responsibility | Interface (in → out) |
+|----------------|----------------|----------------------|
+| `spike_q3d/runner.py` | CLI entry (`run_spike_cli`): loads a plan, bakes the 2D ground, builds models, renders the shot × preset board and runs the probes and measurements the flags ask for. Writes everything it learns to disk, because a frozen GUI exe has no stdout. | `.ogp` + flags → PNGs, `metrics.json` (rewritten per phase), `spike.log` (flushed per line) |
+| `spike_q3d/meshes.py` | Qt-free numpy procedural geometry: plant archetypes (`fit_to` makes the bounding box equal the data), gable roofs, fences, beds, built objects, grass, merged per item. | resolved heights/footprints → `MeshData` (scene frame) |
+| `spike_q3d/quick.py` | The **only** Qt Quick 3D importer: numpy → `QQuick3DGeometry`, `QImage` → `QQuick3DTextureData`, the `QQuickView`/`QQuickWidget` hosts, sun/sky/camera control, frame waiting, grabs, picking. Owns the engine rules found in L0 (geometry re-upload on re-attach). | `MeshData`, sun state → frames, picks, timings |
+| `spike_q3d/qml/` | The scene: `ExtendedSceneEnvironment`, procedural sky light probe, cascaded soft shadows, materials and wind shaders. No user-visible strings. | root properties ← Python |
+| `spike_q3d/probes.py`, `spike_q3d/measure.py` | Truth probes and the L0.2 measurements: shadow IoU vs `core/shadow_geometry`, north-up and sky orientation, picking vs a CPU oracle, 100k-vertex update, warm start, WebEngine coexistence, split-pan cost, soak. | renderer → plain numbers for `metrics.json` |
+| `scripts/make_bench_plans.py` | Deterministic `tests/fixtures/plans/bench_small.ogp` / `bench_large.ogp` through the real serializer (`--check` pins them); writes to a throwaway settings store. | → `.ogp` fixtures |
+
+Engine facts measured here live in the `ogp-3d-renderer` skill; the art-direction contract in `ogp-lush-cinematic`; the evidence in ADR-047 and `docs/09-architecture-decisions/adr-047-evidence/`.

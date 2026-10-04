@@ -36,7 +36,7 @@ The product is Open Garden Planner, a precision garden-planning tool. Its 3D mod
 - Deciduous crowns by space colonisation; leaf count from the crown's surface area (coverage ≈ 1.6), never a magic number.
 - Geometric micro-leaves (two triangles each), no alpha cards; normals spherized toward the crown centre (0.55–0.75), so a crown shades like one soft volume.
 - Vertex colours in **linear** space; the uv channel carries wind weight and phase for the sway shaders.
-- One merged mesh per item and material (no instancing binding); identical keys share one geometry.
+- One merged mesh per item and material (no instancing binding). Share mesh *data* (numpy) between identical items, never one `QQuick3DGeometry` between Models: a geometry does not survive its Model (`ogp-3d-renderer` §2), and sharing is unmeasured.
 - Bevels on everything built; nothing floats, nothing sinks — plants in beds stand on the soil.
 - The engine traps (light orientation, sky texture per sun change, `flipV`, property names, slow screenshots on software rasterisers) are listed in `ogp-3d-renderer` §11 — check there before debugging a "mysterious" frame.
 

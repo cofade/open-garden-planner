@@ -3,14 +3,14 @@
 Two plans, both written through the real ``ProjectManager`` serializer so they
 are production ``.ogp`` files, not hand-rolled JSON:
 
-* ``bench_small.ogp`` — a ~20 x 15 m family garden containing every object
+* ``bench_small.ogp`` — a 24 x 16 m family garden (99 items, 61 plants) with every object
   class the 3D pipeline must render: a HOUSE with its auto-created roof ridge,
   shed, greenhouse, pergola, trellis, raised beds and containers with planted
   children (``parent_bed_id``), an in-ground bed, lawn, gravel and
   stepping-stone paths, terrace, pond, trees, shrubs, perennials, vegetables,
   fence, hedge, wall and furniture. It is the beauty-board scene.
-* ``bench_large.ogp`` — a ~50 x 30 m allotment-style plan with ~600 items
-  (~300 plants) for the performance budgets.
+* ``bench_large.ogp`` — a 50 x 30 m allotment-style plan with 425 items
+  (320 plants) for the performance budgets.
 
 Both are deterministic: positions come from a seeded ``random.Random`` and item
 ids are drawn from the same RNG (assigned exactly like ``core/project.py``'s
@@ -21,6 +21,15 @@ Usage::
 
     venv/bin/python scripts/make_bench_plans.py           # (re)write fixtures
     venv/bin/python scripts/make_bench_plans.py --check   # verify fixtures are current
+
+The fixtures pin the serializer AND the bundled species data byte for byte
+(``tests/integration/test_bench_plans.py``): a change to either — e.g. new
+species fields — is regenerated with the first command, never hand-edited.
+
+Saving and loading through ``ProjectManager`` records Recent Files, so this
+script points every settings store at a throwaway key first (the same
+redirection ``tests/conftest.py`` performs) — it must never touch the user's
+own settings.
 """
 
 from __future__ import annotations
@@ -40,6 +49,13 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "src"))
+
+# Before any module that could build a settings store is imported (a QSettings
+# binds its organization/application at construction) — see the docstring.
+import open_garden_planner.app.settings as _app_settings  # noqa: E402
+
+_app_settings.ORGANIZATION_NAME = "cofade-ogp-tooling"
+_app_settings.APPLICATION_NAME = "Open Garden Planner bench generator"
 
 from PyQt6.QtCore import QPointF  # noqa: E402
 from PyQt6.QtWidgets import QApplication  # noqa: E402
@@ -274,7 +290,7 @@ def build_small() -> PlanBuilder:
 
 
 def build_large() -> PlanBuilder:
-    """~50 x 30 m allotment-style plan — ~600 items, ~300 plants (performance)."""
+    """50 x 30 m allotment-style plan — 425 items, 320 plants (performance)."""
     b = PlanBuilder(5000.0, 3000.0, seed="ogp-bench-large-v1")
     T = ObjectType
     b.polygon([(30, 30), (4970, 30), (4970, 2970), (30, 2970)], T.LAWN, "Lawn")

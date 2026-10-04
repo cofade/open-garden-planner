@@ -1,0 +1,29 @@
+{
+  "status": "error",
+  "platform": "Windows-10-10.0.26100-SP0",
+  "python": "3.11.9",
+  "frozen": true,
+  "plan": "D:\\a\\open-garden-planner\\open-garden-planner\\dist\\OpenGardenPlanner\\tests\\fixtures\\plans\\bench_small.ogp",
+  "host": "view",
+  "size": [
+    960,
+    540
+  ],
+  "env": {
+    "QSG_RHI_BACKEND": null,
+    "QT_QPA_PLATFORM": null,
+    "QSG_RHI_PREFER_SOFTWARE_RENDERER": null,
+    "QSG_RENDER_LOOP": null
+  },
+  "qt": "6.11.0",
+  "error": "FileNotFoundError: [Errno 2] No such file or directory: 'D:\\\\a\\\\open-garden-planner\\\\open-garden-planner\\\\dist\\\\OpenGardenPlanner\\\\tests\\\\fixtures\\\\plans\\\\bench_small.ogp'",
+  "_provenance": {
+    "workflow": "spike-q3d.yml (temporary)",
+    "run_id": "37187375015",
+    "run_url": "https://github.com/cofade/open-garden-planner/actions/runs/37187375015",
+    "commit": "65d0df2",
+    "runner": "windows-latest (no GPU: Direct3D 11 on WARP)",
+    "mode": "frozen",
+    "extracted_from": "job log (artifact host unreachable from the analysis container)"
+  }
+}

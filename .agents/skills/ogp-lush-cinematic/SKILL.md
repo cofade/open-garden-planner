@@ -24,9 +24,9 @@ OGP is a planning tool. A beautiful render that misstates the plan is a **P0**, 
 | Spread | widest crown span = 2D canopy diameter ±10 % | bounding box vs `_plant_canopy_radius_cm` |
 | Base | plants in raised beds / containers stand on the soil, not inside the box | base = parent's effective height (− 2 cm soil drop) |
 | Sun | light direction comes only from `core/solar` (never a "nice-looking" angle) | light = −sun vector (ADR-037 pin) |
-| Shadows | engine shadow footprint of a box caster vs the analytic 2D shadow | IoU ≥ 0.85 at 15°/35°/60° (spike: 0.98/0.98/0.96 on OpenGL **and** on Direct3D 11; table in `ogp-3d-renderer` §4) |
+| Shadows | engine shadow footprint of a box caster vs the analytic 2D shadow | IoU ≥ 0.85 at 15°/35°/60° (spike at 960×540: 0.98/0.98/0.96 on OpenGL **and** on Direct3D 11; 0.96/0.95/0.92 at 1280×720; orthographic, no cascades — table in `ogp-3d-renderer` §4) |
 | North | ground texture is north-up; nothing is mirrored | orientation probe NCC: identity must win |
-| Sky | the sky's sun disc sits at the solar azimuth | sky probe error < 6° (spike: ±0.3°) |
+| Sky | the sky's sun disc sits at the solar azimuth | sky probe error < 6° (spike: within 0.7°, measured at the image centre) |
 | Date | season/growth shown = the plan's sim date | same date drives 2D shadows, heatmap and 3D |
 
 Never tune a domain number (species height, spread, planting date) to make a shot prettier.
