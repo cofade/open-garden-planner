@@ -58,6 +58,11 @@ Item {
         running: root.animate
     }
 
+    function projectToView(x, y, z) {
+        var p = view.mapFrom3DScene(Qt.vector3d(x, y, z))
+        return {"x": p.x, "y": p.y}
+    }
+
     function pickAt(x, y) {
         var r = view.pick(x, y)
         if (!r.objectHit)

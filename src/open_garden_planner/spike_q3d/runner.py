@@ -87,6 +87,16 @@ def _parse(argv: list[str]) -> argparse.Namespace:
                    help="give up waiting for presented frames after this long (counted)")
     p.add_argument("--watchdog-s", type=float, default=0.0,
                    help="dump all stacks to spike.log and exit 1 after this long (0 = off)")
+    p.add_argument("--pick", action="store_true", help="criterion 7: 20 picks vs a CPU oracle")
+    p.add_argument("--update-bench", action="store_true",
+                   help="criterion 6: replace a 100k-vertex geometry, time it")
+    p.add_argument("--warm", action="store_true", help="criterion 5: second renderer, warm start")
+    p.add_argument("--coexist", action="store_true",
+                   help="criterion 2 (M1): QWebEngineView + 3D in one process")
+    p.add_argument("--pan-bench", action="store_true",
+                   help="criterion 3 (M2): 2D pan cost with/without a QQuickWidget")
+    p.add_argument("--soak", type=int, default=0, metavar="N",
+                   help="criterion 10: N show/hide cycles, then exit while animating")
     args, _unknown = p.parse_known_args(argv[1:])
     return args
 
@@ -376,6 +386,30 @@ def bake_ground(scene: Any, width: float, height: float):
     return rgba.copy()
 
 
+def _measure(args: argparse.Namespace, renderer: Any, scene: Any, ground: Any, width: float,
+             height: float, out: Path, log: SpikeLog, metrics: dict[str, Any]) -> None:
+    """The L0.2 measurement flags, in an order where none disturbs the next."""
+    from open_garden_planner.spike_q3d import measure
+
+    steps: list[tuple[str, bool, Any]] = [
+        ("pick", args.pick, lambda: measure.pick_probe(renderer, width, height)),
+        ("update_bench", args.update_bench, lambda: measure.update_bench(renderer)),
+        ("warm_start", args.warm,
+         lambda: measure.warm_start(renderer, ground, width, height, log)),
+        ("coexist", args.coexist, lambda: measure.coexist_probe(renderer, log)),
+        ("pan_bench", args.pan_bench,
+         lambda: measure.pan_bench(scene, renderer, ground, width, height, log)),
+        ("soak", args.soak > 0, lambda: measure.soak(renderer, args.soak)),  # last: animates
+    ]
+    for name, wanted, run in steps:
+        if not wanted:
+            continue
+        log(f"{name}_start")
+        metrics[name] = run()
+        log(f"{name}_done", result=json.dumps(metrics[name], default=str)[:400])
+        _write_metrics(out, metrics)
+
+
 # ── shots ────────────────────────────────────────────────────────────────
 
 
@@ -553,12 +587,15 @@ def _run(args: argparse.Namespace, out: Path, log: SpikeLog, metrics: dict[str, 
             renderer.set_camera(shot.eye, shot.target, shot.fov)
             t0 = time.perf_counter()
             renderer.wait_frames(6, label=f"{shot.name}_{preset}")
-            img = renderer.grab()
+            t_grab = time.perf_counter()
+            img = renderer.grab(label=f"{shot.name}_{preset}")
+            grab_ms = round((time.perf_counter() - t_grab) * 1000, 1)
             path = out / f"{shot.name}_{preset}.png"
             img.save(str(path))
             shot_rows.append({"shot": shot.name, "preset": preset, "file": path.name,
                               "sun_elev": round(sun.elevation, 2), "sun_az": round(sun.azimuth, 2),
-                              "settle_ms": round((time.perf_counter() - t0) * 1000, 1)})
+                              "settle_ms": round((time.perf_counter() - t0) * 1000, 1),
+                              "grab_ms": grab_ms})
             log("shot", name=shot.name, preset=preset, settle_ms=shot_rows[-1]["settle_ms"])
             _write_metrics(out, metrics)
         if args.fps_seconds > 0 and shots:
@@ -582,6 +619,7 @@ def _run(args: argparse.Namespace, out: Path, log: SpikeLog, metrics: dict[str, 
         log("orient_done", ground_ok=metrics["orientation"]["ground_texture_ok"],
             sky_ok=metrics["orientation"]["sky_ok"])
         _write_metrics(out, metrics)
+    _measure(args, renderer, scene, ground, width, height, out, log, metrics)
     metrics["wait_timeouts"] = renderer.wait_timeouts
     metrics["total_s"] = round(time.perf_counter() - t_start, 2)
     if sys.stdout is not None:

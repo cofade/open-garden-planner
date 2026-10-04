@@ -156,7 +156,9 @@ class SpikeRenderer:
             self.widget.setSource(url)
             errors = self.widget.errors()
             self.root = self.widget.rootObject()
-            self.widget.frameSwapped.connect(self._on_frame)
+            # QQuickWidget renders offscreen on the GUI thread and has no
+            # frameSwapped; its internal window reports every rendered frame.
+            self.widget.quickWindow().afterRendering.connect(self._on_frame)
         else:
             self.view = QQuickView()
             self.view.setResizeMode(QQuickView.ResizeMode.SizeRootObjectToView)
@@ -187,17 +189,24 @@ class SpikeRenderer:
         else:
             self.view.show()
 
+    def hide(self) -> None:
+        if self.host_kind == "widget":
+            self.widget.hide()
+        else:
+            self.view.hide()
+
     def graphics_api(self) -> str:
         api = self.quick_window().rendererInterface().graphicsApi()
         return getattr(api, "name", str(api))
 
     def request_update(self) -> None:
-        if self.host_kind == "widget":
-            self.widget.update()
-        else:
-            self.view.update()
+        # Both hosts: ask the Quick window for a new frame. QQuickWidget.update()
+        # alone only re-composites the last texture and renders nothing new.
+        self.quick_window().update()
 
     def is_exposed(self) -> bool:
+        if self.host_kind == "widget":  # renders offscreen: its window is never "exposed"
+            return bool(self.widget.isVisible())
         return bool(self.quick_window().isExposed())
 
     def wait_frames(self, n: int, timeout_s: float | None = None, label: str = "") -> int:
@@ -227,10 +236,15 @@ class SpikeRenderer:
                   timeout=timed_out, exposed=self.is_exposed())
         return got
 
-    def grab(self) -> QImage:
-        if self.host_kind == "widget":
-            return self.widget.grabFramebuffer()
-        return self.view.grabWindow()
+    def grab(self, label: str = "") -> QImage:
+        # Timed on its own: on Windows WARP one grabWindow() of the sky-lit
+        # scene took ~100 s while the frames before it took ~1 s each
+        # (evidence run v2) — v1's "hang" was six of those.
+        t0 = time.perf_counter()
+        img = self.widget.grabFramebuffer() if self.host_kind == "widget" else self.view.grabWindow()
+        self._log("grab", label=label, ms=round((time.perf_counter() - t0) * 1000.0, 1),
+                  px=f"{img.width()}x{img.height()}")
+        return img
 
     # -- scene -------------------------------------------------------------
     def set_models(self, models: list[SpikeModel]) -> None:
@@ -293,7 +307,20 @@ class SpikeRenderer:
             self.root, "pickAt", Qt.ConnectionType.DirectConnection,
             Q_RETURN_ARG("QVariant"), Q_ARG("QVariant", float(x)), Q_ARG("QVariant", float(y)),
         )
-        return dict(ret) if ret else {}
+        return _js_object(ret)
+
+    def project(self, east: float, north: float, up: float) -> tuple[float, float]:
+        """Scene point → view pixel coordinates (the same space ``pick`` takes)."""
+        from PyQt6.QtCore import Q_ARG, Q_RETURN_ARG, QMetaObject, Qt  # noqa: PLC0415
+
+        e = vec_to_engine(east, north, up)
+        ret = QMetaObject.invokeMethod(
+            self.root, "projectToView", Qt.ConnectionType.DirectConnection,
+            Q_RETURN_ARG("QVariant"), Q_ARG("QVariant", float(e.x())),
+            Q_ARG("QVariant", float(e.y())), Q_ARG("QVariant", float(e.z())),
+        )
+        d = _js_object(ret)
+        return float(d.get("x", float("nan"))), float(d.get("y", float("nan")))
 
     def measure_fps(self, seconds: float) -> float:
         start_frames = self.frames
@@ -306,6 +333,15 @@ class SpikeRenderer:
             loop.exec()
         self.set_animate(False)
         return (self.frames - start_frames) / max(time.perf_counter() - t0, 1e-6)
+
+
+def _js_object(ret: Any) -> dict:
+    """A QML function's returned JS object arrives as ``QJSValue``, not a dict."""
+    if ret is None:
+        return {}
+    if hasattr(ret, "toVariant"):
+        ret = ret.toVariant()
+    return dict(ret) if ret else {}
 
 
 def sky_longitude(azimuth_deg: float) -> float:

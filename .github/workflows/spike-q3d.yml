@@ -52,11 +52,15 @@ jobs:
           pip install -e ".[dev]"
           pip install pyinstaller
 
-      - name: Spike, unfrozen (WARP feasibility, small load)
+      # v2 measured (default threaded render loop, D3D11 on WARP): frames ~1 s,
+      # but one grabWindow() of the sky-lit scene ~100 s. A/B: the basic loop.
+      - name: Spike, unfrozen, basic render loop (grab-cost A/B)
         id: unfrozen
         continue-on-error: true
         timeout-minutes: 14
         shell: bash
+        env:
+          QSG_RENDER_LOOP: basic
         run: >
           python scripts/spike_q3d_ci.py --unfrozen --out spike-unfrozen --limit-s 720 --
           --presets low --shots golden_hour --fps-seconds 1 --iou
@@ -84,7 +88,9 @@ jobs:
         shell: bash
         run: >
           python scripts/spike_q3d_ci.py --frozen --out spike-frozen --limit-s 1620 --
-          --presets low,high --shots golden_hour,walk --fps-seconds 2 --iou --orient
+          --plan tests/fixtures/plans/bench_small.ogp
+          --presets low,high --shots golden_hour --fps-seconds 2 --iou --orient
+          --pick --update-bench --warm --coexist --pan-bench --soak 20
           --size 960x540 --grass-density 60 --frame-timeout-s 45 --watchdog-s 1560
 
       - name: Upload evidence
