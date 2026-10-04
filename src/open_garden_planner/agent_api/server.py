@@ -1001,8 +1001,8 @@ def build_server(
     async def get_soil_mismatches(bed_id: str | None = None, today: str | None = None) -> SoilMismatchBedsView:
         """Which plants in a bed disagree with its soil, and on what (US-D3.4).
 
-        `get_diagnostics` already reports a soil-mismatch FLAG per plant; this
-        returns the plants and the numbers behind those flags. The two agree by
+        `get_diagnostics` already reports a soil-mismatch FLAG per bed; this
+        returns the individual conflicting plants and the numbers behind those flags. The two agree by
         construction — if they ever disagree, that is a bug worth reporting.
 
         `reason_codes` are stable English machine keys, and they are what you
