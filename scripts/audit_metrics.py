@@ -37,7 +37,6 @@ import os
 import re
 import subprocess
 import sys
-import time
 import xml.etree.ElementTree as ET
 from collections import Counter, defaultdict
 from datetime import UTC, datetime
@@ -83,10 +82,11 @@ def run(cmd: list[str], cwd: Path, timeout: int = 600) -> tuple[int | None, str,
     return proc.returncode, proc.stdout, proc.stderr
 
 
-def reason(text: str, fallback: str) -> str:
+def reason(text: str, fallback: str, root: Path | None = None) -> str:
     """A degradation reason without local paths (a snapshot must not record them)."""
     cleaned = (text or "").strip().replace(sys.executable, "python")
-    cleaned = cleaned.replace(str(Path.cwd()), ".")
+    for local in filter(None, (root, Path.cwd())):
+        cleaned = cleaned.replace(str(local), ".")
     return cleaned[:300] or fallback
 
 
@@ -155,7 +155,7 @@ def radon_section(root: Path) -> dict[str, Any]:
     except json.JSONDecodeError:
         data = None
     if not isinstance(data, dict):
-        return {"available": False, "reason": reason(err or out, "radon not importable")}
+        return {"available": False, "reason": reason(err or out, "radon not importable", root)}
     ranks: Counter[str] = Counter()
     worst: list[tuple[int, str, str]] = []
     per_file_sum: dict[str, int] = {}
@@ -226,10 +226,10 @@ def parse_mypy(rc: int | None, out: str, err: str) -> dict[str, Any]:
 
 
 def mypy_section(root: Path) -> dict[str, Any]:
-    t0 = time.monotonic()
+    # No wall time is recorded: it depends on the warm .mypy_cache, not on the code.
     result = parse_mypy(*run([sys.executable, "-m", "mypy", f"src/{PACKAGE}"], root, timeout=1800))
-    if result["available"]:
-        result["seconds"] = round(time.monotonic() - t0, 1)
+    if not result["available"]:
+        result["reason"] = reason(result["reason"], "mypy produced no summary", root)
     return result
 
 
@@ -245,7 +245,7 @@ def ruff_section(root: Path) -> dict[str, Any]:
         except json.JSONDecodeError:
             items = None
         if not isinstance(items, list):
-            return {"available": False, "reason": reason(err or out, "ruff not importable")}
+            return {"available": False, "reason": reason(err or out, "ruff not importable", root)}
         rules = Counter(i.get("code") for i in items)
         result["check"][target] = {"findings": len(items), "top_rules": dict(rules.most_common(8))}
         rc_f, out_f, err_f = run([sys.executable, "-m", "ruff", "format", "--check", target], root)
@@ -353,14 +353,13 @@ def layering_section(root: Path) -> dict[str, Any]:
 
 def _package_relative(filename: str, sources: list[str]) -> str | None:
     """``core/x.py`` for any coverage filename that resolves into the package, else None."""
-    marker = f"{PACKAGE}/"
+    marker = f"/{PACKAGE}/"
     for candidate in [filename] + [f"{s.rstrip('/')}/{filename}" for s in sources]:
-        norm = candidate.replace("\\", "/")
-        if norm.startswith(marker):
-            return norm[len(marker) :]
-        idx = norm.find("/" + marker)
+        norm = "/" + candidate.replace("\\", "/").lstrip("/")
+        # The LAST occurrence: a checkout folder may itself be named like the package.
+        idx = norm.rfind(marker)
         if idx >= 0:
-            return norm[idx + 1 + len(marker) :]
+            return norm[idx + len(marker) :]
     return None
 
 

@@ -754,7 +754,7 @@ thumbnails fell through to the round fallback because a SOLID fill has no textur
   is intentional, not dead code.
 - **§11.1/§11.2 tables** list open questions/risks (Trefle rate limits, texture
   licensing, Qt3D-vs-PyVista for Phase 14 3D, installer signing/SmartScreen, PyInstaller
-  bundle size). The 2026-10 audit gave every §11.1/§11.2 row and every §11.3 row a status
+  bundle size). The 2026-10 audit gave the stale §11.1/§11.2 rows and every §11.3 row a status
   (§11.3 is now the living register, ADR-047): TD-001/TD-002 are closed; read the Status
   column before acting on a row.
 - **#199 residual exposure**: the installer fix is forward-protective only; a user

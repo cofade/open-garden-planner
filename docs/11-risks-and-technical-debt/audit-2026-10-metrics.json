@@ -1,7 +1,7 @@
 {
  "schema_version": 2,
  "meta": {
-  "generated_at": "2026-10-04T10:26:27+00:00",
+  "generated_at": "2026-10-04T10:38:57+00:00",
   "commit": "84ead2e",
   "tracked_files_modified": false,
   "python": "3.11.15",
@@ -12,15 +12,15 @@
    "radon": "6.0.1"
   },
   "load_average_start": [
-   0.15,
-   0.21,
-   0.46
+   1.11,
+   0.88,
+   0.65
   ],
   "disabled": [],
   "load_average_end": [
-   0.33,
-   0.25,
-   0.47
+   1.46,
+   0.99,
+   0.69
   ]
  },
  "loc": {
@@ -327,8 +327,7 @@
    "assignment": 67,
    "misc": 41
   },
-  "unused_type_ignores": 229,
-  "seconds": 0.4
+  "unused_type_ignores": 229
  },
  "lint": {
   "available": true,

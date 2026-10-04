@@ -1460,7 +1460,7 @@ zero and cannot say whether anything improved; a number that is only a dated mea
    snapshot quotes (`docs/11-risks-and-technical-debt/audit-YYYY-MM-metrics.json`). A
    later run against the same commit reproduces the static numbers exactly (LOC,
    complexity, mypy at the recorded tool version, ruff, layering, git) and coverage to
-   about 0.1 percentage point; a run against a newer commit is the trend. A tool that is
+   about 0.1 percentage point overall (up to 0.3 per package); a run against a newer commit is the trend. A tool that is
    missing or whose output cannot be parsed yields `available: false` with a reason, never
    a zero; a section disabled by flag is `null`. Every other number in a snapshot
    (benchmarks, mutation scores, PoCs) is labelled point-in-time with its harness named.
@@ -1481,7 +1481,8 @@ because each changes what a contributor must do to merge.
 file instead of re-measuring from zero; owners of open debt are the issues, not a
 sentence in prose. Negative: three places can drift when an issue closes (the register
 row, the issue and the epic checklist); the row carries the issue number so a grep finds
-it, and the register rows and the epic checklist are rendered from the same ledger.
+it, and the register rows and the epic checklist are rendered from the same audit ledger
+(the snapshot's §9.1).
 `scripts/audit_metrics.py` depends on optional tools and on a full git history for churn
 (a shallow checkout reports `available: false` there by design). The first audit added
 no CI gate beyond the script's own unit test, created no label and changed no code

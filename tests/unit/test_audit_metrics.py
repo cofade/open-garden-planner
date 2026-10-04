@@ -114,6 +114,19 @@ def test_coverage_layouts_bucket_identically(tmp_path: Path) -> None:
     assert relative["per_package"] == src_rooted["per_package"]
 
 
+def test_coverage_checkout_named_like_the_package(tmp_path: Path) -> None:
+    # A clone directory called open_garden_planner must not shift every file into "src".
+    for i, (source, prefix) in enumerate(
+        [
+            ("/home/u/open_garden_planner/src/open_garden_planner", ""),
+            ("/home/u/open_garden_planner", "src/open_garden_planner/"),
+        ]
+    ):
+        result = coverage_section(_coverage_xml(tmp_path / f"d{i}.xml", source, prefix))
+        assert result is not None and result["available"] is True
+        assert set(result["per_package"]) == {"core", "ui", "(root)"}
+
+
 def test_coverage_unknown_layout_fails_closed(tmp_path: Path) -> None:
     result = coverage_section(_coverage_xml(tmp_path / "c.xml", "/elsewhere", "other_pkg/"))
     assert result is not None and result["available"] is False
