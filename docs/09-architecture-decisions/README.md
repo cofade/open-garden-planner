@@ -519,6 +519,8 @@ Task generation separates `today` from the calendar `year`. An explicit `actiona
 
 An empty amendment list establishes only that the engine recommends nothing from the readings it can assess. Existing GUI lab-only ppm records remain unconverted and can yield unknown health with an empty plan; tool and prompt prose must not infer that measured values are near target.
 
+Absolute propagation steps use their overridden start-date year as their canonical owner year in the shared generator. Relative steps retain frost-anchor-year IDs. This makes one saved override one task across GUI and agent reads, including multi-year windows; deduplication by anchor-year ID alone cloned an override for every evaluated anchor. An agent-only deduplication rule was rejected because the two surfaces would then disagree on identity.
+
 **Addendum (US-D3.4 — secondary nutrients have no health rating).** `SoilService.health_level` rates `ph`, `n`, `p`, `k` and `overall` — its `ALL_PARAMS` is exactly those five. Passing `'ca'`, `'mg'` or `'s'` **falls through to its `overall` branch** and returns the whole bed's rating. So `SoilReading.health_level` is `str | None`, and `None` for a secondary means *"no rating exists for this nutrient"* — deliberately distinct from `'unknown'`, which means *not tested*. Reporting the overall rating as calcium's would be a confidently wrong answer, which is the D3.1 trap (`check_placement` reporting `unknown_bed` rather than a clean-looking `neutral`). `overall_health_level` likewise covers **pH and N/P/K only**; the secondaries do not drag it down.
 
 **Cross-refs:** §8.19, §8.3, ADR-036 (D3.3/D3.4 addenda), ADR-045, issues #332, #333, #237, §11.4.

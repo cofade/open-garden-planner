@@ -221,7 +221,11 @@ def generate_calendar_tasks(state: PlanState) -> list[Task]:
 
 
 def generate_propagation_tasks(state: PlanState) -> list[Task]:
-    """Pricking-out / hardening-off tasks from per-species propagation plans."""
+    """Pricking-out / hardening-off tasks from per-species propagation plans.
+
+    Absolute overridden steps belong to the year of their start date, independent
+    of the frost anchor being evaluated. Both GUI and period reads use this id.
+    """
     tasks: list[Task] = []
     for row in state.plant_rows:
         plan = state.prop_plans.get(row.species_key)
@@ -234,7 +238,10 @@ def generate_propagation_tasks(state: PlanState) -> list[Task]:
             if state.actionable_only and classify_urgency(step.start_date, step.end_date, state.today) is None:
                 continue
             tasks.append(Task(
-                task_id=make_calendar_task_id(row.species_key, step_id, state.year),
+                task_id=make_calendar_task_id(
+                    row.species_key, step_id,
+                    step.start_date.year if step.overridden else state.year,
+                ),
                 source="propagation",
                 task_type=step_id,
                 title=row.display_name,

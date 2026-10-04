@@ -1249,3 +1249,25 @@ Temporary prints were removed.
 
 **Lesson.** Generate from dates, not matching year labels. An empty result
 establishes only what the engine assessed, not what the caller hopes it means.
+
+
+### Case study: repeated absolute propagation overrides (2026-10-04)
+
+**Symptom.** An annual task read counted one overridden propagation step three
+times; a three-year read counted it five times.
+
+**Wrong theory.** Deduplicating by canonical task ID handled absolute dates.
+
+**Key evidence.** Temporary [D3-OVERRIDE] output showed five prick-out tasks
+on 2026-03-10 with IDs ending in 2024 through 2028. The integration regression
+failed before the fix.
+
+**Root cause.** The expanded anchor loop reapplied the same override, but the
+shared propagation generator assigned a different anchor-year ID to each copy.
+
+**Fix.** Assign overridden steps to their start-date year in the shared generator;
+relative steps retain anchor-year IDs. The regression checks one task, its ID,
+GUI convergence and annual month counts. Temporary instrumentation was removed.
+
+**Lesson.** Preserve the distinction between absolute and relative time through
+identity, not just range calculation. Deduplication cannot repair wrong identity.

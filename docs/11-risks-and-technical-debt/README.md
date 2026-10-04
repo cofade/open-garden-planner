@@ -668,6 +668,14 @@ written from the issue text instead.
   Neutral prompt/tool prose now states the engine's limited conclusion and
   names the unconverted lab readings. The real-client
   `test_lab_only_reading_is_not_presented_as_near_target` failed first.
+- **Absolute dates need an absolute identity.** Wider frost-anchor generation
+  reapplied a saved March 10 propagation override for every anchor, making three
+  tasks in an annual read and five in a three-year read. The dates agreed but
+  anchor-year IDs differed, so deduplication failed. The shared propagation
+  generator now assigns overridden steps to their start-date year; relative
+  steps retain anchor-year IDs. GUI and agent therefore agree.
+  `test_absolute_propagation_override_has_one_shared_identity` failed first and
+  checks identity, one result, GUI convergence and annual month counts.
 
 ## 11.5 Community and Governance
 

@@ -1695,6 +1695,9 @@ of overlapping the requested dates, deduplicating absolute tasks. The range is
 derived from species offsets and generated propagation steps: autumn garlic
 sowing precedes its anchor year, while asparagus harvest extends three years.
 Annual calendars use this same path; anchor-year task IDs remain stable.
+Absolute propagation overrides instead use their start-date year as the task's
+owner year in the shared generator. This preserves one identity across GUI and
+agent reads and prevents wider anchor ranges from multiplying one saved step.
 Propagation plans use the extracted `build_propagation_plans` calculator
 shared with the GUI, preserving seed-packet germination values and user overrides.
 Missing frost dates still prevent those plans from being computed.

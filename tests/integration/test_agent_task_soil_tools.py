@@ -326,6 +326,41 @@ class TestRealMcpTransport:
 
 
 class TestTaskReads:
+    def test_absolute_propagation_override_has_one_shared_identity(self, app: Any) -> None:
+        from open_garden_planner.services.task_generator import (
+            PlanState,
+            generate_propagation_tasks,
+        )
+
+        plant = RectangleItem(0, 0, 40, 40)
+        plant.object_type = ObjectType.PERENNIAL
+        plant.metadata["plant_species"] = {
+            "common_name": "Override fixture", "scientific_name": "Override fixture",
+            "indoor_sow_start": -6, "indoor_sow_end": -4,
+            "transplant_start": 2, "transplant_end": 3,
+        }
+        app.canvas_scene.addItem(plant)
+        app._project_manager.set_propagation_override(
+            "override fixture", "prick_out", "2026-03-10", "2026-03-10",
+        )
+        result = app._agent_get_tasks(
+            source="propagation", from_date="2025-01-01", to_date="2027-12-31", today=TODAY,
+        )
+        overridden = [t for t in result["tasks"] if t["task_type"] == "prick_out"]
+        assert len(overridden) == 1
+        assert overridden[0]["task_id"] == "override fixture:prick_out:2026"
+        rows, _, _, seeds = app.calendar_view._collect_data()
+        plans = app.calendar_view._build_propagation_plans(rows, datetime.date(2027, 4, 15), seeds)
+        gui_tasks = generate_propagation_tasks(PlanState(
+            today=datetime.date(2026, 3, 10), year=2027,
+            plant_rows=app._agent_build_task_state(datetime.date(2026, 3, 10)).plant_rows,
+            prop_plans=plans, actionable_only=False,
+        ))
+        assert next(t.task_id for t in gui_tasks if t.task_type == "prick_out") == overridden[0]["task_id"]
+        calendar = app._agent_get_task_calendar(year=2026, today=TODAY)
+        march = next(b for b in calendar["months"] if b["month"] == "2026-03")
+        assert march["by_source"]["propagation"] == 1
+
     def test_bundled_garlic_autumn_tasks_do_not_depend_on_window_end_year(self, app: Any) -> None:
         from open_garden_planner.services.bundled_species_db import get_species_entry
 
