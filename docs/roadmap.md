@@ -60,6 +60,7 @@ Every user-visible string must be wrapped for translation. See `docs/08-crosscut
 | Status | ID   | Description            | Notes                                                         |
 |--------|------|------------------------|---------------------------------------------------------------|
 | ✅     | DI-1 | SAST pipeline (Bandit) | HIGH-severity scan in CI; `bandit>=1.7.0` added as dev dep   |
+| 🔄     | DI-2 | Repository audit 2026-10 | Snapshot `docs/11-risks-and-technical-debt/audit-2026-10.md`; §11.3 rebuilt as the living register (ADR-047); epic #392 |
 
 ---
 

@@ -608,5 +608,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Agent writes are not canvas-clamped: an object can be created or moved entirely off-plan and becomes invisible"
+  },
+  "392": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Repository audit 2026-10 — hardening ledger (epic)"
   }
 }

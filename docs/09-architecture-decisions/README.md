@@ -1412,3 +1412,74 @@ fail against the unfixed brush assignment. Landscape cases alone would leave the
 `rotate()` sign unpinned — see alternative (b).
 
 **Cross-refs:** §11.4, issue #372, issue #114, ADR-046.
+
+## ADR-047: Audit snapshots plus a living debt register (2026-10 repository audit)
+
+**Status**: Accepted (2026-10-04). Introduced by the first whole-repository audit
+(`docs/11-risks-and-technical-debt/audit-2026-10.md`); changes how technical debt is
+recorded, not what the code does.
+
+**Context.** The project records lessons at the incident level with unusual discipline:
+§11.4 holds 139 pitfall entries, the failure archaeology 25 sagas, the ADR file 46
+decisions with 41 addenda. The *registers* above that level had stopped working. The
+debt register §11.3 received its last row on 2026-04-17 while 61 later commits touched
+the file; it has a priority column but no status and no link to an issue. §11.1/§11.2
+carry rows resolved months ago (Qt3D vs a dedicated engine is "open" although ADR-038
+settled it; the SQLite plant cache is still open and nothing says so). §10.6 promises
+"mypy type check" and a "coverage report" on every push; CI runs neither, and the first
+measurement found 2 104 strict-mode errors in 134 of 248 files and 80.2 % non-UI line
+coverage (66.4 % branch) against the written 80 % target. A register that nobody can
+read for status is institutional memory only on paper (§11.4 says so itself: it "is
+only institutional memory if it is read").
+
+The audit also produced numbers that are worthless as prose and valuable as a time
+series: complexity rank distribution (59 of 4 042 functions at rank D or worse), module-level
+layering violations (6), lint debt outside `src/` (235 findings), formatter drift (427
+files), mutation scores for the Qt-free core modules, the slowest tests, the share of
+version-sync commits (122 of 407). Every published number needs a re-runnable procedure
+checked into the repository (external-positioning rule), or the next audit starts from
+zero and cannot say whether anything improved.
+
+**Decision.**
+
+1. **§11.3 is the single living register.** Columns: `ID | Area | Description |
+   Severity/Effort | Status | Issue | Source`. Every Top-N finding of an audit snapshot
+   gets a row (`TD-009` onward); P0/P1 rows carry their GitHub issue, P2/P3 rows point to
+   the audit epic's checklist, and the long tail stays in the snapshot's appendix. A row's
+   `Status` is maintained when its issue closes (`open → fixed (#PR)` or `accepted
+   (ADR-0xx)`). Historical rows TD-001…TD-008 keep their ids and receive a status. Rows
+   are never deleted; a resolved row says so.
+2. **Audit reports are dated snapshots** beside the register
+   (`docs/11-risks-and-technical-debt/audit-YYYY-MM.md`), written in the house style
+   (symptom, measurement, recommendation; numbers over adjectives), with a Top-N ledger
+   that cites the register ids and the issues. The snapshot is not edited after merge;
+   corrections go to the register and the next snapshot.
+3. **One re-runnable baseline.** `scripts/audit_metrics.py` emits the metrics JSON the
+   snapshot quotes (`docs/11-risks-and-technical-debt/audit-YYYY-MM-metrics.json`);
+   a later run against the same commit must reproduce the committed numbers, and a run
+   against a newer commit is the trend. Optional tools (radon, mypy, ruff) degrade to
+   `null` sections with a reason, so the script runs in CI, the dev venv and the cloud.
+4. **Deliberate decisions are listed, not ranked.** A finding that contradicts an ADR or
+   a documented rule is recorded in the snapshot's "challenged decisions" section with the
+   ADR cited and the measurement that motivates the challenge; it enters the register
+   only when the owner reopens the decision.
+
+**Rationale.** The alternative, filing issues only, loses the cross-section view (which
+dimension is red, what the trend is) and repeats the drift that emptied §11.3. The
+alternative of a separate `docs/audit/` tree adds a 13th top-level folder beside the 12
+arc42 chapters and detaches the snapshot from the chapter that owns risks and debt.
+Ratchets in CI (mypy count must not grow, no new rank-F functions, a coverage floor) are
+*proposed* in the snapshot and tracked as issues; adopting them is a separate decision
+because each changes what a contributor must do to merge.
+
+**Consequences.** Positive: status is readable in one table; the next audit diffs a JSON
+file instead of re-measuring from zero; owners of open debt are the issues, not a
+sentence in prose. Negative: two places to update when an issue closes (the register row
+and the issue); mitigated by the row carrying the issue number so a grep finds it.
+`scripts/audit_metrics.py` depends on optional tools and on a full git history for churn
+(CI's shallow checkout reports `null` there by design).
+
+**Addendum (what the first audit did not do).** No CI gate was added, no label was
+created, no code outside `scripts/audit_metrics.py` and its unit test was changed; the
+Windows-only checks (frozen exe, `--selftest`, frame pacing at a real window) were handed
+to the owner's local run (see the snapshot's handover section).

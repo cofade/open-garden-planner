@@ -1,43 +1,72 @@
 # 11. Risks and Technical Debt
 
+Dated audit snapshots: [audit-2026-10.md](audit-2026-10.md) (numbers: `audit-2026-10-metrics.json`, re-run with `scripts/audit_metrics.py`; findings tracked in epic #392). §11.3 is the living register (ADR-047).
+
 ## 11.1 Open Questions
 
 | Question | Impact | Resolution Path |
 |----------|--------|-----------------|
-| Trefle.io rate limits and reliability? | Plant search UX | Test API, implement robust caching, Permapeople as fallback, bundled DB as last resort |
-| Texture licensing for fill patterns? | Legal | Use AI-generated or CC0/public domain textures, document sources |
-| DXF export complexity for future versions? | Interoperability | Evaluate ezdxf library, may need simplification |
+| Trefle.io rate limits and reliability? | Plant search UX | Test API, implement robust caching, Permapeople as fallback, bundled DB as last resort. **Status 2026-10:** open; the SQLite cache (TD-003) and the bundled-DB fallback (`services/plant_api/manager.py` TODO) are not implemented. |
+| ~~Texture licensing for fill patterns?~~ **RESOLVED (ADR-042, 2026-08-18)** | Legal | All 24 fill textures are generated in-repo with provenance (§8.24). |
+| ~~DXF export complexity for future versions?~~ **RESOLVED (US-12.3/12.4)** | Interoperability | DXF export and import shipped on ezdxf; remaining limits are recorded in ADR-032 and §8.18. |
 | ~~Qt6 3D capabilities vs dedicated engine?~~ **RESOLVED (US-E5, ADR-038, 2026-07-20)**: PyQt6-3D chosen — version-matched 6.11.0 wheel, frozen-exe gate passed (+13 MB), built-in orbit + first-person cameras; PyVista rejected on size (+466 MB), pyqtgraph.opengl on feature fit. Pin `PyQt6-3D-Qt6` to `PyQt6-Qt6`'s micro or imports fail | 3D feature (Phase 14) | Done — see ADR-038 evidence log |
-| Bundled plant database source? | Offline functionality | Evaluate USDA Plants Database, consider one-time Trefle.io bulk export |
-| AI-generated SVG quality consistency? | Visual appeal | Test with multiple prompts, establish style guide, manual cleanup if needed |
-| NSIS installer signing? | Trust/distribution | Unsigned initially, document for users. **Partially addressed (ADR-044, 2026-09-15):** build provenance attestation (`gh attestation verify`) proves the binary traces back to a public CI run of the public source — free, no cert needed. Still open: a paid Authenticode cert, which is what actually removes the SmartScreen/Defender/Norton reputation warning itself, remains unfunded. Reputation detections now observed from a second vendor: Norton 360 `FileRepMalware[Misc]` on the 1.27.9 installer (issue #358, 2026-09-22), same zero-reputation FP class as Defender in #356. |
+| Bundled plant database source? | Offline functionality | Evaluate USDA Plants Database, consider one-time Trefle.io bulk export. **Partially resolved (ADR-014):** 118 bundled species ship with licence metadata (#311); a bulk-export source remains open. |
+| ~~AI-generated SVG quality consistency?~~ **RESOLVED (ADR-040, ADR-042)** | Visual appeal | Procedural generators replaced AI-generated SVGs. |
+| NSIS installer signing? | Trust/distribution | Unsigned initially, document for users. **Partially addressed (ADR-044, 2026-09-15):** build provenance attestation (`gh attestation verify`) proves the binary traces back to a public CI run of the public source — free, no cert needed. Still open: a paid Authenticode cert, which is what actually removes the SmartScreen/Defender/Norton reputation warning itself, remains unfunded. Reputation detections now observed from a second vendor: Norton 360 `FileRepMalware[Misc]` on the 1.27.9 installer (issue #358, 2026-09-22), same zero-reputation FP class as Defender in #356. Authenticode is tracked in #375. |
 
 ## 11.2 Risks
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
 | PyQt6 licensing complexity (GPL/Commercial) | Medium | High | Use GPLv3, document clearly, ensure compliance |
-| Performance with very large images | Medium | Medium | Implement image tiling/downsampling at zoom levels |
-| Scope creep delaying v1.0 | High | High | Strict phase adherence, defer nice-to-haves to Phase 7 |
+| Performance with very large images | Medium | Medium | Implement image tiling/downsampling at zoom levels. **Status 2026-10:** unmeasured; the audit's offscreen harness covers a 500-object plan, not large images (audit-2026-10 §5.7). |
+| ~~Scope creep delaying v1.0~~ **Closed** | High | High | v1.0.0 shipped 2026-02-14; 159 releases since. |
 | Limited development time | High | Medium | Focus on quality over speed, attract contributors |
-| Project not attracting contributors | Medium | High | Excellent documentation, clean code, contributor guide, CI/CD |
-| External API deprecation | Low | Medium | Fallback chain: Trefle -> Permapeople -> Bundled DB |
-| AI-generated SVGs inconsistent quality | Medium | Medium | Establish style reference set, manual review/cleanup |
+| Project not attracting contributors | Medium | High | Excellent documentation, clean code, contributor guide, CI/CD. **Status 2026-10:** no CONTRIBUTING.md exists; the contribution rules live in CLAUDE.md/AGENTS.md and are written for agents (audit-2026-10 §5.10). |
+| External API deprecation | Low | Medium | Fallback chain: Trefle -> Permapeople -> Bundled DB. **Status 2026-10:** the bundled-DB step of the chain is not implemented (TD-003). |
+| ~~AI-generated SVGs inconsistent quality~~ **Closed (ADR-040, ADR-042)** | Medium | Medium | Sprites and textures are generated, not drawn. |
 | Windows installer blocked by SmartScreen | Medium | Low | Document workaround, investigate signing options. Build provenance attestation shipped (ADR-044) as a verifiable trust signal alongside the checksum; does not itself suppress SmartScreen/Defender (issue #356) or Norton `FileRepMalware[Misc]` (issue #358 — second AV vendor, same unsigned zero-reputation profile) — that needs paid signing, still unfunded. FP path per vendor: Microsoft file-submission forms (#356), Norton portal `submissions.norton.com/reportfalsepositive` (#358; both portals are CAPTCHA-protected, so submissions are manual, not automatable by the maintainer). |
 | Large bundle size from PyInstaller | Medium | Low | Optimize includes, strip unused Qt modules |
 
 ## 11.3 Technical Debt
 
-| Item | Area | Description | Priority |
-|------|------|-------------|----------|
-| TD-001 | Plant rendering | Plants currently rendered as flat colored circles | High (Phase 6 addresses) |
-| TD-002 | Textures | Procedural patterns are too subtle, barely visible | High (Phase 6 addresses) |
-| TD-003 | Plant cache | SQLite cache for plant API data not yet implemented | Medium |
-| TD-004 | Object model | Some object types share code that could be better abstracted | Low |
-| TD-005 | Test coverage | Some UI components lack automated tests | Medium |
-| TD-006 | Error messages | Some error messages are technical, not user-friendly | Low |
-| TD-007 | Constraint anchors | Polygon/polyline edge anchors use dynamic `EDGE_TOP/BOTTOM/LEFT/RIGHT` classification (dominant axis). Classification changes when a vertex moves far enough to flip an edge's axis, causing constraint indicators to jump to the wrong edge. Replace with `AnchorType.EDGE_MIDPOINT` + stable numeric `anchor_index` so the edge identity is axis-independent. Workaround in place (index-only match in `_resolve_anchor_position`). | Medium |
-| TD-008 | Constraint solver | Newton-Raphson refinement uses a numerical central-difference Jacobian (`constraint_solver_newton._JACOBIAN_H`). An analytic Jacobian per constraint type would be faster (roughly 2N × eval savings per iteration), but numerical cost is microseconds for typical ≤20-variable systems so no user-facing impact. Revisit only if large-scene solves become a bottleneck. | Low |
+The living register (ADR-047). Every row has a status; P0/P1 rows link their issue, P2/P3 rows point to the audit epic's checklist (#392). Rows come from the dated audit snapshots ([audit-2026-10.md](audit-2026-10.md), Top-25 = TD-009…TD-033; the long tail stays in the snapshot's appendix). Re-measure with `scripts/audit_metrics.py`. Never delete a row; a resolved row says `fixed (#PR)` or `accepted (ADR-0xx)`.
+
+| ID | Area | Description | Severity / Effort | Status | Issue | Source |
+|----|------|-------------|-------------------|--------|-------|--------|
+| TD-001 | Plant rendering | Plants currently rendered as flat colored circles | — | closed (Phase 6, ADR-040 sprites) | — | 2026-04 |
+| TD-002 | Textures | Procedural patterns are too subtle, barely visible | — | closed (ADR-042 texture forge) | — | 2026-04 |
+| TD-003 | Plant cache | SQLite cache for plant API data not yet implemented | P2 / M | open (0 `sqlite` hits in `src/`, 2026-10-03) | — | 2026-04 |
+| TD-004 | Object model | Some object types share code that could be better abstracted | P2 / M | superseded by the measured duplication row AUD-011 (five `contextMenuEvent` copies, epic #392) | epic checklist | 2026-04 |
+| TD-005 | Test coverage | Some UI components lack automated tests | P2 / L | superseded by measurement: `ui` 68.5 % lines / 46.9 % branches (audit-2026-10 §5.3); see TD-013, TD-024 | — | 2026-04 |
+| TD-006 | Error messages | Some error messages are technical, not user-friendly | P3 / M | open, unmeasured | — | 2026-04 |
+| TD-007 | Constraint anchors | Polygon/polyline edge anchors use dynamic `EDGE_TOP/BOTTOM/LEFT/RIGHT` classification (dominant axis). Classification changes when a vertex moves far enough to flip an edge's axis, causing constraint indicators to jump to the wrong edge. Replace with `AnchorType.EDGE_MIDPOINT` + stable numeric `anchor_index` so the edge identity is axis-independent. Workaround in place (index-only match in `_resolve_anchor_position`). | P2 / M | open; workaround in place | — | 2026-04 |
+| TD-008 | Constraint solver | Newton-Raphson refinement uses a numerical central-difference Jacobian (`constraint_solver_newton._JACOBIAN_H`). An analytic Jacobian per constraint type would be faster (roughly 2N × eval savings per iteration), but numerical cost is microseconds for typical ≤20-variable systems so no user-facing impact. Revisit only if large-scene solves become a bottleneck. | P3 / L | accepted (ADR-012) | — | 2026-04 |
+| TD-009 | Gates/CI (code) | 5 duplicate context keys in fill_translations.py silently drop 62 translations; 5 German PDF strings never reach de.ts | P0 / S | open | #393 | audit-2026-10 AUD-029 |
+| TD-010 | Architecture (code) | Free-text annotations (TextItem) are silently dropped from the .ogp on save — data loss | P0 / M | open | #394 | audit-2026-10 AUD-001 |
+| TD-011 | Security (data) | Loader silently drops items it cannot decode: a legacy plan whose background image moved loses it on load and permanently on the next save; duplicate item_ids accepted | P1 / S | open | #397 | audit-2026-10 AUD-043 |
+| TD-012 | Security (security) | Loopback MCP endpoint's only browser barrier is an mcp SDK default the floor pin does not require (PoC: 1.22.0 serves Host: evil.example) | P1 / S | open | #396 | audit-2026-10 AUD-039 |
+| TD-013 | Hotspots (test) | Four user-reachable array features in CanvasView (CC 21-31) are 1.2-1.3% covered and have no tests | P1 / S | open | #395 | audit-2026-10 AUD-010 |
+| TD-014 | Docs (documentation) | Six documents declare CI gates and limits that ci.yml never runs (mypy, coverage, formatter, xvfb, 110 cols) — grouped docs drift | P1 / S | open | #401 | audit-2026-10 AUD-062 |
+| TD-015 | Docs (documentation) | Agent skills state CI and security facts the code contradicts: 'three CI jobs', 'only lint/test/security', 'no token auth', 'ADR-001…034' | P1 / S | open | #398 | audit-2026-10 AUD-064 |
+| TD-016 | Process (process) | 'Never merge on red' is prose-only: required status checks are off on master, merges use --admin, PR #323 merged on a red Test | P1 / S | open | #399 | audit-2026-10 AUD-085 |
+| TD-017 | Security (data) | A .ogp that fails mid-load leaves a partial scene with the PREVIOUS file as current_file; Ctrl+S then overwrites the user's good plan | P1 / M | open | #403 | audit-2026-10 AUD-040 |
+| TD-018 | Architecture (code) | Clipboard serializer drops 4 persisted fields and 7 item types the file serializer handles — copy/paste silently loses data | P1 / M | open | #400 | audit-2026-10 AUD-002 |
+| TD-019 | Tests (test) | Serializer round-trip tests under-assert: 1 093 serializer mutants survive the 3 project unit files; 8 of 10 sampled also survive 19 persistence test files | P1 / M | open | #394 | audit-2026-10 AUD-017 |
+| TD-020 | Gates/CI (process) | mypy strict is declared a CI gate in four documents but never runs; 2 104 errors in 134 files | P1 / M | open | #401 | audit-2026-10 AUD-030 |
+| TD-021 | Gates/CI (test) | Coverage report and >80 % floor are declared (NFR-MAINT-02, §10.6, §8.6) but never measured anywhere | P1 / M | open | #402 | audit-2026-10 AUD-031 |
+| TD-022 | Dependencies (dependency) | Release build has no lockfile: 4 of 42 shipped runtime dists exact-pinned; v1.29.0 shipped 9 runtime dists at versions published after the v1.27.9 build | P1 / M | open | #404 | audit-2026-10 AUD-048 |
+| TD-023 | Docs (documentation) | §8.7 promises 'all errors logged' but the logging module has no handler anywhere: 55 handled-error log calls are discarded in the windowed exe | P1 / M | open | #405 | audit-2026-10 AUD-063 |
+| TD-024 | Tests (test) | constraint_tool.py is 29.0 % line / 9.6 % branch covered: 1 661 of 2 340 statements never run, 50 public methods never executed (25 non-trivial) | P1 / L | open | #406 | audit-2026-10 AUD-016 |
+| TD-025 | Security (data) | NaN/Infinity accepted at the .ogp boundary: NaN canvas breaks render_canvas_image, non-finite values are re-saved as invalid JSON | P2 / S | open | epic checklist | audit-2026-10 AUD-041 |
+| TD-026 | Architecture (design) | core/tools/constraint_tool.py:34 imports ui.canvas.items at module level — the one violation of invariant 11 | P2 / S | open | epic checklist | audit-2026-10 AUD-003 |
+| TD-027 | Architecture (process) | No layering fitness function in CI; a naive import-linter contract reads 0 kept / 2 broken and cannot see the function-local allowance | P2 / S | open | epic checklist | audit-2026-10 AUD-005 |
+| TD-028 | Architecture (design) | models/ is not the pure-data leaf the module map declares: 2 upward imports; 5 package cycles at module level (9 counting function-local edges) | P2 / S | open | epic checklist | audit-2026-10 AUD-008 |
+| TD-029 | Tests (documentation) | §8.10 lists 4 integration files (skill: ~70) vs 114 actual; the tests/ui layer is not distinct in practice | P2 / S | open | epic checklist | audit-2026-10 AUD-018 |
+| TD-030 | Tests (performance) | Theme-switch tests cost 282.6 s in the battery vs 12.4 s alone: closed widgets are never deleted, so every apply_theme re-polishes a growing population | P2 / S | open | epic checklist | audit-2026-10 AUD-019 |
+| TD-031 | Tests (test) | Solar math is executed but under-asserted: no test timestamp has nonzero minutes or seconds, so a 44.7-degree elevation mutant survives | P2 / S | open | epic checklist | audit-2026-10 AUD-021 |
+| TD-032 | Tests (test) | companion_sets: the P1-4 candidate cap, the P2-12 dedup merge and the antagonist rejection are never executed by any test | P2 / S | open | epic checklist | audit-2026-10 AUD-022 |
+| TD-033 | Tests (test) | Small Qt-free modules score 80-88 %; the surviving gaps are the canvas edge, stacking expand/arrange and shape-type branches | P2 / S | open | epic checklist | audit-2026-10 AUD-025 |
 
 ## 11.4 Known Development Pitfalls
 
@@ -531,5 +560,5 @@ fourth was not a code defect at all.
 **Contribution Model**:
 - GitHub Issues for bug reports and feature requests
 - Pull requests welcome with review process
-- Clear CONTRIBUTING.md with code style, testing requirements
-- All PRs must pass CI (tests, linting, type checking)
+- CONTRIBUTING.md with code style and testing requirements (planned; today the rules live in CLAUDE.md/AGENTS.md — audit-2026-10 §5.10)
+- All PRs must pass CI (tests, ruff, Bandit, secrets scan, agent-context parity); type checking is configured but not yet enforced (#401)
