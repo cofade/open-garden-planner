@@ -28,6 +28,10 @@
 | `windows-v10-frozen.json` | same | a275da2 | All 39 checks of the time green, but the second-window frame read 9.72: the white ground no check covered yet (ADR-047 entry 4); leak gate 3.8 MB/reload |
 | `windows-v10-frozen-warm.json` | same | a275da2 | Warm relaunch (three caches found) |
 | `windows-v10-frozen-leakctl.json` | same | a275da2 | Positive control: 25 MB held per reload read 29.5 MB/reload and failed the gate. dist delta +1.8 MB, the same six files as v9 (no separate footprint file) |
+| `windows-v11-unfrozen.json` | [37213201005](https://github.com/cofade/open-garden-planner/actions/runs/37213201005) | 479d78c | `--cold` |
+| `windows-v11-frozen.json` | same | 479d78c | All 41 checks, including the two frame checks added in senior pass 4: probe restore 0.0 and second window 0.0 on D3D11 (v10: 9.72); leak gate 4.0 MB/reload |
+| `windows-v11-frozen-warm.json` | same | 479d78c | Warm relaunch (three caches found) |
+| `windows-v11-frozen-leakctl.json` | same | 479d78c | Positive control: 25 MB held per reload read 28.7 MB/reload and failed the gate. dist delta +1.8 MB (no separate footprint file) |
 | `container-6f0c4f4.json` | — | 6f0c4f4 | Cloud container, Mesa llvmpipe (OpenGL), 1280×720, all shots. Ran next to two reviewer renders: correctness numbers valid, timings inflated |
 
 Same code on different runner instances differs by up to 2× in timings; compare ranges, not single values.
