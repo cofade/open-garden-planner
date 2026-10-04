@@ -73,8 +73,13 @@ def rss_mb() -> float | None:
         counters = _Counters()
         counters.cb = ctypes.sizeof(_Counters)
         windll = ctypes.windll  # type: ignore[attr-defined]
-        ok = windll.psapi.GetProcessMemoryInfo(windll.kernel32.GetCurrentProcess(),
-                                               ctypes.byref(counters), counters.cb)
+        # Declared types matter on 64-bit: the default int restype truncates the
+        # pseudo-handle and the call fails (Windows evidence run v3 read None).
+        windll.kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+        query = windll.psapi.GetProcessMemoryInfo
+        query.argtypes = [wintypes.HANDLE, ctypes.POINTER(_Counters), wintypes.DWORD]
+        query.restype = wintypes.BOOL
+        ok = query(windll.kernel32.GetCurrentProcess(), ctypes.byref(counters), counters.cb)
         return round(counters.WorkingSetSize / 2**20, 1) if ok else None
     return None
 
@@ -152,8 +157,24 @@ def pick_probe(renderer: Any, width: float, height: float, n: int = 20) -> dict:
             err = round(float(np.hypot(hit["x"] - target[0], -hit["z"] - target[1])), 2)
         rows.append({"target": item_id, "hit": got, "ok": got == item_id, "xy_err_cm": err})
     hits = sum(r["ok"] for r in rows)
-    return {"n": len(rows), "hits": hits, "pick_ms": _stats(times),
-            "misses": [r for r in rows if not r["ok"]], "camera": "orthographic top-down"}
+    # The same picks after every model was removed and re-added: pins the
+    # re-attach rule in SpikeRenderer.set_models (0/20 without it).
+    models = renderer.models
+    renderer.set_models([])
+    renderer.wait_frames(2, label="pick_detach")
+    renderer.set_models(models)
+    renderer.wait_frames(3, label="pick_reattach")
+    again = 0
+    for row in rows:
+        target = _top_target(tris[row["target"]])
+        z = cpu_topmost_hit(tris, *target)[1] if target else 0.0
+        if target is None:
+            continue
+        hit = renderer.pick(*renderer.project(target[0], target[1], z))
+        again += bool(hit.get("hit")) and hit.get("id") == row["target"]
+    return {"n": len(rows), "hits": hits, "hits_after_reattach": again,
+            "pick_ms": _stats(times), "misses": [r for r in rows if not r["ok"]],
+            "camera": "orthographic top-down"}
 
 
 # ── criterion 6: 100k-vertex update ─────────────────────────────────────

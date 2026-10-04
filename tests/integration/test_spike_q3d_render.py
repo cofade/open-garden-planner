@@ -83,7 +83,7 @@ def measured(tmp_path_factory: pytest.TempPathFactory) -> tuple[dict, int]:
         [sys.executable, "-m", "open_garden_planner", "--spike-q3d",
          "--plan", str(REPO / "tests" / "fixtures" / "plans" / "bench_small.ogp"),
          "--out", str(out), "--presets", "low", "--shots", "golden_hour",
-         "--size", "640x360", "--fps-seconds", "0", "--watchdog-s", "840",
+         "--size", "640x360", "--fps-seconds", "0", "--watchdog-s", "840", "--iou",
          "--pick", "--update-bench", "--warm", "--coexist", "--pan-bench", "--soak", "5"],
         env=env, capture_output=True, text=True, timeout=900, cwd=REPO,
     )
@@ -102,9 +102,16 @@ def test_measurement_run_finishes_clean_while_animating(measured: tuple[dict, in
 
 
 def test_every_pick_names_the_item_the_cpu_oracle_expects(measured: tuple[dict, int]) -> None:
+    """Runs after --iou, which swaps the scene's models out and back in.
+
+    Without the re-upload in SpikeRenderer.set_models, models that return
+    after removal render nothing and pick nothing (0/20, first seen in the
+    Windows evidence run v3 and reproduced on OpenGL).
+    """
     pick = measured[0]["pick"]
     assert pick["n"] == 20, pick
     assert pick["hits"] == 20, pick["misses"]
+    assert pick["hits_after_reattach"] == 20, pick
 
 
 def test_webengine_and_quick3d_both_draw_in_one_process(measured: tuple[dict, int]) -> None:

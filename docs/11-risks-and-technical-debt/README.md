@@ -8,6 +8,7 @@
 | Texture licensing for fill patterns? | Legal | Use AI-generated or CC0/public domain textures, document sources |
 | DXF export complexity for future versions? | Interoperability | Evaluate ezdxf library, may need simplification |
 | ~~Qt6 3D capabilities vs dedicated engine?~~ **RESOLVED (US-E5, ADR-038, 2026-07-20)**: PyQt6-3D chosen — version-matched 6.11.0 wheel, frozen-exe gate passed (+13 MB), built-in orbit + first-person cameras; PyVista rejected on size (+466 MB), pyqtgraph.opengl on feature fit. Pin `PyQt6-3D-Qt6` to `PyQt6-Qt6`'s micro or imports fail | 3D feature (Phase 14) | Done — see ADR-038 evidence log |
+| Qt 3D is deprecated since Qt 6.8 — which renderer carries Phase 17's "Living Garden 3D"? | 3D look, shadows, upgrade path past the #277 pin pair | **Open — ADR-047 (Proposed)**: Qt Quick 3D GO/NO-GO spike (Package L0) against twelve pre-committed criteria; the evidence log is in the ADR |
 | Bundled plant database source? | Offline functionality | Evaluate USDA Plants Database, consider one-time Trefle.io bulk export |
 | AI-generated SVG quality consistency? | Visual appeal | Test with multiple prompts, establish style guide, manual cleanup if needed |
 | NSIS installer signing? | Trust/distribution | Unsigned initially, document for users. **Partially addressed (ADR-044, 2026-09-15):** build provenance attestation (`gh attestation verify`) proves the binary traces back to a public CI run of the public source — free, no cert needed. Still open: a paid Authenticode cert, which is what actually removes the SmartScreen/Defender/Norton reputation warning itself, remains unfunded. Reputation detections now observed from a second vendor: Norton 360 `FileRepMalware[Misc]` on the 1.27.9 installer (issue #358, 2026-09-22), same zero-reputation FP class as Defender in #356. |
@@ -523,6 +524,75 @@ The shared lesson: **a green suite is evidence only about the paths it
 exercises.** Three of the four were unreachable by any existing test *by
 construction* (empty canvas, single-threaded stop, input-only assertion), and the
 fourth was not a code defect at all.
+
+### 11.4.3 The Qt Quick 3D spike: engine traps, and a "hang" that was a stopwatch problem (ADR-047, Phase 17 L0)
+
+Each of these cost a round trip during the L0 spike. The engine facts are kept
+current in the `ogp-3d-renderer` skill; this entry records why they bite.
+
+**1. A headless 3D test needs a real RHI context.** The `offscreen` QPA plugin
+selects the *software* scene graph, which renders no 3D at all — the frame is
+empty, not wrong. Linux render tests run under `xvfb-run` with
+`QT_QPA_PLATFORM=xcb` and `QSG_RHI_BACKEND=opengl` (Mesa llvmpipe), which needs
+`libegl1` and `libxcb-cursor0`. Calling `QQuick3D.idealSurfaceFormat()` before the
+`QGuiApplication` exists segfaults.
+
+**2. Conventions that read as art bugs.** A `DirectionalLight` has no `lookAt`
+(cameras do) and shines down its local −Z, so an un-oriented sun leaves only sky
+light: the first renders were uniformly pale blue. Models use `castsShadows`,
+lights `castsShadow`. `ProceduralSkyTextureData` puts its sun at compass bearing
+`sunLongitude − 90°`, and the scene environment pre-filters its light probe
+**once per Texture object** — updating the texture's properties moved nothing, so
+the sky's sun stayed in the north until each sun change built a fresh Texture.
+Both are pinned by the spike's sky probe (error ±0.3°).
+
+**3. The `QQuickWidget` host was broken in two ways no screenshot showed.** It has
+no `frameSwapped` (frames are counted on its offscreen window's
+`afterRendering`), and `QQuickWidget.update()` only re-composites the last texture,
+so a "wait for a new frame" loop waited forever. Its window's `isExposed()` is
+always False. And the first split-pan measurement said the 3D widget made 2D
+panning **70× faster** (0.08 ms vs 5.45 ms): a synchronous `repaint()` never
+reaches the flush, which is exactly where a `QQuickWidget` makes the whole window
+pay for RHI composition. Measured with event processing, the cost is ×1.42 on
+llvmpipe. *A benchmark result that is better than the no-op baseline is a broken
+benchmark.*
+
+**4. A QML function's returned object is a `QJSValue`, not a dict** — call
+`.toVariant()`. The picking helper had never been exercised and failed on its
+first use.
+
+**5. The 56-minute "hang" that was a stopwatch problem.** Windows evidence run
+v1 built the frozen exe, passed `--selftest`, then ran the spike for 56 minutes
+until the job limit killed it — with no output. Three things made it
+uninvestigable: a GUI-subsystem exe has no stdout (`print` is a no-op, the #291
+precedent); `Start-Process -Wait` has no timeout; and the artifact host is not
+reachable from where the log was read. After the spike learned to write its own
+timestamped log, per-phase metrics and a `faulthandler` watchdog, run v2 showed
+frames arriving about once a second under Direct3D 11 on WARP — and **one
+`grabWindow()` of the sky-lit scene taking ~100 s**. v1 had simply asked for
+many of those. *Tooling that must run headless writes its own evidence; without
+timestamps, "slow" and "hung" are indistinguishable.*
+
+**6. A geometry does not survive its Model, and an array repeater kills every Model.**
+The Windows run's picks came back 0/20 while the container's were 20/20 — not a
+platform difference: the Windows command ran the IoU and orientation probes first,
+and both swap the scene's models out and back. Once the Model using a
+`QQuick3DGeometry` is destroyed, handing the same geometry to a new Model renders
+nothing and picks nothing (the frame equals an empty scene's); `update()` does
+not restore it, a full re-upload does. And a `Repeater3D` over a JS array
+recreates **every** delegate on any change, so a model present before and after
+the change came back blank too. The first fix re-uploaded only removed models and
+measured 19/20 — the miss was the model that had never left. *A probe that
+mutates shared state must restore it through the same path the product uses, and
+the measurement that follows it must run in the same order in CI as on the dev
+box.*
+
+**7. A gate on `*.yml` sees temporary workflows too.** The evidence workflow
+copied the frozen-exe `Start-Process` gate shape and turned CI red through
+`tests/unit/test_gate_commands.py` (Rule 1: the command has one home,
+`ogp-change-control` §2.8). The fix was not a second copy of the gate: the
+evidence run goes through a driver script with a hard timeout and does not
+repeat `--selftest`.
 
 ## 11.5 Community and Governance
 

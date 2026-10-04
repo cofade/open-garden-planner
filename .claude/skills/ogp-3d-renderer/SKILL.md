@@ -27,7 +27,9 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
 |---|---|---|
 | Custom geometry | `QQuick3DGeometry` subclass, `setVertexData`/`setIndexData` | — |
 | Textures from Python | `QQuick3DTextureData`, `Format.RGBA8` | — |
-| Instancing | not bound → merge meshes (static batching), share geometry objects | — |
+| Instancing | not bound → merge meshes (static batching) | — |
+| Geometry lifetime | one `QQuick3DGeometry` per Model lifetime | once its Model is destroyed, the same geometry given to a new Model **renders and picks nothing** (frame = empty scene, 0/20 picks); `update()` does not help, a full re-upload (`set_mesh`) does |
+| `Repeater3D` over a JS array | fine for a fixed set | **any** change of the array destroys and recreates **every** delegate — combined with the row above, every model came back blank; use per-item creation or a list model with incremental inserts |
 | Pick result | `View3D.pick()` inside a QML helper that returns a plain JS object | the return value arrives as **`QJSValue`**: call `.toVariant()` before `dict()` |
 | Surface format | — | `QQuick3D.idealSurfaceFormat()` **before** `QGuiApplication` exists **segfaults** (Linux) |
 
@@ -89,7 +91,8 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
 
 - **A `QQuickWidget` in a window moves the whole top-level window onto RHI composition.**
   2D canvas pan step, median: 5.5 ms without → 7.9 ms with a 3D widget beside it (**×1.42**,
-  llvmpipe, `--pan-bench`; GO criterion 3 asks ≤ ×1.3 on owner hardware). A synchronous
+  llvmpipe) and 2.8 → 15.9 ms (**×5.7**, Windows WARP, frozen) — `--pan-bench`; GO criterion 3
+  asks ≤ ×1.3 on owner hardware. A synchronous
   `repaint()` does **not** include the flush/composition (it measured 0.08 ms "with 3D") —
   measure pan cost with `processEvents()`.
 - **Pipeline caches are per window:** a second renderer in the same process took as long to its
@@ -108,10 +111,12 @@ triangle under a vertical ray over every pickable mesh): **20/20**, 0.15 ms per 
   Use `xvfb-run` + `QT_QPA_PLATFORM=xcb` + `QSG_RHI_BACKEND=opengl` (+ `LIBGL_ALWAYS_SOFTWARE=1`
   in a container). Packages: `libegl1` (the QtQuick3D binding links libEGL), `libxcb-cursor0`
   (xcb plugin). As root, Qt WebEngine needs `QTWEBENGINE_DISABLE_SANDBOX=1`.
-- **Windows runner** (windows-latest, no GPU): `Direct3D11Rhi` on WARP; first frame 4.2 s, QML
-  load 2.3 s, low preset 14.2 fps at 960×540. **One `grabWindow()` of the sky-lit scene took
-  ~100 s** while frames before it took ~1 s each — never grab in a loop on software
-  rasterisers. This, times six shots, was evidence run v1's 56-minute "hang".
+- **Windows runner** (windows-latest, no GPU): `Direct3D11Rhi` on WARP. Frozen exe: QML load
+  1.0 s, first frame 2.0 s, 960×540 low 14.2 fps / high 4.8 fps. **Each new sky light probe
+  costs 40–70 s once** on WARP (in the frames or the grab right after a sun change); later
+  grabs of the same sky take 20–500 ms, and `QSG_RENDER_LOOP=basic` changes nothing. Never
+  rebuild the probe per frame; on software rendering drop image-based light. Evidence run
+  v1's 56-minute "hang" was this cost, times many shots, with no log.
 - **A frozen GUI exe has no stdout** (`print` is a no-op; #291 is the precedent). The spike
   writes `<out>/spike.log` (flushed per line), rewrites `metrics.json` after every phase, and
   `--watchdog-s N` arms `faulthandler` to dump every thread's stack into the log and exit
@@ -158,3 +163,6 @@ triangles (`scripts/bench_view3d.py`).
 | QQuickWidget renders only once | `widget.update()` re-composites | `quickWindow().update()` |
 | Windows run "hangs" for an hour | `grabWindow()` ~100 s on WARP, no output | time every grab; log + watchdog |
 | Frozen spike fails in 1 s | default plan path is the source tree | pass `--plan` explicitly |
+| Models blank and unpickable after a list change | geometry outlived its Model; array `Repeater3D` recreates all delegates | re-upload on re-attach; one geometry per Model lifetime |
+| A sun change stalls for a minute (WARP) | new sky light probe is prefiltered | rebuild only on noticeable sun moves; no IBL on software |
+| Windows RSS reads `None` | ctypes default `int` restype truncates the process pseudo-handle | declare `HANDLE` restype/argtypes |

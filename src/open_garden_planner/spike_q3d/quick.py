@@ -10,6 +10,7 @@ once (``core.scene3d.to_engine_frame``: x = E, y = up, z = −N).
 from __future__ import annotations
 
 import time
+import weakref
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -145,6 +146,7 @@ class SpikeRenderer:
         self.frame_timeout_s = frame_timeout_s
         self.wait_timeouts = 0
         self._log = log if log is not None else (lambda *_a, **_k: None)
+        self._shown: weakref.WeakSet[SpikeModel] = weakref.WeakSet()
         self.models: list[SpikeModel] = []
         self._keep: list[Any] = []
         t0 = time.perf_counter()
@@ -248,8 +250,23 @@ class SpikeRenderer:
 
     # -- scene -------------------------------------------------------------
     def set_models(self, models: list[SpikeModel]) -> None:
-        self.models = models
-        self.root.setProperty("sceneModels", models)
+        """Show exactly ``models``; safe to call with models shown before.
+
+        Measured (spike, OpenGL; first seen in the Windows evidence run): once
+        the Model using a ``QQuick3DGeometry`` is destroyed, handing that
+        geometry to a new Model renders nothing and picks nothing (frame
+        identical to an empty scene, 0/20 picks); ``update()`` does not help, a
+        full re-upload does. A ``Repeater3D`` over a JS array destroys and
+        recreates EVERY delegate on any change of the array — so every model
+        shown before is re-uploaded here, not only the ones that were removed
+        (a model kept across the change still came back blank: 19/20).
+        """
+        for model in models:
+            if model in self._shown:
+                model.geometry.set_mesh(model.geometry.mesh)
+            self._shown.add(model)
+        self.models = list(models)
+        self.root.setProperty("sceneModels", self.models)
 
     def set_ground(self, image: QImage | None, x0: float, y0: float, x1: float, y1: float) -> None:
         if image is None:
