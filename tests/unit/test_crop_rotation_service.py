@@ -12,7 +12,6 @@ from open_garden_planner.services.crop_rotation_service import (
     RotationStatus,
 )
 
-
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 

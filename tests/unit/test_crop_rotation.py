@@ -10,7 +10,6 @@ from open_garden_planner.models.crop_rotation import (
     PlantingRecord,
 )
 
-
 # ─── PlantingRecord Tests ─────────────────────────────────────────────────────
 
 
@@ -189,7 +188,7 @@ class TestCropRotationHistory:
         d = sample_history.to_dict()
         restored = CropRotationHistory.from_dict(d)
         assert len(restored.records) == len(sample_history.records)
-        for orig, rest in zip(sample_history.records, restored.records):
+        for orig, rest in zip(sample_history.records, restored.records, strict=True):
             assert orig.year == rest.year
             assert orig.season == rest.season
             assert orig.species_name == rest.species_name

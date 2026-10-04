@@ -46,13 +46,14 @@ def _tr(text: str) -> str:
 
 
 def _active_language() -> str:
-    """Return the active app language code (or "en" if settings unavailable)."""
-    try:
-        from open_garden_planner.app.settings import get_settings  # noqa: PLC0415
+    """Return the active app language code (or "en" if settings unavailable).
 
-        return get_settings().language or "en"
-    except Exception:  # noqa: BLE001
-        return "en"
+    Delegates to the one shared resolver so this module, the task generator and
+    the companion-set finder cannot disagree about the current UI language.
+    """
+    from open_garden_planner.app.settings import active_language  # noqa: PLC0415
+
+    return active_language()
 
 
 @dataclass

@@ -948,7 +948,7 @@ class TestCliCapabilityGate:
         monkeypatch.setattr(
             onboarding.subprocess,
             "run",
-            lambda argv, **kw: subprocess.CompletedProcess(
+            lambda argv, **_kw: subprocess.CompletedProcess(
                 argv, 0, b"  --global  \xff\xfe not utf-8".decode("utf-8", "replace"), ""
             ),
         )
@@ -1471,7 +1471,7 @@ class TestDottedContainerPaths:
         be too."""
         for bad in ('"a string"', '["a", "list"]', "3", "null"):
             path = tmp_path / "opencode.jsonc"
-            path.write_text('{"mcp": %s}' % bad, encoding="utf-8")
+            path.write_text(f'{{"mcp": {bad}}}', encoding="utf-8")
             original = path.read_text(encoding="utf-8")
 
             with pytest.raises(onboarding._ConfigMergeError):

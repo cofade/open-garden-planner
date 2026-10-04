@@ -555,6 +555,10 @@ def build_server(
         source attribution. Antagonists of the excluded species are filtered
         out. Read-only; no token required.
 
+        Each suggestion carries `species_key` (a stable machine key) and
+        `name` (a DISPLAY STRING in the user's current UI language). Branch on
+        `species_key`, never on `name`.
+
         Args:
             species_key: The species to find companions for (common name,
                 scientific name, or alias).

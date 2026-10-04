@@ -179,7 +179,11 @@ class TestMainWindowToolbarLayout:
         from open_garden_planner.app.application import GardenPlannerApp
         from open_garden_planner.ui.widgets import (
             CategoryToolbar as CT,
+        )
+        from open_garden_planner.ui.widgets import (
             ConstraintToolbar as ConT,
+        )
+        from open_garden_planner.ui.widgets import (
             MainToolbar as MT,
         )
 

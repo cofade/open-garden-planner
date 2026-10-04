@@ -7,17 +7,13 @@ Each test exercises the primary UI workflow that exposed the bug.
 
 from unittest.mock import MagicMock, patch
 
-import pytest
 from PyQt6.QtCore import QPoint, QPointF, Qt
 from PyQt6.QtGui import QContextMenuEvent, QMouseEvent
 
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.tools import ToolType
-from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
-from open_garden_planner.ui.canvas.items import PolylineItem
-from open_garden_planner.ui.canvas.items import PolygonItem
-
+from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem
 
 # ---------------------------------------------------------------------------
 # Helpers

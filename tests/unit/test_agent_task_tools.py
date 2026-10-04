@@ -442,7 +442,7 @@ def test_soil_amendment_and_mismatch_share_the_soil_source() -> None:
     bed = BedInput(
         bed_id="bed-1",
         name="Bed 1",
-        amendment_recs=(("Compost", "~200 g"),),
+        amendment_recs=(("Compost", "Compost", "~200 g"),),
         mismatch_plants=("Tomato",),
     )
     state = PlanState(today=TODAY, year=TODAY.year, beds=(bed,))
@@ -465,7 +465,7 @@ def test_task_types_distinguish_the_two_soil_generators() -> None:
     bed = BedInput(
         bed_id="bed-1",
         name="Bed 1",
-        amendment_recs=(("Compost", "~200 g"),),
+        amendment_recs=(("Compost", "Compost", "~200 g"),),
         mismatch_plants=("Tomato",),
     )
     state = PlanState(today=TODAY, year=TODAY.year, beds=(bed,))

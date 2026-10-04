@@ -10,6 +10,8 @@ See ADR-017 and ``docs/08-crosscutting-concepts/`` § 8.12.
 """
 from __future__ import annotations
 
+import inspect
+
 import pytest
 from PyQt6.QtCore import QPointF
 from PyQt6.QtWidgets import QMenu
@@ -126,8 +128,6 @@ def test_bed_menu_actions_have_translated_text(
 # out and revert to hand-rolled bed actions — the exact recurrence pattern
 # (US-12.8) the central pattern is supposed to prevent.
 # ---------------------------------------------------------------------------
-
-import inspect
 
 
 @pytest.mark.parametrize("item_cls", [RectangleItem, PolygonItem, EllipseItem, CircleItem])

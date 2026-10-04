@@ -32,8 +32,6 @@ from typing import Any
 import pytest
 
 from open_garden_planner.agent_api import AgentApiServer, AgentProviders
-
-
 from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
 
 

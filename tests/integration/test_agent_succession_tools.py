@@ -40,6 +40,7 @@ from open_garden_planner.core.object_types import ObjectType, is_bed_type
 from open_garden_planner.models.plant_data import species_key
 from open_garden_planner.services.bundled_species_db import get_species_db, lookup_species
 from open_garden_planner.ui.canvas.items import RectangleItem
+from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
 
 LOCATION: dict[str, Any] = {
     "latitude": 52.5,
@@ -51,9 +52,6 @@ LOCATION: dict[str, Any] = {
     },
 }
 TODAY = datetime.date(2026, 6, 15)
-
-
-from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
 
 
 def _free_port() -> int:
@@ -206,42 +204,42 @@ class SuccessionHarness:
         return AgentProviders(
             snapshot=lambda: bridge.run_on_main(lambda: pm.snapshot_dict(scene)),
             diagnostics=lambda: bridge.run_on_main(lambda: pm.diagnostics_snapshot(scene)),
-            render=lambda region, layers, width_px: bridge.run_on_main(lambda: {}),
-            save_plan=lambda file_path: bridge.run_on_main(lambda: {}),
-            new_plan=lambda *a: {},
-            open_plan=lambda *a: {},
-            export_pdf=lambda *a: bridge.run_on_main(lambda: {}),
-            export_dxf=lambda *a: bridge.run_on_main(lambda: {}),
-            export_csv=lambda *a: bridge.run_on_main(lambda: {}),
-            create_object=lambda **kw: {},
-            get_geometry=lambda item_id: {},
-            move_object=lambda *a: {},
-            set_object_position=lambda *a: {},
-            delete_object=lambda *a: {},
-            resize_object=lambda *a: {},
-            rotate_object=lambda *a: {},
-            set_vertex=lambda *a: {},
-            add_vertex=lambda *a: {},
-            delete_vertex=lambda *a: {},
-            set_species=lambda *a: {},
-            set_parent_bed=lambda *a: {},
-            arrange_object=lambda *a: {},
-            set_object_layer=lambda *a: {},
-            create_layer=lambda *a: {},
-            rename_layer=lambda *a: {},
-            delete_layer=lambda *a: {},
-            set_active_layer=lambda *a: {},
-            set_layer_property=lambda *a: {},
+            render=lambda _region, _layers, _width_px: bridge.run_on_main(lambda: {}),
+            save_plan=lambda _file_path: bridge.run_on_main(lambda: {}),
+            new_plan=lambda *_a: {},
+            open_plan=lambda *_a: {},
+            export_pdf=lambda *_a: bridge.run_on_main(lambda: {}),
+            export_dxf=lambda *_a: bridge.run_on_main(lambda: {}),
+            export_csv=lambda *_a: bridge.run_on_main(lambda: {}),
+            create_object=lambda **_kw: {},
+            get_geometry=lambda _item_id: {},
+            move_object=lambda *_a: {},
+            set_object_position=lambda *_a: {},
+            delete_object=lambda *_a: {},
+            resize_object=lambda *_a: {},
+            rotate_object=lambda *_a: {},
+            set_vertex=lambda *_a: {},
+            add_vertex=lambda *_a: {},
+            delete_vertex=lambda *_a: {},
+            set_species=lambda *_a: {},
+            set_parent_bed=lambda *_a: {},
+            arrange_object=lambda *_a: {},
+            set_object_layer=lambda *_a: {},
+            create_layer=lambda *_a: {},
+            rename_layer=lambda *_a: {},
+            delete_layer=lambda *_a: {},
+            set_active_layer=lambda *_a: {},
+            set_layer_property=lambda *_a: {},
             undo=lambda: bridge.run_on_main(lambda: {}),
             redo=lambda: bridge.run_on_main(lambda: {}),
             **TASK_SOIL_STUBS,
             get_history=lambda: bridge.run_on_main(
                 lambda: history_from_command_manager(cm).model_dump()
             ),
-            suggest_companions=lambda *a: [],
-            find_compatible_sets=lambda *a: [],
-            find_sets_for_bed=lambda *a: {},
-            check_placement=lambda *a: {},
+            suggest_companions=lambda *_a: [],
+            find_compatible_sets=lambda *_a: [],
+            find_sets_for_bed=lambda *_a: {},
+            check_placement=lambda *_a: {},
             get_succession_plan=lambda bed_id, year=None, today=None: bridge.run_on_main(
                 lambda: self.get_plan(bed_id, year, today)
             ),

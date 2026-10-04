@@ -7,15 +7,16 @@ from pathlib import Path
 import pytest
 from PyQt6.QtCore import QPointF
 
-from open_garden_planner.core.object_types import ObjectType
-from open_garden_planner.services.dxf_service import DxfExportService, DxfImportResult, DxfImportService
+from open_garden_planner.services.dxf_service import (
+    DxfExportService,
+    DxfImportResult,
+    DxfImportService,
+)
 from open_garden_planner.services.pdf_report_service import PdfReportOptions, PdfReportService
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
-from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 from open_garden_planner.ui.canvas.items.ellipse_item import EllipseItem
 from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
-from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 
 
@@ -511,7 +512,6 @@ class TestExportOrientation:
 
     def test_dxf_round_trip_preserves_position(self, scene: CanvasScene) -> None:
         """Export → import round-trip must land back at the original scene Y."""
-        import ezdxf
 
         rect = RectangleItem(200, 150, 300, 100)
         scene.addItem(rect)
@@ -557,13 +557,11 @@ class TestExportOrientation:
         Without the painter pre-flip, scene.render() draws Y-down, so a
         rectangle at scene-Y=0..50 would land in the *top* of the image.
         """
-        from PyQt6.QtGui import QImage
-
-        from open_garden_planner.services.export_service import ExportService
-
         # Black-filled rectangle in the bottom-left scene region: scene
         # coords x∈[0,200], y∈[0,50] (Y-up → visually low).
-        from PyQt6.QtGui import QBrush, QColor
+        from PyQt6.QtGui import QBrush, QColor, QImage
+
+        from open_garden_planner.services.export_service import ExportService
         rect = RectangleItem(0, 0, 200, 50)
         rect.setBrush(QBrush(QColor("#000000")))
         scene.addItem(rect)

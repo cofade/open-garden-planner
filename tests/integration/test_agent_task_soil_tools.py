@@ -659,6 +659,49 @@ class TestSoilReads:
         assert [r["display_name"] for r in german] == [r.amendment.display_name("de") for r in recs]
         assert [r["display_name"] for r in english] != [r["display_name"] for r in german]
 
+    def test_generated_amendment_task_title_follows_the_ui_but_id_does_not(
+        self, app: Any, bed_id: str
+    ) -> None:
+        """Issue #408: the shared generator localised the title, not the id.
+
+        The GUI Tasks panel and this agent read share the generator, so a
+        German UI must produce German amendment task titles while the task id
+        keeps the English data name (saved done/snooze state is keyed by it).
+        """
+        app._agent_record_soil_test(
+            bed_id=bed_id, ph=8.5, n_level=0, p_level=0, k_level=1
+        )
+        get_settings().language = "en"
+        en_recs = app._agent_recommend_amendments(bed_id, today=TODAY)["recommendations"]
+        en_tasks = [
+            t for t in app._agent_get_tasks(source="soil", today=TODAY)["tasks"]
+            if t["task_type"] == "soil_amendment"
+        ]
+        get_settings().language = "de"
+        try:
+            de_recs = app._agent_recommend_amendments(
+                bed_id, today=TODAY
+            )["recommendations"]
+            de_tasks = [
+                t for t in app._agent_get_tasks(source="soil", today=TODAY)["tasks"]
+                if t["task_type"] == "soil_amendment"
+            ]
+        finally:
+            get_settings().language = "en"
+
+        assert en_tasks and de_tasks, "the fixture must produce soil amendment tasks"
+        assert {t["task_id"] for t in en_tasks} == {
+            t["task_id"] for t in de_tasks
+        }, "the task identity must not change with the UI language"
+
+        en_names = {r["display_name"] for r in en_recs}
+        de_names = {r["display_name"] for r in de_recs}
+        assert en_names != de_names, "German amendment names must differ from English"
+        for task in de_tasks:
+            assert task["title"].split(" — ")[0] in de_names
+        for task in en_tasks:
+            assert task["title"].split(" — ")[0] in en_names
+
     def test_untested_bed_is_never_reported_as_fine(self, app: Any, bed_id: str) -> None:
         result = app._agent_get_soil_status(bed_id=bed_id, today=TODAY)
         beds = result["beds"]

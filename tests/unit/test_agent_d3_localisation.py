@@ -200,6 +200,28 @@ def test_reason_codes_stay_english_while_the_reason_follows_the_ui(german_ui) ->
     )
 
 
+# ── D3.1 ─────────────────────────────────────────────────────────────────────
+
+
+def test_companion_name_follows_the_ui_while_the_key_stays_english() -> None:
+    """D3.1's display name obeys the same rule as D3.3/D3.4 (issue #410)."""
+    from open_garden_planner.agent_api.domain import suggest_companions_for_agent
+    from open_garden_planner.services.companion_planting_service import (
+        CompanionPlantingService,
+    )
+
+    service = CompanionPlantingService()
+    english = suggest_companions_for_agent(service, "tomato", language="en")
+    german = suggest_companions_for_agent(service, "tomato", language="de")
+    assert english and german
+    # The machine key is untouched by the UI language.
+    assert [s.species_key for s in english] == [s.species_key for s in german]
+    # The display name is the only part that moves.
+    assert any(
+        de.name != en.name for de, en in zip(german, english, strict=True)
+    ), "at least one bundled companion has a German name"
+
+
 # ── The convention must be DOCUMENTED where an agent reads it ─────────────────
 
 
@@ -211,6 +233,7 @@ def test_the_schema_documents_the_display_string_rule() -> None:
     """
     from open_garden_planner.agent_api.schema import (
         AmendmentRecommendationView,
+        CompanionSuggestion,
         SoilMismatchView,
         TaskView,
     )
@@ -219,6 +242,7 @@ def test_the_schema_documents_the_display_string_rule() -> None:
         (TaskView, ("task_type", "source"), ("title", "notes")),
         (AmendmentRecommendationView, ("amendment_id", "target_kind"), ("display_name",)),
         (SoilMismatchView, ("reason_codes",), ("reasons",)),
+        (CompanionSuggestion, ("species_key",), ("name",)),
     ):
         for name in display_fields:
             description = model.model_fields[name].description or ""

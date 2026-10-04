@@ -17,7 +17,6 @@ from typing import Any
 import pytest
 
 from open_garden_planner.agent_api.providers import AgentProviders
-from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
 from open_garden_planner.agent_api.server import (
     WriteAuthError,
     _bearer_token_middleware,
@@ -25,6 +24,7 @@ from open_garden_planner.agent_api.server import (
     _require_write_auth,
     build_server,
 )
+from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
 
 
 def _stub_providers() -> AgentProviders:

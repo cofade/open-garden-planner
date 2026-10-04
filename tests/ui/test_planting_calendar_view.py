@@ -8,15 +8,14 @@ from unittest.mock import MagicMock
 import pytest
 
 from open_garden_planner.ui.views.planting_calendar_view import (
+    _MONTH_W,
+    _NAME_W,
     PlantingCalendarView,
-    _GanttWidget,
     _date_to_x,
     _days_in_year,
-    _NAME_W,
-    _MONTH_W,
+    _GanttWidget,
     _parse_frost,
 )
-
 
 # ─── Unit helpers ─────────────────────────────────────────────────────────────
 
@@ -233,13 +232,13 @@ class TestGanttWidget:
     """Unit tests for the _GanttWidget painter-level logic."""
 
     def test_set_data_updates_size(self, qtbot) -> None:
+        from open_garden_planner.models.plant_data import PlantSpeciesData
         from open_garden_planner.ui.views.planting_calendar_view import (
-            _PlantRow,
             _HEADER_H,
             _ROW_H,
             _TOTAL_W,
+            _PlantRow,
         )
-        from open_garden_planner.models.plant_data import PlantSpeciesData
 
         w = _GanttWidget()
         qtbot.addWidget(w)
@@ -257,11 +256,11 @@ class TestGanttWidget:
         assert w._row_at(_HEADER_H - 1) == -1
 
     def test_row_at_returns_zero_first_row(self, qtbot) -> None:
-        from open_garden_planner.ui.views.planting_calendar_view import (
-            _PlantRow,
-            _HEADER_H,
-        )
         from open_garden_planner.models.plant_data import PlantSpeciesData
+        from open_garden_planner.ui.views.planting_calendar_view import (
+            _HEADER_H,
+            _PlantRow,
+        )
 
         w = _GanttWidget()
         qtbot.addWidget(w)
@@ -270,7 +269,7 @@ class TestGanttWidget:
         assert w._row_at(_HEADER_H + 1) == 0
 
     def test_row_at_out_of_bounds(self, qtbot) -> None:
-        from open_garden_planner.ui.views.planting_calendar_view import _HEADER_H, _ROW_H
+        from open_garden_planner.ui.views.planting_calendar_view import _HEADER_H
 
         w = _GanttWidget()
         qtbot.addWidget(w)

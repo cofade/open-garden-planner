@@ -317,7 +317,6 @@ class TestRegressionBugB:
     def test_rect_corner_handle_registered_as_active_drag_handle(
         self, canvas: CanvasView, qtbot: object
     ) -> None:
-        from open_garden_planner.ui.canvas.items.resize_handle import RectCornerHandle
 
         rect = RectangleItem(0.0, 0.0, 200.0, 100.0)
         rect.setPos(500.0, 500.0)

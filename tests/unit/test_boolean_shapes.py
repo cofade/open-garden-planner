@@ -2,7 +2,7 @@
 
 import pytest
 from PyQt6.QtCore import QPointF, QRectF
-from PyQt6.QtGui import QPainterPath, QPolygonF
+from PyQt6.QtGui import QPainterPath
 from PyQt6.QtWidgets import QGraphicsScene
 
 from open_garden_planner.core.commands import BooleanShapeCommand, CommandManager

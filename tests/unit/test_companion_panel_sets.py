@@ -23,8 +23,8 @@ from open_garden_planner.services.companion_planting_service import (
 )
 from open_garden_planner.services.companion_sets import find_sets_for_bed
 from open_garden_planner.ui.panels.companion_panel import (
-    CompatibleSetDialog,
     CompanionPanel,
+    CompatibleSetDialog,
 )
 
 

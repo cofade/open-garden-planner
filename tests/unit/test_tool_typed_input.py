@@ -111,6 +111,7 @@ class TestRectangleTypedInput:
         """Shift modifier on the closing click must produce a square."""
         from PyQt6.QtCore import Qt
         from PyQt6.QtGui import QMouseEvent
+
         from open_garden_planner.ui.canvas.items import RectangleItem
 
         view.set_active_tool(ToolType.RECTANGLE)
@@ -147,6 +148,7 @@ class TestEllipseTypedInput:
         """Shift modifier on the closing click must produce a circle (1:1)."""
         from PyQt6.QtCore import Qt
         from PyQt6.QtGui import QMouseEvent
+
         from open_garden_planner.ui.canvas.items import EllipseItem
 
         view.set_active_tool(ToolType.ELLIPSE)

@@ -4,18 +4,17 @@ from __future__ import annotations
 
 import pytest
 from PyQt6.QtCore import QEvent, QPointF, QRectF, Qt
-from PyQt6.QtWidgets import QApplication
-from PyQt6.QtGui import QMouseEvent, QResizeEvent
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtGui import QMouseEvent
+from PyQt6.QtWidgets import QApplication, QWidget
 
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.widgets.minimap_widget import (
+    _OVERLAY_Z_MIN,
     MARGIN,
     MINIMAP_HEIGHT,
     MINIMAP_WIDTH,
     MinimapWidget,
-    _OVERLAY_Z_MIN,
 )
 
 

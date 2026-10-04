@@ -1119,17 +1119,23 @@ class GardenPlannerApp(QMainWindow):
     ) -> list[dict[str, Any]]:
         """Suggest companion plants for a species (US-D3.1, read-only)."""
         from open_garden_planner.agent_api.domain import suggest_companions_for_agent
+        from open_garden_planner.app.settings import active_language
 
-        return self._agent_bridge.run_on_main(
-            lambda: [
+        def _run() -> list[dict[str, Any]]:
+            # Resolve the language on the main thread, beside the other
+            # settings reads the agent bodies perform.
+            language = active_language()
+            return [
                 s.model_dump()
                 for s in suggest_companions_for_agent(
                     self._companion_service,
                     species_key,
                     exclude_antagonists_of=exclude_antagonists_of,
+                    language=language,
                 )
             ]
-        )
+
+        return self._agent_bridge.run_on_main(_run)
 
     def _agent_find_compatible_sets(
         self,
@@ -2003,7 +2009,7 @@ class GardenPlannerApp(QMainWindow):
         from open_garden_planner.agent_api.domain import (
             recommend_amendments_for_agent,
         )
-        from open_garden_planner.app.settings import get_settings
+        from open_garden_planner.app.settings import active_language
 
         reference = self._agent_reference_date(today)
         target_id, _name, _is_global = self._agent_soil_target(bed_id)
@@ -2021,7 +2027,7 @@ class GardenPlannerApp(QMainWindow):
             record=record,
             today=reference,
             recommendations=recs,
-            language=get_settings().language,
+            language=active_language(),
         )
         return view.model_dump()
 
@@ -7719,12 +7725,9 @@ class GardenPlannerApp(QMainWindow):
 
     @staticmethod
     def _current_lang() -> str:
-        """Return the current app language code."""
-        try:
-            from open_garden_planner.app.settings import get_settings
-            return get_settings().language
-        except Exception:
-            return "en"
+        """Return the current app language code (shared resolver)."""
+        from open_garden_planner.app.settings import active_language
+        return active_language()
 
     def _resolved_google_maps_api_key(self) -> str:
         """Resolve the Google Maps key without copying environment secrets."""

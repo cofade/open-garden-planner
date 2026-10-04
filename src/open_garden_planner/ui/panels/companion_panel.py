@@ -276,12 +276,12 @@ class CompanionPanel(QWidget):
 
     @staticmethod
     def _current_lang() -> str:
-        """Return the current app language code (e.g. 'en', 'de')."""
-        try:
-            from open_garden_planner.app.settings import get_settings
-            return get_settings().language
-        except Exception:
-            return "en"
+        """Return the current app language code (e.g. 'en', 'de').
+
+        Delegates to the one shared resolver.
+        """
+        from open_garden_planner.app.settings import active_language
+        return active_language()
 
     @staticmethod
     def _species_name(item: object) -> str:

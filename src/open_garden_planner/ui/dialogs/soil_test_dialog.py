@@ -712,15 +712,14 @@ class SoilTestDialog(QDialog):
 
 
 def _amendment_display_lang() -> str:
-    """Return the active app language code, defaulting to "en" (US-12.10/F4)."""
-    try:
-        from open_garden_planner.app.settings import (  # noqa: PLC0415
-            get_settings,
-        )
+    """Return the active app language code, defaulting to "en" (US-12.10/F4).
 
-        return get_settings().language or "en"
-    except Exception:
-        return "en"
+    Delegates to the one shared resolver so the dialog and the task generator
+    cannot disagree about the current UI language.
+    """
+    from open_garden_planner.app.settings import active_language  # noqa: PLC0415
+
+    return active_language()
 
 
 def format_amendment_line(

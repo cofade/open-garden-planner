@@ -1,7 +1,6 @@
 """Tests for US-8.2: ClimateService frost date & hardiness zone lookup."""
 
 import json
-import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -16,7 +15,6 @@ from open_garden_planner.services.climate_service import (
     _estimate_usda_zone,
     _median_date,
 )
-
 
 # ---------------------------------------------------------------------------
 # Unit tests for helper functions
@@ -164,7 +162,7 @@ class TestClimateServiceCompute:
             spring_frost, fall_frost = frost_info
 
             # Make frost days exactly 0 °C, all others 10 °C
-            if mmdd == spring_frost or mmdd == fall_frost:
+            if mmdd in (spring_frost, fall_frost):
                 temps.append(0.0)
             else:
                 temps.append(10.0)
@@ -177,7 +175,7 @@ class TestClimateServiceCompute:
     def test_frost_dates_computed_correctly(self, service: ClimateService) -> None:
         """With consistent frost dates each year, median should match."""
         # All years: last spring frost 04-15, first fall frost 10-15
-        years = {y: ("04-15", "10-15") for y in range(2013, 2023)}
+        years = dict.fromkeys(range(2013, 2023), ("04-15", "10-15"))
         dates, temps = self._make_dates_temps(2013, 2022, years)
 
         result = service._compute_frost_data(51.5, 10.2, dates, temps)
@@ -188,7 +186,7 @@ class TestClimateServiceCompute:
     def test_hardiness_zone_estimated(self, service: ClimateService) -> None:
         """Hardiness zone is estimated from average annual minimum."""
         # Set annual minimum to -10 °C each year → 14°F → zone 8a
-        years = {y: ("04-15", "10-15") for y in range(2013, 2023)}
+        years = dict.fromkeys(range(2013, 2023), ("04-15", "10-15"))
         dates, temps = self._make_dates_temps(2013, 2022, years)
 
         # Override Jan 15 each year to -10 °C (the annual minimum)

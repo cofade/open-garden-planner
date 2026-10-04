@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import datetime
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -12,7 +11,6 @@ from open_garden_planner.models.seed_inventory import (
     SeedInventoryStore,
     SeedPacket,
     SeedViabilityDB,
-    ViabilityStatus,
 )
 from open_garden_planner.ui.dialogs.seed_inventory_dialog import (
     SeedPacketEditDialog,

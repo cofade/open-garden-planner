@@ -25,14 +25,11 @@ from open_garden_planner.agent_api.domain import (
 from open_garden_planner.agent_api.history import history_from_command_manager
 from open_garden_planner.core import ProjectManager
 from open_garden_planner.core.object_types import ObjectType
-from open_garden_planner.services.companion_sets import find_sets_for_bed
 from open_garden_planner.services.companion_planting_service import (
     CompanionPlantingService,
 )
-from open_garden_planner.services.soil_service import SoilService
-from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
-
-
+from open_garden_planner.services.companion_sets import find_sets_for_bed
+from open_garden_planner.ui.canvas.items import RectangleItem
 from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
 
 
@@ -47,7 +44,6 @@ def _free_port() -> int:
 def _providers(scene: Any, command_manager: Any) -> AgentProviders:
     bridge = MainThreadBridge()
     project_manager = ProjectManager()
-    soil_service = SoilService(project_manager)
     companion_service = CompanionPlantingService()
     return AgentProviders(
         snapshot=lambda: bridge.run_on_main(
@@ -56,40 +52,40 @@ def _providers(scene: Any, command_manager: Any) -> AgentProviders:
         diagnostics=lambda: bridge.run_on_main(
             lambda: project_manager.diagnostics_snapshot(scene)
         ),
-        render=lambda region, layers, width_px: bridge.run_on_main(
+        render=lambda _region, _layers, _width_px: bridge.run_on_main(
             lambda: {}
         ),
-        save_plan=lambda file_path: bridge.run_on_main(lambda: {}),
+        save_plan=lambda _file_path: bridge.run_on_main(lambda: {}),
         new_plan=lambda *_a: {},
         open_plan=lambda *_a: {},
-        export_pdf=lambda file_path, paper_size, orientation: bridge.run_on_main(
+        export_pdf=lambda _file_path, _paper_size, _orientation: bridge.run_on_main(
             lambda: {}
         ),
-        export_dxf=lambda file_path: bridge.run_on_main(lambda: {}),
-        export_csv=lambda kind, file_path: bridge.run_on_main(lambda: {}),
-        create_object=lambda **kw: {},
-        get_geometry=lambda item_id: {},
-        get_succession_plan=lambda bed_id, year=None, today=None: {},
-        find_succession_gaps=lambda bed_id, year=None, today=None: [],
-        suggest_succession=lambda *a, **k: [],
-        set_succession_plan=lambda *a, **k: {},
-        move_object=lambda item_id, dx, dy: {},
-        set_object_position=lambda item_id, x, y: {},
-        delete_object=lambda item_id: {},
-        resize_object=lambda item_id, width, height, radius: {},
-        rotate_object=lambda item_id, angle, relative: {},
-        set_vertex=lambda item_id, index, x, y: {},
-        add_vertex=lambda item_id, index, x, y: {},
-        delete_vertex=lambda item_id, index: {},
-        set_species=lambda item_id, species, apply_database_size: {},
-        set_parent_bed=lambda item_id, bed_id: {},
-        arrange_object=lambda item_id, action: {},
-        set_object_layer=lambda item_id, layer_id: {},
-        create_layer=lambda name: {},
-        rename_layer=lambda layer_id, name: {},
-        delete_layer=lambda layer_id: {},
-        set_active_layer=lambda layer_id: {},
-        set_layer_property=lambda layer_id, visible, opacity, locked: {},
+        export_dxf=lambda _file_path: bridge.run_on_main(lambda: {}),
+        export_csv=lambda _kind, _file_path: bridge.run_on_main(lambda: {}),
+        create_object=lambda **_kw: {},
+        get_geometry=lambda _item_id: {},
+        get_succession_plan=lambda _bed_id, _year=None, _today=None: {},
+        find_succession_gaps=lambda _bed_id, _year=None, _today=None: [],
+        suggest_succession=lambda *_a, **_k: [],
+        set_succession_plan=lambda *_a, **_k: {},
+        move_object=lambda _item_id, _dx, _dy: {},
+        set_object_position=lambda _item_id, _x, _y: {},
+        delete_object=lambda _item_id: {},
+        resize_object=lambda _item_id, _width, _height, _radius: {},
+        rotate_object=lambda _item_id, _angle, _relative: {},
+        set_vertex=lambda _item_id, _index, _x, _y: {},
+        add_vertex=lambda _item_id, _index, _x, _y: {},
+        delete_vertex=lambda _item_id, _index: {},
+        set_species=lambda _item_id, _species, _apply_database_size: {},
+        set_parent_bed=lambda _item_id, _bed_id: {},
+        arrange_object=lambda _item_id, _action: {},
+        set_object_layer=lambda _item_id, _layer_id: {},
+        create_layer=lambda _name: {},
+        rename_layer=lambda _layer_id, _name: {},
+        delete_layer=lambda _layer_id: {},
+        set_active_layer=lambda _layer_id: {},
+        set_layer_property=lambda _layer_id, _visible, _opacity, _locked: {},
         undo=lambda: bridge.run_on_main(lambda: {}),
         redo=lambda: bridge.run_on_main(lambda: {}),
         **TASK_SOIL_STUBS,
@@ -414,7 +410,6 @@ def _make_command_manager() -> Any:
 
 def _run_with_qt_loop(qtbot: Any, coro: Any) -> None:
     """Run an async coroutine while pumping the Qt event loop."""
-    import asyncio
     from concurrent.futures import Future
 
     loop = asyncio.new_event_loop()

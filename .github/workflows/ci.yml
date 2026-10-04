@@ -38,7 +38,7 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Run ruff
-        run: ruff check src/
+        run: ruff check src/ tests/ scripts/
 
   test:
     name: Test

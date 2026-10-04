@@ -25,7 +25,6 @@ from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 from open_garden_planner.ui.dialogs.amendment_plan_dialog import AmendmentPlanDialog
 from open_garden_planner.ui.dialogs.soil_test_dialog import SoilTestDialog
 
-
 # ---------------------------------------------------------------------------
 # Pure calculator rules
 # ---------------------------------------------------------------------------

@@ -50,6 +50,8 @@
 
 Every user-visible string must be wrapped for translation. See `docs/08-crosscutting-concepts/` section 8.3.
 
+**i18n blind-spot fixes (2026-10-04).** Three defects invisible to `test_german_ts_has_no_unfinished` are fixed together: **#393** (five duplicate `TRANSLATIONS` keys shadowed 62 strings; the five `PdfReportService` journal-notes strings never reached `de.ts`, so the German PDF printed English), **#408** (generated soil-amendment task titles stayed English; the task **id** keeps the English data name so saved done/snooze status survives a language switch), and **#410** (the agent `suggest_companions` `name` now follows the UI language, matching the Companion panel). The CI lint step is widened to `ruff check src/ tests/ scripts/`, and `tests/unit/test_i18n.py::TestTranslationRegistry` pins `TRANSLATIONS` key uniqueness with an `ast` parse. See §11.4, §8.19, and the ADR-045 addendum.
+
 ---
 
 ## Dev Infrastructure
@@ -61,6 +63,7 @@ Every user-visible string must be wrapped for translation. See `docs/08-crosscut
 |--------|------|------------------------|---------------------------------------------------------------|
 | ✅     | DI-1 | SAST pipeline (Bandit) | HIGH-severity scan in CI; `bandit>=1.7.0` added as dev dep   |
 | 🔄     | DI-2 | Repository audit 2026-10 | Snapshot `docs/11-risks-and-technical-debt/audit-2026-10.md`; §11.3 rebuilt as the living register (ADR-047); epic #392 |
+| ✅     | DI-3 | i18n blind-spot hardening | Unique `TRANSLATIONS` keys + shared `active_language()` + full-tree ruff; issues #393/#408/#410; §11.4, ADR-045 addendum |
 
 ---
 

@@ -668,9 +668,13 @@ class CompanionSuggestion(BaseModel):
     """One companion suggestion with ranking metadata (US-D3.1)."""
 
     species_key: str = Field(
-        description="Canonical species key (lowercase common name)."
+        description="Canonical species key (lowercase common name). A stable "
+        "machine key: it never changes with the UI language."
     )
-    name: str = Field(description="Display name of the companion plant.")
+    name: str = Field(
+        description="DISPLAY STRING in the user's current UI language. Not part "
+        "of the English API contract. Branch on `species_key`, never on `name`."
+    )
     reasons: list[str] = Field(
         default_factory=list,
         description="Why this plant is suggested (e.g. 'beneficial to apple', "

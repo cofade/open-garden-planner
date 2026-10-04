@@ -78,6 +78,7 @@ class TestHighlightLogic:
     def _run_highlights(self, selected_plants, all_plants, radius_cm=200.0) -> None:
         """Replicate the core update logic from GardenPlannerApp._update_companion_highlights."""
         import math
+
         from open_garden_planner.services.companion_planting_service import CompanionPlantingService
 
         svc = CompanionPlantingService()

@@ -2,14 +2,11 @@
 
 from typing import Any
 
-import pytest
-
 from open_garden_planner.services.update_checker import (
     ReleaseInfo,
     compare_versions,
     parse_release_info,
 )
-
 
 # ---------------------------------------------------------------------------
 # compare_versions

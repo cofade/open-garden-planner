@@ -25,7 +25,7 @@ class TestFindCompatibleSets:
         # Three Sisters should be among the top sets
         members_sets = [s["members"] for s in sets]
         assert any(
-            set(["corn", "bean", "squash"]).issubset(set(m))
+            {"corn", "bean", "squash"}.issubset(set(m))
             for m in members_sets
         )
 
@@ -123,3 +123,18 @@ class TestSuggestCompanions:
         suggestions = suggest_companions(self.service, "tomato")
         scores = [s["score"] for s in suggestions]
         assert scores == sorted(scores, reverse=True)
+
+    def test_display_name_follows_language_key_does_not(self) -> None:
+        """#410: the name is a UI-language display string; the key is stable."""
+        english = suggest_companions(self.service, "tomato", language="en")
+        german = suggest_companions(self.service, "tomato", language="de")
+        assert [s["species_key"] for s in english] == [
+            s["species_key"] for s in german
+        ]
+        en_names = {s["species_key"]: s["name"] for s in english}
+        de_names = {s["species_key"]: s["name"] for s in german}
+        assert any(
+            de_names[key] != en_names[key] for key in en_names
+        ), "at least one bundled companion must have a German name"
+        for key, name in de_names.items():
+            assert name == self.service.get_display_name(key, "de")
