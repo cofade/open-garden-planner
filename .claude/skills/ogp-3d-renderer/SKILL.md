@@ -97,13 +97,17 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
   measure pan cost with `processEvents()`.
 - **Pipeline caches are per window:** a second renderer in the same process took as long to its
   first frame as the first one (llvmpipe: 15.1 s vs 14.9 s, `--warm`). Keep one host alive and
-  hide/show it: re-entry (show → next frame) median **7 ms** (`--soak`).
+  hide/show it: re-entry (show → next frame) median **7 ms** on llvmpipe, 31–53 ms on WARP
+  (`--soak`; measured on a fully rendered scene — before the re-attach fix in §2, a soak that
+  re-added models measured an empty garden).
 
 ## 7. Picking
 
 `pickAt(x, y)` in QML → `{hit, id, x, y, z}` (engine frame). Against a CPU oracle (topmost
 triangle under a vertical ray over every pickable mesh): **20/20**, 0.15 ms per pick
-(container, orthographic top-down, `--pick`). Models must set `pickable: true`.
+(container and frozen Windows D3D11, orthographic top-down, `--pick`), and 20/20 again after a
+detach/re-attach cycle — which reads 0/20 without the re-upload rule in §2. Models must set
+`pickable: true`.
 
 ## 8. Screenshots and CI rendering
 
