@@ -1,5 +1,4 @@
 """Unit tests for the canonical species_key() helper (ADR-016, issue #176)."""
-import pytest
 
 from open_garden_planner.models.plant_data import species_key
 

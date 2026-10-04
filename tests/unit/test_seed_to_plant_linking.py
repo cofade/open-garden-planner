@@ -1,10 +1,7 @@
 """Unit tests for US-9.6: Seed-to-plant manual linking."""
 from __future__ import annotations
 
-import pytest
-
 from open_garden_planner.models.seed_inventory import SeedInventoryStore, SeedPacket
-
 
 # ─── Tests ────────────────────────────────────────────────────────────────────
 

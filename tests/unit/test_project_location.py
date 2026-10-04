@@ -1,6 +1,5 @@
 """Tests for US-8.1: GPS location & climate zone data model."""
 
-import pytest
 
 from open_garden_planner.core.project import FILE_VERSION, ProjectData, ProjectManager
 

@@ -173,9 +173,9 @@ class TestAppWorkflow:
         # thread, which outlives this test (the window persists by design)
         # and segfaults later full-app tests. All glue below still runs;
         # real rendering is the frozen-exe/manual gate's job.
-        monkeypatch.setattr(View3DWindow, "show", lambda self: None)
-        monkeypatch.setattr(View3DWindow, "raise_", lambda self: None)
-        monkeypatch.setattr(View3DWindow, "activateWindow", lambda self: None)
+        monkeypatch.setattr(View3DWindow, "show", lambda _self: None)
+        monkeypatch.setattr(View3DWindow, "raise_", lambda _self: None)
+        monkeypatch.setattr(View3DWindow, "activateWindow", lambda _self: None)
 
         win = GardenPlannerApp()
         qtbot.addWidget(win)

@@ -1,6 +1,7 @@
 """Unit tests for the companion planting service."""
 
 import json
+
 import pytest
 
 from open_garden_planner.services.companion_planting_service import (

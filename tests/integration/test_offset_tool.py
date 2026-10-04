@@ -7,10 +7,10 @@ All coordinates are scene-space (Y-down, (0,0) = top-left).
 
 # ruff: noqa: ARG002
 
-import pytest
+from unittest.mock import MagicMock
+
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QMouseEvent
-from unittest.mock import MagicMock
 
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.tools import ToolType
@@ -19,7 +19,6 @@ from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 from open_garden_planner.ui.canvas.items.ellipse_item import EllipseItem
 from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
-
 
 # ---------------------------------------------------------------------------
 # Helpers

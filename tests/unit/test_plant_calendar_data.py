@@ -9,7 +9,6 @@ from open_garden_planner.services.bundled_species_db import (
     merge_calendar_data,
 )
 
-
 # ---------------------------------------------------------------------------
 # PlantSpeciesData calendar fields
 # ---------------------------------------------------------------------------

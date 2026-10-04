@@ -1,31 +1,27 @@
 """Unit tests for models/propagation.py — US-9.5."""
 import datetime
 
-import pytest
-
 from open_garden_planner.models.propagation import (
     STEP_IDS,
     PropagationPlan,
-    PropagationStep,
     compute_propagation_plan,
 )
-
 
 # ── compute_propagation_plan ──────────────────────────────────────────────────
 
 
 def _make_plan(**kwargs):
     """Helper: build a plan for tomato-like species with sensible defaults."""
-    defaults = dict(
-        species_key="tomato",
-        sow_start=datetime.date(2025, 3, 1),
-        sow_end=datetime.date(2025, 3, 15),
-        transplant_date=datetime.date(2025, 5, 15),
-        germination_days_min=7,
-        germination_days_max=14,
-        prick_out_after_days=21,
-        harden_off_days=10,
-    )
+    defaults = {
+        "species_key": "tomato",
+        "sow_start": datetime.date(2025, 3, 1),
+        "sow_end": datetime.date(2025, 3, 15),
+        "transplant_date": datetime.date(2025, 5, 15),
+        "germination_days_min": 7,
+        "germination_days_max": 14,
+        "prick_out_after_days": 21,
+        "harden_off_days": 10,
+    }
     defaults.update(kwargs)
     return compute_propagation_plan(**defaults)
 

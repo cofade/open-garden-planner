@@ -1,14 +1,13 @@
 """Unit tests for garden infrastructure SVG rendering (US-6.9)."""
 
-from pathlib import Path
 
 import pytest
 from PyQt6.QtGui import QPixmap
 
 from open_garden_planner.core.furniture_renderer import (
-    FURNITURE_DEFAULT_DIMENSIONS,
     _INFRASTRUCTURE_DIR,
     _INFRASTRUCTURE_FILES,
+    FURNITURE_DEFAULT_DIMENSIONS,
     clear_furniture_cache,
     get_default_dimensions,
     get_furniture_svg_path,
@@ -16,7 +15,6 @@ from open_garden_planner.core.furniture_renderer import (
     render_furniture_pixmap,
 )
 from open_garden_planner.core.object_types import ObjectType
-
 
 INFRASTRUCTURE_TYPES = [
     ObjectType.RAISED_BED,

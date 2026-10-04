@@ -1,7 +1,6 @@
 """UI tests for the Grid Array dialog (US-7.15)."""
 
 # ruff: noqa: ARG002
-import pytest
 from PyQt6.QtWidgets import QDialogButtonBox
 
 from open_garden_planner.ui.dialogs import GridArrayDialog

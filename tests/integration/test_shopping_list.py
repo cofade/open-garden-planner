@@ -17,7 +17,6 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-
 from PyQt6.QtWidgets import QApplication
 
 from open_garden_planner.core import ProjectManager
@@ -204,6 +203,8 @@ class TestPriceEditing:
 
 class TestPdfPagination:
     def test_grand_total_only_on_final_page(self, tmp_path: Path) -> None:
+        from PyQt6.QtCore import QRectF
+
         from open_garden_planner.models.shopping_list import (
             ShoppingListCategory as Cat,
         )
@@ -213,7 +214,6 @@ class TestPdfPagination:
         from open_garden_planner.services.pdf_report_service import (
             _shopping_list_fits,
         )
-        from PyQt6.QtCore import QRectF
 
         # 200 priced items — guaranteed to overflow A4 portrait.
         items = [

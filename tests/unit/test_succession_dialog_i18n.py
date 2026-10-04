@@ -59,7 +59,6 @@ class TestGermanSeasonLabels:
 
     def test_the_dialog_still_segments_through_the_shared_resolver(self) -> None:
         """The extraction must not have left the dialog with its own copy."""
-        import datetime
 
         from open_garden_planner.models.succession import (
             SEASON_SEGMENTS,

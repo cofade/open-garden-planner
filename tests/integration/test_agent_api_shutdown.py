@@ -33,15 +33,12 @@ import time
 from typing import Any
 
 from open_garden_planner.agent_api import AgentApiServer, AgentProviders
+from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
 
 #: A healthy stop is ~0.2 s idle and ~1.3-2.2 s with a streaming client (the
 #: graceful bound is part of that); a #373 regression is ~10 s.
 #: 4.0 s cleanly separates them without sitting on the 5 s join timeout.
 _PROMPT_SHUTDOWN_MAX_S = 4.0
-
-
-
-from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
 
 
 def _free_port() -> int:

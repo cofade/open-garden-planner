@@ -8,7 +8,6 @@ All coordinates are scene-space (Y-down, (0,0) = top-left).
 
 from unittest.mock import MagicMock
 
-import pytest
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QKeyEvent, QMouseEvent
 
@@ -19,7 +18,6 @@ from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
 from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -170,7 +168,6 @@ class TestTrimPolyline:
         polylines = _items_of(canvas, PolylineItem)
         assert h_line not in polylines
         # The remaining piece should keep vertices at x=150, 300, 600, 900
-        remaining = [p for p in polylines if p is not _items_of(canvas, PolylineItem)[0]]
         # At least one piece with >= 3 vertices
         long_pieces = [p for p in polylines if p.object_type == ObjectType.FENCE and len(p.points) >= 3]
         assert len(long_pieces) >= 1

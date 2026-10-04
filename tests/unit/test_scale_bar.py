@@ -1,6 +1,5 @@
 """Tests for US-6.4: Visual scale bar on canvas."""
 
-import pytest
 
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView

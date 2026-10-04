@@ -6,8 +6,6 @@ and species replace on canvas items.
 
 # ruff: noqa: ARG002
 
-import pytest
-from PyQt6.QtCore import QPointF
 
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
@@ -96,7 +94,7 @@ class TestSelectAll:
         panel._name_edit.setText("Target")
         panel._on_select_all()
 
-        selected = [i for i in canvas.scene().selectedItems()]
+        selected = list(canvas.scene().selectedItems())
         assert len(selected) == 2
         assert all(hasattr(i, "name") for i in selected)
 

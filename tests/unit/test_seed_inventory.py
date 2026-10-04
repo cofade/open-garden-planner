@@ -14,7 +14,6 @@ from open_garden_planner.models.seed_inventory import (
     ViabilityStatus,
 )
 
-
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 VIABILITY_DATA = {

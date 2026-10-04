@@ -13,9 +13,6 @@ Tests cover:
 from __future__ import annotations
 
 import datetime
-from unittest.mock import MagicMock, patch
-
-import pytest
 
 from open_garden_planner.services.weather_service import (
     DayForecast,

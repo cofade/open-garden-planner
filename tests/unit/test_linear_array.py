@@ -3,10 +3,9 @@
 import math
 
 import pytest
-from PyQt6.QtCore import QPointF
 from PyQt6.QtWidgets import QGraphicsRectItem, QGraphicsScene
 
-from open_garden_planner.core.commands import LinearArrayCommand, CommandManager
+from open_garden_planner.core.commands import CommandManager, LinearArrayCommand
 from open_garden_planner.ui.canvas.items import RectangleItem
 
 

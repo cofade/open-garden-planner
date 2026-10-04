@@ -6,7 +6,6 @@ import math
 
 import pytest
 from PyQt6.QtCore import QPointF
-from PyQt6.QtWidgets import QGraphicsScene
 
 from open_garden_planner.core.snap.provider import SnapCandidateKind
 from open_garden_planner.core.snap.providers import NearestSnapProvider

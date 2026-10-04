@@ -8,11 +8,9 @@ Rectangle, Circle, Polygon, and Ellipse items.
 
 import math
 
-import pytest
 from PyQt6.QtCore import QPointF
 from PyQt6.QtWidgets import QGraphicsSimpleTextItem
 
-from open_garden_planner.core.tools import ToolType
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 from open_garden_planner.ui.canvas.items.ellipse_item import EllipseItem
@@ -45,7 +43,6 @@ def _make_ellipse(canvas: CanvasView, w: float = 200.0, h: float = 100.0) -> Ell
 
 
 def _make_polygon(canvas: CanvasView) -> PolygonItem:
-    from PyQt6.QtCore import QRectF
     from PyQt6.QtGui import QPolygonF
 
     from open_garden_planner.core.object_types import ObjectType

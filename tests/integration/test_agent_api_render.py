@@ -46,8 +46,6 @@ from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.models.layer import Layer
 from open_garden_planner.services.soil_service import SoilService
 from open_garden_planner.ui.canvas.items import CircleItem
-
-
 from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
 
 

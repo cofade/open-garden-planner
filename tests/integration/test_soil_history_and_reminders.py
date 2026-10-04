@@ -24,7 +24,6 @@ from open_garden_planner.ui.canvas.items.soil_badge_item import SoilBadgeItem
 from open_garden_planner.ui.dialogs.soil_test_dialog import SoilTestDialog
 from open_garden_planner.ui.widgets.soil_sparkline_widget import SoilSparklineWidget
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 

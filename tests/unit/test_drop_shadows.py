@@ -91,7 +91,8 @@ class TestPaintedShadows:
     def test_background_image_no_shadow_flag(self, qtbot, tmp_path) -> None:
         """Background images should not have shadow flag (not GardenItemMixin)."""
         from PyQt6.QtCore import QSize
-        from PyQt6.QtGui import QImage, QColor as QC
+        from PyQt6.QtGui import QColor as QC
+        from PyQt6.QtGui import QImage
 
         img = QImage(QSize(10, 10), QImage.Format.Format_RGB32)
         img.fill(QC(255, 255, 255))
