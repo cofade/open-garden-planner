@@ -53,7 +53,7 @@ single `README.md` — there are no per-ADR or per-chapter sub-files.
 | Crosscutting concepts | `docs/08-crosscutting-concepts/README.md` | §8.1–§8.25: coordinate system, commands, **i18n (§8.3)**, **QGraphicsView patterns (§8.9)**, **integration-test policy (§8.10)**, **SAST (§8.11)**, **bed-only features (§8.14)**, sidebar accordion (§8.17), smart symbols (§8.18), agent API (§8.19), icon/sprite/texture pipelines (§8.21–§8.24), stacking order (§8.25) |
 | ADR register | `docs/09-architecture-decisions/README.md` | **All** ADRs (ADR-001…043) in this ONE file — append new ADRs here, never create a separate file |
 | Quality requirements | `docs/10-quality-requirements/README.md` | Quality scenarios |
-| Risks & technical debt | `docs/11-risks-and-technical-debt/README.md` | §11.1 open questions, §11.2 risks, §11.3 TD-* debt register, **§11.4 Known Development Pitfalls** (the hard-won-lessons log) |
+| Risks & technical debt | `docs/11-risks-and-technical-debt/README.md` | §11.1 open questions, §11.2 risks, §11.3 TD-* debt register (living: Status + Issue columns, ADR-047; dated audit snapshots `audit-YYYY-MM.md` beside it), **§11.4 Known Development Pitfalls** (the hard-won-lessons log) |
 | Glossary | `docs/12-glossary/README.md` | §12.1 terms, §12.2 keyboard shortcuts, §12.3 references |
 | Roadmap | `docs/roadmap.md` | User stories, acceptance criteria, per-US completion notes, "Docs updated on completion" tables |
 | FR register | `docs/functional-requirements.md` | Numbered FR-* requirements, the specification of user-visible capability |
@@ -101,7 +101,7 @@ Additional targets observed in practice (beyond the CLAUDE.md tables):
 - Every non-trivial bug fix → **Case study** in `.claude/skills/debug-verbose/SKILL.md`
   (the skill's own "How this skill grows" section mandates it).
 - New/changed UI strings → registration in `scripts/fill_translations.py` (see §6).
-- Known-but-deferred debt → a `TD-*` row in §11.3, or a filed follow-up issue referenced
+- Known-but-deferred debt → a `TD-*` row in §11.3 (with Status and Issue, ADR-047), or a filed follow-up issue referenced
   from the roadmap note (house pattern: "Follow-up #NNN filed: …").
 
 ## 3. House style, from real exemplars

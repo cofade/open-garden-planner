@@ -232,7 +232,7 @@
   "237": {
     "is_pr": false,
     "state": "OPEN",
-    "title": "Package D — Agent Integration: embedded MCP server (read + visualise + export MVP; write & domain to follow)"
+    "title": "Package D - Agent Integration: embedded MCP server, editing and domain intelligence"
   },
   "240": {
     "is_pr": false,
@@ -613,5 +613,10 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Agent writes are not canvas-clamped: an object can be created or moved entirely off-plan and becomes invisible"
+  },
+  "392": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Repository audit 2026-10 — hardening ledger (epic)"
   }
 }
