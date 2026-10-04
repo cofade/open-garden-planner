@@ -168,7 +168,7 @@ We welcome contributions! This project aims to be technically clean and attracti
 - Read the [Roadmap](docs/roadmap.md) and [Architecture](docs/05-building-block-view/) to understand the vision
 - Browse the **[Issue Tracker](https://github.com/cofade/open-garden-planner/issues)** for ready-to-pick work items — anything open and unassigned is fair game
 - Join **[GitHub Discussions](https://github.com/cofade/open-garden-planner/discussions)** if you have questions or ideas before opening a PR
-- PRs must pass CI (tests, linting, type checking)
+- PRs must pass CI (tests, linting, security scan); type checking is not yet a CI gate (#401)
 
 **AI-assisted development is welcome.** Feel free to use Claude Code, GitHub Copilot, Cursor, or other AI-powered coding tools. We care about the quality of the result, not how you got there. Just ensure every contribution includes proper tests - unit tests, integration tests, and UI tests where applicable.
 

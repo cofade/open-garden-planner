@@ -191,7 +191,7 @@ All claims verified 2026-07-03 against master (v1.23.0). Re-verify with:
 - `grep -rn 'from open_garden_planner.ui' src/open_garden_planner/core/` — every hit must be function-local or TYPE_CHECKING (row 11)
 - `grep -n '127.0.0.1\|token' src/open_garden_planner/agent_api/server.py` — loopback-only; reads open, every scene write token-gated (row 12)
 - `grep -n '8.9.8' docs/08-crosscutting-concepts/README.md` — pivot invariant text (row 2)
-- `sed -n '29,45p' docs/11-risks-and-technical-debt/README.md` — TD table (§4)
+- `grep -n '^| TD-' docs/11-risks-and-technical-debt/README.md` — TD register rows with status and issue (§4)
 - `grep -n 'def addItem\|def _refresh_layer_z\|def suspend_z_refresh' src/open_garden_planner/ui/canvas/canvas_scene.py` and `grep -n 'class ArrangeItemsCommand' src/open_garden_planner/core/commands.py` — the four rank writers (row 19)
 - `grep -n 'def build_arrange_command' src/open_garden_planner/ui/canvas/arrange.py` — the one arrange seam (row 19)
 

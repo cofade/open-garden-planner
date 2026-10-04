@@ -291,11 +291,11 @@ reusable pattern for Python CAD-lite apps — without importing a kernel?
   `linalg.lstsq`. scipy was **considered and rejected** (~40 MB installer
   cost) — do not reintroduce it casually; that is a settled trade-off you'd
   need a new ADR to reverse.
-- TD-008 (`docs/11-risks-and-technical-debt/README.md` line 40): Newton uses a
+- TD-008 (`docs/11-risks-and-technical-debt/README.md`, §11.3 row TD-008): Newton uses a
   **numerical central-difference Jacobian** (`_JACOBIAN_H`); an analytic
   Jacobian per constraint type is the named, deferred improvement ("roughly
   2N × eval savings per iteration"), gated on large-scene need.
-- TD-007 (same file, line 39 + the §11.4 entry at line 84): the
+- TD-007 (same file, §11.3 row TD-007 + the §11.4 entry "EDGE_* anchor type instability"): the
   `EDGE_TOP/BOTTOM/LEFT/RIGHT` dynamic anchor classification flips when a
   dragged vertex changes an edge's dominant axis; the named fix is a single
   `AnchorType.EDGE_MIDPOINT` + stable `anchor_index`. A workaround
