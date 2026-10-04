@@ -239,6 +239,10 @@ Four things that only bite at package scale:
   per branch — a clean pass on one says nothing about the others.
 - **Rounds compound.** Round 2 catches what round 1's *fix* broke, round 3 what rounds 1 and 2
   obscured (#240 / PR #251). Budget for three, and re-run after every round of fixes.
+- **3D-visible work is reviewed twice.** If the package changes anything visible in the 3D
+  view, the `ogp-3d-reviewer` pass (truth gates first, renders its own board) must come back
+  without P0/P1 before the `senior-reviewer` pass; the `ogp-3d-creator` never approves its
+  own work.
 - **This skill never overrides a live instruction from the user.** It only refuses to let an
   unmet gate go unreported.
 - **The reviewer's worktree has no `.env` and no real credentials.** Any claim it makes about

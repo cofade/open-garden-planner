@@ -45,10 +45,16 @@
 !.agents/skills/ogp-research-methodology/**
 !.agents/skills/ogp-validation-and-qa/
 !.agents/skills/ogp-validation-and-qa/**
+!.agents/skills/ogp-lush-cinematic/
+!.agents/skills/ogp-lush-cinematic/**
+!.agents/skills/ogp-3d-renderer/
+!.agents/skills/ogp-3d-renderer/**
 .claude/*
 !.claude/agents/
 .claude/agents/*
 !.claude/agents/senior-reviewer.md
+!.claude/agents/ogp-3d-creator.md
+!.claude/agents/ogp-3d-reviewer.md
 !.claude/skills/
 .claude/skills/*
 !.claude/skills/finalize-us/
@@ -99,6 +105,10 @@
 !.claude/skills/ogp-3d-sunshade-campaign/**
 !.claude/skills/ogp-asset-forge/
 !.claude/skills/ogp-asset-forge/**
+!.claude/skills/ogp-lush-cinematic/
+!.claude/skills/ogp-lush-cinematic/**
+!.claude/skills/ogp-3d-renderer/
+!.claude/skills/ogp-3d-renderer/**
 
 # Windows
 nul
