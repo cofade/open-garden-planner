@@ -348,11 +348,24 @@ class SoilService:
 
         Hierarchy: bed's own latest record → global default's latest record → None.
         """
+        return self.get_effective_record_with_source(bed_id)[0]
+
+    def get_effective_record_with_source(
+        self, bed_id: str,
+    ) -> tuple[SoilTestRecord | None, str, SoilTestHistory]:
+        """Resolve the effective record, its provenance and matching history.
+
+        All consumers share this hierarchy. A fallback record must be rated for
+        staleness against the global history it came from, not an empty bed history.
+        """
         bed_history = self.get_history(bed_id)
         if bed_history.latest is not None:
-            return bed_history.latest
+            source = "global" if bed_id == GLOBAL_TARGET_ID else "bed"
+            return bed_history.latest, source, bed_history
         global_history = self.get_history(GLOBAL_TARGET_ID)
-        return global_history.latest
+        if global_history.latest is not None:
+            return global_history.latest, "global", global_history
+        return None, "none", bed_history
 
     # ── Write ─────────────────────────────────────────────────────────────────
 

@@ -154,11 +154,11 @@ def test_amendment_id_is_english_and_independent_of_the_ui(german_ui) -> None:
     assert recs, "acidic, depleted soil must produce recommendations"
 
     view = recommend_amendments_for_agent(
-        bed_id="bed-1", record=record, today=TODAY, recommendations=recs
+        bed_id="bed-1", record=record, today=TODAY, recommendations=recs, language="de"
     )
     for got, want in zip(view.recommendations, recs, strict=True):
         assert got.amendment_id == want.amendment.id
-        assert got.display_name == want.amendment.name
+        assert got.display_name == want.amendment.display_name("de")
         assert got.target_kind == want.target_kind
 
 

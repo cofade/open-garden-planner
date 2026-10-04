@@ -331,6 +331,21 @@ def test_task_spanning_a_month_boundary_counts_in_both():
     assert [m.month for m in view.months] == ["2026-10", "2026-11"]
 
 
+@pytest.mark.parametrize(
+    ("start", "end", "year", "months"),
+    [
+        (datetime.date(2025, 12, 28), datetime.date(2026, 1, 5), 2026, ["2026-01"]),
+        (datetime.date(2026, 12, 28), datetime.date(2027, 1, 5), 2026, ["2026-12"]),
+        (datetime.date(2026, 12, 28), datetime.date(2027, 1, 5), 2027, ["2027-01"]),
+        (datetime.date(2025, 12, 28), datetime.date(2027, 1, 5), 2026,
+         [f"2026-{month:02d}" for month in range(1, 13)]),
+    ],
+)
+def test_calendar_clips_cross_year_tasks(start, end, year, months):
+    view = get_task_calendar_for_agent([_task(start=start, end=end)], today=TODAY, year=year)
+    assert [bucket.month for bucket in view.months] == months
+
+
 def test_calendar_excludes_tasks_outside_the_target_year():
     task = _task(start=datetime.date(2027, 5, 1), end=datetime.date(2027, 5, 2))
     view = get_task_calendar_for_agent([task], today=TODAY, year=2026)
@@ -458,7 +473,7 @@ def test_task_types_distinguish_the_two_soil_generators() -> None:
     assert generate_soil_mismatch_tasks(state)[0].task_type == "soil_mismatch"
 
 
-def test_soil_mismatch_title_is_localised_upstream() -> None:
+def test_soil_mismatch_title_is_localised_upstream(qtbot) -> None:
     """The mismatch title is built with QCoreApplication.translate.
 
     This is the concrete instance behind the D3 localisation decision: a German

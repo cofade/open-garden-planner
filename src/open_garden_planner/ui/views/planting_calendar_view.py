@@ -34,7 +34,7 @@ from PyQt6.QtWidgets import (
 from open_garden_planner.app.settings import get_settings
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.models.plant_data import species_key as _species_key
-from open_garden_planner.models.propagation import PropagationPlan, compute_propagation_plan
+from open_garden_planner.models.propagation import PropagationPlan
 from open_garden_planner.services.task_generator import (
     Task,
     build_plan_state,
@@ -1091,53 +1091,14 @@ class PlantingCalendarView(QWidget):
     ) -> dict[str, PropagationPlan]:
         """Build PropagationPlan for each plant that supports pre-cultivation."""
         from open_garden_planner.models.seed_inventory import get_seed_inventory
+        from open_garden_planner.services.task_generator import build_propagation_plans
 
-        overrides = self._project_manager.propagation_overrides
         store = get_seed_inventory()
-        plans: dict[str, PropagationPlan] = {}
-
-        for row in rows:
-            sp = row.species
-            # Only compute for plants that have indoor sowing data
-            if sp.indoor_sow_start is None or sp.transplant_start is None:
-                continue
-
-            sow_start = last_frost + datetime.timedelta(weeks=sp.indoor_sow_start)
-            sow_end = (
-                last_frost + datetime.timedelta(weeks=sp.indoor_sow_end)
-                if sp.indoor_sow_end is not None
-                else sow_start + datetime.timedelta(days=14)
-            )
-            transplant_date = last_frost + datetime.timedelta(weeks=sp.transplant_start)
-
-            # US-9.6: Use linked seed packet germination data when available
-            germ_min = sp.days_to_germination_min
-            germ_max = sp.days_to_germination_max
-            if seed_links:
-                packet_id = seed_links.get(row.species_key)
-                if packet_id:
-                    packet = store.get(packet_id)
-                    if packet:
-                        if packet.germination_days_min is not None:
-                            germ_min = packet.germination_days_min
-                        if packet.germination_days_max is not None:
-                            germ_max = packet.germination_days_max
-
-            sp_overrides = overrides.get(row.species_key, {})
-            plan = compute_propagation_plan(
-                species_key=row.species_key,
-                sow_start=sow_start,
-                sow_end=sow_end,
-                transplant_date=transplant_date,
-                germination_days_min=germ_min,
-                germination_days_max=germ_max,
-                prick_out_after_days=sp.prick_out_after_days,
-                harden_off_days=sp.harden_off_days,
-                overrides=sp_overrides,
-            )
-            plans[row.species_key] = plan
-
-        return plans
+        packets = {key: store.get(packet_id) for key, packet_id in (seed_links or {}).items()}
+        return build_propagation_plans(
+            {row.species_key: row.species for row in rows}, last_frost,
+            self._project_manager.propagation_overrides, packets,
+        )
 
     # ── refresh ────────────────────────────────────────────────────────────────
 

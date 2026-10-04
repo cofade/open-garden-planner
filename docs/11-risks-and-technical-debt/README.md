@@ -607,6 +607,53 @@ over. Each was found by a test that compared against the *engine* rather than
 against an expected literal — and every one of them would have passed a test
 written from the issue text instead.
 
+### 11.4.4 Review and frozen-client findings in D3.3/D3.4 (#332/#333)
+
+- **Call the public tool with the production provider graph.** The first
+  handover reported 6951 passing tests, but a real MCP client against the frozen
+  exe found `get_soil_status` failing with six missing model fields,
+  `get_soil_mismatches` failing with missing `total`, and the soil prompt failing
+  likewise. Providers returned aggregate `beds` envelopes while the server
+  constructed single-bed models. The purported real-client suite only called
+  provider methods and prompt renderers directly. Explicit aggregate schemas
+  now preserve per-bed coverage; the prompt extracts its requested bed.
+  `TestRealMcpTransport` in `tests/integration/test_agent_task_soil_tools.py`
+  calls all nine tools and both prompts using `app._build_agent_providers()`.
+  Four status/prompt tests and a separate mismatch test were observed failing
+  before the fix. Stub registration and direct provider success are evidence
+  about different boundaries.
+- **Generate a requested period before applying urgency.** A plant with April
+  sowing and June/July harvest returned an empty, fully-covered annual calendar
+  when queried in October. Future years were also empty because `year` never
+  reached generation. `actionable_only=False` retains the schedule for agent
+  annual/explicit-window reads while GUI reminders keep their existing default.
+  A December-to-January task was dropped from both years; intervals are now
+  clipped to year boundaries. Pinned by
+  `test_calendar_generates_the_full_requested_year`,
+  `test_explicit_task_window_generates_its_calendar_tasks` and
+  `test_calendar_clips_cross_year_tasks`, all observed failing first. Propagation
+  was absent because no plans were supplied to its generator. The extracted
+  `build_propagation_plans` is now shared with the GUI and honors seed data and
+  user overrides; `test_propagation_tasks_use_the_gui_calculator` failed for both
+  current and future years before the fix.
+- **Provenance and staleness must follow the same selected record.** An old
+  global test was reported with `record_source=global` and
+  `is_test_overdue=false` because staleness checked the bed's empty history.
+  The service now resolves record/source/history together, and the existing
+  record-only method delegates to it. Pinned by
+  `test_global_fallback_uses_global_history_for_staleness` (failed first).
+- **Language and input types must be checked at the actual boundary.** A
+  German amendment test pinned English names, contrary to the API contract.
+  Recommendation names now use the existing `Amendment.display_name(language)`;
+  `test_amendment_names_follow_the_ui_language` failed first with English
+  `Dolomite lime`/`Compost` versus `Dolomitkalk`/`Kompost`. MCP's permissive
+  numeric validation also converted booleans and numeric strings into soil
+  readings before the stricter domain validator saw them. Strict numeric
+  annotations prevent that; three malformed-input transport cases failed first.
+  The translator unit test now requests `qtbot`: it previously depended on an
+  unrelated test creating QApplication, so a targeted run failed while the full
+  run passed.
+
 ## 11.5 Community and Governance
 
 **Feature Requests**: Open to community input, pivots, and voting. The goal is to avoid a dead project — community engagement is welcome.

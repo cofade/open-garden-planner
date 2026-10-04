@@ -1667,8 +1667,38 @@ none) and returns the record alone. For an agent that is unusable: with only a
 plan-wide test recorded it hands back the global record *for a bed*, and the
 caller cannot tell that from a real bed reading. `SoilStatus.record_source`
 (`'bed'` / `'global'` / `'none'`) restores the distinction, and the provider
-resolves the two histories directly to recover it. The service stays the single
-source of the hierarchy.
+uses `SoilService.get_effective_record_with_source` to obtain the record, source
+and matching history together. The existing `get_effective_record` delegates to
+that same resolver. Staleness follows the selected history, including a global
+fallback; checking an empty bed history against an old global reading incorrectly
+reported it as current.
+
+**D3 transport envelopes and period generation.** `get_soil_status` always
+returns `SoilStatusListView.beds`, with one result for a requested bed or all
+soil-capable beds when omitted. `get_soil_mismatches` returns
+`SoilMismatchBedsView.beds`, keyed by bed UUID, preserving each bed's `coverage`,
+`total` and disagreements. Its aggregate coverage distinguishes `no_beds`,
+`no_soil_test`, `partial_soil_tests` and `ok`. The soil prompt extracts the
+requested bed from both envelopes before rendering; it never treats an envelope
+as one bed. Real-client integration tests use `app._build_agent_providers()` and
+call all nine new tools and both prompts over HTTP, including authenticated
+writes, refusals and undo. Direct provider tests remain useful but cannot detect
+an MCP response-schema mismatch.
+
+`build_plan_state(today, year, actionable_only, include_propagation)` separates
+the reference date from the calendar year. GUI reminders keep `actionable_only=True`;
+annual agent calendars and explicit task windows retain inactive dated tasks,
+then classify urgency against the actual reference date. Cross-year windows are
+clipped to each requested year before month bucketing. `generate_for_date_window`
+uses one snapshot and the shared generators for each year, deduplicating absolute
+tasks. Propagation plans use the extracted `build_propagation_plans` calculator
+shared with the GUI, preserving seed-packet germination values and user overrides.
+Missing frost dates still prevent those plans from being computed.
+
+Amendment display names use `Amendment.display_name(language)` with the app's
+language, just as the GUI does; stable amendment IDs do not change. Soil-write
+arguments use strict numeric MCP annotations so booleans and numeric strings
+cannot be coerced into readings before the domain validator sees them.
 
 **Secondary nutrients have no health rating, and `None` is the honest answer.**
 `SoilService.health_level` rates `ph`, `n`, `p`, `k` and `overall` — its

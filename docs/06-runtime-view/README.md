@@ -258,3 +258,33 @@ flowchart TD
     Prompt -->|Yes| Load
     Prompt -->|No| Del
 ```
+
+## 6.7 Agent Task and Soil Requests (US-D3.3/D3.4)
+
+```mermaid
+sequenceDiagram
+    participant Client as MCP client
+    participant Server as MCP/asyncio thread
+    participant App as Qt main thread
+    participant Service as Task/soil service
+    participant Commands as CommandManager
+    Client->>Server: Read tool or guided prompt
+    Server->>App: anyio worker -> MainThreadBridge
+    App->>Service: Snapshot/generate requested period or resolve effective soil
+    Service-->>App: Tasks or record + source + matching history
+    App-->>Server: Curated plain payload
+    Server-->>Client: Typed result envelope or rendered prompt
+    Client->>Server: Manual-task or soil-test write
+    Server->>Server: Check write token
+    Server->>App: MainThreadBridge
+    App->>App: Validate all inputs before mutation
+    App->>Commands: execute one existing command
+    Commands-->>App: Mark dirty and refresh views
+    App-->>Client: Result; one undo reverses the write
+```
+
+The soil prompt extracts one bed from the status/mismatch envelopes. Calendar
+generation selects a year independently of `today`; urgency uses `today` after
+the full requested period is generated. Refused writes return an error without
+changing project data or either undo/redo stack.
+

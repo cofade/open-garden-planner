@@ -889,8 +889,12 @@ def get_task_calendar_for_agent(
         if task.start_date is None or task.end_date is None:
             continue
         view = _task_view(task, today=today, task_states=states)
-        first = _month_range(task.start_date, target_year)
-        last = _month_range(task.end_date, target_year)
+        start = max(task.start_date, datetime.date(target_year, 1, 1))
+        end = min(task.end_date, datetime.date(target_year, 12, 31))
+        if start > end:
+            continue
+        first = _month_range(start, target_year)
+        last = _month_range(end, target_year)
         for month in _months_between(first, last):
             bucket = buckets.get(month)
             if bucket is None:
@@ -1025,6 +1029,7 @@ def recommend_amendments_for_agent(
     record: Any,
     today: datetime.date,
     recommendations: list[Any],
+    language: str = "en",
 ) -> AmendmentPlanView:
     """Curate ``calculate_amendments`` output, adding the coverage marker.
 
@@ -1039,19 +1044,19 @@ def recommend_amendments_for_agent(
         today=today.isoformat(),
         total=len(recommendations),
         recommendations=[
-            _amendment_view(rec) for rec in recommendations
+            _amendment_view(rec, language) for rec in recommendations
         ],
     )
 
 
-def _amendment_view(rec: Any) -> AmendmentRecommendationView:
+def _amendment_view(rec: Any, language: str) -> AmendmentRecommendationView:
     """Curate one ``AmendmentRecommendation`` without recomputing anything."""
     amendment = rec.amendment
     return AmendmentRecommendationView(
         amendment_id=amendment.id,
         # `name`/`name_de` are data-baked bilingual fields, not `tr()` output.
         # The id is the machine key; this is display text beside it.
-        display_name=amendment.name,
+        display_name=amendment.display_name(language),
         quantity_g=rec.quantity_g,
         target_kind=rec.target_kind,
         current_value=rec.current_value,

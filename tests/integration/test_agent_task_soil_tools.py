@@ -21,7 +21,10 @@ does something" passes for a write that pushed three commands.
 
 from __future__ import annotations
 
+import asyncio
 import datetime
+import socket
+import threading
 from typing import Any
 
 import pytest
@@ -99,12 +102,275 @@ def _redo_depth(app: Any) -> int:
     return app._agent_get_history()["redo_depth"]
 
 
+@pytest.fixture
+def mcp_server(app: Any):
+    """Real HTTP server with the application's production provider graph."""
+    from open_garden_planner.agent_api import AgentApiServer
+
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    server = AgentApiServer(
+        app._build_agent_providers(), port=port,
+        writes_enabled=True, write_token="task-soil-test-token",
+    )
+    server.start()
+    try:
+        yield server
+    finally:
+        server.stop()
+
+
+def _exercise_mcp(qtbot: Any, server: Any, workflow: Any, *, writes: bool = False) -> None:
+    """Run the client off-thread while Qt services the real bridge requests."""
+    finished = threading.Event()
+    errors: list[BaseException] = []
+
+    async def run() -> None:
+        import httpx
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamable_http_client
+
+        headers = {"Authorization": "Bearer task-soil-test-token"} if writes else None
+        async with (
+            httpx.AsyncClient(headers=headers) as http,
+            streamable_http_client(server.url, http_client=http) as (read, write, _),
+            ClientSession(read, write) as session,
+        ):
+            await session.initialize()
+            await workflow(session)
+
+    def target() -> None:
+        try:
+            asyncio.run(run())
+        except BaseException as exc:
+            errors.append(exc)
+        finally:
+            finished.set()
+
+    thread = threading.Thread(target=target, daemon=True, name="task-soil-mcp-client")
+    thread.start()
+    qtbot.waitUntil(finished.is_set, timeout=30000)
+    thread.join()
+    if errors:
+        raise errors[0]
+
+
+async def _call(session: Any, name: str, **arguments: Any) -> dict[str, Any]:
+    response = await session.call_tool(name, arguments)
+    assert not response.isError, response.content
+    return response.structuredContent
+
+
+class TestRealMcpTransport:
+    """Validate actual app payloads at the MCP boundary, including prompts."""
+
+    @pytest.mark.parametrize("reading", [{"n_level": True}, {"ph": True}, {"n_level": "2"}])
+    def test_malformed_numbers_are_not_coerced_over_mcp(
+        self, app: Any, qtbot: Any, mcp_server: Any, bed_id: str, reading: dict[str, Any],
+    ) -> None:
+        async def workflow(session: Any) -> None:
+            before = await _call(session, "get_history")
+            response = await session.call_tool("record_soil_test", {"bed_id": bed_id, **reading})
+            assert response.isError, "MCP validation must not coerce a boolean or string into a reading"
+            assert await _call(session, "get_history") == before
+        _exercise_mcp(qtbot, mcp_server, workflow, writes=True)
+        assert app._project_manager.soil_tests == {}
+
+    def test_writes_refuse_without_auth_over_mcp(
+        self, app: Any, qtbot: Any, mcp_server: Any, bed_id: str,
+    ) -> None:
+        async def workflow(session: Any) -> None:
+            before = await _call(session, "get_history")
+            for name, arguments in (
+                ("add_manual_task", {"title": "unauthorised"}),
+                ("edit_manual_task", {"task_id": "unknown", "title": "unauthorised"}),
+                ("delete_manual_task", {"task_id": "unknown"}),
+                ("record_soil_test", {"bed_id": bed_id, "ph": 6.0}),
+            ):
+                response = await session.call_tool(name, arguments)
+                assert response.isError
+                assert "token" in response.content[0].text.lower()
+                assert await _call(session, "get_history") == before
+        _exercise_mcp(qtbot, mcp_server, workflow)
+        assert app._project_manager.manual_tasks == {}
+        assert app._project_manager.soil_tests == {}
+
+    def test_range_and_generated_task_refusals_over_mcp(
+        self, app: Any, qtbot: Any, mcp_server: Any, bed_id: str,
+    ) -> None:
+        async def workflow(session: Any) -> None:
+            before = await _call(session, "get_history")
+            original = await _call(session, "get_soil_status", bed_id=bed_id, today=TODAY)
+            response = await session.call_tool("record_soil_test", {"bed_id": bed_id, "n_level": 40})
+            assert response.isError and "0-4" in response.content[0].text
+            assert await _call(session, "get_history") == before
+            assert await _call(session, "get_soil_status", bed_id=bed_id, today=TODAY) == original
+            await _call(session, "record_soil_test", bed_id=bed_id, ph=5.0, n_level=0, k_level=1)
+            tasks = (await _call(session, "get_tasks"))["tasks"]
+            generated = next(t for t in tasks if t["source"] == "soil")
+            before = await _call(session, "get_history")
+            for name, arguments in (
+                ("edit_manual_task", {"task_id": generated["task_id"], "title": "invalid"}),
+                ("delete_manual_task", {"task_id": generated["task_id"]}),
+            ):
+                response = await session.call_tool(name, arguments)
+                assert response.isError and "generated" in response.content[0].text.lower()
+                assert await _call(session, "get_history") == before
+                assert (await _call(session, "get_tasks"))["tasks"] == tasks
+        _exercise_mcp(qtbot, mcp_server, workflow, writes=True)
+
+    def test_mismatches_over_mcp(
+        self, app: Any, qtbot: Any, mcp_server: Any, bed_id: str,
+    ) -> None:
+        async def workflow(session: Any) -> None:
+            result = await _call(session, "get_soil_mismatches", bed_id=bed_id, today=TODAY)
+            assert result["beds"][bed_id]["coverage"] == "no_soil_test"
+        _exercise_mcp(qtbot, mcp_server, workflow)
+
+    @pytest.mark.parametrize("one_bed", [True, False])
+    def test_untested_soil_reads_over_mcp(
+        self, app: Any, qtbot: Any, mcp_server: Any, bed_id: str, one_bed: bool,
+    ) -> None:
+        async def workflow(session: Any) -> None:
+            arguments = {"bed_id": bed_id} if one_bed else {}
+            status = await _call(session, "get_soil_status", today=TODAY, **arguments)
+            assert [b["bed_id"] for b in status["beds"]] == [bed_id]
+            assert status["beds"][0]["coverage"] == "no_soil_test"
+            mismatch = await _call(session, "get_soil_mismatches", today=TODAY, **arguments)
+            assert mismatch["beds"][bed_id]["coverage"] == "no_soil_test"
+            assert mismatch["beds"][bed_id]["total"] == 0
+            amendments = await _call(session, "recommend_amendments", bed_id=bed_id, today=TODAY)
+            assert amendments["coverage"] == "no_soil_test"
+        _exercise_mcp(qtbot, mcp_server, workflow)
+
+    def test_soil_prompt_over_mcp(
+        self, app: Any, qtbot: Any, mcp_server: Any, bed_id: str,
+    ) -> None:
+        async def workflow(session: Any) -> None:
+            prompt = await session.get_prompt("plan-soil-amendments", {"bed_id": bed_id})
+            text = prompt.messages[0].content.text
+            assert "no soil test" in text
+            assert "Do NOT describe the soil as fine" in text
+        _exercise_mcp(qtbot, mcp_server, workflow)
+
+    def test_soil_write_fallback_and_undo_over_mcp(
+        self, app: Any, qtbot: Any, mcp_server: Any, bed_id: str,
+    ) -> None:
+        async def workflow(session: Any) -> None:
+            before = (await _call(session, "get_history"))["undo_depth"]
+            original = await _call(session, "get_soil_status", bed_id=bed_id, today=TODAY)
+            await _call(session, "record_soil_test", ph=5.0, n_level=0, p_level=0, k_level=1)
+            assert (await _call(session, "get_history"))["undo_depth"] == before + 1
+            status = await _call(session, "get_soil_status", bed_id=bed_id, today=TODAY)
+            assert status["beds"][0]["record_source"] == "global"
+            assert status["beds"][0]["ph"] == 5.0
+            assert (await _call(session, "recommend_amendments", bed_id=bed_id))["total"] > 0
+            prompt = await session.get_prompt("plan-soil-amendments", {"bed_id": bed_id})
+            assert "PLAN-WIDE default" in prompt.messages[0].content.text
+            await _call(session, "undo")
+            assert await _call(session, "get_soil_status", bed_id=bed_id, today=TODAY) == original
+        _exercise_mcp(qtbot, mcp_server, workflow, writes=True)
+        assert app._project_manager.soil_tests == {}
+
+    def test_manual_tasks_and_prompts_over_mcp(
+        self, app: Any, qtbot: Any, mcp_server: Any, bed_id: str,
+    ) -> None:
+        async def workflow(session: Any) -> None:
+            async def tasks() -> list[dict[str, Any]]:
+                return (await _call(session, "get_tasks", today=TODAY))["tasks"]
+            before = (await _call(session, "get_history"))["undo_depth"]
+            created = await _call(session, "add_manual_task", title="Transport reminder", date=TODAY, bed_id=bed_id)
+            task_id = created["task_id"]
+            assert (await _call(session, "get_history"))["undo_depth"] == before + 1
+            assert any(t["task_id"] == task_id and t["title"] == "Transport reminder" for t in await tasks())
+            await _call(session, "edit_manual_task", task_id=task_id, title="Edited reminder", date=TODAY)
+            assert (await _call(session, "get_history"))["undo_depth"] == before + 2
+            assert any(t["task_id"] == task_id and t["title"] == "Edited reminder" for t in await tasks())
+            await _call(session, "undo")
+            assert any(t["task_id"] == task_id and t["title"] == "Transport reminder" for t in await tasks())
+            await _call(session, "delete_manual_task", task_id=task_id)
+            assert (await _call(session, "get_history"))["undo_depth"] == before + 2
+            assert task_id not in {t["task_id"] for t in await tasks()}
+            await _call(session, "undo")
+            assert task_id in {t["task_id"] for t in await tasks()}
+            calendar = await _call(session, "get_task_calendar", today=TODAY)
+            assert calendar["coverage"] == "full"
+            prompt = await session.get_prompt("plan-my-week")
+            assert "Transport reminder" in prompt.messages[0].content.text
+        _exercise_mcp(qtbot, mcp_server, workflow, writes=True)
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # US-D3.3 — task calendar reads
 # ══════════════════════════════════════════════════════════════════════════════
 
 
 class TestTaskReads:
+    @pytest.mark.parametrize("year", [2026, 2027])
+    def test_propagation_tasks_use_the_gui_calculator(self, app: Any, year: int) -> None:
+        from open_garden_planner.services.task_generator import (
+            PlanState,
+            generate_propagation_tasks,
+        )
+        plant = RectangleItem(0, 0, 40, 40)
+        plant.object_type = ObjectType.PERENNIAL
+        plant.metadata["plant_species"] = {
+            "common_name": "Propagation fixture", "scientific_name": "Propagation fixture",
+            "indoor_sow_start": -6, "indoor_sow_end": -4,
+            "transplant_start": 2, "transplant_end": 3,
+            "prick_out_after_days": 14, "harden_off_days": 7,
+        }
+        app.canvas_scene.addItem(plant)
+        rows, _, _, seeds = app.calendar_view._collect_data()
+        last_frost = datetime.date(year, 4, 15)
+        plans = app.calendar_view._build_propagation_plans(rows, last_frost, seeds)
+        expected = generate_propagation_tasks(PlanState(
+            today=datetime.date(2026, 10, 3), year=year,
+            plant_rows=app._agent_build_task_state(datetime.date(2026, 10, 3)).plant_rows,
+            prop_plans=plans, actionable_only=False,
+        ))
+        assert len(expected) == 2
+        result = app._agent_get_tasks(
+            source="propagation", from_date=f"{year}-01-01",
+            to_date=f"{year}-12-31", today=TODAY,
+        )
+        assert [(t["task_id"], t["start_date"], t["end_date"]) for t in result["tasks"]] == sorted(
+            [(t.task_id, t.start_date.isoformat(), t.end_date.isoformat()) for t in expected],
+            key=lambda t: (t[1], t[0]),
+        )
+
+    @pytest.mark.parametrize("year", [2026, 2027])
+    def test_explicit_task_window_generates_its_calendar_tasks(self, app: Any, year: int) -> None:
+        plant = RectangleItem(0, 0, 40, 40)
+        plant.object_type = ObjectType.PERENNIAL
+        plant.metadata["plant_species"] = {
+            "common_name": "Calendar fixture", "scientific_name": "Calendar fixture",
+            "direct_sow_start": -2, "direct_sow_end": 0,
+        }
+        app.canvas_scene.addItem(plant)
+        result = app._agent_get_tasks(
+            from_date=f"{year}-04-01", to_date=f"{year}-04-30", today=TODAY,
+        )
+        assert result["total"] == 1
+        assert result["tasks"][0]["start_date"] == f"{year}-04-01"
+        assert result["tasks"][0]["task_id"].endswith(str(year))
+        assert result["tasks"][0]["urgency"] is None
+
+    @pytest.mark.parametrize("year", [2026, 2027])
+    def test_calendar_generates_the_full_requested_year(self, app: Any, year: int) -> None:
+        plant = RectangleItem(0, 0, 40, 40)
+        plant.object_type = ObjectType.PERENNIAL
+        plant.metadata["plant_species"] = {
+            "common_name": "Calendar fixture", "scientific_name": "Calendar fixture",
+            "direct_sow_start": -2, "direct_sow_end": 0,
+            "harvest_start": 8, "harvest_end": 12,
+        }
+        app.canvas_scene.addItem(plant)
+        calendar = app._agent_get_task_calendar(year=year, today=TODAY)
+        assert [b["month"] for b in calendar["months"]] == [f"{year}-04", f"{year}-06", f"{year}-07"]
+        assert sum(b["by_source"].get("calendar", 0) for b in calendar["months"]) == 3
+
     def test_get_tasks_reports_coverage_and_a_window(self, app: Any) -> None:
         result = app._agent_get_tasks(today=TODAY)
         assert result["coverage"] == "full", "the fixture has frost dates"
@@ -299,6 +565,26 @@ class TestManualTaskWrites:
 
 
 class TestSoilReads:
+    def test_global_fallback_uses_global_history_for_staleness(self, app: Any, bed_id: str) -> None:
+        app._agent_record_soil_test(ph=5.0, test_date="2025-01-01")
+        status = app._agent_get_soil_status(bed_id=bed_id, today=TODAY)["beds"][0]
+        assert status["record_source"] == "global"
+        assert status["is_test_overdue"] is True
+
+    def test_amendment_names_follow_the_ui_language(self, app: Any, bed_id: str) -> None:
+        app._agent_record_soil_test(bed_id=bed_id, ph=5.0, n_level=0, k_level=1)
+        get_settings().language = "en"
+        english = app._agent_recommend_amendments(bed_id)["recommendations"]
+        get_settings().language = "de"
+        german = app._agent_recommend_amendments(bed_id)["recommendations"]
+        from open_garden_planner.services.soil_service import SoilService
+        recs = SoilService.calculate_amendments(
+            app._soil_service.get_effective_record(bed_id), bed_area_m2=2.0,
+        )
+        assert [r["amendment_id"] for r in english] == [r["amendment_id"] for r in german]
+        assert [r["display_name"] for r in german] == [r.amendment.display_name("de") for r in recs]
+        assert [r["display_name"] for r in english] != [r["display_name"] for r in german]
+
     def test_untested_bed_is_never_reported_as_fine(self, app: Any, bed_id: str) -> None:
         result = app._agent_get_soil_status(bed_id=bed_id, today=TODAY)
         beds = result["beds"]
@@ -617,74 +903,5 @@ def test_stub_module_covers_exactly_the_new_fields() -> None:
 
 
 def _bundle(app: Any):
-    """Build the real provider bundle from the running app.
-
-    ``GardenPlannerApp`` assembles its ``AgentProviders`` inline where it starts
-    the server, so this reproduces that call with the app's own bound methods.
-    A stub bundle would pass the wiring tests without exercising anything.
-    """
-    from open_garden_planner.agent_api.history import history_from_command_manager
-    from open_garden_planner.agent_api.providers import AgentProviders
-
-    cm = app.canvas_view.command_manager
-    bridge = app._agent_bridge
-    app._agent_frost_alerts = getattr(app, "_agent_frost_alerts", [])
-
-    def _hist() -> dict[str, Any]:
-        return history_from_command_manager(cm).model_dump()
-
-    return AgentProviders(
-        snapshot=lambda: bridge.run_on_main(
-            lambda: app._project_manager.snapshot_dict(app.canvas_scene)
-        ),
-        diagnostics=lambda: bridge.run_on_main(
-            lambda: app._project_manager.diagnostics_snapshot(app.canvas_scene)
-        ),
-        get_history=lambda: bridge.run_on_main(_hist),
-        render=lambda *_a: {},
-        save_plan=lambda *_a: {},
-        new_plan=lambda *_a: {},
-        open_plan=lambda *_a: {},
-        export_pdf=lambda *_a: {},
-        export_dxf=lambda *_a: {},
-        export_csv=lambda *_a: {},
-        create_object=lambda *_a, **_k: {},
-        get_geometry=lambda *_a: {},
-        move_object=lambda *_a: {},
-        set_object_position=lambda *_a: {},
-        delete_object=lambda *_a: {},
-        resize_object=lambda *_a: {},
-        rotate_object=lambda *_a: {},
-        set_vertex=lambda *_a: {},
-        add_vertex=lambda *_a: {},
-        delete_vertex=lambda *_a: {},
-        set_species=lambda *_a: {},
-        set_parent_bed=lambda *_a: {},
-        arrange_object=lambda *_a: {},
-        set_object_layer=lambda *_a: {},
-        create_layer=lambda *_a: {},
-        rename_layer=lambda *_a: {},
-        delete_layer=lambda *_a: {},
-        set_active_layer=lambda *_a: {},
-        set_layer_property=lambda *_a: {},
-        undo=lambda: bridge.run_on_main(lambda: app._do_agent_undo()),
-        redo=lambda: bridge.run_on_main(lambda: app._do_agent_redo()),
-        suggest_companions=lambda *_a: [],
-        find_compatible_sets=lambda *_a: [],
-        find_sets_for_bed=lambda *_a: {},
-        check_placement=lambda *_a: {},
-        get_succession_plan=lambda *_a: {},
-        find_succession_gaps=lambda *_a: [],
-        suggest_succession=lambda *_a: [],
-        set_succession_plan=lambda *_a: {},
-        # The nine under test, bound to the app's REAL methods.
-        get_tasks=app._agent_get_tasks,
-        get_task_calendar=app._agent_get_task_calendar,
-        add_manual_task=app._agent_add_manual_task,
-        edit_manual_task=app._agent_edit_manual_task,
-        delete_manual_task=app._agent_delete_manual_task,
-        get_soil_status=app._agent_get_soil_status,
-        recommend_amendments=app._agent_recommend_amendments,
-        get_soil_mismatches=app._agent_get_soil_mismatches,
-        record_soil_test=app._agent_record_soil_test,
-    )
+    """The same provider graph the running application's server uses."""
+    return app._build_agent_providers()

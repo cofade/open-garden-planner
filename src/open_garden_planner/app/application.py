@@ -1604,7 +1604,10 @@ class GardenPlannerApp(QMainWindow):
 
     # ── US-D3.3: calendar & task tools ───────────────────────────────────────
 
-    def _agent_build_task_state(self, today: "datetime.date") -> Any:
+    def _agent_build_task_state(
+        self, today: "datetime.date", *, year: int | None = None,
+        actionable_only: bool = True,
+    ) -> Any:
         """Build the shared ``PlanState`` with an injected reference date.
 
         One snapshot per tool call, exactly as the Tasks tab builds it, so an
@@ -1621,6 +1624,9 @@ class GardenPlannerApp(QMainWindow):
             getattr(self, "_agent_frost_alerts", None) or None,
             self._soil_service,
             today=today,
+            year=year,
+            actionable_only=actionable_only,
+            include_propagation=True,
         )
 
     def _agent_reference_date(self, today: str | None) -> "datetime.date":
@@ -1663,7 +1669,7 @@ class GardenPlannerApp(QMainWindow):
             TASK_SOURCES,
             get_tasks_for_agent,
         )
-        from open_garden_planner.services.task_generator import generate_all
+        from open_garden_planner.services.task_generator import generate_for_date_window
 
         if source is not None and source not in TASK_SOURCES:
             raise ValueError(
@@ -1685,9 +1691,15 @@ class GardenPlannerApp(QMainWindow):
             else None
         )
 
-        state = self._agent_build_task_state(reference)
+        state = self._agent_build_task_state(
+            reference, actionable_only=from_date is None and to_date is None,
+        )
         view = get_tasks_for_agent(
-            generate_all(state),
+            generate_for_date_window(
+                state,
+                start or reference - datetime.timedelta(days=30),
+                end or reference + datetime.timedelta(days=30),
+            ),
             today=reference,
             task_states=self._project_manager.task_states,
             from_date=start,
@@ -1722,7 +1734,7 @@ class GardenPlannerApp(QMainWindow):
         reference = self._agent_reference_date(today)
         if year is not None and (year < 1900 or year > 2200):
             raise ValueError(f"year {year} is out of range; pass a four-digit year.")
-        state = self._agent_build_task_state(reference)
+        state = self._agent_build_task_state(reference, year=year, actionable_only=False)
         view = get_task_calendar_for_agent(
             generate_all(state),
             today=reference,
@@ -1912,8 +1924,7 @@ class GardenPlannerApp(QMainWindow):
     ) -> dict[str, Any]:
         """Read one bed's effective soil record (US-D3.4, read-only).
 
-        ``bed_id=None`` reports the plan-wide default. With no bed the answer
-        covers every soil-capable bed, each labelled with its own
+        ``bed_id=None`` covers every soil-capable bed, each labelled with its own
         ``record_source``, so a bed answered by the plan default is never
         mistaken for a bed that was tested.
         """
@@ -1940,13 +1951,13 @@ class GardenPlannerApp(QMainWindow):
 
         payload: dict[str, Any] = {"beds": []}
         for target_id, name, _is_global in targets:
-            record, source = self._agent_effective_soil(target_id)
+            record, source, history = self._agent_effective_soil(target_id)
             view = _soil_status_from(
                 bed_id=target_id,
                 bed_name=name,
                 record=record,
                 record_source=source,
-                history=self._soil_service.get_history(target_id),
+                history=history,
                 today=reference,
                 health_level=SoilService.health_level,
                 is_test_overdue=SoilService.is_test_overdue,
@@ -1954,31 +1965,9 @@ class GardenPlannerApp(QMainWindow):
             payload["beds"].append(view.model_dump())
         return payload
 
-    def _agent_effective_soil(self, target_id: str) -> tuple[Any, str]:
-        """The effective record for a target and WHICH record it was.
-
-        Reproduces ``SoilService.get_effective_record``'s documented hierarchy —
-        the target's own latest, else the plan-wide default's latest, else none —
-        but reports the PROVENANCE alongside it.
-
-        It reads the two histories directly rather than calling
-        ``get_effective_record``, because that method returns the record alone.
-        With only a plan-wide test recorded, it hands back the global record for
-        a bed, and the caller has no way left to tell that apart from a real bed
-        reading — which is precisely the mis-attribution the ``record_source``
-        field exists to prevent. The service stays the single source of the
-        hierarchy itself; only the provenance is added here.
-        """
-        from open_garden_planner.services.soil_service import GLOBAL_TARGET_ID as _G
-
-        own = self._soil_service.get_history(target_id).latest
-        if own is not None:
-            return own, ("global" if target_id == _G else "bed")
-        if target_id != _G:
-            fallback = self._soil_service.get_history(_G).latest
-            if fallback is not None:
-                return fallback, "global"
-        return None, "none"
+    def _agent_effective_soil(self, target_id: str) -> tuple[Any, str, Any]:
+        """The service's effective record, provenance and matching history."""
+        return self._soil_service.get_effective_record_with_source(target_id)
 
     def _agent_soil_bed_ids(self) -> list[str]:
         """Every soil-capable bed id in the plan, sorted."""
@@ -2010,10 +1999,11 @@ class GardenPlannerApp(QMainWindow):
         from open_garden_planner.agent_api.domain import (
             recommend_amendments_for_agent,
         )
+        from open_garden_planner.app.settings import get_settings
 
         reference = self._agent_reference_date(today)
         target_id, _name, _is_global = self._agent_soil_target(bed_id)
-        record, _source = self._agent_effective_soil(target_id)
+        record, _source, _history = self._agent_effective_soil(target_id)
         recs = SoilService.calculate_amendments(
             record,
             bed_area_m2=(
@@ -2027,6 +2017,7 @@ class GardenPlannerApp(QMainWindow):
             record=record,
             today=reference,
             recommendations=recs,
+            language=get_settings().language,
         )
         return view.model_dump()
 
@@ -2070,7 +2061,7 @@ class GardenPlannerApp(QMainWindow):
             target_id = str(getattr(item, "item_id", ""))
             if target_id not in wanted:
                 continue
-            record, _source = self._agent_effective_soil(target_id)
+            record, _source, _history = self._agent_effective_soil(target_id)
             if record is None:
                 by_bed[target_id] = get_soil_mismatches_for_agent(
                     bed_id=target_id,
@@ -2094,8 +2085,14 @@ class GardenPlannerApp(QMainWindow):
                 details=SoilService.get_mismatch_details(record, specs),
             ).model_dump()
 
+        tested = sum(b["coverage"] == "ok" for b in by_bed.values())
+        coverage = (
+            "no_beds" if not by_bed else
+            "no_soil_test" if not tested else
+            "ok" if tested == len(by_bed) else "partial_soil_tests"
+        )
         return {
-            "coverage": "ok" if by_bed else "no_beds",
+            "coverage": coverage,
             "today": reference.isoformat(),
             "beds": dict(sorted(by_bed.items())),
         }

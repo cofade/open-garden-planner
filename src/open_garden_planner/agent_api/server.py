@@ -66,7 +66,7 @@ import urllib.parse
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from mcp.server.fastmcp.utilities.types import Image
-from pydantic import Field
+from pydantic import Field, StrictFloat, StrictInt
 
 from open_garden_planner.agent_api import creates as agent_creates
 from open_garden_planner.agent_api import prompts as agent_prompts
@@ -96,8 +96,8 @@ from open_garden_planner.agent_api.schema import (
     PlanLifecycleResult,
     PlanSummary,
     RenderMeta,
-    SoilMismatchListView,
-    SoilStatus,
+    SoilMismatchBedsView,
+    SoilStatusListView,
     SuccessionGap,
     SuccessionPlanView,
     SuccessionSuggestion,
@@ -815,6 +815,11 @@ def build_server(
         reproducible: the same inputs always return the same tasks, and an
         omitted `today` means the real current date.
 
+        The default mirrors the GUI's actionable reminders. An explicit date
+        window generates the complete schedule for its calendar years before
+        filtering, including past/future tasks with null urgency. Propagation
+        uses the GUI's calculator, seed-packet data and stored overrides.
+
         Each task carries the generator's own fields PLUS two the engine does not
         store: `urgency`, computed at render time from the dates and the
         reference date ('today', 'overdue', 'this_week', 'upcoming', or null when
@@ -851,8 +856,10 @@ def build_server(
             from_date: ISO window start. Defaults to `today` minus 30 days.
             to_date: ISO window end. Defaults to `today` plus 30 days.
             source: Keep only this source: 'calendar', 'propagation',
-                'succession', 'soil_amendment', 'soil_mismatch', 'frost' or
-                'manual'. An unknown value is refused, not ignored.
+                'succession', 'soil', 'frost' or
+                'manual'. Both soil generators use 'soil'; distinguish them
+                by task_type ('soil_amendment' or 'soil_mismatch'). An unknown
+                value is refused, not ignored.
             bed_id: Keep only tasks linked to this bed.
             species_key: Keep only tasks for this canonical species key.
             include_dismissed: Show dismissed tasks, each with its status.
@@ -877,6 +884,10 @@ def build_server(
         task spanning a month boundary appears in both. `total` therefore counts
         task-months, not distinct tasks.
 
+        Generates the COMPLETE requested calendar year rather than only today's
+        actionable reminders. A cross-year window is clipped to this year;
+        urgency still uses `today`, not an invented date in the requested year.
+
         `actionable` counts the tasks whose urgency is not null — the ones worth
         reading. A task with no urgency is not urgent and is not in that count,
         but it is still in `total` and in `by_urgency` under 'none'.
@@ -900,7 +911,7 @@ def build_server(
         return TaskCalendarView(**result)
 
     @mcp.tool()
-    async def get_soil_status(bed_id: str | None = None, today: str | None = None) -> SoilStatus:
+    async def get_soil_status(bed_id: str | None = None, today: str | None = None) -> SoilStatusListView:
         """One bed's soil readings and what they mean (US-D3.4).
 
         Answers the question `get_diagnostics` cannot: it tells you a plant
@@ -918,16 +929,20 @@ def build_server(
         `coverage: 'no_soil_test'` means UNTESTED, never 'the soil is fine'. There
         is no such thing as a passing grade for a missing test.
 
-        Omit `bed_id` to get every soil-capable bed in the plan.
+        `beds` holds one result for the requested bed. Omit `bed_id` to get
+        every soil-capable bed in the plan, sorted by UUID. Each result carries
+        its own `record_source` and `coverage`; no beds means an empty list.
 
         `levels` is keyed by the stable nutrient key 'n', 'p', 'k', 'ca', 'mg',
         's'. Each carries the recorded kit level and its derived `health_level`
         ('unknown', 'good', 'fair', 'poor'). A null level means not tested, and
-        its health_level is 'unknown' — that is a gap in the data, not a poor
-        reading.
+        its health_level is 'unknown' for N/P/K — a gap in the data, not a poor
+        reading. Ca/Mg/S carry null health_level because the engine defines no
+        rating for those secondaries, even when a kit level was recorded.
 
         `overall_health_level` is the WORST non-unknown level across pH and the
-        six nutrients, and 'unknown' only when every input is unknown.
+        N/P/K, and 'unknown' only when all four inputs are unknown. It does not
+        rate Ca/Mg/S.
 
         `is_test_overdue` is the app's own seasonal staleness check. When it is
         true, say the reading is old rather than recommending against it.
@@ -942,7 +957,7 @@ def build_server(
         result = await anyio.to_thread.run_sync(
             lambda: providers.get_soil_status(bed_id, today)
         )
-        return SoilStatus(**result)
+        return SoilStatusListView(**result)
 
     @mcp.tool()
     async def recommend_amendments(bed_id: str, today: str | None = None) -> AmendmentPlanView:
@@ -982,7 +997,7 @@ def build_server(
         return AmendmentPlanView(**result)
 
     @mcp.tool()
-    async def get_soil_mismatches(bed_id: str | None = None, today: str | None = None) -> SoilMismatchListView:
+    async def get_soil_mismatches(bed_id: str | None = None, today: str | None = None) -> SoilMismatchBedsView:
         """Which plants in a bed disagree with its soil, and on what (US-D3.4).
 
         `get_diagnostics` already reports a soil-mismatch FLAG per plant; this
@@ -1007,8 +1022,13 @@ def build_server(
         this list is not necessarily happy — it may simply not have declared a
         requirement that the soil breaks.
 
-        `coverage` is 'no_soil_test' when neither the bed nor the plan has a
-        record, which means UNTESTED rather than 'no disagreements'.
+        `beds` groups results by bed UUID. Each result has its own `coverage`,
+        `total` and `mismatches`. Per-bed `coverage` is 'no_soil_test' when
+        neither the bed nor the plan has a record: UNTESTED, not 'no disagreements'.
+
+        Top-level `coverage` is 'no_beds' for an empty plan, 'no_soil_test'
+        when all beds are untested, 'partial_soil_tests' when some are untested,
+        or 'ok' when every bed has an effective test. It is not a health rating.
 
         Omit `bed_id` to check every soil-capable bed.
 
@@ -1021,7 +1041,7 @@ def build_server(
         result = await anyio.to_thread.run_sync(
             lambda: providers.get_soil_mismatches(bed_id, today)
         )
-        return SoilMismatchListView(**result)
+        return SoilMismatchBedsView(**result)
 
     @mcp.tool()
     async def list_layers() -> list[Layer]:
@@ -1568,13 +1588,13 @@ def build_server(
         @mcp.tool()
         async def record_soil_test(
             bed_id: str | None = None,
-            ph: float | None = None,
-            n_level: int | None = None,
-            p_level: int | None = None,
-            k_level: int | None = None,
-            ca_level: int | None = None,
-            mg_level: int | None = None,
-            s_level: int | None = None,
+            ph: StrictFloat | None = None,
+            n_level: StrictInt | None = None,
+            p_level: StrictInt | None = None,
+            k_level: StrictInt | None = None,
+            ca_level: StrictInt | None = None,
+            mg_level: StrictInt | None = None,
+            s_level: StrictInt | None = None,
             soil_texture: str | None = None,
             test_date: str | None = None,
             notes: str | None = None,
@@ -2385,21 +2405,21 @@ def build_server(
         An untested bed yields a brief that asks for a test. It is never
         presented as healthy.
         """
-        status = SoilStatus(
+        status = SoilStatusListView(
             **await anyio.to_thread.run_sync(
                 lambda: providers.get_soil_status(bed_id, None)
             )
-        )
+        ).beds[0]
         plan = AmendmentPlanView(
             **await anyio.to_thread.run_sync(
                 lambda: providers.recommend_amendments(bed_id, None)
             )
         )
-        mismatches = SoilMismatchListView(
+        mismatches = SoilMismatchBedsView(
             **await anyio.to_thread.run_sync(
                 lambda: providers.get_soil_mismatches(bed_id, None)
             )
-        )
+        ).beds[bed_id]
         # "What is growing here" comes from the snapshot + queries, the same
         # path `plan-polyculture-bed` uses. `child.species_name or
         # child.species_key`, because ObjectDetail.species_key is populated only

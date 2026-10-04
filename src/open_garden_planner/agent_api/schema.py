@@ -910,8 +910,9 @@ class TaskView(BaseModel):
     )
     source: str = Field(
         description="Where the task came from: 'calendar', 'propagation', "
-        "'succession', 'soil_amendment', 'soil_mismatch', 'frost' or 'manual'. "
-        "A stable English machine key — branch on it."
+        "'succession', 'soil', 'frost' or 'manual'. "
+        "A stable English machine key. The soil source includes both "
+        "amendment and mismatch tasks; task_type distinguishes them."
     )
     task_type: str = Field(
         description="Stable English task-type key (the kind of work, e.g. "
@@ -1101,6 +1102,15 @@ class SoilStatus(BaseModel):
     )
 
 
+class SoilStatusListView(BaseModel):
+    """Effective soil readings for the requested bed or every soil-capable bed."""
+
+    beds: list[SoilStatus] = Field(
+        description="Per-bed readings, sorted by bed UUID. Each bed carries its "
+        "own record_source and coverage; an empty list means there are no beds.",
+    )
+
+
 class AmendmentRecommendationView(BaseModel):
     """One amendment recommendation, as the engine produced it."""
 
@@ -1200,4 +1210,19 @@ class SoilMismatchListView(BaseModel):
         default_factory=list,
         description="Plants that disagree with their bed's soil, sorted by "
         "species_key for a deterministic order.",
+    )
+
+
+class SoilMismatchBedsView(BaseModel):
+    """Soil disagreements grouped by bed, preserving each bed's coverage."""
+
+    coverage: str = Field(
+        description="'no_beds' when no bed was checked, 'no_soil_test' when all "
+        "are untested, 'partial_soil_tests' when some are untested, or 'ok' "
+        "when every bed has an effective test. Never a soil-health rating.",
+    )
+    today: str = Field(description="Reference date, ISO 'YYYY-MM-DD'.")
+    beds: dict[str, SoilMismatchListView] = Field(
+        description="Per-bed results keyed by bed UUID; each carries its own "
+        "coverage, total and mismatches. Sorted by bed UUID.",
     )
