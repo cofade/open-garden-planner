@@ -932,6 +932,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Open Garden Planner (*.ogp);;All Files (*)":
             "Open Garden Planner (*.ogp);;Alle Dateien (*)",
         "Opened: {path}": "Geöffnet: {path}",
+        "Warning: {count} unrecognized item(s) could not be loaded and were skipped.":
+            "Warnung: {count} nicht erkannte(s) Objekt(e) konnten nicht geladen werden und wurden übersprungen.",
         "Error": "Fehler",
         "Failed to open file:\n{error}": "Datei konnte nicht geöffnet werden:\n{error}",
         "No recent projects": "Keine aktuellen Projekte",

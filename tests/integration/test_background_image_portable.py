@@ -140,12 +140,14 @@ class TestBackgroundImagePortability:
 
         scene = CanvasScene(width_cm=5000, height_cm=3000)
         project = ProjectManager()
-        # Must not raise — the missing background image is silently ignored
+        # AUD-043 (#397): Missing legacy background image loads as placeholder
+        # and survives re-save rather than being silently dropped.
         project.load(scene, save_path)
 
         bg_items = [
             item for item in scene.items() if isinstance(item, BackgroundImageItem)
         ]
-        assert len(bg_items) == 0, (
-            "Background image with invalid legacy path should be silently dropped, not crash"
+        assert len(bg_items) == 1, (
+            "Missing background image must load as placeholder, not be dropped"
         )
+        assert bg_items[0].is_placeholder is True

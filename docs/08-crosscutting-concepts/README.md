@@ -200,10 +200,18 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 
 ## 8.7 Error Handling
 
-- Graceful degradation when APIs are unavailable
-- Corrupted project files: partial load with warning
-- Auto-save recovery on crash
-- No silent failures: all errors logged and shown to user where appropriate
+- **Graceful degradation when APIs are unavailable**: external services (Google Maps, Trefle, Perenual, Permapeople) degrade quietly without blocking application workflow.
+- **Two-phase atomic project loading (AUD-040, TD-017, #403)**:
+  `ProjectManager.load()` deserializes and validates all items, layers, guides, and constraints in memory (Phase 1) before mutating or clearing the active `CanvasScene` (Phase 2). If Phase 1 raises, the current scene remains 100% intact. On any failure, `_current_file` is cleared (`None`), the document is marked dirty, and `_load_project_file` preserves any existing autosave file on disk, guaranteeing that subsequent Save/Ctrl+S actions cannot overwrite the previous plan file with empty or partial content.
+- **Missing or corrupt assets load as placeholders (AUD-043, TD-011, #397)**:
+  Background images with missing disk paths or invalid embedded image bytes load as non-rendering `BackgroundImageItem` placeholders (`is_placeholder=True`). On subsequent saves, the placeholder re-emits its original raw dictionary so external asset links survive across sessions instead of being silently deleted.
+- **Duplicate item UUID detection & re-minting (AUD-043, TD-011, #397)**:
+  If a corrupted or hand-edited `.ogp` file contains duplicate `item_id` values, the loader detects the collision, logs a warning, and re-mints a fresh UUID for colliding items, preserving scene graph integrity and unambiguous agent addressing.
+- **Undecodable item accounting**:
+  Malformed or unknown items in `.ogp` files are skipped with a logged warning, and the skipped count is tracked in `ProjectManager.last_load_skipped_items_count` for diagnostics reporting.
+- **Auto-save recovery on crash**:
+  Periodic autosaves write to `~autosave_...` next to the project file (or in temp for untitled plans). Autosaves are cleared only after a new file load succeeds.
+- **No silent failures**: all errors logged and shown to user where appropriate.
 
 ## 8.8 Settings Storage — One Chokepoint (ADR-041)
 

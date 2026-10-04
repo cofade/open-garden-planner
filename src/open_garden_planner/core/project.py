@@ -3,8 +3,11 @@
 Handles project state, serialization, and file I/O.
 """
 
+from __future__ import annotations
+
 import contextlib
 import json
+import logging
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -179,7 +182,7 @@ class ProjectData:
         return data
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ProjectData":
+    def from_dict(cls, data: dict[str, Any]) -> ProjectData:
         """Create ProjectData from dictionary."""
         canvas = data.get("canvas", {})
         return cls(
@@ -268,6 +271,12 @@ class ProjectManager(QObject):
         self._manual_tasks: dict[str, Any] = {}
         self._task_states: dict[str, Any] = {}
         self._harvest_logs: dict[str, Any] = {}
+        self._last_load_skipped_items_count: int = 0
+
+    @property
+    def last_load_skipped_items_count(self) -> int:
+        """Count of undecodable objects skipped during the last project load."""
+        return self._last_load_skipped_items_count
 
     @property
     def current_file(self) -> Path | None:
@@ -976,62 +985,76 @@ class ProjectManager(QObject):
                 silently drop unknown item types and keys on save,
                 which corrupts the user's data — better to fail loudly.
         """
-        with open(file_path, encoding="utf-8") as f:
-            raw_data = json.load(f)
+        self._last_load_skipped_items_count = 0
+        scene_mutated = False
+        try:
+            with open(file_path, encoding="utf-8") as f:
+                raw_data = json.load(f)
 
-        # Forward-compat guard: older binaries reading a newer file would
-        # silently drop unknown content on save (issue surfaced in the
-        # P1 review pass). Accept ``X.Y`` ≤ ``FILE_VERSION``; reject
-        # anything higher. Unknown version strings are treated as "old"
-        # to keep legacy files loadable.
-        file_version = str(raw_data.get("version", "1.0"))
-        if _is_newer_file_version(file_version, FILE_VERSION):
-            raise ValueError(
-                f"Project file was created by a newer version of Open "
-                f"Garden Planner (file format {file_version}, this build "
-                f"supports up to {FILE_VERSION}). Please update the app "
-                f"before opening this project."
-            )
+            # Forward-compat guard: older binaries reading a newer file would
+            # silently drop unknown content on save (issue surfaced in the
+            # P1 review pass). Accept ``X.Y`` ≤ ``FILE_VERSION``; reject
+            # anything higher. Unknown version strings are treated as "old"
+            # to keep legacy files loadable.
+            file_version = str(raw_data.get("version", "1.0"))
+            if _is_newer_file_version(file_version, FILE_VERSION):
+                raise ValueError(
+                    f"Project file was created by a newer version of Open "
+                    f"Garden Planner (file format {file_version}, this build "
+                    f"supports up to {FILE_VERSION}). Please update the app "
+                    f"before opening this project."
+                )
 
-        data = ProjectData.from_dict(raw_data)
-        self._deserialize_to_scene(scene, data)
+            data = ProjectData.from_dict(raw_data)
+            prep = self._prepare_scene_data(data)
 
-        # Restore location data
+            scene_mutated = True
+            self._apply_to_scene(scene, data, prep)
+
+            self._restore_project_metadata(data)
+
+            # Sync custom plants from project to app library
+            self._sync_custom_plants(scene)
+
+            self._current_file = file_path
+            self.mark_clean()
+            self.project_changed.emit(str(file_path))
+
+            # Track in recent files
+            get_settings().add_recent_file(str(file_path))
+        except Exception:
+            if scene_mutated:
+                self._current_file = None
+                self.mark_dirty()
+                self.project_changed.emit(None)
+            raise
+
+    def _restore_project_metadata(self, data: ProjectData) -> None:
+        """Restore non-scene project metadata and emit change signals."""
         self._location = data.location
         self.location_changed.emit(self._location)
-        # Restore task completions
         self._task_completions = set(data.task_completions)
         self.task_completions_changed.emit(self._task_completions)
-        # Restore project seed inventory
         self._seed_inventory = list(data.seed_inventory)
         self.seed_inventory_changed.emit(self._seed_inventory)
-        # Restore propagation overrides
         self._propagation_overrides = dict(data.propagation_overrides)
         self.propagation_overrides_changed.emit(self._propagation_overrides)
-        # Restore crop rotation history
         self._crop_rotation = dict(data.crop_rotation)
         self.crop_rotation_changed.emit(self._crop_rotation)
-        # Restore season data
         self._season_year = data.season_year
         self._linked_seasons = list(data.linked_seasons)
         self.season_changed.emit(self._season_year)
-        # Restore soil test history (US-12.10a)
         self._soil_tests = dict(data.soil_tests)
         self.soil_tests_changed.emit(self._soil_tests)
-        # Restore pest/disease log history (US-12.7)
         self._pest_logs = dict(data.pest_disease_logs)
         self.pest_logs_changed.emit(self._pest_logs)
-        # Restore harvest / yield log history (US-C1)
         self._harvest_logs = dict(data.harvest_logs)
         self.harvest_logs_changed.emit(self._harvest_logs)
-        # Restore shopping list prices (US-12.6)
         self._shopping_list_prices = dict(data.shopping_list_prices)
         self.shopping_list_prices_changed.emit(self._shopping_list_prices)
-        # Restore shopping-list owned-row exclusions (US-12.6)
         self._excluded_shopping_items = set(data.excluded_shopping_items)
         self.excluded_shopping_items_changed.emit(set(self._excluded_shopping_items))
 
-        # Restore amendment library state (US-12.11)
         self._enabled_amendments = (
             list(data.enabled_amendments)
             if data.enabled_amendments is not None
@@ -1040,31 +1063,16 @@ class ProjectManager(QObject):
         self.enabled_amendments_changed.emit(self._enabled_amendments)
         self._prefer_organic = bool(data.prefer_organic)
         self.prefer_organic_changed.emit(self._prefer_organic)
-        # Restore succession plans (US-12.8)
         self._succession_plans = dict(data.succession_plans)
         self.succession_plans_changed.emit(self._succession_plans)
-        # Restore garden journal notes (US-12.9)
         self._garden_journal_notes = dict(data.garden_journal_notes)
         self.garden_journal_notes_changed.emit(self._garden_journal_notes)
-        # Restore task management (US-C2). Fold any legacy task_completions
-        # (pre-US-C2 done set) into task_states as archived done entries (no
-        # done_date) so they stay hidden but never resurface as actionable.
         self._manual_tasks = dict(data.manual_tasks)
         self._task_states = dict(data.task_states)
         for tid in data.task_completions:
             self._task_states.setdefault(tid, {"status": "done"})
         self.manual_tasks_changed.emit(self._manual_tasks)
         self.task_states_changed.emit(self._task_states)
-
-        # Sync custom plants from project to app library
-        self._sync_custom_plants(scene)
-
-        self._current_file = file_path
-        self.mark_clean()
-        self.project_changed.emit(str(file_path))
-
-        # Track in recent files
-        get_settings().add_recent_file(str(file_path))
 
     def create_new_season(
         self,
@@ -1359,7 +1367,8 @@ class ProjectManager(QObject):
             guides=guides,
         )
 
-    def _serialize_item(self, item: QGraphicsItem) -> dict[str, Any] | None:
+    @staticmethod
+    def _serialize_item(item: QGraphicsItem) -> dict[str, Any] | None:
         """Serialize a single graphics item."""
         # Skip items that are Qt children of a GroupItem — they are serialized
         # recursively inside the group's own dict.
@@ -1367,7 +1376,7 @@ class ProjectManager(QObject):
         if isinstance(item.parentItem(), GroupItem):
             return None
 
-        data = self._serialize_item_core(item)
+        data = ProjectManager._serialize_item_core(item)
         if data is None:
             return None
 
@@ -1385,7 +1394,8 @@ class ProjectManager(QObject):
 
         return data
 
-    def _serialize_item_core(self, item: QGraphicsItem) -> dict[str, Any] | None:
+    @staticmethod
+    def _serialize_item_core(item: QGraphicsItem) -> dict[str, Any] | None:
         """Core serialization logic for a single graphics item."""
         # Import here to avoid circular dependency
         from open_garden_planner.ui.canvas.items import (
@@ -1399,6 +1409,7 @@ class ProjectManager(QObject):
             PolygonItem,
             PolylineItem,
             RectangleItem,
+            TextItem,
         )
 
         if isinstance(
@@ -1626,7 +1637,7 @@ class ProjectManager(QObject):
         if isinstance(item, GroupItem):
             children: list[dict[str, Any]] = []
             for child in item.childItems():
-                child_data = self._serialize_item_core(child)
+                child_data = ProjectManager._serialize_item_core(child)
                 if child_data:
                     children.append(child_data)
             group_data: dict[str, Any] = {
@@ -1656,6 +1667,28 @@ class ProjectManager(QObject):
                 if abs(item.rotation()) > 1e-6:
                     group_data["rotation"] = item.rotation()
             return group_data
+        elif isinstance(item, TextItem):
+            data = {
+                "type": "text",
+                "item_id": str(item.item_id),
+                "x": item.pos().x(),
+                "y": item.pos().y(),
+                "content": item.content,
+                "font_family": item.font_family,
+                "font_size": item.font_size,
+                "bold": item.bold,
+                "italic": item.italic,
+                "text_color": item.text_color.name(QColor.NameFormat.HexArgb),
+            }
+            if item.layer_id:
+                data["layer_id"] = str(item.layer_id)
+            if hasattr(item, "name") and item.name:
+                data["name"] = item.name
+            if hasattr(item, "metadata") and item.metadata:
+                data["metadata"] = item.metadata
+            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
+                data["rotation_angle"] = item.rotation_angle
+            return data
 
         return None
 
@@ -1691,10 +1724,151 @@ class ProjectManager(QObject):
             ),
         )
 
-    def _deserialize_to_scene(
-        self, scene: QGraphicsScene, data: ProjectData
+    def _prepare_scene_data(
+        self, data: ProjectData
+    ) -> tuple[list[QGraphicsItem], list[Layer] | None, Any, list[Any] | None]:
+        """Phase 1: In-memory dry-run deserialization and validation.
+
+        Deserializes all items, deduplicates UUIDs recursively across items and
+        their children, relinks parent/child relationships and constraint anchors,
+        and parses layers, constraints, and guides into memory without touching
+        the QGraphicsScene.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        deserialized_items: list[QGraphicsItem] = []
+        skipped_count = 0
+        seen_uuids: set[UUID] = set()
+        reminted_map: dict[UUID, UUID] = {}
+
+        for obj in data.objects:
+            try:
+                item = self._deserialize_item(obj)
+            except (KeyError, ValueError, TypeError, AttributeError) as e:
+                logger.warning(
+                    "Failed to deserialize object of type %s: %s",
+                    obj.get("type"),
+                    e,
+                )
+                item = None
+
+            if item is None:
+                skipped_count += 1
+                continue
+
+            deserialized_items.append(item)
+
+        # Recursive duplicate UUID deduplication across items and children (FIND-03)
+        self._deduplicate_item_uuids(deserialized_items, seen_uuids, reminted_map, logger)
+
+        # Synchronize bidirectional parent-bed and child-item references (FIND-03)
+        self._relink_parent_child_relationships(deserialized_items)
+
+        # Parse and validate layers
+        parsed_layers: list[Layer] | None = None
+        if data.layers:
+            parsed_layers = [Layer.from_dict(layer_data) for layer_data in data.layers]
+        else:
+            parsed_layers = create_default_layers()
+
+        # Parse constraints
+        parsed_constraints = None
+        if data.constraints:
+            from open_garden_planner.core.constraints import ConstraintGraph
+            parsed_constraints = ConstraintGraph.from_list(data.constraints)
+
+        # Parse guides
+        parsed_guides = None
+        if data.guides:
+            from open_garden_planner.ui.canvas.canvas_scene import GuideLine
+            parsed_guides = [
+                GuideLine(is_horizontal=g["is_horizontal"], position=g["position"])
+                for g in data.guides
+            ]
+
+        self._last_load_skipped_items_count = skipped_count
+        return deserialized_items, parsed_layers, parsed_constraints, parsed_guides
+
+    @staticmethod
+    def _deduplicate_item_uuids(
+        items: list[QGraphicsItem],
+        seen_uuids: set[UUID],
+        reminted_map: dict[UUID, UUID],
+        logger: logging.Logger,
     ) -> None:
-        """Load objects from ProjectData into scene."""
+        """Recursively deduplicate UUIDs across items and childItems."""
+        import uuid
+        for item in items:
+            if hasattr(item, "item_id") and isinstance(item.item_id, UUID):
+                if item.item_id in seen_uuids:
+                    new_id = uuid.uuid4()
+                    logger.warning(
+                        "Duplicate item UUID %s detected in file; re-minted as %s",
+                        item.item_id,
+                        new_id,
+                    )
+                    reminted_map[item.item_id] = new_id
+                    if hasattr(item, "_item_id"):
+                        item._item_id = new_id
+                seen_uuids.add(item.item_id)
+            if hasattr(item, "childItems"):
+                ProjectManager._deduplicate_item_uuids(
+                    item.childItems(), seen_uuids, reminted_map, logger
+                )
+
+    @staticmethod
+    def _relink_parent_child_relationships(
+        items: list[QGraphicsItem],
+    ) -> None:
+        """Ensure bidirectional parent-bed and child-item references are consistent."""
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        # Flatten all items including children of groups
+        flat: list[QGraphicsItem] = []
+
+        def _flatten(it_list: list[QGraphicsItem]) -> None:
+            for it in it_list:
+                flat.append(it)
+                if hasattr(it, "childItems"):
+                    _flatten(it.childItems())
+
+        _flatten(items)
+
+        items_by_id = {
+            it.item_id: it
+            for it in flat
+            if hasattr(it, "item_id") and isinstance(it.item_id, UUID)
+        }
+
+        for it in flat:
+            if not isinstance(it, GardenItemMixin):
+                continue
+            # If item has child_item_ids, ensure each child points back to this bed
+            if it.child_item_ids:
+                for cid in it.child_item_ids:
+                    child = items_by_id.get(cid)
+                    if child is not None and isinstance(child, GardenItemMixin):
+                        child._parent_bed_id = it.item_id
+
+            # If item has parent_bed_id, ensure parent includes this item in child_item_ids
+            if it.parent_bed_id is not None:
+                parent = items_by_id.get(it.parent_bed_id)
+                if parent is not None and isinstance(parent, GardenItemMixin):
+                    if isinstance(parent.child_item_ids, set):
+                        parent._child_item_ids.add(it.item_id)
+                    elif it.item_id not in parent.child_item_ids:
+                        parent._child_item_ids.append(it.item_id)
+
+    def _apply_to_scene(
+        self,
+        scene: QGraphicsScene,
+        data: ProjectData,
+        prep: tuple[list[QGraphicsItem], list[Layer] | None, Any, list[Any] | None],
+    ) -> None:
+        """Phase 2: Apply in-memory validated items and layers to the scene."""
+        deserialized_items, parsed_layers, parsed_constraints, parsed_guides = prep
+
         # Clear dimension lines before removing garden items so the manager can
         # cleanly remove its graphics items while C++ objects are still alive
         if hasattr(scene, "_dimension_line_manager"):
@@ -1723,26 +1897,11 @@ class ProjectManager(QObject):
 
         # Load layers
         if hasattr(scene, "set_layers"):
-            if data.layers:
-                layers = [Layer.from_dict(layer_data) for layer_data in data.layers]
-                scene.set_layers(layers)
-            else:
-                # Create default layers if none exist (for backward compatibility)
-                scene.set_layers(create_default_layers())
+            scene.set_layers(parsed_layers)
 
         # Create items inside suspend_z_refresh() (issue #338) so the whole
         # loop does one deferred z-refresh instead of one per add, and
-        # renumbers every layer's ranks from its normalized order -- a file
-        # saved without "stack_order" keys (an older app version) gets
-        # honest ranks in file order on this first load. Using the context
-        # manager (rather than the old bare begin_bulk_load()/end_bulk_load()
-        # pair) means an exception partway through the deserialize loop
-        # cannot leave `_suspend_z_refresh` stuck True for the rest of the
-        # session -- its `finally` always resumes it and runs the one
-        # deferred refresh, even on failure (review round 2, P1-1). Scenes
-        # without the context manager (e.g. a plain QGraphicsScene test
-        # double) fall back to the un-suspended loop, exactly as before
-        # issue #338.
+        # renumbers every layer's ranks from its normalized order.
         has_suspend_ctx = hasattr(scene, "suspend_z_refresh")
         suspend_ctx = (
             scene.suspend_z_refresh(renumber=True)
@@ -1750,16 +1909,8 @@ class ProjectManager(QObject):
             else contextlib.nullcontext()
         )
         with suspend_ctx:
-            for obj in data.objects:
-                item = self._deserialize_item(obj)
-                if item:
-                    # _deserialize_item() already restored stack_order (for a
-                    # GardenItemMixin item) or Arc/Bezier's own from_dict did
-                    # (they aren't a GardenItemMixin) -- either way it's set
-                    # before addItem() so the per-add rank-assignment step is
-                    # a no-op for a ranked item and only fires for an
-                    # unranked one.
-                    scene.addItem(item)
+            for item in deserialized_items:
+                scene.addItem(item)
 
         # Apply layer visibility/opacity/lock/z-order to all items now that they exist
         if hasattr(scene, "_update_items_visibility"):
@@ -1768,25 +1919,24 @@ class ProjectManager(QObject):
             scene._update_items_z_order()
 
         # Load constraints if present
-        if data.constraints and hasattr(scene, "constraint_graph"):
-            from open_garden_planner.core.constraints import ConstraintGraph
-
-            scene.constraint_graph = ConstraintGraph.from_list(data.constraints)
+        if parsed_constraints is not None and hasattr(scene, "constraint_graph"):
+            scene.constraint_graph = parsed_constraints
 
         # Load guide lines if present
-        if data.guides and hasattr(scene, "set_guide_lines"):
-            from open_garden_planner.ui.canvas.canvas_scene import GuideLine
+        if hasattr(scene, "set_guide_lines"):
+            scene.set_guide_lines(parsed_guides if parsed_guides is not None else [])
 
-            scene.set_guide_lines([
-                GuideLine(is_horizontal=g["is_horizontal"], position=g["position"])
-                for g in data.guides
-            ])
-        elif hasattr(scene, "set_guide_lines"):
-            scene.set_guide_lines([])
+    def _deserialize_to_scene(
+        self, scene: QGraphicsScene, data: ProjectData
+    ) -> None:
+        """Load objects from ProjectData into scene (two-phase atomic load)."""
+        prep = self._prepare_scene_data(data)
+        self._apply_to_scene(scene, data, prep)
 
-    def _deserialize_item(self, obj: dict[str, Any]) -> QGraphicsItem | None:
+    @staticmethod
+    def _deserialize_item(obj: dict[str, Any]) -> QGraphicsItem | None:
         """Deserialize a single object to a graphics item."""
-        item = self._deserialize_item_core(obj)
+        item = ProjectManager._deserialize_item_core(obj)
         if item is None:
             return None
 
@@ -1810,7 +1960,8 @@ class ProjectManager(QObject):
 
         return item
 
-    def _deserialize_item_core(self, obj: dict[str, Any]) -> QGraphicsItem | None:
+    @staticmethod
+    def _deserialize_item_core(obj: dict[str, Any]) -> QGraphicsItem | None:
         """Core deserialization logic for a single object."""
         # Import here to avoid circular dependency
         from open_garden_planner.core.object_types import ObjectType
@@ -1870,7 +2021,7 @@ class ProjectManager(QObject):
                     symbol.regenerate_geometry()
                 else:
                     for child_data in obj.get("children", []):
-                        child = self._deserialize_item_core(child_data)
+                        child = ProjectManager._deserialize_item_core(child_data)
                         if child is not None:
                             symbol.addToGroup(child)
                 if "x" in obj and "y" in obj:
@@ -1884,7 +2035,7 @@ class ProjectManager(QObject):
             with contextlib.suppress(ValueError, TypeError, KeyError):
                 group._item_id = _UUID(obj["item_id"])
             for child_data in obj.get("children", []):
-                child = self._deserialize_item_core(child_data)
+                child = ProjectManager._deserialize_item_core(child_data)
                 if child is not None:
                     group.addToGroup(child)
             if "x" in obj and "y" in obj:
@@ -1924,11 +2075,7 @@ class ProjectManager(QObject):
                 layer_id = None
 
         if obj_type == "background_image":
-            try:
-                return BackgroundImageItem.from_dict(obj)
-            except (ValueError, FileNotFoundError):
-                # Image file may have been moved/deleted
-                return None
+            return BackgroundImageItem.from_dict(obj)
         elif obj_type == "rectangle":
             # Migrate legacy HEDGE_SECTION rectangles to HEDGE_POLYGON polygons
             if object_type == ObjectType.HEDGE_SECTION:
@@ -2185,4 +2332,33 @@ class ProjectManager(QObject):
                 JournalPinItem,
             )
             return JournalPinItem.from_dict(obj)
+        elif obj_type == "text":
+            from open_garden_planner.ui.canvas.items.text_item import TextItem
+
+            text_color = (
+                QColor(obj["text_color"])
+                if "text_color" in obj
+                else QColor(0, 0, 0)
+            )
+            item = TextItem(
+                float(obj.get("x", 0.0)),
+                float(obj.get("y", 0.0)),
+                content=str(obj.get("content", "")),
+                font_family=str(obj.get("font_family", "Arial")),
+                font_size=float(obj.get("font_size", 1.0)),
+                bold=bool(obj.get("bold", False)),
+                italic=bool(obj.get("italic", False)),
+                text_color=text_color,
+                layer_id=layer_id,
+                metadata=metadata,
+            )
+            if name:
+                item._name = name
+            if "item_id" in obj:
+                with contextlib.suppress(ValueError, TypeError):
+                    item._item_id = UUID(obj["item_id"])
+            if "rotation_angle" in obj:
+                with contextlib.suppress(ValueError, TypeError):
+                    item._apply_rotation(float(obj["rotation_angle"]))
+            return item
         return None

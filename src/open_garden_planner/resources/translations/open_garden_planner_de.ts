@@ -3643,6 +3643,10 @@ Details: {error}</translation>
             <source>Plan-wide default</source>
             <translation>Gesamter Plan</translation>
         </message>
+        <message>
+            <source>Warning: {count} unrecognized item(s) could not be loaded and were skipped.</source>
+            <translation>Warnung: {count} nicht erkannte(s) Objekt(e) konnten nicht geladen werden und wurden übersprungen.</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>

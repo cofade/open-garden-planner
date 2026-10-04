@@ -8,7 +8,7 @@ Y increasing upward).
 import contextlib
 import logging
 from datetime import date
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.items.soil_badge_item import SoilBadgeItem
@@ -121,6 +121,63 @@ from open_garden_planner.ui.canvas.items.resize_handle import (
 )
 
 _log = logging.getLogger(__name__)
+
+
+def _strip_item_ids(data: dict[str, Any]) -> dict[str, Any]:
+    """Recursively strip item_id from a serialized item dict so deserialization mints new UUIDs."""
+    copy_d = data.copy()
+    copy_d.pop("item_id", None)
+    if "children" in copy_d:
+        copy_d["children"] = [_strip_item_ids(child) for child in copy_d["children"]]
+    return copy_d
+
+
+def _offset_item_dict(data: dict[str, Any], dx: float, dy: float) -> dict[str, Any]:
+    """Apply an offset (dx, dy) to all supported geometry coordinates in an item dict."""
+    copy_d = data.copy()
+    if "position" in copy_d and isinstance(copy_d["position"], dict):
+        pos_copy = dict(copy_d["position"])
+        if "x" in pos_copy:
+            pos_copy["x"] += dx
+        if "y" in pos_copy:
+            pos_copy["y"] += dy
+        copy_d["position"] = pos_copy
+    if "x" in copy_d:
+        copy_d["x"] += dx
+    if "y" in copy_d:
+        copy_d["y"] += dy
+    if "center_x" in copy_d:
+        copy_d["center_x"] += dx
+    if "center_y" in copy_d:
+        copy_d["center_y"] += dy
+    if "target_x" in copy_d:
+        copy_d["target_x"] += dx
+    if "target_y" in copy_d:
+        copy_d["target_y"] += dy
+    if "through_x" in copy_d:
+        copy_d["through_x"] += dx
+    if "through_y" in copy_d:
+        copy_d["through_y"] += dy
+    if "x1" in copy_d:
+        copy_d["x1"] += dx
+    if "y1" in copy_d:
+        copy_d["y1"] += dy
+    if "x2" in copy_d:
+        copy_d["x2"] += dx
+    if "y2" in copy_d:
+        copy_d["y2"] += dy
+    if "points" in copy_d:
+        copy_d["points"] = [
+            {"x": p["x"] + dx, "y": p["y"] + dy}
+            for p in copy_d["points"]
+        ]
+    for key in ("anchors", "handles_in", "handles_out"):
+        if key in copy_d:
+            copy_d[key] = [
+                {"x": p["x"] + dx, "y": p["y"] + dy}
+                for p in copy_d[key]
+            ]
+    return copy_d
 
 
 class CanvasView(QGraphicsView):
@@ -4534,23 +4591,10 @@ class CanvasView(QGraphicsView):
         pasted_items: list[QGraphicsItem] = []
         clipboard_data: list[dict] = []
         for obj_data in self._clipboard:
-            # Create a copy of the object data
-            obj_copy = obj_data.copy()
-
-            # Apply offset to position
-            if "x" in obj_copy:
-                obj_copy["x"] += self._paste_offset
-            if "y" in obj_copy:
-                obj_copy["y"] += self._paste_offset
-            if "center_x" in obj_copy:
-                obj_copy["center_x"] += self._paste_offset
-            if "center_y" in obj_copy:
-                obj_copy["center_y"] += self._paste_offset
-            if "points" in obj_copy:
-                obj_copy["points"] = [
-                    {"x": p["x"] + self._paste_offset, "y": p["y"] + self._paste_offset}
-                    for p in obj_copy["points"]
-                ]
+            # Apply offset to position and strip item_ids so new UUIDs are minted (AUD-002)
+            obj_copy = _strip_item_ids(
+                _offset_item_dict(obj_data, self._paste_offset, self._paste_offset)
+            )
 
             # Deserialize the item (gets a new UUID)
             item = self._deserialize_item(obj_copy)
@@ -4646,22 +4690,9 @@ class CanvasView(QGraphicsView):
         duplicated_items: list[QGraphicsItem] = []
         dup_source: list[dict] = []
         for obj_data in source_data:
-            obj_copy = obj_data.copy()
-
-            # Apply offset to position
-            if "x" in obj_copy:
-                obj_copy["x"] += self._paste_offset
-            if "y" in obj_copy:
-                obj_copy["y"] += self._paste_offset
-            if "center_x" in obj_copy:
-                obj_copy["center_x"] += self._paste_offset
-            if "center_y" in obj_copy:
-                obj_copy["center_y"] += self._paste_offset
-            if "points" in obj_copy:
-                obj_copy["points"] = [
-                    {"x": p["x"] + self._paste_offset, "y": p["y"] + self._paste_offset}
-                    for p in obj_copy["points"]
-                ]
+            obj_copy = _strip_item_ids(
+                _offset_item_dict(obj_data, self._paste_offset, self._paste_offset)
+            )
 
             # Deserialize the item
             item = self._deserialize_item(obj_copy)
@@ -4777,7 +4808,7 @@ class CanvasView(QGraphicsView):
                 obj_copy["x"] = max(0.0, min(nx, canvas_w - item_w))
                 obj_copy["y"] = max(0.0, min(ny, canvas_h - item_h))
 
-            item = self._deserialize_item(obj_copy)
+            item = self._deserialize_item(_strip_item_ids(obj_copy))
             if item:
                 new_items.append(item)
 
@@ -4908,7 +4939,7 @@ class CanvasView(QGraphicsView):
                     obj_copy["x"] = max(0.0, min(nx, canvas_w - item_w))
                     obj_copy["y"] = max(0.0, min(ny, canvas_h - item_h))
 
-                item = self._deserialize_item(obj_copy)
+                item = self._deserialize_item(_strip_item_ids(obj_copy))
                 if item:
                     new_items.append(item)
                     grid.append((r, c, item))
@@ -5084,7 +5115,7 @@ class CanvasView(QGraphicsView):
                 obj_copy["x"] = max(0.0, min(nx, canvas_w - item_w))
                 obj_copy["y"] = max(0.0, min(ny, canvas_h - item_h))
 
-            item = self._deserialize_item(obj_copy)
+            item = self._deserialize_item(_strip_item_ids(obj_copy))
             if item:
                 new_items.append(item)
 
@@ -5301,7 +5332,7 @@ class CanvasView(QGraphicsView):
                 obj_copy["x"] = pt.x() - item_w / 2.0
                 obj_copy["y"] = pt.y() - item_h / 2.0
 
-            item = self._deserialize_item(obj_copy)
+            item = self._deserialize_item(_strip_item_ids(obj_copy))
             if item:
                 if dlg.follow_tangent:
                     # Rotate around the item's visual center, not its local origin,
@@ -5331,42 +5362,16 @@ class CanvasView(QGraphicsView):
         )
 
     def _serialize_item(self, item: QGraphicsItem) -> dict | None:
-        """Serialize a single graphics item (reuses project manager logic).
+        """Serialize a single graphics item.
 
-        Args:
-            item: The graphics item to serialize
-
-        Returns:
-            Dictionary representation of the item, or None if not serializable
+        Delegates to ProjectManager._serialize_item (AUD-002, TD-018).
         """
-        from open_garden_planner.ui.canvas.items import GardenItemMixin
+        from open_garden_planner.core.project import ProjectManager
 
-        data = self._serialize_item_core(item)
-        if data is None:
-            return None
-
-        # Add parent-child relationship fields for clipboard remapping
-        if isinstance(item, GardenItemMixin):
-            data["item_id"] = str(item.item_id)
-            if item.parent_bed_id is not None:
-                data["parent_bed_id"] = str(item.parent_bed_id)
-            if item.child_item_ids:
-                data["child_item_ids"] = [str(cid) for cid in item.child_item_ids]
-            # Preserve layer membership across copy/paste and duplicate so a
-            # pasted item stays in its source layer and participates in that
-            # layer's stacking order (issue #338) instead of landing
-            # layer-less (and therefore un-ranked) at z=0.
-            if item.layer_id is not None:
-                data["layer_id"] = str(item.layer_id)
-
-        return data
+        return ProjectManager._serialize_item(item)
 
     def _restore_layer_id(self, item: QGraphicsItem, obj: dict) -> None:
         """Apply a clipboard dict's ``layer_id`` (if any) onto *item*.
-
-        ``_deserialize_item`` builds items via per-type constructor calls
-        that don't accept ``layer_id``, so paste/duplicate restore it here
-        instead — matching what ``_serialize_item`` saved (issue #338).
 
         The clipboard's ``layer_id`` can outlive its source: paste after a
         File -> New Plan (fresh layer UUIDs), or paste into a different
@@ -5393,472 +5398,22 @@ class CanvasView(QGraphicsView):
                     resolved = candidate
         if resolved is None and scene is not None and scene.active_layer is not None:
             resolved = scene.active_layer.id
-        if resolved is not None:
-            item.layer_id = resolved
+        item.layer_id = resolved
 
     def _serialize_item_core(self, item: QGraphicsItem) -> dict | None:
-        """Core serialization without relationship fields."""
-        from open_garden_planner.ui.canvas.items import (
-            BackgroundImageItem,
-            CalloutItem,
-            CircleItem,
-            EllipseItem,
-            PolygonItem,
-            PolylineItem,
-            RectangleItem,
-            TextItem,
-        )
+        """Core serialization delegating to ProjectManager._serialize_item_core."""
+        from open_garden_planner.core.project import ProjectManager
 
-        if isinstance(item, (BackgroundImageItem, CalloutItem)):
-            return item.to_dict()
-        elif isinstance(item, RectangleItem):
-            rect = item.rect()
-            data = {
-                "type": "rectangle",
-                "x": item.pos().x() + rect.x(),
-                "y": item.pos().y() + rect.y(),
-                "width": rect.width(),
-                "height": rect.height(),
-            }
-            if hasattr(item, "object_type") and item.object_type:
-                data["object_type"] = item.object_type.name
-            if hasattr(item, "name") and item.name:
-                data["name"] = item.name
-            if hasattr(item, "metadata") and item.metadata:
-                data["metadata"] = item.metadata
-            # Save custom fill and stroke colors (with alpha)
-            if hasattr(item, "fill_color") and item.fill_color:
-                fill_color = item.fill_color
-            else:
-                fill_color = item.brush().color()
-            data["fill_color"] = fill_color.name(QColor.NameFormat.HexArgb)
-            stroke_color = item.pen().color()
-            data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
-            data["stroke_width"] = item.pen().widthF()
-            # Save fill pattern
-            if hasattr(item, "fill_pattern") and item.fill_pattern:
-                data["fill_pattern"] = item.fill_pattern.name
-            # Save stroke style
-            if hasattr(item, "stroke_style") and item.stroke_style:
-                data["stroke_style"] = item.stroke_style.name
-            # Save rotation angle
-            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
-                data["rotation_angle"] = item.rotation_angle
-            # Save area label visibility
-            if hasattr(item, "area_label_visible") and item.area_label_visible:
-                data["area_label_visible"] = True
-            return data
-        elif isinstance(item, CircleItem):
-            data = {
-                "type": "circle",
-                "center_x": item.pos().x() + item.center.x(),
-                "center_y": item.pos().y() + item.center.y(),
-                "radius": item.radius,
-            }
-            if hasattr(item, "object_type") and item.object_type:
-                data["object_type"] = item.object_type.name
-            if hasattr(item, "name") and item.name:
-                data["name"] = item.name
-            if hasattr(item, "metadata") and item.metadata:
-                data["metadata"] = item.metadata
-            if hasattr(item, "plant_category") and item.plant_category is not None:
-                data["plant_category"] = item.plant_category.name
-            if hasattr(item, "plant_species") and item.plant_species:
-                data["plant_species"] = item.plant_species
-            # Save custom fill and stroke colors (with alpha)
-            if hasattr(item, "fill_color") and item.fill_color:
-                fill_color = item.fill_color
-            else:
-                fill_color = item.brush().color()
-            data["fill_color"] = fill_color.name(QColor.NameFormat.HexArgb)
-            stroke_color = item.pen().color()
-            data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
-            data["stroke_width"] = item.pen().widthF()
-            # Save fill pattern
-            if hasattr(item, "fill_pattern") and item.fill_pattern:
-                data["fill_pattern"] = item.fill_pattern.name
-            # Save stroke style
-            if hasattr(item, "stroke_style") and item.stroke_style:
-                data["stroke_style"] = item.stroke_style.name
-            # Save rotation angle
-            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
-                data["rotation_angle"] = item.rotation_angle
-            # Save area label visibility
-            if hasattr(item, "area_label_visible") and item.area_label_visible:
-                data["area_label_visible"] = True
-            return data
-        elif isinstance(item, EllipseItem):
-            r = item.rect()
-            data = {
-                "type": "ellipse",
-                "x": item.pos().x() + r.x(),
-                "y": item.pos().y() + r.y(),
-                "width": r.width(),
-                "height": r.height(),
-            }
-            if hasattr(item, "object_type") and item.object_type:
-                data["object_type"] = item.object_type.name
-            if hasattr(item, "name") and item.name:
-                data["name"] = item.name
-            if hasattr(item, "metadata") and item.metadata:
-                data["metadata"] = item.metadata
-            if hasattr(item, "fill_color") and item.fill_color:
-                fill_color = item.fill_color
-            else:
-                fill_color = item.brush().color()
-            data["fill_color"] = fill_color.name(QColor.NameFormat.HexArgb)
-            stroke_color = item.pen().color()
-            data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
-            data["stroke_width"] = item.pen().widthF()
-            if hasattr(item, "fill_pattern") and item.fill_pattern:
-                data["fill_pattern"] = item.fill_pattern.name
-            if hasattr(item, "stroke_style") and item.stroke_style:
-                data["stroke_style"] = item.stroke_style.name
-            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
-                data["rotation_angle"] = item.rotation_angle
-            if hasattr(item, "area_label_visible") and item.area_label_visible:
-                data["area_label_visible"] = True
-            return data
-        elif isinstance(item, PolylineItem):
-            data = {
-                "type": "polyline",
-                "points": [
-                    {"x": item.pos().x() + p.x(), "y": item.pos().y() + p.y()}
-                    for p in item.points
-                ],
-            }
-            if hasattr(item, "object_type") and item.object_type:
-                data["object_type"] = item.object_type.name
-            if hasattr(item, "name") and item.name:
-                data["name"] = item.name
-            if hasattr(item, "metadata") and item.metadata:
-                data["metadata"] = item.metadata
-            # Save custom stroke color (polylines don't have fill, with alpha)
-            stroke_color = item.pen().color()
-            data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
-            data["stroke_width"] = item.pen().widthF()
-            # Save rotation angle
-            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
-                data["rotation_angle"] = item.rotation_angle
-            return data
-        elif isinstance(item, PolygonItem):
-            polygon = item.polygon()
-            points = []
-            for i in range(polygon.count()):
-                pt = polygon.at(i)
-                points.append(
-                    {
-                        "x": item.pos().x() + pt.x(),
-                        "y": item.pos().y() + pt.y(),
-                    }
-                )
-            data = {
-                "type": "polygon",
-                "points": points,
-            }
-            if hasattr(item, "object_type") and item.object_type:
-                data["object_type"] = item.object_type.name
-            if hasattr(item, "name") and item.name:
-                data["name"] = item.name
-            if hasattr(item, "metadata") and item.metadata:
-                data["metadata"] = item.metadata
-            # Save custom fill and stroke colors (with alpha)
-            if hasattr(item, "fill_color") and item.fill_color:
-                fill_color = item.fill_color
-            else:
-                fill_color = item.brush().color()
-            data["fill_color"] = fill_color.name(QColor.NameFormat.HexArgb)
-            stroke_color = item.pen().color()
-            data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
-            data["stroke_width"] = item.pen().widthF()
-            # Save fill pattern
-            if hasattr(item, "fill_pattern") and item.fill_pattern:
-                data["fill_pattern"] = item.fill_pattern.name
-            # Save stroke style
-            if hasattr(item, "stroke_style") and item.stroke_style:
-                data["stroke_style"] = item.stroke_style.name
-            # Save rotation angle
-            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
-                data["rotation_angle"] = item.rotation_angle
-            # Save area label visibility
-            if hasattr(item, "area_label_visible") and item.area_label_visible:
-                data["area_label_visible"] = True
-            return data
-        elif isinstance(item, TextItem):
-            data = {
-                "type": "text",
-                "x": item.pos().x(),
-                "y": item.pos().y(),
-                "content": item.content,
-                "font_family": item.font_family,
-                "font_size": item.font_size,
-                "bold": item.bold,
-                "italic": item.italic,
-                "text_color": item.text_color.name(QColor.NameFormat.HexArgb),
-            }
-            if hasattr(item, "name") and item.name:
-                data["name"] = item.name
-            if hasattr(item, "metadata") and item.metadata:
-                data["metadata"] = item.metadata
-            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
-                data["rotation_angle"] = item.rotation_angle
-            return data
-        return None
+        return ProjectManager._serialize_item_core(item)
 
     def _deserialize_item(self, obj: dict) -> QGraphicsItem | None:
         """Deserialize a single object to a graphics item.
 
-        Args:
-            obj: Dictionary representation of the item
-
-        Returns:
-            Graphics item, or None if deserialization failed
+        Delegates to ProjectManager._deserialize_item (AUD-002, TD-018).
         """
-        from open_garden_planner.core.fill_patterns import (
-            FillPattern,
-            create_pattern_brush,
-        )
-        from open_garden_planner.core.object_types import ObjectType, StrokeStyle
-        from open_garden_planner.ui.canvas.items import (
-            BackgroundImageItem,
-            CalloutItem,
-            CircleItem,
-            EllipseItem,
-            PolygonItem,
-            PolylineItem,
-            RectangleItem,
-            TextItem,
-        )
+        from open_garden_planner.core.project import ProjectManager
 
-        obj_type = obj.get("type")
-
-        # Extract common fields
-        object_type = None
-        if "object_type" in obj:
-            try:
-                object_type = ObjectType[obj["object_type"]]
-            except KeyError:
-                object_type = None
-
-        name = obj.get("name", "")
-        metadata = obj.get("metadata", {})
-        fill_pattern = None
-        if "fill_pattern" in obj:
-            try:
-                fill_pattern = FillPattern[obj["fill_pattern"]]
-            except KeyError:
-                fill_pattern = None
-
-        stroke_style = None
-        if "stroke_style" in obj:
-            try:
-                stroke_style = StrokeStyle[obj["stroke_style"]]
-            except KeyError:
-                stroke_style = None
-
-        if obj_type == "background_image":
-            try:
-                return BackgroundImageItem.from_dict(obj)
-            except (ValueError, FileNotFoundError):
-                # Image file may have been moved/deleted
-                return None
-        elif obj_type == "callout":
-            return CalloutItem.from_dict(obj)
-        elif obj_type == "rectangle":
-            item = RectangleItem(
-                obj["x"],
-                obj["y"],
-                obj["width"],
-                obj["height"],
-                object_type=object_type or ObjectType.GENERIC_RECTANGLE,
-                name=name,
-                metadata=metadata,
-                fill_pattern=fill_pattern,
-                stroke_style=stroke_style,
-            )
-            # Restore custom colors if saved
-            if "fill_color" in obj:
-                # If we have a pattern, recreate the brush with both color and pattern
-                if fill_pattern:
-                    brush = create_pattern_brush(
-                        fill_pattern, QColor(obj["fill_color"])
-                    )
-                else:
-                    brush = item.brush()
-                    brush.setColor(QColor(obj["fill_color"]))
-                item.setBrush(brush)
-            if "stroke_color" in obj:
-                pen = item.pen()
-                pen.setColor(QColor(obj["stroke_color"]))
-                if "stroke_width" in obj:
-                    pen.setWidthF(obj["stroke_width"])
-                if stroke_style:
-                    pen.setStyle(stroke_style.to_qt_pen_style())
-                item.setPen(pen)
-            if "rotation_angle" in obj:
-                item._apply_rotation(obj["rotation_angle"])
-            if obj.get("area_label_visible"):
-                item.area_label_visible = True
-            return item
-        elif obj_type == "circle":
-            item = CircleItem(
-                obj["center_x"],
-                obj["center_y"],
-                obj["radius"],
-                object_type=object_type or ObjectType.GENERIC_CIRCLE,
-                name=name,
-                metadata=metadata,
-                fill_pattern=fill_pattern,
-                stroke_style=stroke_style,
-            )
-            # Restore plant-specific rendering properties
-            if "plant_category" in obj:
-                try:
-                    from open_garden_planner.core.plant_renderer import PlantCategory
-
-                    item.plant_category = PlantCategory[obj["plant_category"]]
-                except KeyError:
-                    pass
-            if "plant_species" in obj:
-                item.plant_species = obj["plant_species"]
-            # Restore custom colors if saved
-            if "fill_color" in obj:
-                color = QColor(obj["fill_color"])
-                # Store the base color in the item
-                if hasattr(item, "fill_color"):
-                    item.fill_color = color
-                # If we have a pattern, recreate the brush with both color and pattern
-                if fill_pattern:
-                    brush = create_pattern_brush(fill_pattern, color)
-                else:
-                    brush = item.brush()
-                    brush.setColor(color)
-                item.setBrush(brush)
-            if "stroke_color" in obj:
-                pen = item.pen()
-                pen.setColor(QColor(obj["stroke_color"]))
-                if "stroke_width" in obj:
-                    pen.setWidthF(obj["stroke_width"])
-                if stroke_style:
-                    pen.setStyle(stroke_style.to_qt_pen_style())
-                item.setPen(pen)
-            if "rotation_angle" in obj:
-                item._apply_rotation(obj["rotation_angle"])
-            if obj.get("area_label_visible"):
-                item.area_label_visible = True
-            return item
-        elif obj_type == "ellipse":
-            item = EllipseItem(
-                obj.get("x", 0.0),
-                obj.get("y", 0.0),
-                obj.get("width", 50.0),
-                obj.get("height", 30.0),
-                object_type=object_type or ObjectType.GENERIC_ELLIPSE,
-                name=name,
-                metadata=metadata,
-                fill_pattern=fill_pattern,
-                stroke_style=stroke_style,
-            )
-            if "fill_color" in obj:
-                color = QColor(obj["fill_color"])
-                if hasattr(item, "fill_color"):
-                    item.fill_color = color
-                if fill_pattern:
-                    brush = create_pattern_brush(fill_pattern, color)
-                else:
-                    brush = item.brush()
-                    brush.setColor(color)
-                item.setBrush(brush)
-            if "stroke_color" in obj:
-                pen = item.pen()
-                pen.setColor(QColor(obj["stroke_color"]))
-                if "stroke_width" in obj:
-                    pen.setWidthF(obj["stroke_width"])
-                if stroke_style:
-                    pen.setStyle(stroke_style.to_qt_pen_style())
-                item.setPen(pen)
-            if "rotation_angle" in obj:
-                item._apply_rotation(obj["rotation_angle"])
-            if obj.get("area_label_visible"):
-                item.area_label_visible = True
-            return item
-        elif obj_type == "polyline":
-            points = [QPointF(p["x"], p["y"]) for p in obj.get("points", [])]
-            if len(points) >= 2:
-                item = PolylineItem(
-                    points,
-                    object_type=object_type or ObjectType.FENCE,
-                    name=name,
-                )
-                # Restore custom stroke color if saved
-                if "stroke_color" in obj:
-                    pen = item.pen()
-                    pen.setColor(QColor(obj["stroke_color"]))
-                    if "stroke_width" in obj:
-                        pen.setWidthF(obj["stroke_width"])
-                    item.setPen(pen)
-                if "rotation_angle" in obj:
-                    item._apply_rotation(obj["rotation_angle"])
-                return item
-        elif obj_type == "polygon":
-            points = [QPointF(p["x"], p["y"]) for p in obj.get("points", [])]
-            if len(points) >= 3:
-                item = PolygonItem(
-                    points,
-                    object_type=object_type or ObjectType.GENERIC_POLYGON,
-                    name=name,
-                    metadata=metadata,
-                    fill_pattern=fill_pattern,
-                    stroke_style=stroke_style,
-                )
-                # Restore custom colors if saved
-                if "fill_color" in obj:
-                    color = QColor(obj["fill_color"])
-                    # Store the base color in the item
-                    if hasattr(item, "fill_color"):
-                        item.fill_color = color
-                    # If we have a pattern, recreate the brush with both color and pattern
-                    if fill_pattern:
-                        brush = create_pattern_brush(fill_pattern, color)
-                    else:
-                        brush = item.brush()
-                        brush.setColor(color)
-                    item.setBrush(brush)
-                if "stroke_color" in obj:
-                    pen = item.pen()
-                    pen.setColor(QColor(obj["stroke_color"]))
-                    if "stroke_width" in obj:
-                        pen.setWidthF(obj["stroke_width"])
-                    if stroke_style:
-                        pen.setStyle(stroke_style.to_qt_pen_style())
-                    item.setPen(pen)
-                if "rotation_angle" in obj:
-                    item._apply_rotation(obj["rotation_angle"])
-                if obj.get("area_label_visible"):
-                    item.area_label_visible = True
-                return item
-        elif obj_type == "text":
-            item = TextItem(
-                obj.get("x", 0.0),
-                obj.get("y", 0.0),
-                content=obj.get("content", ""),
-                font_family=obj.get("font_family", "Arial"),
-                font_size=obj.get("font_size", 12.0),
-                bold=obj.get("bold", False),
-                italic=obj.get("italic", False),
-                text_color=(
-                    QColor(obj["text_color"])
-                    if "text_color" in obj
-                    else QColor(0, 0, 0)
-                ),
-                metadata=metadata,
-            )
-            if name:
-                item._name = name
-            if "rotation_angle" in obj:
-                item._apply_rotation(obj["rotation_angle"])
-            return item
-        return None
+        return ProjectManager._deserialize_item(obj)
 
     def show_calibration_input(self, scene_pos: QPointF) -> None:
         """Show calibration input widget near the given scene position.
