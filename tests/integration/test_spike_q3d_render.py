@@ -40,7 +40,7 @@ def spike_metrics(tmp_path_factory: pytest.TempPathFactory) -> tuple[dict, Path]
     proc = subprocess.run(  # noqa: S603 — fixed argv, our own module
         [sys.executable, "-m", "open_garden_planner", "--spike-q3d",
          "--plan", str(REPO / "tests" / "fixtures" / "plans" / "bench_small.ogp"),
-         "--out", str(out), "--presets", "medium", "--shots", "noon",
+         "--out", str(out), "--presets", "medium", "--shots", "noon,december_noon",
          "--size", "640x360", "--fps-seconds", "0", "--iou", "--orient"],
         env=env, capture_output=True, text=True, timeout=900, cwd=REPO,
     )
@@ -71,6 +71,26 @@ def test_ground_is_north_up_and_sky_sun_follows_the_azimuth(spike_metrics: tuple
     assert metrics["orientation"]["sky_ok"], metrics["orientation"]["sky_sun_disc"]
 
 
+def test_each_shot_shows_the_plan_on_its_sun_date(spike_metrics: tuple[dict, Path]) -> None:
+    """The 2D overlay resolves casters at the sim date; the L0 board built June for every shot.
+
+    The expected date is derived here from the shot list, not read back from
+    the row the runner wrote: ``build_date`` is the date of the models that
+    were on screen when the shot was grabbed.
+    """
+    from open_garden_planner.spike_q3d.runner import default_shots
+
+    metrics, _ = spike_metrics
+    expected = {s.name: s.when_utc.date().isoformat() for s in default_shots(2400.0, 1600.0)}
+    rows = metrics["shots"]
+    assert {r["shot"] for r in rows} == {"noon", "december_noon"}
+    for row in rows:
+        assert row["build_date"] == expected[row["shot"]], row
+    builds = metrics["builds"]
+    assert set(builds) == {expected["noon"], expected["december_noon"]}
+    assert builds[expected["noon"]]["triangles"] != builds[expected["december_noon"]]["triangles"]
+
+
 @pytest.fixture(scope="module")
 def measured(tmp_path_factory: pytest.TempPathFactory) -> tuple[dict, int]:
     """The L0.2 measurement flags in one run (ADR-047 criteria 2, 3, 5, 6, 7, 10)."""
@@ -99,6 +119,13 @@ def test_measurement_run_finishes_clean_while_animating(measured: tuple[dict, in
     assert metrics["wait_timeouts"] == 0
     assert metrics["soak"]["exit_while_animating"] is True
     assert metrics["soak"]["rss_end_mb"] - metrics["soak"]["rss_start_mb"] < 50.0
+
+
+def test_low_preset_shadow_map_agrees_with_the_analytic_shadow(measured: tuple[dict, int]) -> None:
+    """Every preset has its own shadow quality; the L0 board only measured "high"."""
+    rows = measured[0]["shadow_iou_by_preset"]["low"]["results"]
+    for elev, row in rows.items():
+        assert row["iou"] >= 0.85, (elev, row)
 
 
 def test_every_pick_names_the_item_the_cpu_oracle_expects(measured: tuple[dict, int]) -> None:

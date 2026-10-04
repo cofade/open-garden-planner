@@ -40,10 +40,11 @@ Item {
     property color clearColor: "#ffffff"
     property color skyTop: "#3d77c7"
     property color skyHorizon: "#c6dcef"
-    property color groundHorizon: "#a9bf9a"
     property color sunDiscColor: "#ffe6c0"
     property color fogColor: "#c9d8e6"
-    property color meadowColor: "#5f8a3c"
+    property color meadowColor: "#487f34"   // set once from runner.MEADOW_ALBEDO (= the bake)
+    // linear water albedo, set once from meshes.WATER_ALBEDO (water.png's linear mean)
+    property vector3d waterColor: Qt.vector3d(0.0742, 0.2874, 0.5583)
     property bool allowSsgi: false   // SSGI renders black on Mesa llvmpipe (ADR-047 evidence) — opt-in
     property bool allowSsr: true
 
@@ -99,9 +100,10 @@ Item {
             glowHDRMinimumValue: 1.1
             glowQualityHigh: root.preset === "ultra"
             fog: Fog {
-                // blends the endless meadow into the sky's horizon colour — no hard seam
+                // blends the endless meadow into the sky's horizon: the colour is the
+                // per-mood fogColor (sky horizon x probe exposure x 0.8, runner.look_for)
                 enabled: !root.orthoTopDown && root.preset !== "low"
-                color: root.skyHorizon
+                color: root.fogColor
                 depthEnabled: true
                 depthNear: 2600
                 depthFar: 16000
@@ -109,6 +111,10 @@ Item {
                 density: 1.0
             }
             antialiasingMode: root.preset === "low" ? SceneEnvironment.NoAA : SceneEnvironment.MSAA
+            // low has no MSAA: FXAA (post) + specular AA instead; FXAA stays off in the
+            // orthographic probe views so the IoU / orientation probes measure raw pixels
+            fxaaEnabled: root.preset === "low" && !root.orthoTopDown
+            specularAAEnabled: root.preset === "low"
             antialiasingQuality: root.preset === "ultra" ? SceneEnvironment.VeryHigh
                                                           : SceneEnvironment.High
             ssgiEnabled: root.preset === "ultra" && root.allowSsgi
@@ -131,7 +137,9 @@ Item {
                     skyTopColor: root.skyTop
                     skyHorizonColor: root.skyHorizon
                     groundBottomColor: root.night ? "#0a0f14" : "#3c4d2e"
-                    groundHorizonColor: root.groundHorizon
+                    // the background below the horizon is drawn x probeExposure like the sky
+                    // above it, so it meets the fogged meadow without a dark line
+                    groundHorizonColor: root.skyHorizon
                     sunColor: root.sunDiscColor
                     skyEnergy: root.night ? 0.25 : 1.0
                     groundEnergy: root.night ? 0.15 : 0.9
@@ -173,28 +181,34 @@ Item {
             ambientColor: Qt.rgba(0, 0, 0, 1)
             castsShadow: true
             shadowFactor: root.night ? 40 : 82
-            shadowMapQuality: root.preset === "low" ? Light.ShadowMapQualityMedium
+            // low: High + one cascade — Medium without cascades stair-stepped and
+            // acned the roof (morning_low, L0 review)
+            shadowMapQuality: root.preset === "low" ? Light.ShadowMapQualityHigh
                             : root.preset === "medium" ? Light.ShadowMapQualityHigh
                             : root.preset === "high" ? Light.ShadowMapQualityVeryHigh
                             : Light.ShadowMapQualityUltra
-            csmNumSplits: root.orthoTopDown ? 0 : (root.preset === "low" ? 0
+            csmNumSplits: root.orthoTopDown ? 0 : (root.preset === "low" ? 1
                           : root.preset === "medium" ? 1 : (root.preset === "high" ? 2 : 3))
             csmBlendRatio: 0.05
             softShadowQuality: root.preset === "low" ? Light.PCF4
                              : root.preset === "medium" ? Light.PCF8
                              : root.preset === "high" ? Light.PCF16 : Light.PCF32
             pcfFactor: 2.0
-            shadowBias: 5
+            // 1024-texel maps (low, medium) showed acne and a staircase on a sun-grazed roof
+            // at bias 5 (morning: 33-40 % of the slope darker than high); 15 measured clean,
+            // IoU gate unchanged (low 0.963/0.968/0.937, medium 0.967/0.973/0.937)
+            shadowBias: (root.preset === "low" || root.preset === "medium") ? 15 : 5
             shadowMapFar: 9000
             lockShadowmapTexels: true
         }
 
-        // endless meadow so the horizon never shows the sky's ground hemisphere
+        // endless meadow (4 x 4 km, past the 800 m far plane) so the horizon never shows the
+        // sky's ground hemisphere; same albedo as the baked plan ground
         Model {
             source: "#Rectangle"
             position: Qt.vector3d(root.groundCenter.x, -1.0, root.groundCenter.z)
             eulerRotation.x: -90
-            scale: Qt.vector3d(600, 600, 1)
+            scale: Qt.vector3d(4000, 4000, 1)
             receivesShadows: true
             castsShadows: false
             visible: !root.orthoTopDown
@@ -239,9 +253,16 @@ Item {
             opacity: 0.28; alphaMode: PrincipledMaterial.Blend; cullMode: Material.NoCulling
             depthDrawMode: Material.NeverDepthDraw
         }
-        PrincipledMaterial {
+        CustomMaterial {
+            // the pond keeps the 2D water hue in every mood; see water.frag for why
+            // this is not a PrincipledMaterial (measured: lavender at golden hour)
             id: waterMat
-            baseColor: "#1d4f5c"; roughness: 0.035; metalness: 0.0; specularAmount: 1.0
+            property vector3d uWater: root.waterColor
+            property real uBody: 0.5      // = the principled IBL diffuse's (1 - specularAmount)
+            property real uReflect: 0.15  // bench board: golden hour 212.7 deg, noon 197.3 (2D 205.5)
+            property real uRough: 0.05    // a crisp sun glint (0.3 blew it over the pond)
+            shadingMode: CustomMaterial.Shaded
+            fragmentShader: "water.frag"
         }
         CustomMaterial {
             id: foliageMat

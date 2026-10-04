@@ -45,6 +45,17 @@ GROUND_TYPES = {"LAWN", "TERRACE_PATIO", "DRIVEWAY", "POND_POOL", "GARDEN_BED", 
 PLANT_TYPES = {"TREE", "SHRUB", "PERENNIAL"}
 SOIL_PARENTS = {"RAISED_BED", "CONTAINER", "CONTAINER_ROUND", "WALL_PLANTER"}
 
+# ONE meadow albedo for the baked plan ground AND the endless meadow model: the
+# linear mean of resources/textures/grass.png (hue 104°). Night comes from the
+# light and the exposure, never from a darker albedo (the L0 board's per-mood
+# meadow colours made the plan glow as an island at night: 5.6× its surround).
+MEADOW_ALBEDO = "#487f34"
+# Fog = sky horizon × probe exposure × this factor, in LINEAR light. The skybox
+# is drawn × probeExposure but the fog is not, so a fog of "horizon × 0.6" (the
+# L0 review's value) still sat 20-26 luma over the sky row above the horizon;
+# × probe × 0.8 measures −0.7 / −0.5 / +1.4 luma (golden hour, morning, walk; high).
+FOG_OF_HORIZON = 0.8
+
 
 @dataclass
 class Shot:
@@ -167,6 +178,12 @@ def build_models(scene: Any, at: date, grass_density: float, with_grass: bool,
     ``make_model(item_id, mesh, kind, casts)`` builds the engine object; the
     default creates ``SpikeModel``s (Qt Quick 3D). ``scripts/bench_view3d.py``
     passes a plain-data factory to time the CPU side without any engine.
+
+    Truth rules (``ogp-lush-cinematic`` §1): every height comes from the SAME
+    resolver the 2D shadow overlay uses (``effective_height_cm(at_date=at)``);
+    a built item's meshes are fitted together so their top IS that height
+    (``meshes.fit_height``); an item the resolver gives no height is drawn as
+    decoration and casts NO shadow — exactly as in 2D, where it casts none.
     """
     from open_garden_planner.core.object_height import effective_height_cm
     from open_garden_planner.spike_q3d import meshes as M
@@ -196,6 +213,18 @@ def build_models(scene: Any, at: date, grass_density: float, with_grass: bool,
         stats.models += 1
         stats.triangles += mesh.triangle_count
 
+    def emit_built(item_id: str, parts: list[tuple[M.MeshData, str, bool]],
+                   height: float | None) -> None:
+        """A non-plant item: ONE z-scale for all its meshes, so their union's top IS ``height``."""
+        parts = [p for p in parts if p[0].vertex_count]
+        if not parts:
+            return
+        if height:
+            top = max(float(mesh.positions[:, 2].max()) for mesh, _k, _c in parts)
+            parts = [(M.fit_height(mesh, height, top=top), k, c) for mesh, k, c in parts]
+        for mesh, kind, casts in parts:
+            emit(item_id, mesh, kind, casts and bool(height))
+
     lawn_polys: list[list[tuple[float, float]]] = []
     lawn_excludes: list[list[tuple[float, float]]] = []
     for item in by_id.values():
@@ -216,28 +245,30 @@ def build_models(scene: Any, at: date, grass_density: float, with_grass: bool,
             lawn_polys.append(fp)
         elif name in ("POND_POOL", "GARDEN_BED", "FIRE_PIT") or name in SOIL_PARENTS:
             lawn_excludes.append(fp)
+        parts: list[tuple[M.MeshData, str, bool]] = []
         if name in PLANT_TYPES and isinstance(item, CircleItem):
             center = item.mapToScene(item.center)
             radius = _plant_canopy_radius_cm(item, at) or item.radius
-            height = h if h else max(radius * 1.2, 20.0)
+            height = h if h else max(radius * 1.2, 20.0)  # no resolved height: decoration
             species = (item.metadata.get("plant_species") or {}).get("common_name") or \
                 getattr(item, "plant_species", "") or ""
             base = 0.0
             parent = by_id.get(str(item.parent_bed_id)) if item.parent_bed_id else None
             if parent is not None and parent.object_type.name in SOIL_PARENTS:
-                base = effective_height_cm(parent.object_type, parent.metadata) or 0.0
+                base = effective_height_cm(parent.object_type, parent.metadata, at_date=at) or 0.0
                 base -= 2.0  # soil sits just below the rim
             mesh = M.plant_mesh(species, M.item_seed(iid), height, 2.0 * radius, name)
-            emit(iid, M.translated(mesh, center.x(), center.y(), base), "foliage")
-            kind_label = "plants"
-        elif name == "HOUSE":
+            emit(iid, M.translated(mesh, center.x(), center.y(), base), "foliage", h is not None)
+            stats.add("plants", (time.perf_counter() - t0) * 1000.0)
+            continue
+        if name == "HOUSE":
             ridge_id = item.metadata.get("ridge_item_id")
             ridge = by_id.get(str(ridge_id)) if ridge_id else None
             if ridge is not None and isinstance(ridge, PolylineItem) and len(ridge.points) >= 2:
                 pts = _scene_points(ridge, ridge.points)
-                emit(iid, M.gable_house(fp, (pts[0], pts[-1]), h or 450.0), "vc")
+                parts.append((M.gable_house(fp, (pts[0], pts[-1]), h or 450.0), "vc", True))
             else:
-                emit(iid, M.prism(fp, h or 450.0, 0.0, "#efe4cf", "#9c8e7e"), "vc")
+                parts.append((M.prism(fp, h or 450.0, 0.0, "#efe4cf", "#9c8e7e"), "vc", True))
         elif name == "ROOF_RIDGE":
             continue
         elif name in ("GARAGE_SHED", "TOOL_SHED"):
@@ -246,46 +277,48 @@ def build_models(scene: Any, at: date, grass_density: float, with_grass: bool,
                 ridge = ((min(xs), (min(ys) + max(ys)) / 2), (max(xs), (min(ys) + max(ys)) / 2))
             else:
                 ridge = (((min(xs) + max(xs)) / 2, min(ys)), ((min(xs) + max(xs)) / 2, max(ys)))
-            emit(iid, M.gable_house(fp, ridge, h or 250.0, wall="#9c7a54", roof="#55606a",
-                                    pitch_deg=25.0, overhang=20.0), "vc")
+            # roof: the 2D shingle texture's mid tone (was a blue-grey #55606a)
+            parts.append((M.gable_house(fp, ridge, h or 250.0, wall="#9c7a54", roof="#78695a",
+                                        pitch_deg=25.0, overhang=20.0), "vc", True))
         elif name == "GREENHOUSE":
             frame, glass = M.greenhouse(fp, h or 220.0)
-            emit(iid, frame, "vc")
-            emit(iid, glass, "glass", casts=False)
+            parts += [(frame, "vc", True), (glass, "glass", False)]
         elif name == "PERGOLA":
-            emit(iid, M.pergola(fp, h or 250.0), "vc")
+            parts.append((M.pergola(fp, h or 250.0), "vc", True))
         elif name == "TRELLIS":
             xs, ys = [p[0] for p in fp], [p[1] for p in fp]
             cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
             long_y = (max(ys) - min(ys)) > (max(xs) - min(xs))
             length = max(max(ys) - min(ys), max(xs) - min(xs))
             ang = 90.0 if long_y else 0.0
-            parts = [M.box(cx, cy, 0, length, 4, 6, "#a77b52", ang)]
+            pieces = [M.box(cx, cy, 0, length, 4, 6, "#a77b52", ang)]
             hh = h or 180.0
             for k in range(int(length // 30) + 1):
                 off = -length / 2 + k * 30
                 px, py = (cx, cy + off) if long_y else (cx + off, cy)
-                parts.append(M.box(px, py, 0, 3, 3, hh, "#b48a5f"))
+                pieces.append(M.box(px, py, 0, 3, 3, hh, "#b48a5f"))
             for z in np.arange(25, hh, 30):
-                parts.append(M.box(cx, cy, float(z), length, 2, 2.5, "#b48a5f", ang))
-            emit(iid, M.MeshData.concat(parts), "vc")
+                pieces.append(M.box(cx, cy, float(z), length, 2, 2.5, "#b48a5f", ang))
+            parts.append((M.MeshData.concat(pieces), "vc", True))
         elif name in ("RAISED_BED", "CONTAINER", "WALL_PLANTER"):
-            emit(iid, M.raised_bed(fp, h or 40.0), "vc")
+            parts.append((M.raised_bed(fp, h or 40.0), "vc", True))
         elif name == "CONTAINER_ROUND" and isinstance(item, CircleItem):
             c = item.mapToScene(item.center)
-            emit(iid, M.round_thing(c.x(), c.y(), item.radius, h or 30.0, "#c46a3c", "#4a3222"), "vc")
+            parts.append((M.round_thing(c.x(), c.y(), item.radius, h or 30.0, "#c46a3c", "#4a3222"),
+                          "vc", True))
         elif name in ("HEDGE_POLYGON", "HEDGE_SECTION"):
-            emit(iid, M.hedge(fp, h or 150.0, M.item_seed(iid)), "foliage")
+            parts.append((M.hedge(fp, h or 150.0, M.item_seed(iid)), "foliage", True))
         elif name == "FENCE" and isinstance(item, PolylineItem):
-            emit(iid, M.polyline_posts_and_pickets(_scene_points(item, item.points), h or 120.0), "vc")
+            parts.append((M.polyline_posts_and_pickets(_scene_points(item, item.points),
+                                                       h or 120.0), "vc", True))
         elif name == "WALL" and isinstance(item, PolylineItem):
-            emit(iid, M.stone_wall(_scene_points(item, item.points), h or 200.0), "vc")
+            parts.append((M.stone_wall(_scene_points(item, item.points), h or 200.0), "vc", True))
         elif name == "POND_POOL":
-            emit(iid, M.water_surface(fp, 2.0), "water", casts=False)
+            parts.append((M.water_surface(fp, 2.0), "water", False))
         elif name == "TABLE_RECTANGULAR":
             xs, ys = [p[0] for p in fp], [p[1] for p in fp]
-            emit(iid, M.table((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2,
-                              max(xs) - min(xs), max(ys) - min(ys), h or 75.0), "vc")
+            parts.append((M.table((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2,
+                                  max(xs) - min(xs), max(ys) - min(ys), h or 75.0), "vc", True))
         elif name == "CHAIR":
             xs, ys = [p[0] for p in fp], [p[1] for p in fp]
             cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
@@ -293,41 +326,37 @@ def build_models(scene: Any, at: date, grass_density: float, with_grass: bool,
             if tables:
                 tc = tables[0].mapToScene(tables[0].rect().center())
                 facing = math.degrees(math.atan2(tc.y() - cy, tc.x() - cx))
-            emit(iid, M.chair(cx, cy, facing), "vc")
+            parts.append((M.chair(cx, cy, facing, h or 85.0), "vc", True))
         elif name == "BENCH":
             xs, ys = [p[0] for p in fp], [p[1] for p in fp]
-            emit(iid, M.bench((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2,
-                              max(xs) - min(xs), max(ys) - min(ys)), "vc")
+            parts.append((M.bench((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2,
+                                  max(xs) - min(xs), max(ys) - min(ys), h or 85.0), "vc", True))
         elif name == "TRAMPOLINE" and isinstance(item, CircleItem):
             c = item.mapToScene(item.center)
-            emit(iid, M.trampoline(c.x(), c.y(), item.radius), "vc")
+            parts.append((M.trampoline(c.x(), c.y(), item.radius, h or 90.0), "vc", True))
         elif name in ("RAIN_BARREL",) and isinstance(item, CircleItem):
+            # no 2D height (not in DEFAULT_HEIGHTS_CM): decoration, casts nothing
             c = item.mapToScene(item.center)
-            emit(iid, M.round_thing(c.x(), c.y(), item.radius, h or 100.0, "#2f5a3a", "#22313a"), "vc")
+            parts.append((M.round_thing(c.x(), c.y(), item.radius, h or 100.0, "#2f5a3a",
+                                        "#22313a"), "vc", True))
         elif name == "BIRD_BATH" and isinstance(item, CircleItem):
             c = item.mapToScene(item.center)
-            parts = [M.cylinder((c.x(), c.y(), 0), (c.x(), c.y(), 75), 8, 6, "#c9c1b2"),
-                     M.round_thing(c.x(), c.y(), item.radius * 1.6, 12, "#d6cfc2", "#7fb3c8")]
-            parts[1] = M.translated(parts[1], 0, 0, 75)
-            emit(iid, M.MeshData.concat(parts), "vc")
+            parts.append((M.bird_bath(c.x(), c.y(), item.radius, h or 90.0), "vc", True))
         elif name == "BBQ_GRILL" and isinstance(item, CircleItem):
             c = item.mapToScene(item.center)
-            kettle = M.spheres(np.array([[c.x(), c.y(), 80.0]]), item.radius, "#2a2a2e", squash=0.8,
-                               smooth=True)
-            legs = M.tubes(np.array([[c.x() + 15, c.y(), 0], [c.x() - 8, c.y() + 13, 0],
-                                     [c.x() - 8, c.y() - 13, 0]], np.float32),
-                           np.array([[c.x(), c.y(), 70]] * 3, np.float32),
-                           np.full(3, 1.5), np.full(3, 1.5), "#3b3b3b", 5)
-            emit(iid, M.MeshData.concat([kettle, legs]), "vc")
+            parts.append((M.bbq_grill(c.x(), c.y(), item.radius, h or 90.0), "vc", True))
         elif name == "FIRE_PIT" and isinstance(item, CircleItem):
+            # no 2D height (not in DEFAULT_HEIGHTS_CM): decoration, casts nothing
             c = item.mapToScene(item.center)
-            emit(iid, M.round_thing(c.x(), c.y(), item.radius, 28, "#8d8478", "#2b2622"), "vc")
+            parts.append((M.round_thing(c.x(), c.y(), item.radius, h or 28.0, "#8d8478",
+                                        "#2b2622"), "vc", True))
         elif name in GROUND_TYPES:
             pass  # baked into the ground texture
         elif h:
             fill = getattr(item, "fill_color", None)
             color = fill.name() if fill is not None else "#9e9e94"
-            emit(iid, M.prism(fp, h, 0.0, color), "vc")
+            parts.append((M.prism(fp, h, 0.0, color), "vc", True))
+        emit_built(iid, parts, h)
         stats.add(kind_label, (time.perf_counter() - t0) * 1000.0)
     if with_grass and lawn_polys:
         t0 = time.perf_counter()
@@ -379,7 +408,7 @@ def bake_ground(scene: Any, width: float, height: float):
     ptr.setsize(rgba.sizeInBytes())
     arr = np.frombuffer(ptr, np.uint8).reshape(rgba.height(), rgba.bytesPerLine() // 4, 4)
     canvas = QColor(scene.CANVAS_COLOR)
-    meadow = QColor("#6f9a48")
+    meadow = QColor(MEADOW_ALBEDO)  # the same albedo as the endless meadow model
     mask = ((arr[..., 0] == canvas.red()) & (arr[..., 1] == canvas.green())
             & (arr[..., 2] == canvas.blue())) | (arr[..., 3] == 0)
     arr[mask] = [meadow.red(), meadow.green(), meadow.blue(), 255]
@@ -413,38 +442,122 @@ def _measure(args: argparse.Namespace, renderer: Any, scene: Any, ground: Any, w
 # ── shots ────────────────────────────────────────────────────────────────
 
 
-def look_for(sun) -> dict:
+def scale_linear(hex_color: str, factor: float) -> str:
+    """``#rrggbb`` scaled by ``factor`` in LINEAR light, back to ``#rrggbb``."""
+    from open_garden_planner.spike_q3d.meshes import srgb_to_linear
+
+    lin = np.clip(srgb_to_linear(hex_color).astype(np.float64) * factor, 0.0, 1.0)
+    srgb = np.where(lin <= 0.0031308, lin * 12.92, 1.055 * np.power(lin, 1 / 2.4) - 0.055)
+    return "#" + "".join(f"{round(float(c) * 255):02x}" for c in srgb)
+
+
+def look_for(sun: Any) -> dict[str, Any]:
     """Sky/fog/exposure per sun height — golden hour warms the horizon, noon stays crisp.
 
     The direct sun must dominate the sky probe or shadows wash out (the first
-    spike renders read flat because the IBL out-shone the light).
+    spike renders read flat because the IBL out-shone the light). The fog is
+    DERIVED from the sky horizon as the skybox draws it (× probe exposure,
+    ``FOG_OF_HORIZON``) so the meadow melts into the sky without a band; the
+    ground albedo is not part of the look at all (``MEADOW_ALBEDO``) — a mood
+    is light, never paint.
     """
+    look: dict[str, Any]
     if sun.night:
-        return {"skyTop": "#070d22", "skyHorizon": "#1b2747", "groundHorizon": "#141b2e",
-                "sunDiscColor": "#9fb2e0", "fogColor": "#161e33", "meadowColor": "#1c2b1f",
+        look = {"skyTop": "#070d22", "skyHorizon": "#1b2747", "sunDiscColor": "#9fb2e0",
                 "exposure": 2.4, "probe": 0.35}
-    e = sun.elevation
-    if e < 8:
-        return {"skyTop": "#4a6fb0", "skyHorizon": "#f2b47c", "groundHorizon": "#c79a72",
-                "sunDiscColor": "#ffb070", "fogColor": "#e9c3a0", "meadowColor": "#5a8237",
+    elif sun.elevation < 8:
+        look = {"skyTop": "#4a6fb0", "skyHorizon": "#f2b47c", "sunDiscColor": "#ffb070",
                 "exposure": 1.25, "probe": 0.42}
-    if e < 20:
-        return {"skyTop": "#4f7fc8", "skyHorizon": "#f4d2a6", "groundHorizon": "#b9b48a",
-                "sunDiscColor": "#ffd09a", "fogColor": "#e6d2b8", "meadowColor": "#5b853a",
+    elif sun.elevation < 20:
+        look = {"skyTop": "#4f7fc8", "skyHorizon": "#f4d2a6", "sunDiscColor": "#ffd09a",
                 "exposure": 1.15, "probe": 0.5}
-    return {"skyTop": "#3f78c9", "skyHorizon": "#cfe2f2", "groundHorizon": "#a3b894",
-            "sunDiscColor": "#fff0d8", "fogColor": "#cfdbe6", "meadowColor": "#5d8a3c",
-            "exposure": 0.92, "probe": 0.55}
+    else:
+        look = {"skyTop": "#3f78c9", "skyHorizon": "#cfe2f2", "sunDiscColor": "#fff0d8",
+                "exposure": 0.92, "probe": 0.55}
+    look["fogColor"] = scale_linear(look["skyHorizon"], look["probe"] * FOG_OF_HORIZON)
+    return look
 
 
-def apply_look(renderer, sun) -> None:
-    from PyQt6.QtGui import QColor
+class ModelsByDate:
+    """The plan's engine models as they stand on a date — built once per date, shown on demand.
 
-    look = look_for(sun)
-    for key in ("skyTop", "skyHorizon", "groundHorizon", "sunDiscColor", "fogColor",
-                "meadowColor"):
-        renderer.root.setProperty(key, QColor(look[key]))
-    renderer.set_exposure(look["exposure"], look["probe"])
+    The 2D shadow overlay recomputes its casters at the simulation DATE
+    (``SunShadowController.recompute_now``: growth-projected heights and
+    canopies, keyed on the UTC date), so a 3D shot must show the plan on its
+    own sun date too: the L0 board built every model for 21 June, and its
+    December shot showed June plants (29 of 99 bench items differ).
+    """
+
+    def __init__(self, build: Any) -> None:
+        self._build = build  # date -> (models, BuildStats)
+        self.sets: dict[date, tuple[list[Any], BuildStats, float]] = {}
+        self.active_date: date | None = None
+
+    def get(self, at: date) -> list[Any]:
+        if at not in self.sets:
+            t0 = time.perf_counter()
+            models, stats = self._build(at)
+            self.sets[at] = (models, stats, (time.perf_counter() - t0) * 1000.0)
+        return self.sets[at][0]
+
+    def activate(self, renderer: Any, at: date) -> bool:
+        """Show the models of ``at``; True when the renderer's models changed."""
+        if at == self.active_date:
+            return False
+        renderer.set_models(self.get(at))
+        self.active_date = at
+        return True
+
+    def report(self) -> dict[str, dict[str, Any]]:
+        return {at.isoformat(): {"items": s.items, "models": s.models, "triangles": s.triangles,
+                                 "build_ms": round(ms, 1)}
+                for at, (_m, s, ms) in sorted(self.sets.items())}
+
+
+def shoot_board(renderer: Any, shots: list[Shot], presets: list[str], models: ModelsByDate,
+                sun_for: Any, out: Path, log: Any, metrics: dict[str, Any],
+                fps_seconds: float = 0.0) -> list[dict[str, Any]]:
+    """Render every shot at every preset; each shot shows the plan on its own sun date.
+
+    ``sun_for(when_utc)`` returns the ``SunState``. The look is applied
+    BEFORE the sun, so the fresh sky texture a sun change builds is born with
+    this shot's colours (the light probe is pre-filtered once per texture).
+    """
+    rows: list[dict[str, Any]] = []
+    metrics["shots"] = rows
+    for preset in presets:
+        renderer.set_preset(preset)
+        for shot in shots:
+            at = shot.when_utc.date()  # the 2D overlay's rule: sim_dt_utc.date()
+            if models.activate(renderer, at):
+                log("models_for_date", date=at.isoformat(), models=len(renderer.models))
+            sun = sun_for(shot.when_utc)
+            renderer.set_look(look_for(sun))
+            renderer.set_sun(sun)
+            renderer.set_camera(shot.eye, shot.target, shot.fov)
+            t0 = time.perf_counter()
+            renderer.wait_frames(6, label=f"{shot.name}_{preset}")
+            t_grab = time.perf_counter()
+            img = renderer.grab(label=f"{shot.name}_{preset}")
+            grab_ms = round((time.perf_counter() - t_grab) * 1000, 1)
+            path = out / f"{shot.name}_{preset}.png"
+            img.save(str(path))
+            rows.append({"shot": shot.name, "preset": preset, "file": path.name,
+                         "sun_elev": round(sun.elevation, 2), "sun_az": round(sun.azimuth, 2),
+                         "sun_date": at.isoformat(),
+                         "build_date": models.active_date.isoformat() if models.active_date else None,
+                         "settle_ms": round((time.perf_counter() - t0) * 1000, 1),
+                         "grab_ms": grab_ms})
+            log("shot", name=shot.name, preset=preset, settle_ms=rows[-1]["settle_ms"],
+                build_date=rows[-1]["build_date"])
+            _write_metrics(out, metrics)
+        if fps_seconds > 0 and shots:
+            renderer.set_camera(shots[0].eye, shots[0].target, shots[0].fov)
+            fps = round(renderer.measure_fps(fps_seconds), 2)
+            metrics.setdefault("fps", {})[preset] = fps
+            log("fps", preset=preset, fps=fps)
+            _write_metrics(out, metrics)
+    return rows
 
 
 def default_shots(width: float, height: float) -> list[Shot]:
@@ -539,14 +652,24 @@ def _run(args: argparse.Namespace, out: Path, log: SpikeLog, metrics: dict[str, 
     metrics["ground_bake_ms"] = (time.perf_counter() - t0) * 1000
     log("ground_baked", ms=round(metrics["ground_bake_ms"], 1), px=f"{ground.width()}x{ground.height()}")
 
+    shots = default_shots(width, height)
+    if args.shots != "all":
+        wanted = set(args.shots.split(","))
+        shots = [s for s in shots if s.name in wanted]
+    presets = args.presets.split(",")
+    first_when = shots[0].when_utc if shots else datetime.now(UTC)
+
+    models_by_date = ModelsByDate(
+        lambda at: build_models(scene, at, args.grass_density, not args.no_grass))
     t0 = time.perf_counter()
-    models, stats = build_models(scene, date(2026, 6, 21), args.grass_density, not args.no_grass)
+    models = models_by_date.get(first_when.date())
+    stats = models_by_date.sets[first_when.date()][1]
     metrics["build_models_ms"] = (time.perf_counter() - t0) * 1000
-    metrics["build"] = {"items": stats.items, "models": stats.models,
-                        "triangles": stats.triangles,
+    metrics["build"] = {"date": first_when.date().isoformat(), "items": stats.items,
+                        "models": stats.models, "triangles": stats.triangles,
                         "by_kind_ms": {k: round(v, 1) for k, v in stats.build_ms.items()}}
     log("models_built", ms=round(metrics["build_models_ms"], 1), models=stats.models,
-        triangles=stats.triangles)
+        triangles=stats.triangles, date=first_when.date().isoformat())
     _write_metrics(out, metrics)
 
     renderer = SpikeRenderer(args.host, (w_px, h_px), frame_timeout_s=args.frame_timeout_s,
@@ -554,19 +677,24 @@ def _run(args: argparse.Namespace, out: Path, log: SpikeLog, metrics: dict[str, 
     log("qml_loaded", ms=round(renderer.qml_load_ms, 1), host=args.host)
     renderer.root.setProperty("allowSsgi", bool(args.ssgi))
     renderer.root.setProperty("allowSsr", not args.no_ssr)
+    renderer.set_meadow_albedo(MEADOW_ALBEDO)
+    from open_garden_planner.spike_q3d.meshes import WATER_ALBEDO
+
+    renderer.set_water_albedo(WATER_ALBEDO)
     metrics["qml_load_ms"] = renderer.qml_load_ms
     t0 = time.perf_counter()
-    renderer.set_models(models)
+    models_by_date.activate(renderer, first_when.date())
     renderer.set_ground(ground, 0, 0, width, height)
     metrics["scene_apply_ms"] = (time.perf_counter() - t0) * 1000
     metrics["geometry_upload_ms_total"] = sum(m.geometry.upload_ms for m in models)
 
-    shots = default_shots(width, height)
-    if args.shots != "all":
-        wanted = set(args.shots.split(","))
-        shots = [s for s in shots if s.name in wanted]
-    renderer.set_preset(args.presets.split(",")[0])
-    renderer.set_sun(sun_state(lat, lon, shots[0].when_utc if shots else datetime.now(UTC)))
+    def sun_for(when_utc: datetime) -> Any:
+        return sun_state(lat, lon, when_utc)
+
+    renderer.set_preset(presets[0])
+    first_sun = sun_for(first_when)
+    renderer.set_look(look_for(first_sun))
+    renderer.set_sun(first_sun)
     if shots:
         renderer.set_camera(shots[0].eye, shots[0].target, shots[0].fov)
     renderer.show()
@@ -576,40 +704,23 @@ def _run(args: argparse.Namespace, out: Path, log: SpikeLog, metrics: dict[str, 
     metrics["graphics_api"] = renderer.graphics_api()
     log("first_frame", ms=round(metrics["first_frame_ms"] or -1.0, 1), api=metrics["graphics_api"])
     _write_metrics(out, metrics)
-    shot_rows: list[dict] = []
-    metrics["shots"] = shot_rows
-    for preset in args.presets.split(","):
-        renderer.set_preset(preset)
-        for shot in shots:
-            sun = sun_state(lat, lon, shot.when_utc)
-            renderer.set_sun(sun)
-            apply_look(renderer, sun)
-            renderer.set_camera(shot.eye, shot.target, shot.fov)
-            t0 = time.perf_counter()
-            renderer.wait_frames(6, label=f"{shot.name}_{preset}")
-            t_grab = time.perf_counter()
-            img = renderer.grab(label=f"{shot.name}_{preset}")
-            grab_ms = round((time.perf_counter() - t_grab) * 1000, 1)
-            path = out / f"{shot.name}_{preset}.png"
-            img.save(str(path))
-            shot_rows.append({"shot": shot.name, "preset": preset, "file": path.name,
-                              "sun_elev": round(sun.elevation, 2), "sun_az": round(sun.azimuth, 2),
-                              "settle_ms": round((time.perf_counter() - t0) * 1000, 1),
-                              "grab_ms": grab_ms})
-            log("shot", name=shot.name, preset=preset, settle_ms=shot_rows[-1]["settle_ms"])
-            _write_metrics(out, metrics)
-        if args.fps_seconds > 0 and shots:
-            renderer.set_camera(shots[0].eye, shots[0].target, shots[0].fov)
-            fps = round(renderer.measure_fps(args.fps_seconds), 2)
-            metrics.setdefault("fps", {})[preset] = fps
-            log("fps", preset=preset, fps=fps)
-            _write_metrics(out, metrics)
+    shoot_board(renderer, shots, presets, models_by_date, sun_for, out, log, metrics,
+                args.fps_seconds)
+    metrics["builds"] = models_by_date.report()
+    _write_metrics(out, metrics)
     if args.iou:
         from open_garden_planner.spike_q3d.probes import shadow_iou_probe
 
-        log("iou_start")
-        metrics["shadow_iou"] = shadow_iou_probe(renderer, out)
-        log("iou_done", **{k: v["iou"] for k, v in metrics["shadow_iou"]["results"].items()})
+        by_preset: dict[str, Any] = {}
+        for preset in presets:
+            log("iou_start", preset=preset)
+            by_preset[preset] = shadow_iou_probe(renderer, out, preset=preset)
+            log("iou_done", preset=preset,
+                **{k: v["iou"] for k, v in by_preset[preset]["results"].items()})
+        primary = "high" if "high" in by_preset else presets[0]
+        # ``shadow_iou`` keeps its shape (one preset's results) for existing readers
+        metrics["shadow_iou"] = by_preset[primary]
+        metrics["shadow_iou_by_preset"] = by_preset
         _write_metrics(out, metrics)
     if args.orient:
         from open_garden_planner.spike_q3d.probes import orientation_probe

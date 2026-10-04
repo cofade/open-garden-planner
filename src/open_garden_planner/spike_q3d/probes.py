@@ -45,10 +45,17 @@ def _poly_mask(polys: list, xs: np.ndarray, ys: np.ndarray) -> np.ndarray:
     return mask
 
 
-def shadow_iou_probe(renderer: Any, out: Path) -> dict:
+def shadow_iou_probe(renderer: Any, out: Path, preset: str = "high") -> dict:
+    """IoU of the engine's shadow footprint vs the analytic 2D shadow, at ``preset``.
+
+    Each preset has its own shadow-map quality and filtering, so the gate is
+    measured per preset (the L0 board only ever measured "high"). Restores
+    the models and the preset it found.
+    """
     from open_garden_planner.spike_q3d.quick import NumpyGeometry, SpikeModel, SunState
 
     saved_models = renderer.models
+    saved_preset = str(renderer.root.property("preset"))
     side, height = 100.0, 200.0
     fp = [(-side / 2, -side / 2), (side / 2, -side / 2), (side / 2, side / 2), (-side / 2, side / 2)]
     caster = M.prism(fp, height, 0.0, "#d01010", "#ff0000")
@@ -57,7 +64,7 @@ def shadow_iou_probe(renderer: Any, out: Path) -> dict:
               SpikeModel("ground", NumpyGeometry(ground), "white", False)]
     renderer.set_models(models)
     renderer.root.setProperty("groundTexture", None)
-    renderer.set_preset("high")
+    renderer.set_preset(preset)
     w, h = renderer.size
     mag = 0.5  # 1 px = 2 cm
     renderer.set_top_down((0.0, 0.0), mag)
@@ -71,9 +78,9 @@ def shadow_iou_probe(renderer: Any, out: Path) -> dict:
         d = sun_direction_scene(elev, azimuth)
         renderer.set_sun(SunState(elev, azimuth, (-d[0], -d[1], -d[2]), "#ffffff", 1.6, False))
         renderer.set_exposure(1.0, 0.9)
-        renderer.wait_frames(6, label=f"iou_{int(elev)}")
-        img = renderer.grab(label=f"iou_{int(elev)}")
-        img.save(str(out / f"iou_{int(elev)}.png"))
+        renderer.wait_frames(6, label=f"iou_{int(elev)}_{preset}")
+        img = renderer.grab(label=f"iou_{int(elev)}_{preset}")
+        img.save(str(out / f"iou_{int(elev)}_{preset}.png"))
         arr = _image_to_array(img)
         lum = _luma(arr)
         red = (arr[..., 0] > 1.4 * arr[..., 1]) & (arr[..., 0] > 60)
@@ -99,8 +106,9 @@ def shadow_iou_probe(renderer: Any, out: Path) -> dict:
             "centroid_analytic_cm": [round(ax, 1), round(ay, 1)],
         }
     renderer.set_models(saved_models)
-    return {"azimuth_deg": azimuth, "caster_cm": [side, side, height], "px_per_cm": mag,
-            "results": results}
+    renderer.set_preset(saved_preset)
+    return {"preset": preset, "azimuth_deg": azimuth, "caster_cm": [side, side, height],
+            "px_per_cm": mag, "results": results}
 
 
 def orientation_probe(renderer: Any, out: Path, ground_img: Any, width: float,

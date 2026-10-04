@@ -197,6 +197,42 @@ def _normalize(v: np.ndarray) -> np.ndarray:
     return v / np.maximum(norm, 1e-9)
 
 
+def normal_vs_winding(mesh: MeshData) -> tuple[np.ndarray, np.ndarray]:
+    """Per non-degenerate triangle: (stored normal · winding normal, is-flat mask).
+
+    The flat-normal gate's instrument. A triangle is *flat-shaded* when its
+    three stored vertex normals are identical — how every flat builder emits
+    faces; its stored normal must then equal the winding normal (dot ≥ 0.99).
+    Smooth triangles (interpolated normals) report the dot of their mean
+    normal, which must at least face the same way (> 0).
+    """
+    tri = mesh.indices.reshape(-1, 3)
+    p = mesh.positions.astype(np.float64)
+    cross = np.cross(p[tri[:, 1]] - p[tri[:, 0]], p[tri[:, 2]] - p[tri[:, 0]])
+    area2 = np.linalg.norm(cross, axis=1)
+    keep = area2 > 1e-6
+    winding = cross[keep] / area2[keep, None]
+    n = mesh.normals.astype(np.float64)[tri[keep]]  # (T, 3 vertices, 3)
+    flat = np.abs(n - n[:, :1]).max(axis=(1, 2)) < 1e-6
+    stored = n.mean(axis=1)
+    stored /= np.maximum(np.linalg.norm(stored, axis=1, keepdims=True), 1e-12)
+    return (stored * winding).sum(axis=1), flat
+
+
+def _face_normal(pos: np.ndarray, idx: Sequence[int] | np.ndarray) -> np.ndarray:
+    """Unit normal of a planar triangle set, derived from its WINDING.
+
+    Area-weighted (sum of the triangles' cross products), so a sliver triangle
+    cannot tip it. Flat faces take their stored normal from here, never from a
+    hand-written formula: the spike's roof slabs once stored the OTHER slope's
+    normal, and the sun lit the wrong roof face (reviewer finding, L0).
+    """
+    tri = np.asarray(idx).reshape(-1, 3)
+    p = np.asarray(pos, np.float64)
+    cross = np.cross(p[tri[:, 1]] - p[tri[:, 0]], p[tri[:, 2]] - p[tri[:, 0]]).sum(axis=0)
+    return _normalize(cross).astype(np.float32)
+
+
 # ── primitives ──────────────────────────────────────────────────────────
 
 
@@ -309,6 +345,86 @@ def tubes(a: np.ndarray, b: np.ndarray, ra: np.ndarray, rb: np.ndarray,
     return _mesh(pos, nrm, cols, np.zeros((len(pos), 2)), idx)
 
 
+def _perpendicular(b: Sequence[float], a: Sequence[float]) -> list[float]:
+    """``b`` projected onto the plane ⊥ unit ``a``, normalised (any perpendicular if b ∥ a)."""
+    d = b[0] * a[0] + b[1] * a[1] + b[2] * a[2]
+    x, y, z = b[0] - d * a[0], b[1] - d * a[1], b[2] - d * a[2]
+    length = math.sqrt(x * x + y * y + z * z)
+    if length < 1e-6:
+        h = (1.0, 0.0, 0.0) if abs(a[2]) >= 0.9 else (0.0, 0.0, 1.0)
+        x, y, z = a[1] * h[2] - a[2] * h[1], a[2] * h[0] - a[0] * h[2], a[0] * h[1] - a[1] * h[0]
+        length = math.sqrt(x * x + y * y + z * z) or 1.0
+    return [x / length, y / length, z / length]
+
+
+def limb_tubes(pts: np.ndarray, par: np.ndarray, radius: np.ndarray, is_cont: np.ndarray,
+               colors: np.ndarray, sides: int = 7) -> MeshData:
+    """A branch skeleton as tubes whose joints SHARE one ring per node (seamless limbs).
+
+    Segment ``par[i] → i`` for every node ``i ≥ 1``. Where the segment continues
+    its parent's limb (``is_cont[i]``) its bottom ring IS the ring of node
+    ``par[i]`` — same vertices, same normals, same radius — so a limb tapers and
+    shades continuously; the ring's frame follows the bisector of the segments
+    meeting at the node. A side branch starts with its own ring inside the
+    parent's wood. (The L0 tubes gave every segment its own frame and ended it
+    at 0.92 × its radius: a ledge and a shading step at every joint — the
+    "banded" trunk.) ``colors`` holds one RGBA row per segment.
+    """
+    n = len(pts)
+    seg_i = np.arange(1, n)
+    if len(seg_i) == 0:
+        return MeshData.empty()
+    pts = np.asarray(pts, np.float64)
+    seg_dir = np.zeros((n, 3))
+    seg_dir[seg_i] = _normalize(pts[seg_i] - pts[par[seg_i]])
+    cont = seg_i[is_cont[seg_i]]
+    cont_child = np.full(n, -1)
+    cont_child[par[cont]] = cont
+    tangent = seg_dir.copy()
+    has = np.where(cont_child >= 0)[0]
+    bisector = seg_dir[has] + seg_dir[cont_child[has]]
+    ok = np.linalg.norm(bisector, axis=1) > 1e-6
+    tangent[has[ok]] = _normalize(bisector[ok])
+    if cont_child[0] >= 0:
+        tangent[0] = seg_dir[cont_child[0]]  # the root ring faces up its trunk
+    # ring frames by PARALLEL TRANSPORT from parent to child (rotation-minimising):
+    # a frame picked per node from a fixed helper axis flips phase where a limb bends
+    # through the helper's threshold and twists that segment. One pass over the
+    # NODES (parents come first), not over vertices.
+    t_list, d_list = tangent.tolist(), seg_dir.tolist()
+    u_node: list[list[float]] = [[0.0, 0.0, 0.0]] * n
+    u_own: list[list[float]] = [[0.0, 0.0, 0.0]] * n
+    u_node[0] = _perpendicular([1.0, 0.0, 0.0] if abs(t_list[0][2]) >= 0.9 else [0.0, 0.0, 1.0],
+                               t_list[0])
+    for i in range(1, n):
+        p = int(par[i])
+        u_node[i] = _perpendicular(u_node[p], t_list[i])
+        u_own[i] = _perpendicular(u_node[p], d_list[i])
+    th = np.linspace(0.0, 2.0 * math.pi, sides, endpoint=False)
+
+    def rings(axis: np.ndarray, u: np.ndarray) -> np.ndarray:
+        v = np.cross(axis, u)
+        ring: np.ndarray = (np.cos(th)[None, :, None] * u[:, None, :]
+                            + np.sin(th)[None, :, None] * v[:, None, :])
+        return ring
+
+    node_dir = rings(tangent, np.asarray(u_node))   # (n, sides, 3) unit radial directions
+    own_dir = rings(seg_dir[seg_i], np.asarray(u_own)[seg_i])  # a side branch's own first ring
+    c = is_cont[seg_i][:, None, None]
+    bottom_dir = np.where(c, node_dir[par[seg_i]], own_dir)
+    bottom_r = np.where(is_cont[seg_i], radius[par[seg_i]], radius[seg_i])
+    bottom = pts[par[seg_i]][:, None, :] + bottom_dir * bottom_r[:, None, None]
+    top = pts[seg_i][:, None, :] + node_dir[seg_i] * radius[seg_i][:, None, None]
+    pos = np.concatenate([bottom, top], axis=1).reshape(-1, 3)
+    nrm = np.concatenate([bottom_dir, node_dir[seg_i]], axis=1).reshape(-1, 3)
+    j = np.arange(sides)
+    jn = (j + 1) % sides
+    quad = np.stack([j, jn, jn + sides, j, jn + sides, j + sides], axis=1).reshape(-1)
+    idx = (quad[None, :] + (np.arange(len(seg_i)) * 2 * sides)[:, None]).reshape(-1)
+    cols = np.repeat(np.asarray(colors, np.float32), 2 * sides, axis=0)
+    return _mesh(pos, nrm, cols, np.zeros((len(pos), 2)), idx)
+
+
 # ── micro-leaves (the foliage workhorse) ─────────────────────────────────
 
 
@@ -345,7 +461,7 @@ def leaves(positions: np.ndarray, outward: np.ndarray, length: np.ndarray, width
     nrm = np.repeat(n, 4, axis=0)
     cols = np.repeat(colors, 4, axis=0)
     tip = np.arange(len(cols)) % 4 == 2
-    cols[tip, :3] = np.minimum(cols[tip, :3] * 1.18 + 0.01, 1.0)
+    cols[tip, :3] = np.minimum(cols[tip, :3] * 1.06 + 0.01, 1.0)  # a soft tip, not a speckle
     weight = np.clip((positions[:, 2:3] / max(float(positions[:, 2].max()), 1.0)), 0.0, 1.0)
     uv = np.concatenate([np.repeat(weight, 4, axis=0),
                          np.repeat(rng.random((k, 1)), 4, axis=0)], axis=1)
@@ -363,7 +479,7 @@ def _palette_colors(palette: str, t: np.ndarray, rng: np.random.Generator,
     base = b0 * (1 - mix) + b1 * mix
     tip = t0 * (1 - mix) + t1 * mix
     rgb = base * (1 - t) + tip * t
-    rgb *= rng.uniform(0.85, 1.12, (len(t), 1)).astype(np.float32)
+    rgb *= rng.uniform(0.94, 1.06, (len(t), 1)).astype(np.float32)  # calm value noise
     if depth is not None:
         rgb *= (0.55 + 0.45 * np.clip(depth, 0.0, 1.0))[:, None]
     out = np.ones((len(t), 4), np.float32)
@@ -473,13 +589,27 @@ def space_colonization_tree(seed: int, height: float, spread: float, palette: st
     for i in range(len(pts) - 1, 0, -1):  # children always come after parents
         p = par[i]
         radius[p] = (radius[p] ** 2.5 + radius[i] ** 2.5) ** (1 / 2.5) if children[p] else radius[i]
-    radius *= (height * 0.032) / max(radius[0], 1e-6)
+    radius *= (height * 0.018) / max(radius[0], 1e-6)  # trunk base = 1.8 % of the height
     radius = np.maximum(radius, 0.35)
     seg_i = np.arange(1, len(pts))
+    # one bark shade per BRANCH (a node continues its parent's branch when it is
+    # the parent's first child): a per-segment shade banded the trunk like a ladder
+    branch = np.zeros(len(pts), int)
+    continued = np.zeros(len(pts), bool)  # node already has its continuation child
+    is_cont = np.zeros(len(pts), bool)    # node continues its parent's limb
+    n_branches = 1
+    for i in range(1, len(pts)):
+        p = par[i]
+        if continued[p]:
+            branch[i] = n_branches
+            n_branches += 1
+        else:
+            continued[p] = is_cont[i] = True
+            branch[i] = branch[p]
+    shade = np.random.default_rng(seed + 1).uniform(0.92, 1.08, n_branches).astype(np.float32)
     bark = _rgba("#5a4632", len(seg_i))
-    bark[:, :3] *= np.random.default_rng(seed + 1).uniform(0.8, 1.15, (len(seg_i), 1))
-    wood = tubes(pts[par[seg_i]], pts[seg_i], radius[seg_i], radius[seg_i] * 0.92, bark,
-                 sides=7)
+    bark[:, :3] *= shade[branch[seg_i]][:, None]
+    wood = limb_tubes(pts, par, radius, is_cont, bark, sides=7)
     # foliage: leaf clusters on every thin branch inside the crown; the leaf count
     # follows the crown's surface area so coverage (not a magic number) is the knob
     thin_cut = np.percentile(radius[1:], 60) if len(radius) > 1 else radius[0]
@@ -644,8 +774,9 @@ def blades(seed: int, height: float, spread: float, palette: str,
     parts = [_mesh(pos, nrm, col, uv, idx)]
     kind, name = accent
     if name in ACCENTS:
-        tips = np.array([[math.cos(a) * lean[i] * hgt[i] * 0.9, math.sin(a) * lean[i] * hgt[i] * 0.9,
-                          hgt[i] * 1.02] for i, a in enumerate(ang)])
+        # exactly the blade's tip (the f = 1 centre above), so a head sits ON its blade
+        tips = np.array([[math.cos(a) * lean[i] * hgt[i], math.sin(a) * lean[i] * hgt[i],
+                          hgt[i]] for i, a in enumerate(ang)])
         sel = tips[rng.choice(n, max(1, n // 4), replace=False)]
         if kind == "pompom":
             parts.append(spheres(sel, np.clip(spread * 0.08, 1.5, 3.0), ACCENTS[name]))
@@ -694,6 +825,32 @@ def fit_to(mesh: MeshData, height: float, spread: float) -> MeshData:
     cy = (lo[1] + hi[1]) / 2.0
     pos = (mesh.positions - np.array([cx, cy, z0], np.float32)) * scale
     nrm = _normalize(mesh.normals / scale)
+    return MeshData(pos.astype(np.float32), nrm.astype(np.float32), mesh.colors, mesh.uv,
+                    mesh.indices)
+
+
+def fit_height(mesh: MeshData, height: float, top: float | None = None) -> MeshData:
+    """Scale a built object in z, about the ground, so its top IS the resolved height.
+
+    The built-world twin of ``fit_to``: builders produce *shape* (posts above
+    the pickets, a wall cap, a ridge cap, a kettle) and this final fit
+    enforces *truth* — the bounding-box top equals ``effective_height_cm``
+    (the §1 height gate). ``top`` lets the meshes of one item (a greenhouse's
+    frame and glass) share ONE scale: pass the top of their union. Normals
+    take the inverse-transpose of the scale, so a flat face keeps
+    normal · winding = 1.
+    """
+    if mesh.vertex_count == 0 or height <= 0:
+        return mesh
+    current = float(mesh.positions[:, 2].max()) if top is None else float(top)
+    if current <= 0:
+        return mesh
+    s = height / current
+    if abs(s - 1.0) < 1e-7:
+        return mesh
+    pos = mesh.positions.copy()
+    pos[:, 2] *= s
+    nrm = _normalize(mesh.normals / np.array([1.0, 1.0, s], np.float32))
     return MeshData(pos.astype(np.float32), nrm.astype(np.float32), mesh.colors, mesh.uv,
                     mesh.indices)
 
@@ -749,6 +906,10 @@ def _point_in_polygon(px: np.ndarray, py: np.ndarray, poly: Polygon) -> np.ndarr
     return inside
 
 
+GRASS_BLADE_BASE = "#4c8c36"  # scripts/generate_asset_forge_textures.py generate_grass, base
+GRASS_BLADE_TIP = "#8ccc5e"  # ... and its matching tip (2D lawn hue 104.9°)
+
+
 def grass(polygon: Polygon, seed: int, density_per_m2: float, exclude: Sequence[Polygon] = (),
           blade_height: float = 14.0) -> MeshData:
     """Merged grass blades inside ``polygon`` (minus ``exclude``), wind weight in uv.u."""
@@ -779,8 +940,10 @@ def grass(polygon: Polygon, seed: int, density_per_m2: float, exclude: Sequence[
         rows.append((c - side * (w[:, None] * wf * 0.5), c + side * (w[:, None] * wf * 0.5), f))
     pos = np.stack([rows[0][0], rows[0][1], rows[1][0], rows[1][1], rows[2][0]], 1).reshape(-1, 3)
     nrm = np.repeat(_normalize(d * 0.4 + np.array([0, 0, 1.0])), 5, axis=0)
-    base_c = srgb_to_linear("#3f7a2a")
-    tip_c = srgb_to_linear("#a8d86a")
+    # the 2D lawn's own blade pair (generate_asset_forge_textures.generate_grass:
+    # base (76, 140, 54), tip (140, 204, 94)) — never a new literal
+    base_c = srgb_to_linear(GRASS_BLADE_BASE)
+    tip_c = srgb_to_linear(GRASS_BLADE_TIP)
     fracs = np.array([0.0, 0.0, 0.45, 0.45, 1.0], np.float32)
     jitter = rng.uniform(0.82, 1.12, (k, 1)).astype(np.float32)
     col = np.empty((k, 5, 4), np.float32)
@@ -831,10 +994,14 @@ def gable_house(footprint: Polygon, ridge: tuple[Point, Point], ridge_height: fl
                 overhang: float = 35.0) -> MeshData:
     """Walls to eave height + gable ends + a two-plane roof along the 2D ridge.
 
-    Heights: ridge = ``ridge_height`` (the house's effective height, D4),
-    eave = ridge − tan(pitch)·(max distance from the ridge), clamped ≥ 220 cm
-    by lowering the pitch. Spike scope: convex footprints whose ridge touches
-    the boundary — exactly what ``core.roof_ridge`` produces for rectangles.
+    Heights: the TOP of the mesh — the ridge cap — is ``ridge_height``, the
+    house's effective height (D4: a HOUSE's ``object_height_cm`` is its ridge
+    height), so the bounding box IS the data. The roof planes' mid-plane meets
+    at the gable apex, ``rise + 6`` cm below that (cap rise + half the 12 cm
+    slab); eave = apex − tan(pitch)·(max distance from the ridge), clamped
+    ≥ 220 cm by lowering the pitch. Spike scope: convex footprints whose ridge
+    touches the boundary — exactly what ``core.roof_ridge`` produces for
+    rectangles. Every flat face takes its normal from its winding.
     """
     (ax, ay), (bx, by) = ridge
     lx, ly = bx - ax, by - ay
@@ -844,12 +1011,19 @@ def gable_house(footprint: Polygon, ridge: tuple[Point, Point], ridge_height: fl
     def dist(p: Point) -> float:
         return abs((p[0] - ax) * nx + (p[1] - ay) * ny)
 
+    ext = (ax - lx / ll * overhang, ay - ly / ll * overhang)
+    ext_b = (bx + lx / ll * overhang, by + ly / ll * overhang)
+    # the ridge cap is the top of the house: build it at z = 0, measure how far
+    # its hexagon rises above its axis, and hang everything else below it
+    cap = cylinder((ext[0], ext[1], 0.0), (ext_b[0], ext_b[1], 0.0), 7.0, 7.0, "#8e3f2d", sides=6)
+    cap_z = ridge_height - float(cap.positions[:, 2].max())
+    apex = cap_z - 6.0  # slab mid-plane at the ridge line; the slab tops meet the cap axis
     dmax = max(dist(p) for p in footprint) or 1.0
     slope = math.tan(math.radians(pitch_deg))
-    eave = ridge_height - slope * dmax
+    eave = apex - slope * dmax
     if eave < 220.0:
-        eave = min(220.0, ridge_height * 0.75)
-        slope = (ridge_height - eave) / dmax
+        eave = min(220.0, apex * 0.75)
+        slope = (apex - eave) / dmax
     parts = [prism(footprint, eave, 0.0, wall)]
     # gable end triangles where the ridge meets the outline
     for end in (ridge[0], ridge[1]):
@@ -862,7 +1036,7 @@ def gable_house(footprint: Polygon, ridge: tuple[Point, Point], ridge_height: fl
             t = ((end[0] - p[0]) * ex + (end[1] - p[1]) * ey) / (el * el)
             if cross < 2.0 and -0.01 <= t <= 1.01:
                 tri = np.array([[p[0], p[1], eave], [q[0], q[1], eave],
-                                [end[0], end[1], ridge_height]], np.float32)
+                                [end[0], end[1], apex]], np.float32)
                 normal = _normalize(np.cross(tri[1] - tri[0], tri[2] - tri[0]))
                 center = np.array([sum(v[0] for v in footprint) / n,
                                    sum(v[1] for v in footprint) / n, eave])
@@ -873,23 +1047,17 @@ def gable_house(footprint: Polygon, ridge: tuple[Point, Point], ridge_height: fl
                                    np.zeros((3, 2)), [0, 1, 2]))
     # two roof slabs (12 cm thick) over the overhang-expanded outline
     big = _offset_convex(footprint, overhang)
-    ext = (ax - lx / ll * overhang, ay - ly / ll * overhang)
-    ext_b = (bx + lx / ll * overhang, by + ly / ll * overhang)
     for keep_left in (True, False):
         half = _clip_halfplane(big, ext, ext_b, keep_left)
         if len(half) < 3:
             continue
         tris = triangulate_polygon(half)
-        top = np.array([[x, y, ridge_height - slope * dist((x, y)) + 6.0] for x, y in half],
+        top = np.array([[x, y, apex - slope * dist((x, y)) + 6.0] for x, y in half],
                        np.float32)
-        normal = _normalize(np.array([nx * slope, ny * slope, 1.0]) * (1 if keep_left else 1))
-        sgn = 1.0 if keep_left else -1.0
-        normal = _normalize(np.array([-nx * slope * sgn, -ny * slope * sgn, 1.0]))
         idx = np.array(tris, np.uint32).reshape(-1)
-        # orient upward
-        a3, b3, c3 = top[idx[0]], top[idx[1]], top[idx[2]]
-        if np.cross(b3 - a3, c3 - a3)[2] < 0:
+        if _face_normal(top, idx)[2] < 0:  # orient the slab's top face upward
             idx = idx.reshape(-1, 3)[:, [0, 2, 1]].reshape(-1)
+        normal = _face_normal(top, idx)  # from the winding: this slope's own normal
         roof_col = _rgba(roof, len(top))
         roof_col[:, :3] *= np.random.default_rng(len(half)).uniform(0.94, 1.04, (len(top), 1))
         parts.append(_mesh(top, np.repeat(normal[None], len(top), 0), roof_col,
@@ -897,15 +1065,16 @@ def gable_house(footprint: Polygon, ridge: tuple[Point, Point], ridge_height: fl
         under = top - np.array([0, 0, 12.0], np.float32)
         parts.append(_mesh(under, np.repeat(-normal[None], len(top), 0), _rgba("#6b4a35", len(top)),
                            np.zeros((len(top), 2)), idx.reshape(-1, 3)[:, [0, 2, 1]].reshape(-1)))
-    # ridge cap
-    parts.append(cylinder((ext[0], ext[1], ridge_height + 6), (ext_b[0], ext_b[1], ridge_height + 6),
-                          7.0, 7.0, "#8e3f2d", sides=6))
+    parts.append(translated(cap, 0.0, 0.0, cap_z))
     return MeshData.concat(parts)
 
 
 def polyline_posts_and_pickets(points: Sequence[Point], height: float, wood: str = "#a0744a",
                                spacing: float = 200.0, picket: float = 12.0) -> MeshData:
-    """A wooden picket fence along a polyline: posts every ≤ 2 m, two rails, pickets."""
+    """A wooden picket fence along a polyline: posts every ≤ 2 m, two rails, pickets.
+
+    The posts are the top (= ``height``); pickets stop 0.3–4 cm below them.
+    """
     parts = []
     for (x1, y1), (x2, y2) in zip(points[:-1], points[1:], strict=True):
         seg = math.hypot(x2 - x1, y2 - y1)
@@ -916,7 +1085,7 @@ def polyline_posts_and_pickets(points: Sequence[Point], height: float, wood: str
         nposts = max(2, int(math.ceil(seg / spacing)) + 1)
         for i in range(nposts):
             t = seg * i / (nposts - 1)
-            parts.append(box(x1 + ux * t, y1 + uy * t, 0, 9, 9, height + 8, "#7c5a3a", ang))
+            parts.append(box(x1 + ux * t, y1 + uy * t, 0, 9, 9, height, "#7c5a3a", ang))
         for z in (height * 0.25, height * 0.75):
             parts.append(box((x1 + x2) / 2, (y1 + y2) / 2, z, seg, 4, 6, "#8a6542", ang))
         npick = int(seg / picket)
@@ -929,12 +1098,15 @@ def polyline_posts_and_pickets(points: Sequence[Point], height: float, wood: str
 
 
 def stone_wall(points: Sequence[Point], height: float, thickness: float = 30.0) -> MeshData:
+    """Wall body plus a coping cap; the cap's top is ``height``."""
+    cap = min(8.0, height * 0.2)
     parts = []
     for (x1, y1), (x2, y2) in zip(points[:-1], points[1:], strict=True):
         seg = math.hypot(x2 - x1, y2 - y1)
         ang = math.degrees(math.atan2(y2 - y1, x2 - x1))
-        parts.append(box((x1 + x2) / 2, (y1 + y2) / 2, 0, seg, thickness, height, "#9b9384", ang))
-        parts.append(box((x1 + x2) / 2, (y1 + y2) / 2, height, seg + 6, thickness + 8, 8,
+        parts.append(box((x1 + x2) / 2, (y1 + y2) / 2, 0, seg, thickness, height - cap, "#9b9384",
+                         ang))
+        parts.append(box((x1 + x2) / 2, (y1 + y2) / 2, height - cap, seg + 6, thickness + 8, cap,
                          "#bdb5a5", ang))
     return MeshData.concat(parts)
 
@@ -962,13 +1134,15 @@ def hedge(footprint: Polygon, height: float, seed: int) -> MeshData:
     face = rng.integers(0, 4, m)
     sx = np.where(face == 0, min(xs), np.where(face == 1, max(xs), rng.uniform(min(xs), max(xs), m)))
     sy = np.where(face == 2, min(ys), np.where(face == 3, max(ys), rng.uniform(min(ys), max(ys), m)))
-    pts[side] = np.stack([sx, sy, rng.uniform(0.05, 0.95, m) * height], 1)
+    # a 9 cm leaf can point straight down: root it ≥ 9.5 cm up so none sinks into the ground
+    pts[side] = np.stack([sx, sy, np.maximum(rng.uniform(0.05, 0.95, m) * height, 9.5)], 1)
     out[side] = np.stack([np.where(face == 0, -1, np.where(face == 1, 1, 0)),
                           np.where(face == 2, -1, np.where(face == 3, 1, 0)), np.zeros(m)], 1)
     cols = _palette_colors("dark", np.clip(pts[:, 2] / height, 0, 1) * 0.7 + 0.2, rng)
     foliage = leaves(pts.astype(np.float32), out.astype(np.float32), np.full(n, 9.0),
                      np.full(n, 6.0), cols, rng, spherize=0.0, droop=0.0)
-    return MeshData.concat([core, foliage])
+    # the leaf shell pokes a few cm above the clipped top: the fit makes the top the data
+    return fit_height(MeshData.concat([core, foliage]), height)
 
 
 def raised_bed(footprint: Polygon, height: float) -> MeshData:
@@ -978,43 +1152,53 @@ def raised_bed(footprint: Polygon, height: float) -> MeshData:
 
 
 def pergola(footprint: Polygon, height: float) -> MeshData:
+    """Four posts, two beams, and rafters ON the beams; the rafters' top is ``height``."""
     xs = [p[0] for p in footprint]
     ys = [p[1] for p in footprint]
     x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+    rafter, beam = 12.0, 18.0
+    deck = height - rafter  # top of posts and beams = underside of the rafters
     parts = []
     for px in (x0 + 8, x1 - 8):
         for py in (y0 + 8, y1 - 8):
-            parts.append(box(px, py, 0, 12, 12, height, "#8b6a48"))
+            parts.append(box(px, py, 0, 12, 12, deck, "#8b6a48"))
     for py in (y0 + 8, y1 - 8):
-        parts.append(box((x0 + x1) / 2, py, height - 18, x1 - x0 + 40, 8, 18, "#7d5d3e"))
+        parts.append(box((x0 + x1) / 2, py, deck - beam, x1 - x0 + 40, 8, beam, "#7d5d3e"))
     n = int((x1 - x0) / 32)
     for i in range(n + 1):
         px = x0 + i * (x1 - x0) / max(n, 1)
-        parts.append(box(px, (y0 + y1) / 2, height, 6, y1 - y0 + 50, 12, "#94714d"))
+        parts.append(box(px, (y0 + y1) / 2, deck, 6, y1 - y0 + 50, rafter, "#94714d"))
     return MeshData.concat(parts)
 
 
 def greenhouse(footprint: Polygon, height: float) -> tuple[MeshData, MeshData]:
-    """(frame, glass): aluminium edges + glass walls and a pitched glass roof."""
+    """(frame, glass): aluminium edges + glass walls and a pitched glass roof.
+
+    The ridge beam's top is ``height``; each roof pane is wound so its winding
+    normal points up and out, and stores exactly that normal.
+    """
     xs = [p[0] for p in footprint]
     ys = [p[1] for p in footprint]
     x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
     eave = height * 0.7
-    frame = []
+    ridge_x = (x0 + x1) / 2
+    beam = cylinder((ridge_x, y0, 0.0), (ridge_x, y1, 0.0), 3, 3, "#d9dde0", 6)
+    ridge = height - float(beam.positions[:, 2].max())  # beam axis: its top IS the height
+    frame = [translated(beam, 0.0, 0.0, ridge)]
     for px in (x0, x1):
         for py in (y0, y1):
             frame.append(box(px, py, 0, 5, 5, eave, "#d9dde0"))
-    ridge_x = (x0 + x1) / 2
-    frame.append(cylinder((ridge_x, y0, height), (ridge_x, y1, height), 3, 3, "#d9dde0", 6))
     for py in np.linspace(y0, y1, 5):
-        frame.append(cylinder((x0, py, eave), (ridge_x, py, height), 2, 2, "#d9dde0", 5))
-        frame.append(cylinder((x1, py, eave), (ridge_x, py, height), 2, 2, "#d9dde0", 5))
+        frame.append(cylinder((x0, py, eave), (ridge_x, py, ridge), 2, 2, "#d9dde0", 5))
+        frame.append(cylinder((x1, py, eave), (ridge_x, py, ridge), 2, 2, "#d9dde0", 5))
     glass = [prism(footprint, eave, 0.0, "#cfe6ef")]
-    for sgn, ex in ((1, x0), (-1, x1)):
-        quad = np.array([[ex, y0, eave], [ex, y1, eave], [ridge_x, y1, height],
-                         [ridge_x, y0, height]], np.float32)
-        nrm = _normalize(np.array([-sgn * (height - eave), 0, abs(ridge_x - ex)], np.float32))
-        idx = [0, 1, 2, 0, 2, 3] if sgn > 0 else [0, 2, 1, 0, 3, 2]
+    for ex in (x0, x1):
+        quad = np.array([[ex, y0, eave], [ex, y1, eave], [ridge_x, y1, ridge],
+                         [ridge_x, y0, ridge]], np.float32)
+        idx = [0, 1, 2, 0, 2, 3]
+        if _face_normal(quad, idx)[2] < 0:  # the pane faces the sky, not the floor
+            idx = [0, 2, 1, 0, 3, 2]
+        nrm = _face_normal(quad, idx)
         glass.append(_mesh(quad, np.repeat(nrm[None], 4, 0), _rgba("#cfe6ef", 4),
                            np.zeros((4, 2)), idx))
     return MeshData.concat(frame), MeshData.concat(glass)
@@ -1029,40 +1213,75 @@ def table(cx: float, cy: float, w: float, d: float, h: float = 75.0) -> MeshData
     return MeshData.concat(parts)
 
 
-def chair(cx: float, cy: float, facing_deg: float) -> MeshData:
+def chair(cx: float, cy: float, facing_deg: float, height: float = 85.0) -> MeshData:
+    """Seat at ≤ 44 cm, the backrest's top is ``height``."""
     a = math.radians(facing_deg)
     bx, by = cx - math.cos(a) * 18, cy - math.sin(a) * 18
-    parts = [box(cx, cy, 44, 42, 42, 4, "#b98a5a", facing_deg)]
-    parts.append(box(bx, by, 48, 4, 40, 42, "#a87a4c", facing_deg))
+    seat = min(44.0, height * 0.5)
+    parts = [box(cx, cy, seat, 42, 42, 4, "#b98a5a", facing_deg)]
+    parts.append(box(bx, by, seat + 4, 4, 40, max(height - seat - 4, 1.0), "#a87a4c", facing_deg))
     for sx in (-1, 1):
         for sy in (-1, 1):
-            parts.append(box(cx + sx * 17, cy + sy * 17, 0, 4, 4, 44, "#6e4e30"))
+            parts.append(box(cx + sx * 17, cy + sy * 17, 0, 4, 4, seat, "#6e4e30"))
     return MeshData.concat(parts)
 
 
-def bench(cx: float, cy: float, w: float, d: float) -> MeshData:
-    parts = [box(cx, cy, 42, w, d * 0.8, 5, "#b0835a"), box(cx, cy + d * 0.4, 47, w, 4, 38, "#a07650")]
+def bench(cx: float, cy: float, w: float, d: float, height: float = 85.0) -> MeshData:
+    """Seat at ≤ 42 cm, the backrest's top is ``height``."""
+    seat = min(42.0, height * 0.5)
+    parts = [box(cx, cy, seat, w, d * 0.8, 5, "#b0835a"),
+             box(cx, cy + d * 0.4, seat + 5, w, 4, max(height - seat - 5, 1.0), "#a07650")]
     for sx in (-1, 1):
-        parts.append(box(cx + sx * (w / 2 - 10), cy, 0, 6, d * 0.8, 42, "#5b5b5b"))
+        parts.append(box(cx + sx * (w / 2 - 10), cy, 0, 6, d * 0.8, seat, "#5b5b5b"))
     return MeshData.concat(parts)
 
 
-def trampoline(cx: float, cy: float, r: float) -> MeshData:
+def trampoline(cx: float, cy: float, r: float, height: float = 90.0) -> MeshData:
+    """Frame ring on six legs; the ring tube's top is ``height``."""
     th = np.linspace(0, 2 * math.pi, 24, endpoint=False)
-    ring_a = np.stack([cx + np.cos(th) * r, cy + np.sin(th) * r, np.full(24, 90.0)], 1)
+    ring_a = np.stack([cx + np.cos(th) * r, cy + np.sin(th) * r, np.zeros(24)], 1)
     ring_b = np.roll(ring_a, -1, axis=0)
     frame = tubes(ring_a, ring_b, np.full(24, 3.5), np.full(24, 3.5), "#3b6fb6", 6)
-    legs = tubes(ring_a[::4] - [0, 0, 90], ring_a[::4], np.full(6, 2.5), np.full(6, 2.5),
+    ring_z = height - float(frame.positions[:, 2].max())
+    frame = translated(frame, 0.0, 0.0, ring_z)
+    legs = tubes(ring_a[::4], ring_a[::4] + [0, 0, ring_z], np.full(6, 2.5), np.full(6, 2.5),
                  "#6f7782", 6)
     mat_fp = [(cx + math.cos(t) * r * 0.9, cy + math.sin(t) * r * 0.9) for t in th]
-    mat = prism(mat_fp, 1.0, 88.0, "#1d2126")
+    mat = prism(mat_fp, 1.0, ring_z - 2.0, "#1d2126")
     return MeshData.concat([frame, legs, mat])
+
+
+def bbq_grill(cx: float, cy: float, r: float, height: float = 90.0) -> MeshData:
+    """Kettle grill on three legs; the lid's top is ``height`` (the kettle stays in the footprint)."""
+    squash = 0.8
+    zc = height - r * squash  # the smooth sphere's pole is its top vertex
+    kettle = spheres(np.array([[cx, cy, zc]]), r, "#2a2a2e", squash=squash, smooth=True)
+    feet = np.array([[cx + r * 0.5, cy, 0.0], [cx - r * 0.27, cy + r * 0.43, 0.0],
+                     [cx - r * 0.27, cy - r * 0.43, 0.0]], np.float32)
+    legs = tubes(feet, np.array([[cx, cy, zc]] * 3, np.float32), np.full(3, 1.5), np.full(3, 1.5),
+                 "#3b3b3b", 5)
+    return MeshData.concat([kettle, legs])
+
+
+def bird_bath(cx: float, cy: float, r: float, height: float = 90.0) -> MeshData:
+    """Pedestal + basin; the basin's rim is ``height`` and its radius the item's radius.
+
+    (The L0 board drew the basin at 1.6× the item radius — wider than the
+    plan's footprint.)
+    """
+    basin = min(12.0, height * 0.3)
+    pedestal = cylinder((cx, cy, 0.0), (cx, cy, height - basin), r * 0.32, r * 0.24, "#c9c1b2")
+    bowl = translated(round_thing(cx, cy, r, basin, "#d6cfc2", "#7fb3c8"), 0.0, 0.0, height - basin)
+    return MeshData.concat([pedestal, bowl])
 
 
 def round_thing(cx: float, cy: float, r: float, h: float, color: str, top: str | None = None) -> MeshData:
     th = np.linspace(0, 2 * math.pi, 20, endpoint=False)
     fp = [(cx + math.cos(t) * r, cy + math.sin(t) * r) for t in th]
     return prism(fp, h, 0.0, color, top)
+
+
+WATER_ALBEDO = "#4d92c5"  # linear mean of resources/textures/water.png (hue 205.5°)
 
 
 def water_surface(footprint: Polygon, z: float = 2.0) -> MeshData:
@@ -1072,7 +1291,9 @@ def water_surface(footprint: Polygon, z: float = 2.0) -> MeshData:
     a, b, c = pos[idx[0]], pos[idx[1]], pos[idx[2]]
     if np.cross(b - a, c - a)[2] < 0:
         idx = idx.reshape(-1, 3)[:, [0, 2, 1]].reshape(-1)
-    return _mesh(pos, np.tile([0, 0, 1.0], (len(pos), 1)), _rgba("#2f6f7a", len(pos)),
+    # the engine's water material carries the colour (the same WATER_ALBEDO, set
+    # once by the runner); the vertices keep it too, so the data never disagrees
+    return _mesh(pos, np.tile([0, 0, 1.0], (len(pos), 1)), _rgba(WATER_ALBEDO, len(pos)),
                  np.zeros((len(pos), 2)), idx)
 
 

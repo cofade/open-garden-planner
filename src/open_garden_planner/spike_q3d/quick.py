@@ -18,11 +18,11 @@ from typing import Any
 import numpy as np
 from PyQt6.QtCore import QByteArray, QEventLoop, QObject, QSize, QTimer, QUrl, pyqtProperty
 from PyQt6.QtGui import QColor, QImage, QQuaternion, QVector3D
-from PyQt6.QtQuick import QQuickView, QQuickWindow
+from PyQt6.QtQuick import QQuickItem, QQuickView, QQuickWindow
 from PyQt6.QtQuick3D import QQuick3DGeometry, QQuick3DTextureData
 from PyQt6.QtQuickWidgets import QQuickWidget
 
-from open_garden_planner.spike_q3d.meshes import MeshData
+from open_garden_planner.spike_q3d.meshes import MeshData, srgb_to_linear
 
 QML_DIR = Path(__file__).resolve().parent / "qml"
 
@@ -157,7 +157,7 @@ class SpikeRenderer:
             self.widget.resize(*size)
             self.widget.setSource(url)
             errors = self.widget.errors()
-            self.root = self.widget.rootObject()
+            root = self.widget.rootObject()
             # QQuickWidget renders offscreen on the GUI thread and has no
             # frameSwapped; its internal window reports every rendered frame.
             self.widget.quickWindow().afterRendering.connect(self._on_frame)
@@ -167,10 +167,11 @@ class SpikeRenderer:
             self.view.resize(*size)
             self.view.setSource(url)
             errors = self.view.errors()
-            self.root = self.view.rootObject()
+            root = self.view.rootObject()
             self.view.frameSwapped.connect(self._on_frame)
-        if self.root is None:
+        if root is None:
             raise RuntimeError("QML failed: " + "; ".join(e.toString() for e in errors))
+        self.root: QQuickItem = root
         self.qml_load_ms = (time.perf_counter() - t0) * 1000.0
         self.first_frame_ms: float | None = None
         self._shown_at: float | None = None
@@ -314,8 +315,33 @@ class SpikeRenderer:
         self.root.setProperty("exposure", float(exposure))
         self.root.setProperty("probeExposure", float(probe))
 
+    LOOK_COLORS = ("skyTop", "skyHorizon", "sunDiscColor", "fogColor")
+
+    def set_look(self, look: dict[str, Any]) -> None:
+        """A mood (``runner.look_for``): sky + fog colours, exposure, probe exposure.
+
+        Apply it BEFORE ``set_sun``: the sun change builds the fresh sky texture
+        whose light probe is pre-filtered once, with the colours it is born with.
+        """
+        for key in self.LOOK_COLORS:
+            self.root.setProperty(key, QColor(look[key]))
+        self.set_exposure(look["exposure"], look["probe"])
+
+    def set_meadow_albedo(self, color: str) -> None:
+        """The endless meadow's albedo — the SAME value the ground bake paints."""
+        self.root.setProperty("meadowColor", QColor(color))
+
+    def set_water_albedo(self, color: str) -> None:
+        """The pond's albedo (``#rrggbb``), handed to its shader in LINEAR light."""
+        r, g, b = (float(v) for v in srgb_to_linear(color))
+        self.root.setProperty("waterColor", QVector3D(r, g, b))
+
     def set_animate(self, on: bool) -> None:
         self.root.setProperty("animate", bool(on))
+        if not on:
+            # a stopped wind rests at phase 0: otherwise every shot after an fps
+            # measurement froze foliage at a run-dependent sway (board noise)
+            self.root.setProperty("windTime", 0.0)
 
     def pick(self, x: float, y: float) -> dict:
         from PyQt6.QtCore import Q_ARG, Q_RETURN_ARG, QMetaObject, Qt  # noqa: PLC0415
