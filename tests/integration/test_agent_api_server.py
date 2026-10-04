@@ -251,7 +251,7 @@ def test_read_query_tools_end_to_end(canvas: Any, qtbot: Any) -> None:
         result["diagnostics"] = diags.structuredContent["result"]
 
         # raw=True must preserve serialiser-only keys through FastMCP's structured
-        # content â€” the dict-first union return guards against the model coercing
+        # content — the dict-first union return guards against the model coercing
         # them away (verified vs mcp 1.28.1). Pin it end-to-end so an SDK bump or a
         # union-order "tidy" can't silently regress raw mode with the suite green.
         raw = await session.call_tool("list_objects", {"type": "circle", "raw": True})

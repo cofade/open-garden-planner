@@ -1,15 +1,15 @@
-"""Regression pin for issue #291 â€” the Agent API must start with no stdout.
+"""Regression pin for issue #291 — the Agent API must start with no stdout.
 
 A PyInstaller **windowed** build (``console=False``, which is what we ship)
-allocates no console. When it is launched with no inherited stdout handle â€” a
-double-click, or CI's ``Start-Process`` â€” ``sys.stdout`` and ``sys.stderr``
+allocates no console. When it is launched with no inherited stdout handle — a
+double-click, or CI's ``Start-Process`` — ``sys.stdout`` and ``sys.stderr``
 are ``None``. Run through a shell pipe, the exe does inherit a handle and the
-condition does not arise (see Â§11.4's dated correction). This test's
+condition does not arise (see §11.4's dated correction). This test's
 simulation is unaffected: it sets the streams to ``None`` explicitly.
 uvicorn's DEFAULT logging config calls ``sys.stdout.isatty()`` while
 ``dictConfig`` builds its formatter. So ``uvicorn.Config.__init__`` raised
 ``ValueError: Unable to configure formatter 'default'`` and the embedded MCP
-server never started â€” in every released exe, since US-D1.1.
+server never started — in every released exe, since US-D1.1.
 
 It was invisible three ways over: running from source has a real stdout, a
 ``console=True`` diagnostic build has a real stdout, and the failure was
@@ -50,7 +50,7 @@ def _unused(*_a: Any, **_k: Any) -> dict[str, Any]:
 
 
 def _providers() -> AgentProviders:
-    """Minimal bundle â€” these tests only exercise server lifecycle."""
+    """Minimal bundle — these tests only exercise server lifecycle."""
     return AgentProviders(
         snapshot=lambda: {},
         diagnostics=lambda: [],
@@ -132,7 +132,7 @@ def test_server_starts_when_stdout_is_none(monkeypatch: pytest.MonkeyPatch) -> N
     try:
         server.start()
         assert server.is_running, (
-            "Agent API did not start with sys.stdout=None â€” the windowed frozen "
+            "Agent API did not start with sys.stdout=None — the windowed frozen "
             "build condition from issue #291 has regressed"
         )
         # Actually reachable, not merely flagged as running.

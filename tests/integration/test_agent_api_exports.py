@@ -2,8 +2,8 @@
 
 Boots ``AgentApiServer`` in-process against a real scene (mirroring
 ``test_agent_api_server.py``/``test_agent_api_render.py``'s pattern), drives a
-real MCP client, and verifies the file each tool writes is genuinely valid â€”
-not just "no exception raised" â€” by round-tripping it through the same
+real MCP client, and verifies the file each tool writes is genuinely valid —
+not just "no exception raised" — by round-tripping it through the same
 libraries the GUI's own export tests use (``ezdxf.readfile``, the PDF magic
 header, ``csv.DictReader``).
 """
@@ -44,7 +44,7 @@ from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
 
 @pytest.fixture(autouse=True)
 def _redirect_documents_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Never touch the real Documents folder â€” default-path tests stay hermetic."""
+    """Never touch the real Documents folder — default-path tests stay hermetic."""
     monkeypatch.setattr(paths_module, "get_documents_dir", lambda: tmp_path)
 
 
@@ -175,7 +175,7 @@ def _run(
 ) -> None:
     """Drive ``body`` against ``server`` and block until done, writing into ``result``.
 
-    ``result`` must be the same dict object ``body`` closes over â€” mutated in
+    ``result`` must be the same dict object ``body`` closes over — mutated in
     place, not replaced, so ``body``'s writes and this function's done/error
     bookkeeping land on one shared object.
     """

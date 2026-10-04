@@ -6,12 +6,12 @@ the returned PNG. Pins two things that were empirically discovered, not
 assumed, while designing this tool (see ADR-034 addendum / schema.py):
 
   1. Registration must succeed and a call must return exactly
-     ``[ImageContent, TextContent]`` â€” NOT ``structuredContent`` like the other
-     9 tools â€” because ``Image`` isn't pydantic-representable and the tool is
+     ``[ImageContent, TextContent]`` — NOT ``structuredContent`` like the other
+     9 tools — because ``Image`` isn't pydantic-representable and the tool is
      registered with ``structured_output=False`` (verified against mcp 1.28.1;
      the naive design crashes ``build_server()`` at decoration time instead).
   2. The rendered image's pixel Y-axis is inverted relative to the D1.2 scene
-     frame (``RenderMeta.px_per_cm``'s documented correction formula) â€” this
+     frame (``RenderMeta.px_per_cm``'s documented correction formula) — this
      test cross-checks that formula end-to-end through the real MCP call,
      complementing the dedicated unit-level proof in
      ``test_agent_api_render_coordinate_frame.py``.
@@ -334,7 +334,7 @@ def test_render_canvas_image_layers_filter_shows_layer_hidden_in_ui(
     """An allowed layer must render even if the user has it toggled off live.
 
     Regression test: ``layers`` is a full override of what's shown, not a
-    subtractive filter layered on top of the live Layers-panel state â€” an
+    subtractive filter layered on top of the live Layers-panel state — an
     agent explicitly asking for "Layer B" must get it, even if a human
     happens to have that layer hidden in the GUI right now.
     """
@@ -442,7 +442,7 @@ def test_render_canvas_image_preserves_selection(canvas: Any, qtbot: Any) -> Non
 
 def test_render_canvas_image_layer_id_matches_layer_name(canvas: Any, qtbot: Any) -> None:
     """US-D2.4 acceptance: ``layers=[<id>]`` renders the SAME image as
-    ``layers=[<name>]`` for the same layer â€” ids are accepted alongside names
+    ``layers=[<name>]`` for the same layer — ids are accepted alongside names
     (render.py matches either), pinned here byte-for-byte so a future refactor
     of the allowlist matching cannot silently drop id support."""
     scene = canvas.scene()

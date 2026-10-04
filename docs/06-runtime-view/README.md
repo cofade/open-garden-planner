@@ -287,4 +287,3 @@ The soil prompt extracts one bed from the status/mismatch envelopes. Calendar
 generation selects a year independently of `today`; urgency uses `today` after
 the full requested period is generated. Refused writes return an error without
 changing project data or either undo/redo stack.
-

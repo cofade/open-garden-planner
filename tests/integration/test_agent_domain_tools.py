@@ -357,7 +357,7 @@ class TestDomainToolsIntegration:
                 # ever pushed to it, so that check would pass even if every
                 # call lied about its depth. Comparing the three returned
                 # payloads to each other is what FR-AGENT-24 actually claims,
-                # and it is a real invariant â€” a mutating call would show up
+                # and it is a real invariant — a mutating call would show up
                 # as a differing depth between consecutive reads.
                 payloads: list[dict[str, Any]] = []
                 for _ in range(3):
@@ -396,8 +396,8 @@ def _make_scene() -> Any:
     scene = CanvasScene()
     # Add a simple bed
     bed = RectangleItem(0, 0, 200, 100)
-    # The ObjectType ENUM, not the string: is_plant_parent_type() â€” which
-    # the check_placement bed resolution now depends on â€” returns False for a
+    # The ObjectType ENUM, not the string: is_plant_parent_type() — which
+    # the check_placement bed resolution now depends on — returns False for a
     # plain string, so a string here is a trap for any later test that
     # routes this scene through that path.
     bed.object_type = ObjectType.RAISED_BED
