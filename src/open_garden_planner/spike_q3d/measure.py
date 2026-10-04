@@ -10,7 +10,8 @@ rendering: ratios and pass/fail facts carry over, absolute times do not.
   over every pickable mesh), so a correct engine pick must name the same item.
 * ``update_bench`` — criterion 6: GUI-thread cost of replacing a 100k-vertex
   geometry (``NumpyGeometry.set_mesh``), and the time until the next frame.
-* ``warm_start`` — criterion 5: a second renderer in the same process.
+* ``second_window`` — a second 3D window in the same process, showing the same view
+  (criterion 5 context: L1.3 keeps one host alive instead).
 * ``coexist_probe`` — criterion 2 (M1): a ``QWebEngineView`` and the 3D view
   in one process, the way the app imports WebEngine before ``QApplication``.
 * ``pan_bench`` — criterion 3 (M2): 2D canvas pan cost with and without a
@@ -201,7 +202,7 @@ def _pick(renderer: Any, width: float, height: float, n: int) -> dict:
     from open_garden_planner.spike_q3d.probes import _image_to_array
 
     tris = _oracle_meshes(renderer.models)
-    w, h = renderer.size
+    w, h = renderer.view_size()
     center = (width / 2, height / 2)
     mag = min(w / width, h / height) * 0.98
     renderer.set_top_down(center, mag)
@@ -328,8 +329,15 @@ def _fresh_models(models: list) -> list:
             for m in models]
 
 
-def warm_start(renderer: Any, ground: Any, width: float, height: float, log: Any) -> dict:
-    """Same scene in a second renderer: the process (and its caches) are warm."""
+def second_window(renderer: Any, ground: Any, width: float, height: float, log: Any) -> dict:
+    """The same view in a second window of the same process.
+
+    Not "warm start": the product keeps ONE 3D host alive (L1.3), and a warm
+    start is a second launch with populated disk caches (``shader_caches`` in the
+    metrics says which a run was). This measures what a second window costs —
+    with the camera, sun, sky and look the first one shows (the first version
+    rendered the QML defaults: a different frame, senior review).
+    """
     from open_garden_planner.spike_q3d.quick import SpikeRenderer
 
     t0 = time.perf_counter()
@@ -337,10 +345,10 @@ def warm_start(renderer: Any, ground: Any, width: float, height: float, log: Any
                            frame_timeout_s=renderer.frame_timeout_s, log=log)
     second.set_models(_fresh_models(renderer.models))
     second.set_ground(ground, 0, 0, width, height)
-    second.root.setProperty("preset", renderer.root.property("preset"))
+    second.copy_view_from(renderer)
     second.show()
-    second.wait_frames(2, label="warm_first_frame")
-    second.grab(label="warm_first_ready")  # a readback: the frame is really finished
+    second.wait_frames(2, label="second_window_first_frame")
+    second.grab(label="second_window_first_ready")  # a readback: the frame is finished
     result = {"qml_load_ms": round(second.qml_load_ms, 1),
               "first_frame_ms": round(second.first_frame_ms or -1.0, 1),
               "first_ready_ms": round((time.perf_counter() - (second.shown_at or t0)) * 1000.0, 1),
@@ -553,7 +561,9 @@ def close_while_animating(renderer: Any, app: Any, log: Any, frames: int = 8) ->
     The wind animation must really run first (wind time and the frame counter
     advance — the first version returned a literal and the animation never
     ticked), then the window is closed and the event loop quits while it runs.
-    A crash on that path takes the process down; a clean one returns 0 here.
+    A crash on that path takes the process down, so the witness is the PROCESS
+    exit code (the driver and the render tier check it). ``event_loop_exit_code``
+    is informational: ``app.exec()`` returns 0 on both quit paths.
     """
     from PyQt6.QtCore import QTimer
 
@@ -569,4 +579,4 @@ def close_while_animating(renderer: Any, app: Any, log: Any, frames: int = 8) ->
     return {"wind_time_before": round(wind0, 3), "wind_time_after": round(wind1, 3),
             "frames_while_animating": frames1 - frames0,
             "animation_advanced": wind1 > wind0 and frames1 - frames0 >= frames,
-            "close_exit_code": code}
+            "event_loop_exit_code": code}

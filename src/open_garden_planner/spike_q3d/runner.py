@@ -72,6 +72,9 @@ class BuildStats:
     models: int = 0
     triangles: int = 0
     build_ms: dict[str, float] = field(default_factory=dict)
+    # height / the builder's own top, per built item: fit_height() forces every top
+    # to the data, so only this shows how far a builder was off before the fit
+    fit_scales: dict[str, float] = field(default_factory=dict)
 
     def add(self, kind: str, ms: float) -> None:
         self.build_ms[kind] = self.build_ms.get(kind, 0.0) + ms
@@ -101,11 +104,18 @@ def _parse(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--pick", action="store_true", help="criterion 7: 20 picks vs a CPU oracle")
     p.add_argument("--update-bench", action="store_true",
                    help="criterion 6: replace a 100k-vertex geometry, time it")
-    p.add_argument("--warm", action="store_true", help="criterion 5: second renderer, warm start")
+    p.add_argument("--cold", action="store_true",
+                   help="criterion 5: disable the Qt, QML and Mesa shader/pipeline disk caches, "
+                        "so open time includes every compile (a first launch)")
+    p.add_argument("--second-window", action="store_true",
+                   help="a second 3D window in the same process, same view (what L1.3 avoids)")
     p.add_argument("--coexist", action="store_true",
                    help="criterion 2 (M1): QWebEngineView + 3D in one process")
     p.add_argument("--pan-bench", action="store_true",
                    help="criterion 3 (M2): 2D pan cost with/without a QQuickWidget")
+    p.add_argument("--qml-dir", type=Path, default=None,
+                   help="load GardenSpike.qml and its shaders from this folder "
+                        "(the render tier's broken-shader positive control)")
     p.add_argument("--soak", type=int, default=0, metavar="N",
                    help="criterion 10: N show/hide cycles, a project reload every "
                         "fifth, then close while animating")
@@ -116,6 +126,12 @@ def _parse(argv: list[str]) -> argparse.Namespace:
 
 
 PRESETS = ("low", "medium", "high", "ultra")
+# --cold: every disk cache a Quick 3D open can hit (all present in the 6.11 runtime;
+# Mesa's is Linux-only). GPU drivers keep their own caches, which no flag reaches.
+COLD_ENV = {"QT_DISABLE_SHADER_DISK_CACHE": "1", "QSG_RHI_DISABLE_DISK_CACHE": "1",
+            "QT_QUICK3D_NO_SHADER_CACHE_LOAD": "1", "QML_DISABLE_DISK_CACHE": "1",
+            "MESA_SHADER_CACHE_DISABLE": "true"}
+_CACHE_MARKERS = ("q3dshadercache", "qtpipelinecache", "qmlcache", "qtshadercache")
 SETTINGS_ORGANIZATION = "cofade-ogp-tooling"
 SETTINGS_APPLICATION = "Open Garden Planner 3D spike"
 
@@ -133,13 +149,32 @@ def _isolate_settings() -> None:
     app_settings.APPLICATION_NAME = SETTINGS_APPLICATION
 
 
-def _validate(args: argparse.Namespace, shot_names: set[str]) -> None:
+def _cache_inventory() -> list[str]:
+    """Names of the Qt cache entries present now (names only: the path holds the user name).
+
+    Measured on llvmpipe: the app's cache folder holds ``q3dshadercache-*``,
+    ``qtpipelinecache-*`` and ``qmlcache`` after a first launch, and the
+    scene graph's ``qtshadercache-*`` sits one level up, in the generic cache.
+    """
+    from PyQt6.QtCore import QStandardPaths
+
+    found: set[str] = set()
+    for where in (QStandardPaths.StandardLocation.CacheLocation,
+                  QStandardPaths.StandardLocation.GenericCacheLocation):
+        root = Path(QStandardPaths.writableLocation(where))
+        if root.is_dir():
+            found.update(p.name for p in root.iterdir() if p.name.startswith(_CACHE_MARKERS))
+    return sorted(found)
+
+
+def _validate(args: argparse.Namespace, shot_names: set[str] | None) -> None:
+    """Fail on a typo before any work; shots are checked once the plan's size is known."""
     if args.unknown:
         raise ValueError(f"unknown arguments: {' '.join(args.unknown)}")
     bad = [p for p in args.presets.split(",") if p not in PRESETS]
     if bad:
         raise ValueError(f"unknown presets {bad}; choose from {list(PRESETS)}")
-    if args.shots != "all":
+    if shot_names is not None and args.shots != "all":
         missing = set(args.shots.split(",")) - shot_names
         if missing:
             raise ValueError(f"unknown shots {sorted(missing)}; choose from {sorted(shot_names)}")
@@ -168,7 +203,12 @@ class SpikeLog:
         self.file.close()
 
 
+_QT_MESSAGES: Any = None  # the run's QtMessages, folded into every metrics write
+
+
 def _write_metrics(out: Path, metrics: dict) -> None:
+    if _QT_MESSAGES is not None:
+        metrics["qt_messages"] = _QT_MESSAGES.report()
     (out / "metrics.json").write_text(json.dumps(metrics, indent=2, default=str), encoding="utf-8")
 
 
@@ -254,6 +294,7 @@ def build_models(scene: Any, at: date, grass_density: float, with_grass: bool,
             return
         if height:
             top = max(float(mesh.positions[:, 2].max()) for mesh, _k, _c in parts)
+            stats.fit_scales[item_id] = height / top if top > 0 else float("inf")
             parts = [(M.fit_height(mesh, height, top=top), k, c) for mesh, k, c in parts]
         for mesh, kind, casts in parts:
             emit(item_id, mesh, kind, casts and bool(height))
@@ -461,8 +502,8 @@ def _measure(args: argparse.Namespace, renderer: Any, scene: Any, ground: Any, w
     steps: list[tuple[str, bool, Any]] = [
         ("pick", args.pick, lambda: measure.pick_probe(renderer, width, height)),
         ("update_bench", args.update_bench, lambda: measure.update_bench(renderer)),
-        ("warm_start", args.warm,
-         lambda: measure.warm_start(renderer, ground, width, height, log)),
+        ("second_window", args.second_window,
+         lambda: measure.second_window(renderer, ground, width, height, log)),
         ("coexist", args.coexist, lambda: measure.coexist_probe(renderer, log)),
         ("pan_bench", args.pan_bench,
          lambda: measure.pan_bench(scene, renderer, ground, width, height, log)),
@@ -589,12 +630,13 @@ def shoot_board(renderer: Any, shots: list[Shot], presets: list[str], models: Mo
                          "grab_ms": grab_ms})
             log("shot", name=shot.name, preset=preset, settle_ms=rows[-1]["settle_ms"],
                 build_date=rows[-1]["build_date"])
-            _write_metrics(out, metrics)
-        if fps_seconds > 0 and shots:
-            renderer.set_camera(shots[0].eye, shots[0].target, shots[0].fov)
-            fps = round(renderer.measure_fps(fps_seconds), 2)
-            metrics.setdefault("fps", {})[preset] = fps
-            log("fps", preset=preset, fps=fps)
+            if fps_seconds > 0 and shot is shots[0]:
+                # right after the first shot, on exactly its frame: camera, sun, look
+                # and date all belong to it (it used to mix shot 0's camera with
+                # the last shot's sun — a frame on no board, senior review)
+                fps = round(renderer.measure_fps(fps_seconds), 2)
+                metrics.setdefault("fps", {})[preset] = fps
+                log("fps", preset=preset, shot=shot.name, fps=fps)
             _write_metrics(out, metrics)
     return rows
 
@@ -628,9 +670,19 @@ def run_spike_cli(argv: list[str]) -> int:
     """Run the spike; never let a failure go unrecorded (see the module docstring)."""
     _isolate_settings()
     args = _parse(argv)
+    if args.cold:  # before the application exists: Qt reads these on first use
+        os.environ.update(COLD_ENV)
     out: Path = args.out
     out.mkdir(parents=True, exist_ok=True)
     log = SpikeLog(out / "spike.log")
+    # Every Qt message into the log and metrics.json: a shader that fails to
+    # compile only ever printed to stderr, and the frozen exe has none.
+    global _QT_MESSAGES
+    from open_garden_planner.spike_q3d.qt_messages import QtMessages, install
+
+    _QT_MESSAGES = QtMessages(log)
+    install(_QT_MESSAGES)
+    faulthandler.enable(file=log.file, all_threads=True)  # a crash leaves its stack
     if args.watchdog_s > 0:
         faulthandler.dump_traceback_later(args.watchdog_s, exit=True, file=log.file)
     metrics: dict[str, Any] = {"status": "running"}
@@ -646,6 +698,12 @@ def run_spike_cli(argv: list[str]) -> int:
     finally:
         if args.watchdog_s > 0:
             faulthandler.cancel_dump_traceback_later()
+    if _QT_MESSAGES.errors:  # the frame on screen is not the frame the QML describes
+        metrics["status"] = "qt_errors"
+        _write_metrics(out, metrics)
+        log("qt_errors", n=len(_QT_MESSAGES.errors), first=_QT_MESSAGES.errors[0][:200])
+        log.close()
+        return 3
     metrics["status"] = "ok"
     _write_metrics(out, metrics)
     log("done", total_s=metrics.get("total_s"), wait_timeouts=metrics.get("wait_timeouts"))
@@ -676,6 +734,15 @@ def _run(args: argparse.Namespace, out: Path, log: SpikeLog, metrics: dict[str, 
     metrics["qt"] = QT_VERSION_STR
     log("start", qt=QT_VERSION_STR, frozen=metrics["frozen"], size=args.size,
         presets=args.presets, shots=args.shots, platform=metrics["platform"])
+    _validate(args, None)
+    # Criterion 5 needs to know what it measured: a first launch (no caches, or
+    # --cold) or a warm one. Names only — the cache path holds the user name.
+    metrics["shader_caches"] = {
+        "cold": bool(args.cold),
+        "disabled_by_env": sorted(k for k in COLD_ENV if os.environ.get(k)),
+        "found_before_run": _cache_inventory(),
+    }
+    log("caches", **metrics["shader_caches"])
 
     scene = CanvasScene()
     pm = ProjectManager()
@@ -687,7 +754,10 @@ def _run(args: argparse.Namespace, out: Path, log: SpikeLog, metrics: dict[str, 
     lat, lon = float(loc["latitude"]), float(loc["longitude"])
     width, height = scene.width_cm, scene.height_cm
 
-    t0 = time.perf_counter()
+    # Open time starts here: the project is loaded and the user asks for 3D. It
+    # ends on the first finished readback (senior review: QML load and the scene
+    # build are part of what the user waits through).
+    t_open0 = t0 = time.perf_counter()
     ground = bake_ground(scene, width, height)
     metrics["ground_bake_ms"] = (time.perf_counter() - t0) * 1000
     log("ground_baked", ms=round(metrics["ground_bake_ms"], 1), px=f"{ground.width()}x{ground.height()}")
@@ -713,6 +783,11 @@ def _run(args: argparse.Namespace, out: Path, log: SpikeLog, metrics: dict[str, 
         triangles=stats.triangles, date=first_when.date().isoformat())
     _write_metrics(out, metrics)
 
+    if args.qml_dir is not None:  # every renderer of this run loads from there
+        from open_garden_planner.spike_q3d import quick
+
+        quick.QML_DIR = args.qml_dir.resolve()
+        metrics["qml_dir"] = str(quick.QML_DIR)
     renderer = SpikeRenderer(args.host, (w_px, h_px), frame_timeout_s=args.frame_timeout_s,
                              log=log)
     log("qml_loaded", ms=round(renderer.qml_load_ms, 1), host=args.host)
@@ -748,9 +823,17 @@ def _run(args: argparse.Namespace, out: Path, log: SpikeLog, metrics: dict[str, 
     renderer.grab(label="first_ready")
     metrics["first_ready_ms"] = round((time.perf_counter() - (renderer.shown_at or t_start))
                                       * 1000.0, 1)
+    metrics["open_ms"] = round((time.perf_counter() - t_open0) * 1000.0, 1)
+    metrics["open_breakdown_ms"] = {
+        "ground_bake": round(metrics["ground_bake_ms"], 1),
+        "build_models": round(metrics["build_models_ms"], 1),
+        "qml_load": round(metrics["qml_load_ms"], 1),
+        "scene_apply": round(metrics["scene_apply_ms"], 1),
+        "show_to_first_ready": metrics["first_ready_ms"]}
     metrics["graphics_api"] = renderer.graphics_api()
     log("first_frame", ms=round(metrics["first_frame_ms"] or -1.0, 1),
-        ready_ms=metrics["first_ready_ms"], api=metrics["graphics_api"])
+        ready_ms=metrics["first_ready_ms"], open_ms=metrics["open_ms"],
+        api=metrics["graphics_api"])
     _write_metrics(out, metrics)
     shoot_board(renderer, shots, presets, models_by_date, sun_for, out, log, metrics,
                 args.fps_seconds)
@@ -800,6 +883,6 @@ def _run(args: argparse.Namespace, out: Path, log: SpikeLog, metrics: dict[str, 
         _write_metrics(out, metrics)
     metrics["total_s"] = round(time.perf_counter() - t_start, 2)
     if sys.stdout is not None:
-        print(json.dumps({k: metrics[k] for k in ("graphics_api", "first_ready_ms", "build", "fps")
+        print(json.dumps({k: metrics[k] for k in ("graphics_api", "open_ms", "build", "fps")
                           if k in metrics}, default=str), flush=True)
     del app

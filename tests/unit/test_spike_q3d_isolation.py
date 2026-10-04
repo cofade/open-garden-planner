@@ -14,6 +14,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 SPIKE = Path(__file__).resolve().parents[2] / "src" / "open_garden_planner" / "spike_q3d"
 ENGINE_MODULES = ("PyQt6.QtQuick3D", "PyQt6.QtQuick", "PyQt6.QtQml", "PyQt6.QtQuickWidgets")
 
@@ -100,3 +102,20 @@ def test_main_dispatches_spike_flag_lazily() -> None:
     }
     assert not any(m and m.startswith("open_garden_planner.spike_q3d") for m in top_level)
     assert '"--spike-q3d" in sys.argv' in src
+
+
+def test_a_typo_in_any_flag_is_refused_before_any_work() -> None:
+    """``parse_known_args`` keeps unknown flags; ``_validate`` refuses them (and bad
+    presets) before the plan is loaded, so a typo never runs another experiment."""
+    from open_garden_planner.spike_q3d import runner
+
+    args = runner._parse(["--spike-q3d", "--out", "x", "--sooak", "5"])
+    assert args.unknown == ["--sooak", "5"]
+    with pytest.raises(ValueError, match="unknown arguments: --sooak 5"):
+        runner._validate(args, None)
+    with pytest.raises(ValueError, match="unknown presets"):
+        runner._validate(runner._parse(["--spike-q3d", "--out", "x", "--presets", "lo"]), None)
+    runner._validate(runner._parse(["--spike-q3d", "--out", "x", "--shots", "nope"]), None)
+    with pytest.raises(ValueError, match="unknown shots"):  # shots need the plan's size
+        runner._validate(runner._parse(["--spike-q3d", "--out", "x", "--shots", "nope"]),
+                         {"noon"})

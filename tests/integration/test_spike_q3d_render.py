@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -37,6 +38,7 @@ pytestmark = [
 ]
 
 PLAN = REPO / "tests" / "fixtures" / "plans" / "bench_small.ogp"
+QML_SOURCE = REPO / "src" / "open_garden_planner" / "spike_q3d" / "qml"
 
 
 def _render_env(config_home: Path, **extra: str) -> dict[str, str]:
@@ -110,9 +112,11 @@ def test_ground_is_north_up_and_sky_sun_follows_the_azimuth(spike_metrics: tuple
 def test_each_shot_shows_the_plan_on_its_sun_date(spike_metrics: tuple[dict, Path]) -> None:
     """The 2D overlay resolves casters at the sim date; the L0 board built June for every shot.
 
-    The expected date is derived here from the shot list, not read back from
-    the row the runner wrote: ``build_date`` is the date of the models that
-    were on screen when the shot was grabbed.
+    This pins the bookkeeping end to end: the expected dates come from the shot
+    list, one build per date, and the two builds differ. It cannot see what was
+    on screen (``build_date`` is recorded next to the grab from the same date);
+    that the models on screen carry their date is proven with a fake renderer in
+    ``tests/unit/test_spike_q3d_board.py``.
     """
     from open_garden_planner.spike_q3d.runner import default_shots
 
@@ -134,7 +138,7 @@ def measured(tmp_path_factory: pytest.TempPathFactory) -> tuple[dict, int]:
     proc = _spike(out, _render_env(tmp_path_factory.mktemp("config_home")),
                   "--presets", "low", "--shots", "golden_hour", "--size", "640x360",
                   "--fps-seconds", "0", "--watchdog-s", "1000", "--iou", "--pick",
-                  "--update-bench", "--warm", "--coexist", "--pan-bench", "--soak", "50")
+                  "--update-bench", "--second-window", "--coexist", "--pan-bench", "--soak", "50")
     log = (out / "spike.log").read_text(encoding="utf-8") if (out / "spike.log").exists() else ""
     assert (out / "metrics.json").exists(), proc.stderr[-2000:] + log[-2000:]
     return json.loads((out / "metrics.json").read_text(encoding="utf-8")), proc.returncode
@@ -151,7 +155,8 @@ def test_measurement_run_closes_cleanly_while_really_animating(measured: tuple[d
     assert soak["animation_advanced"] is True, soak
     assert soak["frames_while_animating"] >= 8, soak
     assert soak["wind_time_after"] > soak["wind_time_before"], soak
-    assert soak["close_exit_code"] == 0, soak
+    assert soak["event_loop_exit_code"] == 0, soak  # informational; the witness is `code`
+    assert metrics["qt_messages"]["errors"] == [], metrics["qt_messages"]
 
 
 def test_soak_reloads_the_project_from_disk_without_a_leak(measured: tuple[dict, int]) -> None:
@@ -219,7 +224,13 @@ def test_timing_measurements_are_recorded(measured: tuple[dict, int]) -> None:
     assert metrics["update_bench"]["set_mesh_ms"]["median"] > 0
     # open time ends on a finished readback, not on submission (senior review)
     assert metrics["first_ready_ms"] >= metrics["first_frame_ms"] > 0
-    assert metrics["warm_start"]["first_ready_ms"] >= metrics["warm_start"]["first_frame_ms"] > 0
+    second = metrics["second_window"]
+    assert second["first_ready_ms"] >= second["first_frame_ms"] > 0
+    # criterion 5 (senior review): open time runs from the user's request to the first
+    # finished readback, so it holds the QML load and the scene build
+    breakdown = metrics["open_breakdown_ms"]
+    assert metrics["open_ms"] >= sum(breakdown.values()) - 50.0, breakdown
+    assert metrics["shader_caches"]["cold"] is False
     assert metrics["pan_bench"]["ratio_median"] is not None
 
 
@@ -251,3 +262,52 @@ def test_a_mistyped_flag_fails_instead_of_running_another_experiment(
     metrics = json.loads((tmp_path / "metrics.json").read_text(encoding="utf-8"))
     assert metrics["status"] == "error"
     assert "lowww" in metrics["error"]
+
+
+def test_a_shader_that_does_not_compile_fails_the_run(tmp_path: Path) -> None:
+    """Positive control for the Qt message recorder. A broken custom shader used to
+    leave ``status: ok`` and exit 0 while the pond silently changed colour; the
+    compile error only reached stderr, which the frozen exe does not have."""
+    qml = tmp_path / "qml"
+    shutil.copytree(QML_SOURCE, qml)
+    frag = qml / "water.frag"
+    text = frag.read_text(encoding="utf-8")
+    assert "qt_sampleGlossy(" in text  # the call this control breaks
+    frag.write_text(text.replace("qt_sampleGlossy(", "qt_sampleGlossyBroken("), encoding="utf-8")
+    out = tmp_path / "out"
+    proc = _spike(out, _render_env(tmp_path / "config_home"), "--qml-dir", str(qml),
+                  "--presets", "low", "--shots", "golden_hour", "--size", "320x180",
+                  "--fps-seconds", "0")
+    metrics = json.loads((out / "metrics.json").read_text(encoding="utf-8"))
+    assert proc.returncode == 3, metrics.get("error")
+    assert metrics["status"] == "qt_errors"
+    assert any("qt_sampleGlossyBroken" in e for e in metrics["qt_messages"]["errors"]), (
+        metrics["qt_messages"])
+
+
+def test_open_time_knows_a_first_launch_from_a_warm_one(tmp_path: Path) -> None:
+    """Criterion 5 asks for cold AND warm open times, so a run must say which it was
+    (senior review: every container "cold" run after the first one ran on warm caches).
+    A fresh cache home makes the first launch cold; the second finds what it wrote;
+    ``--cold`` turns every disk cache off and writes none."""
+    from open_garden_planner.spike_q3d.runner import COLD_ENV
+
+    cache = tmp_path / "cache"
+
+    def run(name: str, *extra: str) -> dict:
+        out = tmp_path / name
+        env = _render_env(tmp_path / "config_home", XDG_CACHE_HOME=str(cache / name.split("-")[0]))
+        proc = _spike(out, env, "--presets", "low", "--shots", "golden_hour", "--size", "320x180",
+                      "--fps-seconds", "0", *extra)
+        assert proc.returncode == 0, proc.stderr[-2000:]
+        return json.loads((out / "metrics.json").read_text(encoding="utf-8"))
+
+    first, second = run("a-first"), run("a-second")
+    assert first["shader_caches"]["found_before_run"] == []
+    assert any(n.startswith("q3dshadercache") for n in second["shader_caches"]["found_before_run"])
+    cold = run("b-cold", "--cold")
+    assert cold["shader_caches"]["cold"] is True
+    assert cold["shader_caches"]["disabled_by_env"] == sorted(COLD_ENV)
+    assert not any((cache / "b").rglob("q3dshadercache*"))  # cold writes no cache either
+    for metrics in (first, second, cold):
+        assert metrics["open_ms"] >= metrics["first_ready_ms"] + metrics["qml_load_ms"]

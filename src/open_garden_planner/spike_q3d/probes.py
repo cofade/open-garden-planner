@@ -127,6 +127,30 @@ def _shadow_iou(renderer: Any, out: Path, preset: str) -> dict:
 # off-centre, where a wrong field-of-view or bearing mapping shows (a view aimed
 # straight at the sun only proves the direction — senior review).
 SKY_LOOK_OFFSETS_DEG = (-25.0, 25.0)
+SKY_PITCH_DEG = 14.0  # the sky views look up this far, to put the 12-degree sun in frame
+
+
+def pixel_bearing(px: float, py: float, width: float, height: float, yaw_deg: float,
+                  pitch_deg: float, fov_v_deg: float) -> float:
+    """Compass bearing of the world direction through image point (px, py).
+
+    The inverse of a pinhole camera at compass ``yaw_deg`` pitched up by
+    ``pitch_deg`` with vertical field of view ``fov_v_deg`` (x = E, y = N, z = up;
+    image y grows downwards). The first version read the bearing off the x
+    pixel alone, which is exact only for an unpitched camera: at 14 degrees of
+    pitch it put ~0.6 degrees of its own error into every off-centre reading
+    (senior review).
+    """
+    yaw, pitch = math.radians(yaw_deg), math.radians(pitch_deg)
+    tan_v = math.tan(math.radians(fov_v_deg) / 2)
+    cam_x = (px - width / 2) / (width / 2) * tan_v * width / height  # right
+    cam_y = (height / 2 - py) / (height / 2) * tan_v                  # up
+    fwd = np.array([math.sin(yaw) * math.cos(pitch), math.cos(yaw) * math.cos(pitch),
+                    math.sin(pitch)])
+    right = np.array([math.cos(yaw), -math.sin(yaw), 0.0])
+    up = np.cross(right, fwd)
+    ray = cam_x * right + cam_y * up + fwd
+    return math.degrees(math.atan2(ray[0], ray[1])) % 360.0
 
 
 def orientation_probe(renderer: Any, out: Path, ground_img: Any, width: float,
@@ -143,7 +167,7 @@ def _orientation(renderer: Any, out: Path, ground_img: Any, width: float,
     # (a) ground texture orientation: top-down render of the ground alone vs the bake
     renderer.set_models([])
     renderer.set_ground(ground_img, 0, 0, width, height)
-    w, h = renderer.size
+    w, h = renderer.view_size()
     mag = min(w / width, h / height)
     renderer.set_top_down((width / 2, height / 2), mag)
     d = sun_direction_scene(70.0, 180.0)
@@ -184,7 +208,8 @@ def _orientation(renderer: Any, out: Path, ground_img: Any, width: float,
             tx = math.sin(math.radians(look_az)) * 1000
             ty = math.cos(math.radians(look_az)) * 1000
             renderer.set_camera((0.0, 0.0, 160.0),
-                                (tx, ty, 160.0 + 1000 * math.tan(math.radians(14))), fov_v)
+                                (tx, ty, 160.0 + 1000 * math.tan(math.radians(SKY_PITCH_DEG))),
+                                fov_v)
             label = f"sky_{int(sun_az)}_look_{int(look_az)}"
             renderer.wait_frames(4, label=label)
             arr = _image_to_array(renderer.grab(label=label))
@@ -197,11 +222,9 @@ def _orientation(renderer: Any, out: Path, ground_img: Any, width: float,
                 views[f"{offset:+.0f}"] = {"measured_az": None}
                 errs.append(None)
                 continue
-            w_img, h_img = lum.shape[1], lum.shape[0]
-            fov_h = 2 * math.degrees(math.atan(math.tan(math.radians(fov_v / 2)) * w_img / h_img))
-            off = math.degrees(math.atan((yx[1] + 0.5 - w_img / 2) / (w_img / 2)
-                                         * math.tan(math.radians(fov_h / 2))))
-            measured = (look_az + off) % 360.0
+            measured = pixel_bearing(yx[1] + 0.5, yx[0] + 0.5, lum.shape[1], lum.shape[0],
+                                     look_az, SKY_PITCH_DEG, fov_v)
+            off = ((measured - look_az + 180) % 360) - 180
             err = ((measured - sun_az + 180) % 360) - 180
             errs.append(err)
             views[f"{offset:+.0f}"] = {"view_az": round(look_az, 1), "disc_offset_deg": round(off, 1),

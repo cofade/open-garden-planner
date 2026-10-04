@@ -26,10 +26,12 @@ The fixtures pin the serializer AND the bundled species data byte for byte
 (``tests/integration/test_bench_plans.py``): a change to either — e.g. new
 species fields — is regenerated with the first command, never hand-edited.
 
-Saving and loading through ``ProjectManager`` records Recent Files, so this
-script points every settings store at a throwaway key first (the same
-redirection ``tests/conftest.py`` performs) — it must never touch the user's
-own settings.
+Saving and loading through ``ProjectManager`` records Recent Files, so ``main()``
+points every settings store at a throwaway key before it builds anything (the
+same redirection ``tests/conftest.py`` performs) — it must never touch the
+user's own settings. Not at import time: ``tests/integration/test_bench_plans.py``
+imports this module into the pytest process, and a module-scope rebinding took
+over that process's per-run test key for the rest of the session.
 """
 
 from __future__ import annotations
@@ -49,13 +51,6 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "src"))
-
-# Before any module that could build a settings store is imported (a QSettings
-# binds its organization/application at construction) — see the docstring.
-import open_garden_planner.app.settings as _app_settings  # noqa: E402
-
-_app_settings.ORGANIZATION_NAME = "cofade-ogp-tooling"
-_app_settings.APPLICATION_NAME = "Open Garden Planner bench generator"
 
 from PyQt6.QtCore import QPointF  # noqa: E402
 from PyQt6.QtWidgets import QApplication  # noqa: E402
@@ -350,7 +345,22 @@ def _normalised(path: Path) -> Any:
     return data
 
 
+def _isolate_settings() -> None:
+    """Point every settings store at a throwaway key (see the module docstring).
+
+    Early enough: stores are built lazily, never at import time
+    (``tests/unit/test_settings_chokepoint.py``), and a QSettings binds its
+    organization/application at construction — so this runs before ``main()``
+    creates the application or any ``ProjectManager``.
+    """
+    import open_garden_planner.app.settings as app_settings
+
+    app_settings.ORGANIZATION_NAME = "cofade-ogp-tooling"
+    app_settings.APPLICATION_NAME = "Open Garden Planner bench generator"
+
+
 def main(argv: list[str] | None = None) -> int:
+    _isolate_settings()
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--check", action="store_true",
                         help="regenerate to a temp dir and compare with the committed fixtures")

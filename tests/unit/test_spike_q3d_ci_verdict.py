@@ -29,11 +29,14 @@ def _metrics(**overrides: object) -> dict:
         "wait_timeouts": 0,
         "first_frame_ms": 1000.0,
         "first_ready_ms": 1200.0,
+        "qml_load_ms": 300.0,
+        "open_ms": 2500.0,
+        "shader_caches": {"cold": False, "disabled_by_env": [], "found_before_run": []},
         "shadow_iou_by_preset": {"low": {"results": {"az135": {"iou": 0.96}}}},
         "pick": {"n": 20, "hits": 20, "hits_after_reattach": 20, "reattach_frame_diff": 0.0,
                  "adversarial_n": 10, "adversarial_hits": 10, "max_projection_err_px": 0.0,
                  "max_xy_err_cm": 0.0},
-        "soak": {"animation_advanced": True, "close_exit_code": 0},
+        "soak": {"animation_advanced": True},
     }
     metrics.update(overrides)
     return metrics
@@ -81,9 +84,17 @@ def test_a_low_iou_fails(driver) -> None:
 
 
 def test_a_leaking_reload_soak_fails(driver) -> None:
-    soak = {"animation_advanced": True, "close_exit_code": 0, "project_reloads": 10,
+    soak = {"animation_advanced": True, "project_reloads": 10,
             "models_per_reload_ok": True, "rss_tail_slope_mb_per_reload": 30.0}
     assert driver._verdict(_metrics(soak=soak), ARGS) == [
         "no RSS growth trend over the project reloads (< 10 MB/reload)"]
     soak["rss_tail_slope_mb_per_reload"] = None  # unreadable RSS must not pass
     assert len(driver._verdict(_metrics(soak=soak), ARGS)) == 1
+
+
+def test_open_time_must_include_the_qml_load(driver) -> None:
+    # open_ms shorter than show->readback plus the QML load measured something else
+    failures = driver._verdict(_metrics(open_ms=1300.0), ARGS)
+    assert failures == ["open time includes QML load and scene build"]
+    assert "the run records which shader caches it found" in driver._verdict(
+        _metrics(shader_caches=None), ARGS)

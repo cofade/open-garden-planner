@@ -185,3 +185,35 @@ def test_rss_tail_slope_tells_a_leak_from_a_settling_allocator() -> None:
     assert measure.rss_tail_slope(settled) < 2.0  # measured, after the fix
     assert measure.rss_tail_slope([700.0, 710.0, 720.0, 730.0]) is None  # tail too short
     assert measure.rss_tail_slope([1.0, 2.0, 3.0, 4.0, None, 6.0]) is None  # unreadable
+
+
+def _project(az_deg: float, elev_deg: float, yaw_deg: float, pitch_deg: float,
+             fov_v_deg: float, w: float, h: float) -> tuple[float, float]:
+    """Forward pinhole projection, written independently of ``pixel_bearing``."""
+    az, el = math.radians(az_deg), math.radians(elev_deg)
+    d = np.array([math.sin(az) * math.cos(el), math.cos(az) * math.cos(el), math.sin(el)])
+    yaw, pitch = math.radians(yaw_deg), math.radians(pitch_deg)
+    fwd = np.array([math.sin(yaw) * math.cos(pitch), math.cos(yaw) * math.cos(pitch),
+                    math.sin(pitch)])
+    right = np.array([math.cos(yaw), -math.sin(yaw), 0.0])
+    up = np.array([-math.sin(yaw) * math.sin(pitch), -math.cos(yaw) * math.sin(pitch),
+                   math.cos(pitch)])
+    tan_v = math.tan(math.radians(fov_v_deg) / 2)
+    x_ndc = (d @ right) / (d @ fwd) / (tan_v * w / h)
+    y_ndc = (d @ up) / (d @ fwd) / tan_v
+    return w / 2 + x_ndc * w / 2, h / 2 - y_ndc * h / 2
+
+
+@pytest.mark.parametrize("offset", [-25.0, 25.0])
+@pytest.mark.parametrize("sun_az", [90.0, 180.0, 270.0])
+def test_pixel_bearing_inverts_a_pitched_camera(sun_az: float, offset: float) -> None:
+    from open_garden_planner.spike_q3d.probes import SKY_PITCH_DEG, pixel_bearing
+
+    yaw = (sun_az + offset) % 360.0
+    px, py = _project(sun_az, 12.0, yaw, SKY_PITCH_DEG, 70.0, 1280, 720)
+    assert pixel_bearing(px, py, 1280, 720, yaw, SKY_PITCH_DEG, 70.0) == pytest.approx(
+        sun_az, abs=1e-6)
+    # the first version's x-only reading is off by ~0.6 degrees at this pitch
+    tan_h = math.tan(math.radians(35.0)) * 1280 / 720
+    naive = yaw + math.degrees(math.atan((px - 640) / 640 * tan_h))
+    assert abs(((naive - sun_az + 180) % 360) - 180) > 0.3

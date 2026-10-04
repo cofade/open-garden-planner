@@ -63,7 +63,7 @@ jobs:
           QSG_RENDER_LOOP: basic
         run: >
           python scripts/spike_q3d_ci.py --unfrozen --out spike-unfrozen --limit-s 720 --
-          --presets low --shots golden_hour --fps-seconds 1 --iou
+          --cold --presets low --shots golden_hour --fps-seconds 1 --iou
           --size 960x540 --grass-density 60 --frame-timeout-s 120 --watchdog-s 660
 
       - name: Build frozen exe
@@ -99,8 +99,22 @@ jobs:
           python scripts/spike_q3d_ci.py --frozen --out spike-frozen --limit-s 1620 --
           --plan tests/fixtures/plans/bench_small.ogp
           --presets low,high --shots golden_hour --fps-seconds 2 --iou --orient
-          --pick --update-bench --warm --coexist --pan-bench --soak 50
+          --pick --update-bench --second-window --coexist --pan-bench --soak 50
           --size 960x540 --grass-density 60 --frame-timeout-s 120 --watchdog-s 1560
+
+      # Criterion 5, warm: the same shot again, now that the first launch of this
+      # bundle has written its shader and pipeline caches (metrics.json records
+      # which caches each launch found).
+      - name: Spike, frozen bundle, warm relaunch
+        id: warm
+        continue-on-error: true
+        timeout-minutes: 12
+        shell: bash
+        run: >
+          python scripts/spike_q3d_ci.py --frozen --out spike-frozen-warm --limit-s 660 --
+          --plan tests/fixtures/plans/bench_small.ogp
+          --presets low --shots golden_hour --fps-seconds 0
+          --size 960x540 --grass-density 60 --frame-timeout-s 120 --watchdog-s 600
 
       - name: Upload evidence
         if: always()
@@ -110,6 +124,7 @@ jobs:
           path: |
             spike-unfrozen/
             spike-frozen/
+            spike-frozen-warm/
             footprint.txt
 
       # LAST: rewrites src/ and installer/ to master in this working tree (the
@@ -148,5 +163,5 @@ jobs:
         if: always()
         shell: pwsh
         run: |
-          "unfrozen=${{ steps.unfrozen.outcome }} smoke=${{ steps.smoke.outcome }} frozen=${{ steps.frozen.outcome }}"
-          if ("${{ steps.unfrozen.outcome }}" -ne "success" -or "${{ steps.smoke.outcome }}" -ne "success" -or "${{ steps.frozen.outcome }}" -ne "success") { exit 1 }
+          "unfrozen=${{ steps.unfrozen.outcome }} smoke=${{ steps.smoke.outcome }} frozen=${{ steps.frozen.outcome }} warm=${{ steps.warm.outcome }}"
+          if ("${{ steps.unfrozen.outcome }}" -ne "success" -or "${{ steps.smoke.outcome }}" -ne "success" -or "${{ steps.frozen.outcome }}" -ne "success" -or "${{ steps.warm.outcome }}" -ne "success") { exit 1 }

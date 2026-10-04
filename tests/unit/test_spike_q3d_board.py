@@ -90,6 +90,20 @@ def test_every_object_top_is_its_resolved_height(plan, at: date) -> None:
 
 
 @pytest.mark.parametrize("at", [JUNE, DECEMBER], ids=["june", "december"])
+def test_builders_meet_their_height_without_the_fit(plan, at: date) -> None:
+    """The height test above cannot fail while ``fit_height`` exists: it forces every
+    built top to the data, so a builder overshooting by 15 % would be silently
+    squashed (senior review). The scale the fit applied must be ~1."""
+    scene, items, _boards = plan
+    _models, stats = runner.build_models(scene, at, 110.0, False,
+                                         make_model=lambda *args: args)
+    assert len(stats.fit_scales) >= 20, stats.fit_scales  # not vacuous
+    off = {items[k].object_type.name: round(v, 4) for k, v in stats.fit_scales.items()
+           if abs(v - 1.0) > 0.01}
+    assert off == {}
+
+
+@pytest.mark.parametrize("at", [JUNE, DECEMBER], ids=["june", "december"])
 def test_3d_casts_shadows_only_where_2d_does(plan, at: date) -> None:
     """RAIN_BARREL (100 cm) and FIRE_PIT (28 cm) cast 3D shadows the 2D view never casts."""
     from open_garden_planner.core.object_height import effective_height_cm

@@ -102,7 +102,14 @@ def test_generator_reproduces_committed_fixtures(qtbot, tmp_path) -> None:  # no
     )
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
+    import open_garden_planner.app.settings as app_settings
+
+    store = (app_settings.ORGANIZATION_NAME, app_settings.APPLICATION_NAME)
     spec.loader.exec_module(module)
+    # Importing the generator must not retarget this process's settings key: a
+    # module-scope rebinding once took it over for the rest of the session.
+    after = (app_settings.ORGANIZATION_NAME, app_settings.APPLICATION_NAME)
+    assert after == store
     for name, build in (("bench_small.ogp", module.build_small), ("bench_large.ogp", module.build_large)):
         fresh = tmp_path / name
         module._save(build(), fresh)

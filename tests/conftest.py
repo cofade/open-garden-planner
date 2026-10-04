@@ -177,9 +177,29 @@ def _reset_app_settings():
         store.remove("_conftest/probe")
         return None
 
+    def _names() -> tuple[str, str]:
+        return (settings_module.ORGANIZATION_NAME, settings_module.APPLICATION_NAME)
+
+    expected = (TEST_ORGANIZATION, TEST_APPLICATION)
+    assert _names() == expected, (
+        f"the settings names are {_names()} before this test, not this process's "
+        f"test key {expected} — an earlier import or test rebound them"
+    )
     _reset()
     yield
     verdict = _probe_black_hole()
+    drifted = _names()
+    if drifted != expected:
+        # Restore first, so the rest of the session stays on this process's own
+        # key, then fail the test that moved it: a module-scope rebinding in an
+        # imported script once silently took the key over for the whole session.
+        settings_module.ORGANIZATION_NAME, settings_module.APPLICATION_NAME = expected
+        settings_module._settings_instance = None  # type: ignore[attr-defined]
+        verdict = verdict or (
+            f"this test left the settings names at {drifted} instead of the "
+            f"per-process test key {expected}; restore any rebinding before the "
+            "test ends (monkeypatch does)"
+        )
     _reset()
     if verdict:
         pytest.fail(verdict)

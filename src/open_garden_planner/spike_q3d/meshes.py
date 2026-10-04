@@ -997,8 +997,10 @@ def gable_house(footprint: Polygon, ridge: tuple[Point, Point], ridge_height: fl
     house's effective height (D4: a HOUSE's ``object_height_cm`` is its ridge
     height), so the bounding box IS the data. The roof planes' mid-plane meets
     at the gable apex, ``rise + 6`` cm below that (cap rise + half the 12 cm
-    slab); eave = apex − tan(pitch)·(max distance from the ridge), clamped
-    ≥ 220 cm by lowering the pitch. Spike scope: convex footprints whose ridge
+    slab); eave = apex − tan(pitch)·(max distance from the ridge). Where that
+    falls below 220 cm, the eave becomes min(220 cm, 0.75·apex) and the pitch
+    steepens to meet it, so a low shed keeps a pitched roof with an eave below
+    220 cm (the plan's D4 clamp is L1.6 work). Spike scope: convex footprints whose ridge
     touches the boundary — exactly what ``core.roof_ridge`` produces for
     rectangles. Every flat face takes its normal from its winding.
     """

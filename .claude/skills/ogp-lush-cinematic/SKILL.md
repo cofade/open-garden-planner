@@ -26,7 +26,7 @@ OGP is a planning tool. A beautiful render that misstates the plan is a **P0**, 
 | Sun | light direction comes only from `core/solar` (never a "nice-looking" angle) | light = −sun vector (ADR-037 pin) |
 | Shadows | engine shadow footprint of a box caster vs the analytic 2D shadow | IoU ≥ 0.85 at 15°/35°/60° (spike at 960×540: 0.98/0.98/0.96 on OpenGL **and** on Direct3D 11; 0.96/0.95/0.92 at 1280×720; orthographic, no cascades — table in `ogp-3d-renderer` §4) |
 | North | ground texture is north-up; nothing is mirrored | orientation probe NCC: identity must win |
-| Sky | the sky's sun disc sits at the solar azimuth | sky probe error < 6° (spike: within 0.7°, measured at the image centre) |
+| Sky | the sky's sun disc sits at the solar azimuth | sky probe error < 6° (spike, disc 25° off-centre: max 0.85° OpenGL, 1.4° D3D11) |
 | Date | season/growth shown = the plan's sim date | models are built for each shot's own date; every shot row records `sun_date` = `build_date` (`metrics.json`) |
 | Built heights | every built object's top = its resolved height ±1 % | builders exact to `h`, `fit_height` as the safety net; objects with no resolved height (rain barrel, fire pit) cast no shadow — as in 2D |
 | Faces | the sun lights the face that faces it | stored normal · winding normal ≥ 0.99 on every flat face (the first board lit the wrong roof slope) |

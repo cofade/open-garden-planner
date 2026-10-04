@@ -213,16 +213,32 @@ class SpikeRenderer:
 
     # Everything a probe may change (senior review: probes that left the camera,
     # preset, ground or sun behind made every later measurement order-dependent).
-    STATE_KEYS = ("preset", "groundTexture", "orthoTopDown", "orthoMagnification", "camPos",
-                  "camTarget", "camFov", "sunTravel", "sunRotation", "sunElevation",
-                  "skyLongitude", "sunColor", "sunBrightness", "night", "skyTop", "skyHorizon",
-                  "sunDiscColor", "fogColor", "exposure", "probeExposure", "animate")
+    # Root properties that are not view state: the model list is restored through
+    # set_models (the re-upload rule), the counters only trigger rebuilds.
+    NOT_STATE = frozenset({"sceneModels", "camVersion", "sunVersion"})
     SKY_KEYS = ("sunElevation", "skyLongitude", "night", "skyTop", "skyHorizon", "sunDiscColor")
+
+    @property
+    def state_keys(self) -> tuple[str, ...]:
+        """Every property GardenSpike.qml declares on its root, minus ``NOT_STATE``.
+
+        Read from the QML's meta-object, not kept by hand: a hand-kept list missed
+        the ground placement, wind time, meadow/water colours and the SSGI/SSR
+        switches (senior review), and every new property would have leaked.
+        """
+        mo = self.root.metaObject()
+        names = (mo.property(i).name() for i in range(mo.propertyOffset(), mo.propertyCount()))
+        return tuple(n for n in names if n not in self.NOT_STATE)
+
+    def view_size(self) -> tuple[float, float]:
+        """The view's actual logical size. A window larger than the screen is clamped,
+        so the requested ``size`` can be wrong; probes aim with this one."""
+        return float(self.root.width()), float(self.root.height())
 
     @contextmanager
     def preserved_state(self) -> Iterator[None]:
         """Run a probe, then put back every property and model it may have changed."""
-        saved = {key: self.root.property(key) for key in self.STATE_KEYS}
+        saved = {key: self.root.property(key) for key in self.state_keys}
         models = self.models
         try:
             yield
@@ -236,6 +252,14 @@ class SpikeRenderer:
                 self.root.setProperty("sunVersion", int(self.root.property("sunVersion")) + 1)
             if not saved["orthoTopDown"]:  # re-aim the perspective camera at camTarget
                 self.root.setProperty("camVersion", int(self.root.property("camVersion")) + 1)
+
+    def copy_view_from(self, other: SpikeRenderer) -> None:
+        """Show what ``other`` shows (camera, preset, sun, sky, look), not its ground or models."""
+        for key in self.state_keys:
+            if key != "groundTexture":  # a texture belongs to its own window
+                self.root.setProperty(key, other.root.property(key))
+        for counter in ("sunVersion", "camVersion"):  # rebuild the sky, re-aim the camera
+            self.root.setProperty(counter, int(self.root.property(counter)) + 1)
 
     def graphics_api(self) -> str:
         api = self.quick_window().rendererInterface().graphicsApi()

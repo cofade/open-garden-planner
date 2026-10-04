@@ -53,9 +53,10 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
   (QML: "lookAt is not a function"). Light travel = −sun vector from `core/solar` (ADR-037).
 - **Property names differ:** Models use `castsShadows` / `receivesShadows`; Lights use
   `castsShadow`. The wrong one is a QML load error, not a warning.
-- `ProceduralSkyTextureData`: **`sunLongitude = azimuth + 90°`** (sky probe: the disc appears
-  in the view facing the solar azimuth, −0.6° … +0.7° across frame sizes on OpenGL, −0.1° on
-  D3D11 — measured at the image centre, so it proves the direction, not off-centre precision). The environment pre-filters the light probe **once per Texture object** and ignores
+- `ProceduralSkyTextureData`: **`sunLongitude = azimuth + 90°`** (sky probe, disc read 25°
+  off-centre: max 0.85° on OpenGL, 1.4° on D3D11 — including up to ~0.6° of the probe's own
+  error before `probes.pixel_bearing` inverted the camera's 14° pitch; a centred disc only
+  proves the direction). The environment pre-filters the light probe **once per Texture object** and ignores
   later `textureData` changes, so build a fresh sky `Texture` on every sun change
   (`createObject(view.scene)`, destroy the old one — parenting to `view.scene` avoids the "not
   placed in the graphics scene" warning).
@@ -126,12 +127,9 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
   asks ≤ ×1.3 on owner hardware. A synchronous
   `repaint()` does **not** include the flush/composition (it measured 0.08 ms "with 3D") —
   measure pan cost with `processEvents()`.
-- **A second renderer is not faster:** it took as long to its first finished readback as the
-  first one (llvmpipe, `--warm`, `first_ready_ms`: 29.3 s vs 26.2 s, both under concurrent
-  load) — consistent with per-window pipeline caches (inferred, not verified). Open time ends
-  on a finished readback, never on the first `afterRendering`/`frameSwapped`: on a software
-  rasteriser the submission returns early and the real cost lands in the next grab. Keep one
-  host alive and
+- **A second 3D window is not faster:** with the same view it took as long to its first
+  finished readback as the first window (`--second-window`; WARP: 63.7 s vs 63.0 s) —
+  consistent with per-window pipeline state (inferred, not verified). Keep one host alive and
   hide/show it: re-entry (show → next frame) median **7 ms** on llvmpipe, 31–53 ms on WARP
   (`--soak`; measured on a fully rendered scene — before the re-attach fix in §2, a soak that
   re-added models measured an empty garden).
@@ -155,6 +153,29 @@ topmost triangle under a vertical ray over every pickable mesh, merged per item)
   (mean abs diff 0.0) — 0/20 and a blank frame without the re-upload rule in §2.
 
 ## 8. Screenshots and CI rendering
+
+- **Open time** (criterion 5) runs from the user's request to the first *finished readback*:
+  ground bake, model build, QML load, scene apply, show → grab (`open_ms`,
+  `open_breakdown_ms`). Never stop the clock at `afterRendering`/`frameSwapped`: that marks
+  submission, and on a software rasteriser the real cost lands in the next grab.
+- **Cold vs warm must be recorded, not assumed.** Qt keeps `q3dshadercache-*`,
+  `qtpipelinecache-*` and `qmlcache` in the app's cache folder (`~/.cache/<argv0 basename>/`,
+  `__main__.py` for `python -m`) and `qtshadercache-*` one level up; Mesa keeps
+  `mesa_shader_cache`. The spike lists what it found (`shader_caches.found_before_run`).
+  `--cold` sets `QT_DISABLE_SHADER_DISK_CACHE`, `QSG_RHI_DISABLE_DISK_CACHE`,
+  `QT_QUICK3D_NO_SHADER_CACHE_LOAD`, `QML_DISABLE_DISK_CACHE` and `MESA_SHADER_CACHE_DISABLE`
+  (all in the 6.11 runtime): nothing is loaded **or written**. GPU drivers keep their own
+  shader caches, which no flag reaches. On llvmpipe cold vs warm is noise (first frame's
+  render cost dominates); the GPU decides.
+- **A shader that does not compile is only a warning.** `QSpirvCompiler: Failed to parse
+  shader` and `Failed to compile fragment shader` arrive as `QtWarningMsg`, and the frame
+  still renders (measured: one renamed call in `water.frag` changed 449 pond pixels' colour,
+  exit 0, `status: ok`). Record every Qt message
+  (`spike_q3d/qt_messages.py`: `qInstallMessageHandler`, into the log and `metrics.json`) and
+  fail on shader/QML errors — a frozen exe has no stderr to read them from. A clean llvmpipe
+  run emits no Qt messages at all, so the gate has no false alarms there.
+- **Aim probes at the actual view size** (`SpikeRenderer.view_size()`), not the requested
+  one: a window larger than the screen is clamped.
 
 - **Linux:** the `offscreen` QPA selects the *software* scene graph, which cannot render 3D.
   Use `xvfb-run` + `QT_QPA_PLATFORM=xcb` + `QSG_RHI_BACKEND=opengl` (+ `LIBGL_ALWAYS_SOFTWARE=1`
@@ -220,5 +241,7 @@ triangles (`scripts/bench_view3d.py`).
 | Windows RSS reads `None` | ctypes default `int` restype truncates the process pseudo-handle | declare `HANDLE` restype/argtypes |
 | `--iou` crashes / `--orient` says mirrored at 150 % display scale | pixel grid built from the logical size | build it from the grabbed image and `devicePixelRatio()` |
 | A measurement changes when the flag order changes | a probe left camera/preset/ground/sun behind | run probes inside `SpikeRenderer.preserved_state()` |
-| "Open time 2 s" but the first grab takes a minute (WARP) | `frameSwapped` marks submission | time show → first finished readback (`first_ready_ms`) |
+| "Open time 2 s" but the first grab takes a minute (WARP) | `frameSwapped` marks submission | time request → first finished readback (`open_ms`) |
+| A custom material renders the wrong colour, run "ok" | shader compile error is a `QtWarningMsg` | record Qt messages; fail on shader/QML errors |
+| "Cold" open time on the second run of the day | Qt/Mesa disk caches from the first | `--cold`, and read `shader_caches.found_before_run` |
 | RSS climbs ~30 MB per project reload | append-only keep-alive list of ground textures | hold only the shown texture; judge by the tail slope |

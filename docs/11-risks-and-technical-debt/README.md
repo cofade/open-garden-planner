@@ -546,7 +546,7 @@ lights `castsShadow`. `ProceduralSkyTextureData` puts its sun at compass bearing
 `sunLongitude − 90°`, and the scene environment pre-filters its light probe
 **once per Texture object** — updating the texture's properties moved nothing, so
 the sky's sun stayed in the north until each sun change built a fresh Texture.
-Both are pinned by the spike's sky probe (error ±0.3°).
+Both are pinned by the spike's sky probe, which reads the disc 25° off-centre (max error 0.85° on OpenGL and 1.4° on D3D11, including up to ~0.6° of the probe's own model error before its bearing maths accounted for the camera pitch).
 
 **3. The `QQuickWidget` host was broken in two ways no screenshot showed.** It has
 no `frameSwapped` (frames are counted on its offscreen window's
@@ -614,6 +614,26 @@ evidence driver judged the projection check as
 99 and failed the run. Thresholds now go through explicit number checks that
 fail on a missing or null metric instead of substituting a default, and a probe
 that was requested but wrote nothing fails the verdict.
+
+**10. A shader that does not compile is a warning, not an error.** Renaming one
+call in the pond's `water.frag` printed `QSpirvCompiler: Failed to parse shader`
+as a `QtWarningMsg` to stderr; the run exited 0 with `status: ok` while 449 pond
+pixels changed colour (senior review, measured). The frozen exe has no stderr,
+so on Windows nothing would have shown at all. The spike now records every Qt
+message through `qInstallMessageHandler` into its log and `metrics.json`, and a
+shader or QML error ends the run with exit 3; a render test breaks the shader on
+purpose as the positive control. *Any headless render path must read Qt's
+messages, not only its exit code.*
+
+**11. Importing a tool script can take over the suite's settings key.**
+`scripts/make_bench_plans.py` pointed the settings names at its own throwaway
+key at module scope. `tests/integration/test_bench_plans.py` imports the script
+to regenerate the fixtures, so every later test in that pytest process ran on
+the script's fixed key instead of conftest's per-process one, the guard against
+the "black hole" of two runs sharing a key (ADR-041). The rebinding moved into
+`main()`, and an autouse check now fails any test that leaves the names changed
+(it caught the old script at once). *A rebinding of process-wide names belongs
+in an entry point, never at import time.*
 
 ## 11.5 Community and Governance
 

@@ -105,7 +105,7 @@ _REQUIRED_SECTIONS = {
     "--orient": "orientation",
     "--pick": "pick",
     "--update-bench": "update_bench",
-    "--warm": "warm_start",
+    "--second-window": "second_window",
     "--coexist": "coexist",
     "--pan-bench": "pan_bench",
 }
@@ -143,9 +143,15 @@ def _verdict(metrics: dict, spike_args: list[str] | None = None) -> list[str]:
                    for k, v in (probe.get("results") or {}).items()]
     first_frame = _num(metrics.get("first_frame_ms"))
     first_ready = _num(metrics.get("first_ready_ms"))
-    checks.append(("open time measured to a finished readback",
-                   first_frame is not None and first_frame > 0
-                   and first_ready is not None and first_ready >= first_frame))
+    open_ms = _num(metrics.get("open_ms"))
+    checks += [("open time measured to a finished readback",
+                first_frame is not None and first_frame > 0
+                and first_ready is not None and first_ready >= first_frame),
+               ("open time includes QML load and scene build",
+                open_ms is not None and first_ready is not None
+                and open_ms >= first_ready + (_num(metrics.get("qml_load_ms")) or 0.0)),
+               ("the run records which shader caches it found",
+                isinstance(metrics.get("shader_caches"), dict))]
     orient = metrics.get("orientation")
     if orient:
         checks += [("ground north-up", orient.get("ground_texture_ok") is True),
@@ -171,9 +177,8 @@ def _verdict(metrics: dict, spike_args: list[str] | None = None) -> list[str]:
                    ("3D frame unchanged with WebEngine alive", coexist.get("frame3d_ok") is True)]
     soak = metrics.get("soak")
     if soak:
-        checks += [("animation really ran before exit", soak.get("animation_advanced") is True),
-                   ("closed while animating, clean event-loop exit",
-                    soak.get("close_exit_code") == 0)]
+        # The close's witness is the process exit code, checked before this verdict.
+        checks += [("animation really ran before the close", soak.get("animation_advanced") is True)]
         if "project_reloads" in soak:
             checks += [("every project reload rebuilt every model",
                         soak.get("models_per_reload_ok") is True),
