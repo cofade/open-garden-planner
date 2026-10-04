@@ -71,7 +71,7 @@ def shadow_iou_probe(renderer: Any, out: Path) -> dict:
         d = sun_direction_scene(elev, azimuth)
         renderer.set_sun(SunState(elev, azimuth, (-d[0], -d[1], -d[2]), "#ffffff", 1.6, False))
         renderer.set_exposure(1.0, 0.9)
-        renderer.wait_frames(6)
+        renderer.wait_frames(6, label=f"iou_{int(elev)}")
         img = renderer.grab()
         img.save(str(out / f"iou_{int(elev)}.png"))
         arr = _image_to_array(img)
@@ -117,7 +117,7 @@ def orientation_probe(renderer: Any, out: Path, ground_img: Any, width: float,
     renderer.set_top_down((width / 2, height / 2), mag)
     d = sun_direction_scene(70.0, 180.0)
     renderer.set_sun(SunState(70.0, 180.0, (-d[0], -d[1], -d[2]), "#ffffff", 1.4, False))
-    renderer.wait_frames(6)
+    renderer.wait_frames(6, label="orient_ground")
     img = renderer.grab()
     img.save(str(out / "orient_ground_topdown.png"))
     arr = _luma(_image_to_array(img))
@@ -150,7 +150,7 @@ def orientation_probe(renderer: Any, out: Path, ground_img: Any, width: float,
             ty = math.cos(math.radians(look_az)) * 1000
             renderer.set_camera((0.0, 0.0, 160.0),
                                 (tx, ty, 160.0 + 1000 * math.tan(math.radians(14))), fov_v)
-            renderer.wait_frames(4)
+            renderer.wait_frames(4, label=f"sky_{int(sun_az)}_look_{int(look_az)}")
             shot = renderer.grab()
             arr = _image_to_array(shot)
             lum = _luma(arr)

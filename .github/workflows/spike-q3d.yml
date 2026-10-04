@@ -1,12 +1,18 @@
-# TEMPORARY — ADR-047 / Phase 17 Package L0 evidence. DELETE BEFORE MERGE.
+# TEMPORARY — ADR-047 / Phase 17 Package L0 evidence. DELETE BEFORE MERGE
+# (together with scripts/spike_q3d_ci.py).
 #
-# Builds the frozen Windows exe and runs the dormant Qt Quick 3D spike inside
-# it (the decisive packaging gate, ADR-047 criterion 1) on windows-latest —
-# a GPU-less runner, so Qt picks Direct3D 11 on the Microsoft Basic Render
-# Driver (WARP class). fps numbers here are NOT the owner-GPU numbers; the
-# owner runs the same command on real hardware. Triggered on push to the spike
-# branch because workflow_dispatch only works for workflows on the default
-# branch.
+# Renders the dormant Qt Quick 3D spike on windows-latest — a GPU-less runner,
+# so Qt picks Direct3D 11 on the Microsoft Basic Render Driver (WARP class);
+# fps here are NOT owner-GPU numbers. Run v1 proved build + --selftest with
+# Quick 3D bundled, then hung 56 min in the render with no output, so v2:
+#   * runs the spike through scripts/spike_q3d_ci.py — hard timeout, and every
+#     result (manifest, spike.log, metrics.json) is printed into this job log;
+#   * renders unfrozen first, then frozen: splits "WARP/rendering" from
+#     "packaging" when something fails;
+#   * measures the honest dist delta against a master build (ADR-047 crit. 9).
+# This is an evidence run, not a release gate: the frozen-exe gate command has
+# one home (ogp-change-control §2.8, executed by release.yml) and is not
+# repeated here.
 name: Spike Q3D (temporary)
 
 on:
@@ -16,17 +22,22 @@ on:
       - "src/open_garden_planner/spike_q3d/**"
       - "src/open_garden_planner/main.py"
       - "installer/ogp.spec"
+      - "scripts/spike_q3d_ci.py"
       - ".github/workflows/spike-q3d.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: spike-q3d-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  frozen-render:
-    name: Frozen exe renders the Qt Quick 3D spike
+  windows-evidence:
+    name: Qt Quick 3D spike evidence (windows-latest, WARP)
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
 
@@ -41,36 +52,40 @@ jobs:
           pip install -e ".[dev]"
           pip install pyinstaller
 
+      - name: Spike, unfrozen (WARP feasibility, small load)
+        id: unfrozen
+        continue-on-error: true
+        timeout-minutes: 14
+        shell: bash
+        run: >
+          python scripts/spike_q3d_ci.py --unfrozen --out spike-unfrozen --limit-s 720 --
+          --presets low --shots golden_hour --fps-seconds 1 --iou
+          --size 960x540 --grass-density 60 --frame-timeout-s 45 --watchdog-s 660
+
       - name: Build frozen exe
         run: python -m PyInstaller installer/ogp.spec --noconfirm
 
-      - name: Measure dist footprint
+      - name: Measure branch dist footprint
         shell: pwsh
         run: |
           $dist = "dist/OpenGardenPlanner"
-          $total = (Get-ChildItem $dist -Recurse -File | Measure-Object Length -Sum).Sum / 1MB
-          $q3d = (Get-ChildItem $dist -Recurse -File | Where-Object { $_.FullName -match 'Quick3D|ShaderTools' } | Measure-Object Length -Sum).Sum / 1MB
-          $qt3d = (Get-ChildItem $dist -Recurse -File | Where-Object { $_.Name -match '^Qt63D' } | Measure-Object Length -Sum).Sum / 1MB
-          "dist_total_mb=$([math]::Round($total,1))" | Tee-Object -FilePath footprint.txt
+          $files = Get-ChildItem $dist -Recurse -File
+          $total = ($files | Measure-Object Length -Sum).Sum / 1MB
+          $q3d = ($files | Where-Object { $_.FullName -match 'Quick3D|ShaderTools' } | Measure-Object Length -Sum).Sum / 1MB
+          $qt3d = ($files | Where-Object { $_.Name -match '^Qt63D' } | Measure-Object Length -Sum).Sum / 1MB
+          "branch_dist_total_mb=$([math]::Round($total,1))" | Tee-Object -FilePath footprint.txt
           "quick3d_and_shadertools_mb=$([math]::Round($q3d,1))" | Tee-Object -FilePath footprint.txt -Append
           "qt3d_dlls_mb=$([math]::Round($qt3d,1))" | Tee-Object -FilePath footprint.txt -Append
 
-      - name: Selftest (unchanged release gate)
-        shell: pwsh
-        run: |
-          $p = Start-Process -FilePath dist/OpenGardenPlanner/OpenGardenPlanner.exe -ArgumentList "--selftest" -Wait -PassThru
-          if ($p.ExitCode -ne 0) { Write-Error "selftest exit $($p.ExitCode)"; exit 1 }
-
-      - name: Frozen spike render
-        shell: pwsh
-        run: |
-          $argv = @("--spike-q3d", "--plan", "tests/fixtures/plans/bench_small.ogp",
-                    "--out", "spike-out", "--presets", "low,high", "--shots", "golden_hour,noon,walk",
-                    "--fps-seconds", "3", "--iou", "--orient")
-          $p = Start-Process -FilePath dist/OpenGardenPlanner/OpenGardenPlanner.exe -ArgumentList $argv -Wait -PassThru
-          Write-Host "spike exit=$($p.ExitCode)"
-          if (Test-Path spike-out/metrics.json) { Get-Content spike-out/metrics.json }
-          if ($p.ExitCode -ne 0) { exit 1 }
+      - name: Spike, frozen bundle (full evidence set)
+        id: frozen
+        continue-on-error: true
+        timeout-minutes: 30
+        shell: bash
+        run: >
+          python scripts/spike_q3d_ci.py --frozen --out spike-frozen --limit-s 1620 --
+          --presets low,high --shots golden_hour,walk --fps-seconds 2 --iou --orient
+          --size 960x540 --grass-density 60 --frame-timeout-s 45 --watchdog-s 1560
 
       - name: Upload evidence
         if: always()
@@ -78,5 +93,39 @@ jobs:
         with:
           name: spike-q3d-windows-evidence
           path: |
-            spike-out/
+            spike-unfrozen/
+            spike-frozen/
             footprint.txt
+
+      # LAST: rewrites src/ and installer/ to master in this working tree (the
+      # editable install then resolves to master's code) and builds that.
+      - name: Master baseline dist footprint (honest delta)
+        if: always()
+        timeout-minutes: 12
+        shell: bash
+        run: |
+          git fetch --depth=1 origin master
+          git checkout FETCH_HEAD -- src installer
+          python -m PyInstaller installer/ogp.spec --noconfirm --distpath dist-master --workpath build-master
+          python - <<'PY'
+          from pathlib import Path
+          def mb(root):
+              return sum(f.stat().st_size for f in Path(root).rglob("*") if f.is_file()) / 2**20
+          branch, master = mb("dist/OpenGardenPlanner"), mb("dist-master/OpenGardenPlanner")
+          print(f"master_dist_total_mb={master:.1f}")
+          print(f"branch_dist_total_mb={branch:.1f}")
+          print(f"delta_mb={branch - master:.1f}")
+          new = sorted({p.relative_to("dist/OpenGardenPlanner").as_posix() for p in Path("dist/OpenGardenPlanner").rglob("*") if p.is_file()}
+                       - {p.relative_to("dist-master/OpenGardenPlanner").as_posix() for p in Path("dist-master/OpenGardenPlanner").rglob("*") if p.is_file()})
+          size = {n: Path("dist/OpenGardenPlanner", n).stat().st_size for n in new}
+          print(f"files_only_in_branch={len(new)}")
+          for n in sorted(new, key=lambda n: -size[n])[:40]:
+              print(f"  {size[n] / 2**20:8.2f} MB  {n}")
+          PY
+
+      - name: Verdict
+        if: always()
+        shell: pwsh
+        run: |
+          "unfrozen=${{ steps.unfrozen.outcome }} frozen=${{ steps.frozen.outcome }}"
+          if ("${{ steps.unfrozen.outcome }}" -ne "success" -or "${{ steps.frozen.outcome }}" -ne "success") { exit 1 }

@@ -5,21 +5,32 @@ Usage (dev, Windows or Linux with a GPU or Mesa)::
     python -m open_garden_planner --spike-q3d [--plan FILE.ogp] [--out DIR]
         [--host view|widget] [--presets low,medium,high,ultra] [--shots all|name,...]
         [--size 1280x720] [--fps-seconds 3] [--iou] [--orient]
+        [--frame-timeout-s 120] [--watchdog-s 0]
 
 Frozen exe: ``OpenGardenPlanner.exe --spike-q3d --plan C:\\path\\plan.ogp --out C:\\shots``.
 Writes one PNG per shot × preset plus ``metrics.json``; exit 0 on success.
+
+The frozen exe is a GUI-subsystem process with no stdout, so ``print`` is a
+no-op there: every phase is written to ``<out>/spike.log`` (flushed per line)
+and ``metrics.json`` is rewritten after every phase, so a run that dies or
+hangs still leaves evidence. ``--watchdog-s`` arms ``faulthandler`` to dump
+every thread's stack into the log and exit non-zero (Windows evidence run v1
+hung for 56 min with no output at all).
+
 Spike strings are not translated (dev evidence tooling, the ADR-038 exemption).
 """
 
 from __future__ import annotations
 
 import argparse
+import faulthandler
 import json
 import math
 import os
 import platform
 import sys
 import time
+import traceback
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -72,8 +83,39 @@ def _parse(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--ssgi", action="store_true",
                    help="ultra WITH SSGI (opt-in: renders black on Mesa llvmpipe)")
     p.add_argument("--no-ssr", action="store_true", help="ultra without SSR")
+    p.add_argument("--frame-timeout-s", type=float, default=120.0,
+                   help="give up waiting for presented frames after this long (counted)")
+    p.add_argument("--watchdog-s", type=float, default=0.0,
+                   help="dump all stacks to spike.log and exit 1 after this long (0 = off)")
     args, _unknown = p.parse_known_args(argv[1:])
     return args
+
+
+class SpikeLog:
+    """Timestamped, line-flushed progress log in the output directory.
+
+    Mirrors to stdout only when there is one (a frozen GUI exe has none).
+    """
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self._t0 = time.perf_counter()
+        self.file = path.open("w", encoding="utf-8", buffering=1)
+
+    def __call__(self, phase: str, **fields: Any) -> None:
+        detail = " ".join(f"{k}={v}" for k, v in fields.items())
+        line = f"{time.perf_counter() - self._t0:9.2f}s [{phase}] {detail}".rstrip()
+        self.file.write(line + "\n")
+        self.file.flush()
+        if sys.stdout is not None:
+            print(line, flush=True)
+
+    def close(self) -> None:
+        self.file.close()
+
+
+def _write_metrics(out: Path, metrics: dict) -> None:
+    (out / "metrics.json").write_text(json.dumps(metrics, indent=2, default=str), encoding="utf-8")
 
 
 # ── sun ──────────────────────────────────────────────────────────────────
@@ -397,34 +439,63 @@ def default_shots(width: float, height: float) -> list[Shot]:
 
 
 def run_spike_cli(argv: list[str]) -> int:
+    """Run the spike; never let a failure go unrecorded (see the module docstring)."""
     args = _parse(argv)
+    out: Path = args.out
+    out.mkdir(parents=True, exist_ok=True)
+    log = SpikeLog(out / "spike.log")
+    if args.watchdog_s > 0:
+        faulthandler.dump_traceback_later(args.watchdog_s, exit=True, file=log.file)
+    metrics: dict[str, Any] = {"status": "running"}
+    try:
+        _run(args, out, log, metrics)
+    except Exception as exc:  # evidence tooling: record it, never swallow it silently
+        metrics["status"] = "error"
+        metrics["error"] = f"{type(exc).__name__}: {exc}"
+        log("error", error=metrics["error"])
+        log.file.write(traceback.format_exc())
+        _write_metrics(out, metrics)
+        return 2
+    finally:
+        if args.watchdog_s > 0:
+            faulthandler.cancel_dump_traceback_later()
+    metrics["status"] = "ok"
+    _write_metrics(out, metrics)
+    log("done", total_s=metrics.get("total_s"), wait_timeouts=metrics.get("wait_timeouts"))
+    log.close()
+    return 0
+
+
+def _run(args: argparse.Namespace, out: Path, log: SpikeLog, metrics: dict[str, Any]) -> None:
     from PyQt6.QtWidgets import QApplication
 
     t_start = time.perf_counter()
-    app = QApplication.instance() or QApplication(argv[:1])
+    app = QApplication.instance() or QApplication(sys.argv[:1])
     from open_garden_planner.core import ProjectManager
     from open_garden_planner.spike_q3d.quick import SpikeRenderer
     from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 
-    out: Path = args.out
-    out.mkdir(parents=True, exist_ok=True)
     w_px, h_px = (int(v) for v in args.size.lower().split("x"))
-    metrics: dict[str, Any] = {
+    metrics.update({
         "platform": platform.platform(), "python": sys.version.split()[0],
         "frozen": bool(getattr(sys, "frozen", False)), "plan": str(args.plan),
         "host": args.host, "size": [w_px, h_px],
         "env": {k: os.environ.get(k) for k in ("QSG_RHI_BACKEND", "QT_QPA_PLATFORM",
-                                                "QSG_RHI_PREFER_SOFTWARE_RENDERER")},
-    }
+                                                "QSG_RHI_PREFER_SOFTWARE_RENDERER",
+                                                "QSG_RENDER_LOOP")},
+    })
     from PyQt6.QtCore import QT_VERSION_STR
 
     metrics["qt"] = QT_VERSION_STR
+    log("start", qt=QT_VERSION_STR, frozen=metrics["frozen"], size=args.size,
+        presets=args.presets, shots=args.shots, platform=metrics["platform"])
 
     scene = CanvasScene()
     pm = ProjectManager()
     t0 = time.perf_counter()
     pm.load(scene, args.plan)
     metrics["load_plan_ms"] = (time.perf_counter() - t0) * 1000
+    log("plan_loaded", ms=round(metrics["load_plan_ms"], 1), items=len(scene.items()))
     loc = pm.location or {"latitude": 52.52, "longitude": 13.405}
     lat, lon = float(loc["latitude"]), float(loc["longitude"])
     width, height = scene.width_cm, scene.height_cm
@@ -432,6 +503,7 @@ def run_spike_cli(argv: list[str]) -> int:
     t0 = time.perf_counter()
     ground = bake_ground(scene, width, height)
     metrics["ground_bake_ms"] = (time.perf_counter() - t0) * 1000
+    log("ground_baked", ms=round(metrics["ground_bake_ms"], 1), px=f"{ground.width()}x{ground.height()}")
 
     t0 = time.perf_counter()
     models, stats = build_models(scene, date(2026, 6, 21), args.grass_density, not args.no_grass)
@@ -439,8 +511,13 @@ def run_spike_cli(argv: list[str]) -> int:
     metrics["build"] = {"items": stats.items, "models": stats.models,
                         "triangles": stats.triangles,
                         "by_kind_ms": {k: round(v, 1) for k, v in stats.build_ms.items()}}
+    log("models_built", ms=round(metrics["build_models_ms"], 1), models=stats.models,
+        triangles=stats.triangles)
+    _write_metrics(out, metrics)
 
-    renderer = SpikeRenderer(args.host, (w_px, h_px))
+    renderer = SpikeRenderer(args.host, (w_px, h_px), frame_timeout_s=args.frame_timeout_s,
+                             log=log)
+    log("qml_loaded", ms=round(renderer.qml_load_ms, 1), host=args.host)
     renderer.root.setProperty("allowSsgi", bool(args.ssgi))
     renderer.root.setProperty("allowSsr", not args.no_ssr)
     metrics["qml_load_ms"] = renderer.qml_load_ms
@@ -459,10 +536,14 @@ def run_spike_cli(argv: list[str]) -> int:
     if shots:
         renderer.set_camera(shots[0].eye, shots[0].target, shots[0].fov)
     renderer.show()
-    renderer.wait_frames(2, timeout_s=300)
+    log("shown", exposed=renderer.is_exposed())
+    renderer.wait_frames(2, timeout_s=max(args.frame_timeout_s, 300.0), label="first_frame")
     metrics["first_frame_ms"] = renderer.first_frame_ms
     metrics["graphics_api"] = renderer.graphics_api()
-    shot_rows = []
+    log("first_frame", ms=round(metrics["first_frame_ms"] or -1.0, 1), api=metrics["graphics_api"])
+    _write_metrics(out, metrics)
+    shot_rows: list[dict] = []
+    metrics["shots"] = shot_rows
     for preset in args.presets.split(","):
         renderer.set_preset(preset)
         for shot in shots:
@@ -471,28 +552,39 @@ def run_spike_cli(argv: list[str]) -> int:
             apply_look(renderer, sun)
             renderer.set_camera(shot.eye, shot.target, shot.fov)
             t0 = time.perf_counter()
-            renderer.wait_frames(6, timeout_s=300)
+            renderer.wait_frames(6, label=f"{shot.name}_{preset}")
             img = renderer.grab()
             path = out / f"{shot.name}_{preset}.png"
             img.save(str(path))
             shot_rows.append({"shot": shot.name, "preset": preset, "file": path.name,
                               "sun_elev": round(sun.elevation, 2), "sun_az": round(sun.azimuth, 2),
                               "settle_ms": round((time.perf_counter() - t0) * 1000, 1)})
+            log("shot", name=shot.name, preset=preset, settle_ms=shot_rows[-1]["settle_ms"])
+            _write_metrics(out, metrics)
         if args.fps_seconds > 0 and shots:
             renderer.set_camera(shots[0].eye, shots[0].target, shots[0].fov)
-            metrics.setdefault("fps", {})[preset] = round(renderer.measure_fps(args.fps_seconds), 2)
-    metrics["shots"] = shot_rows
+            fps = round(renderer.measure_fps(args.fps_seconds), 2)
+            metrics.setdefault("fps", {})[preset] = fps
+            log("fps", preset=preset, fps=fps)
+            _write_metrics(out, metrics)
     if args.iou:
         from open_garden_planner.spike_q3d.probes import shadow_iou_probe
 
+        log("iou_start")
         metrics["shadow_iou"] = shadow_iou_probe(renderer, out)
+        log("iou_done", **{k: v["iou"] for k, v in metrics["shadow_iou"]["results"].items()})
+        _write_metrics(out, metrics)
     if args.orient:
         from open_garden_planner.spike_q3d.probes import orientation_probe
 
+        log("orient_start")
         metrics["orientation"] = orientation_probe(renderer, out, ground, width, height)
+        log("orient_done", ground_ok=metrics["orientation"]["ground_texture_ok"],
+            sky_ok=metrics["orientation"]["sky_ok"])
+        _write_metrics(out, metrics)
+    metrics["wait_timeouts"] = renderer.wait_timeouts
     metrics["total_s"] = round(time.perf_counter() - t_start, 2)
-    (out / "metrics.json").write_text(json.dumps(metrics, indent=2, default=str), encoding="utf-8")
-    print(json.dumps({k: metrics[k] for k in ("graphics_api", "first_frame_ms", "build", "fps")
-                      if k in metrics}, default=str))
+    if sys.stdout is not None:
+        print(json.dumps({k: metrics[k] for k in ("graphics_api", "first_frame_ms", "build", "fps")
+                          if k in metrics}, default=str), flush=True)
     del app
-    return 0

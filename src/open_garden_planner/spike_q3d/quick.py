@@ -51,10 +51,12 @@ class NumpyGeometry(QQuick3DGeometry):
     def __init__(self, mesh: MeshData, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self.upload_ms = 0.0
+        self.mesh = mesh
         self.set_mesh(mesh)
 
     def set_mesh(self, mesh: MeshData) -> None:
         t0 = time.perf_counter()
+        self.mesh = mesh  # kept for the CPU pick oracle (probes.pick_probe)
         pos = to_engine(mesh.positions)
         nrm = to_engine(mesh.normals)
         vb = np.empty((mesh.vertex_count, 12), np.float32)
@@ -135,10 +137,14 @@ class SunState:
 class SpikeRenderer:
     """Hosts GardenSpike.qml in a QQuickView or QQuickWidget and renders shots."""
 
-    def __init__(self, host: str = "view", size: tuple[int, int] = (1280, 720)) -> None:
+    def __init__(self, host: str = "view", size: tuple[int, int] = (1280, 720),
+                 frame_timeout_s: float = 120.0, log: Any = None) -> None:
         self.host_kind = host
         self.size = size
         self.frames = 0
+        self.frame_timeout_s = frame_timeout_s
+        self.wait_timeouts = 0
+        self._log = log if log is not None else (lambda *_a, **_k: None)
         self.models: list[SpikeModel] = []
         self._keep: list[Any] = []
         t0 = time.perf_counter()
@@ -191,16 +197,35 @@ class SpikeRenderer:
         else:
             self.view.update()
 
-    def wait_frames(self, n: int, timeout_s: float = 120.0) -> int:
-        """Pump the event loop until ``n`` more frames were presented (or timeout)."""
-        target = self.frames + n
-        deadline = time.perf_counter() + timeout_s
+    def is_exposed(self) -> bool:
+        return bool(self.quick_window().isExposed())
+
+    def wait_frames(self, n: int, timeout_s: float | None = None, label: str = "") -> int:
+        """Pump the event loop until ``n`` more frames were presented (or timeout).
+
+        Returns the number of frames presented during the wait. A timeout is a
+        finding, not a silent pass: it is counted in ``wait_timeouts`` and logged
+        with the exposure state (Windows evidence run v1 spent 56 min in waits
+        without a single line of output).
+        """
+        timeout = self.frame_timeout_s if timeout_s is None else timeout_s
+        start = self.frames
+        target = start + n
+        t0 = time.perf_counter()
+        deadline = t0 + timeout
         loop = QEventLoop()
         while self.frames < target and time.perf_counter() < deadline:
             self.request_update()
             QTimer.singleShot(5, loop.quit)
             loop.exec()
-        return self.frames
+        got = self.frames - start
+        timed_out = got < n
+        if timed_out:
+            self.wait_timeouts += 1
+        self._log("wait", label=label, want=n, got=got,
+                  ms=round((time.perf_counter() - t0) * 1000.0, 1),
+                  timeout=timed_out, exposed=self.is_exposed())
+        return got
 
     def grab(self) -> QImage:
         if self.host_kind == "widget":
