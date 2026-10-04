@@ -232,7 +232,7 @@
   "237": {
     "is_pr": false,
     "state": "OPEN",
-    "title": "Package D — Agent Integration: embedded MCP server (read + visualise + export MVP; write & domain to follow)"
+    "title": "Package D - Agent Integration: embedded MCP server, editing and domain intelligence"
   },
   "240": {
     "is_pr": false,
@@ -586,7 +586,7 @@
   },
   "373": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "App shutdown waits ~10 seconds for the Agent API server thread"
   },
   "374": {
@@ -596,17 +596,17 @@
   },
   "377": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Plant/shape drag preview is drawn behind beds and objects — invisible until you release"
   },
   "378": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Crop rotation panel ignores an existing succession plan"
   },
   "380": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Agent writes are not canvas-clamped: an object can be created or moved entirely off-plan and becomes invisible"
   },
   "392": {

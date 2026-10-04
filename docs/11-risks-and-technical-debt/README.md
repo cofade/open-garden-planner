@@ -30,7 +30,7 @@ Dated audit snapshots: [audit-2026-10.md](audit-2026-10.md) (numbers: `audit-202
 
 ## 11.3 Technical Debt
 
-The living register (ADR-047). Every row has a status; P0/P1 rows link their issue, P2/P3 rows point to the audit epic's checklist (#392). Rows come from the dated audit snapshots ([audit-2026-10.md](audit-2026-10.md), Top-25 = TD-009…TD-033; the long tail stays in the snapshot's appendix). Re-measure with `scripts/audit_metrics.py`. Status is `open` (with a note where useful), `fixed (#PR)`, `accepted (ADR-0xx)`, `closed (reason)` or `superseded (by …)`; historical rows TD-001…TD-008 carry an issue only where one exists. Never delete a row; a resolved row says so.
+The living register (ADR-047). Every row has a status; P0/P1 rows link their issue, P2/P3 rows point to the audit epic's checklist (#392). Rows come from the dated audit snapshots ([audit-2026-10.md](audit-2026-10.md), Top-25 = TD-009…TD-033, plus TD-034 re-raised by the Windows check; the long tail stays in the snapshot's appendix). Re-measure with `scripts/audit_metrics.py`. Status is `open` (with a note where useful), `fixed (#PR)`, `accepted (ADR-0xx)`, `closed (reason)` or `superseded (by …)`; historical rows TD-001…TD-008 carry an issue only where one exists. Never delete a row; a resolved row says so.
 
 | ID | Area | Description | Severity / Effort | Status | Issue | Source |
 |----|------|-------------|-------------------|--------|-------|--------|
@@ -67,6 +67,7 @@ The living register (ADR-047). Every row has a status; P0/P1 rows link their iss
 | TD-031 | Tests (test) | Solar math is executed but under-asserted: no test timestamp has nonzero seconds and no oracle row nonzero minutes, so a 44.7-degree elevation mutant survives | P2 / S | open | epic checklist | audit-2026-10 AUD-021 |
 | TD-032 | Tests (test) | companion_sets: the P1-4 candidate cap, the P2-12 dedup merge and the antagonist rejection are never executed by any test | P2 / S | open | epic checklist | audit-2026-10 AUD-022 |
 | TD-033 | Tests (test) | Small Qt-free modules score 80-88 %; the surviving gaps are the canvas edge, stacking expand/arrange and shape-type branches | P2 / S | open | epic checklist | audit-2026-10 AUD-025 |
+| TD-034 | Performance (performance) | NFR-PERF-01 missed in a real window: fit-in-view repaint of the 500-object reference plan takes 54 ms (≤ 18 fps), a zoom step 40 ms; 100 % zoom and pan stay inside the budget | P1 / M | open | #409 | audit-2026-10 AUD-056 (Windows check §8.1) |
 
 ## 11.4 Known Development Pitfalls
 
