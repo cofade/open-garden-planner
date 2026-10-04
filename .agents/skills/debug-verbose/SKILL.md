@@ -1223,3 +1223,27 @@ restores. The soak now reports the RSS curve and its least-squares slope over th
 the first reload (a second model set, allocator arenas); only the trend separates a leak from
 an allocator settling. And a keep-alive list is a leak with a good excuse: hold the one
 object that is in use, not every object that ever was.
+
+## Case study: a second window that "differed" by 9.8 luma and did not (ADR-047 spike, fixed 2026-10-04)
+
+**Symptom**: `--second-window` reported `frame_diff_vs_first` 9.8 mean luma on llvmpipe and
+9.75 on D3D11, so the second window seemed not to render the first window's view.
+
+**Wrong theories**. (1) Temporal anti-aliasing not yet converged in the young window — but
+the low preset has no AA at all. (2) `copy_view_from` missing a property — the state keys
+come from the QML meta-object, so nothing was left out by hand.
+
+**Key evidence**: one instrumented run saved both windows' frames *after* the second window
+rendered, and dumped both roots' state: the two PNGs differed by **0.0**. The same probe run
+alone (no other probe before it) reported 0.0 too. Only after `--pick --update-bench` did the
+number appear.
+
+**Root cause**: the reference frame of the first window was grabbed straight after the
+previous probe's `preserved_state()` restore, before the first window had redrawn; the
+second window was compared against a stale frame.
+
+**Fix**: `wait_frames(3)` on the first window before its reference grab; the render tier now
+asserts the difference stays below 1.0 after the full probe sequence.
+
+**Lesson**: **settle both sides before you compare frames.** A probe that restores state
+leaves the *next* grab stale; a comparison is only as good as its reference.

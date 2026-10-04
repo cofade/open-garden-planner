@@ -376,6 +376,10 @@ def second_window(renderer: Any, ground: Any, width: float, height: float, log: 
     from open_garden_planner.spike_q3d.probes import _image_to_array
     from open_garden_planner.spike_q3d.quick import SpikeRenderer
 
+    # Settle first: right after the previous probe restored its state, a grab showed
+    # the un-redrawn scene and read 9.8 mean luma off a second window that, measured
+    # on its own, matched the first exactly (0.0).
+    renderer.wait_frames(3, label="second_window_reference")
     first_frame = _image_to_array(renderer.grab(label="second_window_reference"))
     t0 = time.perf_counter()
     second = SpikeRenderer(renderer.host_kind, renderer.size,

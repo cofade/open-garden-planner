@@ -138,7 +138,7 @@ def measured(tmp_path_factory: pytest.TempPathFactory) -> tuple[dict, int]:
     proc = _spike(out, _render_env(tmp_path_factory.mktemp("config_home")),
                   "--presets", "low", "--shots", "golden_hour", "--size", "640x360",
                   "--fps-seconds", "0", "--watchdog-s", "1000", "--iou", "--pick",
-                  "--update-bench", "--second-window", "--coexist", "--pan-bench", "--soak", "50")
+                  "--update-bench", "--second-window", "--coexist", "--pan-bench", "--soak", "100")
     log = (out / "spike.log").read_text(encoding="utf-8") if (out / "spike.log").exists() else ""
     assert (out / "metrics.json").exists(), proc.stderr[-2000:] + log[-2000:]
     return json.loads((out / "metrics.json").read_text(encoding="utf-8")), proc.returncode
@@ -160,7 +160,7 @@ def test_measurement_run_closes_cleanly_while_really_animating(measured: tuple[d
 
 
 def test_soak_reloads_the_project_from_disk_without_a_leak(measured: tuple[dict, int]) -> None:
-    """Criterion 10: 50 show/hide cycles and 10 project reloads (the plan read into a
+    """Criterion 10 (50 show/hide cycles, 10 project reloads), run at 100 and 20 (the plan read into a
     new scene, every model, geometry and the ground built new while the engine runs).
 
     An append-only keep-alive list for ground textures grew RSS ~30 MB per reload,
@@ -169,8 +169,10 @@ def test_soak_reloads_the_project_from_disk_without_a_leak(measured: tuple[dict,
     over the second half can.
     """
     soak = measured[0]["soak"]
-    assert soak["cycles"] == 50
-    assert soak["project_reloads"] == 10, soak
+    # 20 reloads, as the gate was pre-registered: at 10 the five-point tail read
+    # 14.3 MB/reload once on an RSS curve swinging +-35 MB (creator round 2)
+    assert soak["cycles"] == 100
+    assert soak["project_reloads"] == 20, soak
     assert soak["models_per_reload_ok"] is True, soak
     assert soak["leak_slope_mb_per_reload"] is not None, soak
     assert soak["leak_slope_mb_per_reload"] < 10.0, soak["leak_curve_mb"]
@@ -226,10 +228,12 @@ def test_timing_measurements_are_recorded(measured: tuple[dict, int]) -> None:
     assert metrics["first_ready_ms"] >= metrics["first_frame_ms"] > 0
     second = metrics["second_window"]
     assert second["first_ready_ms"] >= second["first_frame_ms"] > 0
+    assert second["frame_diff_vs_first"] < 1.0, second  # the same view, really
     # criterion 5 (senior review): open time runs from the user's request to the first
     # finished readback, so it holds the QML load and the scene build
     breakdown = metrics["open_breakdown_ms"]
-    assert metrics["open_ms"] >= sum(breakdown.values()) - 50.0, breakdown
+    # two-sided: a bucket nobody times (the sky's regeneration once hid ~3 s) shows
+    assert abs(metrics["open_ms"] - sum(breakdown.values())) < 100.0, breakdown
     assert metrics["shader_caches"]["cold"] is False
     assert metrics["pan_bench"]["ratio_median"] is not None
 

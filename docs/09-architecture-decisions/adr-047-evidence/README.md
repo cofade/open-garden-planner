@@ -19,6 +19,11 @@
 | `windows-v8-unfrozen.json` | [37203468689](https://github.com/cofade/open-garden-planner/actions/runs/37203468689) | 06483be | `--cold` |
 | `windows-v8-frozen.json` | same | 06483be | First launch of the bundle (no caches found); leak gate inconclusive (see provenance) |
 | `windows-v8-frozen-warm.json` | same | 06483be | Second launch of the same shot; found the three caches the first launch wrote |
+| `windows-v9-unfrozen.json` | [37206644502](https://github.com/cofade/open-garden-planner/actions/runs/37206644502) | 6ea2d17 | `--cold` |
+| `windows-v9-frozen.json` | same | 6ea2d17 | First fully green run: the pre-registered 20-reload leak gate passes (1.5 MB/reload) |
+| `windows-v9-frozen-warm.json` | same | 6ea2d17 | Warm relaunch (three caches found) |
+| `windows-v9-frozen-leakctl.json` | same | 6ea2d17 | The leak gate's positive control: 25 MB kept per reload read 33.6 MB/reload and failed the gate, as it must |
+| `windows-v9-footprint.txt` | same | 6ea2d17 | dist delta +1.8 MB |
 | `container-6f0c4f4.json` | — | 6f0c4f4 | Cloud container, Mesa llvmpipe (OpenGL), 1280×720, all shots. Ran next to two reviewer renders: correctness numbers valid, timings inflated |
 
 Same code on different runner instances differs by up to 2× in timings; compare ranges, not single values.

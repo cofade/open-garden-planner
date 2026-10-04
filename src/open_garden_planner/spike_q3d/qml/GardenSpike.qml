@@ -131,42 +131,59 @@ Item {
         // The environment pre-filters its light probe once per Texture OBJECT and
         // does not notice later textureData updates (measured by the spike's sky
         // probe) — so every sun change builds a fresh sky Texture.
+        //
+        // Built ONCE per sun change, never bound live: the generator recomputes
+        // the whole sky synchronously on the GUI thread for EVERY input change
+        // (~190 ms each at high quality, llvmpipe), so a live-bound sky recomputed
+        // for each look and sun property even when it was about to be replaced,
+        // and the initial sky at load was built only to be thrown away. Inputs are
+        // set at the cheapest quality, then the quality is raised: one full
+        // generation. Measured (golden hour, 640x360): QML load 1715 -> 67 ms,
+        // set_look 793 -> 0.3 ms, set_sun 2188 -> 348 ms; frames bit-identical.
         Component {
-            id: skyComponent
-            Texture {
-                textureData: ProceduralSkyTextureData {
-                    sunLatitude: root.sunElevation
-                    sunLongitude: root.skyLongitude
-                    skyTopColor: root.skyTop
-                    skyHorizonColor: root.skyHorizon
-                    groundBottomColor: root.night ? "#0a0f14" : "#3c4d2e"
-                    // the background below the horizon is drawn x probeExposure like the sky
-                    // above it, so it meets the fogged meadow without a dark line
-                    groundHorizonColor: root.skyHorizon
-                    sunColor: root.sunDiscColor
-                    skyEnergy: root.night ? 0.25 : 1.0
-                    // The sliver of ground hemisphere between the far-clipped meadow and
-                    // the true horizon drew a 1-3 px darker line in every fogged view: 1.0
-                    // by day matches the sky's horizon (0.9 was darker), and groundCurve
-                    // 0.1 keeps the dark groundBottomColor out of the horizon texels — the
-                    // default 0.02 is ~32 % of the way to it 0.7 deg below the horizon
-                    // (morning dip 10.8 -> 0.2 luma; shaded walls +5 luma from the
-                    // brighter lower sky, ground shadows unchanged; creator round 2)
-                    groundEnergy: root.night ? 0.15 : 1.0
-                    groundCurve: 0.1
-                    sunEnergy: root.night ? 0.0 : 1.0
-                    textureQuality: ProceduralSkyTextureData.SkyTextureQualityHigh
-                }
+            id: skyDataComponent
+            ProceduralSkyTextureData {
+                textureQuality: ProceduralSkyTextureData.SkyTextureQualityLow
             }
         }
-        property var skyTexture: null
-        function rebuildSky() {
-            var old = skyTexture
-            skyTexture = skyComponent.createObject(view.scene)
-            if (old)
-                old.destroy()
+        Component {
+            id: skyTextureComponent
+            Texture {}
         }
-        Component.onCompleted: rebuildSky()
+        property var skyTexture: null
+        property var skyData: null
+        function rebuildSky() {
+            var data = skyDataComponent.createObject(view.scene)
+            data.sunLatitude = root.sunElevation
+            data.sunLongitude = root.skyLongitude
+            data.skyTopColor = root.skyTop
+            data.skyHorizonColor = root.skyHorizon
+            data.groundBottomColor = root.night ? "#0a0f14" : "#3c4d2e"
+            // the background below the horizon is drawn x probeExposure like the sky
+            // above it, so it meets the fogged meadow without a dark line
+            data.groundHorizonColor = root.skyHorizon
+            data.sunColor = root.sunDiscColor
+            data.skyEnergy = root.night ? 0.25 : 1.0
+            // The sliver of ground hemisphere between the far-clipped meadow and
+            // the true horizon drew a 1-3 px darker line in every fogged view: 1.0
+            // by day matches the sky's horizon (0.9 was darker), and groundCurve
+            // 0.1 keeps the dark groundBottomColor out of the horizon texels — the
+            // default 0.02 is ~32 % of the way to it 0.7 deg below the horizon
+            // (morning dip 10.8 -> 0.2 luma; shaded walls +5 luma from the
+            // brighter lower sky, ground shadows unchanged; creator round 2)
+            data.groundEnergy = root.night ? 0.15 : 1.0
+            data.groundCurve = 0.1
+            data.sunEnergy = root.night ? 0.0 : 1.0
+            data.textureQuality = ProceduralSkyTextureData.SkyTextureQualityHigh
+            var oldTexture = skyTexture
+            var oldData = skyData
+            skyTexture = skyTextureComponent.createObject(view.scene, {"textureData": data})
+            skyData = data
+            if (oldTexture)
+                oldTexture.destroy()
+            if (oldData)
+                oldData.destroy()
+        }
 
         PerspectiveCamera {
             id: cam

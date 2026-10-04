@@ -123,6 +123,14 @@ def _flag_value(spike_args: list[str], flag: str) -> str | None:
     return None
 
 
+def _attributed(open_ms: float | None, breakdown: object) -> bool:
+    """Two-sided: every bucket is a number and together they explain open time."""
+    if open_ms is None or not isinstance(breakdown, dict) or not breakdown:
+        return False
+    parts = [_num(v) for v in breakdown.values()]
+    return all(p is not None for p in parts) and abs(open_ms - sum(parts)) < 100.0  # type: ignore[arg-type]
+
+
 def _requested_sections(spike_args: list[str]) -> list[str]:
     flags = {arg.split("=", 1)[0] for arg in spike_args}
     sections = [section for flag, section in _REQUIRED_SECTIONS.items() if flag in flags]
@@ -165,6 +173,8 @@ def _verdict(metrics: dict, spike_args: list[str] | None = None,
                ("open time includes QML load and scene build",
                 open_ms is not None and first_ready is not None and qml_load is not None
                 and open_ms >= first_ready + qml_load),
+               ("open time is fully attributed (breakdown within 100 ms)",
+                _attributed(open_ms, metrics.get("open_breakdown_ms"))),
                ("the run records which shader caches it found", isinstance(caches, dict))]
     if expect_caches is not None and isinstance(caches, dict):
         found = caches.get("found_before_run")

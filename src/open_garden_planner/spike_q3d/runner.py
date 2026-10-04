@@ -909,12 +909,17 @@ def _run(args: argparse.Namespace, out: Path, log: SpikeLog, metrics: dict[str, 
     def sun_for(when_utc: datetime) -> Any:
         return sun_state(lat, lon, when_utc)
 
+    # Preset, mood, sun (which builds the sky) and camera: part of what the user
+    # waits through, timed as its own bucket (senior review: ~3 s of open time sat
+    # in no bucket, most of it the sky regenerating on every bound input).
+    t0 = time.perf_counter()
     renderer.set_preset(presets[0])
     first_sun = sun_for(first_when)
     renderer.set_look(look_for(first_sun))
     renderer.set_sun(first_sun)
     if shots:
         renderer.set_camera(shots[0].eye, shots[0].target, shots[0].fov)
+    metrics["look_and_sun_ms"] = (time.perf_counter() - t0) * 1000.0
     renderer.show()
     log("shown", exposed=renderer.is_exposed())
     renderer.wait_frames(2, timeout_s=max(args.frame_timeout_s, 300.0), label="first_frame")
@@ -931,6 +936,7 @@ def _run(args: argparse.Namespace, out: Path, log: SpikeLog, metrics: dict[str, 
         "build_models": round(metrics["build_models_ms"], 1),
         "qml_load": round(metrics["qml_load_ms"], 1),
         "scene_apply": round(metrics["scene_apply_ms"], 1),
+        "look_and_sun": round(metrics["look_and_sun_ms"], 1),
         "show_to_first_ready": metrics["first_ready_ms"]}
     metrics["graphics_api"] = renderer.graphics_api()
     log("first_frame", ms=round(metrics["first_frame_ms"] or -1.0, 1),

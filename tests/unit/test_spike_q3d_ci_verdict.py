@@ -31,6 +31,9 @@ def _metrics(**overrides: object) -> dict:
         "first_ready_ms": 1200.0,
         "qml_load_ms": 300.0,
         "open_ms": 2500.0,
+        "open_breakdown_ms": {"ground_bake": 100.0, "build_models": 400.0, "qml_load": 300.0,
+                              "scene_apply": 10.0, "look_and_sun": 490.0,
+                              "show_to_first_ready": 1200.0},
         "shader_caches": {"cold": False, "disabled_by_env": [], "found_before_run": []},
         "qt_messages": {"counts": {"error": 0, "warning": 0, "info": 0}, "errors": [],
                         "warnings": []},
@@ -118,8 +121,15 @@ def test_cold_and_warm_runs_are_checked(driver, found: list, expect: str, ok: bo
 def test_open_time_must_include_the_qml_load(driver) -> None:
     assert driver._verdict(_metrics(qml_load_ms=None), ARGS) == [
         "open time includes QML load and scene build"]  # missing is not zero
+
+
+def test_open_time_must_be_fully_attributed(driver) -> None:
+    # 3 s of open time in no bucket (the sky, senior review round 3) must fail
+    assert driver._verdict(_metrics(open_ms=5500.0), ARGS) == [
+        "open time is fully attributed (breakdown within 100 ms)"]
     # open_ms shorter than show->readback plus the QML load measured something else
     failures = driver._verdict(_metrics(open_ms=1300.0), ARGS)
-    assert failures == ["open time includes QML load and scene build"]
+    assert failures == ["open time includes QML load and scene build",
+                        "open time is fully attributed (breakdown within 100 ms)"]
     assert "the run records which shader caches it found" in driver._verdict(
         _metrics(shader_caches=None), ARGS)

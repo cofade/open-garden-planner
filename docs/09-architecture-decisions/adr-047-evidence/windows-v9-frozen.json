@@ -1,0 +1,490 @@
+{
+  "_provenance": {
+    "workflow": "spike-q3d.yml (temporary)",
+    "run_id": "37206644502",
+    "run_url": "https://github.com/cofade/open-garden-planner/actions/runs/37206644502",
+    "commit": "6ea2d17",
+    "runner": "windows-latest (no GPU: Direct3D 11 on WARP)",
+    "mode": "frozen",
+    "extracted_from": "job log (artifact host unreachable from the analysis container)",
+    "note": "All 38 checks passed, zero Qt messages. First launch of the bundle (no caches found). The pre-registered leak gate: 100 cycles, 20 project reloads, private bytes, Theil-Sen slope over the last ten 1.52 MB/reload (< 10). second_window.frame_diff_vs_first 9.75 measured a stale reference frame (grabbed right after the update probe restored its state, before a redraw); fixed after this run."
+  },
+  "status": "ok",
+  "platform": "Windows-10-10.0.26100-SP0",
+  "python": "3.11.9",
+  "frozen": true,
+  "plan": "tests\\fixtures\\plans\\bench_small.ogp",
+  "host": "view",
+  "size": [
+    960,
+    540
+  ],
+  "env": {
+    "QSG_RHI_BACKEND": null,
+    "QT_QPA_PLATFORM": null,
+    "QSG_RHI_PREFER_SOFTWARE_RENDERER": null,
+    "QSG_RENDER_LOOP": null
+  },
+  "qt": "6.11.0",
+  "shader_caches": {
+    "cold": false,
+    "disabled_by_env": [],
+    "found_before_run": []
+  },
+  "load_plan_ms": 250.2607999999782,
+  "ground_bake_ms": 130.93650000001844,
+  "build_models_ms": 503.9100999999846,
+  "build": {
+    "date": "2026-06-21",
+    "items": 99,
+    "models": 92,
+    "triangles": 185164,
+    "by_kind_ms": {
+      "RAIN_BARREL": 1.5,
+      "WHEELBARROW": 0.2,
+      "COMPOST_BIN": 0.2,
+      "TRAMPOLINE": 1.6,
+      "BIRD_BATH": 0.8,
+      "BENCH": 0.5,
+      "FIRE_PIT": 0.5,
+      "BBQ_GRILL": 0.5,
+      "CHAIR": 2.1,
+      "TABLE_RECTANGULAR": 0.4,
+      "plants": 440.5,
+      "TRELLIS": 1.3,
+      "CONTAINER_ROUND": 1.4,
+      "RAISED_BED": 0.6,
+      "GARDEN_BED": 0.0,
+      "PATH": 0.0,
+      "WALL": 0.3,
+      "HEDGE_POLYGON": 10.1,
+      "FENCE": 16.7,
+      "PERGOLA": 1.1,
+      "GARAGE_SHED": 1.4,
+      "GREENHOUSE": 3.0,
+      "HOUSE": 1.2,
+      "POND_POOL": 0.4,
+      "DRIVEWAY": 0.0,
+      "TERRACE_PATIO": 0.0,
+      "LAWN": 0.0,
+      "grass": 9.0
+    }
+  },
+  "qt_messages": {
+    "counts": {
+      "error": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "errors": [],
+    "warnings": []
+  },
+  "qml_load_ms": 1686.5637999999876,
+  "scene_apply_ms": 8.149400000036167,
+  "geometry_upload_ms_total": 43.03960000004281,
+  "first_frame_ms": 4430.8386000000155,
+  "first_ready_ms": 63276.0,
+  "open_ms": 68629.8,
+  "open_breakdown_ms": {
+    "ground_bake": 130.9,
+    "build_models": 503.9,
+    "qml_load": 1686.6,
+    "scene_apply": 8.1,
+    "show_to_first_ready": 63276.0
+  },
+  "graphics_api": "Direct3D11Rhi",
+  "shots": [
+    {
+      "shot": "golden_hour",
+      "preset": "low",
+      "file": "golden_hour_low.png",
+      "sun_elev": 15.23,
+      "sun_az": 288.8,
+      "sun_date": "2026-06-21",
+      "build_date": "2026-06-21",
+      "settle_ms": 59071.5,
+      "grab_ms": 58756.4
+    },
+    {
+      "shot": "golden_hour",
+      "preset": "high",
+      "file": "golden_hour_high.png",
+      "sun_elev": 15.23,
+      "sun_az": 288.8,
+      "sun_date": "2026-06-21",
+      "build_date": "2026-06-21",
+      "settle_ms": 69801.5,
+      "grab_ms": 1074.0
+    }
+  ],
+  "fps": {
+    "low": 7.26,
+    "high": 4.07
+  },
+  "builds": {
+    "2026-06-21": {
+      "items": 99,
+      "models": 92,
+      "triangles": 185164,
+      "build_ms": 503.9
+    }
+  },
+  "shadow_iou": {
+    "preset": "high",
+    "azimuth_deg": 225.0,
+    "caster_cm": [
+      100.0,
+      100.0,
+      200.0
+    ],
+    "px_per_cm": 0.5,
+    "device_pixel_ratio": 1.0,
+    "results": {
+      "15deg": {
+        "iou": 0.9799,
+        "measured_px": 25636,
+        "analytic_px": 25260,
+        "lit_luma": 119.0,
+        "centroid_measured_cm": [
+          281.0,
+          279.0
+        ],
+        "centroid_analytic_cm": [
+          278.2,
+          277.4
+        ]
+      },
+      "35deg": {
+        "iou": 0.9839,
+        "measured_px": 10096,
+        "analytic_px": 10100,
+        "lit_luma": 241.2,
+        "centroid_measured_cm": [
+          125.9,
+          125.8
+        ],
+        "centroid_analytic_cm": [
+          125.5,
+          126.5
+        ]
+      },
+      "60deg": {
+        "iou": 0.9634,
+        "measured_px": 3952,
+        "analytic_px": 4100,
+        "lit_luma": 255.0,
+        "centroid_measured_cm": [
+          65.1,
+          65.1
+        ],
+        "centroid_analytic_cm": [
+          65.5,
+          66.5
+        ]
+      }
+    }
+  },
+  "shadow_iou_by_preset": {
+    "low": {
+      "preset": "low",
+      "azimuth_deg": 225.0,
+      "caster_cm": [
+        100.0,
+        100.0,
+        200.0
+      ],
+      "px_per_cm": 0.5,
+      "device_pixel_ratio": 1.0,
+      "results": {
+        "15deg": {
+          "iou": 0.97,
+          "measured_px": 25299,
+          "analytic_px": 25260,
+          "lit_luma": 119.0,
+          "centroid_measured_cm": [
+            283.2,
+            281.2
+          ],
+          "centroid_analytic_cm": [
+            278.2,
+            277.4
+          ]
+        },
+        "35deg": {
+          "iou": 0.9629,
+          "measured_px": 9812,
+          "analytic_px": 10100,
+          "lit_luma": 241.2,
+          "centroid_measured_cm": [
+            126.2,
+            126.1
+          ],
+          "centroid_analytic_cm": [
+            125.5,
+            126.5
+          ]
+        },
+        "60deg": {
+          "iou": 0.9366,
+          "measured_px": 3842,
+          "analytic_px": 4100,
+          "lit_luma": 255.0,
+          "centroid_measured_cm": [
+            65.8,
+            65.8
+          ],
+          "centroid_analytic_cm": [
+            65.5,
+            66.5
+          ]
+        }
+      }
+    },
+    "high": {
+      "preset": "high",
+      "azimuth_deg": 225.0,
+      "caster_cm": [
+        100.0,
+        100.0,
+        200.0
+      ],
+      "px_per_cm": 0.5,
+      "device_pixel_ratio": 1.0,
+      "results": {
+        "15deg": {
+          "iou": 0.9799,
+          "measured_px": 25636,
+          "analytic_px": 25260,
+          "lit_luma": 119.0,
+          "centroid_measured_cm": [
+            281.0,
+            279.0
+          ],
+          "centroid_analytic_cm": [
+            278.2,
+            277.4
+          ]
+        },
+        "35deg": {
+          "iou": 0.9839,
+          "measured_px": 10096,
+          "analytic_px": 10100,
+          "lit_luma": 241.2,
+          "centroid_measured_cm": [
+            125.9,
+            125.8
+          ],
+          "centroid_analytic_cm": [
+            125.5,
+            126.5
+          ]
+        },
+        "60deg": {
+          "iou": 0.9634,
+          "measured_px": 3952,
+          "analytic_px": 4100,
+          "lit_luma": 255.0,
+          "centroid_measured_cm": [
+            65.1,
+            65.1
+          ],
+          "centroid_analytic_cm": [
+            65.5,
+            66.5
+          ]
+        }
+      }
+    }
+  },
+  "orientation": {
+    "ground_texture_ncc": {
+      "identity": 0.9564,
+      "flip_v": 0.0161,
+      "flip_h": -0.0323,
+      "flip_both": -0.0432
+    },
+    "ground_texture_ok": true,
+    "sky_sun_disc": {
+      "sun_az_90": {
+        "-25": {
+          "view_az": 65.0,
+          "disc_offset_deg": 24.6,
+          "measured_az": 89.6,
+          "error_deg": -0.37,
+          "contrast": 213.3
+        },
+        "+25": {
+          "view_az": 115.0,
+          "disc_offset_deg": -24.2,
+          "measured_az": 90.8,
+          "error_deg": 0.79,
+          "contrast": 213.3
+        }
+      },
+      "sun_az_180": {
+        "-25": {
+          "view_az": 155.0,
+          "disc_offset_deg": 24.6,
+          "measured_az": 179.6,
+          "error_deg": -0.37,
+          "contrast": 213.3
+        },
+        "+25": {
+          "view_az": 205.0,
+          "disc_offset_deg": -24.2,
+          "measured_az": 180.8,
+          "error_deg": 0.79,
+          "contrast": 213.3
+        }
+      },
+      "sun_az_270": {
+        "-25": {
+          "view_az": 245.0,
+          "disc_offset_deg": 24.6,
+          "measured_az": 269.6,
+          "error_deg": -0.37,
+          "contrast": 213.3
+        },
+        "+25": {
+          "view_az": 295.0,
+          "disc_offset_deg": -25.5,
+          "measured_az": 269.5,
+          "error_deg": -0.51,
+          "contrast": 213.3
+        }
+      }
+    },
+    "sky_look_offsets_deg": [
+      -25.0,
+      25.0
+    ],
+    "sky_max_abs_error_deg": 0.79,
+    "sky_ok": true
+  },
+  "pick": {
+    "n": 20,
+    "hits": 20,
+    "hits_after_reattach": 20,
+    "reattach_frame_diff": 0.0,
+    "adversarial_n": 10,
+    "adversarial_hits": 10,
+    "adversarial_misses": [],
+    "max_xy_err_cm": 0.0,
+    "max_projection_err_px": 0.0,
+    "pick_ms": {
+      "n": 20,
+      "median": 0.25,
+      "max": 0.45,
+      "p95": 0.41
+    },
+    "misses": [],
+    "camera": "orthographic top-down"
+  },
+  "update_bench": {
+    "vertices": 100489,
+    "triangles": 199712,
+    "set_mesh_ms": {
+      "n": 10,
+      "median": 23.66,
+      "max": 79.0
+    },
+    "to_next_frame_ms": {
+      "n": 10,
+      "median": 464.8,
+      "max": 656.94
+    }
+  },
+  "second_window": {
+    "frame_diff_vs_first": 9.751,
+    "qml_load_ms": 1685.6,
+    "first_frame_ms": 5533.3,
+    "first_ready_ms": 65254.8,
+    "total_ms": 69992.4
+  },
+  "coexist": {
+    "share_opengl_contexts": false,
+    "quick_graphics_api": "Direct3D11Rhi",
+    "web_loaded": true,
+    "web_rgb_before_3d": [
+      58,
+      123,
+      213
+    ],
+    "web_rgb_after_3d": [
+      58,
+      123,
+      213
+    ],
+    "web_ok": true,
+    "frame3d_diff_vs_reference": 0.0,
+    "frame3d_reference_luma_std": 59.5,
+    "frame3d_ok": true
+  },
+  "pan_bench": {
+    "steps": 120,
+    "without_3d_ms": {
+      "n": 120,
+      "median": 7.88,
+      "max": 57.58,
+      "p95": 26.12
+    },
+    "with_3d_ms": {
+      "n": 120,
+      "median": 15.87,
+      "max": 58100.14,
+      "p95": 16.36
+    },
+    "ratio_median": 2.015,
+    "note": "per pan step incl. flush/composition; vsync can cap real-GPU numbers"
+  },
+  "soak": {
+    "cycles": 100,
+    "reentry_ms": {
+      "n": 100,
+      "median": 60.35,
+      "max": 152.31,
+      "p95": 121.7
+    },
+    "rss_start_mb": 641.2,
+    "rss_end_mb": 776.2,
+    "leak_metric": "private_bytes",
+    "leak_curve_mb": [
+      1026.5,
+      893.4,
+      899.0,
+      923.7,
+      917.8,
+      938.1,
+      933.5,
+      930.8,
+      970.2,
+      967.7,
+      989.7,
+      1017.4,
+      1014.4,
+      1013.0,
+      1011.3,
+      1010.6,
+      1001.1,
+      1027.4,
+      1021.2,
+      1022.1
+    ],
+    "project_reloads": 20,
+    "reload_ms": {
+      "n": 20,
+      "median": 1217.35,
+      "max": 1301.71,
+      "p95": 1287.28
+    },
+    "models_per_reload_ok": true,
+    "leak_slope_mb_per_reload": 1.52,
+    "wind_time_before": 0.0,
+    "wind_time_after": 1.58,
+    "frames_while_animating": 8,
+    "animation_advanced": true,
+    "event_loop_exit_code": 0
+  },
+  "wait_timeouts": 0,
+  "total_s": 703.38
+}

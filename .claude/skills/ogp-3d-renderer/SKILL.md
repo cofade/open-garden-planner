@@ -60,6 +60,14 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
   later `textureData` changes, so build a fresh sky `Texture` on every sun change
   (`createObject(view.scene)`, destroy the old one — parenting to `view.scene` avoids the "not
   placed in the graphics scene" warning).
+- **`ProceduralSkyTextureData` regenerates the whole sky synchronously, on the GUI thread, on
+  every input change** (~190 ms each at `SkyTextureQualityHigh`, llvmpipe). Never bind its
+  inputs live, and build no sky before the first sun is known: the spike's live-bound sky was
+  rebuilt about six times per open and its initial one was thrown away. Build it once per sun
+  change — create the data at `SkyTextureQualityLow`, set every input, raise the quality last
+  (one full generation). Measured (golden hour, 640×360, llvmpipe): QML load 1715 → 67 ms,
+  `set_look` 793 → 0.3 ms, `set_sun` 2188 → 348 ms, a mood + sun change 2973 → 372 ms;
+  frames bit-identical.
 - If the image-based light out-shines the sun, the whole frame reads flat and blue —
   `probeExposure` 0.35–0.55 against sun brightness 1.7–2.1 (rigs in `ogp-lush-cinematic` §3).
 - **Shadow truth** (box 100 × 100 × 200 cm, azimuth 225°, IoU of the engine's shadow-map
@@ -113,11 +121,14 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
 - **Ownership:** a texture created in Python is owned by Python, so something must hold it while
   QML shows it — exactly the one shown. An append-only keep-alive list grew RSS by one baked
   ground (2400×1600 RGBA ≈ 15 MB + GPU copy) per project reload, linearly; holding only the
-  shown texture and releasing the old one *after* the scene shows the new one settled (soak,
-  10 reloads, llvmpipe, slope −1.5 MB/reload). Judge leaks by `leak_slope_mb_per_reload`
-  (Theil–Sen over the second half), never by total growth — the first reload adds ~70 MB
-  either way — and in committed memory: on Windows the working set swings by ±50 MB
-  (run v7: 800 → 707 → 766 MB, no leak), so the soak reads private bytes there.
+  shown texture and releasing the old one *after* the scene shows the new one settled (A/B,
+  10 reloads, llvmpipe). Judge leaks by `leak_slope_mb_per_reload` (Theil–Sen over the second
+  half of the reloads), never by total growth — the first reload adds ~70 MB either way — in
+  committed memory (private bytes on Windows: its working set is trimmed and regrown, so v7
+  could not judge a leak at all), over **20 reloads**: at 10, five points could not resolve
+  10 MB/reload against ±30–60 MB swings (WARP v8; llvmpipe once read 14.3 at ±35 MB). Trust
+  the gate only with its positive control on the same machine (`--soak-leak-mb 25` must fail
+  it). Private bytes do not see VRAM: on a discrete GPU the gate is blind to GPU-side leaks.
 
 ## 6. Hosts
 

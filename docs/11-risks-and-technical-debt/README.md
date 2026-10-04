@@ -642,6 +642,18 @@ the "black hole" of two runs sharing a key (ADR-041). The rebinding moved into
 (it caught the old script at once). *A rebinding of process-wide names belongs
 in an entry point, never at import time.*
 
+**12. A procedural sky bound live regenerates on every input.**
+`ProceduralSkyTextureData` recomputes the whole sky synchronously on the GUI
+thread for each input change (~190 ms at high quality on llvmpipe). The spike
+bound its inputs to root properties and built a default sky at load, so one
+open regenerated it about six times and threw the first one away: ~4.6 s of
+CPU, filed under "QML load" or no bucket at all (senior review). Built once per
+sun change, inputs set at low quality and raised last, the frames are
+bit-identical and the QML load drops from 1715 to 67 ms. On a GPU, where the
+render itself is fast, this would have been the largest term against the 2.5 s
+warm-open budget. *An input bound live to an expensive generator is a hidden
+loop; time every bucket and require the buckets to add up.*
+
 ## 11.5 Community and Governance
 
 **Feature Requests**: Open to community input, pivots, and voting. The goal is to avoid a dead project — community engagement is welcome.
