@@ -60,6 +60,7 @@ def suggest_companions_for_agent(
     species_key: str,
     *,
     exclude_antagonists_of: list[str] | None = None,
+    language: str = "en",
 ) -> list[CompanionSuggestion]:
     """Suggest companion plants for a species, ranked by benefit.
 
@@ -68,12 +69,17 @@ def suggest_companions_for_agent(
         species_key: The species to find companions for.
         exclude_antagonists_of: Species keys whose antagonists should be
             excluded from suggestions.
+        language: UI language code for the ``name`` display string. The
+            ``species_key`` is a stable machine key and never changes with it.
 
     Returns:
         A list of CompanionSuggestion models, sorted by score descending.
     """
     raw = suggest_companions(
-        service, species_key, exclude_antagonists_of=exclude_antagonists_of
+        service,
+        species_key,
+        exclude_antagonists_of=exclude_antagonists_of,
+        language=language,
     )
     return [CompanionSuggestion(**item) for item in raw]
 

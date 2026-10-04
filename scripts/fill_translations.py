@@ -365,6 +365,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     # ── CircleItem (context menu — pylupdate6 cannot extract _ alias) ──
     "CircleItem": {
+        # Area label (US-11.9) and soil test (US-12.10a).
+        "Show Area": "Fläche anzeigen",
+        "Add soil test…": "Bodenprobe hinzufügen…",
+        "Log Pest/Disease…": "Schädling/Krankheit eintragen…",
         "Delete": "Löschen",
         "Duplicate": "Duplizieren",
         "Create Linear Array...": "Lineares Muster erstellen...",
@@ -1363,6 +1367,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     # ── PolygonItem (context menu — pylupdate6 cannot extract _ alias) ──
     "PolygonItem": {
+        # Area label (US-11.9) and soil test (US-12.10a).
+        "Show Area": "Fläche anzeigen",
+        "Add soil test…": "Bodenprobe hinzufügen…",
+        "Log Pest/Disease…": "Schädling/Krankheit eintragen…",
         "Exit Vertex Edit Mode": "Knotenbearbeitungsmodus beenden",
         "Edit Vertices": "Knoten bearbeiten",
         "Edit Label": "Beschriftung bearbeiten",
@@ -1629,6 +1637,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     # ── EllipseItem (context menu — pylupdate6 cannot extract _ alias) ──
     "EllipseItem": {
+        # Area label (US-11.9) and soil test (US-12.10a).
+        "Show Area": "Fläche anzeigen",
+        "Add soil test…": "Bodenprobe hinzufügen…",
+        "Log Pest/Disease…": "Schädling/Krankheit eintragen…",
         "Edit Label": "Beschriftung bearbeiten",
         "Delete": "Löschen",
         "Duplicate": "Duplizieren",
@@ -1698,6 +1710,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     # ── RectangleItem (context menu — pylupdate6 cannot extract _ alias) ──
     "RectangleItem": {
+        # Area label (US-11.9) and soil test (US-12.10a).
+        "Show Area": "Fläche anzeigen",
+        "Add soil test…": "Bodenprobe hinzufügen…",
+        "Log Pest/Disease…": "Schädling/Krankheit eintragen…",
         "Exit Vertex Edit Mode": "Knotenbearbeitungsmodus beenden",
         "Edit Vertices": "Knoten bearbeiten",
         "Edit Label": "Beschriftung bearbeiten",
@@ -1848,20 +1864,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Delete": "Löschen",
     },
 
-    # ── CircleItem — area label (US-11.9) ──
-    "CircleItem": {
-        "Show Area": "Fläche anzeigen",
-        "Add soil test…": "Bodenprobe hinzufügen…",
-        "Log Pest/Disease…": "Schädling/Krankheit eintragen…",
-    },
-
-    # ── EllipseItem — area label (US-11.9) and soil test (US-12.10a) ──
-    "EllipseItem": {
-        "Show Area": "Fläche anzeigen",
-        "Add soil test…": "Bodenprobe hinzufügen…",
-        "Log Pest/Disease…": "Schädling/Krankheit eintragen…",
-    },
-
     # ── FindReplacePanel (US-11.24) ──
     "FindReplacePanel": {
         "Find & Replace": "Suchen & Ersetzen",
@@ -1878,20 +1880,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Bulk change layer:": "Ebene ändern:",
         "Replace species:": "Art ersetzen:",
         "Apply": "Anwenden",
-    },
-
-    # ── PolygonItem — area label (US-11.9) and soil test (US-12.10a) ──
-    "PolygonItem": {
-        "Show Area": "Fläche anzeigen",
-        "Add soil test…": "Bodenprobe hinzufügen…",
-        "Log Pest/Disease…": "Schädling/Krankheit eintragen…",
-    },
-
-    # ── RectangleItem — area label (US-11.9) and soil test (US-12.10a) ──
-    "RectangleItem": {
-        "Show Area": "Fläche anzeigen",
-        "Add soil test…": "Bodenprobe hinzufügen…",
-        "Log Pest/Disease…": "Schädling/Krankheit eintragen…",
     },
 
     # ── ObjectType (from QT_TR_NOOP in object_types.py — missing from pylupdate6) ──
@@ -2164,6 +2152,17 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     # ── PdfReportService (service-layer strings written into the PDF) ──
     "PdfReportService": {
         "N": "N",
+        # Shopping list extension (US-12.6).
+        "Shopping List": "Einkaufsliste",
+        "Category": "Kategorie",
+        "Item": "Artikel",
+        "Quantity": "Menge",
+        "Unit": "Einheit",
+        "Price": "Preis",
+        "Total": "Gesamt",
+        "Notes": "Notizen",
+        "Grand total": "Gesamtsumme",
+        "Shopping list is empty.": "Einkaufsliste ist leer.",
         "Plant List": "Pflanzenliste",
         "Legend": "Legende",
         "Bed": "Beet",
@@ -2466,19 +2465,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     },
 
-    # ── PdfReportService extensions for shopping list (US-12.6) ──
-    "PdfReportService": {
-        "Shopping List": "Einkaufsliste",
-        "Category": "Kategorie",
-        "Item": "Artikel",
-        "Quantity": "Menge",
-        "Unit": "Einheit",
-        "Price": "Preis",
-        "Total": "Gesamt",
-        "Notes": "Notizen",
-        "Grand total": "Gesamtsumme",
-        "Shopping list is empty.": "Einkaufsliste ist leer.",
-    },
 }
 
 

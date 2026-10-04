@@ -203,3 +203,27 @@ class TestCheckPlacementResolvesTheBed:
 
         result = app._do_agent_check_placement("tomato", bed.item_id_str)
         assert result["overall"] == "neutral"
+
+
+class TestSuggestCompanionsLanguage:
+    """Issue #410: the companion display name follows the UI language."""
+
+    def test_name_follows_the_ui_language(self, app: Any) -> None:
+        get_settings().language = "en"
+        english = app._agent_suggest_companions("tomato")
+        get_settings().language = "de"
+        try:
+            german = app._agent_suggest_companions("tomato")
+        finally:
+            get_settings().language = "en"
+
+        assert english and german
+        # The machine key never moves with the language.
+        assert [s["species_key"] for s in english] == [
+            s["species_key"] for s in german
+        ]
+        # The display name does.
+        assert any(
+            de["name"] != en["name"]
+            for de, en in zip(german, english, strict=True)
+        ), "the provider did not pass the active language through"

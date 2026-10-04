@@ -624,9 +624,19 @@
     "state": "OPEN",
     "title": "Repository audit 2026-10 — hardening ledger (epic)"
   },
+  "393": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "fill_translations.py: 5 duplicate context keys drop 62 translations; German PDF 'Garden Notes' page prints 5 strings in English (Audit 2026-10, epic #392)"
+  },
   "408": {
     "is_pr": false,
     "state": "OPEN",
     "title": "Generated soil amendment task names remain English with German UI"
+  },
+  "410": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "suggest_companions returns English plant names with a German UI (D3.1 display string not localised)"
   }
 }

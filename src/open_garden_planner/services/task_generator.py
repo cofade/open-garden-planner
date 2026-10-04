@@ -88,17 +88,23 @@ class PlantRowInput:
 class BedInput:
     """A bed plus its precomputed soil tasks.
 
-    ``amendment_recs`` is a tuple of ``(amendment_name, rationale)`` pairs and
-    ``mismatch_plants`` a tuple of plant display names whose soil preference
-    clashes with the bed — both precomputed by the caller so the generators stay
-    Qt-free and need no soil-service import. The caller flattens each
-    :class:`~open_garden_planner.models.amendment.AmendmentRecommendation` into a
-    small display pair.
+    ``amendment_recs`` is a tuple of ``(stable_name, display_name, rationale)``
+    triples and ``mismatch_plants`` a tuple of plant display names whose soil
+    preference clashes with the bed — both precomputed by the caller so the
+    generators stay Qt-free and need no soil-service import. The caller flattens
+    each :class:`~open_garden_planner.models.amendment.AmendmentRecommendation`
+    into a small display triple.
+
+    ``stable_name`` is the amendment's English data name and is used verbatim in
+    the generated task id, so switching the UI language never changes a task's
+    identity (the saved done/snooze state in ``task_states`` is keyed by
+    ``task_id``). ``display_name`` is the name in the active UI language and is
+    the only part rendered in the task title.
     """
 
     bed_id: str
     name: str
-    amendment_recs: tuple[tuple[str, str], ...] = ()
+    amendment_recs: tuple[tuple[str, str, str], ...] = ()
     mismatch_plants: tuple[str, ...] = ()
 
 
@@ -294,14 +300,16 @@ def generate_soil_amendment_tasks(state: PlanState) -> list[Task]:
     """One task per precomputed amendment recommendation per bed (always due today)."""
     tasks: list[Task] = []
     for bed in state.beds:
-        for name, rationale in bed.amendment_recs:
+        for stable_name, display_name, rationale in bed.amendment_recs:
             # Key by amendment identity (not list position) so a done/snooze
             # marker stays pinned to the right amendment if the order changes.
+            # The id uses the English data name (stable across UI languages);
+            # only the title follows the active language (#408).
             tasks.append(Task(
-                task_id=f"soil_amendment:{bed.bed_id}:{name}",
+                task_id=f"soil_amendment:{bed.bed_id}:{stable_name}",
                 source="soil",
                 task_type="soil_amendment",
-                title=f"{name} — {bed.name}",
+                title=f"{display_name} — {bed.name}",
                 notes=rationale,
                 bed_id=bed.bed_id,
                 start_date=state.today,
@@ -671,13 +679,20 @@ def generate_for_date_window(
 
 def _bed_amendment_recs(
     bed_id: str, item: Any, soil_service: Any | None
-) -> tuple[tuple[str, str], ...]:
-    """Flatten a bed's amendment recommendations into (name, rationale) pairs."""
+) -> tuple[tuple[str, str, str], ...]:
+    """Flatten a bed's amendment recommendations into display triples.
+
+    Returns ``(stable_name, display_name, rationale)`` per recommendation. The
+    stable name is the amendment's English data name and keeps the task id
+    language-independent; the display name follows the active UI language
+    (#408).
+    """
     if soil_service is None:
         return ()
     record = soil_service.get_effective_record(bed_id)
     if record is None:
         return ()
+    from open_garden_planner.app.settings import active_language  # noqa: PLC0415
     from open_garden_planner.core.measurements import (  # noqa: PLC0415
         calculate_area_and_perimeter,
     )
@@ -689,12 +704,16 @@ def _bed_amendment_recs(
     area_m2 = result[0] / 10_000.0
     if area_m2 <= 0.0:
         return ()
+    lang = active_language()
     recs = SoilService.calculate_amendments(record, bed_area_m2=area_m2)
-    pairs: list[tuple[str, str]] = []
+    triples: list[tuple[str, str, str]] = []
     for rec in recs:
-        name = rec.amendment.display_name()
-        pairs.append((name, f"~{rec.quantity_g:.0f} g"))
-    return tuple(pairs)
+        triples.append((
+            rec.amendment.name,
+            rec.amendment.display_name(lang),
+            f"~{rec.quantity_g:.0f} g",
+        ))
+    return tuple(triples)
 
 
 def _bed_mismatch_plants(

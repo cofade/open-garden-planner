@@ -724,3 +724,18 @@ def get_settings() -> AppSettings:
     if _settings_instance is None:
         _settings_instance = AppSettings()
     return _settings_instance
+
+
+def active_language() -> str:
+    """Return the active UI language code, or "en" when settings are unavailable.
+
+    The one source of the UI language for shared, Qt-free services that build a
+    display string. A service that selects a bilingual data field (amendment or
+    companion names) or that must render a name in the user's language calls
+    this rather than defaulting to "en". Returns "en" when no settings exist
+    (for example in a headless import), so callers never raise.
+    """
+    try:
+        return get_settings().language or "en"
+    except Exception:  # noqa: BLE001
+        return "en"

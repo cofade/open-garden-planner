@@ -307,6 +307,7 @@ def suggest_companions(
     species_key: str,
     *,
     exclude_antagonists_of: list[str] | None = None,
+    language: str = "en",
 ) -> list[dict[str, Any]]:
     """Suggest companion plants for a given species, ranked by benefit.
 
@@ -315,6 +316,8 @@ def suggest_companions(
         species_key: The species to find companions for.
         exclude_antagonists_of: Species keys whose antagonists should be
             excluded from suggestions (e.g. plants already in the bed).
+        language: UI language code for the ``name`` display string. The
+            ``species_key`` is a stable machine key and never changes with it.
 
     Returns:
         A list of dicts with keys: species_key, name, reasons, source, score.
@@ -359,7 +362,7 @@ def suggest_companions(
         if other in excluded:
             continue
 
-        name = service.get_display_name(other)
+        name = service.get_display_name(other, language)
         source = service.get_relationship_source(rel)
 
         reasons = [f"beneficial to {species_key}"]

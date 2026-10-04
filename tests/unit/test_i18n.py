@@ -220,6 +220,73 @@ class TestNoHardcodedEnglish:
         )
 
 
+class TestTranslationRegistry:
+    """The fill_translations.py registry must not shadow its own contexts.
+
+    Python keeps only the last block when a dict literal repeats a key, so a
+    duplicated context silently drops every string in the earlier block from
+    the effective registry. ``ruff`` F601 sees this, but only when it is run on
+    ``scripts/`` (it was not, before issue #393). This test parses the literal
+    with ``ast`` so the invariant is checked even if the lint scope changes.
+    """
+
+    def test_translations_literal_has_unique_top_level_keys(self, qtbot) -> None:  # noqa: ARG002
+        import ast
+        from pathlib import Path
+
+        path = Path(__file__).resolve().parents[2] / "scripts" / "fill_translations.py"
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+
+        target = None
+        for node in tree.body:
+            if isinstance(node, ast.Assign) and any(
+                isinstance(t, ast.Name) and t.id == "TRANSLATIONS"
+                for t in node.targets
+            ) or (
+                isinstance(node, ast.AnnAssign)
+                and isinstance(node.target, ast.Name)
+                and node.target.id == "TRANSLATIONS"
+            ):
+                target = node.value
+        assert isinstance(target, ast.Dict), "TRANSLATIONS dict literal not found"
+
+        seen: dict[str, int] = {}
+        duplicates: list[str] = []
+        for key in target.keys:
+            if isinstance(key, ast.Constant) and isinstance(key.value, str):
+                if key.value in seen:
+                    duplicates.append(
+                        f"{key.value!r} (lines {seen[key.value]} and {key.lineno})"
+                    )
+                else:
+                    seen[key.value] = key.lineno
+        assert not duplicates, (
+            "Duplicate top-level context keys shadow earlier translation blocks:\n  "
+            + "\n  ".join(duplicates)
+        )
+
+    def test_german_ts_has_pdf_journal_strings(self, qtbot) -> None:  # noqa: ARG002
+        """The five PDF 'Garden Notes' strings must reach the German .ts.
+
+        They lived only in a shadowed ``PdfReportService`` block, so the
+        opt-in journal-notes PDF page printed them in English (issue #393).
+        """
+        content = (
+            _TRANSLATIONS_DIR / "open_garden_planner_de.ts"
+        ).read_text(encoding="utf-8")
+        for source in (
+            "Garden Notes",
+            "No journal notes recorded.",
+            "(no date)",
+            "(empty)",
+            "(photo: {filename})",
+        ):
+            assert f"<source>{source}</source>" in content, (
+                f"{source!r} is missing from the German .ts — the PdfReportService "
+                "block may be shadowed again"
+            )
+
+
 def _phrase_is_in_string_literal(line: str, phrase: str) -> bool:
     """Return True if ``phrase`` appears inside a quoted string on ``line``.
 

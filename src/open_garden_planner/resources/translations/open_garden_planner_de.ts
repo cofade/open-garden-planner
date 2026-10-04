@@ -8077,6 +8077,26 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>Unnamed</source>
             <translation>Unbenannt</translation>
         </message>
+        <message>
+            <source>Garden Notes</source>
+            <translation>Tagebuchnotizen</translation>
+        </message>
+        <message>
+            <source>No journal notes recorded.</source>
+            <translation>Keine Tagebuchnotizen vorhanden.</translation>
+        </message>
+        <message>
+            <source>(no date)</source>
+            <translation>(kein Datum)</translation>
+        </message>
+        <message>
+            <source>(empty)</source>
+            <translation>(leer)</translation>
+        </message>
+        <message>
+            <source>(photo: {filename})</source>
+            <translation>(Foto: {filename})</translation>
+        </message>
     </context>
     <context>
         <name>MidpointHandle</name>

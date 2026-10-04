@@ -1119,17 +1119,23 @@ class GardenPlannerApp(QMainWindow):
     ) -> list[dict[str, Any]]:
         """Suggest companion plants for a species (US-D3.1, read-only)."""
         from open_garden_planner.agent_api.domain import suggest_companions_for_agent
+        from open_garden_planner.app.settings import active_language
 
-        return self._agent_bridge.run_on_main(
-            lambda: [
+        def _run() -> list[dict[str, Any]]:
+            # Resolve the language on the main thread, beside the other
+            # settings reads the agent bodies perform.
+            language = active_language()
+            return [
                 s.model_dump()
                 for s in suggest_companions_for_agent(
                     self._companion_service,
                     species_key,
                     exclude_antagonists_of=exclude_antagonists_of,
+                    language=language,
                 )
             ]
-        )
+
+        return self._agent_bridge.run_on_main(_run)
 
     def _agent_find_compatible_sets(
         self,

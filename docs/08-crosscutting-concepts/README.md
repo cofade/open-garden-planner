@@ -1623,6 +1623,15 @@ and `services/soil_service.py` build their task titles and amendment names with
 `QCoreApplication.translate`, because the GUI is their primary consumer, so those
 strings cross an API boundary localised. Do not force English at the generator.
 
+**D3.1's companion `name` follows the same rule (issue #410).** `suggest_companions`
+returns `species_key` (a stable machine key) beside `name` (a display string in the
+user's current UI language, selected from `companion_planting.json`'s `name_de` by
+`app/settings.py::active_language()`). Branch on `species_key`, never on `name`. The
+D3.1 tool predated the D3.3/D3.4 convention and shipped with the English default; the
+fix brought it into line. The generated soil-amendment task titles obey the same rule
+(issue #408), with the extra constraint that the task **id** keeps the English data name
+so saved task status survives a language switch.
+
 **The D3 localisation convention (US-D3.3 #332 + US-D3.4 #333, decided).** Epic
 #237 required one answer across both stories, so this is stated once here and in
 the ADR-034 addendum. Every D3 tool carries **two field classes**:

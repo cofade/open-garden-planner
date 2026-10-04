@@ -273,7 +273,8 @@ class AgentProviders:
             stack. Read-only; no token required.
         suggest_companions: **Read (US-D3.1).** Returns ranked companion
             suggestions for a species. Takes (species_key,
-            exclude_antagonists_of). Read-only.
+            exclude_antagonists_of). Read-only. Each `name` is a display
+            string in the current UI language; `species_key` is the stable key.
         find_compatible_sets: **Read (US-D3.1).** Finds mutually compatible
             sets of plants among candidates. Takes (candidates, size,
             must_include). Read-only.
