@@ -170,6 +170,10 @@ src/open_garden_planner/
 │   │   └── collapsible_panel.py
 │   ├── icons.py                  # Central themed icon provider (#279, ADR-039)
 │   └── theme.py                  # Theme system — single source of chrome colors (ADR-039)
+├── spike_q3d/                    # DORMANT Qt Quick 3D GO/NO-GO spike (ADR-047, Phase 17 L0): only
+│                                 #   reached via `--spike-q3d`, never imported at startup; quick.py is
+│                                 #   its ONLY Qt Quick 3D importer, meshes.py is Qt-free numpy;
+│                                 #   graduates into core/scene3d + ui/view3d/quick3d (L1) or is deleted
 ├── services/
 │   ├── plant_api/                # Trefle.io/Perenual/Permapeople integration
 │   │   ├── base.py

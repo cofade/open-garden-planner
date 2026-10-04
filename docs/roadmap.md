@@ -2596,3 +2596,20 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 - Irrigation planning & drip system design
 - Cost estimation & budget tracking (advanced)
 - Cross-platform packaging (macOS, Linux)
+
+---
+
+## Phase 17: Living Garden 3D (epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) — L0 in progress
+
+**Goal**: make the 3D mode the reason to open the app — *Lush Cinematic* look, experience + analyze (editing stays in 2D, 3D only selects), 100 % procedural models, and **truth before beauty** (heights, spreads, sun, shadows, date and north gated against the data). Owner decisions 2026-10-03. Renderer: Qt Quick 3D replacing the deprecated Qt 3D, decided by the ADR-047 GO/NO-GO spike. Every 3D-visible change goes `ogp-3d-creator` → `ogp-3d-reviewer` → `senior-reviewer` (skills `ogp-lush-cinematic`, `ogp-3d-renderer`).
+
+| Status | Package | Description | Issue |
+| ------ | ------- | ----------- | ----- |
+| 🔄 | L0 | **Proof of Beauty** — ADR-047 criteria committed before measuring; deterministic bench plans; dormant `--spike-q3d` renderer with sky, soft shadows, procedural trees/plants/roofs/fences; measurements M1–M12 in the container and the frozen Windows exe; Beauty Board; agents + skills | [#384](https://github.com/cofade/open-garden-planner/issues/384) |
+| 📋 | L1 | **New engine, new light** — sim clock, scene contract v2, engine package, Plan/3D/Split workspace without camera resets, sky + presets, ground bake, built world v0, plant v0, selection sync + walk collision, default flip, Qt 3D removal | [#385](https://github.com/cofade/open-garden-planner/issues/385) |
+| 📋 | L2 | **Analyze in 3D** — shadow and sun-hours drapes, sun path + day sweep, info card + growth jump, cutaway | [#386](https://github.com/cofade/open-garden-planner/issues/386) |
+| 📋 | L3 | **Plant Forge** — procedural species models from the sprite recipes, LODs, phenology | [#387](https://github.com/cofade/open-garden-planner/issues/387) |
+| 📋 | L4 | **Built world complete** — roof styles, paths, glass, 24 object builders, water and lawn | [#388](https://github.com/cofade/open-garden-planner/issues/388) |
+| 📋 | L5 | **Living garden** — year/day playback, weather, particles, wind (needs [#315](https://github.com/cofade/open-garden-planner/issues/315)) | [#389](https://github.com/cofade/open-garden-planner/issues/389) |
+| 📋 | L6 | **Director's cut** — photo mode, camera tours, `render_3d_view` MCP tool | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
+| 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds | [#391](https://github.com/cofade/open-garden-planner/issues/391) |

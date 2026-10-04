@@ -460,6 +460,18 @@ def canvas(qtbot):
 
 Integration tests run automatically in CI (`ci.yml`) alongside unit and widget tests. Qt rendering uses `QT_QPA_PLATFORM=offscreen` — no display server required.
 
+### Render tier (opt-in, Phase 17)
+
+The `offscreen` platform plugin selects Qt Quick's *software* scene graph, which renders no 3D at all — an empty frame, not a wrong one. Tests that must see a real Qt Quick 3D frame therefore form an opt-in **render tier**, skipped unless `OGP_RENDER3D=1` and a display are present:
+
+```bash
+OGP_RENDER3D=1 QSG_RHI_BACKEND=opengl QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 \
+  xvfb-run -a -s "-screen 0 1920x1080x24" \
+  venv/bin/python -m pytest tests/integration/test_spike_q3d_render.py
+```
+
+(Mesa llvmpipe in a container needs `libegl1` and `libxcb-cursor0`; on a dev box with a GPU, drop the environment prefix.) The render runs in a subprocess, and its assertions are about **meaning, never pixel-exact goldens**: shadow-map footprint vs the analytic shadow (IoU ≥ 0.85), north-up ground, the sky's sun at the solar azimuth, 20/20 picks against a CPU oracle, WebEngine and 3D drawing in one process, a clean exit while animating. Headless render tooling writes its own timestamped log and per-phase metrics and arms a watchdog, because a frozen GUI exe has no stdout (§11.4.3). A permanent CI job for this tier is planned with the production engine package (Phase 17, L1.2).
+
 ### 8.10.1 Gating our own documentation's shell commands
 
 `tests/unit/test_gate_commands.py` is a static guard over the **commands our
