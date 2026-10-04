@@ -96,10 +96,11 @@ jobs:
         timeout-minutes: 30
         shell: bash
         run: >
-          python scripts/spike_q3d_ci.py --frozen --out spike-frozen --limit-s 1620 --
+          python scripts/spike_q3d_ci.py --frozen --out spike-frozen --limit-s 1620
+          --expect-caches none --
           --plan tests/fixtures/plans/bench_small.ogp
           --presets low,high --shots golden_hour --fps-seconds 2 --iou --orient
-          --pick --update-bench --second-window --coexist --pan-bench --soak 50
+          --pick --update-bench --second-window --coexist --pan-bench --soak 100
           --size 960x540 --grass-density 60 --frame-timeout-s 120 --watchdog-s 1560
 
       # Criterion 5, warm: the same shot again, now that the first launch of this
@@ -111,10 +112,27 @@ jobs:
         timeout-minutes: 12
         shell: bash
         run: >
-          python scripts/spike_q3d_ci.py --frozen --out spike-frozen-warm --limit-s 660 --
+          python scripts/spike_q3d_ci.py --frozen --out spike-frozen-warm --limit-s 660
+          --expect-caches found --
           --plan tests/fixtures/plans/bench_small.ogp
           --presets low --shots golden_hour --fps-seconds 0
           --size 960x540 --grass-density 60 --frame-timeout-s 120 --watchdog-s 600
+
+      # The leak gate's positive control, on the same runner it judges: the same
+      # 20-reload soak with 25 MB kept alive per reload. The step passes only if
+      # the leak gate fires and nothing else fails (fixed before run v9 read it).
+      - name: Spike, frozen bundle, leak-gate positive control
+        id: leakctl
+        continue-on-error: true
+        timeout-minutes: 12
+        shell: bash
+        run: >
+          python scripts/spike_q3d_ci.py --frozen --out spike-frozen-leakctl --limit-s 660
+          --expect-leak --
+          --plan tests/fixtures/plans/bench_small.ogp
+          --presets low --shots golden_hour --fps-seconds 0 --size 640x360
+          --grass-density 60 --frame-timeout-s 120 --watchdog-s 600
+          --soak 100 --soak-leak-mb 25
 
       - name: Upload evidence
         if: always()
@@ -125,6 +143,7 @@ jobs:
             spike-unfrozen/
             spike-frozen/
             spike-frozen-warm/
+            spike-frozen-leakctl/
             footprint.txt
 
       # LAST: rewrites src/ and installer/ to master in this working tree (the
@@ -163,5 +182,5 @@ jobs:
         if: always()
         shell: pwsh
         run: |
-          "unfrozen=${{ steps.unfrozen.outcome }} smoke=${{ steps.smoke.outcome }} frozen=${{ steps.frozen.outcome }} warm=${{ steps.warm.outcome }}"
-          if ("${{ steps.unfrozen.outcome }}" -ne "success" -or "${{ steps.smoke.outcome }}" -ne "success" -or "${{ steps.frozen.outcome }}" -ne "success" -or "${{ steps.warm.outcome }}" -ne "success") { exit 1 }
+          "unfrozen=${{ steps.unfrozen.outcome }} smoke=${{ steps.smoke.outcome }} frozen=${{ steps.frozen.outcome }} warm=${{ steps.warm.outcome }} leakctl=${{ steps.leakctl.outcome }}"
+          if ("${{ steps.unfrozen.outcome }}" -ne "success" -or "${{ steps.smoke.outcome }}" -ne "success" -or "${{ steps.frozen.outcome }}" -ne "success" -or "${{ steps.warm.outcome }}" -ne "success" -or "${{ steps.leakctl.outcome }}" -ne "success") { exit 1 }

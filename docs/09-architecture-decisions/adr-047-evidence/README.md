@@ -16,6 +16,9 @@
 | `windows-v6-footprint.txt` | same | 6f0c4f4 | Criterion 9: branch and master dist sizes from the same job, delta +1.7 MB, the 6 files only in the branch |
 | `windows-v7-unfrozen.json` | [37201554005](https://github.com/cofade/open-garden-planner/actions/runs/37201554005) | 7a4dcb6 | |
 | `windows-v7-frozen.json` | same | 7a4dcb6 | `--soak 50` with 10 project reloads on D3D11: 31 of 32 checks passed; the leak gate read the noisy working set (see the file's provenance) |
+| `windows-v8-unfrozen.json` | [37203468689](https://github.com/cofade/open-garden-planner/actions/runs/37203468689) | 06483be | `--cold` |
+| `windows-v8-frozen.json` | same | 06483be | First launch of the bundle (no caches found); leak gate inconclusive (see provenance) |
+| `windows-v8-frozen-warm.json` | same | 06483be | Second launch of the same shot; found the three caches the first launch wrote |
 | `container-6f0c4f4.json` | — | 6f0c4f4 | Cloud container, Mesa llvmpipe (OpenGL), 1280×720, all shots. Ran next to two reviewer renders: correctness numbers valid, timings inflated |
 
 Same code on different runner instances differs by up to 2× in timings; compare ranges, not single values.

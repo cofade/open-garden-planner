@@ -23,6 +23,7 @@ Spike strings are not translated (dev evidence tooling, the ADR-038 exemption).
 from __future__ import annotations
 
 import argparse
+import contextlib
 import faulthandler
 import json
 import math
@@ -116,6 +117,9 @@ def _parse(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--qml-dir", type=Path, default=None,
                    help="load GardenSpike.qml and its shaders from this folder "
                         "(the render tier's broken-shader positive control)")
+    p.add_argument("--soak-leak-mb", type=float, default=0.0, metavar="MB",
+                   help="positive control for the soak's leak gate: keep MB of memory alive "
+                        "per project reload, so the gate must fire")
     p.add_argument("--soak", type=int, default=0, metavar="N",
                    help="criterion 10: N show/hide cycles, a project reload every "
                         "fifth, then close while animating")
@@ -131,7 +135,8 @@ PRESETS = ("low", "medium", "high", "ultra")
 COLD_ENV = {"QT_DISABLE_SHADER_DISK_CACHE": "1", "QSG_RHI_DISABLE_DISK_CACHE": "1",
             "QT_QUICK3D_NO_SHADER_CACHE_LOAD": "1", "QML_DISABLE_DISK_CACHE": "1",
             "MESA_SHADER_CACHE_DISABLE": "true"}
-_CACHE_MARKERS = ("q3dshadercache", "qtpipelinecache", "qmlcache", "qtshadercache")
+_CACHE_MARKERS = ("q3dshadercache", "qtpipelinecache", "qmlcache", "qtshadercache",
+                  "mesa_shader_cache")
 SETTINGS_ORGANIZATION = "cofade-ogp-tooling"
 SETTINGS_APPLICATION = "Open Garden Planner 3D spike"
 
@@ -153,8 +158,9 @@ def _cache_inventory() -> list[str]:
     """Names of the Qt cache entries present now (names only: the path holds the user name).
 
     Measured on llvmpipe: the app's cache folder holds ``q3dshadercache-*``,
-    ``qtpipelinecache-*`` and ``qmlcache`` after a first launch, and the
-    scene graph's ``qtshadercache-*`` sits one level up, in the generic cache.
+    ``qtpipelinecache-*`` and ``qmlcache`` after a first launch; the scene graph's
+    ``qtshadercache-*`` and Mesa's ``mesa_shader_cache`` sit one level up, in the
+    generic cache (Windows run v8: the first three, ``llp64``).
     """
     from PyQt6.QtCore import QStandardPaths
 
@@ -508,7 +514,8 @@ def _measure(args: argparse.Namespace, renderer: Any, scene: Any, ground: Any, w
         ("pan_bench", args.pan_bench,
          lambda: measure.pan_bench(scene, renderer, ground, width, height, log)),
         ("soak", args.soak > 0,  # last: it ends by animating
-         lambda: measure.soak(renderer, args.soak, reload=reload)),
+         lambda: measure.soak(renderer, args.soak, reload=reload,
+                              deliberate_leak_mb=args.soak_leak_mb)),
     ]
     for name, wanted, run in steps:
         if not wanted:
@@ -666,49 +673,76 @@ def default_shots(width: float, height: float) -> list[Shot]:
     ]
 
 
+QT_ERRORS_EXIT = 4  # not 3: the MSVC CRT's abort() also exits with 3 on Windows
+_CRASH_LOG: Any = None  # faulthandler's own handle on spike.log, open until the process ends
+
+
+def _early_error(message: str) -> None:
+    """Before spike.log exists there is no log; a windowed exe has no stderr either."""
+    if sys.stderr is not None:
+        print(f"--spike-q3d: {message}", file=sys.stderr)
+    with contextlib.suppress(OSError):
+        Path("spike-q3d-error.txt").write_text(message + "\n", encoding="utf-8")
+
+
 def run_spike_cli(argv: list[str]) -> int:
     """Run the spike; never let a failure go unrecorded (see the module docstring)."""
+    global _QT_MESSAGES, _CRASH_LOG
     _isolate_settings()
-    args = _parse(argv)
+    try:  # argparse writes to stderr, which a windowed exe does not have
+        args = _parse(argv)
+        out: Path = args.out
+        out.mkdir(parents=True, exist_ok=True)
+        log = SpikeLog(out / "spike.log")
+    except SystemExit as exc:
+        if not exc.code:
+            return 0  # --help
+        _early_error(f"invalid arguments (exit {exc.code})")
+        return 2
+    except Exception as exc:  # noqa: BLE001 - nowhere else to report it
+        _early_error(f"{type(exc).__name__}: {exc}")
+        return 2
     if args.cold:  # before the application exists: Qt reads these on first use
         os.environ.update(COLD_ENV)
-    out: Path = args.out
-    out.mkdir(parents=True, exist_ok=True)
-    log = SpikeLog(out / "spike.log")
     # Every Qt message into the log and metrics.json: a shader that fails to
     # compile only ever printed to stderr, and the frozen exe has none.
-    global _QT_MESSAGES
-    from open_garden_planner.spike_q3d.qt_messages import QtMessages, install
+    from open_garden_planner.spike_q3d.qt_messages import QtMessages, install, uninstall
 
     _QT_MESSAGES = QtMessages(log)
     install(_QT_MESSAGES)
-    faulthandler.enable(file=log.file, all_threads=True)  # a crash leaves its stack
+    # faulthandler gets its own append handle that is never closed: a crash in the
+    # teardown after the run (criterion 10's failure mode) still leaves its stack.
+    _CRASH_LOG = (out / "spike.log").open("a", encoding="utf-8")
+    faulthandler.enable(file=_CRASH_LOG, all_threads=True)
     if args.watchdog_s > 0:
-        faulthandler.dump_traceback_later(args.watchdog_s, exit=True, file=log.file)
+        faulthandler.dump_traceback_later(args.watchdog_s, exit=True, file=_CRASH_LOG)
     metrics: dict[str, Any] = {"status": "running"}
+    code = 0
     try:
         _run(args, out, log, metrics)
+        if _QT_MESSAGES.errors:  # the frame on screen is not the frame the QML describes
+            metrics["status"] = "qt_errors"
+            code = QT_ERRORS_EXIT
+            log("qt_errors", n=len(_QT_MESSAGES.errors), first=_QT_MESSAGES.errors[0][:200])
+        else:
+            metrics["status"] = "ok"
     except Exception as exc:  # evidence tooling: record it, never swallow it silently
         metrics["status"] = "error"
         metrics["error"] = f"{type(exc).__name__}: {exc}"
         log("error", error=metrics["error"])
         log.file.write(traceback.format_exc())
-        _write_metrics(out, metrics)
-        return 2
+        code = 2
     finally:
         if args.watchdog_s > 0:
             faulthandler.cancel_dump_traceback_later()
-    if _QT_MESSAGES.errors:  # the frame on screen is not the frame the QML describes
-        metrics["status"] = "qt_errors"
         _write_metrics(out, metrics)
-        log("qt_errors", n=len(_QT_MESSAGES.errors), first=_QT_MESSAGES.errors[0][:200])
+        log("done", status=metrics["status"], total_s=metrics.get("total_s"),
+            wait_timeouts=metrics.get("wait_timeouts"))
+        # Detach the recorder BEFORE the log closes: a Qt message after close()
+        # wrote to a closed file inside the handler, which PyQt turns into qFatal.
+        uninstall()
         log.close()
-        return 3
-    metrics["status"] = "ok"
-    _write_metrics(out, metrics)
-    log("done", total_s=metrics.get("total_s"), wait_timeouts=metrics.get("wait_timeouts"))
-    log.close()
-    return 0
+    return code
 
 
 def _run(args: argparse.Namespace, out: Path, log: SpikeLog, metrics: dict[str, Any]) -> None:

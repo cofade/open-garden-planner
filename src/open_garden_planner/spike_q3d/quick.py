@@ -247,6 +247,11 @@ class SpikeRenderer:
             for key, value in saved.items():
                 self.root.setProperty(key, value)
             self._ground = saved["groundTexture"]  # keep the restored texture alive
+            # The invariant the re-pin exists for, checked where it can break: the
+            # texture the scene shows is the one Python holds (nothing after a probe
+            # looks at the ground, so a lost re-pin would pass every other test).
+            if self._ground is not self.root.property("groundTexture"):
+                raise RuntimeError("preserved_state: the shown ground texture is not held")
             self.set_models(models)
             if sky_changed:  # the light probe is pre-filtered once per sky texture
                 self.root.setProperty("sunVersion", int(self.root.property("sunVersion")) + 1)

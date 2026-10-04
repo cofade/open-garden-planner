@@ -10,6 +10,10 @@ runs anywhere and makes CPU regressions visible in every 3D PR. GPU metrics
 Usage::
 
     venv/bin/python scripts/bench_view3d.py [--plans bench_small,bench_large] [--repeat 3]
+
+Loading a plan records it in Recent Files, so ``main()`` points every settings
+store at the spike's throwaway key before anything builds one (senior review:
+each run used to push two of the user's real recent files out of the list).
 """
 
 from __future__ import annotations
@@ -29,6 +33,9 @@ sys.path.insert(0, str(REPO / "src"))
 
 
 def main(argv: list[str] | None = None) -> int:
+    from open_garden_planner.spike_q3d.runner import _isolate_settings
+
+    _isolate_settings()  # before any store exists — see the module docstring
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--plans", default="bench_small,bench_large")
     parser.add_argument("--repeat", type=int, default=3)

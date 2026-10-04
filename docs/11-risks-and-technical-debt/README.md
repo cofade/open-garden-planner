@@ -605,12 +605,15 @@ copy — per reload, linearly (771 → 1035 MB over 10 reloads). Holding only th
 shown texture settled at ~885 MB. Both variants grew ~70 MB on the first reload,
 so total growth could not tell a leak from an allocator settling; the slope over
 the second half of the reloads can, and the soak now reports and gates it
-(< 10 MB/reload). The first Windows run of that gate failed without a leak: the
-working set, which Windows trims and regrows, swung 800 → 707 → 766 MB and the
-least-squares slope read 10.9 MB/reload. On Windows the gate reads private
-bytes, and the slope is the median of pairwise slopes. *Hold the one object in
-use, not every object that ever was; judge a leak by its slope, in memory the
-process committed.*
+(< 10 MB/reload). Two Windows runs of that gate then failed without showing a
+leak, and without ruling one out: the working set (trimmed and regrown by the
+OS) cannot judge a leak at all, and five points of private bytes cannot resolve
+10 MB/reload against WARP's ±30–60 MB swings. Re-fitting the gate after each
+failure was its own smell (senior review), so the final gate was fixed before
+the next run: 20 reloads, private bytes, a Theil–Sen slope, and a positive
+control on the same runner that must fire on 25 MB per reload. *Hold the one
+object in use, not every object that ever was; judge a leak by its slope, and
+trust a gate only after you have seen it fire on the machine it judges.*
 
 **9. An `x or default` threshold turns a perfect zero into a failure.** The
 evidence driver judged the projection check as

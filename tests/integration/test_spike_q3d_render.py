@@ -279,7 +279,7 @@ def test_a_shader_that_does_not_compile_fails_the_run(tmp_path: Path) -> None:
                   "--presets", "low", "--shots", "golden_hour", "--size", "320x180",
                   "--fps-seconds", "0")
     metrics = json.loads((out / "metrics.json").read_text(encoding="utf-8"))
-    assert proc.returncode == 3, metrics.get("error")
+    assert proc.returncode == 4, metrics.get("error")  # not 3: abort() on Windows
     assert metrics["status"] == "qt_errors"
     assert any("qt_sampleGlossyBroken" in e for e in metrics["qt_messages"]["errors"]), (
         metrics["qt_messages"])
@@ -311,3 +311,18 @@ def test_open_time_knows_a_first_launch_from_a_warm_one(tmp_path: Path) -> None:
     assert not any((cache / "b").rglob("q3dshadercache*"))  # cold writes no cache either
     for metrics in (first, second, cold):
         assert metrics["open_ms"] >= metrics["first_ready_ms"] + metrics["qml_load_ms"]
+
+
+def test_the_leak_gate_fires_on_a_known_leak(tmp_path: Path) -> None:
+    """Positive control for the soak's leak gate: 25 MB kept alive per reload must
+    read as a trend. A gate is only evidence once it has been seen to fire on the
+    machine it judges (senior review); the Windows workflow runs the same control."""
+    out = tmp_path / "out"
+    proc = _spike(out, _render_env(tmp_path / "config_home"), "--presets", "low", "--shots",
+                  "golden_hour", "--size", "320x180", "--fps-seconds", "0", "--soak", "25",
+                  "--soak-leak-mb", "25")
+    assert proc.returncode == 0, proc.stderr[-2000:]
+    soak = json.loads((out / "metrics.json").read_text(encoding="utf-8"))["soak"]
+    assert soak["project_reloads"] == 5
+    assert soak["deliberate_leak_mb_per_reload"] == 25
+    assert soak["leak_slope_mb_per_reload"] > 10.0, soak["leak_curve_mb"]

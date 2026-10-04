@@ -32,11 +32,14 @@ def _metrics(**overrides: object) -> dict:
         "qml_load_ms": 300.0,
         "open_ms": 2500.0,
         "shader_caches": {"cold": False, "disabled_by_env": [], "found_before_run": []},
+        "qt_messages": {"counts": {"error": 0, "warning": 0, "info": 0}, "errors": [],
+                        "warnings": []},
         "shadow_iou_by_preset": {"low": {"results": {"az135": {"iou": 0.96}}}},
         "pick": {"n": 20, "hits": 20, "hits_after_reattach": 20, "reattach_frame_diff": 0.0,
                  "adversarial_n": 10, "adversarial_hits": 10, "max_projection_err_px": 0.0,
                  "max_xy_err_cm": 0.0},
-        "soak": {"animation_advanced": True},
+        "soak": {"animation_advanced": True, "cycles": 20, "project_reloads": 4,
+                 "models_per_reload_ok": True, "leak_slope_mb_per_reload": 0.2},
     }
     metrics.update(overrides)
     return metrics
@@ -83,16 +86,38 @@ def test_a_low_iou_fails(driver) -> None:
     assert driver._verdict(metrics, ARGS) == ["shadow IoU high az135 >= 0.85"]
 
 
-def test_a_leaking_reload_soak_fails(driver) -> None:
-    soak = {"animation_advanced": True, "project_reloads": 10,
-            "models_per_reload_ok": True, "leak_slope_mb_per_reload": 30.0}
-    assert driver._verdict(_metrics(soak=soak), ARGS) == [
-        "no memory growth trend over the project reloads (< 10 MB/reload)"]
+def test_a_leaking_reload_soak_fails_on_the_leak_gate_alone(driver) -> None:
+    # exactly this list is what --expect-leak (the positive control) requires
+    soak = dict(_metrics()["soak"], leak_slope_mb_per_reload=30.0)
+    assert driver._verdict(_metrics(soak=soak), ARGS) == [driver.LEAK_CHECK]
     soak["leak_slope_mb_per_reload"] = None  # an unreadable value must not pass
-    assert len(driver._verdict(_metrics(soak=soak), ARGS)) == 1
+    assert driver._verdict(_metrics(soak=soak), ARGS) == [driver.LEAK_CHECK]
+
+
+def test_soak_counts_are_checked_against_the_flag(driver) -> None:
+    soak = dict(_metrics()["soak"], cycles=10, project_reloads=2)
+    assert driver._verdict(_metrics(soak=soak), ARGS) == [
+        "soak ran 20 cycles", "soak reloaded the project 4 times"]
+
+
+def test_a_qt_warning_or_error_fails_the_run(driver) -> None:
+    warned = {"counts": {"error": 0, "warning": 1, "info": 0}, "errors": [], "warnings": ["x"]}
+    assert driver._verdict(_metrics(qt_messages=warned), ARGS) == ["Qt reported no warning"]
+    assert "Qt reported no shader/QML error" in driver._verdict(_metrics(qt_messages=None), ARGS)
+
+
+@pytest.mark.parametrize("found, expect, ok", [
+    ([], "none", True), ([], "found", False),
+    (["q3dshadercache-x"], "found", True), (["q3dshadercache-x"], "none", False)])
+def test_cold_and_warm_runs_are_checked(driver, found: list, expect: str, ok: bool) -> None:
+    caches = {"cold": False, "disabled_by_env": [], "found_before_run": found}
+    failures = driver._verdict(_metrics(shader_caches=caches), ARGS, expect)
+    assert (failures == []) is ok, failures
 
 
 def test_open_time_must_include_the_qml_load(driver) -> None:
+    assert driver._verdict(_metrics(qml_load_ms=None), ARGS) == [
+        "open time includes QML load and scene build"]  # missing is not zero
     # open_ms shorter than show->readback plus the QML load measured something else
     failures = driver._verdict(_metrics(open_ms=1300.0), ARGS)
     assert failures == ["open time includes QML load and scene build"]

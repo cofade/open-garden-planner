@@ -98,6 +98,8 @@ def _at_least(value: object, limit: float) -> bool:
     return num is not None and num >= limit
 
 
+LEAK_CHECK = "no memory growth trend over the project reloads (< 10 MB/reload)"
+
 # Each evidence flag and the metrics section it must leave behind: a probe that
 # was asked for and wrote nothing is a failure, not a pass with fewer checks.
 _REQUIRED_SECTIONS = {
@@ -109,6 +111,16 @@ _REQUIRED_SECTIONS = {
     "--coexist": "coexist",
     "--pan-bench": "pan_bench",
 }
+
+
+def _flag_value(spike_args: list[str], flag: str) -> str | None:
+    """The value of ``--flag N`` or ``--flag=N`` in the spike's arguments, or None."""
+    for idx, arg in enumerate(spike_args):
+        if arg == flag:
+            return spike_args[idx + 1] if idx + 1 < len(spike_args) else None
+        if arg.startswith(flag + "="):
+            return arg.partition("=")[2]
+    return None
 
 
 def _requested_sections(spike_args: list[str]) -> list[str]:
@@ -123,7 +135,8 @@ def _requested_sections(spike_args: list[str]) -> list[str]:
     return sections
 
 
-def _verdict(metrics: dict, spike_args: list[str] | None = None) -> list[str]:
+def _verdict(metrics: dict, spike_args: list[str] | None = None,
+             expect_caches: str | None = None) -> list[str]:
     """Every ADR-047 threshold the present metric sections can be judged on.
 
     Thresholds use explicit number checks: ``x or default`` turned a perfect
@@ -144,14 +157,25 @@ def _verdict(metrics: dict, spike_args: list[str] | None = None) -> list[str]:
     first_frame = _num(metrics.get("first_frame_ms"))
     first_ready = _num(metrics.get("first_ready_ms"))
     open_ms = _num(metrics.get("open_ms"))
+    qml_load = _num(metrics.get("qml_load_ms"))
+    caches = metrics.get("shader_caches")
     checks += [("open time measured to a finished readback",
                 first_frame is not None and first_frame > 0
                 and first_ready is not None and first_ready >= first_frame),
                ("open time includes QML load and scene build",
-                open_ms is not None and first_ready is not None
-                and open_ms >= first_ready + (_num(metrics.get("qml_load_ms")) or 0.0)),
-               ("the run records which shader caches it found",
-                isinstance(metrics.get("shader_caches"), dict))]
+                open_ms is not None and first_ready is not None and qml_load is not None
+                and open_ms >= first_ready + qml_load),
+               ("the run records which shader caches it found", isinstance(caches, dict))]
+    if expect_caches is not None and isinstance(caches, dict):
+        found = caches.get("found_before_run")
+        checks.append((f"shader caches at start: {expect_caches}",
+                       isinstance(found, list) and (bool(found) == (expect_caches == "found"))))
+    qt = metrics.get("qt_messages")
+    checks += [("Qt reported no shader/QML error", isinstance(qt, dict) and qt.get("errors") == []),
+               # clean runs emit no Qt warnings at all (llvmpipe, measured): any warning
+               # here is read, and excused explicitly if benign — never ignored
+               ("Qt reported no warning", isinstance(qt, dict)
+                and (qt.get("counts") or {}).get("warning") == 0)]
     orient = metrics.get("orientation")
     if orient:
         checks += [("ground north-up", orient.get("ground_texture_ok") is True),
@@ -176,14 +200,18 @@ def _verdict(metrics: dict, spike_args: list[str] | None = None) -> list[str]:
         checks += [("WebEngine page drawn", coexist.get("web_ok") is True),
                    ("3D frame unchanged with WebEngine alive", coexist.get("frame3d_ok") is True)]
     soak = metrics.get("soak")
+    soak_n = _flag_value(spike_args or [], "--soak")
+    if soak and soak_n is not None and soak_n.isdigit():
+        checks += [(f"soak ran {soak_n} cycles", soak.get("cycles") == int(soak_n)),
+                   (f"soak reloaded the project {int(soak_n) // 5} times",
+                    soak.get("project_reloads") == int(soak_n) // 5)]
     if soak:
         # The close's witness is the process exit code, checked before this verdict.
         checks += [("animation really ran before the close", soak.get("animation_advanced") is True)]
         if "project_reloads" in soak:
             checks += [("every project reload rebuilt every model",
                         soak.get("models_per_reload_ok") is True),
-                       ("no memory growth trend over the project reloads (< 10 MB/reload)",
-                        _below(soak.get("leak_slope_mb_per_reload"), 10.0))]
+                       (LEAK_CHECK, _below(soak.get("leak_slope_mb_per_reload"), 10.0))]
     failures = [name for name, ok in checks if not ok]
     for name, ok in checks:
         print(f"  {'PASS' if ok else 'FAIL'}  {name}")
@@ -224,6 +252,11 @@ def main(argv: list[str]) -> int:
                       help="normal start of the bundle must survive 8 s")
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--limit-s", type=float, default=1500.0, help="hard wall-clock limit")
+    parser.add_argument("--expect-caches", choices=("none", "found"),
+                        help="criterion 5: the run must find no shader caches (a first launch) "
+                             "or some (a warm relaunch)")
+    parser.add_argument("--expect-leak", action="store_true",
+                        help="positive control: pass only if the leak gate (and nothing else) fails")
     args = parser.parse_args(own)
 
     out: Path = args.out.resolve()
@@ -268,7 +301,14 @@ def main(argv: list[str]) -> int:
         print("::error::no metrics.json")
         return 1
     print("verdict:")
-    failures = _verdict(json.loads(metrics_path.read_text(encoding="utf-8")), spike_args)
+    failures = _verdict(json.loads(metrics_path.read_text(encoding="utf-8")), spike_args,
+                        args.expect_caches)
+    if args.expect_leak:  # the gate must fire on a known leak, on the same runner
+        if failures == [LEAK_CHECK]:
+            print("positive control: the leak gate fired on the deliberate leak (PASS)")
+            return 0
+        print(f"::error::positive control: expected exactly [{LEAK_CHECK!r}], got {failures}")
+        return 1
     if failures:
         print(f"::error::evidence checks failed: {', '.join(failures)}")
         return 1

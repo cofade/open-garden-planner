@@ -58,34 +58,44 @@ def _stats(values: list[float]) -> dict[str, float]:
     return out
 
 
+_WIN_QUERY: Any = None  # (struct type, query function), declared once per process
+
+
 def _win_counters() -> Any:
-    """``PROCESS_MEMORY_COUNTERS_EX`` of this process, or None (Windows only)."""
+    """``PROCESS_MEMORY_COUNTERS_EX`` of this process, or None (Windows only).
+
+    The structure and the function signature are declared once: a new ctypes
+    type per call would itself grow the process a little, inside a leak gate.
+    """
+    global _WIN_QUERY
     import ctypes
     from ctypes import wintypes
 
-    class _Counters(ctypes.Structure):
-        _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD),
-                    ("PeakWorkingSetSize", ctypes.c_size_t),
-                    ("WorkingSetSize", ctypes.c_size_t),
-                    ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
-                    ("QuotaPagedPoolUsage", ctypes.c_size_t),
-                    ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
-                    ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
-                    ("PagefileUsage", ctypes.c_size_t),
-                    ("PeakPagefileUsage", ctypes.c_size_t),
-                    ("PrivateUsage", ctypes.c_size_t)]
+    if _WIN_QUERY is None:
+        class _Counters(ctypes.Structure):
+            _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD),
+                        ("PeakWorkingSetSize", ctypes.c_size_t),
+                        ("WorkingSetSize", ctypes.c_size_t),
+                        ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                        ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                        ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                        ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                        ("PagefileUsage", ctypes.c_size_t),
+                        ("PeakPagefileUsage", ctypes.c_size_t),
+                        ("PrivateUsage", ctypes.c_size_t)]
 
-    counters = _Counters()
-    counters.cb = ctypes.sizeof(_Counters)
-    windll = ctypes.windll  # type: ignore[attr-defined]
-    # Declared types matter on 64-bit: the default int restype truncates the
-    # pseudo-handle and the call fails (Windows evidence run v3 read None).
-    windll.kernel32.GetCurrentProcess.restype = wintypes.HANDLE
-    query = windll.psapi.GetProcessMemoryInfo
-    query.argtypes = [wintypes.HANDLE, ctypes.POINTER(_Counters), wintypes.DWORD]
-    query.restype = wintypes.BOOL
-    ok = query(windll.kernel32.GetCurrentProcess(), ctypes.byref(counters), counters.cb)
-    return counters if ok else None
+        windll = ctypes.windll  # type: ignore[attr-defined]
+        # Declared types matter on 64-bit: the default int restype truncates the
+        # pseudo-handle and the call fails (Windows evidence run v3 read None).
+        windll.kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+        query = windll.psapi.GetProcessMemoryInfo
+        query.argtypes = [wintypes.HANDLE, ctypes.POINTER(_Counters), wintypes.DWORD]
+        query.restype = wintypes.BOOL
+        _WIN_QUERY = (_Counters, query, windll.kernel32.GetCurrentProcess)
+    struct, query, current = _WIN_QUERY
+    counters = struct()
+    counters.cb = ctypes.sizeof(struct)
+    return counters if query(current(), ctypes.byref(counters), counters.cb) else None
 
 
 def rss_mb() -> float | None:
@@ -108,8 +118,9 @@ def leak_mb() -> float | None:
 
     The Windows working set is trimmed and regrown by the OS: run 7's reload soak
     swung 800 → 707 → 766 MB with +8 MB end to end, and its tail slope read
-    10.9 MB/reload with no leak. Private bytes count what the process committed
-    (WARP's buffers live there too).
+    10.9 MB/reload. Private bytes count what the process committed (WARP's buffers
+    live there too). Neither sees dedicated GPU memory: on a discrete GPU a leak
+    of textures or buffers in VRAM is invisible to this gate.
     """
     if sys.platform == "win32":
         counters = _win_counters()
@@ -362,8 +373,10 @@ def second_window(renderer: Any, ground: Any, width: float, height: float, log: 
     with the camera, sun, sky and look the first one shows (the first version
     rendered the QML defaults: a different frame, senior review).
     """
+    from open_garden_planner.spike_q3d.probes import _image_to_array
     from open_garden_planner.spike_q3d.quick import SpikeRenderer
 
+    first_frame = _image_to_array(renderer.grab(label="second_window_reference"))
     t0 = time.perf_counter()
     second = SpikeRenderer(renderer.host_kind, renderer.size,
                            frame_timeout_s=renderer.frame_timeout_s, log=log)
@@ -372,8 +385,12 @@ def second_window(renderer: Any, ground: Any, width: float, height: float, log: 
     second.copy_view_from(renderer)
     second.show()
     second.wait_frames(2, label="second_window_first_frame")
-    second.grab(label="second_window_first_ready")  # a readback: the frame is finished
-    result = {"qml_load_ms": round(second.qml_load_ms, 1),
+    frame = _image_to_array(second.grab(label="second_window_first_ready"))  # finished
+    same_shape = frame.shape == first_frame.shape
+    result = {"frame_diff_vs_first": (round(float(np.abs(frame.astype(np.float64)
+                                                         - first_frame).mean()), 3)
+                                      if same_shape else None),
+              "qml_load_ms": round(second.qml_load_ms, 1),
               "first_frame_ms": round(second.first_frame_ms or -1.0, 1),
               "first_ready_ms": round((time.perf_counter() - (second.shown_at or t0)) * 1000.0, 1),
               "total_ms": round((time.perf_counter() - t0) * 1000.0, 1)}
@@ -534,7 +551,11 @@ def tail_slope(curve: list[float | None]) -> float | None:
     return round(float(np.median(slopes)), 2)
 
 
-def soak(renderer: Any, cycles: int, reload: Any = None) -> dict:
+_DELIBERATE_LEAK: list[Any] = []  # the leak gate's positive control (--soak-leak-mb)
+
+
+def soak(renderer: Any, cycles: int, reload: Any = None,
+         deliberate_leak_mb: float = 0.0) -> dict:
     """Criterion 10: ``cycles`` hide/show cycles; every fifth one empties the scene
     and refills it.
 
@@ -543,6 +564,10 @@ def soak(renderer: Any, cycles: int, reload: Any = None) -> dict:
     model and geometry built new — so ``--soak 50`` is the criterion's "50
     show/hide cycles, 10 project reloads", and the old geometries are released
     while the engine runs (the QML-vs-Python lifetime risk the soak exists for).
+
+    ``deliberate_leak_mb`` is the gate's positive control: every reload then keeps that many
+    MB of touched memory alive, so the leak gate must fire (it is proven on the
+    same runner it judges, not assumed).
     """
     import gc
 
@@ -561,6 +586,8 @@ def soak(renderer: Any, cycles: int, reload: Any = None) -> dict:
         if k % 5 == 4:
             renderer.set_models([])
             renderer.wait_frames(1, label=f"soak_empty_{k}")
+            if deliberate_leak_mb > 0:  # positive control: a known leak, pages touched
+                _DELIBERATE_LEAK.append(np.ones(int(deliberate_leak_mb * 2**20), np.uint8))
             if reload is not None:
                 t0 = time.perf_counter()
                 models = reload()
@@ -574,6 +601,8 @@ def soak(renderer: Any, cycles: int, reload: Any = None) -> dict:
     rss_end = rss_mb()
     result = {"cycles": cycles, "reentry_ms": _stats(reentry), "rss_start_mb": rss_start,
               "rss_end_mb": rss_end, "leak_metric": LEAK_METRIC, "leak_curve_mb": curve}
+    if deliberate_leak_mb > 0:
+        result["deliberate_leak_mb_per_reload"] = deliberate_leak_mb
     if reload is not None:
         result.update({"project_reloads": len(reload_ms), "reload_ms": _stats(reload_ms),
                        "models_per_reload_ok": all(c == first_count for c in counts),

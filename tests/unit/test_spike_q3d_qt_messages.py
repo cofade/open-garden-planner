@@ -7,6 +7,12 @@ decides which Qt messages fail a run, so it is pinned on real message texts.
 
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
+import textwrap
+from pathlib import Path
+
 import pytest
 
 from open_garden_planner.spike_q3d.qt_messages import QtMessages, classify
@@ -57,3 +63,36 @@ def test_recorder_is_bounded_for_a_long_soak() -> None:
         qt.add("warning", f"noise {k}")
     assert qt.report()["counts"]["warning"] == 1000
     assert len(qt.report()["warnings"]) == 30
+
+
+_LATE_MESSAGE = textwrap.dedent("""
+    import sys
+    from pathlib import Path
+    from PyQt6.QtCore import QCoreApplication, qWarning
+    from open_garden_planner.spike_q3d.qt_messages import QtMessages, install, uninstall
+    from open_garden_planner.spike_q3d.runner import SpikeLog
+
+    app = QCoreApplication([])
+    log = SpikeLog(Path(sys.argv[1]) / "spike.log")
+    install(QtMessages(log))
+    if sys.argv[2] == "uninstall":
+        uninstall()
+    log.close()
+    qWarning("a late Qt message, after the log closed")
+    print("survived", flush=True)
+""")
+
+
+@pytest.mark.parametrize("mode", ["uninstall", "closed-log"])
+def test_a_late_qt_message_cannot_abort_the_process(tmp_path: Path, mode: str) -> None:
+    """Senior review reproduced exit 134: the handler wrote to the closed log, raised,
+    and PyQt turned the exception into qFatal. The runner detaches the handler before
+    the log closes ("uninstall"), and the recorder never raises ("closed-log")."""
+    src = Path(__file__).resolve().parents[2] / "src"
+    env = dict(os.environ, PYTHONPATH=str(src), QT_QPA_PLATFORM="offscreen")
+    proc = subprocess.run(  # noqa: S603 - fixed argv, our own code
+        [sys.executable, "-c", _LATE_MESSAGE, str(tmp_path), mode],
+        env=env, capture_output=True, text=True, timeout=120,
+    )
+    assert proc.returncode == 0, proc.stderr[-2000:]
+    assert "survived" in proc.stdout

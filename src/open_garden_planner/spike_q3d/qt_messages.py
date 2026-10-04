@@ -49,14 +49,22 @@ class QtMessages:
         self.kept: dict[str, list[str]] = {"error": [], "warning": [], "info": []}
 
     def add(self, kind: str, text: str, category: str = "") -> None:
-        cls = classify(kind, text)
-        line = f"{kind}: {category + ': ' if category else ''}{text}"
-        with self._lock:
-            self.counts[cls] += 1
-            if len(self.kept[cls]) < _KEEP:
-                self.kept[cls].append(line[:600])
-        if self._log is not None and cls != "info":
-            self._log("qt", level=cls, msg=line[:300].replace("\n", " "))
+        """Record one message. Never raises: it runs inside Qt's message handler,
+        where PyQt turns an exception into ``qFatal`` — an abort (senior review:
+        a write to the closed log after the run reproduced exit 134)."""
+        try:
+            cls = classify(kind, text)
+            line = f"{kind}: {category + ': ' if category else ''}{text}"
+            with self._lock:
+                self.counts[cls] += 1
+                n = self.counts[cls]
+                if len(self.kept[cls]) < _KEEP:
+                    self.kept[cls].append(line[:600])
+            if self._log is not None and cls != "info" and n <= _KEEP:
+                suffix = " (further ones only counted)" if n == _KEEP else ""
+                self._log("qt", level=cls, msg=line[:300].replace("\n", " ") + suffix)
+        except Exception:  # noqa: BLE001, S110 - see the docstring
+            pass
 
     @property
     def errors(self) -> list[str]:
@@ -88,3 +96,10 @@ def install(messages: QtMessages) -> None:
             print(text, file=sys.stderr, flush=True)
 
     qInstallMessageHandler(handler)
+
+
+def uninstall() -> None:
+    """Give Qt its default handler back — before the log the recorder writes to closes."""
+    from PyQt6.QtCore import qInstallMessageHandler
+
+    qInstallMessageHandler(None)
