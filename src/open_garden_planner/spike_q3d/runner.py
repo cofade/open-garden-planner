@@ -93,7 +93,9 @@ class _Parser(argparse.ArgumentParser):
 
 
 def _parse(argv: list[str]) -> argparse.Namespace:
-    p = _Parser(prog="--spike-q3d", add_help=True)
+    # allow_abbrev=False: "--ori" must not run the orientation probe while the CI
+    # driver, which reads the flags it passed, saw no "--orient" (senior review, pass 6)
+    p = _Parser(prog="--spike-q3d", add_help=True, allow_abbrev=False)
     p.add_argument("--spike-q3d", action="store_true")
     p.add_argument("--plan", type=Path, default=DEFAULT_PLAN)
     p.add_argument("--out", type=Path, default=Path.cwd() / "spike_q3d_out")
@@ -377,18 +379,20 @@ def _weeks(value: Any) -> float | None:
 
 def in_harvest_window(location: dict[str, Any] | None, at: date,
                       species: dict[str, Any] | None) -> bool | None:
-    """True when ``at`` lies in the species' harvest window — the planting calendar's rule.
+    """True when ``at`` lies in the species' harvest window — the shared task generator's rule.
 
-    ``services/task_generator.generate_calendar_tasks``: from the plan's last spring
-    frost + ``harvest_start`` weeks to + ``harvest_end`` weeks (the species' week
-    offsets from the last frost, ``plant_species`` metadata). The window is anchored on
-    the last frost of ``at``'s year, as the calendar does, and — a deliberate deviation
-    the calendar does not make — of the years either side, so a window across the new
-    year (a southern plan, a negative offset) holds; the calendar shows no harvest task
-    then. A northern plan with non-negative offsets (the bench) is unaffected.
+    ``services/task_generator``: from the plan's last spring frost + ``harvest_start``
+    weeks to + ``harvest_end`` weeks (the species' week offsets from the last frost,
+    ``plant_species`` metadata). Anchored as ``generate_for_date_window`` anchors it —
+    the generator behind the annual calendar and the agent's task tools: on every
+    frost year whose window can reach ``at``, a range derived from the offsets. So a
+    window across the new year (a southern plan), before its frost (negative offsets)
+    or years after it (asparagus) holds. The GUI's planting-calendar view anchors on
+    one year and shows no task on such dates; that split is the product's, not the
+    spike's (ADR-048 entry 18).
     None when there is no window to read — no last frost, an offset missing or
-    malformed, start after end, a 02-29 frost outside a leap year (the calendar has no
-    date then either): the caller keeps the frost-free season.
+    malformed, start after end, a 02-29 frost outside a leap year (the generator has
+    no date then either): the caller keeps the frost-free season.
     """
     from datetime import timedelta
 
@@ -403,7 +407,9 @@ def in_harvest_window(location: dict[str, Any] | None, at: date,
         date(at.year, *spring)
     except ValueError:
         return None
-    for year in (at.year - 1, at.year, at.year + 1):
+    first = min(at.year, (at - timedelta(weeks=end)).year)
+    last = max(at.year, (at - timedelta(weeks=start)).year)
+    for year in range(first, last + 1):
         try:
             last_frost = date(year, *spring)
         except ValueError:
@@ -926,7 +932,8 @@ def run_spike_cli(argv: list[str]) -> int:
     faulthandler.enable(file=_CRASH_LOG, all_threads=True)
     if args.watchdog_s > 0:
         faulthandler.dump_traceback_later(args.watchdog_s, exit=True, file=_CRASH_LOG)
-    metrics: dict[str, Any] = {"status": "running"}
+    # what this run parsed, so a judge reads what ran rather than re-parsing argv
+    metrics: dict[str, Any] = {"status": "running", "args": dict(vars(args))}
     code = 0
     try:
         _run(args, out, log, metrics)

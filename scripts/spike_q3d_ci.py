@@ -133,11 +133,24 @@ def _attributed(open_ms: float | None, breakdown: object) -> bool:
     return all(p is not None for p in parts) and abs(open_ms - sum(parts)) < 100.0  # type: ignore[arg-type]
 
 
-def _requested_sections(spike_args: list[str]) -> list[str]:
+def _ran(metrics: dict) -> dict:
+    """The flags the spike itself parsed (``metrics["args"]``), or {} without them."""
+    ran = metrics.get("args")
+    return ran if isinstance(ran, dict) else {}
+
+
+def _requested_sections(spike_args: list[str], ran: dict | None = None) -> list[str]:
+    """Sections asked for by the driver's argv OR recorded as run by the spike: either
+    alone has a hole (an abbreviation the argv scan cannot see; an early error that
+    wrote no ``args``), so a section is required when either asks for it."""
+    ran = ran or {}
     flags = {arg.split("=", 1)[0] for arg in spike_args}
-    sections = [section for flag, section in _REQUIRED_SECTIONS.items() if flag in flags]
+    sections = [section for flag, section in _REQUIRED_SECTIONS.items()
+                if flag in flags or ran.get(flag.lstrip("-").replace("-", "_")) is True]
     count = _flag_value(spike_args, "--soak")  # exact flag: not --soak-leak-mb
-    if count is not None and count.isdigit() and int(count) > 0:
+    soak = ran.get("soak")
+    if (count is not None and count.isdigit() and int(count) > 0) or (
+            isinstance(soak, int) and not isinstance(soak, bool) and soak > 0):
         sections.append("soak")
     return sections
 
@@ -154,8 +167,9 @@ def _verdict(metrics: dict, spike_args: list[str] | None = None,
         ("status ok", metrics.get("status") == "ok"),
         ("no frame-wait timeouts", metrics.get("wait_timeouts") == 0),
     ]
+    ran = _ran(metrics)
     checks += [(f"{section} measured (its flag was given)", bool(metrics.get(section)))
-               for section in _requested_sections(spike_args or [])]
+               for section in _requested_sections(spike_args or [], ran)]
     by_preset = metrics.get("shadow_iou_by_preset") or {
         "high": metrics.get("shadow_iou") or {}}
     for preset, probe in by_preset.items():
@@ -204,7 +218,8 @@ def _verdict(metrics: dict, spike_args: list[str] | None = None,
                     _below(pick.get("max_projection_err_px"), 1.0)),
                    ("picked points within 3 cm of the target",
                     _below(pick.get("max_xy_err_cm"), 3.0))]
-    probed = {arg.split("=", 1)[0] for arg in spike_args or []} & {"--iou", "--orient"}
+    probed = ({arg.split("=", 1)[0] for arg in spike_args or []} & {"--iou", "--orient"}
+              or ran.get("iou") is True or ran.get("orient") is True)
     if probed or "probe_restore_frame_diff" in metrics:  # required, not optional, once probed
         checks.append(("the probes leave the view as they found it (< 1 luma)",
                        _below(metrics.get("probe_restore_frame_diff"), 1.0)))
@@ -300,10 +315,12 @@ def main(argv: list[str]) -> int:
         streams = (subprocess.DEVNULL, subprocess.DEVNULL) if args.frozen else (so, se)
         try:
             # the unfrozen child imports THIS checkout's src, not whatever the venv's
-            # editable install points at (from a git worktree: the main checkout)
+            # editable install points at (from a git worktree: the main checkout);
+            # the frozen child gets the environment unchanged
             env = dict(os.environ)
-            env["PYTHONPATH"] = os.pathsep.join(
-                p for p in (str(REPO / "src"), env.get("PYTHONPATH")) if p)
+            if not args.frozen:
+                env["PYTHONPATH"] = os.pathsep.join(
+                    p for p in (str(REPO / "src"), env.get("PYTHONPATH")) if p)
             code = subprocess.run(  # noqa: S603 - fixed argv, no shell
                 cmd, stdin=subprocess.DEVNULL, stdout=streams[0], stderr=streams[1],
                 timeout=args.limit_s, check=False, env=env,

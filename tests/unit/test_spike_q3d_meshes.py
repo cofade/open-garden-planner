@@ -120,6 +120,27 @@ def test_the_node_cap_is_hard(monkeypatch) -> None:
     assert free.triangle_count <= M.TREE_TRIANGLE_BUDGET
 
 
+def test_the_leaf_floor_is_the_bounds_constant(monkeypatch) -> None:
+    """The bound counts TREE_LEAVES_PER_TWIG_MIN leaves per twig; a literal floor of 6
+    in the builder broke the bound (12,000 leaf triangles) and kept every other test
+    green (senior review, pass 6). Raise the constant: the builder must follow it."""
+    seen: dict[str, int] = {}
+    leaves = M.leaves
+
+    def spy(centers, *args, **kwargs):
+        seen["leaves"] = len(centers)
+        return leaves(centers, *args, **kwargs)
+
+    monkeypatch.setattr(M, "leaves", spy)
+    M.space_colonization_tree(11, 900.0, 700.0, "fresh")
+    normal = seen["leaves"]
+    floor = 97  # far above the per-twig share the budget leaves this tree
+    monkeypatch.setattr(M, "TREE_LEAVES_PER_TWIG_MIN", floor)
+    M.space_colonization_tree(11, 900.0, 700.0, "fresh")
+    assert seen["leaves"] != normal
+    assert seen["leaves"] % floor == 0  # floor leaves on every twig
+
+
 def test_fruit_stops_at_its_cap_for_any_spread() -> None:
     assert M._tree_fruit_count(10**6, 10**6) == M.TREE_FRUIT_MAX
     assert M._tree_fruit_count(400, 340.0) == 13          # one per 25 cm below the cap

@@ -374,21 +374,59 @@ def test_harvest_window_follows_the_calendar_rule(location, species, day: date,
     assert runner.in_harvest_window(location, day, species) is expected
 
 
-@pytest.mark.parametrize(("location", "species", "day"), [
-    # a window across the new year (southern plan): anchored on last year's frost too
-    ({"frost_dates": {"last_spring_frost": "09-20"}}, TOMATO, date(2026, 1, 15)),
-    # negative offsets (a harvest before the last frost) anchor on next year's frost
-    (BERLIN, {"harvest_start": -30, "harvest_end": -20}, date(2026, 10, 1)),
+def _shared_generator_harvests(frost: str, start: float, end: float, day: date) -> bool:
+    """Whether ``generate_for_date_window`` — the shared generator behind the annual
+    calendar and the agent's task tools — has a harvest task on ``day``."""
+    from open_garden_planner.services.task_generator import (
+        PlanState,
+        PlantRowInput,
+        _parse_frost,
+        generate_for_date_window,
+    )
+
+    state = PlanState(today=day, year=day.year, last_frost=_parse_frost(frost, day.year),
+                      plant_rows=(PlantRowInput(display_name="X", species_key="x",
+                                                harvest_start=start, harvest_end=end),),
+                      actionable_only=False)
+    return any(t.task_type == "harvest" for t in generate_for_date_window(state, day, day))
+
+
+@pytest.mark.parametrize(("frost", "start", "end"), [
+    ("04-09", 10, 20),     # the bench's tomato
+    ("04-09", 12, 18),     # sweet pepper
+    ("09-20", 10, 20),     # a southern plan: the window crosses the new year
+    ("04-09", -30, -20),   # negative offsets: the harvest precedes its frost anchor
+    ("04-09", 52, 104),    # rhubarb: the window opens a year after the frost
+    ("04-09", 104, 156),   # asparagus: two to three years after it (§11.4.4)
+    ("12-31", 0, 1),       # a frost on the last day of the year
+    ("02-29", 10, 20),     # a frost date that exists in leap years only
 ])
-def test_harvest_window_extends_the_calendar_across_the_new_year(location, species,
-                                                                  day: date) -> None:
-    """A deliberate deviation, named (senior review, pass 5): the planting calendar
-    anchors on the given year's frost only and shows NO harvest task on these dates;
-    the spike also anchors on the frost of the year before and after. A northern plan
-    with non-negative offsets, like the bench, is unaffected (the test above)."""
-    assert runner.in_harvest_window(location, day, species) is True
-    assert runner.in_harvest_window({"frost_dates": {"last_spring_frost": "09-20"}},
-                                    date(2026, 3, 1), TOMATO) is False
+def test_harvest_window_matches_the_shared_generator(frost: str, start: int, end: int) -> None:
+    """Every third day of 2026-2028, the spike answers what the shared generator answers.
+
+    The generator anchors on every frost year whose window can reach the date, derived
+    from the offsets. A fixed ±1-year anchor in the spike missed asparagus and called
+    the cross-year rows a deviation from "the calendar" (senior review, passes 5-6).
+    None — no window to read — only where the frost date does not exist that year.
+    """
+    from datetime import timedelta
+
+    location = {"frost_dates": {"last_spring_frost": frost}}
+    species = {"harvest_start": start, "harvest_end": end}
+    month, dom = (int(part) for part in frost.split("-"))
+    day, mismatches = date(2026, 1, 1), []
+    while day <= date(2028, 12, 31):
+        got = runner.in_harvest_window(location, day, species)
+        try:
+            date(day.year, month, dom)
+            frost_exists = True
+        except ValueError:
+            frost_exists = False
+        if (got is None) is frost_exists or (got is True) is not _shared_generator_harvests(
+                frost, start, end, day):
+            mismatches.append((day.isoformat(), got))
+        day += timedelta(days=3)
+    assert mismatches == []
 
 
 def test_harvest_window_matches_the_task_generator() -> None:

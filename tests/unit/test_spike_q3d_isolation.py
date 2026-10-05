@@ -115,6 +115,8 @@ def test_a_typo_in_any_flag_is_refused_before_any_work() -> None:
 
     args = runner._parse(["--spike-q3d", "--out", "x", "--sooak", "5"])
     assert args.unknown == ["--sooak", "5"]
+    abbreviated = runner._parse(["--spike-q3d", "--out", "x", "--ori"])
+    assert abbreviated.orient is False and abbreviated.unknown == ["--ori"]  # no prefixes
     with pytest.raises(ValueError, match="unknown arguments: --sooak 5"):
         runner._validate(args, None)
     with pytest.raises(ValueError, match="unknown presets"):

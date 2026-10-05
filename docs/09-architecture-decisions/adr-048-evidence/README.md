@@ -51,6 +51,12 @@
 | `windows-v15-frozen-warm.json` | same | 831f808 | Warm relaunch (three caches found) |
 | `windows-v15-frozen-leakctl.json` | same | 831f808 | Positive control: 25 MB held per reload read 31.2 MB/reload and failed the gate |
 | `windows-v15-frozen-longsoak.json` | same | 831f808 | **Experiment, not a gate:** 100 reloads; +62 MB by reload 50, 0.21 MB/reload over reloads 51–100 (ADR-048 entry 10). dist delta +1.7 MB |
+| `windows-v16-unfrozen.json` | [37301609487](https://github.com/cofade/open-garden-planner/actions/runs/37301609487) | f71cdef | `--cold`; after the merge with master and senior pass 5's fixes |
+| `windows-v16-frozen.json` | same | f71cdef | All 41 checks, the restore check now required whenever the probes ran; probe restore and second window 0.0; leak gate 4.2 MB/reload |
+| `windows-v16-frozen-warm.json` | same | f71cdef | Warm relaunch (three caches found) |
+| `windows-v16-frozen-leakctl.json` | same | f71cdef | Positive control: 25 MB held per reload read 32.4 MB/reload and failed the gate |
+| `windows-v16-frozen-longsoak.json` | same | f71cdef | **Experiment, not a gate:** 100 reloads, the same soak path as v14 and v15; +134 MB by reload 50, flat over reloads 48–71, then +85 MB; 2.03 MB/reload over reloads 51–100 (ADR-048 entry 10). dist delta +1.8 MB |
 | `container-6f0c4f4.json` | — | 6f0c4f4 | Cloud container, Mesa llvmpipe (OpenGL), 1280×720, all shots. Ran next to two reviewer renders: correctness numbers valid, timings inflated |
+| `container-f71cdef-soak.json` | — | f71cdef | Render tier (llvmpipe, 640×360): the leak gate's two runs on Linux RSS. Clean 20-reload soak 1878.5 → 1883.7 MB, Theil–Sen over reloads 11–20 0.0 MB/reload; control 28.2 MB/reload for 25 MB held |
 
 Same code on different runner instances differs by up to 2× in timings; compare ranges, not single values.

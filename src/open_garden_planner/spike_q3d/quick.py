@@ -245,8 +245,13 @@ class SpikeRenderer:
         finally:
             sky_changed = any(self.root.property(k) != saved[k] for k in self.SKY_KEYS)
             ground = saved["groundTexture"]
-            for key, value in saved.items():
-                self.root.setProperty(key, value)
+            # setProperty returns False for a name the QML does not declare or a value
+            # it cannot take: a restore that silently did not happen (senior review,
+            # pass 6, which also retired an identity check that only re-read this)
+            refused = [key for key, value in saved.items()
+                       if not self.root.setProperty(key, value)]
+            if refused:
+                raise RuntimeError(f"preserved_state: QML refused to restore {refused}")
             self._ground = ground  # Python owns the texture: keep the restored one alive
             if ground is not None:
                 # The texture twin of the geometry rule in set_models: a texture data
@@ -257,10 +262,6 @@ class SpikeRenderer:
                 # misses a probe that detached it and set it back itself (pass 5).
                 ground.setTextureData(ground.textureData())
                 ground.update()
-            # Ownership only (the pixels are checked by probe_restore_frame_diff): the
-            # texture the scene shows is the one Python holds.
-            if self._ground is not self.root.property("groundTexture"):
-                raise RuntimeError("preserved_state: the shown ground texture is not held")
             self.set_models(models)
             if sky_changed:  # the light probe is pre-filtered once per sky texture
                 self.root.setProperty("sunVersion", int(self.root.property("sunVersion")) + 1)

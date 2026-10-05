@@ -159,3 +159,24 @@ def test_a_probed_run_without_the_restore_check_fails(driver) -> None:
     assert driver._verdict(metrics, ARGS) == [
         "the probes leave the view as they found it (< 1 luma)"]
     assert driver._verdict(metrics, ["--pick", "--soak", "20"]) == []
+
+
+def test_an_orient_only_run_requires_the_restore_check(driver) -> None:
+    """The orientation probe restores the view too, not only the IoU probe."""
+    metrics = _metrics(orientation={"ground_texture_ok": True})
+    del metrics["probe_restore_frame_diff"]
+    assert "the probes leave the view as they found it (< 1 luma)" in driver._verdict(
+        metrics, ["--orient"])
+
+
+def test_what_the_spike_ran_is_judged_not_only_the_argv(driver) -> None:
+    """The spike records the flags it parsed (``metrics["args"]``): a probe that ran
+    needs its section and the restore check even when the driver's argv scan misses
+    it, as it missed "--ori" while the spike accepted abbreviations (pass 6)."""
+    metrics = _metrics(args={"iou": True, "orient": False, "pick": False, "soak": 20})
+    del metrics["probe_restore_frame_diff"]
+    del metrics["soak"]
+    failures = driver._verdict(metrics, [])
+    assert "soak measured (its flag was given)" in failures
+    assert "the probes leave the view as they found it (< 1 luma)" in failures
+    assert driver._requested_sections([], {"pan_bench": True, "soak": True}) == ["pan_bench"]
