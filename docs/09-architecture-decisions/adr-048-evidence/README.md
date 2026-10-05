@@ -1,6 +1,6 @@
 # ADR-048 evidence files
 
-`metrics.json` of the temporary Windows evidence workflow (`spike-q3d.yml`, windows-latest, no GPU, so Qt picks Direct3D 11 on WARP), plus container runs (Mesa llvmpipe, OpenGL): one of v6's commit for the OpenGL side of the same probes, and the render tier's leak-gate soaks of five commits. The Windows files were extracted from the job logs, because the artifact host was unreachable from the analysis container and CI logs expire. Each Windows JSON file carries a `_provenance` block with the run, commit, runner and mode; the container files and the footprint text files name their commit (and run, where there is one) in their own header.
+`metrics.json` of the temporary Windows evidence workflow (`spike-q3d.yml`, windows-latest, no GPU, so Qt picks Direct3D 11 on WARP), plus container runs (Mesa llvmpipe, OpenGL): one of v6's commit for the OpenGL side of the same probes, and the render tier's leak-gate soaks of five commits. The Windows files were extracted from the job logs, because the artifact host was unreachable from the analysis container and CI logs expire. Each Windows JSON file carries a `_provenance` block with the run, commit, runner and mode; the footprint text files and `container-6f0c4f4.json` name their commit (and run, where there is one) in their own header, and `container-render-tier-soaks.json` names it per run.
 
 | File | Run | Commit | Notes |
 |---|---|---|---|
