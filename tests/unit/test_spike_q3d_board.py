@@ -406,12 +406,12 @@ def test_harvest_window_matches_the_shared_generator(frost: str, start: int, end
     """Every third day of 2026-2028, the spike answers what the shared generator answers.
 
     The generator anchors on every frost year whose window can reach the date, derived
-    from the offsets. A fixed ±1-year anchor in the spike returned False on every
-    asparagus harvest date and on rhubarb's before the frost's anniversary (senior
-    review, passes 5-8). The helper anchors
-    the state on the date's own year, as the agent's tools do; for the 02-29 row only
-    the leap year compares a window. None — no window to read — only where the frost
-    date does not exist that year.
+    from the offsets. A fixed ±1-year anchor in the spike returned False on asparagus
+    harvest dates at frost dates from 4 January on, and on rhubarb's from 1 January
+    until just before the frost's anniversary (senior review, passes 5-9). The helper
+    anchors the state on the date's own year; for the 02-29 row only the leap year
+    compares a window. None — no window to read — only where the frost date does not
+    exist that year.
     """
     from datetime import timedelta
 

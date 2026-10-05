@@ -144,16 +144,16 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
   the gate only with its positive control on the same machine (`--soak-leak-mb 25` must fail
   it). Private bytes do not see VRAM: on a discrete GPU the gate is blind to GPU-side leaks.
   The gate answers "a trend over the last ten reloads?", not "did memory grow?". On WARP every
-  run (v9–v18) first dips 94–146 MB (consistent with memory the probes held: the probe-less
+  run (v9–v19) first dips 94–146 MB (consistent with memory the probes held: the probe-less
   controls, at a smaller window, never dip), then rises 5–10 MB per reload; the tail gate read
   1.5–9.0 (1.8 and 9.0 for identical code), and the controls read 28–34 MB/reload for the 25
-  MB they hold. Longer soaks (v13–v18; v15–v18 ran 100 reloads): identical code rose +196 and
-  +62 MB by reload 50, and over reloads 51–100 the four 100-reload runs (the same soak path)
-  had slopes of 0.21, 2.03, 3.05 and 0.08 MB/reload, the last an interval that includes zero.
-  llvmpipe RSS reads 0.00–0.46 MB/reload, so it is not Python-side growth in the spike; a
-  D3D11 resource retained per reload is not ruled out (WARP keeps GPU memory in private bytes;
-  a discrete GPU keeps it in VRAM, unseen). Cause unidentified; locate it with an A/B soak,
-  not a longer one. Record the whole curve (`leak_curve_mb`) with the verdict, and write
+  MB they hold. Longer soaks (v13–v19; v15–v19 ran 100 reloads): identical code rose +196 and
+  +62 MB by reload 50, and over reloads 51–100 the five 100-reload runs (the same soak path)
+  had slopes of 0.21, 2.03, 3.05, 0.08 and 3.50 MB/reload, the 0.08 an interval that includes
+  zero. llvmpipe RSS reads 0.00–0.46 MB/reload, so it is not Python-side growth in the spike;
+  a D3D11 resource retained per reload is not ruled out (WARP keeps GPU memory in private
+  bytes; a discrete GPU keeps it in VRAM, unseen). Cause unidentified; locate it with an A/B
+  soak, not a longer one. Record the whole curve (`leak_curve_mb`) with the verdict, and write
   numbers, not shapes: "ceiling", "slowing" and "threefold" each overreached on these curves.
 
 ## 6. Hosts

@@ -71,7 +71,7 @@ The living register (ADR-047). Every row has a status; P0/P1 rows link their iss
 | TD-034 | Performance (performance) | NFR-PERF-01 missed in a real window: fit-in-view repaint of the 500-object reference plan takes 54 ms (≤ 18 fps), a zoom step 40 ms; 100 % zoom and pan stay inside the budget | P1 / M | open | #409 | audit-2026-10 AUD-056 (Windows check §8.1) |
 | TD-035 | Bundle size | Master's release ships ~21 MB of Qt Quick 3D runtime it never loads (Quick3D + ShaderTools DLLs and QML modules, pulled in by the PyInstaller QtQml hook; measured in the ADR-048 evidence run). Phase 17 puts it to use; on a NO-GO, exclude it in `installer/ogp.spec`. | P3 / S | open (decided by the L0 GO/NO-GO) | #384 | ADR-048 L0 evidence (Windows v6 footprint) |
 | TD-036 | 3D geometry source | The Qt Quick 3D spike builds its world from private canvas helpers (`_item_footprints`, `_plant_canopy_radius_cm` in `ui/canvas/sun_shadow_controller.py`). The Qt-free core of Phase 17 L1.1 must promote them to a public, tested module before building on them (senior review, ADR-048). | P2 / M | open | #385 | ADR-048 L0 senior review |
-| TD-037 | Task calendar | Two answers to "is it harvest time": the agent's `get_tasks` / `get_task_calendar` use `generate_for_date_window`, which anchors on every frost year a window can reach, while every GUI task surface anchors on one year. The planting calendar's Gantt paints the bars of the current year's frost, clamped to that year, so asparagus (104–156 weeks after the frost) never appears there and rhubarb (52–104) at most on the year's last two days, with a 1–2 January frost; the dashboard and the Tasks tab (`generate_all` on today's year) showed asparagus on no day and rhubarb on 51, each time the next window as an upcoming task in December with a January frost (a daily 2026 sweep over six frost dates, 01-05 to 09-20). One shared Qt-free window function for the GUI, the agent and the 3D view (L3.5) would close it. | P2 / M | open (not yet filed) | — | ADR-048 L0 senior review (passes 6–8) |
+| TD-037 | Task calendar | Two answers to "is it harvest time": the agent's `get_tasks` / `get_task_calendar` anchor on every frost year a window can reach (`generate_for_date_window`), every GUI task surface on one year. A harvest 52 weeks or more after the frost, such as rhubarb's or asparagus's, reaches the GUI only with a January frost, and then only in December, as the next window. One shared Qt-free window function for the GUI, the agent and the 3D view (L3.5) would close it. | P2 / M | open (not yet filed) | — | ADR-048 L0 senior review (passes 6–9) |
 
 ## 11.4 Known Development Pitfalls
 
@@ -800,12 +800,12 @@ OS) cannot judge a leak at all, and five points of private bytes cannot resolve
 failure was its own smell (senior review), so the final gate was fixed before
 the next run: 20 reloads, private bytes, a Theil–Sen slope, and a positive
 control on the same runner that must fire on 25 MB per reload. Windows runs
-v9–v18 passed it (1.5–9.0 MB/reload; identical code read 9.0 and 1.8), yet every
+v9–v19 passed it (1.5–9.0 MB/reload; identical code read 9.0 and 1.8), yet every
 one of them, after an early dip, rose 5–10 MB per reload. In longer soaks,
 identical code rose +196 and +62 MB by reload 50, and over reloads 51–100 the
-four 100-reload runs (the same soak path, not the same code) had slopes of 0.21,
-2.03, 3.05 and 0.08 MB/reload, the last an interval that includes zero. Linux RSS
-shows nothing comparable. The cause
+five 100-reload runs (the same soak path, not the same code) had slopes of 0.21,
+2.03, 3.05, 0.08 and 3.50 MB/reload, the 0.08 an interval that includes zero.
+Linux RSS shows nothing comparable. The cause
 is not identified, so the leak half stays open on D3D11. Three readings of these
 curves overreached in turn (a ceiling, a slowdown, a "threefold" pinned on the
 wrong pair of runs), so the record now gives numbers, not shapes. The gate
@@ -884,26 +884,20 @@ child's `PYTHONPATH`; `scripts/bench_view3d.py` inserts it itself. *A subprocess
 does not inherit the parent's import path; pin it, or the test measures whatever
 the environment happens to point at.*
 
-**15. A rule ported by hand drifts from its source, and so can the source you
-compare it with.** The spike shows fruit only in a species' harvest window
-(`runner.in_harvest_window`), ported from the task generator with a fixed ±1-year
-frost anchor. The agent's task tools (`get_tasks`, `get_task_calendar`) use
-`generate_for_date_window`, which derives the anchor years from the offsets. The
-port returned False on every asparagus harvest date (104–156 weeks after the
-frost), and on rhubarb's (52–104) from 1 January until just before the frost's
-anniversary: 291 of 1,096 harvest days in 2026–2028 at a 04-09 frost, 783 at
-09-20. Neither has a fruit look in the spike, so no frame changed; the port now
-matches its source, for custom species and for L3.5. Senior pass 5 had compared
-the port with the single-year `generate_calendar_tasks`, and the cross-year rows
-were written up as a "deliberate deviation" in four places, when they were what
-the agent's path does (pass 6). The first write-up of the fix then claimed a
-visible effect that one sweep of what the view shows disproves (pass 7: 140,288
-day, species and frost combinations, no frame different); the next write-up said
-"every rhubarb date" from the asparagus case (pass 8). Every GUI task surface (the
-planting calendar's Gantt and dashboard, the Tasks tab) anchors on one year, so
-the product answers "is it harvest time" two ways (TD-037). A test now compares
-the port with its source every third day of three years, asparagus and a southern
-plan included. *Pin a port to its source day by day, find the source the product
+**15. A rule ported by hand drifts from its source.** Symptom: none on the bench.
+The spike shows fruit only in a species' harvest window
+(`runner.in_harvest_window`), and that port returned False on every asparagus
+harvest date at frost dates from 4 January on, and on rhubarb's from 1 January
+until just before the frost's anniversary (291 of 1,096 harvest days in 2026–2028
+at a 04-09 frost, 783 at 09-20). Neither has a fruit look in the spike, so no
+frame changed. Cause: the port took a fixed ±1-year frost anchor and was checked
+against the single-year `generate_calendar_tasks`, while the generator the agent's
+task tools use (`get_tasks`, `get_task_calendar`), `generate_for_date_window`,
+derives the anchor years from the offsets. Fix: the port derives the range the
+same way, pinned by a test that compares the two every third day of three years,
+asparagus and a southern plan included (ADR-048 entry 18 records the review
+history). The check also showed that every GUI task surface anchors on one year
+(TD-037). *Pin a port to its source day by day, find the source the product
 actually calls before naming a deviation, and sweep what the user sees before
 saying a fix changed it.*
 
