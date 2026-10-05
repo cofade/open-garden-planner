@@ -1053,7 +1053,7 @@ next launch). See ADR-032 for the architecture.
 `tests/unit/test_smart_symbol_schema.py` validates every bundled file in CI
 (loads, validates, every expression parses, generates ≥1 primitive).
 
-## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1/D1.2/D1.3/D1.4/D1.5/D1.6/D2.0–D2.6, ADR-033/034/035/036)
+## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1–D1.6, D2.0–D2.6, D3.1–D3.4, ADR-033/034/035/036)
 
 The app can host an **MCP server over streamable-HTTP** so AI agents read the
 plan currently open in the GUI and, behind the D2 write gate, edit it (epic
@@ -1633,8 +1633,114 @@ D3.2's `suggest_succession` is the worked example: branch on
 prose. Note the asymmetry that makes this necessary - `services/task_generator.py`
 and `services/soil_service.py` build their task titles and amendment names with
 `QCoreApplication.translate`, because the GUI is their primary consumer, so those
-strings cross an API boundary localised. US-D3.3 (#332) owns the decision for
-tasks and US-D3.4 (#333) must match it; do not force English at the generator.
+strings cross an API boundary localised. Do not force English at the generator.
+
+**D3.1's companion `name` follows the same rule (issue #410).** `suggest_companions`
+returns `species_key` (a stable machine key) beside `name` (a display string in the
+user's current UI language, selected from `companion_planting.json`'s `name_de` by
+`app/settings.py::active_language()`). Branch on `species_key`, never on `name`. The
+D3.1 tool predated the D3.3/D3.4 convention and shipped with the English default; the
+fix brought it into line. The generated soil-amendment task titles obey the same rule
+(issue #408), with the extra constraint that the task **id** keeps the English data name
+so saved task status survives a language switch.
+
+**The D3 localisation convention (US-D3.3 #332 + US-D3.4 #333, decided).** Epic
+#237 required one answer across both stories, so this is stated once here and in
+the ADR-034 addendum. Every D3 tool carries **two field classes**:
+
+| Class | Fields | Contract |
+|---|---|---|
+| machine keys | `task_id` / `task_type` / `source`; `amendment_id` / `target_kind` / `fixes` / `reason_codes` | **Stable English.** Part of the API contract. Never localised. |
+| display strings | `title` / `notes`; `display_name` / `reasons` | **The user's current UI language.** Explicitly NOT part of the English contract. |
+
+Consequences worth stating because they are all easy to get wrong:
+
+- **The agent layer passes the localised string through; it never translates.**
+  The translation stays upstream in `task_generator` / `soil_service`, where the
+  GUI already depends on it. `tests/unit/test_agent_d3_localisation.py` pins the
+  pass-through *and* the upstream translation separately — asserting only "the
+  title changed" would pass even if the wrapper had invented its own translation.
+- **Amendment names are data, not translations.** `Amendment.name` / `name_de`
+  are bilingual *data* fields, so `display_name` is *selected*. The convention is
+  unchanged either way: `amendment_id` never moves with the UI language.
+- **`task_type` carries the distinction `source` cannot.** `Task.source` has six
+  values — `calendar`, `propagation`, `succession`, `soil`, `frost`, `manual` —
+  for seven generators, because both soil generators emit `source="soil"`. The
+  amendment and mismatch tasks are told apart by `task_type`
+  (`soil_amendment` vs `soil_mismatch`), so **filtering by `source` alone cannot
+  select one of them.** A drift guard asserts the tuple equals the engine's set
+  in *both* directions (§11.4: a subset-only guard let two values that no
+  generator emits through, which made the working value refused and the
+  non-working one return an empty list).
+- **Hidden statuses match the Tasks tab exactly.** `get_tasks` hides `archived`
+  and `dismissed` by default because `ui/views/tasks_view.py` hides those two.
+  Hiding only `dismissed` would make the agent a third surface disagreeing with
+  the other two about one shared store — invariant 6.
+- **Degradation is never silence.** A plan with no geo-location has no frost
+  dates, so the calendar and propagation generators produce nothing;
+  `coverage: "no_frost_dates"` says so and still returns every other task kind.
+  A bed with no soil test gets `coverage: "no_soil_test"`, which means *untested*
+  and never *healthy*. An empty list is never the whole answer.
+
+**Soil reads need provenance, not just a reading.** `SoilService.get_effective_record`
+applies its documented hierarchy (bed's own latest → plan-wide default's latest →
+none) and returns the record alone. For an agent that is unusable: with only a
+plan-wide test recorded it hands back the global record *for a bed*, and the
+caller cannot tell that from a real bed reading. `SoilStatus.record_source`
+(`'bed'` / `'global'` / `'none'`) restores the distinction, and the provider
+uses `SoilService.get_effective_record_with_source` to obtain the record, source
+and matching history together. The existing `get_effective_record` delegates to
+that same resolver. Staleness follows the selected history, including a global
+fallback; checking an empty bed history against an old global reading incorrectly
+reported it as current.
+
+**D3 transport envelopes and period generation.** `get_soil_status` always
+returns `SoilStatusListView.beds`, with one result for a requested bed or all
+soil-capable beds when omitted. `get_soil_mismatches` returns
+`SoilMismatchBedsView.beds`, keyed by bed UUID, preserving each bed's `coverage`,
+`total` and disagreements. Its aggregate coverage distinguishes `no_beds`,
+`no_soil_test`, `partial_soil_tests` and `ok`. The soil prompt extracts the
+requested bed from both envelopes before rendering; it never treats an envelope
+as one bed. Real-client integration tests use `app._build_agent_providers()` and
+call all nine new tools and both prompts over HTTP, including authenticated
+writes, refusals and undo. Direct provider tests remain useful but cannot detect
+an MCP response-schema mismatch.
+
+`build_plan_state(today, year, actionable_only, include_propagation)` separates
+the reference date from the calendar year. GUI reminders keep `actionable_only=True`;
+annual agent calendars and explicit task windows retain inactive dated tasks,
+then classify urgency against the actual reference date. Cross-year windows are
+clipped to each requested year before month bucketing. `generate_for_date_window`
+uses one snapshot and the shared generators for the frost-anchor years capable
+of overlapping the requested dates, deduplicating absolute tasks. The range is
+derived from species offsets and generated propagation steps: autumn garlic
+sowing precedes its anchor year, while asparagus harvest extends three years.
+Annual calendars use this same path; anchor-year task IDs remain stable.
+Absolute propagation overrides instead use their start-date year as the task's
+owner year in the shared generator. This preserves one identity across GUI and
+agent reads and prevents wider anchor ranges from multiplying one saved step.
+Propagation plans use the extracted `build_propagation_plans` calculator
+shared with the GUI, preserving seed-packet germination values and user overrides.
+Missing frost dates still prevent those plans from being computed.
+
+Amendment display names use `Amendment.display_name(language)` with the app's
+language, just as the GUI does; stable amendment IDs do not change. Soil-write
+arguments use strict numeric MCP annotations so booleans and numeric strings
+cannot be coerced into readings before the domain validator sees them.
+An empty amendment list means the engine recommends nothing from the readings
+it can assess; it does not prove healthy soil. Existing GUI lab-only records
+may have no assessed kit values and keep an unknown health result.
+
+**Secondary nutrients have no health rating, and `None` is the honest answer.**
+`SoilService.health_level` rates `ph`, `n`, `p`, `k` and `overall` — its
+`ALL_PARAMS` is exactly those five. Passing `'ca'` / `'mg'` / `'s'` **falls
+through to the `overall` branch** and returns the whole bed's rating. So
+`SoilReading.health_level` is `str | None`, and `None` for a secondary means *"no
+rating exists"* — deliberately distinct from `'unknown'`, which means *not
+tested*. `overall_health_level` likewise covers **pH and N/P/K only**; the
+secondaries do not drag it down. Reporting the overall rating as calcium's would
+be a confidently wrong answer, which is the same trap D3.1 closed by reporting
+`unknown_bed` instead of a clean-looking `neutral`.
 
 **A rotation rule that looks reusable and is not.** D3.2's
 `suggest_succession` must exclude a candidate that conflicts with a crop planted

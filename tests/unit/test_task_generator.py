@@ -14,6 +14,7 @@ from open_garden_planner.services.task_generator import (
     classify_urgency,
     generate_all,
     generate_calendar_tasks,
+    generate_for_date_window,
     generate_frost_tasks,
     generate_manual_tasks,
     generate_propagation_tasks,
@@ -37,6 +38,25 @@ def _state(**overrides: object) -> PlanState:
     }
     base.update(overrides)
     return PlanState(**base)  # type: ignore[arg-type]
+
+
+def test_bundled_multiyear_harvest_includes_prior_frost_anchors() -> None:
+    from open_garden_planner.services.bundled_species_db import get_species_entry
+
+    species = get_species_entry("Asparagus officinalis")
+    assert species is not None
+    row = PlantRowInput(
+        display_name="Asparagus", species_key="asparagus officinalis",
+        harvest_start=species["harvest_start"], harvest_end=species["harvest_end"],
+    )
+    state = _state(
+        last_frost=datetime.date(2026, 4, 15), plant_rows=(row,), actionable_only=False,
+    )
+    tasks = generate_for_date_window(state, datetime.date(2026, 1, 1), datetime.date(2026, 12, 31))
+    assert {t.task_id for t in tasks} == {
+        "asparagus officinalis:harvest:2023", "asparagus officinalis:harvest:2024",
+    }
+    assert len(tasks) == 2
 
 
 class TestClassifyUrgency:
@@ -197,8 +217,8 @@ class TestSoilAmendmentTasks:
             bed_id="bed-1",
             name="North Bed",
             amendment_recs=(
-                ("Garden lime", "Raises pH 5.8 -> 6.5"),
-                ("Blood meal", "Raises N level 1 -> 3"),
+                ("Garden lime", "Garden lime", "Raises pH 5.8 -> 6.5"),
+                ("Blood meal", "Blood meal", "Raises N level 1 -> 3"),
             ),
         )
         tasks = generate_soil_amendment_tasks(_state(beds=(bed,)))
@@ -218,6 +238,21 @@ class TestSoilAmendmentTasks:
     def test_no_recs_no_tasks(self) -> None:
         bed = BedInput(bed_id="bed-1", name="North Bed")
         assert generate_soil_amendment_tasks(_state(beds=(bed,))) == []
+
+    def test_display_name_in_title_stable_name_in_id(self) -> None:
+        """#408: the title follows the UI language, the id never does."""
+        bed = BedInput(
+            bed_id="bed-1",
+            name="North Bed",
+            amendment_recs=(("Compost", "Kompost", "~200 g"),),
+        )
+        tasks = generate_soil_amendment_tasks(_state(beds=(bed,)))
+        assert len(tasks) == 1
+        # The id keeps the English data name so a saved done/snooze state
+        # survives a UI-language switch.
+        assert tasks[0].task_id == "soil_amendment:bed-1:Compost"
+        # The title is the localised display name.
+        assert tasks[0].title == "Kompost — North Bed"
 
 
 class TestSoilMismatchTasks:
@@ -332,7 +367,7 @@ class TestGenerateAll:
         bed = BedInput(
             bed_id="bed-1",
             name="North",
-            amendment_recs=(("Lime", "Raises pH"),),
+            amendment_recs=(("Lime", "Lime", "Raises pH"),),
             mismatch_plants=("Tomato",),
         )
         tasks = generate_all(

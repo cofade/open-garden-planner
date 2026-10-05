@@ -10,17 +10,20 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 src = Path(__file__).parent.parent / "src"
 sys.path.insert(0, str(src))
 
-from PyQt6.QtCore import QRectF
-from PyQt6.QtGui import QImage, QPainter
-from PyQt6.QtWidgets import QApplication
+# ``open_garden_planner`` is importable only after the sys.path bootstrap above,
+# so these imports are intentionally below module-level statements.
+from PyQt6.QtWidgets import QApplication  # noqa: E402
 
 app = QApplication(sys.argv)
 
-from open_garden_planner.core.object_types import ObjectType
-from open_garden_planner.core.project import ProjectManager
-from open_garden_planner.services.export_service import ExportService
-from open_garden_planner.services.pdf_report_service import PdfReportOptions, PdfReportService
-from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+from open_garden_planner.core.object_types import ObjectType  # noqa: E402
+from open_garden_planner.core.project import ProjectManager  # noqa: E402
+from open_garden_planner.services.export_service import ExportService  # noqa: E402
+from open_garden_planner.services.pdf_report_service import (  # noqa: E402
+    PdfReportOptions,
+    PdfReportService,
+)
+from open_garden_planner.ui.canvas.canvas_scene import CanvasScene  # noqa: E402
 
 OGP_FILE = Path(r"C:\Users\wienh\Downloads\Unser Garten_2026.ogp")
 OUT = Path(r"C:\Users\wienh\Downloads\validate_exports")
@@ -73,8 +76,8 @@ print(f"[PDF] written: {pdf_path}  ({pdf_path.stat().st_size} bytes)")
 
 # --- Render PDF pages to PNG ---
 try:
-    from PyQt6.QtPdf import QPdfDocument
     from PyQt6.QtCore import QSize
+    from PyQt6.QtPdf import QPdfDocument
 
     doc = QPdfDocument(None)
     doc.load(str(pdf_path))

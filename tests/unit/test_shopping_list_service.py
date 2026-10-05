@@ -20,7 +20,6 @@ from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 

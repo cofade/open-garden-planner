@@ -24,6 +24,7 @@ from open_garden_planner.agent_api.server import (
     _require_write_auth,
     build_server,
 )
+from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
 
 
 def _stub_providers() -> AgentProviders:
@@ -65,6 +66,7 @@ def _stub_providers() -> AgentProviders:
         set_layer_property=_boom,
         undo=_boom,
         redo=_boom,
+        **TASK_SOIL_STUBS,
         get_history=_boom,
         suggest_companions=_boom,
         find_compatible_sets=_boom,
@@ -124,6 +126,14 @@ WRITE_TOOL_NAMES = frozenset(
         "set_species",
         "set_parent_bed",
         "arrange_object",
+        # US-D3.3 / US-D3.4: manual-task writes and the soil-test write. The
+        # manual-task writes mutate ProjectManager.manual_tasks and the soil
+        # write mutates ProjectManager.soil_tests - stored document state, not
+        # scene state - so they carry the same gate as set_succession_plan.
+        "add_manual_task",
+        "edit_manual_task",
+        "delete_manual_task",
+        "record_soil_test",
         # US-D2.4: layer write tools.
         "set_object_layer",
         "create_layer",

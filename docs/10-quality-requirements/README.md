@@ -52,6 +52,8 @@ Quality
 | NFR-MAINT-03 | Documentation | Docstrings + arc42 architecture docs |
 | NFR-MAINT-04 | Type safety | Type hints throughout, mypy strict |
 
+Measured baseline (2026-10-03, `84ead2e`): non-UI coverage 80.2 % lines / 66.4 % branches (every package except `ui`); `mypy --strict` 2 104 errors in 134 of 248 files. Neither number is enforced in CI today. Scorecard and method: [audit-2026-10.md](../11-risks-and-technical-debt/audit-2026-10.md) §3; numbers: `audit-2026-10-metrics.json` beside it, re-run with `scripts/audit_metrics.py`.
+
 ## 10.5 Extensibility Requirements
 
 | ID | Requirement | Target |
@@ -90,6 +92,12 @@ Each feature requires hands-on testing before completion:
 - [ ] No performance regression
 
 ### CI/CD Quality Gates
-- **On every push**: ruff lint, mypy type check, all tests
-- **On PR**: Full test suite + coverage report
-- **Coverage requirement**: Maintain >80% coverage on non-UI code
+- **On every push and PR** (`ci.yml`, as of 2026-10-03): agent-context parity, ruff over `src/`, the full
+  pytest suite (Linux, Qt offscreen), Bandit at HIGH severity, and the committed-secrets scan. The frozen-exe
+  gate runs on Windows only, locally before merge and in `release.yml` after it (change-control §2.8).
+- **Not a required status check**: none of these jobs is required on `master` today, so a red run
+  does not block a merge mechanically (#399, register row TD-016).
+- **Not enforced in CI**: mypy and coverage are configured in `pyproject.toml` but no CI step runs them
+  (tracked in #401 and #402; register rows TD-020, TD-021).
+- **Coverage target**: >80 % on non-UI code (NFR-MAINT-02) is a target the §11.3 register tracks, not a gate;
+  "non-UI" means every package except `ui` until #402 defines it.

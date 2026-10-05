@@ -10,8 +10,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.models.soil_test import SoilTestRecord
@@ -19,7 +17,6 @@ from open_garden_planner.services.soil_service import SoilService
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
-
 
 # ---------------------------------------------------------------------------
 # Helpers

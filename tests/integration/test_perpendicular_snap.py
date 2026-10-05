@@ -86,6 +86,7 @@ def test_perpendicular_from_polyline_anchor(window: GardenPlannerApp) -> None:
     # Anchor at (1030, 920) — above the rect's top edge (y=1000), clear
     # of any vertex (corner is at x=1000).
     from unittest.mock import MagicMock
+
     from PyQt6.QtCore import Qt
     from PyQt6.QtGui import QMouseEvent
     event = MagicMock(spec=QMouseEvent)

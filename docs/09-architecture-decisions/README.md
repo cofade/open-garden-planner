@@ -490,6 +490,41 @@ Because `is_bed_type` was *extended* (not renamed) to include containers, every 
 ## ADR-034: Curated Agent Schema + UUID Addressing (US-D1.x)
 
 **Status**: Accepted (Phase 13 — Package D). Spike implements the read half (`PlanSummary`); the full read surface follows in D1.2.
+
+### Addendum (US-D3.3 + US-D3.4 — the D3 localisation convention)
+
+Epic #237 required **one** answer across #332 and #333, and #333 escalated it: *"two different answers to the same question across two D3 tools would be worse than either answer."* This is that answer.
+
+**Context.** Several strings an agent receives are built with `QCoreApplication.translate` — task titles at `task_generator.py` (the soil-amendment and soil-mismatch generators), and the mismatch reason sentences in `soil_service.get_mismatch_details`. A German UI therefore returns **German prose** through a surface §8.19 documents as an **English API contract**. Forcing English at the generator is not available: the GUI is the primary consumer of those strings and would break.
+
+**Decision — two field classes, per tool:**
+
+| Field class | Tools | Contract |
+|---|---|---|
+| `task_id`, `task_type`, `source`; `amendment_id`, `target_kind`, `fixes`, `reason_codes` | D3.3, D3.4 | **Stable English machine keys.** Part of the API contract. Never localised. Agents branch on these. |
+| `title`, `notes`; `display_name`, `reasons` | D3.3, D3.4 | **Display strings in the user's current UI language.** Explicitly *not* part of the English contract. Documented in the tool docstring, the schema field description and §8.19. |
+
+- **No second translation path.** The agent layer **passes the generator's string through unchanged**; the localisation stays upstream where it already lives. A test asserts pass-through *and* upstream translation separately, because asserting only "the title changed" would pass even if the wrapper had invented a translation of its own.
+- **No new `title_key` field.** `task_type` + `source` + `task_id` already give an agent every branch it needs; a parallel label would be a second thing to keep in sync.
+- **Amendment names are data, not translations.** `Amendment.name` / `name_de` are bilingual *data* fields (an invariant-16 exemption), so `display_name` is *selected*, not translated. The convention is unchanged either way: `amendment_id` never moves with the UI language.
+- **Enforcement.** `tests/unit/test_agent_d3_localisation.py` installs a real `QTranslator` and asserts that the machine keys are byte-identical while the display strings change. It also asserts the schema field descriptions carry the rule, because a convention nothing states erodes.
+
+**Addendum (US-D3.3 — task sources).** `Task.source` has **six** values — `calendar`, `propagation`, `succession`, `soil`, `frost`, `manual` — read off the `source=` argument of all seven generators. **Not** seven: both soil generators emit `source="soil"`, and the two are distinguished by `task_type` (`soil_amendment` vs `soil_mismatch`), not by `source`. An agent filtering by `source` alone therefore cannot select one of them, which the `get_tasks` docstring states. A drift guard asserts **equality** in both directions between the tuple and the engine; see §11.4 for why a subset-only guard was not enough.
+
+**Addendum (US-D3.4 — the effective soil record needs provenance).** `SoilStatus` carries **`record_source`** (`'bed'` / `'global'` / `'none'`) alongside the readings. `SoilService.get_effective_record_with_source` resolves the record, provenance and matching history together through one hierarchy (bed's own latest → global default's latest → none); `get_effective_record` delegates to it for existing GUI callers. The overdue check uses that selected history, including global fallbacks. Resolving provenance separately in the provider was rejected after review reproduced an old global reading incorrectly reported as current.
+
+**Addendum (US-D3.3/D3.4 — review and live verification, 2026-10-04).** Soil reads use explicit aggregate models (`SoilStatusListView`, `SoilMismatchBedsView`) for both one-bed and all-bed calls. The soil prompt extracts the requested bed; it does not feed an envelope into a single-bed model. Real-MCP integration coverage uses the application's production provider graph, including authenticated writes/refusals and both new prompts. This caught failures that direct provider tests had missed. Amendment names select `Amendment.display_name(language)` using the app's language. Soil-write numeric annotations are strict: MCP must not coerce booleans/strings into categorical readings before the domain check.
+
+Task generation separates `today` from the calendar `year`. An explicit `actionable_only` option preserves the GUI's current reminder behavior while complete annual calendars and explicit agent windows retain inactive tasks; urgency still uses the actual reference date. Cross-year intervals are clipped to the requested year. `generate_for_date_window` derives frost-anchor years from the actual species and generated propagation offsets, rather than matching the window's year numbers: bundled garlic sowing precedes its anchor year and asparagus harvest extends three years. Both annual calendars and explicit windows use that path, preserving canonical anchor-year task IDs. Propagation reuses the extracted GUI calculator with seed-packet data and stored overrides. A second agent-only calendar or propagation implementation was rejected.
+
+An empty amendment list establishes only that the engine recommends nothing from the readings it can assess. Existing GUI lab-only ppm records remain unconverted and can yield unknown health with an empty plan; tool and prompt prose must not infer that measured values are near target.
+
+Absolute propagation steps use their overridden start-date year as their canonical owner year in the shared generator. Relative steps retain frost-anchor-year IDs. This makes one saved override one task across GUI and agent reads, including multi-year windows; deduplication by anchor-year ID alone cloned an override for every evaluated anchor. An agent-only deduplication rule was rejected because the two surfaces would then disagree on identity.
+
+**Addendum (US-D3.4 — secondary nutrients have no health rating).** `SoilService.health_level` rates `ph`, `n`, `p`, `k` and `overall` — its `ALL_PARAMS` is exactly those five. Passing `'ca'`, `'mg'` or `'s'` **falls through to its `overall` branch** and returns the whole bed's rating. So `SoilReading.health_level` is `str | None`, and `None` for a secondary means *"no rating exists for this nutrient"* — deliberately distinct from `'unknown'`, which means *not tested*. Reporting the overall rating as calcium's would be a confidently wrong answer, which is the D3.1 trap (`check_placement` reporting `unknown_bed` rather than a clean-looking `neutral`). `overall_health_level` likewise covers **pH and N/P/K only**; the secondaries do not drag it down.
+
+**Cross-refs:** §8.19, §8.3, ADR-036 (D3.3/D3.4 addenda), ADR-045, issues #332, #333, #237, §11.4.
+
 **Context**: Agents need a stable contract for reading the plan. The on-disk `.ogp` shape is an implementation detail that shifts with `FILE_VERSION`; exposing it directly would couple agent integrations to the save format.
 **Decision**:
 - **Curated pydantic schema** (`agent_api/schema.py`) is the default return shape — decoupled from `.ogp`/`FILE_VERSION`. The mapping (`agent_api/mapping.py`) is **Qt-free** and pure: it consumes `ProjectManager.snapshot_dict()` (an in-memory `.ogp`-shaped dict + an `agent_meta` block) and emits the schema. A `raw=True` escape hatch (D1.2) will expose the underlying dict for power use.
@@ -821,6 +856,20 @@ Scope is deliberately narrow (plants + the five `SOIL_CONTAINER_TYPES`); resize/
 **Alternatives considered**: *Run the solver for constrained writes* — deferred because a one-shot multi-object mutation has not been proved equivalent to the live drag choreography. *Remove constraints automatically* — rejected because silently discarding a user's design intent is worse than refusal. *Return raw serializer geometry* — rejected because pre-rotation points are not the live geometry an agent must feed back. *Give `application.py` private vertex closures* — rejected because D2.2 proved that callback copies drift; the GUI and agent now share the canonical builders.
 
 **Consequences**: new `ui/canvas/geometry_inspect.py` (main-thread live geometry projection), new curated geometry models and D2.6 `WriteResult` fields/actions, expanded required `AgentProviders` fields, and shared vertex builders in `geometry_apply.py`. No dependency, user-visible app string, setting, `.ogp` field, or `FILE_VERSION` change. Tests: `tests/unit/test_agent_api_edits.py` (Qt-free bounds/index validation), `tests/integration/test_agent_api_geometry.py` (rotated live read and curve/constraint payload), `tests/integration/test_agent_api_writes.py` (real MCP absolute placement, byte-identical vertex round trip, one-step add/set/delete, auth and constraint refusals), and `tests/integration/test_agent_api_default_on.py` (child/reparent orchestration, group/journal/lock policy, HOUSE/ridge topology). Cross-refs: FR-AGENT-21, §8.19, §11.4.
+
+**Addendum (US-D3.3 + US-D3.4 — four more `ProjectData` writes, and one refusal).**
+
+Both stories write stored document state rather than scene state, joining D3.2's `set_succession_plan`. The gate is unchanged (ADR-036's double gate, one undo step each) and the validation-before-command discipline is what makes the refusal path trustworthy: a refused write must leave the stored state **and** the undo stack untouched, which is asserted per tool rather than assumed.
+
+- **`record_soil_test` takes the Rapitest KIT scale, and lab ppm is refused by name.** The highest-risk input in the story. `SoilTestRecord` carries *both* scales — categorical `n_level`/`p_level`/`k_level` and optional `n_ppm`/`p_ppm`/`k_ppm` lab floats, plus a persisted `mode` discriminator — and an agent that helpfully converts a lab report and passes `40` would poison every downstream recommendation. The refusal is not a nicety: **nothing in `services/` reads the `*_ppm` fields.** `health_level`, `calculate_amendments` and the mismatch check all read the `*_level` fields, and no code converts between the scales (US-12.10c owns that). A record written from ppm alone would report UNKNOWN health, recommend nothing and find no mismatches while looking complete to the caller. So the tool refuses ppm, writes `mode="kit"`, and the error names the scale. *Considered and rejected for this package: accepting ppm* — it adds a field and no analysis, needs a second open-ended validation range, and would require the conversion US-12.10c has not built.
+- **The ranges are per-nutrient, and that is the whole point.** N and P are `0–4`, **K is `1–4`** (the kit has no zero for potassium), and Ca/Mg/S are `0–2`. A single shared "is it in range" check would accept a potassium `0` the engine then reads as Deficient-but-measured rather than absent. The table lives in `agent_api/domain.py::RAPITEST_LEVEL_RANGES` and is drift-guarded.
+- **The parameters are named after the model, not after the issue.** The issue proposed `nitrogen`/`phosphorus`/`potassium`; the tool takes `n_level`/`p_level`/`k_level` (and the secondaries the issue omitted entirely, which `calculate_amendments` does reason over via `_NUTRIENT_KINDS`). A parameter whose name states its scale is the cheapest guard against the failure this story is about. The commands are addressed **by keyword** through a Protocol for the same reason D2.1/D2.2 have one: six `int | None` parameters over six different ranges transpose silently.
+- **One canonical mismatch path, extracted not copied.** `get_mismatched_plants` is now a projection of a new `get_mismatch_details`, which yields `(reason_code, display_text)` pairs. **Its signature and both in-app callers (`tasks_view`, `canvas_view`) are unchanged**, and a test pins the projection as behaviour-identical. The alternative — inferring a code from the finished sentence in the agent layer — would have been a second implementation of the judgement, which is how the Tasks tab and the planting calendar came to disagree in #227/#228.
+- **Agent task-status writes are REFUSED, deliberately.** Dismissal and completion are a `task_status` mutation, not a scene edit, so D2's undo contract does not obviously cover them — and on inspection `ProjectManager.set_task_status` is **not a command**: it mutates in place, emits signals and calls `mark_dirty()`. There is no `SetTaskStatusCommand`. Allowing it would have made it **the first agent write a single Ctrl+Z cannot reverse**, breaking the contract this ADR states. So `edit_manual_task` / `delete_manual_task` refuse a generated task by name (it is derived state, rebuilt on every read, so editing it would be undone by the next call), and no agent tool mutates task status at all. The user does that in the Tasks tab. *Adding `SetTaskStatusCommand` is deliberately out of scope* — it touches the subsystem invariant 6 guards and `task_completions` scar tissue, and would grow the package into a third domain.
+- **Hidden statuses match the Tasks tab exactly.** `get_tasks` hides `archived` **and** `dismissed` by default, because `ui/views/tasks_view.py` hides exactly those two. Hiding only `dismissed` — the first implementation — would have made the agent a third surface disagreeing with the other two about one shared store, which is the defect invariant 6 exists to prevent. `include_dismissed=True` reveals both.
+- **`build_plan_state` grew a `today` parameter, defaulting to the wall clock.** Reproducibility was an acceptance criterion and the seam was in the wrong place: every generator and `classify_urgency` already read `PlanState.today`, and only `build_plan_state` called `date.today()` itself. One parameter with a wall-clock default leaves both GUI callers untouched. Parsing and refusal of a malformed value stay in `application.py::_parse_agent_date`, the helper D3.2 introduced.
+
+**Cross-refs:** ADR-034 (D3.3/D3.4 addenda — the localisation convention), §8.19, §8.14/ADR-017 (`is_bed_type` gates every soil read and write, so a TRELLIS is refused), issues #332, #333, §11.4.
 
 ## ADR-037: Sun/Shade Foundation — Qt-Free Solar Engine + Object-Height Resolver (Phase 14, US-E1+E2)
 
@@ -1212,6 +1261,8 @@ have been the same overstatement this package was corrected for.
 
 **Addendum — `parent_bed_id` is a property, not metadata (found by the live manual pass).** `_get_current_bed_id()` / `_get_bed_plants()` first read `item.metadata["parent_bed_id"]`, which is never present: on `GardenItem` it is a real property backed by a `_parent_bed_id` UUID. Both silently returned nothing, so the panel action opened an empty dialog. Fixed to read the property; the fake in `tests/unit/test_companion_panel_sets.py` models it as a property and keeps `metadata` free of that key, so the original bug cannot be reintroduced silently. Related: `CompanionRelationship.source` became a **declared** dataclass field for the same reason — the reverse adjacency copy in `_add_to_adjacency` copies declared fields only, so a dynamically attached `_source` was lost and the same Permapeople rule reported `permapeople` in one direction and `bundled` in the other. Cross-refs: FR-AGENT-23, FR-AGENT-24, §8.19, issue #319, issue #362.
 
+**Addendum — the D3.1 display name follows the UI language (issue #410).** `suggest_companions` shipped with `service.get_display_name(other)` and the function's `lang="en"` default, so the agent tool returned English names while the Companion panel (which passes `lang`) showed German — the same data, two surfaces, one localised. The D3.3/D3.4 convention (issues #332/#333, §8.19) had settled the rule after D3.1 shipped: `species_key` is the stable machine key, `name` is a display string in the user's current UI language. `suggest_companions` / `suggest_companions_for_agent` now take a `language` argument, and the `_agent_suggest_companions` provider resolves it with the shared `app/settings.py::active_language()`. `CompanionSuggestion.name` is documented as a display string in the schema, and the tool docstring tells the agent to branch on `species_key`. Pinned by `tests/unit/test_agent_d3_localisation.py::test_companion_name_follows_the_ui_while_the_key_stays_english`, `tests/unit/test_companion_sets.py::TestSuggestCompanions::test_display_name_follows_language_key_does_not`, and the app-level `tests/integration/test_agent_check_placement_bed.py::TestSuggestCompanionsLanguage`. The same audit found the sibling leak in `services/task_generator.py` (issue #408), fixed with the machine-key/display-text split that keeps the persisted task id stable.
+
 ## ADR-046: Derived geometry is recomputed, never projected (issue #364)
 
 **Status**: Accepted (2026-09-29). Fixes the HOUSE/ROOF_RIDGE sync; #363
@@ -1412,6 +1463,82 @@ fail against the unfixed brush assignment. Landscape cases alone would leave the
 `rotate()` sign unpinned — see alternative (b).
 
 **Cross-refs:** §11.4, issue #372, issue #114, ADR-046.
+
+## ADR-047: Audit snapshots plus a living debt register (2026-10 repository audit)
+
+**Status**: Accepted (2026-10-04). Introduced by the first whole-repository audit
+(`docs/11-risks-and-technical-debt/audit-2026-10.md`); changes how technical debt is
+recorded, not what the code does.
+
+**Context.** The project records lessons at the incident level with unusual discipline:
+§11.4 holds 139 pitfall entries, the failure archaeology 25 sagas, the ADR file 46
+decisions with 41 addenda. The *registers* above that level had stopped working. The
+debt register §11.3 received its last row on 2026-04-17 while 61 later commits touched
+the file; it has a priority column but no status and no link to an issue. §11.1/§11.2
+carry rows resolved months ago (Qt3D vs a dedicated engine is "open" although ADR-038
+settled it; the SQLite plant cache is still open and nothing says so). §10.6 promises
+"mypy type check" and a "coverage report" on every push; CI runs neither, and the first
+measurement found 2 104 strict-mode errors in 134 of 248 files and 80.2 % non-UI line
+coverage (66.4 % branch) against the written 80 % target. A register that nobody can
+read for status is institutional memory only on paper (§11.4 says so itself: it "is
+only institutional memory if it is read").
+
+The audit also produced numbers that are worthless as prose and valuable as a time
+series: complexity rank distribution (59 of 4 042 functions at rank D or worse), module-level
+layering violations (6), lint debt outside `src/` (235 findings), formatter drift (427
+files), mutation scores for twelve core modules, the slowest tests, the share of
+version-sync commits (122 of 407). A number meant as a trend needs a re-runnable procedure
+checked into the repository (external-positioning rule), or the next audit starts from
+zero and cannot say whether anything improved; a number that is only a dated measurement
+(benchmark timings, mutation scores) has to say so.
+
+**Decision.**
+
+1. **§11.3 is the single living register.** Columns: `ID | Area | Description |
+   Severity/Effort | Status | Issue | Source`. Every Top-N finding of an audit snapshot
+   gets a row (`TD-009` onward); P0/P1 rows carry their GitHub issue, P2/P3 rows point to
+   the audit epic's checklist, and the long tail stays in the snapshot's appendix. `Status`
+   is one of `open` (with a measurement or partial-fix note where useful), `fixed (#PR)`,
+   `accepted (ADR-0xx)`, `closed (reason)` or `superseded (by …)`, and is updated when
+   the issue closes. Historical rows TD-001…TD-008 keep their ids, receive a status, and
+   carry an issue only where one exists. Rows are never deleted; a resolved row says so.
+2. **Audit reports are dated snapshots** beside the register
+   (`docs/11-risks-and-technical-debt/audit-YYYY-MM.md`), written in the house style
+   (symptom, measurement, recommendation; numbers over adjectives), with a Top-N ledger
+   that cites the register ids and the issues. The snapshot is not edited after merge;
+   corrections go to the register and the next snapshot.
+3. **One re-runnable baseline.** `scripts/audit_metrics.py` emits the metrics JSON the
+   snapshot quotes (`docs/11-risks-and-technical-debt/audit-YYYY-MM-metrics.json`). A
+   later run against the same commit reproduces the static numbers exactly (LOC,
+   complexity, mypy at the recorded tool version, ruff, layering, git) and coverage to
+   about 0.1 percentage point overall (up to 0.3 per package); a run against a newer commit is the trend. A tool that is
+   missing or whose output cannot be parsed yields `available: false` with a reason, never
+   a zero; a section disabled by flag is `null`. Every other number in a snapshot
+   (benchmarks, mutation scores, PoCs) is labelled point-in-time with its harness named.
+4. **Deliberate decisions are listed, not ranked.** A finding that contradicts an ADR or
+   a documented rule is recorded in the snapshot's "challenged decisions" section with the
+   ADR cited and the measurement that motivates the challenge; it enters the register
+   only when the owner reopens the decision.
+
+**Rationale.** The alternative, filing issues only, loses the cross-section view (which
+dimension is red, what the trend is) and repeats the drift that emptied §11.3. The
+alternative of a separate `docs/audit/` tree adds a 13th top-level folder beside the 12
+arc42 chapters and detaches the snapshot from the chapter that owns risks and debt.
+Ratchets in CI (mypy count must not grow, no new rank-F functions, a coverage floor) are
+*proposed* in the snapshot and tracked as issues; adopting them is a separate decision
+because each changes what a contributor must do to merge.
+
+**Consequences.** Positive: status is readable in one table; the next audit diffs a JSON
+file instead of re-measuring from zero; owners of open debt are the issues, not a
+sentence in prose. Negative: three places can drift when an issue closes (the register
+row, the issue and the epic checklist); the row carries the issue number so a grep finds
+it, and the register rows and the epic checklist are rendered from the same audit ledger
+(the snapshot's §9.1).
+`scripts/audit_metrics.py` depends on optional tools and on a full git history for churn
+(a shallow checkout reports `available: false` there by design). The first audit added
+no CI gate beyond the script's own unit test, created no label and changed no code
+outside `scripts/audit_metrics.py`; the Windows-only checks (frozen exe, frame pacing at a
+real window) were handed to the owner's local run (see the snapshot's handover section).
 
 ## ADR-047: 3D Renderer — Qt Quick 3D replaces Qt 3D (supersedes ADR-038's engine choice) — GO/NO-GO spike (Phase 17, Package L0)
 

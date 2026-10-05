@@ -1,10 +1,7 @@
 """Unit tests for plant spacing circles and overlap detection (US-11.2)."""
 
-import math
-import uuid
 
 import pytest
-from PyQt6.QtCore import QPointF
 
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.items.circle_item import CircleItem

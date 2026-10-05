@@ -1,0 +1,737 @@
+{
+ "schema_version": 2,
+ "meta": {
+  "generated_at": "2026-10-04T10:38:57+00:00",
+  "commit": "84ead2e",
+  "tracked_files_modified": false,
+  "python": "3.11.15",
+  "platform": "linux",
+  "tool_versions": {
+   "mypy": "mypy 2.4.0 (compiled: yes)",
+   "ruff": "ruff 0.16.10",
+   "radon": "6.0.1"
+  },
+  "load_average_start": [
+   1.11,
+   0.88,
+   0.65
+  ],
+  "disabled": [],
+  "load_average_end": [
+   1.46,
+   0.99,
+   0.69
+  ]
+ },
+ "loc": {
+  "src_total": 106354,
+  "src_files": 248,
+  "src_per_package": {
+   "ui": 50631,
+   "core": 25190,
+   "services": 11443,
+   "app": 9402,
+   "agent_api": 6946,
+   "models": 2429,
+   "(root)": 313
+  },
+  "tests_total": 81218,
+  "tests_files": 303,
+  "scripts_total": 11413,
+  "largest_src_files": [
+   {
+    "path": "src/open_garden_planner/app/application.py",
+    "lines": 8565
+   },
+   {
+    "path": "src/open_garden_planner/ui/canvas/canvas_view.py",
+    "lines": 6035
+   },
+   {
+    "path": "src/open_garden_planner/core/tools/constraint_tool.py",
+    "lines": 4079
+   },
+   {
+    "path": "src/open_garden_planner/ui/canvas/items/resize_handle.py",
+    "lines": 3414
+   },
+   {
+    "path": "src/open_garden_planner/core/commands.py",
+    "lines": 2896
+   },
+   {
+    "path": "src/open_garden_planner/ui/panels/properties_panel.py",
+    "lines": 2531
+   },
+   {
+    "path": "src/open_garden_planner/core/project.py",
+    "lines": 2188
+   },
+   {
+    "path": "src/open_garden_planner/agent_api/server.py",
+    "lines": 2168
+   },
+   {
+    "path": "src/open_garden_planner/services/ai_client_onboarding.py",
+    "lines": 1874
+   },
+   {
+    "path": "src/open_garden_planner/ui/panels/plant_database_panel.py",
+    "lines": 1704
+   }
+  ]
+ },
+ "complexity": {
+  "available": true,
+  "rank_histogram": {
+   "A": 3346,
+   "B": 476,
+   "C": 161,
+   "D": 31,
+   "E": 13,
+   "F": 15
+  },
+  "functions_rank_d_or_worse": 59,
+  "top_30_by_cc": [
+   {
+    "cc": 121,
+    "path": "src/open_garden_planner/core/project.py",
+    "name": "ProjectManager._serialize_item_core"
+   },
+   {
+    "cc": 117,
+    "path": "src/open_garden_planner/core/constraints.py",
+    "name": "ConstraintGraph.solve_anchored"
+   },
+   {
+    "cc": 100,
+    "path": "src/open_garden_planner/core/project.py",
+    "name": "ProjectManager._deserialize_item_core"
+   },
+   {
+    "cc": 92,
+    "path": "src/open_garden_planner/ui/canvas/canvas_view.py",
+    "name": "CanvasView._serialize_item_core"
+   },
+   {
+    "cc": 65,
+    "path": "src/open_garden_planner/ui/canvas/canvas_view.py",
+    "name": "CanvasView._deserialize_item"
+   },
+   {
+    "cc": 56,
+    "path": "src/open_garden_planner/ui/canvas/items/rectangle_item.py",
+    "name": "RectangleItem.contextMenuEvent"
+   },
+   {
+    "cc": 56,
+    "path": "src/open_garden_planner/ui/canvas/items/polygon_item.py",
+    "name": "PolygonItem.contextMenuEvent"
+   },
+   {
+    "cc": 56,
+    "path": "src/open_garden_planner/ui/canvas/items/circle_item.py",
+    "name": "CircleItem.contextMenuEvent"
+   },
+   {
+    "cc": 54,
+    "path": "src/open_garden_planner/ui/canvas/dimension_lines.py",
+    "name": "DimensionLineManager._update_constraint"
+   },
+   {
+    "cc": 48,
+    "path": "src/open_garden_planner/ui/canvas/items/ellipse_item.py",
+    "name": "EllipseItem.contextMenuEvent"
+   },
+   {
+    "cc": 47,
+    "path": "src/open_garden_planner/ui/panels/plant_database_panel.py",
+    "name": "PlantDatabasePanel._show_plant_data"
+   },
+   {
+    "cc": 47,
+    "path": "src/open_garden_planner/ui/canvas/canvas_view.py",
+    "name": "CanvasView._propagate_constraints_during_drag"
+   },
+   {
+    "cc": 44,
+    "path": "src/open_garden_planner/ui/canvas/items/polyline_item.py",
+    "name": "PolylineItem.contextMenuEvent"
+   },
+   {
+    "cc": 43,
+    "path": "src/open_garden_planner/services/plant_api/trefle_client.py",
+    "name": "TrefleClient._parse_species"
+   },
+   {
+    "cc": 41,
+    "path": "src/open_garden_planner/core/constraints.py",
+    "name": "ConstraintGraph.solve"
+   },
+   {
+    "cc": 40,
+    "path": "src/open_garden_planner/services/plant_api/permapeople_client.py",
+    "name": "PermapeopleClient._parse_species"
+   },
+   {
+    "cc": 39,
+    "path": "src/open_garden_planner/ui/panels/constraints_panel.py",
+    "name": "ConstraintListItem._setup_ui"
+   },
+   {
+    "cc": 37,
+    "path": "src/open_garden_planner/ui/canvas/canvas_view.py",
+    "name": "CanvasView.keyPressEvent"
+   },
+   {
+    "cc": 36,
+    "path": "src/open_garden_planner/ui/canvas/canvas_view.py",
+    "name": "CanvasView._delete_selected_items"
+   },
+   {
+    "cc": 36,
+    "path": "src/open_garden_planner/agent_api/creates.py",
+    "name": "build_create_dict"
+   },
+   {
+    "cc": 35,
+    "path": "src/open_garden_planner/ui/panels/properties_panel.py",
+    "name": "PropertiesPanel._on_property_changed"
+   },
+   {
+    "cc": 34,
+    "path": "src/open_garden_planner/ui/canvas/canvas_view.py",
+    "name": "CanvasView._compute_edge_length_constraint_moves"
+   },
+   {
+    "cc": 33,
+    "path": "src/open_garden_planner/agent_api/domain.py",
+    "name": "suggest_succession_for_agent"
+   },
+   {
+    "cc": 32,
+    "path": "src/open_garden_planner/ui/canvas/items/resize_handle.py",
+    "name": "ResizeHandle._apply_resize"
+   },
+   {
+    "cc": 32,
+    "path": "src/open_garden_planner/services/companion_sets.py",
+    "name": "find_compatible_sets"
+   },
+   {
+    "cc": 31,
+    "path": "src/open_garden_planner/ui/panels/plant_database_panel.py",
+    "name": "PlantDatabasePanel._on_field_changed"
+   },
+   {
+    "cc": 31,
+    "path": "src/open_garden_planner/ui/canvas/canvas_view.py",
+    "name": "CanvasView.duplicate_selected"
+   },
+   {
+    "cc": 31,
+    "path": "src/open_garden_planner/ui/canvas/canvas_view.py",
+    "name": "CanvasView.create_grid_array"
+   },
+   {
+    "cc": 29,
+    "path": "src/open_garden_planner/ui/canvas/canvas_view.py",
+    "name": "CanvasView._enforce_point_on_edge_positions"
+   },
+   {
+    "cc": 29,
+    "path": "src/open_garden_planner/core/project.py",
+    "name": "ProjectManager.create_new_season"
+   }
+  ],
+  "files_with_mi_below_10": [
+   "src/open_garden_planner/app/application.py",
+   "src/open_garden_planner/core/commands.py",
+   "src/open_garden_planner/core/constraints.py",
+   "src/open_garden_planner/core/project.py",
+   "src/open_garden_planner/core/tools/constraint_tool.py",
+   "src/open_garden_planner/ui/canvas/canvas_view.py",
+   "src/open_garden_planner/ui/canvas/dimension_lines.py",
+   "src/open_garden_planner/ui/canvas/items/garden_item.py",
+   "src/open_garden_planner/ui/canvas/items/polyline_item.py",
+   "src/open_garden_planner/ui/canvas/items/resize_handle.py",
+   "src/open_garden_planner/ui/panels/plant_database_panel.py",
+   "src/open_garden_planner/ui/panels/properties_panel.py",
+   "src/open_garden_planner/ui/views/planting_calendar_view.py"
+  ],
+  "sum_cc_top_10_files": [
+   {
+    "path": "src/open_garden_planner/ui/canvas/canvas_view.py",
+    "sum_cc": 1188
+   },
+   {
+    "path": "src/open_garden_planner/app/application.py",
+    "sum_cc": 1026
+   },
+   {
+    "path": "src/open_garden_planner/core/tools/constraint_tool.py",
+    "sum_cc": 678
+   },
+   {
+    "path": "src/open_garden_planner/ui/canvas/items/resize_handle.py",
+    "sum_cc": 641
+   },
+   {
+    "path": "src/open_garden_planner/core/commands.py",
+    "sum_cc": 554
+   },
+   {
+    "path": "src/open_garden_planner/core/project.py",
+    "sum_cc": 467
+   },
+   {
+    "path": "src/open_garden_planner/ui/panels/properties_panel.py",
+    "sum_cc": 359
+   },
+   {
+    "path": "src/open_garden_planner/core/constraints.py",
+    "sum_cc": 265
+   },
+   {
+    "path": "src/open_garden_planner/ui/panels/plant_database_panel.py",
+    "sum_cc": 262
+   },
+   {
+    "path": "src/open_garden_planner/ui/canvas/items/garden_item.py",
+    "sum_cc": 254
+   }
+  ]
+ },
+ "types": {
+  "available": true,
+  "errors": 2104,
+  "files_with_errors": 134,
+  "per_package": {
+   "ui": 1231,
+   "core": 504,
+   "app": 245,
+   "services": 80,
+   "agent_api": 39,
+   "models": 4,
+   "main": 1
+  },
+  "top_error_codes": {
+   "union-attr": 689,
+   "attr-defined": 253,
+   "unused-ignore": 229,
+   "override": 218,
+   "arg-type": 163,
+   "type-arg": 158,
+   "no-untyped-def": 120,
+   "no-any-return": 67,
+   "assignment": 67,
+   "misc": 41
+  },
+  "unused_type_ignores": 229
+ },
+ "lint": {
+  "available": true,
+  "check": {
+   "src": {
+    "findings": 0,
+    "top_rules": {}
+   },
+   "tests": {
+    "findings": 215,
+    "top_rules": {
+     "ARG005": 100,
+     "F401": 56,
+     "I001": 41,
+     "W292": 4,
+     "C420": 3,
+     "F841": 2,
+     "F811": 2,
+     "E402": 1
+    }
+   },
+   "scripts": {
+    "findings": 20,
+    "top_rules": {
+     "E402": 8,
+     "F601": 5,
+     "F401": 4,
+     "F841": 2,
+     "I001": 1
+    }
+   }
+  },
+  "format_would_reformat": {
+   "src": 182,
+   "tests": 228,
+   "scripts": 17
+  }
+ },
+ "layering": {
+  "rule": "module-level imports of open_garden_planner.ui/.app from core, services, models, agent_api: core->ui breaks architecture invariant 11, ->app contradicts the module map; function-local (invariant 11) and TYPE_CHECKING imports are counted, not flagged",
+  "module_level_violations_total": 6,
+  "module_level_per_layer": {
+   "core": 4,
+   "services": 1,
+   "agent_api": 1
+  },
+  "module_level_violations": [
+   {
+    "path": "src/open_garden_planner/core/project.py",
+    "line": 19,
+    "imports": [
+     "open_garden_planner.app.settings"
+    ]
+   },
+   {
+    "path": "src/open_garden_planner/core/tools/chamfer_tool.py",
+    "line": 11,
+    "imports": [
+     "open_garden_planner.app.settings"
+    ]
+   },
+   {
+    "path": "src/open_garden_planner/core/tools/constraint_tool.py",
+    "line": 34,
+    "imports": [
+     "open_garden_planner.ui.canvas.items"
+    ]
+   },
+   {
+    "path": "src/open_garden_planner/core/tools/fillet_tool.py",
+    "line": 11,
+    "imports": [
+     "open_garden_planner.app.settings"
+    ]
+   },
+   {
+    "path": "src/open_garden_planner/services/autosave_service.py",
+    "line": 16,
+    "imports": [
+     "open_garden_planner.app.settings"
+    ]
+   },
+   {
+    "path": "src/open_garden_planner/agent_api/exports.py",
+    "line": 28,
+    "imports": [
+     "open_garden_planner.app.paths"
+    ]
+   }
+  ],
+  "function_local_ui_app_imports_per_layer": {
+   "core": 147,
+   "services": 24
+  },
+  "type_checking_ui_app_imports_per_layer": {
+   "core": 26,
+   "services": 3,
+   "agent_api": 1
+  },
+  "module_level_qtwidgets_imports_per_layer_informational": {
+   "core": 36,
+   "services": 4,
+   "agent_api": 1
+  },
+  "unparsed_files": []
+ },
+ "coverage": {
+  "available": true,
+  "source": "coverage.xml",
+  "total": {
+   "statements": 49692,
+   "line_pct": 74.1,
+   "branch_pct": 56.3
+  },
+  "non_ui": {
+   "statements": 23690,
+   "line_pct": 80.2,
+   "branch_pct": 66.4,
+   "definition": "all packages except ui"
+  },
+  "per_package": {
+   "ui": {
+    "statements": 26002,
+    "line_pct": 68.5,
+    "branch_pct": 46.9
+   },
+   "core": {
+    "statements": 11953,
+    "line_pct": 76.6,
+    "branch_pct": 61.6
+   },
+   "services": {
+    "statements": 4671,
+    "line_pct": 86.6,
+    "branch_pct": 76.9
+   },
+   "app": {
+    "statements": 4168,
+    "line_pct": 76.0,
+    "branch_pct": 56.6
+   },
+   "agent_api": {
+    "statements": 1813,
+    "line_pct": 91.8,
+    "branch_pct": 82.5
+   },
+   "models": {
+    "statements": 962,
+    "line_pct": 95.4,
+    "branch_pct": 87.9
+   },
+   "(root)": {
+    "statements": 123,
+    "line_pct": 38.2,
+    "branch_pct": 25.0
+   }
+  },
+  "least_covered_large_files": [
+   {
+    "path": "src/open_garden_planner/core/tools/constraint_tool.py",
+    "statements": 2340,
+    "missed": 1661
+   },
+   {
+    "path": "src/open_garden_planner/ui/canvas/canvas_view.py",
+    "statements": 3151,
+    "missed": 1319
+   },
+   {
+    "path": "src/open_garden_planner/app/application.py",
+    "statements": 3805,
+    "missed": 985
+   },
+   {
+    "path": "src/open_garden_planner/ui/canvas/items/resize_handle.py",
+    "statements": 1759,
+    "missed": 581
+   },
+   {
+    "path": "src/open_garden_planner/ui/canvas/dimension_lines.py",
+    "statements": 850,
+    "missed": 464
+   },
+   {
+    "path": "src/open_garden_planner/ui/canvas/items/polyline_item.py",
+    "statements": 664,
+    "missed": 459
+   },
+   {
+    "path": "src/open_garden_planner/ui/panels/properties_panel.py",
+    "statements": 1299,
+    "missed": 394
+   },
+   {
+    "path": "src/open_garden_planner/ui/views/planting_calendar_view.py",
+    "statements": 929,
+    "missed": 338
+   },
+   {
+    "path": "src/open_garden_planner/ui/panels/plant_database_panel.py",
+    "statements": 943,
+    "missed": 276
+   },
+   {
+    "path": "src/open_garden_planner/ui/canvas/items/polygon_item.py",
+    "statements": 580,
+    "missed": 226
+   }
+  ]
+ },
+ "tests": {
+  "test_functions_total": 4478,
+  "per_directory": {
+   "integration": {
+    "files": 114,
+    "test_functions": 1290
+   },
+   "ui": {
+    "files": 18,
+    "test_functions": 320
+   },
+   "unit": {
+    "files": 165,
+    "test_functions": 2868
+   }
+  },
+  "unparsed_files": [],
+  "note": "test functions, not parametrised cases; pytest --collect-only counts cases"
+ },
+ "git": {
+  "available": true,
+  "commits": 407,
+  "commit_type_histogram": {
+   "feat": 161,
+   "chore": 153,
+   "fix": 53,
+   "docs": 25,
+   "other": 9,
+   "refactor": 2,
+   "add": 2,
+   "ci": 1,
+   "refine": 1
+  },
+  "version_sync_commits": 122,
+  "author_identities": 4,
+  "churn_top_20": [
+   {
+    "path": "src/open_garden_planner/__init__.py",
+    "commits": 124
+   },
+   {
+    "path": "src/open_garden_planner/app/application.py",
+    "commits": 116
+   },
+   {
+    "path": "src/open_garden_planner/ui/canvas/canvas_view.py",
+    "commits": 86
+   },
+   {
+    "path": "src/open_garden_planner/core/project.py",
+    "commits": 51
+   },
+   {
+    "path": "src/open_garden_planner/core/commands.py",
+    "commits": 42
+   },
+   {
+    "path": "src/open_garden_planner/ui/canvas/items/circle_item.py",
+    "commits": 40
+   },
+   {
+    "path": "src/open_garden_planner/ui/canvas/items/rectangle_item.py",
+    "commits": 38
+   },
+   {
+    "path": "src/open_garden_planner/ui/canvas/items/polygon_item.py",
+    "commits": 37
+   },
+   {
+    "path": "src/open_garden_planner/ui/panels/properties_panel.py",
+    "commits": 35
+   },
+   {
+    "path": "src/open_garden_planner/core/tools/base_tool.py",
+    "commits": 31
+   },
+   {
+    "path": "src/open_garden_planner/ui/canvas/canvas_scene.py",
+    "commits": 30
+   },
+   {
+    "path": "src/open_garden_planner/ui/canvas/items/garden_item.py",
+    "commits": 27
+   },
+   {
+    "path": "src/open_garden_planner/ui/canvas/items/polyline_item.py",
+    "commits": 25
+   },
+   {
+    "path": "src/open_garden_planner/core/tools/__init__.py",
+    "commits": 24
+   },
+   {
+    "path": "src/open_garden_planner/main.py",
+    "commits": 22
+   },
+   {
+    "path": "src/open_garden_planner/ui/canvas/items/resize_handle.py",
+    "commits": 22
+   },
+   {
+    "path": "src/open_garden_planner/core/object_types.py",
+    "commits": 22
+   },
+   {
+    "path": "src/open_garden_planner/ui/dialogs/__init__.py",
+    "commits": 22
+   },
+   {
+    "path": "src/open_garden_planner/app/settings.py",
+    "commits": 21
+   },
+   {
+    "path": "src/open_garden_planner/core/tools/constraint_tool.py",
+    "commits": 20
+   }
+  ]
+ },
+ "hygiene": {
+  "standard_files": {
+   "CONTRIBUTING.md": false,
+   "SECURITY.md": false,
+   "CODE_OF_CONDUCT.md": false,
+   "CHANGELOG.md": false,
+   ".editorconfig": false,
+   ".pre-commit-config.yaml": false,
+   ".mailmap": false,
+   ".github/CODEOWNERS": false,
+   ".github/dependabot.yml": false,
+   ".github/pull_request_template.md": false,
+   ".github/PULL_REQUEST_TEMPLATE.md": false
+  },
+  "claude_md_bytes": 31938,
+  "agents_md_bytes": 31938,
+  "skills": 21,
+  "skill_md_total_bytes": 648843,
+  "largest_skills": [
+   {
+    "path": ".claude/skills/debug-verbose/SKILL.md",
+    "bytes": 144540
+   },
+   {
+    "path": ".claude/skills/ogp-failure-archaeology/SKILL.md",
+    "bytes": 53734
+   },
+   {
+    "path": ".claude/skills/ogp-3d-sunshade-campaign/SKILL.md",
+    "bytes": 52910
+   },
+   {
+    "path": ".claude/skills/ogp-debugging-playbook/SKILL.md",
+    "bytes": 35472
+   },
+   {
+    "path": ".claude/skills/ogp-architecture-contract/SKILL.md",
+    "bytes": 33956
+   }
+  ]
+ },
+ "docs": {
+  "markdown_files": 17,
+  "largest": [
+   {
+    "path": "docs/roadmap.md",
+    "lines": 2598
+   },
+   {
+    "path": "docs/08-crosscutting-concepts/README.md",
+    "lines": 2238
+   },
+   {
+    "path": "docs/09-architecture-decisions/README.md",
+    "lines": 1414
+   },
+   {
+    "path": "docs/functional-requirements.md",
+    "lines": 576
+   },
+   {
+    "path": "docs/11-risks-and-technical-debt/README.md",
+    "lines": 535
+   },
+   {
+    "path": "docs/05-building-block-view/README.md",
+    "lines": 366
+   },
+   {
+    "path": "docs/07-deployment-view/README.md",
+    "lines": 307
+   },
+   {
+    "path": "docs/06-runtime-view/README.md",
+    "lines": 260
+   }
+  ]
+ }
+}

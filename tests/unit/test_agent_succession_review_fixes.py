@@ -17,7 +17,6 @@ from open_garden_planner.agent_api.domain import (
     suggest_succession_for_agent,
 )
 from open_garden_planner.core.object_types import ObjectType
-from open_garden_planner.models.crop_rotation import PlantingRecord
 from open_garden_planner.ui.canvas.items import RectangleItem
 
 LOCATION: dict[str, Any] = {

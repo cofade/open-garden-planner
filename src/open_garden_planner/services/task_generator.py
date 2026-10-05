@@ -33,7 +33,7 @@ from typing import Any
 
 from PyQt6.QtCore import QCoreApplication
 
-from open_garden_planner.models.propagation import PropagationPlan
+from open_garden_planner.models.propagation import PropagationPlan, compute_propagation_plan
 from open_garden_planner.models.succession import SuccessionPlan
 from open_garden_planner.models.task import ManualTask
 from open_garden_planner.services.weather_service import FrostAlert
@@ -88,17 +88,23 @@ class PlantRowInput:
 class BedInput:
     """A bed plus its precomputed soil tasks.
 
-    ``amendment_recs`` is a tuple of ``(amendment_name, rationale)`` pairs and
-    ``mismatch_plants`` a tuple of plant display names whose soil preference
-    clashes with the bed — both precomputed by the caller so the generators stay
-    Qt-free and need no soil-service import. The caller flattens each
-    :class:`~open_garden_planner.models.amendment.AmendmentRecommendation` into a
-    small display pair.
+    ``amendment_recs`` is a tuple of ``(stable_name, display_name, rationale)``
+    triples and ``mismatch_plants`` a tuple of plant display names whose soil
+    preference clashes with the bed — both precomputed by the caller so the
+    generators stay Qt-free and need no soil-service import. The caller flattens
+    each :class:`~open_garden_planner.models.amendment.AmendmentRecommendation`
+    into a small display triple.
+
+    ``stable_name`` is the amendment's English data name and is used verbatim in
+    the generated task id, so switching the UI language never changes a task's
+    identity (the saved done/snooze state in ``task_states`` is keyed by
+    ``task_id``). ``display_name`` is the name in the active UI language and is
+    the only part rendered in the task title.
     """
 
     bed_id: str
     name: str
-    amendment_recs: tuple[tuple[str, str], ...] = ()
+    amendment_recs: tuple[tuple[str, str, str], ...] = ()
     mismatch_plants: tuple[str, ...] = ()
 
 
@@ -116,6 +122,13 @@ class PlanState:
     succession_plans: dict[str, dict] = field(default_factory=dict)
     manual_tasks: tuple[ManualTask, ...] = ()
     frost_alerts: tuple[FrostAlert, ...] = ()
+    # GUI reminder surfaces keep only actionable generated tasks. Annual agent
+    # calendars opt into the complete dated schedule before applying their filter.
+    actionable_only: bool = True
+    # Inputs retained for rebuilding propagation dates in a requested calendar year.
+    propagation_species: dict[str, Any] = field(default_factory=dict)
+    propagation_overrides: dict[str, dict] = field(default_factory=dict)
+    propagation_seed_packets: dict[str, Any] = field(default_factory=dict)
 
 
 # ── Urgency classification ───────────────────────────────────────────────────
@@ -198,7 +211,7 @@ def generate_calendar_tasks(state: PlanState) -> list[Task]:
                 continue
             start = last_frost + datetime.timedelta(weeks=start_weeks)
             end = last_frost + datetime.timedelta(weeks=end_weeks)
-            if classify_urgency(start, end, state.today) is None:
+            if state.actionable_only and classify_urgency(start, end, state.today) is None:
                 continue
             tasks.append(Task(
                 task_id=make_calendar_task_id(row.species_key, task_type, state.year),
@@ -214,7 +227,11 @@ def generate_calendar_tasks(state: PlanState) -> list[Task]:
 
 
 def generate_propagation_tasks(state: PlanState) -> list[Task]:
-    """Pricking-out / hardening-off tasks from per-species propagation plans."""
+    """Pricking-out / hardening-off tasks from per-species propagation plans.
+
+    Absolute overridden steps belong to the year of their start date, independent
+    of the frost anchor being evaluated. Both GUI and period reads use this id.
+    """
     tasks: list[Task] = []
     for row in state.plant_rows:
         plan = state.prop_plans.get(row.species_key)
@@ -224,10 +241,13 @@ def generate_propagation_tasks(state: PlanState) -> list[Task]:
             step = plan.get_step(step_id)
             if step is None:
                 continue
-            if classify_urgency(step.start_date, step.end_date, state.today) is None:
+            if state.actionable_only and classify_urgency(step.start_date, step.end_date, state.today) is None:
                 continue
             tasks.append(Task(
-                task_id=make_calendar_task_id(row.species_key, step_id, state.year),
+                task_id=make_calendar_task_id(
+                    row.species_key, step_id,
+                    step.start_date.year if step.overridden else state.year,
+                ),
                 source="propagation",
                 task_type=step_id,
                 title=row.display_name,
@@ -246,9 +266,9 @@ def generate_succession_tasks(state: PlanState) -> list[Task]:
         plan = SuccessionPlan.from_dict(raw)
         for entry in plan.entries:
             sow_date = _parse_iso(entry.start_date)
-            if sow_date is not None and classify_urgency(
+            if sow_date is not None and (not state.actionable_only or classify_urgency(
                 sow_date, sow_date, state.today
-            ) is not None:
+            ) is not None):
                 tasks.append(Task(
                     task_id=f"succession:sow:{bed_id}:{entry.id}",
                     source="succession",
@@ -260,9 +280,9 @@ def generate_succession_tasks(state: PlanState) -> list[Task]:
                     species_key=entry.species_key,
                 ))
             clear_date = _parse_iso(entry.end_date)
-            if clear_date is not None and classify_urgency(
+            if clear_date is not None and (not state.actionable_only or classify_urgency(
                 clear_date, clear_date, state.today
-            ) is not None:
+            ) is not None):
                 tasks.append(Task(
                     task_id=f"succession:clear:{bed_id}:{entry.id}",
                     source="succession",
@@ -280,14 +300,16 @@ def generate_soil_amendment_tasks(state: PlanState) -> list[Task]:
     """One task per precomputed amendment recommendation per bed (always due today)."""
     tasks: list[Task] = []
     for bed in state.beds:
-        for name, rationale in bed.amendment_recs:
+        for stable_name, display_name, rationale in bed.amendment_recs:
             # Key by amendment identity (not list position) so a done/snooze
             # marker stays pinned to the right amendment if the order changes.
+            # The id uses the English data name (stable across UI languages);
+            # only the title follows the active language (#408).
             tasks.append(Task(
-                task_id=f"soil_amendment:{bed.bed_id}:{name}",
+                task_id=f"soil_amendment:{bed.bed_id}:{stable_name}",
                 source="soil",
                 task_type="soil_amendment",
-                title=f"{name} — {bed.name}",
+                title=f"{display_name} — {bed.name}",
                 notes=rationale,
                 bed_id=bed.bed_id,
                 start_date=state.today,
@@ -325,7 +347,7 @@ def generate_frost_tasks(state: PlanState) -> list[Task]:
         alert_date = _parse_iso(alert.date)
         if alert_date is None:
             continue
-        if classify_urgency(alert_date, alert_date, state.today) is None:
+        if state.actionable_only and classify_urgency(alert_date, alert_date, state.today) is None:
             continue
         task_type = (
             "frost_alert_red" if alert.severity == "red" else "frost_alert_orange"
@@ -417,6 +439,10 @@ def build_plan_state(
     frost_alerts: list | None = None,
     soil_service: Any | None = None,
     prop_plans: dict[str, PropagationPlan] | None = None,
+    today: datetime.date | None = None,
+    year: int | None = None,
+    actionable_only: bool = True,
+    include_propagation: bool = False,
 ) -> PlanState:
     """Snapshot the live scene + project into a Qt-free :class:`PlanState`.
 
@@ -425,10 +451,25 @@ def build_plan_state(
     dashboard (species week-offsets, the location's last-frost date, succession
     plans) and the soil engine (amendment recommendations + mismatch warnings).
 
-    ``prop_plans`` is supplied only by the planting calendar (its precomputed
-    per-species propagation plans, gated by the calendar's propagation toggle);
-    the Tasks tab passes ``None`` so pricking-out / hardening-off steps stay
-    calendar-only.
+    ``prop_plans`` can be supplied by the planting calendar, gated by its
+    propagation toggle. ``include_propagation`` builds those plans through the
+    same calculator for agent reads, including seed data and user overrides.
+    The Tasks tab keeps the default False so its reminder list is unchanged.
+
+    ``year`` selects the calendar/frost year independently of the reference
+    date. ``actionable_only=False`` retains dated tasks outside the urgency
+    window for annual calendars and explicit agent date windows; the GUI keeps
+    the default True. Urgency is always classified against ``today``.
+
+    ``today`` overrides the reference date (US-D3.3). It defaults to the wall
+    clock, so both GUI callers are unaffected, but a caller that must be
+    reproducible passes it explicitly: every generator and
+    :func:`classify_urgency` already reads ``PlanState.today`` rather than
+    calling ``date.today()`` themselves, so this one parameter is the whole
+    seam. Without it an agent read of "what is due" is untestable (a suite that
+    pins "today" silently rots the day after it is written) and an agent cannot
+    name the date it reasoned about. This mirrors ``_parse_agent_date`` on the
+    application side, which owns parsing and refusal of a malformed value.
     """
     from open_garden_planner.core.object_types import (  # noqa: PLC0415
         get_translated_display_name,
@@ -440,8 +481,8 @@ def build_plan_state(
     )
     from open_garden_planner.models.task import ManualTask  # noqa: PLC0415
 
-    today = datetime.date.today()
-    year = today.year
+    today = today or datetime.date.today()
+    year = today.year if year is None else year
 
     last_frost: datetime.date | None = None
     location = project_manager.location or {}
@@ -456,6 +497,8 @@ def build_plan_state(
     }
 
     plant_rows: list[PlantRowInput] = []
+    propagation_species: dict[str, Any] = {}
+    seed_links: dict[str, str] = {}
     beds: list[BedInput] = []
     for item in all_items:
         object_type = getattr(item, "object_type", None)
@@ -477,6 +520,11 @@ def build_plan_state(
                     "common_name": sp.common_name,
                 })
                 if sp_key != "_unknown":
+                    if include_propagation:
+                        propagation_species.setdefault(sp_key, sp)
+                        packet_id = (metadata.get("plant_instance") or {}).get("seed_packet_id")
+                        if packet_id:
+                            seed_links.setdefault(sp_key, packet_id)
                     plant_rows.append(PlantRowInput(
                         display_name=(getattr(item, "name", "") or sp.common_name or sp_key),
                         species_key=sp_key,
@@ -504,6 +552,18 @@ def build_plan_state(
     manual_tasks = tuple(
         ManualTask.from_dict(d) for d in project_manager.manual_tasks.values()
     )
+    overrides: dict[str, dict] = {}
+    seed_packets: dict[str, Any] = {}
+    if include_propagation:
+        from open_garden_planner.models.seed_inventory import get_seed_inventory  # noqa: PLC0415
+
+        overrides = dict(project_manager.propagation_overrides)
+        store = get_seed_inventory()
+        seed_packets = {key: store.get(packet_id) for key, packet_id in seed_links.items()}
+        prop_plans = (
+            build_propagation_plans(propagation_species, last_frost, overrides, seed_packets)
+            if last_frost is not None else {}
+        )
 
     return PlanState(
         today=today,
@@ -515,18 +575,124 @@ def build_plan_state(
         succession_plans=dict(project_manager.succession_plans),
         manual_tasks=manual_tasks,
         frost_alerts=tuple(frost_alerts or ()),
+        actionable_only=actionable_only,
+        propagation_species=propagation_species,
+        propagation_overrides=overrides,
+        propagation_seed_packets=seed_packets,
     )
+
+
+def build_propagation_plans(
+    species: dict[str, Any], last_frost: datetime.date,
+    overrides: dict[str, dict], seed_packets: dict[str, Any],
+) -> dict[str, PropagationPlan]:
+    """The shared GUI/agent propagation calculator, with resolved seed data.
+
+    Reads only its inputs. Absolute user overrides keep their dates; generated
+    steps follow the requested year's frost date. No widgets or inventory I/O.
+    """
+    plans: dict[str, PropagationPlan] = {}
+    for key, sp in species.items():
+        if sp.indoor_sow_start is None or sp.transplant_start is None:
+            continue
+        sow_start = last_frost + datetime.timedelta(weeks=sp.indoor_sow_start)
+        sow_end = (
+            last_frost + datetime.timedelta(weeks=sp.indoor_sow_end)
+            if sp.indoor_sow_end is not None else sow_start + datetime.timedelta(days=14)
+        )
+        germ_min, germ_max = sp.days_to_germination_min, sp.days_to_germination_max
+        packet = seed_packets.get(key)
+        if packet is not None:
+            if packet.germination_days_min is not None:
+                germ_min = packet.germination_days_min
+            if packet.germination_days_max is not None:
+                germ_max = packet.germination_days_max
+        plans[key] = compute_propagation_plan(
+            species_key=key, sow_start=sow_start, sow_end=sow_end,
+            transplant_date=last_frost + datetime.timedelta(weeks=sp.transplant_start),
+            germination_days_min=germ_min, germination_days_max=germ_max,
+            prick_out_after_days=sp.prick_out_after_days, harden_off_days=sp.harden_off_days,
+            overrides=overrides.get(key, {}),
+        )
+    return plans
+
+
+def generate_for_date_window(
+    state: PlanState, start: datetime.date, end: datetime.date,
+) -> list[Task]:
+    """Run the shared generators for frost anchors that can overlap the window.
+
+    Uses one immutable snapshot. Absolute-date tasks (manual, succession, soil,
+    frost) retain their identity and are deduplicated; frost-relative calendar
+    tasks use each year's frost date and canonical year-addressed task ids.
+    Species offsets can span several years or precede their frost anchor. Derive
+    the anchor range from those offsets, including generated propagation steps.
+    Absolute-date overrides do not expand it. Keep canonical anchor-year ids,
+    filter by date overlap, and leave urgency relative to state.today.
+    """
+    from dataclasses import replace  # noqa: PLC0415
+
+    if start > end:
+        raise ValueError("from_date must be on or before to_date.")
+    first_year, last_year = start.year, end.year
+    if state.last_frost is not None:
+        template = replace(state, actionable_only=False)
+        relative_tasks = generate_calendar_tasks(template)
+        if state.propagation_species:
+            relative_tasks += generate_propagation_tasks(replace(
+                template, prop_plans=build_propagation_plans(
+                    state.propagation_species, state.last_frost, {},
+                    state.propagation_seed_packets,
+                ),
+            ))
+        offsets = [
+            (date - state.last_frost).days
+            for task in relative_tasks
+            for date in (task.start_date, task.end_date)
+            if date is not None
+        ]
+        if offsets:
+            first_year = min(first_year, (start - datetime.timedelta(days=max(offsets))).year)
+            last_year = max(last_year, (end - datetime.timedelta(days=min(offsets))).year)
+    tasks: dict[str, Task] = {}
+    for year in range(first_year, last_year + 1):
+        last_frost = (
+            _parse_frost(state.last_frost.strftime("%m-%d"), year)
+            if state.last_frost is not None else None
+        )
+        prop_plans = state.prop_plans
+        if state.propagation_species:
+            prop_plans = (
+                build_propagation_plans(
+                    state.propagation_species, last_frost, state.propagation_overrides,
+                    state.propagation_seed_packets,
+                ) if last_frost is not None else {}
+            )
+        for task in generate_all(replace(state, year=year, last_frost=last_frost, prop_plans=prop_plans)):
+            task_start = task.start_date or task.end_date
+            task_end = task.end_date or task.start_date
+            if task_start is not None and task_end is not None and (task_end < start or task_start > end):
+                continue
+            tasks.setdefault(task.task_id, task)
+    return list(tasks.values())
 
 
 def _bed_amendment_recs(
     bed_id: str, item: Any, soil_service: Any | None
-) -> tuple[tuple[str, str], ...]:
-    """Flatten a bed's amendment recommendations into (name, rationale) pairs."""
+) -> tuple[tuple[str, str, str], ...]:
+    """Flatten a bed's amendment recommendations into display triples.
+
+    Returns ``(stable_name, display_name, rationale)`` per recommendation. The
+    stable name is the amendment's English data name and keeps the task id
+    language-independent; the display name follows the active UI language
+    (#408).
+    """
     if soil_service is None:
         return ()
     record = soil_service.get_effective_record(bed_id)
     if record is None:
         return ()
+    from open_garden_planner.app.settings import active_language  # noqa: PLC0415
     from open_garden_planner.core.measurements import (  # noqa: PLC0415
         calculate_area_and_perimeter,
     )
@@ -538,12 +704,16 @@ def _bed_amendment_recs(
     area_m2 = result[0] / 10_000.0
     if area_m2 <= 0.0:
         return ()
+    lang = active_language()
     recs = SoilService.calculate_amendments(record, bed_area_m2=area_m2)
-    pairs: list[tuple[str, str]] = []
+    triples: list[tuple[str, str, str]] = []
     for rec in recs:
-        name = rec.amendment.display_name()
-        pairs.append((name, f"~{rec.quantity_g:.0f} g"))
-    return tuple(pairs)
+        triples.append((
+            rec.amendment.name,
+            rec.amendment.display_name(lang),
+            f"~{rec.quantity_g:.0f} g",
+        ))
+    return tuple(triples)
 
 
 def _bed_mismatch_plants(

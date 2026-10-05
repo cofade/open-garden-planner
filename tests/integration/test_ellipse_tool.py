@@ -8,14 +8,12 @@ All coordinates are scene-space (Y-down, (0,0) = top-left).
 
 from unittest.mock import MagicMock
 
-import pytest
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QKeyEvent, QMouseEvent
 
 from open_garden_planner.core.tools import ToolType
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items.ellipse_item import EllipseItem
-
 
 # ---------------------------------------------------------------------------
 # Helpers

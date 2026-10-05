@@ -37,6 +37,7 @@ from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.models.harvest_log import HarvestHistory, HarvestRecord
 from open_garden_planner.services.soil_service import SoilService
 from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
+from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
 
 
 @pytest.fixture(autouse=True)
@@ -112,6 +113,7 @@ def _providers(
         set_layer_property=lambda **_kw: _unused("set_layer_property"),
         undo=lambda: _unused("undo"),
         redo=lambda: _unused("redo"),
+        **TASK_SOIL_STUBS,
         get_history=lambda: _unused("get_history"),
         suggest_companions=lambda *_a, **_k: _unused("suggest_companions"),
         find_compatible_sets=lambda *_a, **_k: _unused("find_compatible_sets"),

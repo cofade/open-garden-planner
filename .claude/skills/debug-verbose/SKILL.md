@@ -1114,6 +1114,200 @@ says "nothing is running and something is still awaited" - pair it with an async
 which names the waiters the stack cannot.
 
 
+## Case study: six defects where a plausible value was not the value the engine means (issues #332/#333, fixed 2026-10-03)
+
+**Symptom**: No symptom, in the usual sense - this is the case for writing tests
+that compare against the ENGINE rather than against an expected literal. While
+building US-D3.3 (task tools) and US-D3.4 (soil tools) six defects surfaced, five
+of them in code I had just written, and not one of them announced itself as a
+crash. Each produced a value that looked entirely reasonable.
+
+**Wrong theories, in order.** (1) That the soil health ratings were a mapping bug -
+`health_level(record, "ca")` returned `"poor"` for a healthy bed and I assumed the
+secondary scale was being read wrongly. (2) That `get_effective_record` was
+returning the wrong record. (3) That the Rapitest validation was too strict, since
+`n_level=5` was refused. Theories (1) and (2) each would have justified editing
+working code.
+
+**Key evidence.** (a) `SoilService.health_level` has no `else` and no error for an
+unknown parameter: `if parameter == PARAM_PH ... if PARAM_K ... # OVERALL`. A
+sixth call **falls off the end and returns the overall rating**. So `ca`'s
+"health level" was the whole bed's health - a real number, wrong subject. (b)
+`grep 'source="' services/task_generator.py` returned eight hits with the values
+`calendar, propagation, succession, succession, soil, soil, frost, manual` - **six**
+distinct, while my `TASK_SOURCES` tuple had seven, because I had copied
+`soil_amendment` / `soil_mismatch` out of the issue text. Both soil generators
+emit `source="soil"`; `task_type` is what tells them apart. (c) `grep -rn "_ppm"
+src/` showed hits only in `models/soil_test.py`, `soil_test_dialog.py` and one
+comparison helper - **nothing in `services/` reads the ppm fields at all**.
+
+**Two guards were themselves the bug.** The `TASK_SOURCES` drift guard asserted
+`emitted <= TASK_SOURCES`, a **subset** check, which passes on extra entries - so
+it green-lit two values no generator can emit. The field failure would have been
+`source="soil"` refused as unknown while `source="soil_mismatch"` silently returned
+nothing. Separately, the first version of that guard was fixture-driven, and four
+of seven generators need live inputs a bare `PlanState` cannot supply, so it
+would have under-reported and passed vacuously. It is now AST-based and asserts it
+saw at least seven `Task(...)` constructions.
+
+**Root cause**: every one of these is a **fall-through or a copied name**. A
+default branch that answers a question nobody asked; an identifier taken from prose
+instead of from code; a hierarchy applied inside a function so the caller cannot
+see which branch ran; and a range that looks uniform and is three different ranges.
+Nothing raises, and nothing looks wrong.
+
+**Fix**: (a) route only `RATED_PARAMETERS` through `health_level` and make
+`SoilReading.health_level` optional, where `None` means "no rating exists" -
+distinct from `'unknown'`, which means "not tested"; (b) read the source values
+from the module by AST and assert **equality both ways**; (c) refuse ppm by name
+and take kit-only parameters whose names state the scale, with per-nutrient
+ranges (`k_level` is `1-4`, the kit has no K0); (d) report `record_source`
+alongside the reading, since `get_effective_record` applies its hierarchy
+invisibly; (e) accept `credits` as the `(kind, current, target)` triple it is -
+caught on the first call by the field-for-field equality test, which is exactly
+what that test is for.
+
+**Lesson**: (1) **Write the assertion against the engine, not against a literal
+from the issue** - a test written from prose inherits prose's errors, and five of
+these six would have shipped green under one. (2) A fall-through default is a
+silent wrong answer; make the field that cannot be computed **nullable** rather
+than letting a default fill it. (3) A drift guard must assert **equality in both
+directions** and must assert that it observed something - a guard that can pass
+vacuously reports success forever, which is worse than no guard because it is
+trusted. (4) When a model carries two representations of one value (`*_level` and
+`*_ppm`), check **which one the engine actually reads** before designing input for
+it; the one that is stored but unread looks like a feature and behaves like a
+trap.
+
+
+## Case study: D3 provider tests passed while public soil tools failed (2026-10-04)
+
+**Symptom.** A handover reported 6951 passing tests. A real MCP client against the
+frozen executable returned errors from both soil reads and the soil-planning
+prompt. Annual task calendars also returned empty, fully-covered years.
+
+**Rejected explanations.** A frozen-only hidden import problem and a broken
+main-thread bridge were plausible before the probe. Neither explained successful
+manual-task writes, undo and amendment recommendations in that same client.
+
+**Key evidence.** The scratch client printed the actual results:
+
+```
+[D3-LIVE] get_soil_status ERROR: 6 validation errors for SoilStatus
+[D3-LIVE] get_soil_mismatches ERROR: total Field required
+[D3-LIVE] plan-soil-amendments ERROR: 6 validation errors for SoilStatus
+[D3-CALENDAR] requested=2027 reference=2026-10-03 months=[]
+```
+
+Status providers returned `beds` lists; the server constructed a single-bed
+model. Mismatch providers returned per-bed mappings; their server model required
+an unrelated top-level `total`. The integration suite never made those public
+calls. Separate failing probes found that an old global soil reading checked an
+empty bed history, German names remained English, and MCP validation coerced
+booleans/strings into numeric readings before the domain guard could refuse them.
+Propagation generated nothing because the provider supplied no plans.
+
+**Root cause.** The tests stopped before the boundary their prose claimed to
+exercise. Calendar generation also discarded inactive tasks before the requested
+period filter, and the requested year reached only bucketing, not generation.
+
+**Fix.** Typed soil envelopes, explicit per-bed extraction in the prompt, and
+real HTTP integration workflows using the production provider graph. The shared
+engine now separates year from reference date and has an explicit actionable-only
+option; cross-year intervals are clipped. Propagation uses the extracted GUI
+calculator. The soil service resolves record/source/history together; names use
+its existing bilingual display method; MCP soil numbers use strict annotations.
+Every defect has a regression observed failing first. Instrumentation stayed in
+the scratch probe and temporary test prints were removed before commit.
+
+**Lesson.** A green provider test cannot validate server schema construction.
+Drive the public call with the production graph. Generate a period before
+classifying urgency, preserve the chosen record's provenance through derived
+checks, and test refusal before and after framework argument coercion.
+
+
+### Case study: D3 frost anchors and unassessed lab readings (2026-10-04)
+
+**Symptom.** Extending a task window into the next year changed its earlier-year
+results; an unknown lab-only soil record was described as near target.
+
+**Wrong theory.** Matching the requested calendar years was sufficient after
+year bucketing was fixed; an empty engine result implied healthy measured soil.
+
+**Key evidence.** Temporary regression prints showed [D3-ANCHOR] lacked
+llium sativum:direct_sow:2027 in the 2026-only result even though its dates
+were 2026-10-15 through 2026-10-29. [D3-LAB] showed unknown health and an empty
+plan beside the near-target prompt claim. Three regressions failed first.
+
+**Root cause.** Negative and multi-year frost offsets cross anchor-year
+boundaries; existing GUI lab ppm records are not converted to kit levels.
+
+**Fix.** Derive anchor years from the actual calendar/propagation offsets, then
+filter date overlaps through the same path for both annual and window reads.
+Keep empty-result prose neutral and explicitly mention unassessed lab readings.
+Temporary prints were removed.
+
+**Lesson.** Generate from dates, not matching year labels. An empty result
+establishes only what the engine assessed, not what the caller hopes it means.
+
+## Case study: three i18n leaks the zero-unfinished gate cannot see (issues #393, #408, #410, fixed 2026-10-04)
+
+**Symptom.** With German UI, generated soil-amendment task titles stayed English
+(`Compost`, `Elemental sulfur`) while the same bed's amendment recommendations were
+German; the agent `suggest_companions` tool returned English plant names while the
+Companion panel was German; and the opt-in "Garden journal notes" PDF page printed five
+strings in English. `test_german_ts_has_no_unfinished` was green throughout.
+
+**Wrong theories.** "The `.ts` file is missing translations" (it was not — the strings
+were either data-selected or never registered). "The agent layer must translate" (it
+must not — localisation is upstream, and a second path is the failure the D3 convention
+exists to prevent). "Make `display_name()` default to the active language" (that would
+have changed the persisted task id and orphaned saved done/snooze state).
+
+**Key evidence.** `ruff check scripts --select F601` reported five repeated
+`TRANSLATIONS` keys; an `ast` diff showed 62 strings shadowed, 5 absent from `de.ts`.
+`grep` found the only no-language call sites: `task_generator.py::_bed_amendment_recs`
+and `companion_sets.py::suggest_companions`. `tests/unit/test_task_generator.py` pinned
+the task id as `soil_amendment:bed-1:Garden lime`, proving the id was the English name.
+
+**Root cause.** All three are display strings produced by shared, Qt-free services that
+never resolved the active UI language (a `lang="en"` default), or were dropped by a
+duplicated dict key before they could be registered. The gate only inspects strings
+already in the table.
+
+**Fix.** One shared `app/settings.py::active_language()`; `BedInput.amendment_recs`
+carries `(stable_name, display_name, rationale)` so the id stays English and only the
+title localises; `suggest_companions` takes a `language` argument; the five shadowed
+`PdfReportService` strings were merged into their surviving block; and CI now runs
+`ruff check src/ tests/ scripts/` with an `ast` uniqueness test.
+
+**Lesson.** "All strings translated" is three separate claims: the string reaches
+`tr()`, its literal matches the registered key, and the registry actually emits it. A
+data-selected display name and a duplicated registry key each pass the gate while
+failing the user.
+
+
+### Case study: repeated absolute propagation overrides (2026-10-04)
+
+**Symptom.** An annual task read counted one overridden propagation step three
+times; a three-year read counted it five times.
+
+**Wrong theory.** Deduplicating by canonical task ID handled absolute dates.
+
+**Key evidence.** Temporary [D3-OVERRIDE] output showed five prick-out tasks
+on 2026-03-10 with IDs ending in 2024 through 2028. The integration regression
+failed before the fix.
+
+**Root cause.** The expanded anchor loop reapplied the same override, but the
+shared propagation generator assigned a different anchor-year ID to each copy.
+
+**Fix.** Assign overridden steps to their start-date year in the shared generator;
+relative steps retain anchor-year IDs. The regression checks one task, its ID,
+GUI convergence and annual month counts. Temporary instrumentation was removed.
+
+**Lesson.** Preserve the distinction between absolute and relative time through
+identity, not just range calculation. Deduplication cannot repair wrong identity.
+
 ## Case study: models blank and unpickable after a probe swapped them out and back (ADR-047 spike, fixed 2026-10-04)
 
 **Symptom**: the Windows evidence run picked **0/20** where the container picked 20/20 with

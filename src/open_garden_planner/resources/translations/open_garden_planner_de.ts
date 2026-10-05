@@ -3635,6 +3635,14 @@ Details: {error}</translation>
             <source>Cannot delete the layer because its replacement layer is locked.</source>
             <translation>Die Ebene kann nicht gelöscht werden, weil die Ersetzungsebene gesperrt ist.</translation>
         </message>
+        <message>
+            <source>Remove soil test</source>
+            <translation>Bodenprobe entfernen</translation>
+        </message>
+        <message>
+            <source>Plan-wide default</source>
+            <translation>Gesamter Plan</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -8068,6 +8076,26 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Unnamed</source>
             <translation>Unbenannt</translation>
+        </message>
+        <message>
+            <source>Garden Notes</source>
+            <translation>Tagebuchnotizen</translation>
+        </message>
+        <message>
+            <source>No journal notes recorded.</source>
+            <translation>Keine Tagebuchnotizen vorhanden.</translation>
+        </message>
+        <message>
+            <source>(no date)</source>
+            <translation>(kein Datum)</translation>
+        </message>
+        <message>
+            <source>(empty)</source>
+            <translation>(leer)</translation>
+        </message>
+        <message>
+            <source>(photo: {filename})</source>
+            <translation>(Foto: {filename})</translation>
         </message>
     </context>
     <context>

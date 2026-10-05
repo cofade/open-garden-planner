@@ -5,12 +5,10 @@ from PyQt6.QtCore import QPointF
 from PyQt6.QtWidgets import QGraphicsItem
 
 from open_garden_planner.core.measure_snapper import (
-    AnchorPoint,
     AnchorType,
     find_nearest_anchor,
     get_anchor_points,
 )
-from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.items import (
     CircleItem,

@@ -12,7 +12,6 @@ Tests exercise the full click → drag → release gesture and verify that:
 
 from unittest.mock import MagicMock
 
-import pytest
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QKeyEvent, QMouseEvent
 

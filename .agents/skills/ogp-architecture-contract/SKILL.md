@@ -140,7 +140,7 @@ Do not "discover" these; they are known, documented, and mostly deliberate.
 | **DXF gaps:** Bezier curves rasterize to line segments (native cubic export deferred, ADR-022); smart-symbol INSERT rotation sign is a known nuance (unrotated exact); DXF blocks key on `(symbol_id, params)` so identical-param instances share the first one's colour (ADR-032). | Known limitations, logged |
 | **`is_bed_type` naming debt:** the name now means "soil-capable" (includes containers/wall planters), not literally "bed". A rename to `is_soil_container_type` was rejected as a ~30-site churn; documented trade-off (ADR-031). | Accepted readability debt |
 | **i18n gate blind spot:** `test_german_ts_has_no_unfinished` only sees *registered* strings; a plain English f-string in a user-visible path passes CI silently. Review is the only defense. | Structural test gap |
-| **Smart-symbol `version` field is a strict geometry contract:** editing a bundled symbol's geometry without bumping its `version` silently re-renders already-saved plans (ADR-032). Sidebar panel currently hidden via one line: `application.py:4561` `set_panel_visible("smart_symbols", False)`. | Sharp edge + deferred UI |
+| **Smart-symbol `version` field is a strict geometry contract:** editing a bundled symbol's geometry without bumping its `version` silently re-renders already-saved plans (ADR-032). Sidebar panel currently hidden via one line: `application.py:5161` `set_panel_visible("smart_symbols", False)`. | Sharp edge + deferred UI |
 | **Agent diagnostics may lag a debounce tick** — `get_diagnostics` reports the last *computed* badge state, never recomputes (ADR-034). Fine for read-only inspection; don't build write logic on it. | By design |
 
 ## 5. Before you design anything — checklist
@@ -191,7 +191,7 @@ All claims verified 2026-07-03 against master (v1.23.0). Re-verify with:
 - `grep -rn 'from open_garden_planner.ui' src/open_garden_planner/core/` — every hit must be function-local or TYPE_CHECKING (row 11)
 - `grep -n '127.0.0.1\|token' src/open_garden_planner/agent_api/server.py` — loopback-only; reads open, every scene write token-gated (row 12)
 - `grep -n '8.9.8' docs/08-crosscutting-concepts/README.md` — pivot invariant text (row 2)
-- `sed -n '29,45p' docs/11-risks-and-technical-debt/README.md` — TD table (§4)
+- `grep -n '^| TD-' docs/11-risks-and-technical-debt/README.md` — TD register rows with status and issue (§4)
 - `grep -n 'def addItem\|def _refresh_layer_z\|def suspend_z_refresh' src/open_garden_planner/ui/canvas/canvas_scene.py` and `grep -n 'class ArrangeItemsCommand' src/open_garden_planner/core/commands.py` — the four rank writers (row 19)
 - `grep -n 'def build_arrange_command' src/open_garden_planner/ui/canvas/arrange.py` — the one arrange seam (row 19)
 

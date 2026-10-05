@@ -14,13 +14,19 @@ from __future__ import annotations
 from typing import Any
 
 from open_garden_planner.agent_api.schema import (
+    AmendmentPlanView,
     CompatibleSet,
     Diagnostic,
     ObjectRef,
     PlanSummary,
+    SoilMismatchListView,
+    SoilStatus,
     SuccessionGap,
     SuccessionPlanView,
     SuccessionSuggestion,
+    TaskCalendarView,
+    TaskListView,
+    TaskView,
 )
 
 # describe-garden inlines the full object list; cap it so a very large garden
@@ -289,6 +295,206 @@ def render_plan_succession_prompt(
             "slot list for the year - that call replaces the plan rather than "
             "appending to it. That is one undo step, so a single undo restores "
             "the previous plan.",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def render_plan_my_week_prompt(
+    task_list: TaskListView,
+    calendar: TaskCalendarView,
+    summary: PlanSummary,
+    diagnostics: list[Diagnostic],
+) -> str:
+    """Compose the ``plan-my-week`` brief (US-D3.3).
+
+    The task window, the month overview, the plan summary and the diagnostics
+    are supplied by the caller so this stays a pure renderer; the agent-facing
+    text is English by contract (ADR-033: MCP surfaces are an English API).
+
+    The task TITLES inside the brief are display strings in the user's UI
+    language, passed through from the generator — the brief therefore tells the
+    agent to branch on ``task_type`` and ``source`` and never to match a title.
+    """
+    lines = [
+        f"# Garden week plan (reference date {task_list.today})",
+        "",
+    ]
+
+    if task_list.coverage == "no_frost_dates":
+        lines.append(
+            "NOTE: this plan has no geo-location, so there are no frost dates "
+            "and NO calendar or propagation tasks could be generated. The tasks "
+            "below are only the manual, succession, soil and frost ones. Do not "
+            "tell the user the week is empty - say that the planting calendar "
+            "cannot be computed until a location is set, and offer to plan from "
+            "the manual tasks that do exist."
+        )
+        lines.append("")
+
+    urgent = [t for t in task_list.tasks if t.urgency in ("overdue", "today")]
+    soon = [t for t in task_list.tasks if t.urgency == "this_week"]
+    later = [
+        t
+        for t in task_list.tasks
+        if t.urgency == "upcoming" or t.urgency is None
+    ]
+
+    lines.append(
+        f"Window {task_list.from_date} to {task_list.to_date}: "
+        f"{task_list.total} tasks. {calendar.total} task-months across "
+        f"{len(calendar.months)} month(s) in {calendar.year}."
+    )
+    lines.append("")
+
+    def _block(heading: str, rows: list[TaskView]) -> None:
+        lines.append(f"## {heading}")
+        if not rows:
+            lines.append("- none")
+        for task in rows:
+            bits = [f"{task.start_date} to {task.end_date}", f"[{task.source}]"]
+            if task.bed_id:
+                bits.append(f"bed {task.bed_id}")
+            if task.status != "open":
+                bits.append(f"status: {task.status}")
+            lines.append(f"- {task.task_type} ({task.title}): " + "; ".join(bits))
+        lines.append("")
+
+    _block("Overdue and due today", urgent)
+    _block("Due this week", soon)
+    _block("Later in the window", later)
+
+    lines.append("## Plan")
+    lines.append(
+        f"- {summary.bed_count} bed(s), {summary.plant_count} plant(s), "
+        f"{len(diagnostics)} active diagnostic(s)."
+    )
+    lines.append("")
+    if diagnostics:
+        lines.append("Open diagnostics:")
+        for diag in diagnostics[:10]:
+            lines.append(f"- {diag.kind}: {diag.message}")
+        lines.append("")
+
+    lines.extend(
+        [
+            "Produce a prioritised plan for the next seven days.",
+            "",
+            "Order the work by what is time-critical (overdue first, then "
+            "frost-sensitive, then soil preparation before sowing), and say "
+            "which tasks can slip a few days without harm.",
+            "",
+            "Branch on `task_type` and `source`, never on `title` or `notes`: "
+            "those are display strings in the user's UI language.",
+            "",
+            "You can file new work with add_manual_task (one undo step each). "
+            "You cannot dismiss or complete an existing task: generated tasks "
+            "are derived state, and completing one is not an undoable agent "
+            "write, so the user does that themselves.",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def render_plan_soil_amendments_prompt(
+    status: SoilStatus,
+    plan: AmendmentPlanView,
+    mismatches: SoilMismatchListView,
+    planted: list[str],
+) -> str:
+    """Compose the ``plan-soil-amendments`` brief (US-D3.4).
+
+    The amendment display names and mismatch reasons inside the brief are
+    display strings in the user's UI language, passed through from the engine —
+    the brief therefore tells the agent to branch on ``amendment_id`` and
+    ``reason_codes`` and never to match on the prose.
+    """
+    lines = [
+        f"# Soil amendment plan for bed {status.bed_id}",
+        "",
+    ]
+
+    if status.coverage == "no_soil_test":
+        lines.append(
+            "This bed has no soil test, and the plan has no default either, so "
+            "there is nothing to base a recommendation on. Do NOT describe the "
+            "soil as fine - untested is not healthy. Ask the user for a soil "
+            "test, or offer to record one with record_soil_test if they have "
+            "kit readings to hand."
+        )
+        lines.append("")
+        return "\n".join(lines)
+
+    source_note = {
+        "bed": "its own most recent test",
+        "global": "the PLAN-WIDE default, because this bed has no test of its "
+        "own - say which readings are the default's, not the bed's",
+    }.get(status.record_source, "an unknown record source")
+    lines.append(
+        f"Readings come from {source_note} (tested {status.test_date or 'unknown'}"
+        f"{', OVERDUE - retest before relying on these' if status.is_test_overdue else ''})."
+    )
+    lines.append(
+        f"- Overall soil health: {status.overall_health_level}"
+    )
+    if status.ph is not None:
+        lines.append(
+            f"- pH {status.ph} ({status.ph_health_level})"
+        )
+    for kind, reading in status.levels.items():
+        if reading.level is None:
+            continue
+        lines.append(f"- {kind}: level {reading.level} ({reading.health_level})")
+    lines.append("")
+
+    if planted:
+        lines.append("## Growing here")
+        for name in planted:
+            lines.append(f"- {name}")
+        lines.append("")
+    else:
+        lines.append("Nothing is planted in this bed.")
+        lines.append("")
+
+    if mismatches.total:
+        lines.append("## Plants that disagree with this soil")
+        for m in mismatches.mismatches:
+            lines.append(
+                f"- {m.common_name or m.species_key}: "
+                + ", ".join(m.reason_codes)
+            )
+        lines.append("")
+
+    if plan.recommendations:
+        lines.append("## Recommended amendments")
+        for rec in plan.recommendations:
+            lines.append(
+                f"- {rec.display_name} ({rec.amendment_id}): "
+                f"{rec.quantity_g:.0f} g, targets {rec.target_kind} "
+                f"{rec.current_value} -> {rec.target_value}"
+            )
+        lines.append("")
+    else:
+        lines.append(
+            "The engine recommends no amendment from the readings it can assess. "
+            "This does not prove that the soil is healthy or every value is near "
+            "target: lab ppm readings are not converted to kit levels."
+        )
+        lines.append("")
+
+    lines.extend(
+        [
+            "Propose a prioritised amendment plan WITH TIMING: which amendment "
+            "goes on first and why, how long before sowing or planting each "
+            "crop, and whether the reading is too old to act on.",
+            "",
+            "Branch on `amendment_id` and `reason_codes`, never on "
+            "`display_name` or `reasons`: those are display strings in the "
+            "user's UI language.",
+            "",
+            "record_soil_test takes the Rapitest KIT scale (categorical "
+            "integers), not lab ppm. It runs one undo step, so a single undo "
+            "removes the test you recorded.",
         ]
     )
     return "\n".join(lines)

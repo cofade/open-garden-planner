@@ -308,7 +308,7 @@ Black-box view of the unified Tasks tab. See ADR-029 and FR-21.
 | `models/harvest_log.py` (`HarvestRecord`/`HarvestHistory`) | Per-target (plant/bed) yield records (date, quantity, unit, quality, notes, photo, linked journal-note id). Serialized under the additive `.ogp` key `harvest_logs` keyed by item UUID; history caches `species_key`/`species_name`. Add/Edit/Delete undoable, auto-maintaining a pin-less `harvest`-tagged journal note. | dict ⇄ `HarvestHistory` |
 | `ui/views/tasks_view.py` (`TasksView`) | Dashboard tab (Ctrl+4 since #310 — was Ctrl+5, appended after Seed Inventory). Builds the Qt-side `PlanState` (`build_plan_state`), runs the generators, applies `effective_status`, groups Overdue/Today/This Week/Upcoming/No date plus Snoozed/Done sections, and writes done/snooze/dismiss through `set_task_status` (which keeps the legacy `task_completions` store in sync). Reuses the planting calendar's single weather fetch via `frost_alerts_ready`. | project state + signals in → grouped task UI |
 
-## 5.6 Agent API Subsystem (US-D1.1/D1.2/D1.3/D1.4/D1.5/D1.6/D2.0–D2.6)
+## 5.6 Agent API Subsystem (US-D1.1/D1.2/D1.3/D1.4/D1.5/D1.6/D2.0–D2.6/D3.1–D3.4)
 
 Black-box view of the embedded MCP server for AI agents. See ADR-033/034/035/036, FR-26, §8.19. Default-on, loopback-only, toggle to disable; structural/spatial/diagnostics/vision reads plus four file-producing export/save tools (D1.4, no scene mutation except `save_plan`); five read-only resources + two read-analysis prompts (D1.5, no new business logic — reuse the same providers as the tools); an in-app "Connect your AI assistant" onboarding dialog (D1.6, detects Cursor/Claude Code/Claude Desktop and registers the connect URL where each client's own docs support it safely); and the token-gated D2 write surface, including live geometry reads, absolute positioning, vertex edits, and the global GUI/agent `undo`/`redo` bridge.
 
@@ -350,6 +350,23 @@ constructs the one vertex command path shared with the GUI; and
 a delta and enters the existing move helper rather than duplicating child or
 bed-reparenting behavior. All constrained geometry writes refuse at the shared
 perimeter; `get_geometry` remains the unauthenticated explanatory read.
+
+D3 adds domain adapters over companion, succession, task and soil services. With
+editing enabled, the registered surface is **57 tools, 5 resources and 6 prompts**;
+the write tools disappear when the write gate is off. `agent_api/domain.py`
+curates task lists/month buckets and soil records/recommendations/mismatches;
+`schema.py` owns the per-bed models and explicit soil aggregate envelopes.
+`prompts.py` composes the four D3 briefs from those curated views. The task/soil
+extension contributes nine tools and `plan-my-week` / `plan-soil-amendments`.
+`app._build_agent_providers()` is the one production graph used by the server and
+real-client integration tests. Four D3.3/D3.4 writes reuse existing manual-task
+and soil-test commands, with one undo step each.
+
+`services/task_generator.py` owns the injected-date snapshot, explicit
+calendar-year/actionable filtering, date-window generation and shared propagation
+calculator. `services/soil_service.py` owns effective-record/provenance/history
+resolution and the canonical mismatch `(reason_code, display_text)` builder.
+The agent adapters add no second urgency, amendment or soil-health computation.
 
 ## 5.7 Theme, Icon & Plant-Art System (#279/#281, ADR-039/ADR-040)
 

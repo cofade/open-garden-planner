@@ -34,6 +34,7 @@ from open_garden_planner.core import ProjectManager
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.services.soil_service import SoilService
 from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
+from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
 
 
 def _free_port() -> int:
@@ -103,6 +104,7 @@ def _providers(scene: Any) -> AgentProviders:
         set_layer_property=lambda **_kw: _unused("set_layer_property"),
         undo=lambda: _unused("undo"),
         redo=lambda: _unused("redo"),
+        **TASK_SOIL_STUBS,
         # US-D2.7 + US-D3.1 providers (unused by these read-only tests).
         get_history=lambda: _unused("get_history"),
         suggest_companions=lambda *_a, **_k: _unused("suggest_companions"),
@@ -397,6 +399,8 @@ def test_prompts_end_to_end(canvas: Any, qtbot: Any) -> None:
             "describe-garden",
             "plan-polyculture-bed",
             "plan-succession",
+            "plan-my-week",
+            "plan-soil-amendments",
         }
         assert "Beds/containers: 1" in result["audit_text"]
         assert "Plants: 1" in result["audit_text"]

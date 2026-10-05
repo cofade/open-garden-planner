@@ -1,12 +1,11 @@
 """Unit tests for square-foot grid overlay (US-11.3)."""
 
 import pytest
-from PyQt6.QtCore import QPointF, QRectF
+from PyQt6.QtCore import QPointF
 
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
-
 
 # ── Fixtures ──────────────────────────────────────────────────
 

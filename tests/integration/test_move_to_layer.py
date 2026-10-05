@@ -12,7 +12,6 @@ Verifies that:
 import uuid
 from unittest.mock import MagicMock
 
-import pytest
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QMouseEvent
 
@@ -22,7 +21,6 @@ from open_garden_planner.models.layer import Layer
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items import RectangleItem
-
 
 # ---------------------------------------------------------------------------
 # Helpers

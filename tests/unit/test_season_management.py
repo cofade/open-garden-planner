@@ -2,12 +2,8 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-
-import pytest
 
 from open_garden_planner.core.project import ProjectData, ProjectManager
-
 
 # ─── ProjectData season fields ─────────────────────────────────────────────────
 

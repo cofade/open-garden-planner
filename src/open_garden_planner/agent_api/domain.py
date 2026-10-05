@@ -11,16 +11,28 @@ The actual service instances are injected by the provider callables in
 from __future__ import annotations
 
 import datetime
+import math
+from typing import Any
 
 from open_garden_planner.agent_api.schema import (
+    AmendmentPlanView,
+    AmendmentRecommendationView,
     CompanionSuggestion,
     CompatibleSet,
     PlacementCheck,
     SeasonSegment,
+    SoilMismatchListView,
+    SoilMismatchView,
+    SoilReading,
+    SoilStatus,
     SuccessionEntryView,
     SuccessionGap,
     SuccessionPlanView,
     SuccessionSuggestion,
+    TaskCalendarBucket,
+    TaskCalendarView,
+    TaskListView,
+    TaskView,
 )
 from open_garden_planner.models.plant_data import species_key
 from open_garden_planner.models.succession import (
@@ -39,6 +51,8 @@ from open_garden_planner.services.companion_sets import (
     find_compatible_sets,
     suggest_companions,
 )
+from open_garden_planner.services.task_generator import classify_urgency
+from open_garden_planner.services.task_status import effective_status
 
 
 def suggest_companions_for_agent(
@@ -46,6 +60,7 @@ def suggest_companions_for_agent(
     species_key: str,
     *,
     exclude_antagonists_of: list[str] | None = None,
+    language: str = "en",
 ) -> list[CompanionSuggestion]:
     """Suggest companion plants for a species, ranked by benefit.
 
@@ -54,12 +69,17 @@ def suggest_companions_for_agent(
         species_key: The species to find companions for.
         exclude_antagonists_of: Species keys whose antagonists should be
             excluded from suggestions.
+        language: UI language code for the ``name`` display string. The
+            ``species_key`` is a stable machine key and never changes with it.
 
     Returns:
         A list of CompanionSuggestion models, sorted by score descending.
     """
     raw = suggest_companions(
-        service, species_key, exclude_antagonists_of=exclude_antagonists_of
+        service,
+        species_key,
+        exclude_antagonists_of=exclude_antagonists_of,
+        language=language,
     )
     return [CompanionSuggestion(**item) for item in raw]
 
@@ -697,3 +717,572 @@ def build_succession_plan_for_agent(
         ],
     )
     return plan
+
+
+# --- US-D3.3 (issue #332): calendar & task tools ------------------------------
+
+#: The task sources the generators can emit.
+#:
+#: SIX values, and they are the engine's own strings — read off the
+#: ``source=`` argument of all seven generators, not off the issue text, which
+#: implied ``soil_amendment`` / ``soil_mismatch`` and neither of which exists.
+#: Both the amendment and the mismatch generator emit ``source="soil"``, so the
+#: two are told apart by ``task_type`` (``soil_amendment`` vs ``soil_mismatch``),
+#: not by ``source``.
+#:
+#: Drift-guarded for EQUALITY in tests/unit/test_agent_task_tools.py. An earlier
+#: subset-only guard passed with two values no generator can ever emit, which
+#: would have made ``get_tasks(source="soil_mismatch")`` return an empty list
+#: while ``get_tasks(source="soil")`` — the value that works — was refused.
+TASK_SOURCES: tuple[str, ...] = (
+    "calendar",
+    "propagation",
+    "succession",
+    "soil",
+    "frost",
+    "manual",
+)
+
+#: Statuses `get_tasks` hides when ``include_dismissed`` is false.
+#:
+#: BOTH ``dismissed`` and ``archived``, because that is exactly what the Tasks
+#: tab hides (`ui/views/tasks_view.py`: ``if eff in ("archived", "dismissed"):
+#: continue``). Matching it is not cosmetic. An agent tool that showed rows the
+#: user's own task list hides would be a third surface disagreeing with the
+#: other two about the same shared store — the defect invariant 6 exists to
+#: prevent, and the one #227/#228 shipped.
+HIDDEN_WHEN_NOT_INCLUDE_DISMISSED: tuple[str, ...] = ("archived", "dismissed")
+
+
+def _task_view(
+    task: Any,
+    *,
+    today: datetime.date,
+    task_states: dict[str, Any],
+) -> TaskView:
+    """Curate one ``Task`` plus its render-time urgency and stored status.
+
+    Urgency comes from ``task_generator.classify_urgency`` and status from
+    ``task_status.effective_status``. Neither is re-implemented here: the first
+    has a GUI mirror that already drifted once, and the second is the shared
+    store two task surfaces read (invariant 6).
+    """
+    state = task_states.get(task.task_id)
+    status = effective_status(state, today)
+    urgency = None
+    if task.start_date is not None and task.end_date is not None:
+        urgency = classify_urgency(task.start_date, task.end_date, today)
+    return TaskView(
+        task_id=task.task_id,
+        source=task.source,
+        task_type=task.task_type,
+        title=task.title,
+        notes=task.notes or "",
+        start_date=task.start_date.isoformat() if task.start_date else "",
+        end_date=task.end_date.isoformat() if task.end_date else "",
+        bed_id=task.bed_id,
+        species_key=task.species_key or "",
+        item_ids=list(task.item_ids or ()),
+        urgency=urgency,
+        status=status,
+        done_date=(state or {}).get("done_date") or None,
+        snooze_until=(state or {}).get("snooze_until") or None,
+        dismissible=bool(task.dismissible),
+    )
+
+
+def _matches_window(
+    task: Any, start: datetime.date, end: datetime.date
+) -> bool:
+    """True when a task's window overlaps ``[start, end]``.
+
+    An undated task is always in range. It has no dates to place, so excluding
+    it would make a manual to-do silently vanish from a filtered read — the
+    "empty list that reads as nothing to do" trap in its narrowest form.
+    """
+    if task.start_date is None or task.end_date is None:
+        return True
+    return task.start_date <= end and task.end_date >= start
+
+
+def get_tasks_for_agent(
+    tasks: list[Any],
+    *,
+    today: datetime.date,
+    task_states: dict[str, Any] | None = None,
+    from_date: datetime.date | None = None,
+    to_date: datetime.date | None = None,
+    source: str | None = None,
+    bed_id: str | None = None,
+    species_key: str | None = None,
+    include_dismissed: bool = False,
+    has_frost_dates: bool = True,
+    window_days: int = 30,
+) -> TaskListView:
+    """Curate the generated task calendar into a filtered, deterministic list.
+
+    Args:
+        tasks: Whatever ``generate_all`` produced for one ``PlanState``.
+        today: Reference date for urgency and status.
+        task_states: The shared per-task status store, keyed by ``task_id``.
+        from_date: Window start. Defaults to ``today - window_days``.
+        to_date: Window end. Defaults to ``today + window_days``.
+        source: Keep only this ``source``. Unknown values are refused by the
+            caller, not silently treated as "no filter".
+        bed_id: Keep only tasks linked to this bed.
+        species_key: Keep only tasks for this canonical species key.
+        include_dismissed: Show dismissed tasks, with their status.
+        has_frost_dates: False when the plan has no geo-location, which sets
+            ``coverage`` to ``'no_frost_dates'``. The tasks themselves are
+            unaffected: the calendar generator already returned nothing.
+        window_days: Half-width of the default window.
+
+    Returns:
+        A :class:`TaskListView`. Ordering is ``(start_date, task_id)`` so two
+        calls with the same input return byte-identical output — a contract the
+        prompts and the tests both depend on.
+    """
+    states = task_states or {}
+    start = from_date or (today - datetime.timedelta(days=window_days))
+    end = to_date or (today + datetime.timedelta(days=window_days))
+
+    selected: list[TaskView] = []
+    for task in tasks:
+        if source is not None and task.source != source:
+            continue
+        if bed_id is not None and (task.bed_id or None) != bed_id:
+            continue
+        if species_key is not None and (task.species_key or "") != species_key:
+            continue
+        if not _matches_window(task, start, end):
+            continue
+        view = _task_view(task, today=today, task_states=states)
+        if not include_dismissed and view.status in HIDDEN_WHEN_NOT_INCLUDE_DISMISSED:
+            continue
+        selected.append(view)
+
+    selected.sort(key=lambda v: (v.start_date, v.task_id))
+    return TaskListView(
+        today=today.isoformat(),
+        from_date=start.isoformat(),
+        to_date=end.isoformat(),
+        coverage="full" if has_frost_dates else "no_frost_dates",
+        total=len(selected),
+        tasks=selected,
+    )
+
+
+def get_task_calendar_for_agent(
+    tasks: list[Any],
+    *,
+    today: datetime.date,
+    year: int | None = None,
+    task_states: dict[str, Any] | None = None,
+    has_frost_dates: bool = True,
+) -> TaskCalendarView:
+    """Bucket the task calendar by month, for an overview before drilling in.
+
+    A task is counted in EVERY month its window touches, so a three-week task
+    spanning a month boundary appears in both. That is deliberate: the question
+    being answered is "how busy is each month", and a task that occupies part
+    of a month occupies that month.
+    """
+    states = task_states or {}
+    target_year = year or today.year
+    buckets: dict[str, TaskCalendarBucket] = {}
+
+    for task in tasks:
+        if task.start_date is None or task.end_date is None:
+            continue
+        view = _task_view(task, today=today, task_states=states)
+        start = max(task.start_date, datetime.date(target_year, 1, 1))
+        end = min(task.end_date, datetime.date(target_year, 12, 31))
+        if start > end:
+            continue
+        first = _month_range(start, target_year)
+        last = _month_range(end, target_year)
+        for month in _months_between(first, last):
+            bucket = buckets.get(month)
+            if bucket is None:
+                bucket = TaskCalendarBucket(month=month)
+                buckets[month] = bucket
+            bucket.total += 1
+            bucket.by_source[view.source] = bucket.by_source.get(view.source, 0) + 1
+            urgency = view.urgency or "none"
+            bucket.by_urgency[urgency] = bucket.by_urgency.get(urgency, 0) + 1
+            if view.urgency is not None:
+                bucket.actionable += 1
+
+    months = [buckets[key] for key in sorted(buckets)]
+    return TaskCalendarView(
+        year=target_year,
+        today=today.isoformat(),
+        coverage="full" if has_frost_dates else "no_frost_dates",
+        total=sum(b.total for b in months),
+        months=months,
+    )
+
+
+def _month_range(day: datetime.date, year: int) -> str:
+    """The 'YYYY-MM' key for ``day``, or '' when it falls outside ``year``."""
+    return f"{day.year:04d}-{day.month:02d}" if day.year == year else ""
+
+
+def _months_between(first: str, last: str) -> list[str]:
+    """Inclusive list of 'YYYY-MM' keys from ``first`` to ``last``.
+
+    Returns ``[]`` when either bound is outside the target year — the empty
+    string sentinel from :func:`_month_range` — or when the range is inverted.
+    """
+    if not first or not last or last < first:
+        return []
+    start_year, start_month = (int(part) for part in first.split("-"))
+    end_year, end_month = (int(part) for part in last.split("-"))
+    months: list[str] = []
+    year, month = start_year, start_month
+    while (year, month) <= (end_year, end_month):
+        months.append(f"{year:04d}-{month:02d}")
+        month += 1
+        if month > 12:
+            month = 1
+            year += 1
+    return months
+
+
+# --- US-D3.4 (issue #333): soil amendment tools -------------------------------
+
+#: The nutrient keys ``health_level`` and the amendment engine reason about.
+#: Mirrors ``soil_service._NUTRIENT_KINDS`` and is drift-guarded against it in
+#: tests/unit/test_agent_soil_tools.py — the two drifting apart would silently
+#: drop a nutrient from the curated output.
+NUTRIENT_KINDS: tuple[str, ...] = ("n", "p", "k", "ca", "mg", "s")
+
+#: The subset of :data:`NUTRIENT_KINDS` that ``SoilService.health_level`` can
+#: actually rate — its ``ALL_PARAMS`` is (overall, ph, n, p, k). The Ca/Mg/S
+#: secondaries are read by the amendment engine but have NO health rating, so
+#: asking for one returns the overall rating instead of that nutrient's. See
+#: :func:`_soil_status_from`.
+RATED_PARAMETERS: tuple[str, ...] = ("n", "p", "k")
+
+
+def _soil_status_from(
+    *,
+    bed_id: str,
+    bed_name: str,
+    record: Any,
+    record_source: str,
+    history: Any,
+    today: datetime.date,
+    health_level: Any,
+    is_test_overdue: Any,
+) -> SoilStatus:
+    """Curate one effective soil record into a :class:`SoilStatus`.
+
+    Every rating comes from ``SoilService.health_level`` — including its
+    documented "worst non-unknown wins" rule for ``overall`` and its
+    all-unknown case. Re-deriving a rating here would be a second
+    implementation, and the diagnostic badge the user sees is computed from the
+    service, so two answers would mean the agent and the canvas disagree.
+    """
+    if record is None:
+        return SoilStatus(
+            bed_id=bed_id,
+            bed_name=bed_name,
+            record_source="none",
+            coverage="no_soil_test",
+            test_date="",
+            ph=None,
+            ph_health_level="unknown",
+            overall_health_level="unknown",
+            is_test_overdue=False,
+            levels={},
+        )
+
+    levels = {
+        kind: SoilReading(
+            level=getattr(record, f"{kind}_level", None),
+            health_level=(
+                # `SoilService.health_level` rates ph/n/p/k and 'overall'
+                # ONLY. Calling it with 'ca'/'mg'/'s' falls through to its
+                # overall branch and would report the OVERALL rating as if it
+                # were calcium's — a confident wrong answer, which is the trap
+                # D3.1 recorded ("a component that did not check something must
+                # not report a result that reads as a successful check").
+                # None is therefore not a fallback: it is the engine declining
+                # to rate this nutrient, and the schema says so.
+                health_level(record, kind).value if kind in RATED_PARAMETERS else None
+            ),
+        )
+        for kind in NUTRIENT_KINDS
+    }
+    return SoilStatus(
+        bed_id=bed_id,
+        bed_name=bed_name,
+        record_source=record_source,
+        coverage="ok",
+        test_date=record.date or "",
+        ph=record.ph,
+        ph_health_level=health_level(record, "ph").value,
+        overall_health_level=health_level(record, "overall").value,
+        is_test_overdue=bool(is_test_overdue(history, today)),
+        levels=levels,
+    )
+
+
+def recommend_amendments_for_agent(
+    *,
+    bed_id: str,
+    record: Any,
+    today: datetime.date,
+    recommendations: list[Any],
+    language: str = "en",
+) -> AmendmentPlanView:
+    """Curate ``calculate_amendments`` output, adding the coverage marker.
+
+    ``recommendations`` is the engine's own list, passed in rather than
+    recomputed: this is a wrapper, exactly as ``get_diagnostics`` is. An empty
+    list here carries ``coverage='no_soil_test'`` when there is no record, so it
+    can never read as "the soil needs nothing".
+    """
+    return AmendmentPlanView(
+        bed_id=bed_id,
+        coverage="ok" if record is not None else "no_soil_test",
+        today=today.isoformat(),
+        total=len(recommendations),
+        recommendations=[
+            _amendment_view(rec, language) for rec in recommendations
+        ],
+    )
+
+
+def _amendment_view(rec: Any, language: str) -> AmendmentRecommendationView:
+    """Curate one ``AmendmentRecommendation`` without recomputing anything."""
+    amendment = rec.amendment
+    return AmendmentRecommendationView(
+        amendment_id=amendment.id,
+        # `name`/`name_de` are data-baked bilingual fields, not `tr()` output.
+        # The id is the machine key; this is display text beside it.
+        display_name=amendment.display_name(language),
+        quantity_g=rec.quantity_g,
+        target_kind=rec.target_kind,
+        current_value=rec.current_value,
+        target_value=rec.target_value,
+        fixes=list(amendment.fixes or []),
+        # credits entries are (kind, current, target) — the engine's rationale
+        # reads "also raises CA 0 -> 1".
+        credits=[
+            f"{kind}:{current}->{target}" for kind, current, target in (rec.credits or [])
+        ],
+        structural_fix=rec.structural_fix or "",
+        release_speed=amendment.release_speed or "",
+        organic=bool(amendment.organic),
+    )
+
+
+def get_soil_mismatches_for_agent(
+    *,
+    bed_id: str | None,
+    today: datetime.date,
+    details: list[tuple[Any, list[tuple[str, str]]]],
+    coverage: str = "ok",
+) -> SoilMismatchListView:
+    """Curate ``get_mismatch_details`` output into the codes-plus-text shape.
+
+    ``details`` is the engine's own result. Each reason is already a
+    ``(reason_code, display_text)`` pair from the one canonical builder, so this
+    only reshapes it: codes for branching, text for a human.
+    """
+    views = [
+        SoilMismatchView(
+            species_key=species_key_of(spec),
+            common_name=(spec.common_name or spec.scientific_name or ""),
+            reason_codes=[code for code, _text in reasons],
+            reasons=[text for _code, text in reasons],
+        )
+        for spec, reasons in details
+    ]
+    views.sort(key=lambda v: v.species_key)
+    return SoilMismatchListView(
+        bed_id=bed_id,
+        coverage=coverage,
+        today=today.isoformat(),
+        total=len(views),
+        mismatches=views,
+    )
+
+
+def species_key_of(spec: Any) -> str:
+    """The canonical species key for a ``PlantSpeciesData`` (ADR-016).
+
+    ``species_key()`` takes a DICT, but the mismatch engine yields
+    ``PlantSpeciesData`` objects, so the two are bridged here rather than at the
+    call site. The field PRIORITY is the shared helper's, not a second guess:
+    ``source_id`` → ``scientific_name`` → ``common_name``, stripped and
+    lowercased.
+
+    An object that carries none of the three fields yields ``'_unknown'`` —
+    the same sentinel ``species_key()`` itself returns — so an unidentifiable
+    plant is visibly unidentifiable instead of being keyed by something else.
+    """
+    if isinstance(spec, dict):
+        return species_key(spec)
+    as_dict = {
+        "source_id": getattr(spec, "source_id", "") or "",
+        "scientific_name": getattr(spec, "scientific_name", "") or "",
+        "common_name": getattr(spec, "common_name", "") or "",
+    }
+    return species_key(as_dict)
+
+
+# --- US-D3.4: record_soil_test validation -------------------------------------
+
+#: Accepted Rapitest kit level per nutrient, as ``(low, high)`` INCLUSIVE.
+#:
+#: These are not one shared range, and that is the whole point of the table:
+#: nitrogen and phosphorus run 0–4, potassium runs 1–4 because the kit has no
+#: zero for it, and the Ca/Mg/S secondaries run 0–2. A single "is it in range"
+#: check would silently accept a potassium 0 that the engine then reads as
+#: Deficient-but-measured rather than absent.
+#:
+#: Sourced from the field docstrings in ``models/soil_test.py`` and
+#: drift-guarded against them in tests/unit/test_agent_soil_tools.py.
+RAPITEST_LEVEL_RANGES: dict[str, tuple[int, int]] = {
+    "n": (0, 4),
+    "p": (0, 4),
+    "k": (1, 4),
+    "ca": (0, 2),
+    "mg": (0, 2),
+    "s": (0, 2),
+}
+
+#: The soil textures ``SoilTestRecord.soil_texture`` accepts.
+SOIL_TEXTURES: tuple[str, ...] = ("sandy", "loamy", "clayey", "compacted")
+
+
+class SoilTestError(ValueError):
+    """A refusal from ``build_soil_record_for_agent``.
+
+    A ``ValueError`` subclass so the server layer can turn it into a tool error
+    while every distinct message stays greppable in tests — the same shape as
+    :class:`SuccessionPlanError`.
+    """
+
+
+def _check_level(name: str, value: Any) -> int:
+    """Validate one kit level against its own nutrient's range."""
+    low, high = RAPITEST_LEVEL_RANGES[name]
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise SoilTestError(
+            f"{name}_level={value!r} must be a whole number on the Rapitest "
+            f"kit scale ({low}-{high}), not a lab reading. This tool takes the "
+            "categorical kit scale; the soil dialog records lab ppm values."
+        )
+    if not low <= value <= high:
+        raise SoilTestError(
+            f"{name}_level={value} is outside the Rapitest kit scale "
+            f"({low}-{high}) for {name}. Pass the categorical kit reading, not "
+            "a lab value in ppm — a ppm number here would be read as a kit "
+            "level and would silently change every recommendation."
+        )
+    return value
+
+
+def build_soil_record_for_agent(
+    *,
+    ph: float | None = None,
+    n_level: int | None = None,
+    p_level: int | None = None,
+    k_level: int | None = None,
+    ca_level: int | None = None,
+    mg_level: int | None = None,
+    s_level: int | None = None,
+    soil_texture: str | None = None,
+    test_date: str | None = None,
+    notes: str | None = None,
+    today: datetime.date | None = None,
+) -> Any:
+    """Validate agent-supplied readings into a ``SoilTestRecord``.
+
+    The target bed is resolved by the caller, not here: ``AddSoilTestCommand``
+    takes the ``target_id`` and the record separately, so a record carries no
+    bed of its own.
+
+    Every refusal raises :class:`SoilTestError` BEFORE a record is built, so a
+    refused call cannot reach ``AddSoilTestCommand`` and therefore cannot touch
+    ``ProjectManager.soil_tests`` or the undo stack.
+
+    The kit scale only, deliberately. The record model also carries optional
+    ``*_ppm`` lab floats, but nothing in ``services/`` reads them —
+    ``health_level``, ``calculate_amendments`` and ``get_mismatched_plants`` all
+    read the ``*_level`` fields — and no code converts between the two scales
+    (that is US-12.10c). So a record written from ppm alone would report
+    UNKNOWN health, no recommendations and no mismatches while still looking
+    complete to the caller. Refusing is the honest answer; the ppm path stays
+    with the dialog until the conversion exists.
+    """
+    from open_garden_planner.models.soil_test import SoilTestRecord
+
+    reference = today or datetime.date.today()
+
+    if ph is not None:
+        if isinstance(ph, bool) or not isinstance(ph, (int, float)):
+            raise SoilTestError(f"ph={ph!r} must be a number.")
+        if not math.isfinite(float(ph)):
+            raise SoilTestError(f"ph={ph!r} is not a finite number.")
+        if not 0.0 <= float(ph) <= 14.0:
+            raise SoilTestError(
+                f"ph={ph} is outside 0.0-14.0. Pass the measured pH value."
+            )
+
+    levels: dict[str, int | None] = {}
+    for name, value in (
+        ("n", n_level),
+        ("p", p_level),
+        ("k", k_level),
+        ("ca", ca_level),
+        ("mg", mg_level),
+        ("s", s_level),
+    ):
+        levels[name] = None if value is None else _check_level(name, value)
+
+    if soil_texture is not None and soil_texture not in SOIL_TEXTURES:
+        raise SoilTestError(
+            f"soil_texture={soil_texture!r} is not one of "
+            f"{', '.join(SOIL_TEXTURES)}."
+        )
+
+    resolved_date = reference
+    if test_date:
+        parsed = parse_iso_date(test_date)
+        if parsed is None:
+            raise SoilTestError(
+                f"test_date={test_date!r} is not an ISO date. Use YYYY-MM-DD."
+            )
+        if parsed > reference:
+            raise SoilTestError(
+                f"test_date={test_date} is in the future (today is "
+                f"{reference.isoformat()}). A test cannot have been taken yet."
+            )
+        resolved_date = parsed
+
+    if ph is None and all(value is None for value in levels.values()):
+        raise SoilTestError(
+            "A soil test with no readings is noise. Pass at least one of ph, "
+            "n_level, p_level, k_level, ca_level, mg_level or s_level."
+        )
+
+    return SoilTestRecord(
+        date=resolved_date.isoformat(),
+        ph=float(ph) if ph is not None else None,
+        n_level=levels["n"],
+        p_level=levels["p"],
+        k_level=levels["k"],
+        ca_level=levels["ca"],
+        mg_level=levels["mg"],
+        s_level=levels["s"],
+        notes=notes or "",
+        # Kit scale only — see the docstring. Persisted so the dialog reopens in
+        # the mode the record was actually entered in.
+        mode="kit",
+        soil_texture=soil_texture,
+    )

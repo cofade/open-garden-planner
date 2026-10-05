@@ -7,8 +7,6 @@ for the duration of a render and restores afterwards.
 """
 from __future__ import annotations
 
-from PyQt6.QtCore import QPointF
-
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.services.export_service import ExportService
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene

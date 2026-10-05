@@ -38,7 +38,7 @@ def _stub_providers() -> _providers.AgentProviders:
     """No-op providers: the teardown tests never make a call, they only need a
     real server object whose thread has to go away."""
     return _providers.AgentProviders(
-        **{n: None for n in _providers.AgentProviders.__dataclass_fields__}
+        **dict.fromkeys(_providers.AgentProviders.__dataclass_fields__)
     )
 
 

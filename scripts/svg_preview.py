@@ -13,7 +13,6 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 EDGE = Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
@@ -29,7 +28,7 @@ def _render_with_browser(svg_path: Path, out_path: Path, width: int = 1400) -> b
     # Headless Chrome/Edge renders to a screenshot PNG
     url = svg_path.as_uri()
     try:
-        result = subprocess.run(
+        subprocess.run(
             [
                 str(browser),
                 "--headless=new",
@@ -57,7 +56,7 @@ def _render_with_qt(svg_path: Path, out_path: Path, scale: float = 0.5) -> bool:
     from PyQt6.QtSvg import QSvgRenderer
     from PyQt6.QtWidgets import QApplication
 
-    app = QApplication.instance() or QApplication(sys.argv)
+    _app = QApplication.instance() or QApplication(sys.argv)
     renderer = QSvgRenderer(str(svg_path))
     default_size = renderer.defaultSize()
     w = max(1, int(default_size.width() * scale))

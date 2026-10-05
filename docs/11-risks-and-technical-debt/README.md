@@ -1,46 +1,76 @@
 # 11. Risks and Technical Debt
 
+Dated audit snapshots: [audit-2026-10.md](audit-2026-10.md) (numbers: `audit-2026-10-metrics.json`, re-run with `scripts/audit_metrics.py`; findings tracked in epic #392). §11.3 is the living register (ADR-047).
+
 ## 11.1 Open Questions
 
 | Question | Impact | Resolution Path |
 |----------|--------|-----------------|
-| Trefle.io rate limits and reliability? | Plant search UX | Test API, implement robust caching, Permapeople as fallback, bundled DB as last resort |
-| Texture licensing for fill patterns? | Legal | Use AI-generated or CC0/public domain textures, document sources |
-| DXF export complexity for future versions? | Interoperability | Evaluate ezdxf library, may need simplification |
+| Trefle.io rate limits and reliability? | Plant search UX | Test API, implement robust caching, Permapeople as fallback, bundled DB as last resort. **Status 2026-10:** open; the SQLite cache (TD-003) and the bundled-DB fallback (`services/plant_api/manager.py` TODO) are not implemented. |
+| ~~Texture licensing for fill patterns?~~ **RESOLVED (ADR-042, 2026-08-18)** | Legal | All 24 fill textures are generated in-repo with provenance (§8.24). |
+| ~~DXF export complexity for future versions?~~ **RESOLVED (US-12.3/12.4)** | Interoperability | DXF export and import shipped on ezdxf; scope is defined by FR-EXP-07 and FR-IMP-04 (Bezier export via ADR-022, Smart Symbol blocks via ADR-032). |
 | ~~Qt6 3D capabilities vs dedicated engine?~~ **RESOLVED (US-E5, ADR-038, 2026-07-20)**: PyQt6-3D chosen — version-matched 6.11.0 wheel, frozen-exe gate passed (+13 MB), built-in orbit + first-person cameras; PyVista rejected on size (+466 MB), pyqtgraph.opengl on feature fit. Pin `PyQt6-3D-Qt6` to `PyQt6-Qt6`'s micro or imports fail | 3D feature (Phase 14) | Done — see ADR-038 evidence log |
 | Qt 3D is deprecated since Qt 6.8 — which renderer carries Phase 17's "Living Garden 3D"? | 3D look, shadows, upgrade path past the #277 pin pair | **Open — ADR-047 (Proposed)**: Qt Quick 3D GO/NO-GO spike (Package L0) against twelve pre-committed criteria; the evidence log is in the ADR |
-| Bundled plant database source? | Offline functionality | Evaluate USDA Plants Database, consider one-time Trefle.io bulk export |
-| AI-generated SVG quality consistency? | Visual appeal | Test with multiple prompts, establish style guide, manual cleanup if needed |
-| NSIS installer signing? | Trust/distribution | Unsigned initially, document for users. **Partially addressed (ADR-044, 2026-09-15):** build provenance attestation (`gh attestation verify`) proves the binary traces back to a public CI run of the public source — free, no cert needed. Still open: a paid Authenticode cert, which is what actually removes the SmartScreen/Defender/Norton reputation warning itself, remains unfunded. Reputation detections now observed from a second vendor: Norton 360 `FileRepMalware[Misc]` on the 1.27.9 installer (issue #358, 2026-09-22), same zero-reputation FP class as Defender in #356. |
+| Bundled plant database source? | Offline functionality | Evaluate USDA Plants Database, consider one-time Trefle.io bulk export. **Partially resolved (ADR-014):** 118 bundled species ship with licence metadata (#311); a bulk-export source remains open. |
+| ~~AI-generated SVG quality consistency?~~ **RESOLVED (ADR-040, ADR-042)** | Visual appeal | Procedural generators replaced AI-generated SVGs. |
+| NSIS installer signing? | Trust/distribution | Unsigned initially, document for users. **Partially addressed (ADR-044, 2026-09-15):** build provenance attestation (`gh attestation verify`) proves the binary traces back to a public CI run of the public source — free, no cert needed. Still open: a paid Authenticode cert, which is what actually removes the SmartScreen/Defender/Norton reputation warning itself, remains unfunded. Reputation detections now observed from a second vendor: Norton 360 `FileRepMalware[Misc]` on the 1.27.9 installer (issue #358, 2026-09-22), same zero-reputation FP class as Defender in #356. Authenticode is tracked in #375. |
 
 ## 11.2 Risks
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
 | PyQt6 licensing complexity (GPL/Commercial) | Medium | High | Use GPLv3, document clearly, ensure compliance |
-| Performance with very large images | Medium | Medium | Implement image tiling/downsampling at zoom levels |
-| Scope creep delaying v1.0 | High | High | Strict phase adherence, defer nice-to-haves to Phase 7 |
+| Performance with very large images | Medium | Medium | Implement image tiling/downsampling at zoom levels. **Status 2026-10:** unmeasured; the audit's offscreen harness covers a 500-object plan, not large images (audit-2026-10 §5.7). |
+| ~~Scope creep delaying v1.0~~ **Closed** | High | High | v1.0.0 shipped 2026-02-14; 159 releases in total by 2026-10-03. |
 | Limited development time | High | Medium | Focus on quality over speed, attract contributors |
-| Project not attracting contributors | Medium | High | Excellent documentation, clean code, contributor guide, CI/CD |
-| External API deprecation | Low | Medium | Fallback chain: Trefle -> Permapeople -> Bundled DB |
-| AI-generated SVGs inconsistent quality | Medium | Medium | Establish style reference set, manual review/cleanup |
+| Project not attracting contributors | Medium | High | Excellent documentation, clean code, contributor guide, CI/CD. **Status 2026-10:** no CONTRIBUTING.md exists; the contribution rules live in CLAUDE.md/AGENTS.md and are written for agents (audit-2026-10 §5.10). |
+| External API deprecation | Low | Medium | Fallback chain: Trefle -> Permapeople -> Bundled DB. **Status 2026-10:** the bundled-DB step of the chain is not implemented (TD-003). |
+| ~~AI-generated SVGs inconsistent quality~~ **Closed (ADR-040, ADR-042)** | Medium | Medium | Sprites and textures are generated, not drawn. |
 | Windows installer blocked by SmartScreen | Medium | Low | Document workaround, investigate signing options. Build provenance attestation shipped (ADR-044) as a verifiable trust signal alongside the checksum; does not itself suppress SmartScreen/Defender (issue #356) or Norton `FileRepMalware[Misc]` (issue #358 — second AV vendor, same unsigned zero-reputation profile) — that needs paid signing, still unfunded. FP path per vendor: Microsoft file-submission forms (#356), Norton portal `submissions.norton.com/reportfalsepositive` (#358; both portals are CAPTCHA-protected, so submissions are manual, not automatable by the maintainer). |
 | Large bundle size from PyInstaller | Medium | Low | Optimize includes, strip unused Qt modules |
 
 ## 11.3 Technical Debt
 
-| Item | Area | Description | Priority |
-|------|------|-------------|----------|
-| TD-001 | Plant rendering | Plants currently rendered as flat colored circles | High (Phase 6 addresses) |
-| TD-002 | Textures | Procedural patterns are too subtle, barely visible | High (Phase 6 addresses) |
-| TD-003 | Plant cache | SQLite cache for plant API data not yet implemented | Medium |
-| TD-004 | Object model | Some object types share code that could be better abstracted | Low |
-| TD-005 | Test coverage | Some UI components lack automated tests | Medium |
-| TD-006 | Error messages | Some error messages are technical, not user-friendly | Low |
-| TD-007 | Constraint anchors | Polygon/polyline edge anchors use dynamic `EDGE_TOP/BOTTOM/LEFT/RIGHT` classification (dominant axis). Classification changes when a vertex moves far enough to flip an edge's axis, causing constraint indicators to jump to the wrong edge. Replace with `AnchorType.EDGE_MIDPOINT` + stable numeric `anchor_index` so the edge identity is axis-independent. Workaround in place (index-only match in `_resolve_anchor_position`). | Medium |
-| TD-008 | Constraint solver | Newton-Raphson refinement uses a numerical central-difference Jacobian (`constraint_solver_newton._JACOBIAN_H`). An analytic Jacobian per constraint type would be faster (roughly 2N × eval savings per iteration), but numerical cost is microseconds for typical ≤20-variable systems so no user-facing impact. Revisit only if large-scene solves become a bottleneck. | Low |
-| TD-009 | Bundle size | Master's release ships ~21 MB of Qt Quick 3D runtime it never loads (Quick3D + ShaderTools DLLs and QML modules, pulled in by the PyInstaller QtQml hook; measured in the ADR-047 evidence run). Phase 17 puts it to use; on a NO-GO, exclude it in `installer/ogp.spec`. | Low |
-| TD-010 | 3D geometry source | The Qt Quick 3D spike builds its world from private canvas helpers (`_item_footprints`, `_plant_canopy_radius_cm` in `ui/canvas/sun_shadow_controller.py`). The Qt-free core of Phase 17 L1.1 must promote them to a public, tested module before building on them (senior review, ADR-047). | Medium |
+The living register (ADR-047). Every row has a status; P0/P1 rows link their issue, P2/P3 rows point to the audit epic's checklist (#392). Rows come from the dated audit snapshots ([audit-2026-10.md](audit-2026-10.md), Top-25 = TD-009…TD-033, plus TD-034 re-raised by the Windows check; the long tail stays in the snapshot's appendix). Re-measure with `scripts/audit_metrics.py`. Status is `open` (with a note where useful), `fixed (#PR)`, `accepted (ADR-0xx)`, `closed (reason)` or `superseded (by …)`; historical rows TD-001…TD-008 carry an issue only where one exists. Never delete a row; a resolved row says so.
+
+| ID | Area | Description | Severity / Effort | Status | Issue | Source |
+|----|------|-------------|-------------------|--------|-------|--------|
+| TD-001 | Plant rendering | Plants currently rendered as flat colored circles | — | closed (Phase 6, ADR-040 sprites) | — | 2026-04 |
+| TD-002 | Textures | Procedural patterns are too subtle, barely visible | — | closed (ADR-042 texture forge) | — | 2026-04 |
+| TD-003 | Plant cache | SQLite cache for plant API data not yet implemented | P2 / M | open (0 `sqlite` hits in `src/`, 2026-10-03) | — | 2026-04 |
+| TD-004 | Object model | Some object types share code that could be better abstracted | P2 / M | superseded by the measured duplication row AUD-011 (five `contextMenuEvent` copies, epic #392) | epic checklist | 2026-04 |
+| TD-005 | Test coverage | Some UI components lack automated tests | P2 / L | superseded by measurement: `ui` 68.5 % lines / 46.9 % branches (audit-2026-10 §5.3); see TD-013, TD-024 | — | 2026-04 |
+| TD-006 | Error messages | Some error messages are technical, not user-friendly | P3 / M | open, unmeasured | — | 2026-04 |
+| TD-007 | Constraint anchors | Polygon/polyline edge anchors use dynamic `EDGE_TOP/BOTTOM/LEFT/RIGHT` classification (dominant axis). Classification changes when a vertex moves far enough to flip an edge's axis, causing constraint indicators to jump to the wrong edge. Replace with `AnchorType.EDGE_MIDPOINT` + stable numeric `anchor_index` so the edge identity is axis-independent. Workaround in place (index-only match in `_resolve_anchor_position`). | P2 / M | open; workaround in place | — | 2026-04 |
+| TD-008 | Constraint solver | Newton-Raphson refinement uses a numerical central-difference Jacobian (`constraint_solver_newton._JACOBIAN_H`). An analytic Jacobian per constraint type would be faster (roughly 2N × eval savings per iteration), but numerical cost is microseconds for typical ≤20-variable systems so no user-facing impact. Revisit only if large-scene solves become a bottleneck. | P3 / L | accepted (ADR-012) | — | 2026-04 |
+| TD-009 | Gates/CI (code) | 5 duplicate context keys in fill_translations.py silently drop 62 translations; 5 German PDF strings never reach de.ts | P0 / S | fixed (#411) | #393 | audit-2026-10 AUD-029 |
+| TD-010 | Architecture (code) | Free-text annotations (TextItem) are silently dropped from the .ogp on save — data loss | P0 / M | open | #394 | audit-2026-10 AUD-001 |
+| TD-011 | Security (data) | Loader silently drops items it cannot decode: a legacy plan whose background image moved loses it on load and permanently on the next save; duplicate item_ids accepted | P1 / S | open | #397 | audit-2026-10 AUD-043 |
+| TD-012 | Security (security) | Loopback MCP endpoint's only browser barrier is an mcp SDK default the floor pin does not require (PoC: 1.22.0 serves Host: evil.example) | P1 / S | open | #396 | audit-2026-10 AUD-039 |
+| TD-013 | Hotspots (test) | Four user-reachable array features in CanvasView (CC 21-31) are 1.2-1.3% covered and have no tests | P1 / S | open | #395 | audit-2026-10 AUD-010 |
+| TD-014 | Docs (documentation) | Six documents declare CI gates and limits that ci.yml never runs (mypy, coverage, formatter, xvfb, 110 cols) — grouped docs drift | P1 / S | open (§10.6, §11.5 and README.md corrected 2026-10; §7.4, §8.6, §8.11 remain) | #401 | audit-2026-10 AUD-062 |
+| TD-015 | Docs (documentation) | Agent skills state CI and security facts the code contradicts: 'three CI jobs', 'only lint/test/security', 'no token auth', 'ADR-001…034' | P1 / S | open | #398 | audit-2026-10 AUD-064 |
+| TD-016 | Process (process) | 'Never merge on red' is prose-only: required status checks are off on master, merges use --admin, PR #323 merged on a red Test | P1 / S | open | #399 | audit-2026-10 AUD-085 |
+| TD-017 | Security (data) | A .ogp that fails mid-load leaves a partial scene with the PREVIOUS file as current_file; Ctrl+S then overwrites the user's good plan | P1 / M | open | #403 | audit-2026-10 AUD-040 |
+| TD-018 | Architecture (code) | Clipboard serializer drops 4 persisted fields and 7 item types the file serializer handles — copy/paste silently loses data | P1 / M | open | #400 | audit-2026-10 AUD-002 |
+| TD-019 | Tests (test) | Serializer round-trip tests under-assert: 1 093 serializer mutants survive the 3 project unit files; 8 of 10 sampled also survive 19 persistence test files | P1 / M | open | #394 | audit-2026-10 AUD-017 |
+| TD-020 | Gates/CI (process) | mypy strict is declared a CI gate in four documents but never runs; 2 104 errors in 134 files | P1 / M | open | #401 | audit-2026-10 AUD-030 |
+| TD-021 | Gates/CI (test) | Coverage report and >80 % floor are declared (NFR-MAINT-02, §10.6, §8.6) but never measured anywhere | P1 / M | open | #402 | audit-2026-10 AUD-031 |
+| TD-022 | Dependencies (dependency) | Release build has no lockfile: 4 of 42 shipped runtime dists exact-pinned; v1.29.0 shipped 9 runtime dists at versions published after the v1.27.9 build | P1 / M | open | #404 | audit-2026-10 AUD-048 |
+| TD-023 | Docs (documentation) | §8.7 promises 'all errors logged' but the logging module has no handler anywhere: 55 handled-error log calls are discarded in the windowed exe | P1 / M | open | #405 | audit-2026-10 AUD-063 |
+| TD-024 | Tests (test) | constraint_tool.py is 29.0 % line / 9.6 % branch covered: 1 661 of 2 340 statements never run, 50 public methods never executed (25 non-trivial) | P1 / L | open | #406 | audit-2026-10 AUD-016 |
+| TD-025 | Security (data) | NaN/Infinity accepted at the .ogp boundary: NaN canvas breaks render_canvas_image, non-finite values are re-saved as invalid JSON | P2 / S | open | epic checklist | audit-2026-10 AUD-041 |
+| TD-026 | Architecture (design) | core/tools/constraint_tool.py:34 imports ui.canvas.items at module level — the one violation of invariant 11 | P2 / S | open | epic checklist | audit-2026-10 AUD-003 |
+| TD-027 | Architecture (process) | No layering fitness function in CI; a naive import-linter contract reads 0 kept / 2 broken and cannot see the function-local allowance | P2 / S | open | epic checklist | audit-2026-10 AUD-005 |
+| TD-028 | Architecture (design) | models/ is not the pure-data leaf the module map declares: 2 upward imports; 5 package cycles at module level (9 counting function-local edges) | P2 / S | open | epic checklist | audit-2026-10 AUD-008 |
+| TD-029 | Tests (documentation) | §8.10 lists 4 integration files (skill: ~70) vs 114 actual; the tests/ui layer is not distinct in practice | P2 / S | open | epic checklist | audit-2026-10 AUD-018 |
+| TD-030 | Tests (performance) | Theme-switch tests cost 282.6 s in the battery vs 12.4 s alone: closed widgets are never deleted, so every apply_theme re-polishes a growing population | P2 / S | open | epic checklist | audit-2026-10 AUD-019 |
+| TD-031 | Tests (test) | Solar math is executed but under-asserted: no test timestamp has nonzero seconds and no oracle row nonzero minutes, so a 44.7-degree elevation mutant survives | P2 / S | open | epic checklist | audit-2026-10 AUD-021 |
+| TD-032 | Tests (test) | companion_sets: the P1-4 candidate cap, the P2-12 dedup merge and the antagonist rejection are never executed by any test | P2 / S | open | epic checklist | audit-2026-10 AUD-022 |
+| TD-033 | Tests (test) | Small Qt-free modules score 80-88 %; the surviving gaps are the canvas edge, stacking expand/arrange and shape-type branches | P2 / S | open | epic checklist | audit-2026-10 AUD-025 |
+| TD-034 | Performance (performance) | NFR-PERF-01 missed in a real window: fit-in-view repaint of the 500-object reference plan takes 54 ms (≤ 18 fps), a zoom step 40 ms; 100 % zoom and pan stay inside the budget | P1 / M | open | #409 | audit-2026-10 AUD-056 (Windows check §8.1) |
+| TD-035 | Bundle size | Master's release ships ~21 MB of Qt Quick 3D runtime it never loads (Quick3D + ShaderTools DLLs and QML modules, pulled in by the PyInstaller QtQml hook; measured in the ADR-047 evidence run). Phase 17 puts it to use; on a NO-GO, exclude it in `installer/ogp.spec`. | P3 / S | open (decided by the L0 GO/NO-GO) | #384 | ADR-047 L0 evidence (Windows v6 footprint) |
+| TD-036 | 3D geometry source | The Qt Quick 3D spike builds its world from private canvas helpers (`_item_footprints`, `_plant_canopy_radius_cm` in `ui/canvas/sun_shadow_controller.py`). The Qt-free core of Phase 17 L1.1 must promote them to a public, tested module before building on them (senior review, ADR-047). | P2 / M | open | #385 | ADR-047 L0 senior review |
 
 ## 11.4 Known Development Pitfalls
 
@@ -198,6 +228,10 @@ Hard-won lessons from implementation. Read these before modifying the related su
 
   **The invariant is about the PAIRING, not the placeholder.** `%N` is correct — and used correctly at `companion_panel.py:96` — when interpolated with `.replace("%1", value)`; `{named}` is correct when interpolated with `.format()`. Crossing the two is broken in both directions, silently. Rule: **pick one idiom per call site and keep the whole project on `{named}` + `.format()`**, since that is what `fill_translations.py` registers and what every other new string uses. Mitigation: `tests/unit/test_dialog_i18n_literals.py` extracts the `tr()` literals and their interpolation method from the source with `ast` (so implicit string concatenation is read the way Python reads it, and the list cannot drift when a string is reworded) and fails on any mismatch, on any dialog literal absent from the German `.ts`, and on any literal registered with its own English text as the translation. A companion test in `tests/unit/test_companion_panel_sets.py` asserts on the **rendered** widget text that no `%N` reaches the user *and* that the interpolated values actually land — the second half matters, because a no-placeholder check alone also passes on a dialog that simply dropped the information. Both were mutation-verified: reverting to `%1`, crossing to the mirror-image `{named}`+`.replace()`, and unregistering a literal are each caught.
   **Also**: German rendering is worth checking directly, because it is the only place both failures are visible at once. `QTranslator` + the compiled `.qm` renders the fixed dialog as `Bereits im Beet: corn, bean` and `behält 1 von 2 bereits gepflanzten` — translated *and* interpolated. A green suite in the source language proves neither.
+
+- **A repeated top-level key in the `TRANSLATIONS` literal of `scripts/fill_translations.py` silently shadows the earlier block, and the i18n gate cannot see the strings it drops** (issue #393 / audit 2026-10 AUD-029): Python keeps only the last of a repeated dict key, so five contexts (`CircleItem`, `EllipseItem`, `PolygonItem`, `RectangleItem`, `PdfReportService`) were each defined twice and the first block's 62 strings never reached the effective registry — 57 survived only because an earlier fill run had already written them into `open_garden_planner_de.ts`, and the remaining 5 (`PdfReportService` "Garden Notes", "No journal notes recorded.", "(no date)", "(empty)", "(photo: {filename})") were live `_tr()` calls in `services/pdf_report_service.py` with no German entry, so the opt-in journal-notes PDF page printed English. `test_german_ts_has_no_unfinished` is structurally blind: it only inspects messages *already in the table*, and a string the registry never emits is by definition not there. The only detector is `ruff` F601, and CI ran `ruff check src/` only — `scripts/` was never linted. Fix: merge each shadowed block into its surviving block, run the fill/compile pipeline, and enforce uniqueness with `tests/unit/test_i18n.py::TestTranslationRegistry::test_translations_literal_has_unique_top_level_keys` (an `ast` parse of the literal, independent of lint scope) plus a CI lint step widened to `ruff check src/ tests/ scripts/`. Rule: a registry that can silently drop its own entries needs a uniqueness test, not only a lint rule.
+
+- **A shared, Qt-free service that renders a bilingual data field must resolve the active UI language explicitly; a `lang="en"` default is a silent English leak** (issues #408, #410): `models/amendment.py::Amendment.display_name` and `services/companion_planting_service.py::get_display_name` both default `lang="en"`, and two call sites omitted it — `services/task_generator.py::_bed_amendment_recs` (generated soil-amendment task titles) and `services/companion_sets.py::suggest_companions` (the agent `suggest_companions` tool's `name`). The GUI showed German (the panels pass `lang`), the task/agent surfaces showed English, and the D3 convention that display strings follow the user's UI language (`docs/08-crosscutting-concepts/` §8.19) was violated. The zero-unfinished gate cannot see either: both are data-selected strings, not `tr()` output. Fix: one shared resolver, `app/settings.py::active_language()`, used by the task generator and the companion-set finder (the two pre-existing private helpers now delegate to it). **The task-id trap is the load-bearing part**: `generate_soil_amendment_tasks` builds `task_id=f"soil_amendment:{bed_id}:{name}"` from the English data name, and `ProjectData.task_states` keys saved done/snooze state by it — localising `name` would have changed every id and orphaned that state. The fix carries both names in `BedInput.amendment_recs` as `(stable_name, display_name, rationale)`: the id uses `stable_name`, the title uses `display_name`. Pinned by `tests/integration/test_agent_task_soil_tools.py::TestSoilReads::test_generated_amendment_task_title_follows_the_ui_but_id_does_not`, `tests/unit/test_task_generator.py::TestSoilAmendmentTasks::test_display_name_in_title_stable_name_in_id`, and `tests/unit/test_agent_d3_localisation.py::test_companion_name_follows_the_ui_while_the_key_stays_english`. Rule: when a display string doubles as a persisted key, localising it is a data migration — separate the machine key from the display text first.
 
 - **Layer subsystem: panel is a pure view; ALL mutations go through undoable commands** (issue #201 + layer-undo fix): historically `LayersPanel` mutated layers directly and `panel._layers` *aliased* `scene._layers` (the scene hands its live list to `panel.set_layers()`), so panel-side inserts mutated the scene before any signal fired — and none of it was undoable (Ctrl+Z silently ignored every layer action). Both are fixed: `LayersPanel.set_layers` now stores a **defensive copy** (`list(layers)`), and every layer operation (add, delete, rename, reorder, visibility, lock, opacity) routes panel request-signal → `GardenPlannerApp` handler → `CommandManager.execute(<LayerCommand>)` → scene mutation → `layers_changed` → `panel.set_layers` rebuild. Rules for any new code touching this subsystem: (1) the panel must NEVER mutate `Layer` objects or its `_layers` list — emit a request signal and let a command in `core/commands.py` (`AddLayerCommand`, `DeleteLayerCommand`, `RenameLayerCommand`, `ReorderLayersCommand`, `SetLayerPropertyCommand`) do the work; the rebuild repaints the widgets. Emit as the **last** statement of a `LayerListItem` handler — the synchronous command → rebuild deletes the emitting widget. (2) `_refresh_list` restores selection by **layer id**, never row index — a top-insert shifts every row down one. (3) Undo of add/delete restores the previously active layer by calling `set_active_layer` **last**, after `layers_changed.emit()` — the panel rebuild's fallback `setCurrentRow(0)` fires first and would otherwise win; the scene's `active_layer_changed → panel.select_layer` connection (signal-blocked) re-syncs the visible selection. (4) Opacity slider drags coalesce into one undo step: `valueChanged` while `isSliderDown()` drives the non-undoable `scene.preview_layer_opacity()` (no `layers_changed`, so no rebuild storm per tick); `sliderReleased` commits one `SetLayerPropertyCommand` carrying the opacity snapshotted at `sliderPressed`. (5) `CanvasScene.add_layer()` *appends* (bottom) and is for bulk/import only (DXF); `CanvasScene.remove_layer()` is likewise a non-undoable primitive — neither is the user-facing path. (6) Command `description` strings are user-visible (status bar "Undo: …") and use `QCoreApplication.translate("Commands", …)` + registration in `scripts/fill_translations.py`. (As of issue #209 **all** command descriptions — not just the layer ones — use this pattern; the former English f-strings have been migrated, including the caller-supplied descriptions of `AlignItemsCommand`/`MultiVertexMoveCommand`, which are wrapped at their call sites in `canvas_view.py`/`properties_panel.py`.)
 
@@ -527,6 +561,159 @@ exercises.** Three of the four were unreachable by any existing test *by
 construction* (empty canvas, single-threaded stop, input-only assertion), and the
 fourth was not a code defect at all.
 
+### 11.4.3 Six defects a single package found, and what each one was really about (US-D3.3 #332 + US-D3.4 #333)
+
+Every one of these was found **while building the tests for this package**, not by
+the tests failing against shipped behaviour — which is the point. In five of six
+cases the code I had just written was confidently wrong, and in the sixth a drift
+guard was too weak to notice. Four are worth reading twice, because the shape
+recurs in this codebase.
+
+**1. `health_level(record, "ca")` silently returns the OVERALL rating.**
+`SoilService.health_level` rates `ph`, `n`, `p`, `k` and `overall` — its
+`ALL_PARAMS` is exactly those five, and an unrecognised parameter **falls through
+to the `overall` branch** rather than raising. My first `SoilStatus` called it for
+all six nutrients, so every bed reported its whole health as calcium's. It reads
+as a plausible number, so no assertion style catches it by accident. Fixed by
+routing only `RATED_PARAMETERS` through the service and making
+`SoilReading.health_level` optional, where `None` means *"no rating exists"* —
+deliberately distinct from `'unknown'`, which means *not tested*. **A fall-through
+default is a silent wrong answer, and a nullable field is the honest way to say
+"this was never computed".**
+
+**2. `TASK_SOURCES` listed two values no generator can emit — and my drift guard
+was too weak to notice.** I took the source names from the issue text, which said
+`soil_amendment` and `soil_mismatch`. Both soil generators actually emit
+`source="soil"`; `task_type` is what distinguishes them. So `TASK_SOURCES` had
+seven entries for six real values, and the guard I wrote first asserted only
+`emitted <= TASK_SOURCES` — a **subset** check, which passes on extra entries. The
+field failure would have been nasty and quiet: `get_tasks(source="soil_mismatch")`
+returns an empty list forever, and `get_tasks(source="soil")` — the value that
+works — is **refused** as unknown. Two lessons: a drift guard must assert
+**equality in both directions**, and a guard that can pass vacuously should assert
+it saw something (`assert task_calls >= 7`), because a guard reading the wrong
+scope reports success forever. The guard is now AST-based over the module, not
+fixture-driven, precisely because four of the seven generators need live inputs a
+bare `PlanState` cannot supply — a fixture roster silently under-reports.
+
+**3. `get_effective_record` applies the hierarchy invisibly, so its answer cannot
+be attributed.** With only a plan-wide soil test recorded, the service returns the
+global record *for a bed* — by design, and correctly for the GUI. An agent handed
+that has no way left to tell it from a real bed reading. `record_source` now
+carries the provenance, and the provider resolves the two histories directly to
+recover it. **A function that returns a value but discards how it got there is
+half an API for a machine consumer.**
+
+**4. Credentials-shaped input needs the *shape* validated, not just the range.**
+`SoilTestRecord` stores the Rapitest kit scale **and** optional lab `*_ppm`
+floats. `40` is a plausible ppm nitrogen reading and an invalid kit level. Worse:
+**nothing in `services/` reads the `*_ppm` fields at all** — `health_level`,
+`calculate_amendments` and the mismatch check all read `*_level`, and no code
+converts between the scales (US-12.10c owns that). So the worst case was not a
+wrong number but a record that reports UNKNOWN health, recommends nothing, finds
+no mismatches — and looks complete to the caller. The tool now refuses ppm by
+name and takes kit-only parameters whose *names state the scale*. Related: the
+ranges are **per-nutrient** (`k_level` is `1–4`; the kit has no K0; secondaries
+are `0–2`), so one shared range check would have accepted a potassium `0` the
+engine then reads as Deficient-but-measured.
+
+**5. `credits` is a 3-tuple and I unpacked it as a 2-tuple.** `(kind, current,
+target)`, not `(kind, delta)`. A `ValueError` at the first recommendation, caught
+by the field-for-field equality test — which is exactly the test that existed to
+prove the wrapper computes nothing. **An equality test earns its keep on the first
+call, not on the happy path.**
+
+**6. The `app` fixture's modal teardown hung the run.** My tests dirty the plan,
+and pytestqt closes the window in its own teardown, where `closeEvent` raises a
+modal unsaved-changes dialog. Clearing `_dirty` in a fixture finalizer does not
+help: the finalizer can run *after* pytestqt already closed the window. Fixing it
+on the instance (`_confirm_discard_changes = lambda *_: False`) works regardless of
+ordering. **A test that hangs is a test that has told you something about ordering.**
+
+Two smaller notes for the next person. `WriteResult.action` is a `Literal`, so a
+new write action fails at *runtime* with a pydantic error rather than at import —
+the tool is registered, the server starts, and the call fails. And
+`ProjectManager.manual_tasks` stores `ManualTask.to_dict()` values, **not**
+objects, which is easy to assume otherwise and costs an `AttributeError`.
+
+The shared lesson is narrower than §11.4.2's and worth stating separately: **the
+defects in this package were all cases of a plausible-looking value that was not
+the value the engine means.** A fall-through branch, a name copied from prose, a
+hierarchy applied invisibly, a range that looked uniform and is not three times
+over. Each was found by a test that compared against the *engine* rather than
+against an expected literal — and every one of them would have passed a test
+written from the issue text instead.
+
+### 11.4.4 Review and frozen-client findings in D3.3/D3.4 (#332/#333)
+
+- **Call the public tool with the production provider graph.** The first
+  handover reported 6951 passing tests, but a real MCP client against the frozen
+  exe found `get_soil_status` failing with six missing model fields,
+  `get_soil_mismatches` failing with missing `total`, and the soil prompt failing
+  likewise. Providers returned aggregate `beds` envelopes while the server
+  constructed single-bed models. The purported real-client suite only called
+  provider methods and prompt renderers directly. Explicit aggregate schemas
+  now preserve per-bed coverage; the prompt extracts its requested bed.
+  `TestRealMcpTransport` in `tests/integration/test_agent_task_soil_tools.py`
+  calls all nine tools and both prompts using `app._build_agent_providers()`.
+  Four status/prompt tests and a separate mismatch test were observed failing
+  before the fix. Stub registration and direct provider success are evidence
+  about different boundaries.
+- **Generate a requested period before applying urgency.** A plant with April
+  sowing and June/July harvest returned an empty, fully-covered annual calendar
+  when queried in October. Future years were also empty because `year` never
+  reached generation. `actionable_only=False` retains the schedule for agent
+  annual/explicit-window reads while GUI reminders keep their existing default.
+  A December-to-January task was dropped from both years; intervals are now
+  clipped to year boundaries. Pinned by
+  `test_calendar_generates_the_full_requested_year`,
+  `test_explicit_task_window_generates_its_calendar_tasks` and
+  `test_calendar_clips_cross_year_tasks`, all observed failing first. Propagation
+  was absent because no plans were supplied to its generator. The extracted
+  `build_propagation_plans` is now shared with the GUI and honors seed data and
+  user overrides; `test_propagation_tasks_use_the_gui_calculator` failed for both
+  current and future years before the fix.
+- **Provenance and staleness must follow the same selected record.** An old
+  global test was reported with `record_source=global` and
+  `is_test_overdue=false` because staleness checked the bed's empty history.
+  The service now resolves record/source/history together, and the existing
+  record-only method delegates to it. Pinned by
+  `test_global_fallback_uses_global_history_for_staleness` (failed first).
+- **Language and input types must be checked at the actual boundary.** A
+  German amendment test pinned English names, contrary to the API contract.
+  Recommendation names now use the existing `Amendment.display_name(language)`;
+  `test_amendment_names_follow_the_ui_language` failed first with English
+  `Dolomite lime`/`Compost` versus `Dolomitkalk`/`Kompost`. MCP's permissive
+  numeric validation also converted booleans and numeric strings into soil
+  readings before the stricter domain validator saw them. Strict numeric
+  annotations prevent that; three malformed-input transport cases failed first.
+  The translator unit test now requests `qtbot`: it previously depended on an
+  unrelated test creating QApplication, so a targeted run failed while the full
+  run passed.
+
+- **The requested year is not necessarily a task's frost-anchor year.** Round
+  two reproduced bundled garlic sowing on October 15–29, 2026 only when the
+  request extended into 2027. Bundled asparagus harvest uses offsets 104–156
+  weeks, so a 2026 calendar must also consider prior anchors. Period generation
+  now derives an anchor range from the actual calendar and propagation offsets,
+  filters overlapping dates and preserves canonical anchor-year IDs. Annual
+  calendars and task windows share this path. Both the garlic integration test
+  and `test_bundled_multiyear_harvest_includes_prior_frost_anchors` failed first.
+- **No recommendation is not a soil-health assessment.** An existing lab-only
+  record (`n_ppm=100`, no kit levels) correctly returned unknown health and no
+  amendments, yet the prompt claimed every measured value was near target.
+  Neutral prompt/tool prose now states the engine's limited conclusion and
+  names the unconverted lab readings. The real-client
+  `test_lab_only_reading_is_not_presented_as_near_target` failed first.
+- **Absolute dates need an absolute identity.** Wider frost-anchor generation
+  reapplied a saved March 10 propagation override for every anchor, making three
+  tasks in an annual read and five in a three-year read. The dates agreed but
+  anchor-year IDs differed, so deduplication failed. The shared propagation
+  generator now assigns overridden steps to their start-date year; relative
+  steps retain anchor-year IDs. GUI and agent therefore agree.
+  `test_absolute_propagation_override_has_one_shared_identity` failed first and
+  checks identity, one result, GUI convergence and annual month counts.
+
 ### 11.4.3 The Qt Quick 3D spike: engine traps, and a "hang" that was a stopwatch problem (ADR-047, Phase 17 L0)
 
 Each of these cost a round trip during the L0 spike. The engine facts are kept
@@ -697,5 +884,5 @@ the environment happens to point at.*
 **Contribution Model**:
 - GitHub Issues for bug reports and feature requests
 - Pull requests welcome with review process
-- Clear CONTRIBUTING.md with code style, testing requirements
-- All PRs must pass CI (tests, linting, type checking)
+- CONTRIBUTING.md with code style and testing requirements (planned; today the rules live in CLAUDE.md/AGENTS.md — audit-2026-10 §5.10)
+- PRs are expected to pass CI (tests, ruff, Bandit, secrets scan, agent-context parity), but none of these is a required status check on `master` today (#399); type checking is configured but not enforced (#401)

@@ -37,7 +37,6 @@ from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 
-
 # ---------------------------------------------------------------------------
 # health_level rules
 # ---------------------------------------------------------------------------

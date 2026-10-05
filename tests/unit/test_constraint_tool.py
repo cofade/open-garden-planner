@@ -16,7 +16,6 @@ from open_garden_planner.core.tools import ConstraintTool, ToolType
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 
-
 # --- Command tests ---
 
 
