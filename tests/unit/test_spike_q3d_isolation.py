@@ -1,4 +1,4 @@
-"""The Qt Quick 3D spike stays dormant and keeps its import boundary (ADR-047, L0).
+"""The Qt Quick 3D spike stays dormant and keeps its import boundary (ADR-048, L0).
 
 ADR-038's precedent for a spike that ships in the tree: it must never load at
 app startup, and its engine imports are confined to ONE module so the

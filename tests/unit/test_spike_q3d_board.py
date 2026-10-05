@@ -1,4 +1,4 @@
-"""Truth gates on the spike's REAL board: the bench plan through ``build_models`` (ADR-047, L0).
+"""Truth gates on the spike's REAL board: the bench plan through ``build_models`` (ADR-048, L0).
 
 The builder tests in ``test_spike_q3d_meshes.py`` prove each builder in
 isolation; these prove the pipeline the Beauty Board actually renders — the

@@ -1,4 +1,4 @@
-"""The spike's ONLY Qt Quick 3D import module (ADR-047, Phase 17 L0).
+"""The spike's ONLY Qt Quick 3D import module (ADR-048, Phase 17 L0).
 
 Owns the engine side: numpy → ``QQuick3DGeometry``, ``QImage`` →
 ``QQuick3DTextureData``, the two candidate hosts (``QQuickView`` and
@@ -371,7 +371,7 @@ class SpikeRenderer:
         self.root.setProperty("sunRotation", QQuaternion.rotationTo(QVector3D(0, 0, -1), travel))
         self.root.setProperty("sunElevation", float(max(sun.elevation, -5.0)))
         # ProceduralSkyTextureData measures longitude from the camera-forward
-        # (−z = north) axis; calibrated in the spike (see ADR-047 evidence log).
+        # (−z = north) axis; calibrated in the spike (see ADR-048 evidence log).
         self.root.setProperty("skyLongitude", float(sky_longitude(sun.azimuth)))
         self.root.setProperty("sunColor", QColor(sun.color))
         self.root.setProperty("sunBrightness", float(sun.brightness))
@@ -470,7 +470,7 @@ def _js_object(ret: Any) -> dict:
 def sky_longitude(azimuth_deg: float) -> float:
     """Compass azimuth (clockwise from north) → ProceduralSkyTextureData ``sunLongitude``.
 
-    Measured by the spike's sky probe (ADR-047 evidence log): with longitude L the
+    Measured by the spike's sky probe (ADR-048 evidence log): with longitude L the
     sky draws its sun at compass bearing L − 90°, so L = azimuth + 90°. Re-run
     ``--spike-q3d --orient`` (``sky_ok``) after any Qt upgrade.
     """

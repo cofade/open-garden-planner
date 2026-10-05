@@ -7,7 +7,7 @@
     "runner": "windows-latest (no GPU: Direct3D 11 on WARP)",
     "mode": "frozen",
     "extracted_from": "job log (artifact host unreachable from the analysis container)",
-    "note": "All 39 checks the driver had then passed, zero Qt messages; first launch of the bundle (no caches found). second_window.frame_diff_vs_first 9.718 is the white-ground defect (ADR-047 entry 4: the ground texture re-attached after --iou), which the settle wait of a275da2 did not fix, as senior review pass 4 predicted for this run; no check covered the field yet. Leak gate: 3.78 MB/reload over reloads 11-20 (< 10); private bytes grew +73 MB over reloads 2-20 (977.5 -> 1050.9 MB, lowest 928.9 at reload 4), Theil-Sen over all 20 points 4.74."
+    "note": "All 39 checks the driver had then passed, zero Qt messages; first launch of the bundle (no caches found). second_window.frame_diff_vs_first 9.718 is the white-ground defect (ADR-048 entry 4: the ground texture re-attached after --iou), which the settle wait of a275da2 did not fix, as senior review pass 4 predicted for this run; no check covered the field yet. Leak gate: 3.78 MB/reload over reloads 11-20 (< 10); private bytes grew +73 MB over reloads 2-20 (977.5 -> 1050.9 MB, lowest 928.9 at reload 4), Theil-Sen over all 20 points 4.74."
   },
   "status": "ok",
   "platform": "Windows-10-10.0.26100-SP0",

@@ -1,6 +1,6 @@
 ---
 name: ogp-3d-reviewer
-description: Independent technical-art-director review of anything visible in Open Garden Planner's 3D mode (Phase 17, Qt Quick 3D, ADR-047). Use after the ogp-3d-creator (or anyone) changes 3D geometry, materials, lighting, sky, shadows, post-processing, camera shots or the Beauty Board, and before the senior-reviewer pass. It renders the board itself, looks at every image, reads metrics.json, checks the truth gates first (height, spread, shadow IoU, north-up, sky azimuth, date) and ranks findings P0/P1/P2 with a concrete parameter fix for each. It never edits files. Tell it which branch, shots and presets to judge if they are not the obvious ones.
+description: Independent technical-art-director review of anything visible in Open Garden Planner's 3D mode (Phase 17, Qt Quick 3D, ADR-048). Use after the ogp-3d-creator (or anyone) changes 3D geometry, materials, lighting, sky, shadows, post-processing, camera shots or the Beauty Board, and before the senior-reviewer pass. It renders the board itself, looks at every image, reads metrics.json, checks the truth gates first (height, spread, shadow IoU, north-up, sky azimuth, date) and ranks findings P0/P1/P2 with a concrete parameter fix for each. It never edits files. Tell it which branch, shots and presets to judge if they are not the obvious ones.
 model: opus
 color: purple
 ---

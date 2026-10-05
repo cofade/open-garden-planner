@@ -1,4 +1,4 @@
-"""The temporary Windows evidence driver's verdict (ADR-047, L0) — delete with the driver.
+"""The temporary Windows evidence driver's verdict (ADR-048, L0) — delete with the driver.
 
 The driver decides whether an evidence run is green. Its first version turned a
 perfect 0.0 px projection error into a failure (``x or 99``) and would have

@@ -1,4 +1,4 @@
-# TEMPORARY — ADR-047 / Phase 17 Package L0 evidence. DELETE BEFORE MERGE
+# TEMPORARY — ADR-048 / Phase 17 Package L0 evidence. DELETE BEFORE MERGE
 # (together with scripts/spike_q3d_ci.py).
 #
 # Renders the dormant Qt Quick 3D spike on windows-latest — a GPU-less runner,
@@ -9,7 +9,7 @@
 #     result (manifest, spike.log, metrics.json) is printed into this job log;
 #   * renders unfrozen first, then frozen: splits "WARP/rendering" from
 #     "packaging" when something fails;
-#   * measures the honest dist delta against a master build (ADR-047 crit. 9).
+#   * measures the honest dist delta against a master build (ADR-048 crit. 9).
 # This is an evidence run, not a release gate: the frozen-exe gate command has
 # one home (ogp-change-control §2.8, executed by release.yml) and is not
 # repeated here.
@@ -134,7 +134,7 @@ jobs:
           --grass-density 60 --frame-timeout-s 120 --watchdog-s 600
           --soak 100 --soak-leak-mb 25
 
-      # EXPERIMENT, not a gate (ADR-047 entry 10): in every D3D11 run so far,
+      # EXPERIMENT, not a gate (ADR-048 entry 10): in every D3D11 run so far,
       # private bytes dip and then rise 5-10 MB per reload, and 20 reloads cannot
       # tell a plateau from a leak; two 50-reload runs stopped rising near reload
       # 40, at different levels. The same window as the control, no probes and no
@@ -191,7 +191,7 @@ jobs:
           print(f"files_only_in_branch={len(new)}")
           for n in sorted(new, key=lambda n: -size[n])[:40]:
               print(f"  {size[n] / 2**20:8.2f} MB  {n}")
-          # ADR-047 criterion 9: <= +60 MB net (above that only with owner acceptance)
+          # ADR-048 criterion 9: <= +60 MB net (above that only with owner acceptance)
           if branch - master > 60.0:
               raise SystemExit(f"::error::dist delta {branch - master:.1f} MB > 60 MB (criterion 9)")
           PY

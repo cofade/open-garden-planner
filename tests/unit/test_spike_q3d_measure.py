@@ -1,4 +1,4 @@
-"""The Qt-free halves of the spike's L0.2 measurements (ADR-047 criteria 6, 7, 10).
+"""The Qt-free halves of the spike's L0.2 measurements (ADR-048 criteria 6, 7, 10).
 
 The pick probe is only as good as its oracle: a wrong CPU "expected item" would
 turn a broken engine pick into a pass. These tests pin the oracle on meshes

@@ -7,7 +7,7 @@
     "runner": "windows-latest (no GPU: Direct3D 11 on WARP)",
     "mode": "frozen-longsoak",
     "extracted_from": "job log (artifact host unreachable from the analysis container)",
-    "note": "EXPERIMENT, not a gate (ADR-047 entry 10): 250 cycles with 50 project reloads, 640x360, no probes, no injected leak. Private bytes 594.6 -> 681.6 MB; Theil-Sen per ten reloads 1.49 / 4.10 / 2.41 / 2.08 / -0.16 MB/reload, so the rise flattens by reload 40 (reloads 41-50: -0.16). The gate's second half (reloads 26-50) reads 1.22. A plateau, not a linear leak, in this configuration."
+    "note": "EXPERIMENT, not a gate (ADR-048 entry 10): 250 cycles with 50 project reloads, 640x360, no probes, no injected leak. Private bytes 594.6 -> 681.6 MB; Theil-Sen per ten reloads 1.49 / 4.10 / 2.41 / 2.08 / -0.16 MB/reload, so the rise flattens by reload 40 (reloads 41-50: -0.16). The gate's second half (reloads 26-50) reads 1.22. A plateau, not a linear leak, in this configuration."
   },
   "status": "ok",
   "platform": "Windows-10-10.0.26100-SP0",

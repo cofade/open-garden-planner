@@ -7,7 +7,7 @@
     "runner": "windows-latest (no GPU: Direct3D 11 on WARP)",
     "mode": "frozen",
     "extracted_from": "job log (artifact host unreachable from the analysis container)",
-    "note": "All 38 checks passed, zero Qt messages. First launch of the bundle (no caches found). The pre-registered leak gate: 100 cycles, 20 project reloads, private bytes, Theil-Sen slope over the last ten 1.52 MB/reload (< 10). Leak curve: the gate reads only the last ten reloads; private bytes grew +129 MB over reloads 2-20 and flattened by reload 12, cause unexplained (ADR-047 entry 10). second_window.frame_diff_vs_first 9.75 was a real defect that no check covered yet: after --iou the restore re-attached the same ground texture object, which rendered white (ADR-047 entry 4, the texture twin). It was first misattributed to a stale reference frame; fixed after this run by re-uploading the texture in preserved_state."
+    "note": "All 38 checks passed, zero Qt messages. First launch of the bundle (no caches found). The pre-registered leak gate: 100 cycles, 20 project reloads, private bytes, Theil-Sen slope over the last ten 1.52 MB/reload (< 10). Leak curve: the gate reads only the last ten reloads; private bytes grew +129 MB over reloads 2-20 and flattened by reload 12, cause unexplained (ADR-048 entry 10). second_window.frame_diff_vs_first 9.75 was a real defect that no check covered yet: after --iou the restore re-attached the same ground texture object, which rendered white (ADR-048 entry 4, the texture twin). It was first misattributed to a stale reference frame; fixed after this run by re-uploading the texture in preserved_state."
   },
   "status": "ok",
   "platform": "Windows-10-10.0.26100-SP0",

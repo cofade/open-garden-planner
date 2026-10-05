@@ -1,4 +1,4 @@
-// The pond (spike, ADR-047 L0): the 2D water colour keeps its HUE in every mood —
+// The pond (spike, ADR-048 L0): the 2D water colour keeps its HUE in every mood —
 // the sun and the sky set only its BRIGHTNESS (their luminance) — and the sky
 // reflection is scaled by uReflect.
 //

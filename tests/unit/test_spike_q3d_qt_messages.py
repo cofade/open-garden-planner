@@ -1,4 +1,4 @@
-"""The spike's Qt message recorder (ADR-047 evidence, senior review round 2).
+"""The spike's Qt message recorder (ADR-048 evidence, senior review round 2).
 
 A broken custom shader used to be invisible to the evidence: the run exited 0
 with ``status: ok`` while the pond rendered another colour. The classifier

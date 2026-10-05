@@ -1,4 +1,4 @@
-# ADR-047 evidence files
+# ADR-048 evidence files
 
 `metrics.json` of the temporary Windows evidence workflow (`spike-q3d.yml`, windows-latest, no GPU, so Qt picks Direct3D 11 on WARP), plus one container run of v6's commit for the OpenGL side of the same probes. The Windows files were extracted from the job logs, because the artifact host was unreachable from the analysis container and CI logs expire. Each file carries a `_provenance` block with the run, commit, runner and mode.
 
@@ -25,7 +25,7 @@
 | `windows-v9-frozen-leakctl.json` | same | 6ea2d17 | The leak gate's positive control: 25 MB kept per reload read 33.6 MB/reload and failed the gate, as it must |
 | `windows-v9-footprint.txt` | same | 6ea2d17 | dist delta +1.8 MB |
 | `windows-v10-unfrozen.json` | [37209726610](https://github.com/cofade/open-garden-planner/actions/runs/37209726610) | a275da2 | `--cold`; the sky fix on D3D11: QML load 1705 → 52 ms, preset + mood + sun ~3.0 s → 0.39 s |
-| `windows-v10-frozen.json` | same | a275da2 | All 39 checks of the time green, but the second-window frame read 9.72: the white ground no check covered yet (ADR-047 entry 4); leak gate 3.8 MB/reload |
+| `windows-v10-frozen.json` | same | a275da2 | All 39 checks of the time green, but the second-window frame read 9.72: the white ground no check covered yet (ADR-048 entry 4); leak gate 3.8 MB/reload |
 | `windows-v10-frozen-warm.json` | same | a275da2 | Warm relaunch (three caches found) |
 | `windows-v10-frozen-leakctl.json` | same | a275da2 | Positive control: 25 MB held per reload read 29.5 MB/reload and failed the gate. dist delta +1.8 MB, the same six files as v9 (no separate footprint file) |
 | `windows-v11-unfrozen.json` | [37213201005](https://github.com/cofade/open-garden-planner/actions/runs/37213201005) | 479d78c | `--cold` |
@@ -33,7 +33,7 @@
 | `windows-v11-frozen-warm.json` | same | 479d78c | Warm relaunch (three caches found) |
 | `windows-v11-frozen-leakctl.json` | same | 479d78c | Positive control: 25 MB held per reload read 28.7 MB/reload and failed the gate. dist delta +1.8 MB (no separate footprint file) |
 | `windows-v12-unfrozen.json` | [37216442834](https://github.com/cofade/open-garden-planner/actions/runs/37216442834) | e862785 | `--cold`; the first run with 3D creator round 3 |
-| `windows-v12-frozen.json` | same | e862785 | All 41 checks; probe restore and second window 0.0; leak gate 9.0 MB/reload, a pass near the bound (ADR-047 entry 10: the dip-then-rise table) |
+| `windows-v12-frozen.json` | same | e862785 | All 41 checks; probe restore and second window 0.0; leak gate 9.0 MB/reload, a pass near the bound (ADR-048 entry 10: the dip-then-rise table) |
 | `windows-v12-frozen-warm.json` | same | e862785 | Warm relaunch (three caches found) |
 | `windows-v12-frozen-leakctl.json` | same | e862785 | Positive control: 25 MB held per reload read 28.3 MB/reload and failed the gate. dist delta +1.8 MB (no separate footprint file) |
 | `windows-v13-unfrozen.json` | [37285285890](https://github.com/cofade/open-garden-planner/actions/runs/37285285890) | cf7eb66 | `--cold`; spike code identical to v12 |

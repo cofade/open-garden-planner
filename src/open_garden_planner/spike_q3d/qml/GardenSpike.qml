@@ -1,4 +1,4 @@
-// Qt Quick 3D spike scene (ADR-047, Phase 17 L0) — evidence tooling, no UI strings.
+// Qt Quick 3D spike scene (ADR-048, Phase 17 L0) — evidence tooling, no UI strings.
 // Python drives everything through root properties; the scene is in the ENGINE
 // frame (x = East, y = up, z = -North, centimetres) — the mapping happens once
 // in quick.py, never here.
@@ -45,7 +45,7 @@ Item {
     property color meadowColor: "#487f34"   // set once from runner.MEADOW_ALBEDO (= the bake)
     // linear water albedo, set once from meshes.WATER_ALBEDO (water.png's linear mean)
     property vector3d waterColor: Qt.vector3d(0.0742, 0.2874, 0.5583)
-    property bool allowSsgi: false   // SSGI renders black on Mesa llvmpipe (ADR-047 evidence) — opt-in
+    property bool allowSsgi: false   // SSGI renders black on Mesa llvmpipe (ADR-048 evidence) — opt-in
     property bool allowSsr: true
 
     onSunVersionChanged: view.rebuildSky()

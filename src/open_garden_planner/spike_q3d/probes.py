@@ -1,4 +1,4 @@
-"""Measurement probes for the Qt Quick 3D spike (ADR-047 criteria 8 + frame checks).
+"""Measurement probes for the Qt Quick 3D spike (ADR-048 criteria 8 + frame checks).
 
 * ``shadow_iou_probe`` — top-down orthographic render of one box caster on a
   white ground, sun at 15°/35°/60°: the engine's shadow-map footprint vs the

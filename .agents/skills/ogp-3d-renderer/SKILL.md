@@ -1,11 +1,11 @@
 ---
 name: ogp-3d-renderer
-description: "Measured facts and runbook for Open Garden Planner's Qt Quick 3D renderer (Phase 17, ADR-047; spike in src/open_garden_planner/spike_q3d/, production package ui/view3d/quick3d/ from L1.2). Load when: writing or debugging anything that imports QtQuick3D/QtQuick/QtQml/QtQuickWidgets; feeding numpy geometry or textures to the engine; placing the sun, sky, shadows or camera; choosing render presets or post effects; hosting a View3D in a QQuickWidget or QQuickView; picking; taking screenshots or offscreen renders; rendering in CI (xvfb + Mesa, Windows WARP); packaging Qt Quick 3D in the PyInstaller exe; or when a 3D frame is black, white, mirrored, washed out, slow or seems to hang. Only facts measured in this repo, each with where and how it was measured."
+description: "Measured facts and runbook for Open Garden Planner's Qt Quick 3D renderer (Phase 17, ADR-048; spike in src/open_garden_planner/spike_q3d/, production package ui/view3d/quick3d/ from L1.2). Load when: writing or debugging anything that imports QtQuick3D/QtQuick/QtQml/QtQuickWidgets; feeding numpy geometry or textures to the engine; placing the sun, sky, shadows or camera; choosing render presets or post effects; hosting a View3D in a QQuickWidget or QQuickView; picking; taking screenshots or offscreen renders; rendering in CI (xvfb + Mesa, Windows WARP); packaging Qt Quick 3D in the PyInstaller exe; or when a 3D frame is black, white, mirrored, washed out, slow or seems to hang. Only facts measured in this repo, each with where and how it was measured."
 ---
 
 # Qt Quick 3D renderer — measured facts and runbook
 
-**Status:** v0, written from the Package L0 spike (ADR-047, *Proposed*). Every number below
+**Status:** v0, written from the Package L0 spike (ADR-048, *Proposed*). Every number below
 was measured in this repo; the machine is named because software rasterisers (Mesa llvmpipe,
 Windows WARP) say nothing about absolute GPU speed — only about correctness, ratios and
 relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the engine.
@@ -223,7 +223,7 @@ topmost triangle under a vertical ray over every pickable mesh, merged per item)
   (xcb plugin). As root, Qt WebEngine needs `QTWEBENGINE_DISABLE_SANDBOX=1`.
 - **Windows runner** (windows-latest, no GPU): `Direct3D11Rhi` on WARP. Frozen exe: QML load
   1.0–2.7 s, first *presented* frame 2.0–3.0 s, 960×540 low 11.5–14.2 fps / high 4.3–4.8 fps
-  (runs v3/v4, `docs/09-architecture-decisions/adr-047-evidence/`). `frameSwapped` marks
+  (runs v3/v4, `docs/09-architecture-decisions/adr-048-evidence/`). `frameSwapped` marks
   submission, not completion — on a software rasteriser the real cost lands in the next
   readback, so time open-to-ready with a grab. **Each new sky light probe costs 40–85 s
   once** on WARP (in the frames or the grab right after a sun change); later

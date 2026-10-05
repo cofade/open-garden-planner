@@ -1,4 +1,4 @@
-"""``--spike-q3d`` entry point: render a real ``.ogp`` through Qt Quick 3D (ADR-047, L0).
+"""``--spike-q3d`` entry point: render a real ``.ogp`` through Qt Quick 3D (ADR-048, L0).
 
 Usage (dev, Windows or Linux with a GPU or Mesa)::
 

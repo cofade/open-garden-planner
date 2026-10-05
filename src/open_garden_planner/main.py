@@ -240,7 +240,7 @@ def main() -> int:
     if "--selftest" in sys.argv:
         return _run_selftest()
 
-    # Dormant Qt Quick 3D renderer spike (ADR-047, Phase 17 L0): evidence
+    # Dormant Qt Quick 3D renderer spike (ADR-048, Phase 17 L0): evidence
     # tooling only, imported lazily so a normal start never loads it.
     if "--spike-q3d" in sys.argv:
         from open_garden_planner.spike_q3d.runner import run_spike_cli

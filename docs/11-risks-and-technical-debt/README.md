@@ -10,7 +10,7 @@ Dated audit snapshots: [audit-2026-10.md](audit-2026-10.md) (numbers: `audit-202
 | ~~Texture licensing for fill patterns?~~ **RESOLVED (ADR-042, 2026-08-18)** | Legal | All 24 fill textures are generated in-repo with provenance (§8.24). |
 | ~~DXF export complexity for future versions?~~ **RESOLVED (US-12.3/12.4)** | Interoperability | DXF export and import shipped on ezdxf; scope is defined by FR-EXP-07 and FR-IMP-04 (Bezier export via ADR-022, Smart Symbol blocks via ADR-032). |
 | ~~Qt6 3D capabilities vs dedicated engine?~~ **RESOLVED (US-E5, ADR-038, 2026-07-20)**: PyQt6-3D chosen — version-matched 6.11.0 wheel, frozen-exe gate passed (+13 MB), built-in orbit + first-person cameras; PyVista rejected on size (+466 MB), pyqtgraph.opengl on feature fit. Pin `PyQt6-3D-Qt6` to `PyQt6-Qt6`'s micro or imports fail | 3D feature (Phase 14) | Done — see ADR-038 evidence log |
-| Qt 3D is deprecated since Qt 6.8 — which renderer carries Phase 17's "Living Garden 3D"? | 3D look, shadows, upgrade path past the #277 pin pair | **Open — ADR-047 (Proposed)**: Qt Quick 3D GO/NO-GO spike (Package L0) against twelve pre-committed criteria; the evidence log is in the ADR |
+| Qt 3D is deprecated since Qt 6.8 — which renderer carries Phase 17's "Living Garden 3D"? | 3D look, shadows, upgrade path past the #277 pin pair | **Open — ADR-048 (Proposed)**: Qt Quick 3D GO/NO-GO spike (Package L0) against twelve pre-committed criteria; the evidence log is in the ADR |
 | Bundled plant database source? | Offline functionality | Evaluate USDA Plants Database, consider one-time Trefle.io bulk export. **Partially resolved (ADR-014):** 118 bundled species ship with licence metadata (#311); a bulk-export source remains open. |
 | ~~AI-generated SVG quality consistency?~~ **RESOLVED (ADR-040, ADR-042)** | Visual appeal | Procedural generators replaced AI-generated SVGs. |
 | NSIS installer signing? | Trust/distribution | Unsigned initially, document for users. **Partially addressed (ADR-044, 2026-09-15):** build provenance attestation (`gh attestation verify`) proves the binary traces back to a public CI run of the public source — free, no cert needed. Still open: a paid Authenticode cert, which is what actually removes the SmartScreen/Defender/Norton reputation warning itself, remains unfunded. Reputation detections now observed from a second vendor: Norton 360 `FileRepMalware[Misc]` on the 1.27.9 installer (issue #358, 2026-09-22), same zero-reputation FP class as Defender in #356. Authenticode is tracked in #375. |
@@ -69,8 +69,8 @@ The living register (ADR-047). Every row has a status; P0/P1 rows link their iss
 | TD-032 | Tests (test) | companion_sets: the P1-4 candidate cap, the P2-12 dedup merge and the antagonist rejection are never executed by any test | P2 / S | open | epic checklist | audit-2026-10 AUD-022 |
 | TD-033 | Tests (test) | Small Qt-free modules score 80-88 %; the surviving gaps are the canvas edge, stacking expand/arrange and shape-type branches | P2 / S | open | epic checklist | audit-2026-10 AUD-025 |
 | TD-034 | Performance (performance) | NFR-PERF-01 missed in a real window: fit-in-view repaint of the 500-object reference plan takes 54 ms (≤ 18 fps), a zoom step 40 ms; 100 % zoom and pan stay inside the budget | P1 / M | open | #409 | audit-2026-10 AUD-056 (Windows check §8.1) |
-| TD-035 | Bundle size | Master's release ships ~21 MB of Qt Quick 3D runtime it never loads (Quick3D + ShaderTools DLLs and QML modules, pulled in by the PyInstaller QtQml hook; measured in the ADR-047 evidence run). Phase 17 puts it to use; on a NO-GO, exclude it in `installer/ogp.spec`. | P3 / S | open (decided by the L0 GO/NO-GO) | #384 | ADR-047 L0 evidence (Windows v6 footprint) |
-| TD-036 | 3D geometry source | The Qt Quick 3D spike builds its world from private canvas helpers (`_item_footprints`, `_plant_canopy_radius_cm` in `ui/canvas/sun_shadow_controller.py`). The Qt-free core of Phase 17 L1.1 must promote them to a public, tested module before building on them (senior review, ADR-047). | P2 / M | open | #385 | ADR-047 L0 senior review |
+| TD-035 | Bundle size | Master's release ships ~21 MB of Qt Quick 3D runtime it never loads (Quick3D + ShaderTools DLLs and QML modules, pulled in by the PyInstaller QtQml hook; measured in the ADR-048 evidence run). Phase 17 puts it to use; on a NO-GO, exclude it in `installer/ogp.spec`. | P3 / S | open (decided by the L0 GO/NO-GO) | #384 | ADR-048 L0 evidence (Windows v6 footprint) |
+| TD-036 | 3D geometry source | The Qt Quick 3D spike builds its world from private canvas helpers (`_item_footprints`, `_plant_canopy_radius_cm` in `ui/canvas/sun_shadow_controller.py`). The Qt-free core of Phase 17 L1.1 must promote them to a public, tested module before building on them (senior review, ADR-048). | P2 / M | open | #385 | ADR-048 L0 senior review |
 
 ## 11.4 Known Development Pitfalls
 
@@ -714,7 +714,7 @@ written from the issue text instead.
   `test_absolute_propagation_override_has_one_shared_identity` failed first and
   checks identity, one result, GUI convergence and annual month counts.
 
-### 11.4.3 The Qt Quick 3D spike: engine traps, and a "hang" that was a stopwatch problem (ADR-047, Phase 17 L0)
+### 11.4.5 The Qt Quick 3D spike: engine traps, and a "hang" that was a stopwatch problem (ADR-048, Phase 17 L0)
 
 Each of these cost a round trip during the L0 spike. The engine facts are kept
 current in the `ogp-3d-renderer` skill; this entry records why they bite.
@@ -804,7 +804,7 @@ one of them, after an early dip, rose 5–10 MB per reload. Only longer soaks
 could tell: two 50-reload runs stopped rising around reload 40 (last ten reloads
 −0.2 MB/reload), and llvmpipe's exact RSS shows nothing comparable. The gate answers "is there a trend over the
 last ten reloads", not "did memory grow", so the record carries the whole curve
-(ADR-047 entry 10). *Hold the one object in use, not every object
+(ADR-048 entry 10). *Hold the one object in use, not every object
 that ever was; judge a leak by its slope, and trust a gate only after you have
 seen it fire on the machine it judges.*
 
@@ -845,7 +845,7 @@ open regenerated it for each look and sun input and threw the first one away:
 Built once per sun change, inputs set at low quality and raised last, the
 frames are bit-identical and that cost drops to ~0.4 s (QML load 1709 → 70 ms,
 `set_look` 791 → 0.1 ms, `set_sun` 2192 → 344 ms; llvmpipe, 640×360, commit
-a275da2 — ADR-047 entry 6 and the `ogp-3d-renderer` skill cite the same run).
+a275da2 — ADR-048 entry 6 and the `ogp-3d-renderer` skill cite the same run).
 *An input bound live to an expensive generator is a hidden loop; time every
 bucket and require the buckets to add up.*
 

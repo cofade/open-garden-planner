@@ -1308,7 +1308,7 @@ GUI convergence and annual month counts. Temporary instrumentation was removed.
 **Lesson.** Preserve the distinction between absolute and relative time through
 identity, not just range calculation. Deduplication cannot repair wrong identity.
 
-## Case study: models blank and unpickable after a probe swapped them out and back (ADR-047 spike, fixed 2026-10-04)
+## Case study: models blank and unpickable after a probe swapped them out and back (ADR-048 spike, fixed 2026-10-04)
 
 **Symptom**: the Windows evidence run picked **0/20** where the container picked 20/20 with
 the same code. A board render after the same flags looked normal up to the probes and was
@@ -1348,7 +1348,7 @@ fix scores 19/20, the miss is the hypothesis test: here it was the model that ha
 removed, which disproved "only removed models break". (3) Compare the *same flag order* on
 both machines before blaming the platform.
 
-## Case study: the 56-minute "hang" that was a stopwatch problem (ADR-047 spike, fixed 2026-10-04)
+## Case study: the 56-minute "hang" that was a stopwatch problem (ADR-048 spike, fixed 2026-10-04)
 
 **Symptom**: the temporary Windows workflow built the frozen exe, passed `--selftest`, then ran
 the spike for 56 minutes until the job limit killed it — no output, no metrics, 7 PNGs in the
@@ -1382,7 +1382,7 @@ is timed on its own.
 **Lesson**: **without timestamps, "slow" and "hung" are indistinguishable** — instrument
 before theorising, and give any process that must run headless its own evidence channel.
 
-## Case study: ~30 MB per project reload, and it was our keep-alive list (ADR-047 spike, fixed 2026-10-04)
+## Case study: ~30 MB per project reload, and it was our keep-alive list (ADR-048 spike, fixed 2026-10-04)
 
 **Symptom**: the first soak with real project reloads (`--soak 50`: 50 hide/show cycles, every
 fifth one reads the plan from disk into a new scene, re-bakes the ground and builds every model
@@ -1418,7 +1418,7 @@ the first reload (a second model set, allocator arenas); only the trend separate
 an allocator settling. And a keep-alive list is a leak with a good excuse: hold the one
 object that is in use, not every object that ever was.
 
-## Case study: a second window that "differed" by 9.8 luma: the comparison was right, the first diagnosis was not (ADR-047 spike, fixed 2026-10-04)
+## Case study: a second window that "differed" by 9.8 luma: the comparison was right, the first diagnosis was not (ADR-048 spike, fixed 2026-10-04)
 
 **Symptom**: `--second-window` reported `frame_diff_vs_first` 9.8 mean luma on llvmpipe and
 9.75 on D3D11 (Windows v9), so the second window seemed not to render the first window's view.

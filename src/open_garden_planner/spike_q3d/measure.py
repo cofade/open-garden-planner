@@ -1,4 +1,4 @@
-"""L0.2 measurements beyond the shot board (ADR-047 GO criteria 2, 3, 5, 6, 7, 10).
+"""L0.2 measurements beyond the shot board (ADR-048 GO criteria 2, 3, 5, 6, 7, 10).
 
 Each function returns plain numbers for ``metrics.json``; none of them decides
 GO by itself — the ADR's table does, on the owner's hardware where a criterion

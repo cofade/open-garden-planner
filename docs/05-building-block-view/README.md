@@ -170,7 +170,7 @@ src/open_garden_planner/
 │   │   └── collapsible_panel.py
 │   ├── icons.py                  # Central themed icon provider (#279, ADR-039)
 │   └── theme.py                  # Theme system — single source of chrome colors (ADR-039)
-├── spike_q3d/                    # DORMANT Qt Quick 3D GO/NO-GO spike (ADR-047, Phase 17 L0): only
+├── spike_q3d/                    # DORMANT Qt Quick 3D GO/NO-GO spike (ADR-048, Phase 17 L0): only
 │                                 #   reached via `--spike-q3d`, never imported at startup; quick.py is
 │                                 #   its ONLY Qt Quick 3D importer, meshes.py is Qt-free numpy;
 │                                 #   graduates into core/scene3d + ui/view3d/quick3d (L1) or is deleted
@@ -386,7 +386,7 @@ Black-box view of the visual-refresh subsystem. See §8.4 (theme/tokens), §8.21
 | `scripts/generate_object_sprites.py` | Procedural object-sprite generator (#308, Package 3a) — the single source of all 24 furniture/infrastructure SVGs: a `MATERIALS` anchor table + reusable material primitives (planks, discs/rings, fabric, metal, glass, water, granular fills, glow/flame) composed by one seeded builder per object; no baked shadow, viewBox = default footprint; `--check` verifies committed files byte-match regeneration (pinned into pytest by `tests/unit/test_object_sprite_conformance.py`). | builders → `resources/objects/*/*.svg` |
 | `resources/objects/` | Generated "Lush Object" set: 15 furniture + 9 infrastructure SVGs with the binding style contract (`README.md`, incl. the gated visual-weight band and the add-a-type checklist pointer) and `PROVENANCE.md`; consumed unchanged by `core/furniture_renderer.py`, letterboxed by `gallery_data.render_svg_thumbnail`. | files |
 
-## 5.8 Qt Quick 3D Spike — dormant evidence tooling (Phase 17 L0, ADR-047)
+## 5.8 Qt Quick 3D Spike — dormant evidence tooling (Phase 17 L0, ADR-048)
 
 Black-box view of the GO/NO-GO spike for the renderer switch. It is **not part of the product**: never imported at app start (pinned by `tests/unit/test_spike_q3d_isolation.py`), reached only via `--spike-q3d`, and either graduates into `core/scene3d/` + `ui/view3d/quick3d/` in Phase 17 L1 or is deleted. Its strings are untranslated by design (log and metrics only; the QML has no text — the ADR-038 spike precedent).
 
@@ -400,4 +400,4 @@ Black-box view of the GO/NO-GO spike for the renderer switch. It is **not part o
 | `spike_q3d/qt_messages.py` | Records every Qt message (`qInstallMessageHandler`) into `spike.log` and `metrics.json`; a shader or QML error ends the run with status `qt_errors` (exit 4). The classifier is Qt-free and unit-tested. | Qt messages → counts, errors, warnings |
 | `scripts/make_bench_plans.py` | Deterministic `tests/fixtures/plans/bench_small.ogp` / `bench_large.ogp` through the real serializer (`--check` pins them); writes to a throwaway settings store. | → `.ogp` fixtures |
 
-Engine facts measured here live in the `ogp-3d-renderer` skill; the art-direction contract in `ogp-lush-cinematic`; the evidence in ADR-047 and `docs/09-architecture-decisions/adr-047-evidence/`.
+Engine facts measured here live in the `ogp-3d-renderer` skill; the art-direction contract in `ogp-lush-cinematic`; the evidence in ADR-048 and `docs/09-architecture-decisions/adr-048-evidence/`.

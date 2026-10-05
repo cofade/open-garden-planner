@@ -10,7 +10,7 @@ falls back to the *software* scene graph, which has no 3D). Run it with::
 The spike runs in a subprocess with ``QT_QPA_PLATFORM=xcb`` +
 ``QSG_RHI_BACKEND=opengl`` (Mesa llvmpipe in a container, the real GPU on a dev
 box) and the assertions are about MEANING, never pixel-exact goldens: the
-shadow map agrees with the analytic 2D shadow (ADR-047 criterion 8), the ground
+shadow map agrees with the analytic 2D shadow (ADR-048 criterion 8), the ground
 texture is north-up, the sky's sun disc sits at the solar azimuth.
 """
 
@@ -180,7 +180,7 @@ def test_each_shot_shows_the_plan_on_its_sun_date(spike_metrics: tuple[dict, Pat
 
 @pytest.fixture(scope="module")
 def measured(tmp_path_factory: pytest.TempPathFactory) -> tuple[dict, int]:
-    """The L0.2 measurement flags in one run (ADR-047 criteria 2, 3, 5, 6, 7, 10)."""
+    """The L0.2 measurement flags in one run (ADR-048 criteria 2, 3, 5, 6, 7, 10)."""
     out = tmp_path_factory.mktemp("spike_q3d_measure")
     proc = _spike(out, _render_env(tmp_path_factory.mktemp("config_home")),
                   "--presets", "low", "--shots", "golden_hour", "--size", "640x360",

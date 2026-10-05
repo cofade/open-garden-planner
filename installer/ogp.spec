@@ -62,7 +62,7 @@ for f in (RESOURCES / "web").rglob("*"):
         rel = f.relative_to(SRC)
         datas.append((str(f), str(rel.parent)))
 
-# Qt Quick 3D renderer spike (ADR-047, Phase 17 L0): the QML scene + shader
+# Qt Quick 3D renderer spike (ADR-048, Phase 17 L0): the QML scene + shader
 # snippets live next to the package (quick.py resolves them via __file__). The
 # spike is dormant (`--spike-q3d` only) and is deleted when L1.2 lands the
 # production engine package.
@@ -159,7 +159,7 @@ a = Analysis(
         "open_garden_planner.ui.view3d.snapshot",
         "open_garden_planner.ui.view3d.qt3d_adapter",
         "open_garden_planner.ui.view3d.view3d_window",
-        # Qt Quick 3D spike (ADR-047, L0) — dormant evidence tooling behind
+        # Qt Quick 3D spike (ADR-048, L0) — dormant evidence tooling behind
         # --spike-q3d; the QtQml hook collects the QtQuick3D QML modules.
         "PyQt6.QtQuick",
         "PyQt6.QtQml",

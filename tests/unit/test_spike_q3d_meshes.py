@@ -1,4 +1,4 @@
-"""Truth and budget gates for the spike's procedural meshes (ADR-047, plan §9).
+"""Truth and budget gates for the spike's procedural meshes (ADR-048, plan §9).
 
 The look may be stylised; the numbers may not lie. Every plant's bounding box
 IS the data (height from the resolver, spread from the 2D canopy) because

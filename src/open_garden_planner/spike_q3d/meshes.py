@@ -1,4 +1,4 @@
-"""Qt-free procedural meshes for the Qt Quick 3D spike (ADR-047, Phase 17 L0).
+"""Qt-free procedural meshes for the Qt Quick 3D spike (ADR-048, Phase 17 L0).
 
 All geometry is plain numpy in the SCENE frame — x = East, y = North, z = up,
 centimetres — exactly the frame ``core/shadow_geometry`` and ``core/scene3d``
@@ -579,7 +579,7 @@ def flowers(centers: np.ndarray, normals: np.ndarray, radius: float, petal: str,
 # ── plants ──────────────────────────────────────────────────────────────
 
 
-# Per-plant triangle budgets (ADR-047 plan §9, the reviewer's budget gate): a tree's
+# Per-plant triangle budgets (ADR-048 plan §9, the reviewer's budget gate): a tree's
 # wood + leaves + fruit/flowers stay within TREE_TRIANGLE_BUDGET; any other plant
 # within PLANT_TRIANGLE_BUDGET (measured headroom on the bench plans: max 3,252, a
 # zucchini). A crown whose surface asks for more leaves than the budget leaves room

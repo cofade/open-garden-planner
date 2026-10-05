@@ -1,4 +1,4 @@
-"""TEMPORARY CI driver for the Qt Quick 3D spike (ADR-047, Phase 17 L0) — delete before merge.
+"""TEMPORARY CI driver for the Qt Quick 3D spike (ADR-048, Phase 17 L0) — delete before merge.
 
 Runs the dormant ``--spike-q3d`` evidence tool (unfrozen via ``python -m``, or
 inside the frozen PyInstaller bundle), bounded by a hard timeout, and then
@@ -142,7 +142,7 @@ def _requested_sections(spike_args: list[str]) -> list[str]:
 
 def _verdict(metrics: dict, spike_args: list[str] | None = None,
              expect_caches: str | None = None) -> list[str]:
-    """Every ADR-047 threshold the present metric sections can be judged on.
+    """Every ADR-048 threshold the present metric sections can be judged on.
 
     Thresholds use explicit number checks: ``x or default`` turned a perfect
     0.0 px projection error into a failure, and a null metric must fail rather
