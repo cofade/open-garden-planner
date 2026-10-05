@@ -170,6 +170,9 @@ competitor_screenshots/
 # Smoke-test export artifacts (PDFs at repo root from validate_exports.py)
 /*.pdf
 
+# Qt Quick 3D spike measurement output (--spike-q3d --out DIR)
+/spike-*/
+
 # API keys and secrets
 .env
 .env.local

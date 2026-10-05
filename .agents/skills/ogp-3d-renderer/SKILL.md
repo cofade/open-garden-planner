@@ -5,7 +5,7 @@ description: "Measured facts and runbook for Open Garden Planner's Qt Quick 3D r
 
 # Qt Quick 3D renderer — measured facts and runbook
 
-**Status:** v0, written from the Package L0 spike (ADR-048, *Proposed*). Every number below
+**Status:** v0, written from the Package L0 spike (ADR-048, *Accepted — GO 2026-10-05*). Every number below
 was measured in this repo; the machine is named because software rasterisers (Mesa llvmpipe,
 Windows WARP) say nothing about absolute GPU speed — only about correctness, ratios and
 relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the engine.

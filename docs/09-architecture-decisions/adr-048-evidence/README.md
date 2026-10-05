@@ -75,3 +75,13 @@
 | `container-render-tier-soaks.json` | — | 36e3d18, a64ae9e, f71cdef, 308c773, 46d88ff | Render tier (llvmpipe, 640×360): the leak gate's clean run and control on Linux RSS, per commit. Clean slopes 0.46 / 0.01 / 0.00 / 0.00 / 0.00 MB/reload, controls 26.97 / 27.85 / 28.24 / 24.5 / 26.28 for 25 MB held (479d78c's run, 0.02 and 25.0, was not kept) |
 
 Same code on different runner instances differs by up to 2× in timings; compare ranges, not single values.
+
+**Owner-GPU run (2026-10-05).** The temporary workflow and its driver (`spike-q3d.yml`, `scripts/spike_q3d_ci.py`, `tests/unit/test_spike_q3d_ci_verdict.py`) were deleted when ADR-048 was accepted (GO). The decision also rests on the owner's dedicated-GPU run at 1920×1080 (Direct3D 11, frozen bundle of `e1794e8`), committed here (the JSON files carry a `_provenance` block):
+
+| File | Mode | Notes |
+|---|---|---|
+| `owner-gpu-cold.json` | cold full set (all probes + `--soak 100`) | `status: ok`, exit 0; the leak tail slope 15.73 MB/reload over reloads 11–20, above the <10 gate |
+| `owner-gpu-cold-spike.log` | the same run | the per-phase log; ends `[done] status=ok` |
+| `owner-gpu-warm-a.json` / `owner-gpu-warm-b.json` | warm runs 1 and 2 (`golden_hour`, low) | `open_ms` 1140.3 / 1149.2 (the second is the warm number) |
+
+The numbers are summarised in ADR-048 entry 19.

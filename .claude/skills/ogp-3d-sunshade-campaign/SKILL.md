@@ -23,8 +23,8 @@ description: >
 > [epic #255](https://github.com/cofade/open-garden-planner/issues/255) is **closed**.
 > The 3D engine gate returned **GO: PyQt6-3D** (ADR-038).
 >
-> **Renderer under re-evaluation (2026-10, Phase 17 "Living Garden 3D").** ADR-048
-> (*Proposed*) is spiking Qt Quick 3D as Qt 3D's replacement. For anything about the
+> **Renderer decision made (2026-10-05, Phase 17 "Living Garden 3D").** ADR-048
+> (*Accepted — GO*) chose Qt Quick 3D as Qt 3D's replacement. For anything about the
 > *new* renderer load `ogp-3d-renderer` (measured engine facts) and `ogp-lush-cinematic`
 > (art direction and truth gates). The solar math, shadow geometry and Y-axis discipline
 > in this skill stay authoritative for both renderers.

@@ -5,7 +5,7 @@ description: "The art-direction contract for Open Garden Planner's 3D mode ('Lus
 
 # Lush Cinematic — the 3D art-direction contract
 
-**Status:** v1, written from the Package L0 spike (ADR-048, *Proposed*). Values marked
+**Status:** v1, written from the Package L0 spike (ADR-048, *Accepted — GO 2026-10-05*). Values marked
 *spike* are measured starting points from `src/open_garden_planner/spike_q3d/`, not dogma —
 tune them, but only with a before/after board and a note in the taste log below.
 
@@ -175,3 +175,9 @@ Severity: **P0** = truth gate failed, mirrored/black/broken frame, unreadable sc
 
 - **2026-10-03** — chose Lush Cinematic, experience + analyze, 100 % procedural; asked for
   both a creator and an independent reviewer agent; wants "really usable, beautiful, modern".
+- **2026-10-05** — signed off the L0 Beauty Board on his dedicated GPU ("images look good, day and
+  night"). No open taste points: his fifteen open questions (winter leaves, moon shadows,
+  path/wall widths, partial-shade truth, grade, unplanned ground, pond hue, unmodelled heights,
+  golden-hour ramp, roof hue, fruit without data, small-leaved crowns, sunset framing, crispness)
+  are all answered *keep as-is*. Gave **GO** on ADR-048 (Qt Quick 3D replaces Qt 3D; `QQuickView`
+  host; the D3D11 leak accepted open, closing in L1.3). Owner-GPU numbers in ADR-048 entry 19.

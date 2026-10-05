@@ -386,9 +386,9 @@ Black-box view of the visual-refresh subsystem. See §8.4 (theme/tokens), §8.21
 | `scripts/generate_object_sprites.py` | Procedural object-sprite generator (#308, Package 3a) — the single source of all 24 furniture/infrastructure SVGs: a `MATERIALS` anchor table + reusable material primitives (planks, discs/rings, fabric, metal, glass, water, granular fills, glow/flame) composed by one seeded builder per object; no baked shadow, viewBox = default footprint; `--check` verifies committed files byte-match regeneration (pinned into pytest by `tests/unit/test_object_sprite_conformance.py`). | builders → `resources/objects/*/*.svg` |
 | `resources/objects/` | Generated "Lush Object" set: 15 furniture + 9 infrastructure SVGs with the binding style contract (`README.md`, incl. the gated visual-weight band and the add-a-type checklist pointer) and `PROVENANCE.md`; consumed unchanged by `core/furniture_renderer.py`, letterboxed by `gallery_data.render_svg_thumbnail`. | files |
 
-## 5.8 Qt Quick 3D Spike — dormant evidence tooling (Phase 17 L0, ADR-048)
+## 5.8 Qt Quick 3D Spike — dormant (Phase 17 L0, ADR-048, GO)
 
-Black-box view of the GO/NO-GO spike for the renderer switch. It is **not part of the product**: never imported at app start (pinned by `tests/unit/test_spike_q3d_isolation.py`), reached only via `--spike-q3d`, and either graduates into `core/scene3d/` + `ui/view3d/quick3d/` in Phase 17 L1 or is deleted. Its strings are untranslated by design (log and metrics only; the QML has no text — the ADR-038 spike precedent).
+Black-box view of the GO/NO-GO spike for the renderer switch. It is **not part of the product**: never imported at app start (pinned by `tests/unit/test_spike_q3d_isolation.py`), reached only via `--spike-q3d`, and, per ADR-048's GO (2026-10-05), graduates into `core/scene3d/` + `ui/view3d/quick3d/` in Phase 17 L1. Its strings are untranslated by design (log and metrics only; the QML has no text — the ADR-038 spike precedent).
 
 | Building block | Responsibility | Interface (in → out) |
 |----------------|----------------|----------------------|

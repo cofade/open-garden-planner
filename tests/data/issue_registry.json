@@ -379,16 +379,6 @@
     "state": "OPEN",
     "title": "Touch input: pinch-to-zoom + two-finger pan on the canvas (standalone, low priority)"
   },
-  "322": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(#308): Visual Refresh 3a — generated Lush object sprites, 9 new object types, test-infra hardening"
-  },
-  "323": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(#309): Visual Refresh 3b — numpy torus texture forge (Lush everywhere), pixel-exact gate, all seams gone"
-  },
   "324": {
     "is_pr": true,
     "state": "CLOSED",
@@ -404,20 +394,10 @@
     "state": "CLOSED",
     "title": "US-D2.2: resize_object / rotate_object — complete core object manipulation + extract a canonical geometry-apply path (Package D2, epic #237)"
   },
-  "327": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "US-D2.3: set_species / set_parent_bed — species assignment and explicit bed reparenting for existing objects (Package D2, epic #237)"
-  },
   "328": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "US-D2.4: Layer tools — list_layers + set_object_layer/create/rename/delete/visibility, and the may-an-agent-unlock decision (Package D2, epic #237)"
-  },
-  "329": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "US-D2.5: create_object for shapes & structures — extend creation from 8 to the full ObjectType roster, by shape family (Package D2, epic #237)"
   },
   "330": {
     "is_pr": false,
@@ -444,11 +424,6 @@
     "state": "MERGED",
     "title": "chore: deliver-package skill + strengthen the canonical frozen-exe gate (and gate the gate command)"
   },
-  "335": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(US-D2.2,US-D2.3): agent resize/rotate + species/reparent — and one geometry-apply path (3 latent rotation bugs fixed)"
-  },
   "337": {
     "is_pr": false,
     "state": "CLOSED",
@@ -458,16 +433,6 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Per-Object \"Bring to Front\" / \"Send to Back\" Commands"
-  },
-  "339": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "fix(#337): drop stale item-tracking lists at CanvasScene.clear() chokepoint"
-  },
-  "340": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(#338): per-object stacking order — Arrange on every surface, agent tool, and the save/load inversion fix"
   },
   "342": {
     "is_pr": false,
@@ -489,16 +454,6 @@
     "state": "CLOSED",
     "title": "Satellite import: pan-grid view capture for higher resolution (follow-up to #346)"
   },
-  "348": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(#346): JS-API view capture fallback for EEA-blocked satellite imports"
-  },
-  "352": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat: add agent layers and shape creation tools"
-  },
   "353": {
     "is_pr": false,
     "state": "CLOSED",
@@ -518,11 +473,6 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Exe is diagnosed as a Trojan"
-  },
-  "357": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat: build provenance attestation for release artifacts (#356)"
   },
   "360": {
     "is_pr": true,
@@ -618,6 +568,11 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(US-D3.3,US-D3.4): task and soil tools complete Package D"
+  },
+  "385": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L1 \"New engine, new light\": Qt Quick 3D becomes the 3D view, Qt 3D removed (Phase 17)"
   },
   "392": {
     "is_pr": false,
