@@ -8,6 +8,7 @@ passed a run whose requested probe wrote nothing.
 from __future__ import annotations
 
 import importlib.util
+import os
 from pathlib import Path
 
 import pytest
@@ -180,3 +181,12 @@ def test_what_the_spike_ran_is_judged_not_only_the_argv(driver) -> None:
     assert "soak measured (its flag was given)" in failures
     assert "the probes leave the view as they found it (< 1 luma)" in failures
     assert driver._requested_sections([], {"pan_bench": True, "soak": True}) == ["pan_bench"]
+
+
+def test_only_the_unfrozen_child_gets_this_checkouts_src(driver, monkeypatch) -> None:
+    """The frozen bundle imports what it bundled; only ``python -m`` needs the pin
+    (senior review, passes 6-7)."""
+    monkeypatch.setenv("PYTHONPATH", "elsewhere")
+    assert driver._child_env(frozen=True)["PYTHONPATH"] == "elsewhere"
+    assert driver._child_env(frozen=False)["PYTHONPATH"].split(os.pathsep) == [
+        str(driver.REPO / "src"), "elsewhere"]

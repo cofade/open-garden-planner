@@ -7,7 +7,7 @@
     "runner": "windows-latest (no GPU: Direct3D 11 on WARP)",
     "mode": "frozen-longsoak",
     "extracted_from": "job log (artifact host unreachable from the analysis container)",
-    "note": "EXPERIMENT, not a gate: 500 cycles, 100 reloads, 640x360, no probes, no injected leak; the same soak path as v14 and v15 (since v14 the spike changed comments, the probe-only restore and two named constants of unchanged value, and the merge with master changed no module a reload calls). Private bytes 633.9 -> 847.4 MB (max 848.0 at reload 99), +133.8 MB at reload 50 (v15 +62.2, v14 +196.1). Inside a 15 MB band over reloads 48-71 (753.8-768.2 MB, Theil-Sen 0.05), then +85 MB to the end. Decade means 635.4 / 667.8 / 700.6 / 739.5 / 753.3 / 760.9 / 763.1 / 785.2 / 807.5 / 837.3 MB; Theil-Sen over reloads 51-100 2.03 MB/reload (v15 0.21). ADR-048 entry 10 interprets it."
+    "note": "EXPERIMENT, not a gate: 500 cycles, 100 reloads, 640x360, no probes, no injected leak; the same soak path as v14 and v15 (since v14 the spike changed comments, the probe-only restore and two named constants of unchanged value, and the merge with master changed no module a reload calls). Private bytes 633.9 -> 847.4 MB (max 848.0 at reload 99), +133.8 MB at reload 50 (v15 +62.2, v14 +196.1). Inside a 15 MB band over reloads 48-71 (753.8-768.2 MB, Theil-Sen 0.05); 768.1 MB at reload 71, 848.0 at reload 99. Decade means 635.4 / 667.8 / 700.6 / 739.5 / 753.3 / 760.9 / 763.1 / 785.2 / 807.5 / 837.3 MB; Theil-Sen over reloads 51-100 2.03 MB/reload (v15 0.21). ADR-048 entry 10 interprets it."
   },
   "status": "ok",
   "platform": "Windows-10-10.0.26100-SP0",

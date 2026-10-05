@@ -384,15 +384,16 @@ def in_harvest_window(location: dict[str, Any] | None, at: date,
     ``services/task_generator``: from the plan's last spring frost + ``harvest_start``
     weeks to + ``harvest_end`` weeks (the species' week offsets from the last frost,
     ``plant_species`` metadata). Anchored as ``generate_for_date_window`` anchors it —
-    the generator behind the annual calendar and the agent's task tools: on every
+    the generator behind the agent's ``get_tasks`` and ``get_task_calendar``: on every
     frost year whose window can reach ``at``, a range derived from the offsets. So a
     window across the new year (a southern plan), before its frost (negative offsets)
-    or years after it (asparagus) holds. The GUI's planting-calendar view anchors on
-    one year and shows no task on such dates; that split is the product's, not the
-    spike's (ADR-048 entry 18).
+    or years after it (asparagus) holds. Every GUI task surface (the planting
+    calendar's Gantt and dashboard, the Tasks tab) anchors on one year and shows no
+    task on such dates; that split is the product's (TD-037), not the spike's.
     None when there is no window to read — no last frost, an offset missing or
-    malformed, start after end, a 02-29 frost outside a leap year (the generator has
-    no date then either): the caller keeps the frost-free season.
+    malformed, start after end, a 02-29 frost when ``at``'s year has none (the
+    agent's tools, anchored on the reference date's year, have none then either):
+    the caller keeps the frost-free season.
     """
     from datetime import timedelta
 

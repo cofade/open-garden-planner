@@ -125,6 +125,17 @@ def _flag_value(spike_args: list[str], flag: str) -> str | None:
     return None
 
 
+def _child_env(frozen: bool) -> dict[str, str]:
+    """The spike child's environment. The unfrozen child imports THIS checkout's
+    ``src``, not whatever the venv's editable install points at (from a git
+    worktree: the main checkout); the frozen child gets the environment unchanged."""
+    env = dict(os.environ)
+    if not frozen:
+        env["PYTHONPATH"] = os.pathsep.join(
+            p for p in (str(REPO / "src"), env.get("PYTHONPATH")) if p)
+    return env
+
+
 def _attributed(open_ms: float | None, breakdown: object) -> bool:
     """Two-sided: every bucket is a number and together they explain open time."""
     if open_ms is None or not isinstance(breakdown, dict) or not breakdown:
@@ -314,16 +325,9 @@ def main(argv: list[str]) -> int:
     with (out / "stdout.txt").open("wb") as so, (out / "stderr.txt").open("wb") as se:
         streams = (subprocess.DEVNULL, subprocess.DEVNULL) if args.frozen else (so, se)
         try:
-            # the unfrozen child imports THIS checkout's src, not whatever the venv's
-            # editable install points at (from a git worktree: the main checkout);
-            # the frozen child gets the environment unchanged
-            env = dict(os.environ)
-            if not args.frozen:
-                env["PYTHONPATH"] = os.pathsep.join(
-                    p for p in (str(REPO / "src"), env.get("PYTHONPATH")) if p)
             code = subprocess.run(  # noqa: S603 - fixed argv, no shell
                 cmd, stdin=subprocess.DEVNULL, stdout=streams[0], stderr=streams[1],
-                timeout=args.limit_s, check=False, env=env,
+                timeout=args.limit_s, check=False, env=_child_env(args.frozen),
             ).returncode
         except subprocess.TimeoutExpired:
             code = None

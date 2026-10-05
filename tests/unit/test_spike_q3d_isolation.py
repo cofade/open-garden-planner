@@ -9,6 +9,7 @@ prototype core that graduates into ``core/`` — it must not import Qt at all.
 from __future__ import annotations
 
 import ast
+import json
 import os
 import subprocess
 import sys
@@ -70,16 +71,44 @@ def test_spike_never_imported_at_startup() -> None:
         "print(sorted(m for m in sys.modules if m.startswith("
         "('open_garden_planner.spike_q3d', 'PyQt6.QtQuick3D'))))\n"
     )
-    env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
-    # THIS checkout's src: without it the child imports whatever the venv's editable
-    # install points at, which from a git worktree is the main checkout (creator round 4)
-    src = str(SPIKE.parents[1])
-    env["PYTHONPATH"] = os.pathsep.join(p for p in (src, env.get("PYTHONPATH")) if p)
     proc = subprocess.run(  # noqa: S603 — fixed argv, our own code
-        [sys.executable, "-c", code], env=env, capture_output=True, text=True, timeout=170,
+        [sys.executable, "-c", code], env=_child_env(), capture_output=True, text=True,
+        timeout=170,
     )
     assert proc.returncode == 0, proc.stderr[-2000:]
     assert proc.stdout.strip().splitlines()[-1] == "[]"
+
+
+def _child_env() -> dict[str, str]:
+    """Offscreen, importing THIS checkout's src: without it the child imports whatever
+    the venv's editable install points at, which from a git worktree is the main
+    checkout (creator round 4)."""
+    env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
+    src = str(SPIKE.parents[1])
+    env["PYTHONPATH"] = os.pathsep.join(p for p in (src, env.get("PYTHONPATH")) if p)
+    return env
+
+
+def test_an_early_failure_still_records_what_the_run_parsed(tmp_path: Path) -> None:
+    """The CI driver judges what the spike parsed (``metrics["args"]``); deleting that
+    record kept every other test green (senior review, pass 7). A run refused at
+    ``_validate``, before any plan or engine work, still writes it. In a child
+    process: ``run_spike_cli`` redirects faulthandler and the settings store."""
+    code = (
+        "import sys\n"
+        "from open_garden_planner.spike_q3d.runner import run_spike_cli\n"
+        f"sys.exit(run_spike_cli(['x', '--spike-q3d', '--out', {str(tmp_path)!r}, "
+        "'--iou', '--sooak', '5']))\n"
+    )
+    proc = subprocess.run(  # noqa: S603 — fixed argv, our own code
+        [sys.executable, "-c", code], env=_child_env(), capture_output=True, text=True,
+        timeout=170,
+    )
+    assert proc.returncode == 2, proc.stderr[-2000:]
+    metrics = json.loads((tmp_path / "metrics.json").read_text(encoding="utf-8"))
+    assert metrics["status"] == "error"
+    assert metrics["args"]["iou"] is True
+    assert metrics["args"]["unknown"] == ["--sooak", "5"]
 
 
 def test_spike_points_settings_at_a_throwaway_store() -> None:

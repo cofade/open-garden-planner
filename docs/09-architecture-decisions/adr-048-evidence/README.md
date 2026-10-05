@@ -55,8 +55,13 @@
 | `windows-v16-frozen.json` | same | f71cdef | All 41 checks, the restore check now required whenever the probes ran; probe restore and second window 0.0; leak gate 4.2 MB/reload |
 | `windows-v16-frozen-warm.json` | same | f71cdef | Warm relaunch (three caches found) |
 | `windows-v16-frozen-leakctl.json` | same | f71cdef | Positive control: 25 MB held per reload read 32.4 MB/reload and failed the gate |
-| `windows-v16-frozen-longsoak.json` | same | f71cdef | **Experiment, not a gate:** 100 reloads, the same soak path as v14 and v15; +134 MB by reload 50, flat over reloads 48–71, then +85 MB; 2.03 MB/reload over reloads 51–100 (ADR-048 entry 10). dist delta +1.8 MB |
+| `windows-v16-frozen-longsoak.json` | same | f71cdef | **Experiment, not a gate:** 100 reloads, the same soak path as v14 and v15; +134 MB by reload 50, within 15 MB over reloads 48–71, then 768.1 → 848.0 MB (reload 71 → 99); 2.03 MB/reload over reloads 51–100 (ADR-048 entry 10). dist delta +1.8 MB |
+| `windows-v17-unfrozen.json` | [37308218700](https://github.com/cofade/open-garden-planner/actions/runs/37308218700) | 308c773 | `--cold`; the first run that records its parsed flags (`args`) |
+| `windows-v17-frozen.json` | same | 308c773 | All 41 checks; probe restore and second window 0.0; leak gate 5.1 MB/reload |
+| `windows-v17-frozen-warm.json` | same | 308c773 | Warm relaunch (three caches found) |
+| `windows-v17-frozen-leakctl.json` | same | 308c773 | Positive control: 25 MB held per reload read 29.2 MB/reload and failed the gate |
+| `windows-v17-frozen-longsoak.json` | same | 308c773 | **Experiment, not a gate:** 100 reloads, the soak path of v14–v16; +210 MB by reload 50; 3.05 MB/reload over reloads 51–100, its maximum at reload 100 (ADR-048 entry 10). dist delta +1.8 MB |
 | `container-6f0c4f4.json` | — | 6f0c4f4 | Cloud container, Mesa llvmpipe (OpenGL), 1280×720, all shots. Ran next to two reviewer renders: correctness numbers valid, timings inflated |
-| `container-f71cdef-soak.json` | — | f71cdef | Render tier (llvmpipe, 640×360): the leak gate's two runs on Linux RSS. Clean 20-reload soak 1878.5 → 1883.7 MB, Theil–Sen over reloads 11–20 0.0 MB/reload; control 28.2 MB/reload for 25 MB held |
+| `container-render-tier-soaks.json` | — | 36e3d18, a64ae9e, f71cdef, 308c773 | Render tier (llvmpipe, 640×360): the leak gate's clean run and control on Linux RSS, per commit. Clean slopes 0.46 / 0.01 / 0.00 / 0.00 MB/reload, controls 26.97 / 27.85 / 28.24 / 24.5 for 25 MB held (479d78c's run, 0.02 and 25.0, was not kept) |
 
 Same code on different runner instances differs by up to 2× in timings; compare ranges, not single values.

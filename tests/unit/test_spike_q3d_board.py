@@ -341,10 +341,11 @@ def test_frost_free_season_reads_the_plans_frost_dates(frost: dict, day: date,
     assert runner.in_frost_free_season({"frost_dates": frost}, day) is expected
 
 
-# ── fruit follows the planting calendar's harvest window (3D reviewer pass 3) ──
+# ── fruit follows the task generator's harvest window (3D reviewer pass 3) ──
 #
-# services/task_generator.generate_calendar_tasks: last spring frost + harvest_start weeks
-# .. + harvest_end weeks. The 3D view showed red tomatoes from the 9 April last frost.
+# services/task_generator: last spring frost + harvest_start weeks .. + harvest_end
+# weeks, anchored as generate_for_date_window (the agent's task tools) anchors it.
+# The 3D view showed red tomatoes from the 9 April last frost.
 
 BERLIN = {"frost_dates": {"last_spring_frost": "04-09", "first_fall_frost": "10-31"}}
 TOMATO = {"common_name": "Tomato", "harvest_start": 10, "harvest_end": 20}
@@ -405,9 +406,11 @@ def test_harvest_window_matches_the_shared_generator(frost: str, start: int, end
     """Every third day of 2026-2028, the spike answers what the shared generator answers.
 
     The generator anchors on every frost year whose window can reach the date, derived
-    from the offsets. A fixed ±1-year anchor in the spike missed asparagus and called
-    the cross-year rows a deviation from "the calendar" (senior review, passes 5-6).
-    None — no window to read — only where the frost date does not exist that year.
+    from the offsets. A fixed ±1-year anchor in the spike returned False on every
+    asparagus and rhubarb harvest date (senior review, passes 5-6). The helper anchors
+    the state on the date's own year, as the agent's tools do; for the 02-29 row only
+    the leap year compares a window. None — no window to read — only where the frost
+    date does not exist that year.
     """
     from datetime import timedelta
 
@@ -430,8 +433,8 @@ def test_harvest_window_matches_the_shared_generator(frost: str, start: int, end
 
 
 def test_harvest_window_matches_the_task_generator() -> None:
-    """The dates the planting calendar's own harvest task spans: the task comes from
-    ``generate_calendar_tasks`` itself, not from the formula re-derived here."""
+    """The dates the single-year harvest task spans (``generate_calendar_tasks``, what
+    every GUI task surface shows for the bench's tomato), not the formula re-derived."""
     import datetime as dt
 
     from open_garden_planner.services.task_generator import (

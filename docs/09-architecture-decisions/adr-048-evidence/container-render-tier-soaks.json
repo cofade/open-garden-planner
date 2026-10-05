@@ -1,0 +1,483 @@
+{
+  "_provenance": {
+    "source": "render tier, tests/integration/test_spike_q3d_render.py (OGP_RENDER3D=1)",
+    "runner": "cloud container, xvfb + Mesa llvmpipe (OpenGL)",
+    "extracted_from": "metrics.json of two render-tier tests per run: test_soak_reloads_the_project_from_disk_without_a_leak (clean) and test_the_leak_gate_fires_on_a_known_leak (control, 25 MB kept alive per reload)",
+    "metric": "Linux RSS in MiB; leak_slope_mb_per_reload is the Theil-Sen slope over reloads 11-20",
+    "note": "479d78c's render tier (clean 0.02, control 25.0, recorded in ADR-048 entry 10 at senior pass 4) was not kept."
+  },
+  "runs": [
+    {
+      "commit": "36e3d18",
+      "clean": {
+        "status": "ok",
+        "graphics_api": "OpenGL",
+        "size": [
+          640,
+          360
+        ],
+        "qt": "6.11.0",
+        "soak": {
+          "cycles": 100,
+          "reentry_ms": {
+            "n": 100,
+            "median": 6.63,
+            "max": 138.18,
+            "p95": 131.45
+          },
+          "rss_start_mb": 1648.3,
+          "rss_end_mb": 1686.2,
+          "leak_metric": "rss",
+          "leak_curve_mb": [
+            1654.9,
+            1656.6,
+            1678.2,
+            1678.6,
+            1679.9,
+            1680.0,
+            1680.0,
+            1680.0,
+            1680.9,
+            1681.9,
+            1682.1,
+            1682.4,
+            1683.6,
+            1684.0,
+            1684.0,
+            1685.2,
+            1685.2,
+            1685.5,
+            1686.1,
+            1686.2
+          ],
+          "project_reloads": 20,
+          "reload_ms": {
+            "n": 20,
+            "median": 586.32,
+            "max": 642.51,
+            "p95": 626.19
+          },
+          "models_per_reload_ok": true,
+          "leak_slope_mb_per_reload": 0.46,
+          "wind_time_before": 0.0,
+          "wind_time_after": 0.46,
+          "frames_while_animating": 8,
+          "animation_advanced": true,
+          "event_loop_exit_code": 0
+        }
+      },
+      "control": {
+        "status": "ok",
+        "graphics_api": "OpenGL",
+        "size": [
+          640,
+          360
+        ],
+        "qt": "6.11.0",
+        "soak": {
+          "cycles": 100,
+          "reentry_ms": {
+            "n": 100,
+            "median": 6.66,
+            "max": 153.54,
+            "p95": 138.51
+          },
+          "rss_start_mb": 756.7,
+          "rss_end_mb": 1442.8,
+          "leak_metric": "rss",
+          "leak_curve_mb": [
+            851.7,
+            885.0,
+            939.5,
+            1022.4,
+            1018.6,
+            1001.9,
+            1044.0,
+            1118.7,
+            1128.2,
+            1151.8,
+            1182.2,
+            1238.9,
+            1269.5,
+            1252.1,
+            1313.8,
+            1302.2,
+            1380.0,
+            1410.5,
+            1383.1,
+            1442.8
+          ],
+          "deliberate_leak_mb_per_reload": 25.0,
+          "project_reloads": 20,
+          "reload_ms": {
+            "n": 20,
+            "median": 694.68,
+            "max": 781.0,
+            "p95": 744.26
+          },
+          "models_per_reload_ok": true,
+          "leak_slope_mb_per_reload": 26.97,
+          "wind_time_before": 0.0,
+          "wind_time_after": 0.486,
+          "frames_while_animating": 8,
+          "animation_advanced": true,
+          "event_loop_exit_code": 0
+        }
+      }
+    },
+    {
+      "commit": "a64ae9e",
+      "clean": {
+        "status": "ok",
+        "graphics_api": "OpenGL",
+        "size": [
+          640,
+          360
+        ],
+        "qt": "6.11.0",
+        "soak": {
+          "cycles": 100,
+          "reentry_ms": {
+            "n": 100,
+            "median": 6.56,
+            "max": 161.76,
+            "p95": 147.37
+          },
+          "rss_start_mb": 1862.3,
+          "rss_end_mb": 1871.6,
+          "leak_metric": "rss",
+          "leak_curve_mb": [
+            1868.1,
+            1870.2,
+            1870.7,
+            1871.2,
+            1871.1,
+            1871.4,
+            1871.4,
+            1871.4,
+            1871.4,
+            1871.4,
+            1871.5,
+            1871.6,
+            1871.3,
+            1871.4,
+            1871.4,
+            1871.4,
+            1871.4,
+            1871.5,
+            1871.5,
+            1871.6
+          ],
+          "project_reloads": 20,
+          "reload_ms": {
+            "n": 20,
+            "median": 599.58,
+            "max": 795.25,
+            "p95": 646.18
+          },
+          "models_per_reload_ok": true,
+          "leak_slope_mb_per_reload": 0.01,
+          "wind_time_before": 0.0,
+          "wind_time_after": 0.485,
+          "frames_while_animating": 8,
+          "animation_advanced": true,
+          "event_loop_exit_code": 0
+        }
+      },
+      "control": {
+        "status": "ok",
+        "graphics_api": "OpenGL",
+        "size": [
+          640,
+          360
+        ],
+        "qt": "6.11.0",
+        "soak": {
+          "cycles": 100,
+          "reentry_ms": {
+            "n": 100,
+            "median": 6.55,
+            "max": 159.82,
+            "p95": 144.59
+          },
+          "rss_start_mb": 796.6,
+          "rss_end_mb": 1478.7,
+          "leak_metric": "rss",
+          "leak_curve_mb": [
+            887.8,
+            873.1,
+            981.0,
+            1026.9,
+            1056.3,
+            1081.2,
+            1146.2,
+            1135.0,
+            1164.4,
+            1146.2,
+            1209.2,
+            1236.4,
+            1264.9,
+            1253.2,
+            1314.9,
+            1338.3,
+            1367.2,
+            1392.8,
+            1456.3,
+            1478.7
+          ],
+          "deliberate_leak_mb_per_reload": 25.0,
+          "project_reloads": 20,
+          "reload_ms": {
+            "n": 20,
+            "median": 669.7,
+            "max": 726.95,
+            "p95": 723.85
+          },
+          "models_per_reload_ok": true,
+          "leak_slope_mb_per_reload": 27.85,
+          "wind_time_before": 0.0,
+          "wind_time_after": 0.484,
+          "frames_while_animating": 8,
+          "animation_advanced": true,
+          "event_loop_exit_code": 0
+        }
+      }
+    },
+    {
+      "commit": "f71cdef",
+      "clean": {
+        "status": "ok",
+        "graphics_api": "OpenGL",
+        "size": [
+          640,
+          360
+        ],
+        "qt": "6.11.0",
+        "soak": {
+          "cycles": 100,
+          "reentry_ms": {
+            "n": 100,
+            "median": 6.71,
+            "max": 169.19,
+            "p95": 152.12
+          },
+          "rss_start_mb": 1870.8,
+          "rss_end_mb": 1883.7,
+          "leak_metric": "rss",
+          "leak_curve_mb": [
+            1878.5,
+            1882.1,
+            1883.2,
+            1883.3,
+            1883.7,
+            1883.6,
+            1883.6,
+            1883.6,
+            1883.6,
+            1883.6,
+            1883.6,
+            1883.7,
+            1883.5,
+            1883.5,
+            1883.5,
+            1883.5,
+            1883.5,
+            1883.6,
+            1883.7,
+            1883.7
+          ],
+          "project_reloads": 20,
+          "reload_ms": {
+            "n": 20,
+            "median": 602.98,
+            "max": 653.43,
+            "p95": 635.85
+          },
+          "models_per_reload_ok": true,
+          "leak_slope_mb_per_reload": 0.0,
+          "wind_time_before": 0.0,
+          "wind_time_after": 0.514,
+          "frames_while_animating": 8,
+          "animation_advanced": true,
+          "event_loop_exit_code": 0
+        }
+      },
+      "control": {
+        "status": "ok",
+        "graphics_api": "OpenGL",
+        "size": [
+          640,
+          360
+        ],
+        "qt": "6.11.0",
+        "soak": {
+          "cycles": 100,
+          "reentry_ms": {
+            "n": 100,
+            "median": 6.6,
+            "max": 178.78,
+            "p95": 152.15
+          },
+          "rss_start_mb": 796.5,
+          "rss_end_mb": 1501.5,
+          "leak_metric": "rss",
+          "leak_curve_mb": [
+            887.7,
+            900.6,
+            1033.4,
+            1019.6,
+            1064.6,
+            1094.0,
+            1153.8,
+            1185.0,
+            1185.7,
+            1234.1,
+            1263.3,
+            1275.6,
+            1271.1,
+            1281.4,
+            1317.9,
+            1381.7,
+            1376.8,
+            1407.4,
+            1470.9,
+            1501.5
+          ],
+          "deliberate_leak_mb_per_reload": 25.0,
+          "project_reloads": 20,
+          "reload_ms": {
+            "n": 20,
+            "median": 694.73,
+            "max": 757.27,
+            "p95": 732.44
+          },
+          "models_per_reload_ok": true,
+          "leak_slope_mb_per_reload": 28.24,
+          "wind_time_before": 0.0,
+          "wind_time_after": 0.539,
+          "frames_while_animating": 8,
+          "animation_advanced": true,
+          "event_loop_exit_code": 0
+        }
+      }
+    },
+    {
+      "commit": "308c773",
+      "clean": {
+        "status": "ok",
+        "graphics_api": "OpenGL",
+        "size": [
+          640,
+          360
+        ],
+        "qt": "6.11.0",
+        "soak": {
+          "cycles": 100,
+          "reentry_ms": {
+            "n": 100,
+            "median": 6.61,
+            "max": 159.14,
+            "p95": 140.73
+          },
+          "rss_start_mb": 1866.4,
+          "rss_end_mb": 1877.7,
+          "leak_metric": "rss",
+          "leak_curve_mb": [
+            1872.5,
+            1876.2,
+            1877.4,
+            1877.6,
+            1877.4,
+            1877.5,
+            1877.5,
+            1877.6,
+            1877.6,
+            1877.6,
+            1877.6,
+            1877.7,
+            1877.5,
+            1877.5,
+            1877.5,
+            1877.5,
+            1877.5,
+            1877.6,
+            1877.7,
+            1877.7
+          ],
+          "project_reloads": 20,
+          "reload_ms": {
+            "n": 20,
+            "median": 603.47,
+            "max": 664.46,
+            "p95": 647.33
+          },
+          "models_per_reload_ok": true,
+          "leak_slope_mb_per_reload": 0.0,
+          "wind_time_before": 0.0,
+          "wind_time_after": 0.474,
+          "frames_while_animating": 8,
+          "animation_advanced": true,
+          "event_loop_exit_code": 0
+        }
+      },
+      "control": {
+        "status": "ok",
+        "graphics_api": "OpenGL",
+        "size": [
+          640,
+          360
+        ],
+        "qt": "6.11.0",
+        "soak": {
+          "cycles": 100,
+          "reentry_ms": {
+            "n": 100,
+            "median": 6.57,
+            "max": 160.81,
+            "p95": 140.31
+          },
+          "rss_start_mb": 832.5,
+          "rss_end_mb": 1485.2,
+          "leak_metric": "rss",
+          "leak_curve_mb": [
+            924.3,
+            957.6,
+            1033.8,
+            1060.0,
+            1089.6,
+            1111.3,
+            1157.8,
+            1169.7,
+            1162.5,
+            1224.9,
+            1249.2,
+            1279.7,
+            1303.7,
+            1298.6,
+            1315.2,
+            1378.5,
+            1399.9,
+            1395.2,
+            1421.1,
+            1485.2
+          ],
+          "deliberate_leak_mb_per_reload": 25.0,
+          "project_reloads": 20,
+          "reload_ms": {
+            "n": 20,
+            "median": 689.77,
+            "max": 756.2,
+            "p95": 737.26
+          },
+          "models_per_reload_ok": true,
+          "leak_slope_mb_per_reload": 24.5,
+          "wind_time_before": 0.0,
+          "wind_time_after": 0.501,
+          "frames_while_animating": 8,
+          "animation_advanced": true,
+          "event_loop_exit_code": 0
+        }
+      }
+    }
+  ]
+}

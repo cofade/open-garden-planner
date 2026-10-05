@@ -245,13 +245,11 @@ class SpikeRenderer:
         finally:
             sky_changed = any(self.root.property(k) != saved[k] for k in self.SKY_KEYS)
             ground = saved["groundTexture"]
-            # setProperty returns False for a name the QML does not declare or a value
-            # it cannot take: a restore that silently did not happen (senior review,
-            # pass 6, which also retired an identity check that only re-read this)
-            refused = [key for key, value in saved.items()
-                       if not self.root.setProperty(key, value)]
-            if refused:
-                raise RuntimeError(f"preserved_state: QML refused to restore {refused}")
+            # The check of this restore is in pixels (runner: probe_restore_frame_diff).
+            # Code-level checks here could not fail: the keys and values come from the
+            # QML's own properties (senior review, passes 6-7).
+            for key, value in saved.items():
+                self.root.setProperty(key, value)
             self._ground = ground  # Python owns the texture: keep the restored one alive
             if ground is not None:
                 # The texture twin of the geometry rule in set_models: a texture data

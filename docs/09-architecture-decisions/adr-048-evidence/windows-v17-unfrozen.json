@@ -1,0 +1,276 @@
+{
+  "_provenance": {
+    "workflow": "spike-q3d.yml (temporary)",
+    "run_id": "37308218700",
+    "run_url": "https://github.com/cofade/open-garden-planner/actions/runs/37308218700",
+    "commit": "308c773",
+    "runner": "windows-latest (no GPU: Direct3D 11 on WARP)",
+    "mode": "unfrozen",
+    "extracted_from": "job log (artifact host unreachable from the analysis container)",
+    "note": "--cold (Qt, QML and Mesa disk caches disabled). The first run that records its parsed flags (args) and refuses abbreviated flags."
+  },
+  "status": "ok",
+  "args": {
+    "spike_q3d": true,
+    "plan": "D:\\a\\open-garden-planner\\open-garden-planner\\tests\\fixtures\\plans\\bench_small.ogp",
+    "out": "D:\\a\\open-garden-planner\\open-garden-planner\\spike-unfrozen",
+    "host": "view",
+    "presets": "low",
+    "shots": "golden_hour",
+    "size": "960x540",
+    "fps_seconds": 1.0,
+    "iou": true,
+    "orient": false,
+    "no_grass": false,
+    "grass_density": 60.0,
+    "ssgi": false,
+    "no_ssr": false,
+    "frame_timeout_s": 120.0,
+    "watchdog_s": 660.0,
+    "pick": false,
+    "update_bench": false,
+    "cold": true,
+    "second_window": false,
+    "coexist": false,
+    "pan_bench": false,
+    "qml_dir": null,
+    "soak_leak_mb": 0.0,
+    "soak": 0,
+    "unknown": []
+  },
+  "platform": "Windows-10-10.0.26100-SP0",
+  "python": "3.11.9",
+  "frozen": false,
+  "plan": "D:\\a\\open-garden-planner\\open-garden-planner\\tests\\fixtures\\plans\\bench_small.ogp",
+  "host": "view",
+  "size": [
+    960,
+    540
+  ],
+  "env": {
+    "QSG_RHI_BACKEND": null,
+    "QT_QPA_PLATFORM": null,
+    "QSG_RHI_PREFER_SOFTWARE_RENDERER": null,
+    "QSG_RENDER_LOOP": "basic"
+  },
+  "qt": "6.11.0",
+  "shader_caches": {
+    "cold": true,
+    "disabled_by_env": [
+      "MESA_SHADER_CACHE_DISABLE",
+      "QML_DISABLE_DISK_CACHE",
+      "QSG_RHI_DISABLE_DISK_CACHE",
+      "QT_DISABLE_SHADER_DISK_CACHE",
+      "QT_QUICK3D_NO_SHADER_CACHE_LOAD"
+    ],
+    "found_before_run": []
+  },
+  "load_plan_ms": 755.571400000008,
+  "ground_bake_ms": 109.55999999998767,
+  "build_models_ms": 516.5413999999942,
+  "build": {
+    "date": "2026-06-21",
+    "items": 99,
+    "models": 94,
+    "triangles": 193182,
+    "in_season": true,
+    "by_kind_ms": {
+      "RAIN_BARREL": 1.1,
+      "WHEELBARROW": 0.2,
+      "COMPOST_BIN": 0.1,
+      "TRAMPOLINE": 1.2,
+      "BIRD_BATH": 0.5,
+      "BENCH": 0.3,
+      "FIRE_PIT": 0.4,
+      "BBQ_GRILL": 0.4,
+      "CHAIR": 1.2,
+      "TABLE_RECTANGULAR": 0.3,
+      "plants": 457.2,
+      "TRELLIS": 1.0,
+      "CONTAINER_ROUND": 1.1,
+      "RAISED_BED": 0.5,
+      "GARDEN_BED": 0.0,
+      "PATH": 0.0,
+      "WALL": 0.2,
+      "HEDGE_POLYGON": 10.8,
+      "FENCE": 12.2,
+      "PERGOLA": 0.8,
+      "GARAGE_SHED": 1.1,
+      "GREENHOUSE": 2.0,
+      "HOUSE": 0.8,
+      "POND_POOL": 0.4,
+      "DRIVEWAY": 0.0,
+      "TERRACE_PATIO": 0.0,
+      "LAWN": 0.0,
+      "grass": 8.8
+    }
+  },
+  "qt_messages": {
+    "counts": {
+      "error": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "errors": [],
+    "warnings": []
+  },
+  "qml_load_ms": 35.589200000003984,
+  "scene_apply_ms": 11.78230000002145,
+  "geometry_upload_ms_total": 45.542100000034225,
+  "look_and_sun_ms": 333.0833999999925,
+  "first_frame_ms": 3003.5914999999986,
+  "first_ready_ms": 52444.3,
+  "open_ms": 53452.2,
+  "open_breakdown_ms": {
+    "ground_bake": 109.6,
+    "build_models": 516.5,
+    "qml_load": 35.6,
+    "scene_apply": 11.8,
+    "look_and_sun": 333.1,
+    "show_to_first_ready": 52444.3
+  },
+  "graphics_api": "Direct3D11Rhi",
+  "shots": [
+    {
+      "shot": "golden_hour",
+      "preset": "low",
+      "file": "golden_hour_low.png",
+      "sun_elev": 15.23,
+      "sun_az": 288.8,
+      "sun_date": "2026-06-21",
+      "build_date": "2026-06-21",
+      "settle_ms": 50304.1,
+      "grab_ms": 49924.0,
+      "isolated_dark_px": 0,
+      "clipped_pct": 0.0,
+      "mean_luma": 104.47
+    }
+  ],
+  "fps": {
+    "low": 12.93
+  },
+  "builds": {
+    "2026-06-21": {
+      "items": 99,
+      "models": 94,
+      "triangles": 193182,
+      "in_season": true,
+      "build_ms": 516.5
+    }
+  },
+  "shadow_iou": {
+    "preset": "low",
+    "azimuth_deg": 225.0,
+    "caster_cm": [
+      100.0,
+      100.0,
+      200.0
+    ],
+    "px_per_cm": 0.5,
+    "device_pixel_ratio": 1.0,
+    "results": {
+      "15deg": {
+        "iou": 0.9836,
+        "measured_px": 25526,
+        "analytic_px": 25260,
+        "lit_luma": 119.0,
+        "centroid_measured_cm": [
+          279.8,
+          277.9
+        ],
+        "centroid_analytic_cm": [
+          278.2,
+          277.4
+        ]
+      },
+      "35deg": {
+        "iou": 0.9816,
+        "measured_px": 10190,
+        "analytic_px": 10100,
+        "lit_luma": 241.2,
+        "centroid_measured_cm": [
+          126.2,
+          126.2
+        ],
+        "centroid_analytic_cm": [
+          125.5,
+          126.5
+        ]
+      },
+      "60deg": {
+        "iou": 0.9644,
+        "measured_px": 3966,
+        "analytic_px": 4100,
+        "lit_luma": 255.0,
+        "centroid_measured_cm": [
+          65.3,
+          65.4
+        ],
+        "centroid_analytic_cm": [
+          65.5,
+          66.5
+        ]
+      }
+    }
+  },
+  "shadow_iou_by_preset": {
+    "low": {
+      "preset": "low",
+      "azimuth_deg": 225.0,
+      "caster_cm": [
+        100.0,
+        100.0,
+        200.0
+      ],
+      "px_per_cm": 0.5,
+      "device_pixel_ratio": 1.0,
+      "results": {
+        "15deg": {
+          "iou": 0.9836,
+          "measured_px": 25526,
+          "analytic_px": 25260,
+          "lit_luma": 119.0,
+          "centroid_measured_cm": [
+            279.8,
+            277.9
+          ],
+          "centroid_analytic_cm": [
+            278.2,
+            277.4
+          ]
+        },
+        "35deg": {
+          "iou": 0.9816,
+          "measured_px": 10190,
+          "analytic_px": 10100,
+          "lit_luma": 241.2,
+          "centroid_measured_cm": [
+            126.2,
+            126.2
+          ],
+          "centroid_analytic_cm": [
+            125.5,
+            126.5
+          ]
+        },
+        "60deg": {
+          "iou": 0.9644,
+          "measured_px": 3966,
+          "analytic_px": 4100,
+          "lit_luma": 255.0,
+          "centroid_measured_cm": [
+            65.3,
+            65.4
+          ],
+          "centroid_analytic_cm": [
+            65.5,
+            66.5
+          ]
+        }
+      }
+    }
+  },
+  "probe_restore_frame_diff": 0.0,
+  "wait_timeouts": 0,
+  "total_s": 164.4
+}
