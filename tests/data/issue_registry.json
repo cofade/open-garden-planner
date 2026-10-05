@@ -584,6 +584,26 @@
     "state": "CLOSED",
     "title": "fill_translations.py: 5 duplicate context keys drop 62 translations; German PDF 'Garden Notes' page prints 5 strings in English (Audit 2026-10, epic #392)"
   },
+  "394": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Text annotations are not saved to the .ogp file (TextItem missing from ProjectManager serializer) (Audit 2026-10, epic #392)"
+  },
+  "397": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Loader silently drops items it cannot decode: a legacy plan whose background image moved loses it on load and permanently on the next save; duplicate item_ids accepted (Audit 2026-10, epic #392)"
+  },
+  "400": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Copy/paste drops spacing override, frost flag, label visibility, fence style and skips Arc/Bezier/Group items (clipboard serializer diverged from file serializer) (Audit 2026-10, epic #392)"
+  },
+  "403": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Opening a corrupt .ogp leaves a partial scene under the previous file's name — Ctrl+S overwrites the good plan (Audit 2026-10, epic #392)"
+  },
   "408": {
     "is_pr": false,
     "state": "CLOSED",
@@ -598,5 +618,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix(#393,#408,#410): localize shared-service display strings; enforce translation-key uniqueness; full-tree ruff"
+  },
+  "412": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(core): harden serialization, clipboard unification, and atomic plan loading (#394, #400, #397, #403)"
   }
 }
