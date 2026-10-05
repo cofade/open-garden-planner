@@ -611,11 +611,12 @@ OS) cannot judge a leak at all, and five points of private bytes cannot resolve
 10 MB/reload against WARP's ±30–60 MB swings. Re-fitting the gate after each
 failure was its own smell (senior review), so the final gate was fixed before
 the next run: 20 reloads, private bytes, a Theil–Sen slope, and a positive
-control on the same runner that must fire on 25 MB per reload. Windows run v9
-passed it at 1.5 MB/reload while private bytes still grew +129 MB over reloads
-2–20 and flattened by reload 12, cause unexplained: the gate answers "is there a
-trend over the last ten reloads", not "did memory grow", so the record carries the
-whole curve (ADR-047 entry 10). *Hold the one object in use, not every object
+control on the same runner that must fire on 25 MB per reload. Windows runs
+v9–v12 passed it (1.5–9.0 MB/reload), yet every one of them, after an early dip,
+rose 5–10 MB per reload; llvmpipe's exact RSS shows nothing comparable, so plateau
+or leak on D3D11 is still open. The gate answers "is there a trend over the last
+ten reloads", not "did memory grow", so the record carries the whole curve
+(ADR-047 entry 10). *Hold the one object in use, not every object
 that ever was; judge a leak by its slope, and trust a gate only after you have
 seen it fire on the machine it judges.*
 

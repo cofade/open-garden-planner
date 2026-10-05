@@ -137,10 +137,12 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
   10 MB/reload against ±30–60 MB swings (WARP v8; llvmpipe once read 14.3 at ±35 MB). Trust
   the gate only with its positive control on the same machine (`--soak-leak-mb 25` must fail
   it). Private bytes do not see VRAM: on a discrete GPU the gate is blind to GPU-side leaks.
-  The gate answers "a trend over the last ten reloads?", not "did memory grow?": WARP v9
-  passed at 1.5 MB/reload while private bytes grew +129 MB over reloads 2–20 and flattened by
-  reload 12 (cause unexplained), and its control over-read the 25 MB it held by 8.6 MB/reload.
-  Record the whole curve (`leak_curve_mb`) with the verdict.
+  The gate answers "a trend over the last ten reloads?", not "did memory grow?". On WARP every
+  run (v9–v12) first dips 111–146 MB (memory the probes held: the probe-less controls never
+  dip), then rises 5–10 MB per reload; the tail gate read 1.5–9.0, and the controls over-read
+  the 25 MB they hold by 3–9 MB/reload. llvmpipe RSS reads 0.02–0.46 MB/reload for the same
+  code, so it is not the spike's own objects; plateau or leak on D3D11 is open. Record the
+  whole curve (`leak_curve_mb`) with the verdict.
 
 ## 6. Hosts
 
