@@ -1,0 +1,548 @@
+{
+  "_provenance": {
+    "machine": "cloud container, Xvfb + Mesa llvmpipe (software OpenGL), QT_QPA_PLATFORM=xcb, QSG_RHI_BACKEND=opengl",
+    "commit": "6f0c4f4",
+    "mode": "unfrozen (python -m open_garden_planner --spike-q3d), driven by scripts/spike_q3d_ci.py",
+    "args": "--plan tests/fixtures/plans/bench_small.ogp --presets low,high --shots all --fps-seconds 2 --iou --orient --pick --update-bench --warm --coexist --pan-bench --soak 10 --size 1280x720 --frame-timeout-s 120 --watchdog-s 2700",
+    "date": "2026-10-04",
+    "load": "ran concurrently with two reviewer renders on the same CPU: correctness numbers (IoU, orientation, picks, coexistence, close) are valid, timings are inflated and are not criterion numbers"
+  },
+  "status": "ok",
+  "platform": "Linux-6.18.44-fc-v64-x86_64-with-glibc2.39",
+  "python": "3.11.15",
+  "frozen": false,
+  "plan": "tests/fixtures/plans/bench_small.ogp",
+  "host": "view",
+  "size": [
+    1280,
+    720
+  ],
+  "env": {
+    "QSG_RHI_BACKEND": "opengl",
+    "QT_QPA_PLATFORM": "xcb",
+    "QSG_RHI_PREFER_SOFTWARE_RENDERER": null,
+    "QSG_RENDER_LOOP": null
+  },
+  "qt": "6.11.0",
+  "load_plan_ms": 129.73377100024663,
+  "ground_bake_ms": 322.6329570006783,
+  "build_models_ms": 442.8863110006205,
+  "build": {
+    "date": "2026-06-21",
+    "items": 99,
+    "models": 92,
+    "triangles": 196822,
+    "by_kind_ms": {
+      "RAIN_BARREL": 1.2,
+      "WHEELBARROW": 0.2,
+      "COMPOST_BIN": 0.1,
+      "TRAMPOLINE": 1.3,
+      "BIRD_BATH": 0.7,
+      "BENCH": 0.5,
+      "FIRE_PIT": 0.3,
+      "BBQ_GRILL": 0.5,
+      "CHAIR": 1.6,
+      "TABLE_RECTANGULAR": 0.4,
+      "plants": 378.1,
+      "TRELLIS": 1.0,
+      "CONTAINER_ROUND": 1.1,
+      "RAISED_BED": 0.5,
+      "GARDEN_BED": 0.0,
+      "PATH": 0.0,
+      "WALL": 0.3,
+      "HEDGE_POLYGON": 10.4,
+      "FENCE": 13.6,
+      "PERGOLA": 0.9,
+      "GARAGE_SHED": 1.2,
+      "GREENHOUSE": 2.3,
+      "HOUSE": 1.1,
+      "POND_POOL": 0.3,
+      "DRIVEWAY": 0.0,
+      "TERRACE_PATIO": 0.0,
+      "LAWN": 0.0,
+      "grass": 17.1
+    }
+  },
+  "qml_load_ms": 1771.7623600001389,
+  "scene_apply_ms": 19.351920000190148,
+  "geometry_upload_ms_total": 46.917650010072975,
+  "first_frame_ms": 25821.675474000585,
+  "first_ready_ms": 26206.4,
+  "graphics_api": "OpenGL",
+  "shots": [
+    {
+      "shot": "golden_hour",
+      "preset": "low",
+      "file": "golden_hour_low.png",
+      "sun_elev": 15.23,
+      "sun_az": 288.8,
+      "sun_date": "2026-06-21",
+      "build_date": "2026-06-21",
+      "settle_ms": 20158.0,
+      "grab_ms": 11.2
+    },
+    {
+      "shot": "noon",
+      "preset": "low",
+      "file": "noon_low.png",
+      "sun_elev": 60.88,
+      "sun_az": 176.14,
+      "sun_date": "2026-06-21",
+      "build_date": "2026-06-21",
+      "settle_ms": 19184.3,
+      "grab_ms": 10.8
+    },
+    {
+      "shot": "morning",
+      "preset": "low",
+      "file": "morning_low.png",
+      "sun_elev": 26.16,
+      "sun_az": 84.97,
+      "sun_date": "2026-06-21",
+      "build_date": "2026-06-21",
+      "settle_ms": 27311.8,
+      "grab_ms": 12.7
+    },
+    {
+      "shot": "december_noon",
+      "preset": "low",
+      "file": "december_noon_low.png",
+      "sun_elev": 14.04,
+      "sun_az": 178.95,
+      "sun_date": "2026-12-21",
+      "build_date": "2026-12-21",
+      "settle_ms": 27380.9,
+      "grab_ms": 11.2
+    },
+    {
+      "shot": "night",
+      "preset": "low",
+      "file": "night_low.png",
+      "sun_elev": -11.07,
+      "sun_az": 337.12,
+      "sun_date": "2026-06-21",
+      "build_date": "2026-06-21",
+      "settle_ms": 27398.5,
+      "grab_ms": 15.3
+    },
+    {
+      "shot": "walk",
+      "preset": "low",
+      "file": "walk_low.png",
+      "sun_elev": 42.16,
+      "sun_az": 252.6,
+      "sun_date": "2026-06-21",
+      "build_date": "2026-06-21",
+      "settle_ms": 24095.6,
+      "grab_ms": 10.4
+    },
+    {
+      "shot": "golden_hour",
+      "preset": "high",
+      "file": "golden_hour_high.png",
+      "sun_elev": 15.23,
+      "sun_az": 288.8,
+      "sun_date": "2026-06-21",
+      "build_date": "2026-06-21",
+      "settle_ms": 28386.9,
+      "grab_ms": 13.0
+    },
+    {
+      "shot": "noon",
+      "preset": "high",
+      "file": "noon_high.png",
+      "sun_elev": 60.88,
+      "sun_az": 176.14,
+      "sun_date": "2026-06-21",
+      "build_date": "2026-06-21",
+      "settle_ms": 23615.3,
+      "grab_ms": 14.6
+    },
+    {
+      "shot": "morning",
+      "preset": "high",
+      "file": "morning_high.png",
+      "sun_elev": 26.16,
+      "sun_az": 84.97,
+      "sun_date": "2026-06-21",
+      "build_date": "2026-06-21",
+      "settle_ms": 28308.6,
+      "grab_ms": 17.0
+    },
+    {
+      "shot": "december_noon",
+      "preset": "high",
+      "file": "december_noon_high.png",
+      "sun_elev": 14.04,
+      "sun_az": 178.95,
+      "sun_date": "2026-12-21",
+      "build_date": "2026-12-21",
+      "settle_ms": 28701.7,
+      "grab_ms": 11.1
+    },
+    {
+      "shot": "night",
+      "preset": "high",
+      "file": "night_high.png",
+      "sun_elev": -11.07,
+      "sun_az": 337.12,
+      "sun_date": "2026-06-21",
+      "build_date": "2026-06-21",
+      "settle_ms": 20778.0,
+      "grab_ms": 10.5
+    },
+    {
+      "shot": "walk",
+      "preset": "high",
+      "file": "walk_high.png",
+      "sun_elev": 42.16,
+      "sun_az": 252.6,
+      "sun_date": "2026-06-21",
+      "build_date": "2026-06-21",
+      "settle_ms": 18629.1,
+      "grab_ms": 8.8
+    }
+  ],
+  "fps": {
+    "low": 2.58,
+    "high": 1.31
+  },
+  "builds": {
+    "2026-06-21": {
+      "items": 99,
+      "models": 92,
+      "triangles": 196822,
+      "build_ms": 442.9
+    },
+    "2026-12-21": {
+      "items": 99,
+      "models": 92,
+      "triangles": 211320,
+      "build_ms": 459.2
+    }
+  },
+  "shadow_iou": {
+    "preset": "high",
+    "azimuth_deg": 225.0,
+    "caster_cm": [
+      100.0,
+      100.0,
+      200.0
+    ],
+    "px_per_cm": 0.5,
+    "device_pixel_ratio": 1.0,
+    "results": {
+      "15deg": {
+        "iou": 0.9593,
+        "measured_px": 25506,
+        "analytic_px": 26400,
+        "lit_luma": 118.0,
+        "centroid_measured_cm": [
+          292.0,
+          292.0
+        ],
+        "centroid_analytic_cm": [
+          288.5,
+          289.5
+        ]
+      },
+      "35deg": {
+        "iou": 0.9503,
+        "measured_px": 9598,
+        "analytic_px": 10100,
+        "lit_luma": 241.0,
+        "centroid_measured_cm": [
+          126.6,
+          126.6
+        ],
+        "centroid_analytic_cm": [
+          125.5,
+          126.5
+        ]
+      },
+      "60deg": {
+        "iou": 0.9195,
+        "measured_px": 3770,
+        "analytic_px": 4100,
+        "lit_luma": 255.0,
+        "centroid_measured_cm": [
+          66.2,
+          66.1
+        ],
+        "centroid_analytic_cm": [
+          65.5,
+          66.5
+        ]
+      }
+    }
+  },
+  "shadow_iou_by_preset": {
+    "low": {
+      "preset": "low",
+      "azimuth_deg": 225.0,
+      "caster_cm": [
+        100.0,
+        100.0,
+        200.0
+      ],
+      "px_per_cm": 0.5,
+      "device_pixel_ratio": 1.0,
+      "results": {
+        "15deg": {
+          "iou": 0.9633,
+          "measured_px": 26612,
+          "analytic_px": 26400,
+          "lit_luma": 118.0,
+          "centroid_measured_cm": [
+            291.6,
+            291.6
+          ],
+          "centroid_analytic_cm": [
+            288.5,
+            289.5
+          ]
+        },
+        "35deg": {
+          "iou": 0.9679,
+          "measured_px": 9945,
+          "analytic_px": 10100,
+          "lit_luma": 241.0,
+          "centroid_measured_cm": [
+            125.6,
+            125.5
+          ],
+          "centroid_analytic_cm": [
+            125.5,
+            126.5
+          ]
+        },
+        "60deg": {
+          "iou": 0.9374,
+          "measured_px": 3857,
+          "analytic_px": 4100,
+          "lit_luma": 255.0,
+          "centroid_measured_cm": [
+            64.7,
+            64.6
+          ],
+          "centroid_analytic_cm": [
+            65.5,
+            66.5
+          ]
+        }
+      }
+    },
+    "high": {
+      "preset": "high",
+      "azimuth_deg": 225.0,
+      "caster_cm": [
+        100.0,
+        100.0,
+        200.0
+      ],
+      "px_per_cm": 0.5,
+      "device_pixel_ratio": 1.0,
+      "results": {
+        "15deg": {
+          "iou": 0.9593,
+          "measured_px": 25506,
+          "analytic_px": 26400,
+          "lit_luma": 118.0,
+          "centroid_measured_cm": [
+            292.0,
+            292.0
+          ],
+          "centroid_analytic_cm": [
+            288.5,
+            289.5
+          ]
+        },
+        "35deg": {
+          "iou": 0.9503,
+          "measured_px": 9598,
+          "analytic_px": 10100,
+          "lit_luma": 241.0,
+          "centroid_measured_cm": [
+            126.6,
+            126.6
+          ],
+          "centroid_analytic_cm": [
+            125.5,
+            126.5
+          ]
+        },
+        "60deg": {
+          "iou": 0.9195,
+          "measured_px": 3770,
+          "analytic_px": 4100,
+          "lit_luma": 255.0,
+          "centroid_measured_cm": [
+            66.2,
+            66.1
+          ],
+          "centroid_analytic_cm": [
+            65.5,
+            66.5
+          ]
+        }
+      }
+    }
+  },
+  "orientation": {
+    "ground_texture_ncc": {
+      "identity": 0.9541,
+      "flip_v": 0.0137,
+      "flip_h": -0.0403,
+      "flip_both": -0.0386
+    },
+    "ground_texture_ok": true,
+    "sky_sun_disc": {
+      "sun_az_90": {
+        "-25": {
+          "view_az": 65.0,
+          "disc_offset_deg": 24.1,
+          "measured_az": 89.1,
+          "error_deg": -0.85,
+          "contrast": 207.7
+        },
+        "+25": {
+          "view_az": 115.0,
+          "disc_offset_deg": -24.8,
+          "measured_az": 90.2,
+          "error_deg": 0.21,
+          "contrast": 207.7
+        }
+      },
+      "sun_az_180": {
+        "-25": {
+          "view_az": 155.0,
+          "disc_offset_deg": 24.1,
+          "measured_az": 179.1,
+          "error_deg": -0.85,
+          "contrast": 207.7
+        },
+        "+25": {
+          "view_az": 205.0,
+          "disc_offset_deg": -24.8,
+          "measured_az": 180.2,
+          "error_deg": 0.21,
+          "contrast": 207.7
+        }
+      },
+      "sun_az_270": {
+        "-25": {
+          "view_az": 245.0,
+          "disc_offset_deg": 24.1,
+          "measured_az": 269.1,
+          "error_deg": -0.85,
+          "contrast": 207.7
+        },
+        "+25": {
+          "view_az": 295.0,
+          "disc_offset_deg": -24.8,
+          "measured_az": 270.2,
+          "error_deg": 0.21,
+          "contrast": 207.7
+        }
+      }
+    },
+    "sky_look_offsets_deg": [
+      -25.0,
+      25.0
+    ],
+    "sky_max_abs_error_deg": 0.85,
+    "sky_ok": true
+  },
+  "pick": {
+    "n": 20,
+    "hits": 20,
+    "hits_after_reattach": 20,
+    "reattach_frame_diff": 0.0,
+    "adversarial_n": 10,
+    "adversarial_hits": 10,
+    "adversarial_misses": [],
+    "max_xy_err_cm": 0.0,
+    "max_projection_err_px": 0.0,
+    "pick_ms": {
+      "n": 20,
+      "median": 0.24,
+      "max": 0.31,
+      "p95": 0.3
+    },
+    "misses": [],
+    "camera": "orthographic top-down"
+  },
+  "update_bench": {
+    "vertices": 100489,
+    "triangles": 199712,
+    "set_mesh_ms": {
+      "n": 10,
+      "median": 18.96,
+      "max": 30.95
+    },
+    "to_next_frame_ms": {
+      "n": 10,
+      "median": 1511.08,
+      "max": 25868.36
+    }
+  },
+  "warm_start": {
+    "qml_load_ms": 2584.2,
+    "first_frame_ms": 28483.9,
+    "first_ready_ms": 29280.4,
+    "total_ms": 31908.4
+  },
+  "coexist": {
+    "share_opengl_contexts": false,
+    "quick_graphics_api": "OpenGL",
+    "web_loaded": true,
+    "web_rgb_before_3d": [
+      58,
+      123,
+      213
+    ],
+    "web_rgb_after_3d": [
+      58,
+      123,
+      213
+    ],
+    "web_ok": true,
+    "frame3d_diff_vs_reference": 0.0,
+    "frame3d_reference_luma_std": 57.9,
+    "frame3d_ok": true
+  },
+  "pan_bench": {
+    "steps": 120,
+    "without_3d_ms": {
+      "n": 120,
+      "median": 7.85,
+      "max": 66.11,
+      "p95": 17.18
+    },
+    "with_3d_ms": {
+      "n": 120,
+      "median": 10.35,
+      "max": 18.36,
+      "p95": 15.44
+    },
+    "ratio_median": 1.318,
+    "note": "per pan step incl. flush/composition; vsync can cap real-GPU numbers"
+  },
+  "soak": {
+    "cycles": 10,
+    "reentry_ms": {
+      "n": 10,
+      "median": 19.14,
+      "max": 1448.37
+    },
+    "rss_start_mb": 2257.4,
+    "rss_end_mb": 2263.3,
+    "wind_time_before": 0.0,
+    "wind_time_after": 13.195,
+    "frames_while_animating": 8,
+    "animation_advanced": true,
+    "close_exit_code": 0
+  },
+  "wait_timeouts": 0,
+  "total_s": 605.25
+}

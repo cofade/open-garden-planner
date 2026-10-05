@@ -1,0 +1,340 @@
+     0.12s [start] qt=6.11.0 frozen=True size=1920x1080 presets=low,medium,high,ultra shots=all platform=Windows-10-10.0.26200-SP0
+     0.12s [caches] cold=True disabled_by_env=['MESA_SHADER_CACHE_DISABLE', 'QML_DISABLE_DISK_CACHE', 'QSG_RHI_DISABLE_DISK_CACHE', 'QT_DISABLE_SHADER_DISK_CACHE', 'QT_QUICK3D_NO_SHADER_CACHE_LOAD'] found_before_run=['q3dshadercache-x86_64-little_endian-llp64', 'qmlcache', 'qtpipelinecache-x86_64-little_endian-llp64']
+     0.24s [plan_loaded] ms=92.0 items=136
+     0.32s [ground_baked] ms=76.9 px=2400x1600
+     0.68s [models_built] ms=359.2 models=94 triangles=204840 date=2026-06-21 in_season=True
+     0.70s [qml_loaded] ms=25.7 host=view
+     1.09s [shown] exposed=False
+     3.70s [wait] label=first_frame want=2 got=2 ms=2604.2 timeout=False exposed=True
+     3.71s [grab] label=first_ready ms=12.3 px=1920x1080
+     3.71s [first_frame] ms=2721.3 ready_ms=2756.2 open_ms=3470.1 api=Direct3D11Rhi
+     4.08s [wait] label=golden_hour_low want=6 got=6 ms=121.9 timeout=False exposed=True
+     4.11s [grab] label=golden_hour_low ms=37.1 px=1920x1080
+     5.05s [shot] name=golden_hour preset=low settle_ms=937.9 build_date=2026-06-21 dark_px=1 clipped_pct=0.001
+    10.05s [fps] preset=low shot=golden_hour fps=59.4
+    10.43s [wait] label=sunset_low want=6 got=6 ms=141.1 timeout=False exposed=True
+    10.46s [grab] label=sunset_low ms=32.9 px=1920x1080
+    11.40s [shot] name=sunset preset=low settle_ms=959.2 build_date=2026-06-21 dark_px=1 clipped_pct=0.0
+    11.76s [wait] label=noon_low want=6 got=6 ms=108.3 timeout=False exposed=True
+    11.80s [grab] label=noon_low ms=34.3 px=1920x1080
+    12.66s [shot] name=noon preset=low settle_ms=848.6 build_date=2026-06-21 dark_px=371 clipped_pct=0.295
+    13.01s [wait] label=morning_low want=6 got=6 ms=109.9 timeout=False exposed=True
+    13.05s [grab] label=morning_low ms=34.2 px=1920x1080
+    13.96s [shot] name=morning preset=low settle_ms=902.2 build_date=2026-06-21 dark_px=1 clipped_pct=0.073
+    14.25s [models_for_date] date=2026-12-21 models=94 in_season=False
+    14.71s [wait] label=december_noon_low want=6 got=6 ms=206.7 timeout=False exposed=True
+    14.75s [grab] label=december_noon_low ms=35.2 px=1920x1080
+    15.61s [shot] name=december_noon preset=low settle_ms=945.9 build_date=2026-12-21 dark_px=39 clipped_pct=0.298
+    15.64s [models_for_date] date=2026-06-21 models=94 in_season=True
+    16.07s [wait] label=night_low want=6 got=6 ms=163.4 timeout=False exposed=True
+    16.10s [grab] label=night_low ms=31.7 px=1920x1080
+    16.98s [shot] name=night preset=low settle_ms=921.8 build_date=2026-06-21 dark_px=28 clipped_pct=0.0
+    17.31s [wait] label=walk_low want=6 got=6 ms=89.7 timeout=False exposed=True
+    17.35s [grab] label=walk_low ms=34.1 px=1920x1080
+    18.28s [shot] name=walk preset=low settle_ms=901.6 build_date=2026-06-21 dark_px=60 clipped_pct=0.174
+    20.85s [wait] label=golden_hour_medium want=6 got=6 ms=2322.7 timeout=False exposed=True
+    20.89s [grab] label=golden_hour_medium ms=38.7 px=1920x1080
+    21.81s [shot] name=golden_hour preset=medium settle_ms=3130.3 build_date=2026-06-21 dark_px=30 clipped_pct=0.002
+    26.81s [fps] preset=medium shot=golden_hour fps=60.0
+    27.22s [wait] label=sunset_medium want=6 got=6 ms=165.1 timeout=False exposed=True
+    27.25s [grab] label=sunset_medium ms=34.2 px=1920x1080
+    28.17s [shot] name=sunset preset=medium settle_ms=963.1 build_date=2026-06-21 dark_px=3 clipped_pct=0.0
+    28.57s [wait] label=noon_medium want=6 got=6 ms=149.4 timeout=False exposed=True
+    28.60s [grab] label=noon_medium ms=34.1 px=1920x1080
+    29.48s [shot] name=noon preset=medium settle_ms=902.7 build_date=2026-06-21 dark_px=872 clipped_pct=0.201
+    29.82s [wait] label=morning_medium want=6 got=6 ms=95.6 timeout=False exposed=True
+    29.85s [grab] label=morning_medium ms=35.0 px=1920x1080
+    30.75s [shot] name=morning preset=medium settle_ms=875.2 build_date=2026-06-21 dark_px=14 clipped_pct=0.075
+    30.78s [models_for_date] date=2026-12-21 models=94 in_season=False
+    31.17s [wait] label=december_noon_medium want=6 got=6 ms=142.2 timeout=False exposed=True
+    31.20s [grab] label=december_noon_medium ms=34.2 px=1920x1080
+    32.06s [shot] name=december_noon preset=medium settle_ms=876.5 build_date=2026-12-21 dark_px=261 clipped_pct=0.341
+    32.09s [models_for_date] date=2026-06-21 models=94 in_season=True
+    32.52s [wait] label=night_medium want=6 got=6 ms=165.6 timeout=False exposed=True
+    32.56s [grab] label=night_medium ms=36.6 px=1920x1080
+    33.45s [shot] name=night preset=medium settle_ms=940.8 build_date=2026-06-21 dark_px=9 clipped_pct=0.0
+    33.82s [wait] label=walk_medium want=6 got=6 ms=125.9 timeout=False exposed=True
+    33.86s [grab] label=walk_medium ms=35.8 px=1920x1080
+    34.79s [shot] name=walk preset=medium settle_ms=937.9 build_date=2026-06-21 dark_px=87 clipped_pct=0.094
+    37.35s [wait] label=golden_hour_high want=6 got=6 ms=2324.2 timeout=False exposed=True
+    37.39s [grab] label=golden_hour_high ms=34.2 px=1920x1080
+    38.30s [shot] name=golden_hour preset=high settle_ms=3119.8 build_date=2026-06-21 dark_px=22 clipped_pct=0.002
+    43.31s [fps] preset=high shot=golden_hour fps=59.79
+    43.64s [wait] label=sunset_high want=6 got=6 ms=93.4 timeout=False exposed=True
+    43.68s [grab] label=sunset_high ms=37.0 px=1920x1080
+    44.60s [shot] name=sunset preset=high settle_ms=898.3 build_date=2026-06-21 dark_px=9 clipped_pct=0.0
+    44.96s [wait] label=noon_high want=6 got=6 ms=104.2 timeout=False exposed=True
+    44.99s [grab] label=noon_high ms=37.7 px=1920x1080
+    45.88s [shot] name=noon preset=high settle_ms=874.1 build_date=2026-06-21 dark_px=855 clipped_pct=0.161
+    46.29s [wait] label=morning_high want=6 got=6 ms=162.9 timeout=False exposed=True
+    46.33s [grab] label=morning_high ms=39.5 px=1920x1080
+    47.25s [shot] name=morning preset=high settle_ms=962.4 build_date=2026-06-21 dark_px=11 clipped_pct=0.072
+    47.28s [models_for_date] date=2026-12-21 models=94 in_season=False
+    47.69s [wait] label=december_noon_high want=6 got=6 ms=170.0 timeout=False exposed=True
+    47.73s [grab] label=december_noon_high ms=35.5 px=1920x1080
+    48.58s [shot] name=december_noon preset=high settle_ms=897.8 build_date=2026-12-21 dark_px=246 clipped_pct=0.282
+    48.61s [models_for_date] date=2026-06-21 models=94 in_season=True
+    49.04s [wait] label=night_high want=6 got=6 ms=161.7 timeout=False exposed=True
+    49.08s [grab] label=night_high ms=38.7 px=1920x1080
+    49.98s [shot] name=night preset=high settle_ms=948.1 build_date=2026-06-21 dark_px=6 clipped_pct=0.0
+    50.39s [wait] label=walk_high want=6 got=6 ms=164.8 timeout=False exposed=True
+    50.43s [grab] label=walk_high ms=33.1 px=1920x1080
+    51.38s [shot] name=walk preset=high settle_ms=991.0 build_date=2026-06-21 dark_px=76 clipped_pct=0.083
+    51.86s [wait] label=golden_hour_ultra want=6 got=6 ms=238.6 timeout=False exposed=True
+    51.89s [grab] label=golden_hour_ultra ms=33.0 px=1920x1080
+    52.89s [shot] name=golden_hour preset=ultra settle_ms=1104.1 build_date=2026-06-21 dark_px=19 clipped_pct=0.001
+    57.89s [fps] preset=ultra shot=golden_hour fps=59.99
+    58.26s [wait] label=sunset_ultra want=6 got=6 ms=120.2 timeout=False exposed=True
+    58.30s [grab] label=sunset_ultra ms=33.1 px=1920x1080
+    59.28s [shot] name=sunset preset=ultra settle_ms=979.3 build_date=2026-06-21 dark_px=0 clipped_pct=0.0
+    59.70s [wait] label=noon_ultra want=6 got=6 ms=152.9 timeout=False exposed=True
+    59.73s [grab] label=noon_ultra ms=34.4 px=1920x1080
+    60.62s [shot] name=noon preset=ultra settle_ms=913.5 build_date=2026-06-21 dark_px=458 clipped_pct=0.152
+    61.00s [wait] label=morning_ultra want=6 got=6 ms=97.8 timeout=False exposed=True
+    61.03s [grab] label=morning_ultra ms=34.0 px=1920x1080
+    61.95s [shot] name=morning preset=ultra settle_ms=900.3 build_date=2026-06-21 dark_px=10 clipped_pct=0.065
+    61.99s [models_for_date] date=2026-12-21 models=94 in_season=False
+    62.38s [wait] label=december_noon_ultra want=6 got=6 ms=153.5 timeout=False exposed=True
+    62.41s [grab] label=december_noon_ultra ms=31.3 px=1920x1080
+    63.27s [shot] name=december_noon preset=ultra settle_ms=887.4 build_date=2026-12-21 dark_px=154 clipped_pct=0.302
+    63.31s [models_for_date] date=2026-06-21 models=94 in_season=True
+    63.76s [wait] label=night_ultra want=6 got=6 ms=198.0 timeout=False exposed=True
+    63.80s [grab] label=night_ultra ms=35.7 px=1920x1080
+    64.71s [shot] name=night preset=ultra settle_ms=988.4 build_date=2026-06-21 dark_px=3 clipped_pct=0.0
+    65.10s [wait] label=walk_ultra want=6 got=6 ms=137.5 timeout=False exposed=True
+    65.13s [grab] label=walk_ultra ms=36.0 px=1920x1080
+    66.09s [shot] name=walk preset=ultra settle_ms=973.9 build_date=2026-06-21 dark_px=45 clipped_pct=0.076
+    66.13s [wait] label=probes_before want=2 got=2 ms=31.0 timeout=False exposed=True
+    66.15s [grab] label=probes_before ms=18.3 px=1920x1080
+    66.16s [iou_start] preset=low
+    67.35s [wait] label=iou_15_low want=6 got=6 ms=942.9 timeout=False exposed=True
+    67.39s [grab] label=iou_15_low ms=43.9 px=1920x1080
+    68.76s [wait] label=iou_35_low want=6 got=6 ms=70.4 timeout=False exposed=True
+    68.81s [grab] label=iou_35_low ms=43.0 px=1920x1080
+    70.13s [wait] label=iou_60_low want=6 got=6 ms=75.7 timeout=False exposed=True
+    70.16s [grab] label=iou_60_low ms=26.9 px=1920x1080
+    70.66s [iou_done] preset=low 15deg=0.9302 35deg=0.9412 60deg=0.9002
+    70.66s [iou_start] preset=medium
+    71.86s [wait] label=iou_15_medium want=6 got=6 ms=955.3 timeout=False exposed=True
+    71.91s [grab] label=iou_15_medium ms=43.2 px=1920x1080
+    73.34s [wait] label=iou_35_medium want=6 got=6 ms=88.6 timeout=False exposed=True
+    73.36s [grab] label=iou_35_medium ms=23.9 px=1920x1080
+    74.79s [wait] label=iou_60_medium want=6 got=6 ms=80.8 timeout=False exposed=True
+    74.81s [grab] label=iou_60_medium ms=21.8 px=1920x1080
+    75.36s [iou_done] preset=medium 15deg=0.905 35deg=0.8932 60deg=0.8471
+    75.36s [iou_start] preset=high
+    76.67s [wait] label=iou_15_high want=6 got=6 ms=1042.0 timeout=False exposed=True
+    76.71s [grab] label=iou_15_high ms=38.3 px=1920x1080
+    78.15s [wait] label=iou_35_high want=6 got=6 ms=69.5 timeout=False exposed=True
+    78.19s [grab] label=iou_35_high ms=43.3 px=1920x1080
+    79.58s [wait] label=iou_60_high want=6 got=6 ms=75.2 timeout=False exposed=True
+    79.63s [grab] label=iou_60_high ms=42.6 px=1920x1080
+    80.18s [iou_done] preset=high 15deg=0.9393 35deg=0.9336 60deg=0.8968
+    80.18s [iou_start] preset=ultra
+    80.55s [wait] label=iou_15_ultra want=6 got=6 ms=116.4 timeout=False exposed=True
+    80.59s [grab] label=iou_15_ultra ms=40.5 px=1920x1080
+    82.07s [wait] label=iou_35_ultra want=6 got=6 ms=71.5 timeout=False exposed=True
+    82.11s [grab] label=iou_35_ultra ms=46.9 px=1920x1080
+    83.47s [wait] label=iou_60_ultra want=6 got=6 ms=69.4 timeout=False exposed=True
+    83.51s [grab] label=iou_60_ultra ms=43.6 px=1920x1080
+    84.07s [iou_done] preset=ultra 15deg=0.9868 35deg=0.9833 60deg=0.951
+    84.07s [orient_start]
+    84.80s [wait] label=orient_ground want=6 got=6 ms=468.6 timeout=False exposed=True
+    84.84s [grab] label=orient_ground ms=41.8 px=1920x1080
+    86.19s [wait] label=sky_90_look_65 want=4 got=4 ms=209.8 timeout=False exposed=True
+    86.23s [grab] label=sky_90_look_65 ms=33.8 px=1920x1080
+    86.32s [wait] label=sky_90_look_115 want=4 got=4 ms=63.2 timeout=False exposed=True
+    86.35s [grab] label=sky_90_look_115 ms=23.6 px=1920x1080
+    86.77s [wait] label=sky_180_look_155 want=4 got=4 ms=145.2 timeout=False exposed=True
+    86.81s [grab] label=sky_180_look_155 ms=38.3 px=1920x1080
+    86.91s [wait] label=sky_180_look_205 want=4 got=4 ms=60.9 timeout=False exposed=True
+    86.93s [grab] label=sky_180_look_205 ms=22.7 px=1920x1080
+    87.34s [wait] label=sky_270_look_245 want=4 got=4 ms=132.3 timeout=False exposed=True
+    87.38s [grab] label=sky_270_look_245 ms=34.7 px=1920x1080
+    87.46s [wait] label=sky_270_look_295 want=4 got=4 ms=49.9 timeout=False exposed=True
+    87.48s [grab] label=sky_270_look_295 ms=18.4 px=1920x1080
+    87.80s [orient_done] ground_ok=True sky_ok=True
+    87.99s [wait] label=probes_after want=3 got=3 ms=195.2 timeout=False exposed=True
+    88.03s [grab] label=probes_after ms=34.1 px=1920x1080
+    88.05s [probes_restored] frame_diff=0.0
+    88.06s [pick_start]
+    89.24s [wait] label=pick_view want=4 got=4 ms=1174.6 timeout=False exposed=True
+   105.64s [grab] label=pick_before_detach ms=9.1 px=1920x1080
+   105.68s [wait] label=pick_detach want=2 got=2 ms=26.0 timeout=False exposed=True
+   105.81s [wait] label=pick_reattach want=3 got=3 ms=102.4 timeout=False exposed=True
+   105.87s [grab] label=pick_after_reattach ms=56.8 px=1920x1080
+   106.37s [pick_done] result={"n": 20, "hits": 20, "hits_after_reattach": 20, "reattach_frame_diff": 0.0, "adversarial_n": 10, "adversarial_hits": 10, "adversarial_misses": [], "max_xy_err_cm": 0.0, "max_projection_err_px": 0.0, "pick_ms": {"n": 20, "median": 0.14, "max": 0.27, "p95": 0.26}, "misses": [], "camera": "orthographic top-down"}
+   106.38s [update_bench_start]
+   106.74s [wait] label=update_bench_add want=2 got=2 ms=322.4 timeout=False exposed=True
+   106.76s [wait] label=update_0 want=1 got=1 ms=5.0 timeout=False exposed=True
+   106.81s [wait] label=update_1 want=1 got=1 ms=30.3 timeout=False exposed=True
+   106.85s [wait] label=update_2 want=1 got=1 ms=23.8 timeout=False exposed=True
+   106.91s [wait] label=update_3 want=1 got=1 ms=46.6 timeout=False exposed=True
+   106.94s [wait] label=update_4 want=1 got=1 ms=21.1 timeout=False exposed=True
+   106.98s [wait] label=update_5 want=1 got=1 ms=21.6 timeout=False exposed=True
+   107.02s [wait] label=update_6 want=1 got=1 ms=21.6 timeout=False exposed=True
+   107.06s [wait] label=update_7 want=1 got=1 ms=26.4 timeout=False exposed=True
+   107.12s [wait] label=update_8 want=1 got=2 ms=50.6 timeout=False exposed=True
+   107.14s [wait] label=update_9 want=1 got=1 ms=6.2 timeout=False exposed=True
+   107.18s [wait] label=update_bench_remove want=1 got=1 ms=5.7 timeout=False exposed=True
+   107.22s [update_bench_done] result={"vertices": 100489, "triangles": 199712, "set_mesh_ms": {"n": 10, "median": 10.48, "max": 12.82}, "to_next_frame_ms": {"n": 10, "median": 34.73, "max": 59.89}}
+   107.22s [second_window_start]
+   107.30s [grab] label=second_window_reference ms=81.5 px=1920x1080
+   110.74s [wait] label=second_window_first_frame want=2 got=2 ms=3124.4 timeout=False exposed=True
+   110.78s [grab] label=second_window_first_ready ms=39.4 px=1920x1080
+   110.95s [second_window_done] result={"frame_diff_vs_first": 0.0, "qml_load_ms": 14.0, "first_frame_ms": 2970.8, "first_ready_ms": 3226.9, "total_ms": 3531.6}
+   110.95s [coexist_start]
+   111.00s [wait] label=coexist_reference want=3 got=3 ms=44.7 timeout=False exposed=True
+   111.02s [grab] label=coexist_reference ms=22.0 px=1920x1080
+   111.45s [coexist_web] loaded=True rgb=(58, 123, 213)
+   111.50s [wait] label=coexist_3d want=3 got=3 ms=47.4 timeout=False exposed=True
+   111.51s [grab] label=coexist_3d ms=16.1 px=1920x1080
+   111.62s [coexist_done] result={"share_opengl_contexts": false, "quick_graphics_api": "Direct3D11Rhi", "web_loaded": true, "web_rgb_before_3d": [58, 123, 213], "web_rgb_after_3d": [58, 123, 213], "web_ok": true, "frame3d_diff_vs_reference": 0.0, "frame3d_reference_luma_std": 42.3, "frame3d_ok": true}
+   111.62s [pan_bench_start]
+   116.03s [wait] label=pan_3d_ready want=2 got=2 ms=30.2 timeout=False exposed=True
+   118.44s [pan_bench_done] result={"steps": 120, "without_3d_ms": {"n": 120, "median": 5.72, "max": 36.0, "p95": 17.81}, "with_3d_ms": {"n": 120, "median": 16.69, "max": 33.18, "p95": 17.26}, "ratio_median": 2.915, "note": "per pan step incl. flush/composition; vsync can cap real-GPU numbers"}
+   118.44s [soak_start]
+   118.49s [wait] label=soak_show_0 want=1 got=1 ms=5.2 timeout=False exposed=True
+   118.53s [wait] label=soak_show_1 want=1 got=2 ms=5.2 timeout=False exposed=True
+   118.57s [wait] label=soak_show_2 want=1 got=1 ms=5.1 timeout=False exposed=True
+   118.61s [wait] label=soak_show_3 want=1 got=1 ms=6.2 timeout=False exposed=True
+   118.65s [wait] label=soak_show_4 want=1 got=2 ms=5.3 timeout=False exposed=True
+   118.67s [wait] label=soak_empty_4 want=1 got=1 ms=22.2 timeout=False exposed=True
+   119.16s [wait] label=soak_refill_4 want=1 got=1 ms=51.9 timeout=False exposed=True
+   119.22s [wait] label=soak_show_5 want=1 got=1 ms=5.4 timeout=False exposed=True
+   119.26s [wait] label=soak_show_6 want=1 got=1 ms=5.3 timeout=False exposed=True
+   119.29s [wait] label=soak_show_7 want=1 got=1 ms=4.6 timeout=False exposed=True
+   119.35s [wait] label=soak_show_8 want=1 got=1 ms=18.7 timeout=False exposed=True
+   119.40s [wait] label=soak_show_9 want=1 got=1 ms=17.5 timeout=False exposed=True
+   119.40s [wait] label=soak_empty_9 want=1 got=1 ms=4.7 timeout=False exposed=True
+   119.90s [wait] label=soak_refill_9 want=1 got=1 ms=48.7 timeout=False exposed=True
+   119.95s [wait] label=soak_show_10 want=1 got=1 ms=4.5 timeout=False exposed=True
+   120.00s [wait] label=soak_show_11 want=1 got=1 ms=17.9 timeout=False exposed=True
+   120.04s [wait] label=soak_show_12 want=1 got=1 ms=4.5 timeout=False exposed=True
+   120.07s [wait] label=soak_show_13 want=1 got=1 ms=5.0 timeout=False exposed=True
+   120.11s [wait] label=soak_show_14 want=1 got=1 ms=4.9 timeout=False exposed=True
+   120.12s [wait] label=soak_empty_14 want=1 got=1 ms=9.8 timeout=False exposed=True
+   120.60s [wait] label=soak_refill_14 want=1 got=1 ms=43.0 timeout=False exposed=True
+   120.66s [wait] label=soak_show_15 want=1 got=1 ms=5.2 timeout=False exposed=True
+   120.70s [wait] label=soak_show_16 want=1 got=1 ms=3.8 timeout=False exposed=True
+   120.75s [wait] label=soak_show_17 want=1 got=1 ms=20.5 timeout=False exposed=True
+   120.79s [wait] label=soak_show_18 want=1 got=1 ms=5.5 timeout=False exposed=True
+   120.83s [wait] label=soak_show_19 want=1 got=1 ms=4.8 timeout=False exposed=True
+   120.84s [wait] label=soak_empty_19 want=1 got=1 ms=11.1 timeout=False exposed=True
+   121.48s [wait] label=soak_refill_19 want=1 got=1 ms=52.4 timeout=False exposed=True
+   121.53s [wait] label=soak_show_20 want=1 got=1 ms=4.4 timeout=False exposed=True
+   121.56s [wait] label=soak_show_21 want=1 got=1 ms=4.2 timeout=False exposed=True
+   121.60s [wait] label=soak_show_22 want=1 got=1 ms=4.9 timeout=False exposed=True
+   121.64s [wait] label=soak_show_23 want=1 got=1 ms=4.6 timeout=False exposed=True
+   121.68s [wait] label=soak_show_24 want=1 got=1 ms=5.1 timeout=False exposed=True
+   121.69s [wait] label=soak_empty_24 want=1 got=1 ms=10.3 timeout=False exposed=True
+   122.19s [wait] label=soak_refill_24 want=1 got=1 ms=66.8 timeout=False exposed=True
+   122.26s [wait] label=soak_show_25 want=1 got=1 ms=28.7 timeout=False exposed=True
+   122.31s [wait] label=soak_show_26 want=1 got=1 ms=17.4 timeout=False exposed=True
+   122.35s [wait] label=soak_show_27 want=1 got=1 ms=5.5 timeout=False exposed=True
+   122.39s [wait] label=soak_show_28 want=1 got=1 ms=5.2 timeout=False exposed=True
+   122.43s [wait] label=soak_show_29 want=1 got=1 ms=4.2 timeout=False exposed=True
+   122.44s [wait] label=soak_empty_29 want=1 got=1 ms=10.1 timeout=False exposed=True
+   122.96s [wait] label=soak_refill_29 want=1 got=1 ms=66.0 timeout=False exposed=True
+   123.02s [wait] label=soak_show_30 want=1 got=1 ms=4.2 timeout=False exposed=True
+   123.06s [wait] label=soak_show_31 want=1 got=1 ms=4.3 timeout=False exposed=True
+   123.12s [wait] label=soak_show_32 want=1 got=1 ms=20.1 timeout=False exposed=True
+   123.15s [wait] label=soak_show_33 want=1 got=1 ms=5.1 timeout=False exposed=True
+   123.19s [wait] label=soak_show_34 want=1 got=1 ms=5.1 timeout=False exposed=True
+   123.21s [wait] label=soak_empty_34 want=1 got=1 ms=16.6 timeout=False exposed=True
+   123.71s [wait] label=soak_refill_34 want=1 got=1 ms=76.1 timeout=False exposed=True
+   123.78s [wait] label=soak_show_35 want=1 got=1 ms=21.5 timeout=False exposed=True
+   123.83s [wait] label=soak_show_36 want=1 got=1 ms=17.3 timeout=False exposed=True
+   123.88s [wait] label=soak_show_37 want=1 got=1 ms=17.1 timeout=False exposed=True
+   123.92s [wait] label=soak_show_38 want=1 got=1 ms=4.4 timeout=False exposed=True
+   123.96s [wait] label=soak_show_39 want=1 got=1 ms=3.4 timeout=False exposed=True
+   123.97s [wait] label=soak_empty_39 want=1 got=1 ms=15.9 timeout=False exposed=True
+   124.59s [wait] label=soak_refill_39 want=1 got=1 ms=90.2 timeout=False exposed=True
+   124.70s [wait] label=soak_show_40 want=1 got=1 ms=62.6 timeout=False exposed=True
+   124.74s [wait] label=soak_show_41 want=1 got=1 ms=5.6 timeout=False exposed=True
+   124.78s [wait] label=soak_show_42 want=1 got=1 ms=5.4 timeout=False exposed=True
+   124.83s [wait] label=soak_show_43 want=1 got=1 ms=19.0 timeout=False exposed=True
+   124.87s [wait] label=soak_show_44 want=1 got=1 ms=6.6 timeout=False exposed=True
+   124.89s [wait] label=soak_empty_44 want=1 got=1 ms=21.1 timeout=False exposed=True
+   125.37s [wait] label=soak_refill_44 want=1 got=1 ms=61.2 timeout=False exposed=True
+   125.45s [wait] label=soak_show_45 want=1 got=1 ms=29.2 timeout=False exposed=True
+   125.50s [wait] label=soak_show_46 want=1 got=1 ms=17.2 timeout=False exposed=True
+   125.55s [wait] label=soak_show_47 want=1 got=1 ms=17.2 timeout=False exposed=True
+   125.60s [wait] label=soak_show_48 want=1 got=1 ms=17.1 timeout=False exposed=True
+   125.65s [wait] label=soak_show_49 want=1 got=1 ms=18.1 timeout=False exposed=True
+   125.65s [wait] label=soak_empty_49 want=1 got=1 ms=5.2 timeout=False exposed=True
+   126.15s [wait] label=soak_refill_49 want=1 got=1 ms=68.1 timeout=False exposed=True
+   126.21s [wait] label=soak_show_50 want=1 got=1 ms=5.2 timeout=False exposed=True
+   126.24s [wait] label=soak_show_51 want=1 got=1 ms=4.3 timeout=False exposed=True
+   126.28s [wait] label=soak_show_52 want=1 got=1 ms=4.2 timeout=False exposed=True
+   126.32s [wait] label=soak_show_53 want=1 got=1 ms=4.3 timeout=False exposed=True
+   126.36s [wait] label=soak_show_54 want=1 got=1 ms=5.3 timeout=False exposed=True
+   126.37s [wait] label=soak_empty_54 want=1 got=1 ms=16.2 timeout=False exposed=True
+   126.86s [wait] label=soak_refill_54 want=1 got=2 ms=70.7 timeout=False exposed=True
+   126.93s [wait] label=soak_show_55 want=1 got=1 ms=26.1 timeout=False exposed=True
+   126.97s [wait] label=soak_show_56 want=1 got=1 ms=4.4 timeout=False exposed=True
+   127.01s [wait] label=soak_show_57 want=1 got=1 ms=5.4 timeout=False exposed=True
+   127.05s [wait] label=soak_show_58 want=1 got=1 ms=5.0 timeout=False exposed=True
+   127.10s [wait] label=soak_show_59 want=1 got=1 ms=19.2 timeout=False exposed=True
+   127.11s [wait] label=soak_empty_59 want=1 got=1 ms=5.5 timeout=False exposed=True
+   127.60s [wait] label=soak_refill_59 want=1 got=1 ms=83.2 timeout=False exposed=True
+   127.68s [wait] label=soak_show_60 want=1 got=1 ms=38.7 timeout=False exposed=True
+   127.73s [wait] label=soak_show_61 want=1 got=1 ms=17.9 timeout=False exposed=True
+   127.78s [wait] label=soak_show_62 want=1 got=1 ms=17.4 timeout=False exposed=True
+   127.83s [wait] label=soak_show_63 want=1 got=1 ms=17.2 timeout=False exposed=True
+   127.87s [wait] label=soak_show_64 want=1 got=1 ms=5.2 timeout=False exposed=True
+   127.89s [wait] label=soak_empty_64 want=1 got=1 ms=16.2 timeout=False exposed=True
+   128.37s [wait] label=soak_refill_64 want=1 got=1 ms=67.2 timeout=False exposed=True
+   128.43s [wait] label=soak_show_65 want=1 got=1 ms=5.5 timeout=False exposed=True
+   128.48s [wait] label=soak_show_66 want=1 got=1 ms=19.1 timeout=False exposed=True
+   128.52s [wait] label=soak_show_67 want=1 got=1 ms=5.8 timeout=False exposed=True
+   128.56s [wait] label=soak_show_68 want=1 got=1 ms=5.4 timeout=False exposed=True
+   128.62s [wait] label=soak_show_69 want=1 got=1 ms=19.7 timeout=False exposed=True
+   128.62s [wait] label=soak_empty_69 want=1 got=1 ms=5.6 timeout=False exposed=True
+   129.17s [wait] label=soak_refill_69 want=1 got=1 ms=78.3 timeout=False exposed=True
+   129.25s [wait] label=soak_show_70 want=1 got=1 ms=25.1 timeout=False exposed=True
+   129.29s [wait] label=soak_show_71 want=1 got=1 ms=6.8 timeout=False exposed=True
+   129.33s [wait] label=soak_show_72 want=1 got=1 ms=5.6 timeout=False exposed=True
+   129.37s [wait] label=soak_show_73 want=1 got=1 ms=4.3 timeout=False exposed=True
+   129.41s [wait] label=soak_show_74 want=1 got=1 ms=5.6 timeout=False exposed=True
+   129.43s [wait] label=soak_empty_74 want=1 got=1 ms=21.4 timeout=False exposed=True
+   129.99s [wait] label=soak_refill_74 want=1 got=1 ms=15.5 timeout=False exposed=True
+   130.15s [wait] label=soak_show_75 want=1 got=1 ms=76.7 timeout=False exposed=True
+   130.19s [wait] label=soak_show_76 want=1 got=1 ms=5.3 timeout=False exposed=True
+   130.23s [wait] label=soak_show_77 want=1 got=1 ms=5.4 timeout=False exposed=True
+   130.28s [wait] label=soak_show_78 want=1 got=1 ms=18.7 timeout=False exposed=True
+   130.32s [wait] label=soak_show_79 want=1 got=1 ms=5.2 timeout=False exposed=True
+   130.35s [wait] label=soak_empty_79 want=1 got=1 ms=22.0 timeout=False exposed=True
+   130.86s [wait] label=soak_refill_79 want=1 got=1 ms=71.2 timeout=False exposed=True
+   130.93s [wait] label=soak_show_80 want=1 got=1 ms=25.8 timeout=False exposed=True
+   130.97s [wait] label=soak_show_81 want=1 got=1 ms=4.9 timeout=False exposed=True
+   131.01s [wait] label=soak_show_82 want=1 got=1 ms=4.7 timeout=False exposed=True
+   131.05s [wait] label=soak_show_83 want=1 got=1 ms=5.2 timeout=False exposed=True
+   131.10s [wait] label=soak_show_84 want=1 got=1 ms=17.5 timeout=False exposed=True
+   131.11s [wait] label=soak_empty_84 want=1 got=1 ms=5.8 timeout=False exposed=True
+   131.61s [wait] label=soak_refill_84 want=1 got=1 ms=70.2 timeout=False exposed=True
+   131.68s [wait] label=soak_show_85 want=1 got=1 ms=27.2 timeout=False exposed=True
+   131.73s [wait] label=soak_show_86 want=1 got=1 ms=17.6 timeout=False exposed=True
+   131.77s [wait] label=soak_show_87 want=1 got=1 ms=5.6 timeout=False exposed=True
+   131.81s [wait] label=soak_show_88 want=1 got=1 ms=4.3 timeout=False exposed=True
+   131.85s [wait] label=soak_show_89 want=1 got=1 ms=5.0 timeout=False exposed=True
+   131.86s [wait] label=soak_empty_89 want=1 got=1 ms=10.7 timeout=False exposed=True
+   132.37s [wait] label=soak_refill_89 want=1 got=1 ms=89.1 timeout=False exposed=True
+   132.45s [wait] label=soak_show_90 want=1 got=1 ms=37.9 timeout=False exposed=True
+   132.50s [wait] label=soak_show_91 want=1 got=1 ms=17.6 timeout=False exposed=True
+   132.54s [wait] label=soak_show_92 want=1 got=1 ms=4.0 timeout=False exposed=True
+   132.58s [wait] label=soak_show_93 want=1 got=1 ms=6.1 timeout=False exposed=True
+   132.61s [wait] label=soak_show_94 want=1 got=1 ms=4.4 timeout=False exposed=True
+   132.62s [wait] label=soak_empty_94 want=1 got=1 ms=10.2 timeout=False exposed=True
+   133.12s [wait] label=soak_refill_94 want=1 got=1 ms=74.0 timeout=False exposed=True
+   133.20s [wait] label=soak_show_95 want=1 got=1 ms=31.6 timeout=False exposed=True
+   133.24s [wait] label=soak_show_96 want=1 got=1 ms=4.7 timeout=False exposed=True
+   133.28s [wait] label=soak_show_97 want=1 got=1 ms=5.2 timeout=False exposed=True
+   133.32s [wait] label=soak_show_98 want=1 got=1 ms=4.8 timeout=False exposed=True
+   133.36s [wait] label=soak_show_99 want=1 got=1 ms=5.3 timeout=False exposed=True
+   133.38s [wait] label=soak_empty_99 want=1 got=1 ms=16.9 timeout=False exposed=True
+   133.88s [wait] label=soak_refill_99 want=1 got=1 ms=67.6 timeout=False exposed=True
+   133.90s [soak_done] result={"cycles": 100, "reentry_ms": {"n": 100, "median": 7.99, "max": 79.4, "p95": 30.84}, "rss_start_mb": 932.3, "rss_end_mb": 1164.8, "leak_metric": "private_bytes", "leak_curve_mb": [2372.2, 2428.6, 2431.9, 2348.6, 2343.2, 2345.8, 2397.3, 2401.8, 2375.6, 2390.2, 2389.0, 2401.0, 2392.1, 2459.5, 2465.2, 2470.2, 2501.6, 2503.1, 2517.4, 2512.2], "project_reloads": 20, "reload_ms": {"n": 20, "median": 429
+   134.15s [wait] label=animate_before_close want=8 got=8 ms=244.2 timeout=False exposed=True
+   134.15s [closed_while_animating] wind_time=0.116 frames=8 exit_code=0
+   134.47s [done] status=ok total_s=134.15 wait_timeouts=0

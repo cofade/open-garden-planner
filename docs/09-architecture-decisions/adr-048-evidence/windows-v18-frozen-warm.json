@@ -1,0 +1,158 @@
+{
+  "_provenance": {
+    "workflow": "spike-q3d.yml (temporary)",
+    "run_id": "37312863784",
+    "run_url": "https://github.com/cofade/open-garden-planner/actions/runs/37312863784",
+    "commit": "46d88ff",
+    "runner": "windows-latest (no GPU: Direct3D 11 on WARP)",
+    "mode": "frozen-warm",
+    "extracted_from": "job log (artifact host unreachable from the analysis container)",
+    "note": "Second launch of the same shot; found the three caches the first launch wrote."
+  },
+  "status": "ok",
+  "args": {
+    "spike_q3d": true,
+    "plan": "tests\\fixtures\\plans\\bench_small.ogp",
+    "out": "D:\\a\\open-garden-planner\\open-garden-planner\\spike-frozen-warm",
+    "host": "view",
+    "presets": "low",
+    "shots": "golden_hour",
+    "size": "960x540",
+    "fps_seconds": 0.0,
+    "iou": false,
+    "orient": false,
+    "no_grass": false,
+    "grass_density": 60.0,
+    "ssgi": false,
+    "no_ssr": false,
+    "frame_timeout_s": 120.0,
+    "watchdog_s": 600.0,
+    "pick": false,
+    "update_bench": false,
+    "cold": false,
+    "second_window": false,
+    "coexist": false,
+    "pan_bench": false,
+    "qml_dir": null,
+    "soak_leak_mb": 0.0,
+    "soak": 0,
+    "unknown": []
+  },
+  "platform": "Windows-10-10.0.26100-SP0",
+  "python": "3.11.9",
+  "frozen": true,
+  "plan": "tests\\fixtures\\plans\\bench_small.ogp",
+  "host": "view",
+  "size": [
+    960,
+    540
+  ],
+  "env": {
+    "QSG_RHI_BACKEND": null,
+    "QT_QPA_PLATFORM": null,
+    "QSG_RHI_PREFER_SOFTWARE_RENDERER": null,
+    "QSG_RENDER_LOOP": null
+  },
+  "qt": "6.11.0",
+  "shader_caches": {
+    "cold": false,
+    "disabled_by_env": [],
+    "found_before_run": [
+      "q3dshadercache-x86_64-little_endian-llp64",
+      "qmlcache",
+      "qtpipelinecache-x86_64-little_endian-llp64"
+    ]
+  },
+  "load_plan_ms": 102.65499999991334,
+  "ground_bake_ms": 88.2977999999639,
+  "build_models_ms": 411.68900000002395,
+  "build": {
+    "date": "2026-06-21",
+    "items": 99,
+    "models": 94,
+    "triangles": 193182,
+    "in_season": true,
+    "by_kind_ms": {
+      "RAIN_BARREL": 1.0,
+      "WHEELBARROW": 0.1,
+      "COMPOST_BIN": 0.1,
+      "TRAMPOLINE": 1.1,
+      "BIRD_BATH": 0.5,
+      "BENCH": 0.3,
+      "FIRE_PIT": 0.3,
+      "BBQ_GRILL": 0.5,
+      "CHAIR": 1.2,
+      "TABLE_RECTANGULAR": 0.3,
+      "plants": 364.9,
+      "TRELLIS": 0.8,
+      "CONTAINER_ROUND": 1.0,
+      "RAISED_BED": 0.5,
+      "GARDEN_BED": 0.0,
+      "PATH": 0.0,
+      "WALL": 0.2,
+      "HEDGE_POLYGON": 8.7,
+      "FENCE": 10.9,
+      "PERGOLA": 0.8,
+      "GARAGE_SHED": 1.0,
+      "GREENHOUSE": 1.9,
+      "HOUSE": 0.9,
+      "POND_POOL": 0.3,
+      "DRIVEWAY": 0.0,
+      "TERRACE_PATIO": 0.0,
+      "LAWN": 0.0,
+      "grass": 7.3
+    }
+  },
+  "qt_messages": {
+    "counts": {
+      "error": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "errors": [],
+    "warnings": []
+  },
+  "qml_load_ms": 21.919400000115274,
+  "scene_apply_ms": 7.04160000009324,
+  "geometry_upload_ms_total": 38.800499999979365,
+  "look_and_sun_ms": 295.2718999999888,
+  "first_frame_ms": 228.29970000020694,
+  "first_ready_ms": 48257.8,
+  "open_ms": 49083.2,
+  "open_breakdown_ms": {
+    "ground_bake": 88.3,
+    "build_models": 411.7,
+    "qml_load": 21.9,
+    "scene_apply": 7.0,
+    "look_and_sun": 295.3,
+    "show_to_first_ready": 48257.8
+  },
+  "graphics_api": "Direct3D11Rhi",
+  "shots": [
+    {
+      "shot": "golden_hour",
+      "preset": "low",
+      "file": "golden_hour_low.png",
+      "sun_elev": 15.23,
+      "sun_az": 288.8,
+      "sun_date": "2026-06-21",
+      "build_date": "2026-06-21",
+      "settle_ms": 48194.1,
+      "grab_ms": 47900.5,
+      "isolated_dark_px": 0,
+      "clipped_pct": 0.0,
+      "mean_luma": 104.47
+    }
+  ],
+  "builds": {
+    "2026-06-21": {
+      "items": 99,
+      "models": 94,
+      "triangles": 193182,
+      "in_season": true,
+      "build_ms": 411.7
+    }
+  },
+  "wait_timeouts": 0,
+  "total_s": 97.87
+}
