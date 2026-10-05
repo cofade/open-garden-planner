@@ -150,8 +150,9 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
   MB they hold. Longer soaks (v13–v19; v15–v19 ran 100 reloads): identical code rose +196 and
   +62 MB by reload 50, and over reloads 51–100 the five 100-reload runs (the same soak path)
   had slopes of 0.21, 2.03, 3.05, 0.08 and 3.50 MB/reload, the 0.08 an interval that includes
-  zero. llvmpipe RSS reads 0.00–0.46 MB/reload, so it is not Python-side growth in the spike;
-  a D3D11 resource retained per reload is not ruled out (WARP keeps GPU memory in private
+  zero. Over reloads 11–20 llvmpipe RSS read 0.00–0.46 MB/reload where WARP read 1.5–9.0, so
+  over that window it is not Python-side growth of WARP's size (no Linux soak runs past reload
+  20); a D3D11 resource retained per reload is not ruled out (WARP keeps GPU memory in private
   bytes; a discrete GPU keeps it in VRAM, unseen). Cause unidentified; locate it with an A/B
   soak, not a longer one. Record the whole curve (`leak_curve_mb`) with the verdict, and write
   numbers, not shapes: "ceiling", "slowing" and "threefold" each overreached on these curves.

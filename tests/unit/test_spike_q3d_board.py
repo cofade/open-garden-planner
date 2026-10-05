@@ -403,7 +403,7 @@ def _shared_generator_harvests(frost: str, start: float, end: float, day: date) 
     ("02-29", 10, 20),     # a frost date that exists in leap years only
 ])
 def test_harvest_window_matches_the_shared_generator(frost: str, start: int, end: int) -> None:
-    """Every third day of 2026-2028, the spike answers what the shared generator answers.
+    """Every day of 2026-2028, the spike answers what the shared generator answers.
 
     The generator anchors on every frost year whose window can reach the date, derived
     from the offsets. A fixed ±1-year anchor in the spike returned False on asparagus
@@ -429,7 +429,7 @@ def test_harvest_window_matches_the_shared_generator(frost: str, start: int, end
         if (got is None) is frost_exists or (got is True) is not _shared_generator_harvests(
                 frost, start, end, day):
             mismatches.append((day.isoformat(), got))
-        day += timedelta(days=3)
+        day += timedelta(days=1)
     assert mismatches == []
 
 
