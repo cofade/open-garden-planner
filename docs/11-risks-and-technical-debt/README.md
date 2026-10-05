@@ -885,22 +885,23 @@ child's `PYTHONPATH`; `scripts/bench_view3d.py` inserts it itself. *A subprocess
 does not inherit the parent's import path; pin it, or the test measures whatever
 the environment happens to point at.*
 
-**15. A rule ported by hand drifts from its source.** Symptom: none on the bench.
-The spike shows fruit only in a species' harvest window
+**15. A rule ported by hand drifts from its source.** Symptom: none on the
+bench. The spike shows fruit only in a species' harvest window
 (`runner.in_harvest_window`), and that port returned False on every asparagus
 harvest date at frost dates from 4 January on, and on rhubarb's from 1 January
-until just before the frost's anniversary (291 of 1,096 harvest days in 2026–2028
-at a 04-09 frost, 783 at 09-20). Neither has a fruit look in the spike, so no
-frame changed. Cause: the port took a fixed ±1-year frost anchor and was checked
-against the single-year `generate_calendar_tasks`, while the generator the agent's
-task tools use (`get_tasks`, `get_task_calendar`), `generate_for_date_window`,
-derives the anchor years from the offsets. Fix: the port derives the range the
-same way, pinned by a test that compares the two every day of three years,
-asparagus and a southern plan included (ADR-048 entry 18 cites the review passes;
-PR #413 holds their history). The check also showed that every GUI task surface
-anchors on one year (TD-037). *Pin a port to its source day by day, find the
-source the product actually calls before naming a deviation, and sweep what the
-user sees before saying a fix changed it.*
+until just before the frost's anniversary (291 of 1,096 harvest days in
+2026–2028 at a 04-09 frost, 783 at 09-20). Neither has a fruit look in the
+spike, so no frame changed. Cause: the port took a fixed ±1-year frost anchor
+and was checked against the single-year `generate_calendar_tasks`, while the
+generator the agent's task tools use (`get_tasks`, `get_task_calendar`),
+`generate_for_date_window`, derives the anchor years from the offsets (a
+29 February frost: ADR-048 entry 18). Fix: the port derives the range the same
+way, pinned by a test that compares the two every day of three years, asparagus
+and a southern plan included (ADR-048 entry 18 cites the review passes; PR #413
+holds their history). The check also showed that every GUI task surface anchors
+on one year (TD-037). *Pin a port to its source day by day, find the source the
+product actually calls before naming a deviation, and sweep what the user sees
+before saying a fix changed it.*
 
 ## 11.5 Community and Governance
 
