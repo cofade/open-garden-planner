@@ -43,6 +43,7 @@ def _metrics(**overrides: object) -> dict:
                  "max_xy_err_cm": 0.0},
         "soak": {"animation_advanced": True, "cycles": 20, "project_reloads": 4,
                  "models_per_reload_ok": True, "leak_slope_mb_per_reload": 0.2},
+        "probe_restore_frame_diff": 0.0,
     }
     metrics.update(overrides)
     return metrics
@@ -148,3 +149,13 @@ def test_frame_comparisons_are_checked(driver) -> None:
 def test_the_leak_amount_flag_is_not_the_soak_flag(driver) -> None:
     assert driver._requested_sections(["--soak-leak-mb", "25"]) == []
     assert driver._requested_sections(["--soak", "100", "--soak-leak-mb", "25"]) == ["soak"]
+
+
+def test_a_probed_run_without_the_restore_check_fails(driver) -> None:
+    """Fail closed: once --iou or --orient ran, a missing restore metric is a failure,
+    not a skipped check (senior review, pass 5)."""
+    metrics = _metrics()
+    del metrics["probe_restore_frame_diff"]
+    assert driver._verdict(metrics, ARGS) == [
+        "the probes leave the view as they found it (< 1 luma)"]
+    assert driver._verdict(metrics, ["--pick", "--soak", "20"]) == []

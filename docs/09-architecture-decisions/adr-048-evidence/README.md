@@ -42,7 +42,7 @@
 | `windows-v13-frozen-leakctl.json` | same | cf7eb66 | Positive control: 25 MB held per reload read 32.9 MB/reload and failed the gate |
 | `windows-v13-frozen-longsoak.json` | same | cf7eb66 | **Experiment, not a gate:** 50 reloads at 640×360, no probes; +87 MB by reload 50 (ADR-048 entry 10). dist delta +1.7 MB (no separate footprint file) |
 | `windows-v14-unfrozen.json` | [37293091187](https://github.com/cofade/open-garden-planner/actions/runs/37293091187) | f1b998e | `--cold`; the first run with 3D creator round 4 |
-| `windows-v14-frozen.json` | same | f1b998e | All 41 checks; low IoU 0.984 / 0.982 / 0.964 with the VeryHigh map; isolated dark pixels 0 / 5; leak gate 3.4 MB/reload |
+| `windows-v14-frozen.json` | same | f1b998e | All 41 checks; low IoU 0.984 / 0.982 / 0.964 with the VeryHigh map; isolated dark pixels 0 / 5 on golden-hour frames (not a sharpening check); leak gate 3.4 MB/reload |
 | `windows-v14-frozen-warm.json` | same | f1b998e | Warm relaunch (three caches found) |
 | `windows-v14-frozen-leakctl.json` | same | f1b998e | Positive control: 25 MB held per reload read 30.9 MB/reload and failed the gate |
 | `windows-v14-frozen-longsoak.json` | same | f1b998e | **Experiment, not a gate:** 50 reloads; +196 MB by reload 50 (ADR-048 entry 10). dist delta +1.7 MB |

@@ -142,7 +142,8 @@ def test_every_flat_face_on_the_board_stores_its_winding_normal(plan) -> None:
 
 def test_roofs_wear_their_own_material_and_keep_the_houses_height(plan) -> None:
     """The house and the shed: walls in the shared material, the roof (slabs, soffit, ridge
-    cap) as its own "roof" model — the shared 0.35 specular made the noon roof salmon."""
+    cap) as its own "roof" model (roughness 0.80, specular 0.15). The shared specular was
+    measured NOT to be what reads coral at noon (GardenSpike.qml, roofMat)."""
     from open_garden_planner.core.object_height import effective_height_cm
 
     _scene, items, boards = plan
@@ -357,11 +358,6 @@ TOMATO = {"common_name": "Tomato", "harvest_start": 10, "harvest_end": 20}
     (BERLIN, TOMATO, date(2026, 8, 27), True),     # 04-09 + 20 weeks
     (BERLIN, TOMATO, date(2026, 8, 28), False),
     (BERLIN, TOMATO, date(2026, 12, 21), False),
-    # a window across the new year (southern plan): anchored on last year's frost too
-    ({"frost_dates": {"last_spring_frost": "09-20"}}, TOMATO, date(2026, 1, 15), True),
-    ({"frost_dates": {"last_spring_frost": "09-20"}}, TOMATO, date(2026, 3, 1), False),
-    # negative offsets (a harvest before the last frost) anchor on next year's frost
-    (BERLIN, {"harvest_start": -30, "harvest_end": -20}, date(2026, 10, 1), True),
     # no window to read: None, and the frost-free season decides
     (BERLIN, {"harvest_start": 10}, date(2026, 6, 21), None),
     (BERLIN, {"harvest_start": None, "harvest_end": 20}, date(2026, 6, 21), None),
@@ -373,20 +369,49 @@ TOMATO = {"common_name": "Tomato", "harvest_start": 10, "harvest_end": 20}
     (None, TOMATO, date(2026, 6, 21), None),
     ({"frost_dates": {"last_spring_frost": "02-29"}}, TOMATO, date(2026, 6, 21), None),
 ])
-def test_harvest_window_is_the_planting_calendars(location, species, day: date,
+def test_harvest_window_follows_the_calendar_rule(location, species, day: date,
                                                   expected: bool | None) -> None:
     assert runner.in_harvest_window(location, day, species) is expected
 
 
-def test_harvest_window_matches_the_task_generator() -> None:
-    """The same dates the planting calendar's harvest task spans, from the same rule."""
-    from open_garden_planner.services.task_generator import _parse_frost
+@pytest.mark.parametrize(("location", "species", "day"), [
+    # a window across the new year (southern plan): anchored on last year's frost too
+    ({"frost_dates": {"last_spring_frost": "09-20"}}, TOMATO, date(2026, 1, 15)),
+    # negative offsets (a harvest before the last frost) anchor on next year's frost
+    (BERLIN, {"harvest_start": -30, "harvest_end": -20}, date(2026, 10, 1)),
+])
+def test_harvest_window_extends_the_calendar_across_the_new_year(location, species,
+                                                                  day: date) -> None:
+    """A deliberate deviation, named (senior review, pass 5): the planting calendar
+    anchors on the given year's frost only and shows NO harvest task on these dates;
+    the spike also anchors on the frost of the year before and after. A northern plan
+    with non-negative offsets, like the bench, is unaffected (the test above)."""
+    assert runner.in_harvest_window(location, day, species) is True
+    assert runner.in_harvest_window({"frost_dates": {"last_spring_frost": "09-20"}},
+                                    date(2026, 3, 1), TOMATO) is False
 
-    last_frost = _parse_frost("04-09", 2026)
+
+def test_harvest_window_matches_the_task_generator() -> None:
+    """The dates the planting calendar's own harvest task spans: the task comes from
+    ``generate_calendar_tasks`` itself, not from the formula re-derived here."""
     import datetime as dt
 
-    start = last_frost + dt.timedelta(weeks=TOMATO["harvest_start"])
-    end = last_frost + dt.timedelta(weeks=TOMATO["harvest_end"])
+    from open_garden_planner.services.task_generator import (
+        PlanState,
+        PlantRowInput,
+        _parse_frost,
+        generate_calendar_tasks,
+    )
+
+    state = PlanState(today=date(2026, 6, 21), year=2026, last_frost=_parse_frost("04-09", 2026),
+                      plant_rows=(PlantRowInput(display_name="Tomato",
+                                                species_key="solanum lycopersicum",
+                                                harvest_start=TOMATO["harvest_start"],
+                                                harvest_end=TOMATO["harvest_end"]),),
+                      actionable_only=False)
+    harvest = [t for t in generate_calendar_tasks(state) if t.task_type == "harvest"]
+    assert len(harvest) == 1
+    start, end = harvest[0].start_date, harvest[0].end_date
     assert (start, end) == (date(2026, 6, 18), date(2026, 8, 27))
     for day in (start - dt.timedelta(days=1), start, end, end + dt.timedelta(days=1)):
         assert runner.in_harvest_window(BERLIN, day, TOMATO) is (start <= day <= end)

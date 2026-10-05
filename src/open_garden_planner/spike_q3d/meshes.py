@@ -147,8 +147,8 @@ WHITE_BARK_SHADE = 0.7
 # plum rounded; birch a narrow ovoid crown reaching low, pendulous twigs, white bark
 # (ACCENTS["white"]); magnolia low-branched and broad, wider above; maple broad, rounded,
 # slightly wider above; walnut a broad spreading dome on a tall clear trunk. Reviewer
-# pass 3 (side silhouettes at one size, review3/silhouettes.py): mean overlap across
-# species 0.730 → 0.700 with the apple, pear, maple and walnut values below.
+# pass 3 (side silhouettes at one size, a scratch measurement, not committed): mean
+# overlap across species 0.730 → 0.700 with the apple, pear, maple and walnut values below.
 CANOPY_FORM: dict[str, CanopyForm] = {
     "apple tree": CanopyForm(trunk=0.20, taper=0.15, droop=0.45),
     "pear tree": CanopyForm(trunk=0.24, taper=0.7, droop=0.1),
@@ -580,9 +580,12 @@ def flowers(centers: np.ndarray, normals: np.ndarray, radius: float, petal: str,
 
 
 # Per-plant triangle budgets (ADR-048 plan §9, the reviewer's budget gate): a tree's
-# wood + leaves + fruit/flowers stay within TREE_TRIANGLE_BUDGET; any other plant
-# within PLANT_TRIANGLE_BUDGET (measured headroom on the bench plans: max 3,252, a
-# zucchini). A crown whose surface asks for more leaves than the budget leaves room
+# wood + leaves + fruit/flowers stay within TREE_TRIANGLE_BUDGET (bounded by
+# construction, below). PLANT_TRIANGLE_BUDGET is a target any other plant MEETS on the
+# bench plans (max 3,252, a zucchini) but is not bounded by: builders dispatch by species
+# archetype, so a tree-archetype species on a non-TREE item (a magnolia SHRUB: 24,636)
+# or any conifer (>= 6,016 from the 3,000-spray floor) exceeds it; L1.7 budgets by
+# archetype (senior review, pass 5). A crown whose surface asks for more leaves than the budget leaves room
 # for gets FEWER, LARGER leaves with the same coverage (1.6) — never a sparser crown.
 TREE_TRIANGLE_BUDGET = 25_000
 PLANT_TRIANGLE_BUDGET = 6_000
@@ -599,8 +602,12 @@ TREE_FRUIT_MAX = 140
 # 13,986 + 4,480 + 4,000 = 22,466 ≤ 25,000: above the floor the leaves take what is left
 # (``n_max``), so no tree can exceed the budget. With segments from the height alone and
 # 1800 nodes checked once per growth step, the wood alone reached 23,730 (3D reviewer
-# pass 4: 32 of 448 swept trees over); now the sweep's maximum is 8,330 at 596 nodes.
+# pass 4: 32 of 448 trees over, in a scratch sweep that is not committed; the committed
+# tests cover the bench plans and wide crowns); now that sweep's maximum is 8,330 at 596 nodes.
 TREE_NODES_MAX = 1000
+# the two other constants the bound is built from, used by space_colonization_tree
+TREE_LIMB_SIDES = 7  # sides of every limb tube: the wood term
+TREE_LEAVES_PER_TWIG_MIN = 2  # the leaf floor per twig (2 triangles each): the leaf term
 # needle sprays on a conifer, at most: 2 triangles each plus the 16-triangle trunk
 CONIFER_SPRAYS_MAX = 12_000
 
@@ -735,7 +742,7 @@ def space_colonization_tree(seed: int, height: float, spread: float, palette: st
     shade = np.random.default_rng(seed + 1).uniform(0.92, 1.08, n_branches).astype(np.float32)
     bark = _rgba(form.bark, len(seg_i))
     bark[:, :3] *= shade[branch[seg_i]][:, None] * form.bark_shade
-    wood = limb_tubes(pts, par, radius, is_cont, bark, sides=7)
+    wood = limb_tubes(pts, par, radius, is_cont, bark, sides=TREE_LIMB_SIDES)
     # foliage: leaf clusters on every thin branch inside the crown; the leaf count
     # follows the crown's surface area so coverage (not a magic number) is the knob
     thin_cut = np.percentile(radius[1:], 60) if len(radius) > 1 else radius[0]
@@ -754,7 +761,7 @@ def space_colonization_tree(seed: int, height: float, spread: float, palette: st
     n_max = (TREE_TRIANGLE_BUDGET - wood.triangle_count
              - _tree_accent_triangles(accent, len(twig), spread)) // 2
     n_target = int(min(n_leaves, n_max))
-    per = max(2, n_target // len(twig))
+    per = max(TREE_LEAVES_PER_TWIG_MIN, n_target // len(twig))
     if n_leaves > n_max:  # sized on the count actually PLACED (per rounds it down ≤ 5 %)
         leaf_l *= math.sqrt(n_leaves / (len(twig) * per))
     centers = np.repeat(pts[twig], per, axis=0) + rng.normal(0, seg * 1.1, (len(twig) * per, 3))

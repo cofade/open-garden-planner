@@ -245,15 +245,16 @@ class SpikeRenderer:
         finally:
             sky_changed = any(self.root.property(k) != saved[k] for k in self.SKY_KEYS)
             ground = saved["groundTexture"]
-            ground_detached = self.root.property("groundTexture") is not ground
             for key, value in saved.items():
                 self.root.setProperty(key, value)
             self._ground = ground  # Python owns the texture: keep the restored one alive
-            if ground is not None and ground_detached:
+            if ground is not None:
                 # The texture twin of the geometry rule in set_models: a texture data
                 # object handed back after being detached renders the plan ground
                 # untextured (white) until its data is uploaded again (senior review,
                 # pass 4: --iou left the ground white, 9.8 mean luma on the frame).
+                # Unconditionally: inferring "detached" from identity at block exit
+                # misses a probe that detached it and set it back itself (pass 5).
                 ground.setTextureData(ground.textureData())
                 ground.update()
             # Ownership only (the pixels are checked by probe_restore_frame_diff): the

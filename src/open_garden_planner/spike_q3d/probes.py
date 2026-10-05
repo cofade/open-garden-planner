@@ -42,7 +42,8 @@ def _luma(arr: np.ndarray) -> np.ndarray:
 # near-black dot on a lit surface. ExtendedSceneEnvironment's sharpening at 0.08
 # overshot every thin lit/dark edge into them: teal-black slits in the picket fences,
 # black stubble on lawns and crowns, 1,500-3,100 per daytime frame at 1280x720
-# (3D reviewer pass 4, review4/speckles.py — this is its definition, sRGB codes).
+# (3D reviewer pass 4's definition, in sRGB codes; its script was a scratch
+# measurement, not committed).
 SPECKLE_MAX_LUMA, SPECKLE_MIN_NEIGHBOURS = 40.0, 110.0
 
 

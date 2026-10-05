@@ -38,12 +38,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess  # noqa: S404 - fixed argv, no shell
 import sys
 import time
 from pathlib import Path
 
 FROZEN_BUNDLE = Path("dist") / "OpenGardenPlanner" / "OpenGardenPlanner.exe"
+REPO = Path(__file__).resolve().parents[1]
 
 
 def _mean_luma(path: Path) -> str:
@@ -202,7 +204,8 @@ def _verdict(metrics: dict, spike_args: list[str] | None = None,
                     _below(pick.get("max_projection_err_px"), 1.0)),
                    ("picked points within 3 cm of the target",
                     _below(pick.get("max_xy_err_cm"), 3.0))]
-    if "probe_restore_frame_diff" in metrics:
+    probed = {arg.split("=", 1)[0] for arg in spike_args or []} & {"--iou", "--orient"}
+    if probed or "probe_restore_frame_diff" in metrics:  # required, not optional, once probed
         checks.append(("the probes leave the view as they found it (< 1 luma)",
                        _below(metrics.get("probe_restore_frame_diff"), 1.0)))
     second = metrics.get("second_window")
@@ -296,9 +299,14 @@ def main(argv: list[str]) -> int:
     with (out / "stdout.txt").open("wb") as so, (out / "stderr.txt").open("wb") as se:
         streams = (subprocess.DEVNULL, subprocess.DEVNULL) if args.frozen else (so, se)
         try:
+            # the unfrozen child imports THIS checkout's src, not whatever the venv's
+            # editable install points at (from a git worktree: the main checkout)
+            env = dict(os.environ)
+            env["PYTHONPATH"] = os.pathsep.join(
+                p for p in (str(REPO / "src"), env.get("PYTHONPATH")) if p)
             code = subprocess.run(  # noqa: S603 - fixed argv, no shell
                 cmd, stdin=subprocess.DEVNULL, stdout=streams[0], stderr=streams[1],
-                timeout=args.limit_s, check=False,
+                timeout=args.limit_s, check=False, env=env,
             ).returncode
         except subprocess.TimeoutExpired:
             code = None

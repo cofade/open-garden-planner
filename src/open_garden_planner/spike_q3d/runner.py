@@ -382,8 +382,10 @@ def in_harvest_window(location: dict[str, Any] | None, at: date,
     ``services/task_generator.generate_calendar_tasks``: from the plan's last spring
     frost + ``harvest_start`` weeks to + ``harvest_end`` weeks (the species' week
     offsets from the last frost, ``plant_species`` metadata). The window is anchored on
-    the last frost of ``at``'s year, as the calendar does, and of the years either
-    side, so a window across the new year (a southern plan, a negative offset) holds.
+    the last frost of ``at``'s year, as the calendar does, and — a deliberate deviation
+    the calendar does not make — of the years either side, so a window across the new
+    year (a southern plan, a negative offset) holds; the calendar shows no harvest task
+    then. A northern plan with non-negative offsets (the bench) is unaffected.
     None when there is no window to read — no last frost, an offset missing or
     malformed, start after end, a 02-29 frost outside a leap year (the calendar has no
     date then either): the caller keeps the frost-free season.

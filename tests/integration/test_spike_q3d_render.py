@@ -387,10 +387,11 @@ def test_the_leak_gate_fires_on_a_known_leak(tmp_path: Path) -> None:
 
 
 def test_probes_leave_the_view_as_they_found_it(spike_metrics: tuple[dict, Path],
-                                                measured: tuple[dict, int]) -> None:
+                                                measured: tuple[dict, int],
+                                                scaled: dict) -> None:
     """preserved_state()'s contract, in pixels: the frame after --iou/--orient equals
     the frame before. After --iou the plan ground came back white (the same texture
     object re-attached after being detached renders untextured), and nothing caught
     it until a later frame comparison read 9.8 luma (senior review, pass 4)."""
-    for metrics in (spike_metrics[0], measured[0]):
+    for metrics in (spike_metrics[0], measured[0], scaled):  # incl. 150 % display scale
         assert metrics["probe_restore_frame_diff"] < 1.0, metrics["probe_restore_frame_diff"]

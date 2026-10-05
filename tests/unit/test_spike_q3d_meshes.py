@@ -84,10 +84,11 @@ def test_the_tree_budget_holds_by_construction() -> None:
     wood (7-sided limbs, 2 triangles per side and segment) + the larger accent + the
     leaf floor (2 leaves per twig, twigs ≤ nodes) fits the budget, so the leaves above
     the floor always have room."""
-    wood = (M.TREE_NODES_MAX - 1) * 7 * 2
+    wood = (M.TREE_NODES_MAX - 1) * M.TREE_LIMB_SIDES * 2
     accents = max(M.TREE_FRUIT_MAX * len(M._SPHERE_F),
                   M.TREE_FLOWERS * (len(M._DOT_F) + 2 * M.FLOWER_PETALS))
-    leaf_floor = 2 * 2 * M.TREE_NODES_MAX
+    leaf_floor = M.TREE_LEAVES_PER_TWIG_MIN * 2 * M.TREE_NODES_MAX  # 2 triangles a leaf
+    # the documented numbers follow from the constants: changing one fails here, not silently
     assert (wood, accents, leaf_floor) == (13_986, 4_480, 4_000)
     assert wood + accents + leaf_floor <= M.TREE_TRIANGLE_BUDGET
     for kind, name in (("fruit", "apple"), ("flower", "pink")):  # the builder's own bound
@@ -109,6 +110,7 @@ def test_the_node_cap_is_hard(monkeypatch) -> None:
     monkeypatch.setattr(M, "limb_tubes", spy)
     free = M.space_colonization_tree(11, 900.0, 700.0, "fresh")
     grown = seen["nodes"]
+    assert seen["sides"] == M.TREE_LIMB_SIDES  # the builder uses the bound's constant
     assert seen["wood"] == (grown - 1) * seen["sides"] * 2  # the bound's wood formula
     cap = grown // 3
     monkeypatch.setattr(M, "TREE_NODES_MAX", cap)
