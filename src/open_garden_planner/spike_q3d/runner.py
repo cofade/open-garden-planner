@@ -392,8 +392,8 @@ def in_harvest_window(location: dict[str, Any] | None, at: date,
     task on such dates; that split is the product's (TD-037), not the spike's.
     None when there is no window to read — no last frost, an offset missing or
     malformed, start after end, a 02-29 frost when ``at``'s year has none (the
-    agent's tools, anchored on the reference date's year, have none then either):
-    the caller keeps the frost-free season.
+    generator, anchored on a year without that date, has none either): the caller
+    keeps the frost-free season.
     """
     from datetime import timedelta
 

@@ -4,7 +4,7 @@
     "runner": "cloud container, xvfb + Mesa llvmpipe (OpenGL)",
     "extracted_from": "metrics.json of two render-tier tests per run: test_soak_reloads_the_project_from_disk_without_a_leak (clean) and test_the_leak_gate_fires_on_a_known_leak (control, 25 MB kept alive per reload)",
     "metric": "Linux RSS in MiB; leak_slope_mb_per_reload is the Theil-Sen slope over reloads 11-20",
-    "note": "479d78c's render tier (clean 0.02, control 25.0, recorded in ADR-048 entry 10 at senior pass 4) was not kept."
+    "note": "479d78c's render tier (clean 0.02, control 25.0, recorded in ADR-048 entry 10 at senior pass 4) was not kept. The raw render-tier output directories of the four runs were not kept either; these curves were copied from them before they went."
   },
   "runs": [
     {

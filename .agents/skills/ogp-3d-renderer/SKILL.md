@@ -132,29 +132,29 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
   identity.
 - `QGraphicsScene.render()` always paints the canvas background — the spike swaps that exact
   colour for meadow; the production bake paints records directly (plan L1.5).
-- **Ownership:** a texture created in Python is owned by Python, so something must hold it while
-  QML shows it — exactly the one shown. An append-only keep-alive list grew RSS by one baked
-  ground (2400×1600 RGBA ≈ 15 MB + GPU copy) per project reload, linearly; holding only the
-  shown texture and releasing the old one *after* the scene shows the new one settled (A/B,
-  10 reloads, llvmpipe). Judge leaks by `leak_slope_mb_per_reload` (Theil–Sen over the second
-  half of the reloads), never by total growth — the first reload adds ~70 MB either way — in
-  committed memory (private bytes on Windows: its working set is trimmed and regrown, so v7
-  could not judge a leak at all), over **20 reloads**: at 10, five points could not resolve
+- **Ownership:** a texture created in Python is owned by Python, so something must hold it
+  while QML shows it — exactly the one shown. An append-only keep-alive list grew RSS by one
+  baked ground (2400×1600 RGBA ≈ 15 MB + GPU copy) per project reload, linearly; holding only
+  the shown texture and releasing the old one *after* the scene shows the new one settled
+  (A/B, 10 reloads, llvmpipe). Judge leaks by `leak_slope_mb_per_reload` (Theil–Sen over the
+  second half of the reloads), never by total growth — the first reload adds ~70 MB either way
+  — in committed memory (private bytes on Windows: its working set is trimmed and regrown, so
+  v7 could not judge a leak at all), over **20 reloads**: at 10, five points could not resolve
   10 MB/reload against ±30–60 MB swings (WARP v8; llvmpipe once read 14.3 at ±35 MB). Trust
   the gate only with its positive control on the same machine (`--soak-leak-mb 25` must fail
   it). Private bytes do not see VRAM: on a discrete GPU the gate is blind to GPU-side leaks.
   The gate answers "a trend over the last ten reloads?", not "did memory grow?". On WARP every
-  run (v9–v17) first dips 94–146 MB (consistent with memory the probes held: the probe-less
-  controls, at a smaller window, never dip), then rises 5–10 MB per reload; the tail gate read 1.5–9.0 (1.8 and 9.0 for identical
-  code), and the controls read 28–34 MB/reload for the 25 MB they hold. Longer soaks
-  (v13–v17; v15–v17 ran 100 reloads): identical code rose +196 and +62 MB by reload 50,
-  and all three 100-reload runs (the same soak path) had positive slopes over reloads
-  51–100, 0.21, 2.03 and 3.05 MB/reload. llvmpipe RSS reads 0.00–0.46 MB/reload, so it is
-  not Python-side growth in the spike; a D3D11 resource retained per reload is not ruled out
-  (WARP keeps GPU memory in private bytes; a discrete GPU keeps it in VRAM, unseen). Cause
-  unidentified; locate it with an A/B soak, not a longer one. Record the whole curve
-  (`leak_curve_mb`) with the verdict, and write numbers, not shapes: "ceiling", "slowing"
-  and "threefold" each overreached on these curves.
+  run (v9–v18) first dips 94–146 MB (consistent with memory the probes held: the probe-less
+  controls, at a smaller window, never dip), then rises 5–10 MB per reload; the tail gate read
+  1.5–9.0 (1.8 and 9.0 for identical code), and the controls read 28–34 MB/reload for the 25
+  MB they hold. Longer soaks (v13–v18; v15–v18 ran 100 reloads): identical code rose +196 and
+  +62 MB by reload 50, and over reloads 51–100 the four 100-reload runs (the same soak path)
+  had slopes of 0.21, 2.03, 3.05 and 0.08 MB/reload, the last an interval that includes zero.
+  llvmpipe RSS reads 0.00–0.46 MB/reload, so it is not Python-side growth in the spike; a
+  D3D11 resource retained per reload is not ruled out (WARP keeps GPU memory in private bytes;
+  a discrete GPU keeps it in VRAM, unseen). Cause unidentified; locate it with an A/B soak,
+  not a longer one. Record the whole curve (`leak_curve_mb`) with the verdict, and write
+  numbers, not shapes: "ceiling", "slowing" and "threefold" each overreached on these curves.
 
 ## 6. Hosts
 

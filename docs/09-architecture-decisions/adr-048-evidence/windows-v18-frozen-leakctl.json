@@ -1,0 +1,207 @@
+{
+  "_provenance": {
+    "workflow": "spike-q3d.yml (temporary)",
+    "run_id": "37312863784",
+    "run_url": "https://github.com/cofade/open-garden-planner/actions/runs/37312863784",
+    "commit": "46d88ff",
+    "runner": "windows-latest (no GPU: Direct3D 11 on WARP)",
+    "mode": "frozen-leakctl",
+    "extracted_from": "job log (artifact host unreachable from the analysis container)",
+    "note": "Positive control for the leak gate: 100 cycles, 20 reloads, 25 MB kept alive per reload, at 640x360 without the probes; slope 28.26 MB/reload, and the gate failed on exactly that check (driver --expect-leak: PASS)."
+  },
+  "status": "ok",
+  "args": {
+    "spike_q3d": true,
+    "plan": "tests\\fixtures\\plans\\bench_small.ogp",
+    "out": "D:\\a\\open-garden-planner\\open-garden-planner\\spike-frozen-leakctl",
+    "host": "view",
+    "presets": "low",
+    "shots": "golden_hour",
+    "size": "640x360",
+    "fps_seconds": 0.0,
+    "iou": false,
+    "orient": false,
+    "no_grass": false,
+    "grass_density": 60.0,
+    "ssgi": false,
+    "no_ssr": false,
+    "frame_timeout_s": 120.0,
+    "watchdog_s": 600.0,
+    "pick": false,
+    "update_bench": false,
+    "cold": false,
+    "second_window": false,
+    "coexist": false,
+    "pan_bench": false,
+    "qml_dir": null,
+    "soak_leak_mb": 25.0,
+    "soak": 100,
+    "unknown": []
+  },
+  "platform": "Windows-10-10.0.26100-SP0",
+  "python": "3.11.9",
+  "frozen": true,
+  "plan": "tests\\fixtures\\plans\\bench_small.ogp",
+  "host": "view",
+  "size": [
+    640,
+    360
+  ],
+  "env": {
+    "QSG_RHI_BACKEND": null,
+    "QT_QPA_PLATFORM": null,
+    "QSG_RHI_PREFER_SOFTWARE_RENDERER": null,
+    "QSG_RENDER_LOOP": null
+  },
+  "qt": "6.11.0",
+  "shader_caches": {
+    "cold": false,
+    "disabled_by_env": [],
+    "found_before_run": [
+      "q3dshadercache-x86_64-little_endian-llp64",
+      "qmlcache",
+      "qtpipelinecache-x86_64-little_endian-llp64"
+    ]
+  },
+  "load_plan_ms": 101.01830000007794,
+  "ground_bake_ms": 87.52019999997174,
+  "build_models_ms": 413.5886000001392,
+  "build": {
+    "date": "2026-06-21",
+    "items": 99,
+    "models": 94,
+    "triangles": 193182,
+    "in_season": true,
+    "by_kind_ms": {
+      "RAIN_BARREL": 1.0,
+      "WHEELBARROW": 0.2,
+      "COMPOST_BIN": 0.1,
+      "TRAMPOLINE": 1.1,
+      "BIRD_BATH": 0.5,
+      "BENCH": 0.3,
+      "FIRE_PIT": 0.3,
+      "BBQ_GRILL": 0.5,
+      "CHAIR": 1.2,
+      "TABLE_RECTANGULAR": 0.4,
+      "plants": 368.4,
+      "TRELLIS": 0.8,
+      "CONTAINER_ROUND": 1.0,
+      "RAISED_BED": 0.4,
+      "GARDEN_BED": 0.0,
+      "PATH": 0.0,
+      "WALL": 0.2,
+      "HEDGE_POLYGON": 7.9,
+      "FENCE": 10.4,
+      "PERGOLA": 0.7,
+      "GARAGE_SHED": 1.0,
+      "GREENHOUSE": 1.7,
+      "HOUSE": 0.8,
+      "POND_POOL": 0.3,
+      "DRIVEWAY": 0.0,
+      "TERRACE_PATIO": 0.0,
+      "LAWN": 0.0,
+      "grass": 7.2
+    }
+  },
+  "qt_messages": {
+    "counts": {
+      "error": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "errors": [],
+    "warnings": []
+  },
+  "qml_load_ms": 21.09540000014931,
+  "scene_apply_ms": 7.101800000100411,
+  "geometry_upload_ms_total": 40.324099999679675,
+  "look_and_sun_ms": 290.7210999999279,
+  "first_frame_ms": 235.3737999999339,
+  "first_ready_ms": 48015.1,
+  "open_ms": 48836.3,
+  "open_breakdown_ms": {
+    "ground_bake": 87.5,
+    "build_models": 413.6,
+    "qml_load": 21.1,
+    "scene_apply": 7.1,
+    "look_and_sun": 290.7,
+    "show_to_first_ready": 48015.1
+  },
+  "graphics_api": "Direct3D11Rhi",
+  "shots": [
+    {
+      "shot": "golden_hour",
+      "preset": "low",
+      "file": "golden_hour_low.png",
+      "sun_elev": 15.23,
+      "sun_az": 288.8,
+      "sun_date": "2026-06-21",
+      "build_date": "2026-06-21",
+      "settle_ms": 47917.9,
+      "grab_ms": 47751.9,
+      "isolated_dark_px": 1,
+      "clipped_pct": 0.0,
+      "mean_luma": 104.6
+    }
+  ],
+  "builds": {
+    "2026-06-21": {
+      "items": 99,
+      "models": 94,
+      "triangles": 193182,
+      "in_season": true,
+      "build_ms": 413.6
+    }
+  },
+  "soak": {
+    "cycles": 100,
+    "reentry_ms": {
+      "n": 100,
+      "median": 45.59,
+      "max": 69.78,
+      "p95": 57.71
+    },
+    "rss_start_mb": 498.8,
+    "rss_end_mb": 1115.4,
+    "leak_metric": "private_bytes",
+    "leak_curve_mb": [
+      653.9,
+      704.7,
+      721.2,
+      743.3,
+      772.2,
+      791.8,
+      826.0,
+      843.8,
+      865.2,
+      903.4,
+      944.9,
+      958.6,
+      996.4,
+      1009.3,
+      1043.3,
+      1074.4,
+      1111.8,
+      1138.7,
+      1156.4,
+      1193.2
+    ],
+    "deliberate_leak_mb_per_reload": 25.0,
+    "project_reloads": 20,
+    "reload_ms": {
+      "n": 20,
+      "median": 464.93,
+      "max": 503.57,
+      "p95": 488.95
+    },
+    "models_per_reload_ok": true,
+    "leak_slope_mb_per_reload": 28.26,
+    "wind_time_before": 0.0,
+    "wind_time_after": 0.125,
+    "frames_while_animating": 8,
+    "animation_advanced": true,
+    "event_loop_exit_code": 0
+  },
+  "wait_timeouts": 0,
+  "total_s": 117.62
+}

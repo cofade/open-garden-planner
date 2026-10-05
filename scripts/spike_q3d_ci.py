@@ -100,7 +100,9 @@ def _at_least(value: object, limit: float) -> bool:
     return num is not None and num >= limit
 
 
-LEAK_CHECK = "no memory growth trend over the project reloads (< 10 MB/reload)"
+# What the gate measures, not what it would like to conclude: a run whose memory
+# rose 361 MB over 100 reloads still passes it (ADR-048 entry 10, senior pass 8)
+LEAK_CHECK = "memory slope over the second half of the reloads < 10 MB/reload"
 
 # Each evidence flag and the metrics section it must leave behind: a probe that
 # was asked for and wrote nothing is a failure, not a pass with fewer checks.

@@ -376,8 +376,8 @@ def test_harvest_window_follows_the_calendar_rule(location, species, day: date,
 
 
 def _shared_generator_harvests(frost: str, start: float, end: float, day: date) -> bool:
-    """Whether ``generate_for_date_window`` — the shared generator behind the annual
-    calendar and the agent's task tools — has a harvest task on ``day``."""
+    """Whether ``generate_for_date_window`` — the generator behind the agent's
+    ``get_tasks`` and ``get_task_calendar`` — has a harvest task on ``day``."""
     from open_garden_planner.services.task_generator import (
         PlanState,
         PlantRowInput,
@@ -407,7 +407,8 @@ def test_harvest_window_matches_the_shared_generator(frost: str, start: int, end
 
     The generator anchors on every frost year whose window can reach the date, derived
     from the offsets. A fixed ±1-year anchor in the spike returned False on every
-    asparagus and rhubarb harvest date (senior review, passes 5-6). The helper anchors
+    asparagus harvest date and on rhubarb's before the frost's anniversary (senior
+    review, passes 5-8). The helper anchors
     the state on the date's own year, as the agent's tools do; for the 02-29 row only
     the leap year compares a window. None — no window to read — only where the frost
     date does not exist that year.

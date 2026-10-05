@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -190,3 +191,25 @@ def test_only_the_unfrozen_child_gets_this_checkouts_src(driver, monkeypatch) ->
     assert driver._child_env(frozen=True)["PYTHONPATH"] == "elsewhere"
     assert driver._child_env(frozen=False)["PYTHONPATH"].split(os.pathsep) == [
         str(driver.REPO / "src"), "elsewhere"]
+
+
+@pytest.mark.parametrize("frozen", [True, False])
+def test_main_hands_the_child_that_environment(driver, monkeypatch, tmp_path: Path,
+                                               frozen: bool) -> None:
+    """The call site, not only the helper (senior review, pass 8): main() dropping the
+    environment would bring back §11.4.5 #14's worktree trap with every test green."""
+    seen: dict = {}
+
+    def fake_run(cmd, **kwargs):
+        seen["env"] = kwargs.get("env")
+        return subprocess.CompletedProcess(cmd, 0)
+
+    bundle = tmp_path / "OpenGardenPlanner.exe"
+    bundle.write_bytes(b"")
+    monkeypatch.setattr(driver, "FROZEN_BUNDLE", bundle)
+    monkeypatch.setattr(driver.subprocess, "run", fake_run)
+    monkeypatch.setenv("PYTHONPATH", "elsewhere")
+    mode = "--frozen" if frozen else "--unfrozen"
+    driver.main([mode, "--out", str(tmp_path / "out"), "--", "--iou"])  # no metrics: exit 1
+    assert seen["env"] is not None
+    assert seen["env"]["PYTHONPATH"] == driver._child_env(frozen)["PYTHONPATH"]

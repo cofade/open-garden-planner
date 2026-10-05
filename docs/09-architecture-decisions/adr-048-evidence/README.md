@@ -1,6 +1,6 @@
 # ADR-048 evidence files
 
-`metrics.json` of the temporary Windows evidence workflow (`spike-q3d.yml`, windows-latest, no GPU, so Qt picks Direct3D 11 on WARP), plus one container run of v6's commit for the OpenGL side of the same probes. The Windows files were extracted from the job logs, because the artifact host was unreachable from the analysis container and CI logs expire. Each file carries a `_provenance` block with the run, commit, runner and mode.
+`metrics.json` of the temporary Windows evidence workflow (`spike-q3d.yml`, windows-latest, no GPU, so Qt picks Direct3D 11 on WARP), plus container runs (Mesa llvmpipe, OpenGL): one of v6's commit for the OpenGL side of the same probes, and the render tier's leak-gate soaks of four commits. The Windows files were extracted from the job logs, because the artifact host was unreachable from the analysis container and CI logs expire. Each file carries a `_provenance` block with the run, commit, runner and mode.
 
 | File | Run | Commit | Notes |
 |---|---|---|---|
@@ -61,6 +61,11 @@
 | `windows-v17-frozen-warm.json` | same | 308c773 | Warm relaunch (three caches found) |
 | `windows-v17-frozen-leakctl.json` | same | 308c773 | Positive control: 25 MB held per reload read 29.2 MB/reload and failed the gate |
 | `windows-v17-frozen-longsoak.json` | same | 308c773 | **Experiment, not a gate:** 100 reloads, the soak path of v14–v16; +210 MB by reload 50; 3.05 MB/reload over reloads 51–100, its maximum at reload 100 (ADR-048 entry 10). dist delta +1.8 MB |
+| `windows-v18-unfrozen.json` | [37312863784](https://github.com/cofade/open-garden-planner/actions/runs/37312863784) | 46d88ff | `--cold`; the PR head when draft #413 was opened |
+| `windows-v18-frozen.json` | same | 46d88ff | All 41 checks; probe restore and second window 0.0; leak gate 3.5 MB/reload |
+| `windows-v18-frozen-warm.json` | same | 46d88ff | Warm relaunch (three caches found) |
+| `windows-v18-frozen-leakctl.json` | same | 46d88ff | Positive control: 25 MB held per reload read 28.3 MB/reload and failed the gate |
+| `windows-v18-frozen-longsoak.json` | same | 46d88ff | **Experiment, not a gate:** 100 reloads, the soak path of v14–v17; +103 MB by reload 50; 0.08 MB/reload over reloads 51–100, an interval that includes zero, its maximum at reload 82 (ADR-048 entry 10). dist delta +1.8 MB |
 | `container-6f0c4f4.json` | — | 6f0c4f4 | Cloud container, Mesa llvmpipe (OpenGL), 1280×720, all shots. Ran next to two reviewer renders: correctness numbers valid, timings inflated |
 | `container-render-tier-soaks.json` | — | 36e3d18, a64ae9e, f71cdef, 308c773 | Render tier (llvmpipe, 640×360): the leak gate's clean run and control on Linux RSS, per commit. Clean slopes 0.46 / 0.01 / 0.00 / 0.00 MB/reload, controls 26.97 / 27.85 / 28.24 / 24.5 for 25 MB held (479d78c's run, 0.02 and 25.0, was not kept) |
 
