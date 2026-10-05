@@ -40,12 +40,30 @@ pytestmark = [
 PLAN = REPO / "tests" / "fixtures" / "plans" / "bench_small.ogp"
 QML_SOURCE = REPO / "src" / "open_garden_planner" / "spike_q3d" / "qml"
 
+# Isolated dark pixels per board frame (``probes.isolated_dark_pixels``: luma < 40 inside a
+# lit 8-neighbourhood > 110, metrics.json "isolated_dark_px"). ExtendedSceneEnvironment's
+# sharpening at 0.08 overshot every thin lit edge into near-black dots: picket slits, black
+# stubble on lawns and crowns (3D reviewer pass 4). Measured on THIS tier's board frames
+# (medium, 640x360, llvmpipe, creator round 4): sharpening 0.0 → noon 38, december_noon 42;
+# 0.08 → 737, 700. The bound is their geometric middle: 4x over the clean frames, 4x under
+# the sharpened ones. Only these two frames: at low, golden_hour reads 1 → 22 at this
+# size, which no bound separates.
+SPECKLE_BOUND = 170
+SPECKLE_SHOTS = "noon,december_noon"
+
 
 def _render_env(config_home: Path, **extra: str) -> dict[str, str]:
     """xcb + OpenGL, and a private settings home so a run can be checked for
-    writes to the user's store (loading a plan records Recent Files)."""
+    writes to the user's store (loading a plan records Recent Files).
+
+    The subprocess imports THIS checkout's ``src``: ``tests/conftest.py`` puts it on
+    the test process's path only, and a ``python -m open_garden_planner`` child would
+    otherwise import whatever the venv's editable install points at — from a git
+    worktree, the main checkout's code, and every assertion here would judge that."""
     env = dict(os.environ, QT_QPA_PLATFORM="xcb", QSG_RHI_BACKEND="opengl",
                XDG_CONFIG_HOME=str(config_home), **extra)
+    env["PYTHONPATH"] = os.pathsep.join(p for p in (str(REPO / "src"), env.get("PYTHONPATH"))
+                                        if p)
     env.setdefault("LIBGL_ALWAYS_SOFTWARE", "1")
     if hasattr(os, "geteuid") and os.geteuid() == 0:
         env["QTWEBENGINE_DISABLE_SANDBOX"] = "1"  # Chromium refuses root with a sandbox
@@ -65,7 +83,7 @@ def spike_metrics(tmp_path_factory: pytest.TempPathFactory) -> tuple[dict, Path]
     out = tmp_path_factory.mktemp("spike_q3d")
     config_home = tmp_path_factory.mktemp("config_home")
     proc = _spike(out, _render_env(config_home), "--presets", "medium",
-                  "--shots", "noon,december_noon", "--size", "640x360", "--fps-seconds", "0",
+                  "--shots", SPECKLE_SHOTS, "--size", "640x360", "--fps-seconds", "0",
                   "--iou", "--orient")
     assert proc.returncode == 0, proc.stderr[-2000:]
     metrics = json.loads((out / "metrics.json").read_text(encoding="utf-8"))
@@ -107,6 +125,35 @@ def test_ground_is_north_up_and_sky_sun_follows_the_azimuth(spike_metrics: tuple
     assert orient["ground_texture_ok"], orient["ground_texture_ncc"]
     assert orient["sky_ok"], orient["sky_sun_disc"]
     assert orient["sky_max_abs_error_deg"] < 3.0, orient["sky_sun_disc"]
+
+
+def test_board_frames_carry_no_sharpening_speckles(spike_metrics: tuple[dict, Path]) -> None:
+    rows = spike_metrics[0]["shots"]
+    assert {(r["shot"], r["preset"]) for r in rows} == {("noon", "medium"),
+                                                        ("december_noon", "medium")}
+    for row in rows:
+        assert row["isolated_dark_px"] <= SPECKLE_BOUND, row
+
+
+def test_the_speckle_gate_fires_on_the_old_sharpening(tmp_path: Path) -> None:
+    """Positive control: the same frames with the 0.08 sharpening must break the bound,
+    every one of them — a gate is only evidence once it has been seen to fire."""
+    qml = tmp_path / "qml"
+    shutil.copytree(QML_SOURCE, qml)
+    scene = qml / "GardenSpike.qml"
+    text = scene.read_text(encoding="utf-8")
+    assert text.count("sharpnessAmount: 0.0\n") == 1  # the line this control changes
+    scene.write_text(text.replace("sharpnessAmount: 0.0\n", "sharpnessAmount: 0.08\n"),
+                     encoding="utf-8")
+    out = tmp_path / "out"
+    proc = _spike(out, _render_env(tmp_path / "config_home"), "--qml-dir", str(qml),
+                  "--presets", "medium", "--shots", SPECKLE_SHOTS, "--size", "640x360",
+                  "--fps-seconds", "0")
+    assert proc.returncode == 0, proc.stderr[-2000:]
+    rows = json.loads((out / "metrics.json").read_text(encoding="utf-8"))["shots"]
+    assert len(rows) == 2
+    for row in rows:
+        assert row["isolated_dark_px"] > SPECKLE_BOUND, row
 
 
 def test_each_shot_shows_the_plan_on_its_sun_date(spike_metrics: tuple[dict, Path]) -> None:

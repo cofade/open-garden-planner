@@ -239,8 +239,13 @@ def _write_metrics(out: Path, metrics: dict) -> None:
 # linear light, exposures in stops (log2), everything else linearly. Steps made moods
 # jump: the sun colour at 15°/6° (a 14.0° December noon warmer than a 15.2° June golden
 # hour), and the sky, fog, probe and exposure at 8° and 20° (exposure 1.15 → 0.85).
+# Golden brightness 1.9, the noon value (was 2.1): on the ramp a 14° December sun came
+# out at 2.03 under exposure 1.04 and clipped the red channel of sun-facing warm faces —
+# the roof (1.56 % of december_noon_low → 0.37 % by this alone, 3D reviewer pass 4; 0.27 %
+# with the sharpening off too, creator round 4). The golden mood is the exposure (1.15)
+# and the colour, not a brighter sun: a low sun's direct light is weaker, never stronger.
 SUN_NOON = ("#fff1dc", 1.9)
-SUN_GOLDEN = ("#ffb878", 2.1)
+SUN_GOLDEN = ("#ffb878", 1.9)
 SUN_LOW = ("#ff9655", 1.7)
 SUN_RAMP_HIGH_DEG, SUN_RAMP_LOW_DEG, SUN_LOW_DEG = 30.0, 6.0, 0.5
 # the matching sky, sun disc, exposure and light-probe exposure of each anchor
@@ -782,12 +787,15 @@ class ModelsByDate:
 
 def shoot_board(renderer: Any, shots: list[Shot], presets: list[str], models: ModelsByDate,
                 sun_for: Any, out: Path, log: Any, metrics: dict[str, Any],
-                fps_seconds: float = 0.0) -> list[dict[str, Any]]:
+                fps_seconds: float = 0.0, frame_stats: Any = None) -> list[dict[str, Any]]:
     """Render every shot at every preset; each shot shows the plan on its own sun date.
 
     ``sun_for(when_utc)`` returns the ``SunState``. The look is applied
     BEFORE the sun, so the fresh sky texture a sun change builds is born with
     this shot's colours (the light probe is pre-filtered once per texture).
+    ``frame_stats(image)`` (``probes.frame_stats`` on the real board) adds the frame's
+    own numbers to its row — isolated dark pixels, clipped share, mean luma — so a
+    board carries the measurements an artifact is judged by.
     """
     rows: list[dict[str, Any]] = []
     metrics["shots"] = rows
@@ -815,8 +823,11 @@ def shoot_board(renderer: Any, shots: list[Shot], presets: list[str], models: Mo
                          "build_date": models.active_date.isoformat() if models.active_date else None,
                          "settle_ms": round((time.perf_counter() - t0) * 1000, 1),
                          "grab_ms": grab_ms})
+            if frame_stats is not None:
+                rows[-1].update(frame_stats(img))
             log("shot", name=shot.name, preset=preset, settle_ms=rows[-1]["settle_ms"],
-                build_date=rows[-1]["build_date"])
+                build_date=rows[-1]["build_date"],
+                dark_px=rows[-1].get("isolated_dark_px"), clipped_pct=rows[-1].get("clipped_pct"))
             if fps_seconds > 0 and shot is shots[0]:
                 # right after the first shot, on exactly its frame: camera, sun, look
                 # and date all belong to it (it used to mix shot 0's camera with
@@ -829,26 +840,34 @@ def shoot_board(renderer: Any, shots: list[Shot], presets: list[str], models: Mo
 
 
 def default_shots(width: float, height: float) -> list[Shot]:
+    """The Beauty Board's shots (``ogp-lush-cinematic`` §5); times are UTC, the sun is the plan's.
+
+    ``sunset`` samples the golden anchor itself: on the bench plan (Berlin) the sun stands
+    at 5.9° (azimuth 301.5°, ``core/solar``) at 18:38 UTC on 21 June, while golden_hour
+    (15.2°) and december_noon (14.0°) sample almost the same point of the ramp between
+    the golden and the noon rig (3D reviewer pass 4).
+    """
     cx, cy = width / 2, height / 2
     diag = math.hypot(width, height)
     june = date(2026, 6, 21)
     dec = date(2026, 12, 21)
 
-    def utc(d: date, hour: float) -> datetime:
-        hh = int(hour)
-        return datetime(d.year, d.month, d.day, hh, int((hour - hh) * 60), tzinfo=UTC)
+    def utc(d: date, hour: int, minute: int = 0) -> datetime:
+        return datetime(d.year, d.month, d.day, hour, minute, tzinfo=UTC)
 
     se = (cx + 0.62 * width, cy - 0.95 * height, 0.36 * diag)
     hero = (cx + 0.55 * width, cy - 0.78 * height, 0.17 * diag)
+    hero_target = (cx - 0.08 * width, cy + 0.1 * height, 160)
     sw = (cx - 0.62 * width, cy - 0.95 * height, 0.40 * diag)
     return [
-        Shot("golden_hour", utc(june, 17.5), hero, (cx - 0.08 * width, cy + 0.1 * height, 160), 46),
-        Shot("noon", utc(june, 11.0), sw, (cx + 0.04 * width, cy, 40), 42),
-        Shot("morning", utc(june, 6.0), (cx - 0.85 * width, cy - 0.35 * height, 0.22 * diag),
+        Shot("golden_hour", utc(june, 17, 30), hero, hero_target, 46),
+        Shot("sunset", utc(june, 18, 38), hero, hero_target, 46),
+        Shot("noon", utc(june, 11), sw, (cx + 0.04 * width, cy, 40), 42),
+        Shot("morning", utc(june, 6), (cx - 0.85 * width, cy - 0.35 * height, 0.22 * diag),
              (cx + 0.1 * width, cy, 60), 44),
-        Shot("december_noon", utc(dec, 11.0), se, (cx, cy, 40), 42),
-        Shot("night", utc(june, 21.5), se, (cx, cy, 40), 42),
-        Shot("walk", utc(june, 14.5), (cx - 0.21 * width, cy + 0.03 * height, 165),
+        Shot("december_noon", utc(dec, 11), se, (cx, cy, 40), 42),
+        Shot("night", utc(june, 21, 30), se, (cx, cy, 40), 42),
+        Shot("walk", utc(june, 14, 30), (cx - 0.21 * width, cy + 0.03 * height, 165),
              (cx + 0.35 * width, cy - 0.35 * height, 70), 62),
     ]
 
@@ -1066,8 +1085,10 @@ def _run(args: argparse.Namespace, out: Path, log: SpikeLog, metrics: dict[str, 
         ready_ms=metrics["first_ready_ms"], open_ms=metrics["open_ms"],
         api=metrics["graphics_api"])
     _write_metrics(out, metrics)
+    from open_garden_planner.spike_q3d.probes import frame_stats
+
     shoot_board(renderer, shots, presets, models_by_date, sun_for, out, log, metrics,
-                args.fps_seconds)
+                args.fps_seconds, frame_stats=frame_stats)
     metrics["builds"] = models_by_date.report()
     _write_metrics(out, metrics)
     # preserved_state()'s contract, checked in pixels: the view the probes leave

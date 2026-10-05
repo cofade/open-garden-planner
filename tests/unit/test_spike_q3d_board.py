@@ -483,8 +483,14 @@ def test_each_shot_is_grabbed_with_its_own_dates_models(tmp_path: Path) -> None:
     assert {s.when_utc.date() for s in shots} == {JUNE, DECEMBER}  # the board spans two dates
     fake = _FakeRenderer()
     metrics: dict = {}
+    measured: list[_FakeImage] = []
+
+    def frame_stats(img: _FakeImage) -> dict:
+        measured.append(img)
+        return {"isolated_dark_px": len(measured)}
+
     rows = runner.shoot_board(fake, shots, ["low", "high"], runner.ModelsByDate(build), _FakeSun,
-                              tmp_path, lambda *_a, **_k: None, metrics)
+                              tmp_path, lambda *_a, **_k: None, metrics, frame_stats=frame_stats)
     by_label = dict(fake.grabs)
     for shot in shots:
         for preset in ("low", "high"):
@@ -492,6 +498,37 @@ def test_each_shot_is_grabbed_with_its_own_dates_models(tmp_path: Path) -> None:
     assert sorted(builds) == [JUNE, DECEMBER]  # each date built once, then cached
     assert all(r["build_date"] == r["sun_date"] for r in rows)
     assert len(rows) == 2 * len(shots) and metrics["shots"] is rows
+    # every grabbed frame is measured once, and its numbers land in its own row
+    assert [r["isolated_dark_px"] for r in rows] == list(range(1, len(rows) + 1))
+
+
+def test_the_board_samples_every_part_of_the_light_rig(qapp) -> None:  # noqa: ARG001
+    """golden_hour (15.2°) and december_noon (14.0°) sampled almost the same point of the
+    golden → noon ramp and no shot rendered the 6° golden anchor (3D reviewer pass 4):
+    the board covers night, the golden anchor, the ramp and the noon rig, with the sun
+    from ``core/solar`` at the bench plan's own location."""
+    from open_garden_planner.core.solar import solar_position
+
+    _scene, location = _load()
+    lat, lon = float(location["latitude"]), float(location["longitude"])
+    shots = {s.name: s for s in runner.default_shots(2400.0, 1600.0)}
+    assert list(shots) == ["golden_hour", "sunset", "noon", "morning", "december_noon", "night",
+                           "walk"]
+    elev = {n: solar_position(lat, lon, s.when_utc).elevation_deg for n, s in shots.items()}
+    sunset = solar_position(lat, lon, shots["sunset"].when_utc)
+    assert shots["sunset"].when_utc.isoformat() == "2026-06-21T18:38:00+00:00"
+    assert sunset.elevation_deg == pytest.approx(5.9, abs=0.05)
+    assert sunset.azimuth_deg == pytest.approx(301.5, abs=0.05)
+    # the golden anchor itself: within 0.2° of SUN_RAMP_LOW_DEG, on the daytime rig
+    assert runner.SUN_LOW_DEG < elev["sunset"] < runner.SUN_RAMP_LOW_DEG
+    assert abs(elev["sunset"] - runner.SUN_RAMP_LOW_DEG) < 0.2
+    assert elev["night"] < runner.SUN_LOW_DEG
+    ramp = [e for e in elev.values() if runner.SUN_RAMP_LOW_DEG < e < runner.SUN_RAMP_HIGH_DEG]
+    assert len(ramp) >= 3  # golden_hour, morning, december_noon
+    assert max(elev.values()) >= runner.SUN_RAMP_HIGH_DEG  # the noon rig
+    # the sunset frame is golden_hour's camera, two hours later
+    assert (shots["sunset"].eye, shots["sunset"].target, shots["sunset"].fov) == (
+        shots["golden_hour"].eye, shots["golden_hour"].target, shots["golden_hour"].fov)
 
 
 def test_look_derives_the_fog_and_never_paints_the_ground() -> None:
@@ -529,6 +566,18 @@ def test_sun_colour_ramps_continuously_between_the_rigs() -> None:
         assert abs(near[1] - anchor[1]) < 0.01
     dec, june_golden = runner.sun_light(14.04), runner.sun_light(15.23)
     assert M.srgb_to_linear(dec[0])[2] <= M.srgb_to_linear(june_golden[0])[2]
+
+
+def test_the_sun_never_outshines_its_noon_self() -> None:
+    """A low sun crosses more air: its direct light is weaker, never stronger. The golden
+    anchor at 2.1 put a 2.03 sun into the 14° December noon, under exposure 1.04, and
+    clipped the red channel of sun-facing warm faces on 1.56 % of december_noon_low
+    (3D reviewer pass 4). The golden mood is the exposure and the colour."""
+    elevs = np.arange(runner.SUN_LOW_DEG, 90.0, 0.05)
+    bright = np.array([runner.sun_light(e)[1] for e in elevs])
+    assert np.all(np.diff(bright) >= 0)                 # never brighter as the sun sinks
+    assert bright.max() == pytest.approx(runner.SUN_NOON[1])
+    assert runner.sun_light(14.04)[1] <= runner.SUN_NOON[1]
 
 
 def _codes(hex_color: str) -> np.ndarray:

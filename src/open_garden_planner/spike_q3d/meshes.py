@@ -335,15 +335,23 @@ _SPHERE_V, _SPHERE_F = _unit_sphere(1)
 # close-up props: 3× subdivided, 512 triangles, a 32-gon at the equator (2× left the BBQ
 # kettle's rim a visible 16-gon at 1.5 m in the walk shot, reviewer pass 3)
 _SPHERE_SMOOTH_V, _SPHERE_SMOOTH_F = _unit_sphere(3)
+# a flower's centre dot (a magnolia's is 2.5 cm across): the octahedron, 8 triangles. The
+# 32-triangle sphere spent 4,480 of a flowering tree's 25,000 on 140 dots, which the leaf
+# budget paid for with larger leaves (3D reviewer pass 4)
+_DOT_V, _DOT_F = _unit_sphere(0)
 
 
 def spheres(centers: np.ndarray, radii: np.ndarray | float, color: str | np.ndarray,
-            squash: float = 1.0, smooth: bool = False) -> MeshData:
+            squash: float = 1.0, smooth: bool = False, dot: bool = False) -> MeshData:
     """Many low-poly spheres (fruit, flower clusters, heads) in one mesh.
 
-    ``smooth`` uses the 3× subdivided sphere for close-up props (the BBQ kettle).
+    ``smooth`` uses the 3× subdivided sphere for close-up props (the BBQ kettle), ``dot``
+    the octahedron for marks a few centimetres across (a flower's centre).
     """
-    sv, sf = (_SPHERE_SMOOTH_V, _SPHERE_SMOOTH_F) if smooth else (_SPHERE_V, _SPHERE_F)
+    if smooth and dot:
+        raise ValueError("a sphere is either smooth or a dot")
+    sv, sf = ((_SPHERE_SMOOTH_V, _SPHERE_SMOOTH_F) if smooth
+              else (_DOT_V, _DOT_F) if dot else (_SPHERE_V, _SPHERE_F))
     centers = np.asarray(centers, np.float32).reshape(-1, 3)
     k = len(centers)
     if k == 0:
@@ -541,11 +549,13 @@ def _palette_colors(palette: str, t: np.ndarray, rng: np.random.Generator,
 
 def flowers(centers: np.ndarray, normals: np.ndarray, radius: float, petal: str, disk: str,
             rng: np.random.Generator, petals: int = 6) -> MeshData:
-    """Simple flowers: a centre dot + a ring of petal diamonds facing ``normals``."""
+    """Simple flowers: a centre dot (``spheres(dot=True)``) + a ring of petal diamonds
+    facing ``normals``."""
     k = len(centers)
     if k == 0:
         return MeshData.empty()
-    parts = [spheres(centers + normals * radius * 0.15, radius * 0.28, disk, squash=0.6)]
+    parts = [spheres(centers + normals * radius * 0.15, radius * 0.28, disk, squash=0.6,
+                     dot=True)]
     n = _normalize(normals)
     helper = np.where(np.abs(n[:, 2:3]) < 0.9, [[0.0, 0.0, 1.0]], [[1.0, 0.0, 0.0]])
     u = _normalize(np.cross(n, helper))
@@ -578,23 +588,42 @@ TREE_TRIANGLE_BUDGET = 25_000
 PLANT_TRIANGLE_BUDGET = 6_000
 TREE_FLOWERS = 140  # flowers on a flowering tree (magnolia), in season
 FLOWER_PETALS = 6
+# fruit on a fruiting tree: one per 25 cm of spread, at least 6, at most this many (a 35 m
+# crown) — so the accent term of the bound below holds for ANY spread
+TREE_FRUIT_MAX = 140
+# A canopy tree's skeleton has at most TREE_NODES_MAX nodes, a hard cap. Every term of the
+# tree's triangle count is then bounded BY CONSTRUCTION:
+#   wood    ≤ (1000 − 1) segments × 7 sides × 2           = 13,986  (``limb_tubes``)
+#   accents ≤ max(140 fruit × 32, 140 flowers × (8 + 12))   =  4,480
+#   leaves  ≥ 2 per twig (the floor), twigs ≤ nodes: 2 × 2 × 1000 = 4,000
+# 13,986 + 4,480 + 4,000 = 22,466 ≤ 25,000: above the floor the leaves take what is left
+# (``n_max``), so no tree can exceed the budget. With segments from the height alone and
+# 1800 nodes checked once per growth step, the wood alone reached 23,730 (3D reviewer
+# pass 4: 32 of 448 swept trees over); now the sweep's maximum is 8,330 at 596 nodes.
+TREE_NODES_MAX = 1000
 # needle sprays on a conifer, at most: 2 triangles each plus the 16-triangle trunk
 CONIFER_SPRAYS_MAX = 12_000
+
+
+def _tree_fruit_count(n_twig: int, spread: float) -> int:
+    """Fruit on a canopy tree: one per 25 cm of spread, at least 6, at most one per twig."""
+    return min(n_twig, max(6, int(spread / 25)), TREE_FRUIT_MAX)
 
 
 def _tree_accent_triangles(accent: tuple[str, str], n_twig: int, spread: float) -> int:
     """Triangles ``space_colonization_tree`` spends on fruit or flowers — an upper bound.
 
     Counted BEFORE the leaves are placed, so the leaf budget can leave room for them
-    (140 magnolia flowers cost 6,160 triangles: a fixed margin did not cover them).
+    (140 magnolia flowers cost 6,160 triangles with a 32-triangle centre sphere, 2,800
+    with the octahedron: a fixed margin did not cover them).
     """
     kind, name = accent
     if name not in ACCENTS:
         return 0
     if kind == "fruit":
-        return min(n_twig, max(6, int(spread / 25))) * len(_SPHERE_F)
+        return _tree_fruit_count(n_twig, spread) * len(_SPHERE_F)
     if kind == "flower":
-        return TREE_FLOWERS * (len(_SPHERE_F) + 2 * FLOWER_PETALS)
+        return TREE_FLOWERS * (len(_DOT_F) + 2 * FLOWER_PETALS)
     return 0
 
 
@@ -638,7 +667,10 @@ def space_colonization_tree(seed: int, height: float, spread: float, palette: st
     attractors = _ellipsoid_points(rng, 520, radii * 0.92) + crown_c
     if form.taper:
         attractors[:, :2] *= taper_xy(attractors[:, 2])[:, None]
-    seg = max(height / 28.0, 6.0)
+    # the segment length follows the crown's LARGER dimension: from the height alone, a
+    # crown three or four times wider than tall grew ~1,600 short segments across its
+    # spread (3D reviewer pass 4: a 400 × 1600 cm plum, 23,730 wood triangles)
+    seg = max(max(height, spread) / 28.0, 6.0)
     influence, kill = seg * 7.0, seg * 1.6
     nodes = [np.array([0.0, 0.0, 0.0])]
     parents = [-1]
@@ -646,7 +678,7 @@ def space_colonization_tree(seed: int, height: float, spread: float, palette: st
         nodes.append(nodes[-1] + np.array([rng.normal(0, 0.04) * seg, rng.normal(0, 0.04) * seg, seg]))
         parents.append(len(nodes) - 2)
     for _ in range(140):
-        if len(attractors) == 0 or len(nodes) > 1800:
+        if len(attractors) == 0 or len(nodes) >= TREE_NODES_MAX:
             break
         n_arr = np.asarray(nodes)
         d = np.linalg.norm(attractors[:, None, :] - n_arr[None, :, :], axis=2)
@@ -661,6 +693,8 @@ def space_colonization_tree(seed: int, height: float, spread: float, palette: st
         growers = np.unique(nearest[active])
         grown = 0
         for g in growers:
+            if len(nodes) >= TREE_NODES_MAX:  # inside the step too: the wood bound is exact
+                break
             direction = _normalize(dirs[g] + np.array([0.0, 0.0, 0.12]) + rng.normal(0, 0.08, 3))
             new = n_arr[g] + direction * seg
             if np.min(np.linalg.norm(n_arr - new, axis=1)) < seg * 0.35:
@@ -737,7 +771,7 @@ def space_colonization_tree(seed: int, height: float, spread: float, palette: st
     parts = [wood, foliage]
     kind, accent_name = accent
     if kind == "fruit" and accent_name in ACCENTS:
-        pick = rng.choice(len(twig), size=min(len(twig), max(6, int(spread / 25))), replace=False)
+        pick = rng.choice(len(twig), size=_tree_fruit_count(len(twig), spread), replace=False)
         fc = pts[twig[pick]] + rng.normal(0, seg * 0.4, (len(pick), 3)) - [0, 0, seg * 0.6]
         parts.append(spheres(fc, np.clip(spread * 0.012, 3.0, 6.0), ACCENTS[accent_name]))
     elif kind == "flower" and accent_name in ACCENTS:

@@ -38,6 +38,33 @@ def _luma(arr: np.ndarray) -> np.ndarray:
     return 0.2126 * arr[..., 0] + 0.7152 * arr[..., 1] + 0.0722 * arr[..., 2]
 
 
+# An isolated dark pixel: luma < 40 while the mean of its 8 neighbours is > 110 — a
+# near-black dot on a lit surface. ExtendedSceneEnvironment's sharpening at 0.08
+# overshot every thin lit/dark edge into them: teal-black slits in the picket fences,
+# black stubble on lawns and crowns, 1,500-3,100 per daytime frame at 1280x720
+# (3D reviewer pass 4, review4/speckles.py — this is its definition, sRGB codes).
+SPECKLE_MAX_LUMA, SPECKLE_MIN_NEIGHBOURS = 40.0, 110.0
+
+
+def isolated_dark_pixels(rgb: np.ndarray) -> int:
+    """Pixels of an (h, w, 3+) sRGB frame darker than SPECKLE_MAX_LUMA in lit surroundings."""
+    lum = _luma(np.asarray(rgb, np.float64))
+    h, w = lum.shape
+    pad = np.pad(lum, 1, mode="edge")
+    neighbours = sum(pad[1 + dy:1 + dy + h, 1 + dx:1 + dx + w]
+                     for dy in (-1, 0, 1) for dx in (-1, 0, 1) if (dy, dx) != (0, 0)) / 8.0
+    return int(((lum < SPECKLE_MAX_LUMA) & (neighbours > SPECKLE_MIN_NEIGHBOURS)).sum())
+
+
+def frame_stats(img: Any) -> dict[str, Any]:
+    """A board frame's numbers for its ``metrics.json`` row: isolated dark pixels, the
+    share of pixels with a channel at 254 or more (clipped) and the mean luma."""
+    rgb = _image_to_array(img)[..., :3].astype(np.float64)
+    return {"isolated_dark_px": isolated_dark_pixels(rgb),
+            "clipped_pct": round(float((rgb.max(axis=2) >= 254).mean()) * 100.0, 3),
+            "mean_luma": round(float(_luma(rgb).mean()), 2)}
+
+
 def _poly_mask(polys: list, xs: np.ndarray, ys: np.ndarray) -> np.ndarray:
     mask = np.zeros(xs.shape, bool)
     for poly in polys:

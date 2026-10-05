@@ -121,7 +121,13 @@ Item {
                                                           : SceneEnvironment.High
             ssgiEnabled: root.preset === "ultra" && root.allowSsgi
             ssrEnabled: root.preset === "ultra" && root.allowSsr
-            sharpnessAmount: 0.08
+            // no sharpening: 0.08 overshot every thin lit/dark edge to near-black, red-less
+            // pixels (teal-black slits in the pickets, black stubble on lawns and crowns),
+            // 1,554-3,102 isolated dark pixels in the noon and December frames at 1280x720;
+            // 0.0: 28-488 (what is left is shaded picket gaps), noon's mean luma within 0.8
+            // (3D reviewer pass 4, creator round 4). Recorded per board frame as metrics.json
+            // "isolated_dark_px" and bounded in the render tier, with a 0.08 control
+            sharpnessAmount: 0.0
             colorAdjustmentsEnabled: true
             // night 0.85 measured MORE saturated than noon (0.550 vs 0.537): a dimmed day
             adjustmentSaturation: root.night ? 0.6 : 1.06
@@ -213,9 +219,10 @@ Item {
             // n.l ~ 0.20 and the shadow map stair-stepped there; a soft, faint moon
             // shadow (factor 25, PCF radius 8) removes the staircase (creator round 2)
             shadowFactor: root.night ? 25 : 82
-            // low: High + one cascade — Medium without cascades stair-stepped and
-            // acned the roof (morning_low, L0 review)
-            shadowMapQuality: root.preset === "low" ? Light.ShadowMapQualityHigh
+            // low: VeryHigh + one cascade — Medium without cascades stair-stepped and
+            // acned the roof (morning_low, L0 review); High still cut ~25 px scallops of
+            // ~11 luma under the ridge cap's shadow (morning_low, 3D reviewer pass 4)
+            shadowMapQuality: root.preset === "low" ? Light.ShadowMapQualityVeryHigh
                             : root.preset === "medium" ? Light.ShadowMapQualityHigh
                             : root.preset === "high" ? Light.ShadowMapQualityVeryHigh
                             : Light.ShadowMapQualityUltra
@@ -228,7 +235,8 @@ Item {
             pcfFactor: root.night ? 8.0 : 2.0
             // 1024-texel maps (low, medium) showed acne and a staircase on a sun-grazed roof
             // at bias 5 (morning: 33-40 % of the slope darker than high); 15 measured clean,
-            // IoU gate unchanged (low 0.963/0.968/0.937, medium 0.967/0.973/0.937)
+            // IoU gate unchanged (low 0.963/0.968/0.937, medium 0.967/0.973/0.937). Low keeps
+            // 15 on its VeryHigh map: IoU 0.953/0.959/0.922 at 1280x720 (creator round 4)
             shadowBias: (root.preset === "low" || root.preset === "medium") ? 15 : 5
             shadowMapFar: 9000
             lockShadowmapTexels: true

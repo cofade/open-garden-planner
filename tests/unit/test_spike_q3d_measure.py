@@ -234,3 +234,40 @@ def test_pixel_bearing_inverts_a_pitched_camera(sun_az: float, offset: float) ->
     tan_h = math.tan(math.radians(35.0)) * 1280 / 720
     naive = yaw + math.degrees(math.atan((px - 640) / 640 * tan_h))
     assert abs(((naive - sun_az + 180) % 360) - 180) > 0.3
+
+
+# ── board frame numbers: isolated dark pixels (the sharpening speckles, 3D reviewer pass 4) ──
+
+
+def _frame(value: float, w: int = 9, h: int = 7) -> np.ndarray:
+    return np.full((h, w, 3), value, np.float64)
+
+
+def test_a_dark_dot_on_a_lit_surface_is_one_isolated_dark_pixel() -> None:
+    from open_garden_planner.spike_q3d.probes import isolated_dark_pixels
+
+    lit = _frame(200.0)
+    assert isolated_dark_pixels(lit) == 0
+    lit[3, 4] = (5.0, 30.0, 30.0)          # the teal-black slit pixel the 0.08 sharpening left
+    assert isolated_dark_pixels(lit) == 1
+    lit[0, 0] = 0.0                        # in a corner too (edge-padded neighbours)
+    assert isolated_dark_pixels(lit) == 2
+
+
+def test_dark_regions_and_dim_surroundings_are_not_speckles() -> None:
+    """A shadow is dark among dark pixels; a dark pixel in a dim surround (neighbours
+    ≤ 110) is not an overshoot either — only near-black inside lit surroundings counts."""
+    from open_garden_planner.spike_q3d.probes import isolated_dark_pixels
+
+    assert isolated_dark_pixels(_frame(10.0)) == 0
+    dim = _frame(100.0)
+    dim[3, 4] = 0.0
+    assert isolated_dark_pixels(dim) == 0
+    block = _frame(200.0)
+    block[2:5, 3:6] = 0.0                  # a 3x3 shadow: only its corners see > 110 around
+    assert isolated_dark_pixels(block) == 4
+    edge = _frame(200.0)
+    edge[3, 4] = 39.0                      # the threshold: luma < 40 (a grey of exactly 40
+    assert isolated_dark_pixels(edge) == 1  # sums to 39.999... in the Rec. 709 weights)
+    edge[3, 4] = 41.0
+    assert isolated_dark_pixels(edge) == 0

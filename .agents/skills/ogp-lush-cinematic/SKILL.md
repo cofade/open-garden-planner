@@ -41,8 +41,8 @@ Never tune a domain number (species height, spread, planting date) to make a sho
 | Light | One key light = the real sun. Warm when low, neutral-white when high. The sky is the fill (image-based lighting) and must **not** out-shine the sun — the first spike renders read flat and blue precisely because the probe dominated. |
 | Colour | Plants and objects take colours only from the 2D tables (sprite `PALETTES`/`FRUITS`/`FLOWERS`, object `MATERIALS`). Seasonal colour is a function of those palettes, never a new literal. Albedo stays inside sRGB ~40–240 (no pure black/white surfaces). |
 | Form | Chunky, readable silhouettes; bevels on built things; vegetation slightly fuller than nature; real-world dimensions; nothing floats, nothing is cloned. |
-| Foliage | Geometric micro-leaves (2 triangles each), **no alpha cards** (aliasing + sort + shadow-pass problems). Normals spherized toward the crown centre (0.55–0.75) so a crown shades like one soft volume. Leaf count follows crown surface area (coverage ≈ 1.6), not a magic number — inside the plant's triangle budget (tree 25,000, any other plant 6,000: `meshes.TREE_TRIANGLE_BUDGET`): wood and fruit/flowers first, then leaves; a crown over it gets fewer, LARGER leaves at the same coverage (conifers: ≤ 12,000 sprays, same spray area), never a sparser crown. Gate: every plant of both bench plans on both board dates. |
-| Atmosphere | Filmic/ACES tonemapping, gentle glow, depth fog whose colour equals the sky horizon (hides the meadow/sky seam) at **every** preset — low included, or the meadow meets the sky in a one-row cliff — SSAO from Medium up. DOF/vignette only in photo mode. |
+| Foliage | Geometric micro-leaves (2 triangles each), **no alpha cards** (aliasing + sort + shadow-pass problems). Normals spherized toward the crown centre (0.55–0.75) so a crown shades like one soft volume. Leaf count follows crown surface area (coverage ≈ 1.6), not a magic number — inside the plant's triangle budget (tree 25,000, any other plant 6,000: `meshes.TREE_TRIANGLE_BUDGET`): wood and fruit/flowers first, then leaves; a crown over it gets fewer, LARGER leaves at the same coverage (conifers: ≤ 12,000 sprays, same spray area), never a sparser crown. A canopy tree is bounded **by construction** (`meshes.TREE_NODES_MAX`): branch segments sized from the crown's larger dimension (max(height, spread) / 28), at most 1,000 skeleton nodes (wood ≤ 13,986), at most 140 fruit or flowers (flower centres are 8-triangle octahedra: ≤ 4,480) and the floor of 2 leaves per twig (≤ 4,000) — 22,466 ≤ 25,000. Gate: every plant of both bench plans on both board dates, and wide crowns up to 4 × wider than tall. |
+| Atmosphere | Filmic/ACES tonemapping, gentle glow, depth fog whose colour equals the sky horizon (hides the meadow/sky seam) at **every** preset — low included, or the meadow meets the sky in a one-row cliff — SSAO from Medium up. **No sharpening** (`sharpnessAmount` 0): 0.08 overshot every thin lit edge into near-black dots; every board row records them (`isolated_dark_px`, §5). DOF/vignette only in photo mode. |
 | Motion | Wind sways grass and crowns via shader values (uv.x = sway weight, uv.y = phase); animation only while the 3D view is visible; reduced-motion setting stops it. |
 
 ## 3. Light rigs per mood (*spike* values, `look_for` / `sun_light` / `sun_state` in `spike_q3d/runner.py`)
@@ -53,21 +53,24 @@ ramps — sun colour and brightness, sky top / horizon, sun disc, probe, exposur
 the horizon) — colours mixed in linear light, exposure in stops (log2), the rest linearly.
 Night is a separate rig below 0.5°. Steps made moods jump: the sun colour at 15°/6° (a
 14° December noon warmer than a 15° June golden hour), exposure 1.15 → 0.85 within a
-degree at 20°, sky/fog/probe at 8° and 20°.
+degree at 20°, sky/fog/probe at 8° and 20°. The key light is **never brighter than at
+noon** (a low sun crosses more air): the golden mood is its exposure and colour.
 
 | Anchor | Sun elevation | Sun colour / brightness | Sky top / horizon (sun disc) | Probe / exposure |
 |---|---|---|---|---|
 | Noon | ≥ 30° | `#fff1dc` / 1.9 | `#3f78c9` / `#cfe2f2` (`#fff0d8`) | 0.55 / 0.85 (0.92 clipped a channel on 4.6 % of noon_low) |
-| Golden | 6° | `#ffb878` / 2.1 | `#4f7fc8` / `#f4d2a6` (`#ffd09a`) | 0.50 / 1.15 |
+| Golden | 6° | `#ffb878` / 1.9 (2.1 put a 2.03 sun into the 14° December noon and clipped the roof) | `#4f7fc8` / `#f4d2a6` (`#ffd09a`) | 0.50 / 1.15 |
 | Low sun | 0.5° | `#ff9655` / 1.7 | `#4a6fb0` / `#f2b47c` (`#ffb070`) | 0.42 / 1.25 |
 | Night | < 0.5° | moonlight `#8ea4d6` / 0.32 from az 165°, elev 38°; soft faint moon shadows (factor 25, PCF 8); saturation 0.6 | `#070d22` / `#1b2747` (`#9fb2e0`) | 0.35 / 2.4 |
 
-On the board (bench_small, Berlin): golden_hour 15.23° → sun `#ffd0a8` / 2.02, horizon
+On the board (bench_small, Berlin): golden_hour 15.23° → sun `#ffd0a8` / 1.9, horizon
 `#e7d8c8`, probe 0.519, exposure 1.024 (was 1.15: mean luma 109.8 → 105.2, low);
-december_noon 14.04° → exposure 1.039 (clipped 2.45 → 1.56 % of the frame, low; 1.11 → 0.45 % high — what is
-left is the red channel of sun-facing warm faces: a 14° sun at 2.03 lights a vertical
-face at n·l ≈ 0.97); morning 26.16° → 0.892 (was 0.85); noon 60.9° and walk 42.2° keep the
-noon rig. A 15° "golden hour" is between rigs — truthfully less golden than the 6° anchor.
+december_noon 14.04° → sun `#ffcda3` / 1.9, exposure 1.039 (clipped 2.45 → 1.56 → 0.27 % of
+the frame, low; 1.11 → 0.45 → 0.27 % high — what is left is the south wall and the birch
+trunk, near-white faces a 14° sun lights at n·l ≈ 0.97); sunset 5.89° → the golden anchor
+(`#ffb777` / 1.896, exposure 1.152, probe 0.498); morning 26.16° → 0.892 (was 0.85); noon
+60.9° and walk 42.2° keep the noon rig. A 15° "golden hour" is between rigs — truthfully
+less golden than the 6° anchor, which `sunset` shows.
 
 ## 4. Material value ranges (PBR, roughness 0–1)
 
@@ -98,9 +101,12 @@ QSG_RHI_BACKEND=opengl QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 \
 
 (on a Windows dev box: drop the xvfb/env prefix). `<dir>/spike.log` records every phase; on a
 software rasteriser one screenshot can take minutes (`ogp-3d-renderer` §8), so a slow board is
-not a hung board — read the log. Shots: `golden_hour`, `noon`, `morning`,
-`december_noon`, `night`, `walk`; add `--presets low,medium,ultra --shots golden_hour` for the
-preset strip. Always show **before vs after** with the same plan, date and camera, and attach
+not a hung board — read the log. Shots: `golden_hour`, `sunset` (the 6° golden anchor,
+golden_hour's camera), `noon`, `morning`, `december_noon`, `night`, `walk`; add
+`--presets low,medium,ultra --shots golden_hour` for the preset strip. Every shot row of
+`metrics.json` carries the frame's own numbers: `isolated_dark_px` (luma < 40 inside a lit
+8-neighbourhood > 110 — the sharpening's speckles), `clipped_pct` (a channel ≥ 254) and
+`mean_luma`. Always show **before vs after** with the same plan, date and camera, and attach
 `metrics.json` — a board without its numbers is not evidence.
 
 ## 6. Review rubric (the reviewer agent's checklist)
@@ -109,7 +115,7 @@ Score each shot on: readability (silhouettes, value grouping), light (direction,
 balance, contact shadows, acne/peter-panning, exposure histogram), colour (palette conformance,
 saturation, season), form (proportions, bevels, density, clones, floating, ground contact),
 materials (value ranges above), artifacts (z-fighting, sorting, shimmer, LOD pops, seams,
-black frames), motion (wind, reduced motion), **truth** (§1 gates from `metrics.json`),
+black frames, isolated dark pixels from `metrics.json`), motion (wind, reduced motion), **truth** (§1 gates from `metrics.json`),
 performance (fps per preset vs budget), 2D consistency (same shape language and colours).
 
 Severity: **P0** = truth gate failed, mirrored/black/broken frame, unreadable scene, crash.
@@ -158,6 +164,12 @@ Severity: **P0** = truth gate failed, mirrored/black/broken frame, unreadable sc
 | BBQ kettle rim a 16-gon at 1.5 m (walk) | 2× subdivided sphere | 3× for `smooth=True` (512 triangles, a 32-gon) |
 | Red tomatoes from the 9 April last frost | fruit followed the frost window | fruit follows the planting calendar's harvest window (§1 Season); flowers keep the frost window |
 | Species crowns overlap (side-silhouette IoU across species, mean 0.730) | weak per-species forms | apple 0.20 / droop 0.45, pear taper 0.7, maple −0.15, walnut 0.40 / −0.2: mean 0.700 (within one species 0.786); 15 of 28 pairs stay above 0.70 — trunk and taper are weak levers once `fit_to` normalises every crown to the same box; the next lever is the crown envelope |
+| Teal-black slits in every picket fence, black stubble on lawns and crowns (isolated dark pixels, 1280×720: noon 1,554 / 2,355, december_noon 2,587 / 3,102, low / high) | `ExtendedSceneEnvironment.sharpnessAmount` 0.08 overshot every thin lit/dark edge to near-black, red-less pixels | sharpening 0 (§2): noon 260 / 488, december_noon 28 / 186, walk 71 / 56 — what is left is shaded picket gaps; noon's mean luma within 0.8. Gate: `isolated_dark_px` in every board row; render tier ≤ 170 at 640×360 medium (0 → 38 / 42, 0.08 → 737 / 700 in noon / december_noon) with a 0.08 positive control |
+| December noon roof clipped red (1.56 % of the frame, low; 0.45 % high) | the golden anchor's 2.1 put a 2.03 sun into the 14° ramp, under exposure 1.04 | golden brightness 1.9, the noon value (§3): 0.27 % at both presets, the roof no longer clips; golden_hour −0.8 luma, december_noon −2.3 (low) |
+| Wide crowns over the tree budget (32 of 448 swept trees; wood up to 23,730 triangles on a 400 × 1600 cm plum) | segment length from the height alone, so a wide crown grew ~1,600 short segments; the 1,800-node cap was checked once per growth step | segments from max(height, spread) / 28, a hard 1,000-node cap, at most 140 fruit (§2's bound): 0 of 448 over, wood ≤ 8,330; both bench plans within budget, height and spread exact |
+| A blooming magnolia's leaves ×1.46 larger than uncapped (bench_large) | 140 flower centres as 32-triangle spheres: 4,480 of the 25,000 | octahedron centres, 8 triangles (`spheres(dot=True)`, every flower): ×1.25 alone, ×1.19 with the segment rule; the 2.5 cm dot reads the same at the walk distance |
+| ~25 px scallops of ~11 luma under the ridge cap (morning, low) | the low preset's High (1024-texel) shadow map | VeryHigh at low: columns darkened ≥ 7 rows under the cap 25 → 2 (high: 0), p95 reach 10 → 6 rows (high 5); low IoU 0.963 / 0.968 / 0.937 → 0.953 / 0.959 / 0.922; low fps 4.90 → 4.97 (llvmpipe, one run each) |
+| The 6° golden anchor never rendered; golden_hour (15.2°) and december_noon (14.0°) sampled almost one point of the rig | the shot list | `sunset`: 21 June 18:38 UTC, 5.89° / 301.5° from `core/solar`, golden_hour's camera — long picket shadows streak the meadow, ground shadows are faint (a horizontal surface gets sin 5.9° ≈ 0.10 of the sun) |
 
 ## 8. Owner taste log (append-only, newest last)
 

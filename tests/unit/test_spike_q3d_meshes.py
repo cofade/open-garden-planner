@@ -62,7 +62,13 @@ TREE_SPECIES = sorted({*M.CANOPY_FORM, "spruce", "pine", "unknown oak"})
 
 
 @pytest.mark.parametrize("species", TREE_SPECIES)
-@pytest.mark.parametrize(("height", "spread"), [(1500.0, 900.0), (420.0, 640.0)])
+@pytest.mark.parametrize(("height", "spread"), [
+    (1500.0, 900.0), (420.0, 640.0),
+    # crowns 2.7-4x wider than tall: segments sized from the height alone grew ~1,600 nodes
+    # across the spread, wood up to 23,730 triangles, 32 of 448 swept trees over the budget
+    # (3D reviewer pass 4: a 400 x 1600 plum, magnolias at 150 x 500 and 600 x 2000)
+    (400.0, 1600.0), (150.0, 500.0), (600.0, 2000.0), (300.0, 810.0),
+])
 def test_tree_budget_holds_beyond_the_bench_sizes(species: str, height: float,
                                                   spread: float) -> None:
     mesh = M.plant_mesh(species, M.item_seed("budget-" + species), height, spread, "TREE",
@@ -71,6 +77,67 @@ def test_tree_budget_holds_beyond_the_bench_sizes(species: str, height: float,
     lo, hi = mesh.bounds()  # the cap changes leaf size, never the data
     assert hi[2] - lo[2] == pytest.approx(height, rel=0.03)
     assert max(hi[0] - lo[0], hi[1] - lo[1]) == pytest.approx(spread, rel=0.10)
+
+
+def test_the_tree_budget_holds_by_construction() -> None:
+    """The bound written next to TREE_NODES_MAX, from the constants the builder uses:
+    wood (7-sided limbs, 2 triangles per side and segment) + the larger accent + the
+    leaf floor (2 leaves per twig, twigs ≤ nodes) fits the budget, so the leaves above
+    the floor always have room."""
+    wood = (M.TREE_NODES_MAX - 1) * 7 * 2
+    accents = max(M.TREE_FRUIT_MAX * len(M._SPHERE_F),
+                  M.TREE_FLOWERS * (len(M._DOT_F) + 2 * M.FLOWER_PETALS))
+    leaf_floor = 2 * 2 * M.TREE_NODES_MAX
+    assert (wood, accents, leaf_floor) == (13_986, 4_480, 4_000)
+    assert wood + accents + leaf_floor <= M.TREE_TRIANGLE_BUDGET
+    for kind, name in (("fruit", "apple"), ("flower", "pink")):  # the builder's own bound
+        assert M._tree_accent_triangles((kind, name), 10**6, 10**6) <= accents
+
+
+def test_the_node_cap_is_hard(monkeypatch) -> None:
+    """Checked once per growth step, the cap let a step overshoot it by every node that
+    step grew; the wood bound needs the node count itself bounded."""
+    seen: dict[str, int] = {}
+    limb_tubes = M.limb_tubes
+
+    def spy(pts, par, radius, is_cont, colors, sides=7):
+        seen["nodes"], seen["sides"] = len(pts), sides
+        mesh = limb_tubes(pts, par, radius, is_cont, colors, sides)
+        seen["wood"] = mesh.triangle_count
+        return mesh
+
+    monkeypatch.setattr(M, "limb_tubes", spy)
+    free = M.space_colonization_tree(11, 900.0, 700.0, "fresh")
+    grown = seen["nodes"]
+    assert seen["wood"] == (grown - 1) * seen["sides"] * 2  # the bound's wood formula
+    cap = grown // 3
+    monkeypatch.setattr(M, "TREE_NODES_MAX", cap)
+    capped = M.space_colonization_tree(11, 900.0, 700.0, "fresh")
+    assert seen["nodes"] == cap  # exactly at the cap, not one growth step past it
+    assert capped.triangle_count <= M.TREE_TRIANGLE_BUDGET
+    assert free.triangle_count <= M.TREE_TRIANGLE_BUDGET
+
+
+def test_fruit_stops_at_its_cap_for_any_spread() -> None:
+    assert M._tree_fruit_count(10**6, 10**6) == M.TREE_FRUIT_MAX
+    assert M._tree_fruit_count(400, 340.0) == 13          # one per 25 cm below the cap
+    assert M._tree_fruit_count(3, 340.0) == 3             # never more than the twigs
+    mesh = M.plant_mesh("Apple Tree", M.item_seed("wide-apple"), 600.0, 6000.0, "TREE",
+                        in_season=True)
+    assert mesh.triangle_count <= M.TREE_TRIANGLE_BUDGET
+
+
+def test_flower_centres_are_octahedra() -> None:
+    """140 magnolia centre dots, 2.5 cm across, took 32 triangles each (4,480 of the
+    tree's 25,000) and the leaves paid for them (3D reviewer pass 4): now 8."""
+    rng = np.random.default_rng(3)
+    centres = rng.normal(0.0, 50.0, (10, 3)).astype(np.float32)
+    normals = M._normalize(rng.normal(0.0, 1.0, (10, 3))).astype(np.float32)
+    mesh = M.flowers(centres, normals, 9.0, "#e88aa8", "#f7e3a0", rng, petals=6)
+    assert (len(M._DOT_F), len(M._DOT_V)) == (8, 6)
+    assert mesh.triangle_count == 10 * (len(M._DOT_F) + 2 * 6)
+    with pytest.raises(ValueError):
+        M.spheres(centres, 1.0, "#ffffff", smooth=True, dot=True)
 
 
 def _leaf_area(mesh: M.MeshData) -> float:
@@ -358,8 +425,8 @@ def test_flower_heads_sit_on_their_blade_tips_facing_along_the_blade() -> None:
     blade_tips = rings[:, -1].mean(axis=1)   # the centre line at f = 1
     below = rings[:, -2].mean(axis=1)        # ... and at f = 0.75
     heads = with_heads.positions[n_blade_verts:]
-    sphere_v = len(M._SPHERE_V)
-    k = len(heads) // (sphere_v + 6 * 4)  # per head: one disk sphere + six 4-vertex petals
+    sphere_v = len(M._DOT_V)
+    k = len(heads) // (sphere_v + 6 * 4)  # per head: one disk dot + six 4-vertex petals
     assert k >= 1 and len(heads) == k * (sphere_v + 24)
     disks = heads[: k * sphere_v].reshape(k, sphere_v, 3).mean(axis=1)  # = disk centres
     radius = float(np.clip(60.0 * 0.18, 3.0, 7.0))
