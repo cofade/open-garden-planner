@@ -136,19 +136,20 @@ jobs:
 
       # EXPERIMENT, not a gate (ADR-047 entry 10): in every D3D11 run so far,
       # private bytes dip and then rise 5-10 MB per reload, and 20 reloads cannot
-      # tell a plateau from a leak. The same window as the control, no probes and
-      # no injected leak, 50 reloads. Its outcome is printed, never judged.
-      - name: Spike, frozen bundle, 50-reload soak (experiment, does not gate)
+      # tell a plateau from a leak; two 50-reload runs stopped rising near reload
+      # 40, at different levels. The same window as the control, no probes and no
+      # injected leak, 100 reloads. Its outcome is printed, never judged.
+      - name: Spike, frozen bundle, 100-reload soak (experiment, does not gate)
         id: longsoak
         continue-on-error: true
-        timeout-minutes: 20
+        timeout-minutes: 30
         shell: bash
         run: >
-          python scripts/spike_q3d_ci.py --frozen --out spike-frozen-longsoak --limit-s 1080 --
+          python scripts/spike_q3d_ci.py --frozen --out spike-frozen-longsoak --limit-s 1680 --
           --plan tests/fixtures/plans/bench_small.ogp
           --presets low --shots golden_hour --fps-seconds 0 --size 640x360
-          --grass-density 60 --frame-timeout-s 120 --watchdog-s 1020
-          --soak 250
+          --grass-density 60 --frame-timeout-s 120 --watchdog-s 1620
+          --soak 500
 
       - name: Upload evidence
         if: always()

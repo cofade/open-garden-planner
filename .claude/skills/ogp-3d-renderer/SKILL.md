@@ -106,6 +106,10 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
   Windows evidence run's job).
 - **Double-sided leaves:** with `cullMode: NoCulling` back faces get the flipped normal — a
   front-only light term turns grass into black stubble; light both sides.
+- **Sharpening is on or off:** `sharpnessAmount` 0.08 overshot into near-black, red-less pixels
+  (1,500–3,100 per daytime frame at 1280×720: teal-black slits in picket fences, black stubble
+  on lawns); 0.03 is nearly as bad (noon 1,502 vs 1,554), and only 0.0 is clean. Leave it at
+  0 (edge energy −16–29 %, an owner taste question), and keep the render tier's speckle gate.
 - **Anti-aliasing at low:** `fxaaEnabled` lives on `ExtendedSceneEnvironment`,
   `specularAAEnabled` on `SceneEnvironment`; keep FXAA off in probe views (it softens the
   measured pixels).
@@ -142,10 +146,11 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
   The gate answers "a trend over the last ten reloads?", not "did memory grow?". On WARP every
   run (v9–v12) first dips 111–146 MB (memory the probes held: the probe-less controls never
   dip), then rises 5–10 MB per reload; the tail gate read 1.5–9.0 (1.8 and 9.0 for identical
-  code), and the controls over-read the 25 MB they hold by 3–9 MB/reload. A 50-reload soak
-  plateaued (+87 MB, last ten reloads −0.2 MB/reload; v13), and llvmpipe RSS reads 0.02–0.46
-  MB/reload for the same code: a ceiling on the WARP side, not a leak in the spike's objects.
-  Record the whole curve (`leak_curve_mb`) with the verdict.
+  code), and the controls over-read the 25 MB they hold by 3–9 MB/reload. Two 50-reload soaks
+  stopped rising around reload 40 (last ten reloads −0.16 and −0.18 MB/reload, at +90 and
+  +200 MB; v13, v14), and llvmpipe RSS reads 0.02–0.46 MB/reload for the same code: not a
+  leak in the spike's objects; a WARP-side ceiling is likely, a 100-reload soak (v15) checks
+  it. Record the whole curve (`leak_curve_mb`) with the verdict.
 
 ## 6. Hosts
 
