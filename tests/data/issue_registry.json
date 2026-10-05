@@ -626,17 +626,22 @@
   },
   "393": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "fill_translations.py: 5 duplicate context keys drop 62 translations; German PDF 'Garden Notes' page prints 5 strings in English (Audit 2026-10, epic #392)"
   },
   "408": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Generated soil amendment task names remain English with German UI"
   },
   "410": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "suggest_companions returns English plant names with a German UI (D3.1 display string not localised)"
+  },
+  "411": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(#393,#408,#410): localize shared-service display strings; enforce translation-key uniqueness; full-tree ruff"
   }
 }
