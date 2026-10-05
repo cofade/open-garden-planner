@@ -330,6 +330,8 @@ Architecture Decision Records (ADRs) for significant technical choices.
 
 **Consequences**: Selecting shapes and invoking Mirror (`Shift+M`) → two-click axis (Shift constrains to 45°) → Copy/Move reflects them in one undo step, retaining layer/style/plant metadata; Move keeps constraints bound. Adds `core/mirror_geometry.py`, `core/tools/mirror_tool.py`, `MirrorItemsCommand`, and a toolbar button; no save-format change. Tests: `test_mirror_geometry.py` (helpers + per-type builder) and `test_mirror_tool.py` (Copy keeps original + fresh id, Move replaces + preserves id, one-undo-step, Shift 45° snap, unsupported skipped). Closes epic #187.
 
+**Addendum (#400, epic #392, 2026-10-05)**: Context point 1's "two diverging item serializers" is resolved. `CanvasView`'s duplicate serialization methods (`_serialize_item`, `_serialize_item_core`, `_deserialize_item`) have been removed; `CanvasView` now delegates directly to `ProjectManager`'s static methods. Module-level helpers `_strip_item_ids` and `_offset_item_dict` handle clipboard offset and UUID re-minting uniformly across all placeable items, including curves (Arc, Bezier), annotations, fences, and groups, while preserving spacing overrides, frost flags, label visibility, and fence styles. `TextItem` is serialized natively by `ProjectManager` with `type: "text"` (closing #394, TD-010); `FILE_VERSION` remains `"1.4"` because text was already part of the clipboard schema since v1.1 and earlier binaries safely ignore additive keys.
+
 ## ADR-027: User-Data Location & Installer Data Preservation
 
 **Status**: Accepted (issue #199)

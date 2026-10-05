@@ -5695,20 +5695,31 @@ class GardenPlannerApp(QMainWindow):
         has no wrapper to do it. A recovery that only the GUI ran would have
         been a #337-class bug waiting on the caller the extraction created.
         """
-        # Clear any existing auto-save before loading new project
-        self._autosave_manager.clear_autosave()
-
         try:
             self._project_manager.load(self.canvas_scene, Path(file_path))
         except Exception:
             self._reset_compare_overlay_after_failed_load()
+            if hasattr(self, "_update_window_title"):
+                self._update_window_title()
             raise
+
+        # Clear any existing auto-save only after the new project loads successfully (AUD-040, TD-017)
+        self._autosave_manager.clear_autosave()
         self.canvas_view.command_manager.clear()
         self.canvas_view.fit_in_view()
         self.layers_panel.set_layers(self.canvas_scene.layers)
         self.canvas_scene.update_dimension_lines()
         self.constraints_panel.refresh()
-        self.statusBar().showMessage(self.tr("Opened: {path}").format(path=file_path))
+        skipped = self._project_manager.last_load_skipped_items_count
+        if skipped > 0:
+            self.statusBar().showMessage(
+                self.tr(
+                    "Warning: {count} unrecognized item(s) could not be loaded and were skipped."
+                ).format(count=skipped),
+                8000,
+            )
+        else:
+            self.statusBar().showMessage(self.tr("Opened: {path}").format(path=file_path))
         # Load compare overlay if previous seasons are linked (US-10.7)
         self._load_compare_overlay_from_previous_season()
         self.tasks_view.refresh()
