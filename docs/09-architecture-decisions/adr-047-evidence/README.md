@@ -36,6 +36,11 @@
 | `windows-v12-frozen.json` | same | e862785 | All 41 checks; probe restore and second window 0.0; leak gate 9.0 MB/reload, a pass near the bound (ADR-047 entry 10: the dip-then-rise table) |
 | `windows-v12-frozen-warm.json` | same | e862785 | Warm relaunch (three caches found) |
 | `windows-v12-frozen-leakctl.json` | same | e862785 | Positive control: 25 MB held per reload read 28.3 MB/reload and failed the gate. dist delta +1.8 MB (no separate footprint file) |
+| `windows-v13-unfrozen.json` | [37285285890](https://github.com/cofade/open-garden-planner/actions/runs/37285285890) | cf7eb66 | `--cold`; spike code identical to v12 |
+| `windows-v13-frozen.json` | same | cf7eb66 | All 41 checks; leak gate 1.8 MB/reload for the code that read 9.0 in v12 |
+| `windows-v13-frozen-warm.json` | same | cf7eb66 | Warm relaunch (three caches found) |
+| `windows-v13-frozen-leakctl.json` | same | cf7eb66 | Positive control: 25 MB held per reload read 32.9 MB/reload and failed the gate |
+| `windows-v13-frozen-longsoak.json` | same | cf7eb66 | **Experiment, not a gate:** 50 reloads at 640×360, no probes. The rise plateaus (reloads 41–50: −0.2 MB/reload). dist delta +1.7 MB (no separate footprint file) |
 | `container-6f0c4f4.json` | — | 6f0c4f4 | Cloud container, Mesa llvmpipe (OpenGL), 1280×720, all shots. Ran next to two reviewer renders: correctness numbers valid, timings inflated |
 
 Same code on different runner instances differs by up to 2× in timings; compare ranges, not single values.
