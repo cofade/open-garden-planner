@@ -800,9 +800,11 @@ failure was its own smell (senior review), so the final gate was fixed before
 the next run: 20 reloads, private bytes, a Theil–Sen slope, and a positive
 control on the same runner that must fire on 25 MB per reload. Windows runs
 v9–v13 passed it (1.5–9.0 MB/reload; identical code read 9.0 and 1.8), yet every
-one of them, after an early dip, rose 5–10 MB per reload. Only longer soaks
-could tell: two 50-reload runs stopped rising around reload 40 (last ten reloads
-−0.2 MB/reload), and llvmpipe's exact RSS shows nothing comparable. The gate answers "is there a trend over the
+one of them, after an early dip, rose 5–10 MB per reload. Longer soaks showed
+the rise slowing, by amounts that differ threefold between runs of identical
+code, and still creeping 0.2 MB/reload at reload 100; llvmpipe's exact RSS shows
+nothing comparable. The cause is not identified, so the leak half stays open on
+D3D11. Two 50-reload curves were first misread as a ceiling. The gate answers "is there a trend over the
 last ten reloads", not "did memory grow", so the record carries the whole curve
 (ADR-048 entry 10). *Hold the one object in use, not every object
 that ever was; judge a leak by its slope, and trust a gate only after you have

@@ -40,12 +40,17 @@
 | `windows-v13-frozen.json` | same | cf7eb66 | All 41 checks; leak gate 1.8 MB/reload for the code that read 9.0 in v12 |
 | `windows-v13-frozen-warm.json` | same | cf7eb66 | Warm relaunch (three caches found) |
 | `windows-v13-frozen-leakctl.json` | same | cf7eb66 | Positive control: 25 MB held per reload read 32.9 MB/reload and failed the gate |
-| `windows-v13-frozen-longsoak.json` | same | cf7eb66 | **Experiment, not a gate:** 50 reloads at 640×360, no probes. The rise flattens after reload 40 (reloads 41–50: −0.2 MB/reload). dist delta +1.7 MB (no separate footprint file) |
+| `windows-v13-frozen-longsoak.json` | same | cf7eb66 | **Experiment, not a gate:** 50 reloads at 640×360, no probes; +87 MB by reload 50 (ADR-048 entry 10). dist delta +1.7 MB (no separate footprint file) |
 | `windows-v14-unfrozen.json` | [37293091187](https://github.com/cofade/open-garden-planner/actions/runs/37293091187) | f1b998e | `--cold`; the first run with 3D creator round 4 |
 | `windows-v14-frozen.json` | same | f1b998e | All 41 checks; low IoU 0.984 / 0.982 / 0.964 with the VeryHigh map; isolated dark pixels 0 / 5; leak gate 3.4 MB/reload |
 | `windows-v14-frozen-warm.json` | same | f1b998e | Warm relaunch (three caches found) |
 | `windows-v14-frozen-leakctl.json` | same | f1b998e | Positive control: 25 MB held per reload read 30.9 MB/reload and failed the gate |
-| `windows-v14-frozen-longsoak.json` | same | f1b998e | **Experiment, not a gate:** 50 reloads; the rise stopped at reload 42, at +202 MB (v13: about +90). dist delta +1.7 MB |
+| `windows-v14-frozen-longsoak.json` | same | f1b998e | **Experiment, not a gate:** 50 reloads; +196 MB by reload 50 (ADR-048 entry 10). dist delta +1.7 MB |
+| `windows-v15-unfrozen.json` | [37296804412](https://github.com/cofade/open-garden-planner/actions/runs/37296804412) | 831f808 | `--cold`; spike code identical to v14 |
+| `windows-v15-frozen.json` | same | 831f808 | All 41 checks; leak gate 7.5 MB/reload for the code that read 3.4 in v14 |
+| `windows-v15-frozen-warm.json` | same | 831f808 | Warm relaunch (three caches found) |
+| `windows-v15-frozen-leakctl.json` | same | 831f808 | Positive control: 25 MB held per reload read 31.2 MB/reload and failed the gate |
+| `windows-v15-frozen-longsoak.json` | same | 831f808 | **Experiment, not a gate:** 100 reloads; +62 MB by reload 50, 0.21 MB/reload over reloads 51–100 (ADR-048 entry 10). dist delta +1.7 MB |
 | `container-6f0c4f4.json` | — | 6f0c4f4 | Cloud container, Mesa llvmpipe (OpenGL), 1280×720, all shots. Ran next to two reviewer renders: correctness numbers valid, timings inflated |
 
 Same code on different runner instances differs by up to 2× in timings; compare ranges, not single values.

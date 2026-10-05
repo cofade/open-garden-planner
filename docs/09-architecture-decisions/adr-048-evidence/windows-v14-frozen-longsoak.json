@@ -7,7 +7,7 @@
     "runner": "windows-latest (no GPU: Direct3D 11 on WARP)",
     "mode": "frozen-longsoak",
     "extracted_from": "job log (artifact host unreachable from the analysis container)",
-    "note": "EXPERIMENT, not a gate: 250 cycles, 50 reloads, 640x360, no probes. Private bytes 632.3 -> 828.4 MB (max 834.2 at reload 42); Theil-Sen per ten reloads 3.1 / 5.4 / 3.9 / 6.8 / -0.18 MB/reload: the rise stopped around reload 42, as in v13, but at +202 MB where v13 stopped at about +90 MB."
+    "note": "EXPERIMENT, not a gate (ADR-048 entry 10): 250 cycles, 50 reloads, 640x360, no probes. Private bytes 632.3 -> 828.4 MB (max 834.2 at reload 42), +196.1 MB at reload 50. Decade means 637.9 / 688.9 / 744.0 / 781.2 / 825.7 MB (steps +51 / +55 / +37 / +45, no deceleration); Theil-Sen over reloads 26-50 3.78 MB/reload."
   },
   "status": "ok",
   "platform": "Windows-10-10.0.26100-SP0",

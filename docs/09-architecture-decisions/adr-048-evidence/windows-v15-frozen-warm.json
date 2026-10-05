@@ -1,0 +1,130 @@
+{
+  "_provenance": {
+    "workflow": "spike-q3d.yml (temporary)",
+    "run_id": "37296804412",
+    "run_url": "https://github.com/cofade/open-garden-planner/actions/runs/37296804412",
+    "commit": "831f808",
+    "runner": "windows-latest (no GPU: Direct3D 11 on WARP)",
+    "mode": "frozen-warm",
+    "extracted_from": "job log (artifact host unreachable from the analysis container)",
+    "note": "Second launch of the same shot; found the three caches the first launch wrote."
+  },
+  "status": "ok",
+  "platform": "Windows-10-10.0.26100-SP0",
+  "python": "3.11.9",
+  "frozen": true,
+  "plan": "tests\\fixtures\\plans\\bench_small.ogp",
+  "host": "view",
+  "size": [
+    960,
+    540
+  ],
+  "env": {
+    "QSG_RHI_BACKEND": null,
+    "QT_QPA_PLATFORM": null,
+    "QSG_RHI_PREFER_SOFTWARE_RENDERER": null,
+    "QSG_RENDER_LOOP": null
+  },
+  "qt": "6.11.0",
+  "shader_caches": {
+    "cold": false,
+    "disabled_by_env": [],
+    "found_before_run": [
+      "q3dshadercache-x86_64-little_endian-llp64",
+      "qmlcache",
+      "qtpipelinecache-x86_64-little_endian-llp64"
+    ]
+  },
+  "load_plan_ms": 103.15789999981462,
+  "ground_bake_ms": 87.34400000003006,
+  "build_models_ms": 398.82570000008855,
+  "build": {
+    "date": "2026-06-21",
+    "items": 99,
+    "models": 94,
+    "triangles": 193182,
+    "in_season": true,
+    "by_kind_ms": {
+      "RAIN_BARREL": 1.0,
+      "WHEELBARROW": 0.2,
+      "COMPOST_BIN": 0.1,
+      "TRAMPOLINE": 1.1,
+      "BIRD_BATH": 0.6,
+      "BENCH": 0.3,
+      "FIRE_PIT": 0.3,
+      "BBQ_GRILL": 0.4,
+      "CHAIR": 1.4,
+      "TABLE_RECTANGULAR": 0.3,
+      "plants": 353.3,
+      "TRELLIS": 0.8,
+      "CONTAINER_ROUND": 1.0,
+      "RAISED_BED": 0.4,
+      "GARDEN_BED": 0.0,
+      "PATH": 0.0,
+      "WALL": 0.2,
+      "HEDGE_POLYGON": 8.3,
+      "FENCE": 10.6,
+      "PERGOLA": 0.7,
+      "GARAGE_SHED": 0.9,
+      "GREENHOUSE": 1.8,
+      "HOUSE": 0.9,
+      "POND_POOL": 0.3,
+      "DRIVEWAY": 0.0,
+      "TERRACE_PATIO": 0.0,
+      "LAWN": 0.0,
+      "grass": 7.3
+    }
+  },
+  "qt_messages": {
+    "counts": {
+      "error": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "errors": [],
+    "warnings": []
+  },
+  "qml_load_ms": 21.17050000015297,
+  "scene_apply_ms": 7.116900000028181,
+  "geometry_upload_ms_total": 37.3674999996183,
+  "look_and_sun_ms": 295.8644000000277,
+  "first_frame_ms": 233.40460000008534,
+  "first_ready_ms": 48623.2,
+  "open_ms": 49434.8,
+  "open_breakdown_ms": {
+    "ground_bake": 87.3,
+    "build_models": 398.8,
+    "qml_load": 21.2,
+    "scene_apply": 7.1,
+    "look_and_sun": 295.9,
+    "show_to_first_ready": 48623.2
+  },
+  "graphics_api": "Direct3D11Rhi",
+  "shots": [
+    {
+      "shot": "golden_hour",
+      "preset": "low",
+      "file": "golden_hour_low.png",
+      "sun_elev": 15.23,
+      "sun_az": 288.8,
+      "sun_date": "2026-06-21",
+      "build_date": "2026-06-21",
+      "settle_ms": 48485.5,
+      "grab_ms": 48137.3,
+      "isolated_dark_px": 0,
+      "clipped_pct": 0.0,
+      "mean_luma": 104.47
+    }
+  ],
+  "builds": {
+    "2026-06-21": {
+      "items": 99,
+      "models": 94,
+      "triangles": 193182,
+      "in_season": true,
+      "build_ms": 398.8
+    }
+  },
+  "wait_timeouts": 0,
+  "total_s": 98.5
+}

@@ -146,11 +146,13 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
   The gate answers "a trend over the last ten reloads?", not "did memory grow?". On WARP every
   run (v9–v12) first dips 111–146 MB (memory the probes held: the probe-less controls never
   dip), then rises 5–10 MB per reload; the tail gate read 1.5–9.0 (1.8 and 9.0 for identical
-  code), and the controls over-read the 25 MB they hold by 3–9 MB/reload. Two 50-reload soaks
-  stopped rising around reload 40 (last ten reloads −0.16 and −0.18 MB/reload, at +90 and
-  +200 MB; v13, v14), and llvmpipe RSS reads 0.02–0.46 MB/reload for the same code: not a
-  leak in the spike's objects; a WARP-side ceiling is likely, a 100-reload soak (v15) checks
-  it. Record the whole curve (`leak_curve_mb`) with the verdict.
+  code), and the controls over-read the 25 MB they hold by 3–9 MB/reload. Longer soaks
+  (v13–v15) show the rise slowing but not stopping: +196 and +62 MB at reload 50 for identical
+  code, 0.21 MB/reload over reloads 51–100. llvmpipe RSS reads 0.02–0.46 MB/reload, so it is
+  not Python-side growth in the spike; a D3D11 resource retained per reload is not ruled out
+  (WARP keeps GPU memory in private bytes; a discrete GPU keeps it in VRAM, unseen). Cause
+  unidentified; locate it with an A/B soak, not a longer one. Record the whole curve
+  (`leak_curve_mb`) with the verdict, and never call ten flat reloads a ceiling.
 
 ## 6. Hosts
 

@@ -135,10 +135,10 @@ jobs:
           --soak 100 --soak-leak-mb 25
 
       # EXPERIMENT, not a gate (ADR-048 entry 10): in every D3D11 run so far,
-      # private bytes dip and then rise 5-10 MB per reload, and 20 reloads cannot
-      # tell a plateau from a leak; two 50-reload runs stopped rising near reload
-      # 40, at different levels. The same window as the control, no probes and no
-      # injected leak, 100 reloads. Its outcome is printed, never judged.
+      # private bytes dip and then rise after the first reloads, and 20 reloads
+      # say nothing about where that goes. The same window as the control, no
+      # probes and no injected leak, 100 reloads. Its outcome is printed, never
+      # judged.
       - name: Spike, frozen bundle, 100-reload soak (experiment, does not gate)
         id: longsoak
         continue-on-error: true
