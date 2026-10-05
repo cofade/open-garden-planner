@@ -678,6 +678,18 @@ nothing (senior review, pass 4). Every restore is now checked in pixels
 that omits the trigger proves nothing; check a contract in the currency it
 promises.*
 
+**14. From a git worktree, a test's subprocess ran the main checkout's code.**
+`tests/conftest.py` puts the checkout's `src` on the *test* process's path only.
+A child started as `python -m open_garden_planner` or `python -c "import
+open_garden_planner"` resolves the package through the venv's editable install,
+and that points at the main checkout. So a render-tier or isolation test run in a
+worktree (where every review and creator agent works) judged other code, and was
+green or red for the wrong commit (found by 3D creator round 4). The spike's
+render tier and isolation test now put the checkout's own `src` first on the
+child's `PYTHONPATH`; `scripts/bench_view3d.py` inserts it itself. *A subprocess
+does not inherit the parent's import path; pin it, or the test measures whatever
+the environment happens to point at.*
+
 ## 11.5 Community and Governance
 
 **Feature Requests**: Open to community input, pivots, and voting. The goal is to avoid a dead project — community engagement is welcome.

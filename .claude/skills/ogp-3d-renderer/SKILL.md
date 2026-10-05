@@ -82,8 +82,10 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
   Settings behind those numbers: `shadowBias` 5, `shadowMapFar` 9000, `lockShadowmapTexels`,
   the High preset's quality and PCF — but **no cascades**: the orthographic probe view forces
   `csmNumSplits: 0`, so the cascaded configuration of the beauty views is not covered yet.
-  The value depends on frame size (pixel grid), not on the backend. Low preset (High map,
-  one cascade, bias 15; the probe still runs without cascades): 0.963 / 0.968 / 0.937.
+  The value depends on frame size (pixel grid), not on the backend. Low preset (VeryHigh map
+  since creator round 4, one cascade, bias 15; the probe still runs without cascades):
+  0.953 / 0.959 / 0.922 at 1280×720, 0.985 / 0.983 / 0.967 at 640×360 (High map before:
+  0.963 / 0.968 / 0.937 at 1280×720).
 - **Shadow bias at grazing light:** 1024-texel maps (low, medium) at `shadowBias` 5 left a
   sun-grazed roof acned and stair-stepped (33–40 % of the slope); 15 measured clean with the IoU
   gate unchanged. VeryHigh quality alone: 33 %; one cascade split: 8 %; 32-bit map: 15 %.

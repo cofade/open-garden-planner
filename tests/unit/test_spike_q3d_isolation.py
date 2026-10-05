@@ -71,6 +71,10 @@ def test_spike_never_imported_at_startup() -> None:
         "('open_garden_planner.spike_q3d', 'PyQt6.QtQuick3D'))))\n"
     )
     env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
+    # THIS checkout's src: without it the child imports whatever the venv's editable
+    # install points at, which from a git worktree is the main checkout (creator round 4)
+    src = str(SPIKE.parents[1])
+    env["PYTHONPATH"] = os.pathsep.join(p for p in (src, env.get("PYTHONPATH")) if p)
     proc = subprocess.run(  # noqa: S603 — fixed argv, our own code
         [sys.executable, "-c", code], env=env, capture_output=True, text=True, timeout=170,
     )
