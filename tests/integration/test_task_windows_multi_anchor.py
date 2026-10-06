@@ -208,7 +208,7 @@ class TestFeb29FrostPlan:
 
     def test_non_leap_year_substitutes_one_march(self) -> None:
         """The substitution is a real, dated value — not a silently missing plan."""
-        from open_garden_planner.services.frost_dates import (
+        from open_garden_planner.core.frost_dates import (
             NON_LEAP_SUBSTITUTE_MONTH_DAY,
             parse_frost,
         )

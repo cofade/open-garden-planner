@@ -112,12 +112,22 @@ class TestEditsAreNotMisattributed:
         stored = view._project_manager.propagation_overrides.get(tomato, {})
         assert stored.get("harden_off") == {"start": "2026-06-01", "end": "2026-06-20"}, stored
 
-    def test_the_armed_key_is_captured_at_arm_time(self, qtbot) -> None:
-        """The mechanism, asserted directly rather than through the outcome."""
+    def test_the_armed_entry_captures_species_and_values(self, qtbot) -> None:
+        """The mechanism, asserted directly rather than through the outcome.
+
+        Both halves matter: the species key (so a flush after the panel moves to
+        another plant still writes to the right one) and the values (so a commit
+        whose slot refreshes the panel cannot persist what the refresh wrote).
+        """
         view, tomato, _pepper = _view(qtbot)
         _select(view, tomato)
-        view._detail._step_rows["indoor_sow"][0].setDate(QDate(2026, 5, 4))
-        assert view._detail._pending_steps == {"indoor_sow": tomato}
+        _arm(view, "indoor_sow", QDate(2026, 5, 4), QDate(2026, 5, 20))
+
+        armed = view._detail._pending_steps
+        assert set(armed) == {"indoor_sow"}, armed
+        species_key, start_iso, end_iso = armed["indoor_sow"]
+        assert species_key == tomato, (species_key, tomato)
+        assert (start_iso, end_iso) == ("2026-05-04", "2026-05-20"), armed
 
     def test_switching_to_a_species_with_no_plan_keeps_the_edit(self, qtbot) -> None:
         """The silent-discard branch: the armed set was cleared before the guards."""

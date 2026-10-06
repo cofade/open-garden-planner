@@ -16,7 +16,7 @@ import datetime
 
 import pytest
 
-from open_garden_planner.services.frost_dates import (
+from open_garden_planner.core.frost_dates import (
     NON_LEAP_SUBSTITUTE_MONTH_DAY,
     is_valid_frost_date,
     parse_frost,

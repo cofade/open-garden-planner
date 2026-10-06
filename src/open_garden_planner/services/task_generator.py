@@ -33,10 +33,10 @@ from typing import Any
 
 from PyQt6.QtCore import QCoreApplication
 
+from open_garden_planner.core.frost_dates import parse_frost
 from open_garden_planner.models.propagation import PropagationPlan, compute_propagation_plan
 from open_garden_planner.models.succession import SuccessionPlan
 from open_garden_planner.models.task import ManualTask
-from open_garden_planner.services.frost_dates import parse_frost
 from open_garden_planner.services.weather_service import FrostAlert
 
 # ── Output value object ──────────────────────────────────────────────────────
@@ -442,7 +442,7 @@ def generate_all(state: PlanState) -> list[Task]:
 def _parse_frost(mmdd: str, year: int) -> datetime.date | None:
     """Parse an ``'MM-DD'`` frost date for ``year`` (None on failure).
 
-    Thin alias for :func:`open_garden_planner.services.frost_dates.parse_frost`,
+    Thin alias for :func:`open_garden_planner.core.frost_dates.parse_frost`,
     which is the single rule every reader goes through (#414). Kept as a private
     name because the generators call it on every anchor year; the module docstring
     there documents the 29-February substitution.

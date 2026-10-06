@@ -397,7 +397,7 @@ def in_harvest_window(location: dict[str, Any] | None, at: date,
     generator, anchored on a year without that date, has none either): the caller
     keeps the frost-free season.
 
-    The anchor comes from :func:`services.frost_dates.parse_frost`, so the spike
+    The anchor comes from :func:`core.frost_dates.parse_frost`, so the spike
     and the task generators share ONE frost-date rule (#414). In particular a
     ``02-29`` frost resolves to 1 March in a year without that date rather than
     yielding no window at all — this function used to return ``None`` there,
@@ -410,7 +410,7 @@ def in_harvest_window(location: dict[str, Any] | None, at: date,
     """
     from datetime import timedelta
 
-    from open_garden_planner.services.frost_dates import parse_frost
+    from open_garden_planner.core.frost_dates import parse_frost
 
     frost = location.get("frost_dates") if isinstance(location, dict) else None
     if not isinstance(frost, dict) or not isinstance(species, dict):

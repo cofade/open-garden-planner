@@ -1849,6 +1849,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "hardy": "winterhart",
         "half-hardy": "bedingt winterhart",
         "tender": "frostempfindlich",
+        "The end date of a propagation step cannot be before its start date — the step was not changed.":
+            "Das Enddatum eines Vermehrungsschritts kann nicht vor seinem Startdatum liegen — der Schritt wurde nicht geändert.",
     },
 
     # ── WelcomeDialog ──

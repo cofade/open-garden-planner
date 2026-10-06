@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
-from open_garden_planner.services.frost_dates import is_valid_frost_date
+from open_garden_planner.core.frost_dates import is_valid_frost_date
 from open_garden_planner.ui.theme import theme_color
 
 

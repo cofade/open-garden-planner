@@ -213,7 +213,7 @@ class TestEditorPersistsWhatTheUserSaw:
         start_edit, _end, reset_btn = panel._step_rows["indoor_sow"]
         assert reset_btn.isEnabled() is True
         start_edit.setDate(QDate(2025, 12, 25))       # arms the debounce
-        assert panel._pending_steps == {"indoor_sow": panel._current_species_key}
+        assert set(panel._pending_steps) == {"indoor_sow"}
         reset_btn.click()                              # reset wins
 
         assert resets == [("solanum_lycopersicum", "indoor_sow")]
@@ -262,7 +262,7 @@ class TestEditorPersistsWhatTheUserSaw:
 
         start_edit, _end, _reset = panel._step_rows["indoor_sow"]
         start_edit.setDate(QDate(2025, 12, 27))
-        assert panel._pending_steps == {"indoor_sow": panel._current_species_key}
+        assert set(panel._pending_steps) == {"indoor_sow"}
 
         # Show a different species — exactly what _on_row_clicked does.
         panel.show_species(_SPECIES, "solanum_lycopersicum", plan)

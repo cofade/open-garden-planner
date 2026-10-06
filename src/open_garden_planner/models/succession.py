@@ -45,7 +45,7 @@ def compute_season_segments(
 ) -> dict[str, tuple[datetime.date, datetime.date]]:
     """Return frost-relative date ranges for each season segment.
 
-    Parses both frost dates through :mod:`services.frost_dates`, the single rule
+    Parses both frost dates through :mod:`core.frost_dates`, the single rule
     every reader shares (#414, ADR-049). This function used to slice the strings
     and call ``datetime.date`` directly, which made it a fourth independent
     notion of a frost date: for a ``'02-29'`` frost in a non-leap year the task
@@ -64,7 +64,7 @@ def compute_season_segments(
     Raises:
         ValueError: if either stored value is not a real frost date.
     """
-    from open_garden_planner.services.frost_dates import parse_frost
+    from open_garden_planner.core.frost_dates import parse_frost
 
     last = parse_frost(last_frost_str, year)
     fall = parse_frost(first_fall_frost_str, year)

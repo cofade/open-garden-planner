@@ -433,7 +433,7 @@ def test_harvest_window_matches_the_shared_generator(frost: str, start: int, end
 
     location = {"frost_dates": {"last_spring_frost": frost}}
     species = {"harvest_start": start, "harvest_end": end}
-    from open_garden_planner.services.frost_dates import parse_frost
+    from open_garden_planner.core.frost_dates import parse_frost
 
     day, mismatches = date(2026, 1, 1), []
     while day <= date(2028, 12, 31):

@@ -7,22 +7,34 @@ Gantt, the agent's ``get_tasks`` / ``get_task_calendar``, and the Phase 17 spike
 fruit window. This file pins the semantics that the code actually implements.
 
 It also records, as data rather than as a silent assumption, how far the bundled
-rows diverge from ``days_to_maturity``. The measurement behind the issue (118
-species, 64 with both harvest offsets and a maturity range):
+rows diverge from ``days_to_maturity``. The measurement is committed as
+``scripts/measure_harvest_offsets.py`` (118 species, 64 with both harvest offsets
+and a maturity range):
 
-* "``harvest_offset x 7`` lies inside ``days_to_maturity``" — **1 fits, 63 miss**;
-* "(``harvest_offset - planting_offset``) x 7 lies inside the maturity range,
-  +/-15%" — **10 fit, 54 miss**;
-* on the harvest *start* under the second reading, most species land 1.0-1.5x
-  their stated maturity, and garlic lands at 364 days against a stated
-  180-210.
+* reading **A** — frost-relative, ``harvest_start x 7`` inside the maturity range,
+  which is what every reader actually implements: **38 fit / 26 miss**;
+* reading **B** — planting-relative, ``(harvest_start - planting_offset) x 7``
+  inside the range ± 15 %: **45 fit / 19 miss**;
+* **11 species fit neither** (basil, bush bean, Brussels sprouts, echinacea,
+  oregano, radish, rocket, rosemary, spinach, sweet pea, zucchini).
 
-So the rows cannot be reconciled against ``days_to_maturity`` under either
-reading, and there is no majority to convert towards. The shipped half of #416 is
-therefore to make the documentation true and to name the divergence; converting
-the rows to planting-relative is deferred to its own package with a cited
-horticultural source (``days_to_maturity`` is reference data that no computation
-reads — it is displayed, never scheduled from).
+Two conclusions, and the distinction is the whole point of #416:
+
+* **Both readings fit a majority, so the data is not irreconcilable.** An earlier
+  draft of this file claimed "1 fits / 63 miss" and "10 fits / 54 miss" and used
+  the absence of a majority to justify deferring the conversion. Those numbers
+  matched no harness and the conclusion was wrong — the senior review caught it.
+* **Reading B fits more often than the one the code implements.** So the rows were
+  probably *authored* as planting-relative while every reader counts them from the
+  frost. That is a real, separate finding, and it is what makes the row conversion
+  a package rather than a patch.
+
+The shipped half of #416 is therefore to make the documentation true and to name
+the divergence. The row conversion is deferred to #418 on the grounds that it
+needs a cited horticultural source per row and licence clearance under #311's
+provenance rules — **not** because the data cannot be reconciled.
+``days_to_maturity`` is reference data that no computation reads (asserted
+below), so correcting rows cannot move a computed date.
 
 The named exceptions below are a drift guard: adding or reordering a bundled
 species that changes this set must be a deliberate act, not a silent diff.
@@ -52,11 +64,17 @@ DATA_FILE = (
 #: future planting-relative conversion must revisit first, and garlic is the
 #: worked example in #414/#416.
 KNOWN_DIVERGENT_SPECIES = frozenset({
-    "Allium sativum",       # garlic: 364 d from sowing vs 180-210 stated maturity
-    "Rheum rhabarbarum",     # rhubarb: multi-year maturity, one-season window
-    "Asparagus officinalis",  # asparagus: 730-1095 d maturity
-    "Allium porrum",         # leek
-    "Brassica oleracea var. gemmifera",  # Brussels sprouts
+    # Fits reading A on maturity alone (182 d inside a stated 180-210), but a
+    # 26-week frost-relative harvest lands in OCTOBER - about three months after
+    # a real garlic harvest. The row is wrong about the crop, not about the
+    # reading.
+    "Allium sativum",
+    # Multi-year maturity figures against a single-season window.
+    "Rheum rhabarbarum",
+    "Asparagus officinalis",
+    "Allium porrum",
+    # Among the 11 measured to fit NEITHER reading.
+    "Brassica oleracea var. gemmifera",
 })
 
 

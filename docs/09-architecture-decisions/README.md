@@ -418,7 +418,7 @@ tomato harvest at 29 Nov 2026 – 7 Feb 2027, invisible on every GUI surface on
 calendar offsets × 6 frost dates × every 10th day of 2026 (222 cases):
 **1,849 missed (task, frost date, day) cases, 0 after the fix**, and 0 tasks the
 GUI listed that the agent did not. The count is harness-dependent (all 118
-species on every day gives 2,669 before / 0 after), so quote the harness with the
+species on every day gives all 118 species on every day of 2026 gives 18,007 before / 0 after), so quote the harness with the
 number; the *invariant* is pinned by `tests/unit/test_task_windows_multi_anchor.py`,
 which asserts both directions.
 
@@ -1946,7 +1946,7 @@ following the `plan-my-week` prompt asked for a location the plan already had.
 ### Decision
 
 1. **One parser, one validator.** New Qt-free module
-   `services/frost_dates.py` owns `parse_frost(mmdd, year)` and
+   `core/frost_dates.py` owns `parse_frost(mmdd, year)` and
    `is_valid_frost_date(mmdd)`. The location dialog, the task generator, the
    succession season segments and the Phase 17 spike all go through it; the
    calendar view's duplicate is a thin shim and its dead regex is gone. The invariant "what the dialog accepts is what the
@@ -1981,7 +1981,7 @@ following the `plan-my-week` prompt asked for a location the plan already had.
 - `tests/unit/test_spike_q3d_board.py` had encoded the old "no window in a
   non-leap year" behaviour as its oracle and was updated to agree with the shared
   rule — the change is stated in that file's docstring rather than made silently.
-- `services/frost_dates.py` must stay free of Qt imports; it is imported by the
+- `core/frost_dates.py` must stay free of Qt imports; it is imported by the
   generators, a `QDialog`, and the spike.
 
 ### Related

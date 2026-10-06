@@ -5,15 +5,22 @@ CLAUDE.md/AGENTS.md and the debug-verbose case study have a source a reader can
 re-run, instead of a prose number nobody can check. Run it from the repo root:
 
     venv/Scripts/python.exe scripts/measure_task_window_sweep.py
+    venv/Scripts/python.exe scripts/measure_task_window_sweep.py --wide
 
 It prints the harness, the before/after missed counts and the surplus count. The
 **surplus** is the number that matters: 0 missed can also mean "the GUI listed
 everything", so a fix is only real if it missed nothing *and* added nothing.
 
-The 1,849 figure is harness-dependent — this script sweeps the 64 bundled species
-that carry calendar offsets, 6 frost dates, every 10th day of 2026 (222 cases).
-Widening to all 118 species on every day gives 2,669 before / 0 after. Quote the
-harness with the number.
+Two harnesses, and the count depends on which:
+
+* default -- the 64 bundled species that carry calendar offsets x 6 frost dates x
+  every 10th day of 2026 (222 cases): **1,849 / 0 / 0**.
+* ``--wide`` -- all 118 bundled species x 6 frost dates x every day of 2026
+  (2,190 cases): **18,007 / 0 / 0**.
+
+Quote the harness with the number. (An earlier revision of these documents quoted
+"2,669", which matched neither sweep and was simply wrong; the round-4 review
+caught it. Both figures above are printed by this script.)
 """
 from __future__ import annotations
 
@@ -41,8 +48,14 @@ AGENT_LOOKBACK_DAYS = 45
 AGENT_LOOKAHEAD_DAYS = 45
 
 
-def _plant_rows() -> list[PlantRowInput]:
-    """Every bundled species carrying at least one calendar offset."""
+def _plant_rows(wide: bool = False) -> list[PlantRowInput]:
+    """Bundled species as plan rows.
+
+    ``wide=False`` keeps only species carrying at least one calendar offset — the
+    population that can actually produce a task, and therefore the one the
+    default harness quotes. ``wide=True`` keeps all of them, which is the harness
+    the round-4 review used.
+    """
     rows: list[PlantRowInput] = []
     for raw in get_species_db().values():
         sp = PlantSpeciesData.from_dict(raw)
@@ -60,18 +73,27 @@ def _plant_rows() -> list[PlantRowInput]:
                 harvest_end=sp.harvest_end,
             )
         )
+    if wide:
+        return rows
     fields = (
         "harvest_start", "direct_sow_start", "transplant_start", "indoor_sow_start",
     )
     return [r for r in rows if any(getattr(r, f) is not None for f in fields)]
 
 
-def sweep() -> dict[str, int]:
-    rows = _plant_rows()
+def sweep(wide: bool = False) -> dict[str, int]:
+    """Sweep both listings and compare them under the GUI's own listing rule.
+
+    ``wide`` selects the harness: all 118 species on every day of 2026 (the
+    review's), or the 64 species with calendar offsets on every 10th day (the
+    default, quoted in ADR-029 and §11.4).
+    """
+    rows = _plant_rows(wide)
+    stride = 1 if wide else DAY_STRIDE
     cases = missed_before = missed_after = surplus = 0
 
     for frost in FROST_DATES:
-        for offset in range(0, 365, DAY_STRIDE):
+        for offset in range(0, 365, stride):
             today = datetime.date(2026, 1, 1) + datetime.timedelta(days=offset)
             try:
                 last_frost = datetime.date(2026, *(int(x) for x in frost.split("-")))
@@ -106,6 +128,7 @@ def sweep() -> dict[str, int]:
 
     return {
         "species": len(rows),
+        "stride": stride,
         "cases": cases,
         "missed_before": missed_before,
         "missed_after": missed_after,
@@ -113,11 +136,16 @@ def sweep() -> dict[str, int]:
     }
 
 
-def main() -> int:
-    result = sweep()
-    print(f"bundled species with calendar offsets : {result['species']}")
+def main(argv: list[str] | None = None) -> int:
+    import sys as _sys
+
+    wide = "--wide" in (argv if argv is not None else _sys.argv[1:])
+    result = sweep(wide)
+    print(f"harness                              : {'--wide' if wide else 'default'}")
+    print(f"bundled species                      : {result['species']}")
     print(f"frost dates                          : {len(FROST_DATES)} {FROST_DATES}")
-    print(f"day stride                           : every {DAY_STRIDE}th day of 2026")
+    stride_label = "every day" if result["stride"] == 1 else f"every {result['stride']}th day"
+    print(f"day stride                           : {stride_label} of 2026")
     print(f"(frost date, day) cases swept        : {result['cases']}")
     print()
     print(f"missed by the GUI on master          : {result['missed_before']}")

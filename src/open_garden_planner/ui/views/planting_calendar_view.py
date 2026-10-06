@@ -32,10 +32,10 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.app.settings import get_settings
+from open_garden_planner.core.frost_dates import parse_frost
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.models.plant_data import species_key as _species_key
 from open_garden_planner.models.propagation import PropagationPlan
-from open_garden_planner.services.frost_dates import parse_frost
 from open_garden_planner.services.task_generator import (
     PlanState,
     Task,
@@ -201,7 +201,7 @@ def _parse_frost(mmdd: str, year: int) -> datetime.date | None:
 
     This was a SECOND independent parser; a third copy lived in the location
     dialog's regex. All three now go through
-    :mod:`open_garden_planner.services.frost_dates`, which also owns the
+    :mod:`open_garden_planner.core.frost_dates`, which also owns the
     29-February-in-a-non-leap-year substitution. Kept as a module-level alias so
     existing importers keep working.
     """
@@ -860,28 +860,49 @@ class _DetailPanel(QFrame):
         self._commit_timer.setSingleShot(True)
         self._commit_timer.setInterval(_STEP_COMMIT_DEBOUNCE_MS)
         self._commit_timer.timeout.connect(self._flush_pending_steps)
-        #: step_id -> the species key that was current when the edit was ARMED. The key
-        #: is captured at arm time because the flush can run after the panel has
-        #: been pointed at a different plant (see _flush_pending_steps).
-        self._pending_steps: dict[str, str] = {}
+        #: ``step_id -> (species_key, start_iso, end_iso)``, captured when the edit
+        #: was ARMED. Both the species AND the values are captured, never read at
+        #: flush time: the flush can run after the panel has been pointed at a
+        #: different plant (so the species key would be wrong), and the commit slot
+        #: calls ``refresh()`` which rewrites the editors (so the values would be
+        #: wrong). See :meth:`_flush_pending_steps` for the defects this shape
+        #: prevents.
+        self._pending_steps: dict[str, tuple[str, str, str]] = {}
 
         for step_id, (start_edit, end_edit, reset_btn) in self._step_rows.items():
             # Use default-arg capture to avoid closure issues
             def make_changed_handler(sid: str) -> Any:
                 def handler() -> None:
-                    # Capture the species key NOW, not at flush time: the flush
-                    # can run after the panel has been pointed at another plant.
-                    if self._current_species_key:
-                        self._pending_steps[sid] = self._current_species_key
-                        self._commit_timer.start()
+                    # The ONLY place an edit is armed. `dateChanged` fires on a
+                    # real user change, so arming here is what keeps a tab-through
+                    # that touches nothing from committing anything.
+                    if not self._current_species_key:
+                        return
+                    row = self._step_rows.get(sid)
+                    if row is None:
+                        return
+                    row_start, row_end, _reset = row
+                    start_d = row_start.date().toPyDate()
+                    end_d = row_end.date().toPyDate() if row_end is not None else start_d
+                    self._pending_steps[sid] = (
+                        self._current_species_key, start_d.isoformat(), end_d.isoformat(),
+                    )
+                    self._commit_timer.start()
                 return handler
 
             def make_commit_handler(sid: str) -> Any:
-                # Focus-out commits immediately so the override is stored (and
-                # the plan rebuilt) as soon as the user leaves the field.
+                # Focus-out commits immediately so the override is stored (and the
+                # plan rebuilt) as soon as the user leaves the field -- but ONLY
+                # what `dateChanged` already armed.
+                #
+                # `editingFinished` fires on EVERY focus-out, including a
+                # tab-through that changed nothing. Arming here wrote an override
+                # for every step the user's focus merely passed, which silently
+                # froze the propagation dates so they stopped following the frost
+                # date (#415 round-4 review). It looks like a harmless no-op and
+                # is a data change.
                 def handler() -> None:
-                    if self._current_species_key:
-                        self._pending_steps[sid] = self._current_species_key
+                    if sid in self._pending_steps:
                         self._flush_pending_steps()
                 return handler
 
@@ -890,7 +911,11 @@ class _DetailPanel(QFrame):
                     if not self._current_species_key:
                         return
                     self._pending_steps.pop(sid, None)
-                    self._commit_timer.stop()
+                    # Only stop the debounce if nothing else is armed: resetting
+                    # one step must not strand a sibling edit that is waiting on
+                    # the timer (#415 round-4 review).
+                    if not self._pending_steps:
+                        self._commit_timer.stop()
                     self.step_date_reset.emit(self._current_species_key, sid)
                 return handler
 
@@ -904,55 +929,61 @@ class _DetailPanel(QFrame):
     def _flush_pending_steps(self) -> None:
         """Commit every armed step's override, in ONE batch, then clear.
 
-        Four things this must get right, each of which was a shipped defect:
+        Everything this needs is in ``_pending_steps``; the editors are NEVER
+        read here. Five defects that shape came from, each of which was shipped:
 
-        * **A set, not a single slot.** Correcting a step's start and then its end
+        * **A dict, not a single slot.** Correcting a step's start and then its end
           arms two steps; one slot kept only the last and the first was dropped.
-        * **The species key is captured when the edit is ARMED, not read at flush
-          time.** The flush runs from ``show_species``, which had already
-          reassigned ``_current_species_key`` — so an armed edit was persisted
-          against the species the user had just clicked *onto*. That is silent
-          cross-species corruption in the ``.ogp``.
-        * **Values are snapshotted before the emit.** The slot calls ``refresh()``,
-          which reaches back into ``_populate_prop_editor`` and rewrites the date
-          editors, so reading them inside an emit loop persisted reverted values.
-        * **One emit, not one per step.** The slot runs a full calendar refresh
-          and a weather fetch, so N emits cost N heavyweight refreshes for a
-          single user gesture.
+        * **The species key is captured at ARM time.** The flush runs from
+          ``show_species``, which had already reassigned
+          ``_current_species_key`` — so an armed edit was persisted against the
+          species the user had just clicked *onto*. Silent cross-species
+          corruption in the ``.ogp``.
+        * **The values are captured at ARM time too.** The commit slot calls
+          ``refresh()``, which reaches back into ``_populate_prop_editor` and
+          rewrites the editors, so reading them here persisted values the user
+          never entered — or dropped the edit outright, for every step after the
+          first.
+        * **Nothing is armed without a `dateChanged`.** Arming on ``editingFinished``
+          wrote an override for every step a tab-through merely passed, silently
+          freezing the propagation dates.
+        * **One emit per species, not per step.** The slot runs a full calendar
+          refresh and a weather fetch, so N emits cost N heavyweight refreshes.
 
         An inverted pair (the user moved a start past its end) is REFUSED and
         reported, never silently rewritten: clamping to a zero-length period
         persisted an end date the user never entered.
+
+        Only armed entries are considered, so a flush triggered by an unrelated
+        refresh is a no-op by construction — there is nothing to accidentally
+        write.
         """
-        armed = dict(self._pending_steps)      # step_id -> species key at arm time
+        armed = dict(self._pending_steps)
         self._commit_timer.stop()
         if not armed:
             return
+        # Every armed entry is accounted for below (written or rejected), so the
+        # clear is safe here and only here.
+        self._pending_steps.clear()
 
-        writes: list[tuple[str, str, str]] = []
+        writes_by_species: dict[str, list[tuple[str, str, str]]] = {}
         rejected: list[tuple[str, str]] = []
-        for step_id, species_key in sorted(armed.items()):
-            row = self._step_rows.get(step_id)
-            if row is None or not species_key:
+        for step_id, (species_key, start_iso, end_iso) in sorted(armed.items()):
+            if not species_key:
                 continue
-            start_edit, end_edit, _reset_btn = row
-            start_d = start_edit.date().toPyDate()
-            end_d = end_edit.date().toPyDate() if end_edit is not None else start_d
-            if end_d < start_d:
+            if end_iso < start_iso:   # ISO dates sort chronologically
                 rejected.append((species_key, step_id))
                 continue
-            writes.append((step_id, start_d.isoformat(), end_d.isoformat()))
-
-        # Clear only what has actually been handled — never before the guards,
-        # which is how an armed edit was destroyed when the new species had no
-        # propagation plan at all.
-        for step_id in armed:
-            self._pending_steps.pop(step_id, None)
+            writes_by_species.setdefault(species_key, []).append(
+                (step_id, start_iso, end_iso)
+            )
 
         for species_key, step_id in rejected:
             self.step_date_rejected.emit(species_key, step_id)
-        if writes:
-            self.steps_date_changed.emit((armed and next(iter(armed.values())), writes))
+        # One emit per species, so a gesture touching two plants refreshes once
+        # each rather than once per step.
+        for species_key, writes in writes_by_species.items():
+            self.steps_date_changed.emit((species_key, writes))
 
     # ── public API ─────────────────────────────────────────────────────────────
 
@@ -973,10 +1004,12 @@ class _DetailPanel(QFrame):
         no_data_text: str = "No detailed data available",
     ) -> None:
         # Commit any armed edit BEFORE pointing the panel at another plant. The
-        # flush reads the species key captured at arm time, so the ordering is
-        # belt-and-braces — but flushing here also means the populate path below
-        # is never re-entered mid-flush, which is what made a misattributed write
-        # possible (#415).
+        # Gantt has Qt::NoFocus, so clicking another chart row fires no
+        # `editingFinished` to commit implicitly — without this the edit would be
+        # stranded by the populate below and lost. The flush reads species and
+        # values captured at arm time, so it is correct regardless of ordering;
+        # doing it here also guarantees the populate path is never re-entered
+        # mid-flush.
         self._flush_pending_steps()
         self._current_species_key = species_key
         self._current_plan = prop_plan

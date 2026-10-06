@@ -7601,6 +7601,10 @@ Starten Sie Open Garden Planner als Administrator, oder laden Sie das Installati
             <source>tender</source>
             <translation>frostempfindlich</translation>
         </message>
+        <message>
+            <source>The end date of a propagation step cannot be before its start date — the step was not changed.</source>
+            <translation>Das Enddatum eines Vermehrungsschritts kann nicht vor seinem Startdatum liegen — der Schritt wurde nicht geändert.</translation>
+        </message>
     </context>
     <context>
         <name>_GanttWidget</name>
