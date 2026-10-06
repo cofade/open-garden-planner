@@ -417,8 +417,7 @@ tomato harvest at 29 Nov 2026 – 7 Feb 2027, invisible on every GUI surface on
 `scripts/measure_task_window_sweep.py` — over the 64 bundled species with
 calendar offsets × 6 frost dates × every 10th day of 2026 (222 cases):
 **1,849 missed (task, frost date, day) cases, 0 after the fix**, and 0 tasks the
-GUI listed that the agent did not. The count is harness-dependent (all 118
-species on every day gives all 118 species on every day of 2026 gives 18,007 before / 0 after), so quote the harness with the
+GUI listed that the agent did not. The count is harness-dependent (all 118 species on every day of 2026 gives 18,007 before / 0 after), so quote the harness with the
 number; the *invariant* is pinned by `tests/unit/test_task_windows_multi_anchor.py`,
 which asserts both directions.
 
@@ -575,7 +574,7 @@ rather than inherited from the SDK:
 - `build_server(..., host=..., port=...)` constructs
   `TransportSecuritySettings(enable_dns_rebinding_protection=True, allowed_hosts=[...],
   allowed_origins=[...])` covering the bound loopback address, `localhost`, and the
-  the bound port, and passes it to `FastMCP(transport_security=...)`.
+  bound port, and passes it to `FastMCP(transport_security=...)`.
 - A hostile `Host` is answered **421**, a hostile `Origin` **403**; the loopback
   connect URL and the "Connect AI Assistant" dialog keep working. The allow-lists
   name the **exact** host:port pairs (the bind address, `127.0.0.1`, `localhost`
@@ -1988,7 +1987,7 @@ following the `plan-my-week` prompt asked for a location the plan already had.
 
 The bundled plant data's *harvest offsets* were a separate, related finding
 (#416): `harvest_start` was documented as "weeks after planting" while every
-reader counts it from the frost. Measured over all 118 bundled species, **both** readings fit a majority of the 64 comparable rows — 38 fit / 26 miss frost-relative (what the code does) and 45 fit / 19 miss planting-relative, with 11 fitting neither — so the data is NOT irreconcilable. The documentation was made true and the row conversion deferred to **#418** on the grounds that it needs a cited horticultural source per row (plus licence clearance), not on irreconcilability. Measured by `scripts/measure_harvest_offsets.py`; an earlier draft quoted figures matching no harness, which the senior review caughte. `KNOWN_DIVERGENT_SPECIES` in
+reader counts it from the frost. Measured over all 118 bundled species, **both** readings fit a majority of the 64 comparable rows — 38 fit / 26 miss frost-relative (what the code does) and 45 fit / 19 miss planting-relative, with 11 fitting neither — so the data is NOT irreconcilable. The documentation was made true and the row conversion deferred to **#418** on the grounds that it needs a cited horticultural source per row (plus licence clearance), not on irreconcilability. Measured by `scripts/measure_harvest_offsets.py`; an earlier draft quoted figures matching no harness, which the senior review caught. `KNOWN_DIVERGENT_SPECIES` in
 `tests/unit/test_harvest_offset_semantics.py` is the pinned baseline, and that
 test also asserts that `days_to_maturity` is reference data no computation reads —
 which is what keeps the correction out of the generator.

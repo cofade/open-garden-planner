@@ -1501,12 +1501,14 @@ class PlantingCalendarView(QWidget):
             "The end date of a propagation step cannot be before its start "
             "date — the step was not changed."
         )
-        # The calendar tab owns this message; it does NOT go via the canvas.
+        # The calendar tab emits its own signal rather than reaching for the canvas.
         # `CanvasView.set_status_message` now works (it emits a signal — see its
-        # docstring), but the canvas is not in this tab's scene, so reaching for
-        # it delivered nothing at all and the field simply snapped back. Emitting
-        # from here means the refusal is delivered wherever the app chooses to
-        # route the tab's own messages.
+        # docstring) and the tab shares the same `CanvasScene` as the canvas, so the
+        # canvas route was *reachable*; it is the wrong owner either way — a tab
+        # message should come from the tab, and routing it through the canvas
+        # couples this refusal to whichever canvas view happens to be attached.
+        # (An earlier version justified this by claiming the canvas is not in this
+        # tab's scene. Round 6 measured that claim false: the scene IS shared.)
         self.status_message.emit(message)
         self._repopulate_detail(species_key)
 

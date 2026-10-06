@@ -4828,8 +4828,8 @@ class GardenPlannerApp(QMainWindow):
         # Tab 1: Planting Calendar (US-8.5)
         self.calendar_view = PlantingCalendarView(self.canvas_scene, self._project_manager)
         # The planting-calendar tab carries its own status messages (a refused
-        # propagation date, #415) — the canvas is not in that tab's scene, so
-        # it needs a connection of its own rather than sharing the canvas's.
+        # propagation date, #415). It shares the canvas's scene, but a tab
+        # message should come from the tab rather than from the canvas view.
         self.calendar_view.status_message.connect(self._show_status_message)
         self.calendar_view.set_soil_service(self._soil_service)
         self._tab_widget.addTab(self.calendar_view, self.tr("Planting Calendar"))
@@ -4991,11 +4991,14 @@ class GardenPlannerApp(QMainWindow):
     def _show_status_message(self, message: str, duration_ms: int = 0) -> None:
         """Show ``message`` in the window's status bar (CanvasView's route).
 
-        The single sink for ``CanvasView.status_message``. Kept as a method rather
-        than connecting straight to ``statusBar().showMessage`` so the receiver
-        can be stubbed in tests — which is how ``test_propagation_editor_production``
-        asserts that a refused propagation date actually reaches the user, rather
-        than only asserting that nothing was stored.
+        The single sink for both ``CanvasView.status_message`` and
+        ``PlantingCalendarView.status_message``. Kept as a method rather than
+        connecting straight to ``statusBar().showMessage`` so there is one place
+        to stub or instrument it.
+
+        ``tests/integration/test_status_message_route.py`` asserts the delivery
+        chain end to end; it does not stub THIS method, so the earlier claim that
+        it did was wrong.
 
         Args:
             message: The text to display.

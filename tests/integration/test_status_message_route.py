@@ -15,6 +15,9 @@ status bar. A refusal that is only *stored* correctly is not refused *visibly*.
 
 from __future__ import annotations
 
+import ast
+from pathlib import Path
+
 import pytest
 from PyQt6.QtCore import QDate
 from PyQt6.QtWidgets import QApplication, QMainWindow, QSplitter
@@ -83,6 +86,75 @@ def _calendar(qtbot) -> PlantingCalendarView:
     view.show()
     QApplication.processEvents()
     return view
+
+
+class TestTheProductionWiringExists:
+    """Pin the connects in `application.py`, which round 6 showed are unpinned.
+
+    Every other test in this file builds its OWN window and its OWN lambda, so
+    the whole suite stayed green with `application.py`'s connect replaced by
+    `pass` — which is exactly the regression that made the original P0 possible
+    (a route that resolves to nothing in the shipping layout). A guard that only
+    exercises its own wiring cannot catch the wiring being absent.
+
+    AST rather than a live app so it costs nothing and cannot be satisfied by a
+    runtime coincidence.
+    """
+
+    APP = Path(
+        r"C:\Users\info\VSCode\open-garden-planner"
+        r"\src\open_garden_planner\app\application.py"
+    )
+
+    @staticmethod
+    def _connects() -> dict[str, str]:
+        tree = ast.parse(Path(TestTheProductionWiringExists.APP).read_text(
+            encoding="utf-8"
+        ))
+        found: dict[str, str] = {}
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or not node.args:
+                continue
+            func = node.func
+            if not isinstance(func, ast.Attribute) or func.attr != "connect":
+                continue
+            # The SIGNAL is `func.value` (`self.<thing>.status_message`); the
+            # argument is the SLOT. Checking the argument for `status_message`
+            # finds nothing, because the slot is `_show_status_message`.
+            receiver = ast.unparse(func.value)
+            if not receiver.endswith(".status_message"):
+                continue
+            found[receiver[: -len(".status_message")]] = ast.unparse(node.args[0])
+        return found
+
+    def test_the_canvas_status_message_is_connected(self) -> None:
+        found = self._connects()
+        assert "self.canvas_view" in found, (
+            f"application.py no longer connects CanvasView.status_message, so "
+            f"every status message is dropped again. Connected: {sorted(found)}"
+        )
+
+    def test_the_calendar_status_message_is_connected(self) -> None:
+        found = self._connects()
+        assert "self.calendar_view" in found, (
+            f"application.py no longer connects PlantingCalendarView.status_message, "
+            f"so the propagation-date refusal is dropped again. Connected: "
+            f"{sorted(found)}"
+        )
+
+    def test_the_sink_reaches_the_status_bar(self) -> None:
+        """The connected receiver must actually call `statusBar().showMessage`."""
+        source = Path(TestTheProductionWiringExists.APP).read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.FunctionDef):
+                continue
+            if node.name != "_show_status_message":
+                continue
+            body = ast.unparse(node)
+            assert "statusBar()" in body and "showMessage" in body, body[:200]
+            return
+        raise AssertionError("_show_status_message no longer exists")
 
 
 class TestTheStatusRouteIsAlive:
@@ -177,11 +249,19 @@ class TestTheRefusalMessageReachesTheUser:
         ) == {"start": "2026-05-04", "end": "2026-05-20"}
 
 
-class TestExistingStatusCallersAreNoLongerDead:
-    """The same fix repairs two dozen other silent callers; pin a representative."""
+class TestTheSignalCarriesAnyMessage:
+    """The route is message-agnostic: whatever a caller passes is delivered.
+
+    Round 6 noted this class name promised coverage of the ~24 repaired callers
+    and delivered none - it called `set_status_message` with a literal, which
+    is the same hop already covered above with a different string. It is renamed
+    to what it tests rather than expanded; the repaired callers are real product
+    code paths with their own owners, and their delivery is proven by the route
+    plus `TestTheProductionWiringExists`.
+    """
 
     @pytest.mark.parametrize("message", ["Grouped 3 items", "Select 2 or more items to group"])
-    def test_command_feedback_is_delivered(self, qtbot, message: str) -> None:
+    def test_any_message_reaches_the_status_bar(self, qtbot, message: str) -> None:
         window, _splitter, view = _window(qtbot)
         view.set_status_message(message)
         QApplication.processEvents()

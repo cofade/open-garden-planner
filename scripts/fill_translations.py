@@ -224,6 +224,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     # ── CanvasView ──
     "CanvasView": {
+        "Created {dir} offset of {dist:.1f} cm": "{dir}-Versatz von {dist:.1f} cm erstellt",
         "Distance in cm": "Abstand in cm",
         "House": "Haus",
         "Garage/Shed": "Garage/Schuppen",
@@ -313,7 +314,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Select a shape to offset": "Form zum Versetzen auswählen",
         "Offset result is empty — try a smaller distance":
             "Versatzergebnis ist leer – versuchen Sie einen kleineren Abstand",
-        "Created {dir} offset of {dist} cm": "{dir}er Versatz von {dist} cm erstellt",
+        "Created {dir} offset of {dist} cm": "{dir}-Versatz von {dist} cm erstellt",
         "inward": "einwärts",
         "outward": "auswärts",
     },

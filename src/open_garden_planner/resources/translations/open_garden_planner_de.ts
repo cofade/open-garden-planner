@@ -674,7 +674,7 @@
         </message>
         <message>
             <source>Created {dir} offset of {dist} cm</source>
-            <translation>{dir}er Versatz von {dist} cm erstellt</translation>
+            <translation>{dir}-Versatz von {dist} cm erstellt</translation>
         </message>
         <message>
             <source>inward</source>
@@ -759,6 +759,10 @@
         <message>
             <source>No overlapping object behind</source>
             <translation>Kein überlappendes Objekt dahinter</translation>
+        </message>
+        <message>
+            <source>Created {dir} offset of {dist:.1f} cm</source>
+            <translation>{dir}-Versatz von {dist:.1f} cm erstellt</translation>
         </message>
     </context>
     <context>

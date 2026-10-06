@@ -148,15 +148,11 @@ class TestShowSpeciesOrderingIsLoadBearing:
         _select(view, tomato)
         panel = view._detail
 
-        seen: list[int] = []
-        original = panel.steps_date_changed.connect
-
         depths: list[int] = []
 
-        def probe(payload) -> None:
+        def probe(_payload) -> None:
             # Measured from inside the emit: nothing may still be armed.
             depths.append(len(panel._pending_steps))
-            seen.append(1)
 
         panel.steps_date_changed.connect(probe)
         try:
@@ -171,7 +167,6 @@ class TestShowSpeciesOrderingIsLoadBearing:
             f"the pending dict still held {depths} entries when the emit fired; "
             "the re-entrant show_species would flush them again"
         )
-        assert original is not None
 
     def test_the_species_is_reassigned_after_the_flush_returns(self, qtbot) -> None:
         """The inner call sets its own species; the outer one must win."""

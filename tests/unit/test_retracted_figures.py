@@ -68,29 +68,111 @@ RETRACTED = {
     "all 118 species on every day gives all 118 species": (
         "a botched find/replace of the same sentence; see ADR-029"
     ),
-    "so the data is not irreconcilable": (
-        "the correct conclusion; the retracted claim was that it COULD NOT be "
-        "reconciled. Listed so the negative form is caught if reintroduced."
-    ),
 }
 
 
-def _retracted_occurrences() -> list[str]:
+def _flatten(text: str) -> str:
+    """Whitespace-collapsed text, so a claim split across a line still matches.
+
+    Round 6 measured the consequence of NOT doing this: the guard's own table
+    registers a botched sentence that ADR-029 carries across a line break, the
+    raw scan could never see it, and the defect survived a commit whose message
+    claimed the table was complete. Collapsing whitespace is what a reader does
+    anyway — a sentence is not two sentences because a line ends.
+    """
+    return re.sub(r"\s+", " ", text)
+
+
+def _retracted_occurrences(paths=None) -> list[str]:
+    """Scan ``paths`` (the real corpus by default) for any retracted figure.
+
+    The corpus is a parameter so the self-verification tests can point this REAL
+    scan at a synthetic file. An earlier version re-implemented the scan inline in
+    those tests, which meant they exercised the `_flatten` helper while the defect
+    they were guarding lived in this function — so reverting the flattening was
+    still undetected. A test of a re-implementation is not a test of the thing.
+    """
     hits: list[str] = []
-    for path in _CORPUS:
+    for path in (paths if paths is not None else _CORPUS):
         if path in _RETACTION_RECORDERS:
             continue
         text = path.read_text(encoding="utf-8")
+        flat = _flatten(text)
         for figure, replacement in RETRACTED.items():
-            if figure == "so the data is not irreconcilable":
-                continue
-            for match in re.finditer(re.escape(figure), text, re.IGNORECASE):
-                line = text.count("\n", 0, match.start()) + 1
+            # Word-boundary anchored: `1 of 64` must not match inside `11 of 64`.
+            pattern = rf"(?<![\w]){re.escape(figure)}(?![\w])"
+            for match in re.finditer(pattern, flat, re.IGNORECASE):
+                line = flat.count("\n", 0, match.start()) + 1
+                # A tmp_path corpus (the self-verification tests) lives outside
+                # the repo, so relative_to would raise and the guard would report
+                # a crash instead of what it found. Reporting is part of a guard.
+                try:
+                    shown = str(path.relative_to(REPO_ROOT))
+                except ValueError:
+                    shown = path.name
                 hits.append(
-                    f"{path.relative_to(REPO_ROOT)}:{line} quotes the retracted "
-                    f"figure {figure!r}; the measured value is {replacement}"
+                    f"{shown} quotes the retracted figure {figure!r} "
+                    f"(line ~{line}); the measured value is {replacement}"
                 )
     return hits
+
+
+class TestTheScanItselfWorks:
+    """Prove the scan catches what it claims to, by pointing the REAL scan at inputs.
+
+    Round 6 found this guard could not match the defect its own table named, because
+    the scan ran on raw text and the defect spanned a line break. The fix was to
+    flatten whitespace — and verifying that fix by reverting it showed the property
+    had NO live trigger (every current defect sits on one line), so it was present
+    but unproven.
+
+    These tests run the real `_retracted_occurrences` over a temporary file, so
+    reverting the flattening fails them by construction. A capability a guard claims
+    and never exercises is the same class of problem as the one it was added to fix.
+    """
+
+    FIGURE = "1 of 64"
+
+    @staticmethod
+    def _scan(tmp_path: Path, body: str) -> list[str]:
+        target = tmp_path / "sample.md"
+        target.write_text(body, encoding="utf-8")
+        return _retracted_occurrences([target])
+
+    def test_a_figure_split_across_lines_is_caught(self, tmp_path: Path) -> None:
+        """The exact failure round 6 measured: raw-match False, flattened True."""
+        wrapped = self.FIGURE.replace(" ", "\n", 1)
+        assert self.FIGURE not in wrapped, "the wrap must actually break the raw match"
+        hits = self._scan(tmp_path, f"prose before\n{wrapped}\nprose after\n")
+        assert hits, (
+            "the whitespace normalisation does not work: a retracted figure split "
+            "across lines was not caught, which is the defect this guard was added "
+            "to prevent"
+        )
+
+    def test_a_figure_on_one_line_is_caught(self, tmp_path: Path) -> None:
+        assert self._scan(tmp_path, f"the document claims {self.FIGURE} here\n")
+
+    def test_a_legitimate_similar_looking_figure_is_not_caught(
+        self, tmp_path: Path
+    ) -> None:
+        """`1 of 64` must not match inside `11 of 64` / `61 of 64`.
+
+        Round 6: `re.escape("1 of 64")` matched inside six other numbers, so the
+        guard could fire on a correct figure.
+        """
+        for lookalike in ("11 of 64", "21 of 64", "31 of 64", "51 of 64", "61 of 64"):
+            assert not self._scan(tmp_path, f"measured {lookalike}\n"), (
+                f"{lookalike!r} is a legitimate figure and must not be flagged"
+            )
+
+    def test_the_measured_figures_are_not_flagged(self, tmp_path: Path) -> None:
+        """The corrected values must pass, or the guard is unusable."""
+        assert not self._scan(tmp_path, "38 of 64 and 45 of 64 and 1849\n")
+
+    def test_a_clean_document_produces_nothing(self, tmp_path: Path) -> None:
+        """The negative case the whole suite depends on."""
+        assert not self._scan(tmp_path, "Nothing retracted is claimed here.\n")
 
 
 class TestNoRetractedFigureSurvives:
@@ -177,7 +259,7 @@ class TestDocumentedFiguresMatchTheCommittedHarnesses:
         for path in _CORPUS:
             if path in _RETACTION_RECORDERS:
                 continue
-            text = path.read_text(encoding="utf-8")
+            text = _flatten(path.read_text(encoding="utf-8"))
             for pattern, allowed in (
                 (pair, self.MEASURED_PAIRS), (of_total, self.MEASURED_OF_TOTAL)
             ):
@@ -185,9 +267,13 @@ class TestDocumentedFiguresMatchTheCommittedHarnesses:
                     line = text.count("\n", 0, match.start()) + 1
                     numbers = tuple(int(g) for g in match.groups())
                     if numbers not in allowed:
+                        try:
+                            shown = str(path.relative_to(REPO_ROOT))
+                        except ValueError:
+                            shown = path.name
                         stale.append(
-                            f"{path.relative_to(REPO_ROOT)}:{line} claims "
-                            f"{numbers[0]}/{numbers[1]}, which no harness produces"
+                            f"{shown}:{line} claims {numbers[0]}/{numbers[1]}, "
+                            "which no harness produces"
                         )
         assert not stale, "\n  ".join(stale)
 

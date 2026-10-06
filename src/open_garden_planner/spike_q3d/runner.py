@@ -395,9 +395,7 @@ def in_harvest_window(location: dict[str, Any] | None, at: date,
     Tasks tab) anchors on one year, so it shows no harvest task for a window anchored
     on another year's frost — though it can still show the harvest task of the window
     anchored on the current year's frost; that split is the product's (TD-037), not the
-    spike's. None when there is no window to read — no last frost, an offset missing or
-    malformed, start after end, a 02-29 frost when ``at``'s year has none (the
-    generator, anchored on a year without that date, has none either): the caller
+    spike's. None when there is no window to read — no last frost, an offset missing or malformed, or start after end. A ``02-29`` frost is NOT one of those cases: the shared parser substitutes 1 March where the date does not exist, so a window exists in every year and this returns a bool): the caller
     keeps the frost-free season.
 
     The anchor comes from :func:`core.frost_dates.parse_frost`, so the spike
