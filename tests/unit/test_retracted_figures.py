@@ -27,6 +27,7 @@ is not closable by a static check at all.
 """
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
@@ -106,11 +107,21 @@ def _figure(output: str, label: str) -> int:
 
 
 def _run(script: str, *args: str) -> str:
+    """Run a committed harness and return its stdout.
+
+    The environment is the ambient one with three overrides, not a hand-built dict.
+    An earlier version replaced the whole environment with a Windows-specific
+    mapping (`SYSTEMROOT`, `PATH: ""`), which is a CI-portability defect of exactly
+    the kind this branch fixed in `test_status_message_route.py` one commit earlier:
+    it happens to work on the author's machine and strips `HOME`, `LD_LIBRARY_PATH`
+    and everything else the runner provides. `dict(os.environ, ...)` is the house
+    pattern (see `test_bench_view3d.py`, `test_spike_q3d_isolation.py`).
+    """
     proc = subprocess.run(
         [sys.executable, script, *args],
         cwd=REPO_ROOT, capture_output=True, text=True,
-        env={"PATH": "", "PYTHONUTF8": "1", "SYSTEMROOT": r"C:\Windows",
-             "QT_QPA_PLATFORM": "offscreen"},
+        env=dict(os.environ, PYTHONUTF8="1", QT_QPA_PLATFORM="offscreen",
+                 PYTHONIOENCODING="utf-8"),
     )
     assert proc.returncode == 0, f"{script} failed:\n{proc.stdout}\n{proc.stderr}"
     return proc.stdout
