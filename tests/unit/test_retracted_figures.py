@@ -174,8 +174,12 @@ PATTERN_OF_TOTAL = re.compile(r"fits? \*\*(\d+) of (\d+)\*\*")
 PATTERN_SWEEP_CASES = re.compile(
     # "frost-date" and "frost date" both appear in the wild; the wording drifted
     # between the documents, and a pattern matching only one was silently inert.
-    r"(\d[\d,]*)\s*\((?:task,\s*frost[- ]date,\s*day\)|"
-    r"(?:task, frost date, day) cases the GUI missed)"
+    #
+    # A second alternative used to require "(task, frost date, day) cases the GUI
+    # missed)" — but real documents put the `)` straight after `day`, which this
+    # already matches, so it could never fire. Dead code in a pattern makes it look
+    # broader than it is; removed.
+    r"(\d[\d,]*)\s*\(task,\s*frost[- ]date,\s*day\)"
 )
 
 

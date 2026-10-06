@@ -83,7 +83,27 @@ def _worst(verdicts) -> str:
     return max(verdicts, key=lambda v: _SEVERITY[v], default="unknown")
 
 
-def _translation_source(node: ast.AST) -> tuple[str, str | None] | None:
+def _enclosing_class(tree: ast.AST, line: int) -> str | None:
+    """The innermost ``ClassDef`` name containing ``line``, or None.
+
+    Needed because ``self.tr(...)`` resolves its catalogue context from the
+    receiver's class at runtime — measured, not assumed:
+    ``PlantingCalendarView.staticMetaObject.className()`` is
+    ``'PlantingCalendarView'``, and PyQt gives a Python subclass its own name.
+    """
+    best: ast.ClassDef | None = None
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef):
+            continue
+        end = getattr(node, "end_lineno", node.lineno) or node.lineno
+        if node.lineno <= line <= end and (best is None or node.lineno > best.lineno):
+            best = node
+    return best.name if best is not None else None
+
+
+def _translation_source(
+    node: ast.AST, tree: ast.AST | None = None
+) -> tuple[str, str | None] | None:
     """``(source, context)`` for a ``.tr``/``translate`` call, else ``None``.
 
     ``context`` is ``None`` when it cannot be determined statically. Returning the
@@ -115,9 +135,20 @@ def _translation_source(node: ast.AST) -> tuple[str, str | None] | None:
         if len(node.args) >= 2:
             return literal(node.args[1]), literal(node.args[0])
         return literal(node.args[0]), None
-    # obj.tr(source[, disambiguation]) — the context is the receiver's class, which
-    # is not statically resolvable for `self._view.tr(...)`.
-    return literal(node.args[0]), None
+
+    # obj.tr(source[, disambiguation]).
+    source = literal(node.args[0])
+    # `self.tr(...)` resolves its context from the enclosing class, which IS
+    # statically known. Any other receiver (`self._view.tr(...)`, `other.tr(...)`)
+    # is not, and is checked on the source alone.
+    receiver = node.func.value if isinstance(node.func, ast.Attribute) else None
+    if (
+        tree is not None
+        and isinstance(receiver, ast.Name)
+        and receiver.id == "self"
+    ):
+        return source, _enclosing_class(tree, node.lineno)
+    return source, None
 
 
 def _peel(node: ast.AST) -> ast.AST:
@@ -218,7 +249,7 @@ def _verdict(node: ast.AST, func, tree=None, catalogue=None, _seen=None) -> str:
     seen = set() if _seen is None else _seen
     base = _peel(node)
 
-    pair = _translation_source(base)
+    pair = _translation_source(base, tree)
     if pair is not None:
         source, context = pair
         if catalogue is None:
@@ -242,7 +273,7 @@ def _verdict(node: ast.AST, func, tree=None, catalogue=None, _seen=None) -> str:
     if isinstance(base, ast.JoinedStr):
         # An f-string is safe only if SOME interpolated value is translated; the
         # literal parts around it are not translatable on their own.
-        inner = [_translation_source(_peel(v.value)) for v in base.values]
+        inner = [_translation_source(_peel(v.value), tree) for v in base.values]
         if any(pair is not None for pair in inner):
             if catalogue is None:
                 return "ok"
@@ -317,7 +348,7 @@ def _wrapped_sources(path: Path) -> dict[str, str | None]:
     tree = ast.parse(path.read_text(encoding="utf-8"))
     out: dict[str, str | None] = {}
     for node in ast.walk(tree):
-        pair = _translation_source(node)
+        pair = _translation_source(node, tree)
         if pair is None:
             continue
         source, context = pair
@@ -350,6 +381,9 @@ def _status_arguments() -> list[tuple[Path, ast.Call, str]]:
     return out
 
 
+_CATALOGUE_CACHE: set[tuple[str, str]] | None = None
+
+
 def _catalogue_entries() -> set[tuple[str, str]]:
     """Every ``(context, source)`` pair in the German catalogue.
 
@@ -358,6 +392,12 @@ def _catalogue_entries() -> set[tuple[str, str]]:
     the string was registered under returns English, and a source-only membership
     test called that `ok` (round 9 measured it).
     """
+    # Cached: `_status_arguments` consults this per matched call site, so without
+    # the cache the whole `.ts` is re-parsed dozens of times per run.
+    global _CATALOGUE_CACHE
+    if _CATALOGUE_CACHE is not None:
+        return _CATALOGUE_CACHE
+
     import xml.etree.ElementTree as ET
 
     root = ET.parse(CATALOGUE).getroot()
@@ -368,6 +408,7 @@ def _catalogue_entries() -> set[tuple[str, str]]:
             source = (message.findtext("source") or "").strip()
             if source:
                 out.add((name, source))
+    _CATALOGUE_CACHE = out
     return out
 
 
@@ -747,3 +788,106 @@ class TestTheGuardWouldHaveCaughtTheTwoKnownP0Shapes:
             and n.func.attr == _STATUS_SINK
         )
         assert _verdict(call.args[0], tree.body[0], tree, _catalogue_entries()) == "ok"
+
+
+class TestTheContextBoundaryIsStatedByTests:
+    """Round 10: the boundary must be pinned, not described in a comment.
+
+    The comment used to read as though `self.tr` were context-checked when it was
+    not — `_translation_source` returned no context for any `.tr` receiver, so
+    `self.tr('Rotation:')` in a class other than `ArrayAlongPathDialog` was `ok`,
+    which is the shape the commit message used as its motivating example.
+
+    `self.tr` is now resolved from its enclosing class (measured: PyQt gives a
+    Python subclass its own `staticMetaObject().className()`). `self._view.tr` still
+    cannot be, and that is the boundary — asserted here so it cannot drift back into
+    a comment.
+    """
+
+    @staticmethod
+    def _verdict_for(source: str) -> str:
+        import ast as _ast
+
+        tree = _ast.parse(source)
+        call = next(
+            n for n in _ast.walk(tree)
+            if isinstance(n, _ast.Call)
+            and isinstance(n.func, _ast.Attribute)
+            and n.func.attr == _STATUS_SINK
+        )
+        func = _enclosing_function(tree, call.lineno)
+        return _verdict(call.args[0], func, tree, _catalogue_entries())
+
+    @staticmethod
+    def _a_real_pair() -> tuple[str, str]:
+        """A `(context, source)` that is genuinely in the catalogue.
+
+        Chosen at runtime rather than hardcoded: the property under test is "a
+        source registered under context A is unregistered under context B", and a
+        hardcoded string ties it to one string's wording. (The first version used
+        `("Rotation:", "ArrayAlongPathDialog")`, which is not in the catalogue at
+        all — so it failed on its own premise rather than on the behaviour.)
+        """
+        pair = sorted(
+            (ctx, src)
+            for ctx, src in _catalogue_entries()
+            if ctx and src and len(src) > 4 and "{" not in src
+        )[0]
+        return pair
+
+    def test_a_wrong_context_self_tr_is_unregistered(self) -> None:
+        """Registered under one class, called from another, is NOT resolved."""
+        context, source = self._a_real_pair()
+        wrong_class = f"{context}SomethingElse"
+        assert (wrong_class, source) not in _catalogue_entries()
+        assert self._verdict_for(
+            f"class {wrong_class}:\n"
+            "    def f(self):\n"
+            f"        self.set_status_message(self.tr({source!r}))\n"
+        ) == "unregistered", (
+            f"{source!r} is registered under {context!r}, so calling it from "
+            f"{wrong_class!r} resolves to English at runtime"
+        )
+
+    def test_the_matching_context_is_ok(self) -> None:
+        """The counterpart, so the check cannot be satisfied by rejecting all."""
+        context, source = self._a_real_pair()
+        assert self._verdict_for(
+            f"class {context}:\n"
+            "    def f(self):\n"
+            f"        self.set_status_message(self.tr({source!r}))\n"
+        ) == "ok", f"{source!r} is registered under {context!r} and must pass"
+
+    def test_a_non_self_receiver_is_source_only(self) -> None:
+        """`self._view.tr(...)` — the context cannot be resolved, and is not guessed.
+
+        `offset_tool.py`'s string is registered by hand under `CanvasView` precisely
+        because pylupdate6 cannot extract this call. Checking the source is all that
+        can be done; a wrong class here is NOT detected, and saying so is the point.
+        """
+        assert self._verdict_for(
+            "class Whatever:\n"
+            "    def f(self):\n"
+            "        self.set_status_message(self._view.tr("
+            "'Created {dir} offset of {dist:.1f} cm'))\n"
+        ) == "ok", "the registered offset string must pass"
+
+    def test_a_non_self_receiver_with_an_unknown_source_is_caught(self) -> None:
+        """The half that IS checked: an unregistered source on any receiver."""
+        assert self._verdict_for(
+            "class Whatever:\n"
+            "    def f(self):\n"
+            "        self.set_status_message(self._view.tr('NOT REGISTERED'))\n"
+        ) == "unregistered"
+
+    def test_the_real_tree_has_no_false_positives(self) -> None:
+        """Measured: 38 ok, 6 unknown, 1 clear, 0 failing."""
+        failing = [
+            (str(path), node.lineno, verdict)
+            for path, node, verdict in _status_arguments()
+            if verdict in ("bad", "unregistered")
+        ]
+        assert not failing, (
+            "the context check flags correct code, which is worse than not checking: "
+            f"{failing}"
+        )

@@ -1,10 +1,10 @@
 """#414 — one frost-date rule: what the dialog accepts is what the parser reads.
 
-Before #414 there were independent notions of a frost date (the generator's parser, the calendar view's duplicate parser, and the location dialog's regex; ADR-049 records these and `compute_season_segments`): the generator's
-parser, the calendar view's duplicate parser, and the location dialog's regex.
-They disagreed in both directions — the dialog accepted ``02-30`` and ``04-31``,
-which the parsers then turned into "no frost date", so the dialog saved a plan
-whose every task surface came up empty.
+Before #414 there were independent notions of a frost date: the generator's parser,
+the calendar view's duplicate parser, and the location dialog's regex (ADR-049
+records these and `compute_season_segments`). They disagreed in both directions —
+the dialog accepted ``02-30`` and ``04-31``, which the parsers then turned into
+"no frost date", so the dialog saved a plan whose every task surface came up empty.
 
 Qt-free except for the dialog test itself, which is what matters here: the
 dialog must delegate to the same validator the generators use.
