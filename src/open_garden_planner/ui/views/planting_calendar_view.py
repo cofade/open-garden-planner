@@ -895,14 +895,23 @@ class _DetailPanel(QFrame):
 
         A SET, not a single slot (#415): correcting a step's start and then its
         end arms two steps, and one slot kept only the last — the first edit was
-        silently dropped. Flush order follows the panel's row order so the writes
-        are deterministic.
+        silently dropped.
+
+        Every armed value is read out of the editors into a snapshot BEFORE the
+        first ``emit`` (#415 review). ``step_date_changed`` is wired to a slot
+        that calls ``refresh()``, which reaches back into
+        ``_populate_prop_editor`` and rewrites all the date edits — so reading the
+        editors inside the emit loop persisted a *reverted* value (or dropped the
+        edit outright) for every step after the first. Snapshot-then-emit is what
+        makes a multi-step gesture safe.
         """
         pending = sorted(self._pending_steps)
         self._pending_steps.clear()
         self._commit_timer.stop()
         if not pending or not self._current_species_key or self._current_plan is None:
             return
+
+        snapshot: list[tuple[str, str, str]] = []
         for step_id in pending:
             row = self._step_rows.get(step_id)
             if row is None:
@@ -910,9 +919,19 @@ class _DetailPanel(QFrame):
             start_edit, end_edit, _reset_btn = row
             start_d = start_edit.date().toPyDate()
             end_d = end_edit.date().toPyDate() if end_edit is not None else start_d
+            # Dragging a start past its end is the ordinary way to produce an
+            # inverted pair from two separate fields. The persistence layer
+            # refuses such a pair (correctly — it is not a state the model can
+            # hold), so normalise here instead: the step becomes a zero-length
+            # period and the re-populate immediately shows what was stored. The
+            # alternative is a silent no-op, which is what the review caught.
+            if end_d < start_d:
+                end_d = start_d
+            snapshot.append((step_id, start_d.isoformat(), end_d.isoformat()))
+
+        for step_id, start_iso, end_iso in snapshot:
             self.step_date_changed.emit(
-                self._current_species_key, step_id,
-                start_d.isoformat(), end_d.isoformat(),
+                self._current_species_key, step_id, start_iso, end_iso
             )
 
     # ── public API ─────────────────────────────────────────────────────────────

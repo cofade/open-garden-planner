@@ -2677,8 +2677,8 @@ items that are disjoint in file terms).
 The Tasks tab, the planting-calendar dashboard and the Gantt each anchored their
 frost-relative task windows on **the current year's** last spring frost, while the
 agent's `get_tasks` / `get_task_calendar` anchored on every year that could reach
-the requested date. Measured over 64 bundled species × 6 frost dates × every day
-of 2026: **1,849 (task, frost-date, day) cases the GUI missed and the agent listed;
+the requested date. Measured over the 64 bundled species that carry calendar offsets x 6 frost dates x every 10th day of 2026 (222 cases):
+**1,849 (task, frost-date, day) cases the GUI missed and the agent listed;
 0 after the fix**, with 0 surplus tasks (the urgency filter still applies). A
 southern plan (20 September frost) put a tomato harvest at 29 Nov 2026 – 7 Feb
 2027, so on 1 January 2027 a tomato-only plan read *"No tasks — you're all caught

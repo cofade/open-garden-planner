@@ -212,24 +212,64 @@ class TestDependencyPinsMatchPyproject:
         assert pins, "no dependency pins found in pyproject.toml"
         assert "mcp" in pins
 
-    def test_no_skill_quotes_a_stale_version_pin(self) -> None:
-        """Any ``<name>>=X.Y`` in a skill must match pyproject exactly."""
+    #: One constraint, e.g. ``>=1.23`` or ``<2.0``.
+    _CONSTRAINT = r"(?:>=|<=|>|<)\s*[\d][\d.]*(?:\.\*)?"
+    #: A whole pin spec: a constraint, optionally followed by more (``>=1.23,<2.0``).
+    _PIN_SPEC = rf"{_CONSTRAINT}(?:\s*,\s*{_CONSTRAINT})*"
+
+    def _normalise(self, spec: str) -> str:
+        """``mcp>=1.23, <2.0`` -> ``mcp>=1.23,<2.0`` (whitespace-insensitive)."""
+        return re.sub(r"\s+", "", spec)
+
+    def test_no_skill_quotes_a_stale_floor(self) -> None:
+        """Any **floor** a skill quotes must match pyproject.
+
+        Scoped to floors (`>=`) deliberately. A bare upper bound quoted in prose
+        — "mcp <2.0" in a provenance table — is a true statement about the pin and
+        does not go stale when the floor moves, so comparing whole pin specs
+        flagged it as a false positive.
+
+        The pattern is not backtick-anchored and is whitespace-tolerant: the first
+        version required a trailing backtick, so it silently missed
+        ``mcp>=1.12, <2.0`` — which is exactly how two skills kept quoting a
+        stale floor past the fix that changed it.
+        """
         pins = self._pyproject_pins()
         stale: list[str] = []
         for tree in SKILL_TREES:
             for path in sorted(tree.rglob("SKILL.md")):
                 text = path.read_text(encoding="utf-8")
                 for name, actual in pins.items():
+                    real_floor = re.search(r">=([\d][\d.]*)", actual)
+                    assert real_floor is not None, f"{name} has no floor in {actual!r}"
                     for match in re.finditer(
-                        rf"`?{re.escape(name)}([<>]=[\d.,*]+)`,?", text
+                        rf"{re.escape(name)}\s*>=\s*([\d][\d.]*)", text
                     ):
-                        quoted = f"{name}{match.group(1)}"
-                        if quoted != actual:
+                        if match.group(1) != real_floor.group(1):
                             stale.append(
-                                f"{path.relative_to(REPO_ROOT)}: quotes {quoted!r}, "
-                                f"pyproject says {actual!r}"
+                                f"{path.relative_to(REPO_ROOT)}: quotes "
+                                f"{name}>={match.group(1)}, pyproject says {actual!r}"
                             )
-        assert not stale, "stale dependency pins in the skill library:\n  " + "\n  ".join(stale)
+        assert not stale, "stale dependency floors in the skill library:\n  " + "\n  ".join(stale)
+
+    def test_the_scan_actually_matches_pins_in_the_skills(self) -> None:
+        """A sanity floor, so a regex change cannot make the guard vacuous.
+
+        Mirrors the icon-system guard's addition in ADR-039's addendum: without a
+        floor, `stale == []` passes silently the moment the pattern stops matching
+        anything (which is exactly what happened with a backtick-anchored regex).
+        """
+        pins = self._pyproject_pins()
+        found = 0
+        for tree in SKILL_TREES:
+            for path in sorted(tree.rglob("SKILL.md")):
+                text = path.read_text(encoding="utf-8")
+                for name in pins:
+                    found += len(re.findall(rf"{re.escape(name)}\s*>=", text))
+        assert found >= 2, (
+            f"the pin scan matched {found} pins across the skill trees; the "
+            "pattern is too narrow to be a real guard"
+        )
 
     def test_the_mcp_floor_is_at_least_1_23(self) -> None:
         """The DNS-rebinding guard's floor, asserted once, in one place."""

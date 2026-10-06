@@ -1913,7 +1913,7 @@ P0/P1 row links its own issue, as decision 1 requires of every P0/P1 row (TD-037
 A plan stores its frost dates as `'MM-DD'` strings with no year
 (`location["frost_dates"]["last_spring_frost"]`). Every consumer must turn one into
 a real date for a *specific* year, because all the calendar windows are anchored
-on it. Before this decision there were **three** independent notions of what a
+on it. Before this decision there were **four** independent notions of what a
 frost date is, and they disagreed in both directions:
 
 - `services/task_generator._parse_frost` (used by every generator and by the agent
@@ -1922,7 +1922,13 @@ frost date is, and they disagreed in both directions:
 - a regex in the location dialog that accepted six dates which can never exist
   (`02-30`, `02-31`, `04-31`, `06-31`, `09-31`, `11-31`). Accepting one produced a
   plan whose frost date then parsed to nothing — i.e. a plan that silently showed
-  **no tasks on any surface**.
+  **no tasks on any surface**;
+- `models/succession.py::compute_season_segments`, which sliced the string and
+  called `datetime.date` directly. It was found and fixed in review of this
+  change, not before it — a reminder that "three readers" is a number someone
+  has to go and count. Its `except ValueError` degraded to month-only boundaries,
+  so for a `02-29` frost the bed's season segments and the task windows
+  disagreed about the same plan on the same day.
 
 Separately, `'02-29'` is a legitimate stored value that exists only in leap years.
 Anchored as a literal, a 29-February plan had **no** spring-frost tasks in every
@@ -1935,9 +1941,9 @@ following the `plan-my-week` prompt asked for a location the plan already had.
 
 1. **One parser, one validator.** New Qt-free module
    `services/frost_dates.py` owns `parse_frost(mmdd, year)` and
-   `is_valid_frost_date(mmdd)`. The location dialog, the task generator and the
-   Phase 17 spike all go through it; the calendar view's duplicate is a thin shim
-   and its dead regex is gone. The invariant "what the dialog accepts is what the
+   `is_valid_frost_date(mmdd)`. The location dialog, the task generator, the
+   succession season segments and the Phase 17 spike all go through it; the
+   calendar view's duplicate is a thin shim and its dead regex is gone. The invariant "what the dialog accepts is what the
    parser reads" is pinned by
    `test_every_accepted_date_parses_in_a_leap_year`.
 

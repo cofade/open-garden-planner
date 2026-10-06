@@ -188,6 +188,14 @@ class TestGuiNeverListsLessThanTheAgent:
                     f"{row.species_key} frost={frost} today={today}: "
                     f"agent lists {sorted(agent - gui)} but no GUI surface does"
                 )
+                # The other direction, and the one that distinguishes this fix
+                # from "list everything". Six documents quote a measured 0 here;
+                # before this assertion it was prose, not a test.
+                assert gui <= agent, (
+                    f"{row.species_key} frost={frost} today={today}: the GUI lists "
+                    f"{sorted(gui - agent)} that the agent does not — the urgency "
+                    "filter leaked"
+                )
 
     def test_the_gui_still_filters_by_urgency(self) -> None:
         """The helper must NOT turn the Tasks tab into a decade-long list.
