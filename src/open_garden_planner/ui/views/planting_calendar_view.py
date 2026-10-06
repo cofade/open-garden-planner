@@ -1486,7 +1486,9 @@ class PlantingCalendarView(QWidget):
         step "was not changed". A ``False`` return from the writer is honoured
         rather than discarded. Both checks are unreachable today — the panel filters
         inverted pairs first — and both are written anyway, because the alternative
-        is two layers that agree by coincidence.
+        is two layers that agree by coincidence. The comparison here parses, so
+        this layer and `set_propagation_override` apply the SAME rule rather than
+        two rules that happen to agree on well-formed input.
         """
         species_key, writes = payload            # type: ignore[misc]
 
@@ -1501,18 +1503,22 @@ class PlantingCalendarView(QWidget):
         # same reason the writer returns a bool — the alternative is two layers
         # agreeing by coincidence, which is the shape of the original status-route
         # P0 (a guard that looked like a check and was not one).
-        def _parses(value: str) -> bool:
+        def _as_date(value: str) -> datetime.date | None:
             try:
-                datetime.date.fromisoformat(value)
+                return datetime.date.fromisoformat(value)
             except (TypeError, ValueError):
-                return False
-            return True
+                return None
 
-        invalid = [
-            step_id
-            for step_id, start_iso, end_iso in writes
-            if not (_parses(start_iso) and _parses(end_iso)) or end_iso < start_iso
-        ]
+        invalid = []
+        for step_id, start_iso, end_iso in writes:
+            start_d, end_d = _as_date(start_iso), _as_date(end_iso)
+            # Compare PARSED dates, not the raw strings. `end_iso < start_iso` is a
+            # different rule: for basic-format ISO (`20260203` vs `2026-10-01`) the
+            # string comparison refuses a pair the writer accepts, because `-` sorts
+            # before digits. Unreachable today, and the two layers apply the same
+            # rule regardless rather than agreeing by coincidence.
+            if start_d is None or end_d is None or end_d < start_d:
+                invalid.append(step_id)
         if invalid:
             self.step_date_rejected.emit(species_key, invalid[0])
             return

@@ -150,16 +150,23 @@ class TestTheIssuesWorkedExamples:
 class TestGuiNeverListsLessThanTheAgent:
     """The core invariant, stated the way #414 measured it.
 
-    "The GUI's own listing rule (``classify_urgency`` not None) applied to BOTH
-    sides." Comparing raw agent output against the filtered GUI list would be
-    apples to oranges — the urgency window deliberately hides a window that
-On master this sweep found 1,849 missed (task, frost-date, day) cases over the 6
-frost dates `scripts/measure_task_window_sweep.py` uses, on every 10th day of
-2026 (222 cases); the `--wide` harness over all 118 species on every day gives
-18,007. Quote the harness with the number — this line previously said "177,393
-over 53 frost dates", which no committed harness produces.
-    (task, frost date, day) cases over 53 frost dates and every day of 2026; the
-    sweep below is the regression guard, parametrised rather than exhaustive
+    The GUI's own listing rule (``classify_urgency`` is not None) is applied to
+    BOTH sides. Comparing raw agent output against the filtered GUI list would be
+    apples to oranges — the urgency window deliberately hides a window that is not
+    actionable yet, and the GUI must not be blamed for that.
+
+    The committed harness is `scripts/measure_task_window_sweep.py`: on master it
+    found **1,849 missed (task, frost-date, day) cases over the 6 frost dates it
+    uses, on every 10th day of 2026 (222 cases)**. Its `--wide` mode, over all 118
+    species on every day of 2026, gives **18,007**. Both give 0 after the fix, with
+    0 surplus.
+
+    Quote the harness with the number. (This docstring previously said "177,393 over
+    53 frost dates", which no committed harness produces. The figure lint in
+    `tests/unit/test_retracted_figures.py` cannot see that shape, so the correction
+    is recorded here rather than left to a guard.)
+
+    The sweep below is the regression guard, parametrised rather than exhaustive
     because each case is a full multi-anchor generation.
     """
 

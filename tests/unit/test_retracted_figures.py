@@ -86,7 +86,10 @@ def _stale_over(corpus, patterns) -> list[str]:
         text = re.sub(r"\s+", " ", path.read_text(encoding="utf-8"))
         for pattern, allowed in patterns:
             for match in pattern.finditer(text):
-                numbers = tuple(int(g) for g in match.groups())
+                # Groups can carry thousands separators (`1,849`); the inline
+                # loop this helper replaced stripped them, and consolidating the
+                # matching into one place lost that until the sweep test ran.
+                numbers = tuple(int(g.replace(",", "")) for g in match.groups())
                 if numbers not in allowed:
                     try:
                         shown = str(path.relative_to(REPO_ROOT))
@@ -160,6 +163,20 @@ def _sweep_counts(output: str) -> set[int]:
     return {
         int(n) for n in re.findall(r"missed by the GUI on master\s*:\s*(\d+)", output)
     }
+
+
+#: The lint's patterns, as module constants so a positive control imports the SAME
+#: regex the suite runs. An earlier control compiled its own copy of the sweep
+#: pattern and got it wrong, so it proved that a pattern nothing runs can fire while
+#: the real one was never tested — a control that re-implements the check.
+PATTERN_FIT_MISS = re.compile(r"(\d+) fits? / (\d+) miss")
+PATTERN_OF_TOTAL = re.compile(r"fits? \*\*(\d+) of (\d+)\*\*")
+PATTERN_SWEEP_CASES = re.compile(
+    # "frost-date" and "frost date" both appear in the wild; the wording drifted
+    # between the documents, and a pattern matching only one was silently inert.
+    r"(\d[\d,]*)\s*\((?:task,\s*frost[- ]date,\s*day\)|"
+    r"(?:task, frost date, day) cases the GUI missed)"
+)
 
 
 class TestTheHarnessesStillProduceWhatTheDocumentsQuote:
@@ -265,12 +282,9 @@ class TestDocumentsOnlyQuoteFiguresTheHarnessesProduce:
         pairs = _harvest_pairs(_run(HARVEST))
         allowed = [
             # "N fit / M miss" is a PAIR summing to the population.
-            (re.compile(r"(\d+) fits? / (\d+) miss"), pairs),
+            (PATTERN_FIT_MISS, pairs),
             # "N of T" is a fit against the population.
-            (
-                re.compile(r"fits? \*\*(\d+) of (\d+)\*\*"),
-                {(fit, _harvest_population()) for fit, _ in pairs},
-            ),
+            (PATTERN_OF_TOTAL, {(fit, _harvest_population()) for fit, _ in pairs}),
         ]
         stale = self._stale(allowed, "a harvest count")
         assert not stale, "\n  ".join(stale)
@@ -278,29 +292,18 @@ class TestDocumentsOnlyQuoteFiguresTheHarnessesProduce:
     def test_no_document_quotes_an_unmeasured_sweep_count(self) -> None:
         """The ``1,849`` / ``18,007`` class, in the shape documents use it in.
 
-        Only checked where the sentence names the quantity, so the check cannot
-        fire on an unrelated ``N of 64`` in the same document.
+        Runs through the same `_stale_over` the rest of the class uses, so this
+        check cannot drift from the others — an earlier version had its own inline
+        loop and silently missed the `_LINT_FIXTURES` exemption, which made the
+        guard flag its own positive controls.
         """
         counts = _sweep_counts(_run(SWEEP)) | _sweep_counts(_run(SWEEP, "--wide"))
-        pattern = re.compile(
-            # "frost-date" and "frost date" both appear in the wild; the wording
-            # drifted between the documents, and a pattern that matched only one
-            # of them was silently inert on the other.
-            r"(\d[\d,]*)\s*\((?:task,\s*frost[- ]date,\s*day\)|"
-            r"(?:task, frost date, day) cases the GUI missed)"
-        )
-        stale: list[str] = []
-        for path in _CORPUS:
-            if path in _RETRACTION_RECORDERS:
-                continue
-            text = re.sub(r"\s+", " ", path.read_text(encoding="utf-8"))
-            for match in pattern.finditer(text):
-                value = int(match.group(1).replace(",", ""))
-                if value not in counts:
-                    stale.append(
-                        f"{path.relative_to(REPO_ROOT)} quotes {value} cases the "
-                        f"GUI missed; the harnesses produce {sorted(counts)}"
-                    )
+        stale = [
+            f"{hit} — the harnesses produce {sorted(counts)}"
+            for hit in _stale_over(
+                _CORPUS, [(PATTERN_SWEEP_CASES, {(c,) for c in counts})]
+            )
+        ]
         assert not stale, "\n  ".join(stale)
 
 
@@ -328,14 +331,12 @@ class TestEachLintPatternCanActuallyFire:
         )
 
     def test_the_harvest_pair_pattern_fires(self, tmp_path: Path) -> None:
-        patterns = [
-            (re.compile(r"(\d+) fits? / (\d+) miss"), {(38, 26), (45, 19)})
-        ]
+        patterns = [(PATTERN_FIT_MISS, {(38, 26), (45, 19)})]
         self._check(tmp_path, "it is 44 fit / 20 miss here", patterns, True)
         self._check(tmp_path, "it is 38 fit / 26 miss here", patterns, False)
 
     def test_the_harvest_of_total_pattern_fires(self, tmp_path: Path) -> None:
-        patterns = [(re.compile(r"fits? \*\*(\d+) of (\d+)\*\*"), {(38, 64)})]
+        patterns = [(PATTERN_OF_TOTAL, {(38, 64)})]
         self._check(tmp_path, "fits **1 of 64**", patterns, True)
         self._check(tmp_path, "fits **38 of 64**", patterns, False)
 
@@ -343,17 +344,28 @@ class TestEachLintPatternCanActuallyFire:
         # `_stale_over` keys on `match.groups()`, so a one-group pattern yields a
         # 1-tuple. `{1849, 18007}` here would make the control fire on a CORRECT
         # value and prove nothing — which is what it did before this was fixed.
-        patterns = [
-            (re.compile(r"(\d+) cases the GUI missed"), {(1849,), (18007,)})
-        ]
-        self._check(tmp_path, "some 999 cases the GUI missed", patterns, True)
-        self._check(tmp_path, "some 1849 cases the GUI missed", patterns, False)
+        # The REAL pattern, which requires the "(task, frost date, day)" prefix.
+        # The previous control compiled a looser regex of its own and therefore
+        # tested nothing the suite runs.
+        patterns = [(PATTERN_SWEEP_CASES, {(1849,), (18007,)})]
+        self._check(
+            tmp_path,
+            "**999 (task, frost-date, day) cases the GUI missed**",
+            patterns,
+            True,
+        )
+        self._check(
+            tmp_path,
+            "**1849 (task, frost-date, day) cases the GUI missed**",
+            patterns,
+            False,
+        )
 
     def test_a_clean_document_fires_nothing(self, tmp_path: Path) -> None:
         """The negative case the whole suite depends on."""
         patterns = [
-            (re.compile(r"(\d+) fits? / (\d+) miss"), {(38, 26)}),
-            (re.compile(r"fits? \*\*(\d+) of (\d+)\*\*"), {(38, 64)}),
-            (re.compile(r"(\d+) cases the GUI missed"), {(1849,)}),
+            (PATTERN_FIT_MISS, {(38, 26)}),
+            (PATTERN_OF_TOTAL, {(38, 64)}),
+            (PATTERN_SWEEP_CASES, {(1849,)}),
         ]
         self._check(tmp_path, "Nothing quotable is claimed here.\n", patterns, False)

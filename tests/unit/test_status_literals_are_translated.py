@@ -55,6 +55,9 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC_ROOT = REPO_ROOT / "src" / "open_garden_planner"
+#: The `.ts` SOURCE catalogue. Membership here does not prove a string resolves
+#: at runtime — the compiled `.qm` is checked separately, by
+#: `TestRegisteredStatusStringsResolve`, for the four strings it names.
 CATALOGUE = SRC_ROOT / "resources" / "translations" / "open_garden_planner_de.ts"
 
 #: The user-visible method that delivers text to the status bar.
@@ -80,14 +83,18 @@ def _worst(verdicts) -> str:
     return max(verdicts, key=lambda v: _SEVERITY[v], default="unknown")
 
 
-def _translation_source(node: ast.AST) -> str | None:
-    """The source string of a ``.tr(...)`` / ``translate(...)`` call, else None.
+def _translation_source(node: ast.AST) -> tuple[str, str | None] | None:
+    """``(source, context)`` for a ``.tr``/``translate`` call, else ``None``.
 
-    Returning the *source* rather than a bool is what lets the caller ask the only
-    question that matters — is this string in the catalogue? The previous version
-    returned True for ANY receiver, so ``self._view.tr("BARE ENGLISH")`` passed, and
-    the module docstring claimed the guard would have caught exactly that shape in
+    ``context`` is ``None`` when it cannot be determined statically. Returning the
+    *source* rather than a bool is what lets the caller ask the only question that
+    matters — is this string in the catalogue? The version before that returned True
+    for ANY receiver, so ``self._view.tr("BARE ENGLISH")`` passed, and the module
+    docstring claimed the guard would have caught exactly that shape in
     ``offset_tool.py``. It could not.
+
+    The two forms put their arguments in DIFFERENT places, and conflating them was a
+    real bug: ``tr(src, disambiguation)`` is NOT ``translate(context, src)``.
     """
     if not isinstance(node, ast.Call) or not node.args:
         return None
@@ -95,14 +102,22 @@ def _translation_source(node: ast.AST) -> str | None:
     name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
     if name not in _TRANSLATING:
         return None
-    # QCoreApplication.translate(context, source, ...) puts the source second;
-    # obj.tr(source) puts it first.
-    argument = node.args[1] if len(node.args) >= 2 else node.args[0]
-    try:
-        literal = ast.literal_eval(argument)
-    except (ValueError, TypeError, SyntaxError):
-        return None
-    return literal if isinstance(literal, str) else None
+
+    def literal(argument: ast.AST) -> str | None:
+        try:
+            value = ast.literal_eval(argument)
+        except (ValueError, TypeError, SyntaxError):
+            return None
+        return value if isinstance(value, str) else None
+
+    if name == "translate":
+        # QCoreApplication.translate(context, source[, disambiguation])
+        if len(node.args) >= 2:
+            return literal(node.args[1]), literal(node.args[0])
+        return literal(node.args[0]), None
+    # obj.tr(source[, disambiguation]) — the context is the receiver's class, which
+    # is not statically resolvable for `self._view.tr(...)`.
+    return literal(node.args[0]), None
 
 
 def _peel(node: ast.AST) -> ast.AST:
@@ -183,7 +198,7 @@ def _assigned_sources(func, name: str, tree=None) -> list[ast.AST] | None:
     return sources
 
 
-def _verdict(node: ast.AST, func, tree=None, catalogue=None) -> str:
+def _verdict(node: ast.AST, func, tree=None, catalogue=None, _seen=None) -> str:
     """``ok`` / ``bad`` / ``clear`` / ``unknown`` / ``unregistered``.
 
     ``catalogue`` is the set of registered source strings. When it is ``None`` (the
@@ -200,13 +215,23 @@ def _verdict(node: ast.AST, func, tree=None, catalogue=None) -> str:
     through a parent rather than being resolved in favour of safety. That is the
     distinction that let ``self.tr(...) if cond else "bare"`` pass before.
     """
+    seen = set() if _seen is None else _seen
     base = _peel(node)
 
-    source = _translation_source(base)
-    if source is not None:
+    pair = _translation_source(base)
+    if pair is not None:
+        source, context = pair
         if catalogue is None:
             return "ok"          # pure-logic mode; the integration test supplies it
-        return "ok" if source in catalogue else "unregistered"
+        if not any(src == source for _ctx, src in catalogue):
+            return "unregistered"
+        # Where the context IS statically known (`translate("Ctx", src)`), it must
+        # match too — a string registered under another class resolves to English.
+        # Where it is not (`self._view.tr(...)`), the source check is all that can
+        # be done, and that is stated rather than implied.
+        if context is not None and (context, source) not in catalogue:
+            return "unregistered"
+        return "ok"
 
     if isinstance(base, ast.Constant):
         if not isinstance(base.value, str):
@@ -218,50 +243,61 @@ def _verdict(node: ast.AST, func, tree=None, catalogue=None) -> str:
         # An f-string is safe only if SOME interpolated value is translated; the
         # literal parts around it are not translatable on their own.
         inner = [_translation_source(_peel(v.value)) for v in base.values]
-        if any(s is not None for s in inner):
+        if any(pair is not None for pair in inner):
             if catalogue is None:
                 return "ok"
-            return (
-                "ok"
-                if all(s is None or s in catalogue for s in inner)
-                else "unregistered"
-            )
+            sources = {src for pair in inner if pair for src, _ctx in (pair,)}
+            if not all(
+                any(s == src for _ctx, s in catalogue) for src in sources
+            ):
+                return "unregistered"
+            return "ok"
         return "bad"
 
     if isinstance(base, ast.BinOp):
         if isinstance(base.op, ast.Mod):
             # "a %s" % n — a bare constant on the left is a bare literal.
-            return _verdict(base.left, func, tree, catalogue)
+            return _verdict(base.left, func, tree, catalogue, seen)
         # Any other operator over strings: judge both sides.
         return _worst(
-            [_verdict(base.left, func, tree, catalogue), _verdict(base.right, func, tree, catalogue)]
+            [_verdict(base.left, func, tree, catalogue, seen), _verdict(base.right, func, tree, catalogue, seen)]
         )
 
     if isinstance(base, ast.IfExp):
         # `a if cond else b` — BOTH arms are live.
         return _worst(
             [
-                _verdict(base.body, func, tree, catalogue),
-                _verdict(base.orelse, func, tree, catalogue),
+                _verdict(base.body, func, tree, catalogue, seen),
+                _verdict(base.orelse, func, tree, catalogue, seen),
             ]
         )
 
     if isinstance(base, (ast.BoolOp, ast.Tuple, ast.List, ast.Set)):
         values = getattr(base, "values", None) or getattr(base, "elts", [])
-        return _worst([_verdict(v, func, tree, catalogue) for v in values])
+        return _worst([_verdict(v, func, tree, catalogue, seen) for v in values])
 
     if isinstance(base, ast.Call):
         # A call that is not a translation: `"".join(...)`, `str(...)`, etc.
         # Judge the arguments, and add `unknown` for the call itself.
-        inner = [_verdict(a, func, tree, catalogue) for a in base.args]
+        inner = [_verdict(a, func, tree, catalogue, seen) for a in base.args]
         return _worst(inner + ["unknown"])
 
     if isinstance(base, ast.Name):
+        if base.id in seen:
+            # `msg = msg` and the accumulator `msg = msg + part` are real shapes;
+            # without this the recursion crashed the suite instead of returning a
+            # verdict, which is worse than either answer.
+            return "unknown"
         sources = _assigned_sources(func, base.id, tree)
         if not sources:
             # A parameter (origin in another module) or a name assigned nowhere.
             return "unknown"
-        return _worst([_verdict(s, func, tree, catalogue) for s in sources])
+        return _worst(
+            [
+                _verdict(s, func, tree, catalogue, seen | {base.id})
+                for s in sources
+            ]
+        )
 
     return "unknown"
 
@@ -281,19 +317,10 @@ def _wrapped_sources(path: Path) -> dict[str, str | None]:
     tree = ast.parse(path.read_text(encoding="utf-8"))
     out: dict[str, str | None] = {}
     for node in ast.walk(tree):
-        source = _translation_source(node)
-        if source is None:
+        pair = _translation_source(node)
+        if pair is None:
             continue
-        # translate(context, source) carries its context; tr(source) does not, and
-        # Qt resolves it from the receiver's own class name.
-        context = None
-        if len(node.args) >= 2:
-            try:
-                candidate = ast.literal_eval(node.args[0])
-            except (ValueError, TypeError, SyntaxError):
-                candidate = None
-            if isinstance(candidate, str):
-                context = candidate
+        source, context = pair
         out[source] = context
     return out
 
@@ -318,20 +345,35 @@ def _status_arguments() -> list[tuple[Path, ast.Call, str]]:
                 # that decides whether the build is green, and an unregistered
                 # source ships English no matter how it is wrapped.
                 out.append(
-                    (path, node, _verdict(node.args[0], func, tree, _catalogue_sources()))
+                    (path, node, _verdict(node.args[0], func, tree, _catalogue_entries()))
                 )
     return out
 
 
-def _catalogue_sources() -> set[str]:
-    """Every ``<source>`` in the German catalogue, whatever its context."""
+def _catalogue_entries() -> set[tuple[str, str]]:
+    """Every ``(context, source)`` pair in the German catalogue.
+
+    Keyed on the pair rather than the source alone, because Qt resolves a string by
+    receiver class AND text: `self.tr("Rotation:")` inside a class other than the one
+    the string was registered under returns English, and a source-only membership
+    test called that `ok` (round 9 measured it).
+    """
     import xml.etree.ElementTree as ET
 
     root = ET.parse(CATALOGUE).getroot()
-    return {
-        (message.findtext("source") or "").strip()
-        for message in root.iter("message")
-    }
+    out: set[tuple[str, str]] = set()
+    for context in root.iter("context"):
+        name = context.findtext("name") or ""
+        for message in context.iter("message"):
+            source = (message.findtext("source") or "").strip()
+            if source:
+                out.add((name, source))
+    return out
+
+
+def _catalogue_sources() -> set[str]:
+    """Every registered ``<source>``, whatever its context."""
+    return {source for _context, source in _catalogue_entries()}
 
 
 class TestNoUntranslatableStringReachesTheStatusBar:
@@ -341,7 +383,11 @@ class TestNoUntranslatableStringReachesTheStatusBar:
             f"string to {_STATUS_SINK}: "
             f"{ast.unparse(node.args[0])[:70]!r}"
             for path, node, verdict in _status_arguments()
-            if verdict == "bad"
+            # `unregistered` is a FAILING verdict and belongs here. Filtering on
+            # `"bad"` alone made the whole `unregistered` mechanism inert: the
+            # verdict was computed, reported by nothing, and the guard stayed green
+            # on exactly the defect it was built for (round 9 measured it).
+            if verdict in ("bad", "unregistered")
         ]
         assert not findings, (
             "these reach the status bar untranslated, so a German user reads "
@@ -357,7 +403,13 @@ class TestNoUntranslatableStringReachesTheStatusBar:
             f"only {len(calls)} status-bar call sites found; the route has probably "
             f"been renamed and this guard is now vacuous"
         )
-        assert all(v in ("ok", "bad", "clear", "unknown") for _, _, v in calls)
+        # The full verdict vocabulary. An earlier version omitted `unregistered`,
+        # so the smoke test — not the real check — was what went red on a real
+        # defect, and "fixing" it by adding the value to a list would have removed
+        # the only signal. Both verdicts that mean "fails" are named here.
+        assert all(
+            v in ("ok", "clear", "unknown", "bad", "unregistered") for _, _, v in calls
+        ), sorted({v for _, _, v in calls})
 
     def test_the_undecidable_call_sites_are_known(self) -> None:
         """Name the blind spot instead of leaving it implicit.
@@ -518,7 +570,7 @@ class TestRegisteredStatusStringsResolve:
         translator = QTranslator()
         assert translator.load(str(qm), ""), f"could not load {qm}"
 
-        assert source in _catalogue_sources(), (
+        assert any(src == source for _ctx, src in _catalogue_entries()), (
             f"{source!r} is not in the .ts catalogue at all, so it would ship "
             f"English regardless of how it is wrapped"
         )
@@ -659,7 +711,7 @@ class TestTheGuardWouldHaveCaughtTheTwoKnownP0Shapes:
             and isinstance(n.func, ast.Attribute)
             and n.func.attr == _STATUS_SINK
         )
-        verdict = _verdict(call.args[0], tree.body[0], tree, _catalogue_sources())
+        verdict = _verdict(call.args[0], tree.body[0], tree, _catalogue_entries())
         assert verdict == "ok", (
             f"the offset string is registered under CanvasView, so this must be ok, "
             f"not {verdict!r}"
@@ -694,4 +746,4 @@ class TestTheGuardWouldHaveCaughtTheTwoKnownP0Shapes:
             and isinstance(n.func, ast.Attribute)
             and n.func.attr == _STATUS_SINK
         )
-        assert _verdict(call.args[0], tree.body[0], tree, _catalogue_sources()) == "ok"
+        assert _verdict(call.args[0], tree.body[0], tree, _catalogue_entries()) == "ok"
