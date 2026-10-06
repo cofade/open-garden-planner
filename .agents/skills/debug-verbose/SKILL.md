@@ -1462,3 +1462,107 @@ root cause, reproduce the failure with the exact flags that produced it, then sh
 run passing with the fix; a fix validated where the bug cannot occur is a guess with a green
 tick. And a guard on bookkeeping (the right object is held) is not a check of the outcome
 (the right pixels are drawn): test a contract in the currency it promises.
+
+### Case: the Tasks tab said "you're all caught up" while a harvest was open
+
+**Symptom**: a southern plan (20 September last spring frost) put a tomato harvest at
+29 Nov 2026 – 7 Feb 2027. On 1 January 2027 the Tasks tab and the planting-calendar
+dashboard listed nothing; a tomato-only plan rendered *"No tasks — you're all caught up."*
+The agent's `get_tasks`, over the same plan and the same date, listed it. A garlic plan
+(9 April frost) had an autumn sowing on 9-23 Oct 2026 that reached no GUI surface at all.
+
+**Wrong theories, in order**:
+1. *The dashboard and the Tasks tab filter differently.* They do not — both called
+   `generate_all(build_plan_state(...))` and shared the urgency rule. Reading the two
+   call sites "fixed" nothing, because they agreed.
+2. *The offset maths is wrong.* It is not. `generate_calendar_tasks` computes
+   `last_frost + timedelta(weeks=offset)` and the numbers were right for the year it
+   anchored on.
+3. *The agent is being generous and showing speculative windows.* No: the agent's
+   `generate_for_date_window` derives the set of anchor years from the offsets
+   (asparagus harvests 104 weeks after its frost; garlic is sown 26 weeks *before* it),
+   and the GUI had exactly one anchor year.
+
+**Key evidence**: `[TASK-MULTI-ANCHOR]` — a sweep applying the GUI's own listing rule
+(`classify_urgency(...) is not None`) to **both** sides, over 64 bundled species x 6 frost
+dates x every day of 2026:
+
+```
+(todo, frost date, day) cases: 222
+missed by the GUI on master : 1849
+missed by the GUI after fix: 0
+tasks the GUI now lists that the 90-day agent window did not: 0
+```
+
+The first number to print was **0 surplus**, not 0 missed. Without it you cannot tell a
+correct fix from one that simply lists everything — and this bug's fix passes straight
+through the exact place that mistake is made: the shared date-window path runs with
+`actionable_only=False`, so a wrapper that forgets to re-apply its own filter turns the
+Tasks tab into the next decade. That mistake actually happened during the work (an empty
+task list and a blank Gantt) and was caught only because the surplus count was asserted.
+
+**Root cause**: three surfaces each built their own list. The Tasks tab and the dashboard
+passed the snapshot to `generate_all`, which anchors on `state.year` alone; the Gantt went
+further and re-derived every bar from `self._last_frost` plus the raw species offsets — a
+*fourth* implementation of "offset to date". `generate_for_date_window` (the engine
+behind the agent's task tools) was already correct.
+
+**Fix**: one shared entry point, `task_generator.generate_actionable_for_surface`, which
+*wraps* `generate_for_date_window` (does not reimplement it) and re-applies the GUI's
+urgency filter at the edge. The Gantt consumes the generated windows instead of
+recomputing them. ADR-029 addendum.
+
+**Lesson**: **two surfaces calling the same generator can still disagree about the inputs
+they hand it.** The functions were shared; the arguments were not. Find that class of bug
+by comparing the two outputs under one rule applied to both, and always print what the fix
+*added* as well as what it removed — for a "we were hiding too much" bug the added count is
+the one that catches the over-correction.
+
+---
+
+### Case: a date field that reformatted for display corrupted saved plans
+
+**Symptom**: the planting calendar's propagation editor moved each displayed step date into
+the current year, start and end independently ("for readability"). A step crossing New Year
+was persisted into the `.ogp` as `start 2026-12-24 / end 2026-01-22` — an inverted step —
+and `compute_propagation_plan` applied stored overrides verbatim, so the corruption was
+permanent for any plan already saved. 1,036 (species, frost-date) pairs in 2026 had at least
+one such step.
+
+**Wrong theories**:
+1. *The defect is in the writer, so fixing the editor repairs existing files.* No — the
+   reader applies the stored pair without validation, so a file written by the buggy build
+   stays wrong forever. The two halves have to be fixed separately, and only the writer fix
+   is invisible in a fresh plan.
+2. *The helpful repair is to swap the pair on load.* That silently rewrites what the user
+   typed; if they meant an overnight or wrap-around step, we have corrupted their intent.
+3. *It is only a display issue because the stored value is what the user sees.* The stored
+   value is what every other surface reads (the Gantt's propagation sub-row, the dashboard,
+   `get_tasks`).
+
+**Key evidence**: `[TASK-PROP-EDITOR-YEARS]` — the repro is the *stored dict*, not the
+screen. Leek with a 1 April last frost and no override has an indoor sowing of
+24 Dec 2025 - 21 Jan 2026; the editor showed "24 Dec - 21 Jan" and moving the end by one day
+stored `{'start': '2026-12-24', 'end': '2026-01-22'}`. The 29-February corners were the
+tell that the year rewrite was conditional: `except ValueError: display = s` kept the REAL
+year for the 29-Feb date while the other date moved into the current one, so the step
+stretched or inverted *depending on leap-ness* — a shape no single "wrong year" theory
+predicts.
+
+**Root cause**: the populate method rebuilt the displayed date from month/day rather than
+using the step's date. Two further defects sat in the same 40-line function and were
+covered by the same tests: the editor wrote an override on every `dateChanged` and ran the
+calendar's full `refresh()` each time (one user gesture is not one undo step — invariant 4),
+and the species detail line was five hardcoded English f-strings the i18n gate is
+structurally blind to.
+
+**Fix**: the editor shows each step's real dates; an override whose end precedes its start
+is **ignored on read and refused on write**, leaving the stored value in the file untouched.
+The commit is now once per gesture (600 ms debounce plus immediate on focus-out, mirroring
+`properties_panel._TEXT_COMMIT_DEBOUNCE_MS`).
+
+**Lesson**: **a date field that reformats what it holds for display is a data-corruption
+site.** Before choosing a repair for a persisted bad value, find out who reads it back: the
+writer's bug and the reader's missing validation are two defects, and fixing only the writer
+leaves every existing file broken. When the value is untrustworthy, *ignoring* it (keeping the
+file intact) beats *repairing* it (rewriting the user's intent).

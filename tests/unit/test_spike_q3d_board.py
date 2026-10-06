@@ -368,7 +368,18 @@ TOMATO = {"common_name": "Tomato", "harvest_start": 10, "harvest_end": 20}
     (BERLIN, None, date(2026, 6, 21), None),
     ({"frost_dates": {"first_fall_frost": "10-31"}}, TOMATO, date(2026, 6, 21), None),
     (None, TOMATO, date(2026, 6, 21), None),
-    ({"frost_dates": {"last_spring_frost": "02-29"}}, TOMATO, date(2026, 6, 21), None),
+    # A 02-29 frost is no longer "no window to read" in a non-leap year: the
+    # shared rule substitutes 1 March there (#414), so 2026's harvest window is
+    # 1 March + 10..20 weeks = 10 May – 20 July, and a window exists in every year.
+    ({"frost_dates": {"last_spring_frost": "02-29"}}, TOMATO, date(2026, 5, 1), False),
+    ({"frost_dates": {"last_spring_frost": "02-29"}}, TOMATO, date(2026, 6, 21), True),
+    ({"frost_dates": {"last_spring_frost": "02-29"}}, TOMATO, date(2027, 6, 21), True),
+    # A leap year uses the real 29 February: 29 Feb + 10 weeks = 9 May, and the
+    # substituted non-leap window (1 March + 10 weeks = 10 May) is one day later.
+    ({"frost_dates": {"last_spring_frost": "02-29"}}, TOMATO, date(2028, 5, 1), False),
+    ({"frost_dates": {"last_spring_frost": "02-29"}}, TOMATO, date(2028, 5, 9), True),
+    # A malformed frost date is still no data, substitution or not.
+    ({"frost_dates": {"last_spring_frost": "02-31"}}, TOMATO, date(2026, 6, 21), None),
 ])
 def test_harvest_window_follows_the_calendar_rule(location, species, day: date,
                                                   expected: bool | None) -> None:
@@ -409,26 +420,28 @@ def test_harvest_window_matches_the_shared_generator(frost: str, start: int, end
     from the offsets (a 29 February frost: ADR-048 entry 18). A fixed ±1-year anchor in
     the spike returned False on asparagus harvest dates at frost dates from 4 January
     on, and on rhubarb's from 1 January until just before the frost's anniversary
-    (senior review, passes 5-9). The helper anchors the state on the date's own year;
-    for the 02-29 row only the leap year compares a window. None — no window to read —
-    only where the frost date does not exist that year.
+    (senior review, passes 5-9). The helper anchors the state on the date's own year.
+
+    **Changed by #414.** This test used to require ``None`` on every day whose year
+    has no 29 February ("no window to read"). That expectation encoded the bug: a
+    plan configured with a 29-February frost behaved as if it had none in non-leap
+    years. The shared rule now substitutes 1 March, so a window exists in EVERY
+    year and the oracle is simply agreement with the shared generator. None is still
+    required when the shared generator itself has no anchor (a malformed frost date).
     """
     from datetime import timedelta
 
     location = {"frost_dates": {"last_spring_frost": frost}}
     species = {"harvest_start": start, "harvest_end": end}
-    month, dom = (int(part) for part in frost.split("-"))
+    from open_garden_planner.services.frost_dates import parse_frost
+
     day, mismatches = date(2026, 1, 1), []
     while day <= date(2028, 12, 31):
         got = runner.in_harvest_window(location, day, species)
-        try:
-            date(day.year, month, dom)
-            frost_exists = True
-        except ValueError:
-            frost_exists = False
-        if (got is None) is frost_exists or (got is True) is not _shared_generator_harvests(
-                frost, start, end, day):
-            mismatches.append((day.isoformat(), got))
+        has_anchor = parse_frost(frost, day.year) is not None
+        shared = _shared_generator_harvests(frost, start, end, day)
+        if (got is None) is has_anchor or (got is True) is not shared:
+            mismatches.append((day.isoformat(), got, shared))
         day += timedelta(days=1)
     assert mismatches == []
 

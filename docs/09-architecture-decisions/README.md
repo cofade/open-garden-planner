@@ -404,6 +404,54 @@ Architecture Decision Records (ADRs) for significant technical choices.
 
 Presentation is allowed to differ (the calendar is an actionable, open-only strip with compact rows; the Tasks tab shows Done/Snoozed sections), but generation and status are unified. Tests: `tests/integration/test_calendar_task_convergence.py` asserts done/snooze/dismiss agree across both surfaces for the same `task_id`; `generate_soil_mismatch_tasks` is unit-tested in `test_task_generator.py`; the obsolete `tests/unit/test_dashboard_tasks.py` was removed (coverage subsumed by the engine tests).
 
+### Addendum (#414 — one frost anchor per surface, and one date-window entry point)
+
+**Context.** The frost-relative windows (sowing, transplant, harvest, propagation
+steps) are anchored on the plan's last spring frost. Every GUI surface anchored
+on *the current year's* frost, while the agent's `get_tasks` /
+`get_task_calendar` anchored on every year whose window could reach the requested
+dates — `generate_for_date_window` derives that range from the offsets. The two
+therefore disagreed by construction: a southern plan (20 September frost) put a
+tomato harvest at 29 Nov 2026 – 7 Feb 2027, invisible on every GUI surface on
+1 January 2027. Measured over 64 bundled species × 6 frost dates × every day of
+2026: **1,849 missed (task, frost date, day) cases, 0 after the fix.**
+
+**Decision 1 — one entry point for a GUI surface.**
+`task_generator.generate_actionable_for_surface(state)` is the single path used by
+the Tasks tab, the planting-calendar dashboard and the Gantt. It *wraps*
+`generate_for_date_window` rather than reimplementing it, and re-applies the GUI's
+own listing rule (`classify_urgency(...) is not None`) afterwards. That post-filter
+is part of the contract: the date-window path deliberately runs with
+`actionable_only=False`, so without it a surface would list the next decade.
+The Gantt additionally receives `horizon_days` when it wants a bounded span
+rather than an urgency window.
+
+**Decision 2 — the chart consumes generated windows, it does not recompute them.**
+`_GanttWidget` previously re-derived every bar from `self._last_frost` plus the
+species week-offsets. That made it a fourth implementation of "offset to date"
+(the generators, the agent and the dashboard being the other three) and it was
+the reason the chart could only ever draw one anchor year. It now draws the
+windows the shared generator produced, already clipped to the displayed year.
+
+**Decision 3 — task ids carry the anchor year, and statuses stay separate.**
+`make_calendar_task_id` produces `{species_key}:{task_type}:{anchor_year}`, so
+listing a second anchor year produces a *second, distinct* id. This is correct and
+load-bearing: the 2026-anchored and 2027-anchored harvests are different physical
+harvests, and marking one done must not mark the other. Pinned by
+`test_different_anchor_years_yield_different_ids`.
+
+**Decision 4 — the propagation editor edits ONE plan; the others render.**
+A species has one propagation plan per anchor year (`propagate_plans_by_anchor`).
+The detail panel edits the plan anchored on the **current year**; the other
+anchors are drawn on the chart and listed by the dashboard and the agent, but are
+not editable. The panel's single-plan contract is preserved, which is what let the
+#415 year fix stand on its own.
+
+**Consequence for reviewers.** `generate_for_date_window` inherits the caller's
+`actionable_only` **per anchor year** via `replace(state, ...)`. A wrapper that
+passes the GUI's `True` into it filters anchors out *before* its own filter runs —
+this produced an empty Tasks tab and a blank Gantt during this work. Both call
+sites now pass `False` inward and filter once at the edge. See §11.4.
 ## ADR-030: Sidebar Hover-Peek + Click-to-Pin Accordion
 
 **Status**: Accepted (issue #226). Refines **ADR-005** (fixed sidebar / collapsible panels).
@@ -1827,3 +1875,83 @@ P0/P1 row links its own issue, as decision 1 requires of every P0/P1 row (TD-037
 - **6** — `set_mesh` for a 100k-vertex geometry read 10.48 ms median (max 12.82) against ≤ 10 ms (over budget), and the "1,000 Models ≤ 300 ms" clause is unmeasured. Accepted: `set_mesh` covers the Python side only; L1.1 measures the full edit-to-frame path (≤ 50 ms p95), per entry 5.
 - **8** — the gated low and high presets pass (≥ 0.85); medium's 60° reads 0.847, a hair under the bound, on a preset outside the pre-registered low/high set. The < 0.85 policy (illustrative shadows + draped 2D analysis) covers it either way.
 - **10** — the spike's share passes (zero aborts; 100 cycles + 20 reloads, exit 0), but the D3D11 leak is open: the owner tail slope read 15.73 MB/reload, above the pre-registered < 10 gate. Accepted as open (option a); it closes in L1.3 with an A/B soak plus a dedicated-GPU-memory reading.
+
+## ADR-049: Frost-Date Semantics - One Parser, 29 February Substituted as 1 March
+
+**Status**: Accepted (2026-10, #414 / #416, task-date correctness package)
+
+### Context
+
+A plan stores its frost dates as `'MM-DD'` strings with no year
+(`location["frost_dates"]["last_spring_frost"]`). Every consumer must turn one into
+a real date for a *specific* year, because all the calendar windows are anchored
+on it. Before this decision there were **three** independent notions of what a
+frost date is, and they disagreed in both directions:
+
+- `services/task_generator._parse_frost` (used by every generator and by the agent
+  through `generate_for_date_window`);
+- a byte-identical duplicate in `ui/views/planting_calendar_view.py`;
+- a regex in the location dialog that accepted six dates which can never exist
+  (`02-30`, `02-31`, `04-31`, `06-31`, `09-31`, `11-31`). Accepting one produced a
+  plan whose frost date then parsed to nothing — i.e. a plan that silently showed
+  **no tasks on any surface**.
+
+Separately, `'02-29'` is a legitimate stored value that exists only in leap years.
+Anchored as a literal, a 29-February plan had **no** spring-frost tasks in every
+non-leap year: the planting calendar said "No location set.", the Tasks tab listed
+none, and `get_tasks` / `get_task_calendar` returned `coverage: "no_frost_dates"` —
+which the agent API documents as "the plan has no geo-location", so a client
+following the `plan-my-week` prompt asked for a location the plan already had.
+
+### Decision
+
+1. **One parser, one validator.** New Qt-free module
+   `services/frost_dates.py` owns `parse_frost(mmdd, year)` and
+   `is_valid_frost_date(mmdd)`. The location dialog, the task generator and the
+   Phase 17 spike all go through it; the calendar view's duplicate is a thin shim
+   and its dead regex is gone. The invariant "what the dialog accepts is what the
+   parser reads" is pinned by
+   `test_every_accepted_date_parses_in_a_leap_year`.
+
+2. **`02-29` is accepted at the input boundary** (it is a real date in a leap
+   year), and **substituted with 1 March** in a year that has no 29 February
+   (`NON_LEAP_SUBSTITUTE_MM_DD`). Consequences accepted deliberately:
+   - a 29-February plan now has a full task surface in **every** year, so the
+     "no location set" / `no_frost_dates` symptom cannot occur;
+   - the substituted date is **invisible by construction**, which is the failure
+     mode to avoid, so it is named in one constant, documented here and in §11.4,
+     and pinned by tests in both a leap and a non-leap year;
+   - in a multi-year listing the non-leap anchor's windows sit **one day later**
+     than the leap anchor's. Stated up front so a later reader does not "fix" it.
+
+3. **The producer of a window and the renderer of a window must be the same
+   function.** The Phase 17 spike's `in_harvest_window` previously returned `None`
+   whenever the anchor year lacked a 29 February ("no window to read"); after the
+   substitution that was the last remaining place where a 29-February plan behaved
+   as if it had no frost date, so it now consumes `parse_frost` too. Its
+   `in_frost_free_season` deliberately still compares `(month, day)` without a
+   year — a different question, which never had a year-existence problem — and the
+   docstring says so to stop the next reader from "fixing" it.
+
+### Consequences
+
+- Qt-free and unit-testable without a QApplication (invariant 10).
+- The substitution is a **product decision with a visible side effect**, not a
+  parse detail; anyone changing `parse_frost` must revisit this ADR.
+- `tests/unit/test_spike_q3d_board.py` had encoded the old "no window in a
+  non-leap year" behaviour as its oracle and was updated to agree with the shared
+  rule — the change is stated in that file's docstring rather than made silently.
+- `services/frost_dates.py` must stay free of Qt imports; it is imported by the
+  generators, a `QDialog`, and the spike.
+
+### Related
+
+The bundled plant data's *harvest offsets* were a separate, related finding
+(#416): `harvest_start` was documented as "weeks after planting" while every
+reader counts it from the frost. Measured over all 118 bundled species, neither
+reading reconciles with `days_to_maturity` (1 of 64 and 10 of 54 fit), so the
+documentation was made true and the row conversion deferred to **#418** with a
+cited horticultural source. `KNOWN_DIVERGENT_SPECIES` in
+`tests/unit/test_harvest_offset_semantics.py` is the pinned baseline, and that
+test also asserts that `days_to_maturity` is reference data no computation reads —
+which is what keeps the correction out of the generator.

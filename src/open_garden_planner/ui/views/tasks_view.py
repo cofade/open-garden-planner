@@ -37,7 +37,7 @@ from open_garden_planner.services.task_generator import (
     Task,
     build_plan_state,
     classify_urgency,
-    generate_all,
+    generate_actionable_for_surface,
 )
 from open_garden_planner.services.task_status import effective_status
 from open_garden_planner.ui.icons import get_icon
@@ -154,7 +154,14 @@ class TasksView(QWidget):
             )
         except RuntimeError:
             return  # scene torn down (shutdown)
-        tasks = generate_all(state)
+        # generate_actionable_for_surface, not generate_all: the frost-relative
+        # windows are anchored on EVERY year whose frost can reach "now", not on
+        # this year only (#414). The old single-anchor read meant a tomato
+        # harvest running 29 Nov – 7 Feb vanished from this tab on 1 January,
+        # and a plan could read "No tasks — you're all caught up." while open.
+        # The helper re-applies this tab's own urgency rule after the multi-anchor
+        # pass, so the listing stays as narrow as before.
+        tasks = generate_actionable_for_surface(state)
         today = state.today
         task_states = self._pm.task_states
 

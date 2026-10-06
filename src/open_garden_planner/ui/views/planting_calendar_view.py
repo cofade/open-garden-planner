@@ -35,11 +35,16 @@ from open_garden_planner.app.settings import get_settings
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.models.plant_data import species_key as _species_key
 from open_garden_planner.models.propagation import PropagationPlan
+from open_garden_planner.services.frost_dates import parse_frost
 from open_garden_planner.services.task_generator import (
+    PlanState,
     Task,
     build_plan_state,
     classify_urgency,
-    generate_all,
+    frost_anchor_years,
+    generate_actionable_for_surface,
+    generate_for_date_window,
+    propagate_plans_by_anchor,
 )
 from open_garden_planner.services.task_status import effective_status
 from open_garden_planner.services.weather_service import get_frost_alerts
@@ -131,6 +136,38 @@ class _PlantRow:
     species_key: str = ""   # defaults to scientific_name or common_name if not set
 
 
+@dataclass(frozen=True)
+class _GanttWindow:
+    """One calendar window to draw, already clipped to the displayed year.
+
+    Produced by the shared task generators rather than recomputed in the widget
+    (#414), so the chart shows exactly what the dashboard and the agent list.
+    """
+
+    start: datetime.date
+    end: datetime.date
+    task_type: str
+
+
+@dataclass(frozen=True)
+class _PropStepWindow:
+    """One propagation step to draw, already clipped to the displayed year."""
+
+    start: datetime.date
+    end: datetime.date
+    step_id: str
+    anchor_year: int
+
+
+#: Which Gantt bar colour each generated calendar task type is drawn in.
+_GANTT_COLORS = {
+    "indoor_sow": "indoor",
+    "direct_sow": "direct",
+    "transplant": "transplant",
+    "harvest": "harvest",
+}
+
+
 @dataclass
 class _DashboardTask:
     """A single actionable task in the Today dashboard."""
@@ -158,12 +195,15 @@ def _date_to_x(month: int, day: int, year: int) -> float:
 
 
 def _parse_frost(mmdd: str, year: int) -> datetime.date | None:
-    """Parse 'MM-DD' into a date for the given year, or None on failure."""
-    try:
-        m, d = map(int, mmdd.split("-"))
-        return datetime.date(year, m, d)
-    except (ValueError, AttributeError):
-        return None
+    """Deprecated shim — use the shared frost-date rule (#414).
+
+    This was a SECOND independent parser; a third copy lived in the location
+    dialog's regex. All three now go through
+    :mod:`open_garden_planner.services.frost_dates`, which also owns the
+    29-February-in-a-non-leap-year substitution. Kept as a module-level alias so
+    existing importers keep working.
+    """
+    return parse_frost(mmdd, year)
 
 
 # ─── Dashboard panel ───────────────────────────────────────────────────────────
@@ -414,13 +454,26 @@ class _GanttWidget(QWidget):
         year: int,
         last_frost: datetime.date | None,
         first_fall: datetime.date | None,
-        prop_plans: dict[str, PropagationPlan] | None = None,
+        windows: dict[str, list[_GanttWindow]] | None = None,
+        prop_steps: dict[str, list[_PropStepWindow]] | None = None,
     ) -> None:
+        """Set the rows and the already-computed windows to draw for ``year``.
+
+        ``windows`` / ``prop_steps`` are produced by the shared generators (see
+        ``PlantingCalendarView._compute_gantt_windows``). The widget used to
+        recompute every window itself from ``self._last_frost`` plus the species
+        week-offsets, which made it the THIRD independent implementation of
+        "offset to date" and the reason a window anchored on another year's frost
+        could not be drawn: only the current year's anchor existed here (#414).
+        Drawing what the generators produced is what makes the chart and the
+        dashboard agree by construction.
+        """
         self._rows = rows
         self._year = year
         self._last_frost = last_frost
         self._first_fall = first_fall
-        self._prop_plans = prop_plans or {}
+        self._windows = windows or {}
+        self._prop_steps = prop_steps or {}
         self._selected = -1
         self._update_size()
         self.update()
@@ -524,38 +577,34 @@ class _GanttWidget(QWidget):
             painter.drawText(QRect(8, y, _NAME_W - 16, _ROW_H), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, row.display_name)
 
             # Calendar bars
-            if self._last_frost is not None:
-                self._paint_bars(painter, row.species, y)
+            self._paint_bars(painter, row, y)
 
             # Propagation sub-row
             if self._show_propagation:
                 self._paint_prop_row(painter, row, i, y + _ROW_H)
 
-    def _paint_bars(self, painter: QPainter, sp: PlantSpeciesData, row_y: int) -> None:
-        assert self._last_frost is not None
+    def _paint_bars(self, painter: QPainter, row: _PlantRow, row_y: int) -> None:
+        """Draw the calendar windows the generators produced for this species.
+
+        The windows arrive already clipped to the displayed year, from whichever
+        frost anchor years reach into it (#414) — so a window anchored on the
+        PREVIOUS year's frost still draws its January part, and one anchored on
+        next year's draws its December part.
+        """
         bar_y = row_y + _BAR_MARGIN
         bar_h = _ROW_H - 2 * _BAR_MARGIN
         year = self._year
-        year_start = datetime.date(year, 1, 1)
-        year_end = datetime.date(year, 12, 31)
 
-        segments = [
-            (sp.indoor_sow_start, sp.indoor_sow_end, _COL_INDOOR),
-            (sp.direct_sow_start, sp.direct_sow_end, _COL_DIRECT),
-            (sp.transplant_start, sp.transplant_end, _COL_TRANSPL),
-            (sp.harvest_start, sp.harvest_end, _COL_HARVEST),
-        ]
-        for start_w, end_w, color in segments:
-            if start_w is None or end_w is None:
-                continue
-            d_start = self._last_frost + datetime.timedelta(weeks=start_w)
-            d_end = self._last_frost + datetime.timedelta(weeks=end_w)
-            if d_end < year_start or d_start > year_end:
-                continue
-            d_start = max(d_start, year_start)
-            d_end = min(d_end, year_end)
-            x1 = _date_to_x(d_start.month, d_start.day, year)
-            x2 = _date_to_x(d_end.month, d_end.day, year)
+        colors = {
+            "indoor": _COL_INDOOR,
+            "direct": _COL_DIRECT,
+            "transplant": _COL_TRANSPL,
+            "harvest": _COL_HARVEST,
+        }
+        for window in self._windows.get(row.species_key, ()):
+            color = colors.get(_GANTT_COLORS.get(window.task_type, ""), _COL_DIRECT)
+            x1 = _date_to_x(window.start.month, window.start.day, year)
+            x2 = _date_to_x(window.end.month, window.end.day, year)
             if x2 - x1 < 4:
                 x2 = x1 + 4
             rect = QRect(int(x1), bar_y, int(x2 - x1), bar_h)
@@ -598,8 +647,7 @@ class _GanttWidget(QWidget):
             self.tr("Propagation"),
         )
 
-        plan = self._prop_plans.get(row.species_key)
-        if plan is None or self._last_frost is None:
+        if not self._prop_steps.get(row.species_key):
             return
 
         year = self._year
@@ -608,7 +656,11 @@ class _GanttWidget(QWidget):
         bar_top = sub_y + _PROP_BAR_Y
         bar_h = _PROP_BAR_H
 
-        # Paint each propagation step
+        # Paint each propagation step, from EVERY anchor year whose plan reaches
+        # into the displayed year (#414). Before this the sub-row could only draw
+        # the plan anchored on the current year's frost, so a tomato-only plan
+        # showed neither the indoor sowing (20 Nov - 4 Dec) nor the prick-out of
+        # the plan anchored on next year's frost.
         step_styles = [
             ("germination",  _COL_GERM,            False),  # period bar
             ("harden_off",   _COL_HARDEN,           False),  # period bar
@@ -616,40 +668,39 @@ class _GanttWidget(QWidget):
             ("transplant",   _COL_TRANSPLANT_PROP,  True),   # point marker
         ]
 
+        windows = self._prop_steps.get(row.species_key, ())
+        by_step: dict[str, list[_PropStepWindow]] = {}
+        for window in windows:
+            by_step.setdefault(window.step_id, []).append(window)
+
         painter.setPen(Qt.PenStyle.NoPen)
         for step_id, color, is_point in step_styles:
-            step = plan.get_step(step_id)
-            if step is None:
-                continue
-            d_start = step.start_date
-            d_end = step.end_date
-            if d_end < year_start or d_start > year_end:
-                continue
-            d_start_cl = max(d_start, year_start)
-            d_end_cl = min(d_end, year_end)
-            x1 = _date_to_x(d_start_cl.month, d_start_cl.day, year)
-            x2 = _date_to_x(d_end_cl.month, d_end_cl.day, year)
+            for step_window in by_step.get(step_id, ()):
+                d_start = max(step_window.start, year_start)
+                d_end = min(step_window.end, year_end)
+                x1 = _date_to_x(d_start.month, d_start.day, year)
+                x2 = _date_to_x(d_end.month, d_end.day, year)
 
-            if is_point:
-                # Draw a small diamond marker
-                cx = int(x1)
-                cy = bar_top + bar_h // 2
-                half = 5
-                painter.setBrush(QBrush(color))
-                diamond = QPolygon([
-                    QPoint(cx, cy - half),
-                    QPoint(cx + half, cy),
-                    QPoint(cx, cy + half),
-                    QPoint(cx - half, cy),
-                ])
-                painter.drawPolygon(diamond)
-            else:
-                # Period bar
-                if x2 - x1 < 4:
-                    x2 = x1 + 4
-                rect = QRect(int(x1), bar_top, int(x2 - x1), bar_h)
-                painter.setBrush(QBrush(color))
-                painter.drawRoundedRect(rect, 2, 2)
+                if is_point:
+                    # Draw a small diamond marker
+                    cx = int(x1)
+                    cy = bar_top + bar_h // 2
+                    half = 5
+                    painter.setBrush(QBrush(color))
+                    diamond = QPolygon([
+                        QPoint(cx, cy - half),
+                        QPoint(cx + half, cy),
+                        QPoint(cx, cy + half),
+                        QPoint(cx - half, cy),
+                    ])
+                    painter.drawPolygon(diamond)
+                else:
+                    # Period bar
+                    if x2 - x1 < 4:
+                        x2 = x1 + 4
+                    rect = QRect(int(x1), bar_top, int(x2 - x1), bar_h)
+                    painter.setBrush(QBrush(color))
+                    painter.drawRoundedRect(rect, 2, 2)
 
         # Restore font for next row
         normal = QFont()
@@ -989,6 +1040,9 @@ class PlantingCalendarView(QWidget):
         self._rows: list[_PlantRow] = []
         self._prop_plans: dict[str, PropagationPlan] = {}
         self._current_dashboard_tasks: list[_DashboardTask] = []
+        #: The snapshot the dashboard and the Gantt are both derived from, so the
+        #: two cannot disagree about which frost anchor years exist (#414).
+        self._plan_state: PlanState | None = None
         self._soil_service: Any | None = None
         # Debounced refresh so the view can be wired to stack_changed (undo/redo)
         # without heavyweight churn; skips work while the tab is hidden (#225).
@@ -1179,13 +1233,17 @@ class PlantingCalendarView(QWidget):
         rows, last_frost, first_fall, seed_links = self._collect_data()
         self._rows = rows
 
-        # Build propagation plans (US-9.5 + US-9.6)
+        # Build propagation plans (US-9.5 + US-9.6). The EDITABLE plan stays the
+        # one anchored on the current year's frost (#414); the other anchors are
+        # drawn on the chart and listed by the dashboard/agent, but not edited,
+        # because the detail panel edits exactly one plan per species.
         if last_frost is not None and rows:
             self._prop_plans = self._build_propagation_plans(rows, last_frost, seed_links)
         else:
             self._prop_plans = {}
 
-        # Update dashboard via the single unified engine (#228).
+        # Update dashboard via the single unified engine (#228). This also
+        # refreshes self._plan_state, which the Gantt windows are derived from.
         self._rebuild_dashboard()
 
         # Update Gantt translated marker labels
@@ -1222,8 +1280,73 @@ class PlantingCalendarView(QWidget):
 
         self._empty_lbl.hide()
         year = datetime.date.today().year
-        self._gantt.set_data(rows, year, last_frost, first_fall, self._prop_plans)
+        windows, prop_steps = self._compute_gantt_windows(year)
+        self._gantt.set_data(rows, year, last_frost, first_fall, windows, prop_steps)
         self._scroll.show()
+
+    def _compute_gantt_windows(
+        self, year: int,
+    ) -> tuple[dict[str, list[_GanttWindow]], dict[str, list[_PropStepWindow]]]:
+        """Windows for the chart, produced by the shared generators (#414).
+
+        The Gantt used to recompute every window from the current year's frost
+        plus the species week-offsets, so it drew exactly one anchor year. Here
+        the chart asks the shared engine for everything overlapping ``year`` —
+        including windows anchored on the previous or next year's frost, which
+        is what makes a tomato harvest running into February finally visible in
+        January.
+        """
+        windows: dict[str, list[_GanttWindow]] = {}
+        prop_steps: dict[str, list[_PropStepWindow]] = {}
+        state = self._plan_state
+        if state is None or state.last_frost is None:
+            return windows, prop_steps
+
+        year_start = datetime.date(year, 1, 1)
+        year_end = datetime.date(year, 12, 31)
+
+        # actionable_only=False: the chart draws the whole displayed year, which is
+        # not an urgency window. Leaving the dashboard's True in place would drop
+        # every window that is not urgent *today* — i.e. most of the chart.
+        from dataclasses import replace  # noqa: PLC0415
+
+        for task in generate_for_date_window(
+            replace(state, actionable_only=False), year_start, year_end
+        ):
+            if task.source != "calendar" or not task.species_key:
+                continue
+            if task.start_date is None or task.end_date is None:
+                continue
+            if task.task_type not in _GANTT_COLORS:
+                continue
+            windows.setdefault(task.species_key, []).append(_GanttWindow(
+                start=max(task.start_date, year_start),
+                end=min(task.end_date, year_end),
+                task_type=task.task_type,
+            ))
+
+        if not self._prop_toggle.isChecked():
+            return windows, prop_steps
+
+        # Propagation steps, per anchor year, from the same shared calculator.
+        for (species_key, anchor_year), plan in propagate_plans_by_anchor(
+            state, frost_anchor_years(state, year_start, year_end)
+        ).items():
+            for step in plan.steps:
+                if step.end_date < year_start or step.start_date > year_end:
+                    continue
+                prop_steps.setdefault(species_key, []).append(_PropStepWindow(
+                    start=max(step.start_date, year_start),
+                    end=min(step.end_date, year_end),
+                    step_id=step.step_id,
+                    anchor_year=anchor_year,
+                ))
+
+        for values in windows.values():
+            values.sort(key=lambda w: (w.start, w.task_type))
+        for values in prop_steps.values():
+            values.sort(key=lambda w: (w.start, w.anchor_year, w.step_id))
+        return windows, prop_steps
 
     # ── event handlers ─────────────────────────────────────────────────────────
 
@@ -1412,12 +1535,20 @@ class PlantingCalendarView(QWidget):
             self._project_manager,
             frost_alerts=self._current_frost_alerts,
             soil_service=self._soil_service,
-            prop_plans=self._prop_plans if self._prop_toggle.isChecked() else None,
+            # include_propagation (rather than a pre-built single-year
+            # ``prop_plans`` dict) so the anchor-year machinery runs inside the
+            # shared generator — this surface used to pass one plan per species,
+            # which is exactly the single-anchor limitation #414 removes.
+            include_propagation=self._prop_toggle.isChecked(),
         )
+        self._plan_state = state
         task_states = self._project_manager.task_states
         bed_names = self._bed_name_map()
         dash: list[_DashboardTask] = []
-        for task in generate_all(state):
+        # generate_actionable_for_surface, not generate_all: the dashboard must
+        # list windows anchored on ANY year's frost (#414) while still applying
+        # its own "actionable now" rule.
+        for task in generate_actionable_for_surface(state):
             # Calendar shows only actionable, still-open tasks (done / snoozed /
             # dismissed / archived are hidden via the shared status resolver).
             if effective_status(task_states.get(task.task_id), today) != "open":

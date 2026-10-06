@@ -396,26 +396,36 @@ def in_harvest_window(location: dict[str, Any] | None, at: date,
     malformed, start after end, a 02-29 frost when ``at``'s year has none (the
     generator, anchored on a year without that date, has none either): the caller
     keeps the frost-free season.
+
+    The anchor comes from :func:`services.frost_dates.parse_frost`, so the spike
+    and the task generators share ONE frost-date rule (#414). In particular a
+    ``02-29`` frost resolves to 1 March in a year without that date rather than
+    yielding no window at all — this function used to return ``None`` there,
+    which after #414 was the last remaining place where a plan with a
+    29-February frost behaved as if it had none.
+
+    ``in_frost_free_season`` deliberately still compares ``(month, day)`` pairs
+    without a year: it is a different question (is this day inside the frost-free
+    season) and it never had a year-existence problem. Do not "fix" it to match.
     """
     from datetime import timedelta
 
+    from open_garden_planner.services.frost_dates import parse_frost
+
     frost = location.get("frost_dates") if isinstance(location, dict) else None
-    spring = _frost_month_day(frost.get("last_spring_frost")) if isinstance(frost, dict) else None
-    if spring is None or not isinstance(species, dict):
+    if not isinstance(frost, dict) or not isinstance(species, dict):
+        return None
+    spring = frost.get("last_spring_frost")
+    if _frost_month_day(spring) is None:
         return None
     start, end = _weeks(species.get("harvest_start")), _weeks(species.get("harvest_end"))
     if start is None or end is None or start > end:
         return None
-    try:
-        date(at.year, *spring)
-    except ValueError:
-        return None
     first = min(at.year, (at - timedelta(weeks=end)).year)
     last = max(at.year, (at - timedelta(weeks=start)).year)
     for year in range(first, last + 1):
-        try:
-            last_frost = date(year, *spring)
-        except ValueError:
+        last_frost = parse_frost(spring, year)
+        if last_frost is None:
             continue
         if last_frost + timedelta(weeks=start) <= at <= last_frost + timedelta(weeks=end):
             return True
