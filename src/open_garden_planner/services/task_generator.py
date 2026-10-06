@@ -165,12 +165,12 @@ def classify_urgency(
     if start <= today <= end:
         return "today"
     delta_end = (today - end).days
-    if 1 <= delta_end <= 14:
+    if 1 <= delta_end <= _URGENCY_LOOKBEHIND_DAYS:
         return "overdue"
     delta_start = (start - today).days
     if 1 <= delta_start <= 7:
         return "this_week"
-    if 8 <= delta_start <= 30:
+    if 8 <= delta_start <= _URGENCY_LOOKAHEAD_DAYS:
         return "upcoming"
     return None
 
@@ -645,6 +645,10 @@ def stored_frost_mmdd(state: PlanState) -> str:
     """
     if state.last_frost_mmdd:
         return state.last_frost_mmdd
+    # No production caller lands here — build_plan_state always sets the field —
+    # so this is the hand-built-PlanState path (tests, and any future caller that
+    # forgets the field). It is lossy for '02-29', which is exactly why the field
+    # exists; the caller below therefore only reaches it for an ordinary date.
     return state.last_frost.strftime("%m-%d") if state.last_frost else ""
 
 
@@ -764,6 +768,12 @@ def generate_actionable_for_surface(
       re-derives a bucket for exactly those, including its ``no_date`` case.
       Filtering them here would hide a December task in June, which is the same
       class of bug #414 was opened for, pointed the other way.
+
+    ``state.actionable_only`` is deliberately NOT consulted: this helper exists to
+    apply a *specific* listing rule (urgency, plus manual tasks unfiltered), and
+    inheriting a second flag from the snapshot is how the anchors got filtered out
+    before this function ever ran. Callers that want the raw dated schedule use
+    :func:`generate_for_date_window`.
     """
     if state.last_frost is None:
         # No frost anchor: the non-relative generators (manual, succession, soil,

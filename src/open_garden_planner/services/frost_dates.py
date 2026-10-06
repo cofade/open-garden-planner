@@ -4,10 +4,12 @@ A plan's frost dates are stored as ``'MM-DD'`` strings without a year
 (``location["frost_dates"]["last_spring_frost"]``). Every consumer has to turn
 that string into a real date for a *specific* year, because the task windows are
 anchored on a frost date: the sowing, transplant, harvest and propagation steps
-are all frost + a week offset. Before #414 there were two independent parsers
-(``services.task_generator._parse_frost`` and
-``ui.views.planting_calendar_view._parse_frost``) plus a third regex in the
-location dialog, and they could disagree.
+are all frost + a week offset. Before #414 there were **four** independent readers of a frost date —
+``services.task_generator._parse_frost``,
+``ui.views.planting_calendar_view._parse_frost``, the location dialog's
+regex, and ``models.succession.compute_season_segments`` (which sliced the
+string and called ``datetime.date`` directly) — and they could disagree, in
+both directions.
 
 Qt-free, so the Qt-free generators, the agent tools and the Qt widgets all use
 the same function (invariant 10).

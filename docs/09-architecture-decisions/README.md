@@ -413,8 +413,14 @@ on *the current year's* frost, while the agent's `get_tasks` /
 dates — `generate_for_date_window` derives that range from the offsets. The two
 therefore disagreed by construction: a southern plan (20 September frost) put a
 tomato harvest at 29 Nov 2026 – 7 Feb 2027, invisible on every GUI surface on
-1 January 2027. Measured over 64 bundled species × 6 frost dates × every day of
-2026: **1,849 missed (task, frost date, day) cases, 0 after the fix.**
+1 January 2027. Measured by the committed harness
+`scripts/measure_task_window_sweep.py` — over the 64 bundled species with
+calendar offsets × 6 frost dates × every 10th day of 2026 (222 cases):
+**1,849 missed (task, frost date, day) cases, 0 after the fix**, and 0 tasks the
+GUI listed that the agent did not. The count is harness-dependent (all 118
+species on every day gives 2,669 before / 0 after), so quote the harness with the
+number; the *invariant* is pinned by `tests/unit/test_task_windows_multi_anchor.py`,
+which asserts both directions.
 
 **Decision 1 — one urgency-filtered entry point, and one unfiltered one for the chart.**
 `task_generator.generate_actionable_for_surface(state)` is the single path for the

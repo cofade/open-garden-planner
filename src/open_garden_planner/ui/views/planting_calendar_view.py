@@ -750,12 +750,16 @@ class _GanttWidget(QWidget):
 class _DetailPanel(QFrame):
     """Shows botanical details and propagation step editor for the selected plant."""
 
-    #: Emitted when the user confirms a step date change.
-    #: (species_key, step_id, start_iso, end_iso)
-    step_date_changed = pyqtSignal(str, str, str, str)
+    #: Emitted once per gesture with every committed step date.
+    #: ``(species_key, [(step_id, start_iso, end_iso), ...])`` — BATCHED, because
+    #: the receiving slot runs a full calendar refresh (and a weather fetch), so
+    #: emitting per step made one user gesture cost N heavyweight refreshes.
+    steps_date_changed = pyqtSignal(object)
     #: Emitted when the user resets a step override.
     #: (species_key, step_id)
     step_date_reset = pyqtSignal(str, str)
+    #: (species_key, step_id) — the edit was refused and nothing was stored.
+    step_date_rejected = pyqtSignal(str, str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -856,29 +860,36 @@ class _DetailPanel(QFrame):
         self._commit_timer.setSingleShot(True)
         self._commit_timer.setInterval(_STEP_COMMIT_DEBOUNCE_MS)
         self._commit_timer.timeout.connect(self._flush_pending_steps)
-        self._pending_steps: set[str] = set()
+        #: step_id -> the species key that was current when the edit was ARMED. The key
+        #: is captured at arm time because the flush can run after the panel has
+        #: been pointed at a different plant (see _flush_pending_steps).
+        self._pending_steps: dict[str, str] = {}
 
         for step_id, (start_edit, end_edit, reset_btn) in self._step_rows.items():
             # Use default-arg capture to avoid closure issues
             def make_changed_handler(sid: str) -> Any:
                 def handler() -> None:
-                    self._pending_steps.add(sid)
-                    self._commit_timer.start()
+                    # Capture the species key NOW, not at flush time: the flush
+                    # can run after the panel has been pointed at another plant.
+                    if self._current_species_key:
+                        self._pending_steps[sid] = self._current_species_key
+                        self._commit_timer.start()
                 return handler
 
             def make_commit_handler(sid: str) -> Any:
                 # Focus-out commits immediately so the override is stored (and
                 # the plan rebuilt) as soon as the user leaves the field.
                 def handler() -> None:
-                    self._pending_steps.add(sid)
-                    self._flush_pending_steps()
+                    if self._current_species_key:
+                        self._pending_steps[sid] = self._current_species_key
+                        self._flush_pending_steps()
                 return handler
 
             def make_reset_handler(sid: str) -> Any:
                 def handler() -> None:
                     if not self._current_species_key:
                         return
-                    self._pending_steps.discard(sid)
+                    self._pending_steps.pop(sid, None)
                     self._commit_timer.stop()
                     self.step_date_reset.emit(self._current_species_key, sid)
                 return handler
@@ -891,48 +902,57 @@ class _DetailPanel(QFrame):
             reset_btn.clicked.connect(make_reset_handler(step_id))
 
     def _flush_pending_steps(self) -> None:
-        """Write every armed step's override once, then clear the armed set.
+        """Commit every armed step's override, in ONE batch, then clear.
 
-        A SET, not a single slot (#415): correcting a step's start and then its
-        end arms two steps, and one slot kept only the last — the first edit was
-        silently dropped.
+        Four things this must get right, each of which was a shipped defect:
 
-        Every armed value is read out of the editors into a snapshot BEFORE the
-        first ``emit`` (#415 review). ``step_date_changed`` is wired to a slot
-        that calls ``refresh()``, which reaches back into
-        ``_populate_prop_editor`` and rewrites all the date edits — so reading the
-        editors inside the emit loop persisted a *reverted* value (or dropped the
-        edit outright) for every step after the first. Snapshot-then-emit is what
-        makes a multi-step gesture safe.
+        * **A set, not a single slot.** Correcting a step's start and then its end
+          arms two steps; one slot kept only the last and the first was dropped.
+        * **The species key is captured when the edit is ARMED, not read at flush
+          time.** The flush runs from ``show_species``, which had already
+          reassigned ``_current_species_key`` — so an armed edit was persisted
+          against the species the user had just clicked *onto*. That is silent
+          cross-species corruption in the ``.ogp``.
+        * **Values are snapshotted before the emit.** The slot calls ``refresh()``,
+          which reaches back into ``_populate_prop_editor`` and rewrites the date
+          editors, so reading them inside an emit loop persisted reverted values.
+        * **One emit, not one per step.** The slot runs a full calendar refresh
+          and a weather fetch, so N emits cost N heavyweight refreshes for a
+          single user gesture.
+
+        An inverted pair (the user moved a start past its end) is REFUSED and
+        reported, never silently rewritten: clamping to a zero-length period
+        persisted an end date the user never entered.
         """
-        pending = sorted(self._pending_steps)
-        self._pending_steps.clear()
+        armed = dict(self._pending_steps)      # step_id -> species key at arm time
         self._commit_timer.stop()
-        if not pending or not self._current_species_key or self._current_plan is None:
+        if not armed:
             return
 
-        snapshot: list[tuple[str, str, str]] = []
-        for step_id in pending:
+        writes: list[tuple[str, str, str]] = []
+        rejected: list[tuple[str, str]] = []
+        for step_id, species_key in sorted(armed.items()):
             row = self._step_rows.get(step_id)
-            if row is None:
+            if row is None or not species_key:
                 continue
             start_edit, end_edit, _reset_btn = row
             start_d = start_edit.date().toPyDate()
             end_d = end_edit.date().toPyDate() if end_edit is not None else start_d
-            # Dragging a start past its end is the ordinary way to produce an
-            # inverted pair from two separate fields. The persistence layer
-            # refuses such a pair (correctly — it is not a state the model can
-            # hold), so normalise here instead: the step becomes a zero-length
-            # period and the re-populate immediately shows what was stored. The
-            # alternative is a silent no-op, which is what the review caught.
             if end_d < start_d:
-                end_d = start_d
-            snapshot.append((step_id, start_d.isoformat(), end_d.isoformat()))
+                rejected.append((species_key, step_id))
+                continue
+            writes.append((step_id, start_d.isoformat(), end_d.isoformat()))
 
-        for step_id, start_iso, end_iso in snapshot:
-            self.step_date_changed.emit(
-                self._current_species_key, step_id, start_iso, end_iso
-            )
+        # Clear only what has actually been handled — never before the guards,
+        # which is how an armed edit was destroyed when the new species had no
+        # propagation plan at all.
+        for step_id in armed:
+            self._pending_steps.pop(step_id, None)
+
+        for species_key, step_id in rejected:
+            self.step_date_rejected.emit(species_key, step_id)
+        if writes:
+            self.steps_date_changed.emit((armed and next(iter(armed.values())), writes))
 
     # ── public API ─────────────────────────────────────────────────────────────
 
@@ -952,6 +972,12 @@ class _DetailPanel(QFrame):
         prop_plan: PropagationPlan | None,
         no_data_text: str = "No detailed data available",
     ) -> None:
+        # Commit any armed edit BEFORE pointing the panel at another plant. The
+        # flush reads the species key captured at arm time, so the ordering is
+        # belt-and-braces — but flushing here also means the populate path below
+        # is never re-entered mid-flush, which is what made a misattributed write
+        # possible (#415).
+        self._flush_pending_steps()
         self._current_species_key = species_key
         self._current_plan = prop_plan
 
@@ -1009,11 +1035,9 @@ class _DetailPanel(QFrame):
         "dd MMM" (no year), so the real dates read the same as before while an
         edit can no longer change a year the user did not touch.
         """
-        # A re-populate supersedes the editors, so any armed edit must be flushed
-        # first or it is lost: selecting another species would silently discard a
-        # date the user had just set (and the Gantt has Qt::NoFocus, so clicking
-        # a chart row fires no editingFinished to commit it implicitly).
-        self._flush_pending_steps()
+        # show_species already flushed any armed edit before swapping the plan, so
+        # there is nothing pending here. Clearing defensively would risk the very
+        # silent-discard this path used to cause, so it is deliberately absent.
         for step_id, (start_edit, end_edit, reset_btn) in self._step_rows.items():
             step = plan.get_step(step_id)
             if step is None:
@@ -1131,7 +1155,8 @@ class PlantingCalendarView(QWidget):
 
         # Detail panel
         self._detail = _DetailPanel()
-        self._detail.step_date_changed.connect(self._on_step_date_changed)
+        self._detail.steps_date_changed.connect(self._on_steps_date_changed)
+        self._detail.step_date_rejected.connect(self._on_step_date_rejected)
         self._detail.step_date_reset.connect(self._on_step_date_reset)
         root.addWidget(self._detail)
         self._detail.hide()
@@ -1405,39 +1430,69 @@ class PlantingCalendarView(QWidget):
         # Refresh dashboard to include/exclude propagation tasks
         self.refresh()
 
-    def _on_step_date_changed(
-        self, species_key: str, step_id: str, start_iso: str, end_iso: str
-    ) -> None:
-        """Persist a user-adjusted propagation step date to the project."""
-        if hasattr(self._project_manager, "set_propagation_override"):
+    def _on_steps_date_changed(self, payload: object) -> None:
+        """Persist a whole gesture's step dates, then refresh ONCE.
+
+        ``payload`` is ``(species_key, [(step_id, start_iso, end_iso), ...])``.
+        Batched because this slot runs a full calendar refresh — which walks the
+        scene, rebuilds the dashboard and re-fetches the weather — and emitting
+        per step made a single user gesture cost N of those (invariant 4).
+
+        The species key comes from the panel and is the one captured when the
+        edit was ARMED, not whatever the panel is showing now (#415).
+        """
+        species_key, writes = payload            # type: ignore[misc]
+        for step_id, start_iso, end_iso in writes:
             self._project_manager.set_propagation_override(
                 species_key, step_id, start_iso, end_iso
             )
         self.refresh()
-        # Re-populate detail panel with updated plan
+        self._repopulate_detail(species_key)
+
+    def _on_step_date_rejected(self, species_key: str, step_id: str) -> None:   # noqa: ARG002
+        """Tell the user their dates were refused, and show the real state.
+
+        The end date preceding the start is the one input the model cannot hold
+        (#415). Silently clamping it persisted a value the user never entered, and
+        silently refusing looked like a lost edit; a status message plus a
+        re-populate makes both the refusal and the actual stored dates visible.
+        """
+        message = self.tr(
+            "The end date of a propagation step cannot be before its start "
+            "date — the step was not changed."
+        )
+        # Status messages live on CanvasView, not on this tab; the scene's view is
+        # the established route (same idiom as garden_item's command feedback).
+        canvas_view = next(
+            (v for v in self._canvas_scene.views() if hasattr(v, "set_status_message")),
+            None,
+        )
+        if canvas_view is not None:
+            canvas_view.set_status_message(message)
+        self._repopulate_detail(species_key)
+
+    def _repopulate_detail(self, species_key: str) -> None:
+        """Re-point the detail panel at a species' freshly rebuilt plan.
+
+        Unconditional on visibility: the panel's content must show what is
+        actually stored even when the tab is hidden, or a refused edit keeps
+        displaying the date the user typed as though it had been saved.
+        """
         plan = self._prop_plans.get(species_key)
-        if plan is not None and self._detail.isVisible():
-            row = next((r for r in self._rows if r.species_key == species_key), None)
-            if row:
-                self._detail.show_species(
-                    row.species, species_key, plan,
-                    no_data_text=self.tr("No detailed data available"),
-                )
+        if plan is None:
+            return
+        row = next((r for r in self._rows if r.species_key == species_key), None)
+        if row is not None:
+            self._detail.show_species(
+                row.species, species_key, plan,
+                no_data_text=self.tr("No detailed data available"),
+            )
 
     def _on_step_date_reset(self, species_key: str, step_id: str) -> None:
         """Clear a propagation step override and revert to calculated dates."""
-        if hasattr(self._project_manager, "clear_propagation_override"):
-            self._project_manager.clear_propagation_override(species_key, step_id)
+        self._project_manager.clear_propagation_override(species_key, step_id)
         self.refresh()
-        # Re-populate detail panel
-        plan = self._prop_plans.get(species_key)
-        if plan is not None and self._detail.isVisible():
-            row = next((r for r in self._rows if r.species_key == species_key), None)
-            if row:
-                self._detail.show_species(
-                    row.species, species_key, plan,
-                    no_data_text=self.tr("No detailed data available"),
-                )
+        self._repopulate_detail(species_key)
 
     # ─── Weather widget slots (US-12.1 / US-12.2) ────────────────────
 

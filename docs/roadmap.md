@@ -2679,7 +2679,7 @@ frost-relative task windows on **the current year's** last spring frost, while t
 agent's `get_tasks` / `get_task_calendar` anchored on every year that could reach
 the requested date. Measured over the 64 bundled species that carry calendar offsets x 6 frost dates x every 10th day of 2026 (222 cases):
 **1,849 (task, frost-date, day) cases the GUI missed and the agent listed;
-0 after the fix**, with 0 surplus tasks (the urgency filter still applies). A
+0 after the fix**, with 0 surplus tasks (the urgency filter still applies). Harness committed as \scripts/measure_task_window_sweep.py\. A
 southern plan (20 September frost) put a tomato harvest at 29 Nov 2026 – 7 Feb
 2027, so on 1 January 2027 a tomato-only plan read *"No tasks — you're all caught
 up."* while the task was open. See ADR-029 (addendum) and ADR-049.

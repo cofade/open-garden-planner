@@ -78,6 +78,11 @@ class PropagationPlan:
         precedes its start is not a state the model can represent, so refusing
         it here keeps the same rule as the read path in
         :func:`compute_propagation_plan` (#415).
+
+        NOTE: the production write path is
+        ``ProjectManager.set_propagation_override``, not this method — no
+        shipping code calls it. The guard is kept because it is the model-level
+        invariant, but do not read it as the thing protecting the ``.ogp``.
         """
         if end < start:
             return

@@ -42,6 +42,28 @@ SPECIES = {
 }
 
 
+def _capture(panel) -> tuple[list[tuple], list[tuple]]:
+    """Collect the panel's emissions into (writes, rejections).
+
+    Tolerates both the batched ``steps_date_changed`` payload and the older
+    per-step signal, so a test asserts the committed VALUES rather than which
+    signal shape delivered them.
+    """
+    writes: list[tuple] = []
+    rejected: list[tuple] = []
+
+    def on_batch(payload) -> None:
+        species_key, entries = payload
+        for step_id, start, end in entries:
+            writes.append((species_key, step_id, start, end))
+
+    panel.steps_date_changed.connect(on_batch)
+    panel.step_date_rejected.connect(
+        lambda key, step_id: rejected.append((key, step_id))
+    )
+    return writes, rejected
+
+
 def _view(qtbot) -> tuple[PlantingCalendarView, str]:
     """A real PlantingCalendarView with the propagation editor switched on."""
     scene = CanvasScene(width_cm=2000, height_cm=2000)
@@ -104,12 +126,14 @@ class TestMultiStepGesturePersistsBothValues:
             "start": "2026-06-01", "end": "2026-06-20",
         }, f"the harden_off edit was lost or reverted; stored: {overrides}"
 
-    def test_a_start_dragged_past_its_end_is_normalised_not_dropped(self, qtbot) -> None:
-        """The silent-refusal case the review flagged, pinned at the widget.
+    def test_a_start_dragged_past_its_end_is_refused_visibly(self, qtbot) -> None:
+        """The user moves only the start past the unchanged end.
 
-        The user moves only the start past the unchanged end. The pair cannot be
-        stored as-is, so it must be clamped to a zero-length period and STORED —
-        before the fix nothing was stored and the edit simply vanished.
+        The pair is not a state the model can hold, so it must NOT be stored — and
+        it must not be silently rewritten either. An earlier version clamped
+        ``end = start``, which persisted an end date the user never entered and
+        round-tripped it into the .ogp. Now the edit is refused, nothing is
+        stored, and the panel is re-pointed at the real (calculated) dates.
         """
         view, key = _view(qtbot)
         panel = view._detail
@@ -118,10 +142,15 @@ class TestMultiStepGesturePersistsBothValues:
         indoor_start.setDate(QDate(2027, 6, 1))   # far past the calculated end
         panel._flush_pending_steps()
 
-        stored = view._project_manager.propagation_overrides.get(key, {}).get("indoor_sow")
-        assert stored is not None, "the edit was silently dropped"
-        assert stored["start"] == "2027-06-01"
-        assert stored["end"] >= stored["start"], stored
+        overrides = view._project_manager.propagation_overrides.get(key, {})
+        assert "indoor_sow" not in overrides, (
+            f"an impossible pair was stored: {overrides}"
+        )
+        # The panel was re-populated, so the editors show what IS stored.
+        shown_start = panel._step_rows["indoor_sow"][0].date()
+        assert (shown_start.year(), shown_start.month()) != (2027, 6), (
+            "the refused date is still displayed as if it had been saved"
+        )
 
     def test_the_write_path_reports_a_refusal_instead_of_swallowing_it(self) -> None:
         """`set_propagation_override` returns whether it stored, so a refusal is
@@ -142,10 +171,9 @@ class TestMultiStepGesturePersistsBothValues:
         panel._flush_pending_steps()
 
         stored = view._project_manager.propagation_overrides.get(key, {}).get("indoor_sow")
-        if stored is not None:
-            assert stored["end"] >= stored["start"], (
-                f"an inverted pair was persisted: {stored}"
-            )
+        assert stored is None or stored["end"] >= stored["start"], (
+            f"an inverted pair was persisted: {stored}"
+        )
 
     def test_the_flush_is_idempotent(self, qtbot) -> None:
         """A second flush with nothing armed must not write anything again."""

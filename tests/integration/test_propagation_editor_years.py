@@ -59,6 +59,28 @@ def _editors(panel: _DetailPanel, step_id: str) -> tuple[QDate, QDate]:
     return start_edit.date(), end_edit.date()
 
 
+def _capture(panel) -> tuple[list[tuple], list[tuple]]:
+    """Collect the panel's emissions into (writes, rejections).
+
+    Tolerates both the batched ``steps_date_changed`` payload and the older
+    per-step signal, so a test asserts the committed VALUES rather than which
+    signal shape delivered them.
+    """
+    writes: list[tuple] = []
+    rejected: list[tuple] = []
+
+    def on_batch(payload) -> None:
+        species_key, entries = payload
+        for step_id, start, end in entries:
+            writes.append((species_key, step_id, start, end))
+
+    panel.steps_date_changed.connect(on_batch)
+    panel.step_date_rejected.connect(
+        lambda key, step_id: rejected.append((key, step_id))
+    )
+    return writes, rejected
+
+
 def _step_editor_dates(panel: _DetailPanel, step_id: str) -> tuple[datetime.date, datetime.date]:
     s, e = _editors(panel, step_id)
     return datetime.date(s.year(), s.month(), s.day()), datetime.date(e.year(), e.month(), e.day())
@@ -143,24 +165,23 @@ class TestEditorShowsRealDates:
 
 
 class TestEditorPersistsWhatTheUserSaw:
-    def _commit_via_signal(self, panel: _DetailPanel, stored: list[tuple]) -> None:
-        """Drive the panel's commit path the way the view wires it.
+    @staticmethod
+    def _commit_via_signal(panel: _DetailPanel) -> tuple[list[tuple], list[tuple]]:
+        """Capture the panel's emissions the way the view wires them.
 
-        ``_DetailPanel`` emits ``step_date_changed``; the view slot persists it.
-        Capturing the emission is enough to assert the ISO pair that WOULD be
-        written, which is the value master got wrong.
+        ``_DetailPanel`` emits ``steps_date_changed``; the view slot persists it.
+        Returns the LIVE lists (the emissions arrive after this returns), which
+        is enough to assert the ISO pairs that WOULD be written — the value
+        master got wrong.
         """
-        panel.step_date_changed.connect(
-            lambda key, sid, start, end: stored.append((key, sid, start, end))
-        )
+        return _capture(panel)
 
     def test_editing_end_does_not_move_the_start_year(self, qtbot) -> None:
         panel = _panel(qtbot)
         plan = _plan(datetime.date(2025, 12, 24), datetime.date(2026, 1, 21))
         panel.show_species(_SPECIES, "solanum_lycopersicum", plan)
 
-        stored: list[tuple] = []
-        self._commit_via_signal(panel, stored)
+        stored, _rejected = self._commit_via_signal(panel)
 
         # Move the END forward by one day, exactly as the issue reports.
         start_edit, end_edit, _reset = panel._step_rows["indoor_sow"]
@@ -185,17 +206,14 @@ class TestEditorPersistsWhatTheUserSaw:
         )
         panel.show_species(_SPECIES, "solanum_lycopersicum", plan)
 
-        stored: list[tuple] = []
-        panel.step_date_changed.connect(
-            lambda key, sid, start, end: stored.append((key, sid, start, end))
-        )
+        stored, _rejected = _capture(panel)
         resets: list[tuple] = []
         panel.step_date_reset.connect(lambda key, sid: resets.append((key, sid)))
 
         start_edit, _end, reset_btn = panel._step_rows["indoor_sow"]
         assert reset_btn.isEnabled() is True
         start_edit.setDate(QDate(2025, 12, 25))       # arms the debounce
-        assert panel._pending_steps == {"indoor_sow"}
+        assert panel._pending_steps == {"indoor_sow": panel._current_species_key}
         reset_btn.click()                              # reset wins
 
         assert resets == [("solanum_lycopersicum", "indoor_sow")]
@@ -213,19 +231,18 @@ class TestEditorPersistsWhatTheUserSaw:
         panel.show_species(_SPECIES, "solanum_lycopersicum", plan)
 
         stored: list[tuple] = []
-        panel.step_date_changed.connect(
-            lambda _key, sid, start, end: stored.append((sid, start, end))
-        )
+        writes, _rejected = _capture(panel)
+        stored = writes
 
         indoor_sow_start, indoor_sow_end, _ = panel._step_rows["indoor_sow"]
         germ_start, germ_end, _ = panel._step_rows["germination"]
         indoor_sow_start.setDate(QDate(2025, 12, 26))
         germ_end.setDate(QDate(2026, 1, 24))
 
-        assert panel._pending_steps == {"indoor_sow", "germination"}
+        assert set(panel._pending_steps) == {"indoor_sow", "germination"}
         panel._flush_pending_steps()
 
-        assert sorted(sid for sid, _s, _e in stored) == ["germination", "indoor_sow"], stored
+        assert sorted(sid for _key, sid, _s, _e in stored) == ["germination", "indoor_sow"], stored
 
     def test_switching_species_flushes_an_armed_edit_instead_of_dropping_it(
         self, qtbot
@@ -240,21 +257,20 @@ class TestEditorPersistsWhatTheUserSaw:
         panel.show_species(_SPECIES, "solanum_lycopersicum", plan)
 
         stored: list[tuple] = []
-        panel.step_date_changed.connect(
-            lambda _key, sid, start, end: stored.append((sid, start, end))
-        )
+        writes, _rejected = _capture(panel)
+        stored = writes
 
         start_edit, _end, _reset = panel._step_rows["indoor_sow"]
         start_edit.setDate(QDate(2025, 12, 27))
-        assert panel._pending_steps == {"indoor_sow"}
+        assert panel._pending_steps == {"indoor_sow": panel._current_species_key}
 
         # Show a different species — exactly what _on_row_clicked does.
         panel.show_species(_SPECIES, "solanum_lycopersicum", plan)
 
-        assert [s for s, _a, _b in stored] == ["indoor_sow"], (
+        assert [sid for _key, sid, _a, _b in stored] == ["indoor_sow"], (
             "the armed edit must be written before the editors are re-populated"
         )
-        assert panel._pending_steps == set()
+        assert panel._pending_steps == {}
 
 
 class TestAlreadySavedInvertedOverride:

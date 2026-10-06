@@ -14,12 +14,17 @@ anchored on another year's frost appeared in the agent and on no GUI surface:
   listed before 1 January;
 * a 9 April frost put garlic's autumn sowing (9–23 Oct 2026) on no GUI surface.
 
-Reproducible measurement (this file's sweep): over the 64 bundled species that
-carry calendar offsets x 6 frost dates x every 10th day of 2026 (222 cases),
-**1,849 missed (task, frost date, day) cases before the fix, 0 after, with 0
-listed that the agent did not list**. The absolute count is harness-dependent —
-all 118 species on every day gives 2,669 before / 0 after — so quote the harness
-with the number.
+The measurement itself is **not** this file. It is
+`scripts/measure_task_window_sweep.py`, which prints every figure quoted in ADR-029, §11.4, the roadmap and
+CLAUDE.md/AGENTS.md: over the 64 bundled species that carry calendar offsets x 6
+frost dates x every 10th day of 2026 (222 cases), **1,849 missed (task, frost
+date, day) cases before the fix, 0 after, with 0 listed that the agent did not
+list**. The absolute count is harness-dependent — all 118 species on every day
+gives 2,669 before / 0 after — so quote the harness with the number.
+
+What THIS file pins is the invariant, on a smaller fixture: `agent <= gui` and
+`gui <= agent` over two hand-written species (GARLIC, TOMATO) x 6 frost dates x
+every 15th day, i.e. it fails if either surface hides a task the other can see.
 
 Qt-free, so the sweep is cheap: the GUI's listing rule is
 ``classify_urgency(...) is not None`` applied to the shared generator's output,
@@ -188,9 +193,13 @@ class TestGuiNeverListsLessThanTheAgent:
                     f"{row.species_key} frost={frost} today={today}: "
                     f"agent lists {sorted(agent - gui)} but no GUI surface does"
                 )
-                # The other direction, and the one that distinguishes this fix
-                # from "list everything". Six documents quote a measured 0 here;
-                # before this assertion it was prose, not a test.
+                # The other direction. Six documents quote a measured 0 surplus
+                # here; before this assertion it was prose, not a test. NOTE what
+                # this fixture can and cannot catch: because the GUI's span is a
+                # subset of the harness's agent span and both sides call the same
+                # generator, this catches a widened/loosened GUI window rather
+                # than a deleted urgency filter — `test_the_gui_still_filters_by_
+                # urgency` covers that one.
                 assert gui <= agent, (
                     f"{row.species_key} frost={frost} today={today}: the GUI lists "
                     f"{sorted(gui - agent)} that the agent does not — the urgency "

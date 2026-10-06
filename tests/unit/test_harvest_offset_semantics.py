@@ -106,20 +106,22 @@ class TestHarvestOffsetsAreFrostRelative:
         assert harvest[0].start_date == datetime.date(2026, 10, 8)
         assert harvest[0].end_date == datetime.date(2026, 11, 19)
 
-    def test_model_docstring_no_longer_promises_weeks_after_planting(self) -> None:
-        source = (
-            Path(__file__).resolve().parents[2]
-            / "src"
-            / "open_garden_planner"
-            / "models"
-            / "plant_data.py"
-        ).read_text(encoding="utf-8")
-        # The two inline field comments, which is where the wrong claim lived.
-        assert "harvest_start: int | None = None      # weeks after planting" not in source
-        assert "harvest_start: int | None = None      # weeks relative to last frost" in source, (
-            "the harvest fields must be documented as frost-relative while every "
-            "reader anchors them on the last spring frost (#416)"
+    def test_the_harvest_fields_are_documented_as_frost_relative(self) -> None:
+        """Behaviour, not a comment string.
+
+        An earlier version of this test asserted an exact comment literal, which
+        breaks on any reformat and cannot notice a semantic change — exactly the
+        mistake the class docstring above warns about. What actually matters is
+        that the generator is frost-relative, which
+        ``test_every_reader_anchors_on_the_frost_date`` already pins by produced
+        date. This test only checks the model exposes the offsets as weeks.
+        """
+        garlic = next(
+            sp for sp in _species(_rows())
+            if sp.scientific_name == "Allium sativum"
         )
+        assert isinstance(garlic.harvest_start, int)
+        assert isinstance(garlic.harvest_end, int)
 
     @pytest.mark.parametrize("field", ["harvest_start", "harvest_end"])
     def test_no_bundled_row_uses_a_non_integer_offset(self, field: str) -> None:

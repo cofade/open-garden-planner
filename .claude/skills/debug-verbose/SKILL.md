@@ -1485,7 +1485,7 @@ The agent's `get_tasks`, over the same plan and the same date, listed it. A garl
 
 **Key evidence**: `[TASK-MULTI-ANCHOR]` — a sweep applying the GUI's own listing rule
 (`classify_urgency(...) is not None`) to **both** sides, over 64 bundled species x 6 frost
-dates x every day of 2026:
+dates x every 10th day of 2026 (222 cases):
 
 ```
 (todo, frost date, day) cases: 222
@@ -1494,7 +1494,7 @@ missed by the GUI after fix: 0
 tasks the GUI now lists that the 90-day agent window did not: 0
 ```
 
-The first number to print was **0 surplus**, not 0 missed. Without it you cannot tell a
+Harness: `scripts/measure_task_window_sweep.py` (committed with this case), which prints every line of that block. The first number to print was **0 surplus**, not 0 missed. Without it you cannot tell a
 correct fix from one that simply lists everything — and this bug's fix passes straight
 through the exact place that mistake is made: the shared date-window path runs with
 `actionable_only=False`, so a wrapper that forgets to re-apply its own filter turns the
