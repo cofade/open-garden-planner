@@ -222,13 +222,16 @@ Details in `ogp-build-and-run`.
 
 ### `.github/workflows/ci.yml` — the merge gate (every push, every PR to master)
 
-Three parallel jobs on `ubuntu-latest`, Python 3.11:
+Four parallel jobs on `ubuntu-latest`, Python 3.11 (`agent-context` was added
+2026-08-09; the security job also runs the secrets scan — count the jobs, don't
+trust this table):
 
 | Job | Command | Notes |
 |-----|---------|-------|
-| Lint | `ruff check src/` | |
+| Lint | `ruff check src/ tests/ scripts/` | Widened from `src/`-only in #411 |
 | Test | `pytest tests/ -v` with `QT_QPA_PLATFORM: offscreen` | Installs Qt's xcb/EGL system libs first — this is the canonical headless-test recipe for Linux sessions too |
-| Security | `bandit -r src/ --severity-level high` | Fails only on HIGH severity |
+| Security | `bandit -r src/ --severity-level high` + `scripts/check_no_secrets.py` | Bandit fails only on HIGH severity |
+| Agent context | `scripts/check_agent_context.py` | CLAUDE.md / AGENTS.md parity + skill-tree parity |
 
 Gate on green before merging: `gh pr checks <PR#> --watch --fail-fast` (Windows) or the
 GitHub MCP check-run tools in cloud sessions.

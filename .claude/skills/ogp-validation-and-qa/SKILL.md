@@ -35,7 +35,7 @@ Memorize this ordering. In this project, **"works in tests" ≠ done.**
 |---|---|---|
 | 0 | Code compiles, app launches | Not evidence |
 | 1 | Green CI (pytest + ruff + bandit, `ci.yml`) | **The floor, never the ceiling.** CI has stayed green while the local full suite was broken (see §4, "passes alone" mode). |
-| 2 | Full local gate battery incl. exe smoke (§2 below) | Required before every merge — the exe build is NOT in CI (verified: `ci.yml` has only lint/test/security jobs; PyInstaller runs only in `release.yml` after merge to master). |
+| 2 | Full local gate battery incl. exe smoke (§2 below) | Required before every merge — the exe build is NOT in CI (verified: `ci.yml` has four jobs — lint, test, security, agent-context — and none of them builds the exe; PyInstaller runs only in `release.yml` after merge to master). |
 | 3 | `senior-reviewer` agent pass (`.claude/agents/senior-reviewer.md`), fresh worktree, branch diff | **Mandatory before opening any PR.** All P0/P1 findings addressed, then re-run for a clean re-review. History shows it catches real P0s (e.g. #213: rotated-plant pivot drift found in review round 2). |
 | 4 | **User-confirmed manual testing** | **Sovereign.** The PR stays a *draft* until the user confirms manual testing passed. No agent, test suite, or review substitutes for it. |
 

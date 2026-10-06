@@ -35,8 +35,8 @@ Memorize this ordering. In this project, **"works in tests" ≠ done.**
 |---|---|---|
 | 0 | Code compiles, app launches | Not evidence |
 | 1 | Green CI (pytest + ruff + bandit, `ci.yml`) | **The floor, never the ceiling.** CI has stayed green while the local full suite was broken (see §4, "passes alone" mode). |
-| 2 | Full local gate battery incl. exe smoke (§2 below) | Required before every merge — the exe build is NOT in CI (verified: `ci.yml` has only lint/test/security jobs; PyInstaller runs only in `release.yml` after merge to master). |
-| 3 | `senior-reviewer` agent pass (`.codex/agents/senior-reviewer.toml`), fresh worktree, branch diff | **Mandatory before opening any PR.** All P0/P1 findings addressed, then re-run for a clean re-review. History shows it catches real P0s (e.g. #213: rotated-plant pivot drift found in review round 2). |
+| 2 | Full local gate battery incl. exe smoke (§2 below) | Required before every merge — the exe build is NOT in CI (verified: `ci.yml` has four jobs — lint, test, security, agent-context — and none of them builds the exe; PyInstaller runs only in `release.yml` after merge to master). |
+| 3 | `senior-reviewer` agent pass (`.claude/agents/senior-reviewer.md`), fresh worktree, branch diff | **Mandatory before opening any PR.** All P0/P1 findings addressed, then re-run for a clean re-review. History shows it catches real P0s (e.g. #213: rotated-plant pivot drift found in review round 2). |
 | 4 | **User-confirmed manual testing** | **Sovereign.** The PR stays a *draft* until the user confirms manual testing passed. No agent, test suite, or review substitutes for it. |
 
 Why manual testing outranks everything — three shipped-looking features that green tests did not save:
@@ -51,7 +51,7 @@ Rule: never claim "done" or mark a PR ready on levels 1–3 alone. Surface a man
 
 ## 2. The quality-gate battery
 
-Run all of these locally before any PR (commands verified against AGENTS.md Quick Reference + `pyproject.toml`; paths are Windows-venv style as used in this repo):
+Run all of these locally before any PR (commands verified against CLAUDE.md Quick Reference + `pyproject.toml`; paths are Windows-venv style as used in this repo):
 
 | Gate | Command | Pass criterion | In CI? |
 |---|---|---|---|
@@ -68,7 +68,7 @@ for six releases; #277 shipped a crash behind a lazy import). The command litera
 **`ogp-change-control` §2.8** — the single place they are written down — with the
 invocation traps in `ogp-build-and-run`. Do not copy them here.
 
-Also run per AGENTS.md when UI strings changed: `PYTHONUTF8=1 venv/Scripts/python.exe scripts/fill_translations.py` then `scripts/compile_translations.py` *before* the i18n gate test.
+Also run per CLAUDE.md when UI strings changed: `PYTHONUTF8=1 venv/Scripts/python.exe scripts/fill_translations.py` then `scripts/compile_translations.py` *before* the i18n gate test.
 
 Full-battery shortcut: the `analyze-pr` skill runs the four fast layers in parallel plus the exe smoke; `finalize-us` repeats the senior-reviewer pass pre-PR.
 
@@ -157,9 +157,9 @@ Rules: never touch Qt global statics in tests (monkeypatch a factory instead —
 
 ## 5. Manual-test checklist discipline
 
-Every coding job **must surface a manual-testing checklist** (AGENTS.md Workflow step 8) alongside the draft PR. The user executes it; their confirmation is the release gate (§1 level 4).
+Every coding job **must surface a manual-testing checklist** (CLAUDE.md Workflow step 8) alongside the draft PR. The user executes it; their confirmation is the release gate (§1 level 4).
 
-A good checklist — model it on `analyze-pr` Phase 4 (`.agents/skills/analyze-pr/SKILL.md`), the house exemplar:
+A good checklist — model it on `analyze-pr` Phase 4 (`.claude/skills/analyze-pr/SKILL.md`), the house exemplar:
 
 - **Format each item as `shortcut / menu path → expected visual result`.** Falsifiable observations, not "check it works". Prefix with the launch command `venv/Scripts/python.exe -m open_garden_planner` where useful.
 - **Golden path + at least one edge case per feature**, derived from acceptance criteria in `docs/roadmap.md` / `docs/functional-requirements.md`. Standard edge cases: empty input, degenerate geometry, undo/redo, save→reload roundtrip.
@@ -193,4 +193,4 @@ Test-suite hygiene inherited automatically from `tests/conftest.py` (don't re-im
 ## Provenance and maintenance
 
 Volatile facts date-stamped 2026-07-04 (v1.23.0): CI-vs-local gate split, BED_SHAPES factory count (8), battery commands. Re-verify with:
-`grep -n "PyInstaller\|pyinstaller" .github/workflows/ci.yml .github/workflows/release.yml` (exe build must still be release-only) · `sed -n '310,375p;563,650p' docs/08-crosscutting-concepts/README.md` (§8.10 policy + §8.14 playbook) · `grep -c "pytest.param" tests/integration/test_bed_context_menu.py` (golden-gate breadth) · `grep -n "ARG001" pyproject.toml` (per-file ignore) · `grep -n "Pinned by" docs/11-risks-and-technical-debt/README.md` (pinning convention alive) · `grep -n "_ANGLES" tests/integration/test_rotation_aware_resize.py` (rotation parametrisation) · AGENTS.md Quick Reference (battery commands, timeout-8 = exit 124).
+`grep -n "PyInstaller\|pyinstaller" .github/workflows/ci.yml .github/workflows/release.yml` (exe build must still be release-only) · `sed -n '310,375p;563,650p' docs/08-crosscutting-concepts/README.md` (§8.10 policy + §8.14 playbook) · `grep -c "pytest.param" tests/integration/test_bed_context_menu.py` (golden-gate breadth) · `grep -n "ARG001" pyproject.toml` (per-file ignore) · `grep -n "Pinned by" docs/11-risks-and-technical-debt/README.md` (pinning convention alive) · `grep -n "_ANGLES" tests/integration/test_rotation_aware_resize.py` (rotation parametrisation) · CLAUDE.md Quick Reference (battery commands, timeout-8 = exit 124).

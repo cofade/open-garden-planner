@@ -49,7 +49,11 @@ dependencies = [
     # Agent API (US-D1.1): embedded MCP server over streamable-HTTP.
     # Pinned to mcp v1 — v2 renames FastMCP -> MCPServer. uvicorn/starlette/
     # pydantic/anyio/sse-starlette come transitively but are listed where used.
-    "mcp>=1.12,<2.0",
+    # Floor is 1.23, the first release whose FastMCP auto-enables transport
+    # security for loopback hosts (#396). We now pass TransportSecuritySettings
+    # explicitly, but the floor still tracks the SDK behaviour the guard depends
+    # on rather than allowing a wheel where the default is off.
+    "mcp>=1.23,<2.0",
     "uvicorn>=0.30",
     "starlette>=0.37",
     "pydantic>=2.11",

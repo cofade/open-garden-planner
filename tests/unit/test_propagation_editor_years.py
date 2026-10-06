@@ -34,16 +34,16 @@ TODAY = datetime.date(2026, 1, 5)
 
 def _plan(**kwargs) -> PropagationPlan:
     """A tomato-shaped plan with explicit step geometry."""
-    base = dict(
-        species_key="solanum_lycopersicum",
-        sow_start=datetime.date(2025, 11, 20),
-        sow_end=datetime.date(2025, 12, 4),
-        transplant_date=datetime.date(2026, 5, 15),
-        germination_days_min=7,
-        germination_days_max=14,
-        prick_out_after_days=21,
-        harden_off_days=10,
-    )
+    base = {
+        "species_key": "solanum_lycopersicum",
+        "sow_start": datetime.date(2025, 11, 20),
+        "sow_end": datetime.date(2025, 12, 4),
+        "transplant_date": datetime.date(2026, 5, 15),
+        "germination_days_min": 7,
+        "germination_days_max": 14,
+        "prick_out_after_days": 21,
+        "harden_off_days": 10,
+    }
     base.update(kwargs)
     return compute_propagation_plan(**base)
 

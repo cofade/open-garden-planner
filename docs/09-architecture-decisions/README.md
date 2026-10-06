@@ -487,6 +487,47 @@ Because `is_bed_type` was *extended* (not renamed) to include containers, every 
 - *Stdio MCP bridge process forwarding to the app over IPC* — matches the classic launch model but adds a relay process + handshake; the embedded HTTP server reaches the live app directly. Deferred.
 - *Sync tool handler blocking the loop briefly per read* — works for one idle-GUI read but the documented model would be false and it risks a multi-second UI freeze on close; rejected in favour of async + `to_thread` + `abort_pending`.
 - *Per-request scene serialization on the server thread* — unsafe (Qt off the main thread); the bridge is the price of live access.
+### Addendum (#396 — the browser is a caller, and the Host/Origin guard is ours)
+
+The "loopback trust" above reasons about a **local process** (an MCP client the
+user launched). It does not cover a **browser**, which is a local process acting
+on behalf of a remote page: a page on `evil.example` can reach
+`http://127.0.0.1:8765/mcp`, and loopback binding does not stop it because the
+request originates on this machine. The only barrier is the transport's
+`Host`/`Origin` validation, so that guard is now **explicitly configured by OGP**
+rather than inherited from the SDK:
+
+- `build_server(..., host=..., port=...)` constructs
+  `TransportSecuritySettings(enable_dns_rebinding_protection=True, allowed_hosts=[...],
+  allowed_origins=[...])` covering the bound loopback address, `localhost`, and the
+  `:*` port wildcard, and passes it to `FastMCP(transport_security=...)`.
+- A hostile `Host` is answered **421**, a hostile `Origin` **403**; the loopback
+  connect URL and the "Connect AI Assistant" dialog keep working.
+- The dependency floor rises to **`mcp>=1.23`** — the first release whose FastMCP
+  auto-enables the loopback guard. The explicit settings are the defence; the
+  floor stops the SDK default from silently regressing under us.
+
+**Why this was a product decision and not just a version bump.** The audit
+measured that under the old floor a 1.22.0 wheel answered a crafted
+`Host: evil.example` initialize with **HTTP 200 and a full MCP result** (all six
+hostile variants), while the 1.30.0 wheel that every released exe bundled answers
+421/403. So no shipped exe is known to be exposed, but the exposure was a property
+of *whichever wheel resolved at build time* rather than of the product — the kind
+of inheritance this codebase has been bitten by before. `build_server` now takes
+the host/port it will bind, which is also what makes the allow-list exact instead
+of a wildcard.
+
+**Consequence for tests.** The black-box 421/403 tests alone are not sufficient:
+with mcp 1.30.0 installed they pass even with our settings deleted (measured —
+the SDK default covers them). `tests/integration/test_agent_api_dns_rebinding.py`
+therefore asserts the constructed `TransportSecuritySettings` object directly as
+well, which is the assertion that fails when the explicit configuration is
+removed.
+
+**Still unchanged**: tokenless read tools remain loopback trust (challenged
+decision C2 in the audit snapshot) — this addendum only makes the browser vector
+explicit and enforced, and does not re-open that question.
+
 **Consequences**: New runtime deps (`mcp`, `uvicorn`, `starlette`, `pydantic` + transitive `anyio`/`sse-starlette`/`pydantic-core`/`pydantic-settings`/`httpx`/`cryptography`), bundled via `installer/ogp.spec` (see §7 deployment). If the main thread is wedged longer than the bridge's `DEFAULT_TIMEOUT_S`, `run_on_main` raises (on the offload worker) and the SDK surfaces it to the client as a tool error — the agent sees a failed call, the GUI never hangs. MCP tool/resource/prompt descriptions are an English API contract (exempt from i18n); only the Settings UI strings go through `tr()`. No `FILE_VERSION` change (read-only + an additive `snapshot_dict` built from the existing serializer). Tests: `tests/unit/test_agent_api_bridge.py` (marshaling, exception/timeout/abort), `tests/integration/test_agent_api_server.py` (real MCP client end-to-end). The marshaling boundary is the contract D2 (write tools) builds on.
 
 ## ADR-034: Curated Agent Schema + UUID Addressing (US-D1.x)

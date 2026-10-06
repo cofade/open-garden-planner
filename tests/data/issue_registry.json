@@ -589,6 +589,11 @@
     "state": "CLOSED",
     "title": "Text annotations are not saved to the .ogp file (TextItem missing from ProjectManager serializer) (Audit 2026-10, epic #392)"
   },
+  "396": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Agent API: make Host/Origin (DNS-rebinding) validation explicit, test it, and raise the mcp floor to >=1.23 (Audit 2026-10, epic #392)"
+  },
   "397": {
     "is_pr": false,
     "state": "CLOSED",

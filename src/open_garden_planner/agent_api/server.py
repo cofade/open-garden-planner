@@ -286,6 +286,8 @@ def build_server(
     stateless_http: bool = True,
     write_token: str | None = None,
     writes_enabled: bool = False,
+    host: str = "127.0.0.1",
+    port: int = 8765,
 ) -> FastMCP:
     """Create a configured ``FastMCP`` instance with the read/query tools registered.
 
@@ -318,9 +320,13 @@ def build_server(
             token check) is the D2 write gate ADR-033 requires.
         write_token: The bearer token every write call must present (see
             ``_require_write_auth``). Read tools never require it.
+        host: The loopback address the server binds. Used to build the
+            Host/Origin allow-lists below (#396).
+        port: The port the server binds. Same purpose.
     """
     import anyio
     from mcp.server.fastmcp import FastMCP, Image
+    from mcp.server.transport_security import TransportSecuritySettings
 
     writes_active = bool(writes_enabled and write_token)
     write_note = (
@@ -332,8 +338,44 @@ def build_server(
         if writes_active
         else ""
     )
+    # Host/Origin validation (DNS-rebinding protection, #396).
+    #
+    # The Agent API is loopback-only and reads are unauthenticated by design
+    # (ADR-033 loopback trust), so the ONLY thing stopping a web page from
+    # reaching it via DNS rebinding is that a browser sends the page's Host and
+    # Origin. The SDK auto-enables this for loopback hosts from mcp 1.23.0, and
+    # the declared floor (>=1.12) admitted SDKs that leave it OFF — measured: on
+    # mcp 1.22.0 a crafted `Host: evil.example` initialize returned HTTP 200
+    # with a full result, where 1.30.0 answers 421. That made the protection a
+    # property of whichever wheel resolved at build time rather than of the
+    # product, so it is now configured explicitly here and asserted by
+    # tests/integration/test_agent_api_dns_rebinding.py.
+    #
+    # The allow-lists cover the bind address plus `localhost` (a browser client
+    # and the "Connect AI Assistant" dialog both use the loopback URL) and the
+    # `:*` port wildcard, so a non-default port still works. IPv6 loopback is
+    # included because the SDK matches `[::1]` as a literal host string.
+    transport_security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=[
+            f"{host}:{port}",
+            f"127.0.0.1:{port}",
+            f"localhost:{port}",
+            "[::1]:*",
+            "127.0.0.1:*",
+            "localhost:*",
+        ],
+        allowed_origins=[
+            f"http://{host}:{port}",
+            f"http://127.0.0.1:{port}",
+            f"http://localhost:{port}",
+            "http://127.0.0.1:*",
+            "http://localhost:*",
+        ],
+    )
     mcp = FastMCP(
         "Open Garden Planner",
+        transport_security=transport_security,
         instructions=(
             "Read and reason about the garden plan currently open in Open Garden "
             "Planner. Objects are addressed by a stable UUID (item_id) and "
@@ -2524,6 +2566,8 @@ class AgentApiServer:
             self._providers,
             write_token=self._write_token,
             writes_enabled=self._writes_enabled,
+            host=self._host,
+            port=self._port,
         )
         mcp.settings.streamable_http_path = self._path
         # Wrap so each request's bearer token reaches the write tools' auth check
