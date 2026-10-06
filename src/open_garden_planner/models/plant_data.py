@@ -127,14 +127,25 @@ class PlantSpeciesData:
     slug: str = ""  # URL slug for the source provider (e.g., Permapeople)
     description: str = ""
 
-    # Planting calendar (weeks relative to last frost date; negative = before frost)
+    # Planting calendar — EVERY offset below is in weeks relative to the plan's
+    # LAST SPRING FROST date; negative = before that frost. This includes
+    # ``harvest_*``: they are frost-relative too, NOT "weeks after planting"
+    # (which is what this comment claimed until #416, while every reader — the
+    # task generator, the calendar Gantt, the agent tools and the Phase 17
+    # spike — has always counted them from the frost date).
+    #
+    # Consequence to be aware of when reading the bundled data: a species
+    # sown well before the frost and harvested long after it can therefore have
+    # a harvest window that overlaps its own sowing window. See
+    # ``tests/unit/test_harvest_offset_semantics.py`` for the measured
+    # divergence from ``days_to_maturity`` and the named exception list.
     indoor_sow_start: int | None = None   # e.g., -8 = 8 weeks before last frost
     indoor_sow_end: int | None = None
     direct_sow_start: int | None = None
     direct_sow_end: int | None = None
     transplant_start: int | None = None
     transplant_end: int | None = None
-    harvest_start: int | None = None      # weeks after planting
+    harvest_start: int | None = None      # weeks relative to last frost
     harvest_end: int | None = None
 
     # Germination & maturity
