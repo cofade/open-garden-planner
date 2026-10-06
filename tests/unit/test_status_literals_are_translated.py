@@ -67,6 +67,17 @@ _TRANSLATING = {"tr", "translate"}
 _STRING_BUILDERS = {"format", "format_map", "replace"}
 
 
+#: Severity order. `bad` beats `unknown` beats `ok`, so an undecidable input can
+#: never be reported as safe by default — which is how the guard missed
+#: ``self.tr(...) if cond else "bare"`` before this existed.
+_SEVERITY = {"ok": 0, "clear": 0, "unknown": 1, "bad": 2}
+
+
+def _worst(verdicts) -> str:
+    """The most severe verdict, with `bad` > `unknown` > `ok`."""
+    return max(verdicts, key=lambda v: _SEVERITY[v], default="unknown")
+
+
 def _is_translating_call(node: ast.AST) -> bool:
     """True for ``.tr(...)`` / ``translate(...)`` / ``QCoreApplication.translate(...)``."""
     if not isinstance(node, ast.Call) or not node.args:
@@ -102,8 +113,18 @@ def _enclosing_function(tree: ast.FunctionDef | ast.AsyncFunctionDef,
     return best
 
 
-def _assigned_sources(func, name: str) -> list[ast.AST] | None:
-    """Every value assigned to ``name`` inside ``func``; None if it is a parameter."""
+def _assigned_sources(func, name: str, tree=None) -> list[ast.AST] | None:
+    """Every value assigned to ``name``; module scope consulted after ``func``.
+
+    Returns ``None`` for a parameter, whose value comes from a caller in another
+    module and is genuinely undecidable here. Returns ``[]`` for a name assigned
+    nowhere, which the caller reports as ``unknown`` rather than ``ok``.
+
+    ``tree`` is the module AST; when given, a name with no assignment inside
+    ``func`` is looked up at module level, because ``MSG = "..."`` above a function
+    is a real shape and stopping at the function boundary reported it as decidable
+    when it was not even examined.
+    """
     if func is None:
         return None
     args = {
@@ -113,48 +134,106 @@ def _assigned_sources(func, name: str) -> list[ast.AST] | None:
     }
     if name in args:
         return None
-    sources: list[ast.AST] = []
-    for node in ast.walk(func):
-        targets: list[ast.AST] = []
-        if isinstance(node, ast.Assign):
-            targets = list(node.targets)
-        elif isinstance(node, (ast.AugAssign, ast.AnnAssign)) and node.target:
-            targets = [node.target]
-        for target in targets:
-            if isinstance(target, ast.Name) and target.id == name:
-                sources.append(node.value)
+    def collect(scope) -> list[ast.AST]:
+        found: list[ast.AST] = []
+        for node in ast.walk(scope):
+            targets: list[ast.AST] = []
+            if isinstance(node, ast.Assign):
+                targets = list(node.targets)
+            elif isinstance(node, (ast.AugAssign, ast.AnnAssign)) and node.target:
+                targets = [node.target]
+            for target in targets:
+                if isinstance(target, ast.Name) and target.id == name:
+                    found.append(node.value)
+        return found
+
+    sources = collect(func)
+    if not sources and tree is not None:
+        # Module scope: only top-level statements, not a nested function's locals.
+        for stmt in tree.body:
+            if isinstance(stmt, ast.Assign):
+                for target in stmt.targets:
+                    if isinstance(target, ast.Name) and target.id == name:
+                        sources.append(stmt.value)
+            elif (
+                isinstance(stmt, ast.AnnAssign)
+                and stmt.target
+                and isinstance(stmt.target, ast.Name)
+                and stmt.target.id == name
+            ):
+                sources.append(stmt.value)
     return sources
 
 
-def _verdict(node: ast.AST, func) -> str:
+def _verdict(node: ast.AST, func, tree=None) -> str:
     """``ok`` / ``bad`` / ``clear`` / ``unknown`` for a status-bar argument.
 
-    ``clear`` is the empty-string clear-the-bar idiom; see the module
-    docstring for why it is separated from ``bad``.
+    ``clear`` is the empty-string clear-the-bar idiom; see the module docstring
+    for why it is separated from ``bad``.
+
+    Every branch returns the WORST verdict it can justify. Nothing defaults to
+    ``ok``: an input this cannot decide is ``unknown``, and ``unknown`` propagates
+    through a parent rather than being resolved in favour of safety. That is the
+    distinction that let ``self.tr(...) if cond else "bare"`` pass before.
     """
     base = _peel(node)
+
     if _is_translating_call(base):
         return "ok"
+
     if isinstance(base, ast.Constant):
         if not isinstance(base.value, str):
             return "unknown"
         # "" is the clear-the-bar idiom, not an untranslated string.
         return "clear" if base.value == "" else "bad"
+
     if isinstance(base, ast.JoinedStr):
-        return "ok" if any(
-            _is_translating_call(_peel(v.value)) for v in base.values
-        ) else "bad"
-    if isinstance(base, ast.BinOp) and isinstance(base.op, ast.Mod):
-        left = _peel(base.left)
-        return "ok" if _is_translating_call(left) else "unknown"
+        # An f-string is safe only if SOME interpolated value is translated; the
+        # literal parts around it are not translatable on their own.
+        return (
+            "ok"
+            if any(_is_translating_call(_peel(v.value)) for v in base.values)
+            else "bad"
+        )
+
+    if isinstance(base, ast.BinOp):
+        if isinstance(base.op, ast.Mod):
+            # "a %s" % n — a bare constant on the left is a bare literal.
+            left = _peel(base.left)
+            if isinstance(left, ast.Constant):
+                return "bad" if isinstance(left.value, str) else "unknown"
+            return "ok" if _is_translating_call(left) else "unknown"
+        # Any other operator over strings: judge both sides.
+        return _worst(
+            [_verdict(base.left, func, tree), _verdict(base.right, func, tree)]
+        )
+
+    if isinstance(base, ast.IfExp):
+        # `a if cond else b` — BOTH arms are live.
+        return _worst(
+            [
+                _verdict(base.body, func, tree),
+                _verdict(base.orelse, func, tree),
+            ]
+        )
+
+    if isinstance(base, (ast.BoolOp, ast.Tuple, ast.List, ast.Set)):
+        values = getattr(base, "values", None) or getattr(base, "elts", [])
+        return _worst([_verdict(v, func, tree) for v in values])
+
+    if isinstance(base, ast.Call):
+        # A call that is not a translation: `"".join(...)`, `str(...)`, etc.
+        # Judge the arguments, and add `unknown` for the call itself.
+        inner = [_verdict(a, func, tree) for a in base.args]
+        return _worst(inner + ["unknown"])
+
     if isinstance(base, ast.Name):
-        # An empty result means either a parameter (the origin is in another
-        # module) or a name never assigned here; both are undecidable rather
-        # than bad, and guessing would be a false positive.
-        sources = _assigned_sources(func, base.id)
+        sources = _assigned_sources(func, base.id, tree)
         if not sources:
+            # A parameter (origin in another module) or a name assigned nowhere.
             return "unknown"
-        return "bad" if any(_verdict(s, func) == "bad" for s in sources) else "ok"
+        return _worst([_verdict(s, func, tree) for s in sources])
+
     return "unknown"
 
 
@@ -207,7 +286,7 @@ def _status_arguments() -> list[tuple[Path, ast.Call, str]]:
                 and node.func.attr == _STATUS_SINK
             ):
                 func = _enclosing_function(tree, node.lineno)
-                out.append((path, node, _verdict(node.args[0], func)))
+                out.append((path, node, _verdict(node.args[0], func, tree)))
     return out
 
 
@@ -419,3 +498,74 @@ class TestRegisteredStatusStringsResolve:
             f"the German for {source!r} under context {context!r} is {resolved!r}, "
             f"expected to contain {expected_fragment!r}"
         )
+
+
+class TestTheProbeShapeHolesAreClosed:
+    """The three false negatives an adversarial probe found, pinned.
+
+    Each was a real hole in the first version of this guard, found by injecting the
+    shape into a scratch module rather than by reading the code. They are cases
+    because the pattern of this branch is that each round's guard has a defect the
+    next round finds, and a case is what stops that repeating.
+    """
+
+    @staticmethod
+    def _verdict(source: str) -> str:
+        import ast as _ast
+
+        tree = _ast.parse(source)
+        call = next(
+            n for n in _ast.walk(tree)
+            if isinstance(n, _ast.Call)
+            and isinstance(n.func, _ast.Attribute)
+            and n.func.attr == _STATUS_SINK
+        )
+        func = _enclosing_function(tree, call.lineno)
+        return _verdict(call.args[0], func, tree)
+
+    def test_a_ternary_with_one_bare_arm_is_bad(self) -> None:
+        """The worst of the three: an `unknown` arm was silently upgraded to `ok`.
+
+        `msg = self.tr("ok") if cond else "bare"` shipped the bare branch.
+        """
+        assert self._verdict(
+            "def f(self, cond):\n"
+            "    msg = self.tr('ok') if cond else 'bare'\n"
+            "    self.set_status_message(msg)\n"
+        ) == "bad"
+
+    def test_a_percent_format_on_a_bare_literal_is_bad(self) -> None:
+        assert self._verdict(
+            "def f(self, n):\n    self.set_status_message('a %s' % n)\n"
+        ) == "bad"
+
+    def test_a_module_level_constant_is_resolved(self) -> None:
+        """`MSG = "bare"` above the function used to be `unknown`, i.e. passed."""
+        assert self._verdict(
+            "MSG = 'bare'\n"
+            "def f(self):\n    self.set_status_message(MSG)\n"
+        ) == "bad"
+
+    def test_a_module_level_translated_constant_is_ok(self) -> None:
+        """The counterpart: resolving module scope must not flag the safe case."""
+        assert self._verdict(
+            "MSG = QCoreApplication.translate('C', 'ok')\n"
+            "def f(self):\n    self.set_status_message(MSG)\n"
+        ) == "ok"
+
+    def test_an_if_else_assignment_judges_both_branches(self) -> None:
+        assert self._verdict(
+            "def f(self, cond):\n"
+            "    if cond:\n        msg = self.tr('ok')\n"
+            "    else:\n        msg = 'bare'\n"
+            "    self.set_status_message(msg)\n"
+        ) == "bad"
+
+    def test_an_undetermined_input_is_not_upgraded_to_ok(self) -> None:
+        """The invariant behind all of the above, stated once."""
+        assert self._verdict(
+            "def f(self, cmd):\n    self.set_status_message(cmd.description)\n"
+        ) == "unknown"
+        assert _worst(["ok", "unknown"]) == "unknown"
+        assert _worst(["unknown", "bad"]) == "bad"
+        assert _worst(["ok", "clear"]) == "ok"
