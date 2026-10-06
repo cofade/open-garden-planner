@@ -4,8 +4,7 @@
 ``create_circular_array`` and ``create_array_along_path`` are reachable from the
 context menu of all five shape items, but the full suite executed only their first
 one or two lines: each opens a modal dialog and returns unless it is Accepted, so
-without a monkeypatched ``exec()`` no test can reach the body. Measured at
-Measured 2026-10 by `scripts/measure_array_tool_coverage.py`, which derives
+without a monkeypatched ``exec()`` no test can reach the body. Measured 2026-10 by `scripts/measure_array_tool_coverage.py`, which derives
 statement lines from AST nodes: 325 statements across the four, of which 321
 never ran on master and 106 still do not — so 215 are newly covered. (An
 earlier count of 317 came from a blank/comment text heuristic that also counted

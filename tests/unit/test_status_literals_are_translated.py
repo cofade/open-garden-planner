@@ -70,7 +70,9 @@ _STRING_BUILDERS = {"format", "format_map", "replace"}
 #: Severity order. `bad` beats `unknown` beats `ok`, so an undecidable input can
 #: never be reported as safe by default — which is how the guard missed
 #: ``self.tr(...) if cond else "bare"`` before this existed.
-_SEVERITY = {"ok": 0, "clear": 0, "unknown": 1, "bad": 2}
+#: `unregistered` sits with `bad`: a source absent from the catalogue ships
+#: English, which is the defect this guard exists to prevent.
+_SEVERITY = {"ok": 0, "clear": 0, "unknown": 1, "bad": 2, "unregistered": 2}
 
 
 def _worst(verdicts) -> str:
@@ -78,13 +80,29 @@ def _worst(verdicts) -> str:
     return max(verdicts, key=lambda v: _SEVERITY[v], default="unknown")
 
 
-def _is_translating_call(node: ast.AST) -> bool:
-    """True for ``.tr(...)`` / ``translate(...)`` / ``QCoreApplication.translate(...)``."""
+def _translation_source(node: ast.AST) -> str | None:
+    """The source string of a ``.tr(...)`` / ``translate(...)`` call, else None.
+
+    Returning the *source* rather than a bool is what lets the caller ask the only
+    question that matters — is this string in the catalogue? The previous version
+    returned True for ANY receiver, so ``self._view.tr("BARE ENGLISH")`` passed, and
+    the module docstring claimed the guard would have caught exactly that shape in
+    ``offset_tool.py``. It could not.
+    """
     if not isinstance(node, ast.Call) or not node.args:
-        return False
+        return None
     func = node.func
     name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
-    return name in _TRANSLATING
+    if name not in _TRANSLATING:
+        return None
+    # QCoreApplication.translate(context, source, ...) puts the source second;
+    # obj.tr(source) puts it first.
+    argument = node.args[1] if len(node.args) >= 2 else node.args[0]
+    try:
+        literal = ast.literal_eval(argument)
+    except (ValueError, TypeError, SyntaxError):
+        return None
+    return literal if isinstance(literal, str) else None
 
 
 def _peel(node: ast.AST) -> ast.AST:
@@ -165,8 +183,14 @@ def _assigned_sources(func, name: str, tree=None) -> list[ast.AST] | None:
     return sources
 
 
-def _verdict(node: ast.AST, func, tree=None) -> str:
-    """``ok`` / ``bad`` / ``clear`` / ``unknown`` for a status-bar argument.
+def _verdict(node: ast.AST, func, tree=None, catalogue=None) -> str:
+    """``ok`` / ``bad`` / ``clear`` / ``unknown`` / ``unregistered``.
+
+    ``catalogue`` is the set of registered source strings. When it is ``None`` (the
+    pure-logic tests) the registration check is skipped; the integration test
+    supplies the real one, and that is the run that matters — a translating call
+    whose source is not registered ships English regardless of how it is wrapped,
+    which is exactly how ``offset_tool.py``'s string was missed.
 
     ``clear`` is the empty-string clear-the-bar idiom; see the module docstring
     for why it is separated from ``bad``.
@@ -178,8 +202,11 @@ def _verdict(node: ast.AST, func, tree=None) -> str:
     """
     base = _peel(node)
 
-    if _is_translating_call(base):
-        return "ok"
+    source = _translation_source(base)
+    if source is not None:
+        if catalogue is None:
+            return "ok"          # pure-logic mode; the integration test supplies it
+        return "ok" if source in catalogue else "unregistered"
 
     if isinstance(base, ast.Constant):
         if not isinstance(base.value, str):
@@ -190,41 +217,43 @@ def _verdict(node: ast.AST, func, tree=None) -> str:
     if isinstance(base, ast.JoinedStr):
         # An f-string is safe only if SOME interpolated value is translated; the
         # literal parts around it are not translatable on their own.
-        return (
-            "ok"
-            if any(_is_translating_call(_peel(v.value)) for v in base.values)
-            else "bad"
-        )
+        inner = [_translation_source(_peel(v.value)) for v in base.values]
+        if any(s is not None for s in inner):
+            if catalogue is None:
+                return "ok"
+            return (
+                "ok"
+                if all(s is None or s in catalogue for s in inner)
+                else "unregistered"
+            )
+        return "bad"
 
     if isinstance(base, ast.BinOp):
         if isinstance(base.op, ast.Mod):
             # "a %s" % n — a bare constant on the left is a bare literal.
-            left = _peel(base.left)
-            if isinstance(left, ast.Constant):
-                return "bad" if isinstance(left.value, str) else "unknown"
-            return "ok" if _is_translating_call(left) else "unknown"
+            return _verdict(base.left, func, tree, catalogue)
         # Any other operator over strings: judge both sides.
         return _worst(
-            [_verdict(base.left, func, tree), _verdict(base.right, func, tree)]
+            [_verdict(base.left, func, tree, catalogue), _verdict(base.right, func, tree, catalogue)]
         )
 
     if isinstance(base, ast.IfExp):
         # `a if cond else b` — BOTH arms are live.
         return _worst(
             [
-                _verdict(base.body, func, tree),
-                _verdict(base.orelse, func, tree),
+                _verdict(base.body, func, tree, catalogue),
+                _verdict(base.orelse, func, tree, catalogue),
             ]
         )
 
     if isinstance(base, (ast.BoolOp, ast.Tuple, ast.List, ast.Set)):
         values = getattr(base, "values", None) or getattr(base, "elts", [])
-        return _worst([_verdict(v, func, tree) for v in values])
+        return _worst([_verdict(v, func, tree, catalogue) for v in values])
 
     if isinstance(base, ast.Call):
         # A call that is not a translation: `"".join(...)`, `str(...)`, etc.
         # Judge the arguments, and add `unknown` for the call itself.
-        inner = [_verdict(a, func, tree) for a in base.args]
+        inner = [_verdict(a, func, tree, catalogue) for a in base.args]
         return _worst(inner + ["unknown"])
 
     if isinstance(base, ast.Name):
@@ -232,7 +261,7 @@ def _verdict(node: ast.AST, func, tree=None) -> str:
         if not sources:
             # A parameter (origin in another module) or a name assigned nowhere.
             return "unknown"
-        return _worst([_verdict(s, func, tree) for s in sources])
+        return _worst([_verdict(s, func, tree, catalogue) for s in sources])
 
     return "unknown"
 
@@ -252,21 +281,20 @@ def _wrapped_sources(path: Path) -> dict[str, str | None]:
     tree = ast.parse(path.read_text(encoding="utf-8"))
     out: dict[str, str | None] = {}
     for node in ast.walk(tree):
-        if not _is_translating_call(node):
+        source = _translation_source(node)
+        if source is None:
             continue
-        try:
-            if len(node.args) >= 2 and isinstance(node.args[1], ast.Constant):
-                # translate(context, source[, disambiguation])
-                context = ast.literal_eval(node.args[0])
-                source = ast.literal_eval(node.args[1])
-            else:
-                # tr(source) — the context is the receiver's own class name
-                context = None
-                source = ast.literal_eval(node.args[0])
-        except (ValueError, TypeError, SyntaxError):
-            continue
-        if isinstance(source, str):
-            out[source] = context if isinstance(context, str) else None
+        # translate(context, source) carries its context; tr(source) does not, and
+        # Qt resolves it from the receiver's own class name.
+        context = None
+        if len(node.args) >= 2:
+            try:
+                candidate = ast.literal_eval(node.args[0])
+            except (ValueError, TypeError, SyntaxError):
+                candidate = None
+            if isinstance(candidate, str):
+                context = candidate
+        out[source] = context
     return out
 
 
@@ -286,7 +314,12 @@ def _status_arguments() -> list[tuple[Path, ast.Call, str]]:
                 and node.func.attr == _STATUS_SINK
             ):
                 func = _enclosing_function(tree, node.lineno)
-                out.append((path, node, _verdict(node.args[0], func, tree)))
+                # The catalogue is supplied here and nowhere else: this is the scan
+                # that decides whether the build is green, and an unregistered
+                # source ships English no matter how it is wrapped.
+                out.append(
+                    (path, node, _verdict(node.args[0], func, tree, _catalogue_sources()))
+                )
     return out
 
 
@@ -339,8 +372,10 @@ class TestNoUntranslatableStringReachesTheStatusBar:
             for path, node, verdict in _status_arguments()
             if verdict == "unknown"
         )
-        # Informational by design: printed so a reviewer can audit the residual
-        # risk, asserted only so the set cannot silently grow without being seen.
+        # Informational by design. The assertion below is a SMOKE check on the
+        # scan, not a size limit — an earlier comment claimed it stopped the set
+        # growing, which it cannot do. The count is printed for a reviewer to
+        # audit; the printed set is the deliverable, not the assertion.
         assert all("set_status_message" not in u for u in unknown), unknown
         print(f"\nundecidable status-bar call sites ({len(unknown)}):")
         for entry in unknown:
@@ -569,3 +604,94 @@ class TestTheProbeShapeHolesAreClosed:
         assert _worst(["ok", "unknown"]) == "unknown"
         assert _worst(["unknown", "bad"]) == "bad"
         assert _worst(["ok", "clear"]) == "ok"
+
+
+class TestTheGuardWouldHaveCaughtTheTwoKnownP0Shapes:
+    """Round 8: the guard's docstring promised these and the guard could not do it.
+
+    > the guard treats **any** `.tr(...)`/`translate(...)` call as `ok` regardless of
+    > receiver ... `self._view.set_status_message(self._view.tr('BARE ENGLISH'))` → `ok`.
+
+    Both shapes are asserted here against the REAL scan, with the REAL catalogue, so
+    the docstring's claim is now something the suite can falsify.
+    """
+
+    SOURCE = "BARE ENGLISH NOT IN ANY CATALOGUE"
+
+    def test_an_unregistered_view_tr_is_caught(self) -> None:
+        """`offset_tool.py`'s shape: a `.tr` on a receiver pylupdate6 cannot extract.
+
+        `self._view.tr(...)` is NOT extracted by pylupdate6 (it walks `self.tr`
+        inside QObject subclasses only), so the source is registered by hand or not
+        at all. The guard now checks the catalogue, which is the property that was
+        actually violated.
+        """
+        tree = ast.parse(
+            "def f(self):\n"
+            f"    self.set_status_message(self._view.tr({self.SOURCE!r}))\n"
+        )
+        call = next(
+            n for n in ast.walk(tree)
+            if isinstance(n, ast.Call)
+            and isinstance(n.func, ast.Attribute)
+            and n.func.attr == _STATUS_SINK
+        )
+        verdict = _verdict(call.args[0], tree.body[0], tree, set())
+        assert verdict == "unregistered", (
+            f"a `.tr` source absent from the catalogue was judged {verdict!r}; it "
+            "ships English and the guard must not pass it"
+        )
+
+    def test_a_registered_view_tr_is_ok(self) -> None:
+        """The counterpart: the offset string IS hand-registered, so it passes.
+
+        Without this, the check could be made to pass by rejecting every `.view.tr`,
+        which would be a false positive on correct code.
+        """
+        tree = ast.parse(
+            "def f(self):\n"
+            "    self.set_status_message(self._view.tr("
+            "'Created {dir} offset of {dist:.1f} cm'))\n"
+        )
+        call = next(
+            n for n in ast.walk(tree)
+            if isinstance(n, ast.Call)
+            and isinstance(n.func, ast.Attribute)
+            and n.func.attr == _STATUS_SINK
+        )
+        verdict = _verdict(call.args[0], tree.body[0], tree, _catalogue_sources())
+        assert verdict == "ok", (
+            f"the offset string is registered under CanvasView, so this must be ok, "
+            f"not {verdict!r}"
+        )
+
+    def test_an_unregistered_self_tr_is_caught(self) -> None:
+        """The common case: a new string added without re-running extraction."""
+        tree = ast.parse(
+            "def f(self):\n"
+            f"    self.set_status_message(self.tr({self.SOURCE!r}))\n"
+        )
+        call = next(
+            n for n in ast.walk(tree)
+            if isinstance(n, ast.Call)
+            and isinstance(n.func, ast.Attribute)
+            and n.func.attr == _STATUS_SINK
+        )
+        assert _verdict(call.args[0], tree.body[0], tree, set()) == "unregistered"
+
+    def test_a_registered_self_tr_is_ok(self) -> None:
+        """`Mark as done` is a real registered string, used as the positive control."""
+        assert "Mark as done" in _catalogue_sources(), (
+            "the positive-control string is not registered; pick another"
+        )
+        tree = ast.parse(
+            "def f(self):\n"
+            "    self.set_status_message(self.tr('Mark as done'))\n"
+        )
+        call = next(
+            n for n in ast.walk(tree)
+            if isinstance(n, ast.Call)
+            and isinstance(n.func, ast.Attribute)
+            and n.func.attr == _STATUS_SINK
+        )
+        assert _verdict(call.args[0], tree.body[0], tree, _catalogue_sources()) == "ok"

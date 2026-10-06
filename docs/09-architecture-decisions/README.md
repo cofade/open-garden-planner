@@ -439,8 +439,7 @@ declared purposes; neither reimplements the other.
 
 **Decision 2 — the chart consumes generated windows, it does not recompute them.**
 `_GanttWidget` previously re-derived every bar from `self._last_frost` plus the
-species week-offsets. That made it a second implementation of "offset to date" (the agent's `generate_for_date_window` and the dashboard's `generate_all` both *call* `generate_calendar_tasks` rather than reimplementing it, so the generator itself is the first implementation and the Gantt's re-derivation the second; the old "fourth" counted the callers)
-(the generators, the agent and the dashboard being the other three) and it was
+species week-offsets. That made it a second implementation of "offset to date" (the agent's `generate_for_date_window` and the dashboard's `generate_all` both *call* `generate_calendar_tasks` rather than reimplementing it, so the generator itself is the first implementation and the Gantt's re-derivation the second; the old "fourth" counted the callers) and it was
 the reason the chart could only ever draw one anchor year. It now draws the
 windows the shared generator produced, already clipped to the displayed year.
 

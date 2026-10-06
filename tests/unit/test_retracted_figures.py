@@ -65,6 +65,36 @@ _RETRACTION_RECORDERS = (
     REPO_ROOT / HARVEST,
 )
 
+#: This file is in `_CORPUS` and necessarily contains literal wrong figures as
+#: positive-control fixtures ("it is 44 fit / 20 miss here"). Exempted explicitly
+#: rather than by a broad `tests/` filter, which would hide a real reintroduction
+#: anywhere else under `tests/`.
+_LINT_FIXTURES = (REPO_ROOT / "tests" / "unit" / "test_retracted_figures.py",)
+
+
+def _stale_over(corpus, patterns) -> list[str]:
+    """The lint's real matching, over a supplied corpus.
+
+    Extracted from `_stale` so the positive controls run the SAME code the suite
+    does. A control that re-implements the check tests the re-implementation —
+    which is a mistake this branch has already made once, in the retraction scan.
+    """
+    hits: list[str] = []
+    for path in corpus:
+        if path in _RETRACTION_RECORDERS or path in _LINT_FIXTURES:
+            continue
+        text = re.sub(r"\s+", " ", path.read_text(encoding="utf-8"))
+        for pattern, allowed in patterns:
+            for match in pattern.finditer(text):
+                numbers = tuple(int(g) for g in match.groups())
+                if numbers not in allowed:
+                    try:
+                        shown = str(path.relative_to(REPO_ROOT))
+                    except ValueError:
+                        shown = path.name
+                    hits.append(f"{shown} quotes {'/'.join(map(str, numbers))}")
+    return hits
+
 
 def _figure(output: str, label: str) -> int:
     match = re.search(rf"{re.escape(label)}\s*:\s*(\d+)", output)
@@ -185,32 +215,51 @@ class TestTheHarnessesStillProduceWhatTheDocumentsQuote:
                 "something"
             )
 
+    def test_the_lint_fixture_exemption_is_still_justified(self) -> None:
+        """The other exemption has a different reason, asserted separately.
+
+        `_LINT_FIXTURES` exists because this file necessarily contains literal
+        wrong figures as positive controls. If those fixtures are ever removed, the
+        exemption should go with them — otherwise it is a silent hole in the lint.
+        """
+        for path in _LINT_FIXTURES:
+            assert path.exists(), f"exempted file is gone: {path}"
+            text = path.read_text(encoding="utf-8")
+            assert "positive control" in text or "fits **1 of 64**" in text, (
+                f"{path.relative_to(REPO_ROOT)} is exempt from the figure lint but "
+                "no longer carries the positive-control fixtures that justify it"
+            )
+
 
 class TestDocumentsOnlyQuoteFiguresTheHarnessesProduce:
-    """The lint: any count in a known shape must be one the harness printed.
+    """The lint: any count in a shape the harness speaks must be one it printed.
 
-    This is what would have caught `1.0-1.5x`, `317 now covered` and
-    `(2,190 cases)6` — each was a number in a shape the harness already speaks in.
+    **What this covers**, precisely: the two harvest fit/miss shapes (`N fit /
+    M miss`, `N of T`) and the sweep's `N (task, frost-date, day) cases the GUI
+    missed`. Those are the shapes with a committed source of truth, and each
+    pattern has a positive control below so it is demonstrably able to fire.
+
+    **What it does not cover**, and cannot: a ratio range like `1.0-1.5x` (no
+    harness prints it, so there is nothing to compare against); a coverage figure
+    like `317` (that belongs to `scripts/measure_array_tool_coverage.py`, a harness
+    this lint does not run); and a plain typo like `(2,190 cases)6` (a typo has no
+    shape to key on).
+
+    An earlier docstring claimed all three of those were caught. Round 8 ran the
+    patterns against them and got `[False, False, False]`. Making the claim true
+    would mean inventing shapes with no source of truth behind them — the very
+    blacklist this guard was rebuilt to escape — so the claim is cut. Stating the
+    boundary is the honest version, and it is what tells the next reader which
+    numbers still need a human.
     """
 
     @staticmethod
     def _stale(patterns: list[tuple[re.Pattern[str], set]], what: str) -> list[str]:
-        stale: list[str] = []
-        for path in _CORPUS:
-            if path in _RETRACTION_RECORDERS:
-                continue
-            # Whitespace-collapsed: a claim split across a line is still a claim.
-            text = re.sub(r"\s+", " ", path.read_text(encoding="utf-8"))
-            for pattern, allowed in patterns:
-                for match in pattern.finditer(text):
-                    numbers = tuple(int(g) for g in match.groups())
-                    if numbers not in allowed:
-                        stale.append(
-                            f"{path.relative_to(REPO_ROOT)} quotes {what} "
-                            f"{'/'.join(map(str, numbers))}, which no run of the "
-                            f"committed harnesses produced"
-                        )
-        return stale
+        """The lint over the real corpus; `_stale_over` holds the matching."""
+        return [
+            f"{hit} — {what} no run of the committed harnesses produced"
+            for hit in _stale_over(_CORPUS, patterns)
+        ]
 
     def test_no_document_quotes_an_unmeasured_harvest_count(self) -> None:
         pairs = _harvest_pairs(_run(HARVEST))
@@ -253,3 +302,58 @@ class TestDocumentsOnlyQuoteFiguresTheHarnessesProduce:
                         f"GUI missed; the harnesses produce {sorted(counts)}"
                     )
         assert not stale, "\n  ".join(stale)
+
+
+class TestEachLintPatternCanActuallyFire:
+    """A pattern that cannot fire is not a guard.
+
+    Round 8's method: run each regex against a string it is supposed to catch. These
+    do exactly that through the REAL ``_stale`` helper, so a pattern that is
+    silently inert (a wrong escape, a missing group, an adjacency that never holds)
+    fails here instead of passing everything.
+    """
+
+    @staticmethod
+    def _stale_for(path: Path, patterns) -> list[str]:
+        """The real `_stale`, pointed at a single synthetic file."""
+        return _stale_over([path], patterns)
+
+    def _check(self, tmp_path: Path, body: str, patterns, expect_fire: bool) -> None:
+        target = tmp_path / "sample.md"
+        target.write_text(body, encoding="utf-8")
+        hits = _stale_over([target], patterns)
+        fired = bool(hits)
+        assert fired is expect_fire, (
+            f"expected fire={expect_fire}, got {fired}, for {body!r}: {hits}"
+        )
+
+    def test_the_harvest_pair_pattern_fires(self, tmp_path: Path) -> None:
+        patterns = [
+            (re.compile(r"(\d+) fits? / (\d+) miss"), {(38, 26), (45, 19)})
+        ]
+        self._check(tmp_path, "it is 44 fit / 20 miss here", patterns, True)
+        self._check(tmp_path, "it is 38 fit / 26 miss here", patterns, False)
+
+    def test_the_harvest_of_total_pattern_fires(self, tmp_path: Path) -> None:
+        patterns = [(re.compile(r"fits? \*\*(\d+) of (\d+)\*\*"), {(38, 64)})]
+        self._check(tmp_path, "fits **1 of 64**", patterns, True)
+        self._check(tmp_path, "fits **38 of 64**", patterns, False)
+
+    def test_the_sweep_case_pattern_fires(self, tmp_path: Path) -> None:
+        # `_stale_over` keys on `match.groups()`, so a one-group pattern yields a
+        # 1-tuple. `{1849, 18007}` here would make the control fire on a CORRECT
+        # value and prove nothing — which is what it did before this was fixed.
+        patterns = [
+            (re.compile(r"(\d+) cases the GUI missed"), {(1849,), (18007,)})
+        ]
+        self._check(tmp_path, "some 999 cases the GUI missed", patterns, True)
+        self._check(tmp_path, "some 1849 cases the GUI missed", patterns, False)
+
+    def test_a_clean_document_fires_nothing(self, tmp_path: Path) -> None:
+        """The negative case the whole suite depends on."""
+        patterns = [
+            (re.compile(r"(\d+) fits? / (\d+) miss"), {(38, 26)}),
+            (re.compile(r"fits? \*\*(\d+) of (\d+)\*\*"), {(38, 64)}),
+            (re.compile(r"(\d+) cases the GUI missed"), {(1849,)}),
+        ]
+        self._check(tmp_path, "Nothing quotable is claimed here.\n", patterns, False)

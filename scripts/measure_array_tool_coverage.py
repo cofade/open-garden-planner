@@ -36,7 +36,10 @@ from pathlib import Path
 REPO = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
 EXTRA = sys.argv[2:]
 
-PYTHON = Path(r"C:\Users\info\VSCode\open-garden-planner\venv\Scripts\python.exe")
+# The interpreter running this script. A hardcoded venv path made this harness
+# unrunnable off the author's machine — the same defect fixed in
+# `test_status_message_route.py` one commit earlier, reintroduced here.
+PYTHON = Path(sys.executable)
 TARGET_REL = "ui/canvas/canvas_view.py"
 TARGET = REPO / "src" / "open_garden_planner" / TARGET_REL
 
@@ -67,11 +70,16 @@ def statement_lines() -> dict[str, set[int]]:
     return out
 
 
-def executed_lines() -> set[int]:
-    """Lines coverage recorded as executed in the target module."""
+def executed_lines(tests: list[str]) -> set[int]:
+    """Lines coverage recorded as executed in the target module.
+
+    ``tests`` is passed in rather than closed over: the docstring promises a second
+    argument scopes the run, and an earlier version parsed that argument, printed
+    it, and then hardcoded the default here — a promise the code did not keep.
+    """
     env = dict(os.environ, PYTHONUTF8="1", QT_QPA_PLATFORM="offscreen")
     subprocess.run(
-        [str(PYTHON), "-m", "coverage", "run", "-m", "pytest", *DEFAULT_TESTS, "-q",
+        [str(PYTHON), "-m", "coverage", "run", "-m", "pytest", *tests, "-q",
          "--timeout=300", "-p", "no:cacheprovider"],
         cwd=REPO, capture_output=True, text=True, env=env, check=False,
     )
@@ -108,7 +116,7 @@ def main() -> int:
     print(f"tests  : {' '.join(tests)}")
     print()
 
-    executed = executed_lines()
+    executed = executed_lines(tests)
     per: dict[str, dict[str, int]] = {}
     for name, lines in statement_lines().items():
         per[name] = {

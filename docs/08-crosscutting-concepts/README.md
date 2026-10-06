@@ -1761,8 +1761,7 @@ Jan 1 – Dec 31, because a calendar chart is not a reminder list: routing it
 through the reminder helper dropped most of the chart. Two entry points, two
 declared purposes, neither reimplementing the other. The chart draws the windows
 the generators produced rather than re-deriving them from `last_frost` plus raw
-offsets — which had made it a fourth independent implementation of "offset to
-date" and the reason it could only ever draw one anchor year.
+offsets — which had made it a second independent implementation of "offset to date" (the callers only *call* `generate_calendar_tasks`, so the old count was high) and the reason it could only ever draw one anchor yearr.
 Absolute propagation overrides instead use their start-date year as the task's
 owner year in the shared generator. This preserves one identity across GUI and
 agent reads and prevents wider anchor ranges from multiplying one saved step.

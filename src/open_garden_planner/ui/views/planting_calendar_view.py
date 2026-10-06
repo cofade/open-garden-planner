@@ -1481,11 +1481,42 @@ class PlantingCalendarView(QWidget):
         The species key comes from the panel and is the one captured when the
         edit was ARMED, not whatever the panel is showing now (#415).
 
-        A ``False`` return from the writer is honoured rather than discarded: see
-        the comment in the loop. That check is unreachable today, and is written
-        anyway, because the alternative is two layers that agree by coincidence.
+        The batch is ALL-OR-NOTHING: every step is validated before any is written,
+        so a refusal cannot leave half a gesture applied while the message says a
+        step "was not changed". A ``False`` return from the writer is honoured
+        rather than discarded. Both checks are unreachable today — the panel filters
+        inverted pairs first — and both are written anyway, because the alternative
+        is two layers that agree by coincidence.
         """
         species_key, writes = payload            # type: ignore[misc]
+
+        # ALL-OR-NOTHING. The loop below writes as it goes, so a batch whose second
+        # step was refused would leave the first stored and then `return` without a
+        # refresh — telling the user one step "was not changed" while another was,
+        # which is a worse lie than either outcome alone. So every step is checked
+        # FIRST and nothing is written until the whole batch is known good.
+        #
+        # This is unreachable today: the panel filters inverted pairs before
+        # emitting and its ISO strings always parse. It is written anyway for the
+        # same reason the writer returns a bool — the alternative is two layers
+        # agreeing by coincidence, which is the shape of the original status-route
+        # P0 (a guard that looked like a check and was not one).
+        def _parses(value: str) -> bool:
+            try:
+                datetime.date.fromisoformat(value)
+            except (TypeError, ValueError):
+                return False
+            return True
+
+        invalid = [
+            step_id
+            for step_id, start_iso, end_iso in writes
+            if not (_parses(start_iso) and _parses(end_iso)) or end_iso < start_iso
+        ]
+        if invalid:
+            self.step_date_rejected.emit(species_key, invalid[0])
+            return
+
         refused: list[str] = []
         for step_id, start_iso, end_iso in writes:
             if not self._project_manager.set_propagation_override(

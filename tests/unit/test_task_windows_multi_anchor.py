@@ -153,7 +153,11 @@ class TestGuiNeverListsLessThanTheAgent:
     "The GUI's own listing rule (``classify_urgency`` not None) applied to BOTH
     sides." Comparing raw agent output against the filtered GUI list would be
     apples to oranges — the urgency window deliberately hides a window that
-    starts in 43 days. On master this sweep found 177,393 missed
+On master this sweep found 1,849 missed (task, frost-date, day) cases over the 6
+frost dates `scripts/measure_task_window_sweep.py` uses, on every 10th day of
+2026 (222 cases); the `--wide` harness over all 118 species on every day gives
+18,007. Quote the harness with the number — this line previously said "177,393
+over 53 frost dates", which no committed harness produces.
     (task, frost date, day) cases over 53 frost dates and every day of 2026; the
     sweep below is the regression guard, parametrised rather than exhaustive
     because each case is a full multi-anchor generation.
