@@ -2687,9 +2687,7 @@ up."* while the task was open. See ADR-029 (addendum) and ADR-049.
 ### Deliberately deferred
 
 - **[#418](https://github.com/cofade/open-garden-planner/issues/418)** — converting
-  the bundled harvest offsets to their true reading. Measured: neither reading
-  reconciles with `days_to_maturity` for most of the 118 species (1 of 64 and
-  10 of 54 fit), so Both readings fit a majority, so the data is NOT irreconcilable; it needs a cited
+  the bundled harvest offsets to their true reading. Measured: both readings fit a majority of the 64 comparable rows (38 frost-relative, 45 planting-relative), with 11 fitting neither, so the data is NOT irreconcilable;; it needs a cited
   horticultural source per row. **Garlic's harvest window lands ~3 months LATE** (October, not July) until then - and that is independent of which reading you assume, since its row fits the frost-relative one on maturity.
 - **#399** (branch protection / `--admin`), **#401** (mypy gate), **#402**
   (coverage gate), **#405** (logging policy), **#409** (NFR-PERF-01), **#406**

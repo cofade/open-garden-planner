@@ -385,8 +385,11 @@ def in_harvest_window(location: dict[str, Any] | None, at: date,
     weeks to + ``harvest_end`` weeks (the species' week offsets from the last frost,
     ``plant_species`` metadata). Anchored as ``generate_for_date_window`` anchors it —
     the generator behind the agent's ``get_tasks`` and ``get_task_calendar``: on every
-    frost year whose window can reach ``at``, a range derived from the offsets (for a
-    02-29 frost, leap years only — ADR-048 entry 18). So a window across the new year
+    frost year whose window can reach ``at``, a range derived from the offsets. A
+    ``02-29`` frost is no longer restricted to leap years — the shared parser
+    substitutes 1 March where the date does not exist, so a window exists in every
+    year (ADR-048 entry 18 recorded the leap-only behaviour this replaced). So a
+    window across the new year
     (a southern plan), before its frost (negative offsets) or years after it (asparagus)
     holds. Every GUI task surface (the planting calendar's Gantt and dashboard, the
     Tasks tab) anchors on one year, so it shows no harvest task for a window anchored

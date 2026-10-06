@@ -1988,10 +1988,7 @@ following the `plan-my-week` prompt asked for a location the plan already had.
 
 The bundled plant data's *harvest offsets* were a separate, related finding
 (#416): `harvest_start` was documented as "weeks after planting" while every
-reader counts it from the frost. Measured over all 118 bundled species, neither
-reading reconciles with `days_to_maturity` (1 of 64 and 10 of 54 fit), so the
-documentation was made true and the row conversion deferred to **#418** with a
-cited horticultural source. `KNOWN_DIVERGENT_SPECIES` in
+reader counts it from the frost. Measured over all 118 bundled species, **both** readings fit a majority of the 64 comparable rows — 38 fit / 26 miss frost-relative (what the code does) and 45 fit / 19 miss planting-relative, with 11 fitting neither — so the data is NOT irreconcilable. The documentation was made true and the row conversion deferred to **#418** on the grounds that it needs a cited horticultural source per row (plus licence clearance), not on irreconcilability. Measured by `scripts/measure_harvest_offsets.py`; an earlier draft quoted figures matching no harness, which the senior review caughte. `KNOWN_DIVERGENT_SPECIES` in
 `tests/unit/test_harvest_offset_semantics.py` is the pinned baseline, and that
 test also asserts that `days_to_maturity` is reference data no computation reads —
 which is what keeps the correction out of the generator.

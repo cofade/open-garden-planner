@@ -11,12 +11,20 @@ regex, and ``models.succession.compute_season_segments`` (which sliced the
 string and called ``datetime.date`` directly) — and they could disagree, in
 both directions.
 
-Qt-free and in ``core/`` — the layer that depends on nothing above it — so the
+**This module** is Qt-free and imports nothing above ``core/``, so the
 generators, the agent tools, the Qt widgets and the dormant 3D spike all use
-the same function (invariant 10). It sits in ``core/`` rather than
-``services/`` because ``models/succession.py`` needs it too, and
-``services/`` already imports ``models/``; ``core/canvas_bounds.py`` is the
+the same function (invariant 10).
+
+It sits in ``core/`` rather than ``services/`` because ``models/succession.py``
+needs it too, and ``services/`` already imports ``models/`` — putting it in
+either would invert the declared direction. ``core/canvas_bounds.py`` is the
 existing precedent for a rule shared by both tiers.
+
+Note that ``core/`` as a TIER is *not* dependency-free (``core/project.py``
+imports ``app.settings``; ``core/commands.py`` imports ``models.layer`` and,
+at function level, ``ui.canvas.items``). What is Qt-free is this module, which
+``tests/unit/test_frost_dates.py`` exercises without a ``qtbot`` — so do not
+infer the property from the directory.
 
 **29 February.** A ``'02-29'`` frost date is a legitimate stored value but only
 exists in leap years. Substituting 1 March in a non-leap year (#414) keeps the

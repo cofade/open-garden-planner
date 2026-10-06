@@ -88,11 +88,13 @@ def main() -> int:
           f"{len(b_fit)} fit / {len(population) - len(b_fit)} miss")
     print()
 
-    print("species that fit NEITHER reading (the rows to fix first):")
     neither = [
         sp for sp, b in b_results
         if not reading_a_fits(sp) and b is not True
     ]
+    # The COUNT is printed, not just the list: documents quote the count, and a
+    # guard that checks a documented number needs the harness to produce it.
+    print(f"species that fit neither reading: {len(neither)}")
     for sp in sorted(neither, key=lambda s: s.common_name or ""):
         span = reading_b_span(sp)
         print(

@@ -1006,10 +1006,17 @@ class _DetailPanel(QFrame):
         # Commit any armed edit BEFORE pointing the panel at another plant. The
         # Gantt has Qt::NoFocus, so clicking another chart row fires no
         # `editingFinished` to commit implicitly — without this the edit would be
-        # stranded by the populate below and lost. The flush reads species and
-        # values captured at arm time, so it is correct regardless of ordering;
-        # doing it here also guarantees the populate path is never re-entered
-        # mid-flush.
+        # stranded by the populate below and lost.
+        #
+        # This DOES re-enter `show_species` (`steps_date_changed` → the view slot
+        # → `_repopulate_detail` → `show_species`), and the outer call's correctness
+        # rests on TWO load-bearing orderings:
+        #   1. the flush clears `_pending_steps` BEFORE it emits, so the inner
+        #      `show_species` finds nothing to flush and does not recurse; and
+        #   2. the two lines below run AFTER the flush returns, so they overwrite
+        #      whatever the inner call set — which is the species the user wants.
+        # Reversing either reintroduces a cross-species misattribution, so
+        # `test_show_species_reassigns_after_the_flush` pins it.
         self._flush_pending_steps()
         self._current_species_key = species_key
         self._current_plan = prop_plan
@@ -1494,14 +1501,13 @@ class PlantingCalendarView(QWidget):
             "The end date of a propagation step cannot be before its start "
             "date — the step was not changed."
         )
-        # Status messages live on CanvasView, not on this tab; the scene's view is
-        # the established route (same idiom as garden_item's command feedback).
-        canvas_view = next(
-            (v for v in self._canvas_scene.views() if hasattr(v, "set_status_message")),
-            None,
-        )
-        if canvas_view is not None:
-            canvas_view.set_status_message(message)
+        # The calendar tab owns this message; it does NOT go via the canvas.
+        # `CanvasView.set_status_message` now works (it emits a signal — see its
+        # docstring), but the canvas is not in this tab's scene, so reaching for
+        # it delivered nothing at all and the field simply snapped back. Emitting
+        # from here means the refusal is delivered wherever the app chooses to
+        # route the tab's own messages.
+        self.status_message.emit(message)
         self._repopulate_detail(species_key)
 
     def _repopulate_detail(self, species_key: str) -> None:
@@ -1627,6 +1633,14 @@ class PlantingCalendarView(QWidget):
                 name = item.plant_species.replace("_", " ").title()
             names.append(name or "?")
         return names
+
+    #: A one-line message for the main window's status bar.
+    #:
+    #: The calendar tab carries its own rather than reaching through the canvas:
+    #: the canvas is not in this tab's scene, so the first attempt at routing the
+    #: propagation-date refusal through ``CanvasView.set_status_message`` delivered
+    #: nothing and the field simply snapped back (#415, round-5 review).
+    status_message = pyqtSignal(str)
 
     # ── dashboard generation (unified engine, #228) ─────────────────────────────
 

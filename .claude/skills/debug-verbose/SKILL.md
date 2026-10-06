@@ -1494,7 +1494,10 @@ missed by the GUI after fix: 0
 tasks the GUI now lists that the 90-day agent window did not: 0
 ```
 
-Harness: `scripts/measure_task_window_sweep.py` (committed with this case), which prints every line of that block. The first number to print was **0 surplus**, not 0 missed. Without it you cannot tell a
+Harness: `scripts/measure_task_window_sweep.py` (committed with this case). It
+prints the same three figures under its own labels — `cases swept`,
+`missed by the GUI now`, `listed now but not by the agent` — not the labels
+used above, which were written for readability. The first number to print was **0 surplus**, not 0 missed. Without it you cannot tell a
 correct fix from one that simply lists everything — and this bug's fix passes straight
 through the exact place that mistake is made: the shared date-window path runs with
 `actionable_only=False`, so a wrapper that forgets to re-apply its own filter turns the
@@ -1552,7 +1555,7 @@ predicts.
 **Root cause**: the populate method rebuilt the displayed date from month/day rather than
 using the step's date. Two further defects sat in the same 40-line function and were
 covered by the same tests: the editor wrote an override on every `dateChanged` and ran the
-calendar's full `refresh()` each time (one user gesture is not one undo step — invariant 4),
+calendar's full `refresh()` each time — one gesture, one write and one refresh per keystroke, and the refresh re-fetches the weather. It now commits **once per gesture**. (Not an *undo* step: a propagation override never reaches the `CommandManager`, so it is not undoable at all — a pre-existing gap this change does not close.),
 and the species detail line was five hardcoded English f-strings the i18n gate is
 structurally blind to.
 
