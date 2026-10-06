@@ -182,3 +182,58 @@ class TestSkillTreesStayIdentical:
         claude = (SKILL_TREES[0] / rel).read_bytes()
         agents = (SKILL_TREES[1] / rel).read_bytes()
         assert claude == agents, f"{rel} differs between .claude and .agents"
+
+
+class TestDependencyPinsMatchPyproject:
+    """#398's premise generalises: skill prose must not contradict the repo.
+
+    #396 raised the ``mcp`` floor to 1.23 and left two skills quoting 1.12 — the
+    exact failure #398 was opened for, reintroduced by the fix. A version pin is
+    a countable fact, so it is drift-guarded the same way the CI job count is:
+    derive it from ``pyproject.toml`` and compare, across EVERY skill rather than
+    a hand-picked list (the hand-picked list is what let the two slip through).
+    """
+
+    #: Runtime dependencies whose pins a skill may legitimately quote.
+    _PINNED = ("mcp", "numpy", "pyclipper", "ezdxf", "uvicorn", "starlette", "pydantic")
+
+    def _pyproject_pins(self) -> dict[str, str]:
+        text = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+        pins: dict[str, str] = {}
+        for name in self._PINNED:
+            match = re.search(rf'"{re.escape(name)}([<>=\d.,*]*)"', text)
+            if match:
+                pins[name] = f"{name}{match.group(1)}"
+        return pins
+
+    def test_pins_were_found(self) -> None:
+        """Guard the parser: an empty result would make every check vacuous."""
+        pins = self._pyproject_pins()
+        assert pins, "no dependency pins found in pyproject.toml"
+        assert "mcp" in pins
+
+    def test_no_skill_quotes_a_stale_version_pin(self) -> None:
+        """Any ``<name>>=X.Y`` in a skill must match pyproject exactly."""
+        pins = self._pyproject_pins()
+        stale: list[str] = []
+        for tree in SKILL_TREES:
+            for path in sorted(tree.rglob("SKILL.md")):
+                text = path.read_text(encoding="utf-8")
+                for name, actual in pins.items():
+                    for match in re.finditer(
+                        rf"`?{re.escape(name)}([<>]=[\d.,*]+)`,?", text
+                    ):
+                        quoted = f"{name}{match.group(1)}"
+                        if quoted != actual:
+                            stale.append(
+                                f"{path.relative_to(REPO_ROOT)}: quotes {quoted!r}, "
+                                f"pyproject says {actual!r}"
+                            )
+        assert not stale, "stale dependency pins in the skill library:\n  " + "\n  ".join(stale)
+
+    def test_the_mcp_floor_is_at_least_1_23(self) -> None:
+        """The DNS-rebinding guard's floor, asserted once, in one place."""
+        pins = self._pyproject_pins()
+        match = re.search(r"mcp>=(\d+)\.(\d+)", pins["mcp"])
+        assert match is not None, pins["mcp"]
+        assert (int(match.group(1)), int(match.group(2))) >= (1, 23)

@@ -17,7 +17,7 @@ exists in leap years. Substituting 1 March in a non-leap year (#414) keeps the
 date reachable in every year, so a plan configured with a 29 February frost
 never renders an empty task surface and never reports ``no_frost_dates``. The
 substitution is deliberately *visible*: it is named
-:data:`NON_LEAP_SUBSTITUTE_MM_DD`, documented here and in ADR-029/§11.4, and it
+:data:`NON_LEAP_SUBSTITUTE_MONTH_DAY`, documented here and in ADR-029/§11.4, and it
 has its own tests, because a substituted date that looks like a real user value is
 the failure mode to avoid. The visible consequence in a multi-year listing is
 that the non-leap anchor's tasks sit one day later than the leap anchor's.
@@ -27,10 +27,11 @@ from __future__ import annotations
 import datetime
 import re
 
-#: The date substituted for a 29-February frost date in a year that has no
-#: 29 February. Named so docs and tests can point at one definition instead of
-#: repeating a bare literal (#414).
-NON_LEAP_SUBSTITUTE_MM_DD = (3, 1)
+#: The **(MONTH, DAY)** substituted for a 29-February frost date in a year
+#: that has no 29 February — i.e. ``(3, 1)`` for 1 March, NOT ``(1, 3)``.
+#: Named so docs and tests can point at one definition instead of repeating a
+#: bare literal (#414).
+NON_LEAP_SUBSTITUTE_MONTH_DAY = (3, 1)
 
 _MM_DD_RE = re.compile(r"^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$")
 
@@ -83,5 +84,5 @@ def parse_frost(mmdd: str | None, year: int) -> datetime.date | None:
         # The only reachable case is 02-29 in a non-leap year (other impossible
         # dates are rejected by is_valid_frost_date at the input boundary).
         if (month, day) == (2, 29):
-            return datetime.date(year, *NON_LEAP_SUBSTITUTE_MM_DD)
+            return datetime.date(year, *NON_LEAP_SUBSTITUTE_MONTH_DAY)
         return None

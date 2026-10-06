@@ -160,11 +160,13 @@ class _PropStepWindow:
 
 
 #: Which Gantt bar colour each generated calendar task type is drawn in.
-_GANTT_COLORS = {
-    "indoor_sow": "indoor",
-    "direct_sow": "direct",
-    "transplant": "transplant",
-    "harvest": "harvest",
+#: Also the set of task types the chart draws at all — a generated type missing
+#: here is a task the dashboard lists and the chart silently omits.
+_GANTT_COLORS: dict[str, QColor] = {
+    "indoor_sow": _COL_INDOOR,
+    "direct_sow": _COL_DIRECT,
+    "transplant": _COL_TRANSPL,
+    "harvest": _COL_HARVEST,
 }
 
 
@@ -595,14 +597,8 @@ class _GanttWidget(QWidget):
         bar_h = _ROW_H - 2 * _BAR_MARGIN
         year = self._year
 
-        colors = {
-            "indoor": _COL_INDOOR,
-            "direct": _COL_DIRECT,
-            "transplant": _COL_TRANSPL,
-            "harvest": _COL_HARVEST,
-        }
         for window in self._windows.get(row.species_key, ()):
-            color = colors.get(_GANTT_COLORS.get(window.task_type, ""), _COL_DIRECT)
+            color = _GANTT_COLORS.get(window.task_type, _COL_DIRECT)
             x1 = _date_to_x(window.start.month, window.start.day, year)
             x2 = _date_to_x(window.end.month, window.end.day, year)
             if x2 - x1 < 4:
@@ -859,14 +855,14 @@ class _DetailPanel(QFrame):
         self._commit_timer = QTimer(self)
         self._commit_timer.setSingleShot(True)
         self._commit_timer.setInterval(_STEP_COMMIT_DEBOUNCE_MS)
-        self._commit_timer.timeout.connect(self._flush_pending_step)
-        self._pending_step_id: str | None = None
+        self._commit_timer.timeout.connect(self._flush_pending_steps)
+        self._pending_steps: set[str] = set()
 
         for step_id, (start_edit, end_edit, reset_btn) in self._step_rows.items():
             # Use default-arg capture to avoid closure issues
             def make_changed_handler(sid: str) -> Any:
                 def handler() -> None:
-                    self._pending_step_id = sid
+                    self._pending_steps.add(sid)
                     self._commit_timer.start()
                 return handler
 
@@ -874,15 +870,15 @@ class _DetailPanel(QFrame):
                 # Focus-out commits immediately so the override is stored (and
                 # the plan rebuilt) as soon as the user leaves the field.
                 def handler() -> None:
-                    self._pending_step_id = sid
-                    self._flush_pending_step()
+                    self._pending_steps.add(sid)
+                    self._flush_pending_steps()
                 return handler
 
             def make_reset_handler(sid: str) -> Any:
                 def handler() -> None:
                     if not self._current_species_key:
                         return
-                    self._pending_step_id = None
+                    self._pending_steps.discard(sid)
                     self._commit_timer.stop()
                     self.step_date_reset.emit(self._current_species_key, sid)
                 return handler
@@ -894,23 +890,30 @@ class _DetailPanel(QFrame):
                 end_edit.editingFinished.connect(make_commit_handler(step_id))
             reset_btn.clicked.connect(make_reset_handler(step_id))
 
-    def _flush_pending_step(self) -> None:
-        """Write the pending step's override once, then clear the pending state."""
-        step_id = self._pending_step_id
-        self._pending_step_id = None
+    def _flush_pending_steps(self) -> None:
+        """Write every armed step's override once, then clear the armed set.
+
+        A SET, not a single slot (#415): correcting a step's start and then its
+        end arms two steps, and one slot kept only the last — the first edit was
+        silently dropped. Flush order follows the panel's row order so the writes
+        are deterministic.
+        """
+        pending = sorted(self._pending_steps)
+        self._pending_steps.clear()
         self._commit_timer.stop()
-        if step_id is None or not self._current_species_key or self._current_plan is None:
+        if not pending or not self._current_species_key or self._current_plan is None:
             return
-        row = self._step_rows.get(step_id)
-        if row is None:
-            return
-        start_edit, end_edit, _reset_btn = row
-        start_d = start_edit.date().toPyDate()
-        end_d = end_edit.date().toPyDate() if end_edit is not None else start_d
-        self.step_date_changed.emit(
-            self._current_species_key, step_id,
-            start_d.isoformat(), end_d.isoformat(),
-        )
+        for step_id in pending:
+            row = self._step_rows.get(step_id)
+            if row is None:
+                continue
+            start_edit, end_edit, _reset_btn = row
+            start_d = start_edit.date().toPyDate()
+            end_d = end_edit.date().toPyDate() if end_edit is not None else start_d
+            self.step_date_changed.emit(
+                self._current_species_key, step_id,
+                start_d.isoformat(), end_d.isoformat(),
+            )
 
     # ── public API ─────────────────────────────────────────────────────────────
 
@@ -987,10 +990,11 @@ class _DetailPanel(QFrame):
         "dd MMM" (no year), so the real dates read the same as before while an
         edit can no longer change a year the user did not touch.
         """
-        # A re-populate supersedes any in-flight edit; drop the pending write so
-        # it cannot fire afterwards against the freshly shown values.
-        self._commit_timer.stop()
-        self._pending_step_id = None
+        # A re-populate supersedes the editors, so any armed edit must be flushed
+        # first or it is lost: selecting another species would silently discard a
+        # date the user had just set (and the Gantt has Qt::NoFocus, so clicking
+        # a chart row fires no editingFinished to commit it implicitly).
+        self._flush_pending_steps()
         for step_id, (start_edit, end_edit, reset_btn) in self._step_rows.items():
             step = plan.get_step(step_id)
             if step is None:

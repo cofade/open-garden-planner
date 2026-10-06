@@ -351,27 +351,29 @@ def build_server(
     # product, so it is now configured explicitly here and asserted by
     # tests/integration/test_agent_api_dns_rebinding.py.
     #
-    # The allow-lists cover the bind address plus `localhost` (a browser client
-    # and the "Connect AI Assistant" dialog both use the loopback URL) and the
-    # `:*` port wildcard, so a non-default port still works. IPv6 loopback is
-    # included because the SDK matches `[::1]` as a literal host string.
-    transport_security = TransportSecuritySettings(
-        enable_dns_rebinding_protection=True,
-        allowed_hosts=[
-            f"{host}:{port}",
-            f"127.0.0.1:{port}",
-            f"localhost:{port}",
-            "[::1]:*",
-            "127.0.0.1:*",
-            "localhost:*",
-        ],
-        allowed_origins=[
+    # The allow-lists name the exact loopback origins this server can be reached at:
+    # the bind address, 127.0.0.1 and localhost on the bound port (a browser client
+    # and the "Connect AI Assistant" dialog both use the loopback URL), plus the
+    # IPv6 loopback literal the SDK matches as a string. Deliberately NO ``:*``
+    # port wildcard: the port is fixed for the life of the server, so a wildcard
+    # would only widen the barrier to any port on loopback, which is the breadth
+    # the SDK's own default has and the reason this is configured here at all.
+    # ``dict.fromkeys`` de-duplicates because ``host`` defaults to 127.0.0.1.
+    loopback_hosts = dict.fromkeys(
+        [f"{host}:{port}", f"127.0.0.1:{port}", f"localhost:{port}", f"[::1]:{port}"]
+    )
+    loopback_origins = dict.fromkeys(
+        [
             f"http://{host}:{port}",
             f"http://127.0.0.1:{port}",
             f"http://localhost:{port}",
-            "http://127.0.0.1:*",
-            "http://localhost:*",
-        ],
+            f"http://[::1]:{port}",
+        ]
+    )
+    transport_security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=list(loopback_hosts),
+        allowed_origins=list(loopback_origins),
     )
     mcp = FastMCP(
         "Open Garden Planner",

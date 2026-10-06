@@ -16,11 +16,15 @@ wheel silently exposed the server. Deleting the explicit settings must break
 these tests — see ``test_settings_are_constructed_by_ogp_not_inherited``.
 
 Measured on master (v1.29.4, mcp 1.30.0 installed) with this file in place: the
-three ``TestExplicitTransportSecurity`` tests FAIL and the 421/403 transport
-tests PASS — the installed SDK's loopback auto-enable already covers the
-behaviour, which is exactly why the object-level assertions exist. The
-exposure is a source install resolving <=1.22, where the same PoC returned HTTP
-200 with a full initialize result.
+421/403 transport tests PASS even with our settings deleted, and so does a naive
+"settings is not None and the flag is True" assertion — the installed SDK's
+loopback auto-enable produces exactly that object. The assertions here are
+therefore deliberately the ones the SDK default *cannot* satisfy: that
+``allowed_hosts`` names the bound port, and that nothing is a wildcard. Deleting
+the ``transport_security=`` argument fails 3 of the 4 object-level tests.
+
+The exposure this closes is a source install resolving <=1.22, where the same
+PoC returned HTTP 200 with a full initialize result.
 """
 from __future__ import annotations
 
@@ -55,31 +59,42 @@ class TestExplicitTransportSecurity:
         mcp = build_server(_stub_providers(), port=port)
         return mcp.settings.transport_security
 
-    def test_settings_are_constructed_by_ogp_not_inherited(self) -> None:
-        """Fails if the explicit TransportSecuritySettings is removed.
+    def test_the_bound_port_appears_in_the_allow_lists(self) -> None:
+        """The assertion that detects removal of our explicit settings.
 
-        This is the assertion that makes the black-box tests honest: the SDK's
-        loopback auto-enable would otherwise mask a missing configuration.
+        Deliberately NOT ``settings is not None`` / the enable flag: with mcp
+        1.30.0 installed the SDK auto-enables protection for a loopback host and
+        returns a non-None settings object with the flag already True, so those
+        two assertions pass with our configuration deleted (measured). What the
+        SDK default does NOT carry is a port-specific allow-list, so naming the
+        bound port is what actually pins the behaviour.
         """
-        settings = self._settings(_free_port())
-        assert settings is not None, (
-            "build_server must pass TransportSecuritySettings explicitly; relying "
-            "on the SDK default is what #396 was about"
-        )
-        assert settings.enable_dns_rebinding_protection is True
-
-    def test_allowed_hosts_cover_the_bound_port_and_localhost(self) -> None:
-        port = 8765
+        port = _free_port()
         allowed = self._settings(port).allowed_hosts
-        assert f"127.0.0.1:{port}" in allowed
+        assert f"127.0.0.1:{port}" in allowed, (
+            "allowed_hosts must name the bound port explicitly; the SDK default "
+            "has no port-specific entry, which is what made this a product "
+            "property rather than ours (#396)"
+        )
         assert f"localhost:{port}" in allowed
 
-    def test_no_wildcard_hosts_that_admit_a_remote_name(self) -> None:
-        """A ``*`` entry would defeat the whole control."""
-        allowed = self._settings(_free_port()).allowed_hosts
-        assert not any(a.strip() in ("*", "") for a in allowed), allowed
-        for entry in allowed:
-            assert "evil" not in entry
+    def test_no_wildcard_port_or_host_entries(self) -> None:
+        """A ``*`` or ``:*`` entry would restore the SDK default's breadth."""
+        settings = self._settings(_free_port())
+        for entry in [*settings.allowed_hosts, *settings.allowed_origins]:
+            assert not entry.endswith(":*"), entry
+            assert entry.strip() not in ("*", ""), entry
+
+    def test_allow_lists_have_no_duplicates(self) -> None:
+        """``host`` defaults to 127.0.0.1, so a naive list repeats that entry."""
+        settings = self._settings(8765)
+        assert len(settings.allowed_hosts) == len(set(settings.allowed_hosts))
+        assert len(settings.allowed_origins) == len(set(settings.allowed_origins))
+
+    def test_a_non_loopback_bind_host_is_carried_through(self) -> None:
+        """The list is built from the host actually bound, not hardcoded."""
+        settings = build_server(_stub_providers(), host="localhost", port=9999)
+        assert "localhost:9999" in settings.settings.transport_security.allowed_hosts
 
 
 # ── Transport level: the behaviour a browser actually meets ────────────────────

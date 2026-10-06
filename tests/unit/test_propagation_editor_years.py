@@ -107,12 +107,14 @@ def test_set_step_override_refuses_an_inverted_pair() -> None:
 # ── The editor's displayed dates (the #415 defect proper) ──────────────────────
 
 def _editor_values(plan: PropagationPlan, step_id: str) -> tuple[datetime.date, datetime.date]:
-    """What ``_DetailPanel._populate_prop_editor`` now puts in the two editors.
+    """The step's dates as the editor now receives them.
 
-    Mirrors the populate path: each editor receives the step's REAL date. The
-    regression this replaces read the displayed year off ``date.today()``, so
-    the assertion that matters is that the step's own year survives — which is
-    why every case below is stated as an explicit absolute date.
+    SCOPE: this asserts the MODEL the editor is populated from, not the widget.
+    The populate path (``_DetailPanel._populate_prop_editor``) is what used to
+    rebuild the display date from month/day, so the meaningful assertion is that
+    the step keeps its own year — which is why every case below is stated as an
+    explicit absolute date. The widget-level twin, which reads real ``QDateEdit``
+    values, is ``tests/integration/test_propagation_editor_years.py``.
     """
     step = plan.get_step(step_id)
     assert step is not None
@@ -159,20 +161,18 @@ def test_29_february_edge_survives_in_both_kinds_of_year(leap: bool, edge: str) 
     caught ``ValueError`` — which kept the ORIGINAL year for that one date while
     the other date moved into today's year, stretching or inverting the step.
     """
-    if leap:
-        feb29 = datetime.date(2028, 2, 29)
-        other = datetime.date(2028, 3, 7)
-    else:
-        # A real 29-February date can only be reached in a leap year; in a
-        # non-leap "today" the step still holds a 29 Feb from the anchor year,
-        # which is the case master mishandled.
-        feb29 = datetime.date(2024, 2, 29)
-        other = datetime.date(2024, 3, 7)
+    # The step's real 29-February date can only come from a leap ANCHOR year.
+    # The parametrisation is which year "today" is in when the editor is
+    # populated: a non-leap today is what made the old `except ValueError`
+    # keep one date's real year while moving the other into today's year.
+    feb29 = datetime.date(2028, 2, 29)
+    other = datetime.date(2028, 3, 7)
+    today_year = 2028 if leap else 2027
 
     if edge == "start":
         start, end = feb29, other
     else:
-        start, end = datetime.date(2024, 2, 20) if not leap else datetime.date(2028, 2, 20), feb29
+        start, end = datetime.date(today_year, 2, 20), feb29
 
     plan = _plan(sow_start=start, sow_end=end)
     got_start, got_end = _editor_values(plan, "indoor_sow")

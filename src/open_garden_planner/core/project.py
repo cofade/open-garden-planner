@@ -10,7 +10,7 @@ import json
 import logging
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -353,6 +353,15 @@ class ProjectManager(QObject):
             end: ISO date string for step end.
         """
         species_key = species_key.strip().lower()  # normalise per ADR-016
+        # Refuse an inverted pair at the WRITE path too, not only at read time
+        # (#415). The reader already ignores one, so this is belt-and-braces: it
+        # keeps a bad pair out of the file in the first place instead of relying
+        # on every future reader remembering to check.
+        try:
+            if date.fromisoformat(end) < date.fromisoformat(start):
+                return
+        except ValueError:
+            return  # unparseable dates are refused rather than stored
         if species_key not in self._propagation_overrides:
             self._propagation_overrides[species_key] = {}
         self._propagation_overrides[species_key][step_id] = {"start": start, "end": end}

@@ -218,7 +218,7 @@ Running it locally is what makes it a merge gate rather than a post-mortem.
 | Never exclude `multiprocessing` | It is deliberately absent from the spec `excludes` (comment in spec) | uvicorn imports it eagerly (`uvicorn.supervisors → basereload → _subprocess`) even single-process; excluding it → GUI runs, embedded server silently dies with `ModuleNotFoundError` |
 | UPX vs pydantic_core | `upx_exclude=["pydantic_core*.pyd"]` | UPX can corrupt that compiled extension, killing the Agent API at runtime |
 | PyQt6-WebEngine pin | `PyQt6-WebEngine>=6.10.0,<6.11` in `pyproject.toml` | Pinned below 6.11 (satellite map picker uses QWebEngineView); do not bump casually |
-| mcp major pin | `mcp>=1.12,<2.0` | mcp v2 renames `FastMCP` → `MCPServer` (pyproject comment); `structured_output=False` behavior verified against mcp 1.28.1 |
+| mcp major pin | `mcp>=1.23,<2.0` | mcp v2 renames `FastMCP` → `MCPServer` (pyproject comment); `structured_output=False` behavior verified against mcp 1.28.1 |
 | Any new dependency | Re-run the exe build + `timeout 8` smoke **and `--selftest`** BEFORE merge | Frozen imports diverge from dev imports, and the smoke alone cannot see a subsystem that died silently (#291, #277) — see the `--selftest` section above (AGENTS.md Quick Reference) |
 | WebEngine import order | `PyQt6.QtWebEngineCore/Widgets/WebChannel` are explicit hiddenimports; the import must run before `QApplication` is created (handled in `main.py`) | Spec comment |
 

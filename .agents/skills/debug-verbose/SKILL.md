@@ -1566,3 +1566,62 @@ site.** Before choosing a repair for a persisted bad value, find out who reads i
 writer's bug and the reader's missing validation are two defects, and fixing only the writer
 leaves every existing file broken. When the value is untrustworthy, *ignoring* it (keeping the
 file intact) beats *repairing* it (rewriting the user's intent).
+
+### Case: the wrapper broke the tabs it was written to fix
+
+**Symptom**: two regressions in the *same eight lines* of the new
+`generate_actionable_for_surface`, both invisible to the suite that shipped the
+multi-anchor fix. (1) Opening either task tab on a plan with an **undated** manual
+task raised `TypeError: '<=' not supported between instances of 'NoneType' and
+'datetime.date'` — a state the agent's own `add_manual_task` produces on purpose
+("omit `date` for an undated task"), so an agent-written plan bricked both tabs
+on next open. (2) A manual task due in **December** disappeared from the Tasks tab
+when read in **June**.
+
+**Wrong theories**:
+1. *The multi-anchor change broke the urgency filter.* No — the filter was correct;
+   it was being applied to tasks it was never written for.
+2. *`classify_urgency` should tolerate `None`.* Possible, but it papers over the
+   real mistake: manual tasks should never reach an urgency test at all.
+3. *The date-window span is too narrow.* This was the actual second cause, and it
+   only appeared *after* fixing the first: narrowing the span from ±10 years to the
+   urgency window (a ~50x speedup) silently dropped absolute-date manual tasks
+   before the exemption could apply. A fix for one P0 caused a second P0.
+
+**Key evidence**: `[TASK-MANUAL-REGRESSION]` — the same plan, the same date, the
+two code paths:
+
+```
+master  (generate_all): ['far', 'longpast', 'undated']
+branch  (surface fn)  : ['undated']          # then TypeError once more cases run
+```
+
+and the crash, from the real widget, not a unit test:
+
+```
+TasksView.__init__ -> refresh() -> generate_actionable_for_surface
+  -> task_generator.py:757 -> task_generator.py:151
+TypeError: '<=' not supported between instances of 'NoneType' and 'datetime.date'
+```
+
+The lesson about *where* to look: the reviewer's reproducer was "add one undated
+manual task". My own tests for the multi-anchor change had all used **frost-derived**
+tasks, because that was the thing under change. The bug lived in the population I
+never varied.
+
+**Root cause**: the wrapper assumed every generator below it behaves alike. Two
+deliberately do not — `generate_manual_tasks` documents "a manual task is never
+filtered out by urgency", and `TasksView._bucket` re-derives a bucket for exactly
+those cases including a `no_date` bucket that exists only for undated tasks. The
+wrapper imposed a fourth rule without reconciling the three below it.
+
+**Fix**: undated tasks pass through unclassified; manual tasks are merged in from
+their own generator (they carry absolute dates, so the date span drops them) and
+are never urgency-filtered. Three regression tests, run against the **real
+`TasksView`**, not the helper.
+
+**Lesson**: **a shared generator's flags and its filters are inherited by every
+caller.** When you wrap one, enumerate what sits below it before applying a uniform
+rule — and when a bug appears only in a population you did not vary, widen the
+fixture before you widen the theory. A speed fix that narrows an input span is a
+behaviour change and must be swept like one.

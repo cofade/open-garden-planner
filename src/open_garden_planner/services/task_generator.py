@@ -116,6 +116,13 @@ class PlanState:
     today: datetime.date
     year: int
     last_frost: datetime.date | None = None
+    # The STORED frost date (``'MM-DD'``), carried separately from the resolved
+    # ``last_frost`` above. #414: a ``'02-29'`` frost resolves to 1 March in a
+    # non-leap year, so re-deriving the anchor years from ``last_frost`` would
+    # round-trip through the substitution and make a 02-29 plan behave exactly
+    # like a 03-01 one in EVERY year, leap years included. The anchor-year loop
+    # must parse the value the plan actually stores.
+    last_frost_mmdd: str | None = None
     plant_rows: tuple[PlantRowInput, ...] = ()
     prop_plans: dict[str, PropagationPlan] = field(default_factory=dict)
     beds: tuple[BedInput, ...] = ()
@@ -133,6 +140,13 @@ class PlanState:
 
 
 # ── Urgency classification ───────────────────────────────────────────────────
+
+#: How far ahead/behind ``today`` :func:`classify_urgency` can ever classify. Kept
+#: as constants (and mirrored in that function's arithmetic) so the GUI listing
+#: span is derived rather than guessed.
+_URGENCY_LOOKAHEAD_DAYS = 30
+_URGENCY_LOOKBEHIND_DAYS = 14
+
 
 def classify_urgency(
     start: datetime.date, end: datetime.date, today: datetime.date
@@ -572,6 +586,7 @@ def build_plan_state(
         today=today,
         year=year,
         last_frost=last_frost,
+        last_frost_mmdd=lsf if last_frost is not None else None,
         plant_rows=tuple(plant_rows),
         prop_plans=dict(prop_plans or {}),
         beds=tuple(beds),
@@ -618,6 +633,19 @@ def build_propagation_plans(
             overrides=overrides.get(key, {}),
         )
     return plans
+
+
+def stored_frost_mmdd(state: PlanState) -> str:
+    """The ``'MM-DD'`` the plan actually stores, for re-anchoring on another year.
+
+    Prefers :attr:`PlanState.last_frost_mmdd` and falls back to formatting the
+    resolved date — the fallback is lossy for a ``'02-29'`` frost in a non-leap
+    year (``last_frost`` is already the substituted 1 March), which is exactly why
+    the stored value is carried separately (#414, ADR-049).
+    """
+    if state.last_frost_mmdd:
+        return state.last_frost_mmdd
+    return state.last_frost.strftime("%m-%d") if state.last_frost else ""
 
 
 def frost_anchor_years(
@@ -686,7 +714,7 @@ def generate_for_date_window(
     tasks: dict[str, Task] = {}
     for year in frost_anchor_years(state, start, end):
         last_frost = (
-            _parse_frost(state.last_frost.strftime("%m-%d"), year)
+            _parse_frost(stored_frost_mmdd(state), year)
             if state.last_frost is not None else None
         )
         prop_plans = state.prop_plans
@@ -708,17 +736,15 @@ def generate_for_date_window(
 
 def generate_actionable_for_surface(
     state: PlanState,
-    *,
-    horizon_days: int | None = None,
 ) -> list[Task]:
     """Every task a GUI surface should list, across ALL frost anchor years (#414).
 
-    The single canonical path for the Tasks tab, the planting-calendar dashboard
-    and the Gantt. Before #414 each of those anchored on the current year's frost
-    alone, so a task window anchored on another year's frost was invisible on the
-    GUI while the agent's ``get_tasks`` listed it — e.g. with a 20 September
-    frost, a tomato harvest running 29 November – 7 February vanished from the
-    Tasks tab on 1 January.
+    The single canonical path for the Tasks tab and the planting-calendar
+    dashboard. Before #414 both anchored on the current year's frost alone, so a
+    task window anchored on another year's frost was invisible on the GUI while
+    the agent's ``get_tasks`` listed it — e.g. with a 20 September frost, a
+    tomato harvest running 29 November – 7 February vanished from the Tasks tab
+    on 1 January.
 
     This wraps :func:`generate_for_date_window` rather than reimplementing it,
     then re-applies the GUI's own listing rule. That filter is NOT optional:
@@ -726,12 +752,18 @@ def generate_actionable_for_surface(
     (an explicit date-window read wants the complete dated schedule), so without
     the post-filter the Tasks tab would list the next decade.
 
-    Args:
-        state: The snapshot from :func:`build_plan_state`.
-        horizon_days: When given, only windows that start within this many days
-            after ``state.today`` are returned — the Gantt's use, which draws a
-            bounded span rather than an urgency window. ``None`` means "every
-            actionable window", which is what the Tasks tab and dashboard want.
+    Two things this must NOT do, both of which a naive filter gets wrong:
+
+    * **Undated tasks stay.** ``classify_urgency`` dereferences both dates, and
+      :func:`generate_manual_tasks` emits undated manual tasks (``date=None``).
+      Calling it unguarded raises ``TypeError`` and takes both tabs down for a
+      plan whose undated task the agent's own ``add_manual_task`` created.
+    * **Manual tasks are never urgency-filtered.** That is the documented contract
+      of :func:`generate_manual_tasks` — "a far-future or long-past manual
+      to-do must still appear in the list" — and ``TasksView._bucket``
+      re-derives a bucket for exactly those, including its ``no_date`` case.
+      Filtering them here would hide a December task in June, which is the same
+      class of bug #414 was opened for, pointed the other way.
     """
     if state.last_frost is None:
         # No frost anchor: the non-relative generators (manual, succession, soil,
@@ -740,9 +772,12 @@ def generate_actionable_for_surface(
 
     from dataclasses import replace  # noqa: PLC0415
 
-    # A window wide enough to contain every anchor year the offsets can reach.
-    span_start = datetime.date.min.replace(year=max(1, state.today.year - 10))
-    span_end = datetime.date.max.replace(year=state.today.year + 10)
+    # ``classify_urgency`` admits nothing beyond 30 days ahead or 14 behind, so
+    # this span is the widest that can ever produce a listed task. It also bounds
+    # the anchor-year expansion: a +/-10 year span derived 25 anchor years and ran
+    # every generator 25 times on each refresh (~50x the work of a single year).
+    span_start = state.today - datetime.timedelta(days=_URGENCY_LOOKBEHIND_DAYS)
+    span_end = state.today + datetime.timedelta(days=_URGENCY_LOOKAHEAD_DAYS)
     # actionable_only=False INSIDE the date-window pass: that flag is inherited
     # per anchor year by the generators, so leaving the GUI's True in place would
     # drop anchors whose windows are not currently urgent *before* this function
@@ -751,16 +786,30 @@ def generate_actionable_for_surface(
         replace(state, actionable_only=False), span_start, span_end
     )
 
-    horizon = datetime.timedelta(days=horizon_days) if horizon_days else None
+    # Manual tasks are added from their OWN generator, not harvested from the
+    # date-window pass: they carry absolute dates, so the span above drops a
+    # long-past or far-future to-do before this function can exempt it. They need
+    # no anchor-year expansion, and ``generate_manual_tasks`` documents that a
+    # manual task is never filtered out by urgency.
+    listed = {t.task_id for t in tasks}
+    tasks = [
+        *tasks,
+        *(t for t in generate_manual_tasks(state) if t.task_id not in listed),
+    ]
+
     actionable: list[Task] = []
     for task in tasks:
-        if classify_urgency(task.start_date, task.end_date, state.today) is None:
+        if task.start_date is None or task.end_date is None:
+            # Undated (manual, or defensively any future undated source):
+            # cannot be classified, so keep it rather than crash or drop it.
+            actionable.append(task)
             continue
-        if horizon is not None:
-            start = task.start_date or task.end_date
-            if start is not None and start > state.today + horizon:
-                continue
-        actionable.append(task)
+        if task.source == "manual":
+            # Absolute-date manual task: never urgency-filtered.
+            actionable.append(task)
+            continue
+        if classify_urgency(task.start_date, task.end_date, state.today) is not None:
+            actionable.append(task)
     return actionable
 
 
@@ -781,7 +830,7 @@ def propagate_plans_by_anchor(
     anchor_years = years if years is not None else [state.year]
     result: dict[tuple[str, int], PropagationPlan] = {}
     for year in anchor_years:
-        last_frost = _parse_frost(state.last_frost.strftime("%m-%d"), year)
+        last_frost = _parse_frost(stored_frost_mmdd(state), year)
         if last_frost is None:
             continue
         for key, plan in build_propagation_plans(

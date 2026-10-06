@@ -78,7 +78,6 @@ class TestHarvestOffsetsAreFrostRelative:
         refactor that changes the anchor breaks here instead of silently moving
         every user's harvest dates.
         """
-        from open_garden_planner.models.task import ManualTask
         from open_garden_planner.services.task_generator import (
             PlanState,
             PlantRowInput,
@@ -106,7 +105,6 @@ class TestHarvestOffsetsAreFrostRelative:
         # 26 and 32 weeks after 9 April 2026 — NOT 26 weeks after the sowing.
         assert harvest[0].start_date == datetime.date(2026, 10, 8)
         assert harvest[0].end_date == datetime.date(2026, 11, 19)
-        assert ManualTask is not None  # imported for parity with the generator module
 
     def test_model_docstring_no_longer_promises_weeks_after_planting(self) -> None:
         source = (

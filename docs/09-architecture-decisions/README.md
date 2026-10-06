@@ -416,15 +416,21 @@ tomato harvest at 29 Nov 2026 – 7 Feb 2027, invisible on every GUI surface on
 1 January 2027. Measured over 64 bundled species × 6 frost dates × every day of
 2026: **1,849 missed (task, frost date, day) cases, 0 after the fix.**
 
-**Decision 1 — one entry point for a GUI surface.**
-`task_generator.generate_actionable_for_surface(state)` is the single path used by
-the Tasks tab, the planting-calendar dashboard and the Gantt. It *wraps*
-`generate_for_date_window` rather than reimplementing it, and re-applies the GUI's
-own listing rule (`classify_urgency(...) is not None`) afterwards. That post-filter
-is part of the contract: the date-window path deliberately runs with
-`actionable_only=False`, so without it a surface would list the next decade.
-The Gantt additionally receives `horizon_days` when it wants a bounded span
-rather than an urgency window.
+**Decision 1 — one urgency-filtered entry point, and one unfiltered one for the chart.**
+`task_generator.generate_actionable_for_surface(state)` is the single path for the
+two surfaces that list *reminders*: the Tasks tab and the planting-calendar
+dashboard. It *wraps* `generate_for_date_window` rather than reimplementing it, and
+re-applies the GUI's own listing rule (`classify_urgency(...) is not None`)
+afterwards. That post-filter is part of the contract: the date-window path
+deliberately runs with `actionable_only=False`, so without it a surface would list
+the next decade.
+
+The Gantt deliberately uses a **different** entry point,
+`generate_for_date_window(state, Jan 1, Dec 31)`, because a calendar chart is not
+a reminder list: it draws every window overlapping the displayed year, urgency
+irrelevant. Routing it through the reminder helper would drop most of the chart —
+which is exactly what happened during implementation. Two entry points, two
+declared purposes; neither reimplements the other.
 
 **Decision 2 — the chart consumes generated windows, it does not recompute them.**
 `_GanttWidget` previously re-derived every bar from `self._last_frost` plus the
@@ -447,11 +453,26 @@ anchors are drawn on the chart and listed by the dashboard and the agent, but ar
 not editable. The panel's single-plan contract is preserved, which is what let the
 #415 year fix stand on its own.
 
-**Consequence for reviewers.** `generate_for_date_window` inherits the caller's
-`actionable_only` **per anchor year** via `replace(state, ...)`. A wrapper that
-passes the GUI's `True` into it filters anchors out *before* its own filter runs —
-this produced an empty Tasks tab and a blank Gantt during this work. Both call
-sites now pass `False` inward and filter once at the edge. See §11.4.
+**Consequence for reviewers — two things the reminder helper must NOT do.**
+Both were bugs found by the senior review of the first version, in the same eight
+lines, with no test covering either:
+
+- **Undated tasks stay.** `classify_urgency` dereferences both dates, and
+  `generate_manual_tasks` emits undated tasks (`date=None`). Calling it unguarded
+  raises `TypeError` and takes both task tabs down — for a plan the agent's own
+  `add_manual_task` creates ("omit `date` for an undated task").
+- **Manual tasks are never filtered.** `generate_manual_tasks` documents that "a
+  manual task is never filtered out by urgency", and `TasksView._bucket`
+  re-derives a bucket for exactly those (including its `no_date` case). They are
+  also outside the date span, so they are merged in from their own generator
+  rather than harvested from the date-window pass — a long-past or far-future
+  to-do would otherwise be dropped before the exemption could apply.
+
+**Consequence for reviewers — `actionable_only` is inherited per anchor year.**
+`generate_for_date_window` builds each anchor with `replace(state, ...)`, so a
+wrapper that passes the GUI's `True` into it filters anchors out *before* its own
+filter runs — this produced an empty Tasks tab and a blank Gantt during this work.
+Both call sites pass `False` inward and filter once at the edge. See §11.4.
 ## ADR-030: Sidebar Hover-Peek + Click-to-Pin Accordion
 
 **Status**: Accepted (issue #226). Refines **ADR-005** (fixed sidebar / collapsible panels).
@@ -548,9 +569,13 @@ rather than inherited from the SDK:
 - `build_server(..., host=..., port=...)` constructs
   `TransportSecuritySettings(enable_dns_rebinding_protection=True, allowed_hosts=[...],
   allowed_origins=[...])` covering the bound loopback address, `localhost`, and the
-  `:*` port wildcard, and passes it to `FastMCP(transport_security=...)`.
+  the bound port, and passes it to `FastMCP(transport_security=...)`.
 - A hostile `Host` is answered **421**, a hostile `Origin` **403**; the loopback
-  connect URL and the "Connect AI Assistant" dialog keep working.
+  connect URL and the "Connect AI Assistant" dialog keep working. The allow-lists
+  name the **exact** host:port pairs (the bind address, `127.0.0.1`, `localhost`
+  and the IPv6 loopback literal) with **no `:*` port wildcard**: the port is fixed
+  for the life of the server, so a wildcard would only restore the breadth of the
+  default this decision exists to replace.
 - The dependency floor rises to **`mcp>=1.23`** — the first release whose FastMCP
   auto-enables the loopback guard. The explicit settings are the defence; the
   floor stops the SDK default from silently regressing under us.
@@ -566,11 +591,14 @@ the host/port it will bind, which is also what makes the allow-list exact instea
 of a wildcard.
 
 **Consequence for tests.** The black-box 421/403 tests alone are not sufficient:
-with mcp 1.30.0 installed they pass even with our settings deleted (measured —
-the SDK default covers them). `tests/integration/test_agent_api_dns_rebinding.py`
-therefore asserts the constructed `TransportSecuritySettings` object directly as
-well, which is the assertion that fails when the explicit configuration is
-removed.
+with mcp 1.30.0 installed they **pass even with our settings deleted** (measured —
+the SDK's loopback auto-enable covers the behaviour). Worse, an assertion of the
+form "the settings object is not None and the flag is True" *also* passes with our
+configuration removed, because the SDK auto-enable returns exactly such an object.
+The assertions that actually detect removal are the ones the SDK default cannot
+satisfy: that `allowed_hosts` names the **bound port** (the default carries no
+port-specific entry) and that no entry is a `*` / `:*` wildcard. Measured: deleting
+the `transport_security=` argument fails three of the four object-level tests.
 
 **Still unchanged**: tokenless read tools remain loopback trust (challenged
 decision C2 in the audit snapshot) — this addendum only makes the browser vector
@@ -1915,7 +1943,7 @@ following the `plan-my-week` prompt asked for a location the plan already had.
 
 2. **`02-29` is accepted at the input boundary** (it is a real date in a leap
    year), and **substituted with 1 March** in a year that has no 29 February
-   (`NON_LEAP_SUBSTITUTE_MM_DD`). Consequences accepted deliberately:
+   (`NON_LEAP_SUBSTITUTE_MONTH_DAY`). Consequences accepted deliberately:
    - a 29-February plan now has a full task surface in **every** year, so the
      "no location set" / `no_frost_dates` symptom cannot occur;
    - the substituted date is **invisible by construction**, which is the failure

@@ -14,6 +14,13 @@ anchored on another year's frost appeared in the agent and on no GUI surface:
   listed before 1 January;
 * a 9 April frost put garlic's autumn sowing (9–23 Oct 2026) on no GUI surface.
 
+Reproducible measurement (this file's sweep): over the 64 bundled species that
+carry calendar offsets x 6 frost dates x every 10th day of 2026 (222 cases),
+**1,849 missed (task, frost date, day) cases before the fix, 0 after, with 0
+listed that the agent did not list**. The absolute count is harness-dependent —
+all 118 species on every day gives 2,669 before / 0 after — so quote the harness
+with the number.
+
 Qt-free, so the sweep is cheap: the GUI's listing rule is
 ``classify_urgency(...) is not None`` applied to the shared generator's output,
 which is exactly what the widgets do (invariant: both sides read the same
@@ -237,3 +244,50 @@ class TestNoFrostAnchorDegradesGracefully:
         )
         ids = _gui_ids(state)
         assert "m1" in ids
+
+
+class TestManualTasksSurviveTheSurfaceFilter:
+    """Regression: both P0s the senior review found, in the same 8 lines.
+
+    ``generate_actionable_for_surface`` applied the urgency filter to EVERY task.
+    That (a) raised ``TypeError`` on an undated manual task, taking both task
+    tabs down for a plan the agent's own ``add_manual_task`` can produce, and
+    (b) filtered manual tasks that ``generate_manual_tasks`` documents as never
+    filtered — hiding a December task in June.
+    """
+
+    @staticmethod
+    def _state(today: datetime.date) -> PlanState:
+        from open_garden_planner.models.task import ManualTask
+
+        return PlanState(
+            today=today,
+            year=today.year,
+            last_frost=datetime.date(today.year, 4, 9),
+            manual_tasks=(
+                ManualTask(id="undated", title="Check hedge", date=None),
+                ManualTask(id="long_past", title="Old job", date="2026-01-05"),
+                ManualTask(id="far_future", title="Order glass", date="2026-12-20"),
+            ),
+        )
+
+    def test_an_undated_manual_task_does_not_crash_the_listing(self) -> None:
+        """`classify_urgency` dereferences both dates; None must not reach it."""
+        state = self._state(datetime.date(2026, 6, 1))
+        ids = _gui_ids(state)          # would raise TypeError before the fix
+        assert "undated" in ids
+
+    def test_manual_tasks_are_never_urgency_filtered(self) -> None:
+        """The generator's documented contract: a manual to-do always appears."""
+        state = self._state(datetime.date(2026, 6, 1))
+        ids = _gui_ids(state)
+        for task_id in ("undated", "long_past", "far_future"):
+            assert task_id in ids, f"{task_id} was hidden by the urgency filter"
+
+    def test_the_gui_matches_generate_all_for_manual_tasks(self) -> None:
+        """Whatever master listed from the manual generator, we still list."""
+        from open_garden_planner.services.task_generator import generate_all
+
+        state = self._state(datetime.date(2026, 6, 1))
+        before = {t.task_id for t in generate_all(state) if t.source == "manual"}
+        assert before <= _gui_ids(state)

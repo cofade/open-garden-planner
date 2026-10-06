@@ -256,7 +256,7 @@ If "a feature seems disabled", check this table before debugging.
 | Pin | Rationale (from the in-file comment, verified) |
 |---|---|
 | `PyQt6-WebEngine>=6.10.0,<6.11` | upper-bound pin (needed by the map picker's `QWebEngineView`; must be imported before `QApplication` — `main.py`) |
-| `mcp>=1.12,<2.0` | "Pinned to mcp v1 — v2 renames `FastMCP` -> `MCPServer`." uvicorn/starlette/pydantic/anyio/sse-starlette come transitively but are listed where used. |
+| `mcp>=1.23,<2.0` | "Pinned to mcp v1 — v2 renames `FastMCP` -> `MCPServer`." uvicorn/starlette/pydantic/anyio/sse-starlette come transitively but are listed where used. |
 | `uvicorn>=0.30`, `starlette>=0.37`, `pydantic>=2.11` | Agent API server stack |
 
 **Deprecated:** the top-level `requirements.txt` lists only `PyQt6` + `Pillow`

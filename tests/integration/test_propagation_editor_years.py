@@ -64,6 +64,38 @@ def _step_editor_dates(panel: _DetailPanel, step_id: str) -> tuple[datetime.date
     return datetime.date(s.year(), s.month(), s.day()), datetime.date(e.year(), e.month(), e.day())
 
 
+class _pinned_today:
+    """Pin ``date.today()`` for the duration of the block.
+
+    The 29-February case is defined by which year *today* is in: the old populate
+    code rewrote the displayed dates to today's year, so the bug only appeared
+    when today was not the step's own (leap) year.
+    """
+
+    def __init__(self, day: datetime.date) -> None:
+        self._day = day
+        self._real: object = None
+        self._tg: object = None
+
+    def __enter__(self) -> _pinned_today:
+        import open_garden_planner.ui.views.planting_calendar_view as mod
+
+        self._tg = mod
+        self._real = mod.datetime.date
+
+        class _Frozen(datetime.date):
+            @classmethod
+            def today(cls):  # type: ignore[override]
+                return self._day
+
+        mod.datetime.date = _Frozen
+        return self
+
+    def __exit__(self, *_exc) -> bool:
+        self._tg.datetime.date = self._real  # type: ignore[attr-defined]
+        return False
+
+
 class TestEditorShowsRealDates:
     def test_step_in_another_year_shows_its_own_year(self, qtbot) -> None:
         """Master moved a Nov/Dec 2025 step into 2026 when today was 2026-01-05."""
@@ -86,18 +118,28 @@ class TestEditorShowsRealDates:
         assert end == datetime.date(2027, 1, 22)
         assert end >= start
 
-    @pytest.mark.parametrize("leap", [True, False], ids=["leap", "non_leap"])
+    @pytest.mark.parametrize("leap", [True, False], ids=["leap_today", "non_leap_today"])
     def test_29_february_edge_shows_real_dates(self, qtbot, leap: bool) -> None:
         """Master's ``except ValueError`` kept the real year for the 29-Feb date
-        while the other date moved into today's year, stretching the step."""
+        while the other date moved into today's year, stretching the step.
+
+        The step's real 29-Feb date can only come from a leap ANCHOR year (2028);
+        what varies is which year "today" is, because that is what the old code
+        rewrote the displayed dates to. A 2024 anchor is NOT a non-leap case —
+        2024 is a leap year.
+        """
         panel = _panel(qtbot)
-        year = 2028 if leap else 2024
-        plan = _plan(datetime.date(year, 2, 20), datetime.date(year, 2, 29))
-        panel.show_species(_SPECIES, "solanum_lycopersicum", plan)
+        today_year = 2028 if leap else 2027
+        plan = _plan(
+            datetime.date(2028, 2, 20), datetime.date(2028, 2, 29)
+        )
+        with _pinned_today(datetime.date(today_year, 3, 1)):
+            panel.show_species(_SPECIES, "solanum_lycopersicum", plan)
 
         start, end = _step_editor_dates(panel, "indoor_sow")
-        assert start == datetime.date(year, 2, 20)
-        assert end == datetime.date(year, 2, 29)
+        assert start == datetime.date(2028, 2, 20)
+        assert end == datetime.date(2028, 2, 29)
+        assert end >= start
 
 
 class TestEditorPersistsWhatTheUserSaw:
@@ -123,7 +165,7 @@ class TestEditorPersistsWhatTheUserSaw:
         # Move the END forward by one day, exactly as the issue reports.
         start_edit, end_edit, _reset = panel._step_rows["indoor_sow"]
         end_edit.setDate(QDate(2026, 1, 22))
-        panel._flush_pending_step()
+        panel._flush_pending_steps()
 
         assert stored == [("solanum_lycopersicum", "indoor_sow", "2025-12-24", "2026-01-22")]
         start_iso, end_iso = stored[0][2], stored[0][3]
@@ -153,12 +195,66 @@ class TestEditorPersistsWhatTheUserSaw:
         start_edit, _end, reset_btn = panel._step_rows["indoor_sow"]
         assert reset_btn.isEnabled() is True
         start_edit.setDate(QDate(2025, 12, 25))       # arms the debounce
-        assert panel._pending_step_id == "indoor_sow"
+        assert panel._pending_steps == {"indoor_sow"}
         reset_btn.click()                              # reset wins
 
         assert resets == [("solanum_lycopersicum", "indoor_sow")]
-        panel._flush_pending_step()
+        panel._flush_pending_steps()
         assert stored == [], "the superseded edit must not be written after a reset"
+
+    def test_two_steps_edited_in_quick_succession_are_both_written(self, qtbot) -> None:
+        """A SET of pending steps, not one slot (#415 review).
+
+        Correcting a step's start and then its end arms two steps; with a single
+        pending slot the first edit was silently dropped.
+        """
+        panel = _panel(qtbot)
+        plan = _plan(datetime.date(2025, 12, 24), datetime.date(2026, 1, 21))
+        panel.show_species(_SPECIES, "solanum_lycopersicum", plan)
+
+        stored: list[tuple] = []
+        panel.step_date_changed.connect(
+            lambda _key, sid, start, end: stored.append((sid, start, end))
+        )
+
+        indoor_sow_start, indoor_sow_end, _ = panel._step_rows["indoor_sow"]
+        germ_start, germ_end, _ = panel._step_rows["germination"]
+        indoor_sow_start.setDate(QDate(2025, 12, 26))
+        germ_end.setDate(QDate(2026, 1, 24))
+
+        assert panel._pending_steps == {"indoor_sow", "germination"}
+        panel._flush_pending_steps()
+
+        assert sorted(sid for sid, _s, _e in stored) == ["germination", "indoor_sow"], stored
+
+    def test_switching_species_flushes_an_armed_edit_instead_of_dropping_it(
+        self, qtbot
+    ) -> None:
+        """Selecting another row must not silently discard the pending date.
+
+        The Gantt has Qt::NoFocus, so clicking a chart row fires no
+        ``editingFinished`` — the populate path is the only implicit commit.
+        """
+        panel = _panel(qtbot)
+        plan = _plan(datetime.date(2025, 12, 24), datetime.date(2026, 1, 21))
+        panel.show_species(_SPECIES, "solanum_lycopersicum", plan)
+
+        stored: list[tuple] = []
+        panel.step_date_changed.connect(
+            lambda _key, sid, start, end: stored.append((sid, start, end))
+        )
+
+        start_edit, _end, _reset = panel._step_rows["indoor_sow"]
+        start_edit.setDate(QDate(2025, 12, 27))
+        assert panel._pending_steps == {"indoor_sow"}
+
+        # Show a different species — exactly what _on_row_clicked does.
+        panel.show_species(_SPECIES, "solanum_lycopersicum", plan)
+
+        assert [s for s, _a, _b in stored] == ["indoor_sow"], (
+            "the armed edit must be written before the editors are re-populated"
+        )
+        assert panel._pending_steps == set()
 
 
 class TestAlreadySavedInvertedOverride:
@@ -197,20 +293,38 @@ class TestAlreadySavedInvertedOverride:
 
 
 class TestPersistedProjectRoundTrip:
-    def test_inverted_override_survives_save_and_load_without_being_applied(self, qtbot) -> None:
-        """The stored value is preserved in the .ogp; only its use is refused.
+    def test_a_new_inverted_override_is_never_written(self) -> None:
+        """The WRITE path refuses it, so a fresh save cannot contain one.
 
-        Destroying the user's file content on load would be worse than ignoring
-        it, so this asserts both halves: the value round-trips verbatim AND the
-        computed plan ignores it.
+        The owner decision covers values that are ALREADY in a file: ignore them
+        on read, keep the bytes. For a new write the stronger guarantee is
+        simply not to store it, so the file never grows the problem.
         """
         pm = ProjectManager()
-        pm.set_propagation_override("solanum_lycopersicum", "indoor_sow", "2026-12-24", "2026-01-22")
+        pm.set_propagation_override(
+            "solanum_lycopersicum", "indoor_sow", "2026-12-24", "2026-01-22"
+        )
+        assert pm.propagation_overrides == {}, (
+            "an inverted pair must be refused at the write path"
+        )
 
-        assert pm.propagation_overrides["solanum_lycopersicum"]["indoor_sow"] == {
-            "start": "2026-12-24",
-            "end": "2026-01-22",
+    def test_an_already_saved_inversion_is_ignored_but_left_on_disk(self) -> None:
+        """Simulates a plan written by the buggy build, then read back.
+
+        The stored value is PRESERVED — destroying the user's file content would
+        be worse than ignoring it — while the computed plan refuses to use it.
+        The value is injected directly rather than through
+        ``set_propagation_override`` precisely because that writer now refuses it.
+        """
+        pm = ProjectManager()
+        stored = {"start": "2026-12-24", "end": "2026-01-22"}
+        pm._propagation_overrides = {  # noqa: SLF001 - simulating a legacy .ogp
+            "solanum_lycopersicum": {"indoor_sow": dict(stored)}
         }
+
+        assert pm.propagation_overrides["solanum_lycopersicum"]["indoor_sow"] == stored, (
+            "the stored value must survive untouched"
+        )
 
         plan = compute_propagation_plan(
             species_key="solanum_lycopersicum",

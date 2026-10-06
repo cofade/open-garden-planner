@@ -17,7 +17,7 @@ import datetime
 import pytest
 
 from open_garden_planner.services.frost_dates import (
-    NON_LEAP_SUBSTITUTE_MM_DD,
+    NON_LEAP_SUBSTITUTE_MONTH_DAY,
     is_valid_frost_date,
     parse_frost,
 )
@@ -67,8 +67,8 @@ class TestParser:
 
     def test_29_february_substitutes_one_march_in_a_non_leap_year(self) -> None:
         """The owner decision: a 29-Feb plan must not lose its whole surface."""
-        assert parse_frost("02-29", 2027) == datetime.date(2027, *NON_LEAP_SUBSTITUTE_MM_DD)
-        assert parse_frost("02-29", 2026) == datetime.date(2026, *NON_LEAP_SUBSTITUTE_MM_DD)
+        assert parse_frost("02-29", 2027) == datetime.date(2027, *NON_LEAP_SUBSTITUTE_MONTH_DAY)
+        assert parse_frost("02-29", 2026) == datetime.date(2026, *NON_LEAP_SUBSTITUTE_MONTH_DAY)
 
     @pytest.mark.parametrize("year", [2024, 2025, 2026, 2027, 2028, 2029])
     def test_a_29_february_frost_always_yields_a_date(self, year: int) -> None:
@@ -99,3 +99,87 @@ class TestLocationDialogUsesTheSharedRule:
         assert dialog._validate_frost_date("02-29") is True
         assert dialog._validate_frost_date("04-09") is True
         assert dialog._validate_frost_date("") is True
+
+
+class TestStoredValueSurvivesIntoTheAnchorYears:
+    """Regression: the 02-29 substitution must not become sticky (#414 review).
+
+    ``build_plan_state`` resolves the stored ``'02-29'`` for the requested year,
+    so in a non-leap year ``state.last_frost`` is already the substituted
+    1 March. Any anchor year re-derived from *that* value — including a leap one
+    — would parse "03-01", making a 02-29 plan behave exactly like a 03-01 plan
+    in every year. ADR-049 promises the non-leap anchor sits one day later, so the
+    stored string has to travel on the state.
+    """
+
+    def test_plan_state_carries_the_stored_mmdd(self) -> None:
+        from open_garden_planner.core.project import ProjectManager
+        from open_garden_planner.services.task_generator import build_plan_state
+
+        pm = ProjectManager()
+        pm.set_location({"frost_dates": {"last_spring_frost": "02-29"}})
+        state = build_plan_state(
+            scene=None, project_manager=pm, today=datetime.date(2027, 6, 1), year=2027
+        )
+        assert state.last_frost == datetime.date(2027, 3, 1), "substituted for this year"
+        assert state.last_frost_mmdd == "02-29", (
+            "the STORED value must survive so a leap anchor can still use 29 February"
+        )
+
+    def test_a_leap_anchor_year_uses_the_real_29_february(self) -> None:
+        from open_garden_planner.core.project import ProjectManager
+        from open_garden_planner.services.task_generator import (
+            build_plan_state,
+            stored_frost_mmdd,
+        )
+
+        pm = ProjectManager()
+        pm.set_location({"frost_dates": {"last_spring_frost": "02-29"}})
+        state = build_plan_state(
+            scene=None, project_manager=pm, today=datetime.date(2027, 6, 1), year=2027
+        )
+        assert stored_frost_mmdd(state) == "02-29"
+        assert parse_frost(stored_frost_mmdd(state), 2028) == datetime.date(2028, 2, 29)
+
+    def test_the_fallback_still_works_when_nothing_stored(self) -> None:
+        from open_garden_planner.services.task_generator import (
+            PlanState,
+            stored_frost_mmdd,
+        )
+
+        state = PlanState(
+            today=datetime.date(2026, 6, 1),
+            year=2026,
+            last_frost=datetime.date(2026, 4, 9),
+        )
+        assert stored_frost_mmdd(state) == "04-09"
+        assert stored_frost_mmdd(
+            PlanState(today=datetime.date(2026, 6, 1), year=2026)
+        ) == ""
+
+
+class TestSuccessionUsesTheSharedParser:
+    """ADR-049 claims one parser for every reader; succession was the fourth."""
+
+    def test_a_29_february_frost_resolves_in_the_season_segments(self) -> None:
+        from open_garden_planner.models.succession import compute_season_segments
+
+        segments = compute_season_segments("02-29", "10-15", 2027)
+        early = segments["early_spring"][0]
+        assert early == datetime.date(2027, 3, 1) - datetime.timedelta(weeks=8)
+
+    def test_a_leap_year_uses_the_real_29_february(self) -> None:
+        from open_garden_planner.models.succession import compute_season_segments
+
+        segments = compute_season_segments("02-29", "10-15", 2028)
+        assert segments["early_spring"][0] == (
+            datetime.date(2028, 2, 29) - datetime.timedelta(weeks=8)
+        )
+
+    def test_an_impossible_frost_date_is_refused_loudly(self) -> None:
+        """It used to fall back to month-only boundaries, silently disagreeing
+        with the task windows for the same plan on the same day."""
+        from open_garden_planner.models.succession import compute_season_segments
+
+        with pytest.raises(ValueError):
+            compute_season_segments("02-30", "10-15", 2027)
