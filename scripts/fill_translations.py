@@ -1837,8 +1837,18 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     },
 
     # ── _DetailPanel ──
+    # The species detail line was five hardcoded English f-strings (#415); the
+    # frost-tolerance column prints the data file's raw token.
     "_DetailPanel": {
         "↺": "↺",
+        "Germination: {min}–{max} days": "Keimung: {min}–{max} Tage",
+        "Min. germ. temp: {temp} °C": "Min. Keimtemperatur: {temp} °C",
+        "Seed depth: {depth} cm": "Saattiefe: {depth} cm",
+        "Frost tolerance: {level}": "Frostverträglichkeit: {level}",
+        "Maturity: {min}–{max} days": "Reifezeit: {min}–{max} Tage",
+        "hardy": "winterhart",
+        "half-hardy": "bedingt winterhart",
+        "tender": "frostempfindlich",
     },
 
     # ── WelcomeDialog ──

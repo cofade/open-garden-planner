@@ -7569,6 +7569,38 @@ Starten Sie Open Garden Planner als Administrator, oder laden Sie das Installati
             <source>Reset to calculated date</source>
             <translation>Berechnetes Datum wiederherstellen</translation>
         </message>
+        <message>
+            <source>Germination: {min}–{max} days</source>
+            <translation>Keimung: {min}–{max} Tage</translation>
+        </message>
+        <message>
+            <source>Min. germ. temp: {temp} °C</source>
+            <translation>Min. Keimtemperatur: {temp} °C</translation>
+        </message>
+        <message>
+            <source>Seed depth: {depth} cm</source>
+            <translation>Saattiefe: {depth} cm</translation>
+        </message>
+        <message>
+            <source>Frost tolerance: {level}</source>
+            <translation>Frostverträglichkeit: {level}</translation>
+        </message>
+        <message>
+            <source>Maturity: {min}–{max} days</source>
+            <translation>Reifezeit: {min}–{max} Tage</translation>
+        </message>
+        <message>
+            <source>hardy</source>
+            <translation>winterhart</translation>
+        </message>
+        <message>
+            <source>half-hardy</source>
+            <translation>bedingt winterhart</translation>
+        </message>
+        <message>
+            <source>tender</source>
+            <translation>frostempfindlich</translation>
+        </message>
     </context>
     <context>
         <name>_GanttWidget</name>

@@ -99,6 +99,16 @@ _PROP_TASK_TYPES = ("prick_out", "harden_off")
 # hidden (refresh() is heavyweight, #210/#225). Mirrors the Tasks tab pattern.
 _REFRESH_DEBOUNCE_MS = 250
 
+# Propagation step date editors commit their override after the user pauses for
+# this long, or immediately on focus-out — whichever comes first. Mirrors
+# properties_panel._TEXT_COMMIT_DEBOUNCE_MS (#210): the editor used to write on
+# every ``dateChanged``, so stepping through dates with the arrow keys wrote an
+# override per step and ran the calendar's full refresh() each time (one user
+# gesture is not one undo step — invariant 4). The debounce (rather than
+# focus-out only) is what lets Ctrl+Z work while the editor still has focus,
+# and it also means a date picked from the calendar popup is never lost.
+_STEP_COMMIT_DEBOUNCE_MS = 600
+
 
 def _month_abbr(month_1: int) -> str:
     """Return the locale-aware short month name (1-indexed)."""
@@ -795,31 +805,61 @@ class _DetailPanel(QFrame):
             reset_btn.setIcon(icon)
 
     def _connect_step_signals(self) -> None:
+        self._commit_timer = QTimer(self)
+        self._commit_timer.setSingleShot(True)
+        self._commit_timer.setInterval(_STEP_COMMIT_DEBOUNCE_MS)
+        self._commit_timer.timeout.connect(self._flush_pending_step)
+        self._pending_step_id: str | None = None
+
         for step_id, (start_edit, end_edit, reset_btn) in self._step_rows.items():
             # Use default-arg capture to avoid closure issues
-            def make_changed_handler(sid: str, se: QDateEdit, ee: QDateEdit | None) -> Any:
+            def make_changed_handler(sid: str) -> Any:
                 def handler() -> None:
-                    if not self._current_species_key or self._current_plan is None:
-                        return
-                    start_d = se.date().toPyDate()
-                    end_d = ee.date().toPyDate() if ee else start_d
-                    self.step_date_changed.emit(
-                        self._current_species_key, sid,
-                        start_d.isoformat(), end_d.isoformat(),
-                    )
+                    self._pending_step_id = sid
+                    self._commit_timer.start()
+                return handler
+
+            def make_commit_handler(sid: str) -> Any:
+                # Focus-out commits immediately so the override is stored (and
+                # the plan rebuilt) as soon as the user leaves the field.
+                def handler() -> None:
+                    self._pending_step_id = sid
+                    self._flush_pending_step()
                 return handler
 
             def make_reset_handler(sid: str) -> Any:
                 def handler() -> None:
                     if not self._current_species_key:
                         return
+                    self._pending_step_id = None
+                    self._commit_timer.stop()
                     self.step_date_reset.emit(self._current_species_key, sid)
                 return handler
 
-            start_edit.dateChanged.connect(make_changed_handler(step_id, start_edit, end_edit))
+            start_edit.dateChanged.connect(make_changed_handler(step_id))
+            start_edit.editingFinished.connect(make_commit_handler(step_id))
             if end_edit is not None:
-                end_edit.dateChanged.connect(make_changed_handler(step_id, start_edit, end_edit))
+                end_edit.dateChanged.connect(make_changed_handler(step_id))
+                end_edit.editingFinished.connect(make_commit_handler(step_id))
             reset_btn.clicked.connect(make_reset_handler(step_id))
+
+    def _flush_pending_step(self) -> None:
+        """Write the pending step's override once, then clear the pending state."""
+        step_id = self._pending_step_id
+        self._pending_step_id = None
+        self._commit_timer.stop()
+        if step_id is None or not self._current_species_key or self._current_plan is None:
+            return
+        row = self._step_rows.get(step_id)
+        if row is None:
+            return
+        start_edit, end_edit, _reset_btn = row
+        start_d = start_edit.date().toPyDate()
+        end_d = end_edit.date().toPyDate() if end_edit is not None else start_d
+        self.step_date_changed.emit(
+            self._current_species_key, step_id,
+            start_d.isoformat(), end_d.isoformat(),
+        )
 
     # ── public API ─────────────────────────────────────────────────────────────
 
@@ -847,15 +887,18 @@ class _DetailPanel(QFrame):
         self._name_lbl.setText(f"{name}{sci}")
         parts: list[str] = []
         if sp.days_to_germination_min is not None:
-            parts.append(f"Germination: {sp.days_to_germination_min}–{sp.days_to_germination_max} days")
+            parts.append(self.tr("Germination: {min}–{max} days").format(
+                min=sp.days_to_germination_min, max=sp.days_to_germination_max))
         if sp.min_germination_temp_c is not None:
-            parts.append(f"Min. germ. temp: {sp.min_germination_temp_c} °C")
+            parts.append(self.tr("Min. germ. temp: {temp} °C").format(temp=sp.min_germination_temp_c))
         if sp.seed_depth_cm is not None:
-            parts.append(f"Seed depth: {sp.seed_depth_cm} cm")
+            parts.append(self.tr("Seed depth: {depth} cm").format(depth=sp.seed_depth_cm))
         if sp.frost_tolerance:
-            parts.append(f"Frost tolerance: {sp.frost_tolerance}")
+            parts.append(self.tr("Frost tolerance: {level}").format(
+                level=self._frost_tolerance_text(sp.frost_tolerance)))
         if sp.days_to_maturity_min is not None:
-            parts.append(f"Maturity: {sp.days_to_maturity_min}–{sp.days_to_maturity_max} days")
+            parts.append(self.tr("Maturity: {min}–{max} days").format(
+                min=sp.days_to_maturity_min, max=sp.days_to_maturity_max))
         self._info_lbl.setText("  ·  ".join(parts) if parts else no_data_text)
 
         # Update propagation editor
@@ -867,31 +910,47 @@ class _DetailPanel(QFrame):
             self._prop_widget.hide()
             self.setMaximumHeight(90)
 
+    def _frost_tolerance_text(self, token: str) -> str:
+        """Translated label for a species' raw frost-tolerance data token.
+
+        The data files store an English token (``hardy`` / ``half-hardy`` /
+        ``tender``); #415 found the detail line printing that token verbatim, so
+        the German UI showed English words inline. Unknown tokens fall back to
+        the raw value rather than being hidden.
+        """
+        labels = {
+            "hardy": self.tr("hardy"),
+            "half-hardy": self.tr("half-hardy"),
+            "tender": self.tr("tender"),
+        }
+        return labels.get(token, token)
+
     def _populate_prop_editor(self, plan: PropagationPlan) -> None:
-        """Fill date editors from a PropagationPlan, blocking signals."""
-        year = datetime.date.today().year
+        """Fill date editors from a PropagationPlan, blocking signals.
+
+        Each step is shown with its REAL dates (#415). This used to force the
+        displayed year to the current year "for readability", with the start and
+        the end moved independently, so a step that crossed New Year was stored
+        inverted into the .ogp (start 2026-12-24 / end 2026-01-22) and a step in
+        another calendar year silently moved. The editors' display format is
+        "dd MMM" (no year), so the real dates read the same as before while an
+        edit can no longer change a year the user did not touch.
+        """
+        # A re-populate supersedes any in-flight edit; drop the pending write so
+        # it cannot fire afterwards against the freshly shown values.
+        self._commit_timer.stop()
+        self._pending_step_id = None
         for step_id, (start_edit, end_edit, reset_btn) in self._step_rows.items():
             step = plan.get_step(step_id)
             if step is None:
                 continue
             start_edit.blockSignals(True)
-            # Force year of display date to current year for readability
-            s = step.start_date
-            try:
-                display_s = datetime.date(year, s.month, s.day)
-            except ValueError:
-                display_s = s
-            start_edit.setDate(QDate(display_s.year, display_s.month, display_s.day))
+            start_edit.setDate(QDate(step.start_date.year, step.start_date.month, step.start_date.day))
             start_edit.blockSignals(False)
 
             if end_edit is not None:
                 end_edit.blockSignals(True)
-                e = step.end_date
-                try:
-                    display_e = datetime.date(year, e.month, e.day)
-                except ValueError:
-                    display_e = e
-                end_edit.setDate(QDate(display_e.year, display_e.month, display_e.day))
+                end_edit.setDate(QDate(step.end_date.year, step.end_date.month, step.end_date.day))
                 end_edit.blockSignals(False)
 
             # Highlight overridden steps
