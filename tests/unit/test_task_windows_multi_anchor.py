@@ -19,7 +19,7 @@ The measurement itself is **not** this file. It is
 CLAUDE.md/AGENTS.md: over the 64 bundled species that carry calendar offsets x 6
 frost dates x every 10th day of 2026 (222 cases), **1,849 missed (task, frost
 date, day) cases before the fix, 0 after, with 0 listed that the agent did not
-list**. The absolute count is harness-dependent — all 118 species on every day of 2026 (2,190 cases)6 gives 18,007 before / 0 after — so quote the harness with the number.
+list**. The absolute count is harness-dependent — all 118 species on every day of 2026 (2,190 cases) gives 18,007 before / 0 after — so quote the harness with the number.
 
 What THIS file pins is the invariant, on a smaller fixture: `agent <= gui` and
 `gui <= agent` over two hand-written species (GARLIC, TOMATO) x 6 frost dates x

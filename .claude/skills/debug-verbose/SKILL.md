@@ -463,9 +463,9 @@ Three brand-new fields were declared on the dataclass (US-12.10d) but never adde
 
 **Key signal**: in the live session, both bed and plant had `zValue() == 0`. The plant was on top. After load, both still had `zValue() == 0` — but the bed was on top. So the *tie-break* between same-z items had flipped between sessions.
 
-**Root cause**: `ui/canvas/canvas_scene.py:939` `_refresh_layer_z` set every item's z to `layer.z_order * 100` (since revised by #338/ADR-043 into a per-item ranked z within that band — §8.25). Items in the same layer get *the same z*. Qt's `QGraphicsScene` then tie-breaks by item insertion order. The live session inserts bed first, then plant — plant on top. The post-load reconstruction inserts items in scene-traversal order from the saved JSON, which is reversed by serialization, putting the plant first and the bed on top.
+**Root cause**: `ui/canvas/canvas_scene.py:321` `_refresh_layer_z` set every item's z to `layer.z_order * 100` (since revised by #338/ADR-043 into a per-item ranked z within that band — §8.25). Items in the same layer get *the same z*. Qt's `QGraphicsScene` then tie-breaks by item insertion order. The live session inserts bed first, then plant — plant on top. The post-load reconstruction inserts items in scene-traversal order from the saved JSON, which is reversed by serialization, putting the plant first and the bed on top.
 
-**Fix**: Add a third pass in `_update_items_z_order` (mirroring the existing ROOF_RIDGE special case, now `ui/canvas/canvas_scene.py:899` `ROOF_RIDGE` inside `_stack_entries` since #338/ADR-043's rewrite — §8.25) that walks every item with `_parent_bed_id` set and bumps its z to `parent.zValue() + 1`. Now plants always have a strictly higher z than their bed, regardless of insertion order.
+**Fix**: Add a third pass in `_update_items_z_order` (mirroring the existing ROOF_RIDGE special case, now `ui/canvas/canvas_scene.py:854` `ROOF_RIDGE` inside `_stack_entries` since #338/ADR-043's rewrite — §8.25) that walks every item with `_parent_bed_id` set and bumps its z to `parent.zValue() + 1`. Now plants always have a strictly higher z than their bed, regardless of insertion order.
 
 **Lesson**: Identical zValues are a footgun across save/load boundaries because `QGraphicsScene` tie-breaks by *insertion order*, which is **not stable** between live mutation order and JSON-load order. Whenever a parent-child draw relationship matters, encode it explicitly via `parent.zValue() + 1` — never rely on "I inserted them in the right order, it'll just work". Pattern: anywhere `_update_items_z_order` touches multiple item categories, add an explicit ordering pass per parent-child relationship.
 
@@ -1507,7 +1507,7 @@ task list and a blank Gantt) and was caught only because the surplus count was a
 **Root cause**: three surfaces each built their own list. The Tasks tab and the dashboard
 passed the snapshot to `generate_all`, which anchors on `state.year` alone; the Gantt went
 further and re-derived every bar from `self._last_frost` plus the raw species offsets — a
-*fourth* implementation of "offset to date". `generate_for_date_window` (the engine
+*second* implementation of "offset to date" — the agent's `generate_for_date_window` and the dashboard's `generate_all` both *call* `generate_calendar_tasks` rather than reimplementing it, so the generator itself is the first implementation and the Gantt's re-derivation the second; the old count included the callers. `generate_for_date_window` (the engine
 behind the agent's task tools) was already correct.
 
 **Fix**: one shared entry point, `task_generator.generate_actionable_for_surface`, which
@@ -1628,3 +1628,30 @@ caller.** When you wrap one, enumerate what sits below it before applying a unif
 rule — and when a bug appears only in a population you did not vary, widen the
 fixture before you widen the theory. A speed fix that narrows an input span is a
 behaviour change and must be swept like one.
+
+### Case study: a dead status route hid two untranslated strings until it was fixed
+
+**Symptom.** #415 made the propagation-date refusal "refuse visibly". It delivered
+nothing: the field snapped back and no message appeared anywhere.
+
+**Wrong theories, in order.** (1) The panel was not emitting the rejection. (2) The
+slot was not connected. (3) The signal had no receiver. All three were verified
+correct — the emit fired, the slot ran, and the message was constructed.
+
+**The key log line.** `[STATUS] set_status_message -> parent=QSplitter has_statusBar=False`,
+which is what made it obvious the route terminated at a widget that cannot display
+anything. Twenty-four other callers shared that route.
+
+**Root cause.** `set_status_message` did a parent lookup instead of a signal. The
+canvas's parent is the splitter, so the `hasattr` guard made the miss silent.
+
+**Lesson, and the part worth keeping.** The interesting half is not the bug — it is
+that the bug was a *hiding place*. A dead code path looks harmless, and fixing it
+does not reveal what it was hiding; it publishes it, to every user, at once. Two of
+the twenty-four suppressed strings were not translatable, and a German user saw
+`Calibration complete` in English. Before repairing a silent no-op, enumerate what
+it was suppressing. The guard that followed walks every `set_status_message` call
+site by AST — because a bare literal is invisible to any scan for translations, and
+that is how this survived one round of scanning.
+
+Related: §11.4.6, `tests/unit/test_status_literals_are_translated.py`.

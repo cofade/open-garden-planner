@@ -20,6 +20,12 @@ NOT because the data was irreconcilable. Earlier revisions of these documents
 quoted "1 fits / 63 miss" and "10 fits / 54 miss"; those numbers matched no
 harness and were wrong — the senior review caught them.
 
+Also prints, per denominator, how many species' planting-relative span lands in
+1.0-1.5x their stated maturity (28 / 32 / 15 of 64 against the midpoint, the
+minimum and the maximum). §11.4 once claimed "most species" did, with no
+denominator and no harness; the three counts are printed together so the claim
+can be checked rather than believed.
+
 Prints the per-species misses so a mismatch is diagnosable rather than just a
 different integer.
 """
@@ -75,6 +81,34 @@ def reading_b_fits(sp: PlantSpeciesData) -> bool | None:
     return lo <= span <= hi
 
 
+#: The three denominators ``days_to_maturity`` can be compared against.
+_MATURITY_DENOMINATORS = {
+    "midpoint": lambda sp: (sp.days_to_maturity_min + sp.days_to_maturity_max) / 2,
+    "min": lambda sp: sp.days_to_maturity_min,
+    "max": lambda sp: sp.days_to_maturity_max,
+}
+
+
+def maturity_ratio_bands(population) -> dict[str, tuple[int, int]]:
+    """How many species' planting-relative span lands in 1.0-1.5x maturity.
+
+    Printed because §11.4 once claimed "most species" did, with no denominator and
+    no harness behind it. It does not, against the midpoint, and the count depends
+    entirely on which denominator is chosen — so the three are printed together and
+    any prose that quotes one names it.
+    """
+    out: dict[str, tuple[int, int]] = {}
+    for name, denominator in _MATURITY_DENOMINATORS.items():
+        hits = sum(
+            1
+            for sp in population
+            if (span := reading_b_span(sp)) is not None
+            and 1.0 <= span / denominator(sp) <= 1.5
+        )
+        out[name] = (hits, len(population))
+    return out
+
+
 def main() -> int:
     population = _population()
     a_fit = [sp for sp in population if reading_a_fits(sp)]
@@ -102,6 +136,17 @@ def main() -> int:
             f"B={span if span is None else f'{span:>4}d':<6}  "
             f"stated {sp.days_to_maturity_min}-{sp.days_to_maturity_max}"
         )
+    print()
+
+    bands = maturity_ratio_bands(population)
+    print()
+    print("species whose planting-relative span lands in 1.0-1.5x maturity:")
+    for name, (hits, total) in bands.items():
+        print(f"  vs {name:<9} {hits:>3} of {total}  ({100 * hits / total:.0f} %)")
+    print(
+        "  -> the count depends on the denominator, so prose quoting one must "
+        "name it; \"most species\" does not hold against the midpoint"
+    )
     print()
 
     garlic = next(sp for sp in population if sp.scientific_name == "Allium sativum")

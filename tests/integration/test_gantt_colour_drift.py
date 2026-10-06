@@ -28,10 +28,8 @@ Three things this covers, all of which a green suite had failed to catch:
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
-import pytest
 from PyQt6.QtCore import QDate
 
 from open_garden_planner.core.object_types import ObjectType
@@ -161,32 +159,24 @@ class TestOneGestureIsOneWrite:
 
 
 class TestTheCommitIsNotAnUndoStep:
-    @staticmethod
-    def _propagation_invariant_4_claims(rel: str) -> list[str]:
-        path = REPO_ROOT / rel
-        if not path.exists():
-            return []
-        out: list[str] = []
-        text = path.read_text(encoding="utf-8")
-        for match in re.finditer(r"invariant 4", text):
-            snippet = re.sub(
-                r"\s+", " ", text[max(0, match.start() - 260):match.end() + 260]
-            )
-            if re.search(r"propagation|step date|override", snippet, re.I):
-                out.append(snippet)
-        return out
+    """The MECHANISM, not the prose.
 
-    @pytest.mark.parametrize(
-        "rel",
-        ["CLAUDE.md", "AGENTS.md", "docs/11-risks-and-technical-debt/README.md"],
-    )
-    def test_no_propagation_commit_is_justified_by_invariant_4(self, rel: str) -> None:
-        claims = self._propagation_invariant_4_claims(rel)
-        assert not claims, (
-            f"{rel} justifies the propagation-commit batching with invariant 4 "
-            "(one user gesture = one undo step), but no Command reaches the "
-            "CommandManager for a propagation override:\n  " + "\n  ".join(claims)
-        )
+    #415's write-up used to justify the commit batching with invariant 4 ("one user
+    gesture is one undo step"). That was never true: a propagation override is
+    written straight into ``ProjectManager._propagation_overrides`` and no
+    ``Command`` reaches the ``CommandManager``, so there is no undo entry at all.
+    The documentation now says what ships — one write and one refresh per gesture.
+
+    An earlier version of this class also grepped CLAUDE.md, AGENTS.md and §11.4
+    for the string "invariant 4" near the word "propagation" and failed if a
+    sentence it disliked was present. Round 7's objection was correct and it is
+    gone: a guard written in prose, over prose, fires the next time someone writes
+    an accurate sentence in the wrong order, and cannot catch a *new* false claim
+    either. The claim is no longer machine-checked — which is the honest state.
+
+    What remains checks the mechanism, which is what actually determines the
+    answer.
+    """
 
     def test_there_really_is_no_undo_entry_for_an_override(self) -> None:
         """The mechanism the claim above rests on, asserted directly."""

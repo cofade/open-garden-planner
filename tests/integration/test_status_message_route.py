@@ -101,16 +101,28 @@ class TestTheProductionWiringExists:
     runtime coincidence.
     """
 
-    APP = Path(
-        r"C:\Users\info\VSCode\open-garden-planner"
-        r"\src\open_garden_planner\app\application.py"
+    #: Derived from ``__file__``, never absolute.
+    #:
+    #: This was a hardcoded author path, which made the guard fail on
+    #: `ubuntu-latest` the moment it landed (round 7 measured 3 failures there):
+    #: the guard added to prevent a regression took CI red on arrival.
+    APP = (
+        Path(__file__).resolve().parents[2]
+        / "src" / "open_garden_planner" / "app" / "application.py"
     )
 
     @staticmethod
+    def _source() -> str:
+        path = TestTheProductionWiringExists.APP
+        assert path.exists(), (
+            f"the application module this guard pins is not where the repo says: "
+            f"{path}. A hardcoded path here is what broke CI in round 7."
+        )
+        return path.read_text(encoding="utf-8")
+
+    @staticmethod
     def _connects() -> dict[str, str]:
-        tree = ast.parse(Path(TestTheProductionWiringExists.APP).read_text(
-            encoding="utf-8"
-        ))
+        tree = ast.parse(TestTheProductionWiringExists._source())
         found: dict[str, str] = {}
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call) or not node.args:
@@ -127,34 +139,71 @@ class TestTheProductionWiringExists:
             found[receiver[: -len(".status_message")]] = ast.unparse(node.args[0])
         return found
 
-    def test_the_canvas_status_message_is_connected(self) -> None:
+    def test_the_canvas_status_message_is_connected_to_the_sink(self) -> None:
+        """Receiver AND slot — a receiver wired to nothing is the original P0."""
         found = self._connects()
         assert "self.canvas_view" in found, (
             f"application.py no longer connects CanvasView.status_message, so "
             f"every status message is dropped again. Connected: {sorted(found)}"
         )
+        assert found["self.canvas_view"] == "self._show_status_message", (
+            f"CanvasView.status_message is wired to "
+            f"{found['self.canvas_view']!r} instead of the status-bar sink. A "
+            f"connect to a no-op lambda delivers nothing, which is exactly the "
+            f"defect this guard was added to prevent."
+        )
 
-    def test_the_calendar_status_message_is_connected(self) -> None:
+    def test_the_calendar_status_message_is_connected_to_the_sink(self) -> None:
         found = self._connects()
         assert "self.calendar_view" in found, (
             f"application.py no longer connects PlantingCalendarView.status_message, "
             f"so the propagation-date refusal is dropped again. Connected: "
             f"{sorted(found)}"
         )
+        assert found["self.calendar_view"] == "self._show_status_message", (
+            f"PlantingCalendarView.status_message is wired to "
+            f"{found['self.calendar_view']!r} instead of the status-bar sink."
+        )
 
-    def test_the_sink_reaches_the_status_bar(self) -> None:
-        """The connected receiver must actually call `statusBar().showMessage`."""
-        source = Path(TestTheProductionWiringExists.APP).read_text(encoding="utf-8")
-        tree = ast.parse(source)
+    @staticmethod
+    def _sink_body() -> str:
+        """``_show_status_message``'s **statements**, with the docstring removed.
+
+        The earlier version unparsed the whole node, so the docstring's prose
+        mentioning ``statusBar().showMessage`` satisfied the assertion and a body
+        of ``pass`` passed — round 7 measured it. A docstring is not code.
+        """
+        tree = ast.parse(TestTheProductionWiringExists._source())
         for node in ast.walk(tree):
             if not isinstance(node, ast.FunctionDef):
                 continue
             if node.name != "_show_status_message":
                 continue
-            body = ast.unparse(node)
-            assert "statusBar()" in body and "showMessage" in body, body[:200]
-            return
+            statements = list(node.body)
+            if (
+                statements
+                and isinstance(statements[0], ast.Expr)
+                and isinstance(statements[0].value, ast.Constant)
+                and isinstance(statements[0].value.value, str)
+            ):
+                statements = statements[1:]              # drop the docstring
+            return "\n".join(ast.unparse(s) for s in statements)
         raise AssertionError("_show_status_message no longer exists")
+
+    def test_the_sink_reaches_the_status_bar(self) -> None:
+        """The connected receiver must actually call ``statusBar().showMessage``."""
+        body = self._sink_body()
+        assert "statusBar()" in body, (
+            f"the sink's statements do not reach the status bar:\n{body}"
+        )
+        assert "showMessage" in body, f"the sink does not call showMessage:\n{body}"
+
+    def test_the_sink_is_more_than_a_pass(self) -> None:
+        """The exact defect round 7 measured: the body replaced by ``pass``."""
+        assert self._sink_body().strip() not in ("pass", ""), (
+            "_show_status_message has an empty body, so every status message is "
+            "connected to a function that does nothing"
+        )
 
 
 class TestTheStatusRouteIsAlive:
@@ -193,10 +242,11 @@ class TestTheRefusalMessageReachesTheUser:
     def _refuse(qtbot) -> tuple[PlantingCalendarView, QMainWindow]:
         """The calendar tab, with its own status signal routed to a status bar.
 
-        This is what ``application.py`` does: the tab carries the message, the
-        window owns the bar. Deliberately NOT routed through a ``CanvasView`` —
-        the calendar's scene has no view, which is precisely why the first
-        attempt delivered nothing.
+        This is what ``application.py`` does: the tab carries the message, the window
+        owns the bar. The calendar and the canvas share one ``CanvasScene``, so a
+        ``CanvasView`` route was *reachable* — the tab owning its own signal is
+        the right design, not a fix for an unreachable one. (Round 6 measured
+        the earlier "the scene has no view" claim false.)
         """
         view = _calendar(qtbot)
         window = QMainWindow()

@@ -11310,4 +11310,19 @@ Details: {error}</translation>
             <translation>{plant} ist in keiner dieser Kombinationen enthalten.</translation>
         </message>
     </context>
+    <context>
+        <name>CanvasScene</name>
+        <message>
+            <source>Calibration: Click first point on the image</source>
+            <translation>Kalibrierung: Ersten Punkt auf dem Bild anklicken</translation>
+        </message>
+        <message>
+            <source>Calibration: Click second point on the image</source>
+            <translation>Kalibrierung: Zweiten Punkt auf dem Bild anklicken</translation>
+        </message>
+        <message>
+            <source>Calibration complete</source>
+            <translation>Kalibrierung abgeschlossen</translation>
+        </message>
+    </context>
 </TS>

@@ -223,6 +223,16 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     },
 
     # ── CanvasView ──
+    # CanvasScene — calibration status strings, live since #415 fixed the
+    # status route (027bee1). A BARE LITERAL here is invisible to the
+    # i18n gate and to any tr()-literal AST scan; see
+    # tests/unit/test_status_literals_are_translated.py.
+    "CanvasScene": {
+        "Calibration: Click first point on the image": "Kalibrierung: Ersten Punkt auf dem Bild anklicken",
+        "Calibration: Click second point on the image": "Kalibrierung: Zweiten Punkt auf dem Bild anklicken",
+        "Calibration complete": "Kalibrierung abgeschlossen",
+    },
+
     "CanvasView": {
         "Created {dir} offset of {dist:.1f} cm": "{dir}-Versatz von {dist:.1f} cm erstellt",
         "Distance in cm": "Abstand in cm",

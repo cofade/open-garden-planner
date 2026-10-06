@@ -1,27 +1,29 @@
-"""Stop a retracted measurement from living on in the documents (#415/#416).
+"""Documented figures must be the figures the committed harnesses produce.
 
-Four review rounds each found a documented figure that the code contradicts.
-Round 5 found the worst instance: the commit that ADDED
-`scripts/measure_harvest_offsets.py` and wrote "those numbers matched no harness
-and were wrong" into that script's docstring left the identical wrong numbers
-standing in ADR-049, in the §11.4 bullet it had corrected, and in the roadmap —
-in ADR-049's case asserting the *opposite* conclusion in the same paragraph.
+**Why this exists.** Seven review rounds each found a documented number that the
+code contradicts: `2,669`, `1 of 64` / `10 of 54`, garlic "two months early" (the
+direction was wrong), `1.0-1.5x`, "317 previously-unrun statements now covered",
+the third-vs-fourth "offset to date" count, `(2,190 cases)6`. The retractions are
+all in the git history; nothing prevented them being written.
 
-A guard that lives in a script and not in the documents does not propagate. This
-is the guard that lives in the suite, so the fifth round is not needed.
+**What this guard is.** It re-runs the two committed measurement harnesses, parses
+what they printed, and fails if a document quotes a number in a *known shape* that
+the harness did not produce. It exercises a function, so it survives refactoring
+and it moves with the data.
 
-Two halves:
+**What this guard is deliberately not.** An earlier version also carried a
+hand-typed table of retracted strings (`RETRACTED`) plus two test classes that
+scanned documents for them. Round 7's objection was correct: that mechanism
+"cannot catch a *new* wrong figure, which is the failure mode that actually produced
+six rounds of findings — every one of those is a fresh false claim in a document,
+and the guard was green through all of them because none of them is in the table."
+A list of strings someone typed guards against re-pasting a *known* wrong string
+and costs real maintenance. It is deleted.
 
-* **Retraction.** Every figure that was measured, found wrong and corrected is
-  listed here. If one reappears in a document or a test docstring, the commit
-  that reintroduced it did not know it had been retracted.
-* **Agreement.** The surviving figures are re-derived by running the committed
-  harnesses and compared with what the documents claim, so a figure that was
-  never retracted but has since drifted is also caught.
-
-The two files that quote a retraction *in order to record it* are exempted, and
-the exemption is explicit rather than a broad path filter — a blanket "ignore
-scripts/" would also hide a real reintroduction.
+The hole that leaves is narrow and worth stating plainly: a wrong figure in a
+**brand-new shape** — nobody has ever written "1.0-1.5x" before, so no pattern
+covers it. That is much smaller than "only figures I already knew about", and it
+is not closable by a static check at all.
 """
 from __future__ import annotations
 
@@ -45,240 +47,209 @@ _CORPUS = sorted(
     ]
 )
 
+#: The two committed harnesses whose output is the source of truth for these
+#: figures.
+SWEEP = "scripts/measure_task_window_sweep.py"
+HARVEST = "scripts/measure_harvest_offsets.py"
+
 #: Files allowed to NAME a retracted figure, because they record the retraction.
-#: Listed by path, not by directory: a broad exemption would also hide a real
-#: reintroduction somewhere else under tests/.
-_RETACTION_RECORDERS = (
+#:
+#: This is a path exemption, not a blacklist of strings — the mechanism round 7
+#: asked this guard to stop being. Two files quote the old numbers *in order to
+#: say they were wrong* (`test_harvest_offset_semantics.py` and the harvest
+#: harness's own docstring), and the lint below correctly flags both, which is how
+#: the exemption came to exist. `test_the_recorders_still_record_the_retraction`
+#: keeps it from rotting into a blanket silence.
+_RETRACTION_RECORDERS = (
     REPO_ROOT / "tests" / "unit" / "test_harvest_offset_semantics.py",
-    REPO_ROOT / "scripts" / "measure_harvest_offsets.py",
-    # This file quotes the retracted figures in RETRACTED, so it must exempt
-    # itself — by exact path, for the same reason as the other two.
-    REPO_ROOT / "tests" / "unit" / "test_retracted_figures.py",
+    REPO_ROOT / HARVEST,
 )
-
-#: figure -> what it was, and what replaced it. The key is the retracted form.
-RETRACTED = {
-    "1 of 64": "38 of 64 (frost-relative) — see scripts/measure_harvest_offsets.py",
-    "10 of 54": "45 of 64 (planting-relative) — see scripts/measure_harvest_offsets.py",
-    "1 fits / 63 miss": "38 fit / 26 miss",
-    "10 fits / 54 miss": "45 fit / 19 miss",
-    "2,669": "18,007 (all 118 species, every day) — see "
-             "scripts/measure_task_window_sweep.py --wide",
-    "2 months early": "garlic's harvest window lands ~3 months LATE (October)",
-    "all 118 species on every day gives all 118 species": (
-        "a botched find/replace of the same sentence; see ADR-029"
-    ),
-}
-
-
-def _flatten(text: str) -> str:
-    """Whitespace-collapsed text, so a claim split across a line still matches.
-
-    Round 6 measured the consequence of NOT doing this: the guard's own table
-    registers a botched sentence that ADR-029 carries across a line break, the
-    raw scan could never see it, and the defect survived a commit whose message
-    claimed the table was complete. Collapsing whitespace is what a reader does
-    anyway — a sentence is not two sentences because a line ends.
-    """
-    return re.sub(r"\s+", " ", text)
-
-
-def _retracted_occurrences(paths=None) -> list[str]:
-    """Scan ``paths`` (the real corpus by default) for any retracted figure.
-
-    The corpus is a parameter so the self-verification tests can point this REAL
-    scan at a synthetic file. An earlier version re-implemented the scan inline in
-    those tests, which meant they exercised the `_flatten` helper while the defect
-    they were guarding lived in this function — so reverting the flattening was
-    still undetected. A test of a re-implementation is not a test of the thing.
-    """
-    hits: list[str] = []
-    for path in (paths if paths is not None else _CORPUS):
-        if path in _RETACTION_RECORDERS:
-            continue
-        text = path.read_text(encoding="utf-8")
-        flat = _flatten(text)
-        for figure, replacement in RETRACTED.items():
-            # Word-boundary anchored: `1 of 64` must not match inside `11 of 64`.
-            pattern = rf"(?<![\w]){re.escape(figure)}(?![\w])"
-            for match in re.finditer(pattern, flat, re.IGNORECASE):
-                line = flat.count("\n", 0, match.start()) + 1
-                # A tmp_path corpus (the self-verification tests) lives outside
-                # the repo, so relative_to would raise and the guard would report
-                # a crash instead of what it found. Reporting is part of a guard.
-                try:
-                    shown = str(path.relative_to(REPO_ROOT))
-                except ValueError:
-                    shown = path.name
-                hits.append(
-                    f"{shown} quotes the retracted figure {figure!r} "
-                    f"(line ~{line}); the measured value is {replacement}"
-                )
-    return hits
-
-
-class TestTheScanItselfWorks:
-    """Prove the scan catches what it claims to, by pointing the REAL scan at inputs.
-
-    Round 6 found this guard could not match the defect its own table named, because
-    the scan ran on raw text and the defect spanned a line break. The fix was to
-    flatten whitespace — and verifying that fix by reverting it showed the property
-    had NO live trigger (every current defect sits on one line), so it was present
-    but unproven.
-
-    These tests run the real `_retracted_occurrences` over a temporary file, so
-    reverting the flattening fails them by construction. A capability a guard claims
-    and never exercises is the same class of problem as the one it was added to fix.
-    """
-
-    FIGURE = "1 of 64"
-
-    @staticmethod
-    def _scan(tmp_path: Path, body: str) -> list[str]:
-        target = tmp_path / "sample.md"
-        target.write_text(body, encoding="utf-8")
-        return _retracted_occurrences([target])
-
-    def test_a_figure_split_across_lines_is_caught(self, tmp_path: Path) -> None:
-        """The exact failure round 6 measured: raw-match False, flattened True."""
-        wrapped = self.FIGURE.replace(" ", "\n", 1)
-        assert self.FIGURE not in wrapped, "the wrap must actually break the raw match"
-        hits = self._scan(tmp_path, f"prose before\n{wrapped}\nprose after\n")
-        assert hits, (
-            "the whitespace normalisation does not work: a retracted figure split "
-            "across lines was not caught, which is the defect this guard was added "
-            "to prevent"
-        )
-
-    def test_a_figure_on_one_line_is_caught(self, tmp_path: Path) -> None:
-        assert self._scan(tmp_path, f"the document claims {self.FIGURE} here\n")
-
-    def test_a_legitimate_similar_looking_figure_is_not_caught(
-        self, tmp_path: Path
-    ) -> None:
-        """`1 of 64` must not match inside `11 of 64` / `61 of 64`.
-
-        Round 6: `re.escape("1 of 64")` matched inside six other numbers, so the
-        guard could fire on a correct figure.
-        """
-        for lookalike in ("11 of 64", "21 of 64", "31 of 64", "51 of 64", "61 of 64"):
-            assert not self._scan(tmp_path, f"measured {lookalike}\n"), (
-                f"{lookalike!r} is a legitimate figure and must not be flagged"
-            )
-
-    def test_the_measured_figures_are_not_flagged(self, tmp_path: Path) -> None:
-        """The corrected values must pass, or the guard is unusable."""
-        assert not self._scan(tmp_path, "38 of 64 and 45 of 64 and 1849\n")
-
-    def test_a_clean_document_produces_nothing(self, tmp_path: Path) -> None:
-        """The negative case the whole suite depends on."""
-        assert not self._scan(tmp_path, "Nothing retracted is claimed here.\n")
-
-
-class TestNoRetractedFigureSurvives:
-    def test_no_document_quotes_a_retracted_measurement(self) -> None:
-        hits = _retracted_occurrences()
-        assert not hits, (
-            "a measurement that was measured, found wrong and corrected is being "
-            "quoted again:\n  " + "\n  ".join(hits)
-        )
-
-    def test_the_corpus_is_not_empty(self) -> None:
-        """A guard that reads nothing passes; make that visible."""
-        assert len(_CORPUS) > 20, len(_CORPUS)
-
-    def test_the_retraction_recorders_still_record_the_retraction(self) -> None:
-        """The exemption must not rot into a blanket silence."""
-        for path in _RETACTION_RECORDERS:
-            assert path.exists(), f"exempted file is gone: {path}"
-            text = path.read_text(encoding="utf-8")
-            assert any(
-                phrase in text
-                for phrase in ("were wrong", "were retracted", "the conclusion was wrong")
-            ), (
-                f"{path.relative_to(REPO_ROOT)} is exempt from the retraction "
-                "check but no longer records the retraction"
-            )
-
-
-class TestDocumentedFiguresMatchTheCommittedHarnesses:
-    """The second half: re-derive, then compare with what the documents claim.
-
-    Catches a figure that was never retracted but has drifted since — which is
-    how "2,669" and "1 of 64" survived in the first place: nobody re-ran
-    anything, they just believed the prose.
-    """
-
-    @staticmethod
-    def _run(script: str, *args: str) -> str:
-        proc = subprocess.run(
-            [sys.executable, script, *args],
-            cwd=REPO_ROOT, capture_output=True, text=True,
-            env={"PATH": "", "PYTHONUTF8": "1", "SYSTEMROOT": r"C:\Windows",
-                 "QT_QPA_PLATFORM": "offscreen"},
-        )
-        assert proc.returncode == 0, f"{script} failed:\n{proc.stdout}\n{proc.stderr}"
-        return proc.stdout
-
-    def test_the_task_window_sweep_reproduces_both_quoted_harnesses(self) -> None:
-        default = self._run("scripts/measure_task_window_sweep.py")
-        wide = self._run("scripts/measure_task_window_sweep.py", "--wide")
-
-        assert "1849" in default and "0" in default, default
-        assert "18007" in wide, wide
-        # The invariant, not just the numbers: nothing missed, nothing added.
-        for name, output in (("default", default), ("--wide", wide)):
-            missed_after = _figure(output, "missed by the GUI now")
-            surplus = _figure(output, "listed now but not by the agent")
-            assert missed_after == 0, f"{name} harness missed {missed_after}"
-            assert surplus == 0, f"{name} harness added {surplus} surplus tasks"
-
-    def test_the_harvest_sweep_reproduces_the_quoted_figures(self) -> None:
-        output = self._run("scripts/measure_harvest_offsets.py")
-        assert "38 fit / 26 miss" in output, output
-        assert "45 fit / 19 miss" in output, output
-        assert re.search(r"species that fit neither reading:\s*11\b", output), output
-
-    #: The measured fit/miss pairs, from scripts/measure_harvest_offsets.py.
-    MEASURED_PAIRS = {(38, 26), (45, 19)}
-    #: The measured fit/population counts, i.e. "N of 64".
-    MEASURED_OF_TOTAL = {(38, 64), (45, 64)}
-
-    def test_the_documents_quote_the_measured_harvest_figures(self) -> None:
-        """If a document quotes a harvest count, it must be one a harness produces.
-
-        Two shapes are in use and they mean different things, which an earlier
-        version of this check conflated: ``N fit / M miss`` reports a PAIR of
-        counts summing to the population, while ``N of T`` reports a fit against
-        the population. Reading the second number of the first form as the total
-        made the check reject the correct figure it was written to protect.
-        """
-        stale: list[str] = []
-        pair = re.compile(r"(\d+) fits? / (\d+) miss")
-        of_total = re.compile(r"fits? \*\*(\d+) of (\d+)\*\*")
-        for path in _CORPUS:
-            if path in _RETACTION_RECORDERS:
-                continue
-            text = _flatten(path.read_text(encoding="utf-8"))
-            for pattern, allowed in (
-                (pair, self.MEASURED_PAIRS), (of_total, self.MEASURED_OF_TOTAL)
-            ):
-                for match in pattern.finditer(text):
-                    line = text.count("\n", 0, match.start()) + 1
-                    numbers = tuple(int(g) for g in match.groups())
-                    if numbers not in allowed:
-                        try:
-                            shown = str(path.relative_to(REPO_ROOT))
-                        except ValueError:
-                            shown = path.name
-                        stale.append(
-                            f"{shown}:{line} claims {numbers[0]}/{numbers[1]}, "
-                            "which no harness produces"
-                        )
-        assert not stale, "\n  ".join(stale)
 
 
 def _figure(output: str, label: str) -> int:
     match = re.search(rf"{re.escape(label)}\s*:\s*(\d+)", output)
     assert match is not None, f"{label!r} not in output:\n{output}"
     return int(match.group(1))
+
+
+def _run(script: str, *args: str) -> str:
+    proc = subprocess.run(
+        [sys.executable, script, *args],
+        cwd=REPO_ROOT, capture_output=True, text=True,
+        env={"PATH": "", "PYTHONUTF8": "1", "SYSTEMROOT": r"C:\Windows",
+             "QT_QPA_PLATFORM": "offscreen"},
+    )
+    assert proc.returncode == 0, f"{script} failed:\n{proc.stdout}\n{proc.stderr}"
+    return proc.stdout
+
+
+def _harvest_pairs(output: str) -> set[tuple[int, int]]:
+    """The ``N fit / M miss`` pairs the harvest harness actually printed.
+
+    Parsed from the harness output rather than typed in. A typed list is exactly
+    the hand-maintained constant this guard stopped being: it goes stale silently
+    when the harness changes, which is how the figures drifted four times.
+    """
+    pairs = {
+        (int(fit), int(miss))
+        for fit, miss in re.findall(
+            r"reading [AB] \([^)]*\)\s*:\s*(\d+) fit / (\d+) miss", output
+        )
+    }
+    assert pairs, f"could not parse any reading from the harness output:\n{output}"
+    return pairs
+
+
+def _harvest_population() -> int:
+    """Species carrying both harvest offsets and a maturity range.
+
+    Computed from the bundled data, not typed as ``64`` — a pinned constant goes
+    stale the next time a species row changes, which is the same failure as the ADR
+    counts deleted in round 6.
+    """
+    import json
+
+    data = json.loads(
+        (
+            REPO_ROOT / "src" / "open_garden_planner" / "resources" / "data"
+            / "plant_species.json"
+        ).read_text(encoding="utf-8")
+    )
+    return sum(
+        1
+        for row in data["plants"]
+        if row.get("harvest_start") is not None
+        and row.get("harvest_end") is not None
+        and row.get("days_to_maturity_min") is not None
+        and row.get("days_to_maturity_max") is not None
+    )
+
+
+def _sweep_counts(output: str) -> set[int]:
+    """The ``N (task, frost date, day) cases the GUI missed`` values printed."""
+    return {
+        int(n) for n in re.findall(r"missed by the GUI on master\s*:\s*(\d+)", output)
+    }
+
+
+class TestTheHarnessesStillProduceWhatTheDocumentsQuote:
+    """The invariant, checked against a live run rather than a remembered number."""
+
+    def test_the_task_window_sweep_reproduces_both_quoted_harnesses(self) -> None:
+        default = _run(SWEEP)
+        wide = _run(SWEEP, "--wide")
+
+        # The invariant, not just the numbers: nothing missed AND nothing added.
+        # A "0 missed" that also added surplus tasks would be a regression that
+        # hides behind the headline figure.
+        for name, output in (("default", default), ("--wide", wide)):
+            missed_after = _figure(output, "missed by the GUI now")
+            surplus = _figure(output, "listed now but not by the agent")
+            assert missed_after == 0, f"{name} harness missed {missed_after}"
+            assert surplus == 0, f"{name} harness added {surplus} surplus tasks"
+
+        # Both harnesses' headline counts, so a change in either is visible here
+        # rather than in whichever document happens to quote it.
+        assert _sweep_counts(default) == {1849}, default
+        assert _sweep_counts(wide) == {18007}, wide
+
+    def test_the_harvest_harness_still_produces_two_readings(self) -> None:
+        output = _run(HARVEST)
+        assert len(_harvest_pairs(output)) == 2, output
+        assert re.search(r"species that fit neither reading:\s*\d+", output), output
+
+    def test_the_corpus_is_not_empty(self) -> None:
+        """A guard that reads nothing passes; make that visible."""
+        assert len(_CORPUS) > 20, len(_CORPUS)
+
+    def test_the_recorders_still_record_the_retraction(self) -> None:
+        """The path exemption must not rot into a blanket silence.
+
+        The exemption exists so two files can quote the old numbers while saying
+        they were wrong. If they stop saying that, the exemption is hiding a live
+        reintroduction instead of a retraction, and this fails.
+        """
+        for path in _RETRACTION_RECORDERS:
+            assert path.exists(), f"exempted file is gone: {path}"
+            text = path.read_text(encoding="utf-8")
+            assert any(
+                phrase in text
+                for phrase in (
+                    "were wrong",
+                    "were retracted",
+                    "the conclusion was wrong",
+                )
+            ), (
+                f"{path.relative_to(REPO_ROOT)} is exempt from the figure lint but "
+                "no longer records a retraction, so the exemption is now hiding "
+                "something"
+            )
+
+
+class TestDocumentsOnlyQuoteFiguresTheHarnessesProduce:
+    """The lint: any count in a known shape must be one the harness printed.
+
+    This is what would have caught `1.0-1.5x`, `317 now covered` and
+    `(2,190 cases)6` — each was a number in a shape the harness already speaks in.
+    """
+
+    @staticmethod
+    def _stale(patterns: list[tuple[re.Pattern[str], set]], what: str) -> list[str]:
+        stale: list[str] = []
+        for path in _CORPUS:
+            if path in _RETRACTION_RECORDERS:
+                continue
+            # Whitespace-collapsed: a claim split across a line is still a claim.
+            text = re.sub(r"\s+", " ", path.read_text(encoding="utf-8"))
+            for pattern, allowed in patterns:
+                for match in pattern.finditer(text):
+                    numbers = tuple(int(g) for g in match.groups())
+                    if numbers not in allowed:
+                        stale.append(
+                            f"{path.relative_to(REPO_ROOT)} quotes {what} "
+                            f"{'/'.join(map(str, numbers))}, which no run of the "
+                            f"committed harnesses produced"
+                        )
+        return stale
+
+    def test_no_document_quotes_an_unmeasured_harvest_count(self) -> None:
+        pairs = _harvest_pairs(_run(HARVEST))
+        allowed = [
+            # "N fit / M miss" is a PAIR summing to the population.
+            (re.compile(r"(\d+) fits? / (\d+) miss"), pairs),
+            # "N of T" is a fit against the population.
+            (
+                re.compile(r"fits? \*\*(\d+) of (\d+)\*\*"),
+                {(fit, _harvest_population()) for fit, _ in pairs},
+            ),
+        ]
+        stale = self._stale(allowed, "a harvest count")
+        assert not stale, "\n  ".join(stale)
+
+    def test_no_document_quotes_an_unmeasured_sweep_count(self) -> None:
+        """The ``1,849`` / ``18,007`` class, in the shape documents use it in.
+
+        Only checked where the sentence names the quantity, so the check cannot
+        fire on an unrelated ``N of 64`` in the same document.
+        """
+        counts = _sweep_counts(_run(SWEEP)) | _sweep_counts(_run(SWEEP, "--wide"))
+        pattern = re.compile(
+            # "frost-date" and "frost date" both appear in the wild; the wording
+            # drifted between the documents, and a pattern that matched only one
+            # of them was silently inert on the other.
+            r"(\d[\d,]*)\s*\((?:task,\s*frost[- ]date,\s*day\)|"
+            r"(?:task, frost date, day) cases the GUI missed)"
+        )
+        stale: list[str] = []
+        for path in _CORPUS:
+            if path in _RETRACTION_RECORDERS:
+                continue
+            text = re.sub(r"\s+", " ", path.read_text(encoding="utf-8"))
+            for match in pattern.finditer(text):
+                value = int(match.group(1).replace(",", ""))
+                if value not in counts:
+                    stale.append(
+                        f"{path.relative_to(REPO_ROOT)} quotes {value} cases the "
+                        f"GUI missed; the harnesses produce {sorted(counts)}"
+                    )
+        assert not stale, "\n  ".join(stale)

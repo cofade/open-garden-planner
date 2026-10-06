@@ -13,7 +13,8 @@ time: with the declared floor (``>=1.12``) a 1.22.0 wheel answered a crafted
 The object-level assertion is what makes the suite meaningful: with the SDK
 default alone, a 1.30.0 wheel would pass the black-box tests while a 1.22.0
 wheel silently exposed the server. Deleting the explicit settings must break
-these tests — see ``test_settings_are_constructed_by_ogp_not_inherited``.
+these tests — see ``test_the_bound_port_appears_in_the_allow_lists`` (renamed from
+``test_settings_are_constructed_by_ogp_not_inherited`` in b6353e7).
 
 Measured on master (v1.29.4, mcp 1.30.0 installed) with this file in place: the
 421/403 transport tests PASS even with our settings deleted, and so does a naive

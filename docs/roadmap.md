@@ -2669,7 +2669,7 @@ items that are disjoint in file terms).
 | [#415](https://github.com/cofade/open-garden-planner/issues/415) | Planting calendar: the propagation editor saves steps in the wrong year | bug | S | ADR-048 L0 senior review | Editor shows real dates; inverted overrides ignored, never destroyed |
 | [#416](https://github.com/cofade/open-garden-planner/issues/416) | Plant data: harvest offsets are read two ways | bug | S | ADR-048 L0 senior review | Documentation made true; row conversion split out to [#418](https://github.com/cofade/open-garden-planner/issues/418) |
 | [#396](https://github.com/cofade/open-garden-planner/issues/396) | Agent API: make Host/Origin (DNS-rebinding) validation explicit (TD-012) | P1 | S | audit AUD-039 | `TransportSecuritySettings` configured by OGP; floor `mcp>=1.23` |
-| [#395](https://github.com/cofade/open-garden-planner/issues/395) | Array tools have zero coverage behind their modal dialogs (TD-013) | P1 | S | audit AUD-010 | 13 integration tests; 317 previously-unrun statements now covered |
+| [#395](https://github.com/cofade/open-garden-planner/issues/395) | Array tools have zero coverage behind their modal dialogs (TD-013) | P1 | S | audit AUD-010 | 13 integration tests; **215 statements newly covered** (321 of 325 never ran before, 106 still do not) per the committed `scripts/measure_array_tool_coverage.py` |
 | [#398](https://github.com/cofade/open-garden-planner/issues/398) | Skills contradict `ci.yml` / `server.py` / `docs/09` (TD-015) | P1 | S | audit AUD-064 | Four statements corrected in both skill trees + a drift guard |
 
 ### What changed, in one paragraph
@@ -2687,7 +2687,7 @@ up."* while the task was open. See ADR-029 (addendum) and ADR-049.
 ### Deliberately deferred
 
 - **[#418](https://github.com/cofade/open-garden-planner/issues/418)** — converting
-  the bundled harvest offsets to their true reading. Measured: both readings fit a majority of the 64 comparable rows (38 frost-relative, 45 planting-relative), with 11 fitting neither, so the data is NOT irreconcilable;; it needs a cited
+  the bundled harvest offsets to their true reading. Measured: both readings fit a majority of the 64 comparable rows (38 frost-relative, 45 planting-relative), with 11 fitting neither, so the data is NOT irreconcilable — (the agent's `generate_for_date_window` and the dashboard's `generate_all` both *call* `generate_calendar_tasks` rather than reimplementing it, so the generator itself is the first implementation and the Gantt's re-derivation the second; the old "fourth" counted the callers); it needs a cited
   horticultural source per row. **Garlic's harvest window lands ~3 months LATE** (October, not July) until then - and that is independent of which reading you assume, since its row fits the frost-relative one on maturity.
 - **#399** (branch protection / `--admin`), **#401** (mypy gate), **#402**
   (coverage gate), **#405** (logging policy), **#409** (NFR-PERF-01), **#406**

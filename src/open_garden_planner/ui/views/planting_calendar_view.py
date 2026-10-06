@@ -464,8 +464,8 @@ class _GanttWidget(QWidget):
         ``windows`` / ``prop_steps`` are produced by the shared generators (see
         ``PlantingCalendarView._compute_gantt_windows``). The widget used to
         recompute every window itself from ``self._last_frost`` plus the species
-        week-offsets, which made it the THIRD independent implementation of
-        "offset to date" and the reason a window anchored on another year's frost
+        week-offsets, which made it the SECOND independent implementation of "offset to date"
+        -- the agent's `generate_for_date_window` and the dashboard's `generate_all` both *call* `generate_calendar_tasks` rather than reimplementing it, so the generator itself is the first implementation and the Gantt's re-derivation the second; the old count included the callers -- and the reason a window anchored on another year's frost
         could not be drawn: only the current year's anchor existed here (#414).
         Drawing what the generators produced is what makes the chart and the
         dashboard agree by construction.
@@ -1480,12 +1480,29 @@ class PlantingCalendarView(QWidget):
 
         The species key comes from the panel and is the one captured when the
         edit was ARMED, not whatever the panel is showing now (#415).
+
+        A ``False`` return from the writer is honoured rather than discarded: see
+        the comment in the loop. That check is unreachable today, and is written
+        anyway, because the alternative is two layers that agree by coincidence.
         """
         species_key, writes = payload            # type: ignore[misc]
+        refused: list[str] = []
         for step_id, start_iso, end_iso in writes:
-            self._project_manager.set_propagation_override(
+            if not self._project_manager.set_propagation_override(
                 species_key, step_id, start_iso, end_iso
-            )
+            ):
+                refused.append(step_id)
+        if refused:
+            # The panel filters inverted pairs before emitting, so this should be
+            # unreachable. Checking it anyway is the point: `set_propagation_override`
+            # returns bool *so that a refusal is observable*, and its only production
+            # caller used to discard the value — leaving two layers that agreed by
+            # coincidence rather than by construction. If they ever disagree, the
+            # user is told instead of a step silently keeping its calculated dates.
+            # (Round 7 raised this; the same "silent no-op that looks like a
+            # successful edit" shape as the status-message route, one layer up.)
+            self.step_date_rejected.emit(species_key, refused[0])
+            return
         self.refresh()
         self._repopulate_detail(species_key)
 
@@ -1638,10 +1655,16 @@ class PlantingCalendarView(QWidget):
 
     #: A one-line message for the main window's status bar.
     #:
-    #: The calendar tab carries its own rather than reaching through the canvas:
-    #: the canvas is not in this tab's scene, so the first attempt at routing the
-    #: propagation-date refusal through ``CanvasView.set_status_message`` delivered
-    #: nothing and the field simply snapped back (#415, round-5 review).
+    #: The calendar tab carries its own rather than reaching through the canvas.
+    #: The tab and the canvas share one ``CanvasScene``, so the canvas route was
+    #: *reachable*; the tab owning its own signal is still the right design — a tab
+    #: message should come from the tab, and routing it through the canvas couples
+    #: this refusal to whichever canvas view happens to be attached.
+    #:
+    #: An earlier version justified this by claiming the canvas is not in this tab's
+    #: scene. Round 6 measured that claim FALSE. It is deleted rather than rebutted,
+    #: because a rebuttal beside a false reason still leaves the false reason
+    #: standing — which is what happened when round 6 added a note instead.
     status_message = pyqtSignal(str)
 
     # ── dashboard generation (unified engine, #228) ─────────────────────────────
