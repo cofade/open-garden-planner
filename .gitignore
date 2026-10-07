@@ -173,7 +173,7 @@ htmlcov/
 # names them `~autosave_<name>.ogp`), so opening any tracked plan creates one
 # beside it. The `*~` rule above does not cover them — the tilde is a prefix
 # here, not a suffix — and a `git add -A` in a docs/ or tests/fixtures/ tree
-# sweeps one in. That happened once already (#419).
+# sweeps one in. That happened once already, in the task-date-correctness PR.
 ~autosave_*.ogp
 competitor_screenshots/
 # Smoke-test export artifacts (PDFs at repo root from validate_exports.py)

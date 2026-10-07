@@ -881,7 +881,12 @@ class TestTheContextBoundaryIsStatedByTests:
         ) == "unregistered"
 
     def test_the_real_tree_has_no_false_positives(self) -> None:
-        """Measured: 38 ok, 6 unknown, 1 clear, 0 failing."""
+        """The context check must not flag correct code.
+
+        Deliberately asserts the INVARIANT (`no failing call sites`) rather than a
+        count: the exact tally moves whenever a call site is added, and pinning it
+        would make this fail for a reason that is not a defect.
+        """
         failing = [
             (str(path), node.lineno, verdict)
             for path, node, verdict in _status_arguments()
