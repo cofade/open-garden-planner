@@ -32,14 +32,19 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.app.settings import get_settings
+from open_garden_planner.core.frost_dates import parse_frost
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.models.plant_data import species_key as _species_key
 from open_garden_planner.models.propagation import PropagationPlan
 from open_garden_planner.services.task_generator import (
+    PlanState,
     Task,
     build_plan_state,
     classify_urgency,
-    generate_all,
+    frost_anchor_years,
+    generate_actionable_for_surface,
+    generate_for_date_window,
+    propagate_plans_by_anchor,
 )
 from open_garden_planner.services.task_status import effective_status
 from open_garden_planner.services.weather_service import get_frost_alerts
@@ -99,6 +104,16 @@ _PROP_TASK_TYPES = ("prick_out", "harden_off")
 # hidden (refresh() is heavyweight, #210/#225). Mirrors the Tasks tab pattern.
 _REFRESH_DEBOUNCE_MS = 250
 
+# Propagation step date editors commit their override after the user pauses for
+# this long, or immediately on focus-out — whichever comes first. Mirrors
+# properties_panel._TEXT_COMMIT_DEBOUNCE_MS (#210): the editor used to write on
+# every ``dateChanged``, so stepping through dates with the arrow keys wrote an
+# override per step and ran the calendar's full refresh() each time (one user
+# gesture is not one undo step — invariant 4). The debounce (rather than
+# focus-out only) is what lets Ctrl+Z work while the editor still has focus,
+# and it also means a date picked from the calendar popup is never lost.
+_STEP_COMMIT_DEBOUNCE_MS = 600
+
 
 def _month_abbr(month_1: int) -> str:
     """Return the locale-aware short month name (1-indexed)."""
@@ -119,6 +134,40 @@ class _PlantRow:
     display_name: str
     species: PlantSpeciesData
     species_key: str = ""   # defaults to scientific_name or common_name if not set
+
+
+@dataclass(frozen=True)
+class _GanttWindow:
+    """One calendar window to draw, already clipped to the displayed year.
+
+    Produced by the shared task generators rather than recomputed in the widget
+    (#414), so the chart shows exactly what the dashboard and the agent list.
+    """
+
+    start: datetime.date
+    end: datetime.date
+    task_type: str
+
+
+@dataclass(frozen=True)
+class _PropStepWindow:
+    """One propagation step to draw, already clipped to the displayed year."""
+
+    start: datetime.date
+    end: datetime.date
+    step_id: str
+    anchor_year: int
+
+
+#: Which Gantt bar colour each generated calendar task type is drawn in.
+#: Also the set of task types the chart draws at all — a generated type missing
+#: here is a task the dashboard lists and the chart silently omits.
+_GANTT_COLORS: dict[str, QColor] = {
+    "indoor_sow": _COL_INDOOR,
+    "direct_sow": _COL_DIRECT,
+    "transplant": _COL_TRANSPL,
+    "harvest": _COL_HARVEST,
+}
 
 
 @dataclass
@@ -148,12 +197,15 @@ def _date_to_x(month: int, day: int, year: int) -> float:
 
 
 def _parse_frost(mmdd: str, year: int) -> datetime.date | None:
-    """Parse 'MM-DD' into a date for the given year, or None on failure."""
-    try:
-        m, d = map(int, mmdd.split("-"))
-        return datetime.date(year, m, d)
-    except (ValueError, AttributeError):
-        return None
+    """Deprecated shim — use the shared frost-date rule (#414).
+
+    This was a SECOND independent parser; a third copy lived in the location
+    dialog's regex. All three now go through
+    :mod:`open_garden_planner.core.frost_dates`, which also owns the
+    29-February-in-a-non-leap-year substitution. Kept as a module-level alias so
+    existing importers keep working.
+    """
+    return parse_frost(mmdd, year)
 
 
 # ─── Dashboard panel ───────────────────────────────────────────────────────────
@@ -404,13 +456,26 @@ class _GanttWidget(QWidget):
         year: int,
         last_frost: datetime.date | None,
         first_fall: datetime.date | None,
-        prop_plans: dict[str, PropagationPlan] | None = None,
+        windows: dict[str, list[_GanttWindow]] | None = None,
+        prop_steps: dict[str, list[_PropStepWindow]] | None = None,
     ) -> None:
+        """Set the rows and the already-computed windows to draw for ``year``.
+
+        ``windows`` / ``prop_steps`` are produced by the shared generators (see
+        ``PlantingCalendarView._compute_gantt_windows``). The widget used to
+        recompute every window itself from ``self._last_frost`` plus the species
+        week-offsets, which made it the SECOND independent implementation of "offset to date"
+        -- the agent's `generate_for_date_window` and the dashboard's `generate_all` both *call* `generate_calendar_tasks` rather than reimplementing it, so the generator itself is the first implementation and the Gantt's re-derivation the second; the old count included the callers -- and the reason a window anchored on another year's frost
+        could not be drawn: only the current year's anchor existed here (#414).
+        Drawing what the generators produced is what makes the chart and the
+        dashboard agree by construction.
+        """
         self._rows = rows
         self._year = year
         self._last_frost = last_frost
         self._first_fall = first_fall
-        self._prop_plans = prop_plans or {}
+        self._windows = windows or {}
+        self._prop_steps = prop_steps or {}
         self._selected = -1
         self._update_size()
         self.update()
@@ -514,38 +579,28 @@ class _GanttWidget(QWidget):
             painter.drawText(QRect(8, y, _NAME_W - 16, _ROW_H), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, row.display_name)
 
             # Calendar bars
-            if self._last_frost is not None:
-                self._paint_bars(painter, row.species, y)
+            self._paint_bars(painter, row, y)
 
             # Propagation sub-row
             if self._show_propagation:
                 self._paint_prop_row(painter, row, i, y + _ROW_H)
 
-    def _paint_bars(self, painter: QPainter, sp: PlantSpeciesData, row_y: int) -> None:
-        assert self._last_frost is not None
+    def _paint_bars(self, painter: QPainter, row: _PlantRow, row_y: int) -> None:
+        """Draw the calendar windows the generators produced for this species.
+
+        The windows arrive already clipped to the displayed year, from whichever
+        frost anchor years reach into it (#414) — so a window anchored on the
+        PREVIOUS year's frost still draws its January part, and one anchored on
+        next year's draws its December part.
+        """
         bar_y = row_y + _BAR_MARGIN
         bar_h = _ROW_H - 2 * _BAR_MARGIN
         year = self._year
-        year_start = datetime.date(year, 1, 1)
-        year_end = datetime.date(year, 12, 31)
 
-        segments = [
-            (sp.indoor_sow_start, sp.indoor_sow_end, _COL_INDOOR),
-            (sp.direct_sow_start, sp.direct_sow_end, _COL_DIRECT),
-            (sp.transplant_start, sp.transplant_end, _COL_TRANSPL),
-            (sp.harvest_start, sp.harvest_end, _COL_HARVEST),
-        ]
-        for start_w, end_w, color in segments:
-            if start_w is None or end_w is None:
-                continue
-            d_start = self._last_frost + datetime.timedelta(weeks=start_w)
-            d_end = self._last_frost + datetime.timedelta(weeks=end_w)
-            if d_end < year_start or d_start > year_end:
-                continue
-            d_start = max(d_start, year_start)
-            d_end = min(d_end, year_end)
-            x1 = _date_to_x(d_start.month, d_start.day, year)
-            x2 = _date_to_x(d_end.month, d_end.day, year)
+        for window in self._windows.get(row.species_key, ()):
+            color = _GANTT_COLORS.get(window.task_type, _COL_DIRECT)
+            x1 = _date_to_x(window.start.month, window.start.day, year)
+            x2 = _date_to_x(window.end.month, window.end.day, year)
             if x2 - x1 < 4:
                 x2 = x1 + 4
             rect = QRect(int(x1), bar_y, int(x2 - x1), bar_h)
@@ -588,8 +643,7 @@ class _GanttWidget(QWidget):
             self.tr("Propagation"),
         )
 
-        plan = self._prop_plans.get(row.species_key)
-        if plan is None or self._last_frost is None:
+        if not self._prop_steps.get(row.species_key):
             return
 
         year = self._year
@@ -598,7 +652,11 @@ class _GanttWidget(QWidget):
         bar_top = sub_y + _PROP_BAR_Y
         bar_h = _PROP_BAR_H
 
-        # Paint each propagation step
+        # Paint each propagation step, from EVERY anchor year whose plan reaches
+        # into the displayed year (#414). Before this the sub-row could only draw
+        # the plan anchored on the current year's frost, so a tomato-only plan
+        # showed neither the indoor sowing (20 Nov - 4 Dec) nor the prick-out of
+        # the plan anchored on next year's frost.
         step_styles = [
             ("germination",  _COL_GERM,            False),  # period bar
             ("harden_off",   _COL_HARDEN,           False),  # period bar
@@ -606,40 +664,39 @@ class _GanttWidget(QWidget):
             ("transplant",   _COL_TRANSPLANT_PROP,  True),   # point marker
         ]
 
+        windows = self._prop_steps.get(row.species_key, ())
+        by_step: dict[str, list[_PropStepWindow]] = {}
+        for window in windows:
+            by_step.setdefault(window.step_id, []).append(window)
+
         painter.setPen(Qt.PenStyle.NoPen)
         for step_id, color, is_point in step_styles:
-            step = plan.get_step(step_id)
-            if step is None:
-                continue
-            d_start = step.start_date
-            d_end = step.end_date
-            if d_end < year_start or d_start > year_end:
-                continue
-            d_start_cl = max(d_start, year_start)
-            d_end_cl = min(d_end, year_end)
-            x1 = _date_to_x(d_start_cl.month, d_start_cl.day, year)
-            x2 = _date_to_x(d_end_cl.month, d_end_cl.day, year)
+            for step_window in by_step.get(step_id, ()):
+                d_start = max(step_window.start, year_start)
+                d_end = min(step_window.end, year_end)
+                x1 = _date_to_x(d_start.month, d_start.day, year)
+                x2 = _date_to_x(d_end.month, d_end.day, year)
 
-            if is_point:
-                # Draw a small diamond marker
-                cx = int(x1)
-                cy = bar_top + bar_h // 2
-                half = 5
-                painter.setBrush(QBrush(color))
-                diamond = QPolygon([
-                    QPoint(cx, cy - half),
-                    QPoint(cx + half, cy),
-                    QPoint(cx, cy + half),
-                    QPoint(cx - half, cy),
-                ])
-                painter.drawPolygon(diamond)
-            else:
-                # Period bar
-                if x2 - x1 < 4:
-                    x2 = x1 + 4
-                rect = QRect(int(x1), bar_top, int(x2 - x1), bar_h)
-                painter.setBrush(QBrush(color))
-                painter.drawRoundedRect(rect, 2, 2)
+                if is_point:
+                    # Draw a small diamond marker
+                    cx = int(x1)
+                    cy = bar_top + bar_h // 2
+                    half = 5
+                    painter.setBrush(QBrush(color))
+                    diamond = QPolygon([
+                        QPoint(cx, cy - half),
+                        QPoint(cx + half, cy),
+                        QPoint(cx, cy + half),
+                        QPoint(cx - half, cy),
+                    ])
+                    painter.drawPolygon(diamond)
+                else:
+                    # Period bar
+                    if x2 - x1 < 4:
+                        x2 = x1 + 4
+                    rect = QRect(int(x1), bar_top, int(x2 - x1), bar_h)
+                    painter.setBrush(QBrush(color))
+                    painter.drawRoundedRect(rect, 2, 2)
 
         # Restore font for next row
         normal = QFont()
@@ -693,12 +750,16 @@ class _GanttWidget(QWidget):
 class _DetailPanel(QFrame):
     """Shows botanical details and propagation step editor for the selected plant."""
 
-    #: Emitted when the user confirms a step date change.
-    #: (species_key, step_id, start_iso, end_iso)
-    step_date_changed = pyqtSignal(str, str, str, str)
+    #: Emitted once per gesture with every committed step date.
+    #: ``(species_key, [(step_id, start_iso, end_iso), ...])`` — BATCHED, because
+    #: the receiving slot runs a full calendar refresh (and a weather fetch), so
+    #: emitting per step made one user gesture cost N heavyweight refreshes.
+    steps_date_changed = pyqtSignal(object)
     #: Emitted when the user resets a step override.
     #: (species_key, step_id)
     step_date_reset = pyqtSignal(str, str)
+    #: (species_key, step_id) — the edit was refused and nothing was stored.
+    step_date_rejected = pyqtSignal(str, str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -795,31 +856,134 @@ class _DetailPanel(QFrame):
             reset_btn.setIcon(icon)
 
     def _connect_step_signals(self) -> None:
+        self._commit_timer = QTimer(self)
+        self._commit_timer.setSingleShot(True)
+        self._commit_timer.setInterval(_STEP_COMMIT_DEBOUNCE_MS)
+        self._commit_timer.timeout.connect(self._flush_pending_steps)
+        #: ``step_id -> (species_key, start_iso, end_iso)``, captured when the edit
+        #: was ARMED. Both the species AND the values are captured, never read at
+        #: flush time: the flush can run after the panel has been pointed at a
+        #: different plant (so the species key would be wrong), and the commit slot
+        #: calls ``refresh()`` which rewrites the editors (so the values would be
+        #: wrong). See :meth:`_flush_pending_steps` for the defects this shape
+        #: prevents.
+        self._pending_steps: dict[str, tuple[str, str, str]] = {}
+
         for step_id, (start_edit, end_edit, reset_btn) in self._step_rows.items():
             # Use default-arg capture to avoid closure issues
-            def make_changed_handler(sid: str, se: QDateEdit, ee: QDateEdit | None) -> Any:
+            def make_changed_handler(sid: str) -> Any:
                 def handler() -> None:
-                    if not self._current_species_key or self._current_plan is None:
+                    # The ONLY place an edit is armed. `dateChanged` fires on a
+                    # real user change, so arming here is what keeps a tab-through
+                    # that touches nothing from committing anything.
+                    if not self._current_species_key:
                         return
-                    start_d = se.date().toPyDate()
-                    end_d = ee.date().toPyDate() if ee else start_d
-                    self.step_date_changed.emit(
-                        self._current_species_key, sid,
-                        start_d.isoformat(), end_d.isoformat(),
+                    row = self._step_rows.get(sid)
+                    if row is None:
+                        return
+                    row_start, row_end, _reset = row
+                    start_d = row_start.date().toPyDate()
+                    end_d = row_end.date().toPyDate() if row_end is not None else start_d
+                    self._pending_steps[sid] = (
+                        self._current_species_key, start_d.isoformat(), end_d.isoformat(),
                     )
+                    self._commit_timer.start()
+                return handler
+
+            def make_commit_handler(sid: str) -> Any:
+                # Focus-out commits immediately so the override is stored (and the
+                # plan rebuilt) as soon as the user leaves the field -- but ONLY
+                # what `dateChanged` already armed.
+                #
+                # `editingFinished` fires on EVERY focus-out, including a
+                # tab-through that changed nothing. Arming here wrote an override
+                # for every step the user's focus merely passed, which silently
+                # froze the propagation dates so they stopped following the frost
+                # date (#415 round-4 review). It looks like a harmless no-op and
+                # is a data change.
+                def handler() -> None:
+                    if sid in self._pending_steps:
+                        self._flush_pending_steps()
                 return handler
 
             def make_reset_handler(sid: str) -> Any:
                 def handler() -> None:
                     if not self._current_species_key:
                         return
+                    self._pending_steps.pop(sid, None)
+                    # Only stop the debounce if nothing else is armed: resetting
+                    # one step must not strand a sibling edit that is waiting on
+                    # the timer (#415 round-4 review).
+                    if not self._pending_steps:
+                        self._commit_timer.stop()
                     self.step_date_reset.emit(self._current_species_key, sid)
                 return handler
 
-            start_edit.dateChanged.connect(make_changed_handler(step_id, start_edit, end_edit))
+            start_edit.dateChanged.connect(make_changed_handler(step_id))
+            start_edit.editingFinished.connect(make_commit_handler(step_id))
             if end_edit is not None:
-                end_edit.dateChanged.connect(make_changed_handler(step_id, start_edit, end_edit))
+                end_edit.dateChanged.connect(make_changed_handler(step_id))
+                end_edit.editingFinished.connect(make_commit_handler(step_id))
             reset_btn.clicked.connect(make_reset_handler(step_id))
+
+    def _flush_pending_steps(self) -> None:
+        """Commit every armed step's override, in ONE batch, then clear.
+
+        Everything this needs is in ``_pending_steps``; the editors are NEVER
+        read here. Five defects that shape came from, each of which was shipped:
+
+        * **A dict, not a single slot.** Correcting a step's start and then its end
+          arms two steps; one slot kept only the last and the first was dropped.
+        * **The species key is captured at ARM time.** The flush runs from
+          ``show_species``, which had already reassigned
+          ``_current_species_key`` — so an armed edit was persisted against the
+          species the user had just clicked *onto*. Silent cross-species
+          corruption in the ``.ogp``.
+        * **The values are captured at ARM time too.** The commit slot calls
+          ``refresh()``, which reaches back into ``_populate_prop_editor` and
+          rewrites the editors, so reading them here persisted values the user
+          never entered — or dropped the edit outright, for every step after the
+          first.
+        * **Nothing is armed without a `dateChanged`.** Arming on ``editingFinished``
+          wrote an override for every step a tab-through merely passed, silently
+          freezing the propagation dates.
+        * **One emit per species, not per step.** The slot runs a full calendar
+          refresh and a weather fetch, so N emits cost N heavyweight refreshes.
+
+        An inverted pair (the user moved a start past its end) is REFUSED and
+        reported, never silently rewritten: clamping to a zero-length period
+        persisted an end date the user never entered.
+
+        Only armed entries are considered, so a flush triggered by an unrelated
+        refresh is a no-op by construction — there is nothing to accidentally
+        write.
+        """
+        armed = dict(self._pending_steps)
+        self._commit_timer.stop()
+        if not armed:
+            return
+        # Every armed entry is accounted for below (written or rejected), so the
+        # clear is safe here and only here.
+        self._pending_steps.clear()
+
+        writes_by_species: dict[str, list[tuple[str, str, str]]] = {}
+        rejected: list[tuple[str, str]] = []
+        for step_id, (species_key, start_iso, end_iso) in sorted(armed.items()):
+            if not species_key:
+                continue
+            if end_iso < start_iso:   # ISO dates sort chronologically
+                rejected.append((species_key, step_id))
+                continue
+            writes_by_species.setdefault(species_key, []).append(
+                (step_id, start_iso, end_iso)
+            )
+
+        for species_key, step_id in rejected:
+            self.step_date_rejected.emit(species_key, step_id)
+        # One emit per species, so a gesture touching two plants refreshes once
+        # each rather than once per step.
+        for species_key, writes in writes_by_species.items():
+            self.steps_date_changed.emit((species_key, writes))
 
     # ── public API ─────────────────────────────────────────────────────────────
 
@@ -839,6 +1003,21 @@ class _DetailPanel(QFrame):
         prop_plan: PropagationPlan | None,
         no_data_text: str = "No detailed data available",
     ) -> None:
+        # Commit any armed edit BEFORE pointing the panel at another plant. The
+        # Gantt has Qt::NoFocus, so clicking another chart row fires no
+        # `editingFinished` to commit implicitly — without this the edit would be
+        # stranded by the populate below and lost.
+        #
+        # This DOES re-enter `show_species` (`steps_date_changed` → the view slot
+        # → `_repopulate_detail` → `show_species`), and the outer call's correctness
+        # rests on TWO load-bearing orderings:
+        #   1. the flush clears `_pending_steps` BEFORE it emits, so the inner
+        #      `show_species` finds nothing to flush and does not recurse; and
+        #   2. the two lines below run AFTER the flush returns, so they overwrite
+        #      whatever the inner call set — which is the species the user wants.
+        # Reversing either reintroduces a cross-species misattribution, so
+        # `test_show_species_reassigns_after_the_flush` pins it.
+        self._flush_pending_steps()
         self._current_species_key = species_key
         self._current_plan = prop_plan
 
@@ -847,15 +1026,18 @@ class _DetailPanel(QFrame):
         self._name_lbl.setText(f"{name}{sci}")
         parts: list[str] = []
         if sp.days_to_germination_min is not None:
-            parts.append(f"Germination: {sp.days_to_germination_min}–{sp.days_to_germination_max} days")
+            parts.append(self.tr("Germination: {min}–{max} days").format(
+                min=sp.days_to_germination_min, max=sp.days_to_germination_max))
         if sp.min_germination_temp_c is not None:
-            parts.append(f"Min. germ. temp: {sp.min_germination_temp_c} °C")
+            parts.append(self.tr("Min. germ. temp: {temp} °C").format(temp=sp.min_germination_temp_c))
         if sp.seed_depth_cm is not None:
-            parts.append(f"Seed depth: {sp.seed_depth_cm} cm")
+            parts.append(self.tr("Seed depth: {depth} cm").format(depth=sp.seed_depth_cm))
         if sp.frost_tolerance:
-            parts.append(f"Frost tolerance: {sp.frost_tolerance}")
+            parts.append(self.tr("Frost tolerance: {level}").format(
+                level=self._frost_tolerance_text(sp.frost_tolerance)))
         if sp.days_to_maturity_min is not None:
-            parts.append(f"Maturity: {sp.days_to_maturity_min}–{sp.days_to_maturity_max} days")
+            parts.append(self.tr("Maturity: {min}–{max} days").format(
+                min=sp.days_to_maturity_min, max=sp.days_to_maturity_max))
         self._info_lbl.setText("  ·  ".join(parts) if parts else no_data_text)
 
         # Update propagation editor
@@ -867,31 +1049,46 @@ class _DetailPanel(QFrame):
             self._prop_widget.hide()
             self.setMaximumHeight(90)
 
+    def _frost_tolerance_text(self, token: str) -> str:
+        """Translated label for a species' raw frost-tolerance data token.
+
+        The data files store an English token (``hardy`` / ``half-hardy`` /
+        ``tender``); #415 found the detail line printing that token verbatim, so
+        the German UI showed English words inline. Unknown tokens fall back to
+        the raw value rather than being hidden.
+        """
+        labels = {
+            "hardy": self.tr("hardy"),
+            "half-hardy": self.tr("half-hardy"),
+            "tender": self.tr("tender"),
+        }
+        return labels.get(token, token)
+
     def _populate_prop_editor(self, plan: PropagationPlan) -> None:
-        """Fill date editors from a PropagationPlan, blocking signals."""
-        year = datetime.date.today().year
+        """Fill date editors from a PropagationPlan, blocking signals.
+
+        Each step is shown with its REAL dates (#415). This used to force the
+        displayed year to the current year "for readability", with the start and
+        the end moved independently, so a step that crossed New Year was stored
+        inverted into the .ogp (start 2026-12-24 / end 2026-01-22) and a step in
+        another calendar year silently moved. The editors' display format is
+        "dd MMM" (no year), so the real dates read the same as before while an
+        edit can no longer change a year the user did not touch.
+        """
+        # show_species already flushed any armed edit before swapping the plan, so
+        # there is nothing pending here. Clearing defensively would risk the very
+        # silent-discard this path used to cause, so it is deliberately absent.
         for step_id, (start_edit, end_edit, reset_btn) in self._step_rows.items():
             step = plan.get_step(step_id)
             if step is None:
                 continue
             start_edit.blockSignals(True)
-            # Force year of display date to current year for readability
-            s = step.start_date
-            try:
-                display_s = datetime.date(year, s.month, s.day)
-            except ValueError:
-                display_s = s
-            start_edit.setDate(QDate(display_s.year, display_s.month, display_s.day))
+            start_edit.setDate(QDate(step.start_date.year, step.start_date.month, step.start_date.day))
             start_edit.blockSignals(False)
 
             if end_edit is not None:
                 end_edit.blockSignals(True)
-                e = step.end_date
-                try:
-                    display_e = datetime.date(year, e.month, e.day)
-                except ValueError:
-                    display_e = e
-                end_edit.setDate(QDate(display_e.year, display_e.month, display_e.day))
+                end_edit.setDate(QDate(step.end_date.year, step.end_date.month, step.end_date.day))
                 end_edit.blockSignals(False)
 
             # Highlight overridden steps
@@ -930,6 +1127,9 @@ class PlantingCalendarView(QWidget):
         self._rows: list[_PlantRow] = []
         self._prop_plans: dict[str, PropagationPlan] = {}
         self._current_dashboard_tasks: list[_DashboardTask] = []
+        #: The snapshot the dashboard and the Gantt are both derived from, so the
+        #: two cannot disagree about which frost anchor years exist (#414).
+        self._plan_state: PlanState | None = None
         self._soil_service: Any | None = None
         # Debounced refresh so the view can be wired to stack_changed (undo/redo)
         # without heavyweight churn; skips work while the tab is hidden (#225).
@@ -995,7 +1195,8 @@ class PlantingCalendarView(QWidget):
 
         # Detail panel
         self._detail = _DetailPanel()
-        self._detail.step_date_changed.connect(self._on_step_date_changed)
+        self._detail.steps_date_changed.connect(self._on_steps_date_changed)
+        self._detail.step_date_rejected.connect(self._on_step_date_rejected)
         self._detail.step_date_reset.connect(self._on_step_date_reset)
         root.addWidget(self._detail)
         self._detail.hide()
@@ -1120,13 +1321,17 @@ class PlantingCalendarView(QWidget):
         rows, last_frost, first_fall, seed_links = self._collect_data()
         self._rows = rows
 
-        # Build propagation plans (US-9.5 + US-9.6)
+        # Build propagation plans (US-9.5 + US-9.6). The EDITABLE plan stays the
+        # one anchored on the current year's frost (#414); the other anchors are
+        # drawn on the chart and listed by the dashboard/agent, but not edited,
+        # because the detail panel edits exactly one plan per species.
         if last_frost is not None and rows:
             self._prop_plans = self._build_propagation_plans(rows, last_frost, seed_links)
         else:
             self._prop_plans = {}
 
-        # Update dashboard via the single unified engine (#228).
+        # Update dashboard via the single unified engine (#228). This also
+        # refreshes self._plan_state, which the Gantt windows are derived from.
         self._rebuild_dashboard()
 
         # Update Gantt translated marker labels
@@ -1163,8 +1368,73 @@ class PlantingCalendarView(QWidget):
 
         self._empty_lbl.hide()
         year = datetime.date.today().year
-        self._gantt.set_data(rows, year, last_frost, first_fall, self._prop_plans)
+        windows, prop_steps = self._compute_gantt_windows(year)
+        self._gantt.set_data(rows, year, last_frost, first_fall, windows, prop_steps)
         self._scroll.show()
+
+    def _compute_gantt_windows(
+        self, year: int,
+    ) -> tuple[dict[str, list[_GanttWindow]], dict[str, list[_PropStepWindow]]]:
+        """Windows for the chart, produced by the shared generators (#414).
+
+        The Gantt used to recompute every window from the current year's frost
+        plus the species week-offsets, so it drew exactly one anchor year. Here
+        the chart asks the shared engine for everything overlapping ``year`` —
+        including windows anchored on the previous or next year's frost, which
+        is what makes a tomato harvest running into February finally visible in
+        January.
+        """
+        windows: dict[str, list[_GanttWindow]] = {}
+        prop_steps: dict[str, list[_PropStepWindow]] = {}
+        state = self._plan_state
+        if state is None or state.last_frost is None:
+            return windows, prop_steps
+
+        year_start = datetime.date(year, 1, 1)
+        year_end = datetime.date(year, 12, 31)
+
+        # actionable_only=False: the chart draws the whole displayed year, which is
+        # not an urgency window. Leaving the dashboard's True in place would drop
+        # every window that is not urgent *today* — i.e. most of the chart.
+        from dataclasses import replace  # noqa: PLC0415
+
+        for task in generate_for_date_window(
+            replace(state, actionable_only=False), year_start, year_end
+        ):
+            if task.source != "calendar" or not task.species_key:
+                continue
+            if task.start_date is None or task.end_date is None:
+                continue
+            if task.task_type not in _GANTT_COLORS:
+                continue
+            windows.setdefault(task.species_key, []).append(_GanttWindow(
+                start=max(task.start_date, year_start),
+                end=min(task.end_date, year_end),
+                task_type=task.task_type,
+            ))
+
+        if not self._prop_toggle.isChecked():
+            return windows, prop_steps
+
+        # Propagation steps, per anchor year, from the same shared calculator.
+        for (species_key, anchor_year), plan in propagate_plans_by_anchor(
+            state, frost_anchor_years(state, year_start, year_end)
+        ).items():
+            for step in plan.steps:
+                if step.end_date < year_start or step.start_date > year_end:
+                    continue
+                prop_steps.setdefault(species_key, []).append(_PropStepWindow(
+                    start=max(step.start_date, year_start),
+                    end=min(step.end_date, year_end),
+                    step_id=step.step_id,
+                    anchor_year=anchor_year,
+                ))
+
+        for values in windows.values():
+            values.sort(key=lambda w: (w.start, w.task_type))
+        for values in prop_steps.values():
+            values.sort(key=lambda w: (w.start, w.anchor_year, w.step_id))
+        return windows, prop_steps
 
     # ── event handlers ─────────────────────────────────────────────────────────
 
@@ -1200,39 +1470,124 @@ class PlantingCalendarView(QWidget):
         # Refresh dashboard to include/exclude propagation tasks
         self.refresh()
 
-    def _on_step_date_changed(
-        self, species_key: str, step_id: str, start_iso: str, end_iso: str
-    ) -> None:
-        """Persist a user-adjusted propagation step date to the project."""
-        if hasattr(self._project_manager, "set_propagation_override"):
-            self._project_manager.set_propagation_override(
+    def _on_steps_date_changed(self, payload: object) -> None:
+        """Persist a whole gesture's step dates, then refresh ONCE.
+
+        ``payload`` is ``(species_key, [(step_id, start_iso, end_iso), ...])``.
+        Batched because this slot runs a full calendar refresh — which walks the
+        scene, rebuilds the dashboard and re-fetches the weather — and emitting
+        per step made a single user gesture cost N of those (invariant 4).
+
+        The species key comes from the panel and is the one captured when the
+        edit was ARMED, not whatever the panel is showing now (#415).
+
+        The batch is ALL-OR-NOTHING: every step is validated before any is written,
+        so a refusal cannot leave half a gesture applied while the message says a
+        step "was not changed". A ``False`` return from the writer is honoured
+        rather than discarded. Both checks are unreachable today — the panel filters
+        inverted pairs first — and both are written anyway, because the alternative
+        is two layers that agree by coincidence. The comparison here parses, so
+        this layer and `set_propagation_override` apply the SAME rule rather than
+        two rules that happen to agree on well-formed input.
+        """
+        species_key, writes = payload            # type: ignore[misc]
+
+        # ALL-OR-NOTHING. The loop below writes as it goes, so a batch whose second
+        # step was refused would leave the first stored and then `return` without a
+        # refresh — telling the user one step "was not changed" while another was,
+        # which is a worse lie than either outcome alone. So every step is checked
+        # FIRST and nothing is written until the whole batch is known good.
+        #
+        # This is unreachable today: the panel filters inverted pairs before
+        # emitting and its ISO strings always parse. It is written anyway for the
+        # same reason the writer returns a bool — the alternative is two layers
+        # agreeing by coincidence, which is the shape of the original status-route
+        # P0 (a guard that looked like a check and was not one).
+        def _as_date(value: str) -> datetime.date | None:
+            try:
+                return datetime.date.fromisoformat(value)
+            except (TypeError, ValueError):
+                return None
+
+        invalid = []
+        for step_id, start_iso, end_iso in writes:
+            start_d, end_d = _as_date(start_iso), _as_date(end_iso)
+            # Compare PARSED dates, not the raw strings. `end_iso < start_iso` is a
+            # different rule: for basic-format ISO (`20260203` vs `2026-10-01`) the
+            # string comparison refuses a pair the writer accepts, because `-` sorts
+            # before digits. Unreachable today, and the two layers apply the same
+            # rule regardless rather than agreeing by coincidence.
+            if start_d is None or end_d is None or end_d < start_d:
+                invalid.append(step_id)
+        if invalid:
+            self.step_date_rejected.emit(species_key, invalid[0])
+            return
+
+        refused: list[str] = []
+        for step_id, start_iso, end_iso in writes:
+            if not self._project_manager.set_propagation_override(
                 species_key, step_id, start_iso, end_iso
-            )
+            ):
+                refused.append(step_id)
+        if refused:
+            # The panel filters inverted pairs before emitting, so this should be
+            # unreachable. Checking it anyway is the point: `set_propagation_override`
+            # returns bool *so that a refusal is observable*, and its only production
+            # caller used to discard the value — leaving two layers that agreed by
+            # coincidence rather than by construction. If they ever disagree, the
+            # user is told instead of a step silently keeping its calculated dates.
+            # (Round 7 raised this; the same "silent no-op that looks like a
+            # successful edit" shape as the status-message route, one layer up.)
+            self.step_date_rejected.emit(species_key, refused[0])
+            return
         self.refresh()
-        # Re-populate detail panel with updated plan
+        self._repopulate_detail(species_key)
+
+    def _on_step_date_rejected(self, species_key: str, step_id: str) -> None:   # noqa: ARG002
+        """Tell the user their dates were refused, and show the real state.
+
+        The end date preceding the start is the one input the model cannot hold
+        (#415). Silently clamping it persisted a value the user never entered, and
+        silently refusing looked like a lost edit; a status message plus a
+        re-populate makes both the refusal and the actual stored dates visible.
+        """
+        message = self.tr(
+            "The end date of a propagation step cannot be before its start "
+            "date — the step was not changed."
+        )
+        # The calendar tab emits its own signal rather than reaching for the canvas.
+        # `CanvasView.set_status_message` now works (it emits a signal — see its
+        # docstring) and the tab shares the same `CanvasScene` as the canvas, so the
+        # canvas route was *reachable*; it is the wrong owner either way — a tab
+        # message should come from the tab, and routing it through the canvas
+        # couples this refusal to whichever canvas view happens to be attached.
+        # (An earlier version justified this by claiming the canvas is not in this
+        # tab's scene. Round 6 measured that claim false: the scene IS shared.)
+        self.status_message.emit(message)
+        self._repopulate_detail(species_key)
+
+    def _repopulate_detail(self, species_key: str) -> None:
+        """Re-point the detail panel at a species' freshly rebuilt plan.
+
+        Unconditional on visibility: the panel's content must show what is
+        actually stored even when the tab is hidden, or a refused edit keeps
+        displaying the date the user typed as though it had been saved.
+        """
         plan = self._prop_plans.get(species_key)
-        if plan is not None and self._detail.isVisible():
-            row = next((r for r in self._rows if r.species_key == species_key), None)
-            if row:
-                self._detail.show_species(
-                    row.species, species_key, plan,
-                    no_data_text=self.tr("No detailed data available"),
-                )
+        if plan is None:
+            return
+        row = next((r for r in self._rows if r.species_key == species_key), None)
+        if row is not None:
+            self._detail.show_species(
+                row.species, species_key, plan,
+                no_data_text=self.tr("No detailed data available"),
+            )
 
     def _on_step_date_reset(self, species_key: str, step_id: str) -> None:
         """Clear a propagation step override and revert to calculated dates."""
-        if hasattr(self._project_manager, "clear_propagation_override"):
-            self._project_manager.clear_propagation_override(species_key, step_id)
+        self._project_manager.clear_propagation_override(species_key, step_id)
         self.refresh()
-        # Re-populate detail panel
-        plan = self._prop_plans.get(species_key)
-        if plan is not None and self._detail.isVisible():
-            row = next((r for r in self._rows if r.species_key == species_key), None)
-            if row:
-                self._detail.show_species(
-                    row.species, species_key, plan,
-                    no_data_text=self.tr("No detailed data available"),
-                )
+        self._repopulate_detail(species_key)
 
     # ─── Weather widget slots (US-12.1 / US-12.2) ────────────────────
 
@@ -1335,6 +1690,20 @@ class PlantingCalendarView(QWidget):
             names.append(name or "?")
         return names
 
+    #: A one-line message for the main window's status bar.
+    #:
+    #: The calendar tab carries its own rather than reaching through the canvas.
+    #: The tab and the canvas share one ``CanvasScene``, so the canvas route was
+    #: *reachable*; the tab owning its own signal is still the right design — a tab
+    #: message should come from the tab, and routing it through the canvas couples
+    #: this refusal to whichever canvas view happens to be attached.
+    #:
+    #: An earlier version justified this by claiming the canvas is not in this tab's
+    #: scene. Round 6 measured that claim FALSE. It is deleted rather than rebutted,
+    #: because a rebuttal beside a false reason still leaves the false reason
+    #: standing — which is what happened when round 6 added a note instead.
+    status_message = pyqtSignal(str)
+
     # ── dashboard generation (unified engine, #228) ─────────────────────────────
 
     def apply_theme_colors(self, _colors: dict[str, str]) -> None:
@@ -1353,12 +1722,20 @@ class PlantingCalendarView(QWidget):
             self._project_manager,
             frost_alerts=self._current_frost_alerts,
             soil_service=self._soil_service,
-            prop_plans=self._prop_plans if self._prop_toggle.isChecked() else None,
+            # include_propagation (rather than a pre-built single-year
+            # ``prop_plans`` dict) so the anchor-year machinery runs inside the
+            # shared generator — this surface used to pass one plan per species,
+            # which is exactly the single-anchor limitation #414 removes.
+            include_propagation=self._prop_toggle.isChecked(),
         )
+        self._plan_state = state
         task_states = self._project_manager.task_states
         bed_names = self._bed_name_map()
         dash: list[_DashboardTask] = []
-        for task in generate_all(state):
+        # generate_actionable_for_surface, not generate_all: the dashboard must
+        # list windows anchored on ANY year's frost (#414) while still applying
+        # its own "actionable now" rule.
+        for task in generate_actionable_for_surface(state):
             # Calendar shows only actionable, still-open tasks (done / snoozed /
             # dismissed / archived are hidden via the shared status resolver).
             if effective_status(task_states.get(task.task_id), today) != "open":

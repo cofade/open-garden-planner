@@ -45,6 +45,14 @@ def compute_season_segments(
 ) -> dict[str, tuple[datetime.date, datetime.date]]:
     """Return frost-relative date ranges for each season segment.
 
+    Parses both frost dates through :mod:`core.frost_dates`, the single rule
+    every reader shares (#414, ADR-049). This function used to slice the strings
+    and call ``datetime.date`` directly, which made it a fourth independent
+    notion of a frost date: for a ``'02-29'`` frost in a non-leap year the task
+    windows anchored on the substituted 1 March while the bed's season segments
+    raised and fell back to month-only boundaries — the same plan disagreeing
+    with itself on the same day.
+
     Args:
         last_frost_str: "MM-DD" last spring frost date.
         first_fall_frost_str: "MM-DD" first fall frost date.
@@ -52,9 +60,19 @@ def compute_season_segments(
 
     Returns:
         Dict mapping segment key → (start_date, end_date).
+
+    Raises:
+        ValueError: if either stored value is not a real frost date.
     """
-    last = datetime.date(year, int(last_frost_str[:2]), int(last_frost_str[3:]))
-    fall = datetime.date(year, int(first_fall_frost_str[:2]), int(first_fall_frost_str[3:]))
+    from open_garden_planner.core.frost_dates import parse_frost
+
+    last = parse_frost(last_frost_str, year)
+    fall = parse_frost(first_fall_frost_str, year)
+    if last is None or fall is None:
+        raise ValueError(
+            f"not a usable frost date pair for {year}: "
+            f"{last_frost_str!r} / {first_fall_frost_str!r}"
+        )
 
     return {
         "early_spring": (

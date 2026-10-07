@@ -229,9 +229,9 @@ visibility calls.
 
 | Toggle | Where | Status |
 |---|---|---|
-| **Smart Symbols sidebar panel hidden** | `application.py:5161` `set_panel_visible("smart_symbols", False)` | **experimental / deferred UI** (US-C4). Engine, persistence, DXF export, and properties editing all ship and are tested; symbols in existing `.ogp` files still regenerate. Re-enable by deleting that one line (the comment says exactly this). |
+| **Smart Symbols sidebar panel hidden** | `application.py:5196` `set_panel_visible("smart_symbols", False)` | **experimental / deferred UI** (US-C4). Engine, persistence, DXF export, and properties editing all ship and are tested; symbols in existing `.ogp` files still regenerate. Re-enable by deleting that one line (the comment says exactly this). |
 | Contextual panels hidden until relevant selection | `set_panel_visible(key, relevant)` for `plant_details` / `companion` / `crop_rotation` in the selection updaters (ADR-030) | production behavior — not a bug when they're absent with nothing selected |
-| Satellite menu action disabled | `application.py:7736` `_update_satellite_menu_state` when both the Preferences key and `OGP_GOOGLE_MAPS_KEY` are unset (§3) | production guard |
+| Satellite menu action disabled | `application.py:3748` `_update_satellite_menu_state` when both the Preferences key and `OGP_GOOGLE_MAPS_KEY` are unset (§3) | production guard |
 | Nearest / perpendicular / tangent snap default-OFF | §1 snap table | production, opt-in |
 
 If "a feature seems disabled", check this table before debugging.
@@ -256,7 +256,7 @@ If "a feature seems disabled", check this table before debugging.
 | Pin | Rationale (from the in-file comment, verified) |
 |---|---|
 | `PyQt6-WebEngine>=6.10.0,<6.11` | upper-bound pin (needed by the map picker's `QWebEngineView`; must be imported before `QApplication` — `main.py`) |
-| `mcp>=1.12,<2.0` | "Pinned to mcp v1 — v2 renames `FastMCP` -> `MCPServer`." uvicorn/starlette/pydantic/anyio/sse-starlette come transitively but are listed where used. |
+| `mcp>=1.23,<2.0` | "Pinned to mcp v1 — v2 renames `FastMCP` -> `MCPServer`." uvicorn/starlette/pydantic/anyio/sse-starlette come transitively but are listed where used. |
 | `uvicorn>=0.30`, `starlette>=0.37`, `pydantic>=2.11` | Agent API server stack |
 
 **Deprecated:** the top-level `requirements.txt` lists only `PyQt6` + `Pillow`

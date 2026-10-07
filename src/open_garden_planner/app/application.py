@@ -4621,6 +4621,12 @@ class GardenPlannerApp(QMainWindow):
         # Create splitter for canvas and sidebar
         self._main_splitter = QSplitter(Qt.Orientation.Horizontal)
         self._main_splitter.addWidget(self.canvas_view)
+        # Route CanvasView's status messages to the window's status bar. This is
+        # a signal connection rather than a parent lookup because the canvas's
+        # parent is this QSplitter, which has no statusBar() — so the old
+        # `self.parent().statusBar()` route resolved to nothing and every
+        # set_status_message caller was silently dropped. #415 surfaced it.
+        self.canvas_view.status_message.connect(self._show_status_message)
         self._main_splitter.addWidget(self.sidebar)
         self._main_splitter.setStretchFactor(0, 1)  # Canvas takes most space
         self._main_splitter.setStretchFactor(1, 0)  # Sidebar fixed width
@@ -4821,6 +4827,10 @@ class GardenPlannerApp(QMainWindow):
 
         # Tab 1: Planting Calendar (US-8.5)
         self.calendar_view = PlantingCalendarView(self.canvas_scene, self._project_manager)
+        # The planting-calendar tab carries its own status messages (a refused
+        # propagation date, #415). It shares the canvas's scene, but a tab
+        # message should come from the tab rather than from the canvas view.
+        self.calendar_view.status_message.connect(self._show_status_message)
         self.calendar_view.set_soil_service(self._soil_service)
         self._tab_widget.addTab(self.calendar_view, self.tr("Planting Calendar"))
         self._set_tab_icon(self.calendar_view, "tab_calendar")
@@ -4977,6 +4987,24 @@ class GardenPlannerApp(QMainWindow):
         QTimer.singleShot(0, self._init_constraints_from_settings)
         QTimer.singleShot(0, self._init_object_snap_from_settings)
         QTimer.singleShot(0, self._init_spacing_circles_from_settings)
+
+    def _show_status_message(self, message: str, duration_ms: int = 0) -> None:
+        """Show ``message`` in the window's status bar (CanvasView's route).
+
+        The single sink for both ``CanvasView.status_message`` and
+        ``PlantingCalendarView.status_message``. Kept as a method rather than
+        connecting straight to ``statusBar().showMessage`` so there is one place
+        to stub or instrument it.
+
+        ``tests/integration/test_status_message_route.py`` asserts the delivery
+        chain end to end; it does not stub THIS method, so the earlier claim that
+        it did was wrong.
+
+        Args:
+            message: The text to display.
+            duration_ms: How long to show it; 0 leaves it until replaced.
+        """
+        self.statusBar().showMessage(message, duration_ms)
 
     def _setup_sidebar(self) -> None:
         """Set up the right sidebar with collapsible panels."""

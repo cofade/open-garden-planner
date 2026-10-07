@@ -33,6 +33,7 @@ from typing import Any
 
 from PyQt6.QtCore import QCoreApplication
 
+from open_garden_planner.core.frost_dates import parse_frost
 from open_garden_planner.models.propagation import PropagationPlan, compute_propagation_plan
 from open_garden_planner.models.succession import SuccessionPlan
 from open_garden_planner.models.task import ManualTask
@@ -115,6 +116,13 @@ class PlanState:
     today: datetime.date
     year: int
     last_frost: datetime.date | None = None
+    # The STORED frost date (``'MM-DD'``), carried separately from the resolved
+    # ``last_frost`` above. #414: a ``'02-29'`` frost resolves to 1 March in a
+    # non-leap year, so re-deriving the anchor years from ``last_frost`` would
+    # round-trip through the substitution and make a 02-29 plan behave exactly
+    # like a 03-01 one in EVERY year, leap years included. The anchor-year loop
+    # must parse the value the plan actually stores.
+    last_frost_mmdd: str | None = None
     plant_rows: tuple[PlantRowInput, ...] = ()
     prop_plans: dict[str, PropagationPlan] = field(default_factory=dict)
     beds: tuple[BedInput, ...] = ()
@@ -133,6 +141,13 @@ class PlanState:
 
 # ── Urgency classification ───────────────────────────────────────────────────
 
+#: How far ahead/behind ``today`` :func:`classify_urgency` can ever classify. Kept
+#: as constants (and mirrored in that function's arithmetic) so the GUI listing
+#: span is derived rather than guessed.
+_URGENCY_LOOKAHEAD_DAYS = 30
+_URGENCY_LOOKBEHIND_DAYS = 14
+
+
 def classify_urgency(
     start: datetime.date, end: datetime.date, today: datetime.date
 ) -> str | None:
@@ -150,12 +165,12 @@ def classify_urgency(
     if start <= today <= end:
         return "today"
     delta_end = (today - end).days
-    if 1 <= delta_end <= 14:
+    if 1 <= delta_end <= _URGENCY_LOOKBEHIND_DAYS:
         return "overdue"
     delta_start = (start - today).days
     if 1 <= delta_start <= 7:
         return "this_week"
-    if 8 <= delta_start <= 30:
+    if 8 <= delta_start <= _URGENCY_LOOKAHEAD_DAYS:
         return "upcoming"
     return None
 
@@ -425,12 +440,14 @@ def generate_all(state: PlanState) -> list[Task]:
 # ── Snapshot builder (shared by the Tasks tab and the planting-calendar) ───────
 
 def _parse_frost(mmdd: str, year: int) -> datetime.date | None:
-    """Parse an ``'MM-DD'`` frost date for ``year`` (None on failure)."""
-    try:
-        m, d = (int(x) for x in mmdd.split("-"))
-        return datetime.date(year, m, d)
-    except (ValueError, AttributeError):
-        return None
+    """Parse an ``'MM-DD'`` frost date for ``year`` (None on failure).
+
+    Thin alias for :func:`open_garden_planner.core.frost_dates.parse_frost`,
+    which is the single rule every reader goes through (#414). Kept as a private
+    name because the generators call it on every anchor year; the module docstring
+    there documents the 29-February substitution.
+    """
+    return parse_frost(mmdd, year)
 
 
 def build_plan_state(
@@ -569,6 +586,7 @@ def build_plan_state(
         today=today,
         year=year,
         last_frost=last_frost,
+        last_frost_mmdd=lsf if last_frost is not None else None,
         plant_rows=tuple(plant_rows),
         prop_plans=dict(prop_plans or {}),
         beds=tuple(beds),
@@ -617,6 +635,68 @@ def build_propagation_plans(
     return plans
 
 
+def stored_frost_mmdd(state: PlanState) -> str:
+    """The ``'MM-DD'`` the plan actually stores, for re-anchoring on another year.
+
+    Prefers :attr:`PlanState.last_frost_mmdd` and falls back to formatting the
+    resolved date — the fallback is lossy for a ``'02-29'`` frost in a non-leap
+    year (``last_frost`` is already the substituted 1 March), which is exactly why
+    the stored value is carried separately (#414, ADR-049).
+    """
+    if state.last_frost_mmdd:
+        return state.last_frost_mmdd
+    # No production caller lands here — build_plan_state always sets the field —
+    # so this is the hand-built-PlanState path (tests, and any future caller that
+    # forgets the field). It is lossy for '02-29', which is exactly why the field
+    # exists; the caller below therefore only reaches it for an ordinary date.
+    return state.last_frost.strftime("%m-%d") if state.last_frost else ""
+
+
+def frost_anchor_years(
+    state: PlanState, start: datetime.date, end: datetime.date,
+) -> list[int]:
+    """The years whose frost anchor can produce a window overlapping ``[start, end]``.
+
+    Every frost-relative task is ``frost(anchor_year) + offset weeks``, and the
+    offsets are large and negative as well as positive (asparagus harvests 104
+    weeks after its frost; garlic is sown 26 weeks *before* it), so the set of
+    anchor years that can touch a window is wider than the window's own years.
+    Deriving it here — once — is what lets every surface agree: before #414 the
+    agent's date-window read did this while the Tasks tab, the dashboard and the
+    Gantt each anchored on "today's year" only, so a window anchored on another
+    year's frost appeared in the agent and on no GUI surface at all.
+
+    The range is derived from the generated windows themselves (including
+    propagation steps), never from a hand-written offset constant, so it stays
+    correct when the bundled data changes.
+    """
+    from dataclasses import replace  # noqa: PLC0415
+
+    first_year, last_year = start.year, end.year
+    if state.last_frost is None:
+        return [first_year] if first_year == last_year else list(range(first_year, last_year + 1))
+
+    template = replace(state, actionable_only=False)
+    relative_tasks = generate_calendar_tasks(template)
+    if state.propagation_species:
+        relative_tasks += generate_propagation_tasks(replace(
+            template, prop_plans=build_propagation_plans(
+                state.propagation_species, state.last_frost, {},
+                state.propagation_seed_packets,
+            ),
+        ))
+    offsets = [
+        (date - state.last_frost).days
+        for task in relative_tasks
+        for date in (task.start_date, task.end_date)
+        if date is not None
+    ]
+    if offsets:
+        first_year = min(first_year, (start - datetime.timedelta(days=max(offsets))).year)
+        last_year = max(last_year, (end - datetime.timedelta(days=min(offsets))).year)
+    return list(range(first_year, last_year + 1))
+
+
 def generate_for_date_window(
     state: PlanState, start: datetime.date, end: datetime.date,
 ) -> list[Task]:
@@ -625,39 +705,20 @@ def generate_for_date_window(
     Uses one immutable snapshot. Absolute-date tasks (manual, succession, soil,
     frost) retain their identity and are deduplicated; frost-relative calendar
     tasks use each year's frost date and canonical year-addressed task ids.
-    Species offsets can span several years or precede their frost anchor. Derive
-    the anchor range from those offsets, including generated propagation steps.
-    Absolute-date overrides do not expand it. Keep canonical anchor-year ids,
-    filter by date overlap, and leave urgency relative to state.today.
+    Species offsets can span several years or precede their frost anchor, so the
+    anchor range comes from :func:`frost_anchor_years` — the same derivation the
+    GUI surfaces use. Absolute-date overrides do not expand it. Keep canonical
+    anchor-year ids, filter by date overlap, and leave urgency relative to
+    state.today.
     """
     from dataclasses import replace  # noqa: PLC0415
 
     if start > end:
         raise ValueError("from_date must be on or before to_date.")
-    first_year, last_year = start.year, end.year
-    if state.last_frost is not None:
-        template = replace(state, actionable_only=False)
-        relative_tasks = generate_calendar_tasks(template)
-        if state.propagation_species:
-            relative_tasks += generate_propagation_tasks(replace(
-                template, prop_plans=build_propagation_plans(
-                    state.propagation_species, state.last_frost, {},
-                    state.propagation_seed_packets,
-                ),
-            ))
-        offsets = [
-            (date - state.last_frost).days
-            for task in relative_tasks
-            for date in (task.start_date, task.end_date)
-            if date is not None
-        ]
-        if offsets:
-            first_year = min(first_year, (start - datetime.timedelta(days=max(offsets))).year)
-            last_year = max(last_year, (end - datetime.timedelta(days=min(offsets))).year)
     tasks: dict[str, Task] = {}
-    for year in range(first_year, last_year + 1):
+    for year in frost_anchor_years(state, start, end):
         last_frost = (
-            _parse_frost(state.last_frost.strftime("%m-%d"), year)
+            _parse_frost(stored_frost_mmdd(state), year)
             if state.last_frost is not None else None
         )
         prop_plans = state.prop_plans
@@ -675,6 +736,119 @@ def generate_for_date_window(
                 continue
             tasks.setdefault(task.task_id, task)
     return list(tasks.values())
+
+
+def generate_actionable_for_surface(
+    state: PlanState,
+) -> list[Task]:
+    """Every task a GUI surface should list, across ALL frost anchor years (#414).
+
+    The single canonical path for the Tasks tab and the planting-calendar
+    dashboard. Before #414 both anchored on the current year's frost alone, so a
+    task window anchored on another year's frost was invisible on the GUI while
+    the agent's ``get_tasks`` listed it — e.g. with a 20 September frost, a
+    tomato harvest running 29 November – 7 February vanished from the Tasks tab
+    on 1 January.
+
+    This wraps :func:`generate_for_date_window` rather than reimplementing it,
+    then re-applies the GUI's own listing rule. That filter is NOT optional:
+    ``generate_for_date_window`` internally runs with ``actionable_only=False``
+    (an explicit date-window read wants the complete dated schedule), so without
+    the post-filter the Tasks tab would list the next decade.
+
+    Two things this must NOT do, both of which a naive filter gets wrong:
+
+    * **Undated tasks stay.** ``classify_urgency`` dereferences both dates, and
+      :func:`generate_manual_tasks` emits undated manual tasks (``date=None``).
+      Calling it unguarded raises ``TypeError`` and takes both tabs down for a
+      plan whose undated task the agent's own ``add_manual_task`` created.
+    * **Manual tasks are never urgency-filtered.** That is the documented contract
+      of :func:`generate_manual_tasks` — "a far-future or long-past manual
+      to-do must still appear in the list" — and ``TasksView._bucket``
+      re-derives a bucket for exactly those, including its ``no_date`` case.
+      Filtering them here would hide a December task in June, which is the same
+      class of bug #414 was opened for, pointed the other way.
+
+    ``state.actionable_only`` is deliberately NOT consulted: this helper exists to
+    apply a *specific* listing rule (urgency, plus manual tasks unfiltered), and
+    inheriting a second flag from the snapshot is how the anchors got filtered out
+    before this function ever ran. Callers that want the raw dated schedule use
+    :func:`generate_for_date_window`.
+    """
+    if state.last_frost is None:
+        # No frost anchor: the non-relative generators (manual, succession, soil,
+        # frost alerts) are still worth listing, and they carry absolute dates.
+        return generate_all(state)
+
+    from dataclasses import replace  # noqa: PLC0415
+
+    # ``classify_urgency`` admits nothing beyond 30 days ahead or 14 behind, so
+    # this span is the widest that can ever produce a listed task. It also bounds
+    # the anchor-year expansion: a +/-10 year span derived 25 anchor years and ran
+    # every generator 25 times on each refresh (~50x the work of a single year).
+    span_start = state.today - datetime.timedelta(days=_URGENCY_LOOKBEHIND_DAYS)
+    span_end = state.today + datetime.timedelta(days=_URGENCY_LOOKAHEAD_DAYS)
+    # actionable_only=False INSIDE the date-window pass: that flag is inherited
+    # per anchor year by the generators, so leaving the GUI's True in place would
+    # drop anchors whose windows are not currently urgent *before* this function
+    # ever sees them. The urgency filter below is the single one that applies.
+    tasks = generate_for_date_window(
+        replace(state, actionable_only=False), span_start, span_end
+    )
+
+    # Manual tasks are added from their OWN generator, not harvested from the
+    # date-window pass: they carry absolute dates, so the span above drops a
+    # long-past or far-future to-do before this function can exempt it. They need
+    # no anchor-year expansion, and ``generate_manual_tasks`` documents that a
+    # manual task is never filtered out by urgency.
+    listed = {t.task_id for t in tasks}
+    tasks = [
+        *tasks,
+        *(t for t in generate_manual_tasks(state) if t.task_id not in listed),
+    ]
+
+    actionable: list[Task] = []
+    for task in tasks:
+        if task.start_date is None or task.end_date is None:
+            # Undated (manual, or defensively any future undated source):
+            # cannot be classified, so keep it rather than crash or drop it.
+            actionable.append(task)
+            continue
+        if task.source == "manual":
+            # Absolute-date manual task: never urgency-filtered.
+            actionable.append(task)
+            continue
+        if classify_urgency(task.start_date, task.end_date, state.today) is not None:
+            actionable.append(task)
+    return actionable
+
+
+def propagate_plans_by_anchor(
+    state: PlanState, years: list[int] | None = None,
+) -> dict[tuple[str, int], PropagationPlan]:
+    """Propagation plans keyed by ``(species_key, anchor_year)`` (#414).
+
+    A species has one plan per frost anchor, because the indoor-sowing and
+    transplant steps are frost-relative. Before #414 the GUI kept a single
+    ``_prop_plans`` dict built from the current year's frost, which is why the
+    Gantt's propagation sub-row could not draw a window anchored on another
+    year. The agent already rebuilt plans per anchor year; this is that same
+    derivation exposed for the GUI.
+    """
+    if state.last_frost is None:
+        return {}
+    anchor_years = years if years is not None else [state.year]
+    result: dict[tuple[str, int], PropagationPlan] = {}
+    for year in anchor_years:
+        last_frost = _parse_frost(stored_frost_mmdd(state), year)
+        if last_frost is None:
+            continue
+        for key, plan in build_propagation_plans(
+            state.propagation_species, last_frost, state.propagation_overrides,
+            state.propagation_seed_packets,
+        ).items():
+            result.setdefault((key, year), plan)
+    return result
 
 
 def _bed_amendment_recs(

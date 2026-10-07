@@ -743,11 +743,16 @@ thumbnails fell through to the round fallback because a SOLID fill has no textur
   Jacobian. **Deliberately not fixed** — microseconds for ≤20-variable systems, no
   user-facing impact. Do not "optimize" this without evidence of a large-scene
   bottleneck.
-- **No token auth on the loopback Agent API** (ADR-033, §8.10/§8.19): the embedded MCP
-  server is on-by-default, read-only, 127.0.0.1-only, **no auth**. Token auth is stated
-  as a *hard prerequisite* before any D2 write tool ships — a default-on unauthenticated
-  mutate surface reachable by any local process is explicitly unacceptable. If you are
-  implementing D2, auth comes first.
+- ~~**No token auth on the loopback Agent API**~~ — **RESOLVED for writes by US-D2.0**
+  (ADR-036 addendum, v1.24.3): every scene-mutating write tool is double-gated
+  (registered only when both the toggle and the token are set, plus a
+  constant-time per-call check). The entry was written when the server was
+  read-only and is retained here only as the historical shape of the problem.
+  **What is still open**: *reads* remain loopback-trust with no auth (challenged
+  decision C2 in `audit-2026-10.md`), and the browser-reachability vector is a
+  separate barrier — the Host/Origin (DNS-rebinding) guard, now configured
+  explicitly by OGP rather than inherited from the SDK (#396, ADR-033 addendum).
+  Do not read "token auth shipped" as "the Agent API is authenticated".
 - **Smart Symbols UI deferred** (CLAUDE.md C4 row): the sidebar panel ships hidden
   (`set_panel_visible("smart_symbols", False)` in `application.py`); engine,
   persistence, DXF export, and properties editing are live and tested. The hidden panel

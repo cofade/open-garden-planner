@@ -2653,3 +2653,43 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | 📋 | L5 | **Living garden** — year/day playback, weather, particles, wind (needs [#315](https://github.com/cofade/open-garden-planner/issues/315)) | [#389](https://github.com/cofade/open-garden-planner/issues/389) |
 | 📋 | L6 | **Director's cut** — photo mode, camera tours, `render_3d_view` MCP tool | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
 | 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
+---
+
+## Task-date correctness + audit P1 cluster (PR #414, #415, #416, #396, #395, #398)
+
+Not a phase — a hardening package, shipped on `master` alongside v1.29.4. Six
+issues from two sources: three correctness bugs found by the ADR-048 L0 senior
+reviews, and three effort-S items from the [2026-10 repository audit](https://github.com/cofade/open-garden-planner/issues/392)
+(both audit P0s were already closed by #411/#412; this takes the remaining S
+items that are disjoint in file terms).
+
+| # | Title | Sev | Effort | Origin | Outcome |
+|---|-------|-----|--------|--------|---------|
+| [#414](https://github.com/cofade/open-garden-planner/issues/414) | Task calendar: GUI surfaces miss every frost-relative window anchored on another year's frost (TD-037) | P1 | M | ADR-048 L0 senior review | Every GUI surface routes through one shared multi-anchor entry point |
+| [#415](https://github.com/cofade/open-garden-planner/issues/415) | Planting calendar: the propagation editor saves steps in the wrong year | bug | S | ADR-048 L0 senior review | Editor shows real dates; inverted overrides ignored, never destroyed |
+| [#416](https://github.com/cofade/open-garden-planner/issues/416) | Plant data: harvest offsets are read two ways | bug | S | ADR-048 L0 senior review | Documentation made true; row conversion split out to [#418](https://github.com/cofade/open-garden-planner/issues/418) |
+| [#396](https://github.com/cofade/open-garden-planner/issues/396) | Agent API: make Host/Origin (DNS-rebinding) validation explicit (TD-012) | P1 | S | audit AUD-039 | `TransportSecuritySettings` configured by OGP; floor `mcp>=1.23` |
+| [#395](https://github.com/cofade/open-garden-planner/issues/395) | Array tools have zero coverage behind their modal dialogs (TD-013) | P1 | S | audit AUD-010 | 13 integration tests; **215 statements newly covered** (321 of 325 never ran before, 106 still do not) per the committed `scripts/measure_array_tool_coverage.py` |
+| [#398](https://github.com/cofade/open-garden-planner/issues/398) | Skills contradict `ci.yml` / `server.py` / `docs/09` (TD-015) | P1 | S | audit AUD-064 | Four statements corrected in both skill trees + a drift guard |
+
+### What changed, in one paragraph
+
+The Tasks tab, the planting-calendar dashboard and the Gantt each anchored their
+frost-relative task windows on **the current year's** last spring frost, while the
+agent's `get_tasks` / `get_task_calendar` anchored on every year that could reach
+the requested date. Measured over the 64 bundled species that carry calendar offsets x 6 frost dates x every 10th day of 2026 (222 cases):
+**1,849 (task, frost-date, day) cases the GUI missed and the agent listed;
+0 after the fix**, with 0 surplus tasks (the urgency filter still applies). Harness committed as `scripts/measure_task_window_sweep.py`. A
+southern plan (20 September frost) put a tomato harvest at 29 Nov 2026 – 7 Feb
+2027, so on 1 January 2027 a tomato-only plan read *"No tasks — you're all caught
+up."* while the task was open. See ADR-029 (addendum) and ADR-049.
+
+### Deliberately deferred
+
+- **[#418](https://github.com/cofade/open-garden-planner/issues/418)** — converting
+  the bundled harvest offsets to their true reading. Measured: both readings fit a majority of the 64 comparable rows (38 frost-relative, 45 planting-relative), with 11 fitting neither, so the data is NOT irreconcilable; it needs a cited
+  horticultural source per row. **Garlic's harvest window lands ~3 months LATE** (October, not July) until then - and that is independent of which reading you assume, since its row fits the frost-relative one on maturity.
+- **#399** (branch protection / `--admin`), **#401** (mypy gate), **#402**
+  (coverage gate), **#405** (logging policy), **#409** (NFR-PERF-01), **#406**
+  (constraint-tool coverage) — all still open; #401/#402 deliberately measure their
+  baselines against this package's settled tree rather than inside it.

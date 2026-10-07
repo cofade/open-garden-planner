@@ -589,25 +589,70 @@
     "state": "CLOSED",
     "title": "Text annotations are not saved to the .ogp file (TextItem missing from ProjectManager serializer) (Audit 2026-10, epic #392)"
   },
+  "395": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Array tools (grid/linear/circular/along-path) have zero test coverage behind their modal dialogs (Audit 2026-10, epic #392)"
+  },
+  "396": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Agent API: make Host/Origin (DNS-rebinding) validation explicit, test it, and raise the mcp floor to >=1.23 (Audit 2026-10, epic #392)"
+  },
   "397": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "Loader silently drops items it cannot decode: a legacy plan whose background image moved loses it on load and permanently on the next save; duplicate item_ids accepted (Audit 2026-10, epic #392)"
+  },
+  "398": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "skills: CI job count, 'no token auth' and 'ADR-001…034' statements contradict ci.yml / server.py / docs/09 (Audit 2026-10, epic #392)"
+  },
+  "399": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "'Never merge on red' is prose-only: required status checks are off on master, merges use --admin, PR #323 merged on a red Test (Audit 2026-10, epic #392)"
   },
   "400": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "Copy/paste drops spacing override, frost flag, label visibility, fence style and skips Arc/Bezier/Group items (clipboard serializer diverged from file serializer) (Audit 2026-10, epic #392)"
   },
+  "401": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "CI: mypy is documented as a gate but never runs — add a ratcheted type-check job and fix the docs (Audit 2026-10, epic #392)"
+  },
+  "402": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "CI: coverage is declared (>80 % non-UI) but never measured — add a coverage job with per-package floors (Audit 2026-10, epic #392)"
+  },
   "403": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "Opening a corrupt .ogp leaves a partial scene under the previous file's name — Ctrl+S overwrites the good plan (Audit 2026-10, epic #392)"
   },
+  "405": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "§8.7 promises 'all errors logged' but the logging module has no handler anywhere: 55 handled-error log calls are discarded in the windowed exe (Audit 2026-10, epic #392)"
+  },
+  "406": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "constraint_tool.py is 29.0 % line / 9.6 % branch covered: 1 661 of 2 340 statements never run, 50 public methods never executed (25 non-trivial) (Audit 2026-10, epic #392)"
+  },
   "408": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "Generated soil amendment task names remain English with German UI"
+  },
+  "409": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "NFR-PERF-01 missed in a real window: fit-in-view repaint of the 500-object plan takes 54 ms (18 fps) (Audit 2026-10, P1)"
   },
   "410": {
     "is_pr": false,
@@ -623,5 +668,25 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix(core): harden serialization, clipboard unification, and atomic plan loading (#394, #400, #397, #403)"
+  },
+  "414": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Task calendar: GUI task surfaces miss every frost-relative window anchored on another year's frost (TD-037)"
+  },
+  "415": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Planting calendar: the propagation editor saves steps in the wrong year (and untranslated detail labels)"
+  },
+  "416": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Plant data: harvest offsets are read two ways (garlic's follow \"after planting\", the task generator counts from the last frost)"
+  },
+  "418": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Plant data: convert the harvest offsets to their true reading (split from #416)"
   }
 }

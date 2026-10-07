@@ -570,7 +570,15 @@ result = subprocess.run(cmd)  # nosec B603 — cmd is constructed internally, ne
 
 **Scope:** `src/` only. Test files are excluded — `assert` statements and test helpers are intentional and not security-relevant.
 
-**Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener. It is **on by default but read-only** and **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply); a Preferences toggle disables it. Default-on is acceptable while read-only (a garden layout isn't sensitive) and removes the discovery friction for AI clients. Reads have no auth (loopback trust). **Writes (US-D2.0 through D2.6, including `undo`/`redo`) are token-gated**: the scene-mutating tools ship only when the user enables editing (off by default) AND require the token — presented in the connect URL as a `?token=` query param (the reliable route; some clients don't transmit auth headers on tool calls) or as an `Authorization: Bearer <token>` header — checked with constant-time comparison. A default-on, unauthenticated *mutate* surface reachable by any local process is exactly what this prevents (ADR-036, §8.19); delivering the token in the URL keeps that protection (a caller still needs the secret) at the cost of a URL-borne secret — mitigated by disabling the uvicorn access log and stripping the `token` param from the request scope right after extraction, so the residual exposure is the client's own config. The gate is per-tool so read-only clients are unaffected. The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding. The #355 input boundary additionally rejects non-finite/null/oversized callout offsets before Qt construction, so an authenticated caller cannot turn a write token into unbounded scene geometry. D2.6 reuses the same finite/canvas-relative reachability check for absolute positions and vertices before constructing `QPointF` geometry.
+**Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener. It is **on by default but read-only** and **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply); a Preferences toggle disables it. Default-on is acceptable while read-only (a garden layout isn't sensitive) and removes the discovery friction for AI clients. Reads have no auth (loopback trust). **Writes (US-D2.0 through D2.6, including `undo`/`redo`) are token-gated**: the scene-mutating tools ship only when the user enables editing (off by default) AND require the token — presented in the connect URL as a `?token=` query param (the reliable route; some clients don't transmit auth headers on tool calls) or as an `Authorization: Bearer <token>` header — checked with constant-time comparison. A default-on, unauthenticated *mutate* surface reachable by any local process is exactly what this prevents (ADR-036, §8.19); delivering the token in the URL keeps that protection (a caller still needs the secret) at the cost of a URL-borne secret — mitigated by disabling the uvicorn access log and stripping the `token` param from the request scope right after extraction, so the residual exposure is the client's own config. The gate is per-tool so read-only clients are unaffected. The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding.
+
+**Browser reachability (DNS rebinding) — #396, ADR-033 addendum.** Loopback binding and token gating reason about a *local process* (an MCP client the user launched). They do not cover a **browser**, which is a local process acting for a remote page: a page on `evil.example` can reach `http://127.0.0.1:8765/mcp`, and loopback binding does not stop it because the request originates on this machine. The only barrier is the transport's `Host`/`Origin` validation, so that guard is now **explicitly configured by OGP** rather than inherited from the mcp SDK:
+
+- `agent_api/server.py::build_server(..., host=..., port=...)` constructs `TransportSecuritySettings(enable_dns_rebinding_protection=True, allowed_hosts=[...], allowed_origins=[...])` and passes it to `FastMCP(transport_security=...)`. The lists name the **exact** `host:port` pairs (bind address, `127.0.0.1`, `localhost`, the IPv6 loopback literal) with **no `:*` port wildcard** — the port is fixed for the server's life, so a wildcard would only restore the breadth of the SDK default being replaced.
+- A hostile `Host` is answered **421**; a hostile `Origin` **403**. Verified against the frozen exe, not only in pytest: loopback `Host` 200, `localhost` 200, `evil.example` 421, loopback `Origin` 200, `http(s)://evil.example` 403.
+- **The `mcp>=1.23` dependency floor is a security control, not a version bump.** 1.23.0 is the first release whose FastMCP auto-enables the loopback guard. Measured: under the previous floor (`>=1.12`) a 1.22.0 wheel answered a crafted `Host: evil.example` initialize with **HTTP 200 and a full MCP result**, across all six hostile variants, where 1.30.0 answers 421/403. No shipped exe is known to be exposed — every release happened to bundle a 1.30-era wheel — but the exposure was a property of *whichever wheel resolved at build time* rather than of the product.
+- **Test-design consequence.** The black-box 421/403 tests are necessary but not sufficient: with mcp 1.30.0 installed they pass *even with the explicit settings deleted*, and so does a naive "settings object is not None and the flag is True" assertion, because the SDK auto-enable returns exactly such an object. `tests/integration/test_agent_api_dns_rebinding.py` therefore also asserts what the SDK default cannot satisfy — that `allowed_hosts` names the **bound port**, and that nothing is a wildcard. Deleting the `transport_security=` argument fails 3 of its 4 object-level tests.
+- **Reads remain unauthenticated** (loopback trust, the audit's challenged decision C2). This closes the *browser* vector; it does not re-open that one. The #355 input boundary additionally rejects non-finite/null/oversized callout offsets before Qt construction, so an authenticated caller cannot turn a write token into unbounded scene geometry. D2.6 reuses the same finite/canvas-relative reachability check for absolute positions and vertices before constructing `QPointF` geometry.
 
 ## 8.12 Constraint Solver Architecture
 
@@ -1715,15 +1723,45 @@ writes, refusals and undo. Direct provider tests remain useful but cannot detect
 an MCP response-schema mismatch.
 
 `build_plan_state(today, year, actionable_only, include_propagation)` separates
-the reference date from the calendar year. GUI reminders keep `actionable_only=True`;
-annual agent calendars and explicit task windows retain inactive dated tasks,
-then classify urgency against the actual reference date. Cross-year windows are
-clipped to each requested year before month bucketing. `generate_for_date_window`
-uses one snapshot and the shared generators for the frost-anchor years capable
-of overlapping the requested dates, deduplicating absolute tasks. The range is
-derived from species offsets and generated propagation steps: autumn garlic
-sowing precedes its anchor year, while asparagus harvest extends three years.
-Annual calendars use this same path; anchor-year task IDs remain stable.
+the reference date from the calendar year. Annual agent calendars and explicit
+task windows retain inactive dated tasks (`actionable_only=False` at the call
+site), then classify urgency against the actual reference date. Cross-year
+windows are clipped to each requested year before month bucketing.
+`generate_for_date_window` uses one snapshot and the shared generators for the
+frost-anchor years capable of overlapping the requested dates, deduplicating
+absolute tasks. The range is derived from species offsets and generated
+propagation steps: autumn garlic sowing precedes its anchor year, while asparagus
+harvest extends three years. Annual calendars use this same path; anchor-year
+task IDs remain stable.
+
+**GUI reminder surfaces (#414, ADR-029 addendum).** The Tasks tab and the
+planting-calendar dashboard no longer call the generators directly. They call
+`task_generator.generate_actionable_for_surface(state)`, which wraps
+`generate_for_date_window` and then re-applies the GUI's own listing rule
+(`classify_urgency(...) is not None`). Two details are load-bearing and neither is
+optional:
+
+- **`actionable_only=False` is passed INWARD.** `generate_for_date_window` builds
+  each anchor year with `replace(state, ...)`, so the caller's flag is inherited
+  *per anchor year*. Passing the GUI's `True` into it filters anchors out before
+  the outer filter ever runs — which is exactly what it did, producing an empty
+  Tasks tab and a blank Gantt. The helper passes `False` inward and filters once at
+  the edge.
+- **Undated tasks pass through, and manual tasks are never urgency-filtered.**
+  `classify_urgency` dereferences both dates and `generate_manual_tasks` emits
+  undated tasks (`date=None`), so calling it unguarded raised `TypeError` and took
+  both tabs down for a plan the agent's own `add_manual_task` creates. Manual
+  tasks are additionally merged in from their own generator rather than harvested
+  from the date-window pass, because they carry absolute dates and so fall outside
+  the date span; their generator documents that a manual to-do is never filtered by
+  urgency.
+
+The **Gantt** deliberately uses the *unfiltered* `generate_for_date_window` over
+Jan 1 – Dec 31, because a calendar chart is not a reminder list: routing it
+through the reminder helper dropped most of the chart. Two entry points, two
+declared purposes, neither reimplementing the other. The chart draws the windows
+the generators produced rather than re-deriving them from `last_frost` plus raw
+offsets — which had made it a second independent implementation of "offset to date" (the callers only *call* `generate_calendar_tasks`, so the old count was high) and the reason it could only ever draw one anchor year.
 Absolute propagation overrides instead use their start-date year as the task's
 owner year in the shared generator. This preserves one identity across GUI and
 agent reads and prevents wider anchor ranges from multiplying one saved step.

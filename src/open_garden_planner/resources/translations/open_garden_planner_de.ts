@@ -674,7 +674,7 @@
         </message>
         <message>
             <source>Created {dir} offset of {dist} cm</source>
-            <translation>{dir}er Versatz von {dist} cm erstellt</translation>
+            <translation>{dir}-Versatz von {dist} cm erstellt</translation>
         </message>
         <message>
             <source>inward</source>
@@ -759,6 +759,10 @@
         <message>
             <source>No overlapping object behind</source>
             <translation>Kein überlappendes Objekt dahinter</translation>
+        </message>
+        <message>
+            <source>Created {dir} offset of {dist:.1f} cm</source>
+            <translation>{dir}-Versatz von {dist:.1f} cm erstellt</translation>
         </message>
     </context>
     <context>
@@ -7569,6 +7573,42 @@ Starten Sie Open Garden Planner als Administrator, oder laden Sie das Installati
             <source>Reset to calculated date</source>
             <translation>Berechnetes Datum wiederherstellen</translation>
         </message>
+        <message>
+            <source>Germination: {min}–{max} days</source>
+            <translation>Keimung: {min}–{max} Tage</translation>
+        </message>
+        <message>
+            <source>Min. germ. temp: {temp} °C</source>
+            <translation>Min. Keimtemperatur: {temp} °C</translation>
+        </message>
+        <message>
+            <source>Seed depth: {depth} cm</source>
+            <translation>Saattiefe: {depth} cm</translation>
+        </message>
+        <message>
+            <source>Frost tolerance: {level}</source>
+            <translation>Frostverträglichkeit: {level}</translation>
+        </message>
+        <message>
+            <source>Maturity: {min}–{max} days</source>
+            <translation>Reifezeit: {min}–{max} Tage</translation>
+        </message>
+        <message>
+            <source>hardy</source>
+            <translation>winterhart</translation>
+        </message>
+        <message>
+            <source>half-hardy</source>
+            <translation>bedingt winterhart</translation>
+        </message>
+        <message>
+            <source>tender</source>
+            <translation>frostempfindlich</translation>
+        </message>
+        <message>
+            <source>The end date of a propagation step cannot be before its start date — the step was not changed.</source>
+            <translation>Das Enddatum eines Vermehrungsschritts kann nicht vor seinem Startdatum liegen — der Schritt wurde nicht geändert.</translation>
+        </message>
     </context>
     <context>
         <name>_GanttWidget</name>
@@ -11268,6 +11308,21 @@ Details: {error}</translation>
         <message>
             <source>{plant} is not part of any of these sets.</source>
             <translation>{plant} ist in keiner dieser Kombinationen enthalten.</translation>
+        </message>
+    </context>
+    <context>
+        <name>CanvasScene</name>
+        <message>
+            <source>Calibration: Click first point on the image</source>
+            <translation>Kalibrierung: Ersten Punkt auf dem Bild anklicken</translation>
+        </message>
+        <message>
+            <source>Calibration: Click second point on the image</source>
+            <translation>Kalibrierung: Zweiten Punkt auf dem Bild anklicken</translation>
+        </message>
+        <message>
+            <source>Calibration complete</source>
+            <translation>Kalibrierung abgeschlossen</translation>
         </message>
     </context>
 </TS>

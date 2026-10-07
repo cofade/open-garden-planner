@@ -71,7 +71,21 @@ class PropagationPlan:
         start: datetime.date,
         end: datetime.date,
     ) -> None:
-        """Store a user override and update the computed step dates."""
+        """Store a user override and update the computed step dates.
+
+        An inverted pair (``end`` before ``start``) is refused: the step keeps
+        its calculated dates and nothing is stored. A period step whose end
+        precedes its start is not a state the model can represent, so refusing
+        it here keeps the same rule as the read path in
+        :func:`compute_propagation_plan` (#415).
+
+        NOTE: the production write path is
+        ``ProjectManager.set_propagation_override``, not this method — no
+        shipping code calls it. The guard is kept because it is the model-level
+        invariant, but do not read it as the thing protecting the ``.ogp``.
+        """
+        if end < start:
+            return
         self.overrides[step_id] = {
             "start": start.isoformat(),
             "end": end.isoformat(),
@@ -133,7 +147,9 @@ def compute_propagation_plan(
     - **harden_off**: ``transplant_date - harden_off_days`` → ``transplant_date``
     - **transplant**: ``transplant_date`` (point event)
 
-    User overrides are applied on top of calculated dates.
+    User overrides are applied on top of calculated dates. An override whose
+    end date precedes its start date is ignored (see the comment at the
+    application site, #415) and the calculated dates are kept.
 
     Args:
         species_key: Identifier for the species (scientific or common name).
@@ -184,15 +200,29 @@ def compute_propagation_plan(
     ]
 
     # Apply user overrides
+    #
+    # An override whose end date precedes its start date is IGNORED (#415). The
+    # planting calendar's propagation editor used to move each displayed date
+    # into the current year independently, so a step that crossed New Year was
+    # persisted inverted (e.g. start 2026-12-24 / end 2026-01-22) and read back
+    # verbatim. The writer is fixed, but files already saved with the bug still
+    # carry the bad pair, so the read side has to refuse it: fall back to the
+    # calculated dates and leave the stored value untouched in the .ogp (no user
+    # data is destroyed, and nothing silently wrong is displayed). The user
+    # re-enters the step via the editor's reset button to re-apply a custom date.
     for step in steps:
         if step.step_id in ov:
             raw = ov[step.step_id]
             try:
-                step.start_date = datetime.date.fromisoformat(raw["start"])
-                step.end_date = datetime.date.fromisoformat(raw["end"])
-                step.overridden = True
+                start = datetime.date.fromisoformat(raw["start"])
+                end = datetime.date.fromisoformat(raw["end"])
             except (KeyError, ValueError):
-                pass
+                continue
+            if end < start:
+                continue
+            step.start_date = start
+            step.end_date = end
+            step.overridden = True
 
     return PropagationPlan(
         species_key=species_key,

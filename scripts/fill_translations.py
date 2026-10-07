@@ -223,7 +223,18 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     },
 
     # ── CanvasView ──
+    # CanvasScene — calibration status strings, live since #415 fixed the
+    # status route (027bee1). A BARE LITERAL here is invisible to the
+    # i18n gate and to any tr()-literal AST scan; see
+    # tests/unit/test_status_literals_are_translated.py.
+    "CanvasScene": {
+        "Calibration: Click first point on the image": "Kalibrierung: Ersten Punkt auf dem Bild anklicken",
+        "Calibration: Click second point on the image": "Kalibrierung: Zweiten Punkt auf dem Bild anklicken",
+        "Calibration complete": "Kalibrierung abgeschlossen",
+    },
+
     "CanvasView": {
+        "Created {dir} offset of {dist:.1f} cm": "{dir}-Versatz von {dist:.1f} cm erstellt",
         "Distance in cm": "Abstand in cm",
         "House": "Haus",
         "Garage/Shed": "Garage/Schuppen",
@@ -313,7 +324,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Select a shape to offset": "Form zum Versetzen auswählen",
         "Offset result is empty — try a smaller distance":
             "Versatzergebnis ist leer – versuchen Sie einen kleineren Abstand",
-        "Created {dir} offset of {dist} cm": "{dir}er Versatz von {dist} cm erstellt",
+        "Created {dir} offset of {dist} cm": "{dir}-Versatz von {dist} cm erstellt",
         "inward": "einwärts",
         "outward": "auswärts",
     },
@@ -1837,8 +1848,20 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     },
 
     # ── _DetailPanel ──
+    # The species detail line was five hardcoded English f-strings (#415); the
+    # frost-tolerance column prints the data file's raw token.
     "_DetailPanel": {
         "↺": "↺",
+        "Germination: {min}–{max} days": "Keimung: {min}–{max} Tage",
+        "Min. germ. temp: {temp} °C": "Min. Keimtemperatur: {temp} °C",
+        "Seed depth: {depth} cm": "Saattiefe: {depth} cm",
+        "Frost tolerance: {level}": "Frostverträglichkeit: {level}",
+        "Maturity: {min}–{max} days": "Reifezeit: {min}–{max} Tage",
+        "hardy": "winterhart",
+        "half-hardy": "bedingt winterhart",
+        "tender": "frostempfindlich",
+        "The end date of a propagation step cannot be before its start date — the step was not changed.":
+            "Das Enddatum eines Vermehrungsschritts kann nicht vor seinem Startdatum liegen — der Schritt wurde nicht geändert.",
     },
 
     # ── WelcomeDialog ──

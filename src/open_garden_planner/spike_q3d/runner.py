@@ -385,37 +385,48 @@ def in_harvest_window(location: dict[str, Any] | None, at: date,
     weeks to + ``harvest_end`` weeks (the species' week offsets from the last frost,
     ``plant_species`` metadata). Anchored as ``generate_for_date_window`` anchors it —
     the generator behind the agent's ``get_tasks`` and ``get_task_calendar``: on every
-    frost year whose window can reach ``at``, a range derived from the offsets (for a
-    02-29 frost, leap years only — ADR-048 entry 18). So a window across the new year
+    frost year whose window can reach ``at``, a range derived from the offsets. A
+    ``02-29`` frost is no longer restricted to leap years — the shared parser
+    substitutes 1 March where the date does not exist, so a window exists in every
+    year (ADR-048 entry 18 recorded the leap-only behaviour this replaced). So a
+    window across the new year
     (a southern plan), before its frost (negative offsets) or years after it (asparagus)
     holds. Every GUI task surface (the planting calendar's Gantt and dashboard, the
     Tasks tab) anchors on one year, so it shows no harvest task for a window anchored
     on another year's frost — though it can still show the harvest task of the window
     anchored on the current year's frost; that split is the product's (TD-037), not the
-    spike's. None when there is no window to read — no last frost, an offset missing or
-    malformed, start after end, a 02-29 frost when ``at``'s year has none (the
-    generator, anchored on a year without that date, has none either): the caller
+    spike's. None when there is no window to read — no last frost, an offset missing or malformed, or start after end. A ``02-29`` frost is NOT one of those cases: the shared parser substitutes 1 March where the date does not exist, so a window exists in every year and this returns a bool): the caller
     keeps the frost-free season.
+
+    The anchor comes from :func:`core.frost_dates.parse_frost`, so the spike
+    and the task generators share ONE frost-date rule (#414). In particular a
+    ``02-29`` frost resolves to 1 March in a year without that date rather than
+    yielding no window at all — this function used to return ``None`` there,
+    which after #414 was the last remaining place where a plan with a
+    29-February frost behaved as if it had none.
+
+    ``in_frost_free_season`` deliberately still compares ``(month, day)`` pairs
+    without a year: it is a different question (is this day inside the frost-free
+    season) and it never had a year-existence problem. Do not "fix" it to match.
     """
     from datetime import timedelta
 
+    from open_garden_planner.core.frost_dates import parse_frost
+
     frost = location.get("frost_dates") if isinstance(location, dict) else None
-    spring = _frost_month_day(frost.get("last_spring_frost")) if isinstance(frost, dict) else None
-    if spring is None or not isinstance(species, dict):
+    if not isinstance(frost, dict) or not isinstance(species, dict):
+        return None
+    spring = frost.get("last_spring_frost")
+    if _frost_month_day(spring) is None:
         return None
     start, end = _weeks(species.get("harvest_start")), _weeks(species.get("harvest_end"))
     if start is None or end is None or start > end:
         return None
-    try:
-        date(at.year, *spring)
-    except ValueError:
-        return None
     first = min(at.year, (at - timedelta(weeks=end)).year)
     last = max(at.year, (at - timedelta(weeks=start)).year)
     for year in range(first, last + 1):
-        try:
-            last_frost = date(year, *spring)
-        except ValueError:
+        last_frost = parse_frost(spring, year)
+        if last_frost is None:
             continue
         if last_frost + timedelta(weeks=start) <= at <= last_frost + timedelta(weeks=end):
             return True

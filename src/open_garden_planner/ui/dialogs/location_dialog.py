@@ -1,6 +1,5 @@
 """Location dialog for setting GPS coordinates and frost dates."""
 
-import re
 from typing import Any
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
@@ -17,6 +16,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
+from open_garden_planner.core.frost_dates import is_valid_frost_date
 from open_garden_planner.ui.theme import theme_color
 
 
@@ -238,10 +238,17 @@ class LocationDialog(QDialog):
         self._zone_edit.setText(frost.get("hardiness_zone", ""))
 
     def _validate_frost_date(self, value: str) -> bool:
-        """Return True if value is empty or matches MM-DD format."""
-        if not value:
-            return True
-        return bool(re.fullmatch(r"(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])", value))
+        """Return True if value is empty or names a real MM-DD date.
+
+        Delegates to the shared validator (#414) so this dialog, the task
+        generators and the agent cannot disagree about what a frost date is. The
+        previous local regex accepted six dates that never exist (02-30, 02-31,
+        04-31, 06-31, 09-31, 11-31); accepting one produced a plan whose frost
+        date parsed to nothing, i.e. a plan that silently showed no tasks.
+        02-29 stays valid — it is real in a leap year, and the shared parser
+        substitutes 1 March in a year that has none.
+        """
+        return is_valid_frost_date(value)
 
     def _on_accept(self) -> None:
         """Validate inputs before accepting."""

@@ -10,7 +10,7 @@ import json
 import logging
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -343,8 +343,15 @@ class ProjectManager(QObject):
         step_id: str,
         start: str,
         end: str,
-    ) -> None:
+    ) -> bool:
         """Store a propagation step date override and mark project dirty.
+
+        Returns whether the override was stored. A pair whose end precedes its
+        start — or one whose dates do not parse — is REFUSED and reported, not
+        swallowed: the reader already ignores such a pair (#415), so storing it
+        would only persist a value nothing can use, and returning ``False``
+        gives the caller something to react to instead of a silent no-op that
+        looks like a successful edit.
 
         Args:
             species_key: Scientific or common name of the species.
@@ -353,11 +360,17 @@ class ProjectManager(QObject):
             end: ISO date string for step end.
         """
         species_key = species_key.strip().lower()  # normalise per ADR-016
+        try:
+            if date.fromisoformat(end) < date.fromisoformat(start):
+                return False
+        except ValueError:
+            return False
         if species_key not in self._propagation_overrides:
             self._propagation_overrides[species_key] = {}
         self._propagation_overrides[species_key][step_id] = {"start": start, "end": end}
         self.propagation_overrides_changed.emit(self._propagation_overrides)
         self.mark_dirty()
+        return True
 
     def clear_propagation_override(self, species_key: str, step_id: str) -> None:
         """Remove a propagation step override and mark project dirty."""

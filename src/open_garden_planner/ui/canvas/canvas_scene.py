@@ -11,7 +11,14 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
-from PyQt6.QtCore import QLineF, QPointF, QRectF, Qt, pyqtSignal
+from PyQt6.QtCore import (
+    QCoreApplication,
+    QLineF,
+    QPointF,
+    QRectF,
+    Qt,
+    pyqtSignal,
+)
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPen
 from PyQt6.QtWidgets import (
     QGraphicsEllipseItem,
@@ -511,7 +518,10 @@ class CanvasScene(QGraphicsScene):
         # Notify views that calibration started
         if self.views():
             self.views()[0].set_status_message(
-                "Calibration: Click first point on the image"
+                QCoreApplication.translate(
+                    "CanvasScene",
+                    "Calibration: Click first point on the image",
+                )
             )
 
     def _clear_calibration_markers(self) -> None:
@@ -536,7 +546,10 @@ class CanvasScene(QGraphicsScene):
             # After first point, update status
             if self.views():
                 self.views()[0].set_status_message(
-                    "Calibration: Click second point on the image"
+                    QCoreApplication.translate(
+                        "CanvasScene",
+                        "Calibration: Click second point on the image",
+                    )
                 )
         elif len(self._calibration_points) == 2:
             # After second point, draw line and show input
@@ -599,7 +612,9 @@ class CanvasScene(QGraphicsScene):
 
         # Notify view
         if self.views():
-            self.views()[0].set_status_message("Calibration complete")
+            self.views()[0].set_status_message(
+                QCoreApplication.translate("CanvasScene", "Calibration complete")
+            )
 
     def cancel_calibration(self) -> None:
         """Cancel calibration mode."""

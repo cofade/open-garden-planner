@@ -195,9 +195,20 @@ class CanvasView(QGraphicsView):
     coordinates_changed = pyqtSignal(float, float)
     zoom_changed = pyqtSignal(float)
     tool_changed = pyqtSignal(str)  # Emitted when active tool changes
-    # Emitted alongside tool_changed, carrying the ToolType rather than the
-    # (possibly translated) display name — see #304.
+    #: Emitted alongside tool_changed, carrying the ToolType rather than the
+    #: (possibly translated) display name — see #304.
     tool_type_changed = pyqtSignal(ToolType)
+    #: A one-line message for the main window's status bar.
+    #:
+    #: This is a SIGNAL, not a parent lookup, and that is the whole point. The
+    #: previous implementation asked ``self.parent().statusBar()``, but in the
+    #: production layout this view's parent is the ``QSplitter`` built in
+    #: ``application.py`` — which has no ``statusBar`` — so the ``hasattr`` guard
+    #: silently failed and EVERY ``set_status_message`` caller (two dozen, from
+    #: canvas_scene's calibration feedback to garden_item's command descriptions)
+    #: was a silent no-op. The #415 propagation-date refusal surfaced it: it
+    #: appeared to be refused visibly and delivered nothing at all.
+    status_message = pyqtSignal(str)
     import_background_image_requested = pyqtSignal()  # Emitted from empty-canvas right-click
     # US-12.10a: emitted when a bed's "Add soil test…" action is invoked.
     # Args: target_id (bed UUID string or "global"), display_name (informational)
@@ -5577,14 +5588,15 @@ class CanvasView(QGraphicsView):
         self.set_status_message(desc)
 
     def set_status_message(self, message: str) -> None:
-        """Set status message (to be picked up by main window).
+        """Ask the main window to show ``message`` in its status bar.
+
+        Routes through the :attr:`status_message` signal, which
+        ``GardenPlannerApp`` connects to ``QMainWindow.statusBar()``. It used to
+        reach for ``self.parent().statusBar()`` instead, which never resolved in
+        the production layout (the parent is a ``QSplitter``), so this call was a
+        silent no-op for every caller — see the signal's docstring.
 
         Args:
-            message: The status message to display
+            message: The status message to display.
         """
-        # This will be picked up by the main window's status bar
-        # For now, we'll emit it as a signal if the parent has a status bar
-        if self.parent() and hasattr(self.parent(), "statusBar"):
-            status_bar = self.parent().statusBar()
-            if status_bar:
-                status_bar.showMessage(message)
+        self.status_message.emit(message)
