@@ -591,12 +591,12 @@
   },
   "395": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Array tools (grid/linear/circular/along-path) have zero test coverage behind their modal dialogs (Audit 2026-10, epic #392)"
   },
   "396": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Agent API: make Host/Origin (DNS-rebinding) validation explicit, test it, and raise the mcp floor to >=1.23 (Audit 2026-10, epic #392)"
   },
   "397": {
@@ -606,7 +606,7 @@
   },
   "398": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "skills: CI job count, 'no token auth' and 'ADR-001…034' statements contradict ci.yml / server.py / docs/09 (Audit 2026-10, epic #392)"
   },
   "399": {
@@ -671,12 +671,12 @@
   },
   "414": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Task calendar: GUI task surfaces miss every frost-relative window anchored on another year's frost (TD-037)"
   },
   "415": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Planting calendar: the propagation editor saves steps in the wrong year (and untranslated detail labels)"
   },
   "416": {
@@ -688,5 +688,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Plant data: convert the harvest offsets to their true reading (split from #416)"
+  },
+  "419": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(#414,#415,#395,#396,#398): task-date correctness and audit P1s"
   }
 }

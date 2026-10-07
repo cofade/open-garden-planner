@@ -2655,7 +2655,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
 ---
 
-## Task-date correctness + audit P1 cluster (PR #414, #415, #416, #396, #395, #398)
+## Task-date correctness + audit P1 cluster — **shipped v1.29.5** (PR [#419](https://github.com/cofade/open-garden-planner/pull/419))
 
 Not a phase — a hardening package, shipped on `master` alongside v1.29.4. Six
 issues from two sources: three correctness bugs found by the ADR-048 L0 senior
