@@ -164,6 +164,38 @@ A good checklist — model it on `analyze-pr` Phase 4 (`.claude/skills/analyze-p
 - **Format each item as `shortcut / menu path → expected visual result`.** Falsifiable observations, not "check it works". Prefix with the launch command `venv/Scripts/python.exe -m open_garden_planner` where useful.
 - **Golden path + at least one edge case per feature**, derived from acceptance criteria in `docs/roadmap.md` / `docs/functional-requirements.md`. Standard edge cases: empty input, degenerate geometry, undo/redo, save→reload roundtrip.
 - **Risk-surface items the diff implies but nobody wrote down.** Read the diff stat and add checks by touched area, e.g.: `.ogp` schema / `FILE_VERSION` → open old file, save, reopen on the previously-released exe; anything geometric → repeat on a **rotated** item (§4); anything with a badge/overlay → toggle it and re-check (the #219 class); translations → switch to German and re-walk the path.
+### Every item must be executable on the day it is read
+
+A checklist item is a **claim about the user's environment**, and it fails the same
+way any other untested claim fails. Before writing one, run it.
+
+- **Do not require a date the user cannot set.** The system clock is not settable, and
+  most GUI surfaces read `datetime.date.today()`. "Open the Tasks tab on 1 January of
+  the following year" is not a test — it is a wish. If a defect needs a particular
+  date, find a *frost date* or *species* that makes the same thing happen **today**,
+  or say plainly that it is not hand-checkable and name the harness that covers it.
+- **Measure the before/after values and quote them.** `frost 15 January → indoor_sow
+  reads 2025-11-20 (was 2026-11-20)` is checkable; "the dates are correct now" is not.
+  Run the same step on `master` (a worktree of it) and record what it showed — that is
+  what makes the item falsifiable rather than reassuring.
+- **Drive the real widget, not the function under it.** Reading
+  `generate_actionable_for_surface(...)` proves the generator; reading the `QLabel`s a
+  `TasksView` renders proves the *surface the user looks at*, which is what the item
+  claims. Where a checklist item names a UI surface, verify it through that widget.
+- **Check the item is reachable through the UI at all.** A scenario that only exists
+  by calling an internal function is not a manual test. (Related: a fixture that needs
+  a *different species* or *setting* than the issue names still counts — say which.)
+- **Prefer the widest available harness over a single hand-run scenario.** If a
+  committed sweep already covers the class of case, cite it *as well*: it is stronger
+  evidence than one manual pass, and it is the thing that keeps working.
+
+The failure this rule comes from: a six-issue PR's checklist asked for a check
+requiring the system date to be 1 January of the next year. It was rewritten around
+measured values — a bundled **Asparagus** plant at a **9 April** frost makes the
+multi-year task appear on any day of the year, and a **15 January** frost makes the
+wrong-year propagation step visible the same day. Both were verified through the real
+widgets on `master` and on the branch before being written down.
+
 - Subtract what automation already proved — don't ask the user to re-run what pytest covered; list only the manual-only remainder.
 
 ---
