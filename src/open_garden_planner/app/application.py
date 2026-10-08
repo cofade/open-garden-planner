@@ -59,6 +59,7 @@ from open_garden_planner.ui.panels import (
     LayersPanel,
     PestOverviewPanel,
     PlantDatabasePanel,
+    PlantListsPanel,
     PlantSearchPanel,
     PropertiesPanel,
     SmartSymbolsPanel,
@@ -5100,6 +5101,13 @@ class GardenPlannerApp(QMainWindow):
         plant_search_collapsible = CollapsiblePanel(self.tr("Find Plants"), self.plant_search_panel, expanded=False)
         sidebar_layout.addWidget(plant_search_collapsible)
 
+        # 5b. Plant Lists Panel (collapsible, US-G4, issue #320)
+        self.plant_lists_panel = PlantListsPanel(canvas_scene=self.canvas_scene)
+        plant_lists_collapsible = CollapsiblePanel(
+            self.tr("Plant Lists"), self.plant_lists_panel, expanded=False
+        )
+        sidebar_layout.addWidget(plant_lists_collapsible)
+
         # 6. Plant Details Panel (collapsible) - only shown when a plant is selected
         self.plant_database_panel = PlantDatabasePanel()
         self.plant_database_panel.search_button.clicked.connect(self._on_search_plant_database)
@@ -5176,6 +5184,7 @@ class GardenPlannerApp(QMainWindow):
             ("constraints", constraints_collapsible),
             ("pest_overview", self.pest_overview_collapsible),
             ("plant_search", plant_search_collapsible),
+            ("plant_lists", plant_lists_collapsible),
             ("journal", self.journal_collapsible),
             ("smart_symbols", self.smart_symbols_collapsible),
         ]

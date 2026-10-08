@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QTextEdit,
+    QToolButton,
     QVBoxLayout,
 )
 
@@ -68,6 +69,11 @@ class PlantSearchDialog(QDialog):
         self.setModal(True)
         self.setMinimumSize(700, 500)
 
+        from open_garden_planner.models.plant_lists import get_plant_list_store  # noqa: PLC0415
+
+        self._list_store = get_plant_list_store()
+        self._list_store.changed.connect(self._on_list_store_changed)
+
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -110,12 +116,26 @@ class PlantSearchDialog(QDialog):
 
         # Right side: Plant details
         details_layout = QVBoxLayout()
+        details_header = QHBoxLayout()
         details_label = QLabel(self.tr("Plant Details:"))
         set_text_role(details_label, "h2")
+        details_header.addWidget(details_label, 1)
+
+        self.favorite_btn = QToolButton()
+        self.favorite_btn.setText("☆")
+        self.favorite_btn.setToolTip(self.tr("Add to Favorites"))
+        self.favorite_btn.setEnabled(False)
+        self.favorite_btn.setStyleSheet(
+            "font-size: 16px; border: none; background: transparent; padding: 2px;"
+        )
+        self.favorite_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.favorite_btn.clicked.connect(self._on_toggle_favorite)
+        details_header.addWidget(self.favorite_btn)
+
+        details_layout.addLayout(details_header)
         self.details_text = QTextEdit()
         self.details_text.setReadOnly(True)
         self.details_text.setPlaceholderText(self.tr("Select a plant to view details"))
-        details_layout.addWidget(details_label)
         details_layout.addWidget(self.details_text)
 
         content_layout.addLayout(results_layout, 2)  # 40% width
@@ -188,13 +208,7 @@ class PlantSearchDialog(QDialog):
                 # leftover custom "Tomato" record with wrong sun/water values
                 # was picked instead of Trefle's).
                 for plant_data in results:
-                    item = QListWidgetItem(
-                        self.tr("{name} ({scientific}) — {source}").format(
-                            name=plant_data.common_name,
-                            scientific=plant_data.scientific_name,
-                            source=plant_source_label(plant_data.data_source),
-                        )
-                    )
+                    item = QListWidgetItem(self._format_result_text(plant_data))
                     item.setData(Qt.ItemDataRole.UserRole, plant_data)
                     self.results_list.addItem(item)
 
@@ -259,6 +273,15 @@ class PlantSearchDialog(QDialog):
         self._search_timer.stop()
         super().done(result)
 
+    def _format_result_text(self, plant_data: PlantSpeciesData) -> str:
+        """Format a search result list entry label, prefixed with a star if favorite."""
+        prefix = "⭐ " if self._list_store.is_favorite(plant_data) else ""
+        return prefix + self.tr("{name} ({scientific}) — {source}").format(
+            name=plant_data.common_name,
+            scientific=plant_data.scientific_name,
+            source=plant_source_label(plant_data.data_source),
+        )
+
     def _on_selection_changed(self) -> None:
         """Handle result selection change."""
         selected_items = self.results_list.selectedItems()
@@ -266,6 +289,7 @@ class PlantSearchDialog(QDialog):
             self.details_text.clear()
             self.ok_button.setEnabled(False)
             self._selected_plant = None
+            self._update_favorite_button()
             return
 
         # Get plant data from selected item
@@ -276,6 +300,35 @@ class PlantSearchDialog(QDialog):
 
         # Display plant details
         self._display_plant_details(plant_data)
+        self._update_favorite_button()
+
+    def _on_toggle_favorite(self) -> None:
+        """Toggle favorite status for currently selected plant."""
+        if self._selected_plant:
+            self._list_store.toggle_favorite(self._selected_plant)
+            self._update_favorite_button()
+
+    def _update_favorite_button(self) -> None:
+        """Update favorite button state from store."""
+        if not self._selected_plant:
+            self.favorite_btn.setEnabled(False)
+            self.favorite_btn.setText("☆")
+            return
+        self.favorite_btn.setEnabled(True)
+        is_fav = self._list_store.is_favorite(self._selected_plant)
+        self.favorite_btn.setText("⭐" if is_fav else "☆")
+        self.favorite_btn.setToolTip(
+            self.tr("Remove from Favorites") if is_fav else self.tr("Add to Favorites")
+        )
+
+    def _on_list_store_changed(self) -> None:
+        """React to plant list store changes (update button and star icons in list)."""
+        self._update_favorite_button()
+        for i in range(self.results_list.count()):
+            item = self.results_list.item(i)
+            pdata = item.data(Qt.ItemDataRole.UserRole)
+            if pdata:
+                item.setText(self._format_result_text(pdata))
 
     def _display_plant_details(self, plant: PlantSpeciesData) -> None:
         """Display detailed information about a plant.

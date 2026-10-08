@@ -704,6 +704,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     # ── CategoryDropdown (popup under each toolbar category button) ──
     "CategoryDropdown": {
         "Filter…": "Filtern…",
+        "Add to Favorites": "Zu Favoriten hinzufügen",
+        "Remove from Favorites": "Aus Favoriten entfernen",
+        "Add to List": "Zu Liste hinzufügen",
     },
 
     # ── GlobalSearchField (toolbar object search) ──
@@ -715,6 +718,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "GardenPlannerApp": {
         "Tasks": "Aufgaben",
         "Smart Symbols": "Smart-Symbole",
+        "Plant Lists": "Pflanzenlisten",
         "&File": "&Datei",
         "&Edit": "&Bearbeiten",
         "&View": "&Ansicht",
@@ -1240,6 +1244,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Create a custom plant species entry": "Einen eigenen Pflanzeneintrag erstellen",
         "Load Custom": "Eigene laden",
         "Load a plant from your custom library": "Eine Pflanze aus Ihrer eigenen Bibliothek laden",
+        "Add to Favorites": "Zu Favoriten hinzufügen",
+        "Remove from Favorites": "Aus Favoriten entfernen",
         # Shared with PlantSearchDialog's results list via plant_source_label()
         "Unknown source": "Unbekannte Quelle",
         "Custom Plant": "Eigene Pflanze",
@@ -1327,6 +1333,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Enter a plant name to search": "Geben Sie einen Pflanzennamen zum Suchen ein",
         "Results:": "Ergebnisse:",
         "Plant Details:": "Pflanzendetails:",
+        "Add to Favorites": "Zu Favoriten hinzufügen",
+        "Remove from Favorites": "Aus Favoriten entfernen",
         "Select a plant to view details": "Wählen Sie eine Pflanze, um Details anzuzeigen",
         "Searching for '{query}'...": "Suche nach '{query}'...",
         "Found {count} results": "{count} Ergebnisse gefunden",
@@ -3051,6 +3059,61 @@ _I366_TRANSLATIONS: dict[str, dict[str, str]] = {
 
 for _ctx, _strings in _I366_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
+# ── US-G4 (#320): Plant lists & favourites ───────────────────────────────────
+_PLANT_LISTS_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "PlantListsPanel": {
+        "⭐ Favorites": "⭐ Favoriten",
+        "New List...": "Neue Liste...",
+        "Rename List...": "Liste umbenennen...",
+        "Delete List": "Liste löschen",
+        "Export List (JSON)...": "Liste exportieren (JSON)...",
+        "Import List (JSON)...": "Liste importieren (JSON)...",
+        "Add Selected from Plan...": "Ausgewählte vom Plan hinzufügen...",
+        "List Actions": "Listen-Aktionen",
+        "+ Add Selected from Plan": "+ Ausgewählte vom Plan hinzufügen",
+        "Add all currently selected plants on the canvas to this list":
+            "Alle derzeit auf der Leinwand ausgewählten Pflanzen zu dieser Liste hinzufügen",
+        "No entries in this list.\nDrag species here or use the menu above.":
+            "Keine Einträge in dieser Liste.\nZiehen Sie Arten hierher oder nutzen Sie das Menü oben.",
+        "Drag to canvas to plant": "Auf die Leinwand ziehen zum Pflanzen",
+        "New Plant List": "Neue Pflanzenliste",
+        "Enter list name:": "Listenname eingeben:",
+        "Rename Plant List": "Pflanzenliste umbenennen",
+        "Delete Plant List": "Pflanzenliste löschen",
+        "Delete list '{name}' and its {count} entries?":
+            "Liste '{name}' und ihre {count} Einträge löschen?",
+        "Export Plant List": "Pflanzenliste exportieren",
+        "Plant List JSON (*.json)": "Pflanzenlisten-JSON (*.json)",
+        "Export Failed": "Export fehlgeschlagen",
+        "Failed to export list:\n{error}": "Export der Liste fehlgeschlagen:\n{error}",
+        "Import Plant List": "Pflanzenliste importieren",
+        "Import Failed": "Import fehlgeschlagen",
+        "Failed to import list:\n{error}": "Import der Liste fehlgeschlagen:\n{error}",
+        "No Plants Selected": "Keine Pflanzen ausgewählt",
+        "Select one or more plants on the canvas first.":
+            "Wählen Sie zuerst eine oder mehrere Pflanzen auf der Leinwand aus.",
+        "Added {count} plants to '{name}'": "{count} Pflanzen zu '{name}' hinzugefügt",
+        "Add to Plant List": "Zu Pflanzenliste hinzufügen",
+        "Add {count} selected plants to:": "{count} ausgewählte Pflanzen hinzufügen zu:",
+        "Edit Note...": "Notiz bearbeiten...",
+        "Move to List": "In Liste verschieben",
+        "Update from Plan": "Vom Plan aktualisieren",
+        "Remove from List": "Aus Liste entfernen",
+        "Edit Note": "Notiz bearbeiten",
+        "Note for {name}:": "Notiz für {name}:",
+        "No Canvas Plant Matched": "Keine passende Pflanze auf der Leinwand",
+        "Could not find a selected or matching plant on the canvas to update from.":
+            "Auf der Leinwand wurde keine ausgewählte oder passende Pflanze zum Aktualisieren gefunden.",
+        "Updated snapshot for {name} from canvas item.":
+            "Schnappschuss für {name} vom Leinwand-Objekt aktualisiert.",
+    },
+}
+
+for _ctx, _strings in _PLANT_LISTS_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
 
 
 def fill_translations() -> None:

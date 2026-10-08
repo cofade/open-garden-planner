@@ -401,3 +401,15 @@ Black-box view of the GO/NO-GO spike for the renderer switch. It is **not part o
 | `scripts/make_bench_plans.py` | Deterministic `tests/fixtures/plans/bench_small.ogp` / `bench_large.ogp` through the real serializer (`--check` pins them); writes to a throwaway settings store. | → `.ogp` fixtures |
 
 Engine facts measured here live in the `ogp-3d-renderer` skill; the art-direction contract in `ogp-lush-cinematic`; the evidence in ADR-048 and `docs/09-architecture-decisions/adr-048-evidence/`.
+
+## 5.9 Plant Lists & Favourites Subsystem (US-G4, issue #320)
+
+Black-box view of persistent plant collections, favourites, drag-to-canvas orchestration, and list sharing. See FR-8.
+
+| Building block | Responsibility | Interface (in → out) |
+|----------------|----------------|----------------------|
+| `models/plant_lists.py` (`PlantListEntry`, `PlantList`, `PlantListStore`) | Data model and store for plant collections. Persists to `<app-data>/plant_lists.json` using atomic replace (tempfile + `os.replace`). Reserves immutable `favorites` list ID. Emits `changed` signal on any mutation. Supports JSON export/import with versioning and ID re-generation. | CRUD operations, JSON import/export, `changed` signal |
+| `ui/panels/plant_lists_panel.py` (`PlantListsPanel`) | Sidebar accordion panel: list switcher (`⭐ Favorites` + custom lists), list action menu (New, Rename, Delete, Export, Import), draggable entries list (`_DraggablePlantListWidget`), entry context menu (Edit Note, Move to List, Update from Plan, Remove), and "+ Add Selected from Plan" bulk button. | store + scene → reactive list & drag UI |
+| `ui/canvas/canvas_view.py` (`_create_plant_item_at_scene_pos`) | Canonical unified plant creation helper shared between gallery drops and `plant_list:<entry_id>` drops: sizes footprint (respects `max_spread_cm`), auto-parents to underlying bed, stamps default planting date (US-E8), assigns active layer, runs as a single undo step via `CreateItemCommand`. | `(scene_pos, tool_type, obj_type, radius, ...)` → created `CircleItem` |
+| `agent_api/server.py` (`garden://plant-lists`) | Read-only MCP resource exposing all lists and entries (`id`, `name`, `species_keys`, `note`, `added_at`) to AI assistants. | GET `garden://plant-lists` → JSON catalog |
+

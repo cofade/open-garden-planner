@@ -157,14 +157,15 @@ Pre-defined object types for common property elements:
 - **FR-MEAS-05**: Scale bar overlay (Phase 6)
 - **FR-MEAS-06**: Measurements snap to object vertices/edges
 
-## FR-8: Object Library
+## FR-8: Object Library & Plant Lists
 
-- **FR-LIB-01**: User can define custom object templates
-- **FR-LIB-02**: Template includes: name, default geometry, default styling, metadata fields
-- **FR-LIB-03**: Library stored locally, persists across projects
-- **FR-LIB-04**: Drag templates from library to canvas to create instances
-- **FR-LIB-05**: Update template propagates to instances (optional, user-confirmed)
-- **FR-LIB-06**: Import/export library as JSON for sharing
+- **FR-LIB-01**: User can define custom object templates and plant collections (US-G4 #320: Plant Lists & Favorites panel with reserved `⭐ Favorites` and user-defined named collections).
+- **FR-LIB-02**: Template / entry includes: name, scientific name, default geometry, snapshot botanical data (`PlantSpeciesData`), and user notes.
+- **FR-LIB-03**: Library stored locally, persists across projects in `<app-data>/plant_lists.json` using atomic replace writes.
+- **FR-LIB-04**: Drag species from list to canvas to create instances with auto-parenting to underlying beds, proper sizing, today's planting date stamped, and single-step undo.
+- **FR-LIB-05**: "Update from plan" allows user-confirmed, explicit snapshot refresh from placed plants (no silent automatic overwrites).
+- **FR-LIB-06**: Import/export plant lists as standalone JSON files for sharing.
+- **FR-LIB-07**: Read-only Agent API (MCP) resource `garden://plant-lists` exposes catalogs of lists and entries to AI assistants.
 
 ## FR-9: File Operations
 

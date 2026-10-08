@@ -29,6 +29,8 @@
 | **.ogp** | Project file format (JSON-based) |
 | **Object Snap** | Automatic snapping of new/moved objects to edges/vertices of existing objects |
 | **Plant Type** | Category of plant: tree, shrub, perennial, annual, ground cover |
+| **Plant List** | A user-defined, named collection of plant species with snapshots and notes (US-G4, #320). Stored across projects in `<app-data>/plant_lists.json` and draggable to canvas for direct creation |
+| **Favorites (Plants)** | The reserved, non-deletable default plant list (`favorites`) indicated by ⭐ across the search dialog, plant database panel, category dropdown, and sidebar list |
 | **Polyline** | A connected series of line segments (open path) used for fences, paths, walls |
 | **QGraphicsScene** | Qt class that manages all 2D items on the canvas |
 | **QGraphicsView** | Qt class that provides the viewport/widget for displaying the scene |

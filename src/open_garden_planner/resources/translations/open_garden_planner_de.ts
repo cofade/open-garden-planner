@@ -3651,6 +3651,10 @@ Details: {error}</translation>
             <source>Warning: {count} unrecognized item(s) could not be loaded and were skipped.</source>
             <translation>Warnung: {count} nicht erkannte(s) Objekt(e) konnten nicht geladen werden und wurden übersprungen.</translation>
         </message>
+        <message>
+            <source>Plant Lists</source>
+            <translation>Pflanzenlisten</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -4843,6 +4847,14 @@ Verwenden Sie 'Eigene erstellen', um Pflanzen hinzuzufügen, oder das Pflanzen-M
             <source>Data Sources &amp; Licenses</source>
             <translation>Datenquellen &amp; Lizenzen</translation>
         </message>
+        <message>
+            <source>Add to Favorites</source>
+            <translation>Zu Favoriten hinzufügen</translation>
+        </message>
+        <message>
+            <source>Remove from Favorites</source>
+            <translation>Aus Favoriten entfernen</translation>
+        </message>
     </context>
     <context>
         <name>PlantSearchDialog</name>
@@ -5112,6 +5124,14 @@ Bitte überprüfen Sie Ihre Internetverbindung und API-Zugangsdaten.</translatio
         <message>
             <source>({sources} unavailable — check Preferences.)</source>
             <translation>({sources} nicht erreichbar — Einstellungen prüfen.)</translation>
+        </message>
+        <message>
+            <source>Add to Favorites</source>
+            <translation>Zu Favoriten hinzufügen</translation>
+        </message>
+        <message>
+            <source>Remove from Favorites</source>
+            <translation>Aus Favoriten entfernen</translation>
         </message>
     </context>
     <context>
@@ -9809,6 +9829,18 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>Filter…</source>
             <translation>Filtern…</translation>
         </message>
+        <message>
+            <source>Add to Favorites</source>
+            <translation>Zu Favoriten hinzufügen</translation>
+        </message>
+        <message>
+            <source>Remove from Favorites</source>
+            <translation>Aus Favoriten entfernen</translation>
+        </message>
+        <message>
+            <source>Add to List</source>
+            <translation>Zu Liste hinzufügen</translation>
+        </message>
     </context>
     <context>
         <name>GlobalSearchField</name>
@@ -11323,6 +11355,167 @@ Details: {error}</translation>
         <message>
             <source>Calibration complete</source>
             <translation>Kalibrierung abgeschlossen</translation>
+        </message>
+    </context>
+    <context>
+        <name>PlantListsPanel</name>
+        <message>
+            <source>⭐ Favorites</source>
+            <translation>⭐ Favoriten</translation>
+        </message>
+        <message>
+            <source>New List...</source>
+            <translation>Neue Liste...</translation>
+        </message>
+        <message>
+            <source>Rename List...</source>
+            <translation>Liste umbenennen...</translation>
+        </message>
+        <message>
+            <source>Delete List</source>
+            <translation>Liste löschen</translation>
+        </message>
+        <message>
+            <source>Export List (JSON)...</source>
+            <translation>Liste exportieren (JSON)...</translation>
+        </message>
+        <message>
+            <source>Import List (JSON)...</source>
+            <translation>Liste importieren (JSON)...</translation>
+        </message>
+        <message>
+            <source>Add Selected from Plan...</source>
+            <translation>Ausgewählte vom Plan hinzufügen...</translation>
+        </message>
+        <message>
+            <source>List Actions</source>
+            <translation>Listen-Aktionen</translation>
+        </message>
+        <message>
+            <source>+ Add Selected from Plan</source>
+            <translation>+ Ausgewählte vom Plan hinzufügen</translation>
+        </message>
+        <message>
+            <source>Add all currently selected plants on the canvas to this list</source>
+            <translation>Alle derzeit auf der Leinwand ausgewählten Pflanzen zu dieser Liste hinzufügen</translation>
+        </message>
+        <message>
+            <source>No entries in this list.
+Drag species here or use the menu above.</source>
+            <translation>Keine Einträge in dieser Liste.
+Ziehen Sie Arten hierher oder nutzen Sie das Menü oben.</translation>
+        </message>
+        <message>
+            <source>Drag to canvas to plant</source>
+            <translation>Auf die Leinwand ziehen zum Pflanzen</translation>
+        </message>
+        <message>
+            <source>New Plant List</source>
+            <translation>Neue Pflanzenliste</translation>
+        </message>
+        <message>
+            <source>Enter list name:</source>
+            <translation>Listenname eingeben:</translation>
+        </message>
+        <message>
+            <source>Rename Plant List</source>
+            <translation>Pflanzenliste umbenennen</translation>
+        </message>
+        <message>
+            <source>Delete Plant List</source>
+            <translation>Pflanzenliste löschen</translation>
+        </message>
+        <message>
+            <source>Delete list '{name}' and its {count} entries?</source>
+            <translation>Liste '{name}' und ihre {count} Einträge löschen?</translation>
+        </message>
+        <message>
+            <source>Export Plant List</source>
+            <translation>Pflanzenliste exportieren</translation>
+        </message>
+        <message>
+            <source>Plant List JSON (*.json)</source>
+            <translation>Pflanzenlisten-JSON (*.json)</translation>
+        </message>
+        <message>
+            <source>Export Failed</source>
+            <translation>Export fehlgeschlagen</translation>
+        </message>
+        <message>
+            <source>Failed to export list:
+{error}</source>
+            <translation>Export der Liste fehlgeschlagen:
+{error}</translation>
+        </message>
+        <message>
+            <source>Import Plant List</source>
+            <translation>Pflanzenliste importieren</translation>
+        </message>
+        <message>
+            <source>Import Failed</source>
+            <translation>Import fehlgeschlagen</translation>
+        </message>
+        <message>
+            <source>Failed to import list:
+{error}</source>
+            <translation>Import der Liste fehlgeschlagen:
+{error}</translation>
+        </message>
+        <message>
+            <source>No Plants Selected</source>
+            <translation>Keine Pflanzen ausgewählt</translation>
+        </message>
+        <message>
+            <source>Select one or more plants on the canvas first.</source>
+            <translation>Wählen Sie zuerst eine oder mehrere Pflanzen auf der Leinwand aus.</translation>
+        </message>
+        <message>
+            <source>Added {count} plants to '{name}'</source>
+            <translation>{count} Pflanzen zu '{name}' hinzugefügt</translation>
+        </message>
+        <message>
+            <source>Add to Plant List</source>
+            <translation>Zu Pflanzenliste hinzufügen</translation>
+        </message>
+        <message>
+            <source>Add {count} selected plants to:</source>
+            <translation>{count} ausgewählte Pflanzen hinzufügen zu:</translation>
+        </message>
+        <message>
+            <source>Edit Note...</source>
+            <translation>Notiz bearbeiten...</translation>
+        </message>
+        <message>
+            <source>Move to List</source>
+            <translation>In Liste verschieben</translation>
+        </message>
+        <message>
+            <source>Update from Plan</source>
+            <translation>Vom Plan aktualisieren</translation>
+        </message>
+        <message>
+            <source>Remove from List</source>
+            <translation>Aus Liste entfernen</translation>
+        </message>
+        <message>
+            <source>Edit Note</source>
+            <translation>Notiz bearbeiten</translation>
+        </message>
+        <message>
+            <source>Note for {name}:</source>
+            <translation>Notiz für {name}:</translation>
+        </message>
+        <message>
+            <source>No Canvas Plant Matched</source>
+            <translation>Keine passende Pflanze auf der Leinwand</translation>
+        </message>
+        <message>
+            <source>Could not find a selected or matching plant on the canvas to update from.</source>
+            <translation>Auf der Leinwand wurde keine ausgewählte oder passende Pflanze zum Aktualisieren gefunden.</translation>
+        </message>
+        <message>
+            <source>Updated snapshot for {name} from canvas item.</source>
+            <translation>Schnappschuss für {name} vom Leinwand-Objekt aktualisiert.</translation>
         </message>
     </context>
 </TS>

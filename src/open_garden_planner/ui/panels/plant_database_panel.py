@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -216,6 +217,10 @@ class PlantDatabasePanel(QWidget):
         self._current_plant_data: PlantSpeciesData | None = None
         self._current_plant_item: QGraphicsItem | None = None
 
+        from open_garden_planner.models.plant_lists import get_plant_list_store  # noqa: PLC0415
+        self._list_store = get_plant_list_store()
+        self._list_store.changed.connect(self._update_favorite_button)
+
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -245,10 +250,26 @@ class PlantDatabasePanel(QWidget):
         profile_text = QVBoxLayout()
         profile_text.setSpacing(2)
 
+        name_row = QHBoxLayout()
+        name_row.setSpacing(4)
+        name_row.setContentsMargins(0, 0, 0, 0)
+
         self._profile_name = QLabel()
         self._profile_name.setWordWrap(True)
         self._profile_name.setStyleSheet("font-weight: bold; font-size: 14px;")
-        profile_text.addWidget(self._profile_name)
+        name_row.addWidget(self._profile_name, 1)
+
+        self._favorite_btn = QToolButton()
+        self._favorite_btn.setText("☆")
+        self._favorite_btn.setToolTip(self.tr("Add to Favorites"))
+        self._favorite_btn.setStyleSheet(
+            "font-size: 16px; border: none; background: transparent; padding: 2px;"
+        )
+        self._favorite_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._favorite_btn.clicked.connect(self._on_toggle_favorite)
+        name_row.addWidget(self._favorite_btn)
+
+        profile_text.addLayout(name_row)
 
         self._profile_scientific = QLabel()
         self._profile_scientific.setWordWrap(True)
@@ -1605,6 +1626,29 @@ class PlantDatabasePanel(QWidget):
             or thumb_url
         )
         self._profile_header.setVisible(has_content)
+
+        # Update favorite button
+        self._current_plant_data = plant_data
+        self._update_favorite_button()
+
+    def _on_toggle_favorite(self) -> None:
+        """Toggle favorite status for currently displayed plant."""
+        if self._current_plant_data:
+            self._list_store.toggle_favorite(self._current_plant_data)
+            self._update_favorite_button()
+
+    def _update_favorite_button(self) -> None:
+        """Update favorite button state from store."""
+        if not self._current_plant_data:
+            self._favorite_btn.setEnabled(False)
+            self._favorite_btn.setText("☆")
+            return
+        self._favorite_btn.setEnabled(True)
+        is_fav = self._list_store.is_favorite(self._current_plant_data)
+        self._favorite_btn.setText("⭐" if is_fav else "☆")
+        self._favorite_btn.setToolTip(
+            self.tr("Remove from Favorites") if is_fav else self.tr("Add to Favorites")
+        )
 
     def _apply_species_to_item(
         self, plant_item: QGraphicsItem, species_dict: dict
