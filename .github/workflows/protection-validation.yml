@@ -1,0 +1,25 @@
+name: Isolated protection validation
+on:
+  push:
+    branches: ['validation/ci-policy-20261008', 'validation/ci-policy-20261008-checks']
+permissions:
+  contents: read
+jobs:
+  checks:
+    name: ${{ matrix.check }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        check: ["Agent context parity", "Lint", "Test", "Security", "Dependencies (ubuntu-latest)", "Dependencies (windows-latest)", "Types (ubuntu-latest)", "Types (windows-latest)"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Exercise the required-check policy
+        env:
+          CHECK_NAME: ${{ matrix.check }}
+        run: |
+          if [ "$CHECK_NAME" = "Test" ] && [ "$(cat validation-state.txt)" = "FAIL" ]; then
+            echo 'Intentional failing check on an isolated validation base'
+            exit 1
+          fi
+          echo 'Isolated policy-validation check passed'
