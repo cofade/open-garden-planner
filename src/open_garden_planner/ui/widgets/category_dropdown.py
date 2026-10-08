@@ -55,7 +55,6 @@ class _ThumbnailButton(QToolButton):
             self._list_store.changed.connect(self._on_store_changed)
         else:
             self._list_store = None
-        self._update_tooltip()
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(2, 2, 2, 2)
@@ -73,6 +72,18 @@ class _ThumbnailButton(QToolButton):
             thumb_label.setStyleSheet("font-size: 20px;")
         layout.addWidget(thumb_label)
 
+        star_badge = QLabel(thumb_label)
+        star_badge.setText("⭐")
+        star_badge.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        star_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        star_badge.setFixedSize(14, 14)
+        star_badge.setStyleSheet(
+            "font-size: 10px; background: rgba(0, 0, 0, 0.55); border-radius: 7px; padding: 0px;"
+        )
+        star_badge.move(THUMB_SIZE - 15, 1)
+        star_badge.setVisible(False)
+        self._star_badge = star_badge
+
         name_label = QLabel(item.name)
         name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         name_label.setWordWrap(True)
@@ -80,18 +91,19 @@ class _ThumbnailButton(QToolButton):
         name_label.setMaximumHeight(20)
         layout.addWidget(name_label)
 
+        self._update_favorite_state()
+
         # Styled by theme.py's #CategoryDropdown QToolButton rules — the old
         # palette()-based QSS tracked the OS palette, not our theme.
         self.clicked.connect(lambda: self.clicked_item.emit(self._item))
 
     def showEvent(self, event) -> None:  # noqa: N802 — Qt override
         super().showEvent(event)
-        self._update_tooltip()
+        self._update_favorite_state()
 
     def _on_store_changed(self) -> None:
-        """Update tooltip lazily only if widget is currently visible."""
-        if self.isVisible():
-            self._update_tooltip()
+        """Update favorite star badge and tooltip when store changes."""
+        self._update_favorite_state()
 
     def _get_species_obj(self) -> "PlantSpeciesData":
         from open_garden_planner.models.plant_data import (  # noqa: PLC0415
@@ -109,10 +121,12 @@ class _ThumbnailButton(QToolButton):
             common_name=self._item.name,
         )
 
-    def _update_tooltip(self) -> None:
-        """Update button tooltip with favorite star if item is favorited."""
+    def _update_favorite_state(self) -> None:
+        """Update button star badge and tooltip if item is favorited."""
         if not self._item.species:
             self.setToolTip(self._item.name)
+            if hasattr(self, "_star_badge"):
+                self._star_badge.setVisible(False)
             return
         from open_garden_planner.models.plant_lists import (  # noqa: PLC0415
             get_plant_list_store,
@@ -120,10 +134,19 @@ class _ThumbnailButton(QToolButton):
 
         store = get_plant_list_store()
         obj = self._get_species_obj()
-        if store.is_favorite(obj) or store.is_favorite(self._item.species) or store.is_favorite(self._item.name):
+        is_fav = (
+            store.is_favorite(obj)
+            or store.is_favorite(self._item.species)
+            or store.is_favorite(self._item.name)
+        )
+        if hasattr(self, "_star_badge"):
+            self._star_badge.setVisible(is_fav)
+        if is_fav:
             self.setToolTip(f"⭐ {self._item.name}")
         else:
             self.setToolTip(self._item.name)
+
+    _update_tooltip = _update_favorite_state
 
     def contextMenuEvent(self, event) -> None:  # noqa: N802 — Qt override
         """Show context menu for plant gallery items (Favorites and List management)."""
@@ -292,6 +315,8 @@ class CategoryDropdown(QWidget):
         """Show the popup directly beneath the given anchor widget."""
         self._search_box.clear()
         self._search_box.setFocus()
+        for btn in self._buttons:
+            btn._update_favorite_state()
         anchor_bottom_left = anchor.mapToGlobal(anchor.rect().bottomLeft())
         self.move(anchor_bottom_left)
         self.show()
