@@ -48,15 +48,15 @@ The living register (ADR-047). Every row has a status; P0/P1 rows link their iss
 | TD-011 | Security (data) | Loader silently drops items it cannot decode: a legacy plan whose background image moved loses it on load and permanently on the next save; duplicate item_ids accepted | P1 / S | fixed (#397) | #397 | audit-2026-10 AUD-043 |
 | TD-012 | Security (security) | Loopback MCP endpoint's only browser barrier is an mcp SDK default the floor pin does not require (PoC: 1.22.0 serves Host: evil.example) | P1 / S | fixed (#396) | #396 | audit-2026-10 AUD-039 |
 | TD-013 | Hotspots (test) | Four user-reachable array features in CanvasView (CC 21-31) are 1.2-1.3% covered and have no tests | P1 / S | fixed (#395) | #395 | audit-2026-10 AUD-010 |
-| TD-014 | Docs (documentation) | Six documents declare CI gates and limits that ci.yml never runs (mypy, coverage, formatter, xvfb, 110 cols) — grouped docs drift | P1 / S | open (§10.6, §11.5 and README.md corrected 2026-10; §7.4, §8.6, §8.11 remain) | #401 | audit-2026-10 AUD-062 |
+| TD-014 | Docs (documentation) | Six documents declare CI gates and limits that ci.yml never runs (mypy, coverage, formatter, xvfb, 110 cols) — grouped docs drift | P1 / S | implemented; draft PR pending (#401 gate/docs corrections) | #401 | audit-2026-10 AUD-062 |
 | TD-015 | Docs (documentation) | Agent skills state CI and security facts the code contradicts: 'three CI jobs', 'only lint/test/security', 'no token auth', 'ADR-001…034' | P1 / S | fixed (#398) | #398 | audit-2026-10 AUD-064 |
-| TD-016 | Process (process) | 'Never merge on red' is prose-only: required status checks are off on master, merges use --admin, PR #323 merged on a red Test | P1 / S | open | #399 | audit-2026-10 AUD-085 |
+| TD-016 | Process (process) | 'Never merge on red' is prose-only: required status checks are off on master, merges use --admin, PR #323 merged on a red Test | P1 / S | workflow/verifier implemented; protection activation pending owner-approved finalization; draft PR pending | #399 | audit-2026-10 AUD-085 |
 | TD-017 | Security (data) | A .ogp that fails mid-load leaves a partial scene with the PREVIOUS file as current_file; Ctrl+S then overwrites the user's good plan | P1 / M | fixed (#403) | #403 | audit-2026-10 AUD-040 |
 | TD-018 | Architecture (code) | Clipboard serializer drops 4 persisted fields and 7 item types the file serializer handles — copy/paste silently loses data | P1 / M | fixed (#400) | #400 | audit-2026-10 AUD-002 |
 | TD-019 | Tests (test) | Serializer round-trip tests under-assert: 1 093 serializer mutants survive the 3 project unit files; 8 of 10 sampled also survive 19 persistence test files | P1 / M | fixed (#394) | #394 | audit-2026-10 AUD-017 |
-| TD-020 | Gates/CI (process) | mypy strict is declared a CI gate in four documents but never runs; 2 104 errors in 134 files | P1 / M | open | #401 | audit-2026-10 AUD-030 |
-| TD-021 | Gates/CI (test) | Coverage report and >80 % floor are declared (NFR-MAINT-02, §10.6, §8.6) but never measured anywhere | P1 / M | open | #402 | audit-2026-10 AUD-031 |
-| TD-022 | Dependencies (dependency) | Release build has no lockfile: 4 of 42 shipped runtime dists exact-pinned; v1.29.0 shipped 9 runtime dists at versions published after the v1.27.9 build | P1 / M | open | #404 | audit-2026-10 AUD-048 |
+| TD-020 | Gates/CI (process) | mypy strict is declared a CI gate in four documents but never runs; 2 104 errors in 134 files | P1 / M | implemented; fresh locked baselines: 1,966 errors on each OS (Linux 137 files, Windows 136); draft PR pending | #401 | audit-2026-10 AUD-030 |
+| TD-021 | Gates/CI (test) | Coverage report and >80 % floor are declared (NFR-MAINT-02, §10.6, §8.6) but never measured anywhere | P1 / M | implemented; fresh Linux floor measurement/validation in progress; draft PR pending | #402 | audit-2026-10 AUD-031 |
+| TD-022 | Dependencies (dependency) | Release build has no lockfile: 4 of 42 shipped runtime dists exact-pinned; v1.29.0 shipped 9 runtime dists at versions published after the v1.27.9 build | P1 / M | implemented; release-seeded lock and explicit build backends; draft PR pending | #404 | audit-2026-10 AUD-048 |
 | TD-023 | Docs (documentation) | §8.7 promises 'all errors logged' but the logging module has no handler anywhere: 55 handled-error log calls are discarded in the windowed exe | P1 / M | open | #405 | audit-2026-10 AUD-063 |
 | TD-024 | Tests (test) | constraint_tool.py is 29.0 % line / 9.6 % branch covered: 1 661 of 2 340 statements never run, 50 public methods never executed (25 non-trivial) | P1 / L | open | #406 | audit-2026-10 AUD-016 |
 | TD-025 | Security (data) | NaN/Infinity accepted at the .ogp boundary: NaN canvas breaks render_canvas_image, non-finite values are re-saved as invalid JSON | P2 / S | open | epic checklist | audit-2026-10 AUD-041 |
@@ -970,6 +970,21 @@ before saying a fix changed it.*
 - **A shared generator's flags are inherited per iteration, so a wrapper can filter before the wrapper's own filter runs.** Symptom: routing the Tasks tab through the shared multi-anchor path produced an **empty** task list and the Gantt produced **no bars at all**, while the unit tests of the same helper passed. Root cause: `generate_for_date_window` builds each anchor year with `replace(state, ...)`, so `actionable_only=True` (the GUI default) is re-applied inside every anchor — dropping anchors whose windows are not currently urgent *before* the outer `classify_urgency` filter saw them. Fix: both call sites pass `actionable_only=False` into the inner pass and keep exactly one urgency filter, which is the one they document. This is the same shape as the #326 "`Callable` injection with N call sites" lesson: a flag that is silently defaulted somewhere in the middle of a chain is not a flag, it is an accident waiting for a caller. *A default inside a loop over derived inputs is a filter nobody wrote; when a wrapper delegates, pass the permissive value inward and filter once at the edge.*
 
 - **A product surface can be "protected" by a library default nobody pinned.** Symptom: the Agent API's only barrier against a web page reaching it through DNS rebinding was the mcp SDK's Host/Origin validation, and the declared floor (`mcp>=1.12`) admitted SDKs that leave it **off** — measured: on 1.22.0 a crafted `Host: evil.example` initialize returned HTTP 200 with a full MCP result, where the 1.30.0 wheel answers 421. No shipped exe was known to be exposed, because every release happened to bundle a 1.30-era wheel. Root cause: the property belonged to *whichever wheel resolved at build time*, not to the product. Fix: `build_server` now takes the host/port it binds and passes explicit `TransportSecuritySettings`, and the floor rises to `mcp>=1.23`. The instructive part is the test design: with mcp 1.30.0 installed, the black-box 421/403 tests **pass even with our settings deleted** (measured). So does a naive object-level assertion that the settings are not None and the flag is True — the SDK auto-enable returns exactly such an object. What actually detects the removal is asserting something the default cannot satisfy: that `allowed_hosts` names the **bound port** and that no entry is a wildcard. Measured: deleting the `transport_security=` argument fails 3 of the 4 object-level tests. *A test that passes because of a library default is not testing your code; assert the configuration object as well as the behaviour it produces.*
+### CI/release hardening: locked metadata also contains the application version
+
+A version-only edit to `pyproject.toml` makes `uv.lock` stale. The measured probe failed
+`uv lock --check --offline`, then `uv lock --offline` changed only the editable project's
+version. `scripts/prepare_version_sync.py` stages and validates this refresh before applying
+any source writes, compares full third-party records, and regenerates the export. The
+version-sync chore must therefore include the lock alongside both source declarations.
+Pinned by `test_version_sync_cli_is_offline_transactional_and_idempotent`.
+
+Fresh baselines must use declared locked dependencies: the developer venv included undeclared
+Qt stubs and older type/coverage tools. Linux and Windows also disagreed about one ignore: 229
+were unused on both platforms, while one Windows-unused ignore remained needed on Linux.
+Only common unused directives were removed; allowances are measured per platform. Pinned by
+`test_baseline_keeps_platforms_independent_and_rejects_tool_drift`.
+
 ## 11.5 Community and Governance
 
 **Feature Requests**: Open to community input, pivots, and voting. The goal is to avoid a dead project — community engagement is welcome.
@@ -978,4 +993,4 @@ before saying a fix changed it.*
 - GitHub Issues for bug reports and feature requests
 - Pull requests welcome with review process
 - CONTRIBUTING.md with code style and testing requirements (planned; today the rules live in CLAUDE.md/AGENTS.md — audit-2026-10 §5.10)
-- PRs are expected to pass CI (tests, ruff, Bandit, secrets scan, agent-context parity), but none of these is a required status check on `master` today (#399); type checking is configured but not enforced (#401)
+- PRs run tests, full-tree ruff, Bandit HIGH, secrets scan, context parity, locked-dependency checks, platform type baselines and package coverage floors. The #399 protection payload makes the existing and dependency/type checks required for administrators too; activation is pending owner-approved finalization. Coverage is initially not required by the GitHub setting.

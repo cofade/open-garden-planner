@@ -980,11 +980,11 @@ class CanvasView(QGraphicsView):
             # observe actually changed. (setToolTip alone does not emit
             # `changed` — measured — but is guarded for the same invariant.)
             prev_level = getattr(item, "_soil_mismatch_level", None)
-            item._soil_mismatch_level = level  # type: ignore[attr-defined]
-            if item.toolTip() != new_tooltip:  # type: ignore[attr-defined]
-                item.setToolTip(new_tooltip)  # type: ignore[attr-defined]
+            item._soil_mismatch_level = level
+            if item.toolTip() != new_tooltip:
+                item.setToolTip(new_tooltip)
             if level != prev_level:
-                item.update()  # type: ignore[attr-defined]
+                item.update()
 
     def _update_soil_badges(self, today: date | None = None) -> None:
         """Recompute seasonal-reminder badges for every bed (US-12.10e)."""
@@ -1269,7 +1269,7 @@ class CanvasView(QGraphicsView):
         # Bundling solver moves from OTHER constraints would shift polygon vertices and
         # make the freshly applied rotation appear violated. Execute cleanly instead.
         _rotation_only = (_CT.PARALLEL, _CT.PERPENDICULAR, _CT.EQUAL)
-        if command._constraint_type in _rotation_only:  # type: ignore[attr-defined]
+        if command._constraint_type in _rotation_only:
             self.command_manager.execute(command)
             self._canvas_scene.update_dimension_lines()
             return
@@ -1283,8 +1283,8 @@ class CanvasView(QGraphicsView):
         # Exception: if A already has a FIXED constraint the FIXED pre-pass
         # inside solve_anchored will pin A, so B must remain free to move.
         graph = self._canvas_scene.constraint_graph
-        anchor_a_id = command._anchor_a.item_id  # type: ignore[attr-defined]
-        anchor_b_id = command._anchor_b.item_id  # type: ignore[attr-defined]
+        anchor_a_id = command._anchor_a.item_id
+        anchor_b_id = command._anchor_b.item_id
         a_is_fixed = any(
             c.constraint_type == _CT.FIXED and c.anchor_a.item_id == anchor_a_id
             for c in graph.constraints.values()
@@ -1297,7 +1297,7 @@ class CanvasView(QGraphicsView):
 
         # 1. Add the constraint temporarily so the solver can compute moves.
         command.execute()
-        if command._constraint_type == _CT.EDGE_LENGTH:  # type: ignore[attr-defined]
+        if command._constraint_type == _CT.EDGE_LENGTH:
             moves, vertex_moves = self._compute_edge_length_constraint_moves(command)
         else:
             moves, vertex_moves = self._compute_constraint_solve_moves(
@@ -1306,8 +1306,8 @@ class CanvasView(QGraphicsView):
         # 2. Remove temporarily — we want the official execute() below to do it.
         command.undo()
         # 3. Embed the moves into the command so execute() + undo() handle them.
-        command._item_moves = moves  # type: ignore[attr-defined]
-        command._vertex_moves = vertex_moves  # type: ignore[attr-defined]
+        command._item_moves = moves
+        command._vertex_moves = vertex_moves
         # 4. Execute via command_manager (adds constraint + applies moves; one undo unit).
         self.command_manager.execute(command)
         if moves or vertex_moves:
@@ -1344,13 +1344,13 @@ class CanvasView(QGraphicsView):
 
         trial = Constraint(
             constraint_id=_uuid.uuid4(),
-            anchor_a=command._anchor_a,  # type: ignore[attr-defined]
-            anchor_b=command._anchor_b,  # type: ignore[attr-defined]
-            target_distance=command._target_distance,  # type: ignore[attr-defined]
-            constraint_type=command._constraint_type,  # type: ignore[attr-defined]
-            anchor_c=command._anchor_c,  # type: ignore[attr-defined]
-            target_x=command._target_x,  # type: ignore[attr-defined]
-            target_y=command._target_y,  # type: ignore[attr-defined]
+            anchor_a=command._anchor_a,
+            anchor_b=command._anchor_b,
+            target_distance=command._target_distance,
+            constraint_type=command._constraint_type,
+            anchor_c=command._anchor_c,
+            target_x=command._target_x,
+            target_y=command._target_y,
         )
 
         item_positions: dict = {}
@@ -1473,9 +1473,9 @@ class CanvasView(QGraphicsView):
         graph = self._canvas_scene.constraint_graph
 
         # Collect all item IDs that need positions
-        constrained_ids: set = {anchor_a.item_id, anchor_b.item_id}  # type: ignore[union-attr]
+        constrained_ids: set = {anchor_a.item_id, anchor_b.item_id}
         if anchor_c is not None:
-            constrained_ids.add(anchor_c.item_id)  # type: ignore[union-attr]
+            constrained_ids.add(anchor_c.item_id)
         for c in graph.constraints.values():
             constrained_ids.add(c.anchor_a.item_id)
             constrained_ids.add(c.anchor_b.item_id)
@@ -2864,13 +2864,13 @@ class CanvasView(QGraphicsView):
             return
 
         graph = self._canvas_scene.constraint_graph
-        pg = item.polygon()  # type: ignore[union-attr]
+        pg = item.polygon()
         n = pg.count()
         if n < 4:  # noqa: PLR2004
             return
 
         def _scene(i: int) -> QPointF:
-            return item.mapToScene(pg.at(i))  # type: ignore[union-attr]
+            return item.mapToScene(pg.at(i))
 
         for cid in list(graph._adjacency.get(uid, set())):
             c = graph._constraints.get(cid)
@@ -2908,7 +2908,7 @@ class CanvasView(QGraphicsView):
                 p_b1.x() + cos_d * rel_x - sin_d * rel_y,
                 p_b1.y() + sin_d * rel_x + cos_d * rel_y,
             )
-            item._move_vertex_to((i_b + 1) % n, item.mapFromScene(new_b2_scene))  # type: ignore[union-attr]
+            item._move_vertex_to((i_b + 1) % n, item.mapFromScene(new_b2_scene))
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
         """Handle mouse double click for tool operations and constraint editing."""
@@ -3163,7 +3163,7 @@ class CanvasView(QGraphicsView):
                     new_distance=new_distance,
                     item_moves=item_moves,
                 )
-                command._vertex_moves = vertex_moves  # type: ignore[attr-defined]
+                command._vertex_moves = vertex_moves
                 self._command_manager.execute(command)
 
     @staticmethod
@@ -3238,9 +3238,9 @@ class CanvasView(QGraphicsView):
         from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem
 
         scene = self.scene()
-        anchor_a = command._anchor_a  # type: ignore[attr-defined]
-        anchor_b = command._anchor_b  # type: ignore[attr-defined]
-        target_distance = command._target_distance  # type: ignore[attr-defined]
+        anchor_a = command._anchor_a
+        anchor_b = command._anchor_b
+        target_distance = command._target_distance
 
         item = next(
             (

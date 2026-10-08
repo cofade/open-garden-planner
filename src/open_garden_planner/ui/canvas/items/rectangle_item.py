@@ -36,7 +36,7 @@ def _show_properties_dialog(item: QGraphicsRectItem) -> None:
             item.name = dialog.get_name()
             # Update the label if it exists
             if hasattr(item, '_update_label'):
-                item._update_label()  # type: ignore[attr-defined]
+                item._update_label()
 
         # Apply layer change — consolidated onto MoveToLayerCommand (issue
         # #338); z is derived from the scene's normalized stacking order,

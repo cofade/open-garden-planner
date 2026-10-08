@@ -401,3 +401,13 @@ Black-box view of the GO/NO-GO spike for the renderer switch. It is **not part o
 | `scripts/make_bench_plans.py` | Deterministic `tests/fixtures/plans/bench_small.ogp` / `bench_large.ogp` through the real serializer (`--check` pins them); writes to a throwaway settings store. | → `.ogp` fixtures |
 
 Engine facts measured here live in the `ogp-3d-renderer` skill; the art-direction contract in `ogp-lush-cinematic`; the evidence in ADR-048 and `docs/09-architecture-decisions/adr-048-evidence/`.
+
+## Developer quality and release tooling
+
+The shared setup-locked-env GitHub action installs the native uv lock and editable project.
+The audit parser supplies type diagnostics and coverage package membership to the standalone
+check_mypy_baseline and check_coverage_floors CLIs. check_dependency_lock verifies the native
+lock and PEP 751 export. check_pr_checks and check_branch_protection are read-only remote-state
+verifiers. prepare_version_sync stages mechanical source/lock updates before an explicit apply.
+Versioned policy files live in quality/. These tools have subprocess integration coverage and
+remain outside application runtime dependencies. See ADR-050.

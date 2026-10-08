@@ -357,12 +357,12 @@ class ConstraintTool(BaseTool):
             return
 
         ref_a = AnchorRef(
-            item_id=anchor_a.item.item_id,  # type: ignore[union-attr]
+            item_id=anchor_a.item.item_id,
             anchor_type=anchor_a.anchor_type,
             anchor_index=anchor_a.anchor_index,
         )
         ref_b = AnchorRef(
-            item_id=anchor_b.item.item_id,  # type: ignore[union-attr]
+            item_id=anchor_b.item.item_id,
             anchor_type=anchor_b.anchor_type,
             anchor_index=anchor_b.anchor_index,
         )
@@ -567,7 +567,7 @@ class CoincidentConstraintTool(ConstraintTool):
             self._hovered_circle = circle
             self._hovered_edge = None
             # Draw dashed circle outline at the circle's perimeter
-            c = circle  # type: ignore[union-attr]
+            c = circle
             r = c.radius
             from PyQt6.QtCore import QRectF
 
@@ -633,7 +633,7 @@ class CoincidentConstraintTool(ConstraintTool):
             return
 
         ref_a = AnchorRef(
-            item_id=self._anchor_a.item.item_id,  # type: ignore[union-attr]
+            item_id=self._anchor_a.item.item_id,
             anchor_type=self._anchor_a.anchor_type,
             anchor_index=self._anchor_a.anchor_index,
         )
@@ -691,7 +691,7 @@ class CoincidentConstraintTool(ConstraintTool):
             return
 
         ref_a = AnchorRef(
-            item_id=self._anchor_a.item.item_id,  # type: ignore[union-attr]
+            item_id=self._anchor_a.item.item_id,
             anchor_type=self._anchor_a.anchor_type,
             anchor_index=self._anchor_a.anchor_index,
         )
@@ -1378,17 +1378,17 @@ class AngleConstraintTool(BaseTool):
             return
 
         ref_a = AnchorRef(
-            item_id=anchor_a.item.item_id,  # type: ignore[union-attr]
+            item_id=anchor_a.item.item_id,
             anchor_type=anchor_a.anchor_type,
             anchor_index=anchor_a.anchor_index,
         )
         ref_b = AnchorRef(
-            item_id=anchor_b.item.item_id,  # type: ignore[union-attr]
+            item_id=anchor_b.item.item_id,
             anchor_type=anchor_b.anchor_type,
             anchor_index=anchor_b.anchor_index,
         )
         ref_c = AnchorRef(
-            item_id=anchor_c.item.item_id,  # type: ignore[union-attr]
+            item_id=anchor_c.item.item_id,
             anchor_type=anchor_c.anchor_type,
             anchor_index=anchor_c.anchor_index,
         )
@@ -1687,12 +1687,12 @@ class SymmetryConstraintTool(BaseTool):
             constraint_type = ConstraintType.SYMMETRY_VERTICAL
 
         ref_a = AnchorRef(
-            item_id=anchor_a.item.item_id,  # type: ignore[union-attr]
+            item_id=anchor_a.item.item_id,
             anchor_type=anchor_a.anchor_type,
             anchor_index=anchor_a.anchor_index,
         )
         ref_b = AnchorRef(
-            item_id=anchor_b.item.item_id,  # type: ignore[union-attr]
+            item_id=anchor_b.item.item_id,
             anchor_type=anchor_b.anchor_type,
             anchor_index=anchor_b.anchor_index,
         )

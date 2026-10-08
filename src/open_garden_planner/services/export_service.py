@@ -46,7 +46,7 @@ class ExportService:
     def _restore_construction_items(hidden_items: list[object]) -> None:
         """Restore visibility of construction items after export."""
         for item in hidden_items:
-            item.setVisible(True)  # type: ignore[union-attr]
+            item.setVisible(True)
 
     @staticmethod
     def _hide_overlay_items(scene: QGraphicsScene) -> tuple[list[object], list[object]]:
@@ -97,9 +97,9 @@ class ExportService:
     ) -> None:
         """Restore visibility of selection handles + soil badges, and the prior selection."""
         for item in hidden_items:
-            item.setVisible(True)  # type: ignore[union-attr]
+            item.setVisible(True)
         for item in previously_selected:
-            item.setSelected(True)  # type: ignore[union-attr]
+            item.setSelected(True)
 
     @staticmethod
     def _prepare_text_for_export(scene: QGraphicsScene, scale: float, dpi: int) -> list[tuple[object, bool, QFont | None]]:

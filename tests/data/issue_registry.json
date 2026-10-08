@@ -634,6 +634,11 @@
     "state": "CLOSED",
     "title": "Opening a corrupt .ogp leaves a partial scene under the previous file's name — Ctrl+S overwrites the good plan (Audit 2026-10, epic #392)"
   },
+  "404": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Lock the release build's dependency resolution (PEP 751 pylock.toml) — the #277 'process bug' is still open (Audit 2026-10, epic #392)"
+  },
   "405": {
     "is_pr": false,
     "state": "OPEN",

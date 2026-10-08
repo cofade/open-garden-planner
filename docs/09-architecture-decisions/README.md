@@ -1118,6 +1118,8 @@ The GO decision's evidence log (item 2) already found the Qt3D micro-version tra
 
 **Scope note — the equal-micro rule is Qt3D-specific, not a blanket Qt rule.** `PyQt6.Qt3D*` binds Qt's *private* internals, which break on even a patch drift; `PyQt6-WebEngine` links only Qt's *public* ABI (stable across a minor bump), so `PyQt6-WebEngine-Qt6` legitimately floats a minor behind the core (e.g. `6.10.2` next to `PyQt6-Qt6 6.11.0`, which works). Do **not** "fix" the WebEngine pin to match the core micro — tightening it can only break the resolve.
 
+**Dependency-lock follow-up (#404, ADR-050).** PR #274 fixed #277 by matching the four Qt pins and adding runtime/frozen guards. This CI/release package adds reproducible selection of all Python dependencies and packaging tools; it complements those Qt guards.
+
 ## ADR-039: Visual Refresh — Semantic Theme Tokens + Central Runtime-Tinted Icon Provider
 
 **Status**: Accepted (2026-07-26) | **Context**: issue #279 (visual refresh Package 1: icons + chrome in one PR)
@@ -1990,3 +1992,77 @@ reader counts it from the frost. Measured over all 118 bundled species, **both**
 `tests/unit/test_harvest_offset_semantics.py` is the pinned baseline, and that
 test also asserts that `days_to_maturity` is reference data no computation reads —
 which is what keeps the correction out of the generator.
+
+
+## ADR-050: Locked Python environments and protected quality gates
+
+**Status:** Accepted implementation, 2026-10-08. Master protection activation remains pending
+owner-approved finalization. Issues #404, #401, #402 and #399; implementing draft PR pending.
+
+**Context.** The release resolved floating Python dependencies, strict mypy was configured but
+absent from CI, and coverage was documented without measurement. Master allowed administrator
+merges with no required checks. A solo maintainer needs the existing single finalize-us
+invocation to finish release and mechanical version sync without direct pushes to master.
+
+**Decision: dependency selection.** Use uv's universal native lock as the installation source,
+plus a checked PEP 751 pylock.toml export for interoperability. The exact uv bootstrap version
+is declared once in pyproject.toml. Seed the first lock from the verified v1.29.5 release,
+not from an undeclared developer environment. Preserve runtime/dev selections; add the build
+group with released PyInstaller/hooks and explicit setuptools/wheel backend pins. Provenance
+and backend additions are recorded in quality/dependency-provenance.json. Platform markers
+select Windows/Linux dependencies. One composite action checks freshness, installs locked
+runtime/dev/build dependencies, installs the editable app without dependency resolution or
+build isolation, and checks consistency. CI never repairs tracked lock/export files. The
+promise covers Python dependency selection, excluding byte-identical installers, OS images
+and NSIS. uv is MIT/Apache-2.0; existing dependency-license requirements remain in force.
+See [uv lock and sync](https://docs.astral.sh/uv/concepts/projects/sync/) and
+[uv export](https://docs.astral.sh/uv/reference/cli/#uv-export).
+
+**Decision: type allowances.** Keep strict mypy over all production source, including the
+spike. Remove ignores measured unused on both platforms; retain the platform-dependent one.
+Schema-1 quality/mypy-baseline.json names target Python 3.11, locked mypy, and separate Linux
+and Windows per-file counts. A new file has allowance zero; improvements elsewhere cannot
+pay for an increase. Lower counts pass and a fix should lower its allowance. Counts do not
+identify individual diagnostics. Tool upgrades/rebaselining require a separate reviewed
+change. scripts/check_mypy_baseline.py reuses the audit parser and validates summary counts,
+paths, metadata and process exit. Default checks never write the baseline; --write-baseline
+is explicit. Exit 0 means compliance, 1 regression, 2 invalid tooling/configuration/report.
+
+**Decision: coverage rollout.** The Linux/Python 3.11 full suite measures lines and branches.
+Schema-1 quality/coverage-floors.json records a floor for every nonempty top-level production
+package, including (root) and spike_q3d. First line floors round the fresh percentage down
+to an integer; comparisons use exact covered/total counts. Every new package needs an entry.
+The shared audit aggregation defines non-UI as all packages except ui. Branch coverage is
+reported without a branch floor. The Coverage job fails below a floor and uploads artifacts
+on failure, but initially is not a GitHub-required check. Finalization still investigates any
+failed CI. Missing/invalid XML, unresolved layouts and expected packages fail visibly.
+
+**Decision: protected finalization.** Keep PRs, zero approving reviews/no code-owner review,
+strict required checks and administrator enforcement; retain blocked force pushes/deletion.
+The eight concrete check names are in quality/master-protection.json; deployment docs describe
+the seven job keys and matrix expansion. Unrelated live settings must be preserved on apply.
+The read-only protection verifier and current-head check verifier refuse missing/failed results.
+After owner-approved manual testing, finalize-us refreshes the branch when needed, waits for
+actual results, marks ready, and normally squash-merges with --match-head-commit. The release
+must belong to that merge SHA and its workflow must succeed. No bypass is available. Chore-only
+finalization skips waiting for a release.
+
+**Version sync.** The same authorization covers a separately reviewed mechanical chore PR.
+The preparation CLI is dry-run-first, validates the tag before writes, stages both version
+edits and an offline lock refresh, regenerates the export, and compares full third-party
+records. Apply rolls back source files on write failure. Resume an existing branch/PR or
+already synchronized versions; never duplicate work. Review, draft PR, CI, ready and normal
+merge still apply; no second manual-test confirmation is needed. The chore title prevents a
+second release. Wiki push and cleanup finish the same invocation.
+
+**Alternatives.** Rejected a platform-specific pip freeze (developer-only packages and weak
+marker portability), global mypy counts (one file can hide another's regression), an initial
+universal 80% floor (unsupported by the measured tree), administrator bypasses, and direct
+version-sync pushes. Requiring a human approving review would block this solo workflow.
+
+**Validation.** Subprocess fixtures exercise real commands and exit codes without remote
+merges. Baselines use clean locked Windows/Linux environments. Workflow inventory, context
+parity and skill citations prevent documentation drift. Full pytest, lint/security/secrets,
+translation, lock/export, type/coverage and frozen startup/subsystem gates apply. Protection
+refusal/acceptance is validated on a temporary non-release branch during approved activation;
+master's settings are read back independently before the production merge.

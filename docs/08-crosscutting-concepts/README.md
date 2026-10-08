@@ -188,8 +188,8 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 
 - **Type hints**: All functions must have type annotations
 - **Linting**: Code must pass ruff checks
-- **Test coverage**: New code must maintain >80% coverage
-- **Line length**: 110 characters (Black/ruff config)
+- **Test coverage**: CI enforces measured per-package line floors; branch coverage is reported separately (ADR-050, ?10.4). Non-UI means every package except `ui`.
+- **Line length**: 100 characters in the Ruff configuration; no formatter CI gate is claimed.
 
 ### Git Workflow
 
@@ -549,11 +549,19 @@ large fraction of that file's possible line numbers — real but weak protection
 tracked as a named residual rather than a false "resolved" claim (§11.4). §11.4 also
 records the rot rate that motivated the gate.
 
+### 8.10.2 Developer quality-gate integration tests
+
+The CI/release CLIs are tested through real subprocesses in temporary repository fixtures
+(`tests/integration/test_ci_quality_workflows.py`). The workflows pin check/pass/regression/error
+exit codes, read-only checks, version-sync dry runs and repeated application, and unchanged
+third-party lock records. Remote GitHub responses are supplied as fixtures; deliberately
+failing merge tests belong on a temporary validation base, never master.
+
 ## 8.11 Security Scanning (SAST)
 
 **Tool:** [Bandit](https://bandit.readthedocs.io/) — a Python SAST tool that detects common security anti-patterns (subprocess injection, unsafe deserialization, weak cryptography, hardcoded secrets, etc.).
 
-**CI enforcement:** The `security` job in `ci.yml` runs `bandit -r src/ --severity-level high` on every push. CI fails only on HIGH-severity findings. MEDIUM and LOW findings are printed in the log for awareness but do not block merges.
+**CI enforcement:** The `security` job in `ci.yml` runs `bandit -r src/ --severity-level high` on every push. CI fails only on HIGH-severity findings. MEDIUM and LOW findings are omitted by this invocation. Use the separate all-findings command below for awareness; no broader scan is claimed.
 
 **Local use:**
 ```bash

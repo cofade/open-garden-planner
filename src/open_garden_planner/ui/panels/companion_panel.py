@@ -261,7 +261,7 @@ class CompanionPanel(QWidget):
             if not hasattr(item, "plant_species"):
                 continue
             try:
-                other_center = item.mapToScene(item.rect().center())  # type: ignore[attr-defined]
+                other_center = item.mapToScene(item.rect().center())
                 dist = math.hypot(
                     sel_center.x() - other_center.x(),
                     sel_center.y() - other_center.y(),

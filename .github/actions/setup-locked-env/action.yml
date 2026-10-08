@@ -1,0 +1,29 @@
+name: Set up locked Python environment
+description: Install the committed Python dependency selection and editable project.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - name: Bootstrap the project-pinned uv
+      shell: bash
+      run: |
+        python -c "import subprocess,sys,tomllib; pin=tomllib.load(open('pyproject.toml','rb'))['tool']['uv']['required-version']; subprocess.run([sys.executable,'-m','pip','install','uv'+pin],check=True)"
+    - name: Install the locked environment
+      shell: bash
+      env:
+        UV_PROJECT_ENVIRONMENT: .venv
+      run: |
+        uv sync --locked --python 3.11 --all-extras --group build --no-install-project
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          env_python="$GITHUB_WORKSPACE/.venv/Scripts/python.exe"
+          env_bin="$GITHUB_WORKSPACE/.venv/Scripts"
+        else
+          env_python="$GITHUB_WORKSPACE/.venv/bin/python"
+          env_bin="$GITHUB_WORKSPACE/.venv/bin"
+        fi
+        uv pip install --python "$env_python" --no-deps --no-build-isolation --editable .
+        uv pip check --python "$env_python"
+        echo "$env_bin" >> "$GITHUB_PATH"
+        echo "VIRTUAL_ENV=$GITHUB_WORKSPACE/.venv" >> "$GITHUB_ENV"

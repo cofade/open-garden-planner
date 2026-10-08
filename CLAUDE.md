@@ -169,7 +169,7 @@ drift instead of overwriting either agent's native file format.
 - CI **defaults to patch** bump
 - Add `minor` or `major` **label** to PR for bigger bumps
 - After merge, update both `pyproject.toml` and `src/open_garden_planner/__init__.py` to match the CI release
-- Push as `chore:` commit (CI skips these)
+- Deliver version sync as a reviewed `chore:` PR (release CI skips its squash commit). `finalize-us` handles this PR automatically under the original finalization authorization; no second manual confirmation is needed. Refresh the lock offline with `scripts/prepare_version_sync.py`.
 
 **Never create git tags manually.**
 
@@ -199,7 +199,7 @@ do). If you must overwrite it wholesale, **`Read` the plan file once first, then
 | 7 | **Run senior-reviewer pass** | Launch the `senior-reviewer` agent in a fresh worktree against the branch diff. Address any P0/P1 findings before proceeding. Re-run after fixes for a clean re-review. The `finalize-us` skill repeats this step pre-PR. A change visible in 3D first passes `ogp-3d-creator` → `ogp-3d-reviewer` with no P0/P1. |
 | 8 | Provide testing checklist | Surface a manual-testing checklist alongside the work |
 | 9 | Commit: `feat(US-X.X): Description` | Conventional commit format |
-| 10 | Push & **open DRAFT PR** | After a clean senior-reviewer pass, push and open a **draft** PR automatically (`pr create --draft`). **Every coding job ends here — never stop at just a pushed branch.** Keep it a draft and **do NOT merge** until the user confirms manual testing passed — only then mark ready (`pr ready`) and `pr merge --squash --delete-branch --admin` |
+| 10 | Push & **open DRAFT PR** | After a clean senior-reviewer pass, push and open a **draft** PR automatically (`pr create --draft`). **Every coding job ends here — never stop at just a pushed branch.** Keep it a draft and **do NOT merge** until the user confirms manual testing passed — only then mark ready (`pr ready`) and `pr merge --squash --delete-branch --match-head-commit <verified-head-sha>` |
 | 11 | Sync version on master | See Versioning Protocol (after merge) |
 | 12 | `/clear` context | Clear Agent context
 
@@ -221,6 +221,8 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 - PyQt6 tests require `qtbot` fixture even when unused (needed for Qt init); ruff per-file ignore ARG002 in test files
 
 ## Where to Pick Up After Restart
+
+- **CI/release hardening (#399/#401/#402/#404) is in progress on `fix/ci-release-hardening`.** Committed uv/PEP 751 locks preserve v1.29.5 dependency selections; strict type budgets are per file/platform on Python 3.11; coverage line floors are per package with branch reporting. `finalize-us` preserves its single-invocation behavior using a reviewed automatic version-sync chore PR. Protection activation remains pending owner-approved finalization; never bypass a failed check.
 
 - **Serialization & data integrity hardening shipped 2026-10-06 as v1.29.4 (PR #412): #394 + #400 + #397 + #403.** (Epic #392). Free-text annotations (`TextItem`) natively serialized in `.ogp` (AUD-001/017) with round-trip matrix tests across all placeable items; clipboard serializer unified by delegating `CanvasView` copy/paste to `ProjectManager` (AUD-002); background image placeholders & recursive UUID deduplication (AUD-043); two-phase atomic plan loading & autosave safety (AUD-040). See §11.3, §11.4.
 - **i18n blind-spot fixes shipped 2026-10-04 as v1.29.2 (PR #411): #393 + #408 + #410.** Three display-string defects invisible to `test_german_ts_has_no_unfinished`: five duplicate `TRANSLATIONS` keys shadowed 62 strings (the 5 German PDF journal-notes strings were never registered); generated soil-amendment task titles stayed English (the **id** keeps the English data name so saved done/snooze status survives a language switch); and the agent `suggest_companions` `name` now follows the UI language. One shared `app/settings.py::active_language()` now backs every former per-module language helper; CI lint widened to `ruff check src/ tests/ scripts/` (238 pre-existing errors cleaned up) with an `ast` uniqueness test. See §11.4, §8.19, ADR-045 addendum.

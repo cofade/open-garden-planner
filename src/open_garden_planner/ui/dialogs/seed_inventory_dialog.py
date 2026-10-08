@@ -216,7 +216,7 @@ class SeedTableModel(QAbstractTableModel):
                 self.index(len(self._packets) - 1, _COL_VIABILITY),
             )
 
-    def headerData(  # type: ignore[override]
+    def headerData(
         self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole
     ) -> Any:
         if role != Qt.ItemDataRole.DisplayRole:

@@ -25,6 +25,27 @@
 
 ---
 
+
+## CI and release hardening package (#404, #401, #402, #399)
+
+**In progress, 2026-10-08; implementing draft PR pending.** No application behavior change.
+Native uv dependency lock and checked PEP 751 export; clean locked Linux/Windows Python 3.11
+per-file type allowances; measured package line floors and branch reporting; reviewed
+administrator-enforced required checks and normal merges. Coverage is initially not required
+by branch protection. The protection payload and read-only verifier are implemented; live
+activation and temporary-branch enforcement tests await owner-approved finalization.
+
+Finalization preserves one invocation: approved feature merge, matching successful CI release,
+automatic independently reviewed version-sync chore PR, wiki push and cleanup. No second
+manual-test confirmation is required for that mechanical PR. See ADR-050 and deployment docs.
+
+| Issue | Delivery scope | Status |
+|---|---|---|
+| #404 | Seeded universal lock, packaging/backend group, shared environment setup | Implemented; validation in progress |
+| #401 | Locked strict mypy with Linux/Windows per-file allowances and corrected gate docs | Implemented; validation in progress |
+| #402 | Fresh Linux package line floors, separate branch report, explicit package inventory | Measurement/validation in progress |
+| #399 | Reviewed protection payload and protected/resumable finalization | Code implemented; activation pending owner approval |
+
 ## Development Standards
 
 > These rules apply to every contribution — AI-assisted or human.
