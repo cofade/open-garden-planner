@@ -698,5 +698,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix(#414,#415,#395,#396,#398): task-date correctness and audit P1s"
+  },
+  "422": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "fix(ci): lock dependencies and enforce quality regression gates"
   }
 }

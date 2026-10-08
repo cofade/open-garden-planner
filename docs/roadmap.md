@@ -28,7 +28,7 @@
 
 ## CI and release hardening package (#404, #401, #402, #399)
 
-**In progress, 2026-10-08; implementing draft PR pending.** No application behavior change.
+**In progress, 2026-10-08; implementing draft [PR #422](https://github.com/cofade/open-garden-planner/pull/422).** No application behavior change.
 Native uv dependency lock and checked PEP 751 export; clean locked Linux/Windows Python 3.11
 per-file type allowances; measured package line floors and branch reporting; reviewed
 administrator-enforced required checks and normal merges. Coverage is initially not required
@@ -42,7 +42,7 @@ Coverage: 39,883/52,841 lines (75.5%) and 9,099/15,490 branches (58.7%); non-UI 
 PyInstaller build, eight-second startup and subsystem self-test passed. The frozen build
 opened the benchmark plan and exported validated PDF, DXF and CSV files. Visual 3D and the
 production finalization sequence remain owner checks. One Windows run reported an existing
-Agent API port-8765 collision warning; all tests passed. Remote package CI awaits the draft PR.
+Agent API port-8765 collision warning; all tests passed. Remote package CI results are recorded in the implementing draft PR.
 
 Finalization preserves one invocation: approved feature merge, matching successful CI release,
 automatic independently reviewed version-sync chore PR, wiki push and cleanup. No second

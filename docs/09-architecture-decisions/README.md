@@ -1997,7 +1997,7 @@ which is what keeps the correction out of the generator.
 ## ADR-050: Locked Python environments and protected quality gates
 
 **Status:** Accepted implementation, 2026-10-08. Master protection activation remains pending
-owner-approved finalization. Issues #404, #401, #402 and #399; implementing draft PR pending.
+owner-approved finalization. Issues #404, #401, #402 and #399; implementing draft [PR #422](https://github.com/cofade/open-garden-planner/pull/422).
 
 **Context.** The release resolved floating Python dependencies, strict mypy was configured but
 absent from CI, and coverage was documented without measurement. Master allowed administrator
