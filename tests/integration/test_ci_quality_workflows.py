@@ -168,8 +168,11 @@ def lock_fixture(path: Path) -> None:
 
 
 @pytest.mark.skipif(shutil.which("uv") is None, reason="Requires project-pinned uv")
-def test_version_sync_cli_is_offline_transactional_and_idempotent(tmp_path: Path) -> None:
+def test_version_sync_cli_is_offline_transactional_and_idempotent(tmp_path: Path, monkeypatch) -> None:
     import tomllib
+
+    # A locked install need not cache registry metadata for every other OS.
+    monkeypatch.setenv("UV_CACHE_DIR", str(tmp_path / "empty-uv-cache"))
 
     lock_fixture(tmp_path)
     files = ("pyproject.toml", "src/open_garden_planner/__init__.py", "uv.lock", "pylock.toml")

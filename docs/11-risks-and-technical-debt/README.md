@@ -55,7 +55,7 @@ The living register (ADR-047). Every row has a status; P0/P1 rows link their iss
 | TD-018 | Architecture (code) | Clipboard serializer drops 4 persisted fields and 7 item types the file serializer handles — copy/paste silently loses data | P1 / M | fixed (#400) | #400 | audit-2026-10 AUD-002 |
 | TD-019 | Tests (test) | Serializer round-trip tests under-assert: 1 093 serializer mutants survive the 3 project unit files; 8 of 10 sampled also survive 19 persistence test files | P1 / M | fixed (#394) | #394 | audit-2026-10 AUD-017 |
 | TD-020 | Gates/CI (process) | mypy strict is declared a CI gate in four documents but never runs; 2 104 errors in 134 files | P1 / M | implemented; fresh locked baselines: 1,966 errors on each OS (Linux 137 files, Windows 136); draft PR pending | #401 | audit-2026-10 AUD-030 |
-| TD-021 | Gates/CI (test) | Coverage report and >80 % floor are declared (NFR-MAINT-02, §10.6, §8.6) but never measured anywhere | P1 / M | implemented; fresh Linux floor measurement/validation in progress; draft PR pending | #402 | audit-2026-10 AUD-031 |
+| TD-021 | Gates/CI (test) | Coverage report and >80 % floor are declared (NFR-MAINT-02, §10.6, §8.6) but never measured anywhere | P1 / M | implemented; implemented floors: root 38, agent_api 92, app/core 77, models 95, services 86, spike_q3d 64, ui 71; final full run pending; draft PR pending | #402 | audit-2026-10 AUD-031 |
 | TD-022 | Dependencies (dependency) | Release build has no lockfile: 4 of 42 shipped runtime dists exact-pinned; v1.29.0 shipped 9 runtime dists at versions published after the v1.27.9 build | P1 / M | implemented; release-seeded lock and explicit build backends; draft PR pending | #404 | audit-2026-10 AUD-048 |
 | TD-023 | Docs (documentation) | §8.7 promises 'all errors logged' but the logging module has no handler anywhere: 55 handled-error log calls are discarded in the windowed exe | P1 / M | open | #405 | audit-2026-10 AUD-063 |
 | TD-024 | Tests (test) | constraint_tool.py is 29.0 % line / 9.6 % branch covered: 1 661 of 2 340 statements never run, 50 public methods never executed (25 non-trivial) | P1 / L | open | #406 | audit-2026-10 AUD-016 |
@@ -985,6 +985,13 @@ were unused on both platforms, while one Windows-unused ignore remained needed o
 Only common unused directives were removed; allowances are measured per platform. Pinned by
 `test_baseline_keeps_platforms_independent_and_rejects_tool_drift`.
 
+
+**Offline refresh is not the same as a universal re-resolve.** A cold locked Linux install
+cached its selected wheels but lacked other-platform resolver metadata. Changing only the
+project version triggered a re-resolve and failed offline; a freshness check did not fix it.
+Version sync now stages the editable lock-record version before native offline validation,
+then verifies all third-party records unchanged. The real subprocess test uses an empty cache
+on both platforms. Underlying tool stderr must be reported; a process exit alone hid the cause.
 
 **CI hardening review findings (#404/#402/#399).** A fresh Windows checkout changed the export's
 1,857 LF endings to CRLF; a working-copy byte check missed it. Generated locks now have explicit

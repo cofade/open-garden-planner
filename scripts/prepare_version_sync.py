@@ -50,6 +50,28 @@ def replace_manifest_version(content: str, version: str) -> str:
     return "".join(lines)
 
 
+def replace_project_lock_version(content: str, version: str) -> str:
+    """Seed only editable-project metadata before uv validates the lock offline.
+
+    A changed project version otherwise triggers universal dependency resolution,
+    which needs registry metadata for platforms not installed in the active env.
+    uv remains responsible for checking all other manifest/lock relationships.
+    """
+    third_party_packages(content.encode("utf-8"))  # validates the editable record
+    blocks = list(re.finditer(r"^\[\[package\]\]\s*$", content, re.M))
+    for index, start in enumerate(blocks):
+        end = blocks[index + 1].start() if index + 1 < len(blocks) else len(content)
+        block = content[start.start():end]
+        if tomllib.loads(block)["package"][0]["name"] != "open-garden-planner":
+            continue
+        updated, count = re.subn(r'^(version\s*=\s*)"[^"]+"',
+                                lambda m: m.group(1) + f'"{version}"', block, flags=re.M)
+        if count != 1:
+            raise ValueError("Editable lock record must have exactly one version")
+        return content[:start.start()] + updated + content[end:]
+    raise ValueError("Editable lock record is missing")
+
+
 def prepare(root: Path, tag: str, source_pr: int, uv: str) -> dict[str, bytes]:
     match = re.fullmatch(r"v(\d+\.\d+\.\d+)", tag)
     if match is None or source_pr <= 0:
@@ -77,10 +99,15 @@ def prepare(root: Path, tag: str, source_pr: int, uv: str) -> dict[str, bytes]:
         (stage / "pyproject.toml").write_text(replace_manifest_version(manifest, version),
                                               encoding="utf-8", newline="")
         (stage / SYNC_FILES[1]).write_text(init, encoding="utf-8", newline="")
+        (stage / "uv.lock").write_text(
+            replace_project_lock_version(originals["uv.lock"].decode("utf-8"), version),
+            encoding="utf-8", newline="",
+        )
         subprocess.run([uv, "lock", "--offline", "--python", sys.executable], cwd=stage,
-                       check=True, capture_output=True, timeout=180)
+                       check=True, capture_output=True, text=True, encoding="utf-8", timeout=180)
         subprocess.run([uv, *EXPORT_ARGS, "--offline", "--output-file", "pylock.toml"],
-                       cwd=stage, check=True, capture_output=True, timeout=180)
+                       cwd=stage, check=True, capture_output=True, text=True,
+                       encoding="utf-8", timeout=180)
         prepared = {name: (stage / name).read_bytes() for name in SYNC_FILES}
     if third_party_packages(prepared["uv.lock"]) != third_party_packages(originals["uv.lock"]):
         raise ValueError("Version sync changed a third-party package record")
@@ -118,6 +145,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     except (OSError, ValueError, KeyError, subprocess.SubprocessError) as exc:
         print(f"Version sync preparation failed: {exc}", file=sys.stderr)
+        if isinstance(exc, subprocess.CalledProcessError) and exc.stderr:
+            print(exc.stderr.strip(), file=sys.stderr)
         return 2
 
 

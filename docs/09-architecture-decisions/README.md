@@ -2049,7 +2049,8 @@ finalization skips waiting for a release.
 
 **Version sync.** The same authorization covers a separately reviewed mechanical chore PR.
 The preparation CLI is dry-run-first, validates the tag before writes, stages both version
-edits and an offline lock refresh, regenerates the export, and compares full third-party
+edits and the editable lock-record version, then validates/refreshes the native lock offline,
+regenerates the export, and compares full third-party
 records. Apply rolls back source files on write failure. Resume an existing branch/PR or
 already synchronized versions; never duplicate work. Review, draft PR, CI, ready and normal
 merge still apply; no second manual-test confirmation is needed. The chore title prevents a
@@ -2068,3 +2069,10 @@ refusal/acceptance passed on isolated PR #420 using the proposed policy; its tem
 branches/policy were removed. Master activation remains pending owner approval and its settings
 are read back independently before the production merge. Release resumption resolves the tag
 and successful workflow by merge SHA without needing a pre-merge tag after a restart.
+
+**ADR-050 implementation evidence: cold offline cache.** A locked install does not cache
+registry metadata for every platform/Python split. A bare version change triggered an offline
+universal re-resolve and failed on Linux; even uv lock --check did not prime that metadata.
+The sync helper seeds only the editable-project version before native offline validation,
+with full third-party-record comparison. Its subprocess test passes with an empty UV_CACHE_DIR
+on Linux and Windows, preserving the supported-Python range and dependency selections.

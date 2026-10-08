@@ -98,7 +98,8 @@ python scripts/prepare_version_sync.py --tag vX.Y.Z --source-pr N
 python scripts/prepare_version_sync.py --tag vX.Y.Z --source-pr N --apply
 ```
 
-The helper updates both version declarations, refreshes uv.lock offline and regenerates
+The helper stages both version declarations and only the editable lock-record version,
+validates/refreshes uv.lock offline without requiring a resolver cache, and regenerates
 pylock.toml. It refuses changed third-party package records and restores source files if
 applying fails. If it reports already_synced, verify the lock and skip the duplicate commit.
 Update both root instruction files and the canonical roadmap if completion status changed;
