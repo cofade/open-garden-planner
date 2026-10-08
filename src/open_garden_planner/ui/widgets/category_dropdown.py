@@ -39,7 +39,6 @@ class _ThumbnailButton(QToolButton):
         self._drag_start_pos: QPoint | None = None
 
         self.setFixedSize(THUMB_SIZE + 16, THUMB_SIZE + 24)
-        self._update_tooltip()
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
         if self._item.species:
@@ -48,9 +47,10 @@ class _ThumbnailButton(QToolButton):
             )
 
             self._list_store = get_plant_list_store()
-            self._list_store.changed.connect(self._update_tooltip)
+            self._list_store.changed.connect(self._on_store_changed)
         else:
             self._list_store = None
+        self._update_tooltip()
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(2, 2, 2, 2)
@@ -79,6 +79,31 @@ class _ThumbnailButton(QToolButton):
         # palette()-based QSS tracked the OS palette, not our theme.
         self.clicked.connect(lambda: self.clicked_item.emit(self._item))
 
+    def showEvent(self, event) -> None:  # noqa: N802 — Qt override
+        super().showEvent(event)
+        self._update_tooltip()
+
+    def _on_store_changed(self) -> None:
+        """Update tooltip lazily only if widget is currently visible."""
+        if self.isVisible():
+            self._update_tooltip()
+
+    def _get_species_obj(self):
+        from open_garden_planner.models.plant_data import (  # noqa: PLC0415
+            PlantSpeciesData,
+        )
+        from open_garden_planner.services.bundled_species_db import (  # noqa: PLC0415
+            lookup_species,
+        )
+
+        meta = lookup_species(self._item.species) or lookup_species(self._item.name)
+        if meta:
+            return PlantSpeciesData.from_dict(meta)
+        return PlantSpeciesData(
+            scientific_name=self._item.species,
+            common_name=self._item.name,
+        )
+
     def _update_tooltip(self) -> None:
         """Update button tooltip with favorite star if item is favorited."""
         if not self._item.species:
@@ -89,7 +114,8 @@ class _ThumbnailButton(QToolButton):
         )
 
         store = get_plant_list_store()
-        if store.is_favorite(self._item.species) or store.is_favorite(self._item.name):
+        obj = self._get_species_obj()
+        if store.is_favorite(obj) or store.is_favorite(self._item.species) or store.is_favorite(self._item.name):
             self.setToolTip(f"⭐ {self._item.name}")
         else:
             self.setToolTip(self._item.name)
@@ -100,40 +126,26 @@ class _ThumbnailButton(QToolButton):
             super().contextMenuEvent(event)
             return
 
-        from open_garden_planner.models.plant_data import (  # noqa: PLC0415
-            PlantSpeciesData,
-        )
         from open_garden_planner.models.plant_lists import (  # noqa: PLC0415
             get_plant_list_store,
         )
-        from open_garden_planner.services.bundled_species_db import (  # noqa: PLC0415
-            lookup_species,
-        )
 
         store = get_plant_list_store()
-        is_fav = store.is_favorite(self._item.species) or store.is_favorite(self._item.name)
+        obj = self._get_species_obj()
+        is_fav = store.is_favorite(obj) or store.is_favorite(self._item.species) or store.is_favorite(self._item.name)
 
         menu = QMenu(self)
-
-        def _get_species_obj() -> PlantSpeciesData:
-            meta = lookup_species(self._item.species)
-            if meta:
-                return PlantSpeciesData.from_dict(meta)
-            return PlantSpeciesData(
-                scientific_name=self._item.species,
-                common_name=self._item.name,
-            )
 
         if is_fav:
             fav_action = menu.addAction(
                 QCoreApplication.translate("CategoryDropdown", "Remove from Favorites")
             )
-            fav_action.triggered.connect(lambda: store.toggle_favorite(_get_species_obj()))
+            fav_action.triggered.connect(lambda: store.toggle_favorite(obj))
         else:
             fav_action = menu.addAction(
                 QCoreApplication.translate("CategoryDropdown", "Add to Favorites")
             )
-            fav_action.triggered.connect(lambda: store.toggle_favorite(_get_species_obj()))
+            fav_action.triggered.connect(lambda: store.toggle_favorite(obj))
 
         custom_lists = [pl for pl in store.all_lists() if pl.id != store.FAVORITES_ID]
         if custom_lists:
@@ -144,7 +156,7 @@ class _ThumbnailButton(QToolButton):
                 action = sub_menu.addAction(pl.name)
                 action.triggered.connect(
                     lambda _checked=False, target_id=pl.id: store.add_entry(
-                        target_id, _get_species_obj()
+                        target_id, self._get_species_obj()
                     )
                 )
 

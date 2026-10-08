@@ -28,17 +28,51 @@ from open_garden_planner.models.plant_data import PlantSpeciesData, species_key
 
 
 def _get_species_key(species_obj: PlantSpeciesData | dict[str, Any] | str) -> str:
-    """Extract canonical lowercased species_key from a species object or string."""
+    """Extract canonical lowercased species_key from a species object or string.
+
+    Canonicalizes botanical common names / aliases to scientific name keys
+    via bundled species DB so that gallery items, database records, and custom
+    lists resolve symmetrically (P0 fix for issue #320).
+    """
+    from open_garden_planner.services.bundled_species_db import (  # noqa: PLC0415
+        lookup_species,
+    )
+
     if isinstance(species_obj, str):
-        return species_obj.strip().lower()
+        name = species_obj.strip()
+        if not name:
+            return "_unknown"
+        meta = lookup_species(name)
+        if meta:
+            return species_key(meta)
+        return name.lower()
+
     if isinstance(species_obj, PlantSpeciesData):
+        if species_obj.source_id:
+            return species_obj.source_id.strip().lower()
+        if species_obj.scientific_name:
+            return species_obj.scientific_name.strip().lower()
+        if species_obj.common_name:
+            meta = lookup_species(species_obj.common_name)
+            if meta:
+                return species_key(meta)
         return species_key({
             "source_id": species_obj.source_id,
             "scientific_name": species_obj.scientific_name,
             "common_name": species_obj.common_name,
         })
+
     if isinstance(species_obj, dict):
+        if species_obj.get("source_id"):
+            return str(species_obj["source_id"]).strip().lower()
+        if species_obj.get("scientific_name"):
+            return str(species_obj["scientific_name"]).strip().lower()
+        if species_obj.get("common_name"):
+            meta = lookup_species(str(species_obj["common_name"]))
+            if meta:
+                return species_key(meta)
         return species_key(species_obj)
+
     return "_unknown"
 
 
@@ -456,7 +490,6 @@ class PlantListStore(QObject):
 
         # Do not allow overwriting favorites directly via import
         if imported.id == self.FAVORITES_ID:
-            imported.id = str(uuid.uuid4())
             imported.name = f"{imported.name} (Imported)"
 
         # Ensure unique name

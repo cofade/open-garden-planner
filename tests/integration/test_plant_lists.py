@@ -268,3 +268,117 @@ class TestPlantListsIntegration:
         assert panel._entries_list.count() == 1
         item = panel._entries_list.item(0)
         assert "Basil" in item.text()
+
+    def test_panel_add_selected_from_canvas_and_note_update(
+        self, qtbot: Any, tmp_path: Any
+    ) -> None:
+        """Panel adds selected canvas plants and supports note updates and list moves."""
+        db_file = tmp_path / "plant_lists.json"
+        store = PlantListStore(storage_path=db_file)
+        custom = store.create_list("Veggies")
+
+        scene = CanvasScene()
+        plant_item = CircleItem(100.0, 100.0, 25.0, ObjectType.PERENNIAL)
+        plant_item.metadata["plant_species"] = {
+            "scientific_name": "Daucus carota",
+            "common_name": "Carrot",
+            "max_spread_cm": 15.0,
+        }
+        scene.addItem(plant_item)
+        plant_item.setSelected(True)
+
+        panel = PlantListsPanel(store=store, canvas_scene=scene)
+        qtbot.addWidget(panel)
+        panel._current_list_id = custom.id
+        panel._refresh_entries()
+
+        # Add selected canvas plant
+        panel._on_add_selected_from_canvas()
+        assert len(store.get_list(custom.id).entries) == 1
+        entry = store.get_list(custom.id).entries[0]
+        assert entry.species.common_name == "Carrot"
+
+        # Update note
+        store.update_entry_note(custom.id, entry.id, "Sweet Nantes variety")
+        updated_entry = store.get_list(custom.id).entries[0]
+        assert updated_entry.note == "Sweet Nantes variety"
+
+        # Move to favorites
+        store.move_entry(custom.id, store.FAVORITES_ID, entry.id)
+        assert len(store.get_list(custom.id).entries) == 0
+        assert len(store.get_list(store.FAVORITES_ID).entries) == 1
+
+        # Remove from favorites
+        store.remove_entry(store.FAVORITES_ID, entry.id)
+        assert len(store.get_list(store.FAVORITES_ID).entries) == 0
+
+    def test_plant_database_panel_favorite_state_and_deselect(
+        self, qtbot: Any, tmp_path: Any
+    ) -> None:
+        """PlantDatabasePanel favorite button toggles favorites and disables on deselect."""
+        from open_garden_planner.ui.panels.plant_database_panel import PlantDatabasePanel
+
+        panel = PlantDatabasePanel()
+        qtbot.addWidget(panel)
+
+        sp = PlantSpeciesData(
+            scientific_name="Fragaria ananassa",
+            common_name="Strawberry",
+        )
+        panel._update_profile_header(sp)
+        assert panel._favorite_btn.isEnabled()
+        assert panel._favorite_btn.text() == "☆"
+
+        # Toggle favorite
+        panel._on_toggle_favorite()
+        assert panel._favorite_btn.text() == "⭐"
+        assert panel._list_store.is_favorite(sp)
+
+        # Deselect: verify favorite button is disabled and reset to ☆ (P1-2 fix verification)
+        panel._hide_details()
+        assert not panel._favorite_btn.isEnabled()
+        assert panel._favorite_btn.text() == "☆"
+
+        # Show no metadata: also verify button is disabled
+        panel._show_no_metadata()
+        assert not panel._favorite_btn.isEnabled()
+        assert panel._favorite_btn.text() == "☆"
+
+        # Cleanup store
+        panel._list_store.toggle_favorite(sp)
+
+    def test_category_dropdown_favorites_tooltip_and_toggle(
+        self, qtbot: Any
+    ) -> None:
+        """CategoryDropdown thumbnail reflects favorite status in tooltip via canonical resolution."""
+        from open_garden_planner.core.tools import ToolType
+        from open_garden_planner.models.plant_lists import get_plant_list_store
+        from open_garden_planner.ui.widgets.category_dropdown import _ThumbnailButton
+        from open_garden_planner.ui.widgets.gallery_data import GalleryItem
+
+        store = get_plant_list_store()
+        item = GalleryItem(
+            name="Apple Tree",
+            tool_type=ToolType.TREE,
+            object_type=ObjectType.TREE,
+            species="apple tree",
+        )
+        btn = _ThumbnailButton(item)
+        qtbot.addWidget(btn)
+
+        # Initially not favorited
+        btn._update_tooltip()
+        assert btn.toolTip() == "Apple Tree"
+
+        # Favorite via species object
+        sp_obj = btn._get_species_obj()
+        store.toggle_favorite(sp_obj)
+        try:
+            btn._update_tooltip()
+            # Must show star tooltip (verifies P0-2 resolution fix)
+            assert "⭐" in btn.toolTip()
+            assert "Apple Tree" in btn.toolTip()
+        finally:
+            store.toggle_favorite(sp_obj)
+            btn._update_tooltip()
+            assert "⭐" not in btn.toolTip()

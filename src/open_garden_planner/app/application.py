@@ -2194,6 +2194,40 @@ class GardenPlannerApp(QMainWindow):
             undo_description=self.tr("Remove soil test"),
         ).model_dump()
 
+    def _agent_get_plant_lists(self) -> list[dict[str, Any]]:
+        """Get plant lists and favorites catalog ON the Qt main thread (US-G4)."""
+        return self._agent_bridge.run_on_main(self._do_agent_get_plant_lists)
+
+    def _do_agent_get_plant_lists(self) -> list[dict[str, Any]]:
+        from open_garden_planner.models.plant_lists import get_plant_list_store
+
+        store = get_plant_list_store()
+        result: list[dict[str, Any]] = []
+        for pl in store.all_lists():
+            result.append(
+                {
+                    "id": pl.id,
+                    "name": pl.name,
+                    "description": pl.description,
+                    "entries": [
+                        {
+                            "id": entry.id,
+                            "species_key": entry.species_key,
+                            "common_name": entry.species.common_name
+                            if entry.species
+                            else "",
+                            "scientific_name": entry.species.scientific_name
+                            if entry.species
+                            else "",
+                            "note": entry.note,
+                            "added_at": entry.added_at,
+                        }
+                        for entry in pl.entries
+                    ],
+                }
+            )
+        return result
+
     def _agent_known_species_keys(self) -> set[str]:
         """Every canonical species key this plan accepts: bundled DB + placed plants.
 
@@ -3570,6 +3604,7 @@ class GardenPlannerApp(QMainWindow):
             recommend_amendments=self._agent_recommend_amendments,
             get_soil_mismatches=self._agent_get_soil_mismatches,
             record_soil_test=self._agent_record_soil_test,
+            get_plant_lists=self._agent_get_plant_lists,
         )
 
     def _stop_agent_api(self) -> None:

@@ -7,8 +7,12 @@ This script:
 4. Writes the completed .ts file
 """
 
+import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
+
+if sys.stdout is not None and hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 TS_FILE = (
     Path(__file__).parent.parent
@@ -3065,49 +3069,54 @@ for _ctx, _strings in _I366_TRANSLATIONS.items():
 _PLANT_LISTS_TRANSLATIONS: dict[str, dict[str, str]] = {
     "PlantListsPanel": {
         "⭐ Favorites": "⭐ Favoriten",
+        "+ Add Selected from Plan": "+ Ausgewählte vom Plan hinzufügen",
+        "Add currently selected canvas plants to this list":
+            "Derzeit auf der Leinwand ausgewählte Pflanzen zu dieser Liste hinzufügen",
         "New List...": "Neue Liste...",
         "Rename List...": "Liste umbenennen...",
         "Delete List": "Liste löschen",
-        "Export List (JSON)...": "Liste exportieren (JSON)...",
-        "Import List (JSON)...": "Liste importieren (JSON)...",
-        "Add Selected from Plan...": "Ausgewählte vom Plan hinzufügen...",
+        "Export List to JSON...": "Liste als JSON exportieren...",
+        "Import List from JSON...": "Liste aus JSON importieren...",
         "List Actions": "Listen-Aktionen",
-        "+ Add Selected from Plan": "+ Ausgewählte vom Plan hinzufügen",
-        "Add all currently selected plants on the canvas to this list":
-            "Alle derzeit auf der Leinwand ausgewählten Pflanzen zu dieser Liste hinzufügen",
-        "No entries in this list.\nDrag species here or use the menu above.":
-            "Keine Einträge in dieser Liste.\nZiehen Sie Arten hierher oder nutzen Sie das Menü oben.",
-        "Drag to canvas to plant": "Auf die Leinwand ziehen zum Pflanzen",
+        "Unknown Plant": "Unbekannte Pflanze",
+        "Source: {source}": "Quelle: {source}",
+        "Note: {note}": "Notiz: {note}",
+        "Drag to place on canvas": "Auf die Leinwand ziehen zum Platzieren",
         "New Plant List": "Neue Pflanzenliste",
-        "Enter list name:": "Listenname eingeben:",
+        "List name:": "Listenname:",
         "Rename Plant List": "Pflanzenliste umbenennen",
+        "New name:": "Neuer Name:",
         "Delete Plant List": "Pflanzenliste löschen",
-        "Delete list '{name}' and its {count} entries?":
-            "Liste '{name}' und ihre {count} Einträge löschen?",
+        "Are you sure you want to delete '{name}'?":
+            "Möchten Sie die Liste '{name}' wirklich löschen?",
         "Export Plant List": "Pflanzenliste exportieren",
-        "Plant List JSON (*.json)": "Pflanzenlisten-JSON (*.json)",
+        "JSON Files (*.json)": "JSON-Dateien (*.json)",
+        "Export Successful": "Export erfolgreich",
+        "List exported to {path}": "Liste exportiert nach {path}",
         "Export Failed": "Export fehlgeschlagen",
-        "Failed to export list:\n{error}": "Export der Liste fehlgeschlagen:\n{error}",
+        "Could not export list: {error}": "Liste konnte nicht exportiert werden: {error}",
         "Import Plant List": "Pflanzenliste importieren",
+        "Import Successful": "Import erfolgreich",
+        "Imported list '{name}' with {count} plants.":
+            "Liste '{name}' mit {count} Pflanzen importiert.",
         "Import Failed": "Import fehlgeschlagen",
-        "Failed to import list:\n{error}": "Import der Liste fehlgeschlagen:\n{error}",
-        "No Plants Selected": "Keine Pflanzen ausgewählt",
-        "Select one or more plants on the canvas first.":
-            "Wählen Sie zuerst eine oder mehrere Pflanzen auf der Leinwand aus.",
-        "Added {count} plants to '{name}'": "{count} Pflanzen zu '{name}' hinzugefügt",
-        "Add to Plant List": "Zu Pflanzenliste hinzufügen",
-        "Add {count} selected plants to:": "{count} ausgewählte Pflanzen hinzufügen zu:",
+        "Could not import list: {error}": "Liste konnte nicht importiert werden: {error}",
         "Edit Note...": "Notiz bearbeiten...",
         "Move to List": "In Liste verschieben",
         "Update from Plan": "Vom Plan aktualisieren",
+        "Update stored snapshot from selected canvas plant":
+            "Gespeicherten Schnappschuss von ausgewählter Leinwand-Pflanze aktualisieren",
+        "Select matching plant on canvas to update snapshot":
+            "Passende Pflanze auf der Leinwand auswählen, um Schnappschuss zu aktualisieren",
         "Remove from List": "Aus Liste entfernen",
-        "Edit Note": "Notiz bearbeiten",
+        "Edit Plant Note": "Pflanzennotiz bearbeiten",
         "Note for {name}:": "Notiz für {name}:",
-        "No Canvas Plant Matched": "Keine passende Pflanze auf der Leinwand",
-        "Could not find a selected or matching plant on the canvas to update from.":
-            "Auf der Leinwand wurde keine ausgewählte oder passende Pflanze zum Aktualisieren gefunden.",
-        "Updated snapshot for {name} from canvas item.":
-            "Schnappschuss für {name} vom Leinwand-Objekt aktualisiert.",
+        "Snapshot Updated": "Schnappschuss aktualisiert",
+        "Species data updated from selected canvas plant.":
+            "Artdaten von ausgewählter Leinwand-Pflanze aktualisiert.",
+        "No Plants Selected": "Keine Pflanzen ausgewählt",
+        "Please select one or more plants on the canvas first.":
+            "Bitte wählen Sie zuerst eine oder mehrere Pflanzen auf der Leinwand aus.",
     },
 }
 

@@ -6,6 +6,7 @@ Y increasing upward).
 """
 
 import contextlib
+import json
 import logging
 from datetime import date
 from typing import TYPE_CHECKING, Any
@@ -1886,34 +1887,48 @@ class CanvasView(QGraphicsView):
         event.acceptProposedAction()
         scene_pos = self.mapToScene(event.position().toPoint())
 
+        from open_garden_planner.core.plant_renderer import PlantCategory  # noqa: PLC0415
+        from open_garden_planner.core.tools import ToolType as TT  # noqa: PLC0415
+
         # Branch A: Drop from Plant Lists panel (US-G4, issue #320)
         if text.startswith("plant_list:"):
-            parts = text.split(":")
-            entry_id = parts[1] if len(parts) > 1 else ""
-            if not entry_id:
-                return
+            species_dict = None
+            if event.mimeData().hasFormat("application/x-ogp-plant-data"):
+                try:
+                    species_dict = json.loads(bytes(event.mimeData().data("application/x-ogp-plant-data")).decode("utf-8"))
+                except Exception:
+                    species_dict = None
 
-            from open_garden_planner.models.plant_lists import get_plant_list_store  # noqa: PLC0415
-            store = get_plant_list_store()
-            _pl, entry = store.get_entry(entry_id)
-            if entry is None or not entry.species:
-                return
+            if species_dict is not None:
+                from open_garden_planner.models.plant_data import PlantSpeciesData  # noqa: PLC0415
+                species_obj = PlantSpeciesData.from_dict(species_dict)
+            else:
+                parts = text.split(":")
+                entry_id = parts[1] if len(parts) > 1 else ""
+                if not entry_id:
+                    return
 
-            species_obj = entry.species
-            from open_garden_planner.core.object_types import ObjectType  # noqa: PLC0415
-            from open_garden_planner.core.plant_renderer import PlantCategory  # noqa: PLC0415
-            from open_garden_planner.core.tools import ToolType as TT  # noqa: PLC0415
+                from open_garden_planner.models.plant_lists import (
+                    get_plant_list_store,  # noqa: PLC0415
+                )
+                store = get_plant_list_store()
+                _pl, entry = store.get_entry(entry_id)
+                if entry is None or not entry.species:
+                    return
+                species_obj = entry.species
+
             from open_garden_planner.services.bundled_species_db import (  # noqa: PLC0415
                 merge_calendar_data,
             )
 
-            name_lower = (species_obj.common_name or "").lower()
+            name_lower = f"{species_obj.common_name or ''} {species_obj.scientific_name or ''}".lower()
             height = species_obj.max_height_cm or 0.0
-            if height >= 400 or "tree" in name_lower:
+
+            if height >= 350 or any(kw in name_lower for kw in ("tree", "baum", "arbor", "palm", "conifer")):
                 tool_type = TT.TREE
                 obj_type = ObjectType.TREE
                 cat = PlantCategory.ROUND_DECIDUOUS
-            elif height >= 100 or "shrub" in name_lower or "bush" in name_lower:
+            elif height >= 100 or any(kw in name_lower for kw in ("shrub", "bush", "strauch", "busch")):
                 tool_type = TT.SHRUB
                 obj_type = ObjectType.SHRUB
                 cat = PlantCategory.SPREADING_SHRUB
@@ -1928,7 +1943,7 @@ class CanvasView(QGraphicsView):
                 size_map = {TT.TREE: 200.0, TT.SHRUB: 100.0, TT.PERENNIAL: 60.0}
                 diameter = size_map.get(tool_type, 60.0)
 
-            species_dict = merge_calendar_data(species_obj.to_dict())
+            merged_dict = merge_calendar_data(species_obj.to_dict())
             self._create_plant_item_at_scene_pos(
                 scene_pos=scene_pos,
                 tool_type=tool_type,
@@ -1936,7 +1951,7 @@ class CanvasView(QGraphicsView):
                 radius=diameter / 2,
                 species_name=species_obj.common_name or species_obj.scientific_name,
                 plant_category=cat,
-                species_dict=species_dict,
+                species_dict=merged_dict,
             )
             return
 
@@ -1953,17 +1968,11 @@ class CanvasView(QGraphicsView):
                 species = part[len("species=") :]
             elif part.startswith("category="):
                 cat_name = part[len("category=") :]
-                try:
-                    from open_garden_planner.core.plant_renderer import PlantCategory
-
+                with contextlib.suppress(KeyError, ValueError):
                     plant_category = PlantCategory[cat_name]
-                except (KeyError, ValueError):
-                    pass
 
         # Find the matching ToolType
         try:
-            from open_garden_planner.core.tools import ToolType as TT
-
             tool_type = TT[tool_name]
         except (KeyError, ValueError):
             return

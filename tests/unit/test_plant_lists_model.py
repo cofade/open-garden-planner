@@ -28,7 +28,11 @@ def test_species_key_extraction() -> None:
 
     d = {"common_name": "Pear"}
     assert _get_species_key(d) == "pear"
-    assert _get_species_key("Carrot") == "carrot"
+    d_apple = {"common_name": "Apple Tree"}
+    assert _get_species_key(d_apple) == "malus domestica"
+    assert _get_species_key("apple tree") == "malus domestica"
+    assert _get_species_key("Carrot") == "daucus carota"
+    assert _get_species_key("Custom Unknown 123") == "custom unknown 123"
 
 
 def test_plant_list_entry_serialization_roundtrip() -> None:

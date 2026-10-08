@@ -34,6 +34,7 @@ class TestSidebarOrder:
             "constraints",
             "pest_overview",
             "plant_search",
+            "plant_lists",
             "journal",
             "smart_symbols",
         ]

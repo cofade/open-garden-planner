@@ -2304,6 +2304,8 @@ def build_server(
     @mcp.resource("garden://plant-lists", mime_type="application/json")
     async def plant_lists_resource() -> list[dict[str, Any]]:
         """User-defined plant lists and favorites catalog (US-G4)."""
+        if getattr(providers, "get_plant_lists", None) is not None:
+            return await anyio.to_thread.run_sync(providers.get_plant_lists)
 
         def _get_lists() -> list[dict[str, Any]]:
             from open_garden_planner.models.plant_lists import (  # noqa: PLC0415

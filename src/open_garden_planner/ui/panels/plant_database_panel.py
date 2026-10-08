@@ -1212,6 +1212,7 @@ class PlantDatabasePanel(QWidget):
         """Hide plant details and show 'no selection' message."""
         self._current_plant_data = None
         self._current_plant_item = None
+        self._update_favorite_button()
         self.no_selection_label.setText(self.tr("Select a plant to view details"))
         self.no_selection_label.setVisible(True)
 
@@ -1246,6 +1247,7 @@ class PlantDatabasePanel(QWidget):
         # Keep the plant item reference so Create Custom can use it
         # self._current_plant_item is set by set_selected_items
         self._current_plant_data = None
+        self._update_favorite_button()
         self.no_selection_label.setText(
             self.tr(
                 "No species data.\n\n"

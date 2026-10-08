@@ -8,6 +8,7 @@ and update species snapshots from placed plants.
 from __future__ import annotations
 
 import contextlib
+import json
 from typing import TYPE_CHECKING, Any
 
 from PyQt6.QtCore import QPoint, Qt
@@ -54,6 +55,7 @@ class _DraggablePlantListWidget(QListWidget):
         if not item:
             return
         entry_id = item.data(Qt.ItemDataRole.UserRole)
+        species_json = item.data(Qt.ItemDataRole.UserRole + 1)
         if not entry_id:
             return
 
@@ -62,6 +64,8 @@ class _DraggablePlantListWidget(QListWidget):
 
         mime_data = QMimeData()
         mime_data.setText(f"plant_list:{entry_id}")
+        if species_json:
+            mime_data.setData("application/x-ogp-plant-data", species_json.encode("utf-8"))
         drag.setMimeData(mime_data)
 
         icon = item.icon()
@@ -155,11 +159,11 @@ class PlantListsPanel(QWidget):
     def _setup_list_menu(self) -> None:
         menu = QMenu(self)
 
-        act_new = QAction(self.tr("New List…"), self)
+        act_new = QAction(self.tr("New List..."), self)
         act_new.triggered.connect(self._on_new_list)
         menu.addAction(act_new)
 
-        self._act_rename = QAction(self.tr("Rename List…"), self)
+        self._act_rename = QAction(self.tr("Rename List..."), self)
         self._act_rename.triggered.connect(self._on_rename_list)
         menu.addAction(self._act_rename)
 
@@ -169,11 +173,11 @@ class PlantListsPanel(QWidget):
 
         menu.addSeparator()
 
-        act_export = QAction(self.tr("Export List to JSON…"), self)
+        act_export = QAction(self.tr("Export List to JSON..."), self)
         act_export.triggered.connect(self._on_export_list)
         menu.addAction(act_export)
 
-        act_import = QAction(self.tr("Import List from JSON…"), self)
+        act_import = QAction(self.tr("Import List from JSON..."), self)
         act_import.triggered.connect(self._on_import_list)
         menu.addAction(act_import)
 
@@ -194,7 +198,7 @@ class PlantListsPanel(QWidget):
         all_lists = self._store.all_lists()
         select_index = 0
         for idx, pl in enumerate(all_lists):
-            display_name = f"⭐ {pl.name}" if pl.id == PlantListStore.FAVORITES_ID else pl.name
+            display_name = self.tr("⭐ Favorites") if pl.id == PlantListStore.FAVORITES_ID else pl.name
             self._list_combo.addItem(display_name, pl.id)
             if pl.id == self._current_list_id:
                 select_index = idx
@@ -219,11 +223,23 @@ class PlantListsPanel(QWidget):
         else:
             self._desc_label.hide()
 
+    @staticmethod
+    def _classify_object_type(species: PlantSpeciesData) -> ObjectType:
+        """Heuristically classify species as tree, shrub, or perennial for icon rendering."""
+        name_lower = f"{species.common_name or ''} {species.scientific_name or ''}".lower()
+        height = species.max_height_cm or 0.0
+        if height >= 350 or any(kw in name_lower for kw in ("tree", "baum", "arbor", "palm", "conifer")):
+            return ObjectType.TREE
+        if height >= 100 or any(kw in name_lower for kw in ("shrub", "bush", "strauch", "busch")):
+            return ObjectType.SHRUB
+        return ObjectType.PERENNIAL
+
     def _create_thumbnail_for_species(self, species: PlantSpeciesData) -> QIcon:
-        """Generate a thumbnail icon for a species."""
+        """Generate a thumbnail icon for a species matching its botanical habit."""
         name = species.common_name or species.scientific_name or ""
+        obj_type = self._classify_object_type(species)
         pixmap = render_plant_pixmap(
-            ObjectType.PERENNIAL, diameter=32, species=name
+            obj_type, diameter=32, species=name
         )
         if pixmap and not pixmap.isNull():
             return QIcon(pixmap)
@@ -241,12 +257,17 @@ class PlantListsPanel(QWidget):
         return QIcon(fallback)
 
     def _refresh_entries(self) -> None:
-        """Populate the list entries widget."""
+        """Populate the list entries widget, preserving selection and scroll position."""
+        current_item = self._entries_list.currentItem()
+        selected_entry_id = current_item.data(Qt.ItemDataRole.UserRole) if current_item else None
+        v_scroll = self._entries_list.verticalScrollBar().value()
+
         self._entries_list.clear()
         curr_list = self._store.get_list(self._current_list_id)
         if not curr_list:
             return
 
+        reselect_item = None
         for entry in curr_list.entries:
             sp = entry.species
             common = sp.common_name or self.tr("Unknown Plant")
@@ -257,6 +278,7 @@ class PlantListsPanel(QWidget):
 
             item = QListWidgetItem(display_text)
             item.setData(Qt.ItemDataRole.UserRole, entry.id)
+            item.setData(Qt.ItemDataRole.UserRole + 1, json.dumps(sp.to_dict()))
             item.setIcon(self._create_thumbnail_for_species(sp))
 
             tooltip_parts = [title]
@@ -268,6 +290,12 @@ class PlantListsPanel(QWidget):
             item.setToolTip("\n".join(tooltip_parts))
 
             self._entries_list.addItem(item)
+            if selected_entry_id and entry.id == selected_entry_id:
+                reselect_item = item
+
+        if reselect_item:
+            self._entries_list.setCurrentItem(reselect_item)
+        self._entries_list.verticalScrollBar().setValue(v_scroll)
 
     # ── List operations ───────────────────────────────────────────────────────
 
@@ -399,7 +427,7 @@ class PlantListsPanel(QWidget):
         menu = QMenu(self)
 
         # Note action
-        act_note = QAction(self.tr("Edit Note…"), self)
+        act_note = QAction(self.tr("Edit Note..."), self)
         act_note.triggered.connect(lambda: self._on_edit_entry_note(entry))
         menu.addAction(act_note)
 
