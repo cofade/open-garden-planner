@@ -4,6 +4,8 @@ Opens directly under a toolbar category button. Supports click-to-activate
 and drag-to-canvas, plus an in-popup search field that filters thumbnails.
 """
 
+from typing import TYPE_CHECKING
+
 from PyQt6.QtCore import QCoreApplication, QMimeData, QPoint, Qt, pyqtSignal
 from PyQt6.QtGui import QDrag
 from PyQt6.QtWidgets import (
@@ -23,6 +25,9 @@ from open_garden_planner.ui.widgets.gallery_data import (
     GalleryCategory,
     GalleryItem,
 )
+
+if TYPE_CHECKING:
+    from open_garden_planner.models.plant_data import PlantSpeciesData
 
 GRID_COLS = 3
 DRAG_THRESHOLD = 10
@@ -88,7 +93,7 @@ class _ThumbnailButton(QToolButton):
         if self.isVisible():
             self._update_tooltip()
 
-    def _get_species_obj(self):
+    def _get_species_obj(self) -> "PlantSpeciesData":
         from open_garden_planner.models.plant_data import (  # noqa: PLC0415
             PlantSpeciesData,
         )

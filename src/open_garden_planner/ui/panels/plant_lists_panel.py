@@ -438,7 +438,8 @@ class PlantListsPanel(QWidget):
         if other_lists:
             move_menu = menu.addMenu(self.tr("Move to List"))
             for dest_list in other_lists:
-                act_move = QAction(dest_list.name, self)
+                dest_name = self.tr("⭐ Favorites") if dest_list.id == "favorites" else dest_list.name
+                act_move = QAction(dest_name, self)
                 dest_id = dest_list.id
                 act_move.triggered.connect(
                     lambda _, d_id=dest_id: self._store.move_entry(
