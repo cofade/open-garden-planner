@@ -985,6 +985,18 @@ were unused on both platforms, while one Windows-unused ignore remained needed o
 Only common unused directives were removed; allowances are measured per platform. Pinned by
 `test_baseline_keeps_platforms_independent_and_rejects_tool_drift`.
 
+
+**CI hardening review findings (#404/#402/#399).** A fresh Windows checkout changed the export's
+1,857 LF endings to CRLF; a working-copy byte check missed it. Generated locks now have explicit
+LF attributes. Coverage records must have unique normalized file/line identities and supplied
+summary counts must agree with aggregates, or duplicated XML statements can inflate a floor.
+An injected second-file write failure verifies full version-sync rollback. Release recovery
+resolves a published tag and successful workflow from the feature merge SHA; tag transition
+is required only when observing a new merge, so restart after publication can finish normally.
+The isolated protection PR #420 rejected its failing head and merged its corrected green head
+without a bypass under the proposed admin-enforced policy; temporary branches/policy were
+removed. Master activation remains pending. Evidence: quality/protection-validation.json.
+
 ## 11.5 Community and Governance
 
 **Feature Requests**: Open to community input, pivots, and voting. The goal is to avoid a dead project — community engagement is welcome.

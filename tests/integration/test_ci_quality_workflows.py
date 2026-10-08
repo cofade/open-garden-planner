@@ -42,6 +42,27 @@ def test_coverage_cli_pass_fail_and_report_errors(tmp_path: Path) -> None:
     assert json.loads(report.read_text(encoding="utf-8"))["available"] is False
 
 
+@pytest.mark.parametrize("defect", ["duplicate-line", "duplicate-file", "contradictory-total"])
+def test_coverage_cli_rejects_inflated_or_contradictory_records(tmp_path: Path, defect: str) -> None:
+    xml, floors = tmp_path / "coverage.xml", tmp_path / "floors.json"
+    floors.write_text(json.dumps({"schema_version": 1,
+                                 "non_ui_definition": "all packages except ui",
+                                 "line_floors": {"core": 80}}), encoding="utf-8")
+    lines = '<line number="1" hits="1"/><line number="2" hits="0"/>'
+    if defect == "duplicate-line":
+        lines = '<line number="1" hits="1"/>' * 8 + '<line number="2" hits="0"/>'
+    cls = '<class filename="core/a.py"><lines>' + lines + '</lines></class>'
+    if defect == "duplicate-file":
+        cls += cls
+    declared = 99 if defect == "contradictory-total" else 2
+    xml.write_text(f'<coverage lines-valid="{declared}" lines-covered="1"><sources>'
+                   '<source>/w/src/open_garden_planner</source></sources>' + cls + '</coverage>',
+                   encoding="utf-8")
+    proc = invoke("check_coverage_floors.py", "--xml", str(xml), "--floors", str(floors))
+    assert proc.returncode == 2, proc.stdout
+    assert json.loads(proc.stdout)["available"] is False
+
+
 def test_type_cli_invalid_baseline_fails_visibly_without_rewriting(tmp_path: Path) -> None:
     baseline, report = tmp_path / "baseline.json", tmp_path / "report.json"
     baseline.write_text('{"schema_version": 999}', encoding="utf-8")

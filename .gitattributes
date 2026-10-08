@@ -1,0 +1,3 @@
+# Generated dependency records must remain byte-identical on Windows checkouts.
+uv.lock text eol=lf
+pylock.toml text eol=lf

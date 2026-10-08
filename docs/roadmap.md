@@ -33,7 +33,8 @@ Native uv dependency lock and checked PEP 751 export; clean locked Linux/Windows
 per-file type allowances; measured package line floors and branch reporting; reviewed
 administrator-enforced required checks and normal merges. Coverage is initially not required
 by branch protection. The protection payload and read-only verifier are implemented; live
-activation and temporary-branch enforcement tests await owner-approved finalization.
+activation awaits owner-approved finalization. Temporary-branch enforcement passed in PR #420
+(failing head refused; corrected green head merged normally; temporary branches removed).
 
 Finalization preserves one invocation: approved feature merge, matching successful CI release,
 automatic independently reviewed version-sync chore PR, wiki push and cleanup. No second

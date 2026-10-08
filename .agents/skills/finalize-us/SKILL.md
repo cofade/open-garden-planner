@@ -56,8 +56,9 @@ current protection, compare unrelated fields with the committed payload, and pre
 if they have changed. Apply the reviewed payload with `gh api --method PUT
 repos/cofade/open-garden-planner/branches/master/protection --input quality/master-protection.json`.
 Read it back with `python scripts/check_branch_protection.py`. Do not merge while this gate is
-unmet. Validate normal refusal/acceptance on a temporary protected validation base, never by
-trying to merge a deliberately broken commit into master. Clean up the validation PR/branch.
+unmet. Check the recorded normal refusal/acceptance evidence in quality/protection-validation.json.
+Repeat it on a temporary protected validation base if the proposed policy changed; never try
+a deliberately broken commit on master. Clean up any temporary validation PR/branch.
 
 ```text
 gh pr ready N
@@ -70,19 +71,27 @@ workflow. Review requirements can be added separately when contributors join.
 
 ## 4. Wait for the correct release
 
-Read the feature PR's merge SHA. Poll Release workflow runs for that SHA and the latest
-release tag, using bounded waits of at most 30 seconds between progress updates. Stop on
-workflow failure; report the failing job. Wait for the latest tag to change from the captured
-value, resolve that tag's commit and require it to equal the feature merge SHA. Wait for the
-matching Release run to finish successfully (including provenance). Never match dates or
-accept an unrelated concurrent release. If the expected release does not appear within
-30 minutes, report the workflow state instead of syncing to a stale version. Resume this
-stage on a later invocation if necessary.
+Read the feature PR's merge SHA. First fetch tags and look for an already published release
+whose tag resolves to that exact SHA; verify its matching Release workflow completed
+successfully (including provenance). This is the resume path after an earlier invocation
+merged or published: it needs no remembered pre-merge tag and accepts no unrelated latest tag.
+If it exists, continue directly to version sync. If multiple matching tags are ambiguous,
+report the ambiguity rather than choosing by date.
+
+For a new merge in this invocation, retain the pre-merge tag and require a transition to the
+release for that merge SHA. For an already-merged PR with no published matching release yet,
+wait for a release matching the merge SHA without a tag-transition requirement. Poll matching
+Release runs and release tags, using waits of at most 30 seconds between progress updates.
+Stop on workflow failure and report its failing job. Never match dates or accept an unrelated
+concurrent release. If the expected release does not appear within 30 minutes, report the
+workflow state; resume from the merge SHA on a later invocation instead of syncing stale data.
 
 ## 5. Prepare and deliver the automatic version-sync PR
 
-Fetch master and use `chore/sync-vX.Y.Z-pr-N`. Reuse that branch/PR if present. Inspect existing
-changes before touching them. Run the preparation helper in dry-run mode first:
+Fetch master and create `chore/sync-vX.Y.Z-pr-N` from the updated origin/master, never from
+the old feature head. Reuse that branch/PR if present and verify it contains the feature merge
+with only the intended mechanical/doc changes. Inspect existing changes before touching them.
+Run the preparation helper in dry-run mode first:
 
 ```text
 python scripts/prepare_version_sync.py --tag vX.Y.Z --source-pr N
@@ -99,7 +108,7 @@ Run lock/export consistency, context parity, skill citations, relevant version/g
 lint. Run an independent senior review of this chore branch in a fresh worktree. Address
 P0/P1 and repeat review after fixes. Commit using the helper's exact `chore:` description.
 Push, create a draft chore PR with base master, or reuse the existing one. Its body references
-the feature PR and release; do not duplicate the feature's issue-closing references.
+the feature PR and release; use the helper's chore commit description as the PR title. Do not duplicate the feature's issue-closing references.
 
 Wait for all CI, verify current-head check results, mark the chore ready and merge using the
 same commands from section 3 and its verified head. These steps are already authorized by

@@ -211,6 +211,8 @@ def parse_mypy(rc: int | None, out: str, err: str) -> dict[str, Any]:
     per_file: Counter[str] = Counter()
     codes: Counter[str] = Counter()
     for line in out.splitlines():
+        if line.startswith("error:"):
+            return {"available": False, "reason": "mypy stdout contains an unaccounted error"}
         if ": error:" not in line:
             continue
         diagnostic = re.match(r"^(.+?):\d+(?::\d+)?: error:", line)
@@ -397,20 +399,26 @@ def _coverage_section(xml_path: Path | None) -> dict[str, Any] | None:
     except ET.ParseError as exc:
         return {"available": False, "reason": f"{xml_path.name}: {exc}"}
     sources = [s.text or "" for s in tree.getroot().iter("source")]
+    if tree.getroot().tag != "coverage":
+        raise ValueError("Expected a coverage XML root")
     agg: dict[str, list[int]] = defaultdict(lambda: [0, 0, 0, 0])
     files: list[tuple[int, int, str]] = []
     other_statements = 0
+    seen_files: set[str] = set()
+    report_counts = [0, 0, 0, 0]
     for cls in tree.getroot().iter("class"):
         rel = _package_relative(cls.get("filename") or "", sources)
         lines = cls.findall("lines/line")
+        filename = rel or (cls.get("filename") or "").replace("\\", "/")
+        if not filename or filename in seen_files or ".." in filename.split("/"):
+            raise ValueError("Coverage file identity is missing, duplicated or invalid")
+        seen_files.add(filename)
+        numbers = [int(ln.attrib["number"]) for ln in lines]
+        if len(set(numbers)) != len(numbers) or any(n <= 0 for n in numbers):
+            raise ValueError("Coverage line numbers must be positive and unique per file")
         if any(int(ln.attrib["hits"]) < 0 for ln in lines):
             raise ValueError("Coverage hits must be nonnegative")
         valid, covered = len(lines), sum(1 for ln in lines if int(ln.attrib["hits"]) > 0)
-        if rel is None:
-            other_statements += valid
-            continue
-        parts = rel.split("/")
-        pkg = parts[0] if len(parts) > 1 else "(root)"
         bv = bc = 0
         for ln in lines:
             cond = ln.get("condition-coverage") or ""
@@ -424,8 +432,22 @@ def _coverage_section(xml_path: Path | None) -> dict[str, Any] | None:
                 bc += covered_branches
                 bv += branches
         for i, v in enumerate((valid, covered, bv, bc)):
+            report_counts[i] += v
+        if rel is None:
+            other_statements += valid
+            continue
+        parts = rel.split("/")
+        pkg = parts[0] if len(parts) > 1 else "(root)"
+        for i, v in enumerate((valid, covered, bv, bc)):
             agg[pkg][i] += v
         files.append((valid - covered, valid, f"src/{PACKAGE}/{rel}"))
+    for attribute, actual in zip(
+        ("lines-valid", "lines-covered", "branches-valid", "branches-covered"),
+        report_counts, strict=True,
+    ):
+        declared = tree.getroot().get(attribute)
+        if declared is not None and int(declared) != actual:
+            raise ValueError(f"Coverage {attribute} disagrees with its records")
     in_package = sum(v[0] for v in agg.values())
     if in_package == 0 or other_statements > COVERAGE_OTHER_TOLERANCE * (
         in_package + other_statements

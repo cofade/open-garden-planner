@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 
 import pytest
+from scripts import prepare_version_sync
 from scripts.audit_metrics import coverage_section, parse_mypy
 from scripts.check_branch_protection import differences
 from scripts.check_coverage_floors import regressions as coverage_regressions
@@ -19,6 +20,7 @@ def test_mypy_rejects_an_incomplete_diagnostic_stream() -> None:
     result = parse_mypy(1, "Found 2 errors in 1 file (checked 1 source file)\n", "")
     assert result["available"] is False
     assert parse_mypy(0, "Success: no issues found\n", "error: truncated")["available"] is False
+    assert parse_mypy(0, "error: failed\nSuccess: no issues found\n", "")["available"] is False
 
 
 def test_mypy_exposes_normalized_per_file_counts() -> None:
@@ -145,6 +147,34 @@ def test_version_edit_preserves_comments_and_other_versions() -> None:
     assert replace_manifest_version(manifest, "1.0.1") == manifest.replace('"1.0.0"', '"1.0.1"')
     with pytest.raises(ValueError):
         replace_manifest_version('[project]\nname="x"\n', "1.0.1")
+
+
+def test_version_sync_rolls_back_after_a_partial_write(tmp_path: Path, monkeypatch) -> None:
+    originals = {}
+    for name in prepare_version_sync.SYNC_FILES:
+        target = tmp_path / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b"original\n")
+        originals[name] = target.read_bytes()
+    monkeypatch.setattr(prepare_version_sync, "prepare",
+                        lambda *_args: dict.fromkeys(prepare_version_sync.SYNC_FILES, b"changed\n"))
+    write = Path.write_bytes
+    failed = False
+
+    def fail_once(path: Path, content: bytes) -> int:
+        nonlocal failed
+        if path.name == "__init__.py" and not failed:
+            failed = True
+            # The previous file really was changed before the failure.
+            assert (tmp_path / "pyproject.toml").read_bytes() == b"changed\n"
+            raise OSError("injected second-file write failure")
+        return write(path, content)
+
+    monkeypatch.setattr(Path, "write_bytes", fail_once)
+    assert prepare_version_sync.main(["--root", str(tmp_path), "--tag", "v1.2.3",
+                                      "--source-pr", "1", "--apply"]) == 2
+    assert failed
+    assert {name: (tmp_path / name).read_bytes() for name in originals} == originals
 
 
 def test_version_sync_fingerprint_excludes_only_the_project() -> None:

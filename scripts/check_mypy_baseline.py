@@ -20,7 +20,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def validate_baseline(data: Any, mypy_version: str) -> dict[str, Any]:
     """Reject stale tools and invalid allowances instead of silently budgeting them."""
-    if not isinstance(data, dict) or data.get("schema_version") != 1:
+    if (not isinstance(data, dict) or type(data.get("schema_version")) is not int
+            or data["schema_version"] != 1):
         raise ValueError("Unsupported mypy baseline schema")
     if data.get("target_python") != "3.11" or data.get("mypy_version") != mypy_version:
         raise ValueError("Baseline Python/mypy metadata does not match the locked tools")

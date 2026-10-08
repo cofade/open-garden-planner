@@ -17,7 +17,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def validate_floors(data: Any) -> dict[str, int]:
-    if (not isinstance(data, dict) or data.get("schema_version") != 1
+    if (not isinstance(data, dict) or type(data.get("schema_version")) is not int
+            or data["schema_version"] != 1
             or data.get("non_ui_definition") != "all packages except ui"):
         raise ValueError("Invalid coverage floor metadata")
     floors = data.get("line_floors")

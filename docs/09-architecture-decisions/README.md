@@ -2064,5 +2064,7 @@ version-sync pushes. Requiring a human approving review would block this solo wo
 merges. Baselines use clean locked Windows/Linux environments. Workflow inventory, context
 parity and skill citations prevent documentation drift. Full pytest, lint/security/secrets,
 translation, lock/export, type/coverage and frozen startup/subsystem gates apply. Protection
-refusal/acceptance is validated on a temporary non-release branch during approved activation;
-master's settings are read back independently before the production merge.
+refusal/acceptance passed on isolated PR #420 using the proposed policy; its temporary
+branches/policy were removed. Master activation remains pending owner approval and its settings
+are read back independently before the production merge. Release resumption resolves the tag
+and successful workflow by merge SHA without needing a pre-merge tag after a restart.
