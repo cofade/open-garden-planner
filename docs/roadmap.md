@@ -36,15 +36,23 @@ by branch protection. The protection payload and read-only verifier are implemen
 activation awaits owner-approved finalization. Temporary-branch enforcement passed in PR #420
 (failing head refused; corrected green head merged normally; temporary branches removed).
 
+Final local validation: Windows 7,657 passed / 21 skipped; Linux 7,642 passed / 36 skipped.
+Coverage: 39,883/52,841 lines (75.5%) and 9,099/15,490 branches (58.7%); non-UI 79.5% /
+67.3%. Both type gates pass at 1,966 errors (Linux 137 files, Windows 136). Locked Windows
+PyInstaller build, eight-second startup and subsystem self-test passed. The frozen build
+opened the benchmark plan and exported validated PDF, DXF and CSV files. Visual 3D and the
+production finalization sequence remain owner checks. One Windows run reported an existing
+Agent API port-8765 collision warning; all tests passed. Remote package CI awaits the draft PR.
+
 Finalization preserves one invocation: approved feature merge, matching successful CI release,
 automatic independently reviewed version-sync chore PR, wiki push and cleanup. No second
 manual-test confirmation is required for that mechanical PR. See ADR-050 and deployment docs.
 
 | Issue | Delivery scope | Status |
 |---|---|---|
-| #404 | Seeded universal lock, packaging/backend group, shared environment setup | Implemented; validation in progress |
-| #401 | Locked strict mypy with Linux/Windows per-file allowances and corrected gate docs | Implemented; validation in progress |
-| #402 | Fresh Linux package line floors, separate branch report, explicit package inventory | Measurement/validation in progress |
+| #404 | Seeded universal lock, packaging/backend group, shared environment setup | Implemented; local validation passed |
+| #401 | Locked strict mypy with Linux/Windows per-file allowances and corrected gate docs | Implemented; local validation passed |
+| #402 | Fresh Linux package line floors, separate branch report, explicit package inventory | Implemented; final Linux measurement passed |
 | #399 | Reviewed protection payload and protected/resumable finalization | Code implemented; activation pending owner approval |
 
 ## Development Standards
