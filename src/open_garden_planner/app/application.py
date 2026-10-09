@@ -88,6 +88,7 @@ if TYPE_CHECKING:
     import datetime
 
     from open_garden_planner.agent_api import AgentApiServer
+    from open_garden_planner.core.sim_clock import SimChange
 
 logger = logging.getLogger(__name__)
 
@@ -6475,7 +6476,7 @@ class GardenPlannerApp(QMainWindow):
         ``_on_sim_instant_changed`` every change."""
         self._sim_clock.set_datetime(dt)
 
-    def _on_sim_date_changed(self, day) -> None:
+    def _on_sim_date_changed(self, day: "datetime.date") -> None:
         """A new plan DATE — never a time-of-day change (the clock's L1.0 gate).
 
         The whole-day heatmap goes stale (FR-SUN-05): cleared when shown AND
@@ -6492,7 +6493,7 @@ class GardenPlannerApp(QMainWindow):
             self._sun_toolbar.set_heatmap_active(False)
         self._refresh_3d_view()
 
-    def _on_sim_instant_changed(self, change) -> None:
+    def _on_sim_instant_changed(self, change: "SimChange") -> None:
         """Any new sim instant: the toolbar shows it (silently — no write-back
         echo) and the 3D light follows (US-E6)."""
         self._sun_toolbar.set_datetime_local(change.current.wall)

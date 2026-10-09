@@ -59,7 +59,10 @@ class SunSimToolbar(QToolBar):
         self._date_edit = QDateEdit(self)
         self._date_edit.setCalendarPopup(True)
         self._date_edit.setDisplayFormat("yyyy-MM-dd")
-        self._date_edit.setDateRange(QDate(MIN_PLAN_DATE), QDate(MAX_PLAN_DATE))
+        self._date_edit.setDateRange(
+            QDate(MIN_PLAN_DATE.year, MIN_PLAN_DATE.month, MIN_PLAN_DATE.day),
+            QDate(MAX_PLAN_DATE.year, MAX_PLAN_DATE.month, MAX_PLAN_DATE.day),
+        )
         self._date_edit.setToolTip(self.tr("Simulation date"))
         self.addWidget(self._date_edit)
 
