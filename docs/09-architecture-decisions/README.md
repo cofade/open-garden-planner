@@ -2081,7 +2081,7 @@ on Linux and Windows, preserving the supported-Python range and dependency selec
 
 ## ADR-051: Repository-owned wiki sources and manual publication (issue #417)
 
-**Status**: Accepted for implementation; initial publication awaits owner review and protected merge.
+**Status**: Accepted (9 October 2026). Publication requires owner approval and protected merge.
 
 **Context**: The separate wiki accumulated stale status, setup, architecture, and reporting information.
 Roadmap-only release edits did not maintain the other pages. The community profile also lacked

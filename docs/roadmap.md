@@ -100,7 +100,7 @@ Every user-visible string must be wrapped for translation. See `docs/08-crosscut
 | ✅     | DI-3 | i18n blind-spot hardening | Unique `TRANSLATIONS` keys + shared `active_language()` + full-tree ruff; issues #393/#408/#410; v1.29.2 (PR #411); §11.4, ADR-045 addendum |
 | ✅     | DI-4 | Serialization & Data Integrity Hardening | Free-text annotations (`TextItem`) in `.ogp` + roundtrip matrix tests (#394), clipboard serializer unification (#400), background image placeholder & UUID deduplication (#397), atomic two-phase plan loading & autosave safety (#403); v1.29.4 (PR #412); §11.3, §11.4 |
 | ✅     | DI-5 | CI and release hardening | Locked dependencies, platform type budgets, package coverage floors, and administrator-enforced checks; issues #404/#401/#402/#399; v1.29.6 (PR #422); ADR-050 |
-| 🔄     | DI-6 | Wiki and community documentation | Repository-owned wiki sources, offline rendering/checks, and community policies; issue #417; ADR-051; publication pending |
+| ✅     | DI-6 | Wiki sources and community policies | Repository-owned wiki sources, offline rendering/checks, and community policies; ADR-051; manual publication is tracked in issue #417 |
 
 ---
 
