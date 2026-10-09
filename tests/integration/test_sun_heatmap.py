@@ -381,9 +381,10 @@ class TestAppGlue:
     def test_date_change_clears_heatmap_but_time_change_keeps_it(
         self, qtbot
     ) -> None:
-        """The FR-SUN-05 stale rule lives in application._on_sun_sim_datetime:
-        a TIME change keeps the (whole-day) map, a DATE change clears it."""
-        from datetime import UTC, datetime
+        """The FR-SUN-05 stale rule (application._on_sim_date_changed since
+        L1.0): a TIME change keeps the (whole-day) map, a DATE change clears it.
+        Local wall times: the plan date is the toolbar's local day."""
+        from datetime import datetime
 
         from open_garden_planner.app.application import GardenPlannerApp
 
@@ -394,10 +395,10 @@ class TestAppGlue:
         heatmap._computed_day = SUMMER
         win._sun_toolbar.set_heatmap_active(True)
 
-        win._on_sun_sim_datetime(datetime(2026, 6, 21, 15, 0, tzinfo=UTC))
+        win._on_sun_sim_datetime(datetime(2026, 6, 21, 15, 0).astimezone())
         assert heatmap.heatmap_visible(), "time-of-day change must keep the map"
 
-        win._on_sun_sim_datetime(datetime(2026, 6, 22, 15, 0, tzinfo=UTC))
+        win._on_sun_sim_datetime(datetime(2026, 6, 22, 15, 0).astimezone())
         assert not heatmap.heatmap_visible(), "date change must clear the map"
         assert not win._sun_toolbar._heatmap_button.isChecked()
 

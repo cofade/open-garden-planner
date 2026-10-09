@@ -3,10 +3,15 @@
 A plain ``QToolBar``: date picker + time-of-day slider + animate button +
 hint label. The widget works in the SYSTEM LOCAL timezone (the pragmatic
 choice — the garden and the computer share a timezone in practice) and
-emits timezone-aware local datetimes; the controller converts to UTC.
-The sim time defaults to the current date/time each session (seeded in the
-constructor) and is deliberately NOT persisted — not in ``UiStateStore``, not
-in the ``.ogp`` — so a fresh run always reflects today.
+emits timezone-aware local datetimes.
+
+Since Phase 17 L1.0 (ADR-052) the toolbar is a VIEW of the app's one
+``core/sim_clock.SimClock``: the app writes every user edit to the clock and
+mirrors the clock back with ``set_datetime_local`` (signals blocked). Its own
+"now" seed only matters standalone. The sim time is deliberately NOT
+persisted — not in ``UiStateStore``, not in the ``.ogp`` — so a fresh run
+always reflects today. The date picker is limited to the clock's supported
+range (the system zone's conversion fails outside 1970-3000 on Windows).
 """
 
 from __future__ import annotations
@@ -23,6 +28,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.core.sim_clock import MAX_PLAN_DATE, MIN_PLAN_DATE
 from open_garden_planner.ui.icons import get_icon, get_pixmap
 
 _ANIMATE_INTERVAL_MS = 200
@@ -53,6 +59,7 @@ class SunSimToolbar(QToolBar):
         self._date_edit = QDateEdit(self)
         self._date_edit.setCalendarPopup(True)
         self._date_edit.setDisplayFormat("yyyy-MM-dd")
+        self._date_edit.setDateRange(QDate(MIN_PLAN_DATE), QDate(MAX_PLAN_DATE))
         self._date_edit.setToolTip(self.tr("Simulation date"))
         self.addWidget(self._date_edit)
 

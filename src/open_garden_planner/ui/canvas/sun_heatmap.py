@@ -282,10 +282,10 @@ class SunHeatmapController(QObject):
             len(daylight_samples(latitude, longitude, day)) * SAMPLE_STEP_MINUTES
         )
         # US-E8: the heatmap sees the same date-projected plant sizes as the
-        # shadow overlay (one growth timeline everywhere). It keys off the
-        # user's chosen LOCAL day, while the overlay uses the sim instant's UTC
-        # date — near midnight the two can name different days, immaterial to a
-        # decade-scale linear curve but why they are not the same call.
+        # shadow overlay and the 3D view — one growth timeline everywhere, keyed
+        # on the plan's LOCAL date (L1.0's sim clock; the app passes
+        # ``clock.plan_date``). Before L1.0 the overlay used the instant's UTC
+        # date, which named a different day after local midnight east of UTC.
         casters = collect_shadow_casters(self._scene, at_date=day)
         worker = HeatmapWorker(casters, latitude, longitude, day, grid, self)
         worker.progress.connect(self.progress)
