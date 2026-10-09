@@ -260,7 +260,8 @@ class PlantListsPanel(QWidget):
         """Populate the list entries widget, preserving selection and scroll position."""
         current_item = self._entries_list.currentItem()
         selected_entry_id = current_item.data(Qt.ItemDataRole.UserRole) if current_item else None
-        v_scroll = self._entries_list.verticalScrollBar().value()
+        v_bar = self._entries_list.verticalScrollBar()
+        v_scroll = v_bar.value() if v_bar is not None else 0
 
         self._entries_list.clear()
         curr_list = self._store.get_list(self._current_list_id)
@@ -295,7 +296,8 @@ class PlantListsPanel(QWidget):
 
         if reselect_item:
             self._entries_list.setCurrentItem(reselect_item)
-        self._entries_list.verticalScrollBar().setValue(v_scroll)
+        if v_bar is not None:
+            v_bar.setValue(v_scroll)
 
     # ── List operations ───────────────────────────────────────────────────────
 
@@ -437,16 +439,17 @@ class PlantListsPanel(QWidget):
         ]
         if other_lists:
             move_menu = menu.addMenu(self.tr("Move to List"))
-            for dest_list in other_lists:
-                dest_name = self.tr("⭐ Favorites") if dest_list.id == "favorites" else dest_list.name
-                act_move = QAction(dest_name, self)
-                dest_id = dest_list.id
-                act_move.triggered.connect(
-                    lambda _, d_id=dest_id: self._store.move_entry(
-                        pl.id, d_id, entry.id
+            if move_menu is not None:
+                for dest_list in other_lists:
+                    dest_name = self.tr("⭐ Favorites") if dest_list.id == "favorites" else dest_list.name
+                    act_move = QAction(dest_name, self)
+                    dest_id = dest_list.id
+                    act_move.triggered.connect(
+                        lambda _, d_id=dest_id: self._store.move_entry(
+                            pl.id, d_id, entry.id
+                        )
                     )
-                )
-                move_menu.addAction(act_move)
+                    move_menu.addAction(act_move)
 
         # Update from plan action
         act_update = QAction(self.tr("Update from Plan"), self)
@@ -505,10 +508,12 @@ class PlantListsPanel(QWidget):
                 sp_key = _get_species_key(species_dict)
                 if sp_key == target_species_key:
                     return item
-            elif getattr(item, "plant_species", None):
-                sp_key = _get_species_key(item.plant_species)
-                if sp_key == target_species_key:
-                    return item
+            else:
+                item_plant_species = getattr(item, "plant_species", None)
+                if item_plant_species:
+                    sp_key = _get_species_key(item_plant_species)
+                    if sp_key == target_species_key:
+                        return item
         return None
 
     def _on_update_entry_from_plan(

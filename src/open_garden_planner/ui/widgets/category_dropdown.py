@@ -7,7 +7,11 @@ and drag-to-canvas, plus an in-popup search field that filters thumbnails.
 from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QCoreApplication, QMimeData, QPoint, Qt, pyqtSignal
-from PyQt6.QtGui import QDrag
+from PyQt6.QtGui import (
+    QContextMenuEvent,
+    QDrag,
+    QShowEvent,
+)
 from PyQt6.QtWidgets import (
     QGridLayout,
     QLabel,
@@ -28,6 +32,7 @@ from open_garden_planner.ui.widgets.gallery_data import (
 
 if TYPE_CHECKING:
     from open_garden_planner.models.plant_data import PlantSpeciesData
+    from open_garden_planner.models.plant_lists import PlantListStore
 
 GRID_COLS = 3
 DRAG_THRESHOLD = 10
@@ -46,6 +51,7 @@ class _ThumbnailButton(QToolButton):
         self.setFixedSize(THUMB_SIZE + 16, THUMB_SIZE + 24)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
+        self._list_store: PlantListStore | None = None
         if self._item.species:
             from open_garden_planner.models.plant_lists import (  # noqa: PLC0415
                 get_plant_list_store,
@@ -53,8 +59,6 @@ class _ThumbnailButton(QToolButton):
 
             self._list_store = get_plant_list_store()
             self._list_store.changed.connect(self._on_store_changed)
-        else:
-            self._list_store = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(2, 2, 2, 2)
@@ -97,7 +101,7 @@ class _ThumbnailButton(QToolButton):
         # palette()-based QSS tracked the OS palette, not our theme.
         self.clicked.connect(lambda: self.clicked_item.emit(self._item))
 
-    def showEvent(self, event) -> None:  # noqa: N802 — Qt override
+    def showEvent(self, event: QShowEvent | None) -> None:  # noqa: N802 — Qt override
         super().showEvent(event)
         self._update_favorite_state()
 
@@ -148,9 +152,9 @@ class _ThumbnailButton(QToolButton):
 
     _update_tooltip = _update_favorite_state
 
-    def contextMenuEvent(self, event) -> None:  # noqa: N802 — Qt override
+    def contextMenuEvent(self, event: QContextMenuEvent | None) -> None:  # noqa: N802 — Qt override
         """Show context menu for plant gallery items (Favorites and List management)."""
-        if not self._item.species:
+        if not self._item.species or event is None:
             super().contextMenuEvent(event)
             return
 
@@ -168,25 +172,29 @@ class _ThumbnailButton(QToolButton):
             fav_action = menu.addAction(
                 QCoreApplication.translate("CategoryDropdown", "Remove from Favorites")
             )
-            fav_action.triggered.connect(lambda: store.toggle_favorite(obj))
+            if fav_action is not None:
+                fav_action.triggered.connect(lambda: store.toggle_favorite(obj))
         else:
             fav_action = menu.addAction(
                 QCoreApplication.translate("CategoryDropdown", "Add to Favorites")
             )
-            fav_action.triggered.connect(lambda: store.toggle_favorite(obj))
+            if fav_action is not None:
+                fav_action.triggered.connect(lambda: store.toggle_favorite(obj))
 
         custom_lists = [pl for pl in store.all_lists() if pl.id != store.FAVORITES_ID]
         if custom_lists:
             sub_menu = menu.addMenu(
                 QCoreApplication.translate("CategoryDropdown", "Add to List")
             )
-            for pl in custom_lists:
-                action = sub_menu.addAction(pl.name)
-                action.triggered.connect(
-                    lambda _checked=False, target_id=pl.id: store.add_entry(
-                        target_id, self._get_species_obj()
-                    )
-                )
+            if sub_menu is not None:
+                for pl in custom_lists:
+                    action = sub_menu.addAction(pl.name)
+                    if action is not None:
+                        action.triggered.connect(
+                            lambda _checked=False, target_id=pl.id: store.add_entry(
+                                target_id, self._get_species_obj()
+                            )
+                        )
 
         menu.exec(event.globalPos())
 

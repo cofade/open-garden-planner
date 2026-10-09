@@ -326,9 +326,10 @@ class PlantSearchDialog(QDialog):
         self._update_favorite_button()
         for i in range(self.results_list.count()):
             item = self.results_list.item(i)
-            pdata = item.data(Qt.ItemDataRole.UserRole)
-            if pdata:
-                item.setText(self._format_result_text(pdata))
+            if item is not None:
+                pdata = item.data(Qt.ItemDataRole.UserRole)
+                if pdata:
+                    item.setText(self._format_result_text(pdata))
 
     def _display_plant_details(self, plant: PlantSpeciesData) -> None:
         """Display detailed information about a plant.
