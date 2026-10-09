@@ -130,7 +130,7 @@ PYTHONUTF8=1 venv/Scripts/python.exe scripts/compile_translations.py
 venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
 ```
 
-Expected outcome: bundle at **`dist/OpenGardenPlanner/`** (~99 MB, per docs/07)
+Expected outcome: bundle at **`dist/OpenGardenPlanner/`** (~611 MiB in the local v1.29.6 build measured 2026-10-09; not a fixed limit)
 containing `OpenGardenPlanner.exe`. Intermediate files in `build/`.
 
 ### Exe smoke test — exit code 124 means SUCCESS
@@ -218,7 +218,7 @@ venv/Scripts/python.exe installer/build_installer.py --skip-nsis         # PyIns
 venv/Scripts/python.exe installer/build_installer.py --skip-pyinstaller  # NSIS only, needs existing dist/
 ```
 
-Expected outcome: `dist/OpenGardenPlanner-v{VERSION}-Setup.exe` (~34 MB, LZMA).
+Expected outcome: `dist/OpenGardenPlanner-v{VERSION}-Setup.exe` (v1.29.6 release download ~171 MiB, measured 2026-10-09; LZMA).
 The script writes `src/open_garden_planner/_version.py` before freezing (the
 update checker reads it), cleans the previous `dist/OpenGardenPlanner/`, runs
 PyInstaller with `--clean`, then `makensis` on `installer/ogp_installer.nsi`.

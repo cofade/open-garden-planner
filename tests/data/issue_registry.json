@@ -689,6 +689,11 @@
     "state": "OPEN",
     "title": "Plant data: harvest offsets are read two ways (garlic's follow \"after planting\", the task generator counts from the last frost)"
   },
+  "417": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Sync the wiki Roadmap with docs/roadmap.md (Phase 13 status stale, no Phase 17 section)"
+  },
   "418": {
     "is_pr": false,
     "state": "OPEN",

@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: "Private security vulnerability report"
+    url: https://github.com/cofade/open-garden-planner/security/advisories/new
+    about: Report undisclosed software vulnerabilities privately to repository maintainers
   - name: "💬 General discussion / workflow questions"
     url: https://github.com/cofade/open-garden-planner/discussions/new?category=general
     about: Ask questions, share ideas, or start a conversation

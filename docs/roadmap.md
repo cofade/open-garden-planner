@@ -99,6 +99,8 @@ Every user-visible string must be wrapped for translation. See `docs/08-crosscut
 | 🔄     | DI-2 | Repository audit 2026-10 | Snapshot `docs/11-risks-and-technical-debt/audit-2026-10.md`; §11.3 rebuilt as the living register (ADR-047); epic #392 |
 | ✅     | DI-3 | i18n blind-spot hardening | Unique `TRANSLATIONS` keys + shared `active_language()` + full-tree ruff; issues #393/#408/#410; v1.29.2 (PR #411); §11.4, ADR-045 addendum |
 | ✅     | DI-4 | Serialization & Data Integrity Hardening | Free-text annotations (`TextItem`) in `.ogp` + roundtrip matrix tests (#394), clipboard serializer unification (#400), background image placeholder & UUID deduplication (#397), atomic two-phase plan loading & autosave safety (#403); v1.29.4 (PR #412); §11.3, §11.4 |
+| ✅     | DI-5 | CI and release hardening | Locked dependencies, platform type budgets, package coverage floors, and administrator-enforced checks; issues #404/#401/#402/#399; v1.29.6 (PR #422); ADR-050 |
+| ✅     | DI-6 | Wiki sources and community policies | Repository-owned wiki sources, offline rendering/checks, and community policies; ADR-051; manual publication is tracked in issue #417 |
 
 ---
 
@@ -2674,6 +2676,8 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 
 ## Phase 17: Living Garden 3D (epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) — L0 complete (GO)
 
+**Current product**: the shipped 3D view still uses **Qt 3D**. The Qt Quick 3D implementation remains a dormant `--spike-q3d` spike until L1 delivers the production replacement. L0 is complete with a GO, not a shipped renderer switch.
+
 **Goal**: make the 3D mode the reason to open the app — *Lush Cinematic* look, experience + analyze (editing stays in 2D, 3D only selects), 100 % procedural models, and **truth before beauty** (heights, spreads, sun, shadows, date and north gated against the data). Owner decisions 2026-10-03. Renderer: Qt Quick 3D replacing the deprecated Qt 3D, decided by the ADR-048 GO/NO-GO spike. Every 3D-visible change goes `ogp-3d-creator` → `ogp-3d-reviewer` → `senior-reviewer` (skills `ogp-lush-cinematic`, `ogp-3d-renderer`).
 
 | Status | Package | Description | Issue |
@@ -2722,7 +2726,5 @@ up."* while the task was open. See ADR-029 (addendum) and ADR-049.
 - **[#418](https://github.com/cofade/open-garden-planner/issues/418)** — converting
   the bundled harvest offsets to their true reading. Measured: both readings fit a majority of the 64 comparable rows (38 frost-relative, 45 planting-relative), with 11 fitting neither, so the data is NOT irreconcilable; it needs a cited
   horticultural source per row. **Garlic's harvest window lands ~3 months LATE** (October, not July) until then - and that is independent of which reading you assume, since its row fits the frost-relative one on maturity.
-- **#399** (branch protection / `--admin`), **#401** (mypy gate), **#402**
-  (coverage gate), **#405** (logging policy), **#409** (NFR-PERF-01), **#406**
-  (constraint-tool coverage) — all still open; #401/#402 deliberately measure their
-  baselines against this package's settled tree rather than inside it.
+- **#399** (branch protection), **#401** (mypy gate), and **#402** (coverage gate) completed in v1.29.6 via PR #422. Their baselines measured the settled tree after this package.
+- **#405** (logging policy), **#409** (NFR-PERF-01), and **#406** (constraint-tool coverage) remain open.

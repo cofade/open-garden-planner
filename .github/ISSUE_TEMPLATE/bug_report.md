@@ -6,6 +6,9 @@ labels: bug
 assignees: ''
 ---
 
+For an undisclosed security vulnerability, use [private vulnerability reporting](https://github.com/cofade/open-garden-planner/security/advisories/new).
+Do not include credentials, write-enabled Agent API URLs, or personal information in public attachments.
+
 <!--
 A short, concrete report is worth more than a long one. Please fill in what you
 can — a partial report with the version and the steps is already useful, and you

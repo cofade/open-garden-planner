@@ -60,7 +60,7 @@ single `README.md` — there are no per-ADR or per-chapter sub-files.
 | Translation guide | `docs/TRANSLATING.md` | How to add a new language (`.ts`/`.qm` pipeline) |
 | CLAUDE.md | `CLAUDE.md` (repo root) | Quick reference commands, workflow, phase progress tables. **A maintained doc** — its own "Maintaining this file" note requires updating the progress table when US status changes and keeping commands current |
 | Debug case-study log | `.claude/skills/debug-verbose/SKILL.md` | Growing list of `## Case study:` entries — one per non-trivial bug fixed |
-| GitHub wiki | `../open-garden-planner.wiki/Roadmap.md` | Public mirror of the roadmap. **NOT present in cloud/CI checkouts** (verified absent here — `ls ..` shows only the main repo). Handling: if the sibling directory is absent, note "wiki sync pending" in your handoff/PR body so it is done from a full local checkout; do not silently skip the duty, and do not try to clone it without being asked |
+| GitHub wiki | `docs/wiki/README.md` | Six repository-owned source pages. Canonical roadmap inclusions render through `scripts/sync_wiki.py`. Validate offline before delivery. Publish to the separate sibling wiki checkout after owner approval and protected merge. If absent, report publication pending. Do not silently clone or edit the published pages as a second tracker (ADR-051). |
 | This skill library | `.claude/skills/<name>/SKILL.md` | Operational knowledge for agents — see §7 below |
 
 ## 2. The mandatory-update tables (from CLAUDE.md — binding)
@@ -94,7 +94,7 @@ approaches; changing established patterns; addressing non-obvious constraints.
 
 **Pre-merge doc checklist** (verify before any merge): arc42 docs updated, ADRs created
 if needed, glossary updated (terms **and** any new keyboard shortcut in §12.2), wiki
-synced (or flagged pending — see §1), roadmap status + "Docs updated on completion"
+sources validated and publication prepared (or flagged pending — see §1), roadmap status + "Docs updated on completion"
 table written, CLAUDE.md progress table current, new keyboard shortcuts in glossary.
 
 Additional targets observed in practice (beyond the CLAUDE.md tables):
@@ -307,9 +307,10 @@ does not restate them.
 - **Keep CLAUDE.md current**: when a US ships, update its progress-table row (status +
   the dense completion note style you see there); when a command changes, fix Quick
   Reference. CLAUDE.md's own "Maintaining this file" note makes this mandatory.
-- **Wiki sync duty**: `../open-garden-planner.wiki/Roadmap.md` mirrors the roadmap.
-  Absent in this checkout (verified) — flag "wiki sync pending" in the PR body instead
-  of skipping silently.
+- **Wiki sync duty**: edit repository sources in `docs/wiki/`, then run `scripts/sync_wiki.py --check`.
+  Render a preview outside the repository. Follow `docs/wiki/README.md` after owner approval and
+  protected merge. Read and reconcile direct wiki edits before publishing. An absent sibling
+  checkout leaves publication pending. CI never accesses or publishes the live wiki (ADR-051).
 - **Cite evidence**: issue/PR numbers, test paths, and file paths in every entry. The
   house style is falsifiable prose — a claim without a `tests/...` or `file.py`
   reference is below the bar set by existing entries.

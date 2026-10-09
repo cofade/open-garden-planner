@@ -40,6 +40,9 @@ jobs:
       - name: Run ruff
         run: ruff check src/ tests/ scripts/
 
+      - name: Validate repository wiki sources (offline)
+        run: python scripts/sync_wiki.py --check
+
   test:
     name: Test
     runs-on: ubuntu-latest

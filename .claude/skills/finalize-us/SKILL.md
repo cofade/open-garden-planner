@@ -103,7 +103,9 @@ validates/refreshes uv.lock offline without requiring a resolver cache, and rege
 pylock.toml. It refuses changed third-party package records and restores source files if
 applying fails. If it reports already_synced, verify the lock and skip the duplicate commit.
 Update both root instruction files and the canonical roadmap if completion status changed;
-prepare the wiki mirror as well. Keep all added text English and context pairs synchronized.
+update affected repository wiki sources in `docs/wiki/` as well. Run `scripts/sync_wiki.py --check`
+and render a preview outside the repository. Do not write to the published wiki before merge.
+Keep all added text English and context pairs synchronized (ADR-051).
 
 Run lock/export consistency, context parity, skill citations, relevant version/gate tests and
 lint. Run an independent senior review of this chore branch in a fresh worktree. Address
@@ -119,8 +121,14 @@ that master has both synchronized versions and a current lock.
 
 ## 6. Wiki and cleanup
 
-Push the prepared `../open-garden-planner.wiki/Roadmap.md` change using its repository's
-configured identity. Preserve unrelated wiki edits. If the sibling is unavailable, report
-wiki sync pending rather than silently claiming success. Return to current master and delete
-only the local feature/chore branches that were successfully merged. Report the feature PR,
-version-sync PR, published version, CI/release results and any remaining work.
+Use the approved, merged repository sources and follow `docs/wiki/README.md` (ADR-051).
+Run `scripts/sync_wiki.py --check`, render the six pages into an external preview directory,
+and inspect the existing sibling wiki status, remote head, and history since the previous publication.
+Reconcile direct edits to managed pages into reviewed sources before copying. Preserve unrelated
+pages and edits. Commit and push the six prepared pages using the wiki repository's configured
+identity without force. Record the source SHA in the wiki commit. Compare the checkout with
+`scripts/sync_wiki.py --check-published --wiki-dir ../open-garden-planner.wiki` and inspect the live pages.
+If the sibling is unavailable, report wiki publication pending rather than claiming success.
+Close publication issues such as #417 only after their live acceptance checks pass.
+Return to current master and delete only local branches that successfully merged. Report the
+feature PR, version-sync PR where applicable, published version, source/wiki SHAs, checks, and pending work.
