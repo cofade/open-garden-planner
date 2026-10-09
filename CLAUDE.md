@@ -222,6 +222,8 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 ## Where to Pick Up After Restart
 
+- **Package G (US-G4, #320) shipped 2026-10-09 as v1.29.7 ([PR #421](https://github.com/cofade/open-garden-planner/pull/421)).** Plant favourites & named collections with drag-to-canvas auto-parenting/sizing/planting-date stamping, snapshot updates from plan, portable JSON import/export, and the read-only Agent API `garden://plant-lists` resource. Completes Package G.
+
 - **CI/release hardening (#399/#401/#402/#404) shipped 2026-10-09 as v1.29.6 ([PR #422](https://github.com/cofade/open-garden-planner/pull/422)).** Committed uv/PEP 751 locks preserve v1.29.5 dependency selections; strict type budgets are per file/platform on Python 3.11; coverage line floors are per package with branch reporting. `master` now requires eight successful checks, an up-to-date PR and administrator enforcement, with zero approving reviews. `finalize-us` completes release and a reviewed automatic version-sync chore PR in one invocation; never bypass a failed check.
 
 - **Serialization & data integrity hardening shipped 2026-10-06 as v1.29.4 (PR #412): #394 + #400 + #397 + #403.** (Epic #392). Free-text annotations (`TextItem`) natively serialized in `.ogp` (AUD-001/017) with round-trip matrix tests across all placeable items; clipboard serializer unified by delegating `CanvasView` copy/paste to `ProjectManager` (AUD-002); background image placeholders & recursive UUID deduplication (AUD-043); two-phase atomic plan loading & autosave safety (AUD-040). See §11.3, §11.4.

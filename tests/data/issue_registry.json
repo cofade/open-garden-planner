@@ -371,7 +371,7 @@
   },
   "320": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "US-G4: Plant favourites & named collections — Plant Lists panel with drag-to-canvas, JSON import/export (FR-8; Package G, independent)"
   },
   "321": {
@@ -703,6 +703,11 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix(#414,#415,#395,#396,#398): task-date correctness and audit P1s"
+  },
+  "421": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(US-G4): plant favourites and named collections (#320)"
   },
   "422": {
     "is_pr": true,
