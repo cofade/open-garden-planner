@@ -2683,13 +2683,36 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | Status | Package | Description | Issue |
 | ------ | ------- | ----------- | ----- |
 | ✅ | L0 | **Proof of Beauty** — ADR-048 criteria committed before measuring; deterministic bench plans; dormant `--spike-q3d` renderer with sky, soft shadows, procedural trees/plants/roofs/fences; measurements M1–M12 in the container and the frozen Windows exe; Beauty Board; agents + skills. **GO 2026-10-05 (owner GPU run in ADR-048 entry 19); evidence tooling deleted.** | [#384](https://github.com/cofade/open-garden-planner/issues/384) |
-| 📋 | L1 | **New engine, new light** — sim clock, scene contract v2, engine package, Plan/3D/Split workspace without camera resets, sky + presets, ground bake, built world v0, plant v0, selection sync + walk collision, default flip, Qt 3D removal | [#385](https://github.com/cofade/open-garden-planner/issues/385) |
+| 🔄 | L1 | **New engine, new light** — sim clock, scene contract v2, engine package, Plan/3D/Split workspace without camera resets, sky + presets, ground bake, built world v0, plant v0, selection sync + walk collision, default flip, Qt 3D removal. **L1.0 (sim clock) in review** — see below | [#385](https://github.com/cofade/open-garden-planner/issues/385) |
 | 📋 | L2 | **Analyze in 3D** — shadow and sun-hours drapes, sun path + day sweep, info card + growth jump, cutaway | [#386](https://github.com/cofade/open-garden-planner/issues/386) |
 | 📋 | L3 | **Plant Forge** — procedural species models from the sprite recipes, LODs, phenology | [#387](https://github.com/cofade/open-garden-planner/issues/387) |
 | 📋 | L4 | **Built world complete** — roof styles, paths, glass, 24 object builders, water and lawn | [#388](https://github.com/cofade/open-garden-planner/issues/388) |
 | 📋 | L5 | **Living garden** — year/day playback, weather, particles, wind (needs [#315](https://github.com/cofade/open-garden-planner/issues/315)) | [#389](https://github.com/cofade/open-garden-planner/issues/389) |
 | 📋 | L6 | **Director's cut** — photo mode, camera tours, `render_3d_view` MCP tool | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
 | 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
+
+### L1.0 acceptance highlights — one sim clock (#385, ADR-052)
+
+- **One moment for the whole app.** `core/sim_clock.SimClock` (Qt-free) is owned by `GardenPlannerApp`. The sun toolbar is a view of it (it writes edits and mirrors the clock back silently). The shadow overlay reads it (`utc` for the sun, `plan_date` for growth), and the heatmap request and the 3D view read it too. It is not persisted, and every session starts at "now" (FR-SUN-04).
+- **Gate: a time change never fires `date_changed`.** It holds by construction: the plan date is stored, never derived from UTC. It is swept over every minute of an ordinary day and of both DST days in five zones, and checked at the app boundary (slider drag, animation wrap past midnight). The sun and heatmap suites stay green; three app-glue tests now pass local wall times.
+- **Fixes found on the way** (§11.4.7):
+  - shadows and 3D grew plants for the instant's UTC date, while the heatmap used the local date;
+  - a date change while the heatmap computed let the old day's map paint;
+  - the date picker allowed years that Windows' system-zone conversion cannot handle (now 1971–2999).
+- No `.ogp` change and no new UI strings. The plan for the other ten stories is outlined in the #385 issue table; each ships as its own branch and draft PR.
+
+### L1.0 docs updated on completion
+
+| Document | Section |
+|----------|---------|
+| `docs/09-architecture-decisions/` | ADR-052 (new); ADR-037 growth addendum revision; ADR-048 stale ADR-049 pointer |
+| `docs/functional-requirements.md` | FR-SUN-04, FR-SUN-05, FR-SUN-08 |
+| `docs/08-crosscutting-concepts/` | §8.20 "One simulation clock" |
+| `docs/05-building-block-view/` | `core/sim_clock.py` |
+| `docs/06-runtime-view/` | §6.8 Sim clock fan-out |
+| `docs/11-risks-and-technical-debt/` | §11.4.7 |
+| `docs/12-glossary/` | Plan date, Sim clock |
+| `CLAUDE.md` / `AGENTS.md` | Phase 17 pickup note |
 ---
 
 ## Task-date correctness + audit P1 cluster — **shipped v1.29.5** (PR [#419](https://github.com/cofade/open-garden-planner/pull/419))

@@ -1882,6 +1882,13 @@ preserved). All mesh math stays in the scene frame in Qt-free
 projection is pinned exactly opposite the 2D shadow direction — if the
 3D light and the 2D overlay ever disagree, a unit test fails first.
 
+**One simulation clock (Phase 17 L1.0, ADR-052).** Every sun- or growth-dependent view reads ONE moment, `GardenPlannerApp._sim_clock` (`core/sim_clock.SimClock`, Qt-free). Two time frames, never mixed:
+
+- **`plan_date`** is the user's LOCAL calendar day: the growth date of shadows, heatmap and 3D. It is *stored*, never derived from the UTC instant. A day taken from a UTC instant is not the user's day: the overlay used `utc.date()` and named another day than the heatmap after local midnight east of UTC (§11.4.7).
+- **`utc`** is derived from the stored wall-clock reading and is what `core/solar` takes. PEP 495 `fold` keeps the repeated DST hour exact.
+
+Writers call `set_datetime` / `set_date` / `set_time_of_day`. The clock emits `date_changed(plan_date)` only when the date moved (heatmap stale rule, 3D regrow), then `instant_changed(SimChange)` (overlay re-solve, toolbar mirror, 3D light). A time change can never fire `date_changed`, because `set_time_of_day` does not touch the stored date. Channels are plain callables held strongly, so a subscriber must live as long as the clock, and writing the clock from a listener raises. New consumers (the L1.3 workspace, L2's day sweep, L5's playback) subscribe; they never keep a private copy of the moment. Plan dates are limited to 1971–2999, because Windows' system-zone conversion raises `OSError` outside 1970–3000.
+
 ## 8.21 Icon System (#279, ADR-039)
 
 ### 8.21.1 The contract

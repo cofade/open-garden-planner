@@ -1094,6 +1094,8 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 
 **Revised (issue #299, manual-test finding on PR #298)**: this addendum originally kept the 2D canvas drawing the stored (mature) footprint unconditionally — growth visible only in shadow size, heatmap and the 3D view — and rejected rescaling canvas circles on the grounds that "a display-scale on live items perturbs selection/snap/`mapToScene`, exactly the #218/#219 territory." Manual testing of an unrelated PR found this backwards from a user's perspective: a full-size mature icon casting a visibly smaller shadow read as a bug, not a feature. The owner's call: keep the rejection's *reasoning* (never touch `rect()`/`radius`/`pos()`/`transformOriginPoint()` — the actual #218/#219 hazard, since THAT is what selection/snap/`mapToScene` depend on) but reverse the *conclusion* (the icon must still visually track growth). The fix threads a value through `paint()`/`boundingRect()` only — `CircleItem._visual_plant_diameter_cm()` — without touching the item's actual QGraphicsItem geometry at all, so selection/snap/drag/rotation/undo are provably untouched (none of them read anything but `rect()`/`pos()`/`transformOriginPoint()`, none of which this touches). Two things this surfaced that a first cut of the fix missed and a second pass corrected: the decorative drop-shadow (a separate cosmetic effect, unrelated to sun/shade) has to track the SAME diameter as the icon or a shrunk icon renders inside an oversized grey disc; and `boundingRect()`'s overflow term must never shrink below the footprint's own size (hit-testing/selection on the mature footprint must stay intact) while still growing for a current measurement that exceeds the species max. See §11.4 and the debug-verbose skill's matching case study for the full investigation. `plant_sizing.py` now documents FOUR sizes, not three.
 
+**Revised (Phase 17 L1.0, ADR-052)**: "Consumers all pass the sim timeline's date" named two dates. The shadow overlay and the 3D snapshot passed `sim_datetime_utc.date()`, the **UTC** date, while the heatmap passed the toolbar's **local** day, so after local midnight east of UTC (or before it west of UTC) they grew the same plant for different days. The overlay also kept a private UTC instant seeded separately from the toolbar's "now". Now `core/sim_clock.SimClock` holds the one moment: every consumer reads `plan_date` (the local day the toolbar shows) for growth and `utc` for the sun. The controller reads the clock instead of storing an instant, and the toolbar is a view of the clock. ADR-052 records the decision; the time-control paragraph of ADR-037 above ("the controller stores UTC") is superseded by it in the same way.
+
 ### ADR-038 addendum: US-E6 implementation (3D view MVP)
 
 **Status**: Accepted (2026-07-20) | **Context**: issue #261; the GO decision above
@@ -1713,7 +1715,7 @@ P0/P1 row links its own issue, as decision 1 requires of every P0/P1 row (TD-037
    - Since 6f0c4f4 the probe runs per preset, because every preset has its own shadow-map quality: low 0.970 / 0.963 / 0.937 (D3D11, v6) and 0.963 / 0.968 / 0.937 (container, 1280×720). Low carries a VeryHigh map since creator round 4: 0.984 / 0.982 / 0.964 (D3D11, v14), 0.953 / 0.959 / 0.922 (container, 1280×720) and 0.985 / 0.983 / 0.967 (container, 640×360).
 
    The value depends on the frame size, which sets the pixel grid, not on the backend.
-   - **Scope** (senior review): a box is where the 2D and 3D shadow models agree by construction. On a real plan they differ by design: gable roofs, open pergolas (2D extrudes a solid footprint), plants lifted onto beds, tree crowns on trunks. Criterion 8 therefore shows that the shadow-map pipeline is geometrically right, not that 3D shadows will match the 2D analysis; the analysis stays with the 2D model and is draped onto the 3D ground (plan: ADR-049).
+   - **Scope** (senior review): a box is where the 2D and 3D shadow models agree by construction. On a real plan they differ by design: gable roofs, open pergolas (2D extrudes a solid footprint), plants lifted onto beds, tree crowns on trunks. Criterion 8 therefore shows that the shadow-map pipeline is geometrically right, not that 3D shadows will match the 2D analysis; the analysis stays with the 2D model and is draped onto the 3D ground (plan: the L1.1 scene-pipeline ADR; the epic's reserved ADR-049 went to frost dates, and the L1 ADRs start at ADR-052).
 3. *Frame and sky orientation*:
    - **Ground.** The baked north-up ground texture needs `flipV: true`. NCC of the identity variant against the vertically flipped one: 0.943–0.954 vs −0.10…+0.01 (container), 0.949–0.956 vs −0.111…+0.016 (Windows v3, v4, v6 frozen). The probe's pixel grid comes from the grabbed image and its `devicePixelRatio`: built from the logical size, it reported a mirrored ground at 150 % display scale and `--iou` crashed there (senior review); a render test now runs both at `QT_SCALE_FACTOR=1.5`.
    - **Sky.** `ProceduralSkyTextureData` draws its sun at compass bearing `sunLongitude − 90°`, so `sunLongitude = azimuth + 90°`. A disc at the image centre only shows which way the sun is (the pinhole mapping error is zero there), so the probe looks 25° left and right of the solar azimuth and locates the disc off-centre, at azimuths 90°/180°/270°: max abs error **0.85°** (container) and **1.4°** (D3D11, v6 frozen), against the probe's 6° bound. Those readings converted the disc's pixel with the x coordinate alone, which is exact only for an unpitched camera; at the views' 14° pitch that put up to ~0.6° of the probe's own error into each reading (senior review). The probe now inverts the full pitched projection (`pixel_bearing`, unit-tested against an independent forward projection).
@@ -2124,3 +2126,114 @@ repositories. It covers source-table changes, deterministic Unicode output, miss
 invalid markers, broken links, read-only comparisons, missing pages, and unsafe output destinations.
 Agent context parity and skill citations remain required. Initial live wiki and community-profile
 checks occur after approved publication; source checks cannot prove GitHub recognition.
+
+## ADR-052: One simulation clock for every sun- and growth-dependent view (Phase 17, L1.0)
+
+**Status**: Accepted (2026-10-09, #385 story L1.0, epic #383). First Phase 17 L1 ADR. The epic's reserved
+"ADR-049 scene pipeline" number went to frost dates, so the scene-pipeline ADR follows with L1.1.
+
+### Context
+
+Four places held their own idea of "the simulated moment", and they did not agree:
+
+- `SunSimToolbar` held its widgets (date picker and time slider, system zone) and seeded `now()` itself.
+- `SunShadowController` held a separate UTC instant (seeded `datetime.now(UTC)` independently) and grew
+  plants for that instant's **UTC date**.
+- The hours-of-sun heatmap took the toolbar's **local** date (a code comment admitted that "near
+  midnight the two can name different days").
+- The 3D view read the overlay's UTC instant for the light and its UTC date for growth.
+
+After local midnight east of UTC (or before it west of UTC), the overlay and 3D grew plants for one day
+and the heatmap for another. The app compared two UTC dates to decide on a 3D rebuild. A heatmap still
+computing when the date changed was never cleared, because the stale rule only looked at a *visible* map.
+Its late result therefore painted the old day under the new date, although `SunHeatmapController.clear()`
+had been written for exactly that case. Phase 17 adds more consumers of the same moment: the 3D
+workspace (L1.3), sky and looks (L1.4), the day sweep (L2) and playback (L5). Each would have needed
+the same reconciliation again.
+
+### Decision
+
+1. **One clock.** `core/sim_clock.py::SimClock` is the session's single simulated moment.
+   `GardenPlannerApp` owns it and passes it to the shadow overlay. The toolbar is a *view* of the clock:
+   every user edit is written to the clock, and the clock is mirrored back silently. The heatmap request
+   and the 3D view read it. Every session still starts at "now", and the moment is not persisted
+   (FR-SUN-04 unchanged).
+2. **The plan date is the user's LOCAL calendar day, stored and never derived.** `SimInstant` holds
+   `plan_date` and a naive wall-clock `time_of_day` in the clock's zone. The UTC instant for `core/solar`
+   is *derived* from that wall-clock reading. Growth for the overlay, the heatmap and 3D all uses
+   `plan_date`.
+3. **A time change never fires `date_changed`, by construction.** `set_time_of_day` never touches the
+   stored date. `set_datetime` reads the date from the wall time in the clock's zone, so no UTC offset,
+   DST transition or wrap past midnight (the toolbar's animation stays on its date) can move it. Writes
+   emit `date_changed(plan_date)` only when the date moved, then `instant_changed(SimChange)`. A no-op
+   write emits nothing.
+4. **Qt-free, with two plain channels.** The epic lists the sim clock among the engine-independent
+   cores: NO-GO insurance, and headless tests without a `QApplication`. It therefore notifies through a
+   minimal synchronous `Channel`:
+   - connecting is idempotent, and a bound method counts as connected once;
+   - a listener disconnected during an emission is skipped (Qt's rule);
+   - exceptions propagate;
+   - writing the clock from inside its own notification raises `RuntimeError`, because the remaining
+     listeners would receive a stale change.
+
+   Lifetime rule: a channel holds its listeners strongly and nothing disconnects them when a Qt receiver
+   dies. Subscribers must therefore live as long as the clock. Today they do: the app's own handlers and
+   the overlay, a child of the app.
+5. **Exact DST handling.** PEP 495 `fold` is part of the instant and of `SimInstant` equality (plain
+   `time` equality ignores it). `SimInstant.from_datetime` reads an aware instant into the clock's zone
+   with an exact round trip, including the repeated fall-back hour; it searches both folds for the system
+   zone and fixed offsets. A wall time inside a skipped spring-forward hour converts by the platform's
+   rule (forward on Windows and Linux, measured), so the toolbar's animation cannot loop there.
+6. **A supported date range, 1971-01-01 … 2999-12-31.** The system zone converts through the platform's
+   `localtime`/`mktime`, which on Windows raise `OSError` outside 1970–3000 (measured: 1960 and 3001
+   fail, 1970 and 2999 work). The clock refuses dates outside this range with a `ValueError`, and the
+   toolbar's date picker uses the same range. Before this change the picker allowed 1752–9999, and
+   choosing such a date raised inside a Qt slot.
+7. **The heatmap's stale rule follows the plan date.** A new plan date clears a map for another day when
+   it is shown **or while its worker is still computing**.
+
+### Alternatives considered (rejected)
+
+- **A `QObject` clock with `pyqtSignal`s in `core/`** (as `CommandManager` and `ProjectManager` are).
+  PyQt would auto-disconnect a destroyed receiver. But the epic names the sim clock a Qt-free core, so
+  the clock would carry Qt into the NO-GO insurance layer, and its tests would need Qt. The lifetime rule
+  in point 4 removes the teardown concern for every current subscriber. A later Qt consumer can add a
+  thin adapter.
+- **App-only fan-out with no channels** (setters return a `SimChange` and the app dispatches). This
+  works for L1.0, but every later writer (the 3D time control, the day sweep, playback) would have to
+  route through one app method, and "fires `date_changed`" would have no subject to test.
+- **Keep a UTC instant and derive the date from it.** This is the bug: a UTC date is not the user's day,
+  and a derived local date makes "a time change never moves the date" depend on zone data instead of
+  holding by construction.
+- **Use the garden location's zone instead of the system zone.** The `.ogp` location stores no zone
+  today, so this is out of scope. The clock takes `tz` as a parameter, and the toolbar and clock would
+  switch together.
+
+### Consequences
+
+- Shadows and 3D now grow plants for the toolbar's date. This is a visible fix only near local midnight
+  east or west of UTC. Three app-glue tests now pass local wall times, because UTC inputs named another
+  day in zones far from UTC. Their assertions are unchanged.
+- Any writer of the clock regrows 3D on a date change, including `SunShadowController.set_sim_datetime`
+  on the shared clock. `test_3d_view` counts one more rebuild because of this.
+- Out of scope, and unchanged: the 2D plant icon uses today's real date (FR-SUN-08, #299), tasks and
+  calendars use `date.today()`, and the dormant spike keeps its own shot dates.
+- Later stories subscribe instead of reconciling. L1.3's sync pipeline regrows on `date_changed` and
+  relights on `instant_changed`. L1.4 rebuilds the sky only for a noticeable sun move.
+
+**Validation**:
+- `tests/unit/test_sim_clock.py` (Qt-free; IANA-zone cases skip where the platform has no tz data, and
+  CI Linux runs them):
+  - every minute of an ordinary day and of both 2026 DST days, plus the midnight wrap, in the system
+    zone, Europe/Berlin, America/New_York and ±9/−7 h offsets: `date_changed` never fires;
+  - every half hour of 2026 round-trips exactly in five zones;
+  - fold equality, the skipped hour, the range edges, re-entrancy and channel semantics;
+  - an AST scan pins the module to the standard library.
+- `tests/integration/test_sim_clock_wiring.py` (the §8.10 workflow on a real `GardenPlannerApp`):
+  - a slider drag moves only the light and keeps the heatmap;
+  - a date edit regrows 3D once and clears the heatmap;
+  - the animation wraps past midnight on the same date;
+  - an external clock write moves the toolbar;
+  - on a +09:00 clock, the overlay, the heatmap request and the 3D rebuild all name local
+    2026-06-22 while the UTC date is 2026-06-21;
+  - a date change mid-compute never lets the late map paint.
