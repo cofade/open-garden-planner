@@ -188,3 +188,9 @@
 - [Qt Linguist Manual](https://doc.qt.io/qt-6/qtlinguist-index.html)
 - [NSIS Documentation](https://nsis.sourceforge.io/Docs/)
 - [PyInstaller Documentation](https://pyinstaller.org/en/stable/)
+
+| Term | Definition |
+|---|---|
+| Dependency lock | Committed selected Python package versions and platform markers; uv.lock is authoritative and pylock.toml is its PEP 751 export. |
+| Type allowance | Maximum strict-mypy diagnostic count for one production file on one supported CI platform; absent files have zero allowance. |
+| Coverage floor | Minimum integer line-coverage percentage for one production package, checked against unrounded covered/total counts. |

@@ -43,49 +43,33 @@ package, and find where artifacts land. Facts verified against the repo at
 |---|---|---|
 | Purpose | Where the app is actually developed and run as a GUI | Headless tests, lint, security scan (CI runs ubuntu-latest) |
 | Python | 3.11+ (`requires-python = ">=3.11"`; CI pins 3.11) | 3.11 |
-| Interpreter path | `venv/Scripts/python.exe` (Git-Bash form used throughout CLAUDE.md) or `venv\Scripts\python.exe` (cmd) | `venv/bin/python` or system python after `pip install -e ".[dev]"` |
+| Interpreter path | `venv/Scripts/python.exe` (Git-Bash form used throughout CLAUDE.md) or `venv\Scripts\python.exe` (cmd) | `.venv/bin/python` |
 | GUI runs? | Yes — the app targets Windows (pyproject classifier: `Operating System :: Microsoft :: Windows`) | Not intended; tests run with `QT_QPA_PLATFORM=offscreen` (also set defensively in `tests/conftest.py`) |
 | Exe/installer build | Yes (PyInstaller + NSIS; release CI uses windows-latest) | No |
 
-`pyproject.toml` is the source of truth for dependencies. **Trap:**
-`requirements.txt` / `requirements-dev.txt` are stale (they list only
-PyQt6/Pillow and omit the MCP stack, WebEngine pin, bandit) — do not install
-from them; use `pip install -e ".[dev]"`. (Verified 2026-07-04.)
+`pyproject.toml` declares constraints; `uv.lock` selects authoritative dependency versions.
+`pylock.toml` is the checked PEP 751 export. Do not install from stale requirements files.
 
-## From-scratch checklist — brand-new machine
+## From-scratch checklist
 
-### Windows (canonical dev box)
+Install Python 3.11 and clone the repository. Bootstrap uv using the one pin in the manifest:
 
-| # | Command (Git Bash) | Expected outcome / trap |
-|---|---|---|
-| 1 | Install Python 3.11+ (python.org, 64-bit) | `python --version` → 3.11+ |
-| 2 | `git clone https://github.com/cofade/open-garden-planner && cd open-garden-planner` | Repo present |
-| 3 | `python -m venv venv` | `venv/` created |
-| 4 | `venv/Scripts/python.exe -m pip install --upgrade pip` | pip current |
-| 5 | `venv/Scripts/python.exe -m pip install -e ".[dev]"` | Installs PyQt6, PyQt6-WebEngine (<6.11), Pillow, requests, python-dotenv, numpy, pyclipper, ezdxf, mcp (<2.0), uvicorn, starlette, pydantic + dev tools (pytest, pytest-qt, pytest-cov, ruff, mypy, bandit) |
-| 6 | `venv/Scripts/python.exe -m open_garden_planner` | Main window opens. Agent API auto-starts on 127.0.0.1:8765 (on by default) |
-| 7 | `venv/Scripts/python.exe -m pytest tests/ -v` | Full suite passes (unit + integration + ui) |
-| 8 | *(only for exe/installer builds)* `venv/Scripts/python.exe -m pip install pyinstaller` | **Trap:** PyInstaller is NOT in the `[dev]` extra — install separately (per README / docs/07) |
-| 9 | *(only for installer builds)* Install NSIS from https://nsis.sourceforge.io/ | `makensis` on PATH or at `C:\Program Files (x86)\NSIS\makensis.exe` (both auto-detected by `installer/build_installer.py`) |
-| 10 | *(optional)* Create `.env` with `OGP_GOOGLE_MAPS_KEY=...` | Enables the satellite map picker when no key is saved in Preferences; app runs fine without it (`main.py` loads `.env` via python-dotenv) |
+```bash
+python -c 'import subprocess,sys,tomllib; p=tomllib.load(open("pyproject.toml","rb"))["tool"]["uv"]["required-version"].removeprefix("=="); subprocess.check_call([sys.executable,"-m","pip","install","uv=="+p])'
+uv sync --locked --python 3.11 --all-extras --group build --no-install-project
+uv pip install --python .venv/Scripts/python.exe --no-deps --no-build-isolation -e .
+uv pip check --python .venv/Scripts/python.exe
+```
 
-Activation is optional — CLAUDE.md convention is to call the venv interpreter
-explicitly (`venv/Scripts/python.exe -m ...`), which works from any shell
-without activating. `venv\Scripts\activate` (cmd) / `source venv/Scripts/activate`
-(Git Bash) also work.
+On Linux use `.venv/bin/python` in the last two commands. CI and release use the shared
+`.github/actions/setup-locked-env/action.yml` recipe, including lock freshness. Linux Qt
+libraries are listed in ci.yml; tests use QT_QPA_PLATFORM=offscreen, without xvfb.
+Build tools and their setuptools/wheel backend are installed from the build group.
+Install NSIS separately for a Windows installer; its version and the OS are outside the
+Python lock's scope. Optional map credentials are unnecessary for tests and reviews.
 
-### Linux / CI / cloud (headless)
-
-| # | Command | Expected outcome / trap |
-|---|---|---|
-| 1 | `sudo apt-get update && sudo apt-get install -y libegl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0` | Qt runtime libs. **Trap:** without these, importing PyQt6 fails with `ImportError: libEGL.so.1: cannot open shared object file` (or an xcb plugin error). This is the exact list from `.github/workflows/ci.yml` (test job) |
-| 2 | `python3 -m venv venv && venv/bin/python -m pip install --upgrade pip` | (CI skips the venv and installs into the runner's Python 3.11) |
-| 3 | `venv/bin/python -m pip install -e ".[dev]"` | Same dependency set as Windows |
-| 4 | `QT_QPA_PLATFORM=offscreen venv/bin/python -m pytest tests/ -v` | Suite passes headless. `tests/conftest.py` also does `os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")`, so the prefix is belt-and-braces for pytest — but required for any *non-pytest* Qt script |
-| 5 | Do not try to build the exe/installer here | PyInstaller output is platform-specific; the shipped artifact is Windows-only (release CI builds on windows-latest) |
-
-The GUI is Windows-targeted; on Linux this repo is for tests/lint/analysis, not
-for running the app.
+Existing command examples below use `venv`; substitute `.venv` for this locked environment.
+The supported application metadata remains Python >=3.11; CI uses Python 3.11 on both OSes.
 
 ## Running the app
 
@@ -111,9 +95,9 @@ Command anatomy only — what counts as acceptable results/evidence is
 | Integration layer | `venv/Scripts/python.exe -m pytest tests/integration -v` | ~74 files (end-to-end UI workflows) |
 | UI layer | `venv/Scripts/python.exe -m pytest tests/ui -v` | ~19 files (widget-level) |
 | Single test | `venv/Scripts/python.exe -m pytest tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished -v` | `::Class::method` selector form |
-| Lint | `venv/Scripts/python.exe -m ruff check src/` | Zero findings. Config in `pyproject.toml` (`[tool.ruff]`, py311, line-length 100, E/W/F/I/B/C4/UP/ARG/SIM) |
+| Lint | `venv/Scripts/python.exe -m ruff check src/ tests/ scripts/` | Zero findings. Config in `pyproject.toml` (`[tool.ruff]`, py311, line-length 100, E/W/F/I/B/C4/UP/ARG/SIM) |
 | Security scan | `venv/Scripts/python.exe -m bandit -r src/ --severity-level high` | Zero HIGH findings (CI fails on HIGH). Bandit is in the `[dev]` extra |
-| Types | `venv/Scripts/python.exe -m mypy src/` | mypy is in the `[dev]` extra and configured strict in `pyproject.toml` (`[tool.mypy] strict = true`). **Note (2026-07-04):** mypy is NOT run in `ci.yml` — available locally, not a CI gate |
+| Types | `venv/Scripts/python.exe scripts/check_mypy_baseline.py` | Strict production-source mypy with Linux/Windows per-file allowances; CI rejects increases |
 
 Notes:
 - pytest-qt provides `qtbot`; PyQt6 tests need the fixture even when unused

@@ -1,5 +1,5 @@
-# Keep the checked-in root instructions within Codex's default project budget.
-project_doc_max_bytes = 32768
+# Load the complete synchronized root instructions, including protected finalization.
+project_doc_max_bytes = 65536
 
 [mcp_servers.garden]
 url = "http://127.0.0.1:8765/mcp"

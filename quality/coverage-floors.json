@@ -1,0 +1,14 @@
+{
+  "line_floors": {
+    "(root)": 37,
+    "agent_api": 92,
+    "app": 77,
+    "core": 77,
+    "models": 95,
+    "services": 86,
+    "spike_q3d": 64,
+    "ui": 71
+  },
+  "non_ui_definition": "all packages except ui",
+  "schema_version": 1
+}

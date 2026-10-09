@@ -413,3 +413,12 @@ Black-box view of persistent plant collections, favourites, drag-to-canvas orche
 | `ui/canvas/canvas_view.py` (`_create_plant_item_at_scene_pos`) | Canonical unified plant creation helper shared between gallery drops and `plant_list:<entry_id>` drops: sizes footprint (respects `max_spread_cm`), auto-parents to underlying bed, stamps default planting date (US-E8), assigns active layer, runs as a single undo step via `CreateItemCommand`. | `(scene_pos, tool_type, obj_type, radius, ...)` → created `CircleItem` |
 | `agent_api/server.py` (`garden://plant-lists`) | Read-only MCP resource exposing all lists and entries (`id`, `name`, `species_key`, `note`, `added_at`) to AI assistants. | GET `garden://plant-lists` → JSON catalog |
 
+## Developer quality and release tooling
+
+The shared setup-locked-env GitHub action installs the native uv lock and editable project.
+The audit parser supplies type diagnostics and coverage package membership to the standalone
+check_mypy_baseline and check_coverage_floors CLIs. check_dependency_lock verifies the native
+lock and PEP 751 export. check_pr_checks and check_branch_protection are read-only remote-state
+verifiers. prepare_version_sync stages mechanical source/lock updates before an explicit apply.
+Versioned policy files live in quality/. These tools have subprocess integration coverage and
+remain outside application runtime dependencies. See ADR-050.

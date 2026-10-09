@@ -588,7 +588,7 @@ class PlantSearchDialog(QDialog):
                 is_empty = True
             elif f.default is not MISSING:
                 is_empty = detail_value == f.default
-            elif f.default_factory is not MISSING:  # type: ignore[misc]
+            elif f.default_factory is not MISSING:
                 is_empty = detail_value == f.default_factory()
             else:
                 # scientific_name/common_name are required (no dataclass

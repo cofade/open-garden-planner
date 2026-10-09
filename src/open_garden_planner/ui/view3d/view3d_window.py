@@ -25,7 +25,7 @@ class View3DWindow(QMainWindow):
     refresh_requested = pyqtSignal()
     closed = pyqtSignal()
 
-    def createPopupMenu(self) -> QMenu | None:  # type: ignore[override]
+    def createPopupMenu(self) -> QMenu | None:
         """Suppress QMainWindow's built-in toolbar context menu (#283).
 
         Same reasoning as the main window: this toolbar carries Refresh and

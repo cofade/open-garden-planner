@@ -15,7 +15,7 @@ Open Garden Planner is distributed as:
 ```mermaid
 flowchart TD
     Src([Source Code])
-    PI["PyInstaller<br/>(--onedir, installer/ogp.spec)<br/>bundles Python 3.12 + deps + resources,<br/>windowed mode, app icon"]
+    PI["PyInstaller<br/>(--onedir, installer/ogp.spec)<br/>bundles Python 3.11 + locked deps + resources,<br/>windowed mode, app icon"]
     Bundle["dist/OpenGardenPlanner/<br/>~99 MB"]
     NSIS["NSIS Installer Script<br/>(installer/ogp_installer.nsi)<br/>wizard, Start Menu + desktop shortcut,<br/>file association, upgrade detection,<br/>EN+DE languages"]
     Out["OpenGardenPlanner-v1.0.0-Setup.exe<br/>~34 MB (LZMA solid, 32% ratio)"]
@@ -31,7 +31,7 @@ The build is orchestrated by `installer/build_installer.py`:
 
 ```bash
 # Prerequisites
-pip install pyinstaller                    # Python bundler
+# Install the locked environment including its build group (README development setup)
 # Install NSIS from https://nsis.sourceforge.io/
 
 # Full build (PyInstaller + NSIS)
@@ -135,13 +135,13 @@ Releases are fully automated via the `release.yml` GitHub Actions workflow:
 
 If CI/CD is unavailable, releases can be built locally:
 
-1. **Tag the release**: `git tag -a v1.0.0 -m "Release v1.0.0"`
+1. **Build a local verification artifact** for the intended version; never create tags manually. CI remains the sole release/tag authority.
 2. **Build the installer**: `python installer/build_installer.py --version 1.0.0`
 3. **Generate checksums**:
    ```powershell
    (Get-FileHash dist\OpenGardenPlanner-v1.0.0-Setup.exe -Algorithm SHA256).Hash > dist\SHA256SUMS.txt
    ```
-4. **Create GitHub Release**: Upload `OpenGardenPlanner-v1.0.0-Setup.exe` and `SHA256SUMS.txt` as release assets
+4. **Do not publish manually**: restore CI and use its normal release workflow for tagged artifacts.
 5. **Release notes**: Include changelog, system requirements, and verification instructions
 
 Note: build provenance attestation (§7.3 Verification) requires GitHub's OIDC
@@ -195,28 +195,39 @@ Two workflow files in `.github/workflows/`:
 
 ### CI Workflow (`ci.yml`)
 
-**Trigger**: Every push to any branch + every PR to `master`
+**Trigger**: every branch push and every PR to `master`. Python dependencies come from
+`uv.lock` through the shared setup-locked-env action. The PEP 751 export is checked for drift.
+Qt workflows use `QT_QPA_PLATFORM=offscreen`; xvfb is not part of this CI recipe.
+
+| Job key | Check name | Platform | Behavior |
+|---|---|---|---|
+| `agent-context` | Agent context parity | Linux | Root instructions and mirrored agent context |
+| `lint` | Lint | Linux | Ruff over source, tests and scripts |
+| `test` | Test | Linux | Full pytest suite, Qt offscreen |
+| `security` | Security | Linux | Bandit HIGH findings and tracked-secret scan |
+| `dependencies` | Dependencies (ubuntu-latest/windows-latest) | Matrix | Clean locked installation, freshness and export checks |
+| `types` | Types (ubuntu-latest/windows-latest) | Matrix | Strict mypy against per-file platform allowances |
+| `coverage` | Coverage | Linux | Full-suite line/branch report and per-package line floors |
+
+The matrix jobs each emit two concrete check names. The reviewed protection payload requires
+the existing checks plus both dependency/type matrix results and an up-to-date PR. Coverage
+is initially not required by GitHub protection; failed CI still requires investigation before
+finalization. Protection activation is pending owner-approved finalization of #399.
 
 ```mermaid
-flowchart TD
-    Trigger(["push / PR to master"])
-    subgraph Lint["Lint job (ubuntu-latest)"]
-        L1[Set up Python 3.11]
-        L2["Install deps<br/>pip install -e .[dev]"]
-        L3["ruff check src/"]
-        L1 --> L2 --> L3
-    end
-    subgraph Test["Test job (ubuntu-latest)"]
-        T1[Set up Python 3.11]
-        T2["Install system deps<br/>libegl1, libxkbcommon0, libxcb-cursor0"]
-        T3["Install deps<br/>pip install -e .[dev]"]
-        T4["pytest tests/ -v<br/>under xvfb for Qt"]
-        T1 --> T2 --> T3 --> T4
-    end
-
-    Trigger --> Lint
-    Trigger --> Test
+flowchart LR
+    Push[Push or PR] --> Setup[Shared locked Python setup]
+    Setup --> Gates[Lint / Test / Security / Dependencies / Types / Coverage]
+    Push --> Context[Agent context parity]
+    Gates --> Review[Review and owner manual test]
+    Context --> Review
+    Review --> Merge[Normal protected squash merge]
+    Merge --> Release[Windows release build from the same lock]
+    Release --> Sync[Automatic reviewed version-sync chore PR]
 ```
+
+Local frozen-exe build, startup smoke and subsystem self-test remain mandatory before merge.
+The release job repeats its subsystem self-test after the installer build. See ADR-050.
 
 ### Release Workflow (`release.yml`)
 
@@ -235,7 +246,7 @@ flowchart TD
         R2[Determine next version<br/>latest tag + PR labels]
         R3{Tag<br/>already exists?}
         R4[Set up Python 3.11]
-        R5[Install deps + PyInstaller]
+        R5[Install locked deps + build tools]
         R6[Install NSIS via choco]
         R7["Build installer:<br/>python installer/build_installer.py --version X.Y.Z"]
         R8[Generate SHA256 checksum]
@@ -305,3 +316,38 @@ US-D1.1 bundling proof) — dev tests don't surface them:
 **Verify after any change to the stack:** build the exe, enable the Agent API
 (Preferences), and confirm an MCP client can reach `http://127.0.0.1:8765/mcp`
 from the *frozen* app — not just from `pytest`.
+
+### Locked development and release environments
+
+`pyproject.toml` declares dependency constraints, the build group and the exact uv tool pin.
+`uv.lock` selects universal/platform package versions; `pylock.toml` is its generated PEP 751
+export. The lock preserves v1.29.5 selections recorded in `quality/dependency-provenance.json`;
+setuptools and wheel are explicit build-backend additions. uv is MIT/Apache-2.0 dual licensed
+and is a development tool, not an application dependency. PyInstaller retains its bundling
+exception; hooks-contrib remains build tooling. Python dependencies are locked; runner images,
+Python patch versions and NSIS are outside this reproducibility claim.
+
+Use the project-pinned uv bootstrap shown in the README. Install with
+`uv sync --locked --python 3.11 --all-extras --group build --no-install-project`, then
+`uv pip install --python .venv/Scripts/python.exe --no-deps --no-build-isolation --editable .`
+on Windows (`.venv/bin/python` on Linux). The build backend is already in the locked environment.
+Run `uv pip check` and `python scripts/check_dependency_lock.py` using that environment.
+
+Dependency refreshes are separately reviewed `chore(deps):` PRs with licence and frozen-build
+checks. Regenerate the export with the command in ADR-050; never hand-edit its package records.
+
+### Protected finalization
+
+After owner manual-test approval, `finalize-us` verifies the current head and all required
+checks, marks the feature ready and merges normally. It waits for the successful Release run
+and tag belonging to that merge SHA, then prepares `chore/sync-vX.Y.Z-pr-N`. The helper
+`scripts/prepare_version_sync.py` updates both source versions and refreshes the lock offline
+without changing third-party selections. A reviewed draft chore PR is checked and merged under
+the same authorization, followed by wiki sync and cleanup; no second confirmation is needed.
+The chore squash prefix skips Release. A chore-only finalization never waits for a new tag.
+
+Activation is reviewed separately from code delivery: apply `quality/master-protection.json`
+during the approved #399 finalization and verify with `scripts/check_branch_protection.py`.
+It removes the current review requirement, enforces checks for administrators and retains
+blocked force pushes/deletion. Test refusal and acceptance on a temporary protected validation
+base; never attempt a deliberately broken merge into master.

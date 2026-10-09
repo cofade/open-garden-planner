@@ -497,18 +497,18 @@ class _GanttWidget(QWidget):
         row = (y - _HEADER_H) // self.effective_row_h
         return row if row < len(self._rows) else -1
 
-    def mouseMoveEvent(self, event) -> None:  # type: ignore[override]
+    def mouseMoveEvent(self, event) -> None:
         row = self._row_at(event.pos().y())
         if row != self._hovered:
             self._hovered = row
             self.update()
 
-    def leaveEvent(self, event) -> None:  # type: ignore[override]  # noqa: ARG002
+    def leaveEvent(self, event) -> None:    # noqa: ARG002
         if self._hovered != -1:
             self._hovered = -1
             self.update()
 
-    def mousePressEvent(self, event) -> None:  # type: ignore[override]
+    def mousePressEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             row = self._row_at(event.pos().y())
             new_sel = row if row != self._selected else -1
@@ -519,7 +519,7 @@ class _GanttWidget(QWidget):
 
     # ── painting ───────────────────────────────────────────────────────────────
 
-    def paintEvent(self, event) -> None:  # type: ignore[override]  # noqa: ARG002
+    def paintEvent(self, event) -> None:    # noqa: ARG002
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         self._paint_header(painter)

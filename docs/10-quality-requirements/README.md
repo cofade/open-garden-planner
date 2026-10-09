@@ -18,7 +18,7 @@ Quality
 │   └── Robust file handling (corrupted file recovery)
 ├── Maintainability
 │   ├── Clean architecture (layered, typed)
-│   ├── Comprehensive tests (>80% coverage)
+│   ├── Comprehensive tests (measured package floors)
 │   └── Contributor-friendly code
 └── Portability
     ├── Windows 10/11 (primary)
@@ -48,11 +48,21 @@ Quality
 | ID | Requirement | Target |
 |----|------------|--------|
 | NFR-MAINT-01 | Architecture | Modular, layered separation |
-| NFR-MAINT-02 | Test coverage | >80% on non-UI code |
+| NFR-MAINT-02 | Test coverage | Enforced package line floors; >80% non-UI line coverage remains a target |
 | NFR-MAINT-03 | Documentation | Docstrings + arc42 architecture docs |
-| NFR-MAINT-04 | Type safety | Type hints throughout, mypy strict |
+| NFR-MAINT-04 | Type safety | Strict mypy with per-file Linux/Windows Python 3.11 allowances |
 
-Measured baseline (2026-10-03, `84ead2e`): non-UI coverage 80.2 % lines / 66.4 % branches (every package except `ui`); `mypy --strict` 2 104 errors in 134 of 248 files. Neither number is enforced in CI today. Scorecard and method: [audit-2026-10.md](../11-risks-and-technical-debt/audit-2026-10.md) §3; numbers: `audit-2026-10-metrics.json` beside it, re-run with `scripts/audit_metrics.py`.
+The historical 2026-10 audit remains a dated snapshot, not the current gate budget. Fresh
+locked-tool allowances live in `quality/mypy-baseline.json`; package line floors live in
+`quality/coverage-floors.json`. Type counts are measured independently on Linux and Windows
+with Python 3.11 and the pinned mypy version. New files have no allowance. Improvements in one
+file cannot excuse a regression in another. Existing type debt is still explicit.
+
+Coverage floors use unrounded covered/valid statement counts. Branch counts and percentages
+are reported separately without a branch floor. Non-UI means every production package except
+`ui`, including root modules, `app` and the dormant spike. Every nonempty package must have an
+explicit floor. Ordinary changes lower type allowances or raise floors; tool changes and
+rebaselining require their own reviewed dependency change. See ADR-050.
 
 ## 10.5 Extensibility Requirements
 
@@ -92,12 +102,14 @@ Each feature requires hands-on testing before completion:
 - [ ] No performance regression
 
 ### CI/CD Quality Gates
-- **On every push and PR** (`ci.yml`, as of 2026-10-03): agent-context parity, ruff over `src/`, the full
-  pytest suite (Linux, Qt offscreen), Bandit at HIGH severity, and the committed-secrets scan. The frozen-exe
-  gate runs on Windows only, locally before merge and in `release.yml` after it (change-control §2.8).
-- **Not a required status check**: none of these jobs is required on `master` today, so a red run
-  does not block a merge mechanically (#399, register row TD-016).
-- **Not enforced in CI**: mypy and coverage are configured in `pyproject.toml` but no CI step runs them
-  (tracked in #401 and #402; register rows TD-020, TD-021).
-- **Coverage target**: >80 % on non-UI code (NFR-MAINT-02) is a target the §11.3 register tracks, not a gate;
-  "non-UI" means every package except `ui` until #402 defines it.
+
+Every push/PR runs context parity, full-tree ruff, pytest offscreen, Bandit HIGH, secrets scan,
+locked-dependency checks and strict type baselines. A separate Linux job measures full-suite
+line/branch coverage and enforces package line floors; XML and summaries are uploaded even
+on failure. Concrete check names and platform matrices are documented in ?7.4.
+
+The #399 protection payload requires all checks except Coverage, an up-to-date PR and checks
+for administrators, with zero approving reviews. Activation remains pending owner-approved
+finalization. The existing no-failed-CI finalization rule applies to Coverage as well. Frozen
+Windows build, eight-second smoke and subsystem self-test remain local merge gates and the
+release pipeline repeats its subsystem self-test after merge.

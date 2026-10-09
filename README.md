@@ -107,21 +107,23 @@ python -m open_garden_planner
 
 ### Build the installer yourself
 
-If you prefer to build the installer from source:
+Use the committed dependency lock for development and release builds. With Python 3.11,
+bootstrap the uv version declared by the project (Windows or Linux):
 
 ```bash
-git clone https://github.com/cofade/open-garden-planner.git
-cd open-garden-planner
-python -m venv venv
-venv\Scripts\activate
-pip install -e .
-pip install pyinstaller
-
-# Build PyInstaller bundle + NSIS installer (requires NSIS: https://nsis.sourceforge.io/)
-python installer/build_installer.py
+python -c "import subprocess,sys,tomllib; pin=tomllib.load(open('pyproject.toml','rb'))['tool']['uv']['required-version']; subprocess.run([sys.executable,'-m','pip','install','uv'+pin],check=True)"
+uv sync --locked --python 3.11 --all-extras --group build --no-install-project
+uv pip install --python .venv/Scripts/python.exe --no-deps --no-build-isolation --editable .
+# Linux: replace the interpreter above with .venv/bin/python
+uv pip check --python .venv/Scripts/python.exe
+.venv/Scripts/python.exe scripts/check_dependency_lock.py
+.venv/Scripts/python.exe installer/build_installer.py
 ```
 
-The installer will be created in the `dist\` directory.
+The installer build requires Windows and [NSIS](https://nsis.sourceforge.io/).
+Its output is in `dist/`. `uv.lock` controls Python dependency versions; the generated
+`pylock.toml` export is verified by CI. The lock does not promise byte-identical installers
+or pin runner images/NSIS. Dependency updates use separate reviewed PRs.
 
 ### Plant Database (optional)
 
@@ -138,7 +140,7 @@ To enable online plant search, see the [Plant API Setup Guide](docs/03-context-a
 
 **Core 2D, 3D, and visual-refresh phases shipped** — CAD precision tooling and garden
 smart features are complete; the embedded AI Agent Integration's read/export and
-token-gated D1/D2 tool surfaces are live, with D3 domain intelligence next. See the
+token-gated D1/D2 tools and D3 domain intelligence are live; Phase 17 Living Garden 3D is next. See the
 [Development Roadmap](docs/roadmap.md) for the authoritative, up-to-date phase/user-story
 table and current version.
 
@@ -168,7 +170,7 @@ We welcome contributions! This project aims to be technically clean and attracti
 - Read the [Roadmap](docs/roadmap.md) and [Architecture](docs/05-building-block-view/) to understand the vision
 - Browse the **[Issue Tracker](https://github.com/cofade/open-garden-planner/issues)** for ready-to-pick work items — anything open and unassigned is fair game
 - Join **[GitHub Discussions](https://github.com/cofade/open-garden-planner/discussions)** if you have questions or ideas before opening a PR
-- PRs must pass CI (tests, linting, security scan); type checking is not yet a CI gate (#401)
+- PRs must pass CI: tests, full-tree linting, security/secrets scans, context parity, locked dependency checks and per-file type baselines. Coverage reports enforce measured package line floors. See [quality requirements](docs/10-quality-requirements/).
 
 **AI-assisted development is welcome.** Feel free to use Claude Code, GitHub Copilot, Cursor, or other AI-powered coding tools. We care about the quality of the result, not how you got there. Just ensure every contribution includes proper tests - unit tests, integration tests, and UI tests where applicable.
 

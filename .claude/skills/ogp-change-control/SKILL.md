@@ -48,7 +48,7 @@ will be minted.
 |-------|-----------------|--------|---------------|----------|
 | User story | `docs/roadmap.md` (read the acceptance criteria before coding) | `feature/US-X.X-short-description` | `feat(US-X.X): ...` | Yes (patch by default) |
 | Bug fix / follow-up issue | GitHub issue `#NNN` (the issue tracker is the only work list — the project-board automation was removed in #293) | `fix/NNN-short-description` or `feature/...` per convention in `git log` | `fix(#NNN): ...` or `feat` if it adds capability | Yes |
-| Chore (version sync, roadmap table, doc-only, CI tweak) | — | may go straight to master **only** for the post-release version-sync commit prescribed by the protocol; anything larger gets a branch | `chore: ...` / `chore(scope): ...` | **No** — release.yml skips it |
+| Chore (version sync, roadmap table, doc-only, CI tweak) | — | branch + reviewed PR, including mechanical post-release version sync | `chore: ...` / `chore(scope): ...` | **No** — release.yml skips it |
 
 Everything user-visible that a change adds must eventually be reflected in
 `docs/functional-requirements.md`, arc42 docs, and possibly an ADR — see
@@ -64,8 +64,7 @@ as ceremony; the incident column is why they exist.
 Always `git checkout -b feature/US-X.X-short-description` (or `fix/...`) before touching
 code. Master is the release trigger: every non-chore push to master mints a tag, a GitHub
 release, and a Windows installer (`release.yml`). A direct commit publishes untested code
-to end users. The only sanctioned direct-to-master pushes are the `chore:` version-sync /
-roadmap commits after a merge (section 2.6), which the release workflow ignores.
+to end users. Version-sync and roadmap chores use reviewed PRs too (section 2.6); their `chore:` squash messages are ignored by the release workflow.
 
 ### 2.2 Never create git tags manually — CI owns versions
 
@@ -95,7 +94,7 @@ Any task that changes code finishes by pushing the branch and opening a **draft*
 (`gh pr create --draft` on Windows; `mcp__github__create_pull_request` with `draft: true`
 in cloud sessions). Never stop at "branch pushed". Never open a non-draft PR. Never mark
 ready or merge without the user explicitly confirming manual testing passed — then, and
-only then: `pr ready` followed by `pr merge --squash --delete-branch --admin`.
+only then: `pr ready` followed by `pr merge --squash --delete-branch --match-head-commit <verified-head-sha>`.
 
 **Why manual testing is sovereign — merged-or-reviewed work has been overturned by it
 repeatedly (all documented in `CLAUDE.md` progress tables):**
@@ -182,7 +181,7 @@ GitHub releases are **the** source of truth for the version. After the merge tri
 2. Update **both** `pyproject.toml` (`version = "X.Y.Z"`, line ~7) and
    `src/open_garden_planner/__init__.py` (`__version__ = "X.Y.Z"`, line ~8) to match.
 3. Also update the `CLAUDE.md` progress table / roadmap status in the same commit.
-4. Commit as `chore: sync version to vX.Y.Z after US-X.X PR #NNN` and push to master —
+4. Commit as `chore: sync version to vX.Y.Z after US-X.X PR #NNN` and merge its reviewed chore PR —
    the `chore:` prefix is load-bearing (section 2.2).
 
 ### 2.7 Bump size via PR labels, before merging
@@ -222,7 +221,7 @@ Details in `ogp-build-and-run`.
 
 ### `.github/workflows/ci.yml` — the merge gate (every push, every PR to master)
 
-Four parallel jobs on `ubuntu-latest`, Python 3.11 (`agent-context` was added
+Seven jobs using locked Python 3.11 environments (type/dependency matrices include Windows) (`agent-context` was added
 2026-08-09; the security job also runs the secrets scan — count the jobs, don't
 trust this table):
 
@@ -232,6 +231,9 @@ trust this table):
 | Test | `pytest tests/ -v` with `QT_QPA_PLATFORM: offscreen` | Installs Qt's xcb/EGL system libs first — this is the canonical headless-test recipe for Linux sessions too |
 | Security | `bandit -r src/ --severity-level high` + `scripts/check_no_secrets.py` | Bandit fails only on HIGH severity |
 | Agent context | `scripts/check_agent_context.py` | CLAUDE.md / AGENTS.md parity + skill-tree parity |
+| Dependencies | `scripts/check_dependency_lock.py` | Linux/Windows; lock freshness and PEP 751 export agreement |
+| Types | `scripts/check_mypy_baseline.py` | Linux/Windows Python 3.11; per-file allowances, strict mypy |
+| Coverage | full-suite branch coverage + `scripts/check_coverage_floors.py` | Linux; package line floors; initially not a required GitHub check |
 
 Gate on green before merging: `gh pr checks <PR#> --watch --fail-fast` (Windows) or the
 GitHub MCP check-run tools in cloud sessions.
@@ -285,8 +287,8 @@ equivalents in parentheses.
 | 9 | senior-reviewer pass; fix all P0/P1; re-run until clean | 2.4 — verify findings against code before acting |
 | 10 | Commit `feat(US-X.X): Description`, push, open **draft** PR with summary + test plan + **manual-testing checklist** | 2.3; evidence standards: `ogp-validation-and-qa` |
 | 11 | Wait for CI green (`gh pr checks <PR#> --watch --fail-fast`) | Never merge on red |
-| 12 | **STOP.** User performs manual testing. Only on their explicit confirmation: add `minor`/`major` label if warranted (2.7), `pr ready`, capture current tag, `pr merge --squash --delete-branch --admin` | 2.3, 2.7 |
-| 13 | Wait for the release **tag transition**, then version-sync `chore:` commit to master and wiki/roadmap update | 2.2, 2.6 — the exact wrap-up procedure, including the polling loop, is the `finalize-us` skill; invoke it rather than re-deriving |
+| 12 | **STOP.** User performs manual testing. Only on their explicit confirmation: add `minor`/`major` label if warranted (2.7), `pr ready`, capture current tag, `pr merge --squash --delete-branch --match-head-commit <verified-head-sha>` | 2.3, 2.7 |
+| 13 | Wait for the release **tag transition**, then reviewed version-sync `chore:` PR and wiki/roadmap update | 2.2, 2.6 — the exact wrap-up procedure, including the polling loop, is the `finalize-us` skill; invoke it rather than re-deriving |
 | 14 | Delete local branch; `/clear` context | |
 
 If manual testing fails at step 12: fix on the same branch, re-run steps 4–11 (including
@@ -336,3 +338,20 @@ head -5 .claude/agents/senior-reviewer.md
 
 If any command's output no longer matches this file, update the file — a wrong runbook is
 worse than none.
+
+## Protected finalization (#399/#404)
+
+`master` protection activation is pending the package owner-approved finalization.
+The reviewed payload is `quality/master-protection.json`; verify live policy with
+`scripts/check_branch_protection.py`. It requires the existing checks plus both
+dependency/type matrix checks, up-to-date PRs and administrator enforcement, with
+zero required approvals. Coverage is initially advisory at the repository-settings
+level, but failed CI must still be investigated before finalizing.
+
+The explicit `finalize-us` instruction authorizes the entire approved sequence,
+including its mechanical version-sync PR; do not ask again for that chore. Both
+PRs get an independent senior review and use the current verified head SHA.
+Release waits must match the feature merge SHA and successful Release workflow;
+chore-only finalization never waits for a new release. See the finalize-us skill
+for the canonical sequence. Ordinary changes may lower type allowances or raise
+coverage floors; rebaselining needs a separately reviewed dependency change.

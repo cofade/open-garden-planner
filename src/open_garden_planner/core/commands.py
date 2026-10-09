@@ -644,7 +644,7 @@ class ApplySpeciesCommand(Command):
         # Resize the drawn footprint so it reflects the species' real size
         # (no-op when radius is None or unchanged).
         if radius is not None and hasattr(self._item, "set_radius_centered"):
-            self._item.set_radius_centered(radius)  # type: ignore[attr-defined]
+            self._item.set_radius_centered(radius)
 
     def execute(self) -> None:
         """Apply the new species + spacing override + footprint radius."""
@@ -1581,7 +1581,7 @@ class MoveToLayerCommand(Command):
         # Snapshot (item, original_layer_id, original_stack_order) at
         # construction — before any move.
         self._moves: list[tuple[QGraphicsItem, UUID | None, int | None]] = [
-            (item, item.layer_id, getattr(item, "stack_order", None))  # type: ignore[union-attr]
+            (item, item.layer_id, getattr(item, "stack_order", None))
             for item in items
         ]
         self._target_layer_id = target_layer_id
@@ -1629,14 +1629,14 @@ class MoveToLayerCommand(Command):
             changing_ids = {id(item) for item in changing}
             in_scene_order = [
                 item
-                for item in reversed(self._scene.items())  # type: ignore[attr-defined]
+                for item in reversed(self._scene.items())
                 if id(item) in changing_ids
             ]
             in_scene_ids = {id(item) for item in in_scene_order}
             not_in_scene = [item for item in changing if id(item) not in in_scene_ids]
             bottom_to_top = in_scene_order + not_in_scene
             for k, item in enumerate(bottom_to_top, start=1):
-                item.layer_id = self._target_layer_id  # type: ignore[union-attr]
+                item.layer_id = self._target_layer_id
                 if hasattr(item, "stack_order"):
                     item.stack_order = max_rank + STACK_STEP * k
         self._scene._update_items_visibility()  # type: ignore[attr-defined]
@@ -1645,7 +1645,7 @@ class MoveToLayerCommand(Command):
     def undo(self) -> None:
         """Restore each item to its original layer and rank; refresh scene visuals."""
         for item, old_layer_id, old_stack_order in self._moves:
-            item.layer_id = old_layer_id  # type: ignore[union-attr]
+            item.layer_id = old_layer_id
             if hasattr(item, "stack_order"):
                 item.stack_order = old_stack_order
         self._scene._update_items_visibility()  # type: ignore[attr-defined]
@@ -1774,7 +1774,7 @@ class DeleteLayerCommand(Command):
             if getattr(item, "layer_id", None) == self._layer.id
         ]
         for item in self._moved_items:
-            item.layer_id = self._replacement.id  # type: ignore[union-attr]
+            item.layer_id = self._replacement.id
         layers = self._scene.layers  # type: ignore[attr-defined]
         if self._layer in layers:
             layers.remove(self._layer)
@@ -1790,7 +1790,7 @@ class DeleteLayerCommand(Command):
         if self._layer not in layers:
             layers.insert(min(self._index, len(layers)), self._layer)
         for item in self._moved_items:
-            item.layer_id = self._layer.id  # type: ignore[union-attr]
+            item.layer_id = self._layer.id
         self._scene.layers_changed.emit()  # type: ignore[attr-defined]
         self._scene._update_items_visibility()  # type: ignore[attr-defined]
         self._scene._update_items_z_order()  # type: ignore[attr-defined]
