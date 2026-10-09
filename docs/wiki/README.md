@@ -43,6 +43,8 @@ The check reads all six templates and the canonical roadmap.
 It checks strict UTF-8, known text corruption, inclusion markers, wiki page links,
 and links to files on this repository's master branch using local paths.
 It also checks heading fragments for linked Markdown files.
+Use inline Markdown links (`[label](target)`) in the six templates.
+Reference-style links, raw HTML links, and automatic URL links are not validated.
 External services and release links require manual review. No network request occurs.
 CI runs this check in the existing Lint job. It never needs a wiki checkout or write credential.
 
