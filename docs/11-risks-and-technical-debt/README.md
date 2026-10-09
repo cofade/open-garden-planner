@@ -37,7 +37,9 @@ patched version. Applicability assessment: current CI uses Linux/Windows editabl
 and publishes a Windows PyInstaller/NSIS installer; it does not publish macOS sdists.
 [Dependabot alert 1](https://github.com/cofade/open-garden-planner/security/dependabot/1)
 remains open for a separately reviewed backend/lock update. This version-sync chore preserves
-the approved dependency selections.
+the approved dependency selections. The automatic updater also failed because its hosted
+uv support was 0.12.18 while this project requires 0.12.23; the follow-up therefore needs
+a manual dependency PR until hosted support catches up.
 
 ## 11.3 Technical Debt
 
@@ -1013,6 +1015,14 @@ is required only when observing a new merge, so restart after publication can fi
 The isolated protection PR #420 rejected its failing head and merged its corrected green head
 without a bypass under the proposed admin-enforced policy; temporary branches/policy were
 removed. Master enforcement was activated and verified before PR #422 merged normally. Evidence: quality/protection-validation.json.
+
+**Hosted update tooling can lag a reproducible CI pin (2026-10-09).** The first security
+update attempt failed with `tool_version_not_supported`: detected uv `==0.12.23`, supported
+uv `0.12.18`. Evidence: [Dependabot run 37951191628](https://github.com/cofade/open-garden-planner/actions/runs/37951191628).
+The project CI and release used the agreed pinned tool successfully. Preserve the pin and
+perform the setuptools advisory update in a separately reviewed manual dependency PR;
+automatic security-update support is unresolved, not a successful remediation. An exact
+bootstrap pin must be checked against hosted update tooling as well as installation tooling.
 
 ## 11.5 Community and Governance
 
