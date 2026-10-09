@@ -4,6 +4,7 @@ import logging
 from dataclasses import MISSING, fields, replace
 
 from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -122,12 +123,14 @@ class PlantSearchDialog(QDialog):
         details_header.addWidget(details_label, 1)
 
         self.favorite_btn = QToolButton()
-        self.favorite_btn.setText("☆")
+        from open_garden_planner.ui.icons import get_icon  # noqa: PLC0415
+
+        star_icon = get_icon("star")
+        if star_icon is not None:
+            self.favorite_btn.setIcon(star_icon)
         self.favorite_btn.setToolTip(self.tr("Add to Favorites"))
         self.favorite_btn.setEnabled(False)
-        self.favorite_btn.setStyleSheet(
-            "font-size: 16px; border: none; background: transparent; padding: 2px;"
-        )
+        self.favorite_btn.setCheckable(True)
         self.favorite_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.favorite_btn.clicked.connect(self._on_toggle_favorite)
         details_header.addWidget(self.favorite_btn)
@@ -210,6 +213,12 @@ class PlantSearchDialog(QDialog):
                 for plant_data in results:
                     item = QListWidgetItem(self._format_result_text(plant_data))
                     item.setData(Qt.ItemDataRole.UserRole, plant_data)
+                    if self._list_store.is_favorite(plant_data):
+                        from open_garden_planner.ui.icons import get_icon  # noqa: PLC0415
+
+                        star_icon = get_icon("star")
+                        if star_icon is not None:
+                            item.setIcon(star_icon)
                     self.results_list.addItem(item)
 
                 self.status_label.setText(self.tr("Found {count} results").format(count=len(results)))
@@ -274,9 +283,8 @@ class PlantSearchDialog(QDialog):
         super().done(result)
 
     def _format_result_text(self, plant_data: PlantSpeciesData) -> str:
-        """Format a search result list entry label, prefixed with a star if favorite."""
-        prefix = "⭐ " if self._list_store.is_favorite(plant_data) else ""
-        return prefix + self.tr("{name} ({scientific}) — {source}").format(
+        """Format a search result list entry label."""
+        return self.tr("{name} ({scientific}) — {source}").format(
             name=plant_data.common_name,
             scientific=plant_data.scientific_name,
             source=plant_source_label(plant_data.data_source),
@@ -312,11 +320,11 @@ class PlantSearchDialog(QDialog):
         """Update favorite button state from store."""
         if not self._selected_plant:
             self.favorite_btn.setEnabled(False)
-            self.favorite_btn.setText("☆")
+            self.favorite_btn.setChecked(False)
             return
         self.favorite_btn.setEnabled(True)
         is_fav = self._list_store.is_favorite(self._selected_plant)
-        self.favorite_btn.setText("⭐" if is_fav else "☆")
+        self.favorite_btn.setChecked(is_fav)
         self.favorite_btn.setToolTip(
             self.tr("Remove from Favorites") if is_fav else self.tr("Add to Favorites")
         )
@@ -324,12 +332,19 @@ class PlantSearchDialog(QDialog):
     def _on_list_store_changed(self) -> None:
         """React to plant list store changes (update button and star icons in list)."""
         self._update_favorite_button()
+        from open_garden_planner.ui.icons import get_icon  # noqa: PLC0415
+
+        s_icon = get_icon("star")
         for i in range(self.results_list.count()):
             item = self.results_list.item(i)
             if item is not None:
                 pdata = item.data(Qt.ItemDataRole.UserRole)
                 if pdata:
                     item.setText(self._format_result_text(pdata))
+                    if self._list_store.is_favorite(pdata) and s_icon is not None:
+                        item.setIcon(s_icon)
+                    else:
+                        item.setIcon(QIcon())
 
     def _display_plant_details(self, plant: PlantSpeciesData) -> None:
         """Display detailed information about a plant.

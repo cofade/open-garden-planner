@@ -9841,6 +9841,10 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>Add to List</source>
             <translation>Zu Liste hinzufügen</translation>
         </message>
+        <message>
+            <source>{name} (Favorite)</source>
+            <translation>{name} (Favorit)</translation>
+        </message>
     </context>
     <context>
         <name>GlobalSearchField</name>
@@ -11526,6 +11530,10 @@ Details: {error}</translation>
         <message>
             <source>⭐ Favorites</source>
             <translation>⭐ Favoriten</translation>
+        </message>
+        <message>
+            <source>Favorites</source>
+            <translation>Favoriten</translation>
         </message>
     </context>
 </TS>

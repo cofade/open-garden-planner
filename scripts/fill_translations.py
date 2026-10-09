@@ -711,6 +711,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Add to Favorites": "Zu Favoriten hinzufügen",
         "Remove from Favorites": "Aus Favoriten entfernen",
         "Add to List": "Zu Liste hinzufügen",
+        "{name} (Favorite)": "{name} (Favorit)",
     },
 
     # ── GlobalSearchField (toolbar object search) ──
@@ -3068,7 +3069,7 @@ for _ctx, _strings in _I366_TRANSLATIONS.items():
 # ── US-G4 (#320): Plant lists & favourites ───────────────────────────────────
 _PLANT_LISTS_TRANSLATIONS: dict[str, dict[str, str]] = {
     "PlantListsPanel": {
-        "⭐ Favorites": "⭐ Favoriten",
+        "Favorites": "Favoriten",
         "+ Add Selected from Plan": "+ Ausgewählte vom Plan hinzufügen",
         "Add currently selected canvas plants to this list":
             "Derzeit auf der Leinwand ausgewählte Pflanzen zu dieser Liste hinzufügen",

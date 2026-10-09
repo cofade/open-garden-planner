@@ -77,13 +77,14 @@ class _ThumbnailButton(QToolButton):
         layout.addWidget(thumb_label)
 
         star_badge = QLabel(thumb_label)
-        star_badge.setText("⭐")
+        from open_garden_planner.ui.icons import get_pixmap  # noqa: PLC0415
+
+        pm = get_pixmap("star", size=14)
+        if pm is not None:
+            star_badge.setPixmap(pm)
         star_badge.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         star_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
         star_badge.setFixedSize(14, 14)
-        star_badge.setStyleSheet(
-            "font-size: 10px; background: rgba(0, 0, 0, 0.55); border-radius: 7px; padding: 0px;"
-        )
         star_badge.move(THUMB_SIZE - 15, 1)
         star_badge.setVisible(False)
         self._star_badge = star_badge
@@ -146,7 +147,11 @@ class _ThumbnailButton(QToolButton):
         if hasattr(self, "_star_badge"):
             self._star_badge.setVisible(is_fav)
         if is_fav:
-            self.setToolTip(f"⭐ {self._item.name}")
+            self.setToolTip(
+                QCoreApplication.translate(
+                    "CategoryDropdown", "{name} (Favorite)"
+                ).format(name=self._item.name)
+            )
         else:
             self.setToolTip(self._item.name)
 

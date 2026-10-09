@@ -384,10 +384,10 @@ class TestPlantListsIntegration:
             # Must show star badge and tooltip (verifies P0-2 resolution fix and visual badge)
             assert not btn._star_badge.isHidden()
             assert btn._star_badge.isVisible()
-            assert "⭐" in btn.toolTip()
+            assert "Favorite" in btn.toolTip()
             assert "Apple Tree" in btn.toolTip()
         finally:
             store.toggle_favorite(sp_obj)
             btn._update_tooltip()
             assert not btn._star_badge.isVisible()
-            assert "⭐" not in btn.toolTip()
+            assert "Favorite" not in btn.toolTip()

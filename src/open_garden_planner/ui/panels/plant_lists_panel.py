@@ -114,7 +114,13 @@ class PlantListsPanel(QWidget):
         top_row.addWidget(self._list_combo, 1)
 
         self._menu_btn = QToolButton()
-        self._menu_btn.setText("⋮")
+        from open_garden_planner.ui.icons import get_icon  # noqa: PLC0415
+
+        chevron = get_icon("chevron_down")
+        if chevron is not None:
+            self._menu_btn.setIcon(chevron)
+        else:
+            self._menu_btn.setText("...")
         self._menu_btn.setToolTip(self.tr("List Actions"))
         self._menu_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self._setup_list_menu()
@@ -197,9 +203,18 @@ class PlantListsPanel(QWidget):
 
         all_lists = self._store.all_lists()
         select_index = 0
+        from open_garden_planner.ui.icons import get_icon  # noqa: PLC0415
+
+        star_icon = get_icon("star")
         for idx, pl in enumerate(all_lists):
-            display_name = self.tr("⭐ Favorites") if pl.id == PlantListStore.FAVORITES_ID else pl.name
-            self._list_combo.addItem(display_name, pl.id)
+            if pl.id == PlantListStore.FAVORITES_ID:
+                fav_name = self.tr("Favorites")
+                if star_icon is not None:
+                    self._list_combo.addItem(star_icon, fav_name, pl.id)
+                else:
+                    self._list_combo.addItem(fav_name, pl.id)
+            else:
+                self._list_combo.addItem(pl.name, pl.id)
             if pl.id == self._current_list_id:
                 select_index = idx
 
@@ -275,7 +290,8 @@ class PlantListsPanel(QWidget):
             scientific = sp.scientific_name
 
             title = f"{common} ({scientific})" if scientific and scientific != common else common
-            display_text = f"{title}\n📝 {entry.note}" if entry.note else title
+            note_line = self.tr("Note: {note}").format(note=entry.note)
+            display_text = f"{title}\n{note_line}" if entry.note else title
 
             item = QListWidgetItem(display_text)
             item.setData(Qt.ItemDataRole.UserRole, entry.id)
@@ -440,9 +456,15 @@ class PlantListsPanel(QWidget):
         if other_lists:
             move_menu = menu.addMenu(self.tr("Move to List"))
             if move_menu is not None:
+                from open_garden_planner.ui.icons import get_icon  # noqa: PLC0415
+
+                star_icon = get_icon("star")
                 for dest_list in other_lists:
-                    dest_name = self.tr("⭐ Favorites") if dest_list.id == "favorites" else dest_list.name
+                    is_fav = dest_list.id == PlantListStore.FAVORITES_ID
+                    dest_name = self.tr("Favorites") if is_fav else dest_list.name
                     act_move = QAction(dest_name, self)
+                    if is_fav and star_icon is not None:
+                        act_move.setIcon(star_icon)
                     dest_id = dest_list.id
                     act_move.triggered.connect(
                         lambda _, d_id=dest_id: self._store.move_entry(
