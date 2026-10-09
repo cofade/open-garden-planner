@@ -60,14 +60,14 @@ Geometry writes refuse constrained objects. Task-status writes remain unavailabl
 | F4 | Plan timeline. | [#315](https://github.com/cofade/open-garden-planner/issues/315) |
 | F5 | Example plans and templates. Last in the package. | [#316](https://github.com/cofade/open-garden-planner/issues/316) |
 
-## Package G: three of four stories shipped
+## Package G: complete
 
 | Story | Status | Issue |
 |---|---|---|
 | G1: data licence and attribution | ✅ v1.28.1 | [#311](https://github.com/cofade/open-garden-planner/issues/311) |
 | G2: plant profile header | ✅ v1.28.1 | [#317](https://github.com/cofade/open-garden-planner/issues/317) |
 | G3: provider companion data and cache | ✅ v1.28.1 | [#318](https://github.com/cofade/open-garden-planner/issues/318) |
-| G4: plant favourites and named collections | Planned | [#320](https://github.com/cofade/open-garden-planner/issues/320) |
+| G4: plant favourites and named collections | ✅ [PR #421](https://github.com/cofade/open-garden-planner/pull/421) | [#320](https://github.com/cofade/open-garden-planner/issues/320) |
 
 ## Phase 14: 3D and sun/shade complete
 

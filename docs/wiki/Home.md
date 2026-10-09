@@ -12,10 +12,11 @@ It combines a 2D canvas, plant records, garden tasks, exports, and a 3D view.
 
 ## Current status
 
-As of **9 October 2026**, the latest release is **v1.29.6**.
+The **9 October 2026** documentation audit used **v1.29.6** as its release baseline.
 Phases 1–15 and Phase 13 Packages A–D are complete.
 Package G's attribution, plant profiles, and provider companion data (G1–G3) shipped in v1.28.1.
-G4, plant favourites and collections, remains open. Package F remains planned.
+Package G is complete: G4, plant favourites and collections, merged in [PR #421](https://github.com/cofade/open-garden-planner/pull/421).
+Package F remains planned.
 
 Phase 17's L0 investigation is complete with a **GO** decision. L1 is next.
 The shipped 3D view still uses **Qt 3D**. Qt Quick 3D remains a dormant spike until L1 delivers the replacement.
