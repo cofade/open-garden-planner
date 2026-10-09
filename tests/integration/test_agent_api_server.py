@@ -111,33 +111,8 @@ def _providers(scene: Any) -> AgentProviders:
         find_compatible_sets=lambda *_a, **_k: _unused("find_compatible_sets"),
         find_sets_for_bed=lambda *_a, **_k: _unused("find_sets_for_bed"),
         check_placement=lambda *_a, **_k: _unused("check_placement"),
-        get_plant_lists=lambda: bridge.run_on_main(_get_test_plant_lists),
+        get_plant_lists=None,
     )
-
-
-def _get_test_plant_lists() -> list[dict[str, Any]]:
-    from open_garden_planner.models.plant_lists import get_plant_list_store
-
-    store = get_plant_list_store()
-    return [
-        {
-            "id": pl.id,
-            "name": pl.name,
-            "description": pl.description,
-            "entries": [
-                {
-                    "id": e.id,
-                    "species_key": e.species_key,
-                    "common_name": e.species.common_name if e.species else "",
-                    "scientific_name": e.species.scientific_name if e.species else "",
-                    "note": e.note,
-                    "added_at": e.added_at,
-                }
-                for e in pl.entries
-            ],
-        }
-        for pl in store.all_lists()
-    ]
 
 
 def _unused(name: str) -> dict[str, Any]:
