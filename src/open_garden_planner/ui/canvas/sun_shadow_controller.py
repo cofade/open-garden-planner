@@ -21,6 +21,11 @@ Design constraints (campaign fences):
   the whole canvas is shaded rather than the shadows vanishing.
 - All math happens in scene cm via the Qt-free ``core/shadow_geometry``;
   scene +y is already North — there is NO extra Y-flip here (§8.20).
+- The sim moment is NOT owned here (Phase 17 L1.0, ADR-052): the controller
+  reads the one ``core/sim_clock.SimClock`` — ``utc`` for the sun,
+  ``plan_date`` (the toolbar's LOCAL day) for growth — and recomputes on its
+  ``instant_changed``. The app passes its clock; a standalone controller
+  (tests) makes a private one.
 - Timer starts are guarded with ``contextlib.suppress(RuntimeError)`` — the
   #230 teardown trap (a ``scene.changed`` slot firing into a half-torn-down
   C++ timer aborts the interpreter in CI).
@@ -31,7 +36,7 @@ from __future__ import annotations
 import contextlib
 import math
 from collections.abc import Callable
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 from typing import Any
 
 from PyQt6.QtCore import QObject, QPointF, QRectF, Qt, QTimer, pyqtSignal
@@ -51,6 +56,7 @@ from open_garden_planner.core.shadow_geometry import (
     compute_scene_shadows,
     polyline_footprint,
 )
+from open_garden_planner.core.sim_clock import SimChange, SimClock
 from open_garden_planner.core.solar import solar_position
 
 # Simulation states (stable identifiers — user-visible hints live in the app).
@@ -328,7 +334,8 @@ class SunShadowController(QObject):
 
     ``location_provider`` returns the project's location dict (or None) so
     the controller never holds a stale copy — the same indirection the
-    status-bar label uses.
+    status-bar label uses. ``clock`` is the session's one sim clock (the app
+    passes its own); without one the controller makes a private clock.
     """
 
     state_changed = pyqtSignal(str)
@@ -338,12 +345,18 @@ class SunShadowController(QObject):
         scene: QGraphicsScene,
         location_provider: Callable[[], dict[str, Any] | None],
         parent: QObject | None = None,
+        *,
+        clock: SimClock | None = None,
     ) -> None:
         super().__init__(parent)
         self._scene = scene
         self._location_provider = location_provider
         self._enabled = False
-        self._sim_dt_utc = datetime.now(UTC)
+        self._clock = clock if clock is not None else SimClock()
+        # Plain Qt-free channel (ADR-052): the clock holds this bound method
+        # strongly, so the controller must live as long as the clock — true for
+        # the app (both are owned by GardenPlannerApp) and for a private clock.
+        self._clock.instant_changed.connect(self._on_clock_changed)
         self._overlay: SunShadowOverlayItem | None = None
         self._state = STATE_DISABLED
         self._last_key: tuple[Any, ...] | None = None
@@ -366,8 +379,13 @@ class SunShadowController(QObject):
         return self._state
 
     @property
+    def clock(self) -> SimClock:
+        return self._clock
+
+    @property
     def sim_datetime_utc(self) -> datetime:
-        return self._sim_dt_utc
+        """The sim instant in UTC — read from the clock, never a private copy."""
+        return self._clock.utc
 
     def set_enabled(self, enabled: bool) -> None:
         if enabled == self._enabled:
@@ -380,11 +398,14 @@ class SunShadowController(QObject):
             self._set_state(STATE_DISABLED)
 
     def set_sim_datetime(self, dt: datetime) -> None:
-        """Set the simulated instant (timezone-aware; stored as UTC)."""
+        """Write a timezone-aware instant to the clock (which re-solves the sun).
+
+        Kept for standalone use; in the app the toolbar writes the clock
+        directly. An unchanged instant still re-solves, as it always did.
+        """
         if dt.tzinfo is None:
             raise ValueError("sim datetime must be timezone-aware")
-        self._sim_dt_utc = dt.astimezone(UTC)
-        if self._enabled:
+        if self._clock.set_datetime(dt) is None and self._enabled:
             self.recompute_now()
 
     def schedule_recompute(self) -> None:
@@ -405,7 +426,7 @@ class SunShadowController(QObject):
             self._clear_overlay()
             self._set_state(STATE_NO_LOCATION)
             return
-        position = solar_position(latitude, longitude, self._sim_dt_utc)
+        position = solar_position(latitude, longitude, self._clock.utc)
         canvas_rect = self._canvas_rect()
         if position.elevation_deg < MIN_SUN_ELEVATION_DEG:
             # Night: the whole garden lies in shade — not "no shadow". Fill the
@@ -413,10 +434,11 @@ class SunShadowController(QObject):
             self._show_night_overlay(canvas_rect)
             self._set_state(STATE_NIGHT)
             return
-        # US-E8: the sim instant doubles as the growth timeline — dated
-        # plants cast their date-projected (grown) shadows.
+        # US-E8: the sim clock doubles as the growth timeline — dated plants
+        # cast their date-projected (grown) shadows. L1.0: grown for the plan's
+        # LOCAL date (the heatmap's and 3D's), no longer the instant's UTC date.
         casters = collect_shadow_casters(
-            self._scene, at_date=self._sim_dt_utc.date()
+            self._scene, at_date=self._clock.plan_date
         )
         canvas_key = (
             (round(canvas_rect.width(), 3), round(canvas_rect.height(), 3))
@@ -453,6 +475,11 @@ class SunShadowController(QObject):
 
     def _on_scene_changed(self, _regions: list | None = None) -> None:
         self.schedule_recompute()
+
+    def _on_clock_changed(self, _change: SimChange) -> None:
+        """Any new sim instant (date or time) moves the sun: re-solve now."""
+        if self._enabled:
+            self.recompute_now()
 
     def _alive_overlay(self) -> SunShadowOverlayItem | None:
         """The overlay if its C++ object still lives in our scene, else None.
