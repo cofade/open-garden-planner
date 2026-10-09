@@ -59,16 +59,11 @@ DATA_FILE = (
     / "plant_species.json"
 )
 
-#: Species whose bundled harvest window diverges most from ``days_to_maturity``
-#: when read as frost-relative offsets. Named deliberately: these are the rows a
-#: future planting-relative conversion must revisit first, and garlic is the
-#: worked example in #414/#416.
+#: Species whose bundled harvest window diverges from ``days_to_maturity``
+#: when read as frost-relative offsets. Garlic (Allium sativum) was corrected
+#: in #418 to summer harvest (12..16 weeks post-frost) with 240..270d maturity.
+#: The remaining rows are multi-year crops or long-season brassicas.
 KNOWN_DIVERGENT_SPECIES = frozenset({
-    # Fits reading A on maturity alone (182 d inside a stated 180-210), but a
-    # 26-week frost-relative harvest lands in OCTOBER - about three months after
-    # a real garlic harvest. The row is wrong about the crop, not about the
-    # reading.
-    "Allium sativum",
     # Multi-year maturity figures against a single-season window.
     "Rheum rhabarbarum",
     "Asparagus officinalis",
@@ -106,8 +101,8 @@ class TestHarvestOffsetsAreFrostRelative:
         row = PlantRowInput(
             display_name="Garlic",
             species_key="allium_sativum",
-            harvest_start=26,
-            harvest_end=32,
+            harvest_start=12,
+            harvest_end=16,
         )
         state = PlanState(
             today=last_frost,
@@ -120,9 +115,9 @@ class TestHarvestOffsetsAreFrostRelative:
             t for t in generate_calendar_tasks(state) if t.task_type == "harvest"
         ]
         assert len(harvest) == 1
-        # 26 and 32 weeks after 9 April 2026 — NOT 26 weeks after the sowing.
-        assert harvest[0].start_date == datetime.date(2026, 10, 8)
-        assert harvest[0].end_date == datetime.date(2026, 11, 19)
+        # 12 and 16 weeks after 9 April 2026: 2 July 2026 and 30 July 2026.
+        assert harvest[0].start_date == datetime.date(2026, 7, 2)
+        assert harvest[0].end_date == datetime.date(2026, 7, 30)
 
     def test_the_harvest_fields_are_documented_as_frost_relative(self) -> None:
         """Behaviour, not a comment string.
@@ -197,20 +192,35 @@ class TestKnownDivergenceFromMaturityIsNamed:
             "re-measure and update KNOWN_DIVERGENT_SPECIES deliberately"
         )
 
-    def test_garlic_is_still_the_worked_counterexample(self) -> None:
-        """#414 and #416 both use garlic; the numbers must not drift unnoticed."""
+    def test_garlic_harvest_lands_after_sowing_and_before_next_sowing(self) -> None:
+        """#416 and #418: garlic harvest is in July, strictly between autumn sowings.
+
+        Sown 26..24 weeks before frost (October). Corrected harvest window is
+        12..16 weeks after frost (July), well before the next autumn's sowing.
+        """
         garlic = next(
             sp for sp in _species(_rows())
             if sp.scientific_name == "Allium sativum"
         )
-        # Frost-relative, so the harvest window is 26..32 weeks after the frost.
-        assert (garlic.harvest_start, garlic.harvest_end) == (26, 32)
-        # Sown 26..24 weeks BEFORE the frost, so the frost-relative harvest
-        # lands ~52 weeks after the sowing — the overlap #416 documents.
+        assert (garlic.harvest_start, garlic.harvest_end) == (12, 16)
         assert (garlic.direct_sow_start, garlic.direct_sow_end) == (-26, -24)
-        # And its stated maturity does not reconcile with either reading.
-        assert garlic.days_to_maturity_min == 180
-        assert garlic.days_to_maturity_max == 210
+        assert garlic.days_to_maturity_min == 240
+        assert garlic.days_to_maturity_max == 270
+
+        # With an April 9 spring frost:
+        last_frost_2026 = datetime.date(2026, 4, 9)
+        last_frost_2027 = datetime.date(2027, 4, 9)
+
+        sow_start = last_frost_2026 + datetime.timedelta(weeks=garlic.direct_sow_start)
+        sow_end = last_frost_2026 + datetime.timedelta(weeks=garlic.direct_sow_end)
+        harvest_start = last_frost_2026 + datetime.timedelta(weeks=garlic.harvest_start)
+        harvest_end = last_frost_2026 + datetime.timedelta(weeks=garlic.harvest_end)
+        next_sow_start = last_frost_2027 + datetime.timedelta(weeks=garlic.direct_sow_start)
+
+        # Harvest lands strictly after sowing and before next autumn sowing
+        assert sow_start < sow_end < harvest_start < harvest_end < next_sow_start
+        assert harvest_start == datetime.date(2026, 7, 2)
+        assert harvest_end == datetime.date(2026, 7, 30)
 
     def test_maturity_fields_are_reference_data_not_used_for_scheduling(self) -> None:
         """No generator reads days_to_maturity; it is displayed only.

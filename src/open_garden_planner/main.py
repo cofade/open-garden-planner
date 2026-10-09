@@ -258,6 +258,7 @@ def main() -> int:
         get_settings,
     )
     from open_garden_planner.core.i18n import load_translator
+    from open_garden_planner.core.logging_config import setup_logging
     from open_garden_planner.ui.theme import apply_theme
 
     app = QApplication(sys.argv)
@@ -266,6 +267,9 @@ def main() -> int:
     app.setApplicationName(APPLICATION_NAME)
     app.setOrganizationName(ORGANIZATION_NAME)
     app.setOrganizationDomain("github.com/cofade")
+
+    # Initialize persistent application logging (AUD-063, TD-023, #405)
+    setup_logging()
 
     # Set application icon (appears in taskbar, window title bar, etc.)
     icon_path = get_icon_path()

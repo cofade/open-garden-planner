@@ -14,9 +14,9 @@ everything", so a fix is only real if it missed nothing *and* added nothing.
 Two harnesses, and the count depends on which:
 
 * default -- the 64 bundled species that carry calendar offsets x 6 frost dates x
-  every 10th day of 2026 (222 cases): **1,849 / 0 / 0**.
+  every 10th day of 2026 (222 cases): **1,836 / 0 / 0**.
 * ``--wide`` -- all 118 bundled species x 6 frost dates x every day of 2026
-  (2,190 cases): **18,007 / 0 / 0**.
+  (2,190 cases): **17,884 / 0 / 0**.
 
 Quote the harness with the number. (An earlier revision of these documents quoted
 "2,669", which matched neither sweep and was simply wrong; the round-4 review

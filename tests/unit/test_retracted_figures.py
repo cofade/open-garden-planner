@@ -212,8 +212,8 @@ class TestTheHarnessesStillProduceWhatTheDocumentsQuote:
 
         # Both harnesses' headline counts, so a change in either is visible here
         # rather than in whichever document happens to quote it.
-        assert _sweep_counts(default) == {1849}, default
-        assert _sweep_counts(wide) == {18007}, wide
+        assert _sweep_counts(default) == {1836}, default
+        assert _sweep_counts(wide) == {17884}, wide
 
     def test_the_harvest_harness_still_produces_two_readings(self) -> None:
         output = _run(HARVEST)
