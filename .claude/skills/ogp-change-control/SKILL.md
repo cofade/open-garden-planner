@@ -341,7 +341,7 @@ worse than none.
 
 ## Protected finalization (#399/#404)
 
-`master` protection activation is pending the package owner-approved finalization.
+`master` protection is active and verified since v1.29.6 (PR #422, 2026-10-09).
 The reviewed payload is `quality/master-protection.json`; verify live policy with
 `scripts/check_branch_protection.py`. It requires the existing checks plus both
 dependency/type matrix checks, up-to-date PRs and administrator enforcement, with

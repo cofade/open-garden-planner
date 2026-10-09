@@ -1,6 +1,8 @@
 {
   "headRefOid": "920668bfe2b98e827c6304d5da4d7f6fe2bd3cda",
-  "master_activation": "pending owner-approved finalization",
+  "master_activation": "active; independently verified before the normal PR #422 merge",
+  "master_last_verified_at": "2026-10-09T15:32:01.374942+00:00",
+  "master_merge_sha": "99637a9a44bb384e5b34da51f9eef1ab87e709f8",
   "mergeCommit": {
     "oid": "a77ff571227ad437cedc944700ee3925223f81e7"
   },

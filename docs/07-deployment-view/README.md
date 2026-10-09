@@ -212,7 +212,7 @@ Qt workflows use `QT_QPA_PLATFORM=offscreen`; xvfb is not part of this CI recipe
 The matrix jobs each emit two concrete check names. The reviewed protection payload requires
 the existing checks plus both dependency/type matrix results and an up-to-date PR. Coverage
 is initially not required by GitHub protection; failed CI still requires investigation before
-finalization. Protection activation is pending owner-approved finalization of #399.
+finalization. Master protection was activated and independently verified during approved v1.29.6 finalization (PR #422).
 
 ```mermaid
 flowchart LR

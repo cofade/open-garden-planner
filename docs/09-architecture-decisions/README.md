@@ -1996,8 +1996,9 @@ which is what keeps the correction out of the generator.
 
 ## ADR-050: Locked Python environments and protected quality gates
 
-**Status:** Accepted implementation, 2026-10-08. Master protection activation remains pending
-owner-approved finalization. Issues #404, #401, #402 and #399; implementing draft [PR #422](https://github.com/cofade/open-garden-planner/pull/422).
+**Status:** Accepted, 2026-10-08; released v1.29.6, 2026-10-09. Master protection was activated
+and independently verified before the normal approved merge. Issues #404, #401, #402 and #399;
+implemented in [PR #422](https://github.com/cofade/open-garden-planner/pull/422).
 
 **Context.** The release resolved floating Python dependencies, strict mypy was configured but
 absent from CI, and coverage was documented without measurement. Master allowed administrator
@@ -2066,8 +2067,9 @@ merges. Baselines use clean locked Windows/Linux environments. Workflow inventor
 parity and skill citations prevent documentation drift. Full pytest, lint/security/secrets,
 translation, lock/export, type/coverage and frozen startup/subsystem gates apply. Protection
 refusal/acceptance passed on isolated PR #420 using the proposed policy; its temporary
-branches/policy were removed. Master activation remains pending owner approval and its settings
-are read back independently before the production merge. Release resumption resolves the tag
+branches/policy were removed. Master protection was activated and independently read back
+before PR #422 merged normally. Release v1.29.6 succeeded for that exact merge SHA, including
+locked installation, frozen subsystem verification and build-provenance attestation. Release resumption resolves the tag
 and successful workflow by merge SHA without needing a pre-merge tag after a restart.
 
 **ADR-050 implementation evidence: cold offline cache.** A locked install does not cache
