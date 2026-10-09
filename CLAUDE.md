@@ -222,6 +222,8 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 ## Where to Pick Up After Restart
 
+- **Handled error logging & harvest offset calibration shipped 2026-10-10 as v1.29.8 ([PR #426](https://github.com/cofade/open-garden-planner/pull/426)): #405 + #416 + #418.** Persistent rotating file handler (`app.log`, UTF-8, 1 MB, 3 backups) in user AppData (`%APPDATA%\cofade\Open Garden Planner\app.log`) and safe console handler guarded against `sys.stderr is None` on windowed frozen builds (#291, AUD-063, TD-023, ADR-052); Garlic (*Allium sativum*) harvest window calibrated to +12..+16 weeks post-frost (mid-summer/July) with 240–270d maturity; benchmark plans and sweep counts (1,836 default / 17,884 wide) re-synchronized across docs and tests.
+
 - **Package G (US-G4, #320) shipped 2026-10-09 as v1.29.7 ([PR #421](https://github.com/cofade/open-garden-planner/pull/421)).** Plant favourites & named collections with drag-to-canvas auto-parenting/sizing/planting-date stamping, snapshot updates from plan, portable JSON import/export, and the read-only Agent API `garden://plant-lists` resource. Completes Package G.
 
 - **CI/release hardening (#399/#401/#402/#404) shipped 2026-10-09 as v1.29.6 ([PR #422](https://github.com/cofade/open-garden-planner/pull/422)).** Committed uv/PEP 751 locks preserve v1.29.5 dependency selections; strict type budgets are per file/platform on Python 3.11; coverage line floors are per package with branch reporting. `master` now requires eight successful checks, an up-to-date PR and administrator enforcement, with zero approving reviews. `finalize-us` completes release and a reviewed automatic version-sync chore PR in one invocation; never bypass a failed check.

@@ -641,7 +641,7 @@
   },
   "405": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "§8.7 promises 'all errors logged' but the logging module has no handler anywhere: 55 handled-error log calls are discarded in the windowed exe (Audit 2026-10, epic #392)"
   },
   "406": {
@@ -686,17 +686,17 @@
   },
   "416": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Plant data: harvest offsets are read two ways (garlic's follow \"after planting\", the task generator counts from the last frost)"
   },
   "417": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Sync the wiki Roadmap with docs/roadmap.md (Phase 13 status stale, no Phase 17 section)"
   },
   "418": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Plant data: convert the harvest offsets to their true reading (split from #416)"
   },
   "419": {
@@ -713,5 +713,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix(ci): lock dependencies and enforce quality regression gates"
+  },
+  "426": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(core): persistent handled error logging and plant harvest offsets (#405, #416, #418)"
   }
 }
