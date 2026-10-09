@@ -85,7 +85,7 @@ sounds good.
 
 **Candidate novelty (label as "to our knowledge" — plausible but unproven uniqueness):**
 a desktop CAD-grade garden planner that **embeds a live MCP server in the running GUI**,
-so any MCP client (Claude, Cursor, …) can read, query, and *see* (rendered PNG) the plan
+so any MCP client (Codex, Cursor, …) can read, query, and *see* (rendered PNG) the plan
 currently open on screen. Verified basis: ADR-033 (embedded streamable-HTTP FastMCP server,
 127.0.0.1-only, on by default, main-thread marshaling bridge) and ADR-034 + addenda
 (curated schema, UUID addressing, spatial queries, diagnostics, `render_canvas_image`).
@@ -122,8 +122,9 @@ README, but only with shipped, tested items.
 
 **Rules:**
 - When a feature **ships**, the same change (or its release PR) updates README features/
-  status, the wiki (`../open-garden-planner.wiki/Roadmap.md` — CLAUDE.md's "wiki synced"
-  merge gate), and lets release notes describe it accurately. When a feature is
+  status, and repository wiki sources (`docs/wiki/`). Validate them with `scripts/sync_wiki.py --check`.
+  Publish manually after owner approval and merge following `docs/wiki/README.md` (ADR-051).
+  Release notes must describe the shipped capability accurately. When a feature is
   **dropped** (precedent: US-B7 Paper Space, dropped in PR #191 review), remove or never
   add its README mention.
 - Every README feature bullet must map to a shipped FR-* entry or roadmap ✅ line. No
@@ -144,7 +145,7 @@ README, but only with shipped, tested items.
   ```
 
   Compare against the hash in `SHA256SUMS.txt` from the release page.
-- **Build provenance attestation (ADR-044, from the next release):** every release also
+- **Build provenance attestation (ADR-044, current release workflow):** the workflow also
   carries a GitHub Artifact Attestation (`actions/attest-build-provenance@v4` — not v1,
   which pins a node20 action GitHub is retiring; see ADR-044's rejected-placement note —
   Sigstore-backed, no paid cert) for the installer, `SHA256SUMS.txt`, **and** the raw app

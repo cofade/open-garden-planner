@@ -1024,6 +1024,8 @@ perform the setuptools advisory update in a separately reviewed manual dependenc
 automatic security-update support is unresolved, not a successful remediation. An exact
 bootstrap pin must be checked against hosted update tooling as well as installation tooling.
 
+**Unicode CLI output needs an explicit stream encoding** (issue #417): UTF-8 wiki files did not prevent redirected Windows stdout from using cp1252. The comparison command emitted byte 0x96 for an en dash and failed to encode a check mark. `scripts/sync_wiki.py` now sets stdout and stderr to UTF-8 before printing. The subprocess comparison regression in `tests/integration/test_wiki_publication.py` captures real Unicode diffs without a UTF-8 environment override.
+
 ## 11.5 Community and Governance
 
 **Feature Requests**: Open to community input, pivots, and voting. The goal is to avoid a dead project — community engagement is welcome.
@@ -1031,5 +1033,11 @@ bootstrap pin must be checked against hosted update tooling as well as installat
 **Contribution Model**:
 - GitHub Issues for bug reports and feature requests
 - Pull requests welcome with review process
-- CONTRIBUTING.md with code style and testing requirements (planned; today the rules live in CLAUDE.md/AGENTS.md — audit-2026-10 §5.10)
+- [CONTRIBUTING.md](../../CONTRIBUTING.md) owns setup, testing, documentation, and draft-PR review requirements (issue #417, ADR-051). The original audit snapshot retains the finding as it existed at audit time.
 - PRs run tests, full-tree ruff, Bandit HIGH, secrets scan, context parity, locked-dependency checks, platform type baselines and package coverage floors. The #399 protection payload makes the existing and dependency/type checks required for administrators too; master enforcement is active and independently verified. Coverage is initially not required by the GitHub setting.
+
+Community policies now live in root CODE_OF_CONDUCT.md, SECURITY.md, and ACCESSIBILITY.md.
+Private vulnerability reporting is enabled. Conduct reports go privately to GitHub Support,
+not directly to the maintainer. No contact email or private Discussion channel is promised.
+Repository wiki sources and manual publication follow `docs/wiki/README.md`; publication
+and GitHub community-profile recognition remain pending owner review and merge.

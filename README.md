@@ -48,7 +48,7 @@ Run the installer and follow the wizard. It will:
 - Optionally associate `.ogp` files so you can double-click to open them
 - Register in Add/Remove Programs for clean uninstallation
 
-**System requirements:** Windows 10+ (64-bit), 4 GB RAM, 200 MB disk space.
+**Platform:** Windows 10/11 (64-bit). As measured on 9 October 2026, the v1.29.6 installer is about 171 MiB and the local frozen application folder is about 611 MiB. Allow at least 1 GiB for the application, plus download, temporary installation, and plan storage. A minimum RAM requirement has not been measured.
 
 #### Verify your download
 
@@ -61,7 +61,7 @@ Each release includes a `SHA256SUMS.txt` file. To verify the installer integrity
 
 Compare the output with the hash in `SHA256SUMS.txt` from the release page.
 
-From the next release onward, every release also carries a **build
+The release workflow creates a **build
 provenance attestation** — a cryptographic, GitHub-native proof (no paid
 certificate involved) that a release artifact was built by this project's
 public CI from a specific, inspectable commit of the public source, not
@@ -71,6 +71,8 @@ tampered with or built anywhere else. Verify it with the
 ```bash
 gh attestation verify OpenGardenPlanner-<version>-Setup.exe -R cofade/open-garden-planner --signer-workflow cofade/open-garden-planner/.github/workflows/release.yml
 ```
+
+The provenance step runs after release publication. If no attestation is found, check the release workflow result. The checksum remains available while that step runs or if it fails.
 
 The same command works against the **installed app exe** too — `C:\Program Files (x86)\Open Garden Planner\OpenGardenPlanner.exe` — which is the exact file Windows Defender has been reported flagging (issue #356); it is attested separately from the installer, not just implied by it. `--signer-workflow` pins the check to *this repo's own* release workflow, not merely "any workflow in this repository" (the plain `-R` form is still valid, just slightly less specific).
 
@@ -132,7 +134,7 @@ To enable online plant search, see the [Plant API Setup Guide](docs/03-context-a
 ## Tech Stack
 
 - **Python 3.11+** with **PyQt6** for desktop UI
-- **QGraphicsView** for hardware-accelerated 2D canvas
+- **QGraphicsView/Scene** for the 2D canvas
 - **Trefle.io / Perenual / Permapeople** APIs for plant species data
 - **pytest + pytest-qt** for testing
 
@@ -164,6 +166,9 @@ Project documentation follows the [arc42](https://arc42.org/) architecture templ
 - **[Roadmap](docs/roadmap.md)** — phases, user stories, and what is planned next
 
 ## Contributing
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup, testing, documentation, and draft-PR review requirements.
+See the [Code of Conduct](CODE_OF_CONDUCT.md), [security policy](SECURITY.md), and [accessibility statement](ACCESSIBILITY.md).
 
 We welcome contributions! This project aims to be technically clean and attractive for both users and contributors.
 

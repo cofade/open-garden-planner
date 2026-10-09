@@ -16,9 +16,9 @@ Open Garden Planner is distributed as:
 flowchart TD
     Src([Source Code])
     PI["PyInstaller<br/>(--onedir, installer/ogp.spec)<br/>bundles Python 3.11 + locked deps + resources,<br/>windowed mode, app icon"]
-    Bundle["dist/OpenGardenPlanner/<br/>~99 MB"]
+    Bundle["dist/OpenGardenPlanner/<br/>~611 MiB (local v1.29.6 measurement)"]
     NSIS["NSIS Installer Script<br/>(installer/ogp_installer.nsi)<br/>wizard, Start Menu + desktop shortcut,<br/>file association, upgrade detection,<br/>EN+DE languages"]
-    Out["OpenGardenPlanner-v1.0.0-Setup.exe<br/>~34 MB (LZMA solid, 32% ratio)"]
+    Out["OpenGardenPlanner-v1.29.6-Setup.exe<br/>~171 MiB download (LZMA solid)"]
 
     Src --> PI --> Bundle --> NSIS --> Out
 ```
@@ -70,7 +70,7 @@ python installer/build_installer.py --skip-pyinstaller
 | **Upgrade Support** | Detects existing installation, offers silent uninstall before upgrade |
 | **Uninstaller** | Clean removal via Add/Remove Programs |
 | **User-Data Preservation** | Before wiping `$INSTDIR`, the uninstaller copies any `*.ogp` plans found there to `Documents\Open Garden Planner\Recovered Plans` (issue #199) |
-| **Installer Size** | ~34 MB (LZMA compressed, well under 100 MB target) |
+| **Installer Size** | v1.29.6 download: 178,834,358 bytes (~171 MiB), measured from release metadata on 2026-10-09. Local frozen folder: ~611 MiB. Allow at least 1 GiB for the application plus temporary/download and user-data storage. These are dated measurements, not fixed limits. |
 | **Languages** | English, German |
 
 > **Why user-data preservation matters (issue #199):** The uninstall section runs
@@ -351,3 +351,24 @@ during the approved #399 finalization and verify with `scripts/check_branch_prot
 It removes the current review requirement, enforces checks for administrators and retains
 blocked force pushes/deletion. Test refusal and acceptance on a temporary protected validation
 base; never attempt a deliberately broken merge into master.
+
+## 7.7 Wiki and community documentation publication
+
+The six existing wiki pages now have reviewed sources in `docs/wiki/` (ADR-051, issue #417).
+`scripts/sync_wiki.py --check` validates sources offline in the existing Lint CI job.
+CI neither accesses the wiki checkout nor publishes content.
+
+The tool renders named pages into an external review directory with `--output DIR`.
+`--check-published --wiki-dir DIR` compares an existing checkout without edits.
+The canonical roadmap supplies three fixed inclusions. Other wiki pages remain concise summaries.
+See [the maintenance guide](../wiki/README.md) for source ownership, exit codes, and publication steps.
+
+Publish after owner approval and protected merge using the separate wiki repository.
+Read and reconcile direct wiki edits, preserve unrelated pages, and push without force.
+Record source and wiki commit SHAs. An unavailable checkout leaves publication pending.
+Do not close #417 on the source PR merge alone.
+
+Repository community files own contributor, conduct, security, and accessibility guidance.
+GitHub's private vulnerability reporting setting must be enabled before SECURITY.md goes live.
+Abuse reports to GitHub Support are separate from vulnerability reports to maintainers.
+The community profile and PR-template recognition require post-merge verification.
