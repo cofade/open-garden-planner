@@ -1052,7 +1052,7 @@ class MapPickerDialog(QDialog):
         self._close_after_fetch = False
         super().reject()
 
-    def closeEvent(self, event) -> None:  # type: ignore[override]
+    def closeEvent(self, event) -> None:
         # ``requests.get(timeout=10)`` is uninterruptible from the GUI thread
         # — ``cancel_check`` is consulted between tiles and immediately after
         # each response, never during a single in-flight HTTP call. Keep the

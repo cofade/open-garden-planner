@@ -364,9 +364,9 @@ class GardenItemMixin:
             return
         self._shadows_enabled = value
         if hasattr(self, 'prepareGeometryChange'):
-            self.prepareGeometryChange()  # type: ignore[attr-defined]
+            self.prepareGeometryChange()
         if hasattr(self, 'update'):
-            self.update()  # type: ignore[attr-defined]
+            self.update()
 
     @property
     def companion_highlight(self) -> str | None:
@@ -388,9 +388,9 @@ class GardenItemMixin:
             return
         self._antagonist_warning = has_warning
         if hasattr(self, 'prepareGeometryChange'):
-            self.prepareGeometryChange()  # type: ignore[attr-defined]
+            self.prepareGeometryChange()
         if hasattr(self, 'update'):
-            self.update()  # type: ignore[attr-defined]
+            self.update()
 
     @property
     def capacity_overrun(self) -> bool:
@@ -411,7 +411,7 @@ class GardenItemMixin:
         # repaint suffices — no geometry invalidation needed (unlike the
         # antagonist badge, which can extend the bounds).
         if hasattr(self, 'update'):
-            self.update()  # type: ignore[attr-defined]
+            self.update()
 
     def set_companion_highlight(self, highlight_type: str | None) -> None:
         """Set or clear the companion planting highlight for this item.
@@ -423,9 +423,9 @@ class GardenItemMixin:
             return
         self._companion_highlight = highlight_type
         if hasattr(self, 'prepareGeometryChange'):
-            self.prepareGeometryChange()  # type: ignore[attr-defined]
+            self.prepareGeometryChange()
         if hasattr(self, 'update'):
-            self.update()  # type: ignore[attr-defined]
+            self.update()
 
     @property
     def soil_mismatch_level(self) -> str | None:
@@ -452,9 +452,9 @@ class GardenItemMixin:
             return
         self._rotation_status = status
         if hasattr(self, 'prepareGeometryChange'):
-            self.prepareGeometryChange()  # type: ignore[attr-defined]
+            self.prepareGeometryChange()
         if hasattr(self, 'update'):
-            self.update()  # type: ignore[attr-defined]
+            self.update()
 
     def set_succession_indicator(
         self, lines: list[tuple[str, bool]] | None
@@ -502,7 +502,7 @@ class GardenItemMixin:
         """
         if self._succession_badge_item is None or not hasattr(self, "boundingRect"):
             return
-        bounds = self.boundingRect()  # type: ignore[attr-defined]
+        bounds = self.boundingRect()
         margin = 4.0
         self._succession_badge_item.setPos(
             bounds.left() + margin, bounds.top() + margin
@@ -566,7 +566,7 @@ class GardenItemMixin:
         if scene is None:
             return False
         if action is actions.toggle_grid and actions.toggle_grid is not None:
-            self.grid_enabled = not self._grid_enabled  # type: ignore[attr-defined]
+            self.grid_enabled = not self._grid_enabled
             scene.selectionChanged.emit()
             return True
         views = scene.views()
@@ -601,9 +601,9 @@ class GardenItemMixin:
         """Set the user-override spacing radius."""
         self._spacing_radius_cm = value
         if hasattr(self, 'prepareGeometryChange'):
-            self.prepareGeometryChange()  # type: ignore[attr-defined]
+            self.prepareGeometryChange()
         if hasattr(self, 'update'):
-            self.update()  # type: ignore[attr-defined]
+            self.update()
 
     @property
     def frost_protection_needed(self) -> bool | None:
@@ -630,9 +630,9 @@ class GardenItemMixin:
             return
         self._spacing_overlap = overlap_type
         if hasattr(self, 'prepareGeometryChange'):
-            self.prepareGeometryChange()  # type: ignore[attr-defined]
+            self.prepareGeometryChange()
         if hasattr(self, 'update'):
-            self.update()  # type: ignore[attr-defined]
+            self.update()
 
     @property
     def spacing_circles_visible(self) -> bool:
@@ -646,9 +646,9 @@ class GardenItemMixin:
             return
         self._spacing_circles_visible = value
         if hasattr(self, 'prepareGeometryChange'):
-            self.prepareGeometryChange()  # type: ignore[attr-defined]
+            self.prepareGeometryChange()
         if hasattr(self, 'update'):
-            self.update()  # type: ignore[attr-defined]
+            self.update()
 
     def effective_spacing_radius(self) -> float | None:
         """Return the spacing radius in cm, or None if no data available.
@@ -677,7 +677,7 @@ class GardenItemMixin:
         self._grid_enabled = value
         self._metadata["grid_enabled"] = value
         if hasattr(self, "update"):
-            self.update()  # type: ignore[attr-defined]
+            self.update()
 
     @property
     def grid_spacing(self) -> float:
@@ -691,7 +691,7 @@ class GardenItemMixin:
         self._grid_spacing = max(1.0, value)
         self._metadata["grid_spacing"] = self._grid_spacing
         if hasattr(self, "update"):
-            self.update()  # type: ignore[attr-defined]
+            self.update()
 
     @property
     def grid_visible_in_export(self) -> bool:
@@ -806,7 +806,7 @@ class GardenItemMixin:
             if not text:
                 return
 
-            self._label_item = QGraphicsSimpleTextItem(text, self)  # type: ignore[arg-type]
+            self._label_item = QGraphicsSimpleTextItem(text, self)
 
             # Configure label appearance
             font = QFont("Arial", 10)
@@ -824,8 +824,8 @@ class GardenItemMixin:
         """Remove the label item from the scene."""
         if self._label_item is not None:
             self._label_item.setParentItem(None)
-            if hasattr(self, 'scene') and callable(self.scene):  # type: ignore[attr-defined]
-                scene = self.scene()  # type: ignore[attr-defined]
+            if hasattr(self, 'scene') and callable(self.scene):
+                scene = self.scene()
                 if scene is not None:
                     scene.removeItem(self._label_item)
             self._label_item = None
@@ -879,7 +879,7 @@ class GardenItemMixin:
             return
 
         # Get the bounding rectangle of the parent item and its center in parent coords
-        bounds = self.boundingRect()  # type: ignore[attr-defined]
+        bounds = self.boundingRect()
         center = bounds.center()
 
         # Get label dimensions
@@ -965,7 +965,7 @@ class GardenItemMixin:
         # still containers, so gate the actual draw on the live type.
         from open_garden_planner.core.object_types import is_container_type
 
-        if not is_container_type(self.object_type):  # type: ignore[attr-defined]
+        if not is_container_type(self.object_type):
             return
         rect = self.boundingRect()  # type: ignore[attr-defined]
         s = min(rect.width(), rect.height()) * 0.28
@@ -1013,8 +1013,8 @@ class GardenItemMixin:
         if not self._area_label_visible or not hasattr(self, "boundingRect"):
             if self._area_label_item is not None:
                 self._area_label_item.setParentItem(None)
-                if hasattr(self, "scene") and callable(self.scene):  # type: ignore[attr-defined]
-                    s = self.scene()  # type: ignore[attr-defined]
+                if hasattr(self, "scene") and callable(self.scene):
+                    s = self.scene()
                     if s is not None:
                         s.removeItem(self._area_label_item)
                 self._area_label_item = None
@@ -1024,7 +1024,7 @@ class GardenItemMixin:
             return
         text = self._format_area(area)
         if self._area_label_item is None:
-            self._area_label_item = QGraphicsSimpleTextItem(text, self)  # type: ignore[arg-type]
+            self._area_label_item = QGraphicsSimpleTextItem(text, self)
             font = QFont("Arial", 8)
             font.setItalic(True)
             self._area_label_item.setFont(font)
@@ -1040,7 +1040,7 @@ class GardenItemMixin:
         """Position area label centred horizontally, just below name label."""
         if self._area_label_item is None or not hasattr(self, "boundingRect"):
             return
-        bounds = self.boundingRect()  # type: ignore[attr-defined]
+        bounds = self.boundingRect()
         center = bounds.center()
         lw = self._area_label_item.boundingRect().width()
         lh = self._area_label_item.boundingRect().height()
@@ -1115,7 +1115,7 @@ class GardenItemMixin:
                     else:
                         super().keyPressEvent(event)
 
-            self._edit_label_item = EditableLabel(self._name, self)  # type: ignore[arg-type]
+            self._edit_label_item = EditableLabel(self._name, self)
 
             # Configure appearance to match the static label exactly
             font = QFont("Arial", 10)
@@ -1144,7 +1144,7 @@ class GardenItemMixin:
             if self._label_item is not None:
                 self._edit_label_item.setPos(self._label_item.pos())
             else:
-                bounds = self.boundingRect()  # type: ignore[attr-defined]
+                bounds = self.boundingRect()
                 center = bounds.center()
                 label_bounds = self._edit_label_item.boundingRect()
                 offset_x = label_bounds.width() / 2.0
@@ -1181,7 +1181,7 @@ class GardenItemMixin:
         if self._edit_label_item is None or not hasattr(self, 'boundingRect'):
             return
 
-        bounds = self.boundingRect()  # type: ignore[attr-defined]
+        bounds = self.boundingRect()
         center = bounds.center()
         label_bounds = self._edit_label_item.boundingRect()
         offset_x = label_bounds.width() / 2.0
@@ -1249,8 +1249,8 @@ class GardenItemMixin:
         target_layer = scene.get_layer_by_id(target_layer_id)
         layer_name = target_layer.name if target_layer else str(target_layer_id)
         cmd = MoveToLayerCommand(items, target_layer_id, scene, layer_name)
-        if scene._command_manager:  # type: ignore[attr-defined]
-            scene._command_manager.execute(cmd)  # type: ignore[attr-defined]
+        if scene._command_manager:
+            scene._command_manager.execute(cmd)
         else:
             cmd.execute()  # graceful fallback (e.g. in unit tests without CanvasView)
 
@@ -1343,8 +1343,8 @@ class GardenItemMixin:
         cmd, _outcome = build_arrange_command(scene, items, mode)
         if cmd is None:
             return  # no-op refusal: outcome messages live only in CanvasView.arrange_selected
-        if scene._command_manager:  # type: ignore[attr-defined]
-            scene._command_manager.execute(cmd)  # type: ignore[attr-defined]
+        if scene._command_manager:
+            scene._command_manager.execute(cmd)
         else:
             cmd.execute()  # graceful fallback (e.g. in unit tests without CanvasView)
         status_view = next(
@@ -1376,7 +1376,7 @@ class GardenItemMixin:
             return None
         label = QCoreApplication.translate("GardenItemMixin", "Change Type")
         type_menu: QMenu = parent_menu.addMenu(label)
-        current = self.object_type  # type: ignore[attr-defined]
+        current = self.object_type
         for obj_type in valid_types:
             action = type_menu.addAction(get_translated_display_name(obj_type))
             action.setData(obj_type)
@@ -1411,13 +1411,13 @@ class GardenItemMixin:
                 if hasattr(itm, key):
                     setattr(itm, key, val)
             if hasattr(itm, "_setup_styling"):
-                itm._setup_styling()  # type: ignore[union-attr]
+                itm._setup_styling()
             if hasattr(itm, "update"):
-                itm.update()  # type: ignore[union-attr]
+                itm.update()
 
         for item in items:
             old_state = {
-                "object_type": item.object_type,  # type: ignore[union-attr]
+                "object_type": item.object_type,
                 "fill_color": getattr(item, "fill_color", None),
                 "fill_pattern": getattr(item, "fill_pattern", None),
                 "stroke_color": getattr(item, "stroke_color", None),
@@ -1435,8 +1435,8 @@ class GardenItemMixin:
             }
             _apply(item, new_state)
             cmd = ChangePropertyCommand(item, "type", old_state, new_state, _apply)
-            if hasattr(scene, "_command_manager") and scene._command_manager:  # type: ignore[attr-defined]
-                scene._command_manager.register_applied(cmd)  # type: ignore[attr-defined]
+            if hasattr(scene, "_command_manager") and scene._command_manager:
+                scene._command_manager.register_applied(cmd)
 
         # Refresh the properties panel by re-emitting the selection signal
-        scene.selectionChanged.emit()  # type: ignore[attr-defined]
+        scene.selectionChanged.emit()

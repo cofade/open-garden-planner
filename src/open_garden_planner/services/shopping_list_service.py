@@ -313,12 +313,12 @@ class ShoppingListService:
                 # Honours an explicit container_soil_volume_l override. No mulch.
                 footprint_cm2 = area * 10_000.0  # m² → cm²
                 litres = _container_model.effective_soil_volume_litres(
-                    item.metadata,  # type: ignore[union-attr]
+                    item.metadata,
                     footprint_cm2,
                 )
                 total_soil_m3 += litres / 1000.0
             else:
-                depth_m = item.metadata.get("soil_depth_cm", 30) / 100.0  # type: ignore[union-attr]
+                depth_m = item.metadata.get("soil_depth_cm", 30) / 100.0
                 total_soil_m3 += area * depth_m
                 total_mulch_m2 += area
 

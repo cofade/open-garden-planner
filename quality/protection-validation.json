@@ -1,0 +1,24 @@
+{
+  "headRefOid": "920668bfe2b98e827c6304d5da4d7f6fe2bd3cda",
+  "master_activation": "pending owner-approved finalization",
+  "mergeCommit": {
+    "oid": "a77ff571227ad437cedc944700ee3925223f81e7"
+  },
+  "negative_merge_exit": 1,
+  "negative_workflow_run": 37838797250,
+  "positive_merge_exit": 0,
+  "positive_workflow_run": 37838901709,
+  "required_contexts": [
+    "Agent context parity",
+    "Lint",
+    "Test",
+    "Security",
+    "Dependencies (ubuntu-latest)",
+    "Dependencies (windows-latest)",
+    "Types (ubuntu-latest)",
+    "Types (windows-latest)"
+  ],
+  "scope": "Isolated synthetic check names verify branch-policy enforcement; runtime/OS gates are validated separately.",
+  "state": "MERGED",
+  "validation_pr": 420
+}

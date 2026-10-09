@@ -1227,7 +1227,7 @@ class CanvasScene(QGraphicsScene):
 
         for item in self.items():
             if isinstance(item, GardenItemMixin) and item.item_id == item_id:
-                return item  # type: ignore[return-value]
+                return item
         return None
 
     def find_smallest_bed_containing(self, scene_point: QPointF) -> QGraphicsItem | None:
@@ -1255,12 +1255,12 @@ class CanvasScene(QGraphicsScene):
                 continue
             if not is_plant_parent_type(item.object_type):
                 continue
-            local_pt = item.mapFromScene(scene_point)  # type: ignore[union-attr]
-            if item.contains(local_pt):  # type: ignore[union-attr]
-                rect = item.boundingRect()  # type: ignore[union-attr]
+            local_pt = item.mapFromScene(scene_point)
+            if item.contains(local_pt):
+                rect = item.boundingRect()
                 area = rect.width() * rect.height()
                 if area < best_area:
                     best_area = area
-                    best_bed = item  # type: ignore[assignment]
+                    best_bed = item
 
         return best_bed

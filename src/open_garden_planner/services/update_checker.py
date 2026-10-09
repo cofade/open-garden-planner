@@ -85,7 +85,7 @@ def get_current_version() -> str:
     """
     if getattr(sys, "frozen", False):
         try:
-            from open_garden_planner import _version  # type: ignore[import-not-found]
+            from open_garden_planner import _version
 
             return str(_version.__version__)
         except ImportError:

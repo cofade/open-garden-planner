@@ -366,7 +366,7 @@ class DxfImportService:
             if hasattr(scene, "add_layer"):
                 scene.add_layer(new_layer)
             elif hasattr(scene, "_layers"):
-                scene._layers.append(new_layer)  # type: ignore[attr-defined]
+                scene._layers.append(new_layer)
                 if hasattr(scene, "layers_changed"):
                     scene.layers_changed.emit()
             # Assign a unique z_order so items on different DXF layers stack

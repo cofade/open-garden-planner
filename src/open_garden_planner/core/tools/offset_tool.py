@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 _CLIPPER_SCALE = 1000
 
 
-def _item_shape_path(item: QGraphicsItem):  # type: ignore[return]
+def _item_shape_path(item: QGraphicsItem):
     """Return the item's shape() path in scene coordinates, or None."""
     from open_garden_planner.ui.canvas.items.circle_item import CircleItem
     from open_garden_planner.ui.canvas.items.ellipse_item import EllipseItem

@@ -231,16 +231,16 @@ def apply_rect_like_geometry(item: QGraphicsItem, geom: dict[str, Any]) -> None:
     item.setTransformOriginPoint(item.rect().center())  # type: ignore[attr-defined]
     item.setPos(geom["pos_x"], geom["pos_y"])
     if hasattr(item, "update_resize_handles"):
-        item.update_resize_handles()  # type: ignore[attr-defined]
+        item.update_resize_handles()
     if hasattr(item, "_position_label"):
-        item._position_label()  # type: ignore[attr-defined]
+        item._position_label()
     if hasattr(item, "_update_area_label"):
         # A resize that leaves pos unchanged fires no itemChange, so the area
         # label would otherwise keep the old value (measured: stale "2.00 m²"
         # after a 400×300 resize).
-        item._update_area_label()  # type: ignore[attr-defined]
+        item._update_area_label()
     if hasattr(item, "_update_circle_annotations"):
-        item._update_circle_annotations()  # type: ignore[attr-defined]
+        item._update_circle_annotations()
 
 
 def apply_rotation(item: QGraphicsItem, angle: float) -> None:
@@ -433,7 +433,7 @@ def _resize_geometry(
         # top-left, which leaves pos untouched at rotation 0 and keeps the
         # rotated case coherent instead of accidentally correct.
         old_rect: QRectF = item.rect()  # type: ignore[attr-defined]
-        scene_anchor = item.mapToScene(old_rect.topLeft())  # type: ignore[attr-defined]
+        scene_anchor = item.mapToScene(old_rect.topLeft())
         local_anchor = new_rect.topLeft()
 
     pos = anchored_position(new_rect, rotation, scene_anchor, local_anchor)

@@ -34,8 +34,8 @@ Memorize this ordering. In this project, **"works in tests" ≠ done.**
 | Level | Evidence | Status |
 |---|---|---|
 | 0 | Code compiles, app launches | Not evidence |
-| 1 | Green CI (pytest + ruff + bandit, `ci.yml`) | **The floor, never the ceiling.** CI has stayed green while the local full suite was broken (see §4, "passes alone" mode). |
-| 2 | Full local gate battery incl. exe smoke (§2 below) | Required before every merge — the exe build is NOT in CI (verified: `ci.yml` has four jobs — lint, test, security, agent-context — and none of them builds the exe; PyInstaller runs only in `release.yml` after merge to master). |
+| 1 | Green CI (all seven workflow jobs, `ci.yml`) | **The floor, never the ceiling.** CI has stayed green while the local full suite was broken (see §4, "passes alone" mode). |
+| 2 | Full local gate battery incl. exe smoke (§2 below) | Required before every merge — the exe build is NOT in CI (verified: `ci.yml` has seven jobs — lint, test, security, agent-context, dependencies, types, coverage — and none of them builds the exe; PyInstaller runs only in `release.yml` after merge to master). |
 | 3 | `senior-reviewer` agent pass (`.claude/agents/senior-reviewer.md`), fresh worktree, branch diff | **Mandatory before opening any PR.** All P0/P1 findings addressed, then re-run for a clean re-review. History shows it catches real P0s (e.g. #213: rotated-plant pivot drift found in review round 2). |
 | 4 | **User-confirmed manual testing** | **Sovereign.** The PR stays a *draft* until the user confirms manual testing passed. No agent, test suite, or review substitutes for it. |
 
@@ -56,8 +56,8 @@ Run all of these locally before any PR (commands verified against CLAUDE.md Quic
 | Gate | Command | Pass criterion | In CI? |
 |---|---|---|---|
 | Full test suite | `venv/Scripts/python.exe -m pytest tests/ -v` | 0 failures **in the full run**, not per-file | Yes (`ci.yml` `test` job, `QT_QPA_PLATFORM=offscreen`) |
-| Lint | `venv/Scripts/python.exe -m ruff check src/` | Clean | Yes (`lint` job) |
-| Security (SAST) | `venv/Scripts/python.exe -m bandit -r src/ --severity-level high` | No HIGH findings (MEDIUM/LOW are logged, non-blocking — §8.11) | Yes (`security` job) |
+| Lint | `venv/Scripts/python.exe -m ruff check src/ tests/ scripts/` | Clean | Yes (`lint` job) |
+| Security (SAST) | `venv/Scripts/python.exe -m bandit -r src/ --severity-level high` | No HIGH findings (MEDIUM/LOW findings are omitted at this reporting threshold — §8.11) | Yes (`security` job) |
 | i18n gate | `pytest tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished` | Zero unfinished strings. **Limit:** only sees strings *registered* via `tr()`/`QT_TR_NOOP`/`translate()` — a hardcoded English f-string is invisible to it | Yes (part of full suite) |
 | Exe build + smoke + `--selftest` | both commands per `ogp-change-control` §2.8 (invocation traps in `ogp-build-and-run`) | Smoke: exit 124. `--selftest`: exit 0 — the smoke alone cannot see a silently-dead subsystem (#291, #277) | **No — local-only duty.** `ci.yml` never builds the exe; `release.yml` builds the installer only after merge to master. A frozen-build breakage found post-merge is a broken release. |
 
@@ -226,3 +226,14 @@ Test-suite hygiene inherited automatically from `tests/conftest.py` (don't re-im
 
 Volatile facts date-stamped 2026-07-04 (v1.23.0): CI-vs-local gate split, BED_SHAPES factory count (8), battery commands. Re-verify with:
 `grep -n "PyInstaller\|pyinstaller" .github/workflows/ci.yml .github/workflows/release.yml` (exe build must still be release-only) · `sed -n '310,375p;563,650p' docs/08-crosscutting-concepts/README.md` (§8.10 policy + §8.14 playbook) · `grep -c "pytest.param" tests/integration/test_bed_context_menu.py` (golden-gate breadth) · `grep -n "ARG001" pyproject.toml` (per-file ignore) · `grep -n "Pinned by" docs/11-risks-and-technical-debt/README.md` (pinning convention alive) · `grep -n "_ANGLES" tests/integration/test_rotation_aware_resize.py` (rotation parametrisation) · CLAUDE.md Quick Reference (battery commands, timeout-8 = exit 124).
+
+## Locked quality gates (#401/#402/#404)
+
+Use the locked Python 3.11 environment described in ogp-build-and-run. Run
+`scripts/check_dependency_lock.py`, `scripts/check_mypy_baseline.py` and Linux
+`scripts/check_coverage_floors.py --xml coverage.xml` before delivery. Strict mypy
+checks production source including spike_q3d, with separate Linux/Windows per-file
+allowances. New files have zero allowance. Coverage floors compare exact covered-line
+counts; branch coverage is reported separately. CI uploads reports even on failure.
+Coverage is initially not required by protection, but a failed job must be investigated.
+See ADR-050 and docs/07-deployment-view/README.md for the stable check inventory.

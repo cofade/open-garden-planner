@@ -39,7 +39,7 @@ class _CalloutTextChild(QGraphicsTextItem):
     def focusOutEvent(self, event: Any) -> None:
         parent = self.parentItem()
         if parent is not None:
-            parent._on_text_focus_out()  # type: ignore[union-attr]
+            parent._on_text_focus_out()
         super().focusOutEvent(event)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:

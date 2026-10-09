@@ -58,9 +58,9 @@ def _hidden_overlay_items(scene: QGraphicsScene) -> Iterator[None]:
         yield
     finally:
         for item in hidden:
-            item.setVisible(True)  # type: ignore[union-attr]
+            item.setVisible(True)
         for item in previously_selected:
-            item.setSelected(True)  # type: ignore[union-attr]
+            item.setSelected(True)
 
 
 @contextmanager
@@ -83,7 +83,7 @@ def _hidden_construction_items(scene: QGraphicsScene) -> Iterator[None]:
         yield
     finally:
         for item in hidden:
-            item.setVisible(True)  # type: ignore[union-attr]
+            item.setVisible(True)
 
 
 @contextmanager
@@ -105,7 +105,7 @@ def _scaled_text(scene: QGraphicsScene, point_size: int) -> Iterator[None]:
         yield
     finally:
         for item, original in saved:
-            item.setFont(original)  # type: ignore[union-attr]
+            item.setFont(original)
 
 
 def compute_export_font_size(scale: float, dpi: int) -> int:

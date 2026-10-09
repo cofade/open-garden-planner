@@ -111,7 +111,7 @@ class DxfImportDialog(QDialog):
             return
 
         # Remove loading label
-        self._loading_label.setParent(None)  # type: ignore[arg-type]
+        self._loading_label.setParent(None)
 
         if not layers:
             placeholder = QLabel(self.tr("No layers found — all entities will be imported."))

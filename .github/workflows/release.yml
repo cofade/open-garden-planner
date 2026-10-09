@@ -83,12 +83,13 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Install locked environment
         if: steps.check_tag.outputs.exists == 'false'
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-          pip install pyinstaller
+        uses: ./.github/actions/setup-locked-env
+
+      - name: Verify dependency lock
+        if: steps.check_tag.outputs.exists == 'false'
+        run: python scripts/check_dependency_lock.py
 
       - name: Install NSIS
         if: steps.check_tag.outputs.exists == 'false'

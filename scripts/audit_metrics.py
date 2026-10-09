@@ -202,24 +202,42 @@ _MYPY_SUCCESS = re.compile(r"Success: no issues found")
 def parse_mypy(rc: int | None, out: str, err: str) -> dict[str, Any]:
     """Parse mypy output. Exit code 1 is ALSO what a missing mypy returns, so only a
     summary line ("Found N errors in M files" / "Success: no issues found") counts."""
+    if re.search(r"\berror:", err):
+        return {"available": False, "reason": "mypy stderr contains an unaccounted error"}
     found = _MYPY_FOUND.search(out)
     if rc not in (0, 1) or not (found or _MYPY_SUCCESS.search(out)):
         return {"available": False, "reason": reason(err or out, "mypy produced no summary")}
     per_pkg: Counter[str] = Counter()
+    per_file: Counter[str] = Counter()
     codes: Counter[str] = Counter()
     for line in out.splitlines():
+        if line.startswith("error:"):
+            return {"available": False, "reason": "mypy stdout contains an unaccounted error"}
         if ": error:" not in line:
             continue
-        pm = re.match(rf"src/{PACKAGE}/([A-Za-z_0-9]+)", line.replace("\\", "/"))
+        diagnostic = re.match(r"^(.+?):\d+(?::\d+)?: error:", line)
+        if diagnostic is None:
+            return {"available": False, "reason": "mypy error has no source location"}
+        path = diagnostic.group(1).replace("\\", "/")
+        if not path.startswith(f"src/{PACKAGE}/") or ".." in path.split("/"):
+            return {"available": False, "reason": "mypy error is outside production source"}
+        per_file[path] += 1
+        pm = re.match(rf"src/{PACKAGE}/([A-Za-z_0-9]+)", path)
         per_pkg[pm.group(1) if pm else "(root)"] += 1
         cm = re.search(r"\[([a-z-]+)\]\s*$", line)
         if cm:
             codes[cm.group(1)] += 1
+    expected = int(found.group(1)) if found else 0
+    if sum(per_file.values()) != expected or bool(expected) != (rc == 1):
+        return {"available": False, "reason": "mypy summary disagrees with its diagnostics or exit code"}
+    if found and len(per_file) != int(found.group(2)):
+        return {"available": False, "reason": "mypy summary disagrees with its file count"}
     return {
         "available": True,
         "errors": int(found.group(1)) if found else 0,
         "files_with_errors": int(found.group(2)) if found else 0,
         "per_package": dict(per_pkg.most_common()),
+        "per_file": dict(sorted(per_file.items())),
         "top_error_codes": dict(codes.most_common(10)),
         "unused_type_ignores": codes.get("unused-ignore", 0),
     }
@@ -364,6 +382,14 @@ def _package_relative(filename: str, sources: list[str]) -> str | None:
 
 
 def coverage_section(xml_path: Path | None) -> dict[str, Any] | None:
+    """Fail closed on invalid report counts as well as malformed XML."""
+    try:
+        return _coverage_section(xml_path)
+    except (OSError, ValueError, KeyError) as exc:
+        return {"available": False, "reason": f"Invalid coverage report: {exc}"}
+
+
+def _coverage_section(xml_path: Path | None) -> dict[str, Any] | None:
     if xml_path is None:
         return None
     if not xml_path.exists():
@@ -373,28 +399,55 @@ def coverage_section(xml_path: Path | None) -> dict[str, Any] | None:
     except ET.ParseError as exc:
         return {"available": False, "reason": f"{xml_path.name}: {exc}"}
     sources = [s.text or "" for s in tree.getroot().iter("source")]
+    if tree.getroot().tag != "coverage":
+        raise ValueError("Expected a coverage XML root")
     agg: dict[str, list[int]] = defaultdict(lambda: [0, 0, 0, 0])
     files: list[tuple[int, int, str]] = []
     other_statements = 0
+    seen_files: set[str] = set()
+    report_counts = [0, 0, 0, 0]
     for cls in tree.getroot().iter("class"):
         rel = _package_relative(cls.get("filename") or "", sources)
         lines = cls.findall("lines/line")
-        valid, covered = len(lines), sum(1 for ln in lines if ln.get("hits") != "0")
+        filename = rel or (cls.get("filename") or "").replace("\\", "/")
+        if not filename or filename in seen_files or ".." in filename.split("/"):
+            raise ValueError("Coverage file identity is missing, duplicated or invalid")
+        seen_files.add(filename)
+        numbers = [int(ln.attrib["number"]) for ln in lines]
+        if len(set(numbers)) != len(numbers) or any(n <= 0 for n in numbers):
+            raise ValueError("Coverage line numbers must be positive and unique per file")
+        if any(int(ln.attrib["hits"]) < 0 for ln in lines):
+            raise ValueError("Coverage hits must be nonnegative")
+        valid, covered = len(lines), sum(1 for ln in lines if int(ln.attrib["hits"]) > 0)
+        bv = bc = 0
+        for ln in lines:
+            cond = ln.get("condition-coverage") or ""
+            if ln.get("branch") == "true":
+                match = re.fullmatch(r"\d+(?:\.\d+)?% \((\d+)/(\d+)\)", cond)
+                if match is None:
+                    raise ValueError("Branch coverage is missing or malformed")
+                covered_branches, branches = map(int, match.groups())
+                if not 0 <= covered_branches <= branches:
+                    raise ValueError("Branch counts are out of range")
+                bc += covered_branches
+                bv += branches
+        for i, v in enumerate((valid, covered, bv, bc)):
+            report_counts[i] += v
         if rel is None:
             other_statements += valid
             continue
         parts = rel.split("/")
         pkg = parts[0] if len(parts) > 1 else "(root)"
-        bv = bc = 0
-        for ln in lines:
-            cond = ln.get("condition-coverage") or ""
-            if ln.get("branch") == "true" and "(" in cond:
-                a, b = cond[cond.index("(") + 1 : cond.index(")")].split("/")
-                bc += int(a)
-                bv += int(b)
         for i, v in enumerate((valid, covered, bv, bc)):
             agg[pkg][i] += v
         files.append((valid - covered, valid, f"src/{PACKAGE}/{rel}"))
+    for attribute, actual in zip(
+        ("lines-valid", "lines-covered", "branches-valid", "branches-covered"),
+        report_counts, strict=True,
+    ):
+        declared = tree.getroot().get(attribute)
+        if declared is not None and int(declared) != actual:
+            raise ValueError(f"Coverage {attribute} disagrees with its records")
     in_package = sum(v[0] for v in agg.values())
     if in_package == 0 or other_statements > COVERAGE_OTHER_TOLERANCE * (
         in_package + other_statements
@@ -411,7 +464,13 @@ def coverage_section(xml_path: Path | None) -> dict[str, Any] | None:
         return round(100 * a / b, 1) if b else None
 
     def summary(v: list[int]) -> dict[str, Any]:
-        return {"statements": v[0], "line_pct": pct(v[1], v[0]), "branch_pct": pct(v[3], v[2])}
+        if not (0 <= v[1] <= v[0] and 0 <= v[3] <= v[2]):
+            raise ValueError("Coverage counts are out of range")
+        return {
+            "statements": v[0], "covered_statements": v[1],
+            "branches": v[2], "covered_branches": v[3],
+            "line_pct": pct(v[1], v[0]), "branch_pct": pct(v[3], v[2]),
+        }
 
     per_pkg = {k: summary(v) for k, v in sorted(agg.items(), key=lambda kv: -kv[1][0])}
     tot = [sum(v[i] for v in agg.values()) for i in range(4)]
@@ -420,6 +479,7 @@ def coverage_section(xml_path: Path | None) -> dict[str, Any] | None:
     return {
         "available": True,
         "source": xml_path.name,  # basename only: a snapshot must not record local paths
+        "unresolved_statements": other_statements,
         "total": summary(tot),
         "non_ui": {**summary(non_ui), "definition": "all packages except ui"},
         "per_package": per_pkg,

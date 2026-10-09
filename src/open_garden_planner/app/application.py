@@ -6253,7 +6253,7 @@ class GardenPlannerApp(QMainWindow):
         self._sun_toolbar.setVisible(False)
         self.soil_overlay_toolbar.setVisible(False)
 
-    def createPopupMenu(self) -> QMenu | None:  # type: ignore[override]
+    def createPopupMenu(self) -> QMenu | None:
         """Suppress QMainWindow's built-in toolbar context menu.
 
         It offers a checkbox per toolbar, so a stray right-click could hide
@@ -6972,7 +6972,7 @@ class GardenPlannerApp(QMainWindow):
         # than crash the whole spacing refresh.
         if not hasattr(trellis, "rect"):
             return math.hypot
-        rect = trellis.rect()  # type: ignore[attr-defined]
+        rect = trellis.rect()
         if rect.width() >= rect.height():
             p0 = QPointF(rect.left(), rect.center().y())
             p1 = QPointF(rect.right(), rect.center().y())
@@ -7008,7 +7008,7 @@ class GardenPlannerApp(QMainWindow):
         # Filter to plants that have spacing data
         with_data = [
             p for p in plants
-            if p.effective_spacing_radius() is not None  # type: ignore[attr-defined]
+            if p.effective_spacing_radius() is not None
         ]
         if len(with_data) < 2:
             # Single plant with data gets "ideal"
@@ -7019,12 +7019,12 @@ class GardenPlannerApp(QMainWindow):
         overlap_set: set[int] = set()
 
         for i, plant_a in enumerate(with_data):
-            center_a = plant_a.mapToScene(plant_a.rect().center())  # type: ignore[attr-defined]
-            radius_a = plant_a.effective_spacing_radius()  # type: ignore[attr-defined]
+            center_a = plant_a.mapToScene(plant_a.rect().center())
+            radius_a = plant_a.effective_spacing_radius()
 
             for plant_b in with_data[i + 1:]:
-                center_b = plant_b.mapToScene(plant_b.rect().center())  # type: ignore[attr-defined]
-                radius_b = plant_b.effective_spacing_radius()  # type: ignore[attr-defined]
+                center_b = plant_b.mapToScene(plant_b.rect().center())
+                radius_b = plant_b.effective_spacing_radius()
 
                 dist = distance(  # type: ignore[operator]
                     center_a.x() - center_b.x(),
@@ -8931,7 +8931,7 @@ class GardenPlannerApp(QMainWindow):
                 self.tr("Garden GPS location — use File > Set Garden Location to configure")
             )
         else:
-            loc = location  # type: ignore[assignment]
+            loc = location
             lat = loc.get("latitude", 0.0)
             lon = loc.get("longitude", 0.0)
             lat_str = f"{abs(lat):.4f}°{'N' if lat >= 0 else 'S'}"

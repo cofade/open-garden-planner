@@ -1,5 +1,8 @@
 name: CI
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: ["**"]
@@ -32,10 +35,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+      - uses: ./.github/actions/setup-locked-env
 
       - name: Run ruff
         run: ruff check src/ tests/ scripts/
@@ -56,10 +56,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libegl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+      - uses: ./.github/actions/setup-locked-env
 
       - name: Run tests
         env:
@@ -77,8 +74,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install Bandit
-        run: pip install "bandit>=1.7.0"
+      - uses: ./.github/actions/setup-locked-env
 
       - name: Run Bandit (fail on HIGH severity)
         run: bandit -r src/ --severity-level high
@@ -104,3 +100,61 @@ jobs:
       # rejected alternatives and the reasoning.
       - name: Check for committed secrets
         run: python scripts/check_no_secrets.py
+
+  dependencies:
+    name: Dependencies (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-locked-env
+      - name: Verify lock and export
+        run: python scripts/check_dependency_lock.py
+
+  types:
+    name: Types (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-locked-env
+      - name: Enforce per-file type allowances
+        run: python scripts/check_mypy_baseline.py --report type-report.json
+      - name: Upload type diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: types-${{ matrix.os }}
+          path: type-report.json
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Qt system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0
+      - uses: ./.github/actions/setup-locked-env
+      - name: Measure full-suite line and branch coverage
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest tests/ -v --cov=open_garden_planner --cov-branch --cov-report=xml --cov-report=term
+      - name: Enforce package line floors
+        if: always()
+        run: python scripts/check_coverage_floors.py --xml coverage.xml --report coverage-summary.json
+      - name: Upload coverage diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-linux
+          path: |
+            coverage.xml
+            coverage-summary.json

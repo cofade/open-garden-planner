@@ -1039,11 +1039,11 @@ class ResizeHandlesMixin:
         """Called when a resize operation starts."""
         # Store initial state for undo
         if hasattr(self, 'boundingRect'):
-            self._resize_initial_rect = self.boundingRect()  # type: ignore[attr-defined]
+            self._resize_initial_rect = self.boundingRect()
         if hasattr(self, 'pos'):
-            self._resize_initial_pos = self.pos()  # type: ignore[attr-defined]
+            self._resize_initial_pos = self.pos()
         # Capture EQUAL-constrained partner sizes before any propagation (for undo)
-        scene = self.scene() if hasattr(self, 'scene') else None  # type: ignore[attr-defined]
+        scene = self.scene() if hasattr(self, 'scene') else None
         if scene is not None and hasattr(self, 'item_id'):
             from open_garden_planner.core.tools.constraint_tool import (
                 _capture_equal_partner_pre_states,  # noqa: PLC0415
@@ -1060,17 +1060,17 @@ class ResizeHandlesMixin:
         """
         if getattr(self, '_propagating_equal_resize', False):
             return
-        scene = self.scene() if hasattr(self, 'scene') else None  # type: ignore[attr-defined]
+        scene = self.scene() if hasattr(self, 'scene') else None
         if scene is None:
             return
-        self._propagating_equal_resize = True  # type: ignore[attr-defined]
+        self._propagating_equal_resize = True
         try:
             from open_garden_planner.core.tools.constraint_tool import (
                 _apply_equal_propagation_live,  # noqa: PLC0415
             )
             _apply_equal_propagation_live(self, scene)
         finally:
-            self._propagating_equal_resize = False  # type: ignore[attr-defined]
+            self._propagating_equal_resize = False
 
     def _on_resize_end(
         self,
@@ -1225,26 +1225,26 @@ class RotationHandleMixin:
             # antagonist badge and would shift the pivot off-centre, so a
             # rotated badged plant drifts on save/reload (badge not persisted).
             if hasattr(self, 'rect'):
-                center = self.rect().center()  # type: ignore[attr-defined]
+                center = self.rect().center()
             elif hasattr(self, 'boundingRect'):
-                center = self.boundingRect().center()  # type: ignore[attr-defined]
+                center = self.boundingRect().center()
             else:
                 center = None
 
             # Set transform origin to center
             if center is not None and hasattr(self, 'setTransformOriginPoint'):
-                self.setTransformOriginPoint(center)  # type: ignore[attr-defined]
+                self.setTransformOriginPoint(center)
 
-            self.setRotation(angle)  # type: ignore[attr-defined]
+            self.setRotation(angle)
 
         # Update handles
         if hasattr(self, 'update_resize_handles'):
-            self.update_resize_handles()  # type: ignore[attr-defined]
+            self.update_resize_handles()
         self.update_rotation_handle()
 
         # Update label position
         if hasattr(self, '_position_label'):
-            self._position_label()  # type: ignore[attr-defined]
+            self._position_label()
 
 
 # Rectangle corner positions for vertex editing
@@ -1743,13 +1743,13 @@ class VertexEditMixin:
         # Prevent accidental whole-item drag while editing individual vertices
         if hasattr(self, 'setFlag'):
             from PyQt6.QtWidgets import QGraphicsItem
-            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)  # type: ignore[attr-defined]
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
 
         # Hide resize and rotation handles if they exist
         if hasattr(self, 'hide_resize_handles'):
-            self.hide_resize_handles()  # type: ignore[attr-defined]
+            self.hide_resize_handles()
         if hasattr(self, 'hide_rotation_handle'):
-            self.hide_rotation_handle()  # type: ignore[attr-defined]
+            self.hide_rotation_handle()
 
         # Create vertex and midpoint handles + annotations
         self._create_vertex_handles()
@@ -1766,7 +1766,7 @@ class VertexEditMixin:
         # Restore whole-item movability
         if hasattr(self, 'setFlag'):
             from PyQt6.QtWidgets import QGraphicsItem
-            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)  # type: ignore[attr-defined]
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
 
         # Remove vertex and midpoint handles + annotations
         self._remove_vertex_handles()
@@ -1774,11 +1774,11 @@ class VertexEditMixin:
         self._remove_annotations()
 
         # Show resize and rotation handles if selected
-        if hasattr(self, 'isSelected') and self.isSelected():  # type: ignore[attr-defined]
+        if hasattr(self, 'isSelected') and self.isSelected():
             if hasattr(self, 'show_resize_handles'):
-                self.show_resize_handles()  # type: ignore[attr-defined]
+                self.show_resize_handles()
             if hasattr(self, 'show_rotation_handle'):
-                self.show_rotation_handle()  # type: ignore[attr-defined]
+                self.show_rotation_handle()
 
     def _create_vertex_handles(self) -> None:
         """Create handles for all vertices."""
@@ -1787,7 +1787,7 @@ class VertexEditMixin:
         if not hasattr(self, 'polygon'):
             return
 
-        polygon = self.polygon()  # type: ignore[attr-defined]
+        polygon = self.polygon()
         for i in range(polygon.count()):
             handle = VertexHandle(i, self)  # type: ignore[arg-type]
             handle.update_position(polygon.at(i))
@@ -1807,7 +1807,7 @@ class VertexEditMixin:
         if not hasattr(self, 'polygon'):
             return
 
-        polygon = self.polygon()  # type: ignore[attr-defined]
+        polygon = self.polygon()
         count = polygon.count()
 
         for i in range(count):
@@ -1834,7 +1834,7 @@ class VertexEditMixin:
         if not hasattr(self, 'polygon'):
             return
 
-        polygon = self.polygon()  # type: ignore[attr-defined]
+        polygon = self.polygon()
         count = polygon.count()
 
         # Update vertex handles
@@ -1860,13 +1860,13 @@ class VertexEditMixin:
         if not hasattr(self, 'polygon') or not hasattr(self, 'mapToScene'):
             return
 
-        polygon = self.polygon()  # type: ignore[attr-defined]
+        polygon = self.polygon()
         count = polygon.count()
 
         # Create coordinate labels at each vertex
         for i in range(count):
             point = polygon.at(i)
-            scene_pt = self.mapToScene(point)  # type: ignore[attr-defined]
+            scene_pt = self.mapToScene(point)
             label = AnnotationLabel(self)  # type: ignore[arg-type]
             label.set_text(_format_coordinate(scene_pt.x(), scene_pt.y()))
             label.setPos(point.x(), point.y())
@@ -1877,8 +1877,8 @@ class VertexEditMixin:
             p1 = polygon.at(i)
             p2 = polygon.at((i + 1) % count)
             midpoint = QPointF((p1.x() + p2.x()) / 2, (p1.y() + p2.y()) / 2)
-            scene_p1 = self.mapToScene(p1)  # type: ignore[attr-defined]
-            scene_p2 = self.mapToScene(p2)  # type: ignore[attr-defined]
+            scene_p1 = self.mapToScene(p1)
+            scene_p2 = self.mapToScene(p2)
             length = _edge_length(scene_p1, scene_p2)
             label = AnnotationLabel(self)  # type: ignore[arg-type]
             label.set_text(_format_edge_length(length))
@@ -1902,14 +1902,14 @@ class VertexEditMixin:
         if not hasattr(self, 'polygon') or not hasattr(self, 'mapToScene'):
             return
 
-        polygon = self.polygon()  # type: ignore[attr-defined]
+        polygon = self.polygon()
         count = polygon.count()
 
         # Update coordinate labels
         for i, label in enumerate(self._coord_labels):
             if i < count:
                 point = polygon.at(i)
-                scene_pt = self.mapToScene(point)  # type: ignore[attr-defined]
+                scene_pt = self.mapToScene(point)
                 label.set_text(_format_coordinate(scene_pt.x(), scene_pt.y()))
                 label.setPos(point.x(), point.y())
 
@@ -1919,8 +1919,8 @@ class VertexEditMixin:
                 p1 = polygon.at(i)
                 p2 = polygon.at((i + 1) % count)
                 midpoint = QPointF((p1.x() + p2.x()) / 2, (p1.y() + p2.y()) / 2)
-                scene_p1 = self.mapToScene(p1)  # type: ignore[attr-defined]
-                scene_p2 = self.mapToScene(p2)  # type: ignore[attr-defined]
+                scene_p1 = self.mapToScene(p1)
+                scene_p2 = self.mapToScene(p2)
                 length = _edge_length(scene_p1, scene_p2)
                 label.set_text(_format_edge_length(length))
                 label.setPos(midpoint.x(), midpoint.y())
@@ -1937,7 +1937,7 @@ class VertexEditMixin:
         if not hasattr(self, 'polygon'):
             return QPointF(0, 0)
 
-        polygon = self.polygon()  # type: ignore[attr-defined]
+        polygon = self.polygon()
         if 0 <= index < polygon.count():
             return polygon.at(index)
         return QPointF(0, 0)
@@ -1951,7 +1951,7 @@ class VertexEditMixin:
         if not hasattr(self, 'polygon'):
             return 0
 
-        return self.polygon().count()  # type: ignore[attr-defined]
+        return self.polygon().count()
 
     def _get_minimum_vertex_count(self) -> int:
         """Get the minimum number of vertices allowed (3 for polygons)."""
@@ -1972,19 +1972,19 @@ class VertexEditMixin:
 
         from PyQt6.QtGui import QPolygonF
 
-        polygon = self.polygon()  # type: ignore[attr-defined]
+        polygon = self.polygon()
         if 0 <= index < polygon.count():
             # Create new polygon with updated vertex
             vertices = [polygon.at(i) for i in range(polygon.count())]
             vertices[index] = pos
-            self.setPolygon(QPolygonF(vertices))  # type: ignore[attr-defined]
+            self.setPolygon(QPolygonF(vertices))
 
             # Update handles
             self._update_vertex_handles()
 
             # Update label position
             if hasattr(self, '_position_label'):
-                self._position_label()  # type: ignore[attr-defined]
+                self._position_label()
 
     def _add_vertex_at_edge(self, edge_index: int, pos: QPointF) -> None:
         """Add a new vertex at an edge position.
@@ -1998,7 +1998,7 @@ class VertexEditMixin:
 
         from PyQt6.QtGui import QPolygonF
 
-        polygon = self.polygon()  # type: ignore[attr-defined]
+        polygon = self.polygon()
 
         # Insert after edge_index
         insert_index = edge_index + 1
@@ -2006,7 +2006,7 @@ class VertexEditMixin:
         vertices.insert(insert_index, pos)
 
         # Update polygon
-        self.setPolygon(QPolygonF(vertices))  # type: ignore[attr-defined]
+        self.setPolygon(QPolygonF(vertices))
         self._after_vertex_topology_change()
 
         # Shift any constraint anchor indices that now point past the insert.
@@ -2019,7 +2019,7 @@ class VertexEditMixin:
 
         # Update label position
         if hasattr(self, '_position_label'):
-            self._position_label()  # type: ignore[attr-defined]
+            self._position_label()
 
         # Register undo command
         self._on_vertex_add(insert_index, pos)
@@ -2035,7 +2035,7 @@ class VertexEditMixin:
 
         from PyQt6.QtGui import QPolygonF
 
-        polygon = self.polygon()  # type: ignore[attr-defined]
+        polygon = self.polygon()
 
         # Check minimum vertices
         if polygon.count() <= MINIMUM_VERTICES:
@@ -2051,7 +2051,7 @@ class VertexEditMixin:
         vertices = [polygon.at(i) for i in range(polygon.count()) if i != index]
 
         # Update polygon
-        self.setPolygon(QPolygonF(vertices))  # type: ignore[attr-defined]
+        self.setPolygon(QPolygonF(vertices))
         self._after_vertex_topology_change()
 
         # Recreate handles and annotations (indices changed)
@@ -2061,7 +2061,7 @@ class VertexEditMixin:
 
         # Update label position
         if hasattr(self, '_position_label'):
-            self._position_label()  # type: ignore[attr-defined]
+            self._position_label()
 
         # Register undo command
         self._on_vertex_delete(index, deleted_pos)
@@ -2180,10 +2180,10 @@ class VertexEditMixin:
 
         from PyQt6.QtGui import QPolygonF
 
-        polygon = self.polygon()  # type: ignore[attr-defined]
+        polygon = self.polygon()
         vertices = [polygon.at(i) for i in range(polygon.count())]
         vertices.insert(index, pos)
-        self.setPolygon(QPolygonF(vertices))  # type: ignore[attr-defined]
+        self.setPolygon(QPolygonF(vertices))
         self._after_vertex_topology_change()
 
         # Update handles and annotations if in edit mode
@@ -2194,7 +2194,7 @@ class VertexEditMixin:
 
         # Update label position
         if hasattr(self, '_position_label'):
-            self._position_label()  # type: ignore[attr-defined]
+            self._position_label()
 
     def _remove_vertex(self, index: int) -> None:
         """Remove a vertex at a specific index (for undo/redo).
@@ -2207,9 +2207,9 @@ class VertexEditMixin:
 
         from PyQt6.QtGui import QPolygonF
 
-        polygon = self.polygon()  # type: ignore[attr-defined]
+        polygon = self.polygon()
         vertices = [polygon.at(i) for i in range(polygon.count()) if i != index]
-        self.setPolygon(QPolygonF(vertices))  # type: ignore[attr-defined]
+        self.setPolygon(QPolygonF(vertices))
         self._after_vertex_topology_change()
 
         # Update handles and annotations if in edit mode
@@ -2220,7 +2220,7 @@ class VertexEditMixin:
 
         # Update label position
         if hasattr(self, '_position_label'):
-            self._position_label()  # type: ignore[attr-defined]
+            self._position_label()
 
 
 class RectCornerHandle(QGraphicsRectItem):
@@ -2419,13 +2419,13 @@ class RectVertexEditMixin:
         # Prevent accidental whole-item drag while editing individual corners
         if hasattr(self, 'setFlag'):
             from PyQt6.QtWidgets import QGraphicsItem
-            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)  # type: ignore[attr-defined]
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
 
         # Hide resize and rotation handles if they exist
         if hasattr(self, 'hide_resize_handles'):
-            self.hide_resize_handles()  # type: ignore[attr-defined]
+            self.hide_resize_handles()
         if hasattr(self, 'hide_rotation_handle'):
-            self.hide_rotation_handle()  # type: ignore[attr-defined]
+            self.hide_rotation_handle()
 
         # Create corner handles and annotations
         self._create_rect_corner_handles()
@@ -2441,18 +2441,18 @@ class RectVertexEditMixin:
         # Restore whole-item movability
         if hasattr(self, 'setFlag'):
             from PyQt6.QtWidgets import QGraphicsItem
-            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)  # type: ignore[attr-defined]
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
 
         # Remove corner handles and annotations
         self._remove_rect_corner_handles()
         self._remove_rect_annotations()
 
         # Show resize and rotation handles if selected
-        if hasattr(self, 'isSelected') and self.isSelected():  # type: ignore[attr-defined]
+        if hasattr(self, 'isSelected') and self.isSelected():
             if hasattr(self, 'show_resize_handles'):
-                self.show_resize_handles()  # type: ignore[attr-defined]
+                self.show_resize_handles()
             if hasattr(self, 'show_rotation_handle'):
-                self.show_rotation_handle()  # type: ignore[attr-defined]
+                self.show_rotation_handle()
 
     def _create_rect_corner_handles(self) -> None:
         """Create handles for all 4 corners."""
@@ -2461,7 +2461,7 @@ class RectVertexEditMixin:
         if not hasattr(self, 'rect'):
             return
 
-        rect = self.rect()  # type: ignore[attr-defined]
+        rect = self.rect()
         for corner in RectCorner:
             handle = RectCornerHandle(corner, self)  # type: ignore[arg-type]
             handle.update_position(rect)
@@ -2479,7 +2479,7 @@ class RectVertexEditMixin:
         if not hasattr(self, 'rect'):
             return
 
-        rect = self.rect()  # type: ignore[attr-defined]
+        rect = self.rect()
         for handle in self._rect_corner_handles:
             handle.update_position(rect)
 
@@ -2492,7 +2492,7 @@ class RectVertexEditMixin:
         if not hasattr(self, 'rect') or not hasattr(self, 'mapToScene'):
             return
 
-        rect = self.rect()  # type: ignore[attr-defined]
+        rect = self.rect()
         corners = [
             QPointF(rect.left(), rect.top()),
             QPointF(rect.right(), rect.top()),
@@ -2502,7 +2502,7 @@ class RectVertexEditMixin:
 
         # Coordinate labels at each corner
         for corner in corners:
-            scene_pt = self.mapToScene(corner)  # type: ignore[attr-defined]
+            scene_pt = self.mapToScene(corner)
             label = AnnotationLabel(self)  # type: ignore[arg-type]
             label.set_text(_format_coordinate(scene_pt.x(), scene_pt.y()))
             label.setPos(corner.x(), corner.y())
@@ -2513,8 +2513,8 @@ class RectVertexEditMixin:
             p1 = corners[i]
             p2 = corners[(i + 1) % 4]
             midpoint = QPointF((p1.x() + p2.x()) / 2, (p1.y() + p2.y()) / 2)
-            scene_p1 = self.mapToScene(p1)  # type: ignore[attr-defined]
-            scene_p2 = self.mapToScene(p2)  # type: ignore[attr-defined]
+            scene_p1 = self.mapToScene(p1)
+            scene_p2 = self.mapToScene(p2)
             length = _edge_length(scene_p1, scene_p2)
             label = AnnotationLabel(self)  # type: ignore[arg-type]
             label.set_text(_format_edge_length(length))
@@ -2538,7 +2538,7 @@ class RectVertexEditMixin:
         if not hasattr(self, 'rect') or not hasattr(self, 'mapToScene'):
             return
 
-        rect = self.rect()  # type: ignore[attr-defined]
+        rect = self.rect()
         corners = [
             QPointF(rect.left(), rect.top()),
             QPointF(rect.right(), rect.top()),
@@ -2550,7 +2550,7 @@ class RectVertexEditMixin:
         for i, label in enumerate(self._rect_coord_labels):
             if i < len(corners):
                 corner = corners[i]
-                scene_pt = self.mapToScene(corner)  # type: ignore[attr-defined]
+                scene_pt = self.mapToScene(corner)
                 label.set_text(_format_coordinate(scene_pt.x(), scene_pt.y()))
                 label.setPos(corner.x(), corner.y())
 
@@ -2560,8 +2560,8 @@ class RectVertexEditMixin:
                 p1 = corners[i]
                 p2 = corners[(i + 1) % 4]
                 midpoint = QPointF((p1.x() + p2.x()) / 2, (p1.y() + p2.y()) / 2)
-                scene_p1 = self.mapToScene(p1)  # type: ignore[attr-defined]
-                scene_p2 = self.mapToScene(p2)  # type: ignore[attr-defined]
+                scene_p1 = self.mapToScene(p1)
+                scene_p2 = self.mapToScene(p2)
                 length = _edge_length(scene_p1, scene_p2)
                 label.set_text(_format_edge_length(length))
                 label.setPos(midpoint.x(), midpoint.y())
@@ -2585,7 +2585,7 @@ class RectVertexEditMixin:
 
         # Rotate delta into the rectangle's local frame.  Qt rotation is CW in
         # screen space (Y-down), so use -θ to invert.
-        rotation_deg = float(self.rotation()) if hasattr(self, 'rotation') else 0.0  # type: ignore[attr-defined]
+        rotation_deg = float(self.rotation()) if hasattr(self, 'rotation') else 0.0
         theta = math.radians(-rotation_deg)
         cos_t = math.cos(theta)
         sin_t = math.sin(theta)
@@ -2648,15 +2648,15 @@ class RectVertexEditMixin:
             new_rect, rotation_deg, scene_anchor, _opposite_corner(corner, new_rect)
         )
 
-        self.setRect(new_rect)  # type: ignore[attr-defined]
+        self.setRect(new_rect)
         # The serializer invariant transformOriginPoint == rect().center()
         # (#219). Without it a rotated corner drag stored a centre up to 331 cm
         # from the visible one, i.e. it saved displaced.
         self.setTransformOriginPoint(new_rect.center())  # type: ignore[attr-defined]
-        self.setPos(new_pos)  # type: ignore[attr-defined]
+        self.setPos(new_pos)
         self._update_rect_corner_handles()
         if hasattr(self, '_position_label'):
-            self._position_label()  # type: ignore[attr-defined]
+            self._position_label()
 
     def _on_corner_move_end(
         self,
@@ -2672,8 +2672,8 @@ class RectVertexEditMixin:
         if not hasattr(self, 'rect') or not hasattr(self, 'pos'):
             return
 
-        current_rect = self.rect()  # type: ignore[attr-defined]
-        current_pos = self.pos()  # type: ignore[attr-defined]
+        current_rect = self.rect()
+        current_pos = self.pos()
 
         # Don't register if nothing changed
         if initial_rect == current_rect and initial_pos == current_pos:
@@ -2776,11 +2776,11 @@ class PolylineVertexEditMixin:
         # Prevent accidental whole-item drag while editing individual vertices
         if hasattr(self, 'setFlag'):
             from PyQt6.QtWidgets import QGraphicsItem
-            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)  # type: ignore[attr-defined]
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
 
         # Hide rotation handle if it exists
         if hasattr(self, 'hide_rotation_handle'):
-            self.hide_rotation_handle()  # type: ignore[attr-defined]
+            self.hide_rotation_handle()
 
         # Create vertex and midpoint handles + annotations
         self._create_vertex_handles()
@@ -2797,7 +2797,7 @@ class PolylineVertexEditMixin:
         # Restore whole-item movability
         if hasattr(self, 'setFlag'):
             from PyQt6.QtWidgets import QGraphicsItem
-            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)  # type: ignore[attr-defined]
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
 
         # Remove vertex and midpoint handles + annotations
         self._remove_vertex_handles()
@@ -2805,8 +2805,8 @@ class PolylineVertexEditMixin:
         self._remove_annotations()
 
         # Show rotation handle if selected
-        if hasattr(self, 'isSelected') and self.isSelected() and hasattr(self, 'show_rotation_handle'):  # type: ignore[attr-defined]
-            self.show_rotation_handle()  # type: ignore[attr-defined]
+        if hasattr(self, 'isSelected') and self.isSelected() and hasattr(self, 'show_rotation_handle'):
+            self.show_rotation_handle()
 
     def _create_vertex_handles(self) -> None:
         """Create handles for all vertices."""
@@ -2815,7 +2815,7 @@ class PolylineVertexEditMixin:
         if not hasattr(self, '_points'):
             return
 
-        for i, point in enumerate(self._points):  # type: ignore[attr-defined]
+        for i, point in enumerate(self._points):
             handle = VertexHandle(i, self)  # type: ignore[arg-type]
             handle.update_position(point)
             self._vertex_handles.append(handle)
@@ -2834,7 +2834,7 @@ class PolylineVertexEditMixin:
         if not hasattr(self, '_points'):
             return
 
-        points = self._points  # type: ignore[attr-defined]
+        points = self._points
         # Open path: midpoints between consecutive pairs only (no closing edge)
         for i in range(len(points) - 1):
             p1 = points[i]
@@ -2857,7 +2857,7 @@ class PolylineVertexEditMixin:
         if not hasattr(self, '_points'):
             return
 
-        points = self._points  # type: ignore[attr-defined]
+        points = self._points
 
         # Update vertex handles
         for i, handle in enumerate(self._vertex_handles):
@@ -2882,11 +2882,11 @@ class PolylineVertexEditMixin:
         if not hasattr(self, '_points') or not hasattr(self, 'mapToScene'):
             return
 
-        points = self._points  # type: ignore[attr-defined]
+        points = self._points
 
         # Coordinate labels at each vertex
         for point in points:
-            scene_pt = self.mapToScene(point)  # type: ignore[attr-defined]
+            scene_pt = self.mapToScene(point)
             label = AnnotationLabel(self)  # type: ignore[arg-type]
             label.set_text(_format_coordinate(scene_pt.x(), scene_pt.y()))
             label.setPos(point.x(), point.y())
@@ -2897,8 +2897,8 @@ class PolylineVertexEditMixin:
             p1 = points[i]
             p2 = points[i + 1]
             midpoint = QPointF((p1.x() + p2.x()) / 2, (p1.y() + p2.y()) / 2)
-            scene_p1 = self.mapToScene(p1)  # type: ignore[attr-defined]
-            scene_p2 = self.mapToScene(p2)  # type: ignore[attr-defined]
+            scene_p1 = self.mapToScene(p1)
+            scene_p2 = self.mapToScene(p2)
             length = _edge_length(scene_p1, scene_p2)
             label = AnnotationLabel(self)  # type: ignore[arg-type]
             label.set_text(_format_edge_length(length))
@@ -2922,13 +2922,13 @@ class PolylineVertexEditMixin:
         if not hasattr(self, '_points') or not hasattr(self, 'mapToScene'):
             return
 
-        points = self._points  # type: ignore[attr-defined]
+        points = self._points
 
         # Update coordinate labels
         for i, label in enumerate(self._coord_labels):
             if i < len(points):
                 point = points[i]
-                scene_pt = self.mapToScene(point)  # type: ignore[attr-defined]
+                scene_pt = self.mapToScene(point)
                 label.set_text(_format_coordinate(scene_pt.x(), scene_pt.y()))
                 label.setPos(point.x(), point.y())
 
@@ -2938,8 +2938,8 @@ class PolylineVertexEditMixin:
                 p1 = points[i]
                 p2 = points[i + 1]
                 midpoint = QPointF((p1.x() + p2.x()) / 2, (p1.y() + p2.y()) / 2)
-                scene_p1 = self.mapToScene(p1)  # type: ignore[attr-defined]
-                scene_p2 = self.mapToScene(p2)  # type: ignore[attr-defined]
+                scene_p1 = self.mapToScene(p1)
+                scene_p2 = self.mapToScene(p2)
                 length = _edge_length(scene_p1, scene_p2)
                 label.set_text(_format_edge_length(length))
                 label.setPos(midpoint.x(), midpoint.y())
@@ -2951,20 +2951,20 @@ class PolylineVertexEditMixin:
 
         from PyQt6.QtGui import QPainterPath as _QPainterPath
 
-        points = self._points  # type: ignore[attr-defined]
+        points = self._points
         path = _QPainterPath()
         if points:
             path.moveTo(points[0])
             for point in points[1:]:
                 path.lineTo(point)
-        self.setPath(path)  # type: ignore[attr-defined]
+        self.setPath(path)
 
     def _get_vertex_position(self, index: int) -> QPointF:
         """Get the position of a vertex."""
         if not hasattr(self, '_points'):
             return QPointF(0, 0)
 
-        points = self._points  # type: ignore[attr-defined]
+        points = self._points
         if 0 <= index < len(points):
             return QPointF(points[index])
         return QPointF(0, 0)
@@ -2973,7 +2973,7 @@ class PolylineVertexEditMixin:
         """Get the number of vertices."""
         if not hasattr(self, '_points'):
             return 0
-        return len(self._points)  # type: ignore[attr-defined]
+        return len(self._points)
 
     def _get_minimum_vertex_count(self) -> int:
         """Get the minimum number of vertices allowed (2 for polylines)."""
@@ -2987,21 +2987,21 @@ class PolylineVertexEditMixin:
         if not hasattr(self, '_points'):
             return
 
-        points = self._points  # type: ignore[attr-defined]
+        points = self._points
         if 0 <= index < len(points):
             points[index] = pos
             self._rebuild_path()
             self._update_vertex_handles()
 
             if hasattr(self, '_position_label'):
-                self._position_label()  # type: ignore[attr-defined]
+                self._position_label()
 
     def _add_vertex_at_edge(self, edge_index: int, pos: QPointF) -> None:
         """Add a new vertex at an edge position."""
         if not hasattr(self, '_points'):
             return
 
-        points = self._points  # type: ignore[attr-defined]
+        points = self._points
         insert_index = edge_index + 1
         points.insert(insert_index, pos)
 
@@ -3015,7 +3015,7 @@ class PolylineVertexEditMixin:
         self._create_annotations()
 
         if hasattr(self, '_position_label'):
-            self._position_label()  # type: ignore[attr-defined]
+            self._position_label()
 
         self._on_vertex_add(insert_index, pos)
 
@@ -3024,7 +3024,7 @@ class PolylineVertexEditMixin:
         if not hasattr(self, '_points'):
             return
 
-        points = self._points  # type: ignore[attr-defined]
+        points = self._points
         if len(points) <= MINIMUM_POLYLINE_VERTICES:
             return
 
@@ -3042,7 +3042,7 @@ class PolylineVertexEditMixin:
         self._create_annotations()
 
         if hasattr(self, '_position_label'):
-            self._position_label()  # type: ignore[attr-defined]
+            self._position_label()
 
         self._on_vertex_delete(index, deleted_pos)
 
@@ -3133,7 +3133,7 @@ class PolylineVertexEditMixin:
         if not hasattr(self, '_points'):
             return
 
-        points = self._points  # type: ignore[attr-defined]
+        points = self._points
         points.insert(index, pos)
         self._rebuild_path()
         self._after_vertex_topology_change()
@@ -3144,14 +3144,14 @@ class PolylineVertexEditMixin:
             self._create_annotations()
 
         if hasattr(self, '_position_label'):
-            self._position_label()  # type: ignore[attr-defined]
+            self._position_label()
 
     def _remove_vertex(self, index: int) -> None:
         """Remove a vertex at a specific index (for undo/redo)."""
         if not hasattr(self, '_points'):
             return
 
-        points = self._points  # type: ignore[attr-defined]
+        points = self._points
         if 0 <= index < len(points):
             del points[index]
         self._rebuild_path()
@@ -3163,7 +3163,7 @@ class PolylineVertexEditMixin:
             self._create_annotations()
 
         if hasattr(self, '_position_label'):
-            self._position_label()  # type: ignore[attr-defined]
+            self._position_label()
 
 
 # ---------------------------------------------------------------------------
