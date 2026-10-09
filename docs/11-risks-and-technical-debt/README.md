@@ -29,6 +29,16 @@ Dated audit snapshots: [audit-2026-10.md](audit-2026-10.md) (numbers: `audit-202
 | Windows installer blocked by SmartScreen | Medium | Low | Document workaround, investigate signing options. Build provenance attestation shipped (ADR-044) as a verifiable trust signal alongside the checksum; does not itself suppress SmartScreen/Defender (issue #356) or Norton `FileRepMalware[Misc]` (issue #358 — second AV vendor, same unsigned zero-reputation profile) — that needs paid signing, still unfunded. FP path per vendor: Microsoft file-submission forms (#356), Norton portal `submissions.norton.com/reportfalsepositive` (#358; both portals are CAPTCHA-protected, so submissions are manual, not automatable by the maintainer). |
 | Large bundle size from PyInstaller | Medium | Low | Optimize includes, strip unused Qt modules |
 
+**Build-backend advisory, 2026-10-09.** The first Dependabot scan of uv.lock reported
+[GHSA-h35f-9h28-mq5c](https://github.com/pypa/setuptools/security/advisories/GHSA-h35f-9h28-mq5c)
+against build-only setuptools 82.0.0: a moderate Unicode-normalization bypass of MANIFEST.in
+exclusions when publishing macOS source distributions. GitHub identifies 83.0.0 as the first
+patched version. Applicability assessment: current CI uses Linux/Windows editable installs
+and publishes a Windows PyInstaller/NSIS installer; it does not publish macOS sdists.
+[Dependabot alert 1](https://github.com/cofade/open-garden-planner/security/dependabot/1)
+remains open for a separately reviewed backend/lock update. This version-sync chore preserves
+the approved dependency selections.
+
 ## 11.3 Technical Debt
 
 The living register (ADR-047). Every row has a status; P0/P1 rows link their issue, P2/P3 rows point to the audit epic's checklist (#392). Rows come from the dated audit snapshots ([audit-2026-10.md](audit-2026-10.md), Top-25 = TD-009…TD-033, plus TD-034 re-raised by the Windows check; the long tail stays in the snapshot's appendix), or from an ADR's evidence (TD-035 to TD-037, ADR-048), whose row links the work package that carries it instead of the audit checklist (a P0/P1 row links its own issue). Re-measure with `scripts/audit_metrics.py`. Status is `open` (with a note where useful), `fixed (#PR)`, `accepted (ADR-0xx)`, `closed (reason)` or `superseded (by …)`; historical rows TD-001…TD-008 carry an issue only where one exists. Never delete a row; a resolved row says so.
