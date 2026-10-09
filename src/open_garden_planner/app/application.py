@@ -4814,8 +4814,9 @@ class GardenPlannerApp(QMainWindow):
 
         # Sim clock fan-out (L1.0): a new plan DATE invalidates the daily heatmap
         # and regrows the 3D geometry; any new instant moves the toolbar and the
-        # 3D light. The overlay subscribes itself (constructed above, so it
-        # recomputes before these run).
+        # 3D light. The overlay subscribes itself to instant_changed (constructed
+        # above, so on that channel it re-solves before _on_sim_instant_changed;
+        # date_changed — and with it _on_sim_date_changed — fires before both).
         self._sim_clock.date_changed.connect(self._on_sim_date_changed)
         self._sim_clock.instant_changed.connect(self._on_sim_instant_changed)
 
@@ -6471,6 +6472,10 @@ class GardenPlannerApp(QMainWindow):
     def _on_sun_sim_datetime(self, dt) -> None:
         """The toolbar's date/time edit: write the one sim clock (L1.0).
 
+        The toolbar hands over its NAIVE wall reading, which the clock stores
+        unchanged, so the plan date is the picker's date by construction (an
+        instant could land on another day inside a spring-forward gap that
+        straddles midnight — ADR-052). An aware ``dt`` is taken as an instant.
         Everything else follows from the clock: the overlay re-solves on its
         own subscription, ``_on_sim_date_changed`` handles a new plan date and
         ``_on_sim_instant_changed`` every change."""
@@ -6480,14 +6485,17 @@ class GardenPlannerApp(QMainWindow):
         """A new plan DATE — never a time-of-day change (the clock's L1.0 gate).
 
         The whole-day heatmap goes stale (FR-SUN-05): cleared when shown AND
-        while its worker still computes — before L1.0 only a shown map was
-        cleared, so a late result painted the old day under the new date.
+        while a launched compute's result is still pending — before L1.0 only a
+        shown map was cleared, so a late result painted the old day under the
+        new date. ``result_pending`` (not ``is_running``) also covers the window
+        after the worker's ``run()`` returned but before its queued result
+        reached the GUI thread.
         US-E8: growth is keyed on the date, so the 3D geometry regrows here and
         only here; scrubbing the time of day must not rebuild the scene.
         """
         heatmap = self._sun_heatmap
         if heatmap.computed_day != day and (
-            heatmap.heatmap_visible() or heatmap.is_running
+            heatmap.heatmap_visible() or heatmap.result_pending
         ):
             heatmap.clear()
             self._sun_toolbar.set_heatmap_active(False)

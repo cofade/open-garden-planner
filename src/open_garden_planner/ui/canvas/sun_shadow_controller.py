@@ -353,9 +353,9 @@ class SunShadowController(QObject):
         self._location_provider = location_provider
         self._enabled = False
         self._clock = clock if clock is not None else SimClock()
-        # Plain Qt-free channel (ADR-052): the clock holds this bound method
-        # strongly, so the controller must live as long as the clock — true for
-        # the app (both are owned by GardenPlannerApp) and for a private clock.
+        # Qt-free channel (ADR-052): like a Qt connection it holds this bound
+        # method weakly, so controller → clock → controller is no reference
+        # cycle and an unparented controller dies with its last reference.
         self._clock.instant_changed.connect(self._on_clock_changed)
         self._overlay: SunShadowOverlayItem | None = None
         self._state = STATE_DISABLED

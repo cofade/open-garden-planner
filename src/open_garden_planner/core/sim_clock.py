@@ -8,27 +8,35 @@ read the overlay's UTC instant and UTC date. After local midnight east of UTC
 (or before it west of UTC) the overlay and the heatmap grew plants for
 different days. The clock is now the one source of truth:
 
-- ``plan_date`` is the user's LOCAL calendar day. The clock **stores** it and
-  never derives it from the UTC instant, so no time-of-day change, DST
-  transition or UTC offset can move it. A time change never fires
-  ``date_changed``: this holds by construction.
+- ``plan_date`` is the user's LOCAL calendar day. The clock **stores** it. A
+  writer that hands over a wall reading — ``set_time_of_day``, ``set_date``,
+  or a NAIVE ``set_datetime``, which is the sun toolbar's path — keeps the date
+  it was given, so no time-of-day change, DST transition or UTC offset can move
+  it: a time change never fires ``date_changed``, by construction.
 - ``utc`` is derived from the stored wall-clock reading for the solar math
   (``core/solar`` takes UTC instants).
 
+An AWARE ``set_datetime`` is an instant, and its date is read in the clock's
+zone. That is right for an instant, but a wall time first turned into an
+instant can land on another day: inside a spring-forward gap that starts
+before midnight (America/Nuuk: Saturday 23:00 jumps to Sunday 00:00), the
+instant of "Saturday 23:30" reads back as Sunday 00:30. User-facing writers
+therefore hand over wall readings, never instants.
+
 The clock is **Qt-free** by design (epic #383: the sim clock is one of the
 engine-independent cores). It notifies through two plain synchronous
-:class:`Channel` objects instead of Qt signals. Consequence: a listener is a
-plain callable that the channel holds strongly. Nothing disconnects it when a
-Qt receiver dies, so subscribers must live as long as the clock. The app owns
-the clock and is its only subscriber besides the shadow overlay (a child of
-the app).
+:class:`Channel` objects instead of Qt signals. Like a Qt connection, a
+subscription never keeps its receiver alive: a bound method is held weakly
+(so a controller that owns a clock and listens to it forms no reference
+cycle), any other callable strongly. Every listener runs even when one raises;
+the first error is re-raised afterwards.
 
-Zone: ``tz=None`` means the system zone. That is the zone ``SunSimToolbar``
-edits in, so the app's clock and the toolbar always agree. Wall-time rules
-follow PEP 495. In a repeated (fall-back) hour, ``fold`` selects the
-occurrence, and an aware instant read into the clock round-trips exactly. A
-wall time inside a skipped (spring-forward) hour is converted by the
-platform's rule. Neither case touches the plan date.
+Zone: ``tz=None`` means the system zone, which is the app's choice (the
+garden and the computer share one in practice). Wall-time rules follow
+PEP 495: in a repeated (fall-back) hour ``fold`` selects the occurrence, and an
+aware instant read into the clock round-trips exactly; a wall time inside a
+skipped (spring-forward) hour is converted by PEP 495's rule (the offset in
+force before the gap, ``fold=0``). Neither case touches the plan date.
 
 The sim moment is deliberately not persisted (FR-SUN-04): every session
 starts at "now".
@@ -36,19 +44,22 @@ starts at "now".
 
 from __future__ import annotations
 
+import weakref
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta, tzinfo
-from typing import Generic, TypeVar
+from types import MethodType
+from typing import Any, Generic, TypeVar
 
 T = TypeVar("T")
 
 #: The plan dates the clock accepts. The system zone converts through the
-#: platform's ``localtime``/``mktime``, which on Windows raise ``OSError``
-#: outside 1970–3000 (measured: 1960 and 3001 fail, 1970 and 2999 work). A
-#: day of margin on each side keeps every UTC offset (±14 h) inside that
-#: window, so no consumer ever meets the platform error; ``SunSimToolbar``
-#: limits its date picker to the same range.
+#: platform's ``localtime``/``mktime``, which on Windows raise ``OSError`` near
+#: and before the 1970 epoch and after the year 3000 (measured on Windows 11,
+#: CPython 3.12: 1960, 1970-01-01 12:00 and 3001 fail; 1970-01-02, 2999-12-31
+#: and 3000-12-31 work — CPython probes about a day either side of the
+#: instant). The range keeps a full year of margin at the start and is safe
+#: for every UTC offset; ``SunSimToolbar`` limits its date picker to it.
 MIN_PLAN_DATE = date(1971, 1, 1)
 MAX_PLAN_DATE = date(2999, 12, 31)
 
@@ -61,35 +72,91 @@ def _check_range(day: date, margin: timedelta = timedelta(0)) -> None:
         )
 
 
+class _Slot:
+    """One connection: a bound method held weakly, any other callable strongly."""
+
+    __slots__ = ("_strong", "_weak", "key")
+
+    def __init__(self, listener: Callable[[Any], object]) -> None:
+        self._strong: Callable[[Any], object] | None
+        self._weak: weakref.WeakMethod[Callable[[Any], object]] | None
+        self.key: object
+        if isinstance(listener, MethodType):
+            self._strong = None
+            self._weak = weakref.WeakMethod(listener)
+            self.key = (id(listener.__self__), listener.__func__)
+        else:
+            self._strong = listener
+            self._weak = None
+            self.key = listener
+
+    def resolve(self) -> Callable[[Any], object] | None:
+        """The listener, or None once a weakly held receiver has been collected."""
+        return self._strong if self._weak is None else self._weak()
+
+
 class Channel(Generic[T]):
     """A minimal synchronous observer channel: ``connect`` / ``disconnect`` / ``emit``.
 
-    Qt-free stand-in for a signal. ``connect`` is idempotent; bound methods
-    compare by their target, so connecting ``obj.slot`` twice registers it once.
-    A listener disconnected during an emission is not called afterwards (Qt's
-    rule); exceptions propagate to the emitter (loud, never swallowed).
+    Qt-free stand-in for a signal, with Qt's rules where they matter:
+
+    - ``connect`` is idempotent; bound methods compare by their target, so
+      connecting ``obj.slot`` twice registers it once.
+    - A bound method is held weakly — a subscription never keeps its receiver
+      alive; a dead receiver is skipped and pruned. Other callables (functions,
+      lambdas, builtins) are held strongly.
+    - A listener disconnected during an emission is not called afterwards.
+    - Every listener runs even when one raises; the first exception is re-raised
+      after the last listener (later ones are attached to it as notes) — loud,
+      never swallowed, and one failing consumer cannot starve the others.
     """
 
-    __slots__ = ("_listeners",)
+    __slots__ = ("_slots",)
 
     def __init__(self) -> None:
-        self._listeners: list[Callable[[T], object]] = []
+        self._slots: list[_Slot] = []
+
+    def _prune(self) -> None:
+        self._slots = [slot for slot in self._slots if slot.resolve() is not None]
 
     def connect(self, listener: Callable[[T], object]) -> None:
-        if listener not in self._listeners:
-            self._listeners.append(listener)
+        self._prune()
+        slot = _Slot(listener)
+        if all(existing.key != slot.key for existing in self._slots):
+            self._slots.append(slot)
 
     def disconnect(self, listener: Callable[[T], object]) -> None:
         """Remove ``listener``; ``ValueError`` if it is not connected."""
-        self._listeners.remove(listener)
+        self._prune()
+        key = _Slot(listener).key
+        for index, slot in enumerate(self._slots):
+            if slot.key == key:
+                del self._slots[index]
+                return
+        raise ValueError("listener is not connected")
 
     def emit(self, value: T) -> None:
-        for listener in tuple(self._listeners):
-            if listener in self._listeners:
+        first_error: Exception | None = None
+        for slot in tuple(self._slots):
+            if slot not in self._slots:  # disconnected during this emission
+                continue
+            listener = slot.resolve()
+            if listener is None:
+                continue
+            try:
                 listener(value)
+            except Exception as exc:  # deliver to the rest, then re-raise
+                if first_error is None:
+                    first_error = exc
+                else:
+                    first_error.add_note(f"a further listener also raised: {exc!r}")
+        self._prune()
+        if first_error is not None:
+            raise first_error
 
     def receiver_count(self) -> int:
-        return len(self._listeners)
+        self._prune()
+        return len(self._slots)
 
 
 def _utc_of(wall: datetime, tz: tzinfo | None) -> datetime:
@@ -102,17 +169,19 @@ def _utc_of(wall: datetime, tz: tzinfo | None) -> datetime:
 def _wall_reading(moment: datetime, tz: tzinfo | None) -> datetime:
     """Read an aware instant as a naive wall time in ``tz``, with the right ``fold``.
 
+    Converted through UTC: ``moment.astimezone(tz)`` would hand ``moment`` back
+    unchanged when it already carries ``tz``, un-normalised inside a gap.
     ``ZoneInfo`` sets ``fold`` itself; the system zone (``astimezone()``) and
     fixed offsets do not, so both occurrences are tried and the one that names
     the same instant wins — an exact round trip through the repeated hour.
     """
     target = moment.astimezone(UTC)
-    wall = moment.astimezone(tz).replace(tzinfo=None)
+    wall = target.astimezone(tz).replace(tzinfo=None)
     for fold in (wall.fold, 1 - wall.fold):
         candidate = wall.replace(fold=fold)
         if _utc_of(candidate, tz) == target:
             return candidate
-    return wall  # unreachable for real zones; keep the platform's reading
+    return wall  # unreachable for real zones; keep the conversion's reading
 
 
 @dataclass(frozen=True, slots=True, eq=False)
@@ -120,9 +189,12 @@ class SimInstant:
     """One simulated moment: the plan's local calendar day plus a wall-clock time.
 
     ``time_of_day`` is naive, in ``tz`` (None = the system zone), at seconds
-    resolution (microseconds are dropped). Its ``fold`` selects the occurrence
-    in a repeated DST hour and is part of equality — plain ``time`` equality
-    ignores it, which would merge two different instants.
+    resolution (microseconds are dropped). Equality compares the WALL READING
+    (date, time, ``fold``, zone): ``fold`` is included because plain ``time``
+    equality ignores it, which would merge the two occurrences of a repeated
+    hour. Inside a skipped hour two different readings can name one instant
+    (Berlin 02:30 and 03:30 on a spring-forward day) and still compare unequal
+    — they are different things the user picked.
     """
 
     plan_date: date
@@ -140,7 +212,8 @@ class SimInstant:
         t = self.time_of_day.replace(microsecond=0)
         if t.fold == 1:
             # Canonical fold: keep 1 only where it names a different instant
-            # (inside a repeated or skipped hour), so equal moments compare equal.
+            # (inside a repeated or skipped hour), so readings that cannot
+            # differ do not compare unequal by their fold alone.
             wall = datetime.combine(self.plan_date, t)
             if _utc_of(wall, self.tz) == _utc_of(wall.replace(fold=0), self.tz):
                 t = t.replace(fold=0)
@@ -148,7 +221,8 @@ class SimInstant:
 
     @classmethod
     def from_datetime(cls, dt: datetime, tz: tzinfo | None = None) -> SimInstant:
-        """Aware ``dt``: the same instant read in ``tz``. Naive ``dt``: wall time in ``tz``.
+        """Naive ``dt``: a wall reading in ``tz``, kept as given (its date is the
+        plan date). Aware ``dt``: an instant, read as wall time in ``tz``.
 
         ``ValueError`` outside :data:`MIN_PLAN_DATE` … :data:`MAX_PLAN_DATE`.
         """
@@ -223,9 +297,11 @@ class SimClock:
     :meth:`set_time_of_day`; each returns the :class:`SimChange`, or ``None``
     when nothing changed (nothing is emitted then). A change emits
     ``date_changed(plan_date)`` first — only when the plan date moved — then
-    ``instant_changed(change)``. Listeners see the new state. Writing the clock
-    from inside its own notification raises ``RuntimeError``: such a chain would
-    hand the remaining listeners a stale change.
+    ``instant_changed(change)``, and ``instant_changed`` is delivered even when
+    a ``date_changed`` listener raised (the first error is re-raised after
+    both). Listeners see the new state. Writing the clock from inside its own
+    notification raises ``RuntimeError``: such a chain would hand the remaining
+    listeners a stale change.
     """
 
     def __init__(
@@ -275,7 +351,8 @@ class SimClock:
     # ── writes ───────────────────────────────────────────────────────────
 
     def set_datetime(self, dt: datetime) -> SimChange | None:
-        """Aware ``dt`` = an instant; naive ``dt`` = a wall time in the clock's zone."""
+        """Naive ``dt`` = a wall reading in the clock's zone (UI writers: the date
+        is kept by construction); aware ``dt`` = an instant (see the module note)."""
         return self._commit(SimInstant.from_datetime(dt, self._tz))
 
     def set_date(self, day: date) -> SimChange | None:
@@ -297,10 +374,22 @@ class SimClock:
         change = SimChange(self._instant, new)
         self._instant = new
         self._notifying = True
+        first_error: Exception | None = None
         try:
             if change.date_changed:
-                self.date_changed.emit(new.plan_date)
-            self.instant_changed.emit(change)
+                try:
+                    self.date_changed.emit(new.plan_date)
+                except Exception as exc:  # still notify instant listeners
+                    first_error = exc
+            try:
+                self.instant_changed.emit(change)
+            except Exception as exc:
+                if first_error is None:
+                    first_error = exc
+                else:
+                    first_error.add_note(f"an instant listener also raised: {exc!r}")
         finally:
             self._notifying = False
+        if first_error is not None:
+            raise first_error
         return change

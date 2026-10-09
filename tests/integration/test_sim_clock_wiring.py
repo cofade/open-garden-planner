@@ -18,8 +18,10 @@ the Qt 3D view needs an RHI context, which only the Windows-only tests in
 from __future__ import annotations
 
 import functools
+import weakref
 from datetime import UTC, date, datetime, time, timedelta, timezone
 from unittest.mock import MagicMock
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import pytest
 from PyQt6.QtCore import QDate, QPointF
@@ -109,6 +111,17 @@ class TestShadowOverlayReadsTheClock:
         with pytest.raises(ValueError, match="timezone-aware"):
             controller.set_sim_datetime(datetime(2026, 6, 21, 12, 0))
 
+    def test_an_unparented_controller_dies_without_a_gc_cycle(self, scene) -> None:
+        """The controller owns its clock and listens to it; a strong listener
+        would close a cycle and leave the QObject to the cyclic GC, which may run
+        on a worker thread (the #230 neighbourhood). Senior review P2."""
+        clock = SimClock(datetime(2026, 6, 21, 12, 0, tzinfo=UTC))
+        controller = SunShadowController(scene, lambda: BERLIN, clock=clock)
+        alive = weakref.ref(controller)
+        del controller
+        assert alive() is None
+        assert clock.instant_changed.receiver_count() == 0
+
 
 # ── the app owns one clock ───────────────────────────────────────────────────
 
@@ -138,8 +151,7 @@ class TestAppOwnsOneClock:
         win = _app(qtbot)
         assert isinstance(win._sim_clock, SimClock)
         assert win._sun_controller.clock is win._sim_clock
-        toolbar_wall = win._sun_toolbar.current_datetime_local().replace(tzinfo=None)
-        assert toolbar_wall == win._sim_clock.wall
+        assert win._sun_toolbar.current_wall_datetime() == win._sim_clock.wall
 
     def test_time_drag_moves_the_light_only(self, qtbot) -> None:
         win = _app(qtbot)
@@ -266,6 +278,43 @@ class TestOnePlanDateEastOfUtc:
         assert win._sun_toolbar._date_edit.date() == QDate(2026, 6, 22)
 
 
+class TestToolbarPathPreMidnightGap:
+    """The L1.0 gate on the PRODUCT path, in a zone whose spring-forward gap
+    starts before midnight (America/Nuuk: Saturday 23:00 → Sunday 00:00). The
+    first draft handed the clock the toolbar's ``naive.astimezone()`` instant,
+    and an Animate tick from 22:50 moved the plan date to Sunday (senior review
+    P1). Skips without IANA tz data (a bare Windows venv); CI Linux runs it."""
+
+    def test_every_slider_value_and_animation_tick_keeps_the_date(
+        self, qtbot, monkeypatch
+    ) -> None:
+        try:
+            nuuk = ZoneInfo("America/Nuuk")
+        except ZoneInfoNotFoundError:
+            pytest.skip("no IANA tz data for America/Nuuk on this platform")
+        monkeypatch.setattr(
+            sim_clock_module, "SimClock", functools.partial(SimClock, tz=nuuk)
+        )
+        win = _app(qtbot)
+        toolbar = win._sun_toolbar
+        saturday = date(2026, 3, 28)
+        toolbar._date_edit.setDate(QDate(2026, 3, 28))
+        assert win._sim_clock.plan_date == saturday
+        dates = _date_spy(win)
+
+        for minutes in range(24 * 60):  # the user drags through the whole day
+            toolbar._slider.setValue(minutes)
+            assert win._sim_clock.plan_date == saturday, minutes
+            assert toolbar._slider.value() == minutes  # the mirror never jumps
+        toolbar._slider.setValue(22 * 60 + 50)
+        for _ in range(20):  # Animate: 22:50 → through the gap → past midnight
+            toolbar._on_animate_tick()
+            assert win._sim_clock.plan_date == saturday
+
+        assert dates == []
+        assert toolbar._date_edit.date() == QDate(2026, 3, 28)
+
+
 class TestHeatmapMidComputeDateChange:
     def test_late_result_never_paints_under_a_new_date(self, qtbot) -> None:
         """Before L1.0 the app cleared the heatmap only when it was VISIBLE, so a
@@ -287,6 +336,43 @@ class TestHeatmapMidComputeDateChange:
         qtbot.wait(100)  # a stray queued success slot would land here
         assert not heatmap.heatmap_visible()
         heatmap.shutdown()
+
+    def test_result_queued_after_the_worker_returned_never_paints(
+        self, qtbot
+    ) -> None:
+        """``QThread.isRunning()`` is already False once ``run()`` returned,
+        while its success/finished still wait in the GUI queue. A stale rule
+        keyed on ``is_running`` let that queued map paint under the new date
+        (senior review P1). Driven through the button, so its busy, checked and
+        enabled states are asserted too."""
+        win = _app(qtbot)
+        win._project_manager._location = dict(BERLIN)
+        win.canvas_scene.addItem(
+            RectangleItem(100, 100, 40, 40, object_type=ObjectType.TOOL_SHED)
+        )
+        win._sim_clock.set_datetime(datetime(2026, 6, 21, 12, 0))
+        toolbar = win._sun_toolbar
+        heatmap = win._sun_heatmap
+        button = toolbar._heatmap_button
+        idle_text = button.text()
+
+        button.setChecked(True)  # the user asks for the hours-of-sun map
+        assert heatmap.result_pending
+        assert not button.isEnabled()  # busy while computing
+        worker = heatmap._worker
+        assert worker is not None
+        assert worker.wait(60000)  # run() returned; its signals are queued
+        assert not heatmap.is_running and heatmap.result_pending
+
+        with qtbot.waitSignal(heatmap.finished, timeout=60000) as blocker:
+            win._sim_clock.set_date(date(2026, 6, 22))  # before the queue drains
+        assert blocker.args == [False]
+        qtbot.wait(100)
+        assert not heatmap.heatmap_visible()
+        assert not heatmap.result_pending
+        assert not button.isChecked()
+        assert button.isEnabled()
+        assert button.text() == idle_text
 
 
 def test_toolbar_alone_is_limited_to_the_clock_range(qtbot) -> None:

@@ -10,6 +10,7 @@ not, so those cases skip there and run in CI).
 from __future__ import annotations
 
 import ast
+import weakref
 from datetime import UTC, date, datetime, time, timedelta, timezone, tzinfo
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -32,6 +33,9 @@ LA_FIXED = timezone(timedelta(hours=-7))
 # The two 2026 transition days of the EU rule (last Sunday of March / October).
 EU_SPRING_FORWARD = date(2026, 3, 29)
 EU_FALL_BACK = date(2026, 10, 25)
+# Greenland's spring-forward gap starts BEFORE midnight: Saturday 23:00 local
+# jumps to Sunday 00:00 (current tzdata rules, every year since 2024).
+NUUK_GAP_SATURDAY = date(2026, 3, 28)
 
 
 def _zone(key: str) -> tzinfo:
@@ -137,6 +141,18 @@ class TestSimInstant:
         for step in range(365 * 48):
             moment = start + timedelta(minutes=30 * step)
             assert SimInstant.from_datetime(moment, zone).utc == moment, moment
+
+    def test_aware_input_already_in_the_clock_zone_is_normalised(self) -> None:
+        """``moment.astimezone(tz)`` hands ``moment`` back unchanged when it
+        already carries ``tz`` — un-normalised inside a gap. The reading goes
+        through UTC, so one instant gives one SimInstant (senior review P2)."""
+        berlin = _zone("Europe/Berlin")
+        in_gap = datetime(2026, 3, 29, 2, 30, tzinfo=berlin)  # does not exist
+        same_instant = datetime(2026, 3, 29, 1, 30, tzinfo=UTC)
+        a = SimInstant.from_datetime(in_gap, berlin)
+        b = SimInstant.from_datetime(same_instant, berlin)
+        assert a == b
+        assert a.time_of_day == time(3, 30)
 
     def test_repeated_fall_back_hour_keeps_both_occurrences(self) -> None:
         berlin = _zone("Europe/Berlin")
@@ -299,6 +315,30 @@ class TestTimeChangeNeverFiresDateChanged:
         day = date(2026, 6, 21)
         self._sweep(SimClock(datetime.combine(day, time(12, 0)), tz=tz), day)
 
+    def test_wall_readings_in_a_gap_that_straddles_midnight(self) -> None:
+        """The toolbar's path (a naive wall reading into ``set_datetime``) keeps
+        the picker's date even where the skipped hour ends at midnight."""
+        nuuk = _zone("America/Nuuk")
+        clock = SimClock(datetime(2026, 3, 28, 12, 0), tz=nuuk)
+        dates = _Spy()
+        clock.date_changed.connect(dates)
+        for t in _every_minute():
+            clock.set_datetime(datetime.combine(NUUK_GAP_SATURDAY, t))
+            assert clock.plan_date == NUUK_GAP_SATURDAY, t
+        assert dates.calls == []
+        clock.set_datetime(datetime(2026, 3, 28, 23, 30))  # inside the gap
+        assert clock.wall == datetime(2026, 3, 28, 23, 30)  # stored as picked
+        assert clock.utc == datetime(2026, 3, 29, 1, 30, tzinfo=UTC)  # PEP 495 fold=0
+
+    def test_an_instant_of_a_gap_reading_lands_on_the_next_day(self) -> None:
+        """Pins WHY user-facing writers hand over wall readings: the instant of
+        Nuuk's non-existent "Saturday 23:30" reads back as Sunday 00:30. This
+        is the path the first L1.0 draft used (the toolbar's
+        ``naive.astimezone()``), where an Animate tick moved the date."""
+        nuuk = _zone("America/Nuuk")
+        as_instant = datetime(2026, 3, 28, 23, 30).replace(tzinfo=nuuk)
+        assert SimInstant.from_datetime(as_instant, nuuk).plan_date == date(2026, 3, 29)
+
     def test_skipped_spring_forward_hour_leaves_the_date_alone(self) -> None:
         berlin = _zone("Europe/Berlin")
         clock = SimClock(datetime(2026, 3, 29, 1, 50), tz=berlin)
@@ -316,6 +356,22 @@ class TestReentrancyAndErrors:
         clock.instant_changed.connect(lambda _c: clock.set_time_of_day(time(9, 0)))
         with pytest.raises(RuntimeError, match="notification"):
             clock.set_time_of_day(time(15, 0))
+
+    def test_instant_listeners_run_when_a_date_listener_raises(self) -> None:
+        """One failing consumer (say, a 3D rebuild on the date channel) must not
+        starve the rest: the overlay and the toolbar still hear the instant."""
+        clock = SimClock(datetime(2026, 6, 21, 12, 0))
+        instants = _Spy()
+
+        def broken_rebuild(_day: date) -> None:
+            raise LookupError("rebuild failed")
+
+        clock.date_changed.connect(broken_rebuild)
+        clock.instant_changed.connect(instants)
+        with pytest.raises(LookupError, match="rebuild failed"):
+            clock.set_date(date(2031, 6, 21))
+        assert len(instants.calls) == 1
+        assert clock.plan_date == date(2031, 6, 21)
 
     def test_a_raising_listener_does_not_leave_the_clock_stuck(self) -> None:
         clock = SimClock(datetime(2026, 6, 21, 12, 0))
@@ -367,6 +423,53 @@ class TestChannel:
         channel.disconnect(spy.__call__)
         assert channel.receiver_count() == 0
 
+    def test_a_bound_method_does_not_keep_its_receiver_alive(self) -> None:
+        """Like a Qt connection: no clock → receiver reference, so an owner that
+        listens to its own clock forms no cycle (senior review P2)."""
+        channel: Channel[int] = Channel()
+
+        class Receiver:
+            def __init__(self) -> None:
+                self.calls: list[int] = []
+
+            def on(self, value: int) -> None:
+                self.calls.append(value)
+
+        receiver = Receiver()
+        channel.connect(receiver.on)
+        channel.emit(1)
+        assert receiver.calls == [1]
+        alive = weakref.ref(receiver)
+        del receiver  # refcounting alone frees it: no cycle, no gc needed
+        assert alive() is None
+        assert channel.receiver_count() == 0
+        channel.emit(2)  # a dead receiver is skipped, not called
+
+    def test_plain_functions_are_held_strongly(self) -> None:
+        channel: Channel[int] = Channel()
+        calls: list[int] = []
+        channel.connect(lambda value: calls.append(value))  # no other reference
+        channel.emit(3)
+        assert calls == [3]
+
+    def test_every_listener_runs_and_the_first_error_is_reraised(self) -> None:
+        channel: Channel[int] = Channel()
+        later = _Spy()
+
+        def first(_value: int) -> None:
+            raise LookupError("first")
+
+        def second(_value: int) -> None:
+            raise KeyError("second")
+
+        channel.connect(first)
+        channel.connect(second)
+        channel.connect(later)
+        with pytest.raises(LookupError, match="first") as info:
+            channel.emit(5)
+        assert later.calls == [5]
+        assert any("second" in note for note in info.value.__notes__)
+
     def test_listener_disconnecting_itself_during_emit(self) -> None:
         channel: Channel[int] = Channel()
         later = _Spy()
@@ -399,5 +502,7 @@ def test_module_is_qt_free() -> None:
         "collections.abc",
         "dataclasses",
         "datetime",
+        "types",
         "typing",
+        "weakref",
     }, imported

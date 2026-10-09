@@ -248,6 +248,18 @@ class SunHeatmapController(QObject):
         return self._worker is not None and self._worker.isRunning()
 
     @property
+    def result_pending(self) -> bool:
+        """A launched compute whose result has not reached the GUI thread yet.
+
+        Wider than ``is_running``: ``QThread.isRunning()`` turns False as soon
+        as ``run()`` returns, while its ``success`` / ``finished`` are still
+        queued for the GUI thread. A stale-rule check that only asks
+        ``is_running`` misses that window and lets a stale map paint (L1.0
+        senior review). Cleared in ``_on_worker_finished``.
+        """
+        return self._worker is not None
+
+    @property
     def computed_day(self) -> date | None:
         return self._computed_day
 
