@@ -611,7 +611,7 @@
   },
   "399": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "'Never merge on red' is prose-only: required status checks are off on master, merges use --admin, PR #323 merged on a red Test (Audit 2026-10, epic #392)"
   },
   "400": {
@@ -621,12 +621,12 @@
   },
   "401": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "CI: mypy is documented as a gate but never runs — add a ratcheted type-check job and fix the docs (Audit 2026-10, epic #392)"
   },
   "402": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "CI: coverage is declared (>80 % non-UI) but never measured — add a coverage job with per-package floors (Audit 2026-10, epic #392)"
   },
   "403": {
@@ -636,7 +636,7 @@
   },
   "404": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Lock the release build's dependency resolution (PEP 751 pylock.toml) — the #277 'process bug' is still open (Audit 2026-10, epic #392)"
   },
   "405": {
@@ -701,7 +701,7 @@
   },
   "422": {
     "is_pr": true,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "fix(ci): lock dependencies and enforce quality regression gates"
   }
 }

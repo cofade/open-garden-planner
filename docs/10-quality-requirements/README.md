@@ -106,10 +106,10 @@ Each feature requires hands-on testing before completion:
 Every push/PR runs context parity, full-tree ruff, pytest offscreen, Bandit HIGH, secrets scan,
 locked-dependency checks and strict type baselines. A separate Linux job measures full-suite
 line/branch coverage and enforces package line floors; XML and summaries are uploaded even
-on failure. Concrete check names and platform matrices are documented in ?7.4.
+on failure. Concrete check names and platform matrices are documented in section 7.4.
 
 The #399 protection payload requires all checks except Coverage, an up-to-date PR and checks
-for administrators, with zero approving reviews. Activation remains pending owner-approved
-finalization. The existing no-failed-CI finalization rule applies to Coverage as well. Frozen
+for administrators, with zero approving reviews. Master enforcement was activated and
+independently verified before PR #422 merged for v1.29.6. The existing no-failed-CI finalization rule applies to Coverage as well. Frozen
 Windows build, eight-second smoke and subsystem self-test remain local merge gates and the
 release pipeline repeats its subsystem self-test after merge.
