@@ -4,12 +4,19 @@ Opens directly under a toolbar category button. Supports click-to-activate
 and drag-to-canvas, plus an in-popup search field that filters thumbnails.
 """
 
-from PyQt6.QtCore import QMimeData, QPoint, Qt, pyqtSignal
-from PyQt6.QtGui import QDrag
+from typing import TYPE_CHECKING
+
+from PyQt6.QtCore import QCoreApplication, QMimeData, QPoint, Qt, pyqtSignal
+from PyQt6.QtGui import (
+    QContextMenuEvent,
+    QDrag,
+    QShowEvent,
+)
 from PyQt6.QtWidgets import (
     QGridLayout,
     QLabel,
     QLineEdit,
+    QMenu,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -22,6 +29,10 @@ from open_garden_planner.ui.widgets.gallery_data import (
     GalleryCategory,
     GalleryItem,
 )
+
+if TYPE_CHECKING:
+    from open_garden_planner.models.plant_data import PlantSpeciesData
+    from open_garden_planner.models.plant_lists import PlantListStore
 
 GRID_COLS = 3
 DRAG_THRESHOLD = 10
@@ -38,8 +49,16 @@ class _ThumbnailButton(QToolButton):
         self._drag_start_pos: QPoint | None = None
 
         self.setFixedSize(THUMB_SIZE + 16, THUMB_SIZE + 24)
-        self.setToolTip(item.name)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        self._list_store: PlantListStore | None = None
+        if self._item.species:
+            from open_garden_planner.models.plant_lists import (  # noqa: PLC0415
+                get_plant_list_store,
+            )
+
+            self._list_store = get_plant_list_store()
+            self._list_store.changed.connect(self._on_store_changed)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(2, 2, 2, 2)
@@ -57,6 +76,19 @@ class _ThumbnailButton(QToolButton):
             thumb_label.setStyleSheet("font-size: 20px;")
         layout.addWidget(thumb_label)
 
+        star_badge = QLabel(thumb_label)
+        from open_garden_planner.ui.icons import get_pixmap  # noqa: PLC0415
+
+        pm = get_pixmap("star", size=14)
+        if pm is not None:
+            star_badge.setPixmap(pm)
+        star_badge.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        star_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        star_badge.setFixedSize(14, 14)
+        star_badge.move(THUMB_SIZE - 15, 1)
+        star_badge.setVisible(False)
+        self._star_badge = star_badge
+
         name_label = QLabel(item.name)
         name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         name_label.setWordWrap(True)
@@ -64,9 +96,112 @@ class _ThumbnailButton(QToolButton):
         name_label.setMaximumHeight(20)
         layout.addWidget(name_label)
 
+        self._update_favorite_state()
+
         # Styled by theme.py's #CategoryDropdown QToolButton rules — the old
         # palette()-based QSS tracked the OS palette, not our theme.
         self.clicked.connect(lambda: self.clicked_item.emit(self._item))
+
+    def showEvent(self, event: QShowEvent | None) -> None:  # noqa: N802 — Qt override
+        super().showEvent(event)
+        self._update_favorite_state()
+
+    def _on_store_changed(self) -> None:
+        """Update favorite star badge and tooltip when store changes."""
+        self._update_favorite_state()
+
+    def _get_species_obj(self) -> "PlantSpeciesData":
+        from open_garden_planner.models.plant_data import (  # noqa: PLC0415
+            PlantSpeciesData,
+        )
+        from open_garden_planner.services.bundled_species_db import (  # noqa: PLC0415
+            lookup_species,
+        )
+
+        meta = lookup_species(self._item.species) or lookup_species(self._item.name)
+        if meta:
+            return PlantSpeciesData.from_dict(meta)
+        return PlantSpeciesData(
+            scientific_name=self._item.species,
+            common_name=self._item.name,
+        )
+
+    def _update_favorite_state(self) -> None:
+        """Update button star badge and tooltip if item is favorited."""
+        if not self._item.species:
+            self.setToolTip(self._item.name)
+            if hasattr(self, "_star_badge"):
+                self._star_badge.setVisible(False)
+            return
+        from open_garden_planner.models.plant_lists import (  # noqa: PLC0415
+            get_plant_list_store,
+        )
+
+        store = get_plant_list_store()
+        obj = self._get_species_obj()
+        is_fav = (
+            store.is_favorite(obj)
+            or store.is_favorite(self._item.species)
+            or store.is_favorite(self._item.name)
+        )
+        if hasattr(self, "_star_badge"):
+            self._star_badge.setVisible(is_fav)
+        if is_fav:
+            self.setToolTip(
+                QCoreApplication.translate(
+                    "CategoryDropdown", "{name} (Favorite)"
+                ).format(name=self._item.name)
+            )
+        else:
+            self.setToolTip(self._item.name)
+
+    _update_tooltip = _update_favorite_state
+
+    def contextMenuEvent(self, event: QContextMenuEvent | None) -> None:  # noqa: N802 — Qt override
+        """Show context menu for plant gallery items (Favorites and List management)."""
+        if not self._item.species or event is None:
+            super().contextMenuEvent(event)
+            return
+
+        from open_garden_planner.models.plant_lists import (  # noqa: PLC0415
+            get_plant_list_store,
+        )
+
+        store = get_plant_list_store()
+        obj = self._get_species_obj()
+        is_fav = store.is_favorite(obj) or store.is_favorite(self._item.species) or store.is_favorite(self._item.name)
+
+        menu = QMenu(self)
+
+        if is_fav:
+            fav_action = menu.addAction(
+                QCoreApplication.translate("CategoryDropdown", "Remove from Favorites")
+            )
+            if fav_action is not None:
+                fav_action.triggered.connect(lambda: store.toggle_favorite(obj))
+        else:
+            fav_action = menu.addAction(
+                QCoreApplication.translate("CategoryDropdown", "Add to Favorites")
+            )
+            if fav_action is not None:
+                fav_action.triggered.connect(lambda: store.toggle_favorite(obj))
+
+        custom_lists = [pl for pl in store.all_lists() if pl.id != store.FAVORITES_ID]
+        if custom_lists:
+            sub_menu = menu.addMenu(
+                QCoreApplication.translate("CategoryDropdown", "Add to List")
+            )
+            if sub_menu is not None:
+                for pl in custom_lists:
+                    action = sub_menu.addAction(pl.name)
+                    if action is not None:
+                        action.triggered.connect(
+                            lambda _checked=False, target_id=pl.id: store.add_entry(
+                                target_id, self._get_species_obj()
+                            )
+                        )
+
+        menu.exec(event.globalPos())
 
     @property
     def item(self) -> GalleryItem:
@@ -193,6 +328,13 @@ class CategoryDropdown(QWidget):
         """Show the popup directly beneath the given anchor widget."""
         self._search_box.clear()
         self._search_box.setFocus()
+        for btn in self._buttons:
+            btn._update_favorite_state()
         anchor_bottom_left = anchor.mapToGlobal(anchor.rect().bottomLeft())
         self.move(anchor_bottom_left)
         self.show()
+
+
+# Backwards compatibility / descriptive alias
+CategoryItemButton = _ThumbnailButton
+

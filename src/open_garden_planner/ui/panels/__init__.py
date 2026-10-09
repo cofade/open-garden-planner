@@ -12,6 +12,7 @@ from .journal_panel import JournalPanel
 from .layers_panel import LayersPanel
 from .pest_overview_panel import PestOverviewPanel
 from .plant_database_panel import PlantDatabasePanel
+from .plant_lists_panel import PlantListsPanel
 from .plant_search_panel import PlantSearchPanel
 from .properties_panel import PropertiesPanel
 from .smart_symbols_panel import SmartSymbolsPanel
@@ -24,6 +25,7 @@ __all__ = [
     "LayersPanel",
     "PestOverviewPanel",
     "PlantDatabasePanel",
+    "PlantListsPanel",
     "PlantSearchPanel",
     "PropertiesPanel",
     "SmartSymbolsPanel",

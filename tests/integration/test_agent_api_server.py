@@ -111,6 +111,7 @@ def _providers(scene: Any) -> AgentProviders:
         find_compatible_sets=lambda *_a, **_k: _unused("find_compatible_sets"),
         find_sets_for_bed=lambda *_a, **_k: _unused("find_sets_for_bed"),
         check_placement=lambda *_a, **_k: _unused("check_placement"),
+        get_plant_lists=None,
     )
 
 
@@ -326,6 +327,9 @@ def test_resources_end_to_end(canvas: Any, qtbot: Any) -> None:
         species = await session.read_resource("garden://species")
         result["species"] = json.loads(species.contents[0].text)
 
+        plant_lists = await session.read_resource("garden://plant-lists")
+        result["plant_lists"] = json.loads(plant_lists.contents[0].text)
+
     threading.Thread(
         target=_drive, args=(server, body, result), name="mcp-test-client"
     ).start()
@@ -339,6 +343,7 @@ def test_resources_end_to_end(canvas: Any, qtbot: Any) -> None:
             "garden://canvas.png",
             "garden://diagnostics",
             "garden://species",
+            "garden://plant-lists",
         }
 
         assert result["plan"]["bed_count"] == 1
@@ -357,6 +362,9 @@ def test_resources_end_to_end(canvas: Any, qtbot: Any) -> None:
 
         assert len(result["species"]) == len(get_species_db())
         assert all("scientific_name" in s and "common_name" in s for s in result["species"])
+
+        assert isinstance(result["plant_lists"], list)
+        assert any(pl["id"] == "favorites" for pl in result["plant_lists"])
     finally:
         server.stop()
 

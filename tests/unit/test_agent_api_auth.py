@@ -12,6 +12,8 @@ These exercise the pure gate logic without a running server:
 from __future__ import annotations
 
 import asyncio
+import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -334,3 +336,51 @@ def test_middleware_strips_query_token_even_when_header_present() -> None:
     downstream = got["downstream_query_string"].decode("latin-1")
     assert "s3cret" not in downstream
     assert "keep=1" in downstream
+
+
+def test_plant_lists_resource_default_store(tmp_path: Path) -> None:
+    """garden://plant-lists resource reads from global store when no provider callback is set."""
+    from open_garden_planner.models.plant_data import PlantSpeciesData
+    from open_garden_planner.models.plant_lists import (
+        get_plant_list_store,
+        reset_plant_list_store,
+    )
+
+    reset_plant_list_store()
+    try:
+        store = get_plant_list_store(tmp_path / "test_api_lists.json")
+        sp = PlantSpeciesData(scientific_name="Malus domestica", common_name="Apple Tree")
+        store.add_entry(store.FAVORITES_ID, sp, note="Test note")
+
+        mcp = build_server(_stub_providers(), writes_enabled=False)
+        res = asyncio.run(mcp.read_resource("garden://plant-lists"))
+        assert len(res) == 1
+        data = json.loads(res[0].content)
+        assert any(pl["id"] == "favorites" for pl in data)
+        fav = next(pl for pl in data if pl["id"] == "favorites")
+        assert len(fav["entries"]) == 1
+        assert fav["entries"][0]["common_name"] == "Apple Tree"
+        assert fav["entries"][0]["note"] == "Test note"
+    finally:
+        reset_plant_list_store()
+
+
+def test_plant_lists_resource_custom_provider() -> None:
+    """garden://plant-lists resource delegates to providers.get_plant_lists when provided."""
+    import dataclasses
+
+    custom_called: list[bool] = []
+
+    def custom_provider() -> list[dict[str, Any]]:
+        custom_called.append(True)
+        return [{"id": "custom-list", "name": "Custom", "description": "", "entries": []}]
+
+    providers = dataclasses.replace(_stub_providers(), get_plant_lists=custom_provider)
+
+    mcp = build_server(providers, writes_enabled=False)
+    res = asyncio.run(mcp.read_resource("garden://plant-lists"))
+    assert len(res) == 1
+    assert len(custom_called) == 1
+    data = json.loads(res[0].content)
+    assert data[0]["id"] == "custom-list"
+

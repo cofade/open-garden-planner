@@ -389,3 +389,4 @@ class AgentProviders:
     set_layer_property: SetLayerPropertyProvider
     undo: Callable[[], dict[str, Any]]
     redo: Callable[[], dict[str, Any]]
+    get_plant_lists: Callable[[], list[dict[str, Any]]] | None = None

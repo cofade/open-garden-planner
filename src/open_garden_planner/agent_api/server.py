@@ -10,10 +10,10 @@ to disk via the same services the GUI's File > Export/Save menu already calls
 effect as Ctrl+S), and the export tools produce a new deliverable file without
 touching the live plan. The D2 write surface and its global ``undo``/``redo``
 providers reuse the same ``MainThreadBridge`` boundary (via the injected
-``AgentProviders`` callables) for every scene edit. US-D1.5 adds 5 read-only
+``AgentProviders`` callables) for every scene edit. US-D1.5 adds read-only
 resources (``garden://plan``,
 ``garden://plan/raw``, ``garden://canvas.png``, ``garden://diagnostics``,
-``garden://species``) and 2 read-analysis prompts (``audit-plan``,
+``garden://species``, ``garden://plant-lists``) and 2 read-analysis prompts (``audit-plan``,
 ``describe-garden``) — see the resource/prompt registrations at the bottom of
 ``build_server()`` below.
 
@@ -2300,6 +2300,47 @@ def build_server(
         matching every other resource/tool handler here.
         """
         return await anyio.to_thread.run_sync(lambda: list(get_species_db().values()))
+
+    @mcp.resource("garden://plant-lists", mime_type="application/json")
+    async def plant_lists_resource() -> list[dict[str, Any]]:
+        """User-defined plant lists and favorites catalog (US-G4)."""
+        get_lists_fn = providers.get_plant_lists
+        if get_lists_fn is not None:
+            return await anyio.to_thread.run_sync(get_lists_fn)
+
+        def _get_lists() -> list[dict[str, Any]]:
+            from open_garden_planner.models.plant_lists import (  # noqa: PLC0415
+                get_plant_list_store,
+            )
+
+            store = get_plant_list_store()
+            result: list[dict[str, Any]] = []
+            for pl in store.all_lists():
+                result.append(
+                    {
+                        "id": pl.id,
+                        "name": pl.name,
+                        "description": pl.description,
+                        "entries": [
+                            {
+                                "id": entry.id,
+                                "species_key": entry.species_key,
+                                "common_name": entry.species.common_name
+                                if entry.species
+                                else "",
+                                "scientific_name": entry.species.scientific_name
+                                if entry.species
+                                else "",
+                                "note": entry.note,
+                                "added_at": entry.added_at,
+                            }
+                            for entry in pl.entries
+                        ],
+                    }
+                )
+            return result
+
+        return await anyio.to_thread.run_sync(_get_lists)
 
     @mcp.prompt(name="audit-plan")
     async def audit_plan() -> str:

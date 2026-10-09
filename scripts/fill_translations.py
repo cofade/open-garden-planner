@@ -7,8 +7,12 @@ This script:
 4. Writes the completed .ts file
 """
 
+import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
+
+if sys.stdout is not None and hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 TS_FILE = (
     Path(__file__).parent.parent
@@ -704,6 +708,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     # ── CategoryDropdown (popup under each toolbar category button) ──
     "CategoryDropdown": {
         "Filter…": "Filtern…",
+        "Add to Favorites": "Zu Favoriten hinzufügen",
+        "Remove from Favorites": "Aus Favoriten entfernen",
+        "Add to List": "Zu Liste hinzufügen",
+        "{name} (Favorite)": "{name} (Favorit)",
     },
 
     # ── GlobalSearchField (toolbar object search) ──
@@ -715,6 +723,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "GardenPlannerApp": {
         "Tasks": "Aufgaben",
         "Smart Symbols": "Smart-Symbole",
+        "Plant Lists": "Pflanzenlisten",
         "&File": "&Datei",
         "&Edit": "&Bearbeiten",
         "&View": "&Ansicht",
@@ -1240,6 +1249,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Create a custom plant species entry": "Einen eigenen Pflanzeneintrag erstellen",
         "Load Custom": "Eigene laden",
         "Load a plant from your custom library": "Eine Pflanze aus Ihrer eigenen Bibliothek laden",
+        "Add to Favorites": "Zu Favoriten hinzufügen",
+        "Remove from Favorites": "Aus Favoriten entfernen",
         # Shared with PlantSearchDialog's results list via plant_source_label()
         "Unknown source": "Unbekannte Quelle",
         "Custom Plant": "Eigene Pflanze",
@@ -1327,6 +1338,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Enter a plant name to search": "Geben Sie einen Pflanzennamen zum Suchen ein",
         "Results:": "Ergebnisse:",
         "Plant Details:": "Pflanzendetails:",
+        "Add to Favorites": "Zu Favoriten hinzufügen",
+        "Remove from Favorites": "Aus Favoriten entfernen",
         "Select a plant to view details": "Wählen Sie eine Pflanze, um Details anzuzeigen",
         "Searching for '{query}'...": "Suche nach '{query}'...",
         "Found {count} results": "{count} Ergebnisse gefunden",
@@ -3051,6 +3064,66 @@ _I366_TRANSLATIONS: dict[str, dict[str, str]] = {
 
 for _ctx, _strings in _I366_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
+# ── US-G4 (#320): Plant lists & favourites ───────────────────────────────────
+_PLANT_LISTS_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "PlantListsPanel": {
+        "Favorites": "Favoriten",
+        "+ Add Selected from Plan": "+ Ausgewählte vom Plan hinzufügen",
+        "Add currently selected canvas plants to this list":
+            "Derzeit auf der Leinwand ausgewählte Pflanzen zu dieser Liste hinzufügen",
+        "New List...": "Neue Liste...",
+        "Rename List...": "Liste umbenennen...",
+        "Delete List": "Liste löschen",
+        "Export List to JSON...": "Liste als JSON exportieren...",
+        "Import List from JSON...": "Liste aus JSON importieren...",
+        "List Actions": "Listen-Aktionen",
+        "Unknown Plant": "Unbekannte Pflanze",
+        "Source: {source}": "Quelle: {source}",
+        "Note: {note}": "Notiz: {note}",
+        "Drag to place on canvas": "Auf die Leinwand ziehen zum Platzieren",
+        "New Plant List": "Neue Pflanzenliste",
+        "List name:": "Listenname:",
+        "Rename Plant List": "Pflanzenliste umbenennen",
+        "New name:": "Neuer Name:",
+        "Delete Plant List": "Pflanzenliste löschen",
+        "Are you sure you want to delete '{name}'?":
+            "Möchten Sie die Liste '{name}' wirklich löschen?",
+        "Export Plant List": "Pflanzenliste exportieren",
+        "JSON Files (*.json)": "JSON-Dateien (*.json)",
+        "Export Successful": "Export erfolgreich",
+        "List exported to {path}": "Liste exportiert nach {path}",
+        "Export Failed": "Export fehlgeschlagen",
+        "Could not export list: {error}": "Liste konnte nicht exportiert werden: {error}",
+        "Import Plant List": "Pflanzenliste importieren",
+        "Import Successful": "Import erfolgreich",
+        "Imported list '{name}' with {count} plants.":
+            "Liste '{name}' mit {count} Pflanzen importiert.",
+        "Import Failed": "Import fehlgeschlagen",
+        "Could not import list: {error}": "Liste konnte nicht importiert werden: {error}",
+        "Edit Note...": "Notiz bearbeiten...",
+        "Move to List": "In Liste verschieben",
+        "Update from Plan": "Vom Plan aktualisieren",
+        "Update stored snapshot from selected canvas plant":
+            "Gespeicherten Schnappschuss von ausgewählter Leinwand-Pflanze aktualisieren",
+        "Select matching plant on canvas to update snapshot":
+            "Passende Pflanze auf der Leinwand auswählen, um Schnappschuss zu aktualisieren",
+        "Remove from List": "Aus Liste entfernen",
+        "Edit Plant Note": "Pflanzennotiz bearbeiten",
+        "Note for {name}:": "Notiz für {name}:",
+        "Snapshot Updated": "Schnappschuss aktualisiert",
+        "Species data updated from selected canvas plant.":
+            "Artdaten von ausgewählter Leinwand-Pflanze aktualisiert.",
+        "No Plants Selected": "Keine Pflanzen ausgewählt",
+        "Please select one or more plants on the canvas first.":
+            "Bitte wählen Sie zuerst eine oder mehrere Pflanzen auf der Leinwand aus.",
+    },
+}
+
+for _ctx, _strings in _PLANT_LISTS_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
 
 
 def fill_translations() -> None:

@@ -6,11 +6,14 @@ Y increasing upward).
 """
 
 import contextlib
+import json
 import logging
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from open_garden_planner.core.plant_renderer import PlantCategory
+    from open_garden_planner.ui.canvas.items import CircleItem
     from open_garden_planner.ui.canvas.items.soil_badge_item import SoilBadgeItem
 
 from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt, QTimer, pyqtSignal
@@ -1787,35 +1790,172 @@ class CanvasView(QGraphicsView):
         # Repainting the viewport draws (or clears) the indicator glyph.
         self.viewport().update()
 
-    # Drag-and-drop from gallery panel
+    # Drag-and-drop from gallery panel and plant lists panel
 
     def dragEnterEvent(self, event) -> None:
-        """Accept drag events from the gallery panel."""
-        if event.mimeData().hasText() and event.mimeData().text().startswith(
-            "gallery:"
+        """Accept drag events from the gallery panel or plant lists panel."""
+        if event.mimeData().hasText() and (
+            event.mimeData().text().startswith("gallery:")
+            or event.mimeData().text().startswith("plant_list:")
         ):
             event.acceptProposedAction()
         else:
             super().dragEnterEvent(event)
 
     def dragMoveEvent(self, event) -> None:
-        """Accept drag move events from the gallery panel."""
-        if event.mimeData().hasText() and event.mimeData().text().startswith(
-            "gallery:"
+        """Accept drag move events from the gallery panel or plant lists panel."""
+        if event.mimeData().hasText() and (
+            event.mimeData().text().startswith("gallery:")
+            or event.mimeData().text().startswith("plant_list:")
         ):
             event.acceptProposedAction()
         else:
             super().dragMoveEvent(event)
 
+    def _create_plant_item_at_scene_pos(
+        self,
+        scene_pos: QPointF,
+        tool_type: ToolType,
+        obj_type: ObjectType,
+        radius: float,
+        species_name: str = "",
+        plant_category: "PlantCategory | None" = None,
+        species_dict: dict[str, Any] | None = None,
+    ) -> "CircleItem":
+        """Create a plant item directly at scene_pos with auto-parenting and undo support.
+
+        Shared canonical drop path for gallery drops and Plant Lists panel drops.
+        """
+        from datetime import date  # noqa: PLC0415
+
+        from open_garden_planner.core.commands import CreateItemCommand  # noqa: PLC0415
+        from open_garden_planner.core.growth_model import (  # noqa: PLC0415
+            stamp_default_planting_date,
+        )
+        from open_garden_planner.core.tools import ToolType as TT  # noqa: PLC0415
+        from open_garden_planner.ui.canvas.items import CircleItem  # noqa: PLC0415
+
+        self.set_active_tool(tool_type)
+
+        if self._snap_enabled:
+            scene_pos = self.snap_point(scene_pos)
+
+        item = CircleItem(
+            center_x=scene_pos.x(),
+            center_y=scene_pos.y(),
+            radius=radius,
+            object_type=obj_type,
+        )
+        if species_name:
+            item.plant_species = species_name
+        if plant_category is not None:
+            item.plant_category = plant_category
+
+        if species_dict:
+            item.metadata["plant_species"] = species_dict
+        elif species_name:
+            from open_garden_planner.services.bundled_species_db import (  # noqa: PLC0415
+                populate_item_species_metadata,
+            )
+            populate_item_species_metadata(item, species_name)
+
+        # US-E8: EVERY new plant gets today's planting date stamped at creation.
+        stamp_default_planting_date(item.metadata, date.today())
+
+        # Assign to active layer
+        active_layer = self._canvas_scene.active_layer
+        if active_layer:
+            item.layer_id = active_layer.id
+
+        # One undo step with auto-parenting (CreateItemCommand handles _auto_parent_plant)
+        cmd = CreateItemCommand(self._canvas_scene, item)
+        self._command_manager.execute(cmd)
+
+        # Switch to select tool and select the new item
+        self.set_active_tool(TT.SELECT)
+        self._canvas_scene.clearSelection()
+        item.setSelected(True)
+        return item
+
     def dropEvent(self, event) -> None:
-        """Handle drop from the gallery panel - activate the tool and simulate a click."""
+        """Handle drop from gallery panel or plant lists panel."""
         text = event.mimeData().text()
-        if not text.startswith("gallery:"):
+        if not (text.startswith("gallery:") or text.startswith("plant_list:")):
             super().dropEvent(event)
             return
 
         event.acceptProposedAction()
+        scene_pos = self.mapToScene(event.position().toPoint())
 
+        from open_garden_planner.core.plant_renderer import PlantCategory  # noqa: PLC0415
+        from open_garden_planner.core.tools import ToolType as TT  # noqa: PLC0415
+
+        # Branch A: Drop from Plant Lists panel (US-G4, issue #320)
+        if text.startswith("plant_list:"):
+            species_dict = None
+            if event.mimeData().hasFormat("application/x-ogp-plant-data"):
+                try:
+                    species_dict = json.loads(bytes(event.mimeData().data("application/x-ogp-plant-data")).decode("utf-8"))
+                except Exception:
+                    species_dict = None
+
+            if species_dict is not None:
+                from open_garden_planner.models.plant_data import PlantSpeciesData  # noqa: PLC0415
+                species_obj = PlantSpeciesData.from_dict(species_dict)
+            else:
+                parts = text.split(":")
+                entry_id = parts[1] if len(parts) > 1 else ""
+                if not entry_id:
+                    return
+
+                from open_garden_planner.models.plant_lists import (
+                    get_plant_list_store,  # noqa: PLC0415
+                )
+                store = get_plant_list_store()
+                _pl, entry = store.get_entry(entry_id)
+                if entry is None or not entry.species:
+                    return
+                species_obj = entry.species
+
+            from open_garden_planner.services.bundled_species_db import (  # noqa: PLC0415
+                merge_calendar_data,
+            )
+
+            name_lower = f"{species_obj.common_name or ''} {species_obj.scientific_name or ''}".lower()
+            height = species_obj.max_height_cm or 0.0
+
+            if height >= 350 or any(kw in name_lower for kw in ("tree", "baum", "arbor", "palm", "conifer")):
+                tool_type = TT.TREE
+                obj_type = ObjectType.TREE
+                cat = PlantCategory.ROUND_DECIDUOUS
+            elif height >= 100 or any(kw in name_lower for kw in ("shrub", "bush", "strauch", "busch")):
+                tool_type = TT.SHRUB
+                obj_type = ObjectType.SHRUB
+                cat = PlantCategory.SPREADING_SHRUB
+            else:
+                tool_type = TT.PERENNIAL
+                obj_type = ObjectType.PERENNIAL
+                cat = PlantCategory.FLOWERING_PERENNIAL
+
+            if species_obj.max_spread_cm and species_obj.max_spread_cm > 0:
+                diameter = species_obj.max_spread_cm
+            else:
+                size_map = {TT.TREE: 200.0, TT.SHRUB: 100.0, TT.PERENNIAL: 60.0}
+                diameter = size_map.get(tool_type, 60.0)
+
+            merged_dict = merge_calendar_data(species_obj.to_dict())
+            self._create_plant_item_at_scene_pos(
+                scene_pos=scene_pos,
+                tool_type=tool_type,
+                obj_type=obj_type,
+                radius=diameter / 2,
+                species_name=species_obj.common_name or species_obj.scientific_name,
+                plant_category=cat,
+                species_dict=merged_dict,
+            )
+            return
+
+        # Branch B: Drop from Gallery panel
         # Parse the gallery data: "gallery:TOOL_TYPE:species=xxx:category=YYY"
         parts = text.split(":")
         tool_name = parts[1] if len(parts) > 1 else ""
@@ -1828,36 +1968,20 @@ class CanvasView(QGraphicsView):
                 species = part[len("species=") :]
             elif part.startswith("category="):
                 cat_name = part[len("category=") :]
-                try:
-                    from open_garden_planner.core.plant_renderer import PlantCategory
-
+                with contextlib.suppress(KeyError, ValueError):
                     plant_category = PlantCategory[cat_name]
-                except (KeyError, ValueError):
-                    pass
 
         # Find the matching ToolType
         try:
-            from open_garden_planner.core.tools import ToolType as TT
-
             tool_type = TT[tool_name]
         except (KeyError, ValueError):
             return
 
-        # Activate the tool
-        self.set_active_tool(tool_type)
-
-        # Map the drop position to scene coordinates
-        scene_pos = self.mapToScene(event.position().toPoint())
-
         # For plant tools (circle-based), create the item directly at the drop location
         if tool_type in (TT.TREE, TT.SHRUB, TT.PERENNIAL):
-            from open_garden_planner.ui.canvas.items import CircleItem
-
-            # Determine plant size defaults
             size_map = {TT.TREE: 200.0, TT.SHRUB: 100.0, TT.PERENNIAL: 60.0}
             default_diameter = size_map.get(tool_type, 100.0)
 
-            # Map ToolType to ObjectType
             obj_map = {
                 TT.TREE: ObjectType.TREE,
                 TT.SHRUB: ObjectType.SHRUB,
@@ -1865,56 +1989,17 @@ class CanvasView(QGraphicsView):
             }
             obj_type = obj_map.get(tool_type, ObjectType.TREE)
 
-            # Snap to grid if enabled
-            if self._snap_enabled:
-                scene_pos = self.snap_point(scene_pos)
-
-            item = CircleItem(
-                center_x=scene_pos.x(),
-                center_y=scene_pos.y(),
+            self._create_plant_item_at_scene_pos(
+                scene_pos=scene_pos,
+                tool_type=tool_type,
+                obj_type=obj_type,
                 radius=default_diameter / 2,
-                object_type=obj_type,
+                species_name=species,
+                plant_category=plant_category,
             )
-            # Set plant species/category from drag data
-            if species:
-                item.plant_species = species
-            if plant_category is not None:
-                item.plant_category = plant_category
-
-            # Auto-populate species metadata from the bundled DB so the plant
-            # detail panel and US-12.10d soil-mismatch warnings light up
-            # without the user having to click "Suchen". Misses fall through
-            # to the existing API search button.
-            if species:
-                from open_garden_planner.services.bundled_species_db import (  # noqa: PLC0415
-                    populate_item_species_metadata,
-                )
-                populate_item_species_metadata(item, species)
-
-            # US-E8: EVERY new plant gets today's planting date — deliberately
-            # OUTSIDE the species guard, so a placeholder that gains a species
-            # later is not left permanently undated. This branch is only
-            # reached for TREE/SHRUB/PERENNIAL.
-            from datetime import date  # noqa: PLC0415
-
-            from open_garden_planner.core.growth_model import (  # noqa: PLC0415
-                stamp_default_planting_date,
-            )
-            stamp_default_planting_date(item.metadata, date.today())
-
-            # Assign to active layer
-            active_layer = self._canvas_scene.active_layer
-            if active_layer:
-                item.layer_id = active_layer.id
-
-            # Use the command manager for undo support
-            cmd = CreateItemCommand(self._canvas_scene, item)
-            self._command_manager.execute(cmd)
-
-            # Switch to select tool and select the new item
-            self.set_active_tool(TT.SELECT)
-            self._canvas_scene.clearSelection()
-            item.setSelected(True)
+        else:
+            # Non-plant tool: activate tool
+            self.set_active_tool(tool_type)
 
     # Event handlers
 

@@ -2598,16 +2598,16 @@ The preexisting German amendment-task naming gap is tracked in #408.
 > | 📋 | **F4** ([#315](https://github.com/cofade/open-garden-planner/issues/315)) | **Plan timeline scrubber** — `removal_date` + plan-state-at-date visibility on the shared sim date. *Independent.* |
 > | 📋 | **F5** ([#316](https://github.com/cofade/open-garden-planner/issues/316)) | **Bundled example-plan gallery** + template export/import. **Last** — ideally after F2 and F4. Blocked on nothing technical, but #379 (retiring the hand-made dogfood fixture) waits on it. |
 
-## Package G — Plant Data Quality & Attribution (🔶 3 of 4 shipped)
+## Package G — Plant Data Quality & Attribution (✅ 4 of 4 shipped — Complete)
 
-> Same research session as Package F. G1–G3 shipped in v1.28.1 (PR #368).
+> Same research session as Package F. G1–G3 shipped in v1.28.1 (PR #368). G4 shipped via #320.
 
 | Status | US | Description |
 | ------ | -- | ----------- |
 | ✅ | **G1** ([#311](https://github.com/cofade/open-garden-planner/issues/311)) | **Licence + attribution** for all bundled data files, a "Data Sources & Licenses" section in About, and a licence line in Plant Details. Shipped v1.28.1 — closed the CC BY-SA compliance gap. **First in the package.** |
 | ✅ | **G2** ([#317](https://github.com/cofade/open-garden-planner/issues/317)) | **Plant profile header** — thumbnail, description, external links (Wikipedia/PFAF/POWO), off-thread fetch with disk caching. *Independent.* Shipped v1.28.1. |
 | ✅ | **G3** ([#318](https://github.com/cofade/open-garden-planner/issues/318)) | **Permapeople companions** — `get_companions()` with pagination, local cache, three-tier companion service (bundled → custom → provider). Shipped v1.28.1. New settings: `plants/download_images`, `plants/fetch_companion_data`. |
-| 📋 | **G4** ([#320](https://github.com/cofade/open-garden-planner/issues/320)) | **Plant favourites & named collections** — a Plant Lists panel with drag-to-canvas and JSON import/export (FR-8). *Independent.* The last open item in Package G. |
+| ✅ | **G4** ([#320](https://github.com/cofade/open-garden-planner/issues/320)) | **Plant favourites & named collections** — a Plant Lists panel with drag-to-canvas, JSON import/export, and Agent API resource `garden://plant-lists` (FR-8). Completes Package G. |
 
 ## Phase 14: 3D Visualization & Sun/Shade ✅ Complete (v1.24.5 – v1.24.12 — epic #255)
 
