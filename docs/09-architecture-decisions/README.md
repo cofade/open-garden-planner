@@ -1988,7 +1988,7 @@ following the `plan-my-week` prompt asked for a location the plan already had.
 
 The bundled plant data's *harvest offsets* were a separate, related finding
 (#416): `harvest_start` was documented as "weeks after planting" while every
-reader counts it from the frost. Measured over all 118 bundled species, **both** readings fit a majority of the 64 comparable rows — 38 fit / 26 miss frost-relative (what the code does) and 45 fit / 19 miss planting-relative, with 11 fitting neither — so the data is NOT irreconcilable. The documentation was made true and the row conversion deferred to **#418** on the grounds that it needs a cited horticultural source per row (plus licence clearance), not on irreconcilability. Measured by `scripts/measure_harvest_offsets.py`; an earlier draft quoted figures matching no harness, which the senior review caught. `KNOWN_DIVERGENT_SPECIES` in
+reader counts it from the frost. Measured over all 118 bundled species, **both** readings fit a majority of the 64 comparable rows — 37 fit / 27 miss frost-relative (what the code does) and 46 fit / 18 miss planting-relative, with 11 fitting neither — so the data is NOT irreconcilable. The documentation was made true and the row conversion deferred to **#418** on the grounds that it needs a cited horticultural source per row (plus licence clearance), not on irreconcilability. Measured by `scripts/measure_harvest_offsets.py`; an earlier draft quoted figures matching no harness, which the senior review caught. `KNOWN_DIVERGENT_SPECIES` in
 `tests/unit/test_harvest_offset_semantics.py` is the pinned baseline, and that
 test also asserts that `days_to_maturity` is reference data no computation reads —
 which is what keeps the correction out of the generator.
@@ -2124,3 +2124,20 @@ repositories. It covers source-table changes, deterministic Unicode output, miss
 invalid markers, broken links, read-only comparisons, missing pages, and unsafe output destinations.
 Agent context parity and skill citations remain required. Initial live wiki and community-profile
 checks occur after approved publication; source checks cannot prove GitHub recognition.
+
+## ADR-052: Persistent Handled-Error Logging via Rotating File Handler (issue #405)
+
+**Status**: Accepted (October 2026, #405 / AUD-063 / TD-023)
+
+**Context**: §8.7 previously stated "No silent failures: all errors logged and shown to user where appropriate." However, no `logging` configuration existed anywhere in the application. While uncaught exceptions were captured to `crash.log` via `sys.excepthook`, handled errors across 25 loggers (55 warning/error/exception call sites) fell to Python's default `lastResort` handler. In the windowed PyInstaller executable (`console=False`), `sys.stderr is None` (the #291 condition), causing all handled error records to be discarded without trace on disk.
+
+**Decision**:
+1. **Bootstrap root logger with a rotating file handler at startup.** New module `core/logging_config.py` provides `setup_logging()`, called early in `main.py::main()` after setting the application identity.
+2. **Persistent storage in application data directory.** Handled logs are written to `app.log` located in the platform application data directory (`QStandardPaths.writableLocation(AppDataLocation)`, alongside `crash.log`). The handler rotates at 1 MB with 3 backup files (`app.log.1`, etc.) and UTF-8 encoding.
+3. **Safe console attachment.** A `StreamHandler(sys.stderr)` at WARNING level is attached only when `sys.stderr is not None` (developer console runs). When `sys.stderr is None` (windowed frozen exe), no StreamHandler is attached, preventing dropped records or stream errors.
+4. **Docs and docstring alignment.** §8.7 and docstrings (`ui/theme.py::apply_theme`) are aligned to describe that handled errors are persisted to `app.log`, while uncaught exceptions trigger `_install_excepthook`, `crash.log`, and the recovery dialog.
+
+**Consequences**:
+- Handled errors and warnings in production windowed exe builds are preserved for user troubleshooting.
+- No impact on performance: file logging defaults to INFO+, avoiding verbose debug clutter.
+- Idempotent and clean test reset via `reset_logging()`.

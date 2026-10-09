@@ -150,15 +150,19 @@ def main() -> int:
     print()
 
     garlic = next(sp for sp in population if sp.scientific_name == "Allium sativum")
-    print(f"garlic under reading A: {garlic.harvest_start * 7} d vs stated "
+    garlic_span_b = reading_b_span(garlic)
+    print(f"garlic under reading A (frost-relative span): {garlic.harvest_start * 7} d vs stated "
           f"{garlic.days_to_maturity_min}-{garlic.days_to_maturity_max} "
           f"-> {'FITS' if reading_a_fits(garlic) else 'MISSES'}")
+    print(f"garlic under reading B (planting-relative span): {garlic_span_b} d vs stated "
+          f"{garlic.days_to_maturity_min}-{garlic.days_to_maturity_max} "
+          f"-> {'FITS' if reading_b_fits(garlic) else 'MISSES'}")
     print(
-        "Note the direction: a 26-week frost-relative harvest means an autumn "
-        "sowing's garlic is harvested in OCTOBER of the following year, whereas "
-        "the row's own sowing window (-26..-24 weeks) puts that sowing in the "
-        "PREVIOUS October. The row is internally consistent about the sowing "
-        "and still lands the harvest about three months late for the crop."
+        "Note: In #418 garlic was corrected from the historical 26..32 weeks "
+        "(which landed in October alongside the next sowing) to a realistic "
+        "mid-summer harvest at +12..+16 weeks post-frost (July). Under reading B "
+        "its span from autumn sowing (-26 weeks) is 266 days, matching its "
+        "stated 240-270 day maturity window."
     )
     return 0
 
