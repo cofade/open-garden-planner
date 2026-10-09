@@ -2,6 +2,9 @@
 
 import json
 from pathlib import Path
+from typing import Any
+
+import pytest
 
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.models.plant_lists import (
@@ -221,3 +224,260 @@ def test_export_import_json(tmp_path: Path) -> None:
     assert len(imported.entries) == 1
     assert imported.entries[0].species.scientific_name == "Ocimum basilicum"
     assert imported.entries[0].note == "Sweet basil"
+
+
+def test_species_key_branches() -> None:
+    """_get_species_key covers all branches and fallback paths."""
+    assert _get_species_key("") == "_unknown"
+    assert _get_species_key("   ") == "_unknown"
+
+    sp_source = PlantSpeciesData(
+        source_id="src-apple", scientific_name="Malus", common_name="Apple"
+    )
+    assert _get_species_key(sp_source) == "src-apple"
+
+    sp_common_hit = PlantSpeciesData(scientific_name="", common_name="Apple Tree")
+    assert _get_species_key(sp_common_hit) == "malus domestica"
+
+    sp_common_miss = PlantSpeciesData(
+        scientific_name="", common_name="Exotic Alien Plant 999"
+    )
+    assert _get_species_key(sp_common_miss) == "exotic alien plant 999"
+
+    d_src = {"source_id": "custom-id-1"}
+    assert _get_species_key(d_src) == "custom-id-1"
+
+    d_sci = {"scientific_name": "Rosa canina"}
+    assert _get_species_key(d_sci) == "rosa canina"
+
+    d_comm_hit = {"common_name": "Apple Tree"}
+    assert _get_species_key(d_comm_hit) == "malus domestica"
+
+    d_comm_miss = {"common_name": "Unknown Flower 456"}
+    assert _get_species_key(d_comm_miss) == "unknown flower 456"
+
+    d_empty: dict[str, Any] = {}
+    assert _get_species_key(d_empty) == "_unknown"
+
+    sp_no_common = PlantSpeciesData(scientific_name="", common_name="")
+    assert _get_species_key(sp_no_common) == "_unknown"
+
+    assert _get_species_key(None) == "_unknown"  # type: ignore[arg-type]
+    assert _get_species_key(12345) == "_unknown"  # type: ignore[arg-type]
+
+
+def test_store_initialization_variations(tmp_path: Path) -> None:
+    """Store initializes correctly with default path, bare list JSON, primitives, and malformed files."""
+    # Default path uses app data dir
+    store_default = PlantListStore(None)
+    assert store_default.path.name == "plant_lists.json"
+
+    # Bare list JSON
+    bare_file = tmp_path / "bare_list.json"
+    bare_file.write_text(
+        json.dumps([{"id": "list-bare", "name": "Bare List", "entries": []}]),
+        encoding="utf-8",
+    )
+    store_bare = PlantListStore(bare_file)
+    assert store_bare.get_list("list-bare") is not None
+    assert store_bare.get_list(PlantListStore.FAVORITES_ID) is not None
+
+    # Primitive string JSON
+    prim_file = tmp_path / "prim.json"
+    prim_file.write_text(json.dumps("invalid string payload"), encoding="utf-8")
+    store_prim = PlantListStore(prim_file)
+    assert len(store_prim.all_lists()) == 1
+
+    # Corrupt JSON file
+    corrupt_file = tmp_path / "corrupt.json"
+    corrupt_file.write_text("{corrupt json content", encoding="utf-8")
+    store_corrupt = PlantListStore(corrupt_file)
+    assert len(store_corrupt.all_lists()) == 1
+    assert store_corrupt.get_list(PlantListStore.FAVORITES_ID) is not None
+
+
+def test_store_atomic_write_error(tmp_path: Path, monkeypatch: Any) -> None:
+    """Atomic write handles exceptions and cleans up temporary file."""
+    import os
+
+    storage_file = tmp_path / "error_write.json"
+    store = PlantListStore(storage_file)
+
+    def mock_replace(_src: str, _dst: str) -> None:
+        raise OSError("Disk simulated write failure")
+
+    monkeypatch.setattr(os, "replace", mock_replace)
+
+    with pytest.raises(OSError, match="Disk simulated write failure"):
+        store.save()
+
+
+def test_store_edge_cases(tmp_path: Path) -> None:
+    """Store handles invalid IDs, empty names, and duplicate species correctly."""
+    storage_file = tmp_path / "plant_lists_edge.json"
+    store = PlantListStore(storage_file)
+
+    # Empty list name defaults to 'New List'
+    empty_list = store.create_list("   ")
+    assert empty_list.name == "New List"
+
+    # Rename list failure branches
+    assert not store.rename_list(empty_list.id, "   ")
+    assert not store.rename_list("nonexistent_list_id", "Valid Name")
+
+    # Delete list failure branch
+    assert not store.delete_list("nonexistent_list_id")
+
+    # Get entry failure branch
+    assert store.get_entry("nonexistent_entry_id") == (None, None)
+
+    # Add entry to nonexistent list
+    sp1 = PlantSpeciesData(scientific_name="Beta vulgaris", common_name="Beet")
+    assert store.add_entry("nonexistent_list_id", sp1) is None
+
+    # Add duplicate entry updates snapshot and note
+    entry1 = store.add_entry(empty_list.id, sp1, note="Initial note")
+    assert entry1 is not None
+    assert len(empty_list.entries) == 1
+    assert entry1.note == "Initial note"
+
+    entry1_updated = store.add_entry(empty_list.id, sp1, note="Updated beet note")
+    assert entry1_updated is entry1
+    assert len(empty_list.entries) == 1
+    assert entry1.note == "Updated beet note"
+
+    # Adding again with empty note does not overwrite existing note
+    entry1_no_note = store.add_entry(empty_list.id, sp1, note="")
+    assert entry1_no_note is entry1
+    assert entry1.note == "Updated beet note"
+
+    # Remove entry failures
+    assert not store.remove_entry("nonexistent_list_id", entry1.id)
+    assert not store.remove_entry(empty_list.id, "nonexistent_entry_id")
+
+    # Move entry edge cases
+    list2 = store.create_list("Second List")
+    sp2 = PlantSpeciesData(scientific_name="Allium cepa", common_name="Onion")
+    entry2 = store.add_entry(empty_list.id, sp2)
+    assert entry2 is not None
+
+    # Get entry when searching for second entry in list
+    found_pl, found_e = store.get_entry(entry2.id)
+    assert found_pl is not None and found_e is not None
+    assert found_e.id == entry2.id
+
+    # Move to same list
+    assert not store.move_entry(empty_list.id, empty_list.id, entry1.id)
+    # Move with invalid from/to
+    assert not store.move_entry("invalid_id", list2.id, entry1.id)
+    assert not store.move_entry(empty_list.id, "invalid_id", entry1.id)
+    # Move nonexistent entry
+    assert not store.move_entry(empty_list.id, list2.id, "invalid_entry_id")
+
+    # Move entry with multiple items in from_list
+    assert store.move_entry(empty_list.id, list2.id, entry1.id)
+    assert len(empty_list.entries) == 1  # entry2 remains
+    assert len(list2.entries) == 1
+
+    # Update note edge cases
+    assert not store.update_entry_note("nonexistent_list_id", entry1.id, "note")
+    assert not store.update_entry_note(list2.id, "nonexistent_entry_id", "note")
+
+    # Update species edge cases
+    assert not store.update_entry_species("nonexistent_list_id", entry1.id, sp1)
+    assert not store.update_entry_species(list2.id, "nonexistent_entry_id", sp1)
+
+
+def test_favorites_edge_cases(tmp_path: Path) -> None:
+    """is_favorite and toggle_favorite handle missing favorites list and unknown keys."""
+    storage_file = tmp_path / "fav_edges.json"
+    store = PlantListStore(storage_file)
+
+    sp = PlantSpeciesData(scientific_name="Fragaria vesca", common_name="Wild Strawberry")
+    sp2 = PlantSpeciesData(scientific_name="Daucus carota", common_name="Carrot")
+    assert not store.is_favorite("")
+    assert not store.is_favorite("   ")
+    assert not store.is_favorite("_unknown")
+
+    # Add multiple items to favorites
+    store.add_entry(PlantListStore.FAVORITES_ID, sp)
+    store.add_entry(PlantListStore.FAVORITES_ID, sp2)
+    assert store.is_favorite(sp)
+    assert store.is_favorite(sp2)
+
+    # Toggle removes sp2 when sp is earlier in the list
+    assert store.toggle_favorite(sp2) is False
+    assert not store.is_favorite(sp2)
+    assert store.is_favorite(sp)
+
+    # Simulate favorites list temporarily deleted
+    del store._lists[PlantListStore.FAVORITES_ID]
+    assert not store.is_favorite(sp)
+
+    # toggle_favorite ensures favorites recreated
+    assert store.toggle_favorite(sp) is True
+    assert store.is_favorite(sp) is True
+
+
+def test_export_import_edge_cases(tmp_path: Path) -> None:
+    """export_list_to_json and import_list_from_json handle error conditions and collision renaming."""
+    storage_file = tmp_path / "export_import_edge.json"
+    store = PlantListStore(storage_file)
+
+    # Export nonexistent list raises KeyError
+    with pytest.raises(KeyError, match="Plant list not found"):
+        store.export_list_to_json("nonexistent_list_id")
+
+    # Import non-dict structure raises ValueError
+    with pytest.raises(ValueError, match="Invalid plant list JSON structure"):
+        store.import_list_from_json("[1, 2, 3]")
+
+    # Import without wrapper 'list' key
+    raw_dict_json = json.dumps({
+        "id": "raw-custom",
+        "name": "Raw Custom",
+        "entries": [],
+    })
+    imported_raw = store.import_list_from_json(raw_dict_json)
+    assert imported_raw.name == "Raw Custom"
+
+    # Import with reserved favorites ID
+    fav_import_json = json.dumps({
+        "list": {
+            "id": PlantListStore.FAVORITES_ID,
+            "name": "Favorites",
+            "entries": [],
+        }
+    })
+    imported_fav = store.import_list_from_json(fav_import_json)
+    assert imported_fav.name == "Favorites (Imported)"
+
+    # Import with duplicate name increments counter
+    dup1 = store.import_list_from_json(raw_dict_json)
+    assert dup1.name == "Raw Custom (1)"
+    dup2 = store.import_list_from_json(raw_dict_json)
+    assert dup2.name == "Raw Custom (2)"
+
+
+def test_global_store_singleton(tmp_path: Path) -> None:
+    """get_plant_list_store and reset_plant_list_store manage application singleton."""
+    from open_garden_planner.models.plant_lists import (
+        get_plant_list_store,
+        reset_plant_list_store,
+    )
+
+    reset_plant_list_store()
+    p1 = tmp_path / "store1.json"
+    p2 = tmp_path / "store2.json"
+
+    s1 = get_plant_list_store(p1)
+    s1_again = get_plant_list_store()
+    assert s1 is s1_again
+    assert s1.path == p1
+
+    s2 = get_plant_list_store(p2)
+    assert s2 is not s1
+    assert s2.path == p2
+
+    reset_plant_list_store()
+

@@ -312,6 +312,169 @@ class TestPlantListsIntegration:
         store.remove_entry(store.FAVORITES_ID, entry.id)
         assert len(store.get_list(store.FAVORITES_ID).entries) == 0
 
+    def test_plant_lists_panel_actions_and_dialogs(
+        self, qtbot: Any, tmp_path: Any, monkeypatch: Any
+    ) -> None:
+        """Covers list creation, rename, delete, import/export, and notes in PlantListsPanel."""
+        from PyQt6.QtWidgets import QFileDialog, QInputDialog, QMessageBox
+
+        db_file = tmp_path / "plant_lists_panel_actions.json"
+        store = PlantListStore(storage_path=db_file)
+        panel = PlantListsPanel(store=store)
+        qtbot.addWidget(panel)
+
+        # 1. New list dialog: canceled or empty does nothing
+        monkeypatch.setattr(
+            QInputDialog, "getText", lambda *_args, **_kwargs: ("", False)
+        )
+        panel._on_new_list()
+        assert len(store.all_lists()) == 1
+
+        # New list dialog: valid name creates list
+        monkeypatch.setattr(
+            QInputDialog, "getText", lambda *_args, **_kwargs: ("Berries", True)
+        )
+        panel._on_new_list()
+        assert len(store.all_lists()) == 2
+        berry_list = store.all_lists()[1]
+        assert berry_list.name == "Berries"
+        assert panel._current_list_id == berry_list.id
+
+        # 2. Rename list: cannot rename favorites
+        panel._current_list_id = store.FAVORITES_ID
+        monkeypatch.setattr(
+            QInputDialog, "getText", lambda *_args, **_kwargs: ("Fav Renamed", True)
+        )
+        panel._on_rename_list()
+        assert store.get_list(store.FAVORITES_ID).name == "Favorites"
+
+        # Rename custom list: valid name renames list
+        panel._current_list_id = berry_list.id
+        monkeypatch.setattr(
+            QInputDialog, "getText", lambda *_args, **_kwargs: ("Soft Fruits", True)
+        )
+        panel._on_rename_list()
+        assert store.get_list(berry_list.id).name == "Soft Fruits"
+
+        # 3. Export list
+        export_target = tmp_path / "exported_berries.json"
+        monkeypatch.setattr(
+            QFileDialog,
+            "getSaveFileName",
+            lambda *_args, **_kwargs: (str(export_target), ""),
+        )
+        monkeypatch.setattr(
+            QMessageBox, "information", lambda *_args, **_kwargs: None
+        )
+        panel._on_export_list()
+        assert export_target.exists()
+        assert "Soft Fruits" in export_target.read_text(encoding="utf-8")
+
+        # 4. Delete list: cannot delete favorites
+        panel._current_list_id = store.FAVORITES_ID
+        panel._on_delete_list()
+        assert store.get_list(store.FAVORITES_ID) is not None
+
+        # Delete custom list: user confirms Yes
+        panel._current_list_id = berry_list.id
+        monkeypatch.setattr(
+            QMessageBox,
+            "question",
+            lambda *_args, **_kwargs: QMessageBox.StandardButton.Yes,
+        )
+        panel._on_delete_list()
+        assert store.get_list(berry_list.id) is None
+        assert panel._current_list_id == store.FAVORITES_ID
+
+        # 5. Import list
+        monkeypatch.setattr(
+            QFileDialog,
+            "getOpenFileName",
+            lambda *_args, **_kwargs: (str(export_target), ""),
+        )
+        panel._on_import_list()
+        assert any(pl.name == "Soft Fruits" for pl in store.all_lists())
+        imported_list = [pl for pl in store.all_lists() if pl.name == "Soft Fruits"][0]
+        assert panel._current_list_id == imported_list.id
+
+        # 6. Entry note editing and snapshot update from plan
+        sp = PlantSpeciesData(
+            scientific_name="Ribes nigrum", common_name="Blackcurrant"
+        )
+        entry = store.add_entry(imported_list.id, sp)
+        assert entry is not None
+        panel._refresh_entries()
+
+        # Edit note
+        monkeypatch.setattr(
+            QInputDialog,
+            "getText",
+            lambda *_args, **_kwargs: ("Ben Sarek variety", True),
+        )
+        panel._on_edit_entry_note(entry)
+        assert entry.note == "Ben Sarek variety"
+
+        # Update from plan
+        scene = CanvasScene()
+        panel.set_canvas_scene(scene)
+        plant_item = CircleItem(50.0, 50.0, 20.0, ObjectType.PERENNIAL)
+        plant_item.metadata["plant_species"] = {
+            "scientific_name": "Ribes nigrum",
+            "common_name": "Blackcurrant",
+            "max_spread_cm": 120.0,
+            "max_height_cm": 150.0,
+        }
+        scene.addItem(plant_item)
+        plant_item.setSelected(True)
+
+        matched = panel._find_selected_canvas_plant_matching(entry.species_key)
+        assert matched is plant_item
+        panel._on_update_entry_from_plan(entry, plant_item)
+        assert entry.species.max_spread_cm == 120.0
+
+        # Add selected from canvas with no plants selected
+        scene.clearSelection()
+        info_shown: list[bool] = []
+        monkeypatch.setattr(
+            QMessageBox, "information", lambda *_args, **_kwargs: info_shown.append(True)
+        )
+        panel._on_add_selected_from_canvas()
+        assert len(info_shown) == 1
+
+        # Add selected from canvas with item that has string plant_species only
+        plant_simple = CircleItem(10.0, 10.0, 15.0, ObjectType.PERENNIAL)
+        plant_simple.plant_species = "Tomato"
+        scene.addItem(plant_simple)
+        plant_simple.setSelected(True)
+        panel._on_add_selected_from_canvas()
+        assert any(e.species.common_name == "Tomato" for e in imported_list.entries)
+
+        # Panel with no canvas scene
+        panel.set_canvas_scene(None)
+        panel._on_add_selected_from_canvas()
+
+        # Export error handling
+        warning_shown: list[bool] = []
+        monkeypatch.setattr(
+            QMessageBox, "warning", lambda *_args, **_kwargs: warning_shown.append(True)
+        )
+
+        def raise_write_error(*_args: Any, **_kwargs: Any) -> Any:
+            raise RuntimeError("disk full")
+
+        monkeypatch.setattr(store, "export_list_to_json", raise_write_error)
+        panel._on_export_list()
+        assert len(warning_shown) == 1
+
+        # Import error handling
+        bad_import = tmp_path / "bad.json"
+        bad_import.write_text("invalid json syntax", encoding="utf-8")
+        monkeypatch.setattr(
+            QFileDialog, "getOpenFileName", lambda *_args, **_kwargs: (str(bad_import), "")
+        )
+        panel._on_import_list()
+        assert len(warning_shown) == 2
+
     def test_plant_database_panel_favorite_state_and_deselect(
         self, qtbot: Any, tmp_path: Any
     ) -> None:
