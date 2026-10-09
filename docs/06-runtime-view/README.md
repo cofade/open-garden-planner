@@ -297,13 +297,13 @@ date path first.
 ```mermaid
 flowchart TD
     U([User drags the time slider,<br/>picks a date, or Animate ticks])
-    T["SunSimToolbar.datetime_changed(aware local dt)"]
-    W["GardenPlannerApp._on_sun_sim_datetime<br/>→ SimClock.set_datetime(dt)"]
+    T["SunSimToolbar.datetime_changed(naive wall reading:<br/>picker date + slider time)"]
+    W["GardenPlannerApp._on_sun_sim_datetime<br/>→ SimClock.set_datetime(wall) — stored as given"]
     N{"Instant changed?"}
     X([No-op: nothing emitted])
     D{"plan_date changed?"}
     DC["date_changed(plan_date)<br/>_on_sim_date_changed"]
-    H["Heatmap for another day shown OR computing<br/>→ clear(); button unchecked"]
+    H["Heatmap for another day shown OR result pending<br/>→ clear(); button unchecked"]
     R["3D view open → rebuild geometry<br/>(growth at plan_date)"]
     IC["instant_changed(SimChange)"]
     O["SunShadowController._on_clock_changed<br/>enabled → recompute (sun at utc, growth at plan_date)"]
@@ -318,5 +318,7 @@ flowchart TD
 ```
 
 A write from inside any listener raises `RuntimeError`: the remaining listeners
-would otherwise receive a stale change.
+would otherwise receive a stale change. Every listener runs even when one raises,
+and `instant_changed` is delivered even when a `date_changed` listener failed; the
+first error is re-raised afterwards.
 

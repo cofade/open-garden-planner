@@ -2129,111 +2129,146 @@ checks occur after approved publication; source checks cannot prove GitHub recog
 
 ## ADR-052: One simulation clock for every sun- and growth-dependent view (Phase 17, L1.0)
 
-**Status**: Accepted (2026-10-09, #385 story L1.0, epic #383). First Phase 17 L1 ADR. The epic's reserved
-"ADR-049 scene pipeline" number went to frost dates, so the scene-pipeline ADR follows with L1.1.
+**Status**: Accepted (2026-10-09, #385 story L1.0, epic #383). This is the first Phase 17 L1 ADR. The
+epic reserved ADR-049 for the scene pipeline, but that number went to frost dates, so the
+scene-pipeline ADR follows with L1.1.
 
 ### Context
 
-Four places held their own idea of "the simulated moment", and they did not agree:
+Four places each held their own idea of "the simulated moment", and they did not agree:
 
-- `SunSimToolbar` held its widgets (date picker and time slider, system zone) and seeded `now()` itself.
-- `SunShadowController` held a separate UTC instant (seeded `datetime.now(UTC)` independently) and grew
-  plants for that instant's **UTC date**.
-- The hours-of-sun heatmap took the toolbar's **local** date (a code comment admitted that "near
-  midnight the two can name different days").
+- `SunSimToolbar` held its widgets (date picker and time slider, in the system zone) and seeded
+  `now()` itself.
+- `SunShadowController` held a separate UTC instant, seeded `datetime.now(UTC)` independently, and
+  grew plants for that instant's **UTC date**.
+- The hours-of-sun heatmap took the toolbar's **local** date. A code comment admitted that "near
+  midnight the two can name different days".
 - The 3D view read the overlay's UTC instant for the light and its UTC date for growth.
 
-After local midnight east of UTC (or before it west of UTC), the overlay and 3D grew plants for one day
-and the heatmap for another. The app compared two UTC dates to decide on a 3D rebuild. A heatmap still
-computing when the date changed was never cleared, because the stale rule only looked at a *visible* map.
-Its late result therefore painted the old day under the new date, although `SunHeatmapController.clear()`
-had been written for exactly that case. Phase 17 adds more consumers of the same moment: the 3D
-workspace (L1.3), sky and looks (L1.4), the day sweep (L2) and playback (L5). Each would have needed
-the same reconciliation again.
+So after local midnight east of UTC (or before it west of UTC), the overlay and 3D grew plants for
+one day and the heatmap for another. The app decided whether to rebuild 3D by comparing two UTC
+dates. And a heatmap still computing when the date changed was never cleared: the stale rule only
+looked at a *visible* map, so the late result painted the old day under the new date. Phase 17 adds
+more consumers of the same moment — the 3D workspace (L1.3), sky and looks (L1.4), the day sweep
+(L2) and playback (L5) — and each would have needed the same reconciliation again.
 
 ### Decision
 
 1. **One clock.** `core/sim_clock.py::SimClock` is the session's single simulated moment.
-   `GardenPlannerApp` owns it and passes it to the shadow overlay. The toolbar is a *view* of the clock:
-   every user edit is written to the clock, and the clock is mirrored back silently. The heatmap request
-   and the 3D view read it. Every session still starts at "now", and the moment is not persisted
-   (FR-SUN-04 unchanged).
-2. **The plan date is the user's LOCAL calendar day, stored and never derived.** `SimInstant` holds
-   `plan_date` and a naive wall-clock `time_of_day` in the clock's zone. The UTC instant for `core/solar`
-   is *derived* from that wall-clock reading. Growth for the overlay, the heatmap and 3D all uses
+   `GardenPlannerApp` owns it and passes it to the shadow overlay. The toolbar is a *view* of the
+   clock: every user edit is written to the clock, and the clock is mirrored back with signals
+   blocked. The heatmap request and the 3D view read the clock too. Every session starts at "now";
+   the moment is not persisted (FR-SUN-04, unchanged).
+2. **The plan date is the user's LOCAL calendar day, stored as given.** `SimInstant` holds
+   `plan_date` and a naive wall-clock `time_of_day` in the clock's zone. The UTC instant for
+   `core/solar` is *derived* from that wall reading. Shadows, heatmap and 3D all grow plants for
    `plan_date`.
-3. **A time change never fires `date_changed`, by construction.** `set_time_of_day` never touches the
-   stored date. `set_datetime` reads the date from the wall time in the clock's zone, so no UTC offset,
-   DST transition or wrap past midnight (the toolbar's animation stays on its date) can move it. Writes
-   emit `date_changed(plan_date)` only when the date moved, then `instant_changed(SimChange)`. A no-op
-   write emits nothing.
-4. **Qt-free, with two plain channels.** The epic lists the sim clock among the engine-independent
-   cores: NO-GO insurance, and headless tests without a `QApplication`. It therefore notifies through a
-   minimal synchronous `Channel`:
-   - connecting is idempotent, and a bound method counts as connected once;
-   - a listener disconnected during an emission is skipped (Qt's rule);
-   - exceptions propagate;
-   - writing the clock from inside its own notification raises `RuntimeError`, because the remaining
-     listeners would receive a stale change.
-
-   Lifetime rule: a channel holds its listeners strongly and nothing disconnects them when a Qt receiver
-   dies. Subscribers must therefore live as long as the clock. Today they do: the app's own handlers and
-   the overlay, a child of the app.
-5. **Exact DST handling.** PEP 495 `fold` is part of the instant and of `SimInstant` equality (plain
-   `time` equality ignores it). `SimInstant.from_datetime` reads an aware instant into the clock's zone
-   with an exact round trip, including the repeated fall-back hour; it searches both folds for the system
-   zone and fixed offsets. A wall time inside a skipped spring-forward hour converts by the platform's
-   rule (forward on Windows and Linux, measured), so the toolbar's animation cannot loop there.
-6. **A supported date range, 1971-01-01 … 2999-12-31.** The system zone converts through the platform's
-   `localtime`/`mktime`, which on Windows raise `OSError` outside 1970–3000 (measured: 1960 and 3001
-   fail, 1970 and 2999 work). The clock refuses dates outside this range with a `ValueError`, and the
-   toolbar's date picker uses the same range. Before this change the picker allowed 1752–9999, and
-   choosing such a date raised inside a Qt slot.
-7. **The heatmap's stale rule follows the plan date.** A new plan date clears a map for another day when
-   it is shown **or while its worker is still computing**.
+3. **A time change never fires `date_changed`, by construction, on the path the product uses.** The
+   toolbar emits its **naive wall reading** (picker date plus slider time, `current_wall_datetime()`),
+   and `set_datetime` stores a naive datetime unchanged. `set_time_of_day` and `set_date` never derive
+   a date either. So no UTC offset, DST transition, or wrap past midnight can move the date; the
+   toolbar's animation stays on its date. An **aware** `set_datetime` is an *instant*, and its date is
+   read in the clock's zone. That is right for an instant, but a wall time that is first turned into
+   an instant can land on another day: inside a spring-forward gap that starts before midnight
+   (America/Nuuk: Saturday 23:00 jumps to Sunday 00:00), the instant of "Saturday 23:30" reads back as
+   Sunday 00:30. **User-facing writers therefore hand over wall readings, never instants.**
+   `date_changed(plan_date)` fires only when the date moved, then `instant_changed(SimChange)`. A
+   no-op write emits nothing.
+4. **Qt-free, with two plain channels that follow Qt's connection rules.** The epic names the sim
+   clock an engine-independent core: it is the NO-GO insurance, and it can be tested headless without
+   a `QApplication`. It therefore notifies through a minimal synchronous `Channel`:
+   - `connect` is idempotent; bound methods compare by their target.
+   - A **bound method is held weakly**, like a Qt connection: a subscription never keeps its receiver
+     alive, so a controller that owns a clock and listens to it forms no reference cycle, and an
+     unparented controller dies by refcount. Other callables are held strongly.
+   - A listener disconnected during an emission is skipped.
+   - **Every listener runs**, and the first exception is re-raised after the last one, with later
+     errors attached as notes. `SimClock` delivers `instant_changed` even when a `date_changed`
+     listener raised, so one failing consumer (say, a 3D rebuild) cannot starve the overlay and the
+     toolbar.
+   - Writing the clock from inside its own notification raises `RuntimeError`; the remaining
+     listeners would otherwise receive a stale change.
+5. **DST, exactly.** PEP 495 `fold` is part of the wall reading and of `SimInstant` equality (plain
+   `time` equality ignores it). An aware instant is read into the clock's zone through UTC, with an
+   exact round trip through the repeated fall-back hour (both folds are tried for the system zone and
+   fixed offsets). A wall time inside a skipped hour is converted by PEP 495's rule, the offset in
+   force before the gap (CPython, the same on every platform). Two readings inside a gap can name one
+   instant and still compare unequal, because they are different things the user picked.
+6. **A supported date range, 1971-01-01 … 2999-12-31.** The system zone converts through the
+   platform's `localtime`/`mktime`, which on Windows raise `OSError` near and before the 1970 epoch
+   and after 3000. Measured on Windows 11 with CPython 3.12: 1960, 1970-01-01 12:00 and 3001 fail;
+   1970-01-02, 2999-12-31 and 3000-12-31 work. CPython probes about a day either side of the instant.
+   The clock refuses dates outside the range with a `ValueError`, and the toolbar's date picker uses
+   the same range. Its default was 1752–9999, and picking such a date raised inside a Qt slot.
+7. **The heatmap's stale rule follows the plan date.** A new plan date clears a map for another day
+   when it is shown, **or while a launched compute's result is still pending**
+   (`SunHeatmapController.result_pending`). `QThread.isRunning()` is not enough: it is already False
+   once `run()` returned, while the worker's `success` and `finished` signals still wait in the GUI
+   queue.
 
 ### Alternatives considered (rejected)
 
-- **A `QObject` clock with `pyqtSignal`s in `core/`** (as `CommandManager` and `ProjectManager` are).
-  PyQt would auto-disconnect a destroyed receiver. But the epic names the sim clock a Qt-free core, so
-  the clock would carry Qt into the NO-GO insurance layer, and its tests would need Qt. The lifetime rule
-  in point 4 removes the teardown concern for every current subscriber. A later Qt consumer can add a
-  thin adapter.
-- **App-only fan-out with no channels** (setters return a `SimChange` and the app dispatches). This
-  works for L1.0, but every later writer (the 3D time control, the day sweep, playback) would have to
-  route through one app method, and "fires `date_changed`" would have no subject to test.
-- **Keep a UTC instant and derive the date from it.** This is the bug: a UTC date is not the user's day,
-  and a derived local date makes "a time change never moves the date" depend on zone data instead of
-  holding by construction.
+- **A `QObject` clock with `pyqtSignal`s in `core/`**, as `CommandManager` and `ProjectManager` are.
+  It would carry Qt into the layer the epic names Qt-free (the NO-GO insurance), and its tests would
+  need Qt. The `Channel` gives the two connection properties that matter (weak receivers and
+  delivery to every listener) without Qt. A later Qt consumer can add a thin adapter.
+- **App-only fan-out with no channels**, where setters return a `SimChange` and the app dispatches.
+  This works for L1.0, but every later writer (the 3D time control, the day sweep, playback) would
+  have to route through one app method, and "fires `date_changed`" would have no subject to test.
+- **Keep a UTC instant and derive the date from it.** This is the bug. A UTC date is not the user's
+  day, and the senior review showed that even a *local* date derived from an instant fails the gate
+  inside a gap that straddles midnight.
 - **Use the garden location's zone instead of the system zone.** The `.ogp` location stores no zone
-  today, so this is out of scope. The clock takes `tz` as a parameter, and the toolbar and clock would
-  switch together.
+  today, so this is out of scope. The clock takes `tz` as a parameter, and because the toolbar edits
+  wall readings in the clock's zone, both would switch together.
 
 ### Consequences
 
-- Shadows and 3D now grow plants for the toolbar's date. This is a visible fix only near local midnight
-  east or west of UTC. Three app-glue tests now pass local wall times, because UTC inputs named another
-  day in zones far from UTC. Their assertions are unchanged.
+- Shadows and 3D now grow plants for the toolbar's date. The visible fix appears only near local
+  midnight east or west of UTC.
+- `SunSimToolbar.datetime_changed` now carries the naive wall reading instead of an aware local
+  datetime; `test_slider_change_emits_aware_datetime` became `test_slider_change_emits_the_wall_reading`.
+  `current_datetime_local()` remains as a system-zone convenience.
+- Four app-glue tests in three files now pass local wall times, because UTC inputs named another day
+  in zones far from UTC. Their assertions are unchanged.
 - Any writer of the clock regrows 3D on a date change, including `SunShadowController.set_sim_datetime`
   on the shared clock. `test_3d_view` counts one more rebuild because of this.
-- Out of scope, and unchanged: the 2D plant icon uses today's real date (FR-SUN-08, #299), tasks and
-  calendars use `date.today()`, and the dormant spike keeps its own shot dates.
+- Out of scope and unchanged: the 2D plant icon keeps today's real date (FR-SUN-08, #299), tasks and
+  calendars keep `date.today()`, and the dormant spike keeps its own shot dates.
 - Later stories subscribe instead of reconciling. L1.3's sync pipeline regrows on `date_changed` and
-  relights on `instant_changed`. L1.4 rebuilds the sky only for a noticeable sun move.
+  relights on `instant_changed`; L1.4 rebuilds the sky only for a noticeable sun move.
+- Senior review, round 1, found the two P1s that decisions 3 and 7 now close. The first draft's
+  gate held on `set_time_of_day` but not on the toolbar's real path, and its stale rule keyed on
+  `isRunning()`. It also found the channel's strong-reference cycle and the doc numbers corrected in
+  decision 6. Lesson (§11.4.7): test the gate on the path the product actually takes.
 
-**Validation**:
-- `tests/unit/test_sim_clock.py` (Qt-free; IANA-zone cases skip where the platform has no tz data, and
-  CI Linux runs them):
-  - every minute of an ordinary day and of both 2026 DST days, plus the midnight wrap, in the system
-    zone, Europe/Berlin, America/New_York and ±9/−7 h offsets: `date_changed` never fires;
-  - every half hour of 2026 round-trips exactly in five zones;
-  - fold equality, the skipped hour, the range edges, re-entrancy and channel semantics;
-  - an AST scan pins the module to the standard library.
-- `tests/integration/test_sim_clock_wiring.py` (the §8.10 workflow on a real `GardenPlannerApp`):
-  - a slider drag moves only the light and keeps the heatmap;
-  - a date edit regrows 3D once and clears the heatmap;
-  - the animation wraps past midnight on the same date;
-  - an external clock write moves the toolbar;
-  - on a +09:00 clock, the overlay, the heatmap request and the 3D rebuild all name local
-    2026-06-22 while the UTC date is 2026-06-21;
-  - a date change mid-compute never lets the late map paint.
+### Validation
+
+**`tests/unit/test_sim_clock.py`** (Qt-free). IANA-zone cases skip where the platform has no tz data;
+a bare Windows venv has none, CI Linux runs them, and they were run locally with `tzdata` on
+`PYTHONPATH`. It pins:
+- every minute of an ordinary day and of both 2026 DST days, plus the midnight wrap, in Berlin,
+  New York, two fixed offsets (+09:00 and −07:00) and the machine's zone (CI's is UTC);
+- a naive-reading sweep of Nuuk's pre-midnight-gap Saturday, and the pinned hazard that an instant
+  of a gap reading lands on Sunday;
+- an exact round trip every half hour of 2026 in five zones;
+- fold equality, normalisation of an aware input that already carries the clock's zone, and the
+  range edges;
+- re-entrancy, delivery of `instant_changed` after a `date_changed` listener raised, and the channel
+  rules (weak bound methods, strong functions, every listener runs);
+- an AST scan that keeps the module on the standard library.
+
+**`tests/integration/test_sim_clock_wiring.py`** (the §8.10 workflow on a real `GardenPlannerApp`).
+It pins:
+- a slider drag moves only the light and keeps the heatmap;
+- a date edit regrows 3D once and clears the heatmap;
+- the animation wraps past midnight and stays on the same date;
+- an external clock write moves the toolbar;
+- with a +09:00 clock, the overlay, the heatmap request and the 3D rebuild all name local
+  2026-06-22 while the UTC date is 2026-06-21;
+- every slider value and 20 Animate ticks through the real toolbar keep Nuuk's Saturday;
+- a date change mid-compute — while running, and after `run()` returned with the result still
+  queued, driven through the button — never lets the late map paint, and leaves the button idle;
+- an unparented controller dies without a GC cycle.
+
+Both P1 tests fail when their fix is reverted.

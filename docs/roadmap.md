@@ -2694,10 +2694,10 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 ### L1.0 acceptance highlights — one sim clock (#385, ADR-052)
 
 - **One moment for the whole app.** `core/sim_clock.SimClock` (Qt-free) is owned by `GardenPlannerApp`. The sun toolbar is a view of it (it writes edits and mirrors the clock back silently). The shadow overlay reads it (`utc` for the sun, `plan_date` for growth), and the heatmap request and the 3D view read it too. It is not persisted, and every session starts at "now" (FR-SUN-04).
-- **Gate: a time change never fires `date_changed`.** It holds by construction: the plan date is stored, never derived from UTC. It is swept over every minute of an ordinary day and of both DST days in five zones, and checked at the app boundary (slider drag, animation wrap past midnight). The sun and heatmap suites stay green; three app-glue tests now pass local wall times.
+- **Gate: a time change never fires `date_changed`.** It holds by construction on the product's path: the toolbar hands the clock its naive wall reading, which is stored as given, never derived from an instant. It is swept over every minute of an ordinary day and of both DST days, and through the real toolbar on America/Nuuk's pre-midnight-gap day (every slider value plus Animate ticks). The sun and heatmap suites stay green; four app-glue tests in three files now pass local wall times, and the toolbar's `datetime_changed` now carries the wall reading (one toolbar test renamed).
 - **Fixes found on the way** (§11.4.7):
   - shadows and 3D grew plants for the instant's UTC date, while the heatmap used the local date;
-  - a date change while the heatmap computed let the old day's map paint;
+  - a date change while the heatmap computed, or after the worker returned with its result still queued, let the old day's map paint;
   - the date picker allowed years that Windows' system-zone conversion cannot handle (now 1971–2999).
 - No `.ogp` change and no new UI strings. The plan for the other ten stories is outlined in the #385 issue table; each ships as its own branch and draft PR.
 
@@ -2706,6 +2706,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | Document | Section |
 |----------|---------|
 | `docs/09-architecture-decisions/` | ADR-052 (new); ADR-037 growth addendum revision; ADR-048 stale ADR-049 pointer |
+| `.claude/skills/` + `.agents/skills/` | `ogp-architecture-contract` invariant 10 (Qt-free list, Channel rule) |
 | `docs/functional-requirements.md` | FR-SUN-04, FR-SUN-05, FR-SUN-08 |
 | `docs/08-crosscutting-concepts/` | §8.20 "One simulation clock" |
 | `docs/05-building-block-view/` | `core/sim_clock.py` |
