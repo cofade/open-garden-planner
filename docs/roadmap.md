@@ -28,21 +28,24 @@
 
 ## CI and release hardening package (#404, #401, #402, #399)
 
-**In progress, 2026-10-08; implementing draft [PR #422](https://github.com/cofade/open-garden-planner/pull/422).** No application behavior change.
+**Complete, 2026-10-09; released as v1.29.6 via [PR #422](https://github.com/cofade/open-garden-planner/pull/422).** No application behavior change.
 Native uv dependency lock and checked PEP 751 export; clean locked Linux/Windows Python 3.11
 per-file type allowances; measured package line floors and branch reporting; reviewed
 administrator-enforced required checks and normal merges. Coverage is initially not required
 by branch protection. The protection payload and read-only verifier are implemented; live
-activation awaits owner-approved finalization. Temporary-branch enforcement passed in PR #420
+master enforcement was activated and read back before the normal approved merge.
+Temporary-branch enforcement passed in PR #420
 (failing head refused; corrected green head merged normally; temporary branches removed).
 
 Final local validation: Windows 7,657 passed / 21 skipped; Linux 7,642 passed / 36 skipped.
 Coverage: 39,883/52,841 lines (75.5%) and 9,099/15,490 branches (58.7%); non-UI 79.5% /
 67.3%. Both type gates pass at 1,966 errors (Linux 137 files, Windows 136). Locked Windows
 PyInstaller build, eight-second startup and subsystem self-test passed. The frozen build
-opened the benchmark plan and exported validated PDF, DXF and CSV files. Visual 3D and the
-production finalization sequence remain owner checks. One Windows run reported an existing
-Agent API port-8765 collision warning; all tests passed. Remote package CI results are recorded in the implementing draft PR.
+opened the benchmark plan and exported validated PDF, DXF and CSV files. Owner testing
+confirmed the frozen build and existing 3D behavior. The protected normal merge and matching
+CI release succeeded. One Windows run reported an existing Agent API port-8765 collision
+warning; all tests passed. All nine checks passed on the approved head in both push and PR
+workflows. CI reports and release artifacts are recorded in the implementing PR and release.
 
 Finalization preserves one invocation: approved feature merge, matching successful CI release,
 automatic independently reviewed version-sync chore PR, wiki push and cleanup. No second
@@ -50,10 +53,10 @@ manual-test confirmation is required for that mechanical PR. See ADR-050 and dep
 
 | Issue | Delivery scope | Status |
 |---|---|---|
-| #404 | Seeded universal lock, packaging/backend group, shared environment setup | Implemented; local validation passed |
-| #401 | Locked strict mypy with Linux/Windows per-file allowances and corrected gate docs | Implemented; local validation passed |
-| #402 | Fresh Linux package line floors, separate branch report, explicit package inventory | Implemented; final Linux measurement passed |
-| #399 | Reviewed protection payload and protected/resumable finalization | Code implemented; activation pending owner approval |
+| #404 | Seeded universal lock, packaging/backend group, shared environment setup | Completed in v1.29.6, PR #422 |
+| #401 | Locked strict mypy with Linux/Windows per-file allowances and corrected gate docs | Completed in v1.29.6, PR #422 |
+| #402 | Fresh Linux package line floors, separate branch report, explicit package inventory | Completed in v1.29.6, PR #422 |
+| #399 | Reviewed protection payload and protected/resumable finalization | Completed in v1.29.6; master enforcement verified before merge |
 
 ## Development Standards
 
