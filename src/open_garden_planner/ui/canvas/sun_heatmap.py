@@ -269,9 +269,14 @@ class SunHeatmapController(QObject):
 
     def run_for_day(self, day: date, cell_cm: float = GRID_CELL_CM) -> bool:
         """Snapshot the scene and launch the worker. False if it can't run
-        (no location / already running — incl. a just-cancelled worker still
-        winding down; the button re-enables on its ``finished``)."""
-        if self.is_running:
+        (no location / a previous launch's result still pending — incl. a
+        just-cancelled worker winding down, and a worker whose ``run()``
+        returned while its signals are still queued; the button re-enables on
+        its ``finished``). Asking ``is_running`` alone accepted a second launch
+        in that queued window, and the first worker's ``finished`` then
+        ``deleteLater``-ed the RUNNING second one: a Qt fatal abort, measured
+        in the L1.0 senior review (unreachable from the busy-disabled button)."""
+        if self.result_pending:
             return False
         location = self._location_provider()
         latitude = location.get("latitude") if isinstance(location, dict) else None

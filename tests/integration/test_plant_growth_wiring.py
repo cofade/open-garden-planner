@@ -150,21 +150,21 @@ class TestSimDateRebuilds3D:
 
     def test_same_day_different_time_does_not_rebuild(self, qtbot) -> None:
         win = self._app(qtbot)
-        # Local wall times: the plan date is the toolbar's LOCAL day (L1.0), so
-        # UTC inputs would name another day in zones far from UTC.
-        win._on_sun_sim_datetime(datetime(2026, 6, 21, 10, 0).astimezone())
+        # Naive wall readings, as the toolbar hands them over (L1.0, ADR-052):
+        # the plan date is the picker's local day by construction.
+        win._on_sun_sim_datetime(datetime(2026, 6, 21, 10, 0))
         win._view3d_window.rebuild.reset_mock()
 
-        win._on_sun_sim_datetime(datetime(2026, 6, 21, 16, 0).astimezone())
+        win._on_sun_sim_datetime(datetime(2026, 6, 21, 16, 0))
 
         win._view3d_window.rebuild.assert_not_called()
         assert win._view3d_window.set_sun.called  # light still follows time
 
     def test_new_day_rebuilds_the_geometry(self, qtbot) -> None:
         win = self._app(qtbot)
-        win._on_sun_sim_datetime(datetime(2026, 6, 21, 12, 0).astimezone())
+        win._on_sun_sim_datetime(datetime(2026, 6, 21, 12, 0))
         win._view3d_window.rebuild.reset_mock()
 
-        win._on_sun_sim_datetime(datetime(2031, 6, 21, 12, 0).astimezone())
+        win._on_sun_sim_datetime(datetime(2031, 6, 21, 12, 0))
 
         win._view3d_window.rebuild.assert_called_once()

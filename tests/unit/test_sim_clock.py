@@ -89,11 +89,12 @@ class TestSimInstant:
         assert instant.time_of_day == time(14, 5, 33)
         assert instant.minute_of_day == 14 * 60 + 5
 
-    def test_local_is_aware_and_names_the_same_instant(self) -> None:
+    def test_there_is_no_instant_derived_local_read(self) -> None:
+        """A ``local`` property's ``.date()`` would be an instant's date — not
+        the plan date inside a gap that straddles midnight (L1.0 review)."""
         instant = SimInstant.from_datetime(datetime(2026, 6, 21, 12, 0), TOKYO_FIXED)
-        assert instant.local.tzinfo is not None
-        assert instant.local == instant.utc
-        assert instant.local.utcoffset() == timedelta(hours=9)
+        assert not hasattr(instant, "local")
+        assert not hasattr(SimClock(), "local")
 
     def test_system_zone_round_trip(self) -> None:
         moment = datetime(2026, 6, 21, 12, 0, tzinfo=UTC)
@@ -187,7 +188,6 @@ class TestSeed:
         assert clock.instant.plan_date == clock.plan_date
         assert clock.wall == datetime(2026, 6, 22, 1, 0)
         assert clock.utc == datetime(2026, 6, 21, 16, 0, tzinfo=UTC)
-        assert clock.local == clock.utc
 
 
 class TestTransitions:
@@ -469,6 +469,18 @@ class TestChannel:
             channel.emit(5)
         assert later.calls == [5]
         assert any("second" in note for note in info.value.__notes__)
+
+    def test_a_method_of_an_unweakrefable_receiver_is_refused(self) -> None:
+        channel: Channel[int] = Channel()
+
+        class Slotted:
+            __slots__ = ()
+
+            def on(self, value: int) -> None:
+                pass
+
+        with pytest.raises(TypeError):
+            channel.connect(Slotted().on)
 
     def test_listener_disconnecting_itself_during_emit(self) -> None:
         channel: Channel[int] = Channel()

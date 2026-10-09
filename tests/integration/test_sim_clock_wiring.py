@@ -136,8 +136,8 @@ def _app(qtbot):
 
 
 def _local(y: int, mo: int, d: int, h: int, mi: int = 0) -> datetime:
-    """A wall time in the system zone — the zone the toolbar and app clock use."""
-    return datetime(y, mo, d, h, mi).astimezone()
+    """A naive wall reading — what the toolbar hands the clock (ADR-052)."""
+    return datetime(y, mo, d, h, mi)
 
 
 def _date_spy(win) -> list[date]:
@@ -242,6 +242,39 @@ class TestAppOwnsOneClock:
         edit = win._sun_toolbar._date_edit
         assert edit.minimumDate() == QDate(MIN_PLAN_DATE)
         assert edit.maximumDate() == QDate(MAX_PLAN_DATE)
+
+
+class TestTypingUnderAnimate:
+    def test_a_partly_typed_date_survives_an_animation_tick(self, qtbot) -> None:
+        """The clock mirror runs on every Animate tick (every 200 ms). It used to
+        re-set the unchanged date, which made QDateEdit redraw its text and wipe
+        a date the user was typing; keyboard date entry was impossible while
+        animating (L1.0 senior review round 2, P1)."""
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtTest import QTest
+        from PyQt6.QtWidgets import QLineEdit
+
+        win = _app(qtbot)
+        win._sim_clock.set_datetime(_local(2026, 6, 21, 12))
+        win._sun_sim_action.trigger()  # show the toolbar
+        win.show()
+        qtbot.waitExposed(win)
+        edit = win._sun_toolbar._date_edit
+        line = edit.findChild(QLineEdit)
+        edit.setFocus()
+        QTest.keyClick(edit, Qt.Key.Key_End)
+        QTest.keyClick(edit, Qt.Key.Key_Backspace)
+        QTest.keyClick(edit, Qt.Key.Key_Backspace)
+        typed = line.text()
+        assert typed != "2026-06-21"  # the user is mid-edit
+
+        win._sun_toolbar._on_animate_tick()
+        assert line.text() == typed, "the mirror wiped the partly typed date"
+
+        QTest.keyClick(edit, Qt.Key.Key_2)
+        QTest.keyClick(edit, Qt.Key.Key_8)
+        assert win._sim_clock.plan_date == date(2026, 6, 28)
+        assert win._sim_clock.time_of_day == time(12, 10)  # the tick still landed
 
 
 class TestOnePlanDateEastOfUtc:
@@ -373,6 +406,32 @@ class TestHeatmapMidComputeDateChange:
         assert not button.isChecked()
         assert button.isEnabled()
         assert button.text() == idle_text
+
+
+class TestHeatmapLaunchGuard:
+    def test_a_second_launch_waits_for_the_pending_result(self, qtbot) -> None:
+        """``is_running`` is False once ``run()`` returned, while the result is
+        still queued; a launch accepted there let the first worker's
+        ``finished`` deleteLater the running second one (a Qt fatal abort,
+        measured in the L1.0 review). ``run_for_day`` now waits."""
+        win = _app(qtbot)
+        win._project_manager._location = dict(BERLIN)
+        win.canvas_scene.addItem(
+            RectangleItem(100, 100, 40, 40, object_type=ObjectType.TOOL_SHED)
+        )
+        heatmap = win._sun_heatmap
+        assert heatmap.run_for_day(date(2026, 6, 21))
+        worker = heatmap._worker
+        assert worker is not None and worker.wait(60000)
+        assert not heatmap.is_running and heatmap.result_pending
+        assert heatmap.run_for_day(date(2026, 6, 22)) is False
+        with qtbot.waitSignal(heatmap.finished, timeout=60000):
+            pass
+        assert not heatmap.result_pending
+        with qtbot.waitSignal(heatmap.finished, timeout=60000) as blocker:
+            assert heatmap.run_for_day(date(2026, 6, 22))
+        assert blocker.args == [True]
+        heatmap.shutdown()
 
 
 def test_toolbar_alone_is_limited_to_the_clock_range(qtbot) -> None:

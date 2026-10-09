@@ -532,12 +532,13 @@ class TestPerf:
 
 class TestSunSimToolbar:
     def test_datetime_round_trip(self, qtbot) -> None:
+        """The toolbar edits a wall reading (L1.0, ADR-052): what it is shown is
+        what it reads back, field for field."""
         toolbar = SunSimToolbar()
         qtbot.addWidget(toolbar)
-        local = datetime(2026, 6, 21, 14, 0).astimezone()
-        toolbar.set_datetime_local(local)
-        result = toolbar.current_datetime_local()
-        assert result.astimezone(UTC) == local.astimezone(UTC)
+        wall = datetime(2026, 6, 21, 14, 0)
+        toolbar.set_datetime_local(wall)
+        assert toolbar.current_wall_datetime() == wall
 
     def test_slider_change_emits_the_wall_reading(self, qtbot) -> None:
         """Phase 17 L1.0 (ADR-052): the toolbar hands the sim clock its NAIVE

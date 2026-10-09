@@ -481,9 +481,10 @@ keep the math in scene cm.
 - **Time control UI**: a small toolbar/dock with date + time-of-day slider and
   an animate button (the roadmap's "time-of-day animation" = just advancing
   the slider on a QTimer; each tick only re-runs the precompute + one
-  `update()`). Persist last-used sim time in `UiStateStore`
-  (`app/ui_state.py`), NOT in `.ogp` (defer project-persisted sun settings
-  until a user asks).
+  `update()`). *As shipped:* the sim time is NOT persisted at all (FR-SUN-04),
+  and since Phase 17 L1.0 it lives in the one `core/sim_clock.SimClock`
+  (ADR-052) — the toolbar is a view of it and hands it naive wall
+  readings. Read ADR-052 before touching sun or growth time.
 - **Empty states**: no `project.location` → overlay disabled + one-line hint
   ("Set garden location first: File → Set Garden Location"), i18n'd. Sun below
   horizon → no shadows + "night" hint.

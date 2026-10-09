@@ -383,7 +383,7 @@ class TestAppGlue:
     ) -> None:
         """The FR-SUN-05 stale rule (application._on_sim_date_changed since
         L1.0): a TIME change keeps the (whole-day) map, a DATE change clears it.
-        Local wall times: the plan date is the toolbar's local day."""
+        Naive wall readings, as the toolbar hands them over (ADR-052)."""
         from datetime import datetime
 
         from open_garden_planner.app.application import GardenPlannerApp
@@ -395,10 +395,10 @@ class TestAppGlue:
         heatmap._computed_day = SUMMER
         win._sun_toolbar.set_heatmap_active(True)
 
-        win._on_sun_sim_datetime(datetime(2026, 6, 21, 15, 0).astimezone())
+        win._on_sun_sim_datetime(datetime(2026, 6, 21, 15, 0))
         assert heatmap.heatmap_visible(), "time-of-day change must keep the map"
 
-        win._on_sun_sim_datetime(datetime(2026, 6, 22, 15, 0).astimezone())
+        win._on_sun_sim_datetime(datetime(2026, 6, 22, 15, 0))
         assert not heatmap.heatmap_visible(), "date change must clear the map"
         assert not win._sun_toolbar._heatmap_button.isChecked()
 

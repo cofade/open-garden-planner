@@ -4768,8 +4768,9 @@ class GardenPlannerApp(QMainWindow):
 
         # Phase 17 L1.0 (ADR-052): ONE sim clock for the toolbar, the shadow
         # overlay, the heatmap and the 3D view — the plan's local date for
-        # growth, its instant for the sun. Owned here and outliving every
-        # subscriber (its channels are Qt-free and hold listeners strongly).
+        # growth, its instant for the sun. Owned here. Its channels are Qt-free:
+        # they hold bound methods weakly but do NOT disconnect a destroyed
+        # QObject, so every subscriber lives as long as this window.
         self._sim_clock = SimClock()
         self._sun_controller = SunShadowController(
             self.canvas_scene,
@@ -6513,9 +6514,9 @@ class GardenPlannerApp(QMainWindow):
         if self._sun_heatmap.run_for_day(day):
             self._sun_toolbar.set_heatmap_busy(True)
             return
-        # Refused: already running, or no garden location.
+        # Refused: a previous result still pending, or no garden location.
         self._sun_toolbar.set_heatmap_active(False)
-        if not self._sun_heatmap.is_running:
+        if not self._sun_heatmap.result_pending:
             self._set_sun_hint(
                 self.tr("Set garden location first: File → Set Garden Location…")
             )

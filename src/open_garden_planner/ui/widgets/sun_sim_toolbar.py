@@ -14,8 +14,8 @@ drag move the date inside a spring-forward gap that starts before midnight
 (signals blocked). Its own "now" seed only matters standalone. The sim time
 is deliberately NOT persisted — not in ``UiStateStore``, not in the ``.ogp`` —
 so a fresh run always reflects today. The date picker is limited to the
-clock's supported range (the system zone's conversion fails near 1970 and
-after 3000 on Windows).
+clock's supported range (the system zone's conversion fails near the 1970
+epoch and during 3001 on Windows).
 """
 
 from __future__ import annotations
@@ -156,18 +156,25 @@ class SunSimToolbar(QToolBar):
             date.year(), date.month(), date.day(), minutes // 60, minutes % 60
         )
 
-    def current_datetime_local(self) -> datetime:
-        """The selected wall reading as an aware datetime in the SYSTEM zone."""
-        return self.current_wall_datetime().astimezone()
-
     def set_datetime_local(self, dt: datetime) -> None:
-        """Set the controls without emitting ``datetime_changed``."""
+        """Show ``dt`` without emitting ``datetime_changed``.
+
+        Naive ``dt`` = a wall reading, shown as given (the app's clock mirror);
+        aware ``dt`` = shown in the system zone. Only a field that differs is
+        written: re-setting an unchanged date makes ``QDateEdit`` redraw its
+        text and erases a date the user is part-way through typing — with
+        Animate running the mirror fires every 200 ms (L1.0 senior review).
+        """
         local = dt.astimezone() if dt.tzinfo is not None else dt
+        target_date = QDate(local.year, local.month, local.day)
+        target_minutes = local.hour * 60 + local.minute
         self._date_edit.blockSignals(True)
         self._slider.blockSignals(True)
         try:
-            self._date_edit.setDate(QDate(local.year, local.month, local.day))
-            self._slider.setValue(local.hour * 60 + local.minute)
+            if self._date_edit.date() != target_date:
+                self._date_edit.setDate(target_date)
+            if self._slider.value() != target_minutes:
+                self._slider.setValue(target_minutes)
         finally:
             self._date_edit.blockSignals(False)
             self._slider.blockSignals(False)

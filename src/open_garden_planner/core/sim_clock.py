@@ -23,13 +23,22 @@ before midnight (America/Nuuk: Saturday 23:00 jumps to Sunday 00:00), the
 instant of "Saturday 23:30" reads back as Sunday 00:30. User-facing writers
 therefore hand over wall readings, never instants.
 
+There is deliberately no ``local`` (aware) read: its ``.date()`` is an
+instant's date, which differs from ``plan_date`` inside such a gap — the bug
+this module exists to prevent, one attribute away. Read ``plan_date`` /
+``time_of_day`` / ``wall`` for the user's reading and ``utc`` for the sun.
+
 The clock is **Qt-free** by design (epic #383: the sim clock is one of the
 engine-independent cores). It notifies through two plain synchronous
-:class:`Channel` objects instead of Qt signals. Like a Qt connection, a
-subscription never keeps its receiver alive: a bound method is held weakly
-(so a controller that owns a clock and listens to it forms no reference
-cycle), any other callable strongly. Every listener runs even when one raises;
-the first error is re-raised afterwards.
+:class:`Channel` objects instead of Qt signals. Two Qt-like properties: a
+subscription never keeps its receiver alive (a bound method is held weakly,
+so a controller that owns a clock and listens to it forms no reference
+cycle; any other callable is held strongly), and every listener runs even
+when one raises (the first error is re-raised afterwards). One Qt property it
+does NOT have: nothing disconnects a QObject receiver when its C++ side is
+destroyed. A Qt subscriber therefore disconnects in its own teardown (or on
+``destroyed``), and never connects a bound signal's ``emit`` — that is a
+builtin, held strongly, and raises on every write once its QObject is gone.
 
 Zone: ``tz=None`` means the system zone, which is the app's choice (the
 garden and the computer share one in practice). Wall-time rules follow
@@ -55,11 +64,12 @@ T = TypeVar("T")
 
 #: The plan dates the clock accepts. The system zone converts through the
 #: platform's ``localtime``/``mktime``, which on Windows raise ``OSError`` near
-#: and before the 1970 epoch and after the year 3000 (measured on Windows 11,
-#: CPython 3.12: 1960, 1970-01-01 12:00 and 3001 fail; 1970-01-02, 2999-12-31
-#: and 3000-12-31 work — CPython probes about a day either side of the
-#: instant). The range keeps a full year of margin at the start and is safe
-#: for every UTC offset; ``SunSimToolbar`` limits its date picker to it.
+#: and before the 1970 epoch and during 3001 (measured on Windows 11, CPython
+#: 3.12, Europe/Berlin: 1960, 1970-01-01 12:00 and 1970-01-02 00:00 fail,
+#: 1970-01-02 01:00 works; 2999-12-31 and 3001-01-02 work, 3001-06-01 fails —
+#: CPython probes about a day either side of the instant). The range keeps a
+#: year of margin at both ends and is safe for every UTC offset;
+#: ``SunSimToolbar`` limits its date picker to it.
 MIN_PLAN_DATE = date(1971, 1, 1)
 MAX_PLAN_DATE = date(2999, 12, 31)
 
@@ -98,13 +108,18 @@ class _Slot:
 class Channel(Generic[T]):
     """A minimal synchronous observer channel: ``connect`` / ``disconnect`` / ``emit``.
 
-    Qt-free stand-in for a signal, with Qt's rules where they matter:
+    Qt-free stand-in for a signal:
 
     - ``connect`` is idempotent; bound methods compare by their target, so
       connecting ``obj.slot`` twice registers it once.
     - A bound method is held weakly — a subscription never keeps its receiver
-      alive; a dead receiver is skipped and pruned. Other callables (functions,
-      lambdas, builtins) are held strongly.
+      alive; a collected receiver is skipped and pruned. Other callables
+      (functions, lambdas, builtins such as a bound signal's ``emit``) are held
+      strongly. A bound method of an object that cannot be weakly referenced
+      (``__slots__`` without ``__weakref__``) is refused with ``TypeError``.
+    - Unlike Qt, a QObject receiver whose C++ side is destroyed while its
+      Python wrapper lives is NOT disconnected: Qt subscribers disconnect in
+      their own teardown.
     - A listener disconnected during an emission is not called afterwards.
     - Every listener runs even when one raises; the first exception is re-raised
       after the last listener (later ones are attached to it as notes) — loud,
@@ -257,11 +272,6 @@ class SimInstant:
         return _utc_of(self.wall, self.tz)
 
     @property
-    def local(self) -> datetime:
-        """The instant, timezone-aware in the clock's zone."""
-        return self.utc.astimezone(self.tz)
-
-    @property
     def minute_of_day(self) -> int:
         return self.time_of_day.hour * 60 + self.time_of_day.minute
 
@@ -343,10 +353,6 @@ class SimClock:
     def utc(self) -> datetime:
         """The instant for the solar math."""
         return self._instant.utc
-
-    @property
-    def local(self) -> datetime:
-        return self._instant.local
 
     # ── writes ───────────────────────────────────────────────────────────
 
