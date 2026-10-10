@@ -181,6 +181,9 @@ class TestAppWorkflow:
         qtbot.addWidget(win)
         item = RectangleItem(100, 100, 300, 200, object_type=ObjectType.TOOL_SHED)
         win.canvas_scene.addItem(item)
+        # Pin the one sim clock (L1.0, ADR-053) to a known day, so the date
+        # change below regrows the scene whatever today is.
+        win._sim_clock.set_datetime(datetime(2026, 3, 1, 12, 0))
 
         win._view3d_action.trigger()
         window = win._view3d_window
@@ -199,6 +202,9 @@ class TestAppWorkflow:
         win._sun_controller.set_sim_datetime(
             datetime(2026, 6, 21, 12, 0, tzinfo=UTC)
         )
+        # L1.0: the controller writes the app's one sim clock, so this new DATE
+        # regrows the geometry like any other clock writer (ADR-053).
+        assert window.adapter.rebuild_count == 2
         win._apply_sun_to_3d()
         berlin_noon_sun = window.adapter.last_sun_scene
         assert berlin_noon_sun != default_sun
@@ -207,26 +213,27 @@ class TestAppWorkflow:
         # Sim-time forwarding: the datetime slot must move the light.
         # US-E8: a changed DATE must ALSO rebuild the geometry, or scrubbing
         # the years would move the sun over frozen, never-growing plants.
-        win._on_sun_sim_datetime(datetime(2026, 12, 21, 12, 0, tzinfo=UTC))
+        # Naive wall readings, as the toolbar hands them over (L1.0, ADR-053).
+        win._on_sun_sim_datetime(datetime(2026, 12, 21, 12, 0))
         assert window.adapter.last_sun_scene != berlin_noon_sun
-        assert window.adapter.rebuild_count == 2
+        assert window.adapter.rebuild_count == 3
 
         # ...but a time-of-day change on the SAME date moves the light only:
         # the toolbar scrubs through times and growth is keyed on the day.
         sun_before = window.adapter.last_sun_scene
-        win._on_sun_sim_datetime(datetime(2026, 12, 21, 14, 0, tzinfo=UTC))
+        win._on_sun_sim_datetime(datetime(2026, 12, 21, 14, 0))
         assert window.adapter.last_sun_scene != sun_before
-        assert window.adapter.rebuild_count == 2
+        assert window.adapter.rebuild_count == 3
 
         # Refresh through the window's own action wiring.
         window.refresh_requested.emit()
-        assert window.adapter.rebuild_count == 3
+        assert window.adapter.rebuild_count == 4
 
         # Re-triggering the menu while the viewer is still OPEN refreshes and
         # raises the SAME window (live swapchain — no recreate).
         win._view3d_action.trigger()
         assert win._view3d_window is window
-        assert window.adapter.rebuild_count == 4
+        assert window.adapter.rebuild_count == 5
 
         # Closing nulls the open reference (so 'is open' guards read true and
         # sun/refresh updates stop targeting it); the hidden window is retired

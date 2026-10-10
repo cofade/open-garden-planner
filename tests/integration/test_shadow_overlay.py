@@ -532,14 +532,19 @@ class TestPerf:
 
 class TestSunSimToolbar:
     def test_datetime_round_trip(self, qtbot) -> None:
+        """The toolbar edits a wall reading (L1.0, ADR-053): what it is shown is
+        what it reads back, field for field."""
         toolbar = SunSimToolbar()
         qtbot.addWidget(toolbar)
-        local = datetime(2026, 6, 21, 14, 0).astimezone()
-        toolbar.set_datetime_local(local)
-        result = toolbar.current_datetime_local()
-        assert result.astimezone(UTC) == local.astimezone(UTC)
+        wall = datetime(2026, 6, 21, 14, 0)
+        toolbar.set_datetime_local(wall)
+        assert toolbar.current_wall_datetime() == wall
 
-    def test_slider_change_emits_aware_datetime(self, qtbot) -> None:
+    def test_slider_change_emits_the_wall_reading(self, qtbot) -> None:
+        """Phase 17 L1.0 (ADR-053): the toolbar hands the sim clock its NAIVE
+        wall reading — picker date + slider time — so the plan date is the
+        picker's date by construction. It used to emit an aware instant, which
+        can name another day inside a gap that straddles midnight."""
         toolbar = SunSimToolbar()
         qtbot.addWidget(toolbar)
         received: list[datetime] = []
@@ -547,8 +552,9 @@ class TestSunSimToolbar:
         toolbar._slider.setValue(15 * 60)
         assert received
         emitted = received[-1]
-        assert emitted.tzinfo is not None
+        assert emitted.tzinfo is None
         assert emitted.hour == 15
+        assert emitted.date() == toolbar._date_edit.date().toPyDate()
 
     def test_animate_advances_time(self, qtbot) -> None:
         toolbar = SunSimToolbar()

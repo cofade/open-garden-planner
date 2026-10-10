@@ -248,6 +248,18 @@ class SunHeatmapController(QObject):
         return self._worker is not None and self._worker.isRunning()
 
     @property
+    def result_pending(self) -> bool:
+        """A launched compute whose result has not reached the GUI thread yet.
+
+        Wider than ``is_running``: ``QThread.isRunning()`` turns False as soon
+        as ``run()`` returns, while its ``success`` / ``finished`` are still
+        queued for the GUI thread. A stale-rule check that only asks
+        ``is_running`` misses that window and lets a stale map paint (L1.0
+        senior review). Cleared in ``_on_worker_finished``.
+        """
+        return self._worker is not None
+
+    @property
     def computed_day(self) -> date | None:
         return self._computed_day
 
@@ -257,9 +269,14 @@ class SunHeatmapController(QObject):
 
     def run_for_day(self, day: date, cell_cm: float = GRID_CELL_CM) -> bool:
         """Snapshot the scene and launch the worker. False if it can't run
-        (no location / already running — incl. a just-cancelled worker still
-        winding down; the button re-enables on its ``finished``)."""
-        if self.is_running:
+        (no location / a previous launch's result still pending — incl. a
+        just-cancelled worker winding down, and a worker whose ``run()``
+        returned while its signals are still queued; the button re-enables on
+        its ``finished``). Asking ``is_running`` alone accepted a second launch
+        in that queued window, and the first worker's ``finished`` then
+        ``deleteLater``-ed the RUNNING second one: a Qt fatal abort, measured
+        in the L1.0 senior review (unreachable from the busy-disabled button)."""
+        if self.result_pending:
             return False
         location = self._location_provider()
         latitude = location.get("latitude") if isinstance(location, dict) else None
@@ -282,10 +299,10 @@ class SunHeatmapController(QObject):
             len(daylight_samples(latitude, longitude, day)) * SAMPLE_STEP_MINUTES
         )
         # US-E8: the heatmap sees the same date-projected plant sizes as the
-        # shadow overlay (one growth timeline everywhere). It keys off the
-        # user's chosen LOCAL day, while the overlay uses the sim instant's UTC
-        # date — near midnight the two can name different days, immaterial to a
-        # decade-scale linear curve but why they are not the same call.
+        # shadow overlay and the 3D view — one growth timeline everywhere, keyed
+        # on the plan's LOCAL date (L1.0's sim clock; the app passes
+        # ``clock.plan_date``). Before L1.0 the overlay used the instant's UTC
+        # date, which named a different day after local midnight east of UTC.
         casters = collect_shadow_casters(self._scene, at_date=day)
         worker = HeatmapWorker(casters, latitude, longitude, day, grid, self)
         worker.progress.connect(self.progress)

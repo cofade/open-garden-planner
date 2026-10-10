@@ -88,6 +88,7 @@ if TYPE_CHECKING:
     import datetime
 
     from open_garden_planner.agent_api import AgentApiServer
+    from open_garden_planner.core.sim_clock import SimChange
 
 logger = logging.getLogger(__name__)
 
@@ -4759,28 +4760,41 @@ class GardenPlannerApp(QMainWindow):
         self._minimap = MinimapWidget(self.canvas_view, self.canvas_scene)
 
         # ── Sun & shade simulation (US-E3) ─────────────────────────────
+        from open_garden_planner.core.sim_clock import SimClock
         from open_garden_planner.ui.canvas.sun_shadow_controller import (
             SunShadowController,
         )
         from open_garden_planner.ui.widgets.sun_sim_toolbar import SunSimToolbar
 
+        # Phase 17 L1.0 (ADR-053): ONE sim clock for the toolbar, the shadow
+        # overlay, the heatmap and the 3D view — the plan's local date for
+        # growth, its instant for the sun. Owned here. Its channels are Qt-free:
+        # they hold bound methods weakly but do NOT disconnect a destroyed
+        # QObject, so every subscriber lives as long as this window.
+        self._sim_clock = SimClock()
         self._sun_controller = SunShadowController(
-            self.canvas_scene, lambda: self._project_manager.location, self
+            self.canvas_scene,
+            lambda: self._project_manager.location,
+            self,
+            clock=self._sim_clock,
         )
         self._sun_controller.state_changed.connect(self._on_sun_state_changed)
         self._sun_toolbar = SunSimToolbar(self)
         self.addToolBarBreak()
         self.addToolBar(self._sun_toolbar)
         self._sun_toolbar.setVisible(False)
+        # The toolbar is a view of the clock: it shows the clock's wall time
+        # (it seeded its own "now" — the clock wins) and writes user edits back.
+        self._sun_toolbar.set_datetime_local(self._sim_clock.wall)
         self._sun_toolbar.datetime_changed.connect(self._on_sun_sim_datetime)
         # Keep the menu action + controller in sync with any visibility change
         # that does not come from the action itself — today that is
         # _enforce_toolbar_visibility() at startup. (It used to be Qt's built-in
         # toolbar context menu, which #283 suppressed via createPopupMenu.)
         self._sun_toolbar.visibilityChanged.connect(self._on_sun_toolbar_visibility)
-        # The sim instant is deliberately NOT persisted: it defaults to the
-        # current date/time on every app start (the toolbar seeds "now" in its
-        # constructor), so a fresh simulation always reflects today.
+        # The sim instant is deliberately NOT persisted: the clock starts at the
+        # current date/time on every app start, so a fresh simulation always
+        # reflects today (FR-SUN-04).
         self._project_manager.location_changed.connect(
             self._on_location_changed_for_sun
         )
@@ -4798,6 +4812,14 @@ class GardenPlannerApp(QMainWindow):
         # ── 3D view (US-E6) — created lazily on first menu use ────────────
         self._view3d_window = None  # the currently-OPEN viewer, or None
         self._view3d_window_retiring = None  # closed, awaiting safe teardown
+
+        # Sim clock fan-out (L1.0): a new plan DATE invalidates the daily heatmap
+        # and regrows the 3D geometry; any new instant moves the toolbar and the
+        # 3D light. The overlay subscribes itself to instant_changed (constructed
+        # above, so on that channel it re-solves before _on_sim_instant_changed;
+        # date_changed — and with it _on_sim_date_changed — fires before both).
+        self._sim_clock.date_changed.connect(self._on_sim_date_changed)
+        self._sim_clock.instant_changed.connect(self._on_sim_instant_changed)
 
         # ── Find & Replace panel (US-11.24) ──────────────────────────────────
         from open_garden_planner.ui.panels.find_replace_panel import FindReplacePanel
@@ -6439,10 +6461,7 @@ class GardenPlannerApp(QMainWindow):
         """Toggle the sun & shade simulation overlay + its time toolbar (US-E3)."""
         self._sun_toolbar.setVisible(checked)
         if checked:
-            self._sun_controller.set_sim_datetime(
-                self._sun_toolbar.current_datetime_local()
-            )
-            self._sun_controller.set_enabled(True)
+            self._sun_controller.set_enabled(True)  # reads the sim clock
             if self._view3d_window is not None:
                 self._apply_sun_to_3d()  # refresh 3D light on sim enable (US-E6)
         else:
@@ -6452,34 +6471,52 @@ class GardenPlannerApp(QMainWindow):
             self._sun_toolbar.set_heatmap_active(False)
 
     def _on_sun_sim_datetime(self, dt) -> None:
-        """A new sim instant from the toolbar — recompute the overlay."""
-        previous_date = self._sun_controller.sim_datetime_utc.date()
-        self._sun_controller.set_sim_datetime(dt)
-        # A daily heatmap goes stale when the DATE changes; a time-of-day
-        # change leaves it valid (it aggregates the whole day).
-        if (
-            self._sun_heatmap.heatmap_visible()
-            and self._sun_heatmap.computed_day != dt.date()
+        """The toolbar's date/time edit: write the one sim clock (L1.0).
+
+        The toolbar hands over its NAIVE wall reading, which the clock stores
+        unchanged, so the plan date is the picker's date by construction (an
+        instant could land on another day inside a spring-forward gap that
+        straddles midnight — ADR-053). An aware ``dt`` is taken as an instant.
+        Everything else follows from the clock: the overlay re-solves on its
+        own subscription, ``_on_sim_date_changed`` handles a new plan date and
+        ``_on_sim_instant_changed`` every change."""
+        self._sim_clock.set_datetime(dt)
+
+    def _on_sim_date_changed(self, day: "datetime.date") -> None:
+        """A new plan DATE — never a time-of-day change (the clock's L1.0 gate).
+
+        The whole-day heatmap goes stale (FR-SUN-05): cleared when shown AND
+        while a launched compute's result is still pending — before L1.0 only a
+        shown map was cleared, so a late result painted the old day under the
+        new date. ``result_pending`` (not ``is_running``) also covers the window
+        after the worker's ``run()`` returned but before its queued result
+        reached the GUI thread.
+        US-E8: growth is keyed on the date, so the 3D geometry regrows here and
+        only here; scrubbing the time of day must not rebuild the scene.
+        """
+        heatmap = self._sun_heatmap
+        if heatmap.computed_day != day and (
+            heatmap.heatmap_visible() or heatmap.result_pending
         ):
-            self._sun_heatmap.clear()
+            heatmap.clear()
             self._sun_toolbar.set_heatmap_active(False)
-        if self._view3d_window is not None:
-            # US-E8: growth is keyed on the DATE, so rebuild the 3D geometry
-            # only when the day actually changes — the toolbar scrubs through
-            # times of day and a full scene rebuild per tick would be wasteful.
-            if self._sun_controller.sim_datetime_utc.date() != previous_date:
-                self._refresh_3d_view()
-            self._apply_sun_to_3d()  # 3D light follows the sim time (US-E6)
+        self._refresh_3d_view()
+
+    def _on_sim_instant_changed(self, change: "SimChange") -> None:
+        """Any new sim instant: the toolbar shows it (silently — no write-back
+        echo) and the 3D light follows (US-E6)."""
+        self._sun_toolbar.set_datetime_local(change.current.wall)
+        self._apply_sun_to_3d()
 
     def _on_heatmap_requested(self) -> None:
-        """Heatmap button checked — compute the shown date's hours of sun."""
-        day = self._sun_toolbar.current_datetime_local().date()
+        """Heatmap button checked — compute the plan date's hours of sun."""
+        day = self._sim_clock.plan_date
         if self._sun_heatmap.run_for_day(day):
             self._sun_toolbar.set_heatmap_busy(True)
             return
-        # Refused: already running, or no garden location.
+        # Refused: a previous result still pending, or no garden location.
         self._sun_toolbar.set_heatmap_active(False)
-        if not self._sun_heatmap.is_running:
+        if not self._sun_heatmap.result_pending:
             self._set_sun_hint(
                 self.tr("Set garden location first: File → Set Garden Location…")
             )
@@ -6500,10 +6537,7 @@ class GardenPlannerApp(QMainWindow):
             return
         self._sun_sim_action.setChecked(visible)
         if visible:
-            self._sun_controller.set_sim_datetime(
-                self._sun_toolbar.current_datetime_local()
-            )
-            self._sun_controller.set_enabled(True)
+            self._sun_controller.set_enabled(True)  # reads the sim clock
             if self._view3d_window is not None:
                 self._apply_sun_to_3d()  # refresh 3D light on sim enable (US-E6)
         else:
@@ -6621,17 +6655,16 @@ class GardenPlannerApp(QMainWindow):
             return
         from open_garden_planner.ui.view3d.snapshot import collect_scene3d_records
 
-        # US-E8: the 3D view shares the sim growth timeline.
+        # US-E8: the 3D view shares the sim growth timeline — the plan date.
         records = collect_scene3d_records(
-            self.canvas_scene,
-            at_date=self._sun_controller.sim_datetime_utc.date(),
+            self.canvas_scene, at_date=self._sim_clock.plan_date
         )
         self._view3d_window.rebuild(
             records, self.canvas_scene.width_cm, self.canvas_scene.height_cm
         )
 
     def _apply_sun_to_3d(self) -> None:
-        """Drive the 3D light from the sim instant + project location.
+        """Drive the 3D light from the sim clock's instant + project location.
 
         Without a location there is no solar position — a pleasant fixed
         default (elev 50°, az 180° ≈ southern midday sun) keeps the view
@@ -6646,9 +6679,7 @@ class GardenPlannerApp(QMainWindow):
         if latitude is None or longitude is None:
             self._view3d_window.set_sun(50.0, 180.0)
             return
-        position = solar_position(
-            latitude, longitude, self._sun_controller.sim_datetime_utc
-        )
+        position = solar_position(latitude, longitude, self._sim_clock.utc)
         self._view3d_window.set_sun(
             position.elevation_deg, position.azimuth_deg
         )

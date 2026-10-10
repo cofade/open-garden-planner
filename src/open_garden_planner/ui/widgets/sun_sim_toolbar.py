@@ -1,12 +1,21 @@
 """Date/time control toolbar for the sun & shade simulation (US-E3, #258).
 
 A plain ``QToolBar``: date picker + time-of-day slider + animate button +
-hint label. The widget works in the SYSTEM LOCAL timezone (the pragmatic
-choice — the garden and the computer share a timezone in practice) and
-emits timezone-aware local datetimes; the controller converts to UTC.
-The sim time defaults to the current date/time each session (seeded in the
-constructor) and is deliberately NOT persisted — not in ``UiStateStore``, not
-in the ``.ogp`` — so a fresh run always reflects today.
+hint label. It edits a WALL-CLOCK reading — a calendar date plus a time of
+day — in the clock's zone (the system zone in the app: the garden and the
+computer share a timezone in practice).
+
+Since Phase 17 L1.0 (ADR-053) the toolbar is a VIEW of the app's one
+``core/sim_clock.SimClock``. ``datetime_changed`` carries the naive wall
+reading, which the app stores unchanged, so the plan date IS the picker's
+date by construction — handing over an instant instead would let a time-only
+drag move the date inside a spring-forward gap that starts before midnight
+(America/Nuuk). The app mirrors the clock back with ``set_datetime_local``
+(signals blocked). Its own "now" seed only matters standalone. The sim time
+is deliberately NOT persisted — not in ``UiStateStore``, not in the ``.ogp`` —
+so a fresh run always reflects today. The date picker is limited to the
+clock's supported range (the system zone's conversion fails near the 1970
+epoch and during 3001 on Windows).
 """
 
 from __future__ import annotations
@@ -23,6 +32,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.core.sim_clock import MAX_PLAN_DATE, MIN_PLAN_DATE
 from open_garden_planner.ui.icons import get_icon, get_pixmap
 
 _ANIMATE_INTERVAL_MS = 200
@@ -33,8 +43,9 @@ class SunSimToolbar(QToolBar):
     """Sun & shade simulation time control.
 
     Signals:
-        datetime_changed: emitted with a timezone-aware local ``datetime``
-            whenever the user changes date or time (or the animation ticks).
+        datetime_changed: emitted with the NAIVE wall-clock ``datetime``
+            (picker date + slider time) whenever the user changes date or time
+            (or the animation ticks).
     """
 
     datetime_changed = pyqtSignal(object)
@@ -53,6 +64,10 @@ class SunSimToolbar(QToolBar):
         self._date_edit = QDateEdit(self)
         self._date_edit.setCalendarPopup(True)
         self._date_edit.setDisplayFormat("yyyy-MM-dd")
+        self._date_edit.setDateRange(
+            QDate(MIN_PLAN_DATE.year, MIN_PLAN_DATE.month, MIN_PLAN_DATE.day),
+            QDate(MAX_PLAN_DATE.year, MAX_PLAN_DATE.month, MAX_PLAN_DATE.day),
+        )
         self._date_edit.setToolTip(self.tr("Simulation date"))
         self.addWidget(self._date_edit)
 
@@ -111,8 +126,8 @@ class SunSimToolbar(QToolBar):
         self._animate_button.toggled.connect(self._on_animate_toggled)
         self._heatmap_button.toggled.connect(self._on_heatmap_toggled)
 
-        now = datetime.now().astimezone()
-        self.set_datetime_local(now)
+        # Standalone seed only — in the app the sim clock's wall time replaces it.
+        self.set_datetime_local(datetime.now().replace(second=0, microsecond=0))
         self.refresh_theme_icons()
 
     # ── public API ─────────────────────────────────────────────
@@ -133,23 +148,35 @@ class SunSimToolbar(QToolBar):
         if clock is not None:
             self._time_icon.setPixmap(clock)
 
-    def current_datetime_local(self) -> datetime:
-        """The selected instant as a timezone-aware local datetime."""
+    def current_wall_datetime(self) -> datetime:
+        """The selected date + time of day as a naive wall-clock reading."""
         date = self._date_edit.date()
         minutes = self._slider.value()
-        naive = datetime(
+        return datetime(
             date.year(), date.month(), date.day(), minutes // 60, minutes % 60
         )
-        return naive.astimezone()  # attach the system local timezone
 
     def set_datetime_local(self, dt: datetime) -> None:
-        """Set the controls without emitting ``datetime_changed``."""
-        local = dt.astimezone() if dt.tzinfo is not None else dt
+        """Show the naive wall reading ``dt`` without emitting ``datetime_changed``.
+
+        The toolbar shows wall readings in the clock's zone, so an aware
+        datetime (an instant, whose zone would be a guess) is refused. Only a
+        field that differs is written: re-setting an unchanged date makes
+        ``QDateEdit`` redraw its text and erases a date the user is part-way
+        through typing — with Animate running the mirror fires every 200 ms
+        (L1.0 senior review).
+        """
+        if dt.tzinfo is not None:
+            raise ValueError("set_datetime_local takes a naive wall reading")
+        target_date = QDate(dt.year, dt.month, dt.day)
+        target_minutes = dt.hour * 60 + dt.minute
         self._date_edit.blockSignals(True)
         self._slider.blockSignals(True)
         try:
-            self._date_edit.setDate(QDate(local.year, local.month, local.day))
-            self._slider.setValue(local.hour * 60 + local.minute)
+            if self._date_edit.date() != target_date:
+                self._date_edit.setDate(target_date)
+            if self._slider.value() != target_minutes:
+                self._slider.setValue(target_minutes)
         finally:
             self._date_edit.blockSignals(False)
             self._slider.blockSignals(False)
@@ -181,7 +208,7 @@ class SunSimToolbar(QToolBar):
 
     def _on_inputs_changed(self) -> None:
         self._update_time_label()
-        self.datetime_changed.emit(self.current_datetime_local())
+        self.datetime_changed.emit(self.current_wall_datetime())
 
     def _on_animate_toggled(self, checked: bool) -> None:
         if checked:

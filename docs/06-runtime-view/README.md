@@ -287,3 +287,38 @@ The soil prompt extracts one bed from the status/mismatch envelopes. Calendar
 generation selects a year independently of `today`; urgency uses `today` after
 the full requested period is generated. Refused writes return an error without
 changing project data or either undo/redo stack.
+
+## 6.8 Sim clock fan-out (Phase 17 L1.0, ADR-053)
+
+One write path from the sun toolbar into the one `SimClock`, and one fan-out. A
+time-of-day change takes only the right-hand path; a date change takes both, the
+date path first.
+
+```mermaid
+flowchart TD
+    U([User drags the time slider,<br/>picks a date, or Animate ticks])
+    T["SunSimToolbar.datetime_changed(naive wall reading:<br/>picker date + slider time)"]
+    W["GardenPlannerApp._on_sun_sim_datetime<br/>→ SimClock.set_datetime(wall) — stored as given"]
+    N{"Instant changed?"}
+    X([No-op: nothing emitted])
+    D{"plan_date changed?"}
+    DC["date_changed(plan_date)<br/>_on_sim_date_changed"]
+    H["Heatmap for another day shown OR result pending<br/>→ clear(); button unchecked"]
+    R["3D view open → rebuild geometry<br/>(growth at plan_date)"]
+    IC["instant_changed(SimChange)"]
+    O["SunShadowController._on_clock_changed<br/>enabled → recompute (sun at utc, growth at plan_date)"]
+    M["_on_sim_instant_changed:<br/>toolbar mirrors wall time (signals blocked),<br/>3D light from utc"]
+
+    U --> T --> W --> N
+    N -- no --> X
+    N -- yes --> D
+    D -- yes --> DC --> H --> R --> IC
+    D -- no --> IC
+    IC --> O --> M
+```
+
+A write from inside any listener raises `RuntimeError`: the remaining listeners
+would otherwise receive a stale change. Every listener runs even when one raises,
+and `instant_changed` is delivered even when a `date_changed` listener failed; the
+first error is re-raised afterwards.
+
