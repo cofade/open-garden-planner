@@ -241,12 +241,16 @@ class TestDiffMatrix:
         assert after.footprints == before.footprints and after.path == before.path
 
     def test_undo_of_a_move_restores_the_very_same_record(self, stage: Stage) -> None:
-        """Undo is ``moveBy(-delta)``: ``(p + d) - d`` differs from ``p`` in the last
-        bit for most ``d``. On the record grid the two are one position."""
+        """Undo is ``moveBy(-delta)``, and ``(p + d) - d`` is not ``p`` in floats:
+        ``(0.1 + 0.7) - 0.7 == 0.09999999999999987``. On the record grid the two
+        are one position, so undo gives back the very record it left."""
+        stage.commands.execute(MoveItemsCommand([stage.item], QPointF(0.1, 0.3)))
+        stage.step()
         before = stage.record
-        stage.commands.execute(MoveItemsCommand([stage.item], QPointF(0.1, 0.7)))
+        stage.commands.execute(MoveItemsCommand([stage.item], QPointF(0.7, 0.9)))
         stage.step()
         stage.commands.undo()
+        assert stage.item.pos().x() != 0.1  # the dust is real: 0.09999999999999987
         assert stage.step() == SceneDiff(transform=(stage.id,))
         assert stage.record == before
 
