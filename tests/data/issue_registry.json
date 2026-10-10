@@ -656,7 +656,7 @@
   },
   "409": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "NFR-PERF-01 missed in a real window: fit-in-view repaint of the 500-object plan takes 54 ms (18 fps) (Audit 2026-10, P1)"
   },
   "410": {
@@ -718,5 +718,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix(core): persistent handled error logging and plant harvest offsets (#405, #416, #418)"
+  },
+  "430": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(perf): canvas LOD and item caching for NFR-PERF-01 (#409)"
   }
 }
