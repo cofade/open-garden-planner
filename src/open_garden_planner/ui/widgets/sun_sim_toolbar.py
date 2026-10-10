@@ -5,7 +5,7 @@ hint label. It edits a WALL-CLOCK reading — a calendar date plus a time of
 day — in the clock's zone (the system zone in the app: the garden and the
 computer share a timezone in practice).
 
-Since Phase 17 L1.0 (ADR-052) the toolbar is a VIEW of the app's one
+Since Phase 17 L1.0 (ADR-053) the toolbar is a VIEW of the app's one
 ``core/sim_clock.SimClock``. ``datetime_changed`` carries the naive wall
 reading, which the app stores unchanged, so the plan date IS the picker's
 date by construction — handing over an instant instead would let a time-only

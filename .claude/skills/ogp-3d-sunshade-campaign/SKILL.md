@@ -483,8 +483,8 @@ keep the math in scene cm.
   the slider on a QTimer; each tick only re-runs the precompute + one
   `update()`). *As shipped:* the sim time is NOT persisted at all (FR-SUN-04),
   and since Phase 17 L1.0 it lives in the one `core/sim_clock.SimClock`
-  (ADR-052) — the toolbar is a view of it and hands it naive wall
-  readings. Read ADR-052 before touching sun or growth time.
+  (ADR-053) — the toolbar is a view of it and hands it naive wall
+  readings. Read ADR-053 before touching sun or growth time.
 - **Empty states**: no `project.location` → overlay disabled + one-line hint
   ("Set garden location first: File → Set Garden Location"), i18n'd. Sun below
   horizon → no shadows + "night" hint.

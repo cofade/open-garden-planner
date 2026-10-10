@@ -150,7 +150,7 @@ class TestSimDateRebuilds3D:
 
     def test_same_day_different_time_does_not_rebuild(self, qtbot) -> None:
         win = self._app(qtbot)
-        # Naive wall readings, as the toolbar hands them over (L1.0, ADR-052):
+        # Naive wall readings, as the toolbar hands them over (L1.0, ADR-053):
         # the plan date is the picker's local day by construction.
         win._on_sun_sim_datetime(datetime(2026, 6, 21, 10, 0))
         win._view3d_window.rebuild.reset_mock()

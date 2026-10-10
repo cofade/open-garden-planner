@@ -28,7 +28,7 @@
 | **OGP** | Open Garden Planner (the application) |
 | **.ogp** | Project file format (JSON-based) |
 | **Object Snap** | Automatic snapping of new/moved objects to edges/vertices of existing objects |
-| **Plan date** | The simulated LOCAL calendar day of the sun & shade simulation — the day the sun toolbar shows and the growth date of shadows, heatmap and 3D. Stored by the sim clock, never derived from the UTC instant (ADR-052) |
+| **Plan date** | The simulated LOCAL calendar day of the sun & shade simulation — the day the sun toolbar shows and the growth date of shadows, heatmap and 3D. Stored by the sim clock, never derived from the UTC instant (ADR-053) |
 | **Plant Type** | Category of plant: tree, shrub, perennial, annual, ground cover |
 | **Plant List** | A user-defined, named collection of plant species with snapshots and notes (US-G4, #320). Stored across projects in `<app-data>/plant_lists.json` and draggable to canvas for direct creation |
 | **Favorites (Plants)** | The reserved, non-deletable default plant list (`favorites`) indicated by ⭐ across the search dialog, plant database panel, category dropdown, and sidebar list |
@@ -41,7 +41,7 @@
 | **Shopping List** | Aggregated buying list (Plants / Seeds / Materials) produced from the current plan; only user-entered prices persist with the project, the rows themselves are recomputed on each open |
 | **ShoppingListItem** | One purchasable row: stable ID (e.g. `plant:<species_id>`), category, name, quantity, unit, optional price |
 | **ShoppingListCategory** | Top-level group in the shopping list: `PLANTS`, `SEEDS`, or `MATERIALS` |
-| **Sim clock** | `core/sim_clock.SimClock`, the one simulated moment of a session (plan date + wall-clock time, UTC derived) behind the sun toolbar, shadow overlay, heatmap and 3D view; not persisted (Phase 17 L1.0, ADR-052) |
+| **Sim clock** | `core/sim_clock.SimClock`, the one simulated moment of a session (plan date + wall-clock time, UTC derived) behind the sun toolbar, shadow overlay, heatmap and 3D view; not persisted (Phase 17 L1.0, ADR-053) |
 | **SoilTestRecord** | Single soil test entry: date, pH, NPK levels, secondary nutrients, optional ppm values, notes, optional soil texture |
 | **SoilTestHistory** | Time-ordered list of `SoilTestRecord`s for one target (a bed UUID or `"global"` default) |
 | **Smart composition** | US-12.11 calculator policy: each pick fully closes its primary nutrient deficit and credits all co-fixed nutrients at the same dose factor; greedy by breadth (count of outstanding deficits the substance touches), with organic-preferred and JSON-order tie-breakers |

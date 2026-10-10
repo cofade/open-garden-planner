@@ -532,7 +532,7 @@ class TestPerf:
 
 class TestSunSimToolbar:
     def test_datetime_round_trip(self, qtbot) -> None:
-        """The toolbar edits a wall reading (L1.0, ADR-052): what it is shown is
+        """The toolbar edits a wall reading (L1.0, ADR-053): what it is shown is
         what it reads back, field for field."""
         toolbar = SunSimToolbar()
         qtbot.addWidget(toolbar)
@@ -541,7 +541,7 @@ class TestSunSimToolbar:
         assert toolbar.current_wall_datetime() == wall
 
     def test_slider_change_emits_the_wall_reading(self, qtbot) -> None:
-        """Phase 17 L1.0 (ADR-052): the toolbar hands the sim clock its NAIVE
+        """Phase 17 L1.0 (ADR-053): the toolbar hands the sim clock its NAIVE
         wall reading — picker date + slider time — so the plan date is the
         picker's date by construction. It used to emit an aware instant, which
         can name another day inside a gap that straddles midnight."""

@@ -21,7 +21,7 @@ Design constraints (campaign fences):
   the whole canvas is shaded rather than the shadows vanishing.
 - All math happens in scene cm via the Qt-free ``core/shadow_geometry``;
   scene +y is already North — there is NO extra Y-flip here (§8.20).
-- The sim moment is NOT owned here (Phase 17 L1.0, ADR-052): the controller
+- The sim moment is NOT owned here (Phase 17 L1.0, ADR-053): the controller
   reads the one ``core/sim_clock.SimClock`` — ``utc`` for the sun,
   ``plan_date`` (the toolbar's LOCAL day) for growth — and recomputes on its
   ``instant_changed``. The app passes its clock; a standalone controller
@@ -353,7 +353,7 @@ class SunShadowController(QObject):
         self._location_provider = location_provider
         self._enabled = False
         self._clock = clock if clock is not None else SimClock()
-        # Qt-free channel (ADR-052): like a Qt connection it holds this bound
+        # Qt-free channel (ADR-053): like a Qt connection it holds this bound
         # method weakly, so controller → clock → controller is no reference
         # cycle and an unparented controller dies with its last reference.
         self._clock.instant_changed.connect(self._on_clock_changed)

@@ -136,7 +136,7 @@ def _app(qtbot):
 
 
 def _local(y: int, mo: int, d: int, h: int, mi: int = 0) -> datetime:
-    """A naive wall reading — what the toolbar hands the clock (ADR-052)."""
+    """A naive wall reading — what the toolbar hands the clock (ADR-053)."""
     return datetime(y, mo, d, h, mi)
 
 

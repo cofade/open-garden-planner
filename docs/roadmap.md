@@ -2691,7 +2691,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | 📋 | L6 | **Director's cut** — photo mode, camera tours, `render_3d_view` MCP tool | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
 | 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
 
-### L1.0 acceptance highlights — one sim clock (#385, ADR-052)
+### L1.0 acceptance highlights — one sim clock (#385, ADR-053)
 
 - **One moment for the whole app.** `core/sim_clock.SimClock` (Qt-free) is owned by `GardenPlannerApp`. The sun toolbar is a view of it (it writes edits and mirrors the clock back silently). The shadow overlay reads it (`utc` for the sun, `plan_date` for growth), and the heatmap request and the 3D view read it too. It is not persisted, and every session starts at "now" (FR-SUN-04).
 - **Gate: a time change never fires `date_changed`.** It holds by construction on the product's path: the toolbar hands the clock its naive wall reading, which is stored as given, never derived from an instant. It is swept over every minute of an ordinary day and of both DST days, and through the real toolbar on America/Nuuk's pre-midnight-gap day (every slider value plus Animate ticks). The sun and heatmap suites stay green; four app-glue tests in three files now pass local wall times, and the toolbar's `datetime_changed` now carries the wall reading (one toolbar test renamed).
@@ -2705,8 +2705,8 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 
 | Document | Section |
 |----------|---------|
-| `docs/09-architecture-decisions/` | ADR-052 (new); ADR-037 growth addendum revision + inline supersession marker on its time-control paragraph; ADR-048 stale ADR-049 pointer |
-| `.claude/skills/` + `.agents/skills/` | `ogp-architecture-contract` invariant 10 (Qt-free list, Channel rule); `ogp-3d-sunshade-campaign` (sim time not persisted, ADR-052 pointer); `application.py` citation lines in `ogp-architecture-contract`, `ogp-config-and-flags`, `ogp-research-frontier` |
+| `docs/09-architecture-decisions/` | ADR-053 (new); ADR-037 growth addendum revision + inline supersession marker on its time-control paragraph; ADR-048 stale ADR-049 pointer |
+| `.claude/skills/` + `.agents/skills/` | `ogp-architecture-contract` invariant 10 (Qt-free list, Channel rule); `ogp-3d-sunshade-campaign` (sim time not persisted, ADR-053 pointer); `application.py` citation lines in `ogp-architecture-contract`, `ogp-config-and-flags`, `ogp-research-frontier` |
 | `docs/functional-requirements.md` | FR-SUN-04, FR-SUN-05, FR-SUN-06, FR-SUN-08 |
 | `docs/08-crosscutting-concepts/` | §8.20 "One simulation clock" |
 | `docs/05-building-block-view/` | `core/sim_clock.py` |

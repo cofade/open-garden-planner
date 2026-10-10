@@ -4766,7 +4766,7 @@ class GardenPlannerApp(QMainWindow):
         )
         from open_garden_planner.ui.widgets.sun_sim_toolbar import SunSimToolbar
 
-        # Phase 17 L1.0 (ADR-052): ONE sim clock for the toolbar, the shadow
+        # Phase 17 L1.0 (ADR-053): ONE sim clock for the toolbar, the shadow
         # overlay, the heatmap and the 3D view — the plan's local date for
         # growth, its instant for the sun. Owned here. Its channels are Qt-free:
         # they hold bound methods weakly but do NOT disconnect a destroyed
@@ -6476,7 +6476,7 @@ class GardenPlannerApp(QMainWindow):
         The toolbar hands over its NAIVE wall reading, which the clock stores
         unchanged, so the plan date is the picker's date by construction (an
         instant could land on another day inside a spring-forward gap that
-        straddles midnight — ADR-052). An aware ``dt`` is taken as an instant.
+        straddles midnight — ADR-053). An aware ``dt`` is taken as an instant.
         Everything else follows from the clock: the overlay re-solves on its
         own subscription, ``_on_sim_date_changed`` handles a new plan date and
         ``_on_sim_instant_changed`` every change."""

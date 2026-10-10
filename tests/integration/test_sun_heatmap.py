@@ -383,7 +383,7 @@ class TestAppGlue:
     ) -> None:
         """The FR-SUN-05 stale rule (application._on_sim_date_changed since
         L1.0): a TIME change keeps the (whole-day) map, a DATE change clears it.
-        Naive wall readings, as the toolbar hands them over (ADR-052)."""
+        Naive wall readings, as the toolbar hands them over (ADR-053)."""
         from datetime import datetime
 
         from open_garden_planner.app.application import GardenPlannerApp

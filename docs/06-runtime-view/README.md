@@ -288,7 +288,7 @@ generation selects a year independently of `today`; urgency uses `today` after
 the full requested period is generated. Refused writes return an error without
 changing project data or either undo/redo stack.
 
-## 6.8 Sim clock fan-out (Phase 17 L1.0, ADR-052)
+## 6.8 Sim clock fan-out (Phase 17 L1.0, ADR-053)
 
 One write path from the sun toolbar into the one `SimClock`, and one fan-out. A
 time-of-day change takes only the right-hand path; a date change takes both, the

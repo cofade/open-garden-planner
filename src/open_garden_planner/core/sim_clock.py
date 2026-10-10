@@ -1,6 +1,6 @@
 """One simulated plan date and time for every sun- and growth-dependent view.
 
-Phase 17, Package L1.0 (#385, ADR-052). Before this module, four places each
+Phase 17, Package L1.0 (#385, ADR-053). Before this module, four places each
 kept their own idea of the simulated moment. The sun toolbar kept its widgets.
 The shadow overlay kept a UTC instant and grew plants for that instant's *UTC*
 date. The hours-of-sun heatmap used the toolbar's *local* date. The 3D view
