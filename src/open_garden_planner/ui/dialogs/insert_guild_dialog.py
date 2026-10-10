@@ -19,12 +19,17 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from open_garden_planner.core.guild_commands import InsertGuildCommand, prepare_guild
+from open_garden_planner.core.guild_commands import (
+    InsertGuildCommand,
+    guild_plant_layers_editable,
+    prepare_guild,
+)
 from open_garden_planner.core.object_types import is_plant_type
 from open_garden_planner.models.guild import GuildTemplate
 from open_garden_planner.services.guild_library import GuildLibrary
 from open_garden_planner.services.species_catalog import offline_catalog
 from open_garden_planner.ui.dialogs.guild_template_editor import GuildTemplateEditor
+from open_garden_planner.ui.guild_errors import guild_error_message
 from open_garden_planner.ui.widgets.trait_filters import trait_label
 
 
@@ -68,6 +73,7 @@ class InsertGuildDialog(QDialog):
             spin.setDecimals(2)
             spin.setSuffix(self.tr(" cm"))
             spin.setValue(size / 2)
+            spin.valueChanged.connect(self.clear_preview)
         form.addRow(self.tr("Centre X:"), self.x_spin)
         form.addRow(self.tr("Centre Y:"), self.y_spin)
         layout.addLayout(form)
@@ -88,6 +94,7 @@ class InsertGuildDialog(QDialog):
         layout.addWidget(buttons)
         self.template_combo.currentIndexChanged.connect(self._template_changed)
         self.existing_combo.currentIndexChanged.connect(self._centre_changed)
+        self.centre_combo.currentIndexChanged.connect(self.clear_preview)
         self.reload()
 
     @property
@@ -109,7 +116,7 @@ class InsertGuildDialog(QDialog):
             self.template_combo.setCurrentIndex(index)
         self.template_combo.blockSignals(False)
         self.file_errors.setText("\n".join(self.tr("{filename}: {reason} — repair the JSON file and Reload.").format(
-            filename=filename, reason=reason) for filename, reason in self.library.errors))
+            filename=filename, reason=guild_error_message(self.library.error_objects[filename])) for filename, _reason in self.library.errors))
         self._template_changed()
 
     def _template_changed(self) -> None:
@@ -132,7 +139,7 @@ class InsertGuildDialog(QDialog):
         for key in keys:
             self.centre_combo.addItem(self.catalog.get(key, {}).get("common_name", self.tr("Unresolved: {key}").format(key=key)), key)
         for item in self.scene.items():
-            if not hasattr(item, "object_type") or not is_plant_type(item.object_type) or item.metadata.get("guild") is not None:
+            if not hasattr(item, "object_type") or not is_plant_type(item.object_type) or item.metadata.get("guild") is not None or not guild_plant_layers_editable(self.scene, item):
                 continue
             species = item.metadata.get("plant_species") or {}
             eligible = function_centre in species.get("functions", []) if function_centre else species.get("scientific_name", "").casefold() == self.catalog.get(template.centre, {}).get("scientific_name", "").casefold()
@@ -147,6 +154,7 @@ class InsertGuildDialog(QDialog):
                 combo.addItem(species.get("common_name", key) if species else self.tr("Unresolved: {key}").format(key=key), key)
             self.roles_form.addRow(trait_label(role.function), combo)
             self.role_choices[role.function] = combo
+            combo.currentIndexChanged.connect(self.clear_preview)
         self.error_label.clear()
 
     def _centre_changed(self) -> None:
@@ -167,7 +175,7 @@ class InsertGuildDialog(QDialog):
         choices["centre"] = self.centre_combo.currentData()
         template = self.template
         if template is None:
-            raise ValueError("Select a valid guild template")
+            raise ValueError(self.tr("Select a valid guild template"))
         return prepare_guild(self.scene, template, self.catalog, self.name_edit.text(),
                              QPointF(self.x_spin.value(), self.y_spin.value()), selections=choices,
                              existing_centre=existing, auto_assign=self.auto_assign)
@@ -184,7 +192,7 @@ class InsertGuildDialog(QDialog):
                 self._preview.append(marker)
             self.error_label.clear()
         except Exception as error:
-            self.error_label.setText(self.tr("Guild cannot be placed: {error}").format(error=str(error)))
+            self.error_label.setText(self.tr("Guild cannot be placed: {error}").format(error=guild_error_message(error)))
 
     def clear_preview(self) -> None:
         for marker in self._preview:
@@ -196,7 +204,7 @@ class InsertGuildDialog(QDialog):
         try:
             self.command = self.prepare()
         except Exception as error:
-            self.error_label.setText(self.tr("Guild cannot be placed: {error}").format(error=str(error)))
+            self.error_label.setText(self.tr("Guild cannot be placed: {error}").format(error=guild_error_message(error)))
             return
         self.accept()
 

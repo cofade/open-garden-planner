@@ -21,11 +21,13 @@ class GuildLibrary:
         self.templates: dict[str, GuildTemplate] = {}
         self.user_paths: dict[str, Path] = {}
         self.errors: list[tuple[str, str]] = []
+        self.error_objects: dict[str, Exception] = {}
         self.reload()
 
     def reload(self) -> None:
         templates: dict[str, GuildTemplate] = {}
         self.errors = []
+        self.error_objects = {}
         self.user_paths = {}
         for path in sorted(self.bundled_dir.glob("*.json")):
             template = GuildTemplate.from_dict(json.loads(path.read_text(encoding="utf-8")))
@@ -45,6 +47,7 @@ class GuildLibrary:
             except Exception as error:
                 logger.warning("Skipping guild template %s: %s", path, error)
                 self.errors.append((path.name, str(error)))
+                self.error_objects[path.name] = error
         self.templates = templates
 
     def save(self, template: GuildTemplate) -> Path:

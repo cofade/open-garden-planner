@@ -63,6 +63,7 @@ class CanvasScene(QGraphicsScene):
 
     # Signals
     layers_changed = pyqtSignal()
+    document_replaced = pyqtSignal()
     active_layer_changed = pyqtSignal(object)  # Layer or None
     layer_auto_unhidden = pyqtSignal(UUID)  # emitted when a draw auto-reveals a hidden layer
 
@@ -1192,7 +1193,7 @@ class CanvasScene(QGraphicsScene):
         (``_calibration_markers``, ``_calibration_points``,
         ``_calibration_image``, ``_calibration_mode``).
         """
-        self._guild_diagnostics: list[dict[str, Any]] = []
+        self.reset_document_diagnostics()
         self._compare_items.clear()
         self._compare_overlay_visible = False
         self._calibration_markers.clear()
@@ -1200,6 +1201,12 @@ class CanvasScene(QGraphicsScene):
         self._calibration_image = None
         self._calibration_mode = False
         super().clear()
+
+    def reset_document_diagnostics(self) -> None:
+        """Drop document-owned caches at clear and successful load commit."""
+        self._guild_diagnostics: list[dict[str, Any]] = []
+        self._document_generation = getattr(self, "_document_generation", 0) + 1
+        self.document_replaced.emit()
 
     def set_compare_overlay_visible(self, visible: bool) -> None:
         """Show or hide the compare overlay without removing items.

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from open_garden_planner.models.guild import GuildTemplate
+from open_garden_planner.models.guild_errors import GuildValidationError, validated_function
 from open_garden_planner.models.plant_data import PlantFunction
 
 
@@ -28,10 +29,11 @@ def compute_guilds(members: list[dict[str, Any]]) -> tuple[list[GuildStatus], li
     valid: dict[str, list[dict[str, Any]]] = {}
     errors: list[dict[str, Any]] = []
 
-    def warning(member: dict[str, Any], reason: str) -> None:
+    def warning(member: dict[str, Any], reason: str, error: Exception | None = None) -> None:
         errors.append({"kind": "guild_data_warning", "severity": "warning",
                        "item_ids": [str(member.get("item_id", ""))], "message": reason,
-                       "details": {"reason": reason}})
+                       "details": {"reason": reason, "reason_code": error.code if isinstance(error, GuildValidationError) else None,
+                                   "reason_details": error.details if isinstance(error, GuildValidationError) else {}}})
 
     for member in members:
         guild = member.get("guild")
@@ -39,23 +41,23 @@ def compute_guilds(members: list[dict[str, Any]]) -> tuple[list[GuildStatus], li
             continue
         try:
             if not isinstance(guild, dict) or not isinstance(guild.get("guild_id"), str) or not guild["guild_id"]:
-                raise ValueError("Guild link needs a nonempty guild_id")
+                raise GuildValidationError("link")
             role = guild.get("role")
             if role != "centre":
-                PlantFunction(role)
+                validated_function(role)
             else:
                 GuildTemplate.from_dict(guild["template"])
                 if not isinstance(guild.get("name"), str) or not guild["name"].strip():
-                    raise ValueError("Guild centre needs an instance name")
+                    raise GuildValidationError("centre_name")
             valid.setdefault(guild["guild_id"], []).append(member)
         except Exception as error:
-            warning(member, f"Invalid saved guild metadata: {error}")
+            warning(member, f"Invalid saved guild metadata: {error}", error)
     statuses = []
     for gid, group in valid.items():
         centres = [m for m in group if m["guild"]["role"] == "centre"]
         if len(centres) != 1:
             for member in group:
-                warning(member, "Guild must have exactly one valid centre")
+                warning(member, "Guild must have exactly one valid centre", GuildValidationError("one_centre"))
             continue
         centre = centres[0]
         template = GuildTemplate.from_dict(centre["guild"]["template"])

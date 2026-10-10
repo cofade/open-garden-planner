@@ -13,6 +13,15 @@ from open_garden_planner.agent_api import queries
 from open_garden_planner.agent_api.schema import Measurement, ObjectDetail, ObjectRef
 
 
+def test_malformed_trait_shapes_are_unspecified_without_substring_inference():
+    snapshot = _snapshot()
+    plant = next(obj for obj in snapshot["objects"] if obj["item_id"] == "p1")
+    plant["metadata"] = {"plant_species": {"permaculture_layer": ["future"], "functions": "not nitrogen_fixer"}}
+    detail = queries.get_object(snapshot, "p1")
+    assert detail.permaculture_layer == "unknown" and detail.functions == []
+    assert detail.metadata["plant_species"] == plant["metadata"]["plant_species"]
+
+
 def _snapshot() -> dict[str, Any]:
     """A small plan: one raised bed holding two plants, plus two loose shapes."""
     return {

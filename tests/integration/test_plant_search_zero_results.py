@@ -39,6 +39,9 @@ class _StubLibrary:
     def search_plants(self, query: str) -> list:  # noqa: ARG002
         return []
 
+    def get_all_plants(self) -> list:
+        return []
+
 
 @pytest.fixture(autouse=True)
 def _stub_custom_library(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -75,6 +78,7 @@ class TestZeroResultsIsNotReportedAsFailure:
         ) as mock_warn:
             dlg.search_input.setText("mahachanok")
             dlg._perform_search()
+            qtbot.waitUntil(lambda: not dlg._requests)
 
         assert "No plants matched" in dlg.status_label.text()
         assert "unavailable" not in dlg.status_label.text()
@@ -116,6 +120,7 @@ class TestZeroResultsIsNotReportedAsFailure:
         ) as mock_warn:
             dlg.search_input.setText("mahachanok")
             dlg._perform_search()
+            qtbot.waitUntil(lambda: not dlg._requests)
 
         text = dlg.status_label.text()
         assert "No plants matched" in text
@@ -150,6 +155,7 @@ class TestZeroResultsIsNotReportedAsFailure:
         ) as mock_warn:
             dlg.search_input.setText("mahachanok")
             dlg._perform_search()
+            qtbot.waitUntil(lambda: not dlg._requests)
 
         assert dlg.status_label.text().startswith("Search failed")
         mock_warn.assert_called_once()
@@ -186,6 +192,7 @@ class TestZeroResultsIsNotReportedAsFailure:
         ) as mock_warn:
             dlg.search_input.setText("mahachanok")
             dlg._perform_search()
+            qtbot.waitUntil(lambda: not dlg._requests)
 
         assert "No plant databases are configured" in dlg.status_label.text()
         mock_warn.assert_not_called()

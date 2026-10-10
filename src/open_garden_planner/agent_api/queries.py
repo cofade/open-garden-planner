@@ -283,9 +283,14 @@ def _object_detail(
 
     plant = obj.get("object_type") in {"TREE", "SHRUB", "PERENNIAL"}
     species = (obj.get("metadata") or {}).get("plant_species") or {}
+    if not isinstance(species, dict):
+        species = {}
     layer = species.get("permaculture_layer", "unknown")
-    if layer not in {v.value for v in PermacultureLayer}:
+    if not isinstance(layer, str) or layer not in {v.value for v in PermacultureLayer}:
         layer = "unknown"
+    functions = species.get("functions") or []
+    if not isinstance(functions, list):
+        functions = [functions]
     return ObjectDetail(
         **ref.model_dump(),
         rotation_deg=float(obj.get("rotation_angle", obj.get("rotation", 0.0)) or 0.0),
@@ -297,7 +302,7 @@ def _object_detail(
         species_key=_species_key(obj),
         species_name=_species_name(obj),
         permaculture_layer=layer if plant else None,
-        functions=[v.value for v in PlantFunction if v.value in (species.get("functions") or [])] if plant else None,
+        functions=[v.value for v in PlantFunction if v.value in functions] if plant else None,
         metadata=dict(obj.get("metadata") or {}),
     )
 

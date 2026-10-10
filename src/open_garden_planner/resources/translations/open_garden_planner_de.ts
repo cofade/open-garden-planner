@@ -11869,6 +11869,10 @@ Details: {error}</translation>
             <source>{shown} of {total} warnings</source>
             <translation>{shown} von {total} Warnungen</translation>
         </message>
+        <message>
+            <source>Invalid saved membership or template</source>
+            <translation>Ungültige gespeicherte Zugehörigkeit oder Vorlage</translation>
+        </message>
     </context>
     <context>
         <name>GuildTemplateEditor</name>
@@ -12047,6 +12051,10 @@ Details: {error}</translation>
             <source>Guild cannot be placed: {error}</source>
             <translation>Gilde kann nicht platziert werden: {error}</translation>
         </message>
+        <message>
+            <source>Select a valid guild template</source>
+            <translation>Eine gültige Gildenvorlage auswählen</translation>
+        </message>
     </context>
     <context>
         <name>RadiusEditor</name>
@@ -12057,6 +12065,153 @@ Details: {error}</translation>
         <message>
             <source>Distance (cm)</source>
             <translation>Abstand (cm)</translation>
+        </message>
+    </context>
+    <context>
+        <name>GuildErrors</name>
+        <message>
+            <source>Role minimum must be a positive integer</source>
+            <translation>Die Mindestanzahl muss eine positive ganze Zahl sein</translation>
+        </message>
+        <message>
+            <source>Radius must be positive and finite, or canopy_edge</source>
+            <translation>Der Radius muss positiv und endlich sein oder den Kronenrand verwenden</translation>
+        </message>
+        <message>
+            <source>Suggested species must be a list of canonical species keys</source>
+            <translation>Vorgeschlagene Arten müssen als Liste von Artschlüsseln angegeben werden</translation>
+        </message>
+        <message>
+            <source>Template must be a JSON object</source>
+            <translation>Die Vorlage muss ein JSON-Objekt sein</translation>
+        </message>
+        <message>
+            <source>ID must use letters, numbers, dots, underscores or hyphens</source>
+            <translation>Die ID darf Buchstaben, Zahlen, Punkte, Unterstriche oder Bindestriche enthalten</translation>
+        </message>
+        <message>
+            <source>Version must be a positive integer</source>
+            <translation>Die Version muss eine positive ganze Zahl sein</translation>
+        </message>
+        <message>
+            <source>{field} must be a nonempty string</source>
+            <translation>{field} darf nicht leer sein und muss Text enthalten</translation>
+        </message>
+        <message>
+            <source>{field} must be text</source>
+            <translation>{field} muss Text enthalten</translation>
+        </message>
+        <message>
+            <source>Unknown function: {function}</source>
+            <translation>Unbekannte Funktion: {function}</translation>
+        </message>
+        <message>
+            <source>Missing template field: {field}</source>
+            <translation>Fehlendes Vorlagenfeld: {field}</translation>
+        </message>
+        <message>
+            <source>Roles must be a list</source>
+            <translation>Rollen müssen als Liste angegeben werden</translation>
+        </message>
+        <message>
+            <source>Each function may appear in only one role row</source>
+            <translation>Jede Funktion darf nur in einer Rollenzeile vorkommen</translation>
+        </message>
+        <message>
+            <source>A guild stamp may contain at most 200 plants, including its centre</source>
+            <translation>Eine Gilde darf einschließlich ihres Zentrums höchstens 200 Pflanzen enthalten</translation>
+        </message>
+        <message>
+            <source>Sources must be a list of references</source>
+            <translation>Quellen müssen als Liste von Verweisen angegeben werden</translation>
+        </message>
+        <message>
+            <source>Canopy-edge layout needs mature spacing; choose an explicit radius</source>
+            <translation>Für den Kronenrand wird ein Abstand ausgewachsener Pflanzen benötigt; einen festen Radius wählen</translation>
+        </message>
+        <message>
+            <source>A guild needs an instance name</source>
+            <translation>Die Gilde benötigt einen Namen</translation>
+        </message>
+        <message>
+            <source>Choose a plant in the current plan as centre</source>
+            <translation>Eine Pflanze im aktuellen Plan als Zentrum wählen</translation>
+        </message>
+        <message>
+            <source>Remove this plant from its current guild before using it as centre</source>
+            <translation>Diese Pflanze vor der Verwendung als Zentrum aus ihrer bisherigen Gilde entfernen</translation>
+        </message>
+        <message>
+            <source>Select a resolved centre species</source>
+            <translation>Eine aufgelöste Pflanzenart für das Zentrum wählen</translation>
+        </message>
+        <message>
+            <source>Centre species does not record the required function</source>
+            <translation>Die zentrale Pflanzenart weist die benötigte Funktion nicht auf</translation>
+        </message>
+        <message>
+            <source>Centre species does not match this template</source>
+            <translation>Die zentrale Pflanzenart passt nicht zu dieser Vorlage</translation>
+        </message>
+        <message>
+            <source>Unresolved suggested species: choose a replacement</source>
+            <translation>Nicht aufgelöste vorgeschlagene Art: einen Ersatz wählen</translation>
+        </message>
+        <message>
+            <source>Selected member species does not record its required function</source>
+            <translation>Die ausgewählte Mitgliedsart weist ihre benötigte Funktion nicht auf</translation>
+        </message>
+        <message>
+            <source>Guild placement needs visible, unlocked target layers</source>
+            <translation>Die Gilde benötigt sichtbare, nicht gesperrte Zielebenen</translation>
+        </message>
+        <message>
+            <source>Guild layout extends outside the canvas; choose another position or radius</source>
+            <translation>Die Gilde reicht über die Zeichenfläche hinaus; eine andere Position oder einen anderen Radius wählen</translation>
+        </message>
+        <message>
+            <source>Guild link needs a nonempty guild_id</source>
+            <translation>Die Gildenzuordnung benötigt eine nicht leere Gilden-ID</translation>
+        </message>
+        <message>
+            <source>Guild centre needs an instance name</source>
+            <translation>Das Gildenzentrum benötigt einen Namen</translation>
+        </message>
+        <message>
+            <source>Guild must have exactly one valid centre</source>
+            <translation>Die Gilde muss genau ein gültiges Zentrum besitzen</translation>
+        </message>
+        <message>
+            <source>Invalid template or file: {reason}</source>
+            <translation>Ungültige Vorlage oder Datei: {reason}</translation>
+        </message>
+        <message>
+            <source>name</source>
+            <translation>Name</translation>
+        </message>
+        <message>
+            <source>centre</source>
+            <translation>Zentrum</translation>
+        </message>
+        <message>
+            <source>license</source>
+            <translation>Lizenz</translation>
+        </message>
+        <message>
+            <source>attribution</source>
+            <translation>Quellenangabe</translation>
+        </message>
+        <message>
+            <source>description</source>
+            <translation>Beschreibung</translation>
+        </message>
+        <message>
+            <source>name_de</source>
+            <translation>Deutscher Name</translation>
+        </message>
+        <message>
+            <source>description_de</source>
+            <translation>Deutsche Beschreibung</translation>
         </message>
     </context>
 </TS>

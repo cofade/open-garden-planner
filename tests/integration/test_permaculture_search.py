@@ -59,3 +59,37 @@ def test_sparse_trait_merge_both_directions():
     for search, detail in ((rich, sparse), (sparse, rich)):
         result = PlantSearchDialog._merge_detail_into_search_result(search, detail)
         assert result.permaculture_layer == rich.permaculture_layer and result.functions == rich.functions
+
+
+def test_selection_change_invalidates_pending_confirmation(qtbot):
+    dialog = PlantSearchDialog(PlantAPIManager())
+    qtbot.addWidget(dialog)
+    a = PlantSpeciesData("A", "A", data_source="trefle", source_id="a")
+    b = PlantSpeciesData("B", "B", data_source="trefle", source_id="b")
+    dialog._show_results([a, b])
+    dialog.results_list.setCurrentRow(0)
+    future = Future()
+    future.set_running_or_notify_cancel()
+    dialog._detail_request = (dialog._generation, a, future)
+    dialog.results_list.setCurrentRow(1)
+    future.set_result(a)
+    dialog._poll_results()
+    assert dialog._selected_plant is b and dialog.result() != dialog.DialogCode.Accepted
+    dialog.reject()
+
+
+def test_global_trait_only_results_and_empty_filter_controls(qtbot):
+    from open_garden_planner.core.object_types import is_plant_type
+    from open_garden_planner.ui.widgets.gallery_data import build_toolbar_categories
+    from open_garden_planner.ui.widgets.global_search import GlobalSearchField
+
+    field = GlobalSearchField(build_toolbar_categories())
+    qtbot.addWidget(field)
+    filters = field._popup.trait_filters
+    filters.function_buttons["nitrogen_fixer"].setChecked(True)
+    rows = field._popup._list
+    assert rows.count() > 0
+    assert all(is_plant_type(rows.item(index).data(256).object_type) for index in range(rows.count()))
+    filters.function_buttons["dye"].setChecked(True)
+    assert rows.count() == 0 and field._popup.isVisible()
+    field._popup.hide()

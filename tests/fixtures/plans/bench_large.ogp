@@ -1,7 +1,7 @@
 {
   "version": "1.4",
   "metadata": {
-    "modified": "2026-10-09T21:46:04.213924+00:00"
+    "modified": "2026-10-10T22:26:52.937903+00:00"
   },
   "canvas": {
     "width": 5000.0,
@@ -14,7 +14,8 @@
       "visible": true,
       "locked": false,
       "opacity": 1.0,
-      "z_order": 0
+      "z_order": 0,
+      "permaculture_layer": null
     }
   ],
   "objects": [
@@ -266,7 +267,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -333,7 +336,9 @@
           "nutrient_demand": "light",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -398,7 +403,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -459,7 +466,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "high",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -527,7 +536,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -592,7 +603,11 @@
           "nutrient_demand": "fixer",
           "n_demand": "fixer",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": [
+            "nitrogen_fixer"
+          ]
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -657,7 +672,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -723,7 +740,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -785,7 +804,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -846,7 +867,9 @@
           "nutrient_demand": "medium",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -960,7 +983,9 @@
           "nutrient_demand": "light",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -1025,7 +1050,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -1086,7 +1113,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "high",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -1154,7 +1183,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -1219,7 +1250,11 @@
           "nutrient_demand": "fixer",
           "n_demand": "fixer",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": [
+            "nitrogen_fixer"
+          ]
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -1284,7 +1319,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -1350,7 +1387,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -1412,7 +1451,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -1473,7 +1514,9 @@
           "nutrient_demand": "medium",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -1541,7 +1584,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -1653,7 +1698,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -1714,7 +1761,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "high",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -1782,7 +1831,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -1847,7 +1898,11 @@
           "nutrient_demand": "fixer",
           "n_demand": "fixer",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": [
+            "nitrogen_fixer"
+          ]
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -1912,7 +1967,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -1978,7 +2035,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -2040,7 +2099,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -2101,7 +2162,9 @@
           "nutrient_demand": "medium",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -2169,7 +2232,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -2236,7 +2301,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -2344,7 +2411,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "high",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -2412,7 +2481,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -2477,7 +2548,11 @@
           "nutrient_demand": "fixer",
           "n_demand": "fixer",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": [
+            "nitrogen_fixer"
+          ]
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -2542,7 +2617,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -2608,7 +2685,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -2670,7 +2749,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -2731,7 +2812,9 @@
           "nutrient_demand": "medium",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -2799,7 +2882,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -2866,7 +2951,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -2934,7 +3021,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -3049,7 +3138,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -3114,7 +3205,11 @@
           "nutrient_demand": "fixer",
           "n_demand": "fixer",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": [
+            "nitrogen_fixer"
+          ]
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -3179,7 +3274,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -3245,7 +3342,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -3307,7 +3406,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -3368,7 +3469,9 @@
           "nutrient_demand": "medium",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -3436,7 +3539,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -3503,7 +3608,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -3571,7 +3678,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -3632,7 +3741,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -3744,7 +3855,11 @@
           "nutrient_demand": "fixer",
           "n_demand": "fixer",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": [
+            "nitrogen_fixer"
+          ]
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -3809,7 +3924,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -3875,7 +3992,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -3937,7 +4056,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -3998,7 +4119,9 @@
           "nutrient_demand": "medium",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -4066,7 +4189,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -4133,7 +4258,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -4201,7 +4328,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -4262,7 +4391,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -4323,7 +4454,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -4435,7 +4568,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -4501,7 +4636,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -4563,7 +4700,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -4624,7 +4763,9 @@
           "nutrient_demand": "medium",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -4692,7 +4833,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -4759,7 +4902,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -4827,7 +4972,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -4888,7 +5035,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -4949,7 +5098,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -5015,7 +5166,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -5128,7 +5281,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -5190,7 +5345,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -5251,7 +5408,9 @@
           "nutrient_demand": "medium",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -5319,7 +5478,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -5386,7 +5547,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -5454,7 +5617,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -5515,7 +5680,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -5576,7 +5743,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -5642,7 +5811,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -5708,7 +5879,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -5817,7 +5990,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -5878,7 +6053,9 @@
           "nutrient_demand": "medium",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -5946,7 +6123,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -6013,7 +6192,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -6081,7 +6262,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -6142,7 +6325,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -6203,7 +6388,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -6269,7 +6456,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -6335,7 +6524,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -6396,7 +6587,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -6504,7 +6697,9 @@
           "nutrient_demand": "medium",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -6572,7 +6767,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -6639,7 +6836,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -6707,7 +6906,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -6768,7 +6969,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -6829,7 +7032,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -6895,7 +7100,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -6961,7 +7168,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -7022,7 +7231,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -7087,7 +7298,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -7202,7 +7415,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -7269,7 +7484,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -7337,7 +7554,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -7398,7 +7617,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -7459,7 +7680,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -7525,7 +7748,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -7591,7 +7816,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -7652,7 +7879,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -7717,7 +7946,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -7784,7 +8015,9 @@
           "nutrient_demand": "light",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -7898,7 +8131,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -7966,7 +8201,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -8027,7 +8264,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -8088,7 +8327,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -8154,7 +8395,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -8220,7 +8463,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -8281,7 +8526,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -8346,7 +8593,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -8413,7 +8662,9 @@
           "nutrient_demand": "light",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -8478,7 +8729,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -8593,7 +8846,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -8654,7 +8909,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -8715,7 +8972,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -8781,7 +9040,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -8847,7 +9108,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -8908,7 +9171,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -8973,7 +9238,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -9040,7 +9307,9 @@
           "nutrient_demand": "light",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -9105,7 +9374,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -9166,7 +9437,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "high",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -9274,7 +9547,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -9335,7 +9610,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -9401,7 +9678,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -9467,7 +9746,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -9528,7 +9809,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -9593,7 +9876,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -9660,7 +9945,9 @@
           "nutrient_demand": "light",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -9725,7 +10012,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -9786,7 +10075,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "high",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -9854,7 +10145,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -9962,7 +10255,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -10028,7 +10323,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -10094,7 +10391,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -10155,7 +10454,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -10220,7 +10521,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -10287,7 +10590,9 @@
           "nutrient_demand": "light",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -10352,7 +10657,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -10413,7 +10720,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "high",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -10481,7 +10790,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -10546,7 +10857,11 @@
           "nutrient_demand": "fixer",
           "n_demand": "fixer",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": [
+            "nitrogen_fixer"
+          ]
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -10659,7 +10974,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -10725,7 +11042,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -10786,7 +11105,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -10851,7 +11172,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -10918,7 +11241,9 @@
           "nutrient_demand": "light",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -10983,7 +11308,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -11044,7 +11371,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "high",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -11112,7 +11441,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -11177,7 +11508,11 @@
           "nutrient_demand": "fixer",
           "n_demand": "fixer",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": [
+            "nitrogen_fixer"
+          ]
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -11242,7 +11577,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -11355,7 +11692,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -11416,7 +11755,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -11481,7 +11822,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -11548,7 +11891,9 @@
           "nutrient_demand": "light",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -11613,7 +11958,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -11674,7 +12021,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "high",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -11742,7 +12091,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -11807,7 +12158,11 @@
           "nutrient_demand": "fixer",
           "n_demand": "fixer",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": [
+            "nitrogen_fixer"
+          ]
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -11872,7 +12227,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -11938,7 +12295,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -12046,7 +12405,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -12111,7 +12472,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -12178,7 +12541,9 @@
           "nutrient_demand": "light",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -12243,7 +12608,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -12304,7 +12671,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "high",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -12372,7 +12741,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -12437,7 +12808,11 @@
           "nutrient_demand": "fixer",
           "n_demand": "fixer",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": [
+            "nitrogen_fixer"
+          ]
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -12502,7 +12877,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -12568,7 +12945,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -12630,7 +13009,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -12742,7 +13123,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -12809,7 +13192,9 @@
           "nutrient_demand": "light",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -12874,7 +13259,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -12935,7 +13322,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "high",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -13003,7 +13392,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -13068,7 +13459,11 @@
           "nutrient_demand": "fixer",
           "n_demand": "fixer",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": [
+            "nitrogen_fixer"
+          ]
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -13133,7 +13528,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -13199,7 +13596,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -13261,7 +13660,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -13322,7 +13723,9 @@
           "nutrient_demand": "medium",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -13436,7 +13839,9 @@
           "nutrient_demand": "light",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -13501,7 +13906,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -13562,7 +13969,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "high",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -13630,7 +14039,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -13695,7 +14106,11 @@
           "nutrient_demand": "fixer",
           "n_demand": "fixer",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": [
+            "nitrogen_fixer"
+          ]
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -13760,7 +14175,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -13826,7 +14243,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -13888,7 +14307,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -13949,7 +14370,9 @@
           "nutrient_demand": "medium",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -14017,7 +14440,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -14129,7 +14554,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -14190,7 +14617,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "high",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -14258,7 +14687,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -14323,7 +14754,11 @@
           "nutrient_demand": "fixer",
           "n_demand": "fixer",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": [
+            "nitrogen_fixer"
+          ]
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -14388,7 +14823,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -14454,7 +14891,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -14516,7 +14955,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -14577,7 +15018,9 @@
           "nutrient_demand": "medium",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -14645,7 +15088,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -14712,7 +15157,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -14820,7 +15267,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "high",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -14888,7 +15337,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -14953,7 +15404,11 @@
           "nutrient_demand": "fixer",
           "n_demand": "fixer",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": [
+            "nitrogen_fixer"
+          ]
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -15018,7 +15473,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -15084,7 +15541,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -15146,7 +15605,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -15207,7 +15668,9 @@
           "nutrient_demand": "medium",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -15275,7 +15738,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -15342,7 +15807,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -15410,7 +15877,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -15525,7 +15994,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -15590,7 +16061,11 @@
           "nutrient_demand": "fixer",
           "n_demand": "fixer",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": [
+            "nitrogen_fixer"
+          ]
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -15655,7 +16130,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -15721,7 +16198,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -15783,7 +16262,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -15844,7 +16325,9 @@
           "nutrient_demand": "medium",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -15912,7 +16395,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -15979,7 +16464,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -16047,7 +16534,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -16108,7 +16597,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -16220,7 +16711,11 @@
           "nutrient_demand": "fixer",
           "n_demand": "fixer",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": [
+            "nitrogen_fixer"
+          ]
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -16285,7 +16780,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -16351,7 +16848,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -16413,7 +16912,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -16474,7 +16975,9 @@
           "nutrient_demand": "medium",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -16542,7 +17045,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -16609,7 +17114,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -16677,7 +17184,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -16738,7 +17247,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -16799,7 +17310,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "root",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15"
@@ -16869,7 +17382,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -16921,7 +17436,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -16973,7 +17490,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -17025,7 +17544,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -17075,7 +17596,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -17125,7 +17648,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -17175,7 +17700,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -17225,7 +17752,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -17277,7 +17806,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -17327,7 +17858,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -17379,7 +17912,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -17431,7 +17966,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -17483,7 +18020,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -17535,7 +18074,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -17585,7 +18126,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -17635,7 +18178,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -17685,7 +18230,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -17735,7 +18282,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -17787,7 +18336,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -17837,7 +18388,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -17889,7 +18442,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -17941,7 +18496,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -17993,7 +18550,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -18045,7 +18604,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -18095,7 +18656,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -18145,7 +18708,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -18195,7 +18760,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -18245,7 +18812,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -18297,7 +18866,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -18347,7 +18918,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -18399,7 +18972,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -18451,7 +19026,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -18503,7 +19080,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -18555,7 +19134,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -18605,7 +19186,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -18655,7 +19238,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -18705,7 +19290,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -18755,7 +19342,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -18807,7 +19396,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -18857,7 +19448,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -18907,7 +19500,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -18959,7 +19554,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -19009,7 +19606,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -19059,7 +19658,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -19109,7 +19710,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -19161,7 +19764,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -19213,7 +19818,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -19265,7 +19872,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -19315,7 +19924,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -19367,7 +19978,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -19417,7 +20030,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -19467,7 +20082,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -19517,7 +20134,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -19569,7 +20188,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -19621,7 +20242,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -19673,7 +20296,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -19723,7 +20348,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -19775,7 +20402,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -19825,7 +20454,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -19875,7 +20506,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -19925,7 +20558,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -19977,7 +20612,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -20029,7 +20666,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -20081,7 +20720,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -20131,7 +20772,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -20183,7 +20826,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -20233,7 +20878,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -20283,7 +20930,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -20333,7 +20982,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -20385,7 +21036,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -20437,7 +21090,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -20489,7 +21144,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -20539,7 +21196,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -20591,7 +21250,9 @@
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -20641,7 +21302,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -20691,7 +21354,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -20741,7 +21406,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "low"
+          "k_demand": "low",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -20793,7 +21460,9 @@
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
-          "k_demand": "medium"
+          "k_demand": "medium",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -20845,7 +21514,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",
@@ -20897,7 +21568,9 @@
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
-          "k_demand": "high"
+          "k_demand": "high",
+          "permaculture_layer": "shrub",
+          "functions": []
         },
         "plant_instance": {
           "planting_date": "2026-04-15",

@@ -143,7 +143,7 @@ class GlobalSearchField(QLineEdit):
 
         hits = [it for it in self._all_items if gallery_matches(
             it, needle, layers=filters.layers, functions=filters.functions)][:MAX_RESULTS]
-        if not hits:
+        if not hits and not (filters.layers or filters.functions):
             self._popup.hide()
             return
         self._popup.populate(hits)

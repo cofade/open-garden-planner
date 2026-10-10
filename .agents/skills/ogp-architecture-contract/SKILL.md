@@ -202,7 +202,7 @@ All claims verified 2026-07-03 against master (v1.23.0). Re-verify with:
 If any command's output contradicts this file, **the repo wins** — update this
 skill in the same PR that changed the fact.
 
-## Package F1/F2 seams (ADR-053/054)
+## Package F1/F2 seams (ADR-054/054)
 
 The canonical plant construction seam is `ui/plant_creation.py`: gallery and
 Plant Lists drops and guild stamps share species snapshots, size/date and semantic

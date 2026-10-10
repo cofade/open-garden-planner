@@ -25,6 +25,7 @@ from open_garden_planner.models.guild import GuildTemplate
 from open_garden_planner.models.plant_data import PlantFunction
 from open_garden_planner.services.guild_library import GuildLibrary
 from open_garden_planner.services.species_catalog import offline_catalog
+from open_garden_planner.ui.guild_errors import guild_error_message
 from open_garden_planner.ui.widgets.trait_filters import trait_label
 
 
@@ -155,7 +156,7 @@ class GuildTemplateEditor(QDialog):
         function.currentIndexChanged.connect(self._show_eligibility)
 
     def _show_eligibility(self, *_args: Any) -> None:
-        invalid = []
+        invalid: list[str] = []
         for row in range(self.roles_table.rowCount()):
             function = cast(QComboBox, self.roles_table.cellWidget(row, 0)).currentData()
             keys = [s.strip() for s in cast(QLineEdit, self.roles_table.cellWidget(row, 3)).text().split(",") if s.strip()]
@@ -193,6 +194,6 @@ class GuildTemplateEditor(QDialog):
             self.library.save(template)
             self.saved_template = template
         except Exception as error:
-            self.validation_label.setText(self.tr("Template could not be saved: {error}").format(error=str(error)))
+            self.validation_label.setText(self.tr("Template could not be saved: {error}").format(error=guild_error_message(error)))
             return
         self.accept()

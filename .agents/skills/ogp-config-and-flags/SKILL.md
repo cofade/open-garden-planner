@@ -364,7 +364,7 @@ Re-verify each section before relying on it after significant time/version drift
 | §7 CI | `grep -n "chore\|major\|minor\|QT_QPA_PLATFORM" .github/workflows/release.yml .github/workflows/ci.yml` |
 | §8 exemplar | `grep -n "agent_api" src/open_garden_planner/ui/dialogs/preferences_dialog.py src/open_garden_planner/app/application.py` |
 
-## Package F1/F2 configuration (ADR-053/054)
+## Package F1/F2 configuration (ADR-054/054)
 
 `ProjectData.auto_assign_permaculture_layers` is plan-scoped, default false, and
 changed through `AutoAssignPermacultureCommand`. Matching uses the optional

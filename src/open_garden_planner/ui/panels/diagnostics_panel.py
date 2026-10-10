@@ -8,6 +8,7 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QComboBox, QLabel, QListWidget, QListWidgetItem, QVBoxLayout, QWidget
 
 from open_garden_planner.services.diagnostics import DiagnosticRecord
+from open_garden_planner.ui.guild_errors import guild_error_details
 from open_garden_planner.ui.widgets.trait_filters import trait_label
 
 
@@ -96,7 +97,9 @@ class DiagnosticsPanel(ObjectNavigator):
                 name=details["guild_name"], function=trait_label(details["function"]),
                 present=details["present_count"], required=details["required_count"])
         if record.kind == "guild_data_warning":
-            return self.tr("Guild data needs repair: {reason}").format(reason=details.get("reason", ""))
+            code = details.get("reason_code")
+            reason = guild_error_details(code, details.get("reason_details", {})) if code else self.tr("Invalid saved membership or template")
+            return self.tr("Guild data needs repair: {reason}").format(reason=reason)
         templates = {
             "companion_conflict": self.tr("{name}: antagonistic plant nearby"),
             "spacing_overlap": self.tr("{name}: spacing overlap"),

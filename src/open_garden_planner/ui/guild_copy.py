@@ -45,6 +45,5 @@ def remap_mirror_membership(scene: Any, originals: list[Any], mirrored: list[Any
     walk(copied)
     for (_, target), row in zip(pairs, flat, strict=True):
         if hasattr(target, "metadata"):
-            target.metadata.pop("guild", None)
-            if "guild" in row["metadata"]:
-                target.metadata["guild"] = row["metadata"]["guild"]
+            target.metadata.clear()
+            target.metadata.update(row["metadata"])

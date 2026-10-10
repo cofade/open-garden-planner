@@ -1,6 +1,8 @@
 """Centrally built plant membership actions and one-step transfers."""
 
+import contextlib
 from typing import Any
+from uuid import UUID
 
 from PyQt6.QtCore import QCoreApplication, QTimer
 from PyQt6.QtWidgets import QComboBox, QDialog, QDialogButtonBox, QFormLayout, QVBoxLayout
@@ -17,6 +19,7 @@ from open_garden_planner.ui.widgets.trait_filters import trait_label
 
 def add_to_guild(item: Any, view: Any) -> None:
     scene = item.scene()
+    generation = getattr(scene, "_document_generation", 0)
     if scene is None:
         return
     centres = [plant for plant in scene.items() if isinstance(getattr(plant, "metadata", {}).get("guild"), dict)
@@ -40,7 +43,7 @@ def add_to_guild(item: Any, view: Any) -> None:
     if ok is not None:
         ok.setEnabled(bool(centres))
     layout.addWidget(buttons)
-    if not dialog.exec() or item.scene() is not scene:
+    if not dialog.exec() or generation != getattr(scene, "_document_generation", 0) or item.scene() is not scene:
         return
     gid = guild_combo.currentData()
     if not guild_members(scene, gid):
@@ -63,7 +66,27 @@ def build_guild_actions(menu: Any, item: Any) -> None:
     view = item.scene().views()[0]
     menu.addSeparator()
     add = menu.addAction(QCoreApplication.translate("GuildActions", "Add to guild…"))
-    add.triggered.connect(lambda: QTimer.singleShot(0, lambda: add_to_guild(item, view)))
+    identity = item.item_id
+    scene = item.scene()
+    generation = getattr(scene, "_document_generation", 0)
+    def defer_add() -> None:
+        timer = QTimer(view)
+        timer.setSingleShot(True)
+        def navigate() -> None:
+            try:
+                if generation != getattr(scene, "_document_generation", 0):
+                    return
+                current = scene.find_item_by_id(UUID(str(identity)))
+                if current is not None:
+                    add_to_guild(current, view)
+            except RuntimeError:
+                pass
+            finally:
+                with contextlib.suppress(RuntimeError):
+                    timer.deleteLater()
+        timer.timeout.connect(navigate)
+        timer.start(0)
+    add.triggered.connect(defer_add)
     remove = menu.addAction(QCoreApplication.translate("GuildActions", "Remove from guild"))
     remove.setEnabled(item.metadata.get("guild") is not None)
     remove.triggered.connect(lambda: view.command_manager.execute(remove_membership(item.scene(), item)))

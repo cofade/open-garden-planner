@@ -31,7 +31,14 @@ class GuildCoordinator(QObject):
         self.timer.timeout.connect(self.refresh)
         scene.changed.connect(self.schedule)
         command_manager.stack_changed.connect(self.schedule)
+        scene.document_replaced.connect(self.reset)
         self.schedule()
+
+    def reset(self) -> None:
+        self.timer.stop()
+        self.statuses = []
+        self.guilds_panel.set_statuses([])
+        self.diagnostics_panel.set_records([])
 
     def schedule(self, *_args: Any) -> None:
         with contextlib.suppress(RuntimeError):

@@ -484,7 +484,7 @@ grep -n "_companion_radius_cm = " src/open_garden_planner/app/application.py
 If any count differs, update this file in the same PR that changed the data
 (see `ogp-change-control` / `ogp-docs-and-writing`).
 
-## Package F1/F2: recorded traits and explicit guilds (ADR-053/054)
+## Package F1/F2: recorded traits and explicit guilds (ADR-054/054)
 
 `models/plant_data.py` owns `PermacultureLayer` and `PlantFunction`. A layer is a
 curated food-forest niche, not the gallery illustration category. Empty functions

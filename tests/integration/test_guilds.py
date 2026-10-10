@@ -256,3 +256,104 @@ def test_editor_radius_row_removal_and_readonly(guild_canvas, qtbot):
     qtbot.addWidget(readonly)
     readonly.save()
     assert readonly.saved_template is None and not library.user_paths
+
+
+def test_mirror_copy_species_snapshot_is_independent(guild_canvas):
+    from open_garden_planner.core.commands import MirrorItemsCommand
+    from open_garden_planner.core.mirror_geometry import build_mirrored_item
+    from open_garden_planner.ui.plant_traits import apply_trait
+
+    scene, view, _, library = guild_canvas
+    original = prepare_guild(scene, library.templates["apple-guild"], offline_catalog(), "A", QPointF(1500, 1500))
+    view.command_manager.execute(original)
+    copies = [build_mirrored_item(item, QPointF(2000, 0), QPointF(2000, 4000)) for item in original.items]
+    view.command_manager.execute(MirrorItemsCommand(scene, original.items, copies, copy=True))
+    assert copies[0].metadata["guild"]["guild_id"] != original.items[0].metadata["guild"]["guild_id"]
+    apply_trait(copies[1], [], field="functions")
+    assert original.items[1].metadata["plant_species"]["functions"] == ["nitrogen_fixer"]
+
+
+@pytest.mark.parametrize("state", ["locked", "hidden"])
+def test_existing_centre_honours_ancestor_layers(guild_canvas, state):
+    from open_garden_planner.core.commands import MoveToLayerCommand
+    from open_garden_planner.core.guild_commands import guild_plant_layers_editable
+    from open_garden_planner.models.layer import Layer
+
+    scene, view, _, library = guild_canvas
+    original = prepare_guild(scene, library.templates["apple-guild"], offline_catalog(), "A", QPointF(1500, 1500))
+    view.command_manager.execute(original)
+    centre = original.items[0]
+    view.command_manager.execute(GuildMembershipCommand([(plant, None) for plant in original.items]))
+    centre.setSelected(True)
+    original.items[2].setSelected(True)
+    view._group_selected()
+    group = centre.parentItem()
+    target = Layer(name="Protected")
+    scene.add_layer(target)
+    view.command_manager.execute(MoveToLayerCommand([group], target.id, scene, target.name))
+    target.locked = state == "locked"
+    target.visible = state != "hidden"
+    scene._update_items_visibility()
+    assert not guild_plant_layers_editable(scene, centre)
+    with pytest.raises(ValueError, match="layers"):
+        prepare_guild(scene, library.templates["apple-guild"], offline_catalog(), "B", QPointF(), existing_centre=centre)
+
+
+def test_malformed_identity_does_not_dissolve_unrelated_data(guild_canvas):
+    scene, view, _, library = guild_canvas
+    original = prepare_guild(scene, library.templates["apple-guild"], offline_catalog(), "A", QPointF(1500, 1500))
+    view.command_manager.execute(original)
+    centre, survivor = original.items[:2]
+    centre.metadata["guild"] = {"guild_id": None, "role": "centre"}
+    survivor.metadata["guild"] = {"role": "ground_cover", "raw": "preserve"}
+    view.command_manager.execute(DeleteItemsCommand(scene, [centre]))
+    assert survivor.metadata["guild"] == {"role": "ground_cover", "raw": "preserve"}
+    view.command_manager.undo()
+    assert centre.metadata["guild"] == {"guild_id": None, "role": "centre"}
+
+
+def test_deferred_action_and_load_clear_previous_document(guild_canvas, qtbot, tmp_path):
+    from PyQt6.QtWidgets import QMenu
+
+    from open_garden_planner.ui.guild_actions import build_guild_actions
+
+    scene, view, coordinator, library = guild_canvas
+    original = prepare_guild(scene, library.templates["apple-guild"], offline_catalog(), "A", QPointF(1500, 1500))
+    view.command_manager.execute(original)
+    view.command_manager.execute(DeleteItemsCommand(scene, [original.items[1]]))
+    coordinator.refresh()
+    assert scene._guild_diagnostics and coordinator.diagnostics_panel.records
+    menu = QMenu(view)
+    build_guild_actions(menu, original.items[0])
+    menu.actions()[-2].trigger()
+    manager = ProjectManager()
+    empty = tmp_path / "empty.ogp"
+    manager.save(CanvasScene(), empty)
+    manager.load(scene, empty)
+    assert not scene._guild_diagnostics and not coordinator.statuses and not coordinator.diagnostics_panel.records
+    qtbot.wait(150)  # Pending action resolves by identity/document generation, without a dialog.
+
+
+def test_german_refusal_and_api_messages(guild_canvas, qtbot):
+    from open_garden_planner.core.i18n import load_translator
+    from open_garden_planner.models.guild_errors import GuildValidationError
+
+    scene, _, _, library = guild_canvas
+    app = __import__("PyQt6.QtWidgets", fromlist=["QApplication"]).QApplication.instance()
+    try:
+        assert load_translator(app, "de")
+        editor = GuildTemplateEditor(library)
+        qtbot.addWidget(editor)
+        editor.save()
+        assert "Name darf nicht leer" in editor.validation_label.text()
+        assert "must be" not in editor.validation_label.text()
+        picker = InsertGuildDialog(scene, library=library)
+        qtbot.addWidget(picker)
+        picker.x_spin.setValue(1)
+        picker.y_spin.setValue(1)
+        picker.insert()
+        assert "Zeichenfläche hinaus" in picker.error_label.text()
+        assert "outside the canvas" not in picker.error_label.text()
+        assert str(GuildValidationError("bounds")).startswith("Guild layout extends")
+    finally:
+        load_translator(app, "en")

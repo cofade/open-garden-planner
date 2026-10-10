@@ -2334,7 +2334,7 @@ It pins:
 - an unparented controller dies without a GC cycle.
 
 All three P1 tests (round 1's two, round 2's typing test) fail when their fix is reverted.
-## ADR-053: Recorded species traits and semantic food-forest layers (#312)
+## ADR-054: Recorded species traits and semantic food-forest layers (#312)
 
 **Status:** Accepted for Package F1, October 2026. Additive `.ogp` version 1.4.
 
@@ -2350,7 +2350,7 @@ A canvas `Layer.permaculture_layer` semantic tag survives renaming/language chan
 
 **Evidence.** `test_permaculture_traits.py`, `test_permaculture_layer.py`, `test_permaculture_search.py`; the recorded Apple provider fixture is pinned offline. Live provider availability is delivery evidence, not a CI dependency.
 
-## ADR-054: Explicit guild membership and immutable template snapshots (#313)
+## ADR-055: Explicit guild membership and immutable template snapshots (#313)
 
 **Status:** Accepted for Package F2, October 2026. Additive `.ogp` version 1.4.
 

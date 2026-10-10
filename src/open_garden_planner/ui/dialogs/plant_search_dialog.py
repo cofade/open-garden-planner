@@ -230,15 +230,23 @@ class PlantSearchDialog(QDialog):
                     r.to_dict(), layers=self.trait_filters.layers,
                     functions=self.trait_filters.functions)]
                 self._show_results(records)
+                if not records:
+                    if not (self.trait_filters.layers or self.trait_filters.functions):
+                        self.status_label.setText(self.tr("No plants matched '{query}'. Try another spelling or the scientific name.").format(query=self.search_input.text().strip()))
+                    failed = self._api_manager.last_search_failed_sources
+                    if failed:
+                        self.status_label.setText(self.status_label.text() + " " + self.tr("({sources} unavailable — check Preferences.)").format(sources=", ".join(failed)))
             except Exception as error:
                 logger.exception("Online species search failed")
                 self.status_label.setText(self.tr("Search failed: {error}").format(error=str(error)))
+                QMessageBox.warning(self, self.tr("Search Failed"), self.tr(
+                    "Failed to search plant database:\n{error}\n\nPlease check your internet connection and API credentials.").format(error=str(error)))
         self._requests = pending
         request = self._detail_request
         if request is not None and request[2].done():
             self._detail_request = None
             generation, plant, future = request
-            if generation == self._generation and not self._closed:
+            if generation == self._generation and not self._closed and self._selected_plant is plant:
                 try:
                     detail = future.result()
                     if detail.source_id != plant.source_id:
@@ -263,6 +271,7 @@ class PlantSearchDialog(QDialog):
             row = QListWidgetItem(self._format_result_text(data))
             row.setData(Qt.ItemDataRole.UserRole, data)
             self.results_list.addItem(row)
+        self._on_list_store_changed()
         if results:
             self.status_label.setText(self.tr("Found {count} results").format(count=len(results)))
         elif self.trait_filters.layers or self.trait_filters.functions:
@@ -290,6 +299,10 @@ class PlantSearchDialog(QDialog):
 
     def _on_selection_changed(self) -> None:
         """Handle result selection change."""
+        if self._detail_request is not None:
+            self._generation += 1
+            self._detail_request[2].cancel()
+            self._detail_request = None
         selected_items = self.results_list.selectedItems()
         if not selected_items:
             self.details_text.clear()

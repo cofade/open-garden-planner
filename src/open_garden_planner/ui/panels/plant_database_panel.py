@@ -1180,8 +1180,16 @@ class PlantDatabasePanel(QWidget):
         if isinstance(guild, dict):
             from open_garden_planner.ui.widgets.trait_filters import trait_label
 
-            role = self.tr("Centre") if guild.get("role") == "centre" else trait_label(guild["role"]) if guild.get("role") in {v.value for v in PlantFunction} else self.tr("Invalid role")
+            role_value = guild.get("role")
+            role = self.tr("Centre") if role_value == "centre" else trait_label(role_value) if isinstance(role_value, str) and role_value in {v.value for v in PlantFunction} else self.tr("Invalid role")
             name = guild.get("name") or guild.get("guild_id", "")
+            scene = self._current_plant_item.scene() if self._current_plant_item is not None else None
+            if scene is not None and guild.get("role") != "centre":
+                from open_garden_planner.core.guild_commands import guild_members
+
+                centre = next((plant for plant in guild_members(scene, guild.get("guild_id", "")) if plant.metadata["guild"].get("role") == "centre"), None)
+                if centre is not None:
+                    name = centre.metadata["guild"].get("name", name)
             self.guild_label.setText(self.tr("{name} — {role}").format(name=name, role=role))
         else:
             self.guild_label.setText(self.tr("No guild"))

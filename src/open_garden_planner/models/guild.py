@@ -6,6 +6,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
 
+from open_garden_planner.models.guild_errors import GuildValidationError, validated_function
 from open_garden_planner.models.plant_data import PlantFunction
 
 MAX_GUILD_PLANTS = 200
@@ -20,18 +21,18 @@ class GuildRole:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "GuildRole":
-        function = PlantFunction(data["function"]).value
-        count = data["count_min"]
+        function = validated_function(data.get("function"))
+        count = data.get("count_min")
         if type(count) is not int or count < 1:
-            raise ValueError("Role minimum must be a positive integer")
-        radius = data["ring_radius_cm"]
+            raise GuildValidationError("count")
+        radius = data.get("ring_radius_cm")
         if radius != "canopy_edge":
             if isinstance(radius, bool) or not isinstance(radius, (int, float)) or not math.isfinite(radius) or radius <= 0:
-                raise ValueError("Radius must be positive and finite, or canopy_edge")
+                raise GuildValidationError("radius")
             radius = float(radius)
         suggestions = data.get("suggested_species", [])
         if not isinstance(suggestions, list) or not all(isinstance(s, str) and s.strip() for s in suggestions):
-            raise ValueError("Suggested species must be a list of canonical species keys")
+            raise GuildValidationError("suggestions")
         return cls(function, count, radius, tuple(suggestions))
 
     def to_dict(self) -> dict[str, Any]:
@@ -56,35 +57,35 @@ class GuildTemplate:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "GuildTemplate":
         if not isinstance(data, dict):
-            raise ValueError("Template must be a JSON object")
+            raise GuildValidationError("object")
         identity = data.get("id")
         if not isinstance(identity, str) or not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{0,99}", identity):
-            raise ValueError("ID must use letters, numbers, dots, underscores or hyphens")
+            raise GuildValidationError("id")
         version = data.get("version")
         if type(version) is not int or version < 1:
-            raise ValueError("Version must be a positive integer")
+            raise GuildValidationError("version")
         for key in ("name", "centre", "license", "attribution"):
             if not isinstance(data.get(key), str) or not data[key].strip():
-                raise ValueError(f"{key} must be a nonempty string")
+                raise GuildValidationError("field", field=key)
         centre = data["centre"]
         if centre in {function.value for function in PlantFunction}:
             centre = "function:" + centre
         if centre.startswith("function:"):
-            PlantFunction(centre.removeprefix("function:"))
+            validated_function(centre.removeprefix("function:"))
         rows = data.get("roles")
         if not isinstance(rows, list):
-            raise ValueError("Roles must be a list")
+            raise GuildValidationError("roles")
         roles = tuple(GuildRole.from_dict(row) for row in rows)
         if len({r.function for r in roles}) != len(roles):
-            raise ValueError("Each function may appear in only one role row")
+            raise GuildValidationError("duplicate")
         if 1 + sum(r.count_min for r in roles) > MAX_GUILD_PLANTS:
-            raise ValueError("A guild stamp may contain at most 200 plants, including its centre")
+            raise GuildValidationError("limit")
         for key in ("description", "name_de", "description_de"):
             if not isinstance(data.get(key, ""), str):
-                raise ValueError(f"{key} must be text")
+                raise GuildValidationError("text", field=key)
         sources = data.get("sources", [])
         if not isinstance(sources, list) or not all(isinstance(s, str) for s in sources):
-            raise ValueError("Sources must be a list of references")
+            raise GuildValidationError("sources")
         return cls(identity, version, data["name"], data.get("description", ""), centre,
                    roles, data["license"], data["attribution"], tuple(sources),
                    data.get("name_de", ""), data.get("description_de", ""))
@@ -104,7 +105,7 @@ def ring_positions(template: GuildTemplate, centre: tuple[float, float],
     for role in template.roles:
         radius = mature_radius_cm if role.ring_radius_cm == "canopy_edge" else role.ring_radius_cm
         if not isinstance(radius, (int, float)) or not math.isfinite(radius) or radius <= 0:
-            raise ValueError("Canopy-edge layout needs mature spacing; choose an explicit radius")
+            raise GuildValidationError("spacing")
         rings.setdefault(float(radius), []).extend([role.function] * role.count_min)
     positions = []
     for radius, functions in rings.items():

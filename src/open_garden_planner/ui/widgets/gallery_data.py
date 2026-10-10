@@ -39,6 +39,8 @@ def gallery_matches(item: Any, text: str = "", *, layers: set[str] | None = None
     from open_garden_planner.services.permaculture import matches_traits
 
     if item.object_type not in (ObjectType.TREE, ObjectType.SHRUB, ObjectType.PERENNIAL):
+        if not text and (layers or functions):
+            return False
         return not text or text.casefold() in item.name.casefold()
     record = lookup_species(item.species) or lookup_species(item.name) or {}
     text_matches = not text or text.casefold() in item.name.casefold() or matches_traits(record, text)

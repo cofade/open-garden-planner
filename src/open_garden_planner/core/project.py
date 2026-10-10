@@ -1904,6 +1904,8 @@ class ProjectManager(QObject):
     ) -> None:
         """Phase 2: Apply in-memory validated items and layers to the scene."""
         deserialized_items, parsed_layers, parsed_constraints, parsed_guides = prep
+        if hasattr(scene, "reset_document_diagnostics"):
+            scene.reset_document_diagnostics()
 
         # Clear dimension lines before removing garden items so the manager can
         # cleanly remove its graphics items while C++ objects are still alive
