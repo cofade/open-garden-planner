@@ -334,7 +334,7 @@ class GardenItemMixin:
         if hasattr(self, "brush"):
             brush_c = self.brush().color()
             if brush_c.isValid() and brush_c.alpha() > 0:
-                return brush_c
+                return QColor(brush_c)
         return QColor(100, 180, 60)
 
     @property
