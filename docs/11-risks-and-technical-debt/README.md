@@ -1041,6 +1041,14 @@ bootstrap pin must be checked against hosted update tooling as well as installat
 
 **Unicode CLI output needs an explicit stream encoding** (issue #417): UTF-8 wiki files did not prevent redirected Windows stdout from using cp1252. The comparison command emitted byte 0x96 for an en dash and failed to encode a check mark. `scripts/sync_wiki.py` now sets stdout and stderr to UTF-8 before printing. The subprocess comparison regression in `tests/integration/test_wiki_publication.py` captures real Unicode diffs without a UTF-8 environment override.
 
+### 11.4.8 Guild boundaries found by independent review (F1/F2)
+
+Guild happy-path insertion tests did not establish document lifetime, copy isolation or translated refusal behavior. Review reproduced a mirror copy whose species dictionary still aliased the source, a grouped existing centre whose ancestor layer was locked, a stale search-detail response accepted after another selection, and malformed imported trait shapes that could invent functions through substring matching. The fixes deep-copy the complete copied metadata, check every ancestor layer, invalidate enrichment on selection changes, and normalize imported trait containers without inferring values. Unknown data remains preserved.
+
+A second review exercised plan replacement while a placement preview or sidebar click was pending. Four preview wrappers survived scene clearing and `clear_preview()` raised a deleted-C++-object exception; loading a plan with the same UUIDs caused the queued click to select an object in the replacement document. Document replacement now closes the picker before teardown, clears coordinator status synchronously, and cancels pending navigation. UUID resolution must be coupled to document lifetime. Regression tests cover same-ID replacement as well as empty scenes.
+
+Validation errors now have Qt-free codes and structured parameters. API text stays English; UI adapters translate the known code and field labels. Translating only an outer error sentence left its generated reason in English. Actual German editor and deleted-centre refusal tests pin the complete user-visible message, beyond the unfinished-translation gate. No undocumented Qt timer-reentrancy claim is made: the separate timer experiment did not reproduce it.
+
 ## 11.5 Community and Governance
 
 **Feature Requests**: Open to community input, pivots, and voting. The goal is to avoid a dead project — community engagement is welcome.

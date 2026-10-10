@@ -338,7 +338,7 @@ def test_german_refusal_and_api_messages(guild_canvas, qtbot):
     from open_garden_planner.core.i18n import load_translator
     from open_garden_planner.models.guild_errors import GuildValidationError
 
-    scene, _, _, library = guild_canvas
+    scene, view, _, library = guild_canvas
     app = __import__("PyQt6.QtWidgets", fromlist=["QApplication"]).QApplication.instance()
     try:
         assert load_translator(app, "de")
@@ -354,6 +354,37 @@ def test_german_refusal_and_api_messages(guild_canvas, qtbot):
         picker.insert()
         assert "Zeichenfläche hinaus" in picker.error_label.text()
         assert "outside the canvas" not in picker.error_label.text()
+        command = prepare_guild(scene, library.templates["apple-guild"], offline_catalog(), "A", QPointF(1500, 1500))
+        view.command_manager.execute(command)
+        view.command_manager.execute(GuildMembershipCommand([(plant, None) for plant in command.items]))
+        picker.reload()
+        centre = command.items[0]
+        picker.existing_combo.setCurrentIndex(picker.existing_combo.findData(str(centre.item_id)))
+        view.command_manager.execute(DeleteItemsCommand(scene, [centre]))
+        picker.insert()
+        assert "Zentrum ist nicht mehr im Plan" in picker.error_label.text()
+        assert "no longer in the plan" not in picker.error_label.text()
         assert str(GuildValidationError("bounds")).startswith("Guild layout extends")
     finally:
         load_translator(app, "en")
+
+
+def test_preview_and_pending_navigation_invalidated_on_document_replacement(guild_canvas, qtbot, tmp_path):
+    scene, view, coordinator, library = guild_canvas
+    picker = InsertGuildDialog(scene, library=library)
+    qtbot.addWidget(picker)
+    picker.preview()
+    assert picker._preview
+    scene.clear()
+    assert picker._closed and not picker._preview
+    picker.reject()  # Idempotent cleanup after C++ marker destruction.
+    command = prepare_guild(scene, library.templates["apple-guild"], offline_catalog(), "A", QPointF(1500, 1500))
+    view.command_manager.execute(command)
+    manager = ProjectManager()
+    file = tmp_path / "same-ids.ogp"
+    manager.save(scene, file)
+    coordinator.diagnostics_panel.select_ids([str(command.items[0].item_id)])
+    coordinator.guilds_panel.select_ids([str(command.items[0].item_id)])
+    manager.load(scene, file)
+    qtbot.wait(150)
+    assert not scene.selectedItems()

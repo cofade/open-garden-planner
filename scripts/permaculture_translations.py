@@ -2,6 +2,8 @@
 
 TRANSLATIONS = {
     "GuildErrors": {
+        "The plan changed; reopen the guild picker": "Der Plan wurde gewechselt; den Gildendialog erneut öffnen",
+        "Existing centre is no longer in the plan": "Das vorhandene Zentrum ist nicht mehr im Plan",
         "Role minimum must be a positive integer": "Die Mindestanzahl muss eine positive ganze Zahl sein",
         "Radius must be positive and finite, or canopy_edge": "Der Radius muss positiv und endlich sein oder den Kronenrand verwenden",
         "Suggested species must be a list of canonical species keys": "Vorgeschlagene Arten müssen als Liste von Artschlüsseln angegeben werden",

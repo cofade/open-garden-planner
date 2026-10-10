@@ -22,6 +22,11 @@ class ObjectNavigator(QWidget):
         self._navigation = QTimer(self)
         self._navigation.setSingleShot(True)
         self._navigation.timeout.connect(self._navigate)
+        scene.document_replaced.connect(self._cancel_navigation)
+
+    def _cancel_navigation(self) -> None:
+        self._navigation.stop()
+        self._pending_ids = []
 
     def select_ids(self, ids: list[str]) -> None:
         self._pending_ids = list(ids)

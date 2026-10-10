@@ -239,6 +239,7 @@ class PlantSearchDialog(QDialog):
             except Exception as error:
                 logger.exception("Online species search failed")
                 self.status_label.setText(self.tr("Search failed: {error}").format(error=str(error)))
+                self._requests = pending
                 QMessageBox.warning(self, self.tr("Search Failed"), self.tr(
                     "Failed to search plant database:\n{error}\n\nPlease check your internet connection and API credentials.").format(error=str(error)))
         self._requests = pending

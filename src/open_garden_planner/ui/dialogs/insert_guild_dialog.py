@@ -1,5 +1,6 @@
 """Template selection, authoring and preflighted transient guild preview."""
 
+import contextlib
 from typing import Any
 
 from PyQt6.QtCore import QPointF
@@ -26,6 +27,7 @@ from open_garden_planner.core.guild_commands import (
 )
 from open_garden_planner.core.object_types import is_plant_type
 from open_garden_planner.models.guild import GuildTemplate
+from open_garden_planner.models.guild_errors import GuildValidationError
 from open_garden_planner.services.guild_library import GuildLibrary
 from open_garden_planner.services.species_catalog import offline_catalog
 from open_garden_planner.ui.dialogs.guild_template_editor import GuildTemplateEditor
@@ -37,6 +39,9 @@ class InsertGuildDialog(QDialog):
     def __init__(self, scene: Any, *, auto_assign: bool = False, library: GuildLibrary | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.scene = scene
+        self._document_generation = getattr(scene, "_document_generation", 0)
+        self._closed = False
+        scene.document_replaced.connect(self._document_replaced)
         self.auto_assign = auto_assign
         self.library = library or GuildLibrary()
         self.catalog = offline_catalog()
@@ -167,10 +172,12 @@ class InsertGuildDialog(QDialog):
     def prepare(self) -> InsertGuildCommand:
         from uuid import UUID
 
+        if self._closed or self._document_generation != getattr(self.scene, "_document_generation", 0):
+            raise GuildValidationError("document_changed")
         identity = self.existing_combo.currentData()
         existing = self.scene.find_item_by_id(UUID(identity)) if identity else None
         if identity and existing is None:
-            raise ValueError("Existing centre is no longer in the plan")
+            raise GuildValidationError("centre_gone")
         choices = {function: combo.currentData() for function, combo in self.role_choices.items()}
         choices["centre"] = self.centre_combo.currentData()
         template = self.template
@@ -196,9 +203,14 @@ class InsertGuildDialog(QDialog):
 
     def clear_preview(self) -> None:
         for marker in self._preview:
-            if marker.scene() is not None:
-                self.scene.removeItem(marker)
+            with contextlib.suppress(RuntimeError):
+                if marker.scene() is not None:
+                    self.scene.removeItem(marker)
         self._preview = []
+
+    def _document_replaced(self) -> None:
+        self.command = None
+        self.reject()
 
     def insert(self) -> None:
         try:
@@ -219,5 +231,8 @@ class InsertGuildDialog(QDialog):
             self.template_combo.setCurrentIndex(self.template_combo.findData(editor.saved_template.id if editor.saved_template is not None else ""))
 
     def done(self, result: int) -> None:  # noqa: N802
+        self._closed = True
         self.clear_preview()
+        with contextlib.suppress(TypeError, RuntimeError):
+            self.scene.document_replaced.disconnect(self._document_replaced)
         super().done(result)

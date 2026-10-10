@@ -12213,5 +12213,13 @@ Details: {error}</translation>
             <source>description_de</source>
             <translation>Deutsche Beschreibung</translation>
         </message>
+        <message>
+            <source>The plan changed; reopen the guild picker</source>
+            <translation>Der Plan wurde gewechselt; den Gildendialog erneut öffnen</translation>
+        </message>
+        <message>
+            <source>Existing centre is no longer in the plan</source>
+            <translation>Das vorhandene Zentrum ist nicht mehr im Plan</translation>
+        </message>
     </context>
 </TS>

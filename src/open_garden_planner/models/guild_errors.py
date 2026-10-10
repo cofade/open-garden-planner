@@ -3,6 +3,8 @@
 from typing import Any
 
 MESSAGES = {
+    "document_changed": "The plan changed; reopen the guild picker",
+    "centre_gone": "Existing centre is no longer in the plan",
     "count": "Role minimum must be a positive integer",
     "radius": "Radius must be positive and finite, or canopy_edge",
     "suggestions": "Suggested species must be a list of canonical species keys",
