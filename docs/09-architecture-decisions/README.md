@@ -2275,6 +2275,14 @@ more consumers of the same moment — the 3D workspace (L1.3), sky and looks (L1
   on the shared clock. `test_3d_view` counts one more rebuild because of this.
 - Out of scope and unchanged: the 2D plant icon keeps today's real date (FR-SUN-08, #299), tasks and
   calendars keep `date.today()`, and the dormant spike keeps its own shot dates.
+- **Trap for any later story that moves the 2D icon onto the plan date.** `CircleItem` sizes its
+  icon from `date.today()` (`circle_item.py`), and #430 (NFR-PERF-01) now backs canvas items with
+  `DeviceCoordinateCache`. A cached item is not repainted by a pan or by an overlay repainting
+  above it, so if the icon is ever driven by `SimClock.plan_date`, `_on_sim_date_changed` must call
+  `update()` on the affected plant items — otherwise scrubbing the date leaves stale icons until a
+  zoom or re-selection. Nothing in L1.0 meets this: the clock's fan-out never touches what a 2D
+  item paints, and the shadow and heatmap overlays are uncached plain items (senior review of the
+  #430 merge).
 - Later stories subscribe instead of reconciling. L1.3's sync pipeline regrows on `date_changed` and
   relights on `instant_changed`; L1.4 rebuilds the sky only for a noticeable sun move.
 - Senior review, round 1, found the two P1s that decisions 3 and 7 now close. The first draft's
