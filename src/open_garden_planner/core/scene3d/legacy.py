@@ -23,7 +23,8 @@ Frames (§8.20 discipline):
 from __future__ import annotations
 
 import math
-from typing import NamedTuple
+from collections.abc import Sequence
+from typing import Any, NamedTuple, cast
 
 from ..shadow_geometry import Polygon
 
@@ -55,7 +56,7 @@ class Scene3DRecord(NamedTuple):
 
 
 def records_from_raw(
-    raw_items: list[dict],
+    raw_items: list[dict[str, Any]],
 ) -> list[Scene3DRecord]:
     """Validate + normalize collector output into engine-ready records.
 
@@ -87,7 +88,7 @@ def records_from_raw(
             Scene3DRecord(
                 footprint=footprint,
                 height_cm=height_cm,
-                color_rgba=tuple(int(c) for c in color),
+                color_rgba=cast("tuple[int, int, int, int]", tuple(int(c) for c in color)),
                 kind=kind,
                 name=str(raw.get("name", "")),
                 base_cm=base_cm,
@@ -109,11 +110,13 @@ def _signed_area(polygon: Polygon) -> float:
     return total / 2.0
 
 
-def _cross(o, a, b) -> float:
+def _cross(o: Sequence[float], a: Sequence[float], b: Sequence[float]) -> float:
     return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
 
 
-def _point_in_triangle(p, a, b, c) -> bool:
+def _point_in_triangle(
+    p: Sequence[float], a: Sequence[float], b: Sequence[float], c: Sequence[float]
+) -> bool:
     d1 = _cross(p, a, b)
     d2 = _cross(p, b, c)
     d3 = _cross(p, c, a)
