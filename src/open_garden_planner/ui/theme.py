@@ -1196,6 +1196,10 @@ def _set_windows_dark_titlebar(window, dark: bool) -> None:
 def apply_theme(app: QApplication, mode: ThemeMode) -> None:
     """Apply the specified theme to the application.
 
+    Failures in theme listeners or styling are logged to the persistent
+    application log (AUD-063, #405) and never swallowed silently or allowed
+    to abort subsequent listeners.
+
     Args:
         app: QApplication instance
         mode: Theme mode to apply

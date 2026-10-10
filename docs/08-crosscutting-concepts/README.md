@@ -211,7 +211,8 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
   Malformed or unknown items in `.ogp` files are skipped with a logged warning, and the skipped count is tracked in `ProjectManager.last_load_skipped_items_count` for diagnostics reporting.
 - **Auto-save recovery on crash**:
   Periodic autosaves write to `~autosave_...` next to the project file (or in temp for untitled plans). Autosaves are cleared only after a new file load succeeds.
-- **No silent failures**: all errors logged and shown to user where appropriate.
+- **No silent failures — handled logging & crash backstop (AUD-063, TD-023, #405, ADR-052)**:
+  Handled errors and warnings across all application components are routed to a persistent rotating file handler (`app.log`, 1 MB, 3 backups) in the user data directory, with console echoing to stderr when available (preventing discarded records in the windowed frozen executable where `sys.stderr is None`). Uncaught exceptions are intercepted by `_install_excepthook` in `main.py`, written to `crash.log`, and surfaced to the user via a recoverable error dialog so unsaved work can be preserved.
 
 ## 8.8 Settings Storage — One Chokepoint (ADR-041)
 

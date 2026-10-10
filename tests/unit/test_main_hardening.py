@@ -57,3 +57,30 @@ class TestSelfTest:
             lambda name: "0.0.0-mismatch" if name == "PyQt6-3D-Qt6" else real(name),
         )
         assert _run_selftest() == 1
+
+
+class TestMainUtilities:
+    def test_get_icon_path(self) -> None:
+        from open_garden_planner.main import get_icon_path
+
+        p = get_icon_path()
+        assert p.name == "OGP_logo.png"
+        assert p.exists()
+
+    def test_write_crash_log(self, tmp_path, monkeypatch) -> None:
+        from PyQt6.QtCore import QStandardPaths
+
+        from open_garden_planner.main import _write_crash_log
+
+        monkeypatch.setattr(QStandardPaths, "writableLocation", lambda _loc: str(tmp_path))
+        _write_crash_log("test crash entry")
+        crash_log = tmp_path / "crash.log"
+        assert crash_log.exists()
+        assert "test crash entry" in crash_log.read_text(encoding="utf-8")
+
+    def test_main_selftest_dispatch(self, monkeypatch) -> None:
+        import open_garden_planner.main as ogp_main
+
+        monkeypatch.setattr(ogp_main, "_run_selftest", lambda: 42)
+        monkeypatch.setattr(sys, "argv", ["ogp", "--selftest"])
+        assert ogp_main.main() == 42
