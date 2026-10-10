@@ -719,6 +719,16 @@
     "state": "MERGED",
     "title": "fix(core): persistent handled error logging and plant harvest offsets (#405, #416, #418)"
   },
+  "428": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Sun heatmap: a map still computing when a plan is opened or created paints onto the new plan"
+  },
+  "429": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(L1.0): one sim clock for toolbar, overlay, heatmap and 3D (#385)"
+  },
   "430": {
     "is_pr": true,
     "state": "MERGED",

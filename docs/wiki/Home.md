@@ -18,7 +18,7 @@ Package G's attribution, plant profiles, and provider companion data (G1–G3) s
 Package G is complete: G4, plant favourites and collections, merged in [PR #421](https://github.com/cofade/open-garden-planner/pull/421).
 Package F remains planned.
 
-Phase 17's L0 investigation is complete with a **GO** decision. L1 is next.
+Phase 17's L0 investigation is complete with a **GO** decision, and L1 is under way: its first story, one shared simulation date and time for the sun, shadow, heatmap and 3D tools, shipped in v1.29.10 ([PR #429](https://github.com/cofade/open-garden-planner/pull/429)).
 The shipped 3D view still uses **Qt 3D**. Qt Quick 3D remains a dormant spike until L1 delivers the replacement.
 
 Use the [latest release](https://github.com/cofade/open-garden-planner/releases/latest)

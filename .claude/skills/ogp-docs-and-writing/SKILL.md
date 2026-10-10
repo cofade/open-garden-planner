@@ -149,9 +149,12 @@ All ADRs live in the one README, headed `## ADR-NNN: Title`. Two observed genera
   work refines the decision rather than replacing it (ADR-029 has two).
 
 Write new ADRs in the modern form. Number = max existing + 1 (grep `^## ADR-` first —
-the file is NOT in strictly ascending order; ADR-013 sits after ADR-015). Reference the
-ADR from CLAUDE.md progress notes, the roadmap completion note, and any related §8/§11.4
-entry.
+the file is NOT in strictly ascending order; ADR-013 sits after ADR-015). Re-grep just
+before opening the PR too: a parallel branch can take your number while yours is in
+review (the sim clock's ADR-052 became ADR-053 when #426 merged first, and every
+reference had to move — `git grep -l "ADR-052"` on the branch, not on master). Reference
+the ADR from CLAUDE.md progress notes, the roadmap completion note, and any related
+§8/§11.4 entry.
 
 ### 3.3 Roadmap style (`docs/roadmap.md`)
 
