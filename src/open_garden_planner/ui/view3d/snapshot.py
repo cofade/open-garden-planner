@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import QGraphicsScene
 
 from open_garden_planner.core.object_height import effective_height_cm
 from open_garden_planner.core.scene3d import Scene3DRecord, records_from_raw
-from open_garden_planner.ui.canvas.sun_shadow_controller import _item_footprints
+from open_garden_planner.ui.canvas.footprints import item_footprints
 
 _FALLBACK_COLOR = (158, 158, 148, 255)
 
@@ -54,7 +54,7 @@ def collect_scene3d_records(
         height = effective_height_cm(object_type, metadata, at_date=at_date)
         color = _item_color_rgba(item)
         name = str(getattr(item, "name", "") or object_type.name)
-        for footprint in _item_footprints(item, at_date):
+        for footprint in item_footprints(item, at_date):
             if len(footprint) >= 3:
                 raw.append(
                     {

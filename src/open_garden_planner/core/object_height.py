@@ -78,7 +78,7 @@ DEFAULT_HEIGHTS_CM: dict[str, float] = {
     "COMPOST_BIN": 100.0,
     # Package 3a roster (#308) — solid objects only. SWING / PERGOLA / HAMMOCK
     # deliberately have NO default: the shadow/3D model extrudes the FULL item
-    # footprint as a solid prism (`sun_shadow_controller._item_footprints`), and
+    # footprint as a solid prism (`ui/canvas/footprints.item_footprints`), and
     # a pergola or swing frame is mostly air (sprite ink 0.20-0.53) — a solid
     # 3x3 m block at 2.3 m would misstate a sun study. They still expose the
     # Height field (`_HEIGHT_FIELD_TYPES`) so a user can opt in explicitly.

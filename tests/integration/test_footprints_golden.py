@@ -48,17 +48,12 @@ from PyQt6.QtCore import QPointF, qVersion
 
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+from open_garden_planner.ui.canvas.footprints import item_footprints, plant_canopy_radius_cm
 from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 from open_garden_planner.ui.canvas.items.ellipse_item import EllipseItem
 from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
 from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
-from open_garden_planner.ui.canvas.sun_shadow_controller import (
-    _item_footprints as item_footprints,
-)
-from open_garden_planner.ui.canvas.sun_shadow_controller import (
-    _plant_canopy_radius_cm as plant_canopy_radius_cm,
-)
 
 GOLDEN = Path(__file__).resolve().parents[1] / "fixtures" / "footprints" / "footprints_golden.json"
 WRITE_ENV = "OGP_WRITE_FOOTPRINT_GOLDEN"
