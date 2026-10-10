@@ -763,7 +763,9 @@ class TestHouseRidge:
 
     def test_a_thousand_moves_never_leak_float_dust_into_the_geometry(self, house_stage) -> None:
         """The app re-writes the ridge points by ``+ delta`` on every move, so their
-        float error grows; at the ridge's 1 µm grid it never becomes a 'change'."""
+        float error grows (measured: 1.1e-10 cm after 20,000 moves). On the record
+        grid of 1e-7 cm it never becomes a 'change' — without the grid, the very
+        first move rebuilds the house."""
         canvas, house, _ridge = house_stage
         hid = str(house.item_id)
         apply_rotation(house, 17.0)

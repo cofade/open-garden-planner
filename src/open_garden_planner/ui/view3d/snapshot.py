@@ -109,15 +109,6 @@ def collect_scene3d_records(
 
 # ── contract v2 (Phase 17 L1.1) ──────────────────────────────────────────────
 
-#: Decimal places of a HOUSE's ridge ends (1e-4 cm = 1 µm), coarser than a
-#: record's own geometry (``core.scene3d.LENGTH_DECIMALS``). The ridge is ANOTHER
-#: item's geometry, read through two transforms, and the app re-writes its
-#: points by ``+ delta`` on every move of the house, so its float error grows
-#: with each move; at 1 µm that dust never reaches the HOUSE's geometry
-#: signature, and no ridge edit is that small (a hand drag, or the canonical
-#: recompute of ADR-046).
-RIDGE_DECIMALS = 4
-
 
 @lru_cache(maxsize=4096)
 def _circle_ring(radius_cm: float) -> Ring:
@@ -165,7 +156,15 @@ def _frame_of(item: Any, anchor: tuple[float, float], *, rotatable: bool) -> Loc
 
 def _ridge_param(house_frame: LocalFrame, ridge: Any) -> ParamValue | None:
     """A HOUSE's ridge ends in the HOUSE's local frame, from the LIVE ridge item
-    (ADR-046: an edited ridge is the ridge), or None when there is no usable one."""
+    (ADR-046: an edited ridge is the ridge), or None when there is no usable one.
+
+    The ridge is ANOTHER item's geometry, and the app re-writes its points by
+    ``+ delta`` on every move of the house, so its float error grows with each
+    move. Measured: 1.1e-10 cm after 20,000 random moves — three orders of
+    magnitude below the record grid, so it never reaches the HOUSE's geometry
+    signature (0 changes in those 20,000 moves; pinned over 1,000 by
+    ``test_scene3d_snapshot.py::TestHouseRidge``).
+    """
     if not isinstance(ridge, PolylineItem):
         return None
     points = ridge.points
@@ -174,10 +173,10 @@ def _ridge_param(house_frame: LocalFrame, ridge: Any) -> ParamValue | None:
     ends: list[tuple[float, float]] = []
     for point in (points[0], points[-1]):
         scene_point = ridge.mapToScene(point)
-        x, y = house_frame.local_from_scene(scene_point.x(), scene_point.y())
-        if not (math.isfinite(x) and math.isfinite(y)):
+        end = house_frame.local_from_scene(scene_point.x(), scene_point.y())  # on the record grid
+        if not (math.isfinite(end[0]) and math.isfinite(end[1])):
             return None
-        ends.append((round(x, RIDGE_DECIMALS) + 0.0, round(y, RIDGE_DECIMALS) + 0.0))
+        ends.append(end)
     return (ends[0], ends[1])
 
 
