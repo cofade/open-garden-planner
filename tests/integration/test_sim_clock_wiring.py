@@ -434,6 +434,15 @@ class TestHeatmapLaunchGuard:
         heatmap.shutdown()
 
 
+def test_toolbar_refuses_an_instant(qtbot) -> None:
+    """The toolbar shows wall readings in the clock's zone; an aware datetime
+    would be shown in a guessed zone, so it is refused (round-3 review)."""
+    toolbar = SunSimToolbar()
+    qtbot.addWidget(toolbar)
+    with pytest.raises(ValueError, match="naive"):
+        toolbar.set_datetime_local(datetime(2026, 6, 21, 12, 0, tzinfo=UTC))
+
+
 def test_toolbar_alone_is_limited_to_the_clock_range(qtbot) -> None:
     toolbar = SunSimToolbar()
     qtbot.addWidget(toolbar)

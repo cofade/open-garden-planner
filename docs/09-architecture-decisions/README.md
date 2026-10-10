@@ -2247,8 +2247,9 @@ more consumers of the same moment — the 3D workspace (L1.3), sky and looks (L1
 - `SunSimToolbar.datetime_changed` now carries the naive wall reading instead of an aware local
   datetime; `test_slider_change_emits_aware_datetime` became `test_slider_change_emits_the_wall_reading`.
   `current_datetime_local()` is replaced by `current_wall_datetime()`, and `test_datetime_round_trip`
-  compares wall readings. `set_datetime_local()` writes only a field that differs, because
-  re-setting an unchanged date wiped a date the user was typing on every Animate tick.
+  compares wall readings. `set_datetime_local()` takes only a naive wall reading and writes only a
+  field that differs, because re-setting an unchanged date wiped a date the user was typing on
+  every Animate tick.
 - There is deliberately no `SimInstant.local` / `SimClock.local`. Its `.date()` would be an
   instant's date, which is not the plan date inside a gap that straddles midnight.
 - Four app-glue tests in three files now pass naive wall readings, as the toolbar does; UTC inputs
@@ -2274,8 +2275,8 @@ more consumers of the same moment — the 3D workspace (L1.3), sky and looks (L1
 a bare Windows venv has none, CI Linux runs them, and they were run locally with `tzdata` on
 `PYTHONPATH`. It pins:
 - `set_time_of_day` sweeps over every minute, plus the midnight wrap: an ordinary day in the
-  machine's zone (CI's is UTC) and in two fixed offsets (+09:00, −07:00), and both 2026 DST days in
-  Berlin, New York and the machine's zone. These sweeps document the API but **cannot fail by
+  machine's zone (CI's is UTC) and in two fixed offsets (+09:00, −07:00), the 2026 DST days in
+  Berlin and New York, and the EU DST dates in the machine's zone (ordinary days under CI's UTC). These sweeps document the API but **cannot fail by
   construction**, since that setter never derives a date. The proof of the gate is the
   naive-reading sweep of Nuuk's pre-midnight-gap Saturday here, plus the toolbar-path test below;
 - the pinned hazard that an instant of a gap reading lands on Sunday;

@@ -126,8 +126,8 @@ class SunSimToolbar(QToolBar):
         self._animate_button.toggled.connect(self._on_animate_toggled)
         self._heatmap_button.toggled.connect(self._on_heatmap_toggled)
 
-        now = datetime.now().astimezone()
-        self.set_datetime_local(now)
+        # Standalone seed only — in the app the sim clock's wall time replaces it.
+        self.set_datetime_local(datetime.now().replace(second=0, microsecond=0))
         self.refresh_theme_icons()
 
     # ── public API ─────────────────────────────────────────────
@@ -157,17 +157,19 @@ class SunSimToolbar(QToolBar):
         )
 
     def set_datetime_local(self, dt: datetime) -> None:
-        """Show ``dt`` without emitting ``datetime_changed``.
+        """Show the naive wall reading ``dt`` without emitting ``datetime_changed``.
 
-        Naive ``dt`` = a wall reading, shown as given (the app's clock mirror);
-        aware ``dt`` = shown in the system zone. Only a field that differs is
-        written: re-setting an unchanged date makes ``QDateEdit`` redraw its
-        text and erases a date the user is part-way through typing — with
-        Animate running the mirror fires every 200 ms (L1.0 senior review).
+        The toolbar shows wall readings in the clock's zone, so an aware
+        datetime (an instant, whose zone would be a guess) is refused. Only a
+        field that differs is written: re-setting an unchanged date makes
+        ``QDateEdit`` redraw its text and erases a date the user is part-way
+        through typing — with Animate running the mirror fires every 200 ms
+        (L1.0 senior review).
         """
-        local = dt.astimezone() if dt.tzinfo is not None else dt
-        target_date = QDate(local.year, local.month, local.day)
-        target_minutes = local.hour * 60 + local.minute
+        if dt.tzinfo is not None:
+            raise ValueError("set_datetime_local takes a naive wall reading")
+        target_date = QDate(dt.year, dt.month, dt.day)
+        target_minutes = dt.hour * 60 + dt.minute
         self._date_edit.blockSignals(True)
         self._slider.blockSignals(True)
         try:

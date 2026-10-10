@@ -221,6 +221,12 @@ class SimInstant:
             raise TypeError(
                 f"plan_date must be a date, not {type(self.plan_date).__name__}"
             )
+        if not isinstance(self.time_of_day, time):
+            # A datetime here (an easy slip for a time-control caller) would be
+            # accepted and then make every ``wall`` / ``utc`` read raise.
+            raise TypeError(
+                f"time_of_day must be a time, not {type(self.time_of_day).__name__}"
+            )
         if self.time_of_day.tzinfo is not None:
             raise ValueError("time_of_day must be a naive wall-clock time")
         _check_range(self.plan_date)  # before any conversion can hit the platform

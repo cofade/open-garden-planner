@@ -390,6 +390,9 @@ class TestAppGlue:
 
         win = GardenPlannerApp()
         qtbot.addWidget(win)
+        # Pin the clock to the map's day first, so the next write really is a
+        # time-only change (the clock starts at "now").
+        win._on_sun_sim_datetime(datetime(2026, 6, 21, 12, 0))
         heatmap = win._sun_heatmap
         heatmap._ensure_overlay().setVisible(True)
         heatmap._computed_day = SUMMER

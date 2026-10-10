@@ -2705,9 +2705,9 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 
 | Document | Section |
 |----------|---------|
-| `docs/09-architecture-decisions/` | ADR-052 (new); ADR-037 growth addendum revision; ADR-048 stale ADR-049 pointer |
+| `docs/09-architecture-decisions/` | ADR-052 (new); ADR-037 growth addendum revision + inline supersession marker on its time-control paragraph; ADR-048 stale ADR-049 pointer |
 | `.claude/skills/` + `.agents/skills/` | `ogp-architecture-contract` invariant 10 (Qt-free list, Channel rule); `ogp-3d-sunshade-campaign` (sim time not persisted, ADR-052 pointer); `application.py` citation lines in `ogp-architecture-contract`, `ogp-config-and-flags`, `ogp-research-frontier` |
-| `docs/functional-requirements.md` | FR-SUN-04, FR-SUN-05, FR-SUN-08 |
+| `docs/functional-requirements.md` | FR-SUN-04, FR-SUN-05, FR-SUN-06, FR-SUN-08 |
 | `docs/08-crosscutting-concepts/` | §8.20 "One simulation clock" |
 | `docs/05-building-block-view/` | `core/sim_clock.py` |
 | `docs/06-runtime-view/` | §6.8 Sim clock fan-out |

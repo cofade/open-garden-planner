@@ -262,6 +262,17 @@ class TestTransitions:
         assert clock.plan_date == date(2026, 6, 21)
         assert spy.calls == []
 
+    def test_set_time_of_day_rejects_a_datetime(self) -> None:
+        """A datetime would be accepted and then break every ``wall``/``utc``
+        read (senior review round 3) — refused, and nothing changes."""
+        clock = SimClock(datetime(2026, 6, 21, 12, 0))
+        spy = _Spy()
+        clock.instant_changed.connect(spy)
+        with pytest.raises(TypeError, match="time"):
+            clock.set_time_of_day(datetime(2026, 6, 21, 15, 0))  # type: ignore[arg-type]
+        assert clock.time_of_day == time(12, 0)
+        assert spy.calls == []
+
     def test_set_time_of_day_rejects_an_aware_time(self) -> None:
         clock = SimClock(datetime(2026, 6, 21, 12, 0))
         with pytest.raises(ValueError, match="naive"):
