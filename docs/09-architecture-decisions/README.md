@@ -2276,9 +2276,10 @@ a bare Windows venv has none, CI Linux runs them, and they were run locally with
 `PYTHONPATH`. It pins:
 - `set_time_of_day` sweeps over every minute, plus the midnight wrap: an ordinary day in the
   machine's zone (CI's is UTC) and in two fixed offsets (+09:00, −07:00), the 2026 DST days in
-  Berlin and New York, and the EU DST dates in the machine's zone (ordinary days under CI's UTC). These sweeps document the API but **cannot fail by
-  construction**, since that setter never derives a date. The proof of the gate is the
-  naive-reading sweep of Nuuk's pre-midnight-gap Saturday here, plus the toolbar-path test below;
+  Berlin and New York, and the EU DST dates in the machine's zone (ordinary days under CI's
+  UTC). These sweeps document the API but **cannot fail by construction**, since that setter
+  never derives a date. The proof of the gate is the naive-reading sweep of Nuuk's
+  pre-midnight-gap Saturday here, plus the toolbar-path test below;
 - the pinned hazard that an instant of a gap reading lands on Sunday;
 - an exact round trip every half hour of 2026 in five zones;
 - fold equality, normalisation of an aware input that already carries the clock's zone, and the

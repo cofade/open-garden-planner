@@ -439,8 +439,13 @@ def test_toolbar_refuses_an_instant(qtbot) -> None:
     would be shown in a guessed zone, so it is refused (round-3 review)."""
     toolbar = SunSimToolbar()
     qtbot.addWidget(toolbar)
+    before = toolbar.current_wall_datetime()
+    emitted: list[datetime] = []
+    toolbar.datetime_changed.connect(emitted.append)
     with pytest.raises(ValueError, match="naive"):
         toolbar.set_datetime_local(datetime(2026, 6, 21, 12, 0, tzinfo=UTC))
+    assert toolbar.current_wall_datetime() == before  # refused before any write
+    assert emitted == []
 
 
 def test_toolbar_alone_is_limited_to_the_clock_range(qtbot) -> None:
