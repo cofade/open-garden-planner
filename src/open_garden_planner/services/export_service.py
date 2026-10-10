@@ -7,7 +7,12 @@ from typing import Any
 from PyQt6.QtCore import QCoreApplication, QRectF, QSize, Qt
 from PyQt6.QtGui import QColor, QFont, QImage, QPainter
 from PyQt6.QtSvg import QSvgGenerator
-from PyQt6.QtWidgets import QGraphicsScene, QGraphicsSimpleTextItem, QGraphicsTextItem
+from PyQt6.QtWidgets import (
+    QGraphicsItem,
+    QGraphicsScene,
+    QGraphicsSimpleTextItem,
+    QGraphicsTextItem,
+)
 
 
 class ExportService:
@@ -100,6 +105,40 @@ class ExportService:
             item.setVisible(True)
         for item in previously_selected:
             item.setSelected(True)
+            if hasattr(item, "setCacheMode"):
+                item.setCacheMode(QGraphicsItem.CacheMode.NoCache)
+
+    @staticmethod
+    def _disable_item_caches(
+        scene: QGraphicsScene,
+    ) -> list[tuple[QGraphicsItem, QGraphicsItem.CacheMode]]:
+        """Temporarily disable item caching before scene export.
+
+        Ensures full vector fidelity and avoids device-coordinate cache
+        pixmap scaling artifacts during scene.render().
+        """
+        cached: list[tuple[QGraphicsItem, QGraphicsItem.CacheMode]] = []
+        for item in scene.items():
+            mode = item.cacheMode()
+            if mode != QGraphicsItem.CacheMode.NoCache:
+                cached.append((item, mode))
+                item.setCacheMode(QGraphicsItem.CacheMode.NoCache)
+        return cached
+
+    @staticmethod
+    def _restore_item_caches(
+        cached_items: list[tuple[QGraphicsItem, QGraphicsItem.CacheMode]],
+    ) -> None:
+        """Restore item caching modes after scene export.
+
+        Items currently selected remain NoCache to prevent handle ghosting
+        and transformation lag.
+        """
+        for item, mode in cached_items:
+            if item.isSelected():
+                item.setCacheMode(QGraphicsItem.CacheMode.NoCache)
+            else:
+                item.setCacheMode(mode)
 
     @staticmethod
     def _prepare_text_for_export(scene: QGraphicsScene, scale: float, dpi: int) -> list[tuple[object, bool, QFont | None]]:
@@ -291,10 +330,13 @@ class ExportService:
         # Calculate scale for text adjustment
         scale = output_width_cm / canvas_width
 
-        # Prepare text items for export
+        # Prepare text items, overlays, and suppress device item caches for export.
+        # Note: export_to_svg renders directly to a vector QSvgGenerator device rather
+        # than a raster QImage, so it cannot delegate to render_scene_region (ADR-023).
         saved_text_state = ExportService._prepare_text_for_export(scene, scale, svg_dpi)
         hidden_construction = ExportService._hide_construction_items(scene)
         hidden_overlay, prior_selection = ExportService._hide_overlay_items(scene)
+        cached_items = ExportService._disable_item_caches(scene)
 
         try:
             # Create SVG generator
@@ -324,6 +366,7 @@ class ExportService:
             ExportService._restore_text_after_export(saved_text_state)
             ExportService._restore_construction_items(hidden_construction)
             ExportService._restore_overlay_items(hidden_overlay, prior_selection)
+            ExportService._restore_item_caches(cached_items)
 
         # Post-process SVG: the Y-flip painter transform causes pattern tile images to
         # appear vertically inverted. Add patternTransform to each <pattern> element to

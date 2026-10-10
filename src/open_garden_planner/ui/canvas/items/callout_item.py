@@ -99,6 +99,7 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
+        self.enable_device_coordinate_cache()
         # ItemIsFocusable intentionally NOT set: the text child holds scene focus
         # during editing; granting focus to the parent caused focusOutEvent to fire
         # immediately when start_editing() transferred focus to the child.
@@ -294,6 +295,7 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
     def itemChange(
         self, change: QGraphicsItem.GraphicsItemChange, value: Any
     ) -> Any:
+        self.handle_selection_change_for_cache(change, value)
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
             if value:
                 self.show_rotation_handle()

@@ -199,6 +199,7 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         self.setFlag(QGraphicsRectItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsRectItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
         self.setFlag(QGraphicsRectItem.GraphicsItemFlag.ItemIsFocusable, True)
+        self.enable_device_coordinate_cache()
 
     def boundingRect(self) -> QRectF:
         """Return bounding rect, expanded for shadow."""
@@ -278,6 +279,15 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
             painter.restore()
 
         if is_furniture_type(self.object_type):
+            if not self.isSelected() and self.should_use_lod_flat_fill(option, widget, painter):
+                rect = self.rect()
+                painter.save()
+                painter.setPen(self.pen())
+                painter.setBrush(QBrush(self.get_lod_fill_color()))
+                painter.drawRect(rect)
+                painter.restore()
+                return
+
             rect = self.rect()
             pixmap = render_furniture_pixmap(
                 object_type=self.object_type,
@@ -319,6 +329,15 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
                 if is_bed_type(self.object_type):
                     self._draw_soil_mismatch_border(painter)
                 return
+
+        if not self.isSelected() and self.fill_pattern is not None and self.should_use_lod_flat_fill(option, widget, painter):
+            rect = self.rect()
+            painter.save()
+            painter.setPen(self.pen())
+            painter.setBrush(QBrush(self.get_lod_fill_color()))
+            painter.drawRect(rect)
+            painter.restore()
+            return
 
         # Fall back to standard rectangle painting
         super().paint(painter, option, widget)
@@ -363,6 +382,7 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         Exits vertex edit mode when deselected.
         Updates annotations when position changes.
         """
+        self.handle_selection_change_for_cache(change, value)
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
             if value:  # Being selected
                 # Only show resize/rotation handles if not in vertex edit mode

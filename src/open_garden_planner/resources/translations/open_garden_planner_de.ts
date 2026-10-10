@@ -5756,6 +5756,10 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <source>{total} pages ({cols} × {rows}) at {scale}</source>
             <translation>{total} Seiten ({cols} × {rows}) bei {scale}</translation>
         </message>
+        <message>
+            <source>Fit to Page</source>
+            <translation>An Seite anpassen</translation>
+        </message>
     </context>
     <context>
         <name>PropertiesDialog</name>
@@ -8160,6 +8164,18 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>(photo: {filename})</source>
             <translation>(Foto: {filename})</translation>
+        </message>
+        <message>
+            <source>Name</source>
+            <translation>Name</translation>
+        </message>
+        <message>
+            <source>Type</source>
+            <translation>Typ</translation>
+        </message>
+        <message>
+            <source>Position (cm)</source>
+            <translation>Position (cm)</translation>
         </message>
     </context>
     <context>
@@ -11534,6 +11550,21 @@ Details: {error}</translation>
         <message>
             <source>Favorites</source>
             <translation>Favoriten</translation>
+        </message>
+    </context>
+    <context>
+        <name>GardenPrintManager</name>
+        <message>
+            <source>Print Preview - {name}</source>
+            <translation>Druckvorschau - {name}</translation>
+        </message>
+        <message>
+            <source> (Page {current}/{total})</source>
+            <translation> (Seite {current}/{total})</translation>
+        </message>
+        <message>
+            <source>Fit to Page</source>
+            <translation>An Seite anpassen</translation>
         </message>
     </context>
 </TS>

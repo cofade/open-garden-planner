@@ -176,7 +176,7 @@ def render_scene_region(
         else _noop_context()
     )
 
-    with overlay_ctx, construction_ctx, text_ctx:
+    with overlay_ctx, construction_ctx, text_ctx, _uncached_items(scene):
         painter.save()
         if y_flip:
             painter.translate(target_rect.x(), target_rect.y() + target_rect.height())
@@ -186,6 +186,18 @@ def render_scene_region(
         else:
             scene.render(painter, target_rect, source_rect)
         painter.restore()
+
+
+@contextmanager
+def _uncached_items(scene: QGraphicsScene) -> Iterator[None]:
+    """Temporarily disable item caching during scene rendering."""
+    from open_garden_planner.services.export_service import ExportService
+
+    cached = ExportService._disable_item_caches(scene)
+    try:
+        yield
+    finally:
+        ExportService._restore_item_caches(cached)
 
 
 @contextmanager

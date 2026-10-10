@@ -99,6 +99,7 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsFocusable, True)
+        self.enable_device_coordinate_cache()
 
         # Disable text editing until double-clicked
         self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
@@ -293,6 +294,7 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
         self, change: QGraphicsItem.GraphicsItemChange, value: Any
     ) -> Any:
         """Show/hide rotation handle on selection change."""
+        self.handle_selection_change_for_cache(change, value)
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
             if value:
                 self.show_rotation_handle()

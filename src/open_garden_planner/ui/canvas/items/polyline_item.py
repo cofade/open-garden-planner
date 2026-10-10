@@ -151,6 +151,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
         self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemIsFocusable, True)
+        self.enable_device_coordinate_cache()
 
     def _find_owner_polygon(self) -> "QGraphicsItem | None":
         """Look up the HOUSE polygon that owns this ridge via metadata."""
@@ -829,6 +830,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         Exits vertex edit mode when deselected.
         Updates annotations when position changes.
         """
+        self.handle_selection_change_for_cache(change, value)
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
             if value:  # Being selected
                 if not self.is_vertex_edit_mode:

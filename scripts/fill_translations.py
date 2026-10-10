@@ -1510,6 +1510,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Print Options": "Druckoptionen",
         "Scale": "Maßstab",
         "Print scale:": "Druckmaßstab:",
+        "Fit to Page": "An Seite anpassen",
         "Include": "Einschließen",
         "Grid": "Raster",
         "Object labels": "Objektbeschriftungen",
@@ -1518,6 +1519,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Single page (scaled to fit)": "Eine Seite (skaliert passend)",
         "1 page at {scale}": "1 Seite bei {scale}",
         "{total} pages ({cols} × {rows}) at {scale}": "{total} Seiten ({cols} × {rows}) bei {scale}",
+    },
+
+    # ── GardenPrintManager ──
+    "GardenPrintManager": {
+        "Print Preview - {name}": "Druckvorschau - {name}",
+        " (Page {current}/{total})": " (Seite {current}/{total})",
+        "Fit to Page": "An Seite anpassen",
     },
 
     # ── PropertiesDialog ──
@@ -2202,6 +2210,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Grand total": "Gesamtsumme",
         "Shopping list is empty.": "Einkaufsliste ist leer.",
         "Plant List": "Pflanzenliste",
+        "Name": "Name",
+        "Type": "Typ",
+        "Position (cm)": "Position (cm)",
         "Legend": "Legende",
         "Bed": "Beet",
         "No plants found in this project.": "Keine Pflanzen in diesem Projekt gefunden.",
