@@ -32,13 +32,24 @@ they are not a content address across items (``params["seed"]`` is the item id).
 
 Quantisation. Every length is snapped to 1e-7 cm (one nanometre) and every angle
 to 1e-9 degrees when a record is built. An unchanged scene snapshots identically
-without it — the computation is deterministic — but the SAME item reached along
-another float path (undo is ``moveBy(-delta)``, a centre is ``x + w/2 - w/2``)
-differs in the last bits; snapped, the two paths give one record. The quantum
-cannot hide a real edit: it is far below anything the UI can express, and below
-the float32 resolution of a vertex further than ~1 cm from its origin (the
-engine receives float32). It stays below the 1e-6 cm bound to which
-``transform ∘ local footprint`` must reproduce the 2D footprint.
+without it — the computation is deterministic — but the SAME geometry reached
+along another float path differs in its last bits, and that must not read as an
+edit. Measured on real items (``tests/integration/test_scene3d_snapshot.py``):
+
+- a HOUSE's ridge is another item whose points the app re-writes by ``+ delta``
+  on every move; unsnapped, 689 of 1,000 moves changed the HOUSE's geometry, so
+  "move → transform only" was false. Snapped: 0 of 20,000 (the dust had grown
+  to 1.1e-10 cm by then — three orders below the grid);
+- undo is ``moveBy(-delta)`` and ``(0.1 + 0.7) - 0.7 == 0.09999999999999998``;
+  next to the scene origin that reaches the position;
+- a rectangle corner is ``x - (x + w/2)`` = ``-150.00000000000003``.
+
+The quantum cannot hide a real edit: it is far below anything the UI can
+express, and below the float32 resolution of a vertex further than ~1 cm from
+its origin (the engine receives float32). It also stays below the 1e-6 cm bound
+to which ``transform ∘ local footprint`` must reproduce the 2D footprint
+(measured worst case 1.5e-7 cm). When float dust does straddle a grid line the
+cost is one redundant sink call — never a wrong frame.
 """
 
 from __future__ import annotations

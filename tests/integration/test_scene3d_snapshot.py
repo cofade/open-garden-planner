@@ -241,18 +241,31 @@ class TestDiffMatrix:
         assert after.footprints == before.footprints and after.path == before.path
 
     def test_undo_of_a_move_restores_the_very_same_record(self, stage: Stage) -> None:
-        """Undo is ``moveBy(-delta)``, and ``(p + d) - d`` is not ``p`` in floats:
-        ``(0.1 + 0.7) - 0.7 == 0.09999999999999987``. On the record grid the two
-        are one position, so undo gives back the very record it left."""
-        stage.commands.execute(MoveItemsCommand([stage.item], QPointF(0.1, 0.3)))
-        stage.step()
         before = stage.record
-        stage.commands.execute(MoveItemsCommand([stage.item], QPointF(0.7, 0.9)))
+        stage.commands.execute(MoveItemsCommand([stage.item], QPointF(137.25, -42.5)))
         stage.step()
         stage.commands.undo()
-        assert stage.item.pos().x() != 0.1  # the dust is real: 0.09999999999999987
         assert stage.step() == SceneDiff(transform=(stage.id,))
         assert stage.record == before
+
+    def test_undo_dust_near_the_origin_is_absorbed_by_the_record_grid(self, canvas: CanvasView) -> None:
+        """Undo is ``moveBy(-delta)``, and ``(p + d) - d`` is not always ``p``:
+        ``(0.1 + 0.7) - 0.7 == 0.09999999999999998``. Far from the origin that dust
+        is below one ulp of the scene position and vanishes by itself; next to the
+        origin it survives into ``sceneTransform()``. On the record grid both paths
+        give ONE position, so undo returns the very record it left."""
+        item = RectangleItem(-0.7, -0.8, 2.0, 2.0, object_type=ObjectType.TOOL_SHED)  # centre (0.3, 0.2)
+        commands = canvas.command_manager
+        commands.execute(CreateItemCommand(canvas.scene(), item, "rectangle"))
+        commands.execute(MoveItemsCommand([item], QPointF(0.1, 0.3)))
+        before = snapshot_records(canvas.scene())
+        raw_before = item.mapToScene(item.rect().center())
+        commands.execute(MoveItemsCommand([item], QPointF(0.7, 0.9)))
+        commands.undo()
+        raw_after = item.mapToScene(item.rect().center())
+        assert (raw_after.x(), raw_after.y()) != (raw_before.x(), raw_before.y())  # the dust is real
+        after = snapshot_records(canvas.scene())
+        assert after == before and diff(before, after).is_empty
 
     @pytest.mark.parametrize("angle", [17.0, 90.0, 213.5])
     def test_rotate_is_transform_only(self, stage: Stage, angle: float) -> None:
