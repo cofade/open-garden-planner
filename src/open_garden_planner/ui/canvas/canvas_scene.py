@@ -1192,6 +1192,7 @@ class CanvasScene(QGraphicsScene):
         (``_calibration_markers``, ``_calibration_points``,
         ``_calibration_image``, ``_calibration_mode``).
         """
+        self._guild_diagnostics: list[dict[str, Any]] = []
         self._compare_items.clear()
         self._compare_overlay_visible = False
         self._calibration_markers.clear()

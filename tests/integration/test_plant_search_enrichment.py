@@ -108,8 +108,18 @@ class _StubLibrary:
     def __init__(self, results: list | None = None) -> None:
         self._results = results or []
 
+    def get_all_plants(self) -> list:
+        return [(str(index), plant) for index, plant in enumerate(self._results)]
+
     def search_plants(self, query: str) -> list:
         return self._results
+
+
+@pytest.fixture(autouse=True)
+def provider_only_catalog(monkeypatch):
+    # These tests specifically exercise online enrichment. F1's real bundled
+    # matches suppress automatic online requests; use the explicit action.
+    monkeypatch.setattr("open_garden_planner.services.species_catalog.get_species_db", lambda: {})
 
 
 @pytest.fixture()
@@ -123,7 +133,8 @@ def dialog(qtbot, monkeypatch):
     dlg = PlantSearchDialog(manager)
     qtbot.addWidget(dlg)
     dlg.search_input.setText("carrot")
-    dlg._perform_search()
+    dlg._perform_search(online=True)
+    qtbot.waitUntil(lambda: not dlg._requests, timeout=5000)
     dlg.results_list.setCurrentRow(0)
     return dlg
 
@@ -145,6 +156,7 @@ class TestSearchResultEnrichment:
         self, dialog: PlantSearchDialog, qtbot
     ) -> None:
         qtbot.mouseClick(dialog.ok_button, Qt.MouseButton.LeftButton)
+        qtbot.waitUntil(lambda: dialog.result() == dialog.DialogCode.Accepted, timeout=5000)
 
         assert dialog.result() == dialog.DialogCode.Accepted
         enriched = dialog.selected_plant
@@ -180,6 +192,7 @@ class TestSearchResultEnrichment:
             "open_garden_planner.ui.dialogs.plant_search_dialog.QMessageBox.warning"
         ) as mock_warn:
             qtbot.mouseClick(dialog.ok_button, Qt.MouseButton.LeftButton)
+            qtbot.waitUntil(lambda: dialog.result() == dialog.DialogCode.Accepted, timeout=5000)
 
         assert dialog.result() == dialog.DialogCode.Accepted
         plant = dialog.selected_plant
@@ -215,6 +228,7 @@ class TestSearchResultEnrichment:
             "open_garden_planner.ui.dialogs.plant_search_dialog.QMessageBox.warning"
         ) as mock_warn:
             qtbot.mouseClick(dialog.ok_button, Qt.MouseButton.LeftButton)
+            qtbot.waitUntil(lambda: dialog.result() == dialog.DialogCode.Accepted, timeout=5000)
 
         assert dialog.result() == dialog.DialogCode.Accepted
         plant = dialog.selected_plant
@@ -249,6 +263,7 @@ class TestSearchResultEnrichment:
             "open_garden_planner.ui.dialogs.plant_search_dialog.QMessageBox.warning"
         ) as mock_warn:
             qtbot.mouseClick(dialog.ok_button, Qt.MouseButton.LeftButton)
+            qtbot.waitUntil(lambda: dialog.result() == dialog.DialogCode.Accepted, timeout=5000)
 
         assert dialog.result() == dialog.DialogCode.Accepted
         plant = dialog.selected_plant
@@ -290,7 +305,8 @@ class TestSearchResultEnrichment:
         dlg = PlantSearchDialog(manager)
         qtbot.addWidget(dlg)
         dlg.search_input.setText("veg")
-        dlg._perform_search()
+        dlg._perform_search(online=True)
+        qtbot.waitUntil(lambda: not dlg._requests, timeout=5000)
         assert dlg.results_list.count() == 3
 
         # Browse all three rows -- selection-change must not itself enrich.
@@ -299,6 +315,7 @@ class TestSearchResultEnrichment:
         dlg.results_list.setCurrentRow(0)  # confirm the carrot
 
         qtbot.mouseClick(dlg.ok_button, Qt.MouseButton.LeftButton)
+        qtbot.waitUntil(lambda: dlg.result() == dlg.DialogCode.Accepted, timeout=5000)
 
         # Exactly 2 requests total: 1 search + 1 detail fetch for the single
         # confirmed row -- not 1 (search) + 3 (one per browsed row).
@@ -343,6 +360,7 @@ class TestSearchResultEnrichment:
             "open_garden_planner.ui.dialogs.plant_search_dialog.QMessageBox.warning"
         ) as mock_warn:
             qtbot.mouseClick(dialog.ok_button, Qt.MouseButton.LeftButton)
+            qtbot.waitUntil(lambda: dialog.result() == dialog.DialogCode.Accepted, timeout=5000)
 
         mock_warn.assert_not_called()
         enriched = dialog.selected_plant
@@ -396,6 +414,7 @@ class TestSearchResultEnrichment:
             side_effect=_warning_fires_pending_timer,
         ):
             qtbot.mouseClick(dialog.ok_button, Qt.MouseButton.LeftButton)
+            qtbot.waitUntil(lambda: dialog.result() == dialog.DialogCode.Accepted, timeout=5000)
 
         # _on_accept() must have stopped the timer before this could ever run --
         # proven by the selection surviving the simulated re-entrant search.
@@ -452,7 +471,8 @@ class TestSearchResultEnrichment:
         dlg = PlantSearchDialog(manager)
         qtbot.addWidget(dlg)
         dlg.search_input.setText("sunflower")
-        dlg._perform_search()
+        dlg._perform_search(online=True)
+        qtbot.waitUntil(lambda: not dlg._requests, timeout=5000)
         dlg.results_list.setCurrentRow(0)
         assert dlg.selected_plant.sun_requirement.value == "full_sun"  # from search itself
 
@@ -460,6 +480,7 @@ class TestSearchResultEnrichment:
             "open_garden_planner.ui.dialogs.plant_search_dialog.QMessageBox.warning"
         ) as mock_warn:
             qtbot.mouseClick(dlg.ok_button, Qt.MouseButton.LeftButton)
+            qtbot.waitUntil(lambda: dlg.result() == dlg.DialogCode.Accepted, timeout=5000)
 
         mock_warn.assert_not_called()
         assert dlg.result() == dlg.DialogCode.Accepted
@@ -487,6 +508,7 @@ class TestSearchResultEnrichment:
         monkeypatch.setattr("requests.Session.get", mock_get)
 
         qtbot.mouseClick(dialog.ok_button, Qt.MouseButton.LeftButton)
+        qtbot.waitUntil(lambda: dialog.result() == dialog.DialogCode.Accepted, timeout=5000)
 
         mock_get.assert_not_called()
         assert dialog.selected_plant is custom_plant
@@ -531,7 +553,8 @@ class TestResultListSourceLabel:
         dlg = PlantSearchDialog(manager)
         qtbot.addWidget(dlg)
         dlg.search_input.setText("carrot")
-        dlg._perform_search()
+        dlg._perform_search(online=True)
+        qtbot.waitUntil(lambda: not dlg._requests, timeout=5000)
 
         assert dlg.results_list.count() == 2
         row_texts = [dlg.results_list.item(i).text() for i in range(2)]
@@ -567,7 +590,8 @@ class TestResultListSourceLabel:
         dlg = PlantSearchDialog(manager)
         qtbot.addWidget(dlg)
         dlg.search_input.setText("carrot")
-        dlg._perform_search()
+        dlg._perform_search(online=True)
+        qtbot.waitUntil(lambda: not dlg._requests, timeout=5000)
 
         assert dlg.results_list.count() == 1
         assert "Legacy Carrot" in dlg.results_list.item(0).text()
@@ -589,7 +613,8 @@ class TestResultListSourceLabel:
             "open_garden_planner.ui.dialogs.plant_search_dialog.QMessageBox.warning"
         ) as mock_warn:
             qtbot.mouseClick(dlg.ok_button, Qt.MouseButton.LeftButton)
+            qtbot.waitUntil(lambda: dlg.result() == dlg.DialogCode.Accepted, timeout=5000)
 
         mock_get.assert_not_called()
         mock_warn.assert_not_called()
-        assert dlg.selected_plant is legacy_entry
+        assert dlg.selected_plant == legacy_entry

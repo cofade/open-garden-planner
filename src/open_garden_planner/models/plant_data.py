@@ -1,9 +1,40 @@
 """Plant data models for storing botanical information from APIs."""
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import date
 from enum import Enum
 from typing import Any
+
+
+class PermacultureLayer(Enum):
+    """Recorded food-forest niche, independent of artwork and canvas layers."""
+
+    CANOPY = "canopy"
+    SUB_CANOPY = "sub_canopy"
+    SHRUB = "shrub"
+    HERBACEOUS = "herbaceous"
+    GROUND_COVER = "ground_cover"
+    ROOT = "root"
+    VINE = "vine"
+    UNKNOWN = "unknown"
+
+
+class PlantFunction(Enum):
+    """Recorded uses; absence means unspecified, not an agronomic guarantee."""
+
+    NITROGEN_FIXER = "nitrogen_fixer"
+    DYNAMIC_ACCUMULATOR = "dynamic_accumulator"
+    POLLINATOR_ATTRACTOR = "pollinator_attractor"
+    PEST_DETERRENT = "pest_deterrent"
+    GROUND_COVER = "ground_cover"
+    MULCH_MAKER = "mulch_maker"
+    WINDBREAK = "windbreak"
+    HEDGEROW = "hedgerow"
+    ANIMAL_FEED = "animal_feed"
+    MEDICINAL = "medicinal"
+    DYE = "dye"
+    FIBER = "fiber"
 
 
 class SunRequirement(Enum):
@@ -87,6 +118,8 @@ class PlantSpeciesData:
     # Growth characteristics
     cycle: PlantCycle = PlantCycle.UNKNOWN
     growth_rate: GrowthRate = GrowthRate.UNKNOWN
+    permaculture_layer: PermacultureLayer = PermacultureLayer.UNKNOWN
+    functions: list[PlantFunction] = field(default_factory=list)
 
     # Reproductive characteristics
     flower_type: FlowerType = FlowerType.UNKNOWN
@@ -187,6 +220,8 @@ class PlantSpeciesData:
             "genus": self.genus,
             "cycle": self.cycle.value,
             "growth_rate": self.growth_rate.value,
+            "permaculture_layer": self.permaculture_layer.value,
+            "functions": [f.value for f in PlantFunction if f in self.functions],
             "flower_type": self.flower_type.value,
             "pollination_type": self.pollination_type.value,
             "min_height_cm": self.min_height_cm,
@@ -253,6 +288,22 @@ class PlantSpeciesData:
         pollination_type = PollinationType(data.get("pollination_type", "unknown"))
         sun_requirement = SunRequirement(data.get("sun_requirement", "unknown"))
         water_needs = WaterNeeds(data.get("water_needs", "unknown"))
+        raw_data = deepcopy(data.get("raw_data") or {})
+        if not isinstance(raw_data, dict):
+            raw_data = {"unrecognized_raw_data": raw_data}
+        layer_value = data.get("permaculture_layer") or "unknown"
+        try:
+            layer = PermacultureLayer(layer_value)
+        except (ValueError, TypeError):
+            layer = PermacultureLayer.UNKNOWN
+            raw_data["unrecognized_permaculture_layer"] = deepcopy(layer_value)
+        function_values = data.get("functions") or []
+        if not isinstance(function_values, list):
+            function_values = [function_values]
+        functions = [f for f in PlantFunction if f.value in function_values]
+        unknown = [v for v in function_values if not isinstance(v, str) or v not in {f.value for f in PlantFunction}]
+        if unknown:
+            raw_data["unrecognized_functions"] = deepcopy(unknown)
 
         return cls(
             scientific_name=data["scientific_name"],
@@ -261,6 +312,8 @@ class PlantSpeciesData:
             genus=data.get("genus", ""),
             cycle=cycle,
             growth_rate=growth_rate,
+            permaculture_layer=layer,
+            functions=functions,
             flower_type=flower_type,
             pollination_type=pollination_type,
             min_height_cm=data.get("min_height_cm"),
@@ -307,7 +360,7 @@ class PlantSpeciesData:
             n_demand=data.get("n_demand"),
             p_demand=data.get("p_demand"),
             k_demand=data.get("k_demand"),
-            raw_data=data.get("raw_data", {}),
+            raw_data=raw_data,
         )
 
 

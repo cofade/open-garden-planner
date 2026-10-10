@@ -668,6 +668,11 @@ CONTAINER_TYPES: frozenset[ObjectType] = frozenset(
 )
 
 
+def is_plant_type(object_type: ObjectType | None) -> bool:
+    """Living plant semantic types, independent of artwork categories."""
+    return object_type in (ObjectType.TREE, ObjectType.SHRUB, ObjectType.PERENNIAL)
+
+
 def is_bed_type(object_type: ObjectType | None) -> bool:
     """Check if an ObjectType is soil-capable (bed, raised bed, or container).
 

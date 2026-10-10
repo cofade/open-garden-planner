@@ -14,7 +14,9 @@ from dataclasses import fields
 from open_garden_planner.models.plant_data import (
     FlowerType,
     GrowthRate,
+    PermacultureLayer,
     PlantCycle,
+    PlantFunction,
     PlantSpeciesData,
     PollinationType,
     SunRequirement,
@@ -31,6 +33,8 @@ def _full_spec() -> PlantSpeciesData:
         genus="Solanum",
         cycle=PlantCycle.PERENNIAL,
         growth_rate=GrowthRate.FAST,
+        permaculture_layer=PermacultureLayer.HERBACEOUS,
+        functions=[PlantFunction.POLLINATOR_ATTRACTOR],
         flower_type=FlowerType.MONOECIOUS,
         pollination_type=PollinationType.SELF_FERTILE,
         min_height_cm=120.0,

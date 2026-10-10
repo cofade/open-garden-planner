@@ -17,6 +17,7 @@ from PyQt6.QtGui import QColor, QImage, QPainter, QPixmap
 from PyQt6.QtSvg import QSvgRenderer
 
 from .object_types import ObjectType
+from .object_types import is_plant_type as _is_plant_type
 
 # Directory containing plant SVG files
 _PLANTS_DIR = Path(__file__).parent.parent / "resources" / "plants"
@@ -522,9 +523,7 @@ def is_plant_type(object_type: ObjectType | None) -> bool:
     Returns:
         True if this is a plant type (TREE, SHRUB, PERENNIAL)
     """
-    if object_type is None:
-        return False
-    return object_type in _OBJECT_TYPE_DEFAULT_CATEGORY
+    return _is_plant_type(object_type)
 
 
 def get_default_category(object_type: ObjectType) -> PlantCategory | None:

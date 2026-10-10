@@ -161,6 +161,8 @@ class ObjectRef(BaseModel):
 
 
 class ObjectDetail(ObjectRef):
+    permaculture_layer: str | None = None
+    functions: list[str] | None = None
     """Full single-object view, returned by ``get_object``."""
 
     rotation_deg: float = Field(
@@ -288,11 +290,12 @@ class GeometryResult(BaseModel):
 
 
 class Diagnostic(BaseModel):
+    details: dict[str, Any] = Field(default_factory=dict)
     """One already-computed plan warning, mirroring an on-canvas badge."""
 
     kind: str = Field(
         description="One of: 'companion_conflict', 'spacing_overlap', 'soil_mismatch', "
-        "'capacity_overrun', 'crop_rotation', 'outside_canvas'.",
+        "'capacity_overrun', 'crop_rotation', 'outside_canvas', 'guild_role_missing', 'guild_data_warning'.",
     )
     severity: str = Field(description="'info', 'warning', or 'critical'.")
     item_ids: list[str] = Field(

@@ -118,8 +118,11 @@ class TestDocumentedKinds:
 
     @staticmethod
     def _emitted_kinds() -> set[str]:
-        source = Path(diagnostics_module.__file__).read_text(encoding="utf-8")
-        return set(re.findall(r'kind="([a-z_]+)"', source))
+        from open_garden_planner.services import diagnostics, guild_service
+
+        source = Path(diagnostics.__file__).read_text(encoding="utf-8")
+        source += Path(guild_service.__file__).read_text(encoding="utf-8")
+        return set(re.findall(r'kind="([a-z_]+)"', source)) | set(re.findall(r'"kind": "([a-z_]+)"', source))
 
     def test_emitted_kinds_are_found(self) -> None:
         assert "outside_canvas" in self._emitted_kinds()

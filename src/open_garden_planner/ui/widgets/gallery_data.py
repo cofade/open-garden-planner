@@ -7,6 +7,7 @@ multiple call sites can share them.
 """
 
 from pathlib import Path
+from typing import Any
 
 from PyQt6.QtCore import QCoreApplication, QRectF, Qt
 from PyQt6.QtGui import QColor, QImage, QPainter, QPainterPath, QPen, QPixmap
@@ -30,6 +31,18 @@ from open_garden_planner.core.tools import ToolType
 from open_garden_planner.ui.icons import get_pixmap
 
 THUMB_SIZE = 64
+
+
+def gallery_matches(item: Any, text: str = "", *, layers: set[str] | None = None, functions: set[str] | None = None) -> bool:
+    """Artwork categories never supply botanical traits; use catalog aliases."""
+    from open_garden_planner.services.bundled_species_db import lookup_species
+    from open_garden_planner.services.permaculture import matches_traits
+
+    if item.object_type not in (ObjectType.TREE, ObjectType.SHRUB, ObjectType.PERENNIAL):
+        return not text or text.casefold() in item.name.casefold()
+    record = lookup_species(item.species) or lookup_species(item.name) or {}
+    text_matches = not text or text.casefold() in item.name.casefold() or matches_traits(record, text)
+    return text_matches and matches_traits(record, layers=layers, functions=functions)
 
 
 class GalleryItem:

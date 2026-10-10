@@ -9,6 +9,7 @@ import contextlib
 import json
 import logging
 from collections.abc import Iterable
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -104,6 +105,7 @@ class ProjectData:
     # US-12.8: per-bed succession plans
     # shape: {bed_id: SuccessionPlan.to_dict()} where bed_id is a bed UUID string
     succession_plans: dict[str, Any] = field(default_factory=dict)
+    auto_assign_permaculture_layers: bool = False
 
     # US-12.9: garden journal map-linked notes
     # shape: {note_id: JournalNote.to_dict()}; canvas pins reference notes by id
@@ -171,6 +173,8 @@ class ProjectData:
             data["prefer_organic"] = False
         if self.succession_plans:
             data["succession_plans"] = self.succession_plans
+        if self.auto_assign_permaculture_layers:
+            data["auto_assign_permaculture_layers"] = True
         if self.garden_journal_notes:
             data["garden_journal_notes"] = self.garden_journal_notes
         if self.manual_tasks:
@@ -207,6 +211,7 @@ class ProjectData:
             enabled_amendments=data.get("enabled_amendments"),
             prefer_organic=bool(data.get("prefer_organic", True)),
             succession_plans=data.get("succession_plans", {}),
+            auto_assign_permaculture_layers=bool(data.get("auto_assign_permaculture_layers", False)),
             garden_journal_notes=data.get("garden_journal_notes", {}),
             manual_tasks=data.get("manual_tasks", {}),
             task_states=data.get("task_states", {}),
@@ -242,6 +247,7 @@ class ProjectManager(QObject):
     enabled_amendments_changed = pyqtSignal(object)  # list[str] or None
     prefer_organic_changed = pyqtSignal(bool)
     succession_plans_changed = pyqtSignal(object)  # dict[str, dict]
+    permaculture_assignment_changed = pyqtSignal(bool)
     garden_journal_notes_changed = pyqtSignal(object)  # dict[str, dict]
     manual_tasks_changed = pyqtSignal(object)  # dict[str, dict] (US-C2)
     task_states_changed = pyqtSignal(object)  # dict[str, dict] (US-C2)
@@ -267,6 +273,7 @@ class ProjectManager(QObject):
         self._enabled_amendments: list[str] | None = None
         self._prefer_organic: bool = True
         self._succession_plans: dict[str, Any] = {}
+        self._auto_assign_permaculture_layers = False
         self._garden_journal_notes: dict[str, Any] = {}
         self._manual_tasks: dict[str, Any] = {}
         self._task_states: dict[str, Any] = {}
@@ -603,6 +610,15 @@ class ProjectManager(QObject):
         """Per-bed succession plan dicts (US-12.8) keyed by bed UUID string."""
         return dict(self._succession_plans)
 
+    @property
+    def auto_assign_permaculture_layers(self) -> bool:
+        return self._auto_assign_permaculture_layers
+
+    @auto_assign_permaculture_layers.setter
+    def auto_assign_permaculture_layers(self, enabled: bool) -> None:
+        self._auto_assign_permaculture_layers = bool(enabled)
+        self.permaculture_assignment_changed.emit(bool(enabled))
+
     def set_succession_plan(self, bed_id: str, plan_dict: dict[str, Any]) -> None:
         """Replace the succession plan for ``bed_id`` and mark project dirty."""
         self._succession_plans[bed_id] = plan_dict
@@ -805,6 +821,7 @@ class ProjectManager(QObject):
         self._enabled_amendments = None
         self._prefer_organic = True
         self._succession_plans = {}
+        self.auto_assign_permaculture_layers = False
         self._garden_journal_notes = {}
         self._manual_tasks = {}
         self._task_states = {}
@@ -884,6 +901,7 @@ class ProjectManager(QObject):
         )
         data.prefer_organic = self._prefer_organic
         data.succession_plans = dict(self._succession_plans)
+        data.auto_assign_permaculture_layers = self.auto_assign_permaculture_layers
         if sync_journal:
             # US-12.9: the pin's pos() on the canvas is the source of truth for
             # journal-note coordinates; sync each note dict's scene_x/y from the
@@ -917,7 +935,8 @@ class ProjectManager(QObject):
         }
         return out
 
-    def diagnostics_snapshot(self, scene: QGraphicsScene) -> list[dict[str, Any]]:
+    @staticmethod
+    def diagnostics_snapshot(scene: QGraphicsScene) -> list[dict[str, Any]]:
         """Harvest each garden item's already-computed warning flags (read-only).
 
         The Agent API's ``get_diagnostics`` reports the same warnings the canvas
@@ -983,6 +1002,8 @@ class ProjectManager(QObject):
                     "outside_canvas": outside,
                 }
             )
+        if getattr(scene, "_guild_diagnostics", None):
+            records.append({"diagnostics": deepcopy(getattr(scene, "_guild_diagnostics", []))})
         return records
 
     def load(self, scene: QGraphicsScene, file_path: Path) -> None:
@@ -1077,6 +1098,7 @@ class ProjectManager(QObject):
         self._prefer_organic = bool(data.prefer_organic)
         self.prefer_organic_changed.emit(self._prefer_organic)
         self._succession_plans = dict(data.succession_plans)
+        self.auto_assign_permaculture_layers = data.auto_assign_permaculture_layers
         self.succession_plans_changed.emit(self._succession_plans)
         self._garden_journal_notes = dict(data.garden_journal_notes)
         self.garden_journal_notes_changed.emit(self._garden_journal_notes)
@@ -1108,6 +1130,7 @@ class ProjectManager(QObject):
         """
         # Serialize the current scene
         current_data = self._serialize_scene(scene)
+        current_data.auto_assign_permaculture_layers = self.auto_assign_permaculture_layers
         current_data.location = self._location
         current_data.task_completions = []
         current_data.seed_inventory = list(self._seed_inventory)

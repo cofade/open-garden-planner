@@ -2416,3 +2416,29 @@ A per-layer band can, in principle, grow past `z_order * 100 + 100` only if
 concern at the layer counts this app supports, and unchanged by #338 (the
 formula was already `layer.z_order * 100` before per-object stacking; #338
 only subdivides the same band, it does not widen it).
+
+## 8.26 Recorded permaculture traits and guild templates
+
+Species traits are curated facts/design annotations, not a planting-success score. `unknown` and empty functions mean no recorded fact. Botanical niche is independent of the illustration category and drawing layer. `scripts/curate_permaculture_traits.py` is the explicit reviewable assignment table for all 118 bundled species: tall woodland/walnut trees use canopy; fruit/smaller ornamental trees sub-canopy; woody bushes/subshrubs shrub; selected low spreading plants ground-cover; harvested underground crops root; climbing/trailing crops vine; remaining herbaceous crops/bulbs/flowers herbaceous. This is a representative food-forest niche, not a universal cultivar height prediction. A bulb grown for flowers stays herbaceous, while garlic grown underground is root. User snapshots can be edited independently.
+
+### Function evidence and limitations
+
+| Recorded function | Bundled records | Evidence |
+|---|---|---|
+| Nitrogen fixer | Bush/runner beans, garden pea, broad bean | [UMN legume physiology](https://extension.umn.edu/agriculture/crop-production/forages/legume-life-cycles-and-characteristics), [rhizobia](https://blog-fruit-vegetable-ipm.extension.umn.edu/2022/01/rhizobia-inoculation-for-organic.html), [Cornell Three Sisters](https://warren.cce.cornell.edu/gardening-landscape/warren-county-master-gardener-articles/creating-a-three-sisters-garden). Function depends on compatible symbionts and conditions; it does not mean immediate nitrogen supply to neighbours. |
+| Pollinator attractor | Borage, aster, strawberry | [RHS lists](https://www.rhs.org.uk/science/research/plants-for-pollinators), [aster profile](https://www.rhs.org.uk/garden-inspiration/wildlife/top-12-plants-for-autumn-pollinators). |
+| Ground cover | Strawberry, winter squash | Strawberry's runner habit and RHS profile, Cornell squash shade/cover guidance. Coverage is design use, not guaranteed weed suppression. Common thyme's low-layer niche does not imply a recorded ground-cover function. |
+
+Other functions remain empty unless recorded by an imported provider or the owner. No role is inferred from companion prose or the crop-rotation demand class. Permapeople complete normalized tokens map Tall trees/Trees/Shrubs/Herbs/Ground cover/Roots/Vines directly; Uses mapping preserves unmapped text, including generic Utility, in the original raw response. The Apple fixture records the issue's 2026-08-17 response (Trees; Utility, Animal feed, Attracts insects, Hedgerow); it is not a claim about today's API response.
+
+### Authoring and operating guilds
+
+Plants → Insert guild opens the bundled/user picker. New, Duplicate and Edit open a form; bundled templates are read-only and Duplicate creates a user-owned ID. User JSON files live in `<app-data>/guilds/`; Reload reads them again and reports invalid filenames without hiding valid templates. Required keys are `id`, positive integer `version`, `name`, `centre`, `roles`, `license`, `attribution`; optional German names/descriptions and source references are supported. A centre is a canonical species key or `function:<token>`. Each role has `function`, positive `count_min`, `ring_radius_cm` (finite positive cm or `canopy_edge`), and ordered `suggested_species` canonical keys. The editor resolves choices from the complete offline catalog and shows eligibility. Replace unresolved user suggestions before insertion. At most 200 plants including centre are allowed.
+
+Pick an instance name, centre species/eligible existing plant, centimetre coordinates and role species. Preview draws transient markers; Cancel/Escape leaves no saved plants/history. Insertion preflights the full layout and commits one command. Centre deletion dissolves links on surviving plants and undo restores them. Right-click plant actions add/remove/transfer membership in one step. A complete copy gets an independent guild; a partial copy loses membership. Editing/reloading templates does not change existing saved snapshots.
+
+The walnut template uses Penn State's [reported tolerance list](https://extension.psu.edu/landscaping-and-gardening-around-walnuts-and-other-juglone-producing-plants), largely observational, including asters under their historical genus. It is not a controlled-trial guarantee for every Symphyotrichum cultivar. The Three Sisters template recognises Indigenous planting traditions and Cornell's cultivar/timing guidance; sturdy corn and staggered planting matter, and the bundled sweet-corn record is an editable planning snapshot rather than a promise of adequate support for every runner bean.
+
+### Runtime and testing discipline
+
+Guild links are orthogonal to §8.14 plant-parent relationships; no new bed predicate or parentage path exists. The canonical build-only plant constructor is shared by gallery, Plant Lists and guild insertion, and creation commands retain `_auto_parent_plant`. A 100 ms parented timer coordinates snapshots/badges/panels. Cosmetic updates are idempotent, and navigation resolves UUIDs after the clicked row callback. API diagnostics may lag one debounce tick; reads do not force recomputation. Tests must compare refusal scene/history state, undo depth, copied metadata independence, editor failure preservation, unchanged-panel signatures and rotated centre geometry in addition to ordinary success.

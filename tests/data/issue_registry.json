@@ -349,6 +349,16 @@
     "state": "OPEN",
     "title": "US-F1: Permaculture layer + plant function tags on species — foundation of Package F (Permaculture & Polyculture), do first"
   },
+  "313": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "US-F2: Plant guilds — guild templates, canvas membership, missing-role diagnostic (Package F, after US-F1 #312)"
+  },
+  "314": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "US-F3: Sun-requirement × computed hours-of-sun diagnostic + canvas badge (Package F, independent; layer-stack section after US-F1 #312)"
+  },
   "316": {
     "is_pr": false,
     "state": "OPEN",

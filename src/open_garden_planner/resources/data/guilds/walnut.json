@@ -1,0 +1,10 @@
+{
+  "id": "walnut-tolerant-guild", "version": 1,
+  "name": "Walnut-tolerant guild", "name_de": "Walnussverträgliche Gilde",
+  "description": "Walnut with pollinator asters. Penn State reports Aster species as tolerant based largely on observation; species, soil and conditions still matter.",
+  "description_de": "Walnuss mit bestäuberfreundlichen Astern. Die Verträglichkeitsangaben beruhen überwiegend auf Beobachtungen; Art, Boden und Bedingungen bleiben entscheidend.",
+  "centre": "juglans regia",
+  "roles": [{"function": "pollinator_attractor", "count_min": 3, "ring_radius_cm": "canopy_edge", "suggested_species": ["symphyotrichum novi-belgii"]}],
+  "license": "CC-BY-SA-4.0", "attribution": "Open Garden Planner contributors; reported tolerance from Penn State Extension, pollinator function from RHS.",
+  "sources": ["https://extension.psu.edu/landscaping-and-gardening-around-walnuts-and-other-juglone-producing-plants", "https://www.rhs.org.uk/science/research/plants-for-pollinators"]
+}

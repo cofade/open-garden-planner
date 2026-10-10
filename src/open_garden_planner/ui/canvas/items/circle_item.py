@@ -894,6 +894,9 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         # Change Type submenu
         from open_garden_planner.core.object_types import get_valid_types_for_shape
         change_type_menu = self._build_change_type_menu(menu, get_valid_types_for_shape("circle"))
+        from open_garden_planner.ui.guild_actions import build_guild_actions
+
+        build_guild_actions(menu, self)
 
         # Bed-specific actions are built centrally — see ADR-017 / §8.12.
         # Circles can also be plants; for plant-type circles we only offer the

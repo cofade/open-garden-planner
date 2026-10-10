@@ -1,0 +1,13 @@
+{
+  "id": "three-sisters-mound", "version": 1,
+  "name": "Three-sisters mound", "name_de": "Drei-Schwestern-Beet",
+  "description": "Corn, climbing runner beans and winter squash. Use suitable sturdy corn cultivars and stagger sowing. Bean fixation is not immediate nitrogen availability to neighbouring crops; residues release nitrogen later.",
+  "description_de": "Mais, kletternde Feuerbohnen und Winterkürbis. Standfeste Maissorten wählen und zeitlich versetzt säen. Stickstofffixierung versorgt Nachbarpflanzen nicht sofort; Pflanzenreste setzen Stickstoff später frei.",
+  "centre": "zea mays",
+  "roles": [
+    {"function": "nitrogen_fixer", "count_min": 2, "ring_radius_cm": 50, "suggested_species": ["phaseolus coccineus"]},
+    {"function": "ground_cover", "count_min": 1, "ring_radius_cm": 150, "suggested_species": ["cucurbita maxima"]}
+  ],
+  "license": "CC-BY-SA-4.0", "attribution": "Open Garden Planner contributors; planting context from Cornell Cooperative Extension, recognising Indigenous Three Sisters traditions.",
+  "sources": ["https://warren.cce.cornell.edu/gardening-landscape/warren-county-master-gardener-articles/creating-a-three-sisters-garden"]
+}

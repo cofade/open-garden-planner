@@ -24,6 +24,7 @@ class Layer:
     locked: bool = False
     opacity: float = 1.0
     z_order: int = 0
+    permaculture_layer: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize layer to dictionary."""
@@ -34,6 +35,7 @@ class Layer:
             "locked": self.locked,
             "opacity": self.opacity,
             "z_order": self.z_order,
+            "permaculture_layer": self.permaculture_layer,
         }
 
     @staticmethod
@@ -46,6 +48,7 @@ class Layer:
             locked=data.get("locked", False),
             opacity=data.get("opacity", 1.0),
             z_order=data.get("z_order", 0),
+            permaculture_layer=data.get("permaculture_layer"),
         )
 
 

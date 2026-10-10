@@ -1,0 +1,14 @@
+{
+  "id": "apple-guild", "version": 1,
+  "name": "Apple guild", "name_de": "Apfelgilde",
+  "description": "An apple centre with runner bean, borage and strawberry. Recorded functions describe intended roles, not a guarantee of growing success.",
+  "description_de": "Ein Apfelbaum mit Feuerbohne, Borretsch und Erdbeere. Die erfassten Funktionen beschreiben Rollen, keine Erfolgsgarantie.",
+  "centre": "malus domestica",
+  "roles": [
+    {"function": "nitrogen_fixer", "count_min": 1, "ring_radius_cm": "canopy_edge", "suggested_species": ["phaseolus coccineus"]},
+    {"function": "pollinator_attractor", "count_min": 1, "ring_radius_cm": "canopy_edge", "suggested_species": ["borago officinalis"]},
+    {"function": "ground_cover", "count_min": 1, "ring_radius_cm": "canopy_edge", "suggested_species": ["fragaria ananassa"]}
+  ],
+  "license": "CC-BY-SA-4.0", "attribution": "Open Garden Planner contributors; botanical facts from RHS and Cornell Cooperative Extension.",
+  "sources": ["https://www.rhs.org.uk/science/research/plants-for-pollinators", "https://warren.cce.cornell.edu/gardening-landscape/warren-county-master-gardener-articles/creating-a-three-sisters-garden"]
+}

@@ -565,7 +565,7 @@ def build_server(
         Args:
             kind: Optional filter — one of 'companion_conflict', 'spacing_overlap',
                 'soil_mismatch', 'capacity_overrun', 'crop_rotation',
-                'outside_canvas'.
+                'outside_canvas', 'guild_role_missing', 'guild_data_warning'.
         """
         records = await anyio.to_thread.run_sync(providers.diagnostics)
         return diagnostics_from_records(records, kind=kind)

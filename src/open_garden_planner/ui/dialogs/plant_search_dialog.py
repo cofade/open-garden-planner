@@ -1,7 +1,9 @@
 """Plant search dialog for finding species from online databases."""
 
 import logging
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import MISSING, fields, replace
+from typing import Any
 
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QIcon
@@ -18,11 +20,11 @@ from PyQt6.QtWidgets import (
     QTextEdit,
     QToolButton,
     QVBoxLayout,
+    QWidget,
 )
 
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.services.plant_api import (
-    PlantAPIError,
     PlantAPIManager,
     PlantDetailUnavailableError,
 )
@@ -44,7 +46,7 @@ class PlantSearchDialog(QDialog):
     def __init__(
         self,
         api_manager: PlantAPIManager,
-        parent: object = None,
+        parent: QWidget | None = None,
     ) -> None:
         """Initialize the plant search dialog.
 
@@ -56,6 +58,14 @@ class PlantSearchDialog(QDialog):
 
         self._api_manager = api_manager
         self._selected_plant: PlantSpeciesData | None = None
+        self._generation = 0
+        self._closed = False
+        self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="species-search")
+        self._requests: list[tuple[int, Future[list[PlantSpeciesData]]]] = []
+        self._detail_request: tuple[int, PlantSpeciesData, Future[PlantSpeciesData]] | None = None
+        self._poll_timer = QTimer(self)
+        self._poll_timer.setInterval(50)
+        self._poll_timer.timeout.connect(self._poll_results)
         # PARENTED to the dialog: an unparented QTimer outlives the C++ widget
         # (qtbot/close deletes the dialog, the Python-owned timer keeps ticking)
         # and 500 ms later fires _perform_search() on a dead dialog — which
@@ -76,6 +86,7 @@ class PlantSearchDialog(QDialog):
         self._list_store.changed.connect(self._on_list_store_changed)
 
         self._setup_ui()
+        self._perform_search()
 
     def _setup_ui(self) -> None:
         """Set up the dialog UI."""
@@ -96,6 +107,14 @@ class PlantSearchDialog(QDialog):
         search_layout.addWidget(self.search_input)
         search_layout.addWidget(self.search_button)
         layout.addLayout(search_layout)
+        self.online_button = QPushButton(self.tr("Search online"))
+        self.online_button.clicked.connect(lambda: self._perform_search(online=True))
+        search_layout.addWidget(self.online_button)
+        from open_garden_planner.ui.widgets.trait_filters import TraitFilters
+
+        self.trait_filters = TraitFilters(self)
+        self.trait_filters.changed.connect(self._perform_search)
+        layout.addWidget(self.trait_filters)
 
         # Status/info label
         self.status_label = QLabel(self.tr("Enter a plant name to search"))
@@ -154,6 +173,7 @@ class PlantSearchDialog(QDialog):
         layout.addWidget(button_box)
 
         self.ok_button = button_box.button(QDialogButtonBox.StandardButton.Ok)
+        assert self.ok_button is not None
         self.ok_button.setEnabled(False)  # Disabled until a plant is selected
 
         # Focus on search input
@@ -167,119 +187,97 @@ class PlantSearchDialog(QDialog):
         """
         # Debounce: wait 500ms after user stops typing before searching
         self._search_timer.stop()
+        self._generation += 1
         if text.strip():
             self._search_timer.start(500)
         else:
-            self.results_list.clear()
-            self.status_label.setText(self.tr("Enter a plant name to search"))
-            self.status_label.setStyleSheet(f"color: {theme_color('text_secondary')};")
+            self._perform_search()
 
-    def _perform_search(self) -> None:
-        """Perform plant search using the API manager.
+    def _perform_search(self, *, online: bool = False) -> None:
+        """Offline first; online requests never block the GUI event loop."""
+        from open_garden_planner.services.species_catalog import search_offline
 
-        Settles the debounce first: a search that runs NOW (typed-and-waited,
-        Enter, or a direct call) must not run again 500 ms later — an armed
-        timer that outlives its moment fired into unrelated tests (#310, §11.4).
-        """
         self._search_timer.stop()
+        self._generation += 1
         query = self.search_input.text().strip()
-        if not query:
+        local = search_offline(query, layers=self.trait_filters.layers,
+                               functions=self.trait_filters.functions)
+        self._show_results(local)
+        if not query or (local and not online):
             return
+        if self._api_manager.configured_source_count == 0:
+            self.status_label.setText(self.tr(
+                "No plant databases are configured. Add API credentials in Preferences to search online."))
+            return
+        self.status_label.setText(self.tr("Searching for '{query}'...").format(query=query))
+        self._requests.append((self._generation, self._executor.submit(
+            self._api_manager.search, query, limit=100)))
+        self._poll_timer.start()
 
-        # Clear previous results
+    def _poll_results(self) -> None:
+        from open_garden_planner.services.permaculture import matches_traits
+
+        pending = []
+        for generation, future in self._requests:
+            if not future.done():
+                pending.append((generation, future))
+                continue
+            if generation != self._generation or self._closed:
+                continue
+            try:
+                records = future.result()
+                records = [r for r in records if matches_traits(
+                    r.to_dict(), layers=self.trait_filters.layers,
+                    functions=self.trait_filters.functions)]
+                self._show_results(records)
+            except Exception as error:
+                logger.exception("Online species search failed")
+                self.status_label.setText(self.tr("Search failed: {error}").format(error=str(error)))
+        self._requests = pending
+        request = self._detail_request
+        if request is not None and request[2].done():
+            self._detail_request = None
+            generation, plant, future = request
+            if generation == self._generation and not self._closed:
+                try:
+                    detail = future.result()
+                    if detail.source_id != plant.source_id:
+                        raise ValueError("Provider returned a different species")
+                    self._selected_plant = self._merge_detail_into_search_result(plant, detail)
+                except PlantDetailUnavailableError:
+                    self._selected_plant = plant
+                except Exception:
+                    logger.exception("Selected species enrichment failed")
+                    self._selected_plant = plant
+                    self._warn_enrichment_failed(plant)
+                self.accept()
+        if not pending and self._detail_request is None:
+            self._poll_timer.stop()
+
+    def _show_results(self, results: list[PlantSpeciesData]) -> None:
         self.results_list.clear()
         self.details_text.clear()
-        self.ok_button.setEnabled(False)
         self._selected_plant = None
-
-        # Show searching status
-        self.status_label.setText(self.tr("Searching for '{query}'...").format(query=query))
-        self.status_label.setStyleSheet(f"color: {theme_color('info')};")
-        self.search_button.setEnabled(False)
-
-        try:
-            # Search using API manager (with automatic fallback)
-            results = self._api_manager.search(query, limit=20)
-
-            if results:
-                # Every row shows the store it came from: the custom plant
-                # library is searched first (PlantAPIManager.search()) and is
-                # not deduplicated against API results, so a stale or bogus
-                # custom entry with the same common/scientific name as a live
-                # record would otherwise be indistinguishable in this list
-                # before the user picks one (#297 manual-test finding: a
-                # leftover custom "Tomato" record with wrong sun/water values
-                # was picked instead of Trefle's).
-                for plant_data in results:
-                    item = QListWidgetItem(self._format_result_text(plant_data))
-                    item.setData(Qt.ItemDataRole.UserRole, plant_data)
-                    if self._list_store.is_favorite(plant_data):
-                        from open_garden_planner.ui.icons import get_icon  # noqa: PLC0415
-
-                        star_icon = get_icon("star")
-                        if star_icon is not None:
-                            item.setIcon(star_icon)
-                    self.results_list.addItem(item)
-
-                self.status_label.setText(self.tr("Found {count} results").format(count=len(results)))
-                self.status_label.setStyleSheet(f"color: {theme_color('success')};")
-            else:
-                # An empty result list is now a distinct, honest state: every
-                # configured API answered cleanly but matched nothing (#302 --
-                # previously PlantAPIManager.search() raised
-                # "All plant APIs failed" for this exact case, which showed a
-                # scary credentials-hint QMessageBox for a perfectly normal
-                # zero-match search, e.g. a mango variety no database lists).
-                # Distinguish "nothing is configured" from "nothing matched"
-                # since only the former is actionable via Preferences. The
-                # app's own entry point (_on_search_plant_database) refuses to
-                # open this dialog without credentials, so this branch is
-                # belt-and-braces for other/future callers of the dialog --
-                # not a live path today.
-                if self._api_manager.configured_source_count == 0:
-                    self.status_label.setText(
-                        self.tr(
-                            "No plant databases are configured. Add API credentials "
-                            "in Preferences to search online."
-                        )
-                    )
-                else:
-                    text = self.tr(
-                        "No plants matched '{query}'. Try another spelling or "
-                        "the scientific name."
-                    ).format(query=query)
-                    # A zero-result answered by one provider while another
-                    # raised is still an honest "no match" (no failure
-                    # dialog), but the user should learn a configured
-                    # provider is down rather than only in Preferences.
-                    failed = self._api_manager.last_search_failed_sources
-                    if failed:
-                        text += " " + self.tr(
-                            "({sources} unavailable — check Preferences.)"
-                        ).format(sources=", ".join(failed))
-                    self.status_label.setText(text)
-                self.status_label.setStyleSheet(f"color: {theme_color('warning')};")
-
-        except PlantAPIError as e:
-            self.status_label.setText(self.tr("Search failed: {error}").format(error=str(e)))
-            self.status_label.setStyleSheet(f"color: {theme_color('error')};")
-            logger.error(f"Plant search failed: {e}")
-
-            # Show error dialog
-            QMessageBox.warning(
-                self,
-                self.tr("Search Failed"),
-                self.tr("Failed to search plant database:\n{error}\n\n"
-                "Please check your internet connection and API credentials.").format(error=str(e)),
-            )
-
-        finally:
-            self.search_button.setEnabled(True)
+        self.ok_button.setEnabled(False)
+        for data in results[:100]:
+            row = QListWidgetItem(self._format_result_text(data))
+            row.setData(Qt.ItemDataRole.UserRole, data)
+            self.results_list.addItem(row)
+        if results:
+            self.status_label.setText(self.tr("Found {count} results").format(count=len(results)))
+        elif self.trait_filters.layers or self.trait_filters.functions:
+            self.status_label.setText(self.tr("No matches with these filters."))
+        else:
+            self.status_label.setText(self.tr("No matches."))
 
     def done(self, result: int) -> None:  # noqa: N802 — Qt override
         """Settle the debounced search before the dialog goes away — a pending
         timer must never fire into a closed dialog (see __init__)."""
         self._search_timer.stop()
+        self._poll_timer.stop()
+        self._closed = True
+        self._generation += 1
+        self._executor.shutdown(wait=False, cancel_futures=True)
         super().done(result)
 
     def _format_result_text(self, plant_data: PlantSpeciesData) -> str:
@@ -472,8 +470,16 @@ class PlantSearchDialog(QDialog):
             )
             return
 
-        self._enrich_selected_plant()
-        self.accept()
+        plant = self._selected_plant
+        if plant.data_source in self._ONLINE_PROVIDERS and plant.source_id:
+            self._generation += 1
+            self._detail_request = (self._generation, plant, self._executor.submit(
+                self._api_manager.get_by_id, plant.source_id, plant.data_source))
+            self.ok_button.setEnabled(False)
+            self.status_label.setText(self.tr("Loading species details…"))
+            self._poll_timer.start()
+        else:
+            self.accept()
 
     def _enrich_selected_plant(self) -> None:
         """Fetch the full per-species detail record for the confirmed plant.
@@ -586,7 +592,7 @@ class PlantSearchDialog(QDialog):
         describe the same plant (already validated by the source_id check in
         `_enrich_selected_plant()`).
         """
-        overrides: dict[str, object] = {}
+        overrides: dict[str, Any] = {}
         for f in fields(PlantSpeciesData):
             if f.name in cls._ALWAYS_FROM_DETAIL:
                 continue

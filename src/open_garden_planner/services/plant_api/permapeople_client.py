@@ -394,6 +394,9 @@ class PermapeopleClient(PlantAPIClient):
             image_url = images.get("title") or images.get("thumb") or ""
             thumbnail_url = images.get("thumb") or images.get("title") or ""
 
+        from open_garden_planner.services.permaculture import permapeople_traits
+
+        layer, functions = permapeople_traits(data)
         return PlantSpeciesData(
             scientific_name=scientific_name,
             common_name=common_name,
@@ -401,6 +404,8 @@ class PermapeopleClient(PlantAPIClient):
             genus=genus,
             cycle=cycle,
             growth_rate=growth_rate,
+            permaculture_layer=layer,
+            functions=functions,
             sun_requirement=sun_req,
             water_needs=water_needs,
             max_height_cm=max_height_cm,

@@ -41,12 +41,10 @@ that blockquote: it is the most current statement of the package's shape that ex
 assume a number range is a package — `#311`–`#321` looks like one but contains `#319`
 (Package D3) and `#321` (a standalone touch-input issue).
 
-**GitHub outranks the roadmap.** Packages F and G are nine filed issues (F = `#312`–`#316`,
-G = `#311`, `#317`, `#318`, `#320`) with **zero** presence in `docs/roadmap.md` —
-`grep -n "Package F\|US-F1\|US-G1" docs/roadmap.md` returns nothing. If the roadmap has drifted,
-correct it **in this package's PR**; a stale table is why the next person picks the wrong work.
-(Distinguish drift from *disclosed* scope: the D2 US-table blockquote said outright that it was
-incomplete — a note admitting a gap is a smaller problem than silence, though still a gap.)
+**GitHub outranks the roadmap.** Package F (`#312`–`#316`) and Package G
+(`#311`, `#317`, `#318`, `#320`) are recorded in `docs/roadmap.md`; G is shipped.
+Recheck issue state and merged history rather than carrying an old absence/status
+claim forward. If the roadmap drifts, correct it in this package's PR.
 
 ```bash
 GH="C:/Program Files/GitHub CLI/gh.exe"   # Windows dev machine; in a Linux/cloud session use
@@ -212,9 +210,10 @@ that only confirmed what you already believed was not worth the electricity.
 The matrix is in `AGENTS.md` and `ogp-docs-and-writing`; follow it. Four items are easy to forget
 at package scale and are checked here because every recent package PR owed all four:
 
-- **`docs/roadmap.md`** — add or complete the package's US rows and mirror them into
-  `../open-garden-planner.wiki/Roadmap.md`. This is the table that drifts; fixing it is part of
-  the package, not a follow-up.
+- **`docs/roadmap.md`** — add or complete the package's US rows. Update repository wiki
+  sources in `docs/wiki/` and validate with `scripts/sync_wiki.py --check` (ADR-051).
+  The published Roadmap is a pointer, not a second tracker. Reconcile direct wiki edits
+  before copying pages; publish only after owner approval and protected merge.
 - **`CLAUDE.md` + `AGENTS.md` "Where to Pick Up After Restart"** — update both, in the same
   commit, then run `scripts/check_agent_context.py`. That gate is meaningless if the content it
   compares is stale in both copies.

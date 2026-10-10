@@ -1,6 +1,8 @@
 """Plant database panel for displaying plant species metadata."""
 
+from collections.abc import Callable
 from datetime import date
+from typing import cast
 
 from PyQt6.QtCore import QDate, Qt, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -15,6 +17,8 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
@@ -28,7 +32,9 @@ from PyQt6.QtWidgets import (
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.models.plant_data import (
     FlowerType,
+    PermacultureLayer,
     PlantCycle,
+    PlantFunction,
     PlantSpeciesData,
     PollinationType,
     SunRequirement,
@@ -376,6 +382,30 @@ class PlantDatabasePanel(QWidget):
         7. Planting info
         8. Notes
         """
+        from open_garden_planner.ui.widgets.trait_filters import trait_label
+
+        self._trait_refreshers: list[tuple[QWidget, Callable[[PlantSpeciesData], None]]] = []
+        self.layer_combo = QComboBox()
+        for layer in (PermacultureLayer.UNKNOWN, *[v for v in PermacultureLayer if v != PermacultureLayer.UNKNOWN]):
+            self.layer_combo.addItem(trait_label(layer.value), layer.value)
+        self.layer_combo.currentIndexChanged.connect(self._on_layer_changed)
+        self.details_form.addRow(self.tr("Food-forest layer:"), self.layer_combo)
+        self.functions_list = QListWidget()
+        self.functions_list.setMaximumHeight(130)
+        for function in PlantFunction:
+            row = QListWidgetItem(trait_label(function.value))
+            row.setData(Qt.ItemDataRole.UserRole, function.value)
+            row.setFlags(row.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            row.setCheckState(Qt.CheckState.Unchecked)
+            self.functions_list.addItem(row)
+        self.functions_list.itemChanged.connect(self._on_functions_changed)
+        self.details_form.addRow(self.tr("Recorded functions:"), self.functions_list)
+        self._register_refresh(self.layer_combo, self._refresh_layer)
+        self._register_refresh(self.functions_list, self._refresh_functions)
+        self.guild_label = QLabel()
+        self.guild_label.setWordWrap(True)
+        self.details_form.addRow(self.tr("Guild:"), self.guild_label)
+
         # === BASIC IDENTITY ===
 
         # Common name
@@ -1136,6 +1166,51 @@ class PlantDatabasePanel(QWidget):
                         window._project_manager.mark_dirty()
                         break
 
+    def _register_refresh(self, widget: QWidget, refresher: Callable[[PlantSpeciesData], None]) -> None:
+        self._trait_refreshers.append((widget, refresher))
+
+    def _refresh_traits(self, data: PlantSpeciesData) -> None:
+        for widget, refresher in self._trait_refreshers:
+            previous = widget.blockSignals(True)
+            try:
+                refresher(data)
+            finally:
+                widget.blockSignals(previous)
+        guild = getattr(self._current_plant_item, "metadata", {}).get("guild")
+        if isinstance(guild, dict):
+            from open_garden_planner.ui.widgets.trait_filters import trait_label
+
+            role = self.tr("Centre") if guild.get("role") == "centre" else trait_label(guild["role"]) if guild.get("role") in {v.value for v in PlantFunction} else self.tr("Invalid role")
+            name = guild.get("name") or guild.get("guild_id", "")
+            self.guild_label.setText(self.tr("{name} — {role}").format(name=name, role=role))
+        else:
+            self.guild_label.setText(self.tr("No guild"))
+
+    def _refresh_layer(self, data: PlantSpeciesData) -> None:
+        self.layer_combo.setCurrentIndex(self.layer_combo.findData(data.permaculture_layer.value))
+
+    def _refresh_functions(self, data: PlantSpeciesData) -> None:
+        values = {f.value for f in data.functions}
+        for i in range(self.functions_list.count()):
+            row = cast(QListWidgetItem, self.functions_list.item(i))
+            row.setCheckState(Qt.CheckState.Checked if row.data(Qt.ItemDataRole.UserRole) in values
+                              else Qt.CheckState.Unchecked)
+
+    def _on_layer_changed(self) -> None:
+        from open_garden_planner.ui.plant_traits import change_trait
+
+        if self._current_plant_item is not None:
+            change_trait(self._current_plant_item, "permaculture_layer", self.layer_combo.currentData())
+
+    def _on_functions_changed(self) -> None:
+        from open_garden_planner.ui.plant_traits import change_trait
+
+        if self._current_plant_item is not None:
+            values = [cast(QListWidgetItem, self.functions_list.item(i)).data(Qt.ItemDataRole.UserRole)
+                      for i in range(self.functions_list.count())
+                      if cast(QListWidgetItem, self.functions_list.item(i)).checkState() == Qt.CheckState.Checked]
+            change_trait(self._current_plant_item, "functions", values)
+
     def set_selected_items(self, items: list[QGraphicsItem]) -> None:
         """Update panel based on selected items.
 
@@ -1149,6 +1224,21 @@ class PlantDatabasePanel(QWidget):
         # re-push so it cannot stomp the active edit / drop the caret — the sole
         # reason the unguarded sibling here was "safe only by luck" (issue #200).
         # A genuine selection change still falls through and updates the panel.
+        if len(items) == 1 and items[0] is self._current_plant_item:
+            species = getattr(items[0], "metadata", {}).get("plant_species")
+            if isinstance(species, dict):
+                data = PlantSpeciesData.from_dict(species)
+                self._refresh_traits(data)
+                # Trait-only commands must never reset scroll position or active edits.
+                old = self._current_plant_data
+                if old is not None:
+                    before, after = old.to_dict(), data.to_dict()
+                    for field in ("permaculture_layer", "functions"):
+                        before.pop(field, None)
+                        after.pop(field, None)
+                    if before == after:
+                        self._current_plant_data = data
+                        return
         if (
             len(items) == 1
             and items[0] is self._current_plant_item
@@ -1286,6 +1376,7 @@ class PlantDatabasePanel(QWidget):
         """
         self._current_plant_data = plant_data
         self._current_plant_item = plant_item
+        self._refresh_traits(plant_data)
         self.no_selection_label.setVisible(False)
 
         # Show all form widgets

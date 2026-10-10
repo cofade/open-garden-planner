@@ -808,6 +808,10 @@ guard make support decisions explicit. Direct `ROOF_RIDGE`,
 is refused with reasons; these are deliberate gaps, not accidental omissions.
 The extension is additive and does not bump `FILE_VERSION`.
 
+### ADR-034 addendum: Package F1/F2 curated traits and shared diagnostics
+
+`garden://species` includes recorded food-forest layers/functions. `get_object` exposes curated lowercase trait values for plants (unknown/empty defaults) and null for other objects, alongside the saved metadata. These are read-only additions; authentication and write tools are unchanged. Diagnostic records retain existing fields/messages and add structured `details`; guild warnings carry guild/centre IDs, function and required/present counts. The API adapter delegates to `services/diagnostics.py`, also consumed by the sidebar. Guild warnings come from the last coordinator snapshot, subject to the documented debounce delay.
+
 ## ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)
 
 **Status**: Accepted (Phase 13 — Package D, US-D1.6).
@@ -2330,3 +2334,36 @@ It pins:
 - an unparented controller dies without a GC cycle.
 
 All three P1 tests (round 1's two, round 2's typing test) fail when their fix is reverted.
+## ADR-053: Recorded species traits and semantic food-forest layers (#312)
+
+**Status:** Accepted for Package F1, October 2026. Additive `.ogp` version 1.4.
+
+**Context.** Artwork archetypes, botanical niches and user-managed drawing layers have different meanings. Permapeople's Layer is a design niche, not a lifecycle. A selected plant's saved species snapshot may differ from the offline catalog and must remain undoable without updating a user's machine-wide library.
+
+**Decision.** `PermacultureLayer` has seven concrete lowercase values plus `unknown`; `PlantFunction` has twelve stable lowercase values. Missing facts remain unspecified. Serialization orders/deduplicates functions and preserves unrecognized imported values in `raw_data`. One Qt-free exact-token provider mapper interprets Layer/Uses independently of lifecycle. No prose, name or nutrient-demand inference is permitted. The bundled database uses an explicit curation table, with function evidence documented in §8.26.
+
+Selected-plant traits use `ChangePropertyCommand`, targeting only one saved species field with copied list snapshots. Persistent Plant Details controls refresh in place with blocked signals. Search filters the complete bundled/custom catalog before its display limit. A nonempty query with zero filtered offline matches invokes the configured provider chain; explicit online search is also available. Network requests run on workers, with dialog generation checks and parented polling timers rejecting obsolete results.
+
+A canvas `Layer.permaculture_layer` semantic tag survives renaming/language changes. The seven-layer preset adds only missing tags in one command, preserving existing layers and active layer. The per-project auto-assignment setting defaults off and is undoable. The canonical plant constructor chooses an existing visible/unlocked tagged layer before the creation command; otherwise it uses the ordinary active layer. Editing plant traits never moves existing plants.
+
+**Alternatives rejected.** Inferring traits from gallery categories misclassifies botanical facts; storing translated layer names as identifiers breaks renamed plans; changing the custom library silently changes other plans. Provider requests on the GUI thread freeze interaction.
+
+**Evidence.** `test_permaculture_traits.py`, `test_permaculture_layer.py`, `test_permaculture_search.py`; the recorded Apple provider fixture is pinned offline. Live provider availability is delivery evidence, not a CI dependency.
+
+## ADR-054: Explicit guild membership and immutable template snapshots (#313)
+
+**Status:** Accepted for Package F2, October 2026. Additive `.ogp` version 1.4.
+
+**Decision.** A guild is metadata on plants, not a Qt group or bed. Each plant has at most one `{guild_id, role}` link. The centre additionally stores instance name and the complete versioned template snapshot. Saved instances remain usable without user template files, and library edits affect future insertions only. Membership does not alter parent-bed, child-list or stacking contracts.
+
+Templates validate identities, versions, twelve role tokens, unique role functions, positive integer minima and finite positive centimetre radii (or `canopy_edge`). Stamps are limited to 200 plants including the centre. Bundled files validate eagerly; each user file is an Exception-catching trust boundary with logged filename/reason and visible picker errors. User files may override bundled IDs. Editor saves use fsync plus atomic replacement, and stay open on failure; file edits are outside the plan undo stack.
+
+Layout is deterministic in CAD scene centimetres. Equal-radius slots are spaced evenly in template order. Canopy-edge means mature effective spacing: manual override before database spread/2. Missing spacing requires an explicit radius. Every species, existing-centre edit, layer and footprint is preflighted; invalid layouts are refused as a whole instead of clamping members independently. `InsertGuildCommand` composes canonical multi-plant creation with targeted membership snapshots in one undo step.
+
+Coverage counts actual recorded functions on explicitly assigned plants, including the centre. A member counts once per function; multifunctional members can cover multiple requirements. Assigned role labels do not create evidence, and nearby unassigned plants do not count. Malformed saved metadata is preserved, excluded and reported as a data warning. Centre deletion preserves surviving plants and dissolves links in the same undo operation. Copy paths share deep-copy/remapping: complete copies get fresh guild IDs, partial copies omit links.
+
+One parented/debounced coordinator computes guild status and applies idempotent runtime badges. Badges are cosmetic child items and do not alter the centre's bounds or rotation pivot. Companion Guilds, Diagnostics and MCP consume the same computed snapshot. A shared Qt-free converter owns all warning-record conversion, keeping API messages English and translating UI messages separately. MCP reads never recompute domain logic.
+
+**Alternatives rejected.** Nearby-radius membership silently changes requirements as plants move; a Qt group would move members together and compete with bed parentage; re-resolving template files on load would mutate existing plans. Fake function coverage from role labels would claim validation without checking facts.
+
+**Evidence.** Guild workflow, layout/trust-boundary, copy/persistence, real MCP, golden eight-parent and rotated badge tests. Agronomic limitations and template authoring are documented in §8.26.

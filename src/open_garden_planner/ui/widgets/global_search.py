@@ -52,6 +52,10 @@ class _ResultsPopup(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(0)
+        from open_garden_planner.ui.widgets.trait_filters import TraitFilters
+
+        self.trait_filters = TraitFilters(self)
+        layout.addWidget(self.trait_filters)
 
         self._list = QListWidget()
         self._list.setIconSize(QSize(32, 32))
@@ -59,7 +63,7 @@ class _ResultsPopup(QWidget):
         self._list.itemClicked.connect(self._on_item_activated)
         layout.addWidget(self._list)
 
-        self.setFixedWidth(280)
+        self.setFixedWidth(max(500, self.trait_filters.minimumSizeHint().width() + 16))
 
     def populate(self, items: list[GalleryItem]) -> None:
         self._list.clear()
@@ -71,7 +75,7 @@ class _ResultsPopup(QWidget):
             self._list.addItem(list_item)
         if self._list.count() > 0:
             self._list.setCurrentRow(0)
-        self.setFixedHeight(min(280, max(40, self._list.count() * 40 + 16)))
+        self.setFixedHeight(min(280, max(40, self._list.count() * 40 + 16)) + self.trait_filters.sizeHint().height())
 
     def _on_item_activated(self, list_item: QListWidgetItem) -> None:
         item = list_item.data(Qt.ItemDataRole.UserRole)
@@ -110,6 +114,7 @@ class GlobalSearchField(QLineEdit):
         self.setClearButtonEnabled(True)
         self.setFixedWidth(240)
         self.textChanged.connect(self._on_text_changed)
+        self._popup.trait_filters.changed.connect(lambda: self._on_text_changed(self.text()))
 
         # Tool-tip windows never auto-close on outside click; do it manually
         # whenever focus leaves the search field and is *not* taken by the
@@ -130,10 +135,14 @@ class GlobalSearchField(QLineEdit):
 
     def _on_text_changed(self, text: str) -> None:
         needle = text.strip().lower()
-        if not needle:
+        filters = self._popup.trait_filters
+        if not needle and not (filters.layers or filters.functions):
             self._popup.hide()
             return
-        hits = [it for it in self._all_items if needle in it.name.lower()][:MAX_RESULTS]
+        from open_garden_planner.ui.widgets.gallery_data import gallery_matches
+
+        hits = [it for it in self._all_items if gallery_matches(
+            it, needle, layers=filters.layers, functions=filters.functions)][:MAX_RESULTS]
         if not hits:
             self._popup.hide()
             return
@@ -153,6 +162,8 @@ class GlobalSearchField(QLineEdit):
             # Keep popup open if focus stays in the field or its clear-button
             # children, hide it otherwise.
             if new is self:
+                return
+            if new is not None and self._popup.isAncestorOf(new):
                 return
             if new is not None and self.isAncestorOf(new):
                 return

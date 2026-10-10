@@ -196,3 +196,14 @@
 | Dependency lock | Committed selected Python package versions and platform markers; uv.lock is authoritative and pylock.toml is its PEP 751 export. |
 | Type allowance | Maximum strict-mypy diagnostic count for one production file on one supported CI platform; absent files have zero allowance. |
 | Coverage floor | Minimum integer line-coverage percentage for one production package, checked against unrounded covered/total counts. |
+
+| Term | Definition |
+|---|---|
+| Permaculture layer | A recorded representative food-forest niche: canopy, sub-canopy, shrub, herbaceous, ground-cover, root or vine; unspecified if unknown. |
+| Plant function | A recorded design use; an empty list means no recorded function, not proof of absence. |
+| Food forest | A planting design combining several botanical layers; a canvas-layer preset is only its drawing organization. |
+| Guild | Explicitly linked plants around a centre, with saved functional requirements independent of beds and Qt groups. |
+| Guild role | Intended membership use; coverage is checked against recorded species functions, not the role label. |
+| Nitrogen fixer | A plant capable of symbiotic nitrogen fixation under appropriate conditions; not immediate nitrogen supply to its neighbours. |
+| Dynamic accumulator | A recorded design-use token for nutrient accumulation; no bundled species is assigned it without adequate evidence. |
+| Canopy edge | Guild ring at effective mature spacing radius, respecting a manual spacing override before database spread/2. |

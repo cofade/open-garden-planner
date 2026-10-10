@@ -410,7 +410,27 @@ class DeleteItemsCommand(Command):
 
     def execute(self) -> None:
         """Remove items from the scene."""
+        from open_garden_planner.core.guild_commands import GuildMembershipCommand, guild_members
         from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        if not hasattr(self, "_guild_dissolution"):
+            changes: dict[Any, dict[str, Any] | None] = {}
+            removed = set(self._items)
+            pending = list(self._items)
+            while pending:
+                parent = pending.pop()
+                for child in parent.childItems():
+                    if hasattr(child, "metadata") and child not in removed:
+                        removed.add(child)
+                        pending.append(child)
+            for deleted in removed:
+                guild = getattr(deleted, "metadata", {}).get("guild")
+                if isinstance(guild, dict) and guild.get("role") == "centre":
+                    for survivor in guild_members(self._scene, guild.get("guild_id", "")):
+                        if survivor not in removed:
+                            changes[survivor] = None
+            self._guild_dissolution = GuildMembershipCommand(list(changes.items()))
+        self._guild_dissolution.execute()
 
         # Detach parent-child links before removing items
         for item in self._items:
@@ -441,6 +461,8 @@ class DeleteItemsCommand(Command):
     def undo(self) -> None:
         """Restore items to the scene."""
         from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        self._guild_dissolution.undo()
 
         with _bulk_add_scope(self._scene):
             for item in self._items:
@@ -1249,6 +1271,10 @@ class MirrorItemsCommand(Command):
         self._originals = list(originals)
         self._mirrored = list(mirrored)
         self._copy = copy
+        if copy:
+            from open_garden_planner.ui.guild_copy import remap_mirror_membership
+
+            remap_mirror_membership(scene, self._originals, self._mirrored)
 
     @property
     def description(self) -> str:

@@ -15,6 +15,7 @@ from uuid import UUID
 from PyQt6.QtCore import QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -231,6 +232,8 @@ class LayersPanel(QWidget):
     layer_deleted = pyqtSignal(UUID)
     # Request to create a new layer with the given (unique) name.
     layer_add_requested = pyqtSignal(str)
+    food_forest_requested = pyqtSignal()
+    auto_assignment_requested = pyqtSignal(bool)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         """Initialize the layers panel.
@@ -285,9 +288,20 @@ class LayersPanel(QWidget):
         add_btn = QPushButton(self.tr("Add Layer"))
         add_btn.clicked.connect(self._on_add_layer)
         layout.addWidget(add_btn)
+        self.food_forest_button = QPushButton(self.tr("Create food-forest layer set"))
+        self.food_forest_button.clicked.connect(self.food_forest_requested)
+        layout.addWidget(self.food_forest_button)
+        self.auto_assignment = QCheckBox(self.tr("Auto-assign plants to food-forest layers"))
+        self.auto_assignment.toggled.connect(self.auto_assignment_requested)
+        layout.addWidget(self.auto_assignment)
 
         # Add spacer at the bottom to push everything to the top
         layout.addStretch()
+
+    def set_auto_assignment(self, enabled: bool) -> None:
+        previous = self.auto_assignment.blockSignals(True)
+        self.auto_assignment.setChecked(enabled)
+        self.auto_assignment.blockSignals(previous)
 
     def set_layers(self, layers: list[Layer]) -> None:
         """Set the layers to display.

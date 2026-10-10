@@ -73,6 +73,31 @@ BED_SHAPES = [
 
 
 @pytest.mark.parametrize("factory,supports_grid,supports_soil", BED_SHAPES)
+def test_guild_membership_coexists_with_parent_delete_and_undo(factory, supports_grid, supports_soil, qtbot):
+    from open_garden_planner.core.commands import CreateItemCommand, DeleteItemsCommand
+    from open_garden_planner.core.guild_commands import GuildMembershipCommand
+    from open_garden_planner.core.object_types import is_bed_type
+    from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+    from open_garden_planner.ui.canvas.canvas_view import CanvasView
+
+    scene = CanvasScene(width_cm=2000, height_cm=2000)
+    view = CanvasView(scene)
+    qtbot.addWidget(view)
+    bed = factory()
+    scene.addItem(bed)
+    point = bed.mapToScene(bed.boundingRect().center())
+    plant = CircleItem(point.x(), point.y(), 1, object_type=ObjectType.PERENNIAL)
+    view.command_manager.execute(CreateItemCommand(scene, plant))
+    assert plant.parent_bed_id == bed.item_id
+    assert is_bed_type(bed.object_type) is supports_soil
+    view.command_manager.execute(GuildMembershipCommand([(plant, {"guild_id": "test", "role": "ground_cover"})]))
+    view.command_manager.execute(DeleteItemsCommand(scene, [bed]))
+    assert plant.parent_bed_id is None and plant.metadata["guild"]["guild_id"] == "test"
+    view.command_manager.undo()
+    assert plant.parent_bed_id == bed.item_id and plant.item_id in bed.child_item_ids
+
+
+@pytest.mark.parametrize("factory,supports_grid,supports_soil", BED_SHAPES)
 def test_bed_context_menu_has_all_features(
     factory, supports_grid: bool, supports_soil: bool, qtbot
 ) -> None:  # noqa: ARG001 — qtbot needed for Qt init

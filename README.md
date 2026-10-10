@@ -179,6 +179,10 @@ We welcome contributions! This project aims to be technically clean and attracti
 
 **AI-assisted development is welcome.** Feel free to use Claude Code, GitHub Copilot, Cursor, or other AI-powered coding tools. We care about the quality of the result, not how you got there. Just ensure every contribution includes proper tests - unit tests, integration tests, and UI tests where applicable.
 
+## Permaculture planning
+
+Filter species by recorded food-forest layer/functions, edit a selected plant's snapshot with undo, and optionally create semantic food-forest drawing layers. Plants → Insert guild provides three sourced templates, previews and user-template authoring. Explicit guild membership produces missing-function warnings in the canvas, Companion section, Diagnostics and read-only Agent API. Recorded functions do not guarantee growing success; [authoring and evidence](docs/08-crosscutting-concepts/README.md#826-recorded-permaculture-traits-and-guild-templates) explains the limits.
+
 ## License
 
 [GPLv3](LICENSE) - Free software, free forever.

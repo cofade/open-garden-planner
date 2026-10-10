@@ -288,6 +288,12 @@ class CategoryDropdown(QWidget):
         self._search_box.setClearButtonEnabled(True)
         self._search_box.textChanged.connect(self._apply_filter)
         layout.addWidget(self._search_box)
+        from open_garden_planner.ui.widgets.trait_filters import TraitFilters
+
+        self.trait_filters = TraitFilters(self)
+        self.trait_filters.setVisible(any(item.species or item.plant_category for item in self._category.items))
+        self.trait_filters.changed.connect(lambda: self._apply_filter(self._search_box.text()))
+        layout.addWidget(self.trait_filters)
 
         grid_widget = QWidget()
         grid_layout = QGridLayout(grid_widget)
@@ -306,6 +312,8 @@ class CategoryDropdown(QWidget):
 
         self.adjustSize()
         max_width = (THUMB_SIZE + 16) * GRID_COLS + 32
+        if not self.trait_filters.isHidden():
+            max_width = max(max_width, self.trait_filters.minimumSizeHint().width() + 32)
         self.setFixedWidth(max_width)
 
     def _on_item_clicked(self, item: GalleryItem) -> None:
@@ -316,7 +324,10 @@ class CategoryDropdown(QWidget):
     def _apply_filter(self, text: str) -> None:
         needle = text.strip().lower()
         for btn in self._buttons:
-            visible = not needle or needle in btn.item.name.lower()
+            from open_garden_planner.ui.widgets.gallery_data import gallery_matches
+
+            visible = gallery_matches(btn.item, needle, layers=self.trait_filters.layers,
+                                      functions=self.trait_filters.functions)
             btn.setVisible(visible)
 
     def refresh_thumbnails(self) -> None:

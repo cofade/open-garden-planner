@@ -1826,46 +1826,18 @@ class CanvasView(QGraphicsView):
 
         Shared canonical drop path for gallery drops and Plant Lists panel drops.
         """
-        from datetime import date  # noqa: PLC0415
-
-        from open_garden_planner.core.commands import CreateItemCommand  # noqa: PLC0415
-        from open_garden_planner.core.growth_model import (  # noqa: PLC0415
-            stamp_default_planting_date,
-        )
-        from open_garden_planner.core.tools import ToolType as TT  # noqa: PLC0415
-        from open_garden_planner.ui.canvas.items import CircleItem  # noqa: PLC0415
+        from open_garden_planner.core.commands import CreateItemCommand
+        from open_garden_planner.core.tools import ToolType as TT
+        from open_garden_planner.ui.plant_creation import build_plant
 
         self.set_active_tool(tool_type)
-
         if self._snap_enabled:
             scene_pos = self.snap_point(scene_pos)
-
-        item = CircleItem(
-            center_x=scene_pos.x(),
-            center_y=scene_pos.y(),
-            radius=radius,
-            object_type=obj_type,
-        )
-        if species_name:
-            item.plant_species = species_name
-        if plant_category is not None:
-            item.plant_category = plant_category
-
-        if species_dict:
-            item.metadata["plant_species"] = species_dict
-        elif species_name:
-            from open_garden_planner.services.bundled_species_db import (  # noqa: PLC0415
-                populate_item_species_metadata,
-            )
-            populate_item_species_metadata(item, species_name)
-
-        # US-E8: EVERY new plant gets today's planting date stamped at creation.
-        stamp_default_planting_date(item.metadata, date.today())
-
-        # Assign to active layer
-        active_layer = self._canvas_scene.active_layer
-        if active_layer:
-            item.layer_id = active_layer.id
+        manager = getattr(self.window(), "_project_manager", None)
+        item = build_plant(self._canvas_scene, scene_pos, obj_type, radius,
+                           species_name=species_name, plant_category=plant_category,
+                           species_dict=species_dict,
+                           auto_assign=bool(manager and manager.auto_assign_permaculture_layers))
 
         # One undo step with auto-parenting (CreateItemCommand handles _auto_parent_plant)
         cmd = CreateItemCommand(self._canvas_scene, item)
@@ -4642,6 +4614,9 @@ class CanvasView(QGraphicsView):
         # ranks a new item above whatever's already been added.
         selected.sort(key=lambda item: item.zValue())
 
+        from open_garden_planner.ui.guild_copy import scene_guild_member_ids
+
+        self._clipboard_guild_members = scene_guild_member_ids(self.scene())
         # Serialize selected items
         self._clipboard = []
         for item in selected:
@@ -4686,7 +4661,10 @@ class CanvasView(QGraphicsView):
         # Create new items from clipboard
         pasted_items: list[QGraphicsItem] = []
         clipboard_data: list[dict] = []
-        for obj_data in self._clipboard:
+        from open_garden_planner.ui.guild_copy import copy_guild_records
+
+        records = copy_guild_records(self.scene(), self._clipboard, getattr(self, "_clipboard_guild_members", None))
+        for obj_data in records:
             # Apply offset to position and strip item_ids so new UUIDs are minted (AUD-002)
             obj_copy = _strip_item_ids(
                 _offset_item_dict(obj_data, self._paste_offset, self._paste_offset)
@@ -4785,6 +4763,9 @@ class CanvasView(QGraphicsView):
         # Create new items with offset
         duplicated_items: list[QGraphicsItem] = []
         dup_source: list[dict] = []
+        from open_garden_planner.ui.guild_copy import copy_guild_records
+
+        source_data = copy_guild_records(self.scene(), source_data)
         for obj_data in source_data:
             obj_copy = _strip_item_ids(
                 _offset_item_dict(obj_data, self._paste_offset, self._paste_offset)
@@ -4904,7 +4885,7 @@ class CanvasView(QGraphicsView):
                 obj_copy["x"] = max(0.0, min(nx, canvas_w - item_w))
                 obj_copy["y"] = max(0.0, min(ny, canvas_h - item_h))
 
-            item = self._deserialize_item(_strip_item_ids(obj_copy))
+            item = self._deserialize_item(_strip_item_ids(self._remap_guild_copy([obj_copy])[0]))
             if item:
                 new_items.append(item)
 
@@ -5035,7 +5016,7 @@ class CanvasView(QGraphicsView):
                     obj_copy["x"] = max(0.0, min(nx, canvas_w - item_w))
                     obj_copy["y"] = max(0.0, min(ny, canvas_h - item_h))
 
-                item = self._deserialize_item(_strip_item_ids(obj_copy))
+                item = self._deserialize_item(_strip_item_ids(self._remap_guild_copy([obj_copy])[0]))
                 if item:
                     new_items.append(item)
                     grid.append((r, c, item))
@@ -5211,7 +5192,7 @@ class CanvasView(QGraphicsView):
                 obj_copy["x"] = max(0.0, min(nx, canvas_w - item_w))
                 obj_copy["y"] = max(0.0, min(ny, canvas_h - item_h))
 
-            item = self._deserialize_item(_strip_item_ids(obj_copy))
+            item = self._deserialize_item(_strip_item_ids(self._remap_guild_copy([obj_copy])[0]))
             if item:
                 new_items.append(item)
 
@@ -5428,7 +5409,7 @@ class CanvasView(QGraphicsView):
                 obj_copy["x"] = pt.x() - item_w / 2.0
                 obj_copy["y"] = pt.y() - item_h / 2.0
 
-            item = self._deserialize_item(_strip_item_ids(obj_copy))
+            item = self._deserialize_item(_strip_item_ids(self._remap_guild_copy([obj_copy])[0]))
             if item:
                 if dlg.follow_tangent:
                     # Rotate around the item's visual center, not its local origin,
@@ -5501,6 +5482,11 @@ class CanvasView(QGraphicsView):
         from open_garden_planner.core.project import ProjectManager
 
         return ProjectManager._serialize_item_core(item)
+
+    def _remap_guild_copy(self, records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        from open_garden_planner.ui.guild_copy import copy_guild_records
+
+        return copy_guild_records(self.scene(), records)
 
     def _deserialize_item(self, obj: dict) -> QGraphicsItem | None:
         """Deserialize a single object to a graphics item.

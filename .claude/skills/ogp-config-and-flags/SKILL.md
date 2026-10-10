@@ -363,3 +363,19 @@ Re-verify each section before relying on it after significant time/version drift
 | §6 tooling | `grep -n "tool.ruff\|tool.mypy\|tool.pytest\|mcp>=\|WebEngine" pyproject.toml; grep -n "multiprocessing\|mcp.cli\|upx_exclude" installer/ogp.spec` |
 | §7 CI | `grep -n "chore\|major\|minor\|QT_QPA_PLATFORM" .github/workflows/release.yml .github/workflows/ci.yml` |
 | §8 exemplar | `grep -n "agent_api" src/open_garden_planner/ui/dialogs/preferences_dialog.py src/open_garden_planner/app/application.py` |
+
+## Package F1/F2 configuration (ADR-053/054)
+
+`ProjectData.auto_assign_permaculture_layers` is plan-scoped, default false, and
+changed through `AutoAssignPermacultureCommand`. Matching uses the optional
+`Layer.permaculture_layer` semantic tag, never translated/editable layer names.
+Only existing visible/unlocked layers qualify; otherwise the normal active layer
+is used. The preset adds missing tags in one undo step and keeps the active layer.
+These are additive fields in `.ogp` 1.4.
+
+User templates live under `get_app_data_dir()/guilds/*.json` (see
+`services/guild_library.py`). User IDs override bundled IDs. Bad user files are
+logged/skipped individually and shown with filename/reason in the picker. The
+editor saves atomically and edits user files only; library edits do not enter plan
+history or change already placed snapshots. No new environment variables or
+QSettings keys are introduced.

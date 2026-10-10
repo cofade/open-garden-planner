@@ -35,3 +35,7 @@ The 2D analytic shadow and sun-hours calculations are separate from the 3D rende
 | [Quality](https://github.com/cofade/open-garden-planner/tree/master/docs/10-quality-requirements) | Quality goals and measured gates. |
 | [Risks and debt](https://github.com/cofade/open-garden-planner/tree/master/docs/11-risks-and-technical-debt) | Living debt register and lessons. |
 | [Glossary](https://github.com/cofade/open-garden-planner/tree/master/docs/12-glossary) | Terms and keyboard shortcuts. |
+
+## Recorded traits and guild templates
+
+Package F1/F2 keeps species niches/functions separate from artwork and drawing-layer names. Guilds use explicit saved metadata and immutable template snapshots, independent of bed parentage. The Diagnostics sidebar and Agent API share the warning converter. See [the contracts and authoring guide](https://github.com/cofade/open-garden-planner/blob/master/docs/08-crosscutting-concepts/README.md#826-recorded-permaculture-traits-and-guild-templates) and [ADRs](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md).

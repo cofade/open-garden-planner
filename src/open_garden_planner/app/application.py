@@ -4437,6 +4437,10 @@ class GardenPlannerApp(QMainWindow):
 
     def _setup_plants_menu(self, menu: QMenu) -> None:
         """Set up the Plants menu actions."""
+        insert_guild_action = QAction(self.tr("Insert guild…"), self)
+        insert_guild_action.triggered.connect(self._on_insert_guild)
+        self._set_action_icon(insert_guild_action, "companion")
+        menu.addAction(insert_guild_action)
         # Search Plant Database
         search_action = QAction(self.tr("&Search Plant Database"), self)
         search_action.setShortcut(QKeySequence("Ctrl+K"))
@@ -5103,6 +5107,9 @@ class GardenPlannerApp(QMainWindow):
         self.layers_panel.layer_renamed.connect(self._on_layer_renamed)
         self.layers_panel.layer_deleted.connect(self._on_layer_deleted)
         self.layers_panel.layer_add_requested.connect(self._on_layer_add_requested)
+        self.layers_panel.food_forest_requested.connect(self._on_food_forest_requested)
+        self.layers_panel.auto_assignment_requested.connect(self._on_auto_assignment_requested)
+        self._project_manager.permaculture_assignment_changed.connect(self.layers_panel.set_auto_assignment)
 
         # Connect scene layer changes to panel
         self.canvas_scene.layers_changed.connect(lambda: self.layers_panel.set_layers(self.canvas_scene.layers))
@@ -5245,6 +5252,17 @@ class GardenPlannerApp(QMainWindow):
             ("journal", self.journal_collapsible),
             ("smart_symbols", self.smart_symbols_collapsible),
         ]
+        from open_garden_planner.ui.guild_coordinator import GuildCoordinator
+        from open_garden_planner.ui.panels.diagnostics_panel import DiagnosticsPanel
+        from open_garden_planner.ui.panels.guilds_panel import GuildsPanel
+
+        self.diagnostics_panel = DiagnosticsPanel(self.canvas_scene)
+        self.diagnostics_collapsible = CollapsiblePanel(self.tr("Diagnostics"), self.diagnostics_panel, expanded=False)
+        canonical_panels.append(("diagnostics", self.diagnostics_collapsible))
+        self.guilds_panel = GuildsPanel(self.canvas_scene)
+        self.companion_panel.layout().addWidget(self.guilds_panel)
+        self.guild_coordinator = GuildCoordinator(self.canvas_scene, self.canvas_view.command_manager,
+                                                  self.diagnostics_panel, self.guilds_panel, self)
         # Detach each panel from the scratch build layout before handing it to the
         # controller (panels were addWidget'd above purely to set their parent).
         for _key, panel in canonical_panels:
@@ -5540,6 +5558,8 @@ class GardenPlannerApp(QMainWindow):
             # Content before pin so the open animation tweens to the real height;
             # the bar is hidden when there is no companion data to show.
             self.companion_panel.update_for_plant(plant_item)
+            show_panel = show_panel or bool(getattr(self.canvas_scene, "_guild_diagnostics", [])) or any(
+                isinstance(getattr(item, "metadata", {}).get("guild"), dict) for item in self.canvas_scene.items())
             self._sidebar_controller.set_panel_visible("companion", show_panel)
             self._sidebar_controller.set_selection_pinned("companion", show_panel)
         except RuntimeError:
@@ -7606,6 +7626,21 @@ class GardenPlannerApp(QMainWindow):
             # Scene has been deleted, ignore
             pass
 
+    def _on_food_forest_requested(self) -> None:
+        from open_garden_planner.core.permaculture_commands import FoodForestLayersCommand
+        from open_garden_planner.models.plant_data import PermacultureLayer
+        from open_garden_planner.ui.widgets.trait_filters import trait_label
+
+        command = FoodForestLayersCommand(self.canvas_scene, {v.value: trait_label(v.value) for v in PermacultureLayer})
+        if command.added:
+            self.canvas_view.command_manager.execute(command)
+
+    def _on_auto_assignment_requested(self, enabled: bool) -> None:
+        from open_garden_planner.core.permaculture_commands import AutoAssignPermacultureCommand
+
+        if enabled != self._project_manager.auto_assign_permaculture_layers:
+            self.canvas_view.command_manager.execute(AutoAssignPermacultureCommand(self._project_manager, enabled))
+
     def _on_layer_add_requested(self, name: str) -> None:
         """Create a new layer at the top of the order (undoable).
 
@@ -7905,13 +7940,22 @@ class GardenPlannerApp(QMainWindow):
                 if after[0]:
                     self._start_agent_api()
 
+    def _on_insert_guild(self) -> None:
+        from open_garden_planner.ui.dialogs.insert_guild_dialog import InsertGuildDialog
+
+        dialog = InsertGuildDialog(self.canvas_scene, auto_assign=self._project_manager.auto_assign_permaculture_layers,
+                                    parent=self)
+        if dialog.exec() and dialog.command is not None:
+            self.canvas_view.command_manager.execute(dialog.command)
+            self._update_companion_panel()
+
     def _on_search_plant_database(self) -> None:
         """Handle Search Plant Database action."""
         import os
 
         from open_garden_planner.app.settings import get_settings
         from open_garden_planner.services import PlantAPIManager
-        from open_garden_planner.ui.dialogs import PlantSearchDialog, PreferencesDialog
+        from open_garden_planner.ui.dialogs import PlantSearchDialog
 
         # Read API credentials from QSettings, with env var fallback
         settings = get_settings()
@@ -7920,26 +7964,11 @@ class GardenPlannerApp(QMainWindow):
         permapeople_id = settings.permapeople_key_id or os.environ.get("PERMAPEOPLE_KEY_ID", "")
         permapeople_secret = settings.permapeople_key_secret or os.environ.get("PERMAPEOPLE_KEY_SECRET", "")
 
-        # If no credentials configured anywhere, open Preferences dialog
-        if not any([trefle_token, perenual_key, permapeople_id and permapeople_secret]):
-            dialog = PreferencesDialog(self)
-            if dialog.exec():
-                # Re-read settings after user saved
-                trefle_token = settings.trefle_api_token
-                perenual_key = settings.perenual_api_key
-                permapeople_id = settings.permapeople_key_id
-                permapeople_secret = settings.permapeople_key_secret
-                # If still no credentials, abort
-                if not any([trefle_token, perenual_key, permapeople_id and permapeople_secret]):
-                    return
-            else:
-                return
-
         api_manager = PlantAPIManager(
-            trefle_api_token=settings.trefle_api_token or None,
-            perenual_api_key=settings.perenual_api_key or None,
-            permapeople_key_id=settings.permapeople_key_id or None,
-            permapeople_key_secret=settings.permapeople_key_secret or None,
+            trefle_api_token=trefle_token or None,
+            perenual_api_key=perenual_key or None,
+            permapeople_key_id=permapeople_id or None,
+            permapeople_key_secret=permapeople_secret or None,
         )
 
         dialog = PlantSearchDialog(api_manager, self)

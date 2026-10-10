@@ -483,3 +483,20 @@ grep -n "_companion_radius_cm = " src/open_garden_planner/app/application.py
 
 If any count differs, update this file in the same PR that changed the data
 (see `ogp-change-control` / `ogp-docs-and-writing`).
+
+## Package F1/F2: recorded traits and explicit guilds (ADR-053/054)
+
+`models/plant_data.py` owns `PermacultureLayer` and `PlantFunction`. A layer is a
+curated food-forest niche, not the gallery illustration category. Empty functions
+mean no recorded evidence; never infer uses from names or nutrient demand.
+Provider mapping lives in `services/permaculture.py`; catalog and filters in
+`services/species_catalog.py`. See `docs/08-crosscutting-concepts/README.md` §8.26
+for classification conventions and function evidence.
+
+`services/guild_service.py` counts only explicitly linked plants and their actual
+recorded functions, once per function/member including the centre. Intended roles
+do not supply functions. Multifunctional members can cover several requirements.
+Templates are versioned, source-attributed JSON; each centre saves a complete
+snapshot, so edits/reloads affect future insertions only. Walnut tolerance is
+observational and three-sisters timing/cultivars matter; coverage is not a promise
+of growing success or immediately available nitrogen.

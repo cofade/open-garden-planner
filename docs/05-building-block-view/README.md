@@ -423,3 +423,11 @@ lock and PEP 751 export. check_pr_checks and check_branch_protection are read-on
 verifiers. prepare_version_sync stages mechanical source/lock updates before an explicit apply.
 Versioned policy files live in quality/. These tools have subprocess integration coverage and
 remain outside application runtime dependencies. See ADR-050.
+
+## Package F1/F2: traits, guilds and diagnostics
+
+`models/plant_data.py` owns stable trait enums and snapshots; `services/permaculture.py` owns provider token mapping and the filter predicate. `species_catalog.py` combines bundled/custom records for search and authoring. `ui/plant_creation.py` builds plants without mutation, shared by drops and guild preflight. Semantic canvas-layer preset/preference commands live in `core/permaculture_commands.py`.
+
+`models/guild.py` validates templates, lays out rings and remaps deep copied membership. `guild_library.py` eagerly validates bundles, isolates user-file errors and saves atomically. `guild_service.py` computes explicit-member function counts. `core/guild_commands.py` owns insertion and targeted membership changes; canonical deletion dissolves surviving links. The picker/editor are application widgets, not agent write surfaces.
+
+`ui/guild_coordinator.py` applies one computed snapshot to cosmetic badges, the Companion guild section and Diagnostics. `services/diagnostics.py` is the Qt-free record converter; `agent_api/diagnostics.py` is only its schema adapter. Sidebar rows store UUIDs and navigate through `ObjectNavigator`.
