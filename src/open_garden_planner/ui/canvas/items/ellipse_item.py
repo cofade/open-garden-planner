@@ -4,7 +4,7 @@ import uuid
 from typing import Any
 
 from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
-from PyQt6.QtGui import QPainter, QPen
+from PyQt6.QtGui import QBrush, QPainter, QPen
 from PyQt6.QtWidgets import (
     QGraphicsEllipseItem,
     QGraphicsItem,
@@ -83,6 +83,7 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
         self.setFlag(QGraphicsEllipseItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsEllipseItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
         self.setFlag(QGraphicsEllipseItem.GraphicsItemFlag.ItemIsFocusable, True)
+        self.enable_device_coordinate_cache()
 
     def boundingRect(self) -> QRectF:
         base = super().boundingRect()
@@ -104,6 +105,16 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
             painter.setBrush(self.SHADOW_COLOR)
             painter.drawEllipse(rect.translated(self.SHADOW_OFFSET_X, self.SHADOW_OFFSET_Y))
             painter.restore()
+
+        if not self.isSelected() and self.fill_pattern is not None and self.should_use_lod_flat_fill(option, widget, painter):
+            rect = self.rect()
+            painter.save()
+            painter.setPen(self.pen())
+            painter.setBrush(QBrush(self.get_lod_fill_color()))
+            painter.drawEllipse(rect)
+            painter.restore()
+            return
+
         super().paint(painter, option, widget)
 
         # F9: soil-mismatch border for bed-typed ellipses (US-12.10d).
@@ -116,6 +127,7 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
         change: QGraphicsItem.GraphicsItemChange,
         value: Any,
     ) -> Any:
+        self.handle_selection_change_for_cache(change, value)
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
             if value:
                 self.show_resize_handles()

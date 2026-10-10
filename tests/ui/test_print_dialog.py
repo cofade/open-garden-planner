@@ -178,3 +178,28 @@ class TestGardenPrintManager:
         # Restore should bring back original
         mgr._restore_scene_after_print()
         assert scene.labels_enabled is True
+
+    def test_prepare_and_restore_scene_preserves_selection(self, qtbot) -> None:
+        """Test that user canvas selection is preserved across print prepare and restore."""
+        from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+        from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
+
+        scene = CanvasScene(5000, 3000)
+        item = RectangleItem(100, 100, 200, 150)
+        scene.addItem(item)
+        item.setSelected(True)
+        assert item.isSelected() is True
+
+        mgr = GardenPrintManager(scene)
+        mgr.configure(
+            scale_denominator=0,
+            include_grid=False,
+            include_labels=True,
+            include_legend=True,
+        )
+
+        mgr._prepare_scene_for_print()
+        assert item.isSelected() is False
+
+        mgr._restore_scene_after_print()
+        assert item.isSelected() is True

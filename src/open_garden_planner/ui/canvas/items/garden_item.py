@@ -24,14 +24,20 @@ from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsSimpleTextItem,
     QGraphicsTextItem,
+    QStyleOptionGraphicsItem,
+    QWidget,
 )
 
 if TYPE_CHECKING:
-    from PyQt6.QtWidgets import QMenu, QStyleOptionGraphicsItem, QWidget
+    from PyQt6.QtWidgets import QMenu
 
 from open_garden_planner.core.fill_patterns import FillPattern
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle
 from open_garden_planner.core.stacking import ArrangeMode
+
+# Performance: Level-of-detail threshold below which textured fills and
+# plant sprites simplify to flat fills during interactive viewport painting (issue #409).
+LOD_FLAT_FILL_THRESHOLD: float = 0.4
 
 
 @dataclass(slots=True)
@@ -153,6 +159,38 @@ class SuccessionBadgeItem(QGraphicsItem):
             y += self._LINE_HEIGHT + self._ROW_GAP
 
 
+# ── Performance: Caching and Level of Detail (LOD, issue #409) ──────
+
+
+def enable_device_coordinate_cache(item: QGraphicsItem) -> None:
+    """Enable DeviceCoordinateCache for static items to speed up repaints."""
+    item.setCacheMode(QGraphicsItem.CacheMode.DeviceCoordinateCache)
+
+
+def disable_cache(item: QGraphicsItem) -> None:
+    """Disable caching (NoCache) on this item."""
+    item.setCacheMode(QGraphicsItem.CacheMode.NoCache)
+
+
+def handle_selection_change_for_cache(
+    item: QGraphicsItem, change: QGraphicsItem.GraphicsItemChange, value: Any
+) -> None:
+    """Toggle DeviceCoordinateCache on/off based on selection state.
+
+    Selected items disable cache so that selection handles, rotation,
+    and live interactions do not exhibit caching artifacts or handle ghosting.
+    Deselected items re-enable DeviceCoordinateCache for fast repaints.
+    """
+    if change in (
+        QGraphicsItem.GraphicsItemChange.ItemSelectedChange,
+        QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged,
+    ):
+        if value:
+            disable_cache(item)
+        else:
+            enable_device_coordinate_cache(item)
+
+
 class GardenItemMixin:
     """Mixin providing common functionality for garden items.
 
@@ -236,6 +274,68 @@ class GardenItemMixin:
         self._label_item: QGraphicsSimpleTextItem | None = None
         self._edit_label_item: QGraphicsTextItem | None = None
         self._label_edit_start_time: float = 0.0
+
+    # ── Performance: Caching and Level of Detail (LOD, issue #409) ──────
+
+    def enable_device_coordinate_cache(self) -> None:
+        """Enable DeviceCoordinateCache for static items to speed up repaints."""
+        if isinstance(self, QGraphicsItem):
+            enable_device_coordinate_cache(self)
+
+    def disable_cache(self) -> None:
+        """Disable caching (NoCache) on this item."""
+        if isinstance(self, QGraphicsItem):
+            disable_cache(self)
+
+    def handle_selection_change_for_cache(
+        self, change: QGraphicsItem.GraphicsItemChange, value: Any
+    ) -> None:
+        """Toggle DeviceCoordinateCache on/off based on selection state.
+
+        Selected items disable cache so that selection handles, rotation,
+        and live interactions do not exhibit caching artifacts or handle ghosting.
+        Deselected items re-enable DeviceCoordinateCache for fast repaints.
+        """
+        if isinstance(self, QGraphicsItem):
+            handle_selection_change_for_cache(self, change, value)
+
+    def should_use_lod_flat_fill(
+        self,
+        option: QStyleOptionGraphicsItem | None,
+        widget: QWidget | None,
+        painter: QPainter,
+        threshold: float = LOD_FLAT_FILL_THRESHOLD,
+    ) -> bool:
+        """Return True when item should render simplified flat geometry for speed.
+
+        Only active during interactive viewport painting (widget is not None);
+        exports, print, and offscreen scene.render paths (widget is None)
+        always render full detail.
+        """
+        if widget is None or option is None:
+            return False
+        lod = option.levelOfDetailFromTransform(painter.worldTransform())
+        return bool(lod < threshold)
+
+    def get_lod_fill_color(self) -> QColor:
+        """Get the fill color for low-zoom Level-of-Detail flat fills.
+
+        Resolves in order:
+        1. Custom explicit fill_color (tint)
+        2. Style fill_color from OBJECT_STYLES via get_style(object_type)
+        3. Fallback to item brush color or default green
+        """
+        if self.fill_color is not None:
+            return QColor(self.fill_color)
+        if self.object_type is not None:
+            from open_garden_planner.core.object_types import get_style
+
+            return get_style(self.object_type).fill_color
+        if hasattr(self, "brush"):
+            brush_c = self.brush().color()
+            if brush_c.isValid() and brush_c.alpha() > 0:
+                return QColor(brush_c)
+        return QColor(100, 180, 60)
 
     @property
     def item_id(self) -> uuid.UUID:

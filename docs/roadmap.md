@@ -2727,4 +2727,4 @@ up."* while the task was open. See ADR-029 (addendum) and ADR-049.
   the bundled harvest offsets to their true reading. Measured: both readings fit a majority of the 64 comparable rows (38 frost-relative, 45 planting-relative), with 11 fitting neither, so the data is NOT irreconcilable; it needs a cited
   horticultural source per row. **Garlic's harvest window lands ~3 months LATE** (October, not July) until then - and that is independent of which reading you assume, since its row fits the frost-relative one on maturity.
 - **#399** (branch protection), **#401** (mypy gate), and **#402** (coverage gate) completed in v1.29.6 via PR #422. Their baselines measured the settled tree after this package.
-- **#405** (logging policy), **#409** (NFR-PERF-01), and **#406** (constraint-tool coverage) remain open.
+- **#405** and **#418** completed in v1.29.8 via PR #426; **#409** (NFR-PERF-01) completed in this branch; **#406** (constraint-tool coverage) remains open.

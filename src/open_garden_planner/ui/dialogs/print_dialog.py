@@ -3,7 +3,7 @@
 import math
 from datetime import date
 
-from PyQt6.QtCore import QMarginsF, QRectF
+from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, QMarginsF, QRectF
 from PyQt6.QtGui import QColor, QFont, QPageLayout, QPageSize, QPainter, QPen
 from PyQt6.QtPrintSupport import QPrinter, QPrintPreviewDialog
 from PyQt6.QtWidgets import (
@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
 
 # Scale presets: display name -> scale denominator (0 = fit to page)
 SCALE_PRESETS = [
-    ("Fit to Page", 0),
+    (QT_TR_NOOP("Fit to Page"), 0),
     ("1:20", 20),
     ("1:50", 50),
     ("1:100", 100),
@@ -76,7 +76,7 @@ class PrintOptionsDialog(QDialog):
         scale_row.addWidget(QLabel(self.tr("Print scale:")))
         self._scale_combo = QComboBox()
         for display_name, _denom in SCALE_PRESETS:
-            self._scale_combo.addItem(display_name)
+            self._scale_combo.addItem(self.tr(display_name))
         self._scale_combo.setCurrentIndex(0)  # Default: Fit to Page
         self._scale_combo.currentIndexChanged.connect(self._update_page_info)
         scale_row.addWidget(self._scale_combo)
@@ -246,7 +246,11 @@ class GardenPrintManager:
         printer.setPageLayout(page_layout)
 
         preview = QPrintPreviewDialog(printer, parent)
-        preview.setWindowTitle("Print Preview - " + self._project_name)
+        preview.setWindowTitle(
+            QCoreApplication.translate("GardenPrintManager", "Print Preview - {name}").format(
+                name=self._project_name
+            )
+        )
         preview.paintRequested.connect(self._render_to_printer)
         preview.exec()
 
@@ -325,15 +329,12 @@ class GardenPrintManager:
                 self._saved_bg_clips.append(item)
                 item.setVisible(False)
 
-        # Clear selection to avoid printing selection handles
-        scene.clearSelection()
-
-        # Hide persistent overlay items (soil reminder badges, etc.) that
-        # don't disappear via clearSelection. Selection-tied handles are
-        # already gone after the clearSelection above. (US-12.10/F7).
+        # Hide persistent overlay items and selection-tied handles while
+        # capturing user selection so it can be restored afterward. (US-12.10/F7).
         from open_garden_planner.services.export_service import ExportService
 
-        self._saved_overlay, _ignored = ExportService._hide_overlay_items(scene)
+        self._saved_overlay, self._saved_selection = ExportService._hide_overlay_items(scene)
+        self._saved_caches = ExportService._disable_item_caches(scene)
 
     def _restore_scene_after_print(self) -> None:
         """Restore the scene state after printing."""
@@ -348,11 +349,16 @@ class GardenPrintManager:
             item.setVisible(True)
         self._saved_bg_clips = []
 
-        # Restore overlay items hidden by _prepare_scene_for_print.
+        # Restore overlay items and canvas selection hidden by _prepare_scene_for_print.
         from open_garden_planner.services.export_service import ExportService
 
-        ExportService._restore_overlay_items(getattr(self, "_saved_overlay", []), [])
+        ExportService._restore_overlay_items(
+            getattr(self, "_saved_overlay", []), getattr(self, "_saved_selection", [])
+        )
         self._saved_overlay = []
+        self._saved_selection = []
+        ExportService._restore_item_caches(getattr(self, "_saved_caches", []))
+        self._saved_caches = []
 
     def _render_fit_to_page(
         self,
@@ -487,7 +493,9 @@ class GardenPrintManager:
                 if legend_h_mm > 0:
                     page_label = ""
                     if cols * rows > 1:
-                        page_label = f" (Page {row * cols + col + 1}/{cols * rows})"
+                        page_label = QCoreApplication.translate(
+                            "GardenPrintManager", " (Page {current}/{total})"
+                        ).format(current=row * cols + col + 1, total=cols * rows)
                     self._draw_legend(
                         painter, printer, printable_w_mm, content_h_mm,
                         legend_h_mm, self._scale_denom, page_label,
@@ -547,7 +555,8 @@ class GardenPrintManager:
         )
 
         # Center: scale
-        scale_text = f"1:{scale_denom}" if scale_denom > 0 else "Fit to Page"
+        fit_to_page_str = QCoreApplication.translate("GardenPrintManager", "Fit to Page")
+        scale_text = f"1:{scale_denom}" if scale_denom > 0 else fit_to_page_str
         scale_text += extra_text
         fm = painter.fontMetrics()
         scale_w = fm.horizontalAdvance(scale_text)
