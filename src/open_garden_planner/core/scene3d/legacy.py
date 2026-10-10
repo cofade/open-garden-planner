@@ -1,5 +1,12 @@
 """Qt-free 3D scene description for the 3D view (US-E6, #261).
 
+Since Phase 17 L1.1 (#385, ADR-054) this is the LEGACY contract: the content of
+the former ``core/scene3d.py``, moved verbatim, still feeding the shipped Qt 3D
+window and the dormant spike. ``core.scene3d`` re-exports every name, so no
+importer changed. It is deleted with Qt 3D in L1.10; new code uses the v2
+contract next to it (``record``, ``diff``, ``frame``, ``mesh``, ``sink``,
+``build``, ``sync``), which reuses this module's triangulation and extrusion.
+
 Everything heavy — triangulation, prism extrusion, the solar-light vector,
 the scene→engine frame mapping — lives here, headless-testable, in plain
 floats. The Qt3D adapter (`ui/view3d/qt3d_adapter.py`, the ONLY module
@@ -18,7 +25,7 @@ from __future__ import annotations
 import math
 from typing import NamedTuple
 
-from .shadow_geometry import Polygon
+from ..shadow_geometry import Polygon
 
 #: Items without a height render as thin ground decals of this thickness.
 FLAT_THICKNESS_CM = 2.0
