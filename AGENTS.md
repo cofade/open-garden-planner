@@ -222,7 +222,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 ## Where to Pick Up After Restart
 
-- **Package F1/F2 (#312/#313) implementation is on `feature/US-F1-F2-permaculture-guilds`, pending review, CI and owner manual acceptance.** Recorded species traits, semantic food-forest layers, snapshot-based guilds, user template editor and shared Diagnostics panel; see ADR-054/054 and §8.26. No release/merge is implied. #314–#316 remain separate work.
+- **Package F1/F2 (#312/#313) implementation is on `feature/US-F1-F2-permaculture-guilds`, pending review, CI and owner manual acceptance.** Recorded species traits, semantic food-forest layers, snapshot-based guilds, user template editor and shared Diagnostics panel; see ADR-054/055 and §8.26. No release/merge is implied. #314–#316 remain separate work.
 
 - **Canvas performance & NFR-PERF-01 shipped 2026-10-10 as v1.29.9 ([PR #430](https://github.com/cofade/open-garden-planner/pull/430)): #409 (Audit 2026-10 P1, TD-034, AUD-056).** Fit-in-view repaint on the 500-object reference plan (`docs/11-risks-and-technical-debt/audit-2026-10-plan_500.ogp`, 990 scene items) brought from 54.3 ms (≤ 18 fps) to 12.8 ms (≥ 60 fps; 100% zoom/pan to 4.5 ms) via: (1) `@functools.lru_cache` on `_resolve_svg_path` avoiding thousands of disk stats/frame; (2) Level-of-Detail (LOD threshold 0.4) flat fills during interactive viewport painting at low zoom; (3) `DeviceCoordinateCache` on unselected canvas items (toggled off when selected to eliminate resize/rotation handle ghosting and lag, and temporarily disabled during exports to ensure bit-exact full-detail vector rendering). Pinned by `tests/perf/test_nfr_budgets.py` and `tests/integration/test_canvas_item_lod_and_cache.py`.
 
