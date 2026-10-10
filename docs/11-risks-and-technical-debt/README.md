@@ -1049,6 +1049,8 @@ A second review exercised plan replacement while a placement preview or sidebar 
 
 Validation errors now have Qt-free codes and structured parameters. API text stays English; UI adapters translate the known code and field labels. Translating only an outer error sentence left its generated reason in English. Actual German editor and deleted-centre refusal tests pin the complete user-visible message, beyond the unfinished-translation gate. No undocumented Qt timer-reentrancy claim is made: the separate timer experiment did not reproduce it.
 
+The full battery found one further representation boundary: existing task/soil tests construct `RectangleItem` plants, so semantic `is_plant_type` does not guarantee `CircleItem.radius`. The badge coordinator now skips geometry for plants with no badge/status and uses the actual rectangle or bounding rectangle when an update is needed. A regression covers an ordinary rectangular plant and an imported rectangular guild centre, retaining serialized geometry. Subsystem-only green tests had omitted this representation.
+
 ## 11.5 Community and Governance
 
 **Feature Requests**: Open to community input, pivots, and voting. The goal is to avoid a dead project — community engagement is welcome.

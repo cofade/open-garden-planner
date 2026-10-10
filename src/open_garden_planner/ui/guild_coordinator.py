@@ -71,12 +71,19 @@ class GuildCoordinator(QObject):
             for item in plants:
                 status = by_centre.get(str(item.item_id))
                 missing = status.missing if status is not None else {}
-                signature = (missing, status.name if status is not None else "", item.radius,
-                             item.rect().center().x(), item.rect().center().y())
+                badge = getattr(item, "_guild_badge", None)
+                if not missing and badge is None:
+                    continue
+                # Saved/imported plants can use another GardenItem geometry.
+                # ObjectType identifies a plant; it does not promise a circle.
+                geometry = item.rect() if hasattr(item, "rect") else item.boundingRect()
+                position = geometry.center()
+                radius = getattr(item, "radius", min(geometry.width(), geometry.height()) / 2)
+                signature = (missing, status.name if status is not None else "", radius,
+                             position.x(), position.y())
                 if getattr(item, "_guild_badge_signature", None) == signature:
                     continue
                 item._guild_badge_signature = deepcopy(signature)
-                badge = getattr(item, "_guild_badge", None)
                 if missing and badge is None:
                     badge = QGraphicsEllipseItem(-8, -8, 16, 16, item)
                     badge.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
@@ -87,8 +94,7 @@ class GuildCoordinator(QObject):
                     badge.setZValue(100)
                     item._guild_badge = badge
                 if badge is not None:
-                    position = item.rect().center()
-                    badge.setPos(position.x(), position.y() - item.radius * 0.7)
+                    badge.setPos(position.x(), position.y() - radius * 0.7)
                     badge.setVisible(bool(missing))
                     tooltip = self.tr("Missing guild roles: {roles}").format(
                         roles=", ".join(trait_label(function) for function in missing)) if missing else ""

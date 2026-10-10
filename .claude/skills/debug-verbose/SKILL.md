@@ -1756,3 +1756,12 @@ The next print failed because the code page could not encode a check mark.
 **Root cause.** A UUID guards object identity within a document, not across document replacement. Preview wrappers also outlived the C++ objects owned by the scene.
 **Fix.** Close the picker on `document_replaced` before scene teardown, invalidate its document generation, and tolerate already-destroyed preview wrappers during idempotent cleanup. Stop pending sidebar navigation and discard queued IDs at replacement.
 **Lesson.** Every deferred GUI operation needs both object identity and a document-lifetime boundary. A teardown test must cover a replacement that retains the same object UUIDs, not just an empty scene.
+
+## Case study: the guild coordinator assumed every plant was a circle (F1/F2, 2026-10-11)
+
+**Symptom.** The complete suite reported Qt event-loop errors in existing agent task/soil workflows even though the guild-specific tests passed.
+**Wrong theories.** None adopted; the captured exception identified the accessed property before any lifecycle theory was pursued.
+**Evidence.** The traceback ended at `GuildCoordinator.refresh`, reading `item.radius`: `AttributeError: 'RectangleItem' object has no attribute 'radius'`. A focused regression printed `[GUILD-GEOMETRY] plant RectangleItem has_radius False` and failed both directly and at Qt teardown before the fix.
+**Root cause.** The plant ObjectType predicate is semantic; saved/imported or directly constructed plant records need not use CircleItem. Badge-signature calculation unnecessarily inspected geometry even for unassigned plants.
+**Fix.** Skip badge geometry for plants with neither a missing-role status nor an existing badge. For a badge that needs updating, use the item's rectangle or bounding rectangle, retaining the circle radius where provided. The regression also pins a rectangular centre's badge and unchanged serialized geometry.
+**Lesson.** A semantic type predicate does not prove a concrete graphics-item class. Run the complete suite to exercise representations absent from the new subsystem fixtures. The temporary print was removed.

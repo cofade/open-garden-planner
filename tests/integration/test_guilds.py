@@ -388,3 +388,22 @@ def test_preview_and_pending_navigation_invalidated_on_document_replacement(guil
     manager.load(scene, file)
     qtbot.wait(150)
     assert not scene.selectedItems()
+
+
+def test_coordinator_accepts_non_circular_imported_plant(guild_canvas):
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
+
+    scene, _, coordinator, library = guild_canvas
+    plant = RectangleItem(0, 0, 40, 60)
+    plant.object_type = ObjectType.PERENNIAL
+    scene.addItem(plant)
+    coordinator.refresh()
+    assert not coordinator.statuses
+    plant.metadata["guild"] = {"guild_id": "imported", "role": "centre", "name": "Imported",
+                               "template": library.templates["apple-guild"].to_dict()}
+    before = (plant.rect(), plant.pos(), plant.transformOriginPoint(), ProjectManager._serialize_item(plant))
+    coordinator.refresh()
+    assert plant._guild_badge.isVisible()
+    assert coordinator.statuses[0].missing["nitrogen_fixer"] == 1
+    assert before == (plant.rect(), plant.pos(), plant.transformOriginPoint(), ProjectManager._serialize_item(plant))
