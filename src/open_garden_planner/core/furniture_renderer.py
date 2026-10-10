@@ -4,6 +4,7 @@ Loads illustrated top-down SVG furniture shapes and renders them
 as cached QPixmaps for display on the garden canvas.
 """
 
+import functools
 from pathlib import Path
 
 from PyQt6.QtCore import QRectF, Qt
@@ -134,6 +135,7 @@ def is_furniture_type(object_type: ObjectType | None) -> bool:
     return object_type in _FURNITURE_FILES or object_type in _OBJECT_SVG_FILES
 
 
+@functools.lru_cache(maxsize=64)
 def get_furniture_svg_path(object_type: ObjectType) -> Path | None:
     """Get the SVG file path for an SVG-rendered object type.
 

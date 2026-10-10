@@ -6,6 +6,7 @@ category-based shapes (15 categories) and species-specific
 illustrations (8+ popular species).
 """
 
+import functools
 import hashlib
 import math
 from enum import Enum, auto
@@ -344,6 +345,7 @@ def _get_renderer(svg_path: Path) -> QSvgRenderer | None:
     return renderer
 
 
+@functools.lru_cache(maxsize=256)
 def _resolve_svg_path(
     object_type: ObjectType,
     species: str = "",

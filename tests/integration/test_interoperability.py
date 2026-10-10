@@ -365,6 +365,36 @@ class TestPdfReport:
         finally:
             tmp.unlink(missing_ok=True)
 
+    def test_pdf_plant_list_page_with_plants(self, scene: CanvasScene) -> None:
+        from open_garden_planner.core.object_types import ObjectType
+        from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+
+        plant = CircleItem(150, 150, 40, ObjectType.TREE)
+        plant.name = "Apple Tree"
+        scene.addItem(plant)
+
+        opts = PdfReportOptions(
+            paper_size="A4",
+            orientation="landscape",
+            include_cover=False,
+            include_overview=False,
+            include_bed_details=False,
+            include_plant_list=True,
+            include_legend=False,
+            project_name="Orchard",
+        )
+
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+            tmp = Path(f.name)
+
+        try:
+            PdfReportService.generate(scene, opts, tmp)
+            assert tmp.exists()
+            assert tmp.stat().st_size > 0
+            assert tmp.read_bytes()[:5] == b"%PDF-"
+        finally:
+            tmp.unlink(missing_ok=True)
+
 
 # ---------------------------------------------------------------------------
 # SVG export — Qt texture-fill clipping post-process (regression coverage)

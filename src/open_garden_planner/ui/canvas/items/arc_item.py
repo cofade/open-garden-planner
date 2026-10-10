@@ -31,6 +31,10 @@ from open_garden_planner.core.cad_geometry import (
     arc_to_painter_path,
 )
 
+from .garden_item import (
+    enable_device_coordinate_cache,
+    handle_selection_change_for_cache,
+)
 from .resize_handle import (
     CURVE_KIND_ARC_END,
     CURVE_KIND_ARC_START,
@@ -93,6 +97,7 @@ class ArcItem(CurveEditMixin, QGraphicsPathItem):
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
+        enable_device_coordinate_cache(self)
         self.init_curve_edit()
 
     # ------------------------------------------------------------------
@@ -241,6 +246,7 @@ class ArcItem(CurveEditMixin, QGraphicsPathItem):
         change: QGraphicsItem.GraphicsItemChange,
         value: Any,
     ) -> Any:
+        handle_selection_change_for_cache(self, change, value)
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
             self.sync_curve_edit_to_selection()
         elif (

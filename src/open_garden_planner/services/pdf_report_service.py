@@ -95,6 +95,7 @@ def _scene_to_image(scene: Any, source: QRectF, dest: QRectF) -> QImage:
 
     saved_text = ExportService._prepare_text_for_export(scene, scale, _PDF_DPI)
     hidden_overlay, prior_selection = ExportService._hide_overlay_items(scene)
+    cached_items = ExportService._disable_item_caches(scene)
     try:
         img = QImage(w, h, QImage.Format.Format_ARGB32)
         img.fill(QColor("white"))
@@ -110,6 +111,7 @@ def _scene_to_image(scene: Any, source: QRectF, dest: QRectF) -> QImage:
     finally:
         ExportService._restore_text_after_export(saved_text)
         ExportService._restore_overlay_items(hidden_overlay, prior_selection)
+        ExportService._restore_item_caches(cached_items)
     return img
 
 
@@ -359,10 +361,10 @@ def _render_plant_list(
     )
 
     cols = [
-        ("Name", 0.35),
-        ("Type", 0.20),
-        ("Position (cm)", 0.25),
-        ("Notes", 0.20),
+        (_tr("Name"), 0.35),
+        (_tr("Type"), 0.20),
+        (_tr("Position (cm)"), 0.25),
+        (_tr("Notes"), 0.20),
     ]
 
     row_h = _pt(7)
@@ -395,7 +397,12 @@ def _render_plant_list(
 
         name = getattr(item, "name", "") or ""
         obj_type = getattr(item, "object_type", None)
-        type_str = obj_type.name.replace("_", " ").title() if obj_type else ""
+        if obj_type is not None:
+            from open_garden_planner.core.object_types import get_translated_display_name
+
+            type_str = get_translated_display_name(obj_type)
+        else:
+            type_str = ""
         center = item.mapToScene(item.boundingRect().center())
         pos_str = f"({center.x():.0f}, {center.y():.0f})"
         metadata = getattr(item, "metadata", {}) or {}

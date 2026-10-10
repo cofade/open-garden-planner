@@ -31,6 +31,10 @@ from PyQt6.QtWidgets import (
     QMenu,
 )
 
+from .garden_item import (
+    enable_device_coordinate_cache,
+    handle_selection_change_for_cache,
+)
 from .resize_handle import (
     CURVE_KIND_ANCHOR,
     CURVE_KIND_HANDLE_IN,
@@ -89,6 +93,7 @@ class BezierItem(CurveEditMixin, QGraphicsPathItem):
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
+        enable_device_coordinate_cache(self)
         self.init_curve_edit()
 
     # ------------------------------------------------------------------
@@ -212,6 +217,7 @@ class BezierItem(CurveEditMixin, QGraphicsPathItem):
         change: QGraphicsItem.GraphicsItemChange,
         value: Any,
     ) -> Any:
+        handle_selection_change_for_cache(self, change, value)
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
             self.sync_curve_edit_to_selection()
         elif (

@@ -317,6 +317,7 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         self.setFlag(QGraphicsPolygonItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsPolygonItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
         self.setFlag(QGraphicsPolygonItem.GraphicsItemFlag.ItemIsFocusable, True)
+        self.enable_device_coordinate_cache()
 
     def boundingRect(self) -> QRectF:
         """Return bounding rect, expanded for shadow."""
@@ -614,6 +615,15 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
             painter.drawPolygon(shadow_poly)
             painter.restore()
 
+        if not self.isSelected() and self.fill_pattern is not None and self.should_use_lod_flat_fill(option, widget, painter):
+            poly = self.polygon()
+            painter.save()
+            painter.setPen(self.pen())
+            painter.setBrush(QBrush(self.get_lod_fill_color()))
+            painter.drawPolygon(poly)
+            painter.restore()
+            return
+
         # For HOUSE polygons with a ridge: use mirrored tile rendering
         ridge = self._find_ridge()
         if ridge is not None and self.object_type == ObjectType.HOUSE:
@@ -656,6 +666,7 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         Updates annotations when position changes.
         Moves the attached ridge when the polygon moves.
         """
+        self.handle_selection_change_for_cache(change, value)
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
             if value:  # Being selected
                 # Only show resize/rotation handles if not in vertex edit mode
