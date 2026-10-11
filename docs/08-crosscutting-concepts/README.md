@@ -560,8 +560,21 @@ failing merge tests belong on a temporary validation base, never master.
 
 ### 8.10.3 Patterns from the 3D scene pipeline (Phase 17 L1.1)
 
-Four patterns `tests/integration/test_footprints_golden.py`, `test_scene3d_snapshot.py` and
-`test_scene3d_pipeline.py` established; reuse them where they fit.
+Five patterns `tests/integration/test_footprints_golden.py`, `test_scene3d_snapshot.py`,
+`test_scene3d_pipeline.py` and `tests/perf/test_scene3d_snapshot_budget.py` established; reuse
+them where they fit.
+
+- **A timing budget is asserted on untraced code.** A budget for pure-Python code cannot be
+  asserted under a line tracer: under `pytest --cov=open_garden_planner --cov-branch` — how CI's
+  coverage job runs the suite — `snapshot_records` took 78 ms where it takes 8.6 ms untraced
+  (9×), over its 60 ms budget. (A plain `coverage run` of a probe script had measured 39 ms, so
+  measure the way CI runs it.) The budget test detects a tracer (`sys.gettrace()`, or coverage's
+  `sys.monitoring` tool on 3.12+) and then asserts only a blow-up tripwire at ten times the
+  budget; every untraced run asserts the real one, and a test pins the factor so the untraced
+  budget cannot be relaxed by accident. The canvas repaint budgets
+  (`tests/perf/test_nfr_budgets.py`) have no such rule: run locally under the same tracer they
+  read 17–41 ms against their local 16.7 ms and fail (three runs, 2026-10-11); in CI their budget
+  is 50 ms.
 
 - **A golden fixture before a move.** When code that many callers depend on is moved or
   re-layered, generate a fixture from the UNCHANGED code first, commit it with a test that passes
