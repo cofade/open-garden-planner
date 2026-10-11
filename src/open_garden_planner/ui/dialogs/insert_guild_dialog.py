@@ -33,6 +33,7 @@ from open_garden_planner.services.guild_library import GuildLibrary
 from open_garden_planner.services.species_catalog import offline_catalog
 from open_garden_planner.ui.dialogs.guild_template_editor import GuildTemplateEditor
 from open_garden_planner.ui.guild_errors import guild_error_message
+from open_garden_planner.ui.plant_traits import species_display_name
 from open_garden_planner.ui.widgets.trait_filters import trait_label
 
 
@@ -143,21 +144,22 @@ class InsertGuildDialog(QDialog):
         function_centre = template.centre.removeprefix("function:") if template.centre.startswith("function:") else None
         keys = [key for key, species in self.catalog.items() if function_centre in species.get("functions", [])] if function_centre else [template.centre]
         for key in keys:
-            self.centre_combo.addItem(self.catalog.get(key, {}).get("common_name", self.tr("Unresolved: {key}").format(key=key)), key)
+            species = self.catalog.get(key)
+            self.centre_combo.addItem(species_display_name(species) if species else self.tr("Unresolved: {key}").format(key=key), key)
         for item in self.scene.items():
             if not hasattr(item, "object_type") or not is_plant_type(item.object_type) or item.metadata.get("guild") is not None or not guild_plant_layers_editable(self.scene, item):
                 continue
             species = item.metadata.get("plant_species") or {}
             eligible = function_centre in species.get("functions", []) if function_centre else species.get("scientific_name", "").casefold() == self.catalog.get(template.centre, {}).get("scientific_name", "").casefold()
             if eligible:
-                self.existing_combo.addItem(getattr(item, "name", "") or species.get("common_name", ""), str(item.item_id))
+                self.existing_combo.addItem(getattr(item, "name", "") or species_display_name(species), str(item.item_id))
         for role in template.roles:
             combo = QComboBox()
             ordered = list(role.suggested_species) + [key for key, species in self.catalog.items()
                 if key not in role.suggested_species and role.function in species.get("functions", [])]
             for key in ordered:
                 species = self.catalog.get(key)
-                combo.addItem(species.get("common_name", key) if species else self.tr("Unresolved: {key}").format(key=key), key)
+                combo.addItem(species_display_name(species) if species else self.tr("Unresolved: {key}").format(key=key), key)
             self.roles_form.addRow(trait_label(role.function), combo)
             self.role_choices[role.function] = combo
             combo.currentIndexChanged.connect(self.clear_preview)

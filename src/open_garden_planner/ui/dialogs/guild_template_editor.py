@@ -26,6 +26,7 @@ from open_garden_planner.models.plant_data import PlantFunction
 from open_garden_planner.services.guild_library import GuildLibrary
 from open_garden_planner.services.species_catalog import offline_catalog
 from open_garden_planner.ui.guild_errors import guild_error_message
+from open_garden_planner.ui.plant_traits import species_display_name
 from open_garden_planner.ui.widgets.trait_filters import trait_label
 
 
@@ -76,7 +77,7 @@ class GuildTemplateEditor(QDialog):
         self.description_de_edit.setMaximumHeight(65)
         self.centre_combo = QComboBox()
         for key, record in self.catalog.items():
-            self.centre_combo.addItem(record.get("common_name", key) + " — " + key, key)
+            self.centre_combo.addItem(species_display_name(record) + " — " + key, key)
         for function in PlantFunction:
             self.centre_combo.addItem(self.tr("Function: {function}").format(function=trait_label(function.value)),
                                       "function:" + function.value)

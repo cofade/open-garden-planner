@@ -9898,6 +9898,162 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>Bird Bath</source>
             <translation>Vogeltränke</translation>
         </message>
+        <message>
+            <source>Sweet Pepper</source>
+            <translation>Paprika</translation>
+        </message>
+        <message>
+            <source>Chili Pepper</source>
+            <translation>Chili</translation>
+        </message>
+        <message>
+            <source>Winter Squash</source>
+            <translation>Winterkürbis</translation>
+        </message>
+        <message>
+            <source>Bean (Bush)</source>
+            <translation>Buschbohne</translation>
+        </message>
+        <message>
+            <source>Garden Pea</source>
+            <translation>Gartenerbse</translation>
+        </message>
+        <message>
+            <source>Beet</source>
+            <translation>Rote Bete</translation>
+        </message>
+        <message>
+            <source>Cauliflower</source>
+            <translation>Blumenkohl</translation>
+        </message>
+        <message>
+            <source>Brussels Sprouts</source>
+            <translation>Rosenkohl</translation>
+        </message>
+        <message>
+            <source>Chinese Cabbage</source>
+            <translation>Chinakohl</translation>
+        </message>
+        <message>
+            <source>Leek</source>
+            <translation>Lauch</translation>
+        </message>
+        <message>
+            <source>Sweet Potato</source>
+            <translation>Süßkartoffel</translation>
+        </message>
+        <message>
+            <source>Coriander</source>
+            <translation>Koriander</translation>
+        </message>
+        <message>
+            <source>Fennel</source>
+            <translation>Fenchel</translation>
+        </message>
+        <message>
+            <source>Spearmint</source>
+            <translation>Grüne Minze</translation>
+        </message>
+        <message>
+            <source>Chamomile</source>
+            <translation>Kamille</translation>
+        </message>
+        <message>
+            <source>Valerian</source>
+            <translation>Baldrian</translation>
+        </message>
+        <message>
+            <source>Echinacea</source>
+            <translation>Sonnenhut</translation>
+        </message>
+        <message>
+            <source>Parsnip</source>
+            <translation>Pastinake</translation>
+        </message>
+        <message>
+            <source>Celery</source>
+            <translation>Sellerie</translation>
+        </message>
+        <message>
+            <source>Asparagus</source>
+            <translation>Spargel</translation>
+        </message>
+        <message>
+            <source>Rhubarb</source>
+            <translation>Rhabarber</translation>
+        </message>
+        <message>
+            <source>Strawberry</source>
+            <translation>Erdbeere</translation>
+        </message>
+        <message>
+            <source>Sweet Corn</source>
+            <translation>Zuckermais</translation>
+        </message>
+        <message>
+            <source>Chicory</source>
+            <translation>Chicorée</translation>
+        </message>
+        <message>
+            <source>Endive</source>
+            <translation>Endivie</translation>
+        </message>
+        <message>
+            <source>Rocket (Arugula)</source>
+            <translation>Rucola</translation>
+        </message>
+        <message>
+            <source>Kohlrabi</source>
+            <translation>Kohlrabi</translation>
+        </message>
+        <message>
+            <source>Artichoke</source>
+            <translation>Artischocke</translation>
+        </message>
+        <message>
+            <source>Melon</source>
+            <translation>Melone</translation>
+        </message>
+        <message>
+            <source>Watermelon</source>
+            <translation>Wassermelone</translation>
+        </message>
+        <message>
+            <source>Runner Bean</source>
+            <translation>Feuerbohne</translation>
+        </message>
+        <message>
+            <source>Broad Bean</source>
+            <translation>Ackerbohne</translation>
+        </message>
+        <message>
+            <source>Sweet Pea</source>
+            <translation>Duftwicke</translation>
+        </message>
+        <message>
+            <source>Nasturtium</source>
+            <translation>Kapuzinerkresse</translation>
+        </message>
+        <message>
+            <source>Borage</source>
+            <translation>Borretsch</translation>
+        </message>
+        <message>
+            <source>Lemon Balm</source>
+            <translation>Zitronenmelisse</translation>
+        </message>
+        <message>
+            <source>Hyssop</source>
+            <translation>Ysop</translation>
+        </message>
+        <message>
+            <source>Flax</source>
+            <translation>Lein</translation>
+        </message>
+        <message>
+            <source>Pot Marigold</source>
+            <translation>Ringelblume</translation>
+        </message>
     </context>
     <context>
         <name>CategoryDropdown</name>

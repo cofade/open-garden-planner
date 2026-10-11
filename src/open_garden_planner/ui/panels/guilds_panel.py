@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
 from open_garden_planner.services.guild_service import GuildStatus
 from open_garden_planner.ui.panels.diagnostics_panel import ObjectNavigator
+from open_garden_planner.ui.plant_traits import species_display_name
 from open_garden_planner.ui.widgets.trait_filters import trait_label
 
 
@@ -29,7 +30,7 @@ class GuildsPanel(ObjectNavigator):
         for status in statuses:
             for identity in status.member_ids:
                 item = self.scene.find_item_by_id(UUID(identity))
-                names[identity] = getattr(item, "name", "") or (item.metadata.get("plant_species") or {}).get("common_name", "") if item is not None else ""
+                names[identity] = getattr(item, "name", "") or species_display_name(item.metadata.get("plant_species") or {}) if item is not None else ""
         signature = ([asdict(s) for s in statuses], names)
         if signature == self._signature:
             return

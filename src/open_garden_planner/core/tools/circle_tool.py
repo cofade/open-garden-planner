@@ -1,6 +1,6 @@
 """Circle drawing tool."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from PyQt6.QtCore import QT_TR_NOOP, QLineF, QPointF, Qt
 from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QMouseEvent, QPen
@@ -12,6 +12,7 @@ from .base_tool import BaseTool, ToolType
 from .preview_z import PREVIEW_Z_FILL, PREVIEW_Z_LINE
 
 if TYPE_CHECKING:
+    from open_garden_planner.core.plant_renderer import PlantCategory
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
 
 
@@ -159,43 +160,22 @@ class CircleTool(BaseTool):
 
         # Create final circle if it has a meaningful radius
         if radius > 1:  # Minimum radius in cm
+            from open_garden_planner.core.object_types import is_plant_type
             from open_garden_planner.ui.canvas.items import CircleItem
-            # Get active layer from scene
+            from open_garden_planner.ui.plant_creation import build_plant
+
             scene = self._view.scene()
-            layer_id = scene.active_layer.id if hasattr(scene, 'active_layer') and scene.active_layer else None
-            item = CircleItem(
-                self._center_point.x(),
-                self._center_point.y(),
-                radius,
-                object_type=self._object_type,
-                layer_id=layer_id,
-            )
-            # Set plant category/species if provided by gallery selection
-            if self._plant_category is not None:
-                item.plant_category = self._plant_category
-            if self._plant_species:
-                item.plant_species = self._plant_species
-                # Mirror the canvas drop path: populate species metadata so
-                # the plant detail panel has data the moment the user clicks
-                # the new circle.
-                from open_garden_planner.services.bundled_species_db import (  # noqa: PLC0415
-                    populate_item_species_metadata,
-                )
-                populate_item_species_metadata(item, self._plant_species)
-            # US-E8: every new PLANT gets today's planting date so growth
-            # engages without a Plant Details visit — species or not (a
-            # placeholder that gains a species later must not stay undated).
-            from open_garden_planner.core.plant_renderer import (  # noqa: PLC0415
-                is_plant_type,
-            )
-
             if is_plant_type(self._object_type):
-                from datetime import date  # noqa: PLC0415
-
-                from open_garden_planner.core.growth_model import (  # noqa: PLC0415
-                    stamp_default_planting_date,
+                manager = getattr(self._view.window(), "_project_manager", None)
+                item = build_plant(
+                    scene, self._center_point, self._object_type, radius,
+                    species_name=self._plant_species, plant_category=cast("PlantCategory | None", self._plant_category),
+                    auto_assign=bool(manager and manager.auto_assign_permaculture_layers),
                 )
-                stamp_default_planting_date(item.metadata, date.today())
+            else:
+                layer_id = scene.active_layer.id if scene.active_layer else None
+                item = CircleItem(self._center_point.x(), self._center_point.y(), radius,
+                                  object_type=self._object_type, layer_id=layer_id)
             self._view.add_item(item, "circle")
 
         self._reset_state()

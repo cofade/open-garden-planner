@@ -743,5 +743,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix(perf): canvas LOD and item caching for NFR-PERF-01 (#409)"
+  },
+  "433": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "feat(US-F1,F2): species traits, plant guilds and diagnostics"
   }
 }

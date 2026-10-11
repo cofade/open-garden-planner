@@ -4,7 +4,15 @@ from copy import deepcopy
 from functools import partial
 from typing import Any
 
+from PyQt6.QtCore import QCoreApplication
+
 from open_garden_planner.core.commands import ChangePropertyCommand
+
+
+def species_display_name(species: dict[str, Any]) -> str:
+    """Translate catalog labels without changing saved names or species identity."""
+    name = species.get("common_name") or species.get("scientific_name", "")
+    return QCoreApplication.translate("GalleryData", name)
 
 
 def apply_trait(item: Any, value: Any, *, field: str) -> None:
