@@ -161,12 +161,15 @@ README, but only with shipped, tested items.
   This proves *source provenance* (built by public CI from public source) — it does **not**
   make the installer Authenticode-signed and does not by itself suppress SmartScreen/Defender
   warnings. Don't conflate the two in public text.
-- **The installer is UNSIGNED.** Documented as a known risk: §11.1 ("NSIS installer
-  signing? … Unsigned initially, document for users; investigate free code signing
-  options") and §11.2 ("Windows installer blocked by SmartScreen — Document workaround").
-  In any public text: state plainly that Windows SmartScreen or Defender may warn (a known
-  false-positive pattern for unsigned PyInstaller-built exes, e.g. `Wacatac.B/C!ml` — see
-  issue #356), that the workaround is "More info → Run anyway" *after* verifying the SHA-256
+- **The installer is UNSIGNED.** §11.1 states: "Releases remain unsigned."
+  Signing options, including no-cost proposals, are under evaluation in
+  [#375](https://github.com/cofade/open-garden-planner/issues/375); no option has been
+  adopted, and effectiveness against these detections is unproven for this project.
+  Do not frame signing as necessarily paid or promise that it removes warnings.
+  In any public text: state plainly that Windows SmartScreen, Defender or Norton may warn
+  (a known false-positive pattern for unsigned PyInstaller-built exes, e.g.
+  `Wacatac.B/C!ml` in Defender #356 and `FileRepMalware[Misc]` in Norton #358),
+  that the workaround is "More info → Run anyway" *after* verifying the SHA-256
   checksum and/or the build-provenance attestation above, and never phrase the warning away
   as a false positive users should blindly click through — the checksum + attestation are
   the compensating controls.

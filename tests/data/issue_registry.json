@@ -346,12 +346,12 @@
   },
   "312": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "US-F1: Permaculture layer + plant function tags on species — foundation of Package F (Permaculture & Polyculture), do first"
   },
   "313": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "US-F2: Plant guilds — guild templates, canvas membership, missing-role diagnostic (Package F, after US-F1 #312)"
   },
   "314": {
@@ -484,6 +484,11 @@
     "state": "CLOSED",
     "title": "Exe is diagnosed as a Trojan"
   },
+  "358": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Norton 360 detects Open Garden Planner 1.27.9 as FileRepMalware[Misc]"
+  },
   "360": {
     "is_pr": true,
     "state": "MERGED",
@@ -558,6 +563,16 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(US-D3.2): succession agent tools — first agent write into ProjectData (#331)"
+  },
+  "375": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Investigate Authenticode code signing for Windows releases - the open half of #356 / #358"
+  },
+  "376": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Docs state code signing necessarily costs money - inaccurate in 8 locations; correct before #375 is decided"
   },
   "377": {
     "is_pr": false,
@@ -746,7 +761,7 @@
   },
   "433": {
     "is_pr": true,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "feat(US-F1,F2): species traits, plant guilds and diagnostics"
   }
 }
