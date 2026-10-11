@@ -2588,12 +2588,15 @@ parts = verify_builder(build_house, record)          # the contract, one call
 
 registry = BuilderRegistry()
 registry.register("HOUSE", build_house)
-sync = SceneSync(RecordingSink(), registry, validate=True)
+sink = RecordingSink()
+sync = SceneSync(sink, registry, validate=True)
 sync.apply(records)                                   # e.g. snapshot_records(bench plan)
 assert sync.failures == {}
-assert sync.sink.item(house_id).parts[1].material_kind == "roof"
+assert sink.item(house_id).parts[1].material_kind == "roof"
+sink.clear_calls()
 sync.apply(moved_records)                             # a move …
-assert sync.sink.ops() == [("begin", None), ("update_transform", house_id), ("commit", None)]
+assert sink.ops() == [("begin", None), ("update_transform", house_id), ("commit", None)]
+assert sync.build_count == len(records)               # … built nothing
 ```
 
 Run `verify_builder` over every record of both bench plans your builder handles

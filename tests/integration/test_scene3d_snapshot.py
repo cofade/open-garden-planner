@@ -277,11 +277,12 @@ class TestDiffMatrix:
         after = stage.record
         assert after.footprints == before.footprints and after.path == before.path
         if stage.shape in ROUND:
-            # a circle's footprint does not turn: the record keeps rotation 0, and a
-            # turn about its own centre moves nothing at all
-            assert after.transform.rotation_deg == 0.0
-            assert result.transform in ((), (stage.id,))
-            assert after.transform.east_cm == pytest.approx(before.transform.east_cm, abs=1e-6)
+            # A circle's footprint does not turn with its item (`item_footprints`
+            # polygonises it around the mapped centre), so its record keeps rotation
+            # 0 — and a turn about its own centre, which is the app's rotation
+            # gesture, changes nothing at all: "transform only" with nothing in it.
+            assert result == SceneDiff()
+            assert after == before
         else:
             assert result == SceneDiff(transform=(stage.id,))
             assert after.transform.rotation_deg == angle
@@ -732,6 +733,32 @@ class TestRecordContent:
         scene.addItem(stub)
         assert item_outline(degenerate) is None
         assert snapshot_records(scene) == {}
+
+    def test_a_circle_turned_about_another_pivot_moves_and_still_does_not_rotate(
+        self, canvas: CanvasView
+    ) -> None:
+        """Only a pivot away from the centre makes a circle's rotation visible — as a
+        new position. Its record still carries rotation 0."""
+        item = _circle()
+        canvas.scene().addItem(item)
+        before = snapshot_records(canvas.scene())
+        item.setTransformOriginPoint(QPointF(0.0, 0.0))
+        item.setRotation(90.0)
+        after = snapshot_records(canvas.scene())
+        item_id = str(item.item_id)
+        assert diff(before, after) == SceneDiff(transform=(item_id,))
+        assert after[item_id].transform == Transform(-220.25, 310.5, 0.0)  # (x, y) → (−y, x)
+
+    def test_a_nonsense_height_is_no_height(self, canvas: CanvasView) -> None:
+        """``effective_height_cm`` lets an explicit ``Infinity`` through (a hand-edited
+        plan can hold one). It is not a height: the record says decoration, and the
+        engine never receives a non-finite mesh."""
+        item = _rectangle()
+        canvas.scene().addItem(item)
+        item.metadata[METADATA_KEY] = float("inf")
+        assert effective_height_cm(item.object_type, item.metadata) == float("inf")
+        record = snapshot_records(canvas.scene())[str(item.item_id)]
+        assert record.height_cm is None and default_builder(record) == ()
 
     def test_non_finite_geometry_is_skipped_not_propagated(self, canvas: CanvasView) -> None:
         """NaN != NaN: one such record would report a change on every diff, forever."""

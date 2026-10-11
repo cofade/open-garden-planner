@@ -230,6 +230,13 @@ class TestRecord:
             record(shape="blob")
         assert set(SHAPES) == {"circle", "ellipse", "rectangle", "polygon", "polyline"}
 
+    @pytest.mark.parametrize("bad", [0.0, -1.0, float("inf"), float("nan")])
+    def test_a_height_is_positive_and_finite_or_absent(self, bad: float) -> None:
+        """An infinite or zero height would reach the engine as a non-finite or
+        empty mesh; "no height" has one spelling, None."""
+        with pytest.raises(ValueError, match="height_cm"):
+            record(height_cm=bad)
+
     def test_a_record_without_a_height_is_decoration(self) -> None:
         assert record().casts_shadow is True
         assert record(height_cm=None).casts_shadow is False
@@ -332,19 +339,27 @@ class TestDiff:
 # ── the Qt-free rule (gate G6) ────────────────────────────────────────────────
 
 PACKAGE = Path(scene3d.__file__).parent
+CORE = PACKAGE.parent
+SRC = CORE.parents[1]
 STDLIB = set(sys.stdlib_module_names) | {"__future__"}
+MODULES = sorted(PACKAGE.rglob("*.py"))  # sub-packages too: later stories add builders
 
 
-def _imports(path: Path) -> set[str]:
-    """Every module a file imports, absolute — relative imports resolved against
-    ``open_garden_planner.core.scene3d`` so a sibling ``core`` module is told apart
-    from a parent package's ``ui``."""
+def _package_of(path: Path) -> list[str]:
+    """The package a source file belongs to, as dotted-name parts."""
+    return list(path.relative_to(SRC).parent.parts)
+
+
+def _imports(path: Path, package: list[str] | None = None) -> set[str]:
+    """Every module a file imports, absolute — relative imports are resolved
+    against the file's own package, so a ``core`` sibling (``from ..solar import``)
+    is told apart from another top-level package (``from ...ui import``)."""
+    base = package if package is not None else _package_of(path)
     names: set[str] = set()
     for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
         if isinstance(node, ast.Import):
             names.update(alias.name for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
-            base = ["open_garden_planner", "core", "scene3d"]
             if node.level:
                 parts = base[: len(base) - (node.level - 1)]
                 module = ".".join(parts + ([node.module] if node.module else []))
@@ -355,17 +370,31 @@ def _imports(path: Path) -> set[str]:
     return names
 
 
-def test_package_modules_exist() -> None:
-    assert {p.name for p in PACKAGE.glob("*.py")} == {
+def _core_module_file(name: str) -> Path | None:
+    """The source file of ``open_garden_planner.core.<...>``, or None when the
+    dotted name is not a module (an imported function or class)."""
+    parts = name.split(".")
+    if parts[:2] != ["open_garden_planner", "core"] or len(parts) < 3:
+        return None
+    stem = SRC.joinpath(*parts)
+    for candidate in (stem.with_suffix(".py"), stem / "__init__.py"):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def test_the_scan_covers_the_whole_package() -> None:
+    assert {p.name for p in MODULES} >= {
         "__init__.py", "legacy.py", "color.py", "record.py", "diff.py", "frame.py",
         "mesh.py", "sink.py", "build.py", "sync.py",
     }
+    assert _package_of(PACKAGE / "record.py") == ["open_garden_planner", "core", "scene3d"]
 
 
-@pytest.mark.parametrize("path", sorted(PACKAGE.glob("*.py")), ids=lambda p: p.name)
+@pytest.mark.parametrize("path", MODULES, ids=lambda p: p.relative_to(PACKAGE).as_posix())
 def test_package_is_qt_free(path: Path) -> None:
     """Epic #383 / ADR-048 NO-GO insurance: nothing under ``core/scene3d/`` imports
-    PyQt6 — and nothing but the standard library, numpy and ``core`` siblings."""
+    PyQt6 — and nothing but the standard library, numpy and ``core`` modules."""
     for name in _imports(path):
         top = name.split(".")[0]
         assert top != "PyQt6", f"{path.name} imports {name}"
@@ -376,8 +405,8 @@ def test_package_is_qt_free(path: Path) -> None:
 
 def test_the_scan_resolves_relative_imports(tmp_path: Path) -> None:
     """The scan must not be blind to its own subject: a relative import of a
-    parent package (``from ... import ui``) and a function-local PyQt6 import are
-    both seen."""
+    parent package (``from ...ui import``) and a function-local PyQt6 import are
+    both seen, and a sub-package resolves one level deeper."""
     probe = tmp_path / "probe.py"
     probe.write_text(
         "\n".join([
@@ -390,24 +419,40 @@ def test_the_scan_resolves_relative_imports(tmp_path: Path) -> None:
         ]),
         encoding="utf-8",
     )
-    found = _imports(probe)
+    found = _imports(probe, ["open_garden_planner", "core", "scene3d"])
     assert "open_garden_planner.core.shadow_geometry" in found
     assert "open_garden_planner.ui" in found
     assert "open_garden_planner.core.scene3d.record" in found
     assert "PyQt6.QtCore" in found
+    nested = _imports(probe, ["open_garden_planner", "core", "scene3d", "builders"])
+    assert "open_garden_planner.core.scene3d.shadow_geometry" in nested
+    assert "open_garden_planner.core.ui" in nested
 
 
-def test_core_siblings_the_package_uses_are_qt_free() -> None:
+def test_core_modules_the_package_reaches_are_qt_free() -> None:
     """The scan of the package cannot see a ``core`` sibling that imports Qt
-    itself, so every sibling it uses is scanned too. The set is pinned: a new
-    dependency of the Qt-free core is a decision, not an accident."""
-    siblings: set[str] = set()
-    for path in PACKAGE.glob("*.py"):
-        for name in _imports(path):
-            parts = name.split(".")
-            if parts[:2] == ["open_garden_planner", "core"] and len(parts) > 2 and parts[2] != "scene3d":
-                siblings.add(parts[2])
-    assert siblings == {"shadow_geometry", "solar"}
-    for sibling in siblings:
-        imported = _imports(PACKAGE.parent / f"{sibling}.py")
-        assert not any(n.split(".")[0] == "PyQt6" for n in imported), sibling
+    itself, so every ``core`` module the package reaches — directly or through
+    another — is scanned too. A later story may add a sibling; it cannot add one
+    that drags Qt in (``core.object_types`` does, for its translated labels)."""
+    seen: dict[Path, set[str]] = {}
+    queue = list(MODULES)
+    while queue:
+        path = queue.pop()
+        if path in seen:
+            continue
+        seen[path] = _imports(path)
+        for name in seen[path]:
+            target = _core_module_file(name)
+            if target is not None and target not in seen:
+                queue.append(target)
+    offenders = sorted(
+        f"{path.relative_to(SRC).as_posix()} imports {name}"
+        for path, names in seen.items() for name in names if name.split(".")[0] == "PyQt6"
+    )
+    assert offenders == []
+    siblings = {path.stem for path in seen if path.parent == CORE}
+    assert {"shadow_geometry", "solar"} <= siblings  # the walk left the package: not vacuous
+    # ... and it does tell a Qt-importing core module apart
+    assert any(n.split(".")[0] == "PyQt6" for n in _imports(CORE / "object_types.py"))
+
+

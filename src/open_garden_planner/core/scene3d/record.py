@@ -285,9 +285,9 @@ class Record:
     - ``path`` / ``path_width_cm``: a polyline's centre line (item-local) and
       stroke width — fences and walls are built from these, not from the strip.
       ``()`` / ``None`` for every other shape.
-    - ``height_cm``: the resolved ``effective_height_cm(..., at_date)``, or None
-      when the resolver gives none — then the item is decoration and casts no
-      shadow, exactly as in 2D (``casts_shadow``).
+    - ``height_cm``: the resolved ``effective_height_cm(..., at_date)`` — a
+      positive finite number — or None when the resolver gives none: then the
+      item is decoration and casts no shadow, exactly as in 2D (``casts_shadow``).
     - ``params``: the rest (``PARAM_*`` keys).
 
     ``transform`` and ``material`` have a signature each. ``item_id``, ``name``
@@ -314,6 +314,10 @@ class Record:
     def __post_init__(self) -> None:
         if self.shape not in SHAPES:
             raise ValueError(f"unknown shape {self.shape!r}; expected one of {SHAPES}")
+        if self.height_cm is not None and not 0.0 < self.height_cm < math.inf:
+            raise ValueError(
+                f"height_cm is a positive finite number or None, got {self.height_cm!r}"
+            )
         object.__setattr__(self, "geometry_sig", hash((
             self.kind, self.shape, self.footprints, self.path, self.path_width_cm,
             self.height_cm, self.params,

@@ -278,6 +278,9 @@ def snapshot_records(
         stroke = getattr(item, "stroke_color", None)
         if stroke is None and shape == OUTLINE_POLYLINE:
             stroke = item.pen().color()  # the line's visible colour: a preset-less polyline
+        height = effective_height_cm(object_type, metadata, at_date=at_date)
+        if height is not None and not 0.0 < height < math.inf:
+            height = None  # e.g. a hand-edited "Infinity": not a height, so no solid
         pattern = getattr(item, "fill_pattern", None)
         parent = getattr(item, "parent_bed_id", None)
         records[item_id] = Record(
@@ -288,7 +291,7 @@ def snapshot_records(
             transform=frame.transform(),
             material=_material(kind, _rgba(getattr(item, "fill_color", None)), _rgba(stroke),
                                pattern.name if pattern is not None else None),
-            height_cm=effective_height_cm(object_type, metadata, at_date=at_date),
+            height_cm=height,
             path=path,
             path_width_cm=width,
             params=Params(params),

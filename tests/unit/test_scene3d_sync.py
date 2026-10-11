@@ -32,6 +32,7 @@ from open_garden_planner.core.scene3d import (
     Transform,
     default_builder,
     prism_mesh,
+    verify_builder,
 )
 from open_garden_planner.core.solar import SolarPosition
 
@@ -569,3 +570,37 @@ class TestSunGroundPassThrough:
         assert sync.set_ground(GroundSpec(2400.0, 1600.0)) is False
         assert sink_of(sync).ground == GroundSpec(2400.0, 1600.0)
         assert sink_of(sync).ops() == [("begin", None), ("set_ground", None), ("commit", None)]
+
+
+# ── the documented way to test a builder ──────────────────────────────────────
+
+
+def test_the_documented_builder_workflow() -> None:
+    """§8.26.1 "How to test a builder", as code. If this test has to change, the
+    section's example has to change with it."""
+    def build_house(rec: Record) -> tuple[MeshPart, ...]:
+        assert rec.height_cm is not None
+        walls = prism_mesh(rec.footprints, rec.height_cm * 0.6)
+        roof = prism_mesh(rec.footprints, rec.height_cm)  # a stand-in: its top is the ridge
+        return (MeshPart(walls, "vc", tinted=True, name="walls"),
+                MeshPart(roof, "roof", name="roof"))
+
+    house = record("h", kind="HOUSE", height_cm=450.0)
+    records = scene(record("a"), house)
+    house_id = "h"
+
+    parts = verify_builder(build_house, house)  # the contract, one call
+    assert [p.name for p in parts] == ["walls", "roof"]
+
+    registry = BuilderRegistry()
+    registry.register("HOUSE", build_house)
+    sink = RecordingSink()
+    sync = SceneSync(sink, registry, validate=True)
+    sync.apply(records)
+    assert sync.failures == {}
+    assert sink.item(house_id).parts[1].material_kind == "roof"
+    sink.clear_calls()
+    moved_records = scene(record("a"), dataclasses.replace(house, transform=Transform(5.0, 6.0, 90.0)))
+    sync.apply(moved_records)  # a move …
+    assert sink.ops() == [("begin", None), ("update_transform", house_id), ("commit", None)]
+    assert sync.build_count == len(records)  # … built nothing

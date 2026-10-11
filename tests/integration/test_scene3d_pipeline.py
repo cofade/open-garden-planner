@@ -18,6 +18,7 @@ session against Qt Quick 3D.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -27,14 +28,13 @@ from PyQt6.QtCore import QPointF
 from PyQt6.QtGui import QColor
 
 from open_garden_planner.core.commands import (
-    ChangePropertyCommand,
     CreateItemCommand,
     DeleteItemsCommand,
     MoveItemsCommand,
     ResizeItemCommand,
     RotateItemCommand,
 )
-from open_garden_planner.core.fill_patterns import create_pattern_brush
+from open_garden_planner.core.object_height import METADATA_KEY
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.scene3d import (
     BuilderRegistry,
@@ -45,17 +45,32 @@ from open_garden_planner.core.scene3d import (
     SceneSync,
     default_builder,
 )
+from open_garden_planner.core.stacking import ArrangeMode
 from open_garden_planner.core.tools import ToolType
+from open_garden_planner.ui.canvas.arrange import build_arrange_command
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.geometry_apply import (
     apply_rect_like_geometry,
     apply_rotation,
+    build_move_vertex_command,
     build_rect_resize,
 )
 from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 from open_garden_planner.ui.view3d.snapshot import snapshot_records
+
+# the real-item rig of the snapshot matrix: one stage, one set of app-command edits
+from tests.integration.test_scene3d_snapshot import (
+    FACTORIES,
+    RECT_BACKED,
+    ROUND,
+    VERTEX_BACKED,
+    Stage,
+)
+from tests.integration.test_scene3d_snapshot import _recolour as recolour_fill
+from tests.integration.test_scene3d_snapshot import _resize_command as resize_command
+from tests.integration.test_scene3d_snapshot import _restroke as restroke
 
 PLANS = Path(__file__).resolve().parents[1] / "fixtures" / "plans"
 JUNE = date(2026, 6, 21)
@@ -92,15 +107,6 @@ class Pipeline:
         assert self.sink.state() == fresh.sink.state()
         assert dict(self.sync.records) == records and list(self.sync.records) == list(records)
         assert self.sync.failures == {} and not self.sink.in_transaction
-
-
-def _recolour(item: Any, color: QColor) -> ChangePropertyCommand:
-    """The properties panel's fill-colour edit (``PropertiesPanel._on_color_changed``)."""
-    def apply(target: Any, value: QColor) -> None:
-        target.fill_color = value
-        target.setBrush(create_pattern_brush(target.fill_pattern, value))
-
-    return ChangePropertyCommand(item, "fill color", QColor(item.fill_color), color, apply)
 
 
 def test_scripted_edit_session_sends_minimal_calls(canvas: CanvasView, mouse_event) -> None:
@@ -167,7 +173,7 @@ def test_scripted_edit_session_sends_minimal_calls(canvas: CanvasView, mouse_eve
     assert pipeline.sink.item(bed_id).transform.rotation_deg == 30.0
 
     # ── recolour: ONE update_material, no builder call ───────────────────────
-    commands.execute(_recolour(bed, QColor(200, 30, 30)))
+    commands.execute(recolour_fill(bed, QColor(200, 30, 30)))
     result, calls, built = pipeline.tick()
     assert result == SceneDiff(material=(bed_id,))
     assert calls == [BEGIN, ("update_material", bed_id), COMMIT] and built == []
@@ -222,6 +228,216 @@ def test_scripted_edit_session_sends_minimal_calls(canvas: CanvasView, mouse_eve
     assert pipeline.sync.build_count == 9  # 4 adds + resize + re-add + undo + redo + undo — no move, turn or recolour
 
 
+# ── gate G2: the diff matrix, end to end through SceneSync + RecordingSink ────
+#
+# The same edits as `test_scene3d_snapshot.py::TestDiffMatrix`, over every footprint
+# shape they apply to. For each: the diff, the EXACT sink calls, the builder
+# invocations (a move builds nothing), and incremental == full rebuild.
+
+ALL = set(FACTORIES)
+
+
+def _move(s: Stage) -> None:
+    s.commands.execute(MoveItemsCommand([s.item], QPointF(137.25, -42.5)))
+
+
+def _rotate(s: Stage) -> None:
+    s.commands.execute(RotateItemCommand(s.item, 0.0, 213.5, apply_rotation))
+
+
+def _colour(s: Stage) -> None:
+    edit = restroke if s.shape == "polyline" else recolour_fill  # a line has no fill
+    s.commands.execute(edit(s.item, QColor(10, 200, 30)))
+
+
+def _height(s: Stage) -> None:
+    s.item.metadata[METADATA_KEY] = 321.5
+
+
+def _resize_centred(s: Stage) -> None:
+    s.commands.execute(resize_command(s.item, s.shape, keep_center=True))
+
+
+def _resize_corner(s: Stage) -> None:
+    s.commands.execute(resize_command(s.item, s.shape, keep_center=False))
+
+
+def _vertex(s: Stage, index: int, dx: float, dy: float) -> None:
+    old = QPointF(s.item._get_vertex_position(index))
+    s.commands.execute(build_move_vertex_command(
+        s.item, index, old, QPointF(old.x() + dx, old.y() + dy)))
+
+
+def _vertex_inside(s: Stage) -> None:
+    _vertex(s, 3 if s.shape == "polygon" else 1, 12.5, -7.25)
+
+
+def _vertex_extreme(s: Stage) -> None:
+    _vertex(s, 0, -60.0, -30.0)
+
+
+def _later_date(s: Stage) -> None:
+    s.at = date(2040, 1, 1)
+
+
+def _select(s: Stage) -> None:
+    s.item.setSelected(True)
+
+
+def _rename(s: Stage) -> None:
+    s.item.name = "Renamed"
+
+
+def _delete(s: Stage) -> None:
+    s.commands.execute(DeleteItemsCommand(s.scene, [s.item]))
+
+
+def _hide(s: Stage) -> None:
+    s.item.setVisible(False)
+
+
+def _send_to_back(s: Stage) -> None:
+    command, _outcome = build_arrange_command(s.scene, [s.item], ArrangeMode.SEND_TO_BACK)
+    assert command is not None
+    s.commands.execute(command)
+
+
+def _nothing(_item_id: str) -> SceneDiff:
+    return SceneDiff()
+
+
+def _transform(item_id: str) -> SceneDiff:
+    return SceneDiff(transform=(item_id,))
+
+
+def _material(item_id: str) -> SceneDiff:
+    return SceneDiff(material=(item_id,))
+
+
+def _geometry(item_id: str) -> SceneDiff:
+    return SceneDiff(geometry=(item_id,))
+
+
+def _geometry_and_transform(item_id: str) -> SceneDiff:
+    return SceneDiff(geometry=(item_id,), transform=(item_id,))
+
+
+def _removed(item_id: str) -> SceneDiff:
+    return SceneDiff(removed=(item_id,))
+
+
+def _reordered(_item_id: str) -> SceneDiff:
+    return SceneDiff(reordered=True)
+
+
+Edit = tuple[str, set[str], Callable[[Stage], None], Callable[[str], SceneDiff]]
+EDITS: list[Edit] = [
+    ("move", ALL, _move, _transform),
+    ("rotate", ALL - ROUND, _rotate, _transform),
+    ("rotate a circle about its centre", ROUND, _rotate, _nothing),
+    ("recolour", ALL, _colour, _material),
+    ("height", ALL, _height, _geometry),
+    ("centred resize", {"circle", "ellipse", "rectangle"}, _resize_centred, _geometry),
+    ("resize the drawn circle of a measured plant", {"plant"}, _resize_centred, _nothing),
+    ("one-sided resize", RECT_BACKED, _resize_corner, _geometry_and_transform),
+    ("vertex inside the bounding box", VERTEX_BACKED, _vertex_inside, _geometry),
+    ("vertex growing the bounding box", VERTEX_BACKED, _vertex_extreme, _geometry_and_transform),
+    ("a later date", {"plant"}, _later_date, _geometry),
+    ("a later date", ALL - {"plant"}, _later_date, _nothing),
+    ("select", ALL, _select, _nothing),
+    ("rename", ALL, _rename, _nothing),
+    ("delete", ALL, _delete, _removed),
+    ("hide", ALL, _hide, _removed),
+    ("send to back", ALL, _send_to_back, _reordered),
+]
+CASES = [(name, shape, do, expect)
+         for name, shapes, do, expect in EDITS for shape in sorted(shapes)]
+
+
+def minimal_calls(change: SceneDiff) -> list[tuple[str, str | None]]:
+    """The sink calls a diff may cause — nothing else, and nothing at all when the
+    engine has nothing to do."""
+    if not change.touches_sink:
+        return []
+    return [BEGIN,
+            *[("remove", i) for i in change.removed],
+            *[("add", i) for i in change.added],
+            *[("replace_geometry", i) for i in change.geometry],
+            *[("update_transform", i) for i in change.transform],
+            *[("update_material", i) for i in change.material],
+            COMMIT]
+
+
+class Rig:
+    """A ``Stage`` (real view, scene, undo stack, one item of a shape) wired to a
+    counting builder, a ``SceneSync`` and a ``RecordingSink``."""
+
+    def __init__(self, canvas: CanvasView, shape: str) -> None:
+        self.stage = Stage(canvas, shape)
+        self.built: list[str] = []
+        self.sink = RecordingSink()
+        self.sync = SceneSync(self.sink, BuilderRegistry(default=self._build), validate=True)
+        self.tick()
+        assert sorted(self.built) == sorted([self.stage.id, str(self.stage.bystander.item_id)])
+
+    def _build(self, record: Record) -> tuple[MeshPart, ...]:
+        self.built.append(record.item_id)
+        return default_builder(record)
+
+    def tick(self) -> tuple[SceneDiff, list[tuple[str, str | None]], list[str]]:
+        self.sink.clear_calls()
+        self.built.clear()
+        records = self.stage.snapshot()
+        result = self.sync.apply(records)
+        fresh = RecordingSink()
+        SceneSync(fresh, validate=True).apply(records)
+        assert self.sink.state() == fresh.state()  # incremental == full rebuild
+        assert self.sync.failures == {}
+        return result, self.sink.ops(), list(self.built)
+
+
+@pytest.mark.parametrize(("name", "shape", "do", "expect"), CASES,
+                         ids=[f"{name}-{shape}" for name, shape, _do, _expect in CASES])
+def test_sink_receives_exactly_the_minimal_calls(
+    canvas: CanvasView, name: str, shape: str,
+    do: Callable[[Stage], None], expect: Callable[[str], SceneDiff],
+) -> None:
+    rig = Rig(canvas, shape)
+    do(rig.stage)
+    result, calls, built = rig.tick()
+    expected = expect(rig.stage.id)
+    assert result == expected, name
+    assert calls == minimal_calls(expected)
+    assert built == list(expected.geometry)  # a move, a turn, a recolour build nothing
+    assert rig.tick() == (SceneDiff(), [], [])  # and the next tick is silent
+
+
+@pytest.mark.parametrize("shape", sorted(ALL))
+def test_undo_of_a_delete_is_one_add_and_one_build(canvas: CanvasView, shape: str) -> None:
+    rig = Rig(canvas, shape)
+    _delete(rig.stage)
+    rig.tick()
+    rig.stage.commands.undo()
+    result, calls, built = rig.tick()
+    assert result == SceneDiff(added=(rig.stage.id,))
+    assert calls == [BEGIN, ("add", rig.stage.id), COMMIT] and built == [rig.stage.id]
+
+
+def test_the_matrix_names_every_edit_of_the_gate() -> None:
+    """Every shape meets every kind of edit the gate lists — nothing silently left out."""
+    by_shape: dict[str, set[str]] = {shape: set() for shape in ALL}
+    for name, shapes, _do, _expect in EDITS:
+        for shape in shapes:
+            by_shape[shape].add(name)
+    everywhere = {"move", "recolour", "height", "a later date", "select", "rename", "delete",
+                  "hide", "send to back"}
+    for shape, names in by_shape.items():
+        assert everywhere <= names, shape
+        assert {"rotate", "rotate a circle about its centre"} & names, shape
+        assert any("resize" in n or "vertex" in n for n in names), shape
+    assert len(CASES) == 70
+
+
 def test_two_edits_between_ticks_arrive_in_one_transaction(canvas: CanvasView) -> None:
     """The pipeline is driven by a debounced tick (L1.3), not by every command:
     whatever happened in between is one diff and one begin/commit."""
@@ -233,7 +449,7 @@ def test_two_edits_between_ticks_arrive_in_one_transaction(canvas: CanvasView) -
     pipeline = Pipeline(scene)
     pipeline.tick()
     canvas.command_manager.execute(MoveItemsCommand([shed, lawn], QPointF(10.0, 20.0)))
-    canvas.command_manager.execute(_recolour(lawn, QColor(1, 2, 3)))
+    canvas.command_manager.execute(recolour_fill(lawn, QColor(1, 2, 3)))
     canvas.command_manager.execute(DeleteItemsCommand(scene, [shed]))
     wall = PolylineItem([QPointF(0.0, 0.0), QPointF(300.0, 0.0)], object_type=ObjectType.WALL)
     canvas.command_manager.execute(CreateItemCommand(scene, wall, "wall"))

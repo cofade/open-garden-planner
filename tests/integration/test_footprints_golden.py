@@ -235,13 +235,6 @@ def cases(qapp) -> dict[str, Any]:  # noqa: ARG001 — Qt must exist before item
     return compute_cases()
 
 
-def test_golden_fixture_is_regenerated_only_on_purpose(cases) -> None:
-    if os.environ.get(WRITE_ENV) != "1":
-        pytest.skip(f"set {WRITE_ENV}=1 to rewrite the golden fixture")
-    _write_golden(cases)
-    pytest.fail(f"golden fixture rewritten at {GOLDEN} — review its diff and commit it deliberately")
-
-
 def test_case_matrix_is_complete(cases, qtbot) -> None:
     """Every shape x rotation x position, plus the dated plants — nothing silently dropped."""
     shapes = len(SHAPES) * len(ROTATIONS) * len(POSITIONS)
@@ -258,6 +251,9 @@ def test_case_matrix_is_complete(cases, qtbot) -> None:
 
 
 def test_footprints_match_the_golden(cases, qtbot) -> None:
+    if os.environ.get(WRITE_ENV) == "1":  # regenerating is deliberate, and never a pass
+        _write_golden(cases)
+        pytest.fail(f"golden fixture rewritten at {GOLDEN} — review its diff and commit it deliberately")
     golden = json.loads(GOLDEN.read_text(encoding="utf-8"))
     assert set(cases["footprints"]) == set(golden["footprints"])
     assert set(cases["canopy_radius_cm"]) == set(golden["canopy_radius_cm"])
