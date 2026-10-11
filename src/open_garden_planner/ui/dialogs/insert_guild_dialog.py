@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core.guild_commands import (
     InsertGuildCommand,
+    guild_plant_bounds,
     guild_plant_layers_editable,
     prepare_guild,
 )
@@ -192,7 +193,7 @@ class InsertGuildDialog(QDialog):
         try:
             command = self.prepare()
             for item in command.items:
-                marker = QGraphicsEllipseItem(item.mapRectToScene(item.rect()))
+                marker = QGraphicsEllipseItem(item.mapRectToScene(guild_plant_bounds(item)))
                 marker.setPen(QPen(QColor("#559f62"), 2))
                 marker.setZValue(1001)
                 self.scene.addItem(marker)

@@ -8,6 +8,7 @@ from PyQt6.QtCore import QObject, Qt, QTimer
 from PyQt6.QtGui import QColor, QPen
 from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsItem, QGraphicsSimpleTextItem
 
+from open_garden_planner.core.guild_commands import guild_plant_bounds
 from open_garden_planner.core.object_types import is_plant_type
 from open_garden_planner.core.project import ProjectManager
 from open_garden_planner.services.diagnostics import diagnostics_from_records
@@ -76,7 +77,7 @@ class GuildCoordinator(QObject):
                     continue
                 # Saved/imported plants can use another GardenItem geometry.
                 # ObjectType identifies a plant; it does not promise a circle.
-                geometry = item.rect() if hasattr(item, "rect") else item.boundingRect()
+                geometry = guild_plant_bounds(item)
                 position = geometry.center()
                 radius = getattr(item, "radius", min(geometry.width(), geometry.height()) / 2)
                 signature = (missing, status.name if status is not None else "", radius,

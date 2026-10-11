@@ -4,7 +4,7 @@ from copy import deepcopy
 from typing import Any
 from uuid import uuid4
 
-from PyQt6.QtCore import QCoreApplication, QPointF
+from PyQt6.QtCore import QCoreApplication, QPointF, QRectF
 
 from open_garden_planner.core.commands import Command, CreateItemsCommand
 from open_garden_planner.core.object_types import is_plant_type
@@ -79,7 +79,7 @@ def prepare_guild(scene: Any, template: GuildTemplate, catalog: dict[str, dict[s
             raise GuildValidationError("occupied")
         centre = existing_centre
         species = centre.metadata.get("plant_species") or {}
-        position = centre.mapToScene(centre.rect().center())
+        position = centre.mapToScene(guild_plant_bounds(centre).center())
     else:
         if centre_key not in catalog:
             raise GuildValidationError("unresolved_centre")
@@ -111,10 +111,25 @@ def prepare_guild(scene: Any, template: GuildTemplate, catalog: dict[str, dict[s
     for plant, _ in changes:
         if not guild_plant_layers_editable(scene, plant):
             raise GuildValidationError("layer")
-        footprint = plant.mapRectToScene(plant.rect())
+        footprint = plant.mapRectToScene(guild_plant_bounds(plant))
         if not scene.canvas_rect.contains(footprint):
             raise GuildValidationError("bounds")
     return InsertGuildCommand(scene, items, changes)
+
+
+def guild_plant_bounds(plant: Any) -> QRectF:
+    """Local footprint bounds, excluding cosmetic badges and painted shadows.
+
+    Plant ObjectType is independent of serialized graphics-item geometry.
+    Prefer the base shape over boundingRect(), which can include decoration.
+    """
+    if hasattr(plant, "rect"):
+        return QRectF(plant.rect())
+    if hasattr(plant, "polygon"):
+        return QRectF(plant.polygon().boundingRect())
+    if hasattr(plant, "path"):
+        return QRectF(plant.path().boundingRect())
+    return QRectF(plant.boundingRect())
 
 
 def guild_members(scene: Any, guild_id: str) -> list[Any]:

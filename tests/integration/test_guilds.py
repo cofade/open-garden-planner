@@ -407,3 +407,43 @@ def test_coordinator_accepts_non_circular_imported_plant(guild_canvas):
     assert plant._guild_badge.isVisible()
     assert coordinator.statuses[0].missing["nitrogen_fixer"] == 1
     assert before == (plant.rect(), plant.pos(), plant.transformOriginPoint(), ProjectManager._serialize_item(plant))
+
+
+@pytest.mark.parametrize("angle", [0, 45, 215])
+def test_loaded_polygon_centre_inserts_through_picker(guild_canvas, qtbot, tmp_path, angle):
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+
+    scene, view, coordinator, library = guild_canvas
+    plant = PolygonItem([QPointF(0, 0), QPointF(40, 0), QPointF(40, 60), QPointF(0, 60)],
+                        object_type=ObjectType.TREE,
+                        metadata={"plant_species": offline_catalog()["malus domestica"]},
+                        layer_id=scene.active_layer.id)
+    plant.setPos(1500, 1500)
+    plant.rotation_angle = angle
+    scene.addItem(plant)
+    identity = plant.item_id
+    manager = ProjectManager()
+    path = tmp_path / "polygon-plant.ogp"
+    manager.save(scene, path)
+    manager.load(scene, path)
+    plant = scene.find_item_by_id(identity)
+    assert isinstance(plant, PolygonItem)
+    before = ProjectManager._serialize_item(plant)
+    picker = InsertGuildDialog(scene, library=library)
+    qtbot.addWidget(picker)
+    index = picker.existing_combo.findData(str(identity))
+    assert index > 0
+    picker.existing_combo.setCurrentIndex(index)
+    picker.insert()
+    assert picker.command is not None, picker.error_label.text()
+    view.command_manager.execute(picker.command)
+    assert len(picker.command.items) == 3
+    centre_position = plant.mapToScene(plant.polygon().boundingRect().center())
+    first_position = picker.command.items[0].mapToScene(picker.command.items[0].rect().center())
+    assert first_position.x() == pytest.approx(centre_position.x() + 300)
+    assert first_position.y() == pytest.approx(centre_position.y())
+    coordinator.refresh()
+    assert not coordinator.statuses[0].missing
+    view.command_manager.undo()
+    assert ProjectManager._serialize_item(plant) == before
