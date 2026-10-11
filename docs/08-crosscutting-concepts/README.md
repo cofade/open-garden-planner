@@ -558,6 +558,34 @@ exit codes, read-only checks, version-sync dry runs and repeated application, an
 third-party lock records. Remote GitHub responses are supplied as fixtures; deliberately
 failing merge tests belong on a temporary validation base, never master.
 
+### 8.10.3 Patterns from the 3D scene pipeline (Phase 17 L1.1)
+
+Four patterns `tests/integration/test_footprints_golden.py`, `test_scene3d_snapshot.py` and
+`test_scene3d_pipeline.py` established; reuse them where they fit.
+
+- **A golden fixture before a move.** When code that many callers depend on is moved or
+  re-layered, generate a fixture from the UNCHANGED code first, commit it with a test that passes
+  on that code, then move — the fixture's bytes must not change. Store floats as their exact
+  `repr` and compare as strings on the platform that generated them; elsewhere require the same
+  structure and 1e-9 (the last bit of `math.cos` and of Qt's rotation belongs to the platform's C
+  library). Regenerating must be deliberate: an environment variable rewrites the fixture and the
+  run **fails**, so it cannot be mistaken for a pass. Pin decoration-dependent inputs explicitly
+  (stroke widths, rotation pivots) so a style tweak is not reported as a regression.
+- **Incremental == full rebuild.** Anything that applies diffs to keep a second representation in
+  step is tested against the trivial implementation: after every step of an edit sequence, the
+  incrementally updated state equals the state built from scratch. It needs no oracle and finds
+  the bugs a hand-written expected value misses.
+- **Fixtures parametrised by applicability, not skips.** A matrix whose cells do not all exist
+  (a vertex edit on a circle) gets one fixture per applicable subset (`_stage_fixture`), so the
+  report lists exactly the cells that ran. `skipped` stays reserved for the environment.
+- **A hover that arrives.** `QGraphicsSceneHoverEvent` cannot be constructed in PyQt6. Drive a
+  real one through the view: show it, `centerOn` the *item*, then `QTest.mouseMove` to a point
+  30 px away and again onto the target — measured to highlight a selection handle on all five
+  shape classes. One move straight onto the target after `centerOn(target)` highlighted the
+  handle of a circle but not of an ellipse, rectangle, polygon or polyline (cause not
+  identified), and a hover test that does not check would have passed vacuously there. Assert an
+  effect of the hover (the handle's highlight brush) before asserting that it changed nothing else.
+
 ## 8.11 Security Scanning (SAST)
 
 **Tool:** [Bandit](https://bandit.readthedocs.io/) — a Python SAST tool that detects common security anti-patterns (subprocess injection, unsafe deserialization, weak cryptography, hardcoded secrets, etc.).
@@ -1877,11 +1905,15 @@ while running aborts the interpreter (#230 class).
 **The 3D frame (US-E6)** adds ONE more mapping, applied exactly once at
 the engine-adapter boundary: scene `(E, N, up)` → Qt3D Y-up
 `(E, up, −N)` (`core/scene3d.to_engine_frame`; determinant +1, winding
-preserved). All mesh math stays in the scene frame in Qt-free
-`core/scene3d.py`; only `ui/view3d/qt3d_adapter.py` may import
+preserved). All mesh math stays in the scene frame in the Qt-free
+`core/scene3d/` package (the Qt 3D view's part is `legacy.py` since Phase 17
+L1.1); only `ui/view3d/qt3d_adapter.py` may import
 `PyQt6.Qt3D*` (ADR-038's engine-swap insurance). The sun vector's ground
 projection is pinned exactly opposite the 2D shadow direction — if the
 3D light and the 2D overlay ever disagree, a unit test fails first.
+Contract v2 (§8.26.1) keeps the same single mapping as numpy
+(`core/scene3d/frame.py`; a drift-guard test holds the two equal) and adds
+the item-local frame beneath it.
 
 **One simulation clock (Phase 17 L1.0, ADR-053).** Every sun- or growth-dependent view reads ONE moment, `GardenPlannerApp._sim_clock` (`core/sim_clock.SimClock`, Qt-free). Two time frames, never mixed:
 
@@ -2416,3 +2448,162 @@ A per-layer band can, in principle, grow past `z_order * 100 + 100` only if
 concern at the layer counts this app supports, and unchanged by #338 (the
 formula was already `layer.z_order * 100` before per-object stacking; #338
 only subdivides the same band, it does not widen it).
+
+## 8.26 3D scene pipeline (Phase 17 L1, #385, ADR-054)
+
+How the plan reaches a 3D engine. Each L1 story adds its own `### 8.26.N` subsection at the end;
+this section is the map. The decisions and their rejected alternatives are ADR-054; the engine
+facts are the `ogp-3d-renderer` skill; the look is `ogp-lush-cinematic`.
+
+### 8.26.1 Scene contract v2 — records, diff, builders, sink (L1.1)
+
+**The pipeline.** Five steps, all Qt-free except the first:
+
+```
+live canvas items ──snapshot_records()──▶ {item_id: Record}        ui/view3d/snapshot.py (GUI thread)
+                                               │ diff() against the last snapshot       core/scene3d/diff.py
+                                               ▼
+                          SceneSync.apply ──▶ builders, for added + geometry only       build.py, sync.py
+                                               │ MeshPart (item-local frame)             mesh.py
+                                               ▼
+                                           EngineSink                                    sink.py
+                               Qt Quick 3D (L1.2) · RecordingSink (tests)
+```
+
+Nothing under `core/scene3d/` imports Qt (an AST scan in `tests/unit/test_scene3d_contract.py`
+pins it, and pins the two `core` siblings the package uses). The engine is imported by one package
+only, `ui/view3d/quick3d/` (L1.2).
+
+**Three frames, each conversion defined once** (`core/scene3d/frame.py`):
+
+| Frame | Axes | Who lives there |
+|---|---|---|
+| Item-local | cm about the item's anchor; +z up from the item's own ground | records, meshes |
+| Scene | x = East, y = North, z = up (ADR-002 + height) | the plan, `item_footprints`, solar vectors |
+| Engine | x = East, y = up, z = −North | Qt Quick 3D |
+
+- Local → scene is the record's transform: `scene_xy = (east_cm, north_cm) + R(rotation_deg)·local_xy`,
+  `scene_z = base_cm + local_z`; `R` turns counter-clockwise seen from above with north up — the
+  sense of Qt's `setRotation` on the Y-up canvas (`pose_point`, `pose_ring`, `pose_points`).
+- Scene → engine is `SCENE_TO_ENGINE` (`scene_to_engine_points` / `_vectors` and their inverses):
+  determinant +1, so winding survives and nothing is mirrored. Apply it **once**, in the engine
+  adapter — a second application mirrors the garden (§8.20's rule, in 3D).
+- `engine_pose(transform)` says how a transform reads in the engine frame: position
+  `(east_cm, base_cm, −north_cm)` and a turn of `+rotation_deg` about the engine's +Y. A test proves
+  it equals posing in the scene and mapping the result; the adapter does not re-derive it.
+
+**The record** (`core/scene3d/record.py`) — one plan item as plain immutable data:
+
+| Field | Meaning | Signature |
+|---|---|---|
+| `kind` | ObjectType name; picks the builder | geometry |
+| `shape` | `circle` / `ellipse` / `rectangle` / `polygon` / `polyline` | geometry |
+| `footprints` | ground polygon(s), item-local cm; several rings only for a polyline's stroke | geometry |
+| `path`, `path_width_cm` | a polyline's centre line and stroke width (fences and walls are built from these) | geometry |
+| `height_cm` | `effective_height_cm(..., at_date)`; `None` = decoration, casts no shadow | geometry |
+| `params` | sorted immutable mapping — see below | geometry |
+| `transform` | `Transform(east_cm, north_cm, rotation_deg, base_cm)` | transform |
+| `material` | `Material(key, fill_rgba, stroke_rgba, pattern)` — the item's own sRGB data | material |
+| `item_id`, `name`, `parent_id` | identity, display name, the plant's bed | none |
+
+`params` keys written by the snapshot: `seed` (the item id — the one seed source), `radius_cm`
+(circles: the footprint radius, a plant's canopy at the sim date), `ridge` (a HOUSE's two ridge
+ends in the HOUSE's local frame, from the live ridge item), `species_key` (ADR-016) and
+`species_name`, `plant_category`, `path_style` (a polyline's `PathFenceStyle`, when set),
+`container_material`. Selection and hover are not in the record at all. `base_cm` is 0.0 until
+L1.6 stands plants on their bed.
+
+Where the local frame hangs: the circle's centre; `rect().center()` of an ellipse or rectangle;
+the centre of the vertex bounding box of a polygon or polyline (`ui/canvas/footprints.item_outline`).
+Two consequences worth knowing before reading a diff: a resize that keeps a corner fixed moves the
+centre, so it is geometry *and* transform; and a **measured** plant's footprint is its canopy, not
+the circle the user drew, so resizing that circle changes nothing.
+
+**The record grid.** Lengths are snapped to 1e-7 cm, angles to 1e-9° (`quantize_cm`,
+`quantize_deg`), so the same geometry reached along two float paths is one record. This is
+load-bearing, not hygiene: without it a HOUSE with a ridge was rebuilt on 689 of 1,000 moves
+(ADR-054 decision 5).
+
+**Signatures and the diff.** `geometry_sig`, `transform_sig` and `material_sig` are hashes of the
+three field groups; `Record.same_geometry` / `same_transform` / `same_material` compare the
+signature first and then the values, because Python hashes collide on real edits
+(`hash(-1.0) == hash(-2.0)`). Use those methods — or `diff` — never `a.geometry_sig == b.geometry_sig`
+on its own. A signature compares two snapshots of the *same item*; it is not a content address
+across items (the seed is the item id).
+
+`diff(old, new)` returns `SceneDiff(added, removed, transform, material, geometry, reordered)`:
+
+| Edit | Diff |
+|---|---|
+| move, rotate | `transform` |
+| recolour (fill; a polyline's stroke) | `material` |
+| height, centred resize, vertex edit inside the bounding box, a plant growing with the date, a ridge edit (on its HOUSE) | `geometry` |
+| one-sided resize, vertex edit that grows the bounding box | `geometry` + `transform` |
+| select, deselect, hover, rename, re-parent, a rotation of a circle about its centre | empty |
+| create / delete, hide / show | `added` / `removed` |
+| arrange (bring to front …) | `reordered` only — never geometry, no engine call |
+
+The three lists are independent: an item appears under each aspect that changed and no other.
+
+**The sink protocol** (`core/scene3d/sink.py`): `begin`, `commit`, `add(item_id, parts, transform,
+material)`, `remove`, `update_transform`, `update_material`, `replace_geometry(item_id, parts)`,
+`set_sun(SunState)`, `set_ground(GroundSpec)`. Every call sits inside `begin`/`commit`; `add` takes
+an id the sink does not hold, every other item call one it does; `parts` may be empty (an item
+without a solid still has a pose and a material). A part with `tinted=True` is multiplied with
+`material.tint_linear()` by the sink.
+
+**`SceneSync`** (`core/scene3d/sync.py`) owns the last applied snapshot and a sink. `apply(records)`
+diffs, runs builders for `added` + `geometry` only — all of them *before* the sink is touched —
+and sends one transaction, or nothing. `set_sun` / `set_ground` send a value once per change.
+`reset()` forgets everything after the engine scene was torn down. A builder that raises is
+contained (no parts for that item, listed in `failures`, logged); a sink that raises poisons the
+sync until `reset()`.
+
+**How to write a builder.** A builder is `Callable[[Record], tuple[MeshPart, ...]]` — a pure
+function of the record's *geometry part*.
+
+1. Build in the item-local frame: the anchor is the origin, z = 0 is the item's own ground, the
+   top is `record.height_cm`. Never add the item's scene position; never read `record.transform`,
+   `record.material`, `item_id`, `name` or `parent_id` (the seed is `record.params["seed"]`, via
+   `build.item_seed`).
+2. Return `Mesh.from_arrays(positions, normals, colors, uvs, indices)` wrapped in
+   `MeshPart(mesh, material_kind, casts_shadow, tinted, name)`. Colours are **linear** RGBA
+   (`color.srgb_to_linear`). Where a part takes the item's own colour, leave it neutral and set
+   `tinted=True` — then a recolour never calls the builder. An item without a resolved height is
+   decoration: `casts_shadow=False`.
+3. Register it: `registry.register("HOUSE", build_house)` on the `BuilderRegistry` instance the
+   wiring hands to your package. Kinds without a builder get `default_builder` (a prism up to the
+   height, nothing without one).
+
+**How to test a builder** — no GPU, no Qt:
+
+```python
+from open_garden_planner.core.scene3d import (
+    BuilderRegistry, RecordingSink, SceneSync, verify_builder,
+)
+
+parts = verify_builder(build_house, record)          # the contract, one call
+# tuple of MeshPart · deterministic · ignores transform, material, id, name, parent ·
+# every mesh validates · mesh top == record.height_cm (±1 %; pass height_tolerance=0.03 for plants)
+
+registry = BuilderRegistry()
+registry.register("HOUSE", build_house)
+sync = SceneSync(RecordingSink(), registry, validate=True)
+sync.apply(records)                                   # e.g. snapshot_records(bench plan)
+assert sync.failures == {}
+assert sync.sink.item(house_id).parts[1].material_kind == "roof"
+sync.apply(moved_records)                             # a move …
+assert sync.sink.ops() == [("begin", None), ("update_transform", house_id), ("commit", None)]
+```
+
+Run `verify_builder` over every record of both bench plans your builder handles
+(`tests/integration/test_scene3d_snapshot.py::TestDefaultBuilderOnRealItems` is the template), and
+assert the invariant that makes diffs safe after each step of an edit sequence: the sink's
+`state()` equals the state of a fresh `SceneSync` given the same snapshot
+(`tests/integration/test_scene3d_pipeline.py::Pipeline`).
+
+**Porting from the spike** (`spike_q3d/meshes.py`): `MeshData` → `Mesh`, `uv` → `uvs`, flat
+`indices` → `(m, 3)` (`Mesh.from_arrays` takes either), `MeshData.concat` → `Mesh.merge`,
+`translated(mesh, …)` → `mesh.translated(…)` *within the local frame*, `normal_vs_winding`,
+`srgb_to_linear` and `item_seed` keep their names. Drift-guard tests keep the ported helpers equal
+to the spike's until L1.10 deletes it.

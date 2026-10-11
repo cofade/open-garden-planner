@@ -21,7 +21,7 @@ OGP is a planning tool. A beautiful render that misstates the plan is a **P0**, 
 | Gate | Rule | How it is measured |
 |---|---|---|
 | Height | mesh top = resolved height (`effective_height_cm(at_date)`) ±3 % | bounding box; `fit_to` enforces it for every plant archetype |
-| Spread | widest crown span = 2D canopy diameter ±10 % | bounding box vs `_plant_canopy_radius_cm` |
+| Spread | widest crown span = 2D canopy diameter ±10 % | bounding box vs `plant_canopy_radius_cm` (`ui/canvas/footprints.py`; a record's `params["radius_cm"]`) |
 | Base | plants in raised beds / containers stand on the soil, not inside the box | base = parent's effective height (− 2 cm soil drop) |
 | Sun | light direction comes only from `core/solar` (never a "nice-looking" angle) | light = −sun vector (ADR-037 pin) |
 | Shadows | engine shadow footprint of a box caster vs the analytic 2D shadow | IoU ≥ 0.85 at 15°/35°/60° (spike at 960×540: 0.98/0.98/0.96 on OpenGL **and** on Direct3D 11; 0.96/0.95/0.92 at 1280×720; orthographic, no cascades — table in `ogp-3d-renderer` §4) |

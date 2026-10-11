@@ -82,7 +82,7 @@ The living register (ADR-047). Every row has a status; P0/P1 rows link their iss
 | TD-033 | Tests (test) | Small Qt-free modules score 80-88 %; the surviving gaps are the canvas edge, stacking expand/arrange and shape-type branches | P2 / S | open | epic checklist | audit-2026-10 AUD-025 |
 | TD-034 | Performance (performance) | NFR-PERF-01 missed in a real window: fit-in-view repaint of the 500-object reference plan takes 54 ms (≤ 18 fps), a zoom step 40 ms; 100 % zoom and pan stay inside the budget | P1 / M | fixed (#409) | #409 | audit-2026-10 AUD-056 (Windows check §8.1) |
 | TD-035 | Bundle size | Master's release ships ~21 MB of Qt Quick 3D runtime it never loads (Quick3D + ShaderTools DLLs and QML modules, pulled in by the PyInstaller QtQml hook; measured in the ADR-048 evidence run). Phase 17 puts it to use; on a NO-GO, exclude it in `installer/ogp.spec`. | P3 / S | accepted (ADR-048) | #384 | ADR-048 L0 evidence (Windows v6 footprint) |
-| TD-036 | 3D geometry source | The Qt Quick 3D spike builds its world from private canvas helpers (`_item_footprints`, `_plant_canopy_radius_cm` in `ui/canvas/sun_shadow_controller.py`). The Qt-free core of Phase 17 L1.1 must promote them to a public, tested module before building on them (senior review, ADR-048). | P2 / M | open | #385 | ADR-048 L0 senior review |
+| TD-036 | 3D geometry source | The Qt Quick 3D spike builds its world from private canvas helpers (`_item_footprints`, `_plant_canopy_radius_cm` in `ui/canvas/sun_shadow_controller.py`). The Qt-free core of Phase 17 L1.1 must promote them to a public, tested module before building on them (senior review, ADR-048). **Fixed in L1.1:** `ui/canvas/footprints.py` is their public home (`item_outline`, `item_footprints`, `plant_canopy_radius_cm`), pinned by a golden fixture generated before the move; the spike, the shadow overlay and the 3D snapshot import the public names. Two underscore aliases stay in `sun_shadow_controller.py` for two frozen test suites until L1.10. | P2 / M | fixed (L1.1, ADR-054) | #385 | ADR-048 L0 senior review |
 | TD-037 | Task calendar | Every GUI task surface (the planting calendar's Gantt and dashboard, the Tasks tab) takes its frost-relative windows from the current year's frost only, and the Gantt clips them to that year, while the agent's `get_tasks` / `get_task_calendar` (`generate_for_date_window`) also list windows anchored on other years' frosts. So the GUI does not show a task whose window is anchored on another year's frost: with a 9 April frost, garlic's autumn sowing (9–23 October 2026) appears on no GUI surface. A sweep of the 6 frost dates `scripts/measure_task_window_sweep.py` uses finds each of the bundled (species, task type) windows missed at some frost date; the `--wide` mode covers all 118 species on every day of 2026. Examples, sweeps and the code sites to change are in #414. | P1 / M | fixed (#414) | #414 | ADR-048 L0 senior review (PR #413) |
 
 ## 11.4 Known Development Pitfalls
@@ -996,6 +996,53 @@ before saying a fix changed it.*
   - **Two more defects behind the same seam.** (1) The heatmap's stale rule looked only at a *visible* map, so a date change while the worker computed let the old day's map paint under the new date — although `SunHeatmapController.clear()` had been written for exactly that case. Its only caller never reached it. The first fix keyed on `is_running`, which is `QThread.isRunning()`. That is False as soon as `run()` returns, while `success` and `finished` still wait in the GUI queue, so a date change in that window still let the map paint (senior review P1). The rule now keys on `result_pending`, which is cleared only when the GUI thread has handled the worker's `finished`. Pinned by `test_sim_clock_wiring.py::TestHeatmapMidComputeDateChange`: the running case, plus `worker.wait()` followed by a date change, driven through the button. (2) The toolbar's `QDateEdit` allowed its defaults, 1752–9999, while `naive.astimezone()` on Windows raises `OSError` near the 1970 epoch and after 3000. Measured on Windows 11 with CPython 3.12 in Europe/Berlin: 1960, 1970-01-01 12:00 and 1970-01-02 00:00 fail, 1970-01-02 01:00 works; 2999-12-31 and 3001-01-02 work, 3001-06-01 fails (CPython probes about a day either side). Picking such a date raised inside a Qt slot. The clock now refuses dates outside 1971–2999, and the picker uses the same range. *A cleanup method that no caller reaches in the case it documents is a gap, not a guard; and a widget's default range is an input range, so check it against what the code below it can convert.*
   - **A two-way view must write back only what changed** (senior review round 2, P1). Round 1 made the toolbar a view of the clock: the app mirrors every clock change into it with `set_datetime_local`. That called `QDateEdit.setDate()` with the *unchanged* date on every Animate tick (every 200 ms). `setDate` makes the widget redraw its text whenever the text differs from the stored value, and a half-typed date always differs, so typing a date while animating was impossible. Measured with QTest keystrokes: the field read `'2026-06-'`, one tick turned it back into `'2026-06-21'`, and the typed `28` was lost. On master the tick only moved the slider. Fix: the setter writes a field only when it differs. Pinned by `test_sim_clock_wiring.py::TestTypingUnderAnimate`, which fails with the unconditional `setDate`. The same round found `run_for_day` still guarded on `is_running`: a second launch in the queued window let the first worker's `finished` `deleteLater` the running second one, a Qt fatal abort that the busy button keeps unreachable today. It now refuses while `result_pending` (`TestHeatmapLaunchGuard`). *Mirroring a model into an editable widget is a write into the user's hands: compare before you set.*
   - **Two traps in writing the clock itself.** `datetime.time` equality ignores `fold`, so the two occurrences of 02:30 on a fall-back night compare equal. A change-detecting setter would swallow the switch between them, so `SimInstant` equality includes `fold`. And the first range check ran on the instant's UTC date, which refused a valid local 1971-01-01 00:00 at +09:00 (UTC 1970-12-31). The edge test found it before any caller did: the platform guard now allows a day of margin, and the range itself is enforced on the local date.
+
+### 11.4.8 Four things measured while building the 3D scene contract (Phase 17 L1.1, #385)
+
+None of these was reported by a user: each was found by measuring a claim before building on it
+(ADR-054). Each would have shipped a diff that silently lies to the engine.
+
+- **A hash is not an equality — `hash(-1.0) == hash(-2.0)` in CPython.** The first design compared
+  two snapshots by three hash signatures alone ("cheap: a hash of already-normalised tuples"). A
+  probe before writing it: `hash((-1.0, 3.0)) == hash((-2.0, 3.0))` is `True`. So a vertex moved from −1 cm to −2 cm
+  (item-local coordinates are centred, hence often negative and often whole numbers) would have
+  produced an empty diff, and the 3D view would have kept the old shape with nothing failing.
+  Fix: `Record.same_geometry` / `same_transform` / `same_material` compare the signature first and
+  the values second; `diff` uses only those. Pinned by
+  `tests/unit/test_scene3d_contract.py::TestRecord::test_a_signature_is_only_an_accelerator`,
+  which asserts the collision itself and then the detected edit. *A hash can prove two things
+  different, never the same; when "same" means "skip the work", confirm it.*
+- **Float dust is an edit unless you say otherwise: a HOUSE was rebuilt on 689 of 1,000 moves.**
+  "Move → transform only" held for every shape in the first matrix and was false for the one item
+  that owns another: a HOUSE's ridge is a separate item whose points the app re-writes by
+  `+ delta` on each move (`PolygonItem._move_ridge_by_delta`). Read back into the HOUSE's own
+  frame, `(p + d) − (c + d)` is not `p − c` in floats. Measured without snapping: 689 of 1,000
+  random moves changed the HOUSE's geometry (the first one already), 271 the ridge item's own.
+  Fix: every length of a record is snapped to 1e-7 cm (`core/scene3d/record.quantize_cm`) — 0
+  changes in 20,000 moves, by which time the dust had grown to 1.1e-10 cm. Pinned by
+  `tests/integration/test_scene3d_snapshot.py::TestHouseRidge::test_a_thousand_moves_never_leak_float_dust_into_the_geometry`.
+  - **A second, coarser grid for the ridge was written first and then removed.** It was argued
+    from "the error accumulates per move"; the mutation check showed the test passed without it,
+    and the measurement above showed why. *An argument that a safeguard is needed is a hypothesis;
+    delete the safeguard and see whether anything fails.*
+  - **`round(x, 15)` is not "no rounding".** The first mutant meant to switch the grid off set
+    the decimals to 15 and survived a test that depended on the grid: 1e-15 still absorbs dust of
+    5e-17. A mutant has to remove the behaviour, not weaken it.
+- **A polyline's 2D stroke polygon is not the same polygon after a move.** `polyline_footprint`
+  inflates the centre line with pyclipper on a 1/1000 cm integer grid, and the 2D code calls it
+  with *scene* coordinates. Move the line by a non-multiple of that grid and the polygon is not
+  the old one translated — its vertices differ by up to the grid. A record derived from the scene
+  polygon would therefore change geometry on every move. Fix: the record inflates the centre line
+  in the item-local frame. Consequence, stated rather than hidden: for a polyline,
+  `transform ∘ local footprint` matches the 2D stroke polygon only to that grid (measured
+  1.6e-3 cm, asserted ≤ 3e-3), while the centre line — what fences and walls are built from —
+  matches to 1e-7 like every other shape. Pinned by
+  `test_scene3d_snapshot.py::TestTransformReproducesFootprint`.
+- **Two things that looked like a diff bug and were the plan being right.** (1) Resizing the drawn
+  circle of a *measured* plant produced an empty diff: correct — its footprint is the canopy
+  (`plant_canopy_radius_cm`), not the circle, exactly as in the 2D shadow. (2) A resize that keeps
+  a corner fixed is reported as geometry **and** transform: correct — the record's frame hangs on
+  the item's centre, and that centre moved. Both are pinned as behaviour, not worked around.
 
 ### CI/release hardening: locked metadata also contains the application version
 

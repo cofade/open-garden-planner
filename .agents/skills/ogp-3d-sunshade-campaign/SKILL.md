@@ -31,7 +31,8 @@ description: >
 >
 > **Every "TO BUILD" marker below is now STALE — that code EXISTS.** Do not
 > re-implement it. `core/solar.py`, `core/object_height.py`, `core/shadow_geometry.py`,
-> `core/shade_aggregation.py`, `core/heatmap_render.py`, `core/scene3d.py`,
+> `core/shade_aggregation.py`, `core/heatmap_render.py`, `core/scene3d/legacy.py` (the
+> former `core/scene3d.py`; a package since Phase 17 L1.1, which re-exports every name),
 > `core/walk_camera.py`, `core/growth_model.py`, `ui/view3d/` and
 > `ui/canvas/sun_heatmap.py` are all shipped and gated by tests.
 >

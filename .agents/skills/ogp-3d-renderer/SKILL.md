@@ -20,6 +20,10 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
 - **QML carries no user-visible strings** — `pylupdate6` does not extract `qsTr`, so any text
   goes through a QWidget overlay with `self.tr()` (§8.3).
 - `spike_q3d/meshes.py` is **Qt-free numpy** (it graduates into `core/`).
+- **`core/scene3d/` is Qt-free** (standard library + numpy; AST scan in
+  `tests/unit/test_scene3d_contract.py`). It is the production side of the engine boundary since
+  L1.1 (ADR-054, §8.26.1): an engine adapter implements `core/scene3d/sink.py::EngineSink` and is
+  driven by `SceneSync`; builders are tested against `RecordingSink` with no GPU.
 
 ## 2. PyQt6 6.11 binding facts
 
@@ -37,6 +41,12 @@ relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the en
 
 - **Frame mapping, exactly once:** scene (E, N, up) → engine (x = E, y = up, z = −N);
   determinant +1, so triangle winding survives. Done in `quick.py`, never in QML.
+  The production mapping is `core/scene3d/frame.py` (`scene_to_engine_points` / `_vectors` and
+  their inverses, exact column selection). Meshes there are in the **item-local** frame and a
+  record's transform poses them: `engine_pose(transform)` gives the Model position
+  `(east_cm, base_cm, −north_cm)` and a turn of `+rotation_deg` about the engine's +Y — proven
+  equal to posing in the scene and mapping the result (`tests/unit/test_scene3d_frame.py`), on
+  numpy only: against the engine itself it is still to be measured (L1.2).
 - **Vertex layout, stride 48 bytes:** position f32×3 @0, normal f32×3 @12, colour f32×4 @24
   (**linear**, not sRGB), uv f32×2 @40 (spike convention: u = wind weight, v = phase), indices
   U32; `setBounds` + `update()`.

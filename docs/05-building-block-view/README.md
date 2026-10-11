@@ -59,7 +59,16 @@ src/open_garden_planner/
 │   ├── shadow_geometry.py        # Qt-free shadow sweep/union — L=h/tanα, Minkowski sweep, pyclipper union (US-E3, ADR-037)
 │   ├── shade_aggregation.py      # Qt-free hours-of-sun sampling/bands/grid — rasterizer injected (US-E4, ADR-037)
 │   ├── heatmap_render.py         # Qt-free heatmap rendering — cool→warm ramp LUT + marching-squares hour contours (US-E4)
-│   ├── scene3d.py                # Qt-free 3D mesh math — ear-clip triangulation, prism extrusion, sun vector, frame map (US-E6, ADR-038)
+│   ├── scene3d/                  # Qt-free 3D scene core (Phase 17 L1.1, ADR-054) — see §5.10
+│   │   ├── record.py             #   contract v2: Record / Transform / Material / Params, three signatures, the record grid
+│   │   ├── diff.py               #   SceneDiff(added, removed, transform, material, geometry, reordered)
+│   │   ├── frame.py              #   scene ↔ engine (det +1), item-local ↔ scene, LocalFrame, engine_pose
+│   │   ├── mesh.py               #   Mesh (numpy) + validate(), MeshPart, material kinds
+│   │   ├── sink.py               #   EngineSink protocol, RecordingSink, SunState, GroundSpec
+│   │   ├── build.py              #   Builder seam, BuilderRegistry, default prism builder, verify_builder
+│   │   ├── sync.py               #   SceneSync — snapshots in, minimal sink calls out
+│   │   ├── color.py              #   sRGB → linear, the one conversion
+│   │   └── legacy.py             #   the former scene3d.py (US-E6, ADR-038): triangulation, extrusion, sun vector — until L1.10
 │   ├── walk_camera.py            # Qt-free walkthrough rules — eye height, bounds clamp, pitch-limited look vector (US-E7)
 │   ├── growth_model.py           # Qt-free current-size→mature interpolation by planting date — one model for shadows/heatmap/3D (US-E8, ADR-037)
 │   ├── furniture_renderer.py     # Furniture/infrastructure/hedge SVG rendering & caching (24 generated sprites, ADR-042)
@@ -117,6 +126,7 @@ src/open_garden_planner/
 │   │   ├── canvas_view.py        # Pan/zoom, key/mouse handling
 │   │   ├── canvas_scene.py       # Scene (holds objects)
 │   │   ├── dimension_lines.py    # Dimension line rendering & management
+│   │   ├── footprints.py         # THE footprint extraction — item_outline / item_footprints / plant_canopy_radius_cm; shadows, heatmap and 3D all read it (Phase 17 L1.1, ADR-054)
 │   │   ├── sun_shadow_controller.py # Runtime-only solar shadow overlay + debounced recompute (US-E3, ADR-037)
 │   │   ├── sun_heatmap.py        # QImage rasterizer + HeatmapWorker(QThread) + cool→warm ramp overlay + hourly contour lines/labels (US-E4)
 │   │   ├── geometry_apply.py     # THE canonical resize/rotate/vertex apply path — panel + handles + agent (US-D2.2/D2.6)
@@ -131,7 +141,8 @@ src/open_garden_planner/
 │   │       ├── bezier_item.py    # BezierItem (Package B US-B1)
 │   │       ├── background_image_item.py
 │   │       └── resize_handle.py
-│   ├── view3d/                   # 3D view MVP (US-E6): snapshot.py (plan→records) + qt3d_adapter.py (ONLY Qt3D importer) + view3d_window.py
+│   ├── view3d/                   # 3D view MVP (US-E6): snapshot.py (plan→records: collect_scene3d_records for Qt 3D,
+│   │                             #   snapshot_records for contract v2 — L1.1) + qt3d_adapter.py (ONLY Qt3D importer) + view3d_window.py
 │   ├── panels/
 │   │   ├── drawing_tools_panel.py
 │   │   ├── properties_panel.py
@@ -413,6 +424,25 @@ Black-box view of persistent plant collections, favourites, drag-to-canvas orche
 | `ui/panels/plant_lists_panel.py` (`PlantListsPanel`) | Sidebar accordion panel: list switcher (`⭐ Favorites` + custom lists), list action menu (New, Rename, Delete, Export, Import), draggable entries list (`_DraggablePlantListWidget`), entry context menu (Edit Note, Move to List, Update from Plan, Remove), and "+ Add Selected from Plan" bulk button. | store + scene → reactive list & drag UI |
 | `ui/canvas/canvas_view.py` (`_create_plant_item_at_scene_pos`) | Canonical unified plant creation helper shared between gallery drops and `plant_list:<entry_id>` drops: sizes footprint (respects `max_spread_cm`), auto-parents to underlying bed, stamps default planting date (US-E8), assigns active layer, runs as a single undo step via `CreateItemCommand`. | `(scene_pos, tool_type, obj_type, radius, ...)` → created `CircleItem` |
 | `agent_api/server.py` (`garden://plant-lists`) | Read-only MCP resource exposing all lists and entries (`id`, `name`, `species_key`, `note`, `added_at`) to AI assistants. | GET `garden://plant-lists` → JSON catalog |
+
+## 5.10 3D Scene Pipeline — Qt-free core (Phase 17 L1.1, #385, ADR-054)
+
+Black-box view of the path from the plan to a 3D engine. Nothing here renders: the engine adapter
+is `ui/view3d/quick3d/` (L1.2). The concept, the diff table and the builder how-to are §8.26.1.
+`core/scene3d/` imports the standard library and numpy only (pinned by an AST scan).
+
+| Building block | Responsibility | Interface (in → out) |
+|----------------|----------------|----------------------|
+| `ui/canvas/footprints.py` | The ONE footprint extraction. `item_outline` enumerates an item's outline in its own coordinates (which vertices, which centre, radius or stroke width); `item_footprints` is that outline through `mapToScene`; `plant_canopy_radius_cm` is a plant's canopy at a date. Read by the shadow overlay, the heatmap, the Qt 3D collector and the 3D snapshot, so a solid cannot disagree with its shadow. | canvas item (+ date) → `ItemOutline` · scene polygons · radius |
+| `ui/view3d/snapshot.py` (`snapshot_records`) | Live items → contract-v2 records on the GUI thread: item-local geometry on the record grid, a rigid transform from `sceneTransform()`, the resolved height, material and params. Bottom-to-top; skips invisible, untyped, footprint-less and non-finite items. `collect_scene3d_records` (Qt 3D) is unchanged beside it. | `QGraphicsScene`, plan date → `dict[str, Record]` |
+| `core/scene3d/record.py` | The contract: `Record`, `Transform`, `Material`, `Params`; the field groups behind `geometry_sig` / `transform_sig` / `material_sig`; `quantize_cm` / `quantize_deg`. Equality is confirmed on the values (hashes collide). | plain data |
+| `core/scene3d/diff.py` | `diff(old, new)` → `SceneDiff(added, removed, transform, material, geometry, reordered)`: three independent comparisons per surviving item. | two snapshots → what changed |
+| `core/scene3d/frame.py` | Every frame conversion, once: scene ↔ engine (numpy, determinant +1), item-local → scene (`pose_*`), `engine_pose`, and `LocalFrame` (an affine scene transform → rigid transform + local coordinates; non-rigid parts are baked). | floats / arrays → floats / arrays |
+| `core/scene3d/mesh.py` | `Mesh` (float32 positions, normals, linear RGBA, uvs; uint32 triangles) with `validate()`, `merge`, `translated`; `MeshPart` (material kind, shadow flag, tint flag); `MATERIAL_KINDS`. | arrays → validated mesh parts |
+| `core/scene3d/build.py` | The builder seam: `Builder`, `BuilderRegistry`, `default_builder` (prism to the resolved height, tinted; nothing without a height), `prism_mesh`, `item_seed`, and `verify_builder` — the test instrument for every builder. | `Record` → `tuple[MeshPart, ...]` |
+| `core/scene3d/sink.py` | `EngineSink` (nine methods) and `RecordingSink`, its protocol-enforcing double; `SunState` (angles from `core/solar`), `GroundSpec` (minimal, L1.5 extends it). | calls → engine state / a call log |
+| `core/scene3d/sync.py` | `SceneSync`: owns the last applied snapshot; builders before the sink is touched; one transaction or none; contains a failing builder, is poisoned by a failing sink until `reset()`. | snapshots → minimal sink calls |
+| `core/scene3d/legacy.py` | The pre-L1.1 contract, moved verbatim and re-exported by the package: `Scene3DRecord`, `records_from_raw`, `triangulate_polygon`, `extrude_footprint`, `sun_direction_scene`, `to_engine_frame`. Feeds the shipped Qt 3D window and the dormant spike; contract v2 reuses its triangulation and extrusion. Removed in L1.10. | raw footprints → scene-space prisms |
 
 ## Developer quality and release tooling
 
