@@ -50,15 +50,17 @@ and companion, succession, task, and soil tools.
 It runs on loopback. Reads and exports do not require a token. Writes require editing to be enabled and a valid token.
 Geometry writes refuse constrained objects. Task-status writes remain unavailable because they are not undoable.
 
-## Package F: planned
+## Package F: F1/F2 complete; F3–F5 planned
 
-| Story | Work | Issue |
-|---|---|---|
-| F1 | Permaculture layers and plant-function tags. Foundation, first. | [#312](https://github.com/cofade/open-garden-planner/issues/312) |
-| F2 | Plant guilds. Depends on F1. | [#313](https://github.com/cofade/open-garden-planner/issues/313) |
-| F3 | Sun requirements compared with computed hours of sun. | [#314](https://github.com/cofade/open-garden-planner/issues/314) |
-| F4 | Plan timeline. | [#315](https://github.com/cofade/open-garden-planner/issues/315) |
-| F5 | Example plans and templates. Last in the package. | [#316](https://github.com/cofade/open-garden-planner/issues/316) |
+F1/F2 passed owner frozen-app acceptance and shipped via [PR #433](https://github.com/cofade/open-garden-planner/pull/433).
+
+| Story | Work | Status | Issue |
+|---|---|---|---|
+| F1 | Species traits, function filters and food-forest layers. | ✅ v1.30.0 | [#312](https://github.com/cofade/open-garden-planner/issues/312) |
+| F2 | Plant guilds, template editing, saved membership and diagnostics. | ✅ v1.30.0 | [#313](https://github.com/cofade/open-garden-planner/issues/313) |
+| F3 | Sun requirements compared with computed hours of sun. | Planned | [#314](https://github.com/cofade/open-garden-planner/issues/314) |
+| F4 | Plan timeline. | Planned | [#315](https://github.com/cofade/open-garden-planner/issues/315) |
+| F5 | Example plans and templates. Last in the package. | Planned | [#316](https://github.com/cofade/open-garden-planner/issues/316) |
 
 ## Package G: complete
 

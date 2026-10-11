@@ -2585,7 +2585,7 @@ The preexisting German amendment-task naming gap is tracked in #408.
 
 ---
 
-## Package F — Permaculture & Polyculture (📋 planned, epic: none)
+## Package F — Permaculture & Polyculture (✅ 2 of 5 shipped; F3–F5 planned)
 
 > Filed from the permapeople.org research session (2026-08-17). Membership and
 > order live in the `> Package map & order` blockquote at the head of each issue,
@@ -2594,8 +2594,8 @@ The preexisting German amendment-task naming gap is tracked in #408.
 >
 > | Status | US | Description |
 > | ------ | -- | ----------- |
-> | 🧪 | **F1** ([#312](https://github.com/cofade/open-garden-planner/issues/312)) | **Permaculture layer + plant function tags** — foundation of the package, **do first**. `PermacultureLayer` (7 food-forest layers + `UNKNOWN`) and `PlantFunction` (12 functions) as additive species attributes, ingested from Permapeople's currently-discarded `Layer`/`Uses`, filled for all 118 bundled records, editable in Plant Details, filterable in search/gallery, exposed in the curated agent schema. Plus an optional food-forest canvas-layer preset. New ADR + FR-PLANT-*. |
-> | 🧪 | **F2** ([#313](https://github.com/cofade/open-garden-planner/issues/313)) | **Plant guilds** — guild templates, canvas membership, missing-role diagnostic. *Depends on F1*: guilds have nothing to reason on without layer/function tags. |
+> | ✅ v1.30.0 | **F1** ([#312](https://github.com/cofade/open-garden-planner/issues/312)) | **Permaculture layer + plant function tags** — foundation of the package, **do first**. `PermacultureLayer` (7 food-forest layers + `UNKNOWN`) and `PlantFunction` (12 functions) as additive species attributes, captured from Permapeople's `Layer`/`Uses`, filled for all 118 bundled records, editable in Plant Details, filterable in search/gallery, exposed in the curated agent schema. Plus an optional food-forest canvas-layer preset. ADR-054/055 and FR-32. |
+> | ✅ v1.30.0 | **F2** ([#313](https://github.com/cofade/open-garden-planner/issues/313)) | **Plant guilds** — guild templates, canvas membership, missing-role diagnostic. *Depends on F1*: guilds have nothing to reason on without layer/function tags. |
 > | 📋 | **F3** ([#314](https://github.com/cofade/open-garden-planner/issues/314)) | **Sun-requirement × computed hours-of-sun diagnostic** + canvas badge. *Independent*; its layer-stack section follows F1. Builds on the shipped Phase 14 sun/shade engine. |
 > | 📋 | **F4** ([#315](https://github.com/cofade/open-garden-planner/issues/315)) | **Plan timeline scrubber** — `removal_date` + plan-state-at-date visibility on the shared sim date. *Independent.* |
 > | 📋 | **F5** ([#316](https://github.com/cofade/open-garden-planner/issues/316)) | **Bundled example-plan gallery** + template export/import. **Last** — ideally after F2 and F4. Blocked on nothing technical, but #379 (retiring the hand-made dogfood fixture) waits on it. |
@@ -2753,6 +2753,6 @@ up."* while the task was open. See ADR-029 (addendum) and ADR-049.
 - **#399** (branch protection), **#401** (mypy gate), and **#402** (coverage gate) completed in v1.29.6 via PR #422. Their baselines measured the settled tree after this package.
 - **#405** and **#418** completed in v1.29.8 via PR #426; **#409** (NFR-PERF-01) completed in this branch; **#406** (constraint-tool coverage) remains open.
 
-### Package F1/F2 acceptance notes (implementation branch, owner acceptance pending)
+### Package F1/F2 delivery notes (v1.30.0, PR #433)
 
-F1 (#312) and F2 (#313) ship together after automated gates/review and owner frozen-app testing. F1 adds saved traits, complete offline filtering/background online fallback and semantic layer assignment. F2 adds immutable guild snapshots, template authoring, preflighted one-step insertion/membership, cosmetic badges and general diagnostics. The template editor and general Diagnostics panel are agreed scope additions. F3–F5 (#314–#316) remain separate. ADR-054/055 and FR-32 record the contracts; mandatory workflows are `test_permaculture_layer.py` and `test_guilds.py`. Wiki publication remains pending protected merge and owner approval.
+F1 (#312) and F2 (#313) shipped together in [v1.30.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.0) via [PR #433](https://github.com/cofade/open-garden-planner/pull/433) after automated gates, independent review and all 13 owner frozen-app checks passed on 11 October 2026. F1 adds saved traits, complete offline filtering/background online fallback and semantic layer assignment. F2 adds immutable guild snapshots, template authoring, preflighted one-step insertion/membership, cosmetic badges and general diagnostics. The template editor and general Diagnostics panel are agreed scope additions. F3–F5 (#314–#316) remain separate. ADR-054/055 and FR-32 record the contracts; mandatory workflows include `test_permaculture_layer.py`, `test_guilds.py` and `test_permaculture_manual_regressions.py`. Wiki pages are rendered from these approved repository sources under ADR-051.
