@@ -668,6 +668,17 @@ class TestRecordContent:
         assert wall_material.fill_rgba is None and wall_material.pattern is None
         assert wall_material.tint_rgba == (stroke.red(), stroke.green(), stroke.blue(), 255)
 
+    def test_a_colour_stored_as_a_string_is_read_too(self, canvas: CanvasView) -> None:
+        """``fill_color`` is typed loosely on the mixin; the legacy collector accepts
+        a colour name, so contract v2 does as well — and an invalid one is no colour."""
+        item = _rectangle()
+        canvas.scene().addItem(item)
+        item.fill_color = "#336699"
+        assert snapshot_records(canvas.scene())[str(item.item_id)].material.fill_rgba == (51, 102, 153, 255)
+        item.fill_color = "not a colour"
+        material = snapshot_records(canvas.scene())[str(item.item_id)].material
+        assert material.fill_rgba is None and material.tint_rgba[3] == 255
+
     def test_plant_params(self, canvas: CanvasView) -> None:
         tree = _plant()
         bare = CircleItem(100.0, 100.0, 30.0, object_type=ObjectType.SHRUB)
@@ -731,7 +742,10 @@ class TestRecordContent:
         scene.addItem(degenerate)
         stub = PolylineItem([QPointF(5.0, 5.0)], object_type=ObjectType.FENCE)
         scene.addItem(stub)
+        dot = CircleItem(50.0, 50.0, 0.0, object_type=ObjectType.TRAMPOLINE)
+        scene.addItem(dot)
         assert item_outline(degenerate) is None
+        assert item_footprints(dot) == [[]] and item_footprints(stub) == []  # nothing in 2D either
         assert snapshot_records(scene) == {}
 
     def test_a_circle_turned_about_another_pivot_moves_and_still_does_not_rotate(
@@ -838,6 +852,19 @@ class TestHouseRidge:
     def test_a_house_without_a_ridge_has_no_ridge_param(self, house_stage) -> None:
         canvas, house, ridge = house_stage
         canvas.scene().removeItem(ridge)
+        assert "ridge" not in snapshot_records(canvas.scene())[str(house.item_id)].params
+
+    def test_a_ridge_link_to_something_else_is_no_ridge(self, house_stage) -> None:
+        """A stale or corrupt ``ridge_item_id`` (it names a shed, or a line that
+        lost a point) gives a HOUSE without a ridge param — the builder falls back,
+        nothing raises."""
+        canvas, house, ridge = house_stage
+        shed = _rectangle()
+        canvas.scene().addItem(shed)
+        house.set_metadata("ridge_item_id", str(shed.item_id))
+        assert "ridge" not in snapshot_records(canvas.scene())[str(house.item_id)].params
+        house.set_metadata("ridge_item_id", str(ridge.item_id))
+        ridge._points = ridge._points[:1]
         assert "ridge" not in snapshot_records(canvas.scene())[str(house.item_id)].params
 
     def test_the_bench_house(self, qtbot) -> None:

@@ -2515,8 +2515,8 @@ story: it is the Qt-free foundation L1.2–L1.7 build on.
   it becomes a param.
 - ADR-048 (entries 5 and 6) expected L1.1 to measure the full edit-to-frame path (≤ 50 ms p95).
   That needs an engine and moves to L1.2/L1.3. What L1.1 measures is its own share: a snapshot
-  takes 1.9 ms (99 records) / 8.1 ms (425 records) against budgets of 15 / 60 ms, a diff
-  0.07 / 0.31 ms; ~40 % of the snapshot is the shared height and canopy resolvers.
+  takes 2.1 ms (99 records) / 8.6 ms (425 records) median against budgets of 15 / 60 ms, a diff
+  0.07 / 0.32 ms; ~40 % of the snapshot is the shared height and canopy resolvers.
 - **Open for later stories**: L1.2 implements `EngineSink` and proves `engine_pose` against the
   engine (one geometry per Model lifetime); L1.3 owns the debounced tick and `reset()` on project
   load; L1.4 extends `SunState` with the look; L1.5 extends `GroundSpec` and consumes `reordered`;
@@ -2539,7 +2539,9 @@ story: it is the Qt-free foundation L1.2–L1.7 build on.
   record through `verify_builder`; 100 identical snapshots on both bench plans.
 - **`tests/integration/test_scene3d_pipeline.py`** (§8.10): draw with the real tools, then move,
   rotate, recolour, resize, select, delete, undo, redo — the exact sink calls and incremental ==
-  full rebuild after every step; the same on a real `GardenPlannerApp` with the sim clock.
+  full rebuild after every step; the same on a real `GardenPlannerApp` with the sim clock; and
+  the diff matrix again as a table of 70 edit × shape cases through `SceneSync` and
+  `RecordingSink`, each with its exact sink calls and builder invocations.
 - **`tests/perf/test_scene3d_snapshot_budget.py`**: the snapshot budget.
 - A mutation check (21 single-rule breaks — mirrored frame, flipped rotation, no grid, no value
   compare, colour baked into the mesh, a prism 1 % too tall, builders inside the transaction …)

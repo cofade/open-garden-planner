@@ -3,16 +3,17 @@
 ``snapshot_records`` runs on the GUI thread after every edit, before any 3D
 work, so it has a budget of its own: median ≤ 15 ms on
 ``tests/fixtures/plans/bench_small.ogp`` (99 records) and ≤ 60 ms on
-``bench_large.ogp`` (425 records). Measured on the dev box (Windows 11, Python
-3.12, 2026-10-11, 30 runs each): 1.9 ms / 8.1 ms median, 2.1 / 9.2 ms max — a
-seventh of the budget; under coverage tracing about 3x that. What dominates is
-not the 3D code: ~40 % is the shared height and canopy resolvers
-(``effective_height_cm``, ``plant_canopy_radius_cm`` → ``core/growth_model``),
-which the 2D shadow overlay pays as well.
+``bench_large.ogp`` (425 records). Measured on the dev box (Windows 11,
+2026-10-11, 30 runs each, idle machine): 2.1 ms / 8.6 ms median and 3.0 /
+10.6 ms max on Python 3.12.9, 2.0 / 9.1 ms median on 3.11.9 — a seventh of the
+budget. Under coverage's branch tracer: 8.2 / 39.3 ms median (4-4.6x), still
+inside it. What dominates is not the 3D code: ~40 % is the shared height and
+canopy resolvers (``effective_height_cm``, ``plant_canopy_radius_cm`` →
+``core/growth_model``), which the 2D shadow overlay pays as well.
 
 Conventions of ``tests/perf/test_nfr_budgets.py``: the ``perf`` marker, a median
 (another pytest run may share the machine), and the same x3 allowance on CI
-runners, which also covers the coverage job's tracer.
+runners (their coverage job traces every line).
 """
 
 from __future__ import annotations
