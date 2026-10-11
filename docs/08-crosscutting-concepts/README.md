@@ -2470,9 +2470,10 @@ live canvas items ──snapshot_records()──▶ {item_id: Record}        ui/
                                Qt Quick 3D (L1.2) · RecordingSink (tests)
 ```
 
-Nothing under `core/scene3d/` imports Qt (an AST scan in `tests/unit/test_scene3d_contract.py`
-pins it, and pins the two `core` siblings the package uses). The engine is imported by one package
-only, `ui/view3d/quick3d/` (L1.2).
+Nothing under `core/scene3d/` imports Qt: an AST scan in `tests/unit/test_scene3d_contract.py`
+covers every module of the package, sub-packages included, and follows each `core` module the
+package reaches (today `shadow_geometry` and `solar`), so a later story cannot add a sibling that
+drags Qt in. The engine is imported by one package only, `ui/view3d/quick3d/` (L1.2).
 
 **Three frames, each conversion defined once** (`core/scene3d/frame.py`):
 

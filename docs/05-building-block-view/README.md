@@ -429,7 +429,8 @@ Black-box view of persistent plant collections, favourites, drag-to-canvas orche
 
 Black-box view of the path from the plan to a 3D engine. Nothing here renders: the engine adapter
 is `ui/view3d/quick3d/` (L1.2). The concept, the diff table and the builder how-to are §8.26.1.
-`core/scene3d/` imports the standard library and numpy only (pinned by an AST scan).
+`core/scene3d/` imports the standard library, numpy and Qt-free `core` siblings only (pinned by an
+AST scan that follows those siblings).
 
 | Building block | Responsibility | Interface (in → out) |
 |----------------|----------------|----------------------|

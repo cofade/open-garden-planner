@@ -2357,8 +2357,9 @@ story: it is the Qt-free foundation L1.2–L1.7 build on.
 
 ### Decision
 
-1. **One pipeline, five Qt-free steps** — the package `core/scene3d/` (standard library and numpy
-   only; pinned by an AST scan over every module):
+1. **One pipeline; everything after the snapshot is Qt-free** — the package `core/scene3d/`
+   (standard library, numpy and Qt-free `core` siblings only; pinned by an AST scan over every
+   module that also follows those siblings):
 
    ```
    live canvas items ──snapshot_records()──▶ {item_id: Record}        ui/view3d/snapshot.py (GUI thread)
