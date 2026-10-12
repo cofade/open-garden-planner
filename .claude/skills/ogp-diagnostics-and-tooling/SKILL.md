@@ -270,9 +270,14 @@ venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
 ```
 
 Then the two gate commands from `ogp-change-control` §2.8 — the 8-second smoke (exit
-124 = survived) and `--selftest` (exit 0 = Qt3D bindings, Qt-version match and the
-Agent API server all alive). The smoke alone cannot see any of the three dying;
-`ogp-build-and-run` documents the invocation traps.
+124 = survived) and `--selftest` (exit 0 = Qt3D bindings, Qt-version match, the Agent
+API server AND the Qt Quick 3D engine all alive: since Phase 17 L1.2 it renders one
+hidden frame from the bundle's QML and shaders and checks its pixels). The smoke alone
+cannot see any of them dying; `ogp-build-and-run` documents the invocation traps, and
+where the self-test's log is. A hang is bounded: one watchdog around the whole command
+ends it after 300 s with exit code 1 and the reason in that log; if the process survives
+that (a deadlock inside Qt does, on Windows), a second process terminates it at 310 s and
+adds a `[supervisor] fired=True` line.
 
 Exit **124** (killed by `timeout` after 8 s) = the frozen app was still alive
 and running = **healthy**. Any prompt exit is unhealthy: nonzero-fast = crash

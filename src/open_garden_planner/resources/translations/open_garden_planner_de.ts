@@ -12504,4 +12504,166 @@ Details: {error}</translation>
             <translation>Pflanzenmittelpunkte innerhalb der ausgewachsenen Krone; daraus lässt sich die Schattenursache nicht ableiten.</translation>
         </message>
     </context>
+    <context>
+        <name>Workspace</name>
+        <message>
+            <source>&amp;Plan</source>
+            <translation>&amp;Plan</translation>
+        </message>
+        <message>
+            <source>Show the plan only</source>
+            <translation>Nur den Plan anzeigen</translation>
+        </message>
+        <message>
+            <source>&amp;3D</source>
+            <translation>&amp;3D</translation>
+        </message>
+        <message>
+            <source>Show the garden in 3D</source>
+            <translation>Den Garten in 3D anzeigen</translation>
+        </message>
+        <message>
+            <source>&amp;Split</source>
+            <translation>&amp;Geteilt</translation>
+        </message>
+        <message>
+            <source>Show the plan and the 3D view side by side</source>
+            <translation>Plan und 3D-Ansicht nebeneinander anzeigen</translation>
+        </message>
+        <message>
+            <source>{tip} ({shortcut})</source>
+            <translation>{tip} ({shortcut})</translation>
+        </message>
+        <message>
+            <source>&amp;Reset 3D View</source>
+            <translation>3D-Ansicht &amp;zurücksetzen</translation>
+        </message>
+        <message>
+            <source>Show the whole garden in the 3D view again</source>
+            <translation>Wieder den ganzen Garten in der 3D-Ansicht zeigen</translation>
+        </message>
+        <message>
+            <source>Show the whole garden again (Home)</source>
+            <translation>Wieder den ganzen Garten zeigen (Pos1)</translation>
+        </message>
+        <message>
+            <source>&amp;Workspace</source>
+            <translation>&amp;Arbeitsbereich</translation>
+        </message>
+        <message>
+            <source>Show which objects are missing from the 3D view</source>
+            <translation>Zeigen, welche Objekte in der 3D-Ansicht fehlen</translation>
+        </message>
+        <message>
+            <source>The 3D view could not be started. The rest of the application is not affected.
+
+Details: {error}</source>
+            <translation>Die 3D-Ansicht konnte nicht gestartet werden. Der Rest der Anwendung ist nicht betroffen.
+
+Details: {error}</translation>
+        </message>
+        <message>
+            <source>Try Again</source>
+            <translation>Erneut versuchen</translation>
+        </message>
+        <message>
+            <source>Building the 3D view…</source>
+            <translation>3D-Ansicht wird aufgebaut…</translation>
+        </message>
+        <message>
+            <source>The 3D view could not be updated. It will try again with the next change.</source>
+            <translation>Die 3D-Ansicht konnte nicht aktualisiert werden. Bei der nächsten Änderung wird es erneut versucht.</translation>
+        </message>
+        <message>
+            <source>1 object is not shown in 3D</source>
+            <translation>1 Objekt wird in 3D nicht angezeigt</translation>
+        </message>
+        <message>
+            <source>{count} objects are not shown in 3D</source>
+            <translation>{count} Objekte werden in 3D nicht angezeigt</translation>
+        </message>
+        <message>
+            <source>The 3D view reported a problem. Details are in the log file.</source>
+            <translation>Die 3D-Ansicht hat ein Problem gemeldet. Details stehen in der Protokolldatei.</translation>
+        </message>
+        <message>
+            <source>3D is unavailable on this graphics device. The rest of the application is not affected.
+
+Details: {error}</source>
+            <translation>3D ist auf dieser Grafikhardware nicht verfügbar. Der Rest der Anwendung ist nicht betroffen.
+
+Details: {error}</translation>
+        </message>
+        <message>
+            <source>Use Compatibility Mode Next Time</source>
+            <translation>Beim nächsten Start Kompatibilitätsmodus verwenden</translation>
+        </message>
+        <message>
+            <source>3D is running in compatibility mode (software rendering) because it did not start properly last time.</source>
+            <translation>3D läuft im Kompatibilitätsmodus (Software-Rendering), weil es beim letzten Mal nicht richtig gestartet ist.</translation>
+        </message>
+        <message>
+            <source>3D is running in compatibility mode (software rendering).</source>
+            <translation>3D läuft im Kompatibilitätsmodus (Software-Rendering).</translation>
+        </message>
+        <message>
+            <source>Try Hardware Next Time</source>
+            <translation>Beim nächsten Start Hardware versuchen</translation>
+        </message>
+        <message>
+            <source>Hardware rendering will be tried the next time the application starts.</source>
+            <translation>Beim nächsten Start der Anwendung wird Hardware-Rendering versucht.</translation>
+        </message>
+        <message>
+            <source>Compatibility mode will be used the next time the application starts.</source>
+            <translation>Beim nächsten Start der Anwendung wird der Kompatibilitätsmodus verwendet.</translation>
+        </message>
+    </context>
+    <context>
+        <name>View3DProblemsDialog</name>
+        <message>
+            <source>Not Shown in 3D</source>
+            <translation>In 3D nicht angezeigt</translation>
+        </message>
+        <message>
+            <source>These objects are on the plan but cannot be shown in the 3D view. Double-click an entry to select the object on the plan.</source>
+            <translation>Diese Objekte sind im Plan, können aber in der 3D-Ansicht nicht gezeigt werden. Ein Doppelklick auf einen Eintrag wählt das Objekt im Plan aus.</translation>
+        </message>
+        <message>
+            <source>its shape could not be worked out</source>
+            <translation>seine Form konnte nicht ermittelt werden</translation>
+        </message>
+        <message>
+            <source>another object on the plan has the same internal id</source>
+            <translation>ein anderes Objekt im Plan hat dieselbe interne Kennung</translation>
+        </message>
+        <message>
+            <source>its outline cannot be turned into a solid</source>
+            <translation>sein Umriss lässt sich nicht in einen Körper umsetzen</translation>
+        </message>
+        <message>
+            <source>its outline has too many points for the 3D view</source>
+            <translation>sein Umriss hat zu viele Punkte für die 3D-Ansicht</translation>
+        </message>
+        <message>
+            <source>one of its sizes is outside what the 3D view can show</source>
+            <translation>eine seiner Abmessungen liegt außerhalb dessen, was die 3D-Ansicht zeigen kann</translation>
+        </message>
+        <message>
+            <source>its 3D model could not be built</source>
+            <translation>sein 3D-Modell konnte nicht gebaut werden</translation>
+        </message>
+        <message>
+            <source>it could not be shown</source>
+            <translation>es konnte nicht angezeigt werden</translation>
+        </message>
+        <message>
+            <source>{name} ({kind}): {reason}</source>
+            <translation>{name} ({kind}): {reason}</translation>
+        </message>
+        <message>
+            <source>{kind}: {reason}</source>
+            <translation>{kind}: {reason}</translation>
+        </message>
+    </context>
 </TS>

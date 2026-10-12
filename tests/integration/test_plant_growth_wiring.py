@@ -90,7 +90,7 @@ class TestPanelEditReachesTheShadow:
         qtbot.waitUntil(
             lambda: controller.recompute_count > baseline, timeout=2000
         )
-        _, height = collect_shadow_casters(scene)[0]
+        _, height, _base = collect_shadow_casters(scene)[0]
         assert height == pytest.approx(600.0)
 
     def test_current_spread_edit_triggers_recompute(self, qtbot) -> None:
@@ -101,7 +101,7 @@ class TestPanelEditReachesTheShadow:
         qtbot.waitUntil(
             lambda: controller.recompute_count > baseline, timeout=2000
         )
-        footprint, _ = collect_shadow_casters(scene)[0]
+        footprint, _, _base = collect_shadow_casters(scene)[0]
         xs = [x for x, _ in footprint]
         assert (max(xs) - min(xs)) == pytest.approx(250.0, abs=2.0)
 

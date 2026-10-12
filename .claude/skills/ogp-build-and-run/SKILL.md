@@ -160,6 +160,42 @@ imports all six Qt3D bindings, asserts `qVersion()` matches the `PyQt6-3D-Qt6`
 wheel version, then binds an ephemeral port and starts a real `AgentApiServer`
 with poisoned providers, asserting `is_running`.
 
+Since Phase 17 L1.2 it also **renders**: the Qt Quick 3D engine package
+(`ui/view3d/quick3d/`) is lazily loaded too, and its scene is QML and shader
+*files* in the bundle. `--selftest` loads them from the bundle, draws one
+hidden 160 × 120 frame with every material kind and checks the pixels
+(`ui/view3d/quick3d/selftest.py`). It needs no GPU — Direct3D 11 on WARP will
+do, which is what the release runner has. **It cannot hang:** ONE watchdog
+bounds the whole self-test — all three blocks, not only the render — and after
+300 s writes the reason and every thread's stack into the log and exits with
+code 1 (`main._run_selftest_bounded`). That exit was measured NOT to end a
+Windows process deadlocked inside Qt, so the watchdog is supervised: the exe
+starts itself a second time (`--selftest-supervisor`), and that process
+terminates the first at 310 s, exit code 1. Four things to know when it fails:
+
+- The exit code cannot say which check failed; the self-test writes a log to
+  `%APPDATA%\cofade\Open Garden Planner\OpenGardenPlanner-selftest-3d.log`
+  (beside `app.log`), or to the path in `OGP_SELFTEST_LOG`. It names the
+  graphics adapter that rendered, every 3D check, and ends with
+  `[selftest_exit] code=…`. A log whose 3D part passed and whose exit code is
+  1 points at the first two blocks.
+- `[watchdog] fired=True … did not finish within 300 s`, then `Timeout` and
+  stack traces: a hang. The frame at the top of the main thread's stack is
+  where.
+- `[supervisor] fired=True … terminated from outside`: the process survived
+  its own watchdog — a deadlock inside Qt; the stack dump above that line
+  shows the threads waiting for each other. (`[watchdog] armed=True …
+  supervisor=process <pid>` only says the second process was started.)
+- Under `QT_QPA_PLATFORM=offscreen` nothing renders 3D, so the 3D block
+  FAILS there by design (`RenderError: Qt Quick runs on the Software backend`).
+  Run `--selftest` with the real platform. To check the GPU-less path locally,
+  set `QSG_RHI_PREFER_SOFTWARE_RENDERER=1` (the log then says
+  `Microsoft Basic Render Driver`).
+
+Measured 2026-10-11 (three runs each, the whole `--selftest`): frozen exe
+3.0–4.1 s on an RTX 4070 and 3.0–3.1 s on WARP on a quiet machine; 6.1–7.2 s on either
+while other test suites were running.
+
 ```bash
 powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanner.exe" -ArgumentList "--selftest" -Wait -PassThru; exit $p.ExitCode'
 echo $?   # 0 = PASS, 1 = a subsystem is dead
@@ -191,7 +227,17 @@ child exiting 3 propagates 3).
    state the claim without the no-inherited-handle condition).
 
 `release.yml` runs `--selftest` against the built exe, but only *after* merge.
-Running it locally is what makes it a merge gate rather than a post-mortem.
+`frozen-selftest.yml` (Phase 17 L1.2) builds the bundle with the release recipe
+— `python installer/build_installer.py --skip-nsis` — and runs the smoke and
+the self-test on every pull request that changes shipped code
+(`src/open_garden_planner/**`), the installer, the dependency files or the gate
+workflows; it is path-filtered and not a required check. Two things about that
+bundle: built without `--version` it calls itself v1.0.0 (the script's
+default), so during the smoke its update check finds a newer release and shows
+the update bar — the app has no switch for that check, and the verdict does not
+depend on it; and the smoke also passes a process that is blocked in an error
+dialog — the self-test is the gate. Running the gate locally is still what
+makes it a merge gate rather than a post-mortem.
 
 ### Known build traps (all encoded in `installer/ogp.spec`; verified 2026-07-04)
 

@@ -430,7 +430,7 @@ class TestGrowthCoupledShadows:
 
         casters = collect_shadow_casters(scene)  # no date at all
         assert casters, "the tree must still cast a shadow"
-        footprint, height = casters[0]
+        footprint, height, _base = casters[0]  # L1.6: a caster also says where it stands
         assert height == pytest.approx(120.0)  # NOT the 500 cm species max
         xs = [x for x, _ in footprint]
         # ABSOLUTE, like height: a typed 150 cm spread is a 150 cm canopy,
@@ -458,7 +458,7 @@ class TestGrowthCoupledShadows:
         }
         scene.addItem(tree)
 
-        footprint, _ = collect_shadow_casters(scene, at_date=date(2060, 1, 1))[0]
+        footprint, _, _base = collect_shadow_casters(scene, at_date=date(2060, 1, 1))[0]
         xs = [x for x, _ in footprint]
         assert (max(xs) - min(xs)) == pytest.approx(400.0, abs=2.0)
 
@@ -476,7 +476,7 @@ class TestGrowthCoupledShadows:
         scene.addItem(tree)
 
         for at in (date(2026, 1, 1), date(2040, 1, 1), None):
-            _, height = collect_shadow_casters(scene, at_date=at)[0]
+            _, height, _base = collect_shadow_casters(scene, at_date=at)[0]
             assert height == pytest.approx(500.0)
 
     def test_undated_plants_unchanged(self, qtbot, scene) -> None:  # noqa: ARG002
@@ -499,7 +499,7 @@ class TestGrowthCoupledShadows:
         scene.addItem(tree)
 
         for at in (date(2026, 6, 21), date(2031, 6, 21), None):
-            footprint, height = collect_shadow_casters(scene, at_date=at)[0]
+            footprint, height, _base = collect_shadow_casters(scene, at_date=at)[0]
             assert height == pytest.approx(500.0)
             xs = [x for x, _ in footprint]
             # Unmeasured → the drawn circle (diameter 400) is the canopy.

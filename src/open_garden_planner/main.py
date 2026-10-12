@@ -2,9 +2,12 @@
 
 import sys
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from dotenv import load_dotenv
+
+if TYPE_CHECKING:
+    from open_garden_planner.ui.view3d.quick3d.runlog import RenderLog
 
 # QtWebEngineWidgets (used by the satellite map picker) must be imported
 # before QApplication is created — Qt enforces this so it can configure
@@ -43,7 +46,18 @@ def get_icon_path() -> Path:
     return Path(__file__).parent / "resources" / "icons" / "OGP_logo.png"
 
 
-def _run_selftest() -> int:
+#: A whole ``--selftest`` that has not finished after this many seconds is a hang:
+#: a watchdog ends the process with exit code 1. Measured (ADR-048 addendum L1.2):
+#: 3-7 s in the frozen exe on a GPU and on WARP.
+SELFTEST_WATCHDOG_S = 300.0
+
+#: The flag of the process that supervises a running ``--selftest`` (the same
+#: string as ``runlog.SUPERVISOR_FLAG``; pinned by a test — not imported here, so
+#: that a normal start loads nothing of the 3D package).
+_SUPERVISOR_FLAG = "--selftest-supervisor"
+
+
+def _run_selftest(log: "RenderLog | None" = None) -> int:
     """Headless self-test for lazily-imported subsystems (issue #277).
 
     The pre-release exe smoke test only exercises startup; the 3D view's Qt3D
@@ -157,8 +171,135 @@ def _run_selftest() -> int:
         ok = False
         print(f"  FAIL Agent API server selftest -> {exc!r}")
 
+    # --- Qt Quick 3D engine (Phase 17 L1.2, ADR-048) ----------------------
+    if not _selftest_quick3d(log):
+        ok = False
+
     print("SELFTEST:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
+
+
+def _name_application_for_selftest() -> None:
+    """Give Qt the application's identity when no application exists yet.
+
+    The self-test log lives in the app's per-user log directory, which hangs on
+    that identity (QStandardPaths.AppDataLocation). main() names the application
+    only after creating its QApplication; the self-test runs before that, so it
+    uses the same pair itself -- and leaves an existing application's alone.
+    """
+    from PyQt6.QtCore import QCoreApplication
+
+    from open_garden_planner.app.settings import APPLICATION_NAME, ORGANIZATION_NAME
+
+    if QCoreApplication.instance() is None:
+        QCoreApplication.setOrganizationName(ORGANIZATION_NAME)
+        QCoreApplication.setApplicationName(APPLICATION_NAME)
+
+
+def _run_selftest_bounded() -> int:
+    """``--selftest`` as the frozen exe runs it: EVERY block under one watchdog.
+
+    A self-test that hangs must fail, not hold a release job for six hours (the
+    GitHub default): after ``SELFTEST_WATCHDOG_S`` the watchdog writes the reason
+    and every thread's stack into the self-test log and ends the process with
+    exit code 1. It covers the Qt3D imports and the Agent API block too, not
+    only the 3D render. The log also records the overall exit code, so a log
+    whose 3D part passed and whose exit code is 1 points at the first two blocks.
+
+    The watchdog is SUPERVISED: a second, tiny process (this exe with
+    ``--selftest-supervisor``) ends this one from outside when it is still alive
+    ten seconds after the deadline. The in-process exit alone was measured not
+    to end a process that is deadlocked inside Qt and the graphics driver
+    (``runlog.py``). That safety net is a subsystem like the three under test:
+    on Windows the self-test FAILS when its supervising process did not start,
+    refused, never found this block, or did not leave when it was released
+    (the #291 pattern - a dead subsystem that the gate itself would never have
+    noticed). Its line, "FAIL self-test supervisor -> ...", names which.
+
+    If the log cannot be opened the blocks still run, still under the watchdog
+    (it ends a hang without a file to dump into), and the result is FAIL: a
+    self-test that cannot say why it failed has failed.
+    """
+    try:
+        from open_garden_planner.ui.view3d.quick3d.runlog import RenderLog, watchdog
+    except Exception as exc:  # noqa: BLE001 - report every failure, never abort
+        print(f"  FAIL the self-test's log and watchdog cannot be imported -> {exc!r}")
+        print("SELFTEST: FAIL")
+        return 1
+    log_error: Exception | None = None
+    try:
+        _name_application_for_selftest()
+        from open_garden_planner.ui.view3d.quick3d.selftest import default_log_path
+
+        log = RenderLog(default_log_path(), mirror=False)
+    except Exception as exc:  # noqa: BLE001 - report every failure, never abort
+        log_error = exc
+        log = RenderLog(None, mirror=False)  # writes nowhere; the watchdog still ends a hang
+    try:
+        log("selftest_start", frozen=bool(getattr(sys, "frozen", False)),
+            python=sys.version.split()[0])
+        with watchdog(SELFTEST_WATCHDOG_S, log, what="--selftest", supervised=True) as armed:
+            code = _run_selftest(log)
+        if sys.platform == "win32":
+            # "" only when a supervising process started, held this block's release
+            # event, and left when it was released (runlog.Armed.gap)
+            missing = armed.gap
+            log("selftest_supervisor", ok=not missing, detail=missing or "started, released, left")
+            if missing:
+                print(f"  FAIL self-test supervisor -> {missing}")
+                print("SELFTEST: FAIL (a hang would not have been ended)")
+                code = 1
+        if log_error is not None:
+            print(f"  FAIL self-test log -> {log_error!r}")
+            print("SELFTEST: FAIL (no log)")
+            code = 1
+        log("selftest_exit", code=code, result="PASS" if code == 0 else "FAIL",
+            note="covers the Qt3D bindings, the Agent API server and the Qt Quick 3D frame")
+        return code
+    finally:
+        log.close()
+
+
+def _selftest_quick3d(log: "RenderLog | None" = None) -> bool:
+    """The Qt Quick 3D part of the self-test (Phase 17 L1.2, ADR-048); True for a pass.
+
+    The new 3D engine is loaded lazily, so the reasoning of the Qt3D block
+    applies -- and importing its bindings is not enough: its scene is QML and
+    shader FILES in the bundle, and a shader that does not compile is only a
+    Qt warning. So this RENDERS: it loads Garden.qml from the bundle, draws one
+    160x120 frame WITHOUT showing a window (a lit box, its shadow, one swatch
+    per material kind) and checks the pixels. It needs no GPU: the release
+    runner renders it with Direct3D 11 on WARP. A hang is bounded by a
+    watchdog (stack dump into the log, exit code 1): the one around the whole
+    self-test when ``log`` is passed (``_run_selftest_bounded``), its own
+    around the render otherwise.
+
+    The engine imports stay inside ui/view3d/quick3d/ (the import rule). The
+    log path is printed because the exit code alone cannot say WHICH check
+    failed, and a detached windowed exe has no stdout.
+
+    The log goes into the app's ONE per-user log directory, beside app.log and
+    crash.log -- never under a predictable name in the temp directory, which
+    on Linux other users can write to (CWE-377). That directory hangs on the
+    application's identity (QStandardPaths.AppDataLocation), which main() gives
+    Qt only after it created its QApplication. The self-test runs before that,
+    so it names the application itself, with the same pair -- unless an
+    application already exists, whose identity is not ours to change.
+    """
+    try:
+        from open_garden_planner.ui.view3d.quick3d.selftest import run_selftest
+
+        _name_application_for_selftest()
+        # one faulthandler timer per process: with the caller's log comes the
+        # caller's watchdog, and run_selftest must not arm a second one
+        quick3d = run_selftest() if log is None else run_selftest(log=log, watchdog_s=None)
+        for line in quick3d.lines:
+            print(line)
+        print(f"  3D self-test log: {quick3d.log_path}")
+        return quick3d.ok
+    except Exception as exc:  # noqa: BLE001 - report every failure, never abort
+        print(f"  FAIL Qt Quick 3D selftest -> {exc!r}")
+        return False
 
 
 def _write_crash_log(message: str) -> None:
@@ -236,9 +377,16 @@ def _install_excepthook() -> None:
 
 def main() -> int:
     """Run the Open Garden Planner application."""
+    # The process that supervises a running self-test (runlog.py). FIRST: its
+    # arguments name what it supervises, and nothing of them may start anything else.
+    if _SUPERVISOR_FLAG in sys.argv:
+        from open_garden_planner.ui.view3d.quick3d.runlog import supervisor_main
+
+        return supervisor_main(sys.argv[sys.argv.index(_SUPERVISOR_FLAG) + 1:])
+
     # Headless subsystem self-test (issue #277) — before any Qt UI is created.
     if "--selftest" in sys.argv:
-        return _run_selftest()
+        return _run_selftest_bounded()
 
     # Dormant Qt Quick 3D renderer spike (ADR-048, Phase 17 L0): evidence
     # tooling only, imported lazily so a normal start never loads it.

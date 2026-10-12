@@ -96,10 +96,12 @@ def _fake_get(url, params=None, timeout=None):
 class _StubLibrary:
     """Stand-in for the user's real custom-plant library.
 
-    ``PlantLibrary`` reads/writes a real file under the OS app-data
-    directory and isn't isolated by ``tests/conftest.py`` -- searching
-    "carrot" for real could pick up a developer's own custom entry and make
-    a test's result set non-deterministic. Defaults to reporting no matches
+    ``PlantLibrary`` reads/writes a file under the app-data directory. When
+    this stub was written that was the developer's REAL directory -- searching
+    "carrot" could pick up their own custom entry; ``tests/conftest.py``
+    redirects the directory now (per process), and the stub still keeps these
+    tests independent of what other tests add to that shared library.
+    Defaults to reporting no matches
     (the common case: these tests are about the enrichment path, not the
     custom-library merge); pass ``results`` to simulate a custom entry the
     library really does have (e.g. a stale/legacy one).

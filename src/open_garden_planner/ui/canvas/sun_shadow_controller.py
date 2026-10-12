@@ -34,7 +34,6 @@ Design constraints (campaign fences):
 from __future__ import annotations
 
 import contextlib
-import math
 from collections.abc import Callable
 from datetime import date, datetime
 from typing import Any
@@ -52,13 +51,14 @@ from open_garden_planner.core.object_height import effective_height_cm
 from open_garden_planner.core.shade_aggregation import IdentifiedCaster
 from open_garden_planner.core.shadow_geometry import (
     MIN_SUN_ELEVATION_DEG,
-    Polygon,
-    circle_footprint,
+    ShadowCaster,
     compute_scene_shadows,
-    polyline_footprint,
 )
 from open_garden_planner.core.sim_clock import SimChange, SimClock
 from open_garden_planner.core.solar import solar_position
+from open_garden_planner.ui.sim_clock_subscription import connect_qobject
+
+from .footprints import ItemLookup, item_base_cm, item_footprints, plant_canopy_radius_cm
 
 # Simulation states (stable identifiers — user-visible hints live in the app).
 STATE_DISABLED = "disabled"
@@ -87,7 +87,6 @@ _FEATHER_STEPS: tuple[tuple[float, int], ...] = (
 _FEATHER_MAX_WIDTH = 14.0
 
 _DEBOUNCE_MS = 150
-_ELLIPSE_SEGMENTS = 24
 
 
 def _build_feather_pens() -> tuple[QPen, ...]:
@@ -206,120 +205,37 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         painter.restore()
 
 
-def _plant_canopy_radius_cm(item: Any, at_date: date | None) -> float | None:
-    """The plant's measured/projected canopy RADIUS in cm, else None.
-
-    Absolute, not a scale of the drawn circle — deliberately mirroring the
-    height rule so both measured fields mean literal centimetres: type a
-    100 cm spread and the shadow canopy is 100 cm wide. A proportional
-    scale was wrong on two counts: the drawn circle is only the mature
-    canopy when a species was applied to an EXISTING plant (#213), whereas
-    the gallery drop uses a fixed 200/100/60 cm default, and clamping the
-    scale to ≤1 capped canopy growth at the drawn size so a plant could
-    never grow past its placeholder circle.
-
-    None means "no measurement" — callers keep the drawn radius. Display
-    only; the stored item geometry is never touched (#218/#219).
-    """
-    from open_garden_planner.core.growth_model import (
-        current_spread_from_metadata,
-        effective_current_spread_cm,
-        grown_spread_cm,
-    )
-
-    metadata = getattr(item, "metadata", None)
-    species = (metadata or {}).get("plant_species")
-    if at_date is not None and isinstance(species, dict):
-        object_type = getattr(item, "object_type", None)
-        grown = grown_spread_cm(
-            species, metadata, at_date, getattr(object_type, "name", "")
-        )
-        if grown is not None:
-            return grown / 2.0
-    # Works with no species attached too (an unknown/custom name is a
-    # supported state) — same rule as the height resolver. With a species,
-    # a measured HEIGHT alone also implies a spread, so a plant measured in
-    # one dimension does not render as a pancake.
-    current = (
-        effective_current_spread_cm(species, metadata)
-        if isinstance(species, dict)
-        else current_spread_from_metadata(metadata)
-    )
-    if current is not None:
-        return current / 2.0
-    return None
+# The footprint extraction lives in ``ui/canvas/footprints.py`` since Phase 17
+# L1.1 (#385) — its public home, shared with the 3D pipeline. These two private
+# names stay ONLY because ``tests/integration/test_3d_view.py`` and
+# ``tests/unit/test_spike_q3d_board.py`` import them and those suites are frozen
+# until L1.10 removes Qt 3D and the spike; new code imports the public names.
+_item_footprints = item_footprints
+_plant_canopy_radius_cm = plant_canopy_radius_cm
 
 
-def _item_footprints(item: Any, at_date: date | None = None) -> list[Polygon]:
-    """Scene-space footprint polygon(s) of one canvas item.
-
-    Vertices are mapped through the item's own transform (``mapToScene``),
-    so rotation/position are Qt's answer, not a re-derivation — the
-    #218/#219 geometry lessons. ``at_date`` (US-E8) resizes a measured
-    plant's canopy circle to its projected spread — display/shadow only.
-    """
-    from open_garden_planner.ui.canvas.items.circle_item import CircleItem
-    from open_garden_planner.ui.canvas.items.ellipse_item import EllipseItem
-    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
-    from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
-    from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
-
-    if isinstance(item, CircleItem):
-        center = item.mapToScene(item.center)
-        radius = _plant_canopy_radius_cm(item, at_date)
-        if radius is None:
-            radius = item.radius
-        return [circle_footprint(center.x(), center.y(), radius)]
-    if isinstance(item, EllipseItem):
-        rect = item.rect()
-        cx, cy = rect.center().x(), rect.center().y()
-        rx, ry = rect.width() / 2.0, rect.height() / 2.0
-        if rx <= 0 or ry <= 0:
-            return []
-        step = 2.0 * math.pi / _ELLIPSE_SEGMENTS
-        points = [
-            item.mapToScene(
-                QPointF(cx + rx * math.cos(i * step), cy + ry * math.sin(i * step))
-            )
-            for i in range(_ELLIPSE_SEGMENTS)
-        ]
-        return [[(p.x(), p.y()) for p in points]]
-    if isinstance(item, RectangleItem):
-        rect = item.rect()
-        corners = [rect.topLeft(), rect.topRight(), rect.bottomRight(), rect.bottomLeft()]
-        points = [item.mapToScene(c) for c in corners]
-        return [[(p.x(), p.y()) for p in points]]
-    if isinstance(item, PolygonItem):
-        polygon = item.polygon()
-        points = [item.mapToScene(polygon.at(i)) for i in range(polygon.count())]
-        return [[(p.x(), p.y()) for p in points]]
-    if isinstance(item, PolylineItem):
-        points = [item.mapToScene(p) for p in item.points]
-        width = item.pen().widthF()
-        if width <= 0:
-            width = 1.0
-        return polyline_footprint([(p.x(), p.y()) for p in points], width)
-    return []
-
-
-def collect_shadow_casters(
+def collect_identified_casters(
     scene: QGraphicsScene,
     at_date: date | None = None,
-) -> list[tuple[Polygon, float]]:
-    """Snapshot every visible item with an effective height as (footprint, h).
+) -> list[IdentifiedCaster]:
+    """THE caster walk: every visible item with an effective height, as one
+    ``IdentifiedCaster`` per item — its id, its solid footprints, its height and
+    where it stands.
 
-    Plain-data output — the same snapshot shape the US-E4 worker thread
-    consumes (never live QGraphicsItems). ``at_date`` (US-E8) projects
+    The shadow overlay, the hours-of-sun heatmap and the per-plant sun estimates
+    all come from this walk (``collect_shadow_casters`` flattens it), so they can
+    never disagree. Plain-data output — the snapshot shape the heatmap worker
+    thread consumes (never live QGraphicsItems). ``at_date`` (US-E8) projects
     dated plants to their grown height AND canopy spread at that date.
+    ``item_id`` keeps ownership for own-shadow exclusion (US-F3). ``base_cm``
+    (Phase 17 L1.6, ADR-037 addendum) is where the item stands: 0 on the ground,
+    the soil surface for a plant in a raised bed or container
+    (``footprints.item_base_cm`` — the rule the 3D records use too).
     """
-    return [(list(footprint), caster.height_cm)
-            for caster in collect_identified_casters(scene, at_date) for footprint in caster.footprints]
-
-
-def collect_identified_casters(scene: QGraphicsScene, at_date: date | None = None) -> list[IdentifiedCaster]:
-    """The one caster collector; retain ownership for own-shadow exclusion."""
     casters: list[IdentifiedCaster] = []
-    for item in scene.items():
+    items = scene.items()
+    lookup = ItemLookup(items)
+    for item in items:
         if not item.isVisible():
             continue
         object_type = getattr(item, "object_type", None)
@@ -330,10 +246,25 @@ def collect_identified_casters(scene: QGraphicsScene, at_date: date | None = Non
         )
         if height is None:
             continue
-        footprints = tuple(tuple(footprint) for footprint in _item_footprints(item, at_date) if len(footprint) >= 3)
+        footprints = tuple(tuple(footprint) for footprint in item_footprints(item, at_date)
+                           if len(footprint) >= 3)
         if footprints:
-            casters.append(IdentifiedCaster(str(getattr(item, "item_id", id(item))), footprints, height))
+            casters.append(IdentifiedCaster(
+                str(getattr(item, "item_id", id(item))), footprints, height,
+                item_base_cm(item, lookup, at_date)))
     return casters
+
+
+def collect_shadow_casters(
+    scene: QGraphicsScene,
+    at_date: date | None = None,
+) -> list[ShadowCaster]:
+    """The walk's casters as ``ShadowCaster``s — ``(footprint, height_cm,
+    base_cm)``, one per solid footprint: what the shadow overlay unions. Derived
+    from ``collect_identified_casters``; there is no second walk."""
+    return [ShadowCaster(list(footprint), caster.height_cm, caster.base_cm)
+            for caster in collect_identified_casters(scene, at_date)
+            for footprint in caster.footprints]
 
 
 class SunShadowController(QObject):
@@ -363,7 +294,9 @@ class SunShadowController(QObject):
         # Qt-free channel (ADR-053): like a Qt connection it holds this bound
         # method weakly, so controller → clock → controller is no reference
         # cycle and an unparented controller dies with its last reference.
-        self._clock.instant_changed.connect(self._on_clock_changed)
+        # Through ``connect_qobject`` (L1.3): the channel cannot see Qt destroy
+        # this object with its parent, and would call into the dead slot.
+        connect_qobject(self._clock.instant_changed, self._on_clock_changed)
         self._overlay: SunShadowOverlayItem | None = None
         self._state = STATE_DISABLED
         self._last_key: tuple[Any, ...] | None = None
@@ -456,7 +389,9 @@ class SunShadowController(QObject):
             round(position.elevation_deg, 4),
             round(position.azimuth_deg, 4),
             canvas_key,
-            tuple((tuple(fp), h) for fp, h in casters),
+            # the base too: a bed that keeps its footprint but changes what its
+            # plants stand on must not be skipped as "nothing changed"
+            tuple((tuple(c.footprint), c.height_cm, c.base_cm) for c in casters),
         )
         overlay = self._alive_overlay()
         if key == self._last_key and overlay is not None and overlay.isVisible():

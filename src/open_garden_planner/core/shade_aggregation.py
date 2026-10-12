@@ -28,6 +28,8 @@ import numpy as np
 
 from .shadow_geometry import (
     MIN_SUN_ELEVATION_DEG,
+    CasterLike,
+    GroupedCaster,
     Polygon,
     compute_grouped_shadows,
     compute_scene_shadows,
@@ -103,18 +105,39 @@ Rasterizer = Callable[[list[Polygon], HeatmapGrid], np.ndarray]
 
 @dataclass(frozen=True)
 class IdentifiedCaster:
-    """All solid footprints belonging to one object (plain worker input)."""
+    """All solid footprints belonging to one object (plain worker input).
+
+    ``base_cm`` is where the object stands (Phase 17 L1.6, ADR-037 addendum): 0.0
+    on the garden floor, the soil surface for a plant on raised soil. Its solid is
+    ``footprint x [base_cm, base_cm + height_cm]`` everywhere it shades — the
+    overlay, the heatmap grid and the per-plant estimates.
+    """
 
     item_id: str
     footprints: tuple[tuple[tuple[float, float], ...], ...]
     height_cm: float
+    base_cm: float = 0.0
 
 
 @dataclass(frozen=True)
 class SunReceiver:
+    """A plant whose direct sun is estimated, at the ground point under its centre.
+
+    ``stands_on``: the id of the soil parent whose solid the plant stands in (the
+    membership half of the base rule: linked to a visible bed, raised bed or
+    container that has a height AND its centre inside it —
+    ``ui/canvas/footprints.standing_parent``), else None. That parent is under
+    the plant, not between it and the sun: it is left out for this receiver
+    exactly like the receiver's own solid. Without it every plant in a raised
+    bed reads 0 hours — the bed's footprint covers the point all day. Every
+    OTHER caster shades the receiver as if it stood on the ground (a stated
+    limit of the ground-level estimate).
+    """
+
     item_id: str
     x_cm: float
     y_cm: float
+    stands_on: str | None = None
 
 
 @dataclass(frozen=True)
@@ -208,7 +231,7 @@ def point_rasterizer_reference(
 
 
 def compute_heatmap(
-    casters: Sequence[tuple[Sequence[tuple[float, float]], float | None]],
+    casters: Sequence[CasterLike],
     lat_deg: float,
     lon_deg: float,
     day: date,
@@ -224,6 +247,8 @@ def compute_heatmap(
     For each daylight sample: shadow polygons via the US-E3 machinery →
     injected rasterizer → unshaded cells collect ``step_minutes``. Cells
     under no shadow all day accumulate the full daylight duration.
+    ``casters`` are the overlay's own (``ShadowCaster``, base included — a
+    plant in a raised bed casts from its soil here exactly as it does there).
 
     Grazing samples (0 < α < 0.5°) are counted as daylight but their
     shadows are computed at a clamped 0.5° elevation — the shadow module
@@ -256,14 +281,15 @@ def compute_sun_exposure(
     Receivers use heatmap cell centres. Out-of-grid receivers are omitted,
     never returned as zero sun. No leaf-height or transparent-canopy model.
     """
-    anonymous = [(footprint, caster.height_cm) for caster in casters for footprint in caster.footprints]
-    return _aggregate_day(anonymous, lat_deg, lon_deg, day, grid, rasterize,
+    # The grid and the receivers both come from the identified casters' grouped
+    # sweeps (base included); the anonymous list is only for a caller without ids.
+    return _aggregate_day((), lat_deg, lon_deg, day, grid, rasterize,
                           identified=casters, receivers=receivers, step_minutes=step_minutes,
                           progress=progress, should_cancel=should_cancel)
 
 
 def _aggregate_day(
-    casters: Sequence[tuple[Sequence[tuple[float, float]], float | None]],
+    casters: Sequence[CasterLike],
     lat_deg: float, lon_deg: float, day: date, grid: HeatmapGrid, rasterize: Rasterizer,
     *, identified: Sequence[IdentifiedCaster] = (), receivers: Sequence[SunReceiver] = (),
     step_minutes: int = SAMPLE_STEP_MINUTES,
@@ -278,9 +304,13 @@ def _aggregate_day(
              and 0 <= grid.cell_at(receiver.x_cm, receiver.y_cm)[1] < grid.cols]
     points = np.asarray([grid.cell_center(*grid.cell_at(receiver.x_cm, receiver.y_cm))
                          for receiver in valid], dtype=float).reshape(-1, 2)
-    own_indices: dict[str, list[int]] = {}
+    # caster id -> the receivers it never shades: itself, and the plants standing
+    # on its soil (``SunReceiver.stands_on``)
+    spared: dict[str, list[int]] = {}
     for index, receiver in enumerate(valid):
-        own_indices.setdefault(receiver.item_id, []).append(index)
+        spared.setdefault(receiver.item_id, []).append(index)
+        if receiver.stands_on is not None and receiver.stands_on != receiver.item_id:
+            spared.setdefault(receiver.stands_on, []).append(index)
     exposure = np.zeros(len(valid), dtype=np.float32)
     total = len(samples)
     for index, sample in enumerate(samples):
@@ -289,7 +319,8 @@ def _aggregate_day(
         owned_polygons: list[list[Polygon]] = []
         if identified:
             shadows = compute_grouped_shadows(
-                [(caster.footprints, caster.height_cm) for caster in identified],
+                [GroupedCaster(caster.footprints, caster.height_cm, caster.base_cm)
+                 for caster in identified],
                 max(sample.elevation_deg, MIN_SUN_ELEVATION_DEG), sample.azimuth_deg, should_cancel)
             if shadows is None:
                 return None
@@ -304,15 +335,15 @@ def _aggregate_day(
             minutes += float(step_minutes)
         if len(valid):
             coverage = np.zeros(len(valid), dtype=np.int32)
-            own = np.zeros(len(valid), dtype=bool)
             for caster, caster_polygons in zip(identified, owned_polygons, strict=True):
                 if should_cancel is not None and should_cancel():
                     return None
                 mask = points_in_polygons(caster_polygons, points)
+                indices = spared.get(caster.item_id)
+                if indices:
+                    mask[indices] = False
                 coverage += mask
-                indices = own_indices.get(caster.item_id, [])
-                own[indices] = mask[indices]
-            exposure += np.where(coverage - own == 0, float(step_minutes), 0.0)
+            exposure += np.where(coverage == 0, float(step_minutes), 0.0)
         if progress is not None:
             progress(index + 1, total)
     if should_cancel is not None and should_cancel():

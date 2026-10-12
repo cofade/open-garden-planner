@@ -1,0 +1,471 @@
+"""The engine package's engine-free modules: look, shots, materials, Qt messages (L1.2).
+
+These carry every decision of the engine package that is not a Qt call — which
+is why they are separate modules: the default (GPU-less) run covers them, and
+the render tier only has to prove that the engine does what they say.
+"""
+
+from __future__ import annotations
+
+import dataclasses
+import math
+import subprocess
+import sys
+import textwrap
+from pathlib import Path
+
+import pytest
+
+from open_garden_planner.core.scene3d import MATERIAL_KINDS, Material, MeshPart, prism_mesh
+from open_garden_planner.ui.view3d.quick3d.look import NEUTRAL_DAY, Look
+from open_garden_planner.ui.view3d.quick3d.materials import (
+    PART_COMPONENTS,
+    WHITE,
+    part_tint,
+    tint_uniform,
+)
+from open_garden_planner.ui.view3d.quick3d.qt_messages import (
+    QtMessages,
+    classify,
+    graphics_adapter,
+    graphics_info,
+)
+from open_garden_planner.ui.view3d.quick3d.shots import (
+    PerspectiveShot,
+    TopDownShot,
+    top_down_pixel,
+)
+from tests.integration.quick3d_render_support import isolated_env
+
+SRC = Path(__file__).resolve().parents[2] / "src"
+SQUARE = ((-50.0, -50.0), (50.0, -50.0), (50.0, 50.0), (-50.0, 50.0))
+
+
+# ── look ─────────────────────────────────────────────────────────────────────
+
+
+class TestLook:
+    def test_neutral_day_is_the_spikes_noon_rig(self) -> None:
+        """L1.2 has ONE look, and it is measured, not invented: the L0 spike's noon
+        anchor (``ogp-lush-cinematic`` §3). Drift guard until the spike retires (L1.10)."""
+        from open_garden_planner.spike_q3d import runner
+
+        assert (NEUTRAL_DAY.sun_color, NEUTRAL_DAY.sun_brightness) == runner.SUN_NOON
+        assert NEUTRAL_DAY.exposure == runner.LOOK_NOON["exposure"]
+        assert NEUTRAL_DAY.sky_color == runner.LOOK_NOON["skyHorizon"]
+        assert NEUTRAL_DAY.meadow_albedo == runner.MEADOW_ALBEDO
+
+    def test_the_fill_is_derived_from_the_noon_sky_not_chosen(self) -> None:
+        """Without a light probe (L1.4) a flat fill stands in for the sky: the mean of the
+        noon sky's top and horizon in linear light, times the noon probe exposure."""
+        from open_garden_planner.core.scene3d import srgb_to_linear
+        from open_garden_planner.spike_q3d import runner
+
+        top = srgb_to_linear(runner.LOOK_NOON["skyTop"])
+        horizon = srgb_to_linear(runner.LOOK_NOON["skyHorizon"])
+        expected = (top + horizon) / 2.0 * runner.LOOK_NOON["probe"]
+        assert NEUTRAL_DAY.fill_linear == pytest.approx(tuple(float(v) for v in expected), abs=5e-4)
+
+    def test_a_look_is_plain_frozen_data(self) -> None:
+        assert dataclasses.is_dataclass(NEUTRAL_DAY)
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            NEUTRAL_DAY.exposure = 2.0  # type: ignore[misc]
+        assert dataclasses.replace(NEUTRAL_DAY, exposure=1.0).exposure == 1.0
+
+    @pytest.mark.parametrize("change", [
+        {"sun_color": "fff1dc"}, {"sky_color": "#fff"}, {"meadow_albedo": "#gggggg"},
+        {"sun_brightness": -1.0}, {"exposure": 0.0}, {"exposure": math.nan},
+        {"fill_linear": (0.1, 0.2)}, {"fill_linear": (0.1, -0.2, 0.3)},
+        {"fill_linear": (0.1, math.inf, 0.3)}, {"wind_strength": -0.5},
+    ])
+    def test_a_malformed_look_is_refused(self, change: dict[str, object]) -> None:
+        with pytest.raises(ValueError):
+            dataclasses.replace(NEUTRAL_DAY, **change)  # type: ignore[arg-type]
+
+    def test_look_accepts_what_l14_will_pass(self) -> None:
+        golden = Look(sun_color="#ffb878", sun_brightness=1.9, fill_linear=(0.2, 0.2, 0.2),
+                      exposure=1.15, sky_color="#f4d2a6", meadow_albedo="#487f34")
+        assert golden.wind_strength == NEUTRAL_DAY.wind_strength
+
+
+# ── shots ────────────────────────────────────────────────────────────────────
+
+
+class TestShots:
+    def test_top_down_puts_east_right_and_north_up(self) -> None:
+        shot = TopDownShot(center=(0.0, 0.0), px_per_cm=0.5)
+        size = (320, 240)
+        assert top_down_pixel(0.0, 0.0, shot, size) == (160.0, 120.0)
+        east = top_down_pixel(100.0, 0.0, shot, size)
+        north = top_down_pixel(0.0, 100.0, shot, size)
+        assert east == (210.0, 120.0)   # +East → to the right
+        assert north == (160.0, 70.0)   # +North → UP the image (smaller row)
+
+    def test_the_centre_and_the_scale_are_honoured(self) -> None:
+        shot = TopDownShot(center=(1200.0, 800.0), px_per_cm=0.25)
+        assert top_down_pixel(1200.0, 800.0, shot, (640, 360)) == (320.0, 180.0)
+        assert top_down_pixel(1600.0, 400.0, shot, (640, 360)) == (420.0, 280.0)
+
+    @pytest.mark.parametrize("ratio", [1.0, 1.25, 1.5, 2.0])
+    def test_device_pixels_scale_with_the_display(self, ratio: float) -> None:
+        """A grab is in DEVICE pixels: at a 150 % display it is 1.5x the logical size, and a
+        prediction made in logical pixels pointed at the wrong place (spike, ``--iou``)."""
+        shot = TopDownShot(center=(0.0, 0.0), px_per_cm=0.5)
+        size = (round(320 * ratio), round(240 * ratio))
+        x, y = top_down_pixel(100.0, 60.0, shot, size, device_pixel_ratio=ratio)
+        assert (x, y) == pytest.approx((size[0] / 2 + 50.0 * ratio, size[1] / 2 - 30.0 * ratio))
+
+    @pytest.mark.parametrize("make", [
+        lambda: TopDownShot((0.0, 0.0), 0.0), lambda: TopDownShot((0.0, 0.0), -1.0),
+        lambda: TopDownShot((math.nan, 0.0), 1.0),
+        lambda: PerspectiveShot((0.0, 0.0, 100.0), (0.0, 0.0, 100.0)),
+        lambda: PerspectiveShot((0.0, 0.0, 100.0), (0.0, 0.0, 0.0), fov_deg=0.0),
+        lambda: PerspectiveShot((0.0, 0.0, 100.0), (0.0, 0.0, 0.0), fov_deg=180.0),
+        lambda: PerspectiveShot((0.0, math.inf, 100.0), (0.0, 0.0, 0.0)),
+    ])
+    def test_a_shot_that_cannot_be_rendered_is_refused(self, make: object) -> None:
+        with pytest.raises(ValueError):
+            make()  # type: ignore[operator]
+
+    def test_a_perspective_shot_defaults_to_the_spikes_field_of_view(self) -> None:
+        assert PerspectiveShot((0.0, -500.0, 300.0), (0.0, 0.0, 50.0)).fov_deg == 40.0
+
+
+# ── materials ────────────────────────────────────────────────────────────────
+
+
+class TestMaterials:
+    def test_every_material_kind_has_a_part_component(self) -> None:
+        assert frozenset(PART_COMPONENTS) == MATERIAL_KINDS
+        assert len(set(PART_COMPONENTS.values())) == len(PART_COMPONENTS)
+
+    def test_only_a_tinted_part_takes_the_items_colour(self) -> None:
+        material = Material("SHED", fill_rgba=(200, 30, 30, 90))
+        mesh = prism_mesh([SQUARE], 10.0)
+        assert part_tint(MeshPart(mesh, tinted=True), material) == (200, 30, 30, 255)
+        assert part_tint(MeshPart(mesh, tinted=False), material) == WHITE
+
+    def test_the_shader_tint_is_exactly_the_materials_linear_tint(self) -> None:
+        material = Material("SHED", fill_rgba=(200, 30, 188, 255))
+        assert tint_uniform(material.tint_rgba) == material.tint_linear()[:3]
+        assert tint_uniform(WHITE) == (1.0, 1.0, 1.0)
+
+
+# ── Qt messages ──────────────────────────────────────────────────────────────
+
+# Measured in the spike: renaming one function in water.frag (senior review, 6f0c4f4).
+SHADER_PARSE = ("QSpirvCompiler: Failed to parse shader: ERROR: 0:120: "
+                "'qt_sampleGlossyRenamed' : no matching overloaded function found")
+# Measured on the L1.2 dev box (monitor asleep), Qt 6.11, on EVERY run that opens a window.
+MONITOR = '"Unable to open monitor interface to \\\\\\\\.\\\\DISPLAY1:" "Unknown error 0xe0000225."'
+
+
+class TestClassify:
+    @pytest.mark.parametrize(("kind", "text"), [
+        ("warning", SHADER_PARSE),
+        ("warning", "Failed to build graphics pipeline state"),
+        ("warning", "file:///x/Garden.qml:231:13: Unable to assign [undefined] to QObject*"),
+        ("warning", "qrc:/x.qml:12: ReferenceError: groundColor is not defined"),
+        ("warning", "QQmlComponent: Component is not ready"),
+        ("warning", "Failed to load shader file water.frag"),
+        ("critical", "anything a Qt module reports as critical"),
+        ("fatal", "anything fatal"),
+    ])
+    def test_shader_and_qml_failures_are_errors(self, kind: str, text: str) -> None:
+        assert classify(kind, text) == "error"
+
+    @pytest.mark.parametrize(("kind", "text", "expected"), [
+        ("warning", "QStandardPaths: XDG_RUNTIME_DIR not set, defaulting to '/tmp/runtime-root'",
+         "warning"),
+        ("info", "Using RHI backend OpenGL", "info"),
+        ("debug", "Adapter 0: 'NVIDIA GeForce RTX 4070' (vendor 0x10DE device 0x2786 flags 0x0)",
+         "info"),
+    ])
+    def test_other_messages_are_not_errors(self, kind: str, text: str, expected: str) -> None:
+        assert classify(kind, text) == expected
+
+    @pytest.mark.parametrize("kind", ["debug", "info"])
+    @pytest.mark.parametrize("text", [
+        SHADER_PARSE,
+        "Failed to compile fragment shader",
+        "file:///x/Garden.qml:231:13: Unable to assign [undefined] to QObject*",
+        "qt.rhi.general: shader cache: failed to open, error 2",
+        "file:///x/Garden.qml:40: TypeError: Cannot read property 'x' of null",
+    ])
+    def test_the_level_decides_first(self, kind: str, text: str) -> None:
+        """Review P2-3: the error patterns used to run over debug and info lines too. The
+        self-test switches ``qt.rhi.general`` debug output on — so the WORDING of a Qt
+        debug line could have failed a release. Only a warning is promoted by its text."""
+        assert classify(kind, text) == "info"
+        assert classify(kind, text, "qt.rhi.general") == "info"
+        assert classify("warning", text) == "error", "the same text as a warning IS an error"
+
+    @pytest.mark.parametrize(("kind", "text", "category", "expected"), [
+        # an image a widget could not load — "Failed to load" alone used to be an error
+        ("warning", "QPixmap::scaled: Pixmap is a null pixmap", "", "warning"),
+        ("warning", "Failed to load image file:///x/icon.png", "", "warning"),
+        ("warning", "QFont::setPointSize: Point size <= 0 (-1), must be greater than 0", "", "warning"),
+        # a word of JavaScript without a QML location says nothing about the scene file
+        ("warning", "TypeError: something somewhere", "", "warning"),
+        ("warning", "ReferenceError: x is not defined", "", "warning"),
+        # QtWebEngine forwards a web page's console: category "js", or the prefix "js: "
+        ("warning", "Uncaught TypeError: map.fitBounds is not a function", "js", "info"),
+        ("warning", "js: Uncaught ReferenceError: L is not defined", "", "info"),
+        ("critical", "Uncaught (in promise) Error: tiles failed to load", "js", "info"),
+        ("warning", "js: https://tile.example/1/2/3.png Failed to load shader of the page", "", "info"),
+    ])
+    def test_messages_of_the_rest_of_the_process_are_not_engine_errors(
+            self, kind: str, text: str, category: str, expected: str) -> None:
+        """Review round 2, P2-1/2: the recorder listens to the WHOLE process, and its
+        error rules matched a pixmap a widget could not load and the JavaScript console
+        of the satellite-map page. Each error rule now names a shader, a pipeline or a
+        QML location; a web page's console is never a statement about the 3D frame."""
+        assert classify(kind, text, category) == expected
+
+    def test_the_error_rules_still_catch_what_they_are_for(self) -> None:
+        """The other direction of the tightening: nothing a shader or the scene file can
+        say got lost with the bare words."""
+        for text in (
+            SHADER_PARSE,
+            "Failed to compile fragment shader",
+            "Failed to link shader program: error X",
+            "Failed to create graphics pipeline",
+            "ERROR: :12: 'foo' : undeclared identifier in water.frag:12",
+            "file:///x/Garden.qml:231:13: Unable to assign [undefined] to QObject*",
+            "file:///x/Garden.qml:40: TypeError: Cannot read property 'x' of null",
+            "file:///x/Garden.qml:12: ReferenceError: groundColor is not defined",
+            "QQmlComponent: Component is not ready",
+            "file:///x/Garden.qml:7 Foo is not a type",
+            'Cannot assign to non-existent property "castsShadows"',
+        ):
+            assert classify("warning", text) == "error", text
+
+    def test_a_debug_line_is_recorded_as_information_only(self) -> None:
+        qt = QtMessages()
+        qt.add("debug", SHADER_PARSE, "qt.rhi.general")
+        assert qt.clean and qt.errors == [] and qt.report()["counts"]["info"] == 1
+
+    def test_the_sleeping_monitor_warning_is_the_environment(self) -> None:
+        assert classify("warning", MONITOR, "qt.qpa.screen") == "environment"
+
+    def test_the_environment_list_is_exact_not_a_category_pass(self) -> None:
+        """An allow-list that is wider than what was measured is a hole: another message
+        of that category, the same text from another category, and an ERROR in that
+        category all keep their class."""
+        assert classify("warning", "another screen problem", "qt.qpa.screen") == "warning"
+        assert classify("warning", MONITOR, "qt.quick3d") == "warning"
+        assert classify("critical", MONITOR, "qt.qpa.screen") == "error"
+        assert classify("warning", MONITOR + " Failed to compile shader", "qt.qpa.screen") == "error"
+
+
+class TestRecorder:
+    def test_counts_keeps_and_logs_only_what_matters(self) -> None:
+        logged: list[dict[str, object]] = []
+        qt = QtMessages(lambda phase, **fields: logged.append({"phase": phase, **fields}))
+        qt.add("info", "Using RHI backend OpenGL")
+        qt.add("warning", "QStandardPaths: XDG_RUNTIME_DIR not set")
+        qt.add("warning", MONITOR, "qt.qpa.screen")
+        qt.add("warning", SHADER_PARSE, "qt.shadertools")
+        report = qt.report()
+        assert report["counts"] == {"error": 1, "warning": 1, "environment": 1, "info": 1}
+        assert qt.errors == [f"warning: qt.shadertools: {SHADER_PARSE}"]
+        assert qt.warnings == ["warning: QStandardPaths: XDG_RUNTIME_DIR not set"]
+        assert [entry["level"] for entry in logged] == ["warning", "environment", "error"]
+        assert not qt.clean
+
+    def test_a_run_with_only_information_and_environment_is_clean(self) -> None:
+        qt = QtMessages()
+        qt.add("debug", "Adapter 0: 'x' (vendor 0x1 device 0x2 flags 0x0)", "qt.rhi.general")
+        qt.add("warning", MONITOR, "qt.qpa.screen")
+        assert qt.clean and qt.report()["counts"]["environment"] == 1
+
+    def test_the_recorder_is_bounded(self) -> None:
+        qt = QtMessages()
+        for k in range(1000):
+            qt.add("warning", f"noise {k}")
+        assert qt.report()["counts"]["warning"] == 1000
+        assert len(qt.report()["warnings"]) == 30 and len(qt.warnings) == 100
+
+    def test_it_never_raises_inside_qts_handler(self) -> None:
+        def broken_log(*_args: object, **_fields: object) -> None:
+            raise OSError("log closed")
+
+        qt = QtMessages(broken_log)
+        qt.add("warning", "a message after the log was closed")  # must not raise
+        assert qt.report()["counts"]["warning"] == 1
+
+
+class TestWhichThreadDelivered:
+    """Review round 2, P1-C: the recorder may only be installed where every message
+    arrives on the thread that created it — it counts the ones that did not, so the
+    render tier can assert the claim instead of assuming it."""
+
+    def test_messages_on_the_recorders_own_thread_are_not_counted(self) -> None:
+        qt = QtMessages()
+        qt.add("warning", "on the thread that renders")
+        assert qt.other_threads == 0 and qt.report()["other_threads"] == 0
+
+    def test_a_message_from_another_thread_is_counted_and_still_recorded(self) -> None:
+        import threading
+
+        qt = QtMessages()
+        worker = threading.Thread(target=qt.add, args=("warning", SHADER_PARSE, "qt.shadertools"))
+        worker.start()
+        worker.join(10)
+        qt.add("debug", "back on the creating thread")
+        assert qt.other_threads == 1 and qt.report()["other_threads"] == 1
+        assert len(qt.errors) == 1, "counted AND recorded: an error is an error on any thread"
+
+
+def test_the_logging_sink_of_the_live_watch_is_gone() -> None:
+    """Nothing of the live message watch is left to be picked up again (review round 2):
+    a Python Qt message handler beside a shown window deadlocks the process."""
+    from open_garden_planner.ui.view3d.quick3d import qt_messages
+
+    assert not hasattr(qt_messages, "logging_sink")
+    source = Path(qt_messages.__file__).read_text(encoding="utf-8")
+    assert "import logging" not in source
+
+
+class TestGraphicsInfo:
+    """Review P2-4: the debug rule was switched on and never off again."""
+
+    @staticmethod
+    def _rhi_debug() -> bool:
+        from PyQt6.QtCore import QLoggingCategory
+
+        return bool(QLoggingCategory("qt.rhi.general").isDebugEnabled())
+
+    def test_the_rule_is_on_inside_the_block_and_off_after(self, qtbot) -> None:  # noqa: ARG002
+        assert not self._rhi_debug()
+        with graphics_info():
+            assert self._rhi_debug()
+        assert not self._rhi_debug()
+
+    def test_the_rule_is_cleared_when_the_block_raises(self, qtbot) -> None:  # noqa: ARG002
+        with pytest.raises(RuntimeError), graphics_info():
+            raise RuntimeError("the render failed")
+        assert not self._rhi_debug()
+
+    def test_blocks_nest_and_the_outermost_one_switches(self, qtbot) -> None:  # noqa: ARG002
+        """The render driver records a whole run while ``render_records`` records one
+        frame: the inner block must not switch the outer one's rule off."""
+        with graphics_info():
+            with graphics_info():
+                assert self._rhi_debug()
+            assert self._rhi_debug(), "the inner block switched the outer rule off"
+        assert not self._rhi_debug()
+
+
+class TestGraphicsAdapter:
+    def test_direct3d_names_the_adapter_that_was_chosen(self) -> None:
+        """Real lines of Qt 6.11's ``qt.rhi.general`` on the L1.2 dev box."""
+        gpu = [
+            "debug: qt.rhi.general: Adapter 0: 'NVIDIA GeForce RTX 4070' (vendor 0x10DE device 0x2786 flags 0x0)",
+            "debug: qt.rhi.general:   using this adapter",
+            "debug: qt.rhi.general: Adapter 1: 'Microsoft Basic Render Driver' (vendor 0x1414 device 0x8C flags 0x2)",
+        ]
+        warp = [gpu[0], gpu[2], gpu[1]]  # QSG_RHI_PREFER_SOFTWARE_RENDERER=1: the marker follows adapter 1
+        assert graphics_adapter(gpu) == "NVIDIA GeForce RTX 4070"
+        assert graphics_adapter(warp) == "Microsoft Basic Render Driver"
+
+    def test_opengl_names_the_renderer(self) -> None:
+        lines = ["debug: qt.rhi.general: OpenGL VENDOR: Mesa RENDERER: llvmpipe (LLVM 15.0.7, 256 bits) "
+                 "VERSION: 4.5 (Core Profile) Mesa 23.2.1"]
+        assert graphics_adapter(lines) == "llvmpipe (LLVM 15.0.7, 256 bits)"
+
+    def test_the_last_device_wins(self) -> None:
+        """A process may create several devices; the answer is about the latest one."""
+        lines = [
+            "debug: qt.rhi.general: Adapter 0: 'A' (vendor 0x1 device 0x2 flags 0x0)",
+            "debug: qt.rhi.general:   using this adapter",
+            "debug: qt.rhi.general: Adapter 0: 'A' (vendor 0x1 device 0x2 flags 0x0)",
+            "debug: qt.rhi.general: Adapter 1: 'B' (vendor 0x1 device 0x2 flags 0x2)",
+            "debug: qt.rhi.general:   using this adapter",
+        ]
+        assert graphics_adapter(lines) == "B"
+
+    def test_unknown_stays_unknown(self) -> None:
+        assert graphics_adapter([]) is None
+        assert graphics_adapter(["debug: qt.rhi.general: Adapter 0: 'A' (vendor 0x1 device 0x2 flags 0x0)"]) is None
+
+
+_LATE_MESSAGE = textwrap.dedent("""
+    import sys
+    from pathlib import Path
+    from PyQt6.QtCore import QCoreApplication, qWarning
+    from open_garden_planner.ui.view3d.quick3d.qt_messages import QtMessages, install, uninstall
+
+    app = QCoreApplication([])
+    log_file = (Path(sys.argv[1]) / "render.log").open("w", encoding="utf-8")
+
+    def log(phase, **fields):
+        log_file.write(phase + str(fields) + "\\n")
+
+    previous = install(QtMessages(log))
+    if sys.argv[2] == "uninstall":
+        uninstall(previous)
+    log_file.close()
+    qWarning("a late Qt message, after the log closed")
+    print("survived", flush=True)
+""")
+
+
+@pytest.mark.parametrize("mode", ["uninstall", "closed-log"])
+def test_a_late_qt_message_cannot_abort_the_process(tmp_path: Path, mode: str) -> None:
+    """The spike reproduced exit 134: the handler wrote to a closed log, raised, and PyQt
+    turned the exception into qFatal. The recorder never raises ("closed-log"), and a
+    render detaches its handler before its log closes ("uninstall")."""
+    env = isolated_env(tmp_path, QT_QPA_PLATFORM="offscreen")
+    proc = subprocess.run(  # noqa: S603 - fixed argv, our own code
+        [sys.executable, "-c", _LATE_MESSAGE, str(tmp_path), mode],
+        env=env, capture_output=True, text=True, timeout=120,
+    )
+    assert proc.returncode == 0, proc.stderr[-2000:]
+    assert "survived" in proc.stdout
+
+
+def test_a_recorder_listens_in_and_then_steps_aside(qtbot) -> None:  # noqa: ARG001
+    """A render inside the running app (or inside a test driver's own recorder) must not
+    steal messages: whoever listened before still hears every one, and gets its
+    handler back afterwards."""
+    from PyQt6.QtCore import qInstallMessageHandler, qWarning
+
+    from open_garden_planner.ui.view3d.quick3d.qt_messages import install, uninstall
+
+    seen: list[str] = []
+
+    def outer(_mode: object, _context: object, text: str | None) -> None:
+        seen.append(text or "")
+
+    before = qInstallMessageHandler(outer)
+    try:
+        recorder = QtMessages()
+        previous = install(recorder)
+        qWarning("inside the render")
+        uninstall(previous)
+        qWarning("after the render")
+    finally:
+        qInstallMessageHandler(before)
+    assert recorder.warnings == ["warning: inside the render"]
+    assert seen == ["inside the render", "after the render"]
+
+
+def test_nested_recorders_both_hear_an_error(qtbot) -> None:  # noqa: ARG001
+    """The render driver records a whole run while ``render_records`` records one frame:
+    a shader error inside the frame must reach both."""
+    from PyQt6.QtCore import qInstallMessageHandler, qWarning
+
+    from open_garden_planner.ui.view3d.quick3d.qt_messages import install, uninstall
+
+    quiet = qInstallMessageHandler(lambda *_args: None)  # keep the test's stderr clean
+    try:
+        whole_run, one_frame = QtMessages(), QtMessages()
+        first = install(whole_run)
+        second = install(one_frame)
+        qWarning(SHADER_PARSE)
+        uninstall(second)
+        uninstall(first)
+    finally:
+        qInstallMessageHandler(quiet)
+    assert len(one_frame.errors) == 1 and len(whole_run.errors) == 1

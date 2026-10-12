@@ -108,6 +108,32 @@ class TestDefaultTable:
         plant_names = {t.name for t in ObjectType if is_plant_type(t)}
         assert plant_names == _PLANT_TYPE_NAMES
 
+    def test_soil_parent_names_match_the_soil_predicate(self) -> None:
+        """L1.6: a plant stands on the soil of exactly the types ``is_bed_type``
+        calls soil-capable. The name set is a Qt-free mirror of the repo's ONE
+        predicate — a type added to (or dropped from) ``SOIL_CONTAINER_TYPES``
+        must break this test, not silently leave a plant on the ground."""
+        from open_garden_planner.core.object_height import (
+            _SOIL_PARENT_TYPE_NAMES,
+            standing_base_cm,
+        )
+        from open_garden_planner.core.object_types import (
+            SOIL_CONTAINER_TYPES,
+            ObjectType,
+            is_bed_type,
+            is_plant_parent_type,
+        )
+
+        assert {t.name for t in SOIL_CONTAINER_TYPES} == _SOIL_PARENT_TYPE_NAMES
+        assert {t.name for t in ObjectType if is_bed_type(t)} == _SOIL_PARENT_TYPE_NAMES
+        tall = {METADATA_KEY: 50.0}
+        for member in ObjectType:
+            raised = standing_base_cm(member, tall) > 0.0
+            assert raised is is_bed_type(member), member.name
+        # the one plant parent that holds no soil: climbers root in the ground
+        assert is_plant_parent_type(ObjectType.TRELLIS)
+        assert standing_base_cm(ObjectType.TRELLIS, tall) == 0.0
+
 
 class TestValueGuards:
     @pytest.mark.parametrize("bad", [0, -5, 0.0, -0.1, True, False, "120", None])

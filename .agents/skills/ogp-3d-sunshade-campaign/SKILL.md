@@ -31,7 +31,8 @@ description: >
 >
 > **Every "TO BUILD" marker below is now STALE — that code EXISTS.** Do not
 > re-implement it. `core/solar.py`, `core/object_height.py`, `core/shadow_geometry.py`,
-> `core/shade_aggregation.py`, `core/heatmap_render.py`, `core/scene3d.py`,
+> `core/shade_aggregation.py`, `core/heatmap_render.py`, `core/scene3d/legacy.py` (the
+> former `core/scene3d.py`; a package since Phase 17 L1.1, which re-exports every name),
 > `core/walk_camera.py`, `core/growth_model.py`, `ui/view3d/` and
 > `ui/canvas/sun_heatmap.py` are all shipped and gated by tests.
 >
@@ -46,6 +47,27 @@ description: >
 > prominent enough to carry a major-version claim). Read "v2.0" as "Phase 14" — the
 > scope exclusions it labels (flat ground, no terrain slopes, geometric sun elevation)
 > are all still real.
+>
+> **A caster has a base since Phase 17 L1.6 (ADR-037 addendum "base stacking").**
+> The shared caster is `core/shadow_geometry.ShadowCaster(footprint, height_cm, base_cm)`:
+> a plant that is LINKED to a raised bed or container (`parent_bed_id`) AND whose centre
+> lies inside it casts from that parent's soil (`ui/canvas/footprints.item_base_cm` →
+> `core/object_height.standing_base_cm`: 2 cm under a bed's rim — an assumption — and AT a
+> container's height, which is its soil fill height), so its shadow starts, and its tip
+> lies, `base / tan α` further from the sun. The link alone never lifts: the app does not
+> keep it geometric (a bed resized away from its plant keeps the link). "Centre" is the
+> plant's stable geometric centre (`footprints.standing_point`), NOT the centre of its
+> `boundingRect()` — that one moves by up to 1.8 cm along each axis (about 2.5 cm
+> diagonally) while the antagonist badge shows, and
+> it stays the link decisions' point (`bed_membership_point`), exactly as shipped. Where the text
+> below says `(polygon, height)`, read `ShadowCaster`; the shadow functions take a
+> `ShadowCaster` or an exact `(footprint, height)` pair and raise `TypeError` for anything
+> else. A caster on the ground runs the Phase 14 code unchanged — proven on every platform
+> against the released v1.29.10 module kept as an oracle
+> (`tests/unit/test_shadow_caster_base.py::TestTheGroundPathIsTheReleasedCode`); the golden
+> `tests/integration/test_shadow_caster_golden.py` pins the absolute numbers, bit for bit
+> on win32 only, to 2e-3 cm on Linux. §8.20 has the worked example, the ADR the known
+> limits (a bed drawn round a plant, a trellis in a raised bed, a pot on a bed).
 
 **Status of the inventory below (2026-07-04):** Everything under "EXISTS (verified)"
 was read from the repo at v1.23.0 (post-US-D1.3). Items marked **TO BUILD** were
@@ -728,7 +750,7 @@ other facts held). One-line re-verification commands (run from repo root):
 
 Shipped on 12 October 2026 in v1.30.1 (PR #436), after owner acceptance and protected merge.
 
-US-F3 (#314) adds sparse receiver exposure alongside the unchanged explicit ground heatmap. The one identified caster collector supplies both anonymous legacy inputs and owned footprints; per-owner integer unions feed vectorized even-odd point coverage. Exclude only the receiving UUID, not all plants. Receiver centres use base geometry through mapToScene; row zero stays south. Estimates are ground-level direct sun, not leaf-height/translucent-canopy measurements.
+US-F3 (#314) adds sparse receiver exposure alongside the unchanged explicit ground heatmap. The one identified caster collector supplies both anonymous legacy inputs and owned footprints; per-owner integer unions feed vectorized even-odd point coverage. Exclude the receiving UUID and — for a plant that stands in a soil parent with a height (a raised bed, a container: `SunReceiver.stands_on`, from `ui/canvas/footprints.standing_parent`) — that parent, not all plants: v1.30.1 excluded only the plant itself, and every plant in a raised bed read 0 hours (measured: a tomato in a 40 cm bed in the open, Berlin, 21 June, 0.0 h and a warning; 16.5 h since the L1 merge). Every caster is swept from where it stands (`IdentifiedCaster.base_cm`, `GroupedCaster`), in the grid and in the estimates alike. Receiver centres use base geometry through mapToScene; row zero stays south. Estimates are ground-level direct sun, not leaf-height/translucent-canopy measurements.
 
 Use SimClock.plan_date and the opt-in 21 June shortcut. Geometry/date/location/bounds/document changes invalidate runtime exposure; time-only changes preserve it and requirement-only edits reclassify. Neither diagnostics, canopy selection nor MCP reads compute. Known unavailable sun requirements emit info sun_evaluation; do not equate no mismatch with evaluated success. Mature canopy membership uses recorded max_spread_cm/2, not spacing overrides or guild membership.
 

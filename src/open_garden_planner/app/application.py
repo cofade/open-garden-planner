@@ -968,12 +968,13 @@ class GardenPlannerApp(QMainWindow):
         unchanged membership returns ``(False, None)``."""
         from open_garden_planner.core.commands import SetParentBedCommand
         from open_garden_planner.core.plant_renderer import is_plant_type
+        from open_garden_planner.ui.canvas.footprints import bed_membership_point
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
         if not isinstance(item, GardenItemMixin) or not is_plant_type(item.object_type):
             return False, None
 
-        plant_center = item.mapToScene(item.boundingRect().center())
+        plant_center = bed_membership_point(item)
         current_parent_id = item.parent_bed_id
         new_bed = self.canvas_scene.find_smallest_bed_containing(plant_center)
         new_parent_id = (
@@ -2827,6 +2828,7 @@ class GardenPlannerApp(QMainWindow):
 
         from open_garden_planner.agent_api import edits
         from open_garden_planner.core.commands import SetParentBedCommand
+        from open_garden_planner.ui.canvas.footprints import centre_is_inside
 
         plant = self._agent_resolve_plant(item_id, "set_parent_bed")
         old_parent_id = plant.parent_bed_id
@@ -2846,8 +2848,14 @@ class GardenPlannerApp(QMainWindow):
             # reported x/y matches the read tools, whereas this one exists to
             # match the GUI's containment decision. The two differ by the
             # antagonist badge's asymmetric overflow (~0.07 * radius).
-            plant_center = plant.mapToScene(plant.boundingRect().center())
-            link_is_geometric = bool(bed.contains(bed.mapFromScene(plant_center)))
+            #
+            # Whether the sun study and the 3D scene LIFT the plant onto the
+            # bed's soil (L1.6, footprints.item_base_cm) is the same predicate
+            # asked with the plant's stable geometric centre — where a solid
+            # stands must not follow a badge. So within that overflow of a
+            # bed's edge a link reported as not geometric here can still be
+            # lifted there, and the other way round.
+            link_is_geometric = centre_is_inside(plant, bed)
 
         if new_parent_id == old_parent_id:
             where = "already unlinked" if bed_id is None else f"already linked to {bed_id}"
@@ -4088,6 +4096,7 @@ class GardenPlannerApp(QMainWindow):
 
     def _setup_view_menu(self, menu: QMenu) -> None:
         """Set up the View menu actions."""
+        self._view_menu = menu  # the 3D workspace adds its submenu later (L1.3)
         # Zoom In
         zoom_in_action = QAction(self.tr("Zoom &In"), self)
         zoom_in_action.setShortcut(QKeySequence("Ctrl++"))
@@ -4659,9 +4668,21 @@ class GardenPlannerApp(QMainWindow):
         # Create sidebar panels
         self._setup_sidebar()
 
-        # Create splitter for canvas and sidebar
+        # Create splitter for canvas and sidebar. Phase 17 L1.3 (ADR-065): behind
+        # the ONE internal switch, the canvas area is the Plan / 3D / Split
+        # workspace — the canvas inside it, and a 3D pane built on first use.
+        # Without the switch nothing of ``ui/view3d`` is imported here.
+        from open_garden_planner.app.settings import quick3d_workspace_enabled
+
+        self._workspace = None
+        canvas_area: QWidget = self.canvas_view
+        if quick3d_workspace_enabled():
+            from open_garden_planner.ui.view3d.workspace import Workspace
+
+            self._workspace = Workspace(self.canvas_view, parent=self)
+            canvas_area = self._workspace
         self._main_splitter = QSplitter(Qt.Orientation.Horizontal)
-        self._main_splitter.addWidget(self.canvas_view)
+        self._main_splitter.addWidget(canvas_area)
         # Route CanvasView's status messages to the window's status bar. This is
         # a signal connection rather than a parent lookup because the canvas's
         # parent is this QSplitter, which has no statusBar() — so the old
@@ -4830,8 +4851,28 @@ class GardenPlannerApp(QMainWindow):
         # 3D light. The overlay subscribes itself to instant_changed (constructed
         # above, so on that channel it re-solves before _on_sim_instant_changed;
         # date_changed — and with it _on_sim_date_changed — fires before both).
-        self._sim_clock.date_changed.connect(self._on_sim_date_changed)
-        self._sim_clock.instant_changed.connect(self._on_sim_instant_changed)
+        # Through connect_qobject (L1.3, ADR-053 addendum): every QObject on the
+        # clock is disconnected when Qt destroys it, not only when Python does.
+        from open_garden_planner.ui.sim_clock_subscription import connect_qobject
+
+        connect_qobject(self._sim_clock.date_changed, self._on_sim_date_changed)
+        connect_qobject(self._sim_clock.instant_changed, self._on_sim_instant_changed)
+
+        # ── 3D workspace (L1.3) — what its pipeline reads, and its View submenu ──
+        if self._workspace is not None:
+            self._workspace.connect_plan(
+                self.canvas_scene,
+                self._sim_clock,
+                lambda: self._project_manager.location,
+                self.canvas_view.command_manager,
+                self._ui_state,
+            )
+            self._project_manager.location_changed.connect(
+                self._workspace.location_changed
+            )
+            self._view_menu.insertMenu(
+                self._preview_action, self._workspace.create_menu(self._view_menu)
+            )
 
         # ── Find & Replace panel (US-11.24) ──────────────────────────────────
         from open_garden_planner.ui.panels.find_replace_panel import FindReplacePanel
@@ -6307,6 +6348,11 @@ class GardenPlannerApp(QMainWindow):
                     _w.hide()
             self._view3d_window = None
             self._view3d_window_retiring = None
+            # The 3D workspace (L1.3): stop its pipeline and close its engine
+            # host while this window still exists — and clear a pending start
+            # marker, because a clean close is not a crash (ADR-065).
+            if self._workspace is not None:
+                self._workspace.shutdown()
             # Persist window/splitter/panel state before tearing down.
             self._save_ui_state()
             # Stop auto-save timer
@@ -7328,6 +7374,8 @@ class GardenPlannerApp(QMainWindow):
             self.soil_overlay_toolbar.isVisible()
         )
         self.soil_overlay_toolbar.hide()
+        if self._workspace is not None:
+            self._workspace.set_chrome_visible(False)
 
         # Hide canvas overlays
         self.canvas_view.set_grid_visible(False)
@@ -7356,6 +7404,8 @@ class GardenPlannerApp(QMainWindow):
         self.sidebar.show()
         if (self._pre_preview_state or {}).get("soil_overlay_toolbar_visible"):
             self.soil_overlay_toolbar.show()
+        if self._workspace is not None:
+            self._workspace.set_chrome_visible(True)
 
         # Restore canvas overlays from saved state
         state = self._pre_preview_state or {}

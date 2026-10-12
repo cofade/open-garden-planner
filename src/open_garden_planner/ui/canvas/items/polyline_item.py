@@ -79,6 +79,11 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         """Get the polyline points."""
         return self._points.copy()
 
+    @property
+    def point_count(self) -> int:
+        """How many points the polyline has — without copying them (``points`` does)."""
+        return len(self._points)
+
     def clone_with_points(self, new_points: list[QPointF]) -> "PolylineItem":
         """Return a new PolylineItem with identical styling but a different point list.
 

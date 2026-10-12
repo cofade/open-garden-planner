@@ -1,7 +1,11 @@
 """Pytest configuration and fixtures."""
 
+import atexit
+import importlib.util
 import os
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -9,6 +13,54 @@ import pytest
 
 # Force Qt offscreen rendering before any Qt imports so no windows pop up.
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+# ── The user's data directory ────────────────────────────────────────────────
+# `services.plant_library.get_app_data_dir()` is where the app keeps what the
+# user made: custom plants, plant lists, the seed inventory, companion rules,
+# smart symbols, the weather cache. It reads `%APPDATA%` (Windows) or
+# `$XDG_DATA_HOME` (Linux) on every call, and nothing here redirected it — so a
+# test that reached the plant database panel's save path saved into the
+# developer's REAL library: 207 duplicate "Walnut" entries of 209 by the time it
+# was noticed (2026-10-11, §11.4), one more with every full run by anyone.
+#
+# Both variables point into a directory of THIS process from here on. Set at
+# conftest IMPORT time for the reason given for the settings below: a store
+# built while a module is imported must already land in the test location, and
+# a fixture runs after collection. Child processes inherit the environment, so
+# a script or the app started by a test lands there too. The environment is the
+# whole mechanism on Windows and Linux — production code has no override and
+# needs none. macOS reads no variable: `_rebind_get_app_data_dir` below.
+#
+# `PRODUCTION_DATA_ENV` keeps what the variables said before, so a test can
+# prove nothing resolves there any more WITHOUT this file ever touching that
+# place (tests/integration/test_app_data_isolation.py).
+#
+# `XDG_CONFIG_HOME` and `XDG_CACHE_HOME` are redirected with them — on every
+# platform, because a LIBRARY reads them on every platform: ezdxf (the DXF
+# import and export) loads `$XDG_CONFIG_HOME/ezdxf/ezdxf.ini`, else
+# `~/.config/ezdxf/ezdxf.ini`, when it is imported, and keeps its font index in
+# `$XDG_CACHE_HOME/ezdxf/font_manager_cache.json`, else under `~/.cache` —
+# which it BUILDS AND WRITES there when the file is missing (read in ezdxf
+# 1.4.3: `_options.config_files`, `fonts.fonts._load_font_manager`). On Linux
+# the two variables also move Qt's settings and cache folders and the AI-client
+# paths that follow `XDG_CONFIG_HOME`: all of them into the test root, which is
+# where a test's files belong.
+PRODUCTION_DATA_ENV: dict[str, str | None] = {
+    name: os.environ.get(name)
+    for name in ("APPDATA", "XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME")
+}
+TEST_DATA_ROOT = Path(tempfile.mkdtemp(prefix=f"ogp-tests-{os.getpid()}-")).resolve()
+os.environ["APPDATA"] = str(TEST_DATA_ROOT / "appdata")
+os.environ["XDG_DATA_HOME"] = str(TEST_DATA_ROOT / "xdg-data")
+os.environ["XDG_CONFIG_HOME"] = str(TEST_DATA_ROOT / "xdg-config")
+os.environ["XDG_CACHE_HOME"] = str(TEST_DATA_ROOT / "xdg-cache")
+for _name in ("APPDATA", "XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME"):
+    Path(os.environ[_name]).mkdir()
+# Removed when the interpreter exits — later than any fixture finaliser, so a
+# widget closed during teardown still finds its directory. A killed run leaves
+# an orphan in the temp directory, which nothing reads again (`mkdtemp` never
+# hands out an existing name).
+atexit.register(shutil.rmtree, TEST_DATA_ROOT, ignore_errors=True)
 
 # Add src to path for imports
 src_path = Path(__file__).parent.parent / "src"
@@ -50,6 +102,71 @@ PRODUCTION_STORE = (
 )
 _app_settings.ORGANIZATION_NAME = TEST_ORGANIZATION
 _app_settings.APPLICATION_NAME = TEST_APPLICATION
+
+
+def _rebind_get_app_data_dir(root: Path) -> None:
+    """Point ``get_app_data_dir`` itself at ``root`` — the route for macOS.
+
+    There the function reads no environment variable (it is
+    ``~/Library/Application Support/OpenGardenPlanner``, from ``Path.home()``), so
+    the redirection above cannot reach it; moving ``HOME`` would move far more
+    than this one directory. The function is replaced where it is defined and in
+    every already-imported module that bound the name with ``from … import``.
+    Modules imported later bind the replacement.
+
+    Not run on Windows or Linux, where the environment does the job. No Mac has
+    run this branch (CI has none): the mechanism is exercised by hand in
+    ``tests/integration/test_app_data_isolation.py``, the ``darwin`` condition
+    below is not.
+    """
+    import open_garden_planner.services.plant_library as library
+
+    original = library.get_app_data_dir
+
+    def redirected() -> Path:
+        path = root / "OpenGardenPlanner"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    for module in list(sys.modules.values()):
+        if (getattr(module, "__name__", "").startswith("open_garden_planner")
+                and getattr(module, "get_app_data_dir", None) is original):
+            module.get_app_data_dir = redirected  # type: ignore[attr-defined]
+
+
+if sys.platform == "darwin":
+    _rebind_get_app_data_dir(TEST_DATA_ROOT / "macos")
+
+# ── The locations Qt hands out ───────────────────────────────────────────────
+# `QStandardPaths.writableLocation` is how the rest of the app finds a place to
+# write: the crash log and `app.log` (AppDataLocation), the companion, climate
+# and thumbnail caches (AppLocalDataLocation), and the default project folder
+# under Documents — which `app.paths.get_projects_dir()` CREATES. On Windows Qt
+# asks the shell for these folders, not the environment, so no variable moves
+# them; in a test process they are named after pytest-qt's application
+# ("pytest-qt-qapp"), which kept them out of the user's own app folder but not
+# out of the user's profile: one test appended a traceback to
+# `%APPDATA%/pytest-qt-qapp/crash.log` on every run (331 of them when counted).
+#
+# So the Python-level call is redirected for the locations the app writes to.
+# Every use in `src/` is a Python call of this one function. What Qt does on its
+# own in C++ (its shader and QML disk caches) still goes where Qt decides.
+# A test that needs another answer monkeypatches the function as before.
+from PyQt6.QtCore import QStandardPaths as _QStandardPaths  # noqa: E402
+
+# THE stand-in is `scripts/script_isolation.redirect_qt_locations` — one function for
+# the suite and for every script that isolates itself (a script runs outside pytest,
+# and on Windows no environment variable moves `AppLocalDataLocation`). Loaded from
+# its file and registered under its name, so that a fixture generator a test imports
+# (`import script_isolation`) gets this very module and not a second state.
+_isolation_spec = importlib.util.spec_from_file_location(
+    "script_isolation", Path(__file__).parent.parent / "scripts" / "script_isolation.py")
+assert _isolation_spec is not None and _isolation_spec.loader is not None
+_script_isolation = importlib.util.module_from_spec(_isolation_spec)
+sys.modules["script_isolation"] = _script_isolation
+_isolation_spec.loader.exec_module(_script_isolation)
+REDIRECTED_QT_LOCATIONS = _script_isolation.redirect_qt_locations(TEST_DATA_ROOT)
+assert REDIRECTED_QT_LOCATIONS and _QStandardPaths.writableLocation.__name__ == "writable_location"
 
 
 @pytest.fixture(autouse=True, scope="session")

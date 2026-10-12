@@ -1255,6 +1255,7 @@ class CanvasScene(QGraphicsScene):
             The best-matching plant-parent item, or None.
         """
         from open_garden_planner.core.object_types import is_plant_parent_type
+        from open_garden_planner.ui.canvas.footprints import shape_contains
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
         best_bed: QGraphicsItem | None = None
@@ -1265,8 +1266,7 @@ class CanvasScene(QGraphicsScene):
                 continue
             if not is_plant_parent_type(item.object_type):
                 continue
-            local_pt = item.mapFromScene(scene_point)
-            if item.contains(local_pt):
+            if shape_contains(item, scene_point):
                 rect = item.boundingRect()
                 area = rect.width() * rect.height()
                 if area < best_area:

@@ -78,6 +78,18 @@ SANCTIONED_HOMES = frozenset(
 #: terms.
 _RELEASE_WORKFLOW = ".github/workflows/release.yml"
 
+#: The same gate on pull requests (L1.2 review, P1-4): it builds the bundle with
+#: the release recipe and runs the 8-second smoke and ``--selftest`` BEFORE a
+#: merge. Like the release workflow it is a place where the gate EXECUTES, in
+#: shells it declares itself — so it is checked on its own terms too, and is
+#: not a "copy of the command literal" in the sense of Rule 1.
+_FROZEN_SELFTEST_WORKFLOW = ".github/workflows/frozen-selftest.yml"
+
+#: Every workflow that runs the frozen-exe gate. Adding a name here is a decision
+#: to exempt a file from Rule 1 — it must then pass
+#: ``test_a_gate_workflow_runs_selftest_in_the_one_shape``.
+_GATE_WORKFLOWS = (_RELEASE_WORKFLOW, _FROZEN_SELFTEST_WORKFLOW)
+
 _EXE = "OpenGardenPlanner.exe"
 
 #: The historical ADR spike record: a plain exe invocation with the --spike-3d
@@ -275,7 +287,7 @@ def _files_with_runnable_invocations() -> dict[str, list[str]]:
     found: dict[str, list[str]] = {}
     for path in _tracked("*.md", "*.yml", "*.yaml"):
         name = path.relative_to(_REPO_ROOT).as_posix()
-        if name == _RELEASE_WORKFLOW:
+        if name in _GATE_WORKFLOWS:
             continue
         lines = [
             line
@@ -292,8 +304,8 @@ def _selftest_lines() -> list[tuple[str, str]]:
     found: list[tuple[str, str]] = []
     for path in _tracked("*.md", "*.yml", "*.yaml"):
         name = path.relative_to(_REPO_ROOT).as_posix()
-        if name == _RELEASE_WORKFLOW:
-            continue  # checked by its own test, on pwsh terms (no bash involved)
+        if name in _GATE_WORKFLOWS:
+            continue  # checked by their own test, on pwsh terms (no bash involved)
         text = path.read_text(encoding="utf-8")
         found.extend((name, line.strip()) for line in _SELFTEST_LINE.findall(text))
     return found
@@ -336,32 +348,116 @@ def test_the_canonical_definition_prescribes_selftest() -> None:
         assert _SELFTEST_LINE.search(text), f"{name} does not prescribe --selftest"
 
 
-def test_the_release_workflow_still_runs_selftest() -> None:
-    """The one place the gate actually executes, checked on its own terms.
+def _workflow_code(name: str) -> list[str]:
+    """A workflow's lines without its YAML comment lines: a token that appears only
+    in an explanatory comment must not satisfy a shape check."""
+    text = (_REPO_ROOT / name).read_text(encoding="utf-8")
+    return [line for line in text.splitlines() if not line.lstrip().startswith("#")]
 
-    ``shell: pwsh`` means bash never touches it, so the quoting rules do not
-    apply — but the shape does: without ``-Wait -PassThru`` and an exit-code
+
+@pytest.mark.parametrize("workflow", _GATE_WORKFLOWS)
+def test_a_gate_workflow_runs_selftest_in_the_one_shape(workflow: str) -> None:
+    """The places the gate actually executes, checked on their own terms.
+
+    ``shell: pwsh`` means bash never touches the command, so the quoting rules do
+    not apply — but the shape does: without ``-Wait -PassThru`` and an exit-code
     comparison, CI would green-light a frozen build whose subsystems are dead,
     which is precisely #291.
     """
-    text = (_REPO_ROOT / _RELEASE_WORKFLOW).read_text(encoding="utf-8")
+    lines = _workflow_code(workflow)
     # Scoped to the COMMAND line, not the file: the explanatory comment block
     # above the step already contains every token, so a whole-file check passed
     # with the argument deleted from the real command.
-    command = next(
-        (ln for ln in text.splitlines() if "Start-Process" in ln and "#" not in ln),
-        "",
-    )
-    assert command, "release.yml no longer starts the frozen exe at all"
+    commands = [ln for ln in lines if "Start-Process" in ln]
+    assert len(commands) == 1, f"{workflow} must start the frozen exe exactly once: {commands}"
+    command = commands[0]
     for required in ("--selftest", "-Wait", "-PassThru"):
         assert required in command, (
-            f"release.yml's selftest command is missing {required!r}: {command.strip()}"
+            f"{workflow}'s selftest command is missing {required!r}: {command.strip()}"
         )
     assert re.search(r"\$p\s*=\s*Start-Process", command), (
-        "release.yml must ASSIGN the process object, or $p.ExitCode is null and "
+        f"{workflow} must ASSIGN the process object, or $p.ExitCode is null and "
         "the check passes whatever the selftest found"
     )
-    assert "$p.ExitCode" in text, "release.yml never inspects the exit code"
+    # … and the exit code must be able to FAIL the step: compared, and acted on — as
+    # the very next thing, with nothing in between that could end the step first.
+    after = [ln.strip() for ln in lines[lines.index(command) + 1:]]
+    assert after[0] == "if ($p.ExitCode -ne 0) {", f"{workflow} never inspects the exit code"
+    failed_branch = after[1:after.index("}")]
+    assert failed_branch[-1] == "exit 1", f"{workflow} does not fail on a failed self-test"
+    assert all(ln.startswith("Write-Host ") for ln in failed_branch[:-1]), failed_branch
+
+
+def _steps(workflow: str) -> list[list[str]]:
+    """The workflow's steps, each as its stripped lines (comment lines dropped)."""
+    steps: list[list[str]] = []
+    for line in _workflow_code(workflow):
+        if line.startswith("      - "):
+            steps.append([])
+        if steps and line.startswith("      "):
+            steps[-1].append(line.strip())
+    return steps
+
+
+@pytest.mark.parametrize("workflow", _GATE_WORKFLOWS)
+def test_a_gate_workflow_cannot_hang_and_never_loses_its_log(workflow: str) -> None:
+    """L1.2 review, P1-4 and round 2 P2-6. The ways the step used to be able to go wrong:
+
+    * no limit — a self-test that hung held the job for GitHub's six hours;
+    * the log was printed BEFORE the verdict by a bare ``Get-Content``: under
+      GitHub's pwsh (``$ErrorActionPreference = 'stop'``) a log that cannot be read
+      ends the step there — a passing build goes red, a failing one fails with the
+      wrong error;
+    * ``Write-Error`` for the verdict: it ends the step at once;
+    * the log was printed by the SAME step, after the verdict: a step that is cut
+      off by its time limit prints nothing after the cut — and that is exactly the
+      run whose log is needed.
+
+    So: the self-test step only decides; the step right after it prints the log, runs
+    ``always()``, reads inside try/catch and cannot fail.
+    """
+    lines = _workflow_code(workflow)
+    job_limits = [ln for ln in lines if re.fullmatch(r"    timeout-minutes: \d+", ln)]
+    assert len(job_limits) == 1, f"{workflow}: the job has no time limit"
+    steps = _steps(workflow)
+    index = next(i for i, step in enumerate(steps)
+                 if step[0].startswith("- name: Verify frozen subsystems"))
+    verify, log = steps[index], steps[index + 1]
+
+    assert "timeout-minutes: 10" in verify, f"{workflow}: the self-test step has no time limit"
+    assert not [ln for ln in verify + log if "Write-Error" in ln], (
+        f"{workflow}: Write-Error ends a step at once")
+    assert not [ln for ln in verify if "Get-Content" in ln], (
+        f"{workflow}: the self-test step does not read the log — the next step does")
+    # the only ways out of the self-test step: the missing exe, and the verdict
+    assert [ln for ln in verify if "exit " in ln and not ln.startswith("Write-Host")] == [
+        'if (-not (Test-Path $exe)) { Write-Host "::error::Frozen exe not found: $exe"; exit 1 }',
+        "exit 1",
+    ]
+
+    assert log[0] == "- name: Print the self-test log", f"{workflow}: {log[0]}"
+    condition = next(ln for ln in log if ln.startswith("if: "))
+    assert condition.startswith("if: always()"), f"{workflow}: the log step must always run"
+    reading = next(i for i, ln in enumerate(log) if "Get-Content" in ln)
+    assert log.index("try {") < reading < log.index("} catch {"), (
+        f"{workflow}: the log must be read inside try/catch")
+    assert log[-1] == "exit 0" and not [ln for ln in log if "exit 1" in ln], (
+        f"{workflow}: the log step can fail nothing")
+    # both steps mean the same file: the exe writes where the next step reads
+    path = "OGP_SELFTEST_LOG: ${{ runner.temp }}/ogp-selftest-3d.log"
+    assert path in verify and path in log, f"{workflow}: the two steps disagree about the log"
+
+
+def test_the_pull_request_gate_also_runs_the_smoke_test() -> None:
+    """Check 1 of ``ogp-change-control`` §2.8 in the pull-request workflow: the process
+    is still up after 8 seconds — exit code 124, and ONLY 124, is the pass."""
+    lines = [ln.strip() for ln in _workflow_code(_FROZEN_SELFTEST_WORKFLOW)]
+    smoke = lines.index("timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe")
+    assert lines[smoke - 1] == "set +e", "GitHub's bash is -e: the 124 would end the step"
+    assert lines[smoke + 1] == "code=$?"
+    assert 'if [ "$code" -ne 124 ]; then' in lines[smoke:smoke + 5]
+    assert "exit 1" in lines[smoke:smoke + 8]
+    assert smoke < next(i for i, ln in enumerate(lines) if "Start-Process" in ln)
 
 
 def test_discovery_is_not_vacuous() -> None:

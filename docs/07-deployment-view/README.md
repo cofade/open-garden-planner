@@ -44,6 +44,24 @@ python installer/build_installer.py --skip-nsis
 python installer/build_installer.py --skip-pyinstaller
 ```
 
+**The gate build — test tooling, never shipped (Phase 17 L1.3).**
+`installer/workspace_gate.spec` builds `OpenGardenPlannerGate.exe`: the product recipe (it
+executes the text of `ogp.spec`) plus ONE PyInstaller runtime hook,
+`tests/integration/workspace_gate_hook.py`, which moves the app's settings store to a throw-away
+key before the app's entry script runs and ends the process before a store under any other
+organisation exists. It exists so that the frozen app can be scripted through "open a plan, enter
+3D, close" without touching the user's Recent Files or window geometry (§8.10.27):
+
+```bash
+python -m PyInstaller installer/workspace_gate.spec --noconfirm --distpath <dir> --workpath <dir>
+OGP_RENDER3D=1 OGP_WORKSPACE_GATE_EXE=<dir>/OpenGardenPlannerGate/OpenGardenPlannerGate.exe \
+    python -m pytest tests/integration/test_view3d_workspace_render.py -k frozen
+```
+
+The product build ships no runtime hook, and the gate spec has no recipe of its own — both
+pinned by `tests/unit/test_view3d_workspace_packaging.py`. Never install or publish the gate
+build.
+
 ### Installer Files
 
 | File | Purpose |
@@ -197,7 +215,8 @@ Two workflow files in `.github/workflows/`:
 
 **Trigger**: every branch push and every PR to `master`. Python dependencies come from
 `uv.lock` through the shared setup-locked-env action. The PEP 751 export is checked for drift.
-Qt workflows use `QT_QPA_PLATFORM=offscreen`; xvfb is not part of this CI recipe.
+Qt workflows use `QT_QPA_PLATFORM=offscreen`; only the `render3d` job, which needs a real
+window system, runs under xvfb.
 
 | Job key | Check name | Platform | Behavior |
 |---|---|---|---|
@@ -208,6 +227,7 @@ Qt workflows use `QT_QPA_PLATFORM=offscreen`; xvfb is not part of this CI recipe
 | `dependencies` | Dependencies (ubuntu-latest/windows-latest) | Matrix | Clean locked installation, freshness and export checks |
 | `types` | Types (ubuntu-latest/windows-latest) | Matrix | Strict mypy against per-file platform allowances |
 | `coverage` | Coverage | Linux | Full-suite line/branch report and per-package line floors |
+| `render3d` | Render 3D (ubuntu-latest/windows-latest) | Matrix | The 3D render tier (`OGP_RENDER3D=1`) of the engine package: Linux under xvfb with xcb and OpenGL on Mesa llvmpipe, Windows with Direct3D 11 on WARP. Frames, results and logs are uploaded. Not required by protection |
 
 The matrix jobs each emit two concrete check names. The reviewed protection payload requires
 the existing checks plus both dependency/type matrix results and an up-to-date PR. Coverage
@@ -228,6 +248,121 @@ flowchart LR
 
 Local frozen-exe build, startup smoke and subsystem self-test remain mandatory before merge.
 The release job repeats its subsystem self-test after the installer build. See ADR-050.
+
+**The frozen gate on pull requests (`frozen-selftest.yml`, Phase 17 L1.2).** `release.yml` runs
+`--selftest` in the frozen exe only on a push to `master`, so a change that breaks the BUNDLE —
+a module PyInstaller no longer finds, a QML or shader file the spec does not ship, a Qt wheel
+mismatch — was first seen by CI after the merge that caused it. A separate workflow closes
+that gap:
+
+| | |
+|---|---|
+| Triggers | `workflow_dispatch`, and pull requests to `master` that touch shipped code: `src/open_garden_planner/**`, `installer/**`, `pyproject.toml`, `uv.lock`, `pylock.toml`, the workflow itself, `release.yml` or `.github/actions/setup-locked-env/**`. The whole package, not only the 3D engine: `--selftest` also exercises `core/scene3d` and the Agent API, and the rule is "build and verify the exe before every merge" |
+| Runner, environment | `windows-latest`, the shared locked setup, `permissions: contents: read`, no action `ci.yml` does not use |
+| Build | the release recipe, not a copy: `python installer/build_installer.py --skip-nsis` (the same script, spec and PyInstaller flags; no installer). One difference: `release.yml` passes `--version`, this does not, so the script writes `_version.py` with its default and **the pull-request bundle calls itself v1.0.0** |
+| Checks | the 8-second smoke (exit code 124, and only 124, passes), then `--selftest` and the step that prints its log — both with the SAME scripts as `release.yml` (a test pins the texts as identical) |
+| Limits | EVERY step has one — checkout 5, environment 10, build 30, smoke 5, self-test 10, log 2: 62 minutes together — and the job's, 70, is larger than their sum. A job limit that ends a step also ends the step that prints the log; the first version's three step limits added up to exactly its job's 45 (a test pins the inequality) |
+| Cost | one Windows build per push to such a pull request. Not measured yet (the workflow has not run); a release run, which also builds the installer, takes 9–13 minutes |
+| Protection | NOT a required check: a required check that a path filter skips never reports, and would block every pull request it does not run on |
+
+**What the smoke test proves, and what it does not.** "Still running after 8 seconds" proves
+that the exe starts. It cannot see a subsystem that is dead inside a running process (#291 hid
+from it for six releases), and it also passes a process that is BLOCKED in an error dialog —
+that, too, is still running. The self-test is the gate; the smoke only proves the start.
+During the smoke the frozen app does what it does on every start: two seconds after its window
+is up it asks GitHub for the latest release (`services/update_checker.py`). The app has **no
+switch to turn that off** — none was added. As v1.0.0 the pull-request bundle finds a newer
+release and shows its update bar. The verdict does not depend on the answer: the checker runs
+on a thread of its own and swallows every network error.
+
+The local gate of `ogp-change-control` §2.8 stays mandatory. **The workflow was written without
+access to GitHub's runners and is unproven until its first run** — the smoke test in
+particular, which no workflow ran before, and the supervising process of the self-test inside
+a GitHub job.
+
+**The 3D render tier (`render3d`, Phase 17 L1.2).** The `test` job cannot render 3D: under the
+offscreen platform Qt Quick uses the software scene graph. The `render3d` job runs
+`tests/integration/test_quick3d_render.py`, `test_quick3d_engine.py`,
+`test_quick3d_selftest.py` and `test_quick3d_lifecycle.py` with a driver process on a real Qt
+platform (§8.10.26). Both runners are GPU-less, so the job proves correctness on software
+rasterisers — small frames, no sky light probe, timing budgets skipped — and it is deliberately
+not a required check. Measured locally (2026-10-11): the tier passes on an RTX 4070 and on
+WARP. **First run on GitHub's runners (commit af9300d, the first three files):** windows-latest
+green; ubuntu-latest 47 passed, 4 skipped, 1 failed. The job, its package list, xvfb and
+llvmpipe work; the failure was a list of expected graphics-API names typed on Windows
+(`OpenGLRhi` where PyQt says `OpenGL`), fixed by taking the name from Qt's enum. The four
+skips on Linux are by design — two hardware-only timing budgets and two Windows-only self-test
+checks. **Second run (commit 10d6e15, with the lifecycle matrix):** ubuntu-latest 71 passed,
+7 skipped, 1 failed — a call order the matrix had pinned as safe from a Windows measurement
+segfaulted on xcb (§11.4.32). **The tree after review round 2** was measured before the push,
+in a container with the job's stack (Ubuntu 24.04, xvfb, xcb, OpenGL on llvmpipe, Python 3.11,
+the lock): 88 passed, 8 skipped — the two hardware budgets, the two Windows-only self-test
+checks, and four Windows-only lifecycle tests (minimising needs a window manager; the forced
+Direct3D device failure and its control; the supervising process). A container on a
+developer machine is not GitHub's runner: the job itself is the judge.
+
+**What `--selftest` covers** (the frozen exe, locally before merge and in `release.yml`):
+
+| Block | Since | What a pass means |
+|---|---|---|
+| Qt3D bindings + Qt version match | #277 | the six Qt3D bindings load and the Qt runtime equals the Qt3D wheels' version |
+| Agent API server | #291 | a real embedded server binds a port with no inherited stdout |
+| Qt Quick 3D render | L1.2 (ADR-048) | the Qt Quick bindings load; `Garden.qml` and its four shaders load FROM THE BUNDLE; one hidden 160 × 120 frame renders with every material kind; the pixels are right — the box, the meadow, the box's shadow where the 2D shadow code puts it, every swatch |
+
+The 3D block needs no GPU: on `windows-latest` Direct3D 11 renders it on WARP. Measured on the
+dev box with `Start-Process -Wait -PassThru` (the whole `--selftest`, three runs each): frozen
+exe 3.0–4.1 s on the RTX 4070 and 3.0–3.1 s on WARP (also with every shader cache disabled);
+from source 2.2–4.3 s and 2.1–5.7 s. With other test suites running on the machine the same
+frozen exe took 6.1–7.2 s on either adapter — the 3D frame itself 1.0–1.8 s on a quiet
+machine, 4.0–6.5 s on a busy one.
+
+**The exe's flags.**
+
+| Flag | For | What it does |
+|---|---|---|
+| (none) | everybody | the application |
+| `--selftest` | the release gate; a developer before a merge | the three blocks above; the exit code is the verdict |
+| `--spike-q3d …` | nobody any more | the dormant L0 spike (ADR-048); it retires in L1.10 |
+| `--selftest-supervisor` and six arguments | **internal** — only the self-test's own watchdog passes it | the process that ends a hung self-test from outside (below). Started by hand, or with arguments that do not name a running block of its own parent process, it refuses: one line, exit code 2, nothing opened, nothing terminated. (0: it held its block's release event — it was released, or it ended a hang; 4: it found no block to wait for and never supervised; 3: it failed itself — also when its own wait fails) |
+
+**It cannot hang a job.** Inside the exe ONE watchdog bounds the whole self-test — all three
+blocks, not only the render: after 300 s it writes the reason in words and every thread's stack
+into the log and ends the process with exit code 1; without a log file and without a stderr it
+still ends the process. That exit was measured NOT to end a Windows process whose threads are
+deadlocked inside Qt (§11.4.32), so the watchdog is supervised: the exe starts itself a second
+time (`--selftest-supervisor` with the first process's pid and creation time, a random name
+for this run's release event, the deadline and the log), and that process terminates the
+first with exit code 1 — and says so in the log — when it is still alive at 310 s. It ends
+with the self-test and can only ever touch the process that started it, for the one run it
+was started for. **On Windows the self-test FAILS when that process did not start, refused,
+never found the run it was started for, or did not leave within 15 s of its release** — the
+log's `[selftest_supervisor]` line and the `FAIL self-test supervisor -> …` line say which; a
+missing safety net used to pass unnoticed. There is no start timeout while the self-test
+runs: those 15 s at its end are the bound, and they include the supervisor's own start. On other platforms there is none: the in-process
+exit was measured to end the deadlock on Linux, and beyond that the bound is the caller's own
+time limit — in CI the step's — which the log's `[watchdog]` line says in so many words.
+Around it, the workflow steps that run the self-test have a limit of 10 minutes; the release
+job has one of 45 (a release run takes 9–13 minutes), the pull-request job one of 70.
+
+**The exit code alone decides; the log has a step of its own.** The self-test writes a log —
+the exe has no stdout — into the app's per-user log directory beside `app.log` (never the temp
+directory, §8.11), or where `OGP_SELFTEST_LOG` says. Both workflow steps get that variable
+from their own `env`. The self-test step only decides. The next step prints the log: it runs
+`always()` — a step that was cut off by its time limit prints nothing after the cut, and that
+is the run whose log says where it hung — reads inside `try`/`catch` and ends with `exit 0`,
+so a log that cannot be read neither turns a passing build red nor hides a failing one behind
+another error. Under `QT_QPA_PLATFORM=offscreen` the 3D block FAILS, naming the software
+backend (nothing renders there): run `--selftest` with a real platform.
+
+**Bundle size (L1.2).** The Qt Quick 3D runtime already shipped; the engine package adds its
+five QML and shader files and its Python modules (twelve since review round 2): 650,815,562 bytes against 650,736,554 for
+the base commit — **+79,008 bytes (+0.08 MB)**, both built on the same machine on 2026-10-11
+from `git archive` exports (PyInstaller 6.18, Python 3.12.9, no UPX), from the same shell. That
+last condition matters: a local bundle's content depends on PATH — built from Git Bash it
+carries Git for Windows' `libcrypto-3-x64.dll` and `libssl-3-x64.dll` (5.5 MB), built from a
+plain PowerShell process it does not (645,326,627 bytes for the head of review round 1). Both
+pass the smoke and `--selftest`. Spec trimming — the
+dormant spike's files and `PyQt6.QtQuickWidgets` — happens when the spike retires (L1.10).
 
 ### Release Workflow (`release.yml`)
 

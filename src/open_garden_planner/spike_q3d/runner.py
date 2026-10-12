@@ -477,12 +477,12 @@ def build_models(scene: Any, at: date, grass_density: float, with_grass: bool,
     """
     from open_garden_planner.core.object_height import effective_height_cm
     from open_garden_planner.spike_q3d import meshes as M
+    from open_garden_planner.ui.canvas.footprints import (
+        item_footprints,
+        plant_canopy_radius_cm,
+    )
     from open_garden_planner.ui.canvas.items.circle_item import CircleItem
     from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
-    from open_garden_planner.ui.canvas.sun_shadow_controller import (
-        _item_footprints,
-        _plant_canopy_radius_cm,
-    )
 
     stats = BuildStats(in_season=in_frost_free_season(location, at))
     models: list[Any] = []
@@ -524,7 +524,7 @@ def build_models(scene: Any, at: date, grass_density: float, with_grass: bool,
             continue
         name = ot.name
         iid = str(item.item_id)
-        fps = _item_footprints(item, at)
+        fps = item_footprints(item, at)
         if not fps:
             continue
         fp = fps[0]
@@ -539,7 +539,7 @@ def build_models(scene: Any, at: date, grass_density: float, with_grass: bool,
         parts: list[tuple[M.MeshData, str, bool]] = []
         if name in PLANT_TYPES and isinstance(item, CircleItem):
             center = item.mapToScene(item.center)
-            radius = _plant_canopy_radius_cm(item, at) or item.radius
+            radius = plant_canopy_radius_cm(item, at) or item.radius
             height = h if h else max(radius * 1.2, 20.0)  # no resolved height: decoration
             species_data = item.metadata.get("plant_species") or {}
             species = species_data.get("common_name") or getattr(item, "plant_species", "") or ""

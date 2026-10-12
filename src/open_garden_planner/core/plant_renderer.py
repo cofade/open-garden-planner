@@ -18,6 +18,13 @@ from PyQt6.QtSvg import QSvgRenderer
 
 from .object_types import ObjectType
 from .object_types import is_plant_type as _is_plant_type
+from .plant_art.resolve import (
+    CATEGORY_SPRITES,
+    DEFAULT_CATEGORY,
+    SPECIES_SPRITES,
+    SpriteRef,
+    resolve_sprite,
+)
 
 # Directory containing plant SVG files
 _PLANTS_DIR = Path(__file__).parent.parent / "resources" / "plants"
@@ -55,261 +62,23 @@ class PlantCategory(Enum):
     PALM = auto()
 
 
+# The three maps below are DERIVED from the Qt-free ``core/plant_art`` package
+# (Phase 17 L1.7, #385): the 3D plant builder resolves a plant's recipe through
+# the same tables and the same rule, so it cannot disagree with the sprite drawn
+# here. A name that does not match raises KeyError at import — loudly.
+
 # Map PlantCategory to SVG filename (without extension)
 _CATEGORY_FILES: dict[PlantCategory, str] = {
-    PlantCategory.ROUND_DECIDUOUS: "round_deciduous",
-    PlantCategory.COLUMNAR_TREE: "columnar_tree",
-    PlantCategory.WEEPING_TREE: "weeping_tree",
-    PlantCategory.CONIFER: "conifer",
-    PlantCategory.SPREADING_SHRUB: "spreading_shrub",
-    PlantCategory.COMPACT_SHRUB: "compact_shrub",
-    PlantCategory.ORNAMENTAL_GRASS: "ornamental_grass",
-    PlantCategory.FLOWERING_PERENNIAL: "flowering_perennial",
-    PlantCategory.GROUND_COVER: "ground_cover",
-    PlantCategory.CLIMBING_PLANT: "climbing_plant",
-    PlantCategory.HEDGE_SECTION: "hedge_section",
-    PlantCategory.VEGETABLE: "vegetable",
-    PlantCategory.HERB: "herb",
-    PlantCategory.FRUIT_TREE: "fruit_tree",
-    PlantCategory.PALM: "palm",
+    PlantCategory[name]: stem for name, stem in CATEGORY_SPRITES.items()
 }
 
-# Map species names (lowercase) to SVG filename (without extension)
-_SPECIES_FILES: dict[str, str] = {
-    "rose": "rose",
-    "rosa": "rose",
-    "lavender": "lavender",
-    "lavandula": "lavender",
-    "apple": "apple_tree",
-    "apple tree": "apple_tree",
-    "malus": "apple_tree",
-    "cherry": "cherry_tree",
-    "cherry tree": "cherry_tree",
-    "prunus": "cherry_tree",
-    "sunflower": "sunflower",
-    "helianthus": "sunflower",
-    "tomato": "tomato",
-    "solanum lycopersicum": "tomato",
-    "boxwood": "boxwood",
-    "buxus": "boxwood",
-    "box": "boxwood",
-    "rhododendron": "rhododendron",
-    "azalea": "rhododendron",
-    # Vegetables
-    "pepper": "pepper",
-    "bell pepper": "pepper",
-    "capsicum": "pepper",
-    "eggplant": "eggplant",
-    "aubergine": "eggplant",
-    "solanum melongena": "eggplant",
-    "zucchini": "zucchini",
-    "courgette": "zucchini",
-    "cucurbita pepo": "zucchini",
-    "cucumber": "cucumber",
-    "cucumis sativus": "cucumber",
-    "pumpkin": "pumpkin",
-    "cucurbita maxima": "pumpkin",
-    "squash": "squash",
-    "butternut": "squash",
-    "bean": "bean",
-    "green bean": "bean",
-    "phaseolus": "bean",
-    "pea": "pea",
-    "pisum sativum": "pea",
-    "corn": "corn",
-    "maize": "corn",
-    "zea mays": "corn",
-    "carrot": "carrot",
-    "daucus carota": "carrot",
-    "radish": "radish",
-    "raphanus": "radish",
-    "beet": "beet",
-    "beetroot": "beet",
-    "beta vulgaris": "beet",
-    "turnip": "turnip",
-    "brassica rapa": "turnip",
-    "potato": "potato",
-    "solanum tuberosum": "potato",
-    "onion": "onion",
-    "allium cepa": "onion",
-    "garlic": "garlic",
-    "allium sativum": "garlic",
-    "leek": "leek",
-    "allium ampeloprasum": "leek",
-    "celery": "celery",
-    "apium graveolens": "celery",
-    "broccoli": "broccoli",
-    "brassica oleracea": "broccoli",
-    "cauliflower": "cauliflower",
-    "cabbage": "cabbage",
-    "kale": "kale",
-    "spinach": "spinach",
-    "spinacia oleracea": "spinach",
-    "lettuce": "lettuce",
-    "lactuca sativa": "lettuce",
-    "arugula": "arugula",
-    "rocket": "arugula",
-    "eruca vesicaria": "arugula",
-    "chard": "chard",
-    "swiss chard": "chard",
-    "artichoke": "artichoke",
-    "cynara": "artichoke",
-    "asparagus": "asparagus",
-    "rhubarb": "rhubarb",
-    "rheum": "rhubarb",
-    "okra": "okra",
-    "abelmoschus": "okra",
-    # Herbs
-    "basil": "basil",
-    "ocimum basilicum": "basil",
-    "rosemary": "rosemary",
-    "salvia rosmarinus": "rosemary",
-    "rosmarinus": "rosemary",
-    "thyme": "thyme",
-    "thymus": "thyme",
-    "sage": "sage",
-    "salvia officinalis": "sage",
-    "mint": "mint",
-    "mentha": "mint",
-    "peppermint": "mint",
-    "spearmint": "mint",
-    "parsley": "parsley",
-    "petroselinum": "parsley",
-    "cilantro": "cilantro",
-    "coriander": "cilantro",
-    "coriandrum sativum": "cilantro",
-    "dill": "dill",
-    "anethum graveolens": "dill",
-    "chives": "chives",
-    "allium schoenoprasum": "chives",
-    "oregano": "oregano",
-    "origanum vulgare": "oregano",
-    "tarragon": "tarragon",
-    "artemisia dracunculus": "tarragon",
-    "lemongrass": "lemongrass",
-    "cymbopogon": "lemongrass",
-    "chamomile": "chamomile",
-    "matricaria chamomilla": "chamomile",
-    "fennel": "fennel",
-    "foeniculum vulgare": "fennel",
-    "marjoram": "marjoram",
-    "origanum majorana": "marjoram",
-    "bay laurel": "bay_laurel",
-    "bay": "bay_laurel",
-    "laurus nobilis": "bay_laurel",
-    "stevia": "stevia",
-    "stevia rebaudiana": "stevia",
-    "sorrel": "sorrel",
-    "rumex acetosa": "sorrel",
-    "borage": "borage",
-    "borago officinalis": "borage",
-    "lovage": "lovage",
-    "levisticum officinale": "lovage",
-    # Flowers
-    "tulip": "tulip",
-    "tulipa": "tulip",
-    "daffodil": "daffodil",
-    "narcissus": "daffodil",
-    "dahlia": "dahlia",
-    "peony": "peony",
-    "paeonia": "peony",
-    "iris": "iris",
-    "lily": "lily",
-    "lilium": "lily",
-    "marigold": "marigold",
-    "tagetes": "marigold",
-    "zinnia": "zinnia",
-    "cosmos": "cosmos",
-    "aster": "aster",
-    "chrysanthemum": "chrysanthemum",
-    "mum": "chrysanthemum",
-    "geranium": "geranium",
-    "pelargonium": "geranium",
-    "petunia": "petunia",
-    "pansy": "pansy",
-    "viola": "pansy",
-    "hydrangea": "hydrangea",
-    "clematis": "clematis",
-    "wisteria": "wisteria",
-    "jasmine": "jasmine",
-    "jasminum": "jasmine",
-    "hibiscus": "hibiscus",
-    "crocus": "crocus",
-    # Trees
-    "pear": "pear_tree",
-    "pear tree": "pear_tree",
-    "pyrus": "pear_tree",
-    "plum": "plum_tree",
-    "plum tree": "plum_tree",
-    "peach": "peach_tree",
-    "peach tree": "peach_tree",
-    "prunus persica": "peach_tree",
-    "fig": "fig_tree",
-    "fig tree": "fig_tree",
-    "ficus carica": "fig_tree",
-    "olive": "olive_tree",
-    "olive tree": "olive_tree",
-    "olea europaea": "olive_tree",
-    "lemon": "lemon_tree",
-    "lemon tree": "lemon_tree",
-    "citrus limon": "lemon_tree",
-    "orange": "orange_tree",
-    "orange tree": "orange_tree",
-    "citrus sinensis": "orange_tree",
-    "walnut": "walnut_tree",
-    "walnut tree": "walnut_tree",
-    "juglans": "walnut_tree",
-    "oak": "oak",
-    "quercus": "oak",
-    "maple": "maple",
-    "acer": "maple",
-    "birch": "birch",
-    "betula": "birch",
-    "willow": "willow",
-    "salix": "willow",
-    "magnolia": "magnolia",
-    "pine": "pine",
-    "pinus": "pine",
-    "spruce": "spruce",
-    "picea": "spruce",
-    # Shrubs
-    "blueberry": "blueberry",
-    "vaccinium": "blueberry",
-    "raspberry": "raspberry",
-    "rubus idaeus": "raspberry",
-    "blackberry": "blackberry",
-    "rubus fruticosus": "blackberry",
-    "gooseberry": "gooseberry",
-    "ribes uva-crispa": "gooseberry",
-    "currant": "currant",
-    "ribes": "currant",
-    "redcurrant": "currant",
-    "blackcurrant": "currant",
-    "holly": "holly",
-    "ilex": "holly",
-    "privet": "privet",
-    "ligustrum": "privet",
-    "juniper": "juniper",
-    "juniperus": "juniper",
-    "forsythia": "forsythia",
-    "lilac": "lilac",
-    "syringa": "lilac",
-    "viburnum": "viburnum",
-    "barberry": "barberry",
-    "berberis": "barberry",
-    "camellia": "camellia",
-    "spirea": "spirea",
-    "spiraea": "spirea",
-    "elderberry": "elderberry",
-    "sambucus": "elderberry",
-    "elder": "elderberry",
-}
+# Map species names (lowercase) to SVG filename (without extension) — the
+# package's own dict, not a copy
+_SPECIES_FILES: dict[str, str] = SPECIES_SPRITES
 
 # Default category mapping for ObjectType
 _OBJECT_TYPE_DEFAULT_CATEGORY: dict[ObjectType, PlantCategory] = {
-    ObjectType.TREE: PlantCategory.ROUND_DECIDUOUS,
-    ObjectType.SHRUB: PlantCategory.SPREADING_SHRUB,
-    ObjectType.PERENNIAL: PlantCategory.FLOWERING_PERENNIAL,
+    ObjectType[kind]: PlantCategory[name] for kind, name in DEFAULT_CATEGORY.items()
 }
 
 # Cache for QSvgRenderer instances (path -> renderer)
@@ -359,6 +128,11 @@ def _resolve_svg_path(
     2. Category SVG (if category specified)
     3. Default category based on ObjectType
 
+    The rule itself is ``core.plant_art.resolve.resolve_sprite`` — the one
+    resolution the 3D plant builder asks too (Phase 17 L1.7); this function
+    only says which sprites exist as files and turns the answer into a path.
+    A mapped sprite whose file is missing is skipped, as it always was.
+
     Args:
         object_type: The plant's ObjectType (TREE, SHRUB, PERENNIAL)
         species: Species name (optional)
@@ -369,40 +143,18 @@ def _resolve_svg_path(
     """
     if object_type not in _OBJECT_TYPE_DEFAULT_CATEGORY:
         return None
+    sprite = resolve_sprite(
+        object_type.name,
+        species,
+        category.name if category is not None else None,
+        available=lambda candidate: _sprite_path(candidate).exists(),
+    )
+    return None if sprite is None else _sprite_path(sprite)
 
-    # 1. Try species-specific SVG
-    if species:
-        species_lower = species.lower().strip()
-        # Check direct match first
-        if species_lower in _SPECIES_FILES:
-            path = _SPECIES_DIR / f"{_SPECIES_FILES[species_lower]}.svg"
-            if path.exists():
-                return path
-        # Check partial match (species name contains a known key)
-        for key, filename in _SPECIES_FILES.items():
-            if key in species_lower or species_lower in key:
-                path = _SPECIES_DIR / f"{filename}.svg"
-                if path.exists():
-                    return path
 
-    # 2. Try category SVG
-    if category is not None:
-        filename = _CATEGORY_FILES.get(category)
-        if filename:
-            path = _CATEGORIES_DIR / f"{filename}.svg"
-            if path.exists():
-                return path
-
-    # 3. Fall back to default category based on ObjectType
-    default_category = _OBJECT_TYPE_DEFAULT_CATEGORY.get(object_type)
-    if default_category:
-        filename = _CATEGORY_FILES.get(default_category)
-        if filename:
-            path = _CATEGORIES_DIR / f"{filename}.svg"
-            if path.exists():
-                return path
-
-    return None
+def _sprite_path(sprite: SpriteRef) -> Path:
+    """The SVG file of a sprite (its group is the sub-directory's name)."""
+    return _PLANTS_DIR / sprite.group / f"{sprite.name}.svg"
 
 
 def _stable_random_for_item(item_id: str, seed_offset: int = 0) -> float:

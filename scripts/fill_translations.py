@@ -3181,6 +3181,80 @@ for _ctx, _strings in _PLANT_LISTS_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
+# ── Phase 17 L1.3: the Plan / 3D / Split workspace (#385, ADR-065) ──
+_L13_WORKSPACE_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "Workspace": {
+        "&Plan": "&Plan",
+        "Show the plan only": "Nur den Plan anzeigen",
+        "&3D": "&3D",
+        "Show the garden in 3D": "Den Garten in 3D anzeigen",
+        "&Split": "&Geteilt",
+        "Show the plan and the 3D view side by side":
+            "Plan und 3D-Ansicht nebeneinander anzeigen",
+        "{tip} ({shortcut})": "{tip} ({shortcut})",
+        "&Reset 3D View": "3D-Ansicht &zurücksetzen",
+        "Show the whole garden in the 3D view again":
+            "Wieder den ganzen Garten in der 3D-Ansicht zeigen",
+        "Show the whole garden again (Home)": "Wieder den ganzen Garten zeigen (Pos1)",
+        "&Workspace": "&Arbeitsbereich",
+        "Show which objects are missing from the 3D view":
+            "Zeigen, welche Objekte in der 3D-Ansicht fehlen",
+        "The 3D view could not be started. The rest of the application "
+        "is not affected.\n\nDetails: {error}":
+            "Die 3D-Ansicht konnte nicht gestartet werden. Der Rest der Anwendung "
+            "ist nicht betroffen.\n\nDetails: {error}",
+        "Try Again": "Erneut versuchen",
+        "Building the 3D view…": "3D-Ansicht wird aufgebaut…",
+        "The 3D view could not be updated. It will try again with the next change.":
+            "Die 3D-Ansicht konnte nicht aktualisiert werden. Bei der nächsten "
+            "Änderung wird es erneut versucht.",
+        "1 object is not shown in 3D": "1 Objekt wird in 3D nicht angezeigt",
+        "{count} objects are not shown in 3D": "{count} Objekte werden in 3D nicht angezeigt",
+        "The 3D view reported a problem. Details are in the log file.":
+            "Die 3D-Ansicht hat ein Problem gemeldet. Details stehen in der Protokolldatei.",
+        "3D is unavailable on this graphics device. The rest of the application "
+        "is not affected.\n\nDetails: {error}":
+            "3D ist auf dieser Grafikhardware nicht verfügbar. Der Rest der Anwendung "
+            "ist nicht betroffen.\n\nDetails: {error}",
+        "Use Compatibility Mode Next Time": "Beim nächsten Start Kompatibilitätsmodus verwenden",
+        "3D is running in compatibility mode (software rendering) because "
+        "it did not start properly last time.":
+            "3D läuft im Kompatibilitätsmodus (Software-Rendering), weil es beim "
+            "letzten Mal nicht richtig gestartet ist.",
+        "3D is running in compatibility mode (software rendering).":
+            "3D läuft im Kompatibilitätsmodus (Software-Rendering).",
+        "Try Hardware Next Time": "Beim nächsten Start Hardware versuchen",
+        "Hardware rendering will be tried the next time the application starts.":
+            "Beim nächsten Start der Anwendung wird Hardware-Rendering versucht.",
+        "Compatibility mode will be used the next time the application starts.":
+            "Beim nächsten Start der Anwendung wird der Kompatibilitätsmodus verwendet.",
+    },
+    "View3DProblemsDialog": {
+        "Not Shown in 3D": "In 3D nicht angezeigt",
+        "These objects are on the plan but cannot be shown in the 3D view. "
+        "Double-click an entry to select the object on the plan.":
+            "Diese Objekte sind im Plan, können aber in der 3D-Ansicht nicht gezeigt "
+            "werden. Ein Doppelklick auf einen Eintrag wählt das Objekt im Plan aus.",
+        "its shape could not be worked out": "seine Form konnte nicht ermittelt werden",
+        "another object on the plan has the same internal id":
+            "ein anderes Objekt im Plan hat dieselbe interne Kennung",
+        "its outline cannot be turned into a solid":
+            "sein Umriss lässt sich nicht in einen Körper umsetzen",
+        "its outline has too many points for the 3D view":
+            "sein Umriss hat zu viele Punkte für die 3D-Ansicht",
+        "one of its sizes is outside what the 3D view can show":
+            "eine seiner Abmessungen liegt außerhalb dessen, was die 3D-Ansicht zeigen kann",
+        "its 3D model could not be built": "sein 3D-Modell konnte nicht gebaut werden",
+        "it could not be shown": "es konnte nicht angezeigt werden",
+        "{name} ({kind}): {reason}": "{name} ({kind}): {reason}",
+        "{kind}: {reason}": "{kind}: {reason}",
+    },
+}
+
+for _ctx, _strings in _L13_WORKSPACE_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
 
 for _ctx, _strings in _F1_F2_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)

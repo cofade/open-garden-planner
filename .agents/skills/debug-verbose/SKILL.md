@@ -1749,6 +1749,55 @@ The next print failed because the code page could not encode a check mark.
 
 **Lesson**: specify both file and CLI stream encoding for Unicode tooling. Pinned by `tests/integration/test_wiki_publication.py`, whose real subprocess comparisons exercise Unicode diffs without a UTF-8 environment override.
 
+
+## Case study: a plant's shadow that flipped with a warning badge (Phase 17 L1.6, fixed 2026-10-11)
+
+**Symptom**: a plant linked to a raised bed, its centre 1 cm inside the bed's east edge, stood on the bed's soil (base 38 cm in the 3D record and in the 2D shadow caster). When the companion check put the red antagonist badge on it, both read 0 — the plant dropped to the ground and its shadow lost 38 cm of base. Badge off: 38 again. No test failed.
+
+**Theories entertained (wrong)**:
+1. *"Every membership decision must ask the same point, then they cannot disagree."* That was the previous fix, and it was the cause: the lift had been given the link decisions' point.
+2. *"The centre of `boundingRect()` is the geometric centre plus symmetric decorations."* True for the shadow margin, the companion highlight and the spacing ring. Not for the badge.
+
+**What the instrumentation revealed** (a ten-line probe printing the point and both bases, run on the tree with the previous fix):
+
+```text
+[BASE] badge off: link point (699.0, 400.0)  3D base 38  2D caster base 38
+[BASE] badge on : link point (700.8, 401.8)  3D base 0  2D caster base 0
+[BASE] badge off: link point (699.0, 400.0)  3D base 38  2D caster base 38
+```
+
+The point moved by 1.8 cm in x AND y. Nothing about the plant's geometry had changed.
+
+**Root cause**: `CircleItem.boundingRect()` grows towards +x / +y only while the badge shows (`base.adjusted(0, 0, overflow, overflow)`, `overflow = 0.3 * min(0.45 * radius, 12)`), so its centre moves by half of that. `footprints.bed_membership_point` is `mapToScene(boundingRect().center())` — fine for the shipped link decisions, which have always used it, and wrong as the answer to "where does this plant stand".
+
+**Fix**: the lift asks `footprints.standing_point` — the item's stable geometric centre, the anchor of its outline and the origin of its 3D record. The link decisions keep their point; one predicate (`shape_contains`) serves both. `tests/integration/test_scene3d_base_stacking.py::TestWhereAPlantStandsDoesNotDependOnABadge` toggles the badge and compares the record, the caster and the real overlay's path; `::TestWhichPointEachDecisionAsks` pins the point of each decision on a probe where the two points differ.
+
+**Lesson**: a bounding rect is a PAINT rect. Before using one as geometry, list everything that changes it — here a badge, a highlight, a margin, a ring — and ask whether each is symmetric. And when a refactor claims "identical behaviour" for a value that two candidates could supply, build one probe where the candidates differ: swapping them had passed all 114 related tests.
+
+
+## Case study: a negative control that only CI could fail — the overlay's own echo (Phase 17 L1.6, fixed 2026-10-11)
+
+**Symptom**: `assert controller.recompute_count == count + 4` failed with `assert 6 == (1 + 4)` in the CI Test job. The Coverage job passed on the same commit; twenty local runs passed.
+
+**Theories entertained (wrong)**:
+1. *"CI is slow; the wait of two debounce intervals was too short."* The control waits for NOTHING to happen; a longer wait can only make it fail more often.
+2. *"The helper waits on a count, not on a duration, so it cannot race."* It waited for the count and then for the debounce timer to be idle — and the timer IS idle straight after a recompute.
+
+**What the instrumentation revealed** (a probe that runs the recompute synchronously and counts event-loop rounds):
+
+```text
+[ECHO] height 75: recompute_count 1 -> 2; debounce active False
+[ECHO]   rounds of processEvents until scene.changed: 1; debounce active True
+[ECHO] race: recompute_count 5, debounce active False, undo done
+[ECHO]   after the echo and its debounce: recompute_count 6 (the control expected 5)
+```
+
+**Root cause**: a recompute sets the shadow overlay's path. The scene emits `changed` one event-loop round later, and `changed` is wired to `SunShadowController.schedule_recompute`. That echo's recompute is a no-op while nothing changed (the key holds) — but the test's negative control makes an edit nothing announces, and an echo delivered after it carries the edit into the overlay. Locally the echo always arrived inside the helper's first 10 ms poll; in one CI job it did not.
+
+**Fix**: the helper (`OverlayWatch.settled`) waits for the recompute count, THEN for a `scene.changed` delivered since that recompute, then for the debounce the echo starts. `tests/integration/test_scene3d_base_stacking.py::TestTheOverlaysOwnEcho` holds both halves of the race still by calling `recompute_now()` directly — the echo is then certainly undelivered — once without waiting for it (exactly one extra recompute) and once through the helper (none). With the old helper the second test fails three times out of three.
+
+**Lesson**: "the timer is idle" is not "nothing is pending". When a system answers its own action with a signal, wait for that signal. And a race is turned into a regression by taking the event loop out of the step that hides it: run that step synchronously, and the bad interleaving is the only one there is.
+
 ## Case study: grouped guild navigation test picked a child instead of the group (F1/F2)
 
 **Symptom.** A grouped-centre diagnostic assertion passed alone and failed in a combined run.
@@ -1794,3 +1843,579 @@ The next print failed because the code page could not encode a check mark.
 **Root cause.** Bounding rectangles contain empty space in concave footprints. Evaluation and canopy paths normalized species differently. A weak observer can be pruned during cyclic collection before Qt emits destroyed.
 **Fix.** Fit the complete badge rectangle inside the undecorated QPainterPath, normalize species once for both consumers, and make destruction cleanup idempotent for an already-removed subscription. Preserve navigation and item geometry across grouped save/load.
 **Lesson.** Test actual containment rather than rectangle placement, exercise accepted legacy metadata, and allow both Python collection and Qt destruction to own cleanup without raising.
+
+## Case study: every plant in a raised bed had "too little sun" — the sample point was inside the bed (US-F3 x base stacking, found 2026-10-12 while merging v1.30.1 into Phase 17 L1)
+
+**Symptom**: none reported — the feature had shipped the same day with its reference plan
+green (a tree and two tomatoes: 0 h north, 16.5 h south). The merge brought it together with
+the rule "a plant in a raised bed stands on the bed's soil", and the coordinator asked one
+question before any code was touched: does a raised bed shade the tomato standing on it?
+
+**Wrong theories**: none were needed; one was avoided. "The base rule will fix it" — lifting
+the plant's own solid by 38 cm changes nothing for the plant: its own solid is left out of its
+estimate anyway.
+
+**Key evidence** (a probe test on an export of `origin/master`, the real window, the real
+worker, Berlin, 21 June 2026, nothing else on the plan):
+
+```
+PROBE | open ground                  | hours=16.5 | record=None                    | badge=False
+PROBE | on the 40 cm bed             | hours=0.0  | record=sun_mismatch:too_little | badge=True
+PROBE | on the 5 cm bed              | hours=0.0  | record=sun_mismatch:too_little | badge=True
+PROBE | in a bed, not linked         | hours=0.0  | record=sun_mismatch:too_little | badge=True
+```
+
+**Root cause**: the estimate samples the GROUND cell under the plant's centre and leaves out
+the plant's own solid. A raised bed is a solid too, its footprint contains that cell, and a
+solid's shadow polygon includes its footprint — the point is "shaded" in every sample of the
+day. The reference plan has no bed on it.
+
+**Fix**: the receiver names the soil parent whose solid it stands in
+(`SunReceiver.stands_on` ← `ui/canvas/footprints.standing_parent`: linked, visible, a
+soil-capable solid, the centre inside — the membership half of the base rule the casters and
+the 3D records already used), and that caster is spared for this receiver like its own.
+After: 16.5 h on the bed; 10.5 h for a plant on the ground 10 cm north of the bed (the bed
+still shades what is beside it); a 3 m wall south of the bed takes exactly the hours it takes
+from the same plant with the bed removed. The first cut asked "is the plant LIFTED?" (base >
+0) and would have left a plant in a 2 cm edging at 0 hours: a solid can cover the point
+without lifting anything — the question is "is the plant in the parent's solid?".
+
+**Lesson**: **when a sample point is "under" an object, list everything else that is under
+the object.** And **try a feature first on the plan it is for** — a sun-requirement warning
+is for vegetable gardens, and a vegetable garden is raised beds; the reference plan was a
+tree. A merge is a second chance to ask the question the feature's own tests did not.
+
+## Case study: a broken shader failed the render, and the run's own summary counted 0 Qt errors (Phase 17 L1.2, fixed 2026-10-11)
+
+**Symptom**: the positive control "a broken shader fails the render" did what it should: the
+render raised `RenderError` and the driver exited with its error code. The same run's summary
+(`result.json`, `qt_messages.counts.error`) said 0. The frame's own report listed the shader
+errors; the run's report had never heard of them.
+
+**Theories entertained**: none worth the name, and no instrumentation was added — say so
+rather than dress it up. The cause was found by reading the two places that install a Qt
+message handler. The entry is here because the SYMPTOM is the kind this skill exists for (a
+count that contradicts an exception raised a line earlier), and because the tempting first
+theory — "the summary is written before the error arrives" — would have sent the search into
+the order of events, where nothing was wrong.
+
+**Key evidence**: the two recorders themselves. `render_records` creates a `QtMessages`
+recorder for ONE frame and installs it with `qInstallMessageHandler`; the render driver had
+installed one for the WHOLE run with the same call. The inner one held the errors, the outer
+one held none.
+
+**Root cause**: `qInstallMessageHandler` keeps a single handler per process. Installing the
+inner recorder REPLACED the outer one for the duration of the frame — and a shader's compile
+messages arrive during exactly that frame.
+
+**Fix**: `qt_messages.install()` forwards every message to the handler it replaced and returns
+it; `uninstall(previous)` puts that one back. Recorders nest. Inside the running app the same
+chaining keeps the app's own handler hearing everything during an offscreen render. Pinned by
+`tests/unit/test_quick3d_pure.py::test_nested_recorders_both_hear_an_error` and
+`::test_a_recorder_listens_in_and_then_steps_aside`.
+
+**Lesson**: **a "one per process" API turns a second listener into a replacement** — when a
+count is 0 where an error was just raised, compare the listeners before suspecting the order of
+events. The same shape came back twice in the same story: `faulthandler` has ONE
+`dump_traceback_later` timer (a watchdog inside a watchdog cancels the outer one), and
+`QLoggingCategory.setFilterRules` holds ONE rule set (a nested block must not switch the outer
+block's rule off).
+
+## Case study: a grab that returned a perfect image, and a process that was dead a moment later (Phase 17 L1.2, fixed 2026-10-11)
+
+**Symptom**: found by an independent reviewer, not by the suite (the render tier was green):
+`host.show(); host.grab()` returned a correct frame, and the process ended a moment later with
+exit code 3, `0xC0000005` or `0xC0000374` — in whatever ran next. 5 of 5. No Python exception
+anywhere, so no `pytest.raises` could ever have seen it.
+
+**Wrong theories** — all mine, and three of them were written into the code or the docs:
+
+1. *"Visible" is the condition for a frame.* `grab()` guarded on `isVisible()`. Between
+   `show()` and the first expose a window is visible and has no scene graph.
+2. *A never-shown host that took its one frame can be shown afterwards.* The error message for
+   the second hidden grab recommended exactly that. It is the second killing order.
+3. *The L0 run's "access violation in `grab()`" belongs to the sleeping-display family.*
+   Stated in the risk log without evidence.
+4. *(While building the positive control)* "the two orders no longer kill" — the control
+   survived 6 of 6.
+
+**Key evidence**: Qt's own predicates, printed after every step, ONE CALL ORDER PER CHILD
+PROCESS (a death is then an exit code instead of the end of the test run):
+
+```
+                         visible exposed scene-graph
+new                         F       F       F
+show()                      T       F       F      <- grab here: good image, dead process
+one processEvents()         T       T       T
+hide()                      F       T       T      <- still "exposed" until the loop ran
+hide() + events             F       F       T
+minimised                   T       F       T
+```
+
+For theory 4: the control returned from its function, its host went out of scope, and Python
+destroyed the `QQuickView` BEFORE the event loop ran again. With the host kept alive across the
+next second of event loop, the same script died 3 of 3 on the GPU and 3 of 3 on WARP.
+
+**Root cause**: `grabWindow()` on a window that has no scene graph renders one throwaway frame
+and tears the scene graph down again. For a window that is never shown, that is the one
+offscreen frame it has. For a window that is shown — or is shown afterwards — the window's own
+first expose then meets what the grab tore down. The condition is
+`isSceneGraphInitialized()`; `isVisible()` is neither necessary nor sufficient.
+
+**Fix**: `Quick3DHost` is a state machine over Qt's predicates (new / starting / live / hidden
+/ spent / closed); every call answers for the state or raises `HostStateError`; `wait_ready()`
+pumps to the first expose and reports. The tests run one call order per child process and take
+"the last line is `END`" as survival; two controls do the forbidden thing on the raw view and
+must die (`tests/integration/test_quick3d_lifecycle.py`). *This fix was itself incomplete —
+three predicates were too few, and the tests judged the host by its own word: the case study
+"a state machine that was right on Windows" below.*
+
+**Lesson**: **when the failure is a dead process, the evidence channel must be another
+process** — and a control must keep alive the thing whose death it demonstrates. And print the
+engine's own predicates before choosing one by its name.
+
+## Case study: a `hide()` that never returned — a Python Qt message handler, Qt's render thread and the GIL (Phase 17 L1.2, fixed 2026-10-11)
+
+**Symptom**: found by the second independent review, not by the suite. The engine host had a
+"watch" for a shown view's errors: a recorder installed with `qInstallMessageHandler` for the
+host's lifetime. With it, `host.hide()` — and so `close()` — sometimes never came back; with a
+debug category switched on, 5 of 5. And the self-test's watchdog, armed for exactly this kind
+of hang, wrote its stack dump and **the process stayed alive**.
+
+**Wrong theories** — the first is in the round-1 code and docs, in my words:
+
+1. *"The recorder takes a lock and never raises, so it is safe to call from Qt's render
+   thread."* Thread-safe is not the question. The question is which lock the CALLER holds.
+2. *"`faulthandler.dump_traceback_later(exit=True)` needs no GIL, so the exit is certain."* The
+   dump needs no GIL. The exit is `_exit`, which on Windows is `ExitProcess`.
+3. *(while fixing)* "Then end the process from a native timer thread." `ExitProcess` from
+   there hangs the same way; `TerminateProcess` on itself works, with an exit code that is
+   not ours.
+4. *(in my own fix)* "A supervising process that waits on the process and on a release
+   event." It would have killed a process that had FINISHED its block (below).
+
+**Key evidence**: the watchdog's own dump of the control that reproduces it — two threads,
+and the one that is NOT in Python is the telling one:
+
+```
+Timeout (0:00:04)!
+Thread 0x00001dd0 (most recent call first):
+  <no Python frame>                         <- Qt's render thread: about to call the Python
+                                               handler, waiting for the GIL — no frame yet
+Thread 0x0000c45c (most recent call first):
+  File "…/ui/view3d/quick3d/host.py", line 550 in hide     <- the GUI thread: inside
+  File "…/quick3d_lifecycle_child.py", line 771 in deadlock   QWindow.hide(), holding the GIL,
+  …                                                           waiting for the render thread
+```
+
+and one line of Qt's own log, read from stderr (`QT_FORCE_STDERR_LOGGING=1`,
+`QT_LOGGING_RULES=qt.scenegraph.general.debug=true`): `threaded render loop` — on Direct3D 11
+(GPU and WARP) and on xcb + OpenGL. For theory 2: the process list, a minute after the dump.
+For theory 4: a child whose block is `pass`, sleeping six seconds after it — exit code 1.
+
+**Root cause**: Qt Quick renders a shown window on its own thread. Qt's message handler is
+process-wide; PyQt calls a Python handler under the GIL on whichever thread emits. The GUI
+thread holds the GIL while it is inside a Python-called Qt function; `hide()` waits there for
+the render thread; the render thread emits a message and waits for the GIL. Then: `_exit` =
+`ExitProcess` runs DLL detach code that waits for those threads. And the supervisor: a block
+that ends before the supervising process has started signals and DESTROYS the release event;
+the late supervisor found no event, waited on the process alone, and terminated it at the
+deadline.
+
+**Fix**: no message handler beside a shown window, ever — the watch is gone; a shown host
+reports what Qt delivers on the GUI thread (`Quick3DHost.health()`: the QML engine's
+`warnings`, the window's `sceneGraphError`, a frame count, the latter two connected queued).
+A recorder only around rendering on the calling thread, and it counts messages that arrive
+elsewhere. The watchdog got a second line of defence — another process that calls
+`TerminateProcess(handle, 1)` — for which a missing release event means "released", and which
+identifies its process by pid and creation time. Pinned by controls that must fail the old
+way: `test_a_python_message_handler_beside_a_shown_window_deadlocks`,
+`test_the_supervised_watchdog_ends_the_deadlock`,
+`test_the_supervisor_leaves_a_process_alone_whose_block_finished_first`.
+
+**Lesson**: **the GIL is a lock, and a callback from a foreign thread acquires it** — before
+handing Python to another thread's callback, ask what the thread that holds the GIL may be
+waiting for. And a watchdog is only as good as its exit: test it against the hang it is for,
+not against `time.sleep`. And every "wait for A or B" needs an answer for "B is already
+gone".
+
+## Case study: a state machine that was right on Windows, and a judge that asked the suspect (Phase 17 L1.2, fixed 2026-10-11)
+
+**Symptom**: two findings of the same review. (1) The Linux CI job was red: a call order the
+lifecycle matrix PINNED AS SAFE — `show(); hide(); grab()` — segfaulted one event-loop pass
+after a correct grab. (2) In a splitter pane dragged shut the host said "live" and handed out
+a blank frame, a bogus pick and a projection of (0, 0) — and the matrix was green.
+
+**Wrong theories**:
+
+1. *"No scene graph and not visible means never shown."* Measured on Direct3D 11, where that
+   order survives. On xcb the window has a platform window by then, and that is what counts.
+2. *"Scene graph, visible and exposed means a frame can be had."* A collapsed pane is all
+   three and 0 px wide.
+3. *"The matrix checks every answer."* It checked every answer against the state THE HOST
+   reported. A host that reports the wrong state passes.
+
+**Key evidence**: Qt's facts printed per step — this time with the geometry, and with the
+platform-window event:
+
+```
+                              surface visible exposed scene-graph  window   root item
+show(); hide() (no event)        1       F       F       F        320x240   320x240   <- "new"? xcb says no
+pane collapsed                   1       T       T       T          0x500   447x500   <- visible AND exposed
+pane reopened (no event)         1       T       T       T        447x500     0x500   <- the scene lags one pass
+1 px wide                        1       T       T       T          1x500     1x500   <- draws no 3D at all
+```
+
+and the same matrix run in a container with the CI job's stack: the four killing orders die 5
+of 5 on xcb.
+
+**Root cause**: three predicates named after what they sound like, chosen on one platform; and
+a test that derived its expectation from the output of the code under test.
+
+**Fix**: the state is a pure function of nine facts (ten since the case study after next;
+`quick3d/lifecycle.py`): "new" = Qt never
+created a platform window (the `PlatformSurface` event; PyQt6 does not bind
+`QWindow.handle()`); "live" also needs an area of 2 × 2 px and a root item that has the
+window's size. The judge has a table of what a TRUTHFUL host must answer per step and checks
+the pixels; a control hands it the raw view's blank frames and requires it to reject them.
+
+**Lesson**: **a measurement belongs to the platform it was made on** — "harmless, also
+measured" needs the platform's name next to it, and the other platform's control. And **an
+oracle must not be computed from the answer it judges**: if the expected value comes out of
+the code under test, the test can only fail when the code disagrees with itself.
+
+## Case study: "ready" — and the next grab was an image of the old size: a resize that arrives inside the call (Phase 17 L1.2, fixed 2026-10-11)
+
+**Symptom**: after `showFullScreen()` — of a standalone view, or of the main window that embeds
+it — `host.wait_ready()` returned True and the very next `host.grab()` raised `EngineError: …
+Qt rendered a 320 x 240 px image for a 5120 x 1440 window`. 20 of 20 in the review, on the GPU
+and on WARP. The suite was green on three platforms; the lifecycle matrix had no full-screen
+row, and `application.py` calls `showFullScreen()` on the window the 3D workspace is embedded in.
+
+**Wrong theories**:
+
+1. *"After every resize the QML root item lags the window by one event-loop pass — so a root
+   item of the window's size means the host has caught up."* The rule of the fix before, by then
+   written into nine documents. True for a splitter move; false here.
+2. *"Then wait for `frameSwapped` after the resize."* That signal is queued from the render
+   thread: one emitted BEFORE the resize can arrive after it. (And with the display asleep a
+   window presents one frame and then none.)
+3. *"`wait_ready()` taking a second after a resize is my wait loop."* It was ONE
+   `processEvents()` pass, inside Qt's own expose handling.
+
+**Key evidence**: an event filter on the view. Per call: what Qt delivered INSIDE the call,
+then what each later pass delivered — with the size of a raw `grabWindow()` beside it. (The
+`state=` column is the fixed host's; before the fix the first line read `live`.)
+
+```
+showFullScreen: sync events [Resize(5120x1440) Move State] window 5120x1440 root 5120x1440 state=starting raw grab 320x240
+     pass 1: [Expose(exposed)] window 5120x1440 root 5120x1440 state=live raw grab 5120x1440
+showNormal: sync events [Resize(320x240) Move Expose(exposed)] window 320x240 root 320x240 state=live raw grab 320x240
+showMaximized: sync events [-] window 5120x1369 root 320x240 state=starting raw grab 320x240
+     pass 1: [Resize(5120x1369) Move State Expose(exposed)] window 5120x1369 root 5120x1369 state=live raw grab 5120x1369
+window.showMaximized: sync events [-] window 447x500 root 447x500 state=live raw grab 447x500
+     pass 1: [Resize(2557x1369) Move Expose(exposed)] window 2557x1369 root 2557x1369 state=live raw grab 2557x1369
+```
+
+(The last pair is the embedded view while its main window is maximised: until the layout ran
+NOTHING has changed for it, and it is — truthfully — live at its old size.)
+
+**Root cause**: `showFullScreen()` delivers its resize synchronously — window and root item
+agree before the call returns — while `grabWindow()` on a shown window renders into the swap
+chain as it is, and Qt resizes the swap chain only when it handles the NEXT expose. The state
+machine had no fact for "the render target has the window's size", so the host read "live" in
+between. In every line above the grab is wrong exactly between a `Resize` event and the next
+`Expose` event of the exposed window.
+
+**Fix**: that fact, latched from the window's own events by the filter that already latched "a
+platform window was created": `Resize` clears it, the next `Expose` of the exposed window sets
+it, and "live" needs it. `wait_ready()` delivers what is pending once for ANY visible host
+before it answers. A grab whose image has another size after all raises `HostStateError` — a
+state, like every other "not now" — instead of `EngineError`. And the contract moved into ONE
+docstring (`quick3d/lifecycle.py`); the nine copies had drifted apart. *(Review round 4: the
+latch was the next defect — "a host that waited for a message that never came", below. The
+size check stayed; the fact went.)*
+
+**Lesson**: **"one event-loop pass" is not a unit.** Before writing a rule about "after a
+resize", print what each CALL delivers before it returns — per call, per platform. And when a
+hand-written matrix of orders has missed the failing order twice, **add an order nobody wrote**:
+a seeded random walk whose judge knows only what Qt said about the window (it found nothing
+more on the dev box — and on a 1024 px CI runner it found the defect of this very fix).
+
+## Case study: a healthy block was terminated four seconds in — and another block's log said why (Phase 17 L1.2, fixed 2026-10-11)
+
+**Symptom** (the review's measurement, never seen in a test): two supervised watchdog blocks in
+one process. Block A, 1 s budget, an empty body. Then block B, 60 s budget, healthy. The process
+was terminated 4.1 s into B — and the line that said why, "block A was still alive …", stood in
+A's log.
+
+**Wrong theory**: *"A missing release event means the block is over — so a supervisor that
+comes up late can never act."* That was the fix for the trap before (a block that finishes
+before its supervisor is up). True, and not enough: A's supervisor did not find a MISSING
+event. It found B's.
+
+**Key evidence**: the sequence against the previous head — the process ends with exit code 1
+after 4.7 s, and this is block A's log:
+
+```
+    0.005s [watchdog] armed=True seconds=1.0 what=block A supervisor=process 78652, ends this one 4 s from now …
+          [supervisor] fired=True what=block A reason=block A was still alive 4 s after its watchdog was armed — … terminated from outside, exit code 1
+```
+
+and after the fix — two supervising processes, each released by its own block, both gone with
+exit code 0:
+
+```
+    0.009s [watchdog] armed=True seconds=1.0 what=block A supervisor=process 66160, ends this one 4 s from now …
+    0.159s [watchdog] released=True what=block A supervisor_exit=0
+    0.169s [watchdog] armed=True seconds=60.0 what=block B supervisor=process 80200, ends this one 63 s from now …
+   20.189s [watchdog] released=True what=block B supervisor_exit=0
+```
+
+and the pin for it failing (the process ends with exit code 1 instead of 0) as soon as the
+nonce is taken out of the event's name again.
+
+**Root cause**: the event was named after the PROCESS — pid and creation time — which the next
+block of the same process has too. "An event that exists is mine" was never true.
+
+**Fix**: a random nonce per block in the event's name, handed to the supervising process on its
+command line; one armed watchdog per process at a time (a second raises); and a supervisor that
+checks whom it works for before it opens anything — validated arguments, its target must be its
+own parent process, in the frozen build running the same image. And the gate's own blind spot:
+a supervisor that could not be started used to be logged as `supervisor=none` while the
+self-test passed; on Windows the self-test now FAILS without one.
+
+**Lesson**: **something that may kill names its target by what nobody else can have** — a random
+name it was handed — never by what the next user will have too. And **a safety net is a
+subsystem**: if nothing checks that it started, the day it cannot start looks like every other
+day until it is needed.
+
+## Case study: a host that waited for a message that never came — red on the CI runner's small screen, green on the dev box (Phase 17 L1.2, fixed 2026-10-12)
+
+**Symptom**: `Render 3D (windows-latest)` red, one test: the story's own seeded walk, 7 problems
+in 252 looks. Three looks where Qt showed the pane and the host never came up, and
+`wait_ready()` taking its whole 5 s three times in a row on a 2 × 60 px pane. The same commit:
+green on the RTX 4070, green on WARP, green on xcb in a container, 99 of 100 each.
+
+**Wrong theories**:
+
+1. *"A grab has the wrong size exactly between a `Resize` event and the next `Expose` — so
+   'live' waits for that expose."* The fix of the round before (the case study above the last
+   one), measured in every order anyone had written. It made an OS paint message a condition
+   of a state.
+2. *"Then name the place: a state for 'no part of the view is on a screen'."* The review
+   offered it. Measured before building it: beyond the SAME edge of the SAME screen the pane
+   kept its old render target while the display slept and got the new one while it was awake
+   — both ways on one day, and on WARP the new one either way. Geometry does not say whether
+   Qt draws.
+3. *"The local tiers pass, so it is the runner."* They passed because every window of the
+   matrix fits on a 5120 px screen. The walk asked for 1203 and 1500 px wide windows on
+   whatever screen it found.
+
+**Key evidence**: the runner's own line — every fact Qt reports is in place, and the one the
+host had invented is not:
+
+```
+[59] setSizes(.., 49) / pump window=[56, 701] state=starting: STUCK — Qt shows the window and the host does not come up:
+     WindowFacts(surface_created=True, visible=True, minimised=False, width=56, height=701, scene_graph=True, exposed=True, root_width=56.0, root_height=701.0, target_synced=False)
+```
+
+and the events the view gets when the pane grows beyond the screen's right edge (an event
+filter on the view, the raw `grabWindow()` beside it, then the FIXED host) — the same probe,
+the same day, the display awake and, 25 idle minutes later, asleep:
+
+```
+grown to 137  : window 137x500 events ['Resize', 'Move', 'UpdateRequest'] exposed=True raw grab 137x500 ok; host: state=live wait_ready(5)=True
+grown to 137  : window 137x500 events ['Resize', 'Move'] exposed=True raw grab 49x500 STALE; host: state=live wait_ready(5)=False
+```
+
+**Root cause**: the host had made a MESSAGE its evidence for something it can look at. Windows
+sends no expose to a pane that grows where no screen is; a state that waits for one waits for
+ever. And the test that should have caught it let the window system decide where its windows
+were.
+
+**Fix**: the frame is the witness. `grab()`, `pick()`, `project()` and `wait_ready()` take a
+frame and compare its size with the window's, to the device pixel ("less than one pixel off"
+— which round 5 found is not exact at 125 %: the next case study); another size is a refusal
+and nothing is remembered. `wait_ready()` starts no delivery of events once its timeout is up
+(a zero timeout runs none; it had taken 1.0 to 1.4 s), defaults to 1 s instead of 10,
+and answers False 0.5 s after the last sign of progress — for every cause at once. In the
+tests: every window is placed on the screen on purpose; the walk runs a second time where a
+1024 × 768 screen leaves the window; and the condition is MADE, not hoped for — an event filter
+that eats the view's `Expose` / `UpdateRequest` / `Paint`:
+
+```
+linux: grown live/refused; shrunk live/refused; wait_ready(5) after grown: False in 0.502 s, wait_ready(60) after long: False in 0.503 s, wait_ready(0) after zero: False in 0.002 s; frames refused for their size 20
+```
+
+**Lesson**: **do not infer what you can observe** — three rounds had each added a fact to the
+state (three, nine, ten), and each new fact was a new way to be wrong about the one question
+that matters: is the frame right? Ask the frame. **A test must not depend on where the window
+system puts a window, or on how large the screen is**: place it, and run once as on the
+smallest screen you ship to. And **a condition that differs between two days on one machine
+cannot be a pin**: reproduce it on purpose (here: withhold the paint events), pin THAT, and
+assert only what holds on every machine for the real thing.
+
+## Case study: at 125 % a pane got its neighbour's frame — and the judge agreed, because it used the suspect's own rule (Phase 17 L1.2, fixed 2026-10-12)
+
+**Symptom**: none. Every tier green on three platforms and on CI. A reviewer set
+`QT_SCALE_FACTOR=1.25`, made the 3D pane ONE logical pixel wider while nothing drew the view,
+and asked the host for a frame: it got the frame of the pane as it had been — and a pick
+against the old viewport — from a host whose contract begins "`grab()` returns the scene at the
+window's current size, or it raises".
+
+**Wrong theories**:
+
+1. *"The size check is exact to the device pixel"* — the round before had written that, after
+   replacing a tolerance of two pixels. The code said `abs(frame - logical * ratio) < 1.0`.
+   That IS exact at a ratio of 1, 1.5 and 2: the three ratios in the tests.
+2. *"The matrix would have seen a wrong frame: its judge compares every frame with the size Qt
+   gives for the window."* The judge's comparison was `abs(...) >= 1` — the same inequality,
+   written a second time. Round 1's judge had asked the suspect for its state; this one had
+   copied the suspect's rule. Blind in the same place, for the same reason.
+
+**Key evidence**: the reviewer's probe, before and after —
+
+```
+pane 442 -> 443 px: grab() HANDED OUT a 553 px frame (the frame of the 442 px pane was 553 px; a 443 px pane's is 554 px); state=live; pick -> {'hit': 'w', 'point': [-0.2, -0.0, 20.0]}
+RESULT dpr=1.25: of 12 one-pixel changes with the render target behind, grab() handed out the OLD frame 0 times and refused 12 times (skipped 12)
+```
+
+and the arithmetic that says how often: of 11,993 neighbour frames (a window one or two logical
+pixels beside the one asked for) 750 passed at 1.25, some at every ratio strictly between 1 and
+1.5, none at 1.0, 1.5 or above.
+
+**Root cause**: Qt sizes a render target as `QSize(logical) * ratio` — `qRound` per side. The
+right frame is therefore at most HALF a device pixel off `logical × ratio`; "less than one"
+leaves room for a neighbour wherever the product ends in .5 (442 × 1.25 = 552.5 → 553, and
+553 is 0.75 off 553.75). Nobody had written down what "exact" was exact against.
+
+**Fix**: the host: at most half a device pixel off. The judge: its own `qt_round`, and equality
+with it — not the host's predicate. The arithmetic for every width from 2 to 3000 at twelve
+ratios against `QSize * ratio` asked of Qt itself, in the default tier; one real-window row at
+125 %, which first asserts with a RAW grab that the render target is behind (a row that cannot
+fail proves nothing).
+
+**Lesson**: **an oracle must come from somewhere else than the thing it judges** — from the
+platform's definition, never from the implementation's tolerance. If the test and the code
+share a formula, the test checks typing. And **test where rounding bites**: between the round
+ratios, at the widths whose product ends in .5 — not at 100 %, 150 % and 200 %, where any
+tolerance below one pixel is exact.
+
+## Case study: 34.6 MB per reload, and nothing was leaking in Python or in VRAM — two retentions inside Qt, and a soak that could not present a frame (Phase 17 L1.3, fixed 2026-10-12)
+
+**Symptom**: the memory soak of the 3D workspace in the real app (20 reloads of `bench_small`,
+every reload rebuilding the engine scene; private bytes; Theil–Sen over reloads 11–20) read
+**34.6 MB per reload** against a bound of 10. Reloads that rebuilt nothing read 0.2. The
+positive control (25 MB kept per reload) read 58.8, so the instrument worked.
+
+**Wrong theories**:
+
+1. *"Something of ours keeps the old scene — the controller's records, the plant shape cache,
+   the sink's books."* `tracemalloc` between reloads 5 and 15 of the same soak: 0.045 MB per
+   reload. A weak set of every geometry wrapper ever made: 0 alive.
+2. *"Then it is a D3D resource, in VRAM."* DXGI's figure for this process
+   (`IDXGIAdapter3::QueryVideoMemoryInfo`): 298.1 MB before, 305.6 after the first reload, 305.6
+   after the twentieth.
+3. *"It is the mesh buffers — 1.5 times their size per round — and they are freed at the end of
+   a presented frame, which a readback is not."* TRUE, measured in a bare host (22 MB per round
+   by readback, 6.5 with presented frames) — and in the production host presenting frames
+   changed nothing: 27.9 and 38.5. A cause that explains the probe and not the product is half
+   a cause.
+4. *"The remainder is the QML engine's garbage, it will be collected."*
+   `QQmlEngine.collectGarbage()` per round: 6.1 instead of 6.3 to 7.7.
+
+**Key evidence**: a bare `Quick3DHost`, 100 Models of 3,000 vertices (14.9 MB of buffers)
+created, drawn and destroyed per round — and ONE thing changed per run:
+
+```
+VARIANT buffers        SLOPE second half -0.13 MB/round          (no Qt object)
+VARIANT geometry       SLOPE second half 0.00 MB/round           (no Model)
+VARIANT models_hidden  SLOPE second half 0.78 MB/round           (never drawn)
+VARIANT models         SLOPE second half 22.00 MB/round (x1.48)  afterFrameEnd 0  grabs 40
+VARIANT models_update  SLOPE second half 6.77 MB/round (x0.46)   afterFrameEnd 40 grabs 0   [QT_D3D_NO_VBLANK_THREAD=1]
+   + embedded 6.43 · foliage material 6.60 · host.clear() 6.13 · extra frames 6.33
+   + PROBE_SUN=1            18.06 MB/round          <- the production difference
+   + sun, verts=300         18.19   (x12.22 of the buffers)   <- not the mesh
+   + sun, verts=12000       24.59   (x0.41 of the buffers)
+   + sun, no shadow casting  6.17
+   + sun, releaseResources() per round   3.90 (20 rounds) · 0.85 (60 rounds)
+```
+
+**Root cause**: two things inside Qt Quick 3D, and one about the instrument. (1) Qt keeps
+cached per-draw-call state for every Model it ever drew, after the Model is destroyed — about
+three times as much for a Model that also casts into the sun's shadow cascades — until
+`QQuickWindow.releaseResources()`. (2) A destroyed Model's mesh buffers are freed at the end of a
+PRESENTED frame; `grabWindow()` never ends a frame that way. (3) The display was asleep: Windows
+presented no frame at all, so every frame of every soak on this machine that night was a
+readback.
+
+**Fix**: `Quick3DHost.release_cached_resources()`; the pipeline's passes count the items whose
+Models they destroyed, and the workspace releases when 64 piled up and the pipeline is quiet,
+or at once at 512. The soak's child runs with `QT_D3D_NO_VBLANK_THREAD=1` and asserts that
+frames were presented. After: 3.9 and 4.9 MB per reload (the large plan 5.1, WARP 7.4; 1.8
+over reloads 31–60 of a 60-reload run), the control 28, the same soak with the release out of
+reach 29. What is left — about 20 kB per destroyed Model — has a floor in bare Qt: 3.4 kB per
+`Model` with a material created and destroyed without ever being drawn.
+
+**Postscript — the instrument was still in the picture.** Every number of that "After" came
+from a soak that READ BACK once or twice per reload, and so did the next finding built on it
+("a view that presents nothing keeps every byte uploaded to it", and a rule that paced the
+pipeline by presented frames). A reviewer of another story took the readback out of the loop:
+flat. Here, the same twenty rebuilds without a readback in the loop: 2.0 MB per rebuild
+presenting and 1.5 with the view's frames withheld (19 and 1.5 without the release); with one
+readback per rebuild and frames withheld 8.5 (26 without the release). The cached state per
+drawn Model was real — the bare-host rows took no readback — but the dark-view growth was
+the readback's own frame, never presented and so never given back. The pacing was removed;
+the rule that stayed is "nothing takes a frame from the live view, and a soak takes none
+inside its loop".
+
+**Lesson**: **shrink it until one run takes seconds, then change one thing per run** — the
+whole table above cost less than the first three theories. **Scale the suspect**: three vertex
+counts said "not the mesh" in thirty seconds. **A cause must explain the product, not only the
+probe**: theory 3 was real and was not it. **Know what your instrument does to the thing it
+measures** — a readback is not a frame the way the product makes frames; list every frame the
+measuring loop itself renders and run the loop once without them BEFORE a rule is built on
+the curve. And when a fix lands,
+keep three numbers from one instrument: with it, without it, and a control that must fail.
+
+## Case study: an access violation in a test that had nothing to do with the change — a Python callable on `destroyed`, and the garbage collector (Phase 17 L1.3, fixed 2026-10-12)
+
+**Symptom**: after `connect_qobject` — "take a clock subscriber off its channel when Qt destroys
+it" — was built on `receiver.destroyed.connect(<closure>)`, the suite died with
+`Windows fatal exception: access violation` in
+`tests/integration/test_sim_clock_wiring.py::TestHeatmapMidComputeDateChange`, a test that was
+not changed.
+
+**Wrong theory**: *"a slot was called after its receiver died"* — the very thing the helper
+exists to prevent, so the helper was the last place looked at. The receiver was alive; what was
+called dead was the helper's own closure.
+
+**Key evidence**: bare PyQt 6.11, no product code, four ways to let an object with a closure on
+its own `destroyed` signal go:
+
+```
+toplevel_plain   (refcount frees the wrapper)                       survived; hook ran 1 time(s)
+toplevel_cycle   (wrapper in a cycle; gc.collect())                 collected 6;  hook ran 0 time(s)   <- silently never called
+child_cycle      (a child of that wrapper)                          collected 7;  hook ran 1 time(s)
+deferred_cycle   (Qt owns it, deleteLater() pending; gc.collect();  collected 11; Windows fatal exception: access violation
+                  then the deferred delete runs)                                  File "...", line ??? in hook
+```
+
+**Root cause**: a Python callable connected to `destroyed` lives and dies with Python's idea of
+the wrapper, not with the C++ object. When the wrapper is garbage in a reference cycle while Qt
+still owns the object — a `deleteLater()` is pending, a parent holds it — the cyclic collector
+clears the callable, and the connection stays behind in C++. Then either the signal is never
+delivered (the second line), or Qt delivers it into what is left (the fourth). It surfaced in
+an unrelated test because that is where the collector happened to run.
+
+**Fix**: nothing hangs on `destroyed`. The clock's channel calls a guard that asks
+`sip.isdeleted(receiver)` at every delivery and takes itself off
+(`src/open_garden_planner/ui/sim_clock_subscription.py`); a test pins that the module never
+names the signal.
+
+**Lesson**: **a crash in a test you did not touch is a lifetime bug in what you did touch** —
+suspect the garbage collector, and reproduce with an explicit `gc.collect()` in bare PyQt before
+reading product code. **Do not hang clean-up on a QObject's `destroyed` signal from Python**:
+the callable can be collected before the signal fires. Ask at the moment of use
+(`sip.isdeleted`) instead of waiting to be told.
