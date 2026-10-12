@@ -726,6 +726,8 @@ other facts held). One-line re-verification commands (run from repo root):
 
 ## F3 maintenance: receiver estimates and document ownership (ADR-056)
 
+Shipped on 12 October 2026 in v1.30.1 (PR #436), after owner acceptance and protected merge.
+
 US-F3 (#314) adds sparse receiver exposure alongside the unchanged explicit ground heatmap. The one identified caster collector supplies both anonymous legacy inputs and owned footprints; per-owner integer unions feed vectorized even-odd point coverage. Exclude only the receiving UUID, not all plants. Receiver centres use base geometry through mapToScene; row zero stays south. Estimates are ground-level direct sun, not leaf-height/translucent-canopy measurements.
 
 Use SimClock.plan_date and the opt-in 21 June shortcut. Geometry/date/location/bounds/document changes invalidate runtime exposure; time-only changes preserve it and requirement-only edits reclassify. Neither diagnostics, canopy selection nor MCP reads compute. Known unavailable sun requirements emit info sun_evaluation; do not equate no mismatch with evaluated success. Mature canopy membership uses recorded max_spread_cm/2, not spacing overrides or guild membership.

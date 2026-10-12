@@ -2370,7 +2370,7 @@ One parented/debounced coordinator computes guild status and applies idempotent 
 
 ## ADR-056: Runtime sun diagnostics and document-owned exposure (#314, #428)
 
-**Status:** Accepted for implementation; owner acceptance pending, October 2026.
+**Status:** Accepted; owner testing confirmed on 12 October 2026, shipped in [v1.30.1](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.1) via [PR #436](https://github.com/cofade/open-garden-planner/pull/436).
 
 **Context.** A raw ground heatmap sampled inside a solid receiving plant includes its own shadow: both reference tomatoes measured zero hours. The issue's literal centre lookup therefore cannot distinguish the shaded northern plant from the sunny southern plant. A second defect lets an old worker paint after New/Open because document replacement did not cancel the heatmap or invalidate queued success.
 

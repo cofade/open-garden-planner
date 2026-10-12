@@ -356,8 +356,13 @@
   },
   "314": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "US-F3: Sun-requirement × computed hours-of-sun diagnostic + canvas badge (Package F, independent; layer-stack section after US-F1 #312)"
+  },
+  "315": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "US-F4: Plan timeline scrubber — removal_date + plan-state-at-date visibility on the shared sim date (Package F, independent)"
   },
   "316": {
     "is_pr": false,
@@ -751,7 +756,7 @@
   },
   "428": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Sun heatmap: a map still computing when a plan is opened or created paints onto the new plan"
   },
   "429": {
@@ -768,5 +773,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(US-F1,F2): species traits, plant guilds and diagnostics"
+  },
+  "436": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(US-F3): add sun diagnostics and fix heatmap document ownership"
   }
 }
