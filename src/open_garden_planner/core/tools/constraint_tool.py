@@ -2394,6 +2394,15 @@ class EdgeLengthConstraintTool(BaseTool):
             target_distance=target_cm,
             constraint_type=ConstraintType.EDGE_LENGTH,
         )
+        # A rectangle is rigid to the vertex solver. Reuse the canonical
+        # EQUAL size applier and bundle its resize in the same graph command,
+        # otherwise the tool stores an unsatisfied constraint without resizing.
+        from open_garden_planner.ui.canvas.items import RectangleItem
+
+        if isinstance(edge.item, RectangleItem):
+            old_size, apply_size = _build_equal_resize_fn(edge.item, edge.anchor_type)
+            if old_size is not None and apply_size is not None:
+                command._item_rotations = [(edge.item, old_size, target_cm, apply_size)]
         self._view._execute_constraint_with_solve(command)
         self._reset()
         return True
