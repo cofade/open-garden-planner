@@ -222,6 +222,8 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 ## Where to Pick Up After Restart
 
+- **Audit #392 backlog reconciled on 2026-10-12:** all 73 P2/P3 findings have one package and evidence-backed disposition; 5 fixed, 21 partial, 47 unresolved. Bundles A1–A13 are issues #453–#465; see `docs/11-risks-and-technical-debt/audit-2026-10-reconciliation.md`. #406 remains the last open standalone P0/P1 remediation and precedes constraint refactors. The epic stays open; historical audit metrics are not current measurements.
+
 - **Package F3 (#314) + heatmap lifecycle #428 shipped on 2026-10-12 as v1.30.1 ([PR #436](https://github.com/cofade/open-garden-planner/pull/436); ADR-056).** Owner confirmed all manual checks. The release adds explicit cached ground-level sun estimates excluding self-shadow, sun badges/shared diagnostics, mature-canopy grouping and document-generation rejection of late worker results. Use the shared SimClock date and opt-in 21 June shortcut; do not automatically compute or persist exposure. #328 already shipped in PR #352 and is outside this work. F4/F5 remain open; wiki sources follow ADR-051 publication.
 
 - **Package F1/F2 (#312/#313) shipped on 2026-10-11 as v1.30.0 ([PR #433](https://github.com/cofade/open-garden-planner/pull/433)).** Recorded species traits, semantic food-forest layers, snapshot-based guilds, user template editor and shared Diagnostics panel; see ADR-054/055 and §8.26. Owner frozen-app acceptance passed, including German guild names and automatic layer assignment. F3 shipped via PR #436; F4/F5 (#315/#316) remain separate work.

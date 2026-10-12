@@ -17,6 +17,8 @@ These improvements apply across the project.
 The repository audit remains open under [#392](https://github.com/cofade/open-garden-planner/issues/392).
 The [living debt register](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/README.md)
 records individual outcomes. The dated audit snapshot preserves the original findings.
+The [current reconciliation and package map](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audit-2026-10-reconciliation.md)
+links the remaining work to thematic bundle issues.
 
 ## Phases 1–12: complete
 
