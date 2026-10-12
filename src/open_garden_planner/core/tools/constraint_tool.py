@@ -2396,30 +2396,60 @@ class EdgeLengthConstraintTool(BaseTool):
         )
         from open_garden_planner.ui.canvas.items import RectangleItem
 
-        original_geometry = None
-        depth = self._view.command_manager.undo_depth
-        violates_fixed = False
+        is_rectangle = isinstance(edge.item, RectangleItem)
+        feasible = False
         try:
-            if isinstance(edge.item, RectangleItem):
+            if is_rectangle:
                 original_geometry = capture_rect_like_geometry(edge.item)
+                equal_dimensions = []
+                for c in scene.constraint_graph.constraints.values():
+                    if c.constraint_type != ConstraintType.EQUAL:
+                        continue
+                    for ref in (c.anchor_a, c.anchor_b):
+                        if ref.item_id != edge.item.item_id:
+                            continue
+                        candidate = next((a for a in get_anchor_points(edge.item)
+                                          if a.anchor_type == ref.anchor_type
+                                          and a.anchor_index == ref.anchor_index), None)
+                        if candidate is not None:
+                            equal_dimensions.append((candidate, _compute_equal_dimension(candidate)))
                 old_size, apply_size = _build_equal_resize_fn(edge.item, edge.anchor_type)
-                if old_size is not None and apply_size is not None:
-                    command._item_rotations = [(edge.item, old_size, target_cm, apply_size)]
-                    apply_size(edge.item, target_cm)
-                    # FIXED pins item.pos(), not its visual center. A center-
-                    # preserving resize that would displace that pin is refused.
-                    pos = edge.item.pos()
-                    violates_fixed = any(
-                        c.constraint_type == ConstraintType.FIXED
-                        and c.anchor_a.item_id == edge.item.item_id
-                        and (abs(pos.x() - c.target_x) > 1e-9
-                             or abs(pos.y() - c.target_y) > 1e-9)
-                        for c in self._view._canvas_scene.constraint_graph.constraints.values()
-                        if c.target_x is not None and c.target_y is not None
-                    )
-            if violates_fixed or not self._view.is_constraint_feasible(
-                ref_a, ref_b, target_cm, ConstraintType.EDGE_LENGTH
-            ):
+                # No event loop or modal callback may observe this proposal.
+                try:
+                    if old_size is not None and apply_size is not None:
+                        command._item_rotations = [(edge.item, old_size, target_cm, apply_size)]
+                        apply_size(edge.item, target_cm)
+                        pos = edge.item.pos()
+                        violates_fixed = any(
+                            c.constraint_type == ConstraintType.FIXED
+                            and c.anchor_a.item_id == edge.item.item_id
+                            and (abs(pos.x() - c.target_x) > 1e-9
+                                 or abs(pos.y() - c.target_y) > 1e-9)
+                            for c in scene.constraint_graph.constraints.values()
+                            if c.target_x is not None and c.target_y is not None
+                        )
+                        # EQUAL is skipped by the solver. Refuse a changed shared
+                        # dimension; unrelated equal dimensions remain valid.
+                        violates_equal = any(
+                            before != _compute_equal_dimension(candidate)
+                            for candidate, before in equal_dimensions
+                        )
+                        feasible = (
+                            not violates_fixed and not violates_equal
+                            and self._view.is_constraint_feasible(
+                                ref_a, ref_b, target_cm, ConstraintType.EDGE_LENGTH
+                            )
+                            and self._view._resolve_constraint_conflicts(
+                                command, allow_override=False
+                            )
+                        )
+                finally:
+                    apply_rect_like_geometry(edge.item, original_geometry)
+            else:
+                feasible = self._view.is_constraint_feasible(
+                    ref_a, ref_b, target_cm, ConstraintType.EDGE_LENGTH
+                )
+            if not feasible:
                 QMessageBox.warning(
                     self._view,
                     QCoreApplication.translate(
@@ -2431,11 +2461,8 @@ class EdgeLengthConstraintTool(BaseTool):
                     ),
                 )
                 return True
-            self._view._execute_constraint_with_solve(command)
+            self._view._execute_constraint_with_solve(command, conflicts_checked=is_rectangle)
         finally:
-            if (original_geometry is not None
-                    and self._view.command_manager.undo_depth == depth):
-                apply_rect_like_geometry(edge.item, original_geometry)
             self._reset()
         return True
 

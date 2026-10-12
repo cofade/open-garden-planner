@@ -381,6 +381,9 @@ A single click picks an edge, then the distance modal supplies the target. Polyg
 edges use the existing endpoint solver. Rectangle edges bundle the existing canonical size
 applier on AddConstraintCommand, preserving the scene center/pivot. Feasibility sees the
 proposed canonical rectangle geometry; refusal or a probe error restores the exact snapshot.
-A resize that would move a FIXED item position is refused atomically. The normal trial solve,
+The synchronous probe restores its snapshot before any modal event loop, so autosave cannot
+see uncommitted geometry. Resizes that move a FIXED position, change an EQUAL dimension or
+conflict with existing rows are refused; this path does not offer destructive Override.
+Unrelated equal-height relations survive width changes. The normal trial solve,
 command execution and graph row use one history entry; undo restores size and graph, redo
 restores the same constraint identity. Cancellation/refusal creates no history entry.

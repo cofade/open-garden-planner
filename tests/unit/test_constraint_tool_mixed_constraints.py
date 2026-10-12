@@ -1,6 +1,7 @@
 """Rectangle edge-length interactions preserve existing graph contracts (#406)."""
 import pytest
-from PyQt6.QtWidgets import QMessageBox
+from PyQt6.QtCore import QTimer
+from PyQt6.QtWidgets import QDialog, QMessageBox
 
 from open_garden_planner.core.constraints import ConstraintType
 from open_garden_planner.core.measure_snapper import AnchorType
@@ -112,3 +113,106 @@ def test_rectangle_feasibility_probe_exception_restores_geometry(qtbot, monkeypa
     assert not view.scene().constraint_graph.constraints
     assert not tool._graphics_items
     assert not tool._edge_indicators
+
+
+@pytest.mark.parametrize("rotation", [0, 45, 215])
+@pytest.mark.parametrize("selected", [0, 1, 2])
+def test_rectangle_resize_refuses_equal_chain(qtbot, monkeypatch, rotation, selected):
+    view = make_canvas(qtbot)
+    modal_choices(monkeypatch)
+    items = items_for(view, rotation)
+    equal = tools.EqualConstraintTool(view)
+    for first, second in ((0, 1), (1, 2)):
+        click(equal, anchor(items[first], AnchorType.EDGE_TOP).point)
+        click(equal, anchor(items[second], AnchorType.EDGE_TOP).point)
+    graph = view.scene().constraint_graph
+    before = geometry(items)
+    existing = {key: c.to_dict() for key, c in graph.constraints.items()}
+    depth = view.command_manager.undo_depth
+    warnings = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *args: warnings.append(args[2]))
+    click(tools.EdgeLengthConstraintTool(view), anchor(items[selected], AnchorType.EDGE_TOP).point)
+    assert warnings
+    assert geometry(items) == before
+    assert {key: c.to_dict() for key, c in graph.constraints.items()} == existing
+    assert view.command_manager.undo_depth == depth
+    view.command_manager.undo()
+    assert len(graph.constraints) == 1
+    view.command_manager.redo()
+    assert geometry(items) == before
+    assert {key: c.to_dict() for key, c in graph.constraints.items()} == existing
+
+
+@pytest.mark.parametrize("rotation", [0, 45, 215])
+def test_width_resize_preserves_equal_height(qtbot, monkeypatch, rotation):
+    view = make_canvas(qtbot)
+    modal_choices(monkeypatch)
+    items = items_for(view, rotation)
+    equal = tools.EqualConstraintTool(view)
+    for item in items[:2]:
+        click(equal, anchor(item, AnchorType.EDGE_LEFT).point)
+    before = geometry(items)
+    existing = {key: c.to_dict() for key, c in view.scene().constraint_graph.constraints.items()}
+    click(tools.EdgeLengthConstraintTool(view), anchor(items[0], AnchorType.EDGE_TOP).point)
+    assert items[0].rect().width() == 250
+    assert items[0].rect().height() == items[1].rect().height() == 160
+    after = geometry(items)
+    view.command_manager.undo()
+    assert geometry(items) == before
+    assert {key: c.to_dict() for key, c in view.scene().constraint_graph.constraints.items()} == existing
+    view.command_manager.redo()
+    assert geometry(items) == after
+
+
+@pytest.mark.parametrize("rotation", [0, 45, 215])
+def test_refusal_modal_timer_serializes_original_geometry(qtbot, monkeypatch, rotation):
+    from open_garden_planner.core.project import ProjectManager
+    view = make_canvas(qtbot)
+    modal_choices(monkeypatch)
+    items = items_for(view, rotation)
+    click(tools.FixedConstraintTool(view), anchor(items[0], AnchorType.CENTER).point)
+    before = geometry(items)
+    payload = ProjectManager._serialize_item(items[0])
+    observed = []
+    def warning(*args):
+        dialog = QDialog(view)
+        def inspect():
+            observed.append((geometry(items), ProjectManager._serialize_item(items[0])))
+            dialog.accept()
+        QTimer.singleShot(0, inspect)
+        dialog.exec()
+    monkeypatch.setattr(QMessageBox, "warning", warning)
+    click(tools.EdgeLengthConstraintTool(view), anchor(items[0], AnchorType.EDGE_TOP).point)
+    assert observed == [(before, payload)]
+
+
+@pytest.mark.parametrize("rotation", [0, 45, 215])
+def test_rectangle_conflicting_resize_cannot_offer_destructive_override(qtbot, monkeypatch, rotation):
+    from open_garden_planner.ui.dialogs.constraint_conflict_dialog import ConstraintConflictDialog
+    view = make_canvas(qtbot)
+    modal_choices(monkeypatch)
+    items = items_for(view, rotation)
+    tool = tools.EdgeLengthConstraintTool(view)
+    click(tool, anchor(items[0], AnchorType.EDGE_TOP).point)
+    graph = view.scene().constraint_graph
+    existing = {key: c.to_dict() for key, c in graph.constraints.items()}
+    before = geometry(items)
+    def different_distance(dialog):
+        dialog._spin.setValue(4)
+        return QDialog.DialogCode.Accepted
+    monkeypatch.setattr(tools.DistanceInputDialog, "exec", different_distance)
+    monkeypatch.setattr(QMessageBox, "warning", lambda *_args: None)
+    def override(dialog):
+        dialog._on_accept()
+        return QDialog.DialogCode.Accepted
+    monkeypatch.setattr(ConstraintConflictDialog, "exec", override)
+    click(tool, anchor(items[0], AnchorType.EDGE_TOP).point)
+    assert view.command_manager.undo_depth == 1
+    assert geometry(items) == before
+    assert {key: c.to_dict() for key, c in graph.constraints.items()} == existing
+    view.command_manager.undo()
+    assert not graph.constraints
+    assert items[0].rect().width() == 200
+    view.command_manager.redo()
+    assert geometry(items) == before
+    assert {key: c.to_dict() for key, c in graph.constraints.items()} == existing

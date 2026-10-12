@@ -97,7 +97,11 @@ The living register (ADR-047). Every row has a status; P0/P1 rows link their iss
   rigid size and the callback displaced FIXED item.pos. Probe proposed canonical geometry
   before feasibility, restore snapshots on refusal/error, and refuse a resize that moves a
   fixed pin. Tests preserve compatible center alignment and atomically refuse conflicting
-  edge lengths/fixed-pin movement at all three rotations. The debug-verbose mirrors record
+  edge lengths/fixed-pin movement at all three rotations. Further review pinned EQUAL chains,
+  timer-driven serialization inside refusal modals and destructive Override: restore the
+  synchronous proposal before every modal, refuse changed shared dimensions and check
+  conflicts without offering graph deletion. Unrelated EQUAL dimensions remain supported.
+  The debug-verbose mirrors record
   the failing regressions and traces.
 
 
