@@ -374,3 +374,11 @@ sequenceDiagram
 Cancel/refusal never executes the command. Undo restores an existing centre snapshot and removes new plants. Template-file saves replace only user files, not placed plan snapshots or undo history. Species search resolves filtered offline records before starting a background provider request; obsolete generations and closed dialogs discard completed responses.
 
 Gallery drag/drop and gallery-click circle placement both construct plants through `ui/plant_creation.py::build_plant`. It resolves species metadata before semantic layer assignment, reads the current per-plan preference and uses the active layer when the matching layer is hidden, locked or absent. The existing creation command owns parentage and the single undo entry. Guild picker/editor/member rows translate catalog common names at display time through the shared `GalleryData` translation context; saved species keys, names and template snapshots remain language-independent. Explicit user object names take precedence over the translated catalog label.
+
+### Constraint edge-length creation (#406)
+
+A single click picks an edge, then the distance modal supplies the target. Polygon/polyline
+edges use the existing endpoint solver. Rectangle edges bundle the existing canonical size
+applier on AddConstraintCommand, preserving the scene center/pivot. The normal trial solve,
+command execution and graph row use one history entry; undo restores size and graph, redo
+restores the same constraint identity. Cancellation/refusal creates no history entry.

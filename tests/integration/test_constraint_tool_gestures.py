@@ -11,6 +11,7 @@ def test_registered_tool_workflow(canvas, monkeypatch, name):
 
 def test_every_registered_constraint_tool_has_a_gesture(canvas):
     view = canvas
-    registered = {type(tool) for tool in view._tool_manager._tools.values()
-                  if type(tool).__module__.endswith("constraint_tool")}
-    assert registered == {cls for cls, _ in SCENARIOS.values()}
+    registered = {kind: type(tool) for kind, tool in view._tool_manager._tools.items()
+                  if kind.name.startswith("CONSTRAINT")}
+    assert len(registered) == len(SCENARIOS)
+    assert set(registered.values()) == {cls for cls, _ in SCENARIOS.values()}

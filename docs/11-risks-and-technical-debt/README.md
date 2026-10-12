@@ -70,7 +70,7 @@ The living register (ADR-047). Every row has a status; P0/P1 rows link their iss
 | TD-021 | Gates/CI (test) | Coverage report and >80 % floor are declared (NFR-MAINT-02, §10.6, §8.6) but never measured anywhere | P1 / M | completed; final Linux floors: root 37, agent_api 92, app/core 77, models 95, services 86, spike_q3d 64, ui 71; 75.5% line / 58.7% branch, 7,642 Linux tests passed; v1.29.6; [PR #422](https://github.com/cofade/open-garden-planner/pull/422) | #402 | audit-2026-10 AUD-031 |
 | TD-022 | Dependencies (dependency) | Release build has no lockfile: 4 of 42 shipped runtime dists exact-pinned; v1.29.0 shipped 9 runtime dists at versions published after the v1.27.9 build | P1 / M | completed; release-seeded lock and explicit build backends; v1.29.6; [PR #422](https://github.com/cofade/open-garden-planner/pull/422) | #404 | audit-2026-10 AUD-048 |
 | TD-023 | Docs (documentation) | §8.7 promises 'all errors logged' but the logging module has no handler anywhere: 55 handled-error log calls are discarded in the windowed exe | P1 / M | fixed (#405, ADR-052) | #405 | audit-2026-10 AUD-063 |
-| TD-024 | Tests (test) | constraint_tool.py is 29.0 % line / 9.6 % branch covered: 1 661 of 2 340 statements never run, 50 public methods never executed (25 non-trivial) | P1 / L | open | #406 | audit-2026-10 AUD-016 |
+| TD-024 | Tests (test) | Constraint-tool characterization: full-suite baseline 679/2340 lines (29.0%) and 68/706 branches (9.6%); all 13 registered gesture scenarios, geometry/history assertions and a 60% per-file floor added | P1 / L | implemented; draft review/manual acceptance pending | #406 | audit-2026-10 AUD-016; ADR-050 addendum |
 | TD-025 | Security (data) | NaN/Infinity accepted at the .ogp boundary: NaN canvas breaks render_canvas_image, non-finite values are re-saved as invalid JSON | P2 / S | open | #453 | audit-2026-10 AUD-041 |
 | TD-026 | Architecture (design) | core/tools/constraint_tool.py:34 imports ui.canvas.items at module level — the one violation of invariant 11 | P2 / S | open | #456 | audit-2026-10 AUD-003 |
 | TD-027 | Architecture (process) | No layering fitness function in CI; a naive import-linter contract reads 0 kept / 2 broken and cannot see the function-local allowance | P2 / S | open | #456 | audit-2026-10 AUD-005 |
@@ -86,6 +86,15 @@ The living register (ADR-047). Every row has a status; P0/P1 rows link their iss
 | TD-037 | Task calendar | Every GUI task surface (the planting calendar's Gantt and dashboard, the Tasks tab) takes its frost-relative windows from the current year's frost only, and the Gantt clips them to that year, while the agent's `get_tasks` / `get_task_calendar` (`generate_for_date_window`) also list windows anchored on other years' frosts. So the GUI does not show a task whose window is anchored on another year's frost: with a 9 April frost, garlic's autumn sowing (9–23 October 2026) appears on no GUI surface. A sweep of the 6 frost dates `scripts/measure_task_window_sweep.py` uses finds each of the bundled (species, task type) windows missed at some frost date; the `--wide` mode covers all 118 species on every day of 2026. Examples, sweeps and the code sites to change are in #414. | P1 / M | fixed (#414) | #414 | ADR-048 L0 senior review (PR #413) |
 
 ## 11.4 Known Development Pitfalls
+
+- **A graph row can conceal a no-op geometry path (#406, 2026-10-12).** A real Edge Length
+  gesture on a rectangle added the requested 250 cm constraint but left its 200 cm edge intact.
+  Verbose caller tracing showed the rigid-item fallback returning no moves for the same pinned
+  item. Reuse EQUAL's rectangle size applier through canonical geometry_apply in the existing
+  AddConstraintCommand; all four edges at 0/45/215 degrees now resize with one undo step,
+  stable scene center/pivot and exact undo/redo. Assert the actual relation after creation,
+  not only graph fields. The debug-verbose mirrors record the failing regression and trace.
+
 
 - **Canvas item caching, Level of Detail (LOD), and selection handle ghosting (issue #409, TD-034, AUD-056)**: Large plans (e.g. 500 objects / 990 scene items) missed NFR-PERF-01 (fit-in-view was 54 ms / ≤ 18 fps) due to three compounded bottlenecks: (1) un-cached filesystem stat calls in `_resolve_svg_path` for plant and furniture sprites on every frame; (2) rasterising high-detail SVG plant sprites and texture tiles when zoomed far out and covering only 6–10 screen pixels; (3) lack of caching for static canvas items during pan and zoom. Solutions:
   - Cache SVG path resolution with `@functools.lru_cache`.

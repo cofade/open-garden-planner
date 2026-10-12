@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import math
+from collections.abc import Callable
 
 from PyQt6.QtCore import QCoreApplication, QLineF, QPointF, QRectF, Qt
 from PyQt6.QtGui import QColor, QCursor, QFont, QKeyEvent, QMouseEvent, QPen
@@ -13,6 +14,7 @@ from PyQt6.QtWidgets import (
     QDialogButtonBox,
     QDoubleSpinBox,
     QGraphicsEllipseItem,
+    QGraphicsItem,
     QGraphicsLineItem,
     QGraphicsTextItem,
     QHBoxLayout,
@@ -2012,7 +2014,7 @@ def _compute_equal_dimension(anchor) -> float | None:
     return None
 
 
-def _apply_partner_extents(item, width: float, height: float) -> None:
+def _apply_partner_extents(item: QGraphicsItem, width: float, height: float) -> None:
     """Resize an EQUAL-constraint partner to ``width`` x ``height``, centre held.
 
     ``ResizeItemCommand`` has **two** callable injection points — ``apply_func``
@@ -2036,7 +2038,9 @@ def _apply_partner_extents(item, width: float, height: float) -> None:
     apply_rect_like_geometry(item, new_geometry)
 
 
-def _build_equal_resize_fn(item, anchor_type):
+def _build_equal_resize_fn(
+    item: QGraphicsItem, anchor_type: AnchorType,
+) -> tuple[float | None, Callable[[QGraphicsItem, float], None] | None]:
     """Return (old_size, apply_fn) for resizing item to equalize its dimension.
 
     apply_fn(item, new_size) resizes the item while keeping its visual center.
@@ -2049,7 +2053,8 @@ def _build_equal_resize_fn(item, anchor_type):
     if isinstance(item, CircleItem):
         old_size = item._radius
 
-        def circle_apply(it, new_r: float) -> None:
+        def circle_apply(it: QGraphicsItem, new_r: float) -> None:
+            assert isinstance(it, CircleItem)
             r = it.rect()
             cx = r.x() + r.width() / 2
             cy = r.y() + r.height() / 2
@@ -2065,7 +2070,8 @@ def _build_equal_resize_fn(item, anchor_type):
         if anchor_type in (AnchorType.EDGE_TOP, AnchorType.EDGE_BOTTOM):
             old_size = abs(rect.width())
 
-            def rect_width_apply(it, new_w: float) -> None:
+            def rect_width_apply(it: QGraphicsItem, new_w: float) -> None:
+                assert isinstance(it, RectangleItem)
                 # Centre-preserving, via the canonical apply path. The previous
                 # hand-rolled version solved for a new pos assuming NO rotation
                 # (it treated the scene centre as pos + rect-centre), so an
@@ -2080,7 +2086,8 @@ def _build_equal_resize_fn(item, anchor_type):
         if anchor_type in (AnchorType.EDGE_LEFT, AnchorType.EDGE_RIGHT):
             old_size = abs(rect.height())
 
-            def rect_height_apply(it, new_h: float) -> None:
+            def rect_height_apply(it: QGraphicsItem, new_h: float) -> None:
+                assert isinstance(it, RectangleItem)
                 # See rect_width_apply — same rotation bug, same fix.
                 _apply_partner_extents(it, it.rect().width(), new_h)
 

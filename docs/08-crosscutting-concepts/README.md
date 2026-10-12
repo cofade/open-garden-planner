@@ -558,6 +558,29 @@ exit codes, read-only checks, version-sync dry runs and repeated application, an
 third-party lock records. Remote GitHub responses are supplied as fixtures; deliberately
 failing merge tests belong on a temporary validation base, never master.
 
+### 8.10.3 Constraint tool characterization (#406)
+
+`tests/constraint_tool_helpers.py` drives real CanvasScene/CanvasView tools in raw scene
+coordinates with snapping disabled. The per-tool unit files exercise press, move and release;
+registered workflows reuse the integration canvas fixture and real ToolManager/command wiring.
+Only modal acceptance and input widgets are controlled. Picking, feasibility, solving and graph
+commands are never substituted in successful gestures. Capture Qt points by value (QPointF),
+not wrappers into a temporary QPolygonF. Initialize rotations through the item's canonical
+rotation method; Qt setRotation alone does not update product rotation bookkeeping.
+
+Pin the constraint type, item IDs, anchor types/indexes and target fields; assert the actual
+geometry relation, exactly one history entry, graph/geometry undo and the same constraint ID
+on redo. Exercise rejected dialogs, empty/repeated picks, conflicts, cancellation, Escape and
+tool switching, with overlays cleared. Matrices include 0/45/215-degree rotations, both symmetry
+axes, coincidence on points/edges/circles, rectangle/polygon/polyline edges and equal circle sizes.
+A registry drift guard requires a gesture scenario for every registered constraint tool.
+
+The existing coverage parser reports normalized package-relative per-file line/branch counts.
+Optional `file_line_floors` extends the package gate; `core/tools/constraint_tool.py` requires
+at least 60% full-suite lines. Compare integer covered/total counts; branch counts are reported
+separately without a threshold. Missing files and malformed records fail visibly. Linux
+rebaselining preserves explicit file floors (ADR-050 addendum).
+
 ## 8.11 Security Scanning (SAST)
 
 **Tool:** [Bandit](https://bandit.readthedocs.io/) — a Python SAST tool that detects common security anti-patterns (subprocess injection, unsafe deserialization, weak cryptography, hardcoded secrets, etc.).

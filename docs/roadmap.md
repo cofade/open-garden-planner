@@ -2751,7 +2751,7 @@ up."* while the task was open. See ADR-029 (addendum) and ADR-049.
   the bundled harvest offsets to their true reading. Measured: both readings fit a majority of the 64 comparable rows (38 frost-relative, 45 planting-relative), with 11 fitting neither, so the data is NOT irreconcilable; it needs a cited
   horticultural source per row. **Garlic's harvest window lands ~3 months LATE** (October, not July) until then - and that is independent of which reading you assume, since its row fits the frost-relative one on maturity.
 - **#399** (branch protection), **#401** (mypy gate), and **#402** (coverage gate) completed in v1.29.6 via PR #422. Their baselines measured the settled tree after this package.
-- **#405** and **#418** completed in v1.29.8 via PR #426; **#409** (NFR-PERF-01) completed in this branch; **#406** (constraint-tool coverage) remains open.
+- **#405** and **#418** completed in v1.29.8 via PR #426; **#409** (NFR-PERF-01) completed in this branch; **#406** (constraint-tool coverage) is implemented in a separate draft; owner acceptance and merge remain pending.
 
 ### Package F1/F2 delivery notes (v1.30.0, PR #433)
 
@@ -2779,3 +2779,14 @@ F4/F5 (#315/#316) remain planned. #328 shipped earlier in PR #352 and was exclud
 | `docs/11-risks-and-technical-debt/README.md` | §11.4.6 ownership, self-shadow and geometry lessons |
 | `docs/12-glossary/README.md` | Sun exposure and mature-canopy grouping |
 | `docs/wiki/`, root instruction pair, mirrored skills | Shipped status and maintenance contracts |
+
+### Audit P1 constraint-tool characterization (#406; epic #392)
+
+Implementation checkpoints: real point-tool harness; remaining gestures/state/shape matrices;
+shared per-file coverage enforcement (ADR-050 addendum). All 13 registered tools have
+press/move/release scenarios and real command/history integration. A newly exposed rectangle
+edge-length no-op is fixed by reusing the canonical size applier, with a failing-first regression.
+The full-suite baseline measured 679/2340 lines (29.0%) and 68/706 branches (9.6%). The target
+file now has a reviewed 60% full-suite line floor; branch coverage remains a separate report.
+Draft review/manual acceptance pending. #392 remains open for the P2/P3 bundles prepared
+separately; no bundle implementation or release is claimed here.

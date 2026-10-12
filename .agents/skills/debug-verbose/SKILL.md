@@ -7,6 +7,15 @@ argument: "Optional: short description of the bug or area to instrument"
 
 # Verbose Debug Instrumentation
 
+## Case study: a rectangle edge-length graph row without a resize (#406, 2026-10-12)
+
+**Symptom.** A real single-click Edge Length gesture on a 200 cm rectangle accepted 250 cm and added an undoable graph row, while the edge remained 200 cm.
+**Wrong theories.** No runtime theory adopted before tracing. An earlier rotation-fixture failure was separate: Qt setRotation alone does not populate the item's rotation_angle; fixtures must use the product's _apply_rotation path.
+**Evidence.** `[406-EDGE] nonvertex fallback RectangleItem target 250.0 ... rect ...200.0...`; `[406-EDGE] computed moves ([], [])`. The printed caller stack traced EdgeLengthConstraintTool.mouse_press -> CanvasView._execute_constraint_with_solve -> _compute_edge_length_constraint_moves. The real gesture/geometry assertion failed before the fix.
+**Root cause.** The tool offers rectangle edges, but direct endpoint movement only handles polygon/polyline vertices. Its fallback translation solve treats rectangles as rigid, and both anchors name the same pinned item.
+**Fix.** Reuse the existing rectangle size applier from EQUAL, which delegates to canonical geometry_apply, and bundle it on AddConstraintCommand. No second geometry closure or second undo step. Tests cover all four rectangle edges at 0, 45 and 215 degrees, center/origin, graph identity and exact undo/redo. Remove probe prints.
+**Lesson.** Constraint type/IDs and an undoable row are insufficient evidence. Assert the resulting scene geometry satisfies the requested relation, as well as restoring the pre-gesture state.
+
 ## Case study: guild names and gallery-click layer assignment (PR #433, 2026-10-11)
 
 **Symptom.** A German guild picker showed Apple Tree/Runner Bean/Borage/Strawberry. With auto-assignment enabled, a gallery-selected blueberry drawn on the canvas still used the active layer.

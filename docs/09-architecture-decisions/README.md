@@ -2085,6 +2085,21 @@ The sync helper seeds only the editable-project version before native offline va
 with full third-party-record comparison. Its subprocess test passes with an empty UV_CACHE_DIR
 on Linux and Windows, preserving the supported-Python range and dependency selections.
 
+### ADR-050 addendum: per-file coverage enforcement (#406, 12 October 2026)
+
+**Decision.** Extend the shared audit coverage parser and the existing coverage-floor CLI.
+Add optional schema-1 `file_line_floors`, keyed by normalized paths relative to the production
+package. Enforce `core/tools/constraint_tool.py: 60` using exact covered-line counts; rounded
+percentages are presentation only. Preserve all package floors, CLI arguments and exit-code
+contracts. Report branch coverage separately with no invented branch floor. Missing required
+files, invalid floor paths/values, malformed or contradictory XML and unresolved layouts fail.
+Explicit Linux/Python 3.11 package rebaselining retains reviewed file floors.
+
+**Evidence.** Tests cover below/exact-floor boundaries, a rounded 60.0% that is below the exact
+floor, missing-file and malformed-report cases, Linux/Windows layouts and package compatibility.
+Registered tool workflows and graph/geometry/history assertions provide behavioral evidence;
+the coverage threshold is a regression floor, not a substitute for those assertions.
+
 ## ADR-051: Repository-owned wiki sources and manual publication (issue #417)
 
 **Status**: Accepted (9 October 2026). Publication requires owner approval and protected merge.

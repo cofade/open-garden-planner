@@ -215,3 +215,20 @@ def test_lock_cli_rejects_altered_export_and_stale_manifest_without_repairs(tmp_
     before = (tmp_path / "uv.lock").read_bytes()
     assert invoke("check_dependency_lock.py", *argv).returncode == 2
     assert (tmp_path / "uv.lock").read_bytes() == before
+
+
+@pytest.mark.parametrize("hits,expected", [([1, 1, 0, 0, 0], 1), ([1, 1, 1, 0, 0], 0)])
+def test_optional_file_floor_cli(tmp_path: Path, hits: list[int], expected: int) -> None:
+    xml, floors, report = (tmp_path / n for n in ("coverage.xml", "floors.json", "report.json"))
+    write_xml(xml, hits)
+    floors.write_text(json.dumps({"schema_version": 1,
+                                 "non_ui_definition": "all packages except ui",
+                                 "line_floors": {"core": 40},
+                                 "file_line_floors": {"core/example.py": 60}}), encoding="utf-8")
+    proc = invoke("check_coverage_floors.py", "--xml", str(xml), "--floors", str(floors),
+                  "--report", str(report))
+    assert proc.returncode == expected, proc.stdout
+    data = json.loads(report.read_text(encoding="utf-8"))
+    assert data["regressions"] == []
+    assert data["per_file"]["core/example.py"]["covered_statements"] == sum(hits)
+    assert bool(data["file_regressions"]) == bool(expected)
