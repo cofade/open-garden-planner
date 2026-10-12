@@ -1,5 +1,17 @@
 # 5. Building Block View
 
+## Sun diagnostics runtime blocks (US-F3, ADR-056)
+
+| Block | Responsibility and contract |
+|---|---|
+| `core/shade_aggregation` / `core/shadow_geometry` | Qt-free daylight aggregation; shared integer sweeps supply the unchanged grid union and sparse per-owner coverage. Immutable identified casters/receivers cross the worker boundary. |
+| `services/sun_mismatch_service` | Immutable evaluations/mismatches, tolerance bands and mature-canopy membership; no computation, threading, UI or I/O. |
+| `ui/canvas/sun_exposure_snapshot` | GUI-thread snapshots of document/date/location/bounds/caster geometry and receiver centres. |
+| `ui/canvas/sun_heatmap` | Explicit worker ownership, cancellation and late-result validation; runtime grid and receiver minutes. |
+| `ui/sun_exposure_coordinator` | Debounced invalidation/reclassification, sun badges, cached diagnostics and canopy rows. |
+| `ui/diagnostics_coordinator` | One general-panel publisher harvesting existing, guild and sun producers through the shared converter. |
+| `ui/panels/canopy_panel` / `ui/sun_exposure_text` | UUID navigation and translated, dated exposure/unavailable presentation. |
+
 ## 5.1 High-Level Architecture
 
 ```mermaid

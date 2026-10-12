@@ -10,8 +10,6 @@ from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsItem, QGraphicsSimple
 
 from open_garden_planner.core.guild_commands import guild_plant_bounds
 from open_garden_planner.core.object_types import is_plant_type
-from open_garden_planner.core.project import ProjectManager
-from open_garden_planner.services.diagnostics import diagnostics_from_records
 from open_garden_planner.services.guild_service import (
     GuildStatus,
     compute_guilds,
@@ -39,7 +37,6 @@ class GuildCoordinator(QObject):
         self.timer.stop()
         self.statuses = []
         self.guilds_panel.set_statuses([])
-        self.diagnostics_panel.set_records([])
 
     def schedule(self, *_args: Any) -> None:
         with contextlib.suppress(RuntimeError):
@@ -67,7 +64,9 @@ class GuildCoordinator(QObject):
             for diagnostic in diagnostics:
                 diagnostic["item_ids"] = list(dict.fromkeys(roots.get(identity, identity)
                     for identity in diagnostic["item_ids"]))
-            self.scene._guild_diagnostics = diagnostics
+            if getattr(self.scene, "_guild_diagnostics", []) != diagnostics:
+                self.scene._guild_diagnostics = diagnostics
+                self.scene.diagnostics_changed.emit()
             by_centre = {status.centre_id: status for status in self.statuses}
             for item in plants:
                 status = by_centre.get(str(item.item_id))
@@ -101,4 +100,3 @@ class GuildCoordinator(QObject):
                         roles=", ".join(trait_label(function) for function in missing)) if missing else ""
                     badge.setToolTip(tooltip)
             self.guilds_panel.set_statuses(self.statuses)
-            self.diagnostics_panel.set_records(diagnostics_from_records(ProjectManager.diagnostics_snapshot(self.scene)))

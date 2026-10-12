@@ -3186,6 +3186,46 @@ for _ctx, _strings in _F1_F2_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
+_F3_TRANSLATIONS = {
+    "SunExposure": {
+        "full sun": "volle Sonne", "partial sun": "teilweise Sonne",
+        "partial shade": "Halbschatten", "full shade": "Schatten",
+        "unspecified sun requirement": "nicht angegebener Sonnenbedarf",
+        "Compute sun hours to enable sun diagnostics.": "Sonnenstunden berechnen, um die Sonnendiagnose zu aktivieren.",
+        "Computing sun hours…": "Sonnenstunden werden berechnet…",
+        "Not evaluated — recompute sun hours.": "Nicht bewertet — Sonnenstunden neu berechnen.",
+        "Not evaluated — set garden location.": "Nicht bewertet — Gartenstandort festlegen.",
+        "Not evaluated — plant is outside the sun grid.": "Nicht bewertet — Pflanze liegt außerhalb des Sonnenrasters.",
+        "Not evaluated — plant is on a hidden layer.": "Nicht bewertet — Pflanze liegt auf einer ausgeblendeten Ebene.",
+        "Not evaluated — computation cancelled.": "Nicht bewertet — Berechnung abgebrochen.",
+        "Not evaluated — exposure data unavailable.": "Nicht bewertet — Sonnendaten nicht verfügbar.",
+        "{hours} h on {date}": "{hours} h am {date}",
+        "too little sun": "zu wenig Sonne", "too much sun": "zu viel Sonne",
+        "{name} needs {required}, but receives ~{hours} h direct sun on {date} ({direction}).":
+            "{name} benötigt {required}, erhält aber am {date} etwa {hours} h direkte Sonne ({direction}).",
+        "Estimated at ground level, excluding this plant's own shadow; leaf height and canopy translucency are not modelled.":
+            "Schätzung am Boden ohne den eigenen Schatten der Pflanze; Blatthöhe und Lichtdurchlässigkeit der Krone werden nicht modelliert.",
+    },
+    "SunSimToolbar": {
+        "21 June": "21. Juni", "Use 21 June of the current simulation year": "21. Juni des aktuellen Simulationsjahres verwenden",
+    },
+    "CanopyPanel": {
+        "Under this canopy": "Unter dieser Krone",
+        "Plant / food-forest layer": "Pflanze / Waldgartenschicht", "Estimated direct sun": "Geschätzte direkte Sonne",
+        "Mature canopy size unavailable": "Ausgewachsene Kronengröße nicht verfügbar",
+        "Plant centres within the mature canopy; this does not identify the cause of shade.":
+            "Pflanzenmittelpunkte innerhalb der ausgewachsenen Krone; daraus lässt sich die Schattenursache nicht ableiten.",
+    },
+    "DiagnosticsPanel": {
+        "Sun requirement mismatch": "Abweichender Sonnenbedarf", "Sun evaluation": "Sonnenbewertung",
+        "Information": "Information", "{shown} of {total} diagnostics": "{shown} von {total} Diagnosen",
+        "{name}: {status}": "{name}: {status}",
+    },
+}
+for _ctx, _strings in _F3_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
 def fill_translations() -> None:
     """Fill in German translations in the .ts file."""
     tree = ET.parse(TS_FILE)

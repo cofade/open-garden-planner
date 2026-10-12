@@ -122,10 +122,12 @@ class TestDocumentedKinds:
 
         source = Path(diagnostics.__file__).read_text(encoding="utf-8")
         source += Path(guild_service.__file__).read_text(encoding="utf-8")
+        source += (Path(diagnostics.__file__).parents[1] / "ui" / "sun_exposure_coordinator.py").read_text(encoding="utf-8")
         return set(re.findall(r'kind="([a-z_]+)"', source)) | set(re.findall(r'"kind": "([a-z_]+)"', source))
 
     def test_emitted_kinds_are_found(self) -> None:
         assert "outside_canvas" in self._emitted_kinds()
+        assert {"sun_mismatch", "sun_evaluation"} <= self._emitted_kinds()
 
     def test_schema_field_lists_every_emitted_kind(self) -> None:
         description = Diagnostic.model_fields["kind"].description or ""

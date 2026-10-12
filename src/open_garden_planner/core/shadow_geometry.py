@@ -33,7 +33,7 @@ binding misbehaves (visually identical at garden scale).
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 
 import pyclipper
 
@@ -125,6 +125,33 @@ def union_shadows(polygons: Iterable[Sequence[Point]]) -> list[Polygon]:
     """Union of already-computed shadow polygons (holes come out CW)."""
     int_paths = [_to_int(p) for p in polygons if len(p) >= 3]
     return [_from_int(p) for p in _union_int(int_paths)]
+
+
+def compute_grouped_shadows(
+    casters: Iterable[tuple[Sequence[Sequence[Point]], float]],
+    elevation_deg: float,
+    azimuth_deg: float,
+    should_cancel: Callable[[], bool] | None = None,
+) -> tuple[list[Polygon], list[list[Polygon]]] | None:
+    """Shared sweeps for the displayed union and sparse per-owner coverage.
+
+    Keep paths on the existing integer grid. Union each owner's footprints
+    before sparse sampling, so overlapping footprints count as one caster.
+    """
+    direction = shadow_direction_scene(azimuth_deg)
+    all_paths: list[list[tuple[int, int]]] = []
+    owned = []
+    for footprints, height in casters:
+        if should_cancel is not None and should_cancel():
+            return None
+        length = shadow_length_cm(height, elevation_deg)
+        paths = []
+        if length is not None:
+            for footprint in footprints:
+                paths.extend(_caster_paths_int(footprint, length, direction))
+        all_paths.extend(paths)
+        owned.append([_from_int(p) for p in _union_int(paths)])
+    return [_from_int(p) for p in _union_int(all_paths)], owned
 
 
 def compute_scene_shadows(

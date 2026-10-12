@@ -49,6 +49,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.object_height import effective_height_cm
+from open_garden_planner.core.shade_aggregation import IdentifiedCaster
 from open_garden_planner.core.shadow_geometry import (
     MIN_SUN_ELEVATION_DEG,
     Polygon,
@@ -311,7 +312,13 @@ def collect_shadow_casters(
     consumes (never live QGraphicsItems). ``at_date`` (US-E8) projects
     dated plants to their grown height AND canopy spread at that date.
     """
-    casters: list[tuple[Polygon, float]] = []
+    return [(list(footprint), caster.height_cm)
+            for caster in collect_identified_casters(scene, at_date) for footprint in caster.footprints]
+
+
+def collect_identified_casters(scene: QGraphicsScene, at_date: date | None = None) -> list[IdentifiedCaster]:
+    """The one caster collector; retain ownership for own-shadow exclusion."""
+    casters: list[IdentifiedCaster] = []
     for item in scene.items():
         if not item.isVisible():
             continue
@@ -323,9 +330,9 @@ def collect_shadow_casters(
         )
         if height is None:
             continue
-        for footprint in _item_footprints(item, at_date):
-            if len(footprint) >= 3:
-                casters.append((footprint, height))
+        footprints = tuple(tuple(footprint) for footprint in _item_footprints(item, at_date) if len(footprint) >= 3)
+        if footprints:
+            casters.append(IdentifiedCaster(str(getattr(item, "item_id", id(item))), footprints, height))
     return casters
 
 

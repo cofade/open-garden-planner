@@ -723,3 +723,11 @@ other facts held). One-line re-verification commands (run from repo root):
 - Species height coverage: the python3 one-liner in §0 → `118 / 118` (or more records, same full coverage expected).
 - Cosmetic-shadow collision: `grep -n "KEY_SHOW_SHADOWS" src/open_garden_planner/app/settings.py` → `appearance/show_shadows` still cosmetic-only.
 - Next ADR number: `grep -oE "^## ADR-[0-9]+" docs/09-architecture-decisions/README.md | sort -V | tail -1` and take max+1 (036 as of 2026-07-19; campaign reserves 037 + 038). (`grep -c` would miscount if numbering ever gains a gap.)
+
+## F3 maintenance: receiver estimates and document ownership (ADR-056)
+
+US-F3 (#314) adds sparse receiver exposure alongside the unchanged explicit ground heatmap. The one identified caster collector supplies both anonymous legacy inputs and owned footprints; per-owner integer unions feed vectorized even-odd point coverage. Exclude only the receiving UUID, not all plants. Receiver centres use base geometry through mapToScene; row zero stays south. Estimates are ground-level direct sun, not leaf-height/translucent-canopy measurements.
+
+Use SimClock.plan_date and the opt-in 21 June shortcut. Geometry/date/location/bounds/document changes invalidate runtime exposure; time-only changes preserve it and requirement-only edits reclassify. Neither diagnostics, canopy selection nor MCP reads compute. Known unavailable sun requirements emit info sun_evaluation; do not equate no mismatch with evaluated success. Mature canopy membership uses recorded max_spread_cm/2, not spacing overrides or guild membership.
+
+#428 resets only through CanvasScene.document_replaced. Keep worker ownership through queued finished, even after run() returns. Accept success only for wanted, same-generation, identical-signature results. A prevalidation load failure must retain the current result. See tests/integration/test_sun_document_lifecycle.py, tests/integration/test_sun_mismatch.py, tests/unit/test_sparse_sun_exposure.py and tests/perf/test_sun_receiver_budget.py.

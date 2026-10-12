@@ -61,12 +61,15 @@ from open_garden_planner.core.shade_aggregation import (
     GRID_CELL_CM,
     SAMPLE_STEP_MINUTES,
     HeatmapGrid,
-    compute_heatmap,
+    IdentifiedCaster,
+    SunExposureResult,
+    SunReceiver,
+    compute_sun_exposure,
     daylight_samples,
 )
 from open_garden_planner.core.shadow_geometry import Polygon
 
-from .sun_shadow_controller import collect_shadow_casters
+from .sun_exposure_snapshot import ExposureSnapshot, collect_exposure_snapshot
 
 #: Above the background image (−1000) and the shadow overlay (−500), below
 #: every layer item (≥ 0). Contour lines and their hour labels sit just above
@@ -169,15 +172,17 @@ class HeatmapWorker(QThread):
 
     def __init__(
         self,
-        casters: list[tuple[Polygon, float]],
+        casters: list[IdentifiedCaster],
         lat_deg: float,
         lon_deg: float,
         day: date,
         grid: HeatmapGrid,
         parent: QObject | None = None,
+        *, receivers: tuple[SunReceiver, ...] = (),
     ) -> None:
         super().__init__(parent)
         self._casters = casters
+        self._receivers = receivers
         self._lat = lat_deg
         self._lon = lon_deg
         self._day = day
@@ -188,8 +193,9 @@ class HeatmapWorker(QThread):
         self._cancelled = True
 
     def run(self) -> None:  # worker thread
-        minutes = compute_heatmap(
+        result = compute_sun_exposure(
             self._casters,
+            self._receivers,
             self._lat,
             self._lon,
             self._day,
@@ -198,8 +204,8 @@ class HeatmapWorker(QThread):
             progress=lambda done, total: self.progress.emit(done, total),
             should_cancel=lambda: self._cancelled,
         )
-        if minutes is not None and not self._cancelled:
-            self.success.emit(minutes)
+        if result is not None and not self._cancelled:
+            self.success.emit(result)
 
 
 # NOTE on the sampling window: ``daylight_samples`` walks the UTC civil day.
@@ -216,6 +222,7 @@ class SunHeatmapController(QObject):
     progress = pyqtSignal(int, int)
     #: bool = success (False: cancelled / no location)
     finished = pyqtSignal(bool)
+    exposure_changed = pyqtSignal()
 
     def __init__(
         self,
@@ -230,6 +237,12 @@ class SunHeatmapController(QObject):
         self._worker: HeatmapWorker | None = None
         self._grid: HeatmapGrid | None = None
         self._computed_day: date | None = None
+        self._document_generation = 0
+        self._result_wanted = False
+        self._success_seen = False
+        self.snapshot: ExposureSnapshot | None = None
+        self.receiver_minutes: dict[str, float] = {}
+        self.exposure_reason = "absent"
         #: Test instrument — number of worker launches.
         self.run_count = 0
         #: Last computed minutes grid (tests / future tooltips).
@@ -303,20 +316,28 @@ class SunHeatmapController(QObject):
         # on the plan's LOCAL date (L1.0's sim clock; the app passes
         # ``clock.plan_date``). Before L1.0 the overlay used the instant's UTC
         # date, which named a different day after local midnight east of UTC.
-        casters = collect_shadow_casters(self._scene, at_date=day)
-        worker = HeatmapWorker(casters, latitude, longitude, day, grid, self)
+        snapshot = collect_exposure_snapshot(self._scene, location, day)
+        x0, y0, w, h = snapshot.bounds
+        receivers = tuple(receiver for receiver in snapshot.receivers
+                          if x0 <= receiver.x_cm < x0 + w and y0 <= receiver.y_cm < y0 + h)
+        worker = HeatmapWorker(list(snapshot.casters), latitude, longitude, day, grid, self, receivers=receivers)
         worker.progress.connect(self.progress)
         worker.success.connect(self._on_success)
         worker.finished.connect(self._on_worker_finished)
         self._worker = worker
+        self.snapshot = snapshot
+        self.receiver_minutes = {}
+        self.exposure_reason = "computing"
         self._grid = grid
         self.last_grid = grid
         self._computed_day = day
+        self._document_generation = getattr(self._scene, "_document_generation", 0)
         self._success_seen = False
         self._result_wanted = True
         self.run_count += 1
         worker.start()
         self.started.emit()
+        self.exposure_changed.emit()
         return True
 
     def clear(self) -> None:
@@ -328,11 +349,34 @@ class SunHeatmapController(QObject):
         There is no result caching, so a cancelled compute buys nothing.
         """
         self._result_wanted = False
+        self._success_seen = False
+        self.last_minutes = None
+        self.last_grid = None
+        self.snapshot = None
+        self.receiver_minutes = {}
+        self.exposure_reason = "absent"
         self.cancel()
         overlay = self._alive_overlay()
         if overlay is not None:
             overlay.setVisible(False)
         self._clear_contours()
+        self.exposure_changed.emit()
+
+    def set_exposure_hint(self, text: str) -> None:
+        overlay = self._alive_overlay()
+        if overlay is not None and overlay.toolTip() != text:
+            overlay.setToolTip(text)
+
+    def invalidate_exposure(self) -> None:
+        """Leave a shown overlay as a snapshot; stop publishing stale measurements."""
+        if self.exposure_reason == "stale":
+            return
+        self._result_wanted = False
+        self._success_seen = False
+        self.cancel()
+        self.receiver_minutes = {}
+        self.exposure_reason = "stale"
+        self.exposure_changed.emit()
 
     def cancel(self) -> None:
         if self._worker is not None:
@@ -348,12 +392,20 @@ class SunHeatmapController(QObject):
 
     # ── internals ──────────────────────────────────────────────
 
-    def _on_success(self, minutes: np.ndarray) -> None:  # GUI thread
+    def _on_success(self, result: SunExposureResult | np.ndarray) -> None:  # GUI thread
         grid = self._grid
         # A clear() may land between the worker's success emission and this
         # queued slot — the result is no longer wanted, don't paint it.
-        if grid is None or not getattr(self, "_result_wanted", True):
+        if (grid is None or self._computed_day is None or not self._result_wanted
+                or self._document_generation != getattr(self._scene, "_document_generation", 0)):
             return
+        if self.snapshot != collect_exposure_snapshot(self._scene, self._location_provider(), self._computed_day):
+            self.invalidate_exposure()
+            return
+        # ndarray compatibility for existing controlled-worker tests; production
+        # always emits a SunExposureResult.
+        minutes = result.minutes if isinstance(result, SunExposureResult) else result
+        self.receiver_minutes = dict(result.receiver_minutes) if isinstance(result, SunExposureResult) else {}
         self.last_minutes = minutes
         image = build_heatmap_image(minutes, self._daylight_minutes)
         overlay = self._ensure_overlay()
@@ -363,12 +415,17 @@ class SunHeatmapController(QObject):
         overlay.setVisible(True)
         self._rebuild_contours(minutes, grid)
         self._success_seen = True
+        self.exposure_reason = "ready"
+        self.exposure_changed.emit()
 
     def _on_worker_finished(self) -> None:  # GUI thread
         worker = self._worker
         self._worker = None
         if worker is not None:
             worker.deleteLater()
+        if self.exposure_reason == "computing":
+            self.exposure_reason = "cancelled"
+            self.exposure_changed.emit()
         self.finished.emit(bool(getattr(self, "_success_seen", False)))
 
     def _alive_overlay(self) -> SunHeatmapOverlayItem | None:

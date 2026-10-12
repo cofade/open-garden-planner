@@ -64,6 +64,7 @@ class CanvasScene(QGraphicsScene):
     # Signals
     layers_changed = pyqtSignal()
     document_replaced = pyqtSignal()
+    diagnostics_changed = pyqtSignal()
     active_layer_changed = pyqtSignal(object)  # Layer or None
     layer_auto_unhidden = pyqtSignal(UUID)  # emitted when a draw auto-reveals a hidden layer
 
@@ -1205,6 +1206,7 @@ class CanvasScene(QGraphicsScene):
     def reset_document_diagnostics(self) -> None:
         """Drop document-owned caches at clear and successful load commit."""
         self._guild_diagnostics: list[dict[str, Any]] = []
+        self._sun_diagnostics: list[dict[str, Any]] = []
         self._document_generation = getattr(self, "_document_generation", 0) + 1
         self.document_replaced.emit()
 

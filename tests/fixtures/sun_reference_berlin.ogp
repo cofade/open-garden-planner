@@ -1,0 +1,106 @@
+{
+  "version": "1.4",
+  "metadata": {
+    "modified": "2026-10-12T09:08:42.962760+00:00"
+  },
+  "canvas": {
+    "width": 2400,
+    "height": 2400
+  },
+  "layers": [
+    {
+      "id": "4a94e68e-051f-4437-bc88-b34409c49fb4",
+      "name": "Layer 1",
+      "visible": true,
+      "locked": false,
+      "opacity": 1.0,
+      "z_order": 0,
+      "permaculture_layer": null
+    }
+  ],
+  "objects": [
+    {
+      "type": "circle",
+      "item_id": "4fa9bec9-77dd-450a-b68c-0c6e7d91f205",
+      "center_x": 1200.0,
+      "center_y": 1200.0,
+      "radius": 300,
+      "object_type": "TREE",
+      "name": "Reference tree",
+      "metadata": {
+        "plant_species": {
+          "common_name": "Apple",
+          "scientific_name": "Malus domestica",
+          "max_spread_cm": 600,
+          "max_height_cm": 1000,
+          "sun_requirement": "full_sun",
+          "permaculture_layer": "canopy"
+        },
+        "object_height_cm": 1000
+      },
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 1024
+    },
+    {
+      "type": "circle",
+      "item_id": "c11ec3e8-711f-444f-88b0-5269107d6b4b",
+      "center_x": 1200.0,
+      "center_y": 1300.0,
+      "radius": 30,
+      "object_type": "PERENNIAL",
+      "name": "Northern tomato",
+      "metadata": {
+        "plant_species": {
+          "common_name": "Tomato",
+          "scientific_name": "Solanum lycopersicum",
+          "max_spread_cm": 60,
+          "max_height_cm": 180,
+          "sun_requirement": "full_sun",
+          "permaculture_layer": "herbaceous"
+        },
+        "object_height_cm": 180
+      },
+      "fill_color": "#ff9acd32",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 2048
+    },
+    {
+      "type": "circle",
+      "item_id": "eaccf082-e982-4ff3-8026-dbd9d646cb8e",
+      "center_x": 1200.0,
+      "center_y": 400.0,
+      "radius": 30,
+      "object_type": "PERENNIAL",
+      "name": "Southern tomato",
+      "metadata": {
+        "plant_species": {
+          "common_name": "Tomato",
+          "scientific_name": "Solanum lycopersicum",
+          "max_spread_cm": 60,
+          "max_height_cm": 180,
+          "sun_requirement": "full_sun",
+          "permaculture_layer": "herbaceous"
+        },
+        "object_height_cm": 180
+      },
+      "fill_color": "#ff9acd32",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 3072
+    }
+  ],
+  "location": {
+    "latitude": 52.52,
+    "longitude": 13.405,
+    "name": "Berlin"
+  }
+}

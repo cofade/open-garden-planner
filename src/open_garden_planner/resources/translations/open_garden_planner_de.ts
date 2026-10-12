@@ -11486,6 +11486,14 @@ Sie können die Satellitenansicht stattdessen direkt aus der unten angezeigten K
             <source>Hours of direct sun per spot on the chosen day</source>
             <translation>Stunden direkter Sonne je Stelle am gewählten Tag</translation>
         </message>
+        <message>
+            <source>21 June</source>
+            <translation>21. Juni</translation>
+        </message>
+        <message>
+            <source>Use 21 June of the current simulation year</source>
+            <translation>21. Juni des aktuellen Simulationsjahres verwenden</translation>
+        </message>
     </context>
     <context>
         <name>View3DWindow</name>
@@ -12029,6 +12037,26 @@ Details: {error}</translation>
             <source>Invalid saved membership or template</source>
             <translation>Ungültige gespeicherte Zugehörigkeit oder Vorlage</translation>
         </message>
+        <message>
+            <source>Sun requirement mismatch</source>
+            <translation>Abweichender Sonnenbedarf</translation>
+        </message>
+        <message>
+            <source>Sun evaluation</source>
+            <translation>Sonnenbewertung</translation>
+        </message>
+        <message>
+            <source>Information</source>
+            <translation>Information</translation>
+        </message>
+        <message>
+            <source>{shown} of {total} diagnostics</source>
+            <translation>{shown} von {total} Diagnosen</translation>
+        </message>
+        <message>
+            <source>{name}: {status}</source>
+            <translation>{name}: {status}</translation>
+        </message>
     </context>
     <context>
         <name>GuildTemplateEditor</name>
@@ -12376,6 +12404,104 @@ Details: {error}</translation>
         <message>
             <source>Existing centre is no longer in the plan</source>
             <translation>Das vorhandene Zentrum ist nicht mehr im Plan</translation>
+        </message>
+    </context>
+    <context>
+        <name>SunExposure</name>
+        <message>
+            <source>full sun</source>
+            <translation>volle Sonne</translation>
+        </message>
+        <message>
+            <source>partial sun</source>
+            <translation>teilweise Sonne</translation>
+        </message>
+        <message>
+            <source>partial shade</source>
+            <translation>Halbschatten</translation>
+        </message>
+        <message>
+            <source>full shade</source>
+            <translation>Schatten</translation>
+        </message>
+        <message>
+            <source>unspecified sun requirement</source>
+            <translation>nicht angegebener Sonnenbedarf</translation>
+        </message>
+        <message>
+            <source>Compute sun hours to enable sun diagnostics.</source>
+            <translation>Sonnenstunden berechnen, um die Sonnendiagnose zu aktivieren.</translation>
+        </message>
+        <message>
+            <source>Computing sun hours…</source>
+            <translation>Sonnenstunden werden berechnet…</translation>
+        </message>
+        <message>
+            <source>Not evaluated — recompute sun hours.</source>
+            <translation>Nicht bewertet — Sonnenstunden neu berechnen.</translation>
+        </message>
+        <message>
+            <source>Not evaluated — set garden location.</source>
+            <translation>Nicht bewertet — Gartenstandort festlegen.</translation>
+        </message>
+        <message>
+            <source>Not evaluated — plant is outside the sun grid.</source>
+            <translation>Nicht bewertet — Pflanze liegt außerhalb des Sonnenrasters.</translation>
+        </message>
+        <message>
+            <source>Not evaluated — plant is on a hidden layer.</source>
+            <translation>Nicht bewertet — Pflanze liegt auf einer ausgeblendeten Ebene.</translation>
+        </message>
+        <message>
+            <source>Not evaluated — computation cancelled.</source>
+            <translation>Nicht bewertet — Berechnung abgebrochen.</translation>
+        </message>
+        <message>
+            <source>Not evaluated — exposure data unavailable.</source>
+            <translation>Nicht bewertet — Sonnendaten nicht verfügbar.</translation>
+        </message>
+        <message>
+            <source>{hours} h on {date}</source>
+            <translation>{hours} h am {date}</translation>
+        </message>
+        <message>
+            <source>too little sun</source>
+            <translation>zu wenig Sonne</translation>
+        </message>
+        <message>
+            <source>too much sun</source>
+            <translation>zu viel Sonne</translation>
+        </message>
+        <message>
+            <source>{name} needs {required}, but receives ~{hours} h direct sun on {date} ({direction}).</source>
+            <translation>{name} benötigt {required}, erhält aber am {date} etwa {hours} h direkte Sonne ({direction}).</translation>
+        </message>
+        <message>
+            <source>Estimated at ground level, excluding this plant's own shadow; leaf height and canopy translucency are not modelled.</source>
+            <translation>Schätzung am Boden ohne den eigenen Schatten der Pflanze; Blatthöhe und Lichtdurchlässigkeit der Krone werden nicht modelliert.</translation>
+        </message>
+    </context>
+    <context>
+        <name>CanopyPanel</name>
+        <message>
+            <source>Under this canopy</source>
+            <translation>Unter dieser Krone</translation>
+        </message>
+        <message>
+            <source>Plant / food-forest layer</source>
+            <translation>Pflanze / Waldgartenschicht</translation>
+        </message>
+        <message>
+            <source>Estimated direct sun</source>
+            <translation>Geschätzte direkte Sonne</translation>
+        </message>
+        <message>
+            <source>Mature canopy size unavailable</source>
+            <translation>Ausgewachsene Kronengröße nicht verfügbar</translation>
+        </message>
+        <message>
+            <source>Plant centres within the mature canopy; this does not identify the cause of shade.</source>
+            <translation>Pflanzenmittelpunkte innerhalb der ausgewachsenen Krone; daraus lässt sich die Schattenursache nicht ableiten.</translation>
         </message>
     </context>
 </TS>

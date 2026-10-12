@@ -4791,6 +4791,7 @@ class GardenPlannerApp(QMainWindow):
         # (it seeded its own "now" — the clock wins) and writes user edits back.
         self._sun_toolbar.set_datetime_local(self._sim_clock.wall)
         self._sun_toolbar.datetime_changed.connect(self._on_sun_sim_datetime)
+        self._sun_toolbar.june_reference_requested.connect(self._on_june_reference)
         # Keep the menu action + controller in sync with any visibility change
         # that does not come from the action itself — today that is
         # _enforce_toolbar_visibility() at startup. (It used to be Qt's built-in
@@ -4812,6 +4813,13 @@ class GardenPlannerApp(QMainWindow):
         self._sun_heatmap.finished.connect(self._on_heatmap_finished)
         self._sun_toolbar.heatmap_requested.connect(self._on_heatmap_requested)
         self._sun_toolbar.heatmap_cleared.connect(self._sun_heatmap.clear)
+        self.canvas_scene.document_replaced.connect(self._reset_sun_document)
+        from open_garden_planner.ui.sun_exposure_coordinator import SunExposureCoordinator
+
+        self.sun_exposure_coordinator = SunExposureCoordinator(
+            self.canvas_scene, self._sun_heatmap, self._sim_clock, self._project_manager,
+            self._sun_toolbar, self.canopy_panel, self)
+        self.canvas_view.command_manager.stack_changed.connect(self.sun_exposure_coordinator.schedule)
 
         # ── 3D view (US-E6) — created lazily on first menu use ────────────
         self._view3d_window = None  # the currently-OPEN viewer, or None
@@ -5263,6 +5271,14 @@ class GardenPlannerApp(QMainWindow):
         self.companion_panel.layout().addWidget(self.guilds_panel)
         self.guild_coordinator = GuildCoordinator(self.canvas_scene, self.canvas_view.command_manager,
                                                   self.diagnostics_panel, self.guilds_panel, self)
+        from open_garden_planner.ui.diagnostics_coordinator import DiagnosticsCoordinator
+        from open_garden_planner.ui.panels.canopy_panel import CanopyPanel
+
+        self.diagnostics_coordinator = DiagnosticsCoordinator(
+            self.canvas_scene, self.canvas_view.command_manager, self.diagnostics_panel, self)
+        self.canopy_panel = CanopyPanel(self.canvas_scene)
+        self.plant_database_panel.info_layout.insertWidget(
+            self.plant_database_panel.info_layout.count() - 1, self.canopy_panel)
         # Detach each panel from the scratch build layout before handing it to the
         # controller (panels were addWidget'd above purely to set their parent).
         for _key, panel in canonical_panels:
@@ -6502,6 +6518,12 @@ class GardenPlannerApp(QMainWindow):
         ``_on_sim_instant_changed`` every change."""
         self._sim_clock.set_datetime(dt)
 
+    def _on_june_reference(self) -> None:
+        """An explicit reference shortcut writes the one clock, preserving wall time."""
+        from datetime import date
+
+        self._sim_clock.set_date(date(self._sim_clock.plan_date.year, 6, 21))
+
     def _on_sim_date_changed(self, day: "datetime.date") -> None:
         """A new plan DATE — never a time-of-day change (the clock's L1.0 gate).
 
@@ -6547,6 +6569,11 @@ class GardenPlannerApp(QMainWindow):
         self._sun_toolbar.set_heatmap_active(
             success and self._sun_heatmap.heatmap_visible()
         )
+
+    def _reset_sun_document(self) -> None:
+        """Drop the old document's worker/overlay before items are removed (#428)."""
+        self._sun_heatmap.clear()
+        self._sun_toolbar.set_heatmap_active(False)
 
     def _on_sun_toolbar_visibility(self, visible: bool) -> None:
         """Sync menu action + controller when the toolbar's visibility changes

@@ -1,5 +1,36 @@
 # 6. Runtime View
 
+## Explicit sun evaluation and document replacement (ADR-056)
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant A as Application / SimClock
+    participant H as Heatmap controller
+    participant W as Worker
+    participant C as Sun coordinator
+    participant D as Shared Diagnostics / MCP
+    U->>A: Optional 21 June shortcut
+    U->>H: Hours of Sun
+    H->>W: Immutable document snapshot + receivers
+    W-->>H: Grid and own-shadow-excluded receiver minutes
+    H->>H: Check generation and complete signature
+    H-->>C: Exposure changed
+    C->>D: Cached mismatch / unavailable records
+    U->>A: Move caster or edit geometry
+    A-->>C: Scene or command change
+    C->>H: Invalidate within 60 ms (keep visual snapshot)
+    C->>D: Clear warnings; publish unavailable state
+    U->>A: New / validated Open / recovery / agent lifecycle
+    A->>H: document_replaced before item teardown
+    H->>W: Cancel; retain ownership until finished
+    H->>H: Clear overlay and cached results
+    W-->>H: Possible queued old success
+    H->>H: Reject unwanted / old-generation result
+```
+
+Prevalidation load failure emits no document replacement and preserves the active valid result. Time-only changes preserve daily exposure; date changes clear it. Diagnostics and canopy reads never launch a worker.
+
 ## 6.1 Drawing Workflow
 
 ```mermaid

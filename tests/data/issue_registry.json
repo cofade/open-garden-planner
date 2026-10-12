@@ -464,6 +464,11 @@
     "state": "CLOSED",
     "title": "Satellite import: pan-grid view capture for higher resolution (follow-up to #346)"
   },
+  "352": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat: add agent layers and shape creation tools"
+  },
   "353": {
     "is_pr": false,
     "state": "CLOSED",
@@ -571,7 +576,7 @@
   },
   "376": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Docs state code signing necessarily costs money - inaccurate in 8 locations; correct before #375 is decided"
   },
   "377": {

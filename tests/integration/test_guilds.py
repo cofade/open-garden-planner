@@ -15,6 +15,7 @@ from open_garden_planner.services.guild_library import GuildLibrary
 from open_garden_planner.services.species_catalog import offline_catalog
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
+from open_garden_planner.ui.diagnostics_coordinator import DiagnosticsCoordinator
 from open_garden_planner.ui.dialogs.guild_template_editor import GuildTemplateEditor
 from open_garden_planner.ui.dialogs.insert_guild_dialog import InsertGuildDialog
 from open_garden_planner.ui.guild_coordinator import GuildCoordinator
@@ -33,6 +34,7 @@ def guild_canvas(qtbot, tmp_path):
     qtbot.addWidget(diagnostics)
     qtbot.addWidget(guilds)
     coordinator = GuildCoordinator(scene, view.command_manager, diagnostics, guilds, view)
+    view.diagnostics_coordinator = DiagnosticsCoordinator(scene, view.command_manager, diagnostics, view)
     library = GuildLibrary(user_dir=tmp_path / "guilds")
     return scene, view, coordinator, library
 

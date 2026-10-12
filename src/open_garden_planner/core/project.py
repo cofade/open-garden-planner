@@ -1004,6 +1004,8 @@ class ProjectManager(QObject):
             )
         if getattr(scene, "_guild_diagnostics", None):
             records.append({"diagnostics": deepcopy(getattr(scene, "_guild_diagnostics", []))})
+        if getattr(scene, "_sun_diagnostics", None):
+            records.append({"diagnostics": deepcopy(getattr(scene, "_sun_diagnostics", []))})
         return records
 
     def load(self, scene: QGraphicsScene, file_path: Path) -> None:

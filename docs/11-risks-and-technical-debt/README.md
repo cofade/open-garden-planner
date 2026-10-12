@@ -1055,6 +1055,14 @@ The full battery found one further representation boundary: existing task/soil t
 
 **Final PR #433 review: deferred P2 maintenance finding.** The synchronous `PlantSearchDialog._enrich_selected_plant()` helper has no callers; selection acceptance uses the asynchronous `_on_accept()` / `_poll_results()` path. Stale comments in the dialog and provider base still reference the synchronous helper. This creates a future validation/fallback maintenance risk, with no observed runtime defect or outstanding P0/P1. A separate cleanup should remove the unused helper and update those references while retaining the asynchronous enrichment integration tests.
 
+## 11.4.6 Sun self-shadow and late document results (#314, #428)
+
+The #314 centre-lookup example assumed the receiving plant was absent from its own ground heatmap. The planning probe measured zero hours for both tomatoes with all solid casters, versus 0 h north and 16.5 h south when only each receiver's own caster was excluded. Zero is a valid measurement only after completed, valid evaluation. The fix preserves the ordinary displayed grid and adds sparse identified receivers in the same explicit run; it does not claim exposure at leaves or model canopy transparency. Whole-day reruns per plant took 17.6 seconds for 20 receivers among 100 casters; batched integer sweeps and vectorized point sampling measured 3.226 seconds for 200 casters/receivers locally.
+
+The document-lifecycle regression was observed failing in all six GUI New/Open/recovery timing cases: a cancelled worker deliberately emitted success and `heatmap_visible()` remained True after replacement. A date-only clear cannot protect document ownership, and `is_running` becomes False before queued success/finished cleanup. The canonical `document_replaced` reset cancels, clears and unchecks before C++ teardown; generation/signature guards reject late results. Ownership stays until finished and the next run is refused while signals remain pending. A malformed prevalidation load deliberately emits no reset and retains the valid current map. Real MCP New/Open and cached diagnostic reads pin the transport seam.
+
+Snapshot comparison must use physical base-shape centres transformed into scene coordinates, not decorated bounding boxes or the assumption that every plant is a circle. Semantic plant types can be imported as rectangles/polygons or grouped. Commands require their own subscription because metadata-only edits may not produce a scene repaint. Cosmetics must be idempotent to avoid an infinite scene-change loop. General diagnostics have one publisher so guild/sun producers cannot erase each other's records.
+
 ## 11.5 Community and Governance
 
 **Feature Requests**: Open to community input, pivots, and voting. The goal is to avoid a dead project — community engagement is welcome.

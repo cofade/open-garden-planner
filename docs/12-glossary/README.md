@@ -4,6 +4,9 @@
 
 | Term | Definition |
 |------|-----------|
+| **Receiver sun estimate** | Direct sun accumulated at a plant footprint's heatmap cell centre at ground level, excluding only its own solid shadow; 15-minute sampling, no leaf-height or translucent-canopy model (ADR-056). |
+| **Sun evaluation** | Cached hours for a runtime document/date/geometry snapshot, or an explicit unavailable reason. An absent mismatch is not evidence of completed evaluation. |
+| **Mature-canopy grouping** | Other footprint centres inside/on a selected tree's recorded mature spread circle; independent of guild, bed and drawing layer, without asserting the cause of shade. |
 | **arc42** | Template for software architecture documentation (12 sections) |
 | **Accent sentinel** | The reserved hex `#3D8B37` inside UI icon SVGs — replaced with the active theme's `accent` at render time by the icon provider (equals the light-theme accent so raw files preview correctly). ADR-039 |
 | **Icon provider** | `ui/icons.py` — the single render path for chrome icons. Substitutes theme colors into the SVG text before rasterizing (QSvgRenderer paints raw `currentColor` black), renders at devicePixelRatio, caches per (name, size, tint, accent) |
