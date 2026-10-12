@@ -379,6 +379,8 @@ Gallery drag/drop and gallery-click circle placement both construct plants throu
 
 A single click picks an edge, then the distance modal supplies the target. Polygon/polyline
 edges use the existing endpoint solver. Rectangle edges bundle the existing canonical size
-applier on AddConstraintCommand, preserving the scene center/pivot. The normal trial solve,
+applier on AddConstraintCommand, preserving the scene center/pivot. Feasibility sees the
+proposed canonical rectangle geometry; refusal or a probe error restores the exact snapshot.
+A resize that would move a FIXED item position is refused atomically. The normal trial solve,
 command execution and graph row use one history entry; undo restores size and graph, redo
 restores the same constraint identity. Cancellation/refusal creates no history entry.

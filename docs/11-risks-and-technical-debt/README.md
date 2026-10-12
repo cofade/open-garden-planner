@@ -93,7 +93,12 @@ The living register (ADR-047). Every row has a status; P0/P1 rows link their iss
   item. Reuse EQUAL's rectangle size applier through canonical geometry_apply in the existing
   AddConstraintCommand; all four edges at 0/45/215 degrees now resize with one undo step,
   stable scene center/pivot and exact undo/redo. Assert the actual relation after creation,
-  not only graph fields. The debug-verbose mirrors record the failing regression and trace.
+  not only graph fields. Mixed-graph review then found feasibility was checking the original
+  rigid size and the callback displaced FIXED item.pos. Probe proposed canonical geometry
+  before feasibility, restore snapshots on refusal/error, and refuse a resize that moves a
+  fixed pin. Tests preserve compatible center alignment and atomically refuse conflicting
+  edge lengths/fixed-pin movement at all three rotations. The debug-verbose mirrors record
+  the failing regressions and traces.
 
 
 - **Canvas item caching, Level of Detail (LOD), and selection handle ghosting (issue #409, TD-034, AUD-056)**: Large plans (e.g. 500 objects / 990 scene items) missed NFR-PERF-01 (fit-in-view was 54 ms / ≤ 18 fps) due to three compounded bottlenecks: (1) un-cached filesystem stat calls in `_resolve_svg_path` for plant and furniture sprites on every frame; (2) rasterising high-detail SVG plant sprites and texture tiles when zoomed far out and covering only 6–10 screen pixels; (3) lack of caching for static canvas items during pan and zoom. Solutions:

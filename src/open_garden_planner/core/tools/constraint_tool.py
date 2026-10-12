@@ -2380,20 +2380,6 @@ class EdgeLengthConstraintTool(BaseTool):
             anchor_type=p2.anchor_type,
             anchor_index=p2.anchor_index,
         )
-        if not self._view.is_constraint_feasible(
-            ref_a, ref_b, target_cm, ConstraintType.EDGE_LENGTH
-        ):
-            QMessageBox.warning(
-                self._view,
-                QCoreApplication.translate(
-                    "EdgeLengthConstraintTool", "Conflicting Constraint"
-                ),
-                QCoreApplication.translate(
-                    "EdgeLengthConstraintTool",
-                    "This constraint conflicts with existing constraints and cannot be applied. The existing constraints are unchanged.",
-                ),
-            )
-            return True
         command = AddConstraintCommand(
             graph=scene.constraint_graph,
             anchor_a=ref_a,
@@ -2401,17 +2387,56 @@ class EdgeLengthConstraintTool(BaseTool):
             target_distance=target_cm,
             constraint_type=ConstraintType.EDGE_LENGTH,
         )
-        # A rectangle is rigid to the vertex solver. Reuse the canonical
-        # EQUAL size applier and bundle its resize in the same graph command,
-        # otherwise the tool stores an unsatisfied constraint without resizing.
+        # Rectangles cannot deform in the vertex solver. Probe the proposed
+        # canonical size before feasibility, then bundle the same applier on
+        # the graph command. Restore exact geometry on refusal or probe errors.
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            apply_rect_like_geometry,
+            capture_rect_like_geometry,
+        )
         from open_garden_planner.ui.canvas.items import RectangleItem
 
-        if isinstance(edge.item, RectangleItem):
-            old_size, apply_size = _build_equal_resize_fn(edge.item, edge.anchor_type)
-            if old_size is not None and apply_size is not None:
-                command._item_rotations = [(edge.item, old_size, target_cm, apply_size)]
-        self._view._execute_constraint_with_solve(command)
-        self._reset()
+        original_geometry = None
+        depth = self._view.command_manager.undo_depth
+        violates_fixed = False
+        try:
+            if isinstance(edge.item, RectangleItem):
+                original_geometry = capture_rect_like_geometry(edge.item)
+                old_size, apply_size = _build_equal_resize_fn(edge.item, edge.anchor_type)
+                if old_size is not None and apply_size is not None:
+                    command._item_rotations = [(edge.item, old_size, target_cm, apply_size)]
+                    apply_size(edge.item, target_cm)
+                    # FIXED pins item.pos(), not its visual center. A center-
+                    # preserving resize that would displace that pin is refused.
+                    pos = edge.item.pos()
+                    violates_fixed = any(
+                        c.constraint_type == ConstraintType.FIXED
+                        and c.anchor_a.item_id == edge.item.item_id
+                        and (abs(pos.x() - c.target_x) > 1e-9
+                             or abs(pos.y() - c.target_y) > 1e-9)
+                        for c in self._view._canvas_scene.constraint_graph.constraints.values()
+                        if c.target_x is not None and c.target_y is not None
+                    )
+            if violates_fixed or not self._view.is_constraint_feasible(
+                ref_a, ref_b, target_cm, ConstraintType.EDGE_LENGTH
+            ):
+                QMessageBox.warning(
+                    self._view,
+                    QCoreApplication.translate(
+                        "EdgeLengthConstraintTool", "Conflicting Constraint"
+                    ),
+                    QCoreApplication.translate(
+                        "EdgeLengthConstraintTool",
+                        "This constraint conflicts with existing constraints and cannot be applied. The existing constraints are unchanged.",
+                    ),
+                )
+                return True
+            self._view._execute_constraint_with_solve(command)
+        finally:
+            if (original_geometry is not None
+                    and self._view.command_manager.undo_depth == depth):
+                apply_rect_like_geometry(edge.item, original_geometry)
+            self._reset()
         return True
 
     def mouse_move(self, _event: QMouseEvent, scene_pos: QPointF) -> bool:

@@ -573,7 +573,9 @@ geometry relation, exactly one history entry, graph/geometry undo and the same c
 on redo. Exercise rejected dialogs, empty/repeated picks, conflicts, cancellation, Escape and
 tool switching, with overlays cleared. Matrices include 0/45/215-degree rotations, both symmetry
 axes, coincidence on points/edges/circles, rectangle/polygon/polyline edges and equal circle sizes.
-A registry drift guard requires a gesture scenario for every registered constraint tool.
+Mixed-graph rectangle cases retain compatible center alignment, refuse incompatible edge
+lengths/fixed-pin movement, and restore exact geometry on probe errors. A registry drift guard
+requires a gesture scenario for every registered constraint tool.
 
 The existing coverage parser reports normalized package-relative per-file line/branch counts.
 Optional `file_line_floors` extends the package gate; `core/tools/constraint_tool.py` requires

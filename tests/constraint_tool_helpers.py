@@ -82,7 +82,9 @@ def geometry(items):
         if hasattr(item, "polygon"):
             return tuple(QPointF(p) for p in item.polygon())
         return tuple(QPointF(p) for p in item.points)
-    return [(i.pos(), shape(i), i.rotation(), i.transformOriginPoint()) for i in items]
+    return [(i.pos(), shape(i), i.rotation(), i.transformOriginPoint(),
+             getattr(i, "_radius", None), QPointF(i._center) if hasattr(i, "_center") else None)
+            for i in items]
 
 
 def anchor(item, kind, index=0):
