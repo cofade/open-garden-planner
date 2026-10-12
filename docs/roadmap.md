@@ -2788,5 +2788,13 @@ press/move/release scenarios and real command/history integration. A newly expos
 edge-length no-op is fixed by reusing the canonical size applier, with a failing-first regression.
 The full-suite baseline measured 679/2340 lines (29.0%) and 68/706 branches (9.6%). The target
 file now has a reviewed 60% full-suite line floor; branch coverage remains a separate report.
-Draft review/manual acceptance pending. #392 remains open for the P2/P3 bundles prepared
+Full-suite result on reviewed code `588e3db`: 2023/2372 lines (85.3%) and 486/720
+branches (67.5%); all package/file floors pass. Overall coverage rose from 76.9%/60.3%
+to 80.1%/63.5% (line/branch). The run recorded 8159 passed, 34 skipped and two repaint
+budget failures under coverage, also reproduced on unchanged master; all three repaint
+budget tests passed without instrumentation. All 13 tool scenarios and 259 focused
+gesture/gate tests passed. Independent senior review is clean. Frozen build, eight-second
+startup, subsystem self-test, straight/45-degree edge resizing, saved graph identity through
+undo/redo, modal cancellation, tool switching and real point-based alignment passed.
+Owner manual acceptance remains pending. #392 remains open for the P2/P3 bundles prepared
 separately; no bundle implementation or release is claimed here.
