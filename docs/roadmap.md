@@ -96,7 +96,7 @@ Every user-visible string must be wrapped for translation. See `docs/08-crosscut
 | Status | ID   | Description            | Notes                                                         |
 |--------|------|------------------------|---------------------------------------------------------------|
 | ✅     | DI-1 | SAST pipeline (Bandit) | HIGH-severity scan in CI; `bandit>=1.7.0` added as dev dep   |
-| 🔄     | DI-2 | Repository audit 2026-10 | Historical snapshot preserved; [current reconciliation and packages A1–A13](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audit-2026-10-reconciliation.md) account for 73 P2/P3 findings (5 fixed, 19 partial, 49 unresolved); #406 is the last open standalone P0/P1 remediation; epic #392 remains open |
+| 🔄     | DI-2 | Repository audit 2026-10 | Historical snapshot preserved; [current reconciliation and packages A1–A13](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audit-2026-10-reconciliation.md) account for 73 P2/P3 findings (5 fixed, 19 partial, 49 unresolved); all 15 original standalone P0/P1 remediations are complete after #406 in v1.30.2 (PR #477); epic #392 remains open |
 | ✅     | DI-3 | i18n blind-spot hardening | Unique `TRANSLATIONS` keys + shared `active_language()` + full-tree ruff; issues #393/#408/#410; v1.29.2 (PR #411); §11.4, ADR-045 addendum |
 | ✅     | DI-4 | Serialization & Data Integrity Hardening | Free-text annotations (`TextItem`) in `.ogp` + roundtrip matrix tests (#394), clipboard serializer unification (#400), background image placeholder & UUID deduplication (#397), atomic two-phase plan loading & autosave safety (#403); v1.29.4 (PR #412); §11.3, §11.4 |
 | ✅     | DI-5 | CI and release hardening | Locked dependencies, platform type budgets, package coverage floors, and administrator-enforced checks; issues #404/#401/#402/#399; v1.29.6 (PR #422); ADR-050 |
@@ -2751,7 +2751,7 @@ up."* while the task was open. See ADR-029 (addendum) and ADR-049.
   the bundled harvest offsets to their true reading. Measured: both readings fit a majority of the 64 comparable rows (38 frost-relative, 45 planting-relative), with 11 fitting neither, so the data is NOT irreconcilable; it needs a cited
   horticultural source per row. **Garlic's harvest window lands ~3 months LATE** (October, not July) until then - and that is independent of which reading you assume, since its row fits the frost-relative one on maturity.
 - **#399** (branch protection), **#401** (mypy gate), and **#402** (coverage gate) completed in v1.29.6 via PR #422. Their baselines measured the settled tree after this package.
-- **#405** and **#418** completed in v1.29.8 via PR #426; **#409** (NFR-PERF-01) completed in this branch; **#406** (constraint-tool coverage) is implemented in a separate draft; owner acceptance and merge remain pending.
+- **#405** and **#418** completed in v1.29.8 via PR #426; **#409** (NFR-PERF-01) shipped in v1.29.9 via PR #430; **#406** (constraint-tool coverage) shipped in v1.30.2 via PR #477 after owner acceptance.
 
 ### Package F1/F2 delivery notes (v1.30.0, PR #433)
 
@@ -2792,9 +2792,12 @@ Full-suite result on reviewed code `588e3db`: 2023/2372 lines (85.3%) and 486/72
 branches (67.5%); all package/file floors pass. Overall coverage rose from 76.9%/60.3%
 to 80.1%/63.5% (line/branch). The run recorded 8159 passed, 34 skipped and two repaint
 budget failures under coverage, also reproduced on unchanged master; all three repaint
-budget tests passed without instrumentation. All 13 tool scenarios and 259 focused
+budget tests passed in an isolated run without instrumentation. All 13 tool scenarios and 259 focused
 gesture/gate tests passed. Independent senior review is clean. Frozen build, eight-second
 startup, subsystem self-test, straight/45-degree edge resizing, saved graph identity through
 undo/redo, modal cancellation, tool switching and real point-based alignment passed.
-Owner manual acceptance remains pending. #392 remains open for the P2/P3 bundles prepared
-separately; no bundle implementation or release is claimed here.
+Owner manual acceptance passed on 12 October 2026. Protected [PR #477](https://github.com/cofade/open-garden-planner/pull/477) delivered #406 in [v1.30.2](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.2); the Release workflow completed with build provenance. Backlog intake [PR #466](https://github.com/cofade/open-garden-planner/pull/466) merged first. All 15 original standalone P0/P1 remediation issues are complete; #392 remains open for A1–A13.
+
+Finalization reran 268 focused gesture/gate/context/citation tests, frozen eight-second smoke and `--selftest`, and fresh independent implementation/rebase reviews. The additional full local run without coverage recorded 8160 passed, 34 skipped and one fit-in-view timing miss (16.79 ms against 16.70 ms); unchanged master also missed this budget in the isolated baseline (18.71 ms). CI is green; no timing budget was relaxed.
+
+Owner testing found the pre-existing rotation/constraint interaction, tracked in [#485](https://github.com/cofade/open-garden-planner/issues/485). A real-canvas probe on master and the #406 branch measured a 200 cm corner distance becoming 314.42 cm after rotation and recovering on a nudge. The reported skipped rotation undo was not reproduced in that isolated probe. This follow-up remains separate from #406 and the 73-entry P2/P3 partition.
