@@ -13,8 +13,9 @@ from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.project import ProjectManager
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
 from open_garden_planner.ui.plant_traits import change_trait
-from open_garden_planner.ui.theme import ThemeMode, apply_theme
+from open_garden_planner.ui.theme import ThemeMode, apply_theme, is_dark_theme
 
 DAY = date(2026, 6, 21)
 REFERENCE = Path(__file__).parents[1] / "fixtures" / "sun_reference_berlin.ogp"
@@ -38,6 +39,7 @@ def reference_scene():
 
 @pytest.fixture
 def sun_app(qtbot, monkeypatch):
+    previous_theme = ThemeMode.DARK if is_dark_theme() else ThemeMode.LIGHT
     win = GardenPlannerApp()
     qtbot.addWidget(win)
     monkeypatch.setattr(win, "_confirm_discard_changes", lambda: True)
@@ -45,6 +47,7 @@ def sun_app(qtbot, monkeypatch):
     win._sim_clock.set_date(DAY)
     yield win
     win._sun_heatmap.shutdown()
+    apply_theme(QApplication.instance(), previous_theme)
 
 
 def compute(win, qtbot):
@@ -216,8 +219,7 @@ def test_geometry_edits_invalidate_without_recompute(sun_app, qtbot, edit):
     elif edit == "location":
         win._project_manager.set_location({"latitude": 52.4, "longitude": 13.4})
     else:
-        win.canvas_scene._width_cm += 100
-        win.canvas_scene.update()
+        win.canvas_scene.resize_canvas(win.canvas_scene.width_cm + 100, win.canvas_scene.height_cm)
     qtbot.waitUntil(lambda: win._sun_heatmap.exposure_reason == "stale", timeout=1000)
     assert win._sun_heatmap.run_count == runs and not win._sun_heatmap.receiver_minutes
 
@@ -230,6 +232,64 @@ def test_explicit_worker_keeps_gui_responsive(sun_app, qtbot):
     compute(sun_app, qtbot)
     timer.stop()
     assert len(ticks) >= 3
+
+
+def test_imported_grouped_concave_plant_badge_is_inside_footprint(sun_app, qtbot, tmp_path):
+    from PyQt6.QtGui import QPainterPath
+
+    win = sun_app
+    north = by_name(win)["Northern tomato"]
+    plant = PolygonItem([QPointF(x + 1150, y + 1280) for x, y in
+                         [(0, 0), (100, 0), (100, 20), (20, 20), (20, 100), (0, 100)]],
+                        ObjectType.PERENNIAL, name="Concave tomato", metadata=north.metadata.copy())
+    win.canvas_scene.removeItem(north)
+    win.canvas_scene.addItem(plant)
+    plant.setSelected(True)
+    by_name(win)["Southern tomato"].setSelected(True)
+    win.canvas_view._group_selected()
+    saved = tmp_path / "concave.ogp"
+    win._project_manager.save(win.canvas_scene, saved)
+    win._load_project_file(str(saved))
+    compute(win, qtbot)
+    plant = by_name(win)["Concave tomato"]
+    assert plant.parentItem() is not None
+    path = QPainterPath()
+    path.addPolygon(plant.polygon())
+    path.closeSubpath()
+    assert plant._sun_badge.isVisible()
+    assert path.contains(plant._sun_badge.mapRectToParent(plant._sun_badge.boundingRect()))
+
+
+@pytest.mark.parametrize("species", ["unavailable", ["legacy"]])
+def test_loaded_tree_with_malformed_species_has_unavailable_canopy(sun_app, qtbot, tmp_path, species):
+    win = sun_app
+    tree = by_name(win)["Reference tree"]
+    tree.metadata["plant_species"] = species
+    saved = tmp_path / "legacy.ogp"
+    win._project_manager.save(win.canvas_scene, saved)
+    win._load_project_file(str(saved))
+    by_name(win)["Reference tree"].setSelected(True)
+    win.sun_exposure_coordinator.refresh()
+    assert "Mature canopy size unavailable" in win.canopy_panel.hint.text()
+
+
+def test_coordinator_collection_then_clock_write_is_safe(sun_app, qtbot):
+    import gc
+    import weakref
+
+    from PyQt6 import sip
+
+    win = sun_app
+    coordinator = win.sun_exposure_coordinator
+    reference = weakref.ref(coordinator)
+    coordinator.setParent(None)
+    del win.sun_exposure_coordinator
+    # Python cyclic collection may run destroyed after weak observers prune.
+    del coordinator
+    gc.collect()
+    qtbot.wait(100)
+    assert reference() is None or sip.isdeleted(reference())
+    win._sim_clock.set_date(DAY + timedelta(days=1))
 
 
 if __name__ == "__main__":

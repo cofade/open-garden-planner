@@ -21,6 +21,7 @@ from open_garden_planner.services.sun_mismatch_service import (
     classify_mismatch,
     evaluate_sun,
 )
+from open_garden_planner.ui.canvas.sun_badge_placement import badge_rectangle, plant_footprint
 from open_garden_planner.ui.canvas.sun_exposure_snapshot import collect_exposure_snapshot
 from open_garden_planner.ui.canvas.sun_heatmap import SunHeatmapController
 from open_garden_planner.ui.icons import get_pixmap
@@ -55,7 +56,10 @@ class SunExposureCoordinator(QObject):
         register_theme_listener(theme_listener)
         subscriber = self.schedule
         def disconnect() -> None:
-            clock.date_changed.disconnect(subscriber)
+            # Cyclic Python collection can prune Channel's weak receiver
+            # before Qt emits destroyed. Teardown is idempotent in that case.
+            with contextlib.suppress(ValueError):
+                clock.date_changed.disconnect(subscriber)
             unregister_theme_listener(theme_listener)
         self.destroyed.connect(disconnect)
         self.schedule()
@@ -91,10 +95,12 @@ class SunExposureCoordinator(QObject):
         diagnostics = []
         evaluations = {}
         canopy_plants = []
+        species_snapshots = {}
         for plant in plants:
             identity = str(plant.item_id)
             species = plant.metadata.get("plant_species")
             species = species if isinstance(species, dict) else {}
+            species_snapshots[identity] = species
             name = plant.name or species_display_name(species)
             geometry = guild_plant_bounds(plant)
             centre = plant.mapToScene(geometry.center())
@@ -122,7 +128,7 @@ class SunExposureCoordinator(QObject):
                 details["reason"] = evaluation.reason
                 diagnostics.append({"kind": "sun_evaluation", "severity": "info", "item_ids": [str(root.item_id)],
                                     "message": f"Sun exposure has not been evaluated ({evaluation.reason}).", "details": details})
-            self._badge(plant, geometry, mismatch, name)
+            self._badge(plant, mismatch, name)
         self.evaluations = evaluations
         if getattr(self.scene, "_sun_diagnostics", []) != diagnostics:
             self.scene._sun_diagnostics = diagnostics
@@ -133,12 +139,12 @@ class SunExposureCoordinator(QObject):
             self.canopy_panel.set_members(None, [], {})
         else:
             centre = tree.mapToScene(guild_plant_bounds(tree).center())
-            species = tree.metadata.get("plant_species") or {}
+            species = species_snapshots[str(tree.item_id)]
             members = canopy_members(str(tree.item_id), (centre.x(), centre.y()), species.get("max_spread_cm"), canopy_plants)
             self.canopy_panel.set_members(str(tree.item_id), members, evaluations)
 
     @staticmethod
-    def _badge(plant: Any, geometry: Any, mismatch: Any, name: str) -> None:
+    def _badge(plant: Any, mismatch: Any, name: str) -> None:
         badge = getattr(plant, "_sun_badge", None)
         if mismatch is None:
             if badge is not None and badge.isVisible():
@@ -148,10 +154,16 @@ class SunExposureCoordinator(QObject):
         if pixmap is None:
             return
         tooltip = mismatch_message(name, mismatch.required, mismatch.hours, mismatch.reference_date, mismatch.direction)
-        signature = (asdict(mismatch), tooltip, geometry, pixmap.cacheKey())
+        footprint = plant_footprint(plant)
+        signature = (asdict(mismatch), tooltip, footprint, pixmap.cacheKey())
         if getattr(plant, "_sun_badge_signature", None) == signature and badge is not None and badge.isVisible():
             return
         plant._sun_badge_signature = signature
+        rectangle = badge_rectangle(footprint)
+        if rectangle is None:
+            if badge is not None:
+                badge.setVisible(False)
+            return
         if badge is None:
             badge = QGraphicsPixmapItem(plant)
             badge.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
@@ -160,8 +172,8 @@ class SunExposureCoordinator(QObject):
             badge.setTransform(QTransform().scale(1, -1))
             plant._sun_badge = badge
         badge.setPixmap(pixmap)
-        size = min(geometry.width(), geometry.height()) * 0.22
+        size = rectangle.width()
         badge.setScale(size / 24)
-        badge.setPos(geometry.center().x() - size / 2, geometry.center().y() + size / 2)
+        badge.setPos(rectangle.left(), rectangle.bottom())
         badge.setToolTip(tooltip)
         badge.setVisible(True)

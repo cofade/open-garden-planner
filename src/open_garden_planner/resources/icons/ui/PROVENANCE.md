@@ -1,5 +1,9 @@
 # UI Icon Provenance (#279 — asset-forge discipline)
 
+`sun_warning.svg` — original 24×24 sun and warning-triangle geometry authored
+for US-F3 (#314) on 2026-10-12; project license GPL-3.0-or-later. Normalized
+with `scripts/normalize_icons.py`; theme tokens follow ADR-039.
+
 Every icon in this directory MUST have an entry here (a table row or a
 section) before it merges — same rule as the texture set (`ogp-asset-forge`:
 no provenance, no merge). `scripts/check_icon_conformance.py` cross-checks
