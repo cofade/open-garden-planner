@@ -171,6 +171,7 @@ Each release should include:
 | `SHA256SUMS.txt` | SHA-256 checksum for download verification |
 | `ogp-sbom.cdx.json` | CycloneDX 1.5 SBOM of the bundled Python distributions (AUD-055) |
 | `THIRD_PARTY_NOTICES.md` | Consolidated third-party notices (also installed next to `LICENSE`) |
+| `build-evidence.json` | The toolchain this release was built with (AUD-049); also uploaded as a workflow artifact, but attached here so the record survives artifact expiry |
 | Build provenance attestation | Not an uploaded asset — stored by GitHub against the installer, `SHA256SUMS.txt`, the raw app exe, the SBOM and the notices; verify with `gh attestation verify` (§7.3 Verification, ADR-044) |
 
 ### Verification
@@ -220,8 +221,8 @@ Qt workflows use `QT_QPA_PLATFORM=offscreen`; xvfb is not part of this CI recipe
 | `agent-context` | Agent context parity | Linux | Root instructions and mirrored agent context; external action pins |
 | `lint` | Lint | Linux | Ruff over source, tests and scripts |
 | `test` | Test | Linux | Full pytest suite, Qt offscreen |
-| `security` | Security | Linux | Bandit HIGH findings, tracked-secret scan and the lock-based dependency audit (AUD-054) |
-| `dependencies` | Dependencies (ubuntu-latest/windows-latest) | Matrix | Clean locked installation, freshness and export checks |
+| `security` | Security | Linux | Bandit HIGH findings and tracked-secret scan |
+| `dependencies` | Dependencies (ubuntu-latest/windows-latest) | Matrix | Clean locked installation, freshness and export checks, and the lock-based `pip-audit` scan on **both** platforms (AUD-054: pip-audit evaluates markers for the running platform, so a Linux-only scan never sees the Windows-only `pywin32`) |
 | `types` | Types (ubuntu-latest/windows-latest) | Matrix | Strict mypy against per-file platform allowances |
 | `coverage` | Coverage | Linux | Full-suite line/branch report and per-package line floors |
 

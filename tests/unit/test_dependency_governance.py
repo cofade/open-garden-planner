@@ -20,13 +20,23 @@ def _requirement(name: str) -> Requirement:
     raise AssertionError(f"{name} is not a runtime dependency")
 
 
-def test_ci_audits_the_locked_closure_with_a_documented_exception() -> None:
+def test_ci_audits_the_locked_closure_on_every_shipped_platform() -> None:
     assert "pip-audit" in CI
     assert "--ignore-vuln PYSEC-2026-3447" in CI, (
         "the one build-time exception must be named explicitly, not by disabling the scan"
     )
     assert "uv export --locked --all-extras --group build" in CI, (
         "the audit must run against the committed lock export, not installed state"
+    )
+    dependencies_job = CI.split("  dependencies:", 1)[1].split("\n  types:", 1)[0]
+    assert "pip-audit" in dependencies_job, (
+        "the audit belongs in the two-OS matrix job: pip-audit evaluates markers for the "
+        "running platform, so a Linux-only scan never sees the Windows-only runtime "
+        "dependency (pywin32)"
+    )
+    assert "os: [ubuntu-latest, windows-latest]" in dependencies_job
+    assert "shell: bash" in dependencies_job, (
+        "the Windows runner needs bash so the export redirection stays UTF-8"
     )
     docs = (ROOT / "docs/11-risks-and-technical-debt/README.md").read_text(encoding="utf-8")
     assert "PYSEC-2026-3447" in docs or "GHSA-h35f-9h28-mq5c" in docs, (
@@ -72,6 +82,10 @@ def test_the_monthly_review_never_writes_without_review() -> None:
     assert "|| true" not in REVIEW
     assert "grep -q '^Resolved '" in REVIEW, (
         "an unrecognized uv output shape must fail loudly, not report 'no updates'"
+    )
+    assert "grep -q '^Update '" in REVIEW, (
+        "the report parses this literal; if a uv bump renames it, the marker guard must "
+        "catch it rather than reporting 'no updates'"
     )
     assert "git diff --exit-code -- uv.lock" in REVIEW, (
         "the workflow must verify the dry run really wrote nothing"

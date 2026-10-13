@@ -107,19 +107,6 @@ jobs:
       - name: Check for committed secrets
         run: python scripts/check_no_secrets.py
 
-      # Lock-based dependency vulnerability scan (AUD-054). Audits the same
-      # locked closure the release installs (all extras + the build group), so
-      # a finding here is a finding in a shipped or build artifact.
-      # The single recorded exception is build-time setuptools
-      # PYSEC-2026-3447 / GHSA-h35f-9h28-mq5c: it only affects publishing macOS
-      # source distributions, which this project never does — justified in
-      # docs/11-risks-and-technical-debt/README.md §11.2, and its fix (83.0.0)
-      # is tracked for a separately reviewed dependency PR.
-      - name: Audit locked dependencies
-        run: |
-          uv export --locked --all-extras --group build --no-emit-project --no-hashes > locked-requirements.txt
-          pip-audit -r locked-requirements.txt --progress-spinner off --ignore-vuln PYSEC-2026-3447
-
   dependencies:
     name: Dependencies (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -132,6 +119,27 @@ jobs:
       - uses: ./.github/actions/setup-locked-env
       - name: Verify lock and export
         run: python scripts/check_dependency_lock.py
+
+      # Lock-based dependency vulnerability scan (AUD-054). Audits the same
+      # locked closure the release installs (all extras + the build group), so a
+      # finding here is a finding in a shipped or build artifact.
+      #
+      # Runs on BOTH matrix OSes on purpose: the export is universal and
+      # pip-audit evaluates markers against the running interpreter, so a
+      # Windows-only runtime dependency (mcp requires pywin32 on win32) is
+      # invisible to a Linux-only scan — measured, senior review round 3.
+      # `shell: bash` keeps the redirection UTF-8 on the Windows runner.
+      #
+      # The single recorded exception is build-time setuptools
+      # PYSEC-2026-3447 / GHSA-h35f-9h28-mq5c: it only affects publishing macOS
+      # source distributions, which this project never does — justified in
+      # docs/11-risks-and-technical-debt/README.md §11.2, and its fix (83.0.0)
+      # is tracked for a separately reviewed dependency PR.
+      - name: Audit locked dependencies
+        shell: bash
+        run: |
+          uv export --locked --all-extras --group build --no-emit-project --no-hashes > locked-requirements.txt
+          pip-audit -r locked-requirements.txt --progress-spinner off --ignore-vuln PYSEC-2026-3447
 
   types:
     name: Types (${{ matrix.os }})

@@ -139,7 +139,14 @@ def run_inventory(bundle_dir: Path | None = None, output_dir: Path | None = None
 
 
 def run_nsis() -> None:
-    """Run NSIS to create the installer."""
+    """Run NSIS to create the installer.
+
+    ``--skip-pyinstaller`` is for iterating on the installer itself: the NSIS
+    step, the inventory and the frozen ``_version.py`` all label the *existing*
+    bundle, so the version passed on the command line must be the one that
+    bundle was built with — otherwise the installer, SBOM and notices can claim
+    a version the packaged exe does not carry (senior review round 3).
+    """
     print("\n" + "=" * 60)
     print("Step 2: Building NSIS installer")
     print("=" * 60)
@@ -214,7 +221,9 @@ def main() -> None:
     global APP_VERSION
 
     parser = argparse.ArgumentParser(description="Build Open Garden Planner installer")
-    parser.add_argument("--skip-pyinstaller", action="store_true", help="Skip PyInstaller step")
+    parser.add_argument("--skip-pyinstaller", action="store_true",
+                        help="Skip PyInstaller step (the existing bundle keeps its version; "
+                             "pass the version it was built with)")
     parser.add_argument("--skip-nsis", action="store_true", help="Skip NSIS step")
     parser.add_argument("--version", type=str, help="Override version (e.g. 1.2.0)")
     args = parser.parse_args()

@@ -149,6 +149,17 @@ def test_sbom_uses_id_for_spdx_identifiers(bundle: Path) -> None:
     assert component["licenses"] == [{"license": {"id": "MIT"}}]
 
 
+def test_unknown_license_token_is_emitted_as_a_name_not_an_id(tmp_path: Path) -> None:
+    """``License: BSD`` is not an SPDX id; it must not become ``"id": "BSD"``."""
+    dist_info = _write_dist_info(
+        tmp_path / "b", "VagueId", "1.0", license_line="License: BSD", license_file=True
+    )
+    record = describe(dist_info)
+    assert record["spdx"] == "BSD" and record["spdx_is_id"] is False
+    component = render_sbom([record], "1.0")["components"][0]
+    assert component["licenses"] == [{"license": {"name": "BSD"}}]
+
+
 def test_generate_then_check_passes_on_a_fixture(bundle: Path, tmp_path: Path, monkeypatch) -> None:
     out = tmp_path / "out"
     assert main(["--bundle", str(bundle), "--output-dir", str(out)]) == 0
@@ -289,9 +300,11 @@ def test_real_frozen_bundle_passes_the_inventory_check() -> None:
 
     Deliberately does NOT generate first: writing fresh files and then checking
     them cannot fail on stale or mismatched artifacts, which is the drift the
-    check exists to catch. Skipped unless a frozen bundle exists, and only
-    meaningful when the interpreter running the test is the one that built the
-    bundle — exactly how ``installer/build_installer.py`` runs it.
+    check exists to catch. The expected app version is read from the artifacts
+    themselves, because a release builds with ``--version <next>`` while
+    ``pyproject.toml`` still carries the previous one until the sync commit.
+    Skipped unless a frozen bundle exists, and only meaningful when the
+    interpreter running the test is the one that built the bundle.
     """
     import sys
 
@@ -300,5 +313,12 @@ def test_real_frozen_bundle_passes_the_inventory_check() -> None:
     bundled = {str(record["canonical_name"]) for record in collect_records(bundle)}
     if bundled != inventory._expected_from_environment():
         pytest.skip(f"frozen bundle in dist/ was not built with Python {interpreter}")
+    sbom_path = ROOT / "dist" / "ogp-sbom.cdx.json"
+    if not sbom_path.is_file():
+        pytest.skip("no inventory artifacts in dist/ yet")
+    recorded_version = json.loads(sbom_path.read_text(encoding="utf-8"))["metadata"][
+        "component"
+    ]["version"]
     assert main(["--bundle", str(bundle), "--output-dir", str(ROOT / "dist"),
-                 "--lock", str(ROOT / "pylock.toml"), "--check"]) == 0
+                 "--lock", str(ROOT / "pylock.toml"),
+                 "--app-version", recorded_version, "--check"]) == 0

@@ -12,11 +12,20 @@ ROOT = Path(__file__).resolve().parents[2]
 PYPROJECT = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 MANIFEST_VERSION = PYPROJECT["project"]["version"]
 
-WORKFLOWS = [
-    ROOT / ".github/workflows/ci.yml",
-    ROOT / ".github/workflows/release.yml",
-    ROOT / ".github/actions/setup-locked-env/action.yml",
-]
+
+def _workflow_files() -> list[Path]:
+    """Every workflow and composite action file — derived, never hand-typed.
+
+    A hand-typed list is how a new workflow silently escapes the guard (#377's
+    lesson, re-applied here after senior review round 3).
+    """
+    files = sorted((ROOT / ".github" / "workflows").glob("*.y*ml"))
+    files += sorted((ROOT / ".github" / "actions").glob("*/action.y*ml"))
+    return [path for path in files if path.is_file()]
+
+
+def _files_with_python_pin() -> list[Path]:
+    return [p for p in _workflow_files() if "python-version:" in p.read_text(encoding="utf-8")]
 
 
 def _load_build_installer():
@@ -31,12 +40,12 @@ def _load_build_installer():
 
 def test_every_workflow_pins_a_full_python_patch() -> None:
     floating = re.compile(r"python-version:\s*['\"]3\.11['\"]")
-    for path in WORKFLOWS:
+    files = _files_with_python_pin()
+    assert files, "no workflow pins a python-version at all"
+    for path in files:
         text = path.read_text(encoding="utf-8")
         assert not floating.search(text), f"{path} still floats the Python patch"
-        versions = re.findall(r"python-version:\s*['\"]([^'\"]+)['\"]", text)
-        assert versions, f"{path} has no python-version at all"
-        for version in versions:
+        for version in re.findall(r"python-version:\s*['\"]([^'\"]+)['\"]", text):
             assert re.fullmatch(r"3\.11\.\d+", version), (
                 f"{path}: python-version {version!r} is not a full 3.11 patch"
             )
@@ -44,7 +53,7 @@ def test_every_workflow_pins_a_full_python_patch() -> None:
 
 def test_every_workflow_pins_the_same_python_patch() -> None:
     versions = set()
-    for path in WORKFLOWS:
+    for path in _files_with_python_pin():
         versions.update(
             re.findall(r"python-version:\s*['\"]([^'\"]+)['\"]", path.read_text(encoding="utf-8"))
         )

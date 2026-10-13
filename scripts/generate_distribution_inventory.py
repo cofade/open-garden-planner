@@ -6,13 +6,19 @@ than a developer's environment or a historical count.
 
 Modes
 -----
-* default: write ``THIRD_PARTY_NOTICES.md`` and ``ogp-sbom.cdx.json``.
+* default: write ``THIRD_PARTY_NOTICES.md`` and ``ogp-sbom.cdx.json`` for the
+  version given by ``--app-version`` (default: ``pyproject.toml``'s, which lags a
+  release tag by design — the release MUST pass its computed version).
 * ``--check``: rebuild in memory and verify
     - every runtime distribution from the live build environment appears in the
       bundle (``installer/runtime_closure.py`` — one resolver, not a second one);
-    - the on-disk SBOM matches the bundle's metadata;
+    - the on-disk SBOM's components, its recorded app version and the full
+      notices text match what the bundle and the requested version produce;
     - with ``--lock pylock.toml``: every bundled distribution's version equals
       the locked version.
+
+``--check`` proves *consistency* between the bundle, the artifacts and the
+version it was given; it cannot prove the caller chose the right version.
 
 Exit codes: 0 = ok, 2 = failure (missing metadata, unknown license, drift).
 Fails closed: a distribution with no discoverable license is an error naming
@@ -39,13 +45,25 @@ SCHEMA_VERSION = 1
 #: project's own LICENSE file); an optional ``text`` replaces the license text
 #: taken from the wheel. Do not add one without checking upstream.
 LICENSE_OVERRIDES: dict[str, dict[str, str]] = {
-    # The Qt runtime wheels (:PyQt6-Qt6, :PyQt6-3D-Qt6, :PyQt6-WebEngine-Qt6)
+    # The Qt runtime wheels (PyQt6-Qt6, PyQt6-3D-Qt6, PyQt6-WebEngine-Qt6)
     # declare the prose "LGPL v3" in their metadata; LGPL-3.0-only is that
-    # license's SPDX identifier. The license text below is the wheel's own.
+    # license's SPDX identifier. The notices carry each wheel's own LICENSE text.
     "pyqt6-qt6": {"spdx": "LGPL-3.0-only"},
     "pyqt6-3d-qt6": {"spdx": "LGPL-3.0-only"},
     "pyqt6-webengine-qt6": {"spdx": "LGPL-3.0-only"},
 }
+
+#: SPDX ids the raw ``License:`` field may be trusted to name directly (used only
+#: when no PEP 639 ``License-Expression`` and no license classifier exist).
+#: Anything else is treated as prose and emitted as a CycloneDX ``name`` — never
+#: as an invalid ``id`` such as ``BSD``.
+KNOWN_SPDX_IDS = frozenset({
+    "0BSD", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "CC0-1.0",
+    "GPL-2.0-only", "GPL-2.0-or-later", "GPL-3.0-only", "GPL-3.0-or-later",
+    "HPND", "ISC", "LGPL-2.1-only", "LGPL-2.1-or-later", "LGPL-3.0-only",
+    "LGPL-3.0-or-later", "MIT", "MPL-2.0", "PSF-2.0", "Python-2.0",
+    "Unlicense", "Zlib",
+})
 
 #: Distributions whose code reaches the frozen bundle through PyInstaller
 #: machinery rather than a ``Requires-Dist`` edge, with the verified reason.
@@ -140,6 +158,14 @@ def _home_page(meta: dict[str, list[str]]) -> str | None:
     return None
 
 
+def _is_known_expression(text: str) -> bool:
+    """True when ``text`` is an SPDX expression whose every term is a known id."""
+    if not SPDX_EXPRESSION_RE.match(text):
+        return False
+    terms = re.split(r"\s+(?:AND|OR|WITH)\s+", text)
+    return all(term.strip("() ") in KNOWN_SPDX_IDS for term in terms)
+
+
 def describe(dist_info: Path) -> dict[str, object]:
     """Turn one ``*.dist-info`` directory into a notice/SBOM record."""
     meta = _parse_metadata(dist_info / "METADATA")
@@ -148,17 +174,22 @@ def describe(dist_info: Path) -> dict[str, object]:
 
     expression = (meta.get("License-Expression") or [None])[0]
     spdx = expression
+    spdx_is_id = bool(expression)
     if not spdx:
         for classifier in meta.get("Classifier", []):
             if classifier.startswith(CLASSIFIER_PREFIX):
                 mapped = CLASSIFIER_SPDX.get(classifier[len(CLASSIFIER_PREFIX):].strip())
                 if mapped:
                     spdx = mapped
+                    spdx_is_id = True
                     break
     if not spdx:
         raw_license = (meta.get("License") or [""])[0]
         if raw_license and SHORT_LICENSE_RE.match(raw_license):
             spdx = raw_license
+            # Only a known id (or an expression of known ids) may be emitted as
+            # an SPDX identifier; "BSD" or prose would otherwise become an id.
+            spdx_is_id = raw_license in KNOWN_SPDX_IDS or _is_known_expression(raw_license)
 
     texts = []
     for path in _license_files(dist_info):
@@ -172,7 +203,9 @@ def describe(dist_info: Path) -> dict[str, object]:
 
     override = LICENSE_OVERRIDES.get(runtime_closure.canonicalize(name))
     if override:
-        spdx = override.get("spdx") or spdx
+        if override.get("spdx"):
+            spdx = override["spdx"]
+            spdx_is_id = True
         if override.get("text"):
             texts = [override["text"]]
 
@@ -188,6 +221,7 @@ def describe(dist_info: Path) -> dict[str, object]:
         "canonical_name": runtime_closure.canonicalize(name),
         "version": version,
         "spdx": spdx,
+        "spdx_is_id": spdx_is_id,
         "license_texts": texts,
         "home_page": _home_page(meta),
         "dist_info": dist_info.name,
@@ -244,15 +278,16 @@ SPDX_EXPRESSION_RE = re.compile(
 )
 
 
-def _license_entry(spdx: str | None) -> dict[str, object] | None:
+def _license_entry(spdx: str | None, spdx_is_id: bool) -> dict[str, object] | None:
     """CycloneDX license entry: ``id`` for an identifier, ``expression`` for a
     compound SPDX expression, ``name`` for prose that is not SPDX."""
     if not spdx:
         return None
-    if SPDX_ID_RE.match(spdx):
-        return {"license": {"id": spdx}}
-    if SPDX_EXPRESSION_RE.match(spdx):
-        return {"expression": spdx}
+    if spdx_is_id:
+        if SPDX_ID_RE.match(spdx):
+            return {"license": {"id": spdx}}
+        if SPDX_EXPRESSION_RE.match(spdx):
+            return {"expression": spdx}
     return {"license": {"name": spdx}}
 
 
@@ -265,7 +300,7 @@ def render_sbom(records: list[dict[str, object]], app_version: str) -> dict[str,
             "version": record["version"],
             "purl": f"pkg:pypi/{record['canonical_name']}@{record['version']}",
         }
-        licenses = _license_entry(record["spdx"])  # type: ignore[arg-type]
+        licenses = _license_entry(record["spdx"], bool(record.get("spdx_is_id")))  # type: ignore[arg-type]
         if licenses:
             component["licenses"] = [licenses]
         if record["home_page"]:

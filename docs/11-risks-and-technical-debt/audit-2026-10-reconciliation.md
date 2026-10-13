@@ -222,9 +222,11 @@ snapshot has not been rewritten. Per finding:
 - **AUD-052** — `requirements.txt` and `requirements-dev.txt` are deleted; a test keeps
   them gone, unreferenced outside the dated records, and the locked recipe is the single
   installation path.
-- **AUD-054** — `pip-audit` scans the committed lock export in the `security` job; the one
-  recorded exception is build-time setuptools `PYSEC-2026-3447`, justified in §11.2 and
-  reserved for a separately reviewed update.
+- **AUD-054** — `pip-audit` scans the committed lock export in the `dependencies` matrix
+  job, on Linux **and** Windows (pip-audit evaluates markers for the running platform, so
+  the Windows-only `pywin32` is only visible to the Windows leg); the one recorded exception
+  is build-time setuptools `PYSEC-2026-3447`, justified in §11.2 and reserved for a
+  separately reviewed update.
 - **AUD-050** — hosted uv is verified at 0.12.19 against this project's `==0.12.23` pin, so
   automation is not available; `dependency-review.yml` is the monthly, report-only manual
   fallback, and the runbook plus the Qt/`mcp` cap drift guard live in §7.4 and

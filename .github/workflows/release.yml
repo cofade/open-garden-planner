@@ -196,6 +196,7 @@ jobs:
           "dist/SHA256SUMS.txt"
           "dist/ogp-sbom.cdx.json"
           "dist/THIRD_PARTY_NOTICES.md"
+          "dist/build-evidence.json"
           --title "${{ steps.version.outputs.tag }}"
           --notes-file "dist/RELEASE_NOTES.md"
           --generate-notes

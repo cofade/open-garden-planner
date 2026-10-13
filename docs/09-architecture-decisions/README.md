@@ -2226,12 +2226,14 @@ dependency-update path a documented home:
    the commit and run id into `dist/build-evidence.json`, uploaded as a workflow artifact.
    `--require-complete` makes the release fail rather than publish a build whose toolchain
    it cannot state.
-5. **Lock-based vulnerability scan** — the `security` CI job exports the committed lock
-   (`uv export --locked --all-extras --group build`) and runs `pip-audit` over it. One
-   exception is recorded by ID: build-time `setuptools` `PYSEC-2026-3447`
-   (`GHSA-h35f-9h28-mq5c`), which only affects publishing macOS source distributions — a
-   thing this project does not do. Its fix (83.0.0) stays reserved for a separately
-   reviewed dependency PR (§11.2, AUD-054).
+5. **Lock-based vulnerability scan** — the `dependencies` CI job exports the committed lock
+   (`uv export --locked --all-extras --group build`) and runs `pip-audit` over it **on both
+   matrix operating systems**, because pip-audit evaluates requirement markers against the
+   running interpreter: the export is universal, so a Linux-only scan never sees the
+   Windows-only runtime dependency (`pywin32`, required by `mcp`). One exception is recorded
+   by ID: build-time `setuptools` `PYSEC-2026-3447` (`GHSA-h35f-9h28-mq5c`), which only
+   affects publishing macOS source distributions — a thing this project does not do. Its fix
+   (83.0.0) stays reserved for a separately reviewed dependency PR (§11.2, AUD-054).
 6. **Update automation: verified unavailable, manual fallback adopted.** Dependabot's uv
    ecosystem image ships uv **0.12.19** (`uv/Dockerfile` in dependabot-core, read
    2026-10-13) while this project pins `uv ==0.12.23`; a `required-version` mismatch makes
