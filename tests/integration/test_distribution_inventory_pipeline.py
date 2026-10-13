@@ -90,13 +90,17 @@ def test_pipeline_generates_and_verifies_a_bundle(tmp_path: Path) -> None:
     _write_lock(lock, pairs)
     output = tmp_path / "out"
 
-    build_installer.run_inventory(bundle, output, lock)
+    build_installer.run_inventory(bundle, output, lock, version="9.9.9")
 
     notices = (output / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
-    sbom = (output / "ogp-sbom.cdx.json").read_text(encoding="utf-8")
+    sbom_text = (output / "ogp-sbom.cdx.json").read_text(encoding="utf-8")
+    sbom = json.loads(sbom_text)
     assert notices.startswith("# Third-party notices")
-    assert '"bomFormat": "CycloneDX"' in sbom
-    components = json.loads(sbom)["components"]
+    assert "Open Garden Planner 9.9.9" in notices, (
+        "the artifacts must name the version this build produces, not pyproject's"
+    )
+    assert sbom["metadata"]["component"]["version"] == "9.9.9"
+    components = sbom["components"]
     assert sorted(c["name"] for c in components) == sorted(name for name, _ in pairs), (
         "the SBOM must describe exactly the bundled distributions"
     )
@@ -114,8 +118,30 @@ def test_pipeline_fails_closed_on_lock_drift(tmp_path: Path) -> None:
     output = tmp_path / "out"
 
     with pytest.raises(SystemExit) as excinfo:
-        build_installer.run_inventory(bundle, output, lock)
+        build_installer.run_inventory(bundle, output, lock, version="9.9.9")
     assert excinfo.value.code == 1
+
+
+def test_pipeline_records_the_version_it_was_told(tmp_path: Path) -> None:
+    """The release passes its computed version; the artifacts must carry it.
+
+    ``run_inventory`` generates and then checks, so re-running it with a different
+    version simply regenerates. The version *check* is exercised where it is real:
+    ``generate_distribution_inventory.py --check`` against existing artifacts
+    (see ``tests/unit/test_distribution_inventory.py``).
+    """
+    bundle = tmp_path / "OpenGardenPlanner"
+    pairs = _synthetic_bundle(bundle)
+    lock = tmp_path / "pylock.toml"
+    _write_lock(lock, pairs)
+    output = tmp_path / "out"
+
+    build_installer.run_inventory(bundle, output, lock, version="7.7.7")
+    sbom = json.loads((output / "ogp-sbom.cdx.json").read_text(encoding="utf-8"))
+    assert sbom["metadata"]["component"]["version"] == "7.7.7"
+    assert "Open Garden Planner 7.7.7" in (output / "THIRD_PARTY_NOTICES.md").read_text(
+        encoding="utf-8"
+    )
 
 
 @pytest.mark.skipif(

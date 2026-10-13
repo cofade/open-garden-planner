@@ -70,6 +70,9 @@ def test_the_monthly_review_never_writes_without_review() -> None:
         "a failed dry run must fail the workflow; a silent 'up to date' is a lying gate"
     )
     assert "|| true" not in REVIEW
+    assert "grep -q '^Resolved '" in REVIEW, (
+        "an unrecognized uv output shape must fail loudly, not report 'no updates'"
+    )
     assert "git diff --exit-code -- uv.lock" in REVIEW, (
         "the workflow must verify the dry run really wrote nothing"
     )

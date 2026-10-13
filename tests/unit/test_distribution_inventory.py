@@ -164,6 +164,32 @@ def test_generate_then_check_passes_on_a_fixture(bundle: Path, tmp_path: Path, m
     assert main(["--bundle", str(bundle), "--output-dir", str(out), "--check"]) == 2
 
 
+def test_check_detects_a_wrong_app_version(bundle: Path, tmp_path: Path, monkeypatch) -> None:
+    """The release passes its computed version; a stale artifact must fail the check.
+
+    ``pyproject.toml`` lags the release tag until the post-release sync commit, so
+    generating with the default and releasing that version would describe the
+    previous release (senior review round 2, #454).
+    """
+    out = tmp_path / "out"
+    assert main(["--bundle", str(bundle), "--output-dir", str(out),
+                 "--app-version", "2.0.0"]) == 0
+    monkeypatch.setattr(inventory, "_expected_from_environment", lambda: {"classified", "example-lib"})
+    assert main(["--bundle", str(bundle), "--output-dir", str(out),
+                 "--check", "--app-version", "3.0.0"]) == 2
+    assert main(["--bundle", str(bundle), "--output-dir", str(out),
+                 "--check", "--app-version", "2.0.0"]) == 0
+
+
+def test_check_detects_a_hand_edited_notices_file(bundle: Path, tmp_path: Path, monkeypatch) -> None:
+    out = tmp_path / "out"
+    assert main(["--bundle", str(bundle), "--output-dir", str(out)]) == 0
+    monkeypatch.setattr(inventory, "_expected_from_environment", lambda: {"classified", "example-lib"})
+    notices = out / "THIRD_PARTY_NOTICES.md"
+    notices.write_text(notices.read_text(encoding="utf-8") + "\nextra\n", encoding="utf-8")
+    assert main(["--bundle", str(bundle), "--output-dir", str(out), "--check"]) == 2
+
+
 def test_check_reports_bundle_environment_drift(bundle: Path, tmp_path: Path, monkeypatch) -> None:
     out = tmp_path / "out"
     main(["--bundle", str(bundle), "--output-dir", str(out)])
@@ -171,11 +197,11 @@ def test_check_reports_bundle_environment_drift(bundle: Path, tmp_path: Path, mo
     monkeypatch.setattr(
         inventory, "_expected_from_environment", lambda: {"classified", "example-lib", "missing-one"}
     )
-    problems = _check(out, None, records)
+    problems = _check(out, None, records, inventory._app_version())
     assert any("missing-one" in p for p in problems)
 
     monkeypatch.setattr(inventory, "_expected_from_environment", lambda: {"classified"})
-    problems = _check(out, None, records)
+    problems = _check(out, None, records, inventory._app_version())
     assert any("example-lib" in p for p in problems)
 
 
@@ -191,7 +217,7 @@ def test_check_validates_versions_against_the_lock(bundle: Path, tmp_path: Path,
         "[[packages]]\nname = 'classified'\nversion = '4.5.6'\n",
         encoding="utf-8",
     )
-    problems = _check(out, lock, records)
+    problems = _check(out, lock, records, inventory._app_version())
     assert any("example-lib" in p and "9.9.9" in p for p in problems)
 
     lock.write_text(
@@ -200,7 +226,7 @@ def test_check_validates_versions_against_the_lock(bundle: Path, tmp_path: Path,
         "[[packages]]\nname = 'classified'\nversion = '4.5.6'\n",
         encoding="utf-8",
     )
-    assert _check(out, lock, records) == []
+    assert _check(out, lock, records, inventory._app_version()) == []
 
 
 def test_missing_bundle_fails(tmp_path: Path) -> None:
@@ -231,7 +257,7 @@ def test_vendored_extras_are_exempt_from_the_lock_identity_check(
     monkeypatch.setattr(inventory, "_expected_from_environment", lambda: {"importlib-metadata"})
     lock = tmp_path / "pylock.toml"
     lock.write_text("lock-version = '1.0'\n", encoding="utf-8")
-    assert _check(out, lock, records) == []
+    assert _check(out, lock, records, inventory._app_version()) == []
 
 
 def test_spec_bundles_metadata_and_installer_carries_notices() -> None:
@@ -246,6 +272,12 @@ def test_spec_bundles_metadata_and_installer_carries_notices() -> None:
     builder = (ROOT / "installer" / "build_installer.py").read_text(encoding="utf-8")
     assert "generate_distribution_inventory.py" in builder
     assert "/DNOTICES_FILE=" in builder
+    assert 'File "/oname=LICENSE" "${LICENSE_FILE}"' in nsi, (
+        "the installer must install the GPLv3 text, or the notices are not 'next to LICENSE'"
+    )
+    assert '"--app-version"' in builder, (
+        "the build must pass the version it is producing to the inventory"
+    )
 
 
 @pytest.mark.skipif(

@@ -107,8 +107,13 @@ def run_pyinstaller() -> None:
 
 
 def run_inventory(bundle_dir: Path | None = None, output_dir: Path | None = None,
-                  lock_path: Path | None = None) -> None:
-    """Generate third-party notices and the SBOM from the frozen bundle (AUD-051/055)."""
+                  lock_path: Path | None = None, version: str | None = None) -> None:
+    """Generate third-party notices and the SBOM from the frozen bundle (AUD-051/055).
+
+    ``version`` MUST be the version this build is producing: ``pyproject.toml``
+    lags the release tag until the post-release sync commit, so the default would
+    describe the previous release.
+    """
     print("\n" + "=" * 60)
     print("Step 1b: Distribution inventory (notices + SBOM)")
     print("=" * 60)
@@ -122,7 +127,8 @@ def run_inventory(bundle_dir: Path | None = None, output_dir: Path | None = None
     output = output_dir if output_dir is not None else DIST_DIR
     lock = lock_path if lock_path is not None else ROOT / "pylock.toml"
     cmd = [sys.executable, str(script), "--bundle", str(bundle),
-           "--output-dir", str(output), "--lock", str(lock)]
+           "--output-dir", str(output), "--lock", str(lock),
+           "--app-version", str(version if version is not None else APP_VERSION)]
     print(f"Running: {' '.join(cmd)}")
     if subprocess.run(cmd, cwd=str(ROOT)).returncode != 0:
         print("ERROR: Could not write the distribution inventory!")
@@ -225,7 +231,7 @@ def main() -> None:
     else:
         print("Skipping PyInstaller (--skip-pyinstaller)")
 
-    run_inventory()
+    run_inventory(version=APP_VERSION)
 
     if not args.skip_nsis:
         run_nsis()

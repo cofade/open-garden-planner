@@ -324,7 +324,7 @@ def _expected_from_environment() -> set[str]:
 
 
 def _check(
-    output_dir: Path, lock: Path | None, records: list[dict[str, object]]
+    output_dir: Path, lock: Path | None, records: list[dict[str, object]], app_version: str
 ) -> list[str]:
     problems: list[str] = []
     bundled = {str(r["canonical_name"]) for r in records}
@@ -346,12 +346,21 @@ def _check(
         problems.append(f"{sbom_path} does not exist")
     else:
         on_disk = json.loads(sbom_path.read_text(encoding="utf-8"))
-        on_disk_components = on_disk.get("components", [])
-        fresh = render_sbom(records, _app_version())["components"]
-        if on_disk_components != fresh:
+        fresh = render_sbom(records, app_version)
+        if on_disk.get("components") != fresh["components"]:
             problems.append("ogp-sbom.cdx.json does not match the bundle's metadata")
+        recorded_version = (on_disk.get("metadata", {}).get("component", {}) or {}).get("version")
+        if recorded_version != app_version:
+            problems.append(
+                f"ogp-sbom.cdx.json records app version {recorded_version!r}, "
+                f"expected {app_version!r}"
+            )
     if not notices_path.is_file():
         problems.append(f"{notices_path} does not exist")
+    else:
+        on_disk_notices = notices_path.read_text(encoding="utf-8")
+        if on_disk_notices != render_notices(records, app_version):
+            problems.append("THIRD_PARTY_NOTICES.md does not match the bundle's metadata")
 
     if lock is not None:
         locked = _lock_versions(lock)
@@ -374,8 +383,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--bundle", type=Path, default=ROOT / "dist" / "OpenGardenPlanner")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "dist")
     parser.add_argument("--lock", type=Path, default=None)
+    parser.add_argument(
+        "--app-version",
+        default=None,
+        help="Application version recorded in the artifacts; defaults to pyproject.toml's. "
+        "The release MUST pass the version it is building, or the artifacts describe the "
+        "previous release (pyproject lags the tag by design).",
+    )
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args(argv)
+
+    app_version = args.app_version or _app_version()
 
     bundle = args.bundle.resolve()
     if not bundle.is_dir():
@@ -396,19 +414,22 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     problems = (
-        _check(args.output_dir.resolve(), args.lock, records) if args.check else []
+        _check(args.output_dir.resolve(), args.lock, records, app_version) if args.check else []
     )
 
     if not args.check:
         args.output_dir.mkdir(parents=True, exist_ok=True)
         (args.output_dir / "THIRD_PARTY_NOTICES.md").write_text(
-            render_notices(records, _app_version()), encoding="utf-8"
+            render_notices(records, app_version), encoding="utf-8"
         )
         (args.output_dir / "ogp-sbom.cdx.json").write_text(
-            json.dumps(render_sbom(records, _app_version()), indent=2, sort_keys=True) + "\n",
+            json.dumps(render_sbom(records, app_version), indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
-        print(f"Wrote notices and {len(records)} SBOM components to {args.output_dir}")
+        print(
+            f"Wrote notices and {len(records)} SBOM components for version "
+            f"{app_version} to {args.output_dir}"
+        )
 
     if problems:
         for problem in problems:

@@ -228,7 +228,12 @@ snapshot has not been rewritten. Per finding:
 - **AUD-050** — hosted uv is verified at 0.12.19 against this project's `==0.12.23` pin, so
   automation is not available; `dependency-review.yml` is the monthly, report-only manual
   fallback, and the runbook plus the Qt/`mcp` cap drift guard live in §7.4 and
-  `tests/unit/test_dependency_governance.py`.
+  `tests/unit/test_dependency_governance.py`. The acceptance clause "smoke-test an update PR
+  without auto-merge" is disposed of by that decision: no automated update PR exists to smoke
+  test, and the manual path was exercised instead — the report-only script's exact shell body
+  run under the pinned uv exits 0, leaves `uv.lock` byte-identical and reports the seven
+  available updates, which is what the owner acts on in a reviewed PR. Revisit automation
+  when hosted uv reaches the pin.
 
 Package A2 is complete only after all seven acceptance items and the delivery gates pass;
 epic #392 remains open for the other bundles.

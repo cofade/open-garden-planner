@@ -2251,8 +2251,8 @@ dependency-update path a documented home:
 
 **Evidence.** The pins were resolved from primary sources on 2026-10-13 (setup-python's
 versions manifest; Chocolatey's feed; dependabot-core's `uv/Dockerfile`). The scan was run
-against the locked export: 77 requirements, one vulnerable package (build-time setuptools),
-zero runtime findings. `tests/unit/test_build_toolchain_pins.py`,
+against the shipped command's export: 93 requirement lines, one vulnerable package
+(build-time setuptools), zero runtime findings. `tests/unit/test_build_toolchain_pins.py`,
 `tests/unit/test_action_pins.py`, `tests/unit/test_dependency_governance.py` and
 `tests/unit/test_no_stale_requirement_manifests.py` pin the behaviour, and the frozen
 build proves the pins produce a working artifact.

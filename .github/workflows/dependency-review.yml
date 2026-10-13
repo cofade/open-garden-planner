@@ -40,6 +40,14 @@ jobs:
             cat upgrade.txt >&2
             exit 1
           fi
+          # uv always reports its resolution; if a future (deliberately bumped) uv
+          # stops emitting this marker, the parser below would report "no updates"
+          # for a run that did resolve — fail loudly instead.
+          if ! grep -q '^Resolved ' upgrade.txt; then
+            echo "uv's dry-run output has no recognizable resolution line:" >&2
+            cat upgrade.txt >&2
+            exit 1
+          fi
           {
             echo "## Available dependency updates"
             echo
