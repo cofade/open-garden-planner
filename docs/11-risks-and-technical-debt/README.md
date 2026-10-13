@@ -107,6 +107,13 @@ The living register (ADR-047). Every row has a status; P0/P1 rows link their iss
   were added), and test real rows/tooltips with unnamed objects. Descriptor tests
   passing literal `A`/`B` cannot cover this boundary. Preserve user names and data.
 
+- **Within-day simulation tests must fix time as well as date** (ADR-053): the
+  sun-mismatch workflow set the date, retained 23:49 from the host, then added an
+  hour. Correct next-day invalidation contradicted its `ready` assertion. Tagged
+  datetime/caller tracing reproduced the same failure alone. Set the fixture to
+  noon with `set_time_of_day`; retain worker, cache and date-invalidation checks.
+  Do not change production clock semantics or relax timeouts to fix the fixture.
+
 - **A graph row can conceal a no-op geometry path (#406, 2026-10-12).** A real Edge Length
   gesture on a rectangle added the requested 250 cm constraint but left its 200 cm edge intact.
   Verbose caller tracing showed the rigid-item fallback returning no moves for the same pinned

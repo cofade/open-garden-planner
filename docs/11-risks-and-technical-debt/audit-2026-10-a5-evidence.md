@@ -115,6 +115,14 @@ distance gesture row/tooltip and all three compare-overlay plant types. Focused
 verification: 74 passed. Temporary instrumentation removed. German owner retest
 remains pending; the PR stays draft.
 
+The follow-up full gate also exposed an existing host-hour assumption in
+`test_sun_mismatch.py`: starting at 23:49 and adding an hour crossed the plan date,
+so the heatmap correctly became `absent` rather than the expected `ready`.
+An isolated run reproduced the failure, and tagged datetime/caller tracing
+confirmed the midnight crossing. The fixture now sets noon explicitly, preserving
+the production clock/cache contracts and all worker assertions/timeouts. The full
+gate must be repeated after this test-only correction.
+
 First independent review found an additional old icon-table import in the icon-file
 sweep, a formatting-boundary difference from multiplication by 0.01, and an incomplete
 control-timeout reporting path. All were corrected. Six boundary regressions failed

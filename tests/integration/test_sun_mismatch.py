@@ -1,6 +1,6 @@
 """US-F3: explicit worker -> badge/panel/wire, invalidation and canopy workflow."""
 
-from datetime import date, timedelta
+from datetime import date, time, timedelta
 from pathlib import Path
 
 import pytest
@@ -45,6 +45,8 @@ def sun_app(qtbot, monkeypatch):
     monkeypatch.setattr(win, "_confirm_discard_changes", lambda: True)
     win._load_project_file(str(REFERENCE))
     win._sim_clock.set_date(DAY)
+    # The within-day +1-hour assertion must not inherit a late-night host clock.
+    win._sim_clock.set_time_of_day(time(12))
     yield win
     win._sun_heatmap.shutdown()
     apply_theme(QApplication.instance(), previous_theme)
