@@ -14,6 +14,7 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from scripts.a1_translations import TRANSLATIONS as _A1_TRANSLATIONS  # noqa: E402
 from scripts.permaculture_translations import TRANSLATIONS as _F1_F2_TRANSLATIONS  # noqa: E402
 
 if sys.stdout is not None and hasattr(sys.stdout, "reconfigure"):
@@ -3183,6 +3184,9 @@ for _ctx, _strings in _PLANT_LISTS_TRANSLATIONS.items():
 
 
 for _ctx, _strings in _F1_F2_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+for _ctx, _strings in _A1_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 

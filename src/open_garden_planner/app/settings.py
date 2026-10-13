@@ -5,6 +5,11 @@ Provides persistent storage for user preferences using QSettings, and owns
 is constructed (issue #285, ADR-041).
 """
 
+import os
+import stat
+import sys
+from pathlib import Path
+
 from PyQt6.QtCore import QSettings
 
 from open_garden_planner.ui.theme import ThemeMode
@@ -21,6 +26,38 @@ from open_garden_planner.ui.theme import ThemeMode
 # there before changing anything here. Decision + alternatives: ADR-041.
 ORGANIZATION_NAME = "cofade"
 APPLICATION_NAME = "Open Garden Planner"
+
+
+class SettingsSecurityError(OSError):
+    """The Linux credential store could not be restricted to its owner."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        super().__init__("Cannot secure the settings file")
+
+
+def _secure_linux_settings(path: Path) -> None:
+    """Create or migrate an owner-only regular file, without changing its data."""
+    try:
+        target = path.resolve()
+        target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        # These POSIX APIs do not exist in the Windows os stubs/runtime. This
+        # function is called only on Linux; use feature lookup at that boundary.
+        posix = vars(os)
+        flags = os.O_RDWR | os.O_CREAT | int(posix["O_NONBLOCK"]) | int(posix["O_NOFOLLOW"])
+        fd = os.open(target, flags, 0o600)
+        try:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != posix["geteuid"]():
+                raise OSError("Settings file is not owned by the current user")
+            posix["fchmod"](fd, 0o600)
+            secured = os.fstat(fd)
+            if stat.S_IMODE(secured.st_mode) != 0o600:
+                raise OSError("Settings permissions were not applied")
+        finally:
+            os.close(fd)
+    except Exception as exc:
+        raise SettingsSecurityError(path) from exc
 
 
 def create_qsettings() -> QSettings:
@@ -40,7 +77,10 @@ def create_qsettings() -> QSettings:
     isolation layered on :class:`AppSettings`, and full-app tests read *and
     overwrote* the developer's real window state (see docs §11.4).
     """
-    return QSettings(ORGANIZATION_NAME, APPLICATION_NAME)
+    settings = QSettings(ORGANIZATION_NAME, APPLICATION_NAME)
+    if sys.platform.startswith("linux"):
+        _secure_linux_settings(Path(settings.fileName()))
+    return settings
 
 
 class AppSettings:

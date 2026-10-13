@@ -22,6 +22,10 @@ directory, say) is neither visible here nor this project's to control.
 
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -31,6 +35,96 @@ import open_garden_planner.app.settings as settings_module
 from open_garden_planner.app.application import GardenPlannerApp
 from open_garden_planner.app.settings import get_settings
 from open_garden_planner.app.ui_state import UiStateStore
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Requires real Linux file permissions")
+@pytest.mark.parametrize("mask", [0o022, 0o000])
+def test_a1_linux_native_settings_are_private_across_sync_and_migration(tmp_path, mask):
+    # Fresh process: XDG lookup, Qt caches and umask cannot poison other tests.
+    code = '''
+import os, stat
+from pathlib import Path
+from PyQt6.QtCore import QSettings, QCoreApplication
+from open_garden_planner.app import settings
+app = QCoreApplication([])
+os.umask(int(os.environ["A1_UMASK"]))
+settings.ORGANIZATION_NAME = "a1_synthetic"
+settings.APPLICATION_NAME = "permissions"
+s = settings.create_qsettings()
+p = Path(s.fileName())
+s.setValue("api_keys/test", "synthetic-fixture")
+s.sync()
+assert stat.S_IMODE(p.stat().st_mode) == 0o600
+os.chmod(p, 0o644)
+s2 = settings.create_qsettings()
+assert stat.S_IMODE(p.stat().st_mode) == 0o600
+assert s2.value("api_keys/test") == "synthetic-fixture"
+for n in range(3):
+    s2.setValue("ui_state/counter", n)
+    app.processEvents()
+    s2.sync()
+    assert stat.S_IMODE(p.stat().st_mode) == 0o600
+assert s2.value("api_keys/test") == "synthetic-fixture"
+print("A1 Linux settings: 0600 after creation, migration and repeated atomic sync")
+'''
+    env = dict(os.environ, XDG_CONFIG_HOME=str(tmp_path), A1_UMASK=str(mask),
+               PYTHONPATH=str(Path(settings_module.__file__).resolve().parents[2]))
+    result = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_a1_windows_backend_does_not_attempt_posix_protection(monkeypatch):
+    if sys.platform != "win32":
+        pytest.skip("Windows registry behavior")
+    monkeypatch.setattr(settings_module, "_secure_linux_settings",
+                        lambda *_: pytest.fail("POSIX protection called for registry backend"))
+    backend = settings_module.create_qsettings()
+    backend.setValue("a1/synthetic", "fixture")
+    backend.sync()
+    assert settings_module.create_qsettings().value("a1/synthetic") == "fixture"
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Requires Linux descriptors and symlinks")
+def test_a1_linux_safe_symlink_special_file_and_permission_failure(tmp_path):
+    code = '''
+import os
+from pathlib import Path
+from open_garden_planner.app.settings import _secure_linux_settings, SettingsSecurityError
+root = Path(os.environ["A1_FIXTURE"])
+target = root / "real.conf"
+target.write_text("synthetic-fixture")
+target.chmod(0o644)
+link = root / "linked.conf"
+link.symlink_to(target)
+_secure_linux_settings(link)
+assert target.stat().st_mode & 0o777 == 0o600
+assert target.read_text() == "synthetic-fixture"
+fifo = root / "special.conf"
+os.mkfifo(fifo)
+try:
+    _secure_linux_settings(fifo)
+except SettingsSecurityError:
+    pass
+else:
+    raise AssertionError("Non-regular settings file was accepted")
+original = os.fchmod
+def refuse(*args):
+    raise PermissionError("fixture refusal")
+os.fchmod = refuse
+try:
+    _secure_linux_settings(target)
+except SettingsSecurityError:
+    pass
+else:
+    raise AssertionError("Permission failure was ignored")
+finally:
+    os.fchmod = original
+assert target.read_text() == "synthetic-fixture"
+'''
+    env = dict(os.environ, A1_FIXTURE=str(tmp_path),
+               PYTHONPATH=str(Path(settings_module.__file__).resolve().parents[2]))
+    result = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def _active_store() -> tuple[str, str]:

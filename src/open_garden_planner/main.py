@@ -1,5 +1,6 @@
 """Main entry point for Open Garden Planner."""
 
+import logging
 import sys
 from pathlib import Path
 from typing import Any, cast
@@ -255,6 +256,7 @@ def main() -> int:
     from open_garden_planner.app.settings import (
         APPLICATION_NAME,
         ORGANIZATION_NAME,
+        SettingsSecurityError,
         get_settings,
     )
     from open_garden_planner.core.i18n import load_translator
@@ -277,7 +279,21 @@ def main() -> int:
         app.setWindowIcon(QIcon(str(icon_path)))
 
     # Apply saved preferences
-    settings = get_settings()
+    try:
+        settings = get_settings()
+    except SettingsSecurityError as exc:
+        from PyQt6.QtCore import QLocale
+        from PyQt6.QtWidgets import QMessageBox
+
+        load_translator(app, QLocale.system().name().split("_")[0])
+        logging.getLogger(__name__).error("Settings protection failed for %s", exc.path)
+        QMessageBox.critical(
+            None, app.translate("main", "Settings Access Error"),
+            app.translate("main", "Open Garden Planner cannot secure its settings file:\n{path}\n\n"
+                          "The file must be owned by your account with owner-only read and write access. "
+                          "Correct its permissions and restart the app.").format(path=exc.path),
+        )
+        return 1
     load_translator(app, settings.language)
     apply_theme(app, settings.theme_mode)
 

@@ -3663,6 +3663,18 @@ Details: {error}</translation>
             <source>Diagnostics</source>
             <translation>Diagnosen</translation>
         </message>
+        <message>
+            <source>The plan contains an invalid or non-finite number at {field}.</source>
+            <translation>Der Plan enthält bei {field} eine ungültige oder nicht endliche Zahl.</translation>
+        </message>
+        <message>
+            <source>The canvas dimension at {field} must be between 50 and 100000 cm.</source>
+            <translation>Die Zeichenflächengröße bei {field} muss zwischen 50 und 100000 cm liegen.</translation>
+        </message>
+        <message>
+            <source>The plan value at {field} must be positive.</source>
+            <translation>Der Planwert bei {field} muss positiv sein.</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -7400,6 +7412,34 @@ Try running Open Garden Planner as Administrator, or download the installer dire
 
 Starten Sie Open Garden Planner als Administrator, oder laden Sie das Installationsprogramm direkt herunter:
 {url}</translation>
+        </message>
+        <message>
+            <source>This release has no verifiable installer. Use the release page.</source>
+            <translation>Diese Version hat kein überprüfbares Installationsprogramm. Verwenden Sie die Versionsseite.</translation>
+        </message>
+        <message>
+            <source>The download origin is not permitted.</source>
+            <translation>Die Downloadquelle ist nicht zulässig.</translation>
+        </message>
+        <message>
+            <source>The release checksum is missing or invalid.</source>
+            <translation>Die Prüfsumme der Version fehlt oder ist ungültig.</translation>
+        </message>
+        <message>
+            <source>The installer size does not match the release.</source>
+            <translation>Die Größe des Installationsprogramms stimmt nicht mit der Version überein.</translation>
+        </message>
+        <message>
+            <source>The installer checksum does not match the release.</source>
+            <translation>Die Prüfsumme des Installationsprogramms stimmt nicht mit der Version überein.</translation>
+        </message>
+        <message>
+            <source>The installer destination already exists.</source>
+            <translation>Das Ziel für das Installationsprogramm existiert bereits.</translation>
+        </message>
+        <message>
+            <source>The download could not be completed safely.</source>
+            <translation>Der Download konnte nicht sicher abgeschlossen werden.</translation>
         </message>
     </context>
     <context>
@@ -11535,6 +11575,20 @@ Details: {error}</source>
             <translation>Ein unerwarteter Fehler ist aufgetreten. Die Anwendung läuft weiter, damit Sie Ihre Arbeit speichern können.
 
 Details: {error}</translation>
+        </message>
+        <message>
+            <source>Settings Access Error</source>
+            <translation>Fehler beim Zugriff auf Einstellungen</translation>
+        </message>
+        <message>
+            <source>Open Garden Planner cannot secure its settings file:
+{path}
+
+The file must be owned by your account with owner-only read and write access. Correct its permissions and restart the app.</source>
+            <translation>Open Garden Planner kann seine Einstellungsdatei nicht absichern:
+{path}
+
+Die Datei muss Ihrem Benutzerkonto gehören und darf nur für den Eigentümer lesbar und beschreibbar sein. Korrigieren Sie die Berechtigungen und starten Sie die Anwendung neu.</translation>
         </message>
     </context>
     <context>
