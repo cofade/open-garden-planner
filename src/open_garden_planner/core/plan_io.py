@@ -92,6 +92,16 @@ def _walk(value: Any, path: str, *, geometry: bool = False) -> None:
 
 def _check_extents(record: dict[str, Any], path: str) -> None:
     """Refuse overflow of bounds before handing coordinates to Qt."""
+    if all(key in record for key in ("x1", "y1", "x2", "y2")):
+        try:
+            dx = float(record["x2"]) - float(record["x1"])
+            dy = float(record["y2"]) - float(record["y1"])
+        except (ValueError, TypeError):
+            pass
+        else:
+            finite_number(dx, f"{path}.line.dx")
+            finite_number(dy, f"{path}.line.dy")
+            finite_number(math.hypot(dx, dy), f"{path}.line.length")
     for position, size in (("x", "width"), ("y", "height"),
                            ("center_x", "radius"), ("center_y", "radius"),
                            ("center_x", "semi_x"), ("center_y", "semi_y"),

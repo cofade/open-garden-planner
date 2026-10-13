@@ -1867,3 +1867,17 @@ string checks to geometry containers while rejecting actual non-finite numbers
 everywhere. The focused preservation/image/atomicity run passed 63 tests.
 **Lesson.** Finite operands need a checked composition boundary. Let Qt compute
 its own transforms, then validate the detached result before publishing it.
+
+## Case study: an empty Qt bounding rectangle hides an infinite line span (#453)
+
+**Symptom.** A construction line with x1=-1e308 and x2=1e308 passed finite-input
+validation. Qt returned an empty bounding rectangle despite infinite dx and length.
+**Wrong theories.** A finite or empty bounding rectangle does not prove that the
+underlying primitive has finite intermediate geometry.
+**Evidence.** Independent review measured infinite QLineF dx/length. The real
+load-preservation regression failed DID NOT RAISE ValueError before the fix.
+**Root cause.** The raw preflight omitted endpoint spans, and Qt's empty rectangle
+concealed the overflow from the detached bounds check.
+**Fix.** Check both endpoint differences and hypot length before construction.
+**Lesson.** Validate primitive arithmetic when invalid geometry can collapse to an
+empty bounding rectangle. Keep the detached Qt composition gate as well.

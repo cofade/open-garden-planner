@@ -1132,3 +1132,9 @@ metadata text `value="NaN"` being incorrectly treated as geometry. The fix check
 Qt's detached item graph before scene mutation, checks live geometry before saves,
 checks decoded image extents before scaling and scopes numeric-string validation
 to geometry containers. Numeric non-finite JSON remains invalid everywhere.
+
+The earlier review additionally found that a construction line with opposite
+finite endpoints can have an infinite span while Qt returns an empty bounding
+rectangle. Its real load-preservation test failed first. Raw endpoint differences
+and line length are now checked before construction, alongside the detached bounds
+gate; an empty Qt rectangle is not sufficient evidence that its primitive is valid.
