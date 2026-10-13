@@ -6,7 +6,6 @@ Handles project state, serialization, and file I/O.
 from __future__ import annotations
 
 import contextlib
-import json
 import logging
 from collections.abc import Iterable
 from copy import deepcopy
@@ -23,6 +22,12 @@ from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 from open_garden_planner.app.settings import get_settings
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.object_types import PathFenceStyle, StrokeStyle
+from open_garden_planner.core.plan_io import (
+    finite_number,
+    read_plan,
+    validate_plan_data,
+    write_plan,
+)
 from open_garden_planner.models.layer import Layer, create_default_layers
 
 # File format version for backward compatibility.
@@ -757,7 +762,9 @@ class ProjectManager(QObject):
         """Reset a task to open (remove any stored state)."""
         self.set_task_status(task_id, "open")
 
-    def _sync_journal_note_positions(self, scene: QGraphicsScene) -> None:
+    def _sync_journal_note_positions(
+        self, scene: QGraphicsScene, notes: dict[str, Any] | None = None
+    ) -> None:
         """Copy each ``JournalPinItem.pos()`` into its matching note dict (US-12.9).
 
         The pin's position is updated by the standard Qt drag pathway, but the
@@ -770,10 +777,11 @@ class ProjectManager(QObject):
             JournalPinItem,
         )
 
+        target_notes = self._garden_journal_notes if notes is None else notes
         for item in scene.items():
             if not isinstance(item, JournalPinItem):
                 continue
-            raw = self._garden_journal_notes.get(item.note_id)
+            raw = target_notes.get(item.note_id)
             if raw is None:
                 continue
             raw["scene_x"] = item.pos().x()
@@ -857,8 +865,8 @@ class ProjectManager(QObject):
         data = self._build_project_data(scene, sync_journal=True)
         file_path = file_path.with_suffix(".ogp")
 
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(data.to_dict(), f, indent=2)
+        write_plan(file_path, data.to_dict())
+        self._garden_journal_notes = data.garden_journal_notes
 
         self._current_file = file_path
         self.mark_clean()
@@ -902,12 +910,12 @@ class ProjectManager(QObject):
         data.prefer_organic = self._prefer_organic
         data.succession_plans = dict(self._succession_plans)
         data.auto_assign_permaculture_layers = self.auto_assign_permaculture_layers
+        data.garden_journal_notes = deepcopy(self._garden_journal_notes)
         if sync_journal:
             # US-12.9: the pin's pos() on the canvas is the source of truth for
             # journal-note coordinates; sync each note dict's scene_x/y from the
             # matching pin before serialising so dragged pins round-trip cleanly.
-            self._sync_journal_note_positions(scene)
-        data.garden_journal_notes = dict(self._garden_journal_notes)
+            self._sync_journal_note_positions(scene, data.garden_journal_notes)
         data.manual_tasks = dict(self._manual_tasks)
         data.task_states = dict(self._task_states)
         data.harvest_logs = dict(self._harvest_logs)
@@ -1024,8 +1032,7 @@ class ProjectManager(QObject):
         self._last_load_skipped_items_count = 0
         scene_mutated = False
         try:
-            with open(file_path, encoding="utf-8") as f:
-                raw_data = json.load(f)
+            raw_data = read_plan(file_path)
 
             # Forward-compat guard: older binaries reading a newer file would
             # silently drop unknown content on save (issue surfaced in the
@@ -1223,14 +1230,12 @@ class ProjectManager(QObject):
         current_data.linked_seasons = linked
         new_file_path = new_file_path.with_suffix(".ogp")
 
-        with open(new_file_path, "w", encoding="utf-8") as f:
-            json.dump(current_data.to_dict(), f, indent=2)
+        write_plan(new_file_path, current_data.to_dict())
 
         # Bidirectional link: update the SOURCE season file so it also lists the new season.
         if self._current_file is not None and self._current_file.exists():
             try:
-                with open(self._current_file, encoding="utf-8") as f:
-                    source_raw = json.load(f)
+                source_raw = read_plan(self._current_file)
                 source_linked: list[dict[str, Any]] = source_raw.get("linked_seasons", [])
                 # Build relative path from source file's directory to the new file
                 try:
@@ -1242,8 +1247,7 @@ class ProjectManager(QObject):
                     source_linked.append({"year": new_year, "file": new_file_str})
                     source_linked.sort(key=lambda s: s.get("year", 0))
                     source_raw["linked_seasons"] = source_linked
-                    with open(self._current_file, "w", encoding="utf-8") as f:
-                        json.dump(source_raw, f, indent=2)
+                    write_plan(self._current_file, source_raw)
                     # Also update in-memory linked_seasons
                     self._linked_seasons = source_linked
             except Exception:
@@ -1312,8 +1316,7 @@ class ProjectManager(QObject):
         Returns:
             List of serialized object dicts from the season file
         """
-        with open(file_path, encoding="utf-8") as f:
-            raw_data = json.load(f)
+        raw_data = read_plan(file_path)
         return raw_data.get("objects", [])
 
     def _sync_custom_plants(self, scene: QGraphicsScene) -> None:
@@ -1435,6 +1438,12 @@ class ProjectManager(QObject):
     @staticmethod
     def _serialize_item_core(item: QGraphicsItem) -> dict[str, Any] | None:
         """Core serialization logic for a single graphics item."""
+        for field_name, value in (("x", item.pos().x()), ("y", item.pos().y()),
+                                  ("rotation", item.rotation()), ("scale", item.scale())):
+            finite_number(value, field_name)
+        if hasattr(item, "rotation_angle"):
+            # NaN would otherwise be omitted by abs(angle) > 0.01 below.
+            finite_number(item.rotation_angle, "rotation_angle")
         # Import here to avoid circular dependency
         from open_garden_planner.ui.canvas.items import (
             ArcItem,
@@ -1772,6 +1781,7 @@ class ProjectManager(QObject):
         and parses layers, constraints, and guides into memory without touching
         the QGraphicsScene.
         """
+        validate_plan_data(data.to_dict())
         import logging
         logger = logging.getLogger(__name__)
 
