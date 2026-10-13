@@ -89,6 +89,7 @@ if TYPE_CHECKING:
 
     from open_garden_planner.agent_api import AgentApiServer
     from open_garden_planner.core.sim_clock import SimChange
+    from open_garden_planner.services.update_checker import ReleaseInfo
 
 logger = logging.getLogger(__name__)
 
@@ -5377,13 +5378,13 @@ class GardenPlannerApp(QMainWindow):
         self._update_checker.update_available.connect(self._on_update_available)
         self._update_checker.start()
 
-    def _on_update_available(self, tag_name: str, body: str, download_url: str, html_url: str) -> None:
+    def _on_update_available(self, release: "ReleaseInfo") -> None:
         """Show the update bar if the user has not skipped this version."""
         from open_garden_planner.app.settings import get_settings
 
-        if get_settings().skipped_version == tag_name:
+        if get_settings().skipped_version == release.tag_name:
             return
-        self._update_bar.show_update(tag_name, body, download_url, html_url)
+        self._update_bar.show_update(release)
 
     def _on_skip_version(self, tag_name: str) -> None:
         """Persist the skipped version to settings."""
@@ -5808,7 +5809,18 @@ class GardenPlannerApp(QMainWindow):
         try:
             self._load_project_file(file_path)
         except Exception as e:
-            QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to open file:\n{error}").format(error=e))
+            QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to open file:\n{error}").format(error=self._plan_error_message(e)))
+
+    def _plan_error_message(self, error: Exception) -> str:
+        from open_garden_planner.core.plan_io import PlanValidationError
+        if not isinstance(error, PlanValidationError):
+            return str(error)
+        messages = {
+            "finite": self.tr("The plan contains an invalid or non-finite number at {field}."),
+            "canvas": self.tr("The canvas dimension at {field} must be between 50 and 100000 cm."),
+            "positive": self.tr("The plan value at {field} must be positive."),
+        }
+        return messages[error.category].format(field=error.field)
 
     def _load_project_file(self, file_path: str) -> None:
         """THE one open-a-plan path: load and rewire the UI, or raise.
@@ -5956,7 +5968,7 @@ class GardenPlannerApp(QMainWindow):
             self._autosave_manager.clear_autosave()
             self.statusBar().showMessage(self.tr("Saved: {path}").format(path=file_path))
         except Exception as e:
-            QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to save file:\n{error}").format(error=e))
+            QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to save file:\n{error}").format(error=self._plan_error_message(e)))
 
     def _on_export_png(self) -> None:
         """Handle Export as PNG action."""

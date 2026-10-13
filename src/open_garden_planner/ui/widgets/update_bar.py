@@ -3,11 +3,12 @@
 Shown at the top of the main window when a newer GitHub release is available.
 """
 
+import contextlib
 import html
 import logging
 import subprocess
 import tempfile
-import urllib.request
+import threading
 from pathlib import Path
 
 from PyQt6.QtCore import QObject, Qt, QThread, pyqtSignal
@@ -22,62 +23,49 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.services.update_checker import ReleaseInfo
+from open_garden_planner.services.verified_update import (
+    DownloadCancelled,
+    VerificationError,
+    VerifiedInstaller,
+    download_verified_installer,
+)
 from open_garden_planner.ui.theme import theme_color
 
 logger = logging.getLogger(__name__)
 
-_DOWNLOAD_TIMEOUT = 15  # seconds — socket read timeout per chunk
-
-
 class _DownloadWorker(QThread):
     """Background thread that downloads a file in chunks with a per-read timeout.
 
-    Signals:
-        progress(bytes_downloaded, total_bytes): Emitted after each chunk.
-            total_bytes is 0 when Content-Length is not available.
-        finished(dest): Emitted with the destination path on successful completion.
-        failed(error): Emitted with the error message string on failure.
+    Emits verified_ready only after size, origin and digest checks succeed.
+    Failure signals contain categories, never raw network errors or signed URLs.
     """
 
     progress = pyqtSignal(int, int)
-    finished = pyqtSignal(Path)
+    verified_ready = pyqtSignal(object)
     failed = pyqtSignal(str)
 
-    _CHUNK_SIZE = 65536
-
-    def __init__(self, url: str, dest: Path, parent: QObject | None = None) -> None:
+    def __init__(self, release: ReleaseInfo, dest: Path, parent: QObject | None = None) -> None:
         super().__init__(parent)
-        self._url = url
+        self._release = release
         self._dest = dest
-        self._cancelled = False
+        self._cancelled = threading.Event()
 
     def cancel(self) -> None:
-        self._cancelled = True
+        self._cancelled.set()
 
     def run(self) -> None:
         try:
-            req = urllib.request.Request(
-                self._url,
-                headers={"User-Agent": "OpenGardenPlanner-Updater"},
+            result = download_verified_installer(
+                self._release, self._dest, cancelled=self._cancelled.is_set,
+                progress=self.progress.emit,
             )
-            with urllib.request.urlopen(req, timeout=_DOWNLOAD_TIMEOUT) as resp:  # noqa: S310
-                total = int(resp.getheader("Content-Length") or 0)
-                downloaded = 0
-                with self._dest.open("wb") as fh:
-                    while not self._cancelled:
-                        chunk = resp.read(self._CHUNK_SIZE)
-                        if not chunk:
-                            break
-                        fh.write(chunk)
-                        downloaded += len(chunk)
-                        self.progress.emit(downloaded, total)
-            if self._cancelled:
-                self._dest.unlink(missing_ok=True)
-            else:
-                self.finished.emit(self._dest)
+            self.verified_ready.emit(result)
+        except DownloadCancelled:
+            pass
         except Exception as exc:  # noqa: BLE001
-            if not self._cancelled:
-                self.failed.emit(str(exc))
+            if not self._cancelled.is_set():
+                self.failed.emit(str(exc) if isinstance(exc, VerificationError) else "network")
 
 
 class UpdateBar(QFrame):
@@ -95,6 +83,7 @@ class UpdateBar(QFrame):
         self._tag_name = ""
         self._download_url = ""
         self._html_url = ""
+        self._release: ReleaseInfo | None = None
         self._worker: _DownloadWorker | None = None
         self._setup_ui()
         self.hide()
@@ -103,7 +92,7 @@ class UpdateBar(QFrame):
     # Public API
     # ------------------------------------------------------------------
 
-    def show_update(self, tag_name: str, _body: str, download_url: str, html_url: str = "") -> None:
+    def show_update(self, release: ReleaseInfo) -> None:
         """Populate and display the bar for a specific update.
 
         Args:
@@ -113,8 +102,10 @@ class UpdateBar(QFrame):
                           if no installer asset was found.
             html_url:     GitHub release page URL for the "What's new" link.
         """
+        self._release = release
+        tag_name, html_url = release.tag_name, release.html_url
         self._tag_name = tag_name
-        self._download_url = download_url
+        self._download_url = release.download_url or ""
         self._html_url = html_url
 
         msg_plain = self.tr("A new version ({version}) is available.").format(version=tag_name)
@@ -128,7 +119,10 @@ class UpdateBar(QFrame):
             self._label.setText(f"{html.escape(msg_plain)}  {link}")
         else:
             self._label.setText(msg_plain)
-        self._download_btn.setVisible(bool(download_url))
+        self._download_btn.setEnabled(release.installable)
+        self._download_btn.setToolTip(
+            "" if release.installable else self.tr("This release has no verifiable installer. Use the release page.")
+        )
         self.show()
 
     # ------------------------------------------------------------------
@@ -171,10 +165,8 @@ class UpdateBar(QFrame):
     def apply_theme_colors(self, _colors: dict[str, str]) -> None:
         """Rebuild the label on theme switch (the What's-new link color is
         baked into its HTML at show time)."""
-        if self.isVisible() and self._tag_name:
-            self.show_update(
-                self._tag_name, "", self._download_url, self._html_url
-            )
+        if self.isVisible() and self._release is not None:
+            self.show_update(self._release)
 
     def _on_skip(self) -> None:
         self.skip_version_requested.emit(self._tag_name)
@@ -182,7 +174,7 @@ class UpdateBar(QFrame):
 
     def _on_download(self) -> None:
         """Download the installer in a background thread, then launch it."""
-        if not self._download_url:
+        if self._release is None or not self._release.installable:
             return
         if self._worker and self._worker.isRunning():
             return
@@ -202,7 +194,7 @@ class UpdateBar(QFrame):
         if reply != QMessageBox.StandardButton.Yes:
             return
 
-        filename = self._download_url.split("/")[-1]
+        filename = self._release.installer_name
         tmp_dir = Path(tempfile.mkdtemp())
         dest = tmp_dir / filename
 
@@ -220,7 +212,7 @@ class UpdateBar(QFrame):
 
         html_url = self._html_url
 
-        worker = _DownloadWorker(self._download_url, dest, self)
+        worker = _DownloadWorker(self._release, dest, self)
         self._worker = worker
 
         def on_progress(downloaded: int, total: int) -> None:
@@ -233,9 +225,14 @@ class UpdateBar(QFrame):
             else:
                 progress.setMaximum(0)
 
-        def on_finished(path: Path) -> None:
+        def on_finished(result: VerifiedInstaller) -> None:
+            worker.wait()  # the verified signal can arrive before run() returns
+            if progress.wasCanceled() or worker._cancelled.is_set():
+                result.path.unlink(missing_ok=True)
+                tmp_dir.rmdir()
+                return
             progress.close()
-            self._launch_installer(path, parent, html_url)
+            self._launch_installer(result, parent, html_url)
 
         def on_failed(error: str) -> None:
             progress.close()
@@ -245,19 +242,36 @@ class UpdateBar(QFrame):
                 self.tr(
                     "Could not download the installer:\n{error}\n\n"
                     "Download the latest release directly:\n{url}"
-                ).format(error=error, url=html_url),
+                ).format(error=self._verification_message(error), url=html_url),
             )
 
+        def cleanup_empty_directory() -> None:
+            # Verified installers remain for the running OS installer. Failed
+            # and cancelled transfers own no files and leave no empty directory.
+            with contextlib.suppress(OSError):
+                tmp_dir.rmdir()
+
         worker.progress.connect(on_progress)
-        worker.finished.connect(on_finished)
+        worker.verified_ready.connect(on_finished)
         worker.failed.connect(on_failed)
+        worker.finished.connect(cleanup_empty_directory)
         progress.canceled.connect(worker.cancel)
         worker.start()
 
-    def _launch_installer(self, dest: Path, parent: QWidget, html_url: str) -> None:
+    def _verification_message(self, category: str) -> str:
+        return {
+            "origin": self.tr("The download origin is not permitted."),
+            "manifest": self.tr("The release checksum is missing or invalid."),
+            "length": self.tr("The installer size does not match the release."),
+            "digest": self.tr("The installer checksum does not match the release."),
+            "destination": self.tr("The installer destination already exists."),
+        }.get(category, self.tr("The download could not be completed safely."))
+
+    def _launch_installer(self, result: VerifiedInstaller, parent: QWidget, html_url: str) -> None:
         """Launch the downloaded installer and quit the application."""
         try:
-            subprocess.Popen([str(dest)], close_fds=True)  # noqa: S603
+            result.check()
+            subprocess.Popen([str(result.path)], close_fds=True)  # noqa: S603
         except Exception as exc:
             QMessageBox.critical(
                 parent,
@@ -266,7 +280,7 @@ class UpdateBar(QFrame):
                     "Could not launch the installer:\n{error}\n\n"
                     "Try running Open Garden Planner as Administrator, "
                     "or download the installer directly:\n{url}"
-                ).format(error=str(exc), url=html_url),
+                ).format(error=self._verification_message(str(exc) if isinstance(exc, VerificationError) else "network"), url=html_url),
             )
             return
         QApplication.quit()

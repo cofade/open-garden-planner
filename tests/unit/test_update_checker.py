@@ -50,7 +50,7 @@ class TestCompareVersions:
 
 
 def _make_asset(name: str, url: str) -> dict[str, str]:
-    return {"name": name, "browser_download_url": url}
+    return {"name": name, "browser_download_url": url, "size": 10}
 
 
 class TestParseReleaseInfo:
@@ -62,14 +62,16 @@ class TestParseReleaseInfo:
             "body": "## What's New\n- Feature A\n- Feature B",
             "html_url": "https://github.com/cofade/open-garden-planner/releases/tag/v1.6.0",
             "assets": [
-                _make_asset("OpenGardenPlanner-v1.6.0-Setup.exe", "https://example.com/setup.exe"),
+                _make_asset("OpenGardenPlanner-v1.6.0-Setup.exe", "https://github.com/cofade/open-garden-planner/releases/download/v1.6.0/OpenGardenPlanner-v1.6.0-Setup.exe"),
+                _make_asset("SHA256SUMS.txt", "https://github.com/cofade/open-garden-planner/releases/download/v1.6.0/SHA256SUMS.txt"),
                 _make_asset("OpenGardenPlanner-v1.6.0-symbols.zip", "https://example.com/syms.zip"),
             ],
         }
         info = parse_release_info(data)
         assert info.tag_name == "v1.6.0"
         assert "What's New" in info.body
-        assert info.download_url == "https://example.com/setup.exe"
+        assert info.installable
+        assert info.download_url.endswith("/OpenGardenPlanner-v1.6.0-Setup.exe")
         assert info.html_url == "https://github.com/cofade/open-garden-planner/releases/tag/v1.6.0"
 
     def test_no_setup_asset(self) -> None:
@@ -104,7 +106,7 @@ class TestParseReleaseInfo:
         info = parse_release_info(data)
         assert info.body == ""
 
-    def test_first_setup_exe_asset_wins(self) -> None:
+    def test_duplicate_setup_exe_assets_are_refused(self) -> None:
         data: dict[str, Any] = {
             "tag_name": "v1.6.0",
             "body": "",
@@ -114,7 +116,7 @@ class TestParseReleaseInfo:
             ],
         }
         info = parse_release_info(data)
-        assert info.download_url == "https://example.com/first.exe"
+        assert info.download_url is None
 
     def test_returns_release_info_instance(self) -> None:
         info = parse_release_info({"tag_name": "v1.0.0", "body": "hi", "assets": []})
