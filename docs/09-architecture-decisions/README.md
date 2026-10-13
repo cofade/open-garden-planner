@@ -30,8 +30,13 @@ Architecture Decision Records (ADRs) for significant technical choices.
 
 `core/plan_io.py` is the Qt-free `.ogp` read/write boundary. Normal open/save,
 autosave and season reads/writes use it. JSON constants, exponent/conversion
-overflow, non-finite nested values and overflowing geometry extents are refused
-before scene preparation. The existing agent canvas range (50–100000 cm) now has
+overflow and non-finite nested values are refused before scene preparation.
+During detached preparation, `ProjectManager` checks Qt's computed local and mapped
+bounds, transform coefficients, every child and aggregate group before active-scene
+mutation. This catches overflow from finite rotation, translation and image calibration
+without duplicating Qt's geometry arithmetic. Decoded image dimensions are checked
+before applying calibration. Opaque metadata strings remain text. The existing agent
+canvas range (50–100000 cm) now has
 one validator shared with the file boundary. Unknown items, finite off-canvas
 geometry and ordinary legacy defaults retain their existing handling.
 

@@ -220,6 +220,10 @@ The file boundary is `core/plan_io.py`. Invalid numbers anywhere in the raw payl
 including nested group/curve geometry, reject the entire plan before preparation;
 they are not silently dropped as malformed items. Phase 1 refusal preserves the
 active scene, selection, command history, filename, dirty state and autosave.
+Finite inputs can still produce infinite bounds after rotation, image scaling or
+group aggregation. The detached-item gate checks Qt's actual bounds and transforms
+recursively before applying anything to the active scene; saves check live items too.
+Numeric-looking strings in opaque metadata remain text.
 All `.ogp` writers validate and encode before replacing files atomically. See the
 ADR-003 addendum. The protective identity reset applies only to unexpected failures
 after scene mutation.

@@ -83,6 +83,11 @@ def test_text_and_finite_off_canvas_geometry_remain_compatible():
     validate_plan_data({"canvas": {"width": 50, "height": 100000}})
 
 
+def test_opaque_metadata_numeric_strings_remain_text():
+    validate_plan_data({"objects": [{"type": "rectangle", "x": 0, "y": 0,
+                                    "metadata": {"value": "NaN", "width": "Infinity"}}]})
+
+
 def test_live_nan_rotation_is_refused_even_if_serializer_would_omit_it(qtbot, tmp_path):
     scene = CanvasScene()
     item = RectangleItem(0, 0, 100, 100)

@@ -1,8 +1,11 @@
 """Real application document-preservation workflows for A1."""
 
+import base64
 import json
+from io import BytesIO
 
 import pytest
+from PIL import Image
 
 from open_garden_planner.agent_api.history import history_from_command_manager
 from open_garden_planner.app.application import GardenPlannerApp
@@ -11,11 +14,28 @@ from open_garden_planner.core.commands import CreateItemCommand
 from open_garden_planner.ui.canvas.items import RectangleItem
 
 
+def _embedded_image():
+    stream = BytesIO()
+    Image.new("RGB", (4, 4)).save(stream, "PNG")
+    return base64.b64encode(stream.getvalue()).decode("ascii")
+
+
 @pytest.mark.parametrize("bad", [
     {"canvas": {"width": float("nan"), "height": 1000}},
     {"objects": [{"type": "rectangle", "x": 1e308, "y": 0, "width": 1e308, "height": 100}]},
     {"objects": [{"type": "group", "children": [{"type": "circle", "radius": "NaN"}]}]},
-], ids=["canvas", "extent-overflow", "group"])
+    {"objects": [{"type": "group", "x": 8e307, "y": 0,
+                  "children": [{"type": "rectangle", "x": 8e307, "y": 0,
+                                "width": 8e307, "height": 100}]}]},
+    {"objects": [{"type": "group", "children": [
+        {"type": "rectangle", "x": x, "y": 0, "width": 100, "height": 100}
+        for x in (-1e308, 1e308)]}]},
+    {"objects": [{"type": "rectangle", "x": 6e307, "y": 6e307,
+                  "width": 8e307, "height": 8e307, "rotation_angle": 45}]},
+    {"objects": [{"type": "background_image", "image_data": _embedded_image(),
+                  "scale_factor": 1e-308, "position": {"x": 0, "y": 0}}]},
+], ids=["canvas", "extent-overflow", "group", "translated-group-bounds",
+        "aggregate-group-bounds", "rotated-bounds", "decoded-image-scale"])
 def test_rejected_open_preserves_active_document_and_history(qtbot, tmp_path, monkeypatch, bad):
     monkeypatch.setattr(GardenPlannerApp, "_show_welcome_dialog", lambda *_: None)
     app = GardenPlannerApp()

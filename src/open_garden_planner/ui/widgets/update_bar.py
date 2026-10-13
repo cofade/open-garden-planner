@@ -96,11 +96,8 @@ class UpdateBar(QFrame):
         """Populate and display the bar for a specific update.
 
         Args:
-            tag_name:     Version tag, e.g. ``"v1.6.0"``.
-            _body:        Release notes snippet (reserved, not displayed in bar).
-            download_url: Direct URL to the ``*-Setup.exe`` asset, or ``""``
-                          if no installer asset was found.
-            html_url:     GitHub release page URL for the "What's new" link.
+            release: Immutable release metadata; installation requires a matching
+                     installer asset, size and checksum manifest.
         """
         self._release = release
         tag_name, html_url = release.tag_name, release.html_url

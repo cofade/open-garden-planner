@@ -126,8 +126,7 @@ class UpdateChecker(QThread):
     Silently swallows all network / parse errors so it never blocks the UI.
     """
 
-    #: Emitted with (tag_name, release_body_snippet, download_url, html_url).
-    #: ``download_url`` may be an empty string if no Setup.exe asset was found.
+    #: Emitted with one immutable ReleaseInfo, including verification metadata.
     update_available = pyqtSignal(object)
 
     def run(self) -> None:

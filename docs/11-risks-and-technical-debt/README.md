@@ -1123,3 +1123,12 @@ unsuffixed imports. DLL versions, collection provenance and PE exports identifie
 the cause; the PE probe needed an export limit above pefile's default 8,192 to
 avoid false missing-symbol reports. A controlled-PATH clean build passed both
 frozen checks. Match the loader's actual DLL paths before changing Qt pins.
+
+Senior review reproduced four derived-geometry bypasses: translated rectangle
+bounds, combined group bounds, a rotated rectangle and decoded image scaling.
+Each operand was finite but Qt's resulting bounds were infinite. All four real
+load-preservation tests failed before the fix. A fifth regression showed opaque
+metadata text `value="NaN"` being incorrectly treated as geometry. The fix checks
+Qt's detached item graph before scene mutation, checks live geometry before saves,
+checks decoded image extents before scaling and scopes numeric-string validation
+to geometry containers. Numeric non-finite JSON remains invalid everywhere.

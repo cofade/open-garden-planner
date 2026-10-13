@@ -26,6 +26,10 @@ _GEOMETRY_KEYS = frozenset({
     "meters_per_pixel", "object_height_cm", "spacing_radius_cm", "value", "angle",
     "label_offset_x", "label_offset_y", "font_size_cm",
 })
+_GEOMETRY_CONTAINERS = frozenset({
+    "objects", "children", "points", "anchors", "handles_in", "handles_out",
+    "position", "guides", "constraints", "layers", "garden_journal_notes", "geo_metadata",
+})
 
 
 class PlanValidationError(ValueError):
@@ -78,7 +82,10 @@ def _walk(value: Any, path: str, *, geometry: bool = False) -> None:
                     pass
                 else:
                     finite_number(converted, child_path)
-            _walk(child, child_path, geometry=geometry or key in {"objects", "guides", "constraints", "layers", "garden_journal_notes"})
+            # Opaque metadata remains text even when its keys resemble geometry.
+            child_geometry = ((geometry or path == "plan") and key in _GEOMETRY_CONTAINERS
+                              or path == "plan.garden_journal_notes")
+            _walk(child, child_path, geometry=child_geometry)
         if geometry:
             _check_extents(value, path)
 

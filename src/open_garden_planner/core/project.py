@@ -23,6 +23,7 @@ from open_garden_planner.app.settings import get_settings
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.object_types import PathFenceStyle, StrokeStyle
 from open_garden_planner.core.plan_io import (
+    PlanValidationError,
     finite_number,
     read_plan,
     validate_plan_data,
@@ -1383,6 +1384,7 @@ class ProjectManager(QObject):
         # file order (see _deserialize_to_scene) reproduces the same stack
         # instead of inverting it -- see ADR-043 and §11.4.
         for item in reversed(list(scene.items())):
+            self._validate_item_geometry(item)
             obj_data = self._serialize_item(item)
             if obj_data:
                 objects.append(obj_data)
@@ -1793,6 +1795,8 @@ class ProjectManager(QObject):
         for obj in data.objects:
             try:
                 item = self._deserialize_item(obj)
+            except PlanValidationError:
+                raise
             except (KeyError, ValueError, TypeError, AttributeError) as e:
                 logger.warning(
                     "Failed to deserialize object of type %s: %s",
@@ -1806,6 +1810,12 @@ class ProjectManager(QObject):
                 continue
 
             deserialized_items.append(item)
+
+        # Let Qt compute rotation, image calibration and aggregate group bounds.
+        # Check the detached graph before any active-document mutation, rather
+        # than maintaining a second implementation of Qt transform arithmetic.
+        for item in deserialized_items:
+            self._validate_item_geometry(item)
 
         # Recursive duplicate UUID deduplication across items and children (FIND-03)
         self._deduplicate_item_uuids(deserialized_items, seen_uuids, reminted_map, logger)
@@ -1837,6 +1847,21 @@ class ProjectManager(QObject):
 
         self._last_load_skipped_items_count = skipped_count
         return deserialized_items, parsed_layers, parsed_constraints, parsed_guides
+
+    @staticmethod
+    def _validate_item_geometry(item: QGraphicsItem) -> None:
+        """Reject derived non-finite geometry in a detached or live item graph."""
+        for bounds in (item.boundingRect(), item.sceneBoundingRect()):
+            for value in (bounds.x(), bounds.y(), bounds.width(), bounds.height(),
+                          bounds.right(), bounds.bottom()):
+                finite_number(value, "object.bounds")
+        for transform in (item.transform(), item.sceneTransform()):
+            for value in (transform.m11(), transform.m12(), transform.m13(),
+                          transform.m21(), transform.m22(), transform.m23(),
+                          transform.m31(), transform.m32(), transform.m33()):
+                finite_number(value, "object.transform")
+        for child in item.childItems():
+            ProjectManager._validate_item_geometry(child)
 
     @staticmethod
     def _deduplicate_item_uuids(
