@@ -21,6 +21,7 @@ The [current reconciliation and package map](https://github.com/cofade/open-gard
 links the remaining work to thematic bundle issues.
 All 15 original standalone P0/P1 remediation issues are complete after #406 shipped in [v1.30.2](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.2) via [PR #477](https://github.com/cofade/open-garden-planner/pull/477).
 The rotation/constraint interaction discovered during manual testing is a separate follow-up, [#485](https://github.com/cofade/open-garden-planner/issues/485).
+Audit package A1 (#453: numeric input safety, verified release downloads, bounded image ingestion and owner-only Linux settings) shipped in [v1.30.3](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.3) via [PR #487](https://github.com/cofade/open-garden-planner/pull/487) after owner acceptance.
 
 ## Phases 1–12: complete
 
