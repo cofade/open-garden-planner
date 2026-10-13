@@ -2838,7 +2838,7 @@ Owner manual acceptance, protected merge and wiki publication remain pending.
 
 ### Audit package A2 (#454) — implementation in review
 
-Toolchain pins (interpreter `3.11.17`, NSIS `3.13.0`), commit-SHA action pins with a CI
+Toolchain pins (interpreter `3.11.9`, NSIS `3.13.0`), commit-SHA action pins with a CI
 drift guard, `dist/build-evidence.json` emitted and required by the release, a `pip-audit`
 scan of the locked export (one recorded build-only exception), the verified-unavailable
 Dependabot path replaced by a monthly report-only `dependency-review.yml`, the stale

@@ -2207,10 +2207,15 @@ the coverage threshold is a regression floor, not a substitute for those asserti
 **Decision.** Close the parts of the build that the Python lock cannot see, and give the
 dependency-update path a documented home:
 
-1. **Interpreter patch pinned** — `python-version: "3.11.17"` (the newest stable 3.11 in
-   `actions/python-versions`' manifest on 2026-10-13) in `release.yml` and in the shared
-   `setup-locked-env` composite, so every CI job and the release use one patch. The
-   `requires-python = ">=3.11"` install contract is deliberately unchanged.
+1. **Interpreter patch pinned** — `python-version: "3.11.9"` in `release.yml` and in the
+   shared `setup-locked-env` composite, so every CI job and the release use one patch. The
+   `requires-python = ">=3.11"` install contract is deliberately unchanged. **3.11.9 is
+   the newest 3.11 with a Windows x64 build** in `actions/python-versions`' manifest
+   (verified 2026-10-13): 3.11 entered security-only mode after it, and the later patches
+   ship Linux artifacts only, so pinning one of those broke the Windows matrix jobs in CI
+   run 38463742285 with "The version '3.11.17' with architecture 'x64' was not found for
+   Windows 2025". The drift test only requires a full `3.11.x`; changing the patch on
+   purpose means re-checking both platform builds.
 2. **Installer toolchain pinned** — `choco install nsis --version=3.13.0` (the newest
    version in Chocolatey's community feed on 2026-10-13), replacing a floating install.
 3. **External actions pinned to commit SHAs** with a readable `# vX.Y.Z` comment, in

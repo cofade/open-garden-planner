@@ -290,7 +290,8 @@ flowchart TD
 ### Toolchain pins and build evidence (AUD-049)
 
 The release is reproducible in the parts the Python lock cannot see: the interpreter
-patch (`3.11.17`), the installer toolchain (`choco install nsis --version=3.13.0`) and
+patch (`3.11.9` — the newest 3.11 with a Windows build; later patches are Linux-only), the
+installer toolchain (`choco install nsis --version=3.13.0`) and
 every external action (commit SHA + a readable `# vX.Y.Z` comment). Before the build the
 workflow writes `dist/build-evidence.json` — the actual Python, `uv`, PyInstaller,
 `pyinstaller-hooks-contrib`, `setuptools`, `wheel` and `nsis` versions plus the commit and

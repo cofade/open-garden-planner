@@ -42,6 +42,19 @@ def test_every_workflow_pins_a_full_python_patch() -> None:
             )
 
 
+def test_every_workflow_pins_the_same_python_patch() -> None:
+    versions = set()
+    for path in WORKFLOWS:
+        versions.update(
+            re.findall(r"python-version:\s*['\"]([^'\"]+)['\"]", path.read_text(encoding="utf-8"))
+        )
+    assert len(versions) == 1, (
+        f"workflows disagree about the interpreter patch: {sorted(versions)} — one value, "
+        "and it must have a build on every runner OS (3.11.9 is the newest 3.11 with a "
+        "Windows x64 build; later patches are security-only and Linux-only)"
+    )
+
+
 def test_release_pins_the_nsis_version() -> None:
     text = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
     match = re.search(r"choco install nsis(?P<args>[^\n]*)", text)

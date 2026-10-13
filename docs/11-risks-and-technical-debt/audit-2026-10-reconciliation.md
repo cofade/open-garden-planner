@@ -209,7 +209,7 @@ snapshot has not been rewritten. Per finding:
 - **AUD-053** — every external `uses:` in `ci.yml`, `release.yml` and the shared composite
   action is pinned to a commit SHA with a `# vX.Y.Z` comment; `scripts/check_action_pins.py`
   enforces it in the `agent-context` job and covers the composite action.
-- **AUD-049** — the interpreter patch (`3.11.17`) and NSIS (`--version=3.13.0`) are pinned;
+- **AUD-049** — the interpreter patch (`3.11.9`, the newest 3.11 with a Windows build) and NSIS (`--version=3.13.0`) are pinned;
   `scripts/emit_build_evidence.py --require-complete` records the actual toolchain in
   `dist/build-evidence.json` and fails a release it cannot state; the PyInstaller default
   version now comes from `pyproject.toml` instead of a stale `1.0.0`.
