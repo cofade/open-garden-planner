@@ -1878,6 +1878,11 @@ underlying primitive has finite intermediate geometry.
 load-preservation regression failed DID NOT RAISE ValueError before the fix.
 **Root cause.** The raw preflight omitted endpoint spans, and Qt's empty rectangle
 concealed the overflow from the detached bounds check.
-**Fix.** Check both endpoint differences and hypot length before construction.
+**Fix.** Check both endpoint differences and hypot length before construction,
+including point/anchor/control segments and polygon closing edges. Check arc
+endpoint/midpoint angle sums at the raw boundary; do not construct enormous sweeps
+to test arithmetic. Polyline, polygon and arc regressions also failed first.
+Pure huge-finite Qt path rendering limits preserve the serialized model and stay
+outside A1; no coordinate cap or zero-length rejection was introduced.
 **Lesson.** Validate primitive arithmetic when invalid geometry can collapse to an
 empty bounding rectangle. Keep the detached Qt composition gate as well.

@@ -36,8 +36,13 @@ def _embedded_image():
                   "scale_factor": 1e-308, "position": {"x": 0, "y": 0}}]},
     {"objects": [{"type": "construction_line", "x1": -1e308, "x2": 1e308,
                   "y1": 0, "y2": 0}]},
+    {"objects": [{"type": "polyline", "points": [
+        {"x": 0, "y": 0}, {"x": 1.7e308, "y": 1.7e308}]}]},
+    {"objects": [{"type": "polygon", "points": [
+        {"x": 0, "y": 0}, {"x": 1.7e308, "y": 0}, {"x": 1.7e308, "y": 1.7e308}]}]},
 ], ids=["canvas", "extent-overflow", "group", "translated-group-bounds",
-        "aggregate-group-bounds", "rotated-bounds", "decoded-image-scale", "line-span"])
+        "aggregate-group-bounds", "rotated-bounds", "decoded-image-scale", "line-span",
+        "polyline-length", "polygon-edge-length"])
 def test_rejected_open_preserves_active_document_and_history(qtbot, tmp_path, monkeypatch, bad):
     monkeypatch.setattr(GardenPlannerApp, "_show_welcome_dialog", lambda *_: None)
     app = GardenPlannerApp()

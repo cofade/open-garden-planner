@@ -64,6 +64,12 @@ def validate_canvas_size(width: Any, height: Any) -> tuple[float, float]:
     return dimensions[0], dimensions[1]
 
 
+def _check_segment(a: tuple[float, float], b: tuple[float, float], path: str) -> None:
+    dx = finite_number(b[0] - a[0], f"{path}.dx")
+    dy = finite_number(b[1] - a[1], f"{path}.dy")
+    finite_number(math.hypot(dx, dy), f"{path}.length")
+
+
 def _walk(value: Any, path: str, *, geometry: bool = False) -> None:
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         finite_number(value, path)
@@ -94,14 +100,20 @@ def _check_extents(record: dict[str, Any], path: str) -> None:
     """Refuse overflow of bounds before handing coordinates to Qt."""
     if all(key in record for key in ("x1", "y1", "x2", "y2")):
         try:
-            dx = float(record["x2"]) - float(record["x1"])
-            dy = float(record["y2"]) - float(record["y1"])
+            start = float(record["x1"]), float(record["y1"])
+            end = float(record["x2"]), float(record["y2"])
         except (ValueError, TypeError):
             pass
         else:
-            finite_number(dx, f"{path}.line.dx")
-            finite_number(dy, f"{path}.line.dy")
-            finite_number(math.hypot(dx, dy), f"{path}.line.length")
+            _check_segment(start, end, f"{path}.line")
+    if "start_deg" in record and "span_deg" in record:
+        try:
+            start_deg, span_deg = float(record["start_deg"]), float(record["span_deg"])
+        except (ValueError, TypeError):
+            pass
+        else:
+            finite_number(start_deg + span_deg, f"{path}.end_deg")
+            finite_number(start_deg + span_deg / 2, f"{path}.mid_deg")
     for position, size in (("x", "width"), ("y", "height"),
                            ("center_x", "radius"), ("center_y", "radius"),
                            ("center_x", "semi_x"), ("center_y", "semi_y"),
@@ -136,6 +148,8 @@ def _check_extents(record: dict[str, Any], path: str) -> None:
     if points:
         finite_number(max(p[0] for p in points) - min(p[0] for p in points), f"{path}.bounds.width")
         finite_number(max(p[1] for p in points) - min(p[1] for p in points), f"{path}.bounds.height")
+        for a, b in zip(points, points[1:] + points[:1], strict=True):
+            _check_segment(a, b, f"{path}.segment")
 
 
 def validate_plan_data(data: dict[str, Any]) -> None:

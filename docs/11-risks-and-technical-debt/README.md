@@ -1138,3 +1138,8 @@ finite endpoints can have an infinite span while Qt returns an empty bounding
 rectangle. Its real load-preservation test failed first. Raw endpoint differences
 and line length are now checked before construction, alongside the detached bounds
 gate; an empty Qt rectangle is not sufficient evidence that its primitive is valid.
+The same check covers point/anchor/control segments and polygon closing edges.
+Arc endpoint and midpoint angle sums are checked before construction. Polyline,
+polygon and arc regressions failed first, then passed with the shared arithmetic
+guard. Pure huge-finite Qt rendering limits retain their serialized model and remain
+outside A1; no coordinate cap or rejection of zero-length primitives was introduced.

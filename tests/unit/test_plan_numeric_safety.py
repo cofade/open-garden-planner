@@ -88,6 +88,12 @@ def test_opaque_metadata_numeric_strings_remain_text():
                                     "metadata": {"value": "NaN", "width": "Infinity"}}]})
 
 
+def test_arc_angle_composition_refused_before_construction():
+    with pytest.raises(ValueError):
+        validate_plan_data({"objects": [{"type": "arc", "center_x": 0, "center_y": 0,
+                                        "radius": 100, "start_deg": 1e308, "span_deg": 1e308}]})
+
+
 def test_live_nan_rotation_is_refused_even_if_serializer_would_omit_it(qtbot, tmp_path):
     scene = CanvasScene()
     item = RectangleItem(0, 0, 100, 100)
