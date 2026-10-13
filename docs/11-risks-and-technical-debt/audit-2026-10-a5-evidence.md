@@ -51,8 +51,8 @@ suite. The recorded selections/hashes/exact substitutions are in
 [baseline](audit-2026-10-a5-mutations-baseline.json) and
 [strengthened](audit-2026-10-a5-mutations-strengthened.json).
 
-Each unmutated control passed: **432 tests across 28 files** before A5; **494 tests
-across 31 files** after A5. Mutants use temporary import overlays and fresh pytest
+Each unmutated control passed: **432 tests across 28 files** before A5; **501 tests
+across 32 files** after A5. Mutants use temporary import overlays and fresh pytest
 processes, stopping at the first assertion failure. Working source and `.env` are
 never copied/overwritten. A source substitution must occur exactly once and compile.
 Non-test exits/collection failures are invalid; timeouts are separate evidence.
@@ -95,6 +95,14 @@ FIXED items while preserving scene geometry, graph and history. A real registere
 through GardenPlannerApp wiring. The existing command/serialization paths remain.
 
 ## Gate and artifact evidence
+
+First independent review found an additional old icon-table import in the icon-file
+sweep, a formatting-boundary difference from multiplication by 0.01, and an incomplete
+control-timeout reporting path. All were corrected. Six boundary regressions failed
+first; division by 100.0 retains the prior 17.5/20.5 cm display values. The runner's
+timeout path is pinned by a focused CLI test. Final focused run: 226 tests passed,
+plus the timeout test. An English/German all-type widget board was rendered and
+visually inspected, with readable labels, correct icons and status dots.
 
 Final full-suite, static, frozen, independent-review and CI evidence is recorded in
 the roadmap delivery note and draft PR. Owner manual acceptance and wiki publication

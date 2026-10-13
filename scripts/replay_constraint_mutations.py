@@ -21,7 +21,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 NEW_TESTS = {"test_constraint_solver_invariants.py", "test_constraint_descriptors.py",
-             "test_constraint_presentation_workflow.py"}
+             "test_constraint_presentation_workflow.py", "test_constraint_mutation_replay.py"}
 
 
 @dataclass(frozen=True)
@@ -195,7 +195,7 @@ def main() -> int:
               "control": control, "results": []}
     if control["status"] != "passed":
         args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-        print(f"Control failed: {control['summary']}")
+        print(f"Control {control['status']}: {control.get('summary', 'no pytest summary')}")
         return 1
     results = report["results"]
     for mutation in MUTATIONS:

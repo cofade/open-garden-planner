@@ -78,6 +78,17 @@ def test_tangent_displays_absolute_radius(qtbot):
     assert label.toolTip() == "A tangent to B (r=1.20 m)"
 
 
+@pytest.mark.parametrize("target,expected", [(17.5, "0.17 m"), (20.5, "0.20 m")])
+@pytest.mark.parametrize("kind", ["DISTANCE", "EDGE_LENGTH", "TANGENT"])
+def test_centimetre_rounding_boundaries_preserve_existing_division(qtbot, target, expected, kind):
+    row = ConstraintListItem(uuid4(), "A", "B", target, True, kind)
+    qtbot.addWidget(row)
+    label = next(label for label in row.findChildren(QLabel) if label.text())
+    assert expected in label.toolTip()
+    if kind != "TANGENT":
+        assert label.text().endswith(expected)
+
+
 def test_german_descriptor_strings_reach_compiled_translator(qtbot):
     from pathlib import Path
 

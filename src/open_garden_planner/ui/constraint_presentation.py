@@ -31,7 +31,7 @@ class ConstraintDescriptor:
     detail_template: str
     tooltip_template: str
     row_template: str = _PAIR
-    target_scale: float = 0.01
+    target_divisor: float = 100.0
     absolute_target: bool = False
     always_colored: bool = False
 
@@ -39,7 +39,8 @@ class ConstraintDescriptor:
         """Translate first, then interpolate; no cached language-dependent text."""
         values = {
             "a": label_a, "b": label_b, "c": _tr("…"),
-            "d": (abs(target) if self.absolute_target else target) * self.target_scale,
+            # Preserve the prior division operation, including rounding ties.
+            "d": (abs(target) if self.absolute_target else target) / self.target_divisor,
         }
         detail = _tr(self.detail_template).format(**values)
         text = _tr(self.row_template).format(**values, detail=detail).rstrip()
@@ -61,7 +62,7 @@ CONSTRAINT_DESCRIPTORS: Mapping[ConstraintType, ConstraintDescriptor] = MappingP
         QT_TR_NOOP("{a} vertical align {b}")),
     ConstraintType.ANGLE: ConstraintDescriptor(
         "constraint_angle", (200, 100, 0), QT_TR_NOOP("{d:.1f}°"),
-        QT_TR_NOOP("Angle {a}–{b}–{c}: {d:.1f}°"), row_template=_TRIPLE, target_scale=1.0),
+        QT_TR_NOOP("Angle {a}–{b}–{c}: {d:.1f}°"), row_template=_TRIPLE, target_divisor=1.0),
     ConstraintType.SYMMETRY_HORIZONTAL: ConstraintDescriptor(
         "constraint_symmetric", (0, 120, 200), QT_TR_NOOP("Symmetric"),
         QT_TR_NOOP("{a} symmetric to {b} about the horizontal axis")),

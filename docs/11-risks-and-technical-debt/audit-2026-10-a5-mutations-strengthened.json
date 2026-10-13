@@ -17,6 +17,7 @@
     "tests/integration/test_polyline_vertex_edit.py",
     "tests/unit/test_constraint_descriptors.py",
     "tests/unit/test_constraint_drag.py",
+    "tests/unit/test_constraint_mutation_replay.py",
     "tests/unit/test_constraint_tangent_math.py",
     "tests/unit/test_constraint_tool.py",
     "tests/unit/test_constraint_tool_angle.py",
@@ -100,7 +101,7 @@
     "name": "control",
     "status": "passed",
     "returncode": 0,
-    "summary": "============================ 494 passed in 17.74s ============================="
+    "summary": "============================ 501 passed in 17.18s ============================="
   },
   "results": [
     {
@@ -109,7 +110,7 @@
       "returncode": 1,
       "assertion_evidence": [
         "FAILED tests/unit/test_constraint_solver_invariants.py::test_newton_alignment_and_symmetry_have_correct_geometry[ConstraintType.SYMMETRY_HORIZONTAL]",
-        "========================= 1 failed, 2 passed in 1.27s ========================="
+        "========================= 1 failed, 2 passed in 1.45s ========================="
       ]
     },
     {
@@ -118,7 +119,7 @@
       "returncode": 1,
       "assertion_evidence": [
         "FAILED tests/unit/test_constraint_solver_invariants.py::test_newton_alignment_and_symmetry_have_correct_geometry[ConstraintType.SYMMETRY_VERTICAL]",
-        "========================= 1 failed, 3 passed in 1.32s ========================="
+        "========================= 1 failed, 3 passed in 1.46s ========================="
       ]
     },
     {
@@ -127,7 +128,7 @@
       "returncode": 1,
       "assertion_evidence": [
         "FAILED tests/unit/test_constraint_solver_invariants.py::test_nonzero_anchor_offsets_resolve_in_scene_frame[True]",
-        "======================== 1 failed, 12 passed in 1.29s ========================="
+        "======================== 1 failed, 12 passed in 1.56s ========================="
       ]
     },
     {
@@ -136,7 +137,7 @@
       "returncode": 1,
       "assertion_evidence": [
         "FAILED tests/unit/test_constraint_solver_invariants.py::test_newton_infeasible_reports_actual_residual_and_keeps_pins[False]",
-        "========================= 1 failed, 8 passed in 1.40s ========================="
+        "========================= 1 failed, 8 passed in 1.59s ========================="
       ]
     },
     {
@@ -153,7 +154,7 @@
       "returncode": 1,
       "assertion_evidence": [
         "FAILED tests/unit/test_constraint_solver_invariants.py::test_anchored_all_pinned_infeasible_is_not_success",
-        "======================== 1 failed, 10 passed in 1.33s ========================="
+        "======================== 1 failed, 10 passed in 1.63s ========================="
       ]
     },
     {
@@ -162,7 +163,7 @@
       "returncode": 1,
       "assertion_evidence": [
         "FAILED tests/integration/test_auto_constraint_emit.py::TestTangentDragHolds::test_tangency_and_weld_hold_large_drag_user_geometry",
-        "======================== 1 failed, 30 passed in 1.42s ========================="
+        "======================== 1 failed, 30 passed in 1.86s ========================="
       ]
     },
     {
@@ -171,7 +172,7 @@
       "returncode": 1,
       "assertion_evidence": [
         "FAILED tests/unit/test_constraint_solver_invariants.py::test_feasibility_and_conflict_ids_preserve_graph_and_inputs[200.0-False]",
-        "======================== 1 failed, 17 passed in 1.34s ========================="
+        "======================== 1 failed, 17 passed in 1.72s ========================="
       ]
     }
   ],

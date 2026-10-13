@@ -2844,7 +2844,7 @@ AUD-012: immutable enum-complete constraint panel presentation descriptors, reta
 the existing translation context, icons, colors, formatting and theme refresh.
 AUD-023: fresh eight-mutant sample with explicit source/test scope, independent
 residual/geometry/pinning/feasibility/conflict-ID assertions and real panel/history
-workflow. Existing relevant selection: 432 tests; strengthened selection: 494 tests.
+workflow. Existing relevant selection: 432 tests; strengthened selection: 501 tests.
 Two confirmed symmetry survivors are killed; one baseline timeout remains identified
 separately. All eight strengthened mutations fail assertions. No historical mutation
 score or co-change count is promoted into current evidence.
