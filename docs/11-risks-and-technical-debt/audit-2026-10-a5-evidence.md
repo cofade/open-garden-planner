@@ -104,7 +104,14 @@ timeout path is pinned by a focused CLI test. Final focused run: 226 tests passe
 plus the timeout test. An English/German all-type widget board was rendered and
 visually inspected, with readable labels, correct icons and status dots.
 
-Final full-suite, static, frozen, independent-review and CI evidence is recorded in
-the roadmap delivery note and draft PR. Owner manual acceptance and wiki publication
+Final reviewed source `cda81961`: Windows full suite **8313 passed, 37 skipped**
+in 910.54 seconds, no failures. Independent fresh-worktree re-review passed 191
+tests with no findings. Ruff, HIGH Bandit (0), lock/export, Windows type baseline
+(0 regressions), i18n/interpolation (35), parity, citations, secrets and wiki pass.
+Controlled-PATH clean frozen build passes detached self-test (0) and eight-second
+startup (124 equivalent). A registered Fixed/Fixed/Distance gesture emitted the
+conflict warning and preserved scene/graph/history. Final Linux coverage and
+cross-platform CI results are recorded in the draft PR. See the roadmap receipt.
+Owner manual acceptance and wiki publication
 remain pending. Epic #392 remains open; A4/A6/A7 structural extraction and #485's
 rotation/constraint interaction are outside this package.
