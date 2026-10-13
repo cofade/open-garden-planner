@@ -1,5 +1,6 @@
 """Dependency governance gates: locked scan, monthly fallback, caps, SBOM release wiring."""
 
+import re
 import tomllib
 from pathlib import Path
 
@@ -20,6 +21,15 @@ def _requirement(name: str) -> Requirement:
     raise AssertionError(f"{name} is not a runtime dependency")
 
 
+def _job_block(name: str) -> str:
+    """The body of one ``ci.yml`` job, bounded by the next job key."""
+    match = re.search(
+        rf"^  {re.escape(name)}:\n(?P<body>.*?)(?=^  [\w-]+:\n|\Z)", CI, re.MULTILINE | re.DOTALL
+    )
+    assert match, f"ci.yml no longer defines a {name!r} job"
+    return match.group("body")
+
+
 def test_ci_audits_the_locked_closure_on_every_shipped_platform() -> None:
     assert "pip-audit" in CI
     assert "--ignore-vuln PYSEC-2026-3447" in CI, (
@@ -28,7 +38,7 @@ def test_ci_audits_the_locked_closure_on_every_shipped_platform() -> None:
     assert "uv export --locked --all-extras --group build" in CI, (
         "the audit must run against the committed lock export, not installed state"
     )
-    dependencies_job = CI.split("  dependencies:", 1)[1].split("\n  types:", 1)[0]
+    dependencies_job = _job_block("dependencies")
     assert "pip-audit" in dependencies_job, (
         "the audit belongs in the two-OS matrix job: pip-audit evaluates markers for the "
         "running platform, so a Linux-only scan never sees the Windows-only runtime "
@@ -79,13 +89,16 @@ def test_the_monthly_review_never_writes_without_review() -> None:
     assert "if ! uv lock --upgrade --dry-run" in REVIEW, (
         "a failed dry run must fail the workflow; a silent 'up to date' is a lying gate"
     )
-    assert "|| true" not in REVIEW
+    assert "uv lock --upgrade --dry-run > upgrade.txt 2>&1 || true" not in REVIEW, (
+        "uv's exit code must never be discarded (the grep's own '|| true' is fine: "
+        "no matches is not an error)"
+    )
     assert "grep -q '^Resolved '" in REVIEW, (
         "an unrecognized uv output shape must fail loudly, not report 'no updates'"
     )
-    assert "grep -q '^Update '" in REVIEW, (
-        "the report parses this literal; if a uv bump renames it, the marker guard must "
-        "catch it rather than reporting 'no updates'"
+    assert "grep -E '^(Update|Add|Remove|Lockfile changes detected)'" in REVIEW, (
+        "all of uv's change shapes must count as changes; only their absence means the "
+        "lock is current"
     )
     assert "git diff --exit-code -- uv.lock" in REVIEW, (
         "the workflow must verify the dry run really wrote nothing"

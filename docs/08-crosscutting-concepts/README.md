@@ -615,7 +615,15 @@ name the platform and locked interpreter, not imply a Windows chmod mock proves 
 
 **CI enforcement:** The `security` job in `ci.yml` runs `bandit -r src/ --severity-level high` on every push. CI fails only on HIGH-severity findings. MEDIUM and LOW findings are omitted by this invocation. Use the separate all-findings command below for awareness; no broader scan is claimed.
 
-**Dependency vulnerability scan (AUD-054, #454):** the same job also runs `pip-audit` over the committed lock export (`uv export --locked --all-extras --group build`), so a finding is a finding in a shipped or build artifact rather than in a developer's environment. One advisory is recorded as an explicit exception — build-time `setuptools` `PYSEC-2026-3447`, which only affects publishing macOS source distributions (justification in §11.2); its fix stays reserved for a separately reviewed dependency PR. Any new advisory fails the job.
+**Dependency vulnerability scan (AUD-054, #454):** the `Dependencies` matrix job (Linux and
+Windows) also runs `pip-audit` over the committed lock export
+(`uv export --locked --all-extras --group build`), so a finding is a finding in a shipped or
+build artifact rather than in a developer's environment; it runs on both platforms because
+pip-audit evaluates requirement markers for the running interpreter (the Windows-only
+`pywin32` is invisible to a Linux-only scan). One advisory is recorded as an explicit
+exception — build-time `setuptools` `PYSEC-2026-3447`, which only affects publishing macOS
+source distributions (justification in §11.2); its fix stays reserved for a separately
+reviewed dependency PR. Any new advisory fails the job.
 
 **Local use:**
 ```bash

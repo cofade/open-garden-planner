@@ -54,12 +54,17 @@ jobs:
             echo "Generated on $(date -u +%Y-%m-%d) by \`uv lock --upgrade --dry-run\`"
             echo "(a dry run: nothing is written and nothing here is committed)."
             echo
-            if grep -q '^Update ' upgrade.txt; then
+            # uv reports version moves as 'Update', pure add/remove as 'Add'/'Remove',
+            # and a change it cannot describe as 'Lockfile changes detected'. Any of
+            # them is a change; only their absence means the lock is current.
+            # ('|| true' belongs to grep here: no matches is exit 1, not an error.)
+            changes=$(grep -E '^(Update|Add|Remove|Lockfile changes detected)' upgrade.txt || true)
+            if [ -n "$changes" ]; then
               echo '```'
-              grep '^Update ' upgrade.txt
+              printf '%s\n' "$changes"
               echo '```'
             else
-              echo "No package updates are available; the lock is current."
+              echo "No lockfile changes detected; the lock is current."
             fi
             echo
             echo "Review with the runbook in \`docs/07-deployment-view/README.md\` §7.4:"

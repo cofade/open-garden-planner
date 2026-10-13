@@ -37,10 +37,11 @@ exclusions when publishing macOS source distributions. GitHub identifies 83.0.0 
 patched version. Applicability assessment: current CI uses Linux/Windows editable installs
 and publishes a Windows PyInstaller/NSIS installer; it does not publish macOS sdists.
 [Dependabot alert 1](https://github.com/cofade/open-garden-planner/security/dependabot/1)
-remains open for a separately reviewed backend/lock update. The CI `Security` job now runs
-`pip-audit` against the committed lock export (`uv export --locked --all-extras --group
-build`) on every push, with this single advisory recorded as
-`--ignore-vuln PYSEC-2026-3447`; a new advisory fails the job.
+remains open for a separately reviewed backend/lock update. The CI `Dependencies` matrix job
+(Linux and Windows) now runs `pip-audit` against the committed lock export
+(`uv export --locked --all-extras --group build`) on every push, with this single advisory
+recorded as `--ignore-vuln PYSEC-2026-3447`; a new advisory fails the job. Both platforms
+run it because pip-audit evaluates markers for the running interpreter.
 
 Automated dependency PRs remain unavailable: Dependabot's uv ecosystem image ships uv
 **0.12.19** (`uv/Dockerfile` in dependabot-core, read 2026-10-13) while this project pins

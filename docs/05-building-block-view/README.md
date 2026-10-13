@@ -436,6 +436,25 @@ verifiers. prepare_version_sync stages mechanical source/lock updates before an 
 Versioned policy files live in quality/. These tools have subprocess integration coverage and
 remain outside application runtime dependencies. See ADR-050.
 
+## Audit A2 build reproducibility and distribution inventory (#454)
+
+- `installer/runtime_closure.py`: the single resolver of the project's installed runtime
+  distribution closure (manifest-anchored, extras- and marker-aware); consumed by the
+  PyInstaller spec (which bundles each distribution's `.dist-info`) and by the inventory
+  generator, so a new dependency appears without a hand-typed list.
+- `scripts/generate_distribution_inventory.py`: reads that metadata back out of the frozen
+  bundle and writes `THIRD_PARTY_NOTICES.md` (full license texts) and a CycloneDX 1.5 SBOM;
+  fails closed on an undiscoverable or sentinel license, and `--check`s the artifacts
+  against the bundle, the requested app version and `pylock.toml`. Never a runtime import.
+- `scripts/emit_build_evidence.py`: records the actual Python/uv/PyInstaller/NSIS toolchain
+  plus commit and run id into `dist/build-evidence.json`; `--require-complete` fails a
+  release whose toolchain it cannot state.
+- `scripts/check_action_pins.py`: read-only CI gate; every external `uses:` in the workflows
+  and the shared composite action must be a commit SHA with a `# vX.Y.Z` comment.
+- `installer/build_installer.py` orchestrates PyInstaller → inventory (generate + check) →
+  NSIS, and the installer compiles only when the notices exist. See ADR-044/050 addenda and
+  `docs/07-deployment-view` §7.2/§7.4.
+
 ## Package F1/F2: traits, guilds and diagnostics
 
 `models/plant_data.py` owns stable trait enums and snapshots; `services/permaculture.py` owns provider token mapping and the filter predicate. `species_catalog.py` combines bundled/custom records for search and authoring. `ui/plant_creation.py` builds plants without mutation, shared by drops and guild preflight. Semantic canvas-layer preset/preference commands live in `core/permaculture_commands.py`.

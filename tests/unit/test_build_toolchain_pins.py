@@ -39,13 +39,15 @@ def _load_build_installer():
 
 
 def test_every_workflow_pins_a_full_python_patch() -> None:
-    floating = re.compile(r"python-version:\s*['\"]3\.11['\"]")
     files = _files_with_python_pin()
     assert files, "no workflow pins a python-version at all"
     for path in files:
         text = path.read_text(encoding="utf-8")
-        assert not floating.search(text), f"{path} still floats the Python patch"
-        for version in re.findall(r"python-version:\s*['\"]([^'\"]+)['\"]", text):
+        # Unquoted values count too: `python-version: 3.11` must fail here, not
+        # slip through a quotes-only pattern (senior review round 4).
+        versions = re.findall(r"python-version:\s*['\"]?([^'\"\s]+)", text)
+        assert versions, f"{path} mentions python-version but yields no value"
+        for version in versions:
             assert re.fullmatch(r"3\.11\.\d+", version), (
                 f"{path}: python-version {version!r} is not a full 3.11 patch"
             )
@@ -55,7 +57,10 @@ def test_every_workflow_pins_the_same_python_patch() -> None:
     versions = set()
     for path in _files_with_python_pin():
         versions.update(
-            re.findall(r"python-version:\s*['\"]([^'\"]+)['\"]", path.read_text(encoding="utf-8"))
+            re.findall(
+                r"python-version:\s*['\"]?([^'\"\s]+)",
+                path.read_text(encoding="utf-8"),
+            )
         )
     assert len(versions) == 1, (
         f"workflows disagree about the interpreter patch: {sorted(versions)} — one value, "

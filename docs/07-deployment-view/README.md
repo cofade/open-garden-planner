@@ -297,7 +297,8 @@ every external action (commit SHA + a readable `# vX.Y.Z` comment). Before the b
 workflow writes `dist/build-evidence.json` — the actual Python, `uv`, PyInstaller,
 `pyinstaller-hooks-contrib`, `setuptools`, `wheel` and `nsis` versions plus the commit and
 run id — and fails (`--require-complete`) if any required version cannot be established.
-The file is uploaded as a workflow artifact.
+The file is uploaded as a workflow artifact **and attached to the release** (§7.3), so the
+record survives artifact expiry.
 
 `scripts/check_action_pins.py` is the drift guard: it fails CI if any workflow or the
 shared composite action references an action by a mutable tag. To bump a pin, resolve the
@@ -327,10 +328,10 @@ The runbook for acting on the monthly issue:
    those checks exist for.
 4. Open a reviewed PR. No auto-merge.
 
-The `Security` job additionally audits the locked closure with `pip-audit` every run
-(`uv export --locked --all-extras --group build`). The only recorded exception is
-build-time `setuptools` `PYSEC-2026-3447`; the justification lives in §11.2 and the fix is
-reserved for a separately reviewed dependency PR.
+The `Dependencies` matrix job (Linux and Windows) additionally audits the locked closure
+with `pip-audit` every run (`uv export --locked --all-extras --group build`, §7.4). The only
+recorded exception is build-time `setuptools` `PYSEC-2026-3447`; the justification lives in
+§11.2 and the fix is reserved for a separately reviewed dependency PR.
 
 ### PR Labels for Versioning
 
