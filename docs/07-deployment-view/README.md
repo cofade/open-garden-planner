@@ -372,3 +372,13 @@ Repository community files own contributor, conduct, security, and accessibility
 GitHub's private vulnerability reporting setting must be enabled before SECURITY.md goes live.
 Abuse reports to GitHub Support are separate from vulnerability reports to maintainers.
 The community profile and PR-template recognition require post-merge verification.
+
+## In-app installation verification (A1, #453)
+
+The application requires the matching release's `SHA256SUMS.txt` before launching
+the installer. Missing/invalid metadata, unpermitted redirects, byte-count mismatch,
+checksum mismatch or cancellation prevent launch. Manual download remains available
+from the release page. This adds download-integrity verification; installers remain
+unsigned, and build-provenance attestation remains independently verifiable as before.
+Linux settings files from earlier releases migrate to owner-only permissions on startup;
+an unprotectable store causes an actionable startup error instead of insecure persistence.

@@ -79,3 +79,8 @@ for the frozen-build verification requirements.
 Online providers require their own credentials.
 See the [Plant API Setup Guide](https://github.com/cofade/open-garden-planner/blob/master/docs/03-context-and-scope/PLANT_API_SETUP.md).
 Do not include API keys or write-enabled Agent API URLs in public reports.
+
+The in-app updater verifies the selected release's SHA-256 checksum and download
+origin before launching its installer. When verification is unavailable or fails,
+use the release page and its published verification instructions. Installers remain
+unsigned; checksum verification and build provenance do not add code signing.

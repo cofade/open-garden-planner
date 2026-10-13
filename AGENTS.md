@@ -222,6 +222,8 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 ## Where to Pick Up After Restart
 
+- **Audit A1 (#453) implemented; owner acceptance pending:** AUD-041/042/044/047 cover strict numeric plan I/O, verified release downloads, bounded image ingestion and owner-only Linux settings. No new dependency or file-format bump. Epic #392 remains open. See ADR-003/041/044 addenda and the roadmap delivery notes.
+
 - **Audit #392 backlog reconciled on 2026-10-12:** all 73 P2/P3 findings have one package and evidence-backed disposition; 5 fixed, 19 partial, 49 unresolved. Bundles A1–A13 are issues #453–#465; see `docs/11-risks-and-technical-debt/audit-2026-10-reconciliation.md`. #406 shipped in v1.30.2 via PR #477, completing all 15 original standalone P0/P1 remediations; constraint refactors remain later work. The epic stays open; historical audit metrics are not current measurements.
 
 - **#406 shipped as v1.30.2 ([PR #477](https://github.com/cofade/open-garden-planner/pull/477)) after owner acceptance on 2026-10-12.** All 13 constraint tools have real gesture/geometry/history coverage, canonical rectangle Edge Length sizing and ADR-050 per-file enforcement. Full-suite target coverage: 2023/2372 lines (85.3%), 486/720 branches (67.5%); line floor 60%. Full CI, independent review and frozen smoke/selftest passed; local timing limitations are recorded in the roadmap. The pre-existing rotation/constraint interaction is follow-up #485; its skipped-undo symptom remains an investigation. #392 stays open for A1–A13.

@@ -443,3 +443,14 @@ remain outside application runtime dependencies. See ADR-050.
 `models/guild.py` validates templates, lays out rings and remaps deep copied membership. `guild_library.py` eagerly validates bundles, isolates user-file errors and saves atomically. `guild_service.py` computes explicit-member function counts. `core/guild_commands.py` owns insertion and targeted membership changes; canonical deletion dissolves surviving links. The picker/editor are application widgets, not agent write surfaces.
 
 `ui/guild_coordinator.py` applies one computed snapshot to cosmetic badges, the Companion guild section and Diagnostics. `services/diagnostics.py` is the Qt-free record converter; `agent_api/diagnostics.py` is only its schema adapter. Sidebar rows store UUIDs and navigate through `ObjectNavigator`.
+
+## Audit A1 trust boundaries (#453)
+
+- `core/plan_io.py`: Qt-free raw numeric validation, shared canvas limits, strict
+  `.ogp` reads and atomic writes; consumed by project, autosave and season handling.
+- `services/verified_update.py`: exact release/origin validation, bounded checksum
+  parsing, streamed hashing and a verified installer result; never launches a process.
+- `services/image_download.py`: bounded Requests streaming and full Pillow decoding;
+  consumed by thumbnails and Static Maps. Thumbnails normalize to bounded PNG caches.
+- `app/settings.py`: the existing factory protects Linux credential-file ownership
+  and permissions. `main.py` handles protection failure before constructing the window.

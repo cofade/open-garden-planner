@@ -1098,3 +1098,21 @@ Private vulnerability reporting is enabled. Conduct reports go privately to GitH
 not directly to the maintainer. No contact email or private Discussion channel is promised.
 Repository wiki sources and manual publication follow `docs/wiki/README.md`; publication
 and GitHub community-profile recognition remain pending owner review and merge.
+
+### A1 numeric, download and settings boundaries (#453)
+
+The A1 branch implements AUD-041/042/044/047; owner acceptance and protected merge
+remain pending. TD-025 is resolved in the implementation, not yet a shipped claim.
+
+The original failures were reproduced: non-finite JSON reached scene preparation,
+a non-finite save overwrote a valid file, HTML labeled as PNG was cached, duplicate
+installer assets selected the first entry, and Qt 6.11 Linux settings were mode 0644
+under umask 022. Fixes live at shared ingestion/persistence boundaries rather than
+only one caller. Geometry validation also checks overflow from finite operands and
+live NaN rotation that a conditional serializer would otherwise omit.
+
+Pins: `test_plan_numeric_safety.py`, `test_verified_update.py`, `test_image_download.py`,
+`test_a1_plan_safety.py`, `test_a1_download_safety.py`, `test_settings_isolation.py`
+and `test_settings_security_startup.py`. Linux evidence uses the locked environment
+and real permissions. A successful Windows API mock is never reported as that evidence.
+Separate shutdown #480/#483, rotation #485 and unfinished 3D work remain outside A1.

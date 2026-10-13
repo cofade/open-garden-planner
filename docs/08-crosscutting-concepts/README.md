@@ -214,6 +214,16 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 - **No silent failures — handled logging & crash backstop (AUD-063, TD-023, #405, ADR-052)**:
   Handled errors and warnings across all application components are routed to a persistent rotating file handler (`app.log`, 1 MB, 3 backups) in the user data directory, with console echoing to stderr when available (preventing discarded records in the windowed frozen executable where `sys.stderr is None`). Uncaught exceptions are intercepted by `_install_excepthook` in `main.py`, written to `crash.log`, and surfaced to the user via a recoverable error dialog so unsaved work can be preserved.
 
+### A1 numeric refusal (#453)
+
+The file boundary is `core/plan_io.py`. Invalid numbers anywhere in the raw payload,
+including nested group/curve geometry, reject the entire plan before preparation;
+they are not silently dropped as malformed items. Phase 1 refusal preserves the
+active scene, selection, command history, filename, dirty state and autosave.
+All `.ogp` writers validate and encode before replacing files atomically. See the
+ADR-003 addendum. Earlier wording that every load failure clears identity applies
+only to unexpected failures after scene mutation, not Phase 1 refusals.
+
 ## 8.8 Settings Storage — One Chokepoint (ADR-041)
 
 User state lives in a platform-native QSettings store (Windows: registry under
@@ -582,6 +592,17 @@ Optional `file_line_floors` extends the package gate; `core/tools/constraint_too
 at least 60% full-suite lines. Compare integer covered/total counts; branch counts are reported
 separately without a threshold. Missing files and malformed records fail visibly. Linux
 rebaselining preserves explicit file floors (ADR-050 addendum).
+
+### A1 trust-boundary testing (#453)
+
+Failing-first tests pin invalid-number rejection, mislabeled HTML caching and
+duplicate installer selection. Integration tests drive the real application document
+load and update notification/worker paths with network and process launch controlled.
+A loopback HTTP fixture proves byte limits apply after gzip decoding. Linux settings
+tests run real QSettings in fresh processes with private XDG directories and controlled
+umasks; Windows skips only those platform-specific assertions and pins registry parity.
+No test executes an installer or calls a paid map provider. Test-layer evidence must
+name the platform and locked interpreter, not imply a Windows chmod mock proves Linux.
 
 ## 8.11 Security Scanning (SAST)
 
@@ -2477,3 +2498,22 @@ US-F3 (#314) and #428 follow ADR-056. `core/shade_aggregation.compute_sun_exposu
 `DiagnosticsCoordinator` is the sole general-panel publisher. Producers cache records and emit `CanvasScene.diagnostics_changed`; `ProjectManager.diagnostics_snapshot` harvests all producers for both UI and MCP conversion. Rows store UUIDs and resolve them at click time; document replacement cancels pending navigation. Sun records use enclosing-group navigation UUIDs and retain the physical receiver in details. Theme-aware runtime child badges stay inside plant footprints, with unchanged transform origins, snapping and serialization. Translated labels and one-decimal localized hours are presentation only.
 
 Tests distinguish the displayed ground heatmap from estimated receiver sun. The Berlin constants are measured outside the new sparse implementation, not computed expectations. Deterministic controlled workers emit even after cancellation to prove late-result rejection. Cancellation is checked inside caster loops; an owner keeps its worker until queued `finished` and refuses a second launch while cleanup is pending. The full suite retains the existing heatmap budget and adds a 200-receiver budget plus a live GUI timer assertion.
+
+## A1 security ingestion contracts (#453; sections 8.8, 8.11 and 8.15)
+
+Linux settings protection remains in the one QSettings factory: owner-only 0600,
+regular file/current owner, non-truncating migration, unchanged registry behavior,
+and fail-closed startup. Atomic Qt synchronization stays enabled. See ADR-041.
+
+The updater validates exact release identity/origins, each redirect, the matching
+64 KiB-bounded checksum manifest, actual asset size and SHA-256. It passes a verified
+result to launch and rechecks the file. User failures are translated categories;
+signed URLs, API credentials and raw network diagnostics are not displayed. See ADR-044.
+
+Thumbnail transfers allow at most 16 MiB and 16777216 decoded pixels; cached thumbnails
+are genuine PNGs with at most 2048 pixels per edge. Static Maps transfers allow at most
+8 MiB and the existing 1280×1280 tile dimensions. Content-Type is insufficient: header
+dimensions, structure and full first-frame decoding are checked before use. Responses
+close on all paths, HTTP error excerpts are limited to 200 bytes, and Google keys stay
+redacted. Existing invalid caches are rejected; valid legacy images normalize on use.
+The map's calibration, crop/mosaic math and existing cancellation outcomes are unchanged.

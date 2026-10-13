@@ -387,3 +387,35 @@ conflict with existing rows are refused; this path does not offer destructive Ov
 Unrelated equal-height relations survive width changes. The normal trial solve,
 command execution and graph row use one history entry; undo restores size and graph, redo
 restores the same constraint identity. Cancellation/refusal creates no history entry.
+
+## A1 input and download refusal paths (#453)
+
+```mermaid
+sequenceDiagram
+    participant UI
+    participant ProjectManager
+    participant PlanIO
+    participant Scene
+    UI->>ProjectManager: open(candidate)
+    ProjectManager->>PlanIO: strict read and numeric preflight
+    alt invalid input
+        PlanIO-->>UI: rejection before document replacement
+    else valid input
+        ProjectManager->>ProjectManager: prepare items, layers, constraints
+        ProjectManager->>Scene: apply prepared document
+    end
+```
+
+Save builds a detached candidate including journal positions, validates/encodes,
+writes a sibling temporary file and replaces the destination. Only then do filename,
+clean state, recent files and journal metadata advance. Autosave and season writes
+reuse the same persistence boundary.
+
+The update checker passes a complete release descriptor to the update bar. Its worker
+downloads the bounded manifest, streams and hashes the installer, checks size/digest,
+then emits a verified result. The UI rechecks cancellation and persisted bytes before
+launch. Rejection and cancellation never reach process launch.
+
+Linux startup creates QApplication, secures the settings backend, loads preferences
+and constructs the main window. An ownership/permission failure exits with a visible
+error before the preference and window steps.

@@ -26,6 +26,24 @@ Architecture Decision Records (ADRs) for significant technical choices.
 **Rationale**: Human-readable, VCS-friendly, no external database needed. Embedded images ensure portability.
 **Consequences**: Large file sizes with embedded images. No binary efficiency. Version migration requires JSON schema evolution.
 
+### Addendum — strict numeric boundaries and atomic persistence (A1, #453, 2026-10-13)
+
+`core/plan_io.py` is the Qt-free `.ogp` read/write boundary. Normal open/save,
+autosave and season reads/writes use it. JSON constants, exponent/conversion
+overflow, non-finite nested values and overflowing geometry extents are refused
+before scene preparation. The existing agent canvas range (50–100000 cm) now has
+one validator shared with the file boundary. Unknown items, finite off-canvas
+geometry and ordinary legacy defaults retain their existing handling.
+
+Encode with `allow_nan=False` before opening a destination, then write a sibling
+temporary file, flush/fsync and atomically replace. Invalid data or an unsuccessful
+replacement cannot truncate the previous file. Journal-pin reconciliation is made
+in a detached candidate and applied to project metadata only after a successful
+save. Rejected Phase 1 loads preserve filename, dirty state, history and recovery;
+unexpected failures after scene mutation retain the existing protective reset.
+The format remains 1.4. This is input/persistence hardening, not a geometry clamp
+or a claim that finite hostile outlines have bounded rendering costs.
+
 ## ADR-004: Command Pattern for Undo/Redo
 
 **Status**: Accepted
@@ -1193,6 +1211,23 @@ The independent review caught four P1s, all fixed before the PR: **(1)** the urg
 
 **Consequences.** `tests/conftest.py` has one isolation fixture instead of two, and it yields the displaced production `(organization, application)` pair so tests can assert that pair is never touched without hardcoding it. `tests/integration/test_settings_isolation.py` builds the whole app and spies on Python-level `QSettings.value`/`setValue`: pre-fix it records 3 reads + 3 writes against the real store (verified by reverting the chokepoint), post-fix zero, with anti-vacuity assertions that the spy and the app both did something. Independently confirmed by hashing the real registry key's 29 values around a 47-test full-app file: byte-identical. Two clean-ups fell out of having one ownership story: `main.py` now takes the `QApplication` organization/application names from `settings` instead of repeating the literals, and `AppSettings`' duplicate, never-called `window_geometry`/`window_state` pair (keys `window/geometry`, `window/state`) is deleted — window geometry belongs to `UiStateStore` alone. **Note what the first clean-up widened:** those two constants were the settings-store identity; they are now also the `QApplication` names, which is what `QStandardPaths.AppDataLocation` derives from — i.e. where `main._write_crash_log` puts `crash.log`. The literals are unchanged so nothing moves today, but a future fixture that rebinds them in a scope where something calls `setOrganizationName()` would move the user-data directory with them. One more thing "one chokepoint" does *not* mean: one object. `AppSettings` and `UiStateStore` hold independent `QSettings` instances on the same key, with independent caches and no explicit `sync()` discipline between them — unchanged from before #285, and fine because their key groups are disjoint, but the phrase is about construction, not coherence. Adding a new persisted setting needs no new store — add a key to `AppSettings`; adding a genuinely separate store means calling `create_qsettings()` *at runtime*, and the gates will say so if you forget either part.
 
+### Addendum — Linux settings protection (A1, #453, 2026-10-13)
+
+The owner chose fail-closed startup over temporary settings. The existing factory
+secures its actual Linux user file to mode 0600 before returning a backend. New
+application directories use mode 0700; existing shared ancestors are unchanged.
+The descriptor must identify a regular file owned by the current user. A legitimate
+symlink is supported through its validated target. Existing preferences and plaintext
+credentials retain their keys; Windows registry and macOS behavior are unchanged.
+No keyring dependency or encryption is introduced.
+
+The baseline was reproduced in isolated Python 3.11 / Qt 6.11: native QSettings
+creates mode 0644 under umask 022. Tests run fresh subprocesses under umasks 022
+and 000, exercise an existing 0644 store, repeated atomic sync, safe symlinks,
+special files and simulated chmod failure. The factory does not alter global
+umask, QSettings format or path statics. A protection failure produces a sanitized,
+translated startup error using the system locale and exits before the main window.
+
 ## ADR-042: Visual Refresh Package 3 — Generated Object Sprites, Forge Textures, Comprehensive Iconography
 
 **Status**: Accepted (2026-08-17 Package 3a; 2026-08-18 Packages 3b and 3c) | **Context**: epic #284 (Phase 15 Package 3), decisions locked in the 2026-08-17 planning session and logged on the issue; sub-issues #308 (3a), #309 (3b), #310 (3c)
@@ -1363,6 +1398,28 @@ The issue listed three options. **Option 1 is taken**: the panel reads the plan 
 
 **Consequences.** FR and §8 docs updated; the ADR-036 US-D3.2 addendum's `suggest_succession` exclusions are now explainable from the GUI, which satisfies the stronger branch of the issue's acceptance criteria. No `FILE_VERSION` change.
 
+
+### Addendum — in-app release checksum verification (A1, #453, 2026-10-13)
+
+An immutable release descriptor carries the exact tag, expected installer basename,
+asset size and `SHA256SUMS.txt` URL through the checker, application and update bar.
+Missing, duplicate, wrong-release or unsafe assets disable in-app installation while
+preserving the manual release link. Downloads begin on the exact repository/tag
+GitHub HTTPS path; every redirect and final response must remain on an exact HTTPS
+GitHub asset host (`github.com`, `release-assets.githubusercontent.com` or
+`objects.githubusercontent.com`), with at most five hops.
+
+The manifest is bounded to 64 KiB and must contain exactly one valid matching
+SHA-256 basename. Installer bytes are streamed in 64 KiB chunks, bounded by and
+matched to the release asset size, hashed and finalized only after verification.
+Cancellation/failure produces no launch and removes partial files. A typed verified
+result is rechecked immediately before process launch. Signed query strings and
+raw network exceptions never enter user-facing failures.
+
+This validates integrity against the release manifest over permitted HTTPS origins.
+It does not independently verify build provenance, add Authenticode signing, change
+the release workflow or establish any effect on antivirus reputation. Attestation
+verification and signing evaluation remain their existing separate processes.
 
 ## ADR-045: Compatible-set search — maximal cliques, ranked by bed coverage (issue #319, US-D3.1)
 

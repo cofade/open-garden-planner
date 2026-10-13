@@ -190,3 +190,11 @@ All 15 remediation issues have been checked against GitHub state and merged hist
 ## Validation and publication
 
 The intake asserts a one-to-one partition of the 73 epic entries and checks each source locator against the frozen master checkout. Tracker bodies are read back after publication. Repository documentation is delivered in a separate reviewed draft chore PR. The snapshot is unchanged; no bundle implementation or completion is claimed by this intake.
+
+## A1 delivery state — 2026-10-13
+
+AUD-041/042/044/047 have implementation and regression coverage on the #453 branch.
+The intake rows above remain the dated source evidence/acceptance specification;
+owner acceptance and protected merge are pending. The historical audit snapshot
+has not been rewritten. Package A1 is complete only after all four acceptance items
+and delivery gates pass; epic #392 remains open for the other bundles.

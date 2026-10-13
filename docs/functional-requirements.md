@@ -596,3 +596,14 @@ Acceptance: `tests/unit/test_stacking.py` (the Qt-free arrange algorithm — nor
 ### FR-SUN-10: Document-owned heatmap lifecycle (#428)
 
 `CanvasScene.document_replaced` clears overlays, receiver results, diagnostics, canopy state and the checked toolbar button, cancelling pending work before item teardown. Generation/signature checks reject old queued success. Worker ownership survives until `finished`; a second launch is refused until pending signals complete. This applies to New, validated Open/Recent/Welcome/recovery/direct loads and agent New/Open. Prevalidation failure preserves the active plan and valid exposure. No project-format or version change.
+
+## Audit A1 data and download safety (issue #453)
+
+- **FR-SAFETY-01**: Opening non-finite/overflowing numeric plan data refuses before
+  replacing the active document; failed saves do not truncate existing plan/recovery files.
+- **FR-SAFETY-02**: In-app installation requires exact release assets, permitted HTTPS
+  origins/redirects, matching byte count and SHA-256; cancellation/refusal launches nothing.
+- **FR-SAFETY-03**: Linux user settings have owner-only file access, preserve existing
+  keys/values and fail startup clearly when protection cannot be established.
+- **FR-SAFETY-04**: Thumbnail/Static Maps responses have byte/pixel limits and full
+  decoding checks; failed input does not publish partial caches or replace the background.

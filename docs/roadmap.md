@@ -2801,3 +2801,22 @@ Owner manual acceptance passed on 12 October 2026. Protected [PR #477](https://g
 Finalization reran 268 focused gesture/gate/context/citation tests, frozen eight-second smoke and `--selftest`, and fresh independent implementation/rebase reviews. The additional full local run without coverage recorded 8160 passed, 34 skipped and one fit-in-view timing miss (16.79 ms against 16.70 ms); unchanged master also missed this budget in the isolated baseline (18.71 ms). CI is green; no timing budget was relaxed.
 
 Owner testing found the pre-existing rotation/constraint interaction, tracked in [#485](https://github.com/cofade/open-garden-planner/issues/485). A real-canvas probe on master and the #406 branch measured a 200 cm corner distance becoming 314.42 cm after rotation and recovering on a nudge. The reported skipped rotation undo was not reproduced in that isolated probe. This follow-up remains separate from #406 and the 73-entry P2/P3 partition.
+
+### Audit package A1 (#453) — implementation awaiting acceptance
+
+Strict numeric `.ogp` ingestion and atomic persistence, release-bound checksum/origin
+verification before installer launch, bounded fully decoded thumbnail/Static Maps
+responses, and owner-only Linux settings with explicit startup failure. One branch
+and one draft PR cover AUD-041/042/044/047. No file-format bump, dependency change,
+credential-key migration, release-right change or renderer change. Epic #392 stays open.
+
+### A1 docs updated on implementation
+
+| Document | Section |
+|---|---|
+| Building blocks / runtime | Shared ingestion components and refusal flows |
+| Crosscutting concepts | Error preservation, settings, security and test evidence |
+| ADR register | ADR-003, ADR-041 and ADR-044 addenda |
+| Deployment / requirements | Verified installation, Linux migration, FR-SAFETY-01–04 |
+| Risk register / reconciliation | A1 evidence and pending acceptance |
+| Agent context / wiki sources | Current implementation and public behavior |
