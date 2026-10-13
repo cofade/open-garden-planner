@@ -222,6 +222,8 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 ## Where to Pick Up After Restart
 
+- **Audit A2 (#454) implemented; owner acceptance pending:** toolchain pins (Python 3.11.17, NSIS 3.13.0, commit-SHA action pins with a CI drift guard), `dist/build-evidence.json` required by the release, a `pip-audit` gate over the locked export with one recorded build-only exception, a monthly report-only dependency-review workflow (Dependabot's uv 0.12.19 is below this project's `==0.12.23` pin), `requirements*.txt` deleted, and third-party notices + a CycloneDX SBOM generated from the frozen bundle's own metadata, installed, published and attested. No lock, dependency, release-right or `.ogp` change. See ADR-044/050 addenda and the reconciliation's A2 delivery state.
+
 - **Audit A1 (#453) implemented; owner acceptance pending:** AUD-041/042/044/047 cover strict numeric plan I/O, verified release downloads, bounded image ingestion and owner-only Linux settings. No new dependency or file-format bump. Epic #392 remains open. See ADR-003/041/044 addenda and the roadmap delivery notes.
 
 - **Audit #392 backlog reconciled on 2026-10-12:** all 73 P2/P3 findings have one package and evidence-backed disposition; 5 fixed, 19 partial, 49 unresolved. Bundles A1–A13 are issues #453–#465; see `docs/11-risks-and-technical-debt/audit-2026-10-reconciliation.md`. #406 shipped in v1.30.2 via PR #477, completing all 15 original standalone P0/P1 remediations; constraint refactors remain later work. The epic stays open; historical audit metrics are not current measurements.

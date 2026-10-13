@@ -190,6 +190,7 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 - **Linting**: Code must pass ruff checks
 - **Test coverage**: CI enforces measured per-package line floors; branch coverage is reported separately (ADR-050, ?10.4). Non-UI means every package except `ui`.
 - **Line length**: 100 characters in the Ruff configuration; no formatter CI gate is claimed.
+- **One dependency source of truth (AUD-052)**: `pyproject.toml` plus the committed `uv.lock` / `pylock.toml`. The old top-level `requirements*.txt` mirrors were removed in #454; toolchain pins, build evidence and the dependency-update runbook live in `docs/07-deployment-view` §7.4.
 
 ### Git Workflow
 
@@ -613,6 +614,8 @@ name the platform and locked interpreter, not imply a Windows chmod mock proves 
 **Tool:** [Bandit](https://bandit.readthedocs.io/) — a Python SAST tool that detects common security anti-patterns (subprocess injection, unsafe deserialization, weak cryptography, hardcoded secrets, etc.).
 
 **CI enforcement:** The `security` job in `ci.yml` runs `bandit -r src/ --severity-level high` on every push. CI fails only on HIGH-severity findings. MEDIUM and LOW findings are omitted by this invocation. Use the separate all-findings command below for awareness; no broader scan is claimed.
+
+**Dependency vulnerability scan (AUD-054, #454):** the same job also runs `pip-audit` over the committed lock export (`uv export --locked --all-extras --group build`), so a finding is a finding in a shipped or build artifact rather than in a developer's environment. One advisory is recorded as an explicit exception — build-time `setuptools` `PYSEC-2026-3447`, which only affects publishing macOS source distributions (justification in §11.2); its fix stays reserved for a separately reviewed dependency PR. Any new advisory fails the job.
 
 **Local use:**
 ```bash

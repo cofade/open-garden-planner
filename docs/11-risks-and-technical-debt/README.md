@@ -29,17 +29,25 @@ Dated audit snapshots: [audit-2026-10.md](audit-2026-10.md) (numbers: `audit-202
 | Windows installer blocked by SmartScreen | Medium | Low | Document workaround, investigate signing options. Build provenance attestation shipped (ADR-044) as a verifiable trust signal alongside the checksum; does not itself suppress SmartScreen/Defender (issue #356) or Norton `FileRepMalware[Misc]` (issue #358 — second AV vendor, same unsigned zero-reputation profile). Releases remain unsigned; signing options, including no-cost proposals, are under evaluation in [#375](https://github.com/cofade/open-garden-planner/issues/375). No option has been adopted, and no signed release has established effectiveness against these detections. FP path per vendor: Microsoft file-submission forms (#356), Norton portal `submissions.norton.com/reportfalsepositive` (#358; both portals are CAPTCHA-protected, so submissions are manual, not automatable by the maintainer). |
 | Large bundle size from PyInstaller | Medium | Low | Optimize includes, strip unused Qt modules |
 
-**Build-backend advisory, 2026-10-09.** The first Dependabot scan of uv.lock reported
+**Build-backend advisory, 2026-10-09; updated 2026-10-13 (A2 #454).** The first Dependabot
+scan of uv.lock reported
 [GHSA-h35f-9h28-mq5c](https://github.com/pypa/setuptools/security/advisories/GHSA-h35f-9h28-mq5c)
 against build-only setuptools 82.0.0: a moderate Unicode-normalization bypass of MANIFEST.in
 exclusions when publishing macOS source distributions. GitHub identifies 83.0.0 as the first
 patched version. Applicability assessment: current CI uses Linux/Windows editable installs
 and publishes a Windows PyInstaller/NSIS installer; it does not publish macOS sdists.
 [Dependabot alert 1](https://github.com/cofade/open-garden-planner/security/dependabot/1)
-remains open for a separately reviewed backend/lock update. This version-sync chore preserves
-the approved dependency selections. The automatic updater also failed because its hosted
-uv support was 0.12.18 while this project requires 0.12.23; the follow-up therefore needs
-a manual dependency PR until hosted support catches up.
+remains open for a separately reviewed backend/lock update. The CI `Security` job now runs
+`pip-audit` against the committed lock export (`uv export --locked --all-extras --group
+build`) on every push, with this single advisory recorded as
+`--ignore-vuln PYSEC-2026-3447`; a new advisory fails the job.
+
+Automated dependency PRs remain unavailable: Dependabot's uv ecosystem image ships uv
+**0.12.19** (`uv/Dockerfile` in dependabot-core, read 2026-10-13) while this project pins
+`uv ==0.12.23`, and a `required-version` mismatch makes the updater exit before doing any
+work. `.github/workflows/dependency-review.yml` is the documented monthly manual fallback:
+it reports what `uv lock --upgrade` would change into one issue and never writes to the
+repository. See ADR-050's A2 addendum and `docs/07-deployment-view` §7.4.
 
 ## 11.3 Technical Debt
 
@@ -86,6 +94,8 @@ The living register (ADR-047). Every row has a status; P0/P1 rows link their iss
 | TD-037 | Task calendar | Every GUI task surface (the planting calendar's Gantt and dashboard, the Tasks tab) takes its frost-relative windows from the current year's frost only, and the Gantt clips them to that year, while the agent's `get_tasks` / `get_task_calendar` (`generate_for_date_window`) also list windows anchored on other years' frosts. So the GUI does not show a task whose window is anchored on another year's frost: with a 9 April frost, garlic's autumn sowing (9–23 October 2026) appears on no GUI surface. A sweep of the 6 frost dates `scripts/measure_task_window_sweep.py` uses finds each of the bundled (species, task type) windows missed at some frost date; the `--wide` mode covers all 118 species on every day of 2026. Examples, sweeps and the code sites to change are in #414. | P1 / M | fixed (#414) | #414 | ADR-048 L0 senior review (PR #413) |
 
 ## 11.4 Known Development Pitfalls
+
+- **A stale `*.egg-info` on `sys.path` silently shrinks anything derived from installed metadata (#454, 2026-10-13).** The runtime-distribution resolver behind the release's third-party notices and SBOM returned **five** distributions (the project + `Pillow` + the three `PyQt6*` wheels) when a test ran it, but the same interpreter returned **48** when the module was run directly. Root cause: a legacy `src/open_garden_planner.egg-info` (version `0.1.0`, written years earlier) was still on disk; the editable install puts `src/` on `sys.path`, and `importlib.metadata.distribution("open-garden-planner")` returns the **first** match — so `Requires-Dist` described a two-year-old project. Two lessons. (1) **Check what `sys.path` order resolves** — when a metadata lookup disagrees with a file a human can read, print the distribution's `_path`; the answer is usually "you got a different distribution than you meant". (2) **Anchor build inputs on the manifest, not on the environment's copy of yourself**: the resolver now reads `[project].dependencies` from `pyproject.toml` and only walks *third parties* through installed metadata, so no stale artefact of the project's own history can change what ships. Related, same task: PyInstaller's `hook-importlib_metadata` bundles setuptools' **vendored** `importlib_metadata` (Apache-2.0) even though nothing declares it — the inventory records it as an explicit `VENDORED_BUNDLE_EXTRAS` entry rather than pretending the closure is the whole truth.
 
 - **A graph row can conceal a no-op geometry path (#406, 2026-10-12).** A real Edge Length
   gesture on a rectangle added the requested 250 cm constraint but left its 200 cm edge intact.

@@ -96,7 +96,7 @@ Every user-visible string must be wrapped for translation. See `docs/08-crosscut
 | Status | ID   | Description            | Notes                                                         |
 |--------|------|------------------------|---------------------------------------------------------------|
 | ✅     | DI-1 | SAST pipeline (Bandit) | HIGH-severity scan in CI; `bandit>=1.7.0` added as dev dep   |
-| 🔄     | DI-2 | Repository audit 2026-10 | Historical snapshot preserved; [current reconciliation and packages A1–A13](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audit-2026-10-reconciliation.md) account for 73 P2/P3 findings (5 fixed, 19 partial, 49 unresolved); all 15 original standalone P0/P1 remediations are complete after #406 in v1.30.2 (PR #477); epic #392 remains open |
+| 🔄     | DI-2 | Repository audit 2026-10 | Historical snapshot preserved; [current reconciliation and packages A1–A13](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audit-2026-10-reconciliation.md) account for 73 P2/P3 findings; all 15 original standalone P0/P1 remediations are complete after #406 in v1.30.2 (PR #477); **A1 (#453) shipped in PR #487** and **A2 (#454) is in review** — see the delivery-state sections in the reconciliation; epic #392 remains open |
 | ✅     | DI-3 | i18n blind-spot hardening | Unique `TRANSLATIONS` keys + shared `active_language()` + full-tree ruff; issues #393/#408/#410; v1.29.2 (PR #411); §11.4, ADR-045 addendum |
 | ✅     | DI-4 | Serialization & Data Integrity Hardening | Free-text annotations (`TextItem`) in `.ogp` + roundtrip matrix tests (#394), clipboard serializer unification (#400), background image placeholder & UUID deduplication (#397), atomic two-phase plan loading & autosave safety (#403); v1.29.4 (PR #412); §11.3, §11.4 |
 | ✅     | DI-5 | CI and release hardening | Locked dependencies, platform type budgets, package coverage floors, and administrator-enforced checks; issues #404/#401/#402/#399; v1.29.6 (PR #422); ADR-050 |
@@ -2835,3 +2835,21 @@ Owner manual acceptance, protected merge and wiki publication remain pending.
 | Deployment / requirements | Verified installation, Linux migration, FR-SAFETY-01–04 |
 | Risk register / reconciliation | A1 evidence and pending acceptance |
 | Agent context / wiki sources | Current implementation and public behavior |
+
+### Audit package A2 (#454) — implementation in review
+
+Toolchain pins (interpreter `3.11.17`, NSIS `3.13.0`), commit-SHA action pins with a CI
+drift guard, `dist/build-evidence.json` emitted and required by the release, a `pip-audit`
+scan of the locked export (one recorded build-only exception), the verified-unavailable
+Dependabot path replaced by a monthly report-only `dependency-review.yml`, the stale
+`requirements*.txt` manifests deleted, and third-party notices + a CycloneDX SBOM generated
+from the frozen bundle's own metadata, installed next to `LICENSE`, published and attested.
+No lock replacement, dependency change, release-right change or `.ogp` version bump. See
+ADR-044/ADR-050 addenda and the A2 delivery-state section of the reconciliation.
+
+| Document | Section |
+|---|---|
+| ADR register | ADR-044 and ADR-050 addenda |
+| Deployment view | §7.2 build pipeline and installer files, §7.3 release assets, §7.4 toolchain pins, build evidence and the dependency-update runbook |
+| Risk register / reconciliation | §11.2 build-advisory update; A2 delivery state |
+| Agent context / skills | Mirrored `ogp-config-and-flags` / `ogp-external-positioning` manifest references |

@@ -69,7 +69,11 @@ Install [NSIS](https://nsis.sourceforge.io/) separately on Windows, then run:
 .venv\Scripts\python.exe installer/build_installer.py --version <version>
 ```
 
-Use the source version from `pyproject.toml` for `<version>`, without the `v` prefix.
+Use the source version from `pyproject.toml` for `<version>`, without the `v` prefix;
+`--version` may be omitted, in which case the build reads that same value itself.
+The build also writes `THIRD_PARTY_NOTICES.md` and `ogp-sbom.cdx.json` into `dist/`,
+generated from the frozen bundle's own metadata; the notices file is installed next to
+the application's `LICENSE`.
 The output is in `dist/`. This local build does not create a GitHub release or CI attestation.
 See [deployment documentation](https://github.com/cofade/open-garden-planner/blob/master/docs/07-deployment-view/README.md)
 for the frozen-build verification requirements.

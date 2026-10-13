@@ -1,0 +1,70 @@
+name: Dependency review (monthly)
+
+# AUD-050 scheduled manual fallback. Automated dependency PRs are not possible
+# today: the project pins uv to ==0.12.23 while Dependabot's uv ecosystem image
+# ships uv 0.12.19 (ghcr.io/astral-sh/uv:0.12.19 in dependabot-core's
+# uv/Dockerfile, verified 2026-10-13), and a `required-version` mismatch makes
+# the updater exit before doing any work. Until hosted uv catches up, this
+# workflow only *reports* what `uv lock --upgrade` would change, once a month.
+# `--dry-run` writes nothing (verified: uv.lock's hash is unchanged), and the
+# workflow never pushes, commits, opens a PR or merges — it opens (or updates)
+# one issue so the monthly review happens deliberately, in a reviewed dependency
+# PR. See docs/07-deployment-view/README.md §7.4 and ADR-050.
+
+on:
+  schedule:
+    - cron: "0 6 1 * *" # 06:00 UTC on the 1st of each month
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    name: Report available dependency updates
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: ./.github/actions/setup-locked-env
+
+      - name: Compute the upgrade without writing the lock
+        run: |
+          uv lock --upgrade --dry-run > upgrade.txt 2>&1 || true
+          {
+            echo "## Available dependency updates"
+            echo
+            echo "Generated on $(date -u +%Y-%m-%d) by \`uv lock --upgrade --dry-run\`"
+            echo "(a dry run: nothing is written and nothing here is committed)."
+            echo
+            if grep -q '^Update ' upgrade.txt; then
+              echo '```'
+              grep '^Update ' upgrade.txt
+              echo '```'
+            else
+              echo "No package updates are available; the lock is current."
+            fi
+            echo
+            echo "Review with the runbook in \`docs/07-deployment-view/README.md\` §7.4:"
+            echo "update on a branch, keep the Qt four-pack pins aligned and the"
+            echo "\`mcp\` v1 cap, run the full gates, and open a reviewed PR (no auto-merge)."
+          } > dependency-report.md
+          git diff --exit-code -- uv.lock && echo "uv.lock unchanged" || {
+            echo "ERROR: --dry-run modified uv.lock" >&2; exit 1;
+          }
+          cat dependency-report.md
+
+      - name: Open or refresh the dependency-review issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          existing=$(gh issue list --state open --search 'in:title "Dependency review (monthly)"' \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file dependency-report.md
+          else
+            gh issue create --title "Dependency review (monthly)" --body-file dependency-report.md
+          fi

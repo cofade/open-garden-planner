@@ -198,3 +198,37 @@ The intake rows above remain the dated source evidence/acceptance specification;
 owner acceptance and protected merge are pending. The historical audit snapshot
 has not been rewritten. Package A1 is complete only after all four acceptance items
 and delivery gates pass; epic #392 remains open for the other bundles.
+
+## A2 delivery state — 2026-10-13
+
+AUD-049/050/051/052/053/054/055 have implementation and regression coverage on the
+`#454` branch. The intake rows above remain the dated source evidence/acceptance
+specification; owner acceptance and protected merge are pending. The historical audit
+snapshot has not been rewritten. Per finding:
+
+- **AUD-053** — every external `uses:` in `ci.yml`, `release.yml` and the shared composite
+  action is pinned to a commit SHA with a `# vX.Y.Z` comment; `scripts/check_action_pins.py`
+  enforces it in the `agent-context` job and covers the composite action.
+- **AUD-049** — the interpreter patch (`3.11.17`) and NSIS (`--version=3.13.0`) are pinned;
+  `scripts/emit_build_evidence.py --require-complete` records the actual toolchain in
+  `dist/build-evidence.json` and fails a release it cannot state; the PyInstaller default
+  version now comes from `pyproject.toml` instead of a stale `1.0.0`.
+- **AUD-051 / AUD-055** — `installer/runtime_closure.py` is the single resolver used by the
+  spec (which now bundles every runtime distribution's `.dist-info`) and by
+  `scripts/generate_distribution_inventory.py`, which generates `THIRD_PARTY_NOTICES.md`
+  and a CycloneDX 1.5 SBOM from the frozen bundle, fails closed on an unknown license, and
+  `--check`s the bundle/SBOM/lock identity. Both artifacts ship with the release, the
+  notices are installed next to `LICENSE`, and both are attested.
+- **AUD-052** — `requirements.txt` and `requirements-dev.txt` are deleted; a test keeps
+  them gone, unreferenced outside the dated records, and the locked recipe is the single
+  installation path.
+- **AUD-054** — `pip-audit` scans the committed lock export in the `security` job; the one
+  recorded exception is build-time setuptools `PYSEC-2026-3447`, justified in §11.2 and
+  reserved for a separately reviewed update.
+- **AUD-050** — hosted uv is verified at 0.12.19 against this project's `==0.12.23` pin, so
+  automation is not available; `dependency-review.yml` is the monthly, report-only manual
+  fallback, and the runbook plus the Qt/`mcp` cap drift guard live in §7.4 and
+  `tests/unit/test_dependency_governance.py`.
+
+Package A2 is complete only after all seven acceptance items and the delivery gates pass;
+epic #392 remains open for the other bundles.

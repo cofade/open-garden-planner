@@ -259,8 +259,8 @@ If "a feature seems disabled", check this table before debugging.
 | `mcp>=1.23,<2.0` | "Pinned to mcp v1 — v2 renames `FastMCP` -> `MCPServer`." uvicorn/starlette/pydantic/anyio/sse-starlette come transitively but are listed where used. |
 | `uvicorn>=0.30`, `starlette>=0.37`, `pydantic>=2.11` | Agent API server stack |
 
-**Deprecated:** the top-level `requirements.txt` lists only `PyQt6` + `Pillow`
-— it is stale; `pyproject.toml` is the dependency source of truth.
+**Removed (AUD-052, #454):** the stale top-level requirement mirrors were deleted;
+`pyproject.toml` (locked by `uv.lock` + `pylock.toml`) is the dependency source of truth.
 
 ### installer/ogp.spec knobs (verified; see docs/07 + §8.19 for narrative)
 

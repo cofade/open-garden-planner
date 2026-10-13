@@ -8,11 +8,24 @@
 ; SRCDIR      - PyInstaller output directory (dist\OpenGardenPlanner)
 ; OUTDIR      - Where to write the installer .exe
 ; LICENSE_FILE - Path to LICENSE (GPLv3)
+; NOTICES_FILE - Path to THIRD_PARTY_NOTICES.md (generated from the frozen bundle)
 ; APP_ICON    - Path to application .ico
 ; FILE_ICON   - Path to .ogp file .ico
 
 !ifndef VERSION
   !define VERSION "1.0.0"
+!endif
+
+; Third-party notices are generated from the frozen bundle by
+; scripts/generate_distribution_inventory.py; build_installer.py always passes
+; /DNOTICES_FILE. It is mandatory: a release whose notices are missing must fail
+; the build, not ship an installer without them (AUD-051).
+!ifndef NOTICES_FILE
+  !error "NOTICES_FILE is not defined - pass /DNOTICES_FILE=<path to THIRD_PARTY_NOTICES.md>"
+!endif
+!if /FileExists "${NOTICES_FILE}"
+!else
+  !error "NOTICES_FILE does not exist: ${NOTICES_FILE}"
 !endif
 
 ;---------------------------------------------------------------------------
@@ -108,6 +121,11 @@ Section "!${APP_NAME} (required)" SecMain
   ; Copy icon files for file association
   File "/oname=ogp_app.ico" "${APP_ICON}"
   File "/oname=ogp_file.ico" "${FILE_ICON}"
+
+  ; Third-party license notices (AUD-051): one consolidated file next to the
+  ; GPLv3 LICENSE, generated from the frozen bundle's own metadata. The
+  ; existence check above makes this a compile-time requirement.
+  File "/oname=THIRD_PARTY_NOTICES.md" "${NOTICES_FILE}"
 
   ; Create uninstaller
   WriteUninstaller "$INSTDIR\Uninstall.exe"
