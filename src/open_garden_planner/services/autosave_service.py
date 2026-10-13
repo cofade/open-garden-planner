@@ -4,7 +4,6 @@ Provides automatic periodic saving to a temporary location
 and recovery detection on startup.
 """
 
-import json
 import logging
 import tempfile
 from datetime import UTC, datetime
@@ -238,10 +237,10 @@ class AutoSaveManager(QObject):
             Metadata dict or None if invalid
         """
         try:
-            with open(path, encoding="utf-8") as f:
-                data = json.load(f)
+            from open_garden_planner.core.plan_io import read_plan
+            data = read_plan(path)
             return data.get("autosave_metadata", {})
-        except (OSError, json.JSONDecodeError) as e:
+        except Exception as e:
             logger.warning(f"Failed to read auto-save metadata from {path}: {e}")
             return None
 

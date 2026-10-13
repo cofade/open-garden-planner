@@ -19,3 +19,7 @@ def test_security_failure_is_visible_and_stops_before_main_window(qapp, monkeypa
     window.assert_not_called()
     error.assert_called_once()
     assert "fixture.conf" in error.call_args.args[2]
+
+
+def test_a1_packaging_selftest_uses_production_code():
+    entrypoint._run_a1_selftest()

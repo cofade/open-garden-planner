@@ -158,8 +158,47 @@ def _run_selftest() -> int:
         ok = False
         print(f"  FAIL Agent API server selftest -> {exc!r}")
 
+    try:
+        _run_a1_selftest()
+        print("  OK   A1 strict plan I/O, image codecs and verified installer check")
+    except Exception as exc:
+        ok = False
+        print(f"  FAIL A1 ingestion selftest -> {exc!r}")
     print("SELFTEST:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
+
+
+def _run_a1_selftest() -> None:
+    """Exercise the packaged ingestion code/codecs with isolated local fixtures."""
+    import hashlib
+    import io
+    import tempfile
+
+    from PIL import Image
+
+    from open_garden_planner.core.plan_io import PlanValidationError, read_plan, write_plan
+    from open_garden_planner.services.image_download import decode_image
+    from open_garden_planner.services.verified_update import VerifiedInstaller
+
+    with tempfile.TemporaryDirectory(prefix="ogp-a1-selftest-") as directory:
+        path = Path(directory) / "fixture.ogp"
+        write_plan(path, {"objects": []})
+        assert read_plan(path)["objects"] == []
+        original = path.read_bytes()
+        try:
+            write_plan(path, {"objects": [{"x": float("nan")} ]})
+        except PlanValidationError:
+            pass
+        else:
+            raise AssertionError("Invalid plan numbers were accepted")
+        assert path.read_bytes() == original
+        for fmt in ("PNG", "JPEG", "WEBP", "GIF"):
+            encoded = io.BytesIO()
+            Image.new("RGB", (2, 2), "green").save(encoded, format=fmt)
+            assert decode_image(encoded.getvalue(), max_pixels=4).size == (2, 2)
+        installer = Path(directory) / "fixture.bin"
+        installer.write_bytes(b"synthetic installer")
+        VerifiedInstaller(installer, 19, hashlib.sha256(b"synthetic installer").hexdigest()).check()
 
 
 def _write_crash_log(message: str) -> None:
