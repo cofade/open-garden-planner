@@ -98,6 +98,15 @@ The living register (ADR-047). Every row has a status; P0/P1 rows link their iss
   regressions failed first) and the real CanvasView feasibility integration test.
   A convergence flag must agree with independently measured geometry.
 
+- **Translated row templates can still contain English object labels** (#457):
+  unnamed endpoints were title-cased from enum identifiers, so German rows read
+  `Polygon – Rectangle` despite a correctly translated Properties panel. Trace
+  the upstream name builder and use `get_translated_display_name` at display time;
+  the previous-season compare overlay had the same fallback. Enumerate every
+  `ObjectType` against the compiled catalog (missing Hedge/Roof Ridge entries
+  were added), and test real rows/tooltips with unnamed objects. Descriptor tests
+  passing literal `A`/`B` cannot cover this boundary. Preserve user names and data.
+
 - **A graph row can conceal a no-op geometry path (#406, 2026-10-12).** A real Edge Length
   gesture on a rectangle added the requested 250 cm constraint but left its 200 cm edge intact.
   Verbose caller tracing showed the rigid-item fallback returning no moves for the same pinned

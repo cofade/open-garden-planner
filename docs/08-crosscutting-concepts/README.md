@@ -583,6 +583,10 @@ failed before the fix. No iteration count or internal damping constant is pinned
 icons and status dots, then installs the compiled German translator and checks the
 rendered strings. `test_constraint_presentation_workflow.py` drives a registered
 tool and real application panel selection/deletion/undo/redo wiring.
+The German workflow also verifies unnamed endpoint text and tooltips, preserving
+explicit user names. `test_constraints_panel.py` checks all 52 `ObjectType` labels
+against the German catalog; this catches absent entries as well as untranslated
+fallbacks. Compare-overlay plant labels share the canonical display-name helper.
 
 `scripts/replay_constraint_mutations.py` uses temporary import overlays and fresh
 pytest processes. `--source-ref` replays both solver modules from an explicit revision;

@@ -1984,6 +1984,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Generic Rectangle": "Generisches Rechteck",
         "Generic Polygon": "Generisches Polygon",
         "Generic Circle": "Generischer Kreis",
+        "Hedge": "Hecke",
+        "Roof Ridge": "Dachfirst",
         "Ellipse": "Ellipse",
         "House": "Haus",
         "Garage/Shed": "Garage/Schuppen",

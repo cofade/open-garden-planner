@@ -68,3 +68,43 @@ def test_fixed_items_make_incompatible_trial_infeasible(canvas, qtbot):
     assert geometry([a, b]) == before
     assert canvas.command_manager.undo_depth == history
     assert {uid: c.to_dict() for uid, c in graph.constraints.items()} == serialized
+
+
+def test_german_real_gesture_labels_and_tooltips(qtbot, monkeypatch):
+    from pathlib import Path
+
+    from PyQt6.QtCore import QCoreApplication, QTranslator
+
+    import open_garden_planner
+
+    translator = QTranslator()
+    resource = Path(open_garden_planner.__file__).parent / "resources/translations/open_garden_planner_de.qm"
+    assert translator.load(str(resource))
+    QCoreApplication.installTranslator(translator)
+    try:
+        monkeypatch.setattr(QMessageBox, "question", lambda *_args: QMessageBox.StandardButton.Discard)
+        monkeypatch.setattr(QApplication, "focusWidget", lambda: None)
+        window = GardenPlannerApp()
+        qtbot.addWidget(window)
+        run_gesture(window.canvas_view, monkeypatch, "distance", integration=True)
+        panel = window.constraints_panel
+        assert panel._list.count() == 1
+        row = panel._list.itemWidget(panel._list.item(0))
+        label = next(label for label in row.findChildren(QLabel) if label.text())
+        for content in (label.text(), label.toolTip()):
+            assert "Rechteck 3" in content
+            assert "Rechteck 2" in content
+            assert "Rectangle" not in content
+        # A user-entered name remains verbatim, including English names.
+        pair = next(iter(window.canvas_scene.constraint_graph.constraints.values()))
+        item = next(i for i in window.canvas_scene.items()
+                    if getattr(i, "item_id", None) == pair.anchor_a.item_id)
+        item.name = "My Rectangle"
+        panel.refresh()
+        row = panel._list.itemWidget(panel._list.item(0))
+        label = next(label for label in row.findChildren(QLabel) if label.text())
+        assert "My Rectangle" in label.text()
+        assert "My Rectangle" in label.toolTip()
+        assert "Rechteck" in label.text()
+    finally:
+        QCoreApplication.removeTranslator(translator)

@@ -2864,6 +2864,11 @@ self-test (0) and eight-second startup (124 equivalent) pass. The English/German
 all-type widget board was visually inspected; a real registered Fixed/Fixed/Distance
 gesture refused an incompatible target without scene/graph/history changes.
 Check the draft PR's current head for final Linux coverage and cross-platform CI verification.
+Owner checks 1 (theme/readability) and 3 (fixed conflict rejection) passed. Check 2
+found English unnamed endpoints in German constraint rows. The follow-up uses
+canonical translated object names for all 52 types and compare-overlay plants,
+adds missing Hecke/Dachfirst catalog entries, and pins duplicates, explicit names
+and real row/tooltip wiring. German retest remains pending on draft PR #489.
 Epic #392 remains open; other audit bundles and #485 remain separate.
 
 ### A5 docs updated on implementation

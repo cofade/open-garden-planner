@@ -96,6 +96,25 @@ through GardenPlannerApp wiring. The existing command/serialization paths remain
 
 ## Gate and artifact evidence
 
+### Owner localization finding
+
+Owner checks 1 (theme/readability) and 3 (fixed incompatible target rejection)
+passed. Check 2 exposed an unnamed rectangle displayed as `Rectangle` in German.
+Tagged tracing showed `[A5-LABEL] GENERIC_RECTANGLE row= Rectangle canonical=
+Rechteck`, with the caller stack through command-history refresh. The compiled
+translation existed; the object-label builder bypassed it. Direct descriptor
+tests supplied `A`/`B` and could not detect this upstream omission.
+
+Use the shared `get_translated_display_name` for all unnamed constraint endpoints
+and previous-season compare plants. An exhaustive catalog check covers all 52
+object types and found two absent entries, `Hedge`/`Roof Ridge`, now registered as
+`Hecke`/`Dachfirst`. Preserve explicit names and stored object data; duplicate
+numbering operates on the translated labels. Four regressions failed before
+correction: exhaustive object labels, duplicates/explicit names, the real German
+distance gesture row/tooltip and all three compare-overlay plant types. Focused
+verification: 74 passed. Temporary instrumentation removed. German owner retest
+remains pending; the PR stays draft.
+
 First independent review found an additional old icon-table import in the icon-file
 sweep, a formatting-boundary difference from multiplication by 0.01, and an incomplete
 control-timeout reporting path. All were corrected. Six boundary regressions failed

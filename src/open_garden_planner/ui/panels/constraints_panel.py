@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.core.object_types import get_translated_display_name
 from open_garden_planner.ui.constraint_presentation import VIOLATED_COLOR, descriptor_for_name
 from open_garden_planner.ui.icons import get_icon, get_pixmap
 
@@ -255,11 +256,7 @@ class ConstraintsPanel(QWidget):
                     continue
                 obj_type = getattr(item, "object_type", None)
                 if obj_type is not None:
-                    # Use the enum member name, formatted for readability.
-                    # Strip "GENERIC_" prefix and title-case (e.g. GENERIC_RECTANGLE → Rectangle)
-                    type_name = obj_type.name.replace("_", " ").title()
-                    type_name = type_name.removeprefix("Generic ")
-                    raw[item.item_id] = type_name
+                    raw[item.item_id] = get_translated_display_name(obj_type)
                 else:
                     raw[item.item_id] = self.tr("Object")
 

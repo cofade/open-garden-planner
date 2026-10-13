@@ -4358,6 +4358,14 @@ Ergebnisse werden lokal für ein Jahr zwischengespeichert.</translation>
             <source>Bird Bath</source>
             <translation>Vogeltränke</translation>
         </message>
+        <message>
+            <source>Hedge</source>
+            <translation>Hecke</translation>
+        </message>
+        <message>
+            <source>Roof Ridge</source>
+            <translation>Dachfirst</translation>
+        </message>
     </context>
     <context>
         <name>ParallelConstraintTool</name>
