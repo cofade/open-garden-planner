@@ -2863,7 +2863,7 @@ secrets and offline wiki pass. Controlled-PATH clean frozen build, detached
 self-test (0) and eight-second startup (124 equivalent) pass. The English/German
 all-type widget board was visually inspected; a real registered Fixed/Fixed/Distance
 gesture refused an incompatible target without scene/graph/history changes.
-Final Linux coverage and cross-platform CI verification is recorded in the draft PR.
+Check the draft PR's current head for final Linux coverage and cross-platform CI verification.
 Epic #392 remains open; other audit bundles and #485 remain separate.
 
 ### A5 docs updated on implementation

@@ -111,7 +111,7 @@ tests with no findings. Ruff, HIGH Bandit (0), lock/export, Windows type baselin
 Controlled-PATH clean frozen build passes detached self-test (0) and eight-second
 startup (124 equivalent). A registered Fixed/Fixed/Distance gesture emitted the
 conflict warning and preserved scene/graph/history. Final Linux coverage and
-cross-platform CI results are recorded in the draft PR. See the roadmap receipt.
+cross-platform CI results must be checked on the draft PR's current head. See the roadmap receipt.
 Owner manual acceptance and wiki publication
 remain pending. Epic #392 remains open; A4/A6/A7 structural extraction and #485's
 rotation/constraint interaction are outside this package.
