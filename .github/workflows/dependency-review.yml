@@ -33,7 +33,13 @@ jobs:
 
       - name: Compute the upgrade without writing the lock
         run: |
-          uv lock --upgrade --dry-run > upgrade.txt 2>&1 || true
+          # A failed dry run must fail this workflow: reporting "up to date" for a
+          # resolver/network error would be a silently lying gate (AUD-050 review).
+          if ! uv lock --upgrade --dry-run > upgrade.txt 2>&1; then
+            echo "uv lock --upgrade --dry-run failed:" >&2
+            cat upgrade.txt >&2
+            exit 1
+          fi
           {
             echo "## Available dependency updates"
             echo
@@ -52,9 +58,11 @@ jobs:
             echo "update on a branch, keep the Qt four-pack pins aligned and the"
             echo "\`mcp\` v1 cap, run the full gates, and open a reviewed PR (no auto-merge)."
           } > dependency-report.md
-          git diff --exit-code -- uv.lock && echo "uv.lock unchanged" || {
-            echo "ERROR: --dry-run modified uv.lock" >&2; exit 1;
-          }
+          if ! git diff --exit-code -- uv.lock; then
+            echo "ERROR: --dry-run modified uv.lock" >&2
+            exit 1
+          fi
+          echo "uv.lock unchanged"
           cat dependency-report.md
 
       - name: Open or refresh the dependency-review issue

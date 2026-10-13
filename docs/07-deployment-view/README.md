@@ -61,7 +61,7 @@ license fails the build instead of shipping an incomplete notice.
 | `installer/runtime_closure.py` | The one runtime-closure resolver used by both the spec and the inventory generator |
 | `installer/ogp_app.ico` | Application icon (multi-size: 16–256px) |
 | `installer/ogp_file.ico` | `.ogp` file type icon |
-| `LICENSE` | GPLv3 license text (displayed during install) |
+| `LICENSE` | GPLv3 license text (displayed during install and installed next to `THIRD_PARTY_NOTICES.md`) |
 | `dist/THIRD_PARTY_NOTICES.md` | Consolidated third-party notices, generated from the frozen bundle and installed next to `LICENSE` (AUD-051) |
 | `dist/ogp-sbom.cdx.json` | CycloneDX 1.5 SBOM of the frozen bundle, published and attested with each release (AUD-055) |
 
@@ -361,7 +361,10 @@ US-D1.1 bundling proof) — dev tests don't surface them:
 - **Collect dynamic submodules + metadata.** uvicorn/anyio/starlette load
   protocol, loop and lifespan submodules dynamically, and several packages read
   their distribution metadata at import; so the spec does
-  `collect_submodules(...)` + `copy_metadata(...)` for the stack.
+  `collect_submodules(...)` for the concrete MCP subpackages and bundles the
+  **runtime closure's** metadata through `installer/runtime_closure.py` — never a
+  hand-typed per-stack `copy_metadata` list, which is how a new dependency used to
+  slip out of the inventory (AUD-051 / #454).
 - **Do NOT walk top-level `mcp`.** `collect_submodules("mcp")` imports
   `mcp.cli`, which calls `sys.exit(1)` when the optional `cli` (`typer`) extra is
   absent, aborting the build. The spec collects the concrete subpackages

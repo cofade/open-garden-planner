@@ -34,9 +34,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = 1
 
-#: Distributions whose metadata carries no usable license declaration. Each
-#: entry needs the verified license id and either a text or a source URL; do
-#: not add one without checking the upstream project's own LICENSE file.
+#: Distributions whose metadata carries no usable license declaration. Entries
+#: normally carry ``spdx`` (the verified SPDX id, checked against the upstream
+#: project's own LICENSE file); an optional ``text`` replaces the license text
+#: taken from the wheel. Do not add one without checking upstream.
 LICENSE_OVERRIDES: dict[str, dict[str, str]] = {
     # The Qt runtime wheels (:PyQt6-Qt6, :PyQt6-3D-Qt6, :PyQt6-WebEngine-Qt6)
     # declare the prose "LGPL v3" in their metadata; LGPL-3.0-only is that
@@ -87,6 +88,14 @@ CLASSIFIER_SPDX = {
 }
 SHORT_LICENSE_RE = re.compile(r"^[A-Za-z0-9.\-+()/ ,]{1,80}$")
 LICENSE_FILE_NAMES = ("LICENSE", "LICENCE", "COPYING", "NOTICE", "LICENSE.txt", "LICENSE.md")
+
+#: Metadata sentinels that mean "no license was declared". They match
+#: ``SHORT_LICENSE_RE`` (and ``UNKNOWN`` matches ``SPDX_ID_RE``), so without an
+#: explicit rejection the generator would ship ``License: UNKNOWN`` — the exact
+#: outcome the fail-closed contract exists to prevent.
+LICENSE_SENTINELS = frozenset(
+    {"unknown", "none", "noassertion", "unknown or other", "n/a", "na", "not specified"}
+)
 
 
 class InventoryError(RuntimeError):
@@ -167,6 +176,8 @@ def describe(dist_info: Path) -> dict[str, object]:
         if override.get("text"):
             texts = [override["text"]]
 
+    if spdx and spdx.strip().lower() in LICENSE_SENTINELS:
+        spdx = None
     if not spdx and not texts:
         raise InventoryError(
             f"{name} {version}: no license declaration or license text found in "
@@ -298,6 +309,14 @@ def _app_version() -> str:
 
 
 def _expected_from_environment() -> set[str]:
+    """The spec's closure for this build environment, plus hook-bundled extras.
+
+    ``--check`` therefore proves "the spec bundled every distribution this
+    environment declares" plus "the on-disk SBOM matches the bundle". It does
+    **not** prove the environment matches the lock: that direction is covered
+    per-version by the ``--lock`` comparison, and closure ⊆ lock by
+    ``tests/integration/test_distribution_inventory_pipeline.py``.
+    """
     names = {
         runtime_closure.canonicalize(n) for n in runtime_closure.runtime_distribution_names()
     }

@@ -2844,7 +2844,8 @@ scan of the locked export (one recorded build-only exception), the verified-unav
 Dependabot path replaced by a monthly report-only `dependency-review.yml`, the stale
 `requirements*.txt` manifests deleted, and third-party notices + a CycloneDX SBOM generated
 from the frozen bundle's own metadata, installed next to `LICENSE`, published and attested.
-No lock replacement, dependency change, release-right change or `.ogp` version bump. See
+No runtime dependency change and no lock replacement beyond adding `pip-audit` to the dev
+extra (the audit gate itself); no release-right change or `.ogp` version bump. See
 ADR-044/ADR-050 addenda and the A2 delivery-state section of the reconciliation.
 
 | Document | Section |

@@ -46,6 +46,22 @@ def test_inline_step_form_is_checked_too() -> None:
     assert found and found[0][0] == 1
 
 
+def test_flow_style_step_is_checked_too() -> None:
+    found = _violations_in("      - {name: Checkout, uses: actions/checkout@v4}\n")
+    assert found and found[0][1] == "actions/checkout@v4"
+    pinned = _violations_in(f"      - {{name: Checkout, uses: actions/checkout@{SHA}}}}} # v4.4.0\n")
+    assert pinned == []
+
+
+def test_yaml_workflows_are_discovered(tmp_path: Path) -> None:
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "flow.yaml").write_text(
+        "jobs:\n  x:\n    steps:\n      - uses: actions/checkout@v4\n", encoding="utf-8"
+    )
+    assert main(["--root", str(tmp_path)]) == 2
+
+
 def test_real_repository_passes_the_gate() -> None:
     assert main(["--root", str(ROOT)]) == 0
 

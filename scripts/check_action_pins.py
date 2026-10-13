@@ -23,8 +23,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-USES_RE = re.compile(r"^(?P<indent>\s*)-\s+uses:\s*(?P<ref>[^#\s]+)\s*(?:#\s*(?P<comment>.+?))?\s*$")
-STEP_USES_RE = re.compile(r"^(?P<indent>\s+)uses:\s*(?P<ref>[^#\s]+)\s*(?:#\s*(?P<comment>.+?))?\s*$")
+USES_RE = re.compile(
+    r"^(?P<indent>\s*)-\s+uses:\s*(?P<ref>[^#\s}]+)"
+)
+STEP_USES_RE = re.compile(
+    r"^(?P<indent>\s+)uses:\s*(?P<ref>[^#\s}]+)"
+)
+#: Flow-style step: ``- {uses: actions/checkout@v4}`` (and the ``{name: …, uses: …}`` form).
+FLOW_USES_RE = re.compile(r"^\s*-\s*\{[^}]*?\buses:\s*(?P<ref>[^#,\s}]+)")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 VERSION_RE = re.compile(r"^v\d+(?:\.\d+)*\b")
 
@@ -33,7 +39,9 @@ ALLOWED_PREFIXES = ("./", "docker://")
 
 def _target_files(root: Path) -> list[Path]:
     files = sorted((root / ".github" / "workflows").glob("*.yml"))
+    files += sorted((root / ".github" / "workflows").glob("*.yaml"))
     files += sorted((root / ".github" / "actions").glob("*/action.yml"))
+    files += sorted((root / ".github" / "actions").glob("*/action.yaml"))
     return [f for f in files if f.is_file()]
 
 
@@ -41,11 +49,11 @@ def _violations_in(text: str) -> list[tuple[int, str, str]]:
     """Return (line_number, reference, reason) for each unpinned ``uses:``."""
     found: list[tuple[int, str, str]] = []
     for lineno, line in enumerate(text.splitlines(), start=1):
-        match = USES_RE.match(line) or STEP_USES_RE.match(line)
+        match = USES_RE.match(line) or STEP_USES_RE.match(line) or FLOW_USES_RE.match(line)
         if match is None:
             continue
         ref = match.group("ref")
-        comment = match.group("comment") or ""
+        comment = line.split("#", 1)[1] if "#" in line else ""
         if ref.startswith(ALLOWED_PREFIXES):
             continue
         if "@" not in ref:

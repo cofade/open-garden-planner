@@ -1,5 +1,7 @@
 ; Open Garden Planner - NSIS Installer Script
-; Build with: makensis /DVERSION=1.0.0 /DSRCDIR=dist\OpenGardenPlanner /DOUTDIR=dist /DLICENSE_FILE=LICENSE /DAPP_ICON=installer\ogp_app.ico /DFILE_ICON=installer\ogp_file.ico ogp_installer.nsi
+; Build with: makensis /DVERSION=1.0.0 /DSRCDIR=dist\OpenGardenPlanner /DOUTDIR=dist \
+;   /DLICENSE_FILE=LICENSE /DNOTICES_FILE=dist\THIRD_PARTY_NOTICES.md \
+;   /DAPP_ICON=installer\ogp_app.ico /DFILE_ICON=installer\ogp_file.ico ogp_installer.nsi
 
 ;---------------------------------------------------------------------------
 ; Build-time defines (passed via /D flags from build_installer.py)
@@ -121,6 +123,11 @@ Section "!${APP_NAME} (required)" SecMain
   ; Copy icon files for file association
   File "/oname=ogp_app.ico" "${APP_ICON}"
   File "/oname=ogp_file.ico" "${FILE_ICON}"
+
+  ; GPLv3 text in the install directory alongside the third-party notices: the
+  ; MUI license page only DISPLAYS it during the wizard, so without this line
+  ; the "notices next to LICENSE" claim would be false on disk.
+  File "/oname=LICENSE" "${LICENSE_FILE}"
 
   ; Third-party license notices (AUD-051): one consolidated file next to the
   ; GPLv3 LICENSE, generated from the frozen bundle's own metadata. The

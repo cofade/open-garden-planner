@@ -66,6 +66,10 @@ def test_the_monthly_review_never_writes_without_review() -> None:
     assert "uv lock --upgrade --dry-run" in REVIEW, (
         "--dry-run is the mechanical guarantee that the schedule cannot write the lock"
     )
+    assert "if ! uv lock --upgrade --dry-run" in REVIEW, (
+        "a failed dry run must fail the workflow; a silent 'up to date' is a lying gate"
+    )
+    assert "|| true" not in REVIEW
     assert "git diff --exit-code -- uv.lock" in REVIEW, (
         "the workflow must verify the dry run really wrote nothing"
     )

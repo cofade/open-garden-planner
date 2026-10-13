@@ -1508,8 +1508,9 @@ walks the live scene's badge state directly and was not changed by #338.
 (exempt). Only the Settings UI strings go through `tr()`.
 
 **Packaging.** See §7 deployment view — the `mcp`/`uvicorn`/`starlette` stack
-needs `collect_submodules` + `copy_metadata` in `ogp.spec`, must NOT walk
-`mcp.cli`, and must NOT exclude `multiprocessing` (uvicorn imports it).
+needs `collect_submodules` in `ogp.spec`; its distribution metadata comes from
+the runtime closure (`installer/runtime_closure.py`, AUD-051/#454). The spec must
+NOT walk `mcp.cli`, and must NOT exclude `multiprocessing` (uvicorn imports it).
 
 **US-D2.4/D2.5 — layer addressing and shape/structure creation.** The curated
 schema exposes layers as UUID-addressed records (`layer_id`, name, visibility,

@@ -269,8 +269,11 @@ If "a feature seems disabled", check this table before debugging.
   sse_starlette, pydantic, pydantic_settings, httpx_sse) — **never top-level
   `mcp`**: walking it imports `mcp.cli`, which `sys.exit(1)`s without the
   unbundled `typer` extra and aborts the build.
-- `copy_metadata` for the same stack (they read distribution metadata at
-  import time in the frozen exe).
+- Metadata: the spec bundles the whole **runtime closure** via
+  `installer/runtime_closure.py` (`copy_metadata` per resolved distribution; the
+  same resolver is read back by `scripts/generate_distribution_inventory.py`).
+  Never add a hand-typed per-stack metadata list: a new dependency would silently
+  leave the notices/SBOM inventory.
 - `excludes` = tkinter/unittest/pydoc/doctest — with an explicit NOTE: **do NOT
   exclude `multiprocessing`** (uvicorn imports it eagerly; excluding it breaks
   the embedded Agent API).

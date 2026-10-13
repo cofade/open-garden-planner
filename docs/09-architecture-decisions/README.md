@@ -1359,11 +1359,13 @@ signs the binary, and none suppresses SmartScreen/Defender/Norton detections (#3
 [#375](https://github.com/cofade/open-garden-planner/issues/375)). The SBOM must not be
 presented as a security guarantee; it is a machine-readable statement of what is inside.
 
-**Consequences.** The frozen bundle grows by the bundled metadata: measured 2.0 MiB of
-`*.dist-info` in a 610 MiB bundle (0.32 %, Windows, 2026-10-13), and the LZMA installer
-stayed at 169.4 MB. A new runtime dependency automatically appears in both artifacts
-through the shared resolver, and `tests/unit/test_distribution_inventory.py` pins the
-fail-closed behaviour and the drift between bundle, SBOM and lock.
+**Consequences.** The frozen bundle grows by the bundled metadata — a dated measurement
+(Windows, 2026-10-13) of 2.0 MiB of `*.dist-info` in a 610 MiB bundle (0.32 %), with the
+LZMA installer at 169.4 MB — not a fixed property; re-measure on a release build. The
+installer now also installs `LICENSE` itself, so "notices next to LICENSE" is true on disk
+rather than only in the wizard. A new runtime dependency automatically appears in both
+artifacts through the shared resolver, and `tests/unit/test_distribution_inventory.py`
+pins the fail-closed behaviour and the drift between bundle, SBOM and lock.
 
 ### ADR-034 addendum: succession domain schema, determinism, and a SHARED season-segment fallback (US-D3.2, #331)
 

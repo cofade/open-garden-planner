@@ -277,11 +277,11 @@ Agent API server all alive). The smoke alone cannot see any of the three dying;
 Exit **124** (killed by `timeout` after 8 s) = the frozen app was still alive
 and running = **healthy**. Any prompt exit is unhealthy: nonzero-fast = crash
 at startup (classic cause: a module PyInstaller didn't collect — the
-`mcp`/`uvicorn` stack needs `collect_submodules` + `copy_metadata` in
-`ogp.spec`, §8.19); exit 0 before the timeout = the app quit by itself =
-equally suspicious; **127** = the exe doesn't exist (build failed/not run).
-Not runnable in this container (no Windows, no `dist/`). Build mechanics:
-`ogp-build-and-run`.
+`mcp`/`uvicorn` stack needs `collect_submodules` in `ogp.spec`; its metadata
+comes from the runtime closure, `installer/runtime_closure.py`, §8.19); exit 0
+before the timeout = the app quit by itself = equally suspicious; **127** = the
+exe doesn't exist (build failed/not run). Not runnable in this container (no
+Windows, no `dist/`). Build mechanics: `ogp-build-and-run`.
 
 ## 9. Interpretation table — instrument → healthy → unhealthy
 

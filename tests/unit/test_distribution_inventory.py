@@ -75,6 +75,26 @@ def test_describe_fails_closed_without_any_license(tmp_path: Path) -> None:
         describe(dist_info)
 
 
+@pytest.mark.parametrize("sentinel", ["UNKNOWN", "unknown", "NONE", "NOASSERTION", "N/A"])
+def test_license_sentinels_fail_closed(tmp_path: Path, sentinel: str) -> None:
+    """``License: UNKNOWN`` is the common real-world spelling of "no license"."""
+    dist_info = _write_dist_info(
+        tmp_path / "b", "Sentinel", "1.0", license_line=f"License: {sentinel}", license_file=False
+    )
+    with pytest.raises(InventoryError, match="Sentinel"):
+        describe(dist_info)
+
+
+def test_a_sentinel_with_real_license_text_reports_no_spdx_id(tmp_path: Path) -> None:
+    dist_info = _write_dist_info(
+        tmp_path / "b", "Sentinel2", "1.0", license_line="License: UNKNOWN", license_file=True
+    )
+    record = describe(dist_info)
+    assert record["spdx"] is None
+    component = render_sbom([record], "1.0")["components"][0]
+    assert "licenses" not in component
+
+
 def test_collect_records_sorts_and_is_non_empty(bundle: Path) -> None:
     records = collect_records(bundle)
     assert [r["canonical_name"] for r in records] == ["classified", "example-lib"]
@@ -188,7 +208,13 @@ def test_missing_bundle_fails(tmp_path: Path) -> None:
 
 
 def test_vendored_bundle_extras_are_expected_components() -> None:
+    """A vendored entry must be documented, expected, and genuinely outside the closure."""
     assert "importlib-metadata" in inventory.VENDORED_BUNDLE_EXTRAS
+    reason = inventory.VENDORED_BUNDLE_EXTRAS["importlib-metadata"]
+    assert len(reason) > 40 and "PyInstaller" in reason, "a vendored entry needs its reason"
+    assert "importlib-metadata" not in inventory.runtime_closure.runtime_distribution_names(), (
+        "if it were a declared requirement it would not need a vendored-extras entry"
+    )
     assert "importlib-metadata" in inventory._expected_from_environment(), (
         "PyInstaller's vendored importlib_metadata must be expected, not reported as drift"
     )
@@ -227,12 +253,13 @@ def test_spec_bundles_metadata_and_installer_carries_notices() -> None:
     reason="no frozen bundle in this checkout",
 )
 def test_real_frozen_bundle_passes_the_inventory_check() -> None:
-    """The authoritative run: this checkout's bundle, checked against the lock.
+    """The authoritative run: this checkout's bundle, checked as it stands.
 
-    Only meaningful when the interpreter running the test is the one that built
-    the bundle — which is exactly how ``installer/build_installer.py`` runs it
-    during a real build. A checkout whose bundle came from a different
-    environment is not a product defect, so that case skips with the reason.
+    Deliberately does NOT generate first: writing fresh files and then checking
+    them cannot fail on stale or mismatched artifacts, which is the drift the
+    check exists to catch. Skipped unless a frozen bundle exists, and only
+    meaningful when the interpreter running the test is the one that built the
+    bundle — exactly how ``installer/build_installer.py`` runs it.
     """
     import sys
 
@@ -241,6 +268,5 @@ def test_real_frozen_bundle_passes_the_inventory_check() -> None:
     bundled = {str(record["canonical_name"]) for record in collect_records(bundle)}
     if bundled != inventory._expected_from_environment():
         pytest.skip(f"frozen bundle in dist/ was not built with Python {interpreter}")
-    assert main(["--bundle", str(bundle), "--output-dir", str(ROOT / "dist")]) == 0
     assert main(["--bundle", str(bundle), "--output-dir", str(ROOT / "dist"),
                  "--lock", str(ROOT / "pylock.toml"), "--check"]) == 0
