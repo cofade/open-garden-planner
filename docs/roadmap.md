@@ -2810,6 +2810,21 @@ responses, and owner-only Linux settings with explicit startup failure. One bran
 and one draft PR cover AUD-041/042/044/047. No file-format bump, dependency change,
 credential-key migration, release-right change or renderer change. Epic #392 stays open.
 
+Final validated source: `f0a5d225` (2026-10-13). Locked Linux full-suite coverage:
+8245 passed, 37 skipped; all package/file floors passed. Coverage is 79.9% lines /
+63.5% branches overall, and 85.6% / 74.2% outside UI. Windows full suite:
+8241 passed, 39 skipped, with two repaint timing misses during concurrent gates
+(30.67/23.47 ms against 16.70 ms). Quiet strict repaint reruns passed all three
+tests on both this branch and unchanged master; no thresholds or skips changed.
+Final line/arc/Bezier/preservation tests: 101 passed; translation/interpolation:
+70 passed. Both platform type gates have zero regressions; HIGH Bandit findings:
+zero. Lint, lock/export, secrets, agent parity, citations and offline wiki pass.
+Fresh independent re-review has no outstanding P0/P1. The controlled-PATH frozen
+build passed detached self-test (0) and eight-second startup (124), including
+packaged plan/codecs/hash probes. The real v1.30.2 installer was downloaded and
+verified at 179026922 bytes against its release checksum, without launch.
+Owner manual acceptance, protected merge and wiki publication remain pending.
+
 ### A1 docs updated on implementation
 
 | Document | Section |
