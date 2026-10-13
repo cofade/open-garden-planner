@@ -2869,6 +2869,11 @@ found English unnamed endpoints in German constraint rows. The follow-up uses
 canonical translated object names for all 52 types and compare-overlay plants,
 adds missing Hecke/Dachfirst catalog entries, and pins duplicates, explicit names
 and real row/tooltip wiring. German retest remains pending on draft PR #489.
+Follow-up tested source `29429088`: Windows full suite **8317 passed, 37 skipped**
+in 806.45 seconds; fresh reviews clean (70 label tests and the clock regression),
+frozen self-test/startup and other local gates pass. The full run first exposed a
+host-hour-dependent sun test; tagged tracing proved its +1 hour crossed midnight.
+Its fixture now fixes noon without changing production behavior or timeouts.
 Epic #392 remains open; other audit bundles and #485 remain separate.
 
 ### A5 docs updated on implementation

@@ -120,8 +120,19 @@ The follow-up full gate also exposed an existing host-hour assumption in
 so the heatmap correctly became `absent` rather than the expected `ready`.
 An isolated run reproduced the failure, and tagged datetime/caller tracing
 confirmed the midnight crossing. The fixture now sets noon explicitly, preserving
-the production clock/cache contracts and all worker assertions/timeouts. The full
-gate must be repeated after this test-only correction.
+the production clock/cache contracts and all worker assertions/timeouts. The sun
+module passes 18 tests; independent review passes the formerly failing workflow.
+
+Final follow-up source `29429088` (2026-10-14 local): Windows full battery
+**8317 passed, 37 skipped**, no failures, in 806.45 seconds. Passed by layer:
+2366 integration, 5627 unit, 320 UI and 4 performance tests. Independent fresh
+reviews are clean (70 label tests and the clock regression). Ruff, HIGH Bandit
+(0), Windows type baseline (0 regressions), lock/export, i18n/interpolation (35),
+parity, citations, secrets and wiki checks pass. A clean controlled-PATH frozen
+build passes detached self-test (0) and eight-second startup (124 equivalent);
+its German catalog is byte-identical to the tested source and returns the corrected
+names. Real German rows were rendered and visually inspected. Current-head CI
+verification and owner German retest remain separate gates; keep the PR draft.
 
 First independent review found an additional old icon-table import in the icon-file
 sweep, a formatting-boundary difference from multiplication by 0.01, and an incomplete

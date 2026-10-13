@@ -596,6 +596,12 @@ killed mutant. The committed A5 evidence records the eight exact substitutions,
 source hashes and relevant unit/integration/UI selection. This sampled result is not
 a full mutation score. `--inventory-only` records current type-sensitive if conditions.
 
+Do not stage or commit in the checkout while the full suite is running.
+`test_gate_commands.py::TestCheckNoSecrets` briefly stages synthetic canary files
+in the real Git index, scans them, then removes them. A simultaneous commit can
+capture a canary. Wait for suite completion and inspect the staged diff before
+committing; review in a separate worktree keeps its index independent.
+
 ### 8.10.3 Constraint tool characterization (#406)
 
 `tests/constraint_tool_helpers.py` drives real CanvasScene/CanvasView tools in raw scene
