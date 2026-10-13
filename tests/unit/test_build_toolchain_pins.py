@@ -38,6 +38,20 @@ def _load_build_installer():
     return module
 
 
+def test_every_setup_python_use_has_a_literal_full_patch_pin() -> None:
+    """A `python-version-file:` (or omitted key) must not escape the patch guards."""
+    for path in _workflow_files():
+        text = path.read_text(encoding="utf-8")
+        uses = text.count("actions/setup-python@")
+        if not uses:
+            continue
+        versions = re.findall(r"python-version:\s*['\"]?([^'\"\s]+)", text)
+        assert len(versions) == uses, (
+            f"{path}: {uses} setup-python use(s) but {len(versions)} python-version "
+            "pin(s) — python-version-file or an omitted pin escapes the guards"
+        )
+
+
 def test_every_workflow_pins_a_full_python_patch() -> None:
     files = _files_with_python_pin()
     assert files, "no workflow pins a python-version at all"

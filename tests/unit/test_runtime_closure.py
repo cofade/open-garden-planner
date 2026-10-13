@@ -55,8 +55,3 @@ def test_manifest_anchor_beats_a_stale_editable_metadata_dir(tmp_path: Path) -> 
     names = runtime_closure.runtime_distribution_names(manifest)
     assert "pillow" in names
     assert "pyqt6" not in names  # the injected manifest is the whole root set
-
-
-def test_installed_version_resolves_canonical_names() -> None:
-    assert runtime_closure.installed_version("pillow")
-    assert runtime_closure.installed_version("not-a-real-distribution") is None

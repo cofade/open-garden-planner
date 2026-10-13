@@ -35,6 +35,14 @@ def _scanned_files() -> list[Path]:
     return files
 
 
+def test_the_scan_is_not_vacuous() -> None:
+    files = _scanned_files()
+    assert len(files) > 50, (
+        f"the manifest scan found only {len(files)} files — the scanned trees moved or "
+        "were renamed, and the guard would pass over nothing"
+    )
+
+
 def test_the_stale_manifests_are_gone() -> None:
     for name in MANIFESTS:
         assert not (ROOT / name).exists(), (

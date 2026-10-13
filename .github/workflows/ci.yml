@@ -121,8 +121,9 @@ jobs:
         run: python scripts/check_dependency_lock.py
 
       # Lock-based dependency vulnerability scan (AUD-054). Audits the same
-      # locked closure the release installs (all extras + the build group), so a
-      # finding here is a finding in a shipped or build artifact.
+      # locked closure the environment installs (all extras, the dev group and
+      # the build group), so a finding here is a finding in a shipped or build
+      # artifact — or in a development tool that would run in CI.
       #
       # Runs on BOTH matrix OSes on purpose: the export is universal and
       # pip-audit evaluates markers against the running interpreter, so a

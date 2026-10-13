@@ -82,10 +82,3 @@ def runtime_distribution_names(manifest: Path = DEFAULT_MANIFEST) -> list[str]:
 
     requested.pop(canonicalize(PROJECT_DISTRIBUTION), None)
     return sorted(requested)
-
-
-def installed_version(name: str) -> str | None:
-    try:
-        return metadata.version(canonicalize(name))
-    except metadata.PackageNotFoundError:
-        return None

@@ -392,8 +392,10 @@ from the *frozen* app — not just from `pytest`.
 export. The lock preserves v1.29.5 selections recorded in `quality/dependency-provenance.json`;
 setuptools and wheel are explicit build-backend additions. uv is MIT/Apache-2.0 dual licensed
 and is a development tool, not an application dependency. PyInstaller retains its bundling
-exception; hooks-contrib remains build tooling. Python dependencies are locked; runner images,
-Python patch versions and NSIS are outside this reproducibility claim.
+exception; hooks-contrib remains build tooling. Python dependencies are locked. Runner images
+remain outside this claim; the interpreter patch and NSIS are pinned in the workflows
+(`3.11.9`, `nsis --version=3.13.0`) and recorded in `dist/build-evidence.json` (§7.4), as is
+every external action.
 
 Use the project-pinned uv bootstrap shown in the README. Install with
 `uv sync --locked --python 3.11 --all-extras --group build --no-install-project`, then

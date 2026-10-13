@@ -23,6 +23,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
+#: Shapes the line scanner understands: a block-sequence step
+#: (``- uses: x``), a mapping key (``  uses: x``) and a single-line flow step
+#: (``- {name: …, uses: x}``). A folded ``uses:`` value spanning lines, or a
+#: whole flow sequence (``steps: [{uses: x}]``), is NOT seen — do not write one.
 USES_RE = re.compile(
     r"^(?P<indent>\s*)-\s+uses:\s*(?P<ref>[^#\s}]+)"
 )
@@ -32,7 +36,8 @@ STEP_USES_RE = re.compile(
 #: Flow-style step: ``- {uses: actions/checkout@v4}`` (and the ``{name: …, uses: …}`` form).
 FLOW_USES_RE = re.compile(r"^\s*-\s*\{[^}]*?\buses:\s*(?P<ref>[^#,\s}]+)")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
-VERSION_RE = re.compile(r"^v\d+(?:\.\d+)*\b")
+#: ``# vX.Y.Z`` (at least major.minor, so a bare ``# v4`` is not "readable").
+VERSION_RE = re.compile(r"^v\d+\.\d+(?:\.\d+)*\b")
 
 ALLOWED_PREFIXES = ("./", "docker://")
 

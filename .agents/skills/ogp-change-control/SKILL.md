@@ -231,7 +231,7 @@ trust this table):
 | Test | `pytest tests/ -v` with `QT_QPA_PLATFORM: offscreen` | Installs Qt's xcb/EGL system libs first — this is the canonical headless-test recipe for Linux sessions too |
 | Security | `bandit -r src/ --severity-level high` + `scripts/check_no_secrets.py` | Bandit fails only on HIGH severity |
 | Agent context | `scripts/check_agent_context.py` | CLAUDE.md / AGENTS.md parity + skill-tree parity |
-| Dependencies | `scripts/check_dependency_lock.py` | Linux/Windows; lock freshness and PEP 751 export agreement |
+| Dependencies | `scripts/check_dependency_lock.py`; `pip-audit` over the exported lock on both OSes (AUD-054) | Linux/Windows; lock freshness, PEP 751 export agreement and the dependency audit |
 | Types | `scripts/check_mypy_baseline.py` | Linux/Windows Python 3.11; per-file allowances, strict mypy |
 | Coverage | full-suite branch coverage + `scripts/check_coverage_floors.py` | Linux; package line floors; initially not a required GitHub check |
 
