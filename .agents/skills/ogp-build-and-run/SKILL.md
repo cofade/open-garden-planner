@@ -284,3 +284,15 @@ Volatile facts stamped 2026-07-04 (v1.23.0). Re-verify with:
 | Path chokepoint + autosave locations | `grep -n 'def default_dialog_dir\|AUTOSAVE_PREFIX' src/open_garden_planner/app/paths.py src/open_garden_planner/services/autosave_service.py` |
 | Translation file set | `ls src/open_garden_planner/resources/translations/` |
 | i18n gate still exists | `grep -n test_german_ts_has_no_unfinished tests/unit/test_i18n.py` |
+
+### Host PATH contamination: ICU / WebEngine (#453, 2026-10-13)
+
+PyInstaller collected ICU 78.3 from the Codex Poppler runtime on PATH. The frozen
+WebEngine import then failed with a missing procedure; source Qt loaded Windows'
+native ICU 72.1. Compare Analysis-00.toc provenance, DLL versions and PE exports
+before changing Qt pins. pefile's default 8,192-export limit can produce false
+missing-symbol reports for Qt; use a higher limit for that diagnostic.
+A clean build with PATH restricted to the locked venv, Windows system directories,
+Python and Git passed detached --selftest (0) and the eight-second smoke (124).
+The package's self-test also checks strict plan persistence, supported image codecs
+and verified-installer hashing. No dependency or spec change was required.

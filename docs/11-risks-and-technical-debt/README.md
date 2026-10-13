@@ -1116,3 +1116,10 @@ Pins: `test_plan_numeric_safety.py`, `test_verified_update.py`, `test_image_down
 and `test_settings_security_startup.py`. Linux evidence uses the locked environment
 and real permissions. A successful Windows API mock is never reported as that evidence.
 Separate shutdown #480/#483, rotation #485 and unfinished 3D work remain outside A1.
+
+The frozen run exposed host PATH contamination: PyInstaller bundled Poppler's
+ICU 78.3 instead of using Windows' native ICU 72.1, breaking WebEngine's required
+unsuffixed imports. DLL versions, collection provenance and PE exports identified
+the cause; the PE probe needed an export limit above pefile's default 8,192 to
+avoid false missing-symbol reports. A controlled-PATH clean build passed both
+frozen checks. Match the loader's actual DLL paths before changing Qt pins.

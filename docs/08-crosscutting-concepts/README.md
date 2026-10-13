@@ -202,7 +202,7 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 
 - **Graceful degradation when APIs are unavailable**: external services (Google Maps, Trefle, Perenual, Permapeople) degrade quietly without blocking application workflow.
 - **Two-phase atomic project loading (AUD-040, TD-017, #403)**:
-  `ProjectManager.load()` deserializes and validates all items, layers, guides, and constraints in memory (Phase 1) before mutating or clearing the active `CanvasScene` (Phase 2). If Phase 1 raises, the current scene remains 100% intact. On any failure, `_current_file` is cleared (`None`), the document is marked dirty, and `_load_project_file` preserves any existing autosave file on disk, guaranteeing that subsequent Save/Ctrl+S actions cannot overwrite the previous plan file with empty or partial content.
+  `ProjectManager.load()` deserializes and validates all items, layers, guides, and constraints in memory (Phase 1) before mutating or clearing the active `CanvasScene` (Phase 2). A Phase 1 refusal preserves the scene and document identity, including filename, dirty state, selection and command history. Only an unexpected failure after Phase 2 starts clears `_current_file` (`None`) and marks the document dirty, preventing Save/Ctrl+S from overwriting the previous plan with partial content. `_load_project_file` preserves existing autosave files on every failed load.
 - **Missing or corrupt assets load as placeholders (AUD-043, TD-011, #397)**:
   Background images with missing disk paths or invalid embedded image bytes load as non-rendering `BackgroundImageItem` placeholders (`is_placeholder=True`). On subsequent saves, the placeholder re-emits its original raw dictionary so external asset links survive across sessions instead of being silently deleted.
 - **Duplicate item UUID detection & re-minting (AUD-043, TD-011, #397)**:
@@ -221,8 +221,8 @@ including nested group/curve geometry, reject the entire plan before preparation
 they are not silently dropped as malformed items. Phase 1 refusal preserves the
 active scene, selection, command history, filename, dirty state and autosave.
 All `.ogp` writers validate and encode before replacing files atomically. See the
-ADR-003 addendum. Earlier wording that every load failure clears identity applies
-only to unexpected failures after scene mutation, not Phase 1 refusals.
+ADR-003 addendum. The protective identity reset applies only to unexpected failures
+after scene mutation.
 
 ## 8.8 Settings Storage — One Chokepoint (ADR-041)
 
