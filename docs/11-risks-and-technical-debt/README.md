@@ -84,8 +84,19 @@ The living register (ADR-047). Every row has a status; P0/P1 rows link their iss
 | TD-035 | Bundle size | Master's release ships ~21 MB of Qt Quick 3D runtime it never loads (Quick3D + ShaderTools DLLs and QML modules, pulled in by the PyInstaller QtQml hook; measured in the ADR-048 evidence run). Phase 17 puts it to use; on a NO-GO, exclude it in `installer/ogp.spec`. | P3 / S | accepted (ADR-048) | #384 | ADR-048 L0 evidence (Windows v6 footprint) |
 | TD-036 | 3D geometry source | The Qt Quick 3D spike builds its world from private canvas helpers (`_item_footprints`, `_plant_canopy_radius_cm` in `ui/canvas/sun_shadow_controller.py`). The Qt-free core of Phase 17 L1.1 must promote them to a public, tested module before building on them (senior review, ADR-048). | P2 / M | open | #385 | ADR-048 L0 senior review |
 | TD-037 | Task calendar | Every GUI task surface (the planting calendar's Gantt and dashboard, the Tasks tab) takes its frost-relative windows from the current year's frost only, and the Gantt clips them to that year, while the agent's `get_tasks` / `get_task_calendar` (`generate_for_date_window`) also list windows anchored on other years' frosts. So the GUI does not show a task whose window is anchored on another year's frost: with a 9 April frost, garlic's autumn sowing (9–23 October 2026) appears on no GUI surface. A sweep of the 6 frost dates `scripts/measure_task_window_sweep.py` uses finds each of the bundled (species, task type) windows missed at some frost date; the `--wide` mode covers all 118 species on every day of 2026. Examples, sweeps and the code sites to change are in #414. | P1 / M | fixed (#414) | #414 | ADR-048 L0 senior review (PR #413) |
+| TD-038 | Constraint presentation | Repeated type presentation dispatch; now one immutable enum-complete panel descriptor with independent rendering and localization guards | P2 / M | open; implemented pending owner acceptance | #457 | AUD-012; ADR-012 addendum; [A5 evidence](audit-2026-10-a5-evidence.md) |
+| TD-039 | Solver evidence | Selection-scoped historical mutation gaps; fresh sample and geometric oracles, including corrected all-pinned false convergence | P2 / M | open; implemented pending owner acceptance | #457 | AUD-023; ADR-012 addendum; [A5 evidence](audit-2026-10-a5-evidence.md) |
 
 ## 11.4 Known Development Pitfalls
+
+- **No free solver variables does not imply feasibility** (#457, ADR-012):
+  two pinned anchors 100 cm apart with a 200 cm target were reported converged
+  with zero error. `[A5-NEWTON] no free slots` and its caller stack showed Newton
+  returning before residual evaluation; `solve_anchored` then took the minimum
+  with that fabricated zero. Evaluate the fixed-state residual before returning.
+  Pinned by `test_constraint_solver_invariants.py` (both direct Newton and graph
+  regressions failed first) and the real CanvasView feasibility integration test.
+  A convergence flag must agree with independently measured geometry.
 
 - **A graph row can conceal a no-op geometry path (#406, 2026-10-12).** A real Edge Length
   gesture on a rectangle added the requested 250 cm constraint but left its 200 cm edge intact.

@@ -124,6 +124,21 @@ or a claim that finite hostile outlines have bounded rendering costs.
 - *Analytic Jacobian* — a nice-to-have optimization, but numerical central differences cost microseconds; deferred as TD-008.
 **Consequences**: Robust behaviour for user-built CAD sketches (matches SolveSpace/Onshape expectations). +1 runtime dependency (numpy). Jacobian is numerical, not analytic — mild perf ceiling, no correctness impact. See §8.12 for the full solver architecture.
 
+**Addendum (Audit A5, #457, 2026-10-13).** Shared presentation is an immutable,
+enum-keyed registry in `ui/constraint_presentation.py`: icon, RGB color, translated
+detail/tooltip/row templates and target display conversion. Panel rows consume it;
+the established `ConstraintListItem` translation context is preserved. Geometry,
+residuals and satisfaction evaluation remain separate. Injecting UI callbacks into
+the solver or rewriting its per-type mathematics was rejected: presentation
+exhaustiveness does not establish geometric equivalence. No dependency or file-format
+change. Enum, independent rendering, runtime German and panel/history tests pin the
+extraction. Numerical oracles assert physical residuals, feasibility, pinned state
+and exact conflict IDs, rather than an arbitrary iteration count. A no-variable
+Newton call must evaluate residuals before reporting convergence; incompatible
+pinned anchors are not a solved system. The fresh eight-mutant sample and its test
+selection are recorded in `audit-2026-10-a5-evidence.md`; historical mutmut counts
+are not a current full-suite measurement.
+
 ## ADR-014: Bundled `plant_species.json` is single source of truth for species + calendar
 
 **Status**: Accepted (Phase 12 — issue #170)

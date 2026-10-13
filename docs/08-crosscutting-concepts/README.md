@@ -572,6 +572,26 @@ exit codes, read-only checks, version-sync dry runs and repeated application, an
 third-party lock records. Remote GitHub responses are supplied as fixtures; deliberately
 failing merge tests belong on a temporary validation base, never master.
 
+### A5 numerical and presentation evidence (#457)
+
+`test_constraint_solver_invariants.py` measures geometry independently of solver
+flags: both symmetry axes, signed axis distances, nonzero anchor offsets, coupled
+residuals, rigid/deformable pins, incompatible fixed systems, feasible projection,
+trial cleanup and exact conflicting IDs. The all-pinned false-convergence regressions
+failed before the fix. No iteration count or internal damping constant is pinned.
+`test_constraint_descriptors.py` covers every enum with independent English text,
+icons and status dots, then installs the compiled German translator and checks the
+rendered strings. `test_constraint_presentation_workflow.py` drives a registered
+tool and real application panel selection/deletion/undo/redo wiring.
+
+`scripts/replay_constraint_mutations.py` uses temporary import overlays and fresh
+pytest processes. `--source-ref` replays both solver modules from an explicit revision;
+`--selection baseline` excludes the A5 tests. An unmutated control must pass first.
+Failures, survivors, invalid runs and timeouts remain distinct; a timeout is not a
+killed mutant. The committed A5 evidence records the eight exact substitutions,
+source hashes and relevant unit/integration/UI selection. This sampled result is not
+a full mutation score. `--inventory-only` records current type-sensitive if conditions.
+
 ### 8.10.3 Constraint tool characterization (#406)
 
 `tests/constraint_tool_helpers.py` drives real CanvasScene/CanvasView tools in raw scene
@@ -641,7 +661,7 @@ result = subprocess.run(cmd)  # nosec B603 — cmd is constructed internally, ne
 
 ## 8.12 Constraint Solver Architecture
 
-The constraint solver lives in [`core/constraints.py`](../../src/open_garden_planner/core/constraints.py) and [`core/constraint_solver_newton.py`](../../src/open_garden_planner/core/constraint_solver_newton.py). It supports 16 constraint types and runs in two phases.
+The constraint solver lives in [`core/constraints.py`](../../src/open_garden_planner/core/constraints.py) and [`core/constraint_solver_newton.py`](../../src/open_garden_planner/core/constraint_solver_newton.py). It supports 17 constraint types and runs in two phases.
 
 ### 8.12.1 Constraint types
 
@@ -652,6 +672,7 @@ Defined in `ConstraintType`. Grouped by the invariant they express:
 | Dimensional (scale-sensitive) | `EDGE_LENGTH`, `DISTANCE`, `HORIZONTAL_DISTANCE`, `VERTICAL_DISTANCE`, `POINT_ON_CIRCLE`, `ANGLE` |
 | Positional | `COINCIDENT`, `POINT_ON_EDGE`, `SYMMETRY_HORIZONTAL`, `SYMMETRY_VERTICAL`, `FIXED` |
 | Orientation (scale-invariant) | `HORIZONTAL`, `VERTICAL`, `PARALLEL`, `PERPENDICULAR`, `EQUAL` |
+| Contact direction | `TANGENT` (edge perpendicular to radius at contact; paired with `POINT_ON_CIRCLE`) |
 
 ### 8.12.2 Two-phase solve
 
@@ -660,7 +681,7 @@ Every `solve_anchored` call runs in two phases:
 1. **Gauss-Seidel warm start** — each constraint is resolved by a 1D projection along its own direction. Cheap, robust for decoupled systems, converges in O(N) iterations when the constraints don't share variables in geometrically independent directions.
 2. **Newton-Raphson refinement** — runs when the Gauss-Seidel residual exceeds tolerance. Treats the free variables as a single vector `x`, builds a residual vector `F(x)` from all non-orientation constraints, and takes damped Newton steps on `J · Δx = −F`. The Jacobian is computed numerically via central differences (`h = 1e-3 cm`); the step uses `numpy.linalg.lstsq` so rank-deficient systems yield a minimum-norm step. Armijo backtracking (α halves per failed step) accepts only moves that strictly reduce `max|F|`.
 
-Convergence criterion: `max|F| ≤ tolerance` (default 0.1 cm; 1.0 cm for drag-time solves where cm-level drift is invisible). Caps: 20 Gauss-Seidel iterations, 25 Newton iterations, 15 backtrack steps.
+Convergence criterion: `max|F| ≤ tolerance`. `solve` defaults to 0.1 cm and 20 warm-start iterations; `solve_anchored` defaults to 1.0 cm and 10. Newton defaults to 25 iterations and 15 backtracks. Caller tolerances govern the final physical error. With no movable variables, evaluate the fixed-state residual before reporting feasibility (#457).
 
 ### 8.12.3 Why two phases
 

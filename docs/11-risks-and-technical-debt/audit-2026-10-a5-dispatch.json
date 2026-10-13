@@ -1,0 +1,128 @@
+[
+  {
+    "path": "src/open_garden_planner/core/constraint_solver_newton.py",
+    "function": "eval_residuals",
+    "line": 179,
+    "type_sensitive_if_conditions": 12
+  },
+  {
+    "path": "src/open_garden_planner/core/constraints.py",
+    "function": "solve",
+    "line": 445,
+    "type_sensitive_if_conditions": 5
+  },
+  {
+    "path": "src/open_garden_planner/core/constraints.py",
+    "function": "solve_anchored",
+    "line": 666,
+    "type_sensitive_if_conditions": 15
+  },
+  {
+    "path": "src/open_garden_planner/core/constraints.py",
+    "function": "find_conflicting_constraints",
+    "line": 1458,
+    "type_sensitive_if_conditions": 7
+  },
+  {
+    "path": "src/open_garden_planner/core/tools/constraint_tool.py",
+    "function": "_capture_equal_partner_pre_states",
+    "line": 2099,
+    "type_sensitive_if_conditions": 1
+  },
+  {
+    "path": "src/open_garden_planner/core/tools/constraint_tool.py",
+    "function": "_apply_equal_propagation_live",
+    "line": 2157,
+    "type_sensitive_if_conditions": 1
+  },
+  {
+    "path": "src/open_garden_planner/core/tools/constraint_tool.py",
+    "function": "_update_preview",
+    "line": 244,
+    "type_sensitive_if_conditions": 4
+  },
+  {
+    "path": "src/open_garden_planner/core/tools/constraint_tool.py",
+    "function": "mouse_press",
+    "line": 304,
+    "type_sensitive_if_conditions": 1
+  },
+  {
+    "path": "src/open_garden_planner/core/tools/constraint_tool.py",
+    "function": "_apply_point_on_edge",
+    "line": 627,
+    "type_sensitive_if_conditions": 1
+  },
+  {
+    "path": "src/open_garden_planner/core/tools/constraint_tool.py",
+    "function": "_apply_point_on_circle",
+    "line": 683,
+    "type_sensitive_if_conditions": 1
+  },
+  {
+    "path": "src/open_garden_planner/core/tools/constraint_tool.py",
+    "function": "mouse_press",
+    "line": 2353,
+    "type_sensitive_if_conditions": 1
+  },
+  {
+    "path": "src/open_garden_planner/ui/canvas/canvas_view.py",
+    "function": "_resolve_constraint_conflicts",
+    "line": 1323,
+    "type_sensitive_if_conditions": 2
+  },
+  {
+    "path": "src/open_garden_planner/ui/canvas/canvas_view.py",
+    "function": "_enforce_fixed_positions",
+    "line": 2318,
+    "type_sensitive_if_conditions": 1
+  },
+  {
+    "path": "src/open_garden_planner/ui/canvas/canvas_view.py",
+    "function": "_enforce_point_on_edge_positions",
+    "line": 2347,
+    "type_sensitive_if_conditions": 2
+  },
+  {
+    "path": "src/open_garden_planner/ui/canvas/canvas_view.py",
+    "function": "_propagate_constraints_during_drag",
+    "line": 2585,
+    "type_sensitive_if_conditions": 1
+  },
+  {
+    "path": "src/open_garden_planner/ui/canvas/canvas_view.py",
+    "function": "_reenforce_parallel_after_vertex_move",
+    "line": 2920,
+    "type_sensitive_if_conditions": 1
+  },
+  {
+    "path": "src/open_garden_planner/ui/canvas/canvas_view.py",
+    "function": "_edit_constraint_distance",
+    "line": 3174,
+    "type_sensitive_if_conditions": 1
+  },
+  {
+    "path": "src/open_garden_planner/ui/canvas/dimension_lines.py",
+    "function": "_update_constraint",
+    "line": 159,
+    "type_sensitive_if_conditions": 15
+  },
+  {
+    "path": "src/open_garden_planner/ui/canvas/dimension_lines.py",
+    "function": "get_constraint_at",
+    "line": 1450,
+    "type_sensitive_if_conditions": 3
+  },
+  {
+    "path": "src/open_garden_planner/ui/canvas/items/resize_handle.py",
+    "function": "_is_item_fixed",
+    "line": 271,
+    "type_sensitive_if_conditions": 1
+  },
+  {
+    "path": "src/open_garden_planner/ui/panels/constraints_panel.py",
+    "function": "_is_satisfied",
+    "line": 281,
+    "type_sensitive_if_conditions": 11
+  }
+]

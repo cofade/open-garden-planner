@@ -77,8 +77,8 @@ All 73 P2/P3 checklist entries are assigned exactly once. The acceptance text be
 
 | Finding | Disposition | Current evidence and remaining work |
 |---|---|---|
-| AUD-012 | unresolved | Constraint-type dispatch remains distributed; the historical ladder/coupling counts were not rerun. [src/open_garden_planner/core/constraints.py:19](https://github.com/cofade/open-garden-planner/blob/9e1629f9bdd012f8c633e8fd3508ef0cf5623bc0/src/open_garden_planner/core/constraints.py#L19). **Remaining acceptance:** After #406, inventory repeated dispatch and introduce one canonical descriptor for shared presentation semantics, starting with panel rendering; preserve all enum/type coverage and translated labels with a drift guard. |
-| AUD-023 | unresolved | Current solver tests exist, but the audit's mutation survivals were selection-scoped and must not be treated as full-suite misses. [src/open_garden_planner/core/constraint_solver_newton.py:80](https://github.com/cofade/open-garden-planner/blob/9e1629f9bdd012f8c633e8fd3508ef0cf5623bc0/src/open_garden_planner/core/constraint_solver_newton.py#L80). **Remaining acceptance:** Re-run sampled survivors against all relevant tests, then add residual, feasibility, pinned-anchor and conflict-detection assertions that kill confirmed survivors without pinning arbitrary iteration constants. |
+| AUD-012 | implemented; pending owner acceptance | One immutable enum-complete panel descriptor; independent all-type rendering, icons/colors and runtime German checks. Fresh dispatch inventory and deliberate geometry boundaries: [A5 evidence](audit-2026-10-a5-evidence.md). ADR-012 addendum. |
+| AUD-023 | implemented; pending owner acceptance | Eight explicit mutants replayed against existing relevant tests, then strengthened geometric oracles. Both confirmed symmetry survivors are killed; the baseline timeout is reported separately. All-pinned false convergence fixed with failing-first regressions. [A5 evidence](audit-2026-10-a5-evidence.md); historical mutation counts unchanged. |
 
 ### A6: Canvas interaction and properties-panel maintainability
 

@@ -375,6 +375,20 @@ Cancel/refusal never executes the command. Undo restores an existing centre snap
 
 Gallery drag/drop and gallery-click circle placement both construct plants through `ui/plant_creation.py::build_plant`. It resolves species metadata before semantic layer assignment, reads the current per-plan preference and uses the active layer when the matching layer is hidden, locked or absent. The existing creation command owns parentage and the single undo entry. Guild picker/editor/member rows translate catalog common names at display time through the shared `GalleryData` translation context; saved species keys, names and template snapshots remain language-independent. Explicit user object names take precedence over the translated catalog label.
 
+### Constraint panel and pinned feasibility (#457)
+
+Panel refresh resolves the current graph's object labels and satisfaction state,
+then each ConstraintListItem selects an immutable presentation descriptor, translates
+its templates and formats the target in metres or degrees. Delete still enters
+RemoveConstraintCommand through the application signal; stack_changed refreshes rows
+on execute, undo and redo. Templates are translated at rendering time, never cached
+in a selected language.
+
+Feasibility runs the existing Gauss-Seidel/Newton sequence. If every positional
+variable is pinned, Newton evaluates the residual on that fixed state and returns
+its actual error; it cannot overwrite an incompatible warm-start error with zero.
+The probe preserves graph, input geometry and history. See ADR-012 and the A5 evidence.
+
 ### Constraint edge-length creation (#406)
 
 A single click picks an edge, then the distance modal supplies the target. Polygon/polyline

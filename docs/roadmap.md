@@ -2837,3 +2837,32 @@ and released as v1.30.3. Wiki publication follows finalization.
 | Deployment / requirements | Verified installation, Linux migration, FR-SAFETY-01–04 |
 | Risk register / reconciliation | A1 evidence and pending acceptance |
 | Agent context / wiki sources | Current implementation and public behavior |
+
+### Audit package A5 (#457) — implemented, pending owner acceptance
+
+AUD-012: immutable enum-complete constraint panel presentation descriptors, retaining
+the existing translation context, icons, colors, formatting and theme refresh.
+AUD-023: fresh eight-mutant sample with explicit source/test scope, independent
+residual/geometry/pinning/feasibility/conflict-ID assertions and real panel/history
+workflow. Existing relevant selection: 432 tests; strengthened selection: 494 tests.
+Two confirmed symmetry survivors are killed; one baseline timeout remains identified
+separately. All eight strengthened mutations fail assertions. No historical mutation
+score or co-change count is promoted into current evidence.
+
+Failing-first regressions and tagged caller-stack tracing exposed all-pinned false
+convergence: Newton returned success before computing residuals. Fixed-state residuals
+are now measured before return. No tolerance, damping, arbitrary iteration-count,
+dependency, version or file-format change. ADR-012 addendum; [detailed plan](implementation-plan-457.md)
+and [reproducible evidence](11-risks-and-technical-debt/audit-2026-10-a5-evidence.md).
+Independent review, full/frozen gates and CI are recorded below before draft handoff.
+Epic #392 remains open; other audit bundles and #485 remain separate.
+
+### A5 docs updated on implementation
+
+| Document | Section |
+|---|---|
+| Building blocks / runtime | Presentation descriptor and pinned feasibility sequence |
+| Crosscutting concepts / ADR register | Numerical evidence and ADR-012 addendum |
+| Risk register / reconciliation | AUD-012/023, TD-038/039 and measured all-pinned pitfall |
+| Agent context / mirrored debug skill | Pending delivery and failing-first evidence |
+| Wiki architecture source | Descriptor/solver boundary and evidence link; publication pending |

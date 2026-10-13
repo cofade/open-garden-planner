@@ -784,6 +784,11 @@
     "state": "CLOSED",
     "title": "Audit A1: Imported data, downloads and credential storage safety (epic #392)"
   },
+  "457": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Audit A5: Constraint descriptors and stronger solver assertions (epic #392)"
+  },
   "465": {
     "is_pr": false,
     "state": "OPEN",
