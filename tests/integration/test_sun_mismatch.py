@@ -244,7 +244,12 @@ def test_explicit_worker_keeps_gui_responsive(sun_app, qtbot, monkeypatch):
     monkeypatch.setattr(sun_heatmap, "compute_sun_exposure", held_compute)
     ticks = []
     timer = QTimer(sun_app)
-    timer.timeout.connect(lambda: ticks.append(1))
+
+    def heartbeat():
+        if entered.is_set() and not release.is_set():
+            ticks.append(1)
+
+    timer.timeout.connect(heartbeat)
     timer.start(10)
     try:
         with qtbot.waitSignal(sun_app._sun_heatmap.finished, timeout=30000) as blocker:
