@@ -331,7 +331,8 @@ The runbook for acting on the monthly issue:
 
 The `Dependencies` matrix job (Linux and Windows) additionally audits the locked closure
 with `pip-audit` every run (`uv export --locked --all-extras --group build`, §7.4). The only
-recorded exception is build-time `setuptools` `PYSEC-2026-3447`; the justification lives in
+recorded exception is the `setuptools` advisory `PYSEC-2026-3447` affecting unused macOS
+source-distribution publishing; the justification lives in
 §11.2 and the fix is reserved for a separately reviewed dependency PR.
 
 ### PR Labels for Versioning
