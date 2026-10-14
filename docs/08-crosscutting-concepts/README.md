@@ -601,6 +601,8 @@ Do not stage or commit in the checkout while the full suite is running.
 in the real Git index, scans them, then removes them. A simultaneous commit can
 capture a canary. Wait for suite completion and inspect the staged diff before
 committing; review in a separate worktree keeps its index independent.
+Repository-wide lint and secret scans must also wait for these tests to finish,
+so transient canary files cannot become unrelated lint or scan failures.
 
 ### 8.10.3 Constraint tool characterization (#406)
 

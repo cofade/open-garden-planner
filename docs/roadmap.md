@@ -2838,7 +2838,13 @@ and released as v1.30.3. Wiki publication follows finalization.
 | Risk register / reconciliation | A1 evidence and pending acceptance |
 | Agent context / wiki sources | Current implementation and public behavior |
 
-### Audit package A5 (#457) — implemented, pending owner acceptance
+### Audit package A5 (#457) — shipped v1.30.4 (PR #489)
+
+Owner confirmed all frozen-app checks on 14 October 2026, including the German
+localization follow-up. [PR #489](https://github.com/cofade/open-garden-planner/pull/489)
+merged through protection as `9dc37274` and shipped in
+[v1.30.4](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.4).
+The matching Release workflow passed, including frozen checks and provenance.
 
 AUD-012: immutable enum-complete constraint panel presentation descriptors, retaining
 the existing translation context, icons, colors, formatting and theme refresh.
@@ -2852,9 +2858,9 @@ score or co-change count is promoted into current evidence.
 Failing-first regressions and tagged caller-stack tracing exposed all-pinned false
 convergence: Newton returned success before computing residuals. Fixed-state residuals
 are now measured before return. No tolerance, damping, arbitrary iteration-count,
-dependency, version or file-format change. ADR-012 addendum; [detailed plan](implementation-plan-457.md)
+dependency or file-format change. ADR-012 addendum; [detailed plan](implementation-plan-457.md)
 and [reproducible evidence](11-risks-and-technical-debt/audit-2026-10-a5-evidence.md).
-Final reviewed source: `cda81961`. Windows full suite: **8313 passed, 37 skipped**
+Initial reviewed source: `cda81961`. Windows full suite: **8313 passed, 37 skipped**
 in 910.54 seconds, with no failures or relaxed timing budgets. Focused author checks:
 226 passed plus the timeout regression; fresh independent re-review: 191 passed,
 no outstanding findings. Ruff, HIGH Bandit (0), translations/interpolation (35),
@@ -2863,12 +2869,14 @@ secrets and offline wiki pass. Controlled-PATH clean frozen build, detached
 self-test (0) and eight-second startup (124 equivalent) pass. The English/German
 all-type widget board was visually inspected; a real registered Fixed/Fixed/Distance
 gesture refused an incompatible target without scene/graph/history changes.
-Check the draft PR's current head for final Linux coverage and cross-platform CI verification.
+Final feature head `d82a0ae1` passed all cross-platform CI checks: **8317 passed,
+37 skipped**; Linux coverage **80.0% lines / 63.6% branches** (non-UI
+85.7% / 74.5%), with zero package/file-floor regressions.
 Owner checks 1 (theme/readability) and 3 (fixed conflict rejection) passed. Check 2
 found English unnamed endpoints in German constraint rows. The follow-up uses
 canonical translated object names for all 52 types and compare-overlay plants,
 adds missing Hecke/Dachfirst catalog entries, and pins duplicates, explicit names
-and real row/tooltip wiring. German retest remains pending on draft PR #489.
+and real row/tooltip wiring. Owner confirmed the German retest before finalization.
 Follow-up tested source `29429088`: Windows full suite **8317 passed, 37 skipped**
 in 806.45 seconds; fresh reviews clean (70 label tests and the clock regression),
 frozen self-test/startup and other local gates pass. The full run first exposed a
@@ -2876,12 +2884,12 @@ host-hour-dependent sun test; tagged tracing proved its +1 hour crossed midnight
 Its fixture now fixes noon without changing production behavior or timeouts.
 Epic #392 remains open; other audit bundles and #485 remain separate.
 
-### A5 docs updated on implementation
+### A5 docs updated on completion
 
 | Document | Section |
 |---|---|
 | Building blocks / runtime | Presentation descriptor and pinned feasibility sequence |
 | Crosscutting concepts / ADR register | Numerical evidence and ADR-012 addendum |
 | Risk register / reconciliation | AUD-012/023, TD-038/039 and measured all-pinned pitfall |
-| Agent context / mirrored debug skill | Pending delivery and failing-first evidence |
-| Wiki architecture source | Descriptor/solver boundary and evidence link; publication pending |
+| Agent context / mirrored debug skill | Shipped status and failing-first evidence |
+| Wiki sources | Shipped A5 status, descriptor/solver boundary and evidence link; ADR-051 publication |

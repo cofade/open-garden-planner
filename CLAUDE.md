@@ -222,7 +222,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 ## Where to Pick Up After Restart
 
-- **Audit A5 (#457) implemented, pending owner acceptance:** immutable enum-complete constraint panel descriptors (existing translation context), geometric solver oracles and reproducible eight-mutant replay. Fixed all-pinned false convergence after failing-first regressions and tagged stack traces. See ADR-012 addendum, `docs/implementation-plan-457.md` and `docs/11-risks-and-technical-debt/audit-2026-10-a5-evidence.md`. No file-format, dependency or version change; draft/CI/review evidence belongs in the roadmap. Epic #392 remains open.
+- **Audit A5 (#457) shipped 2026-10-14 as v1.30.4 ([PR #489](https://github.com/cofade/open-garden-planner/pull/489)):** immutable constraint panel descriptors, geometric solver oracles and reproducible eight-mutant replay. Fixed all-pinned false convergence and German unnamed-object labels; all 52 object types have catalog coverage. Owner confirmed all frozen checks. See ADR-012 addendum, `docs/implementation-plan-457.md` and `docs/11-risks-and-technical-debt/audit-2026-10-a5-evidence.md`; gate evidence belongs in the roadmap. No file-format or dependency change. Epic #392 remains open.
 
 - **Audit A1 (#453) shipped 2026-10-13 as v1.30.3 ([PR #487](https://github.com/cofade/open-garden-planner/pull/487)):** AUD-041/042/044/047 cover strict numeric plan I/O, verified release downloads, bounded image ingestion and owner-only Linux settings. Owner confirmed frozen acceptance. No new dependency or file-format bump. Epic #392 remains open. See ADR-003/041/044 addenda and the roadmap delivery notes.
 

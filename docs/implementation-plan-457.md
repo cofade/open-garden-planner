@@ -136,5 +136,7 @@ format (9); UI/core dependency direction (10–11); translated display (16).
   languages and real mouse-driven constrained movement/conflict dialog behavior.
   Give exact reachable steps and expected observations from the verified artifact.
 
-The stopping state is a reviewed draft PR ready for owner manual acceptance.
-No automatic ready/merge, tag/version changes or wiki publication are authorized.
+The original planning task stopped at a reviewed draft PR ready for owner manual
+acceptance. Owner acceptance and the subsequent `finalize-us` invocation on
+14 October 2026 authorized protected merge, automatic version synchronization
+and wiki publication. See the roadmap delivery record. Tags remain CI-owned.

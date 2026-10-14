@@ -77,8 +77,8 @@ All 73 P2/P3 checklist entries are assigned exactly once. The acceptance text be
 
 | Finding | Disposition | Current evidence and remaining work |
 |---|---|---|
-| AUD-012 | implemented; pending owner acceptance | One immutable enum-complete panel descriptor; independent all-type rendering, icons/colors and runtime German checks. Fresh dispatch inventory and deliberate geometry boundaries: [A5 evidence](audit-2026-10-a5-evidence.md). ADR-012 addendum. |
-| AUD-023 | implemented; pending owner acceptance | Eight explicit mutants replayed against existing relevant tests, then strengthened geometric oracles. Both confirmed symmetry survivors are killed; the baseline timeout is reported separately. All-pinned false convergence fixed with failing-first regressions. [A5 evidence](audit-2026-10-a5-evidence.md); historical mutation counts unchanged. |
+| AUD-012 | fixed (#489), v1.30.4; owner accepted | One immutable enum-complete panel descriptor; independent all-type rendering, icons/colors and runtime German checks, including all 52 unnamed object types. Fresh dispatch inventory and deliberate geometry boundaries: [A5 evidence](audit-2026-10-a5-evidence.md). ADR-012 addendum. |
+| AUD-023 | fixed (#489), v1.30.4; owner accepted | Eight explicit mutants replayed against existing relevant tests, then strengthened geometric oracles. Both confirmed symmetry survivors are killed; the baseline timeout is reported separately. All-pinned false convergence fixed with failing-first regressions. [A5 evidence](audit-2026-10-a5-evidence.md); historical mutation counts unchanged. |
 
 ### A6: Canvas interaction and properties-panel maintainability
 

@@ -786,7 +786,7 @@
   },
   "457": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Audit A5: Constraint descriptors and stronger solver assertions (epic #392)"
   },
   "465": {
@@ -808,5 +808,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix(453): validate plan inputs, verify downloads and secure Linux settings"
+  },
+  "489": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(457): constraint descriptors and stronger solver assertions"
   }
 }

@@ -1,6 +1,7 @@
 # Audit A5 evidence — #457 (AUD-012, AUD-023)
 
-13 October 2026. Base `ca92f048` (v1.30.3); implementation awaits owner acceptance.
+Measured 13 October 2026 against base `ca92f048` (v1.30.3). Owner accepted the
+delivery on 14 October 2026; shipped in v1.30.4 through PR #489.
 See [the implementation plan](../implementation-plan-457.md) and ADR-012 addendum.
 The dated audit snapshot is unchanged. This report measures a new, explicitly scoped
 sample; it does not reproduce the historical mutmut population or co-change ratios.
@@ -112,8 +113,8 @@ object types and found two absent entries, `Hedge`/`Roof Ridge`, now registered 
 numbering operates on the translated labels. Four regressions failed before
 correction: exhaustive object labels, duplicates/explicit names, the real German
 distance gesture row/tooltip and all three compare-overlay plant types. Focused
-verification: 74 passed. Temporary instrumentation removed. German owner retest
-remains pending; the PR stays draft.
+verification: 74 passed. Temporary instrumentation removed. Owner confirmed the
+German retest and all other frozen-app checks on 14 October 2026.
 
 The follow-up full gate also exposed an existing host-hour assumption in
 `test_sun_mismatch.py`: starting at 23:49 and adding an hour crossed the plan date,
@@ -131,8 +132,8 @@ reviews are clean (70 label tests and the clock regression). Ruff, HIGH Bandit
 parity, citations, secrets and wiki checks pass. A clean controlled-PATH frozen
 build passes detached self-test (0) and eight-second startup (124 equivalent);
 its German catalog is byte-identical to the tested source and returns the corrected
-names. Real German rows were rendered and visually inspected. Current-head CI
-verification and owner German retest remain separate gates; keep the PR draft.
+names. Real German rows were rendered and visually inspected. Final feature head
+`d82a0ae1` passed all CI checks and the owner confirmed its German retest.
 
 First independent review found an additional old icon-table import in the icon-file
 sweep, a formatting-boundary difference from multiplication by 0.01, and an incomplete
@@ -142,14 +143,28 @@ timeout path is pinned by a focused CLI test. Final focused run: 226 tests passe
 plus the timeout test. An English/German all-type widget board was rendered and
 visually inspected, with readable labels, correct icons and status dots.
 
-Final reviewed source `cda81961`: Windows full suite **8313 passed, 37 skipped**
+Initial reviewed source `cda81961`: Windows full suite **8313 passed, 37 skipped**
 in 910.54 seconds, no failures. Independent fresh-worktree re-review passed 191
 tests with no findings. Ruff, HIGH Bandit (0), lock/export, Windows type baseline
 (0 regressions), i18n/interpolation (35), parity, citations, secrets and wiki pass.
 Controlled-PATH clean frozen build passes detached self-test (0) and eight-second
 startup (124 equivalent). A registered Fixed/Fixed/Distance gesture emitted the
 conflict warning and preserved scene/graph/history. Final Linux coverage and
-cross-platform CI results must be checked on the draft PR's current head. See the roadmap receipt.
-Owner manual acceptance and wiki publication
-remain pending. Epic #392 remains open; A4/A6/A7 structural extraction and #485's
+cross-platform CI results are recorded in the roadmap receipt.
+Epic #392 remains open; A4/A6/A7 structural extraction and #485's
 rotation/constraint interaction are outside this package.
+
+## Delivery outcome — 14 October 2026
+
+Owner accepted all manual checks. A fresh full-diff senior review was clean, and
+`check_pr_checks.py` verified every check at `d82a0ae1` before protected merge of
+[PR #489](https://github.com/cofade/open-garden-planner/pull/489) as `9dc37274`.
+[v1.30.4](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.4)
+resolves to that exact merge. The matching Release workflow completed successfully,
+including frozen checks and uploaded build provenance. Final CI full suite:
+**8317 passed, 37 skipped**; Linux coverage **80.0% lines / 63.6% branches**,
+non-UI **85.7% / 74.5%**, with zero package/file-floor regressions.
+Version synchronization and repository-owned wiki publication follow `finalize-us`
+and ADR-051 under the same owner authorization.
+Version-sync review found and corrected a stale acceptance status in this report's
+opening; the measurement scope and production behavior are unchanged.
