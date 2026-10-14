@@ -222,7 +222,7 @@ Expected outcome: `dist/OpenGardenPlanner-v{VERSION}-Setup.exe` (v1.29.6 release
 The script writes `src/open_garden_planner/_version.py` before freezing (the
 update checker reads it), cleans the previous `dist/OpenGardenPlanner/`, runs
 PyInstaller with `--clean`, then `makensis` on `installer/ogp_installer.nsi`.
-Default version without `--version` is a stale `1.0.0` constant — real releases
+Default version without `--version` comes from `pyproject.toml` — real releases
 come from CI (`release.yml`, windows-latest), which passes the computed version.
 Release/versioning policy itself → **ogp-change-control**.
 
