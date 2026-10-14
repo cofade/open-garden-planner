@@ -199,12 +199,15 @@ The intake rows above remain the dated source evidence/acceptance specification;
 the historical audit snapshot has not been rewritten. Epic #392 remains open for
 packages A2–A13.
 
-## A2 delivery state — 2026-10-13
+## A2 delivery state — shipped 2026-10-15
 
-AUD-049/050/051/052/053/054/055 have implementation and regression coverage on the
-`#454` branch. The intake rows above remain the dated source evidence/acceptance
-specification; owner acceptance and protected merge are pending. The historical audit
-snapshot has not been rewritten. Per finding:
+AUD-049/050/051/052/053/054/055 shipped in
+[v1.30.5](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.5) via
+[PR #490](https://github.com/cofade/open-garden-planner/pull/490), merge `6854fe66`,
+after owner acceptance. All 18 pre-merge CI checks and the matching Release workflow
+passed, including frozen verification and provenance. The intake rows above remain
+the dated source evidence/acceptance specification; the historical audit snapshot
+has not been rewritten. Per finding:
 
 - **AUD-053** — every external `uses:` in `ci.yml`, `release.yml` and the shared composite
   action is pinned to a commit SHA with a `# vX.Y.Z` comment; `scripts/check_action_pins.py`
@@ -244,5 +247,9 @@ snapshot has not been rewritten. Per finding:
   available updates, which is what the owner acts on in a reviewed PR. Revisit automation
   when hosted uv reaches the pin.
 
-Package A2 is complete only after all seven acceptance items and the delivery gates pass;
-epic #392 remains open for the other bundles.
+The live monthly report passed in
+[run 38646071241](https://github.com/cofade/open-garden-planner/actions/runs/38646071241),
+created review issue #493 and confirmed the lock stayed unchanged. The published
+release includes the SBOM, notices and complete build evidence; installer and SBOM
+provenance verify against the Release workflow. Package A2 is complete; epic #392
+remains open for A3–A4 and A6–A13.

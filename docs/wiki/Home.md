@@ -23,8 +23,12 @@ Audit package A5 (#457: constraint presentation, solver assertions, fixed-state
 feasibility and German default object labels) shipped in
 [v1.30.4](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.4) via
 [PR #489](https://github.com/cofade/open-garden-planner/pull/489) after owner acceptance.
+Audit package A2 (#454: pinned build tools, dependency review, frozen-package notices
+and SBOM) shipped in
+[v1.30.5](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.5) via
+[PR #490](https://github.com/cofade/open-garden-planner/pull/490) after owner acceptance.
 [#392](https://github.com/cofade/open-garden-planner/issues/392) remains open for
-packages A2–A4 and A6–A13.
+packages A3–A4 and A6–A13.
 
 Phase 17's L0 investigation is complete with a **GO** decision, and L1 is under way: its first story, one shared simulation date and time for the sun, shadow, heatmap and 3D tools, shipped in v1.29.10 ([PR #429](https://github.com/cofade/open-garden-planner/pull/429)).
 The shipped 3D view still uses **Qt 3D**. Qt Quick 3D remains a dormant spike until L1 delivers the replacement.

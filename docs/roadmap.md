@@ -96,7 +96,7 @@ Every user-visible string must be wrapped for translation. See `docs/08-crosscut
 | Status | ID   | Description            | Notes                                                         |
 |--------|------|------------------------|---------------------------------------------------------------|
 | ✅     | DI-1 | SAST pipeline (Bandit) | HIGH-severity scan in CI; `bandit>=1.7.0` added as dev dep   |
-| 🔄     | DI-2 | Repository audit 2026-10 | Historical snapshot preserved; [current reconciliation and packages A1–A13](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audit-2026-10-reconciliation.md) account for 73 P2/P3 findings; all 15 original standalone P0/P1 remediations are complete after #406 in v1.30.2 (PR #477); **A1 (#453) shipped in PR #487** and **A2 (#454) is in review** — see the delivery-state sections in the reconciliation; epic #392 remains open |
+| 🔄     | DI-2 | Repository audit 2026-10 | Historical snapshot preserved; [current reconciliation and packages A1–A13](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audit-2026-10-reconciliation.md) account for 73 P2/P3 findings; all 15 original standalone P0/P1 remediations are complete after #406 in v1.30.2 (PR #477); **A1 (#453), A2 (#454) and A5 (#457) shipped in PRs #487, #490 and #489** — see the delivery-state sections in the reconciliation; epic #392 remains open |
 | ✅     | DI-3 | i18n blind-spot hardening | Unique `TRANSLATIONS` keys + shared `active_language()` + full-tree ruff; issues #393/#408/#410; v1.29.2 (PR #411); §11.4, ADR-045 addendum |
 | ✅     | DI-4 | Serialization & Data Integrity Hardening | Free-text annotations (`TextItem`) in `.ogp` + roundtrip matrix tests (#394), clipboard serializer unification (#400), background image placeholder & UUID deduplication (#397), atomic two-phase plan loading & autosave safety (#403); v1.29.4 (PR #412); §11.3, §11.4 |
 | ✅     | DI-5 | CI and release hardening | Locked dependencies, platform type budgets, package coverage floors, and administrator-enforced checks; issues #404/#401/#402/#399; v1.29.6 (PR #422); ADR-050 |
@@ -2838,7 +2838,16 @@ and released as v1.30.3. Wiki publication follows finalization.
 | Risk register / reconciliation | A1 evidence and pending acceptance |
 | Agent context / wiki sources | Current implementation and public behavior |
 
-### Audit package A2 (#454) — implementation in review
+### Audit package A2 (#454) — shipped v1.30.5 (PR #490)
+
+Owner confirmed all manual checks and authorized finalization on 15 October 2026.
+[PR #490](https://github.com/cofade/open-garden-planner/pull/490) merged through
+protection as `6854fe66` and shipped in
+[v1.30.5](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.5).
+All 18 pre-merge CI checks and the matching Release workflow passed, including the
+frozen self-test and provenance. The live monthly dependency report passed in
+[run 38646071241](https://github.com/cofade/open-garden-planner/actions/runs/38646071241),
+created review issue #493 and left the lock unchanged.
 
 Toolchain pins (interpreter `3.11.9`, NSIS `3.13.0`), commit-SHA action pins with a CI
 drift guard, `dist/build-evidence.json` emitted and required by the release, a `pip-audit`
