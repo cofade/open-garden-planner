@@ -59,6 +59,7 @@ license fails the build instead of shipping an incomplete notice.
 | `installer/ogp_installer.nsi` | NSIS installer script (wizard, registry, file association) |
 | `installer/build_installer.py` | Build orchestration script (PyInstaller → distribution inventory → NSIS) |
 | `installer/runtime_closure.py` | The one runtime-closure resolver used by both the spec and the inventory generator |
+| `installer/frozen_inventory.py` | Attributes actual Analysis inputs to installed/vendored RECORD owners and bundles their metadata/license evidence |
 | `installer/ogp_app.ico` | Application icon (multi-size: 16–256px) |
 | `installer/ogp_file.ico` | `.ogp` file type icon |
 | `LICENSE` | GPLv3 license text (displayed during install and installed next to `THIRD_PARTY_NOTICES.md`) |
@@ -368,6 +369,11 @@ US-D1.1 bundling proof) — dev tests don't surface them:
   **runtime closure's** metadata through `installer/runtime_closure.py` — never a
   hand-typed per-stack `copy_metadata` list, which is how a new dependency used to
   slip out of the inventory (AUD-051 / #454).
+  That closure is only the required minimum. After Analysis,
+  `installer/frozen_inventory.py` also bundles metadata/licenses for every actual
+  collected wheel owner, including hook and vendored code, using physical RECORD
+  paths. The inventory check reconciles its ownership manifest with the executable
+  PYZ and collected files; it preserves installed/vendored version differences.
 - **Do NOT walk top-level `mcp`.** `collect_submodules("mcp")` imports
   `mcp.cli`, which calls `sys.exit(1)` when the optional `cli` (`typer`) extra is
   absent, aborting the build. The spec collects the concrete subpackages

@@ -12,6 +12,8 @@ Modes
 * ``--check``: rebuild in memory and verify
     - every runtime distribution from the live build environment appears in the
       bundle (``installer/runtime_closure.py`` — one resolver, not a second one);
+    - actual collected wheel owners (including vendored copies) match the bundle
+      metadata, and the collected ownership manifest matches the executable PYZ;
     - the on-disk SBOM's components, its recorded app version and the full
       notices text match what the bundle and the requested version produce;
     - with ``--lock pylock.toml``: every bundled distribution's version equals
@@ -65,19 +67,7 @@ KNOWN_SPDX_IDS = frozenset({
     "Unlicense", "Zlib",
 })
 
-#: Distributions whose code reaches the frozen bundle through PyInstaller
-#: machinery rather than a ``Requires-Dist`` edge, with the verified reason.
-#: They are expected in the bundle, reported as ordinary SBOM components (so
-#: their license text is published), and exempt from the lock-identity check
-#: because they are not lock packages. If PyInstaller stops bundling one, the
-#: check fails loudly rather than under-reporting.
-VENDORED_BUNDLE_EXTRAS = {
-    "importlib-metadata": (
-        "PyInstaller's hook-importlib_metadata aliases the setuptools-vendored copy "
-        "(setuptools._vendor.importlib_metadata, Apache-2.0) when a bundled dependency "
-        "imports the backport; that code is distributed with the executable."
-    ),
-}
+COLLECTED_MANIFEST = "ogp-collected-distributions.json"
 
 
 def _load_runtime_closure():
@@ -192,7 +182,14 @@ def describe(dist_info: Path) -> dict[str, object]:
             spdx_is_id = raw_license in KNOWN_SPDX_IDS or _is_known_expression(raw_license)
 
     texts = []
-    for path in _license_files(dist_info):
+    declared_files = []
+    for declared in meta.get("License-File", []):
+        candidates = (dist_info / declared, dist_info / "licenses" / declared)
+        found = [p for p in candidates if p.is_file() and p.read_text(encoding="utf-8").strip()]
+        if not found:
+            raise InventoryError(f"{name} {version}: declared License-File {declared!r} is missing")
+        declared_files.extend(found)
+    for path in sorted({*_license_files(dist_info), *declared_files}):
         text = path.read_text(encoding="utf-8", errors="replace").strip()
         if text:
             texts.append(text)
@@ -234,15 +231,39 @@ def bundle_dist_infos(bundle: Path) -> list[Path]:
 
 def collect_records(bundle: Path) -> list[dict[str, object]]:
     records = []
+    manifest = _collected_manifest(bundle)
+    containers = {
+        (runtime_closure.canonicalize(r["name"]), r["version"]): r["container"]
+        for r in (manifest or {}).get("distributions", [])
+        if r["container"] is not None
+    }
+    seen = set()
     for dist_info in bundle_dist_infos(bundle):
         record = describe(dist_info)
         if record["canonical_name"] == runtime_closure.canonicalize(
             runtime_closure.PROJECT_DISTRIBUTION
         ):
             continue
+        identity = (record["canonical_name"], record["version"])
+        if identity in seen:
+            continue  # hooks can copy the same vendored metadata to a second path
+        seen.add(identity)
+        record["container"] = containers.get(identity)
         records.append(record)
-    records.sort(key=lambda r: str(r["canonical_name"]))
+    records.sort(key=lambda r: (str(r["canonical_name"]), str(r["version"])))
     return records
+
+
+def _collected_manifest(bundle: Path) -> dict | None:
+    path = bundle / "_internal" / COLLECTED_MANIFEST
+    if path.is_file():
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if data.get("schema_version") != 1:
+            raise InventoryError("Unsupported collected-distribution manifest")
+        return data
+    if (bundle / "OpenGardenPlanner.exe").is_file():
+        raise InventoryError("Frozen executable has no collected-distribution manifest")
+    return None  # synthetic metadata-only fixtures exercise the renderer/orchestration
 
 
 def render_notices(records: list[dict[str, object]], app_version: str) -> str:
@@ -261,6 +282,9 @@ def render_notices(records: list[dict[str, object]], app_version: str) -> str:
         lines.append(f"## {record['name']} {record['version']}")
         lines.append("")
         lines.append(f"- License: {record['spdx'] or 'see text below'}")
+        if record.get("container"):
+            parent = record["container"]
+            lines.append(f"- Vendored by: {parent['name']} {parent['version']}")
         if record["home_page"]:
             lines.append(f"- Project: {record['home_page']}")
         lines.append("")
@@ -300,6 +324,11 @@ def render_sbom(records: list[dict[str, object]], app_version: str) -> dict[str,
             "version": record["version"],
             "purl": f"pkg:pypi/{record['canonical_name']}@{record['version']}",
         }
+        if record.get("container"):
+            parent = record["container"]
+            component["properties"] = [
+                {"name": "ogp:vendored-by", "value": f"{parent['name']}@{parent['version']}"}
+            ]
         licenses = _license_entry(record["spdx"], bool(record.get("spdx_is_id")))  # type: ignore[arg-type]
         if licenses:
             component["licenses"] = [licenses]
@@ -344,27 +373,47 @@ def _app_version() -> str:
 
 
 def _expected_from_environment() -> set[str]:
-    """The spec's closure for this build environment, plus hook-bundled extras.
-
-    ``--check`` therefore proves "the spec bundled every distribution this
-    environment declares" plus "the on-disk SBOM matches the bundle". It does
-    **not** prove the environment matches the lock: that direction is covered
-    per-version by the ``--lock`` comparison, and closure ⊆ lock by
-    ``tests/integration/test_distribution_inventory_pipeline.py``.
-    """
+    """Required dependency minimum, separate from actual collected-file ownership."""
     names = {
         runtime_closure.canonicalize(n) for n in runtime_closure.runtime_distribution_names()
     }
-    return names | set(VENDORED_BUNDLE_EXTRAS)
+    return names
 
 
 def _check(
-    output_dir: Path, lock: Path | None, records: list[dict[str, object]], app_version: str
+    output_dir: Path, lock: Path | None, records: list[dict[str, object]], app_version: str,
+    bundle: Path | None = None,
 ) -> list[str]:
     problems: list[str] = []
     bundled = {str(r["canonical_name"]) for r in records}
     expected = _expected_from_environment()
     missing = sorted(expected - bundled)
+    manifest = _collected_manifest(bundle) if bundle is not None else None
+    if manifest:
+        collected = {
+            (runtime_closure.canonicalize(r["name"]), r["version"])
+            for r in manifest["distributions"]
+        }
+        actual = {(r["canonical_name"], r["version"]) for r in records}
+        if actual != collected:
+            problems.append(f"collected owners differ from bundle metadata: {actual ^ collected}")
+        # Independent readback of the actual executable, not the source TOC.
+        from PyInstaller.archive.readers import CArchiveReader
+
+        archive = CArchiveReader(str(bundle / "OpenGardenPlanner.exe"))
+        pyz = archive.open_embedded_archive(next(n for n in archive.toc if n.endswith(".pyz")))
+        if set(pyz.toc) != set(manifest["python_modules"]):
+            problems.append("collected module manifest does not match the executable's PYZ")
+        metadata_paths = {r["metadata_path"] for r in manifest["distributions"]}
+        for category, available in (("module_owners", set(pyz.toc)),
+                                    ("script_owners", set(archive.toc))):
+            for module, owner in manifest[category].items():
+                if module not in available or owner not in metadata_paths:
+                    problems.append(f"{category}: {module} has no collected artifact or owner")
+        for filename, owner in manifest["file_owners"].items():
+            if not (bundle / "_internal" / filename).is_file() or owner not in metadata_paths:
+                problems.append(f"file_owners: {filename} has no collected artifact or owner")
+        expected |= {name for name, _version in collected}
     unexpected = sorted(bundled - expected)
     if missing:
         problems.append(
@@ -401,8 +450,12 @@ def _check(
         locked = _lock_versions(lock)
         for record in records:
             name = str(record["canonical_name"])
-            if name in VENDORED_BUNDLE_EXTRAS:
-                continue
+            if record.get("container"):
+                parent = record["container"]
+                parent_name = runtime_closure.canonicalize(parent["name"])
+                if locked.get(parent_name) != parent["version"]:
+                    problems.append(f"{name}: vendoring wheel {parent_name} does not match lock")
+                continue  # the vendored version belongs to the locked containing wheel
             if name not in locked:
                 problems.append(f"{name} is in the bundle but not in {lock.name}")
             elif locked[name] != record["version"]:
@@ -449,7 +502,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     problems = (
-        _check(args.output_dir.resolve(), args.lock, records, app_version) if args.check else []
+        _check(args.output_dir.resolve(), args.lock, records, app_version, bundle)
+        if args.check else []
     )
 
     if not args.check:

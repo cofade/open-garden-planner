@@ -219,6 +219,12 @@ snapshot has not been rewritten. Per finding:
   and a CycloneDX 1.5 SBOM from the frozen bundle, fails closed on an unknown license, and
   `--check`s the bundle/SBOM/lock identity. Both artifacts ship with the release, the
   notices are installed next to `LICENSE`, and both are attested.
+  PR #490's 14 October review exposed omitted hook/vendored code in the original
+  closure-only inventory. `installer/frozen_inventory.py` now attributes actual Analysis
+  files to wheel RECORD owners, copies their metadata/license files, preserves distinct
+  vendored versions, and writes an ownership manifest checked against the executable PYZ.
+  Synthetic pipeline coverage is orchestration evidence; actual code coverage is pinned
+  by the frozen-hook regression observed failing before this correction.
 - **AUD-052** — `requirements.txt` and `requirements-dev.txt` are deleted; a test keeps
   them gone, unreferenced outside the dated records, and the locked recipe is the single
   installation path.

@@ -43,7 +43,7 @@ package, and find where artifacts land. Facts verified against the repo at
 |---|---|---|
 | Purpose | Where the app is actually developed and run as a GUI | Headless tests, lint, security scan (CI runs ubuntu-latest) |
 | Python | 3.11+ (`requires-python = ">=3.11"`; CI pins 3.11) | 3.11 |
-| Interpreter path | `venv/Scripts/python.exe` (Git-Bash form used throughout CLAUDE.md) or `venv\Scripts\python.exe` (cmd) | `.venv/bin/python` |
+| Interpreter path | `venv/Scripts/python.exe` (Git-Bash form used throughout AGENTS.md) or `venv\Scripts\python.exe` (cmd) | `.venv/bin/python` |
 | GUI runs? | Yes — the app targets Windows (pyproject classifier: `Operating System :: Microsoft :: Windows`) | Not intended; tests run with `QT_QPA_PLATFORM=offscreen` (also set defensively in `tests/conftest.py`) |
 | Exe/installer build | Yes (PyInstaller + NSIS; release CI uses windows-latest) | No |
 
@@ -120,7 +120,7 @@ PYTHONUTF8=1 venv/Scripts/python.exe scripts/compile_translations.py
 | `fill_translations.py` | Holds the full English→German mapping as a Python dict; writes translations + missing contexts into the `.ts`. New strings must be **added to the script's dict** first |
 | `compile_translations.py` | Pure-Python `lrelease` replacement — compiles every `.ts` in that dir to `.qm` (no Qt tooling needed) |
 | `PYTHONUTF8=1` | Required on Windows: the scripts handle umlauts; without it the default cp1252 codec mangles them |
-| Gate test | `venv/Scripts/python.exe -m pytest tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished` — fails if any registered string is left unfinished. It CANNOT see hardcoded plain-string call sites that bypass `tr()` (see CLAUDE.md i18n section) |
+| Gate test | `venv/Scripts/python.exe -m pytest tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished` — fails if any registered string is left unfinished. It CANNOT see hardcoded plain-string call sites that bypass `tr()` (see AGENTS.md i18n section) |
 | Packaging | `installer/ogp.spec` bundles the whole `resources/translations/` dir into the exe — recompile `.qm` BEFORE building |
 
 ## Building the frozen exe (PyInstaller)
@@ -197,13 +197,13 @@ Running it locally is what makes it a merge gate rather than a post-mortem.
 
 | Trap | Rule | Why (source) |
 |---|---|---|
-| MCP stack dynamic imports | `collect_submodules(...)` for `mcp.server`/`mcp.shared`/`mcp.types`, `uvicorn`, `starlette`, `anyio`, `sse_starlette`, `pydantic`, `pydantic_settings`, `httpx_sse`; distribution metadata is bundled for the **whole runtime closure** by `installer/runtime_closure.py` (spec + inventory share it) | uvicorn/anyio/starlette load protocol/loop/lifespan submodules dynamically and read distribution metadata at import; without both, the frozen Agent API fails while dev runs pass (docs/07 §7.6). Do not hand-type a per-stack metadata list — a new dependency would silently leave the notices/SBOM inventory (AUD-051/#454) |
+| MCP stack dynamic imports | `collect_submodules(...)` for `mcp.server`/`mcp.shared`/`mcp.types`, `uvicorn`, `starlette`, `anyio`, `sse_starlette`, `pydantic`, `pydantic_settings`, `httpx_sse`; distribution metadata is bundled for the required runtime closure by `installer/runtime_closure.py`, plus actual collected wheel owners via `installer/frozen_inventory.py` (including hooks and distinct vendored copies) | uvicorn/anyio/starlette load protocol/loop/lifespan submodules dynamically and read distribution metadata at import; without both, the frozen Agent API fails while dev runs pass (docs/07 §7.6). Do not hand-type a per-stack metadata list — a new dependency would silently leave the notices/SBOM inventory (AUD-051/#454) |
 | Never walk top-level `mcp` | Collect the concrete subpackages, NOT `collect_submodules("mcp")` | Walking `mcp` imports `mcp.cli`, which `sys.exit(1)`s without the unbundled `typer` extra and aborts the build; the spec wraps collection in `_safe_collect_submodules` |
 | Never exclude `multiprocessing` | It is deliberately absent from the spec `excludes` (comment in spec) | uvicorn imports it eagerly (`uvicorn.supervisors → basereload → _subprocess`) even single-process; excluding it → GUI runs, embedded server silently dies with `ModuleNotFoundError` |
 | UPX vs pydantic_core | `upx_exclude=["pydantic_core*.pyd"]` | UPX can corrupt that compiled extension, killing the Agent API at runtime |
 | PyQt6-WebEngine pin | `PyQt6-WebEngine>=6.10.0,<6.11` in `pyproject.toml` | Pinned below 6.11 (satellite map picker uses QWebEngineView); do not bump casually |
 | mcp major pin | `mcp>=1.23,<2.0` | mcp v2 renames `FastMCP` → `MCPServer` (pyproject comment); `structured_output=False` behavior verified against mcp 1.28.1 |
-| Any new dependency | Re-run the exe build + `timeout 8` smoke **and `--selftest`** BEFORE merge | Frozen imports diverge from dev imports, and the smoke alone cannot see a subsystem that died silently (#291, #277) — see the `--selftest` section above (CLAUDE.md Quick Reference) |
+| Any new dependency | Re-run the exe build + `timeout 8` smoke **and `--selftest`** BEFORE merge | Frozen imports diverge from dev imports, and the smoke alone cannot see a subsystem that died silently (#291, #277) — see the `--selftest` section above (AGENTS.md Quick Reference) |
 | WebEngine import order | `PyQt6.QtWebEngineCore/Widgets/WebChannel` are explicit hiddenimports; the import must run before `QApplication` is created (handled in `main.py`) | Spec comment |
 
 ## Building the NSIS installer

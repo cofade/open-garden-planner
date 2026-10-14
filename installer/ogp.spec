@@ -86,6 +86,7 @@ from PyInstaller.utils.hooks import collect_submodules, copy_metadata
 if str(SPECPATH) not in sys.path:
     sys.path.insert(0, str(SPECPATH))
 from runtime_closure import runtime_distribution_names  # noqa: E402
+from frozen_inventory import MANIFEST_NAME, collected_metadata, write_manifest  # noqa: E402
 
 # The project's own metadata and build-time-only helpers are not third-party.
 _EXCLUDED_METADATA = {"open-garden-planner", "pyinstaller-hooks-contrib"}
@@ -207,7 +208,21 @@ a = Analysis(
     noarchive=False,
 )
 
+# Requires-Dist is a minimum, not the shipped inventory. Hooks can collect
+# build/dev packages and copies vendored by setuptools; index actual source
+# ownership after Analysis and preserve each copy's own metadata and licenses.
+_inventory_datas, _inventory_manifest = collected_metadata(
+    a.pure, a.binaries, a.datas, required_names=runtime_distribution_names(), scripts=a.scripts
+)
+a.datas += _inventory_datas
+_inventory_path = Path(workpath) / MANIFEST_NAME
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+# PYZ removes bootstrap stdlib modules (e.g. struct) from Analysis.pure.
+# Record its normalized contents, then independently verify the executable.
+_inventory_manifest["python_modules"] = sorted(row[0] for row in pyz.toc)
+write_manifest(_inventory_path, _inventory_manifest)
+a.datas += [(MANIFEST_NAME, str(_inventory_path), "DATA")]
 
 exe = EXE(
     pyz,

@@ -2850,6 +2850,12 @@ No runtime dependency change and no lock replacement beyond adding `pip-audit` t
 extra (the audit gate itself); no release-right change or `.ogp` version bump. See
 ADR-044/ADR-050 addenda and the A2 delivery-state section of the reconciliation.
 
+PR #490's 14 October review found that the declared dependency closure omitted code
+collected by PyInstaller hooks. The frozen inventory now also attributes actual Analysis
+inputs to wheel RECORD owners, including distinct vendored copies; verifies its ownership
+manifest against the executable PYZ; and checks declared license texts. The frozen-hook
+regression failed on the original artifact. See ADR-044's review addendum and §11.4.
+
 | Document | Section |
 |---|---|
 | ADR register | ADR-044 and ADR-050 addenda |

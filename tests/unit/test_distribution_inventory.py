@@ -244,31 +244,48 @@ def test_missing_bundle_fails(tmp_path: Path) -> None:
     assert main(["--bundle", str(tmp_path / "nope"), "--output-dir", str(tmp_path)]) == 2
 
 
-def test_vendored_bundle_extras_are_expected_components() -> None:
-    """A vendored entry must be documented, expected, and genuinely outside the closure."""
-    assert "importlib-metadata" in inventory.VENDORED_BUNDLE_EXTRAS
-    reason = inventory.VENDORED_BUNDLE_EXTRAS["importlib-metadata"]
-    assert len(reason) > 40 and "PyInstaller" in reason, "a vendored entry needs its reason"
-    assert "importlib-metadata" not in inventory.runtime_closure.runtime_distribution_names(), (
-        "if it were a declared requirement it would not need a vendored-extras entry"
-    )
-    assert "importlib-metadata" in inventory._expected_from_environment(), (
-        "PyInstaller's vendored importlib_metadata must be expected, not reported as drift"
-    )
+def test_required_closure_has_no_hardcoded_hook_exemptions() -> None:
+    assert inventory._expected_from_environment() == {
+        inventory.runtime_closure.canonicalize(n)
+        for n in inventory.runtime_closure.runtime_distribution_names()
+    }
 
 
-def test_vendored_extras_are_exempt_from_the_lock_identity_check(
+def test_vendored_versions_are_tied_to_the_locked_containing_wheel(
     tmp_path: Path, monkeypatch
 ) -> None:
     bundle = tmp_path / "bundle"
     _write_dist_info(bundle / "_internal", "importlib-metadata", "8.7.1")
+    monkeypatch.setattr(inventory, "_collected_manifest", lambda _bundle: {
+        "distributions": [{"name": "importlib-metadata", "version": "8.7.1",
+                           "container": {"name": "setuptools", "version": "82.0.0"}}]
+    })
     out = tmp_path / "out"
     assert main(["--bundle", str(bundle), "--output-dir", str(out)]) == 0
     records = collect_records(bundle)
     monkeypatch.setattr(inventory, "_expected_from_environment", lambda: {"importlib-metadata"})
     lock = tmp_path / "pylock.toml"
-    lock.write_text("lock-version = '1.0'\n", encoding="utf-8")
+    lock.write_text("[[packages]]\nname='setuptools'\nversion='82.0.0'\n", encoding="utf-8")
     assert _check(out, lock, records, inventory._app_version()) == []
+    lock.write_text("[[packages]]\nname='setuptools'\nversion='83.0.0'\n", encoding="utf-8")
+    assert any("vendoring wheel" in p for p in _check(out, lock, records, inventory._app_version()))
+
+
+def test_declared_license_file_must_exist(tmp_path: Path) -> None:
+    info = _write_dist_info(tmp_path, "Missing-Text", "1.0", license_file=False,
+                            license_line="License-Expression: MIT\nLicense-File: LICENSE")
+    with pytest.raises(InventoryError, match="declared License-File"):
+        describe(info)
+    (info / "licenses").mkdir()
+    (info / "licenses/LICENSE").write_text(MIT_TEXT, encoding="utf-8")
+    assert describe(info)["license_texts"]
+
+
+def test_declared_license_file_with_unusual_name_reaches_notices(tmp_path: Path) -> None:
+    info = _write_dist_info(tmp_path, "Attribution", "1.0", license_file=False,
+                            license_line="License-Expression: MIT\nLicense-File: AUTHORS")
+    (info / "AUTHORS").write_text("Copyright Ada Example", encoding="utf-8")
+    assert "Copyright Ada Example" in render_notices([describe(info)], "1.0")
 
 
 def test_spec_bundles_metadata_and_installer_carries_notices() -> None:
@@ -310,9 +327,7 @@ def test_real_frozen_bundle_passes_the_inventory_check() -> None:
 
     interpreter = f"{sys.version_info.major}.{sys.version_info.minor}"
     bundle = ROOT / "dist" / "OpenGardenPlanner"
-    bundled = {str(record["canonical_name"]) for record in collect_records(bundle)}
-    if bundled != inventory._expected_from_environment():
-        pytest.skip(f"frozen bundle in dist/ was not built with Python {interpreter}")
+    assert interpreter == "3.11", "run frozen verification in the locked builder interpreter"
     sbom_path = ROOT / "dist" / "ogp-sbom.cdx.json"
     if not sbom_path.is_file():
         pytest.skip("no inventory artifacts in dist/ yet")

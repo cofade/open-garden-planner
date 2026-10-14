@@ -4,7 +4,9 @@ Exercises the real orchestrator (`installer/build_installer.run_inventory`), whi
 out to the real generator over a bundle whose ``.dist-info`` metadata is copied from the
 running environment. That is what the release does with a PyInstaller bundle; the only
 substitution is the artifact, so no multi-minute frozen build is needed to prove the
-pipeline wires together, verifies itself, and fails on drift.
+pipeline wires together, verifies itself, and fails on drift. Synthetic metadata
+fixtures cannot prove that all frozen code is attributed; the independent executable
+archive regression below covers the hook/vendoring omission found in review.
 """
 
 import importlib.util
@@ -16,7 +18,6 @@ from importlib import metadata
 from pathlib import Path
 
 import pytest
-from scripts.generate_distribution_inventory import VENDORED_BUNDLE_EXTRAS
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -58,19 +59,6 @@ def _synthetic_bundle(bundle: Path) -> list[tuple[str, str]]:
         source = _dist_info_path(dist)
         shutil.copytree(source, internal / source.name, dirs_exist_ok=True)
         pairs.append((runtime_closure.canonicalize(name), dist.version))
-    # PyInstaller bundles these through hooks rather than Requires-Dist edges; a real
-    # frozen build carries their metadata, so the synthetic artifact must too.
-    for name in VENDORED_BUNDLE_EXTRAS:
-        if name in {pair[0] for pair in pairs}:
-            continue
-        dist_info = internal / f"{name.replace('-', '_')}-0.0.0.dist-info"
-        dist_info.mkdir(parents=True, exist_ok=True)
-        (dist_info / "METADATA").write_text(
-            f"Metadata-Version: 2.1\nName: {name}\nVersion: 0.0.0\nLicense: Apache-2.0\n",
-            encoding="utf-8",
-        )
-        (dist_info / "LICENSE").write_text("Apache License\nVersion 2.0\n", encoding="utf-8")
-        pairs.append((name, "0.0.0"))
     return pairs
 
 
@@ -159,3 +147,46 @@ def test_the_real_lock_names_every_runtime_distribution() -> None:
         name for name in runtime_closure.runtime_distribution_names() if name not in locked
     ]
     assert missing == [], f"runtime distributions absent from pylock.toml: {missing}"
+
+
+@pytest.mark.skipif(
+    not (ROOT / "dist/OpenGardenPlanner/OpenGardenPlanner.exe").is_file(),
+    reason="no frozen Windows artifact in this checkout",
+)
+def test_frozen_hook_dependencies_are_in_the_inventory() -> None:
+    """An independent archive observation must catch hook/vendoring omissions."""
+    readers = pytest.importorskip("PyInstaller.archive.readers")
+    archive = readers.CArchiveReader(str(ROOT / "dist/OpenGardenPlanner/OpenGardenPlanner.exe"))
+    pyz = archive.open_embedded_archive(next(n for n in archive.toc if n.endswith(".pyz")))
+    sbom = json.loads((ROOT / "dist/ogp-sbom.cdx.json").read_text(encoding="utf-8"))
+    names = {c["name"] for c in sbom["components"]}
+    # These are observed frozen hook inputs, not roots in project.dependencies.
+    for module, distribution in (
+        ("setuptools", "setuptools"),
+        ("packaging", "packaging"),
+        ("setuptools._vendor.zipp", "zipp"),
+    ):
+        if module in pyz.toc:
+            assert distribution in names, f"frozen {module} has no inventory component"
+
+
+@pytest.mark.skipif(
+    not (ROOT / "dist/OpenGardenPlanner/OpenGardenPlanner.exe").is_file(),
+    reason="no frozen Windows artifact in this checkout",
+)
+def test_frozen_check_rejects_manifest_archive_drift(monkeypatch) -> None:
+    """Changing ownership evidence cannot make the executable acquire a module."""
+    pytest.importorskip("PyInstaller.archive.readers")
+    from scripts import generate_distribution_inventory as inventory
+
+    bundle = ROOT / "dist/OpenGardenPlanner"
+    manifest = inventory._collected_manifest(bundle)
+    assert manifest is not None
+    manifest["python_modules"].append("invented.module")
+    monkeypatch.setattr(inventory, "_collected_manifest", lambda _bundle: manifest)
+    sbom = json.loads((ROOT / "dist/ogp-sbom.cdx.json").read_text(encoding="utf-8"))
+    problems = inventory._check(
+        ROOT / "dist", ROOT / "pylock.toml", inventory.collect_records(bundle),
+        sbom["metadata"]["component"]["version"], bundle,
+    )
+    assert any("does not match the executable's PYZ" in problem for problem in problems)

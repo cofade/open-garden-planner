@@ -96,6 +96,20 @@ The living register (ADR-047). Every row has a status; P0/P1 rows link their iss
 
 ## 11.4 Known Development Pitfalls
 
+- **Attribute frozen code from collected files, not only declared dependencies**
+  (PR #490 / #454): the 47-component SBOM check passed while the executable's PYZ
+  contained unreported setuptools, packaging, pytest/mypy dependencies and nested
+  vendored libraries. `Requires-Dist` and a hardcoded hook exception did not describe
+  what PyInstaller collected. `installer/frozen_inventory.py` now maps actual Analysis
+  source paths through wheel RECORDs, with nested vendored precedence, and bundles
+  those owners' metadata/licenses plus a module/file ownership manifest. The checker
+  compares it with the executable PYZ and locks containing-wheel versions for vendored
+  copies; declared license files must exist and their text must reach the notices.
+  Pinned by `tests/unit/test_frozen_inventory.py` and
+  `tests/integration/test_distribution_inventory_pipeline.py::test_frozen_hook_dependencies_are_in_the_inventory`
+  (observed failing on the original artifact). Synthetic fixtures constructed from the
+  expected closure prove orchestration, not complete frozen attribution.
+
 - **A stale `*.egg-info` on `sys.path` silently shrinks anything derived from installed metadata (#454, 2026-10-13).** The runtime-distribution resolver behind the release's third-party notices and SBOM returned **five** distributions (the project + `Pillow` + the three `PyQt6*` wheels) when a test ran it, but the same interpreter returned **48** when the module was run directly. Root cause: a legacy `src/open_garden_planner.egg-info` (version `0.1.0`, written years earlier) was still on disk; the editable install puts `src/` on `sys.path`, and `importlib.metadata.distribution("open-garden-planner")` returns the **first** match — so `Requires-Dist` described a two-year-old project. Two lessons. (1) **Check what `sys.path` order resolves** — when a metadata lookup disagrees with a file a human can read, print the distribution's `_path`; the answer is usually "you got a different distribution than you meant". (2) **Anchor build inputs on the manifest, not on the environment's copy of yourself**: the resolver now reads `[project].dependencies` from `pyproject.toml` and only walks *third parties* through installed metadata, so no stale artefact of the project's own history can change what ships. Related, same task: PyInstaller's `hook-importlib_metadata` bundles setuptools' **vendored** `importlib_metadata` (Apache-2.0) even though nothing declares it — the inventory records it as an explicit `VENDORED_BUNDLE_EXTRAS` entry rather than pretending the closure is the whole truth.
 
 - **A graph row can conceal a no-op geometry path (#406, 2026-10-12).** A real Edge Length
