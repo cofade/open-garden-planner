@@ -2802,13 +2802,14 @@ Finalization reran 268 focused gesture/gate/context/citation tests, frozen eight
 
 Owner testing found the pre-existing rotation/constraint interaction, tracked in [#485](https://github.com/cofade/open-garden-planner/issues/485). A real-canvas probe on master and the #406 branch measured a 200 cm corner distance becoming 314.42 cm after rotation and recovering on a nudge. The reported skipped rotation undo was not reproduced in that isolated probe. This follow-up remains separate from #406 and the 73-entry P2/P3 partition.
 
-### Audit package A1 (#453) — implementation awaiting acceptance
+### Audit package A1 (#453) — shipped in v1.30.3 (PR #487)
 
 Strict numeric `.ogp` ingestion and atomic persistence, release-bound checksum/origin
 verification before installer launch, bounded fully decoded thumbnail/Static Maps
 responses, and owner-only Linux settings with explicit startup failure. One branch
-and one draft PR cover AUD-041/042/044/047. No file-format bump, dependency change,
-credential-key migration, release-right change or renderer change. Epic #392 stays open.
+and one PR (#487) cover AUD-041/042/044/047. Shipped 2026-10-13 as v1.30.3.
+No file-format bump, dependency change, credential-key migration, release-right
+change or renderer change. Epic #392 stays open.
 
 Final validated source: `f0a5d225` (2026-10-13). Locked Linux full-suite coverage:
 8245 passed, 37 skipped; all package/file floors passed. Coverage is 79.9% lines /
@@ -2823,7 +2824,8 @@ Fresh independent re-review has no outstanding P0/P1. The controlled-PATH frozen
 build passed detached self-test (0) and eight-second startup (124), including
 packaged plan/codecs/hash probes. The real v1.30.2 installer was downloaded and
 verified at 179026922 bytes against its release checksum, without launch.
-Owner manual acceptance, protected merge and wiki publication remain pending.
+Owner manual acceptance on frozen build confirmed 2026-10-13; merged via PR #487
+and released as v1.30.3. Wiki publication follows finalization.
 
 ### A1 docs updated on implementation
 

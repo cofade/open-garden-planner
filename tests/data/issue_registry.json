@@ -781,73 +781,13 @@
   },
   "453": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Audit A1: Imported data, downloads and credential storage safety (epic #392)"
-  },
-  "454": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Audit A2: Dependency maintenance, build reproducibility and distribution inventory (epic #392)"
-  },
-  "455": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Audit A3: Portable CI, lint hygiene and redundant-check costs (epic #392)"
-  },
-  "456": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Audit A4: Import boundaries, package cycles and architecture enforcement (epic #392)"
-  },
-  "457": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Audit A5: Constraint descriptors and stronger solver assertions (epic #392)"
-  },
-  "458": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Audit A6: Canvas interaction and properties-panel maintainability (epic #392)"
-  },
-  "459": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Audit A7: Application orchestration extraction (epic #392)"
-  },
-  "460": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Audit A8: Test precision, lifecycle hygiene and test-layer documentation (epic #392)"
-  },
-  "461": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Audit A9: Performance contracts, representative benchmarks and bulk insertion (epic #392)"
-  },
-  "462": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Audit A10: Architecture documentation and capability-register consistency (epic #392)"
-  },
-  "463": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Audit A11: Release attribution, version consistency and release recovery (epic #392)"
-  },
-  "464": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Audit A12: Agent context, skill loading and change/review discipline (epic #392)"
   },
   "465": {
     "is_pr": false,
     "state": "OPEN",
     "title": "Audit A13: Contributor onboarding and maintainer continuity (epic #392)"
-  },
-  "466": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "chore(audit): reconcile #392 into thirteen remediation bundles"
   },
   "477": {
     "is_pr": true,
@@ -858,5 +798,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Rotating constrained objects leaves distance broken until the next move; investigate skipped rotation undo"
+  },
+  "487": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(453): validate plan inputs, verify downloads and secure Linux settings"
   }
 }

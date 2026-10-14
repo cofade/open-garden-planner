@@ -185,7 +185,7 @@ All 15 remediation issues have been checked against GitHub state and merged hist
 - [#404](https://github.com/cofade/open-garden-planner/issues/404): closed; implemented by [PR #422](https://github.com/cofade/open-garden-planner/pull/422).
 - [#405](https://github.com/cofade/open-garden-planner/issues/405): closed; implemented by [PR #426](https://github.com/cofade/open-garden-planner/pull/426).
 - [#409](https://github.com/cofade/open-garden-planner/issues/409): closed; implemented by [PR #430](https://github.com/cofade/open-garden-planner/pull/430).
-- [#406](https://github.com/cofade/open-garden-planner/issues/406): open; AUD-016 / TD-024. Characterization precedes descriptor and constraint structural work.
+- [#406](https://github.com/cofade/open-garden-planner/issues/406): closed; implemented by [PR #477](https://github.com/cofade/open-garden-planner/pull/477) (v1.30.2).
 
 ## Validation and publication
 
@@ -193,11 +193,11 @@ The intake asserts a one-to-one partition of the 73 epic entries and checks each
 
 ## A1 delivery state — 2026-10-13
 
-AUD-041/042/044/047 have implementation and regression coverage on the #453 branch.
+Package A1 shipped 2026-10-13 as v1.30.3 via [PR #487](https://github.com/cofade/open-garden-planner/pull/487).
+Owner confirmed frozen-build acceptance across all four findings (AUD-041/042/044/047).
 The intake rows above remain the dated source evidence/acceptance specification;
-owner acceptance and protected merge are pending. The historical audit snapshot
-has not been rewritten. Package A1 is complete only after all four acceptance items
-and delivery gates pass; epic #392 remains open for the other bundles.
+the historical audit snapshot has not been rewritten. Epic #392 remains open for
+packages A2–A13.
 
 ## A2 delivery state — 2026-10-13
 
