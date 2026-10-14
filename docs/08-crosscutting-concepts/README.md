@@ -407,6 +407,14 @@ Rect-bearing items (`CircleItem`/`RectangleItem`/`EllipseItem`) serialize their 
 
 ## 8.10 Integration Test Policy
 
+**Worker responsiveness.** Control an in-flight interval instead of counting timer
+ticks over an uncontrolled computation duration. Hold the real worker at an Event,
+assert GUI heartbeat delivery and a different execution thread while the request
+is still pending, then release and verify the real result. Always release in failure
+cleanup. `test_explicit_worker_keeps_gui_responsive` preserves its three-tick assertion,
+10 ms timer interval and 30-second result timeout; its synchronous-worker negative
+control fails. See §11.4 (PR #490).
+
 **Every user story (US) must ship with at least one end-to-end integration test. No merge without it. No exceptions.**
 
 ### Rationale

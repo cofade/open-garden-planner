@@ -2856,6 +2856,12 @@ inputs to wheel RECORD owners, including distinct vendored copies; verifies its 
 manifest against the executable PYZ; and checks declared license texts. The frozen-hook
 regression failed on the original artifact. See ADR-044's review addendum and §11.4.
 
+Final CI also exposed an uncontrolled-duration heartbeat assertion in the existing
+sun-mismatch integration test. The delivery gate now holds the real worker in flight,
+requires GUI heartbeats and a different thread, then validates its real result; a
+synchronous-worker negative control fails. No application behavior or timing budget
+was relaxed. See §8.10 and §11.4.
+
 | Document | Section |
 |---|---|
 | ADR register | ADR-044 and ADR-050 addenda |

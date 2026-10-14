@@ -98,6 +98,17 @@ The living register (ADR-047). Every row has a status; P0/P1 rows link their iss
 
 ## 11.4 Known Development Pitfalls
 
+- **Hold a worker in flight when proving GUI responsiveness** (PR #490): the
+  sun-mismatch heartbeat test failed on CI with two ticks instead of three while
+  three other full CI runs and the local suite passed. Tagged worker/timer traces
+  showed that the count depended on compute duration and included post-completion
+  ticks. The test now holds the real computation with an Event, requires three
+  heartbeat ticks while the worker is running/pending on a different thread, then
+  releases it and validates the real result. Failure cleanup always releases the
+  worker; the timer interval and result timeout are unchanged. Pinned by
+  `tests/integration/test_sun_mismatch.py::test_explicit_worker_keeps_gui_responsive`;
+  a synchronous-worker mutation was observed failing its thread assertion.
+
 - **Attribute frozen code from collected files, not only declared dependencies**
   (PR #490 / #454): the 47-component SBOM check passed while the executable's PYZ
   contained unreported setuptools, packaging, pytest/mypy dependencies and nested

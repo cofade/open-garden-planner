@@ -2,6 +2,7 @@
 
 from datetime import date, time, timedelta
 from pathlib import Path
+from threading import Event, get_ident
 
 import pytest
 from PyQt6.QtCore import QLocale, QPointF, Qt, QTimer
@@ -226,14 +227,38 @@ def test_geometry_edits_invalidate_without_recompute(sun_app, qtbot, edit):
     assert win._sun_heatmap.run_count == runs and not win._sun_heatmap.receiver_minutes
 
 
-def test_explicit_worker_keeps_gui_responsive(sun_app, qtbot):
+def test_explicit_worker_keeps_gui_responsive(sun_app, qtbot, monkeypatch):
+    from open_garden_planner.ui.canvas import sun_heatmap
+
+    entered, release = Event(), Event()
+    worker_threads, released = [], []
+    gui_thread = get_ident()
+    original = sun_heatmap.compute_sun_exposure
+
+    def held_compute(*args, **kwargs):
+        worker_threads.append(get_ident())
+        entered.set()
+        released.append(release.wait(5))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(sun_heatmap, "compute_sun_exposure", held_compute)
     ticks = []
     timer = QTimer(sun_app)
     timer.timeout.connect(lambda: ticks.append(1))
     timer.start(10)
-    compute(sun_app, qtbot)
-    timer.stop()
-    assert len(ticks) >= 3
+    try:
+        with qtbot.waitSignal(sun_app._sun_heatmap.finished, timeout=30000) as blocker:
+            sun_app._on_heatmap_requested()
+            qtbot.waitUntil(lambda: entered.is_set() and len(ticks) >= 3, timeout=5000)
+            assert len(worker_threads) == 1 and worker_threads[0] != gui_thread
+            assert sun_app._sun_heatmap.is_running and sun_app._sun_heatmap.result_pending
+            release.set()
+        assert blocker.args == [True] and released == [True]
+        qtbot.waitUntil(lambda: any(e.hours is not None for e in
+                                  sun_app.sun_exposure_coordinator.evaluations.values()))
+    finally:
+        release.set()  # never leave a QThread blocked when an assertion fails
+        timer.stop()
 
 
 def test_imported_grouped_concave_plant_badge_is_inside_footprint(sun_app, qtbot, tmp_path):
