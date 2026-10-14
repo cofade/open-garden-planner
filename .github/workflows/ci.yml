@@ -131,9 +131,10 @@ jobs:
       # invisible to a Linux-only scan — measured, senior review round 3.
       # `shell: bash` keeps the redirection UTF-8 on the Windows runner.
       #
-      # The single recorded exception is build-time setuptools
+      # The single recorded exception is the setuptools advisory
       # PYSEC-2026-3447 / GHSA-h35f-9h28-mq5c: it only affects publishing macOS
-      # source distributions, which this project never does — justified in
+      # source distributions, which this project never does. Setuptools code is
+      # bundled; the waiver concerns that unused operation — justified in
       # docs/11-risks-and-technical-debt/README.md §11.2, and its fix (83.0.0)
       # is tracked for a separately reviewed dependency PR.
       - name: Audit locked dependencies

@@ -2249,7 +2249,7 @@ dependency-update path a documented home:
    matrix operating systems**, because pip-audit evaluates requirement markers against the
    running interpreter: the export is universal, so a Linux-only scan never sees the
    Windows-only runtime dependency (`pywin32`, required by `mcp`). One exception is recorded
-   by ID: build-time `setuptools` `PYSEC-2026-3447` (`GHSA-h35f-9h28-mq5c`), which only
+   by ID: the `setuptools` advisory `PYSEC-2026-3447` (`GHSA-h35f-9h28-mq5c`), which only
    affects publishing macOS source distributions — a thing this project does not do. Its fix
    (83.0.0) stays reserved for a separately reviewed dependency PR (§11.2, AUD-054).
 6. **Update automation: verified unavailable, manual fallback adopted.** Dependabot's uv
@@ -2272,7 +2272,8 @@ dependency-update path a documented home:
 **Evidence.** The pins were resolved from primary sources on 2026-10-13 (setup-python's
 versions manifest; Chocolatey's feed; dependabot-core's `uv/Dockerfile`). The scan was run
 against the shipped command's export: 93 requirement lines, one vulnerable package
-(build-time setuptools), zero runtime findings. `tests/unit/test_build_toolchain_pins.py`,
+(setuptools, including code collected into the executable); the affected macOS sdist
+publishing operation is unused, and no unwaived finding remains. `tests/unit/test_build_toolchain_pins.py`,
 `tests/unit/test_action_pins.py`, `tests/unit/test_dependency_governance.py` and
 `tests/unit/test_no_stale_requirement_manifests.py` pin the behaviour, and the frozen
 build proves the pins produce a working artifact.

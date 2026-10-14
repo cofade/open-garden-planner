@@ -231,7 +231,8 @@ snapshot has not been rewritten. Per finding:
 - **AUD-054** — `pip-audit` scans the committed lock export in the `dependencies` matrix
   job, on Linux **and** Windows (pip-audit evaluates markers for the running platform, so
   the Windows-only `pywin32` is only visible to the Windows leg); the one recorded exception
-  is build-time setuptools `PYSEC-2026-3447`, justified in §11.2 and reserved for a
+  is the setuptools advisory `PYSEC-2026-3447` for unused macOS sdist publishing,
+  justified in §11.2 and reserved for a
   separately reviewed update.
 - **AUD-050** — hosted uv is verified at 0.12.19 against this project's `==0.12.23` pin, so
   automation is not available; `dependency-review.yml` is the monthly, report-only manual

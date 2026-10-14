@@ -78,8 +78,8 @@ only *third parties* through installed metadata (`installer/runtime_closure.py`)
 `*.egg-info` was removed from the dev checkout as well, and a test pins the manifest anchor
 with an injected manifest. Same build task, second discovery: PyInstaller's
 `hook-importlib_metadata` bundles setuptools' **vendored** `importlib_metadata` (Apache-2.0)
-although nothing declares it, so the inventory records it as an explicit
-`VENDORED_BUNDLE_EXTRAS` entry instead of pretending the closure is the whole truth.
+although nothing declares it, so the initial fix added an explicit hook exception. PR #490 superseded that exception
+with physical RECORD attribution of actual collected owners (see the preceding case study).
 
 **Lesson.** When a metadata lookup disagrees with a file a human can read, print the
 distribution's `_path` before theorising — the answer is usually "you resolved a different
@@ -1810,7 +1810,7 @@ the same uv version as the project runners. **Key log:** `tool_version_not_suppo
 reported detected uv `==0.12.23` and supported uv `0.12.18` in
 [run 37951191628](https://github.com/cofade/open-garden-planner/actions/runs/37951191628).
 **Root cause:** the hosted updater's supported tool version lagged the approved exact pin.
-**Disposition:** retain reproducible installation and keep the moderate build-only advisory
+**Disposition:** retain reproducible installation and keep the moderate setuptools advisory
 open for a separately reviewed manual setuptools/lock update; no remediation is claimed.
 **Lesson:** check updater compatibility when introducing a lock/tool pin. A green project
 workflow does not prove automatic security updates work. See risks sections 11.2 and 11.4.
