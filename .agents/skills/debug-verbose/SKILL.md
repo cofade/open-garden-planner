@@ -86,6 +86,76 @@ distribution's `_path` before theorising — the answer is usually "you resolved
 distribution than you meant". And an input that must describe what ships has no business
 depending on the environment's copy of yourself: read the manifest.
 
+## Case study: sun-cache test fails only late at night (#457 gate run, 2026-10-13)
+
+**Symptom.** Full validation and an isolated sun-mismatch workflow failed with
+exposure_reason `absent` instead of `ready` after adding one hour.
+**Wrong theories.** No localization or timing theory was adopted before tracing.
+**Evidence.** `[A5-SUN-CLOCK] before= 2026-06-21 23:49:00 after=
+2026-06-22 00:49:00 reason= ready`; caller stack identified the test's datetime write.
+**Root cause.** The fixture set only the date, retaining the host time. After 23:00,
+its alleged within-day edit changed the plan date and correctly invalidated the
+heatmap (ADR-053). The test's expectation, not the cache, was wrong.
+**Fix.** Set the fixture's time of day explicitly to noon. Retain real worker,
+geometry, cache and invalidation assertions and all timeouts. Remove diagnostics.
+**Lesson.** A test claiming a within-day edit must fix both date and time; a
+set_date call does not fix the wall clock's hour.
+
+
+## Case study: English unnamed objects in German constraint rows (#457, 2026-10-13)
+
+**Symptom.** Owner screenshot showed `Polygon – Rectangle Deckungsgleich`, while
+Properties correctly showed `Rechteck`. Other unnamed types shared the path.
+**Wrong theory.** A missing Rectangle translation was ruled out by the compiled
+translator. No theory was adopted before tracing the label builder.
+**Evidence.** `[A5-LABEL] GENERIC_RECTANGLE row= Rectangle canonical= Rechteck`;
+`traceback.format_stack()` traced command-history refresh into `_build_item_labels`.
+An exhaustive catalog test additionally found missing Hedge/Roof Ridge entries.
+**Root cause.** Enum title-casing bypassed the canonical translated object names.
+Direct descriptor tests supplied `A`/`B`, so they never exercised this boundary.
+**Fix.** Reuse `get_translated_display_name` for unnamed constraint endpoints and
+compare-overlay plants; register Hecke/Dachfirst. Preserve explicit names and data.
+Four failing-first regressions cover all 52 object types, duplicate numbering,
+explicit names, real German row/tooltip wiring and all three overlay plant types.
+Remove temporary prints before commit.
+**Lesson.** Verify translated templates with real upstream object labels, and
+check catalog coverage against the full enum rather than only registered messages.
+
+
+## Case study: metre formatting changes after descriptor extraction (#457, 2026-10-13)
+
+**Symptom.** Review found 17.5 cm displaying 0.18 m after extraction, previously
+0.17 m. Six formatting-boundary regressions failed before correction.
+**Wrong theory.** Algebraically equivalent multiply/divide operations need not
+produce identical binary floats. Translation and numeric precision were unchanged.
+**Evidence.** `[A5-ROUND] 17.5 division 0.17 multiplication 0.18`;
+`[A5-ROUND] 20.5 division 0.20 multiplication 0.21`.
+**Root cause.** Target multiplication by 0.01 replaced the existing division by
+100.0, changing the last binary bit at display rounding ties.
+**Fix.** The descriptor stores a divisor (100.0 for metres, 1.0 for degrees) and
+preserves division. Pinned by `test_constraint_descriptors.py` distance/edge/tangent
+boundary tests; all temporary diagnostics removed.
+**Lesson.** Presentation equivalence includes the arithmetic operation at rounding
+boundaries, not only the number of formatted decimal places.
+
+## Case study: all-pinned constraints reported solved (#457, 2026-10-13)
+
+**Symptom.** Two pinned anchors 100 cm apart with a 200 cm target returned
+converged=True and max_error=0.0. Direct Newton and graph regressions failed first.
+**Wrong theories.** No theory adopted before tracing; pin mutation was ruled out
+by unchanged positions/deltas. The historical mutation score did not prove this bug.
+**Evidence.** `[A5-NEWTON] no free slots ... positions ...[0,0]...[100,0]...
+constraints [('DISTANCE', 200)]`; `traceback.format_stack()` showed the call from
+ConstraintGraph.solve_anchored into Newton's no-variable early return.
+**Root cause.** Newton returned success before evaluating residuals. The graph
+replaced its real warm-start error with the minimum of that error and zero.
+**Fix.** Evaluate residuals before the no-variable return. Preserve pinned geometry
+and report actual feasibility/error. No damping, tolerance or iteration changes.
+Pinned by `tests/unit/test_constraint_solver_invariants.py` and
+`tests/integration/test_constraint_presentation_workflow.py`. Remove trace prints.
+**Lesson.** An empty set of movable variables establishes immobility, not feasibility;
+assert independently measured residuals and pinned state, not just convergence flags.
+
 ## Case study: a rectangle edge-length graph row without a resize (#406, 2026-10-12)
 
 **Symptom.** A real single-click Edge Length gesture on a 200 cm rectangle accepted 250 cm and added an undoable graph row, while the edge remained 200 cm.

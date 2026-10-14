@@ -21,6 +21,13 @@ The 2D analytic shadow and sun-hours calculations are separate from the 3D rende
 
 ## Detailed documentation
 
+Constraint row presentation has an enum-complete immutable descriptor, separate
+from geometric solving. Solver checks assert actual residuals, pinned anchors and
+feasibility, with a reproducible sampled mutation experiment. A5 (#457) shipped in
+[v1.30.4](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.4) after
+owner acceptance; see [its evidence and scope](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audit-2026-10-a5-evidence.md)
+and [ADR-012](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-012-hybrid-constraint-solver-gauss-seidel-warm-start--newton-raphson-refinement).
+
 | Document | Purpose |
 |---|---|
 | [Introduction](https://github.com/cofade/open-garden-planner/tree/master/docs/01-introduction-and-goals) | Goals and audience. |

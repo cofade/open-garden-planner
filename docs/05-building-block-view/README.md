@@ -479,3 +479,12 @@ remain outside application runtime dependencies. See ADR-050.
   consumed by thumbnails and Static Maps. Thumbnails normalize to bounded PNG caches.
 - `app/settings.py`: the existing factory protects Linux credential-file ownership
   and permissions. `main.py` handles protection failure before constructing the window.
+
+## Constraint presentation descriptors (#457, ADR-012 addendum)
+
+`ui/constraint_presentation.py` owns the immutable descriptor for each ConstraintType:
+icon, status RGB tuple, translatable row/detail/tooltip templates and display units.
+ConstraintListItem looks up and renders a descriptor in the existing translation
+context; it retains theme refresh and delete signals. The module accepts display
+values and returns text, with no commands, scene mutation or solver callbacks.
+Constraint geometry and satisfaction remain in their existing components.

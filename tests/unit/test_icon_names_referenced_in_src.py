@@ -71,12 +71,13 @@ def test_every_referenced_icon_name_exists(name: str) -> None:
 def test_lookup_tables_name_existing_icons(qtbot) -> None:  # noqa: ARG001 — gallery thumbnails need Qt
     """Every code-side icon table, including the big toolbar/gallery ones."""
     from open_garden_planner.services.weather_service import _WMO_CODE_MAP, wmo_to_icon
+    from open_garden_planner.ui.constraint_presentation import CONSTRAINT_DESCRIPTORS
     from open_garden_planner.ui.dialogs.seed_inventory_dialog import SeedTableModel
-    from open_garden_planner.ui.panels.constraints_panel import _TYPE_ICONS as CONSTRAINT_ICONS
     from open_garden_planner.ui.panels.crop_rotation_panel import _STATUS_ICONS as ROTATION_ICONS
     from open_garden_planner.ui.panels.plant_search_panel import _TYPE_ICONS as PLANT_ICONS
 
-    names = set(CONSTRAINT_ICONS.values()) | set(PLANT_ICONS.values()) | set(ROTATION_ICONS.values())
+    names = {descriptor.icon_name for descriptor in CONSTRAINT_DESCRIPTORS.values()}
+    names |= set(PLANT_ICONS.values()) | set(ROTATION_ICONS.values())
     names |= set(SeedTableModel._VIA_ICONS.values())
     names |= {icon for _, icon in _WMO_CODE_MAP.values()} | {wmo_to_icon(-1)}
     # main toolbar / constraint toolbar / category chips / gallery entries: any

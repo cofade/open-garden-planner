@@ -1263,6 +1263,26 @@
             <source>{a} lies on the circle of {b}</source>
             <translation>{a} liegt auf dem Kreis von {b}</translation>
         </message>
+        <message>
+            <source>{a} – {b}   {detail}</source>
+            <translation>{a} – {b}   {detail}</translation>
+        </message>
+        <message>
+            <source>{a}   {detail}</source>
+            <translation>{a}   {detail}</translation>
+        </message>
+        <message>
+            <source>{a} – {b} – {c}   {detail}</source>
+            <translation>{a} – {b} – {c}   {detail}</translation>
+        </message>
+        <message>
+            <source>{d:.2f} m</source>
+            <translation>{d:.2f} m</translation>
+        </message>
+        <message>
+            <source>{d:.1f}°</source>
+            <translation>{d:.1f}°</translation>
+        </message>
     </context>
     <context>
         <name>ConstraintTool</name>
@@ -4337,6 +4357,14 @@ Ergebnisse werden lokal für ein Jahr zwischengespeichert.</translation>
         <message>
             <source>Bird Bath</source>
             <translation>Vogeltränke</translation>
+        </message>
+        <message>
+            <source>Hedge</source>
+            <translation>Hecke</translation>
+        </message>
+        <message>
+            <source>Roof Ridge</source>
+            <translation>Dachfirst</translation>
         </message>
     </context>
     <context>

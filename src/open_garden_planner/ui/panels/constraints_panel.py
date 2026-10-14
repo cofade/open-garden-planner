@@ -17,47 +17,13 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.core.object_types import get_translated_display_name
+from open_garden_planner.ui.constraint_presentation import VIOLATED_COLOR, descriptor_for_name
 from open_garden_planner.ui.icons import get_icon, get_pixmap
 
 if TYPE_CHECKING:
     from open_garden_planner.core.constraints import Constraint, ConstraintGraph
     from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
-
-# Colors matching dimension_lines.py
-_COLOR_SATISFIED = QColor(0, 120, 200)
-_COLOR_VIOLATED = QColor(220, 40, 40)
-_COLOR_ALIGN_SATISFIED = QColor(120, 0, 180)
-_COLOR_ANGLE_SATISFIED = QColor(200, 100, 0)
-_COLOR_COINCIDENT_SATISFIED = QColor(0, 160, 200)
-_COLOR_PARALLEL_SATISFIED = QColor(20, 160, 100)
-_COLOR_PERPENDICULAR_SATISFIED = QColor(20, 120, 160)
-_COLOR_EQUAL_SATISFIED = QColor(200, 100, 0)
-_COLOR_FIXED = QColor(180, 130, 0)
-_COLOR_EDGE_LENGTH = QColor(0, 120, 200)
-
-
-# constraint type name → provider icon (the same glyphs the constraint
-# toolbar uses; #310)
-_TYPE_ICONS: dict[str, str] = {
-    "HORIZONTAL": "constraint_horizontal",
-    "VERTICAL": "constraint_vertical",
-    "ANGLE": "constraint_angle",
-    "COINCIDENT": "constraint_coincident",
-    "TANGENT": "snap_tangent",
-    "PARALLEL": "constraint_parallel",
-    "PERPENDICULAR": "constraint_perpendicular",
-    "EQUAL": "constraint_equal",
-    "FIXED": "constraint_fixed",
-    "EDGE_LENGTH": "constraint_edge_length",
-    "HORIZONTAL_DISTANCE": "constraint_h_distance",
-    "VERTICAL_DISTANCE": "constraint_v_distance",
-    "DISTANCE": "constraint_distance",
-    "SYMMETRY_HORIZONTAL": "constraint_symmetric",
-    "SYMMETRY_VERTICAL": "constraint_symmetric",
-    "POINT_ON_EDGE": "snap_nearest",     # a point locked to a line — the "nearest point" target glyph
-    "POINT_ON_CIRCLE": "snap_tangent",   # a point locked to a circle — the circle-dot glyph
-}
-# every ConstraintType must be mapped (gated by tests/integration/test_iconography_3c.py)
 
 
 def _make_status_icon(color: QColor, size: int = 14) -> QPixmap:
@@ -106,37 +72,9 @@ class ConstraintListItem(QWidget):
         layout.setContentsMargins(4, 2, 4, 2)
         layout.setSpacing(6)
 
-        # Status icon color depends on type
-        is_alignment = constraint_type_name in ("HORIZONTAL", "VERTICAL")
-        is_angle = constraint_type_name == "ANGLE"
-        is_coincident = constraint_type_name == "COINCIDENT"
-        is_parallel = constraint_type_name == "PARALLEL"
-        is_perpendicular = constraint_type_name == "PERPENDICULAR"
-        is_equal = constraint_type_name == "EQUAL"
-        is_fixed = constraint_type_name == "FIXED"
-        is_edge_length = constraint_type_name == "EDGE_LENGTH"
-        is_h_distance = constraint_type_name == "HORIZONTAL_DISTANCE"
-        is_v_distance = constraint_type_name == "VERTICAL_DISTANCE"
-        if is_alignment:
-            color = _COLOR_ALIGN_SATISFIED if satisfied else _COLOR_VIOLATED
-        elif is_angle:
-            color = _COLOR_ANGLE_SATISFIED if satisfied else _COLOR_VIOLATED
-        elif is_coincident:
-            color = _COLOR_COINCIDENT_SATISFIED if satisfied else _COLOR_VIOLATED
-        elif is_parallel:
-            color = _COLOR_PARALLEL_SATISFIED if satisfied else _COLOR_VIOLATED
-        elif is_perpendicular:
-            color = _COLOR_PERPENDICULAR_SATISFIED if satisfied else _COLOR_VIOLATED
-        elif is_equal:
-            color = _COLOR_EQUAL_SATISFIED if satisfied else _COLOR_VIOLATED
-        elif is_fixed:
-            color = _COLOR_FIXED  # always "satisfied" visually
-        elif is_edge_length:
-            color = _COLOR_EDGE_LENGTH if satisfied else _COLOR_VIOLATED
-        elif is_h_distance or is_v_distance:
-            color = _COLOR_SATISFIED if satisfied else _COLOR_VIOLATED
-        else:
-            color = _COLOR_SATISFIED if satisfied else _COLOR_VIOLATED
+        descriptor = descriptor_for_name(constraint_type_name)
+        rgb = descriptor.satisfied_color if satisfied or descriptor.always_colored else VIOLATED_COLOR
+        color = QColor(*rgb)
 
         pixmap = _make_status_icon(color)
         status_label = QLabel()
@@ -150,89 +88,13 @@ class ConstraintListItem(QWidget):
 
         # Constraint-type icon (the toolbar glyph for this type) — replaces
         # the ◯ 🔒 ↔ ↕ ⦿ ⌒ text prefixes (#310)
-        self._type_icon_name = _TYPE_ICONS.get(constraint_type_name, "constraint_distance")
+        self._type_icon_name = descriptor.icon_name
         self._type_label = QLabel()
         self._type_label.setFixedSize(QSize(20, 20))
         self._type_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self._type_label)
 
-
-        # Object names and constraint label
-        if constraint_type_name == "HORIZONTAL":
-            detail = self.tr("Horizontal")
-            tooltip = self.tr("{a} horizontal align {b}").format(a=label_a, b=label_b)
-        elif constraint_type_name == "VERTICAL":
-            detail = self.tr("Vertical")
-            tooltip = self.tr("{a} vertical align {b}").format(a=label_a, b=label_b)
-        elif constraint_type_name == "ANGLE":
-            detail = f"{target_distance:.1f}°"
-            tooltip = self.tr("Angle {a}–{b}–{c}: {d:.1f}°").format(
-                a=label_a, b=label_b, c=self.tr("…"), d=target_distance
-            )
-        elif constraint_type_name == "COINCIDENT":
-            detail = self.tr("Coincident")
-            tooltip = self.tr("{a} coincident with {b}").format(a=label_a, b=label_b)
-        elif constraint_type_name == "TANGENT":
-            dist_m = abs(target_distance) / 100.0  # abs() defensive; target = radius
-            detail = self.tr("Tangent")
-            tooltip = self.tr("{a} tangent to {b} (r={d:.2f} m)").format(
-                a=label_a, b=label_b, d=dist_m
-            )
-        elif constraint_type_name == "PARALLEL":
-            detail = self.tr("Parallel")
-            tooltip = self.tr("{a} parallel to {b}").format(a=label_a, b=label_b)
-        elif constraint_type_name == "PERPENDICULAR":
-            detail = self.tr("Perpendicular")
-            tooltip = self.tr("{a} perpendicular to {b}").format(a=label_a, b=label_b)
-        elif constraint_type_name == "EQUAL":
-            detail = self.tr("Equal")
-            tooltip = self.tr("{a} equal size to {b}").format(a=label_a, b=label_b)
-        elif constraint_type_name == "SYMMETRY_HORIZONTAL":
-            detail = self.tr("Symmetric")  # target = mirror-axis coordinate, not a distance
-            tooltip = self.tr("{a} symmetric to {b} about the horizontal axis").format(a=label_a, b=label_b)
-        elif constraint_type_name == "SYMMETRY_VERTICAL":
-            detail = self.tr("Symmetric")
-            tooltip = self.tr("{a} symmetric to {b} about the vertical axis").format(a=label_a, b=label_b)
-        elif constraint_type_name == "POINT_ON_EDGE":
-            detail = self.tr("On edge")
-            tooltip = self.tr("{a} lies on the edge of {b}").format(a=label_a, b=label_b)
-        elif constraint_type_name == "POINT_ON_CIRCLE":
-            detail = self.tr("On circle")  # target = radius, shown by the circle itself
-            tooltip = self.tr("{a} lies on the circle of {b}").format(a=label_a, b=label_b)
-        elif constraint_type_name == "FIXED":
-            detail = self.tr("Fixed")
-            tooltip = self.tr("{a} is fixed in place").format(a=label_a)
-        elif constraint_type_name == "EDGE_LENGTH":
-            dist_m = target_distance / 100.0
-            detail = self.tr("Edge {d:.2f} m").format(d=dist_m)
-            tooltip = self.tr("{a} edge length: {d:.2f} m").format(a=label_a, d=dist_m)
-        elif constraint_type_name == "HORIZONTAL_DISTANCE":
-            dist_m = target_distance / 100.0
-            detail = f"{dist_m:.2f} m"
-            tooltip = self.tr("{a} to {b}: horizontal distance {d:.2f} m").format(
-                a=label_a, b=label_b, d=dist_m
-            )
-        elif constraint_type_name == "VERTICAL_DISTANCE":
-            dist_m = target_distance / 100.0
-            detail = f"{dist_m:.2f} m"
-            tooltip = self.tr("{a} to {b}: vertical distance {d:.2f} m").format(
-                a=label_a, b=label_b, d=dist_m
-            )
-        else:
-            dist_m = target_distance / 100.0
-            detail = f"{dist_m:.2f} m"
-            tooltip = self.tr("{a} to {b}: {d:.2f} m").format(
-                a=label_a, b=label_b, d=dist_m
-            )
-
-        # Row text: the type icon (left) carries the semantics; the text is
-        # "A – B   detail" (single-object constraints: "A   detail").
-        if constraint_type_name == "ANGLE":
-            text = f"{label_a} – {label_b} – …   {detail}"
-        elif constraint_type_name in ("FIXED", "EDGE_LENGTH"):
-            text = f"{label_a}   {detail}"
-        else:
-            text = f"{label_a} – {label_b}   {detail}".rstrip()
+        text, tooltip = descriptor.render(label_a, label_b, target_distance)
         label = QLabel(text)
         label.setToolTip(tooltip)
         layout.addWidget(label, 1)
@@ -394,11 +256,7 @@ class ConstraintsPanel(QWidget):
                     continue
                 obj_type = getattr(item, "object_type", None)
                 if obj_type is not None:
-                    # Use the enum member name, formatted for readability.
-                    # Strip "GENERIC_" prefix and title-case (e.g. GENERIC_RECTANGLE → Rectangle)
-                    type_name = obj_type.name.replace("_", " ").title()
-                    type_name = type_name.removeprefix("Generic ")
-                    raw[item.item_id] = type_name
+                    raw[item.item_id] = get_translated_display_name(obj_type)
                 else:
                     raw[item.item_id] = self.tr("Object")
 

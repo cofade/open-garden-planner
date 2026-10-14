@@ -359,6 +359,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     # ── ConstraintListItem ──
     "ConstraintListItem": {
+        "{a} – {b}   {detail}": "{a} – {b}   {detail}",
+        "{a}   {detail}": "{a}   {detail}",
+        "{a} – {b} – {c}   {detail}": "{a} – {b} – {c}   {detail}",
+        "{d:.2f} m": "{d:.2f} m",
+        "{d:.1f}°": "{d:.1f}°",
         "◯ Tangent": "◯ Tangente",
         "{a} tangent to {b} (r={d:.2f} m)": "{a} tangential zu {b} (r={d:.2f} m)",
         "= Equal": "= Gleich",
@@ -1979,6 +1984,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Generic Rectangle": "Generisches Rechteck",
         "Generic Polygon": "Generisches Polygon",
         "Generic Circle": "Generischer Kreis",
+        "Hedge": "Hecke",
+        "Roof Ridge": "Dachfirst",
         "Ellipse": "Ellipse",
         "House": "Haus",
         "Garage/Shed": "Garage/Schuppen",

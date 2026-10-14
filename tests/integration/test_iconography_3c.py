@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import QApplication
 
 from open_garden_planner.core.constraints import ConstraintType
 from open_garden_planner.models.layer import Layer
-from open_garden_planner.ui.panels.constraints_panel import _TYPE_ICONS as _CONSTRAINT_TYPE_ICONS
+from open_garden_planner.ui.constraint_presentation import CONSTRAINT_DESCRIPTORS
 from open_garden_planner.ui.panels.constraints_panel import ConstraintListItem
 from open_garden_planner.ui.panels.layers_panel import LayerListItem
 from open_garden_planner.ui.panels.plant_search_panel import PlantSearchPanel
@@ -171,7 +171,7 @@ class TestPanelsAndWidgets:
         back to the horizontal-distance glyph (round-2 review found four:
         symmetry ×2, point-on-edge, point-on-circle). Parametrizing over the
         dict under test could not see that — assert coverage against the enum."""
-        missing = set(ConstraintType.__members__) - set(_CONSTRAINT_TYPE_ICONS)
+        missing = set(ConstraintType) - set(CONSTRAINT_DESCRIPTORS)
         assert not missing, missing
 
     @pytest.mark.parametrize("type_name", sorted(ConstraintType.__members__))

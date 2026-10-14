@@ -93,6 +93,8 @@ The living register (ADR-047). Every row has a status; P0/P1 rows link their iss
 | TD-035 | Bundle size | Master's release ships ~21 MB of Qt Quick 3D runtime it never loads (Quick3D + ShaderTools DLLs and QML modules, pulled in by the PyInstaller QtQml hook; measured in the ADR-048 evidence run). Phase 17 puts it to use; on a NO-GO, exclude it in `installer/ogp.spec`. | P3 / S | accepted (ADR-048) | #384 | ADR-048 L0 evidence (Windows v6 footprint) |
 | TD-036 | 3D geometry source | The Qt Quick 3D spike builds its world from private canvas helpers (`_item_footprints`, `_plant_canopy_radius_cm` in `ui/canvas/sun_shadow_controller.py`). The Qt-free core of Phase 17 L1.1 must promote them to a public, tested module before building on them (senior review, ADR-048). | P2 / M | open | #385 | ADR-048 L0 senior review |
 | TD-037 | Task calendar | Every GUI task surface (the planting calendar's Gantt and dashboard, the Tasks tab) takes its frost-relative windows from the current year's frost only, and the Gantt clips them to that year, while the agent's `get_tasks` / `get_task_calendar` (`generate_for_date_window`) also list windows anchored on other years' frosts. So the GUI does not show a task whose window is anchored on another year's frost: with a 9 April frost, garlic's autumn sowing (9–23 October 2026) appears on no GUI surface. A sweep of the 6 frost dates `scripts/measure_task_window_sweep.py` uses finds each of the bundled (species, task type) windows missed at some frost date; the `--wide` mode covers all 118 species on every day of 2026. Examples, sweeps and the code sites to change are in #414. | P1 / M | fixed (#414) | #414 | ADR-048 L0 senior review (PR #413) |
+| TD-038 | Constraint presentation | Repeated type presentation dispatch; now one immutable enum-complete panel descriptor with independent rendering and localization guards | P2 / M | completed; owner acceptance, PR #489; v1.30.4 | #457 | AUD-012; ADR-012 addendum; [A5 evidence](audit-2026-10-a5-evidence.md) |
+| TD-039 | Solver evidence | Selection-scoped historical mutation gaps; fresh sample and geometric oracles, including corrected all-pinned false convergence | P2 / M | completed; owner acceptance, PR #489; v1.30.4 | #457 | AUD-023; ADR-012 addendum; [A5 evidence](audit-2026-10-a5-evidence.md) |
 
 ## 11.4 Known Development Pitfalls
 
@@ -111,6 +113,31 @@ The living register (ADR-047). Every row has a status; P0/P1 rows link their iss
   expected closure prove orchestration, not complete frozen attribution.
 
 - **A stale `*.egg-info` on `sys.path` silently shrinks anything derived from installed metadata (#454, 2026-10-13).** The runtime-distribution resolver behind the release's third-party notices and SBOM returned **five** distributions (the project + `Pillow` + the three `PyQt6*` wheels) when a test ran it, but the same interpreter returned **48** when the module was run directly. Root cause: a legacy `src/open_garden_planner.egg-info` (version `0.1.0`, written years earlier) was still on disk; the editable install puts `src/` on `sys.path`, and `importlib.metadata.distribution("open-garden-planner")` returns the **first** match — so `Requires-Dist` described a two-year-old project. Two lessons. (1) **Check what `sys.path` order resolves** — when a metadata lookup disagrees with a file a human can read, print the distribution's `_path`; the answer is usually "you got a different distribution than you meant". (2) **Anchor build inputs on the manifest, not on the environment's copy of yourself**: the resolver now reads `[project].dependencies` from `pyproject.toml` and only walks *third parties* through installed metadata, so no stale artefact of the project's own history can change what ships. Related, same task: PyInstaller's `hook-importlib_metadata` bundles setuptools' **vendored** `importlib_metadata` (Apache-2.0) even though nothing declares it — the initial explicit hook exception was superseded in PR #490 by physical RECORD attribution of every collected wheel owner, including vendored copies (see the preceding pitfall).
+
+- **No free solver variables does not imply feasibility** (#457, ADR-012):
+  two pinned anchors 100 cm apart with a 200 cm target were reported converged
+  with zero error. `[A5-NEWTON] no free slots` and its caller stack showed Newton
+  returning before residual evaluation; `solve_anchored` then took the minimum
+  with that fabricated zero. Evaluate the fixed-state residual before returning.
+  Pinned by `test_constraint_solver_invariants.py` (both direct Newton and graph
+  regressions failed first) and the real CanvasView feasibility integration test.
+  A convergence flag must agree with independently measured geometry.
+
+- **Translated row templates can still contain English object labels** (#457):
+  unnamed endpoints were title-cased from enum identifiers, so German rows read
+  `Polygon – Rectangle` despite a correctly translated Properties panel. Trace
+  the upstream name builder and use `get_translated_display_name` at display time;
+  the previous-season compare overlay had the same fallback. Enumerate every
+  `ObjectType` against the compiled catalog (missing Hedge/Roof Ridge entries
+  were added), and test real rows/tooltips with unnamed objects. Descriptor tests
+  passing literal `A`/`B` cannot cover this boundary. Preserve user names and data.
+
+- **Within-day simulation tests must fix time as well as date** (ADR-053): the
+  sun-mismatch workflow set the date, retained 23:49 from the host, then added an
+  hour. Correct next-day invalidation contradicted its `ready` assertion. Tagged
+  datetime/caller tracing reproduced the same failure alone. Set the fixture to
+  noon with `set_time_of_day`; retain worker, cache and date-invalidation checks.
+  Do not change production clock semantics or relax timeouts to fix the fixture.
 
 - **A graph row can conceal a no-op geometry path (#406, 2026-10-12).** A real Edge Length
   gesture on a rectangle added the requested 250 cm constraint but left its 200 cm edge intact.
