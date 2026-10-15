@@ -1,0 +1,491 @@
+{
+  "sources": {
+    "objects": {
+      "file": "core/object_types.py",
+      "context": "ObjectType",
+      "symbol": "OBJECT_STYLES",
+      "selector": "markers",
+      "scope": ""
+    },
+    "paths": {
+      "file": "core/object_types.py",
+      "context": "PathFenceStyle",
+      "symbol": "PATH_FENCE_STYLES",
+      "selector": "markers",
+      "scope": ""
+    },
+    "constraints": {
+      "file": "ui/constraint_presentation.py",
+      "context": "ConstraintListItem",
+      "symbol": "",
+      "selector": "markers",
+      "scope": ""
+    },
+    "sun": {
+      "file": "ui/sun_exposure_text.py",
+      "context": "SunExposure",
+      "symbol": "",
+      "selector": "markers",
+      "scope": ""
+    },
+    "rotation": {
+      "file": "ui/panels/crop_rotation_panel.py",
+      "context": "CropRotationPanel",
+      "symbol": "",
+      "selector": "markers",
+      "scope": ""
+    },
+    "traits": {
+      "file": "ui/widgets/trait_filters.py",
+      "context": "Permaculture",
+      "symbol": "",
+      "selector": "markers",
+      "scope": ""
+    },
+    "arrange": {
+      "file": "ui/canvas/arrange.py",
+      "context": "Commands",
+      "symbol": "",
+      "selector": "markers",
+      "scope": ""
+    },
+    "print": {
+      "file": "ui/dialogs/print_dialog.py",
+      "context": "PrintOptionsDialog",
+      "symbol": "SCALE_PRESETS",
+      "selector": "first",
+      "scope": ""
+    },
+    "npk": {
+      "file": "ui/dialogs/soil_test_dialog.py",
+      "context": "SoilTestDialog",
+      "symbol": "_NPK_LABELS_KEY",
+      "selector": "values",
+      "scope": ""
+    },
+    "secondary": {
+      "file": "ui/dialogs/soil_test_dialog.py",
+      "context": "SoilTestDialog",
+      "symbol": "_SECONDARY_LABELS_KEY",
+      "selector": "values",
+      "scope": ""
+    },
+    "map": {
+      "file": "ui/dialogs/map_picker_dialog.py",
+      "context": "MapPickerDialog",
+      "symbol": "_CAPTURE_TOKEN_MESSAGES",
+      "selector": "values",
+      "scope": ""
+    },
+    "guild_errors": {
+      "file": "models/guild_errors.py",
+      "context": "GuildErrors",
+      "symbol": "MESSAGES",
+      "selector": "values",
+      "scope": ""
+    },
+    "guild_fields": {
+      "file": "models/guild.py",
+      "context": "GuildErrors",
+      "symbol": "",
+      "selector": "guild_fields",
+      "scope": "GuildTemplate.from_dict"
+    },
+    "material": {
+      "file": "core/container_model.py",
+      "context": "ContainerModel",
+      "symbol": "_MATERIAL_HINTS",
+      "selector": "values",
+      "scope": ""
+    },
+    "drainage": {
+      "file": "core/container_model.py",
+      "context": "ContainerModel",
+      "symbol": "NO_DRAINAGE_HINT",
+      "selector": "values",
+      "scope": ""
+    },
+    "segments": {
+      "file": "ui/dialogs/succession_plan_dialog.py",
+      "context": "SuccessionPlanDialog",
+      "symbol": "_SEGMENT_LABELS",
+      "selector": "values",
+      "scope": ""
+    },
+    "parser": {
+      "file": "core/coordinate_input/parser.py",
+      "context": "ParseError",
+      "symbol": "",
+      "selector": "call:ParseError:0",
+      "scope": ""
+    },
+    "toolbar": {
+      "file": "ui/widgets/constraint_toolbar.py",
+      "context": "ConstraintToolbar",
+      "symbol": "_TOOLBAR_ENTRIES",
+      "selector": "call:_ToolEntry:1",
+      "scope": ""
+    },
+    "properties": {
+      "file": "core/commands.py",
+      "context": "Commands",
+      "symbol": "",
+      "selector": "property_calls",
+      "scope": ""
+    },
+    "text_properties": {
+      "file": "ui/panels/properties_panel.py",
+      "context": "Commands",
+      "symbol": "_TEXT_PROPERTY_LABELS",
+      "selector": "values",
+      "scope": ""
+    },
+    "trait_properties": {
+      "file": "ui/panels/plant_database_panel.py",
+      "context": "Commands",
+      "symbol": "",
+      "selector": "argument:change_trait:1",
+      "scope": ""
+    },
+    "tree": {
+      "file": "ui/widgets/gallery_data.py",
+      "context": "GalleryData",
+      "symbol": "species",
+      "selector": "first",
+      "scope": "_tree_items"
+    },
+    "shrub": {
+      "file": "ui/widgets/gallery_data.py",
+      "context": "GalleryData",
+      "symbol": "species",
+      "selector": "first",
+      "scope": "_shrub_items"
+    },
+    "flower": {
+      "file": "ui/widgets/gallery_data.py",
+      "context": "GalleryData",
+      "symbol": "species",
+      "selector": "first",
+      "scope": "_flower_items"
+    },
+    "veggie": {
+      "file": "ui/widgets/gallery_data.py",
+      "context": "GalleryData",
+      "symbol": "species",
+      "selector": "first",
+      "scope": "_veggie_items"
+    },
+    "bundled_names": {
+      "file": "resources/data/plant_species.json",
+      "context": "GalleryData",
+      "selector": "json:plants:common_name"
+    }
+  },
+  "lookups": [
+    {
+      "file": "core/commands.py",
+      "scope": "ChangePropertyCommand.description",
+      "expression": "self._property_name",
+      "context": "Commands",
+      "sources": [
+        "properties",
+        "text_properties",
+        "trait_properties"
+      ],
+      "note": "Custom smart-symbol param names remain user data; literal command fragments and bounded trait/text labels are extracted from their actual callers."
+    },
+    {
+      "file": "core/object_types.py",
+      "scope": "get_translated_path_fence_style_name",
+      "expression": "info.display_name",
+      "context": "PathFenceStyle",
+      "sources": [
+        "paths"
+      ]
+    },
+    {
+      "file": "core/object_types.py",
+      "scope": "get_translated_display_name",
+      "expression": "style.display_name",
+      "context": "ObjectType",
+      "sources": [
+        "objects"
+      ]
+    },
+    {
+      "file": "ui/constraint_presentation.py",
+      "scope": "ConstraintDescriptor.render",
+      "expression": "self.detail_template",
+      "context": "ConstraintListItem",
+      "sources": [
+        "constraints"
+      ]
+    },
+    {
+      "file": "ui/constraint_presentation.py",
+      "scope": "ConstraintDescriptor.render",
+      "expression": "self.tooltip_template",
+      "context": "ConstraintListItem",
+      "sources": [
+        "constraints"
+      ]
+    },
+    {
+      "file": "ui/constraint_presentation.py",
+      "scope": "ConstraintDescriptor.render",
+      "expression": "self.row_template",
+      "context": "ConstraintListItem",
+      "sources": [
+        "constraints"
+      ]
+    },
+    {
+      "file": "ui/sun_exposure_text.py",
+      "scope": "sun_requirement_label",
+      "expression": "labels.get(required, labels['unknown'])",
+      "context": "SunExposure",
+      "sources": [
+        "sun"
+      ]
+    },
+    {
+      "file": "ui/sun_exposure_text.py",
+      "scope": "unavailable_message",
+      "expression": "labels.get(reason, labels['absent'])",
+      "context": "SunExposure",
+      "sources": [
+        "sun"
+      ]
+    },
+    {
+      "file": "ui/guild_errors.py",
+      "scope": "guild_error_details",
+      "expression": "str(values['field'])",
+      "context": "GuildErrors",
+      "sources": [
+        "guild_fields"
+      ]
+    },
+    {
+      "file": "ui/guild_errors.py",
+      "scope": "guild_error_details",
+      "expression": "MESSAGES[code]",
+      "context": "GuildErrors",
+      "sources": [
+        "guild_errors"
+      ]
+    },
+    {
+      "file": "ui/canvas/arrange.py",
+      "scope": "build_arrange_command",
+      "expression": "_DESCRIPTIONS[mode]",
+      "context": "Commands",
+      "sources": [
+        "arrange"
+      ]
+    },
+    {
+      "file": "ui/dialogs/map_picker_dialog.py",
+      "scope": "MapPickerDialog._on_capture_js_result",
+      "expression": "_map_capture_token(token)",
+      "context": "MapPickerDialog",
+      "sources": [
+        "map"
+      ]
+    },
+    {
+      "file": "ui/dialogs/map_picker_dialog.py",
+      "scope": "MapPickerDialog._on_capture_error",
+      "expression": "_map_capture_token(raw_token)",
+      "context": "MapPickerDialog",
+      "sources": [
+        "map"
+      ]
+    },
+    {
+      "file": "ui/dialogs/print_dialog.py",
+      "scope": "PrintOptionsDialog._setup_ui",
+      "expression": "display_name",
+      "context": "PrintOptionsDialog",
+      "sources": [
+        "print"
+      ]
+    },
+    {
+      "file": "ui/dialogs/soil_test_dialog.py",
+      "scope": "SoilTestDialog._make_level_combo",
+      "expression": "labels[idx]",
+      "context": "SoilTestDialog",
+      "sources": [
+        "npk",
+        "secondary"
+      ]
+    },
+    {
+      "file": "ui/dialogs/soil_test_dialog.py",
+      "scope": "SoilTestDialog._make_target_level_combo",
+      "expression": "label",
+      "context": "SoilTestDialog",
+      "sources": [
+        "npk",
+        "secondary"
+      ]
+    },
+    {
+      "file": "ui/dialogs/soil_test_dialog.py",
+      "scope": "_level_label",
+      "expression": "labels[level]",
+      "context": "SoilTestDialog",
+      "sources": [
+        "npk",
+        "secondary"
+      ]
+    },
+    {
+      "file": "ui/dialogs/succession_plan_dialog.py",
+      "scope": "_segment_label",
+      "expression": "_SEGMENT_LABELS[key]",
+      "context": "SuccessionPlanDialog",
+      "sources": [
+        "segments"
+      ]
+    },
+    {
+      "file": "ui/panels/crop_rotation_panel.py",
+      "scope": "_demand_label",
+      "expression": "labels.get(key, key)",
+      "context": "CropRotationPanel",
+      "sources": [
+        "rotation"
+      ]
+    },
+    {
+      "file": "ui/panels/crop_rotation_panel.py",
+      "scope": "_season_label",
+      "expression": "labels.get(key, key)",
+      "context": "CropRotationPanel",
+      "sources": [
+        "rotation"
+      ]
+    },
+    {
+      "file": "ui/plant_traits.py",
+      "scope": "species_display_name",
+      "expression": "name",
+      "context": "GalleryData",
+      "sources": [
+        "tree",
+        "shrub",
+        "flower",
+        "veggie",
+        "bundled_names"
+      ],
+      "note": "Known gallery names use these sources. Arbitrary user/provider species names and Latin names intentionally remain user/provider data."
+    },
+    {
+      "file": "ui/panels/diagnostics_panel.py",
+      "scope": "DiagnosticsPanel._message",
+      "expression": "name",
+      "context": "GalleryData",
+      "sources": [
+        "tree",
+        "shrub",
+        "flower",
+        "veggie",
+        "bundled_names"
+      ],
+      "note": "Known gallery names use these sources. Arbitrary user/provider species names and Latin names intentionally remain user/provider data."
+    },
+    {
+      "file": "ui/widgets/gallery_data.py",
+      "scope": "_tree_items",
+      "expression": "species_name",
+      "context": "GalleryData",
+      "sources": [
+        "tree"
+      ]
+    },
+    {
+      "file": "ui/widgets/gallery_data.py",
+      "scope": "_shrub_items",
+      "expression": "species_name",
+      "context": "GalleryData",
+      "sources": [
+        "shrub"
+      ]
+    },
+    {
+      "file": "ui/widgets/gallery_data.py",
+      "scope": "_flower_items",
+      "expression": "species_name",
+      "context": "GalleryData",
+      "sources": [
+        "flower"
+      ]
+    },
+    {
+      "file": "ui/widgets/gallery_data.py",
+      "scope": "_veggie_items",
+      "expression": "species_name",
+      "context": "GalleryData",
+      "sources": [
+        "veggie"
+      ]
+    },
+    {
+      "file": "ui/panels/properties_panel.py",
+      "scope": "PropertiesPanel._add_container_properties.update_feedback",
+      "expression": "cm.material_hint(cm.container_material(meta))",
+      "context": "ContainerModel",
+      "sources": [
+        "material",
+        "drainage"
+      ]
+    },
+    {
+      "file": "ui/panels/properties_panel.py",
+      "scope": "PropertiesPanel._add_container_properties.update_feedback",
+      "expression": "cm.NO_DRAINAGE_HINT",
+      "context": "ContainerModel",
+      "sources": [
+        "material",
+        "drainage"
+      ]
+    },
+    {
+      "file": "ui/widgets/constraint_toolbar.py",
+      "scope": "ConstraintToolbar._setup_toolbar",
+      "expression": "entry.tooltip_key",
+      "context": "ConstraintToolbar",
+      "sources": [
+        "toolbar"
+      ]
+    },
+    {
+      "file": "ui/widgets/coordinate_input_field.py",
+      "scope": "CoordinateInputField._on_parse_error",
+      "expression": "message",
+      "context": "ParseError",
+      "sources": [
+        "parser"
+      ],
+      "note": "Finite parser literals; token-formatted error messages are already translated at their producer."
+    },
+    {
+      "file": "ui/widgets/trait_filters.py",
+      "scope": "trait_label",
+      "expression": "labels[value]",
+      "context": "Permaculture",
+      "sources": [
+        "traits"
+      ]
+    }
+  ],
+  "contexts": [
+    {
+      "file": "ui/dialogs/soil_test_dialog.py",
+      "scope": "format_amendment_line",
+      "context": "SoilTestDialog"
+    }
+  ]
+}

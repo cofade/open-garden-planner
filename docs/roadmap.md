@@ -82,6 +82,13 @@ manual-test confirmation is required for that mechanical PR. See ADR-050 and dep
 
 ### Translation (i18n)
 
+**#496 - implementation under review, not released.** Source-derived completeness
+for every registered language, with symmetric source/locale mutation tests, strict
+compilation, registry-driven menu/startup coverage and required Test enforcement.
+English/German baseline reconciled; Russian registration/wording stays in #495 and
+must update after this infrastructure merges. ADR-008 addendum, FR-I18N-07, section 8.3.
+Validation and owner acceptance are recorded in the implementing PR before delivery.
+
 Every user-visible string must be wrapped for translation. See `docs/08-crosscutting-concepts/` section 8.3.
 
 **i18n blind-spot fixes (2026-10-04).** Three defects invisible to `test_german_ts_has_no_unfinished` are fixed together: **#393** (five duplicate `TRANSLATIONS` keys shadowed 62 strings; the five `PdfReportService` journal-notes strings never reached `de.ts`, so the German PDF printed English), **#408** (generated soil-amendment task titles stayed English; the task **id** keeps the English data name so saved done/snooze status survives a language switch), and **#410** (the agent `suggest_companions` `name` now follows the UI language, matching the Companion panel). The CI lint step is widened to `ruff check src/ tests/ scripts/`, and `tests/unit/test_i18n.py::TestTranslationRegistry` pins `TRANSLATIONS` key uniqueness with an `ast` parse. See §11.4, §8.19, and the ADR-045 addendum.

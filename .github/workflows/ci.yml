@@ -64,6 +64,9 @@ jobs:
 
       - uses: ./.github/actions/setup-locked-env
 
+      - name: Check all translation catalogs against current source
+        run: python scripts/check_translations.py
+
       - name: Run tests
         env:
           QT_QPA_PLATFORM: offscreen

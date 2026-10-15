@@ -15,6 +15,18 @@ description: >
 
 # OGP Validation & QA — what counts as evidence
 
+## Current translation gate (#496)
+
+`scripts/check_translations.py` is the required source/catalog/binary gate for every
+locale in `SUPPORTED_LANGUAGES`. New wrapped UI keys require all target translations;
+new locales require all current keys. Run `update_translations.py`, complete targets
+(the fill helper is German-only), compile, then check. No coverage allowances or manual
+locale test lists. The compiler rejects incomplete/blank targets and unsupported plural
+input; vanished records cannot satisfy coverage. See section 8.3 and docs/TRANSLATING.md.
+The older German-only check mentioned in historical examples below is supplementary.
+Truly unwrapped UI prose and linguistic quality still require review.
+
+
 All facts verified against the repo at v1.23.0, 2026-07-04. Re-verification commands at the bottom.
 
 ## When NOT to use this skill

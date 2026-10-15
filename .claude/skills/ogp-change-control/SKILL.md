@@ -13,6 +13,18 @@ description: >
 
 # OGP Change Control
 
+## Current translation gate (#496)
+
+`scripts/check_translations.py` is the required source/catalog/binary gate for every
+locale in `SUPPORTED_LANGUAGES`. New wrapped UI keys require all target translations;
+new locales require all current keys. Run `update_translations.py`, complete targets
+(the fill helper is German-only), compile, then check. No coverage allowances or manual
+locale test lists. The compiler rejects incomplete/blank targets and unsupported plural
+input; vanished records cannot satisfy coverage. See section 8.3 and docs/TRANSLATING.md.
+The older German-only check mentioned in historical examples below is supplementary.
+Truly unwrapped UI prose and linguistic quality still require review.
+
+
 How changes enter this repository, which gates they must pass, and why each gate exists.
 This is process, not technique: for *how to run* tests/builds see `ogp-build-and-run`; for
 *what evidence counts* see `ogp-validation-and-qa`. Nothing in this skill may be routed
@@ -35,7 +47,7 @@ Facts date-stamped **as of 2026-09-05**: released version **v1.27.7** (matching
 | **Squash merge** | The only merge mode used: `pr merge --squash --delete-branch` collapses the branch into one master commit. That single commit message is what `release.yml` inspects for the `chore` skip. |
 | **senior-reviewer** | The repo's adversarial review agent (`.claude/agents/senior-reviewer.md`, P0/P1/P2 severity discipline). A clean pass is a hard gate before any PR. |
 | **P0 / P1 / P2** | Review severities: P0 blocks merge (correctness, data loss, untranslated user-facing strings); P1 should be fixed before merge; P2 is a nit. |
-| **i18n gate** | `tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished` — fails if any registered UI string lacks a German translation. |
+| **i18n gate** | `scripts/check_translations.py` — requires complete source-key and compiled coverage for every registered locale. |
 | **FILE_VERSION** | The `.ogp` save-file format version (`"1.4"` as of 2026-09-05). Distinct from the app version. New `.ogp` keys are added *additively* without bumping it whenever old versions can safely ignore them. |
 | **Manual-test sovereignty** | The user's hands-on test of the built app is the final gate. It has overturned merged designs before (see below); automated green is necessary, never sufficient. |
 

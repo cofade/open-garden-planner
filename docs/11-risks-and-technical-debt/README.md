@@ -1206,3 +1206,25 @@ Arc endpoint and midpoint angle sums are checked before construction. Polyline,
 polygon and arc regressions failed first, then passed with the shared arithmetic
 guard. Pure huge-finite Qt rendering limits retain their serialized model and remain
 outside A1; no coordinate cap or rejection of zero-length primitives was introduced.
+
+
+### Registered strings are not the source inventory (#496)
+
+**Require every live key in every registered locale, in both directions.** Review of
+#495 found a stale source template could pass the German-only unfinished-value test.
+Fresh standard extraction found existing German omissions; an AST audit then identified
+helper/table sources that standard extraction missed. Bundled plant common names were
+also live sources and had to be retained, not marked retired with the rest of the extras.
+
+The old compiler additionally accepted nonempty unfinished translations, turned empty
+targets into source fallback and emitted vanished entries. Six targeted regressions
+failed first. Shared strict parsing now refuses those targets and excludes retired
+records. Context/key, formatting and compiled lookup validation are independent of
+catalog counts. A companion explanation also assumed every non-English locale was
+German; the explicit German selection now preserves English fallback for other locales.
+
+Pinned by `tests/unit/test_translation_gate.py`, `tests/integration/test_translation_gate.py`
+and the source/binary check in `tests/unit/test_i18n.py`. The lesson is that a gate must
+derive its required set independently from the artifacts it validates. Unwrapped UI
+text and linguistic quality remain separate review obligations; plural input fails
+closed until the singular compiler gains tested support.

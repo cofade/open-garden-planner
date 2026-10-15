@@ -4,7 +4,7 @@ description: >
   Load when finishing ANY feature or fix in Open Garden Planner and you owe documentation
   updates (you always do — this project practices continuous documentation); when writing
   an ADR, an FR-* entry, a §11.4 pitfall entry, or a debug-verbose case study; when
-  updating docs/roadmap.md, docs/functional-requirements.md, or CLAUDE.md progress tables;
+  updating docs/roadmap.md, docs/functional-requirements.md, or AGENTS.md progress tables;
   when syncing the GitHub wiki; or whenever you are unsure WHERE a piece of knowledge
   should live in the docs. Contains the verified docs-of-record map, the mandatory
   change-type → doc-target tables, the house style derived from real entries, and
@@ -13,6 +13,18 @@ description: >
 ---
 
 # OGP Docs & Writing
+
+## Current translation gate (#496)
+
+`scripts/check_translations.py` is the required source/catalog/binary gate for every
+locale in `SUPPORTED_LANGUAGES`. New wrapped UI keys require all target translations;
+new locales require all current keys. Run `update_translations.py`, complete targets
+(the fill helper is German-only), compile, then check. No coverage allowances or manual
+locale test lists. The compiler rejects incomplete/blank targets and unsupported plural
+input; vanished records cannot satisfy coverage. See section 8.3 and docs/TRANSLATING.md.
+The older German-only check mentioned in historical examples below is supplementary.
+Truly unwrapped UI prose and linguistic quality still require review.
+
 
 How knowledge is recorded in this repository: which document owns which kind of fact,
 what each entry type looks like (derived from real exemplars, not invented), and the
@@ -58,14 +70,14 @@ single `README.md` — there are no per-ADR or per-chapter sub-files.
 | Roadmap | `docs/roadmap.md` | User stories, acceptance criteria, per-US completion notes, "Docs updated on completion" tables |
 | FR register | `docs/functional-requirements.md` | Numbered FR-* requirements, the specification of user-visible capability |
 | Translation guide | `docs/TRANSLATING.md` | How to add a new language (`.ts`/`.qm` pipeline) |
-| CLAUDE.md | `CLAUDE.md` (repo root) | Quick reference commands, workflow, phase progress tables. **A maintained doc** — its own "Maintaining this file" note requires updating the progress table when US status changes and keeping commands current |
-| Debug case-study log | `.claude/skills/debug-verbose/SKILL.md` | Growing list of `## Case study:` entries — one per non-trivial bug fixed |
+| AGENTS.md | `AGENTS.md` (repo root) | Quick reference commands, workflow, phase progress tables. **A maintained doc** — its own "Maintaining this file" note requires updating the progress table when US status changes and keeping commands current |
+| Debug case-study log | `.agents/skills/debug-verbose/SKILL.md` | Growing list of `## Case study:` entries — one per non-trivial bug fixed |
 | GitHub wiki | `docs/wiki/README.md` | Six repository-owned source pages. Canonical roadmap inclusions render through `scripts/sync_wiki.py`. Validate offline before delivery. Publish to the separate sibling wiki checkout after owner approval and protected merge. If absent, report publication pending. Do not silently clone or edit the published pages as a second tracker (ADR-051). |
-| This skill library | `.claude/skills/<name>/SKILL.md` | Operational knowledge for agents — see §7 below |
+| This skill library | `.agents/skills/<name>/SKILL.md` | Operational knowledge for agents — see §7 below |
 
-## 2. The mandatory-update tables (from CLAUDE.md — binding)
+## 2. The mandatory-update tables (from AGENTS.md — binding)
 
-These are reproduced faithfully from CLAUDE.md. They are not suggestions; the workflow's
+These are reproduced faithfully from AGENTS.md. They are not suggestions; the workflow's
 pre-merge check ("arc42 docs updated, ADRs created if needed, glossary updated, wiki
 synced") assumes they were followed.
 
@@ -95,10 +107,10 @@ approaches; changing established patterns; addressing non-obvious constraints.
 **Pre-merge doc checklist** (verify before any merge): arc42 docs updated, ADRs created
 if needed, glossary updated (terms **and** any new keyboard shortcut in §12.2), wiki
 sources validated and publication prepared (or flagged pending — see §1), roadmap status + "Docs updated on completion"
-table written, CLAUDE.md progress table current, new keyboard shortcuts in glossary.
+table written, AGENTS.md progress table current, new keyboard shortcuts in glossary.
 
-Additional targets observed in practice (beyond the CLAUDE.md tables):
-- Every non-trivial bug fix → **Case study** in `.claude/skills/debug-verbose/SKILL.md`
+Additional targets observed in practice (beyond the AGENTS.md tables):
+- Every non-trivial bug fix → **Case study** in `.agents/skills/debug-verbose/SKILL.md`
   (the skill's own "How this skill grows" section mandates it).
 - New/changed UI strings → registration in `scripts/fill_translations.py` (see §6).
 - Known-but-deferred debt → a `TD-*` row in §11.3 (with Status and Issue, ADR-047), or a filed follow-up issue referenced
@@ -153,7 +165,7 @@ the file is NOT in strictly ascending order; ADR-013 sits after ADR-015). Re-gre
 before opening the PR too: a parallel branch can take your number while yours is in
 review (the sim clock's ADR-052 became ADR-053 when #426 merged first, and every
 reference had to move — `git grep -l "ADR-052"` on the branch, not on master). Reference
-the ADR from CLAUDE.md progress notes, the roadmap completion note, and any related
+the ADR from AGENTS.md progress notes, the roadmap completion note, and any related
 §8/§11.4 entry.
 
 ### 3.3 Roadmap style (`docs/roadmap.md`)
@@ -252,7 +264,7 @@ pin). Cross-refs: FR-*, §8.x, §11.4.>
 | `docs/12-glossary/` | <new terms / shortcuts> |
 ```
 
-### Debug-verbose case study (append to `.claude/skills/debug-verbose/SKILL.md`)
+### Debug-verbose case study (append to `.agents/skills/debug-verbose/SKILL.md`)
 
 ```markdown
 ## Case study: <short symptom title> (fixed YYYY-MM-DD)
@@ -287,8 +299,8 @@ pin). Cross-refs: FR-*, §8.x, §11.4.>
 | "New module exists; here's its responsibility" | docs/05 black box |
 | "The startup/save/render sequence changed" | docs/06 sequence diagrams |
 | "Known debt, deliberately deferred" | §11.3 TD-* row or filed issue, referenced from roadmap note |
-| "Operational knowledge an agent needs" | the relevant `.claude/skills/*/SKILL.md` |
-| "US finished / phase status changed" | roadmap table + CLAUDE.md progress table (both) |
+| "Operational knowledge an agent needs" | the relevant `.agents/skills/*/SKILL.md` |
+| "US finished / phase status changed" | roadmap table + AGENTS.md progress table (both) |
 
 One fact, one home; everywhere else links to it. The roadmap note *cites* ADR/FR/§8; it
 does not restate them.
@@ -298,7 +310,7 @@ does not restate them.
 - **Docs are English.** Only the *application UI* is translated. But every user-visible
   string your change adds to the APP must go through `tr()` / `QT_TR_NOOP` /
   `QCoreApplication.translate()` and be registered in `scripts/fill_translations.py` —
-  full rules in CLAUDE.md "Translation (i18n)" and §8.3; new-language how-to in
+  full rules in AGENTS.md "Translation (i18n)" and §8.3; new-language how-to in
   `docs/TRANSLATING.md`. Remember the §11.4 lesson: `test_german_ts_has_no_unfinished`
   cannot see hardcoded f-strings that bypass `tr()` entirely.
 - **UTF-8 discipline — never PowerShell `Set-Content -Encoding UTF8`** on any file with
@@ -307,9 +319,9 @@ does not restate them.
   `fill_translations.py` + the German `.ts` this way. Use the `Edit` tool, Python
   `open(..., encoding="utf-8")`, `sed -i.bak`, or `perl -i -pe`. Detect regressions:
   `grep -c "Ã¶\|Ã¤\|Ã¼\|ÃŸ" <file>` — any hit means double-encoded.
-- **Keep CLAUDE.md current**: when a US ships, update its progress-table row (status +
+- **Keep AGENTS.md current**: when a US ships, update its progress-table row (status +
   the dense completion note style you see there); when a command changes, fix Quick
-  Reference. CLAUDE.md's own "Maintaining this file" note makes this mandatory.
+  Reference. AGENTS.md's own "Maintaining this file" note makes this mandatory.
 - **Wiki sync duty**: edit repository sources in `docs/wiki/`, then run `scripts/sync_wiki.py --check`.
   Render a preview outside the repository. Follow `docs/wiki/README.md` after owner approval and
   protected merge. Read and reconcile direct wiki edits before publishing. An absent sibling
@@ -322,16 +334,16 @@ does not restate them.
 
 ## 7. This skill library is itself a doc of record
 
-- Skills live at `.claude/skills/<name>/SKILL.md` with YAML frontmatter (`name`,
+- Skills live at `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`name`,
   trigger-rich `description`) — same shape as `ogp-change-control` and this file.
 - Each ends with a **Provenance and maintenance** section: one-line commands that
   re-verify the skill's load-bearing claims. House rule (quoted from
   `ogp-change-control`): *"If any command's output no longer matches this file, update
   the file — a wrong runbook is worse than none."*
 - **When a code change invalidates a skill claim, updating the skill is part of the
-  change** — same spirit as the CLAUDE.md mandatory-update tables. Grep the library
+  change** — same spirit as the AGENTS.md mandatory-update tables. Grep the library
   before merging anything that renames a file, command, or invariant a skill cites:
-  `grep -rl "<old name>" .claude/skills/`.
+  `grep -rl "<old name>" .agents/skills/`.
 - The pre-existing skills follow the same growth contract: `debug-verbose` grows a case
   study per bug; `finalize-us` and `analyze-pr` encode process that must track reality.
 - Siblings in this 16-skill library: `ogp-change-control` (process gates),
@@ -343,13 +355,13 @@ does not restate them.
 
 ## Provenance and maintenance
 
-Derived 2026-07-04 from: CLAUDE.md (mandatory-update tables reproduced verbatim);
+Derived 2026-07-04 from: AGENTS.md (mandatory-update tables reproduced verbatim);
 `docs/11-risks-and-technical-debt/README.md` §11.4 (entries #212, #213/#218/#219, #231,
 US-C4 read as anatomy exemplars); `docs/09-architecture-decisions/README.md` (ADR-001,
 ADR-028, ADR-029 + addenda); `docs/functional-requirements.md` (FR-1, FR-23 heading,
 FR-AGENT-09); `docs/roadmap.md` (Package B follow-ups + US-C1/C2 sections);
-`.claude/skills/debug-verbose/SKILL.md` (case-study format + growth contract);
-`.claude/skills/ogp-change-control/SKILL.md` (skill house style). Wiki sibling repo
+`.agents/skills/debug-verbose/SKILL.md` (case-study format + growth contract);
+`.agents/skills/ogp-change-control/SKILL.md` (skill house style). Wiki sibling repo
 verified ABSENT in this checkout.
 
 Re-verify:
@@ -361,10 +373,10 @@ ls docs/{01..12}*/README.md docs/roadmap.md docs/functional-requirements.md docs
 grep -c "^## ADR-" docs/09-architecture-decisions/README.md && grep "^## ADR-" docs/09-architecture-decisions/README.md | sort -V | tail -1
 # §11.4 still the pitfalls section; §8 section map unchanged
 grep -n "^## 11.4" docs/11-risks-and-technical-debt/README.md; grep -c "^## 8\." docs/08-crosscutting-concepts/README.md
-# CLAUDE.md mandatory tables unchanged
-grep -n "Update Target\|Document In" CLAUDE.md
+# AGENTS.md mandatory tables unchanged
+grep -n "Update Target\|Document In" AGENTS.md
 # Debug-verbose case-study count (grows over time)
-grep -c "^## Case study" .claude/skills/debug-verbose/SKILL.md
+grep -c "^## Case study" .agents/skills/debug-verbose/SKILL.md
 # Wiki sibling present in THIS checkout?
 ls ../open-garden-planner.wiki/Roadmap.md 2>/dev/null || echo "wiki absent — flag sync as pending"
 ```

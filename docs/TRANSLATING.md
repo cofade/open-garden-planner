@@ -1,131 +1,68 @@
-# Adding a New Language to Open Garden Planner
+# Maintaining complete application translations
 
-This guide explains how to add a new translation language to the application.
+Every language registered in `SUPPORTED_LANGUAGES` must cover the current UI source
+inventory. Adding a language requires all existing keys; adding a wrapped UI string
+requires translations in every registered target language in the same PR. Compare
+Qt context/source/disambiguation keys, never word counts or catalog counts.
 
-## Overview
+Use the locked Python environment from the development setup. From the repository root:
 
-Open Garden Planner uses Qt's i18n system:
-- **`.ts` files** — XML source files containing translatable strings (edited by translators)
-- **`.qm` files** — compiled binary files loaded at runtime by `QTranslator`
-- **`pylupdate6`** — extracts marked strings from Python source into `.ts` files
-- **`scripts/compile_translations.py`** — compiles `.ts` to `.qm` (pure-Python replacement for `lrelease`)
-
-Translation files live in `src/open_garden_planner/resources/translations/`.
-
-## Step-by-Step: Adding a Language
-
-### 1. Register the language
-
-Edit `src/open_garden_planner/core/i18n.py` and add your language to `SUPPORTED_LANGUAGES`:
-
-```python
-SUPPORTED_LANGUAGES: dict[str, str] = {
-    "en": "English",
-    "de": "Deutsch",
-    "fr": "Fran\u00e7ais",  # <-- new
-}
+```powershell
+$env:PYTHONUTF8 = "1"
+.venv/Scripts/python.exe scripts/update_translations.py
+.venv/Scripts/python.exe scripts/fill_translations.py
+# Complete remaining target translations in each .ts file, then:
+.venv/Scripts/python.exe scripts/compile_translations.py
+.venv/Scripts/python.exe scripts/check_translations.py
 ```
 
-Use the **native name** (how speakers of that language write it) as the value.
+`update_translations.py` extracts current source into temporary output, supplements
+Qt extraction with audited helper/table declarations, preserves existing translations,
+adds new target entries as unfinished, and marks removed keys vanished. English is the
+source language: its template contains source identities. Do not copy the old English
+catalog as an inventory. `fill_translations.py` is a German convenience mapping, not
+a translator for other languages and not the definition of which strings exist.
 
-### 2. Extract strings into a new `.ts` file
+For a new locale, register its native display name in
+`src/open_garden_planner/core/i18n.py`, run the update command, and complete its generated
+`resources/translations/open_garden_planner_<code>.ts`. Preserve translator comments,
+HTML markup and interpolation fields. Compile and check before submitting a draft PR.
+Incomplete registered languages fail automatically; no test parameter list needs editing.
 
-Run `pylupdate6` from the project root:
+## Source patterns
 
-```bash
-venv/Scripts/pylupdate6 \
-    --ts src/open_garden_planner/resources/translations/open_garden_planner_fr.ts \
-    src/open_garden_planner/
-```
+Use `self.tr("literal")` in QObject widgets, or
+`QCoreApplication.translate("Context", "literal")` elsewhere. Local aliases of the
+latter and simple single-argument `_tr` forwarding functions are audited. Keep Qt marker
+names unaliased. Context-less module markers and dynamic source lookups require a narrow
+declaration in `scripts/i18n_bindings.json`, selecting the actual production symbol/table
+and its consuming context. Unknown dynamic lookups and stale declarations fail extraction.
+Do not add duplicated English literal lists or derive required keys from German mappings.
+Custom/provider names, Latin names and machine identifiers keep their documented data
+boundaries; finite bundled common names are extracted from the bundled JSON itself.
 
-This creates a `.ts` XML file with all `self.tr()` and `QCoreApplication.translate()` strings.
+Declarations cover object/path styles, descriptor labels, gallery/plant names, parser
+errors, command fragments and other bounded helper inputs. When adding a table member,
+the inventory grows automatically. A new unsupported expression requires an explicit
+source binding and an extraction/mutation test, not a file-wide exemption.
 
-### 3. Add manually-maintained strings
+## What the required check enforces
 
-`pylupdate6` cannot extract strings from:
-- **`QT_TR_NOOP()`** calls at module level without a class context (e.g., `object_types.py`)
-- **Helper functions** that wrap `QCoreApplication.translate()` (e.g., the `_tr()` helper in `gallery_data.py`)
+- Every registered catalog has exactly the active source keys; vanished/obsolete records
+  cannot supply coverage. Duplicates and wrong contexts/comments fail.
+- Target values are completed and nonblank. Matching source text can be legitimate
+  (for example `Ctrl+S` or a proper name); identity text alone is not proof of completeness.
+- Python fields/conversions/format specifications and Qt placeholders are preserved.
+- Compiled `.qm` files match the validated `.ts` and actual Qt lookups, including Unicode.
+- The checker is read-only and returns nonzero with locale/key/source-location diagnostics.
 
-These strings are maintained in `scripts/fill_translations.py` under the `"ObjectType"`, `"GalleryData"`, `"CategoryDropdown"`, `"CategoryToolbar"`, and `"GlobalSearchField"` contexts. After running `pylupdate6`, run the fill script or manually add these contexts to your `.ts` file.
+The compiler is currently singular-only. Numerus/plural or length-variant messages fail
+explicitly until a change adds tested compiler support and locale-form validation. They
+must never silently fall back to English. The gate does not judge linguistic quality,
+visual fit, or arbitrary text that was never wrapped for translation.
 
-### 4. Translate the strings
-
-Open the `.ts` file in a text editor or Qt Linguist and fill in all `<translation>` elements. Each entry looks like:
-
-```xml
-<message>
-    <source>Save the current project</source>
-    <translation type="unfinished" />
-</message>
-```
-
-Replace the empty translation tag:
-
-```xml
-<message>
-    <source>Save the current project</source>
-    <translation>Enregistrer le projet actuel</translation>
-</message>
-```
-
-Remove `type="unfinished"` once the translation is complete.
-
-**Guidelines:**
-- Keep `{placeholder}` variables unchanged (e.g., `{count}`, `{path}`)
-- Preserve `&` accelerator keys in menu items (e.g., `&File` -> `&Fichier`), avoiding conflicts within the same menu
-- HTML tags (`<b>`, `<br>`, `<p>`) should be preserved
-- Plant scientific names (Latin) are **not translated**
-- Keyboard shortcuts (Ctrl+S, F11, etc.) are **not translated**
-
-### 5. Compile to `.qm`
-
-```bash
-venv/Scripts/python scripts/compile_translations.py
-```
-
-This compiles all `.ts` files in the translations directory to `.qm` binary files.
-
-### 6. Test
-
-```bash
-# Run the app with your language
-venv/Scripts/python -m open_garden_planner
-
-# In the app: View > Language > select your language
-# Restart the app to see the translation
-```
-
-Run the test suite to verify nothing is broken:
-
-```bash
-venv/Scripts/python -m pytest tests/ -v
-```
-
-### 7. Update tests
-
-Add your language code to the assertions in `tests/unit/test_i18n.py` if desired (the existing tests dynamically check all entries in `SUPPORTED_LANGUAGES`).
-
-## File Reference
-
-| File | Purpose |
-|------|---------|
-| `src/open_garden_planner/core/i18n.py` | Language registry, translator loading |
-| `src/open_garden_planner/app/settings.py` | Persists language preference |
-| `src/open_garden_planner/app/application.py` | Language submenu in View menu |
-| `src/open_garden_planner/resources/translations/*.ts` | Translation source files |
-| `src/open_garden_planner/resources/translations/*.qm` | Compiled translation binaries |
-| `scripts/compile_translations.py` | `.ts` to `.qm` compiler |
-| `scripts/fill_translations.py` | Translation mapping + fill helper |
-
-## String Wrapping Patterns
-
-When adding new UI strings to the codebase:
-
-| Context | Pattern |
-|---------|---------|
-| Inside a `QObject` subclass method | `self.tr("text")` |
-| Module-level constant | `QT_TR_NOOP("text")` + translate at display time |
-| Non-QObject function | `QCoreApplication.translate("ContextName", "text")` |
-| f-string with variables | `self.tr("text {var}").format(var=value)` |
-
-After adding new strings, re-run `pylupdate6` to update the `.ts` files, then recompile.
+The existing required CI `Test` job runs the checker before pytest, and pytest includes
+the same source/binary gate. Menu mnemonic tests enumerate `SUPPORTED_LANGUAGES`.
+Keep the PR draft until maintainer manual acceptance: View > Language > select locale,
+restart, inspect menus/dialogs in both themes, and check translated data fallbacks.
+See arc42 section 8.3, ADR-008's #496 addendum, and the translation gate tests.

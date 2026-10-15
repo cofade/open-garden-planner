@@ -12,6 +12,18 @@ description: >
 
 # OGP Build & Run
 
+## Current translation gate (#496)
+
+`scripts/check_translations.py` is the required source/catalog/binary gate for every
+locale in `SUPPORTED_LANGUAGES`. New wrapped UI keys require all target translations;
+new locales require all current keys. Run `update_translations.py`, complete targets
+(the fill helper is German-only), compile, then check. No coverage allowances or manual
+locale test lists. The compiler rejects incomplete/blank targets and unsupported plural
+input; vanished records cannot satisfy coverage. See section 8.3 and docs/TRANSLATING.md.
+The older German-only check mentioned in historical examples below is supplementary.
+Truly unwrapped UI prose and linguistic quality still require review.
+
+
 Everything needed to recreate the environment, run the app and tests, build and
 package, and find where artifacts land. Facts verified against the repo at
 **v1.23.0 (2026-07-04)**: `pyproject.toml`, `.github/workflows/ci.yml`,
@@ -110,8 +122,11 @@ Notes:
 Run after adding or changing ANY user-visible string:
 
 ```bash
+PYTHONUTF8=1 venv/Scripts/python.exe scripts/update_translations.py
+# Complete every registered target catalog; fill_translations.py assists German only.
 PYTHONUTF8=1 venv/Scripts/python.exe scripts/fill_translations.py
 PYTHONUTF8=1 venv/Scripts/python.exe scripts/compile_translations.py
+venv/Scripts/python.exe scripts/check_translations.py
 ```
 
 | Fact | Value (verified) |
@@ -120,7 +135,7 @@ PYTHONUTF8=1 venv/Scripts/python.exe scripts/compile_translations.py
 | `fill_translations.py` | Holds the full English→German mapping as a Python dict; writes translations + missing contexts into the `.ts`. New strings must be **added to the script's dict** first |
 | `compile_translations.py` | Pure-Python `lrelease` replacement — compiles every `.ts` in that dir to `.qm` (no Qt tooling needed) |
 | `PYTHONUTF8=1` | Required on Windows: the scripts handle umlauts; without it the default cp1252 codec mangles them |
-| Gate test | `venv/Scripts/python.exe -m pytest tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished` — fails if any registered string is left unfinished. It CANNOT see hardcoded plain-string call sites that bypass `tr()` (see AGENTS.md i18n section) |
+| Gate test | `venv/Scripts/python.exe -m pytest tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished` — is a supplementary German regression check. The required `scripts/check_translations.py` checks every wrapped source key in every registered locale; truly unwrapped display strings still require review (see AGENTS.md i18n section) |
 | Packaging | `installer/ogp.spec` bundles the whole `resources/translations/` dir into the exe — recompile `.qm` BEFORE building |
 
 ## Building the frozen exe (PyInstaller)

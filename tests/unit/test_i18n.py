@@ -26,6 +26,14 @@ class TestSupportedLanguages:
 class TestTranslationFiles:
     """Tests for the existence of translation files."""
 
+    def test_registered_languages_cover_current_source_and_binary(self, qtbot) -> None:
+        """Both new UI keys and newly registered locales must pass the same gate."""
+        from pathlib import Path
+
+        from scripts.check_translations import check
+
+        assert not (errors := check(Path(__file__).resolve().parents[2])), "\n".join(errors)
+
     def test_translations_directory_exists(self, qtbot) -> None:  # noqa: ARG002
         assert _TRANSLATIONS_DIR.is_dir()
 

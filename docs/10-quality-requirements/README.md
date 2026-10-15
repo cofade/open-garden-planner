@@ -51,6 +51,7 @@ Quality
 | NFR-MAINT-02 | Test coverage | Enforced package line floors; >80% non-UI line coverage remains a target |
 | NFR-MAINT-03 | Documentation | Docstrings + arc42 architecture docs |
 | NFR-MAINT-04 | Type safety | Strict mypy with per-file Linux/Windows Python 3.11 allowances |
+| NFR-MAINT-05 | Translation completeness | Every registered target locale covers every current wrapped UI key; source and locale additions both fail required CI if incomplete (#496) |
 
 The historical 2026-10 audit remains a dated snapshot, not the current gate budget. Fresh
 locked-tool allowances live in `quality/mypy-baseline.json`; package line floors live in

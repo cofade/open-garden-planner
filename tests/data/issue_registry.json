@@ -786,7 +786,7 @@
   },
   "454": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Audit A2: Dependency maintenance, build reproducibility and distribution inventory (epic #392)"
   },
   "457": {
@@ -821,7 +821,17 @@
   },
   "490": {
     "is_pr": true,
+    "state": "MERGED",
+    "title": "build(454): pin the build toolchain and publish the frozen inventory"
+  },
+  "495": {
+    "is_pr": true,
     "state": "OPEN",
-    "title": "chore(454): pin the build toolchain, publish the frozen inventory, finish the dependency path"
+    "title": "feat(i18n): add Russian translation (ru)"
+  },
+  "496": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Enforce source-based translation completeness for every supported language before merge"
   }
 }

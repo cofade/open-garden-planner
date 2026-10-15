@@ -15,9 +15,21 @@ description: >
 
 # OGP Diagnostics & Tooling — measure, don't eyeball
 
+## Current translation gate (#496)
+
+`scripts/check_translations.py` is the required source/catalog/binary gate for every
+locale in `SUPPORTED_LANGUAGES`. New wrapped UI keys require all target translations;
+new locales require all current keys. Run `update_translations.py`, complete targets
+(the fill helper is German-only), compile, then check. No coverage allowances or manual
+locale test lists. The compiler rejects incomplete/blank targets and unsupported plural
+input; vanished records cannot satisfy coverage. See section 8.3 and docs/TRANSLATING.md.
+The older German-only check mentioned in historical examples below is supplementary.
+Truly unwrapped UI prose and linguistic quality still require review.
+
+
 All facts verified 2026-07-04 against the working tree at v1.23.0 (commit
 `988c565`) by reading the actual files and running what runs without PyQt6
-(which is NOT installed in the Claude web container — anything Qt-importing was
+(which is NOT installed in the Codex web container — anything Qt-importing was
 read, not run, and is labeled). Paths are repo-relative from
 `/home/user/open-garden-planner`.
 
@@ -84,30 +96,19 @@ unrelated later test `test_harvest.py::TestHarvestNavigation`.
 
 ### 1.2 What the i18n gate CAN catch
 
-`tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished`
-(verified, line 48): asserts `'type="unfinished"' not in` the German `.ts`
-file. Catches: any string that pylupdate6/`fill_translations.py` **registered**
-but that has no German translation yet. Run it after every string change.
+`scripts/check_translations.py` derives current wrapped keys independently of catalogs
+and checks every registered locale: exact active context/source/comment coverage,
+completed values, placeholders, compiled bytes and actual Qt lookups. Both source and
+locale additions must pass the existing required Test check. The normal pytest suite
+also invokes this gate. Developer diagnostics name the failing locale and source key.
 
-### 1.3 What the i18n gate CANNOT catch — and its partner
+### 1.3 What the i18n gate CANNOT catch - and its partner
 
-*(This §1.2/1.3 pair is the **canonical home** of the i18n-gate blind-spot fact
-— the instrument catalogue owns instrument mechanics. Other skills state it in
-one line and point here.)*
-
-It cannot see a string that never reached the `.ts` file at all — hardcoded
-English f-strings (`f"{a} overlaps {b}"`) bypass `tr()` and are invisible to
-it. That is what `tests/unit/test_i18n.py::TestNoHardcodedEnglish` (verified,
-line 143) is for: it greps `src/**/*.py` for a **curated** phrase list
-(`SUSPICIOUS_PHRASES` — e.g. `" overlaps "`, `": antagonist"`) and fails if a
-phrase sits in a string literal on a line without `tr(`/`QT_TR_NOOP`/
-`translate(`. Escapes: `# i18n-source` per-line comment, `ALLOWED_FILES`
-(`fill_translations.py`, `test_i18n.py`).
-
-**Its blind spot in turn:** it only knows phrases someone already added after a
-leak was observed. A *novel* untranslated string passes both tests. Net: green
-on both gates ≠ "fully translated"; it means "no known regression". When you
-find a new leak, add the phrase to `SUSPICIOUS_PHRASES`.
+This pair remains the canonical home of gate limitations. Truly unwrapped UI prose
+never enters the inventory; `TestNoHardcodedEnglish` is an additional curated tripwire,
+not exhaustive proof. Linguistic quality, context suitability and visual fit require
+review/manual acceptance. Active plural/variant input is rejected until tested compiler
+support is added. Unknown dynamic Qt sources and stale declarations fail extraction.
 
 ## 2. Static analysis
 
@@ -122,7 +123,7 @@ venv/Scripts/python.exe -m mypy src/                 venv/bin/python -m mypy src
 
 - **ruff** — rule families ON: `E`,`W` (pycodestyle), `F` (Pyflakes), `I` (isort, first-party `open_garden_planner`), `B` (bugbear), `C4` (comprehensions), `UP` (pyupgrade), `ARG` (unused args), `SIM` (simplify). Ignored: `E501` (line length — but `line-length = 100` still drives the formatter), `B008`. `tests/**` additionally ignores `ARG001`/`ARG002`. Healthy: `All checks passed!`.
 - **bandit** — CI's `security` job fails **only on HIGH severity** (`--severity-level high`); MEDIUM/LOW are printed for awareness (run without the flag to see them). §8.11 documents the known non-findings: the Agent API binds `127.0.0.1` only, so **B104 (bind-all-interfaces) does not apply**, and the pre-bind `socket.bind` port probe is not a high-severity finding. Suppress a true false positive with `# nosec B603 — <justification>`, sparingly. Scope is `src/` only; tests are excluded by design.
-- **mypy** — `strict = true` plus explicit `disallow_untyped_defs`, `no_implicit_optional`, `warn_unused_ignores`, etc.; `follow_imports = "silent"`, `ignore_missing_imports = true`; `tests.*` override relaxes `disallow_untyped_defs`. Note: mypy is in the dev extras but is NOT in the CLAUDE.md quick-reference gate list — treat a clean run as extra signal, not a formal gate. (Not runnable in this container; config read, not executed.)
+- **mypy** — `strict = true` plus explicit `disallow_untyped_defs`, `no_implicit_optional`, `warn_unused_ignores`, etc.; `follow_imports = "silent"`, `ignore_missing_imports = true`; `tests.*` override relaxes `disallow_untyped_defs`. Note: mypy is in the dev extras but is NOT in the AGENTS.md quick-reference gate list — treat a clean run as extra signal, not a formal gate. (Not runnable in this container; config read, not executed.)
 
 ## 3. Project scripts (`scripts/`) — what each really does
 
@@ -130,7 +131,7 @@ All six read in full 2026-07-04. "Stdlib" = runs without PyQt6.
 
 | Script | Needs | What it truthfully does |
 |---|---|---|
-| `fill_translations.py` | stdlib (xml.etree) | Reads the pylupdate6-generated `open_garden_planner_de.ts`, fills German translations from its own in-file `TRANSLATIONS: dict[context][source] = german` mapping, adds contexts pylupdate6 can't extract (e.g. `Commands` — non-QObject command classes), writes the `.ts` back. **New strings must be added to this dict** or the i18n gate fails. Run with `PYTHONUTF8=1` (Windows defaults to cp1252; without it the umlaut-laden file I/O corrupts). |
+| `fill_translations.py` | locked PyQt6 extraction + stdlib | Reads the pylupdate6-generated `open_garden_planner_de.ts`, fills German translations from its own in-file `TRANSLATIONS: dict[context][source] = german` mapping, adds contexts pylupdate6 can't extract (e.g. `Commands` — non-QObject command classes), writes the `.ts` back. **New strings must be added to this dict** or the i18n gate fails. Run with `PYTHONUTF8=1` (Windows defaults to cp1252; without it the umlaut-laden file I/O corrupts). |
 | `compile_translations.py` | stdlib | Pure-Python `lrelease` replacement: parses every `.ts` in `resources/translations/`, emits binary `.qm` (Qt magic `0x3CB86418…`, ELF-hash lookup table, UTF-16BE translations). Prints `<name>.ts -> <name>.qm (N messages)` per file; nonzero exit on any compile error. Always run after `fill_translations.py`. |
 | `svg_preview.py` | Windows browser or PyQt6 | Renders an SVG to `<file>_preview.png` using **Edge headless** (`--headless=new --screenshot=`; Chrome fallback), falling back to `QSvgRenderer` offscreen only if no browser. WHY browser-first (§11.4): `QSvgGenerator` never serializes painter clip paths, so texture fills bleed across the canvas in real browsers while **QSvgRenderer is too forgiving and hides the bug**. Browser paths are hardcoded Windows paths — on Linux substitute `chromium --headless=new --screenshot=out.png file.svg` (untested here, no browser in container). |
 | `validate_exports.py` | PyQt6 | End-to-end export validator template: loads a `.ogp`, prints item/plant counts, exports PNG + SVG + PDF via the real `ExportService`/`PdfReportService`, then renders each PDF page to PNG via `QtPdf` for visual inspection. **Input/output paths are hardcoded to a developer machine** (`C:\Users\wienh\Downloads\...`) — edit `OGP_FILE`/`OUT` before use. Sets `QT_QPA_PLATFORM=offscreen` itself. |
@@ -139,7 +140,7 @@ All six read in full 2026-07-04. "Stdlib" = runs without PyQt6.
 | `check_texture_tileability.py` | numpy + Pillow | Seam-vs-98th-percentile tileability metric (threshold 1.6) for one or all textures; exit 1 on any seam. |
 
 ```bash
-# The canonical translation refresh (CLAUDE.md quick ref):
+# The canonical translation refresh (AGENTS.md quick ref):
 PYTHONUTF8=1 venv/Scripts/python.exe scripts/fill_translations.py
 PYTHONUTF8=1 venv/Scripts/python.exe scripts/compile_translations.py
 # then the gate from §1.2
@@ -156,7 +157,7 @@ UTF-8-without-BOM as Latin-1 and re-encodes — `ö`→`Ã¶`, `ä`→`Ã¤`, `�
 grep -c "Ã¶\|Ã¤\|Ã¼\|ÃŸ" src/open_garden_planner/resources/translations/open_garden_planner_de.ts
 
 # Whole repo (.ts + .py, capitals included), shipped and tested here:
-bash .claude/skills/ogp-diagnostics-and-tooling/scripts/check_mojibake.sh
+bash .agents/skills/ogp-diagnostics-and-tooling/scripts/check_mojibake.sh
 ```
 
 Tested output shapes (actual runs, 2026-07-04):
@@ -209,14 +210,14 @@ against a mock SSE server — the live-app path could not be exercised in this
 container since PyQt6 is absent):
 
 ```bash
-python3 .claude/skills/ogp-diagnostics-and-tooling/scripts/probe_agent_api.py            # lists tools
-python3 .claude/skills/ogp-diagnostics-and-tooling/scripts/probe_agent_api.py \
+python3 .agents/skills/ogp-diagnostics-and-tooling/scripts/probe_agent_api.py            # lists tools
+python3 .agents/skills/ogp-diagnostics-and-tooling/scripts/probe_agent_api.py \
     --call nearest_objects --args '{"x":100,"y":200,"k":3}'
 # exit 3 + "CANNOT CONNECT ... Is the app running?" = app not running / API disabled / wrong port
 ```
 
 Or register it with an MCP client (UNVERIFIED here — no live app in container):
-`claude mcp add --transport http ogp http://127.0.0.1:8765/mcp`. Note
+`Codex mcp add --transport http ogp http://127.0.0.1:8765/mcp`. Note
 `render_canvas_image` has no `structuredContent` (its `RenderMeta` arrives as a
 JSON `TextContent` block — parse that). The server is read-only; write tools
 are gated on token auth (§8.11/§8.19).
@@ -312,7 +313,7 @@ Windows, no `dist/`). Build mechanics: `ogp-build-and-run`.
 
 ## Provenance and maintenance
 
-Verified 2026-07-04 in the Claude web container (Linux, Python 3.11.15, PyQt6 absent). Re-verify each volatile fact with one line:
+Verified 2026-07-04 in the Codex web container (Linux, Python 3.11.15, PyQt6 absent). Re-verify each volatile fact with one line:
 
 - i18n gate + hardcoded-English test still exist: `grep -n "test_german_ts_has_no_unfinished\|class TestNoHardcodedEnglish" tests/unit/test_i18n.py`
 - ruff/mypy/pytest config: `grep -n "select\|strict\|addopts" pyproject.toml`
@@ -323,4 +324,4 @@ Verified 2026-07-04 in the Claude web container (Linux, Python 3.11.15, PyQt6 ab
 - mojibake pitfall + teardown-crash pitfall: `grep -n "Set-Content\|Fatal Python error" docs/11-risks-and-technical-debt/README.md`
 - squash-trail format: `git log --oneline -5`
 - test-layer counts: `ls tests/unit/test_*.py tests/integration/test_*.py tests/ui/test_*.py | wc -l`
-- shipped helpers still work: `bash .claude/skills/ogp-diagnostics-and-tooling/scripts/check_mojibake.sh && python3 .claude/skills/ogp-diagnostics-and-tooling/scripts/probe_agent_api.py --port 1; echo $?` (expect `OK...` then exit 3)
+- shipped helpers still work: `bash .agents/skills/ogp-diagnostics-and-tooling/scripts/check_mojibake.sh && python3 .agents/skills/ogp-diagnostics-and-tooling/scripts/probe_agent_api.py --port 1; echo $?` (expect `OK...` then exit 3)

@@ -15,6 +15,18 @@ description: >
 
 # OGP Diagnostics & Tooling — measure, don't eyeball
 
+## Current translation gate (#496)
+
+`scripts/check_translations.py` is the required source/catalog/binary gate for every
+locale in `SUPPORTED_LANGUAGES`. New wrapped UI keys require all target translations;
+new locales require all current keys. Run `update_translations.py`, complete targets
+(the fill helper is German-only), compile, then check. No coverage allowances or manual
+locale test lists. The compiler rejects incomplete/blank targets and unsupported plural
+input; vanished records cannot satisfy coverage. See section 8.3 and docs/TRANSLATING.md.
+The older German-only check mentioned in historical examples below is supplementary.
+Truly unwrapped UI prose and linguistic quality still require review.
+
+
 All facts verified 2026-07-04 against the working tree at v1.23.0 (commit
 `988c565`) by reading the actual files and running what runs without PyQt6
 (which is NOT installed in the Codex web container — anything Qt-importing was
@@ -84,30 +96,19 @@ unrelated later test `test_harvest.py::TestHarvestNavigation`.
 
 ### 1.2 What the i18n gate CAN catch
 
-`tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished`
-(verified, line 48): asserts `'type="unfinished"' not in` the German `.ts`
-file. Catches: any string that pylupdate6/`fill_translations.py` **registered**
-but that has no German translation yet. Run it after every string change.
+`scripts/check_translations.py` derives current wrapped keys independently of catalogs
+and checks every registered locale: exact active context/source/comment coverage,
+completed values, placeholders, compiled bytes and actual Qt lookups. Both source and
+locale additions must pass the existing required Test check. The normal pytest suite
+also invokes this gate. Developer diagnostics name the failing locale and source key.
 
-### 1.3 What the i18n gate CANNOT catch — and its partner
+### 1.3 What the i18n gate CANNOT catch - and its partner
 
-*(This §1.2/1.3 pair is the **canonical home** of the i18n-gate blind-spot fact
-— the instrument catalogue owns instrument mechanics. Other skills state it in
-one line and point here.)*
-
-It cannot see a string that never reached the `.ts` file at all — hardcoded
-English f-strings (`f"{a} overlaps {b}"`) bypass `tr()` and are invisible to
-it. That is what `tests/unit/test_i18n.py::TestNoHardcodedEnglish` (verified,
-line 143) is for: it greps `src/**/*.py` for a **curated** phrase list
-(`SUSPICIOUS_PHRASES` — e.g. `" overlaps "`, `": antagonist"`) and fails if a
-phrase sits in a string literal on a line without `tr(`/`QT_TR_NOOP`/
-`translate(`. Escapes: `# i18n-source` per-line comment, `ALLOWED_FILES`
-(`fill_translations.py`, `test_i18n.py`).
-
-**Its blind spot in turn:** it only knows phrases someone already added after a
-leak was observed. A *novel* untranslated string passes both tests. Net: green
-on both gates ≠ "fully translated"; it means "no known regression". When you
-find a new leak, add the phrase to `SUSPICIOUS_PHRASES`.
+This pair remains the canonical home of gate limitations. Truly unwrapped UI prose
+never enters the inventory; `TestNoHardcodedEnglish` is an additional curated tripwire,
+not exhaustive proof. Linguistic quality, context suitability and visual fit require
+review/manual acceptance. Active plural/variant input is rejected until tested compiler
+support is added. Unknown dynamic Qt sources and stale declarations fail extraction.
 
 ## 2. Static analysis
 
@@ -130,7 +131,7 @@ All six read in full 2026-07-04. "Stdlib" = runs without PyQt6.
 
 | Script | Needs | What it truthfully does |
 |---|---|---|
-| `fill_translations.py` | stdlib (xml.etree) | Reads the pylupdate6-generated `open_garden_planner_de.ts`, fills German translations from its own in-file `TRANSLATIONS: dict[context][source] = german` mapping, adds contexts pylupdate6 can't extract (e.g. `Commands` — non-QObject command classes), writes the `.ts` back. **New strings must be added to this dict** or the i18n gate fails. Run with `PYTHONUTF8=1` (Windows defaults to cp1252; without it the umlaut-laden file I/O corrupts). |
+| `fill_translations.py` | locked PyQt6 extraction + stdlib | Reads the pylupdate6-generated `open_garden_planner_de.ts`, fills German translations from its own in-file `TRANSLATIONS: dict[context][source] = german` mapping, adds contexts pylupdate6 can't extract (e.g. `Commands` — non-QObject command classes), writes the `.ts` back. **New strings must be added to this dict** or the i18n gate fails. Run with `PYTHONUTF8=1` (Windows defaults to cp1252; without it the umlaut-laden file I/O corrupts). |
 | `compile_translations.py` | stdlib | Pure-Python `lrelease` replacement: parses every `.ts` in `resources/translations/`, emits binary `.qm` (Qt magic `0x3CB86418…`, ELF-hash lookup table, UTF-16BE translations). Prints `<name>.ts -> <name>.qm (N messages)` per file; nonzero exit on any compile error. Always run after `fill_translations.py`. |
 | `svg_preview.py` | Windows browser or PyQt6 | Renders an SVG to `<file>_preview.png` using **Edge headless** (`--headless=new --screenshot=`; Chrome fallback), falling back to `QSvgRenderer` offscreen only if no browser. WHY browser-first (§11.4): `QSvgGenerator` never serializes painter clip paths, so texture fills bleed across the canvas in real browsers while **QSvgRenderer is too forgiving and hides the bug**. Browser paths are hardcoded Windows paths — on Linux substitute `chromium --headless=new --screenshot=out.png file.svg` (untested here, no browser in container). |
 | `validate_exports.py` | PyQt6 | End-to-end export validator template: loads a `.ogp`, prints item/plant counts, exports PNG + SVG + PDF via the real `ExportService`/`PdfReportService`, then renders each PDF page to PNG via `QtPdf` for visual inspection. **Input/output paths are hardcoded to a developer machine** (`C:\Users\wienh\Downloads\...`) — edit `OGP_FILE`/`OUT` before use. Sets `QT_QPA_PLATFORM=offscreen` itself. |
