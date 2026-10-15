@@ -284,3 +284,82 @@ def test_obsolete_plural_record_is_ignored(tmp_path):
         encoding="utf-8",
     )
     assert parse_ts_file(path) == []
+
+
+def test_wrapper_keyword_source_is_checked(checked_project):
+    path = checked_project / "src/open_garden_planner/labels.py"
+    path.write_text(
+        'from PyQt6.QtCore import QCoreApplication\ndef _tr(source):\n'
+        '    return QCoreApplication.translate("Labels", source)\n'
+        '_tr(source="Keyword label")\n', encoding="utf-8"
+    )
+    assert any("es: missing [Labels] 'Keyword label'" in e for e in check(checked_project))
+
+
+@pytest.mark.parametrize("usage", [
+    'from labels import _tr\n_tr("New label")',
+    'import labels as helper\nhelper._tr("New label")',
+    'from labels import _tr as label\nlabel("New label")',
+])
+def test_cross_module_wrappers_require_explicit_calls(checked_project, usage):
+    base = checked_project / "src/open_garden_planner"
+    (base / "labels.py").write_text(
+        'from PyQt6.QtCore import QCoreApplication\ndef _tr(source):\n'
+        '    return QCoreApplication.translate("Labels", source)\n', encoding="utf-8"
+    )
+    (base / "consumer.py").write_text(usage, encoding="utf-8")
+    with pytest.raises(CatalogError, match="imported translation wrapper"):
+        inventory(checked_project)
+
+
+def test_other_receiver_requires_explicit_context(checked_project):
+    path = checked_project / "src/open_garden_planner/labels.py"
+    path.write_text(
+        'class Tool:\n    def build(self):\n        self._view.tr("View label")\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(CatalogError, match="explicit QObject context"):
+        inventory(checked_project)
+
+
+def test_table_consumer_preserves_disambiguation(checked_project):
+    import json
+
+    path = checked_project / "src/open_garden_planner/labels.py"
+    path.write_text(
+        'from PyQt6.QtCore import QCoreApplication\nLABELS = {"one": "One"}\n'
+        'def label(key):\n    return QCoreApplication.translate("Labels", LABELS[key], "button")\n',
+        encoding="utf-8",
+    )
+    directory = checked_project / "scripts"
+    directory.mkdir()
+    (directory / "i18n_bindings.json").write_text(json.dumps({
+        "sources": {"labels": {"file": "labels.py", "context": "Labels", "symbol": "LABELS"}},
+        "lookups": [{"file": "labels.py", "scope": "label", "expression": "LABELS[key]",
+                     "context": "Labels", "sources": ["labels"]}],
+    }), encoding="utf-8")
+    catalogs(checked_project)
+    path.write_text(path.read_text().replace('"button"', '"different meaning"'), encoding="utf-8")
+    assert any("es: missing" in e and "different meaning" in e for e in check(checked_project))
+
+
+def test_production_trait_table_plain_member_cannot_escape(checked_project):
+    import json
+
+    root = Path(__file__).resolve().parents[2]
+    relative = "ui/widgets/trait_filters.py"
+    path = checked_project / "src/open_garden_planner" / relative
+    path.parent.mkdir(parents=True)
+    source = (root / "src/open_garden_planner" / relative).read_text(encoding="utf-8")
+    path.write_text(source, encoding="utf-8")
+    declarations = json.loads((root / "scripts/i18n_bindings.json").read_text())
+    directory = checked_project / "scripts"
+    directory.mkdir()
+    (directory / "i18n_bindings.json").write_text(json.dumps({
+        "sources": {"traits": declarations["sources"]["traits"]},
+        "lookups": [b for b in declarations["lookups"] if b["file"] == relative],
+    }), encoding="utf-8")
+    catalogs(checked_project)
+    path.write_text(source.replace('labels = {', 'labels = {"review_test": "New trait",'),
+                    encoding="utf-8")
+    assert any("es: missing [Permaculture] 'New trait'" in e for e in check(checked_project))

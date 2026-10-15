@@ -205,7 +205,7 @@ TRANSLATIONS = {
     },
     "JournalPinTool": {"Journal Pin": "Tagebuch-Nadel"},
     "ObjectType": {"Circle": "Kreis", "Polygon": "Polygon", "Rectangle": "Rechteck"},
-    "OffsetTool": {
+    "CanvasView": {
         "Created {dir} offset of {dist:.1f} cm": "{dir}-Versatz von {dist:.1f} cm erstellt",
         "Offset result is empty — try a smaller distance": "Versatzergebnis ist leer – "
         "versuchen Sie einen kleineren "

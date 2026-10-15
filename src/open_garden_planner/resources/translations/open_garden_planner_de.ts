@@ -636,8 +636,9 @@
             <translation>Lineares Muster mit {count} Objekten erstellt</translation>
         </message>
         <message>
+            <location filename="../../core/tools/offset_tool.py" line="330" />
             <source>Created {dir} offset of {dist:.1f} cm</source>
-            <translation type="vanished">{dir}-Versatz von {dist:.1f} cm erstellt</translation>
+            <translation>{dir}-Versatz von {dist:.1f} cm erstellt</translation>
         </message>
         <message>
             <source>Created {dir} offset of {dist} cm</source>
@@ -823,8 +824,9 @@
             <translation>Nichts zum Einfügen</translation>
         </message>
         <message>
+            <location filename="../../core/tools/offset_tool.py" line="323" />
             <source>Offset result is empty — try a smaller distance</source>
-            <translation type="vanished">Versatzergebnis ist leer – versuchen Sie einen kleineren Abstand</translation>
+            <translation>Versatzergebnis ist leer – versuchen Sie einen kleineren Abstand</translation>
         </message>
         <message>
             <location filename="../../ui/canvas/canvas_view.py" line="1413" />
@@ -912,8 +914,9 @@
             <translation>Mindestens 2 Elemente zum Gruppieren auswählen</translation>
         </message>
         <message>
+            <location filename="../../core/tools/offset_tool.py" line="308" />
             <source>Select a shape to offset</source>
-            <translation type="vanished">Form zum Versetzen auswählen</translation>
+            <translation>Form zum Versetzen auswählen</translation>
         </message>
         <message>
             <location filename="../../ui/canvas/canvas_view.py" line="5628" />
@@ -1068,12 +1071,14 @@
             <translation>Y</translation>
         </message>
         <message>
+            <location filename="../../core/tools/offset_tool.py" line="328" />
             <source>inward</source>
-            <translation type="vanished">einwärts</translation>
+            <translation>einwärts</translation>
         </message>
         <message>
+            <location filename="../../core/tools/offset_tool.py" line="328" />
             <source>outward</source>
-            <translation type="vanished">auswärts</translation>
+            <translation>auswärts</translation>
         </message>
         <message>
             <location filename="../../ui/canvas/canvas_view.py" line="4382" />
@@ -8613,9 +8618,8 @@ Sie können die Satellitenansicht stattdessen direkt aus der unten angezeigten K
     <context>
         <name>OffsetTool</name>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="330" />
             <source>Created {dir} offset of {dist:.1f} cm</source>
-            <translation>{dir}-Versatz von {dist:.1f} cm erstellt</translation>
+            <translation type="vanished">{dir}-Versatz von {dist:.1f} cm erstellt</translation>
         </message>
         <message>
             <location filename="../../core/tools/offset_tool.py" line="256" />
@@ -8623,24 +8627,20 @@ Sie können die Satellitenansicht stattdessen direkt aus der unten angezeigten K
             <translation>Versatz</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="323" />
             <source>Offset result is empty — try a smaller distance</source>
-            <translation>Versatzergebnis ist leer – versuchen Sie einen kleineren Abstand</translation>
+            <translation type="vanished">Versatzergebnis ist leer – versuchen Sie einen kleineren Abstand</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="308" />
             <source>Select a shape to offset</source>
-            <translation>Form zum Versetzen auswählen</translation>
+            <translation type="vanished">Form zum Versetzen auswählen</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="328" />
             <source>inward</source>
-            <translation>einwärts</translation>
+            <translation type="vanished">einwärts</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="328" />
             <source>outward</source>
-            <translation>auswärts</translation>
+            <translation type="vanished">auswärts</translation>
         </message>
     </context>
     <context>

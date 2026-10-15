@@ -75,3 +75,27 @@ def test_language_menu_persists_then_next_window_uses_translation(qtbot, monkeyp
             second.close()
     finally:
         load_translator(app, "en")
+
+
+def test_offset_tool_status_uses_canvas_translation_context(qtbot, monkeypatch):
+    from types import SimpleNamespace
+
+    from PyQt6.QtCore import QPointF, Qt
+
+    from open_garden_planner.core.tools.offset_tool import OffsetTool
+    from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+    from open_garden_planner.ui.canvas.canvas_view import CanvasView
+
+    app = QApplication.instance()
+    view = CanvasView(CanvasScene())
+    qtbot.addWidget(view)
+    messages = []
+    monkeypatch.setattr(view, "set_status_message", messages.append)
+    try:
+        assert load_translator(app, "de")
+        tool = OffsetTool(view)
+        event = SimpleNamespace(button=lambda: Qt.MouseButton.LeftButton)
+        assert not tool.mouse_press(event, QPointF())
+        assert messages == ["Form zum Versetzen auswählen"]
+    finally:
+        load_translator(app, "en")

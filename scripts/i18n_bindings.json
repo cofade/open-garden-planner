@@ -4,49 +4,46 @@
       "file": "core/object_types.py",
       "context": "ObjectType",
       "symbol": "OBJECT_STYLES",
-      "selector": "markers",
-      "scope": ""
+      "selector": "fields:ObjectStyle",
+      "scope": "",
+      "fields": [
+        "display_name"
+      ]
     },
     "paths": {
       "file": "core/object_types.py",
       "context": "PathFenceStyle",
       "symbol": "PATH_FENCE_STYLES",
-      "selector": "markers",
-      "scope": ""
+      "selector": "fields:PathFenceStyleInfo",
+      "scope": "",
+      "fields": [
+        "display_name"
+      ]
     },
     "constraints": {
       "file": "ui/constraint_presentation.py",
       "context": "ConstraintListItem",
-      "symbol": "",
-      "selector": "markers",
-      "scope": ""
-    },
-    "sun": {
-      "file": "ui/sun_exposure_text.py",
-      "context": "SunExposure",
-      "symbol": "",
-      "selector": "markers",
-      "scope": ""
-    },
-    "rotation": {
-      "file": "ui/panels/crop_rotation_panel.py",
-      "context": "CropRotationPanel",
-      "symbol": "",
-      "selector": "markers",
-      "scope": ""
+      "symbol": "CONSTRAINT_DESCRIPTORS",
+      "selector": "fields:ConstraintDescriptor",
+      "scope": "",
+      "fields": [
+        "detail_template",
+        "tooltip_template",
+        "row_template"
+      ]
     },
     "traits": {
       "file": "ui/widgets/trait_filters.py",
       "context": "Permaculture",
-      "symbol": "",
-      "selector": "markers",
-      "scope": ""
+      "symbol": "labels",
+      "selector": "values",
+      "scope": "trait_label"
     },
     "arrange": {
       "file": "ui/canvas/arrange.py",
       "context": "Commands",
-      "symbol": "",
-      "selector": "markers",
+      "symbol": "_DESCRIPTIONS",
+      "selector": "values",
       "scope": ""
     },
     "print": {
@@ -179,6 +176,34 @@
       "file": "resources/data/plant_species.json",
       "context": "GalleryData",
       "selector": "json:plants:common_name"
+    },
+    "sun_requirement_label": {
+      "file": "ui/sun_exposure_text.py",
+      "context": "SunExposure",
+      "symbol": "labels",
+      "selector": "values",
+      "scope": "sun_requirement_label"
+    },
+    "unavailable_message": {
+      "file": "ui/sun_exposure_text.py",
+      "context": "SunExposure",
+      "symbol": "labels",
+      "selector": "values",
+      "scope": "unavailable_message"
+    },
+    "_demand_label": {
+      "file": "ui/panels/crop_rotation_panel.py",
+      "context": "CropRotationPanel",
+      "symbol": "labels",
+      "selector": "values",
+      "scope": "_demand_label"
+    },
+    "_season_label": {
+      "file": "ui/panels/crop_rotation_panel.py",
+      "context": "CropRotationPanel",
+      "symbol": "labels",
+      "selector": "values",
+      "scope": "_season_label"
     }
   },
   "lookups": [
@@ -245,7 +270,7 @@
       "expression": "labels.get(required, labels['unknown'])",
       "context": "SunExposure",
       "sources": [
-        "sun"
+        "sun_requirement_label"
       ]
     },
     {
@@ -254,7 +279,7 @@
       "expression": "labels.get(reason, labels['absent'])",
       "context": "SunExposure",
       "sources": [
-        "sun"
+        "unavailable_message"
       ]
     },
     {
@@ -356,7 +381,7 @@
       "expression": "labels.get(key, key)",
       "context": "CropRotationPanel",
       "sources": [
-        "rotation"
+        "_demand_label"
       ]
     },
     {
@@ -365,7 +390,7 @@
       "expression": "labels.get(key, key)",
       "context": "CropRotationPanel",
       "sources": [
-        "rotation"
+        "_season_label"
       ]
     },
     {

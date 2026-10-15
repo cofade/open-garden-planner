@@ -1228,3 +1228,11 @@ and the source/binary check in `tests/unit/test_i18n.py`. The lesson is that a g
 derive its required set independently from the artifacts it validates. Unwrapped UI
 text and linguistic quality remain separate review obligations; plural input fails
 closed until the singular compiler gains tested support.
+
+Independent review reproduced four further blind spots: keyword helper calls, unmarked
+members of marked tables, discarded dynamic disambiguation, and a receiver's real Qt
+context. The offset tool called `CanvasView.tr()` through its view, but extraction had
+assigned `OffsetTool`; a real German status-message regression exposed the mismatch.
+The tool now uses explicit `CanvasView` translation calls. Complete display fields and
+values are selected from production tables, helper calls bind their source argument,
+dynamic consumers retain comments, and unresolved receivers/helper imports fail closed.

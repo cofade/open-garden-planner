@@ -34,7 +34,10 @@ Incomplete registered languages fail automatically; no test parameter list needs
 Use `self.tr("literal")` in QObject widgets, or
 `QCoreApplication.translate("Context", "literal")` elsewhere. Local aliases of the
 latter and simple single-argument `_tr` forwarding functions are audited. Keep Qt marker
-names unaliased. Context-less module markers and dynamic source lookups require a narrow
+names unaliased. Call local helpers directly, with a positional or named source argument;
+imported helpers and callback aliases require explicit Qt calls. Calls through another
+object must use an explicit context rather than inheriting the caller's class context.
+Context-less module markers and dynamic source lookups require a narrow
 declaration in `scripts/i18n_bindings.json`, selecting the actual production symbol/table
 and its consuming context. Unknown dynamic lookups and stale declarations fail extraction.
 Do not add duplicated English literal lists or derive required keys from German mappings.
@@ -45,6 +48,8 @@ Declarations cover object/path styles, descriptor labels, gallery/plant names, p
 errors, command fragments and other bounded helper inputs. When adding a table member,
 the inventory grows automatically. A new unsupported expression requires an explicit
 source binding and an extraction/mutation test, not a file-wide exemption.
+Declarations select complete table values or display-bearing constructor fields, including
+plain strings without markers. Dynamic consumers retain their disambiguation comments.
 
 ## What the required check enforces
 

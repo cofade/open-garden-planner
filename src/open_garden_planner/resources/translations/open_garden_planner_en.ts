@@ -624,6 +624,11 @@
             <translation>Created linear array of {count} items</translation>
         </message>
         <message>
+            <location filename="../../core/tools/offset_tool.py" line="330" />
+            <source>Created {dir} offset of {dist:.1f} cm</source>
+            <translation>Created {dir} offset of {dist:.1f} cm</translation>
+        </message>
+        <message>
             <location filename="../../ui/canvas/canvas_view.py" line="4655" />
             <source>Cut {count} item(s)</source>
             <translation>Cut {count} item(s)</translation>
@@ -803,6 +808,11 @@
             <translation>Nothing to paste</translation>
         </message>
         <message>
+            <location filename="../../core/tools/offset_tool.py" line="323" />
+            <source>Offset result is empty — try a smaller distance</source>
+            <translation>Offset result is empty — try a smaller distance</translation>
+        </message>
+        <message>
             <location filename="../../ui/canvas/canvas_view.py" line="1413" />
             <source>Parallel</source>
             <translation>Parallel</translation>
@@ -886,6 +896,11 @@
             <location filename="../../ui/canvas/canvas_view.py" line="4569" />
             <source>Select 2 or more items to group</source>
             <translation>Select 2 or more items to group</translation>
+        </message>
+        <message>
+            <location filename="../../core/tools/offset_tool.py" line="308" />
+            <source>Select a shape to offset</source>
+            <translation>Select a shape to offset</translation>
         </message>
         <message>
             <location filename="../../ui/canvas/canvas_view.py" line="5628" />
@@ -1038,6 +1053,16 @@
             <location filename="../../ui/canvas/canvas_view.py" line="4381" />
             <source>Y</source>
             <translation>Y</translation>
+        </message>
+        <message>
+            <location filename="../../core/tools/offset_tool.py" line="328" />
+            <source>inward</source>
+            <translation>inward</translation>
+        </message>
+        <message>
+            <location filename="../../core/tools/offset_tool.py" line="328" />
+            <source>outward</source>
+            <translation>outward</translation>
         </message>
         <message>
             <location filename="../../ui/canvas/canvas_view.py" line="4382" />
@@ -8449,9 +8474,8 @@ You can capture the satellite view directly from the map below instead.</transla
     <context>
         <name>OffsetTool</name>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="330" />
             <source>Created {dir} offset of {dist:.1f} cm</source>
-            <translation>Created {dir} offset of {dist:.1f} cm</translation>
+            <translation type="vanished">Created {dir} offset of {dist:.1f} cm</translation>
         </message>
         <message>
             <location filename="../../core/tools/offset_tool.py" line="256" />
@@ -8459,24 +8483,20 @@ You can capture the satellite view directly from the map below instead.</transla
             <translation>Offset</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="323" />
             <source>Offset result is empty — try a smaller distance</source>
-            <translation>Offset result is empty — try a smaller distance</translation>
+            <translation type="vanished">Offset result is empty — try a smaller distance</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="308" />
             <source>Select a shape to offset</source>
-            <translation>Select a shape to offset</translation>
+            <translation type="vanished">Select a shape to offset</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="328" />
             <source>inward</source>
-            <translation>inward</translation>
+            <translation type="vanished">inward</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="328" />
             <source>outward</source>
-            <translation>outward</translation>
+            <translation type="vanished">outward</translation>
         </message>
     </context>
     <context>

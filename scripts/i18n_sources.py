@@ -35,6 +35,7 @@ class Sources:
         self.markers: dict[tuple[str, int], str] = {}
         self.used: set[int] = set()
         self.used_contexts: set[int] = set()
+        self.wrapper_exports: dict[str, set[str]] = {}
 
     def add(self, context: str, text: str, file: str, line: int, comment: str = "") -> None:
         if text:
@@ -111,14 +112,30 @@ class Sources:
             selector = spec.get("selector", "values")
             values = []
             if selector == "markers":
+                # A table's plain members must be included as well as markers.
+                values = self.strings(node, file)
+            elif selector.startswith("fields:"):
+                constructor = selector.split(":", 1)[1]
+                declaration = self.scope(file, constructor)
+                fields = [n for n in declaration.body if isinstance(n, ast.AnnAssign)]
+                names = [n.target.id for n in fields if isinstance(n.target, ast.Name)]
+                selected = spec["fields"]
+                if not set(selected) <= set(names):
+                    raise CatalogError(f"{name}: unknown display-bearing constructor fields")
+                for field in fields:
+                    if field.target.id in selected and field.value is not None:
+                        values.extend(self.strings(field.value, file))
                 for call in ast.walk(node):
-                    if (
-                        isinstance(call, ast.Call)
-                        and isinstance(call.func, ast.Name)
-                        and call.func.id == "QT_TR_NOOP"
-                    ):
-                        values.extend(self.strings(call, file))
-                        self.markers[file, call.lineno] = spec["context"]
+                    if isinstance(call, ast.Call) and ast.unparse(call.func) == constructor:
+                        if any(isinstance(a, ast.Starred) for a in call.args) or any(
+                            k.arg is None for k in call.keywords
+                        ):
+                            raise CatalogError(f"{file}:{call.lineno}: unpacked display fields")
+                        arguments = dict(zip(names, call.args, strict=False))
+                        arguments.update({k.arg: k.value for k in call.keywords})
+                        for field in selected:
+                            if field in arguments:
+                                values.extend(self.strings(arguments[field], file))
             elif selector == "first":
                 if not isinstance(node, ast.List | ast.Tuple):
                     raise CatalogError(f"{name}: expected a sequence of rows")
@@ -197,7 +214,10 @@ class Sources:
                 self.add(spec["context"], text, file, line)
                 self.markers.setdefault((file, line), spec["context"])
 
-    def dynamic(self, file: str, scope: str, node: ast.Call, context: str, source: ast.AST) -> None:
+    def dynamic(
+        self, file: str, scope: str, node: ast.Call, context: str, source: ast.AST,
+        comment: str = "",
+    ) -> None:
         expression = ast.unparse(source)
         for index, binding in enumerate(self.bindings.get("lookups", [])):
             if (binding["file"], binding["scope"], binding["expression"], binding["context"]) == (
@@ -213,6 +233,9 @@ class Sources:
                         raise CatalogError(
                             f"{file}:{node.lineno}: source binding {pool} has the wrong Qt context"
                         )
+                    if comment:
+                        for text, _line in self.pools[pool]:
+                            self.add(context, text, file, node.lineno, comment)
                 self.used.add(index)
                 return
         self.errors.append(
@@ -262,8 +285,16 @@ class Sources:
             if isinstance(n, ast.Assign) and ast.unparse(n.value) in translators:
                 translators.update(ast.unparse(t) for t in n.targets)
         wrappers: dict[str, tuple[str, ast.Call, str]] = {}
-        for function in ast.walk(tree):
-            if isinstance(function, ast.FunctionDef) and function.args.args:
+        for function in tree.body:
+            if (
+                isinstance(function, ast.FunctionDef)
+                and len(function.args.args) == 1
+                and not function.args.posonlyargs
+                and not function.args.kwonlyargs
+                and function.args.vararg is None
+                and function.args.kwarg is None
+                and not function.args.defaults
+            ):
                 returns = [n for n in function.body if isinstance(n, ast.Return)]
                 if (
                     len(returns) == 1
@@ -278,6 +309,16 @@ class Sources:
                         call.args[0].value,
                         call,
                         function.args.args[0].arg,
+                    )
+
+        parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
+        self.wrapper_exports[file] = set(wrappers)
+        for reference in ast.walk(tree):
+            if isinstance(reference, ast.Name) and reference.id in wrappers:
+                parent = parents.get(reference)
+                if not isinstance(parent, ast.Call) or parent.func is not reference:
+                    self.errors.append(
+                        f"{file}:{reference.lineno}: translation wrappers must be called directly"
                     )
 
         owner = self
@@ -320,10 +361,21 @@ class Sources:
                         owner.errors.append(
                             f"{file}:{node.lineno}: dynamic Qt context is unsupported"
                         )
-                elif name in wrappers and node.args:
-                    context, source = wrappers[name][0], node.args[0]
+                elif name in wrappers:
+                    context, _body, parameter = wrappers[name]
+                    arguments = node.args + [k.value for k in node.keywords if k.arg == parameter]
+                    if len(arguments) == 1 and len(node.args) <= 1 and all(
+                        k.arg == parameter for k in node.keywords
+                    ) and not isinstance(arguments[0], ast.Starred):
+                        source = arguments[0]
+                    else:
+                        owner.errors.append(
+                            f"{file}:{node.lineno}: unsupported translation wrapper arguments"
+                        )
                 elif isinstance(node.func, ast.Attribute) and node.func.attr == "tr" and node.args:
-                    if self.classes:
+                    if self.classes and ast.unparse(node.func.value) in {
+                        "self", ".".join(self.classes)
+                    }:
                         context, source = ".".join(self.classes), node.args[0]
                     else:
                         # Non-self receiver has no enclosing QObject context.
@@ -396,15 +448,46 @@ class Sources:
                         try:
                             values = owner.strings(source, file)
                         except CatalogError:
-                            owner.dynamic(file, scope, node, context, source)
+                            owner.dynamic(file, scope, node, context, source, comment)
                         else:
                             for text, line in values:
                                 owner.add(context, text, file, line, comment)
                     else:
-                        owner.dynamic(file, scope, node, context, source)
+                        owner.dynamic(file, scope, node, context, source, comment)
                 self.generic_visit(node)
 
         Audit().visit(tree)
+
+    def check_wrapper_imports(self) -> None:
+        """Local helper calls are supported; cross-module helper forwarding is explicit."""
+        for file, tree in self.trees.items():
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ImportFrom):
+                    package = list(Path(file).parent.parts)
+                    if node.level:
+                        module = package[:len(package) - node.level + 1]
+                        module += (node.module or "").split(".") if node.module else []
+                    else:
+                        module = (node.module or "").split(".")
+                        if module and module[0] == "open_garden_planner":
+                            module = module[1:]
+                    exports = self.wrapper_exports.get("/".join(module) + ".py", set())
+                    if any(a.name in exports or a.name == "*" and exports for a in node.names):
+                        self.errors.append(
+                            f"{file}:{node.lineno}: imported translation wrapper requires explicit Qt calls"
+                        )
+                elif isinstance(node, ast.Import):
+                    for alias in node.names:
+                        module = alias.name.removeprefix("open_garden_planner.").replace(".", "/")
+                        exports = self.wrapper_exports.get(module + ".py", set())
+                        prefix = alias.asname or alias.name
+                        for call in ast.walk(tree):
+                            if isinstance(call, ast.Call) and ast.unparse(call.func) in {
+                                f"{prefix}.{name}" for name in exports
+                            }:
+                                self.errors.append(
+                                    f"{file}:{call.lineno}: imported translation wrapper requires explicit Qt calls"
+                                )
 
 
 def inventory(root: Path) -> dict[Key, set[tuple[str, str]]]:
@@ -412,6 +495,7 @@ def inventory(root: Path) -> dict[Key, set[tuple[str, str]]]:
     sources.load_pools()
     for file in sources.trees:
         sources.audit(file)
+    sources.check_wrapper_imports()
     for index, binding in enumerate(sources.bindings.get("lookups", [])):
         if index not in sources.used:
             sources.errors.append(
