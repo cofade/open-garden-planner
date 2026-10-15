@@ -321,7 +321,11 @@ class Sources:
                     )
 
         parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
-        self.wrapper_exports[file] = set(wrappers)
+        self.wrapper_exports[file] = (
+            set(wrappers)
+            | {name for name in translators if "." not in name}
+            | {name.split(".")[0] for name in qt_names}
+        )
         for reference in ast.walk(tree):
             if isinstance(reference, ast.Name) and reference.id in wrappers:
                 parent = parents.get(reference)
@@ -484,6 +488,13 @@ class Sources:
 
     def check_wrapper_imports(self) -> None:
         """Local helper calls are supported; cross-module helper forwarding is explicit."""
+        def exports_for(module: str) -> set[str]:
+            candidates = [module + ".py", module + "/__init__.py"]
+            selected = [p for p in candidates if p in self.trees]
+            if len(selected) > 1:
+                raise CatalogError(f"ambiguous local translation module: {module}")
+            return self.wrapper_exports.get(selected[0], set()) if selected else set()
+
         for file, tree in self.trees.items():
             module_aliases: dict[str, set[str]] = {}
             parents = {c: p for p in ast.walk(tree) for c in ast.iter_child_nodes(p)}
@@ -497,19 +508,19 @@ class Sources:
                         module = (node.module or "").split(".")
                         if module and module[0] == "open_garden_planner":
                             module = module[1:]
-                    exports = self.wrapper_exports.get("/".join(module) + ".py", set())
+                    exports = exports_for("/".join(module))
                     if any(a.name in exports or a.name == "*" and exports for a in node.names):
                         self.errors.append(
                             f"{file}:{node.lineno}: imported translation wrapper requires explicit Qt calls"
                         )
                     for alias in node.names:
-                        child = "/".join(module + [alias.name]) + ".py"
-                        if child in self.wrapper_exports:
-                            module_aliases[alias.asname or alias.name] = self.wrapper_exports[child]
+                        child = exports_for("/".join(module + [alias.name]))
+                        if child:
+                            module_aliases[alias.asname or alias.name] = child
                 elif isinstance(node, ast.Import):
                     for alias in node.names:
                         module = alias.name.removeprefix("open_garden_planner.").replace(".", "/")
-                        exports = self.wrapper_exports.get(module + ".py", set())
+                        exports = exports_for(module)
                         prefix = alias.asname or alias.name
                         module_aliases[prefix] = exports
             for reference in ast.walk(tree):

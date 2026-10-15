@@ -327,6 +327,22 @@ def test_annotated_qt_alias_dynamic_source_fails_closed(checked_project):
         inventory(checked_project)
 
 
+@pytest.mark.parametrize("file,definition,usage", [
+    ("labels.py", "label = QCoreApplication.translate", 'from open_garden_planner.labels import label\nlabel("Labels", "New label")'),
+    ("labels/__init__.py", 'def _tr(source):\n    return QCoreApplication.translate("Labels", source)', 'from open_garden_planner.labels import _tr\n_tr("New label")'),
+    ("labels/__init__.py", 'label: object = QCoreApplication.translate', 'from . import labels\nlabels.label("Labels", "New label")'),
+    ("labels.py", '', 'from open_garden_planner.labels import QCoreApplication as Core\nCore.translate("Labels", "New label")'),
+])
+def test_local_translation_binding_imports_fail_closed(checked_project, file, definition, usage):
+    base = checked_project / "src/open_garden_planner"
+    path = base / file
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text('from PyQt6.QtCore import QCoreApplication\n' + definition + '\n', encoding="utf-8")
+    (base / "consumer.py").write_text(usage, encoding="utf-8")
+    with pytest.raises(CatalogError, match="imported translation"):
+        inventory(checked_project)
+
+
 def test_other_receiver_requires_explicit_context(checked_project):
     path = checked_project / "src/open_garden_planner/labels.py"
     path.write_text(
