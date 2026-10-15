@@ -329,10 +329,17 @@ class Sources:
                     self.errors.append(
                         f"{file}:{reference.lineno}: translation wrappers must be called directly"
                     )
-            if isinstance(reference, ast.Name | ast.Attribute) and ast.unparse(reference) in translators:
+            if (
+                isinstance(reference, ast.Name | ast.Attribute)
+                and not isinstance(getattr(reference, "ctx", None), ast.Store)
+                and ast.unparse(reference) in translators
+            ):
                 parent = parents.get(reference)
                 direct_call = isinstance(parent, ast.Call) and parent.func is reference
-                alias_binding = isinstance(parent, ast.Assign | ast.AnnAssign) and parent.value is reference
+                alias_binding = (
+                    isinstance(parent, ast.Assign | ast.AnnAssign)
+                    and (parent.value is reference or isinstance(getattr(reference, "ctx", None), ast.Store))
+                )
                 if not direct_call and not alias_binding:
                     self.errors.append(
                         f"{file}:{reference.lineno}: Qt translation methods must be called directly or bound as aliases"
@@ -479,6 +486,7 @@ class Sources:
         """Local helper calls are supported; cross-module helper forwarding is explicit."""
         for file, tree in self.trees.items():
             module_aliases: dict[str, set[str]] = {}
+            parents = {c: p for p in ast.walk(tree) for c in ast.iter_child_nodes(p)}
             for node in ast.walk(tree):
                 if isinstance(node, ast.ImportFrom):
                     package = list(Path(file).parent.parts)
@@ -512,7 +520,6 @@ class Sources:
                         f"{file}:{reference.lineno}: imported translation wrapper requires explicit Qt calls"
                     )
                 elif isinstance(reference, ast.Name) and module_aliases.get(reference.id):
-                    parents = {c: p for p in ast.walk(tree) for c in ast.iter_child_nodes(p)}
                     parent = parents.get(reference)
                     if not isinstance(parent, ast.Attribute) or parent.value is not reference:
                         self.errors.append(
