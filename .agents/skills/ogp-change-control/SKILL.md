@@ -167,9 +167,9 @@ directions.
 - **i18n:** every user-visible string goes through `self.tr()` /
   `QCoreApplication.translate("Context", ...)` / `QT_TR_NOOP` (rules and the
   hardcoded-f-string trap: `docs/08-crosscutting-concepts/README.md` §8.3 and the i18n
-  block in `CLAUDE.md`). Then register in `scripts/fill_translations.py`, run it and
-  `scripts/compile_translations.py` (both with `PYTHONUTF8=1`), and the i18n gate test
-  must pass. Known blind spot (§11.4): the gate only sees strings *already extracted* —
+  block in `CLAUDE.md`). Run `scripts/update_translations.py`, complete every target
+  catalog, compile, and pass `scripts/check_translations.py` (use `PYTHONUTF8=1`).
+  Known blind spot (§11.4): the gate only sees wrapped sources —
   a plain f-string never reaches it; `TestNoHardcodedEnglish` greps for known offenders
   but the primary defence is the `tr()` rule at the call site.
 - **Integration test:** every US ships at least one end-to-end workflow test in
@@ -292,7 +292,7 @@ equivalents in parentheses.
 | 2 | `git checkout -b feature/US-X.X-short-description` | Never on master (2.1) |
 | 3 | Implement with type hints; wrap every user-visible string for translation as you go | 2.5; architecture invariants: `ogp-architecture-contract`; Qt/CAD theory: `ogp-qt-cad-reference` |
 | 4 | Quality checks: `venv/Scripts/python.exe -m pytest tests/ -v` · `-m ruff check src/` · `-m bandit -r src/ --severity-level high` (Linux: `QT_QPA_PLATFORM=offscreen python -m pytest tests/ -v`, etc.) | Same three checks CI runs; how-to details: `ogp-build-and-run` |
-| 5 | Translations: register strings in `scripts/fill_translations.py`; `PYTHONUTF8=1 venv/Scripts/python.exe scripts/fill_translations.py` then `scripts/compile_translations.py`; run the i18n gate test | 2.5 |
+| 5 | Translations: run `scripts/update_translations.py`; complete every registered target, compile, and run `scripts/check_translations.py` with `PYTHONUTF8=1` | 2.5 |
 | 6 | Write the integration test in `tests/integration/test_<feature>.py` | Mandatory (2.5); patterns in §8.10 |
 | 7 | Build the exe, then **both** checks — smoke *and* `--selftest` (§2.8) | Windows-only; declare if skipped in a cloud session |
 | 8 | Update docs: FR entry, arc42 sections, ADR if triggered, glossary, §11.4 lessons | Duty matrix: `ogp-docs-and-writing` |
@@ -337,7 +337,7 @@ grep -n "^FILE_VERSION" src/open_garden_planner/core/project.py
 # Workflow table, draft-PR mandate, versioning protocol
 grep -n "draft\|Never create git tags\|feature branches" CLAUDE.md
 # i18n gate test exists
-grep -n "test_german_ts_has_no_unfinished" tests/unit/test_i18n.py
+grep -n "test_registered_languages_cover_current_source_and_binary" tests/unit/test_i18n.py
 # Integration-test mandate wording
 grep -n "No merge without it" docs/08-crosscutting-concepts/README.md
 # Chore-race incident text

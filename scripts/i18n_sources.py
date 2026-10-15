@@ -274,16 +274,25 @@ class Sources:
                             f"{file}:{n.lineno}: use the full Qt marker name so its declaration can be audited"
                         )
             if (
-                isinstance(n, ast.Assign)
+                isinstance(n, ast.Assign | ast.AnnAssign)
                 and isinstance(n.value, ast.Attribute)
                 and n.value.attr == "tr"
             ):
                 self.errors.append(
                     f"{file}:{n.lineno}: tr aliases need an explicit Qt context; use QCoreApplication.translate"
                 )
-        for n in ast.walk(tree):
-            if isinstance(n, ast.Assign) and ast.unparse(n.value) in translators:
-                translators.update(ast.unparse(t) for t in n.targets)
+        changed = True
+        while changed:
+            previous = set(translators)
+            for n in ast.walk(tree):
+                if (
+                    isinstance(n, ast.Assign | ast.AnnAssign)
+                    and n.value is not None
+                    and ast.unparse(n.value) in translators
+                ):
+                    targets = n.targets if isinstance(n, ast.Assign) else [n.target]
+                    translators.update(ast.unparse(t) for t in targets)
+            changed = previous != translators
         wrappers: dict[str, tuple[str, ast.Call, str]] = {}
         for function in tree.body:
             if (
@@ -319,6 +328,14 @@ class Sources:
                 if not isinstance(parent, ast.Call) or parent.func is not reference:
                     self.errors.append(
                         f"{file}:{reference.lineno}: translation wrappers must be called directly"
+                    )
+            if isinstance(reference, ast.Name | ast.Attribute) and ast.unparse(reference) in translators:
+                parent = parents.get(reference)
+                direct_call = isinstance(parent, ast.Call) and parent.func is reference
+                alias_binding = isinstance(parent, ast.Assign | ast.AnnAssign) and parent.value is reference
+                if not direct_call and not alias_binding:
+                    self.errors.append(
+                        f"{file}:{reference.lineno}: Qt translation methods must be called directly or bound as aliases"
                     )
 
         owner = self
@@ -461,6 +478,7 @@ class Sources:
     def check_wrapper_imports(self) -> None:
         """Local helper calls are supported; cross-module helper forwarding is explicit."""
         for file, tree in self.trees.items():
+            module_aliases: dict[str, set[str]] = {}
             for node in ast.walk(tree):
                 if isinstance(node, ast.ImportFrom):
                     package = list(Path(file).parent.parts)
@@ -476,18 +494,30 @@ class Sources:
                         self.errors.append(
                             f"{file}:{node.lineno}: imported translation wrapper requires explicit Qt calls"
                         )
+                    for alias in node.names:
+                        child = "/".join(module + [alias.name]) + ".py"
+                        if child in self.wrapper_exports:
+                            module_aliases[alias.asname or alias.name] = self.wrapper_exports[child]
                 elif isinstance(node, ast.Import):
                     for alias in node.names:
                         module = alias.name.removeprefix("open_garden_planner.").replace(".", "/")
                         exports = self.wrapper_exports.get(module + ".py", set())
                         prefix = alias.asname or alias.name
-                        for call in ast.walk(tree):
-                            if isinstance(call, ast.Call) and ast.unparse(call.func) in {
-                                f"{prefix}.{name}" for name in exports
-                            }:
-                                self.errors.append(
-                                    f"{file}:{call.lineno}: imported translation wrapper requires explicit Qt calls"
-                                )
+                        module_aliases[prefix] = exports
+            for reference in ast.walk(tree):
+                if isinstance(reference, ast.Attribute) and ast.unparse(reference) in {
+                    f"{prefix}.{name}" for prefix, names in module_aliases.items() for name in names
+                }:
+                    self.errors.append(
+                        f"{file}:{reference.lineno}: imported translation wrapper requires explicit Qt calls"
+                    )
+                elif isinstance(reference, ast.Name) and module_aliases.get(reference.id):
+                    parents = {c: p for p in ast.walk(tree) for c in ast.iter_child_nodes(p)}
+                    parent = parents.get(reference)
+                    if not isinstance(parent, ast.Attribute) or parent.value is not reference:
+                        self.errors.append(
+                            f"{file}:{reference.lineno}: imported translation helper modules must not escape"
+                        )
 
 
 def inventory(root: Path) -> dict[Key, set[tuple[str, str]]]:

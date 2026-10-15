@@ -300,6 +300,10 @@ def test_wrapper_keyword_source_is_checked(checked_project):
     'from labels import _tr\n_tr("New label")',
     'import labels as helper\nhelper._tr("New label")',
     'from labels import _tr as label\nlabel("New label")',
+    'from open_garden_planner import labels\nlabels._tr("New label")',
+    'from . import labels\nlabels._tr("New label")',
+    'import labels\ntranslate = labels._tr\ntranslate("New label")',
+    'import labels\nforward = labels\nforward._tr("New label")',
 ])
 def test_cross_module_wrappers_require_explicit_calls(checked_project, usage):
     base = checked_project / "src/open_garden_planner"
@@ -308,7 +312,18 @@ def test_cross_module_wrappers_require_explicit_calls(checked_project, usage):
         '    return QCoreApplication.translate("Labels", source)\n', encoding="utf-8"
     )
     (base / "consumer.py").write_text(usage, encoding="utf-8")
-    with pytest.raises(CatalogError, match="imported translation wrapper"):
+    with pytest.raises(CatalogError, match="imported translation"):
+        inventory(checked_project)
+
+
+def test_annotated_qt_alias_dynamic_source_fails_closed(checked_project):
+    path = checked_project / "src/open_garden_planner/labels.py"
+    path.write_text(
+        'from PyQt6.QtCore import QCoreApplication\n'
+        'translate: object = QCoreApplication.translate\n'
+        'translate("Labels", unknown_source)\n', encoding="utf-8"
+    )
+    with pytest.raises(CatalogError, match="unresolved dynamic source"):
         inventory(checked_project)
 
 

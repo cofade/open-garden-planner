@@ -112,7 +112,7 @@ table written, AGENTS.md progress table current, new keyboard shortcuts in gloss
 Additional targets observed in practice (beyond the AGENTS.md tables):
 - Every non-trivial bug fix → **Case study** in `.agents/skills/debug-verbose/SKILL.md`
   (the skill's own "How this skill grows" section mandates it).
-- New/changed UI strings → registration in `scripts/fill_translations.py` (see §6).
+- New/changed UI strings → source inventory and every registered target catalog (see §6).
 - Known-but-deferred debt → a `TD-*` row in §11.3 (with Status and Issue, ADR-047), or a filed follow-up issue referenced
   from the roadmap note (house pattern: "Follow-up #NNN filed: …").
 
@@ -309,9 +309,9 @@ does not restate them.
 
 - **Docs are English.** Only the *application UI* is translated. But every user-visible
   string your change adds to the APP must go through `tr()` / `QT_TR_NOOP` /
-  `QCoreApplication.translate()` and be registered in `scripts/fill_translations.py` —
+  `QCoreApplication.translate()` and be covered in every registered target catalog —
   full rules in AGENTS.md "Translation (i18n)" and §8.3; new-language how-to in
-  `docs/TRANSLATING.md`. Remember the §11.4 lesson: `test_german_ts_has_no_unfinished`
+  `docs/TRANSLATING.md`. The required gate is `scripts/check_translations.py`; it
   cannot see hardcoded f-strings that bypass `tr()` entirely.
 - **UTF-8 discipline — never PowerShell `Set-Content -Encoding UTF8`** on any file with
   non-ASCII (umlauts, "—", "→" — which these docs use heavily). PowerShell 5.1
