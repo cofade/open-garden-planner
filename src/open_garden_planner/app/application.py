@@ -6310,6 +6310,14 @@ class GardenPlannerApp(QMainWindow):
             # Join a running heatmap worker — a QThread destroyed while
             # running aborts the process (the #230 class).
             self._sun_heatmap.shutdown()
+            # Cancel and detach in-flight update checker — a QThread destroyed
+            # while running aborts the process (#480).
+            if getattr(self, "_update_checker", None) is not None:
+                self._update_checker.shutdown()
+                self._update_checker = None
+            # Shut down calendar background workers and services (#483).
+            if getattr(self, "calendar_view", None) is not None and hasattr(self.calendar_view, "shutdown"):
+                self.calendar_view.shutdown()
             # Close any open/pending 3D viewer so the app can actually quit —
             # a visible parentless top-level Qt3DWindow keeps the process alive
             # under Qt's default quitOnLastWindowClosed. Hide (not delete): the

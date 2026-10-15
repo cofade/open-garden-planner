@@ -582,7 +582,7 @@ Acceptance: `tests/unit/test_stacking.py` (the Qt-free arrange algorithm — nor
 - **FR-GUILD-02**: New/existing-centre insertion preflights mature-spacing/numeric ring layout, all species/layers and boundaries before one undoable command. Cancel/refusal makes no plan/history mutation.
 - **FR-GUILD-03**: Explicit metadata membership remains independent of Qt groups and plant parents. Coverage counts recorded functions once per assigned plant; multifunctional members may cover multiple roles. Existing instances retain template snapshots. Centre deletion dissolves surviving links in the same undo step; complete copies remap IDs and partial copies omit membership.
 - **FR-GUILD-04**: Centre badges, Companion Guilds and the general Diagnostics panel share computed guild warnings with MCP. Malformed saved guild metadata is preserved and excluded with a data warning. UUID navigation and idempotent debounced refresh avoid stale item references and repaint loops.
-- **FR-AGENT-27**: Read-only curated species/object traits and structured diagnostic details add `guild_role_missing` and `guild_data_warning` without new trait writes or authentication changes. Existing diagnostic fields and English API messages are retained.
+- **FR-AGENT-29**: Read-only curated species/object traits and structured diagnostic details add `guild_role_missing` and `guild_data_warning` without new trait writes or authentication changes. Existing diagnostic fields and English API messages are retained.
 
 ### FR-SUN-09: Cached sun-requirement diagnostics (US-F3, #314)
 

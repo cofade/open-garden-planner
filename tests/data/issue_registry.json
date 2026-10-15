@@ -779,6 +779,16 @@
     "state": "MERGED",
     "title": "feat(US-F3): add sun diagnostics and fix heatmap document ownership"
   },
+  "448": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Two tests fail for reasons of the environment, not the product (type-CLI test under Python 3.12, 2D repaint budgets under machine load)"
+  },
+  "449": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Duplicate requirement id in the docs: FR-AGENT-27 is used twice in docs/functional-requirements.md"
+  },
   "453": {
     "is_pr": false,
     "state": "CLOSED",
@@ -786,7 +796,7 @@
   },
   "454": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Audit A2: Dependency maintenance, build reproducibility and distribution inventory (epic #392)"
   },
   "457": {
@@ -799,10 +809,30 @@
     "state": "OPEN",
     "title": "Audit A13: Contributor onboarding and maintainer continuity (epic #392)"
   },
+  "474": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "The furniture sprite renderer is asked for the item's size without a bound; its cache is bounded by entries, not bytes"
+  },
   "477": {
     "is_pr": true,
     "state": "MERGED",
     "title": "fix(406): characterize constraint gestures and enforce per-file coverage"
+  },
+  "480": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "The installed app aborts at exit (0xC0000409, \"QThread: Destroyed while thread is still running\") when it is closed while its update check is in flight"
+  },
+  "482": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "The global search field connects a Python closure to its own destroyed signal"
+  },
+  "483": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "The weather forecast's worker thread has the same shape as the update check: an abort at exit when the app is closed mid-request (not measured)"
   },
   "485": {
     "is_pr": false,
@@ -821,7 +851,7 @@
   },
   "490": {
     "is_pr": true,
-    "state": "OPEN",
-    "title": "chore(454): pin the build toolchain, publish the frozen inventory, finish the dependency path"
+    "state": "MERGED",
+    "title": "build(454): pin the build toolchain and publish the frozen inventory"
   }
 }

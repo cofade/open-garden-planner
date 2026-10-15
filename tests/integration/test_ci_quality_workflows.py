@@ -82,7 +82,12 @@ def test_type_cli_missing_mypy_is_an_error_not_a_clean_result(tmp_path: Path) ->
     )
     assert proc.returncode == 2
     data = json.loads(report.read_text(encoding="utf-8"))
-    assert data["available"] is False and "mypy" in data["reason"]
+    assert data["available"] is False
+    if sys.version_info[:2] == (3, 11):
+        assert "mypy" in data["reason"]
+    else:
+        assert "locked Python 3.11" in data["reason"]
+
 
 
 def test_lock_cli_missing_lock_does_not_modify_root(tmp_path: Path) -> None:

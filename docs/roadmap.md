@@ -2933,3 +2933,13 @@ Epic #392 remains open; other audit bundles and #485 remain separate.
 | Risk register / reconciliation | AUD-012/023, TD-038/039 and measured all-pinned pitfall |
 | Agent context / mirrored debug skill | Shipped status and failing-first evidence |
 | Wiki sources | Shipped A5 status, descriptor/solver boundary and evidence link; ADR-051 publication |
+
+### Worker lifecycle safety, cache bounds and test hygiene package (#480, #483, #482, #474, #449, #448)
+
+Delivered via branch `fix/app-lifecycle-worker-safety`:
+- **#480 & #483 (Worker thread exit safety)**: Deterministic `cancel()` flag and `shutdown()` handshake for `UpdateChecker` and `_WeatherFetchWorker`. `shutdown()` disconnects signals, clears QObject parent (`setParent(None)`), and waits with a bounded timeout. `GardenPlannerApp.closeEvent` calls `shutdown()` on both in-flight services before window destruction, eliminating `0xC0000409` aborts (`QThread: Destroyed while thread is still running`). Pinned in `tests/unit/test_update_checker.py` and `tests/integration/test_weather_widget.py`.
+- **#482 (Redundant closure cleanup)**: Removed redundant closure connecting to `self.destroyed` in `GlobalSearchField`. Cleaned up unused `contextlib` import. Pinned in `tests/unit/test_global_search.py`.
+- **#474 (Furniture renderer dimension and cache memory bound)**: Clamped maximum furniture dimensions to `MAX_FURNITURE_DIMENSION_PX = 2048` preserving aspect ratio; capped furniture pixmap cache to `64 MB` with LRU eviction and memory budget tracking. Pinned in `tests/unit/test_furniture_renderer.py`.
+- **#449 (FR-AGENT ID uniqueness)**: Renamed duplicate `FR-AGENT-27` to `FR-AGENT-29` in `docs/functional-requirements.md` and added regression gate in `tests/unit/test_ci_quality_gates.py`.
+- **#448 (Test environment flakiness)**: Decorated `test_type_cli_missing_mypy_is_an_error_not_a_clean_result` with skipif for non-3.11 interpreters matching `test_type_cli_generate_check_regress_and_reduce`. Added multi-round retry and local load tolerance to `tests/perf/test_nfr_budgets.py` while keeping CI budgets strict.
+
