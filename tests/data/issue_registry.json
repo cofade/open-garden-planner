@@ -779,6 +779,11 @@
     "state": "MERGED",
     "title": "feat(US-F3): add sun diagnostics and fix heatmap document ownership"
   },
+  "438": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Data loss: a recoloured rectangle-based object is saved with its type's default colour after load → save → load"
+  },
   "441": {
     "is_pr": false,
     "state": "OPEN",
@@ -814,6 +819,26 @@
     "state": "OPEN",
     "title": "Audit A13: Contributor onboarding and maintainer continuity (epic #392)"
   },
+  "469": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "A loaded item's stroke_color / stroke_width attributes are its object type's defaults (rectangle, circle, ellipse, polygon): the Properties panel shows the defaults and undo of a stroke edit restores the wrong values"
+  },
+  "470": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "An offset copy of a rectangle, circle or ellipse does not keep its source's look"
+  },
+  "472": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "One polygon of a plan file can freeze the 2D canvas for minutes"
+  },
+  "473": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "The reference plan of NFR-PERF-01 holds no line, so the repaint budgets cannot see a slower line paint"
+  },
   "474": {
     "is_pr": false,
     "state": "CLOSED",
@@ -838,6 +863,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "The weather forecast's worker thread has the same shape as the update check: an abort at exit when the app is closed mid-request (not measured)"
+  },
+  "484": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "WIP: Phase 17 L1 - Qt Quick 3D engine, scene pipeline and workspace (paused; refs #385)"
   },
   "485": {
     "is_pr": false,
@@ -878,5 +908,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix: resolve app exit thread aborts, cache bounds, and test hygiene (#480, #483, #482, #474, #449, #448)"
+  },
+  "502": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "A textured fill does not show the chosen colour (the tint is a 31 % wash) and the panel disagrees with the canvas after a reload"
   }
 }
