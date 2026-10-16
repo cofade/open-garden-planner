@@ -1,25 +1,28 @@
 """Integration tests for the 2D polygon paint bound (issue #472).
 
 A plan file may hold a polygon with any number of vertices, and a reflex-heavy
-outline (a "comb") makes one antialiased fill take from seconds to minutes,
-freezing the window. Issue #472 asks for a stated bound on what is painted at
-full detail — or a degraded paint beyond it.
+outline (a "comb", teeth across its whole height) makes one antialiased fill
+quadratic — seconds to minutes — freezing the window. Issue #472 asks for "a
+stated bound on what is painted at full detail, or a degraded paint beyond it".
 
-This pins the three behaviours of the fix:
+The fix bounds full detail at `MAX_FULL_DETAIL_VERTICES`; above it an unselected
+item paints the exact outline with a **cosmetic** 1-px pen and no fill during
+interactive painting, while exports/offscreen renders (``widget is None``) and a
+selected item keep the exact fill. The cosmetic pen matters: Qt strokes a wide
+solid pen by building a fill, so reusing the item's own pen would leave the
+degraded frame quadratic too (measured in the bug report and in ADR-057).
 
-* an over-budget, unselected polygon degrades to an exact **outline only**
-  during interactive (on-screen) painting, so the canvas stays responsive;
-* the same polygon paints its **exact fill** in an export / offscreen render
-  (``widget is None``) and when it is selected, so nothing user-visible and no
-  exported artifact loses detail;
-* a hostile polygon is **refused at the load seam** (the ingestion trust
-  boundary) while every other item in the plan still loads.
+This pins: the degrade is chosen above the bound and is orders of magnitude
+cheaper; the exact fill is kept at the bound, in exports and when selected; and
+a hostile polygon is refused at the load seam without dropping the rest of a
+plan.
 """
 
 from __future__ import annotations
 
 import json
 import tempfile
+import time
 from pathlib import Path
 
 import pytest
@@ -36,17 +39,37 @@ from open_garden_planner.ui.canvas.items.polygon_item import (
     PolygonItem,
 )
 
-# A red fill, opaque, far from both the white background and any pen colour.
 _FILL = QColor(200, 40, 40)
 _BACKGROUND = QColor(255, 255, 255)
+
+
+def _issue_comb(vertices: int, side: float = 600.0) -> QPolygonF:
+    """The bug report's shape: a square outline drawn as full-height teeth.
+
+    Exactly ``vertices`` points (a multiple of 4): each tooth contributes two
+    vertical edges, so a scanline crosses ~one edge per tooth.
+    """
+    assert vertices % 4 == 0 and vertices >= 4
+    teeth = vertices // 4
+    step = side / teeth
+    poly = QPolygonF()
+    for i in range(teeth):
+        x0 = i * step
+        poly.append(QPointF(x0, 0.0))
+        poly.append(QPointF(x0, side))
+        poly.append(QPointF(x0 + step * 0.5, side))
+        poly.append(QPointF(x0 + step * 0.5, 0.0))
+    assert poly.count() == vertices
+    return poly
 
 
 def _subdivided_square(vertices: int, side: float = 600.0) -> QPolygonF:
     """A solid square whose outline holds exactly ``vertices`` points.
 
-    Subdividing each edge gives a polygon with an unambiguous interior — so a
-    pixel at the centre is filled iff the item actually painted its fill — while
-    its vertex count can be set freely above the paint bound.
+    Subdividing each edge gives a polygon with a large, unambiguous interior —
+    so a *fill* inks much more than a hairline *outline* — while its vertex
+    count can be set freely above the paint bound. (Its fill is cheap because it
+    is convex; the comb above is used for the cost assertion.)
     """
     assert vertices >= 4
     per_edge = [vertices // 4] * 4
@@ -70,35 +93,43 @@ def _subdivided_square(vertices: int, side: float = 600.0) -> QPolygonF:
     return poly
 
 
-def _styled_polygon(vertices: int) -> PolygonItem:
-    item = PolygonItem(
-        vertices=_subdivided_square(vertices),
-        object_type=ObjectType.LAWN,
-    )
+def _square_item(vertices: int) -> PolygonItem:
+    item = PolygonItem(vertices=_subdivided_square(vertices), object_type=ObjectType.LAWN)
     item.setBrush(_FILL)
     return item
 
 
-def _interactive_centre_pixel(item: PolygonItem) -> QColor:
-    """Paint ``item`` as the on-screen viewport would and read its centre."""
-    return _paint_centre_pixel(item, widget=QWidget())
+def _comb_item(vertices: int) -> PolygonItem:
+    # No pen override: the item keeps its object type's pen (LAWN: 2.0 solid),
+    # which is exactly the pen whose stroke Qt turns into a fill.
+    item = PolygonItem(vertices=_issue_comb(vertices), object_type=ObjectType.LAWN)
+    item.setBrush(_FILL)
+    return item
 
 
-def _offscreen_centre_pixel(item: PolygonItem) -> QColor:
-    """Paint ``item`` as an export / offscreen render would and read its centre."""
-    return _paint_centre_pixel(item, widget=None)
-
-
-def _paint_centre_pixel(item: PolygonItem, widget: QWidget | None) -> QColor:
-    image = QImage(600, 600, QImage.Format.Format_ARGB32_Premultiplied)
+def _paint(item: PolygonItem, widget: QWidget | None) -> tuple[QImage, float]:
+    image = QImage(512, 512, QImage.Format.Format_ARGB32_Premultiplied)
     image.fill(_BACKGROUND)
     painter = QPainter(image)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
     try:
+        t0 = time.perf_counter()
         item.paint(painter, QStyleOptionGraphicsItem(), widget)
+        elapsed_ms = (time.perf_counter() - t0) * 1000.0
     finally:
         painter.end()
-    return QColor(image.pixel(300, 300))
+    return image, elapsed_ms
+
+
+def _ink(image: QImage) -> int:
+    """Count pixels that are not the background — a fill inks far more than a hairline."""
+    background = _BACKGROUND.rgb()
+    return sum(
+        1
+        for y in range(0, image.height(), 4)
+        for x in range(0, image.width(), 4)
+        if image.pixel(x, y) != background
+    )
 
 
 @pytest.fixture()
@@ -107,27 +138,45 @@ def _qt(qtbot: object) -> object:  # noqa: ARG001 — ensures a QApplication exi
 
 
 class TestDegradedInteractivePaint:
-    def test_over_budget_polygon_paints_no_fill_on_screen(self, _qt: object) -> None:
-        item = _styled_polygon(MAX_FULL_DETAIL_VERTICES + 1)
-        assert _interactive_centre_pixel(item) == _BACKGROUND
+    def test_over_budget_polygon_paints_an_outline_not_a_fill(self, _qt: object) -> None:
+        item = _square_item(MAX_FULL_DETAIL_VERTICES * 2)
+        on_screen, _ = _paint(item, QWidget())
+        exported, _ = _paint(item, None)
+        # The degraded on-screen frame inks a tiny fraction of the exact fill.
+        assert _ink(on_screen) * 3 < _ink(exported)
 
-    @pytest.mark.parametrize("vertices", [8, 128, MAX_FULL_DETAIL_VERTICES])
-    def test_at_or_below_budget_polygon_paints_its_fill(
+    def test_over_budget_comb_paint_is_far_cheaper_than_full_detail(self, _qt: object) -> None:
+        item = _comb_item(MAX_FULL_DETAIL_VERTICES * 2)
+        _, export_ms = _paint(item, None)
+        _, degrade_ms = _paint(item, QWidget())
+        assert degrade_ms * 4 < export_ms, (
+            f"degraded paint {degrade_ms:.1f} ms is not far cheaper than "
+            f"full detail {export_ms:.1f} ms"
+        )
+
+    @pytest.mark.parametrize("vertices", [8, MAX_FULL_DETAIL_VERTICES])
+    def test_at_or_below_budget_paints_the_exact_fill(
         self, _qt: object, vertices: int
     ) -> None:
-        item = _styled_polygon(vertices)
-        assert _interactive_centre_pixel(item) == _FILL
+        item = _square_item(vertices)
+        on_screen, _ = _paint(item, QWidget())
+        exported, _ = _paint(item, None)
+        assert _ink(on_screen) == _ink(exported)
 
 
 class TestFullDetailIsNeverLost:
     def test_export_paints_the_exact_fill(self, _qt: object) -> None:
-        item = _styled_polygon(MAX_FULL_DETAIL_VERTICES + 1)
-        assert _offscreen_centre_pixel(item) == _FILL
+        item = _square_item(MAX_FULL_DETAIL_VERTICES * 2)
+        exported, _ = _paint(item, None)
+        on_screen, _ = _paint(item, QWidget())
+        assert _ink(exported) > _ink(on_screen) * 3
 
     def test_selected_polygon_paints_the_exact_fill(self, _qt: object) -> None:
-        item = _styled_polygon(MAX_FULL_DETAIL_VERTICES + 1)
+        item = _square_item(MAX_FULL_DETAIL_VERTICES * 2)
         item.setSelected(True)
-        assert _interactive_centre_pixel(item) == _FILL
+        on_screen, _ = _paint(item, QWidget())
+        exported, _ = _paint(item, None)
+        assert _ink(on_screen) == _ink(exported)
 
 
 class TestHostilePolygonIsRefusedAtLoad:
@@ -210,7 +259,7 @@ class TestHostilePolygonIsRefusedAtLoad:
         assert [i for i in scene.items() if isinstance(i, PolygonItem)] == []
 
 
-def test_the_load_ceiling_is_generous() -> None:
-    """The ceiling must not refuse any legible garden outline (issue #472)."""
+def test_the_two_bounds_are_consistent() -> None:
+    """The load ceiling must leave room for the degraded outline (issue #472)."""
     assert MAX_POLYGON_VERTICES >= 10_000
     assert MAX_FULL_DETAIL_VERTICES < MAX_POLYGON_VERTICES

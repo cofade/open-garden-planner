@@ -779,6 +779,11 @@
     "state": "MERGED",
     "title": "feat(US-F3): add sun diagnostics and fix heatmap document ownership"
   },
+  "441": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Offset, chamfer and fillet copies keep the source's brush but not its fill_color / fill_pattern: the copy loses its colour and pattern on save"
+  },
   "448": {
     "is_pr": false,
     "state": "CLOSED",

@@ -33,25 +33,39 @@ from .resize_handle import ResizeHandlesMixin, RotationHandleMixin, VertexEditMi
 
 # --- Issue #472: bound what a crafted plan can cost the 2D canvas -----------
 #
-# A polygon's fill cost grows with its vertex count and, for a reflex-heavy
-# outline (a comb), quadratically. Measured on a 512x512 antialiased painter,
-# one comb outline costs ~2 ms at 128 vertices, ~23 ms at 512, ~83 ms at 1024
-# and minutes at 16,384; a convex outline fills in well under a millisecond.
+# A polygon's fill cost is NOT a function of vertex count alone. Measured (512x512
+# antialiased painter, the issue's full-height comb), the cost of one paint is:
 #
-# At or below :data:`MAX_FULL_DETAIL_VERTICES` an unselected polygon paints
-# exactly as before. Above it, an INTERACTIVE paint draws the exact outline
-# only (a NoBrush stroke is linear in vertices — ~4 ms at 1024, ~59 ms at
-# 16,384 — instead of quadratic), so the window stays responsive. Exports and
-# offscreen renders (``widget is None``) are never degraded, so a saved
-# PDF/PNG is unchanged, and a selected item always paints exactly so editing
-# and validation see the truth.
-MAX_FULL_DETAIL_VERTICES = 1024
+#   vertices    full-detail fill        outline, item's 2.0 pen   outline, cosmetic 1px
+#      256          38 ms                        35 ms                  2 ms
+#     1024         322 ms                       319 ms                  4 ms
+#     4096        1449 ms                       640 ms                 20 ms
+#    16384        5580 ms                      2547 ms                 69 ms
+#
+# Two consequences drive this bound:
+#   * a reflex-heavy fill is quadratic in vertices, so the full-detail budget must
+#     sit below the counts the bug report measured (1,024 -> 10.5 s on its box);
+#   * Qt strokes a WIDE solid pen by building a fill, so "draw the outline"
+#     is only cheap with a COSMETIC (hairline) pen. Reusing the item's own pen
+#     would leave the degraded frame quadratic (319 ms at 1,024 above).
+#
+# At or below MAX_FULL_DETAIL_VERTICES an unselected polygon paints exactly as
+# before. Above it, an INTERACTIVE paint draws the exact outline with a cosmetic
+# 1-px pen and no fill: that is linear with a small constant and independent of
+# the item's pen width, so the window stays responsive. Exports and offscreen
+# renders (``widget is None``) are never degraded, so a saved PDF/PNG is
+# unchanged, and a selected item always paints exactly so editing and validation
+# see the truth. A polygon whose outline is large but CONVEX would fill cheaply;
+# distinguishing it needs an O(n) pass per paint, so the bound deliberately errs
+# toward the outline for every large polygon (see ADR-057).
+MAX_FULL_DETAIL_VERTICES = 256
 
 # Hard ceiling at load for untrusted plan files (issue #472): a polygon above
 # this is refused rather than built, so a crafted ``.ogp`` cannot stall the
-# loader or exhaust memory. Roughly 25x the largest outline the bug report
-# measured (16,384) and far beyond any legible garden outline.
-MAX_POLYGON_VERTICES = 100_000
+# loader or exhaust memory. It matches the L1 scene-3D outline limit (an outline
+# above 16,384 is left out of 3D too, so such an item is already degraded there);
+# at this ceiling the degraded 2D outline is measured at ~69 ms, not minutes.
+MAX_POLYGON_VERTICES = 16_384
 
 
 def _project_to_polygon_boundary(polygon: QPolygonF, point: QPointF) -> QPointF:
@@ -630,16 +644,23 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         poly = self.polygon()
 
         # Degraded paint for an over-budget outline (issue #472): interactive
-        # painting only, an unselected item only. Draw the exact outline with
-        # no fill — linear in vertices — instead of a quadratic tessellation.
+        # painting only, an unselected item only. Draw the exact outline with a
+        # COSMETIC 1-px pen and no fill. A cosmetic pen is essential: Qt strokes
+        # a wide solid pen by building a fill, which would leave this path
+        # quadratic (issue #472 measurement), whereas a cosmetic stroke is linear
+        # with a small constant and independent of the item's own pen width.
         if (
             poly.count() > MAX_FULL_DETAIL_VERTICES
             and not self.isSelected()
             and widget is not None
             and option is not None
         ):
+            outline_pen = QPen(self.pen())
+            outline_pen.setCosmetic(True)
+            outline_pen.setWidthF(1.0)
+            outline_pen.setStyle(Qt.PenStyle.SolidLine)
             painter.save()
-            painter.setPen(self.pen())
+            painter.setPen(outline_pen)
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawPolygon(poly)
             painter.restore()

@@ -2981,17 +2981,22 @@ Three pre-existing 2D defects found during the Phase 17 L1 work (#385), shipped 
 because none touches the in-flight L1 branch's files (see ADR-057, §8.28, §11.4.9).
 
 - **#472 (Bounded polygon paint)**: `PolygonItem` painted any vertex count a plan held, and a
-  reflex-heavy outline makes one antialiased fill quadratic (~83 ms at 1024 vertices, minutes at
-  16,384). Full detail is now bounded by `MAX_FULL_DETAIL_VERTICES = 1024`; above it an
-  interactive, unselected paint draws the exact outline only, while exports/offscreen renders and
-  selected items keep the exact fill. `MAX_POLYGON_VERTICES = 100_000` refuses a hostile polygon
-  at the load seam without dropping the rest of the plan. Pinned in
+  reflex-heavy outline makes one antialiased fill quadratic (measured with the item's own pen:
+  ~322 ms at 1,024 vertices, ~5.6 s at 16,384). Full detail is now bounded by
+  `MAX_FULL_DETAIL_VERTICES = 256`; above it an interactive, unselected paint draws the exact
+  outline with a **cosmetic** 1-px pen (essential — a wide solid pen makes the outline a fill
+  again), while exports/offscreen renders and selected items keep the exact fill.
+  `MAX_POLYGON_VERTICES = 16_384` (matching the L1 scene-3D outline limit) refuses a hostile
+  polygon at the load seam without dropping the rest of the plan. Pinned in
   `tests/integration/test_polygon_paint_bound.py`.
 - **#470 (Offset copy keeps its look)**: the offset tool made a rectangle, circle or ellipse copy
   in its object type's default fill, pattern and stroke. One seam, `core/item_look.py::
   copy_visual_style`, now copies both the serialized attributes and the pen/brush, and is shared
-  with `mirror_geometry`. Pinned in `tests/integration/test_offset_tool.py`.
+  with `mirror_geometry` (chamfer/fillet/trim stay with #441 on the L1 branch). Pinned in
+  `tests/integration/test_offset_tool.py`.
 - **#473 (Line paint in the budgets)**: the NFR-PERF-01 reference plan held no polyline, so the
   three budget scenarios could not see a slower line paint. A second scenario adds plain fences
-  and styled gravel paths to the same plan, with a composition guard; pinned in
+  and a styled gravel path to the same plan, with their item cache **disabled** so `paint()` runs
+  every frame, pinned deterministically by a `cacheMode()` guard and behaviourally by a same-run
+  delta; an absolute per-frame budget for the styled lines stays with #450. Pinned in
   `tests/perf/test_nfr_budgets.py`.
