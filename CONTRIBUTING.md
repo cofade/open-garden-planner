@@ -81,7 +81,7 @@ Developer tools should have subprocess tests. Documentation-only edits need rele
 Do not add an unrelated UI test to a prose-only change.
 See [the integration-test policy](docs/08-crosscutting-concepts/README.md#810-integration-test-policy).
 
-Wrap every new application display string for Qt translation. Register and compile its translations.
+Wrap every new application display string for Qt translation. Update the source inventory, complete every registered target locale, compile, and run `python scripts/check_translations.py`. A new language must cover all current keys; a new UI key must be translated in all supported languages in the same PR. See [the contributor workflow](docs/TRANSLATING.md).
 See [translation instructions](docs/08-crosscutting-concepts/README.md#83-internationalization-i18n).
 Public documentation is English. This requirement does not add application translations for Markdown prose.
 

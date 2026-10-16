@@ -221,7 +221,7 @@ Qt workflows use `QT_QPA_PLATFORM=offscreen`; xvfb is not part of this CI recipe
 |---|---|---|---|
 | `agent-context` | Agent context parity | Linux | Root instructions and mirrored agent context; external action pins |
 | `lint` | Lint | Linux | Ruff over source, tests and scripts |
-| `test` | Test | Linux | Full pytest suite, Qt offscreen |
+| `test` | Test | Linux | Source-derived translation gate for all registered locales, then full pytest suite with Qt offscreen |
 | `security` | Security | Linux | Bandit HIGH findings and tracked-secret scan |
 | `dependencies` | Dependencies (ubuntu-latest/windows-latest) | Matrix | Clean locked installation, freshness and export checks, and the lock-based `pip-audit` scan on **both** platforms (AUD-054: pip-audit evaluates markers for the running platform, so a Linux-only scan never sees the Windows-only `pywin32`) |
 | `types` | Types (ubuntu-latest/windows-latest) | Matrix | Strict mypy against per-file platform allowances |
@@ -246,6 +246,8 @@ flowchart LR
 
 Local frozen-exe build, startup smoke and subsystem self-test remain mandatory before merge.
 The release job repeats its subsystem self-test after the installer build. See ADR-050.
+
+Translation completeness (#496) runs inside the already-required `Test` check. There is no advisory-only translation job and no protection-name change. Strict up-to-date protection requires locale PRs such as #495 to update after the infrastructure merges. Both a newly registered incomplete locale and a new UI source missing target translations fail this same check.
 
 ### Release Workflow (`release.yml`)
 

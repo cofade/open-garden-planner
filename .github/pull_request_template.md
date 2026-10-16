@@ -14,6 +14,8 @@ Include independent review results. Use "not applicable" with a reason where app
 
 ## Documentation and translations
 
+<!-- For wrapped UI or locale changes, run scripts/update_translations.py, complete every registered target locale, compile, and pass scripts/check_translations.py. Equal counts alone do not prove coverage. -->
+
 <!-- Identify updated docs/wiki sources. For application strings, record translation checks.
 Use "not applicable" with a reason if this change adds no display strings. -->
 

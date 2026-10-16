@@ -30,11 +30,13 @@ powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanne
 # exe, and a shell-piped run hands it a real stdout so it cannot reproduce the
 # no-inherited-handle condition #291 needs.
 
-# Update & compile translations (after adding/changing any UI strings)
-PYTHONUTF8=1 venv/Scripts/python.exe scripts/fill_translations.py
-PYTHONUTF8=1 venv/Scripts/python.exe scripts/compile_translations.py
-# pytest tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished
-# verifies zero unfinished strings — fails if any string was missed
+# Update all catalogs, complete every supported target, compile and validate
+PYTHONUTF8=1 .venv/Scripts/python.exe scripts/update_translations.py
+PYTHONUTF8=1 .venv/Scripts/python.exe scripts/fill_translations.py
+# Complete any remaining translations in all target .ts files, then:
+PYTHONUTF8=1 .venv/Scripts/python.exe scripts/compile_translations.py
+.venv/Scripts/python.exe scripts/check_translations.py
+# Required Test CI checks source + all registered locales + actual compiled lookups.
 ```
 
 Tech stack: Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
@@ -193,7 +195,7 @@ do). If you must overwrite it wholesale, **`Read` the plan file once first, then
 | 2 | Read user story from `docs/roadmap.md` | Understand acceptance criteria |
 | 3 | Implement with type hints & translation | Use `self.tr()` for all UI strings |
 | 4 | Run quality checks | `pytest tests/ -v`, `ruff check src/`, `bandit -r src/ --severity-level high` |
-| 4a | Update translations | Add strings to `scripts/fill_translations.py`, run `PYTHONUTF8=1 venv/Scripts/python.exe scripts/fill_translations.py` then `compile_translations.py`; `pytest tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished` must pass |
+| 4a | Update translations | Run `scripts/update_translations.py`, complete every registered target locale, compile, then pass `scripts/check_translations.py`; new source and new locale additions use the same gate (#496) |
 | 5 | **Write integration test** in `tests/integration/test_<feature>.py` | **Mandatory** — end-to-end UI workflow. See `docs/08-crosscutting-concepts/` 8.10 |
 | 6 | Build & verify exe | See Quick Reference |
 | 7 | **Run senior-reviewer pass** | Launch the `senior-reviewer` agent in a fresh worktree against the branch diff. Address any P0/P1 findings before proceeding. Re-run after fixes for a clean re-review. The `finalize-us` skill repeats this step pre-PR. A change visible in 3D first passes `ogp-3d-creator` → `ogp-3d-reviewer` with no P0/P1. |
@@ -211,7 +213,7 @@ do). If you must overwrite it wholesale, **`Read` the plan file once first, then
 - `QGraphicsItem` context menus (non-QObject) → `QCoreApplication.translate("ClassName", "string")`
 - Module-level dicts → `QT_TR_NOOP("string")`, translate later with `QCoreApplication.translate()`
 - `CollapsiblePanel(title)` → wrap at the **call site**, not inside the panel
-- **Hardcoded English f-strings (`f"{a} overlaps {b}"`) bypass `tr()` and never reach Qt Linguist** — use `self.tr("{a} overlaps {b}").format(a=…, b=…)`. The `test_german_ts_has_no_unfinished` test only catches MISSING translations of REGISTERED strings; it cannot see plain-string call sites. Pattern: if it's user-visible text, it MUST go through `tr()` / `QT_TR_NOOP` / `QCoreApplication.translate()` — registering it in `scripts/fill_translations.py` alone is insufficient.
+- **Hardcoded English f-strings (`f"{a} overlaps {b}"`) bypass `tr()` and never reach Qt Linguist** — use `self.tr("{a} overlaps {b}").format(a=…, b=…)`. The required `scripts/check_translations.py` gate derives wrapped keys from source and checks every registered locale; truly unwrapped display text still requires review. The legacy German unfinished-string test is retained as an additional regression check. Pattern: if it's user-visible text, it MUST go through `tr()` / `QT_TR_NOOP` / `QCoreApplication.translate()` — registering it in `scripts/fill_translations.py` alone is insufficient.
 - **NEVER use PowerShell `Set-Content -Encoding UTF8`** for files with non-ASCII (umlauts etc.) — double-encodes UTF-8 into mojibake. Use the `Edit` tool or Python `open(..., encoding="utf-8")`.
 
 Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crosscutting-concepts/` section 8.3.
@@ -222,7 +224,10 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 ## Where to Pick Up After Restart
 
-- **Worker lifecycle safety, cache bounds and test hygiene (#480, #483, #482, #474, #449, #448) on branch `fix/app-lifecycle-worker-safety`:** Deterministic `cancel()` and `shutdown(timeout_ms)` for `UpdateChecker` and `_WeatherFetchWorker` with `setParent(None)` on exit to prevent `0xC0000409` aborts; redundant search field closure removed; furniture renderer clamped to `MAX_FURNITURE_DIMENSION_PX = 2048` and pixmap cache capped at 64 MB; `FR-AGENT-29` uniqueness gate; test flakiness fixed via Python 3.11 skipif on type gate and local load tolerance on 2D repaint budgets.
+- **Worker lifecycle safety, cache bounds and test hygiene (#480, #483, #482, #474, #449, #448) on branch `fix/app-lifecycle-worker-safety`:** Deterministic `cancel()` and `shutdown(timeout_ms)` for `UpdateChecker` and `_WeatherFetchWorker` with `core.worker_lifecycle._RETIRING_WORKERS` retention on exit to prevent `0xC0000409` aborts; redundant search field closure removed; furniture renderer clamped to `MAX_FURNITURE_DIMENSION_PX = 2048` and pixmap cache capped at 64 MB with LRU eviction; `FR-AGENT-29` uniqueness gate; test flakiness fixed via Python 3.11 requirement on type gate and multi-round median repaint budget evaluation.
+
+- **#496 shipped on 2026-10-16 as v1.30.6 ([PR #497](https://github.com/cofade/open-garden-planner/pull/497)) after owner acceptance:** source-derived translation completeness covers every registered locale in both directions. The required Test check verifies exact keys, completed values and compiled lookups; English/German each cover 2,631 live keys. Use `scripts/check_translations.py` after updating and compiling all catalogs; see ADR-008 and section 8.3. Russian PR #495 remains separate: its contributor must merge latest master and pass the shared gate before finalization.
+
 
 - **Audit A2 (#454) shipped on 2026-10-15 as v1.30.5 ([PR #490](https://github.com/cofade/open-garden-planner/pull/490)) after owner acceptance:** toolchain pins (Python 3.11.9 — the newest 3.11 with a Windows build — NSIS 3.13.0, commit-SHA action pins with a CI drift guard), `dist/build-evidence.json` required by the release, a `pip-audit` gate over the locked export with one recorded advisory exception for unused macOS source-distribution publishing, a monthly report-only dependency-review workflow (Dependabot's uv 0.12.19 is below this project's `==0.12.23` pin), `requirements*.txt` deleted, and third-party notices + a CycloneDX SBOM generated from the frozen bundle's own metadata, installed, published and attested. PR #490 review added physical RECORD attribution of actual collected files, including distinct vendored versions, and executable-PYZ/ownership-manifest verification after the original closure-only inventory omitted hook code. No runtime dependency change and no lock replacement beyond adding `pip-audit` to the dev extra; no release-right or `.ogp` change. See ADR-044/050 addenda and the reconciliation's A2 delivery state.
 

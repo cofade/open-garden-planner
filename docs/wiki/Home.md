@@ -27,6 +27,13 @@ Audit package A2 (#454: pinned build tools, dependency review, frozen-package no
 and SBOM) shipped in
 [v1.30.5](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.5) via
 [PR #490](https://github.com/cofade/open-garden-planner/pull/490) after owner acceptance.
+
+Translation completeness for every registered locale (#496) shipped in
+[v1.30.6](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.6) via
+[PR #497](https://github.com/cofade/open-garden-planner/pull/497) after owner acceptance.
+New languages must cover all current UI keys, and new wrapped UI strings require every
+target translation. See the [translation workflow](https://github.com/cofade/open-garden-planner/blob/master/docs/TRANSLATING.md).
+
 [#392](https://github.com/cofade/open-garden-planner/issues/392) remains open for
 packages A3–A4 and A6–A13.
 

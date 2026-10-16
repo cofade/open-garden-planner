@@ -428,6 +428,8 @@ Black-box view of persistent plant collections, favourites, drag-to-canvas orche
 
 ## Developer quality and release tooling
 
+Translation tooling (#496): `scripts/i18n_sources.py` owns fresh source extraction and bounded bindings from `i18n_bindings.json`; `i18n_catalog.py` owns Qt-free key/state/format validation shared by the compiler and checker. `update_translations.py` explicitly updates catalog structure; `check_translations.py` reads every registered catalog, compares live keys and compiled bytes, and verifies Qt lookups. These are development tools, not new runtime dependencies. See ADR-008 and section 8.3.
+
 The shared setup-locked-env GitHub action installs the native uv lock and editable project.
 The audit parser supplies type diagnostics and coverage package membership to the standalone
 check_mypy_baseline and check_coverage_floors CLIs. check_dependency_lock verifies the native

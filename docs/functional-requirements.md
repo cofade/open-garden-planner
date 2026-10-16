@@ -243,9 +243,10 @@ Pre-defined object types for common property elements:
 - **FR-I18N-01**: All UI strings translatable via Qt Linguist (tr() calls)
 - **FR-I18N-02**: English as default language
 - **FR-I18N-03**: German translation shipped at launch
-- **FR-I18N-04**: Language selectable in Settings
+- **FR-I18N-04**: Language selectable via View > Language; restart applies the saved choice
 - **FR-I18N-05**: Extensible: contributors can add languages via .ts files
 - **FR-I18N-06**: Plant scientific names not translated (Latin)
+- **FR-I18N-07**: All registered target languages must completely cover the source-derived UI key set. Both new UI strings and new language registrations require complete catalogs, valid placeholders and matching compiled output before merge. Missing localized companion explanations fall back to English; German explanations are selected only for German (#496).
 
 ## FR-12: Visual Rendering
 

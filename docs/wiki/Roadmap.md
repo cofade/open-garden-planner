@@ -110,10 +110,15 @@ The community documentation in this wiki does not mark Phase 16 complete.
 - **v1.29.4:** annotation persistence, shared clipboard serialization, background placeholders, and atomic plan loading.
 - **v1.29.5:** task windows across year boundaries, propagation dates, explicit MCP Host/Origin checks, and array-tool tests.
 - **v1.29.6:** locked dependencies, platform type budgets, coverage floors, and administrator-enforced branch checks.
+- **v1.29.8:** persistent handled-error logging and corrected harvest offsets, including garlic calibration ([PR #426](https://github.com/cofade/open-garden-planner/pull/426), #405/#418).
+- **v1.29.9:** canvas performance correction on the 500-object reference plan ([PR #430](https://github.com/cofade/open-garden-planner/pull/430), #409).
+- **v1.30.2:** constraint-tool characterization and coverage ([PR #477](https://github.com/cofade/open-garden-planner/pull/477), #406).
+- **v1.30.6:** source-derived translation completeness for every registered locale ([PR #497](https://github.com/cofade/open-garden-planner/pull/497), #496).
 
 Issues #399, #401, #402, and #404 completed in v1.29.6.
-Remaining audit work includes logging [#405](https://github.com/cofade/open-garden-planner/issues/405),
+Logging [#405](https://github.com/cofade/open-garden-planner/issues/405),
 constraint-tool coverage [#406](https://github.com/cofade/open-garden-planner/issues/406),
-and canvas performance [#409](https://github.com/cofade/open-garden-planner/issues/409).
-Harvest-data correction remains tracked in [#418](https://github.com/cofade/open-garden-planner/issues/418).
-Garlic's calculated harvest window remains about three months late under both existing interpretations.
+canvas performance [#409](https://github.com/cofade/open-garden-planner/issues/409),
+and harvest-data correction [#418](https://github.com/cofade/open-garden-planner/issues/418)
+are complete. Use [the canonical roadmap](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md)
+and [audit epic #392](https://github.com/cofade/open-garden-planner/issues/392) for the remaining work.

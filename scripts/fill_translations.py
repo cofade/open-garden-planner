@@ -15,7 +15,10 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.a1_translations import TRANSLATIONS as _A1_TRANSLATIONS  # noqa: E402
+from scripts.i18n_catalog import Key  # noqa: E402
+from scripts.i18n_sources import inventory  # noqa: E402
 from scripts.permaculture_translations import TRANSLATIONS as _F1_F2_TRANSLATIONS  # noqa: E402
+from scripts.translation_gate_translations import TRANSLATIONS as _GATE_TRANSLATIONS  # noqa: E402
 
 if sys.stdout is not None and hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -3235,12 +3238,18 @@ _F3_TRANSLATIONS = {
 }
 for _ctx, _strings in _F3_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+for _ctx, _strings in _GATE_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
 def fill_translations() -> None:
     """Fill in German translations in the .ts file."""
     tree = ET.parse(TS_FILE)
     root = tree.getroot()
+    required = inventory(Path(__file__).resolve().parents[1])
+    translations = {context: {source: target for source, target in strings.items()
+                              if Key(context, source) in required}
+                    for context, strings in TRANSLATIONS.items()}
 
     # Set the target language
     root.set("language", "de_DE")
@@ -3256,7 +3265,7 @@ def fill_translations() -> None:
     # Process existing contexts
     for context_elem in root.findall("context"):
         context_name = context_elem.find("name").text
-        context_translations = TRANSLATIONS.get(context_name, {})
+        context_translations = translations.get(context_name, {})
 
         for message_elem in context_elem.findall("message"):
             source_elem = message_elem.find("source")
@@ -3266,6 +3275,8 @@ def fill_translations() -> None:
                 continue
 
             source_text = source_elem.text or ""
+            if Key(context_name, source_text) not in required:
+                continue
 
             if source_text in context_translations:
                 translation_elem.text = context_translations[source_text]
@@ -3273,21 +3284,23 @@ def fill_translations() -> None:
                 if "type" in translation_elem.attrib:
                     del translation_elem.attrib["type"]
                 filled += 1
-            else:
+            elif not (translation_elem.text or "").strip() or translation_elem.get("type") == "unfinished":
                 missing += 1
                 print(f"  MISSING [{context_name}]: {source_text[:60]!r}")
 
     # Add missing contexts (ObjectType, GalleryData, CategoryDropdown,
     # CategoryToolbar, GlobalSearchField — anything not picked up by
     # pylupdate6 because it lives in helper modules).
-    for context_name, translations in TRANSLATIONS.items():
+    for context_name, context_values in translations.items():
+        if not context_values:
+            continue
         if context_name not in existing_contexts:
             # Create new context
             context_elem = ET.SubElement(root, "context")
             name_elem = ET.SubElement(context_elem, "name")
             name_elem.text = context_name
 
-            for source_text, german_text in translations.items():
+            for source_text, german_text in context_values.items():
                 message_elem = ET.SubElement(context_elem, "message")
                 source_elem = ET.SubElement(message_elem, "source")
                 source_elem.text = source_text
@@ -3316,7 +3329,7 @@ def fill_translations() -> None:
                     existing_sources.add(src.text)
 
             # Add missing strings
-            for source_text, german_text in translations.items():
+            for source_text, german_text in context_values.items():
                 if source_text not in existing_sources:
                     message_elem = ET.SubElement(context_elem, "message")
                     source_elem = ET.SubElement(message_elem, "source")

@@ -7,6 +7,33 @@ argument: "Optional: short description of the bug or area to instrument"
 
 # Verbose Debug Instrumentation
 
+## Case study: compiled catalogs passed while current UI keys were missing (#496)
+
+**Symptom.** A newly registered Russian locale passed existing tests while current UI
+labels remained English. The contributor guide incorrectly said all locales were checked.
+
+**Wrong theories.** A successful compile and the absence of unfinished German entries
+were not evidence of source coverage. No alternative runtime theory was adopted before
+the extraction/compilation probes.
+
+**Evidence.** Fresh standard extraction found 36 keys absent from German; tagged
+`[496-INVENTORY] 2631` output included audited helper/table and bundled species sources.
+Six regressions failed first: blank/whitespace targets, nonempty unfinished targets,
+missing placeholders, vanished output and the third-language German reason fallback.
+
+**Root cause.** Required keys came from stale catalogs rather than independent source.
+The compiler synthesized source fallbacks and did not enforce translation state. The
+companion service used a binary English/else-German language choice.
+
+**Fix.** Derive source keys, bind finite dynamic sources to their production tables,
+validate every registered locale and compiled lookup, and reject unresolved sources.
+Compile only completed active records. Select German reasons only for de. Temporary
+tagged probes were kept outside production; no debug prints remain in committed code.
+
+**Lesson.** Test both additions to the source axis and additions to the locale axis.
+An equal count or a fixture generated from an incomplete catalog cannot prove coverage.
+Pinned by the translation gate unit/integration tests and the required Test check.
+
 ## Case study: QThread destroyed while still running on window close (issues #480, #483, 2026-10-15)
 
 **Symptom.** Closing the application window while a network worker (such as the update checker or weather forecast worker) is in-flight crashes or aborts with code `0xC0000409` and Qt fatal error `QThread: Destroyed while thread is still running`.
@@ -15,11 +42,12 @@ argument: "Optional: short description of the bug or area to instrument"
 
 **Evidence.** Triggering an update check or weather fetch and immediately closing the main window resulted in an abnormal exit (`0xC0000409`). Inspecting `GardenPlannerApp.closeEvent` showed `UpdateChecker(self)` had the application window as parent and lacked a cancellation/shutdown handshake.
 
-**Root cause.** When `GardenPlannerApp` closes and is destroyed, its C++ child `QObject`s (including `UpdateChecker` and weather fetch workers) are destroyed. Because network operations block synchronously in `run()`, the thread was still running when Qt's C++ `~QThread()` ran, triggering `qFatal`. Furthermore, signals emitted by in-flight threads could invoke slots on destroyed receivers.
+**Root cause.** When `GardenPlannerApp` closes and is destroyed, its C++ child `QObject`s (including `UpdateChecker` and weather fetch workers) are destroyed. Because network operations block synchronously in `run()`, the thread was still running when Qt's C++ `~QThread()` ran, triggering `qFatal`. Furthermore, signals emitted by in-flight threads could invoke slots on destroyed receivers. If unparented, Python GC could delete the wrapper object while running, triggering the same C++ destructor abort.
 
-**Fix.** Provide an explicit `cancel()` flag and `shutdown()` handshake on background workers (`UpdateChecker`, `_WeatherFetchWorker`). In `shutdown()`, mark cancelled, suppress disconnect errors to detach all signal listeners, clear the QObject parent via `setParent(None)` so window destruction does not destroy the active thread, and issue a short `wait()`. Call `shutdown()` in `closeEvent` for update check and weather services alongside the sun heatmap worker. Pin with lifecycle integration and cancellation unit tests. Remove temporary prints before committing.
+**Fix.** Provide an explicit `cancel()` flag and `shutdown()` handshake on background workers (`UpdateChecker`, `_WeatherFetchWorker`). In `shutdown()`, mark cancelled, suppress disconnect errors to detach all signal listeners, clear the QObject parent via `setParent(None)` so window destruction does not destroy the active thread, issue a short `wait()`, and retain in `core.worker_lifecycle._RETIRING_WORKERS` until the `finished` signal fires. Call `shutdown()` in `closeEvent` for update check and weather services alongside the sun heatmap worker. Pin with lifecycle integration and cancellation unit tests. Remove temporary prints before committing.
 
 **Lesson.** Every background `QThread` attached to a parent `QObject` must have a deterministic cancellation and shutdown protocol before parent destruction. Never let `~QThread()` run while `isRunning()` is true.
+
 
 ## Case study: a fast worker fails a GUI heartbeat count (PR #490, 2026-10-14)
 
@@ -2077,3 +2105,20 @@ Pure huge-finite Qt path rendering limits preserve the serialized model and stay
 outside A1; no coordinate cap or zero-length rejection was introduced.
 **Lesson.** Validate primitive arithmetic when invalid geometry can collapse to an
 empty bounding rectangle. Keep the detached Qt composition gate as well.
+
+
+## Case study: a complete catalog can hide the wrong source inventory (#496 review)
+
+**Symptom.** The new gate passed, yet helper keyword calls and unmarked table members
+were absent; offset-tool status text still appeared in English with German installed.
+**Wrong theory.** Marker presence and an enclosing class identify every runtime key.
+**Evidence.** Four independent mutation tests failed first. A real CanvasView/OffsetTool
+regression returned `Select a shape to offset` instead of the German status message.
+**Root cause.** Helper keyword arguments were skipped; marker scans omitted plain table
+values; dynamic disambiguation was discarded; `.tr()` inherited the caller's context
+instead of its receiver's context.
+**Fix.** Bind supported helper arguments, enumerate complete display fields/values,
+preserve dynamic comments, require explicit external receiver contexts, and translate
+offset status through CanvasView explicitly. Reject escaping/imported helper aliases.
+**Lesson.** Validate extraction with mutations at real production source shapes and
+runtime lookups, not only against catalogs generated from that same extractor.

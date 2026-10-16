@@ -39,47 +39,29 @@ class MoveObjectCommand(Command):
 
 ## 8.3 Internationalization (i18n)
 
-Uses Qt Linguist translation system:
+Qt Linguist remains the runtime format (ADR-008). English is the source language;
+English and German are currently shipped. Registration in `SUPPORTED_LANGUAGES` makes
+the full source inventory mandatory for that locale. New UI keys require translations
+in every registered target locale in the same PR. The required `Test` CI check enforces
+this through `scripts/check_translations.py` and the normal pytest suite (#496).
 
-1. All user-facing strings wrapped in `self.tr()` or `QCoreApplication.translate()`
-2. Source strings extracted with `pylupdate6` into `.ts` XML files
-3. Translators edit `.ts` files (Qt Linguist tool or text editor)
-4. `.ts` files compiled to `.qm` binary with `lrelease`
-5. `QTranslator` loaded at app startup based on saved language preference
+The canonical inventory comes from fresh PyQt6 extraction plus audited AST/helper/table
+sources in `scripts/i18n_bindings.json`. Qt context, source and disambiguation identify a
+key. Neither German nor the English template is the inventory authority. Unknown dynamic
+lookups fail; finite table additions grow the inventory without a test-list edit.
 
-**Shipped languages**: English (default), German
-**Extensible**: Community can add languages by creating new `.ts` files
+Run `scripts/update_translations.py`, fill every target catalog (the German-only
+`fill_translations.py` is optional assistance), run `scripts/compile_translations.py`,
+then `scripts/check_translations.py` in the locked environment. The updater preserves
+translations and marks genuinely removed keys vanished. The checker is read-only and
+requires exact active keys, completed nonblank targets, preserved placeholders, matching
+compiled files and actual Qt lookup results. Retired records cannot satisfy coverage.
+English retains source identities. Identical target text is valid for proper names/units.
+Current singular-only compilation rejects plural/variant input until tested support is added.
 
-**Translation files location**:
-- `src/open_garden_planner/resources/translations/open_garden_planner_de.ts`
-- `src/open_garden_planner/resources/translations/open_garden_planner_en.ts`
-
-**Not translated**: Plant scientific names (Latin), file format identifiers
-
-### How to add translations when creating/modifying a widget
-
-1. **In code**: wrap every UI string with `self.tr("English text")`. The class name is the translation context automatically.
-
-2. **Update both `.ts` files** — add a `<context>` block (or extend an existing one) to both files:
-
-   ```xml
-   <context>
-       <name>MyWidget</name>
-       <message>
-           <source>English text</source>
-           <translation>Translated text</translation>
-       </message>
-   </context>
-   ```
-
-   Note: German file uses `<name>` with no extra indent, English file uses 4-space indent.
-
-3. **Recompile `.qm` files** after every `.ts` change:
-   ```bash
-   venv/Lib/site-packages/qt6_applications/Qt/bin/lrelease.exe \
-     src/open_garden_planner/resources/translations/open_garden_planner_de.ts \
-     src/open_garden_planner/resources/translations/open_garden_planner_en.ts
-   ```
+Full commands, source declaration rules and new-language steps: [translation guide](../TRANSLATING.md).
+Latin scientific names, provider/user text and machine identifiers are not catalog prose;
+finite bundled common names are extracted from the actual bundled species JSON.
 
 ### Translation rules
 
@@ -648,6 +630,16 @@ tests run real QSettings in fresh processes with private XDG directories and con
 umasks; Windows skips only those platform-specific assertions and pins registry parity.
 No test executes an installer or calls a paid map provider. Test-layer evidence must
 name the platform and locked interpreter, not imply a Windows chmod mock proves Linux.
+
+### Translation gate integration (#496)
+
+`tests/integration/test_translation_gate.py` invokes the real CLI against an isolated
+three-locale project, proves a missing target returns nonzero with useful diagnostics,
+and checks input files remain unchanged. It also exercises the real language menu,
+saved setting and next-window startup translation for every registered locale.
+`tests/unit/test_translation_gate.py` mutates both axes: a new locale missing an old key,
+and a new source key missing from some or all catalogs. Equal-size wrong-key catalogs,
+invalid values/placeholders, stale binaries and stale source declarations fail.
 
 ## 8.11 Security Scanning (SAST)
 
