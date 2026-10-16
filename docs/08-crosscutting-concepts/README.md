@@ -143,7 +143,7 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 ### Textures (`resources/textures/`, ADR-042 / #309)
 - **Generated, never hand-edited**: all 24 fill-pattern textures (grass, gravel, concrete, wood, water, soil, mulch, roof tiles, sand, stone, glass, hedge, brick, bark, wildflower, terracotta, pebbles, slate, lattice, compost, flagstone, clay, decking, corten) are emitted by `scripts/generate_asset_forge_textures.py` in the "Lush" texture language; committed PNGs must be pixel-identical to regeneration (`--check` + `tests/unit/test_texture_forge_conformance.py`). See §8.24.
 - 256×256 px RGB, **1 px = 1 cm** on the canvas (no LOD variants — Qt scales the brush); strictly top-down, no directional light; seamless by construction on a torus, gated by `scripts/check_texture_tileability.py` for every file
-- Loaded as `QPixmap` by `core/fill_patterns.py`, tinted with the user's fill colour at 80/255 alpha (`_tint_texture`) and applied via `QBrush` texture pattern; the tint-readability band is gated
+- Loaded as `QPixmap` by `core/fill_patterns.py`, recoloured to the user's fill colour by a luminance map (`_tint_texture`: every pixel becomes the chosen colour scaled by the texture's relative luminance, so the colour reads and the detail survives — #502) and applied via `QBrush` texture pattern; the tint-readability band is gated
 - Provenance: `resources/textures/PROVENANCE.md` (generator = provenance, one register row per file)
 
 ### Object SVGs (`resources/objects/`, ADR-042 / #308)
@@ -2275,10 +2275,13 @@ pass for every file (`tests/unit/test_texture_tileability.py` parametrises
 all of them — the #264 grandfather list `KNOWN_SEAMED_LEGACY` was emptied
 and then deleted, a constant that must stay empty being ceremony), and the
 §8.10 test paints the item's real tinted brush two tiles wide and checks the
-wrap column AND wrap row against the same metric. **Tint-readable**: the runtime tint overlays the user colour
-at 80/255 alpha; the conformance gate pins mean luminance 40–225, luminance
+wrap column AND wrap row against the same metric. **Tint-readable**: the runtime recolour is a luminance map (`_tint_texture`,
+#502): each pixel becomes the user's fill colour scaled by the texture's relative
+luminance, so the chosen colour reads as itself and the material's detail survives;
+the conformance gate pins mean luminance 40–225, luminance
 std ≥ 4 and local detail ≥ 2 per texture, and the integration test proves a
-red vs a blue fill colour move the rendered hue without flattening the
+**pale** fill colour (the light green that read as the standard brown roof tile
+before #502), a red and a blue one each move the rendered hue without flattening the
 detail (materials that would collapse under tint fail before an owner sees
 them). A fourth rule is not gated but binding: **no directional light** — the
 view flips Y and fills never rotate, so every shading cue is radial or

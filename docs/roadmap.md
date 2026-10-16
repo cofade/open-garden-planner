@@ -2980,6 +2980,16 @@ Epic #392 remains open; other audit bundles and #485 remain separate.
 Three pre-existing 2D defects found during the Phase 17 L1 work (#385), shipped together
 because none touches the in-flight L1 branch's files (see ADR-057, §8.28, §11.4.9).
 
+- **#502 (manual pass of #501)**: a textured fill did not show the chosen colour - the runtime tint was a
+  31 % wash (`_tint_texture`, alpha 80/255), so a light-green fill over the Roof Tiles texture rendered the standard
+  brown (`#ca6846` → `#b8925d`); raising the wash flattened the low-contrast materials. Replaced by a **luminance map**
+  (chosen colour × the texture's relative luminance), which makes the colour read and preserves relative contrast by
+  construction (ADR-042 addendum). The same pass showed the Properties panel disagreeing with the canvas after a
+  reload: the loader rebuilt the brush/pen but never restored the stored appearance attributes, so the panel showed the
+  object type's defaults and the next save wrote them over the user's colours — the loader now restores them through
+  `core/item_look.restore_stored_look` (#438/#469). The §8.10 gate gained the pale-colour case and a relative-contrast
+  assertion (reverting the tint fails 19 of 48 cases); `tests/integration/test_item_appearance_roundtrip.py` pins the
+  rendered pixels across all five shapes and the Ctrl+D duplicate. Lesson in §11.4.10.
 - **#472 (Bounded polygon paint)**: `PolygonItem` painted any vertex count a plan held, and a
   reflex-heavy outline makes one antialiased fill quadratic (measured with the item's own pen:
   ~322 ms at 1,024 vertices, ~5.6 s at 16,384). Full detail is now bounded by

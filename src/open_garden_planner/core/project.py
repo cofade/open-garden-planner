@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
 from open_garden_planner.app.settings import get_settings
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
+from open_garden_planner.core.item_look import restore_stored_look
 from open_garden_planner.core.object_types import PathFenceStyle, StrokeStyle
 from open_garden_planner.core.plan_io import (
     PlanValidationError,
@@ -1438,6 +1439,24 @@ class ProjectManager(QObject):
         return data
 
     @staticmethod
+    def _stored_fill_color(item: Any) -> QColor:
+        """The fill colour to persist for ``item`` (issues #438/#469).
+
+        Prefer the item's stored ``fill_color`` attribute. A **texture** brush's
+        ``color()`` is black — not a tint — so writing it would repaint the fill
+        black on the next load; for a textured fill with no stored colour, fall
+        back to the object type's style colour, which is what the item paints.
+        """
+        if getattr(item, "fill_color", None):
+            return QColor(item.fill_color)
+        brush = item.brush()
+        if not brush.textureImage().isNull() and getattr(item, "object_type", None) is not None:
+            from open_garden_planner.core.object_types import get_style
+
+            return QColor(get_style(item.object_type).fill_color)
+        return QColor(brush.color())
+
+    @staticmethod
     def _serialize_item_core(item: QGraphicsItem) -> dict[str, Any] | None:
         """Core serialization logic for a single graphics item."""
         for field_name, value in (("x", item.pos().x()), ("y", item.pos().y()),
@@ -1493,12 +1512,8 @@ class ProjectManager(QObject):
             if hasattr(item, "label_visible") and not item.label_visible:
                 data["label_visible"] = False
             # Save custom fill and stroke colors (with alpha)
-            # Use stored fill_color if available (for textured brushes), otherwise get from brush
-            if hasattr(item, "fill_color") and item.fill_color:
-                fill_color = item.fill_color
-            else:
-                fill_color = item.brush().color()
-            data["fill_color"] = fill_color.name(QColor.NameFormat.HexArgb)
+            # A texture brush's color() is black, not a tint (issue #438)
+            data["fill_color"] = ProjectManager._stored_fill_color(item).name(QColor.NameFormat.HexArgb)
             stroke_color = item.pen().color()
             data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
             data["stroke_width"] = item.pen().widthF()
@@ -1536,8 +1551,7 @@ class ProjectManager(QObject):
                 data["layer_id"] = str(item.layer_id)
             if hasattr(item, "label_visible") and not item.label_visible:
                 data["label_visible"] = False
-            fill_color = item.fill_color if hasattr(item, "fill_color") and item.fill_color else item.brush().color()
-            data["fill_color"] = fill_color.name(QColor.NameFormat.HexArgb)
+            data["fill_color"] = ProjectManager._stored_fill_color(item).name(QColor.NameFormat.HexArgb)
             data["stroke_color"] = item.pen().color().name(QColor.NameFormat.HexArgb)
             data["stroke_width"] = item.pen().widthF()
             if hasattr(item, "fill_pattern") and item.fill_pattern:
@@ -1568,12 +1582,8 @@ class ProjectManager(QObject):
             if hasattr(item, "label_visible") and not item.label_visible:
                 data["label_visible"] = False
             # Save custom fill and stroke colors (with alpha)
-            # Use stored fill_color if available (for textured brushes), otherwise get from brush
-            if hasattr(item, "fill_color") and item.fill_color:
-                fill_color = item.fill_color
-            else:
-                fill_color = item.brush().color()
-            data["fill_color"] = fill_color.name(QColor.NameFormat.HexArgb)
+            # A texture brush's color() is black, not a tint (issue #438)
+            data["fill_color"] = ProjectManager._stored_fill_color(item).name(QColor.NameFormat.HexArgb)
             stroke_color = item.pen().color()
             data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
             data["stroke_width"] = item.pen().widthF()
@@ -1652,12 +1662,8 @@ class ProjectManager(QObject):
             if hasattr(item, "label_visible") and not item.label_visible:
                 data["label_visible"] = False
             # Save custom fill and stroke colors (with alpha)
-            # Use stored fill_color if available (for textured brushes), otherwise get from brush
-            if hasattr(item, "fill_color") and item.fill_color:
-                fill_color = item.fill_color
-            else:
-                fill_color = item.brush().color()
-            data["fill_color"] = fill_color.name(QColor.NameFormat.HexArgb)
+            # A texture brush's color() is black, not a tint (issue #438)
+            data["fill_color"] = ProjectManager._stored_fill_color(item).name(QColor.NameFormat.HexArgb)
             stroke_color = item.pen().color()
             data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
             data["stroke_width"] = item.pen().widthF()
@@ -2193,6 +2199,9 @@ class ProjectManager(QObject):
             # Restore item_id so constraints referencing this item still resolve
             if "item_id" in obj:
                 item._item_id = UUID(obj["item_id"])
+            # Restore the STORED appearance before deriving brush/pen from it
+            # (issues #438/#469: the panel reads these attributes)
+            restore_stored_look(item, obj, fill_pattern=fill_pattern, stroke_style=stroke_style)
             # Restore custom colors if saved
             if "fill_color" in obj:
                 # If we have a pattern, recreate the brush with both color and pattern
@@ -2233,6 +2242,8 @@ class ProjectManager(QObject):
             )
             if "item_id" in obj:
                 item._item_id = UUID(obj["item_id"])
+            # Restore the STORED appearance before deriving brush/pen from it (#469)
+            restore_stored_look(item, obj, fill_pattern=fill_pattern, stroke_style=stroke_style)
             # Restore custom colors if saved
             if "fill_color" in obj:
                 color = QColor(obj["fill_color"])
@@ -2295,6 +2306,8 @@ class ProjectManager(QObject):
             )
             if "item_id" in obj:
                 item._item_id = UUID(obj["item_id"])
+            # Restore the STORED appearance before deriving brush/pen from it (#469)
+            restore_stored_look(item, obj, fill_pattern=fill_pattern, stroke_style=stroke_style)
             if "fill_color" in obj:
                 color = QColor(obj["fill_color"])
                 if hasattr(item, 'fill_color'):
@@ -2341,6 +2354,8 @@ class ProjectManager(QObject):
                     item._item_id = UUID(obj["item_id"])
                 if metadata:
                     item._metadata = metadata
+                # Restore the STORED appearance (the panel reads these; #469)
+                restore_stored_look(item, obj)
                 # Restore custom stroke color if saved (only if no preset overrides it)
                 if "stroke_color" in obj and path_fence_style == PathFenceStyle.NONE:
                     pen = item.pen()
@@ -2383,6 +2398,8 @@ class ProjectManager(QObject):
                 )
                 if "item_id" in obj:
                     item._item_id = UUID(obj["item_id"])
+                # Restore the STORED appearance before deriving brush/pen from it (#469)
+                restore_stored_look(item, obj, fill_pattern=fill_pattern, stroke_style=stroke_style)
                 # Restore custom colors if saved
                 if "fill_color" in obj:
                     color = QColor(obj["fill_color"])

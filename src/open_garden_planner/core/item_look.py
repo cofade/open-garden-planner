@@ -28,6 +28,7 @@ arc/bezier mirror builders set ``stroke_color``/``stroke_width`` by hand instead
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from PyQt6.QtGui import QBrush, QColor, QPen
@@ -67,4 +68,37 @@ def copy_visual_style(source: Any, dest: Any) -> None:
 
     if getattr(source, "area_label_visible", False):
         dest.area_label_visible = True
+
+
+def restore_stored_look(
+    item: Any,
+    obj: Mapping[str, Any],
+    *,
+    fill_pattern: Any = None,
+    stroke_style: Any = None,
+) -> None:
+    """Write a saved object dict's appearance back onto ``item`` (issues #438/#469).
+
+    The `.ogp` loader rebuilt each item's brush and pen from the file but never
+    wrote the **stored attributes** those are derived from. The item
+    constructors pre-seed those attributes with the object type's style, so
+    after a reload ``item.fill_color`` / ``stroke_color`` / ``stroke_width``
+    held the *type defaults* while the canvas painted the file's colours: the
+    Properties panel — which reads the attributes — disagreed with the canvas,
+    and the next save wrote the defaults back over the user's colours.
+
+    Call this **before** the branch's brush/pen derivation (or after, as long as
+    the derivation reads the attributes). ``fill_pattern`` and ``stroke_style``
+    are passed in already parsed by the caller.
+    """
+    if fill_pattern is not None and hasattr(item, "fill_pattern"):
+        item.fill_pattern = fill_pattern
+    if "fill_color" in obj and hasattr(item, "fill_color"):
+        item.fill_color = QColor(obj["fill_color"])
+    if "stroke_color" in obj and hasattr(item, "stroke_color"):
+        item.stroke_color = QColor(obj["stroke_color"])
+    if "stroke_width" in obj and hasattr(item, "stroke_width"):
+        item.stroke_width = float(obj["stroke_width"])
+    if stroke_style is not None and hasattr(item, "stroke_style"):
+        item.stroke_style = stroke_style
 
