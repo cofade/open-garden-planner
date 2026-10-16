@@ -82,12 +82,35 @@ manual-test confirmation is required for that mechanical PR. See ADR-050 and dep
 
 ### Translation (i18n)
 
-**#496 - implementation under review, not released.** Source-derived completeness
-for every registered language, with symmetric source/locale mutation tests, strict
-compilation, registry-driven menu/startup coverage and required Test enforcement.
-English/German baseline reconciled; Russian registration/wording stays in #495 and
-must update after this infrastructure merges. ADR-008 addendum, FR-I18N-07, section 8.3.
-Validation and owner acceptance are recorded in the implementing PR before delivery.
+**Complete, 2026-10-16; released as [v1.30.6](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.6)
+via [PR #497](https://github.com/cofade/open-garden-planner/pull/497), closing #496 after owner acceptance.**
+Source-derived completeness covers every registered language in both directions:
+adding a locale requires all current keys, and adding a wrapped UI string requires
+every target translation. The required Test check validates exact context/source/comment
+keys, completed values, placeholders, compiled bytes and actual Qt lookups. English/German
+each cover 2,631 live keys. Helper/table mutation tests pin extraction; unsupported
+forwarding and plural input fail explicitly. Shared companion fallback and shopping-list/
+offset translation contexts are corrected. Russian registration and wording stay in #495;
+its contributor must merge latest master and pass the shared gate before finalization.
+
+Final evidence: 85 focused tests passed; full Windows suite 8,453 passed / 39 skipped;
+Linux coverage suite 8,452 passed / 40 skipped, 80.0% lines / 63.7% branches with no floor
+regressions. Independent senior review, all CI checks, frozen startup/self-test and 5,262
+packaged translation lookups passed. Owner confirmed the frozen app works correctly.
+The published release and successful provenance workflow match merge `aeb9e79b`.
+
+#### Docs updated on completion (#496)
+
+| Document | Updated contract |
+|---|---|
+| `docs/TRANSLATING.md`, `CONTRIBUTING.md`, PR template | All-locale maintenance workflow |
+| `docs/05-building-block-view/`, `docs/07-deployment-view/` | Extraction tooling and required CI enforcement |
+| `docs/08-crosscutting-concepts/` | Sections 8.3 and 8.10: inventory and validation |
+| `docs/09-architecture-decisions/` | ADR-008 addendum: source authority and compiler boundary |
+| `docs/10-quality-requirements/`, `docs/functional-requirements.md` | NFR-MAINT-05 and FR-I18N-07 |
+| `docs/11-risks-and-technical-debt/` | Section 11.4: extraction blind spots and runtime contexts |
+| Root agent guidance and paired skills | Current commands, gates and regression lessons |
+| `docs/wiki/` | Contribution workflow and shipped status; publication follows protected merge |
 
 Every user-visible string must be wrapped for translation. See `docs/08-crosscutting-concepts/` section 8.3.
 

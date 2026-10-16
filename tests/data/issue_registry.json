@@ -831,7 +831,12 @@
   },
   "496": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Enforce source-based translation completeness for every supported language before merge"
+  },
+  "497": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(i18n): require complete source coverage in every supported language"
   }
 }
