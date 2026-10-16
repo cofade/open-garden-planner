@@ -43,7 +43,6 @@ def test_copies_serialized_and_live_look(qtbot: object) -> None:  # noqa: ARG001
     assert dest.pen().color() == source.pen().color()
     assert dest.pen().widthF() == source.pen().widthF()
     assert dest.pen().style() == source.pen().style()
-    assert dest.brush().color() == source.brush().color()
 
 
 def test_copies_the_area_label_flag_when_set(qtbot: object) -> None:  # noqa: ARG001

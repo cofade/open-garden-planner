@@ -2986,7 +2986,7 @@ because none touches the in-flight L1 branch's files (see ADR-057, §8.28, §11.
   `MAX_FULL_DETAIL_VERTICES = 256`; above it an interactive, unselected paint draws the exact
   outline with a **cosmetic** 1-px pen (essential — a wide solid pen makes the outline a fill
   again), while exports/offscreen renders and selected items keep the exact fill.
-  `MAX_POLYGON_VERTICES = 16_384` (matching the L1 scene-3D outline limit) refuses a hostile
+  `MAX_POLYGON_VERTICES = 16_384` refuses a hostile
   polygon at the load seam without dropping the rest of the plan. Pinned in
   `tests/integration/test_polygon_paint_bound.py`.
 - **#470 (Offset copy keeps its look)**: the offset tool made a rectangle, circle or ellipse copy

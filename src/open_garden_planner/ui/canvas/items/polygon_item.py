@@ -62,9 +62,8 @@ MAX_FULL_DETAIL_VERTICES = 256
 
 # Hard ceiling at load for untrusted plan files (issue #472): a polygon above
 # this is refused rather than built, so a crafted ``.ogp`` cannot stall the
-# loader or exhaust memory. It matches the L1 scene-3D outline limit (an outline
-# above 16,384 is left out of 3D too, so such an item is already degraded there);
-# at this ceiling the degraded 2D outline is measured at ~69 ms, not minutes.
+# loader or exhaust memory. At this ceiling the degraded 2D outline is measured
+# at ~69 ms, not minutes, and no legible garden outline comes near it.
 MAX_POLYGON_VERTICES = 16_384
 
 
