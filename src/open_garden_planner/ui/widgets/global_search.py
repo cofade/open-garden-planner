@@ -110,6 +110,7 @@ class GlobalSearchField(QLineEdit):
         self._popup.item_chosen.connect(self._on_item_chosen)
 
         self.setPlaceholderText(self.tr("Search object…"))
+        self.setToolTip(self.tr("Search object…"))
         self.setClearButtonEnabled(True)
         self.setFixedWidth(240)
         self.textChanged.connect(self._on_text_changed)

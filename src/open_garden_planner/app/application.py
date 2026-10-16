@@ -3928,10 +3928,11 @@ class GardenPlannerApp(QMainWindow):
 
         # Find & Replace
         find_replace_action = QAction(self.tr("&Find && Replace…"), self)
-        find_replace_action.setShortcut(QKeySequence.StandardKey.Find)
+        find_replace_action.setShortcut(QKeySequence("Ctrl+H"))
         find_replace_action.setStatusTip(self.tr("Find and replace objects by name, type, layer or species"))
         find_replace_action.triggered.connect(self._on_toggle_find_replace)
         self._set_action_icon(find_replace_action, "find_replace")
+        self._find_replace_action = find_replace_action
         menu.addAction(find_replace_action)
 
         menu.addSeparator()
