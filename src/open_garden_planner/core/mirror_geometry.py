@@ -83,7 +83,12 @@ def _mirror_polyline(
     refl = [reflect_point(source.mapToScene(p), a, b) for p in source.points]
     # clone_with_points copies pen/brush/object_type/name/layer/style and
     # places the clone at pos (0, 0), so scene-space points become its geometry.
-    return source.clone_with_points(refl)
+    clone = source.clone_with_points(refl)
+    # The clone's live pen/brush are copied, but its serialized stroke
+    # attributes are not; route it through the one look rule so a mirrored line
+    # with a customised stroke survives a save (#470).
+    copy_visual_style(source, clone)
+    return clone
 
 
 def _mirror_polygon(
@@ -214,8 +219,9 @@ def _mirror_bezier(
 # Shared appearance copy (GardenItemMixin-based items)
 # ---------------------------------------------------------------------------
 #
-# Every shape builder above ends with
+# The polygon, circle, box and polyline builders above end with
 # :func:`open_garden_planner.core.item_look.copy_visual_style`, the one rule
 # that makes a copy look like its source and keeps it that way across a save
 # (issues #441, #470). object_type / name / metadata / layer_id are carried via
-# each constructor; the look is not.
+# each constructor; the look is not. The arc and bezier builders are the
+# exception: their only look is a stroke, which they set directly.

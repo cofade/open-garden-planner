@@ -21,9 +21,9 @@ arguments are duck-typed shape items (``GardenItemMixin`` items), which mypy
 cannot see through a bare ``QGraphicsItem``, hence ``Any``.
 
 Chamfer, fillet and trim copies have the same defect and are deliberately NOT
-routed here: they are owned by the in-flight L1 branch (#441). The stroke-only
-arc/bezier items do not call this helper either — their mirror builders set
-``stroke_color``/``stroke_width`` directly.
+routed here: they are owned by the in-flight L1 branch (#441). The mirror
+polyline, circle, box and polygon builders all call this helper; the stroke-only
+arc/bezier mirror builders set ``stroke_color``/``stroke_width`` by hand instead.
 """
 
 from __future__ import annotations

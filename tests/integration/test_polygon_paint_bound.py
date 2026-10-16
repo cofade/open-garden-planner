@@ -263,3 +263,35 @@ def test_the_two_bounds_are_consistent() -> None:
     """The load ceiling must leave room for the degraded outline (issue #472)."""
     assert MAX_POLYGON_VERTICES >= 10_000
     assert MAX_FULL_DETAIL_VERTICES < MAX_POLYGON_VERTICES
+
+
+class TestTheBoundSitsBelowThePathologicalCount:
+    """Pin the threshold, not just the mechanism (round-1 review, issue #472).
+
+    The first draft set the bound at 1,024 vertices — the very count the bug
+    report calls pathological — so the report's own reproduction was never
+    degraded. These use a literal count so a future change back to that bound
+    fails, even though the cosmetic-pen mechanism would still be in place.
+    """
+
+    def test_a_1024_vertex_polygon_is_degraded(self, _qt: object) -> None:
+        assert MAX_FULL_DETAIL_VERTICES <= 512, (
+            "the full-detail bound must sit below the 1,024-vertex comb the bug "
+            "report measured at 10.5 s"
+        )
+        item = _square_item(1024)
+        on_screen, _ = _paint(item, QWidget())
+        exported, _ = _paint(item, None)
+        assert _ink(on_screen) < _ink(exported), "a 1,024-vertex polygon must be degraded"
+
+    def test_the_bound_itself_is_not_degraded(self, _qt: object) -> None:
+        item = _square_item(MAX_FULL_DETAIL_VERTICES)
+        on_screen, _ = _paint(item, QWidget())
+        exported, _ = _paint(item, None)
+        assert _ink(on_screen) == _ink(exported)
+
+    def test_one_vertex_above_the_bound_is_degraded(self, _qt: object) -> None:
+        item = _square_item(MAX_FULL_DETAIL_VERTICES + 4)
+        on_screen, _ = _paint(item, QWidget())
+        exported, _ = _paint(item, None)
+        assert _ink(on_screen) < _ink(exported)

@@ -234,27 +234,38 @@ class TestNfrPerf01LinePaintBudgets:
             p.cacheMode() == QGraphicsItem.CacheMode.NoCache for p in lines
         ), "scenario lines must disable DeviceCoordinateCache or line paint is not measured"
 
-    def test_line_paint_adds_a_bounded_cost(
-        self, benchmark_view, line_benchmark_view
-    ) -> None:
-        """The behavioural half: line paint must not explode the frame.
+    def test_line_paint_adds_a_bounded_cost(self, line_benchmark_view) -> None:
+        """The behavioural half: hiding the lines must make the frame cheaper.
 
-        A same-run comparison, so it does not depend on machine speed. It pairs
-        with the cache guard above — that guard proves line ``paint()`` runs
-        every frame (the issue #473 defect); this one bounds how much it costs.
-        An absolute per-frame budget for the line scenario is left to #450,
-        which owns the styled path's whole-line walk.
+        A same-view comparison (hide the scenario lines, re-measure), so it does
+        not depend on machine speed, a second scene load, or the noise between
+        two independently loaded views. It pairs with the cache guard above —
+        that guard proves line ``paint()`` runs every frame; this one proves the
+        lines actually cost something at that point. An absolute per-frame
+        budget for the styled lines is left to #450, which owns the whole-line
+        style walk.
         """
-        benchmark_view.fit_in_view()
-        line_benchmark_view.fit_in_view()
+        view = line_benchmark_view
+        view.fit_in_view()
         QApplication.processEvents()
-        line_free = _best_median(benchmark_view)
-        with_lines = _best_median(line_benchmark_view)
-        delta = with_lines - line_free
-        assert delta >= 0.0, f"line scenario measured faster than the line-free plan ({delta:.2f} ms)"
+        lines = [i for i in view.scene().items() if isinstance(i, PolylineItem)]
+        assert lines, "the scenario must hold lines to measure"
+
+        with_lines = _best_median(view)
+        for line in lines:
+            line.setVisible(False)
+        QApplication.processEvents()
+        without_lines = _best_median(view)
+
+        delta = with_lines - without_lines
+        assert delta >= 1.5, (
+            f"hiding the scenario lines changed the frame by only {delta:.2f} ms "
+            f"({with_lines:.2f} ms -> {without_lines:.2f} ms); line paint is not being "
+            f"measured (cache re-enabled?)"
+        )
         assert delta <= 40.0, (
-            f"the line scenario adds {delta:.2f} ms to the frame ({line_free:.2f} ms "
-            f"-> {with_lines:.2f} ms); line paint cost has exploded"
+            f"the scenario lines add {delta:.2f} ms to the frame ({with_lines:.2f} ms "
+            f"-> {without_lines:.2f} ms); line paint cost has exploded"
         )
 
 

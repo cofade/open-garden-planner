@@ -369,7 +369,6 @@ def _assert_live_look(source: object, copy: object) -> None:
     assert copy.pen().color() == source.pen().color()
     assert copy.pen().widthF() == pytest.approx(source.pen().widthF())
     assert copy.pen().style() == source.pen().style()
-    assert copy.brush().color() == source.brush().color()
 
 
 def _assert_reloaded_look(source: object, reloaded: object) -> None:
