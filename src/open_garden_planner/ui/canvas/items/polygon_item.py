@@ -31,6 +31,28 @@ from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_s
 from .garden_item import GardenItemMixin
 from .resize_handle import ResizeHandlesMixin, RotationHandleMixin, VertexEditMixin
 
+# --- Issue #472: bound what a crafted plan can cost the 2D canvas -----------
+#
+# A polygon's fill cost grows with its vertex count and, for a reflex-heavy
+# outline (a comb), quadratically. Measured on a 512x512 antialiased painter,
+# one comb outline costs ~2 ms at 128 vertices, ~23 ms at 512, ~83 ms at 1024
+# and minutes at 16,384; a convex outline fills in well under a millisecond.
+#
+# At or below :data:`MAX_FULL_DETAIL_VERTICES` an unselected polygon paints
+# exactly as before. Above it, an INTERACTIVE paint draws the exact outline
+# only (a NoBrush stroke is linear in vertices — ~4 ms at 1024, ~59 ms at
+# 16,384 — instead of quadratic), so the window stays responsive. Exports and
+# offscreen renders (``widget is None``) are never degraded, so a saved
+# PDF/PNG is unchanged, and a selected item always paints exactly so editing
+# and validation see the truth.
+MAX_FULL_DETAIL_VERTICES = 1024
+
+# Hard ceiling at load for untrusted plan files (issue #472): a polygon above
+# this is refused rather than built, so a crafted ``.ogp`` cannot stall the
+# loader or exhaust memory. Roughly 25x the largest outline the bug report
+# measured (16,384) and far beyond any legible garden outline.
+MAX_POLYGON_VERTICES = 100_000
+
 
 def _project_to_polygon_boundary(polygon: QPolygonF, point: QPointF) -> QPointF:
     """Find the closest point on a polygon's boundary to *point*.
@@ -605,18 +627,35 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         widget: QWidget | None = None,
     ) -> None:
         """Paint the polygon with an optional painted shadow."""
+        poly = self.polygon()
+
+        # Degraded paint for an over-budget outline (issue #472): interactive
+        # painting only, an unselected item only. Draw the exact outline with
+        # no fill — linear in vertices — instead of a quadratic tessellation.
+        if (
+            poly.count() > MAX_FULL_DETAIL_VERTICES
+            and not self.isSelected()
+            and widget is not None
+            and option is not None
+        ):
+            painter.save()
+            painter.setPen(self.pen())
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawPolygon(poly)
+            painter.restore()
+            return
+
         if self._shadows_enabled:
             painter.save()
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(self.SHADOW_COLOR)
-            shadow_poly = self.polygon().translated(
+            shadow_poly = poly.translated(
                 self.SHADOW_OFFSET_X, self.SHADOW_OFFSET_Y,
             )
             painter.drawPolygon(shadow_poly)
             painter.restore()
 
         if not self.isSelected() and self.fill_pattern is not None and self.should_use_lod_flat_fill(option, widget, painter):
-            poly = self.polygon()
             painter.save()
             painter.setPen(self.pen())
             painter.setBrush(QBrush(self.get_lod_fill_color()))

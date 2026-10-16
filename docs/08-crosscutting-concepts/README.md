@@ -2568,3 +2568,11 @@ dimensions, structure and full first-frame decoding are checked before use. Resp
 close on all paths, HTTP error excerpts are limited to 200 bytes, and Google keys stay
 redacted. Existing invalid caches are rejected; valid legacy images normalize on use.
 The map's calibration, crop/mosaic math and existing cancellation outcomes are unchanged.
+
+## 8.28 Bounded 2D canvas paint for crafted plans (#472, ADR-057)
+
+`PolygonItem.paint` sizes its work by a vertex bound, not by whatever a plan file happens to hold. `MAX_FULL_DETAIL_VERTICES = 1024` is the full-detail budget: at or below it an unselected polygon paints exactly as it always did. Above it, an **interactive** paint (the same `widget is not None and option is not None` guard the LOD flat fill uses) draws the exact outline with `Qt.BrushStyle.NoBrush` — a stroke is linear in vertices while a reflex-heavy fill is quadratic — and returns, skipping the shadow, grid and status overlays for that frame. A **selected** item and every **export/offscreen** render (`widget is None`) paint the exact fill, so a saved PDF/PNG is unchanged and editing sees the truth.
+
+The load seam is the second half. `ProjectManager._deserialize_item_core` refuses a polygon above `MAX_POLYGON_VERTICES = 100_000` and skips it with a logged warning, so a hostile `.ogp` cannot stall the loader or exhaust memory; the rest of the plan loads normally. Both constants live in `ui/canvas/items/polygon_item.py` and are the only place to retune the bound. Measured cost table and the rejected alternatives (convex-hull / bounding-box fill, reflex counting, a low load ceiling) are in ADR-057; the regression is pinned by `tests/integration/test_polygon_paint_bound.py`.
+
+An "item made from an item" copies a shape's **look** through one seam, `core/item_look.py::copy_visual_style`. It copies both the serialized attributes (`fill_pattern`, `fill_color`, `stroke_color`, `stroke_width`, `stroke_style`) and the live `QPen`/`QBrush`, because a copy that writes only one of the two looks right until the next save (#470). The offset tool (`core/tools/offset_tool.py`) and `core/mirror_geometry.py` both call it.

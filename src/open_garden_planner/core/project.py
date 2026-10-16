@@ -2357,6 +2357,20 @@ class ProjectManager(QObject):
                 return item
         elif obj_type == "polygon":
             points = [QPointF(p["x"], p["y"]) for p in obj.get("points", [])]
+            from open_garden_planner.ui.canvas.items.polygon_item import (
+                MAX_POLYGON_VERTICES,
+            )
+
+            # A crafted plan file can hold a polygon with any number of
+            # vertices; refuse a hostile one before it becomes a scene item
+            # (issue #472). Normal plans are orders of magnitude below this.
+            if len(points) > MAX_POLYGON_VERTICES:
+                logging.getLogger(__name__).warning(
+                    "Refusing polygon with %d vertices (limit %d) from plan file",
+                    len(points),
+                    MAX_POLYGON_VERTICES,
+                )
+                return None
             if len(points) >= 3:
                 item = PolygonItem(
                     points,

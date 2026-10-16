@@ -2122,3 +2122,21 @@ preserve dynamic comments, require explicit external receiver contexts, and tran
 offset status through CanvasView explicitly. Reject escaping/imported helper aliases.
 **Lesson.** Validate extraction with mutations at real production source shapes and
 runtime lookups, not only against catalogs generated from that same extractor.
+
+## Case study: a fill that costs minutes, and the frame it froze (#472, 2026-10-16)
+
+**Symptom.** A crafted plan froze the 2D canvas for minutes, with no crash and no log line.
+**Wrong theories.** The cost was in item lookup/snapping; the loader was the bottleneck; a plant or tree sprite was the expensive item.
+**Evidence.** Painting the same polygon into an offscreen 512x512 `QImage` and timing `drawPolygon`: a comb outline costs ~2 ms at 128 vertices, ~83 ms at 1024, ~202 ms at 2048, ~410 ms at 4096 and minutes at 16,384; the same outline drawn as a stroke (`NoBrush`) is linear (3.9 / 14.7 / 59 ms). A **convex** 4096-vertex polygon fills in 0.41 ms - the cost is reflex geometry, not size.
+**Root cause.** `PolygonItem.paint` called `painter.drawPolygon` on whatever vertex count the file held; nothing bounded it at load and nothing degraded the paint. Qt's rasteriser is quadratic on a reflex-heavy fill.
+**Fix.** Bound full detail by a vertex count; degrade an interactive, unselected over-budget paint to the exact outline (exports and selected items keep the exact fill); refuse a hostile polygon at the load seam. ADR-057, section 8.28.
+**Lesson.** Size a paint cost by measuring the same shape as a fill and as a stroke in one run: the ratio (27x at 16k) names the fix, and the export guard (`widget is None`) tells you where the degrade must stop.
+
+## Case study: a copy that looked right until the next save (#470, 2026-10-16)
+
+**Symptom.** The offset tool's copy of a rectangle, circle or ellipse came back in its object type's default fill, pattern and stroke, while a polygon or line copy "kept all of it".
+**Wrong theories.** The offset geometry was wrong; the style dialog never applied the look; the serializer dropped the colour.
+**Evidence.** After the offset the copy's `fill_pattern`/`stroke_style` read as the type default and the save -> reload pen reverted, although the in-session pen/brush on the polygon path looked correct. One row of a save/reload round-trip test separated the two representations.
+**Root cause.** An item carries its look twice - live (`QPen`/`QBrush`) and serialized (`fill_pattern`/`fill_color`/`stroke_color`/`stroke_width`/`stroke_style`). The rectangle/circle/ellipse path copied neither; the polygon/line path copied only the live pair, so it looked right until the next save. Two failures, one defect.
+**Fix.** One seam, `core/item_look.py::copy_visual_style`, copies both; the offset tool and `mirror_geometry` share it.
+**Lesson.** A copy that writes only one of an item's two appearance representations is a round-trip bug a rendering test cannot see - assert through the save/reload boundary.

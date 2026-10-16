@@ -7,13 +7,19 @@ All coordinates are scene-space (Y-down, (0,0) = top-left).
 
 # ruff: noqa: ARG002
 
+import tempfile
+from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
 from PyQt6.QtCore import QPointF, Qt
-from PyQt6.QtGui import QMouseEvent
+from PyQt6.QtGui import QColor, QMouseEvent
 
-from open_garden_planner.core.object_types import ObjectType
+from open_garden_planner.core.fill_patterns import FillPattern
+from open_garden_planner.core.object_types import ObjectType, StrokeStyle
+from open_garden_planner.core.project import ProjectManager
 from open_garden_planner.core.tools import ToolType
+from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 from open_garden_planner.ui.canvas.items.ellipse_item import EllipseItem
@@ -325,3 +331,155 @@ class TestRobustness:
         tool = canvas.tool_manager.active_tool
         event = _left_click()
         tool.mouse_move(event, QPointF(500, 500))
+
+
+# ---------------------------------------------------------------------------
+# Look fidelity (issue #470)
+#
+# An offset copy must look like its source — a rectangle, circle and ellipse
+# used to come back in their object type's default fill, pattern and stroke —
+# and must *stay* that way across a save -> reload.
+# ---------------------------------------------------------------------------
+
+_CUSTOM_FILL = "#3366cc"
+_CUSTOM_STROKE = "#cc2222"
+
+
+def _apply_custom_look(item: object) -> None:
+    """Give ``item`` a distinct, non-default look and rebuild its pen/brush.
+
+    ``_setup_styling`` is the same rebuild the style dialogs trigger after
+    setting these attributes.
+    """
+    item.fill_pattern = FillPattern.SOIL
+    item.fill_color = QColor(_CUSTOM_FILL)
+    item.stroke_color = QColor(_CUSTOM_STROKE)
+    item.stroke_width = 3.5
+    item.stroke_style = StrokeStyle.DASHED
+    item._setup_styling()
+
+
+def _assert_live_look(source: object, copy: object) -> None:
+    """Assert the in-session appearance of ``copy`` matches ``source``."""
+    assert copy.fill_color == source.fill_color
+    assert copy.fill_pattern == source.fill_pattern
+    assert copy.stroke_color == source.stroke_color
+    assert copy.stroke_width == pytest.approx(source.stroke_width)
+    assert copy.stroke_style == source.stroke_style
+    assert copy.pen().color() == source.pen().color()
+    assert copy.pen().widthF() == pytest.approx(source.pen().widthF())
+    assert copy.pen().style() == source.pen().style()
+    assert copy.brush().color() == source.brush().color()
+
+
+def _assert_reloaded_look(source: object, reloaded: object) -> None:
+    """Assert the persisted *appearance* survives a save -> reload.
+
+    Deliberately compared through the brush/pen (what is painted) rather than
+    the ``fill_color``/``stroke_color``/``stroke_width`` mixin attributes: the
+    loader recreates the brush and pen but does not write those attributes back
+    (#438/#469, owned by the L1 branch), so they read as type defaults after a
+    reload even though the item paints correctly.
+    """
+    assert reloaded.fill_pattern == source.fill_pattern
+    assert reloaded.pen().color() == source.pen().color()
+    assert reloaded.pen().widthF() == pytest.approx(source.pen().widthF())
+    assert reloaded.pen().style() == source.pen().style()
+    assert reloaded.brush().color() == source.brush().color()
+
+
+class TestOffsetCopyLooksLikeItsSource:
+    def test_offset_rectangle_keeps_fill_and_stroke(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        source = _add_rect(canvas, 200, 200, 600, 400)
+        _apply_custom_look(source)
+        canvas.set_active_tool(ToolType.OFFSET)
+
+        _offset_click(canvas, QPointF(820, 400))
+
+        copies = [r for r in _items_of(canvas, RectangleItem) if r is not source]
+        assert len(copies) == 1
+        _assert_live_look(source, copies[0])
+
+    def test_offset_circle_keeps_fill_and_stroke(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        source = _add_circle(canvas, 500, 500, 100)
+        _apply_custom_look(source)
+        canvas.set_active_tool(ToolType.OFFSET)
+
+        _offset_click(canvas, QPointF(630, 500))
+
+        copies = [c for c in _items_of(canvas, CircleItem) if c is not source]
+        assert len(copies) == 1
+        _assert_live_look(source, copies[0])
+
+    def test_offset_ellipse_keeps_fill_and_stroke(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        source = _add_ellipse(canvas, 300, 300, 400, 200)
+        _apply_custom_look(source)
+        canvas.set_active_tool(ToolType.OFFSET)
+
+        _offset_click(canvas, QPointF(725, 400))
+
+        copies = [e for e in _items_of(canvas, EllipseItem) if e is not source]
+        assert len(copies) == 1
+        _assert_live_look(source, copies[0])
+
+    def test_offset_polygon_keeps_fill_and_stroke(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        source = _add_polygon(
+            canvas,
+            [
+                QPointF(200, 200),
+                QPointF(800, 200),
+                QPointF(800, 600),
+                QPointF(200, 600),
+            ],
+        )
+        _apply_custom_look(source)
+        canvas.set_active_tool(ToolType.OFFSET)
+
+        _offset_click(canvas, QPointF(820, 400))
+
+        copies = [p for p in _items_of(canvas, PolygonItem) if p is not source]
+        assert len(copies) == 1
+        _assert_live_look(source, copies[0])
+
+    @pytest.mark.parametrize(
+        "build, click",
+        [
+            (lambda v: _add_rect(v, 200, 200, 600, 400), QPointF(820, 400)),
+            (lambda v: _add_circle(v, 500, 500, 100), QPointF(630, 500)),
+            (lambda v: _add_ellipse(v, 300, 300, 400, 200), QPointF(725, 400)),
+        ],
+    )
+    def test_offset_copy_look_survives_save_and_reload(
+        self,
+        canvas: CanvasView,
+        qtbot: object,
+        build: object,
+        click: QPointF,
+    ) -> None:
+        source = build(canvas)
+        _apply_custom_look(source)
+        canvas.set_active_tool(ToolType.OFFSET)
+        _offset_click(canvas, click)
+
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "offset_look.ogp"
+            pm = ProjectManager()
+            pm.save(canvas.scene(), path)
+
+            reloaded_scene = CanvasScene()
+            pm.load(reloaded_scene, path)
+
+        reloaded = [
+            i for i in reloaded_scene.items() if isinstance(i, type(source))
+        ]
+        assert len(reloaded) == 2, "source and its offset copy must both persist"
+        for item in reloaded:
+            _assert_reloaded_look(source, item)

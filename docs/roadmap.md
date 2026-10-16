@@ -2974,3 +2974,24 @@ Epic #392 remains open; other audit bundles and #485 remain separate.
 - **#448 (Test environment flakiness)**: Decorated `test_type_cli_missing_mypy_is_an_error_not_a_clean_result` with skipif for non-3.11 interpreters matching `test_type_cli_generate_check_regress_and_reduce`. Added multi-round retry and local load tolerance to `tests/perf/test_nfr_budgets.py` while keeping CI budgets strict.
 - **Shortcut overload resolution**: Dedicated `Ctrl+F` to global search focus in `CategoryToolbar` and reassigned Find & Replace to `Ctrl+H` in `GardenPlannerApp`, eliminating ambiguous shortcut overload warnings with whole-window duplicate shortcut assertion gate.
 
+
+### 2D canvas follow-up: a paint bound, one look rule and a line budget (#470, #472, #473)
+
+Three pre-existing 2D defects found during the Phase 17 L1 work (#385), shipped together
+because none touches the in-flight L1 branch's files (see ADR-057, §8.28, §11.4.9).
+
+- **#472 (Bounded polygon paint)**: `PolygonItem` painted any vertex count a plan held, and a
+  reflex-heavy outline makes one antialiased fill quadratic (~83 ms at 1024 vertices, minutes at
+  16,384). Full detail is now bounded by `MAX_FULL_DETAIL_VERTICES = 1024`; above it an
+  interactive, unselected paint draws the exact outline only, while exports/offscreen renders and
+  selected items keep the exact fill. `MAX_POLYGON_VERTICES = 100_000` refuses a hostile polygon
+  at the load seam without dropping the rest of the plan. Pinned in
+  `tests/integration/test_polygon_paint_bound.py`.
+- **#470 (Offset copy keeps its look)**: the offset tool made a rectangle, circle or ellipse copy
+  in its object type's default fill, pattern and stroke. One seam, `core/item_look.py::
+  copy_visual_style`, now copies both the serialized attributes and the pen/brush, and is shared
+  with `mirror_geometry`. Pinned in `tests/integration/test_offset_tool.py`.
+- **#473 (Line paint in the budgets)**: the NFR-PERF-01 reference plan held no polyline, so the
+  three budget scenarios could not see a slower line paint. A second scenario adds plain fences
+  and styled gravel paths to the same plan, with a composition guard; pinned in
+  `tests/perf/test_nfr_budgets.py`.

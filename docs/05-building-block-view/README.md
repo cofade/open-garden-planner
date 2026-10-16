@@ -91,6 +91,7 @@ src/open_garden_planner/
 │   ├── cad_geometry.py           # arc_from_three_points, fillet_corner, chamfer_corner,
 │   │                             #   reflect_point/reflect_angle_deg/snap_point_to_axis_step (US-B4)
 │   ├── mirror_geometry.py        # build_mirrored_item — per-type reflection rebuild (US-B4, ADR-026)
+│   ├── item_look.py              # copy_visual_style — one look-copy rule for item copies (#470)
 │   ├── coordinate_input/         # Typed coordinate pipeline (ADR-021, Package A US-A1/A2/A4)
 │   │   ├── parser.py             #   parse(@dx,dy / @dist<angle / x,y), smart decimal
 │   │   └── buffer.py             #   CoordinateInputBuffer(QObject) — shared state
