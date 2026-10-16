@@ -7,8 +7,8 @@ in a 1600x1000 viewport:
 - Zoom step repaint <= 16.7 ms median (>= 60 fps)
 - 100% zoom / pan repaint <= 16.7 ms median (>= 60 fps)
 
-Issue #473 adds a second scenario â€” the same reference plan plus a fixed set of
-plain and styled polylines â€” so the budgets also see what a line's paint costs.
+Issue #473 adds a second scenario — the same reference plan plus a fixed set of
+plain and styled polylines — so the budgets also see what a line's paint costs.
 """
 
 from __future__ import annotations
@@ -34,12 +34,12 @@ BENCHMARK_PLAN = REPO_ROOT / "docs" / "11-risks-and-technical-debt" / "audit-202
 
 # --- Issue #473: a line-paint scenario -------------------------------------
 #
-# The reference plan holds no polyline â€” no fence, path or wall line â€” so the
+# The reference plan holds no polyline — no fence, path or wall line — so the
 # budgets above could not see a change that made every line's ``paint()``
 # slower (a real 25% regression during the L1 work slipped past all three).
 # This second scenario adds a fixed set of plain and styled lines to the same
 # 500-object plan, with their item cache DISABLED so ``paint()`` runs on every
-# measured frame (a cached line is never repainted â€” the defect this issue is
+# measured frame (a cached line is never repainted — the defect this issue is
 # about). Calibrated on the dev box (offscreen): 10 short plain fences and 1
 # short styled gravel path add a stable ~5 ms. Styled paths walk the whole line
 # each repaint (the unbounded cost tracked as #450), so an absolute per-frame
@@ -151,7 +151,7 @@ def _add_line_scenario(scene: CanvasScene) -> None:
     ``paint()`` cost is part of every measured frame. The scenario lines
     **disable their `DeviceCoordinateCache`**: every canvas item enables it by
     default, and the measurement warms the cache before timing, so a cached
-    line is never repainted and a slower ``PolylineItem.paint()`` is invisible â€”
+    line is never repainted and a slower ``PolylineItem.paint()`` is invisible —
     the defect this issue is about.
     """
     for i in range(LINE_SCENARIO_PLAIN):

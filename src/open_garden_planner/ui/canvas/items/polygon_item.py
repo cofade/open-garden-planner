@@ -648,12 +648,24 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         # a wide solid pen by building a fill, which would leave this path
         # quadratic (issue #472 measurement), whereas a cosmetic stroke is linear
         # with a small constant and independent of the item's own pen width.
-        if (
+        #
+        # "Interactive" is NOT `widget is not None`: Qt passes widget=0 for
+        # every CACHED paint, and every unselected canvas item is
+        # DeviceCoordinateCache, so that test selected the empty set and the
+        # degrade never ran in the app (measured: a cached 1,024-vertex comb
+        # repainted at full detail, 44.7 ms; 16,384 at 589 ms). The cache mode is
+        # the discriminator instead: every export, report, print and agent render
+        # path disables the cache first, so those stay full detail, while the
+        # interactive view (cached) degrades.
+        degrade = (
             poly.count() > MAX_FULL_DETAIL_VERTICES
             and not self.isSelected()
-            and widget is not None
-            and option is not None
-        ):
+            and (
+                widget is not None
+                or self.cacheMode() != QGraphicsItem.CacheMode.NoCache
+            )
+        )
+        if degrade:
             outline_pen = QPen(self.pen())
             outline_pen.setCosmetic(True)
             outline_pen.setWidthF(1.0)

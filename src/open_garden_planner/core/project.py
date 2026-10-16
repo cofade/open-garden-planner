@@ -2248,8 +2248,6 @@ class ProjectManager(QObject):
             if "fill_color" in obj:
                 color = QColor(obj["fill_color"])
                 # Store the base color in the item
-                if hasattr(item, 'fill_color'):
-                    item.fill_color = color
                 # If we have a pattern, recreate the brush with both color and pattern
                 if fill_pattern:
                     brush = create_pattern_brush(fill_pattern, color)
@@ -2310,8 +2308,6 @@ class ProjectManager(QObject):
             restore_stored_look(item, obj, fill_pattern=fill_pattern, stroke_style=stroke_style)
             if "fill_color" in obj:
                 color = QColor(obj["fill_color"])
-                if hasattr(item, 'fill_color'):
-                    item.fill_color = color
                 if fill_pattern:
                     item.setBrush(create_pattern_brush(fill_pattern, color))
                 else:
@@ -2403,9 +2399,6 @@ class ProjectManager(QObject):
                 # Restore custom colors if saved
                 if "fill_color" in obj:
                     color = QColor(obj["fill_color"])
-                    # Store the base color in the item
-                    if hasattr(item, 'fill_color'):
-                        item.fill_color = color
                     # If we have a pattern, recreate the brush with both color and pattern
                     if fill_pattern:
                         brush = create_pattern_brush(fill_pattern, color)

@@ -4,8 +4,8 @@ Issues #438/#469/#470. The `.ogp` loader rebuilt each item's brush and pen from
 the file but never wrote back the **stored attributes** those are derived from
 (``fill_pattern``, ``fill_color``, ``stroke_color``, ``stroke_width``,
 ``stroke_style``). The item constructors pre-seed those attributes with the
-object type's style, so after a reload the *Properties panel* â€” which reads the
-attributes â€” showed the type defaults while the canvas painted the file's
+object type's style, so after a reload the *Properties panel* — which reads the
+attributes — showed the type defaults while the canvas painted the file's
 colours, and the **next save wrote the defaults back over the user's colours**.
 
 These tests pin three things, through the real save/load path:
@@ -80,7 +80,7 @@ def _style_like_the_owner(item: object, *, has_fill: bool = True) -> None:
 
     ``has_fill=False`` for a polyline: a line has no fill (and its serializer
     stores none), and Qt would otherwise *fill* the open path with the texture.
-    The dash is left off there too â€” the line serializer writes no dash style
+    The dash is left off there too — the line serializer writes no dash style
     (#467, owned by the L1 branch), so a dashed line would test that defect.
     """
     item.stroke_color = QColor(STROKE)
@@ -137,13 +137,17 @@ def _mean_rgb(image: QImage) -> tuple[float, float, float]:
     return total[0] / count, total[1] / count, total[2] / count
 
 
-def _roundtrip(scene: CanvasScene) -> CanvasScene:
+def _roundtrip(scene: CanvasScene, cycles: int = 1) -> CanvasScene:
+    """Save/load ``scene`` ``cycles`` times, returning the last loaded scene."""
     with tempfile.TemporaryDirectory() as td:
         path = Path(td) / "look.ogp"
-        ProjectManager().save(scene, path)
-        reloaded = CanvasScene()
-        ProjectManager().load(reloaded, path)
-    return reloaded
+        current = scene
+        for _ in range(cycles):
+            ProjectManager().save(current, path)
+            reloaded = CanvasScene()
+            ProjectManager().load(reloaded, path)
+            current = reloaded
+        return current
 
 
 class TestTheStoredAppearanceSurvivesAReload:
@@ -177,7 +181,7 @@ class TestTheStoredAppearanceSurvivesAReload:
             assert after.stroke_style == item.stroke_style
 
         # Canvas: what it paints must agree with those attributes and with the
-        # pre-save render (#438 â€” no colour lost, no default written back).
+        # pre-save render (#438 — no colour lost, no default written back).
         assert after.pen().color() == item.pen().color()
         assert after.pen().widthF() == pytest.approx(item.pen().widthF())
         assert after.pen().style() == item.pen().style()
@@ -206,6 +210,33 @@ class TestTheStoredAppearanceSurvivesAReload:
         reloaded_scene.removeItem(after)
         r, g, b = _mean_rgb(_render(after))
         assert g - r > 40, f"the light-green fill does not read (g - r {g - r:.1f})"
+
+    def test_the_look_survives_a_second_save(self, canvas: CanvasView, qtbot: object) -> None:
+        """#438, the half that bites later: the *next* save must not write the
+        object type's defaults over the user's colours.
+
+        A reload used to leave the item's stored attributes at the type defaults
+        (only the brush/pen were rebuilt), so the second save persisted those
+        defaults and the user's colour was gone for good.
+        """
+        item = _rectangle()
+        _style_like_the_owner(item)
+        scene = canvas.scene()
+        item.layer_id = scene.active_layer.id if scene.active_layer else None
+        scene.addItem(item)
+
+        twice = _roundtrip(scene, cycles=2)
+        found = [i for i in twice.items() if isinstance(i, RectangleItem)]
+        assert len(found) == 1, "the item did not survive two round trips"
+        after = found[0]
+        twice.removeItem(after)
+        assert after.fill_pattern == item.fill_pattern
+        assert after.fill_color == item.fill_color
+        assert after.stroke_color == item.stroke_color
+        assert after.stroke_width == pytest.approx(item.stroke_width)
+        assert after.stroke_style == item.stroke_style
+        r, g, b = _mean_rgb(_render(after))
+        assert g - r > 40, f"the light-green fill is gone after the second save (g - r {g - r:.1f})"
 
 
 class TestCopiesKeepTheLook:

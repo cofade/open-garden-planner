@@ -374,13 +374,11 @@ def _assert_live_look(source: object, copy: object) -> None:
 def _assert_reloaded_look(source: object, reloaded: object) -> None:
     """Assert the persisted *appearance* survives a save -> reload.
 
-    Compared through the pen (what is painted) and the fill pattern rather than
-    the ``fill_color``/``stroke_color``/``stroke_width`` mixin attributes: the
-    loader recreates the brush and pen but does not write those attributes back
-    (#438/#469, owned by the L1 branch), so they read as type defaults after a
-    reload even though the item paints correctly. The tint's *second*-save
-    round-trip is part of that same gap and is deliberately not asserted here.
-    The brush colour is not asserted either: for a patterned fill
+    Compared through the pen (what is painted), the fill pattern and the tint
+    rather than the ``fill_color``/``stroke_color``/``stroke_width`` mixin
+    attributes: those are restored too (see
+    ``tests/integration/test_item_appearance_roundtrip.py``), but the brush
+    colour is not asserted here because for a patterned fill
     ``create_pattern_brush`` returns a texture brush whose ``color()`` is
     ``#000000`` for both source and copy, so it would pin nothing.
     """
