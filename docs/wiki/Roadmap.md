@@ -26,6 +26,10 @@ Audit package A5 (#457: constraint descriptors, numerical solver assertions,
 fixed-state feasibility and German default object labels) shipped in
 [v1.30.4](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.4) via
 [PR #489](https://github.com/cofade/open-garden-planner/pull/489) after owner acceptance.
+Audit package A2 (#454: pinned build tools, dependency review, frozen-package notices
+and SBOM) shipped in [v1.30.5](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.5) via [PR #490](https://github.com/cofade/open-garden-planner/pull/490) after owner acceptance.
+Translation completeness for every registered locale (#496) shipped in [v1.30.6](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.6) via [PR #497](https://github.com/cofade/open-garden-planner/pull/497) after owner acceptance.
+Worker lifecycle safety, bounded caches, and test hygiene (#480, #483, #482, #474, #449, #448) shipped in [v1.30.7](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.7) via [PR #498](https://github.com/cofade/open-garden-planner/pull/498) after owner acceptance.
 
 ## Phases 1–12: complete
 

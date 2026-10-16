@@ -34,6 +34,11 @@ Translation completeness for every registered locale (#496) shipped in
 New languages must cover all current UI keys, and new wrapped UI strings require every
 target translation. See the [translation workflow](https://github.com/cofade/open-garden-planner/blob/master/docs/TRANSLATING.md).
 
+Worker lifecycle safety, bounded caches, and test hygiene (#480, #483, #482, #474, #449, #448) shipped in
+[v1.30.7](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.7) via
+[PR #498](https://github.com/cofade/open-garden-planner/pull/498) after owner acceptance:
+clean worker shutdown on application exit, bounded furniture rendering cache, FR ID deduplication, and Ctrl+F/Ctrl+H shortcut resolution.
+
 [#392](https://github.com/cofade/open-garden-planner/issues/392) remains open for
 packages A3–A4 and A6–A13.
 
