@@ -801,6 +801,12 @@ class TestCheckNoSecrets:
         next ``git commit -a`` published it. It happened: a one-line canary was
         committed on PR #507 before review caught it. ``git rm --cached`` in the
         ``finally`` can now always pair with the ``git add``.
+
+        The cleanup contract is then ASSERTED rather than assumed, by
+        ``test_the_canary_leaves_nothing_behind``. Nothing else can catch it:
+        these exact lines sit in ``_MUST_NOT_FLAG``, so the secrets scan is
+        structurally blind to a leaked canary, and ``test_the_real_tree_is_clean``
+        only looks for credential-shaped strings.
         """
         import subprocess
         from pathlib import Path
@@ -821,10 +827,36 @@ class TestCheckNoSecrets:
             )
             canary.unlink(missing_ok=True)
 
+    def _assert_no_canary_residue(self, tag: str) -> None:
+        """The helper's contract is "stage, scan, unstage, delete" - assert all four.
+
+        Added after a one-line ``_canary_fp_*.py`` was committed and pushed on
+        PR #507 (#507, round 4 of review). No other gate could have caught it: the
+        canary's own text is in ``_MUST_NOT_FLAG``, so the secrets scan is blind
+        to it by construction, and a residue assertion is the only thing that
+        turns "we hope the ``finally`` ran" into a checked invariant.
+        """
+        import subprocess
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[2]
+        leftovers = sorted(p.name for p in (root / "scripts").glob("_canary_*"))
+        assert not leftovers, f"canary file(s) left on disk after {tag}: {leftovers}"
+        staged = subprocess.run(
+            ["git", "diff", "--cached", "--name-only"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.split()
+        canaries = [p for p in staged if "_canary_" in p]
+        assert not canaries, f"canary still staged in the index after {tag}: {canaries}"
+
     @pytest.mark.parametrize("label,tag,line", _MUST_CATCH, ids=[c[0] for c in _MUST_CATCH])
     def test_catches_real_credential(self, label, tag, line) -> None:
         found = self._scan_with_canary(tag, line)
         assert found, f"the secret checker missed a real credential: {label}"
+        self._assert_no_canary_residue(tag)
 
     @pytest.mark.parametrize(
         "label,line", _MUST_NOT_FLAG, ids=[c[0] for c in _MUST_NOT_FLAG]

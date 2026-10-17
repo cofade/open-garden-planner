@@ -188,10 +188,51 @@ def main() -> int:
     try:
         fd = os.open(LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
     except FileExistsError:
+        owner = (
+            LOCK.read_text(encoding="utf-8", errors="replace").strip().lstrip("\ufeff")
+            or "?"
+        )
+        alive = ""
+        if owner.isdigit():
+            # A stale lock must be decidable, not a guess. tasklist exits 0 even
+            # when nothing matches, so the OUTPUT is the signal, not the return
+            # code - reading the code would report every stale lock as alive,
+            # which is the reassuring direction to be wrong in.
+            if sys.platform == "win32":
+                # errors="replace" is load-bearing: tasklist emits bytes the
+                # console codec (cp1252 here) cannot decode, and a text-mode
+                # subprocess then hands back stdout=None - which turned the
+                # advisory into a crash on the exact path it exists to help
+                # with.
+                out = (
+                    subprocess.run(
+                        ["tasklist", "/FI", f"PID eq {owner}"],
+                        capture_output=True,
+                        text=True,
+                        errors="replace",
+                        check=False,
+                    ).stdout
+                    or ""
+                )
+                alive = owner in out and "No tasks" not in out
+            else:
+                alive = (
+                    subprocess.run(
+                        ["kill", "-0", owner], capture_output=True, check=False
+                    ).returncode
+                    == 0
+                )
+            alive_text = (
+                "  (that process looks alive - do not delete the lock)"
+                if alive
+                else "  (no such process: the lock is stale and can be deleted)"
+            )
+        else:
+            alive_text = "  (the lock records no pid)"
         print(
-            f"refusing to run: {LOCK.name} exists, so another instance may be "
-            "mid-flight. Two runs would interleave writes into the same four "
-            "source files. If you are sure none is running, delete the lock."
+            f"refusing to run: {LOCK.name} exists, held by pid {owner}. Two runs "
+            "would interleave writes into the same four source files."
+            f"{alive_text}"
         )
         return 1
     try:

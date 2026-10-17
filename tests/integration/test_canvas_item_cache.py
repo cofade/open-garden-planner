@@ -444,14 +444,21 @@ def _canvas_render(
 
 
 def _export_render(factory: Callable[[], QGraphicsItem]) -> tuple[np.ndarray, np.ndarray]:
-    """The same pair, through the project's export cache-disabling convention."""
-    probe = factory()
-    source = QRectF(probe.sceneBoundingRect())
+    """The same pair, through the project's export cache-disabling convention.
 
+    ``source`` comes from the item **after** it is in the scene. An earlier
+    version took it from a throwaway ``probe`` that was never added to anything,
+    relying on an orphan item's ``sceneBoundingRect()`` matching the scene-bound
+    one. All seven fixtures do agree today (measured: 0 differences), but that is
+    an implicit Qt assumption of exactly the kind that produced the round-2
+    export defect, and it is only read inside the ``try`` below — so one line
+    moves and the probe disappears.
+    """
     item = factory()
     item.setBrush(create_pattern_brush(TEXTURE, QColor(FLAT_FILL)))
     scene = CanvasScene(width_cm=2000, height_cm=2000)
     scene.addItem(item)
+    source = QRectF(item.sceneBoundingRect())
     assert item.cacheMode() == QGraphicsItem.CacheMode.DeviceCoordinateCache
     cached = ExportService._disable_item_caches(scene)
     try:
