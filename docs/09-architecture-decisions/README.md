@@ -2647,7 +2647,7 @@ Two measurements decided the remedy, and both were needed:
 
 **Alternatives rejected.** Filling the polygon's bounding box or convex hull is O(1) but *over*-covers — a comb would paint as a solid block and hide items beneath — and the hull costs an O(n log n) pass; outline-only under-covers, which is the safer error and keeps the exact boundary visible. **Reusing the item's own pen for the outline was the first attempt and is quadratic** (the pen-width measurement above); it does not bound the cost, and the earlier draft's "~4 ms at 1,024" was measured with a hairline pen, not the item's. A reflex-count or convexity test to keep large *convex* shapes at full detail needs an O(n) pass per paint; it was rejected as machinery for a case (more than the bound of vertices that is also convex) the outline covers acceptably. A low load ceiling that refuses every polygon above the full-detail bound was rejected because it would refuse legitimate traced or imported outlines — the paint bound protects the frame, the ceiling only protects the loader from hostile memory.
 
-**Consequences (limitations, stated).** Full detail is a bounded, stated budget, **per item per paint — not a plan-wide one**. Above the bound, *all* polygons — including a large convex one whose fill would be cheap — render as an outline interactively; a future refinement could exempt convex outlines. Full-detail paths that stay open above the bound, each capped only by the load ceiling: at exactly the bound a pathological comb still costs about two frames (~31 ms at 256 vertices); a **selected** over-budget item paints full detail on every interactive frame (5.6 s at 16,384); and every export/report/print/agent render, which disables caches and renders through `QGraphicsScene.render`, keeps the exact fill and can stall at the ceiling. The **minimap** renders through `scene.render` *without* disabling caches, so it degrades like the canvas — desirable for a thumbnail, and the one render path whose full-fidelity convention is deliberately different. The same `widget`-based idiom lives in `should_use_lod_flat_fill` (#409), where it is worth re-checking for the same reason. The two constants are plain module values so a future measurement can retune them in one place.
+**Consequences (limitations, stated).** Full detail is a bounded, stated budget, **per item per paint — not a plan-wide one**. Above the bound, *all* polygons — including a large convex one whose fill would be cheap — render as an outline interactively; a future refinement could exempt convex outlines. Full-detail paths that stay open above the bound, each capped only by the load ceiling: at exactly the bound a pathological comb still costs about two frames (~31 ms at 256 vertices); a **selected** over-budget item paints full detail on every interactive frame (5.6 s at 16,384); and every export/report/print/agent render, which disables caches and renders through `QGraphicsScene.render`, keeps the exact fill and can stall at the ceiling. The **minimap** renders through `scene.render` *without* disabling caches, so it degrades like the canvas — desirable for a thumbnail, and the one render path whose full-fidelity convention is deliberately different. The same `widget`-based idiom lived in `should_use_lod_flat_fill` (#409); it was re-checked on report and keyed on the cache mode the same way (see the ADR-057 addendum, #503). The two constants are plain module values so a future measurement can retune them in one place.
 
 **Evidence.** The committed `tests/integration/test_polygon_paint_bound.py` pins that an over-budget polygon paints an outline (not a fill) on screen, that the degraded paint is many times cheaper than full detail **with the item's own wide pen**, that a polygon at the bound, an offscreen render and a selected item paint the exact fill, and that a hostile polygon is refused at the seam without dropping the rest of a plan. The cost table above is reproducible with the shapes in that test file.
 
@@ -2688,3 +2688,44 @@ constructors pre-seed with the object type's style — so the panel showed the t
 defaults and the next save wrote them over the user's colours (#438/#469). The loader
 now restores those attributes through `core/item_look.restore_stored_look`, and the
 serializer no longer falls back to a texture brush's black `color()` for `fill_color`.
+
+### ADR-057 addendum: the LOD flat fill joins the cache-mode discriminator (issue #503, 17 October 2026)
+
+ADR-057's consequences flagged the sibling directly: "The same `widget`-based idiom
+lives in `should_use_lod_flat_fill` (#409), where it is worth re-checking for the same
+reason." #501's independent review re-checked it, measured it, and filed #503; the fix
+ships for master independently of the paused L1 branch.
+
+**Finding.** Through a real `CanvasScene` + `CanvasView` (offscreen, one `GARDEN_BED`
+rectangle with the `ROOF_TILES` pattern), `should_use_lod_flat_fill` was invoked once
+per paint with **no** widget present — at `fit_in_view` and after four `zoom_out()`s —
+and returned `False` every time; only a `NoCache` control item, a configuration no
+unselected canvas item is ever in, saw a widget. The LOD branch therefore never ran in
+the product, and its tests passed only because they called the helper directly with a
+fabricated widget. The fit-in-view acceptance gain attributed to the LOD flat fill at
+#409 came from the `lru_cache` SVG-path resolution and `DeviceCoordinateCache` shipped
+alongside it.
+
+**Decision.** `should_use_lod_flat_fill` keys "interactive" on the item's **cache
+mode** — `widget is not None or cacheMode() != NoCache` — the same discriminator as the
+over-budget paint bound above. Export, report, print and agent render paths disable the
+item caches first (`ExportService._disable_item_caches`) and render offscreen, so they
+keep 100 % detail; a selected item is excluded at every call site; the **minimap**
+renders through `scene.render` without disabling caches, so it flat-fills like the
+canvas — the same deliberate divergence ADR-057 already records for the polygon
+degrade. Firing is threshold-gated as designed: below `levelOfDetailFromTransform < 0.4`
+an unselected patterned item shows its flat `fill_color` instead of its texture.
+
+**Consequences.** Below 0.4 zoom the canvas now shows the designed flat fills for
+patterned items — new *visible* behaviour relative to every shipped release, gated on
+the owner's manual test like any visual change. The sibling suite needed one honest
+adjustment: `tests/integration/test_polygon_paint_bound.py` renders its interactive
+canvas at 100 % zoom now, because its below-budget assertions pin the *exact* fill and
+the product contract at zoom ≥ 0.4 is exactly that (the harness previously ran at
+fit-in-view zoom, where the LOD branch, once reachable, legitimately paints the flat
+attribute colour). `tests/integration/test_canvas_item_lod_and_cache.py` pins the fill
+on rendered pixels through a real view: fill-intensity spread 0.00 at 0.25 zoom fixed
+against 13.61 pre-fix, with textured controls at 8.0+.
+
+**Evidence.** The committed tests above, plus the measured table in #503 (calls, widget
+presence and return value per view state).

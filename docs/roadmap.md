@@ -3018,3 +3018,20 @@ colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see §11.4
   every frame, pinned deterministically by a `cacheMode()` guard and behaviourally by a same-run
   delta; an absolute per-frame budget for the styled lines stays with #450. Pinned in
   `tests/perf/test_nfr_budgets.py`.
+
+### The LOD flat fill joins the cache-mode discriminator (#503)
+
+- **#503 (LOD flat fill never fired)**: filed by #501's independent review against its own work —
+  `GardenItemMixin.should_use_lod_flat_fill` (the #409 low-zoom flat fill) still decided
+  "interactive" with `widget is not None`, but Qt passes `widget = 0` for every **cached** paint
+  and every unselected canvas item is `DeviceCoordinateCache`, so the branch never ran in the
+  product (measured through a real `CanvasScene` + `CanvasView`: one call per paint, no widget,
+  `False` at every view state) and its tests passed only because they called the helper directly.
+  It now keys on the item's **cache mode** (`widget is not None or cacheMode() != NoCache`),
+  exactly as #472's paint bound does; export/print/agent render paths disable caches first, so
+  those keep full detail. The #409 acceptance gain attributed to this branch came from the
+  `lru_cache` and the device cache instead. Pinned by rendered pixels through a real view in
+  `tests/integration/test_canvas_item_lod_and_cache.py` (fill-intensity spread 0.00 at 0.25 zoom
+  fixed, 13.61 pre-fix, textured controls 20.1). Making the branch live also required #472's
+  below-budget assertions to render at 100 % zoom, where "the exact fill paints" is the product
+  contract. Lesson in §11.4.11, ADR-057 addendum.
