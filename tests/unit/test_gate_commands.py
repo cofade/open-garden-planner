@@ -794,6 +794,13 @@ class TestCheckNoSecrets:
         The checker deliberately reads only git-TRACKED files, so an untracked
         scratch file must not be able to fail a build. That makes this test
         stage the canary, which is also what a real leak would be.
+
+        The ``git add`` sits INSIDE the ``try`` on purpose (#507): it stages into
+        the real index, so an interrupted run - Ctrl-C, a pytest-timeout kill, a
+        crash between the two calls - used to leave the canary staged, and the
+        next ``git commit -a`` published it. It happened: a one-line canary was
+        committed on PR #507 before review caught it. ``git rm --cached`` in the
+        ``finally`` can now always pair with the ``git add``.
         """
         import subprocess
         from pathlib import Path
@@ -802,9 +809,9 @@ class TestCheckNoSecrets:
 
         root = Path(__file__).resolve().parents[2]
         canary = root / "scripts" / f"_canary_{tag}.py"
-        canary.write_text(line + "\n", encoding="utf-8")
-        subprocess.run(["git", "add", "--", str(canary)], cwd=root, capture_output=True)
         try:
+            canary.write_text(line + "\n", encoding="utf-8")
+            subprocess.run(["git", "add", "--", str(canary)], cwd=root, capture_output=True)
             return [f for f in check_repo(root) if canary.name in f]
         finally:
             subprocess.run(

@@ -831,12 +831,12 @@
   },
   "472": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "One polygon of a plan file can freeze the 2D canvas for minutes"
   },
   "473": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "The reference plan of NFR-PERF-01 holds no line, so the repaint budgets cannot see a slower line paint"
   },
   "474": {
@@ -916,12 +916,17 @@
   },
   "502": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A textured fill does not show the chosen colour (the tint is a 31 % wash) and the panel disagrees with the canvas after a reload"
   },
   "503": {
     "is_pr": false,
     "state": "OPEN",
     "title": "The LOD flat fill never fires on the canvas: 'widget is not None' is false for every cached paint (follow-up of #409/#430)"
+  },
+  "507": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "fix(503): remove the #409 low-zoom LOD flat fill instead of making it reachable"
   }
 }

@@ -3018,3 +3018,57 @@ colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see §11.4
   every frame, pinned deterministically by a `cacheMode()` guard and behaviourally by a same-run
   delta; an absolute per-frame budget for the styled lines stays with #450. Pinned in
   `tests/perf/test_nfr_budgets.py`.
+
+### The #409 low-zoom flat fill is removed; the cache-mode predicate is kept (#503)
+
+- **#503 (LOD flat fill never fired)**: filed by #501's independent review against its own work —
+  `GardenItemMixin.should_use_lod_flat_fill` (the #409 low-zoom flat fill) decided "interactive"
+  with `widget is not None`, but Qt passes `widget = 0` for every **cached** paint and every
+  unselected canvas item is `DeviceCoordinateCache`, so the branch never ran in the product
+  (measured through a real `CanvasScene` + `CanvasView`: one call per paint, no widget, `False` at
+  every view state) and its tests passed only because they called the helper directly.
+
+  **Resolved by deletion, not by repair** — issue #503 offered both repairs explicitly. The guard
+  was first fixed so the branch ran, then measured on the reference plan it was written for
+  (990 items, best of seven rounds, both scenarios below the 0.4 threshold): `fit_in_view` at zoom
+  0.316 read **10.61 / 11.50 ms median with the flat fill off, 10.87 ms with it on**, and
+  `zoom_step` at 0.348 read **7.97 / 7.98 ms off, 8.20 ms on** — the effect sits below this
+  harness's noise (within-arm variation 8 % against a 0.26 ms between-arm difference, and
+  no reversed-order run was taken, so no claim about which arm is faster survives). All six
+  `tests/perf/test_nfr_budgets.py` cases pass either way, worst reading 12.21 ms against the
+  16.70 ms budget. The earlier single-pair reading (10.58/10.64, 8.21/7.40) is superseded: it
+  put the `zoom_step` sign the other way round.
+  `DeviceCoordinateCache` rasterises a textured item once and every later frame is a blit, so the
+  textured `paint()` the LOD existed to avoid was already amortised by the sibling fix from #409;
+  the branch could only ever subtract detail. The owner's manual pass then settled what the
+  measurement could not: at 20–25 % zoom — where they work, well under the threshold — every
+  texture, plant sprite and furniture sprite would have become a solid colour, and the paint-level
+  diagnostics drawn after the fill branch would have been skipped.
+
+  **Shipped:** `should_use_lod_flat_fill`, `get_lod_fill_color` and `LOD_FLAT_FILL_THRESHOLD`
+  deleted, along with seven call sites in the rectangle, circle, ellipse and polygon items; no
+  zoom-dependent simplification remains in the canvas. `is_interactive_paint` is **kept** — it is
+  the one definition of "which paint is this", and #472's paint bound needs it for real (44.7 ms at
+  1,024 vertices, 589 ms at 16,384); its docstring now records that it classifies paints and does
+  not decide detail. #472's suite is restored to its pre-#507 state in full, including its
+  fit-in-view harness zoom; the low-zoom seam pair and the 100 %-zoom workaround served only the
+  removed branch.
+
+  **The pin inverts, and is parametrised over branches rather than classes.** The seven deleted call
+  sites were never seven instances of one thing: two sat inside `if is_plant` and two inside
+  `if is_furniture_type`, behind type predicates a `GENERIC_*` fixture never satisfies, so a
+  table of the four generic shapes watched only four of seven — and the three unwatched ones are
+  exactly the sprite paths the owner's manual pass objected to. Measured by mutation: a `< 0.4`
+  flat fill in a plant branch renders a `TREE` circle from interior intensity std 43.09 to 0.00,
+  a flat brown disc, while 212 tests in the repo stayed green. The table now carries seven entries
+  (the four generic shapes plus a plant circle and furniture rectangle/circle), each rendered
+  through a real `CanvasView` at five zoom levels — 0.1, 0.25, 0.4, 0.75, 1.0 — plus the export
+  path, asserting the interior still carries its texture's luminance spread with a **lower bound
+  only**, so a future change may soften a texture but cannot delete it. Re-introducing a `< 0.4`
+  flat fill is caught at **all seven** call sites, mutation-verified per site. The sampled interior
+  is the item's own `QGraphicsItem.shape()` — not its bounding box, whose corners are page
+  background for three of the four shapes; not a second paint, which any flat-fill branch
+  overrides on its way through; not alpha, because the scene paints an opaque background — and
+  `TestTheMaskIsTheItem` asserts that invariant, because a mask in the wrong coordinate frame does
+  not fail, it *reads background*, which is what a luminance statistic calls texture. ADR-057
+  addendum, §11.4.11.

@@ -28,7 +28,7 @@ from PyQt6.QtWidgets import (
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style, is_bed_type
 
-from .garden_item import GardenItemMixin
+from .garden_item import GardenItemMixin, is_interactive_paint
 from .resize_handle import ResizeHandlesMixin, RotationHandleMixin, VertexEditMixin
 
 # --- Issue #472: bound what a crafted plan can cost the 2D canvas -----------
@@ -654,21 +654,20 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         # quadratic (issue #472 measurement), whereas a cosmetic stroke is linear
         # with a small constant and independent of the item's own pen width.
         #
-        # "Interactive" is NOT `widget is not None`: Qt passes widget=0 for
-        # every CACHED paint, and every unselected canvas item is
-        # DeviceCoordinateCache, so that test selected the empty set and the
-        # degrade never ran in the app (measured: a cached 1,024-vertex comb
-        # repainted at full detail, 44.7 ms; 16,384 at 589 ms). The cache mode is
-        # the discriminator instead: every export, report, print and agent render
-        # path disables the cache first, so those stay full detail, while the
-        # interactive view (cached) degrades.
+        # "Interactive" is `is_interactive_paint` (the item's cache mode), NOT
+        # `widget is not None`: Qt passes widget=0 for every CACHED paint and
+        # every unselected canvas item is DeviceCoordinateCache, so a
+        # widget-based test selected the empty set and the first shipped version
+        # of this degrade never ran in the app (measured: a cached 1,024-vertex
+        # comb repainted at full detail, 44.7 ms; 16,384 at 589 ms). Every
+        # export, report, print and agent render path disables the cache first,
+        # so those stay full detail, while the interactive view degrades.
+        # This degrade is the ONLY level-of-detail pass in the canvas — the #409
+        # low-zoom flat fill was removed in #503, measured to buy nothing.
         degrade = (
             poly.count() > MAX_FULL_DETAIL_VERTICES
             and not self.isSelected()
-            and (
-                widget is not None
-                or self.cacheMode() != QGraphicsItem.CacheMode.NoCache
-            )
+            and is_interactive_paint(self, widget)
         )
         if degrade:
             outline_pen = QPen(self.pen())
@@ -691,14 +690,6 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
             )
             painter.drawPolygon(shadow_poly)
             painter.restore()
-
-        if not self.isSelected() and self.fill_pattern is not None and self.should_use_lod_flat_fill(option, widget, painter):
-            painter.save()
-            painter.setPen(self.pen())
-            painter.setBrush(QBrush(self.get_lod_fill_color()))
-            painter.drawPolygon(poly)
-            painter.restore()
-            return
 
         # For HOUSE polygons with a ridge: use mirrored tile rendering
         ridge = self._find_ridge()

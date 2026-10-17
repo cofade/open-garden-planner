@@ -2647,7 +2647,7 @@ Two measurements decided the remedy, and both were needed:
 
 **Alternatives rejected.** Filling the polygon's bounding box or convex hull is O(1) but *over*-covers — a comb would paint as a solid block and hide items beneath — and the hull costs an O(n log n) pass; outline-only under-covers, which is the safer error and keeps the exact boundary visible. **Reusing the item's own pen for the outline was the first attempt and is quadratic** (the pen-width measurement above); it does not bound the cost, and the earlier draft's "~4 ms at 1,024" was measured with a hairline pen, not the item's. A reflex-count or convexity test to keep large *convex* shapes at full detail needs an O(n) pass per paint; it was rejected as machinery for a case (more than the bound of vertices that is also convex) the outline covers acceptably. A low load ceiling that refuses every polygon above the full-detail bound was rejected because it would refuse legitimate traced or imported outlines — the paint bound protects the frame, the ceiling only protects the loader from hostile memory.
 
-**Consequences (limitations, stated).** Full detail is a bounded, stated budget, **per item per paint — not a plan-wide one**. Above the bound, *all* polygons — including a large convex one whose fill would be cheap — render as an outline interactively; a future refinement could exempt convex outlines. Full-detail paths that stay open above the bound, each capped only by the load ceiling: at exactly the bound a pathological comb still costs about two frames (~31 ms at 256 vertices); a **selected** over-budget item paints full detail on every interactive frame (5.6 s at 16,384); and every export/report/print/agent render, which disables caches and renders through `QGraphicsScene.render`, keeps the exact fill and can stall at the ceiling. The **minimap** renders through `scene.render` *without* disabling caches, so it degrades like the canvas — desirable for a thumbnail, and the one render path whose full-fidelity convention is deliberately different. The same `widget`-based idiom lives in `should_use_lod_flat_fill` (#409), where it is worth re-checking for the same reason. The two constants are plain module values so a future measurement can retune them in one place.
+**Consequences (limitations, stated).** Full detail is a bounded, stated budget, **per item per paint — not a plan-wide one**. Above the bound, *all* polygons — including a large convex one whose fill would be cheap — render as an outline interactively; a future refinement could exempt convex outlines. Full-detail paths that stay open above the bound, each capped only by the load ceiling: at exactly the bound a pathological comb still costs about two frames (~31 ms at 256 vertices); a **selected** over-budget item paints full detail on every interactive frame (5.6 s at 16,384); and every export/report/print/agent render, which disables caches and renders through `QGraphicsScene.render`, keeps the exact fill and can stall at the ceiling. The **minimap** renders through `scene.render` *without* disabling caches, so it degrades like the canvas — desirable for a thumbnail, and the one render path whose full-fidelity convention is deliberately different. The same `widget`-based idiom lived in `should_use_lod_flat_fill` (#409); it was re-checked on report and the LOD flat fill was **removed** rather than repaired — it never ran and bought no measurable time, so `should_use_lod_flat_fill` and `get_lod_fill_color` no longer exist and `is_interactive_paint` now serves the paint bound above alone (see the ADR-057 addendum, #503). The two constants are plain module values so a future measurement can retune them in one place.
 
 **Evidence.** The committed `tests/integration/test_polygon_paint_bound.py` pins that an over-budget polygon paints an outline (not a fill) on screen, that the degraded paint is many times cheaper than full detail **with the item's own wide pen**, that a polygon at the bound, an offscreen render and a selected item paint the exact fill, and that a hostile polygon is refused at the seam without dropping the rest of a plan. The cost table above is reproducible with the shapes in that test file.
 
@@ -2688,3 +2688,64 @@ constructors pre-seed with the object type's style — so the panel showed the t
 defaults and the next save wrote them over the user's colours (#438/#469). The loader
 now restores those attributes through `core/item_look.restore_stored_look`, and the
 serializer no longer falls back to a texture brush's black `color()` for `fill_color`.
+
+### ADR-057 addendum: the #409 LOD flat fill is removed, and the cache-mode discriminator is kept for the paint bound alone (issue #503, 17 October 2026)
+
+ADR-057's consequences flagged the sibling directly: "The same `widget`-based idiom
+lives in `should_use_lod_flat_fill` (#409), where it is worth re-checking for the same
+reason." #501's independent review re-checked it, measured it, and filed #503.
+
+**Finding.** Through a real `CanvasScene` + `CanvasView` (offscreen, one `GARDEN_BED`
+rectangle with the `ROOF_TILES` pattern), `should_use_lod_flat_fill` was invoked once
+per paint with **no** widget present — at `fit_in_view` and after four `zoom_out()`s —
+and returned `False` every time; only a `NoCache` control item, a configuration no
+unselected canvas item is ever in, saw a widget. The LOD branch therefore never ran in
+the product, and its tests passed only because they called the helper directly with a
+fabricated widget. The fit-in-view acceptance gain attributed to it at #409 came from
+the `lru_cache` SVG-path resolution and the `DeviceCoordinateCache` shipped alongside.
+
+**Decision.** The obvious repair was to key "interactive" on the item's **cache mode**
+through one shared predicate, `items/garden_item.py::is_interactive_paint`, which the
+over-budget paint bound above calls too. That predicate is **kept** — it is the one
+correct definition of "which paint is this", and the paint bound needs it for real
+(44.7 ms at 1,024 vertices, 589 ms at 16,384). Its docstring now records that it
+classifies paints and does not decide how much detail to draw.
+
+The **flat fill is removed**, with its rationale recorded. Issue #503 offered both
+repairs explicitly; measurement on the reference plan the branch was written for chose
+the second. On the 990-item audit plan, 1600x1000 view, best of seven rounds, both
+scenarios below the 0.4 threshold). `fit_in_view` at zoom 0.316: **10.61 and 11.50 ms median
+with the flat fill disabled, 10.87 ms with it live** — the two arms' ranges overlap
+entirely. `zoom_step` at zoom 0.348: **7.97 / 7.98 ms disabled, 8.20 ms live**. What that
+establishes is that the effect sits below this harness's noise — within-arm run-to-run
+variation is 8 % against a 0.26 ms between-arm difference, and no reversed-order run was
+taken, so no claim about which arm is faster survives. All six
+`tests/perf/test_nfr_budgets.py` cases pass either way, worst reading 12.21 ms against the
+16.70 ms budget. (An earlier single-pair reading — 10.58/10.64 and 8.21/7.40 — is
+superseded and is not to be cited: it put the `zoom_step` sign the other way round.) The
+cause is structural — `DeviceCoordinateCache` rasterises a textured item once and every
+later frame is a blit, so the expensive textured `paint()` the LOD existed to avoid was
+already amortised by the sibling fix. Deleting `should_use_lod_flat_fill`,
+`get_lod_fill_color` and `LOD_FLAT_FILL_THRESHOLD` also removes seven call sites across
+the rectangle, circle, ellipse and polygon items.
+
+**Consequences.** No zoom-dependent simplification remains in the canvas: a textured
+fill, a plant sprite and a furniture sprite paint their full detail at every zoom, and
+the paint-level diagnostics that the removed early return would have skipped (a bed's
+grid, crop-rotation indicator, soil-mismatch border and capacity badge; a plant's
+spacing ring, companion highlight and antagonist badge) are now drawn at every zoom.
+This is not a behaviour change relative to any shipped release — the branch never ran —
+so it needs no visual acceptance pass, and it is a net removal of a risk. The #472
+suite is restored to its pre-#507 state in full, including its fit-in-view harness
+zoom; the low-zoom seam pair and the 100 %-zoom workaround existed only to serve the
+removed branch and are gone with it.
+
+**The pin is parametrised over branches, not classes.** `tests/integration/test_canvas_item_cache.py` (renamed from `test_canvas_item_lod_and_cache.py`) renders a textured, tinted item through a real `CanvasView` at five zoom levels — 0.1, 0.25, 0.4, 0.75, 1.0 — plus the export path, and asserts the interior still carries its texture's luminance spread. **Lower bound only, deliberately** — a future change may soften a texture and must not be able to do so by deleting it; there is no ceiling, and no absolute sample floor, because interior area runs 816 to 429 986 pixels across the cases and any constant fires on the smallest for being small. The seven deleted call sites were **not** seven instances of one thing: two sat inside `if is_plant` and two inside `if is_furniture_type`, so the table carries seven entries — the four generic shapes plus a plant circle and furniture rectangle/circle. Re-introducing a `< 0.4` flat fill is caught at **all seven**, mutation-verified per site. The sampled interior is the item's own `QGraphicsItem.shape()`: not its bounding box (the corners are page background for a circle, an ellipse or a polygon, so a solid circle measured as high-contrast and the pin was vacuous on three of four classes), not a second paint (any flat-fill branch overrides the brush on that pass), and not alpha (the scene paints an opaque background). `TestTheMaskIsTheItem` asserts that invariant, because a displaced mask does not fail — it reads background. The four textured shapes' export column converging on 15.47-16.02 is the calibration check that the instrument is right: with a forgotten `-source.topLeft()` translation those four read 15.83 / 37.27 / 49.85 / 16.37. The Linux/offscreen sampler lesson stands — samples come from a computed region, never a colour filter, which the CI background passed at spread 62.59 against 0.00 on Windows. The mask mechanics, the seven-entry shape list and the calibration table live in the test file rather than here; `venv/Scripts/python.exe scripts/verify_lod_removal_mutations.py` re-applies all seven deleted call sites and exits non-zero if one stops being watched, which is how a negative pin is kept honest between reviews.
+
+**Lesson for ADR-057 itself.** This addendum records a decision that was nearly the
+opposite of the one its first draft took, on the same measured evidence, because the
+owner then exercised the thing that the measurement could not: at 20-25 % zoom — where
+they work, well under the 0.4 threshold — every texture on the canvas would have become
+a solid colour. *Reachability is necessary, not sufficient: before promoting a dormant
+path, ask whether it earns the degradation it costs, and put the answer in front of the
+person who has to look at it.*
