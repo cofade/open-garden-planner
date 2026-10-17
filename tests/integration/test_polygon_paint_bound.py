@@ -9,6 +9,10 @@ stated bound on what is painted at full detail, or a degraded paint beyond it".
 unselected item paints the exact outline with a **cosmetic** 1-px pen and no
 fill, while exports/offscreen renders and a selected item keep the exact fill.
 
+At low zoom the #409 LOD flat fill (#503) meets the same item: a below-budget
+patterned polygon flat-fills, an over-budget one degrades (checked first).
+`TestTheLowZoomSeamBetweenTheTwoGuards` pins that order.
+
 **These tests drive a real `CanvasView`** (and, for the export case, the real
 `ExportService._disable_item_caches` convention). That matters: an earlier
 version of this file called `item.paint(...)` directly, which passed while the
@@ -94,27 +98,39 @@ def _item(points: list[QPointF]) -> PolygonItem:
 
 def _count_fill(image: QImage) -> int:
     """Sampled pixels close to :data:`FILL` — how much of the fill painted."""
+    return _count_colour(image, FILL)
+
+
+def _count_colour(image: QImage, target: QColor, tolerance: int = 40) -> int:
+    """Sampled pixels close to *target* — how much of that colour painted."""
     found = 0
     for y in range(0, image.height(), 2):
         for x in range(0, image.width(), 2):
             colour = QColor(image.pixel(x, y))
             if (
-                abs(colour.red() - FILL.red()) < 40
-                and abs(colour.green() - FILL.green()) < 40
-                and abs(colour.blue() - FILL.blue()) < 40
+                abs(colour.red() - target.red()) < tolerance
+                and abs(colour.green() - target.green()) < tolerance
+                and abs(colour.blue() - target.blue()) < tolerance
             ):
                 found += 1
     return found
 
 
-def interactive_render(item: PolygonItem, *, selected: bool = False) -> QImage:
+# The LAWN style's fill — what the LOD flat fill paints for these items
+# (get_lod_fill_color() reads the item's fill_color attribute, which the
+# constructor seeds from the object type's style).
+LAWN_GREEN = QColor("#64b43c")
+
+
+def interactive_render(item: PolygonItem, *, selected: bool = False, zoom: float = 1.0) -> QImage:
     """What the canvas shows: a real CanvasView, caches ON, cache forced fresh.
 
-    Rendered at 100 % zoom on purpose. Below 0.4 the canvas's own LOD flat fill
-    (#409, corrected in #503) replaces a patterned item's texture with its flat
-    ``fill_color`` — correct product behaviour, but it would stop the below-budget
-    assertions from pinning the *exact* fill they exist for. Full detail is the
-    product contract at this zoom, so that is what this harness measures.
+    Rendered at 100 % zoom (the default) on purpose. Below 0.4 the canvas's own
+    LOD flat fill (#409, corrected in #503) replaces a patterned item's texture
+    with its flat ``fill_color`` — correct product behaviour, but it would stop
+    the below-budget assertions from pinning the *exact* fill they exist for.
+    Full detail is the product contract at that zoom, so that is what this
+    harness measures; pass ``zoom=0.25`` for the low-zoom LOD cases.
     """
     scene = CanvasScene(width_cm=2000, height_cm=2000)
     scene.addItem(item)
@@ -124,7 +140,7 @@ def interactive_render(item: PolygonItem, *, selected: bool = False) -> QImage:
     view.resize(700, 700)
     view.show()
     QApplication.processEvents()
-    view.set_zoom(1.0)
+    view.set_zoom(zoom)
     view.centerOn(QPointF(SIDE / 2, SIDE / 2))
     QApplication.processEvents()
     view.resetCachedContent()  # force every device cache to rebuild → paint() runs
@@ -174,6 +190,14 @@ def _qt(qtbot: object) -> object:  # noqa: ARG001 — ensures a QApplication exi
 CANVAS_FILLED = 3_000
 CANVAS_DEGRADED = 50
 EXPORT_FILLED = 3_000
+
+# Low-zoom seam (TestTheLowZoomSeamBetweenTheTwoGuards), measured at zoom 0.25
+# on this harness: a below-budget polygon's LOD flat fill paints 5,550 sampled
+# green pixels, while an over-budget degrade's outline paints none near that
+# green (its pen is a different colour). A reordered LOD-first over-budget
+# paint would produce the bulk fill again — far above the outline bound.
+LOW_ZOOM_FLAT_GREEN_MIN = 2_000
+LOW_ZOOM_OUTLINE_GREEN_MAX = 1_000
 
 
 class TestTheInteractiveCanvasDegrades:
@@ -225,6 +249,34 @@ class TestTheBoundSitsBelowThePathologicalCount:
     def test_one_vertex_above_the_bound_is_degraded(self, _qt: object) -> None:
         item = _item(_subdivided_square(MAX_FULL_DETAIL_VERTICES + 4))
         assert _count_fill(interactive_render(item)) < CANVAS_DEGRADED
+
+
+class TestTheLowZoomSeamBetweenTheTwoGuards:
+    """At low zoom, which guard wins for a polygon — pinned (review, #503).
+
+    Below 0.4 an unselected, below-budget, patterned polygon takes the LOD flat
+    fill (#409, corrected in #503): `get_lod_fill_color()` — the flat attribute
+    colour — not its brush. An **over-budget** one takes the over-budget degrade
+    even at low zoom, because `PolygonItem.paint` checks it first: the cosmetic
+    outline with no fill. Reordering those two branches would pass every other
+    test in this file; this pair is the ordering pin.
+    """
+
+    def test_a_below_budget_polygon_flat_fills_at_low_zoom(self, _qt: object) -> None:
+        item = _item(_subdivided_square(MAX_FULL_DETAIL_VERTICES))
+        assert item.fill_color == LAWN_GREEN, "the flat fill's colour is the attribute"
+        image = interactive_render(item, zoom=0.25)
+        # Not the magenta brush (LOD fired → the flat attribute colour in bulk),
+        # and the flat green fill is present in bulk (not an outline).
+        assert _count_fill(image) < CANVAS_DEGRADED
+        assert _count_colour(image, LAWN_GREEN) > LOW_ZOOM_FLAT_GREEN_MIN
+
+    def test_an_over_budget_polygon_outlines_at_low_zoom(self, _qt: object) -> None:
+        item = _item(_subdivided_square(1024))
+        image = interactive_render(item, zoom=0.25)
+        # The degrade wins: no fill of any kind, only the outline's own pixels.
+        assert _count_fill(image) < CANVAS_DEGRADED
+        assert _count_colour(image, LAWN_GREEN) < LOW_ZOOM_OUTLINE_GREEN_MAX
 
 
 class TestHostilePolygonIsRefusedAtLoad:

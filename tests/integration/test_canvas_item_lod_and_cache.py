@@ -337,6 +337,12 @@ class TestExportCacheFidelity:
 # from any pen in play — so a blue-dominance filter isolates exactly the fill.
 FLAT_FILL = QColor("#ff1f4fd8")
 TEXTURE = FillPattern.ROOF_TILES
+# What an export render shrinks a plan to: a PDF/SVG export maps a whole plan
+# to the page width, which for a 50 m plan on an A4-width page is scale ~0.1
+# (72-96 dpi); the load-bearing cases are large canvases on small pages, while
+# a plan small enough to be enlarged onto the page sits above 0.4 where the
+# LOD branch cannot fire at all. 1:1 renders cannot see the branch either.
+EXPORT_SCALE = 0.25
 
 
 def _styled_textured_rectangle() -> RectangleItem:
@@ -372,23 +378,40 @@ def _interactive_canvas_render(qtbot: object, item: RectangleItem, *, zoom: floa
 
 
 def _export_render(item: RectangleItem) -> QImage:
-    """What an export shows: the project's own cache-disabling convention."""
-    scene = QGraphicsScene()
+    """What an export shows: the project's own cache-disabling convention.
+
+    Rendered at :data:`EXPORT_SCALE` on purpose. This is where the convention
+    is load-bearing: a PDF/SVG export maps a whole plan to the page width (a
+    50 m plan on an A4-width page is scale ~0.1), so with the caches left on
+    the same render would flat-fill — a 1:1 render cannot tell the difference
+    (level 1.0 keeps the LOD branch off either way). The scene is a
+    ``CanvasScene`` so the items are actually cached before the convention
+    disables them.
+    """
+    scene = CanvasScene(width_cm=2000, height_cm=2000)
     scene.addItem(item)
+    assert item.cacheMode() == QGraphicsItem.CacheMode.DeviceCoordinateCache
     cached = ExportService._disable_item_caches(scene)
-    source = item.sceneBoundingRect()
-    image = QImage(
-        max(1, int(source.width())), max(1, int(source.height())),
-        QImage.Format.Format_ARGB32_Premultiplied,
-    )
-    image.fill(QColor("white"))
-    painter = QPainter(image)
     try:
-        scene.render(painter, QRectF(0, 0, image.width(), image.height()), source)
+        source = item.sceneBoundingRect()
+        image = QImage(
+            max(1, int(source.width() * EXPORT_SCALE)),
+            max(1, int(source.height() * EXPORT_SCALE)),
+            QImage.Format.Format_ARGB32_Premultiplied,
+        )
+        image.fill(QColor("white"))
+        painter = QPainter(image)
+        try:
+            painter.scale(EXPORT_SCALE, EXPORT_SCALE)
+            scene.render(
+                painter,
+                QRectF(0, 0, source.width(), source.height()),
+                source,
+            )
+        finally:
+            painter.end()
     finally:
-        painter.end()
-    ExportService._restore_item_caches(cached)
-    scene.removeItem(item)
+        ExportService._restore_item_caches(cached)
     return image
 
 
@@ -431,7 +454,9 @@ def _fill_intensity_stats(image: QImage) -> tuple[int, float]:
 #   low-zoom canvas, pre-#503: samples 1 908, spread 13.61 (texture — this is
 #                              the value the regression must catch)
 #   full-zoom canvas:          samples 29 400, spread 20.12 (texture)
-#   export render:             samples 29 400, spread 20.03 (texture)
+#   export at EXPORT_SCALE:    samples 1 908, spread 12.05 (texture; with the
+#                              caches NOT disabled first the same render reads
+#                              0.00 — the convention is load-bearing here)
 CANVAS_FILL_SAMPLES_MIN = 1_000
 FLAT_SPREAD_MAX = 4.0
 TEXTURE_SPREAD_MIN = 8.0

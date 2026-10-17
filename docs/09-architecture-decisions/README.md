@@ -2707,25 +2707,40 @@ fabricated widget. The fit-in-view acceptance gain attributed to the LOD flat fi
 alongside it.
 
 **Decision.** `should_use_lod_flat_fill` keys "interactive" on the item's **cache
-mode** — `widget is not None or cacheMode() != NoCache` — the same discriminator as the
-over-budget paint bound above. Export, report, print and agent render paths disable the
+mode** — one shared predicate, `ui/canvas/items/garden_item.py::is_interactive_paint`
+(`widget is not None or cacheMode() != NoCache`), which the over-budget paint bound
+above now calls too, so the idiom cannot drift into a third, wrong copy. Export,
+report, print and agent render paths disable the
 item caches first (`ExportService._disable_item_caches`) and render offscreen, so they
 keep 100 % detail; a selected item is excluded at every call site; the **minimap**
 renders through `scene.render` without disabling caches, so it flat-fills like the
 canvas — the same deliberate divergence ADR-057 already records for the polygon
 degrade. Firing is threshold-gated as designed: below `levelOfDetailFromTransform < 0.4`
-an unselected patterned item shows its flat `fill_color` instead of its texture.
+an unselected item shows its flat `fill_color` instead of its texture — furniture
+sprites and plant sprites flat-fill too, they are not pattern-gated.
 
-**Consequences.** Below 0.4 zoom the canvas now shows the designed flat fills for
-patterned items — new *visible* behaviour relative to every shipped release, gated on
-the owner's manual test like any visual change. The sibling suite needed one honest
+**Consequences.** Below 0.4 zoom the canvas now shows the designed flat fills — new
+*visible* behaviour relative to every shipped release, gated on the owner's manual
+test like any visual change — and with it a second consequence that was invisible
+while the branch was dead: the fill branch **returns early**, so the paint-level
+diagnostics drawn after it are skipped on unselected items at low zoom — a bed's grid,
+crop-rotation indicator, soil-mismatch border and capacity badge; a plant's spacing
+ring, companion highlight and antagonist badge; and a raised bed rendered as
+furniture skips its grid and soil border. That is #409's original design (return after the fill for speed), now stated
+here and in the manual-test checklist rather than discovered later.
+The sibling suite needed one honest
 adjustment: `tests/integration/test_polygon_paint_bound.py` renders its interactive
 canvas at 100 % zoom now, because its below-budget assertions pin the *exact* fill and
 the product contract at zoom ≥ 0.4 is exactly that (the harness previously ran at
 fit-in-view zoom, where the LOD branch, once reachable, legitimately paints the flat
-attribute colour). `tests/integration/test_canvas_item_lod_and_cache.py` pins the fill
+attribute colour); a new low-zoom pair there pins the seam between the two guards
+(degrade wins for an over-budget polygon). `tests/integration/test_canvas_item_lod_and_cache.py` pins the fill
 on rendered pixels through a real view: fill-intensity spread 0.00 at 0.25 zoom fixed
-against 13.61 pre-fix, with textured controls at 8.0+.
+against 13.61 pre-fix, with textured controls measured 20.1 at full zoom and 12.05 at
+export scale (threshold 8.0) — and the export half renders at
+a sub-threshold scale (0.25; a 50 m plan on an A4-width page sits at ~0.1) with the
+caches disabled by the convention: without that disable the same render reads 0.00, so
+the convention is now load-bearing under test.
 
 **Evidence.** The committed tests above, plus the measured table in #503 (calls, widget
 presence and return value per view state).

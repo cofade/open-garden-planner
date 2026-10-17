@@ -172,6 +172,31 @@ def disable_cache(item: QGraphicsItem) -> None:
     item.setCacheMode(QGraphicsItem.CacheMode.NoCache)
 
 
+def is_interactive_paint(item: object, widget: QWidget | None) -> bool:
+    """Whether a paint call is the live canvas painting, not an offscreen render.
+
+    "Interactive" is NOT ``widget is not None``: Qt passes ``widget = 0`` for
+    every **cached** paint, and every unselected canvas item is
+    ``DeviceCoordinateCache``, so a widget-based test is never true for the
+    paints the user's canvas actually runs — the shared root cause of the first
+    #472 over-budget degrade and of the never-firing #409 LOD flat fill (#503).
+    The discriminator is the item's **cache mode**: every export, report, print
+    and agent render path disables the item caches first
+    (``ExportService._disable_item_caches``) and runs offscreen, while the
+    cached interactive view degrades — and the minimap, which renders through
+    ``scene.render`` with caches on, deliberately degrades like the canvas.
+
+    The ``widget is not None`` half is deliberately kept as robustness for a
+    cache-disabled item painted by a real widget even though every current
+    call site excludes selected items first (so product paints reach this
+    predicate cache-enabled); the direct-call tests exercise it.
+    """
+    return widget is not None or (
+        isinstance(item, QGraphicsItem)
+        and item.cacheMode() != QGraphicsItem.CacheMode.NoCache
+    )
+
+
 def handle_selection_change_for_cache(
     item: QGraphicsItem, change: QGraphicsItem.GraphicsItemChange, value: Any
 ) -> None:
@@ -308,20 +333,13 @@ class GardenItemMixin:
     ) -> bool:
         """Return True when the item should render a simplified flat fill for speed.
 
-        Only active during interactive canvas painting. "Interactive" is NOT
-        ``widget is not None``: Qt passes ``widget = 0`` for every **cached**
-        paint, and every unselected canvas item is ``DeviceCoordinateCache``,
-        so a widget-based guard never fired in the product (issue #503). The
-        cache mode is the discriminator, as in ``PolygonItem``'s over-budget
-        degrade (issue #472): every export, report, print and agent render path
-        disables the item caches first (``ExportService._disable_item_caches``)
-        and runs offscreen, so those always keep full detail.
+        Only active during interactive canvas painting — decided by
+        :func:`is_interactive_paint` (the item's cache mode, not Qt's
+        ``widget``; see that function for why, and issues #409/#472/#503) — and
+        only below the level-of-detail threshold. Exports, print and agent
+        renders disable the item caches first and always keep full detail.
         """
-        interactive = widget is not None or (
-            isinstance(self, QGraphicsItem)
-            and self.cacheMode() != QGraphicsItem.CacheMode.NoCache
-        )
-        if option is None or not interactive:
+        if option is None or not is_interactive_paint(self, widget):
             return False
         lod = option.levelOfDetailFromTransform(painter.worldTransform())
         return bool(lod < threshold)

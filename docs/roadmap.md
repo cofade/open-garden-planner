@@ -3032,6 +3032,11 @@ colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see §11.4
   those keep full detail. The #409 acceptance gain attributed to this branch came from the
   `lru_cache` and the device cache instead. Pinned by rendered pixels through a real view in
   `tests/integration/test_canvas_item_lod_and_cache.py` (fill-intensity spread 0.00 at 0.25 zoom
-  fixed, 13.61 pre-fix, textured controls 20.1). Making the branch live also required #472's
+  fixed, 13.61 pre-fix, textured controls 20.1; the export half now renders at a sub-threshold
+  scale where a PDF/SVG export sits, so the cache-disable convention is load-bearing under test;
+  mutation-verified both ways). Making the branch live also required #472's
   below-budget assertions to render at 100 % zoom, where "the exact fill paints" is the product
-  contract. Lesson in §11.4.11, ADR-057 addendum.
+  contract, and gained a low-zoom pair pinning the seam between the two guards (degrade first).
+  Below 0.4 the flat fill also replaces furniture and plant sprites and skips the paint-level
+  diagnostics drawn after the fill branch — intended by #409's design, stated in the ADR-057
+  addendum and the manual checklist. Lesson in §11.4.11.
