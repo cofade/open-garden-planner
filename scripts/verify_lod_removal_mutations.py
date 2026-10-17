@@ -26,15 +26,19 @@ Usage::
     venv/Scripts/python.exe scripts/verify_lod_removal_mutations.py
     venv/Scripts/python.exe scripts/verify_lod_removal_mutations.py -v
 
-Exit code 0 means every site is still watched. It is deliberately NOT part of
-the default test run: it rewrites source files, so it belongs to a review or a
-pre-merge sweep, not to CI on a pull request.
+Run it alone. It rewrites live source files, so two concurrent runs would
+interleave writes into the same four files and restore the wrong content; the
+lock below makes a second invocation exit rather than corrupt the tree. That
+trade - rewriting source instead of copying a tree - is why this is not in CI.
+
+Exit code 0 means every site is still watched.
 """
 
 from __future__ import annotations
 
 import argparse
 import ast
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -116,6 +120,13 @@ BRANCH = """{i}from PyQt6.QtGui import QBrush as _MB, QColor as _MC
 # incidental error such as a NameError in the mutant.
 ON_TEXTURE = ("flat fill at zoom", "lost the")
 
+# Guards against a concurrent run: see the module docstring.
+LOCK = Path(__file__).resolve().parent / ".verify_lod_removal_mutations.lock"
+
+
+class AlreadyRunning(RuntimeError):
+    """Another instance holds the lock; the tree would be interleaved."""
+
 
 def _parses(path: Path) -> bool:
     try:
@@ -131,8 +142,12 @@ def check_site(fname: str, anchor: str, draw: str, indent: int) -> str:
     if anchor not in original:
         return "ANCHOR-MISSING (the anchor text moved — update SITES)"
     body = BRANCH.format(draw=draw, i=" " * indent)
-    path.write_text(original.replace(anchor, body + anchor, 1), encoding="utf-8")
     try:
+        # The write is INSIDE the try: Path.write_text truncates before it
+        # writes, so a kill during that call would leave a TRUNCATED source file
+        # with no mutant left to undo - strictly worse than a mutated one, and
+        # `git checkout -- src/` the only way back.
+        path.write_text(original.replace(anchor, body + anchor, 1), encoding="utf-8")
         if not _parses(path):
             return "MUTANT-INVALID (this script's own mutant is broken)"
         proc = subprocess.run(  # noqa: S603
@@ -170,6 +185,24 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    try:
+        fd = os.open(LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        print(
+            f"refusing to run: {LOCK.name} exists, so another instance may be "
+            "mid-flight. Two runs would interleave writes into the same four "
+            "source files. If you are sure none is running, delete the lock."
+        )
+        return 1
+    try:
+        os.write(fd, str(os.getpid()).encode())
+        os.close(fd)
+        return _run(args)
+    finally:
+        LOCK.unlink(missing_ok=True)
+
+
+def _run(args: argparse.Namespace) -> int:
     print(f"Re-applying {len(SITES)} deleted #409 call sites against {PIN}\n")
     results: list[tuple[str, str]] = []
     for label, fname, anchor, draw, indent in SITES:
@@ -177,8 +210,8 @@ def main() -> int:
         results.append((label, verdict))
         marker = "OK  " if verdict.startswith("caught (") else "FAIL"
         print(f"  [{marker}] {label:<24} {verdict}")
-        if args.verbose and not verdict.startswith("caught ("):
-            print("      (run pytest on the file by hand to see the failure)")
+        if args.verbose and verdict.startswith("SURVIVED"):
+            print("      the pin passed with a flat fill re-inserted at this site")
 
     bad = [(lab, v) for lab, v in results if not v.startswith("caught (")]
     print()

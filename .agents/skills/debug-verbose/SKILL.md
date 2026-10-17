@@ -2172,14 +2172,24 @@ returns `True`. Keying the guard on the cache mode made it fire: a rendered-pixe
 0.25 zoom, with textured controls at 20.1.
 
 Round 2 - the question reachability cannot answer. Measured on the reference plan the branch was
-written for (990 scene items, 1600x1000 view, best of seven rounds), with both scenarios below
-the 0.4 threshold: `fit_in_view` at zoom 0.316 read **10.58 ms with the flat fill disabled and
-10.64 ms with it live**; `zoom_step` at 0.348 read 8.21 ms against 7.40 ms; all six
-`tests/perf/test_nfr_budgets.py` cases passed with the branch stubbed to `return False`. The
-reason is structural and was visible in the code all along: `DeviceCoordinateCache` rasterises a
-textured item **once** and every later frame is a cheap blit, so the expensive textured `paint()`
-the LOD existed to avoid was already amortised by the sibling fix from the same PR. The branch
-could only pay per *cache regeneration*; the acceptance metric is steady-state repaint.
+written for (990 scene items, 1600x1000 view, seven rounds of fifteen repaints), both scenarios
+below the 0.4 threshold: `fit_in_view` at zoom 0.316 read **10.61 and 11.50 ms median with the
+flat fill disabled, 10.87 ms with it live** - the arms' ranges overlap entirely; `zoom_step` at
+0.348 read **7.97 / 7.98 ms disabled, 8.20 ms live**. All six `tests/perf/test_nfr_budgets.py`
+cases pass with the branch stubbed to `return False`, worst reading 12.21 ms against the 16.70 ms
+budget. The reason is structural and was visible in the code all along: `DeviceCoordinateCache`
+rasterises a textured item **once** and every later frame is a cheap blit, so the expensive
+textured `paint()` the LOD existed to avoid was already amortised by the sibling fix from the
+same PR. The branch could only pay per *cache regeneration*; the acceptance metric is
+steady-state repaint.
+
+What the measurement establishes is that the effect sits **below this harness's noise**:
+within-arm variation is 8 % against a 0.26 ms between-arm difference, and no reversed-order run
+was taken, so no claim about which arm is faster survives. An earlier single-pair reading
+(10.58/10.64, 8.21/7.40) is **superseded** - it put the `zoom_step` sign the other way round, and
+a draft of this very case study asserted the ordering it implied and was wrong on its own
+numbers. *A conclusion drawn from one ordering of a noisy measurement is the same class of
+mistake as a guard whose condition was never true: both are confident and both are unfounded.*
 
 **Root cause, twice over.** The `widget is not None` idiom, for the third recorded time (#472's
 first draft, then the LOD guard, then #472's suite) - Qt passes `widget = 0` for every
