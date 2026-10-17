@@ -353,8 +353,17 @@ def _styled_textured_rectangle() -> RectangleItem:
     return item
 
 
-def _interactive_canvas_render(qtbot: object, item: RectangleItem, *, zoom: float) -> QImage:
-    """What the canvas shows at ``zoom``: a real CanvasView, caches ON, fresh."""
+def _interactive_canvas_render(qtbot: object, item: RectangleItem, *, zoom: float) -> tuple[QImage, QRectF]:
+    """What the canvas shows at ``zoom``: a real CanvasView, caches ON, fresh.
+
+    Returns the rendered viewport image and the item's rectangle **in image
+    coordinates** (mapped through the view transform), so assertions sample the
+    item's own region and nothing else. A colour-matching bounding box was the
+    first version of this helper; on the Linux/offscreen CI the scene's faint
+    background pixels passed the colour filter and poisoned the sample (CI
+    measured spread 62.59 where Windows measured 0.00), so the region is
+    computed, not discovered.
+    """
     scene = CanvasScene(width_cm=2000, height_cm=2000)
     scene.addItem(item)
     view = CanvasView(scene)
@@ -374,10 +383,11 @@ def _interactive_canvas_render(qtbot: object, item: RectangleItem, *, zoom: floa
         view.viewport().render(painter)
     finally:
         painter.end()
-    return image
+    item_rect = view.mapFromScene(item.sceneBoundingRect()).boundingRect()
+    return image, QRectF(item_rect)
 
 
-def _export_render(item: RectangleItem) -> QImage:
+def _export_render(item: RectangleItem) -> tuple[QImage, QRectF]:
     """What an export shows: the project's own cache-disabling convention.
 
     Rendered at :data:`EXPORT_SCALE` on purpose. This is where the convention
@@ -386,7 +396,8 @@ def _export_render(item: RectangleItem) -> QImage:
     the same render would flat-fill — a 1:1 render cannot tell the difference
     (level 1.0 keeps the LOD branch off either way). The scene is a
     ``CanvasScene`` so the items are actually cached before the convention
-    disables them.
+    disables them. The returned rect is the image's own extent (the item fills
+    it).
     """
     scene = CanvasScene(width_cm=2000, height_cm=2000)
     scene.addItem(item)
@@ -412,37 +423,26 @@ def _export_render(item: RectangleItem) -> QImage:
             painter.end()
     finally:
         ExportService._restore_item_caches(cached)
-    return image
+    return image, QRectF(0, 0, image.width(), image.height())
 
 
-def _fill_intensity_stats(image: QImage) -> tuple[int, float]:
-    """(sample count, intensity std) over the blue fill's interior pixels.
+def _fill_intensity_stats(image: QImage, region: QRectF) -> tuple[int, float]:
+    """(sample count, intensity std) over ``region``'s interior pixels.
 
     A flat fill is one colour (std ~ 0); a tinted texture carries the tile
-    texture's luminance spread. The interior is inset 15 % so the antialiased
+    texture's luminance spread. ``region`` is inset 10 % so the antialiased
     item edge and the outline do not masquerade as texture.
     """
-    xs: list[int] = []
-    ys: list[int] = []
-    for y in range(0, image.height(), 2):
-        for x in range(0, image.width(), 2):
-            r, g, b, _ = QColor(image.pixel(x, y)).getRgb()
-            if b > r + 30 and b > g + 30:
-                xs.append(x)
-                ys.append(y)
-    if not xs:
-        return 0, 0.0
-    x0, x1 = min(xs), max(xs)
-    y0, y1 = min(ys), max(ys)
-    ix = int((x1 - x0) * 0.15)
-    iy = int((y1 - y0) * 0.15)
-    x0, x1, y0, y1 = x0 + ix, x1 - ix, y0 + iy, y1 - iy
+    ix = region.width() * 0.1
+    iy = region.height() * 0.1
+    x0, y0 = int(region.left() + ix), int(region.top() + iy)
+    x1, y1 = int(region.right() - ix), int(region.bottom() - iy)
     values: list[float] = []
-    for y in range(y0, y1 + 1, 2):
-        for x in range(x0, x1 + 1, 2):
-            r, g, b, _ = QColor(image.pixel(x, y)).getRgb()
-            values.append((r + g + b) / 3.0)
-    assert values, "the blue interior vanished after the inset"
+    for y in range(max(0, y0), min(image.height(), y1 + 1), 2):
+        for x in range(max(0, x0), min(image.width(), x1 + 1), 2):
+            colour = QColor(image.pixel(x, y))
+            values.append((colour.red() + colour.green() + colour.blue()) / 3.0)
+    assert values, "the sample region lies outside the image"
     mean = sum(values) / len(values)
     var = sum((v - mean) ** 2 for v in values) / len(values)
     return len(values), var ** 0.5
@@ -450,13 +450,18 @@ def _fill_intensity_stats(image: QImage) -> tuple[int, float]:
 
 # Calibrated bounds, measured on this harness (explicit, so a harness change
 # fails loudly instead of sliding silently):
-#   low-zoom canvas, fixed:   samples 1 908, spread 0.00  (flat fill)
-#   low-zoom canvas, pre-#503: samples 1 908, spread 13.61 (texture — this is
-#                              the value the regression must catch)
-#   full-zoom canvas:          samples 29 400, spread 20.12 (texture)
-#   export at EXPORT_SCALE:    samples 1 908, spread 12.05 (texture; with the
+#   low-zoom canvas, fixed:   samples 2 604, spread 0.00  (flat fill; with the
+#                             guard disabled — the old behaviour — the same
+#                             render reads 14.30, which is what the regression
+#                             catches)
+#   full-zoom canvas:          samples 40 425, spread 20.07 (texture)
+#   export at EXPORT_SCALE:    samples 2 501, spread 14.55 (texture; with the
 #                              caches NOT disabled first the same render reads
 #                              0.00 — the convention is load-bearing here)
+# The samples come from the item's own mapped region, never from a colour
+# filter: the first version matched "blue-ish" pixels image-wide, and on the
+# Linux/offscreen CI the scene's faint background passed that filter — spread
+# 62.59 there against 0.00 on Windows, one red CI job, no reproduction locally.
 CANVAS_FILL_SAMPLES_MIN = 1_000
 FLAT_SPREAD_MAX = 4.0
 TEXTURE_SPREAD_MIN = 8.0
@@ -473,9 +478,30 @@ class TestTheLodFillFiresOnARealCanvas:
     """
 
     def test_at_low_zoom_the_canvas_flat_fills(self, qtbot) -> None:  # noqa: ARG002
-        count, spread = _fill_intensity_stats(
-            _interactive_canvas_render(qtbot, _styled_textured_rectangle(), zoom=0.25)
+        item = _styled_textured_rectangle()
+        calls: list[tuple[QWidget | None, bool]] = []
+        original = item.should_use_lod_flat_fill
+
+        def recording(
+            option: QStyleOptionGraphicsItem | None,
+            widget: QWidget | None,
+            painter: QPainter,
+            *args: float,
+        ) -> bool:
+            result = original(option, widget, painter, *args)
+            calls.append((widget, result))
+            return result
+
+        item.should_use_lod_flat_fill = recording  # type: ignore[assignment]
+        image, item_rect = _interactive_canvas_render(qtbot, item, zoom=0.25)
+        # The guard must have been consulted BY Qt's real cached paint, and
+        # said yes there — the pixel checks below then confirm it painted.
+        assert calls, "the LOD guard was never consulted during a real cached paint"
+        assert all(result for _, result in calls), (
+            "the LOD guard declined on the canvas at 0.25 zoom "
+            f"({sum(1 for w, _ in calls if w is None)} of {len(calls)} calls with widget=None)"
         )
+        count, spread = _fill_intensity_stats(image, item_rect)
         assert count > CANVAS_FILL_SAMPLES_MIN, "the fill did not paint at all"
         assert spread < FLAT_SPREAD_MAX, (
             f"the canvas did not flat-fill at low zoom (spread {spread:.2f}); "
@@ -483,9 +509,10 @@ class TestTheLodFillFiresOnARealCanvas:
         )
 
     def test_at_full_zoom_the_canvas_keeps_the_texture(self, qtbot) -> None:  # noqa: ARG002
-        count, spread = _fill_intensity_stats(
-            _interactive_canvas_render(qtbot, _styled_textured_rectangle(), zoom=1.0)
+        image, item_rect = _interactive_canvas_render(
+            qtbot, _styled_textured_rectangle(), zoom=1.0
         )
+        count, spread = _fill_intensity_stats(image, item_rect)
         assert count > CANVAS_FILL_SAMPLES_MIN
         assert spread > TEXTURE_SPREAD_MIN, (
             "the texture vanished at full zoom; the LOD fill must be "
@@ -493,7 +520,8 @@ class TestTheLodFillFiresOnARealCanvas:
         )
 
     def test_the_export_keeps_the_texture(self, qtbot) -> None:  # noqa: ARG002
-        count, spread = _fill_intensity_stats(_export_render(_styled_textured_rectangle()))
+        image, item_rect = _export_render(_styled_textured_rectangle())
+        count, spread = _fill_intensity_stats(image, item_rect)
         assert count > CANVAS_FILL_SAMPLES_MIN
         assert spread > TEXTURE_SPREAD_MIN, (
             "the export lost the texture; cache-disabled render paths must "
