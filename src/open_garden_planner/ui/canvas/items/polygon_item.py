@@ -52,10 +52,15 @@ from .resize_handle import ResizeHandlesMixin, RotationHandleMixin, VertexEditMi
 # At or below MAX_FULL_DETAIL_VERTICES an unselected polygon paints exactly as
 # before. Above it, an INTERACTIVE paint draws the exact outline with a cosmetic
 # 1-px pen and no fill: that is linear with a small constant and independent of
-# the item's pen width, so the window stays responsive. Exports and offscreen
-# renders (``widget is None``) are never degraded, so a saved PDF/PNG is
-# unchanged, and a selected item always paints exactly so editing and validation
-# see the truth. A polygon whose outline is large but CONVEX would fill cheaply;
+# the item's pen width, so the window stays responsive. "Interactive" is decided
+# by the item's CACHE MODE, not by Qt's ``widget`` argument — every cached paint
+# receives widget=0, and unselected canvas items are cached, so a widget-based
+# test would never fire (see the guard in ``paint``). Every export, report,
+# print and agent render path disables caches first
+# (``ExportService._disable_item_caches``), so those are never degraded and a
+# saved PDF/PNG is unchanged; a selected item always paints exactly so editing
+# and validation see the truth. A polygon whose outline is large but CONVEX
+# would fill cheaply;
 # distinguishing it needs an O(n) pass per paint, so the bound deliberately errs
 # toward the outline for every large polygon (see ADR-057).
 MAX_FULL_DETAIL_VERTICES = 256

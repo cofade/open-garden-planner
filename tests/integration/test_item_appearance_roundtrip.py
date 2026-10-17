@@ -37,9 +37,31 @@ from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
 from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 
-FILL = QColor("#ff90ee90")      # the owner's light green
+# The owner's light green (#ff90ee90) — and note it happens to be the
+# GENERIC_RECTANGLE type default, so it is NOT usable here as evidence that a
+# stored value was restored: a test whose "user colour" equals the default
+# passes whether or not the loader wrote anything back. See USER_FILL below.
+FILL = QColor("#ff90ee90")
 STROKE = QColor("#ffff0000")    # red
 PATTERN = FillPattern.ROOF_TILES
+
+# A colour that is NOT any object's type default, so a restored value and a
+# left-behind default can never be confused. Deep blue, chosen for maximum
+# distance from the greens/reds/browns the object-type catalog uses.
+USER_FILL = QColor("#ff1f4fd8")
+
+
+def _assert_distinct_from_every_type_default(colour: QColor) -> None:
+    """Fail loudly if a test colour stops being distinguishable from a default."""
+    from open_garden_planner.core.object_types import OBJECT_STYLES
+
+    for object_type, style in OBJECT_STYLES.items():
+        for field in ("fill_color", "stroke_color"):
+            if getattr(style, field, None) == colour:
+                pytest.fail(
+                    f"{colour.name()} is {object_type.name}'s {field} default, so a "
+                    "test using it cannot prove a restore happened"
+                )
 
 
 def _rectangle() -> RectangleItem:
@@ -75,25 +97,32 @@ CASES = [(b, b is not _polyline) for b in BUILDERS]
 CASE_IDS = [f"{name}-{'filled' if has_fill else 'line'}" for name, (_, has_fill) in zip(IDS, CASES, strict=True)]
 
 
-def _style_like_the_owner(item: object, *, has_fill: bool = True) -> None:
+def _style_like_the_owner(item: object, *, has_fill: bool = True, fill: QColor | None = None) -> None:
     """Recolour an item the way the Properties panel does (texture + stroke).
 
     ``has_fill=False`` for a polyline: a line has no fill (and its serializer
     stores none), and Qt would otherwise *fill* the open path with the texture.
     The dash is left off there too — the line serializer writes no dash style
     (#467, owned by the L1 branch), so a dashed line would test that defect.
+
+    ``fill`` defaults to :data:`USER_FILL`, which is deliberately NOT any object
+    type's default fill, so these tests can prove a *stored* value was restored
+    rather than merely left at the type default (the owner's green, #ff90ee90,
+    happens to BE the GENERIC_RECTANGLE default and proves nothing — see the
+    :func:`test_the_test_colours_are_not_type_defaults` guard).
     """
+    fill = USER_FILL if fill is None else fill
     item.stroke_color = QColor(STROKE)
     item.stroke_width = 3.5
     if has_fill:
         item.stroke_style = StrokeStyle.DASHED
     if has_fill:
         item.fill_pattern = PATTERN
-        item.fill_color = QColor(FILL)
+        item.fill_color = QColor(fill)
         # The panel rebuilds the brush from the two attributes above; a test
         # that only sets the attributes would leave the item painting its
         # constructor's brush and compare two different things.
-        item.setBrush(create_pattern_brush(PATTERN, QColor(FILL)))
+        item.setBrush(create_pattern_brush(PATTERN, QColor(fill)))
     pen = item.pen()
     pen.setColor(QColor(STROKE))
     pen.setWidthF(3.5)
@@ -151,6 +180,17 @@ def _roundtrip(scene: CanvasScene, cycles: int = 1) -> CanvasScene:
 
 
 class TestTheStoredAppearanceSurvivesAReload:
+    def test_the_test_colours_are_not_type_defaults(self) -> None:
+        """Guard the tests' own evidence (found in the round-5 review).
+
+        The owner's light green is the GENERIC_RECTANGLE default, so a test
+        styling an item with it cannot tell a restored value from a default
+        that was never overwritten. The round-trip tests therefore use
+        :data:`USER_FILL`; this fails if it ever drifts into a default.
+        """
+        _assert_distinct_from_every_type_default(USER_FILL)
+        _assert_distinct_from_every_type_default(QColor(STROKE))
+
     @pytest.mark.parametrize("build,has_fill", CASES, ids=CASE_IDS)
     def test_attributes_and_look_match_after_save_and_reload(
         self, canvas: CanvasView, qtbot: object, build: object, has_fill: bool
@@ -194,10 +234,12 @@ class TestTheStoredAppearanceSurvivesAReload:
     def test_the_fill_colour_is_the_chosen_colour_not_the_texture_default(
         self, canvas: CanvasView, qtbot: object
     ) -> None:
-        """The owner's exact case: a light-green fill over the roof-tile texture.
+        """#502: the chosen colour must dominate the texture.
 
-        Before #502 the texture's brown dominated, so this rendered as the
-        standard roof-tile colour even though the file was correct.
+        Before #502 the roof-tile texture's own brown dominated a 31 % wash, so
+        a light-green fill over ROOF_TILES rendered as the standard roof-tile
+        colour (#ca6846 -> #b8925d) even though the file was correct. Uses
+        :data:`USER_FILL` so a lost restore would also show up here.
         """
         item = _rectangle()
         _style_like_the_owner(item)
@@ -208,6 +250,34 @@ class TestTheStoredAppearanceSurvivesAReload:
         reloaded_scene = _roundtrip(scene)
         after = next(i for i in reloaded_scene.items() if isinstance(i, RectangleItem))
         reloaded_scene.removeItem(after)
+        r, g, b = _mean_rgb(_render(after))
+        assert b - r > 40, (
+            f"the chosen fill colour does not read over the texture "
+            f"(b - r {b - r:.1f}); the texture's own colour is winning"
+        )
+
+    def test_the_owners_exact_case_light_green_over_roof_tiles(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """The owner's plan verbatim (a #502 regression, not a restore check).
+
+        Kept as the literal reproduction. Note its green is the
+        GENERIC_RECTANGLE default, so this case alone cannot prove the stored
+        value was restored — the round-trip cases use :data:`USER_FILL` for
+        that, and ``test_the_fill_colour_is_the_chosen_colour_not_the_texture_default``
+        covers the same texture-vs-tint claim with a colour that is not a
+        default.
+        """
+        item = _rectangle()
+        _style_like_the_owner(item, fill=QColor(FILL))
+        scene = canvas.scene()
+        item.layer_id = scene.active_layer.id if scene.active_layer else None
+        scene.addItem(item)
+
+        reloaded_scene = _roundtrip(scene)
+        after = next(i for i in reloaded_scene.items() if isinstance(i, RectangleItem))
+        reloaded_scene.removeItem(after)
+        assert after.fill_pattern == PATTERN
         r, g, b = _mean_rgb(_render(after))
         assert g - r > 40, f"the light-green fill does not read (g - r {g - r:.1f})"
 
@@ -231,12 +301,17 @@ class TestTheStoredAppearanceSurvivesAReload:
         after = found[0]
         twice.removeItem(after)
         assert after.fill_pattern == item.fill_pattern
-        assert after.fill_color == item.fill_color
+        # USER_FILL, not a type default: with a default-valued colour this
+        # assertion holds whether or not the loader wrote anything back.
+        assert after.fill_color == item.fill_color == USER_FILL
         assert after.stroke_color == item.stroke_color
         assert after.stroke_width == pytest.approx(item.stroke_width)
         assert after.stroke_style == item.stroke_style
         r, g, b = _mean_rgb(_render(after))
-        assert g - r > 40, f"the light-green fill is gone after the second save (g - r {g - r:.1f})"
+        assert b - r > 40, (
+            f"the chosen fill is gone after the second save (b - r {b - r:.1f}); "
+            "a default was written over it"
+        )
 
 
 class TestCopiesKeepTheLook:
