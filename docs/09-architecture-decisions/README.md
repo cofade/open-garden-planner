@@ -2736,7 +2736,7 @@ fit-in-view zoom, where the LOD branch, once reachable, legitimately paints the 
 attribute colour); a new low-zoom pair there pins the seam between the two guards
 (degrade wins for an over-budget polygon). `tests/integration/test_canvas_item_lod_and_cache.py` pins the fill
 on rendered pixels through a real view: fill-intensity spread 0.00 at 0.25 zoom fixed
-against 13.61 pre-fix, with textured controls measured 20.1 at full zoom and 12.05 at
+against a guard-disabled mutation at 14.30, with textured controls measured 20.07 at full zoom and 14.55 at
 export scale (threshold 8.0) — and the export half renders at
 a sub-threshold scale (0.25; a 50 m plan on an A4-width page sits at ~0.1) with the
 caches disabled by the convention: without that disable the same render reads 0.00, so

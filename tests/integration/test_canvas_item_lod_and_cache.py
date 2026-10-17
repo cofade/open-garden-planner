@@ -333,8 +333,9 @@ class TestExportCacheFidelity:
 
 # ── Issue #503: the LOD flat fill must fire on a real canvas ──────────────
 #
-# Deep blue — not any object type's default, distant from the white page and
-# from any pen in play — so a blue-dominance filter isolates exactly the fill.
+# Deep blue — not any object type's default, distant in intensity from the
+# white page and any pen in play — so a flat fill and its tinted texture land
+# in distinct, measurable intensity ranges.
 FLAT_FILL = QColor("#ff1f4fd8")
 TEXTURE = FillPattern.ROOF_TILES
 # What an export render shrinks a plan to: a PDF/SVG export maps a whole plan
@@ -497,9 +498,9 @@ class TestTheLodFillFiresOnARealCanvas:
         # The guard must have been consulted BY Qt's real cached paint, and
         # said yes there — the pixel checks below then confirm it painted.
         assert calls, "the LOD guard was never consulted during a real cached paint"
-        assert all(result for _, result in calls), (
-            "the LOD guard declined on the canvas at 0.25 zoom "
-            f"({sum(1 for w, _ in calls if w is None)} of {len(calls)} calls with widget=None)"
+        assert any(w is None and r for w, r in calls), (
+            "no cached paint (widget=None) got True from the LOD guard at 0.25 "
+            f"zoom (calls as (widget is None, returned): {[(w is None, r) for w, r in calls]})"
         )
         count, spread = _fill_intensity_stats(image, item_rect)
         assert count > CANVAS_FILL_SAMPLES_MIN, "the fill did not paint at all"

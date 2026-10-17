@@ -3027,12 +3027,12 @@ colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see §11.4
   and every unselected canvas item is `DeviceCoordinateCache`, so the branch never ran in the
   product (measured through a real `CanvasScene` + `CanvasView`: one call per paint, no widget,
   `False` at every view state) and its tests passed only because they called the helper directly.
-  It now keys on the item's **cache mode** (`widget is not None or cacheMode() != NoCache`),
-  exactly as #472's paint bound does; export/print/agent render paths disable caches first, so
+  It now keys on the shared `is_interactive_paint` predicate (the item's **cache mode**),
+  which #472's paint bound calls too; export/print/agent render paths disable caches first, so
   those keep full detail. The #409 acceptance gain attributed to this branch came from the
   `lru_cache` and the device cache instead. Pinned by rendered pixels through a real view in
   `tests/integration/test_canvas_item_lod_and_cache.py` (fill-intensity spread 0.00 at 0.25 zoom
-  fixed, 13.61 pre-fix, textured controls 20.1; the export half now renders at a sub-threshold
+  fixed, guard-disabled mutation 14.30, textured controls 20.07; the export half now renders at a sub-threshold
   scale where a PDF/SVG export sits, so the cache-disable convention is load-bearing under test;
   mutation-verified both ways). Making the branch live also required #472's
   below-budget assertions to render at 100 % zoom, where "the exact fill paints" is the product
