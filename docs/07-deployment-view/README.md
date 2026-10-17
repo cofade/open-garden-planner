@@ -398,7 +398,10 @@ from the *frozen* app — not just from `pytest`.
 
 `pyproject.toml` declares dependency constraints, the build group and the exact uv tool pin.
 `uv.lock` selects universal/platform package versions; `pylock.toml` is its generated PEP 751
-export. The lock preserves v1.29.5 selections recorded in `quality/dependency-provenance.json`;
+export. The lock was aligned to the v1.29.5 selections recorded in
+`quality/dependency-provenance.json` when it was introduced (A2, #422); a monthly refresh
+(#493 onward, `chore(deps):` PRs) deliberately moves it forward — versions only, the package
+closure itself unchanged — and the provenance record remains the v1.29.5 snapshot;
 setuptools and wheel are explicit build-backend additions. uv is MIT/Apache-2.0 dual licensed
 and is a development tool, not an application dependency. PyInstaller retains its bundling
 exception; hooks-contrib remains build tooling. Python dependencies are locked. Runner images
