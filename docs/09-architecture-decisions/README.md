@@ -2714,9 +2714,15 @@ classifies paints and does not decide how much detail to draw.
 The **flat fill is removed**, with its rationale recorded. Issue #503 offered both
 repairs explicitly; measurement on the reference plan the branch was written for chose
 the second. On the 990-item audit plan, 1600x1000 view, best of seven rounds, both
-scenarios below the 0.4 threshold: `fit_in_view` at zoom 0.316 read **10.58 ms with the
-flat fill disabled and 10.64 ms with it live**; `zoom_step` at zoom 0.348 read 8.21 ms
-against 7.40 ms; all six `tests/perf/test_nfr_budgets.py` cases pass either way. The
+scenarios below the 0.4 threshold). `fit_in_view` at zoom 0.316: **10.61 and 11.50 ms median
+with the flat fill disabled, 10.87 ms with it live** — the two arms' ranges overlap
+entirely. `zoom_step` at zoom 0.348: **7.97 / 7.98 ms disabled, 8.20 ms live**. What that
+establishes is that the effect sits below this harness's noise — within-arm run-to-run
+variation is 8 % against a 0.26 ms between-arm difference, and no reversed-order run was
+taken, so no claim about which arm is faster survives. All six
+`tests/perf/test_nfr_budgets.py` cases pass either way, worst reading 12.21 ms against the
+16.70 ms budget. (An earlier single-pair reading — 10.58/10.64 and 8.21/7.40 — is
+superseded and is not to be cited: it put the `zoom_step` sign the other way round.) The
 cause is structural — `DeviceCoordinateCache` rasterises a textured item once and every
 later frame is a blit, so the expensive textured `paint()` the LOD existed to avoid was
 already amortised by the sibling fix. Deleting `should_use_lod_flat_fill`,

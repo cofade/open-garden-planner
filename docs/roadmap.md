@@ -3031,8 +3031,13 @@ colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see §11.4
   **Resolved by deletion, not by repair** — issue #503 offered both repairs explicitly. The guard
   was first fixed so the branch ran, then measured on the reference plan it was written for
   (990 items, best of seven rounds, both scenarios below the 0.4 threshold): `fit_in_view` at zoom
-  0.316 read **10.58 ms with the flat fill disabled and 10.64 ms with it live**, `zoom_step` at 0.348
-  read 8.21 ms against 7.40 ms, and all six `tests/perf/test_nfr_budgets.py` cases pass either way.
+  0.316 read **10.61 / 11.50 ms median with the flat fill off, 10.87 ms with it on**, and
+  `zoom_step` at 0.348 read **7.97 / 7.98 ms off, 8.20 ms on** — the effect sits below this
+  harness's noise (within-arm variation 8 % against a 0.26 ms between-arm difference, and
+  no reversed-order run was taken, so no claim about which arm is faster survives). All six
+  `tests/perf/test_nfr_budgets.py` cases pass either way, worst reading 12.21 ms against the
+  16.70 ms budget. The earlier single-pair reading (10.58/10.64, 8.21/7.40) is superseded: it
+  put the `zoom_step` sign the other way round.
   `DeviceCoordinateCache` rasterises a textured item once and every later frame is a blit, so the
   textured `paint()` the LOD existed to avoid was already amortised by the sibling fix from #409;
   the branch could only ever subtract detail. The owner's manual pass then settled what the

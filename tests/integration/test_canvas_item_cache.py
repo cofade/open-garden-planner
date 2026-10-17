@@ -14,7 +14,8 @@ replaced every texture below 40 % zoom. It never ran (its guard tested
 ``widget is not None``, but Qt passes ``widget = 0`` for every **cached** paint
 and every unselected canvas item is ``DeviceCoordinateCache``), and when
 measured on the 990-item reference plan it bought nothing — fit-in-view read
-10.58 ms without it and 10.64 ms with it, because ``DeviceCoordinateCache``
+10.61 / 11.50 ms median without it against 10.87 ms with it - the arms' ranges
+overlap - because ``DeviceCoordinateCache``
 already amortises the textured paint into a one-off cost. The owner's manual
 pass confirmed the cost was real: they work at 20-25 % zoom, well under the
 threshold, where the branch would have hidden every texture. The branch and its
@@ -270,11 +271,16 @@ EXPORT_SCALE = 0.25
 def _style_textured(item: QGraphicsItem) -> QGraphicsItem:
     """Give *item* a texture plus a deep-blue tint, the state a LOD branch saw.
 
-    Applies to every class the removed branch lived in — rectangle, circle,
-    ellipse, polygon — because the branch had seven call sites across all four
-    and the circle is where every plant sprite draws. A pin that covers only one
-    of them is the reason this is parametrised: see
-    ``TestTexturesAreNeverDropped`` and its mutation note.
+    Only the four **generic** fixtures go through this. The three sprite
+    entries in ``_SHAPE_FACTORIES`` deliberately do not: their ``paint()``
+    renders an SVG pixmap and ignores the brush, so the thing that must survive
+    there is the sprite art, not a texture. The render helpers apply whatever
+    brush the fixture sets, so a sprite fixture simply arrives unstyled.
+
+    Why any of this is parametrised at all: the removed branch had seven call
+    sites and they were not seven instances of one thing — two behind
+    ``is_plant``, two behind ``is_furniture_type``. See
+    ``TestTexturesAreNeverDropped`` and ``scripts/verify_lod_removal_mutations.py``.
     """
     item.fill_pattern = TEXTURE
     item.fill_color = QColor(FLAT_FILL)
@@ -568,8 +574,11 @@ class TestTexturesAreNeverDropped:
     comment in a docstring.
 
     Measured on the 990-item reference plan, the removed branch changed nothing:
-    fit-in-view read 10.58 ms with it disabled and 10.64 ms with it live, and
-    every NFR-PERF-01 budget test passes either way - ``DeviceCoordinateCache``
+    ``fit_in_view`` at zoom 0.316 read 10.61 / 11.50 ms median with it disabled and
+    10.87 ms with it live, ``zoom_step`` at 0.348 read 7.97 / 7.98 ms against
+    8.20 ms - the two arms' ranges overlap and no reversed-order run was taken, so
+    no claim about which is faster survives, and every NFR-PERF-01 budget test
+    passes either way. ``DeviceCoordinateCache``
     already amortises the textured paint into a one-off cost, so the LOD could
     only ever subtract detail. The owner works at 20-25 % zoom, where the
     removed threshold (0.4) would have hidden every texture.
@@ -619,11 +628,20 @@ class TestTheMaskIsTheItem:
     mask that applied ``scale`` but forgot ``-source.topLeft()`` (the circle's
     export case read spread 45.97 with a flat fill live, and 1.67 once aligned).
 
-    So the check is direct: the masked pixels must agree with the item's own
-    geometry, and they must not agree with the page background it was measured
-    against. Comparing the intensity distribution inside the mask with the
-    distribution outside it is frame-independent — a displaced mask straddles the
-    item and shows up as two populations where there should be one.
+    Two honest limits on what a mean comparison can see, both measured rather than
+    assumed:
+
+    - **Gross frame errors, not small displacements.** Shifting the *canvas* mask
+      40 px in both axes still passes all 71 tests; 80 px is the first shift that
+      fails. The items are 400-600 px across at zoom 1.0, so a mean over a large
+      interior cannot resolve a 10 % displacement. The export half is far sharper
+      — dropping the translate fires four of seven, because there the mask is only
+      a few pixels of displacement away from being page.
+    - **Dark-on-light by construction.** Every fixture is darker than the page
+      behind it, and a flat fill therefore collapses toward the failure direction.
+      A *lighter* fixture added later — a white raised bed, say — would false-fail
+      here with a message about the mask being displaced. The asymmetry is the safe
+      direction; it is stated so nobody has to rediscover it.
     """
 
     @pytest.mark.parametrize("shape", _SHAPE_IDS)
