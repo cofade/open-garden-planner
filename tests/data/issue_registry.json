@@ -826,7 +826,7 @@
   },
   "470": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "An offset copy of a rectangle, circle or ellipse does not keep its source's look"
   },
   "472": {
@@ -908,6 +908,11 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix: resolve app exit thread aborts, cache bounds, and test hygiene (#480, #483, #482, #474, #449, #448)"
+  },
+  "501": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(470,472,473,502): bound polygon paint, one look-copy rule, line budgets, and show the chosen fill colour"
   },
   "502": {
     "is_pr": false,

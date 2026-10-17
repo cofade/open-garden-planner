@@ -2975,10 +2975,18 @@ Epic #392 remains open; other audit bundles and #485 remain separate.
 - **Shortcut overload resolution**: Dedicated `Ctrl+F` to global search focus in `CategoryToolbar` and reassigned Find & Replace to `Ctrl+H` in `GardenPlannerApp`, eliminating ambiguous shortcut overload warnings with whole-window duplicate shortcut assertion gate.
 
 
-### 2D canvas follow-up: a paint bound, one look rule and a line budget (#470, #472, #473)
+### 2D canvas follow-up: a paint bound, one look rule and a line budget (#470, #472, #473, #502)
+
+**Complete, 2026-10-17; released as [v1.30.8](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.8) via [PR #501](https://github.com/cofade/open-garden-planner/pull/501) after owner acceptance.**
 
 Three pre-existing 2D defects found during the Phase 17 L1 work (#385), shipped together
-because none touches the in-flight L1 branch's files (see ADR-057, §8.28, §11.4.9).
+because none touches the in-flight L1 branch's files (see ADR-057, §8.28, §11.4.9). #502 came
+from the owner's manual pass of that PR. Independent review of the package also caught two
+defects the green suite had passed over — the #472 degrade never ran in the product (it tested
+Qt's `widget`, which is always `0` for a *cached* paint, so the condition was never true on the
+canvas; it now keys on the item's cache mode), and the #502 round-trip test styled items with a
+colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see §11.4.9 and §11.4.10.
+#503 was filed from the same review for the identical `widget` idiom in the LOD flat fill.
 
 - **#502 (manual pass of #501)**: a textured fill did not show the chosen colour - the runtime tint was a
   31 % wash (`_tint_texture`, alpha 80/255), so a light-green fill over the Roof Tiles texture rendered the standard
