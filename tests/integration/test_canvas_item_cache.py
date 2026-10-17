@@ -24,6 +24,8 @@ detail cannot be silently subtracted again.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import numpy as np
 import pytest
 from PyQt6.QtCore import QPointF, QRectF, Qt
@@ -280,44 +282,49 @@ def _style_textured(item: QGraphicsItem) -> QGraphicsItem:
     return item
 
 
-# (id, object_type, factory) for the four classes the #409 branch touched.
-_TEXTURED_SHAPES: list[tuple[str, object, object]] = [
-    (
-        "rectangle",
-        ObjectType.GENERIC_RECTANGLE,
-        lambda: _style_textured(
-            RectangleItem(200, 200, 600, 400, object_type=ObjectType.GENERIC_RECTANGLE)
-        ),
+# id -> factory, for every class AND branch the deleted #409 branch touched.
+#
+# Seven call sites, and they were not seven instances of one thing: two sat
+# inside ``if is_plant`` and two inside ``if is_furniture_type``, behind type
+# predicates that a ``GENERIC_*`` fixture never satisfies. A table of the four
+# generic shapes therefore watched four of seven — and the three unwatched ones
+# are exactly the sprite paths the owner's manual pass objected to. Verified by
+# mutation: a ``< 0.4`` flat fill in a plant or furniture branch renders a
+# TREE circle from interior std 43.09 to 0.00 — a flat brown disc — while every
+# test in the repo stayed green. Hence plant and furniture entries below, with
+# the sprite art itself as the thing that must survive.
+_SHAPE_FACTORIES: dict[str, Callable[[], QGraphicsItem]] = {
+    "rectangle": lambda: _style_textured(
+        RectangleItem(200, 200, 600, 400, object_type=ObjectType.GENERIC_RECTANGLE)
     ),
-    (
-        "circle",
-        ObjectType.GENERIC_CIRCLE,
-        lambda: _style_textured(CircleItem(500, 400, 400, object_type=ObjectType.GENERIC_CIRCLE)),
+    "circle": lambda: _style_textured(
+        CircleItem(500, 400, 400, object_type=ObjectType.GENERIC_CIRCLE)
     ),
-    (
-        "ellipse",
-        ObjectType.GENERIC_ELLIPSE,
-        lambda: _style_textured(
-            EllipseItem(200, 200, 600, 400, object_type=ObjectType.GENERIC_ELLIPSE)
-        ),
+    "ellipse": lambda: _style_textured(
+        EllipseItem(200, 200, 600, 400, object_type=ObjectType.GENERIC_ELLIPSE)
     ),
-    (
-        "polygon",
-        ObjectType.GENERIC_POLYGON,
-        lambda: _style_textured(
-            PolygonItem(
-                [
-                    QPointF(300, 250),
-                    QPointF(700, 250),
-                    QPointF(700, 550),
-                    QPointF(300, 550),
-                ],
-                object_type=ObjectType.GENERIC_POLYGON,
-            )
-        ),
+    "polygon": lambda: _style_textured(
+        PolygonItem(
+            [
+                QPointF(300, 250),
+                QPointF(700, 250),
+                QPointF(700, 550),
+                QPointF(300, 550),
+            ],
+            object_type=ObjectType.GENERIC_POLYGON,
+        )
     ),
-]
-_SHAPE_IDS = [s[0] for s in _TEXTURED_SHAPES]
+    # Sprite paths: paint() draws an SVG pixmap and ignores the brush, so what
+    # is under test is the sprite art, not the texture brush.
+    "plant-circle": lambda: CircleItem(500, 400, 400, object_type=ObjectType.TREE),
+    "furniture-rectangle": lambda: RectangleItem(
+        200, 200, 600, 400, object_type=ObjectType.BENCH
+    ),
+    "furniture-circle": lambda: CircleItem(
+        500, 400, 400, object_type=ObjectType.TABLE_ROUND
+    ),
+}
+_SHAPE_IDS = list(_SHAPE_FACTORIES)
 
 
 MASK_COLOR = QColor("#ff00ff")  # appears nowhere else: a mask, not a colour
@@ -343,7 +350,12 @@ def _erode(mask: np.ndarray, radius: int = 3) -> np.ndarray:
 
 
 def _mask_from(
-    path: QPainterPath, image: QImage, *, erode: int = 3, scale: float = 1.0
+    path: QPainterPath,
+    image: QImage,
+    *,
+    erode: int = 3,
+    scale: float = 1.0,
+    translate: QPointF | None = None,
 ) -> np.ndarray:
     """Fill *path* in :data:`MASK_COLOR` into a copy of *image* and read it back.
 
@@ -353,15 +365,24 @@ def _mask_from(
     too — so a faithful re-introduction of the deleted code empties the mask
     instead of showing up as a texture failure, and the pin then fails for the
     wrong reason. Geometry cannot be overridden by ``paint()``.
+
+    ``scale`` and ``translate`` must reproduce the transform the image was
+    rendered under, **both of them**: ``QGraphicsScene.render(painter, target,
+    source)`` maps ``source`` onto ``target``, so it composes the painter's own
+    scale with a translation by ``-source.topLeft()``. Supplying the scale alone
+    leaves the mask displaced — which is not merely imprecise, it is
+    *silently wrong*: the displaced mask lands partly on page background, and
+    background-versus-fill contrast reads as a healthy luminance spread. That is
+    how the circle's export case came to pass with a flat fill live (45.97) and
+    fail once aligned (1.67).
     """
     canvas = QImage(image.size(), image.format())
     canvas.fill(QColor("white"))
     painter = QPainter(canvas)
     try:
-        # ``scale`` must match the transform the image was rendered under, or
-        # the path lands outside the frame (the export path is in scene units
-        # while its image is EXPORT_SCALE smaller).
         painter.scale(scale, scale)
+        if translate is not None:
+            painter.translate(translate.x(), translate.y())
         painter.setPen(QPen(Qt.PenStyle.NoPen))
         painter.setBrush(QBrush(MASK_COLOR))
         painter.drawPath(path)
@@ -377,7 +398,7 @@ def _mask_from(
 
 
 def _canvas_render(
-    qtbot: object, factory: object, *, zoom: float
+    qtbot: object, factory: Callable[[], QGraphicsItem], *, zoom: float
 ) -> tuple[np.ndarray, np.ndarray]:
     """(intensity array, interior mask) for ``factory()``'s item at ``zoom``.
 
@@ -388,7 +409,7 @@ def _canvas_render(
     corners are page background — a solid blue circle measured as high-contrast
     and passed (verified: the branch fires, the test does not notice).
     """
-    item = factory()  # type: ignore[operator]
+    item = factory()
     item.setBrush(create_pattern_brush(TEXTURE, QColor(FLAT_FILL)))
 
     scene = CanvasScene(width_cm=2000, height_cm=2000)
@@ -416,12 +437,12 @@ def _canvas_render(
     return _qimage_array(image)[:, :, :3].mean(axis=2), mask
 
 
-def _export_render(factory: object) -> tuple[np.ndarray, np.ndarray]:
+def _export_render(factory: Callable[[], QGraphicsItem]) -> tuple[np.ndarray, np.ndarray]:
     """The same pair, through the project's export cache-disabling convention."""
-    probe = factory()  # type: ignore[operator]
+    probe = factory()
     source = QRectF(probe.sceneBoundingRect())
 
-    item = factory()  # type: ignore[operator]
+    item = factory()
     item.setBrush(create_pattern_brush(TEXTURE, QColor(FLAT_FILL)))
     scene = CanvasScene(width_cm=2000, height_cm=2000)
     scene.addItem(item)
@@ -445,7 +466,13 @@ def _export_render(factory: object) -> tuple[np.ndarray, np.ndarray]:
         finally:
             painter.end()
         mask = _mask_from(
-            item.mapToScene(item.shape()), image, erode=1, scale=EXPORT_SCALE
+            item.mapToScene(item.shape()),
+            image,
+            erode=1,
+            scale=EXPORT_SCALE,
+            # scene.render maps source.topLeft() to the target's origin; without
+            # this translate the mask is displaced (see TestTheMaskIsTheItem).
+            translate=QPointF(-source.left(), -source.top()),
         )
         return _qimage_array(image)[:, :, :3].mean(axis=2), mask
     finally:
@@ -458,19 +485,30 @@ def _interior_stats(intensity: np.ndarray, mask: np.ndarray) -> tuple[int, float
     return int(values.size), float(values.std()) if values.size else 0.0
 
 
-# Calibrated on the dev box with THIS sampler, per shape class and zoom level
-# (interior pixels after a 3 px erosion, export after 1 px; intensity std of
-# the mean RGB). The floor is 8.0; a solid fill reads 0.00. Worst case here is
-# 13.86 (1.73x the floor), best 49.85 — a pixel test calibrated on one platform,
-# so the margin is comfortable rather than tight:
+# Calibrated on the dev box with THIS sampler, per shape and zoom level (interior
+# pixels after a 3 px erosion on the canvas, 1 px in the export; intensity std of
+# the mean RGB). The floor is 8.0 and a solid fill reads 0.00:
 #
-#   shape      0.1     0.25    0.4     0.75    1.0     export
-#   rectangle 18.06   14.04   19.06   19.40   20.19     15.83
-#   circle    18.08   14.01   18.95   19.31   28.39     37.27
-#   ellipse   18.19   14.03   18.99   19.33   20.16     49.85
-#   polygon   17.89   13.86   18.82   19.33   20.18     16.37
+#   shape                  0.1     0.25    0.4     0.75    1.0     export
+#   rectangle            18.06   14.04   19.06   19.40   20.19     15.95
+#   circle               18.08   14.01   18.95   19.31   28.39     16.02
+#   ellipse              18.19   14.03   18.99   19.33   20.16     16.00
+#   polygon              17.89   13.86   18.82   19.33   20.18     15.47
+#   plant-circle         37.98   37.55   37.59   37.89   43.17     37.95
+#   furniture-rectangle  29.66   32.32   35.80   38.59   39.57     38.16
+#   furniture-circle     29.69   30.21   31.21   34.24   38.17     34.07
 #
-# Interior pixel counts range 816 (polygon at 0.1) to 429 986 (circle at 1.0),
+# Worst case 13.86, i.e. 1.73x the floor; the sprite paths sit far above it
+# because their interior is drawn art rather than a texture brush.
+#
+# The four textured shapes' export column converging on 15.47-16.02 is itself a
+# calibration check: while the export mask was displaced by a forgotten
+# -source.topLeft(), those four read 15.83 / 37.27 / 49.85 / 16.37 — the circle
+# and ellipse were sampling page background. Four similar shapes rendering
+# similar textures must agree; four scattered numbers meant the instrument was
+# wrong, not the paint.
+#
+# Interior pixel counts run 816 (polygon at 0.1) to 429 986 (circle at 1.0),
 # which is why there is no absolute sample floor anywhere in this class.
 #
 # The bound is one-sided on purpose: it says the texture IS there, with no
@@ -485,11 +523,13 @@ def _interior_stats(intensity: np.ndarray, mask: np.ndarray) -> tuple[int, float
 # passed the filter (spread 62.59 there against 0.00 on Windows, one red CI job,
 # no reproduction locally). Nor from a second paint of the item, which any
 # flat-fill branch would override on its way through.
+# ``TestTheMaskIsTheItem`` holds all of that to account.
 TEXTURE_SPREAD_MIN = 8.0
 
 
 class TestTexturesAreNeverDropped:
-    """The canvas keeps every texture at every zoom level, in all four shapes (#503).
+    """The canvas keeps every texture at every zoom level, in every shape and
+    sprite path the deleted branch touched (#503).
 
     A texture has luminance spread (tiles, grout); a flat fill is one colour,
     so the intensity std of a fill's interior tells the two apart. This class
@@ -498,21 +538,34 @@ class TestTexturesAreNeverDropped:
     measured to buy nothing (docs/11 §11.4.11), and removing dead code leaves
     no test behind to catch it creeping back.
 
-    **It is parametrised over rectangle, circle, ellipse and polygon because the
-    removed branch had seven call sites across all four, and the circle is where
-    every plant sprite draws** - the first thing the owner objected to. A first
-    version covered only the rectangle; re-introducing a low-zoom flat fill in
-    `CircleItem.paint` left the whole suite green.
+    **It is parametrised over rectangle, circle, ellipse and polygon *and* over the
+    plant and furniture sprite paths**, because the seven deleted call sites were
+    never seven instances of one thing: two sat inside ``if is_plant`` and two
+    inside ``if is_furniture_type``, behind type predicates a ``GENERIC_*``
+    fixture never satisfies. A four-shape table watched four of seven, and the
+    three unwatched ones are exactly the sprite paths the owner's manual pass
+    objected to — verified by mutation: a ``< 0.4`` flat fill in a plant branch
+    renders a TREE circle from interior std 43.09 to 0.00, a flat brown disc,
+    while 212 tests stayed green.
 
-    **Two sampling traps, both paid for here.** The first version sampled the
+    **Three sampling traps, all paid for here.** The first version sampled the
     item's bounding box inset 10 %, which is right for a rectangle and vacuous
     for the other three: the box corners are page background, so a solid fill
-    inside a circle still measured a high spread and passed (verified - the
-    branch fires, the test does not notice). The mask is now the shape's real
-    interior, from a second render in a colour used nowhere else; alpha cannot
-    do it because the scene paints an opaque background. Second: an absolute
-    sample floor fails the 0.1 zoom case for being small rather than wrong, so
-    the canvas cases assert against the mask's own area.
+    inside a circle still measured a high spread and passed (verified — the
+    branch fires, the test does not notice). The mask is now the item's own
+    ``QGraphicsItem.shape()``: not a second paint, because any flat-fill branch
+    overrides the brush on that pass too, and not alpha, because the scene paints
+    an opaque background. Second, an absolute sample floor fails the 0.1 zoom
+    case for being small rather than wrong, so there is none.
+
+    Third, and the reason ``test_the_mask_covers_the_painted_item`` exists: a
+    mask in the wrong coordinate frame does not fail, it *reads background* —
+    background-versus-fill contrast looks like a healthy luminance spread. The
+    export mask had exactly this bug (scale applied, ``-source.topLeft()``
+    forgotten) and the circle's export case passed at 45.97 with a flat fill live.
+    Every defect this review surfaced reduces to one unasserted invariant, "the
+    mask must be the item's interior", so that is now a test rather than a
+    comment in a docstring.
 
     Measured on the 990-item reference plan, the removed branch changed nothing:
     fit-in-view read 10.58 ms with it disabled and 10.64 ms with it live, and
@@ -527,8 +580,7 @@ class TestTexturesAreNeverDropped:
     def test_the_canvas_keeps_the_texture_at_every_zoom(
         self, qtbot: object, shape: str, zoom: float
     ) -> None:  # noqa: ARG002
-        factory = _TEXTURED_SHAPES[_SHAPE_IDS.index(shape)][2]
-        intensity, mask = _canvas_render(qtbot, factory, zoom=zoom)
+        intensity, mask = _canvas_render(qtbot, _SHAPE_FACTORIES[shape], zoom=zoom)
         count, spread = _interior_stats(intensity, mask)
         # No absolute sample floor: the interior area depends on the shape class
         # and the zoom, so any constant is a calibration trap that fires on the
@@ -547,13 +599,59 @@ class TestTexturesAreNeverDropped:
     def test_the_export_keeps_the_texture(
         self, qtbot: object, shape: str
     ) -> None:  # noqa: ARG002
-        factory = _TEXTURED_SHAPES[_SHAPE_IDS.index(shape)][2]
-        intensity, mask = _export_render(factory)
+        intensity, mask = _export_render(_SHAPE_FACTORIES[shape])
         count, spread = _interior_stats(intensity, mask)
         assert count > 0, f"the {shape}'s interior mask was empty in the export"
         assert spread > TEXTURE_SPREAD_MIN, (
             f"the export lost the {shape}'s texture; cache-disabled render "
             "paths must keep full detail"
+        )
+
+
+class TestTheMaskIsTheItem:
+    """The invariant every other test here silently depends on (#503, review).
+
+    "The mask is the item's interior" was asserted nowhere, and a mask in the
+    wrong coordinate frame **passes**: it lands partly on page background, and
+    background-versus-fill contrast is exactly what a luminance-spread statistic
+    reads as texture. Three separate defects in this harness reduced to this one
+    omission — the bounding-box sampler, the second-paint sampler, and the export
+    mask that applied ``scale`` but forgot ``-source.topLeft()`` (the circle's
+    export case read spread 45.97 with a flat fill live, and 1.67 once aligned).
+
+    So the check is direct: the masked pixels must agree with the item's own
+    geometry, and they must not agree with the page background it was measured
+    against. Comparing the intensity distribution inside the mask with the
+    distribution outside it is frame-independent — a displaced mask straddles the
+    item and shows up as two populations where there should be one.
+    """
+
+    @pytest.mark.parametrize("shape", _SHAPE_IDS)
+    def test_the_canvas_mask_matches_the_painted_item(
+        self, qtbot: object, shape: str
+    ) -> None:  # noqa: ARG002
+        intensity, mask = _canvas_render(qtbot, _SHAPE_FACTORIES[shape], zoom=1.0)
+        inside = intensity[mask]
+        outside = intensity[~mask]
+        assert inside.size > 500, f"{shape}: mask covers only {inside.size} px"
+        assert outside.size > 100, f"{shape}: nothing outside the mask to compare"
+        # The page behind a CanvasScene is a light beige/grey; a sampled interior
+        # that is indistinguishable from it is reading background, not the item.
+        assert inside.mean() < outside.mean() - 10.0, (
+            f"{shape}: the masked interior averages {inside.mean():.1f}, the "
+            f"page averages {outside.mean():.1f} — the mask is not on the item"
+        )
+
+    @pytest.mark.parametrize("shape", _SHAPE_IDS)
+    def test_the_export_mask_matches_the_painted_item(self, shape: str) -> None:
+        intensity, mask = _export_render(_SHAPE_FACTORIES[shape])
+        inside = intensity[mask]
+        outside = intensity[~mask]
+        assert inside.size > 200, f"{shape}: export mask covers only {inside.size} px"
+        assert outside.size > 100, f"{shape}: nothing outside the export mask"
+        assert inside.mean() < outside.mean() - 10.0, (
+            f"{shape}: the export mask averages {inside.mean():.1f} against the "
+            f"page's {outside.mean():.1f} — the mask is displaced"
         )
 
 
@@ -598,5 +696,7 @@ class TestIsInteractivePaint:
         assert is_interactive_paint(item, widget) is True
 
     def test_a_non_item_object_is_not_interactive(self) -> None:
-        """The ``isinstance`` guard: a non-QGraphicsItem has no cache mode."""
+        """The ``isinstance`` guard. The parameter is typed ``object``, so this is
+        reachable by a caller, and the predicate returns ``False`` rather than
+        raising; the sole production caller passes a ``QGraphicsItem``."""
         assert is_interactive_paint(object(), None) is False

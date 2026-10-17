@@ -3049,9 +3049,21 @@ colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see §11.4
   fit-in-view harness zoom; the low-zoom seam pair and the 100 %-zoom workaround served only the
   removed branch.
 
-  **The pin inverts.** `tests/integration/test_canvas_item_cache.py` (renamed from
-  `test_canvas_item_lod_and_cache.py`) renders a textured, tinted `RectangleItem` through a real
-  `CanvasView` at five zoom levels — 0.1, 0.25, 0.4, 0.75, 1.0 — plus the export path, and asserts
-  the fill interior still carries the texture's luminance spread, lower bound only, so a future
-  change may soften a texture but cannot delete it. Re-introducing a `< 0.4` flat fill fails the 0.1
-  and 0.25 cases and the export case. ADR-057 addendum, §11.4.11.
+  **The pin inverts, and is parametrised over branches rather than classes.** The seven deleted call
+  sites were never seven instances of one thing: two sat inside `if is_plant` and two inside
+  `if is_furniture_type`, behind type predicates a `GENERIC_*` fixture never satisfies, so a
+  table of the four generic shapes watched only four of seven — and the three unwatched ones are
+  exactly the sprite paths the owner's manual pass objected to. Measured by mutation: a `< 0.4`
+  flat fill in a plant branch renders a `TREE` circle from interior intensity std 43.09 to 0.00,
+  a flat brown disc, while 212 tests in the repo stayed green. The table now carries seven entries
+  (the four generic shapes plus a plant circle and furniture rectangle/circle), each rendered
+  through a real `CanvasView` at five zoom levels — 0.1, 0.25, 0.4, 0.75, 1.0 — plus the export
+  path, asserting the interior still carries its texture's luminance spread with a **lower bound
+  only**, so a future change may soften a texture but cannot delete it. Re-introducing a `< 0.4`
+  flat fill is caught at **all seven** call sites, mutation-verified per site. The sampled interior
+  is the item's own `QGraphicsItem.shape()` — not its bounding box, whose corners are page
+  background for three of the four shapes; not a second paint, which any flat-fill branch
+  overrides on its way through; not alpha, because the scene paints an opaque background — and
+  `TestTheMaskIsTheItem` asserts that invariant, because a mask in the wrong coordinate frame does
+  not fail, it *reads background*, which is what a luminance statistic calls texture. ADR-057
+  addendum, §11.4.11.

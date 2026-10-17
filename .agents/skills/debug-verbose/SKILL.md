@@ -2206,10 +2206,30 @@ magenta count went to zero. The harness was moved to 100 % zoom and a low-zoom s
 added. When the branch was then deleted, **all of that work was reverted** - the suite is back to
 its pre-#507 state in full. A seam test for a deleted feature encodes the deletion as a contract.
 
-**CI's part.** The first pixel regression found its sample region by matching blue-ish pixels
-image-wide; the Linux/offscreen CI failed it at spread 62.59 (Windows measured 0.00) because the
-scene's faint background passed that filter. The shipped harness samples the item's **mapped
-region** instead, and its sample floor is scale-free (`count * 10 > region area`) so the 0.1 case
+**The pin took two rounds and was vacuous for most of it.** The replacement is
+`tests/integration/test_canvas_item_cache.py`, parametrised over rectangle, circle, ellipse and
+polygon, each rendered through a real `CanvasView` at five zoom levels plus the export path, with
+the interior sampled from the item's own `QGraphicsItem.shape()` rather than its bounding box: the
+box's corners are page background for three of the four shapes, so a *solid* circle measured as
+high-contrast and the pin passed while the branch was firing. Then two further holes. The seven
+deleted call sites were not seven instances of one thing - two sat behind `if is_plant` and two
+behind `if is_furniture_type`, which a `GENERIC_*` fixture never enters, so four shapes watched
+four of seven and the three unwatched were exactly the sprite paths; a flat fill in a plant branch
+took a `TREE` circle from interior std 43.09 to 0.00 while 212 tests in the repo stayed green.
+And the export mask applied the render scale but forgot the `-source.topLeft()` translation
+`QGraphicsScene.render` composes in, so the circle's export case passed at spread 45.97 with a
+flat fill live and read 1.67 once aligned. All seven sites are caught now, mutation-verified per
+site, and `TestTheMaskIsTheItem` asserts the invariant every other test silently depends on: the
+masked interior must be measurably darker than the page behind it. The calibration tells the same
+story from the other side - the four textured shapes' export column *converges* on 15.47-16.02
+once aligned, where the displaced mask gave 15.83 / 37.27 / 49.85 / 16.37.
+
+**CI's part, and the lesson it bought.** The first pixel regression found its sample region by
+matching blue-ish pixels image-wide, and the Linux/offscreen CI failed it at spread 62.59 (Windows
+measured 0.00) because the scene's faint background passed the filter. One red CI job taught the
+rule that then had to be re-taught twice more: *a sampler that reads background does not fail - it
+reports the contrast between background and fill, which is precisely what the statistic was built
+to see.* Sampling must be computed from geometry and checked, never discovered from the pixels.
 cannot fail for being small rather than wrong. One red CI job bought that lesson.
 
 **Lesson.** Reachability is necessary, not sufficient - before promoting a dormant path, ask
