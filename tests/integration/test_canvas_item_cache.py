@@ -1,31 +1,36 @@
-"""Integration tests for canvas item caching, LOD, and export fidelity (issues #409, #503).
+"""Integration tests for canvas item caching, export fidelity, and texture loss.
 
 Tests:
 1. DeviceCoordinateCache toggling on selection/deselection across item types
    to prevent selection handle ghosting and rotation lag.
-2. Level-of-Detail (LOD) flat-fill behaviour in interactive viewport vs exports.
-3. Export fidelity: export paths temporarily disable item caches and produce
+2. Export fidelity: export paths temporarily disable item caches and produce
    100% bit-exact output without cache degradation.
+3. ``TestTexturesAreNeverDropped``: a real ``CanvasView`` renders a textured,
+   tinted item at five zoom levels and the export path at export scale, and
+   asserts the texture survives each one.
 
-Issue #503: the LOD guard was originally ``widget is not None``, but Qt passes
-``widget = 0`` for every **cached** paint — and every unselected canvas item is
-``DeviceCoordinateCache`` — so the LOD branch never ran in the product while
-these tests passed because they called the helper directly. The guard now keys
-on the item's **cache mode** (as ``PolygonItem``'s over-budget degrade does,
-#472), and ``TestTheLodFillFiresOnARealCanvas`` pins it through a real
-``CanvasView`` and rendered pixels.
+Issue #503: the #409 canvas carried a low-zoom "level-of-detail" flat fill that
+replaced every texture below 40 % zoom. It never ran (its guard tested
+``widget is not None``, but Qt passes ``widget = 0`` for every **cached** paint
+and every unselected canvas item is ``DeviceCoordinateCache``), and when
+measured on the 990-item reference plan it bought nothing — fit-in-view read
+10.58 ms without it and 10.64 ms with it, because ``DeviceCoordinateCache``
+already amortises the textured paint into a one-off cost. The owner's manual
+pass confirmed the cost was real: they work at 20-25 % zoom, well under the
+threshold, where the branch would have hidden every texture. The branch and its
+threshold were removed; what replaced it is the negative pin in (3), so the
+detail cannot be silently subtracted again.
 """
 
 from __future__ import annotations
 
-from PyQt6.QtCore import QPointF, QRectF, Qt
+import pytest
+from PyQt6.QtCore import QPointF, QRectF
 from PyQt6.QtGui import QColor, QImage, QPainter, QPolygonF
 from PyQt6.QtWidgets import (
     QApplication,
     QGraphicsItem,
     QGraphicsScene,
-    QStyleOptionGraphicsItem,
-    QWidget,
 )
 
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
@@ -164,106 +169,6 @@ class TestItemCacheToggling:
         assert item.cacheMode() == QGraphicsItem.CacheMode.DeviceCoordinateCache
 
 
-class TestLodFlatFill:
-    """Verify LOD flat fill logic, keyed on the cache mode (#409, #503)."""
-
-    def test_lod_fires_for_a_cached_canvas_item_without_a_widget(self, qtbot) -> None:  # noqa: ARG002
-        """#503: Qt passes ``widget = 0`` for every cached paint.
-
-        An unselected item on the canvas is ``DeviceCoordinateCache``, so this
-        is the exact state the product paints in — and the guard must fire.
-        """
-        scene = CanvasScene()
-        item = CircleItem(0, 0, 50, object_type=ObjectType.TREE)
-        scene.addItem(item)
-        assert item.cacheMode() == QGraphicsItem.CacheMode.DeviceCoordinateCache
-
-        option = QStyleOptionGraphicsItem()
-        img = QImage(100, 100, QImage.Format.Format_ARGB32)
-        painter = QPainter(img)
-        try:
-            painter.scale(0.2, 0.2)  # < 0.4 threshold
-            assert item.should_use_lod_flat_fill(option, widget=None, painter=painter)
-        finally:
-            painter.end()
-
-    def test_lod_stays_off_when_the_caches_are_disabled(self, qtbot) -> None:  # noqa: ARG002
-        """The export/print/agent render convention keeps full detail.
-
-        Those paths disable the item caches first
-        (``ExportService._disable_item_caches``) and render offscreen, so both
-        discriminator halves say "not interactive".
-        """
-        scene = CanvasScene()
-        item = CircleItem(0, 0, 50, object_type=ObjectType.TREE)
-        scene.addItem(item)
-        cached = ExportService._disable_item_caches(scene)
-        try:
-            assert item.cacheMode() == QGraphicsItem.CacheMode.NoCache
-            option = QStyleOptionGraphicsItem()
-            img = QImage(100, 100, QImage.Format.Format_ARGB32)
-            painter = QPainter(img)
-            try:
-                painter.scale(0.2, 0.2)
-                assert not item.should_use_lod_flat_fill(option, widget=None, painter=painter)
-            finally:
-                painter.end()
-        finally:
-            ExportService._restore_item_caches(cached)
-
-    def test_lod_active_at_low_zoom(self, qtbot) -> None:
-        item = CircleItem(0, 0, 50, object_type=ObjectType.TREE)
-        widget = QWidget()
-        qtbot.addWidget(widget)
-
-        option = QStyleOptionGraphicsItem()
-        img = QImage(100, 100, QImage.Format.Format_ARGB32)
-        painter = QPainter(img)
-        try:
-            # At zoom factor 0.2 (< 0.4 threshold)
-            painter.scale(0.2, 0.2)
-            assert item.should_use_lod_flat_fill(option, widget=widget, painter=painter)
-
-            # At zoom factor 1.0 (>= 0.4 threshold)
-            painter.resetTransform()
-            painter.scale(1.0, 1.0)
-            assert not item.should_use_lod_flat_fill(option, widget=widget, painter=painter)
-        finally:
-            painter.end()
-
-    def test_lod_plant_flat_fill_color_uses_style_not_black(self, qtbot) -> None:
-        from open_garden_planner.core.object_types import get_style
-
-        # SVG plant item has no explicit tint and brush is empty QBrush
-        item = CircleItem(0, 0, 50, object_type=ObjectType.TREE)
-        item.fill_color = None
-        assert item.fill_color is None
-        assert item.brush().style() == Qt.BrushStyle.NoBrush
-
-        lod_color = item.get_lod_fill_color()
-        expected_color = get_style(ObjectType.TREE).fill_color
-        assert lod_color == expected_color
-        assert lod_color != QColor(0, 0, 0)
-        assert lod_color != QColor(0, 0, 0, 0)
-
-        # Output at 0.1 zoom: renders with style color, not black
-        widget = QWidget()
-        qtbot.addWidget(widget)
-        option = QStyleOptionGraphicsItem()
-        img = QImage(100, 100, QImage.Format.Format_ARGB32)
-        img.fill(QColor("white"))
-        painter = QPainter(img)
-        try:
-            painter.scale(0.1, 0.1)
-            item.paint(painter, option, widget)
-        finally:
-            painter.end()
-
-        # Center pixel must not be black (0, 0, 0)
-        center_color = img.pixelColor(2, 2)
-        assert center_color != QColor(0, 0, 0)
-
-
 class TestExportCacheFidelity:
     """Verify exports disable item caches and preserve exact visual output."""
 
@@ -391,14 +296,9 @@ def _interactive_canvas_render(qtbot: object, item: RectangleItem, *, zoom: floa
 def _export_render(item: RectangleItem) -> tuple[QImage, QRectF]:
     """What an export shows: the project's own cache-disabling convention.
 
-    Rendered at :data:`EXPORT_SCALE` on purpose. This is where the convention
-    is load-bearing: a PDF/SVG export maps a whole plan to the page width (a
-    50 m plan on an A4-width page is scale ~0.1), so with the caches left on
-    the same render would flat-fill — a 1:1 render cannot tell the difference
-    (level 1.0 keeps the LOD branch off either way). The scene is a
-    ``CanvasScene`` so the items are actually cached before the convention
-    disables them. The returned rect is the image's own extent (the item fills
-    it).
+    The scene is a ``CanvasScene`` so the items are actually cached before the
+    convention disables them. The returned rect is the image's own extent (the
+    item fills it).
     """
     scene = CanvasScene(width_cm=2000, height_cm=2000)
     scene.addItem(item)
@@ -451,73 +351,59 @@ def _fill_intensity_stats(image: QImage, region: QRectF) -> tuple[int, float]:
 
 # Calibrated bounds, measured on this harness (explicit, so a harness change
 # fails loudly instead of sliding silently):
-#   low-zoom canvas, fixed:   samples 2 604, spread 0.00  (flat fill; with the
-#                             guard disabled — the old behaviour — the same
-#                             render reads 14.30, which is what the regression
-#                             catches)
-#   full-zoom canvas:          samples 40 425, spread 20.07 (texture)
-#   export at EXPORT_SCALE:    samples 2 501, spread 14.55 (texture; with the
-#                              caches NOT disabled first the same render reads
-#                              0.00 — the convention is load-bearing here)
+#   low-zoom canvas (0.25):   samples ~2 600, spread 14.6  (texture)
+#   full-zoom canvas (1.0):   samples 40 425, spread 20.07 (texture)
+#   export at EXPORT_SCALE:   samples 2 501, spread 14.55 (texture)
+# The bound is one-sided on purpose: it says the texture IS there, with no
+# ceiling on its contrast. A future change may legitimately soften a texture,
+# and it must not be able to do so by deleting it.
 # The samples come from the item's own mapped region, never from a colour
 # filter: the first version matched "blue-ish" pixels image-wide, and on the
 # Linux/offscreen CI the scene's faint background passed that filter — spread
 # 62.59 there against 0.00 on Windows, one red CI job, no reproduction locally.
 CANVAS_FILL_SAMPLES_MIN = 1_000
-FLAT_SPREAD_MAX = 4.0
 TEXTURE_SPREAD_MIN = 8.0
 
 
-class TestTheLodFillFiresOnARealCanvas:
-    """#503 pinned through a real ``CanvasView`` and its rendered pixels.
+class TestTexturesAreNeverDropped:
+    """The canvas keeps every texture at every zoom level (#503).
 
-    The measured defect: the guard tested ``widget is not None``, Qt passes
-    ``widget = 0`` for every cached paint, and every unselected canvas item is
-    ``DeviceCoordinateCache`` — so even zoomed far out, the canvas painted the
-    full texture. A texture has luminance spread (tiles, grout); a flat fill is
-    one colour. The intensity std of the fill interior tells the two apart.
+    A texture has luminance spread (tiles, grout); a flat fill is one colour,
+    so the intensity std of a fill's interior tells the two apart. This class
+    asserts the *absence* of the regression rather than the presence of a
+    feature: the #409 low-zoom flat fill was removed in #503 because it was
+    measured to buy nothing (docs/11 §11.4.11), and removing dead code leaves
+    no test behind to catch it creeping back. These three are the pin.
+
+    Measured on the 990-item reference plan, the removed branch changed nothing:
+    fit-in-view read 10.58 ms with it disabled and 10.64 ms with it live, and
+    every NFR-PERF-01 budget test passes either way — ``DeviceCoordinateCache``
+    already amortises the textured paint into a one-off cost, so the LOD could
+    only ever subtract detail. The owner works at 20-25 % zoom, where the
+    removed threshold (0.4) would have hidden every texture.
     """
 
-    def test_at_low_zoom_the_canvas_flat_fills(self, qtbot) -> None:  # noqa: ARG002
-        item = _styled_textured_rectangle()
-        calls: list[tuple[QWidget | None, bool]] = []
-        original = item.should_use_lod_flat_fill
-
-        def recording(
-            option: QStyleOptionGraphicsItem | None,
-            widget: QWidget | None,
-            painter: QPainter,
-            *args: float,
-        ) -> bool:
-            result = original(option, widget, painter, *args)
-            calls.append((widget, result))
-            return result
-
-        item.should_use_lod_flat_fill = recording  # type: ignore[assignment]
-        image, item_rect = _interactive_canvas_render(qtbot, item, zoom=0.25)
-        # The guard must have been consulted BY Qt's real cached paint, and
-        # said yes there — the pixel checks below then confirm it painted.
-        assert calls, "the LOD guard was never consulted during a real cached paint"
-        assert any(w is None and r for w, r in calls), (
-            "no cached paint (widget=None) got True from the LOD guard at 0.25 "
-            f"zoom (calls as (widget is None, returned): {[(w is None, r) for w, r in calls]})"
-        )
-        count, spread = _fill_intensity_stats(image, item_rect)
-        assert count > CANVAS_FILL_SAMPLES_MIN, "the fill did not paint at all"
-        assert spread < FLAT_SPREAD_MAX, (
-            f"the canvas did not flat-fill at low zoom (spread {spread:.2f}); "
-            "issue #503: the LOD branch is unreachable again"
-        )
-
-    def test_at_full_zoom_the_canvas_keeps_the_texture(self, qtbot) -> None:  # noqa: ARG002
+    @pytest.mark.parametrize("zoom", [0.1, 0.25, 0.4, 0.75, 1.0])
+    def test_the_canvas_keeps_the_texture_at_every_zoom(
+        self, qtbot: object, zoom: float
+    ) -> None:  # noqa: ARG002
         image, item_rect = _interactive_canvas_render(
-            qtbot, _styled_textured_rectangle(), zoom=1.0
+            qtbot, _styled_textured_rectangle(), zoom=zoom
         )
         count, spread = _fill_intensity_stats(image, item_rect)
-        assert count > CANVAS_FILL_SAMPLES_MIN
+        # Scale-free "it really painted" floor: the sampler steps 2 px in both
+        # axes over a region inset 10 %, so it sees ~57 % of the area at every
+        # zoom. An absolute count would fail the 0.1 case for being small
+        # rather than for being wrong, which is how a real failure gets
+        # mistaken for a calibration nit.
+        assert count * 10 > int(item_rect.width() * item_rect.height()), (
+            f"the sampled region held almost nothing ({count} px) — the fill "
+            f"did not paint at zoom {zoom}"
+        )
         assert spread > TEXTURE_SPREAD_MIN, (
-            "the texture vanished at full zoom; the LOD fill must be "
-            "threshold-gated, not unconditional"
+            f"the texture was replaced by a flat fill at zoom {zoom} "
+            f"(fill spread {spread:.2f}); #503 removed the low-zoom flat fill "
+            "because it cost detail and bought no measurable time"
         )
 
     def test_the_export_keeps_the_texture(self, qtbot) -> None:  # noqa: ARG002

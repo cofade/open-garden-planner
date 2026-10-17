@@ -3019,24 +3019,39 @@ colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see §11.4
   delta; an absolute per-frame budget for the styled lines stays with #450. Pinned in
   `tests/perf/test_nfr_budgets.py`.
 
-### The LOD flat fill joins the cache-mode discriminator (#503)
+### The #409 low-zoom flat fill is removed; the cache-mode predicate is kept (#503)
 
 - **#503 (LOD flat fill never fired)**: filed by #501's independent review against its own work —
-  `GardenItemMixin.should_use_lod_flat_fill` (the #409 low-zoom flat fill) still decided
-  "interactive" with `widget is not None`, but Qt passes `widget = 0` for every **cached** paint
-  and every unselected canvas item is `DeviceCoordinateCache`, so the branch never ran in the
-  product (measured through a real `CanvasScene` + `CanvasView`: one call per paint, no widget,
-  `False` at every view state) and its tests passed only because they called the helper directly.
-  It now keys on the shared `is_interactive_paint` predicate (the item's **cache mode**),
-  which #472's paint bound calls too; export/print/agent render paths disable caches first, so
-  those keep full detail. The #409 acceptance gain attributed to this branch came from the
-  `lru_cache` and the device cache instead. Pinned by rendered pixels through a real view in
-  `tests/integration/test_canvas_item_lod_and_cache.py` (fill-intensity spread 0.00 at 0.25 zoom
-  fixed, guard-disabled mutation 14.30, textured controls 20.07; the export half now renders at a sub-threshold
-  scale where a PDF/SVG export sits, so the cache-disable convention is load-bearing under test;
-  mutation-verified both ways). Making the branch live also required #472's
-  below-budget assertions to render at 100 % zoom, where "the exact fill paints" is the product
-  contract, and gained a low-zoom pair pinning the seam between the two guards (degrade first).
-  Below 0.4 the flat fill also replaces furniture and plant sprites and skips the paint-level
-  diagnostics drawn after the fill branch — intended by #409's design, stated in the ADR-057
-  addendum and the manual checklist. Lesson in §11.4.11.
+  `GardenItemMixin.should_use_lod_flat_fill` (the #409 low-zoom flat fill) decided "interactive"
+  with `widget is not None`, but Qt passes `widget = 0` for every **cached** paint and every
+  unselected canvas item is `DeviceCoordinateCache`, so the branch never ran in the product
+  (measured through a real `CanvasScene` + `CanvasView`: one call per paint, no widget, `False` at
+  every view state) and its tests passed only because they called the helper directly.
+
+  **Resolved by deletion, not by repair** — issue #503 offered both repairs explicitly. The guard
+  was first fixed so the branch ran, then measured on the reference plan it was written for
+  (990 items, best of seven rounds, both scenarios below the 0.4 threshold): `fit_in_view` at zoom
+  0.316 read **10.58 ms with the flat fill disabled and 10.64 ms with it live**, `zoom_step` at 0.348
+  read 8.21 ms against 7.40 ms, and all six `tests/perf/test_nfr_budgets.py` cases pass either way.
+  `DeviceCoordinateCache` rasterises a textured item once and every later frame is a blit, so the
+  textured `paint()` the LOD existed to avoid was already amortised by the sibling fix from #409;
+  the branch could only ever subtract detail. The owner's manual pass then settled what the
+  measurement could not: at 20–25 % zoom — where they work, well under the threshold — every
+  texture, plant sprite and furniture sprite would have become a solid colour, and the paint-level
+  diagnostics drawn after the fill branch would have been skipped.
+
+  **Shipped:** `should_use_lod_flat_fill`, `get_lod_fill_color` and `LOD_FLAT_FILL_THRESHOLD`
+  deleted, along with seven call sites in the rectangle, circle, ellipse and polygon items; no
+  zoom-dependent simplification remains in the canvas. `is_interactive_paint` is **kept** — it is
+  the one definition of "which paint is this", and #472's paint bound needs it for real (44.7 ms at
+  1,024 vertices, 589 ms at 16,384); its docstring now records that it classifies paints and does
+  not decide detail. #472's suite is restored to its pre-#507 state in full, including its
+  fit-in-view harness zoom; the low-zoom seam pair and the 100 %-zoom workaround served only the
+  removed branch.
+
+  **The pin inverts.** `tests/integration/test_canvas_item_cache.py` (renamed from
+  `test_canvas_item_lod_and_cache.py`) renders a textured, tinted `RectangleItem` through a real
+  `CanvasView` at five zoom levels — 0.1, 0.25, 0.4, 0.75, 1.0 — plus the export path, and asserts
+  the fill interior still carries the texture's luminance spread, lower bound only, so a future
+  change may soften a texture but cannot delete it. Re-introducing a `< 0.4` flat fill fails the 0.1
+  and 0.25 cases and the export case. ADR-057 addendum, §11.4.11.

@@ -35,10 +35,6 @@ from open_garden_planner.core.fill_patterns import FillPattern
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle
 from open_garden_planner.core.stacking import ArrangeMode
 
-# Performance: Level-of-detail threshold below which textured fills and
-# plant sprites simplify to flat fills during interactive viewport painting (issue #409).
-LOD_FLAT_FILL_THRESHOLD: float = 0.4
-
 
 @dataclass(slots=True)
 class BedMenuActions:
@@ -178,8 +174,10 @@ def is_interactive_paint(item: object, widget: QWidget | None) -> bool:
     "Interactive" is NOT ``widget is not None``: Qt passes ``widget = 0`` for
     every **cached** paint, and every unselected canvas item is
     ``DeviceCoordinateCache``, so a widget-based test is never true for the
-    paints the user's canvas actually runs — the shared root cause of the first
-    #472 over-budget degrade and of the never-firing #409 LOD flat fill (#503).
+    paints the user's canvas actually runs. That trap shipped twice — the first
+    #472 over-budget degrade could not fire, and the #409 low-zoom flat fill
+    never fired at all (#503).
+
     The discriminator is the item's **cache mode**: every export, report, print
     and agent render path disables the item caches first
     (``ExportService._disable_item_caches``) and runs offscreen, while the
@@ -190,6 +188,11 @@ def is_interactive_paint(item: object, widget: QWidget | None) -> bool:
     cache-disabled item painted by a real widget even though every current
     call site excludes selected items first (so product paints reach this
     predicate cache-enabled); the direct-call tests exercise it.
+
+    This predicate answers *which paint is which*; it says nothing about **how**
+    much detail to draw. It serves only the #472 polygon paint bound. There is no
+    general level-of-detail pass any more — the #409 low-zoom flat fill was
+    removed in #503 after being measured to buy nothing (see docs/11 §11.4.11).
     """
     return widget is not None or (
         isinstance(item, QGraphicsItem)
@@ -323,46 +326,6 @@ class GardenItemMixin:
         """
         if isinstance(self, QGraphicsItem):
             handle_selection_change_for_cache(self, change, value)
-
-    def should_use_lod_flat_fill(
-        self,
-        option: QStyleOptionGraphicsItem | None,
-        widget: QWidget | None,
-        painter: QPainter,
-        threshold: float = LOD_FLAT_FILL_THRESHOLD,
-    ) -> bool:
-        """Return True when the item should render a simplified flat fill for speed.
-
-        Only active during interactive canvas painting — decided by
-        :func:`is_interactive_paint` (the item's cache mode, not Qt's
-        ``widget``; see that function for why, and issues #409/#472/#503) — and
-        only below the level-of-detail threshold. Exports, print and agent
-        renders disable the item caches first and always keep full detail.
-        """
-        if option is None or not is_interactive_paint(self, widget):
-            return False
-        lod = option.levelOfDetailFromTransform(painter.worldTransform())
-        return bool(lod < threshold)
-
-    def get_lod_fill_color(self) -> QColor:
-        """Get the fill color for low-zoom Level-of-Detail flat fills.
-
-        Resolves in order:
-        1. Custom explicit fill_color (tint)
-        2. Style fill_color from OBJECT_STYLES via get_style(object_type)
-        3. Fallback to item brush color or default green
-        """
-        if self.fill_color is not None:
-            return QColor(self.fill_color)
-        if self.object_type is not None:
-            from open_garden_planner.core.object_types import get_style
-
-            return get_style(self.object_type).fill_color
-        if hasattr(self, "brush"):
-            brush_c = self.brush().color()
-            if brush_c.isValid() and brush_c.alpha() > 0:
-                return QColor(brush_c)
-        return QColor(100, 180, 60)
 
     @property
     def item_id(self) -> uuid.UUID:

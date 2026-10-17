@@ -662,6 +662,8 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         # comb repainted at full detail, 44.7 ms; 16,384 at 589 ms). Every
         # export, report, print and agent render path disables the cache first,
         # so those stay full detail, while the interactive view degrades.
+        # This degrade is the ONLY level-of-detail pass in the canvas — the #409
+        # low-zoom flat fill was removed in #503, measured to buy nothing.
         degrade = (
             poly.count() > MAX_FULL_DETAIL_VERTICES
             and not self.isSelected()
@@ -688,14 +690,6 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
             )
             painter.drawPolygon(shadow_poly)
             painter.restore()
-
-        if not self.isSelected() and self.fill_pattern is not None and self.should_use_lod_flat_fill(option, widget, painter):
-            painter.save()
-            painter.setPen(self.pen())
-            painter.setBrush(QBrush(self.get_lod_fill_color()))
-            painter.drawPolygon(poly)
-            painter.restore()
-            return
 
         # For HOUSE polygons with a ridge: use mirrored tile rendering
         ridge = self._find_ridge()

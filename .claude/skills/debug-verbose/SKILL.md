@@ -2150,7 +2150,76 @@ runtime lookups, not only against catalogs generated from that same extractor.
 **Fix.** The #472 degrade now keys on the item's **cache mode** (`widget is not None or self.cacheMode() != NoCache`), and `tests/integration/test_polygon_paint_bound.py` drives a real `CanvasView` plus the real `ExportService._disable_item_caches` convention - it fails on the old guard (3 of 12 cases). The round-trip tests use a non-default `USER_FILL`, guarded by a test that walks every object type; the owner's literal green stays as its own case, labelled as a tint regression rather than restore evidence. The same `widget` idiom in `should_use_lod_flat_fill` is filed as **#503**, out of scope here.
 **Lesson.** A guard borrowed from a neighbouring file is a hypothesis, not a fact - check that its condition is ever true on the path you are protecting, because caching can make it permanently false. And a regression test proves nothing when its chosen value equals the value the defect leaves behind; if the value must be realistic, prove the non-default separately. Verify both by mutation in the same sitting as the fix: a test that passes on the broken code is exactly the failure a test cannot report about itself.
 
-## Case study: the branch the product never ran, and the sibling suite that noticed (#503, 2026-10-17)
+## Case study: a dormant optimisation, the measurement that killed it, and a fix that was the wrong fix twice (#503, 2026-10-17)
+
+**Symptom.** Nothing. The LOD flat fill's comment and tests say it fires below 0.4 zoom during
+interactive painting; the product never showed it. The issue was measured by review, not by a
+failure.
+
+**Wrong theories.** That the threshold was the problem; that the polygon-bound fix had already
+covered "the same trap" because its issue said so; and - the one that cost the most - that
+"the cheap correct fix is one discriminator", so deleting the branch was dismissed as losing
+#409's design intent rather than repairing it. That reasoning was reasonable, unmeasured, and
+wrong: the branch was carried to production on the strength of an argument about a guard rather
+than a number about the workload.
+
+**Evidence, in two rounds.** Round 1 - reachability. A real `CanvasScene` + `CanvasView`, one
+textured `GARDEN_BED` rectangle: `should_use_lod_flat_fill` is called once per paint with **no**
+widget at `fit_in_view` and after four `zoom_out()`s, and returns `False` every time; a
+`NoCache` control item - a state no unselected canvas item is ever in - sees a widget and
+returns `True`. Keying the guard on the cache mode made it fire: a rendered-pixel measure
+(fill-intensity spread of a deep-blue tint over the roof-tile texture) went **13.61 -> 0.00** at
+0.25 zoom, with textured controls at 20.1.
+
+Round 2 - the question reachability cannot answer. Measured on the reference plan the branch was
+written for (990 scene items, 1600x1000 view, best of seven rounds), with both scenarios below
+the 0.4 threshold: `fit_in_view` at zoom 0.316 read **10.58 ms with the flat fill disabled and
+10.64 ms with it live**; `zoom_step` at 0.348 read 8.21 ms against 7.40 ms; all six
+`tests/perf/test_nfr_budgets.py` cases passed with the branch stubbed to `return False`. The
+reason is structural and was visible in the code all along: `DeviceCoordinateCache` rasterises a
+textured item **once** and every later frame is a cheap blit, so the expensive textured `paint()`
+the LOD existed to avoid was already amortised by the sibling fix from the same PR. The branch
+could only pay per *cache regeneration*; the acceptance metric is steady-state repaint.
+
+**Root cause, twice over.** The `widget is not None` idiom, for the third recorded time (#472's
+first draft, then the LOD guard, then #472's suite) - Qt passes `widget = 0` for every
+*cached* paint and every unselected canvas item is `DeviceCoordinateCache`, while the tests
+called the helper directly with a fabricated widget. And beneath that, a second defect no guard
+could fix: the branch's *premise* was never tested. It assumed the textured paint was a
+per-frame cost, and the cache that shipped beside it had already made that false.
+
+**Fix.** Deleted: `should_use_lod_flat_fill`, `get_lod_fill_color`, `LOD_FLAT_FILL_THRESHOLD` and
+seven call sites across the rectangle, circle, ellipse and polygon items. Kept:
+`is_interactive_paint`, which the #472 paint bound needs for real (a cached 1,024-vertex comb is
+44.7 ms at full detail, 589 ms at 16,384); its docstring now says it classifies paints and does
+not decide detail. `tests/integration/test_canvas_item_cache.py` (renamed) renders a textured,
+tinted `RectangleItem` through a real `CanvasView` at five zoom levels plus the export path and
+asserts the texture's luminance spread survives - **lower bound only**, so a future change may
+soften a texture but cannot delete it. Re-introducing a `< 0.4` flat fill fails the 0.1, 0.25 and
+export cases.
+
+**The sibling suite's part, in both directions.** With the branch live,
+`tests/integration/test_polygon_paint_bound.py` failed 3 of 12: its below-budget polygons carry
+`LAWN`'s pre-seeded `GRASS` pattern and a *test-only* magenta brush, so at the harness's
+fit-in-view zoom (0.35 < 0.4) the canvas now *correctly* painted the designed flat fill and the
+magenta count went to zero. The harness was moved to 100 % zoom and a low-zoom seam pair was
+added. When the branch was then deleted, **all of that work was reverted** - the suite is back to
+its pre-#507 state in full. A seam test for a deleted feature encodes the deletion as a contract.
+
+**CI's part.** The first pixel regression found its sample region by matching blue-ish pixels
+image-wide; the Linux/offscreen CI failed it at spread 62.59 (Windows measured 0.00) because the
+scene's faint background passed that filter. The shipped harness samples the item's **mapped
+region** instead, and its sample floor is scale-free (`count * 10 > region area`) so the 0.1 case
+cannot fail for being small rather than wrong. One red CI job bought that lesson.
+
+**Lesson.** Reachability is necessary, not sufficient - before promoting a dormant path, ask
+whether it earns the degradation it costs, on the workload it was written for, and treat a
+number you have not taken as an argument you have not had. "The cheap fix is one shared
+predicate" was true *as a repair of the guard* and wrong *as a decision about the feature*:
+fixing the guard is what made the feature's cost visible, and the cost is information. Deleting
+a feature leaves no test that fails when it returns, so replace its tests with a negative pin
+rather than dropping them. And when a fix makes a dead branch live, run the sibling suites - then
+be willing to revert the collateral if the branch does not survive.
 
 **Symptom.** Nothing. The LOD flat fill's comment and tests say it fires below 0.4 zoom during interactive painting; the product never shows it. The issue was measured by review, not by a failure.
 

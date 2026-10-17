@@ -279,15 +279,6 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
             painter.restore()
 
         if is_furniture_type(self.object_type):
-            if not self.isSelected() and self.should_use_lod_flat_fill(option, widget, painter):
-                rect = self.rect()
-                painter.save()
-                painter.setPen(self.pen())
-                painter.setBrush(QBrush(self.get_lod_fill_color()))
-                painter.drawRect(rect)
-                painter.restore()
-                return
-
             rect = self.rect()
             pixmap = render_furniture_pixmap(
                 object_type=self.object_type,
@@ -329,15 +320,6 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
                 if is_bed_type(self.object_type):
                     self._draw_soil_mismatch_border(painter)
                 return
-
-        if not self.isSelected() and self.fill_pattern is not None and self.should_use_lod_flat_fill(option, widget, painter):
-            rect = self.rect()
-            painter.save()
-            painter.setPen(self.pen())
-            painter.setBrush(QBrush(self.get_lod_fill_color()))
-            painter.drawRect(rect)
-            painter.restore()
-            return
 
         # Fall back to standard rectangle painting
         super().paint(painter, option, widget)
