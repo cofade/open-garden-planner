@@ -306,13 +306,22 @@ class GardenItemMixin:
         painter: QPainter,
         threshold: float = LOD_FLAT_FILL_THRESHOLD,
     ) -> bool:
-        """Return True when item should render simplified flat geometry for speed.
+        """Return True when the item should render a simplified flat fill for speed.
 
-        Only active during interactive viewport painting (widget is not None);
-        exports, print, and offscreen scene.render paths (widget is None)
-        always render full detail.
+        Only active during interactive canvas painting. "Interactive" is NOT
+        ``widget is not None``: Qt passes ``widget = 0`` for every **cached**
+        paint, and every unselected canvas item is ``DeviceCoordinateCache``,
+        so a widget-based guard never fired in the product (issue #503). The
+        cache mode is the discriminator, as in ``PolygonItem``'s over-budget
+        degrade (issue #472): every export, report, print and agent render path
+        disables the item caches first (``ExportService._disable_item_caches``)
+        and runs offscreen, so those always keep full detail.
         """
-        if widget is None or option is None:
+        interactive = widget is not None or (
+            isinstance(self, QGraphicsItem)
+            and self.cacheMode() != QGraphicsItem.CacheMode.NoCache
+        )
+        if option is None or not interactive:
             return False
         lod = option.levelOfDetailFromTransform(painter.worldTransform())
         return bool(lod < threshold)

@@ -108,7 +108,14 @@ def _count_fill(image: QImage) -> int:
 
 
 def interactive_render(item: PolygonItem, *, selected: bool = False) -> QImage:
-    """What the canvas shows: a real CanvasView, caches ON, cache forced fresh."""
+    """What the canvas shows: a real CanvasView, caches ON, cache forced fresh.
+
+    Rendered at 100 % zoom on purpose. Below 0.4 the canvas's own LOD flat fill
+    (#409, corrected in #503) replaces a patterned item's texture with its flat
+    ``fill_color`` — correct product behaviour, but it would stop the below-budget
+    assertions from pinning the *exact* fill they exist for. Full detail is the
+    product contract at this zoom, so that is what this harness measures.
+    """
     scene = CanvasScene(width_cm=2000, height_cm=2000)
     scene.addItem(item)
     if selected:
@@ -117,7 +124,8 @@ def interactive_render(item: PolygonItem, *, selected: bool = False) -> QImage:
     view.resize(700, 700)
     view.show()
     QApplication.processEvents()
-    view.fit_in_view()
+    view.set_zoom(1.0)
+    view.centerOn(QPointF(SIDE / 2, SIDE / 2))
     QApplication.processEvents()
     view.resetCachedContent()  # force every device cache to rebuild → paint() runs
     QApplication.processEvents()
@@ -157,11 +165,12 @@ def _qt(qtbot: object) -> object:  # noqa: ARG001 — ensures a QApplication exi
     return qtbot
 
 
-# The polygon is a 600-unit square in a 2000-unit scene shown in a 700x700
-# viewport, so a FILLED canvas render measures ~9,400 sampled magenta pixels and
-# a DEGRADED one only the outline the item's own (green) pen draws — zero of
-# them. The export render is 1:1 and measures ~89,000. Explicit thresholds, so
-# a change in either harness shows up as a failure rather than a silent slide.
+# The polygon is a 600-unit square in a 2000-unit scene rendered at 100 % zoom
+# in a 700x700 viewport, so a FILLED canvas render measures ~89,400 sampled
+# magenta pixels and a DEGRADED one only the outline the item's own (green) pen
+# draws — zero of them. The export render is 1:1 and measures ~89,000. Explicit
+# thresholds, so a change in either harness shows up as a failure rather than a
+# silent slide.
 CANVAS_FILLED = 3_000
 CANVAS_DEGRADED = 50
 EXPORT_FILLED = 3_000
