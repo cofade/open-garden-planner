@@ -24,13 +24,23 @@ detail cannot be silently subtracted again.
 
 from __future__ import annotations
 
+import numpy as np
 import pytest
-from PyQt6.QtCore import QPointF, QRectF
-from PyQt6.QtGui import QColor, QImage, QPainter, QPolygonF
+from PyQt6.QtCore import QPointF, QRectF, Qt
+from PyQt6.QtGui import (
+    QBrush,
+    QColor,
+    QImage,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QPolygonF,
+)
 from PyQt6.QtWidgets import (
     QApplication,
     QGraphicsItem,
     QGraphicsScene,
+    QWidget,
 )
 
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
@@ -49,6 +59,10 @@ from open_garden_planner.ui.canvas.items import (
     PolylineItem,
     RectangleItem,
     TextItem,
+)
+from open_garden_planner.ui.canvas.items.garden_item import (
+    disable_cache,
+    is_interactive_paint,
 )
 
 
@@ -251,25 +265,132 @@ TEXTURE = FillPattern.ROOF_TILES
 EXPORT_SCALE = 0.25
 
 
-def _styled_textured_rectangle() -> RectangleItem:
-    item = RectangleItem(200, 200, 600, 400, object_type=ObjectType.GENERIC_RECTANGLE)
+def _style_textured(item: QGraphicsItem) -> QGraphicsItem:
+    """Give *item* a texture plus a deep-blue tint, the state a LOD branch saw.
+
+    Applies to every class the removed branch lived in — rectangle, circle,
+    ellipse, polygon — because the branch had seven call sites across all four
+    and the circle is where every plant sprite draws. A pin that covers only one
+    of them is the reason this is parametrised: see
+    ``TestTexturesAreNeverDropped`` and its mutation note.
+    """
     item.fill_pattern = TEXTURE
     item.fill_color = QColor(FLAT_FILL)
     item.setBrush(create_pattern_brush(TEXTURE, QColor(FLAT_FILL)))
     return item
 
 
-def _interactive_canvas_render(qtbot: object, item: RectangleItem, *, zoom: float) -> tuple[QImage, QRectF]:
-    """What the canvas shows at ``zoom``: a real CanvasView, caches ON, fresh.
+# (id, object_type, factory) for the four classes the #409 branch touched.
+_TEXTURED_SHAPES: list[tuple[str, object, object]] = [
+    (
+        "rectangle",
+        ObjectType.GENERIC_RECTANGLE,
+        lambda: _style_textured(
+            RectangleItem(200, 200, 600, 400, object_type=ObjectType.GENERIC_RECTANGLE)
+        ),
+    ),
+    (
+        "circle",
+        ObjectType.GENERIC_CIRCLE,
+        lambda: _style_textured(CircleItem(500, 400, 400, object_type=ObjectType.GENERIC_CIRCLE)),
+    ),
+    (
+        "ellipse",
+        ObjectType.GENERIC_ELLIPSE,
+        lambda: _style_textured(
+            EllipseItem(200, 200, 600, 400, object_type=ObjectType.GENERIC_ELLIPSE)
+        ),
+    ),
+    (
+        "polygon",
+        ObjectType.GENERIC_POLYGON,
+        lambda: _style_textured(
+            PolygonItem(
+                [
+                    QPointF(300, 250),
+                    QPointF(700, 250),
+                    QPointF(700, 550),
+                    QPointF(300, 550),
+                ],
+                object_type=ObjectType.GENERIC_POLYGON,
+            )
+        ),
+    ),
+]
+_SHAPE_IDS = [s[0] for s in _TEXTURED_SHAPES]
 
-    Returns the rendered viewport image and the item's rectangle **in image
-    coordinates** (mapped through the view transform), so assertions sample the
-    item's own region and nothing else. A colour-matching bounding box was the
-    first version of this helper; on the Linux/offscreen CI the scene's faint
-    background pixels passed the colour filter and poisoned the sample (CI
-    measured spread 62.59 where Windows measured 0.00), so the region is
-    computed, not discovered.
+
+MASK_COLOR = QColor("#ff00ff")  # appears nowhere else: a mask, not a colour
+
+
+def _qimage_array(image: QImage) -> np.ndarray:
+    w, h = image.width(), image.height()
+    ptr = image.constBits()
+    ptr.setsize(image.sizeInBytes())
+    buf = np.frombuffer(ptr, dtype=np.uint8).reshape(h, image.bytesPerLine())
+    return buf[:, : w * 4].reshape(h, w, 4).astype(np.int16)
+
+
+def _erode(mask: np.ndarray, radius: int = 3) -> np.ndarray:
+    """Drop ``radius`` px of boundary: antialiasing and the outline are not texture."""
+    padded = np.pad(mask, radius, mode="constant", constant_values=False)
+    h, w = mask.shape
+    out = mask.copy()  # the ORIGINAL shape; padded is only the lookback window
+    for dy in range(2 * radius + 1):
+        for dx in range(2 * radius + 1):
+            out &= padded[dy : dy + h, dx : dx + w]
+    return out
+
+
+def _mask_from(
+    path: QPainterPath, image: QImage, *, erode: int = 3, scale: float = 1.0
+) -> np.ndarray:
+    """Fill *path* in :data:`MASK_COLOR` into a copy of *image* and read it back.
+
+    The path comes from ``QGraphicsItem.shape()``, i.e. the item's GEOMETRY.
+    That matters: a mask produced by painting the item a second time is not a
+    mask at all, because any flat-fill branch overrides the brush on that pass
+    too — so a faithful re-introduction of the deleted code empties the mask
+    instead of showing up as a texture failure, and the pin then fails for the
+    wrong reason. Geometry cannot be overridden by ``paint()``.
     """
+    canvas = QImage(image.size(), image.format())
+    canvas.fill(QColor("white"))
+    painter = QPainter(canvas)
+    try:
+        # ``scale`` must match the transform the image was rendered under, or
+        # the path lands outside the frame (the export path is in scene units
+        # while its image is EXPORT_SCALE smaller).
+        painter.scale(scale, scale)
+        painter.setPen(QPen(Qt.PenStyle.NoPen))
+        painter.setBrush(QBrush(MASK_COLOR))
+        painter.drawPath(path)
+    finally:
+        painter.end()
+    px = _qimage_array(canvas)
+    mask = (
+        (np.abs(px[:, :, 0] - MASK_COLOR.red()) <= 8)
+        & (np.abs(px[:, :, 1] - MASK_COLOR.green()) <= 8)
+        & (np.abs(px[:, :, 2] - MASK_COLOR.blue()) <= 8)
+    )
+    return _erode(mask, radius=erode)
+
+
+def _canvas_render(
+    qtbot: object, factory: object, *, zoom: float
+) -> tuple[np.ndarray, np.ndarray]:
+    """(intensity array, interior mask) for ``factory()``'s item at ``zoom``.
+
+    The mask is the item's own shape, mapped through the view, so it is correct
+    for a circle, an ellipse and a polygon and not just a rectangle. This is
+    the second trap this harness fell into: sampling the item's bounding box was
+    right for a rectangle and vacuous for the other three, because the box
+    corners are page background — a solid blue circle measured as high-contrast
+    and passed (verified: the branch fires, the test does not notice).
+    """
+    item = factory()  # type: ignore[operator]
+    item.setBrush(create_pattern_brush(TEXTURE, QColor(FLAT_FILL)))
+
     scene = CanvasScene(width_cm=2000, height_cm=2000)
     scene.addItem(item)
     view = CanvasView(scene)
@@ -278,10 +399,11 @@ def _interactive_canvas_render(qtbot: object, item: RectangleItem, *, zoom: floa
     view.show()
     QApplication.processEvents()
     view.set_zoom(zoom)
-    view.centerOn(QPointF(500, 400))  # the rectangle's centre, scene coords
+    view.centerOn(item.sceneBoundingRect().center())
     QApplication.processEvents()
     view.resetCachedContent()  # force every device cache to rebuild -> paint() runs
     QApplication.processEvents()
+
     image = QImage(view.viewport().size(), QImage.Format.Format_ARGB32_Premultiplied)
     image.fill(QColor("white"))
     painter = QPainter(image)
@@ -289,23 +411,23 @@ def _interactive_canvas_render(qtbot: object, item: RectangleItem, *, zoom: floa
         view.viewport().render(painter)
     finally:
         painter.end()
-    item_rect = view.mapFromScene(item.sceneBoundingRect()).boundingRect()
-    return image, QRectF(item_rect)
+
+    mask = _mask_from(view.mapFromScene(item.mapToScene(item.shape())), image)
+    return _qimage_array(image)[:, :, :3].mean(axis=2), mask
 
 
-def _export_render(item: RectangleItem) -> tuple[QImage, QRectF]:
-    """What an export shows: the project's own cache-disabling convention.
+def _export_render(factory: object) -> tuple[np.ndarray, np.ndarray]:
+    """The same pair, through the project's export cache-disabling convention."""
+    probe = factory()  # type: ignore[operator]
+    source = QRectF(probe.sceneBoundingRect())
 
-    The scene is a ``CanvasScene`` so the items are actually cached before the
-    convention disables them. The returned rect is the image's own extent (the
-    item fills it).
-    """
+    item = factory()  # type: ignore[operator]
+    item.setBrush(create_pattern_brush(TEXTURE, QColor(FLAT_FILL)))
     scene = CanvasScene(width_cm=2000, height_cm=2000)
     scene.addItem(item)
     assert item.cacheMode() == QGraphicsItem.CacheMode.DeviceCoordinateCache
     cached = ExportService._disable_item_caches(scene)
     try:
-        source = item.sceneBoundingRect()
         image = QImage(
             max(1, int(source.width() * EXPORT_SCALE)),
             max(1, int(source.height() * EXPORT_SCALE)),
@@ -322,95 +444,159 @@ def _export_render(item: RectangleItem) -> tuple[QImage, QRectF]:
             )
         finally:
             painter.end()
+        mask = _mask_from(
+            item.mapToScene(item.shape()), image, erode=1, scale=EXPORT_SCALE
+        )
+        return _qimage_array(image)[:, :, :3].mean(axis=2), mask
     finally:
         ExportService._restore_item_caches(cached)
-    return image, QRectF(0, 0, image.width(), image.height())
 
 
-def _fill_intensity_stats(image: QImage, region: QRectF) -> tuple[int, float]:
-    """(sample count, intensity std) over ``region``'s interior pixels.
-
-    A flat fill is one colour (std ~ 0); a tinted texture carries the tile
-    texture's luminance spread. ``region`` is inset 10 % so the antialiased
-    item edge and the outline do not masquerade as texture.
-    """
-    ix = region.width() * 0.1
-    iy = region.height() * 0.1
-    x0, y0 = int(region.left() + ix), int(region.top() + iy)
-    x1, y1 = int(region.right() - ix), int(region.bottom() - iy)
-    values: list[float] = []
-    for y in range(max(0, y0), min(image.height(), y1 + 1), 2):
-        for x in range(max(0, x0), min(image.width(), x1 + 1), 2):
-            colour = QColor(image.pixel(x, y))
-            values.append((colour.red() + colour.green() + colour.blue()) / 3.0)
-    assert values, "the sample region lies outside the image"
-    mean = sum(values) / len(values)
-    var = sum((v - mean) ** 2 for v in values) / len(values)
-    return len(values), var ** 0.5
+def _interior_stats(intensity: np.ndarray, mask: np.ndarray) -> tuple[int, float]:
+    """(sample count, intensity std) over the eroded interior of the shape."""
+    values = intensity[mask]
+    return int(values.size), float(values.std()) if values.size else 0.0
 
 
-# Calibrated bounds, measured on this harness (explicit, so a harness change
-# fails loudly instead of sliding silently):
-#   low-zoom canvas (0.25):   samples ~2 600, spread 14.6  (texture)
-#   full-zoom canvas (1.0):   samples 40 425, spread 20.07 (texture)
-#   export at EXPORT_SCALE:   samples 2 501, spread 14.55 (texture)
+# Calibrated on the dev box with THIS sampler, per shape class and zoom level
+# (interior pixels after a 3 px erosion, export after 1 px; intensity std of
+# the mean RGB). The floor is 8.0; a solid fill reads 0.00. Worst case here is
+# 13.86 (1.73x the floor), best 49.85 — a pixel test calibrated on one platform,
+# so the margin is comfortable rather than tight:
+#
+#   shape      0.1     0.25    0.4     0.75    1.0     export
+#   rectangle 18.06   14.04   19.06   19.40   20.19     15.83
+#   circle    18.08   14.01   18.95   19.31   28.39     37.27
+#   ellipse   18.19   14.03   18.99   19.33   20.16     49.85
+#   polygon   17.89   13.86   18.82   19.33   20.18     16.37
+#
+# Interior pixel counts range 816 (polygon at 0.1) to 429 986 (circle at 1.0),
+# which is why there is no absolute sample floor anywhere in this class.
+#
 # The bound is one-sided on purpose: it says the texture IS there, with no
 # ceiling on its contrast. A future change may legitimately soften a texture,
 # and it must not be able to do so by deleting it.
-# The samples come from the item's own mapped region, never from a colour
-# filter: the first version matched "blue-ish" pixels image-wide, and on the
-# Linux/offscreen CI the scene's faint background passed that filter — spread
-# 62.59 there against 0.00 on Windows, one red CI job, no reproduction locally.
-CANVAS_FILL_SAMPLES_MIN = 1_000
+# The samples come from the item's own SHAPE (QGraphicsItem.shape()), never from
+# its bounding box: the box corners are page background for a circle, an ellipse
+# or a polygon, and the first version of this harness measured a solid blue
+# circle as high-contrast because of them — so the pin was vacuous on three of
+# the four classes. Nor from a colour filter: that version matched "blue-ish"
+# pixels image-wide, and on the Linux/offscreen CI the scene's faint background
+# passed the filter (spread 62.59 there against 0.00 on Windows, one red CI job,
+# no reproduction locally). Nor from a second paint of the item, which any
+# flat-fill branch would override on its way through.
 TEXTURE_SPREAD_MIN = 8.0
 
 
 class TestTexturesAreNeverDropped:
-    """The canvas keeps every texture at every zoom level (#503).
+    """The canvas keeps every texture at every zoom level, in all four shapes (#503).
 
     A texture has luminance spread (tiles, grout); a flat fill is one colour,
     so the intensity std of a fill's interior tells the two apart. This class
     asserts the *absence* of the regression rather than the presence of a
     feature: the #409 low-zoom flat fill was removed in #503 because it was
     measured to buy nothing (docs/11 §11.4.11), and removing dead code leaves
-    no test behind to catch it creeping back. These three are the pin.
+    no test behind to catch it creeping back.
+
+    **It is parametrised over rectangle, circle, ellipse and polygon because the
+    removed branch had seven call sites across all four, and the circle is where
+    every plant sprite draws** - the first thing the owner objected to. A first
+    version covered only the rectangle; re-introducing a low-zoom flat fill in
+    `CircleItem.paint` left the whole suite green.
+
+    **Two sampling traps, both paid for here.** The first version sampled the
+    item's bounding box inset 10 %, which is right for a rectangle and vacuous
+    for the other three: the box corners are page background, so a solid fill
+    inside a circle still measured a high spread and passed (verified - the
+    branch fires, the test does not notice). The mask is now the shape's real
+    interior, from a second render in a colour used nowhere else; alpha cannot
+    do it because the scene paints an opaque background. Second: an absolute
+    sample floor fails the 0.1 zoom case for being small rather than wrong, so
+    the canvas cases assert against the mask's own area.
 
     Measured on the 990-item reference plan, the removed branch changed nothing:
     fit-in-view read 10.58 ms with it disabled and 10.64 ms with it live, and
-    every NFR-PERF-01 budget test passes either way — ``DeviceCoordinateCache``
+    every NFR-PERF-01 budget test passes either way - ``DeviceCoordinateCache``
     already amortises the textured paint into a one-off cost, so the LOD could
     only ever subtract detail. The owner works at 20-25 % zoom, where the
     removed threshold (0.4) would have hidden every texture.
     """
 
+    @pytest.mark.parametrize("shape", _SHAPE_IDS)
     @pytest.mark.parametrize("zoom", [0.1, 0.25, 0.4, 0.75, 1.0])
     def test_the_canvas_keeps_the_texture_at_every_zoom(
-        self, qtbot: object, zoom: float
+        self, qtbot: object, shape: str, zoom: float
     ) -> None:  # noqa: ARG002
-        image, item_rect = _interactive_canvas_render(
-            qtbot, _styled_textured_rectangle(), zoom=zoom
-        )
-        count, spread = _fill_intensity_stats(image, item_rect)
-        # Scale-free "it really painted" floor: the sampler steps 2 px in both
-        # axes over a region inset 10 %, so it sees ~57 % of the area at every
-        # zoom. An absolute count would fail the 0.1 case for being small
-        # rather than for being wrong, which is how a real failure gets
-        # mistaken for a calibration nit.
-        assert count * 10 > int(item_rect.width() * item_rect.height()), (
-            f"the sampled region held almost nothing ({count} px) — the fill "
-            f"did not paint at zoom {zoom}"
-        )
+        factory = _TEXTURED_SHAPES[_SHAPE_IDS.index(shape)][2]
+        intensity, mask = _canvas_render(qtbot, factory, zoom=zoom)
+        count, spread = _interior_stats(intensity, mask)
+        # No absolute sample floor: the interior area depends on the shape class
+        # and the zoom, so any constant is a calibration trap that fires on the
+        # smallest case for being small. An empty mask reads 0.0 spread by
+        # construction (_interior_stats), so the assertion below already
+        # catches "nothing rendered" — this is the explicit version of that.
+        assert count > 0, f"the {shape}'s interior mask was empty at zoom {zoom}"
         assert spread > TEXTURE_SPREAD_MIN, (
-            f"the texture was replaced by a flat fill at zoom {zoom} "
-            f"(fill spread {spread:.2f}); #503 removed the low-zoom flat fill "
-            "because it cost detail and bought no measurable time"
+            f"the {shape}'s texture was replaced by a flat fill at zoom {zoom} "
+            f"(interior spread {spread:.2f} over {count} px); #503 removed the "
+            "low-zoom flat fill because it cost detail and bought no measurable "
+            "time"
         )
 
-    def test_the_export_keeps_the_texture(self, qtbot) -> None:  # noqa: ARG002
-        image, item_rect = _export_render(_styled_textured_rectangle())
-        count, spread = _fill_intensity_stats(image, item_rect)
-        assert count > CANVAS_FILL_SAMPLES_MIN
+    @pytest.mark.parametrize("shape", _SHAPE_IDS)
+    def test_the_export_keeps_the_texture(
+        self, qtbot: object, shape: str
+    ) -> None:  # noqa: ARG002
+        factory = _TEXTURED_SHAPES[_SHAPE_IDS.index(shape)][2]
+        intensity, mask = _export_render(factory)
+        count, spread = _interior_stats(intensity, mask)
+        assert count > 0, f"the {shape}'s interior mask was empty in the export"
         assert spread > TEXTURE_SPREAD_MIN, (
-            "the export lost the texture; cache-disabled render paths must "
-            "keep full detail"
+            f"the export lost the {shape}'s texture; cache-disabled render "
+            "paths must keep full detail"
         )
+
+
+class TestIsInteractivePaint:
+    """The predicate's own halves, called directly (#503).
+
+    ``is_interactive_paint`` is now a three-line expression used by exactly one
+    caller (``PolygonItem``'s over-budget bound), so its docstring's claim that
+    "the direct-call tests exercise it" had no test behind it. These are those
+    tests: the cache-mode half (the one the #503 story is about) and the
+    ``widget is not None`` half, which the docstring keeps as robustness for a
+    cache-disabled item painted by a real widget.
+
+    Deliberately direct calls, not a rendered scenario: this pins the predicate,
+    where the #503 defect was a predicate whose condition never held on the
+    path it guarded.
+    """
+
+    def test_a_cached_item_is_interactive_without_a_widget(self) -> None:
+        """The #503 case: Qt hands ``widget = 0`` to every cached paint."""
+        item = RectangleItem(0, 0, 10, 10, object_type=ObjectType.GENERIC_RECTANGLE)
+        assert item.cacheMode() == QGraphicsItem.CacheMode.DeviceCoordinateCache
+        assert is_interactive_paint(item, None) is True
+
+    def test_a_cache_disabled_item_is_not_interactive_without_a_widget(
+        self,
+    ) -> None:
+        """The export / print / agent render convention disables caches first."""
+        item = RectangleItem(0, 0, 10, 10, object_type=ObjectType.GENERIC_RECTANGLE)
+        disable_cache(item)
+        assert item.cacheMode() == QGraphicsItem.CacheMode.NoCache
+        assert is_interactive_paint(item, None) is False
+
+    def test_a_real_widget_wins_even_with_the_cache_disabled(
+        self, qtbot
+    ) -> None:  # noqa: ARG002
+        """The robustness half the docstring keeps, pinned so it stays true."""
+        item = RectangleItem(0, 0, 10, 10, object_type=ObjectType.GENERIC_RECTANGLE)
+        disable_cache(item)
+        widget = QWidget()
+        qtbot.addWidget(widget)
+        assert is_interactive_paint(item, widget) is True
+
+    def test_a_non_item_object_is_not_interactive(self) -> None:
+        """The ``isinstance`` guard: a non-QGraphicsItem has no cache mode."""
+        assert is_interactive_paint(object(), None) is False

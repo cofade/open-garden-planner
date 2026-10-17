@@ -173,26 +173,20 @@ def is_interactive_paint(item: object, widget: QWidget | None) -> bool:
 
     "Interactive" is NOT ``widget is not None``: Qt passes ``widget = 0`` for
     every **cached** paint, and every unselected canvas item is
-    ``DeviceCoordinateCache``, so a widget-based test is never true for the
-    paints the user's canvas actually runs. That trap shipped twice — the first
-    #472 over-budget degrade could not fire, and the #409 low-zoom flat fill
-    never fired at all (#503).
+    ``DeviceCoordinateCache``, so a widget test is never true for the paints the
+    user's canvas actually runs. The discriminator is the item's **cache mode** —
+    every export, report, print and agent render path disables caches first, so
+    those stay full detail, while the cached canvas degrades.
 
-    The discriminator is the item's **cache mode**: every export, report, print
-    and agent render path disables the item caches first
-    (``ExportService._disable_item_caches``) and runs offscreen, while the
-    cached interactive view degrades — and the minimap, which renders through
-    ``scene.render`` with caches on, deliberately degrades like the canvas.
+    The predicate classifies *which paint is this*; it never decides how much
+    detail to draw. It serves one caller, the #472 polygon paint bound. There is
+    no general level-of-detail pass any more: the #409 low-zoom flat fill was
+    removed in #503, measured to buy nothing.
 
-    The ``widget is not None`` half is deliberately kept as robustness for a
-    cache-disabled item painted by a real widget even though every current
-    call site excludes selected items first (so product paints reach this
-    predicate cache-enabled); the direct-call tests exercise it.
-
-    This predicate answers *which paint is which*; it says nothing about **how**
-    much detail to draw. It serves only the #472 polygon paint bound. There is no
-    general level-of-detail pass any more — the #409 low-zoom flat fill was
-    removed in #503 after being measured to buy nothing (see docs/11 §11.4.11).
+    The ``widget is not None`` half stays as robustness for a cache-disabled item
+    painted by a real widget; ``TestIsInteractivePaint`` pins both halves. The
+    full reachability history — this idiom shipped wrong twice — is in
+    ``docs/11-risks-and-technical-debt/`` §11.4.11, not here.
     """
     return widget is not None or (
         isinstance(item, QGraphicsItem)

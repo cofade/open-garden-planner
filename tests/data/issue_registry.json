@@ -927,6 +927,6 @@
   "507": {
     "is_pr": true,
     "state": "OPEN",
-    "title": "fix(503): make the LOD low-zoom flat fill reachable (one cache-mode predicate)"
+    "title": "fix(503): remove the #409 low-zoom LOD flat fill instead of making it reachable"
   }
 }
