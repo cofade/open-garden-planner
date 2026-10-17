@@ -240,6 +240,29 @@ def test_check_validates_versions_against_the_lock(bundle: Path, tmp_path: Path,
     assert _check(out, lock, records, inventory._app_version()) == []
 
 
+def test_lock_versions_evaluates_environment_markers(tmp_path: Path) -> None:
+    lock = tmp_path / "pylock.toml"
+    lock.write_text(
+        "lock-version = '1.0'\n"
+        "[[packages]]\nname = 'numpy'\nversion = '2.4.6'\nmarker = \"python_full_version < '3.12'\"\n"
+        "[[packages]]\nname = 'numpy'\nversion = '2.5.4'\nmarker = \"python_full_version >= '3.12'\"\n"
+        "[[packages]]\nname = 'pywin32'\nversion = '312'\nmarker = \"sys_platform == 'win32'\"\n"
+        "[[packages]]\nname = 'uvicorn'\nversion = '0.54.0'\n",
+        encoding="utf-8",
+    )
+    env_311 = {"python_full_version": "3.11.9", "sys_platform": "win32"}
+    versions_311 = inventory._lock_versions(lock, environment=env_311)
+    assert versions_311["numpy"] == "2.4.6"
+    assert versions_311["pywin32"] == "312"
+    assert versions_311["uvicorn"] == "0.54.0"
+
+    env_312 = {"python_full_version": "3.12.3", "sys_platform": "linux"}
+    versions_312 = inventory._lock_versions(lock, environment=env_312)
+    assert versions_312["numpy"] == "2.5.4"
+    assert "pywin32" not in versions_312
+    assert versions_312["uvicorn"] == "0.54.0"
+
+
 def test_missing_bundle_fails(tmp_path: Path) -> None:
     assert main(["--bundle", str(tmp_path / "nope"), "--output-dir", str(tmp_path)]) == 2
 

@@ -13,7 +13,6 @@ import importlib.util
 import json
 import shutil
 import sys
-import tomllib
 from importlib import metadata
 from pathlib import Path
 
@@ -139,10 +138,9 @@ def test_pipeline_records_the_version_it_was_told(tmp_path: Path) -> None:
 )
 def test_the_real_lock_names_every_runtime_distribution() -> None:
     """The committed lock must cover the closure the spec bundles."""
-    locked = {
-        runtime_closure.canonicalize(package["name"]): package["version"]
-        for package in tomllib.loads((ROOT / "pylock.toml").read_text(encoding="utf-8"))["packages"]
-    }
+    from scripts import generate_distribution_inventory as inventory
+
+    locked = inventory._lock_versions(ROOT / "pylock.toml")
     missing = [
         name for name in runtime_closure.runtime_distribution_names() if name not in locked
     ]
