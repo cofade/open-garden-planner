@@ -48,6 +48,7 @@ that checks references *resolve*, this checks commands *run*.
 from __future__ import annotations
 
 import re
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -687,8 +688,6 @@ def test_the_release_workflow_still_attests_build_provenance() -> None:
     )
 
 
-
-
 def test_ci_still_scans_for_committed_secrets() -> None:
     """A live Agent API write token was committed and pushed (PR #369, 2026-09-29).
 
@@ -725,6 +724,373 @@ def test_ci_still_scans_for_committed_secrets() -> None:
         "ci.yml no longer runs Bandit — the secret scan is a credential check, "
         "not a replacement for SAST"
     )
+
+
+def _script_lines(run: object) -> list[str]:
+    """A step's `run` as executable lines, with line-initial shell comments removed.
+
+    A `#` that starts a line inside a `run:` block is text, not a command. Measured: a step
+    whose script was
+
+        # pytest tests/ -m perf -v -n 0
+        pytest tests/ -m 'not perf' -v -n 0
+
+    left both pins green while the perf tests ran nothing - the selector and the substring
+    assertions were reading the comment.
+
+    A `run:` expressed as a YAML list returns `[]`, which shows up as `found == 0` rather
+    than as a TypeError from a regex.
+    """
+    if isinstance(run, list):
+        return []
+    return [
+        line
+        for line in str(run).splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+
+
+def _argv_of(script: str) -> list[str]:
+    """The argv of a step's script, with shell comments stripped.
+
+    Every line is tokenised and the tokens are concatenated, NOT just the last line: a
+    `run: >` folded scalar is one command spread over several source lines, and the CI
+    Coverage steps are written that way - reading only the last line of one finds
+    `--cov=...` and no `-m` at all. Measured: the first version of this helper made both
+    pins go from 3 matching steps to 1.
+
+    `comments=True` is what a shell does with `#`: it ends the command. Without it the
+    trailing `# -n 0 would need the quiet runner` in a signaller script became real argv
+    tokens and satisfied the `-n 0` check.
+
+    Unbalanced quotes return `[]`, which surfaces as "found 0" - loud, if unhelpful.
+    """
+    argv: list[str] = []
+    for line in _script_lines(script):
+        try:
+            argv.extend(shlex.split(line, comments=True))
+        except ValueError:
+            return []
+    return argv
+
+
+def _marker_arg(argv: list[str]) -> str | None:
+    """The value of pytest's `-m`, if the argv carries one.
+
+    Not simply "the first `-m`": `python -m pytest ... -m 'not perf'` has two, and the
+    first means "run module". Measured - taking the first made the coverage job's parallel
+    step report its marker as `pytest` and drop out of the matched set. So the search starts
+    at the `pytest` token, and falls back to the LAST `-m` when there is none, because a
+    later flag is the one that overrides.
+    """
+    starts: list[int] = []
+    for index, token in enumerate(argv):
+        if token == "pytest" or token.endswith("/pytest") or token.endswith("\\pytest.exe"):
+            starts.append(index + 1)
+    candidates = range(starts[-1], len(argv)) if starts else range(len(argv))
+
+    values: list[str] = []
+    for index in candidates:
+        if argv[index] == "-m" and index + 1 < len(argv):
+            values.append(argv[index + 1])
+    if values:
+        return values[-1]
+
+    # No `pytest` token: any `-m` will do, last one wins.
+    for index in range(len(argv) - 1, -1, -1):
+        if argv[index] == "-m" and index + 1 < len(argv):
+            return argv[index + 1]
+    return None
+
+
+def _flag_value(argv: list[str], flag: str) -> str | None:
+    """The value of a single-token flag such as `-n 0`, read AFTER the `pytest` token.
+
+    Same reason as `_marker_arg`: `python -m pytest` uses `-m`, and a shell command may
+    carry other single-letter flags before the test runner starts.
+    """
+    for index, token in enumerate(argv):
+        if token == "pytest":
+            for pos in range(index + 1, len(argv) - 1):
+                if argv[pos] == flag:
+                    return argv[pos + 1]
+            return None
+    for pos in range(len(argv) - 1):
+        if argv[pos] == flag:
+            return argv[pos + 1]
+    return None
+
+
+def _targets_tests_dir(argv: list[str]) -> bool:
+    """True when the argv names `tests/` and not a SUBDIRECTORY of it.
+
+    `tests/perf` is a subdirectory, and it is the whole defect: it collects 7 of the 14 and
+    passes. Comparing path tokens rather than searching the string is what makes `tests/perf`
+    distinguishable from `tests/`.
+    """
+    for token in argv:
+        if token.startswith("-"):
+            continue
+        normalised = token.replace("\\", "/").rstrip("/")
+        if normalised == "tests":
+            return True
+    return False
+
+
+def _covers_the_perf_marker(argv: list[str], want_marker: bool) -> bool:
+    """Whether `-m` selects (`want_marker`) or deselects the `perf` marker."""
+    value = _marker_arg(argv)
+    if value is None:
+        return False
+    tokens = {part.strip() for part in value.replace("(", " ").replace(")", " ").split()}
+    has_perf = any(tok == "perf" for tok in tokens)
+    negated = "not" in tokens
+    return has_perf and (not negated if want_marker else negated)
+
+
+def _needs_of(job: dict) -> list[str]:
+    """Normalise a job's `needs`, which YAML may give as a string or a list."""
+    needs = job.get("needs")
+    if needs is None:
+        return []
+    return [needs] if isinstance(needs, str) else list(needs)
+
+
+def test_ci_runs_the_whole_perf_set_serially() -> None:
+    """The three perf steps are pinned by their argv, and by the two keys that can make a
+    step or a job not gate at all. Both halves exist because prose got them wrong.
+
+    `addopts` carries `-n auto --dist worksteal -m 'not perf'` (#509), so the perf tests
+    run in neither mode by default: the battery deselects them, and the workers are the
+    thing they must not share a runner with. Both jobs that run them have to say so
+    explicitly, and each of the three details fails SILENTLY:
+
+    * `tests/perf -m perf` collects **7 of the 14** and passes. Seven of the marked tests
+      live outside `tests/perf/`, so a directory-scoped command looks complete and is
+      not - CONTRIBUTING.md tabulates it as "the worst kind of wrong".
+    * omitting `-m perf` lets `addopts`' own `-m 'not perf'` win and collects **nothing**.
+    * omitting `-n 0` runs all 14 across 4 workers on a 4-vCPU runner, which is precisely
+      the load the marker exists to avoid, and three of the fourteen carry no CI slack
+      at all (map-picker close < 0.5 s, point-snapper mean < 16 ms, spatial-index
+      medians < 200 ms / < 1 ms).
+
+    **Why this parses the YAML rather than grepping the file.** The first version of this
+    test grepped for `"tests/ -m perf"` and `"-m perf -n 0"` in the whole text, and it
+    passed for the wrong reason: both substrings are satisfied by the COVERAGE job's copy
+    of the command, so mutating the TEST job's step - the one actually named "Run
+    performance budgets on a quiet runner", the one carrying the three zero-slack budgets -
+    to `pytest tests/ -m perf -v` or to the directory form left this test GREEN. Both
+    mutations were run; both passed. A pin that cannot fail is worse than no pin, because
+    it reads as protection. `text.split("  coverage:", 1)[-1]` had the same defect wearing
+    a disguise: if the separator ever goes missing the "scoped" assertion silently becomes
+    a whole-file assertion with the same outcome. So each job is looked up by key, and a
+    missing key is a failure rather than an empty result.
+
+    The marker half of this contract was already mechanised - `test_perf_marker_guard.py`
+    fails the build if a wall-clock assertion is added without the marker - so the marker
+    was the safe half to leave in prose and the invocation the dangerous one. Four
+    documents carried a wrong invocation inside this change while every check stayed
+    green.
+    """
+    import yaml
+
+    workflow = yaml.safe_load(
+        (_REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    )
+    jobs = workflow["jobs"]
+
+    def perf_steps(job: str) -> list[list[str]]:
+        assert job in jobs, f"ci.yml no longer has a `{job}` job"
+        found: list[list[str]] = []
+        for step in jobs[job]["steps"]:
+            argv = _argv_of(step.get("run"))
+            if argv and _marker_arg(argv) is not None and "perf" in str(_marker_arg(argv)):
+                found.append(argv)
+        return found
+
+    test_steps = perf_steps("test")
+    # ONE assertion, not two: an `assert test_steps` after this could never fire, because
+    # `len(test_steps) == 1` is already false at zero and the message documenting the
+    # unquoted-`echo` hole would never print. A dead assertion reads as coverage.
+    assert len(test_steps) == 1, (
+        f"expected exactly one perf step in the `test` job, found {len(test_steps)}: "
+        f"{test_steps}. `-m` is read as a token pair, which catches a command hidden inside "
+        "a comment - but NOT one hidden inside an unquoted `echo`, because `_argv_of` "
+        "concatenates the tokens of every line; see the measured-open list below"
+    )
+    quiet = test_steps[0]
+    assert _covers_the_perf_marker(quiet, want_marker=True), (
+        f"the test job's perf step is `{' '.join(quiet)}`. Its `-m` must SELECT `perf`, not "
+        "deselect it"
+    )
+    assert _targets_tests_dir(quiet), (
+        f"the test job's perf step is `{' '.join(quiet)}`. It must name `tests/`, not "
+        "`tests/perf`: the marker means 'wall-clock sensitive', 7 of the 14 marked tests "
+        "live outside tests/perf/, and the directory form collects those 7 and PASSES"
+    )
+    assert _flag_value(quiet, "-n") == "0", (
+        f"the test job's perf step is `{' '.join(quiet)}`; `-n` must be `0`. Without it the "
+        "timing tests run across workers, which is the condition the split exists to prevent"
+    )
+
+    coverage_steps = perf_steps("coverage")
+    parallel = [argv for argv in coverage_steps if _covers_the_perf_marker(argv, want_marker=False)]
+    serial = [argv for argv in coverage_steps if _covers_the_perf_marker(argv, want_marker=True)]
+    assert parallel, (
+        "the Coverage job's parallel step must deselect the perf tests with `-m 'not perf'`; "
+        "the perf set is then measured by the serial step instead of running under `-n auto`, "
+        "which is where the three zero-slack budgets break"
+    )
+    assert any("--cov" in token for token in parallel[0]), (
+        f"the deselecting step is `{' '.join(parallel[0])}`, which does not run under --cov"
+    )
+    assert serial, (
+        "the Coverage job needs a serial step that SELECTS the perf marker - without it the "
+        "perf set runs only in the parallel step, beside workers"
+    )
+    assert any(token == "--cov-append" for token in serial[0]), (
+        "the serial step must append, and it is LOAD-BEARING, not tidiness. Measured with "
+        "the gate itself: step 1 alone leaves `agent_api` at 2012 of 2195 and the gate "
+        "exiting 1; with the append it is 2026 and `regressions: []`. The delta is the "
+        "fourteen `stop()` escalation lines. Delete the append and Coverage goes red on "
+        "agent_api; delete the deselect and the append becomes redundant."
+    )
+    assert _flag_value(serial[0], "-n") == "0", (
+        f"the serial step is `{' '.join(serial[0])}`; `-n` must be `0`, because running the "
+        "timing tests across workers is the condition the split exists to prevent"
+    )
+
+    # Derived from the argv results rather than counted in the loop above, because the
+    # count is what stops this pin from silently looking at nothing after a rename.
+    found = len(test_steps) + len(coverage_steps)
+    assert found >= 3, (
+        f"expected the perf step in `test` and the two in `coverage`, found {found} - if a "
+        "step was renamed or moved, this check has silently stopped looking at it"
+    )
+
+    # The `needs` graph, because a skipped dependency skips everything downstream of it.
+    # Measured: a job with `if: false`, plus `needs: [that-job]` on `test`, leaves both
+    # pins green while the perf step never executes. Plain YAML, no shell involved, and the
+    # same "a skipped check is not a passing check" failure as an `if:` on the job itself.
+    for gate_job in ("test", "coverage"):
+        _seen: set[str] = set()
+        _queue = list(_needs_of(jobs[gate_job]))
+        while _queue:
+            _dependency = _queue.pop()
+            assert _dependency in jobs, (
+                f"`{gate_job}` needs `{_dependency}`, which does not exist - GitHub would "
+                "fail the workflow, and nothing here was checking that either"
+            )
+            # A processed-set, not a "seen" set used as a cycle test: a DIAMOND is
+            # valid YAML and common (two jobs that both need a shared setup), and a first
+            # version of this walk failed `test.needs: [lint, agent-context]` plus
+            # `lint.needs: [agent-context]` with "cycle in the needs graph" - three lines
+            # of valid configuration diagnosed as a defect that did not exist.
+            if _dependency in _seen:
+                continue
+            _seen.add(_dependency)
+            assert "if" not in jobs[_dependency], (
+                f"`{gate_job}` needs `{_dependency}`, which is conditional. If that `if:` is "
+                f"false the job is skipped, and so is `{gate_job}` with its perf gate - and "
+                "a skipped job is reported differently from a passing one"
+            )
+            assert not jobs[_dependency].get("continue-on-error"), (
+                f"`{_dependency}` can fail without failing the workflow, and `{gate_job}` "
+                "depends on it"
+            )
+            _queue.extend(_needs_of(jobs[_dependency]))
+
+    # The step-level and job-level neutralisations. These assertions lived in a separate test
+    # (`test_the_perf_steps_cannot_be_neutralised`) until `d9d18860` deleted it while the
+    # comment below went on claiming they were checked; seven mutations were then measured
+    # green against this pin. They belong here rather than in a second test because the pin
+    # that finds the steps is the pin that must insist they can fail.
+    for _job_name in ("test", "coverage"):
+        _gate = jobs[_job_name]
+        assert not _gate.get("continue-on-error"), (
+            f"the `{_job_name}` job has continue-on-error: every gate inside it - including "
+            "the perf budgets - becomes advisory while the check reports pass"
+        )
+        assert "if" not in _gate, (
+            f"the `{_job_name}` job is conditional, and it carries a perf gate: it may be "
+            "skipped entirely, which is reported differently from passing"
+        )
+        for _step in _gate.get("steps", []):
+            _argv = _argv_of(_step.get("run"))
+            if not (_argv and "perf" in str(_marker_arg(_argv))):
+                continue
+            _where = f"{_job_name} / {_step.get('name') or ' '.join(_argv)[:40]}"
+            assert not _step.get("continue-on-error"), (
+                f"`{_where}` has continue-on-error: the perf tests would run, could fail, "
+                "and the job would still be green - a gate that reports nothing"
+            )
+            # The loop matches BOTH perf steps of the Coverage job, and the two have
+            # opposite consequences when skipped - so the message names the one that
+            # applies instead of describing only the selecting case. Skipping the
+            # deselecting step is not a weaker neutralisation than skipping the serial one:
+            # the perf tests then run under `-n auto` in the parallel step, which is what
+            # the three zero-slack budgets must not do.
+            _skipped = (
+                "the perf tests would never run"
+                if _covers_the_perf_marker(_argv, want_marker=True)
+                else "the deselect would be skipped, so the perf tests would run under "
+                "`-n auto` in the parallel step beside workers"
+            )
+            assert "if" not in _step, (
+                f"`{_where}` is conditional, and it carries the perf gate: skip it and "
+                f"{_skipped} - a skipped check is reported differently from a passing one"
+            )
+
+    # WHAT THIS CANNOT SEE, as measurements rather than as a claim of completeness. Every
+    # entry below was run; the ones this file HAS closed are listed too, because a boundary
+    # is only informative next to the things on the other side of it.
+    #
+    # CLOSED, and every entry names the ASSERTION that closes it rather than the shape. A
+    # list of shapes reads as coverage even when nothing checks them - which is exactly what
+    # happened here: `d9d18860` deleted the test holding the step/job assertions while this
+    # comment went on claiming the shapes were verified, and seven mutations then passed.
+    #
+    #   * a `#` comment naming the perf command - line-initial, mid-line in a block scalar,
+    #     inside an `echo`, and after `true;`
+    #         -> `_argv_of` tokenises each line with `shlex.split(comments=True)`, so a
+    #            comment never reaches `_marker_arg` / `_flag_value` / `_targets_tests_dir`.
+    #   * `tests/perf` instead of `tests/`
+    #         -> `_targets_tests_dir`, which compares a PATH token against `tests`.
+    #   * a dropped `-n 0`
+    #         -> `_flag_value(quiet, "-n") == "0"` and the same for `serial[0]`.
+    #   * a dropped `--cov-append`
+    #         -> `any(token == "--cov-append" for token in serial[0])`.
+    #   * `continue-on-error` / `if:` on a perf STEP
+    #         -> the `for _step in _gate.get("steps", [])` loop above.
+    #   * `continue-on-error` / `if:` on `test` / `coverage` themselves
+    #         -> the `for _job_name in ("test", "coverage")` loop above.
+    #   * a `needs:` dependency that can never run
+    #         -> the `needs` walk above. A skipped job is reported differently from a pass.
+    #
+    # STILL OPEN, measured:
+    #   * `-o addopts="--collect-only"`, `--co`, or `env: PYTEST_ADDOPTS: --co` on a perf
+    #     step's command - the step succeeds without running a single test.
+    #   * `|| true`, or a pipe to `tee` without `pipefail`, on the same command. Note this
+    #     is NOT unpinnable: `shlex.split` yields `||` and `true` as tokens, so a check for a
+    #     disjunction after the command is a few lines. An earlier version of this note said
+    #     "shell semantics cannot be pinned statically", which was an overclaim - it is
+    #     unwritten, not unwritable.
+    #   * tokens belonging to a different command taken as the command's. `_argv_of`
+    #     concatenates every line's tokens, so a script whose real command lacks `-n 0` and
+    #     whose earlier line is `echo pytest tests/ -m perf -n 0` satisfies all three
+    #     assertions while running nothing. Same shape: a here-doc body supplying the flags,
+    #     and `bash scripts/ci_perf.sh tests/ -m perf -n 0`. The fix is to split the token
+    #     stream into commands and evaluate the checks on the one that selects the marker;
+    #     it is not written yet, and an earlier version of the assertion message claimed it
+    #     was covered.
+    #   * `strategy.matrix` producing zero combinations, and a `concurrency` group that
+    #     cancels the run. Neither has a pinned check; a `timeout-minutes` short enough to
+    #     kill the step does fail the job, which is loud enough to count as covered.
+    #
+    # NOT holes, though earlier drafts claimed they were:
+    #   * a `run:` expressed as a YAML list is caught as `found == 0` - loud, and not for the
+    #     reason a draft gave (a TypeError from a regex);
+    #   * a perf step moved into a reusable workflow is caught by the `found >= 3` guard.
 
 
 class TestCheckNoSecrets:
@@ -788,53 +1154,78 @@ class TestCheckNoSecrets:
         ("doc placeholder", 'url = "http://127.0.0.1:8765/mcp?token=<token>"'),
     ]
 
-    def _scan_with_canary(self, tag: str, line: str):
-        """Stage a canary file, scan, then unstage and delete it.
+    def _scan_with_canary(self, tmp_path: Path, tag: str, line: str) -> list[str]:
+        """Scan an ISOLATED git repo that contains nothing but the canary.
 
         The checker deliberately reads only git-TRACKED files, so an untracked
-        scratch file must not be able to fail a build. That makes this test
-        stage the canary, which is also what a real leak would be.
+        scratch file must not be able to fail a build. That is why this stages the
+        canary at all — staging is what a real leak would look like.
 
-        The ``git add`` sits INSIDE the ``try`` on purpose (#507): it stages into
-        the real index, so an interrupted run - Ctrl-C, a pytest-timeout kill, a
-        crash between the two calls - used to leave the canary staged, and the
-        next ``git commit -a`` published it. It happened: a one-line canary was
-        committed on PR #507 before review caught it. ``git rm --cached`` in the
-        ``finally`` can now always pair with the ``git add``.
+        **It used to stage the canary in the REAL repository**, at
+        ``scripts/_canary_<tag>.py``, and #507 then had to harden that: the
+        ``git add`` sat OUTSIDE the ``try``, so an interrupted run — Ctrl-C, a
+        pytest-timeout kill, a crash between the two calls — left the canary
+        staged and the next ``git commit -a`` published it. It happened: a
+        one-line canary was committed on PR #507 before review caught it.
 
-        The cleanup contract is then ASSERTED rather than assumed, by
-        ``test_the_canary_leaves_nothing_behind``. Nothing else can catch it:
-        these exact lines sit in ``_MUST_NOT_FLAG``, so the secrets scan is
-        structurally blind to a leaked canary, and ``test_the_real_tree_is_clean``
-        only looks for credential-shaped strings.
+        This no longer touches the real index at all, so that failure is not
+        hardened against — it is **structurally impossible**: nothing outside the
+        temp directory is created, staged or deleted, under any scheduler, and
+        including an interrupted run. That was measured, not assumed (#509):
+        staging into the shared working tree was the only test in the suite that
+        mutated shared state, and under ``pytest -n`` a sibling worker's
+        ``root.rglob("*.py")`` in ``test_settings_chokepoint.py`` could list the
+        canary inside the write-to-unlink window and die with
+        ``FileNotFoundError``. The same window also let this file's own
+        whole-repo scan read a *sibling worker's* staged canary and report a
+        credential that was never committed anywhere.
+
+        ``test_the_real_tree_is_clean`` still guards the real tree, which is now
+        the third state to check rather than the only one.
         """
         import subprocess
-        from pathlib import Path
 
         from scripts.check_no_secrets import check_repo
 
-        root = Path(__file__).resolve().parents[2]
+        root = tmp_path / f"repo_{tag}"
+        (root / "scripts").mkdir(parents=True)
+        # Not check=True, and the reason is NOT "git might be missing, so let the scan fall
+        # back to walking the directory" — that fallback cannot happen. `subprocess.run`
+        # raises FileNotFoundError when the binary is absent, which is an OSError and is
+        # NOT caught here, so a machine without git would ERROR on this line and never
+        # reach `_tracked_files` at all. (`scripts/check_no_secrets.py:187` does catch it;
+        # this call site does not, which is a real exposure and a separate fix.)
+        # The actual reason is narrower: `git init` writes to stderr and its exit status
+        # is not what this helper asserts. The assertion is about DETECTION — that a
+        # tracked canary is found — not about git being installed or configured.
+        subprocess.run(["git", "init", "-q"], cwd=root, capture_output=True)
         canary = root / "scripts" / f"_canary_{tag}.py"
-        try:
-            canary.write_text(line + "\n", encoding="utf-8")
-            subprocess.run(["git", "add", "--", str(canary)], cwd=root, capture_output=True)
-            return [f for f in check_repo(root) if canary.name in f]
-        finally:
-            subprocess.run(
-                ["git", "rm", "--cached", "-q", "--", str(canary)],
-                cwd=root,
-                capture_output=True,
-            )
-            canary.unlink(missing_ok=True)
+        canary.write_text(line + "\n", encoding="utf-8")
+        subprocess.run(["git", "add", "--", "scripts"], cwd=root, capture_output=True)
+        # No try/finally unstage, because there is nothing to unstage: `root` is a
+        # throwaway repo under tmp_path, so the canary cannot reach the real index
+        # even if this process dies mid-test. #507's `_assert_no_canary_residue`
+        # contract ("stage, scan, unstage, delete") no longer describes what happens,
+        # and the honest version is stronger: there is no fourth step to forget.
+        return [f for f in check_repo(root) if canary.name in f]
 
     def _assert_no_canary_residue(self, tag: str) -> None:
-        """The helper's contract is "stage, scan, unstage, delete" - assert all four.
+        """Assert the REAL repository carries no canary residue.
 
         Added after a one-line ``_canary_fp_*.py`` was committed and pushed on
         PR #507 (#507, round 4 of review). No other gate could have caught it: the
         canary's own text is in ``_MUST_NOT_FLAG``, so the secrets scan is blind
         to it by construction, and a residue assertion is the only thing that
         turns "we hope the ``finally`` ran" into a checked invariant.
+
+        **Rewritten in scope by #509.** It used to assert the helper's four-step
+        contract — "stage, scan, unstage, delete" — against the real index, because
+        the helper staged there. The helper now stages in a throwaway repo under
+        ``tmp_path``, so there is no unstage and no delete to assert, and #507's
+        hazard is structurally impossible rather than merely handled. What remains
+        worth asserting is the state this change could still damage: the real tree.
+        `test_the_real_tree_is_clean` covers the credential shape; this covers any
+        residue at all, which is the broader of the two.
         """
         import subprocess
         from pathlib import Path
@@ -853,16 +1244,20 @@ class TestCheckNoSecrets:
         assert not canaries, f"canary still staged in the index after {tag}: {canaries}"
 
     @pytest.mark.parametrize("label,tag,line", _MUST_CATCH, ids=[c[0] for c in _MUST_CATCH])
-    def test_catches_real_credential(self, label, tag, line) -> None:
-        found = self._scan_with_canary(tag, line)
+    def test_catches_real_credential(self, tmp_path: Path, label, tag, line) -> None:
+        found = self._scan_with_canary(tmp_path, tag, line)
         assert found, f"the secret checker missed a real credential: {label}"
         self._assert_no_canary_residue(tag)
 
     @pytest.mark.parametrize(
-        "label,line", _MUST_NOT_FLAG, ids=[c[0] for c in _MUST_NOT_FLAG]
+        "index,label,line",
+        [(i, label, line) for i, (label, line) in enumerate(_MUST_NOT_FLAG)],
+        ids=[c[0] for c in _MUST_NOT_FLAG],
     )
-    def test_does_not_flag_identifier_noise(self, label, line) -> None:
-        found = self._scan_with_canary(f"fp_{abs(hash(line)) % 10**8}", line)
+    def test_does_not_flag_identifier_noise(self, tmp_path: Path, index, label, line) -> None:
+        # Index-based, not `hash(line)`: str hashing is salted per process, so a
+        # hash-derived filename changed on every run and every worker.
+        found = self._scan_with_canary(tmp_path, f"fp_{index}", line)
         assert not found, (
             f"the secret checker flagged ordinary code ({label}): {found} — "
             "a gate that cries wolf on variable names gets deleted, and then "

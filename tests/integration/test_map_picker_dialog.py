@@ -285,10 +285,17 @@ class TestFetchFlow:
         assert dialog.result() != dialog.DialogCode.Accepted
         assert dialog.fetch_result is None
 
+    @pytest.mark.perf
     def test_close_does_not_block_on_in_flight_worker(
         self, qtbot, with_api_key, mock_web_view
     ) -> None:
-        """Closing requests cancellation without joining on the GUI thread."""
+        """Closing requests cancellation without joining on the GUI thread.
+
+        Marked `perf` because it asserts a wall-clock bound (`close()` returns in
+        under 0.5 s while a tile fetch is blocked). The marker means "wall-clock
+        sensitive" and so keeps this on the quiet runner even though the file is not
+        under `tests/perf/` — the split is by measurement, not by directory (#509).
+        """
         from open_garden_planner.ui.dialogs.map_picker_dialog import MapPickerDialog
 
         dialog = MapPickerDialog()

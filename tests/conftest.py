@@ -130,6 +130,7 @@ def _reset_app_settings():
     backend, this also clears the `UiState/` geometry keys.
     """
     import open_garden_planner.app.settings as settings_module
+    from open_garden_planner.app.settings import AppSettings
 
     def _reset() -> None:
         # Per-key wipe, NOT `clear()`: on the Windows registry backend a
@@ -144,6 +145,26 @@ def _reset_app_settings():
         store = settings_module.create_qsettings()
         for key in store.allKeys():
             store.remove(key)
+        # Re-assert the Agent API guard INSIDE the wipe, atomically with it.
+        #
+        # It used to be written by a separate autouse fixture that merely
+        # *depended* on this one, which left a real gap: between this wipe and
+        # that write the key did not exist, so `agent_api_enabled` read
+        # `DEFAULT_AGENT_API_ENABLED` (True) and `agent_api_port` read its
+        # default (8765). A GardenPlannerApp built by an earlier test arms
+        # `QTimer.singleShot(1500, self._maybe_start_agent_api)`. That is a BOUND
+        # METHOD, not a lambda, and PyQt auto-disconnects a bound-method slot when its
+        # receiver is destroyed - so what keeps the window alive is the leak itself, not
+        # the slot: nothing ever destroyed the window, so the timer stayed connected and
+        # fired. The account is in `tests/integration/conftest.py`'s
+        # `_no_leaked_agent_api_thread` docstring, and the fixture it describes is
+        # `_reclaim_widgets` in THIS file. A timer landing in the gap started a REAL
+        # AgentApiServer on 8765, and two workers doing that collided with
+        # `OSError: [Errno 10048]` (measured #509 under `pytest -n 8`). The gap
+        # was always there — serial runs simply made it microseconds wide against
+        # a 1500 ms timer. See `_disable_agent_api_server`, which now asserts
+        # this instead of writing it.
+        store.setValue(AppSettings.KEY_AGENT_API_ENABLED, False)
         store.sync()
         settings_module._settings_instance = None  # type: ignore[attr-defined]
 
@@ -255,15 +276,105 @@ def _disable_agent_api_server(_reset_app_settings):
     """Never auto-start the embedded Agent API server during tests.
 
     The server defaults to ON in production (US-D1.1) but tests must not bind a
-    real loopback port. Depends on `_reset_app_settings` so this runs strictly
-    AFTER its store-clearing setup (autouse same-scope order is not otherwise
-    guaranteed — an earlier version ran first and had its write wiped by the
-    clear). Tests that exercise the server build `AgentApiServer` directly.
+    real loopback port. Tests that exercise the server build `AgentApiServer`
+    directly, on an OS-assigned port.
+
+    The False is written inside `_reset_app_settings._reset()`, atomically with the
+    key wipe, and this fixture ASSERTS it rather than writing it. That is the whole
+    point of the split: when the write lived here instead, the instant between the
+    wipe and this write had no `agent_api/enabled` key at all, so a read returned
+    the production default (True) and a read of the port returned 8765 — and an
+    earlier test's deferred `_maybe_start_agent_api` timer landing in that window
+    started a real server. See the note in `_reset()`. Asserting rather than
+    writing also means a regression here is loud instead of silent.
+
+    **The read must ask for a bool.** `QSettings.value(key, default)` returns the raw
+    QVariant, so `setValue(key, False)` reads back as the STRING `'false'` — and
+    `assert value is not True` then passes for `'false'` *and* for the `None` that
+    means "key absent", which is precisely the dangerous state this fixture exists to
+    name. `type=bool` is how the product itself reads it (`app/settings.py:677-683`),
+    so this reads it the same way and asserts `is False` (#509, senior review).
     """
     from open_garden_planner.app.settings import AppSettings, create_qsettings
 
-    create_qsettings().setValue(AppSettings.KEY_AGENT_API_ENABLED, False)
+    value = create_qsettings().value(AppSettings.KEY_AGENT_API_ENABLED, True, type=bool)
+    assert value is False, (
+        f"the Agent API guard reads {value!r}, not False — a test could bind a real "
+        "loopback port (the product default is on, and the port default is 8765). "
+        "The write belongs in _reset_app_settings._reset(), immediately after the "
+        "key wipe, not here (#509)."
+    )
+
+
+@pytest.fixture(autouse=True)
+def _reclaim_widgets(qtbot: object):  # noqa: ARG001 - see below
+    """Destroy the widget graph a test leaves behind, so the next one does not pay for it.
+
+    This is the measured root cause of the suite's single largest cost block
+    (#509), and the numbers are stark. A clean process holds **0** widgets and an
+    `apply_theme()` round-trip costs **1.3 ms**. After `tests/ui/test_main_window.py`
+    — 30 tests, each building a full `GardenPlannerApp` — the process holds
+    **38 271** widgets and **1 580** top-level widgets, of which **0 % are visible**,
+    and one `apply_theme()` round-trip costs **22 478 ms**. That is why
+    `test_iconography_3c.py` takes 2.1 s alone and 96.7 s in the suite: the theme
+    tests are not slow, they are paying for everyone else's leaked widget graphs
+    through `apply_theme()`'s `app.allWidgets()` walk.
+
+    **The cause, as far as it was established — and the limit of that.** Nothing calls
+    `deleteLater()` on those apps: `qtbot.addWidget` closes a widget at teardown, and
+    closing is not deleting. The Python wrapper is collected (only 2 of the 30 apps were
+    still reachable) while the C++ object and its ~1 270 children survive to process exit.
+    `gc.collect()` does not help — it freed 8 337 objects and moved the widget count from
+    38 271 to only 37 638, so the survivors are not reachable as collectable cycles.
+    **What holds them is NOT identified.** A referrer probe walked into PyQt6/sip
+    bookkeeping and stopped there, so "strong references" is the reading consistent with
+    the `gc` measurement, not a proven mechanism — and the chokepoint below does not need
+    it to be true. Naming it here would be the same error as a docstring that calls
+    `sendPostedEvents(None, 0)` the right call and measures the wrong one.
+
+    **The fix, in one place.** Two things deliver the ordering, and earlier versions of this
+    docstring credited the wrong one - twice, in both directions. Measured both ways with
+    `--setup-show` on `tests/integration/test_agent_api_server.py`:
+
+        with the `qtbot` request     _no_leaked_agent_api_thread -> _reclaim_widgets -> qtbot
+        without it                   _no_leaked_agent_api_thread -> qtbot -> _reclaim_widgets
+
+    So the **root-conftest position** delivers the FIRST arrow: this fixture finalises after
+    `tests/integration/conftest.py`'s `_no_leaked_agent_api_thread` has walked
+    `topLevelWidgets()` to stop any server an app still owns, and that holds whichever way
+    the request goes - it is what keeps the leak warning able to fire. The `qtbot` request
+    delivers the SECOND: it orders this fixture ahead of qtbot's own teardown. An earlier
+    draft said the whole chain "stays that way with the request removed", which the second
+    line above refutes. Doing
+    this earlier would delete those windows first and the leak warning would never
+    fire — a gate that silently stops reporting. Measured effect of this exact
+    sequence on that same 38 271-widget process: **38 271 -> 0 widgets, 1 580 -> 0
+    top-level widgets.** That is the count this fixture can report; it says nothing
+    about what would survive if `deleteLater()` were dropped, because the alternative
+    was never measured, only this one.
+
+    `sendPostedEvents` must name `QEvent.Type.DeferredDelete` explicitly. Passing
+    `None, 0` — the shape that looks right — flushes nothing, and measuring that
+    wrong call is how the first attempt at this "proved" the chokepoint ineffective.
+    """
+    from PyQt6.QtCore import QCoreApplication, QEvent
+    from PyQt6.QtWidgets import QApplication
+
     yield
+
+    app = QApplication.instance()
+    if app is None:
+        return
+    for widget in app.topLevelWidgets():
+        try:
+            widget.close()
+            widget.deleteLater()
+        except RuntimeError:
+            # Already deleted on the C++ side; the wrapper outlived it.
+            pass
+    app.processEvents()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    app.processEvents()
 
 
 @pytest.fixture(autouse=True, scope="session")

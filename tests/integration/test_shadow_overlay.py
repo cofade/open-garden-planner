@@ -506,6 +506,7 @@ class TestGrowthCoupledShadows:
             assert (max(xs) - min(xs)) == pytest.approx(400.0, abs=2.0)
 
 
+@pytest.mark.perf
 class TestPerf:
     def test_recompute_200_items_perf(self, qtbot, scene) -> None:  # noqa: ARG002
         for i in range(200):

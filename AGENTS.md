@@ -8,8 +8,20 @@ PyQt6 desktop app for precision garden planning with CAD-like metric accuracy.
 # Run app
 venv/Scripts/python.exe -m open_garden_planner
 
-# Run tests
+# Run tests. `addopts` runs these in parallel (`-n auto --dist worksteal`) and
+# deselects the `perf` marker. 673.6s serial -> 156.2s at `-n 8` (4.31x); `-n auto`
+# measured 68-90s on the dev box across this change's own runs. Compare ratios, not
+# absolute seconds - this machine drifts 37-63% with no code change (#509, 8.10.4)
 venv/Scripts/python.exe -m pytest tests/ -v
+# The timing-sensitive tests, which must not share a runner with workers.
+# All THREE details are load-bearing: `tests/` not `tests/perf/` (7 of the 14
+# marked tests live elsewhere, and a directory-scoped run collects those 7 and
+# PASSES), `-m perf` (or addopts' `-m 'not perf'` wins and nothing runs), and
+# `-n 0` (running these across workers is what the split exists to prevent).
+venv/Scripts/python.exe -m pytest tests/ -m perf -n 0
+# One file or a few tests: `-n 0` avoids paying worker start-up. Measured on the
+# file below (24 tests): 12.2s serial against 17.0s under `-n auto`.
+venv/Scripts/python.exe -m pytest tests/unit/test_i18n.py -v -n 0
 
 # Lint
 venv/Scripts/python.exe -m ruff check src/

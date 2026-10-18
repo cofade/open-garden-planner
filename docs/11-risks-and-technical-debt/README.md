@@ -1275,3 +1275,115 @@ assigned `OffsetTool`; a real German status-message regression exposed the misma
 The tool now uses explicit `CanvasView` translation calls. Complete display fields and
 values are selected from production tables, helper calls bind their source argument,
 dynamic consumers retain comments, and unresolved receivers/helper imports fail closed.
+
+- **`qtbot.addWidget` closes a widget, and closing is not deleting** (issue #509, 17–18
+  October 2026). Symptom: the test suite cost 912.6 s serially, and issue #509's
+  premise — that ten files were simply slow — was wrong in an instructive way. The
+  leading file, `test_iconography_3c.py`, runs 36 tests in **2.14 s alone** and takes
+  **96.7 s** in the suite, and the same file right after `test_main_window.py` takes
+  **447 s** with individual theme tests at 60–66 s. Probing `QApplication` directly:
+  a clean process holds **0** widgets and one `apply_theme()` round-trip costs
+  **1.3 ms**; after `test_main_window.py` it holds **38 271** widgets and **1 580**
+  top-level widgets, **0 % of them visible**, and the round-trip costs **22 478 ms**.
+  Root cause: `qtbot.addWidget` closes a widget at teardown and nothing ever calls
+  `deleteLater()`, so the C++ object and its ~1 270 children survive to process exit
+  (only 2 of 30 apps were still reachable by `gc.get_objects()` — the Python wrapper
+  is collected, the C++ graph is not). `apply_theme()` walks `app.allWidgets()` on
+  every call, so every later theme switch pays for all of them. `gc.collect()` is not
+  the fix: it freed 8 337 objects and moved the widget count only 38 271 → 37 638, so the
+  survivors are not reachable as collectable cycles. **What holds them is NOT identified** —
+  the referrer probe walked into PyQt6/sip bookkeeping and stopped — so "strong references"
+  is the reading consistent with that measurement, not a proven mechanism, and the chokepoint
+  below does not need it to be true.
+  Fixed by one autouse fixture in `tests/conftest.py` that closes and `deleteLater()`s
+  every top-level widget per test — 38 271 → 0, and the serial suite 912.6 s → 673.6 s
+  with no product change and no test removed. Three details decide whether it works:
+  the fixture's **position in the root conftest** is what finalises it last, after
+  `tests/integration/conftest.py` has walked the windows it uses to stop servers - which is
+  why deleting them earlier would silence the leak warning. The `qtbot` request is a separate
+  ordering: it puts the reclaim ahead of qtbot's own teardown. Measured both ways with
+  `--setup-show`; an earlier version of this entry credited the request with the first, which
+  holds with the request removed; `sendPostedEvents` must name `QEvent.Type.DeferredDelete`
+  explicitly, because `sendPostedEvents(None, 0)` — the shape that looks right — flushes
+  nothing, and measuring that wrong call is how the first attempt appeared to prove the
+  chokepoint ineffective; and a chokepoint beats the 51 per-file edits because it cannot be
+  forgotten. **Lesson: the expensive tests in a suite are frequently the victims of other
+  tests, not the culprits, and a per-test duration table says which tests are slow, not
+  which files are.** Re-running a slow file on its own is the cheapest diagnostic there
+  is — it took four wrong hypotheses to find the cause, and the first one cost an hour
+  because the instrument (a benchmark of synthetic `QLabel` widgets) never requested an
+  icon and so could not see the icon cache it was testing.
+
+- **Two autouse fixtures, one merely depending on the other, are an atomicity claim with
+  no coverage** (issue #509, 18 October 2026). `tests/conftest.py` wiped every settings
+  key in `_reset_app_settings` and wrote `KEY_AGENT_API_ENABLED = False` in a second
+  fixture that merely *depended* on the first. Between the two there was a real instant
+  in which the key did not exist at all, so a read returned the production default
+  (`DEFAULT_AGENT_API_ENABLED = True`) and the port read 8765. A `GardenPlannerApp` from
+  an earlier test arms `QTimer.singleShot(1500, self._maybe_start_agent_api)`, and a
+  timer landing in that window started a **real** `AgentApiServer`; two workers doing
+  that collided with `OSError: [Errno 10048]`. The window was always there — serial runs
+  simply made it microseconds wide against a 1500 ms timer — and it is the same shape as
+  the Welcome-dialog entry in the same conftest, where a per-test settings write lost a
+  race with a 500 ms timer and the fix was to patch the **method** instead. Two further
+  facts close it here: `singleShot` is handed the **bound method**
+  `self._maybe_start_agent_api`, which PyQt auto-disconnects when the receiver is
+  destroyed, so a fixture that destroys each test's widgets cancels the pending timer
+  outright; and the write belongs **inside** the wipe, so there is no instant to lose.
+  **Lesson: order a fixture's dependencies carefully and you have documented a gap, not
+  closed it; a default of `True` behind an absent key is a loaded weapon the moment
+  anything is deferred.** Also: `QSettings.value(key, default)` returns the raw QVariant,
+  so `setValue(key, False)` reads back as the **string** `'false'` — a tripwire asserting
+  `value is not True` passes for that string *and* for the absent key, which is exactly
+  the state it exists to catch. Read it the way the product does, `type=bool`.
+
+- **A test that writes into the git working tree is unsafe under any scheduler, and
+  serial execution hides it** (issue #509, 18 October 2026). `test_gate_commands.py`'s
+  secret-checker canary staged `scripts/_canary_<tag>.py` in the **real** repository,
+  scanned, then unstaged and deleted — the only test in the suite that mutated shared
+  state. `test_settings_chokepoint.py` globs that same tree (`root.rglob("*.py")`) and
+  reads what it found, and those are two moments: under `pytest -n 8` one worker's
+  `rglob` could list the canary inside the other worker's write-to-unlink window and die
+  with `FileNotFoundError` on the read — three failures in one run — while the same window
+  let the canary's own file-wide scan read a *sibling worker's* staged canary and report a
+  credential that was never committed anywhere. #507 separately found that an interrupted
+  run left the canary staged and the next `git commit -a` published it (a one-line canary
+  really was committed on PR #507). The fix is not a scheduler: the canary is now staged
+  in a throwaway `git init`-ed repo under `tmp_path`, so nothing outside the temp directory
+  is created, staged or deleted even if the process dies mid-test — which makes #507's
+  hazard structurally impossible rather than hardened. **Lesson: `@pytest.mark.xdist_group`
+  would have hidden this and left the two-concurrent-pytest-process case (the 2026-08-17
+  incident that made `TEST_APPLICATION` per-PID) exactly as dangerous; and a hazard that
+  exists only under a scheduler is usually a hazard that exists without one too.**
+
+- **`pytest-timeout`'s per-test bound is necessary but not sufficient for a Qt suite,
+  and asking the OS for a free port is not a reservation** (issue #509, 18 October 2026).
+  Two distinct time hazards, both found the hard way. First, ten test files each carried
+  their own copy of `_free_port()` — `bind(("127.0.0.1", 0))`, read the port, **close the
+  socket** — and the caller then binds it, so the port is free in name only. Serially the
+  window is microscopic; with `-n auto` on 20 workers it is not, and the measured failure
+  was `RuntimeError: Agent API server failed to start`, because uvicorn's own
+  `create_server` hit `OSError: [Errno 10048]` after the pre-bind socket check had already
+  passed. Two `-n 8` runs gave 2 failures and 1 failure, so **capping the worker count would
+  not have addressed it, only lowered the odds** — the fix is a retry, in one shared helper,
+  because losing that race is inherent to asking the OS for a port and then releasing it.
+  That helper retries `PortInUseError` and the exact string
+  `"Agent API server failed to start"`, and re-raises every other `RuntimeError`
+  immediately: a retry that swallows real product defects is worse than the flake it was
+  written to remove.
+  Second, and **this correction is itself the lesson**: an earlier draft of this entry
+  claimed "`--cov` and the perf tests are mutually exclusive - the repaint budget fails at
+  **20.29 ms against a 16.70 ms budget** under tracing ... so the `Coverage` job has been
+  measuring something it cannot gate". Both halves were wrong, and the error is the one this
+  section exists to prevent. `tests/perf/test_nfr_budgets.py:56-57` reads
+  `_IS_CI = os.environ.get("CI") == "true" or os.environ.get("GITHUB_ACTIONS") == "true"` and `FRAME_BUDGET_MS = 50.0 if _IS_CI else 16.7`, so on CI
+  the budget is **50 ms**. The 20.29 ms was measured **here**, against the **local** 16.7 ms
+  budget, and was generalised to a configuration nobody ran - and `gh run view 39076508170`
+  records master's `Coverage` job **succeeded** at `412f01bd`. One variable, both ways, same
+  file: `CI=true` -> 6 passed; unset -> 1 failed.
+  **Lesson: a measurement taken against one configuration says nothing about another.**
+  **Lesson: a number that arrives from a reviewer's report is still a number you did not
+  take - the same discipline applies to your own review round.**
+  **Lesson: a missing `finally` around a side effect is a correctness bug and an unbounded
+  retry loop is a hang; both are worth catching by asking what a helper swallows, not what
+  it returns.**

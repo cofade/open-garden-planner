@@ -155,7 +155,14 @@ def run_tests(files: list[str], timeout: int, mutation: Mutation | None,
                 "sys.meta_path.insert(0, MutantFinder())\n", encoding="utf-8",
             )
         env["PYTHONPATH"] = str(overlay) + os.pathsep + env.get("PYTHONPATH", "")
-        command = [sys.executable, "-m", "pytest", *files, "-q", "-x", "--tb=short"]
+        # `-n 0` is load-bearing here for two reasons. The mutant is installed via a
+        # `sys.meta_path` finder in a `sitecustomize` overlay, and an xdist worker is a
+        # separate interpreter that does not necessarily get that overlay's import
+        # hook early enough to be the one under test. And this replay is run once per
+        # mutant against a wall-clock timeout, so `addopts`' `-n auto` would spend the
+        # budget on worker start-up for a handful of files (#509).
+        command = [sys.executable, "-m", "pytest", *files, "-q", "-x", "--tb=short",
+                   "-n", "0"]
         try:
             result = subprocess.run(command, cwd=ROOT, env=env, capture_output=True,
                                     text=True, encoding="utf-8", errors="replace", timeout=timeout)

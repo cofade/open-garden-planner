@@ -55,6 +55,7 @@ Run commands from the repository root with the locked interpreter:
 
 ```text
 .venv/Scripts/python.exe -m pytest tests/ -v
+.venv/Scripts/python.exe -m pytest tests/ -m perf -n 0
 .venv/Scripts/python.exe -m ruff check src/ tests/ scripts/
 .venv/Scripts/python.exe -m bandit -r src/ --severity-level high
 .venv/Scripts/python.exe scripts/check_no_secrets.py
@@ -68,6 +69,34 @@ Run commands from the repository root with the locked interpreter:
 CI also measures coverage and enforces package line floors. Type allowances are per file and platform.
 Do not raise allowances or lower coverage floors to hide regressions.
 See [quality requirements](docs/10-quality-requirements/README.md) and the CI workflow for the exact gates.
+
+### The two pytest lines are both required
+
+`addopts` runs the suite in parallel (`-n auto --dist worksteal`) and **deselects** the
+`perf` marker, so wall-clock-sensitive tests never share a runner with the workers -
+they fail intermittently when they do. (`-n auto` is 4 on a CI runner and 20 on a dev
+box; eight is the measurement configuration those numbers were taken in, not a constant.)
+
+- `pytest tests/` — everything except the `perf`-marked tests.
+- `pytest tests/ -m perf -n 0` — exactly those, on a quiet runner. CI runs it as its own step.
+
+Three details in that second command are load-bearing, and the failure modes are quiet:
+
+| Form | What happens |
+|---|---|
+| `pytest tests/ -m perf -n 0` | all 14, correctly |
+| `pytest tests/perf -m perf` | **7, and it passes** — 7 of the 14 live elsewhere |
+| `pytest tests/perf` | **nothing at all** — `addopts`' `-m 'not perf'` wins |
+| `pytest tests/ -m perf` | 14, but spread across every worker, i.e. exactly what the split prevents |
+
+Running only the first and assuming the second ran with it is the easy mistake here.
+The marker means "wall-clock sensitive", so such tests are marked wherever they live —
+7 of the 14 are outside `tests/perf/`. `tests/unit/test_perf_marker_guard.py` fails the
+build if a wall-clock assertion is added without the marker, so this list cannot go stale
+without something going red.
+
+For a single file or a handful of tests, add `-n 0`: worker start-up dominates when there
+is almost nothing to distribute.
 
 Windows delivery also requires a frozen build, startup check, and subsystem self-test.
 Follow **ogp-change-control §2.8** in the [change-control skill](.agents/skills/ogp-change-control/SKILL.md).

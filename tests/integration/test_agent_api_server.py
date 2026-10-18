@@ -13,7 +13,6 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
-import socket
 import threading
 from collections.abc import Callable
 from typing import Any
@@ -34,15 +33,8 @@ from open_garden_planner.core import ProjectManager
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.services.soil_service import SoilService
 from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
+from tests.agent_api_helpers import start_server
 from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
-
-
-def _free_port() -> int:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(("127.0.0.1", 0))
-    port = sock.getsockname()[1]
-    sock.close()
-    return port
 
 
 def _providers(scene: Any) -> AgentProviders:
@@ -154,8 +146,7 @@ def test_get_plan_summary_end_to_end(canvas: Any, qtbot: Any) -> None:
     scene.addItem(RectangleItem(0, 0, 100, 80, object_type=ObjectType.RAISED_BED))
     scene.addItem(CircleItem(200, 200, 30, object_type=ObjectType.TREE))
 
-    server = AgentApiServer(_providers(scene), port=_free_port())
-    server.start()
+    server, _ = start_server(_providers(scene))
     assert server.is_running
 
     result: dict[str, Any] = {}
@@ -225,8 +216,7 @@ def test_read_query_tools_end_to_end(canvas: Any, qtbot: Any) -> None:
     tree_id = str(tree.item_id)
     herb_id = str(herb.item_id)
 
-    server = AgentApiServer(_providers(scene), port=_free_port())
-    server.start()
+    server, _ = start_server(_providers(scene))
     assert server.is_running
 
     result: dict[str, Any] = {}
@@ -300,8 +290,7 @@ def test_resources_end_to_end(canvas: Any, qtbot: Any) -> None:
     for item in (bed, tree):
         scene.addItem(item)
 
-    server = AgentApiServer(_providers(scene), port=_free_port())
-    server.start()
+    server, _ = start_server(_providers(scene))
     assert server.is_running
 
     result: dict[str, Any] = {}
@@ -379,8 +368,7 @@ def test_prompts_end_to_end(canvas: Any, qtbot: Any) -> None:
     scene.addItem(bed)
     scene.addItem(tree)
 
-    server = AgentApiServer(_providers(scene), port=_free_port())
-    server.start()
+    server, _ = start_server(_providers(scene))
     assert server.is_running
 
     result: dict[str, Any] = {}

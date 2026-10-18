@@ -102,7 +102,8 @@ Command anatomy only — what counts as acceptable results/evidence is
 
 | What | Command (swap `venv/Scripts/python.exe` → `venv/bin/python` on Linux) | Expected outcome |
 |---|---|---|
-| Full suite | `venv/Scripts/python.exe -m pytest tests/ -v` | All pass. `pyproject.toml` sets `addopts = "-v --tb=short"`, `qt_api = "pyqt6"`, `testpaths = ["tests"]` |
+| Correctness battery | `venv/Scripts/python.exe -m pytest tests/ -v` | All pass. Parallel by default (`addopts`), and **excludes the `perf`-marked timing tests** - the next row |
+| Wall-clock budgets | `venv/Scripts/python.exe -m pytest tests/ -m perf -n 0` | All pass, on a quiet runner. `pyproject.toml` sets `addopts = "-v --tb=short -n auto --dist worksteal -m 'not perf'"`, `qt_api = "pyqt6"`, `testpaths = ["tests"]`. `-n 0` because running the timing tests across workers is the thing the split exists to prevent (§8.10.4) |
 | Unit layer only | `venv/Scripts/python.exe -m pytest tests/unit -v` | ~106 files (Qt-free-ish fast tests) |
 | Integration layer | `venv/Scripts/python.exe -m pytest tests/integration -v` | ~74 files (end-to-end UI workflows) |
 | UI layer | `venv/Scripts/python.exe -m pytest tests/ui -v` | ~19 files (widget-level) |

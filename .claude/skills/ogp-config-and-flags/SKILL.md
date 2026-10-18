@@ -248,7 +248,7 @@ If "a feature seems disabled", check this table before debugging.
 | `[tool.ruff.lint]` | select `E, W, F, I, B, C4, UP, ARG, SIM`; ignore `E501`, `B008` |
 | per-file ignores | `tests/**/*.py` → `ARG001, ARG002` (unused-but-required `qtbot` fixtures) |
 | `[tool.mypy]` | `strict = true` (+ the usual disallow/warn set), `follow_imports = "silent"`, `ignore_missing_imports = true`; `tests.*` override relaxes `disallow_untyped_defs` |
-| `[tool.pytest.ini_options]` | `testpaths = ["tests"]`, `addopts = "-v --tb=short"`, `qt_api = "pyqt6"` |
+| `[tool.pytest.ini_options]` | `testpaths = ["tests"]`, `addopts = "-v --tb=short -n auto --dist worksteal -m 'not perf'"`, `qt_api = "pyqt6"` |
 | `[tool.coverage]` | `source = src/open_garden_planner`, `branch = true`, standard exclude lines |
 
 ### Dependency pins worth knowing (pyproject `dependencies`)

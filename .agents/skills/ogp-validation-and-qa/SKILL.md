@@ -67,7 +67,8 @@ Run all of these locally before any PR (commands verified against CLAUDE.md Quic
 
 | Gate | Command | Pass criterion | In CI? |
 |---|---|---|---|
-| Full test suite | `venv/Scripts/python.exe -m pytest tests/ -v` | 0 failures **in the full run**, not per-file | Yes (`ci.yml` `test` job, `QT_QPA_PLATFORM=offscreen`) |
+| Correctness battery | `venv/Scripts/python.exe -m pytest tests/ -v` | 0 failures **in the full run**, not per-file. **Excludes the `perf`-marked timing tests** (row below) | Yes (`ci.yml` `test` job, `QT_QPA_PLATFORM=offscreen`) |
+| Wall-clock budgets | `venv/Scripts/python.exe -m pytest tests/ -m perf -n 0` | green on a quiet runner. `addopts` deselects these from the battery so they never share a runner with workers (§8.10.4) | Yes (`ci.yml`, separate step) |
 | Lint | `venv/Scripts/python.exe -m ruff check src/ tests/ scripts/` | Clean | Yes (`lint` job) |
 | Security (SAST) | `venv/Scripts/python.exe -m bandit -r src/ --severity-level high` | No HIGH findings (MEDIUM/LOW findings are omitted at this reporting threshold — §8.11) | Yes (`security` job) |
 | i18n gate | `python scripts/check_translations.py` | Exact live keys, completed values and verified binaries in every registered locale. **Limit:** unwrapped display text remains invisible | Yes (part of full suite) |
@@ -163,7 +164,7 @@ Two documented instances (§11.4):
 - `QSettings.setDefaultFormat/setPath` are process-global statics Qt never reverts — one test poisoned every later `QSettings` in the session; **6 tests failed only in the full run while CI stayed green** (different collection order). Tell: every failing getter returns exactly the coded default.
 - A slot on an app-global signal (`QApplication.focusChanged`) outlived its widget; pytest-qt fails whichever *later* test the stray exception lands in.
 
-Rules: never touch Qt global statics in tests (monkeypatch a factory instead — `tests/conftest.py`'s `isolate_qsettings` is only a tripwire, not a license); make app-global-signal slots teardown-safe; and **the pass criterion is the full `pytest tests/ -v` run, never the changed file alone.** When you hit this mode, suspect shared global/singleton state before the code under test.
+Rules: never touch Qt global statics in tests (monkeypatch a factory instead — `tests/conftest.py`'s `isolate_qsettings` is only a tripwire, not a license); make app-global-signal slots teardown-safe; and **the pass criterion is the full run, never the changed file alone** — `pytest tests/ -v` *plus* `pytest tests/ -m perf -n 0`, because `addopts` deselects the timing tests from the first. When you hit this mode, suspect shared global/singleton state before the code under test.
 
 ---
 

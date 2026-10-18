@@ -921,12 +921,17 @@
   },
   "503": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "The LOD flat fill never fires on the canvas: 'widget is not None' is false for every cached paint (follow-up of #409/#430)"
   },
   "507": {
     "is_pr": true,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "fix(503): remove the #409 low-zoom LOD flat fill instead of making it reachable"
+  },
+  "509": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "The test suite takes ~15.5 minutes and runs serially: no pytest-xdist, and CI runs all 8 551 tests twice"
   }
 }

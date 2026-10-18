@@ -151,16 +151,15 @@ def test_badge_does_not_change_geometry(guild_canvas, angle):
 
 
 def test_traits_and_guild_warning_over_real_mcp(guild_canvas, qtbot):
-    from open_garden_planner.agent_api import AgentApiServer
-    from tests.integration.test_agent_api_server import _drive, _free_port, _providers
+    from tests.agent_api_helpers import start_server
+    from tests.integration.test_agent_api_server import _drive, _providers
 
     scene, view, coordinator, library = guild_canvas
     command = prepare_guild(scene, library.templates["apple-guild"], offline_catalog(), "A", QPointF(1500, 1500))
     view.command_manager.execute(command)
     view.command_manager.execute(DeleteItemsCommand(scene, [command.items[1]]))
     coordinator.refresh()
-    server = AgentApiServer(_providers(scene), port=_free_port())
-    server.start()
+    server, _ = start_server(_providers(scene))
     result = {}
     async def body(session):
         detail = await session.call_tool("get_object", {"item_id": str(command.items[0].item_id)})

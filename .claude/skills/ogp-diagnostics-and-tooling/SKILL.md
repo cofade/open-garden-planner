@@ -61,7 +61,7 @@ read, not run, and is labeled). Paths are repo-relative from
 
 ## 1. The test suite as an instrument
 
-Layout (counts verified 2026-07-04): `tests/unit/` (105 files), `tests/integration/` (72 files — end-to-end UI workflows, one per feature, mandatory per §8.10), `tests/ui/` (18 files — widget-level). `tests/conftest.py` sets `QT_QPA_PLATFORM=offscreen` itself, adds `src/` to `sys.path`, and isolates `QSettings` to a `cofade_test` store per session. `pyproject.toml` `addopts = "-v --tb=short"`, `qt_api = "pyqt6"`.
+Layout (counts verified 2026-07-04): `tests/unit/` (105 files), `tests/integration/` (72 files — end-to-end UI workflows, one per feature, mandatory per §8.10), `tests/ui/` (18 files — widget-level). `tests/conftest.py` sets `QT_QPA_PLATFORM=offscreen` itself, adds `src/` to `sys.path`, and isolates `QSettings` to a `cofade_test` store per session. `pyproject.toml` `addopts = "-v --tb=short -n auto --dist worksteal -m 'not perf'"`, `qt_api = "pyqt6"` - parallel by default, with the `perf`-marked timing tests deselected (§8.10.4).
 
 ```bash
 # Windows (the project's canonical form):

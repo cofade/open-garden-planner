@@ -158,6 +158,11 @@ def check_site(fname: str, anchor: str, draw: str, indent: int) -> str:
                 PIN,
                 "-q",
                 "--no-header",
+                # One pinned file, replayed once per mutant against a wall-clock
+                # timeout. `addopts`' `-n auto` would spend that budget starting
+                # workers for a single file (#509).
+                "-n",
+                "0",
             ],
             cwd=REPO,
             capture_output=True,

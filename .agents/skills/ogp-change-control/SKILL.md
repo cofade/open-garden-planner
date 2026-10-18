@@ -240,7 +240,7 @@ trust this table):
 | Job | Command | Notes |
 |-----|---------|-------|
 | Lint | `ruff check src/ tests/ scripts/` | Widened from `src/`-only in #411 |
-| Test | `pytest tests/ -v` with `QT_QPA_PLATFORM: offscreen` | Installs Qt's xcb/EGL system libs first — this is the canonical headless-test recipe for Linux sessions too |
+| Test | `pytest tests/ -v` with `QT_QPA_PLATFORM: offscreen`, then `pytest tests/ -m perf -n 0` | Installs Qt's xcb/EGL system libs first - this is the canonical headless-test recipe for Linux sessions too. Two commands because `addopts` deselects the `perf`-marked timing tests from the first (§8.10.4) |
 | Security | `bandit -r src/ --severity-level high` + `scripts/check_no_secrets.py` | Bandit fails only on HIGH severity |
 | Agent context | `scripts/check_agent_context.py` | CLAUDE.md / AGENTS.md parity + skill-tree parity |
 | Dependencies | `scripts/check_dependency_lock.py`; `pip-audit` over the exported lock on both OSes (AUD-054) | Linux/Windows; lock freshness, PEP 751 export agreement and the dependency audit |
@@ -291,7 +291,7 @@ equivalents in parentheses.
 | 1 | Classify the change (section 1) and read the source of truth — US acceptance criteria in `docs/roadmap.md` or the GitHub issue | Do not code from the title alone |
 | 2 | `git checkout -b feature/US-X.X-short-description` | Never on master (2.1) |
 | 3 | Implement with type hints; wrap every user-visible string for translation as you go | 2.5; architecture invariants: `ogp-architecture-contract`; Qt/CAD theory: `ogp-qt-cad-reference` |
-| 4 | Quality checks: `venv/Scripts/python.exe -m pytest tests/ -v` · `-m ruff check src/` · `-m bandit -r src/ --severity-level high` (Linux: `QT_QPA_PLATFORM=offscreen python -m pytest tests/ -v`, etc.) | Same three checks CI runs; how-to details: `ogp-build-and-run` |
+| 4 | Quality checks: `venv/Scripts/python.exe -m pytest tests/ -v` **and** `-m pytest tests/ -m perf -n 0` · `-m ruff check src/` · `-m bandit -r src/ --severity-level high` (Linux: `QT_QPA_PLATFORM=offscreen python -m pytest tests/ -v`, etc.) | Same three checks CI runs; how-to details: `ogp-build-and-run` |
 | 5 | Translations: run `scripts/update_translations.py`; complete every registered target, compile, and run `scripts/check_translations.py` with `PYTHONUTF8=1` | 2.5 |
 | 6 | Write the integration test in `tests/integration/test_<feature>.py` | Mandatory (2.5); patterns in §8.10 |
 | 7 | Build the exe, then **both** checks — smoke *and* `--selftest` (§2.8) | Windows-only; declare if skipped in a cloud session |
