@@ -215,7 +215,7 @@ MUTATIONS: tuple[Mutation, ...] = (
     ),
     Mutation(
         "|| true on the quiet runner",
-        "passes",
+        "caught",
         lambda t: _replace(
             t,
             "        run: pytest tests/ -m perf -v -n 0\n",
@@ -225,7 +225,7 @@ MUTATIONS: tuple[Mutation, ...] = (
     ),
     Mutation(
         '-o addopts="--co" on the quiet runner',
-        "passes",
+        "caught",
         lambda t: _replace(
             t,
             "        run: pytest tests/ -m perf -v -n 0\n",
@@ -235,7 +235,7 @@ MUTATIONS: tuple[Mutation, ...] = (
     ),
     Mutation(
         "PYTEST_ADDOPTS in the quiet runner's env",
-        "passes",
+        "caught",
         lambda t: _replace(
             t,
             f"      - name: {QIUET_STEP}\n        env:\n          QT_QPA_PLATFORM: offscreen\n",
