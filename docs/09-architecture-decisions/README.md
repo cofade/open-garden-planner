@@ -2750,8 +2750,7 @@ is a shared-*state* defect and was fixed by isolating the arm, not by scheduling
   full run against 2.6 s added to a small one — but it is a real cost and is the first
   thing to revisit if the inner loop starts using single-file runs heavily.
 - **`pytest tests/` now deselects the perf tests**, so they must be invoked explicitly as
-  `pytest tests/ -m perf -n 0` — three details that were each wrong in an earlier draft of
-  this record. It is `tests/`, because a directory-only form (`pytest tests/perf -m perf`)
+  `pytest tests/ -m perf -n 0` — three details, all load-bearing. It is `tests/`, because a directory-only form (`pytest tests/perf -m perf`)
   runs 7 of the 14 and **silently passes**, which is the worst failure mode available to a
   gate that exists to catch slow drift. It needs `-m perf`, or the `-m 'not perf'` in
   `addopts` wins and nothing is collected. It needs `-n 0`, because running the timing
@@ -2786,8 +2785,7 @@ is a shared-*state* defect and was fixed by isolating the arm, not by scheduling
 - **What #509 does to that job: two steps, and they are one decision.** The job now runs
   `pytest tests/ -m 'not perf'` with `-n auto`, and then a **second, serial** step runs the
   14 perf tests with `-n 0 --cov-append`. The parallel step **keeps** the `-m 'not perf'`
-  filter — an earlier draft of this bullet said #509 removed it, which the shipped YAML
-  contradicts. The deselect and the append are one decision:
+  filter. The deselect and the append are one decision:
   **step 1 alone is `agent_api` 2012 of 2195 with the gate exiting 1; step 1 plus the append
   is 2026 of 2195 with `regressions: []`**, a delta of exactly the fourteen `stop()`
   escalation lines. Drop the append and the job goes red on `agent_api`; drop the deselect

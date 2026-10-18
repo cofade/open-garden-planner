@@ -332,8 +332,7 @@ def _reclaim_widgets(qtbot: object):  # noqa: ARG001 - see below
     it to be true. Naming it here would be the same error as a docstring that calls
     `sendPostedEvents(None, 0)` the right call and measures the wrong one.
 
-    **The fix, in one place.** Two things deliver the ordering, and earlier versions of this
-    docstring credited the wrong one - twice, in both directions. Measured both ways with
+    **The fix, in one place.** Two things deliver the ordering. Measured with
     `--setup-show` on `tests/integration/test_agent_api_server.py`:
 
         with the `qtbot` request     _no_leaked_agent_api_thread -> _reclaim_widgets -> qtbot
@@ -343,11 +342,9 @@ def _reclaim_widgets(qtbot: object):  # noqa: ARG001 - see below
     `tests/integration/conftest.py`'s `_no_leaked_agent_api_thread` has walked
     `topLevelWidgets()` to stop any server an app still owns, and that holds whichever way
     the request goes - it is what keeps the leak warning able to fire. The `qtbot` request
-    delivers the SECOND: it orders this fixture ahead of qtbot's own teardown. An earlier
-    draft said the whole chain "stays that way with the request removed", which the second
-    line above refutes. Doing
-    this earlier would delete those windows first and the leak warning would never
-    fire — a gate that silently stops reporting. Measured effect of this exact
+    delivers the SECOND: it orders this fixture ahead of qtbot's own teardown. Reclaiming
+    earlier would delete those windows first and the leak warning would never fire — a gate
+    that silently stops reporting. Measured effect of this exact
     sequence on that same 38 271-widget process: **38 271 -> 0 widgets, 1 580 -> 0
     top-level widgets.** That is the count this fixture can report; it says nothing
     about what would survive if `deleteLater()` were dropped, because the alternative
