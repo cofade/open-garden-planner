@@ -543,3 +543,60 @@ The pattern is uniform: **a measurement instrument that does not reach the code 
 a confident number about it.** The defences that worked were unglamorous — read the cache
 sizes, compare the failing count across runs, check the wall clock against a figure that
 should be impossible.
+
+## The widget-leak holder: partly cyclic garbage (#515, 19 October 2026)
+
+`tests/conftest.py::_reclaim_widgets` removed the leak's *cost* without naming its cause.
+The probe that produced the numbers above lived in a scratch directory during #509;
+`scripts/probe_widget_leaks.py` is the committed instrument (modes `apps`, `per-test`,
+`parents`). Measurements below: development box, Python 3.12.9, offscreen, `-n 0`, reclaim
+fixture disabled by `OGP_TEST_MEASURE_WIDGET_LEAK=1`.
+
+**Each app-building test leaks one graph, and they accumulate linearly.**
+`tests/ui/test_main_window.py` (30 tests):
+
+| | widgets | top-level |
+|---|---|---|
+| after the whole file, reclaim off | **44 361** | 1 657 |
+| per app-building test (representative) | +1 761 | +49 |
+| the same file measured at #509 | 38 271 | 1 580 |
+
+The delta is not uniform: some tests add 891 (they build panels, not a whole app), and two
+tests show a **negative** delta (−7 809 and −8 679) — a CPython collection ran mid-file and
+reclaimed several graphs. That was the first clue that the population is not uniformly
+strongly referenced.
+
+**The two-case diff (#515 step 2).** Throwaway modules, one process, reclaim off:
+
+| Test end state | widgets after teardown |
+|---|---|
+| `qtbot.addWidget(app)` (close only) | **+1 761** per test |
+| `close()` + `deleteLater()`, no event-loop turn | **+1 761** — the deferred delete is queued, not run |
+| `close()` + `deleteLater()` + `processEvents` + `sendPostedEvents(DeferredDelete)` | **~0** net after the first |
+
+So `deleteLater()` alone is unmeasurable here; the **flush** is the load-bearing half,
+which is exactly what `_reclaim_widgets` does.
+
+**One `gc.collect()` reclaims whole app graphs — so "strong references, not cycles" is too
+strong.** Session-finish collection:
+
+| apps built | widgets before | after pass 1 | after pass 2 |
+|---|---|---|---|
+| 2 | 3 522 | 1 782 | 1 782 |
+| 4 | 7 044 | 3 564 | 3 564 |
+| 8 | 10 608 | 7 128 | 7 128 |
+
+`gc.collect()` freed 1 740 / 3 480 / 3 480 widgets in one pass, and a second pass freed
+nothing. The #509 note ("it freed 8 337 objects and moved the count only 38 271 → 37 638,
+so the survivors are not reachable as collectable cycles") measured while the then-current
+test's app was still live; a large part of the population is ordinary uncollected cyclic
+garbage. **A residual graph still survives every pass**, so one holder is outside Python's
+reachable object graph; the next experiment is a creation-time weakref probe plus
+`QApplication.activeWindow()` / `focusWidget()`, because a single C++-side active-window
+pointer is the shape that survives Python collection and is cleared by `deleteLater`.
+
+**Consequences for the chokepoint.** It stays, for a sharper reason than "closing is not
+deleting": a deferred delete must be **flushed**, much of the graph is cyclic garbage that
+a busy run never collects, and one graph is retained outside Python. Deleting the
+top-levels and flushing `DeferredDelete` covers all three. Replacing it with a per-test
+`gc.collect()` would leave the residual holder alive, so that alternative was not adopted.

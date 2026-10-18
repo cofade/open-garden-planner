@@ -357,6 +357,13 @@ def _reclaim_widgets(qtbot: object):  # noqa: ARG001 - see below
     from PyQt6.QtCore import QCoreApplication, QEvent
     from PyQt6.QtWidgets import QApplication
 
+    if os.environ.get("OGP_TEST_MEASURE_WIDGET_LEAK") == "1":
+        # #515: the probe needs the RAW leak this fixture reclaims, so it can measure the
+        # population rather than its absence. The suite never sets this; every normal run
+        # reclaims as before. scripts/probe_widget_leaks.py is the only writer.
+        yield
+        return
+
     yield
 
     app = QApplication.instance()
