@@ -67,7 +67,7 @@ def test_language_menu_persists_then_next_window_uses_translation(qtbot, monkeyp
             texts = {action.text() for action in second.menuBar().actions()}
             expected = QApplication.translate("GardenPlannerApp", "&View")
             assert expected in texts
-            if locale == "de":
+            if locale in ("de", "es"):
                 assert expected != "&View"
             app.processEvents()
             assert second._language_actions[locale].isChecked()

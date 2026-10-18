@@ -87,6 +87,7 @@ SetCompressorDictSize 64
 ; Language
 !insertmacro MUI_LANGUAGE "English"
 !insertmacro MUI_LANGUAGE "German"
+!insertmacro MUI_LANGUAGE "Spanish"
 
 ;---------------------------------------------------------------------------
 ; Upgrade: silently uninstall previous version before installing

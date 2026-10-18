@@ -103,21 +103,100 @@ Follow **ogp-change-control §2.8** in the [change-control skill](.agents/skills
 Do not replace the subsystem test with a startup-only check.
 If a required check cannot run, state that limitation in the PR.
 
-## Tests, translations, and documentation
+## Tests and documentation
 
 Every user story requires an end-to-end integration test. Bug fixes need regression tests at the appropriate layer.
 Developer tools should have subprocess tests. Documentation-only edits need relevant documentation checks.
 Do not add an unrelated UI test to a prose-only change.
 See [the integration-test policy](docs/08-crosscutting-concepts/README.md#810-integration-test-policy).
 
-Wrap every new application display string for Qt translation. Update the source inventory, complete every registered target locale, compile, and run `python scripts/check_translations.py`. A new language must cover all current keys; a new UI key must be translated in all supported languages in the same PR. See [the contributor workflow](docs/TRANSLATING.md).
-See [translation instructions](docs/08-crosscutting-concepts/README.md#83-internationalization-i18n).
 Public documentation is English. This requirement does not add application translations for Markdown prose.
 
 Update arc42 documentation when behaviour, architecture, or requirements change.
 Use [docs/wiki/README.md](docs/wiki/README.md) for wiki maintenance.
 Edit repository wiki sources rather than published pages.
 Keep `AGENTS.md` and `CLAUDE.md` synchronized. Keep project skills in both agent libraries synchronized.
+
+## Contributing translations and adding languages
+
+Open Garden Planner supports internationalization through Qt Linguist (`.ts` and `.qm` files).
+Shipped languages currently include English (`en`, source), German (`de`), and Spanish (`es`).
+
+All supported languages are registered in `src/open_garden_planner/core/i18n.py` under `SUPPORTED_LANGUAGES`.
+A strict quality gate (`scripts/check_translations.py`) enforces that **every registered target language must have 100% coverage** of the active UI source inventory.
+
+### Rules for translations
+
+- **100% key coverage**: No missing keys, no obsolete/vanished keys, and no `type="unfinished"` entries.
+- **Preserve placeholders and markup**: Format fields like `{name}`, `{0}`, `%1`, and HTML tags (e.g. `<b>`, `<i>`) must remain intact in translated strings.
+- **Unique menu mnemonics (`&`)**: Accelerators within the same menu or submenu level must not collide (validated by `tests/integration/test_icon_system.py::TestAppWiring::test_menu_mnemonics_are_unique_per_language`).
+- **UTF-8 encoding**: All translation files must be saved as UTF-8 without BOM. Never use PowerShell `Set-Content -Encoding UTF8` (it double-encodes non-ASCII characters).
+
+### Updating or improving existing translations
+
+To fix or improve translations for an existing language (e.g. `de` or `es`):
+
+1. Edit the relevant `.ts` catalog in `src/open_garden_planner/resources/translations/open_garden_planner_<lang>.ts` (using Qt Linguist or a text editor) or update the translation mapping scripts (e.g. `scripts/translations_es/`).
+2. Recompile the binary catalog:
+   ```powershell
+   $env:PYTHONUTF8 = "1"
+   .venv/Scripts/python.exe scripts/compile_translations.py
+   ```
+3. Run the validation gate:
+   ```powershell
+   $env:PYTHONUTF8 = "1"
+   .venv/Scripts/python.exe scripts/check_translations.py
+   ```
+4. Verify tests pass:
+   ```powershell
+   .venv/Scripts/python.exe -m pytest tests/unit/test_i18n.py tests/integration/test_translation_gate.py -v
+   ```
+
+### Adding a new language
+
+To add a new language to Open Garden Planner:
+
+1. **Register the language**:
+   Add the locale code and its native display name to `SUPPORTED_LANGUAGES` in `src/open_garden_planner/core/i18n.py`:
+   ```python
+   SUPPORTED_LANGUAGES: dict[str, str] = {
+       "en": "English",
+       "de": "Deutsch",
+       "es": "Español",
+       "fr": "Français",  # Example
+   }
+   ```
+2. **Extract source keys**:
+   Run the translation updater to generate the new `.ts` file with all current source strings:
+   ```powershell
+   $env:PYTHONUTF8 = "1"
+   .venv/Scripts/python.exe scripts/update_translations.py
+   ```
+   This creates `src/open_garden_planner/resources/translations/open_garden_planner_<code>.ts` with all strings marked as `type="unfinished"`.
+3. **Translate the strings**:
+   Provide translations for all messages in the new `.ts` file. Remove the `type="unfinished"` attribute as each translation is completed.
+4. **Compile the catalog**:
+   ```powershell
+   $env:PYTHONUTF8 = "1"
+   .venv/Scripts/python.exe scripts/compile_translations.py
+   ```
+   This compiles `open_garden_planner_<code>.qm`.
+5. **Run the translation gate**:
+   ```powershell
+   .venv/Scripts/python.exe scripts/check_translations.py
+   ```
+   The checker verifies that all source keys exist in the new catalog, placeholders match, and compiled binaries match Qt runtime lookups.
+6. **Update installer packaging**:
+   In `installer/ogp_installer.nsi`, add the NSIS Modern UI language macro:
+   ```nsis
+   !insertmacro MUI_LANGUAGE "French"  # Example
+   ```
+7. **Run the full test suite**:
+   Verify unit tests, UI tests, menu mnemonic collision tests, and the translation gate:
+   ```powershell
+   .venv/Scripts/python.exe -m pytest tests/unit/test_i18n.py tests/ui/test_language_menu.py tests/integration/test_translation_gate.py tests/integration/test_icon_system.py -v
+   ```
+For further details and source pattern requirements, see [docs/TRANSLATING.md](docs/TRANSLATING.md) and [docs/08-crosscutting-concepts/README.md#83-internationalization-i18n](docs/08-crosscutting-concepts/README.md#83-internationalization-i18n).
 
 ## Pull requests and review
 

@@ -114,6 +114,16 @@ The published release and successful provenance workflow match merge `aeb9e79b`.
 
 Every user-visible string must be wrapped for translation. See `docs/08-crosscutting-concepts/` section 8.3.
 
+### Spanish Translation (i18n) & Contributor Guide
+
+**Implemented 2026-10-18 (US-I18N-ES).**
+Adds full Spanish localization (`es`, "Español") matching the completeness of English and German:
+- 100% key coverage: all 2,631 live source keys across 155 contexts translated with zero missing and zero unfinished keys.
+- Menu mnemonics (`&`): zero accelerator collisions across Spanish menubar and all nested submenus (`test_menu_mnemonics_are_unique_per_language`).
+- Packaging: NSIS installer updated with `!insertmacro MUI_LANGUAGE "Spanish"`.
+- Strict gate verification: passes `scripts/check_translations.py` and `tests/integration/test_translation_gate.py` across English, German, and Spanish.
+- Contributor guide: added a dedicated chapter in `CONTRIBUTING.md` ("Contributing translations and adding languages") documenting step-by-step instructions for contributors to update existing translations or add new languages.
+
 **i18n blind-spot fixes (2026-10-04).** Three defects invisible to `test_german_ts_has_no_unfinished` are fixed together: **#393** (five duplicate `TRANSLATIONS` keys shadowed 62 strings; the five `PdfReportService` journal-notes strings never reached `de.ts`, so the German PDF printed English), **#408** (generated soil-amendment task titles stayed English; the task **id** keeps the English data name so saved done/snooze status survives a language switch), and **#410** (the agent `suggest_companions` `name` now follows the UI language, matching the Companion panel). The CI lint step is widened to `ruff check src/ tests/ scripts/`, and `tests/unit/test_i18n.py::TestTranslationRegistry` pins `TRANSLATIONS` key uniqueness with an `ast` parse. See §11.4, §8.19, and the ADR-045 addendum.
 
 ---

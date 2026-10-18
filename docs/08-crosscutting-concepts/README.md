@@ -40,7 +40,7 @@ class MoveObjectCommand(Command):
 ## 8.3 Internationalization (i18n)
 
 Qt Linguist remains the runtime format (ADR-008). English is the source language;
-English and German are currently shipped. Registration in `SUPPORTED_LANGUAGES` makes
+English, German, and Spanish are currently shipped. Registration in `SUPPORTED_LANGUAGES` makes
 the full source inventory mandatory for that locale. New UI keys require translations
 in every registered target locale in the same PR. The required `Test` CI check enforces
 this through `scripts/check_translations.py` and the normal pytest suite (#496).
@@ -50,8 +50,8 @@ sources in `scripts/i18n_bindings.json`. Qt context, source and disambiguation i
 key. Neither German nor the English template is the inventory authority. Unknown dynamic
 lookups fail; finite table additions grow the inventory without a test-list edit.
 
-Run `scripts/update_translations.py`, fill every target catalog (the German-only
-`fill_translations.py` is optional assistance), run `scripts/compile_translations.py`,
+Run `scripts/update_translations.py`, fill every target catalog (helper scripts
+like `fill_translations.py` provide optional assistance), run `scripts/compile_translations.py`,
 then `scripts/check_translations.py` in the locked environment. The updater preserves
 translations and marks genuinely removed keys vanished. The checker is read-only and
 requires exact active keys, completed nonblank targets, preserved placeholders, matching
