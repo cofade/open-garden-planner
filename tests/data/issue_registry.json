@@ -931,7 +931,22 @@
   },
   "509": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "The test suite takes ~15.5 minutes and runs serially: no pytest-xdist, and CI runs all 8 551 tests twice"
+  },
+  "512": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Commit the CI gate mutation harness as scripts/replay_gate_mutations.py"
+  },
+  "515": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Identify the holder of the test suite's leaked widget graphs (38 271 widgets)"
+  },
+  "516": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Remove the remaining review archaeology from shipped comments"
   }
 }
