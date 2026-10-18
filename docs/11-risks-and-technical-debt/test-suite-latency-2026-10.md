@@ -327,10 +327,12 @@ Recorded rather than silently amended, because each changes what the work is wor
    number will move again. It has independent merit — a plain run becomes deterministic, per
    §11.4's #354 entry about not letting timing assertions share a runner with correctness
    tests — but it is not a speed lever.
-7. **`Coverage` is not a required check.** Branch protection requires eight contexts
-   (`Agent context parity`, `Lint`, `Test`, `Security`, `Dependencies` ×2, `Types` ×2).
-   De-duplicating the two runs therefore buys runner-minutes, not gate latency — and
-   any restructuring must keep a check literally named `Test`.
+7. **`Coverage` was not a required check when this was written.** Branch protection then
+   required eight contexts (`Agent context parity`, `Lint`, `Test`, `Security`,
+   `Dependencies` ×2, `Types` ×2). De-duplicating the two runs therefore buys
+   runner-minutes, not gate latency — and any restructuring must keep a check literally
+   named `Test`. **(19 Oct 2026: #514 made `Coverage` a required check; see the ADR-058
+   addendum.)**
 
 ## Parallel execution: measured, what blocked it, and what the modes are worth
 
@@ -456,9 +458,10 @@ With the mutation gone, no grouping is needed: nothing else failed under `-n 8`.
 - **A parallel run's first visible failure mode would be coverage, not tests.**
   `quality/coverage-floors.json` holds exact integer floors per package
   (`covered * 100 // statements`) plus a per-file floor on
-  `core/tools/constraint_tool.py`. Losing a single line fails that job, and since
-  `Coverage` is not required, the red would sit there unblocking merges while looking
-  authoritative.
+  `core/tools/constraint_tool.py`. Losing a single line fails that job, and when this was
+  written `Coverage` was not required, so the red would sit there unblocking merges while
+  looking authoritative. **(#514 made `Coverage` a required check; see the ADR-058
+  addendum.)**
 - **The honest instrument for the concentrated half is a fix, not a scheduler.**
   The `-n 8` projection of the 620 s of call time into 78 s is a floor: it ignores
   worker start-up, duplicated collection (3.4 s × N) and duplicated session

@@ -2802,6 +2802,48 @@ the per-layer and per-file tables, the widget-leak measurement and the correctio
 issue #509's stated facts. The CI `Test` job uploads its `--durations=0` report as the
 `test-durations-linux` artifact.
 
+### ADR-058 addendum: the coverage floor blocks, and the perf pin is mutation-verified (#512–#516, 19 October 2026)
+
+**Decision 1 — a coverage-floor regression blocks a merge (#514).** `Coverage` joins the
+required checks; it is **not** folded into `Test`. The floor step already computes a
+deterministic result (executed lines, not wall clock) and the job already runs on every push
+in parallel with `Test` — it has no `needs:` on it, so promotion adds no wall clock to the
+critical path and no runner-minutes. What changes is only whether the existing verdict is
+enforced. The `agent_api` floor's margin is **six lines** (2026 covered of 2195 against
+92% of 2195 = 2020), so an advisory red is precisely the signal that erodes silently. The
+local inner loop never runs `--cov`; CI is the only place the floor is computed, and a sole
+detector that cannot fail a merge is a measurement, not a gate. **Rejected:** folding
+`Coverage` into `Test` — it re-serializes the suite into the required job, re-paying the
+runner-minutes #509 removed, and blurs the check's identity. The floor gate also **fails
+closed**: `check_coverage_floors.main` returns 2 when the XML is missing, malformed or does
+not resolve into `src/open_garden_planner` (pinned by
+`tests/unit/test_ci_quality_gates.py`), so the step's `if: always()` cannot report a pass
+without a measurement. Mechanics: `quality/master-protection.json` gains `Coverage`, the job
+display name is pinned as the protection context, and the owner applies the live payload and
+confirms `scripts/check_branch_protection.py`. Until that application the verifier is
+deliberately red.
+
+**Decision 2 — the perf pin evaluates the command that gates the step (#513).** A `run:`
+script may hold several commands, and the one whose exit status is the step's is the **last**.
+The pin now identifies the command that selects the `perf` marker and requires it to be that
+last command and to actually invoke pytest (a `pytest` head, or `python -m pytest`). This
+closes, in one rule, the echo-smuggle, a here-doc body plus its executor, a delegating script
+(`bash scripts/ci_perf.sh …`), and a trailing `|| true`/pipe. It also refuses collect-only
+flags — directly or inside an `-o addopts=` value — and `PYTEST_ADDOPTS` on the step or job.
+The rules are deliberately few: this matcher's history is five defects in one commit, so the
+remaining shapes (`-k`/`--deselect` inside an override, a control operator embedded mid-token,
+zero-combination matrices, `concurrency` cancellation) are re-listed as measured-open in the
+pin rather than guessed at.
+
+**Evidence — the pin is now re-runnable, not asserted (#512).** `scripts/replay_gate_mutations.py`
+commits the harness that #509's review had to write in a scratch directory: sixteen
+perturbations of `ci.yml`, each applied through a temp file, YAML-validated **structurally**
+(an edit that YAML reads as something else is reported as an invalid mutation, never as an
+honest "not caught"), replayed against the pin, and restored by **copy** with a byte-identity
+assertion after every iteration. Fourteen must be caught and two must pass (a diamond in the
+`needs` graph, and a comment that changes no configuration) — the passing controls are what
+distinguish a working pin from one that fails everything. Run it after touching the matcher.
+
 ### ADR-042 addendum: the runtime tint becomes a luminance map (issue #502, 16 October 2026)
 
 The forge's tint-readability band was written for a tint that could not do the job.

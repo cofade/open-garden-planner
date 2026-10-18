@@ -31,8 +31,8 @@
 **Complete, 2026-10-09; released as v1.29.6 via [PR #422](https://github.com/cofade/open-garden-planner/pull/422).** No application behavior change.
 Native uv dependency lock and checked PEP 751 export; clean locked Linux/Windows Python 3.11
 per-file type allowances; measured package line floors and branch reporting; reviewed
-administrator-enforced required checks and normal merges. Coverage is initially not required
-by branch protection. The protection payload and read-only verifier are implemented; live
+administrator-enforced required checks and normal merges. `Coverage` became a required check
+in #514 (ADR-058 addendum); the protection payload and read-only verifier carry it. Live
 master enforcement was activated and read back before the normal approved merge.
 Temporary-branch enforcement passed in PR #420
 (failing head refused; corrected green head merged normally; temporary branches removed).

@@ -1310,6 +1310,44 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
     #   * a perf step moved into a reusable workflow is caught by the `found >= 3` guard.
 
 
+def test_the_coverage_floor_step_is_pinned() -> None:
+    """#514: the `Coverage` job's floor step must exist, always run, and read its report.
+
+    `Coverage` is a required check now. The job's display name IS the branch-protection
+    context, and the floor step is what decides the job: the two coverage steps are
+    measurements, and this step is the gate. It must run `if: always()` so a skipped or
+    failed measurement never reports a pass, and it must read `coverage.xml` explicitly.
+    """
+    import yaml
+
+    workflow = yaml.safe_load(
+        (_REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    )
+    coverage = workflow["jobs"]["coverage"]
+    assert coverage.get("name") == "Coverage", (
+        "the Coverage job's display name IS the required-check context; a rename would "
+        "leave branch protection waiting forever on a check that never reports"
+    )
+    floor_steps = [
+        step
+        for step in coverage["steps"]
+        if "check_coverage_floors.py" in str(step.get("run", ""))
+    ]
+    assert len(floor_steps) == 1, (
+        f"expected exactly one coverage-floor step in the Coverage job, found "
+        f"{len(floor_steps)} - the floor is the gate, not an optional report"
+    )
+    step = floor_steps[0]
+    assert step.get("if") == "always()", (
+        "the floor step must run `if: always()`: it is the only step that decides the job, "
+        "and skipping it when an earlier step failed would report success without a "
+        "measurement"
+    )
+    assert "--xml coverage.xml" in str(step.get("run")), (
+        "the floor step must read the `coverage.xml` the coverage steps write"
+    )
+
+
 class TestCheckNoSecrets:
     """The secret checker must catch real credentials and nothing else.
 
