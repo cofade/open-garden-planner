@@ -3019,7 +3019,7 @@ colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see §11.4
   delta; an absolute per-frame budget for the styled lines stays with #450. Pinned in
   `tests/perf/test_nfr_budgets.py`.
 
-### The #409 low-zoom flat fill is removed; the cache-mode predicate is kept (#503)
+### Shipped v1.30.10: the #409 low-zoom flat fill is removed; the cache-mode predicate is kept (#503, PR #507)
 
 - **#503 (LOD flat fill never fired)**: filed by #501's independent review against its own work —
   `GardenItemMixin.should_use_lod_flat_fill` (the #409 low-zoom flat fill) decided "interactive"
