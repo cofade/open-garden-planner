@@ -247,6 +247,7 @@ Pre-defined object types for common property elements:
 - **FR-I18N-05**: Extensible: contributors can add languages via .ts files
 - **FR-I18N-06**: Plant scientific names not translated (Latin)
 - **FR-I18N-07**: All registered target languages must completely cover the source-derived UI key set. Both new UI strings and new language registrations require complete catalogs, valid placeholders and matching compiled output before merge. Missing localized companion explanations fall back to English; German explanations are selected only for German (#496).
+- **FR-I18N-08**: Spanish localization (`es`, "Español") shipped with 100% key coverage of all source strings, collision-free menu accelerators, valid placeholders, and NSIS installer support.
 
 ## FR-12: Visual Rendering
 

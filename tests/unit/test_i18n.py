@@ -1,5 +1,9 @@
 """Tests for internationalization (i18n) infrastructure."""
 
+from typing import Any
+
+import pytest
+
 from open_garden_planner.core.i18n import _TRANSLATIONS_DIR, SUPPORTED_LANGUAGES, load_translator
 from open_garden_planner.core.object_types import ObjectType, get_translated_display_name
 
@@ -13,14 +17,20 @@ class TestSupportedLanguages:
     def test_contains_german(self, qtbot) -> None:  # noqa: ARG002
         assert "de" in SUPPORTED_LANGUAGES
 
+    def test_contains_spanish(self, qtbot) -> None:  # noqa: ARG002
+        assert "es" in SUPPORTED_LANGUAGES
+
     def test_english_native_name(self, qtbot) -> None:  # noqa: ARG002
         assert SUPPORTED_LANGUAGES["en"] == "English"
 
     def test_german_native_name(self, qtbot) -> None:  # noqa: ARG002
         assert SUPPORTED_LANGUAGES["de"] == "Deutsch"
 
-    def test_at_least_two_languages(self, qtbot) -> None:  # noqa: ARG002
-        assert len(SUPPORTED_LANGUAGES) >= 2
+    def test_spanish_native_name(self, qtbot) -> None:  # noqa: ARG002
+        assert SUPPORTED_LANGUAGES["es"] == "Español"
+
+    def test_at_least_three_languages(self, qtbot) -> None:  # noqa: ARG002
+        assert len(SUPPORTED_LANGUAGES) >= 3
 
 
 class TestTranslationFiles:
@@ -45,6 +55,10 @@ class TestTranslationFiles:
         ts_file = _TRANSLATIONS_DIR / "open_garden_planner_en.ts"
         assert ts_file.exists(), f"English .ts file not found at {ts_file}"
 
+    def test_spanish_ts_file_exists(self, qtbot) -> None:  # noqa: ARG002
+        ts_file = _TRANSLATIONS_DIR / "open_garden_planner_es.ts"
+        assert ts_file.exists(), f"Spanish .ts file not found at {ts_file}"
+
     def test_german_qm_file_exists(self, qtbot) -> None:  # noqa: ARG002
         qm_file = _TRANSLATIONS_DIR / "open_garden_planner_de.qm"
         assert qm_file.exists(), f"German .qm file not found at {qm_file}"
@@ -53,12 +67,24 @@ class TestTranslationFiles:
         qm_file = _TRANSLATIONS_DIR / "open_garden_planner_en.qm"
         assert qm_file.exists(), f"English .qm file not found at {qm_file}"
 
+    def test_spanish_qm_file_exists(self, qtbot) -> None:  # noqa: ARG002
+        qm_file = _TRANSLATIONS_DIR / "open_garden_planner_es.qm"
+        assert qm_file.exists(), f"Spanish .qm file not found at {qm_file}"
+
     def test_german_ts_has_no_unfinished(self, qtbot) -> None:  # noqa: ARG002
         """All translations in the German .ts file should be complete."""
         ts_file = _TRANSLATIONS_DIR / "open_garden_planner_de.ts"
         content = ts_file.read_text(encoding="utf-8")
         assert 'type="unfinished"' not in content, (
             "German .ts file contains unfinished translations"
+        )
+
+    def test_spanish_ts_has_no_unfinished(self, qtbot) -> None:  # noqa: ARG002
+        """All translations in the Spanish .ts file should be complete."""
+        ts_file = _TRANSLATIONS_DIR / "open_garden_planner_es.ts"
+        content = ts_file.read_text(encoding="utf-8")
+        assert 'type="unfinished"' not in content, (
+            "Spanish .ts file contains unfinished translations"
         )
 
 
@@ -79,6 +105,16 @@ class TestLoadTranslator:
 
         app = QApplication.instance()
         result = load_translator(app, "de")
+        assert result is True
+        # Clean up: restore to English
+        load_translator(app, "en")
+
+    def test_spanish_returns_true(self, qtbot) -> None:  # noqa: ARG002
+        """Spanish .qm file exists — should load successfully and return True."""
+        from PyQt6.QtWidgets import QApplication
+
+        app = QApplication.instance()
+        result = load_translator(app, "es")
         assert result is True
         # Clean up: restore to English
         load_translator(app, "en")
@@ -238,11 +274,25 @@ class TestTranslationRegistry:
     with ``ast`` so the invariant is checked even if the lint scope changes.
     """
 
-    def test_translations_literal_has_unique_top_level_keys(self, qtbot) -> None:  # noqa: ARG002
+    @pytest.mark.parametrize(
+        "rel_path",
+        [
+            "scripts/fill_translations.py",
+            "scripts/translations_es/commands_services.py",
+            "scripts/translations_es/objects_gallery.py",
+            "scripts/translations_es/canvas_tools.py",
+            "scripts/translations_es/panels.py",
+            "scripts/translations_es/dialogs.py",
+            "scripts/translations_es/app_menus.py",
+        ],
+    )
+    def test_translations_literal_has_unique_top_level_keys(
+        self, rel_path: str, qtbot: Any  # noqa: ARG002
+    ) -> None:
         import ast
         from pathlib import Path
 
-        path = Path(__file__).resolve().parents[2] / "scripts" / "fill_translations.py"
+        path = Path(__file__).resolve().parents[2] / rel_path
         tree = ast.parse(path.read_text(encoding="utf-8"))
 
         target = None
@@ -260,7 +310,7 @@ class TestTranslationRegistry:
             ):
                 target = node.value
         assert isinstance(target, ast.Dict), (
-            "TRANSLATIONS is not a dict literal — the registry must stay a single "
+            f"TRANSLATIONS in {rel_path} is not a dict literal — the registry must stay a single "
             "literal for this uniqueness check to mean anything"
         )
 
@@ -275,7 +325,7 @@ class TestTranslationRegistry:
                 else:
                     seen[key.value] = key.lineno
         assert not duplicates, (
-            "Duplicate top-level context keys shadow earlier translation blocks:\n  "
+            f"Duplicate top-level context keys in {rel_path} shadow earlier translation blocks:\n  "
             + "\n  ".join(duplicates)
         )
 

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.1" language="de" sourcelanguage="en">
+<TS version="2.1" language="de_DE" sourcelanguage="en">
     <context>
         <name>AddPlantingRecordDialog</name>
         <message>
@@ -253,27 +253,27 @@
     <context>
         <name>ArrangeActions</name>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1362" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1356" />
             <source>Arrange</source>
             <translation>Anordnen</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1376" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1370" />
             <source>Bring Forward</source>
             <translation>Weiter nach vorn</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1371" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1365" />
             <source>Bring to Front</source>
             <translation>Ganz nach vorn</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1381" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1375" />
             <source>Send Backward</source>
             <translation>Weiter nach hinten</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1386" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1380" />
             <source>Send to Back</source>
             <translation>Ganz nach hinten</translation>
         </message>
@@ -372,22 +372,22 @@
     <context>
         <name>BedActions</name>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="631" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="625" />
             <source>Add soil test…</source>
             <translation>Bodentest hinzufügen…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="624" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="618" />
             <source>Hide Grid</source>
             <translation>Raster ausblenden</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="637" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="631" />
             <source>Log Harvest…</source>
             <translation>Ernte erfassen…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="634" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="628" />
             <source>Log Pest/Disease…</source>
             <translation>Schädling/Krankheit erfassen…</translation>
         </message>
@@ -396,12 +396,12 @@
             <translation type="vanished">Anbaufolge planen…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="640" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="634" />
             <source>Plan Succession…</source>
             <translation>Anbaufolge planen…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="626" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="620" />
             <source>Show Grid</source>
             <translation>Raster einblenden</translation>
         </message>
@@ -1840,7 +1840,7 @@
             <translation>Textinhalt</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1527" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1521" />
             <location filename="../../ui/panels/properties_panel.py" line="2354" />
             <source>type</source>
             <translation>Typ</translation>
@@ -4743,12 +4743,12 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
     <context>
         <name>GardenItemMixin</name>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1467" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1461" />
             <source>Change Type</source>
             <translation>Typ ändern</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1318" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1312" />
             <source>Move to Layer</source>
             <translation>Auf Ebene verschieben</translation>
         </message>

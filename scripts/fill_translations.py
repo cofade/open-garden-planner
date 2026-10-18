@@ -1,10 +1,10 @@
-"""Fill in German translations for the .ts file and add missing contexts.
+"""Fill in application translations for supported target locales (.ts files).
 
 This script:
-1. Reads the pylupdate6-generated .ts file
-2. Fills in all German translations
-3. Adds missing contexts (ObjectType, GalleryData, CategoryDropdown, GlobalSearchField)
-4. Writes the completed .ts file
+1. Reads the source-generated .ts files
+2. Fills in all German translations (including missing contexts)
+3. Invokes Spanish translation populator (fill_spanish_translations)
+4. Writes the completed .ts files
 """
 
 import sys
@@ -3353,6 +3353,12 @@ def fill_translations() -> None:
 
     print(f"\nDone! Filled {filled} translations, {missing} missing, {added_contexts} new contexts added.")
 
+    # Also fill Spanish translations
+    from scripts.fill_spanish_translations import fill_spanish_translations
+
+    fill_spanish_translations()
+
 
 if __name__ == "__main__":
     fill_translations()
+
