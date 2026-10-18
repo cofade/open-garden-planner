@@ -70,22 +70,10 @@ dev = [
     # beat loadfile (186.3s) and load (250.2s) because it splits at test level,
     # so no single slow file becomes a worker's floor.
     #
-    # This is what makes the timing tests need the documented split below in
-# `addopts`: TWO of the 14 `perf`-marked tests were observed failing
-# intermittently beside parallel workers - the NFR repaint budget and the map-picker
-    # close bound. (An earlier version said seven. That figure is real but belongs to
-    # a different fact: `tests/perf/ -m perf` collects 7 of the 14, because 7 of the
-    # marked tests live outside that directory. It is not a count of fragile tests,
-    # and the marker GUARD detects 12 assertions - so three numbers orbit this
-    # sentence and an earlier draft attached the wrong one twice. All 14 pass in an
-    # `-n 8` run.) The marker exists so wall-clock assertions never share a runner.
-    # and the marker GUARD detects 12 assertions - so three numbers orbit this
-    # sentence and an earlier draft attached the wrong one twice. All 14 pass in an
-    # `-n 8` run.) The marker exists so wall-clock assertions never share a runner.
-    # and the marker GUARD detects 12 assertions - so three numbers orbit this
-    # sentence and an earlier draft attached the wrong one twice. All 14 pass in an
-    # `-n 8` run.) The marker exists so wall-clock assertions never share a runner.
-# many of them are fragile today.
+    # This is what makes the timing tests need the documented split in `addopts`
+    # below: a few of them are load-sensitive and fail beside parallel workers. Which
+    # ones, and the three counts that are easy to confuse, are stated once at the
+    # `-m 'not perf'` comment below rather than twice.
     "pytest-xdist>=3.8.0",
     "ruff>=0.1.0",
     "mypy>=1.8.0",
@@ -179,20 +167,18 @@ markers = [
 # workers. Which workers: `-n auto` resolves to 4 beside ubuntu-latest's 4 vCPUs
 # and to 20 on the dev box, so name the environment rather than a number - and the
 # "8" quoted further up is the MEASUREMENT harness (`-n 8`), not a shipped
-# configuration. Two were observed failing intermittently under parallel load: the
-# NFR repaint budget and the map-picker close bound. §11.4's #354 entry holds that
-# performance tests must protect a sustained regression statistically rather than
-# assert that one shared runner owns a quiet CPU; running them in their own step is
-# that principle applied to scheduling.
+# configuration. Three counts orbit this flag and they are NOT interchangeable: 14 tests
+# carry the `perf` marker, 12 of them assert a duration, and 7 live outside
+# `tests/perf/` - which is why a directory-scoped run collects half the gate. Two of
+# the 14 were observed failing intermittently under parallel load: the NFR repaint
+# budget and the map-picker close bound. §11.4's #354 entry holds that performance
+# tests must protect a sustained regression statistically rather than assert that one
+# shared runner owns a quiet CPU; running them in their own step is that principle
+# applied to scheduling.
 #
 # The marker means "wall-clock sensitive", NOT "lives in tests/perf/". That distinction
-# is the whole reason this flag exists and it has been got wrong twice in review: an
-# earlier version of this comment justified the flag by naming
-# tests/integration/test_tasks.py, which carries NO marker, so the flag did nothing for
-# it. That test had a genuine parallel-load hazard - two schedulers call
-# `_check_overdue_tasks` - but it is a shared-STATE bug, and it was fixed by isolating
-# the arm (stubbing `_startup_sequence` before the app is built), not by a marker. 7 of
-# the 14 live outside tests/perf/.
+# is why the flag exists, and why `pytest tests/perf -m perf` collects 7 of the 14 and
+# passes - the worst failure mode available to a gate that exists to catch slow drift.
 #
 # CONSEQUENCE, deliberate: `pytest tests/` now DESELECTS the perf tests, so run them
 # explicitly with `pytest tests/ -m perf -n 0`. Three details, each of which was wrong

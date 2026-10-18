@@ -914,7 +914,9 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
     )
     assert test_steps, (
         "the `test` job has no step whose argv selects a `perf` marker. `-m` is read as a "
-        "token pair, so this also catches a command hidden inside a comment or an echo"
+        "token pair, which catches a command hidden inside a comment. It does NOT catch one "
+        "hidden inside an unquoted `echo`, because the tokens are concatenated across the "
+        "script - see the measured-open list below"
     )
     quiet = test_steps[0]
     assert _covers_the_perf_marker(quiet, want_marker=True), (
@@ -1019,6 +1021,14 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
     #     disjunction after the command is a few lines. An earlier version of this note said
     #     "shell semantics cannot be pinned statically", which was an overclaim - it is
     #     unwritten, not unwritable.
+    #   * tokens belonging to a different command taken as the command's. `_argv_of`
+    #     concatenates every line's tokens, so a script whose real command lacks `-n 0` and
+    #     whose earlier line is `echo pytest tests/ -m perf -n 0` satisfies all three
+    #     assertions while running nothing. Same shape: a here-doc body supplying the flags,
+    #     and `bash scripts/ci_perf.sh tests/ -m perf -n 0`. The fix is to split the token
+    #     stream into commands and evaluate the checks on the one that selects the marker;
+    #     it is not written yet, and an earlier version of the assertion message claimed it
+    #     was covered.
     #   * `strategy.matrix` producing zero combinations, and a `concurrency` group that
     #     cancels the run. Neither has a pinned check; a `timeout-minutes` short enough to
     #     kill the step does fail the job, which is loud enough to count as covered.

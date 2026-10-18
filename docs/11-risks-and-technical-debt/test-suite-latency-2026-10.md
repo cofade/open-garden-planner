@@ -161,7 +161,7 @@ first move is to find out what.
 > **These per-file numbers are position-dependent, and the table must not be read
 > as "these files are slow".** It is measured — see "The real cause is an
 > accumulation, not a slow file" below for the measurement that overturns the naive
-> reading, and for why the same file costs 3 s alone and 96.7 s in the suite.
+> reading, and for why the same file costs 2.14 s alone and 96.7 s in the suite.
 
 ## The real cause is an accumulation, not a slow file
 
