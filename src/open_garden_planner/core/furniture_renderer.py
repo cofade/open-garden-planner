@@ -5,6 +5,8 @@ as cached QPixmaps for display on the garden canvas.
 """
 
 import functools
+import math
+from collections import OrderedDict
 from pathlib import Path
 
 from PyQt6.QtCore import QRectF, Qt
@@ -114,11 +116,16 @@ FURNITURE_DEFAULT_DIMENSIONS: dict[ObjectType, tuple[float, float]] = {
 # Cache for QSvgRenderer instances (path -> renderer)
 _renderer_cache: dict[str, QSvgRenderer] = {}
 
-# Cache for rendered pixmaps (cache_key -> QPixmap)
-_pixmap_cache: dict[str, QPixmap] = {}
+# Cache for rendered pixmaps (cache_key -> (QPixmap, byte_count)) in LRU order
+_pixmap_cache: OrderedDict[str, tuple[QPixmap, int]] = OrderedDict()
 
-# Maximum pixmap cache entries before eviction
+# Maximum pixmap cache entries and byte budget before eviction (#474)
 _PIXMAP_CACHE_MAX = 200
+_PIXMAP_CACHE_MAX_BYTES = 64 * 1024 * 1024  # 64 MB budget
+_current_cache_bytes = 0
+
+# Maximum single dimension allowed for rendering (px) to prevent OOM
+MAX_FURNITURE_DIMENSION_PX = 2048
 
 
 def is_furniture_type(object_type: ObjectType | None) -> bool:
@@ -205,6 +212,9 @@ def render_furniture_pixmap(
     Returns:
         QPixmap with rendered furniture, or None if no SVG available
     """
+    if math.isnan(width) or math.isnan(height) or width <= 0 or height <= 0 or math.isinf(width) or math.isinf(height):
+        return None
+
     svg_path = get_furniture_svg_path(object_type)
     if svg_path is None:
         return None
@@ -213,19 +223,22 @@ def render_furniture_pixmap(
     if renderer is None:
         return None
 
-    # Calculate render size (use integer pixels, minimum 4)
-    w = max(int(width), 4)
-    h = max(int(height), 4)
+    # Calculate render size (use integer pixels, minimum 4, capped at MAX_FURNITURE_DIMENSION_PX)
+    if width > MAX_FURNITURE_DIMENSION_PX or height > MAX_FURNITURE_DIMENSION_PX:
+        scale = min(MAX_FURNITURE_DIMENSION_PX / width, MAX_FURNITURE_DIMENSION_PX / height)
+        w = max(int(width * scale), 4)
+        h = max(int(height * scale), 4)
+    else:
+        w = max(int(width), 4)
+        h = max(int(height), 4)
 
     # Build cache key
     cache_key = f"{svg_path}:{w}:{h}"
 
     if cache_key in _pixmap_cache:
-        return _pixmap_cache[cache_key]
-
-    # Evict cache if too large
-    if len(_pixmap_cache) >= _PIXMAP_CACHE_MAX:
-        _pixmap_cache.clear()
+        _pixmap_cache.move_to_end(cache_key)
+        pixmap, _ = _pixmap_cache[cache_key]
+        return pixmap
 
     # Render SVG to QImage
     image = QImage(w, h, QImage.Format.Format_ARGB32_Premultiplied)
@@ -241,7 +254,25 @@ def render_furniture_pixmap(
     painter.end()
 
     pixmap = QPixmap.fromImage(image)
-    _pixmap_cache[cache_key] = pixmap
+
+    global _current_cache_bytes
+    entry_bytes = w * h * 4
+
+    # Evict least recently used entries until within entry and byte budget (#474)
+    while _pixmap_cache and (
+        len(_pixmap_cache) >= _PIXMAP_CACHE_MAX
+        or _current_cache_bytes + entry_bytes > _PIXMAP_CACHE_MAX_BYTES
+    ):
+        _, (_, old_bytes) = _pixmap_cache.popitem(last=False)
+        _current_cache_bytes -= old_bytes
+
+    if entry_bytes <= _PIXMAP_CACHE_MAX_BYTES:
+        if cache_key in _pixmap_cache:
+            _, old_bytes = _pixmap_cache.pop(cache_key)
+            _current_cache_bytes -= old_bytes
+        _pixmap_cache[cache_key] = (pixmap, entry_bytes)
+        _current_cache_bytes += entry_bytes
+
     return pixmap
 
 
@@ -259,5 +290,7 @@ def get_default_dimensions(object_type: ObjectType) -> tuple[float, float]:
 
 def clear_furniture_cache() -> None:
     """Clear all cached renderers and pixmaps."""
+    global _current_cache_bytes
     _renderer_cache.clear()
     _pixmap_cache.clear()
+    _current_cache_bytes = 0

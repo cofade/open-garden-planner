@@ -28,8 +28,48 @@ from PyQt6.QtWidgets import (
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style, is_bed_type
 
-from .garden_item import GardenItemMixin
+from .garden_item import GardenItemMixin, is_interactive_paint
 from .resize_handle import ResizeHandlesMixin, RotationHandleMixin, VertexEditMixin
+
+# --- Issue #472: bound what a crafted plan can cost the 2D canvas -----------
+#
+# A polygon's fill cost is NOT a function of vertex count alone. Measured (512x512
+# antialiased painter, the issue's full-height comb), the cost of one paint is:
+#
+#   vertices    full-detail fill        outline, item's 2.0 pen   outline, cosmetic 1px
+#      256          38 ms                        35 ms                  2 ms
+#     1024         322 ms                       319 ms                  4 ms
+#     4096        1449 ms                       640 ms                 20 ms
+#    16384        5580 ms                      2547 ms                 69 ms
+#
+# Two consequences drive this bound:
+#   * a reflex-heavy fill is quadratic in vertices, so the full-detail budget must
+#     sit below the counts the bug report measured (1,024 -> 10.5 s on its box);
+#   * Qt strokes a WIDE solid pen by building a fill, so "draw the outline"
+#     is only cheap with a COSMETIC (hairline) pen. Reusing the item's own pen
+#     would leave the degraded frame quadratic (319 ms at 1,024 above).
+#
+# At or below MAX_FULL_DETAIL_VERTICES an unselected polygon paints exactly as
+# before. Above it, an INTERACTIVE paint draws the exact outline with a cosmetic
+# 1-px pen and no fill: that is linear with a small constant and independent of
+# the item's pen width, so the window stays responsive. "Interactive" is decided
+# by the item's CACHE MODE, not by Qt's ``widget`` argument — every cached paint
+# receives widget=0, and unselected canvas items are cached, so a widget-based
+# test would never fire (see the guard in ``paint``). Every export, report,
+# print and agent render path disables caches first
+# (``ExportService._disable_item_caches``), so those are never degraded and a
+# saved PDF/PNG is unchanged; a selected item always paints exactly so editing
+# and validation see the truth. A polygon whose outline is large but CONVEX
+# would fill cheaply;
+# distinguishing it needs an O(n) pass per paint, so the bound deliberately errs
+# toward the outline for every large polygon (see ADR-057).
+MAX_FULL_DETAIL_VERTICES = 256
+
+# Hard ceiling at load for untrusted plan files (issue #472): a polygon above
+# this is refused rather than built, so a crafted ``.ogp`` cannot stall the
+# loader or exhaust memory. At this ceiling the degraded 2D outline is measured
+# at ~69 ms, not minutes, and no legible garden outline comes near it.
+MAX_POLYGON_VERTICES = 16_384
 
 
 def _project_to_polygon_boundary(polygon: QPolygonF, point: QPointF) -> QPointF:
@@ -605,24 +645,51 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         widget: QWidget | None = None,
     ) -> None:
         """Paint the polygon with an optional painted shadow."""
+        poly = self.polygon()
+
+        # Degraded paint for an over-budget outline (issue #472): interactive
+        # painting only, an unselected item only. Draw the exact outline with a
+        # COSMETIC 1-px pen and no fill. A cosmetic pen is essential: Qt strokes
+        # a wide solid pen by building a fill, which would leave this path
+        # quadratic (issue #472 measurement), whereas a cosmetic stroke is linear
+        # with a small constant and independent of the item's own pen width.
+        #
+        # "Interactive" is `is_interactive_paint` (the item's cache mode), NOT
+        # `widget is not None`: Qt passes widget=0 for every CACHED paint and
+        # every unselected canvas item is DeviceCoordinateCache, so a
+        # widget-based test selected the empty set and the first shipped version
+        # of this degrade never ran in the app (measured: a cached 1,024-vertex
+        # comb repainted at full detail, 44.7 ms; 16,384 at 589 ms). Every
+        # export, report, print and agent render path disables the cache first,
+        # so those stay full detail, while the interactive view degrades.
+        # This degrade is the ONLY level-of-detail pass in the canvas — the #409
+        # low-zoom flat fill was removed in #503, measured to buy nothing.
+        degrade = (
+            poly.count() > MAX_FULL_DETAIL_VERTICES
+            and not self.isSelected()
+            and is_interactive_paint(self, widget)
+        )
+        if degrade:
+            outline_pen = QPen(self.pen())
+            outline_pen.setCosmetic(True)
+            outline_pen.setWidthF(1.0)
+            outline_pen.setStyle(Qt.PenStyle.SolidLine)
+            painter.save()
+            painter.setPen(outline_pen)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawPolygon(poly)
+            painter.restore()
+            return
+
         if self._shadows_enabled:
             painter.save()
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(self.SHADOW_COLOR)
-            shadow_poly = self.polygon().translated(
+            shadow_poly = poly.translated(
                 self.SHADOW_OFFSET_X, self.SHADOW_OFFSET_Y,
             )
             painter.drawPolygon(shadow_poly)
             painter.restore()
-
-        if not self.isSelected() and self.fill_pattern is not None and self.should_use_lod_flat_fill(option, widget, painter):
-            poly = self.polygon()
-            painter.save()
-            painter.setPen(self.pen())
-            painter.setBrush(QBrush(self.get_lod_fill_color()))
-            painter.drawPolygon(poly)
-            painter.restore()
-            return
 
         # For HOUSE polygons with a ridge: use mirrored tile rendering
         ridge = self._find_ridge()

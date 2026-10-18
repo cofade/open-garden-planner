@@ -3928,10 +3928,11 @@ class GardenPlannerApp(QMainWindow):
 
         # Find & Replace
         find_replace_action = QAction(self.tr("&Find && Replace…"), self)
-        find_replace_action.setShortcut(QKeySequence.StandardKey.Find)
+        find_replace_action.setShortcut(QKeySequence("Ctrl+H"))
         find_replace_action.setStatusTip(self.tr("Find and replace objects by name, type, layer or species"))
         find_replace_action.triggered.connect(self._on_toggle_find_replace)
         self._set_action_icon(find_replace_action, "find_replace")
+        self._find_replace_action = find_replace_action
         menu.addAction(find_replace_action)
 
         menu.addSeparator()
@@ -6310,6 +6311,14 @@ class GardenPlannerApp(QMainWindow):
             # Join a running heatmap worker — a QThread destroyed while
             # running aborts the process (the #230 class).
             self._sun_heatmap.shutdown()
+            # Cancel and detach in-flight update checker — a QThread destroyed
+            # while running aborts the process (#480).
+            if getattr(self, "_update_checker", None) is not None:
+                self._update_checker.shutdown()
+                self._update_checker = None
+            # Shut down calendar background workers and services (#483).
+            if getattr(self, "calendar_view", None) is not None and hasattr(self.calendar_view, "shutdown"):
+                self.calendar_view.shutdown()
             # Close any open/pending 3D viewer so the app can actually quit —
             # a visible parentless top-level Qt3DWindow keeps the process alive
             # under Qt's default quitOnLastWindowClosed. Hide (not delete): the

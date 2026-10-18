@@ -5,6 +5,7 @@ Only active when running from the installed .exe (sys.frozen).
 Uses only stdlib (urllib) — no extra dependencies.
 """
 
+import contextlib
 import json
 import logging
 import re
@@ -16,6 +17,7 @@ from typing import Any
 
 from PyQt6.QtCore import QThread, pyqtSignal
 
+from open_garden_planner.core.worker_lifecycle import retain_worker_until_finished
 from open_garden_planner.services.verified_update import validate_release_asset
 
 logger = logging.getLogger(__name__)
@@ -129,9 +131,30 @@ class UpdateChecker(QThread):
     #: Emitted with one immutable ReleaseInfo, including verification metadata.
     update_available = pyqtSignal(object)
 
+    def __init__(self, parent: Any = None) -> None:
+        super().__init__(parent)
+        self._is_cancelled = False
+
+    def cancel(self) -> None:
+        """Mark the check as cancelled so no signals are emitted."""
+        self._is_cancelled = True
+
+    def shutdown(self, timeout_ms: int = 100) -> None:
+        """Cancel and detach/join before parent teardown (#480)."""
+        self.cancel()
+        with contextlib.suppress(TypeError, RuntimeError):
+            self.update_available.disconnect()
+        self.setParent(None)
+        if self.isRunning():
+            self.wait(timeout_ms)
+            if self.isRunning():
+                retain_worker_until_finished(self)
+
     def run(self) -> None:
         """Perform the update check in the background thread."""
         try:
+            if self._is_cancelled:
+                return
             current = get_current_version()
             req = urllib.request.Request(
                 _RELEASES_URL,
@@ -141,13 +164,18 @@ class UpdateChecker(QThread):
                 },
             )
             with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:
+                if self._is_cancelled:
+                    return
                 content = resp.read(1_048_577)
-                if len(content) > 1_048_576:
+                if len(content) > 1_048_576 or self._is_cancelled:
                     return
                 data: dict[str, Any] = json.loads(content.decode())
 
+            if self._is_cancelled:
+                return
             info = parse_release_info(data)
-            if info.tag_name and compare_versions(current, info.tag_name):
+            if info.tag_name and compare_versions(current, info.tag_name) and not self._is_cancelled:
                 self.update_available.emit(info)
         except Exception:  # noqa: BLE001
-            logger.debug("Update check skipped (offline or error)", exc_info=True)
+            if not self._is_cancelled:
+                logger.debug("Update check skipped (offline or error)", exc_info=True)

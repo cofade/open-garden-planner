@@ -13,6 +13,7 @@ from PyQt6.QtCore import QSize
 from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtWidgets import QApplication, QMessageBox
 
+from open_garden_planner.core.i18n import SUPPORTED_LANGUAGES
 from open_garden_planner.core.tools import ToolType
 from open_garden_planner.ui import icons
 from open_garden_planner.ui.theme import ThemeMode, apply_theme
@@ -140,7 +141,7 @@ class TestAppWiring:
         shortcuts = {a.shortcut().toString() for a in win.actions()}
         assert "Ctrl+4" in shortcuts and "Ctrl+5" in shortcuts and "Ctrl+6" not in shortcuts
 
-    @pytest.mark.parametrize("lang", ["en", "de"])
+    @pytest.mark.parametrize("lang", SUPPORTED_LANGUAGES)
     def test_menu_mnemonics_are_unique_per_language(self, qtbot, monkeypatch, lang: str) -> None:
         """#310 restructured the View menu and renamed mnemonics twice; the
         English `&F` fix created `&f`/`&v` clashes in the GERMAN View menu

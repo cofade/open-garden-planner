@@ -224,3 +224,15 @@ def test_current_head_verifier_refuses_absence_and_failed_checks(change: str) ->
     else:
         pr["statusCheckRollup"][0]["conclusion"] = "SKIPPED"
     assert check_differences(pr, "abc", ["Test"])
+
+
+def test_agent_functional_requirements_ids_are_unique() -> None:
+    root = Path(__file__).resolve().parents[2]
+    text = (root / "docs/functional-requirements.md").read_text(encoding="utf-8")
+    definitions = re.findall(r"^- \*\*(FR-AGENT-[0-9a-zA-Z_-]+)\*\*", text, re.MULTILINE)
+    assert len(definitions) >= 30
+    assert len(definitions) == len(set(definitions))
+    assert "FR-AGENT-12a" in definitions
+    assert "FR-AGENT-27" in definitions
+    assert "FR-AGENT-29" in definitions
+

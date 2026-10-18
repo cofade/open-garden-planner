@@ -5,7 +5,7 @@ the Properties panel's apply slots (`_on_property_changed` / `_on_color_changed`
 the same code the Fill Pattern combo and the colour button drive) →
 `create_pattern_brush` → item brush → `paint()` → the Y-flipped `scene.render`
 the view/export use — with visible material detail; the user's fill colour
-must recolour it (the 80/255 tint overlay) without flattening it; a textured
+must recolour it (the luminance-map recolour, #502) without flattening it; a textured
 item must show no wrap seam on the canvas in EITHER axis (the legacy
 glass/flagstone seams were on-canvas-by-default defects); the gallery
 thumbnails render; and the greenhouse tool's default GLASS fill draws
@@ -145,7 +145,10 @@ class TestPaintsThroughRealPath:
         lum = _luminance(_render_item_alone(item))
         # a real texture brush, not a solid fallback (texture missing → QBrush(color))
         assert not item.brush().texture().isNull(), f"{pattern.name}: solid fallback brush"
-        assert lum.std() > 2.0, f"{pattern.name}: flat fill on canvas (std {lum.std():.2f})"
+        # Relative contrast, so a legitimately dark fill colour is not mistaken
+        # for a flat one (issue #502). SOLID measures 0.000 here.
+        cov = lum.std() / max(lum.mean(), 1.0)
+        assert cov > 0.01, f"{pattern.name}: flat fill on canvas (cov {cov:.3f})"
 
     @pytest.mark.parametrize("pattern", TEXTURED, ids=IDS)
     def test_no_wrap_seam_on_canvas(self, qtbot: object, pattern: FillPattern) -> None:
@@ -170,25 +173,52 @@ class TestPaintsThroughRealPath:
 
     @pytest.mark.parametrize("pattern", TEXTURED, ids=IDS)
     def test_user_colour_recolours_without_flattening(self, qtbot: object, pattern: FillPattern) -> None:
-        """The tint (user colour at 80/255 over the texture) must MOVE the hue
-        (red vs blue fill colours give a clearly different render) while the
-        material detail survives underneath (spread stays well above flat)."""
+        """The tint must make the *user's* colour the fill's colour, and the
+        material's relative contrast must survive underneath.
+
+        Includes the **pale** colour that let #502 through: the gate used to
+        check only red vs blue (two saturated, far-apart colours), so a
+        light-green fill that rendered as the standard brown roof tile passed
+        every check. The recolour is luminance-mapped, so "not flattened" is
+        asserted as relative contrast against the same item's untinted render.
+        """
         item = _textured_item(pattern)
         panel = PropertiesPanel(command_manager=CommandManager())
         panel.set_selected_items([item])
+        raw_lum = _luminance(_render_item_alone(item))
+        raw_cov = raw_lum.std() / max(raw_lum.mean(), 1.0)
+
         renders = {}
-        for name, color in (("red", QColor(220, 40, 40)), ("blue", QColor(40, 60, 220))):
+        for name, color in (
+            ("red", QColor(220, 40, 40)),
+            ("blue", QColor(40, 60, 220)),
+            ("pale green", QColor("#90ee90")),
+        ):
             btn = MagicMock()
             btn.color = color
             panel._on_color_changed(item, "fill_color", btn)
             assert item.fill_color == color
             renders[name] = _render_item_alone(item)
+
         r_red, _g, b_red = _mean_rgb(renders["red"])
-        r_blue, _g, b_blue = _mean_rgb(renders["blue"])
+        r_blue, _g2, b_blue = _mean_rgb(renders["blue"])
         assert r_red - r_blue > 25 and b_blue - b_red > 25, f"{pattern.name}: tint does not read"
+
+        # The pale colour case (#502): a light-green fill must read as green on
+        # every texture, including a strongly brown one. Untinted renders of
+        # these textures measure g - r around -49.
+        r_pale, g_pale, _b_pale = _mean_rgb(renders["pale green"])
+        assert g_pale - r_pale > 40, (
+            f"{pattern.name}: pale fill colour does not read (g - r {g_pale - r_pale:.1f})"
+        )
+
         for name, image in renders.items():
-            std = _luminance(image).std()
-            assert std > 1.5, f"{pattern.name}/{name}: tint flattened the texture (std {std:.2f})"
+            lum = _luminance(image)
+            cov = lum.std() / max(lum.mean(), 1.0)
+            assert cov >= 0.5 * raw_cov, (
+                f"{pattern.name}/{name}: tint flattened the texture "
+                f"(cov {cov:.3f} vs untinted {raw_cov:.3f})"
+            )
 
 
 class TestChrome:

@@ -39,47 +39,29 @@ class MoveObjectCommand(Command):
 
 ## 8.3 Internationalization (i18n)
 
-Uses Qt Linguist translation system:
+Qt Linguist remains the runtime format (ADR-008). English is the source language;
+English and German are currently shipped. Registration in `SUPPORTED_LANGUAGES` makes
+the full source inventory mandatory for that locale. New UI keys require translations
+in every registered target locale in the same PR. The required `Test` CI check enforces
+this through `scripts/check_translations.py` and the normal pytest suite (#496).
 
-1. All user-facing strings wrapped in `self.tr()` or `QCoreApplication.translate()`
-2. Source strings extracted with `pylupdate6` into `.ts` XML files
-3. Translators edit `.ts` files (Qt Linguist tool or text editor)
-4. `.ts` files compiled to `.qm` binary with `lrelease`
-5. `QTranslator` loaded at app startup based on saved language preference
+The canonical inventory comes from fresh PyQt6 extraction plus audited AST/helper/table
+sources in `scripts/i18n_bindings.json`. Qt context, source and disambiguation identify a
+key. Neither German nor the English template is the inventory authority. Unknown dynamic
+lookups fail; finite table additions grow the inventory without a test-list edit.
 
-**Shipped languages**: English (default), German
-**Extensible**: Community can add languages by creating new `.ts` files
+Run `scripts/update_translations.py`, fill every target catalog (the German-only
+`fill_translations.py` is optional assistance), run `scripts/compile_translations.py`,
+then `scripts/check_translations.py` in the locked environment. The updater preserves
+translations and marks genuinely removed keys vanished. The checker is read-only and
+requires exact active keys, completed nonblank targets, preserved placeholders, matching
+compiled files and actual Qt lookup results. Retired records cannot satisfy coverage.
+English retains source identities. Identical target text is valid for proper names/units.
+Current singular-only compilation rejects plural/variant input until tested support is added.
 
-**Translation files location**:
-- `src/open_garden_planner/resources/translations/open_garden_planner_de.ts`
-- `src/open_garden_planner/resources/translations/open_garden_planner_en.ts`
-
-**Not translated**: Plant scientific names (Latin), file format identifiers
-
-### How to add translations when creating/modifying a widget
-
-1. **In code**: wrap every UI string with `self.tr("English text")`. The class name is the translation context automatically.
-
-2. **Update both `.ts` files** — add a `<context>` block (or extend an existing one) to both files:
-
-   ```xml
-   <context>
-       <name>MyWidget</name>
-       <message>
-           <source>English text</source>
-           <translation>Translated text</translation>
-       </message>
-   </context>
-   ```
-
-   Note: German file uses `<name>` with no extra indent, English file uses 4-space indent.
-
-3. **Recompile `.qm` files** after every `.ts` change:
-   ```bash
-   venv/Lib/site-packages/qt6_applications/Qt/bin/lrelease.exe \
-     src/open_garden_planner/resources/translations/open_garden_planner_de.ts \
-     src/open_garden_planner/resources/translations/open_garden_planner_en.ts
-   ```
+Full commands, source declaration rules and new-language steps: [translation guide](../TRANSLATING.md).
+Latin scientific names, provider/user text and machine identifiers are not catalog prose;
+finite bundled common names are extracted from the actual bundled species JSON.
 
 ### Translation rules
 
@@ -161,7 +143,7 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 ### Textures (`resources/textures/`, ADR-042 / #309)
 - **Generated, never hand-edited**: all 24 fill-pattern textures (grass, gravel, concrete, wood, water, soil, mulch, roof tiles, sand, stone, glass, hedge, brick, bark, wildflower, terracotta, pebbles, slate, lattice, compost, flagstone, clay, decking, corten) are emitted by `scripts/generate_asset_forge_textures.py` in the "Lush" texture language; committed PNGs must be pixel-identical to regeneration (`--check` + `tests/unit/test_texture_forge_conformance.py`). See §8.24.
 - 256×256 px RGB, **1 px = 1 cm** on the canvas (no LOD variants — Qt scales the brush); strictly top-down, no directional light; seamless by construction on a torus, gated by `scripts/check_texture_tileability.py` for every file
-- Loaded as `QPixmap` by `core/fill_patterns.py`, tinted with the user's fill colour at 80/255 alpha (`_tint_texture`) and applied via `QBrush` texture pattern; the tint-readability band is gated
+- Loaded as `QPixmap` by `core/fill_patterns.py`, recoloured to the user's fill colour by a luminance map (`_tint_texture`: every pixel becomes the chosen colour scaled by the texture's relative luminance, so the colour reads and the detail survives — #502) and applied via `QBrush` texture pattern; the tint-readability band is gated
 - Provenance: `resources/textures/PROVENANCE.md` (generator = provenance, one register row per file)
 
 ### Object SVGs (`resources/objects/`, ADR-042 / #308)
@@ -648,6 +630,16 @@ tests run real QSettings in fresh processes with private XDG directories and con
 umasks; Windows skips only those platform-specific assertions and pins registry parity.
 No test executes an installer or calls a paid map provider. Test-layer evidence must
 name the platform and locked interpreter, not imply a Windows chmod mock proves Linux.
+
+### Translation gate integration (#496)
+
+`tests/integration/test_translation_gate.py` invokes the real CLI against an isolated
+three-locale project, proves a missing target returns nonzero with useful diagnostics,
+and checks input files remain unchanged. It also exercises the real language menu,
+saved setting and next-window startup translation for every registered locale.
+`tests/unit/test_translation_gate.py` mutates both axes: a new locale missing an old key,
+and a new source key missing from some or all catalogs. Equal-size wrong-key catalogs,
+invalid values/placeholders, stale binaries and stale source declarations fail.
 
 ## 8.11 Security Scanning (SAST)
 
@@ -2283,10 +2275,13 @@ pass for every file (`tests/unit/test_texture_tileability.py` parametrises
 all of them — the #264 grandfather list `KNOWN_SEAMED_LEGACY` was emptied
 and then deleted, a constant that must stay empty being ceremony), and the
 §8.10 test paints the item's real tinted brush two tiles wide and checks the
-wrap column AND wrap row against the same metric. **Tint-readable**: the runtime tint overlays the user colour
-at 80/255 alpha; the conformance gate pins mean luminance 40–225, luminance
+wrap column AND wrap row against the same metric. **Tint-readable**: the runtime recolour is a luminance map (`_tint_texture`,
+#502): each pixel becomes the user's fill colour scaled by the texture's relative
+luminance, so the chosen colour reads as itself and the material's detail survives;
+the conformance gate pins mean luminance 40–225, luminance
 std ≥ 4 and local detail ≥ 2 per texture, and the integration test proves a
-red vs a blue fill colour move the rendered hue without flattening the
+**pale** fill colour (the light green that read as the standard brown roof tile
+before #502), a red and a blue one each move the rendered hue without flattening the
 detail (materials that would collapse under tint fail before an owner sees
 them). A fourth rule is not gated but binding: **no directional light** — the
 view flips Y and fills never rotate, so every shading cue is radial or
@@ -2576,3 +2571,11 @@ dimensions, structure and full first-frame decoding are checked before use. Resp
 close on all paths, HTTP error excerpts are limited to 200 bytes, and Google keys stay
 redacted. Existing invalid caches are rejected; valid legacy images normalize on use.
 The map's calibration, crop/mosaic math and existing cancellation outcomes are unchanged.
+
+## 8.28 Bounded 2D canvas paint for crafted plans (#472, ADR-057)
+
+`PolygonItem.paint` sizes its work by a vertex bound, not by whatever a plan file happens to hold. `MAX_FULL_DETAIL_VERTICES = 256` is the full-detail budget: at or below it an unselected polygon paints exactly as it always did. Above it, an **interactive** paint draws the exact outline with a **cosmetic 1-px pen and `Qt.BrushStyle.NoBrush`** — and returns, skipping the shadow, grid and status overlays for that frame. "Interactive" is the item's **cache mode**, not Qt's `widget`: every cached paint receives `widget = 0`, and unselected canvas items are cached, so a `widget`-based guess never fires on the canvas (that was the first version's bug — it never degraded anything; see ADR-057). Every export, report, print and agent render path disables caches first, so those stay exact; a **selected** item is excluded and paints the exact fill, so editing sees the truth. The cosmetic pen is load-bearing: Qt strokes a wide solid pen by building a fill, so reusing the item's own pen would leave the degraded frame quadratic (measured 319 ms at 1,024 vertices against 4 ms cosmetic).
+
+The load seam is the second half. `ProjectManager._deserialize_item_core` refuses a polygon above `MAX_POLYGON_VERTICES = 16_384` and skips it with a logged warning (counted for the app's existing skipped-item notice), so a hostile `.ogp` cannot stall the loader or exhaust memory; the rest of the plan loads normally. At this ceiling the degraded outline is ~69 ms, and no legible garden outline comes near it. Both constants live in `ui/canvas/items/polygon_item.py` and are the only place to retune the bound. The measured cost table, the pen-width finding and the rejected alternatives (convex-hull / bounding-box fill, a hairline-but-wide pen, reflex counting, a low load ceiling) are in ADR-057; the regression is pinned by `tests/integration/test_polygon_paint_bound.py`.
+
+An "item made from an item" copies a shape's **look** through one seam that the **offset tool and mirror** share, `core/item_look.py::copy_visual_style`. It copies both the serialized attributes (`fill_pattern`, `fill_color`, `stroke_color`, `stroke_width`, `stroke_style`) and the live `QPen`/`QBrush`, because a copy that writes only one of the two looks right until the next save (#470). Chamfer, fillet and trim are the same shape of bug and are **not** routed here: they are owned by the in-flight L1 branch's #441, so routing them now would collide.

@@ -82,6 +82,36 @@ manual-test confirmation is required for that mechanical PR. See ADR-050 and dep
 
 ### Translation (i18n)
 
+**Complete, 2026-10-16; released as [v1.30.6](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.6)
+via [PR #497](https://github.com/cofade/open-garden-planner/pull/497), closing #496 after owner acceptance.**
+Source-derived completeness covers every registered language in both directions:
+adding a locale requires all current keys, and adding a wrapped UI string requires
+every target translation. The required Test check validates exact context/source/comment
+keys, completed values, placeholders, compiled bytes and actual Qt lookups. English/German
+each cover 2,631 live keys. Helper/table mutation tests pin extraction; unsupported
+forwarding and plural input fail explicitly. Shared companion fallback and shopping-list/
+offset translation contexts are corrected. Russian registration and wording stay in #495;
+its contributor must merge latest master and pass the shared gate before finalization.
+
+Final evidence: 85 focused tests passed; full Windows suite 8,453 passed / 39 skipped;
+Linux coverage suite 8,452 passed / 40 skipped, 80.0% lines / 63.7% branches with no floor
+regressions. Independent senior review, all CI checks, frozen startup/self-test and 5,262
+packaged translation lookups passed. Owner confirmed the frozen app works correctly.
+The published release and successful provenance workflow match merge `aeb9e79b`.
+
+#### Docs updated on completion (#496)
+
+| Document | Updated contract |
+|---|---|
+| `docs/TRANSLATING.md`, `CONTRIBUTING.md`, PR template | All-locale maintenance workflow |
+| `docs/05-building-block-view/`, `docs/07-deployment-view/` | Extraction tooling and required CI enforcement |
+| `docs/08-crosscutting-concepts/` | Sections 8.3 and 8.10: inventory and validation |
+| `docs/09-architecture-decisions/` | ADR-008 addendum: source authority and compiler boundary |
+| `docs/10-quality-requirements/`, `docs/functional-requirements.md` | NFR-MAINT-05 and FR-I18N-07 |
+| `docs/11-risks-and-technical-debt/` | Section 11.4: extraction blind spots and runtime contexts |
+| Root agent guidance and paired skills | Current commands, gates and regression lessons |
+| `docs/wiki/` | Contribution workflow and shipped status; publication follows protected merge |
+
 Every user-visible string must be wrapped for translation. See `docs/08-crosscutting-concepts/` section 8.3.
 
 **i18n blind-spot fixes (2026-10-04).** Three defects invisible to `test_german_ts_has_no_unfinished` are fixed together: **#393** (five duplicate `TRANSLATIONS` keys shadowed 62 strings; the five `PdfReportService` journal-notes strings never reached `de.ts`, so the German PDF printed English), **#408** (generated soil-amendment task titles stayed English; the task **id** keeps the English data name so saved done/snooze status survives a language switch), and **#410** (the agent `suggest_companions` `name` now follows the UI language, matching the Companion panel). The CI lint step is widened to `ruff check src/ tests/ scripts/`, and `tests/unit/test_i18n.py::TestTranslationRegistry` pins `TRANSLATIONS` key uniqueness with an `ast` parse. See §11.4, §8.19, and the ADR-045 addendum.
@@ -2933,3 +2963,112 @@ Epic #392 remains open; other audit bundles and #485 remain separate.
 | Risk register / reconciliation | AUD-012/023, TD-038/039 and measured all-pinned pitfall |
 | Agent context / mirrored debug skill | Shipped status and failing-first evidence |
 | Wiki sources | Shipped A5 status, descriptor/solver boundary and evidence link; ADR-051 publication |
+
+### Worker lifecycle safety, cache bounds and test hygiene package (#480, #483, #482, #474, #449, #448)
+
+**Complete, 2026-10-16; released as [v1.30.7](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.7) via [PR #498](https://github.com/cofade/open-garden-planner/pull/498), closing #480, #483, #482, #474, #449, #448 after owner acceptance.**
+- **#480 & #483 (Worker thread exit safety)**: Deterministic `cancel()` flag and `shutdown()` handshake for `UpdateChecker` and `_WeatherFetchWorker`. When a thread cannot be joined within timeout_ms (e.g. blocked in synchronous urllib.request.urlopen), the worker is retained in `core.worker_lifecycle._RETIRING_WORKERS` until its finished signal is handled, preventing premature garbage collection and C++ `~QThread()` destruction (`0xC0000409` aborts). Clean encapsulation via `PlantingCalendarView.shutdown()`. Pinned in `tests/unit/test_worker_lifecycle.py`, `tests/unit/test_update_checker.py` and `tests/integration/test_weather_widget.py`.
+- **#482 (Redundant closure cleanup)**: Removed redundant closure connecting to `self.destroyed` in `GlobalSearchField`. Cleaned up unused `contextlib` import. Pinned in `tests/unit/test_global_search.py`.
+- **#474 (Furniture renderer dimension and cache memory bound)**: Clamped maximum furniture dimensions to `MAX_FURNITURE_DIMENSION_PX = 2048` (returning fallback on <= 0, inf, or NaN); capped furniture pixmap cache to `64 MB` with LRU eviction and memory budget tracking. Pinned in `tests/unit/test_furniture_renderer.py`.
+- **#449 (FR-AGENT ID uniqueness)**: Renamed duplicate `FR-AGENT-27` to `FR-AGENT-29` in `docs/functional-requirements.md` and added regression gate in `tests/unit/test_ci_quality_gates.py`.
+- **#448 (Test environment flakiness)**: Decorated `test_type_cli_missing_mypy_is_an_error_not_a_clean_result` with skipif for non-3.11 interpreters matching `test_type_cli_generate_check_regress_and_reduce`. Added multi-round retry and local load tolerance to `tests/perf/test_nfr_budgets.py` while keeping CI budgets strict.
+- **Shortcut overload resolution**: Dedicated `Ctrl+F` to global search focus in `CategoryToolbar` and reassigned Find & Replace to `Ctrl+H` in `GardenPlannerApp`, eliminating ambiguous shortcut overload warnings with whole-window duplicate shortcut assertion gate.
+
+
+### 2D canvas follow-up: a paint bound, one look rule and a line budget (#470, #472, #473, #502)
+
+**Complete, 2026-10-17; released as [v1.30.8](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.8) via [PR #501](https://github.com/cofade/open-garden-planner/pull/501) after owner acceptance.**
+
+Three pre-existing 2D defects found during the Phase 17 L1 work (#385), shipped together
+because none touches the in-flight L1 branch's files (see ADR-057, §8.28, §11.4.9). #502 came
+from the owner's manual pass of that PR. Independent review of the package also caught two
+defects the green suite had passed over — the #472 degrade never ran in the product (it tested
+Qt's `widget`, which is always `0` for a *cached* paint, so the condition was never true on the
+canvas; it now keys on the item's cache mode), and the #502 round-trip test styled items with a
+colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see §11.4.9 and §11.4.10.
+#503 was filed from the same review for the identical `widget` idiom in the LOD flat fill.
+
+- **#502 (manual pass of #501)**: a textured fill did not show the chosen colour - the runtime tint was a
+  31 % wash (`_tint_texture`, alpha 80/255), so a light-green fill over the Roof Tiles texture rendered the standard
+  brown (`#ca6846` → `#b8925d`); raising the wash flattened the low-contrast materials. Replaced by a **luminance map**
+  (chosen colour × the texture's relative luminance), which makes the colour read and preserves relative contrast by
+  construction (ADR-042 addendum). The same pass showed the Properties panel disagreeing with the canvas after a
+  reload: the loader rebuilt the brush/pen but never restored the stored appearance attributes, so the panel showed the
+  object type's defaults and the next save wrote them over the user's colours — the loader now restores them through
+  `core/item_look.restore_stored_look` (#438/#469). The §8.10 gate gained the pale-colour case and a relative-contrast
+  assertion (reverting the tint fails 19 of 48 cases); `tests/integration/test_item_appearance_roundtrip.py` pins the
+  rendered pixels across all five shapes and the Ctrl+D duplicate. Lesson in §11.4.10.
+- **#472 (Bounded polygon paint)**: `PolygonItem` painted any vertex count a plan held, and a
+  reflex-heavy outline makes one antialiased fill quadratic (measured with the item's own pen:
+  ~322 ms at 1,024 vertices, ~5.6 s at 16,384). Full detail is now bounded by
+  `MAX_FULL_DETAIL_VERTICES = 256`; above it an interactive, unselected paint draws the exact
+  outline with a **cosmetic** 1-px pen (essential — a wide solid pen makes the outline a fill
+  again), while exports/offscreen renders and selected items keep the exact fill.
+  `MAX_POLYGON_VERTICES = 16_384` refuses a hostile
+  polygon at the load seam without dropping the rest of the plan. Pinned in
+  `tests/integration/test_polygon_paint_bound.py`.
+- **#470 (Offset copy keeps its look)**: the offset tool made a rectangle, circle or ellipse copy
+  in its object type's default fill, pattern and stroke. One seam, `core/item_look.py::
+  copy_visual_style`, now copies both the serialized attributes and the pen/brush, and is shared
+  with `mirror_geometry` (chamfer/fillet/trim stay with #441 on the L1 branch). Pinned in
+  `tests/integration/test_offset_tool.py`.
+- **#473 (Line paint in the budgets)**: the NFR-PERF-01 reference plan held no polyline, so the
+  three budget scenarios could not see a slower line paint. A second scenario adds plain fences
+  and a styled gravel path to the same plan, with their item cache **disabled** so `paint()` runs
+  every frame, pinned deterministically by a `cacheMode()` guard and behaviourally by a same-run
+  delta; an absolute per-frame budget for the styled lines stays with #450. Pinned in
+  `tests/perf/test_nfr_budgets.py`.
+
+### Shipped v1.30.10: the #409 low-zoom flat fill is removed; the cache-mode predicate is kept (#503, PR #507)
+
+- **#503 (LOD flat fill never fired)**: filed by #501's independent review against its own work —
+  `GardenItemMixin.should_use_lod_flat_fill` (the #409 low-zoom flat fill) decided "interactive"
+  with `widget is not None`, but Qt passes `widget = 0` for every **cached** paint and every
+  unselected canvas item is `DeviceCoordinateCache`, so the branch never ran in the product
+  (measured through a real `CanvasScene` + `CanvasView`: one call per paint, no widget, `False` at
+  every view state) and its tests passed only because they called the helper directly.
+
+  **Resolved by deletion, not by repair** — issue #503 offered both repairs explicitly. The guard
+  was first fixed so the branch ran, then measured on the reference plan it was written for
+  (990 items, best of seven rounds, both scenarios below the 0.4 threshold): `fit_in_view` at zoom
+  0.316 read **10.61 / 11.50 ms median with the flat fill off, 10.87 ms with it on**, and
+  `zoom_step` at 0.348 read **7.97 / 7.98 ms off, 8.20 ms on** — the effect sits below this
+  harness's noise (within-arm variation 8 % against a 0.26 ms between-arm difference, and
+  no reversed-order run was taken, so no claim about which arm is faster survives). All six
+  `tests/perf/test_nfr_budgets.py` cases pass either way, worst reading 12.21 ms against the
+  16.70 ms budget. The earlier single-pair reading (10.58/10.64, 8.21/7.40) is superseded: it
+  put the `zoom_step` sign the other way round.
+  `DeviceCoordinateCache` rasterises a textured item once and every later frame is a blit, so the
+  textured `paint()` the LOD existed to avoid was already amortised by the sibling fix from #409;
+  the branch could only ever subtract detail. The owner's manual pass then settled what the
+  measurement could not: at 20–25 % zoom — where they work, well under the threshold — every
+  texture, plant sprite and furniture sprite would have become a solid colour, and the paint-level
+  diagnostics drawn after the fill branch would have been skipped.
+
+  **Shipped:** `should_use_lod_flat_fill`, `get_lod_fill_color` and `LOD_FLAT_FILL_THRESHOLD`
+  deleted, along with seven call sites in the rectangle, circle, ellipse and polygon items; no
+  zoom-dependent simplification remains in the canvas. `is_interactive_paint` is **kept** — it is
+  the one definition of "which paint is this", and #472's paint bound needs it for real (44.7 ms at
+  1,024 vertices, 589 ms at 16,384); its docstring now records that it classifies paints and does
+  not decide detail. #472's suite is restored to its pre-#507 state in full, including its
+  fit-in-view harness zoom; the low-zoom seam pair and the 100 %-zoom workaround served only the
+  removed branch.
+
+  **The pin inverts, and is parametrised over branches rather than classes.** The seven deleted call
+  sites were never seven instances of one thing: two sat inside `if is_plant` and two inside
+  `if is_furniture_type`, behind type predicates a `GENERIC_*` fixture never satisfies, so a
+  table of the four generic shapes watched only four of seven — and the three unwatched ones are
+  exactly the sprite paths the owner's manual pass objected to. Measured by mutation: a `< 0.4`
+  flat fill in a plant branch renders a `TREE` circle from interior intensity std 43.09 to 0.00,
+  a flat brown disc, while 212 tests in the repo stayed green. The table now carries seven entries
+  (the four generic shapes plus a plant circle and furniture rectangle/circle), each rendered
+  through a real `CanvasView` at five zoom levels — 0.1, 0.25, 0.4, 0.75, 1.0 — plus the export
+  path, asserting the interior still carries its texture's luminance spread with a **lower bound
+  only**, so a future change may soften a texture but cannot delete it. Re-introducing a `< 0.4`
+  flat fill is caught at **all seven** call sites, mutation-verified per site. The sampled interior
+  is the item's own `QGraphicsItem.shape()` — not its bounding box, whose corners are page
+  background for three of the four shapes; not a second paint, which any flat-fill branch
+  overrides on its way through; not alpha, because the scene paints an opaque background — and
+  `TestTheMaskIsTheItem` asserts that invariant, because a mask in the wrong coordinate frame does
+  not fail, it *reads background*, which is what a luminance statistic calls texture. ADR-057
+  addendum, §11.4.11.

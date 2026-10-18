@@ -189,3 +189,7 @@ api_keys.json
 
 # Code statistics
 .VSCodeCounter/
+
+# Lock created by scripts/verify_lod_removal_mutations.py while it rewrites
+# live canvas source files; never belongs in the tree.
+scripts/.verify_lod_removal_mutations.lock

@@ -243,9 +243,10 @@ Pre-defined object types for common property elements:
 - **FR-I18N-01**: All UI strings translatable via Qt Linguist (tr() calls)
 - **FR-I18N-02**: English as default language
 - **FR-I18N-03**: German translation shipped at launch
-- **FR-I18N-04**: Language selectable in Settings
+- **FR-I18N-04**: Language selectable via View > Language; restart applies the saved choice
 - **FR-I18N-05**: Extensible: contributors can add languages via .ts files
 - **FR-I18N-06**: Plant scientific names not translated (Latin)
+- **FR-I18N-07**: All registered target languages must completely cover the source-derived UI key set. Both new UI strings and new language registrations require complete catalogs, valid placeholders and matching compiled output before merge. Missing localized companion explanations fall back to English; German explanations are selected only for German (#496).
 
 ## FR-12: Visual Rendering
 
@@ -582,7 +583,7 @@ Acceptance: `tests/unit/test_stacking.py` (the Qt-free arrange algorithm — nor
 - **FR-GUILD-02**: New/existing-centre insertion preflights mature-spacing/numeric ring layout, all species/layers and boundaries before one undoable command. Cancel/refusal makes no plan/history mutation.
 - **FR-GUILD-03**: Explicit metadata membership remains independent of Qt groups and plant parents. Coverage counts recorded functions once per assigned plant; multifunctional members may cover multiple roles. Existing instances retain template snapshots. Centre deletion dissolves surviving links in the same undo step; complete copies remap IDs and partial copies omit membership.
 - **FR-GUILD-04**: Centre badges, Companion Guilds and the general Diagnostics panel share computed guild warnings with MCP. Malformed saved guild metadata is preserved and excluded with a data warning. UUID navigation and idempotent debounced refresh avoid stale item references and repaint loops.
-- **FR-AGENT-27**: Read-only curated species/object traits and structured diagnostic details add `guild_role_missing` and `guild_data_warning` without new trait writes or authentication changes. Existing diagnostic fields and English API messages are retained.
+- **FR-AGENT-29**: Read-only curated species/object traits and structured diagnostic details add `guild_role_missing` and `guild_data_warning` without new trait writes or authentication changes. Existing diagnostic fields and English API messages are retained.
 
 ### FR-SUN-09: Cached sun-requirement diagnostics (US-F3, #314)
 

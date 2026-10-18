@@ -7,6 +7,48 @@ argument: "Optional: short description of the bug or area to instrument"
 
 # Verbose Debug Instrumentation
 
+## Case study: compiled catalogs passed while current UI keys were missing (#496)
+
+**Symptom.** A newly registered Russian locale passed existing tests while current UI
+labels remained English. The contributor guide incorrectly said all locales were checked.
+
+**Wrong theories.** A successful compile and the absence of unfinished German entries
+were not evidence of source coverage. No alternative runtime theory was adopted before
+the extraction/compilation probes.
+
+**Evidence.** Fresh standard extraction found 36 keys absent from German; tagged
+`[496-INVENTORY] 2631` output included audited helper/table and bundled species sources.
+Six regressions failed first: blank/whitespace targets, nonempty unfinished targets,
+missing placeholders, vanished output and the third-language German reason fallback.
+
+**Root cause.** Required keys came from stale catalogs rather than independent source.
+The compiler synthesized source fallbacks and did not enforce translation state. The
+companion service used a binary English/else-German language choice.
+
+**Fix.** Derive source keys, bind finite dynamic sources to their production tables,
+validate every registered locale and compiled lookup, and reject unresolved sources.
+Compile only completed active records. Select German reasons only for de. Temporary
+tagged probes were kept outside production; no debug prints remain in committed code.
+
+**Lesson.** Test both additions to the source axis and additions to the locale axis.
+An equal count or a fixture generated from an incomplete catalog cannot prove coverage.
+Pinned by the translation gate unit/integration tests and the required Test check.
+
+## Case study: QThread destroyed while still running on window close (issues #480, #483, 2026-10-15)
+
+**Symptom.** Closing the application window while a network worker (such as the update checker or weather forecast worker) is in-flight crashes or aborts with code `0xC0000409` and Qt fatal error `QThread: Destroyed while thread is still running`.
+
+**Wrong theories.** Blaming Python garbage collection order or relying solely on daemon threads. Python daemon threads do not prevent Qt's C++ object tree destructor `~QThread()` from terminating the process when a parent `QObject` is deleted while its child `QThread` is active.
+
+**Evidence.** Triggering an update check or weather fetch and immediately closing the main window resulted in an abnormal exit (`0xC0000409`). Inspecting `GardenPlannerApp.closeEvent` showed `UpdateChecker(self)` had the application window as parent and lacked a cancellation/shutdown handshake.
+
+**Root cause.** When `GardenPlannerApp` closes and is destroyed, its C++ child `QObject`s (including `UpdateChecker` and weather fetch workers) are destroyed. Because network operations block synchronously in `run()`, the thread was still running when Qt's C++ `~QThread()` ran, triggering `qFatal`. Furthermore, signals emitted by in-flight threads could invoke slots on destroyed receivers. If unparented, Python GC could delete the wrapper object while running, triggering the same C++ destructor abort.
+
+**Fix.** Provide an explicit `cancel()` flag and `shutdown()` handshake on background workers (`UpdateChecker`, `_WeatherFetchWorker`). In `shutdown()`, mark cancelled, suppress disconnect errors to detach all signal listeners, clear the QObject parent via `setParent(None)` so window destruction does not destroy the active thread, issue a short `wait()`, and retain in `core.worker_lifecycle._RETIRING_WORKERS` until the `finished` signal fires. Call `shutdown()` in `closeEvent` for update check and weather services alongside the sun heatmap worker. Pin with lifecycle integration and cancellation unit tests. Remove temporary prints before committing.
+
+**Lesson.** Every background `QThread` attached to a parent `QObject` must have a deterministic cancellation and shutdown protocol before parent destruction. Never let `~QThread()` run while `isRunning()` is true.
+
+
 ## Case study: a fast worker fails a GUI heartbeat count (PR #490, 2026-10-14)
 
 **Symptom.** One CI Test job failed `test_explicit_worker_keeps_gui_responsive`
@@ -601,7 +643,7 @@ Three brand-new fields were declared on the dataclass (US-12.10d) but never adde
 
 **Key signal**: visually, the closing segment looked like a *single hairline*, while the other edges were a clean 4 px stroke. That's the signature of stroking a thin-band shape: the outline gets a 4 px stroke but the band itself is < 4 px wide.
 
-**Root cause**: Qt's `QGraphicsPolygonItem.shape()` (bypassed at `ui/canvas/items/garden_item.py:1026` `drawPolygon`) does **not** return the polygon's outline. It returns the *stroke envelope* — a closed band path that's the polygon outline expanded by the pen width, intended for hit-testing (so clicking near the edge counts as a hit). Stroking that band's outline produces the observed double-line effect, with the addPolygon-induced open seam reduced to a thin closing line.
+**Root cause**: Qt's `QGraphicsPolygonItem.shape()` (bypassed at `ui/canvas/items/garden_item.py:1073` `drawPolygon`) does **not** return the polygon's outline. It returns the *stroke envelope* — a closed band path that's the polygon outline expanded by the pen width, intended for hit-testing (so clicking near the edge counts as a hit). Stroking that band's outline produces the observed double-line effect, with the addPolygon-induced open seam reduced to a thin closing line.
 
 **Fix**: When the item has a `polygon()` method (i.e. it *is* a `QGraphicsPolygonItem`), bypass `shape()` entirely and use `painter.drawPolygon(self.polygon())`. That uses the raw vertex list and produces a uniform stroke on every edge with proper miter joins. Rect / circle / ellipse keep the `drawPath(self.shape())` fallback because their `shape()` *does* return a closed outline.
 
@@ -2063,3 +2105,148 @@ Pure huge-finite Qt path rendering limits preserve the serialized model and stay
 outside A1; no coordinate cap or zero-length rejection was introduced.
 **Lesson.** Validate primitive arithmetic when invalid geometry can collapse to an
 empty bounding rectangle. Keep the detached Qt composition gate as well.
+
+
+## Case study: a complete catalog can hide the wrong source inventory (#496 review)
+
+**Symptom.** The new gate passed, yet helper keyword calls and unmarked table members
+were absent; offset-tool status text still appeared in English with German installed.
+**Wrong theory.** Marker presence and an enclosing class identify every runtime key.
+**Evidence.** Four independent mutation tests failed first. A real CanvasView/OffsetTool
+regression returned `Select a shape to offset` instead of the German status message.
+**Root cause.** Helper keyword arguments were skipped; marker scans omitted plain table
+values; dynamic disambiguation was discarded; `.tr()` inherited the caller's context
+instead of its receiver's context.
+**Fix.** Bind supported helper arguments, enumerate complete display fields/values,
+preserve dynamic comments, require explicit external receiver contexts, and translate
+offset status through CanvasView explicitly. Reject escaping/imported helper aliases.
+**Lesson.** Validate extraction with mutations at real production source shapes and
+runtime lookups, not only against catalogs generated from that same extractor.
+
+## Case study: a fill that costs minutes, and the frame it froze (#472, 2026-10-16)
+
+**Symptom.** A crafted plan froze the 2D canvas for minutes, with no crash and no log line.
+**Wrong theories.** The cost was in item lookup/snapping; the loader was the bottleneck; a plant or tree sprite was the expensive item; my own first fix ("bound the vertex count, draw the outline instead of the fill") bounded it.
+**Evidence.** Painting the issue's comb into an offscreen 512x512 `QImage` and timing `PolygonItem.paint` **with the item's own pen**, not a default painter pen. Full-detail fill: 38 ms at 256 vertices, 322 ms at 1024, 1449 ms at 4096, 5580 ms at 16384. The same shape stroked as "the outline": **35 / 319 / 640 / 2547 ms** - barely cheaper, because Qt strokes a *wide solid* pen by building a fill. The same outline with a **cosmetic** 1-px pen: 2 / 4 / 20 / 69 ms. A convex 4096-vertex polygon fills in a few milliseconds - the cost is reflex geometry, not size.
+**Root cause.** `PolygonItem.paint` called `painter.drawPolygon` on whatever vertex count the file held; nothing bounded it at load and nothing degraded the paint. Qt's rasteriser is quadratic on a reflex-heavy fill, and the first draft's bound sat at the very count the report called pathological (1024) while its "outline" reuse of the item's pen stayed quadratic.
+**Fix.** Bound full detail at 256 vertices; degrade an interactive, unselected over-budget paint to the exact outline with a **cosmetic** pen and no fill (exports and selected items keep the exact fill); refuse a polygon above 16384 at the load seam. ADR-057, section 8.28.
+**Lesson.** A degraded path must be measured with the same inputs as the slow one - the pen the item actually uses, not a convenient default - or you have bounded the shape, not the paint. And a bound set at the count the bug report quotes as pathological does not fix the report.
+
+## Case study: a copy that looked right until the next save (#470, 2026-10-16)
+
+**Symptom.** The offset tool's copy of a rectangle, circle or ellipse came back in its object type's default fill, pattern and stroke, while a polygon or line copy "kept all of it".
+**Wrong theories.** The offset geometry was wrong; the style dialog never applied the look; the serializer dropped the colour.
+**Evidence.** After the offset the copy's `fill_pattern`/`stroke_style` read as the type default and the save -> reload pen reverted, although the in-session pen/brush on the polygon path looked correct. One row of a save/reload round-trip test separated the two representations.
+**Root cause.** An item carries its look twice - live (`QPen`/`QBrush`) and serialized (`fill_pattern`/`fill_color`/`stroke_color`/`stroke_width`/`stroke_style`). The rectangle/circle/ellipse path copied neither; the polygon/line path copied only the live pair, so it looked right until the next save. Two failures, one defect.
+**Fix.** One seam, `core/item_look.py::copy_visual_style`, copies both; the offset tool and `mirror_geometry` share it.
+**Lesson.** A copy that writes only one of an item's two appearance representations is a round-trip bug a rendering test cannot see - assert through the save/reload boundary.
+
+## Case study: a bound that was never reached, and a test value that could not fail (#472/#502 review, 2026-10-17)
+
+**Symptom.** Nothing. The polygon paint bound shipped green, the tests passed, and the owner's plan painted correctly. Independent review found the degrade never executed in the product, and a sibling test asserted a value that could not fail.
+**Wrong theories.** That the degrade threshold was too high (it was 256, already measured); that Qt's `widget` argument was being passed where the guard expected it; that the failing perf budget was a regression from the fix.
+**Evidence.** A spy on `PolygonItem.paint` through a real `CanvasScene` + `CanvasView`: an unselected item is `DeviceCoordinateCache`, and the paints that actually run (cache regeneration, forced by `view.resetCachedContent()`) arrive with `widget = None`; `widget` is present only when the item is `NoCache`. The old guard was `... and widget is not None`. Separately, deleting only the `fill_color` restore from `restore_stored_look` left `test_the_look_survives_a_second_save` **passing**, because its fill colour was the owner's green `#ff90ee90` - which is `GENERIC_RECTANGLE`'s default `fill_color`. Re-pointing the test at a colour that collides with none of the 52 `OBJECT_STYLES` entries made the same mutation fail.
+**Root cause.** Two flavours of the same error - an idempotent condition in the guard or in the assertion. `widget is not None` looked like "is this an interactive paint" because that is what the LOD flat fill's own comment claims, but Qt passes `widget = 0` for every *cached* paint and unselected canvas items are cached, so the condition was never true on the canvas that matters; the render paths that must keep full detail are exactly the ones that disable caches first. And `after.fill_color == item.fill_color` holds identically when the loader writes nothing back and the constructor default happens to be the user's colour.
+**Fix.** The #472 degrade now keys on the item's **cache mode** (`widget is not None or self.cacheMode() != NoCache`), and `tests/integration/test_polygon_paint_bound.py` drives a real `CanvasView` plus the real `ExportService._disable_item_caches` convention - it fails on the old guard (3 of 12 cases). The round-trip tests use a non-default `USER_FILL`, guarded by a test that walks every object type; the owner's literal green stays as its own case, labelled as a tint regression rather than restore evidence. The same `widget` idiom in `should_use_lod_flat_fill` is filed as **#503**, out of scope here.
+**Lesson.** A guard borrowed from a neighbouring file is a hypothesis, not a fact - check that its condition is ever true on the path you are protecting, because caching can make it permanently false. And a regression test proves nothing when its chosen value equals the value the defect leaves behind; if the value must be realistic, prove the non-default separately. Verify both by mutation in the same sitting as the fix: a test that passes on the broken code is exactly the failure a test cannot report about itself.
+
+## Case study: a dormant optimisation, the measurement that killed it, and a fix that was the wrong fix twice (#503, 2026-10-17)
+
+**Symptom.** Nothing. The LOD flat fill's comment and tests say it fires below 0.4 zoom during
+interactive painting; the product never showed it. The issue was measured by review, not by a
+failure.
+
+**Wrong theories.** That the threshold was the problem; that the polygon-bound fix had already
+covered "the same trap" because its issue said so; and - the one that cost the most - that
+"the cheap correct fix is one discriminator", so deleting the branch was dismissed as losing
+#409's design intent rather than repairing it. That reasoning was reasonable, unmeasured, and
+wrong: the branch was carried to production on the strength of an argument about a guard rather
+than a number about the workload.
+
+**Evidence, in two rounds.** Round 1 - reachability. A real `CanvasScene` + `CanvasView`, one
+textured `GARDEN_BED` rectangle: `should_use_lod_flat_fill` is called once per paint with **no**
+widget at `fit_in_view` and after four `zoom_out()`s, and returns `False` every time; a
+`NoCache` control item - a state no unselected canvas item is ever in - sees a widget and
+returns `True`. Keying the guard on the cache mode made it fire: a rendered-pixel measure
+(fill-intensity spread of a deep-blue tint over the roof-tile texture) went **13.61 -> 0.00** at
+0.25 zoom, with textured controls at 20.1.
+
+Round 2 - the question reachability cannot answer. Measured on the reference plan the branch was
+written for (990 scene items, 1600x1000 view, seven rounds of fifteen repaints), both scenarios
+below the 0.4 threshold: `fit_in_view` at zoom 0.316 read **10.61 and 11.50 ms median with the
+flat fill disabled, 10.87 ms with it live** - the arms' ranges overlap entirely; `zoom_step` at
+0.348 read **7.97 / 7.98 ms disabled, 8.20 ms live**. All six `tests/perf/test_nfr_budgets.py`
+cases pass with the branch stubbed to `return False`, worst reading 12.21 ms against the 16.70 ms
+budget. The reason is structural and was visible in the code all along: `DeviceCoordinateCache`
+rasterises a textured item **once** and every later frame is a cheap blit, so the expensive
+textured `paint()` the LOD existed to avoid was already amortised by the sibling fix from the
+same PR. The branch could only pay per *cache regeneration*; the acceptance metric is
+steady-state repaint.
+
+What the measurement establishes is that the effect sits **below this harness's noise**:
+within-arm variation is 8 % against a 0.26 ms between-arm difference, and no reversed-order run
+was taken, so no claim about which arm is faster survives. An earlier single-pair reading
+(10.58/10.64, 8.21/7.40) is **superseded** - it put the `zoom_step` sign the other way round, and
+a draft of this very case study asserted the ordering it implied and was wrong on its own
+numbers. *A conclusion drawn from one ordering of a noisy measurement is the same class of
+mistake as a guard whose condition was never true: both are confident and both are unfounded.*
+
+**Root cause, twice over.** The `widget is not None` idiom, for the third recorded time (#472's
+first draft, then the LOD guard, then #472's suite) - Qt passes `widget = 0` for every
+*cached* paint and every unselected canvas item is `DeviceCoordinateCache`, while the tests
+called the helper directly with a fabricated widget. And beneath that, a second defect no guard
+could fix: the branch's *premise* was never tested. It assumed the textured paint was a
+per-frame cost, and the cache that shipped beside it had already made that false.
+
+**Fix.** Deleted: `should_use_lod_flat_fill`, `get_lod_fill_color`, `LOD_FLAT_FILL_THRESHOLD` and
+seven call sites across the rectangle, circle, ellipse and polygon items. Kept:
+`is_interactive_paint`, which the #472 paint bound needs for real (a cached 1,024-vertex comb is
+44.7 ms at full detail, 589 ms at 16,384); its docstring now says it classifies paints and does
+not decide detail. `tests/integration/test_canvas_item_cache.py` (renamed) renders a textured,
+tinted `RectangleItem` through a real `CanvasView` at five zoom levels plus the export path and
+asserts the texture's luminance spread survives - **lower bound only**, so a future change may
+soften a texture but cannot delete it. Re-introducing a `< 0.4` flat fill fails the 0.1, 0.25 and
+export cases.
+
+**The sibling suite's part, in both directions.** With the branch live,
+`tests/integration/test_polygon_paint_bound.py` failed 3 of 12: its below-budget polygons carry
+`LAWN`'s pre-seeded `GRASS` pattern and a *test-only* magenta brush, so at the harness's
+fit-in-view zoom (0.35 < 0.4) the canvas now *correctly* painted the designed flat fill and the
+magenta count went to zero. The harness was moved to 100 % zoom and a low-zoom seam pair was
+added. When the branch was then deleted, **all of that work was reverted** - the suite is back to
+its pre-#507 state in full. A seam test for a deleted feature encodes the deletion as a contract.
+
+**The pin took two rounds and was vacuous for most of it.** The replacement is
+`tests/integration/test_canvas_item_cache.py`, parametrised over rectangle, circle, ellipse and
+polygon, each rendered through a real `CanvasView` at five zoom levels plus the export path, with
+the interior sampled from the item's own `QGraphicsItem.shape()` rather than its bounding box: the
+box's corners are page background for three of the four shapes, so a *solid* circle measured as
+high-contrast and the pin passed while the branch was firing. Then two further holes. The seven
+deleted call sites were not seven instances of one thing - two sat behind `if is_plant` and two
+behind `if is_furniture_type`, which a `GENERIC_*` fixture never enters, so four shapes watched
+four of seven and the three unwatched were exactly the sprite paths; a flat fill in a plant branch
+took a `TREE` circle from interior std 43.09 to 0.00 while 212 tests in the repo stayed green.
+And the export mask applied the render scale but forgot the `-source.topLeft()` translation
+`QGraphicsScene.render` composes in, so the circle's export case passed at spread 45.97 with a
+flat fill live and read 1.67 once aligned. All seven sites are caught now, mutation-verified per
+site, and `TestTheMaskIsTheItem` asserts the invariant every other test silently depends on: the
+masked interior must be measurably darker than the page behind it. The calibration tells the same
+story from the other side - the four textured shapes' export column *converges* on 15.47-16.02
+once aligned, where the displaced mask gave 15.83 / 37.27 / 49.85 / 16.37.
+
+**CI's part, and the lesson it bought.** The first pixel regression found its sample region by
+matching blue-ish pixels image-wide, and the Linux/offscreen CI failed it at spread 62.59 (Windows
+measured 0.00) because the scene's faint background passed the filter. One red CI job taught the
+rule that then had to be re-taught twice more: *a sampler that reads background does not fail - it
+reports the contrast between background and fill, which is precisely what the statistic was built
+to see.* Sampling must be computed from geometry and checked, never discovered from the pixels.
+cannot fail for being small rather than wrong. One red CI job bought that lesson.
+
+**Lesson.** Reachability is necessary, not sufficient - before promoting a dormant path, ask
+whether it earns the degradation it costs, on the workload it was written for, and treat a
+number you have not taken as an argument you have not had. "The cheap fix is one shared
+predicate" was true *as a repair of the guard* and wrong *as a decision about the feature*:
+fixing the guard is what made the feature's cost visible, and the cost is information. Deleting
+a feature leaves no test that fails when it returns, so replace its tests with a negative pin
+rather than dropping them. And when a fix makes a dead branch live, run the sibling suites - then
+be willing to revert the collateral if the branch does not survive.

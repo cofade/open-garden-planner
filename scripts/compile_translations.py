@@ -16,8 +16,17 @@ References:
 
 import struct
 import sys
-import xml.etree.ElementTree as ET
 from pathlib import Path
+
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.i18n_catalog import (  # noqa: E402
+    CatalogError,
+    active_messages,
+    read_catalog,
+    validate_messages,
+)
 
 # .qm file constants
 QM_MAGIC = b"\x3C\xB8\x64\x18\xCA\xEF\x9C\x95\xCD\x21\x1C\xBF\x60\xA1\xBD\xDD"
@@ -127,51 +136,14 @@ def _build_message_entry(
 
 
 def parse_ts_file(ts_path: Path) -> list[dict[str, str]]:
-    """Parse a Qt .ts file and extract all translation messages.
-
-    Returns a list of dicts with keys: context, source, translation, comment.
-    Only includes messages where translation is not empty and not marked
-    as unfinished with type="unfinished".
-    """
-    tree = ET.parse(ts_path)
-    root = tree.getroot()
-    messages = []
-
-    for ctx_elem in root.findall("context"):
-        context_name = ctx_elem.findtext("name", "")
-
-        for msg_elem in ctx_elem.findall("message"):
-            source = msg_elem.findtext("source", "")
-            if not source:
-                continue
-
-            trans_elem = msg_elem.find("translation")
-            if trans_elem is None:
-                continue
-
-            translation = trans_elem.text or ""
-
-            # Skip unfinished translations (empty or marked unfinished)
-            trans_type = trans_elem.get("type", "")
-            if trans_type == "unfinished" and not translation:
-                continue
-
-            # Use translation if available, otherwise fall back to source
-            if not translation:
-                translation = source
-
-            comment = msg_elem.findtext("comment", "")
-
-            messages.append(
-                {
-                    "context": context_name,
-                    "source": source,
-                    "translation": translation,
-                    "comment": comment,
-                }
-            )
-
-    return messages
+    """Read validated singular messages; incomplete targets are build errors."""
+    locale, messages = read_catalog(ts_path)
+    errors = validate_messages(messages, locale.replace("-", "_").split("_")[0])
+    if errors:
+        raise CatalogError("\n".join(errors))
+    return [{"context": m.key.context, "source": m.key.source,
+             "translation": m.translation, "comment": m.key.comment}
+            for m in active_messages(messages)]
 
 
 def compile_qm(messages: list[dict[str, str]]) -> bytes:

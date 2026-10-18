@@ -189,3 +189,54 @@ class TestClearCache:
         clear_furniture_cache()
         pixmap = render_furniture_pixmap(ObjectType.CHAIR, width=50, height=50)
         assert pixmap is not None
+
+
+class TestFurnitureRendererBoundsAndCache:
+    """Tests for dimension clamping and byte cache budget (#474)."""
+
+    @pytest.fixture(autouse=True)
+    def clean_cache(self) -> None:
+        clear_furniture_cache()
+        yield
+        clear_furniture_cache()
+
+    def test_unbounded_dimensions_clamped_to_max(self, qtbot: object) -> None:  # noqa: ARG002
+        from open_garden_planner.core.furniture_renderer import MAX_FURNITURE_DIMENSION_PX
+
+        # Request huge dimensions (e.g. 10,000 px)
+        pixmap = render_furniture_pixmap(ObjectType.CHAIR, width=10000, height=5000)
+        assert pixmap is not None
+        assert pixmap.width() <= MAX_FURNITURE_DIMENSION_PX
+        assert pixmap.height() <= MAX_FURNITURE_DIMENSION_PX
+        assert pixmap.width() == MAX_FURNITURE_DIMENSION_PX
+        assert pixmap.height() == MAX_FURNITURE_DIMENSION_PX // 2
+
+    @pytest.mark.parametrize("dim", [0, -10, float("nan"), float("inf"), float("-inf")])
+    def test_invalid_dimensions_return_none(self, qtbot: object, dim: float) -> None:  # noqa: ARG002
+        assert render_furniture_pixmap(ObjectType.CHAIR, width=dim, height=50) is None
+        assert render_furniture_pixmap(ObjectType.CHAIR, width=50, height=dim) is None
+
+    def test_byte_budget_eviction(self, qtbot: object) -> None:  # noqa: ARG002
+        import open_garden_planner.core.furniture_renderer as fr
+
+        # Render multiple items at 1024x1024 (each ~4MB)
+        # Verify that total cache bytes never exceed _PIXMAP_CACHE_MAX_BYTES
+        for i in range(25):
+            render_furniture_pixmap(ObjectType.CHAIR, width=1000 + i, height=1000 + i)
+
+        assert fr._current_cache_bytes <= fr._PIXMAP_CACHE_MAX_BYTES
+        assert len(fr._pixmap_cache) > 0
+
+    def test_lru_recency_preserves_accessed_entry(self, qtbot: object) -> None:  # noqa: ARG002
+        import open_garden_planner.core.furniture_renderer as fr
+
+        render_furniture_pixmap(ObjectType.CHAIR, width=100, height=100)
+        render_furniture_pixmap(ObjectType.CHAIR, width=200, height=200)
+
+        # Access 100x100 to promote it to most recent
+        render_furniture_pixmap(ObjectType.CHAIR, width=100, height=100)
+
+        keys = list(fr._pixmap_cache.keys())
+        assert keys[-1].endswith(":100:100")
+
+

@@ -4,6 +4,7 @@ from typing import Any
 
 from open_garden_planner.services.update_checker import (
     ReleaseInfo,
+    UpdateChecker,
     compare_versions,
     parse_release_info,
 )
@@ -131,3 +132,68 @@ class TestParseReleaseInfo:
         }
         info = parse_release_info(data)
         assert info.html_url == "https://github.com/cofade/open-garden-planner/releases/tag/v1.0.0"
+
+
+# ---------------------------------------------------------------------------
+# UpdateChecker thread lifecycle & cancellation (#480)
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateCheckerLifecycle:
+    """Tests for UpdateChecker background thread lifecycle."""
+
+    def test_cancel_suppresses_signal_emission(self, monkeypatch, qtbot) -> None:  # noqa: ARG002
+        import time
+
+        checker = UpdateChecker()
+
+        def slow_urlopen(*_args: Any, **_kwargs: Any) -> Any:
+            time.sleep(0.05)
+            raise RuntimeError("should be cancelled")
+
+        import urllib.request
+        monkeypatch.setattr(urllib.request, "urlopen", slow_urlopen)
+
+        received: list[Any] = []
+        checker.update_available.connect(received.append)
+
+        checker.cancel()
+        checker.start()
+        checker.wait(500)
+
+        assert received == []
+        assert not checker.isRunning()
+
+    def test_shutdown_unparents_and_cancels(self, monkeypatch, qtbot) -> None:  # noqa: ARG002
+        import time
+
+        from PyQt6 import sip
+        from PyQt6.QtWidgets import QWidget
+
+        parent = QWidget()
+
+        def slow_urlopen(*_args: Any, **_kwargs: Any) -> Any:
+            time.sleep(0.3)
+            raise RuntimeError("cancelled")
+
+        import urllib.request
+        monkeypatch.setattr(urllib.request, "urlopen", slow_urlopen)
+
+        checker = UpdateChecker(parent)
+        checker.start()
+        time.sleep(0.05)
+
+        # Calling shutdown must detach from parent and retain until finished
+        checker.shutdown(timeout_ms=50)
+        assert checker.parent() is None
+        sip.delete(parent)  # would abort with 0xC0000409 if still parented to checker
+
+        # Dropping local reference and forcing GC must not abort while running
+        import gc
+        del checker
+        gc.collect()
+
+        time.sleep(0.3)
+        gc.collect()
+
+

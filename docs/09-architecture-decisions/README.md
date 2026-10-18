@@ -89,6 +89,32 @@ or a claim that finite hostile outlines have bounded rendering costs.
 **Rationale**: Native Qt integration, industry standard for Qt apps, supports plurals and context, good tooling.
 **Consequences**: All strings must be wrapped in tr(). Requires pylupdate6/lrelease build steps. Translation memory maintained in .ts XML files.
 
+### Addendum - source-derived completeness for every registered locale (#496)
+
+**Decision:** Keep Qt Linguist and the existing pure-Python singular compiler. Fresh
+locked PyQt6 extraction plus bounded source AST declarations define required keys;
+translation tables/catalogs cannot define their own required coverage. Source and
+locale additions are symmetric: each registered target locale must complete every key.
+The English template contains identities; retired records remain translation memory.
+
+`i18n_catalog.py` shares strict state/key/format rules between checker and compiler.
+Compilation rejects blanks and nonempty unfinished targets rather than substituting
+English. The read-only gate compares compiled bytes and real Qt lookups. Active
+numerus/variant entries fail explicitly until the compiler has tested plural support;
+no second Qt binding or unpinned system lrelease dependency is introduced.
+
+**Alternatives rejected:** catalog/word counts, German as source authority, trusting
+the old English template, a union of all historical catalog keys, per-locale coverage
+allowances, and an advisory CI job. All can hide omissions. `i18n_bindings.json` selects
+actual finite source symbols/data fields and binds exact dynamic consumers; unresolved
+or stale bindings fail rather than silently excluding a file.
+
+**Consequences:** every new wrapped UI key needs all supported target translations in
+the same PR. Existing English/German catalogs were reconciled without grandfathered
+gaps. Developer diagnostics remain English; linguistic quality, visual fit and truly
+unwrapped text still require review. The existing required Test check owns enforcement.
+Pinned by the translation gate unit/integration tests and registry-driven menu tests.
+
 ## ADR-009: NSIS Windows Installer
 
 **Status**: Accepted (Phase 6)
@@ -1268,11 +1294,11 @@ translated startup error using the system locale and exits before the main windo
 
 ### 3b — Textures (#309)
 
-**Decision — one forge, a torus painter, a pixel gate.** All 24 fill-pattern textures are emitted by `scripts/generate_asset_forge_textures.py`; the Qt-painted `scripts/generate_textures.py` (2026-03; it produced 22 textures, 21 of which were still shipped as painted when 3b started — the hedge had been re-forged in #281 — with seams in `glass`/`flagstone`) is deleted and gated deleted. The forge is no longer "Pillow drawing + Pillow blur": it is a **numpy float64 painter on a torus** — every primitive computes analytic anti-aliased coverage on a window indexed modulo the tile, noise is a periodic lattice, Voronoi uses the torus metric, the blur is an in-repo separable Gaussian on `np.roll` — so seamlessness is by construction and nothing in the pipeline depends on a rasterizer or filter implementation (§8.24). Style is the owner's "Lush everywhere" brief: visible material detail, radial rim → crown shading per element, concentric occlusion halos, mottled grounds, in a contrast band where the 80/255 runtime tint still recolours instead of flattening. Seeds are `random.Random("ogp-<name>-lush")` (stream-stable across CPython versions); the pilots' and hedge's seeds/looks were kept, their pixels re-rendered.
+**Decision — one forge, a torus painter, a pixel gate.** All 24 fill-pattern textures are emitted by `scripts/generate_asset_forge_textures.py`; the Qt-painted `scripts/generate_textures.py` (2026-03; it produced 22 textures, 21 of which were still shipped as painted when 3b started — the hedge had been re-forged in #281 — with seams in `glass`/`flagstone`) is deleted and gated deleted. The forge is no longer "Pillow drawing + Pillow blur": it is a **numpy float64 painter on a torus** — every primitive computes analytic anti-aliased coverage on a window indexed modulo the tile, noise is a periodic lattice, Voronoi uses the torus metric, the blur is an in-repo separable Gaussian on `np.roll` — so seamlessness is by construction and nothing in the pipeline depends on a rasterizer or filter implementation (§8.24). Style is the owner's "Lush everywhere" brief: visible material detail, radial rim → crown shading per element, concentric occlusion halos, mottled grounds, in a contrast band where the runtime recolour still shows the chosen colour instead of flattening. Seeds are `random.Random("ogp-<name>-lush")` (stream-stable across CPython versions); the pilots' and hedge's seeds/looks were kept, their pixels re-rendered.
 
 **The determinism contract is pixel-exact, deliberately not byte-exact.** The plan said "true byte gate"; implementing it surfaced that PNG bytes are a property of the zlib build Pillow bundles (zlib vs zlib-ng, per platform/version), not of the art — a Windows wheel and the Linux CI wheel can encode identical pixels to different bytes, and a byte gate would either flap or force a Pillow pin. `--check` therefore decodes the committed PNG and compares arrays; regeneration rewrites only files whose pixels changed (no cross-platform git churn). PNG is lossless, so this is the strongest honest contract; `tests/unit/test_texture_forge_conformance.py` pins it per file and proves the gate has teeth (a one-pixel edit is STALE). The residual dependency is numpy elementwise float64 arithmetic (IEEE-exact for the ops used; transcendental ulp differences are ~1e-16 relative and vanish under `rint` — and instead of quoting the measured margin in prose, `TestRoundingTieMargin` gates it: the closest pre-`rint` value to a .5 tie across all 24 textures must exceed 1e-10, i.e. orders of magnitude above ulp noise; the shipped set sits around 1e-8); CI on `ubuntu-latest` (Python 3.11, its own numpy/Pillow wheels) ran the same pixel gate on the first push of this branch and passed for all 24 textures — GitHub Actions run 32093081715, 2026-08-18 — so the Windows-vs-Linux disagreement the byte gate would have produced does not occur at pixel level; `--check` reports differing-pixel count and max channel delta so a cross-platform disagreement, if one ever appears, is a five-second diagnosis rather than a suspected art regression.
 
-**Gates.** Conformance (registry ↔ `_TEXTURE_FILES` ↔ files, 256² RGB, pixel determinism, tint band: mean 40–225 / std ≥ 4 / local detail ≥ 2, gate teeth, no-churn regeneration, legacy generator absent); tileability for ALL 24 at the unchanged 1.6 threshold (the `KNOWN_SEAMED_LEGACY` grandfather list was emptied and then deleted — the parametrized gate over every file is the contract; the recalibration rule "design seams below 1.6, recalibrate only with a written rationale" held — shipped maximum quoted from the checker in `scripts/check_texture_tileability.py`'s calibration note; structured layouts either straddle the wrap symmetrically (exactly, since the painter — windows, analytic fields, noise and Voronoi alike — samples at pixel centres) or lie clear of it, §8.24); §8.10 integration (`tests/integration/test_texture_forge_rendering.py`: every pattern paints with detail through panel → brush → item → flipped `scene.render`; the wrap column and wrap row of the item's real tinted brush sit inside the fill's own edge family, with a positive control; red vs blue fill colours move the hue without flattening; thumbnails; greenhouse tool draws GLASS seamlessly); the `.ogp` round-trip test now covers every pattern.
+**Gates.** Conformance (registry ↔ `_TEXTURE_FILES` ↔ files, 256² RGB, pixel determinism, tint band: mean 40–225 / std ≥ 4 / local detail ≥ 2, gate teeth, no-churn regeneration, legacy generator absent); tileability for ALL 24 at the unchanged 1.6 threshold (the `KNOWN_SEAMED_LEGACY` grandfather list was emptied and then deleted — the parametrized gate over every file is the contract; the recalibration rule "design seams below 1.6, recalibrate only with a written rationale" held — shipped maximum quoted from the checker in `scripts/check_texture_tileability.py`'s calibration note; structured layouts either straddle the wrap symmetrically (exactly, since the painter — windows, analytic fields, noise and Voronoi alike — samples at pixel centres) or lie clear of it, §8.24); §8.10 integration (`tests/integration/test_texture_forge_rendering.py`: every pattern paints with detail through panel → brush → item → flipped `scene.render`; the wrap column and wrap row of the item's real recoloured brush sit inside the fill's own edge family, with a positive control; red, blue **and a pale** fill colour move the hue without flattening; thumbnails; greenhouse tool draws GLASS seamlessly); the `.ogp` round-trip test now covers every pattern.
 
 **Alternatives rejected.** *Keep Pillow `ImageDraw` + `GaussianBlur` and pin Pillow* (rasterizer/filter changes across releases would still break the gate; a pin is a maintenance tax on a runtime dependency). *Supersampled Pillow drawing + numpy blur only* (the plan's minimum; rejected once the numpy painter proved both simpler and better — smooth radial shading and AA come for free). *Byte-exact gate* (see above). *Regenerate only the two seamed textures* (the owner chose Lush everywhere; a two-generator set would have carried two contracts).
 
@@ -2600,3 +2626,126 @@ The shared Diagnostics coordinator publishes guild, sun and existing warnings to
 **Limits and alternatives.** These are estimates of direct sun at ground level excluding self-shadow, not leaf-height measurements or a translucent-canopy model. No automatic recomputation, new date owner, persistent setting, dependency or file-version change. Re-running the full day per receiver was rejected: the planning probe took 17.6 seconds for 20 receivers among 100 casters. The implemented 200-caster/receiver test measured **3.226 seconds** locally (10-second target, 30-second CI ceiling); final delivery reports retain actual repeated timings.
 
 **Evidence.** The committed 24 m × 24 m Berlin plan, 21 June 2026, has a 10 m tree at (12 m, 12 m), 3 m canopy radius, tomatoes 1 m north and 8 m south: independently measured expected values are **0 h north and 16.5 h south**, excluding own casters. Unit tests pin sparse/reference parity, holes, multi-footprint ownership, raw-grid equivalence, strict tolerance boundaries and unavailable states. Integration tests pin explicit compute, badges, panel/MCP parity, canopy navigation, geometry, invalidation, worker responsiveness and document replacement during running/queued results; malformed loads retain the map. #328 shipped in PR #352 and is outside this PR.
+
+## ADR-057: Bounded 2D canvas paint for crafted plans (#472)
+
+**Status:** Accepted.
+
+**Context.** A plan file may hold a polygon with any number of vertices, and the 2D canvas paints it whatever that costs. A reflex-heavy outline (a "comb" whose teeth span its full height) makes one antialiased *fill* quadratic in vertices: measured on a 512x512 painter with the item's own 2.0 solid pen, one such outline costs ~38 ms at 256 vertices, ~322 ms at 1,024, ~1.4 s at 4,096 and ~5.6 s at 16,384 (the bug report measured 10.5 s at 1,024 on its box). Nothing bounded the vertices on load and nothing degraded the paint, so a crafted `.ogp` froze the window and the loader accepted an unbounded item.
+
+Two measurements decided the remedy, and both were needed:
+
+* the cost is a function of **reflex geometry and pen width**, not vertex count alone — a convex 4,096-vertex outline fills in a few milliseconds, and a comb's fill only stops growing quadratically above ~32k vertices because the geometry collapses sub-pixel (it still takes ~10 s at 65,536);
+* Qt strokes a **wide solid pen by building a fill**, so "just draw the outline" is only cheap with a **cosmetic** pen: measured, the same 1,024-vertex comb takes 319 ms stroked with the item's 2.0 pen and 4 ms with a cosmetic 1-px pen.
+
+**Decision.** One vertex bound governs full-detail painting; a separate ceiling guards the ingestion seam.
+
+- `MAX_FULL_DETAIL_VERTICES = 256` (`ui/canvas/items/polygon_item.py`). At or below it an unselected polygon paints exactly as before.
+- Above it, an **interactive, unselected** paint draws the exact outline with a **cosmetic 1-px pen and no fill** — linear in vertices and independent of the item's own pen width (measured ~4 ms at 1,024, ~20 ms at 4,096, ~69 ms at 16,384).
+- The degrade is **interactive-only, and "interactive" is the item's cache mode, not Qt's `widget`.** Qt passes `widget = 0` for every *cached* paint and every unselected canvas item is `DeviceCoordinateCache`, so a `widget is not None` guard (the LOD flat fill's own idiom) is never true on the path that paints the user's canvas — the first shipped version of this fix therefore never degraded anything (measured through a real view: 44.7 ms at 1,024 vertices, 589 ms at 16,384, on every cache regeneration). Every export, report, print and agent render path disables caches first (`ExportService._disable_item_caches`), so those stay exact, while the cached interactive view degrades; a **selected** item is excluded and paints the exact fill, so editing sees the truth.
+- `MAX_POLYGON_VERTICES = 16_384` refuses a polygon above it at the load seam (`ProjectManager._deserialize_item_core`), non-fatally: the item is skipped (logged, and counted for the app's existing skipped-item notice) and the rest of the plan loads. At the ceiling the degraded 2D outline is ~69 ms, not minutes, and no legible garden outline comes near it.
+
+**Alternatives rejected.** Filling the polygon's bounding box or convex hull is O(1) but *over*-covers — a comb would paint as a solid block and hide items beneath — and the hull costs an O(n log n) pass; outline-only under-covers, which is the safer error and keeps the exact boundary visible. **Reusing the item's own pen for the outline was the first attempt and is quadratic** (the pen-width measurement above); it does not bound the cost, and the earlier draft's "~4 ms at 1,024" was measured with a hairline pen, not the item's. A reflex-count or convexity test to keep large *convex* shapes at full detail needs an O(n) pass per paint; it was rejected as machinery for a case (more than the bound of vertices that is also convex) the outline covers acceptably. A low load ceiling that refuses every polygon above the full-detail bound was rejected because it would refuse legitimate traced or imported outlines — the paint bound protects the frame, the ceiling only protects the loader from hostile memory.
+
+**Consequences (limitations, stated).** Full detail is a bounded, stated budget, **per item per paint — not a plan-wide one**. Above the bound, *all* polygons — including a large convex one whose fill would be cheap — render as an outline interactively; a future refinement could exempt convex outlines. Full-detail paths that stay open above the bound, each capped only by the load ceiling: at exactly the bound a pathological comb still costs about two frames (~31 ms at 256 vertices); a **selected** over-budget item paints full detail on every interactive frame (5.6 s at 16,384); and every export/report/print/agent render, which disables caches and renders through `QGraphicsScene.render`, keeps the exact fill and can stall at the ceiling. The **minimap** renders through `scene.render` *without* disabling caches, so it degrades like the canvas — desirable for a thumbnail, and the one render path whose full-fidelity convention is deliberately different. The same `widget`-based idiom lived in `should_use_lod_flat_fill` (#409); it was re-checked on report and the LOD flat fill was **removed** rather than repaired — it never ran and bought no measurable time, so `should_use_lod_flat_fill` and `get_lod_fill_color` no longer exist and `is_interactive_paint` now serves the paint bound above alone (see the ADR-057 addendum, #503). The two constants are plain module values so a future measurement can retune them in one place.
+
+**Evidence.** The committed `tests/integration/test_polygon_paint_bound.py` pins that an over-budget polygon paints an outline (not a fill) on screen, that the degraded paint is many times cheaper than full detail **with the item's own wide pen**, that a polygon at the bound, an offscreen render and a selected item paint the exact fill, and that a hostile polygon is refused at the seam without dropping the rest of a plan. The cost table above is reproducible with the shapes in that test file.
+
+### ADR-042 addendum: the runtime tint becomes a luminance map (issue #502, 16 October 2026)
+
+The forge's tint-readability band was written for a tint that could not do the job.
+`_tint_texture` drew the texture and overlaid the user's colour at **80/255 (31 %)**;
+over the brown roof-tile texture a light-green fill measured `#ca6846` -> `#b8925d` —
+still brown, i.e. the "standard roof tile colour" the owner reported after setting a
+green fill. Raising the overlay enough to read (160/255) flattened the low-contrast
+materials (SAND luminance std 1.62 against the 2.0 floor), so overlay strength was the
+wrong knob: a constant wash cannot recolour a saturated texture without destroying its
+contrast.
+
+**Decision.** `_tint_texture` now maps luminance: every pixel becomes the user's colour
+scaled by the texture's **relative** luminance (`pixel_luminance / mean_luminance`).
+Hue comes wholly from the user's colour, brightness is preserved on average, and the
+result's coefficient of variation equals the texture's — the recolour is *provably*
+non-flattening rather than tuned not to flatten. The colour's alpha still sets the
+fill's opacity.
+
+**Consequences.** Every textured fill in every plan changes appearance — the owner's
+manual sign-off is the gate (`ogp-asset-forge`: "the owner's manual sign-off
+(sovereign)"). The tint-readability band keeps its purpose but its rationale changes: it
+now guarantees a texture has enough relative luminance structure for the map to show
+detail. The §8.10 integration gate gained the case that was missing: a **pale** colour
+over a strongly coloured texture must read (only red and blue — two saturated,
+far-apart colours — were checked before, so both "passed" while the owner's light green
+rendered brown), and "not flattened" is now asserted as **relative** contrast against
+the same item's untinted render, so a legitimately dark fill colour is not mistaken for
+a flat one.
+
+**Related, same finding.** The report that exposed this also showed the Properties panel
+disagreeing with the canvas after a reload: `ProjectManager._deserialize_item_core`
+rebuilt each item's brush and pen but never wrote back the stored appearance attributes
+(`fill_color`, `stroke_color`, `stroke_width`, `stroke_style`), which the item
+constructors pre-seed with the object type's style — so the panel showed the type
+defaults and the next save wrote them over the user's colours (#438/#469). The loader
+now restores those attributes through `core/item_look.restore_stored_look`, and the
+serializer no longer falls back to a texture brush's black `color()` for `fill_color`.
+
+### ADR-057 addendum: the #409 LOD flat fill is removed, and the cache-mode discriminator is kept for the paint bound alone (issue #503, 17 October 2026)
+
+ADR-057's consequences flagged the sibling directly: "The same `widget`-based idiom
+lives in `should_use_lod_flat_fill` (#409), where it is worth re-checking for the same
+reason." #501's independent review re-checked it, measured it, and filed #503.
+
+**Finding.** Through a real `CanvasScene` + `CanvasView` (offscreen, one `GARDEN_BED`
+rectangle with the `ROOF_TILES` pattern), `should_use_lod_flat_fill` was invoked once
+per paint with **no** widget present — at `fit_in_view` and after four `zoom_out()`s —
+and returned `False` every time; only a `NoCache` control item, a configuration no
+unselected canvas item is ever in, saw a widget. The LOD branch therefore never ran in
+the product, and its tests passed only because they called the helper directly with a
+fabricated widget. The fit-in-view acceptance gain attributed to it at #409 came from
+the `lru_cache` SVG-path resolution and the `DeviceCoordinateCache` shipped alongside.
+
+**Decision.** The obvious repair was to key "interactive" on the item's **cache mode**
+through one shared predicate, `items/garden_item.py::is_interactive_paint`, which the
+over-budget paint bound above calls too. That predicate is **kept** — it is the one
+correct definition of "which paint is this", and the paint bound needs it for real
+(44.7 ms at 1,024 vertices, 589 ms at 16,384). Its docstring now records that it
+classifies paints and does not decide how much detail to draw.
+
+The **flat fill is removed**, with its rationale recorded. Issue #503 offered both
+repairs explicitly; measurement on the reference plan the branch was written for chose
+the second. On the 990-item audit plan, 1600x1000 view, best of seven rounds, both
+scenarios below the 0.4 threshold). `fit_in_view` at zoom 0.316: **10.61 and 11.50 ms median
+with the flat fill disabled, 10.87 ms with it live** — the two arms' ranges overlap
+entirely. `zoom_step` at zoom 0.348: **7.97 / 7.98 ms disabled, 8.20 ms live**. What that
+establishes is that the effect sits below this harness's noise — within-arm run-to-run
+variation is 8 % against a 0.26 ms between-arm difference, and no reversed-order run was
+taken, so no claim about which arm is faster survives. All six
+`tests/perf/test_nfr_budgets.py` cases pass either way, worst reading 12.21 ms against the
+16.70 ms budget. (An earlier single-pair reading — 10.58/10.64 and 8.21/7.40 — is
+superseded and is not to be cited: it put the `zoom_step` sign the other way round.) The
+cause is structural — `DeviceCoordinateCache` rasterises a textured item once and every
+later frame is a blit, so the expensive textured `paint()` the LOD existed to avoid was
+already amortised by the sibling fix. Deleting `should_use_lod_flat_fill`,
+`get_lod_fill_color` and `LOD_FLAT_FILL_THRESHOLD` also removes seven call sites across
+the rectangle, circle, ellipse and polygon items.
+
+**Consequences.** No zoom-dependent simplification remains in the canvas: a textured
+fill, a plant sprite and a furniture sprite paint their full detail at every zoom, and
+the paint-level diagnostics that the removed early return would have skipped (a bed's
+grid, crop-rotation indicator, soil-mismatch border and capacity badge; a plant's
+spacing ring, companion highlight and antagonist badge) are now drawn at every zoom.
+This is not a behaviour change relative to any shipped release — the branch never ran —
+so it needs no visual acceptance pass, and it is a net removal of a risk. The #472
+suite is restored to its pre-#507 state in full, including its fit-in-view harness
+zoom; the low-zoom seam pair and the 100 %-zoom workaround existed only to serve the
+removed branch and are gone with it.
+
+**The pin is parametrised over branches, not classes.** `tests/integration/test_canvas_item_cache.py` (renamed from `test_canvas_item_lod_and_cache.py`) renders a textured, tinted item through a real `CanvasView` at five zoom levels — 0.1, 0.25, 0.4, 0.75, 1.0 — plus the export path, and asserts the interior still carries its texture's luminance spread. **Lower bound only, deliberately** — a future change may soften a texture and must not be able to do so by deleting it; there is no ceiling, and no absolute sample floor, because interior area runs 816 to 429 986 pixels across the cases and any constant fires on the smallest for being small. The seven deleted call sites were **not** seven instances of one thing: two sat inside `if is_plant` and two inside `if is_furniture_type`, so the table carries seven entries — the four generic shapes plus a plant circle and furniture rectangle/circle. Re-introducing a `< 0.4` flat fill is caught at **all seven**, mutation-verified per site. The sampled interior is the item's own `QGraphicsItem.shape()`: not its bounding box (the corners are page background for a circle, an ellipse or a polygon, so a solid circle measured as high-contrast and the pin was vacuous on three of four classes), not a second paint (any flat-fill branch overrides the brush on that pass), and not alpha (the scene paints an opaque background). `TestTheMaskIsTheItem` asserts that invariant, because a displaced mask does not fail — it reads background. The four textured shapes' export column converging on 15.47-16.02 is the calibration check that the instrument is right: with a forgotten `-source.topLeft()` translation those four read 15.83 / 37.27 / 49.85 / 16.37. The Linux/offscreen sampler lesson stands — samples come from a computed region, never a colour filter, which the CI background passed at spread 62.59 against 0.00 on Windows. The mask mechanics, the seven-entry shape list and the calibration table live in the test file rather than here; `venv/Scripts/python.exe scripts/verify_lod_removal_mutations.py` re-applies all seven deleted call sites and exits non-zero if one stops being watched, which is how a negative pin is kept honest between reviews.
+
+**Lesson for ADR-057 itself.** This addendum records a decision that was nearly the
+opposite of the one its first draft took, on the same measured evidence, because the
+owner then exercised the thing that the measurement could not: at 20-25 % zoom — where
+they work, well under the 0.4 threshold — every texture on the canvas would have become
+a solid colour. *Reachability is necessary, not sufficient: before promoting a dormant
+path, ask whether it earns the degradation it costs, and put the answer in front of the
+person who has to look at it.*

@@ -91,6 +91,7 @@ src/open_garden_planner/
 │   ├── cad_geometry.py           # arc_from_three_points, fillet_corner, chamfer_corner,
 │   │                             #   reflect_point/reflect_angle_deg/snap_point_to_axis_step (US-B4)
 │   ├── mirror_geometry.py        # build_mirrored_item — per-type reflection rebuild (US-B4, ADR-026)
+│   ├── item_look.py              # copy_visual_style — one look-copy rule for item copies (#470)
 │   ├── coordinate_input/         # Typed coordinate pipeline (ADR-021, Package A US-A1/A2/A4)
 │   │   ├── parser.py             #   parse(@dx,dy / @dist<angle / x,y), smart decimal
 │   │   └── buffer.py             #   CoordinateInputBuffer(QObject) — shared state
@@ -427,6 +428,8 @@ Black-box view of persistent plant collections, favourites, drag-to-canvas orche
 | `agent_api/server.py` (`garden://plant-lists`) | Read-only MCP resource exposing all lists and entries (`id`, `name`, `species_key`, `note`, `added_at`) to AI assistants. | GET `garden://plant-lists` → JSON catalog |
 
 ## Developer quality and release tooling
+
+Translation tooling (#496): `scripts/i18n_sources.py` owns fresh source extraction and bounded bindings from `i18n_bindings.json`; `i18n_catalog.py` owns Qt-free key/state/format validation shared by the compiler and checker. `update_translations.py` explicitly updates catalog structure; `check_translations.py` reads every registered catalog, compares live keys and compiled bytes, and verifies Qt lookups. These are development tools, not new runtime dependencies. See ADR-008 and section 8.3.
 
 The shared setup-locked-env GitHub action installs the native uv lock and editable project.
 The audit parser supplies type diagnostics and coverage package membership to the standalone

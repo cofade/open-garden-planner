@@ -215,5 +215,33 @@ class TestBuildMirroredUnsupported:
         assert build_mirrored_item(QGraphicsRectItem(0, 0, 10, 10), *_VERTICAL) is None
 
 
+class TestMirrorCopiesTheLook:
+    """A mirrored shape keeps its source's look through the one seam (#470)."""
+
+    def test_mirrored_polyline_keeps_its_stroke(self, _qt: object) -> None:
+        from PyQt6.QtGui import QColor, QPen
+
+        from open_garden_planner.core.object_types import ObjectType
+
+        source = PolylineItem(
+            points=[QPointF(0, 0), QPointF(40, 0), QPointF(40, 30)],
+            object_type=ObjectType.FENCE,
+        )
+        pen = QPen(QColor("#cc2222"))
+        pen.setWidthF(3.5)
+        source.setPen(pen)
+        source.stroke_color = QColor("#cc2222")
+        source.stroke_width = 3.5
+
+        clone = build_mirrored_item(source, *_VERTICAL)
+        assert isinstance(clone, PolylineItem)
+        # The serialized stroke attributes, not just the live pen, must carry:
+        # without copy_visual_style the clone reverts on the next save.
+        assert clone.stroke_color == source.stroke_color
+        assert clone.stroke_width == source.stroke_width
+        assert clone.pen().color() == source.pen().color()
+        assert clone.pen().widthF() == source.pen().widthF()
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

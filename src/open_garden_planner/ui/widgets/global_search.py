@@ -9,7 +9,6 @@ does *not* steal keyboard focus from the QLineEdit — otherwise every
 keystroke after the first would land on the popup and be lost.
 """
 
-import contextlib
 
 from PyQt6.QtCore import QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QIcon
@@ -111,6 +110,7 @@ class GlobalSearchField(QLineEdit):
         self._popup.item_chosen.connect(self._on_item_chosen)
 
         self.setPlaceholderText(self.tr("Search object…"))
+        self.setToolTip(self.tr("Search object…"))
         self.setClearButtonEnabled(True)
         self.setFixedWidth(240)
         self.textChanged.connect(self._on_text_changed)
@@ -118,20 +118,11 @@ class GlobalSearchField(QLineEdit):
 
         # Tool-tip windows never auto-close on outside click; do it manually
         # whenever focus leaves the search field and is *not* taken by the
-        # popup itself. Disconnect on destroy so a future rebuild (theme
-        # reload, language switch) doesn't accumulate stale connections.
+        # popup itself. Qt automatically disconnects app.focusChanged when
+        # this QObject is destroyed.
         app = QApplication.instance()
         if app is not None:
             app.focusChanged.connect(self._on_focus_changed)
-            # Disconnect on destroy so a future rebuild (theme reload, language
-            # switch) doesn't accumulate stale connections. Qt already auto-
-            # disconnects a destroyed receiver, so the explicit disconnect can
-            # race to a "not connected" TypeError during teardown — suppress it.
-            def _disconnect(_obj: object = None, _app: object = app) -> None:
-                with contextlib.suppress(TypeError, RuntimeError):
-                    _app.focusChanged.disconnect(self._on_focus_changed)
-
-            self.destroyed.connect(_disconnect)
 
     def _on_text_changed(self, text: str) -> None:
         needle = text.strip().lower()

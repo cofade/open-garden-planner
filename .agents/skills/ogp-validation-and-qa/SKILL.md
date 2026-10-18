@@ -15,6 +15,18 @@ description: >
 
 # OGP Validation & QA — what counts as evidence
 
+## Current translation gate (#496)
+
+`scripts/check_translations.py` is the required source/catalog/binary gate for every
+locale in `SUPPORTED_LANGUAGES`. New wrapped UI keys require all target translations;
+new locales require all current keys. Run `update_translations.py`, complete targets
+(the fill helper is German-only), compile, then check. No coverage allowances or manual
+locale test lists. The compiler rejects incomplete/blank targets and unsupported plural
+input; vanished records cannot satisfy coverage. See section 8.3 and docs/TRANSLATING.md.
+The older German-only check mentioned in historical examples below is supplementary.
+Truly unwrapped UI prose and linguistic quality still require review.
+
+
 All facts verified against the repo at v1.23.0, 2026-07-04. Re-verification commands at the bottom.
 
 ## When NOT to use this skill
@@ -58,7 +70,7 @@ Run all of these locally before any PR (commands verified against CLAUDE.md Quic
 | Full test suite | `venv/Scripts/python.exe -m pytest tests/ -v` | 0 failures **in the full run**, not per-file | Yes (`ci.yml` `test` job, `QT_QPA_PLATFORM=offscreen`) |
 | Lint | `venv/Scripts/python.exe -m ruff check src/ tests/ scripts/` | Clean | Yes (`lint` job) |
 | Security (SAST) | `venv/Scripts/python.exe -m bandit -r src/ --severity-level high` | No HIGH findings (MEDIUM/LOW findings are omitted at this reporting threshold — §8.11) | Yes (`security` job) |
-| i18n gate | `pytest tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished` | Zero unfinished strings. **Limit:** only sees strings *registered* via `tr()`/`QT_TR_NOOP`/`translate()` — a hardcoded English f-string is invisible to it | Yes (part of full suite) |
+| i18n gate | `python scripts/check_translations.py` | Exact live keys, completed values and verified binaries in every registered locale. **Limit:** unwrapped display text remains invisible | Yes (part of full suite) |
 | Exe build + smoke + `--selftest` | both commands per `ogp-change-control` §2.8 (invocation traps in `ogp-build-and-run`) | Smoke: exit 124. `--selftest`: exit 0 — the smoke alone cannot see a silently-dead subsystem (#291, #277) | **No — local-only duty.** `ci.yml` never builds the exe; `release.yml` builds the installer only after merge to master. A frozen-build breakage found post-merge is a broken release. |
 
 
@@ -68,7 +80,7 @@ for six releases; #277 shipped a crash behind a lazy import). The command litera
 **`ogp-change-control` §2.8** — the single place they are written down — with the
 invocation traps in `ogp-build-and-run`. Do not copy them here.
 
-Also run per CLAUDE.md when UI strings changed: `PYTHONUTF8=1 venv/Scripts/python.exe scripts/fill_translations.py` then `scripts/compile_translations.py` *before* the i18n gate test.
+Also run per CLAUDE.md when UI strings changed: `scripts/update_translations.py`, complete every target, then compile and run `scripts/check_translations.py` with `PYTHONUTF8=1`.
 
 Full-battery shortcut: the `analyze-pr` skill runs the four fast layers in parallel plus the exe smoke; `finalize-us` repeats the senior-reviewer pass pre-PR.
 

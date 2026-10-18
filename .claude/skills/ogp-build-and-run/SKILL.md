@@ -12,6 +12,18 @@ description: >
 
 # OGP Build & Run
 
+## Current translation gate (#496)
+
+`scripts/check_translations.py` is the required source/catalog/binary gate for every
+locale in `SUPPORTED_LANGUAGES`. New wrapped UI keys require all target translations;
+new locales require all current keys. Run `update_translations.py`, complete targets
+(the fill helper is German-only), compile, then check. No coverage allowances or manual
+locale test lists. The compiler rejects incomplete/blank targets and unsupported plural
+input; vanished records cannot satisfy coverage. See section 8.3 and docs/TRANSLATING.md.
+The older German-only check mentioned in historical examples below is supplementary.
+Truly unwrapped UI prose and linguistic quality still require review.
+
+
 Everything needed to recreate the environment, run the app and tests, build and
 package, and find where artifacts land. Facts verified against the repo at
 **v1.23.0 (2026-07-04)**: `pyproject.toml`, `.github/workflows/ci.yml`,
@@ -24,8 +36,8 @@ package, and find where artifacts land. Facts verified against the repo at
 - **Agent API** — the MCP (Model Context Protocol) server embedded in the running
   GUI, serving AI agents over HTTP on loopback (`agent_api/` package).
 - **`.ogp`** — the app's JSON project file format.
-- **i18n gate** — the test that fails if any registered UI string lacks a German
-  translation.
+- **i18n gate** — the source-derived check that requires every wrapped UI key in every registered
+  target language.
 
 ## When NOT to use this skill
 
@@ -110,17 +122,20 @@ Notes:
 Run after adding or changing ANY user-visible string:
 
 ```bash
+PYTHONUTF8=1 venv/Scripts/python.exe scripts/update_translations.py
+# Complete every registered target catalog; fill_translations.py assists German only.
 PYTHONUTF8=1 venv/Scripts/python.exe scripts/fill_translations.py
 PYTHONUTF8=1 venv/Scripts/python.exe scripts/compile_translations.py
+venv/Scripts/python.exe scripts/check_translations.py
 ```
 
 | Fact | Value (verified) |
 |---|---|
 | `.ts` / `.qm` location | `src/open_garden_planner/resources/translations/` — `open_garden_planner_de.ts/.qm` and `open_garden_planner_en.ts/.qm` |
-| `fill_translations.py` | Holds the full English→German mapping as a Python dict; writes translations + missing contexts into the `.ts`. New strings must be **added to the script's dict** first |
+| `fill_translations.py` | German convenience mapping; fills live source keys and preserves completed values. Complete other registered target catalogs directly |
 | `compile_translations.py` | Pure-Python `lrelease` replacement — compiles every `.ts` in that dir to `.qm` (no Qt tooling needed) |
 | `PYTHONUTF8=1` | Required on Windows: the scripts handle umlauts; without it the default cp1252 codec mangles them |
-| Gate test | `venv/Scripts/python.exe -m pytest tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished` — fails if any registered string is left unfinished. It CANNOT see hardcoded plain-string call sites that bypass `tr()` (see AGENTS.md i18n section) |
+| Gate test | `venv/Scripts/python.exe -m pytest tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished` — is a supplementary German regression check. The required `scripts/check_translations.py` checks every wrapped source key in every registered locale; truly unwrapped display strings still require review (see AGENTS.md i18n section) |
 | Packaging | `installer/ogp.spec` bundles the whole `resources/translations/` dir into the exe — recompile `.qm` BEFORE building |
 
 ## Building the frozen exe (PyInstaller)
@@ -283,7 +298,7 @@ Volatile facts stamped 2026-07-04 (v1.23.0). Re-verify with:
 | Agent API defaults (enabled/port/path) | `grep -n 'DEFAULT_AGENT_API\|port: int = 8765\|path: str' src/open_garden_planner/app/settings.py src/open_garden_planner/agent_api/server.py` |
 | Path chokepoint + autosave locations | `grep -n 'def default_dialog_dir\|AUTOSAVE_PREFIX' src/open_garden_planner/app/paths.py src/open_garden_planner/services/autosave_service.py` |
 | Translation file set | `ls src/open_garden_planner/resources/translations/` |
-| i18n gate still exists | `grep -n test_german_ts_has_no_unfinished tests/unit/test_i18n.py` |
+| i18n gate still exists | `grep -n test_registered_languages_cover_current_source_and_binary tests/unit/test_i18n.py` |
 
 ### Host PATH contamination: ICU / WebEngine (#453, 2026-10-13)
 

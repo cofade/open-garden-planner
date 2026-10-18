@@ -374,14 +374,6 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             painter.restore()
 
         if is_plant:
-            if not self.isSelected() and self.should_use_lod_flat_fill(option, widget, painter):
-                painter.save()
-                painter.setPen(self.pen())
-                painter.setBrush(QBrush(self.get_lod_fill_color()))
-                painter.drawEllipse(rect)
-                painter.restore()
-                return
-
             # Render at a larger size so organic shapes fill the circle
             render_diameter = diameter * self._PLANT_FILL_SCALE
 
@@ -500,15 +492,6 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
                 return
 
         if is_furniture_type(self.object_type):
-            if not self.isSelected() and self.should_use_lod_flat_fill(option, widget, painter):
-                rect = self.rect()
-                painter.save()
-                painter.setPen(self.pen())
-                painter.setBrush(QBrush(self.get_lod_fill_color()))
-                painter.drawEllipse(rect)
-                painter.restore()
-                return
-
             rect = self.rect()
             diameter = rect.width()
             pixmap = render_furniture_pixmap(
@@ -536,15 +519,6 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
                     painter.setBrush(Qt.BrushStyle.NoBrush)
                     painter.drawEllipse(rect)
                 return
-
-        if not self.isSelected() and self.fill_pattern is not None and self.should_use_lod_flat_fill(option, widget, painter):
-            rect = self.rect()
-            painter.save()
-            painter.setPen(self.pen())
-            painter.setBrush(QBrush(self.get_lod_fill_color()))
-            painter.drawEllipse(rect)
-            painter.restore()
-            return
 
         # Fall back to standard ellipse painting for non-plant/furniture circles
         super().paint(painter, option, widget)

@@ -197,3 +197,52 @@ class TestMainWindowToolbarLayout:
             if isinstance(tb, (MT, ConT, CT))
         ]
         assert named == [MT, ConT, CT], f"unexpected toolbar order: {named}"
+
+    def test_global_search_shortcut_is_ctrl_f(self, qtbot: object) -> None:
+        from PyQt6.QtWidgets import QApplication
+
+        from open_garden_planner.app.application import GardenPlannerApp
+
+        win = GardenPlannerApp()
+        qtbot.addWidget(win)  # type: ignore[attr-defined]
+        try:
+            win.showNormal()
+            win.resize(1800, 1000)
+            QApplication.processEvents()
+
+            # Verify Find & Replace action is Ctrl+H to avoid ambiguous overload with Ctrl+F
+            assert win._find_replace_action.shortcut().toString() == "Ctrl+H"
+
+            # Verify CategoryToolbar has Ctrl+F shortcut
+            assert win.category_toolbar._focus_shortcut is not None
+            assert win.category_toolbar._focus_shortcut.key().toString() == "Ctrl+F"
+
+            # Activating the shortcut focuses the global search field
+            win.category_toolbar._focus_shortcut.activated.emit()
+            QApplication.processEvents()
+            assert win.focusWidget() is win.category_toolbar._search_field
+        finally:
+            win.close()
+
+    def test_no_duplicate_window_shortcuts(self, qtbot: object) -> None:
+        from PyQt6.QtGui import QAction, QShortcut
+
+        from open_garden_planner.app.application import GardenPlannerApp
+
+        win = GardenPlannerApp()
+        qtbot.addWidget(win)  # type: ignore[attr-defined]
+        try:
+            seen_shortcuts: dict[str, list[str]] = {}
+            for action in win.findChildren(QAction):
+                sc = action.shortcut().toString()
+                if sc:
+                    seen_shortcuts.setdefault(sc, []).append(f"QAction({action.text()})")
+            for shortcut in win.findChildren(QShortcut):
+                sc = shortcut.key().toString()
+                if sc:
+                    seen_shortcuts.setdefault(sc, []).append("QShortcut")
+
+            duplicates = {k: v for k, v in seen_shortcuts.items() if len(v) > 1}
+            assert duplicates == {}, f"Found duplicate shortcut registrations: {duplicates}"
+        finally:
+            win.close()

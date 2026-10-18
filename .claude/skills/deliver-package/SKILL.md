@@ -120,7 +120,7 @@ Two disciplines that apply specifically at package scale:
   it. A `Callable` injection point with N call sites is N implementations of one behaviour, and
   nothing will tell you when one stops matching the others (see #326 for the worked example).
 - **Wrap every user-visible string as you write it** (`self.tr()` / `QCoreApplication.translate`
-  / `QT_TR_NOOP`), not in a cleanup pass. The i18n gate only sees strings already registered; a
+  / `QT_TR_NOOP`), not in a cleanup pass. The i18n gate checks wrapped source keys in every registered locale; a
   hardcoded f-string sails straight past it (§11.4).
 
 Route to `ogp-qt-cad-reference` for canvas/geometry, `ogp-garden-domain-reference` for domain
@@ -157,8 +157,11 @@ after every review-driven fix, not the subset near the fix. On the Windows dev m
 venv/Scripts/python.exe -m pytest tests/ -v
 venv/Scripts/python.exe -m ruff check src/
 venv/Scripts/python.exe -m bandit -r src/ --severity-level high
+PYTHONUTF8=1 venv/Scripts/python.exe scripts/update_translations.py
+# Complete every registered target; the fill helper assists German only.
 PYTHONUTF8=1 venv/Scripts/python.exe scripts/fill_translations.py
 PYTHONUTF8=1 venv/Scripts/python.exe scripts/compile_translations.py
+PYTHONUTF8=1 venv/Scripts/python.exe scripts/check_translations.py
 venv/Scripts/python.exe -m pytest tests/unit/test_i18n.py -v
 venv/Scripts/python.exe scripts/check_agent_context.py
 venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
@@ -173,7 +176,7 @@ the windowed exe a real stdout) are in `ogp-build-and-run`.
 
 ## 6. Verify on the running artifact, not only in pytest
 
-**Always.** `CLAUDE.md` and `ogp-change-control` §2.8 both require a frozen-exe build, the
+**Always.** `AGENTS.md` and `ogp-change-control` §2.8 both require a frozen-exe build, the
 8-second smoke **and** `--selftest` before every merge; the only sanctioned excuse is a
 Linux/cloud session that cannot run them, and then you **say so in the PR** rather than skipping
 silently. pytest runs the source tree; users run the frozen exe, and the two have disagreed on
@@ -207,7 +210,7 @@ that only confirmed what you already believed was not worth the electricity.
 
 ## 7. Documentation duty — before it counts as done
 
-The matrix is in `CLAUDE.md` and `ogp-docs-and-writing`; follow it. Four items are easy to forget
+The matrix is in `AGENTS.md` and `ogp-docs-and-writing`; follow it. Four items are easy to forget
 at package scale and are checked here because every recent package PR owed all four:
 
 - **`docs/roadmap.md`** — add or complete the package's US rows. Update repository wiki
@@ -219,7 +222,7 @@ at package scale and are checked here because every recent package PR owed all f
   compares is stale in both copies.
 - **A `debug-verbose` case study in both skill libraries** whenever the package fixed a
   non-obvious bug (symptom → wrong theories → key evidence → root cause → lesson), per
-  `CLAUDE.md`'s debugging section.
+  `AGENTS.md`'s debugging section.
 - **§11.4** for anything the package learned the hard way, and an **ADR addendum** for every
   decision an issue asked you to make.
 
@@ -278,7 +281,7 @@ stop there — **stopping at a draft PR with an honest checklist is a successful
 
 ## When NOT to use this skill
 
-- A single user story or a one-issue fix → the `CLAUDE.md` workflow table + `ogp-change-control`.
+- A single user story or a one-issue fix → the `AGENTS.md` workflow table + `ogp-change-control`.
 - The post-approval wrap-up itself (merge, version sync, wiki) → `finalize-us`.
 - Reviewing someone else's PR → `analyze-pr`.
 - Deciding what proof a claim needs → `ogp-validation-and-qa`.

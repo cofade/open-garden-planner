@@ -386,9 +386,9 @@ class ShoppingListService:
 
     @staticmethod
     def _object_type_label(object_type: ObjectType) -> str:
-        from open_garden_planner.core.object_types import get_style
+        from open_garden_planner.core.object_types import get_translated_display_name
 
-        return QCoreApplication.translate("CanvasView", get_style(object_type).display_name)
+        return get_translated_display_name(object_type)
 
 
 __all__ = [

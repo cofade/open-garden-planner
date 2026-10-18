@@ -10,9 +10,9 @@ fill-pattern texture. This test pins the contract between the generator, the
   deliberately not the contract because it depends on the zlib build Pillow
   bundles: a Linux CI wheel and a Windows wheel may encode identical pixels to
   different bytes);
-- the visual-weight band the runtime tint needs (mean luminance, spread,
-  local detail — a texture that flattens to one tone under the 80/255 tint
-  overlay would fail here before an owner ever sees it);
+- the visual-weight band the runtime recolour needs (mean luminance, spread,
+  local detail — a texture too flat for the luminance-map recolour (#502) to
+  show the chosen colour's detail would fail here before an owner ever sees it);
 - the gate has teeth (a one-pixel edit is reported STALE) and regeneration
   is a no-op for current files (no git noise across platforms);
 - the Qt-painted legacy generator is gone (one generator, one contract).

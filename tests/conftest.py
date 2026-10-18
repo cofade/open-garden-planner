@@ -241,8 +241,11 @@ def _isolate_plant_api_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _no_weather_network():
+def _no_weather_network(request):
     """Stub out the weather fetch thread so tests never make real network requests."""
+    if "real_weather_worker" in request.keywords:
+        yield
+        return
     with patch("open_garden_planner.ui.widgets.weather_widget._WeatherFetchWorker"):
         yield
 

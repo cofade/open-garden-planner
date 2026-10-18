@@ -34,6 +34,7 @@ class CategoryToolbar(QToolBar):
         self._category_buttons: list[QToolButton] = []
         self._category_dropdowns: list[CategoryDropdown] = []
         self._search_field: GlobalSearchField | None = None
+        self._focus_shortcut: QShortcut | None = None
 
         self._setup_toolbar()
 
@@ -68,8 +69,8 @@ class CategoryToolbar(QToolBar):
         self._search_field.item_selected.connect(self.item_selected)
         self.addWidget(self._search_field)
 
-        focus_shortcut = QShortcut(QKeySequence("Ctrl+F"), self)
-        focus_shortcut.activated.connect(self._focus_search)
+        self._focus_shortcut = QShortcut(QKeySequence("Ctrl+F"), self)
+        self._focus_shortcut.activated.connect(self._focus_search)
 
     def _add_category_button(self, category: GalleryCategory) -> None:
         button = QToolButton()

@@ -4,9 +4,10 @@ Package 3b (#309, ADR-042, FR-30) regenerated ALL 24 textures in
 ``src/open_garden_planner/resources/textures/`` in the "Lush" language of
 the #281 plant sprites and the #308 object sprites: visible material detail,
 radial rim-dark → crown-light shading per element, concentric occlusion
-halos, mottled grounds — rich, but in a contrast band where the runtime tint
-(``core/fill_patterns._tint_texture``, user colour at 80/255 alpha) still
-recolours the material instead of flattening it.
+halos, mottled grounds — rich, but in a contrast band where the runtime recolour
+(``core/fill_patterns._tint_texture``, since #502 a luminance map of the user's
+colour) still shows the chosen colour and the material's detail instead of
+flattening it.
 
 Design contract (docs §8.5 / ADR-042 3b section):
 
