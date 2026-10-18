@@ -19,7 +19,8 @@ venv/Scripts/python.exe -m pytest tests/ -v
 # PASSES), `-m perf` (or addopts' `-m 'not perf'` wins and nothing runs), and
 # `-n 0` (running these across workers is what the split exists to prevent).
 venv/Scripts/python.exe -m pytest tests/ -m perf -n 0
-# One file or a few tests: `-n 0` avoids paying worker start-up (2.9s vs 5.5s)
+# One file or a few tests: `-n 0` avoids paying worker start-up. Measured on the
+# file below (24 tests): 12.2s serial against 17.0s under `-n auto`.
 venv/Scripts/python.exe -m pytest tests/unit/test_i18n.py -v -n 0
 
 # Lint

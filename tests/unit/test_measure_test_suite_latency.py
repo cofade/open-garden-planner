@@ -66,6 +66,34 @@ def test_setup_and_teardown_are_reported_but_not_charged_to_tests() -> None:
     assert result["phase_seconds"] == {"call": 30.0, "setup": 0.04, "teardown": 0.1}
 
 
+def test_a_call_only_report_does_not_raise_on_absent_phases() -> None:
+    """`--durations=0` output from a file with no slow fixtures is call-only.
+
+    Measured on real input: reports from `tests/unit/test_gate_commands.py` and
+    `tests/unit/test_perf_marker_guard.py` have no `setup`/`teardown` line above the 5 ms
+    floor at all, and `analyse` raised `KeyError: 'setup'` on both - the phase summary
+    indexed `phase_seconds[phase]` rather than reading it with a default. Deterministic,
+    exit 1, and invisible to every other test here because the shared fixture always
+    carries setup and teardown.
+
+    A phase that never appeared is absent, not zero: the report must not claim it was
+    measured as 0.00s.
+    """
+    call_only = [
+        "0.30s call    tests/unit/test_a.py::test_one",
+        "0.20s call    tests/unit/test_a.py::test_two",
+    ]
+    result = analyse(call_only)
+    assert result["total_call_seconds"] == 0.5
+    assert result["parsed_tests"] == 2
+    # Absent, not 0.0 - the distinction the KeyError was hiding.
+    for phase in ("setup", "teardown"):
+        assert result["phase_seconds"].get(phase) is None, (
+            f"{phase} was reported as {result['phase_seconds'].get(phase)!r}, but no such "
+            "line exists in the report"
+        )
+
+
 def test_layers_sum_to_the_measured_total() -> None:
     layers = analyse(FIXTURE)["layers"]  # type: ignore[index]
     assert layers["unit"]["tests"] == 2

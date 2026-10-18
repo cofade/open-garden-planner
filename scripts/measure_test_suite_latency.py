@@ -163,8 +163,13 @@ def analyse(lines: list[str]) -> LatencyAnalysis:
     return LatencyAnalysis(
         parsed_tests=len(call_by_test),
         total_call_seconds=round(total, 1),
-        phase_seconds={phase: round(phase_seconds[phase], 2)
-                       for phase in PHASES if phase_seconds[phase]},
+        # `.get`, not `[phase]`: a report whose phases are all under the 5 ms floor has no
+        # entry for them at all, and `[phase]` raised `KeyError: 'setup'` on real input -
+        # `--durations=0` output from `test_gate_commands.py` and `test_perf_marker_guard.py`
+        # is call-only, and both crashed this script deterministically.
+        phase_seconds={phase: round(value, 2)
+                       for phase in PHASES
+                       if (value := phase_seconds.get(phase))},
         layers={
             layer: LayerStats(
                 tests=layer_tests[layer],
@@ -225,7 +230,7 @@ def render(result: LatencyAnalysis) -> str:
     out.append(f"median test: {conc.get('median_test_seconds', 0.0)}s, "
                f"mean/median ratio: {conc.get('mean_over_median', 0.0)}x")
 
-    out.append("\n== slowest 20 files ==")
+    out.append("\n== slowest 30 files ==")
     for entry in result.get("slowest_files", []):
         out.append(f"{entry['seconds']:>9.1f}s{entry['share_percent']:>7.1f}%  {entry['file']}")
 

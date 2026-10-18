@@ -152,9 +152,13 @@ def _reset_app_settings():
         # that write the key did not exist, so `agent_api_enabled` read
         # `DEFAULT_AGENT_API_ENABLED` (True) and `agent_api_port` read its
         # default (8765). A GardenPlannerApp built by an earlier test arms
-        # `QTimer.singleShot(1500, self._maybe_start_agent_api)`, and that lambda
-        # holds `self`, so the window object outlives the test that made it; a
-        # timer landing in the gap started a REAL AgentApiServer on 8765, and
+        # `QTimer.singleShot(1500, self._maybe_start_agent_api)`. That is a BOUND
+        # METHOD, not a lambda, and PyQt auto-disconnects a bound-method slot when its
+        # receiver is destroyed - so what keeps the window alive is the leak itself, not
+        # the slot: nothing ever destroyed the window, so the timer stayed connected and
+        # fired. `tests/integration/conftest.py`'s `_reclaim_widgets` docstring carries
+        # the same account. A timer landing in the gap started a REAL AgentApiServer on
+        # 8765, and
         # two workers doing that collided with
         # `OSError: [Errno 10048]` (measured #509 under `pytest -n 8`). The gap
         # was always there — serial runs simply made it microseconds wide against

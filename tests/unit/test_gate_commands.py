@@ -857,7 +857,8 @@ def _needs_of(job: dict) -> list[str]:
 
 
 def test_ci_runs_the_whole_perf_set_serially() -> None:
-    """Both of CI's perf steps are pinned by JOB, because prose got them wrong.
+    """The three perf steps are pinned by their argv, and by the two keys that can make a
+    step or a job not gate at all. Both halves exist because prose got them wrong.
 
     `addopts` carries `-n auto --dist worksteal -m 'not perf'` (#509), so the perf tests
     run in neither mode by default: the battery deselects them, and the workers are the
@@ -908,15 +909,14 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
         return found
 
     test_steps = perf_steps("test")
+    # ONE assertion, not two: an `assert test_steps` after this could never fire, because
+    # `len(test_steps) == 1` is already false at zero and the message documenting the
+    # unquoted-`echo` hole would never print. A dead assertion reads as coverage.
     assert len(test_steps) == 1, (
         f"expected exactly one perf step in the `test` job, found {len(test_steps)}: "
-        f"{test_steps}"
-    )
-    assert test_steps, (
-        "the `test` job has no step whose argv selects a `perf` marker. `-m` is read as a "
-        "token pair, which catches a command hidden inside a comment. It does NOT catch one "
-        "hidden inside an unquoted `echo`, because the tokens are concatenated across the "
-        "script - see the measured-open list below"
+        f"{test_steps}. `-m` is read as a token pair, which catches a command hidden inside "
+        "a comment - but NOT one hidden inside an unquoted `echo`, because `_argv_of` "
+        "concatenates the tokens of every line; see the measured-open list below"
     )
     quiet = test_steps[0]
     assert _covers_the_perf_marker(quiet, want_marker=True), (
@@ -1000,18 +1000,60 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
             )
             _queue.extend(_needs_of(jobs[_dependency]))
 
+    # The step-level and job-level neutralisations. These assertions lived in a separate test
+    # (`test_the_perf_steps_cannot_be_neutralised`) until `d9d18860` deleted it while the
+    # comment below went on claiming they were checked; seven mutations were then measured
+    # green against this pin. They belong here rather than in a second test because the pin
+    # that finds the steps is the pin that must insist they can fail.
+    for _job_name in ("test", "coverage"):
+        _gate = jobs[_job_name]
+        assert not _gate.get("continue-on-error"), (
+            f"the `{_job_name}` job has continue-on-error: every gate inside it - including "
+            "the perf budgets - becomes advisory while the check reports pass"
+        )
+        assert "if" not in _gate, (
+            f"the `{_job_name}` job is conditional, and it carries a perf gate: it may be "
+            "skipped entirely, which is reported differently from passing"
+        )
+        for _step in _gate.get("steps", []):
+            _argv = _argv_of(_step.get("run"))
+            if not (_argv and "perf" in str(_marker_arg(_argv))):
+                continue
+            _where = f"{_job_name} / {_step.get('name') or ' '.join(_argv)[:40]}"
+            assert not _step.get("continue-on-error"), (
+                f"`{_where}` has continue-on-error: the perf tests would run, could fail, "
+                "and the job would still be green - a gate that reports nothing"
+            )
+            assert "if" not in _step, (
+                f"`{_where}` is conditional: a perf step behind an `if:` may be skipped "
+                "entirely, and nothing else in the workflow would notice"
+            )
+
     # WHAT THIS CANNOT SEE, as measurements rather than as a claim of completeness. Every
     # entry below was run; the ones this file HAS closed are listed too, because a boundary
     # is only informative next to the things on the other side of it.
     #
-    # CLOSED, each verified by mutation:
-    #   * a `#` comment naming the perf command - line-initial, mid-line inside a block
-    #     scalar, inside an `echo`, and after `true;`. All four failed the pin once the
-    #     matching moved from substrings to argv, and all four passed it before. That class
-    #     is why the pins read `shlex` output rather than text.
-    #   * `continue-on-error` and `if:` at step AND job level, and a `needs:` dependency that
-    #     can never run. A skipped job is reported differently from a passing one.
-    #   * `tests/perf` instead of `tests/`, a dropped `-n 0`, a dropped `--cov-append`.
+    # CLOSED, and every entry names the ASSERTION that closes it rather than the shape. A
+    # list of shapes reads as coverage even when nothing checks them - which is exactly what
+    # happened here: `d9d18860` deleted the test holding the step/job assertions while this
+    # comment went on claiming the shapes were verified, and seven mutations then passed.
+    #
+    #   * a `#` comment naming the perf command - line-initial, mid-line in a block scalar,
+    #     inside an `echo`, and after `true;`
+    #         -> `_argv_of` tokenises each line with `shlex.split(comments=True)`, so a
+    #            comment never reaches `_marker_arg` / `_flag_value` / `_targets_tests_dir`.
+    #   * `tests/perf` instead of `tests/`
+    #         -> `_targets_tests_dir`, which compares a PATH token against `tests`.
+    #   * a dropped `-n 0`
+    #         -> `_flag_value(quiet, "-n") == "0"` and the same for `serial[0]`.
+    #   * a dropped `--cov-append`
+    #         -> `any(token == "--cov-append" for token in serial[0])`.
+    #   * `continue-on-error` / `if:` on a perf STEP
+    #         -> the `for _step in _gate.get("steps", [])` loop above.
+    #   * `continue-on-error` / `if:` on `test` / `coverage` themselves
+    #         -> the `for _job_name in ("test", "coverage")` loop above.
+    #   * a `needs:` dependency that can never run
+    #         -> the `needs` walk above. A skipped job is reported differently from a pass.
     #
     # STILL OPEN, measured:
     #   * `-o addopts="--collect-only"`, `--co`, or `env: PYTEST_ADDOPTS: --co` on a perf

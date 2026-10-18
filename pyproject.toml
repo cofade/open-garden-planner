@@ -65,15 +65,8 @@ dev = [
     "pytest-qt>=4.4.0",
     "pytest-cov>=4.1.0",
     "pytest-timeout>=2.3.0",
-    # Parallel suite execution (#509). Measured on the reference tree:
-    # 673.6s serial -> 156.2s with `-n 8 --dist worksteal` (4.31x). worksteal
-    # beat loadfile (186.3s) and load (250.2s) because it splits at test level,
-    # so no single slow file becomes a worker's floor.
-    #
-    # This is what makes the timing tests need the documented split in `addopts`
-    # below: a few of them are load-sensitive and fail beside parallel workers. Which
-    # ones, and the three counts that are easy to confuse, are stated once at the
-    # `-m 'not perf'` comment below rather than twice.
+    # Parallel suite execution (#509). The measurements, the mode comparison and the
+    # marker contract live in `docs/08-crosscutting-concepts/` 8.10.4 and ADR-058.
     "pytest-xdist>=3.8.0",
     "ruff>=0.1.0",
     "mypy>=1.8.0",
@@ -154,38 +147,29 @@ markers = [
 ]
 # `addopts` carries two #509 decisions, both measured rather than assumed.
 #
-# `-n auto --dist worksteal` — the reference tree runs 673.6s serial and 156.2s
-# with 8 workers on worksteal (4.31x). worksteal beat loadfile (186.3s) and load
-# (250.2s) because it splits at test level, so a single slow file never becomes one
-# worker's floor. The two costs of having it in `addopts` are real:
-#   * a SMALL targeted run gets slower, because worker start-up dominates —
-#     one 11-test file measured 2.85s serial against 5.48s under `-n auto`.
-#     Pass `-n 0` for a single file or a handful of tests.
+# `-n auto --dist worksteal` - 4 workers beside ubuntu-latest's 4 vCPUs, 20 on the dev box.
+# It splits at test level, so a single slow file never becomes one worker's floor; the mode
+# comparison (worksteal vs loadfile vs load) and the reference-tree figures are in
+# `docs/08-crosscutting-concepts/` 8.10.4 and ADR-058 rather than repeated here. The cost of
+# having it in `addopts` is real:
+#   * a SMALL targeted run gets slower, because worker start-up dominates - one 11-test
+#     file measured 2.85s serial against 5.48s under `-n auto`. Pass `-n 0` for a single
+#     file or a handful of tests.
 #   * `-n 0` also works as the escape hatch for anything machine-specific.
 #
-# — the 14 `perf`-marked tests must not share a runner with the parallel
-# workers. Which workers: `-n auto` resolves to 4 beside ubuntu-latest's 4 vCPUs
-# and to 20 on the dev box, so name the environment rather than a number - and the
-# "8" quoted further up is the MEASUREMENT harness (`-n 8`), not a shipped
-# configuration. Three counts orbit this flag and they are NOT interchangeable: 14 tests
-# carry the `perf` marker, 12 of them assert a duration, and 7 live outside
-# `tests/perf/` - which is why a directory-scoped run collects half the gate. Two of
-# the 14 were observed failing intermittently under parallel load: the NFR repaint
-# budget and the map-picker close bound. §11.4's #354 entry holds that performance
-# tests must protect a sustained regression statistically rather than assert that one
-# shared runner owns a quiet CPU; running them in their own step is that principle
-# applied to scheduling.
-#
-# The marker means "wall-clock sensitive", NOT "lives in tests/perf/". That distinction
-# is why the flag exists, and why `pytest tests/perf -m perf` collects 7 of the 14 and
-# passes - the worst failure mode available to a gate that exists to catch slow drift.
+# The `perf` marker means "wall-clock sensitive", NOT "lives in tests/perf/". That
+# distinction is why the flag exists. Three counts orbit it and they are NOT
+# interchangeable: 14 tests carry the marker, 12 of them assert a duration, and 7 live
+# outside `tests/perf/` - which is why `pytest tests/perf -m perf` runs 7 of the 14 and
+# silently passes. Two of the 14 were observed failing intermittently under parallel load:
+# the NFR repaint budget and the map-picker close bound. Section 11.4's #354 entry holds
+# that performance tests must protect a sustained regression statistically rather than
+# assert that one shared runner owns a quiet CPU; running them in their own step is that
+# principle applied to scheduling.
 #
 # CONSEQUENCE, deliberate: `pytest tests/` now DESELECTS the perf tests, so run them
-# explicitly with `pytest tests/ -m perf -n 0`. Three details, each of which was wrong
-# before this comment was corrected:
-#   * `tests/`, NOT `tests/perf/`. The marker is spread across the suite, so
-#     `pytest tests/perf -m perf` runs 7 of the 14 and silently passes - the worst
-#     possible failure mode for a gate that exists to catch slow drift.
+# explicitly with `pytest tests/ -m perf -n 0`:
+#   * `tests/`, NOT `tests/perf/`.
 #   * `-m perf`, or the `-m 'not perf'` above this line wins and nothing is collected.
 #   * `-n 0`, because running the timing tests across workers is precisely what the
 #     split exists to prevent.

@@ -373,9 +373,11 @@ four failures was understood:
 | `test_settings_chokepoint.py` ×3 | Working-tree race — see below |
 | `test_distribution_inventory.py::test_real_frozen_bundle_passes_the_inventory_check` | The interpreter guard described above; unrelated to parallelism |
 
-No port collision, no `QSettings` interference, no timing flake. **The three risks
-the issue named as blockers turned out to be already handled**, and the one real
-blocker was not on its list.
+No port collision, no `QSettings` interference, no timing flake. **Three of the four
+risks the issue named as blockers turned out to be already handled** (one
+`QApplication` per worker, port binding, shared filesystem and `QSettings`); the
+fourth - timing tests getting noisier under load - is real and is what the marker
+exists for. The one blocker that actually stopped parallel runs was not on the list.
 
 ### The blocker: one test mutated the git working tree
 
@@ -435,7 +437,8 @@ With the mutation gone, no grouping is needed: nothing else failed under `-n 8`.
 ## Consequences for the choices ahead
 
 - **The suite's shape suits parallel execution.** Only two session-scoped autouse
-  fixtures and three module-scoped ones exist in the whole tree; everything else is
+  fixtures and six module-scoped ones (in three files) exist in the whole tree;
+  everything else is
   function-scoped and independent.
 - **But `--dist load` (xdist's default) is not automatically right.** With
   `--dist loadfile` the longest file is a hard per-worker floor, and here that is
