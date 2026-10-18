@@ -2795,14 +2795,14 @@ is a shared-*state* defect and was fixed by isolating the arm, not by scheduling
   point-snapper mean < 16 ms, spatial-index medians < 200 ms / < 1 ms) run beside workers on
   a 4-vCPU runner. `-n auto` is 4 workers there and 20 on the dev box; the "eight" this ADR
   quotes elsewhere is the measurement harness, which matches neither.
-  **The deselect and the append are one decision, not two — measured, and stated once:**
-  step 1 alone is `agent_api` **2012 of 2195 with the gate exiting 1**; step 1 plus the
-  serial append is **2026 of 2195 with `regressions: []`**. The delta is exactly the
-  fourteen `stop()` escalation lines. Two earlier drafts of this ADR got the same
-  measurement wrong in opposite directions ("restores the margin to fourteen", then
-  "adds no coverage"); both are retracted, and the working is in
-  `docs/11-risks-and-technical-debt/test-suite-latency-2026-10.md` rather than repeated
-  here.
+
+**Evidence.** `scripts/measure_test_suite_latency.py` reproduces the concentration table
+from a recorded `--durations` report (11 unit tests pin its arithmetic against a
+hand-computable fixture, including the ways it could report a confident wrong number);
+`docs/11-risks-and-technical-debt/test-suite-latency-2026-10.md` holds the full baseline,
+the per-layer and per-file tables, the widget-leak measurement and the corrections to
+issue #509's stated facts. The CI `Test` job uploads its `--durations=0` report as the
+`test-durations-linux` artifact.
 
 ### ADR-042 addendum: the runtime tint becomes a luminance map (issue #502, 16 October 2026)
 

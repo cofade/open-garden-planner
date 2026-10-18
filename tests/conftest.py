@@ -328,15 +328,20 @@ def _reclaim_widgets(qtbot: object):  # noqa: ARG001 - see below
     it to be true. Naming it here would be the same error as a docstring that calls
     `sendPostedEvents(None, 0)` the right call and measures the wrong one.
 
-    **The fix, in one place.** Two things deliver the ordering, and an earlier version of
-    this docstring credited the wrong one. It is the **root-conftest position** that makes
-    this fixture finalise after `tests/integration/conftest.py`'s
-    `_no_leaked_agent_api_thread` has walked `topLevelWidgets()` to stop any server an app
-    still owns - measured with `--setup-show`, the teardown order is
-    `_no_leaked_agent_api_thread -> _reclaim_widgets -> qtbot`, and it stays that way with
-    the `qtbot` request removed. The request orders this fixture ahead of **qtbot's own**
-    teardown, which is what the reload of `qtbot`'s registry needs, and it is not what puts
-    the leak warning first. Doing
+    **The fix, in one place.** Two things deliver the ordering, and earlier versions of this
+    docstring credited the wrong one - twice, in both directions. Measured both ways with
+    `--setup-show` on `tests/integration/test_agent_api_server.py`:
+
+        with the `qtbot` request     _no_leaked_agent_api_thread -> _reclaim_widgets -> qtbot
+        without it                   _no_leaked_agent_api_thread -> qtbot -> _reclaim_widgets
+
+    So the **root-conftest position** delivers the FIRST arrow: this fixture finalises after
+    `tests/integration/conftest.py`'s `_no_leaked_agent_api_thread` has walked
+    `topLevelWidgets()` to stop any server an app still owns, and that holds whichever way
+    the request goes - it is what keeps the leak warning able to fire. The `qtbot` request
+    delivers the SECOND: it orders this fixture ahead of qtbot's own teardown. An earlier
+    draft said the whole chain "stays that way with the request removed", which the second
+    line above refutes. Doing
     this earlier would delete those windows first and the leak warning would never
     fire — a gate that silently stops reporting. Measured effect of this exact
     sequence on that same 38 271-widget process: **38 271 -> 0 widgets, 1 580 -> 0

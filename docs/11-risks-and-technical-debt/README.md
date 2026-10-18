@@ -1298,9 +1298,12 @@ dynamic consumers retain comments, and unresolved receivers/helper imports fail 
   Fixed by one autouse fixture in `tests/conftest.py` that closes and `deleteLater()`s
   every top-level widget per test — 38 271 → 0, and the serial suite 912.6 s → 673.6 s
   with no product change and no test removed. Three details decide whether it works:
-  the fixture requests `qtbot` so pytest finalises it **last** (earlier, it deletes the
-  windows `tests/integration/conftest.py` still walks to stop servers, and the leak
-  warning would never fire); `sendPostedEvents` must name `QEvent.Type.DeferredDelete`
+  the fixture's **position in the root conftest** is what finalises it last, after
+  `tests/integration/conftest.py` has walked the windows it uses to stop servers - which is
+  why deleting them earlier would silence the leak warning. The `qtbot` request is a separate
+  ordering: it puts the reclaim ahead of qtbot's own teardown. Measured both ways with
+  `--setup-show`; an earlier version of this entry credited the request with the first, which
+  holds with the request removed; `sendPostedEvents` must name `QEvent.Type.DeferredDelete`
   explicitly, because `sendPostedEvents(None, 0)` — the shape that looks right — flushes
   nothing, and measuring that wrong call is how the first attempt appeared to prove the
   chokepoint ineffective; and a chokepoint beats the 51 per-file edits because it cannot be

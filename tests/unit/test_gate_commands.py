@@ -962,8 +962,9 @@ def test_the_perf_steps_cannot_be_neutralised() -> None:
     #     * `|| true`, or a pipe to `tee` without `pipefail`, on the same command.
     #
     #   NOT holes, though the first draft claimed they were:
-    #     * a `run:` expressed as a YAML list FAILS LOUDLY (TypeError from the regex) - an
-    #       unhelpful message, but not a silent pass;
+    #     * a `run:` expressed as a YAML list is caught as `found == 0` - loud, and NOT
+    #       for the reason an earlier draft gave (a TypeError from the regex).
+    #       `_script_lines` returns `[]` for a list, so the step simply stops matching;
     #     * a perf step moved into a reusable workflow is caught by `found >= 3` and by
     #       `len(test_steps) == 1`.
     #

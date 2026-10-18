@@ -73,9 +73,18 @@ dev = [
     # This is what makes the timing tests need the documented split below in
 # `addopts`: TWO of the 14 `perf`-marked tests were observed failing
 # intermittently beside parallel workers - the NFR repaint budget and the map-picker
-# close bound. (An earlier version said seven, which is the count of tests the marker
-# GUARD detects, not a load measurement; all 14 pass in an `-n 8` run.) The marker
-# exists so wall-clock assertions never share a runner, whoever is right about how
+    # close bound. (An earlier version said seven. That figure is real but belongs to
+    # a different fact: `tests/perf/ -m perf` collects 7 of the 14, because 7 of the
+    # marked tests live outside that directory. It is not a count of fragile tests,
+    # and the marker GUARD detects 12 assertions - so three numbers orbit this
+    # sentence and an earlier draft attached the wrong one twice. All 14 pass in an
+    # `-n 8` run.) The marker exists so wall-clock assertions never share a runner.
+    # and the marker GUARD detects 12 assertions - so three numbers orbit this
+    # sentence and an earlier draft attached the wrong one twice. All 14 pass in an
+    # `-n 8` run.) The marker exists so wall-clock assertions never share a runner.
+    # and the marker GUARD detects 12 assertions - so three numbers orbit this
+    # sentence and an earlier draft attached the wrong one twice. All 14 pass in an
+    # `-n 8` run.) The marker exists so wall-clock assertions never share a runner.
 # many of them are fragile today.
     "pytest-xdist>=3.8.0",
     "ruff>=0.1.0",
