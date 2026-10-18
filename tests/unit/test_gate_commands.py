@@ -1024,9 +1024,21 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
                 f"`{_where}` has continue-on-error: the perf tests would run, could fail, "
                 "and the job would still be green - a gate that reports nothing"
             )
+            # The loop matches BOTH perf steps of the Coverage job, and the two have
+            # opposite consequences when skipped - so the message names the one that
+            # applies instead of describing only the selecting case. Skipping the
+            # deselecting step is not a weaker neutralisation than skipping the serial one:
+            # the perf tests then run under `-n auto` in the parallel step, which is what
+            # the three zero-slack budgets must not do.
+            _skipped = (
+                "the perf tests would never run"
+                if _covers_the_perf_marker(_argv, want_marker=True)
+                else "the deselect would be skipped, so the perf tests would run under "
+                "`-n auto` in the parallel step beside workers"
+            )
             assert "if" not in _step, (
-                f"`{_where}` is conditional: a perf step behind an `if:` may be skipped "
-                "entirely, and nothing else in the workflow would notice"
+                f"`{_where}` is conditional, and it carries the perf gate: skip it and "
+                f"{_skipped} - a skipped check is reported differently from a passing one"
             )
 
     # WHAT THIS CANNOT SEE, as measurements rather than as a claim of completeness. Every

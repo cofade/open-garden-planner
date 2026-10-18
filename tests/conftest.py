@@ -156,10 +156,10 @@ def _reset_app_settings():
         # METHOD, not a lambda, and PyQt auto-disconnects a bound-method slot when its
         # receiver is destroyed - so what keeps the window alive is the leak itself, not
         # the slot: nothing ever destroyed the window, so the timer stayed connected and
-        # fired. `tests/integration/conftest.py`'s `_reclaim_widgets` docstring carries
-        # the same account. A timer landing in the gap started a REAL AgentApiServer on
-        # 8765, and
-        # two workers doing that collided with
+        # fired. The account is in `tests/integration/conftest.py`'s
+        # `_no_leaked_agent_api_thread` docstring, and the fixture it describes is
+        # `_reclaim_widgets` in THIS file. A timer landing in the gap started a REAL
+        # AgentApiServer on 8765, and two workers doing that collided with
         # `OSError: [Errno 10048]` (measured #509 under `pytest -n 8`). The gap
         # was always there — serial runs simply made it microseconds wide against
         # a 1500 ms timer. See `_disable_agent_api_server`, which now asserts

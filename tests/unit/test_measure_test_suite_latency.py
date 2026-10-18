@@ -67,14 +67,17 @@ def test_setup_and_teardown_are_reported_but_not_charged_to_tests() -> None:
 
 
 def test_a_call_only_report_does_not_raise_on_absent_phases() -> None:
-    """`--durations=0` output from a file with no slow fixtures is call-only.
+    """A report with no `setup`/`teardown` line above the 5 ms floor must not raise.
 
-    Measured on real input: reports from `tests/unit/test_gate_commands.py` and
-    `tests/unit/test_perf_marker_guard.py` have no `setup`/`teardown` line above the 5 ms
-    floor at all, and `analyse` raised `KeyError: 'setup'` on both - the phase summary
-    indexed `phase_seconds[phase]` rather than reading it with a default. Deterministic,
-    exit 1, and invisible to every other test here because the shared fixture always
-    carries setup and teardown.
+    The phase summary indexed `phase_seconds[phase]` rather than reading it with a default,
+    so a genuinely call-only report raised `KeyError: 'setup'` and exited 1. An earlier
+    version of this docstring claimed that shape was reproduced from
+    `test_gate_commands.py` and `test_perf_marker_guard.py`; six real inputs, including both
+    CI artifacts, carry setup above the floor and do not reproduce it. The shape is real and
+    is what this fixture builds; the file names were not.
+
+    Every other test here is blind to it because the shared fixture always carries setup and
+    teardown, and the two early-exit cases return before the summary is built.
 
     A phase that never appeared is absent, not zero: the report must not claim it was
     measured as 0.00s.

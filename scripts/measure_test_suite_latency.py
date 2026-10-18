@@ -164,9 +164,11 @@ def analyse(lines: list[str]) -> LatencyAnalysis:
         parsed_tests=len(call_by_test),
         total_call_seconds=round(total, 1),
         # `.get`, not `[phase]`: a report whose phases are all under the 5 ms floor has no
-        # entry for them at all, and `[phase]` raised `KeyError: 'setup'` on real input -
-        # `--durations=0` output from `test_gate_commands.py` and `test_perf_marker_guard.py`
-        # is call-only, and both crashed this script deterministically.
+        # entry for them at all, and `[phase]` raised `KeyError: 'setup'` and exited 1.
+        # To see it, write a report with only `call` lines - a three-line file is enough:
+        # `0.03s call tests/unit/test_gate_commands.py::test_a`. A full `--durations=0` run
+        # usually carries setup and teardown above the floor, so the shape is easy to miss;
+        # `test_a_call_only_report_does_not_raise_on_absent_phases` pins it.
         phase_seconds={phase: round(value, 2)
                        for phase in PHASES
                        if (value := phase_seconds.get(phase))},
