@@ -5265,7 +5265,8 @@ fixed the same defect, `master`'s mechanism wins:**
   churn alone). Counting tiles only called the leaking release more often. The leak itself is
   OPEN (§11.4.34; the workspace's G7 soak with the baker in: GPU +7.5 MB per rebuild with its
   release after quiet, +19 with the release in the pass, against 0.0 and −0.1 without the
-  baker).
+  baker; with tiles no longer counted, GPU +10.2 and private bytes +30.4 with the release in
+  the pass — two of the workspace's G7 gates fail on this branch).
 - **The tile's material is the endless meadow's** (roughness 1.0, specular amount 0.15), so a
   baked lawn meets the meadow without a step (the L1.4 look review: 0.92 / 0.2 measured 2 to 8
   luma darker; the combined look pass gates the edge at ≤ 1 luma).

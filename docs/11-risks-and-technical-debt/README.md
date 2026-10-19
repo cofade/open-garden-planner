@@ -2527,7 +2527,10 @@ replacing old ones, and a release in between. Qt's `releaseResources()` reaches
 reloads them with the next frame; what keeps the replaced ones is not established. *What
 Part B does about it:* the bake never asks for a release (tile Models are not counted in
 `TickReport.retired` — they need none), so only a release caused by item changes after a
-re-bake leaks. *A fix* changes how tile textures reach the engine and is its own follow-up.
+re-bake leaks — which is still every rebuild of the workspace's G7 soak: on the branch as it
+stands, dedicated GPU memory +10.2 MB per rebuild (bound 10) and, with the release in the pass,
+private bytes +30.4 (bound 10) — two G7 gates of `tests/integration/test_view3d_workspace_render.py`
+fail. *A fix* changes how tile textures reach the engine and is its own follow-up.
 The probe is in the story's scratch (`probe_release_driver.diff`). *Lesson:* a soak that
 passes alone (G6: re-bakes, no release) and one that passes alone (G7: releases, no textures
 replaced) can both be green while their combination leaks — run the product's own policy
