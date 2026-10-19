@@ -15,8 +15,9 @@ runner, a tripwire at x10 under a line tracer:
   ``bench_small.ogp``** — from the canvas's ``setSelected`` to the pass that hands
   the engine the ring, in the real workspace (Split, the engine replaced by the
   recording sink: what is timed is everything BEFORE the engine — the canvas's own
-  selection handling, the pass, the snapshot, the ring's mesh). Measured: 10.3 ms
-  median, 14.9 ms p95, 37.7 ms max over 120 changes. The frame itself is the render tier's
+  selection handling, the pass, the ring's mesh). Measured 2026-10-19, after the
+  workspace's plan revision: 3.1 ms median, 5.3 ms p95, 9.0 ms max over 120 changes, no
+  snapshot (before it: 10.3 / 14.9 / 37.7 ms, each change with a whole-plan snapshot). The frame itself is the render tier's
   (``test_view3d_selection_render.py``).
 
 What the second number no longer contains: until the workspace's plan revision the
