@@ -2739,7 +2739,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
   - shadows and 3D grew plants for the instant's UTC date, while the heatmap used the local date;
   - a date change while the heatmap computed, or after the worker returned with its result still queued, let the old day's map paint (and a second launch in that queued window could abort the process — unreachable from the busy button, now refused);
   - the date picker allowed years that Windows' system-zone conversion cannot handle (now 1971–2999).
-- No `.ogp` change and no new UI strings. The plan for the other ten stories is outlined in the #385 issue table; each ships as its own branch and draft PR.
+- No `.ogp` change and no new UI strings. The plan for the other ten stories is outlined in the #385 issue table; they were built on story branches and shipped together in PR #484 (v1.30.14).
 
 ### L1.0 docs updated on completion
 
@@ -2759,10 +2759,10 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 
 - **The 3D view is a Plan / 3D / Split workspace in the main window**, rendered with Qt Quick 3D (View → Sun & 3D → "3D View" opens Split; Alt+1 / 2 / 3). The Qt 3D viewer window, `core/scene3d/legacy.py`, `core/walk_camera.py`, the L0 spike and both `PyQt6-3D*` wheels are deleted, and `tests/unit/test_no_qt3d_left.py` keeps them out.
 - **One story each:** L1.1 scene contract v2 (`core/scene3d/`); L1.2 the engine package (`ui/view3d/quick3d/`, CI `Render 3D` on Windows WARP and Linux); L1.3 the workspace (lazy engine, crash marker and software fallback); L1.4 looks and sky (presets with Automatic, twilight, wind, reduced motion); L1.5 the ground bake (the plan's flat surfaces painted onto the ground, matching 2D pixel for pixel); L1.6 the built world; L1.7 plant silhouettes (`core/plant_art/`); L1.8 selection sync, the info card and walk collision; L1.9 the default flip with throttled date playback (§8.29.9 holds the FR-SUN-06 / 07 / 08 parity table and the measured budgets); L1.10 the removal.
-- **Defects of the released app fixed on the way:** #438, #439, #441, #442, #467, #468, #469, #476, #478, #479, #523, #527, #529.
+- **Fixed on the way:** defects of the released app #438, #439, #441, #467, #468, #469, #478, #479, #523, #527; the test suite and developer scripts writing into the developer's real profile, #442; and two found in the new view before it shipped, #476 (a Qt Quick 3D texture trap) and #529 (picket moiré at Low).
 - **Owner acceptance, 2026-10-19:** the 36-step manual checklist passed, and the seven decisions put at the pull request were all kept as built — the twilight fade, the noon horizon's lime band, 4× MSAA at Low, the flat sky in compatibility mode, `master`'s rule for a loaded sprite's stated stroke, the new view's cost over the old window (no lighter default preset), and the default shipped with Qt 6.11's ground-texture leak #532 open (ADR-060 addendum D5).
 - **Known limitations, filed:** #531 and #532, and the `priority: high` follow-ups #534–#542 (wind memory, the look on a software-only adapter, a render-test flake, removal leftovers, a local build's contents, "3D View" from tabs other than Garden Plan, CI coverage of the default workspace, an untranslated shortcut name, the date-playback throttle).
-- **Docs:** ADR-059 and ADR-060 with their addenda, ADR-048's closing addendum, §8.29, §8.10.5–8.10.13, §11.4.12–11.4.20, FR-SUN-06 / 07 / 08 and the FR-3D-* requirements.
+- **Docs:** ADR-059 and ADR-060 with their addenda, ADR-048's closing addendum, §8.29, §8.10.5–8.10.13, §11.4.12–11.4.20, FR-SUN-06 / 07 / 08, FR-SUN-11, FR-33, the FR-3D-* requirements and the glossary's scene terms (Scene record, Scene diff, Engine sink, …).
 
 ---
 
@@ -3030,7 +3030,7 @@ colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see §11.4
 - **#470 (Offset copy keeps its look)**: the offset tool made a rectangle, circle or ellipse copy
   in its object type's default fill, pattern and stroke. One seam, `core/item_look.py::
   copy_visual_style`, now copies both the serialized attributes and the pen/brush, and is shared
-  with `mirror_geometry` (chamfer/fillet/trim stay with #441 on the L1 branch). Pinned in
+  with `mirror_geometry` (chamfer/fillet/trim stayed with #441 on the L1 branch, shipped in v1.30.14). Pinned in
   `tests/integration/test_offset_tool.py`.
 - **#473 (Line paint in the budgets)**: the NFR-PERF-01 reference plan held no polyline, so the
   three budget scenarios could not see a slower line paint. A second scenario adds plain fences

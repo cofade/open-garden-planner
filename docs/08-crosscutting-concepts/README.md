@@ -6585,7 +6585,8 @@ What the table says, honestly:
   against 45 MB on the graphics card. It draws a sky with a light probe, two shadow cascades,
   4× multisampling, ambient occlusion, glow and a wind; the old one drew lit prisms. The first
   frame is still inside the 10 s bound of `test_view3d_default_render.py`; nothing else had a
-  bound before this story — these are the numbers the owner decides on.
+  bound before this story — these are the numbers the owner accepted at the L1 pull request
+  (2026-10-19, no lighter default preset; ADR-060 addendum D5).
 - **Edit → frame on the small plan is 45.9 ms at p95 in a 2334 × 1105 pane** — under ADR-060's
   50 ms bound, with less room than L1.3 measured (19.7 ms in a 574 × 734 pane, 29.2 maximised);
   L1.4's look made a frame dearer. The large plan has no bound (180 ms p95).

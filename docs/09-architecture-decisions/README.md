@@ -5227,14 +5227,15 @@ with `view3d_looks_driver.py` (§8.10.11).
   12.7 % (4x 13.1 %; medium 12.3 %). Low takes 4x (decision 3). Cost on the RTX 4070
   (bench_large, 1280 × 720, a new frame's readback; the display asleep, so no presented frames):
   FXAA 23–28, 2x 23–30, 4x 24–32 ms — inside the run-to-run spread; on WARP under a shared CPU
-  FXAA 67–152, 2x 96–147, 4x 107–199 ms. An integrated GPU is unmeasured (owner question).
+  FXAA 67–152, 2x 96–147, 4x 107–199 ms. An integrated GPU is unmeasured; the owner kept 4× at Low
+  without that measurement (2026-10-19, ADR-060 addendum D5).
 - *Look P2s.* The flat fill × 0.5 (compatibility mode read +22 luma over the GPU's sky-lit frame);
   the plan ground takes the meadow's material (roughness 1.0, specular 0.15): its step along the
   plan's edges ≤ 0.21 luma in every view, the old material up to 4.65 (the instrument fits both
   sides at the edge line — two band means read the view's gradient as a step); medium takes the
   2048 map: +4 % of a WARP frame on bench_large (183 → 191 ms), nothing measurable on the GPU;
-  the horizon's CIE76 hue difference is reported (not gated; the noon ΔE ~60 is an owner
-  question); the board's date row is read back from the records rendered, the shot's day is the
+  the horizon's CIE76 hue difference is reported (not gated; the noon ΔE ~60 is the lime band
+  the owner kept on 2026-10-19, ADR-060 addendum D5); the board's date row is read back from the records rendered, the shot's day is the
   plan's local day (ADR-053), and a per-date digest of (item, height) must differ between June
   and December.
 - *Recorded.* A soak of the default steady state (shown, wind running; the workspace soaks run
@@ -6394,8 +6395,8 @@ time thrown away.
 
 ### ADR-060 addendum: the default and the removal (L1.9 / L1.10)
 
-**Status**: Accepted (2026-10-19, #385 stories L1.9 and L1.10) — the default flip is an OWNER
-decision at the L1 pull request (below: #532). Two commit groups: every L1.9 commit (the flip;
+**Status**: Accepted (2026-10-19, #385 stories L1.9 and L1.10); shipped in v1.30.14 (PR #484)
+with #532 open, the owner's decision at the L1 pull request (D5). Two commit groups: every L1.9 commit (the flip;
 the tree after them still holds the Qt 3D code, reachable from no menu) strictly before every
 L1.10 commit (the removal), so that shipping the flip without the removal is one revert.
 
@@ -6450,7 +6451,7 @@ code in six alternating soaks (§8.29.9): no difference, and the growth L1.4 mea
 reproduce on either. Reverted. The final render tier the same day read 2.637 MB a minute (bound
 2.0): intermittent, not gone — the gate is a non-strict `xfail` citing #534.
 
-**D5. The flip with #532 open is the owner's call.** #532 (Qt 6.11's `QSSGBufferManager::clear()`
+**D5. The flip ships with #532 open — the owner's call, made 2026-10-19.** #532 (Qt 6.11's `QSSGBufferManager::clear()`
 skips hash entries, so about half of the same-size ground-tile textures leak on every cache
 release) is L1.5's known limitation; the flip ships the ground with it. The exposure is measured
 by L1.5 (up to ~42 MB per release on a 4096² ground) and, on the default's own path, after the
@@ -6460,7 +6461,7 @@ consolidated checklist of the L1 pull request asked the owner to choose. **Decid
 the owner accepted the L1 pull request after its manual checklist and chose (a), ship the flip
 with #532 open. The six other decisions put to them there were kept as built: the twilight fade
 (FR-3D-LOOK-01), the noon horizon's lime band, 4× MSAA at Low (FR-3D-LOOK-07), the flat sky in
-compatibility mode, `master`'s rule for a loaded sprite's stated stroke (§11.4), and the new
+compatibility mode, `master`'s rule for a loaded sprite's stated stroke (§11.4.17), and the new
 view's cost over the old window (§8.29.9) with no lighter default preset.
 
 #### Alternatives rejected

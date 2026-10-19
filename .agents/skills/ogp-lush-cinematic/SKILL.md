@@ -293,6 +293,6 @@ Severity: **P0** = truth gate failed, mirrored/black/broken frame, unreadable sc
 - **2026-10-19** — accepted L1 (PR #484, v1.30.14) after the 36-step manual checklist, with no
   problems found, and kept every look decision put to them as built: the twilight fade through
   civil twilight into a moonlit night (not a hard switch at sunset), the noon horizon's lime band
-  (not a haze), 4× MSAA at Low, the flat sky and even fill light in compatibility mode, and the
-  new view's cost over the old window (no lighter default preset). Shipped the default with
-  #532 open (ADR-060 addendum D5).
+  (not a haze), 4× MSAA at Low, and the flat sky and even fill light in compatibility mode;
+  accepted the new view's cost over the old window (no lighter default preset); and shipped the
+  default with #532 open (ADR-060 addendum D5).
