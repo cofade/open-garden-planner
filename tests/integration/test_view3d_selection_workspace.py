@@ -370,6 +370,29 @@ def test_a_selected_item_that_moves_takes_its_ring_along_in_the_same_transaction
         "an edit of something else does not resend the ring")
 
 
+@pytest.mark.xfail(strict=True, reason=(
+    "the pipeline reads QGraphicsScene.changed: the canvas's repaint of an item whose "
+    "selection changed is one whole-plan snapshot (measured: one per change). The "
+    "workspace story's plan revision (L1.3 fix round) makes this pass - then remove this mark"))
+def test_a_canvas_selection_in_split_takes_no_snapshot(bench: SelectionBench) -> None:
+    """The selection path itself reads nothing of the plan (``Scene3DController.
+    set_selection`` -> ``SceneSync.send_selection``: no snapshot, no builder —
+    ``test_view3d_selection_controller.py``). This is the same question asked of the
+    whole app with the canvas VISIBLE: every selection change of a session, zero
+    snapshots, and the engine told the ring alone. A tripwire until the pipeline
+    stops reading a repaint as an edit."""
+    a, b = bench.item(400.0, 300.0), bench.item(1500.0, 300.0)
+    bench.open3d()
+    controller = bench.workspace.controller
+    snapshots = controller.snapshot_count
+    for selection in ((a,), (a, b), (b,), ()):
+        bench.scene.clearSelection()
+        for item in selection:
+            item.setSelected(True)
+        assert bench.calls(80) == [BEGIN, SELECT, COMMIT]
+    assert controller.snapshot_count == snapshots
+
+
 def test_selection_while_the_3d_pane_is_hidden_costs_nothing_and_is_caught_up(
         bench: SelectionBench) -> None:
     """Gate G3: hidden = zero engine calls, zero snapshots, and no "building" notice
