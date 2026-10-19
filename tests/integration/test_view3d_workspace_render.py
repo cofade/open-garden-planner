@@ -525,15 +525,24 @@ def test_a_release_inside_the_pass_holds_on_a_real_device_too(scratch: Path) -> 
 def test_model_churn_alone_stays_under_the_plain_leak_bound(scratch: Path, release: str) -> None:
     """The ADDITIONAL variant: the same rebuilds with the ground bake OFF (a plain plan
     rectangle) — what a destroyed MODEL leaves behind, alone, as ADR-065 decision 15 first
-    measured it — against the plain bound: no tile texture, so nothing of #532."""
+    measured it — against the plain bound: no tile texture, so nothing of #532.
+
+    Judged on the DEDICATED-GPU slope where the device reports one (Ruling R46): private
+    bytes swing by 100–200 MB from one reload to the next with the bake on or off, so a
+    ten-point slope reads about ±13 MB on a flat curve (Model churn alone read −12.3, +7.5,
+    +8.0, +13.3 in four runs, the +13.3 with a flat GPU slope); the GPU reading was
+    −0.9 … +0.8 throughout. Private bytes are reported, and judged only where no GPU reading
+    exists (WARP / software)."""
     soak = _soak(scratch, "rebuild_on", release=release, ground="off")
     assert soak["ground_baker"] is False and soak["ground_tiles"] == 0
     assert known_532_allowance_mb(soak) == 0.0
     _took_no_frame(soak)
     assert soak["cache_releases"] >= RELOADS
-    assert soak["slope_second_half_mb_per_reload"] < LEAK_BOUND_MB_PER_RELOAD, soak["curve_mb"]
     gpu = soak["gpu_slope_second_half_mb_per_reload"]
-    assert gpu is None or gpu < LEAK_BOUND_MB_PER_RELOAD, soak["gpu_curve_mb"]
+    if gpu is None:
+        assert soak["slope_second_half_mb_per_reload"] < LEAK_BOUND_MB_PER_RELOAD, soak["curve_mb"]
+    else:
+        assert gpu < LEAK_BOUND_MB_PER_RELOAD, soak["gpu_curve_mb"]
 
 
 def test_what_a_readback_per_rebuild_costs_a_view_that_presents_nothing_is_reported(
