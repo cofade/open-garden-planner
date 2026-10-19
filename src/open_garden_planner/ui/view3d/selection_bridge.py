@@ -33,6 +33,11 @@ own. This module is the two translations between them:
   selected items themselves, and for a selected group every item inside it (a
   group has no record of its own; its members have).
 
+Which item an id names, what selecting it selects and whether it can be selected
+are not this module's: they are the app's ONE select-by-id path,
+``ui/canvas/select_by_id.py`` (the Diagnostics, Canopy and Guilds panels and the 3D
+view's problems list select through it too). This module adds the ray's rule.
+
 No Qt Quick import, no engine call, no state: functions on the scene.
 """
 
@@ -43,34 +48,23 @@ from typing import Any
 
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
-_SELECTABLE = QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
+from open_garden_planner.ui.canvas.select_by_id import (
+    click_target,
+    is_selectable,
+    item_with_id,
+    replace_selection,
+)
 
-
-def item_with_id(scene: QGraphicsScene, item_id: str) -> QGraphicsItem | None:
-    """The canvas item carrying ``item_id`` (None: there is none any more)."""
-    if not item_id:
-        return None
-    for item in scene.items():
-        if str(getattr(item, "item_id", "")) == item_id:
-            return item
-    return None
-
-
-def click_target(item: QGraphicsItem) -> QGraphicsItem:
-    """What a canvas click on ``item`` selects: the item — or the group it is in, the
-    outermost one (a group handles its members' clicks, however deeply nested)."""
-    target = item
-    while True:
-        group = target.group()
-        if group is None:
-            return target
-        target = group
-
-
-def is_selectable(item: QGraphicsItem) -> bool:
-    """True when a canvas click can select ``item``: shown, enabled and carrying Qt's
-    selectable flag — which the scene takes from every item of a locked layer."""
-    return bool(item.isVisible() and item.isEnabled() and item.flags() & _SELECTABLE)
+__all__ = [
+    "apply_click",
+    "click_target",
+    "hit_ids",
+    "is_selectable",
+    "item_with_id",
+    "selectable_target",
+    "selected_record_ids",
+    "sole_selected",
+]
 
 
 def hit_ids(hit: Any) -> tuple[str, ...]:
@@ -106,14 +100,12 @@ def apply_click(scene: QGraphicsScene, item_ids: Iterable[str], *, toggle: bool)
     docstring's table). Returns the item the click landed on, or None for nothing."""
     target = selectable_target(scene, item_ids)
     if target is None:
-        scene.clearSelection()
+        replace_selection(scene, ())
         return None
     if toggle:
         target.setSelected(not target.isSelected())
         return target
-    if not (target.isSelected() and len(scene.selectedItems()) == 1):
-        scene.clearSelection()
-        target.setSelected(True)
+    replace_selection(scene, (target,))
     return target
 
 

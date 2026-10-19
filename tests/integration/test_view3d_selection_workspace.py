@@ -614,6 +614,85 @@ def test_the_problems_list_still_selects_through_the_same_path(bench: SelectionB
     assert bench.selected() == [group]
 
 
+def test_every_list_that_names_objects_selects_through_the_one_select_by_id_path(
+        bench: SelectionBench) -> None:
+    """ONE select-by-id path (``ui/canvas/select_by_id.py``): a row of the Diagnostics,
+    Canopy or Guilds panel (``ObjectNavigator``) and a row of the 3D view's problems
+    list (``Workspace.select_item``) give the SAME canvas selection for the same id —
+    a group member selects its group, a locked object is not selected, an id that
+    names nothing leaves the selection alone — and the ring follows a panel's
+    navigation like any other selection: one ring call, no model touched."""
+    from open_garden_planner.ui.panels.diagnostics_panel import ObjectNavigator
+
+    locked = Layer(name="locked")
+    bench.scene.add_layer(locked)
+    a, b, c = bench.item(400.0, 300.0), bench.item(900.0, 300.0), bench.item(1500.0, 300.0)
+    before, wall = bench.item(2200.0, 300.0), bench.item(3000.0, 2000.0, layer=locked)
+    bench.commands.execute(GroupCommand(bench.scene, [a, b]))
+    group = next(item for item in bench.scene.items() if isinstance(item, GroupItem))
+    bench.scene.update_layer_lock(locked.id, True)
+    bench.open3d()
+    navigator = ObjectNavigator(bench.scene)
+
+    def by_panel(item_id: str) -> list[Any]:
+        navigator.select_ids([item_id])
+        bench.qtbot.waitUntil(lambda: not navigator._navigation.isActive(), timeout=2000)  # noqa: SLF001
+        return bench.selected()
+
+    def by_list(item_id: str) -> list[Any]:
+        bench.workspace.select_item(item_id, center=False)
+        return bench.selected()
+
+    expected = {str(c.item_id): [c], str(b.item_id): [group], str(wall.item_id): [],
+                "no such id": [before]}
+    for item_id, selection in expected.items():
+        for path in (by_panel, by_list):
+            bench.scene.clearSelection()
+            before.setSelected(True)
+            assert path(item_id) == selection, (path.__name__, item_id)
+
+    bench.scene.clearSelection()
+    bench.calls()
+    navigator.select_ids([str(a.item_id)])
+    bench.qtbot.waitUntil(lambda: bench.ring_ids() == ids(a, b), timeout=3000)
+    assert bench.selected() == [group]
+    assert bench.calls() == [BEGIN, SELECT, COMMIT], "the ring, and no model touched"
+
+
+def test_no_list_resolves_an_id_and_selects_on_its_own() -> None:
+    """Structure pin of the one select-by-id path: the panels' navigator, the plant
+    search, the 3D problems list and the 3D click call ``ui/canvas/select_by_id.py``,
+    and no module of the panels or of the 3D package clears the canvas selection or
+    looks an item up by id for a selection of its own."""
+    import ast
+    from pathlib import Path as _Path
+
+    src = _Path(__file__).resolve().parents[2] / "src" / "open_garden_planner"
+
+    def calls(path: _Path, function: str) -> set[str]:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        node = next(n for n in ast.walk(tree)
+                    if isinstance(n, ast.FunctionDef) and n.name == function)
+        return {(c.func.id if isinstance(c.func, ast.Name) else getattr(c.func, "attr", ""))
+                for c in ast.walk(node) if isinstance(c, ast.Call)}
+
+    assert "select_by_ids" in calls(src / "ui/panels/diagnostics_panel.py", "_navigate")
+    assert "select_by_ids" in calls(src / "ui/panels/plant_search_panel.py", "_apply_selection")
+    assert "select_by_ids" in calls(src / "ui/view3d/workspace.py", "select_item")
+    assert "replace_selection" in calls(src / "ui/view3d/selection_bridge.py", "apply_click")
+    offenders = []
+    for folder in ("ui/panels", "ui/view3d"):
+        for path in sorted((src / folder).rglob("*.py")):
+            if path.name == "find_replace_panel.py":
+                continue  # selects the items a text search FOUND, not ids
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for call in ast.walk(tree):
+                if (isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
+                        and call.func.attr == "clearSelection"):
+                    offenders.append(f"{path.relative_to(src)}:{call.lineno}")
+    assert offenders == [], "a second select-by-id path: use ui/canvas/select_by_id.py"
+
+
 # ── gate G7: walk mode in the workspace ──────────────────────────────────────
 
 

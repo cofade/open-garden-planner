@@ -888,29 +888,32 @@ class Workspace(QWidget):
         dialog.set_problems(problems_of(controller.skipped, controller.failures), self._item_name)
 
     def _find_item(self, item_id: str) -> Any:
+        from open_garden_planner.ui.canvas.select_by_id import item_with_id
+
         scene = self._scene
-        if scene is None:
-            return None
-        for item in scene.items():
-            if str(getattr(item, "item_id", "")) == item_id:
-                return item
-        return None
+        return None if scene is None else item_with_id(scene, item_id)
 
     def _item_name(self, item_id: str) -> str:
         return str(getattr(self._find_item(item_id), "name", "") or "")
 
     def select_item(self, item_id: str, *, toggle: bool = False, center: bool = True) -> None:
-        """Select the item on the plan — by the canvas's own rules for a click on it
-        (``selection_bridge.apply_click``): its group when it is in one, nothing when
-        its layer is locked; ``toggle`` adds or removes it (Ctrl / Shift). ONE path
-        for the problems list (a row was activated) and for a click in the 3D view.
-        ``center``: scroll the plan to it (the list does; a 3D click does not)."""
+        """Select the item on the plan (a row of the problems list was activated) —
+        through the app's ONE select-by-id path, ``ui/canvas/select_by_id.py``, which
+        the Diagnostics, Canopy and Guilds panels use too: its group when it is in one,
+        nothing when its layer is locked. ``toggle`` adds or removes it instead (what
+        Ctrl / Shift does to a click in 3D, ``selection_bridge.apply_click``, built on
+        the same path). ``center``: scroll the plan to it."""
+        from open_garden_planner.ui.canvas.select_by_id import select_by_ids
+
         from .selection_bridge import apply_click
 
         scene, item = self._scene, self._find_item(item_id)
         if scene is None or item is None:
             return
-        apply_click(scene, (item_id,), toggle=toggle)
+        if toggle:
+            apply_click(scene, (item_id,), toggle=True)
+        else:
+            select_by_ids(scene, (item_id,))
         center_on = getattr(self._canvas, "centerOn", None)
         if center and callable(center_on) and self._canvas.isVisible():
             center_on(item)
