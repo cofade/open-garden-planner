@@ -52,6 +52,7 @@ from open_garden_planner.ui.view3d.init_guard import (
     marker_name,
 )
 from open_garden_planner.ui.view3d.workspace import (
+    MAX_PROBLEM_ROWS,
     MIN_PANE_WIDTH,
     View3DState,
     Workspace,
@@ -918,8 +919,35 @@ def test_no_graphics_device_is_a_message_not_a_crash_and_not_a_retry_loop(bench:
     button = workspace.pane.message_button
     assert button.isVisible() and button.text() == "Use Compatibility Mode Next Time"
     button.click()
-    assert bench.files() == [COMPAT_NAME] and button.isEnabled() is False
-    assert button.text() == "Compatibility mode will be used the next time the application starts."
+    assert bench.files() == [COMPAT_NAME]
+    # what came of it is said in the strip, which wraps — never on the button (a button
+    # cannot wrap: a sentence on it made the pane as wide as the sentence)
+    assert not button.isVisible()
+    assert workspace.compat_text() == (
+        "Compatibility mode will be used the next time the application starts.")
+    assert workspace._compat_button.isVisible(), "and the way back is beside it"
+    assert workspace._compat_button.text() == "Try Hardware Next Time"
+
+
+def test_asking_for_compatibility_mode_says_so_when_the_setting_cannot_be_written(
+        bench: Bench, monkeypatch: pytest.MonkeyPatch) -> None:
+    workspace = bench.workspace
+    workspace.set_mode(VIEW3D)
+    bench.settle()
+    bench.host.health_now.scene_graph_error = "no device"
+    bench.poll()
+    button = workspace.pane.message_button
+    assert button.isVisible() and button.text() == "Use Compatibility Mode Next Time"
+
+    def refuse(*_arguments: object, **_options: object) -> None:
+        raise PermissionError("the folder is read-only")
+
+    monkeypatch.setattr(Path, "write_text", refuse)
+    button.click()
+    assert workspace.compat_text() == "The setting could not be changed. Details are in the log file."
+    assert button.isVisible() and button.text() == "Use Compatibility Mode Next Time", (
+        "nothing changed: the button stays, to be tried again")
+    assert COMPAT_NAME not in bench.files()
 
 
 def test_no_graphics_device_in_software_mode_still_shows_the_way_back(
@@ -1124,6 +1152,70 @@ def test_a_refused_item_shows_a_count_a_list_and_selects_on_activation(bench: Be
     bench.settle()
     assert workspace.problems_text() == "" and not workspace._problems_button.isVisible()
     assert dialog.row_count() == 0
+
+
+def test_a_plan_that_refuses_hundreds_fills_a_capped_list_in_one_walk_of_the_scene(
+        bench: Bench, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Review 1, P2-5. The list looked every row's item up by walking the scene — rows
+    x items on the GUI thread, and again on every change while it was open: 300 rows
+    over 3,000 items took 0.55 s, 3,000 rows 3.1 s, and one plan with duplicated ids
+    is enough to get them. Now ONE walk per fill (an id -> name map) and at most
+    ``MAX_PROBLEM_ROWS`` rows, then one that says how many more. Counted, not timed."""
+    workspace, scene = bench.workspace, bench.scene
+    more = 60
+    count = MAX_PROBLEM_ROWS + more
+    for index in range(count):
+        bed = RectangleItem(100.0 + 15.0 * (index % 30), 100.0 + 15.0 * (index // 30), 10.0, 10.0,
+                            object_type=ObjectType.RAISED_BED, layer_id=scene.active_layer.id)
+        bed.name = f"Bed {index}"
+        bed.metadata[METADATA_KEY] = float("inf")       # refused: OUT_OF_RANGE
+        scene.addItem(bed)
+    workspace.set_mode(SPLIT)
+    bench.settle()
+    assert workspace.problems_text() == f"{count} objects are not shown in 3D"
+    walks: list[int] = []      # walks of the scene made while the list is FILLED
+    fills: list[int] = []
+    real_items, real_fill = scene.items, Workspace._fill_problems
+
+    def counted(*arguments: Any) -> Any:
+        if fills and fills[-1] == 0:
+            walks.append(1)
+        return real_items(*arguments)
+
+    def fill(self: Workspace, dialog: Any) -> None:
+        fills.append(0)
+        try:
+            real_fill(self, dialog)
+        finally:
+            fills[-1] = 1
+
+    monkeypatch.setattr(scene, "items", counted)
+    monkeypatch.setattr(Workspace, "_fill_problems", fill)
+    workspace.show_problems()
+    dialog = workspace.problems_dialog
+    assert dialog is not None
+    assert fills == [1] and walks == [1], "one walk of the scene for every name in the list"
+    assert dialog.row_count() == MAX_PROBLEM_ROWS + 1
+    assert all(dialog.row_text(row).startswith("Bed ") for row in range(MAX_PROBLEM_ROWS)), (
+        "every row has its item's name, from that one walk")
+    assert dialog.row_text(MAX_PROBLEM_ROWS) == f"… and {more} more"
+    last = dialog._list.item(MAX_PROBLEM_ROWS)
+    assert last.flags() == Qt.ItemFlag.NoItemFlags, "a row that belongs to no item"
+    chosen: list[str] = []
+    dialog.item_chosen.connect(chosen.append)
+    dialog.activate_row(MAX_PROBLEM_ROWS)
+    assert chosen == [] and scene.selectedItems() == []
+    # while it is open, a change of the problems refills it: one walk again, not rows x items
+    walks.clear()
+    fills.clear()
+    first = next(item for item in real_items() if getattr(item, "name", "") == "Bed 0")
+    first.metadata[METADATA_KEY] = 40.0
+    bench.commands.stack_changed.emit()
+    bench.settle()
+    assert workspace.problems_text() == f"{count - 1} objects are not shown in 3D"
+    assert dialog.row_text(MAX_PROBLEM_ROWS) == f"… and {more - 1} more"
+    assert fills == [1] and walks == [1], "the open list was refilled once, with one walk"
+    dialog.close()
 
 
 def test_every_reason_code_has_words_of_its_own(bench: Bench) -> None:

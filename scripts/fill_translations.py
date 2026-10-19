@@ -3227,14 +3227,15 @@ _L13_WORKSPACE_TRANSLATIONS: dict[str, dict[str, str]] = {
         "is not affected.\n\nDetails: {error}":
             "3D ist auf dieser Grafikhardware nicht verfügbar. Der Rest der Anwendung "
             "ist nicht betroffen.\n\nDetails: {error}",
-        "Use Compatibility Mode Next Time": "Beim nächsten Start Kompatibilitätsmodus verwenden",
+        "Use Compatibility Mode Next Time": "Kompatibilitätsmodus verwenden",
         "3D is running in compatibility mode (software rendering) because "
         "it did not start properly last time.":
             "3D läuft im Kompatibilitätsmodus (Software-Rendering), weil es beim "
             "letzten Mal nicht richtig gestartet ist.",
         "3D is running in compatibility mode (software rendering).":
             "3D läuft im Kompatibilitätsmodus (Software-Rendering).",
-        "Try Hardware Next Time": "Beim nächsten Start Hardware versuchen",
+        "Try Hardware Next Time": "Hardware wieder versuchen",
+        "Show List": "Liste zeigen",
         "Hardware rendering will be tried the next time the application starts.":
             "Beim nächsten Start der Anwendung wird Hardware-Rendering versucht.",
         "Compatibility mode will be used the next time the application starts.":

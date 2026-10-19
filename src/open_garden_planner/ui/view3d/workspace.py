@@ -186,6 +186,17 @@ def _log_failure(what: str, error: BaseException) -> None:
     _LOG.debug("%s - traceback", what, exc_info=error)
 
 
+def _command_button(text: str, parent: QWidget) -> QToolButton:
+    """A button of the 3D pane's strip: a short command, flat, and never narrower than
+    its text (a button cannot wrap; squeezed, it cuts its text with no ellipsis)."""
+    button = QToolButton(parent)
+    button.setText(text)
+    button.setAutoRaise(True)
+    button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+    button.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+    return button
+
+
 def quick3d_engine(prefer_software: bool) -> tuple[EngineHost, EngineSink]:
     """The production engine: a ``Quick3DHost`` and the ``Quick3DSink`` that drives
     it. Importing the two modules here is what loads Qt Quick 3D — on first use."""
@@ -225,10 +236,13 @@ class _Pane3D(QWidget):
 
     The strip has TWO parts, one above the other: a row of controls
     (``strip_layout`` — the mode switch, "Reset 3D View") and, below it, the notices
-    (``notice_layout``), one per line, each wrapping its words. One row for all of it
-    needed 785 px, and in Split a 1366 px window gives the pane 455: the last
-    sentence was cut, with no ellipsis and no tooltip. ``notices`` is hidden while it
-    has nothing to say, so the strip is one row high on a healthy machine."""
+    (``notice_layout``), one per line. One row for all of it needed 785 px, and in
+    Split a 1366 px window gives the pane 455: the last sentence was cut, with no
+    ellipsis and no tooltip. So every SENTENCE is a label that wraps its words, and a
+    BUTTON holds a short command, is never narrower than its text and, where it
+    follows a sentence, has a row of its own (a button cannot wrap: the German
+    "try hardware" button alone needed 456 px of text). ``notices`` is hidden while
+    it has nothing to say, so the strip is one row high on a healthy machine."""
 
     showing_changed = pyqtSignal(bool)
 
@@ -491,9 +505,9 @@ class Workspace(QWidget):
         return self._compat_label.text()
 
     def problems_text(self) -> str:
-        if self._pane is None or self._problems_button.isHidden():
+        if self._pane is None or self._problems_row.isHidden():
             return ""
-        return self._problems_button.text()
+        return self._problems_label.text()
 
     # ── modes ────────────────────────────────────────────────────────────────
 
@@ -614,29 +628,31 @@ class Workspace(QWidget):
         status.hide()
         notices.addWidget(status)
         self._status_label = status
-        self._problems_button = QToolButton(pane.notices)
-        self._problems_button.setAutoRaise(True)
-        self._problems_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        # what 3D could not show: the sentence wraps; "Show List" opens the list
+        self._problems_row = QWidget(pane.notices)
+        problems = QHBoxLayout(self._problems_row)
+        problems.setContentsMargins(0, 0, 0, 0)
+        problems.setSpacing(6)
+        self._problems_label = QLabel("", self._problems_row)
+        self._problems_label.setTextFormat(Qt.TextFormat.PlainText)
+        self._problems_label.setWordWrap(True)
+        problems.addWidget(self._problems_label, 1)
+        self._problems_button = _command_button(self.tr("Show List"), self._problems_row)
         self._problems_button.setToolTip(self.tr("Show which objects are missing from the 3D view"))
         self._problems_button.clicked.connect(self.show_problems)
-        self._problems_button.hide()
-        notices.addWidget(self._problems_button, 0, Qt.AlignmentFlag.AlignLeft)
-        compat_row = QWidget(pane.notices)
-        compat = QHBoxLayout(compat_row)
-        compat.setContentsMargins(0, 0, 0, 0)
-        compat.setSpacing(6)
-        self._compat_label = QLabel("", compat_row)
+        problems.addWidget(self._problems_button, 0, Qt.AlignmentFlag.AlignTop)
+        self._problems_row.hide()
+        notices.addWidget(self._problems_row)
+        # the compatibility line, and below it — a row of its own — the way back
+        self._compat_label = QLabel("", pane.notices)
         self._compat_label.setTextFormat(Qt.TextFormat.PlainText)
         self._compat_label.setWordWrap(True)
         self._compat_label.hide()
-        compat.addWidget(self._compat_label, 1)
-        self._compat_button = QToolButton(compat_row)
-        self._compat_button.setAutoRaise(True)
-        self._compat_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        notices.addWidget(self._compat_label)
+        self._compat_button = _command_button("", pane.notices)
         self._compat_button.clicked.connect(self._on_compat_button)
         self._compat_button.hide()
-        compat.addWidget(self._compat_button, 0, Qt.AlignmentFlag.AlignTop)
-        notices.addWidget(compat_row)
+        notices.addWidget(self._compat_button, 0, Qt.AlignmentFlag.AlignLeft)
         pane.message_button.clicked.connect(self._on_message_button)
         pane.showing_changed.connect(self._on_pane_showing)
         pane.strip.setVisible(self._chrome_visible)
@@ -802,7 +818,7 @@ class Workspace(QWidget):
             label.setText(text)
         label.setVisible(bool(text))
         pane.notices.setVisible(bool(text) or not (
-            self._problems_button.isHidden() and self._compat_label.isHidden()
+            self._problems_row.isHidden() and self._compat_label.isHidden()
             and self._compat_button.isHidden()))
 
     def _watch_window(self) -> None:
@@ -938,12 +954,12 @@ class Workspace(QWidget):
         controller = self._controller
         count = controller.problem_count if controller is not None else 0
         if count == 0:
-            self._problems_button.hide()
+            self._problems_row.hide()
         else:
             text = (self.tr("1 object is not shown in 3D") if count == 1
                     else self.tr("{count} objects are not shown in 3D").format(count=count))
-            self._problems_button.setText(text)
-            self._problems_button.show()
+            self._problems_label.setText(text)
+            self._problems_row.show()
         self._refresh_notices()
         dialog = self._problems_dialog
         if dialog is not None and dialog.isVisible():
@@ -1102,9 +1118,16 @@ class Workspace(QWidget):
             self._compat_button.hide()
             self._compat_label.setText(self.tr(
                 "Hardware rendering will be tried the next time the application starts."))
+            self._compat_label.show()
+            self._refresh_notices()
         else:  # the flag is still there (a folder that cannot be written): the button stays
-            self._compat_label.setText(self.tr(
-                "The setting could not be changed. Details are in the log file."))
+            self._say_the_setting_was_not_changed()
+
+    def _say_the_setting_was_not_changed(self) -> None:
+        """One of the two switches could not write its file: say so in the strip (the
+        log has why). The button that asked stays, so the user can try again."""
+        self._compat_label.setText(self.tr(
+            "The setting could not be changed. Details are in the log file."))
         self._compat_label.show()
         self._refresh_notices()
 
@@ -1116,15 +1139,15 @@ class Workspace(QWidget):
             self._set_state(View3DState.NOT_STARTED)
             self._start_engine()
         elif self._state is View3DState.UNAVAILABLE:
+            # What came of it is said in the strip, whose sentences wrap — never on the
+            # button: a button cannot wrap, and a sentence on it made the pane as wide
+            # as the sentence.
             if self.guard.use_software_next_time():
-                pane.message_button.setEnabled(False)
-                pane.message_button.setText(self.tr(
-                    "Compatibility mode will be used the next time the application starts."))
+                pane.message_button.hide()
+                # "Compatibility mode will be used …", with the way back beside it
+                self._update_compat_notice()
             else:
-                pane.message_button.setText(self.tr(
-                    "The setting could not be changed. Details are in the log file."))
-            # the strip says it too — with the way back ("Try Hardware Next Time")
-            self._update_compat_notice()
+                self._say_the_setting_was_not_changed()
 
     # ── teardown ─────────────────────────────────────────────────────────────
 

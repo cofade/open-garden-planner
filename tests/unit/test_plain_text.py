@@ -11,6 +11,8 @@ against the consumer: Qt's own verdict (``Qt.mightBeRichText``), Qt's own render
 from __future__ import annotations
 
 import ast
+import json
+import logging
 from pathlib import Path
 
 import pytest
@@ -18,6 +20,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QTextDocument
 
 from open_garden_planner.core import plain_text
+from open_garden_planner.core.logging_config import OgpRotatingFileHandler
 from open_garden_planner.core.plain_text import (
     BIDI_CONTROLS,
     ELLIPSIS,
@@ -242,6 +245,40 @@ class TestLogText:
     def test_terminal_escapes_and_bidi_do_not_survive(self) -> None:
         assert log_text("ok\x1b[2J\x1b[31mred") == f"ok{REPLACEMENT}[2J{REPLACEMENT}[31mred"
         assert log_text("abc\u202edef") == f"abc{REPLACEMENT}def"
+
+    def test_a_lone_surrogate_becomes_the_replacement_character(self) -> None:
+        """Review 1, P2-10. ``"\\ud800"`` is legal JSON, so a plan file can carry one in
+        a name \u2014 and it is not text: no UTF-8 encoder takes it."""
+        hostile = json.loads('"bed \\ud800 and \\udfff name"')
+        assert hostile == "bed \ud800 and \udfff name"
+        assert normalise_text(hostile) == f"bed {REPLACEMENT} and {REPLACEMENT} name"
+        assert log_text(ValueError(hostile)) == f"bed {REPLACEMENT} and {REPLACEMENT} name"
+        assert all(normalise_text(chr(code)) == REPLACEMENT for code in (0xD800, 0xDBFF, 0xDC00, 0xDFFF))
+        # a PAIR in the JSON is one character to Python, and stays what it is
+        assert normalise_text(json.loads('"\\ud83c\\udf31"')) == "\N{SEEDLING}"
+
+    def test_the_line_about_a_hostile_item_reaches_a_real_log_file(self, tmp_path: Path) -> None:
+        """Through the app's own file handler (UTF-8, no ``errors=``): a record that
+        holds a lone surrogate fails to encode WHOLE \u2014 the control writes 0 bytes, and
+        the one ERROR line about the hostile item is the line missing from ``app.log``.
+        Through ``log_text`` it is written."""
+        hostile = ValueError(json.loads('"bed \\ud800 name"'))
+        path = tmp_path / "app.log"
+        handler = OgpRotatingFileHandler(path, encoding="utf-8")
+        handler.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
+        logger = logging.getLogger("tests.unit.plain_text.surrogate")
+        logger.propagate, logger.level = False, logging.INFO
+        logger.addHandler(handler)
+        try:
+            logger.error("3D sync: %s", hostile)           # the control: as it came
+            handler.flush()
+            assert path.read_bytes() == b"", "the record was lost whole"
+            logger.error("3D sync: %s", log_text(hostile))
+            handler.flush()
+        finally:
+            logger.removeHandler(handler)
+            handler.close()
+        assert path.read_text(encoding="utf-8") == f"ERROR 3D sync: bed {REPLACEMENT} name\n"
 
 
 def test_the_helper_needs_no_qt() -> None:

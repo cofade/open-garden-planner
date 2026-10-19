@@ -39,6 +39,7 @@ from open_garden_planner.core.commands import (
     MoveItemsCommand,
     ResizeItemCommand,
 )
+from open_garden_planner.core.object_height import METADATA_KEY
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.scene3d import GroundSpec, RecordingSink
 from open_garden_planner.core.scene3d.builders import plants
@@ -479,6 +480,115 @@ def test_fullscreen_preview_hides_the_mode_switch_with_the_rest_of_the_ui(app3d,
     window._exit_preview_mode()
     qtbot.wait(30)
     assert workspace._floating.isVisible()
+
+
+@pytest.mark.parametrize("language", ["en", "de", "es"])
+def test_every_notice_of_the_3d_strip_is_shown_whole_in_a_1366_px_window(
+        qtbot, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, language: str) -> None:
+    """Review 1, P2-6. The strip was ONE row of labels that do not wrap: it needed 785
+    px, and Split in a 1366 px main window gives the 3D pane about 455 — the
+    compatibility sentence was cut, with no ellipsis and no tooltip (in German it
+    needed 560 px on its own). The notices now sit below the controls, one per line:
+    every sentence is a label that wraps, and a button holds a short command on a
+    row of its own, never narrower than its text. Pinned with every notice the strip
+    can show at once — the longest (a start that died last time) with its button,
+    and refused items — in every language the app ships."""
+    from PyQt6.QtCore import QCoreApplication, QTranslator
+    from PyQt6.QtWidgets import QAbstractButton, QLabel
+
+    import open_garden_planner
+
+    translator = QTranslator()
+    if language != "en":
+        catalogue = (Path(open_garden_planner.__file__).parent / "resources" / "translations"
+                     / f"open_garden_planner_{language}.qm")
+        assert translator.load(str(catalogue))
+        QCoreApplication.installTranslator(translator)
+    try:
+        window, _engines = build_app3d(qtbot, monkeypatch, tmp_path)
+        workspace, scene = window._workspace, window.canvas_scene
+        folder = tmp_path / "log"
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "view3d-init-999999.marker").write_text(
+            json.dumps({"pid": 999999, "started": 0.0, "mode": "hardware"}), encoding="utf-8")
+        for index in range(2):                           # "2 objects are not shown in 3D"
+            refused = RectangleItem(400.0 + 600.0 * index, 300.0, 300.0, 200.0,
+                                    object_type=ObjectType.RAISED_BED,
+                                    layer_id=scene.active_layer.id)
+            refused.metadata[METADATA_KEY] = float("inf")
+            window.canvas_view.command_manager.execute(CreateItemCommand(scene, refused, "bed"))
+        window.showNormal()                              # the app starts maximised
+        window.resize(1366, 768)
+        qtbot.wait(50)
+        assert window.width() == 1366, (window.width(), window.isMaximized())
+        workspace.set_mode(SPLIT)
+        first_pass(workspace, qtbot)
+        qtbot.wait(50)                                   # the layout has settled
+        pane = workspace.pane
+        assert pane is not None and pane.width() < 600, "a narrow pane: the case of the finding"
+        expected = QCoreApplication.translate(
+            "Workspace", "3D is running in compatibility mode (software rendering) because it "
+            "did not start properly last time.")
+        assert workspace.compat_text() == expected, "the longest notice there is, whole"
+        assert workspace.problems_text() == QCoreApplication.translate(
+            "Workspace", "{count} objects are not shown in 3D").format(count=2)
+        labels = [label for label in pane.notices.findChildren(QLabel) if label.isVisible()]
+        buttons = [button for button in pane.notices.findChildren(QAbstractButton)
+                   if button.isVisible()]
+        assert len(labels) >= 2 and len(buttons) >= 2, (labels, buttons)
+        cut = []
+        for label in labels:
+            if not label.wordWrap() or label.width() > pane.width() or (
+                    label.height() < label.heightForWidth(label.width())):
+                cut.append((label.text(), label.width(), label.height(),
+                            label.heightForWidth(label.width())))
+        for button in buttons:
+            right = button.mapTo(pane, button.rect().topRight()).x()
+            if button.width() < button.sizeHint().width() or right >= pane.width():
+                cut.append((button.text(), button.width(), button.sizeHint().width(), right))
+        assert cut == [], f"cut in a {pane.width()} px pane: {cut}"
+        assert pane.strip.width() <= pane.width()
+        window.close()
+    finally:
+        QCoreApplication.removeTranslator(translator)
+
+
+@pytest.mark.parametrize("cleared", [True, False], ids=["the_stopgap", "control_without_it"])
+def test_3d_mode_clears_the_selection_its_shortcuts_would_act_on(
+        app3d, qtbot, monkeypatch: pytest.MonkeyPatch, cleared: bool) -> None:
+    """Review 1, P2-9. 3D mode hides the canvas — the one place a selection is shown —
+    and keeps the app's shortcuts: Delete would remove what nobody can see. Until the
+    selection story (L1.8) shows the selection in 3D, entering 3D mode clears it, in
+    ONE named function: ``Workspace.clear_selection_hidden_by_3d_mode``. The control
+    turns that function off: the same Delete then removes the hidden shed."""
+    window, _engines = app3d
+    workspace, scene = window._workspace, window.canvas_scene
+    commands = window.canvas_view.command_manager
+    calls: list[int] = []
+    real = Workspace.clear_selection_hidden_by_3d_mode
+
+    def stopgap(self: Workspace) -> None:
+        calls.append(1)
+        if cleared:
+            real(self)
+
+    monkeypatch.setattr(Workspace, "clear_selection_hidden_by_3d_mode", stopgap)
+    shed = RectangleItem(1800.0, 1400.0, 400.0, 300.0, object_type=ObjectType.GARAGE_SHED,
+                         layer_id=scene.active_layer.id)
+    commands.execute(CreateItemCommand(scene, shed, "shed"))
+    shed.setSelected(True)
+    workspace.set_mode(SPLIT)
+    assert shed.isSelected() and calls == [], "Split still shows the plan and its selection"
+    workspace.set_mode(VIEW3D)
+    assert calls == [1], "entering 3D mode, and only that, asks the stopgap"
+    window._delete_action.trigger()                  # the Delete key's action
+    qtbot.wait(20)
+    if cleared:
+        assert scene.selectedItems() == [] and shed.scene() is scene, "nothing hidden was deleted"
+    else:
+        assert shed.scene() is None, "the control: Delete acted on what nobody could see"
+    workspace.set_mode(PLAN)
+    assert calls == [1]
 
 
 def test_closing_with_3d_hidden_or_never_opened_is_quiet(app3d, qtbot) -> None:
