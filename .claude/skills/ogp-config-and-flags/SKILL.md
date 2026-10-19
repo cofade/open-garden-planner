@@ -126,6 +126,16 @@ Startup path (verified in `application.py`): `_setup_agent_api()` →
 server when either value changes (compares before/after tuple around the
 dialog, ~line 3758).
 
+### 3D view (Phase 17 L1.4, ADR-064 addendum "looks, sky and the animation policy")
+
+| Key | Property | Default | Note |
+|---|---|---|---|
+| `view3d/quality` | `view3d_quality` | `"auto"` | One of `auto` / `low` / `medium` / `high` / `ultra` (`AppSettings.VIEW3D_QUALITY_CHOICES`, pinned against `core/scene3d/look.py` `QUALITY_CHOICES`); anything else reads as `auto`, so a hand-edited store never reaches the renderer with a name nobody knows. A preset changes what a frame costs, never the mood, the light's direction or the camera. |
+| `view3d/reduced_motion` | `view3d_reduced_motion` | `False` | True stops the wind for good: the shaders' clock rests at 0, so every vertex is where its mesh puts it. Qt 6.11 exposes no operating-system "reduce motion" preference (`QStyleHints` has none; a drift guard in `tests/unit/test_view3d_look_settings.py` fails the day one appears), so the setting is the application's own. |
+| `view3d/auto_quality_level` | `view3d_auto_level` | `"medium"` | Not in the dialog: where `auto` settled last (`low` / `medium` / `high`, `VIEW3D_AUTO_LEVELS`), written by the look controller on every step of the automatic preset, read when the next 3D view is built. |
+
+Offered in Preferences → 3D View only when the main window has a 3D workspace (`OGP_QUICK3D=1`, §3, until L1.9); a hidden group never rewrites the store. On "Save" `application.py` `_on_preferences` calls `Workspace.apply_look_settings()` → `LookController.reload_settings()`: a quality change is ONE `set_look` call (no camera, no geometry, no sky), reduced motion one wind call. Reading a setting does not import the 3D core (`settings.py` writes the two tuples out; a unit test pins them).
+
 ### Plant-DB API keys (stored in QSettings, NOT .env)
 
 | Key | Property | Default |
@@ -236,6 +246,7 @@ visibility calls.
 | Satellite menu action disabled | `application.py:7990` `_update_satellite_menu_state` when both the Preferences key and `OGP_GOOGLE_MAPS_KEY` are unset (§3) | production guard |
 | Nearest / perpendicular / tangent snap default-OFF | §1 snap table | production, opt-in |
 | **3D workspace (Plan / 3D / Split) absent** | `OGP_QUICK3D` is not `1` (§3) — `app/settings.py` `quick3d_workspace_enabled()` | **dark until L1.9** (Phase 17, ADR-065): the mode switch, the View → Workspace submenu and Alt+1 / 2 / 3 exist only with the switch on |
+| **Preferences → 3D View group absent** | the main window has no 3D workspace (`OGP_QUICK3D` is not `1`) — `PreferencesDialog(show_view3d=...)`, passed by `application.py` `_on_preferences` | **dark until L1.9** (Phase 17 L1.4): quality and reduced motion are offered only where there is a view they act on; the hidden group never writes the store |
 
 If "a feature seems disabled", check this table before debugging.
 

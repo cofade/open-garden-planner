@@ -2439,6 +2439,69 @@ about measuring it.
     And the first plan a sun feature must be tried on is the one the feature is for: a
     vegetable garden is raised beds.**
 
+### 11.4.35 What the looks, the sky and the wind taught (Phase 17 L1.4, #385)
+
+Symptom → root cause → fix, for the things that cost time while the looks (ADR-064 addendum
+"looks, sky and the animation policy", §8.32.4) were built. Engine facts are also in the
+`ogp-3d-renderer` skill §14; art-direction fixes in `ogp-lush-cinematic` §7.
+
+1. **A colour derived in linear light came out three times too dark at night.** *Symptom:* the
+   night fog met the night sky as a black line (luma 3 where the sky above it read 13), although
+   the fog's sRGB code was the exact encoding of the linear value the look derived. *Root cause:*
+   Qt Quick 3D does not linearise a `color` property with the sRGB curve but with a polynomial
+   (`x·(x·(x·0.3053 + 0.6822) + 0.0125)`) — the two agree from about 0.3 up and differ threefold
+   for very dark colours: code 5 is 0.0015 by the sRGB curve and 0.0005 to the engine (measured
+   with a flat ambient light on a white box in the un-tone-mapped truth view). *Fix:* the three
+   colours the look derives in linear light (fog, plain sky, fill) are handed over as
+   `QColor.fromRgbF(engine_srgb(linear))` — the inverse of the engine's own conversion, as floats
+   (8 bits are steps of a fifth down there). **A colour property is not "sRGB, linearised by the
+   engine" for dark values — compute what the engine will make of it.**
+2. **The night horizon was a bright line — the spike's own formula.** *Symptom:* at eye height
+   the fogged meadow met the night sky with a one-row step of 10.5 luma (high) and 21.2 (low).
+   *Root cause:* the spike's fog was horizon × probe exposure × 0.8 in every mood, while the night
+   SKY is drawn × 0.25 (`skyEnergy`): the fog was four times brighter than what it met. Nothing
+   on the L0 board looked at the horizon at night. *Fix:* the fog carries the sky's energy
+   (`fog_linear`): 2.4 / 3.2. And in round 5 the night sky's ground hemisphere (the sliver under
+   the far-clipped meadow) at the sky's energy, 0.25, instead of the spike's 0.15 — the same day
+   lesson carried to night: dip 2.07 / 1.04 → 0.01 / 0.12. **A rule measured by day (ground
+   energy = sky energy; fog = what the sky draws) must be re-measured where the inputs change —
+   at night they did.**
+3. **The engine animates a hidden window.** *Symptom:* none yet — found by the render tier
+   before it could become one: with the window hidden and the wind's `FrameAnimation` still
+   running, `windTime` went on advancing (a hidden, running clock moved more than 0.2 s).
+   *Root cause:* a hidden `QQuickView` keeps its animation driver ticking. *Fix:* the animation
+   policy STOPS the clock when the pane is hidden (`set_wind_running(False)`) rather than trust
+   "hidden"; hidden means zero ticks. And stopped is not rest: a paused non-zero clock keeps the
+   sway of that moment in the frame — reduced motion and every truth probe RESET it to 0
+   (`rest_wind`).
+4. **A sky texture must be a fresh pair, and released with its data.** *Symptom (avoided,
+   measured by the sky sequence A → B → C):* the ground bake found that a `Texture` whose
+   `textureData` is re-pointed loses its data when a data object it held EARLIER is destroyed
+   (#476: a white tile). The spike's sky re-pointed one Texture. *Fix:* every build is a new
+   `Texture` with a new `ProceduralSkyTextureData` as its CHILD; only the Texture is ever
+   destroyed, after the scene shows the new one, so a pair lives and dies together. A frame
+   after the old pairs are gone is the same sky, its sun at the solar azimuth. Measured over
+   twenty sun changes, frames presented and withheld: no growth per change in committed memory
+   and in dedicated GPU memory — no cache release needed, unlike a retired Model (§11.4.33
+   item 2); the positive control (a `buildSky` that never destroys the old Texture) reads about
+   8 MB per change.
+5. **A sun-grazed lit wall hatched only on Direct3D 11.** *Symptom:* at high and ultra, on the
+   dev box's GPU, a wall the sun lit at n·l 0.33 showed a fine diagonal hatch (pixel noise
+   1.15 % of its luma, the face 3.7 luma darker). *Root cause:* the spike's shadow bias of 5 was
+   measured on llvmpipe with smaller maps and fewer cascades. *Fix:* bias 10 at high and ultra
+   (0.18 %, the dither's floor; IoU unchanged). **Shadow acne is a function of the backend, the
+   map size and the cascade split — re-measure the bias on the real GPU per preset.**
+6. **A view that draws on demand has no frame rate.** *Symptom (by design, before it was
+   built):* an automatic preset fed with "frames per second" of a still view would read a
+   sleeping display, a hidden pane or an idle scene as "slow" and step down for nothing.
+   *Fix:* `AutoPreset` reads presented frames only while the wind animates (the view draws
+   continuously), and ten seconds without a presented frame is no data: what was collected is
+   dropped and the preset holds. Never a readback to measure (ADR-065 decision 17).
+7. **Qt has no "reduce motion" preference to honour.** `QStyleHints` in Qt 6.11 exposes none
+   (checked against the binding; a drift guard in `tests/unit/test_view3d_look_settings.py`
+   fails the day one appears), so the setting is the application's own
+   (`view3d/reduced_motion`).
+
 ### 11.4.8 Guild boundaries found by independent review (F1/F2)
 
 Guild happy-path insertion tests did not establish document lifetime, copy isolation or translated refusal behavior. Review reproduced a mirror copy whose species dictionary still aliased the source, a grouped existing centre whose ancestor layer was locked, a stale search-detail response accepted after another selection, and malformed imported trait shapes that could invent functions through substring matching. The fixes deep-copy the complete copied metadata, check every ancestor layer, invalidate enrichment on selection changes, and normalize imported trait containers without inferring values. Unknown data remains preserved.

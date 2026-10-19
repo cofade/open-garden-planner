@@ -104,6 +104,13 @@ flower 316). Judge them as v0:
 
 ## 3. Light rigs per mood (*spike* values, `look_for` / `sun_light` / `sun_state` in `spike_q3d/runner.py`)
 
+**In production** (L1.4) the rig is DATA in `core/scene3d/look.py` (`NOON`, `GOLDEN`, `LOW_SUN`,
+`NIGHT`, `day_rig`, `look_for(sun, preset) -> LookSpec`), ported with these values and pinned
+against the spike's functions at every quarter degree until the spike retires. Two deliberate
+differences, both from a board: the night fog carries the night sky's energy (× 0.25), and the
+night sky's ground hemisphere is drawn at the sky's energy (0.25, the spike 0.15) — §7. Night
+begins where the 2D shadow overlay ends (`core.shadow_geometry.MIN_SUN_ELEVATION_DEG`, 0.5°).
+
 By day the rig is three **anchors** joined by **continuous ramps** (`runner._day_ramp`):
 low → golden over 0.5° → 6°, golden → noon over 6° → 30°, the noon rig above. Every value
 ramps — sun colour and brightness, sky top / horizon, sun disc, probe, exposure (fog follows
@@ -146,25 +153,48 @@ less golden than the 6° anchor, which `sunset` shows.
 ## 5. Beauty Board procedure
 
 Fixture: `tests/fixtures/plans/bench_small.ogp` (24×16 m showcase garden, every object class;
-regenerate with `scripts/make_bench_plans.py`, never hand-edit). Until the production harness
-exists (Package L1.2), render through the spike:
+regenerate with `scripts/make_bench_plans.py`, never hand-edit). Render through the
+**production pipeline** (L1.4) — `snapshot_records` → `SceneSync(production_registry())` →
+`Quick3DSink` → a never-shown `Quick3DHost` per frame, lit by `core/scene3d/look.look_for`:
 
 ```bash
-QSG_RHI_BACKEND=opengl QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 \
-  xvfb-run -a -s "-screen 0 1920x1080x24" \
-  venv/bin/python -m open_garden_planner --spike-q3d --out <dir> \
-  --presets high --shots all --iou --orient --watchdog-s 1800
+venv/Scripts/python.exe scripts/render_beauty_board.py --out <dir>   --presets low,high --shots all --iou --orient --horizon --moods --watchdog-s 1800
 ```
 
-(on a Windows dev box: drop the xvfb/env prefix). `<dir>/spike.log` records every phase; on a
-software rasteriser one screenshot can take minutes (`ogp-3d-renderer` §8), so a slow board is
-not a hung board — read the log. Shots: `golden_hour`, `sunset` (the 6° golden anchor,
-golden_hour's camera), `noon`, `morning`, `december_noon`, `night`, `walk`; add
-`--presets low,medium,ultra --shots golden_hour` for the preset strip. Every shot row of
-`metrics.json` carries the frame's own numbers: `isolated_dark_px` (luma < 40 inside a lit
-8-neighbourhood > 110 — the sharpening's speckles), `clipped_pct` (a channel ≥ 254) and
-`mean_luma`. Always show **before vs after** with the same plan, date and camera, and attach
-`metrics.json` — a board without its numbers is not evidence.
+(Linux: prefix `QSG_RHI_BACKEND=opengl QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a
+-s "-screen 0 1920x1080x24"` and use `venv/bin/python`.) `--plan` takes another plan
+(`bench_large.ogp`), `--size` the frame (`960x540` is what the L0 and L1.4 boards were judged
+at), `--software` renders on the graphics API's software adapter (WARP: the workspace's
+compatibility mode — no sky texture, a plain sky and a flat fill), `--fps-seconds N` shows a
+window and measures the frames it PRESENTS per preset with the wind running (and, labelled as
+such, the cost of a finished readback), `--list` prints the shots and their suns. `<dir>/board.log`
+records every phase (line-flushed; `--watchdog-s` dumps every thread's stack into it and exits
+1) and `metrics.json` is rewritten after every phase; on a software rasteriser one frame can
+take a minute (`ogp-3d-renderer` §8) — a slow board is not a hung board, read the log. The
+script is isolated from the user's settings and stores (`scripts/script_isolation.py`). Exit
+codes: 0 ok · 1 watchdog · 2 error · 4 a Qt shader or QML error.
+
+Shots: `golden_hour`, `sunset` (the 6° golden anchor, golden_hour's camera), `noon`, `morning`,
+`december_noon`, `night`, `walk` — the spike's dates, times and cameras, so a production board
+lies beside an L0 board like for like; add `--presets low,medium,high,ultra --shots golden_hour`
+for the preset strip. Every shot row of `metrics.json` carries `sun_elev` / `sun_az`,
+`sun_date` = `build_date`, `isolated_dark_px` (luma < 40 inside a lit 8-neighbourhood > 110 —
+the sharpening's speckles), `clipped_pct` (a channel ≥ 254), `mean_luma` and `mean_luminance`
+(linear light), `sky_builds` and the frame's Qt message counts; the run carries
+`shadow_iou` (`--iou`: a box caster at 15° / 35° / 60° in a PERSPECTIVE view with the preset's
+cascades), `orientation` and `sky` (`--orient`: north-up NCC; the sky's sun disc read 25° off
+centre in the east, south and west), `horizon` (`--horizon`: the row-mean step, dip and ridge
+where fog meets sky, per mood and preset), `moods` (`--moods`: one camera and date under the
+suns of noon, golden hour, sunset and night — `night_over_noon`), `frame_rate`,
+`probe_restore_frame_diff` (the first shot rendered again after the probes; must be 0) and
+`wind_time` (0: every frame at rest). The instruments are `scripts/board_probes.py` (numpy
+only, each with a positive control in `tests/unit/test_board_probes.py`).
+
+The L0 spike's board stays the reference for "before" until the spike retires (L1.10):
+`venv/Scripts/python.exe -m open_garden_planner --spike-q3d --out <dir> --presets low,high
+--shots all --iou --orient --size 960x540 --watchdog-s 1800` (its `spike.log`; it isolates
+its own settings). Always show **before vs after** with the same plan, date, camera and size,
+and attach `metrics.json` — a board without its numbers is not evidence.
 
 ## 6. Review rubric (the reviewer agent's checklist)
 
@@ -233,6 +263,10 @@ Severity: **P0** = truth gate failed, mirrored/black/broken frame, unreadable sc
 | A lavender cushion floated 9 cm (13 % of its height) above the ground; 59 of 123 plant recipes floated once counted — and `min z == 0` held | one shell leaf dipped below the base and the fit lifted the whole plant to put that leaf's tip at zero | `_fit` presses what dips below the ground onto it and only ever sets a plant down; gate: at least six vertices on the ground. Never make a constraint hold by translating the result |
 | Crowns and mounds bald on top, a skirt of leaves below (first look through an engine; every gate green) | shell leaves placed on an ellipsoid envelope: buried where a lobe reached it, hovering between lobes | `_on_lobes`: each leaf is cast from the crown's heart onto the lobes' outer surface |
 | Two hedge sections were the same drum (side silhouettes 99.9 % alike) | a perfect surface of revolution has no individuality; a first, under-sampled silhouette metric had reported them 26 % different | cut by hand in five ways per id — batter (0.72–0.98), shoulder height, how square the shoulder is, a bulging side, an uneven top a little out of level: over 30 ids the most alike pair is 97.5 % alike, the median 92.5 %. A metric needs a case whose answer is known, and a gate over ids needs enough ids to state a distribution (five fixed ids had said "≤ 0.95") |
+| A bright line along the whole night horizon (a one-row step of 10.5 luma at high, 21.2 at low, eye height, bench_small) | the spike's fog = horizon × probe exposure × 0.8 had no sky energy in it: the night sky is drawn × 0.25, so the fog was four times brighter than the sky it met — and Qt Quick 3D linearises a colour property with a polynomial, not the sRGB curve, so the dark fog's sRGB code read three times too dark | fog = horizon × the sky's energy × probe exposure × 0.8, in linear light (`core/scene3d/look.fog_linear`), handed over as the float triple the engine's own linearisation turns back into it (`quick3d/look.engine_srgb`, `QColor.fromRgbF`): 2.4 / 3.2; day moods unchanged (0.6–3.4). L1.4 round 1 |
+| A sun-grazed LIT wall hatched at high and ultra on Direct3D 11 (a wall at n·l 0.33: pixel noise 1.15 % of its luma, the face 3.7 luma darker; RTX 4070) | shadow bias 5 (the spike's, measured on llvmpipe) against the larger maps and more cascades of high / ultra | bias 10 at high and ultra (8 and above: 0.18 %, the dither's own floor; a grazed top face needs 10 down to a 12° sun); low and medium keep 15; shadow IoU unchanged (0.976 / 0.986 / 0.978). L1.4 round 2 |
+| A sky rebuild held the GUI thread 215 ms while the time slider moved | the spike's `SkyTextureQualityHigh` (2048 × 1024 float texels, 32 MB) | Medium (1024 × 512, 8 MB): 95 ms; every shot's mean luma within 0.02, the sun's azimuth read back within 0.07° (0.03° at High), horizon step 3.4 → 2.9 (bench_small, 960 × 540, all seven shots). L1.4 round 3 |
+| A thin dark line at the NIGHT horizon (dip 2.07 / 1.04 luma, low / high, eye height) | the spike's night ground hemisphere at energy 0.15 under a sky at 0.25 — the day lesson (ground energy = sky energy) had not been carried to night | night ground energy 0.25, the sky's: dip 0.01 / 0.12, fog step 2.51 / 2.50 → 2.75 / 2.80, ridge 0.29 → 0.13 / 0.21, night luminance +0.2 %. L1.4 round 5 |
 
 ## 8. Owner taste log (append-only, newest last)
 
