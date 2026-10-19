@@ -62,6 +62,7 @@ books stay true: a tile the scene did not destroy stays in them, and the next
 
 from __future__ import annotations
 
+import weakref
 from collections.abc import Sequence
 from typing import Any, ClassVar, Final
 
@@ -91,15 +92,10 @@ class TileTexture(QQuick3DTextureData):
     #: Uploads made in this process — the instrument behind "an edit uploads only the
     #: tiles it re-baked" (tests read it around each edit).
     uploads: ClassVar[int] = 0
-    #: Texture objects that EXIST on the C++ side right now (counted down by Qt's own
-    #: ``destroyed`` signal, not by Python's bookkeeping) — the keep-alive rule as a
-    #: number: never more than two generations of the tiles a scene shows.
-    alive: ClassVar[int] = 0
 
     def __init__(self, tile: TilePlacement, parent: QQuick3DObject | None = None) -> None:
         super().__init__(parent)
-        TileTexture.alive += 1
-        self.destroyed.connect(_texture_destroyed)
+        _MADE.add(self)
         self.pixels = tile.pixels  # what it shows — to tell an unchanged tile by
         self.setSize(QSize(tile.width_px, tile.height_px))
         self.setFormat(QQuick3DTextureData.Format.RGBA8)
@@ -110,8 +106,20 @@ class TileTexture(QQuick3DTextureData):
         TileTexture.uploads += 1
 
 
-def _texture_destroyed() -> None:
-    TileTexture.alive -= 1
+#: Every tile texture made in this process, held WEAKLY: what ``textures_alive`` counts.
+_MADE: weakref.WeakSet[TileTexture] = weakref.WeakSet()
+
+
+def textures_alive() -> int:
+    """Tile texture objects that EXIST on the C++ side right now — the keep-alive rule
+    as a number: never more than two generations of the tiles a scene shows. Asked of
+    sip, not of Python's bookkeeping: a texture is counted while its wrapper lives and
+    its C++ object has not been destroyed (a texture made in Python is owned by
+    Python, so the two go together). No Python callable hangs on ``destroyed``: such a
+    hook may run 0 times when the cyclic collector reaches the wrapper first, and is
+    an access violation on a Qt-owned object (§11.4.33; pinned by
+    ``tests/unit/test_sim_clock_subscription.py``)."""
+    return sum(1 for texture in list(_MADE) if not sip.isdeleted(texture))
 
 
 class _Shown:

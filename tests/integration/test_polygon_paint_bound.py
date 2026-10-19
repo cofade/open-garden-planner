@@ -28,6 +28,8 @@ from PyQt6.QtCore import QPointF, QRectF
 from PyQt6.QtGui import QColor, QImage, QPainter
 from PyQt6.QtWidgets import QApplication, QGraphicsItem, QGraphicsScene
 
+from open_garden_planner.core.fill_patterns import FillPattern
+from open_garden_planner.core.item_look import fill_brush
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.project import ProjectManager
 from open_garden_planner.services.export_service import ExportService
@@ -88,7 +90,11 @@ def _item(points: list[QPointF]) -> PolygonItem:
     # No pen override: the item keeps its object type's pen (LAWN: 2.0 solid),
     # which is exactly the pen whose stroke Qt turns into a fill.
     item = PolygonItem(vertices=points, object_type=ObjectType.LAWN)
-    item.setBrush(FILL)
+    # A plain fill, given as the properties panel gives it: the attributes AND the
+    # brush (``tests/integration/conftest.py`` holds every item to that).
+    item.fill_pattern = FillPattern.SOLID
+    item.fill_color = QColor(FILL)
+    item.setBrush(fill_brush(item, FILL))
     return item
 
 

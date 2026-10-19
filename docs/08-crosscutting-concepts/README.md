@@ -1561,7 +1561,7 @@ tier: `tests/integration/test_scene3d_ground_render.py`):
   repeat control needs a lawn whose tiles have ANOTHER colour at their opposite edge — on a
   uniform lawn a repeating texture is invisible.
 - **Render tier: a leak gate reads objects first, memory second — and measures what a live
-  view does.** `TileTexture.alive` (counted down by Qt's `destroyed` signal) holds the keep-alive
+  view does.** `ground_tiles.textures_alive()` (the textures whose C++ object exists, asked of sip) holds the keep-alive
   rule on every backend. The memory slope (Theil–Sen over the second half of twenty cycles, with
   a control that keeps every texture) is taken on the machine's own adapter AND on a software
   rasteriser, whose textures are in the process's own memory. The soak takes NO frame in its
@@ -4980,8 +4980,8 @@ and its old Model is destroyed: ONE TEXTURE PER `Texture` ELEMENT, FOR LIFE. (An
 `QQuick3DTextureData` cannot be updated in place; and a `Texture` pointed at a second data object
 forgets it when the first is destroyed — the tile is drawn white: §11.4.34.) **Keep-alive rule:**
 per tile the texture the scene shows, plus — until the next presented frame, and at the latest
-the next update — the one it replaced. `TileTexture.alive` counts the objects that exist on the
-C++ side.
+the next update — the one it replaced. `ground_tiles.textures_alive()` counts the objects that
+exist on the C++ side.
 
 **Wiring it** (the workspace, L1.3 — nothing in L1.5 calls this in the product):
 

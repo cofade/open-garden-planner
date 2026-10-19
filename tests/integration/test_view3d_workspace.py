@@ -479,11 +479,16 @@ def test_a_plan_with_a_refused_item_shows_the_indicator_and_fixing_it_clears_it(
         app3d, qtbot) -> None:
     """Addendum point 12. A polygon traced with 6,000 points is drawn by the canvas and
     refused by the record layer (``outline_too_large``): it is absent from 3D, and the
-    workspace says so until the outline has fewer points."""
+    workspace says so until the outline has fewer points.
+
+    A RAISED bed — an item with a height, whose solid cannot be built. (A FLAT item the
+    solid path refuses, an in-ground bed, is not absent since the ground bake: it keeps
+    a paint-only record and is painted on the ground, FR-3D-GROUND-04 — so it is no
+    problem to report.)"""
     window, engines = app3d
     workspace, scene = window._workspace, window.canvas_scene
     commands = window.canvas_view.command_manager
-    traced = PolygonItem(_ring(6000), object_type=ObjectType.GARDEN_BED, name="Traced bed",
+    traced = PolygonItem(_ring(6000), object_type=ObjectType.RAISED_BED, name="Traced bed",
                          layer_id=scene.active_layer.id)
     commands.execute(CreateItemCommand(scene, traced, "bed"))
     workspace.set_mode(SPLIT)
@@ -493,7 +498,7 @@ def test_a_plan_with_a_refused_item_shows_the_indicator_and_fixing_it_clears_it(
     workspace._problems_button.click()
     dialog = workspace.problems_dialog
     assert dialog.row_text(0) == (
-        "Traced bed (Garden Bed): its outline has too many points for the 3D view")
+        "Traced bed (Raised Bed): its outline has too many points for the 3D view")
     dialog.activate_row(0)
     assert traced.isSelected()
 

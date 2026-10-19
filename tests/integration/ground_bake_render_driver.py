@@ -203,10 +203,10 @@ def _tile_uploads() -> int:
 
 
 def _textures_alive() -> int:
-    """Tile texture objects that exist on the C++ side (Qt's ``destroyed`` counts down)."""
-    from open_garden_planner.ui.view3d.quick3d.ground_tiles import TileTexture
+    """Tile texture objects that exist on the C++ side (asked of sip, ``textures_alive``)."""
+    from open_garden_planner.ui.view3d.quick3d.ground_tiles import textures_alive
 
-    return int(TileTexture.alive)
+    return textures_alive()
 
 
 class _Rig:

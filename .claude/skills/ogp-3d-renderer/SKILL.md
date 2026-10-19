@@ -294,11 +294,13 @@ are §12, and rows it added to the tables below say "(L1.2)".
   release after a frame never ran). So a re-baked tile is a NEW Model with its own texture
   (`ground_tiles._replace` = drop + create), like "one geometry per Model". Test updates WITHOUT
   a frame between them, on different objects, and look again one frame later.
-- **Count texture objects on the C++ side, not Python references.** `TileTexture.alive` goes up
-  in `__init__` and down on Qt's `destroyed` signal: over twenty full re-bakes of 16 tiles it
-  never exceeds 32 (the shown generation and the one it replaced), and reads 320 with the
-  spike's keep-alive list. A Python-owned `QObject` subclass instance IS destroyed when Python
-  lets go of it.
+- **Count texture objects on the C++ side, not Python references.** `ground_tiles.textures_alive()`
+  counts the textures made (held in a weak set) whose C++ object `sip.isdeleted` says still
+  exists: over twenty full re-bakes of 16 tiles it never exceeds 32 (the shown generation and
+  the one it replaced), and reads 320 with the spike's keep-alive list. A Python-owned `QObject`
+  subclass instance IS destroyed when Python lets go of it. (It first counted down on Qt's
+  `destroyed` signal; a Python callable on `destroyed` may never run once the cyclic collector
+  reached the wrapper first, so the product hangs none — `test_sim_clock_subscription.py`.)
 - **No repeated `grab()` on a live host that is not presenting — it is the grab that grows a
   Direct3D 11 process, not the upload.** Direct3D frees what was released when a frame is
   PRESENTED; a frame rendered by `grab()` is rendered (its textures are uploaded for it) and
@@ -621,7 +623,7 @@ triangles (`scripts/bench_view3d.py`).
 | A custom material renders the wrong colour, run "ok" | shader compile error is a `QtWarningMsg` | record Qt messages; fail on shader/QML errors |
 | "Cold" open time on the second run of the day | Qt/Mesa disk caches from the first | `--cold`, and read `shader_caches.found_before_run` |
 | RSS climbs ~30 MB per project reload | append-only keep-alive list of ground textures | hold only the shown texture; judge by the tail slope |
-| Private bytes climb by one ground upload per cycle, and fall back when the view closes | `grab()` on a Direct3D 11 hardware window that presents no frame: the grabbed frame's uploads stay committed until a Present | not a lifetime bug if `TileTexture.alive` stays ≤ 2 generations; take the grab out of the loop — the curve is flat; screenshots through the offscreen path (§5) |
+| Private bytes climb by one ground upload per cycle, and fall back when the view closes | `grab()` on a Direct3D 11 hardware window that presents no frame: the grabbed frame's uploads stay committed until a Present | not a lifetime bug if `textures_alive()` stays ≤ 2 generations; take the grab out of the loop — the curve is flat; screenshots through the offscreen path (§5) |
 | A ground tile turns WHITE after another tile was re-baked, or one frame after its own re-bake | its `Texture` element was pointed at a second `QQuick3DTextureData`; destroying the first reset `textureData` to null | one texture per `Texture`, for life: a re-baked tile is a new Model (§5) |
 | A tile border shows as a line only on patterned ground | the tile texture repeats: its opposite edge is blended in | `tilingModeHorizontal` / `Vertical: Texture.ClampToEdge` (§5) |
 | A re-baked tile keeps its old picture | its `QQuick3DTextureData` was updated in place | a NEW Model with a new texture object per change (§5) |
