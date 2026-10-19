@@ -27,10 +27,12 @@ The fixtures pin the serializer AND the bundled species data byte for byte
 (``tests/integration/test_bench_plans.py``): a change to either — e.g. new
 species fields — is regenerated with the first command, never hand-edited.
 
-Saving and loading through ``ProjectManager`` records Recent Files, so ``main()``
-points every settings store at a throwaway key before it builds anything (the
-same redirection ``tests/conftest.py`` performs) — it must never touch the
-user's own settings. Not at import time: ``tests/integration/test_bench_plans.py``
+Saving and loading through ``ProjectManager`` records Recent Files, so this
+script isolates itself before it builds anything (``scripts/script_isolation.py``,
+the same redirection ``tests/conftest.py`` performs): the profile before the app
+is imported, the settings names — a key of this process, cleared at exit — and
+Qt's locations first thing in ``main()``. It must never touch the user's own
+settings or app data. Not at import time: ``tests/integration/test_bench_plans.py``
 imports this module into the pytest process, and a module-scope rebinding took
 over that process's per-run test key for the rest of the session.
 """
@@ -50,6 +52,12 @@ from pathlib import Path
 from typing import Any
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import script_isolation  # noqa: E402  (before the app is imported)
+
+if __name__ == "__main__":  # run as a script: nothing from here on may reach the user's own stores
+    script_isolation.isolate_profile()
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "src"))
@@ -79,9 +87,9 @@ OUT_DIR = REPO / "tests" / "fixtures" / "plans"
 # end of the longest non-freezing run per year (MERRA-2 reanalysis), the closest
 # published analogue of what services/climate_service.py derives from ERA5 (the median
 # last / first <= 0 °C day). The app's own lookup could not be run when this was set:
-# the archive host was blocked by the environment's egress policy. The 3D view reads
-# them to decide whether fruit and flowers are in season
-# (spike_q3d/runner.in_frost_free_season).
+# the archive host was blocked by the environment's egress policy. The L0 spike's 3D
+# view read them to decide whether fruit and flowers are in season (the spike was
+# deleted in Phase 17 L1.10; production plants v0 show neither, FR-3D-PLANT-04).
 # Off by one day at each end, knowingly: WeatherSpark's bounds are the first and last
 # NON-freezing days, while these keys name the last and first FROST day, so a strict
 # transcription would be 04-08 and 11-01. That is inside WeatherSpark's own "around";
@@ -362,21 +370,21 @@ def _normalised(path: Path) -> Any:
 
 
 def _isolate_settings() -> None:
-    """Point every settings store at a throwaway key (see the module docstring).
+    """Point every store away from the user's own (see the module docstring) —
+    kept under its old name for the scripts that reuse this one's plumbing.
 
     Early enough: stores are built lazily, never at import time
     (``tests/unit/test_settings_chokepoint.py``), and a QSettings binds its
     organization/application at construction — so this runs before ``main()``
-    creates the application or any ``ProjectManager``.
+    creates the application or any ``ProjectManager``. (Until Phase 17 L1.1 it
+    rebound the names to a STANDING key, ``cofade-ogp-tooling``, which nothing
+    ever cleared, and left the profile alone.)
     """
-    import open_garden_planner.app.settings as app_settings
-
-    app_settings.ORGANIZATION_NAME = "cofade-ogp-tooling"
-    app_settings.APPLICATION_NAME = "Open Garden Planner bench generator"
+    script_isolation.isolate()
 
 
 def main(argv: list[str] | None = None) -> int:
-    _isolate_settings()
+    script_isolation.isolate()
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--check", action="store_true",
                         help="regenerate to a temp dir and compare with the committed fixtures")

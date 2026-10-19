@@ -115,7 +115,8 @@ def _run(script: str, *args: str) -> str:
     the kind this branch fixed in `test_status_message_route.py` one commit earlier:
     it happens to work on the author's machine and strips `HOME`, `LD_LIBRARY_PATH`
     and everything else the runner provides. `dict(os.environ, ...)` is the house
-    pattern (see `test_bench_view3d.py`, `test_spike_q3d_isolation.py`).
+    pattern (as the L1 render tier's own children do; the two scripts' tests that showed
+    it — bench_view3d's and the L0 spike's — left with them in L1.10).
     """
     proc = subprocess.run(
         [sys.executable, script, *args],

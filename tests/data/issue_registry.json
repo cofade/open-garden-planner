@@ -939,16 +939,6 @@
     "state": "CLOSED",
     "title": "Commit the CI gate mutation harness as scripts/replay_gate_mutations.py"
   },
-  "513": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Close the remaining ci.yml gate-pin holes by parsing each command separately"
-  },
-  "514": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Decide whether a coverage-floor regression should block a merge"
-  },
   "515": {
     "is_pr": false,
     "state": "OPEN",
@@ -963,5 +953,15 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix(#512-#516): mutation-verified gate pin, required coverage floor, and the widget-leak probe"
+  },
+  "532": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: Qt Quick 3D 6.11 leaks about half the ground-tile textures on every cache release (QSSGBufferManager::clear skips QHash entries)"
+  },
+  "534": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: committed memory grows ~2 MB/min while the wind runs (FU-L14-2, intermittent)"
   }
 }

@@ -1,0 +1,137 @@
+name: Frozen self-test
+
+# The frozen exe's gate, BEFORE a merge.
+#
+# release.yml runs `--selftest` in the frozen exe -- but only on a push to
+# master, so a change that breaks the bundle (a module PyInstaller no longer
+# finds, a QML or shader file the spec does not ship, a Qt wheel mismatch) was
+# first seen by CI after the merge that caused it. Until now the only run before
+# a merge was the one on the author's machine (`ogp-change-control` 2.8).
+#
+# This workflow builds the bundle with the SAME recipe release.yml uses
+# (installer/build_installer.py -- only the NSIS installer step is skipped) and
+# runs both checks of 2.8 on it: the 8-second smoke, and `--selftest`.
+#
+# It runs on every pull request that changes SHIPPED code -- the whole package,
+# not only the 3D engine: `--selftest` also exercises core/scene3d and the
+# Agent API, and the project's rule is "build and verify the exe before every
+# merge" -- and on demand (workflow_dispatch). What it costs: one Windows build
+# per such pull-request push (a release run, which also builds the installer,
+# takes 9-13 minutes).
+#
+# It is NOT a required check (quality/master-protection.json): a required check
+# that a path filter skips never reports, and would block every pull request it
+# does not run on. The local gate of 2.8 stays mandatory.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [master]
+    paths:
+      - "src/open_garden_planner/**"
+      - "installer/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "pylock.toml"
+      - ".github/workflows/frozen-selftest.yml"
+      - ".github/workflows/release.yml"
+      - ".github/actions/setup-locked-env/**"
+
+permissions:
+  contents: read
+
+jobs:
+  frozen-selftest:
+    name: Frozen self-test (windows-latest)
+    runs-on: windows-latest
+    # EVERY step below has a limit of its own, and this one is larger than their
+    # sum (62 minutes): the job's limit must never be what ends a step, or the
+    # step that prints the log would not get its turn. Pinned, with the sum, by
+    # tests/unit/test_quick3d_packaging.py.
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        timeout-minutes: 5
+
+      - uses: ./.github/actions/setup-locked-env
+        timeout-minutes: 10
+
+      # The release recipe, not a copy of it: the same script, the same spec, the
+      # same `PyInstaller --noconfirm --clean`; without NSIS no installer is built.
+      # The one difference: release.yml passes `--version <the release>`, this
+      # does not -- and the script then writes _version.py with the version in
+      # pyproject.toml (master's #490). So THIS bundle calls itself by the last
+      # synced release, not by the one a merge would produce (see the smoke test).
+      - name: Build the bundle (the release recipe, without the installer)
+        timeout-minutes: 30
+        run: python installer/build_installer.py --skip-nsis
+
+      # Check 1 of 2.8: the process is still running after 8 seconds. `timeout`
+      # kills it then and reports 124 -- which is the pass.
+      #
+      # What it proves: the exe starts. What it cannot see:
+      #   - a subsystem that is dead inside a running process (#291 hid from it
+      #     for six releases);
+      #   - a process that is blocked in an error dialog: it, too, is "still
+      #     running after 8 seconds".
+      # The self-test below is the real gate; this only proves the process starts.
+      #
+      # The frozen app asks GitHub for the latest release two seconds after its
+      # window is up (services/update_checker.py; the app has no switch to turn
+      # that off). As the last synced release it normally finds nothing newer;
+      # if a release landed after this branch's last version sync, it shows its
+      # update bar. The verdict does not depend on the answer: the checker runs
+      # on a thread of its own and swallows every network error.
+      - name: Smoke test (the process stays up for 8 seconds)
+        shell: bash
+        timeout-minutes: 5
+        run: |
+          set +e
+          timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe
+          code=$?
+          set -e
+          if [ "$code" -ne 124 ]; then
+            echo "::error::The frozen exe did not stay up for 8 seconds (exit $code; 124 = still running when the timeout killed it = pass)."
+            exit 1
+          fi
+          echo "Smoke test passed: the process was still running after 8 seconds (exit 124)."
+
+      # Check 2 of 2.8. See release.yml for why it is started with Start-Process
+      # -Wait -PassThru and why the exit code alone decides: this script is the
+      # SAME text as release.yml's (pinned by tests/unit/test_quick3d_packaging.py).
+      - name: Verify frozen subsystems (Agent API #291, A1 checks, Qt Quick 3D render #277)
+        shell: pwsh
+        timeout-minutes: 10
+        env:
+          OGP_SELFTEST_LOG: ${{ runner.temp }}/ogp-selftest-3d.log
+        run: |
+          $exe = "dist/OpenGardenPlanner/OpenGardenPlanner.exe"
+          if (-not (Test-Path $exe)) { Write-Host "::error::Frozen exe not found: $exe"; exit 1 }
+          $p = Start-Process -FilePath $exe -ArgumentList "--selftest" -Wait -PassThru
+          if ($p.ExitCode -ne 0) {
+            Write-Host "::error::Frozen self-test failed (exit $($p.ExitCode)). It covers the embedded Agent API server binding (#291), the A1 ingestion checks AND the Qt Quick 3D engine (Garden.qml and its shaders loaded from the bundle and rendered into one frame on this GPU-less runner, Direct3D 11 on WARP) - one of those is dead in this build, a lazily loaded part only the real artifact shows (the #277 class). The next step prints the self-test log: it names the failed 3D check, or shows the watchdog's reason and stack dump if any part hung."
+            exit 1
+          }
+          Write-Host "Frozen self-test passed (exit 0): Agent API, A1 checks and the Qt Quick 3D render are all alive."
+
+      # The log, in a step of its own that ALWAYS runs: a self-test step that was
+      # cut off by its time limit prints nothing after the cut, and the log is
+      # the only thing that says where it hung. It can fail nothing.
+      - name: Print the self-test log
+        if: always()
+        shell: pwsh
+        timeout-minutes: 2
+        env:
+          OGP_SELFTEST_LOG: ${{ runner.temp }}/ogp-selftest-3d.log
+        run: |
+          try {
+            if (Test-Path -LiteralPath $env:OGP_SELFTEST_LOG) {
+              Write-Host "--- self-test log ($env:OGP_SELFTEST_LOG) ---"
+              Get-Content -LiteralPath $env:OGP_SELFTEST_LOG -ErrorAction Stop | ForEach-Object { Write-Host $_ }
+            } else {
+              Write-Host "No self-test log was written: the self-test did not run, or the exe did not get as far as opening it."
+            }
+          } catch {
+            Write-Host "The self-test log could not be printed ($($_.Exception.Message)). The verdict of the self-test step stands."
+          }
+          exit 0

@@ -47,6 +47,7 @@ from open_garden_planner.services.soil_service import SoilService
 from open_garden_planner.ui.canvas.items import CircleItem
 from tests.agent_api_helpers import start_server
 from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
+from tests.integration.conftest import recolour
 
 
 def _providers(scene: Any) -> AgentProviders:
@@ -166,7 +167,7 @@ def _cm_to_px(meta: dict[str, Any], x_cm: float, y_cm: float) -> tuple[int, int]
 def test_render_canvas_image_full_canvas_default(canvas: Any, qtbot: Any) -> None:
     scene = canvas.scene()
     red = CircleItem(1000, 1000, 60, object_type=ObjectType.GENERIC_CIRCLE)
-    red.setBrush(QColor(255, 0, 0))
+    recolour(red, QColor(255, 0, 0))
     scene.addItem(red)
 
     server, _ = start_server(_providers(scene))
@@ -273,9 +274,9 @@ def test_render_canvas_image_layers_filter_hides_and_restores(canvas: Any, qtbot
     scene.set_layers([layer_a, layer_b])
 
     red = CircleItem(1000, 1000, 80, object_type=ObjectType.GENERIC_CIRCLE, layer_id=layer_a.id)
-    red.setBrush(QColor(255, 0, 0))
+    recolour(red, QColor(255, 0, 0))
     blue = CircleItem(3000, 1000, 80, object_type=ObjectType.GENERIC_CIRCLE, layer_id=layer_b.id)
-    blue.setBrush(QColor(0, 0, 255))
+    recolour(blue, QColor(0, 0, 255))
     scene.addItem(red)
     scene.addItem(blue)
 
@@ -330,9 +331,9 @@ def test_render_canvas_image_layers_filter_shows_layer_hidden_in_ui(
     scene.set_layers([layer_a, layer_b])
 
     red = CircleItem(1000, 1000, 80, object_type=ObjectType.GENERIC_CIRCLE, layer_id=layer_a.id)
-    red.setBrush(QColor(255, 0, 0))
+    recolour(red, QColor(255, 0, 0))
     blue = CircleItem(3000, 1000, 80, object_type=ObjectType.GENERIC_CIRCLE, layer_id=layer_b.id)
-    blue.setBrush(QColor(0, 0, 255))
+    recolour(blue, QColor(0, 0, 255))
     scene.addItem(red)
     scene.addItem(blue)
     scene.update_layer_visibility(layer_b.id, False)
@@ -374,7 +375,7 @@ def test_render_canvas_image_unknown_layer_name_is_tolerated(canvas: Any, qtbot:
     layer_a = Layer(name="Layer A")
     scene.set_layers([layer_a])
     red = CircleItem(1000, 1000, 80, object_type=ObjectType.GENERIC_CIRCLE, layer_id=layer_a.id)
-    red.setBrush(QColor(255, 0, 0))
+    recolour(red, QColor(255, 0, 0))
     scene.addItem(red)
 
     server, _ = start_server(_providers(scene))
@@ -434,9 +435,9 @@ def test_render_canvas_image_layer_id_matches_layer_name(canvas: Any, qtbot: Any
     scene.set_layers([layer_a, layer_b])
 
     red = CircleItem(1000, 1000, 80, object_type=ObjectType.GENERIC_CIRCLE, layer_id=layer_a.id)
-    red.setBrush(QColor(255, 0, 0))
+    recolour(red, QColor(255, 0, 0))
     blue = CircleItem(3000, 1000, 80, object_type=ObjectType.GENERIC_CIRCLE, layer_id=layer_b.id)
-    blue.setBrush(QColor(0, 0, 255))
+    recolour(blue, QColor(0, 0, 255))
     scene.addItem(red)
     scene.addItem(blue)
 

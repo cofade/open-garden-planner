@@ -257,8 +257,7 @@ def rebuild_with_corner_replaced(
     the undo command keeps a reference to the original rectangle so
     "undo" restores it whole (see ADR-022).
     """
-    from PyQt6.QtGui import QBrush, QPen
-
+    from open_garden_planner.core.item_look import copy_visual_style
     from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
     from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
     from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
@@ -292,8 +291,7 @@ def rebuild_with_corner_replaced(
             object_type=item.object_type,
             layer_id=item.layer_id,
         )
-        clone.setPen(QPen(item.pen()))
-        clone.setBrush(QBrush(item.brush()))
+        copy_visual_style(item, clone)
         clone.setPos(item.pos())
         clone.setRotation(item.rotation())
         return clone
@@ -312,8 +310,7 @@ def rebuild_with_corner_replaced(
             object_type=item.object_type,
             layer_id=item.layer_id,
         )
-        clone.setPen(QPen(item.pen()))
-        clone.setBrush(QBrush(item.brush()))
+        copy_visual_style(item, clone)
         clone.setPos(item.pos())
         clone.setRotation(item.rotation())
         return clone

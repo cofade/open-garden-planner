@@ -579,7 +579,14 @@ class WriteResult(BaseModel):
         description="For set_parent_bed: whether the plant is also physically "
         "inside the bed it was linked to. False means the link is valid but the "
         "plant sits outside the bed's outline — deliberately allowed (the app's "
-        "own Link action does the same), but worth telling the user about. Null "
+        "own Link action does the same), but worth telling the user about. It is "
+        "the app's own link test — the centre of the plant's bounding box against "
+        "the bed's outline — and a warning badge on the plant moves that point by "
+        "1.8 cm along each axis (about 2.5 cm diagonally). So within that margin "
+        "of a bed's edge it can be false for a plant "
+        "that the sun study and the 3D view do stand on the bed's soil (they test "
+        "the centre of the plant itself), and true for one they leave on the "
+        "ground; do not report a mismatch to the user on that margin alone. Null "
         "for a detach and for every other action.",
     )
     # --- issue #338: arrange (stacking order) -------------------------------

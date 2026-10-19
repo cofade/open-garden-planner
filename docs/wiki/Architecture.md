@@ -13,10 +13,9 @@ Its detailed architecture follows [arc42](https://arc42.org/).
 | Garden models and services | Plant data, companion planting, crop rotation, succession, soil, weather, tasks, harvest, and journal records. |
 | Export services | Shared PNG, SVG, PDF, DXF, CSV, and shopping-list output used by GUI and Agent API surfaces. |
 | Agent API | Embedded loopback MCP server with main-thread dispatch. Reads and exports remain open locally. Editing requires explicit enablement and a token. |
-| Solar and shipped 3D | Qt-free solar, shadow, growth, and mesh calculations with a Qt 3D presentation adapter. |
-| Dormant Qt Quick 3D spike | Phase 17 L0 evidence implementation behind `--spike-q3d`. L1 will deliver the production replacement. |
+| Solar and 3D | Qt-free solar, shadow, growth, and 3D scene calculations (`core/scene3d/`); the 3D view is the Plan / 3D / Split workspace of the main window on Qt Quick 3D (Phase 17 L1, ADR-048 / ADR-059 / ADR-060), with the engine confined to one package. |
 
-The shipped 3D view remains Qt 3D. Flat ground and the absence of engine shadow maps remain current limitations.
+On the Phase 17 L1 branch the 3D view is the Qt Quick 3D workspace beside the plan; it follows every edit and casts shadow-map shadows checked against the 2D shadows. The Qt 3D viewer window it replaces is removed there. Flat ground remains a current limitation.
 The 2D analytic shadow and sun-hours calculations are separate from the 3D renderer's lighting.
 
 ## Detailed documentation

@@ -13,14 +13,18 @@ Coordinate note (see arc42 section 8.10):
 import contextlib
 import threading
 import warnings
+from collections.abc import Iterator
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+from PyQt6 import sip
 from PyQt6.QtCore import QPointF, Qt
-from PyQt6.QtGui import QMouseEvent
+from PyQt6.QtGui import QColor, QMouseEvent
 from PyQt6.QtWidgets import QApplication
 
 from open_garden_planner.agent_api.server import SERVER_THREAD_NAME
+from open_garden_planner.core.item_look import fill_brush, style_gaps
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 
@@ -106,6 +110,105 @@ def _no_leaked_agent_api_thread(qtbot: object):
             ResourceWarning,
             stacklevel=1,
         )
+
+
+@contextlib.contextmanager
+def watched_scenes() -> Iterator[list[CanvasScene]]:
+    """Every ``CanvasScene`` built inside the block, in the order built — the list
+    keeps them alive, so a scene the code under test let go of can still be judged."""
+    scenes: list[CanvasScene] = []
+    build = CanvasScene.__init__
+
+    def tracked(self: CanvasScene, *args: object, **kwargs: object) -> None:
+        build(self, *args, **kwargs)
+        scenes.append(self)
+
+    CanvasScene.__init__ = tracked  # type: ignore[method-assign]
+    try:
+        yield scenes
+    finally:
+        CanvasScene.__init__ = build  # type: ignore[method-assign]
+
+
+def style_gaps_in(scenes: list[CanvasScene]) -> list[str]:
+    """Every item of ``scenes`` whose style attributes do not describe its brush and
+    pen (``core.item_look.style_gaps``) — one line an item, [] when all are in step.
+    A scene whose C++ object is gone is skipped."""
+    found: list[str] = []
+    for scene in scenes:
+        if sip.isdeleted(scene):
+            continue
+        for item in scene.items():
+            if not (callable(getattr(item, "pen", None)) and callable(getattr(item, "brush", None))):
+                continue
+            gaps = style_gaps(item)
+            if gaps:
+                kind = getattr(getattr(item, "object_type", None), "name", "-")
+                found.append(f"{type(item).__name__} {kind}: {'; '.join(gaps)}")
+    return found
+
+
+def fail_on_style_gaps(scenes: list[CanvasScene]) -> None:
+    """Fail the running test if an item of ``scenes`` is out of step (``style_gaps_in``)."""
+    found = style_gaps_in(scenes)
+    if found:
+        shown = "\n  ".join(found[:12])
+        more = f"\n  … and {len(found) - 12} more" if len(found) > 12 else ""
+        pytest.fail(
+            f"{len(found)} item(s) whose style attributes do not describe their brush and pen "
+            f"(core/item_look.py — give an item its pen with adopt_pen, its look with "
+            f"copy_visual_style):\n  {shown}{more}", pytrace=False)
+
+
+def recolour(item: Any, colour: QColor | str) -> None:
+    """Give an item a fill colour the way the properties panel does: the attribute
+    AND the brush (a test that sets only the brush builds an item no user can make —
+    and the guard below says so)."""
+    item.fill_color = QColor(colour)
+    item.setBrush(fill_brush(item, QColor(colour)))
+
+
+def guarded(node: Any) -> Iterator[None]:
+    """What the guard below does around ONE test, as a generator: up to its ``yield``
+    the set-up, after it the judgement. ``node``: the test (anything that answers
+    ``get_closest_marker``). A function of its own so that a test can drive it by
+    hand and see it fail — a fixture's teardown cannot be caught from inside its test."""
+    marker = node.get_closest_marker("style_gaps_allowed")
+    if marker is not None:
+        assert marker.args and str(marker.args[0]).strip(), "style_gaps_allowed needs its reason"
+        yield
+        return
+    with watched_scenes() as scenes:
+        yield
+        fail_on_style_gaps(scenes)
+
+
+@pytest.fixture(autouse=True)
+def _every_item_says_what_it_paints(request: pytest.FixtureRequest, qtbot: object):
+    """THE GUARD of the rule in ``core/item_look.py``: at the end of every test in
+    this folder, every item of every ``CanvasScene`` the test built states the look it
+    paints — its style attributes describe its live brush and pen.
+
+    Behavioural on purpose. The rule was first guarded by reading the source for
+    functions that build an item from an item (the map in
+    ``test_item_style_in_step.py``); a review planted six forgetful operations and
+    the scan saw one. This fixture does not care HOW a writer is spelled or where it
+    lives: whatever a test drives — a tool, the properties panel, an undo, the
+    loader, the Agent API, the test's own hand — leaves its items here to be judged.
+
+    What it cannot see: a writer no test in this folder drives; an item that has
+    left its scene before the test ends; a scene built before the test's own
+    fixtures were set up (by a module- or session-scoped fixture).
+
+    ``@pytest.mark.style_gaps_allowed("why")`` takes a test out — for a test that
+    puts an item out of step ON PURPOSE (to show that a reader does not trust the
+    attributes, or to pin a defect that is left open: the reason then names its
+    follow-up issue). The reason is mandatory.
+
+    Requests ``qtbot`` so that it is finalised BEFORE the widgets that own the
+    scenes are closed (fixtures are torn down in reverse setup order).
+    """
+    yield from guarded(request.node)
 
 
 @pytest.fixture()

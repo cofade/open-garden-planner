@@ -246,7 +246,7 @@ def test_documented_ci_inventory_matches_workflow_keys() -> None:
     docs = (root / "docs/07-deployment-view/README.md").read_text(encoding="utf-8")
     inventory = docs.split("| Job key |", 1)[1].split("\n\n", 1)[0]
     documented = set(re.findall(r"^\| `([\w-]+)` \|", inventory, re.MULTILINE))
-    assert documented == jobs and len(jobs) == 7
+    assert documented == jobs and len(jobs) == 8  # the eighth: render3d (Phase 17 L1.2)
 
 
 def test_finalization_has_no_bypass_and_uses_version_sync_prs() -> None:

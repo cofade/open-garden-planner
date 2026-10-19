@@ -5,7 +5,7 @@
 | Component | Technology | Rationale |
 |-----------|------------|-----------|
 | **Language** | Python 3.11+ | Rapid development, strong ecosystem, contributor accessibility |
-| **GUI Framework** | PyQt6 | Mature, native look, excellent 2D graphics (QGraphicsView), 3D-ready (Qt3D) |
+| **GUI Framework** | PyQt6 | Mature, native look, excellent 2D graphics (QGraphicsView), 3D in the same wheels (Qt Quick 3D, ADR-048) |
 | **Graphics** | QGraphicsView/Scene | Hardware-accelerated, handles thousands of objects, built-in pan/zoom |
 | **Data Storage** | JSON (project files) | Human-readable, VCS-friendly, no external database needed |
 | **Plant API** | Trefle.io REST API | Free, open source, comprehensive plant data |

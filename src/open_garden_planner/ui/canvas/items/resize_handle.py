@@ -20,8 +20,21 @@ from PyQt6.QtWidgets import (
     QMenu,
 )
 
+from .garden_item import note_plan_changed
+
 if TYPE_CHECKING:
     from PyQt6.QtWidgets import QGraphicsItem as ParentItem
+
+
+def _announce_live_edit(parent_item: QGraphicsItem | None) -> None:
+    """A handle drag changes its item's GEOMETRY on every mouse move, and Qt has no
+    ``itemChange`` for a geometry: tell the scene that the plan changed
+    (``CanvasScene.note_plan_changed``), so that what follows the plan — the 3D
+    view — follows the drag and not only its release. (The release is a command,
+    and a command announces itself.) Called at the end of every handle's
+    ``mouseMoveEvent`` that edits; pinned by a census of this module."""
+    if parent_item is not None:
+        note_plan_changed(parent_item.scene())
 
 
 def _clamp_pos_to_canvas(pos: QPointF, parent_item: QGraphicsItem) -> QPointF:
@@ -472,6 +485,7 @@ class ResizeHandle(QGraphicsRectItem):
         if self._parent_item is not None and hasattr(self._parent_item, '_propagate_equal_resize_live'):
             self._parent_item._propagate_equal_resize_live()
 
+        _announce_live_edit(self._parent_item)
         event.accept()
 
     def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
@@ -1410,6 +1424,7 @@ class VertexHandle(QGraphicsRectItem):
         if hasattr(self._parent_item, '_move_vertex_to'):
             self._parent_item._move_vertex_to(self._vertex_index, parent_pos)
 
+        _announce_live_edit(self._parent_item)
         event.accept()
 
     def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
@@ -2346,6 +2361,7 @@ class RectCornerHandle(QGraphicsRectItem):
         if hasattr(self._parent_item, '_move_corner_to'):
             self._parent_item._move_corner_to(self._corner, delta, self._initial_rect, self._initial_item_pos)
 
+        _announce_live_edit(self._parent_item)
         event.accept()
 
     def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
@@ -3270,6 +3286,7 @@ class CurveControlHandle(QGraphicsRectItem):
         alt = bool(event.modifiers() & Qt.KeyboardModifier.AltModifier)
         if hasattr(self._parent_item, "_move_control"):
             self._parent_item._move_control(self._kind, self._index, local, alt)
+        _announce_live_edit(self._parent_item)
         event.accept()
 
     def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:

@@ -46,8 +46,8 @@ Memorize this ordering. In this project, **"works in tests" ≠ done.**
 | Level | Evidence | Status |
 |---|---|---|
 | 0 | Code compiles, app launches | Not evidence |
-| 1 | Green CI (all seven workflow jobs, `ci.yml`) | **The floor, never the ceiling.** CI has stayed green while the local full suite was broken (see §4, "passes alone" mode). |
-| 2 | Full local gate battery incl. exe smoke (§2 below) | Required before every merge — the exe build is NOT in CI (verified: `ci.yml` has seven jobs — lint, test, security, agent-context, dependencies, types, coverage — and none of them builds the exe; PyInstaller runs only in `release.yml` after merge to master). |
+| 1 | Green CI (all eight workflow jobs, `ci.yml`) | **The floor, never the ceiling.** CI has stayed green while the local full suite was broken (see §4, "passes alone" mode). |
+| 2 | Full local gate battery incl. exe smoke (§2 below) | Required before every merge — the exe build is NOT in CI (verified: `ci.yml` has eight jobs — lint, test, security, agent-context, dependencies, types, coverage, render3d — and none of them builds the exe; PyInstaller runs only in `release.yml` after merge to master). |
 | 3 | `senior-reviewer` agent pass (`.claude/agents/senior-reviewer.md`), fresh worktree, branch diff | **Mandatory before opening any PR.** All P0/P1 findings addressed, then re-run for a clean re-review. History shows it catches real P0s (e.g. #213: rotated-plant pivot drift found in review round 2). |
 | 4 | **User-confirmed manual testing** | **Sovereign.** The PR stays a *draft* until the user confirms manual testing passed. No agent, test suite, or review substitutes for it. |
 
@@ -245,7 +245,7 @@ Volatile facts date-stamped 2026-07-04 (v1.23.0): CI-vs-local gate split, BED_SH
 Use the locked Python 3.11 environment described in ogp-build-and-run. Run
 `scripts/check_dependency_lock.py`, `scripts/check_mypy_baseline.py` and Linux
 `scripts/check_coverage_floors.py --xml coverage.xml` before delivery. Strict mypy
-checks production source including spike_q3d, with separate Linux/Windows per-file
+checks all production source, with separate Linux/Windows per-file
 allowances. New files have zero allowance. Coverage floors compare exact covered-line
 counts; branch coverage is reported separately. CI uploads reports even on failure.
 Coverage is initially not required by protection, but a failed job must be investigated.

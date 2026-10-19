@@ -1,7 +1,7 @@
 """US-E8 wiring tests — the signal paths, not the collectors.
 
 The growth tests elsewhere call ``collect_shadow_casters`` /
-``collect_scene3d_records`` directly, so they pass even when nothing is
+``snapshot_records`` directly, so they pass even when nothing is
 wired to invoke them. These drive the REAL widgets instead:
 
 * editing Current height in the Plant Details panel must make the sun/shade
@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -90,7 +89,7 @@ class TestPanelEditReachesTheShadow:
         qtbot.waitUntil(
             lambda: controller.recompute_count > baseline, timeout=2000
         )
-        _, height = collect_shadow_casters(scene)[0]
+        _, height, _base = collect_shadow_casters(scene)[0]
         assert height == pytest.approx(600.0)
 
     def test_current_spread_edit_triggers_recompute(self, qtbot) -> None:
@@ -101,7 +100,7 @@ class TestPanelEditReachesTheShadow:
         qtbot.waitUntil(
             lambda: controller.recompute_count > baseline, timeout=2000
         )
-        footprint, _ = collect_shadow_casters(scene)[0]
+        footprint, _, _base = collect_shadow_casters(scene)[0]
         xs = [x for x, _ in footprint]
         assert (max(xs) - min(xs)) == pytest.approx(250.0, abs=2.0)
 
@@ -134,37 +133,48 @@ class TestLoadNeverStampsAPlantingDate:
 
 
 class TestSimDateRebuilds3D:
-    """Scrubbing the DATE must regrow the 3D geometry, not only move the sun.
+    """Scrubbing the DATE must regrow the 3D geometry, not only move the sun — through
+    the workspace's 3D pane (since L1.9), its engine a recording stand-in."""
 
-    Uses a stand-in window so the assertion runs headlessly — Qt3D itself
-    needs an RHI context (Windows-only, see test_3d_view).
-    """
-
-    def _app(self, qtbot):
+    def _app(self, qtbot, monkeypatch):
         from open_garden_planner.app.application import GardenPlannerApp
+        from open_garden_planner.core.scene3d import RecordingSink
+        from open_garden_planner.ui.view3d import sync_controller
+        from open_garden_planner.ui.view3d.workspace import WorkspaceMode
+        from tests.integration.test_view3d_workspace_widget import FakeHost, wait_for_pipeline
 
+        monkeypatch.setattr(sync_controller, "DATE_REGROW_MIN_MS", 0)  # one date, one regrowth
         win = GardenPlannerApp()
         qtbot.addWidget(win)
-        win._view3d_window = MagicMock()
-        return win
+        workspace = win._workspace
+        workspace.engine_factory = lambda soft: (FakeHost(soft), RecordingSink())
+        workspace.set_mode(WorkspaceMode.SPLIT)
+        qtbot.waitUntil(lambda: workspace.controller is not None
+                        and workspace.controller.apply_count >= 1, timeout=5000)
+        wait_for_pipeline(workspace, qtbot)
+        return win, workspace.controller, lambda: wait_for_pipeline(workspace, qtbot)
 
-    def test_same_day_different_time_does_not_rebuild(self, qtbot) -> None:
-        win = self._app(qtbot)
+    def test_same_day_different_time_does_not_rebuild(self, qtbot, monkeypatch) -> None:
+        win, controller, settle = self._app(qtbot, monkeypatch)
         # Naive wall readings, as the toolbar hands them over (L1.0, ADR-053):
         # the plan date is the picker's local day by construction.
         win._on_sun_sim_datetime(datetime(2026, 6, 21, 10, 0))
-        win._view3d_window.rebuild.reset_mock()
+        settle()
+        snapshots, lights = controller.snapshot_count, controller.light_count
 
         win._on_sun_sim_datetime(datetime(2026, 6, 21, 16, 0))
+        settle()
 
-        win._view3d_window.rebuild.assert_not_called()
-        assert win._view3d_window.set_sun.called  # light still follows time
+        assert controller.snapshot_count == snapshots
+        assert controller.light_count > lights  # light still follows time
 
-    def test_new_day_rebuilds_the_geometry(self, qtbot) -> None:
-        win = self._app(qtbot)
+    def test_new_day_rebuilds_the_geometry(self, qtbot, monkeypatch) -> None:
+        win, controller, settle = self._app(qtbot, monkeypatch)
         win._on_sun_sim_datetime(datetime(2026, 6, 21, 12, 0))
-        win._view3d_window.rebuild.reset_mock()
+        settle()
+        snapshots = controller.snapshot_count
 
         win._on_sun_sim_datetime(datetime(2031, 6, 21, 12, 0))
+        settle()
 
-        win._view3d_window.rebuild.assert_called_once()
+        assert controller.snapshot_count == snapshots + 1

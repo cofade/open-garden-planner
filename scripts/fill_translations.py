@@ -2851,53 +2851,8 @@ for _ctx, _strings in _E4_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
-# ── US-E6: 3D view MVP (#261) ──
-_E6_TRANSLATIONS: dict[str, dict[str, str]] = {
-    "GardenPlannerApp": {
-        "&3D View…": "&3D-Ansicht…",
-        "Open a 3D view of the plan with solar lighting":
-            "3D-Ansicht des Plans mit Sonnenlicht öffnen",
-    },
-    "View3DWindow": {
-        "3D View": "3D-Ansicht",
-        "&Refresh": "&Aktualisieren",
-        "Rebuild the 3D scene from the current plan":
-            "3D-Szene aus dem aktuellen Plan neu aufbauen",
-    },
-}
-
-for _ctx, _strings in _E6_TRANSLATIONS.items():
-    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
-
-
-# ── US-E7: first-person walkthrough (#262) ──
-_E7_TRANSLATIONS: dict[str, dict[str, str]] = {
-    "View3DWindow": {
-        "&Walk": "&Rundgang",
-        "Walk the garden at eye level — WASD/arrow keys move, hold "
-        "the left mouse button to look around, Esc exits":
-            "Durch den Garten auf Augenhöhe gehen — WASD/Pfeiltasten bewegen, "
-            "linke Maustaste gedrückt halten zum Umschauen, Esc beendet",
-        "WASD/arrows move · hold left mouse to look · Esc exits":
-            "WASD/Pfeile bewegen · linke Maustaste zum Umschauen · Esc beendet",
-    },
-}
-
-for _ctx, _strings in _E7_TRANSLATIONS.items():
-    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
-
-
-# ── Issue #277: graceful 3D-view failure + uncaught-exception backstop ──
+# ── Issue #277: the uncaught-exception backstop (its 3D-view dialog left with the Qt 3D view, L1.10) ──
 _I277_TRANSLATIONS: dict[str, dict[str, str]] = {
-    "GardenPlannerApp": {
-        "3D View Unavailable": "3D-Ansicht nicht verfügbar",
-        "The 3D view could not be loaded: the 3D graphics "
-        "components are missing or incompatible. The rest of the "
-        "application is unaffected.\n\nDetails: {error}":
-            "Die 3D-Ansicht konnte nicht geladen werden: Die 3D-Grafik"
-            "komponenten fehlen oder sind inkompatibel. Der Rest der "
-            "Anwendung ist nicht betroffen.\n\nDetails: {error}",
-    },
     "main": {
         "Unexpected Error": "Unerwarteter Fehler",
         "An unexpected error occurred. The application will keep "
@@ -3189,6 +3144,236 @@ _PLANT_LISTS_TRANSLATIONS: dict[str, dict[str, str]] = {
 }
 
 for _ctx, _strings in _PLANT_LISTS_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
+# ── Phase 17 L1.4: the 3D view's quality and reduced motion (#385, ADR-059) ──
+_L14_LOOK_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "PreferencesDialog": {
+        "3D View": "3D-Ansicht",
+        "Automatic": "Automatisch",
+        "Low": "Niedrig",
+        "Medium": "Mittel",
+        "High": "Hoch",
+        "Ultra": "Ultra",
+        "How detailed the 3D view is drawn. Automatic picks a level from "
+        "the frame rate it measures on this computer.":
+            "Wie detailliert die 3D-Ansicht gezeichnet wird. „Automatisch“ wählt eine "
+            "Stufe anhand der Bildrate, die auf diesem Computer gemessen wird.",
+        "Quality:": "Qualität:",
+        "Reduce motion in the 3D view": "Bewegung in der 3D-Ansicht reduzieren",
+        "Keep leaves and grass still instead of swaying in the wind.":
+            "Blätter und Gras bleiben ruhig, statt sich im Wind zu wiegen.",
+    },
+}
+
+for _ctx, _strings in _L14_LOOK_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
+# ── Phase 17 L1.3: the Plan / 3D / Split workspace (#385, ADR-060) ──
+_L13_WORKSPACE_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "Workspace": {
+        "&Plan": "&Plan",
+        "Show the plan only": "Nur den Plan anzeigen",
+        "&3D": "&3D",
+        "Show the garden in 3D": "Den Garten in 3D anzeigen",
+        "&Split": "&Geteilt",
+        "Show the plan and the 3D view side by side":
+            "Plan und 3D-Ansicht nebeneinander anzeigen",
+        "{tip} ({shortcut})": "{tip} ({shortcut})",
+        "&Reset 3D View": "3D-Ansicht &zurücksetzen",
+        "Show the whole garden in the 3D view again":
+            "Wieder den ganzen Garten in der 3D-Ansicht zeigen",
+        "Show the whole garden again (Home)": "Wieder den ganzen Garten zeigen (Pos1)",
+        "&Workspace": "&Arbeitsbereich",
+        "Show which objects are missing from the 3D view":
+            "Zeigen, welche Objekte in der 3D-Ansicht fehlen",
+        "The 3D view could not be started. The rest of the application "
+        "is not affected.\n\nDetails: {error}":
+            "Die 3D-Ansicht konnte nicht gestartet werden. Der Rest der Anwendung "
+            "ist nicht betroffen.\n\nDetails: {error}",
+        "Try Again": "Erneut versuchen",
+        "Building the 3D view…": "3D-Ansicht wird aufgebaut…",
+        "The 3D view could not be updated. It will try again with the next change.":
+            "Die 3D-Ansicht konnte nicht aktualisiert werden. Bei der nächsten "
+            "Änderung wird es erneut versucht.",
+        "1 object is not shown in 3D": "1 Objekt wird in 3D nicht angezeigt",
+        "{count} objects are not shown in 3D": "{count} Objekte werden in 3D nicht angezeigt",
+        "The 3D view reported a problem. Details are in the log file.":
+            "Die 3D-Ansicht hat ein Problem gemeldet. Details stehen in der Protokolldatei.",
+        "3D is unavailable on this graphics device. The rest of the application "
+        "is not affected.\n\nDetails: {error}":
+            "3D ist auf dieser Grafikhardware nicht verfügbar. Der Rest der Anwendung "
+            "ist nicht betroffen.\n\nDetails: {error}",
+        "Use Compatibility Mode Next Time": "Kompatibilitätsmodus verwenden",
+        "3D is running in compatibility mode (software rendering) because "
+        "it did not start properly last time.":
+            "3D läuft im Kompatibilitätsmodus (Software-Rendering), weil es beim "
+            "letzten Mal nicht richtig gestartet ist.",
+        "3D is running in compatibility mode (software rendering).":
+            "3D läuft im Kompatibilitätsmodus (Software-Rendering).",
+        "Try Hardware Next Time": "Hardware wieder versuchen",
+        "Show List": "Liste zeigen",
+        "Hardware rendering will be tried the next time the application starts.":
+            "Beim nächsten Start der Anwendung wird Hardware-Rendering versucht.",
+        "Compatibility mode will be used the next time the application starts.":
+            "Beim nächsten Start der Anwendung wird der Kompatibilitätsmodus verwendet.",
+        "Compatibility mode (software rendering) is switched on.":
+            "Der Kompatibilitätsmodus (Software-Rendering) ist eingeschaltet.",
+        "3D is switched off: it did not start in compatibility mode "
+        "(software rendering) either.":
+            "3D ist ausgeschaltet: Es ist auch im Kompatibilitätsmodus "
+            "(Software-Rendering) nicht gestartet.",
+        "3D is switched off on this computer: it did not start, not even in "
+        "compatibility mode (software rendering). The rest of the application is "
+        "not affected.":
+            "3D ist auf diesem Computer ausgeschaltet: Es ist nicht gestartet, auch nicht "
+            "im Kompatibilitätsmodus (Software-Rendering). Der Rest der Anwendung ist "
+            "nicht betroffen.",
+        "The setting could not be changed. Details are in the log file.":
+            "Die Einstellung konnte nicht geändert werden. Details stehen in der "
+            "Protokolldatei.",
+    },
+    "View3DProblemsDialog": {
+        "Not Shown in 3D": "In 3D nicht angezeigt",
+        "These objects are on the plan but cannot be shown in the 3D view. "
+        "Double-click an entry to select the object on the plan.":
+            "Diese Objekte sind im Plan, können aber in der 3D-Ansicht nicht gezeigt "
+            "werden. Ein Doppelklick auf einen Eintrag wählt das Objekt im Plan aus.",
+        "its shape could not be worked out": "die Form konnte nicht ermittelt werden",
+        "another object on the plan has the same internal id":
+            "ein anderes Objekt im Plan hat dieselbe interne Kennung",
+        "its outline cannot be turned into a solid":
+            "der Umriss lässt sich nicht in einen Körper umsetzen",
+        "its outline has too many points for the 3D view":
+            "der Umriss hat zu viele Punkte für die 3D-Ansicht",
+        "one of its sizes is outside what the 3D view can show":
+            "eine der Abmessungen liegt außerhalb dessen, was die 3D-Ansicht zeigen kann",
+        "its 3D model could not be built": "das 3D-Modell konnte nicht gebaut werden",
+        "it could not be shown": "die Anzeige ist nicht möglich",
+        "… and {count} more": "… und {count} weitere",
+        "{name} ({kind}): {reason}": "{name} ({kind}): {reason}",
+        "{kind}: {reason}": "{kind}: {reason}",
+    },
+}
+
+for _ctx, _strings in _L13_WORKSPACE_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
+# Phase 17 L1.5 Part B (#385): what the 3D ground could not do, in the problems list
+_L15_GROUND_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "View3DProblemsDialog": {
+        'it could not be painted completely on the 3D ground':
+            'die Darstellung auf dem 3D-Boden ist unvollständig',
+        '3D ground: in one place the plan puts more surfaces than the ground can show; the smallest are left out':
+            '3D-Boden: an einer Stelle liegen mehr Flächen, als der Boden zeigen kann; die kleinsten werden weggelassen',
+        '3D ground: in {count} places the plan puts more surfaces than the ground can show; the smallest are left out':
+            '3D-Boden: an {count} Stellen liegen mehr Flächen, als der Boden zeigen kann; die kleinsten werden weggelassen',
+        '3D ground: one piece could not be painted and shows an older picture':
+            '3D-Boden: ein Stück konnte nicht gemalt werden und zeigt ein älteres Bild',
+        '3D ground: {count} pieces could not be painted and show an older picture':
+            '3D-Boden: {count} Stücke konnten nicht gemalt werden und zeigen ein älteres Bild',
+        '3D ground: it could not be painted; it shows an older picture':
+            '3D-Boden: er konnte nicht gemalt werden; er zeigt ein älteres Bild',
+        '3D ground: it could not be finished; it is tried again with the next change':
+            '3D-Boden: er konnte nicht fertiggestellt werden; mit der nächsten Änderung wird es erneut versucht',
+    },
+    "Workspace": {
+        'The 3D ground does not show all of the plan':
+            'Der 3D-Boden zeigt nicht den ganzen Plan',
+        '1 object is not shown in 3D; the 3D ground does not show all of the plan':
+            '1 Objekt wird in 3D nicht angezeigt; der 3D-Boden zeigt nicht den ganzen Plan',
+        '{count} objects are not shown in 3D; the 3D ground does not show all of the plan':
+            '{count} Objekte werden in 3D nicht angezeigt; der 3D-Boden zeigt nicht den ganzen Plan',
+    },
+}
+
+for _ctx, _strings in _L15_GROUND_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
+# ── Phase 17 L1.8: selection, the info card and walk mode (#385, ADR-060) ──
+_L18_SELECTION_WALK_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "Workspace": {
+        "&Walk": "&Rundgang",
+        "Walk through the garden at eye height": "Auf Augenhöhe durch den Garten gehen",
+        "Walk through the garden at eye height (W A S D or the arrow keys walk, "
+        "drag to look around, Shift runs, Esc leaves)":
+            "Auf Augenhöhe durch den Garten gehen (W A S D oder die Pfeiltasten gehen, "
+            "Ziehen schaut sich um, Umschalt läuft, Esc beendet)",
+        "Eye height while walking": "Augenhöhe beim Rundgang",
+        "Adult": "Erwachsene Person",
+        "Smaller adult": "Kleinere erwachsene Person",
+        "Child": "Kind",
+        "{who} – {height}": "{who} – {height}",
+        "There is no free ground to walk on.": "Es gibt keinen freien Boden zum Begehen.",
+        "Click an object to see what the 3D view shows of it.":
+            "Ein Objekt anklicken, um zu sehen, was die 3D-Ansicht davon zeigt.",
+        "{count} objects selected.": "{count} Objekte ausgewählt.",
+    },
+    "View3DInfoCard": {
+        "Show in Plan": "Im Plan zeigen",
+        "Centre the plan on this object": "Den Plan auf dieses Objekt zentrieren",
+        "Type:": "Typ:",
+        "Species:": "Art:",
+        "Scientific name:": "Wissenschaftlicher Name:",
+        "Height:": "Höhe:",
+        "not known": "nicht bekannt",
+        "Canopy diameter:": "Kronendurchmesser:",
+        "Diameter:": "Durchmesser:",
+        "Length:": "Länge:",
+        "Size:": "Größe:",
+        "{width} × {depth}": "{width} × {depth}",
+        "Area:": "Fläche:",
+        "Bed:": "Beet:",
+        "Sizes on:": "Größen am:",
+        "Group": "Gruppe",
+        "Object": "Objekt",
+        "Not shown in 3D: {reason}.": "In 3D nicht angezeigt: {reason}.",
+        "Not shown in 3D: this kind of object has no 3D form.":
+            "In 3D nicht angezeigt: Diese Art von Objekt hat keine 3D-Form.",
+        "Drawn on the ground in 3D: the plan gives it no height.":
+            "In 3D auf dem Boden gezeichnet: Der Plan gibt keine Höhe an.",
+    },
+}
+
+for _ctx, _strings in _L18_SELECTION_WALK_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
+# ── Phase 17 L1.9: the 3D workspace is the default (#385, ADR-060) ──
+_L19_DEFAULT_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "GardenPlannerApp": {
+        "&3D View": "&3D-Ansicht",
+        "Show the garden in 3D beside the plan, lit by the simulated sun":
+            "Den Garten in 3D neben dem Plan zeigen, beleuchtet von der simulierten Sonne",
+    },
+    "ShortcutsDialog": {
+        "3D View": "3D-Ansicht",
+        "Plan only": "Nur Plan",
+        "3D only": "Nur 3D",
+        "Plan and 3D side by side (Split)": "Plan und 3D nebeneinander (Geteilt)",
+        "Left Mouse Drag": "Ziehen mit linker Maustaste",
+        "Right Mouse Drag": "Ziehen mit rechter Maustaste",
+        "Pan the 3D view": "3D-Ansicht verschieben",
+        "Orbit the 3D view": "3D-Ansicht drehen",
+        "Page Up / Page Down": "Bild auf / Bild ab",
+        "Reset 3D View": "3D-Ansicht zurücksetzen",
+        "Click": "Klick",
+        "Select the object under the pointer": "Objekt unter dem Mauszeiger auswählen",
+        "Walk Mode (3D)": "Rundgang (3D)",
+        "W A S D / Arrow Keys": "W A S D / Pfeiltasten",
+        "Walk": "Gehen",
+        "Run": "Laufen",
+        "Mouse Drag": "Ziehen mit der Maus",
+        "Look around": "Umsehen",
+        "Leave walk mode": "Rundgang beenden",
+    },
+}
+
+for _ctx, _strings in _L19_DEFAULT_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 

@@ -969,12 +969,13 @@ class GardenPlannerApp(QMainWindow):
         unchanged membership returns ``(False, None)``."""
         from open_garden_planner.core.commands import SetParentBedCommand
         from open_garden_planner.core.plant_renderer import is_plant_type
+        from open_garden_planner.ui.canvas.footprints import bed_membership_point
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
         if not isinstance(item, GardenItemMixin) or not is_plant_type(item.object_type):
             return False, None
 
-        plant_center = item.mapToScene(item.boundingRect().center())
+        plant_center = bed_membership_point(item)
         current_parent_id = item.parent_bed_id
         new_bed = self.canvas_scene.find_smallest_bed_containing(plant_center)
         new_parent_id = (
@@ -2828,6 +2829,7 @@ class GardenPlannerApp(QMainWindow):
 
         from open_garden_planner.agent_api import edits
         from open_garden_planner.core.commands import SetParentBedCommand
+        from open_garden_planner.ui.canvas.footprints import centre_is_inside
 
         plant = self._agent_resolve_plant(item_id, "set_parent_bed")
         old_parent_id = plant.parent_bed_id
@@ -2847,8 +2849,14 @@ class GardenPlannerApp(QMainWindow):
             # reported x/y matches the read tools, whereas this one exists to
             # match the GUI's containment decision. The two differ by the
             # antagonist badge's asymmetric overflow (~0.07 * radius).
-            plant_center = plant.mapToScene(plant.boundingRect().center())
-            link_is_geometric = bool(bed.contains(bed.mapFromScene(plant_center)))
+            #
+            # Whether the sun study and the 3D scene LIFT the plant onto the
+            # bed's soil (L1.6, footprints.item_base_cm) is the same predicate
+            # asked with the plant's stable geometric centre — where a solid
+            # stands must not follow a badge. So within that overflow of a
+            # bed's edge a link reported as not geometric here can still be
+            # lifted there, and the other way round.
+            link_is_geometric = centre_is_inside(plant, bed)
 
         if new_parent_id == old_parent_id:
             where = "already unlinked" if bed_id is None else f"already linked to {bed_id}"
@@ -4090,6 +4098,7 @@ class GardenPlannerApp(QMainWindow):
 
     def _setup_view_menu(self, menu: QMenu) -> None:
         """Set up the View menu actions."""
+        self._view_menu = menu  # the 3D workspace adds its submenu later (L1.3)
         # Zoom In
         zoom_in_action = QAction(self.tr("Zoom &In"), self)
         zoom_in_action.setShortcut(QKeySequence("Ctrl++"))
@@ -4263,12 +4272,13 @@ class GardenPlannerApp(QMainWindow):
         self._set_action_icon(self._sun_sim_action, "sun_sim")
         sun_menu.addAction(self._sun_sim_action)
 
-        # 3D view (US-E6) — viewer window, engine per ADR-038 (PyQt6-3D).
-        self._view3d_action = QAction(self.tr("&3D View…"), self)
+        # 3D view (US-E6; since Phase 17 L1.9 the workspace's 3D pane, ADR-060): it
+        # opens no window any more — it shows the 3D view beside the plan (Split).
+        self._view3d_action = QAction(self.tr("&3D View"), self)
         self._view3d_action.setStatusTip(
-            self.tr("Open a 3D view of the plan with solar lighting")
+            self.tr("Show the garden in 3D beside the plan, lit by the simulated sun")
         )
-        self._view3d_action.triggered.connect(self._on_open_3d_view)
+        self._view3d_action.triggered.connect(self._on_show_3d_view)
         self._set_action_icon(self._view3d_action, "view3d")
         sun_menu.addAction(self._view3d_action)
 
@@ -4661,9 +4671,16 @@ class GardenPlannerApp(QMainWindow):
         # Create sidebar panels
         self._setup_sidebar()
 
-        # Create splitter for canvas and sidebar
+        # Create splitter for canvas and sidebar. The canvas area is the Plan / 3D /
+        # Split workspace (Phase 17, ADR-060; the default since L1.9) — the canvas
+        # inside it, and a 3D pane built the first time the user asks for 3D. The
+        # workspace module imports no engine: Qt Quick 3D is loaded on that first
+        # switch and never at start-up (the import scan pins it).
+        from open_garden_planner.ui.view3d.workspace import Workspace
+
+        self._workspace = Workspace(self.canvas_view, parent=self)
         self._main_splitter = QSplitter(Qt.Orientation.Horizontal)
-        self._main_splitter.addWidget(self.canvas_view)
+        self._main_splitter.addWidget(self._workspace)
         # Route CanvasView's status messages to the window's status bar. This is
         # a signal connection rather than a parent lookup because the canvas's
         # parent is this QSplitter, which has no statusBar() — so the old
@@ -4823,17 +4840,36 @@ class GardenPlannerApp(QMainWindow):
             self._sun_toolbar, self.canopy_panel, self)
         self.canvas_view.command_manager.stack_changed.connect(self.sun_exposure_coordinator.schedule)
 
-        # ── 3D view (US-E6) — created lazily on first menu use ────────────
-        self._view3d_window = None  # the currently-OPEN viewer, or None
-        self._view3d_window_retiring = None  # closed, awaiting safe teardown
-
-        # Sim clock fan-out (L1.0): a new plan DATE invalidates the daily heatmap
-        # and regrows the 3D geometry; any new instant moves the toolbar and the
-        # 3D light. The overlay subscribes itself to instant_changed (constructed
+        # Sim clock fan-out (L1.0): a new plan DATE invalidates the daily heatmap;
+        # any new instant moves the toolbar. (The 3D view listens to the clock
+        # itself: Scene3DController regrows on a date and relights on an instant.) The overlay subscribes itself to instant_changed (constructed
         # above, so on that channel it re-solves before _on_sim_instant_changed;
         # date_changed — and with it _on_sim_date_changed — fires before both).
-        self._sim_clock.date_changed.connect(self._on_sim_date_changed)
-        self._sim_clock.instant_changed.connect(self._on_sim_instant_changed)
+        # Through connect_qobject (L1.3, ADR-053 addendum): every QObject on the
+        # clock is disconnected when Qt destroys it, not only when Python does.
+        from open_garden_planner.ui.sim_clock_subscription import connect_qobject
+
+        connect_qobject(self._sim_clock.date_changed, self._on_sim_date_changed)
+        connect_qobject(self._sim_clock.instant_changed, self._on_sim_instant_changed)
+
+        # ── 3D workspace (L1.3) — what its pipeline reads, and its View submenu ──
+        self._workspace.connect_plan(
+            self.canvas_scene,
+            self._sim_clock,
+            lambda: self._project_manager.location,
+            self.canvas_view.command_manager,
+            self._ui_state,
+        )
+        self._project_manager.location_changed.connect(self._workspace.location_changed)
+        workspace_menu = self._workspace.create_menu(self._view_menu)
+        # every menu action carries an icon (#310) — the workspace's too, now that it is
+        # in every window (L1.9); its own buttons keep their words (ToolButtonTextOnly)
+        self._set_action_icon(workspace_menu.menuAction(), "view3d")
+        for action, icon_name in zip(self._workspace.mode_actions(),
+                                     ("tab_plan", "view3d", "compare_overlay"), strict=True):
+            self._set_action_icon(action, icon_name)
+        self._set_action_icon(self._workspace.reset_view_action, "zoom_fit")
+        self._view_menu.insertMenu(self._preview_action, workspace_menu)
 
         # ── Find & Replace panel (US-11.24) ──────────────────────────────────
         from open_garden_planner.ui.panels.find_replace_panel import FindReplacePanel
@@ -6319,15 +6355,10 @@ class GardenPlannerApp(QMainWindow):
             # Shut down calendar background workers and services (#483).
             if getattr(self, "calendar_view", None) is not None and hasattr(self.calendar_view, "shutdown"):
                 self.calendar_view.shutdown()
-            # Close any open/pending 3D viewer so the app can actually quit —
-            # a visible parentless top-level Qt3DWindow keeps the process alive
-            # under Qt's default quitOnLastWindowClosed. Hide (not delete): the
-            # exiting process reclaims it without racing the Qt3D render thread.
-            for _w in (self._view3d_window, self._view3d_window_retiring):
-                if _w is not None:
-                    _w.hide()
-            self._view3d_window = None
-            self._view3d_window_retiring = None
+            # The 3D workspace (L1.3): stop its pipeline and close its engine
+            # host while this window still exists — and clear a pending start
+            # marker, because a clean close is not a crash (ADR-060).
+            self._workspace.shutdown()
             # Persist window/splitter/panel state before tearing down.
             self._save_ui_state()
             # Stop auto-save timer
@@ -6519,8 +6550,6 @@ class GardenPlannerApp(QMainWindow):
         self._sun_toolbar.setVisible(checked)
         if checked:
             self._sun_controller.set_enabled(True)  # reads the sim clock
-            if self._view3d_window is not None:
-                self._apply_sun_to_3d()  # refresh 3D light on sim enable (US-E6)
         else:
             self._sun_toolbar.stop_animation()
             self._sun_controller.set_enabled(False)
@@ -6553,9 +6582,8 @@ class GardenPlannerApp(QMainWindow):
         shown map was cleared, so a late result painted the old day under the
         new date. ``result_pending`` (not ``is_running``) also covers the window
         after the worker's ``run()`` returned but before its queued result
-        reached the GUI thread.
-        US-E8: growth is keyed on the date, so the 3D geometry regrows here and
-        only here; scrubbing the time of day must not rebuild the scene.
+        reached the GUI thread. (The 3D view regrows its dated plants on its own
+        subscription — ``Scene3DController``, growth keyed on the plan date.)
         """
         heatmap = self._sun_heatmap
         if heatmap.computed_day != day and (
@@ -6563,13 +6591,11 @@ class GardenPlannerApp(QMainWindow):
         ):
             heatmap.clear()
             self._sun_toolbar.set_heatmap_active(False)
-        self._refresh_3d_view()
 
     def _on_sim_instant_changed(self, change: "SimChange") -> None:
         """Any new sim instant: the toolbar shows it (silently — no write-back
-        echo) and the 3D light follows (US-E6)."""
+        echo). The 3D light follows on the 3D view's own subscription."""
         self._sun_toolbar.set_datetime_local(change.current.wall)
-        self._apply_sun_to_3d()
 
     def _on_heatmap_requested(self) -> None:
         """Heatmap button checked — compute the plan date's hours of sun."""
@@ -6606,8 +6632,6 @@ class GardenPlannerApp(QMainWindow):
         self._sun_sim_action.setChecked(visible)
         if visible:
             self._sun_controller.set_enabled(True)  # reads the sim clock
-            if self._view3d_window is not None:
-                self._apply_sun_to_3d()  # refresh 3D light on sim enable (US-E6)
         else:
             self._sun_toolbar.stop_animation()
             self._sun_controller.set_enabled(False)
@@ -6645,117 +6669,19 @@ class GardenPlannerApp(QMainWindow):
     def _on_location_changed_for_sun(self, _location: object) -> None:
         """Location edits re-solve the sun position immediately (no debounce)."""
         self._sun_controller.recompute_now()
-        if self._view3d_window is not None:
-            self._apply_sun_to_3d()
 
     # ── 3D view (US-E6) ──────────────────────────────────────────
 
-    def _on_open_3d_view(self) -> None:
-        """Open the 3D viewer; snapshot the plan on open.
+    def _on_show_3d_view(self) -> None:
+        """View → Sun & 3D → "3D View": the workspace's 3D pane (Phase 17 L1.9).
 
-        A window that is still open is refreshed and raised (its RHI swapchain
-        is live). A window that was closed is retired and a FRESH one built —
-        a reused hidden→re-shown Qt3DWindow paints white because Qt3D never
-        rebuilds its swapchain for the re-exposed surface. Lazy import keeps
-        PyQt6.Qt3D* off startup (ADR-038 boundary).
-        """
-        if self._view3d_window is not None:
-            self._refresh_3d_view()
-            self._apply_sun_to_3d()
-            self._view3d_window.raise_()
-            self._view3d_window.activateWindow()
-            return
+        From Plan mode it switches to Split — the plan stays on screen and the 3D
+        view appears beside it, where the old viewer window used to open. In 3D or
+        Split mode the 3D view is already showing and nothing changes."""
+        from open_garden_planner.ui.view3d.workspace import WorkspaceMode
 
-        try:
-            from open_garden_planner.ui.view3d.view3d_window import View3DWindow
-        except ImportError as exc:
-            # The Qt3D bindings load lazily (ADR-038 import boundary). A frozen
-            # build whose core Qt micro drifted from the Qt3D wheels (issue
-            # #277) fails HERE with a DLL-load ImportError. Show a recoverable
-            # dialog instead of letting the unhandled error abort the process
-            # and lose unsaved work.
-            QMessageBox.critical(
-                self,
-                self.tr("3D View Unavailable"),
-                self.tr(
-                    "The 3D view could not be loaded: the 3D graphics "
-                    "components are missing or incompatible. The rest of the "
-                    "application is unaffected.\n\nDetails: {error}"
-                ).format(error=exc),
-            )
-            return
-
-        # Retire the previously-closed window HERE: it has been hidden since
-        # its close so its render thread is idle — deleteLater in closeEvent
-        # would race the LIVE thread and segfault (the reason reuse was first
-        # chosen). A fresh window gets a fresh RHI surface.
-        self._retire_closed_3d_window()
-
-        window = View3DWindow(None)  # top-level sibling window
-        window.refresh_requested.connect(self._refresh_3d_view)
-        window.closed.connect(self._on_3d_view_closed)
-        self._view3d_window = window
-        self._refresh_3d_view()
-        self._apply_sun_to_3d()
-        window.show()
-        window.raise_()
-        window.activateWindow()
-
-    def _on_3d_view_closed(self) -> None:
-        """The user closed the 3D viewer. Null the open reference so sun/
-        refresh updates stop targeting it and the ``is not None`` guards read
-        true open-state; keep the hidden window for retirement at the next
-        open (deleting it now would race its still-live render thread)."""
-        self._retire_closed_3d_window()
-        self._view3d_window_retiring = self._view3d_window
-        self._view3d_window = None
-
-    def _retire_closed_3d_window(self) -> None:
-        """deleteLater a 3D window closed on an earlier cycle — safe because it
-        has been hidden since its close, so its Qt3D render thread is idle."""
-        win = self._view3d_window_retiring
-        self._view3d_window_retiring = None
-        if win is not None:
-            win.deleteLater()
-
-    def _refresh_3d_view(self) -> None:
-        if self._view3d_window is None:
-            return
-        from open_garden_planner.ui.view3d.snapshot import collect_scene3d_records
-
-        # US-E8: the 3D view shares the sim growth timeline — the plan date.
-        records = collect_scene3d_records(
-            self.canvas_scene, at_date=self._sim_clock.plan_date
-        )
-        self._view3d_window.rebuild(
-            records, self.canvas_scene.width_cm, self.canvas_scene.height_cm
-        )
-
-    def _apply_sun_to_3d(self) -> None:
-        """Drive the 3D light from the sim clock's instant + project location.
-
-        Without a location there is no solar position — a pleasant fixed
-        default (elev 50°, az 180° ≈ southern midday sun) keeps the view
-        usable; documented in FR-SUN-06."""
-        if self._view3d_window is None:
-            return
-        from open_garden_planner.core.solar import solar_position
-
-        location = self._project_manager.location
-        latitude = location.get("latitude") if isinstance(location, dict) else None
-        longitude = location.get("longitude") if isinstance(location, dict) else None
-        if latitude is None or longitude is None:
-            self._view3d_window.set_sun(50.0, 180.0)
-            return
-        position = solar_position(latitude, longitude, self._sim_clock.utc)
-        self._view3d_window.set_sun(
-            position.elevation_deg, position.azimuth_deg
-        )
-
-    # 3D window lifecycle: see _on_open_3d_view / _on_3d_view_closed /
-    # _retire_closed_3d_window. Recreated per open (Qt3D can't reuse its RHI
-    # swapchain after a hide), retired only once hidden/idle (deleteLater on a
-    # live window races the render thread and segfaults, #230-class).
+        if self._workspace.mode is WorkspaceMode.PLAN:
+            self._workspace.set_mode(WorkspaceMode.SPLIT)
 
     def _init_scale_bar_from_settings(self) -> None:
         """Initialize scale bar state from persisted settings."""
@@ -7349,6 +7275,7 @@ class GardenPlannerApp(QMainWindow):
             self.soil_overlay_toolbar.isVisible()
         )
         self.soil_overlay_toolbar.hide()
+        self._workspace.set_chrome_visible(False)
 
         # Hide canvas overlays
         self.canvas_view.set_grid_visible(False)
@@ -7377,6 +7304,7 @@ class GardenPlannerApp(QMainWindow):
         self.sidebar.show()
         if (self._pre_preview_state or {}).get("soil_overlay_toolbar_visible"):
             self.soil_overlay_toolbar.show()
+        self._workspace.set_chrome_visible(True)
 
         # Restore canvas overlays from saved state
         state = self._pre_preview_state or {}
@@ -7981,6 +7909,7 @@ class GardenPlannerApp(QMainWindow):
         dialog = PreferencesDialog(self)
         if dialog.exec():
             self._update_satellite_menu_state()
+            self._workspace.apply_look_settings()  # 3D quality, reduced motion (L1.4)
             after = _agent_api_state()
             if before != after:
                 # Restart so a toggle, port, writes or token change takes effect.

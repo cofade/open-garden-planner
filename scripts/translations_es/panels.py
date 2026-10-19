@@ -560,14 +560,6 @@ TRANSLATIONS = {
         "Un-snooze": "Deshacer posposición",
         "Upcoming": "Próximas",
     },
-    "View3DWindow": {
-        "&Refresh": "&Actualizar",
-        "&Walk": "&Paseo virtual",
-        "3D View": "Vista 3D",
-        "Rebuild the 3D scene from the current plan": "Reconstruir la escena 3D a partir del plano actual",
-        "WASD/arrows move · hold left mouse to look · Esc exits": "WASD/flechas mueven · mantenga el ratón izquierdo para mirar · Esc sale",
-        "Walk the garden at eye level — WASD/arrow keys move, hold the left mouse button to look around, Esc exits": "Recorra el huerto a la altura de los ojos — WASD/teclas de flecha para moverse, mantenga presionado el botón izquierdo del ratón para mirar alrededor, Esc para salir",
-    },
     "WeatherWidget": {
         "Date": "Fecha",
         "Last updated %1 h ago": "Última actualización hace %1 h",

@@ -118,7 +118,7 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
         change: QGraphicsItem.GraphicsItemChange,
         value: Any,
     ) -> Any:
-        self.handle_selection_change_for_cache(change, value)
+        self.handle_item_change(change, value)
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
             if value:
                 self.show_resize_handles()

@@ -42,7 +42,7 @@ class TestBenchSmall:
     def test_loads_with_location_and_canvas(self, qtbot) -> None:  # noqa: ARG002
         scene, pm = _load("bench_small.ogp")
         # the frost dates decide whether the 3D view shows fruit and flowers on a date
-        # (spike_q3d.runner.in_frost_free_season) — in the format the Location dialog writes
+        # (the L0 spike's in_frost_free_season read them) — in the format the Location dialog writes
         assert pm.location == {"latitude": 52.52, "longitude": 13.405,
                                "frost_dates": {"last_spring_frost": "04-09",
                                                "first_fall_frost": "10-31"}}

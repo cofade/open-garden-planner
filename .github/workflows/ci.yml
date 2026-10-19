@@ -290,3 +290,60 @@ jobs:
           path: |
             coverage.xml
             coverage-summary.json
+
+  # The 3D render tier (Phase 17 L1.2, ADR-048): the engine package
+  # ui/view3d/quick3d/ on a real renderer.
+  #
+  # The `Test` job runs QT_QPA_PLATFORM=offscreen, where Qt Quick falls back to
+  # the software scene graph, which draws no 3D at all -- so every render test
+  # skips there (OGP_RENDER3D unset). Here they run: each test module starts a
+  # driver process with a REAL Qt platform and judges the frames it saves with
+  # its own CPU projection (tests/integration/quick3d_render_support.py).
+  #   Linux:   xvfb + the xcb platform + OpenGL on Mesa llvmpipe. The test
+  #            helper selects xcb for the driver; the pytest process itself
+  #            stays offscreen, as in every other job.
+  #   Windows: the runner has no GPU -- Direct3D 11 renders on WARP, which is
+  #            exactly the condition release.yml's `--selftest` runs under.
+  # Kept lean for software rasterisers: 480x360 probe frames, no sky light
+  # probe, one driver process per module, per-test timeouts, and `-n 0`:
+  # addopts' `-n auto` would start several driver processes at once on the
+  # one software rasteriser (ADR-058).
+  #
+  # NOT a required check (quality/master-protection.json): a software
+  # rasteriser on a shared runner proves correctness, not speed, and the
+  # hardware-only budgets in these tests skip themselves on one.
+  render3d:
+    name: Render 3D (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    env:
+      OGP_RENDER3D: "1"
+      OGP_RENDER3D_ARTIFACTS: ${{ github.workspace }}/render3d-artifacts
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Install Qt, X11 and Mesa libraries (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libegl1 libgl1 libgl1-mesa-dri libglx-mesa0 libopengl0 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xkb1
+      - uses: ./.github/actions/setup-locked-env
+      - name: Render tier (Linux -- xvfb, xcb, OpenGL on llvmpipe)
+        if: runner.os == 'Linux'
+        env:
+          QSG_RHI_BACKEND: opengl
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: xvfb-run -a -s "-screen 0 1920x1080x24" python -m pytest tests/integration/test_quick3d_render.py tests/integration/test_quick3d_engine.py tests/integration/test_quick3d_selftest.py tests/integration/test_quick3d_lifecycle.py tests/integration/test_scene3d_ground_render.py -v -n 0
+      - name: Render tier (Windows -- Direct3D 11 on WARP)
+        if: runner.os == 'Windows'
+        run: python -m pytest tests/integration/test_quick3d_render.py tests/integration/test_quick3d_engine.py tests/integration/test_quick3d_selftest.py tests/integration/test_quick3d_lifecycle.py tests/integration/test_scene3d_ground_render.py -v -n 0
+      - name: Upload frames, results and logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: render3d-${{ matrix.os }}
+          path: render3d-artifacts/
+          if-no-files-found: ignore

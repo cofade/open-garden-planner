@@ -21,6 +21,21 @@ footprint with the segment [(0,0) → D]). pyclipper computes the sweep and
 the cross-item union on an integer grid (``CLIPPER_SCALE``, the
 ``offset_tool`` precedent — pyclipper is integer-only).
 
+Base stacking (Phase 17 L1.6, ADR-037 addendum). A caster is a solid
+``footprint x [base, base + h]`` — a plant on the soil of a raised bed starts at
+the soil, not at the ground. Its ground shadow is
+
+    S(F, b, h) = { p + t·d : p ∈ F, t ∈ [b / tan α, (b + h) / tan α] }
+
+the footprint projected from the base, swept on to its projection from the top:
+the ground shadow ``S(F, 0, h)`` translated by ``(b / tan α)·d``. The tip lies
+``b / tan α`` further from the sun, and so does the near edge — what is below
+the base is the shadow of whatever the caster stands on (its bed is a caster of
+its own). ``base = 0`` takes the very same integer path as before L1.6: the
+footprint is translated by ``round(b / tan α · d)`` first, and for b = 0 that
+step does not run (pinned bit for bit by
+``tests/integration/test_shadow_caster_golden.py``).
+
 ``pyclipper.MinkowskiSum`` was probed on 2026-07-19 (pyclipper >= 1.3):
 ``MinkowskiSum([[0,0],[100,50]], [[0,0],[400,0],[400,300],[0,300]], True)``
 returns the swept-boundary annulus (outer hull + CW hole) as integer
@@ -34,11 +49,55 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable, Iterable, Sequence
+from typing import NamedTuple
 
 import pyclipper
 
 Point = tuple[float, float]
 Polygon = list[Point]
+
+
+class ShadowCaster(NamedTuple):
+    """One shadow-casting solid: ``footprint x [base_cm, base_cm + height_cm]``.
+
+    The ONE caster shape of the sun & shade overlay, the hours-of-sun heatmap
+    and (through the same base rule) the 3D records. ``footprint``: scene cm.
+    ``height_cm``: the item's ``effective_height_cm``, measured from its own
+    ground. ``base_cm``: how high that ground is — 0.0 for everything on the
+    garden floor, the soil surface for a plant in a raised bed or container
+    (``core.object_height.standing_base_cm``). Plain data: safe to hand to the
+    heatmap worker thread.
+    """
+
+    footprint: Polygon
+    height_cm: float
+    base_cm: float = 0.0
+
+
+#: What the shadow functions accept as a caster: a ``ShadowCaster`` or the
+#: pre-L1.6 pair ``(footprint, height_cm)`` — a pair stands on the ground.
+#: Nothing else: ``caster_fields`` refuses any other shape, so a third element
+#: can only ever be a base when a ``ShadowCaster`` says so.
+CasterLike = ShadowCaster | tuple[Sequence[Point], float | None]
+
+
+def caster_fields(caster: CasterLike) -> tuple[Sequence[Point], float | None, float]:
+    """``(footprint, height_cm, base_cm)`` of a caster — by TYPE, never by length.
+
+    A ``ShadowCaster`` carries its base; an exact ``(footprint, height_cm)``
+    tuple stands on the ground. Anything else — a list, a longer or shorter
+    tuple, another named tuple — raises ``TypeError``: a caller that built a
+    3-tuple for some other reason must not have its third element read as a
+    height above ground.
+    """
+    if isinstance(caster, ShadowCaster):
+        return caster.footprint, caster.height_cm, caster.base_cm
+    if type(caster) is tuple and len(caster) == 2:
+        return caster[0], caster[1], 0.0
+    raise TypeError(
+        "a shadow caster is a ShadowCaster or a (footprint, height_cm) tuple, "
+        f"not {type(caster).__name__} of length {len(caster) if hasattr(caster, '__len__') else '?'}"
+    )
 
 # Integer grid for pyclipper: 1 unit = 1/1000 cm (offset_tool precedent).
 CLIPPER_SCALE = 1000
@@ -106,18 +165,34 @@ def polyline_footprint(points: Sequence[Point], width_cm: float) -> list[Polygon
     return [_from_int(path) for path in result]
 
 
+def base_offset_cm(base_cm: float | None, elevation_deg: float) -> float:
+    """How far along the shadow direction a raised caster's shadow STARTS:
+    ``base / tan α``. 0.0 for a caster on the ground — and for a base that is
+    no height above ground (None, negative, not finite)."""
+    if base_cm is None or not math.isfinite(base_cm):
+        return 0.0
+    return shadow_length_cm(base_cm, elevation_deg) or 0.0
+
+
 def shadow_polygon(
     footprint: Sequence[Point],
     height_cm: float | None,
     elevation_deg: float,
     azimuth_deg: float,
+    base_cm: float = 0.0,
 ) -> list[Polygon]:
-    """Ground shadow of one extruded footprint; [] when there is no shadow."""
+    """Ground shadow of one extruded footprint; [] when there is no shadow.
+
+    ``base_cm`` lifts the solid: it occupies ``[base_cm, base_cm + height_cm]``
+    and its shadow starts ``base_cm / tan α`` along the shadow direction
+    (module docstring).
+    """
     length = shadow_length_cm(height_cm, elevation_deg)
     if length is None:
         return []
     direction = shadow_direction_scene(azimuth_deg)
-    paths = _caster_paths_int(footprint, length, direction)
+    paths = _caster_paths_int(footprint, length, direction,
+                              base_offset_cm(base_cm, elevation_deg))
     return [_from_int(p) for p in _union_int(paths)]
 
 
@@ -127,8 +202,17 @@ def union_shadows(polygons: Iterable[Sequence[Point]]) -> list[Polygon]:
     return [_from_int(p) for p in _union_int(int_paths)]
 
 
+class GroupedCaster(NamedTuple):
+    """All solid footprints of ONE owner with its height and its base — the caster
+    shape of ``compute_grouped_shadows``. ``base_cm`` as in ``ShadowCaster``."""
+
+    footprints: Sequence[Sequence[Point]]
+    height_cm: float
+    base_cm: float = 0.0
+
+
 def compute_grouped_shadows(
-    casters: Iterable[tuple[Sequence[Sequence[Point]], float]],
+    casters: Iterable[GroupedCaster | tuple[Sequence[Sequence[Point]], float]],
     elevation_deg: float,
     azimuth_deg: float,
     should_cancel: Callable[[], bool] | None = None,
@@ -137,29 +221,43 @@ def compute_grouped_shadows(
 
     Keep paths on the existing integer grid. Union each owner's footprints
     before sparse sampling, so overlapping footprints count as one caster.
+    A ``GroupedCaster`` carries its base — the same swept solid
+    ``compute_scene_shadows`` makes of a ``ShadowCaster``; an exact
+    ``(footprints, height_cm)`` pair stands on the ground. By TYPE, never by
+    length (``caster_fields``).
     """
     direction = shadow_direction_scene(azimuth_deg)
     all_paths: list[list[tuple[int, int]]] = []
     owned = []
-    for footprints, height in casters:
+    for caster in casters:
         if should_cancel is not None and should_cancel():
             return None
+        if isinstance(caster, GroupedCaster):
+            footprints, height, base = caster.footprints, caster.height_cm, caster.base_cm
+        elif type(caster) is tuple and len(caster) == 2:
+            footprints, height, base = caster[0], caster[1], 0.0
+        else:
+            raise TypeError(
+                "a grouped caster is a GroupedCaster or a (footprints, height_cm) tuple, "
+                f"not {type(caster).__name__}")
         length = shadow_length_cm(height, elevation_deg)
         paths = []
         if length is not None:
+            start = base_offset_cm(base, elevation_deg)
             for footprint in footprints:
-                paths.extend(_caster_paths_int(footprint, length, direction))
+                paths.extend(_caster_paths_int(footprint, length, direction, start))
         all_paths.extend(paths)
         owned.append([_from_int(p) for p in _union_int(paths)])
     return [_from_int(p) for p in _union_int(all_paths)], owned
 
 
 def compute_scene_shadows(
-    casters: Iterable[tuple[Sequence[Point], float | None]],
+    casters: Iterable[CasterLike],
     elevation_deg: float,
     azimuth_deg: float,
 ) -> list[Polygon]:
-    """Unioned ground shadows for ``(footprint, height_cm)`` casters.
+    """Unioned ground shadows of ``ShadowCaster``s (or ``(footprint, height_cm)``
+    pairs, which stand on the ground).
 
     The whole pipeline stays on the integer grid until the single final
     union — one scale-out pass, one Execute — which is what keeps a
@@ -170,11 +268,13 @@ def compute_scene_shadows(
         return []
     direction = shadow_direction_scene(azimuth_deg)
     all_paths: list[list[tuple[int, int]]] = []
-    for footprint, height_cm in casters:
+    for caster in casters:
+        footprint, height_cm, base_cm = caster_fields(caster)
         length = shadow_length_cm(height_cm, elevation_deg)
         if length is None:
             continue
-        all_paths.extend(_caster_paths_int(footprint, length, direction))
+        all_paths.extend(_caster_paths_int(
+            footprint, length, direction, base_offset_cm(base_cm, elevation_deg)))
     return [_from_int(p) for p in _union_int(all_paths)]
 
 
@@ -192,14 +292,24 @@ def _from_int(path: Sequence[Sequence[int]]) -> Polygon:
 
 
 def _caster_paths_int(
-    footprint: Sequence[Point], length_cm: float, direction: Point
+    footprint: Sequence[Point], length_cm: float, direction: Point, start_cm: float = 0.0
 ) -> list[list[tuple[int, int]]]:
-    """Integer paths whose nonzero union is the swept (filled) shadow."""
+    """Integer paths whose nonzero union is the swept (filled) shadow.
+
+    ``start_cm`` is a raised caster's base offset (``base / tan α``): the
+    footprint is moved that far along ``direction`` before the sweep. For a
+    caster on the ground the step is skipped, so its paths are what they were
+    before base stacking existed.
+    """
     int_fp = _to_int(footprint)
     if len(int_fp) < 3:
         return []
     if not pyclipper.Orientation(int_fp):
         int_fp = list(reversed(int_fp))  # normalize CCW for stable winding
+    if start_cm > 0.0:
+        ox = round(direction[0] * start_cm * CLIPPER_SCALE)
+        oy = round(direction[1] * start_cm * CLIPPER_SCALE)
+        int_fp = [(x + ox, y + oy) for x, y in int_fp]
     dx = round(direction[0] * length_cm * CLIPPER_SCALE)
     dy = round(direction[1] * length_cm * CLIPPER_SCALE)
     if abs(dx) < _MIN_SWEEP_CM * CLIPPER_SCALE and abs(dy) < _MIN_SWEEP_CM * CLIPPER_SCALE:
