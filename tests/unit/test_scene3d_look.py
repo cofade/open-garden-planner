@@ -669,6 +669,17 @@ class TestAutoPreset:
         assert [name for _at, name in nxt.changes] == ["high", "medium"]
         assert nxt.auto.bars_at(nxt.now)["high"][1] == 4 * policy.retry_s, "failed again: doubled"
 
+    def test_a_stored_bar_never_reaches_further_than_the_longest_retry(self) -> None:
+        """Re-check of fix round 1: a hand-edited bar of 1e18 s (or a wall clock that
+        jumped) was seeded as it stood and barred the level for good — 10 h of 120 fps
+        at medium gave 0 steps up. The seed is clamped to ``max_retry_s``."""
+        policy = AutoPolicy()
+        feed = Feed(AutoPreset("medium", bars={"high": (1e18, 300.0)}))
+        feed.auto.observe(0.0, 0)
+        assert feed.auto.bars_at(0.0)["high"][0] == policy.max_retry_s
+        feed.run(policy.max_retry_s + policy.hold_s + policy.window_s + 2.0, FAST)
+        assert [name for _at, name in feed.changes] == ["high"], "the bar ended"
+
     def test_seeded_bars_are_cleaned(self) -> None:
         """A store that holds nonsense loses the bar, never the session."""
         policy = AutoPolicy()

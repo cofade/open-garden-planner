@@ -258,6 +258,10 @@ def test_dusk_fades_and_sunset_is_no_cliff(board) -> None:
 #: 11.96, 4x MSAA (low = medium's anti-aliasing) 7.17; medium 7.17, high 6.79, ultra 5.40.
 #: Low may not alias more than medium by more than this.
 MAX_LOW_OVER_MEDIUM_ALIAS = 1.5
+#: And an absolute ceiling, because low and medium now share 4x MSAA: if both regressed
+#: together the relative pin alone would pass (re-check). 2x MSAA measured 11.96 (960 x 540)
+#: and 14.54 (640 x 360), 4x 6.22 / 8.10.
+MAX_LOW_ALIAS = 11.0
 
 
 def test_the_low_preset_does_not_alias_the_pickets(board) -> None:
@@ -267,6 +271,7 @@ def test_the_low_preset_does_not_alias_the_pickets(board) -> None:
     low, medium = moire["low"]["alias_error"], moire["medium"]["alias_error"]
     assert low is not None and medium is not None, moire
     assert low <= medium + MAX_LOW_OVER_MEDIUM_ALIAS, moire
+    assert low <= MAX_LOW_ALIAS, moire
     assert moire["low"]["dark_share"] <= moire["medium"]["dark_share"] + 0.02, moire
 
 
@@ -556,7 +561,8 @@ def test_the_wind_soak_runs_the_default_steady_state(wind_soak) -> None:
     "2.09 over 6 min (linear, 21,594 frames, about 0.55 kB a frame); dedicated GPU memory "
     "flat; with the QML engine's collector every 5 s 0.81 MB/min in steps. The bound was "
     "registered before the first run; this test passes - and so fails, being strict - "
-    "once the growth is gone."))
+    "once the growth is gone. Measured with timer-paced frames (QT_D3D_NO_VBLANK_THREAD=1, "
+    "which the product does not set): the product's vblank-paced path is unmeasured."))
 def test_the_wind_running_for_two_minutes_leaves_nothing_behind(wind_soak) -> None:
     assert wind_soak["slope_second_half_mb_per_min"] <= driver.WIND_SOAK_BOUND_MB_PER_MIN,         wind_soak["curve_mb"]
 

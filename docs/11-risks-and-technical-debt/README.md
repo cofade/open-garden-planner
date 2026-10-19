@@ -2581,7 +2581,10 @@ Symptom → root cause → fix, for the things that cost time while the looks (A
    medium is fine" stepped medium -> high -> medium in every session. *Root cause:* the bar on a
    level that proved too slow lived in memory; the first step up of a session needed only one
    window. *Fix:* the bars are stored with their deadline and next length, seeded at the first
-   poll, and the first step up waits the hold time.
+   poll, and the first step up waits the hold time. *And the store is hostile input* (re-check):
+   a 400-digit integer made `math.isfinite` raise and the 3D view refused to start on every
+   start; a bar of 1e18 s barred the level for good. Now an unconvertible number drops the bar,
+   and a seeded bar is clamped to `max_retry_s` (both pinned).
 10. **Judge a fade by the frame, not by one of its inputs** (look review P1, the twilight
     ramp). *Symptom:* the twilight colours mixed in linear light move the sky horizon 8 codes in
     the first half degree and 52 in the last (the drawn horizon 1.1x and 3.4x) — so they were
@@ -2591,6 +2594,9 @@ Symptom → root cause → fix, for the things that cost time while the looks (A
     sky AND the fading-in moon, at a rising exposure; a smooth sky alone is not a smooth frame.
     *Fix:* back to linear colours (the ruling's recipe): the frame darkens all the way, 0.116 ->
     0.099 (0°) -> 0.052 (−3°) -> 0.034 (−6°); the sky band's late step is carried by the moon.
+    *Tolerance, stated* (re-check): at 0.25° sampling `low` rises by 1.2 % over the last half
+    degree (−5.5° 0.0338 -> −6.0° 0.0342; `high` stays flat) — invisible, and below what the 1°
+    rows and `test_dusk_never_brightens` (sky term only) can see.
     **Measure the composite the viewer sees before "improving" one ingredient.**
 11. **FXAA cannot resolve a picket fence** (look review P1, #529). *Symptom:* a moiré band on
     the fence at low. Measured against a 2x-supersampled render: FXAA's luma error 20.0, 2x MSAA
@@ -2604,7 +2610,9 @@ Symptom → root cause → fix, for the things that cost time while the looks (A
     garbage of the `FrameAnimation` handler (`windTime += frameTime`) the V4 collector reclaims
     late, and something it does not. *State:* the registered bound (2.0) is kept as a strict
     `xfail` in `test_view3d_looks_render.py`. Untried: the clock as a `NumberAnimation` (no
-    JavaScript per frame).
+    JavaScript per frame). The soak runs with timer-paced frames (`QT_D3D_NO_VBLANK_THREAD=1`,
+    which the product does not set); the product's vblank-paced path is unmeasured (the
+    re-check's display was asleep: 0 frames presented without the flag).
 13. **Qt has no "reduce motion" preference to honour.** `QStyleHints` in Qt 6.11 exposes none
    (checked against the binding; a drift guard in `tests/unit/test_view3d_look_settings.py`
    fails the day one appears), so the setting is the application's own

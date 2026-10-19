@@ -101,6 +101,18 @@ def create_qsettings() -> QSettings:
     return settings
 
 
+def _finite_float(value: object) -> float | None:
+    """``value`` as a finite float, or None: no bool, no string, no NaN / infinity, and
+    no integer too large for a float (``float`` raises ``OverflowError`` on it)."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    try:
+        number = float(value)
+    except OverflowError:
+        return None
+    return number if math.isfinite(number) else None
+
+
 class AppSettings:
     """Manages application settings using Qt's QSettings.
 
@@ -842,8 +854,10 @@ class AppSettings:
         """The levels the automatic quality had to leave for being too slow, each with
         when it may be tried again (seconds since the epoch) and how long its next bar
         lasts — ``{level: (until, next_retry_s)}``. Stored as JSON; anything that is not
-        a level with two finite numbers is dropped, so a hand-edited store only ever
-        loses a bar.
+        a level with two finite numbers is dropped — also an integer too large for a
+        float, on which ``math.isfinite`` raises (re-check of L1.4 fix round 1) — so a
+        hand-edited store only ever loses a bar. How far ahead a bar may reach is the
+        reader's to cap (``AutoPreset`` clamps it to its longest retry).
 
         Not a preference with a control: the app writes it when ``auto`` steps."""
         raw = self._settings.value(self.KEY_VIEW3D_AUTO_BARS, "", type=str)
@@ -855,10 +869,12 @@ class AppSettings:
         if not isinstance(data, dict):
             return bars
         for level, value in data.items():
-            if (level in self.VIEW3D_AUTO_LEVELS and isinstance(value, list) and len(value) == 2
-                    and all(isinstance(v, (int, float)) and not isinstance(v, bool)
-                            and math.isfinite(v) for v in value)):
-                bars[level] = (float(value[0]), float(value[1]))
+            if not (level in self.VIEW3D_AUTO_LEVELS and isinstance(value, list)
+                    and len(value) == 2):
+                continue
+            numbers = [_finite_float(v) for v in value]
+            if numbers[0] is not None and numbers[1] is not None:
+                bars[level] = (numbers[0], numbers[1])
         return bars
 
     @view3d_auto_bars.setter

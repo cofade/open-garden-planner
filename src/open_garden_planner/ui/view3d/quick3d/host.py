@@ -972,9 +972,11 @@ class Quick3DHost:
         """
         self._open("set_sky")
         if sky is None:
-            if self._sky is not None:
-                self._call("dropSky")
-                self._sky = None
+            # always: after a FAILED first build there is no sky recorded here, and
+            # whatever half a sky the scene kept must go all the same (dropSky is a
+            # no-op on a scene without one)
+            self._call("dropSky")
+            self._sky = None
             return
         started = time.perf_counter()
         self._call("buildSky", sky_properties(sky))

@@ -654,8 +654,10 @@ class AutoPreset:
         self._seed: dict[int, tuple[float, float]] = {}
         for level, (remaining, retry) in (bars or {}).items():
             if level in AUTO_LEVELS and math.isfinite(remaining) and math.isfinite(retry):
+                # a stored bar never reaches further than the longest retry: a
+                # hand-edited 1e18, or a wall clock that jumped, would bar a level for good
                 self._seed[AUTO_LEVELS.index(level)] = (
-                    max(0.0, remaining),
+                    min(max(0.0, remaining), self._policy.max_retry_s),
                     min(max(retry, self._policy.retry_s), self._policy.max_retry_s))
         #: Every step so far, as ``(now_s, from, to)`` — a diagnostic.
         self.steps: list[tuple[float, str, str]] = []

@@ -100,7 +100,8 @@ def test_the_automatic_bars_round_trip(settings) -> None:
 
 @pytest.mark.parametrize("stored", [
     "not json", "[1, 2]", '{"ultra": [1, 2]}', '{"high": [1]}', '{"high": ["x", 2]}',
-    '{"high": [true, 2]}', '{"high": [1e999, 2]}'])
+    '{"high": [true, 2]}', '{"high": [1e999, 2]}',
+    '{"high": [' + "9" * 400 + ', 300]}', '{"high": [300, ' + "9" * 400 + ']}'])
 def test_a_hand_edited_bar_store_only_loses_bars(settings, stored: str) -> None:
     settings._settings.setValue(AppSettings.KEY_VIEW3D_AUTO_BARS, stored)
     assert settings.view3d_auto_bars == {}
