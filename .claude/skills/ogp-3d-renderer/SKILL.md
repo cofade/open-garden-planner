@@ -819,3 +819,55 @@ exe or on a CI runner (the workspace's render tier is not in CI's render job); t
 (edit latency ends at a finished readback); a change of the device pixel ratio in mid-session
 and OS display scaling (manual checklist); the real map picker beside the 3D view (the
 automated check uses its engine on a local page).
+
+## 14. Looks, sky and wind on the engine (L1.4)
+
+Concept: docs §8.32.4; decisions and the evidence table: the ADR-064 addendum "looks, sky and
+the animation policy (L1.4)"; tests: docs §8.10.29; lessons: §11.4.35. The art-direction values
+are `ogp-lush-cinematic` §3. What the ENGINE taught (RTX 4070, Direct3D 11; WARP on the same
+machine):
+
+- **A colour property is linearised with a polynomial, not the sRGB curve.** Qt Quick 3D turns a
+  `color` property into linear light as `x·(x·(x·0.3053 + 0.6822) + 0.0125)`. From about 0.3 up
+  the two agree; for dark colours they do not — sRGB code 5 is 0.0015 by the curve and 0.0005 to
+  the engine (a flat ambient light on a white box, read in the un-tone-mapped top-down view).
+  A colour you computed in linear light goes in as `QColor.fromRgbF(engine_srgb(linear))`
+  (`quick3d/look.py`), as floats. Re-measure after a Qt upgrade.
+- **A sky build is a fresh `Texture` with its own `ProceduralSkyTextureData` as its child**,
+  every input set at `SkyTextureQualityLow` and the quality raised LAST (one generation). Only the
+  Texture is ever destroyed — after the scene shows the new one — so a pair lives and dies
+  together (a Texture loses its data when a data object it held earlier dies — the Qt texture trap the ground bake found, docs §11.4.35 item 4). A sequence
+  A → B → C with a frame after each, then two frames after the old pairs are gone: the same sky,
+  its disc at the solar azimuth (`test_a_sky_rebuilt_three_times_…`).
+- **Medium sky quality is enough.** 1024 × 512 float texels (8 MB) against High's 2048 × 1024
+  (32 MB): the GUI-thread generation 95 → 215 ms in a round-3 A/B on a quiet machine, every shot's
+  mean luma within 0.02, the disc's bearing within 0.07°. In the 2026-10-19 boards (a fresh host
+  per frame, other test runs sharing the CPU) one Medium build read 123–301 ms, median 171–201.
+- **The light probe is the cost on a software adapter.** On WARP the generation itself is the
+  same CPU work (145–340 ms at High), but the first frame after each new sky took 11.1 / 13.2 /
+  12.3 s (the probe's filtering; 40–85 s on a CI runner, ADR-048), later frames 4 ms. So no sky
+  on the software adapter, ever (`LookController(sky_light=False)`).
+- **A retired sky needs no `releaseResources()`.** Twenty sun changes, each a new 8 MB sky and
+  probe, frames presented and frames withheld: no growth per change in committed memory or in
+  dedicated GPU memory (Theil–Sen over the second half, under the pre-registered 1.0 MB per
+  change); the positive control — a `buildSky` that never destroys the old Texture — reads about
+  8 MB per change. Unlike a destroyed Model (§13), it does not count towards the workspace's
+  release policy.
+- **A hidden window's `FrameAnimation` keeps running.** With the window hidden and the wind's
+  clock running, `windTime` went on advancing. The animation policy stops the clock when the
+  pane hides; "hidden" stops nothing by itself. A stopped clock holds its value (the sway of that
+  moment) — rest is `windTime = 0` (`Quick3DHost.rest_wind`).
+- **Shadow bias is per backend and preset.** At the spike's bias 5, a lit wall grazed at n·l 0.33
+  hatched at high and ultra on Direct3D 11 (pixel noise 1.15 % of its luma); bias 10 there
+  (0.18 %, the dither's floor), 15 at low and medium; IoU unchanged.
+- **Shadow IoU in a PERSPECTIVE view with the preset's cascades** (box 100 × 100 × 200 cm,
+  azimuth 225°, the board's `--iou`; the L0 table above was orthographic without cascades):
+  bench_small 960 × 540, GPU — low (1 cascade) 0.921 / 0.985 / 0.974, high (2) 0.976 / 0.986 /
+  0.978 at 15° / 35° / 60°. At 640 × 360 the render tier holds all four presets ≥ 0.85 on the GPU
+  and on WARP (numbers: the ADR-064 addendum). The weakest cell is always low at 15°: one
+  cascade over a 7.5 m shadow.
+- **The frame rate to the display is capped by vsync** on a 60 Hz screen: count presented frames
+  (`health().frames_presented`) and report a readback's time only as the cost of a finished
+  frame, labelled as such. A `grab()` per frame measures the readback, not the frame.
+- **Qt 6.11 exposes no "reduce motion" preference** (`QStyleHints`); the drift guard
+  `test_qt_still_exposes_no_motion_preference` fails the day one appears.

@@ -566,6 +566,22 @@ class Board:
                 QCoreApplication.processEvents()
                 time.sleep(0.001)
 
+        def readback_cost(shot: BoardShot, count: int = 12) -> tuple[float, float]:
+            """The median and the largest time of a finished readback of a NEW frame.
+            A readback of an unchanged scene re-composites the last 3D frame (measured:
+            ~6 ms on WARP where a frame takes 100-350 ms; the wind's clock does not advance
+            across a readback), so the camera moves by 0.01 cm before each one — no
+            picture is kept."""
+            costs = []
+            for index in range(count):
+                east, north, up = shot.eye
+                host.set_camera((east + 0.01 * (index % 2), north, up), shot.target, shot.fov_deg)
+                t0 = time.perf_counter()
+                host.grab("frame_cost")
+                costs.append((time.perf_counter() - t0) * 1000.0)
+            host.set_camera(shot.eye, shot.target, shot.fov_deg)
+            return round(statistics.median(costs), 2), round(max(costs), 2)
+
         sun = self.sun_at(shot.when_utc)
         records = self.records_for(shot.when_utc.date())
         host = Quick3DHost(self.size, qml_dir=self.args.qml_dir, log=self.log,
@@ -591,18 +607,12 @@ class Board:
                 pump(seconds)
                 presented = host.health().frames_presented - frames
                 elapsed = time.perf_counter() - started
-                host.rest_wind()
                 row: dict[str, Any] = {
                     "frames_presented": presented,
                     "presented_fps": round(presented / elapsed, 2) if presented >= 2 else None}
+                host.rest_wind()
                 if ready:                    # a finished readback: what one frame COSTS
-                    costs = []
-                    for _ in range(12):
-                        t0 = time.perf_counter()
-                        host.grab("frame_cost")
-                        costs.append((time.perf_counter() - t0) * 1000.0)
-                    row["readback_ms_median"] = round(statistics.median(costs), 2)
-                    row["readback_ms_max"] = round(max(costs), 2)
+                    row["readback_ms_median"], row["readback_ms_max"] = readback_cost(shot)
                 table[preset] = row
                 self.log("frame_rate", preset=preset, **row)
                 self.write()

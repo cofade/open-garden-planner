@@ -69,8 +69,8 @@ SIZE = "640x360"
 #: G2. Issue #385: IoU >= 0.85 at 15 / 35 / 60 degrees. Measured, perspective with the
 #: preset's cascades: 0.921-0.986 on the GPU (the lowest: low at 15 degrees, one cascade).
 MIN_IOU = 0.85
-#: G8, the relaxed G2 of the software fallback (no sky: a flat fill lights the shadow).
-MIN_IOU_SOFTWARE = 0.80
+#: G2 on WARP (no sky: a flat fill lights the shadow) holds the same bound at every preset;
+#: measured 0.919-0.986 (640 x 360, 2026-10-12). G8 asked only for a relaxed G2 there.
 #: G3. Night's mean LUMINANCE (linear light) under a quarter of noon's, same shot and plan.
 MAX_NIGHT_OVER_NOON = 0.25
 #: G4. The spike's bound for the sky probe; measured here 0.03 degrees.
@@ -278,8 +278,8 @@ def test_no_isolated_dark_pixel_speckle_and_the_gate_can_fire(speckles) -> None:
 @pytest.fixture(scope="module")
 def board_software(tmp_path_factory: pytest.TempPathFactory) -> tuple[dict[str, Any], Path]:
     out = tmp_path_factory.mktemp("looks") / "software"
-    return _ok_board(run_board(out, "--software", "--presets", "low,high", "--shots", "noon,night",
-                               "--iou", "--orient", "--horizon", "--moods"), out), out
+    return _ok_board(run_board(out, "--software", "--presets", ",".join(PRESETS), "--shots",
+                               "noon,night", "--iou", "--orient", "--horizon", "--moods"), out), out
 
 
 def test_the_software_fallback_builds_no_light_probe_and_still_tells_the_truth(board_software) -> None:
@@ -293,12 +293,16 @@ def test_the_software_fallback_builds_no_light_probe_and_still_tells_the_truth(b
     assert all(row["sky_builds"] == 0 for row in metrics["shots"]), "a light probe on WARP"
     assert metrics["sky"] == {"skipped": "no sky texture on a software adapter"}
     assert metrics["qt_messages"]["counts"]["error"] == 0
-    measured = {(preset, elevation): block["results"][elevation]["iou"]
-                for preset, block in metrics["shadow_iou"].items()
-                for elevation in ("15deg", "35deg", "60deg")}
-    assert len(measured) == 6 and min(measured.values()) >= MIN_IOU_SOFTWARE, measured
+    measured = {}
+    for preset, block in metrics["shadow_iou"].items():   # G2 on WARP: perspective, cascades
+        assert block["view"] == "perspective"
+        for elevation in ("15deg", "35deg", "60deg"):
+            result = block["results"][elevation]
+            assert result["cascades"] == PRESET_SPECS[preset].shadow_cascades >= 1
+            measured[(preset, elevation)] = result["iou"]
+    assert len(measured) == 12 and min(measured.values()) >= MIN_IOU, measured
     assert metrics["orientation"]["ok"] is True
-    for preset in ("low", "high"):
+    for preset in PRESETS:
         assert metrics["moods"][preset]["night_over_noon"]["luminance"] < MAX_NIGHT_OVER_NOON
     worst = metrics["horizon"]["max"]
     assert worst["step"] <= MAX_HORIZON_STEP and worst["dip"] <= MAX_HORIZON_DIP, metrics["horizon"]
