@@ -2520,6 +2520,17 @@ engine's own facts are in the `ogp-3d-renderer` skill, §14.
     to the group) and a locked item's `setSelected(True)` does nothing. *Fix:* ONE path,
     `ui/canvas/select_by_id.py`. *Lesson:* a behavioural test cannot tell two copies that
     happen to agree from one path; pin the structure as well (§8.10.30).
+14. **Every mutant read BROKEN after the suite went parallel.** The three L1 mutation scripts
+    (`scripts/mutation_check_scene3d.py`, `…_built_world.py`, `…_plant_art.py`) run
+    `pytest <tests> -q -x`; with master's `-n auto` in `addopts` (ADR-058) a failing test under
+    `-x` ends the run as "interrupted" — exit code 2, not 1 — and the scripts count only exit 1
+    as KILLED. Measured: a mutant whose tests failed 5 times read "BROKEN … 0/1 mutants
+    killed". *Fix:* each script passes `-n 0` (a later `-n` wins). Found while two of the
+    scene3d mutants had gone STALE: L1.8's selection lines sat inside their patterns, which
+    the default run reports (`test_every_mutant_still_matches_its_file_exactly_once`); both
+    re-anchored, and the new lines got mutants of their own. *Lesson:* a tool that reads an
+    exit code must be re-checked when the runner's defaults change — run one mutant whose kill
+    is certain.
 
 ### 11.4.8 Guild boundaries found by independent review (F1/F2)
 
