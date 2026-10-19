@@ -4994,12 +4994,12 @@ Five facts shaped the design:
    Split position is kept through the UI-state store (ADR-041), and only when the session really
    was in Split — saved the moment Split is LEFT, and when the app closes in it (FR-3D-WS-01
    says "remembered between sessions"; it used to be saved only by an app closed in Split).
-   **Entering 3D mode clears the canvas selection** — a stopgap with an owner, in ONE function,
-   `Workspace.clear_selection_hidden_by_3d_mode`: 3D mode hides the canvas, the one place a
-   selection is shown, and the app's shortcuts stay, so Delete, Ctrl+X and Ctrl+D would act on
-   what nobody can see (pinned with its control: without the stopgap the same Delete removes
-   the hidden item). Split keeps the selection. The selection story (L1.8) shows the selection
-   in 3D and removes or replaces the function and its one call in `set_mode`.
+   **Entering 3D mode cleared the canvas selection** — a stopgap with an owner,
+   `Workspace.clear_selection_hidden_by_3d_mode`: 3D mode hides the canvas, and the app's
+   shortcuts stay, so Delete, Ctrl+X and Ctrl+D would have acted on what nobody could see.
+   **Removed by the selection story (L1.8 addendum)**: the selection is shown in 3D — the ring
+   round every selected item and the info card below the view — so 3D mode keeps it and the
+   shortcuts act on what is shown (`test_view3d_workspace.py::test_3d_mode_keeps_the_selection_and_shows_it_so_its_shortcuts_act_on_what_is_seen`).
 3. **Nothing overlays the native 3D window.** Every control, notice and message of the 3D pane
    sits in a strip ABOVE the view or REPLACES the view (a message page in a stacked widget). The
    floating switch is the one overlay there is, and it floats over the canvas, an ordinary widget.
@@ -5303,7 +5303,8 @@ Five facts shaped the design:
   `garden_item.note_plan_changed(item.scene())`) — and `item.update()` if the canvas shows it.
   Forgetting it is not silent: the net applies it after 400 ms and counts it.
 - **For L1.8 (selection, walk):** `Workspace.clear_selection_hidden_by_3d_mode` is yours to
-  remove or replace once the selection is shown in 3D (decision 2). `OrbitInput` passes Escape and unknown keys on;
+  remove or replace once the selection is shown in 3D (decision 2) — removed, see the L1.8
+  addendum. `OrbitInput` passes Escape and unknown keys on;
   `Workspace.select_item(id)` is how the problems list selects on the canvas; a click on the 3D
   view is `try: host.pick(...) except HostStateError` — never `wait_ready()` (the workspace calls
   it nowhere); the info card goes beside or below the view.
@@ -5550,6 +5551,13 @@ hundredth of its distance from the near plane, wherever the backend has that pla
 measured from above, the depth-tested ring of a wall shows 3.6 % of its outline; it lies
 inside the masonry.
 
+**S9a. 3D mode keeps the selection** (fix round 1, after the workspace's plan revision landed).
+The workspace's stopgap — `clear_selection_hidden_by_3d_mode`, which cleared the canvas
+selection on entering 3D-only mode so that Delete could not act on what nobody saw — is
+REMOVED, not replaced: what is selected is shown in 3D (the ring; the card, which also names
+an item 3D does not show and counts several). The problems list still switches 3D-only mode to
+Split before it selects: an item of that list is one 3D does not show, so no ring can mark it.
+
 **S9. The info card has a place of ONE height.** `ui/view3d/info_card.py`: `View3DInfoCard` in a
 `View3DCardSlot` below the view. The card is shown while exactly one item is selected and the
 3D pane is visible; the slot is there with the engine view whether or not a card is, and holds
@@ -5647,13 +5655,11 @@ frozen data, pure functions) and a thin input filter (`ui/view3d/walk_mode.py`).
   clears the selection.
 - **Known limits, stated.** Flat items cannot be selected from 3D. Plants, furniture and
   pergolas do not stop the walker; there are no stairs, slopes or doors, and no pointer
-  capture. Every selection change still costs one whole-plan snapshot while the canvas is
-  visible: the canvas repaints the item, the scene says `changed`, and the pipeline cannot
-  tell that from an edit (3.6 ms on the small bench plan, 14 on the large; the ring itself
-  needs none — reported as a follow-up for the pipeline; measured on the merged tree of
-  2026-10-19: 6 snapshots for 4 selection changes, each with the sink told the ring alone).
-  The workspace story's plan revision is the fix; `test_a_canvas_selection_in_split_takes_no_snapshot`
-  is a strict `xfail` until it lands, so that day it fails and its mark goes. The ring is drawn in front of
+  capture. A selection change costs NO snapshot, also with the canvas visible — since the
+  workspace's plan revision (before it: 6 snapshots for 4 selection changes, the canvas's
+  repaints read as edits; after it: 0, the repaints go to the quiet-time net, which finds
+  nothing — `test_a_canvas_selection_in_split_takes_no_snapshot`, a strict `xfail` until the
+  plan revision landed). The ring is drawn in front of
   everything, the item's own model included: it reads as an outline seen through the model.
   A device pixel ratio other than 1 was not exercised through the real window.
 - **One open doubt.** In the first WARP run of the timing loop one selection change of 120 did

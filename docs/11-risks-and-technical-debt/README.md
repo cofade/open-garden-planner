@@ -2518,7 +2518,9 @@ engine's own facts are in the `ogp-3d-renderer` skill, §14.
    the selection and took 152 px from it. The view's vertical field of view is fixed, so the
    picture was re-scaled; B was no longer under the pointer, the click met the lawn, and a click
    on nothing clears. *Fix:* the card has a place of one height (`View3DCardSlot`), and the
-   eye-height box keeps its room while hidden (the strip grew 4 px in walk mode). *Lesson:* in a
+   eye-height box kept its room while hidden (the strip grew 4 px in walk mode; since fix round 1
+   the eye height is a menu on the Walk button — a box beside it made the strip's row wider than
+   a 455 px pane, and the workspace's notices were cut). *Lesson:* in a
    pane that holds a native 3D view, anything that comes and goes is a resize of the view —
    reserve its room, and pin the view's rectangle in a test. A stand-in host has no picture and
    cannot see this; only a real click on a real frame can.
@@ -2541,8 +2543,9 @@ engine's own facts are in the `ogp-3d-renderer` skill, §14.
    120 of 120 selection changes rode a pass that took a snapshot (3.6 ms on the small bench
    plan, 14 on the large). The ring itself needs none. Not fixed here — it is the pipeline's
    rule ("every `changed` marks the plan dirty"; the workspace story's plan revision is the
-   fix) — and reported. A strict-`xfail` test asserts zero snapshots and fails the day the fix
-   lands (re-measured 2026-10-19: 6 snapshots for 4 selection changes).
+   fix) — and reported. A strict-`xfail` test asserted zero snapshots; it XPASSED when the plan
+   revision landed (re-measured 2026-10-19: 6 snapshots for 4 selection changes before, 0 after)
+   and its mark is gone.
 5. **The canvas does not treat Shift the same everywhere.** A Shift+click on an item toggles it.
    A Shift+click THROUGH a locked item acts as a plain click: the select tool's Shift branch
    looks at the top item only, finds it locked, and falls into the plain path, which replaces

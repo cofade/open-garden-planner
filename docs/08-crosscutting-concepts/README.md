@@ -1608,10 +1608,12 @@ How §8.32.8 is tested, and the patterns worth reusing. The seam is the workspac
   AND an AST scan (the callers call `select_by_ids`; no `clearSelection` elsewhere in the panels
   or the 3D package). The parity test alone passes on the old, duplicated code — it agreed by
   accident; only the scan fails on it (mutant: master's former `_navigate`).
-- **A tripwire for a fix that belongs to another story.** A canvas selection in Split still costs
-  whole-plan snapshots (the pipeline reads the canvas's repaint as a change); the fix is the
-  workspace story's plan revision. `test_a_canvas_selection_in_split_takes_no_snapshot` asserts
-  the target and is `xfail(strict=True)`: it fails the day the fix lands, and the mark goes.
+- **A tripwire for a fix that belongs to another story.** A canvas selection in Split cost
+  whole-plan snapshots (the pipeline read the canvas's repaint as a change); the fix was the
+  workspace story's plan revision. `test_a_canvas_selection_in_split_takes_no_snapshot`
+  asserted the target as `xfail(strict=True)`; when the fix landed it XPASSED, failed the run
+  as intended, and its mark was removed (0 snapshots for 4 selection changes; the net it arms
+  finds nothing).
 - **Wall-clock asserts carry `@pytest.mark.perf`** (ADR-058): the walking-pace test checks a
   distance against the time W was really held, so it runs in the serial `-m perf -n 0` step;
   master's `test_perf_marker_guard` names any that is not marked.
@@ -4729,11 +4731,11 @@ time change, a selection, a resized canvas leave the pose exactly as it was (ide
 orbiting, and aiming at the default yaw itself unwound every turn (six turns: 2,477.5° back to
 317.5°); a snap (first open, new document) lands on the default itself.
 
-**3D mode clears the canvas selection** — `Workspace.clear_selection_hidden_by_3d_mode`, a
-stopgap with an owner. The canvas is the one place a selection is shown, and 3D mode hides it
-while the app's shortcuts stay: Delete, Ctrl+X and Ctrl+D would act on what nobody can see.
-Split keeps the selection. The selection story (L1.8) shows the selection in 3D and removes or
-replaces this function and its one call (in `set_mode`).
+**3D mode keeps the canvas selection — and shows it.** 3D mode hides the canvas while the
+app's shortcuts stay (Delete, Ctrl+X, Ctrl+D). The workspace first cleared the selection on
+entering 3D mode (a stopgap, `clear_selection_hidden_by_3d_mode`); the selection story (L1.8)
+removed it, because the selection is SHOWN in 3D: the ring round every selected item, and the
+info card below the view (§8.32.8). So the shortcuts act on what the user sees.
 
 **When 3D cannot start.** A marker file is written before the first 3D window of a session is
 built and removed after the first presented frame. A marker left by a process that is gone means
@@ -5504,8 +5506,9 @@ group, and the ring runs round every member.
 
 > **Rule: a selection change reads nothing of the plan.** The selection path is
 > `Scene3DController.set_selection` → `SceneSync.send_selection`: no snapshot, no builder, one
-> sink call. (With the canvas visible the pipeline still reads the canvas's repaint as a
-> change — the workspace's plan revision removes that; a strict-`xfail` tripwire waits for it.)
+> sink call — and, since the workspace's plan revision, none with the canvas visible either: a
+> repaint goes to the quiet-time net, which finds nothing (measured: 0 snapshots for 4
+> selection changes in Split, `unannounced_changes` 0).
 
 > **Rule: `host.pick` is called in one place.** `OrbitInput._release`, once per click. It takes a
 > frame from the live view (ADR-065 decision 17): never on a mouse move, a timer or a resize. The
@@ -5535,7 +5538,7 @@ a built item's height and footprint, the bed it stands on — and, when it has n
 
 > **Rule: nothing that comes and goes may resize the 3D view.** The card lives in
 > `View3DCardSlot`, a strip of one constant height that is there card or no card; walk mode's
-> eye-height box keeps its room while hidden. A view that changes its size re-scales its picture
+> eye height is a menu on the Walk button, which takes no room. A view that changes its size re-scales its picture
 > under the pointer (the next click misses), gets a new swapchain, and answers no click while it
 > is between two sizes. `test_no_selection_change_and_no_walk_resizes_the_3d_view` pins the
 > engine widget's geometry through every state.
