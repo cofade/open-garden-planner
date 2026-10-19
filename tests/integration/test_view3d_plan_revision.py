@@ -149,19 +149,17 @@ class Live:
         self.controller.applied.connect(self.reports.append)
         self.quiet()
 
-    def quiet(self, stable_s: float = 0.25, limit_s: float = 20.0) -> None:
+    def quiet(self, stable_turns: int = 10, limit_turns: int = 800) -> None:
         """Wait until the pipeline has nothing on its way — the net's quiet time
-        included — and stays so (the 2D side's own debounced work may repaint once
-        more and start the quiet timer again)."""
-        deadline = stopwatch.monotonic() + limit_s
-        idle_since: float | None = None
-        while stopwatch.monotonic() < deadline:
+        included — and stays so for ``stable_turns`` waits of 25 ms in a row (the 2D
+        side's own debounced work may repaint once more and start the quiet timer
+        again). A condition, not a measurement: no clock is read here, and nothing
+        about how long it took is asserted (ADR-058)."""
+        idle_turns = 0
+        for _turn in range(limit_turns):
             self.qtbot.wait(25)
-            if not self.controller.idle:
-                idle_since = None
-            elif idle_since is None:
-                idle_since = stopwatch.monotonic()
-            elif stopwatch.monotonic() - idle_since >= stable_s:
+            idle_turns = idle_turns + 1 if self.controller.idle else 0
+            if idle_turns >= stable_turns:
                 return
         raise AssertionError("the 3D pipeline never became quiet")
 
@@ -275,20 +273,64 @@ ACTIVITIES: dict[str, tuple[Callable[[Live, MagicMock], dict[str, Any]], bool, i
 }
 
 
-@pytest.mark.parametrize("activity", list(ACTIVITIES))
-def test_a_repaint_in_the_real_window_takes_no_snapshot_while_it_happens(
-        app3d, qtbot, mouse_event, activity: str) -> None:
-    """The gates. With the app's own quiet time (``NET_QUIET_MS``): ZERO snapshots
-    while the activity runs, at most ONE after the quiet time — and that one finds
-    nothing. Whether the scene really was repainted, and never quiet for as long as
-    the quiet time in between, is measured, not assumed: a run in which this machine
-    let a gap that long open up is repeated (three attempts)."""
-    act, sun_on, least_repaints = ACTIVITIES[activity]
+def _live_for(app3d: Any, qtbot: Any, activity: str) -> Live:
+    _act, sun_on, _least = ACTIVITIES[activity]
     live = Live(app3d, qtbot)
     if sun_on:
         live.window._sun_sim_action.trigger()       # the toolbar with the time slider
         assert live.window._sun_toolbar.isVisible()
     live.start()
+    return live
+
+
+@pytest.mark.parametrize("activity", list(ACTIVITIES))
+def test_a_repaint_in_the_real_window_never_starts_a_pass_of_its_own(
+        app3d, qtbot, mouse_event, activity: str) -> None:
+    """The gates in the form that holds on any machine under any load — counts and
+    orderings only (the default tier runs beside other workers, ADR-058). Whatever
+    the activity repaints: NO pass is started for it (every pass from its first
+    repaint to the quiet after it is the net's), every one of the net's passes finds
+    nothing, and the engine holds the plan. How MANY net passes run depends on how
+    long this machine left the canvas still in between: the strict count — zero
+    while it happens, at most one after — is the ``perf`` twin below, on a quiet
+    runner."""
+    act, _sun_on, least_repaints = ACTIVITIES[activity]
+    live = _live_for(app3d, qtbot, activity)
+    controller = live.controller
+    live.quiet()
+    snapshots, reconciled, _unannounced = live.counts()
+    seen, first_repaint = len(live.reports), len(live.repaints)
+    extra = act(live, mouse_event)
+    live.quiet()
+    repaints = len(live.repaints) - first_repaint
+    assert repaints >= least_repaints, (
+        f"{activity}: the scene reported {repaints} repaints, expected {least_repaints} or more")
+    passes = [report for report in live.reports[seen:] if report.snapshot]
+    assert [report for report in passes if not report.reconciled] == [], (
+        f"{activity}: a repaint started a pass of its own")
+    assert all(report.changes.is_empty for report in passes), f"{activity}: the net found something"
+    assert controller.snapshot_count - snapshots == len(passes)
+    assert controller.reconcile_count - reconciled == len(passes)
+    assert controller.unannounced_changes == 0
+    if "light_passes" in extra:
+        assert extra["light_passes"] >= 5, "the light did follow the time"
+    live.assert_3d_is_the_plan(activity)
+    MEASURED.setdefault("gates (default tier)", {})[activity] = {
+        "repaints": repaints, "net_passes": len(passes), **extra}
+
+
+@pytest.mark.perf
+@pytest.mark.parametrize("activity", list(ACTIVITIES))
+def test_a_repaint_in_the_real_window_takes_no_snapshot_while_it_happens(
+        app3d, qtbot, mouse_event, activity: str) -> None:
+    """The gates, strictly — on the quiet runner (``perf``: this reads the wall clock).
+    With the app's own quiet time (``NET_QUIET_MS``): ZERO snapshots while the
+    activity runs, at most ONE after the quiet time — and that one finds nothing.
+    Whether the scene really was repainted, and never quiet for as long as the quiet
+    time in between, is measured, not assumed: a run in which this machine let a gap
+    that long open up is repeated (three attempts)."""
+    act, _sun_on, least_repaints = ACTIVITIES[activity]
+    live = _live_for(app3d, qtbot, activity)
     controller = live.controller
     quiet_s = sync_controller.NET_QUIET_MS / 1000.0
     for attempt in range(3):
@@ -556,21 +598,21 @@ def test_a_containers_height_and_material_typed_into_the_properties_panel_reach_
     record = live.controller.sync.records[pot_id]
     assert record.height_cm == 30.0 and record.params["container_material"] == "plastic"
 
-    repaints, calls = len(live.repaints), len(live.engines.sink.ops())
+    repaints, calls, seen = len(live.repaints), len(live.engines.sink.ops()), len(live.reports)
     _container_through_the_panel(live, "height")
-    qtbot.wait(80)                                  # at once — not after the quiet time
+    qtbot.waitUntil(lambda: live.controller.sync.records[pot_id].height_cm == 70.0, timeout=5000)
     assert live.pot.metadata["container_height_cm"] == 70.0         # type: ignore[attr-defined]
-    record = live.controller.sync.records[pot_id]
-    assert record.height_cm == 70.0, "the 3D record follows"
+    # at once: by a pass the edit ANNOUNCED, not by the net after the quiet time
+    assert live.reports[seen].snapshot and live.reports[seen].reconciled is False
     assert ("replace_geometry", pot_id) in live.engines.sink.ops()[calls:]
     assert len(live.repaints) > repaints, "and the item was repainted (the sun's shadow listens)"
 
-    calls = len(live.engines.sink.ops())
+    calls, seen = len(live.engines.sink.ops()), len(live.reports)
     _container_through_the_panel(live, "material")
-    qtbot.wait(80)
+    qtbot.waitUntil(lambda: live.controller.sync.records[pot_id].params["container_material"]
+                    == "metal", timeout=5000)
     assert live.pot.metadata["container_material"] == "metal"       # type: ignore[attr-defined]
-    record = live.controller.sync.records[pot_id]
-    assert record.params["container_material"] == "metal"
+    assert live.reports[seen].snapshot and live.reports[seen].reconciled is False
     assert len(live.engines.sink.ops()) > calls, "the engine was told"
     live.quiet()
     assert live.controller.unannounced_changes == 0
@@ -668,6 +710,7 @@ def _preview_move_ms(live: Live, mouse_event: MagicMock, moves: int) -> list[flo
     return costs
 
 
+@pytest.mark.perf
 @pytest.mark.parametrize("plan", ["bench_small", "bench_large"])
 def test_a_preview_mouse_move_costs_in_split_what_it_costs_in_plan(
         app3d, qtbot, mouse_event, plan: str) -> None:
