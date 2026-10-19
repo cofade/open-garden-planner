@@ -403,6 +403,7 @@ def _coverage_section(xml_path: Path | None) -> dict[str, Any] | None:
         raise ValueError("Expected a coverage XML root")
     agg: dict[str, list[int]] = defaultdict(lambda: [0, 0, 0, 0])
     files: list[tuple[int, int, str]] = []
+    file_counts: dict[str, list[int]] = {}
     other_statements = 0
     seen_files: set[str] = set()
     report_counts = [0, 0, 0, 0]
@@ -436,6 +437,7 @@ def _coverage_section(xml_path: Path | None) -> dict[str, Any] | None:
         if rel is None:
             other_statements += valid
             continue
+        file_counts[rel] = [valid, covered, bv, bc]
         parts = rel.split("/")
         pkg = parts[0] if len(parts) > 1 else "(root)"
         for i, v in enumerate((valid, covered, bv, bc)):
@@ -483,6 +485,7 @@ def _coverage_section(xml_path: Path | None) -> dict[str, Any] | None:
         "total": summary(tot),
         "non_ui": {**summary(non_ui), "definition": "all packages except ui"},
         "per_package": per_pkg,
+        "per_file": {name: summary(counts) for name, counts in sorted(file_counts.items())},
         "least_covered_large_files": [
             {"path": f, "statements": v, "missed": m} for m, v, f in files if v >= 150
         ][:10],

@@ -69,7 +69,11 @@ Install [NSIS](https://nsis.sourceforge.io/) separately on Windows, then run:
 .venv\Scripts\python.exe installer/build_installer.py --version <version>
 ```
 
-Use the source version from `pyproject.toml` for `<version>`, without the `v` prefix.
+Use the source version from `pyproject.toml` for `<version>`, without the `v` prefix;
+`--version` may be omitted, in which case the build reads that same value itself.
+The build also writes `THIRD_PARTY_NOTICES.md` and `ogp-sbom.cdx.json` into `dist/`,
+generated from the frozen bundle's own metadata; the notices file is installed next to
+the application's `LICENSE`.
 The output is in `dist/`. This local build does not create a GitHub release or CI attestation.
 See [deployment documentation](https://github.com/cofade/open-garden-planner/blob/master/docs/07-deployment-view/README.md)
 for the frozen-build verification requirements.
@@ -79,3 +83,8 @@ for the frozen-build verification requirements.
 Online providers require their own credentials.
 See the [Plant API Setup Guide](https://github.com/cofade/open-garden-planner/blob/master/docs/03-context-and-scope/PLANT_API_SETUP.md).
 Do not include API keys or write-enabled Agent API URLs in public reports.
+
+The in-app updater verifies the selected release's SHA-256 checksum and download
+origin before launching its installer. When verification is unavailable or fails,
+use the release page and its published verification instructions. Installers remain
+unsigned; checksum verification and build provenance do not add code signing.

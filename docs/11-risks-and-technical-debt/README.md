@@ -29,28 +29,37 @@ Dated audit snapshots: [audit-2026-10.md](audit-2026-10.md) (numbers: `audit-202
 | Windows installer blocked by SmartScreen | Medium | Low | Document workaround, investigate signing options. Build provenance attestation shipped (ADR-044) as a verifiable trust signal alongside the checksum; does not itself suppress SmartScreen/Defender (issue #356) or Norton `FileRepMalware[Misc]` (issue #358 — second AV vendor, same unsigned zero-reputation profile). Releases remain unsigned; signing options, including no-cost proposals, are under evaluation in [#375](https://github.com/cofade/open-garden-planner/issues/375). No option has been adopted, and no signed release has established effectiveness against these detections. FP path per vendor: Microsoft file-submission forms (#356), Norton portal `submissions.norton.com/reportfalsepositive` (#358; both portals are CAPTCHA-protected, so submissions are manual, not automatable by the maintainer). |
 | Large bundle size from PyInstaller | Medium | Low | Optimize includes, strip unused Qt modules |
 
-**Build-backend advisory, 2026-10-09.** The first Dependabot scan of uv.lock reported
+**Build-backend advisory, 2026-10-09; updated 2026-10-13 (A2 #454).** The first Dependabot
+scan of uv.lock reported
 [GHSA-h35f-9h28-mq5c](https://github.com/pypa/setuptools/security/advisories/GHSA-h35f-9h28-mq5c)
-against build-only setuptools 82.0.0: a moderate Unicode-normalization bypass of MANIFEST.in
+against setuptools 82.0.0 (also present in the frozen artifact): a moderate Unicode-normalization bypass of MANIFEST.in
 exclusions when publishing macOS source distributions. GitHub identifies 83.0.0 as the first
 patched version. Applicability assessment: current CI uses Linux/Windows editable installs
-and publishes a Windows PyInstaller/NSIS installer; it does not publish macOS sdists.
+and publishes a Windows PyInstaller/NSIS installer; neither that build pipeline nor the app publishes macOS sdists. The waiver concerns the unused affected operation, not absence of setuptools from the executable.
 [Dependabot alert 1](https://github.com/cofade/open-garden-planner/security/dependabot/1)
-remains open for a separately reviewed backend/lock update. This version-sync chore preserves
-the approved dependency selections. The automatic updater also failed because its hosted
-uv support was 0.12.18 while this project requires 0.12.23; the follow-up therefore needs
-a manual dependency PR until hosted support catches up.
+remains open for a separately reviewed backend/lock update. The CI `Dependencies` matrix job
+(Linux and Windows) now runs `pip-audit` against the committed lock export
+(`uv export --locked --all-extras --group build`) on every push, with this single advisory
+recorded as `--ignore-vuln PYSEC-2026-3447`; a new advisory fails the job. Both platforms
+run it because pip-audit evaluates markers for the running interpreter.
+
+Automated dependency PRs remain unavailable: Dependabot's uv ecosystem image ships uv
+**0.12.19** (`uv/Dockerfile` in dependabot-core, read 2026-10-13) while this project pins
+`uv ==0.12.23`, and a `required-version` mismatch makes the updater exit before doing any
+work. `.github/workflows/dependency-review.yml` is the documented monthly manual fallback:
+it reports what `uv lock --upgrade` would change into one issue and never writes to the
+repository. See ADR-050's A2 addendum and `docs/07-deployment-view` §7.4.
 
 ## 11.3 Technical Debt
 
-The living register (ADR-047). Every row has a status; P0/P1 rows link their issue, P2/P3 rows point to the audit epic's checklist (#392). Rows come from the dated audit snapshots ([audit-2026-10.md](audit-2026-10.md), Top-25 = TD-009…TD-033, plus TD-034 re-raised by the Windows check; the long tail stays in the snapshot's appendix), or from an ADR's evidence (TD-035 to TD-037, ADR-048), whose row links the work package that carries it instead of the audit checklist (a P0/P1 row links its own issue). Re-measure with `scripts/audit_metrics.py`. Status is `open` (with a note where useful), `fixed (#PR)`, `accepted (ADR-0xx)`, `closed (reason)` or `superseded (by …)`; historical rows TD-001…TD-008 carry an issue only where one exists. Never delete a row; a resolved row says so.
+The living register (ADR-047). Every row has a status; P0/P1 rows link their issue, P2/P3 rows link their thematic bundle issues; all 73 findings and current evidence are reconciled in [audit-2026-10-reconciliation.md](audit-2026-10-reconciliation.md) (epic #392). Rows come from the dated audit snapshots ([audit-2026-10.md](audit-2026-10.md), Top-25 = TD-009…TD-033, plus TD-034 re-raised by the Windows check; the long tail stays in the snapshot's appendix), or from an ADR's evidence (TD-035 to TD-037, ADR-048), whose row links the work package that carries it instead of the audit checklist (a P0/P1 row links its own issue). Re-measure with `scripts/audit_metrics.py`. Status is `open` (with a note where useful), `fixed (#PR)`, `accepted (ADR-0xx)`, `closed (reason)` or `superseded (by …)`; historical rows TD-001…TD-008 carry an issue only where one exists. Never delete a row; a resolved row says so.
 
 | ID | Area | Description | Severity / Effort | Status | Issue | Source |
 |----|------|-------------|-------------------|--------|-------|--------|
 | TD-001 | Plant rendering | Plants currently rendered as flat colored circles | — | closed (Phase 6, ADR-040 sprites) | — | 2026-04 |
 | TD-002 | Textures | Procedural patterns are too subtle, barely visible | — | closed (ADR-042 texture forge) | — | 2026-04 |
 | TD-003 | Plant cache | SQLite cache for plant API data not yet implemented | P2 / M | open (0 `sqlite` hits in `src/`, 2026-10-03) | — | 2026-04 |
-| TD-004 | Object model | Some object types share code that could be better abstracted | P2 / M | superseded by the measured duplication row AUD-011 (five `contextMenuEvent` copies, epic #392) | epic checklist | 2026-04 |
+| TD-004 | Object model | Some object types share code that could be better abstracted | P2 / M | superseded by the measured duplication row AUD-011 (five `contextMenuEvent` copies, epic #392) | #458 | 2026-04 |
 | TD-005 | Test coverage | Some UI components lack automated tests | P2 / L | superseded by measurement: `ui` 68.5 % lines / 46.9 % branches (audit-2026-10 §5.3); see TD-013, TD-024 | — | 2026-04 |
 | TD-006 | Error messages | Some error messages are technical, not user-friendly | P3 / M | open, unmeasured | — | 2026-04 |
 | TD-007 | Constraint anchors | Polygon/polyline edge anchors use dynamic `EDGE_TOP/BOTTOM/LEFT/RIGHT` classification (dominant axis). Classification changes when a vertex moves far enough to flip an edge's axis, causing constraint indicators to jump to the wrong edge. Replace with `AnchorType.EDGE_MIDPOINT` + stable numeric `anchor_index` so the edge identity is axis-independent. Workaround in place (index-only match in `_resolve_anchor_position`). | P2 / M | open; workaround in place | — | 2026-04 |
@@ -70,29 +79,101 @@ The living register (ADR-047). Every row has a status; P0/P1 rows link their iss
 | TD-021 | Gates/CI (test) | Coverage report and >80 % floor are declared (NFR-MAINT-02, §10.6, §8.6) but never measured anywhere | P1 / M | completed; final Linux floors: root 37, agent_api 92, app/core 77, models 95, services 86, spike_q3d 64, ui 71; 75.5% line / 58.7% branch, 7,642 Linux tests passed; v1.29.6; [PR #422](https://github.com/cofade/open-garden-planner/pull/422) | #402 | audit-2026-10 AUD-031 |
 | TD-022 | Dependencies (dependency) | Release build has no lockfile: 4 of 42 shipped runtime dists exact-pinned; v1.29.0 shipped 9 runtime dists at versions published after the v1.27.9 build | P1 / M | completed; release-seeded lock and explicit build backends; v1.29.6; [PR #422](https://github.com/cofade/open-garden-planner/pull/422) | #404 | audit-2026-10 AUD-048 |
 | TD-023 | Docs (documentation) | §8.7 promises 'all errors logged' but the logging module has no handler anywhere: 55 handled-error log calls are discarded in the windowed exe | P1 / M | fixed (#405, ADR-052) | #405 | audit-2026-10 AUD-063 |
-| TD-024 | Tests (test) | constraint_tool.py is 29.0 % line / 9.6 % branch covered: 1 661 of 2 340 statements never run, 50 public methods never executed (25 non-trivial) | P1 / L | open | #406 | audit-2026-10 AUD-016 |
-| TD-025 | Security (data) | NaN/Infinity accepted at the .ogp boundary: NaN canvas breaks render_canvas_image, non-finite values are re-saved as invalid JSON | P2 / S | open | epic checklist | audit-2026-10 AUD-041 |
-| TD-026 | Architecture (design) | core/tools/constraint_tool.py:34 imports ui.canvas.items at module level — the one violation of invariant 11 | P2 / S | open | epic checklist | audit-2026-10 AUD-003 |
-| TD-027 | Architecture (process) | No layering fitness function in CI; a naive import-linter contract reads 0 kept / 2 broken and cannot see the function-local allowance | P2 / S | open | epic checklist | audit-2026-10 AUD-005 |
-| TD-028 | Architecture (design) | models/ is not the pure-data leaf the module map declares: 2 upward imports; 5 package cycles at module level (9 counting function-local edges) | P2 / S | open | epic checklist | audit-2026-10 AUD-008 |
-| TD-029 | Tests (documentation) | §8.10 lists 4 integration files (skill: ~70) vs 114 actual; the tests/ui layer is not distinct in practice | P2 / S | open | epic checklist | audit-2026-10 AUD-018 |
-| TD-030 | Tests (performance) | Theme-switch tests cost 282.6 s in the battery vs 12.4 s alone: closed widgets are never deleted, so every apply_theme re-polishes a growing population | P2 / S | open | epic checklist | audit-2026-10 AUD-019 |
-| TD-031 | Tests (test) | Solar math is executed but under-asserted: no test timestamp has nonzero seconds and no oracle row nonzero minutes, so a 44.7-degree elevation mutant survives | P2 / S | open | epic checklist | audit-2026-10 AUD-021 |
-| TD-032 | Tests (test) | companion_sets: the P1-4 candidate cap, the P2-12 dedup merge and the antagonist rejection are never executed by any test | P2 / S | open | epic checklist | audit-2026-10 AUD-022 |
-| TD-033 | Tests (test) | Small Qt-free modules score 80-88 %; the surviving gaps are the canvas edge, stacking expand/arrange and shape-type branches | P2 / S | open | epic checklist | audit-2026-10 AUD-025 |
+| TD-024 | Tests (test) | Constraint-tool characterization: full-suite coverage raised from 679/2340 lines (29.0%) and 68/706 branches (9.6%) to 2023/2372 lines (85.3%) and 486/720 branches (67.5%); all 13 registered gestures and a 60% per-file floor | P1 / L | completed; owner acceptance, protected PR #477; v1.30.2 | #406 | audit-2026-10 AUD-016; ADR-050 addendum |
+| TD-025 | Security (data) | NaN/Infinity accepted at the .ogp boundary: NaN canvas breaks render_canvas_image, non-finite values are re-saved as invalid JSON | P2 / S | open | #453 | audit-2026-10 AUD-041 |
+| TD-026 | Architecture (design) | core/tools/constraint_tool.py:34 imports ui.canvas.items at module level — the one violation of invariant 11 | P2 / S | open | #456 | audit-2026-10 AUD-003 |
+| TD-027 | Architecture (process) | No layering fitness function in CI; a naive import-linter contract reads 0 kept / 2 broken and cannot see the function-local allowance | P2 / S | open | #456 | audit-2026-10 AUD-005 |
+| TD-028 | Architecture (design) | models/ is not the pure-data leaf the module map declares: 2 upward imports; 5 package cycles at module level (9 counting function-local edges) | P2 / S | open | #456 | audit-2026-10 AUD-008 |
+| TD-029 | Tests (documentation) | §8.10 lists 4 integration files (skill: ~70) vs 114 actual; the tests/ui layer is not distinct in practice | P2 / S | open | #460 | audit-2026-10 AUD-018 |
+| TD-030 | Tests (performance) | Theme-switch tests cost 282.6 s in the battery vs 12.4 s alone: closed widgets are never deleted, so every apply_theme re-polishes a growing population | P2 / S | open | #460 | audit-2026-10 AUD-019 |
+| TD-031 | Tests (test) | Solar math is executed but under-asserted: no test timestamp has nonzero seconds and no oracle row nonzero minutes, so a 44.7-degree elevation mutant survives | P2 / S | open | #460 | audit-2026-10 AUD-021 |
+| TD-032 | Tests (test) | companion_sets: the P1-4 candidate cap, the P2-12 dedup merge and the antagonist rejection are never executed by any test | P2 / S | open | #460 | audit-2026-10 AUD-022 |
+| TD-033 | Tests (test) | Small Qt-free modules score 80-88 %; the surviving gaps are the canvas edge, stacking expand/arrange and shape-type branches | P2 / S | open | #460 | audit-2026-10 AUD-025 |
 | TD-034 | Performance (performance) | NFR-PERF-01 missed in a real window: fit-in-view repaint of the 500-object reference plan takes 54 ms (≤ 18 fps), a zoom step 40 ms; 100 % zoom and pan stay inside the budget | P1 / M | fixed (#409) | #409 | audit-2026-10 AUD-056 (Windows check §8.1) |
 | TD-035 | Bundle size | Master's release ships ~21 MB of Qt Quick 3D runtime it never loads (Quick3D + ShaderTools DLLs and QML modules, pulled in by the PyInstaller QtQml hook; measured in the ADR-048 evidence run). Phase 17 puts it to use; on a NO-GO, exclude it in `installer/ogp.spec`. | P3 / S | accepted (ADR-048) | #384 | ADR-048 L0 evidence (Windows v6 footprint) |
 | TD-036 | 3D geometry source | The Qt Quick 3D spike builds its world from private canvas helpers (`_item_footprints`, `_plant_canopy_radius_cm` in `ui/canvas/sun_shadow_controller.py`). The Qt-free core of Phase 17 L1.1 must promote them to a public, tested module before building on them (senior review, ADR-048). **Fixed in L1.1:** `ui/canvas/footprints.py` is their public home (`item_outline`, `item_footprints`, `plant_canopy_radius_cm`), pinned by a golden fixture generated before the move; the spike, the shadow overlay and the 3D snapshot import the public names. Two underscore aliases stay in `sun_shadow_controller.py` for two frozen test suites until L1.10. | P2 / M | fixed (L1.1, ADR-064) | #385 | ADR-048 L0 senior review |
 | TD-037 | Task calendar | Every GUI task surface (the planting calendar's Gantt and dashboard, the Tasks tab) takes its frost-relative windows from the current year's frost only, and the Gantt clips them to that year, while the agent's `get_tasks` / `get_task_calendar` (`generate_for_date_window`) also list windows anchored on other years' frosts. So the GUI does not show a task whose window is anchored on another year's frost: with a 9 April frost, garlic's autumn sowing (9–23 October 2026) appears on no GUI surface. A sweep of the 6 frost dates `scripts/measure_task_window_sweep.py` uses finds each of the bundled (species, task type) windows missed at some frost date; the `--wide` mode covers all 118 species on every day of 2026. Examples, sweeps and the code sites to change are in #414. | P1 / M | fixed (#414) | #414 | ADR-048 L0 senior review (PR #413) |
+| TD-038 | Constraint presentation | Repeated type presentation dispatch; now one immutable enum-complete panel descriptor with independent rendering and localization guards | P2 / M | completed; owner acceptance, PR #489; v1.30.4 | #457 | AUD-012; ADR-012 addendum; [A5 evidence](audit-2026-10-a5-evidence.md) |
+| TD-039 | Solver evidence | Selection-scoped historical mutation gaps; fresh sample and geometric oracles, including corrected all-pinned false convergence | P2 / M | completed; owner acceptance, PR #489; v1.30.4 | #457 | AUD-023; ADR-012 addendum; [A5 evidence](audit-2026-10-a5-evidence.md) |
 
 ## 11.4 Known Development Pitfalls
 
+- **Hold a worker in flight when proving GUI responsiveness** (PR #490): the
+  sun-mismatch heartbeat test failed on CI with two ticks instead of three while
+  three other full CI runs and the local suite passed. Tagged worker/timer traces
+  showed that the count depended on compute duration and included post-completion
+  ticks. The test now holds the real computation with an Event, requires three
+  heartbeat ticks while the worker is running/pending on a different thread, then
+  releases it and validates the real result. Failure cleanup always releases the
+  worker; the timer interval and result timeout are unchanged. Pinned by
+  `tests/integration/test_sun_mismatch.py::test_explicit_worker_keeps_gui_responsive`;
+  a synchronous-worker mutation was observed failing its thread assertion.
+
+- **Attribute frozen code from collected files, not only declared dependencies**
+  (PR #490 / #454): the 47-component SBOM check passed while the executable's PYZ
+  contained unreported setuptools, packaging, pytest/mypy dependencies and nested
+  vendored libraries. `Requires-Dist` and a hardcoded hook exception did not describe
+  what PyInstaller collected. `installer/frozen_inventory.py` now maps actual Analysis
+  source paths through wheel RECORDs, with nested vendored precedence, and bundles
+  those owners' metadata/licenses plus a module/file ownership manifest. The checker
+  compares it with the executable PYZ and locks containing-wheel versions for vendored
+  copies; declared license files must exist and their text must reach the notices.
+  Pinned by `tests/unit/test_frozen_inventory.py` and
+  `tests/integration/test_distribution_inventory_pipeline.py::test_frozen_hook_dependencies_are_in_the_inventory`
+  (observed failing on the original artifact). Synthetic fixtures constructed from the
+  expected closure prove orchestration, not complete frozen attribution.
+
+- **A stale `*.egg-info` on `sys.path` silently shrinks anything derived from installed metadata (#454, 2026-10-13).** The runtime-distribution resolver behind the release's third-party notices and SBOM returned **five** distributions (the project + `Pillow` + the three `PyQt6*` wheels) when a test ran it, but the same interpreter returned **48** when the module was run directly. Root cause: a legacy `src/open_garden_planner.egg-info` (version `0.1.0`, written years earlier) was still on disk; the editable install puts `src/` on `sys.path`, and `importlib.metadata.distribution("open-garden-planner")` returns the **first** match — so `Requires-Dist` described a two-year-old project. Two lessons. (1) **Check what `sys.path` order resolves** — when a metadata lookup disagrees with a file a human can read, print the distribution's `_path`; the answer is usually "you got a different distribution than you meant". (2) **Anchor build inputs on the manifest, not on the environment's copy of yourself**: the resolver now reads `[project].dependencies` from `pyproject.toml` and only walks *third parties* through installed metadata, so no stale artefact of the project's own history can change what ships. Related, same task: PyInstaller's `hook-importlib_metadata` bundles setuptools' **vendored** `importlib_metadata` (Apache-2.0) even though nothing declares it — the initial explicit hook exception was superseded in PR #490 by physical RECORD attribution of every collected wheel owner, including vendored copies (see the preceding pitfall).
+
+- **No free solver variables does not imply feasibility** (#457, ADR-012):
+  two pinned anchors 100 cm apart with a 200 cm target were reported converged
+  with zero error. `[A5-NEWTON] no free slots` and its caller stack showed Newton
+  returning before residual evaluation; `solve_anchored` then took the minimum
+  with that fabricated zero. Evaluate the fixed-state residual before returning.
+  Pinned by `test_constraint_solver_invariants.py` (both direct Newton and graph
+  regressions failed first) and the real CanvasView feasibility integration test.
+  A convergence flag must agree with independently measured geometry.
+
+- **Translated row templates can still contain English object labels** (#457):
+  unnamed endpoints were title-cased from enum identifiers, so German rows read
+  `Polygon – Rectangle` despite a correctly translated Properties panel. Trace
+  the upstream name builder and use `get_translated_display_name` at display time;
+  the previous-season compare overlay had the same fallback. Enumerate every
+  `ObjectType` against the compiled catalog (missing Hedge/Roof Ridge entries
+  were added), and test real rows/tooltips with unnamed objects. Descriptor tests
+  passing literal `A`/`B` cannot cover this boundary. Preserve user names and data.
+
+- **Within-day simulation tests must fix time as well as date** (ADR-053): the
+  sun-mismatch workflow set the date, retained 23:49 from the host, then added an
+  hour. Correct next-day invalidation contradicted its `ready` assertion. Tagged
+  datetime/caller tracing reproduced the same failure alone. Set the fixture to
+  noon with `set_time_of_day`; retain worker, cache and date-invalidation checks.
+  Do not change production clock semantics or relax timeouts to fix the fixture.
+
+- **A graph row can conceal a no-op geometry path (#406, 2026-10-12).** A real Edge Length
+  gesture on a rectangle added the requested 250 cm constraint but left its 200 cm edge intact.
+  Verbose caller tracing showed the rigid-item fallback returning no moves for the same pinned
+  item. Reuse EQUAL's rectangle size applier through canonical geometry_apply in the existing
+  AddConstraintCommand; all four edges at 0/45/215 degrees now resize with one undo step,
+  stable scene center/pivot and exact undo/redo. Assert the actual relation after creation,
+  not only graph fields. Mixed-graph review then found feasibility was checking the original
+  rigid size and the callback displaced FIXED item.pos. Probe proposed canonical geometry
+  before feasibility, restore snapshots on refusal/error, and refuse a resize that moves a
+  fixed pin. Tests preserve compatible center alignment and atomically refuse conflicting
+  edge lengths/fixed-pin movement at all three rotations. Further review pinned EQUAL chains,
+  timer-driven serialization inside refusal modals and destructive Override: restore the
+  synchronous proposal before every modal, refuse changed shared dimensions and check
+  conflicts without offering graph deletion. Unrelated EQUAL dimensions remain supported.
+  The debug-verbose mirrors record
+  the failing regressions and traces.
+
+
 - **Canvas item caching, Level of Detail (LOD), and selection handle ghosting (issue #409, TD-034, AUD-056)**: Large plans (e.g. 500 objects / 990 scene items) missed NFR-PERF-01 (fit-in-view was 54 ms / ≤ 18 fps) due to three compounded bottlenecks: (1) un-cached filesystem stat calls in `_resolve_svg_path` for plant and furniture sprites on every frame; (2) rasterising high-detail SVG plant sprites and texture tiles when zoomed far out and covering only 6–10 screen pixels; (3) lack of caching for static canvas items during pan and zoom. Solutions:
   - Cache SVG path resolution with `@functools.lru_cache`.
-  - Level-of-Detail (LOD): when `widget is not None` and `levelOfDetailFromTransform < 0.4`, render simplified flat fills instead of high-detail textures and SVGs. Exports, print, and offscreen renders (`widget is None`) always render at 100% full detail.
+  - ~~Level-of-Detail (LOD) flat fills below 0.4 zoom~~ — **never ran, and removed in #503.** The branch was written here as an optimisation and shipped as dead code: its guard (`widget is not None`) was never true on the canvas, because Qt passes `widget = 0` for every *cached* paint and every unselected item is `DeviceCoordinateCache`. #409's measured gain came from the `lru_cache` and the device cache, not from this branch. When #503 fixed the guard, the owner's manual pass rejected the feature on sight — at 20–25 % zoom, which is where they work and well under the threshold, every texture on the canvas, every plant sprite and every furniture item would have flat-filled, along with the paint-level overlays drawn after the fill branch (a bed's grid, rotation indicator, soil-mismatch border and capacity badge; a plant's spacing ring, companion highlight and antagonist badge). The branch, its `LOD_FLAT_FILL_THRESHOLD` and its tests were **deleted** rather than made reachable; the measured basis for that is in §11.4.11. `should_use_lod_flat_fill` and `get_lod_fill_color` no longer exist, and no zoom-dependent simplification remains in the canvas.
   - `DeviceCoordinateCache` on canvas items: static items enable caching for fast repaints (~12.8 ms fit-in-view, ~4.5 ms pan/zoom).
   - **Pitfall**: When an item has `DeviceCoordinateCache` while selected, child items with `ItemIgnoresTransformations` (resize/rotation handles) ghost or lag. Contract: items disable caching (`NoCache`) when `isSelected() is True`, and re-enable `DeviceCoordinateCache` on deselection.
-  - **Export fidelity**: During exports, `_disable_item_caches` temporarily clears item caches so `scene.render()` outputs full vector fidelity without device-pixel cache scaling artifacts. Pinned by `tests/integration/test_canvas_item_lod_and_cache.py` and `tests/perf/test_nfr_budgets.py`.
+  - **Export fidelity**: During exports, `_disable_item_caches` temporarily clears item caches so `scene.render()` outputs full vector fidelity without device-pixel cache scaling artifacts. Pinned by `tests/integration/test_canvas_item_cache.py` and `tests/perf/test_nfr_budgets.py`.
 
 - **Two divergent item serializers create silent data-loss gaps on clipboard operations; unify under one chokepoint.** (Issue #400, AUD-002, TD-018): `CanvasView` maintained its own separate ~500-line item serializer and deserializer (`_serialize_item`, `_serialize_item_core`, `_deserialize_item`) that diverged from `ProjectManager`. The clipboard serializer dropped `spacing_radius_cm` overrides, `frost_protection_needed`, `label_visible`, and `path_fence_style`, and silently skipped newer geometric types entirely (Arc, Bezier, Groups). The fix eliminated the duplicated serializer completely: `CanvasView` now delegates all item serialization and deserialization directly to `ProjectManager`'s static methods. UUID stripping and geometry offsetting (`_strip_item_ids`, `_offset_item_dict`) are handled uniformly by pure helpers before pasting/patterning. Lesson: having two serialization paths for the same data vocabulary guarantees divergence over time; one authoritative serializer must back both file I/O and clipboard operations.
 - **Opening a corrupt plan must never contaminate document identity or wipe existing recovery files.** (Issue #403, AUD-040, TD-017): When loading a corrupt `.ogp` file where deserialization raised mid-loop, the previous scene items had already been cleared while `_current_file` still pointed to the previously open plan file. Hitting Ctrl+S immediately overwrote the good plan on disk with the empty or partial scene. Furthermore, `_load_project_file` cleared the existing autosave *before* the load succeeded. Fix: (1) two-phase atomic deserialization validates all items, layers, guides, and constraints in memory before mutating the scene; (2) on any load failure, `ProjectManager.load()` clears `_current_file = None` and marks the document dirty, ensuring Ctrl+S triggers Save As rather than overwriting; (3) `GardenPlannerApp` preserves the existing autosave file on disk until the new plan loads successfully.
@@ -152,6 +233,11 @@ The living register (ADR-047). Every row has a status; P0/P1 rows link their iss
 
 
 Hard-won lessons from implementation. Read these before modifying the related subsystems.
+
+- **A background `QThread` with a parent `QObject` aborts the app with `0xC0000409` (`QThread: Destroyed while thread is still running`) on window close (issues #480, #483).**
+  Network workers (`UpdateChecker`, `_WeatherFetchWorker`) created with the main window or widgets as parent outlive normal actions when an HTTP request blocks synchronously in `run()`. Closing the window runs Qt's C++ destructor `~QThread()` on the running thread, triggering `qFatal("QThread: Destroyed while thread is still running")`. Python daemon threads do not bypass Qt C++ parent-child destruction.
+  **Fix**: Background worker threads must expose `cancel()` and `shutdown(timeout_ms)`. In `shutdown()`, set the cancellation flag, disconnect all signals with `contextlib.suppress(TypeError, RuntimeError)`, call `setParent(None)` to sever the parent-child ownership link, and call `wait(timeout_ms)`. In `GardenPlannerApp.closeEvent`, invoke `shutdown()` on in-flight services before window destruction. Pinned by `tests/unit/test_update_checker.py` and `tests/integration/test_weather_widget.py`.
+
 
 - **A variable-width widget in a `QToolBar`'s flow reflows Qt's overflow-extension popup and shuffles neighbouring buttons** (sun-sim UX polish, `feature/sun-display-polish`): the sun-simulation toolbar showed a night / no-location **hint** as a `QLabel` added to the toolbar. When the window is narrow the `QToolBar` overflows into Qt's built-in » extension popup, whose widgets wrap into rows; as the time slider crossed sunset the hint toggled empty↔“Night — the sun is below the horizon”, changing the toolbar's width demand, which **re-flowed the popup and bumped the Animate button to a different row** (reported as “the Animate button jumps down a row”). **Root cause**: a state-dependent, variable-width widget living in a toolbar's flow — toolbars don't reflow gracefully, they overflow. **Fix**: render transient sun-sim hints on the **status bar** (`GardenPlannerApp._set_sun_hint` + a permanent `_sun_hint_label`), never on the toolbar, so the toolbar's width is invariant to sun state (also narrows it, easing the overflow). Pinned by `test_sun_hint_on_status_bar_keeps_toolbar_width_stable` (toolbar `sizeHint` identical day vs night).
 
@@ -2377,6 +2463,40 @@ Snapshot comparison must use physical base-shape centres transformed into scene 
 
 Review pinned two representation gaps: a badge placed at a concave polygon's bounding-box centre was outside the footprint, and accepted non-dict species metadata raised in the selected-tree timer. Badge rectangles now pass whole-path containment against undecorated base geometry; species snapshots are normalized once. Grouped/imported save-load regressions cover both. The complete suite also caught a delayed destruction callback after a weak clock subscription had been pruned; cleanup now tolerates that already-disconnected state, with a cyclic-collection regression.
 
+### 11.4.9 A frame sized by a polygon's most expensive vertex, and one look rule for item copies (#470/#472/#473)
+
+**An unbounded fill is a denial of service a plan file can carry — and the obvious bound does not bound it.** `PolygonItem` painted whatever vertex count a `.ogp` held. A reflex-heavy outline makes one antialiased fill quadratic: measured with the item's own 2.0 pen, ~38 ms at 256 vertices, ~322 ms at 1,024, ~1.4 s at 4,096, ~5.6 s at 16,384 (the bug report measured 10.5 s at 1,024 on its box). The first fix bounded full detail at 1,024 vertices and degraded an over-budget frame to "the outline" — and the independent review, plus a second measurement, showed it bounded nothing: 1,024 was the very count the report called pathological, and Qt strokes a **wide solid pen by building a fill**, so the same 1,024-vertex comb took 319 ms stroked with the item's pen against 4 ms with a cosmetic 1-px pen. The shipped bound is 256 vertices and the degrade uses a **cosmetic** pen and no fill (~4 ms at 1,024, ~69 ms at 16,384); `MAX_POLYGON_VERTICES = 16_384` (a ceiling far above any legible garden outline, at which the degraded 2D outline is ~69 ms) refuses a hostile polygon at the load seam non-fatally. **The degrade also had to be *reachable*.** Qt passes `widget = 0` for every **cached** paint, and every unselected canvas item is `DeviceCoordinateCache`, so the first shipped guard (`widget is not None`, the LOD flat fill's own idiom) selected the empty set: measured through a real view, an over-budget polygon still painted at full detail — 44.7 ms at 1,024 vertices, 589 ms at 16,384 — recurring on every cache regeneration, so the freeze was bounded only by the load ceiling. The discriminator is now the **cache mode**: every export, report, print and agent render path disables caches first (`ExportService._disable_item_caches`), so those stay exact while the cached interactive view degrades, and the regression drives a real `CanvasView` instead of calling `paint()` directly. *An idiom copied from a sibling is not evidence: check that the condition it tests is ever true on the path you are protecting — a cache can make it false, and a test that calls `paint()` itself cannot tell you.* *A cost you can bound is a design choice; a cost you cannot is a bug report waiting for a crafted file — and "draw the outline instead of the fill" is only a bound if the outline is cheap, which for Qt it is not with a wide pen. Measure the degraded path with the pen the item actually uses, or you have bounded the shape, not the paint.*
+
+**A copy must carry both representations of a shape's look, or one of them lies.** The offset tool made a rectangle, circle or ellipse copy in its *type's* default fill, pattern and stroke, while a polygon or line copy "kept all of it" (#470). The asymmetry hid the second defect: the polygon path copied only the live `QPen`/`QBrush`, so the copy looked right until the next save, when `fill_pattern`/`stroke_style` were absent and the loader restored the type defaults. One seam, `core/item_look.py::copy_visual_style`, now copies the serialized attributes (`fill_pattern`, `fill_color`, `stroke_color`, `stroke_width`, `stroke_style`) and the pen/brush together, and both the offset tool and `mirror_geometry` use it. *When an item has a live appearance and a serialized appearance, a copy that writes one and not the other is a round-trip bug wearing a rendering bug's clothes.* Chamfer/fillet/trim have the same shape and are deliberately left to #441 (the in-flight L1 branch) rather than routed here. The loader's own half of the same defect — it rebuilt the brush and pen but never wrote the stored attributes back, so the Properties panel disagreed with the canvas after a reload and the next save overwrote the user's colours (#438/#469) — is fixed in the same branch; see §11.4.10 and the ADR-042 addendum.
+
+**A performance budget cannot see a cost its scenario does not contain — or that its cache hides.** The NFR-PERF-01 reference plan holds no polyline (0 of 990 scene items), so a change making every line's `paint()` 25% slower left all three budget scenarios where they were (#473). The first fix added plain and styled lines to the scenario — but every canvas item enables `DeviceCoordinateCache` and the harness warms the cache before timing, so a cached line is never repainted and a slower `paint()` is still invisible; injecting a 5 ms slowdown into `PolylineItem.paint` moved the measured frame by ~0.3 ms. The shipped scenario disables the cache on its lines and pins that deterministically (a `cacheMode() == NoCache` guard), with 10 short plain fences and 1 short styled gravel path adding a stable ~5 ms. The wall-clock comparison survives only as an *upper* bound: a lower bound made the test a coin flip, because viewport timing on a loaded machine swings by tens of milliseconds in both directions (measured −10 ms to +21 ms on the same view). An absolute per-frame budget for the styled lines is left to #450, which owns the whole-line style walk. *A budget guards what its inputs exercise, on the path they exercise it: "we have a perf test" and "the perf test paints this item every frame" are different claims, and a cache is the quietest way to break the second while keeping the first.*
+
+### 11.4.10 A fill colour nobody could see, and the round-trip test that asserted the wrong thing (#502, from #470/#472/#473's manual pass)
+
+**A constant wash cannot recolour a saturated texture.** `_tint_texture` drew a texture and laid the user's colour over it at **alpha 80/255**. Over the brown roof-tile texture (`#ca6846` at the sampled pixel) a light-green fill (`#90ee90`) measured **`#b8925d`** — still brown. The owner set a green fill and the canvas showed "the standard roof tile colour", so the fill colour looked *lost*; a from-scratch control rectangle, styled exactly as they described, rendered the same brown as a file-loaded one, which is what proved nothing was lost on load and the colour was never applied. Raising the wash enough to read (160/255) flattened the low-contrast materials (SAND luminance std 1.62 against the 2.0 floor of `test_texture_paints_with_visible_detail`), so the overlay strength was the wrong knob. The fix is a **luminance map** — every pixel becomes the chosen colour scaled by the texture's relative luminance — which makes the *relative* contrast of the result equal the texture's by construction, i.e. non-flattening is a property, not a tuning. *If a transform must both recolour and preserve detail, preserve it as a ratio the transform cannot change, rather than picking a strength that happens to survive the current assets.*
+
+**The gate proved the wrong claim.** `test_user_colour_recolours_without_flattening` compared **red and blue** — two saturated, far-apart colours. Both passed while the owner's *pale* green rendered brown, and `test_texture_paints_with_visible_detail` measured **absolute** luminance std, which a legitimately dark fill colour lowers for no defect. The gate now also asserts a **pale** colour reads (`g - r > 40`; untinted textures measure about −49) and compares **relative** contrast against the same item's untinted render. Reverting the tint makes 19 of the 48 cases fail. *Coverage by colour extremes is not coverage of the colour space; and a texture-preservation gate must be scale-invariant or it punishes dark colours.*
+
+**A loader that rebuilds the brush but not the attributes rebuilds the wrong truth.** `ProjectManager._deserialize_item_core` restored each item's `QPen`/`QBrush` from the file but never wrote back `fill_color`, `stroke_color`, `stroke_width` or `stroke_style` — and the item constructors pre-seed those attributes with the object type's style (`rectangle_item.py` passes `fill_color=style.fill_color, stroke_color=style.stroke_color, …`). After a reload, the Properties panel read the *type* defaults while the canvas painted the file's colours: on the owner's file `item.stroke_color` was `#228b22` (GENERIC_RECTANGLE's style stroke) while `item.pen()` was `#ff0000`. The next save then wrote those defaults over the user's colours (#438/#469). The loader now restores the stored attributes through `core/item_look.restore_stored_look`, and the serializer no longer falls back to a texture brush's black `color()` for `fill_color`. *Two representations of one fact must be written together; a "restore the brush" path that leaves the attribute behind is how a document quietly rewrites itself.*
+
+**And the test that claimed the look survived a save asserted a value that could not fail.** #470's round-trip check compared the reloaded **pen/brush** while its docstring promised "the look survives" — and its earlier brush-colour assertion (`brush().color()`) was vacuous for a texture brush, which is black on both sides. Round-2 review flagged that assertion; round 3 dropped it instead of replacing it with a real tint check, and the owner's manual pass found the gap the next day. `tests/integration/test_item_appearance_roundtrip.py` now compares **rendered pixels** (and asserts a light-green fill reads `g - r > 40`) across all five shapes plus the Ctrl+D duplicate path. *Deleting a weak assertion is not replacing it; if a test is the only evidence for a claim, the claim loses its evidence the moment the assertion goes.*
+
+**And a test value that equals the default it is meant to prove is restored also cannot fail.** The replacement used the owner's light green `#ff90ee90` — which **is** `GENERIC_RECTANGLE`'s default `fill_color`, so `after.fill_color == item.fill_color` held whether or not the loader wrote anything back. Measured by mutation: deleting only the `fill_color` restore from `restore_stored_look` left that test **passing**; re-pointing it at a non-default colour made it **fail**. The round-trip tests now style items with `USER_FILL` (`#ff1f4fd8`), chosen because it collides with no entry in `OBJECT_STYLES` (asserted by `test_the_test_colours_are_not_type_defaults`, which walks all 52 object types), and the owner's literal green is kept as its own test where it is the subject rather than the evidence. *A regression test proves the defect only when its chosen value is distinguishable from the value the defect leaves behind — otherwise it passes on the broken code, which is the one thing it exists to prevent. When the value must be a realistic one, assert the non-default separately.*
+
+### 11.4.11 A dead optimisation is not a latent feature, and a negative pin can stop noticing (#503)
+
+**A sibling idiom copied twice fails twice, and a test that calls the helper directly cannot see either failure.** #472 shipped its over-budget polygon degrade only after an independent review found the first guard unreachable: `widget is not None` was the LOD flat fill's own idiom (#409), and Qt passes `widget = 0` for every **cached** paint while every unselected canvas item is `DeviceCoordinateCache`. #501's review then reported the identical defect in the LOD guard itself (#503) and left it out of scope. Measured through a real `CanvasScene` + `CanvasView`: `should_use_lod_flat_fill` was invoked once per paint with **no** widget at `fit_in_view` and after four `zoom_out()`s and returned `False` every time, while a `NoCache` control item did see a widget - the one configuration no unselected canvas item is ever in. The tests passed because they called the helper directly with a fabricated widget, structurally unable to notice a condition Qt never supplies.
+
+**Making the guard work would have been the wrong fix, and only a measurement could say so.** The obvious repair - key "interactive" on the item's **cache mode**, exactly as the #472 paint bound already did - was implemented first, and the branch became live for the first time. Measured on the reference plan it was written for (990 scene items, 1600x1000 view, seven rounds of fifteen repaints, both scenarios below the 0.4 threshold): `fit_in_view` at zoom 0.316 read **10.61 and 11.50 ms median with the flat fill disabled, 10.87 ms with it live**, the arms' ranges overlapping entirely; `zoom_step` at zoom 0.348 read **7.97 / 7.98 ms disabled, 8.20 ms live**. All six `tests/perf/test_nfr_budgets.py` cases pass either way, worst reading 12.21 ms against the 16.70 ms budget. The cause is structural and was visible in the code all along: `DeviceCoordinateCache` rasterises a textured item **once** and every later frame is a cheap blit, so the expensive textured `paint()` the LOD existed to avoid was already amortised by the sibling fix shipped in the same PR. The branch could only pay per *cache regeneration**, and the acceptance metric is steady-state repaint. What this establishes is that the effect sits **below this harness's noise** - within-arm variation 8 % against a 0.26 ms between-arm difference, and no reversed-order run was taken, so no claim about which arm is faster survives. (An earlier single-pair reading, 10.58/10.64 and 8.21/7.40, is superseded: it put the `zoom_step` sign the other way. A draft of this very paragraph asserted the ordering it implied and was wrong on its own numbers.)
+
+**The owner's manual pass rejected it, which is why this reads as a deletion rather than a repair.** Making the guard work would have put a design decision on screen that had never been reviewed in the product: below 0.4 an unselected bed, furniture item or plant shows only its flat fill (plant and furniture sprites flat-fill too - they are not pattern-gated), and the early return skips the paint-level diagnostics drawn after it (a bed's grid, crop-rotation indicator, soil-mismatch border and capacity badge; a plant's spacing ring, companion highlight and antagonist badge). The owner works at 20-25 % zoom, well under the threshold, so every texture they work with would have been replaced by a solid colour in exchange for nothing. Issue #503 had offered both repairs - "either the LOD flat fill fires for cached interactive paints ... or it is removed with its rationale recorded" - and the measurement plus the manual pass chose the second. `should_use_lod_flat_fill`, `get_lod_fill_color` and `LOD_FLAT_FILL_THRESHOLD` were deleted. `is_interactive_paint` **was kept**: it is the one definition of "which paint is this", and the #472 paint bound needs it for real (a cached 1,024-vertex comb costs 44.7 ms at full detail and 589 ms at 16,384). Its docstring now says that it classifies paints and does not decide how much detail to draw.
+
+**A negative pin can stop noticing, and a mask in the wrong coordinate frame does not fail - it lies.** Deleting a feature leaves nothing that fails when it returns, so the replacement asserts the *absence* of the regression, and that kind of test has a failure mode a normal suite cannot have: it keeps passing while stopping to look. Three review rounds found it three ways, and none of them was visible from a green run. The sampler took the item's **bounding box**, whose corners are page background for a circle, an ellipse or a polygon, so a *solid* circle measured as high-contrast. The table covered four **classes** while three of the seven deleted call sites sat behind `is_plant` / `is_furniture_type`, which a `GENERIC_*` fixture never enters. And the export mask sat in the wrong frame - `QGraphicsScene.render` composes the painter's scale with a translate by `-source.topLeft()`, and only the scale was applied - which made one case pass at spread 45.97 with a flat fill live. The shared root is one unasserted invariant: **the mask must be the item's interior**, and a mask that is not reads background, which a luminance statistic scores as texture. It is asserted now, as a test rather than a comment.
+
+**The instrument, and how to check it.** `tests/integration/test_canvas_item_cache.py` is the pin: seven entries (the four generic shapes plus a plant circle and furniture rectangle/circle), five zoom levels each plus the export path, the interior taken from `QGraphicsItem.shape()`, a lower-bound-only spread assertion so a future change may soften a texture but not delete it, and `TestTheMaskIsTheItem` for the invariant above. Its calibration table, the seven-entry shape list and the sampler mechanics live **in that file** - not here, because a description restated in nine passages is how this section's own history drifted three times. Run `venv/Scripts/python.exe scripts/verify_lod_removal_mutations.py` to re-apply each of the seven deleted call sites and assert the pin still fails on each; it is a script rather than a test because it rewrites live source files, so it takes a lock, runs alone, and belongs to a review or a pre-merge sweep.
+
+*An idiom is a hypothesis about the framework; a guard needs evidence that its condition is reachable on the path it guards, and a direct-call test is not that evidence. Reachability is necessary, not sufficient - the next question is whether the branch earns the degradation it costs, on the workload it was written for. And a conclusion drawn from one ordering of a noisy measurement is the same class of mistake: both are confident and both are unfounded.*
+
 ## 11.5 Community and Governance
 
 **Feature Requests**: Open to community input, pivots, and voting. The goal is to avoid a dead project — community engagement is welcome.
@@ -2392,3 +2512,190 @@ Private vulnerability reporting is enabled. Conduct reports go privately to GitH
 not directly to the maintainer. No contact email or private Discussion channel is promised.
 Repository wiki sources and manual publication follow `docs/wiki/README.md`; publication
 and GitHub community-profile recognition remain pending owner review and merge.
+
+### A1 numeric, download and settings boundaries (#453)
+
+The A1 branch implements AUD-041/042/044/047; owner acceptance and protected merge
+remain pending. TD-025 is resolved in the implementation, not yet a shipped claim.
+
+The original failures were reproduced: non-finite JSON reached scene preparation,
+a non-finite save overwrote a valid file, HTML labeled as PNG was cached, duplicate
+installer assets selected the first entry, and Qt 6.11 Linux settings were mode 0644
+under umask 022. Fixes live at shared ingestion/persistence boundaries rather than
+only one caller. Geometry validation also checks overflow from finite operands and
+live NaN rotation that a conditional serializer would otherwise omit.
+
+Pins: `test_plan_numeric_safety.py`, `test_verified_update.py`, `test_image_download.py`,
+`test_a1_plan_safety.py`, `test_a1_download_safety.py`, `test_settings_isolation.py`
+and `test_settings_security_startup.py`. Linux evidence uses the locked environment
+and real permissions. A successful Windows API mock is never reported as that evidence.
+Separate shutdown #480/#483, rotation #485 and unfinished 3D work remain outside A1.
+
+The frozen run exposed host PATH contamination: PyInstaller bundled Poppler's
+ICU 78.3 instead of using Windows' native ICU 72.1, breaking WebEngine's required
+unsuffixed imports. DLL versions, collection provenance and PE exports identified
+the cause; the PE probe needed an export limit above pefile's default 8,192 to
+avoid false missing-symbol reports. A controlled-PATH clean build passed both
+frozen checks. Match the loader's actual DLL paths before changing Qt pins.
+
+Senior review reproduced four derived-geometry bypasses: translated rectangle
+bounds, combined group bounds, a rotated rectangle and decoded image scaling.
+Each operand was finite but Qt's resulting bounds were infinite. All four real
+load-preservation tests failed before the fix. A fifth regression showed opaque
+metadata text `value="NaN"` being incorrectly treated as geometry. The fix checks
+Qt's detached item graph before scene mutation, checks live geometry before saves,
+checks decoded image extents before scaling and scopes numeric-string validation
+to geometry containers. Numeric non-finite JSON remains invalid everywhere.
+
+The earlier review additionally found that a construction line with opposite
+finite endpoints can have an infinite span while Qt returns an empty bounding
+rectangle. Its real load-preservation test failed first. Raw endpoint differences
+and line length are now checked before construction, alongside the detached bounds
+gate; an empty Qt rectangle is not sufficient evidence that its primitive is valid.
+The same check covers point/anchor/control segments and polygon closing edges.
+Arc endpoint and midpoint angle sums are checked before construction. Polyline,
+polygon and arc regressions failed first, then passed with the shared arithmetic
+guard. Pure huge-finite Qt rendering limits retain their serialized model and remain
+outside A1; no coordinate cap or rejection of zero-length primitives was introduced.
+
+
+### Registered strings are not the source inventory (#496)
+
+**Require every live key in every registered locale, in both directions.** Review of
+#495 found a stale source template could pass the German-only unfinished-value test.
+Fresh standard extraction found existing German omissions; an AST audit then identified
+helper/table sources that standard extraction missed. Bundled plant common names were
+also live sources and had to be retained, not marked retired with the rest of the extras.
+
+The old compiler additionally accepted nonempty unfinished translations, turned empty
+targets into source fallback and emitted vanished entries. Six targeted regressions
+failed first. Shared strict parsing now refuses those targets and excludes retired
+records. Context/key, formatting and compiled lookup validation are independent of
+catalog counts. A companion explanation also assumed every non-English locale was
+German; the explicit German selection now preserves English fallback for other locales.
+
+Pinned by `tests/unit/test_translation_gate.py`, `tests/integration/test_translation_gate.py`
+and the source/binary check in `tests/unit/test_i18n.py`. The lesson is that a gate must
+derive its required set independently from the artifacts it validates. Unwrapped UI
+text and linguistic quality remain separate review obligations; plural input fails
+closed until the singular compiler gains tested support.
+
+Independent review reproduced four further blind spots: keyword helper calls, unmarked
+members of marked tables, discarded dynamic disambiguation, and a receiver's real Qt
+context. The offset tool called `CanvasView.tr()` through its view, but extraction had
+assigned `OffsetTool`; a real German status-message regression exposed the mismatch.
+The tool now uses explicit `CanvasView` translation calls. Complete display fields and
+values are selected from production tables, helper calls bind their source argument,
+dynamic consumers retain comments, and unresolved receivers/helper imports fail closed.
+
+- **`qtbot.addWidget` closes a widget, and closing is not deleting** (issue #509, 17–18
+  October 2026). Symptom: the test suite cost 912.6 s serially, and issue #509's
+  premise — that ten files were simply slow — was wrong in an instructive way. The
+  leading file, `test_iconography_3c.py`, runs 36 tests in **2.14 s alone** and takes
+  **96.7 s** in the suite, and the same file right after `test_main_window.py` takes
+  **447 s** with individual theme tests at 60–66 s. Probing `QApplication` directly:
+  a clean process holds **0** widgets and one `apply_theme()` round-trip costs
+  **1.3 ms**; after `test_main_window.py` it holds **38 271** widgets and **1 580**
+  top-level widgets, **0 % of them visible**, and the round-trip costs **22 478 ms**.
+  Root cause: `qtbot.addWidget` closes a widget at teardown and nothing ever calls
+  `deleteLater()`, so the C++ object and its ~1 270 children survive to process exit
+  (only 2 of 30 apps were still reachable by `gc.get_objects()` — the Python wrapper
+  is collected, the C++ graph is not). `apply_theme()` walks `app.allWidgets()` on
+  every call, so every later theme switch pays for all of them. `gc.collect()` is not
+  the fix: it freed 8 337 objects and moved the widget count only 38 271 → 37 638, so the
+  survivors are not reachable as collectable cycles. **What holds them is NOT identified** —
+  the referrer probe walked into PyQt6/sip bookkeeping and stopped — so "strong references"
+  is the reading consistent with that measurement, not a proven mechanism, and the chokepoint
+  below does not need it to be true.
+  Fixed by one autouse fixture in `tests/conftest.py` that closes and `deleteLater()`s
+  every top-level widget per test — 38 271 → 0, and the serial suite 912.6 s → 673.6 s
+  with no product change and no test removed. Three details decide whether it works:
+  the fixture's **position in the root conftest** is what finalises it last, after
+  `tests/integration/conftest.py` has walked the windows it uses to stop servers - which is
+  why deleting them earlier would silence the leak warning. The `qtbot` request is a separate
+  ordering: it puts the reclaim ahead of qtbot's own teardown. Measured both ways with
+  `--setup-show`; an earlier version of this entry credited the request with the first, which
+  holds with the request removed; `sendPostedEvents` must name `QEvent.Type.DeferredDelete`
+  explicitly, because `sendPostedEvents(None, 0)` — the shape that looks right — flushes
+  nothing, and measuring that wrong call is how the first attempt appeared to prove the
+  chokepoint ineffective; and a chokepoint beats the 51 per-file edits because it cannot be
+  forgotten. **Lesson: the expensive tests in a suite are frequently the victims of other
+  tests, not the culprits, and a per-test duration table says which tests are slow, not
+  which files are.** Re-running a slow file on its own is the cheapest diagnostic there
+  is — it took four wrong hypotheses to find the cause, and the first one cost an hour
+  because the instrument (a benchmark of synthetic `QLabel` widgets) never requested an
+  icon and so could not see the icon cache it was testing.
+
+- **Two autouse fixtures, one merely depending on the other, are an atomicity claim with
+  no coverage** (issue #509, 18 October 2026). `tests/conftest.py` wiped every settings
+  key in `_reset_app_settings` and wrote `KEY_AGENT_API_ENABLED = False` in a second
+  fixture that merely *depended* on the first. Between the two there was a real instant
+  in which the key did not exist at all, so a read returned the production default
+  (`DEFAULT_AGENT_API_ENABLED = True`) and the port read 8765. A `GardenPlannerApp` from
+  an earlier test arms `QTimer.singleShot(1500, self._maybe_start_agent_api)`, and a
+  timer landing in that window started a **real** `AgentApiServer`; two workers doing
+  that collided with `OSError: [Errno 10048]`. The window was always there — serial runs
+  simply made it microseconds wide against a 1500 ms timer — and it is the same shape as
+  the Welcome-dialog entry in the same conftest, where a per-test settings write lost a
+  race with a 500 ms timer and the fix was to patch the **method** instead. Two further
+  facts close it here: `singleShot` is handed the **bound method**
+  `self._maybe_start_agent_api`, which PyQt auto-disconnects when the receiver is
+  destroyed, so a fixture that destroys each test's widgets cancels the pending timer
+  outright; and the write belongs **inside** the wipe, so there is no instant to lose.
+  **Lesson: order a fixture's dependencies carefully and you have documented a gap, not
+  closed it; a default of `True` behind an absent key is a loaded weapon the moment
+  anything is deferred.** Also: `QSettings.value(key, default)` returns the raw QVariant,
+  so `setValue(key, False)` reads back as the **string** `'false'` — a tripwire asserting
+  `value is not True` passes for that string *and* for the absent key, which is exactly
+  the state it exists to catch. Read it the way the product does, `type=bool`.
+
+- **A test that writes into the git working tree is unsafe under any scheduler, and
+  serial execution hides it** (issue #509, 18 October 2026). `test_gate_commands.py`'s
+  secret-checker canary staged `scripts/_canary_<tag>.py` in the **real** repository,
+  scanned, then unstaged and deleted — the only test in the suite that mutated shared
+  state. `test_settings_chokepoint.py` globs that same tree (`root.rglob("*.py")`) and
+  reads what it found, and those are two moments: under `pytest -n 8` one worker's
+  `rglob` could list the canary inside the other worker's write-to-unlink window and die
+  with `FileNotFoundError` on the read — three failures in one run — while the same window
+  let the canary's own file-wide scan read a *sibling worker's* staged canary and report a
+  credential that was never committed anywhere. #507 separately found that an interrupted
+  run left the canary staged and the next `git commit -a` published it (a one-line canary
+  really was committed on PR #507). The fix is not a scheduler: the canary is now staged
+  in a throwaway `git init`-ed repo under `tmp_path`, so nothing outside the temp directory
+  is created, staged or deleted even if the process dies mid-test — which makes #507's
+  hazard structurally impossible rather than hardened. **Lesson: `@pytest.mark.xdist_group`
+  would have hidden this and left the two-concurrent-pytest-process case (the 2026-08-17
+  incident that made `TEST_APPLICATION` per-PID) exactly as dangerous; and a hazard that
+  exists only under a scheduler is usually a hazard that exists without one too.**
+
+- **`pytest-timeout`'s per-test bound is necessary but not sufficient for a Qt suite,
+  and asking the OS for a free port is not a reservation** (issue #509, 18 October 2026).
+  Two distinct time hazards, both found the hard way. First, ten test files each carried
+  their own copy of `_free_port()` — `bind(("127.0.0.1", 0))`, read the port, **close the
+  socket** — and the caller then binds it, so the port is free in name only. Serially the
+  window is microscopic; with `-n auto` on 20 workers it is not, and the measured failure
+  was `RuntimeError: Agent API server failed to start`, because uvicorn's own
+  `create_server` hit `OSError: [Errno 10048]` after the pre-bind socket check had already
+  passed. Two `-n 8` runs gave 2 failures and 1 failure, so **capping the worker count would
+  not have addressed it, only lowered the odds** — the fix is a retry, in one shared helper,
+  because losing that race is inherent to asking the OS for a port and then releasing it.
+  That helper retries `PortInUseError` and the exact string
+  `"Agent API server failed to start"`, and re-raises every other `RuntimeError`
+  immediately: a retry that swallows real product defects is worse than the flake it was
+  written to remove.
+  Second, and **this correction is itself the lesson**: an earlier draft of this entry
+  claimed "`--cov` and the perf tests are mutually exclusive - the repaint budget fails at
+  **20.29 ms against a 16.70 ms budget** under tracing ... so the `Coverage` job has been
+  measuring something it cannot gate". Both halves were wrong, and the error is the one this
+  section exists to prevent. `tests/perf/test_nfr_budgets.py:56-57` reads
+  `_IS_CI = os.environ.get("CI") == "true" or os.environ.get("GITHUB_ACTIONS") == "true"` and `FRAME_BUDGET_MS = 50.0 if _IS_CI else 16.7`, so on CI
+  the budget is **50 ms**. The 20.29 ms was measured **here**, against the **local** 16.7 ms
+  budget, and was generalised to a configuration nobody ran - and `gh run view 39076508170`
+  records master's `Coverage` job **succeeded** at `412f01bd`. One variable, both ways, same
+  file: `CI=true` -> 6 passed; unset -> 1 failed.
+  **Lesson: a measurement taken against one configuration says nothing about another.**
+  **Lesson: a number that arrives from a reviewer's report is still a number you did not
+  take - the same discipline applies to your own review round.**
+  **Lesson: a missing `finally` around a side effect is a correctness bug and an unbounded
+  retry loop is a hang; both are worth catching by asking what a helper swallows, not what
+  it returns.**

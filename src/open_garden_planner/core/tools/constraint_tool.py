@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import math
+from collections.abc import Callable
 
 from PyQt6.QtCore import QCoreApplication, QLineF, QPointF, QRectF, Qt
 from PyQt6.QtGui import QColor, QCursor, QFont, QKeyEvent, QMouseEvent, QPen
@@ -13,6 +14,7 @@ from PyQt6.QtWidgets import (
     QDialogButtonBox,
     QDoubleSpinBox,
     QGraphicsEllipseItem,
+    QGraphicsItem,
     QGraphicsLineItem,
     QGraphicsTextItem,
     QHBoxLayout,
@@ -2012,7 +2014,7 @@ def _compute_equal_dimension(anchor) -> float | None:
     return None
 
 
-def _apply_partner_extents(item, width: float, height: float) -> None:
+def _apply_partner_extents(item: QGraphicsItem, width: float, height: float) -> None:
     """Resize an EQUAL-constraint partner to ``width`` x ``height``, centre held.
 
     ``ResizeItemCommand`` has **two** callable injection points — ``apply_func``
@@ -2036,7 +2038,9 @@ def _apply_partner_extents(item, width: float, height: float) -> None:
     apply_rect_like_geometry(item, new_geometry)
 
 
-def _build_equal_resize_fn(item, anchor_type):
+def _build_equal_resize_fn(
+    item: QGraphicsItem, anchor_type: AnchorType,
+) -> tuple[float | None, Callable[[QGraphicsItem, float], None] | None]:
     """Return (old_size, apply_fn) for resizing item to equalize its dimension.
 
     apply_fn(item, new_size) resizes the item while keeping its visual center.
@@ -2049,7 +2053,8 @@ def _build_equal_resize_fn(item, anchor_type):
     if isinstance(item, CircleItem):
         old_size = item._radius
 
-        def circle_apply(it, new_r: float) -> None:
+        def circle_apply(it: QGraphicsItem, new_r: float) -> None:
+            assert isinstance(it, CircleItem)
             r = it.rect()
             cx = r.x() + r.width() / 2
             cy = r.y() + r.height() / 2
@@ -2065,7 +2070,8 @@ def _build_equal_resize_fn(item, anchor_type):
         if anchor_type in (AnchorType.EDGE_TOP, AnchorType.EDGE_BOTTOM):
             old_size = abs(rect.width())
 
-            def rect_width_apply(it, new_w: float) -> None:
+            def rect_width_apply(it: QGraphicsItem, new_w: float) -> None:
+                assert isinstance(it, RectangleItem)
                 # Centre-preserving, via the canonical apply path. The previous
                 # hand-rolled version solved for a new pos assuming NO rotation
                 # (it treated the scene centre as pos + rect-centre), so an
@@ -2080,7 +2086,8 @@ def _build_equal_resize_fn(item, anchor_type):
         if anchor_type in (AnchorType.EDGE_LEFT, AnchorType.EDGE_RIGHT):
             old_size = abs(rect.height())
 
-            def rect_height_apply(it, new_h: float) -> None:
+            def rect_height_apply(it: QGraphicsItem, new_h: float) -> None:
+                assert isinstance(it, RectangleItem)
                 # See rect_width_apply — same rotation bug, same fix.
                 _apply_partner_extents(it, it.rect().width(), new_h)
 
@@ -2373,20 +2380,6 @@ class EdgeLengthConstraintTool(BaseTool):
             anchor_type=p2.anchor_type,
             anchor_index=p2.anchor_index,
         )
-        if not self._view.is_constraint_feasible(
-            ref_a, ref_b, target_cm, ConstraintType.EDGE_LENGTH
-        ):
-            QMessageBox.warning(
-                self._view,
-                QCoreApplication.translate(
-                    "EdgeLengthConstraintTool", "Conflicting Constraint"
-                ),
-                QCoreApplication.translate(
-                    "EdgeLengthConstraintTool",
-                    "This constraint conflicts with existing constraints and cannot be applied. The existing constraints are unchanged.",
-                ),
-            )
-            return True
         command = AddConstraintCommand(
             graph=scene.constraint_graph,
             anchor_a=ref_a,
@@ -2394,8 +2387,83 @@ class EdgeLengthConstraintTool(BaseTool):
             target_distance=target_cm,
             constraint_type=ConstraintType.EDGE_LENGTH,
         )
-        self._view._execute_constraint_with_solve(command)
-        self._reset()
+        # Rectangles cannot deform in the vertex solver. Probe the proposed
+        # canonical size before feasibility, then bundle the same applier on
+        # the graph command. Restore exact geometry on refusal or probe errors.
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            apply_rect_like_geometry,
+            capture_rect_like_geometry,
+        )
+        from open_garden_planner.ui.canvas.items import RectangleItem
+
+        is_rectangle = isinstance(edge.item, RectangleItem)
+        feasible = False
+        try:
+            if is_rectangle:
+                original_geometry = capture_rect_like_geometry(edge.item)
+                equal_dimensions = []
+                for c in scene.constraint_graph.constraints.values():
+                    if c.constraint_type != ConstraintType.EQUAL:
+                        continue
+                    for ref in (c.anchor_a, c.anchor_b):
+                        if ref.item_id != edge.item.item_id:
+                            continue
+                        candidate = next((a for a in get_anchor_points(edge.item)
+                                          if a.anchor_type == ref.anchor_type
+                                          and a.anchor_index == ref.anchor_index), None)
+                        if candidate is not None:
+                            equal_dimensions.append((candidate, _compute_equal_dimension(candidate)))
+                old_size, apply_size = _build_equal_resize_fn(edge.item, edge.anchor_type)
+                # No event loop or modal callback may observe this proposal.
+                try:
+                    if old_size is not None and apply_size is not None:
+                        command._item_rotations = [(edge.item, old_size, target_cm, apply_size)]
+                        apply_size(edge.item, target_cm)
+                        pos = edge.item.pos()
+                        violates_fixed = any(
+                            c.constraint_type == ConstraintType.FIXED
+                            and c.anchor_a.item_id == edge.item.item_id
+                            and (abs(pos.x() - c.target_x) > 1e-9
+                                 or abs(pos.y() - c.target_y) > 1e-9)
+                            for c in scene.constraint_graph.constraints.values()
+                            if c.target_x is not None and c.target_y is not None
+                        )
+                        # EQUAL is skipped by the solver. Refuse a changed shared
+                        # dimension; unrelated equal dimensions remain valid.
+                        violates_equal = any(
+                            before != _compute_equal_dimension(candidate)
+                            for candidate, before in equal_dimensions
+                        )
+                        feasible = (
+                            not violates_fixed and not violates_equal
+                            and self._view.is_constraint_feasible(
+                                ref_a, ref_b, target_cm, ConstraintType.EDGE_LENGTH
+                            )
+                            and self._view._resolve_constraint_conflicts(
+                                command, allow_override=False
+                            )
+                        )
+                finally:
+                    apply_rect_like_geometry(edge.item, original_geometry)
+            else:
+                feasible = self._view.is_constraint_feasible(
+                    ref_a, ref_b, target_cm, ConstraintType.EDGE_LENGTH
+                )
+            if not feasible:
+                QMessageBox.warning(
+                    self._view,
+                    QCoreApplication.translate(
+                        "EdgeLengthConstraintTool", "Conflicting Constraint"
+                    ),
+                    QCoreApplication.translate(
+                        "EdgeLengthConstraintTool",
+                        "This constraint conflicts with existing constraints and cannot be applied. The existing constraints are unchanged.",
+                    ),
+                )
+                return True
+            self._view._execute_constraint_with_solve(command, conflicts_checked=is_rectangle)
+        finally:
+            self._reset()
         return True
 
     def mouse_move(self, _event: QMouseEvent, scene_pos: QPointF) -> bool:

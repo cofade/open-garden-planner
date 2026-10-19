@@ -1,10 +1,10 @@
-"""Fill in German translations for the .ts file and add missing contexts.
+"""Fill in application translations for supported target locales (.ts files).
 
 This script:
-1. Reads the pylupdate6-generated .ts file
-2. Fills in all German translations
-3. Adds missing contexts (ObjectType, GalleryData, CategoryDropdown, GlobalSearchField)
-4. Writes the completed .ts file
+1. Reads the source-generated .ts files
+2. Fills in all German translations (including missing contexts)
+3. Invokes Spanish translation populator (fill_spanish_translations)
+4. Writes the completed .ts files
 """
 
 import sys
@@ -14,7 +14,11 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from scripts.a1_translations import TRANSLATIONS as _A1_TRANSLATIONS  # noqa: E402
+from scripts.i18n_catalog import Key  # noqa: E402
+from scripts.i18n_sources import inventory  # noqa: E402
 from scripts.permaculture_translations import TRANSLATIONS as _F1_F2_TRANSLATIONS  # noqa: E402
+from scripts.translation_gate_translations import TRANSLATIONS as _GATE_TRANSLATIONS  # noqa: E402
 
 if sys.stdout is not None and hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -358,6 +362,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     # ── ConstraintListItem ──
     "ConstraintListItem": {
+        "{a} – {b}   {detail}": "{a} – {b}   {detail}",
+        "{a}   {detail}": "{a}   {detail}",
+        "{a} – {b} – {c}   {detail}": "{a} – {b} – {c}   {detail}",
+        "{d:.2f} m": "{d:.2f} m",
+        "{d:.1f}°": "{d:.1f}°",
         "◯ Tangent": "◯ Tangente",
         "{a} tangent to {b} (r={d:.2f} m)": "{a} tangential zu {b} (r={d:.2f} m)",
         "= Equal": "= Gleich",
@@ -1978,6 +1987,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Generic Rectangle": "Generisches Rechteck",
         "Generic Polygon": "Generisches Polygon",
         "Generic Circle": "Generischer Kreis",
+        "Hedge": "Hecke",
+        "Roof Ridge": "Dachfirst",
         "Ellipse": "Ellipse",
         "House": "Haus",
         "Garage/Shed": "Garage/Schuppen",
@@ -3275,6 +3286,9 @@ for _ctx, _strings in _L13_WORKSPACE_TRANSLATIONS.items():
 for _ctx, _strings in _F1_F2_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
+for _ctx, _strings in _A1_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
 
 _F3_TRANSLATIONS = {
     "SunExposure": {
@@ -3314,12 +3328,18 @@ _F3_TRANSLATIONS = {
 }
 for _ctx, _strings in _F3_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+for _ctx, _strings in _GATE_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
 def fill_translations() -> None:
     """Fill in German translations in the .ts file."""
     tree = ET.parse(TS_FILE)
     root = tree.getroot()
+    required = inventory(Path(__file__).resolve().parents[1])
+    translations = {context: {source: target for source, target in strings.items()
+                              if Key(context, source) in required}
+                    for context, strings in TRANSLATIONS.items()}
 
     # Set the target language
     root.set("language", "de_DE")
@@ -3335,7 +3355,7 @@ def fill_translations() -> None:
     # Process existing contexts
     for context_elem in root.findall("context"):
         context_name = context_elem.find("name").text
-        context_translations = TRANSLATIONS.get(context_name, {})
+        context_translations = translations.get(context_name, {})
 
         for message_elem in context_elem.findall("message"):
             source_elem = message_elem.find("source")
@@ -3345,6 +3365,8 @@ def fill_translations() -> None:
                 continue
 
             source_text = source_elem.text or ""
+            if Key(context_name, source_text) not in required:
+                continue
 
             if source_text in context_translations:
                 translation_elem.text = context_translations[source_text]
@@ -3352,21 +3374,23 @@ def fill_translations() -> None:
                 if "type" in translation_elem.attrib:
                     del translation_elem.attrib["type"]
                 filled += 1
-            else:
+            elif not (translation_elem.text or "").strip() or translation_elem.get("type") == "unfinished":
                 missing += 1
                 print(f"  MISSING [{context_name}]: {source_text[:60]!r}")
 
     # Add missing contexts (ObjectType, GalleryData, CategoryDropdown,
     # CategoryToolbar, GlobalSearchField — anything not picked up by
     # pylupdate6 because it lives in helper modules).
-    for context_name, translations in TRANSLATIONS.items():
+    for context_name, context_values in translations.items():
+        if not context_values:
+            continue
         if context_name not in existing_contexts:
             # Create new context
             context_elem = ET.SubElement(root, "context")
             name_elem = ET.SubElement(context_elem, "name")
             name_elem.text = context_name
 
-            for source_text, german_text in translations.items():
+            for source_text, german_text in context_values.items():
                 message_elem = ET.SubElement(context_elem, "message")
                 source_elem = ET.SubElement(message_elem, "source")
                 source_elem.text = source_text
@@ -3395,7 +3419,7 @@ def fill_translations() -> None:
                     existing_sources.add(src.text)
 
             # Add missing strings
-            for source_text, german_text in translations.items():
+            for source_text, german_text in context_values.items():
                 if source_text not in existing_sources:
                     message_elem = ET.SubElement(context_elem, "message")
                     source_elem = ET.SubElement(message_elem, "source")
@@ -3419,6 +3443,12 @@ def fill_translations() -> None:
 
     print(f"\nDone! Filled {filled} translations, {missing} missing, {added_contexts} new contexts added.")
 
+    # Also fill Spanish translations
+    from scripts.fill_spanish_translations import fill_spanish_translations
+
+    fill_spanish_translations()
+
 
 if __name__ == "__main__":
     fill_translations()
+

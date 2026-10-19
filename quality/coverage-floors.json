@@ -10,5 +10,8 @@
     "ui": 71
   },
   "non_ui_definition": "all packages except ui",
-  "schema_version": 1
+  "schema_version": 1,
+  "file_line_floors": {
+    "core/tools/constraint_tool.py": 60
+  }
 }

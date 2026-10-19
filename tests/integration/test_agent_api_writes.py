@@ -27,7 +27,6 @@ crosses a BaseModel is a contract, and only the transport exercises it.
 from __future__ import annotations
 
 import asyncio
-import socket
 import threading
 from collections.abc import Callable
 from pathlib import Path
@@ -57,16 +56,9 @@ from open_garden_planner.ui.canvas.items import (
     PolylineItem,
     RectangleItem,
 )
+from tests.agent_api_helpers import start_server
 
 TOKEN = "test-write-token-12345"
-
-
-def _free_port() -> int:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(("127.0.0.1", 0))
-    port = sock.getsockname()[1]
-    sock.close()
-    return port
 
 
 _APP_BY_VIEW: dict[int, GardenPlannerApp] = {}
@@ -139,10 +131,7 @@ def test_create_object_end_to_end(canvas: Any, qtbot: Any) -> None:
     scene = view.scene()
     before = len(scene.items())
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -199,10 +188,7 @@ def test_create_object_shape_families_end_to_end(
     view = canvas
     scene = view.scene()
     before = len([item for item in scene.items() if item.parentItem() is None])
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     def request_for(object_type: str, index: int) -> dict[str, Any]:
         """Build a small, in-bounds request for each discovered family member."""
@@ -359,10 +345,7 @@ def test_reload_layer_counts_match_objects_after_document_round_trip(
     assert len([item for item in scene.items() if isinstance(item, ArcItem)]) == 1
     assert len([item for item in scene.items() if isinstance(item, BezierItem)]) == 1
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -398,10 +381,7 @@ def test_unauthenticated_create_is_rejected(canvas: Any, qtbot: Any) -> None:
     scene = view.scene()
     before = len(scene.items())
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -435,10 +415,7 @@ def test_move_object_end_to_end(canvas: Any, qtbot: Any) -> None:
     item_id = str(circle.item_id)
     start = circle.sceneBoundingRect().center()
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -480,10 +457,7 @@ def test_move_object_authenticated_via_query_param(canvas: Any, qtbot: Any) -> N
     item_id = str(circle.item_id)
     start = circle.sceneBoundingRect().center()
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -519,10 +493,7 @@ def test_delete_object_end_to_end(canvas: Any, qtbot: Any) -> None:
     scene.addItem(circle)
     item_id = str(circle.item_id)
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -559,10 +530,7 @@ def test_delete_object_refuses_duplicate_id_without_false_success(
     scene.addItem(duplicate)
     item_id = str(first.item_id)
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -613,10 +581,7 @@ def test_delete_object_refuses_cross_class_uuid_collision_before_constraints(
     )
     constraints_before = graph.to_list()
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -669,10 +634,7 @@ def test_delete_object_refuses_duplicate_linked_roof_ridge(
     for item in (house, ridge, duplicate_ridge):
         scene.addItem(item)
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -712,10 +674,7 @@ def test_concurrent_delete_calls_are_serialized_and_fail_closed(
     scene.addItem(callout)
     item_id = str(callout.item_id)
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -759,10 +718,7 @@ def test_mcp_undo_redo_share_the_gui_history_stack(
     assert scene.find_item_by_id(item.item_id) is item
     assert view.command_manager.can_undo is True
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -809,10 +765,7 @@ def test_unauthenticated_history_is_rejected_without_mutating_the_stack(
     scene = view.scene()
     item = RectangleItem(320.0, 320.0, 70.0, 35.0)
     view.command_manager.execute(CreateItemCommand(scene, item, "rectangle"))
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -844,10 +797,7 @@ def test_mcp_callout_offsets_reject_hostile_geometry_without_side_effects(
     """#355: bound signed callout offsets before Qt geometry construction."""
     view = canvas
     scene = view.scene()
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     hostile_values = [
         1e308,
@@ -947,10 +897,7 @@ def test_unauthenticated_move_is_rejected(canvas: Any, qtbot: Any) -> None:
     item_id = str(circle.item_id)
     start = circle.sceneBoundingRect().center()
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -989,10 +936,7 @@ def test_resize_object_end_to_end(canvas: Any, qtbot: Any) -> None:
     scene.addItem(item)
     before_centre = item.mapToScene(item.rect().center())
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -1032,10 +976,7 @@ def test_rotate_object_end_to_end(canvas: Any, qtbot: Any) -> None:
     item = CircleItem(1200.0, 900.0, 50.0, object_type=ObjectType.SHRUB)
     scene.addItem(item)
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -1079,10 +1020,7 @@ def test_unauthenticated_resize_and_rotate_are_rejected(
     item = CircleItem(400.0, 400.0, 30.0, object_type=ObjectType.TREE)
     scene.addItem(item)
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -1133,10 +1071,7 @@ def test_set_species_and_set_parent_bed_end_to_end(canvas: Any, qtbot: Any) -> N
     # for a reason that has nothing to do with the link change under test.
     plant_centre_before = plant.mapToScene(plant.rect().center())
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -1197,10 +1132,7 @@ def test_unauthenticated_species_and_parent_bed_are_rejected(
     scene.addItem(bed)
     scene.addItem(plant)
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -1246,10 +1178,7 @@ def test_set_object_position_is_absolute_move_equivalent_end_to_end(
     scene.addItem(moved)
     target_x, target_y = 700.0, 650.0
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -1339,10 +1268,7 @@ def test_geometry_frames_and_vertex_commands_have_exact_undo_semantics(
     baseline = copy.deepcopy(manager._serialize_item(polygon))
     assert baseline is not None
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -1504,10 +1430,7 @@ def test_constrained_geometry_read_succeeds_but_every_d26_write_refuses(
     baseline = copy.deepcopy(manager._serialize_item(polygon))
     graph_before = copy.deepcopy(scene.constraint_graph.to_list())
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     requests = [
         ("set_object_position", {"item_id": str(polygon.item_id), "x": 500.0, "y": 500.0}),
@@ -1574,10 +1497,7 @@ def test_unauthenticated_d26_writes_are_rejected_without_side_effects(
     scene.addItem(polygon)
     original = [QPointF(point) for point in polygon.polygon()]
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     requests = [
         ("set_object_position", {"item_id": str(polygon.item_id), "x": 500.0, "y": 500.0}),
@@ -1622,10 +1542,7 @@ def test_d26_hostile_geometry_is_refused_over_real_transport(
     scene.addItem(polygon)
     original = [QPointF(point) for point in polygon.polygon()]
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     requests = [
         (
@@ -1714,10 +1631,7 @@ def test_unauthenticated_arrange_is_rejected(canvas: Any, qtbot: Any) -> None:
     layer_id = rect_a.layer_id
     before_order = list(scene._normalized_layer_order(layer_id))
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -1750,10 +1664,7 @@ def test_arrange_object_bring_to_front_end_to_end(canvas: Any, qtbot: Any) -> No
     rect_a, rect_b = _add_overlapping_rects(scene)
     layer_id = rect_a.layer_id
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -1794,10 +1705,7 @@ def test_arrange_object_second_identical_call_refuses(canvas: Any, qtbot: Any) -
     scene = view.scene()
     rect_a, _rect_b = _add_overlapping_rects(scene)
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -1854,10 +1762,7 @@ def test_layer_tools_read_write_undo_end_to_end(canvas: Any, qtbot: Any) -> None
     )
     scene.addItem(rect)
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -1971,10 +1876,7 @@ def test_unauthenticated_layer_tools_are_rejected(canvas: Any, qtbot: Any) -> No
     scene.addItem(rect)
     layers_before = len(scene.layers)
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     calls = [
         ("set_object_layer", {"item_id": str(rect.item_id), "layer_id": layer_id}),
@@ -2018,10 +1920,7 @@ def test_create_object_is_clamped_to_the_canvas(canvas: Any, qtbot: Any) -> None
     scene = view.scene()
     canvas_rect = scene.canvas_rect
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -2074,10 +1973,7 @@ def test_move_object_is_clamped_to_the_canvas(canvas: Any, qtbot: Any) -> None:
     scene.addItem(circle)
     item_id = str(circle.item_id)
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -2132,10 +2028,7 @@ def test_move_fully_clamped_away_is_refused_without_an_undo_step(
     scene.addItem(circle)
     item_id = str(circle.item_id)
     # One real move first, so a pushed step would be visible.
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -2189,10 +2082,7 @@ def test_zero_delta_move_is_still_allowed(canvas: Any, qtbot: Any) -> None:
     scene.addItem(circle)
     item_id = str(circle.item_id)
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -2218,8 +2108,6 @@ def test_zero_delta_move_is_still_allowed(canvas: Any, qtbot: Any) -> None:
     assert body.result["item_id"] == item_id  # type: ignore[attr-defined]
 
 
-
-
 def test_off_plan_object_is_flagged_and_diagnosed(canvas: Any, qtbot: Any) -> None:
     """issue #380: a legacy off-plan object is discoverable, not invisible."""
     view = canvas
@@ -2229,8 +2117,7 @@ def test_off_plan_object_is_flagged_and_diagnosed(canvas: Any, qtbot: Any) -> No
     scene.addItem(stranded)
     stranded_id = str(stranded.item_id)
 
-    server = AgentApiServer(_providers(view), port=_free_port())
-    server.start()
+    server, _ = start_server(_providers(view))
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -2265,10 +2152,7 @@ def test_absurd_position_is_still_refused(canvas: Any, qtbot: Any) -> None:
     scene = view.scene()
     before = len([i for i in scene.items() if i.parentItem() is None])
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -2301,7 +2185,6 @@ def test_absurd_position_is_still_refused(canvas: Any, qtbot: Any) -> None:
     assert view.command_manager.can_undo is False
 
 
-
 def test_clamped_house_create_and_position_are_one_undo_step_each(
     canvas: Any, qtbot: Any
 ) -> None:
@@ -2318,10 +2201,7 @@ def test_clamped_house_create_and_position_are_one_undo_step_each(
     canvas_rect = scene.canvas_rect
     depth0 = view.command_manager.undo_depth
 
-    server = AgentApiServer(
-        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
-    )
-    server.start()
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx

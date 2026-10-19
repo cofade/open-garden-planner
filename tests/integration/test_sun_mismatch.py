@@ -1,7 +1,8 @@
 """US-F3: explicit worker -> badge/panel/wire, invalidation and canopy workflow."""
 
-from datetime import date, timedelta
+from datetime import date, time, timedelta
 from pathlib import Path
+from threading import Event, get_ident
 
 import pytest
 from PyQt6.QtCore import QLocale, QPointF, Qt, QTimer
@@ -45,6 +46,8 @@ def sun_app(qtbot, monkeypatch):
     monkeypatch.setattr(win, "_confirm_discard_changes", lambda: True)
     win._load_project_file(str(REFERENCE))
     win._sim_clock.set_date(DAY)
+    # The within-day +1-hour assertion must not inherit a late-night host clock.
+    win._sim_clock.set_time_of_day(time(12))
     yield win
     win._sun_heatmap.shutdown()
     apply_theme(QApplication.instance(), previous_theme)
@@ -224,14 +227,43 @@ def test_geometry_edits_invalidate_without_recompute(sun_app, qtbot, edit):
     assert win._sun_heatmap.run_count == runs and not win._sun_heatmap.receiver_minutes
 
 
-def test_explicit_worker_keeps_gui_responsive(sun_app, qtbot):
+def test_explicit_worker_keeps_gui_responsive(sun_app, qtbot, monkeypatch):
+    from open_garden_planner.ui.canvas import sun_heatmap
+
+    entered, release = Event(), Event()
+    worker_threads, released = [], []
+    gui_thread = get_ident()
+    original = sun_heatmap.compute_sun_exposure
+
+    def held_compute(*args, **kwargs):
+        worker_threads.append(get_ident())
+        entered.set()
+        released.append(release.wait(5))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(sun_heatmap, "compute_sun_exposure", held_compute)
     ticks = []
     timer = QTimer(sun_app)
-    timer.timeout.connect(lambda: ticks.append(1))
+
+    def heartbeat():
+        if entered.is_set() and not release.is_set():
+            ticks.append(1)
+
+    timer.timeout.connect(heartbeat)
     timer.start(10)
-    compute(sun_app, qtbot)
-    timer.stop()
-    assert len(ticks) >= 3
+    try:
+        with qtbot.waitSignal(sun_app._sun_heatmap.finished, timeout=30000) as blocker:
+            sun_app._on_heatmap_requested()
+            qtbot.waitUntil(lambda: entered.is_set() and len(ticks) >= 3, timeout=5000)
+            assert len(worker_threads) == 1 and worker_threads[0] != gui_thread
+            assert sun_app._sun_heatmap.is_running and sun_app._sun_heatmap.result_pending
+            release.set()
+        assert blocker.args == [True] and released == [True]
+        qtbot.waitUntil(lambda: any(e.hours is not None for e in
+                                  sun_app.sun_exposure_coordinator.evaluations.values()))
+    finally:
+        release.set()  # never leave a QThread blocked when an assertion fails
+        timer.stop()
 
 
 def test_imported_grouped_concave_plant_badge_is_inside_footprint(sun_app, qtbot, tmp_path):

@@ -1259,7 +1259,9 @@ class CanvasView(QGraphicsView):
         if moves or vertex_moves:
             self._canvas_scene.update_dimension_lines()
 
-    def _execute_constraint_with_solve(self, command: AddConstraintCommand) -> None:
+    def _execute_constraint_with_solve(
+        self, command: AddConstraintCommand, *, conflicts_checked: bool = False
+    ) -> None:
         """Execute a constraint command with solver moves bundled in one undo step.
 
         Temporarily adds the constraint, computes what the solver would do,
@@ -1280,7 +1282,9 @@ class CanvasView(QGraphicsView):
 
         # Pre-flight feasibility: if this constraint would force the solver to
         # violate an existing one, offer the user an Override/Cancel dialog.
-        if not self._resolve_constraint_conflicts(command):
+        # Size tools may validate against a synchronous proposed-geometry probe.
+        # Its snapshot is restored before this method can enter a modal loop.
+        if not conflicts_checked and not self._resolve_constraint_conflicts(command):
             return
 
         # CAD convention: A is constrained to B → A moves, B stays (reference).
@@ -1317,7 +1321,9 @@ class CanvasView(QGraphicsView):
         if moves or vertex_moves:
             self._canvas_scene.update_dimension_lines()
 
-    def _resolve_constraint_conflicts(self, command: AddConstraintCommand) -> bool:
+    def _resolve_constraint_conflicts(
+        self, command: AddConstraintCommand, *, allow_override: bool = True
+    ) -> bool:
         """Return True if ``command`` can proceed, False if the user cancelled.
 
         Runs a trial solve with the proposed constraint.  If existing
@@ -1389,10 +1395,13 @@ class CanvasView(QGraphicsView):
                 tolerance=1.0,
             )
         except Exception:
-            return True  # Don't block on solver errors — warn-only gate.
+            return allow_override  # A non-interactive size probe fails closed.
 
         if not conflict_ids:
             return True
+
+        if not allow_override:
+            return False
 
         type_names: dict = {
             ConstraintType.DISTANCE: self.tr("Distance"),

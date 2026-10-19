@@ -71,6 +71,7 @@ def test_no_duplicates_when_item_spans_children(scene: CanvasScene) -> None:
     assert hits == [rect]
 
 
+@pytest.mark.perf
 def test_perf_thousand_items(scene: CanvasScene) -> None:
     """1000 items build under a median 200ms and query under a median 1ms.
 

@@ -1,5 +1,6 @@
 """Main entry point for Open Garden Planner."""
 
+import logging
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -171,6 +172,13 @@ def _run_selftest(log: "RenderLog | None" = None) -> int:
         ok = False
         print(f"  FAIL Agent API server selftest -> {exc!r}")
 
+    try:
+        _run_a1_selftest()
+        print("  OK   A1 strict plan I/O, image codecs and verified installer check")
+    except Exception as exc:
+        ok = False
+        print(f"  FAIL A1 ingestion selftest -> {exc!r}")
+
     # --- Qt Quick 3D engine (Phase 17 L1.2, ADR-048) ----------------------
     if not _selftest_quick3d(log):
         ok = False
@@ -202,9 +210,10 @@ def _run_selftest_bounded() -> int:
     A self-test that hangs must fail, not hold a release job for six hours (the
     GitHub default): after ``SELFTEST_WATCHDOG_S`` the watchdog writes the reason
     and every thread's stack into the self-test log and ends the process with
-    exit code 1. It covers the Qt3D imports and the Agent API block too, not
-    only the 3D render. The log also records the overall exit code, so a log
-    whose 3D part passed and whose exit code is 1 points at the first two blocks.
+    exit code 1. It covers the Qt3D imports, the Agent API block and the A1
+    ingestion checks too, not only the 3D render. The log also records the
+    overall exit code, so a log whose 3D part passed and whose exit code is 1
+    points at the first three blocks.
 
     The watchdog is SUPERVISED: a second, tiny process (this exe with
     ``--selftest-supervisor``) ends this one from outside when it is still alive
@@ -254,7 +263,8 @@ def _run_selftest_bounded() -> int:
             print("SELFTEST: FAIL (no log)")
             code = 1
         log("selftest_exit", code=code, result="PASS" if code == 0 else "FAIL",
-            note="covers the Qt3D bindings, the Agent API server and the Qt Quick 3D frame")
+            note="covers the Qt3D bindings, the Agent API server, the A1 ingestion checks "
+                 "and the Qt Quick 3D frame")
         return code
     finally:
         log.close()
@@ -300,6 +310,39 @@ def _selftest_quick3d(log: "RenderLog | None" = None) -> bool:
     except Exception as exc:  # noqa: BLE001 - report every failure, never abort
         print(f"  FAIL Qt Quick 3D selftest -> {exc!r}")
         return False
+
+
+def _run_a1_selftest() -> None:
+    """Exercise the packaged ingestion code/codecs with isolated local fixtures."""
+    import hashlib
+    import io
+    import tempfile
+
+    from PIL import Image
+
+    from open_garden_planner.core.plan_io import PlanValidationError, read_plan, write_plan
+    from open_garden_planner.services.image_download import decode_image
+    from open_garden_planner.services.verified_update import VerifiedInstaller
+
+    with tempfile.TemporaryDirectory(prefix="ogp-a1-selftest-") as directory:
+        path = Path(directory) / "fixture.ogp"
+        write_plan(path, {"objects": []})
+        assert read_plan(path)["objects"] == []
+        original = path.read_bytes()
+        try:
+            write_plan(path, {"objects": [{"x": float("nan")} ]})
+        except PlanValidationError:
+            pass
+        else:
+            raise AssertionError("Invalid plan numbers were accepted")
+        assert path.read_bytes() == original
+        for fmt in ("PNG", "JPEG", "WEBP", "GIF"):
+            encoded = io.BytesIO()
+            Image.new("RGB", (2, 2), "green").save(encoded, format=fmt)
+            assert decode_image(encoded.getvalue(), max_pixels=4).size == (2, 2)
+        installer = Path(directory) / "fixture.bin"
+        installer.write_bytes(b"synthetic installer")
+        VerifiedInstaller(installer, 19, hashlib.sha256(b"synthetic installer").hexdigest()).check()
 
 
 def _write_crash_log(message: str) -> None:
@@ -403,6 +446,7 @@ def main() -> int:
     from open_garden_planner.app.settings import (
         APPLICATION_NAME,
         ORGANIZATION_NAME,
+        SettingsSecurityError,
         get_settings,
     )
     from open_garden_planner.core.i18n import load_translator
@@ -425,7 +469,21 @@ def main() -> int:
         app.setWindowIcon(QIcon(str(icon_path)))
 
     # Apply saved preferences
-    settings = get_settings()
+    try:
+        settings = get_settings()
+    except SettingsSecurityError as exc:
+        from PyQt6.QtCore import QLocale
+        from PyQt6.QtWidgets import QMessageBox
+
+        load_translator(app, QLocale.system().name().split("_")[0])
+        logging.getLogger(__name__).error("Settings protection failed for %s", exc.path)
+        QMessageBox.critical(
+            None, app.translate("main", "Settings Access Error"),
+            app.translate("main", "Open Garden Planner cannot secure its settings file:\n{path}\n\n"
+                          "The file must be owned by your account with owner-only read and write access. "
+                          "Correct its permissions and restart the app.").format(path=exc.path),
+        )
+        return 1
     load_translator(app, settings.language)
     apply_theme(app, settings.theme_mode)
 

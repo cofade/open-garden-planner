@@ -149,7 +149,7 @@ class CompanionPlantingService:
         Returns:
             Localised reason string.
         """
-        if lang == "en" or not rel.reason_de:
+        if lang != "de" or not rel.reason_de:
             return rel.reason
         return rel.reason_de
 

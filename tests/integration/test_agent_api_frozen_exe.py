@@ -31,16 +31,9 @@ from typing import Any
 
 import pytest
 
-from open_garden_planner.agent_api import AgentApiServer, AgentProviders
+from open_garden_planner.agent_api import AgentProviders
+from tests.agent_api_helpers import free_port, start_server
 from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
-
-
-def _free_port() -> int:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(("127.0.0.1", 0))
-    port = sock.getsockname()[1]
-    sock.close()
-    return port
 
 
 def _unused(*_a: Any, **_k: Any) -> dict[str, Any]:
@@ -112,7 +105,7 @@ def test_plain_uvicorn_config_really_does_break_without_stdout(
     monkeypatch.setattr(sys, "stderr", None)
 
     with pytest.raises(ValueError, match="formatter"):
-        uvicorn.Config(_app, host="127.0.0.1", port=_free_port())
+        uvicorn.Config(_app, host="127.0.0.1", port=free_port())
 
 
 def test_server_starts_when_stdout_is_none(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -122,13 +115,16 @@ def test_server_starts_when_stdout_is_none(monkeypatch: pytest.MonkeyPatch) -> N
     ``uvicorn.Config`` kwargs: duplicating them here would keep passing if
     ``server.py`` later dropped ``log_config=None``.
     """
-    port = _free_port()
-    server = AgentApiServer(_providers(), port=port)
-
+    # The stdout/stderr patch goes BEFORE the start on purpose: #291 is precisely the
+    # condition that a windowed frozen build starts the server with sys.stdout=None,
+    # so constructing and starting first would quietly stop testing it.
     monkeypatch.setattr(sys, "stdout", None)
     monkeypatch.setattr(sys, "stderr", None)
+    # `server` is pre-bound so the finally below cannot raise NameError and mask the
+    # real failure if start_server gives up.
+    server = None
     try:
-        server.start()
+        server, port = start_server(_providers())
         assert server.is_running, (
             "Agent API did not start with sys.stdout=None — the windowed frozen "
             "build condition from issue #291 has regressed"
@@ -143,4 +139,5 @@ def test_server_starts_when_stdout_is_none(monkeypatch: pytest.MonkeyPatch) -> N
         finally:
             probe.close()
     finally:
-        server.stop()
+        if server is not None:
+            server.stop()
