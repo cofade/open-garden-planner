@@ -1,4 +1,4 @@
-"""Spanish translations for the Phase 17 3D workspace (L1.3, L1.8; #385)."""
+"""Spanish translations for the Phase 17 3D workspace (L1.3), its looks (L1.4) and selection / walk (L1.8), #385."""
 
 TRANSLATIONS = {
     "View3DProblemsDialog": {
@@ -91,5 +91,17 @@ TRANSLATIONS = {
         "Drawn on the ground in 3D: the plan gives it no height.": (
             "Dibujado en el suelo en 3D: el plano no le da altura."
         ),
+    },
+    "PreferencesDialog": {
+        "3D View": "Vista 3D",
+        "Automatic": "Automática",
+        "High": "Alta",
+        "How detailed the 3D view is drawn. Automatic picks a level from the frame rate it measures on this computer.": "Con qué nivel de detalle se dibuja la vista 3D. «Automática» elige un nivel según la velocidad de fotogramas que mide en este equipo.",
+        "Keep leaves and grass still instead of swaying in the wind.": "Mantener quietas las hojas y la hierba en lugar de mecerse con el viento.",
+        "Low": "Baja",
+        "Medium": "Media",
+        "Quality:": "Calidad:",
+        "Reduce motion in the 3D view": "Reducir el movimiento en la vista 3D",
+        "Ultra": "Ultra",
     },
 }

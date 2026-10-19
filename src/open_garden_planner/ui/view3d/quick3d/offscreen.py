@@ -66,7 +66,7 @@ from open_garden_planner.core.scene3d import (
 from . import qt_messages
 from .adapter import Quick3DSink
 from .host import Quick3DHost, shown_quick_windows
-from .look import NEUTRAL_DAY, Look
+from .look import NEUTRAL_DAY, LookSpec
 from .runlog import RenderLog, watchdog
 from .shots import Shot
 
@@ -135,6 +135,8 @@ class OffscreenFrame:
     build_failures: Mapping[str, str] = field(default_factory=dict)
     #: ``QtMessages.report()``: counts per class, the errors, warnings, environment.
     qt: Mapping[str, Any] = field(default_factory=dict)
+    #: Sky textures built for this frame: 1 with ``sky_light=True``, else 0 (L1.4).
+    sky_builds: int = 0
 
     def rgba(self) -> NDArray[np.uint8]:
         return image_rgba(self.image)
@@ -152,11 +154,13 @@ def render_records(
     ground: GroundSpec | None = None,
     size: tuple[int, int] = (640, 360),
     registry: BuilderRegistry | None = None,
-    look: Look = NEUTRAL_DAY,
+    look: LookSpec = NEUTRAL_DAY,
     qml_dir: Path | None = None,
     log: Callable[..., None] | None = None,
     graphics_info: bool = False,
     selected: Iterable[str] = (),
+    sky_light: bool = False,
+    prefer_software: bool = False,
 ) -> OffscreenFrame:
     """Render ``records`` from ``shot`` under ``sun`` into an image of ``size``
     (logical pixels), through the real ``SceneSync`` → ``Quick3DSink`` path.
@@ -171,6 +175,11 @@ def render_records(
     compiled only when something is selected.
     ``graphics_info=True`` also reports the graphics adapter (it switches Qt's
     ``qt.rhi.general`` debug output on for the duration of the call).
+    ``sky_light=True`` builds ``look.sky`` and lets it back and light a perspective
+    frame (L1.4); the default is the plain background and the look's flat fill —
+    what the self-test and every truth probe render. ``prefer_software=True``
+    renders on the software adapter of the graphics API (WARP on Direct3D), where
+    no sky is ever built: the two together are refused (``ValueError``).
 
     Raises ``RenderError`` on a QML or shader error, when this backend cannot
     render 3D, when a Qt Quick window is shown in this process (module
@@ -178,6 +187,9 @@ def render_records(
     here: the caller knows what the frame must contain. A failed BUILDER does not
     raise (the pipeline contains it): read ``build_failures``.
     """
+    if sky_light and prefer_software:
+        raise ValueError("render_records: no sky light on the software adapter — a light probe "
+                         "costs tens of seconds there (the compatibility mode's rule)")
     emit: Callable[..., None] = log if log is not None else _silent
     started = time.perf_counter()
     breakdown: dict[str, float] = {}
@@ -194,7 +206,8 @@ def render_records(
     host: Quick3DHost | None = None
     try:
         with qt_messages.graphics_info() if graphics_info else contextlib.nullcontext():
-            host = Quick3DHost(size, qml_dir=qml_dir, look=look, log=emit)
+            host = Quick3DHost(size, qml_dir=qml_dir, look=look, log=emit,
+                               prefer_software=prefer_software)
             breakdown["qml_load"] = host.qml_load_ms
             api = host.graphics_api()
             if not host.renders_3d():
@@ -209,6 +222,9 @@ def render_records(
             sync.apply(records, sun=sun, ground=ground)  # one transaction
             host.set_shot(shot)
             breakdown["scene_apply"] = (time.perf_counter() - mark) * 1000.0
+            if sky_light:
+                host.set_sky(look.sky)
+                breakdown["sky_build"] = host.last_sky_build_ms
             parts = sum(sink.part_count(item_id) for item_id in sink.item_ids())
             failures = {item_id: f"{type(failure.error).__name__}: {failure.error}"
                         for item_id, failure in sync.failures.items()}
@@ -223,7 +239,7 @@ def render_records(
                 adapter=qt_messages.graphics_adapter(messages.info_lines()),
                 device_pixel_ratio=host.device_pixel_ratio(), view_size=host.view_size(),
                 items=len(sink.item_ids()), parts=parts, build_failures=failures,
-                qt=messages.report(),
+                qt=messages.report(), sky_builds=host.sky_builds,
             )
             emit("rendered", open_ms=round(open_ms, 1), api=api, adapter=frame.adapter,
                  px=f"{image.width()}x{image.height()}", qt=messages.report()["counts"],

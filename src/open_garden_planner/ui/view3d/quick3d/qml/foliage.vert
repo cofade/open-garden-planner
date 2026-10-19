@@ -1,6 +1,6 @@
 // Foliage wind (ported from the L0 spike): sway grows with the leaf's height in
 // the crown (uv.x) and shifts phase per leaf (uv.y) and across the garden (world
-// position). uTime stands still until L1.4 animates it.
+// position). uTime is the scene's windTime: the look's animation policy runs it (L1.4).
 VARYING vec4 vColor;
 void MAIN()
 {

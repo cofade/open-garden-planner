@@ -1554,6 +1554,75 @@ widget that was never shown is not polished, and under an application style shee
 test left behind it measures differently from a shown one. Run the whole default tier in its
 own order before a story's files are believed.
 
+### 8.10.29 Patterns from the looks, the sky and the wind (Phase 17 L1.4)
+
+How the look (§8.32.4, ADR-064 addendum "looks, sky and the animation policy") is tested, and the
+patterns worth reusing.
+
+| Tier | Files | What stands in for the engine |
+|---|---|---|
+| default, no GPU | `tests/unit/test_scene3d_look.py` (the rig, the ramps, the presets, the auto preset, sky staleness), `test_view3d_look_settings.py`, `test_board_probes.py`, `test_render_beauty_board.py`, `test_quick3d_pure.py` (the mapping); `tests/integration/test_view3d_look_controller.py`, `test_view3d_looks.py` (§8.10: a scripted day in a real `GardenPlannerApp`) | a recording host (`set_look` / `set_sky` / wind calls, a `health()` the test sets) and a `RecordingSink` |
+| default, offscreen host | `tests/ui/test_quick3d_host.py` (`TestKeyLight`, `TestSky`, `TestWind`) | the real `Quick3DHost`, never shown: properties read back from the QML scene |
+| render (`OGP_RENDER3D=1`) | `tests/integration/test_view3d_looks_render.py` + its window driver `view3d_looks_driver.py` | nothing: the production board as a child process, on the GPU and on WARP |
+
+- **Pin the port against the source, at a resolution finer than any step.** The rig is compared
+  with the L0 spike's functions at every quarter degree from 0.5° to 40.25° (and the night rig on
+  its own); a deliberate
+  difference is a test of its own that names it and its measured reason (two: the night fog's
+  energy, the night ground hemisphere's).
+- **Continuity is a bound on adjacent samples, then a finer sweep.** No step in sun colour,
+  exposure, sky or fog between adjacent half degrees above a stated bound — and a sweep ten
+  times finer (0.05°) finds no cliff between them (a ramp can be continuous at the half
+  degrees and jump in between).
+- **A state machine fed with synthetic series.** `AutoPreset` has no clock of its own; a `Feed`
+  helper plays frame counts at chosen times: slow, fast, noisy around each threshold (it must not
+  oscillate), stalled (it must hold), a single hitch, a counter that starts over. The controller
+  tests replace its clock and drive its timer slot by hand — no test of a time rule sleeps.
+- **Assert the look as data, then in pixels.** The default tier asserts `host.looks[-1] ==
+  look_for(sun, preset)` — equality of frozen data — and the counts of sky builds and wind
+  calls; the render tier asks the engine whether the frames say the same.
+- **The light's direction is read back from the scene the engine draws from**, not from what
+  Python sent: the quaternion on the QML light rotates (0, 0, −1) onto −`SunState.direction_scene`
+  mapped to the engine frame, for a sweep of elevations and azimuths, and onto the moon's stated
+  direction at night.
+- **An instrument needs a positive control in the same run.** The speckle gate runs the board
+  once more with `sharpnessAmount` 0.08 in a copied scene file (the control must fire); the
+  memory soak runs once more with a scene file whose `buildSky` never destroys the old Texture
+  (the slope must exceed four times the bound); every probe of `board_probes.py` is tested on
+  synthetic frames where the answer is known (a shadow painted where the 2D geometry puts it
+  scores 1; shifted, it scores low).
+- **A soak takes no frame inside its measured loop** (ADR-065 decision 17): one readback before,
+  one after (they must be equal), twenty sun changes in between with the frames presented — and
+  once with the frames withheld, as on a sleeping display.
+- **A sequence A → B → C, then a frame after the old objects are gone.** The sky driver builds
+  three skies with a frame after each, destroys nothing by hand, then renders twice more: the
+  last sky must still be there, its sun at the solar azimuth (the Qt texture trap, #476, breaks
+  exactly this).
+- **The render tier's one wall-clock bound is `perf`** (ADR-058): the software adapter's frame
+  time. Run the file with `-n 0 -m "perf or not perf"`.
+- **No test of the look depends on a sleeping or awake display**: the window driver presents by
+  timer (`QT_D3D_NO_VBLANK_THREAD=1`), and the auto preset's "no data" case is a synthetic stall.
+- **A wiring call is tested through the window that makes it** (fix round 1). The Preferences
+  dialog's `exec` is patched to change its widgets and save, and `window._on_preferences()` runs
+  — so deleting the window's one call to the workspace fails the test (2 failures; the earlier
+  test called `workspace.apply_look_settings()` itself and stayed green without it).
+- **A cross-session rule is tested with two sessions** sharing a store and a wall clock the test
+  holds: the first steps medium -> high -> medium and stores the bar; the second, a minute
+  later, must not step; the third, after the deadline, retries once and doubles the bar.
+- **An aliasing instrument needs a reference, not a threshold.** The fence probe renders the
+  fences alone at the frame's size and at twice its size, filters the large one down in linear
+  light and measures the luma error over the fences' pixels (`thin_geometry_moire`): FXAA 20.0,
+  2x MSAA 12.0, 4x 6.2 at low. A dark-pixel share alone cannot tell aliasing from a picket's own
+  shaded side.
+- **Measure a step AT the edge, not as two band means.** Two first versions of the plan-edge
+  probe got it wrong: looking ACROSS an edge, the farther band read +3 … +8 luma brighter
+  whatever it was made of; looking ALONG it, two band means 2 m apart still read the view's
+  smooth gradient (1.4 luma per metre) as +4 for identical materials. The probe now fits each
+  side on lines across the edge and compares the two fits at the edge line, along the edge
+  from both ends, and gates the largest view — a mean of the two views would hide a sheen that
+  is darker one way and brighter the other (the old material: −4.1 / +4.3). Positive control:
+  the old material reads 4.65, the meadow's 0.21.
+
 ### 8.10.30 Patterns from selection, the info card and walk mode (Phase 17 L1.8)
 
 How §8.32.8 is tested, and the patterns worth reusing. The seam is the workspace's
@@ -4369,8 +4438,9 @@ A sun below `MIN_SUN_ELEVATION_DEG` — the 2D shadow overlay's own threshold �
 off; a flat fill light remains, so a night is dim rather than black (the night rig is L1.4).
 L1.2 has ONE look, `NEUTRAL_DAY`: the spike's noon rig (sun `#fff1dc` × 1.9, exposure 0.85), a
 plain sky colour and no image-based light probe; the fill is the mean of the noon sky's top and
-horizon in linear light times the spike's probe exposure — derived, not chosen. L1.4 passes its
-own `Look` to `Quick3DHost.set_look`.
+horizon in linear light times the spike's probe exposure — derived, not chosen. L1.4 replaced it
+with `core/scene3d/look.LookSpec` (§8.32.4); the flat fill remains only where no sky texture lights
+the view.
 
 **Two views.** The perspective view is the one people look at: filmic tone mapping, exposed by
 the look. The **top-down shot** is the truth view: orthographic, north up, NOT tone-mapped — a
@@ -4579,7 +4649,7 @@ self-test supervisor -> …`, so it cannot be mistaken for a render failure). It
 when a Qt message of the render arrived on another thread than the one that rendered.
 
 **What is not here.** No input handling and no orbit camera (L1.3); no look presets, sky, fog,
-night rig or wind animation (L1.4) — `windTime` exists and stands still, and at 0 the wind
+night rig or wind animation (L1.4, now §8.32.4) — `windTime` exists and stands still, and at 0 the wind
 shaders move nothing: every vertex is drawn exactly where its mesh puts it, also one with the
 full wind weight in a strong wind (the sway eases in over the clock's first two seconds).
 "At rest" means the clock IS 0: a clock PAUSED at another value keeps the sway of that moment
@@ -4800,6 +4870,130 @@ outline) must count them the same way, or measure that they leave nothing.
   is not invisible: the net applies it after the quiet time and counts it in
   `unannounced_changes`; the announcement matrix (`test_view3d_plan_revision.py`) pins every
   edit path at 0.
+
+### 8.32.4 Looks, sky and the animation policy (L1.4)
+
+How the 3D view LOOKS — and why none of it can move a shadow. The decisions and every number are
+the **ADR-064 addendum "looks, sky and the animation policy (L1.4)"**; how it is tested is
+§8.10.29; what went wrong on the way is §11.4.35; the art direction behind the values is the
+`ogp-lush-cinematic` skill (§3 rigs, §5 the Beauty Board, §7 the fix log).
+
+**Truth and look are separate by construction.** Where the sun stands comes from `core/solar`
+through the pipeline (`SceneSync.apply(..., sun=)` → `Quick3DSink.set_sun`): the light travels
+along the negated sun vector. A LOOK — `core/scene3d/look.LookSpec`, made by
+`look_for(sun, preset)` — holds everything else: the key light's colour and brightness, the
+exposure, the sky's inputs, the fog, the shadow softness and the preset's cost. A day look has
+no direction in it at all; once the sun is down (twilight and night) the look states its moon
+(azimuth 165°, elevation 38°: a look, not an ephemeris — the plan's sun is below the horizon and
+the scene still needs a key). The host aims the key light in ONE place,
+`Quick3DHost._apply_light`: the look's moon if it has one, else the sun the pipeline sent, else
+no key light.
+
+| Part | Engine? | What it does |
+|---|---|---|
+| `core/scene3d/look.py` | Qt-free | the rig by sun elevation (three day anchors and their ramps; night below 0.5°), the presets, `look_for`, `sky_is_stale`, `AutoPreset` |
+| `ui/view3d/look_controller.py` | no | `LookController`: the sun, the settings and the frame count in; `set_look` / `set_sky` / the wind out |
+| `ui/view3d/quick3d/look.py` | no | `scene_properties` / `sky_properties` — the mapping onto `Garden.qml`'s properties; `engine_srgb` |
+| `ui/view3d/quick3d/host.py` | **yes** | `set_look`, `set_sky`, `set_wind_running`, `rest_wind`, `_apply_light` |
+| `quick3d/qml/Garden.qml` | **yes** | the environment, the key light, the flat fill, `buildSky` / `dropSky`, the wind's `FrameAnimation` |
+
+**The mood follows the sun's height without a jump.** Noon at 30° and above, golden at 6°, low
+sun at 0.5°, continuous ramps between them (colours mixed in linear light, exposure in stops,
+the rest linearly; no step between adjacent half degrees above the bounds pinned in
+`test_scene3d_look.py`). At 0.5° — exactly where the 2D shadow overlay stops drawing shadows
+(`MIN_SUN_ELEVATION_DEG`), so 2D and 3D never disagree about whether the sun is up — the sun's
+key light goes. Civil twilight follows, down to −6° (`TWILIGHT_DEG`): the low-sun rig fades
+into the night rig (`twilight_rig`; colours in linear light, exposure in stops — mixed in
+stops instead, the sky faded faster than the moon came in and the frame went darker than the
+night it ends in, then brighter again), the sky's and the ground hemisphere's energy 1 -> 0.25,
+saturation 1.06 -> 0.6, the sky draws no sun, and the key light is the moon fading in (0.32 x
+the fraction: no key and no shadow just under 0.5°). Below −6°, night. The key light is never brighter than at noon; a low sun is
+warmer and more exposed, not stronger; the light never rises as the sun sinks.
+
+**Presets are cost, never mood.** `low` / `medium` / `high` / `ultra` (`PRESET_SPECS`) differ in
+the shadow map, cascades, filtering and bias, anti-aliasing, ambient occlusion, glow and (ultra)
+screen-space reflections — and no preset costs less than the one below it in any of them
+(pinned). Low and medium both use 4x MSAA: FXAA let picket fences alias into a moiré, and 2x
+MSAA still did (§11.4.35). Fog is on at every preset (low without it drew a one-row cliff where
+the meadow meets the sky); sharpening is 0 everywhere; screen-space GI is never on. A preset
+change is one `set_look` call: no camera, no geometry, no sky.
+
+**Automatic quality.** With the setting `auto` (the default), `AutoPreset` chooses among low,
+medium and high from the frames the view PRESENTS (`health().frames_presented`, Qt's own frame
+signal) — polled every 0.5 s and only while the wind animates, because a view that draws on
+demand has no frame rate (so reduced motion freezes the choice). Down when the median frame
+time stays over 1/27 s for three seconds; up only after ten seconds since the last change — or
+since the session's first poll — with every sample under 1/50 s; a level that proved too slow
+is not tried again for five minutes, doubling up to an hour. No frame for ten seconds is NO
+DATA — the display asleep, a stall — and never "slow": the preset holds. Where `auto` settled
+and which levels it had to leave, until when (`view3d/auto_quality_level`,
+`view3d/auto_quality_bars`), are stored and seed the next session — without the bars, "high is
+too slow, medium is fine" stepped up and down once in every session. The frames are presented
+frames under vsync: on a 30 Hz display or a remote-desktop session `auto` sits in the dead band
+or steps down for reasons that are not the GPU's (ADR-064 addendum).
+
+> **Rule: nothing that measures the frame rate takes a frame.** No `grab()`, `wait_ready()`,
+> `pick()` or `project()` on the live host from the look (ADR-065 decision 17): a readback is a
+> frame that is never presented, and what it holds comes back only when a presented one ends.
+> A scan over the look controller pins it.
+
+**The sky follows the sun — when the sun moved noticeably.** A procedural sky is a whole texture
+generated on the GUI thread (Medium quality: about 0.1 s on the dev box's GPU) plus a light
+probe Qt filters once per Texture (on WARP: 9–13 s on the dev box, 40–85 s on a CI runner). So
+the sky is rebuilt only when the sun moved at least 1° (great circle) from where the SHOWN sky
+draws it (`sky_is_stale`), and while the time slider is dragged only once the sun has rested
+150 ms; a change of the sky's PHASE (`sky_phase`: day with a sun disc, twilight, night) is
+built at once — sunset at 0.5°, nightfall at −6°, dawn; through twilight the sky follows the sun
+by the degree (its colours do); a night sky is never rebuilt for the sun's position (it draws no
+disc). A sky the engine cannot build is logged once and the session goes on with the plain sky
+and the flat fill — the look itself is sent separately, so a failing sky never keeps it from
+the screen. Light, exposure and fog follow every instant — the fog is computed for the sky
+ON SCREEN while the sky lags, so it still meets the horizon. Every build is a FRESH `Texture`
+with its OWN data object as its child (inputs at the cheapest quality, the quality raised last);
+the old pair is destroyed after the scene shows the new one (a Texture loses its data when a
+data object it held earlier is destroyed — #476). `sunLongitude = azimuth + 90°` (measured).
+No sky is built before the first sun is known, and no sky input is bound live.
+
+**Compatibility mode: no sky, no wind, auto = low.** ONE render-mode parameter
+(`LookController(software=True)`, passed by the workspace) decides the three things a software
+adapter cannot afford: no sky texture and so no light probe is ever created; no wind — an
+animated view renders every frame (1,351 % of one core on WARP, measured by the review); and
+`auto` is `low` (with nothing animated there are no presented frames to choose from). A plain
+background in the fog's colour and a flat fill light (the mean of the sky's top and horizon in
+linear light × probe exposure × the sky's energy × `FILL_OF_SKY` 0.5 — at full strength the
+mode read +22 luma over the GPU's sky-lit frame) stand in. The same plain sky and fill are
+what the top-down truth view and the `--selftest` frame render; the self-test FAILS when its
+frame built a sky.
+
+**Colours derived in linear light are handed over as the engine reads them.** Qt Quick 3D
+linearises a colour property with a polynomial, not the sRGB curve; for a dark colour (a night
+fog: linear 0.0015) the two differ threefold. The fog, the plain sky and the fill are therefore
+given as `QColor.fromRgbF(engine_srgb(linear))`, the inverse of the engine's own conversion.
+
+**The wind (animation policy).** The foliage and grass shaders sway by `windTime` (uv.x = sway
+weight, uv.y = phase). A `FrameAnimation` advances it — only while the 3D pane is shown, reduced
+motion is off AND the adapter is not a software one. Hidden: the clock stops where it is and nothing ticks (the engine itself
+keeps a hidden window's animation running — measured — so the policy stops the clock rather than
+trust "hidden"). Reduced motion (Preferences → 3D View; Qt exposes no operating-system preference
+for it) RESTS the clock at 0: every vertex is drawn where its mesh puts it. A paused non-zero
+clock is not rest — truth probes and the board pin the clock to 0.
+
+**Wiring.** The workspace hands the look controller the sun the pipeline last sent
+(`Scene3DController.sync.sun`) after every pass, so the light and the look are computed from one
+moment and one solar path; a time-of-day change is a light-only pass — no snapshot of the plan.
+The pane's visibility goes to `set_showing`; Preferences' "Save" to `apply_look_settings()`.
+A retired sky leaves nothing behind without a cache release (measured: ADR-064 addendum), so it
+does not count towards the workspace's release policy for retired Models (ADR-065 decision 15).
+
+**The production Beauty Board.** `scripts/render_beauty_board.py` renders the spike's shots
+(golden hour, sunset, noon, morning, December noon, night, walk — same dates, times, cameras)
+through the production pipeline, one never-shown host per frame, and writes PNGs and
+`metrics.json` with the truth rows (shadow IoU in perspective with cascades, north-up, the sky's
+sun azimuth, fog against sky, night against noon, the evening from 6° to −7°, the date each
+shot's models were built for, read back from the records rendered) and the look rows (the
+fences' aliasing against a supersampled render, the plan's edge, the horizon's hue) and the
+frame rate. Procedure:
+`ogp-lush-cinematic` §5.
 
 ### 8.32.6 Built-world builders and base stacking (L1.6)
 

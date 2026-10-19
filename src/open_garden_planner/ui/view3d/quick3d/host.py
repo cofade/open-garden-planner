@@ -94,7 +94,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Final, NamedTuple
+from typing import TYPE_CHECKING, Any, Final, NamedTuple, cast
 
 import numpy as np
 from PyQt6 import sip
@@ -133,6 +133,7 @@ from open_garden_planner.core.scene3d import (
     Rgba,
     engine_to_scene_points,
     scene_to_engine_points,
+    scene_to_engine_vectors,
 )
 from open_garden_planner.core.scene3d.selection import SELECTION_RGBA
 
@@ -148,7 +149,15 @@ from .lifecycle import (
     state_of,
     why_no_frame,
 )
-from .look import NEUTRAL_DAY, Look
+from .look import (
+    COLOR_PROPERTIES,
+    LINEAR_COLOR_PROPERTIES,
+    NEUTRAL_DAY,
+    LookSpec,
+    SkySpec,
+    scene_properties,
+    sky_properties,
+)
 from .materials import PART_COMPONENTS, tint_uniform
 from .shots import PerspectiveShot, Shot, TopDownShot
 
@@ -384,10 +393,23 @@ class Quick3DHost:
     """
 
     def __init__(self, size: tuple[int, int] = (1280, 720), *, qml_dir: Path | None = None,
-                 look: Look = NEUTRAL_DAY, log: Callable[..., None] | None = None,
+                 look: LookSpec = NEUTRAL_DAY, log: Callable[..., None] | None = None,
                  prefer_software: bool = False) -> None:
         self._log: Callable[..., None] = log if log is not None else (lambda *_a, **_k: None)
         self._parts: set[_Part] = set()  # THE owner of every Model and geometry
+        #: The look on screen, and the sun the pipeline sent last (engine frame; None:
+        #: no sun, or it is down). Together they decide the key light (``_apply_light``).
+        self._shown_look: LookSpec = NEUTRAL_DAY   # the scene file's own defaults
+        self._sun_travel: tuple[float, float, float] | None = None
+        #: The sky that lights and backs the perspective view — None: no sky texture
+        #: (a plain background and a flat fill; the software fallback, the self-test).
+        self._sky: SkySpec | None = None
+        #: Sky textures built so far — each is a whole procedural sky and a light probe
+        #: Qt filters once: the instrument behind "one build per noticeable sun move".
+        self.sky_builds = 0
+        #: How long the last ``set_sky`` took on the GUI thread, milliseconds (the
+        #: generation; the probe's filtering lands in the next frame Qt renders).
+        self.last_sky_build_ms = 0.0
         self._container: QWidget | None = None
         self._spent = False   # the one offscreen frame was taken (Qt cannot tell us)
         self._closed = False  # close() ran to its end (Qt deletes the view only later)
@@ -593,7 +615,21 @@ class Quick3DHost:
         _set(model, "tintLinear", QVector3D(*tint_uniform(tint_rgba)))
 
     def set_sun(self, travel: tuple[float, float, float] | None) -> None:
+        """Where the sunlight travels (engine frame) — or None: no sun, or it is down."""
         self._open("set_sun")
+        self._sun_travel = travel
+        self._apply_light()
+
+    def _apply_light(self) -> None:
+        """Aim the key light — the ONE place that does. A night look's moon (its stated
+        direction, mapped to the engine frame here); else the sun the pipeline sent
+        (light travel = -sun vector, ``core/solar``); else no key light at all. A look
+        never aims the sun: by day ``LookSpec.moon_travel_scene`` is None."""
+        travel = self._sun_travel
+        moon = self._shown_look.moon_travel_scene
+        if moon is not None:
+            engine = scene_to_engine_vectors(np.array(moon, dtype=np.float64))
+            travel = (float(engine[0]), float(engine[1]), float(engine[2]))
         if travel is None:
             _set(self._root, "sunUp", False)
             return
@@ -953,16 +989,74 @@ class Quick3DHost:
         _set(self._root, "topDownScale", float(shot.px_per_cm))
         _set(self._root, "topDown", True)
 
-    def set_look(self, look: Look) -> None:
-        """Apply a mood — plain data (``look.Look``); L1.4 passes its own."""
+    def set_look(self, look: LookSpec) -> None:
+        """Apply a look — plain data from ``core.scene3d.look.look_for``; the mapping
+        onto the scene is ``look.scene_properties``. It moves no camera, touches no
+        Model and builds no sky (``set_sky``); at night it aims the key light at the
+        look's moon, by day it leaves the sun where the pipeline put it."""
         self._open("set_look")
-        _set(self._root, "sunColor", QColor(look.sun_color))
-        _set(self._root, "sunBrightness", float(look.sun_brightness))
-        _set(self._root, "fillColor", QColor(look.fill_color))
-        _set(self._root, "exposure", float(look.exposure))
-        _set(self._root, "skyColor", QColor(look.sky_color))
-        _set(self._root, "meadowColor", QColor(look.meadow_albedo))
-        _set(self._root, "windStrength", float(look.wind_strength))
+        for name, value in scene_properties(look).items():
+            if name in COLOR_PROPERTIES:
+                value = QColor(str(value))
+            elif name in LINEAR_COLOR_PROPERTIES:
+                red, green, blue = cast("tuple[float, float, float]", value)  # sRGB-space floats
+                value = QColor.fromRgbF(float(red), float(green), float(blue))
+            _set(self._root, name, value)
+        previous, self._shown_look = self._shown_look, look
+        if look.moon_travel_scene != previous.moon_travel_scene:
+            self._apply_light()   # dusk or dawn: the key light changes hands
+
+    @property
+    def look(self) -> LookSpec:
+        """The look on screen."""
+        return self._shown_look
+
+    def set_sky(self, sky: SkySpec | None) -> None:
+        """Build the sky that backs and lights the perspective view — or None: none
+        (a plain background and the look's flat fill instead).
+
+        EVERY call with a sky builds one: a whole procedural sky on the GUI thread,
+        and a light probe Qt filters in the next frame it renders. WHEN to build is
+        the caller's policy (``core.scene3d.look.sky_is_stale``: once per noticeable
+        sun move) — and so is never building one on a software adapter, where the
+        probe's filtering was measured in tens of seconds (``ogp-3d-renderer`` §8).
+        The old sky's Texture goes with its data object, after the scene shows the
+        new one (``Garden.qml``: ``buildSky``).
+        """
+        self._open("set_sky")
+        if sky is None:
+            # always: after a FAILED first build there is no sky recorded here, and
+            # whatever half a sky the scene kept must go all the same (dropSky is a
+            # no-op on a scene without one)
+            self._call("dropSky")
+            self._sky = None
+            return
+        started = time.perf_counter()
+        self._call("buildSky", sky_properties(sky))
+        self.last_sky_build_ms = (time.perf_counter() - started) * 1000.0
+        self._sky = sky
+        self.sky_builds += 1
+        self._log("sky_built", n=self.sky_builds, ms=round(self.last_sky_build_ms, 1),
+                  elevation=round(sky.sun_elevation_deg, 2), azimuth=round(sky.sun_azimuth_deg, 2),
+                  night=sky.night)
+
+    @property
+    def sky(self) -> SkySpec | None:
+        """The sky on screen (None: no sky texture)."""
+        return self._sky
+
+    def set_wind_running(self, running: bool) -> None:
+        """Start or stop the wind's clock. Stopped, nothing ticks: the clock holds its
+        value (a hidden view goes on where it was) — which is NOT rest."""
+        self._open("set_wind_running")
+        _set(self._root, "windRunning", bool(running))
+
+    def rest_wind(self) -> None:
+        """Stop the wind and put its clock back to 0: every vertex exactly where its
+        mesh puts it. What reduced motion, a truth probe and a still picture need."""
+        self._open("rest_wind")
+        _set(self._root, "windRunning", False)
+        _set(self._root, "windTime", 0.0)
 
     # ── picking and readback ─────────────────────────────────────────────────
 

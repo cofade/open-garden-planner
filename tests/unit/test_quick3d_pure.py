@@ -7,7 +7,6 @@ the render tier only has to prove that the engine does what they say.
 
 from __future__ import annotations
 
-import dataclasses
 import math
 import subprocess
 import sys
@@ -16,8 +15,25 @@ from pathlib import Path
 
 import pytest
 
-from open_garden_planner.core.scene3d import MATERIAL_KINDS, Material, MeshPart, prism_mesh
-from open_garden_planner.ui.view3d.quick3d.look import NEUTRAL_DAY, Look
+from open_garden_planner.core.scene3d import (
+    MATERIAL_KINDS,
+    Material,
+    MeshPart,
+    SunState,
+    prism_mesh,
+)
+from open_garden_planner.core.scene3d.look import look_for
+from open_garden_planner.ui.view3d.quick3d.look import (
+    COLOR_PROPERTIES,
+    LINEAR_COLOR_PROPERTIES,
+    NEUTRAL_DAY,
+    engine_hex,
+    engine_linear,
+    engine_srgb,
+    scene_properties,
+    sky_longitude,
+    sky_properties,
+)
 from open_garden_planner.ui.view3d.quick3d.materials import (
     PART_COMPONENTS,
     WHITE,
@@ -45,47 +61,122 @@ SQUARE = ((-50.0, -50.0), (50.0, -50.0), (50.0, 50.0), (-50.0, 50.0))
 
 
 class TestLook:
-    def test_neutral_day_is_the_spikes_noon_rig(self) -> None:
-        """L1.2 has ONE look, and it is measured, not invented: the L0 spike's noon
-        anchor (``ogp-lush-cinematic`` §3). Drift guard until the spike retires (L1.10)."""
+    """``quick3d/look.py`` is a MAPPING (L1.4): the look itself — rig, presets,
+    ``look_for`` — is ``core/scene3d/look.py``, tested in ``test_scene3d_look.py``."""
+
+    def test_the_neutral_day_is_the_cores_and_the_spikes_noon_rig(self) -> None:
+        """What a host shows before anyone hands it a look is measured, not invented:
+        the L0 spike's noon anchor. Drift guard until the spike retires (L1.10)."""
+        from open_garden_planner.core.scene3d import look as core_look
         from open_garden_planner.spike_q3d import runner
 
-        assert (NEUTRAL_DAY.sun_color, NEUTRAL_DAY.sun_brightness) == runner.SUN_NOON
-        assert NEUTRAL_DAY.exposure == runner.LOOK_NOON["exposure"]
-        assert NEUTRAL_DAY.sky_color == runner.LOOK_NOON["skyHorizon"]
-        assert NEUTRAL_DAY.meadow_albedo == runner.MEADOW_ALBEDO
+        assert NEUTRAL_DAY is core_look.NEUTRAL_DAY
+        properties = scene_properties(NEUTRAL_DAY)
+        assert (properties["sunColor"], properties["sunBrightness"]) == runner.SUN_NOON
+        assert properties["exposure"] == runner.LOOK_NOON["exposure"]
+        assert properties["probeExposure"] == runner.LOOK_NOON["probe"]
+        assert properties["meadowColor"] == runner.MEADOW_ALBEDO
+        assert NEUTRAL_DAY.fog_color == NEUTRAL_DAY.plain_sky == runner.scale_linear(
+            runner.LOOK_NOON["skyHorizon"], runner.LOOK_NOON["probe"] * runner.FOG_OF_HORIZON)
+        assert properties["fogColor"] == properties["skyColor"] == engine_srgb(NEUTRAL_DAY.fog_linear)
 
-    def test_the_fill_is_derived_from_the_noon_sky_not_chosen(self) -> None:
-        """Without a light probe (L1.4) a flat fill stands in for the sky: the mean of the
-        noon sky's top and horizon in linear light, times the noon probe exposure."""
-        from open_garden_planner.core.scene3d import srgb_to_linear
-        from open_garden_planner.spike_q3d import runner
+    def test_the_mapping_holds_plain_values_only(self) -> None:
+        for elevation, preset in ((60.0, "high"), (3.0, "low"), (-20.0, "ultra"), (15.0, "medium")):
+            properties = scene_properties(look_for(SunState(elevation, 200.0), preset))
+            for name, value in properties.items():
+                if name in LINEAR_COLOR_PROPERTIES:
+                    assert isinstance(value, tuple) and len(value) == 3, name
+                    assert all(isinstance(channel, float) and 0.0 <= channel <= 1.0
+                               for channel in value), (name, value)
+                    continue
+                assert isinstance(value, (str, float, int, bool)), (name, value)
+                if name in COLOR_PROPERTIES:
+                    assert isinstance(value, str) and len(value) == 7 and value[0] == "#", name
+            assert set(properties) >= COLOR_PROPERTIES | LINEAR_COLOR_PROPERTIES
+        assert not COLOR_PROPERTIES & LINEAR_COLOR_PROPERTIES
 
-        top = srgb_to_linear(runner.LOOK_NOON["skyTop"])
-        horizon = srgb_to_linear(runner.LOOK_NOON["skyHorizon"])
-        expected = (top + horizon) / 2.0 * runner.LOOK_NOON["probe"]
-        assert NEUTRAL_DAY.fill_linear == pytest.approx(tuple(float(v) for v in expected), abs=5e-4)
+    def test_the_mapping_follows_the_look(self) -> None:
+        look = look_for(SunState(-8.0, 320.0), "low")
+        properties = scene_properties(look)
+        assert properties["sunColor"] == look.mood.sun_color == "#8ea4d6"
+        assert properties["exposure"] == 2.4 and properties["saturation"] == 0.6
+        assert (properties["shadowFactor"], properties["pcfFactor"]) == (25.0, 8.0)
+        assert (properties["shadowMapQuality"], properties["shadowCascades"],
+                properties["softShadows"], properties["shadowBias"]) == ("very_high", 1, "pcf4", 15.0)
+        assert (properties["antialiasing"], properties["ambientOcclusion"], properties["glow"],
+                properties["fog"], properties["reflections"]) == ("msaa", False, False, True, False)
+        assert properties["antialiasingQuality"] == "high", "low: 4x MSAA (fix round 1, #529)"
+        assert properties["fillColor"] == engine_srgb(look.fill_linear)
+        assert properties["skyColor"] == properties["fogColor"] == engine_srgb(look.fog_linear)
 
-    def test_a_look_is_plain_frozen_data(self) -> None:
-        assert dataclasses.is_dataclass(NEUTRAL_DAY)
-        with pytest.raises(dataclasses.FrozenInstanceError):
-            NEUTRAL_DAY.exposure = 2.0  # type: ignore[misc]
-        assert dataclasses.replace(NEUTRAL_DAY, exposure=1.0).exposure == 1.0
+    @pytest.mark.parametrize("linear", [0.0, 1e-5, 0.0005, 0.0015, 0.0044, 0.02, 0.2, 0.44, 0.9, 1.0])
+    def test_the_engines_own_linearisation_gives_the_looks_linear_value_back(self, linear: float) -> None:
+        """A colour PROPERTY is linearised by Qt Quick 3D with a polynomial (measured in
+        L1.4 — ``quick3d/look.py``); ``engine_srgb`` is its inverse, so what the shader
+        computes with is the linear value the look derived."""
+        srgb = engine_srgb((linear, linear, linear))
+        assert all(0.0 <= channel <= 1.0 for channel in srgb)
+        assert engine_linear(srgb[0]) == pytest.approx(linear, abs=1e-12)
 
-    @pytest.mark.parametrize("change", [
-        {"sun_color": "fff1dc"}, {"sky_color": "#fff"}, {"meadow_albedo": "#gggggg"},
-        {"sun_brightness": -1.0}, {"exposure": 0.0}, {"exposure": math.nan},
-        {"fill_linear": (0.1, 0.2)}, {"fill_linear": (0.1, -0.2, 0.3)},
-        {"fill_linear": (0.1, math.inf, 0.3)}, {"wind_strength": -0.5},
-    ])
-    def test_a_malformed_look_is_refused(self, change: dict[str, object]) -> None:
-        with pytest.raises(ValueError):
-            dataclasses.replace(NEUTRAL_DAY, **change)  # type: ignore[arg-type]
+    def test_a_dark_colour_is_where_the_srgb_curve_would_have_been_wrong(self) -> None:
+        """The night fog's green channel, linear 0.0014: the sRGB curve encodes it as
+        code 5, which the ENGINE reads as 0.0005 — a third. Bright colours agree."""
+        from open_garden_planner.core.scene3d.color import srgb_channel_to_linear
 
-    def test_look_accepts_what_l14_will_pass(self) -> None:
-        golden = Look(sun_color="#ffb878", sun_brightness=1.9, fill_linear=(0.2, 0.2, 0.2),
-                      exposure=1.15, sky_color="#f4d2a6", meadow_albedo="#487f34")
-        assert golden.wind_strength == NEUTRAL_DAY.wind_strength
+        night = look_for(SunState(-10.0, 0.0), "high")
+        green = night.fog_linear[1]
+        assert green == pytest.approx(0.00142, abs=2e-5)
+        naive = int(night.fog_color[3:5], 16) / 255.0          # the sRGB curve's code
+        assert engine_linear(naive) < green / 2.5
+        assert engine_linear(engine_srgb(night.fog_linear)[1]) == pytest.approx(green, rel=1e-9)
+        assert engine_hex(night.fog_linear) == "#060912" and night.fog_color == "#03050e"
+        for bright in (0.2, 0.5, 0.9):                         # within one 8-bit code up here
+            exact = srgb_channel_to_linear(bright)
+            assert abs(engine_srgb((exact,) * 3)[0] - bright) * 255.0 < 1.0
+
+    def test_the_scene_files_defaults_are_the_engine_colours_of_the_neutral_day(self) -> None:
+        assert engine_hex(NEUTRAL_DAY.fog_linear) == "#8f9ca8"
+        assert engine_hex(NEUTRAL_DAY.fill_linear) == "#56657c", "half L1.2's #778bab (FILL_OF_SKY)"
+
+    def test_no_property_of_the_mapping_could_aim_the_light(self) -> None:
+        """Truth: where the sun stands is the pipeline's (``Quick3DSink.set_sun``). The
+        look's mapping has no direction in it, by day or by night."""
+        for elevation in (40.0, -10.0):
+            names = set(scene_properties(look_for(SunState(elevation, 100.0), "high")))
+            assert not any("rotation" in name.lower() or "sunup" in name.lower()
+                           or "direction" in name.lower() or "travel" in name.lower()
+                           for name in names), names
+
+    @pytest.mark.parametrize("azimuth", [0.0, 90.0, 180.0, 270.0, 301.5, 359.5])
+    def test_the_sky_longitude_is_the_measured_convention(self, azimuth: float) -> None:
+        """``sunLongitude = azimuth + 90°`` — the spike's sky probe; the L1.4 render tier
+        measures it again in pixels. Drift guard against the spike's own function."""
+        from open_garden_planner.spike_q3d.quick import sky_longitude as spike_longitude
+
+        assert sky_longitude(azimuth) == spike_longitude(azimuth) == (azimuth + 90.0) % 360.0
+
+    def test_the_sky_inputs_are_the_spikes(self) -> None:
+        """Day and night, against what ``GardenSpike.qml``'s ``rebuildSky`` sets."""
+        day = sky_properties(look_for(SunState(12.0, 250.0), "high").sky)
+        assert day == {
+            "sunLatitude": 12.0, "sunLongitude": 340.0,
+            "skyTopColor": day["skyTopColor"], "skyHorizonColor": day["skyHorizonColor"],
+            "groundHorizonColor": day["skyHorizonColor"], "groundBottomColor": "#3c4d2e",
+            "sunColor": day["sunColor"], "skyEnergy": 1.0, "groundEnergy": 1.0,
+            "groundCurve": 0.1, "sunEnergy": 1.0}
+        night = sky_properties(look_for(SunState(-30.0, 10.0), "high").sky)
+        # the night ground hemisphere at the sky's energy, 0.25 — the spike's 0.15 left a
+        # dark line at the night horizon (L1.4 round 5; ``SkySpec.ground_energy``)
+        assert (night["sunLatitude"], night["groundBottomColor"], night["skyEnergy"],
+                night["groundEnergy"], night["sunEnergy"]) == (-6.0, "#0a0f14", 0.25, 0.25, 0.0)
+        spike = (Path(__file__).resolve().parents[2] / "src" / "open_garden_planner" / "spike_q3d"
+                 / "qml" / "GardenSpike.qml").read_text(encoding="utf-8")
+        for line in ('data.groundBottomColor = root.night ? "#0a0f14" : "#3c4d2e"',
+                     "data.groundHorizonColor = root.skyHorizon",
+                     "data.skyEnergy = root.night ? 0.25 : 1.0",
+                     "data.groundEnergy = root.night ? 0.15 : 1.0",   # the one we left
+                     "data.groundCurve = 0.1", "data.sunEnergy = root.night ? 0.0 : 1.0"):
+            assert line in spike, line
 
 
 # ── shots ────────────────────────────────────────────────────────────────────

@@ -210,6 +210,9 @@ a = Analysis(
         "open_garden_planner.ui.sim_clock_subscription",
         "open_garden_planner.core.scene3d.camera",
         "open_garden_planner.core.plain_text",
+        # The look of the 3D view (L1.4): imported with the first switch to 3D.
+        "open_garden_planner.ui.view3d.look_controller",
+        "open_garden_planner.core.scene3d.look",
         # Selection, the info card and walk mode (ADR-065 addendum, L1.8): the
         # card and the bridge are imported when the 3D pane is first built, walk
         # mode when it is first entered.

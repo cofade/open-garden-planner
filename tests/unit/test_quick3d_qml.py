@@ -15,7 +15,12 @@ from pathlib import Path
 import pytest
 
 from open_garden_planner.core.scene3d import MATERIAL_KINDS
-from open_garden_planner.ui.view3d.quick3d.look import NEUTRAL_DAY
+from open_garden_planner.ui.view3d.quick3d.look import (
+    COLOR_PROPERTIES,
+    LINEAR_COLOR_PROPERTIES,
+    NEUTRAL_DAY,
+    scene_properties,
+)
 from open_garden_planner.ui.view3d.quick3d.materials import PART_COMPONENTS
 
 QML_DIR = (Path(__file__).resolve().parents[2] / "src" / "open_garden_planner" / "ui" / "view3d"
@@ -134,7 +139,8 @@ def test_every_material_kind_has_its_part_component() -> None:
 
 def test_every_part_component_is_a_pickable_model_with_the_tint_properties() -> None:
     code = _scene()
-    blocks = re.split(r"Component\s*\{\s*id:\s*", code)[1:]
+    blocks = [block for block in re.split(r"Component\s*\{\s*id:\s*", code)[1:]
+              if block.split()[0].endswith("Part")]   # the others build the sky (L1.4)
     assert len(blocks) == len(PART_COMPONENTS)
     for block in blocks:
         name = block.split()[0]
@@ -193,23 +199,129 @@ def test_every_custom_shader_multiplies_with_the_tint() -> None:
         assert re.search(r"BASE_COLOR\s*=\s*vec4\([\w.]+\s*\*\s*uTint\s*,", source), name
 
 
-def test_the_scene_starts_with_the_neutral_day_look() -> None:
-    """The QML's defaults are what a host shows before ``set_look`` — they must BE the
-    one look L1.2 has, not a second set of numbers."""
+#: Root properties of the look block that are STATE of the wind's clock, not look.
+WIND_STATE = {"windTime", "windRunning"}
+
+
+def _look_block() -> dict[str, tuple[str, str]]:
+    """The scene file's look properties: name -> (QML type, default as written)."""
+    code = SCENE.read_text(encoding="utf-8")
+    block = code[code.index("// ---- look"):code.index("// ---- key light")]
+    found = re.findall(r"^\s*property (\w+) (\w+):\s*([^\s/]+)", strip_comments(block), re.MULTILINE)
+    return {name: (kind, default.strip('"')) for kind, name, default in found}
+
+
+def test_the_look_properties_are_exactly_the_mapping_and_start_as_the_neutral_day() -> None:
+    """The QML's defaults are what a host shows before ``set_look`` — they must BE
+    ``NEUTRAL_DAY`` through the mapping, not a second set of numbers; and the scene
+    declares exactly the properties the mapping writes (a look property nobody sets,
+    or one the scene does not have, fails here and not in front of a GPU)."""
+    declared = _look_block()
+    mapped = scene_properties(NEUTRAL_DAY)
+    assert set(declared) - WIND_STATE == set(mapped)
+    assert set(declared) >= WIND_STATE
+    for name, value in mapped.items():
+        kind, default = declared[name]
+        if name in COLOR_PROPERTIES:
+            assert (kind, default) == ("color", value), name
+        elif name in LINEAR_COLOR_PROPERTIES:  # the engine-space colour, to 8 bits
+            written = "#" + "".join(f"{round(channel * 255):02x}" for channel in value)
+            assert (kind, default) == ("color", written), name
+        elif isinstance(value, bool):
+            assert (kind, default) == ("bool", "true" if value else "false"), name
+        elif isinstance(value, int):
+            assert kind == "int" and int(default) == value, name
+        elif isinstance(value, float):
+            assert kind == "real" and float(default) == value, name
+        else:
+            assert (kind, default) == ("string", value), name
+    assert declared["windTime"] == ("real", "0") and declared["windRunning"] == ("bool", "false")
+
+
+def test_every_key_the_look_can_hold_is_one_the_scene_understands() -> None:
+    """The scene turns four string properties into engine enums; a value it does not
+    name falls through to a default silently. Every value a ``PresetSpec`` may hold
+    must appear in the binding that reads it."""
     code = _scene()
+    for prop, values in (("shadowMapQuality", ("high", "ultra")),          # very_high: the else
+                         ("softShadows", ("pcf4", "pcf8", "pcf32")),       # pcf16: the else
+                         ("antialiasing", ("msaa", "fxaa")),
+                         ("antialiasingQuality", ("very_high", "medium"))):  # high: the else
+        for value in values:
+            assert f'root.{prop} === "{value}"' in code, (prop, value)
+    from open_garden_planner.core.scene3d.look import PRESET_SPECS
 
-    def default(name: str) -> str:
-        match = re.search(rf"property (?:color|real) {name}:\s*([^\n]+)", code)
-        assert match is not None, name
-        return match.group(1).strip().strip('"')
+    assert {spec.shadow_map_quality for spec in PRESET_SPECS.values()} == {"very_high", "ultra"}
+    assert {spec.antialiasing for spec in PRESET_SPECS.values()} == {"msaa"}
+    assert {spec.soft_shadows for spec in PRESET_SPECS.values()} == {"pcf4", "pcf8", "pcf16", "pcf32"}
 
-    assert default("sunColor") == NEUTRAL_DAY.sun_color
-    assert float(default("sunBrightness")) == NEUTRAL_DAY.sun_brightness
-    assert default("fillColor") == NEUTRAL_DAY.fill_color
-    assert float(default("exposure")) == NEUTRAL_DAY.exposure
-    assert default("skyColor") == NEUTRAL_DAY.sky_color
-    assert default("meadowColor") == NEUTRAL_DAY.meadow_albedo
-    assert float(default("windStrength")) == NEUTRAL_DAY.wind_strength
+
+def test_the_look_rules_the_spike_paid_for() -> None:
+    """``ogp-lush-cinematic`` §2 and ``ogp-3d-renderer`` §4, read from the source."""
+    code = _scene()
+    assert re.search(r"sharpnessAmount:\s*0\.0\s", code), "no sharpening, at any preset"
+    assert re.search(r"ssgiEnabled:\s*false\s", code), "SSGI: no preset turns it on"
+    fog = code[code.index("fog: Fog {"):]
+    fog = fog[:fog.index("}")]
+    assert "enabled: !root.topDown && root.fog" in fog and "color: root.fogColor" in fog
+    # the truth view: no sky, no fog, no post effect, no tone mapping, always multisampled
+    for effect in ("aoEnabled", "glowEnabled", "fxaaEnabled", "ssrEnabled", "ditheringEnabled",
+                   "colorAdjustmentsEnabled", "specularAAEnabled"):
+        assert re.search(rf"{effect}:\s*!root\.topDown", code), effect
+    assert "readonly property bool skyShown: skyTexture !== null && !root.topDown" in code
+    assert "lightProbe: view.skyShown ? view.skyTexture : null" in code
+    assert "root.topDown ? SceneEnvironment.TonemapModeNone" in code
+    assert "csmNumSplits: root.topDown ? 0 : root.shadowCascades" in code
+    assert '(root.topDown || root.antialiasing === "msaa")' in code
+    # with a sky the sky is the fill; without one, the look's flat fill
+    assert "ambientColor: view.skyShown ? Qt.rgba(0, 0, 0, 1) : root.fillColor" in code
+
+
+def test_the_sky_is_built_on_request_and_never_bound_live() -> None:
+    """The generator recomputes the whole sky on the GUI thread for every input change,
+    and the environment filters its probe once per Texture object: so the scene
+    declares NO sky — it builds one when the host asks, as a fresh Texture whose data
+    object is its own child, quality raised last, and only ever destroys the Texture."""
+    code = _scene()
+    assert code.count("ProceduralSkyTextureData {") == 1, "one declaration: inside the Component"
+    data = code[code.index("id: skyDataComponent"):]
+    data = data[:data.index("}") + 1]
+    assert "root." not in data and "SkyTextureQualityLow" in data, "no live binding; born cheap"
+    assert "property var skyTexture: null" in code, "no sky before the first sun is known"
+    build = code[code.index("function buildSky"):code.index("function dropSky")]
+    order = [build.index(step) for step in (
+        "skyTextureComponent.createObject(view.scene)", "skyDataComponent.createObject(texture)",
+        "data[key] = inputs[key]", "data.textureQuality = ProceduralSkyTextureData.SkyTextureQualityMedium",
+        "texture.textureData = data", "view.skyTexture = texture", "old.destroy()")]
+    assert order == sorted(order), "inputs first, quality last, the new sky shown before the old goes"
+    assert "data.destroy()" not in code and ".textureData = null" not in code
+    assert build.count(".destroy()") == 1
+
+
+def test_the_winds_clock_runs_only_while_it_is_told_to() -> None:
+    code = _scene()
+    animation = code[code.index("FrameAnimation {"):]
+    animation = animation[:animation.index("}") + 1]
+    assert "running: root.windRunning" in animation
+    assert "root.windTime += frameTime" in animation
+    assert "NumberAnimation" not in code and "Timer {" not in code, "nothing else ticks"
+    assert re.search(r"property bool windRunning:\s*false\s", code)
+
+
+def test_the_environments_constants_are_the_spikes() -> None:
+    """Drift guard until the spike retires (L1.10): the numbers that are the same at
+    every preset were measured on its boards."""
+    spike = strip_comments((SCENE.parents[3].parent / "spike_q3d" / "qml" / "GardenSpike.qml")
+                           .read_text(encoding="utf-8"))
+    code = _scene()
+    for name in ("aoStrength", "aoDistance", "aoSoftness", "glowStrength", "glowIntensity",
+                 "glowBloom", "glowHDRMinimumValue", "depthNear", "depthFar", "depthCurve",
+                 "density", "skyboxBlurAmount", "csmBlendRatio", "shadowMapFar", "clipNear",
+                 "clipFar"):
+        ours = re.findall(rf"\b{name}:\s*([\d.]+)", code)
+        theirs = re.findall(rf"\b{name}:\s*([\d.]+)", spike)
+        assert ours and theirs, name
+        assert {float(v) for v in ours} == {float(v) for v in theirs}, name
 
 
 def test_the_scene_obeys_the_measured_engine_rules() -> None:

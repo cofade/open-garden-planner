@@ -254,7 +254,9 @@ def _left_in(home: Path) -> list[str]:
     ("script", "arguments", "builds_a_store", "says"),
     [("make_scene3d_edge_plan.py", ["--check"], True, "scene3d edge-case plan: OK"),
      ("make_bench_plans.py", ["--check"], True, "bench plans: OK"),  # both save plans: Recent Files
-     ("measure_region_work.py", ["--help"], False, "usage:")],
+     ("measure_region_work.py", ["--help"], False, "usage:"),
+     # L1.4: the production Beauty Board LOADS a plan (Recent Files) before it lists its shots
+     ("render_beauty_board.py", ["--list"], True, "golden_hour")],
 )
 def test_a_script_run_as_a_script_reaches_none_of_the_users_stores(
     tmp_path: Path, script: str, arguments: list[str], builds_a_store: bool, says: str

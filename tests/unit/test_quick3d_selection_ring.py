@@ -196,8 +196,17 @@ def test_the_ring_is_one_static_model_that_cannot_be_picked_and_is_no_part() -> 
         "beside the parts node, not inside it: listParts() must not see the ring")
     assert "selectionRing" not in code[code.index("function listParts"):code.index("function projectToView")]
     # never created from a Component: nothing can make a second one, and nothing destroys it
-    components = re.split(r"Component\s*\{\s*id:\s*", code)[1:]
-    assert not any("ring.vert" in component.split("View3D")[0] for component in components)
+    # (each Component's own braces, matched — L1.4 put Components INSIDE the View3D too)
+    components = []
+    for match in re.finditer(r"Component\s*\{", code):
+        depth, end = 0, match.end() - 1
+        for end in range(match.end() - 1, len(code)):
+            depth += {"{": 1, "}": -1}.get(code[end], 0)
+            if depth == 0:
+                break
+        components.append(code[match.start():end + 1])
+    assert len(components) >= 6, "the scene's material and sky components were found"
+    assert not any("ring.vert" in component or "selectionRing" in component for component in components)
     assert "selectionRing.destroy" not in code
 
 

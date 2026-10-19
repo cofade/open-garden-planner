@@ -260,6 +260,11 @@ class Rendered:
     #: rendered (``QtMessages.other_threads``): any is a FAIL — the recorder is only
     #: allowed here because there are none, and a frozen exe is where that must hold.
     other_threads: int = 0
+    #: Sky textures built for the frame: any is a FAIL (L1.4). The self-test must pass
+    #: on a machine without a GPU, where the light probe of ONE sky costs seconds to a
+    #: minute and more (measured: 9-13 s on WARP on the dev box, 40-85 s on a CI
+    #: runner) — it renders the plain background and the flat fill, and stays that way.
+    sky_builds: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -298,7 +303,7 @@ def _render(log: RenderLog, qml_dir: Path | None) -> Rendered:
     return Rendered(frame.rgba(), frame.device_pixel_ratio, frame.graphics_api, frame.adapter,
                     frame.open_ms, dict(frame.qt.get("counts", {})),
                     tuple(f"{item_id}: {error}" for item_id, error in frame.build_failures.items()),
-                    int(frame.qt.get("other_threads", 0)))
+                    int(frame.qt.get("other_threads", 0)), int(frame.sky_builds))
 
 
 def run_selftest(log_path: Path | None = None, *, watchdog_s: float | None = WATCHDOG_S,
@@ -346,6 +351,10 @@ def run_selftest(log_path: Path | None = None, *, watchdog_s: float | None = WAT
                 problems.append(
                     f"{rendered.other_threads} Qt message(s) of the render arrived on another "
                     "thread than the one that rendered: the message recorder is not safe here")
+            if rendered.sky_builds:
+                problems.append(
+                    f"the self-test built {rendered.sky_builds} sky texture(s): on a machine "
+                    "without a GPU its light probe alone takes longer than the whole test may")
             problems += judge_frame(rendered.rgba, rendered.device_pixel_ratio)
             where = f"{rendered.graphics_api} / {rendered.adapter or 'adapter unknown'}"
             if problems:

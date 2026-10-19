@@ -7,6 +7,7 @@ from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QDialog,
     QDoubleSpinBox,
     QFormLayout,
@@ -68,10 +69,14 @@ class PreferencesDialog(QDialog):
     via QSettings so they don't need environment variables.
     """
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None = None, *, show_view3d: bool = False) -> None:
+        """``show_view3d``: offer the 3D view's settings (Phase 17 L1.4). The main
+        window passes whether it HAS a 3D workspace — while the workspace is behind
+        its internal switch, a setting for a view nobody can open is not shown."""
         super().__init__(parent)
         self.setWindowTitle(self.tr("Preferences"))
         self.setMinimumSize(550, 400)
+        self._show_view3d = bool(show_view3d)
         self._setup_ui()
         self._load_settings()
 
@@ -317,6 +322,38 @@ class PreferencesDialog(QDialog):
 
         layout.addWidget(agent_group)
 
+        # --- 3D view (Phase 17 L1.4): quality and the animation policy ---
+        view3d_group = QGroupBox(self.tr("3D View"))
+        view3d_layout = QFormLayout(view3d_group)
+
+        self._view3d_quality_combo = QComboBox()
+        for key, label in (
+            ("auto", self.tr("Automatic")),
+            ("low", self.tr("Low")),
+            ("medium", self.tr("Medium")),
+            ("high", self.tr("High")),
+            ("ultra", self.tr("Ultra")),
+        ):
+            self._view3d_quality_combo.addItem(label, key)
+        self._view3d_quality_combo.setToolTip(
+            self.tr(
+                "How detailed the 3D view is drawn. Automatic picks a level from "
+                "the frame rate it measures on this computer."
+            )
+        )
+        view3d_layout.addRow(self.tr("Quality:"), self._view3d_quality_combo)
+
+        self._view3d_reduced_motion_check = QCheckBox(
+            self.tr("Reduce motion in the 3D view")
+        )
+        self._view3d_reduced_motion_check.setToolTip(
+            self.tr("Keep leaves and grass still instead of swaying in the wind.")
+        )
+        view3d_layout.addRow(self._view3d_reduced_motion_check)
+
+        view3d_group.setVisible(self._show_view3d)
+        layout.addWidget(view3d_group)
+
         layout.addStretch()
 
         # --- Buttons ---
@@ -357,6 +394,9 @@ class PreferencesDialog(QDialog):
         self._update_agent_api_url()
         self._refresh_agent_api_token_field()
         self._on_agent_api_toggled(settings.agent_api_enabled)
+        index = self._view3d_quality_combo.findData(settings.view3d_quality)
+        self._view3d_quality_combo.setCurrentIndex(max(index, 0))
+        self._view3d_reduced_motion_check.setChecked(settings.view3d_reduced_motion)
 
     def _on_agent_api_toggled(self, enabled: bool) -> None:
         """Enable/disable the port + URL rows alongside the Agent API checkbox."""
@@ -471,6 +511,9 @@ class PreferencesDialog(QDialog):
         settings.agent_api_enabled = self._agent_api_check.isChecked()
         settings.agent_api_port = self._agent_api_port_spin.value()
         settings.agent_api_writes_enabled = self._agent_api_writes_check.isChecked()
+        if self._show_view3d:  # a hidden group never rewrites what it could not show
+            settings.view3d_quality = str(self._view3d_quality_combo.currentData())
+            settings.view3d_reduced_motion = self._view3d_reduced_motion_check.isChecked()
         settings.sync()
         self.accept()
 

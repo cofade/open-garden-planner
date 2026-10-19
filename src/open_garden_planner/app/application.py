@@ -8028,9 +8028,12 @@ class GardenPlannerApp(QMainWindow):
             )
 
         before = _agent_api_state()
-        dialog = PreferencesDialog(self)
+        # the 3D view's settings are offered only where there is a 3D workspace (L1.4)
+        dialog = PreferencesDialog(self, show_view3d=self._workspace is not None)
         if dialog.exec():
             self._update_satellite_menu_state()
+            if self._workspace is not None:
+                self._workspace.apply_look_settings()  # quality, reduced motion
             after = _agent_api_state()
             if before != after:
                 # Restart so a toggle, port, writes or token change takes effect.

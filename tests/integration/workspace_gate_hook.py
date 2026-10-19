@@ -372,11 +372,30 @@ def workspace_facts(window: Any) -> dict[str, Any]:
     return facts
 
 
+def _still_look() -> None:
+    """A STILL scene at ONE preset, for every scenario of the gate (L1.4): the soak and
+    the gate tests compare readbacks exactly, and a wind that sways or an automatic
+    quality that steps would make two frames of the same plan differ. Reduced motion
+    rests the wind's clock at 0 ("at rest means the clock IS 0"); the preset is the
+    one the engine story measured with. Written to the gate's own throw-away store
+    (``_guard_settings``), before the 3D pane is first opened — the look controller
+    reads it when it is built."""
+    module = sys.modules.get(SETTINGS_MODULE)
+    if module is None:
+        return
+    settings = module.get_settings()
+    settings.view3d_reduced_motion = True
+    settings.view3d_quality = "high"
+
+
 def _enter(window: Any, mode: str) -> None:
     """Switch the mode the way the View menu does: through its action."""
+    _still_look()
     workspace = window._workspace
     index = {"plan": 0, "3d": 1, "split": 2}[mode]
     workspace.mode_actions()[index].trigger()
+    if workspace.look is not None:   # a pane that was open before this call
+        workspace.apply_look_settings()
 
 
 def _running(window: Any) -> Callable[[], bool]:

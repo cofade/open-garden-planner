@@ -3192,6 +3192,30 @@ for _ctx, _strings in _PLANT_LISTS_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
+# ── Phase 17 L1.4: the 3D view's quality and reduced motion (#385, ADR-064) ──
+_L14_LOOK_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "PreferencesDialog": {
+        "3D View": "3D-Ansicht",
+        "Automatic": "Automatisch",
+        "Low": "Niedrig",
+        "Medium": "Mittel",
+        "High": "Hoch",
+        "Ultra": "Ultra",
+        "How detailed the 3D view is drawn. Automatic picks a level from "
+        "the frame rate it measures on this computer.":
+            "Wie detailliert die 3D-Ansicht gezeichnet wird. „Automatisch“ wählt eine "
+            "Stufe anhand der Bildrate, die auf diesem Computer gemessen wird.",
+        "Quality:": "Qualität:",
+        "Reduce motion in the 3D view": "Bewegung in der 3D-Ansicht reduzieren",
+        "Keep leaves and grass still instead of swaying in the wind.":
+            "Blätter und Gras bleiben ruhig, statt sich im Wind zu wiegen.",
+    },
+}
+
+for _ctx, _strings in _L14_LOOK_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
 # ── Phase 17 L1.3: the Plan / 3D / Split workspace (#385, ADR-065) ──
 _L13_WORKSPACE_TRANSLATIONS: dict[str, dict[str, str]] = {
     "Workspace": {
