@@ -6626,8 +6626,8 @@ three):
   releases about once per 512 retired Models: the interval cut a held key's releases from 9–13 to
   5–6 a minute, so a minute of held date key keeps 41–63 MB on this plan instead of 76–112; on the
   largest ground (~42 MB per release) that would be about 210–250 MB a minute. The interval
-  cannot make one release leak less. Shipping the default with #532 open is the owner's decision
-  (the ADR-060 addendum, D5).
+  cannot make one release leak less. The owner shipped the default with #532 open (decided at
+  the L1 pull request on 2026-10-19; the ADR-060 addendum, D5).
 - **The ground's own cost** is GPU memory for its tiles (+20 MB on the small plan, +115 MB on
   the large) and up to a second before the first frame is complete; it changes nothing at
   start-up and nothing measurable per edit.

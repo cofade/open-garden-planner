@@ -2603,7 +2603,8 @@ fill half too since the sync, when `master`'s own `test_canvas_item_cache.py` ga
 texture brush they never paint), and `adopt_pen` does not write a sprite's stroke attributes from
 a pen. What a LOADED sprite states is `master`'s rule since #502: what the file holds — that black
 1.0 (round 1 of this story had read it off the pen; review 2 had asked for the type's stroke,
-which `master` then decided otherwise).
+which `master` then decided otherwise). The owner kept `master`'s rule at the L1 pull request
+(2026-10-19).
 
 *Not changed, and inconsistent:* undoing a preset pick in the properties panel returns the style to "none" and leaves the preset's pen (a path of
 `#ffa0522d` 5.0 stays `#ffb4aa96` 8.0; #524). The two ways to change a line's type disagree on a
@@ -2815,8 +2816,9 @@ measured a configuration nobody ships, and a ceiling of about three grounds coul
 *State:* G7 measures the product (bake on) against the plain bound plus an allowance derived
 from the soak's OWN ground (0.6 × tile-texture bytes per release × releases per reload,
 §8.10.9); a non-strict `xfail` tripwire holds the GPU slope to the plain bound; the bake-off
-run stays as Model churn alone. Whether 3D may become the default view while #532 is open is
-the owner's decision (put to them with the measured exposure), not a roadmap blocker. The fix
+run stays as Model churn alone. Whether 3D may become the default view while #532 is open was
+the owner's decision (put to them with the measured exposure), not a roadmap blocker; they
+shipped it at the L1 pull request (2026-10-19, ADR-060 addendum D5). The fix
 is upstream Qt's (a report draft for the owner) or a tile path outside the buffer manager's
 maps that also passes G7. The probe is in the story's scratch (`probe_release_driver.diff`).
 *Lesson:* a soak that passes alone (G6: re-bakes, no release) and one that passes alone (G7:

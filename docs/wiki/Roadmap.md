@@ -89,7 +89,7 @@ F1/F2 passed owner frozen-app acceptance and shipped via [PR #433](https://githu
 All nine stories shipped across **v1.24.5–v1.24.12**.
 The product includes solar calculations, analytic 2D shadows, hours-of-sun heatmaps,
 a Qt 3D view, walkthrough, and plant growth over time.
-Ground remains flat. The Phase 14 renderer had lighting but no engine shadow maps; Phase 17 replaces it.
+Ground remains flat. The Phase 14 renderer had lighting but no engine shadow maps; Phase 17 L1 replaced it in v1.30.14.
 These releases retained patch versioning. There was no v2.0 release.
 
 ## Phase 15: visual refresh complete
