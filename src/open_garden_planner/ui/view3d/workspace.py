@@ -81,7 +81,6 @@ from typing import TYPE_CHECKING, Any, Final, Protocol
 from PyQt6.QtCore import QEvent, QObject, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction, QActionGroup, QHideEvent, QKeySequence, QShowEvent
 from PyQt6.QtWidgets import (
-    QComboBox,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -1274,22 +1273,48 @@ class Workspace(QWidget):
         self._walk_button.setDefaultAction(self._walk_action)
         self._walk_button.setAutoRaise(True)
         self._walk_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        strip.addWidget(self._walk_button)
-        self._eye_combo = QComboBox(pane.strip)
-        self._eye_combo.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self._eye_combo.setToolTip(self.tr("Eye height while walking"))
+        # The eye height is the Walk button's menu (the arrow beside it). A box of its own
+        # beside the button made the strip's row 574 px wide — wider than a 455 px pane,
+        # whose notices were then cut — and, hidden while not walking, it had to keep its
+        # room to keep the view from resizing (fix round 1, after the workspace's strip
+        # became two rows). A menu takes no room and comes and goes with nothing.
+        menu = QMenu(self._walk_button)
+        menu.addSection(self.tr("Eye height while walking"))
+        group = QActionGroup(menu)
+        group.setExclusive(True)
         people = (self.tr("Adult"), self.tr("Smaller adult"), self.tr("Child"))
+        self._eye_actions: list[QAction] = []
         for who, height in zip(people, EYE_HEIGHTS_CM, strict=True):
-            self._eye_combo.addItem(self.tr("{who} – {height}").format(
-                who=who, height=format_length(height)), height)
-        self._eye_combo.currentIndexChanged.connect(self._on_eye_height)
-        # its room is kept while it is hidden: entering walk mode must not make the
-        # strip taller and the 3D view smaller (measured: 4 px, and a resize each time)
-        policy = self._eye_combo.sizePolicy()
-        policy.setRetainSizeWhenHidden(True)
-        self._eye_combo.setSizePolicy(policy)
-        self._eye_combo.hide()
-        strip.addWidget(self._eye_combo)
+            action = QAction(self.tr("{who} – {height}").format(
+                who=who, height=format_length(height)), menu)
+            action.setCheckable(True)
+            action.setData(height)
+            action.triggered.connect(lambda _checked=False, cm=height: self.set_eye_height(cm))
+            group.addAction(action)
+            menu.addAction(action)
+            self._eye_actions.append(action)
+        self._eye_actions[EYE_HEIGHTS_CM.index(self._eye_height or EYE_HEIGHTS_CM[0])].setChecked(True)
+        self._walk_button.setMenu(menu)
+        self._walk_button.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
+        strip.addWidget(self._walk_button)
+
+    @property
+    def eye_height_actions(self) -> list[QAction]:
+        """The Walk button's menu: one checkable action per eye height (``EYE_HEIGHTS_CM``,
+        in that order; empty before the 3D pane was first built)."""
+        return list(getattr(self, "_eye_actions", ()))
+
+    def set_eye_height(self, height_cm: float) -> None:
+        """The walker's eye height — now, while walking, and for the next walk."""
+        from open_garden_planner.core.scene3d.walk import EYE_HEIGHTS_CM
+
+        if height_cm not in EYE_HEIGHTS_CM:
+            raise ValueError(f"an eye height is one of {EYE_HEIGHTS_CM}, got {height_cm!r}")
+        self._eye_height = float(height_cm)
+        for action in self.eye_height_actions:
+            action.setChecked(action.data() == height_cm)
+        if self._walk is not None:
+            self._walk.set_eye_height(float(height_cm))
 
     def _build_card(self, pane: _Pane3D) -> None:
         from .info_card import View3DCardSlot
@@ -1557,8 +1582,6 @@ class Workspace(QWidget):
             before.setFocus(Qt.FocusReason.OtherFocusReason)
 
     def _after_walk_change(self) -> None:
-        if self._pane is not None:
-            self._eye_combo.setVisible(self.walking)
         self._apply_camera()
 
     def _walk_world(self) -> WalkWorld:
@@ -1583,10 +1606,3 @@ class Workspace(QWidget):
         return build_world(controller.sync.records, bounds.max_east, bounds.max_north,
                            parts_of=held_parts)
 
-    def _on_eye_height(self, index: int) -> None:
-        height = self._eye_combo.itemData(index)
-        if not isinstance(height, (int, float)):
-            return
-        self._eye_height = float(height)
-        if self._walk is not None:
-            self._walk.set_eye_height(float(height))

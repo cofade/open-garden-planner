@@ -581,7 +581,7 @@ def test_no_selection_change_and_no_walk_resizes_the_3d_view(bench: SelectionBen
     bench.click(a)
     look("a click in the 3D view")
     bench.workspace.walk_action.trigger()
-    assert bench.workspace.walking and bench.workspace._eye_combo.isVisible()  # noqa: SLF001
+    assert bench.workspace.walking
     look("walking")
     bench.workspace.set_walking(False)
     look("back in orbit")
@@ -837,7 +837,7 @@ def test_enter_walk_and_leave_restores_the_orbit_pose_exactly(bench: SelectionBe
     start = workspace.walk.state
     assert (start.east, start.north) == pytest.approx(pose.target), "where the orbit camera looked"
     assert start.yaw_deg == pytest.approx(pose.yaw_deg % 360.0), "facing the way it looked"
-    assert workspace._eye_combo.isVisible()  # noqa: SLF001
+    assert [action.isChecked() for action in workspace.eye_height_actions] == [True, False, False]
 
     bench.key(Qt.Key.Key_W)                           # walk for a while
     bench.qtbot.waitUntil(lambda: workspace.walk.state.shown != start.shown, timeout=3000)
@@ -855,7 +855,6 @@ def test_enter_walk_and_leave_restores_the_orbit_pose_exactly(bench: SelectionBe
     assert not workspace.walking and not workspace.walk_action.isChecked()
     assert host.cameras[-1] == orbit_call, "the orbit pose, to the last digit"
     assert camera.pose is pose and camera.goal is goal
-    assert not workspace._eye_combo.isVisible()  # noqa: SLF001
     assert len(bench.commands._undo_stack) == stack, "walking never touches the plan"  # noqa: SLF001
     assert host.frames_taken == [], "and takes no frame"
     assert bench.key(Qt.Key.Key_Escape) is False, "not walking: Escape is the application's again"
@@ -1080,17 +1079,21 @@ def test_hiding_and_showing_the_pane_while_walking_keeps_the_walker(bench: Selec
 def test_the_eye_height_presets_move_the_eye_and_are_kept(bench: SelectionBench) -> None:
     walk_ready(bench)
     workspace, host = bench.workspace, bench.host
-    combo = workspace._eye_combo  # noqa: SLF001
-    assert [combo.itemData(i) for i in range(combo.count())] == list(EYE_HEIGHTS_CM)
-    assert combo.itemText(0) == "Adult – 1.65 m" and combo.itemText(2) == "Child – 1.10 m"
-    combo.setCurrentIndex(2)                           # chosen BEFORE walking
+    actions = workspace.eye_height_actions          # the Walk button's menu
+    assert workspace._walk_button.menu() is not None  # noqa: SLF001
+    assert [action.data() for action in actions] == list(EYE_HEIGHTS_CM)
+    assert actions[0].text() == "Adult – 1.65 m" and actions[2].text() == "Child – 1.10 m"
+    actions[2].trigger()                               # chosen BEFORE walking
+    assert [action.isChecked() for action in actions] == [False, False, True]
     workspace.set_walking(True)
     assert host.cameras[-1][0][2] == 110.0
-    combo.setCurrentIndex(1)
+    actions[1].trigger()
     assert host.cameras[-1][0][2] == 150.0 == host.cameras[-1][1][2]
     workspace.set_walking(False)
     workspace.set_walking(True)
     assert host.cameras[-1][0][2] == 150.0, "kept for the session"
+    with pytest.raises(ValueError, match="one of"):
+        workspace.set_eye_height(172.0)
 
 
 def test_a_walk_starts_on_free_ground_and_stops_at_what_is_drawn(bench: SelectionBench) -> None:

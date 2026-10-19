@@ -13921,7 +13921,7 @@ Use Archivo › Establecer ubicación del huerto para configurar las coordenadas
         <message>
             <location filename="../../ui/view3d/workspace.py" line="1252" />
             <source>&amp;Walk</source>
-            <translation>&amp;Paseo virtual</translation>
+            <translation>&amp;Pasear</translation>
         </message>
         <message>
             <location filename="../../ui/view3d/workspace.py" line="463" />

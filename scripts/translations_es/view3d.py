@@ -48,7 +48,7 @@ TRANSLATIONS = {
         "{count} objects are not shown in 3D": "{count} objetos no se muestran en 3D",
         "{tip} ({shortcut})": "{tip} ({shortcut})",
         # L1.8: walk mode and the info card's place (#385)
-        "&Walk": "&Paseo virtual",
+        "&Walk": "&Pasear",  # a short command: the 3D strip is one row in a 455 px pane
         "Walk through the garden at eye height": "Recorra el huerto a la altura de los ojos",
         "Walk through the garden at eye height (W A S D or the arrow keys walk, "
         "drag to look around, Shift runs, Esc leaves)": (
