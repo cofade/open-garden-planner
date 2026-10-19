@@ -22,6 +22,7 @@ import json
 import math
 import subprocess
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -54,7 +55,7 @@ from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 from open_garden_planner.ui.view3d import snapshot as snapshot_module
 from open_garden_planner.ui.view3d.init_guard import Init3DGuard
-from open_garden_planner.ui.view3d.sync_controller import NO_LOCATION_SUN
+from open_garden_planner.ui.view3d.sync_controller import NET_QUIET_MS, NO_LOCATION_SUN
 from open_garden_planner.ui.view3d.workspace import View3DState, Workspace, WorkspaceMode
 from tests.integration.quick3d_render_support import isolated_env
 from tests.integration.test_scene3d_plants import drop
@@ -735,13 +736,23 @@ def test_an_open_that_fails_leaves_the_3d_view_its_camera_and_its_memories_as_th
     monkeypatch.setattr(snapshot_module, "clear_outline_cache", lambda: dropped.append("outlines"))
     shown: list[int] = []
     controller.document_shown.connect(lambda: shown.append(1))
-    qtbot.wait(120)
+    # Settle first. The heat map's overlay repaints the whole scene once more after it
+    # is shown, and under load that repaint can land AFTER the controller first reads
+    # idle — it then arms the quiet-time net, and its pass would be blamed on the open
+    # (re-check 2026-10-19, P1-C; traced: a full-scene `changed` 0–30 ms around the
+    # call, from no Python caller). Settled = idle AND no repaint for longer than the net.
+    repainted = [time.monotonic()]
+    window.canvas_scene.changed.connect(
+        lambda regions: repainted.__setitem__(0, time.monotonic()) if regions else None)
+    qtbot.waitUntil(lambda: controller.idle and time.monotonic() - repainted[0]
+                    > (NET_QUIET_MS + 200) / 1000.0, timeout=15000)
     engines.sink.clear_calls()
     counts = (controller.snapshot_count, controller.apply_count, controller.recovery_count)
     records = dict(controller.sync.records)
 
     failing_open(window, tmp_path)
-    qtbot.wait(200)
+    # longer than the quiet time: a stray pass a repaint would start must be caught here
+    qtbot.wait(NET_QUIET_MS + 300)
 
     assert errors or failing_open is _open_through_the_agent, "the GUI paths said what failed"
     # the plan that stays open is untouched …

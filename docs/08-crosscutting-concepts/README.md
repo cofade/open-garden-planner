@@ -4597,7 +4597,10 @@ small bench plan, 18.3 against 0.7 on the large one). Now:
   announcement: the pass applies it, `Scene3DController.unannounced_changes` counts it, one
   DEBUG line names the kinds that differed. So no edit stays out of 3D for longer than the
   quiet time, whatever writes it. No `changed`, no timer; a scene that is never quiet is
-  reconciled every `NET_MAX_WAIT_S` (5 s) all the same.
+  reconciled every `NET_MAX_WAIT_S` (5 s) all the same. An announcement explains repaints for
+  ONE turn after its pass, no longer: without that expiry an announcement that repaints nothing
+  left "explained" standing, and the next unannounced write was never looked at (ADR-065
+  decision 5). Blind spot, stated: a write to an item on an opacity-0 layer repaints nothing.
 - **Qt's polish is not an edit.** One turn after an item is added Qt tells it
   `ItemVisibleHasChanged(true)` although it was visible all along; announced, every added item
   cost a second whole-plan pass. The hook remembers at `ItemVisibleChange` what the item was.

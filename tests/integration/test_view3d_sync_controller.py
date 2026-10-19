@@ -487,6 +487,29 @@ def test_a_repaint_after_the_pass_of_its_announcement_starts_no_quiet_timer(
     assert controller.reconcile_count == reconciled and controller.unannounced_changes == 0
 
 
+def test_an_unannounced_write_after_an_announcement_that_repainted_nothing_is_still_found(
+        canvas: CanvasView, qtbot) -> None:
+    """Scoped re-check P1-B: an announcement that repaints NOTHING (a typed height through
+    its command; here the bare nudge) left "the revision moved since the last repaint"
+    standing after its own pass, so the next UNANNOUNCED write's repaint read as
+    explained — no quiet timer, and the write stayed out of 3D (measured: height 250
+    in 3D against 777 in the plan after 1.5 s). The explanation now expires one turn
+    after each pass: the write reaches 3D one quiet time later, and is counted."""
+    rig = _net_rig(canvas, qtbot)
+    controller, bed = rig.controller, rig.item
+    rig.scene.note_plan_changed()               # announced, repaints nothing
+    _turns()
+    qtbot.waitUntil(lambda: controller.idle, timeout=5000)
+    rig.recorder.clear_calls()
+    bed.metadata[METADATA_KEY] = 777.0          # no command, no nudge …
+    bed.update()                                # … a repaint only
+    _turns()
+    assert not controller.idle, "the repaint is unexplained: the quiet timer runs"
+    qtbot.wait(QUIET * 3)
+    assert rig.recorder.ops() == [BEGIN, ("replace_geometry", str(bed.item_id)), COMMIT]
+    assert controller.unannounced_changes == 1
+
+
 def test_a_quiet_time_cut_short_by_hiding_is_owed_when_3d_comes_back(
         canvas: CanvasView, qtbot) -> None:
     """An unannounced write was repainted and the quiet timer ran — then 3D was hidden
