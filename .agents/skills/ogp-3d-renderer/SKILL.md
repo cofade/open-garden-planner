@@ -869,5 +869,20 @@ machine):
 - **The frame rate to the display is capped by vsync** on a 60 Hz screen: count presented frames
   (`health().frames_presented`) and report a readback's time only as the cost of a finished
   frame, labelled as such. A `grab()` per frame measures the readback, not the frame.
+- **MSAA quality is a sample count**: `SceneEnvironment.Medium` 2x, `High` 4x, `VeryHigh` 8x.
+  2x does not resolve a picket fence (luma error 12.0 against a 2x-supersampled render; 4x 6.2;
+  FXAA 20.0). On the RTX 4070 (bench_large, 1280 × 720, a new frame's readback) FXAA, 2x and 4x
+  read 23–28, 23–30 and 24–32 ms — inside the run-to-run spread; on WARP under a shared CPU
+  67–152, 96–147 and 107–199 ms. A truth view that must not depend on a preset pins its own
+  quality (`Garden.qml`: the top-down view at 4x).
+- **An animated view on a software adapter renders continuously**: the wind running on WARP
+  drew 139 frames in 4 s at 1,351 % of one core (still: 1 frame, 18 %). Nothing animates in
+  compatibility mode.
+- **Committed memory grows while the wind runs** (open, FU-L14-2): 2.1–2.6 MB per minute,
+  linear over 6 minutes (21,594 frames), dedicated GPU memory flat; 0.8 with the QML engine's
+  `collectGarbage()` every 5 s. Not isolated.
+- **A software adapter presents frames while the GPU's display sleeps**: with the display
+  asleep the GPU host presented 0 frames (only readbacks measure there), the WARP host 30–60 in
+  5 s. Say which a frame-rate number is.
 - **Qt 6.11 exposes no "reduce motion" preference** (`QStyleHints`); the drift guard
   `test_qt_still_exposes_no_motion_preference` fails the day one appears.

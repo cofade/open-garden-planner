@@ -2564,7 +2564,48 @@ Symptom → root cause → fix, for the things that cost time while the looks (A
    *Fix:* `AutoPreset` reads presented frames only while the wind animates (the view draws
    continuously), and ten seconds without a presented frame is no data: what was collected is
    dropped and the preset holds. Never a readback to measure (ADR-065 decision 17).
-7. **Qt has no "reduce motion" preference to honour.** `QStyleHints` in Qt 6.11 exposes none
+7. **The wind ran in compatibility mode** (fix round 1, review P0). *Symptom:* on a software
+   adapter the view with the wind running drew 139 frames in 4 s at 1,351 % of one core (still:
+   1 frame, 18 %); the GUI's 10 ms timer ran 19.9 ms late. *Root cause:* the controller decided
+   the sky by the render mode (`sky_light=not software`) but the wind and the automatic preset
+   by visibility alone — three decisions about one fact, made in two places; and a render-tier
+   test asserted the bug for `[software]`. *Fix:* ONE parameter, `LookController(software=...)`,
+   decides sky, wind and the automatic preset together. **When one fact gates several
+   behaviours, pass the fact, not one of its consequences.**
+8. **A failing sky stopped every later look** (review P1). *Symptom:* a host whose sky could
+   not be built got 20 suns, 0 looks, 20 sky attempts and 20 ERROR lines. *Root cause:* the sky
+   build and `set_look` shared one `try`; the sky was retried in every pass and failed first.
+   *Fix:* the sky in its own `try`; on failure one ERROR, the plain sky for the session; the
+   look always sent (20 looks, 2 sky calls — the build and the clean-up —, 1 error).
+9. **A per-session memory forgot what it learned** (review P1). *Symptom:* "high is too slow,
+   medium is fine" stepped medium -> high -> medium in every session. *Root cause:* the bar on a
+   level that proved too slow lived in memory; the first step up of a session needed only one
+   window. *Fix:* the bars are stored with their deadline and next length, seeded at the first
+   poll, and the first step up waits the hold time.
+10. **Judge a fade by the frame, not by one of its inputs** (look review P1, the twilight
+    ramp). *Symptom:* the twilight colours mixed in linear light move the sky horizon 8 codes in
+    the first half degree and 52 in the last (the drawn horizon 1.1x and 3.4x) — so they were
+    mixed in STOPS instead (1.34–1.48x every half degree). The render tier's dusk sweep then
+    failed: the frame went from 0.116 (0.6°) down to 0.023 (−3°/−4°) and UP to 0.034 at −6°,
+    because the sky faded faster than the moon came in. *Root cause:* the frame's light is the
+    sky AND the fading-in moon, at a rising exposure; a smooth sky alone is not a smooth frame.
+    *Fix:* back to linear colours (the ruling's recipe): the frame darkens all the way, 0.116 ->
+    0.099 (0°) -> 0.052 (−3°) -> 0.034 (−6°); the sky band's late step is carried by the moon.
+    **Measure the composite the viewer sees before "improving" one ingredient.**
+11. **FXAA cannot resolve a picket fence** (look review P1, #529). *Symptom:* a moiré band on
+    the fence at low. Measured against a 2x-supersampled render: FXAA's luma error 20.0, 2x MSAA
+    12.0 (and its dark-pixel share 18.8 %, worse than FXAA's 12.7 %), 4x MSAA 6.2 (medium 7.2).
+    *Fix:* low takes 4x MSAA; on the RTX 4070 its cost was inside the run-to-run spread.
+12. **Memory grows while the wind runs — OPEN (FU-L14-2).** *Symptom:* the first soak of the
+    default steady state (the plan shown, the wind running; fix round 1) reads 2.6 MB per minute
+    of committed memory over 2 minutes and 2.09 over 6 (linear: 1034.2 -> 1045.9 MB, 21,594
+    frames, about 0.55 kB a frame); dedicated GPU memory flat. With the QML engine's collector
+    called every 5 s: 0.81 MB per minute, in steps. *Root cause:* not isolated — per-frame
+    garbage of the `FrameAnimation` handler (`windTime += frameTime`) the V4 collector reclaims
+    late, and something it does not. *State:* the registered bound (2.0) is kept as a strict
+    `xfail` in `test_view3d_looks_render.py`. Untried: the clock as a `NumberAnimation` (no
+    JavaScript per frame).
+13. **Qt has no "reduce motion" preference to honour.** `QStyleHints` in Qt 6.11 exposes none
    (checked against the binding; a drift guard in `tests/unit/test_view3d_look_settings.py`
    fails the day one appears), so the setting is the application's own
    (`view3d/reduced_motion`).

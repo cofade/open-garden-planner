@@ -106,10 +106,11 @@ flower 316). Judge them as v0:
 
 **In production** (L1.4) the rig is DATA in `core/scene3d/look.py` (`NOON`, `GOLDEN`, `LOW_SUN`,
 `NIGHT`, `day_rig`, `look_for(sun, preset) -> LookSpec`), ported with these values and pinned
-against the spike's functions at every quarter degree until the spike retires. Two deliberate
-differences, both from a board: the night fog carries the night sky's energy (× 0.25), and the
-night sky's ground hemisphere is drawn at the sky's energy (0.25, the spike 0.15) — §7. Night
-begins where the 2D shadow overlay ends (`core.shadow_geometry.MIN_SUN_ELEVATION_DEG`, 0.5°).
+against the spike's functions at every quarter degree until the spike retires. Deliberate
+differences, each from a board: the night fog carries the night sky's energy (× 0.25); the
+night sky's ground hemisphere is drawn at the sky's energy (0.25, the spike 0.15); and civil
+twilight is a ramp (fix round 1) — the sun's key light goes where the 2D shadow overlay ends
+(`core.shadow_geometry.MIN_SUN_ELEVATION_DEG`, 0.5°), night begins at −6° (`TWILIGHT_DEG`) — §7.
 
 By day the rig is three **anchors** joined by **continuous ramps** (`runner._day_ramp`):
 low → golden over 0.5° → 6°, golden → noon over 6° → 30°, the noon rig above. Every value
@@ -125,7 +126,8 @@ noon** (a low sun crosses more air): the golden mood is its exposure and colour.
 | Noon | ≥ 30° | `#fff1dc` / 1.9 | `#3f78c9` / `#cfe2f2` (`#fff0d8`) | 0.55 / 0.85 (0.92 clipped a channel on 4.6 % of noon_low) |
 | Golden | 6° | `#ffb878` / 1.9 (2.1 put a 2.03 sun into the 14° December noon and clipped the roof) | `#4f7fc8` / `#f4d2a6` (`#ffd09a`) | 0.50 / 1.15 |
 | Low sun | 0.5° | `#ff9655` / 1.7 | `#4a6fb0` / `#f2b47c` (`#ffb070`) | 0.42 / 1.25 |
-| Night | < 0.5° | moonlight `#8ea4d6` / 0.32 from az 165°, elev 38°; soft faint moon shadows (factor 25, PCF 8); saturation 0.6 | `#070d22` / `#1b2747` (`#9fb2e0`) | 0.35 / 2.4 |
+| Twilight (production, L1.4) | 0.5° → −6° | the low-sun rig mixed into the night rig by t = (0.5 − e) / 6.5 (colours in linear light, exposure in stops); the key light is the moon at 0.32 · t — none, and no shadow, just under 0.5° | mixed; no sun disc; sky and ground energy 1 → 0.25 | mixed; saturation 1.06 → 0.6 |
+| Night | < 0.5° (spike), < −6° (production) | moonlight `#8ea4d6` / 0.32 from az 165°, elev 38°; soft faint moon shadows (factor 25, PCF 8); saturation 0.6 | `#070d22` / `#1b2747` (`#9fb2e0`) | 0.35 / 2.4 |
 
 On the board (bench_small, Berlin): golden_hour 15.23° → sun `#ffd0a8` / 1.9, horizon
 `#e7d8c8`, probe 0.519, exposure 1.024 (was 1.15: mean luma 109.8 → 105.2, low);
@@ -164,7 +166,10 @@ venv/Scripts/python.exe scripts/render_beauty_board.py --out <dir>   --presets l
 (Linux: prefix `QSG_RHI_BACKEND=opengl QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a
 -s "-screen 0 1920x1080x24"` and use `venv/bin/python`.) `--plan` takes another plan
 (`bench_large.ogp`), `--size` the frame (`960x540` is what the L0 and L1.4 boards were judged
-at), `--software` renders on the graphics API's software adapter (WARP: the workspace's
+at), `--dusk` the evening from 6° to −7° on the golden-hour camera (must fade monotonically;
+sunset no larger a step than a half degree of the day ramp), `--fence` the plan's fences alone
+against a 2x-supersampled render (aliasing), `--edge` the plan ground against the meadow along
+its edges (a step ≤ 1 luma), `--software` renders on the graphics API's software adapter (WARP: the workspace's
 compatibility mode — no sky texture, a plain sky and a flat fill), `--fps-seconds N` shows a
 window and measures the frames it PRESENTS per preset with the wind running (and, labelled as
 such, the cost of a finished readback), `--list` prints the shots and their suns. `<dir>/board.log`
@@ -186,8 +191,10 @@ cascades), `orientation` and `sky` (`--orient`: north-up NCC; the sky's sun disc
 centre in the east, south and west), `horizon` (`--horizon`: the row-mean step, dip and ridge
 where fog meets sky, per mood and preset), `moods` (`--moods`: one camera and date under the
 suns of noon, golden hour, sunset and night — `night_over_noon`), `frame_rate`,
-`probe_restore_frame_diff` (the first shot rendered again after the probes; must be 0) and
-`wind_time` (0: every frame at rest). The instruments are `scripts/board_probes.py` (numpy
+`probe_restore_frame_diff` (the first shot rendered again after the probes; must be 0),
+`wind_time` (0: every frame at rest), `builds.<date>.digest` (a digest of (item, height) per
+snapshot: June and December must differ; `build_date` is read back from the records rendered)
+and, with the flags above, `dusk`, `fence_moire` and `plan_edge`. The instruments are `scripts/board_probes.py` (numpy
 only, each with a positive control in `tests/unit/test_board_probes.py`).
 
 The L0 spike's board stays the reference for "before" until the spike retires (L1.10):
@@ -267,6 +274,10 @@ Severity: **P0** = truth gate failed, mirrored/black/broken frame, unreadable sc
 | A sun-grazed LIT wall hatched at high and ultra on Direct3D 11 (a wall at n·l 0.33: pixel noise 1.15 % of its luma, the face 3.7 luma darker; RTX 4070) | shadow bias 5 (the spike's, measured on llvmpipe) against the larger maps and more cascades of high / ultra | bias 10 at high and ultra (8 and above: 0.18 %, the dither's own floor; a grazed top face needs 10 down to a 12° sun); low and medium keep 15; shadow IoU unchanged (0.976 / 0.986 / 0.978). L1.4 round 2 |
 | A sky rebuild held the GUI thread 215 ms while the time slider moved | the spike's `SkyTextureQualityHigh` (2048 × 1024 float texels, 32 MB) | Medium (1024 × 512, 8 MB): 95 ms; every shot's mean luma within 0.02, the sun's azimuth read back within 0.07° (0.03° at High), horizon step 3.4 → 2.9 (bench_small, 960 × 540, all seven shots). L1.4 round 3 |
 | A thin dark line at the NIGHT horizon (dip 2.07 / 1.04 luma, low / high, eye height) | the spike's night ground hemisphere at energy 0.15 under a sky at 0.25 — the day lesson (ground energy = sky energy) had not been carried to night | night ground energy 0.25, the sky's: dip 0.01 / 0.12, fog step 2.51 / 2.50 → 2.75 / 2.80, ridge 0.29 → 0.13 / 0.21, night luminance +0.2 %. L1.4 round 5 |
+| All of civil twilight drew as full moonlit night; at 0.5° the frame fell from luma 77 to 37 within 90 s of plan time, the key light jumping from the sun (az 310°) to the moon (az 165°) | night was a switch at the 2D sunset threshold | a twilight ramp 0.5° → −6° (data): the low-sun rig mixed into the night rig (colours in linear light, exposure in stops), sky and ground energy 1 → 0.25, saturation 1.06 → 0.6, no sun disc, the moon key at 0.32 × the fraction. Dusk sweep, golden-hour camera, low: 0.116 (0.6°) → 0.105 (0.4°) → 0.099 (0°) → 0.052 (−3°) → 0.034 (−6°), monotone; sunset's step 0.011 against the day ramp's largest half degree 0.027. Mixed in stops the sky was smoother but the frame dipped to 0.023 and rose again. L1.4 fix round 1 |
+| A moiré band on the picket fences at low (the look review's P1) | FXAA cannot resolve pickets thinner than a pixel; 2x MSAA can't either | 4x MSAA at low (= medium): the fences' luma error against a 2x-supersampled render 20.0 → 6.2 (2x: 12.0; medium 7.2), dark share 12.7 → 13.1 % (2x: 18.8 %); cost on the RTX 4070 inside the run-to-run spread. L1.4 fix round 1 |
+| Compatibility mode +22 luma brighter than the GPU at golden hour, sunset and in the walk | the flat fill at the sky's full mean radiance, from every direction | fill × 0.5 (`FILL_OF_SKY`); the review's sRGB × 0.72 test read 120.8 → 106.3 against the GPU's 98.9. L1.4 fix round 1 |
+| The plan rectangle a shade off the meadow under a grazing view (up to 4.65 luma, looking along an edge; the look review read −7.8 at golden hour) | plan ground roughness 0.92 / specular 0.2, meadow 1.0 / 0.15 | the meadow's material on the plan ground: 0.21 at most in every view along the west and south edge. L1.4 fix round 1 |
 
 ## 8. Owner taste log (append-only, newest last)
 

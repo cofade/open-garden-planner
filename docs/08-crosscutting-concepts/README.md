@@ -1602,6 +1602,26 @@ patterns worth reusing.
   time. Run the file with `-n 0 -m "perf or not perf"`.
 - **No test of the look depends on a sleeping or awake display**: the window driver presents by
   timer (`QT_D3D_NO_VBLANK_THREAD=1`), and the auto preset's "no data" case is a synthetic stall.
+- **A wiring call is tested through the window that makes it** (fix round 1). The Preferences
+  dialog's `exec` is patched to change its widgets and save, and `window._on_preferences()` runs
+  — so deleting the window's one call to the workspace fails the test (2 failures; the earlier
+  test called `workspace.apply_look_settings()` itself and stayed green without it).
+- **A cross-session rule is tested with two sessions** sharing a store and a wall clock the test
+  holds: the first steps medium -> high -> medium and stores the bar; the second, a minute
+  later, must not step; the third, after the deadline, retries once and doubles the bar.
+- **An aliasing instrument needs a reference, not a threshold.** The fence probe renders the
+  fences alone at the frame's size and at twice its size, filters the large one down in linear
+  light and measures the luma error over the fences' pixels (`thin_geometry_moire`): FXAA 20.0,
+  2x MSAA 12.0, 4x 6.2 at low. A dark-pixel share alone cannot tell aliasing from a picket's own
+  shaded side.
+- **Measure a step AT the edge, not as two band means.** Two first versions of the plan-edge
+  probe got it wrong: looking ACROSS an edge, the farther band read +3 … +8 luma brighter
+  whatever it was made of; looking ALONG it, two band means 2 m apart still read the view's
+  smooth gradient (1.4 luma per metre) as +4 for identical materials. The probe now fits each
+  side on lines across the edge and compares the two fits at the edge line, along the edge
+  from both ends, and gates the largest view — a mean of the two views would hide a sheen that
+  is darker one way and brighter the other (the old material: −4.1 / +4.3). Positive control:
+  the old material reads 4.65, the meadow's 0.21.
 
 ## 8.11 Security Scanning (SAST)
 
@@ -4782,10 +4802,11 @@ through the pipeline (`SceneSync.apply(..., sun=)` → `Quick3DSink.set_sun`): t
 along the negated sun vector. A LOOK — `core/scene3d/look.LookSpec`, made by
 `look_for(sun, preset)` — holds everything else: the key light's colour and brightness, the
 exposure, the sky's inputs, the fog, the shadow softness and the preset's cost. A day look has
-no direction in it at all; a night look states its moon (azimuth 165°, elevation 38°: a look,
-not an ephemeris — the plan's sun is below the horizon and the scene still needs a key). The
-host aims the key light in ONE place, `Quick3DHost._apply_light`: the look's moon if it has one,
-else the sun the pipeline sent, else no key light.
+no direction in it at all; once the sun is down (twilight and night) the look states its moon
+(azimuth 165°, elevation 38°: a look, not an ephemeris — the plan's sun is below the horizon and
+the scene still needs a key). The host aims the key light in ONE place,
+`Quick3DHost._apply_light`: the look's moon if it has one, else the sun the pipeline sent, else
+no key light.
 
 | Part | Engine? | What it does |
 |---|---|---|
@@ -4798,24 +4819,37 @@ else the sun the pipeline sent, else no key light.
 **The mood follows the sun's height without a jump.** Noon at 30° and above, golden at 6°, low
 sun at 0.5°, continuous ramps between them (colours mixed in linear light, exposure in stops,
 the rest linearly; no step between adjacent half degrees above the bounds pinned in
-`test_scene3d_look.py`); night below 0.5° — exactly where the 2D shadow overlay stops drawing
-shadows (`MIN_SUN_ELEVATION_DEG`), so 2D and 3D never disagree about whether the sun is up. The
-key light is never brighter than at noon; a low sun is warmer and more exposed, not stronger.
+`test_scene3d_look.py`). At 0.5° — exactly where the 2D shadow overlay stops drawing shadows
+(`MIN_SUN_ELEVATION_DEG`), so 2D and 3D never disagree about whether the sun is up — the sun's
+key light goes. Civil twilight follows, down to −6° (`TWILIGHT_DEG`): the low-sun rig fades
+into the night rig (`twilight_rig`; colours in linear light, exposure in stops — mixed in
+stops instead, the sky faded faster than the moon came in and the frame went darker than the
+night it ends in, then brighter again), the sky's and the ground hemisphere's energy 1 -> 0.25,
+saturation 1.06 -> 0.6, the sky draws no sun, and the key light is the moon fading in (0.32 x
+the fraction: no key and no shadow just under 0.5°). Below −6°, night. The key light is never brighter than at noon; a low sun is
+warmer and more exposed, not stronger; the light never rises as the sun sinks.
 
 **Presets are cost, never mood.** `low` / `medium` / `high` / `ultra` (`PRESET_SPECS`) differ in
 the shadow map, cascades, filtering and bias, anti-aliasing, ambient occlusion, glow and (ultra)
-screen-space reflections. Fog is on at every preset (low without it drew a one-row cliff where
+screen-space reflections — and no preset costs less than the one below it in any of them
+(pinned). Low and medium both use 4x MSAA: FXAA let picket fences alias into a moiré, and 2x
+MSAA still did (§11.4.35). Fog is on at every preset (low without it drew a one-row cliff where
 the meadow meets the sky); sharpening is 0 everywhere; screen-space GI is never on. A preset
 change is one `set_look` call: no camera, no geometry, no sky.
 
 **Automatic quality.** With the setting `auto` (the default), `AutoPreset` chooses among low,
 medium and high from the frames the view PRESENTS (`health().frames_presented`, Qt's own frame
 signal) — polled every 0.5 s and only while the wind animates, because a view that draws on
-demand has no frame rate. Down when the median frame time stays over 1/27 s for three seconds;
-up only after ten seconds since the last change with every sample under 1/50 s; a level that
-proved too slow is not tried again for five minutes, doubling up to an hour. No frame for ten
-seconds is NO DATA — the display asleep, a stall — and never "slow": the preset holds. Where
-`auto` settled is stored (`view3d/auto_quality_level`) and is where it starts next time.
+demand has no frame rate (so reduced motion freezes the choice). Down when the median frame
+time stays over 1/27 s for three seconds; up only after ten seconds since the last change — or
+since the session's first poll — with every sample under 1/50 s; a level that proved too slow
+is not tried again for five minutes, doubling up to an hour. No frame for ten seconds is NO
+DATA — the display asleep, a stall — and never "slow": the preset holds. Where `auto` settled
+and which levels it had to leave, until when (`view3d/auto_quality_level`,
+`view3d/auto_quality_bars`), are stored and seed the next session — without the bars, "high is
+too slow, medium is fine" stepped up and down once in every session. The frames are presented
+frames under vsync: on a 30 Hz display or a remote-desktop session `auto` sits in the dead band
+or steps down for reasons that are not the GPU's (ADR-064 addendum).
 
 > **Rule: nothing that measures the frame rate takes a frame.** No `grab()`, `wait_ready()`,
 > `pick()` or `project()` on the live host from the look (ADR-065 decision 17): a readback is a
@@ -4827,18 +4861,26 @@ generated on the GUI thread (Medium quality: about 0.1 s on the dev box's GPU) p
 probe Qt filters once per Texture (on WARP: 9–13 s on the dev box, 40–85 s on a CI runner). So
 the sky is rebuilt only when the sun moved at least 1° (great circle) from where the SHOWN sky
 draws it (`sky_is_stale`), and while the time slider is dragged only once the sun has rested
-150 ms; dusk and dawn switch at once; a night sky is never rebuilt for the sun's position (it
-draws no disc). Light, exposure and fog follow every instant — the fog is computed for the sky
+150 ms; a change of the sky's PHASE (`sky_phase`: day with a sun disc, twilight, night) is
+built at once — sunset at 0.5°, nightfall at −6°, dawn; through twilight the sky follows the sun
+by the degree (its colours do); a night sky is never rebuilt for the sun's position (it draws no
+disc). A sky the engine cannot build is logged once and the session goes on with the plain sky
+and the flat fill — the look itself is sent separately, so a failing sky never keeps it from
+the screen. Light, exposure and fog follow every instant — the fog is computed for the sky
 ON SCREEN while the sky lags, so it still meets the horizon. Every build is a FRESH `Texture`
 with its OWN data object as its child (inputs at the cheapest quality, the quality raised last);
 the old pair is destroyed after the scene shows the new one (a Texture loses its data when a
 data object it held earlier is destroyed — #476). `sunLongitude = azimuth + 90°` (measured).
 No sky is built before the first sun is known, and no sky input is bound live.
 
-**Compatibility mode has no sky.** On the software adapter (the workspace's compatibility mode,
-`LookController(sky_light=False)`) no sky texture and so no light probe is ever created: a plain
+**Compatibility mode: no sky, no wind, auto = low.** ONE render-mode parameter
+(`LookController(software=True)`, passed by the workspace) decides the three things a software
+adapter cannot afford: no sky texture and so no light probe is ever created; no wind — an
+animated view renders every frame (1,351 % of one core on WARP, measured by the review); and
+`auto` is `low` (with nothing animated there are no presented frames to choose from). A plain
 background in the fog's colour and a flat fill light (the mean of the sky's top and horizon in
-linear light × probe exposure × the sky's energy) stand in. The same plain sky and fill are
+linear light × probe exposure × the sky's energy × `FILL_OF_SKY` 0.5 — at full strength the
+mode read +22 luma over the GPU's sky-lit frame) stand in. The same plain sky and fill are
 what the top-down truth view and the `--selftest` frame render; the self-test FAILS when its
 frame built a sky.
 
@@ -4848,8 +4890,8 @@ fog: linear 0.0015) the two differ threefold. The fog, the plain sky and the fil
 given as `QColor.fromRgbF(engine_srgb(linear))`, the inverse of the engine's own conversion.
 
 **The wind (animation policy).** The foliage and grass shaders sway by `windTime` (uv.x = sway
-weight, uv.y = phase). A `FrameAnimation` advances it — only while the 3D pane is shown AND
-reduced motion is off. Hidden: the clock stops where it is and nothing ticks (the engine itself
+weight, uv.y = phase). A `FrameAnimation` advances it — only while the 3D pane is shown, reduced
+motion is off AND the adapter is not a software one. Hidden: the clock stops where it is and nothing ticks (the engine itself
 keeps a hidden window's animation running — measured — so the policy stops the clock rather than
 trust "hidden"). Reduced motion (Preferences → 3D View; Qt exposes no operating-system preference
 for it) RESTS the clock at 0: every vertex is drawn where its mesh puts it. A paused non-zero
@@ -4866,7 +4908,10 @@ does not count towards the workspace's release policy for retired Models (ADR-06
 (golden hour, sunset, noon, morning, December noon, night, walk — same dates, times, cameras)
 through the production pipeline, one never-shown host per frame, and writes PNGs and
 `metrics.json` with the truth rows (shadow IoU in perspective with cascades, north-up, the sky's
-sun azimuth, fog against sky, night against noon) and the frame rate. Procedure:
+sun azimuth, fog against sky, night against noon, the evening from 6° to −7°, the date each
+shot's models were built for, read back from the records rendered) and the look rows (the
+fences' aliasing against a supersampled render, the plan's edge, the horizon's hue) and the
+frame rate. Procedure:
 `ogp-lush-cinematic` §5.
 
 ### 8.32.6 Built-world builders and base stacking (L1.6)
