@@ -494,7 +494,7 @@ def test_every_recipe_fits_the_plan_s_numbers(sprite: SpriteRef) -> None:
 
 
 #: The largest plant of each archetype over the tables' recipes, as documented in
-#: §8.32.7 — measured over the full sweep (63,099 plants) and held by the sweep
+#: §8.29.7 — measured over the full sweep (63,099 plants) and held by the sweep
 #: test, well under the 2,000 of the gate. A count is a clipped function of
 #: recipe numbers; only the soles a lobe loses on the ground depend on the dice,
 #: so the mound's is its limit by construction (6 lobes × 128 + 420 leaves × 2;

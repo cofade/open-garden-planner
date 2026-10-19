@@ -353,7 +353,7 @@ would otherwise receive a stale change. Every listener runs even when one raises
 and `instant_changed` is delivered even when a `date_changed` listener failed; the
 first error is re-raised afterwards.
 
-## 6.9 The 3D workspace: an edit, the first open, a new document, the close (Phase 17 L1.3 / L1.9, ADR-065)
+## 6.9 The 3D workspace: an edit, the first open, a new document, the close (Phase 17 L1.3 / L1.9, ADR-060)
 
 The 3D view of every main window since L1.9 (there is no switch). Four flows; in all of them the GUI
 thread is the only thread of ours (Qt renders the 3D window on its own).
@@ -432,7 +432,7 @@ sequenceDiagram
     Note over W,E: the health poll, the pipeline quiet for 0.5 s:<br/>host.release_cached_resources()
 ```
 
-**The ground of an edit** (L1.5, §8.32.5) — the bake rides the edit's pass; what its time
+**The ground of an edit** (L1.5, §8.29.5) — the bake rides the edit's pass; what its time
 budget leaves is painted in ground passes, one per turn of the event loop:
 
 ```mermaid

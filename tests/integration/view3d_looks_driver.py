@@ -32,7 +32,7 @@ Scenarios:
                   the loop; the slope per minute over the second half.
 ``sky_soak``      N sun changes with a sky each, committed memory after every one,
                   NO readback inside the loop (a readback renders a frame that is
-                  never presented: ADR-065). ``frames=withheld``: nothing is drawn
+                  never presented: ADR-060). ``frames=withheld``: nothing is drawn
                   for the length of the loop. ``leak=1``: the positive control — a
                   scene file whose ``buildSky`` never destroys the old Texture.
 """

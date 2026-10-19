@@ -1,4 +1,4 @@
-"""Mouse, wheel and keys of the 3D view → the orbit camera (Phase 17 L1.3, ADR-065).
+"""Mouse, wheel and keys of the 3D view → the orbit camera (Phase 17 L1.3, ADR-060).
 
 An event filter the workspace installs on the engine's window
 (``Quick3DHost.install_event_filter``): the 3D view is a native window, so its
@@ -24,7 +24,7 @@ Home                        reset the view (``reset_requested``)
 Not taken from the Qt 3D controller: Escape (there: "show everything"). It is
 left free for L1.8's walk mode, which the shipped view already leaves with it.
 
-THE CLICK (L1.8, ADR-065). A left press and a left release — no other button down,
+THE CLICK (L1.8, ADR-060). A left press and a left release — no other button down,
 at most ``CLICK_SLOP_PX`` apart, at most ``CLICK_MAX_S`` apart in time — are a
 click, and a click PICKS: ``host.pick(x, y)``, once, and ``picked`` carries the
 hit (or None: the ground, the sky) and the modifiers that were held (the canvas's

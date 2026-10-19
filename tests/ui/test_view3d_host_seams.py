@@ -1,4 +1,4 @@
-"""The three things the workspace story added to the engine host (Phase 17 L1.3, ADR-065).
+"""The three things the workspace story added to the engine host (Phase 17 L1.3, ADR-060).
 
 ``Quick3DHost(prefer_software=True)`` — the compatibility mode's switch —,
 ``install_event_filter`` — how the orbit camera hears the native window's input —

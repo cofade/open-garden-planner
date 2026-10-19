@@ -216,7 +216,7 @@ class AppSettings:
     DEFAULT_DOWNLOAD_PLANT_IMAGES = True
     DEFAULT_FETCH_COMPANION_DATA = True
 
-    # 3D view (Phase 17 L1.4, ADR-064 addendum). The two tuples ARE
+    # 3D view (Phase 17 L1.4, ADR-059 addendum). The two tuples ARE
     # ``core.scene3d.look.QUALITY_CHOICES`` / ``AUTO_LEVELS`` — written out here so
     # that reading a setting does not import the 3D core at app start; a unit test
     # pins them against it.

@@ -1,4 +1,4 @@
-"""The crash marker of the 3D workspace — every transition (Phase 17 L1.3, ADR-065).
+"""The crash marker of the 3D workspace — every transition (Phase 17 L1.3, ADR-060).
 
 ``ui/view3d/init_guard.py`` decides, before the first 3D window of a session is
 built, whether to render on the graphics card, on the software rasteriser or not

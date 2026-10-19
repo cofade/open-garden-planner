@@ -1,4 +1,4 @@
-"""The Plan / 3D / Split workspace of the main window (Phase 17 L1.3, ADR-065).
+"""The Plan / 3D / Split workspace of the main window (Phase 17 L1.3, ADR-060).
 
 The area that held the canvas view holds a ``Workspace``: the canvas, and — once
 the user first asks for it — a 3D pane beside it. Three modes:
@@ -15,7 +15,7 @@ hidden and shown. This module imports no Qt Quick binding at all: the engine is
 built by ``engine_factory`` — by default ``ui/view3d/quick3d`` — which is also the
 seam the tests put a recording sink into.
 
-Layout rule (ADR-065): the 3D view is a NATIVE window inside a container, and no
+Layout rule (ADR-060): the 3D view is a NATIVE window inside a container, and no
 sibling widget paints over it. So nothing here ever overlays it — every control,
 notice and message of the 3D pane sits in a strip ABOVE the view, or replaces it.
 L1.8's info card goes into the same pane, beside or below the view, not on top.
@@ -45,7 +45,7 @@ that hopes the paint came first; a label that is never painted releases the
 pipeline after ``BUILD_NOTICE_WAIT_MS``. The same for a new document while 3D is
 shown.
 
-NOTHING HERE TAKES A FRAME FROM THE LIVE VIEW (ADR-065 decision 17, measured). A
+NOTHING HERE TAKES A FRAME FROM THE LIVE VIEW (ADR-060 decision 17, measured). A
 readback of the host (``grab()``, and ``wait_ready()`` / ``pick()`` / ``project()``,
 which need a frame) renders a frame of its own that is never presented, and what
 such a frame holds is given back only when a PRESENTED frame ends — in a view that
@@ -58,7 +58,7 @@ A click that picks (L1.8) is a user's own action, once — and it is made in
 ``orbit_input.py``, nowhere else. Pinned by a scan of this package's modules and by
 a stand-in host that records such calls.
 
-WHAT A DESTROYED MODEL LEAVES BEHIND (ADR-065, measured). Qt Quick 3D keeps
+WHAT A DESTROYED MODEL LEAVES BEHIND (ADR-060, measured). Qt Quick 3D keeps
 graphics state for every Model it once drew — about 0.2 MB each on Direct3D 11
 with the sun's shadow passes — until ``QQuickWindow.releaseResources()`` is
 called; nothing else gives it back (20 rebuilds of the small bench plan in a
@@ -413,7 +413,7 @@ class Workspace(QWidget):
 
         ``command_manager`` is no longer read: the scene announces every change of
         its plan itself — the undo stack's among them (``CanvasScene.plan_changed``,
-        ADR-065 decision 5) — and the pipeline listens to the scene. The parameter
+        ADR-060 decision 5) — and the pipeline listens to the scene. The parameter
         keeps its place so that a caller written against the first delivery still
         hands ``ui_state`` to ``ui_state``.
 
@@ -729,7 +729,7 @@ class Workspace(QWidget):
             # the look (L1.4): the render mode decides sky, wind and the automatic
             # preset together — in compatibility mode no sky (a light probe costs
             # seconds there), no wind (an animated view renders continuously) and
-            # ``auto`` = low (ADR-064 addendum)
+            # ``auto`` = low (ADR-059 addendum)
             look = LookController.from_settings(host, software=software, parent=self)
             # ONE baker for this engine's life: it holds the ground's tiles, and paints
             # for at most its budget (10 ms) a pass — the controller runs the rest
@@ -1282,7 +1282,7 @@ class Workspace(QWidget):
             self._state = state
             self.view3d_state_changed.emit(state)
 
-    # ── selection, the info card and walk mode (L1.8, ADR-065) ───────────────
+    # ── selection, the info card and walk mode (L1.8, ADR-060) ───────────────
     #
     # ONE selection: the canvas scene's. A click in the 3D view becomes a canvas
     # selection by the canvas's own rules (``selection_bridge``); the canvas's

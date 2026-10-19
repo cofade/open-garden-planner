@@ -1,4 +1,4 @@
-"""What starts a 3D pass in the real main window — and what does not (L1.3, ADR-065 decision 5).
+"""What starts a 3D pass in the real main window — and what does not (L1.3, ADR-060 decision 5).
 
 The first delivery wired ``QGraphicsScene.changed`` straight to "the plan is dirty":
 every REPAINT of the canvas was a whole-plan snapshot. Counted by the reviewer in the

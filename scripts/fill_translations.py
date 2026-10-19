@@ -3147,7 +3147,7 @@ for _ctx, _strings in _PLANT_LISTS_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
-# ── Phase 17 L1.4: the 3D view's quality and reduced motion (#385, ADR-064) ──
+# ── Phase 17 L1.4: the 3D view's quality and reduced motion (#385, ADR-059) ──
 _L14_LOOK_TRANSLATIONS: dict[str, dict[str, str]] = {
     "PreferencesDialog": {
         "3D View": "3D-Ansicht",
@@ -3171,7 +3171,7 @@ for _ctx, _strings in _L14_LOOK_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
-# ── Phase 17 L1.3: the Plan / 3D / Split workspace (#385, ADR-065) ──
+# ── Phase 17 L1.3: the Plan / 3D / Split workspace (#385, ADR-060) ──
 _L13_WORKSPACE_TRANSLATIONS: dict[str, dict[str, str]] = {
     "Workspace": {
         "&Plan": "&Plan",
@@ -3294,7 +3294,7 @@ for _ctx, _strings in _L15_GROUND_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
-# ── Phase 17 L1.8: selection, the info card and walk mode (#385, ADR-065) ──
+# ── Phase 17 L1.8: selection, the info card and walk mode (#385, ADR-060) ──
 _L18_SELECTION_WALK_TRANSLATIONS: dict[str, dict[str, str]] = {
     "Workspace": {
         "&Walk": "&Rundgang",
@@ -3343,7 +3343,7 @@ for _ctx, _strings in _L18_SELECTION_WALK_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
-# ── Phase 17 L1.9: the 3D workspace is the default (#385, ADR-065) ──
+# ── Phase 17 L1.9: the 3D workspace is the default (#385, ADR-060) ──
 _L19_DEFAULT_TRANSLATIONS: dict[str, dict[str, str]] = {
     "GardenPlannerApp": {
         "&3D View": "&3D-Ansicht",

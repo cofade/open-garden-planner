@@ -1847,7 +1847,7 @@ def plant_sprite(record: Record) -> SpriteRef | None:
     — a "Pumpkin" from the gallery has the data of "Winter Squash", and a
     species assigned from the plant database leaves the item's string as it
     was. What 2D draws is what 3D builds; whether 2D should draw the assigned
-    species is a 2D question (ADR-064 addendum "plant art v0", ruling R14).
+    species is a 2D question (ADR-059 addendum "plant art v0", ruling R14).
     """
     if record.kind not in PLANT_KINDS:
         return None

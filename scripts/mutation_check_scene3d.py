@@ -1,4 +1,4 @@
-"""Mutation check for the 3D scene pipeline (Phase 17 L1.1, #385, ADR-064).
+"""Mutation check for the 3D scene pipeline (Phase 17 L1.1, #385, ADR-059).
 
 A green suite says the tests pass. It does not say they would FAIL if the code
 were wrong — the first version of this pipeline passed every gate while turning

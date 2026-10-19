@@ -1,4 +1,4 @@
-"""The info card of the 3D pane, v0 (Phase 17 L1.8, ADR-065). Engine-free.
+"""The info card of the 3D pane, v0 (Phase 17 L1.8, ADR-060). Engine-free.
 
 A small panel BELOW the 3D view — never over it: the view is a native window and
 nothing a sibling widget paints shows on top of it (§8.9.9). It is shown while

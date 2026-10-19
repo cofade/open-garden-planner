@@ -1,4 +1,4 @@
-"""The engine boundary: ``EngineSink`` and its recording double (L1.1, ADR-064).
+"""The engine boundary: ``EngineSink`` and its recording double (L1.1, ADR-059).
 
 Everything the 3D pipeline tells a renderer goes through the eleven methods of
 ``EngineSink`` (ten since L1.1; ``set_selection`` since L1.8). L1.2 implements it with Qt Quick 3D (``ui/view3d/quick3d/``);
@@ -24,7 +24,7 @@ A sink poses a part with ``frame.engine_pose(transform)`` and maps its mesh with
 ``frame.scene_to_engine_points`` — once. A part with ``tinted=True`` is
 multiplied with ``material.tint_linear()``.
 
-SELECTION (L1.8, ADR-065) is not an item and touches none: ``set_selection``
+SELECTION (L1.8, ADR-060) is not an item and touches none: ``set_selection``
 hands the sink ONE mesh, already in the scene frame (``selection.Selection``),
 and the sink shows it in one Model it keeps — a selection change is never an
 ``add``, a ``remove``, a ``replace_geometry``, an ``update_transform`` or an

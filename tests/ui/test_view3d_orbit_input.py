@@ -1,4 +1,4 @@
-"""Mouse, wheel and keys → the orbit camera (Phase 17 L1.3, ADR-065).
+"""Mouse, wheel and keys → the orbit camera (Phase 17 L1.3, ADR-060).
 
 ``ui/view3d/orbit_input.OrbitInput`` is the event filter the workspace puts on the
 engine's native window. Here it sits on a plain ``QObject`` and is sent real Qt

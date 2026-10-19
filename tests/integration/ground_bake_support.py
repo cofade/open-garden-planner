@@ -1,6 +1,6 @@
 """Shared by the ground-bake tests (Phase 17 L1.5, #385) — not a test module.
 
-THE PARITY PATTERN (docs §8.10.28). The ground bake claims to paint a flat item
+THE PARITY PATTERN (docs §8.10.10). The ground bake claims to paint a flat item
 "as the 2D canvas paints it". The judge is therefore the canvas itself:
 
 - the REFERENCE is the app's own full-detail render of a real ``CanvasScene`` —

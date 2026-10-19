@@ -1,4 +1,4 @@
-"""THE path from item ids to the canvas selection (Phase 17 L1.8, ADR-065).
+"""THE path from item ids to the canvas selection (Phase 17 L1.8, ADR-060).
 
 There is ONE selection in the app — the canvas scene's — and ONE way to select an
 object on the plan BY ITS ID, ``select_by_ids``. It is what every list that names

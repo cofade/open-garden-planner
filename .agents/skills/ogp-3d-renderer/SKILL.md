@@ -40,7 +40,7 @@ lives now; the values production was drift-guarded against are frozen in
   `tests/unit/test_scene3d_contract.py`). That is a rule about its source — no module there uses
   Qt — not about the interpreter: importing the package runs `core/__init__.py`, which loads
   PyQt6 for other `core` modules. It is the production side of the engine boundary since
-  L1.1 (ADR-064, §8.32.1): an engine adapter implements `core/scene3d/sink.py::EngineSink` and is
+  L1.1 (ADR-059, §8.29.1): an engine adapter implements `core/scene3d/sink.py::EngineSink` and is
   driven by `SceneSync`; builders are tested against `RecordingSink` with no GPU.
 - **`EngineSink` has eleven methods (the eleventh, `set_selection`, is the selection ring —
   §14), and `clear()` is the one an adapter gets wrong.** After
@@ -58,7 +58,7 @@ lives now; the values production was drift-guarded against are frozen in
   `tests/unit/test_plant_art.py`): the plant recipe tables and the species → sprite rule, read by
   the sprite generator script (which executes `recipes.py` by file path — importing the package
   by name runs `core/__init__.py` and loads PyQt6), by `core/plant_renderer` and by the plant
-  builder `core/scene3d/builders/plants.py` (L1.7, §8.22.4, §8.32.7).
+  builder `core/scene3d/builders/plants.py` (L1.7, §8.22.4, §8.29.7).
 - **A plant's 3D recipe is resolved from the record's `sprite_species`** — the item's own
   species string, raw — its `plant_category` and its kind: the 2D renderer's three inputs.
   `species_name` / `species_key` describe the species DATA and are for labels and lookups; a
@@ -75,7 +75,7 @@ lives now; the values production was drift-guarded against are frozen in
   about 20 MB) — at the cap a shape that was dropped comes back in two builds, so going back to
   a dropped plan costs two cold ticks and a backward scrub twice the forward one. GUI thread
   only; the cache is untested under threads.
-- **The production builders are `core/scene3d/builders/`** (L1.6, ADR-064 addendum):
+- **The production builders are `core/scene3d/builders/`** (L1.6, ADR-059 addendum):
   `production_registry()` returns the `BuilderRegistry` the wiring hands to `SceneSync` — the
   built world's twelve kinds (`register`) and the plant builder's three (`plants.register`,
   above), no kind in both. The built world's
@@ -84,9 +84,9 @@ lives now; the values production was drift-guarded against are frozen in
   record that is not ONE plain outline (several rings, a hole, or `params["outline_resolved"]`)
   is the plain block of its regions and gets no roof, frame or leaves — corners
   bevelled beyond a mitre of two offsets, tinted parts, the mirrored palette) and the how-to
-  are §8.32.6; a record's `transform.base_cm` — where a plant stands on its bed — reaches the
+  are §8.29.6; a record's `transform.base_cm` — where a plant stands on its bed — reaches the
   engine through `engine_pose`, never through a mesh. Their shadows are NOT the 2D model's:
-  the measured table (`scripts/measure_built_world_shadows.py`) is in §8.32.6 and next to the
+  the measured table (`scripts/measure_built_world_shadows.py`) is in §8.29.6 and next to the
   Shadows gate of `ogp-lush-cinematic` §1.
 
 ## 2. PyQt6 6.11 binding facts
@@ -261,7 +261,7 @@ lives now; the values production was drift-guarded against are frozen in
   flat records into 512 px tiles (`core/scene3d/ground.py`: the finest of 1, ½, ¼ … px/cm within
   4096 × 4096 px and 256 tiles; every tile a crop of ONE pixel grid);
   `ui/view3d/quick3d/ground_tiles.py` shows one `#Rectangle` quad and one `QQuick3DTextureData`
-  per tile, and uploads only a tile whose `bytes` changed. Concept and bounds: docs §8.32.5.
+  per tile, and uploads only a tile whose `bytes` changed. Concept and bounds: docs §8.29.5.
   Measured on bench_small (20 tiles, RTX 4070): first show 20 uploads; a 3 m item moved: ≤ 2
   uploads, bake 3–6 ms, a finished `grab()` 4–10 ms later.
 - **The ground arrives in PASSES.** `GroundBaker()` paints for 10 ms a call (`BAKE_BUDGET_S`; at
@@ -690,7 +690,7 @@ build).
 
 ## 12. The production package — `ui/view3d/quick3d/` (L1.2)
 
-Concept and module map: §8.32.2 of `docs/08-crosscutting-concepts/README.md`; the decision and
+Concept and module map: §8.29.2 of `docs/08-crosscutting-concepts/README.md`; the decision and
 every measurement: ADR-048, addendum L1.2. What you need at the keyboard:
 
 - **Sink and host.** `adapter.Quick3DSink(host)` is the `EngineSink`; `host.Quick3DHost(size)`
@@ -833,8 +833,8 @@ every measurement: ADR-048, addendum L1.2. What you need at the keyboard:
 
 ## 13. The engine inside the app — the workspace (L1.3)
 
-Concept: docs §8.32.3; decisions and every number: ADR-065 and the ADR-048 addendum "L1.3"; the
-test patterns: docs §8.10.27. What the ENGINE taught once it ran inside the real app:
+Concept: docs §8.29.3; decisions and every number: ADR-060 and the ADR-048 addendum "L1.3"; the
+test patterns: docs §8.10.9. What the ENGINE taught once it ran inside the real app:
 
 - **`releaseResources()` LEAKS same-size `QQuick3DTextureData` textures (Qt 6.11.0, #532).**
   `QSSGBufferManager::clear()` (`qssgrenderbuffermanager.cpp` ~2049–2052) iterates
@@ -956,8 +956,8 @@ automated check uses its engine on a local page).
 
 ## 14. Looks, sky and wind on the engine (L1.4)
 
-Concept: docs §8.32.4; decisions and the evidence table: the ADR-064 addendum "looks, sky and
-the animation policy (L1.4)"; tests: docs §8.10.29; lessons: §11.4.35. The art-direction values
+Concept: docs §8.29.4; decisions and the evidence table: the ADR-059 addendum "looks, sky and
+the animation policy (L1.4)"; tests: docs §8.10.11; lessons: §11.4.18. The art-direction values
 are `ogp-lush-cinematic` §3. What the ENGINE taught (RTX 4070, Direct3D 11; WARP on the same
 machine):
 
@@ -970,7 +970,7 @@ machine):
 - **A sky build is a fresh `Texture` with its own `ProceduralSkyTextureData` as its child**,
   every input set at `SkyTextureQualityLow` and the quality raised LAST (one generation). Only the
   Texture is ever destroyed — after the scene shows the new one — so a pair lives and dies
-  together (a Texture loses its data when a data object it held earlier dies — the Qt texture trap the ground bake found, docs §11.4.35 item 4). A sequence
+  together (a Texture loses its data when a data object it held earlier dies — the Qt texture trap the ground bake found, docs §11.4.18 item 4). A sequence
   A → B → C with a frame after each, then two frames after the old pairs are gone: the same sky,
   its disc at the solar azimuth (`test_a_sky_rebuilt_three_times_…`).
 - **Medium sky quality is enough.** 1024 × 512 float texels (8 MB) against High's 2048 × 1024
@@ -998,7 +998,7 @@ machine):
   azimuth 225°, the board's `--iou`; the L0 table above was orthographic without cascades):
   bench_small 960 × 540, GPU — low (1 cascade) 0.921 / 0.985 / 0.974, high (2) 0.976 / 0.986 /
   0.978 at 15° / 35° / 60°. At 640 × 360 the render tier holds all four presets ≥ 0.85 on the GPU
-  and on WARP (min 0.919 on both; every cell in the ADR-064 addendum). The weakest cell is always low at 15°: one
+  and on WARP (min 0.919 on both; every cell in the ADR-059 addendum). The weakest cell is always low at 15°: one
   cascade over a 7.5 m shadow.
 - **The frame rate to the display is capped by vsync** on a 60 Hz screen: count presented frames
   (`health().frames_presented`) and report a readback's time only as the cost of a finished
@@ -1014,7 +1014,7 @@ machine):
   compatibility mode.
 - **Committed memory grew while the wind ran** (FU-L14-2, L1.4): 2.1–2.6 MB per minute,
   linear over 6 minutes (21,594 frames), dedicated GPU memory flat; 0.8 with the QML engine's
-  `collectGarbage()` every 5 s. Not isolated. **Re-measured 2026-10-19 (L1.9): not reproduced** — six alternating 4–5 min soaks, three with this `FrameAnimation` and three with a C++ `NumberAnimation` as the clock: 0.46–2.03 MB a minute overall, second-half slopes 0.0–1.51, the two clocks inside each other's spread. The clock change was reverted. But the final render tier the same day read 2.637 (bound 2.0): intermittent, not gone — `test_the_wind_running_for_two_minutes_leaves_nothing_behind` is a non-strict xfail citing #534 (docs/11 §11.4.37).
+  `collectGarbage()` every 5 s. Not isolated. **Re-measured 2026-10-19 (L1.9): not reproduced** — six alternating 4–5 min soaks, three with this `FrameAnimation` and three with a C++ `NumberAnimation` as the clock: 0.46–2.03 MB a minute overall, second-half slopes 0.0–1.51, the two clocks inside each other's spread. The clock change was reverted. But the final render tier the same day read 2.637 (bound 2.0): intermittent, not gone — `test_the_wind_running_for_two_minutes_leaves_nothing_behind` is a non-strict xfail citing #534 (docs/11 §11.4.20).
 - **A software adapter presents frames while the GPU's display sleeps**: with the display
   asleep the GPU host presented 0 frames (only readbacks measure there), the WARP host 30–60 in
   5 s. Say which a frame-rate number is.
@@ -1023,8 +1023,8 @@ machine):
 
 ## 15. Selection, picking in perspective, walk mode (L1.8)
 
-Concept: docs §8.32.8; decisions and every number: ADR-065 addendum "selection, info card and
-walk (L1.8)"; test patterns: docs §8.10.30; traps: docs §11.4.36. What the ENGINE taught:
+Concept: docs §8.29.8; decisions and every number: ADR-060 addendum "selection, info card and
+walk (L1.8)"; test patterns: docs §8.10.12; traps: docs §11.4.19. What the ENGINE taught:
 
 - **`View3D.pick()` agrees with a ray caster of our own in the perspective view too.** 400
   seeded view positions per plan, from the orbit camera's own framing, against

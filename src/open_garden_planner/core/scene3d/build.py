@@ -1,4 +1,4 @@
-"""The builder seam: one record in, mesh parts out (Phase 17 L1.1, ADR-064).
+"""The builder seam: one record in, mesh parts out (Phase 17 L1.1, ADR-059).
 
 A ``Builder`` is a PURE function of one ``Record``::
 

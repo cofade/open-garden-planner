@@ -1,6 +1,6 @@
-"""The 3D view of the garden plan (Phase 17, ADR-048 / ADR-064 / ADR-065).
+"""The 3D view of the garden plan (Phase 17, ADR-048 / ADR-059 / ADR-060).
 
-- **The workspace** (L1.3, ADR-065), the plan area of every main window since L1.9:
+- **The workspace** (L1.3, ADR-060), the plan area of every main window since L1.9:
   ``workspace`` (Plan / 3D / Split in the main window), ``sync_controller`` (the
   pipeline's controller), ``orbit_input``, ``init_guard``, ``problems_dialog``,
   ``look_controller``, ``selection_bridge``, ``info_card``, ``walk_mode`` — none of

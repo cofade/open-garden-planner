@@ -11,7 +11,7 @@ named in ``HISTORY`` below, and any other document that names Qt 3D's modules fa
 
 It reads the files ``git ls-files`` lists (what a clone contains), so a stray build folder
 cannot fail it and an untracked file cannot hide from review by not being committed.
-Mutation-checked when it was written (§8.10.31): an import, a pin, a spec line and a
+Mutation-checked when it was written (§8.10.13): an import, a pin, a spec line and a
 self-test line put back each fail it.
 """
 

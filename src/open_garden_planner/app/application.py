@@ -4272,7 +4272,7 @@ class GardenPlannerApp(QMainWindow):
         self._set_action_icon(self._sun_sim_action, "sun_sim")
         sun_menu.addAction(self._sun_sim_action)
 
-        # 3D view (US-E6; since Phase 17 L1.9 the workspace's 3D pane, ADR-065): it
+        # 3D view (US-E6; since Phase 17 L1.9 the workspace's 3D pane, ADR-060): it
         # opens no window any more — it shows the 3D view beside the plan (Split).
         self._view3d_action = QAction(self.tr("&3D View"), self)
         self._view3d_action.setStatusTip(
@@ -4672,7 +4672,7 @@ class GardenPlannerApp(QMainWindow):
         self._setup_sidebar()
 
         # Create splitter for canvas and sidebar. The canvas area is the Plan / 3D /
-        # Split workspace (Phase 17, ADR-065; the default since L1.9) — the canvas
+        # Split workspace (Phase 17, ADR-060; the default since L1.9) — the canvas
         # inside it, and a 3D pane built the first time the user asks for 3D. The
         # workspace module imports no engine: Qt Quick 3D is loaded on that first
         # switch and never at start-up (the import scan pins it).
@@ -6357,7 +6357,7 @@ class GardenPlannerApp(QMainWindow):
                 self.calendar_view.shutdown()
             # The 3D workspace (L1.3): stop its pipeline and close its engine
             # host while this window still exists — and clear a pending start
-            # marker, because a clean close is not a crash (ADR-065).
+            # marker, because a clean close is not a crash (ADR-060).
             self._workspace.shutdown()
             # Persist window/splitter/panel state before tearing down.
             self._save_ui_state()

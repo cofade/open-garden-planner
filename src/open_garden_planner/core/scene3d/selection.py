@@ -1,7 +1,7 @@
-"""The selection ring — what is selected, as ONE mesh (Phase 17 L1.8, ADR-065).
+"""The selection ring — what is selected, as ONE mesh (Phase 17 L1.8, ADR-060).
 
 Qt-free: standard library and numpy. Selection is in none of a record's three
-signatures (ADR-064): selecting an item must never rebuild, re-pose or re-tint a
+signatures (ADR-059): selecting an item must never rebuild, re-pose or re-tint a
 model. So the highlight is not a property of a model at all. It is one mesh of
 its own — ``Selection.ring`` — that ``SceneSync`` hands the engine through one
 additive ``EngineSink`` method (``set_selection``) and that the engine keeps in

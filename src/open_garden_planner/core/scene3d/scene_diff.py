@@ -1,4 +1,4 @@
-"""What changed between two snapshots (Phase 17 L1.1, ADR-064).
+"""What changed between two snapshots (Phase 17 L1.1, ADR-059).
 
 ``diff(old, new)`` compares two ``{item_id: Record}`` mappings, both ordered
 bottom-to-top (paint order), and names the minimal work for the engine.

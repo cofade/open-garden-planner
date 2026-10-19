@@ -1,4 +1,4 @@
-"""The ground bake wired into the 3D workspace (Phase 17 L1.5 Part B, #385; §8.32.5).
+"""The ground bake wired into the 3D workspace (Phase 17 L1.5 Part B, #385; §8.29.5).
 
 The workspace's controller (``ui/view3d/sync_controller.py``) gets ONE
 ``GroundBaker``; every pass bakes in the same transaction as the geometry, and
@@ -175,7 +175,7 @@ def test_a_drag_snapshots_per_edit_and_the_net_sees_nothing_of_the_bake(rig: Gro
 
 
 def test_a_ground_pass_neither_spends_nor_extends_an_announcement(qtbot: Any) -> None:
-    """The net (ADR-065) treats a repaint as explained only in the turn of its
+    """The net (ADR-060) treats a repaint as explained only in the turn of its
     announcement's records pass (``_expire_explanation``). A GROUND pass is not a records
     pass: a write nobody announced, made while ground passes run, is still found by the
     net after its quiet time — and counted — and the ground still finishes."""
@@ -208,7 +208,7 @@ def test_a_ground_pass_neither_spends_nor_extends_an_announcement(qtbot: Any) ->
 
 
 def test_ground_passes_starve_no_timer(rig: GroundRig) -> None:
-    """Review 3, P2-4 — the no-starvation guarantee (§8.32.5): a ground pass is a posted
+    """Review 3, P2-4 — the no-starvation guarantee (§8.29.5): a ground pass is a posted
     event, one per turn of the event loop, so a timer that is due runs between two of
     them. A 0 ms timer armed inside ground pass 5 fires before ground pass 7 — whatever
     the machine's speed (``during``: the timer is armed in the pass's own slot)."""
@@ -285,7 +285,7 @@ def test_a_re_baked_tile_is_not_counted_for_the_release_policy(qtbot: Any) -> No
     """A re-baked tile is a NEW Model (``quick3d/ground_tiles.py``), but tile Models are
     not what the workspace's cache release is for: twenty cycles of new tile Models
     stay flat without a release, and a release after tile TEXTURES were replaced
-    leaves them behind in Qt Quick 3D (§11.4.34, measured on WARP: +10.7 to +13.3 MB
+    leaves them behind in Qt Quick 3D (§11.4.17, measured on WARP: +10.7 to +13.3 MB
     a cycle with a release each cycle, flat without). So a pass that only re-baked
     tiles reports nothing retired — and asks for no release."""
     rig = GroundRig(qtbot, budget_s=None)  # the whole ground in one pass: exact counts

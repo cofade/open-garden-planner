@@ -5,7 +5,7 @@ same snapshot-boundary discipline as the US-E4 worker). Footprints reuse
 the US-E3 extraction (rotation/position are Qt's answer via ``mapToScene``)
 so the 3D solids can never disagree with the 2D shadow footprints.
 
-``snapshot_records`` (Phase 17 L1.1, #385, ADR-064) produces contract v2: one
+``snapshot_records`` (Phase 17 L1.1, #385, ADR-059) produces contract v2: one
 ``core.scene3d.Record`` per item, in the item-local frame with a rigid
 transform, for ``SceneSync`` and the Qt Quick 3D sink. (The US-E6 collector of
 the retired Qt 3D window, ``collect_scene3d_records``, left with it in L1.10.)
@@ -1118,7 +1118,7 @@ def snapshot_records(
     is a finite number and an infinite float32; such an item gets no record
     rather than a solid nobody can draw. One bad item never blanks the view.
 
-    What a record holds, and why (``core.scene3d.record``, §8.32.1):
+    What a record holds, and why (``core.scene3d.record``, §8.29.1):
 
     - geometry in the ITEM-LOCAL frame, centred on the outline's anchor
       (``ui.canvas.footprints.item_outline``), on the record grid; the pose

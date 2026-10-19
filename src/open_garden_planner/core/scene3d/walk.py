@@ -1,4 +1,4 @@
-"""Walking through the garden — the walker, its world, its motion (Phase 17 L1.8, ADR-065).
+"""Walking through the garden — the walker, its world, its motion (Phase 17 L1.8, ADR-060).
 
 Qt-free: standard library and numpy, plain immutable data and pure functions. The
 UI layer (``ui/view3d/walk_mode.py``) keeps ONE ``WalkState``, feeds it time and

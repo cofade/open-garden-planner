@@ -150,7 +150,7 @@ a = Analysis(
         "PyQt6.QtWebEngineCore",
         "PyQt6.QtWebEngineWidgets",
         "PyQt6.QtWebChannel",
-        # The 3D view (Phase 17: the workspace's 3D pane, ADR-065). Its snapshot is
+        # The 3D view (Phase 17: the workspace's 3D pane, ADR-060). Its snapshot is
         # imported with the first switch to 3D.
         "open_garden_planner.ui.view3d",
         "open_garden_planner.ui.view3d.snapshot",
@@ -178,7 +178,7 @@ a = Analysis(
         "open_garden_planner.ui.view3d.quick3d.runlog",
         "open_garden_planner.ui.view3d.quick3d.selftest",
         "open_garden_planner.ui.view3d.quick3d.shots",
-        # The Plan / 3D / Split workspace (ADR-065, L1.3; the default since L1.9):
+        # The Plan / 3D / Split workspace (ADR-060, L1.3; the default since L1.9):
         # the main window imports workspace.py at start-up; the pipeline, the orbit
         # input and the list of what 3D could not show come with the first switch
         # to 3D.
@@ -193,7 +193,7 @@ a = Analysis(
         # The look of the 3D view (L1.4): imported with the first switch to 3D.
         "open_garden_planner.ui.view3d.look_controller",
         "open_garden_planner.core.scene3d.look",
-        # Selection, the info card and walk mode (ADR-065 addendum, L1.8): the
+        # Selection, the info card and walk mode (ADR-060 addendum, L1.8): the
         # card and the bridge are imported when the 3D pane is first built, walk
         # mode when it is first entered.
         "open_garden_planner.ui.view3d.selection_bridge",

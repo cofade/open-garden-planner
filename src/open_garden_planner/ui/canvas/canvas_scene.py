@@ -59,7 +59,7 @@ class CanvasScene(QGraphicsScene):
         plan_changed: Emitted with the new ``plan_revision`` whenever plan CONTENT
             changed (see ``note_plan_changed``)
 
-    The plan revision (ADR-065 decision 5). ``QGraphicsScene.changed`` says "something
+    The plan revision (ADR-060 decision 5). ``QGraphicsScene.changed`` says "something
     was repainted": a hover, a selection, a tool's preview, the sun's shadow moving —
     and an edit. Nothing can tell them apart from that signal, so a consumer that must
     follow the PLAN (the 3D view) used to read the whole plan on every repaint.

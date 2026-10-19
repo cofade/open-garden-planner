@@ -890,7 +890,7 @@ def scenario_integration(ctx: Context) -> dict[str, Any]:
         commands.undo()
         tick("5_undo_all")
 
-        # edit-to-readback: 30 moves of one item (ADR-048 entries 5/6, moved here by ADR-064)
+        # edit-to-readback: 30 moves of one item (ADR-048 entries 5/6, moved here by ADR-059)
         loop: list[dict[str, float]] = []
         for index in range(30):
             delta = QPointF(3.0 if index % 2 == 0 else -3.0, 0.0)

@@ -54,7 +54,7 @@ numbers went through ``cos`` / ``sin`` (the ridge item Qt re-derives when the
 house turns, the two plants placed inside the turned bed), and the last bit of
 those belongs to the platform's C library. "Regenerating reproduces the
 committed plan" therefore means ``same_plan``: the same structure, the same
-strings and integers, every float within 1e-9 cm (section 8.10.23, "a golden
+strings and integers, every float within 1e-9 cm (section 8.10.5, "a golden
 fixture before a move"). The committed file was generated on Windows.
 
 Usage::

@@ -213,7 +213,7 @@ def handle_selection_change_for_cache(
             enable_device_coordinate_cache(item)
 
 
-# ── The plan revision (ADR-065 decision 5; ``CanvasScene.note_plan_changed``) ──
+# ── The plan revision (ADR-060 decision 5; ``CanvasScene.note_plan_changed``) ──
 
 _CHANGE = QGraphicsItem.GraphicsItemChange
 #: What Qt tells an item AFTER the fact, and what makes it a different plan: where it

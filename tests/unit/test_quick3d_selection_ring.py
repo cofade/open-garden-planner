@@ -177,7 +177,7 @@ def test_python_and_qml_agree_on_the_rings_numbers() -> None:
     assert linear is not None
     assert [float(v) for v in linear.group(1).split(",")] == pytest.approx(
         srgb8_to_linear(SELECTION_RGBA)[:3], abs=5e-4), "the default IS the colour, linear"
-    assert re.search(r"property real ringDepthScale:\s*0\.01\b", code), "drawn in front (ADR-065)"
+    assert re.search(r"property real ringDepthScale:\s*0\.01\b", code), "drawn in front (ADR-060)"
     near = re.search(r"PerspectiveCamera\s*\{[^}]*clipNear:\s*([\d.]+)", code, re.DOTALL)
     assert near is not None and float(near.group(1)) == walk.NEAR_PLANE_CM, (
         "the walker's radius is held against THIS near plane (core/scene3d/walk.py)")

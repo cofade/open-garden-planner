@@ -1,4 +1,4 @@
-"""Between the canvas's selection and the 3D view's (Phase 17 L1.8, ADR-065). Engine-free.
+"""Between the canvas's selection and the 3D view's (Phase 17 L1.8, ADR-060). Engine-free.
 
 There is ONE selection in the app: the canvas scene's (``QGraphicsScene``'s own —
 ``setSelected`` / ``clearSelection`` / ``selectionChanged``, which the property

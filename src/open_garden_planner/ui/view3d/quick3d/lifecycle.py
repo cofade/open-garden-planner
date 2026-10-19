@@ -170,7 +170,7 @@ of a ``NEW`` host came back in another size than the window (there is no
 "later" for it: the host is spent by then).
 
 Why these facts and no fewer — each was paid for with a dead process or a wrong
-frame (``docs/11-risks-and-technical-debt`` §11.4.32; ADR-048, addendum L1.2):
+frame (``docs/11-risks-and-technical-debt`` §11.4.15; ADR-048, addendum L1.2):
 "not visible and no scene graph" is not "never shown" (xcb segfaults); a
 collapsed splitter pane is visible, exposed and 0 px wide; one pixel draws no
 3D; the scene lags the window after an asynchronous resize. ``isVisible()``

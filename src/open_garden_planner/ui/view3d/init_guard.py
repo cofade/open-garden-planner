@@ -1,4 +1,4 @@
-"""The crash marker of the 3D workspace (Phase 17 L1.3, ADR-065). Standard library only.
+"""The crash marker of the 3D workspace (Phase 17 L1.3, ADR-060). Standard library only.
 
 Building the first Qt Quick 3D window of a session creates a graphics device,
 compiles shaders and renders a first frame — all inside the graphics driver, and

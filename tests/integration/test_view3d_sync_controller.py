@@ -1,4 +1,4 @@
-"""The 3D sync controller against a real canvas and a ``RecordingSink`` (L1.3, ADR-065).
+"""The 3D sync controller against a real canvas and a ``RecordingSink`` (L1.3, ADR-060).
 
 ``ui/view3d/sync_controller.Scene3DController`` is the wiring between the plan and
 the 3D engine: change signals in, at most one pipeline pass per event-loop turn
@@ -1351,7 +1351,7 @@ def test_shutdown_stops_everything(rig: Rig) -> None:
 def test_a_pass_says_how_many_items_lost_their_models(rig: Rig) -> None:
     """``TickReport.retired``: the items whose engine Models this pass destroyed — a
     removed item and one whose geometry was replaced. Qt keeps graphics state for
-    every Model it once drew until it is told to let go (ADR-065); the workspace
+    every Model it once drew until it is told to let go (ADR-060); the workspace
     counts these to know when."""
     bed = rig.bed()
     other = rig.bed(1200.0, 900.0)

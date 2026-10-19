@@ -16,7 +16,7 @@ the scenario of ``workspace_default_measure.py`` reported. The whole file:
   dated plants at most twice a second, the light follows the steps, and the view ends on the
   last date; the control (no interval: the behaviour before L1.9) regrows on every step.
 
-The bounds are here; the measured numbers of the budget table are §8.32.9.
+The bounds are here; the measured numbers of the budget table are §8.29.9.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from tests.integration.workspace_gate_support import GateRun, run_gate
 pytestmark = [*render_tier, pytest.mark.perf]
 
 #: The first switch to 3D (View → "3D View": Split) to the first finished readback, on a
-#: hardware adapter. Measured on the RTX 4070 (§8.32.9): 2.3 s (small plan), 3.3 s (large),
+#: hardware adapter. Measured on the RTX 4070 (§8.29.9): 2.3 s (small plan), 3.3 s (large),
 #: 4.5 s on the first run of the day.
 FIRST_FRAME_BUDGET_S = 10.0
 SOFTWARE_ADAPTERS = ("Basic Render", "llvmpipe", "SwiftShader", "softpipe")

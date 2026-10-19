@@ -20,7 +20,7 @@ every decision (``test_scene3d_look.py``, ``test_view3d_look_controller.py``,
     OGP_RENDER3D=1 venv/Scripts/python.exe -m pytest -n 0 -m "perf or not perf"
         tests/integration/test_view3d_looks_render.py      (one command line)
 
-NOT box casters — exempt from the shadow gate by ADR-064's divergence table: closed
+NOT box casters — exempt from the shadow gate by ADR-059's divergence table: closed
 fences, and the built-world kinds listed there. The gate's caster is a solid box.
 """
 
@@ -569,7 +569,7 @@ def test_the_wind_running_for_two_minutes_leaves_nothing_behind(wind_soak) -> No
     2.03 MB/min from the first sample to the last, a second-half slope of 0.0 to 1.51; the
     two clocks inside each other's spread — and dropped the xfail. The final render tier the
     same day read 2.637: the growth is intermittent, not gone, so this is a non-strict xfail
-    until #534 is fixed; then it becomes an assertion again. (§8.32.9; the product's
+    until #534 is fixed; then it becomes an assertion again. (§8.29.9; the product's
     vblank-paced path is still unmeasured.)"""
     assert wind_soak["slope_second_half_mb_per_min"] <= driver.WIND_SOAK_BOUND_MB_PER_MIN,         wind_soak["curve_mb"]
 

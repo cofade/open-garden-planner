@@ -398,7 +398,7 @@ def scenario_edit_latency(window: Any, args: dict[str, Any]) -> Iterator[Any]:
     workspace = window._workspace
     controller = workspace.controller
     if args.get("timer_ms"):
-        # the alternative ADR-065 rejected, kept measurable: a pass scheduled with a
+        # the alternative ADR-060 rejected, kept measurable: a pass scheduled with a
         # timer of this interval instead of the posted event
         controller._tick_ms = int(args["timer_ms"])
     host = _live(window)

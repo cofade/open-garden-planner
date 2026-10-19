@@ -2,7 +2,7 @@
 
 Not a test module. See ``quick3d_render_driver.py`` for why the tier is split into
 a process that renders (real QPA) and tests that judge (the offscreen test
-process), and ``docs/08-crosscutting-concepts`` §8.10.26 for the pattern.
+process), and ``docs/08-crosscutting-concepts`` §8.10.8 for the pattern.
 
 Running the tier (opt-in; it opens windows on the desktop)::
 

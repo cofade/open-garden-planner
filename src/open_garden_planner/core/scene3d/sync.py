@@ -1,4 +1,4 @@
-"""``SceneSync`` — snapshots in, minimal engine calls out (Phase 17 L1.1, ADR-064).
+"""``SceneSync`` — snapshots in, minimal engine calls out (Phase 17 L1.1, ADR-059).
 
 Owns the last applied records and an ``EngineSink``. ``apply(records)`` diffs
 the new snapshot against the last one, runs builders ONLY for added items and
@@ -14,7 +14,7 @@ empty sink — incremental == full rebuild (``expected_state`` is that reference
 It also holds across a change of the builder registry: an item whose builder was
 registered or replaced after it was built is rebuilt by the next ``apply``.
 
-Failure rules (decided in ADR-064, pinned by ``tests/unit/test_scene3d_sync.py``):
+Failure rules (decided in ADR-059, pinned by ``tests/unit/test_scene3d_sync.py``):
 
 - A BUILDER that raises is contained. All builders run before the sink is
   touched, so a transaction is never half applied. The failing item is given no
@@ -70,7 +70,7 @@ made a solid for it.
   bakes nor logs again.
 - ``reset()`` clears the baker too: tiles, pending work and the remembered failure.
 
-SELECTION (L1.8, ADR-065). ``select(ids)`` remembers which items are selected and
+SELECTION (L1.8, ADR-060). ``select(ids)`` remembers which items are selected and
 calls nothing; the ring that shows them (``selection.selection_of`` — one mesh)
 goes to the sink through ``set_selection``, and only when the ring the engine
 would draw differs from the one it has: in the transaction of the next ``apply``

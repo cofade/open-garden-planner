@@ -61,7 +61,7 @@ class Host:
     def health(self) -> SimpleNamespace:
         return SimpleNamespace(frames_presented=self.frames)
 
-    # what a look controller must never call (ADR-065 decision 17)
+    # what a look controller must never call (ADR-060 decision 17)
     def grab(self, *_a: Any) -> None:  # pragma: no cover - the test fails if it runs
         raise AssertionError("the look took a frame from the live view")
 
@@ -692,7 +692,7 @@ def test_after_shutdown_nothing_reaches_the_host(qtbot) -> None:
     assert host.calls == []
 
 
-# ── the memory rule (ADR-065 decision 17) ────────────────────────────────────
+# ── the memory rule (ADR-060 decision 17) ────────────────────────────────────
 
 
 def test_the_look_controller_never_asks_a_host_for_a_frame() -> None:

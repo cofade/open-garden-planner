@@ -1,4 +1,4 @@
-"""The orbit camera of the 3D workspace — pose, clamps, framing, damping (L1.3, ADR-065).
+"""The orbit camera of the 3D workspace — pose, clamps, framing, damping (L1.3, ADR-060).
 
 Qt-free, standard library only. The UI layer (``ui/view3d/``) owns ONE
 ``OrbitCamera`` per main window, forwards mouse, wheel and key input to it, steps

@@ -41,7 +41,7 @@ What it owns:
   the clock stops where it is and nothing ticks. Reduced motion: the clock rests
   at 0 — every vertex where its mesh puts it.
 
-NOTHING HERE TAKES A FRAME (ADR-065 decision 17): the host is told things and
+NOTHING HERE TAKES A FRAME (ADR-060 decision 17): the host is told things and
 asked for ``health()``; ``grab`` / ``wait_ready`` / ``pick`` / ``project`` are not
 called. A scan of the workspace's modules pins it.
 
@@ -105,7 +105,7 @@ class LookController(QObject):
     #: with it. Nobody has to count them: a retired sky leaves nothing behind
     #: without a cache release (measured, the sky soak: 0.0 MB per sun change in
     #: committed and in dedicated GPU memory over 20 changes; a sky that is NOT
-    #: destroyed reads 8.1) — unlike a retired Model (ADR-065 decision 15).
+    #: destroyed reads 8.1) — unlike a retired Model (ADR-060 decision 15).
     sky_rebuilt = pyqtSignal()
 
     def __init__(self, host: LookHost, *, software: bool, quality: str = AUTO,

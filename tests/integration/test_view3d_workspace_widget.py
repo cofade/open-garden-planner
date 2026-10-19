@@ -1,4 +1,4 @@
-"""The Plan / 3D / Split workspace widget with a stand-in engine (L1.3, ADR-065).
+"""The Plan / 3D / Split workspace widget with a stand-in engine (L1.3, ADR-060).
 
 ``ui/view3d/workspace.Workspace`` around a real canvas, with the engine replaced
 at its documented seam (``engine_factory``) by a host that records what it is told
@@ -91,7 +91,7 @@ class FakeHost:
         self.releases = 0
         self.release_error: Exception | None = None
         #: Every call that would take a FRAME from the live view. The workspace makes
-        #: none by itself (the memory rule, ADR-065); the real host has all four.
+        #: none by itself (the memory rule, ADR-060); the real host has all four.
         self.frames_taken: list[str] = []
         #: The look (L1.4): what the look controller told the host, in order.
         self.looks: list[Any] = []
@@ -534,7 +534,7 @@ class Releases:
 def test_enough_destroyed_models_and_a_quiet_pipeline_release_the_engines_caches(
         bench: Bench, monkeypatch: pytest.MonkeyPatch) -> None:
     """Qt keeps graphics state for every Model it once drew, until it is told to let go
-    (measured: 0.1 to 0.35 MB per Model, ADR-065). The workspace tells it — when
+    (measured: 0.1 to 0.35 MB per Model, ADR-060). The workspace tells it — when
     enough Models were destroyed AND the pipeline has been quiet for a moment."""
     rig = Releases(bench, monkeypatch, after=3)
     host = bench.host

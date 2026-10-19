@@ -57,7 +57,7 @@ executes the text of `ogp.spec`) plus ONE PyInstaller runtime hook,
 `tests/integration/workspace_gate_hook.py`, which moves the app's settings store to a throw-away
 key before the app's entry script runs and ends the process before a store under any other
 organisation exists. It exists so that the frozen app can be scripted through "open a plan, enter
-3D, close" without touching the user's Recent Files or window geometry (§8.10.27):
+3D, close" without touching the user's Recent Files or window geometry (§8.10.9):
 
 ```bash
 python -m PyInstaller installer/workspace_gate.spec --noconfirm --distpath <dir> --workpath <dir>
@@ -306,7 +306,7 @@ a GitHub job.
 offscreen platform Qt Quick uses the software scene graph. The `render3d` job runs
 `tests/integration/test_quick3d_render.py`, `test_quick3d_engine.py`,
 `test_quick3d_selftest.py`, `test_quick3d_lifecycle.py` and — the baked ground, L1.5 —
-`test_scene3d_ground_render.py` with a driver process on a real Qt platform (§8.10.26, §8.10.28). Both runners are GPU-less, so the job proves correctness on software
+`test_scene3d_ground_render.py` with a driver process on a real Qt platform (§8.10.8, §8.10.10). Both runners are GPU-less, so the job proves correctness on software
 rasterisers — small frames, no sky light probe, timing budgets skipped — and it is deliberately
 not a required check. Measured locally (2026-10-11): the tier passes on an RTX 4070 and on
 WARP. **First run on GitHub's runners (commit af9300d, the first three files):** windows-latest
@@ -316,7 +316,7 @@ llvmpipe work; the failure was a list of expected graphics-API names typed on Wi
 skips on Linux are by design — two hardware-only timing budgets and two Windows-only self-test
 checks. **Second run (commit 10d6e15, with the lifecycle matrix):** ubuntu-latest 71 passed,
 7 skipped, 1 failed — a call order the matrix had pinned as safe from a Windows measurement
-segfaulted on xcb (§11.4.32). **The tree after review round 2** was measured before the push,
+segfaulted on xcb (§11.4.15). **The tree after review round 2** was measured before the push,
 in a container with the job's stack (Ubuntu 24.04, xvfb, xcb, OpenGL on llvmpipe, Python 3.11,
 the lock): 88 passed, 8 skipped — the two hardware budgets, the two Windows-only self-test
 checks, and four Windows-only lifecycle tests (minimising needs a window manager; the forced
@@ -356,7 +356,7 @@ machine, 4.0–6.5 s on a busy one.
 blocks, not only the render: after 300 s it writes the reason in words and every thread's stack
 into the log and ends the process with exit code 1; without a log file and without a stderr it
 still ends the process. That exit was measured NOT to end a Windows process whose threads are
-deadlocked inside Qt (§11.4.32), so the watchdog is supervised: the exe starts itself a second
+deadlocked inside Qt (§11.4.15), so the watchdog is supervised: the exe starts itself a second
 time (`--selftest-supervisor` with the first process's pid and creation time, a random name
 for this run's release event, the deadline and the log), and that process terminates the
 first with exit code 1 — and says so in the log — when it is still alive at 310 s. It ends
@@ -398,7 +398,7 @@ wheels' metadata (652,687,676 → 639,202,072 bytes, both built in one clean env
 tree's lock, Python 3.11.9; ADR-048's closing addendum has the table). Nothing arrived; the SBOM
 lost exactly the two components. **A development venv keeps an uninstalled pin's wheel:** after
 pulling a change that drops a dependency, re-sync it (`uv sync --locked …`) before building, or
-the local bundle still carries what the old wheel installed (§11.4.37).
+the local bundle still carries what the old wheel installed (§11.4.20).
 
 ### Release Workflow (`release.yml`)
 

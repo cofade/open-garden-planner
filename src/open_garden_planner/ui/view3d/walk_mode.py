@@ -1,4 +1,4 @@
-"""Walk mode of the 3D view — the walker's state, its keys and its clock (L1.8, ADR-065).
+"""Walk mode of the 3D view — the walker's state, its keys and its clock (L1.8, ADR-060).
 
 Engine-free, and thin: every rule of walking — what blocks, how a wall is slid
 along, why the path does not depend on the frame rate — is Qt-free in
@@ -24,7 +24,7 @@ along, why the path does not depend on the frame rate — is Qt-free in
   every other key             passed on: the app's shortcuts keep working
   ==========================  ================================================
 
-  **The walker's keys belong to the walker** (ADR-065, L1.8 addendum): while walking,
+  **The walker's keys belong to the walker** (ADR-060, L1.8 addendum): while walking,
   ``WALKER_KEYS`` without Ctrl, Alt or Meta are claimed at ``ShortcutOverride`` —
   the event Qt sends to the view's window BEFORE it looks for a shortcut — so no
   shortcut of the app fires for them (measured on the real main window: ``S`` was
@@ -75,7 +75,7 @@ _BACK: Final = frozenset({Qt.Key.Key_S, Qt.Key.Key_Down})
 _LEFT: Final = frozenset({Qt.Key.Key_A, Qt.Key.Key_Left})
 _RIGHT: Final = frozenset({Qt.Key.Key_D, Qt.Key.Key_Right})
 _WALK_KEYS: Final = _AHEAD | _BACK | _LEFT | _RIGHT
-#: THE keys that belong to the walker while walking — stated once (ADR-065, L1.8): claimed
+#: THE keys that belong to the walker while walking — stated once (ADR-060, L1.8): claimed
 #: at ``ShortcutOverride`` and taken at the key press, unless Ctrl, Alt or Meta is held.
 WALKER_KEYS: Final = frozenset(_WALK_KEYS | {Qt.Key.Key_Shift, Qt.Key.Key_Escape})
 #: A key with one of these held is passed on (Ctrl+Z undoes while walking).

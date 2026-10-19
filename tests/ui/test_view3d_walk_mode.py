@@ -1,4 +1,4 @@
-"""Walk mode's keys, drags and clock (Phase 17 L1.8, ADR-065).
+"""Walk mode's keys, drags and clock (Phase 17 L1.8, ADR-060).
 
 ``ui/view3d/walk_mode.WalkMode`` is the thin layer between Qt's events and the
 Qt-free walker (``core/scene3d/walk.py``, judged in ``tests/unit/test_scene3d_walk.py``).

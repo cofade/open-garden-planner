@@ -6,7 +6,7 @@ work units out of ONE budget of ``MAX_REGION_WORK``, each step before it runs,
 and what the budget does not cover is refused (``core/scene3d/polygon.py``,
 ``ui/view3d/snapshot.py``). A unit is a count, so the verdict is the same on
 every machine; what a unit costs in TIME is a measurement, and this script is
-where the figures in the code's comments, ADR-064 and sections 8.11 and 8.32.1
+where the figures in the code's comments, ADR-059 and sections 8.11 and 8.29.1
 come from. Run it from the repo root:
 
     venv/Scripts/python.exe scripts/measure_region_work.py
@@ -84,7 +84,7 @@ Path2 = tuple[tuple[float, float], ...]
 #: development box, beside other test runs): every row but one family stands at 2.0 or
 #: below; a slab whose holes TOUCH its wall stands at 3.6 to 8.1 (the bridge search of
 #: the cut, ``_bridge_position``, is priced too low for holes that touch — known, stated
-#: in section 8.32.1, and not re-priced here). The two defects this gate exists for —
+#: in section 8.29.1, and not re-priced here). The two defects this gate exists for —
 #: a union asked for a tree, strict and plain — stood at 14 to 76.
 MAX_COST_TO_PRICE = 12.0
 

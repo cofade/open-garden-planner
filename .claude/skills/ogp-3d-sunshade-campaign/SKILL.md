@@ -30,11 +30,11 @@ description: >
 > in this skill stay authoritative for both renderers.
 >
 > **The new view is the product since Phase 17 L1.9 (#385).** View → Sun & 3D → "3D View"
-> shows the 3D pane of the main window's Plan / 3D / Split workspace (ADR-065, docs/08
-> §8.32). **L1.10 deleted the Qt 3D viewer window of US-E6/E7** — its adapter, the window,
+> shows the 3D pane of the main window's Plan / 3D / Split workspace (ADR-060, docs/08
+> §8.29). **L1.10 deleted the Qt 3D viewer window of US-E6/E7** — its adapter, the window,
 > `core/scene3d/legacy.py`, `core/walk_camera.py`, the L0 spike and the two Qt 3D wheels.
 > What FR-SUN-06 / 07 / 08 promised and what the new view does instead is the parity
-> table of §8.32.9. Debug the 3D view with `ogp-3d-renderer`, not with this skill. Below,
+> table of §8.29.9. Debug the 3D view with `ogp-3d-renderer`, not with this skill. Below,
 > every mention of Qt 3D, its window or its modules is the Phase 14 campaign's history.
 > (`tests/unit/test_no_qt3d_left.py` lists this file among the history documents.)
 >

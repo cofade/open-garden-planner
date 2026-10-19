@@ -1,6 +1,6 @@
 """Measure the 3D plant builder — the numbers its tests and documents state (Phase 17 L1.7, #385).
 
-Every bound a plant test asserts, and every number §8.32.7 and the ADR-064 addendum "plant art v0"
+Every bound a plant test asserts, and every number §8.29.7 and the ADR-059 addendum "plant art v0"
 quote, was MEASURED. This script is how; run it again after changing
 ``core/scene3d/builders/plants.py`` and move the numbers with the code.
 

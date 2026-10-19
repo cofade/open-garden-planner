@@ -881,7 +881,7 @@ class PlantDatabasePanel(QWidget):
                 self._current_plant_item.update()
             # The 3D view follows the PLAN, not its repaints: a species field (max
             # height, max spread, …) goes round the undo stack, so it announces itself
-            # with the one nudge (CanvasScene.note_plan_changed, ADR-065 decision 5).
+            # with the one nudge (CanvasScene.note_plan_changed, ADR-060 decision 5).
             note_plan_changed(self._current_plant_item.scene())
 
             # Mark project as dirty + refresh soil-mismatch borders (US-12.10d)
@@ -1162,7 +1162,7 @@ class PlantDatabasePanel(QWidget):
         self._current_plant_item.update()
         # … and what follows the PLAN rather than its repaints (the 3D view) is
         # told directly: the one nudge for a write that goes round the undo stack
-        # (CanvasScene.note_plan_changed, ADR-065 decision 5).
+        # (CanvasScene.note_plan_changed, ADR-060 decision 5).
         note_plan_changed(self._current_plant_item.scene())
 
         # Mark project as dirty

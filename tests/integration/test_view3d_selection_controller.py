@@ -1,4 +1,4 @@
-"""The selection through the sync controller (Phase 17 L1.8, gate G3, ADR-065).
+"""The selection through the sync controller (Phase 17 L1.8, gate G3, ADR-060).
 
 ``Scene3DController.set_selection(ids)`` is the one place the workspace tells the
 pipeline what is selected. On a real canvas and a ``RecordingSink``, with the

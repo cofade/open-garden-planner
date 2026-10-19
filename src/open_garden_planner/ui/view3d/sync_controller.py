@@ -1,4 +1,4 @@
-"""The 3D sync pipeline's controller (Phase 17 L1.3, ADR-065). Engine-free.
+"""The 3D sync pipeline's controller (Phase 17 L1.3, ADR-060). Engine-free.
 
     scene.plan_changed / date_changed ─► dirty ─► tick ─►
         snapshot_records(scene, clock.plan_date) ─► SceneSync.apply(records, sun, ground) ─► sink
@@ -9,7 +9,7 @@ handed (``Quick3DSink`` in the app, ``RecordingSink`` in the tests — the seam)
 listens to the canvas scene and the one ``SimClock``, and turns "the plan
 changed" into at most ONE pipeline pass per event-loop turn.
 
-WHAT STARTS A PASS (ADR-065 decision 5). A whole-plan snapshot is O(total
+WHAT STARTS A PASS (ADR-060 decision 5). A whole-plan snapshot is O(total
 vertices) even when every record is cached, and ``QGraphicsScene.changed`` fires
 for every REPAINT: a hover, a selection, a tool's preview under the mouse, the
 sun's shadow while the time slider moves or "Animate" runs. So ``changed`` starts
@@ -68,7 +68,7 @@ The rules it enforces:
   layer refused an item: ``SkipReason``) and ``failures`` (a builder raised) are
   kept from the last tick; ``problems_changed`` fires when they change.
 
-THE GROUND (L1.5, §8.32.5). A ``ground_baker`` handed to the constructor goes
+THE GROUND (L1.5, §8.29.5). A ``ground_baker`` handed to the constructor goes
 into the ``SceneSync``: every pass's ``apply`` bakes the plan's flat surfaces
 into ground tiles with the SAME diff the builders run from and the set of items
 a builder made a solid for — in the same transaction. A baker stops at its time
@@ -96,7 +96,7 @@ new tile Models stay flat without one), and the bake must not make releases more
 frequent — EVERY cache release leaves about half of the same-size tile textures
 it finds cached behind in Qt Quick 3D 6.11.0, re-baked or not (#532:
 ``QSSGBufferManager::clear()`` skips entries of a ``QHash`` it erases from while
-it iterates; §8.32.5 limit 11 has the exposure: up to ~42 MB per release for the
+it iterates; §8.29.5 limit 11 has the exposure: up to ~42 MB per release for the
 largest ground). The bake paints images, never the scene: it moves no plan
 revision and causes no repaint, so the net never sees it.
 ``set_ground_stage(stage)`` — the function that sizes each tick's ``GroundSpec``,
@@ -106,7 +106,7 @@ is what the tiles are laid on.
 
 NO PASS TAKES A FRAME. This module never asks the engine for one (it has only the
 sink), and the workspace keeps the same rule for the host: a readback renders a
-frame that is never presented (ADR-065 decision 17). A view that presents nothing
+frame that is never presented (ADR-060 decision 17). A view that presents nothing
 is not held back either — the pass applies, and Qt draws when it draws.
 
 GUI thread only. No Qt Quick import: this module runs in the GPU-less tier.
@@ -175,7 +175,7 @@ NET_MAX_WAIT_S: Final = 5.0
 #: replaces the Models of every dated plant, and each Model Qt Quick 3D destroys
 #: leaves 15 to 20 kB behind that no cache release returns (#531) — 20 dated plants
 #: at 30 steps a second were an estimated 0.7 GB a minute; at two a second it is a
-#: fifteenth of that (the measured numbers are in §8.32.9).
+#: fifteenth of that (the measured numbers are in §8.29.9).
 DATE_REGROW_MIN_MS: Final = 500
 #: How many distinct failures of one outage are remembered (and so logged at ERROR
 #: once each); a failure beyond that is a DEBUG line.
@@ -228,7 +228,7 @@ class TickReport:
     #: items, items whose geometry was replaced (new geometry is a new Model), and
     #: everything a reset cleared. Qt keeps graphics state for every Model it once
     #: drew until it is told to let go; the workspace counts these to know when
-    #: (ADR-065, "what a destroyed Model leaves behind").
+    #: (ADR-060, "what a destroyed Model leaves behind").
     retired: int = 0
     #: True for THE NET's pass: no announcement asked for it, the scene had been
     #: quiet for ``NET_QUIET_MS`` after a repaint. ``changes`` is empty then unless
@@ -504,7 +504,7 @@ class Scene3DController(QObject):
         self.mark_dirty()
 
     def set_selection(self, ids: Iterable[str]) -> None:
-        """The canvas selection changed (L1.8, ADR-065): the ids of the selected items.
+        """The canvas selection changed (L1.8, ADR-060): the ids of the selected items.
 
         The sync REMEMBERS them at once and calls nothing (``SceneSync.select``); the
         ring that shows them goes to the engine with the next pass — in the pass's
@@ -607,7 +607,7 @@ class Scene3DController(QObject):
                 # interval zero: posted events are delivered before the timers that are
                 # due, and a zero timer waits behind the 2D side's debounced work
                 # (spacing, companions, the minimap) — measured on the large bench
-                # plan: 5 % of the passes started more than 228 ms late (ADR-065).
+                # plan: 5 % of the passes started more than 228 ms late (ADR-060).
                 # NORMAL priority (postEvent's default), on purpose: the scene's own
                 # queued ``changed`` for the same edit was posted first and is delivered
                 # first, so the undo stack's signal and the scene's share ONE pass. (At

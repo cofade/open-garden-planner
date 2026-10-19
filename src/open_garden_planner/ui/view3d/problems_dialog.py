@@ -1,4 +1,4 @@
-"""What the 3D view could not show, as a list the user can act on (L1.3, ADR-065).
+"""What the 3D view could not show, as a list the user can act on (L1.3, ADR-060).
 
 The record layer refuses some outlines the 2D canvas draws without trouble (a
 closed fence traced with thousands of points, a height nobody can build, …), and
@@ -6,7 +6,7 @@ a builder can fail. Such an item is simply ABSENT from 3D, so the workspace says
 so: a quiet count in its strip and, on demand, this list — one row per item, with
 the reason in the user's language. Activating a row selects the item on the plan.
 
-The ground bake (L1.5, §8.32.5) adds two kinds of row: an ITEM whose paint on the
+The ground bake (L1.5, §8.29.5) adds two kinds of row: an ITEM whose paint on the
 3D ground failed (it is cut off there — shown, so it is not counted among the
 objects 3D does not show; it makes the ground incomplete), and NOTES about the
 ground as a whole — places that hold more surfaces than the ground can show (the

@@ -1,4 +1,4 @@
-// The selection ring (L1.8, ADR-065): a band of constant width ON SCREEN.
+// The selection ring (L1.8, ADR-060): a band of constant width ON SCREEN.
 //
 // The mesh (core/scene3d/selection.py) holds every outline point three times at the
 // SAME position. What tells them apart is here:

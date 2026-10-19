@@ -126,7 +126,7 @@ Startup path (verified in `application.py`): `_setup_agent_api()` →
 server when either value changes (compares before/after tuple around the
 dialog, ~line 3758).
 
-### 3D view (Phase 17 L1.4, ADR-064 addendum "looks, sky and the animation policy")
+### 3D view (Phase 17 L1.4, ADR-059 addendum "looks, sky and the animation policy")
 
 | Key | Property | Default | Note |
 |---|---|---|---|
@@ -182,8 +182,8 @@ persistence without revisiting ADR-030.
 | `OGP_GOOGLE_MAPS_KEY` | production, **user-supplied, never bundled** | Google Maps satellite background picker fallback (ADR-019, docs/08 §8.15) | Preferences (`api_keys/google_maps_key`) takes precedence; this environment/`.env` value is the fallback. The "load satellite background" menu action is disabled with a tooltip when neither source is set; `GoogleMapsKeyMissingError` if reached anyway. Bundling either source in the installer would let it be reverse-engineered and abused (`services/google_maps_service.py` docstring). |
 | `QT_QPA_PLATFORM=offscreen` | production (test infra) | Headless Qt rendering | Set by `tests/conftest.py` via `os.environ.setdefault(...)` (line 11) AND by `ci.yml`'s test job env. Without it, tests need a display server. |
 | `PYTHONUTF8=1` | production (script infra) | Forces UTF-8 I/O for `scripts/fill_translations.py` / `compile_translations.py` (German umlauts) | Mojibake / encode errors on Windows. Per AGENTS.md, always run translation scripts with it. |
-| ~~`OGP_QUICK3D=1`~~ | **gone** (Phase 17 L1.3 – L1.9) | Was the internal switch of the Plan / 3D / Split workspace. L1.9 made the workspace the default and deleted the switch with `quick3d_workspace_enabled()`; nothing reads the variable any more (`tests/integration/test_view3d_workspace.py::test_the_workspace_is_always_there_and_no_switch_is_read`). No escape hatch replaces it: the safety net for a graphics device that fails is the start marker and compatibility mode (`ui/view3d/init_guard.py`, ADR-065 addendum "the default and the removal"). | Nothing. |
-| `OGP_RENDER3D=1`, `OGP_WORKSPACE_GATE`, `OGP_WORKSPACE_GATE_EXE` | test infra | The opt-in render tier (real windows on a real device); the scenario file of the workspace gate, read by `tests/integration/workspace_gate_hook.py` only; the frozen gate build's exe for `tests/integration/test_view3d_workspace_render.py -k frozen` (docs/08 §8.10.27). | The render tier skips; the gate's hook still moves the settings store and runs no scenario; the frozen tests skip. |
+| ~~`OGP_QUICK3D=1`~~ | **gone** (Phase 17 L1.3 – L1.9) | Was the internal switch of the Plan / 3D / Split workspace. L1.9 made the workspace the default and deleted the switch with `quick3d_workspace_enabled()`; nothing reads the variable any more (`tests/integration/test_view3d_workspace.py::test_the_workspace_is_always_there_and_no_switch_is_read`). No escape hatch replaces it: the safety net for a graphics device that fails is the start marker and compatibility mode (`ui/view3d/init_guard.py`, ADR-060 addendum "the default and the removal"). | Nothing. |
+| `OGP_RENDER3D=1`, `OGP_WORKSPACE_GATE`, `OGP_WORKSPACE_GATE_EXE` | test infra | The opt-in render tier (real windows on a real device); the scenario file of the workspace gate, read by `tests/integration/workspace_gate_hook.py` only; the frozen gate build's exe for `tests/integration/test_view3d_workspace_render.py -k frozen` (docs/08 §8.10.9). | The render tier skips; the gate's hook still moves the settings store and runs no scenario; the frozen tests skip. |
 
 **.env loading (verified in `main.py` lines 14–27):** `python-dotenv`'s
 `load_dotenv()` on the first existing candidate of, in order:
@@ -246,7 +246,7 @@ visibility calls.
 | Contextual panels hidden until relevant selection | `set_panel_visible(key, relevant)` for `plant_details` / `companion` / `crop_rotation` in the selection updaters (ADR-030) | production behavior — not a bug when they're absent with nothing selected |
 | Satellite menu action disabled | `application.py:7868` `_update_satellite_menu_state` when both the Preferences key and `OGP_GOOGLE_MAPS_KEY` are unset (§3) | production guard |
 | Nearest / perpendicular / tangent snap default-OFF | §1 snap table | production, opt-in |
-| **3D view in compatibility mode (software rendering), or switched off** | `ui/view3d/init_guard.py`: the last start of 3D died before its first frame (a start marker was left), or the user chose "Use Compatibility Mode Next Time"; a start that died in compatibility mode too switches 3D off | production safety net (ADR-065; the default since L1.9 — there is no switch): the 3D pane says so and offers "Try Hardware Next Time" (FR-3D-WS-07). The flag file `view3d-compat.flag` and the markers `view3d-init-<pid>.marker` sit next to `app.log` |
+| **3D view in compatibility mode (software rendering), or switched off** | `ui/view3d/init_guard.py`: the last start of 3D died before its first frame (a start marker was left), or the user chose "Use Compatibility Mode Next Time"; a start that died in compatibility mode too switches 3D off | production safety net (ADR-060; the default since L1.9 — there is no switch): the 3D pane says so and offers "Try Hardware Next Time" (FR-3D-WS-07). The flag file `view3d-compat.flag` and the markers `view3d-init-<pid>.marker` sit next to `app.log` |
 
 If "a feature seems disabled", check this table before debugging.
 

@@ -1,4 +1,4 @@
-"""The selection ring in the real QML scene, without a GPU (Phase 17 L1.8, ADR-065).
+"""The selection ring in the real QML scene, without a GPU (Phase 17 L1.8, ADR-060).
 
 Under the offscreen platform nothing 3D is drawn, but ``Garden.qml`` loads and its
 objects exist — so the ONE thing the ring must never do can be checked on every

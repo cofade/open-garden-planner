@@ -459,7 +459,7 @@ class PropertiesPanel(QWidget):
         30 → 70 cm and plastic → metal through this panel, 0 engine calls after
         400 ms). Two things, for the two kinds of follower:
 
-        - the scene's plan revision moves (``CanvasScene.note_plan_changed``, ADR-065
+        - the scene's plan revision moves (``CanvasScene.note_plan_changed``, ADR-060
           decision 5) — what follows the PLAN, the 3D view, is told at once;
         - the item is repainted — what follows the scene's REPAINTS, the sun's
           shadow, sees it too (``plant_database_panel``'s rule, §11.4).

@@ -138,7 +138,7 @@ def first_pass(workspace: Workspace, qtbot: Any, timeout: int = 5000) -> Any:
     """Wait for the first pass of the document 3D was just opened on, and return the
     controller. NOT a fixed wait: that pass is HELD until its "Building the 3D view…"
     notice was painted, or for ``BUILD_NOTICE_WAIT_MS`` (250 ms) when the label is
-    never painted, and then runs ``CATCH_UP_MS`` later (ADR-065). Measured on the dev
+    never painted, and then runs ``CATCH_UP_MS`` later (ADR-060). Measured on the dev
     box: about 55 ms with the paint, about 300 ms without — and a CI runner under load
     can be the second case (the refused-item test below once read the indicator 120 ms
     after the switch, found it empty, and the pass ran in its teardown)."""
@@ -165,7 +165,7 @@ def test_the_workspace_is_always_there_and_no_switch_is_read(qtbot, monkeypatch)
     """L1.9: ONE code path. The canvas area IS the workspace whatever the environment
     says — the old internal switch is read nowhere (its value changes nothing) — and
     the safety net for a machine whose graphics fail is the start marker and the
-    compatibility mode (ADR-065 addendum "the default and the removal"), not a flag."""
+    compatibility mode (ADR-060 addendum "the default and the removal"), not a flag."""
     for value in ("", "0", "1"):
         monkeypatch.setenv(SWITCH, value)
         _quiet_boxes(monkeypatch)

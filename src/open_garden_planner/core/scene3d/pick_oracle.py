@@ -1,4 +1,4 @@
-"""A CPU pick oracle: which item does a view ray meet first? (Phase 17 L1.8, ADR-065.)
+"""A CPU pick oracle: which item does a view ray meet first? (Phase 17 L1.8, ADR-060.)
 
 Qt-free: standard library and numpy. The 3D view picks with the ENGINE
 (``Quick3DHost.pick``); this module is the independent witness the tests hold it

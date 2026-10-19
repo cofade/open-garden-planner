@@ -1,4 +1,4 @@
-"""The plan revision of the canvas scene (Phase 17 L1.3, ADR-065 decision 5).
+"""The plan revision of the canvas scene (Phase 17 L1.3, ADR-060 decision 5).
 
 ``CanvasScene.plan_revision`` is one integer that moves exactly when plan CONTENT
 changed, ``plan_changed`` says so at once, and ``note_plan_changed()`` is the one

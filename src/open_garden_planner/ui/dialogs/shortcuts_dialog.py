@@ -106,7 +106,7 @@ class ShortcutsDialog(QDialog):
         ])
         container_layout.addWidget(view_group)
 
-        # The 3D workspace (Phase 17, ADR-065) — the camera keys act while the 3D
+        # The 3D workspace (Phase 17, ADR-060) — the camera keys act while the 3D
         # view has the keyboard (click into it first)
         view3d_group = self._create_shortcut_group(self.tr("3D View"), [
             (self._localize_shortcut("Alt+1"), self.tr("Plan only")),

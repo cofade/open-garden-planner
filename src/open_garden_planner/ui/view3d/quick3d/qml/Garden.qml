@@ -269,7 +269,7 @@ Item {
         return first
     }
 
-    // ---- selection ring (Quick3DSink.set_selection; L1.8, ADR-065) ----
+    // ---- selection ring (Quick3DSink.set_selection; L1.8, ADR-060) ----
     // ONE Model for the life of the scene (selectionRing, at the end of the View3D):
     // Python loads the ring mesh into its one geometry and switches it on and off.
     // No Model is created or destroyed by a selection change.

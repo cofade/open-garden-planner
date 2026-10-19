@@ -276,7 +276,7 @@ store would read and write the developer's own settings: loading a plan ends wit
 write to Recent Files. The rule: **a child has the two names rebound before it can
 build a store, and empties its own key when it exits.** For the children of the 3D
 engine's tests that is not left to each child. Their environments have one source,
-`tests/integration/quick3d_render_support.isolated_env` (gated: §8.10.26), and it puts
+`tests/integration/quick3d_render_support.isolated_env` (gated: §8.10.8), and it puts
 a directory holding one `sitecustomize.py` first on the child's `PYTHONPATH`. Python
 imports that file at start-up; it imports nothing of the app, waits for the import of
 `app/settings.py`, and rebinds the names the moment that module's body has run —
@@ -421,7 +421,7 @@ it:
 - **A sibling or child widget does not paint over a native window.** Raised or not, it is drawn
   underneath. A control or a notice for the 3D view goes ABOVE the view (the pane's strip),
   BESIDE it, or IN ITS PLACE (a message page in a stacked widget) — `ui/view3d/workspace.py`,
-  §8.32.3.
+  §8.29.3.
 - **Its input does not reach the widget that embeds it.** Mouse, wheel and key events go to the
   native window; an event filter installed on that window sees them
   (`Quick3DHost.install_event_filter`). Qt's shortcut map still works across it (measured:
@@ -855,13 +855,13 @@ worker**, not as a clean abort. The `pytest-timeout` guard still applies per tes
 and the 2026-08-17 stall earn it); xdist kills and restarts the one worker and
 continues.
 
-### 8.10.23 Patterns from the 3D scene pipeline (Phase 17 L1.1)
+### 8.10.5 Patterns from the 3D scene pipeline (Phase 17 L1.1)
 
 Patterns `tests/integration/test_footprints_golden.py`, `test_scene3d_snapshot.py`,
 `test_scene3d_pipeline.py`, `test_scene3d_edge_plan.py`, `tests/unit/test_scene3d_sync.py` and
 `tests/perf/test_scene3d_snapshot_budget.py` established; reuse them where they fit. The last
 four were paid for by an independent review that found two interface defects behind a green
-suite (ADR-064, "What the first version got wrong").
+suite (ADR-059, "What the first version got wrong").
 
 - **A timing budget is asserted on untraced code.** A budget for pure-Python code cannot be
   asserted under a line tracer: under `pytest --cov=open_garden_planner --cov-branch` — how CI's
@@ -924,18 +924,18 @@ suite (ADR-064, "What the first version got wrong").
   (it rewrites source files): run it after changing the pipeline or its tests, and add a mutant
   with every rule.
 - **A price list is gated — by hand, on a quiet machine.** `scripts/measure_region_work.py`
-  exits 1 when a row of its table costs more than 12 times its price (§8.32.1). The ratio is
+  exits 1 when a row of its table costs more than 12 times its price (§8.29.1). The ratio is
   two timings, so the script is not in the suite: run it alone after touching a price, a call
   into the clipper or the cut, and add the FAMILY with every such call — twice the hole in the
   list was a way of asking the clipper that no row measured. What the suite pins is everything
   about it that is not a timing (`tests/integration/test_measure_region_work.py`): the
   verdict, the bound, that `main` returns it, and that each family is what its name says.
 
-### 8.10.24 Patterns from the plant builders (Phase 17 L1.7)
+### 8.10.6 Patterns from the plant builders (Phase 17 L1.7)
 
 Patterns from `tests/unit/test_plant_art.py`, `tests/unit/test_scene3d_plants.py`,
 `tests/integration/test_scene3d_plants.py` and `tests/perf/test_scene3d_plants_budget.py`; the
-stories behind them are §11.4.29. The first three were there from the start; the rest are what an
+stories behind them are §11.4.12. The first three were there from the start; the rest are what an
 independent review found missing behind a green suite.
 
 - **A golden of answers before extracting a rule.** The companion of "a golden fixture before a
@@ -1043,7 +1043,7 @@ independent review found missing behind a green suite.
   settings and the app-data directory for the SUITE; a script run by hand gets neither.
   `scripts/measure_plant_art_3d.py scrub` loads plans, `ProjectManager.load` ends with
   `add_recent_file`, and on Windows the settings are the registry, which no environment variable
-  redirects (§11.4.29). The script now isolates itself at import, before any app import (settings
+  redirects (§11.4.12). The script now isolates itself at import, before any app import (settings
   names rebound to a per-process test key, profile variables to a temporary directory, both
   undone at exit; a process that is isolated already is left alone). The test runs it in a child
   process without conftest and asserts where the write LANDED — and its driver refuses to load a
@@ -1053,13 +1053,13 @@ independent review found missing behind a green suite.
   step (the six other commands of that script, the golden generator and the sprite generator
   create no settings object and write nothing).
 
-### 8.10.25 Patterns from the built world and base stacking (Phase 17 L1.6)
+### 8.10.7 Patterns from the built world and base stacking (Phase 17 L1.6)
 
 Established by `tests/integration/test_shadow_caster_golden.py`,
 `tests/unit/test_shadow_caster_base.py`, `tests/unit/test_scene3d_builders.py` and
 `tests/integration/test_scene3d_built_world.py`.
 
-- **A golden before a behaviour change, plus an independent oracle of who changes.** §8.10.23's
+- **A golden before a behaviour change, plus an independent oracle of who changes.** §8.10.5's
   golden pins a refactor (nothing may change). When behaviour changes for ONE class of input, the
   golden pins everything else: generate it from the unchanged code, and store two things per
   scene — the result as it was, and the result of only the inputs the change will NOT touch. The
@@ -1186,7 +1186,7 @@ Added by the senior review's first round (the same story):
   is constructed and opened, not what is imported: importing the `core` package loads the
   settings module and PyQt6 either way.
 
-### 8.10.26 The 3D render tier (Phase 17 L1.2)
+### 8.10.8 The 3D render tier (Phase 17 L1.2)
 
 3D cannot be rendered in the default test run: `tests/conftest.py` sets
 `QT_QPA_PLATFORM=offscreen`, and under that platform Qt Quick falls back to the software scene
@@ -1247,7 +1247,7 @@ window where a 1024 × 768 screen leaves it (asserted: the pane WAS shown beyond
 and the condition that broke CI is not waited for, it is made: `pane_without_paint` puts an
 event filter on the view that eats `Expose`, `UpdateRequest` and `Paint` — the view is on
 the screen and nothing draws it — because whether a machine withholds those by itself was
-measured to change within a day (display asleep, display awake; §11.4.32).
+measured to change within a day (display asleep, display awake; §11.4.15).
 
 **Running it** (it opens windows on the desktop):
 
@@ -1324,7 +1324,7 @@ and must report failures and not one skip (measured: 9 failed, 43 errors, 12 pas
   embedding test must turn the window into an RHI surface. Angles that cannot tell two senses
   apart (0°, 90° for a rectangle) are not enough — the matrix has two that can.
 - **`grab()` on a live host is the only moment of certainty.** The tier never waits for a frame
-  to be presented (§11.4.32: with the display asleep a visible window presents one frame and
+  to be presented (§11.4.15: with the display asleep a visible window presents one frame and
   then none); every step is "change, grab, judge" — after `wait_ready()` said the host is live,
   an answer the driver checks at every place it asks.
 - **A crash is not an exception: one call order per process.** The lifecycle matrix starts a
@@ -1358,7 +1358,7 @@ and must report failures and not one skip (measured: 9 failed, 43 errors, 12 pas
   in-process test that shows a host is marked `@pytest.mark.no_qt_log`
   (`tests/ui/test_quick3d_host.py` is, as a module), and no test of that file installs a
   Python handler while a host is shown (the file pins it about itself). The driver
-  installs none for its shown-host scenarios (it would deadlock: §8.32.2). Two witnesses
+  installs none for its shown-host scenarios (it would deadlock: §8.29.2). Two witnesses
   report instead, and each has a positive control: an OFFSCREEN frame records its own
   messages, on the calling thread (a broken shader fails the render, and the report says no
   message arrived on another thread); for a SHOWN window Qt prints its messages to the
@@ -1411,9 +1411,9 @@ and must report failures and not one skip (measured: 9 failed, 43 errors, 12 pas
 - **A failing run must leave its pictures.** `OGP_RENDER3D_ARTIFACTS` makes every driver run
   copy its frames, `result.json` and log there; CI uploads the directory even when the job fails.
 
-### 8.10.27 Patterns from the 3D workspace (Phase 17 L1.3)
+### 8.10.9 Patterns from the 3D workspace (Phase 17 L1.3)
 
-How the workspace (§8.32.3, ADR-065) is tested, and the patterns worth reusing.
+How the workspace (§8.29.3, ADR-060) is tested, and the patterns worth reusing.
 
 **Three tiers, one seam.**
 
@@ -1486,7 +1486,7 @@ thread once the main window exists.
   depended on how fast GitHub answered. The abort itself was a defect of the shipped app,
   fixed on master by `core.worker_lifecycle` (#480); the gates stay offline all the same.
 
-**Measuring rules, each paid for** (§11.4.33 has the wrong versions):
+**Measuring rules, each paid for** (§11.4.16 has the wrong versions):
 
 - **"A frame" is a finished readback taken the moment the pass committed** — inside a slot on
   `controller.applied` — not `frameSwapped`, and not after `processEvents()` (which adds the
@@ -1543,7 +1543,7 @@ thread once the main window exists.
 
 **Checking that a test bites.** After the tests were green, each rule was broken once in the
 source — one text mutant at a time, the story's tests run, the file restored — and a mutant that
-survived got a test (the sets are listed in ADR-065, Validation).
+survived got a test (the sets are listed in ADR-060, Validation).
 
 **Wall-clock gates carry `perf`; the default tier keeps their load-proof half** (ADR-058).
 `tests/unit/test_perf_marker_guard.py` follows timing sources through the call graph, so a
@@ -1567,7 +1567,7 @@ their text (German: 220 px for 488 needed). Assert per visible label `wordWrap()
 `height() >= heightForWidth(width())`, per visible button `width() >= sizeHint().width()` and its
 right edge inside the pane. The app starts maximised: `showNormal()` before `resize()`.
 
-**A test owns no process-wide state, and the suite's order is part of the test** (§11.4.33 item
+**A test owns no process-wide state, and the suite's order is part of the test** (§11.4.16 item
 13: two tests of this story were green in every run of its own files and red in the whole
 suite). Compare a process-wide table with what was in it BEFORE the test — hold those entries
 for the test's length — never with zero. Compare a widget only with one in the same state: a
@@ -1575,9 +1575,9 @@ widget that was never shown is not polished, and under an application style shee
 test left behind it measures differently from a shown one. Run the whole default tier in its
 own order before a story's files are believed.
 
-### 8.10.28 Parity against the 2D canvas, and counting instead of timing (Phase 17 L1.5)
+### 8.10.10 Parity against the 2D canvas, and counting instead of timing (Phase 17 L1.5)
 
-The ground bake (§8.32.5) must paint what the canvas paints. How that is tested, and what each
+The ground bake (§8.29.5) must paint what the canvas paints. How that is tested, and what each
 rule was bought with (`tests/integration/test_scene3d_ground_bake.py`,
 `tests/integration/ground_bake_support.py`, `tests/unit/test_path_style_paint.py`; the render
 tier: `tests/integration/test_scene3d_ground_render.py`):
@@ -1637,7 +1637,7 @@ tier: `tests/integration/test_scene3d_ground_render.py`):
   grab instead of the re-bake (+16 MB a cycle on a Direct3D 11 window that presents nothing,
   +0.00 without the grab) and excused the result as an expected failure. The gate is
   unconditional now; the grabbing soak is kept as the CONTROL that shows the effect, and is
-  reported as not run where the window presents (§11.4.34). Nothing but the re-bake belongs in
+  reported as not run where the window presents (§11.4.17). Nothing but the re-bake belongs in
   the measured loop — not a query of the QML scene either: per cycle the test reads counters on
   the Python side and reads the scene back once, after the loop. And say which CELL a run was:
   on a hardware window that presents nothing the soak renders nothing, so that cell cannot see
@@ -1645,7 +1645,7 @@ tier: `tests/integration/test_scene3d_ground_render.py`):
 - **Render tier: updates without a frame between them are a case of their own.** Every scenario
   of the first delivery re-baked, took a frame, and re-baked the SAME tiles — which hid a tile
   that turned white when another tile was re-textured after it, or one frame after its replaced
-  texture was let go (§11.4.34). `ground_retexture` drives five sequences (one tile twice, five
+  texture was let go (§11.4.17). `ground_retexture` drives five sequences (one tile twice, five
   times, two tiles in turn, a frame between, the other tile after a frame), lets the replaced
   textures go as a presenting window would, and judges each tile's colour against a reference
   frame of that colour — right after the last update and again one frame later.
@@ -1732,9 +1732,9 @@ tier: `tests/integration/test_scene3d_ground_render.py`):
   loader and saver, the corner tools, trim, `clone_with_points`, the fresh line, the panel's undo,
   the two style painters, and `restore_stored_look` on a stroke of no kind).
 
-### 8.10.29 Patterns from the looks, the sky and the wind (Phase 17 L1.4)
+### 8.10.11 Patterns from the looks, the sky and the wind (Phase 17 L1.4)
 
-How the look (§8.32.4, ADR-064 addendum "looks, sky and the animation policy") is tested, and the
+How the look (§8.29.4, ADR-059 addendum "looks, sky and the animation policy") is tested, and the
 patterns worth reusing.
 
 | Tier | Files | What stands in for the engine |
@@ -1769,7 +1769,7 @@ patterns worth reusing.
   (the slope must exceed four times the bound); every probe of `board_probes.py` is tested on
   synthetic frames where the answer is known (a shadow painted where the 2D geometry puts it
   scores 1; shifted, it scores low).
-- **A soak takes no frame inside its measured loop** (ADR-065 decision 17): one readback before,
+- **A soak takes no frame inside its measured loop** (ADR-060 decision 17): one readback before,
   one after (they must be equal), twenty sun changes in between with the frames presented — and
   once with the frames withheld, as on a sleeping display.
 - **A sequence A → B → C, then a frame after the old objects are gone.** The sky driver builds
@@ -1801,10 +1801,10 @@ patterns worth reusing.
   is darker one way and brighter the other (the old material: −4.1 / +4.3). Positive control:
   the old material reads 4.65, the meadow's 0.21.
 
-### 8.10.30 Patterns from selection, the info card and walk mode (Phase 17 L1.8)
+### 8.10.12 Patterns from selection, the info card and walk mode (Phase 17 L1.8)
 
-How §8.32.8 is tested, and the patterns worth reusing. The seam is the workspace's
-(§8.10.27): `Workspace.engine_factory`.
+How §8.29.8 is tested, and the patterns worth reusing. The seam is the workspace's
+(§8.10.9): `Workspace.engine_factory`.
 
 | Tier | Files | What stands in for the engine |
 |---|---|---|
@@ -1881,9 +1881,9 @@ How §8.32.8 is tested, and the patterns worth reusing. The seam is the workspac
   pressed before they are processed is let go by the walker's `FocusOut`. Wait for the focus
   window, then let the event loop run (100 ms) before the first key.
 
-### 8.10.31 Patterns from the default flip and the removal of Qt 3D (Phase 17 L1.9 / L1.10)
+### 8.10.13 Patterns from the default flip and the removal of Qt 3D (Phase 17 L1.9 / L1.10)
 
-How §8.32.9 is tested. The seam is still the workspace's (`Workspace.engine_factory`, §8.10.27).
+How §8.29.9 is tested. The seam is still the workspace's (`Workspace.engine_factory`, §8.10.9).
 
 | Tier | Files | What it proves |
 |---|---|---|
@@ -1976,7 +1976,7 @@ result = subprocess.run(cmd)  # nosec B603 — cmd is constructed internally, ne
 
 **Scope:** `src/` only. Test files are excluded — `assert` statements and test helpers are intentional and not security-relevant.
 
-**Work on what a plan file holds — two patterns (Phase 17 L1.1, #385, §8.32.1).** A plan file
+**Work on what a plan file holds — two patterns (Phase 17 L1.1, #385, §8.29.1).** A plan file
 is input: it can be edited by hand, and it can be hostile. Bandit sees none of this; it is a
 review duty wherever geometry out of a plan is processed on the GUI thread, and the 3D pipeline
 is where it was learned. A work bound had been added, a security review read the function it
@@ -2006,7 +2006,7 @@ And price every quadratic by what it does, not by its size alone: the last hole 
 simplicity test priced at the square of its edges, which is right for an outline and a
 hundredth of the truth for a ring whose every pair of edges lies close.
 
-**A third pattern, from the ground bake (Phase 17 L1.5, §8.32.5): a number in the file is a
+**A third pattern, from the ground bake (Phase 17 L1.5, §8.29.5): a number in the file is a
 multiplier.** The two patterns above are about counts — vertices, rings. The bake's holes were
 all about MAGNITUDES, which a count does not bound: two points 19 km apart are two vertices and
 475,001 gravel dots; a dashed pen makes as many dashes as its line is long; a furniture sprite is
@@ -2021,7 +2021,7 @@ the bug); (c) no bound may sit behind bookkeeping that already paid: the per-til
 applied when a tile was painted, after every record had been entered once per tile it touched —
 2,050,003 entries for 50,000 whole-plan rectangles, 55,201 once a record's tiles are four
 integers. The criterion these were judged by is stated at the top of the bake's cost table
-(§8.32.5): the cost of what the file holds times a stated constant; no amplification; no bound
+(§8.29.5): the cost of what the file holds times a stated constant; no amplification; no bound
 behind its work. Pinned by counts in `tests/integration/test_scene3d_ground_bake.py::TestHostilePlans`.
 
 **… and a bound on counts is not a bound on time.** What a count costs is the library's to say,
@@ -2031,7 +2031,7 @@ and it varies by three orders of magnitude: Qt fills polygons whose outlines are
 2D canvas needs 186 s for one paint of that item).
 Where work runs on the GUI thread and its unit cost is not ours, add the bound only the caller
 can keep: stop BETWEEN units for a time budget and leave the rest pending — the bake paints at
-least one tile a call and looks at an injectable clock after each (§8.32.5). The budget does not
+least one tile a call and looks at an injectable clock after each (§8.29.5). The budget does not
 bound one unit; say what one unit was measured to cost at its worst, and do not round it down.
 
 **Plan text in Qt's rich-text widgets and in the log (Phase 17 L1.3, #385).** A plan file is
@@ -2105,7 +2105,7 @@ another local user before the app writes it. Bandit does not flag this form (it 
   unpredictable name, mode 0700) and is removed afterwards.
 - **Tests never write under a real user location**: they pass an explicit path
   (`OGP_SELFTEST_LOG`), or give the child process a user profile of its own
-  (`quick3d_render_support.isolated_env`, §8.10.26). A throwaway application NAME is not
+  (`quick3d_render_support.isolated_env`, §8.10.8). A throwaway application NAME is not
   enough — the first version of this rule said it was: the directory is then still created in
   the developer's real profile, under that name (found in review round 2; on Windows
   `QStandardPaths` follows `USERPROFILE`, not `APPDATA`). A test that lets the app resolve a
@@ -3405,7 +3405,7 @@ the garden floor and the **soil surface** for a plant that is linked to
 assumption: a bed has no fill in the plan), AT the height of a container
 (its height is its fill height). The link alone never lifts: it is
 bookkeeping the app does not keep geometric, so a plant whose centre is not
-inside its parent's shape stands on the ground (§8.32.6 "Base stacking").
+inside its parent's shape stands on the ground (§8.29.6 "Base stacking").
 Worked example: a 60 cm perennial on the soil of a 40 cm raised bed (base
 38), α = 35° → the tip lies `(38 + 60) / tan 35° = 140.0 cm` beyond the
 plant, 54.3 cm further than from the ground (85.7 cm) — and no longer inside
@@ -3414,7 +3414,7 @@ the bed's own 57.1 cm shadow. **One walk makes the casters**
 sun estimates of §8.27; `collect_shadow_casters` flattens it): the overlay, the
 heatmap and those estimates all come from it, and the
 3D records take `transform.base_cm` from the same
-`ui/canvas/footprints.item_base_cm` (§8.32.6) — a drift guard counts the
+`ui/canvas/footprints.item_base_cm` (§8.29.6) — a drift guard counts the
 callers and the consumers of `compute_scene_shadows`. A caster is a
 `ShadowCaster` or an exact `(footprint, height)` pair; any other shape is a
 `TypeError` (`caster_fields`), so nothing but a `ShadowCaster` can carry a
@@ -3428,7 +3428,7 @@ unchanged in 2D: `polyline_footprint` of a CLOSED polyline returns an outer
 ring and a hole, the shadow functions take each ring for a footprint, and so
 the shadow of a fence drawn as a closed loop covers the enclosed area — a
 separate defect with its own follow-up, not touched by base stacking (the 3D
-records were fixed: there the hole is a hole, §8.32.1).
+records were fixed: there the hole is a hole, §8.29.1).
 
 **Recompute discipline** for canvas-scale overlays (shadow overlay,
 heatmap): precompute on change — `scene.changed` debounced (150 ms) +
@@ -3446,13 +3446,13 @@ demand only** (a button — never `scene.changed`), and **join the worker
 before teardown** (`shutdown()` from `closeEvent`): a `QThread` destroyed
 while running aborts the interpreter (#230 class).
 
-**The 3D frame.** The 3D view (the workspace's 3D pane, §8.32) adds ONE more mapping,
+**The 3D frame.** The 3D view (the workspace's 3D pane, §8.29) adds ONE more mapping,
 applied exactly once, at the engine adapter: scene `(E, N, up)` → engine `(x = E, y = up,
 z = −N)` (`core/scene3d/frame.py`, numpy; determinant +1, so triangle winding survives). The
 adapter applies it when it uploads a mesh or a pose (`core/scene3d/interleave.engine_buffers`,
-`ui/view3d/quick3d/adapter.py`, §8.32.2); nothing else converts a coordinate — not the QML, not a
+`ui/view3d/quick3d/adapter.py`, §8.29.2); nothing else converts a coordinate — not the QML, not a
 builder. All mesh math stays in the scene frame, and in the item's local frame beneath it
-(§8.32.1), in the Qt-free `core/scene3d/` package; only `ui/view3d/quick3d/` may import Qt Quick
+(§8.29.1), in the Qt-free `core/scene3d/` package; only `ui/view3d/quick3d/` may import Qt Quick
 3D (an AST scan over the whole tree). The key light travels along −sun vector
 (`SunState.direction_scene`, from `core/solar`), so its ground projection is exactly opposite
 the 2D shadow direction — pinned by unit tests — and the engine's shadow covers the ground the 2D
@@ -3641,7 +3641,7 @@ contact sheet for style-level changes. The recipe is in
 `SPECIES_SPRITES` (`core/plant_art/resolve.py`) — and both edits reach the 3D
 view as well (§8.22.4).
 
-### 8.22.4 One recipe table for 2D and 3D (Phase 17 L1.7, ADR-064 addendum)
+### 8.22.4 One recipe table for 2D and 3D (Phase 17 L1.7, ADR-059 addendum)
 
 `core/plant_art/` is the Qt-free, standard-library-only home of everything that
 says what a plant looks like (an AST scan in `tests/unit/test_plant_art.py`
@@ -3682,7 +3682,7 @@ and not the species data's name) and its plant category. The record carries
 that string as `params["sprite_species"]` for this purpose alone. The first
 version of the builder resolved from `species_name`, which prefers the species
 DATA's common name — and a gallery Pumpkin, whose bundled data is named "Winter
-Squash", was drawn as a pumpkin and built as a squash (§11.4.29).
+Squash", was drawn as a pumpkin and built as a squash (§11.4.12).
 
 **The golden has a generator.** `scripts/make_sprite_resolution_golden.py` keeps
 the resolver as it stood before the extraction, statement for statement, with
@@ -4120,15 +4120,15 @@ The map's calibration, crop/mosaic math and existing cancellation outcomes are u
 
 The load seam is the second half. `ProjectManager._deserialize_item_core` refuses a polygon above `MAX_POLYGON_VERTICES = 16_384` and skips it with a logged warning (counted for the app's existing skipped-item notice), so a hostile `.ogp` cannot stall the loader or exhaust memory; the rest of the plan loads normally. At this ceiling the degraded outline is ~69 ms, and no legible garden outline comes near it. Both constants live in `ui/canvas/items/polygon_item.py` and are the only place to retune the bound. The measured cost table, the pen-width finding and the rejected alternatives (convex-hull / bounding-box fill, a hairline-but-wide pen, reflex counting, a low load ceiling) are in ADR-057; the regression is pinned by `tests/integration/test_polygon_paint_bound.py`.
 
-An "item made from an item" copies a shape's **look** through one seam that the **offset tool and mirror** share, `core/item_look.py::copy_visual_style`. It copies both the serialized attributes (`fill_pattern`, `fill_color`, `stroke_color`, `stroke_width`, `stroke_style`) and the live `QPen`/`QBrush`, because a copy that writes only one of the two looks right until the next save (#470). Chamfer, fillet and trim are the same shape of bug (#441); the L1 branch routes chamfer and fillet copies and `PolylineItem.clone_with_points` through the same helper, and gives a trim result its pen through `adopt_pen`, the module's pen writer (§8.32.5).
+An "item made from an item" copies a shape's **look** through one seam that the **offset tool and mirror** share, `core/item_look.py::copy_visual_style`. It copies both the serialized attributes (`fill_pattern`, `fill_color`, `stroke_color`, `stroke_width`, `stroke_style`) and the live `QPen`/`QBrush`, because a copy that writes only one of the two looks right until the next save (#470). Chamfer, fillet and trim are the same shape of bug (#441); the L1 branch routes chamfer and fillet copies and `PolylineItem.clone_with_points` through the same helper, and gives a trim result its pen through `adopt_pen`, the module's pen writer (§8.29.5).
 
-## 8.32 3D scene pipeline (Phase 17 L1, #385, ADR-064)
+## 8.29 3D scene pipeline (Phase 17 L1, #385, ADR-059)
 
-How the plan reaches a 3D engine. Each L1 story adds its own `### 8.32.N` subsection at the end;
-this section is the map. The decisions and their rejected alternatives are ADR-064; the engine
+How the plan reaches a 3D engine. Each L1 story adds its own `### 8.29.N` subsection at the end;
+this section is the map. The decisions and their rejected alternatives are ADR-059; the engine
 facts are the `ogp-3d-renderer` skill; the look is `ogp-lush-cinematic`.
 
-### 8.32.1 Scene contract v2 — records, diff, builders, sink (L1.1)
+### 8.29.1 Scene contract v2 — records, diff, builders, sink (L1.1)
 
 **The pipeline.** Five steps, all Qt-free except the first:
 
@@ -4195,7 +4195,7 @@ ends in the HOUSE's local frame, from the live ridge item), `species_key` (ADR-0
 2D sprite is resolved from, and so its 3D recipe: §8.22.4), `plant_category`, `path_style` (a
 polyline's `PathFenceStyle`, when set),
 `container_material`. Selection and hover are not in the record at all. `transform.base_cm` is
-where the item stands: the soil of the bed or container it is linked to and stands inside, 0.0 on the ground (§8.32.6).
+where the item stands: the soil of the bed or container it is linked to and stands inside, 0.0 on the ground (§8.29.6).
 
 **Outer rings and holes — read `regions`, not `footprints` alone.** The ground an item covers is
 its outer rings *minus* their holes: `record.regions` yields `(outer, holes)` pairs and
@@ -4506,7 +4506,7 @@ refusal's message says so.
 **The record grid.** Lengths are snapped to 1e-7 cm, angles to 1e-9° (`quantize_cm`,
 `quantize_deg`), so the same geometry reached along two float paths is one record. This is
 load-bearing, not hygiene: without it a HOUSE with a ridge was rebuilt on 689 of 1,000 moves
-(ADR-064 decision 5).
+(ADR-059 decision 5).
 
 **Signatures and the diff.** `geometry_sig`, `transform_sig` and `material_sig` are hashes of the
 three field groups; `Record.same_geometry` / `same_transform` / `same_material` compare the
@@ -4523,7 +4523,7 @@ across items (the seed is the item id).
 | recolour (fill; a polyline's stroke) | `material` |
 | height, centred resize, vertex edit inside the bounding box, a plant growing with the date, a ridge edit (on its HOUSE) | `geometry` |
 | one-sided resize, vertex edit that grows the bounding box | `geometry` + `transform` |
-| a bed's height (on each plant in it), re-parenting a plant onto or off raised soil, a bed resized so that a linked plant is no longer inside it (§8.32.6) | `transform` — the base |
+| a bed's height (on each plant in it), re-parenting a plant onto or off raised soil, a bed resized so that a linked plant is no longer inside it (§8.29.6) | `transform` — the base |
 | select, deselect, hover, rename, re-parenting between parents without raised soil, a rotation of a circle about its centre | empty |
 | create / delete, hide / show | `added` / `removed` |
 | arrange (bring to front …) | `reordered` only — never geometry, no engine call |
@@ -4533,7 +4533,7 @@ The three lists are independent: an item appears under each aspect that changed 
 **The sink protocol** (`core/scene3d/sink.py`) — eleven methods: `begin`, `commit`, `add(item_id,
 parts, transform, material)`, `remove`, `update_transform`, `update_material`,
 `replace_geometry(item_id, parts)`, `set_sun(SunState)`, `set_ground(GroundSpec)`,
-`set_selection(Selection)` (the selection ring, since L1.8 — §8.32.8) and `clear()`.
+`set_selection(Selection)` (the selection ring, since L1.8 — §8.29.8) and `clear()`.
 Every call but `clear` sits inside `begin`/`commit`; `add` takes an id the sink does not hold,
 every other item call one it does; `parts` may be empty (an item without a solid still has a pose
 and a material). A part with `tinted=True` is multiplied with `material.tint_linear()` by the
@@ -4641,13 +4641,13 @@ for each rule your builder must keep to `scripts/mutation_check_scene3d.py`.
 `Mesh.merge`, `translated(mesh, …)` → `mesh.translated(…)` *within the local frame*;
 `normal_vs_winding`, `srgb_to_linear` and `item_seed` kept their names. The drift guards that
 kept the ported helpers equal to the spike's now compare them with the spike's values frozen in
-`tests/data/l0_spike_reference.json` (§8.10.31).
+`tests/data/l0_spike_reference.json` (§8.10.13).
 
-### 8.32.2 The engine package — `ui/view3d/quick3d/` (L1.2)
+### 8.29.2 The engine package — `ui/view3d/quick3d/` (L1.2)
 
 The other side of the `EngineSink` seam: Qt Quick 3D. The decision, what was ported from the
-spike and every measurement are the **ADR-048 addendum "L1.2"**; the engine's traps are §11.4.32
-and the `ogp-3d-renderer` skill. The workspace (§8.32.3, L1.3) embeds this package's host; since
+spike and every measurement are the **ADR-048 addendum "L1.2"**; the engine's traps are §11.4.15
+and the `ogp-3d-renderer` skill. The workspace (§8.29.3, L1.3) embeds this package's host; since
 L1.9 that is the product's 3D view.
 
 **The package.** It is the only place in the product that imports `PyQt6.QtQuick3D`, `QtQuick`,
@@ -4709,7 +4709,7 @@ off; a flat fill light remains, so a night is dim rather than black (the night r
 L1.2 has ONE look, `NEUTRAL_DAY`: the spike's noon rig (sun `#fff1dc` × 1.9, exposure 0.85), a
 plain sky colour and no image-based light probe; the fill is the mean of the noon sky's top and
 horizon in linear light times the spike's probe exposure — derived, not chosen. L1.4 replaced it
-with `core/scene3d/look.LookSpec` (§8.32.4); the flat fill remains only where no sky texture lights
+with `core/scene3d/look.LookSpec` (§8.29.4); the flat fill remains only where no sky texture lights
 the view.
 
 **Two views.** The perspective view is the one people look at: filmic tone mapping, exposed by
@@ -4726,7 +4726,7 @@ show it.
 
 A Qt Quick window can be asked for a frame at moments when answering kills the process — not
 with an exception: the grab returns a correct image and the process dies in the next passes of
-the event loop — and at moments when the answer is a picture that is not the scene (§11.4.32).
+the event loop — and at moments when the answer is a picture that is not the scene (§11.4.15).
 So the host never guesses. `host.state` is derived on every call from facts the host reads
 from Qt (`Quick3DHost._facts()` → `lifecycle.state_of`, a pure function whose whole truth table
 runs in the unit tests) plus the two things Qt cannot report: the one offscreen frame was
@@ -4736,7 +4736,7 @@ resized and collapsed by its parent, which asks nobody.
 **The contract is written down in ONE place: the module docstring of
 `src/open_garden_planner/ui/view3d/quick3d/lifecycle.py`** — the facts, the six states, what
 each state promises, which call is legal in which state, what `wait_ready()` means and what
-raises what. Nothing else restates it — not this section, not ADR-048, not §11.4.32, not the
+raises what. Nothing else restates it — not this section, not ADR-048, not §11.4.15, not the
 `ogp-3d-renderer` skill, not `host.py`. It stood in nine places once, and three of them were
 wrong (review round 3); `tests/unit/test_quick3d_packaging.py` now fails a second copy of the
 state table. Read it there before calling the host. What this section adds is how to live
@@ -4756,7 +4756,7 @@ with it:
   frame per call — a tick that projected 200 labels spent 0.4 to 0.8 s on 200 refusals.)
 - **Where a frame must be HAD and the caller can wait — an export, a tool, a test — call
   `wait_ready()` and act on its answer.** Do not reason about passes of the event loop: Qt
-  delivers some resizes inside the call that caused them and others later (§11.4.32), and
+  delivers some resizes inside the call that caused them and others later (§11.4.15), and
   the main window the workspace is embedded in is put into full screen by
   `application.py`. It starts no pass of the event loop once its timeout — 1 s by default —
   is up, and it returns within that PLUS whatever was queued on the event loop when its
@@ -4772,7 +4772,7 @@ with it:
   and what to do; a caller that draws on a timer skips that tick. `EngineError` says the
   engine failed.
 - **`grab()` on a live host is the synchronisation point**: it renders the current state now
-  and reads it back. Do not wait for `frameSwapped` to be sure of a frame (§11.4.32).
+  and reads it back. Do not wait for `frameSwapped` to be sure of a frame (§11.4.15).
 - **`pick(x, y)` answers for the frame rendered last** and returns the item id, the part index
   and the hit point in the SCENE frame. "No hit" never means "could not look": a scene
   function that fails is an `EngineError`, not an empty answer.
@@ -4784,7 +4784,7 @@ with it:
   `project` raise `EngineError`: a frame without the garden must not pass for one. Nothing
   collapses or minimises there either, which is why the default test tier checks the state
   machine's logic with the facts put where a window system would put them, and the render
-  tier checks that Qt really reports them (§8.10.26).
+  tier checks that Qt really reports them (§8.10.8).
 - **Every property write is checked.** A name `Garden.qml` does not declare is an
   `EngineError` that names it — not a dynamic property that swallows the value.
 
@@ -4822,7 +4822,7 @@ destroy what another owner is showing.
 Recovery after a failed engine call is `sync.reset()`, then `sync.apply(...)`; when the engine
 itself died, `sink.attach(fresh_host)` in between points the emptied sink at a new host. It is
 proven for every engine call the sink makes — one call fails in mid-transaction, reset, apply
-— against `sync.expected_state()` (§8.32.1), on a list-backed engine, on the real host, and in
+— against `sync.expected_state()` (§8.29.1), on a list-backed engine, on the real host, and in
 pixels; and with an engine that REFUSES to destroy, where no `reset()` may report success
 while a Model is left.
 
@@ -4890,7 +4890,7 @@ logging rules put back. A process that owns itself wraps the call in `runlog.wat
 the time is up the reason, then every thread's stack, are written to the log and the process
 exits with code 1. With `supervised=True` a second process ends the first from outside ten
 seconds later if it is still there — on Windows the in-process exit was measured not to end a
-process deadlocked inside Qt (§11.4.32). One watchdog per process at a time: a second one
+process deadlocked inside Qt (§11.4.15). One watchdog per process at a time: a second one
 while the first is armed raises `WatchdogError` (the timer behind it is one per process, and
 a supervising process acts for exactly one block).
 
@@ -4908,7 +4908,7 @@ the log — when it is still alive at 310 s. It acts for ONE block of ONE proces
 nothing else: the process is named by pid and creation time and must be the supervisor's own
 parent (in the frozen build: running the same image); the block by a random nonce in the name
 of its release event — a name per process let a finished block's late supervisor terminate
-the block after it (§11.4.32); and arguments it may not act on end it with exit code 2 and one
+the block after it (§11.4.15); and arguments it may not act on end it with exit code 2 and one
 line, before anything is opened. The safety net is checked like the subsystems it guards: on
 Windows the self-test FAILS when that process did not start, refused, never found this block
 (exit code 4 — it used to leave with 0, like one that did its job), failed itself (3 — also
@@ -4918,7 +4918,7 @@ self-test supervisor -> …`, so it cannot be mistaken for a render failure). It
 when a Qt message of the render arrived on another thread than the one that rendered.
 
 **What is not here.** No input handling and no orbit camera (L1.3); no look presets, sky, fog,
-night rig or wind animation (L1.4, now §8.32.4) — `windTime` exists and stands still, and at 0 the wind
+night rig or wind animation (L1.4, now §8.29.4) — `windTime` exists and stands still, and at 0 the wind
 shaders move nothing: every vertex is drawn exactly where its mesh puts it, also one with the
 full wind weight in a strong wind (the sway eases in over the clock's first two seconds).
 "At rest" means the clock IS 0: a clock PAUSED at another value keeps the sway of that moment
@@ -4928,12 +4928,12 @@ ground texture
 (L1.5: `set_ground` sizes the bare plan rectangle and the endless meadow, both in the one meadow
 albedo); no builders beyond the default prism (L1.6, L1.7); no selection (L1.8).
 
-### 8.32.3 The workspace — Plan / 3D / Split in the main window (L1.3)
+### 8.29.3 The workspace — Plan / 3D / Split in the main window (L1.3)
 
-Where the pipeline (§8.32.1) and the engine (§8.32.2) meet the app. The decisions and every
-measurement are **ADR-065**; how it is tested is §8.10.27; what went wrong on the way is §11.4.33.
+Where the pipeline (§8.29.1) and the engine (§8.29.2) meet the app. The decisions and every
+measurement are **ADR-060**; how it is tested is §8.10.9; what went wrong on the way is §11.4.16.
 Since L1.9 the plan area of every main window — no switch; the default and what it costs are
-§8.32.9.
+§8.29.9.
 
 **The parts, and which of them needs the engine.**
 
@@ -4952,7 +4952,7 @@ Since L1.9 the plan area of every main window — no switch; the default and wha
 
 `workspace.py` imports no Qt Quick binding: the engine is built by `Workspace.engine_factory`
 — by default `quick3d_engine`, which imports `quick3d.host` and `quick3d.adapter` when it is
-called. That attribute is THE test seam (§8.10.27).
+called. That attribute is THE test seam (§8.10.9).
 
 **Layout.** `Workspace` is a splitter: canvas | 3D pane. *Plan* hides the pane, *3D* hides the
 canvas, *Split* shows both, and neither side can be dragged shut. Leaving Split keeps its
@@ -4993,7 +4993,7 @@ scene.changed (a repaint no announcement explains)          ─► applied(TickR
     ─► (re)start ONE quiet timer, NET_QUIET_MS = 400 ─► the same pass, ONCE (reconciled=True)
 ```
 
-**What starts a pass — the plan revision, and the net** (ADR-065 decision 5). A whole-plan
+**What starts a pass — the plan revision, and the net** (ADR-060 decision 5). A whole-plan
 snapshot is O(total vertices) even when every record is cached, and `QGraphicsScene.changed`
 fires for every REPAINT — a hover, a selection, a tool's preview under the mouse, the sun's
 shadow while "Animate" runs. The first delivery took `changed` as "the plan is dirty": a
@@ -5018,7 +5018,7 @@ small bench plan, 18.3 against 0.7 on the large one). Now:
   quiet time, whatever writes it. No `changed`, no timer; a scene that is never quiet is
   reconciled every `NET_MAX_WAIT_S` (5 s) all the same. An announcement explains repaints for
   ONE turn after its pass, no longer: without that expiry an announcement that repaints nothing
-  left "explained" standing, and the next unannounced write was never looked at (ADR-065
+  left "explained" standing, and the next unannounced write was never looked at (ADR-060
   decision 5). Blind spot, stated: a write to an item on an opacity-0 layer repaints nothing.
 - **Qt's polish is not an edit.** One turn after an item is added Qt tells it
   `ItemVisibleHasChanged(true)` although it was visible all along; announced, every added item
@@ -5044,7 +5044,7 @@ small bench plan, 18.3 against 0.7 on the large one). Now:
   is; Qt draws it when it draws. No steady path — the pass, the health poll, a timer, a
   resize, the splitter — calls `grab()`, `wait_ready()`, `pick()` or `project()` on the shown
   host: a readback renders a frame that is never presented, and what it holds comes back only
-  when a presented frame ends (in a view that presents nothing, never — ADR-065 decision 17).
+  when a presented frame ends (in a view that presents nothing, never — ADR-060 decision 17).
   A picture of the 3D view for a file goes through `quick3d/offscreen.py`. A view that
   presents nothing is NOT held back: the pass applies, nothing is drawn or uploaded, and the
   first frame after the dark spell shows the plan as it is.
@@ -5076,7 +5076,7 @@ orbiting, and aiming at the default yaw itself unwound every turn (six turns: 2,
 app's shortcuts stay (Delete, Ctrl+X, Ctrl+D). The workspace first cleared the selection on
 entering 3D mode (a stopgap, `clear_selection_hidden_by_3d_mode`); the selection story (L1.8)
 removed it, because the selection is SHOWN in 3D: the ring round every selected item, and the
-info card below the view (§8.32.8). So the shortcuts act on what the user sees.
+info card below the view (§8.29.8). So the shortcuts act on what the user sees.
 
 **When 3D cannot start.** A marker file is written before the first 3D window of a session is
 built and removed after the first presented frame. A marker left by a process that is gone means
@@ -5113,7 +5113,7 @@ outline) must count them the same way, or measure that they leave nothing.
 
 - *A new consumer of the sim clock*: `connect_qobject(clock.date_changed, self._slot)`; never
   `clock.date_changed.connect(...)` (a scan refuses it).
-- *The ground* (L1.5, wired — §8.32.5): the workspace builds the controller with
+- *The ground* (L1.5, wired — §8.29.5): the workspace builds the controller with
   `ground_baker=GroundBaker()`, which the controller hands to its `SceneSync`; every pass's
   `apply` bakes in the same transaction. While the baker's time budget leaves tiles pending
   the controller owes a GROUND pass (`SceneSync.continue_ground()`: no snapshot), scheduled
@@ -5137,11 +5137,11 @@ outline) must count them the same way, or measure that they leave nothing.
   `unannounced_changes`; the announcement matrix (`test_view3d_plan_revision.py`) pins every
   edit path at 0.
 
-### 8.32.4 Looks, sky and the animation policy (L1.4)
+### 8.29.4 Looks, sky and the animation policy (L1.4)
 
 How the 3D view LOOKS — and why none of it can move a shadow. The decisions and every number are
-the **ADR-064 addendum "looks, sky and the animation policy (L1.4)"**; how it is tested is
-§8.10.29; what went wrong on the way is §11.4.35; the art direction behind the values is the
+the **ADR-059 addendum "looks, sky and the animation policy (L1.4)"**; how it is tested is
+§8.10.11; what went wrong on the way is §11.4.18; the art direction behind the values is the
 `ogp-lush-cinematic` skill (§3 rigs, §5 the Beauty Board, §7 the fix log).
 
 **Truth and look are separate by construction.** Where the sun stands comes from `core/solar`
@@ -5180,7 +5180,7 @@ warmer and more exposed, not stronger; the light never rises as the sun sinks.
 the shadow map, cascades, filtering and bias, anti-aliasing, ambient occlusion, glow and (ultra)
 screen-space reflections — and no preset costs less than the one below it in any of them
 (pinned). Low and medium both use 4x MSAA: FXAA let picket fences alias into a moiré, and 2x
-MSAA still did (§11.4.35). Fog is on at every preset (low without it drew a one-row cliff where
+MSAA still did (§11.4.18). Fog is on at every preset (low without it drew a one-row cliff where
 the meadow meets the sky); sharpening is 0 everywhere; screen-space GI is never on. A preset
 change is one `set_look` call: no camera, no geometry, no sky.
 
@@ -5196,10 +5196,10 @@ and which levels it had to leave, until when (`view3d/auto_quality_level`,
 `view3d/auto_quality_bars`), are stored and seed the next session — without the bars, "high is
 too slow, medium is fine" stepped up and down once in every session. The frames are presented
 frames under vsync: on a 30 Hz display or a remote-desktop session `auto` sits in the dead band
-or steps down for reasons that are not the GPU's (ADR-064 addendum).
+or steps down for reasons that are not the GPU's (ADR-059 addendum).
 
 > **Rule: nothing that measures the frame rate takes a frame.** No `grab()`, `wait_ready()`,
-> `pick()` or `project()` on the live host from the look (ADR-065 decision 17): a readback is a
+> `pick()` or `project()` on the live host from the look (ADR-060 decision 17): a readback is a
 > frame that is never presented, and what it holds comes back only when a presented one ends.
 > A scan over the look controller pins it.
 
@@ -5248,8 +5248,8 @@ clock is not rest — truth probes and the board pin the clock to 0.
 (`Scene3DController.sync.sun`) after every pass, so the light and the look are computed from one
 moment and one solar path; a time-of-day change is a light-only pass — no snapshot of the plan.
 The pane's visibility goes to `set_showing`; Preferences' "Save" to `apply_look_settings()`.
-A retired sky leaves nothing behind without a cache release (measured: ADR-064 addendum), so it
-does not count towards the workspace's release policy for retired Models (ADR-065 decision 15).
+A retired sky leaves nothing behind without a cache release (measured: ADR-059 addendum), so it
+does not count towards the workspace's release policy for retired Models (ADR-060 decision 15).
 
 **The production Beauty Board.** `scripts/render_beauty_board.py` renders the spike's shots
 (golden hour, sunset, noon, morning, December noon, night, walk — same dates, times, cameras)
@@ -5261,13 +5261,13 @@ fences' aliasing against a supersampled render, the plan's edge, the horizon's h
 frame rate. Procedure:
 `ogp-lush-cinematic` §5.
 
-### 8.32.5 The ground bake — flat surfaces as ground tiles (L1.5)
+### 8.29.5 The ground bake — flat surfaces as ground tiles (L1.5)
 
 A lawn, a terrace, a driveway, a path or an in-ground bed is not geometry in 3D: it is part of the
 ground's picture. `ui/view3d/ground_bake.py` paints that picture from the snapshot's **records**
 and never from the live scene (the L0 spike hid items and rendered the scene: it toggled item
 visibility, cleared the selection and painted the canvas's beige). Building blocks: §5.13.
-Decision record: the ADR-064 addendum "ground bake". Traps: §11.4.34. Test pattern: §8.10.28.
+Decision record: the ADR-059 addendum "ground bake". Traps: §11.4.17. Test pattern: §8.10.10.
 
 **What is painted.** A record is painted when the snapshot gave it a paint description
 (`Material.paint` — every item but a plant) **and** the scene holds no solid for it
@@ -5318,8 +5318,8 @@ default wood). `core/item_look.py` is the ONE place that carries a look from ite
 loaded item's attributes (`restore_stored_look`, `master`'s since #502) and that sets a pen
 together with the attributes describing it (`adopt_pen`, L1.5). The guard is behavioural: at the end of every integration test, every item of
 every scene the test built must state the look it paints (`tests/integration/conftest.py`,
-§8.10.28); `tests/integration/test_item_style_in_step.py` walks the shipped operations that build
-an item from an item, and the writers that restyle one in place (§11.4.34).
+§8.10.10); `tests/integration/test_item_style_in_step.py` walks the shipped operations that build
+an item from an item, and the writers that restyle one in place (§11.4.17).
 
 **Flat items the solid path refuses.** A path of 3,000 points or a lawn of 5,000 vertices costs
 too much to cut into buildable regions (`outline_too_large`) — but painting needs no regions.
@@ -5359,7 +5359,7 @@ last edit first** (so an edit made while a backlog exists is painted before the 
 re-admits only the tiles the new changes touch. A tile without records is never pending: bare
 ground is free. **The promise:** once nothing is pending, the tiles are those of one unbudgeted
 bake of the same records — with a diff or without one (pinned over random edit sessions through
-three bakers at once, §8.10.28).
+three bakers at once, §8.10.10).
 
 Why 10 ms: the workspace's gate is 50 ms from an edit to its frame, and the bake's own gate —
 10 ms for one small edit on the bench plans — still holds with the budget ON: an edit that fits
@@ -5375,7 +5375,7 @@ beside those paths is two passes of 0.45 s; a COMB polygon is worse still (the c
 the pass for a caller with nothing new to apply (one bake, no diff, no builder; one transaction
 when a tile changed), and any `apply` goes on as well. While work is pending the sink's ground is
 behind `expected_state()` in exactly the pending tiles and equal to it in everything else;
-`reset()` drops pending work with the tiles; the failure rules do not change (ADR-064 addendum
+`reset()` drops pending work with the tiles; the failure rules do not change (ADR-059 addendum
 "ground bake", review round 1).
 
 **The backlog cannot starve.** A call that brings an edit while older tiles are pending paints
@@ -5501,7 +5501,7 @@ its tile on every side; the bare plan rectangle is not drawn while tiles lie on 
 pickable. Only a tile whose picture changed is uploaded — as a **new Model with a new texture**,
 and its old Model is destroyed: ONE TEXTURE PER `Texture` ELEMENT, FOR LIFE. (An attached
 `QQuick3DTextureData` cannot be updated in place; and a `Texture` pointed at a second data object
-forgets it when the first is destroyed — the tile is drawn white: §11.4.34.) **Keep-alive rule:**
+forgets it when the first is destroyed — the tile is drawn white: §11.4.17.) **Keep-alive rule:**
 per tile the texture the scene shows, plus — until the next presented frame, and at the latest
 the next update — the one it replaced. `ground_tiles.textures_alive()` counts the objects that
 exist on the C++ side.
@@ -5562,7 +5562,7 @@ exist on the C++ side.
 - **The frozen `--selftest`** bakes one flat lawn with the product's baker (budget 0, 128-px
   tiles: twelve tiles over as many passes) and judges the lawn's colour where it lies.
 
-Pinned by `tests/integration/test_scene3d_ground_wiring.py` (§8.10.28).
+Pinned by `tests/integration/test_scene3d_ground_wiring.py` (§8.10.10).
 
 `render_records(..., ground_baker=GroundBaker())` does the same for one offscreen frame — it runs
 the passes until nothing is pending — and reports `ground_tiles` / `ground_failure` with it.
@@ -5594,11 +5594,11 @@ A STILL PICTURE of a live view goes that way too, never through repeated `host.g
 6. **No repeated `grab()` on a live host that is not presenting.** Direct3D 11 frees what was
    released when a frame is PRESENTED, and a frame rendered by `grab()` is never presented: in a
    hardware-adapter window that presents nothing, each grabbed frame leaves what was uploaded for
-   it committed until the view closes (§11.4.34: a `grab()` after every re-bake of a 16 MB ground
+   it committed until the view closes (§11.4.17: a `grab()` after every re-bake of a 16 MB ground
    +16 to +17 MB a cycle; no `grab()` +0.0; flat on WARP and wherever frames are presented).
    Re-bakes themselves do not grow the process — gate G6 is unconditional in the two cells it
    has (a software rasteriser that presents; the hardware adapter, whose window presented
-   nothing and so renders nothing: §11.4.34). A screenshot goes through the offscreen path,
+   nothing and so renders nothing: §11.4.17). A screenshot goes through the offscreen path,
    which gives everything back when its view closes.
 7. **While ground work is pending, tiles are stale.** After opening a plan, and after an edit
    that touches a costly tile, the ground catches up over several passes; a tile not yet painted
@@ -5631,7 +5631,7 @@ A STILL PICTURE of a live view goes that way too, never through repeated `host.g
     release and a redraw leak too (the "same textures + release −0.28" control of the first
     measurements below was broken: its frame was white, no texture ever loaded).
     *The exposure in the product.* The bake asks for no release and makes none more frequent
-    (tile Models are not counted), but EVERY release the workspace makes leaks (ADR-065): at
+    (tile Models are not counted), but EVERY release the workspace makes leaks (ADR-060): at
     64 items that lost their Models and half a second of quiet, or at once at 512 — a delete
     or a regrow of that many, a document change, and a DATE change on a planted plan (every
     dated plant regrows: an animated date releases each time 512 Models have piled up). Each
@@ -5644,7 +5644,7 @@ A STILL PICTURE of a live view goes that way too, never through repeated `host.g
     picture), distinct tile sizes (flat at 16 tiles, not at 32 / 64 — chance neighbour
     buckets), tiles as
     `Texture.sourceItem` images (flat in isolation, one generation per rebuild still kept in the
-    workspace). *How it is gated* (§8.10.27, review 3): G7 measures the PRODUCT — the bake on —
+    workspace). *How it is gated* (§8.10.9, review 3): G7 measures the PRODUCT — the bake on —
     against `LEAK_BOUND_MB_PER_RELOAD` (10) + 0.6 × the soak's own tile-texture bytes per
     release × releases per reload (11.7 MB on bench_small, so 21.7); a non-strict `xfail`
     tripwire holds the GPU slope to the plain 10 and passes the day the leak is gone (not
@@ -5653,7 +5653,7 @@ A STILL PICTURE of a live view goes that way too, never through repeated `host.g
     owner, not filed), or a tile path outside the buffer manager's maps that passes G7.
     *The first measurements, as taken* (before the cause was known — their "re-baked tiles
     only" reading is superseded above): the workspace calls `QQuickWindow.releaseResources()`
-    when items lost their Models (ADR-065). When ground tiles were RE-BAKED before such a
+    when items lost their Models (ADR-060). When ground tiles were RE-BAKED before such a
     release — new `QQuick3DTextureData` objects replacing old ones — Qt Quick 3D kept about one
     generation of those textures for good. Measured on WARP, a 16-tile ground, twenty cycles:
     re-bake + release each cycle +10.7 to +13.3 MB a cycle (+7.4 to +8.7 without mipmaps);
@@ -5663,13 +5663,13 @@ A STILL PICTURE of a live view goes that way too, never through repeated `host.g
     release after quiet and +19 with the release in the pass, against 0.0 and −0.1 without the
     baker.
 
-### 8.32.6 Built-world builders and base stacking (L1.6)
+### 8.29.6 Built-world builders and base stacking (L1.6)
 
-The production builders live in `core/scene3d/builders/` (ADR-064 addendum "builders v0"); where an
+The production builders live in `core/scene3d/builders/` (ADR-059 addendum "builders v0"); where an
 item stands is one rule shared with the 2D shadows (ADR-037 addendum "base stacking").
 `builders.production_registry()` is what the wiring hands to `SceneSync`: the twelve built-world
 kinds of this section (`builders.register`) and the three plant kinds (`plants.register`,
-§8.32.7) — 15 registered kinds, none in both families, every other kind on the default prism
+§8.29.7) — 15 registered kinds, none in both families, every other kind on the default prism
 (`tests/unit/test_scene3d_builders.py::TestRegistration`;
 `tests/integration/test_scene3d_built_world.py::test_a_raised_bed_with_two_real_plants_through_the_production_registry`
 takes a raised bed and two real plants through both).
@@ -5685,7 +5685,7 @@ takes a raised bed and two real plants through both).
 | `RAISED_BED` | `beds` | `bed`: vc | baked: oak planks, soil |
 | `CONTAINER`, `WALL_PLANTER`, `CONTAINER_ROUND`, a `GARDEN_BED` with a height | `beds` | `walls`: vc · `soil`: vc | walls tinted, soil baked |
 | `HEDGE_SECTION`, `HEDGE_POLYGON` | `hedges` | `hedge`: foliage (the dark core and the leaf shell in one mesh) | baked: the hedge texture's greens |
-| `TREE`, `SHRUB`, `PERENNIAL` | `plants` (L1.7, §8.32.7 — registered by `plants.register`, not by this section's `register`) | `wood`: vc · `foliage`: foliage — or `placeholder`: vc for a plant without a height (no shadow) | baked: the recipe's palette, the 2D bark colour |
+| `TREE`, `SHRUB`, `PERENNIAL` | `plants` (L1.7, §8.29.7 — registered by `plants.register`, not by this section's `register`) | `wood`: vc · `foliage`: foliage — or `placeholder`: vc for a plant without a height (no shadow) | baked: the recipe's palette, the 2D bark colour |
 | everything else | `build.default_builder` | one tinted prism, or nothing without a height | tinted |
 
 **What a line becomes is decided in one place**, `builders/lines.py`, from its kind and its style
@@ -5710,7 +5710,7 @@ line says that no more follow (starting the memory over would log every name aga
 rebuild pass). A style change sets the stroke's colour
 and width too (`apply_style_preset`), so it arrives as `replace_geometry` + `update_material`.
 
-**The rules a builder obeys** (on top of §8.32.1's contract):
+**The rules a builder obeys** (on top of §8.29.1's contract):
 
 1. **The top is the height, by construction.** Build FOR the height: the highest vertex is
    `record.height_cm` to the float32. Give primitives a bottom and a top (`boxes(…, z0, z1)`),
@@ -5934,11 +5934,11 @@ onto the ground without a shadow map. A builder's number below the listed one is
 ENGINE render is judged on solid casters (the box gate); thin members — a 0.8 cm wire, a 1.6 cm
 bar, about one shadow-map texel — will read lower there through no fault of the builder and are
 exempt from a per-pixel IoU. The analysis stays the 2D model's; a 3D reviewer measuring shadow
-IoU on these kinds reads this table, not the box gate. The full table is in ADR-064's builders
+IoU on these kinds reads this table, not the box gate. The full table is in ADR-059's builders
 addendum; `tests/unit/test_scene3d_shadow_agreement.py` holds the builders to it within 0.05
 (a reach within 1 cm) and every copy of the table to the script's.
 
-### 8.32.7 Plant v0 — archetype silhouettes from the shared recipes (L1.7)
+### 8.29.7 Plant v0 — archetype silhouettes from the shared recipes (L1.7)
 
 `core/scene3d/builders/plants.py` is the builder of the plant kinds (`TREE`, `SHRUB`,
 `PERENNIAL`). It decides nothing about a plant by itself: the **recipe** comes from the tables the
@@ -6099,7 +6099,7 @@ and "z95 at least 0.62" was 0.603 for a rhubarb half as tall as wide.
 
 **The sizes a plant is built at.** `build_silhouette` builds a height and a canopy radius between
 `MIN_SIZE_CM` (a micrometre) and `MAX_LENGTH_CM` (10 km, the longest length a record can hold —
-§8.32.1) and refuses anything else with a `ValueError`: a NaN, zero, a negative, an infinity,
+§8.29.1) and refuses anything else with a `ValueError`: a NaN, zero, a negative, an infinity,
 1e300. Outside that range the arithmetic leaves float32 — before the check a height of 1e300
 returned a mesh of NaNs with nothing but two RuntimeWarnings, a radius of 1e-310 raised an
 `OverflowError` out of a logarithm, a height of 5e-324 a `MeshError`. Inside it all thirteen
@@ -6242,11 +6242,11 @@ ticks from 1 May (`tests/perf/test_scene3d_plants_budget.py`) and over 180 ticks
 Warm, 0.5 and 0.9 of the changing plants are REBUILT per tick (their proportion crossed a step;
 at most 4 in one tick over the season) and the others scaled — a tick is twenty times cheaper
 than without the cache. `snapshot_records` itself took 6 ms and 16 ms a day on the same machine
-(§8.32.1's budget, not this one). On a quiet machine every number is lower, by about 3.5 — an
+(§8.29.1's budget, not this one). On a quiet machine every number is lower, by about 3.5 — an
 inference, not a reading: the builder before the cache read 329–333 ms for a first build of
 `bench_large` on a quiet machine, and this one costs the same per first build to within 12 %
 (compared in one process). That is why the test states its budgets in units of a reference
-workload timed alongside (§8.10.24), about twice the measured units, and asserts the counts that
+workload timed alongside (§8.10.6), about twice the measured units, and asserts the counts that
 cause the time: exactly where they are exact (a first build builds every plant once; a cold tick
 builds every plant that changed), and as a bound where they are not (warm, at most 10 % of the
 plants that changed are rebuilt — measured 1.6 % and 1.1 %).
@@ -6295,7 +6295,7 @@ the palest real foliage, never taller than 25 cm.
 What the marker SAYS is exactly "no source of the plan gives this plant a height" (`height_cm is
 None`: no typed height, no measurement, no species size) — and nothing else. A typed height that
 is infinite or beyond `MAX_LENGTH_CM` (10 km; a hand-edited plan) gives the plant no record at
-all: it is left out and reported as `out_of_range` (§8.32.1), not shown as a marker — until the
+all: it is left out and reported as `out_of_range` (§8.29.1), not shown as a marker — until the
 scene contract's second fix round an infinite height silently became `height_cm=None`, a marker
 saying "no height" about a plant that had one. A typed height that is no positive number (0, a
 negative, NaN, text) is no typed height, for 3D as for the 2D shadow, and the next source
@@ -6328,11 +6328,11 @@ then run by themselves — `tests/unit/test_scene3d_plants.py` builds every reci
 at every proportion step and at six real sizes — and `scripts/mutation_check_plant_art.py` says
 whether they would notice a broken rule.
 
-### 8.32.8 Selection, the info card and walk mode (L1.8)
+### 8.29.8 Selection, the info card and walk mode (L1.8)
 
 What connects the canvas selection with the 3D view, and how the garden is walked. The decisions
-and every measurement are the **ADR-065 addendum "selection, info card and walk (L1.8)"**; how it
-is tested is §8.10.30; what went wrong on the way is §11.4.36. The modules are §5.15.
+and every measurement are the **ADR-060 addendum "selection, info card and walk (L1.8)"**; how it
+is tested is §8.10.12; what went wrong on the way is §11.4.19. The modules are §5.15.
 
 **One selection.** There is one: the canvas scene's. The 3D view holds none.
 
@@ -6376,7 +6376,7 @@ group, and the ring runs round every member.
 > selection changes in Split, `unannounced_changes` 0).
 
 > **Rule: `host.pick` is called in one place.** `OrbitInput._release`, once per click. It takes a
-> frame from the live view (ADR-065 decision 17): never on a mouse move, a timer or a resize. The
+> frame from the live view (ADR-060 decision 17): never on a mouse move, a timer or a resize. The
 > scan test allows exactly this call, by module, function and name. `HostStateError` means "not
 > now": the click does nothing and says nothing.
 
@@ -6451,11 +6451,11 @@ something was put where it stands. A new document, "Reset 3D View" and Escape le
 Not in v0: plants as obstacles, stairs and slopes (the ground is flat), doors, pointer capture,
 a hover highlight, a box selection in 3D.
 
-### 8.32.9 The default, what the old view promised, and its removal (L1.9 / L1.10)
+### 8.29.9 The default, what the old view promised, and its removal (L1.9 / L1.10)
 
 The workspace is the 3D view of every main window. The decision and every measurement are the
-**ADR-065 addendum "the default and the removal"**; how it is tested is §8.10.31; what went
-wrong on the way is §11.4.37.
+**ADR-060 addendum "the default and the removal"**; how it is tested is §8.10.13; what went
+wrong on the way is §11.4.20.
 
 **One code path.** There is no switch: `app/application.py::_setup_central_widget` builds the
 `Workspace` around the canvas view, always. Starting the app imports `ui/view3d/workspace.py`
@@ -6479,7 +6479,7 @@ the start marker and compatibility mode (`ui/view3d/init_guard.py`, FR-3D-WS-07)
 > start-up — or makes the workspace build its pane before it is asked — fails both.
 
 **Date playback is throttled** (#531). Each date regrows the dated plants, and every Model
-Qt Quick 3D destroys leaves 15 to 20 kB behind (ADR-065 decision 16): an arrow key held in the
+Qt Quick 3D destroys leaves 15 to 20 kB behind (ADR-060 decision 16): an arrow key held in the
 date field (about 30 steps a second) regrew all of them on every step. `Scene3DController._on_date_changed` regrows at once if
 `DATE_REGROW_MIN_MS` (500) has passed since the last regrowth for a date, and otherwise books ONE
 trailing regrowth for the end of the interval, which runs only if the clock's date is not the
@@ -6507,7 +6507,7 @@ Each row is a test of the NEW view, or a stated difference the owner sees.
 | View → "3D View…" opens a separate window | **differs:** the same entry shows Split in the main window; 3D and Split are modes (Alt+2 / Alt+3) — no second window, so no window to lose behind the main one | `test_view3d_workspace.py::test_the_3d_view_action_shows_the_3d_pane_and_reaches_no_window` |
 | every visible object with a footprint, extruded at its effective height | the same objects at the same height — the 2D resolver's (FR-SUN-02) | `test_scene3d_snapshot.py::TestRecordContent::test_height_is_the_2d_resolver_s`, `test_scene3d_built_world.py::test_kinds_builders_heights_and_bases` |
 | … as prisms in their fill colour | **differs:** buildings, fences, walls, beds, containers and hedges as built shapes (L1.6); plants as their sprite's archetype (L1.7); the other kinds as prisms in their fill colour | `test_scene3d_built_world.py`, `test_scene3d_plants.py::test_every_gallery_plant_is_built_as_the_sprite_the_canvas_draws`, `test_scene3d_snapshot.py::TestRecordContent::test_material` |
-| the same footprints as the 2D shadow overlay | the same footprints (`ui/canvas/footprints`, one caster walk); a prism's shadow is the 2D model's; other shapes differ by the measured amounts of FR-SUN-20 | `test_scene3d_shadow_agreement.py::test_a_prism_casts_the_shadow_the_2d_model_casts`, `::test_prisms_pots_and_post_fences_end_where_the_2d_shadow_ends` |
+| the same footprints as the 2D shadow overlay | the same footprints (`ui/canvas/footprints`, one caster walk); a prism's shadow is the 2D model's; other shapes differ by the measured amounts of FR-SUN-11 | `test_scene3d_shadow_agreement.py::test_a_prism_casts_the_shadow_the_2d_model_casts`, `::test_prisms_pots_and_post_fences_end_where_the_2d_shadow_ends` |
 | height-less objects (lawns, paths, in-ground beds) as thin ground decals | **differs:** no decal — they are painted onto the 3D ground as the plan paints them: the same textures and tints, pens, path and fence styles and sprites, north up, in the plan's stacking order; under a solid the ground shows what was drawn there (FR-3D-GROUND-01 / 02, L1.5) | `test_scene3d_ground_bake.py::TestParityPerPattern`, `::TestParityOfPaths`, `::TestParityOfSprites`, `::TestWhatIsPainted::test_a_solid_is_not_painted_and_the_lawn_runs_on_under_it`, `test_scene3d_ground_wiring.py::test_the_workspace_bakes_the_ground_of_what_is_drawn`, render `test_scene3d_ground_render.py::test_a_real_plan_shows_its_baked_ground_in_the_engine` |
 | a ground plane the size of the canvas | the plan ground is the canvas rectangle, baked from the plan, in a meadow; it follows a resized canvas | `test_view3d_sync_controller.py::test_a_resized_canvas_moves_the_ground` |
 | an orbit camera (drag rotates, wheel zooms), framed on the plan | **differs in the buttons:** right drag orbits, left drag pans, the wheel zooms, both buttons zoom (Qt 3D's own `QOrbitCameraController` mapping); keys too; framed on the first open and on a new plan, never by an edit | `tests/ui/test_view3d_orbit_input.py`, `test_view3d_workspace_widget.py::test_no_edit_moves_the_camera_and_a_document_change_frames_once` |
@@ -6531,7 +6531,7 @@ Each row is a test of the NEW view, or a stated difference the owner sees.
 | growth from the planting date, one model, one plan date | the same; dated plants regrow on a date change (at most twice a second while the date keeps changing) | `test_view3d_sync_controller.py::test_a_date_change_regrows_the_dated_plants_and_nothing_else`, `::test_a_date_held_down_regrows_at_once_and_once_more_on_its_last_day` |
 | an explicit height override wins; an unmeasured plant stays mature at every date | the same (the 2D resolver) | `test_scene3d_snapshot.py::TestRecordContent::test_height_is_the_2d_resolver_s`, `TestDiffMatrix::test_the_date_changes_nothing_but_dated_plants` |
 
-FR-SUN-06 / 07 / 08 are rewritten to say what the product does now and point to FR-36.
+FR-SUN-06 / 07 / 08 are rewritten to say what the product does now and point to FR-33.
 
 #### What the default costs (measured, RTX 4070 / Direct3D 11 and WARP, 2026-10-19)
 
@@ -6586,7 +6586,7 @@ What the table says, honestly:
   4× multisampling, ambient occlusion, glow and a wind; the old one drew lit prisms. The first
   frame is still inside the 10 s bound of `test_view3d_default_render.py`; nothing else had a
   bound before this story — these are the numbers the owner decides on.
-- **Edit → frame on the small plan is 45.9 ms at p95 in a 2334 × 1105 pane** — under ADR-065's
+- **Edit → frame on the small plan is 45.9 ms at p95 in a 2334 × 1105 pane** — under ADR-060's
   50 ms bound, with less room than L1.3 measured (19.7 ms in a 574 × 734 pane, 29.2 maximised);
   L1.4's look made a frame dearer. The large plan has no bound (180 ms p95).
 - **A machine whose ONLY adapter is WARP** (no GPU at all, not the workspace's compatibility
@@ -6627,7 +6627,7 @@ three):
   5–6 a minute, so a minute of held date key keeps 41–63 MB on this plan instead of 76–112; on the
   largest ground (~42 MB per release) that would be about 210–250 MB a minute. The interval
   cannot make one release leak less. Shipping the default with #532 open is the owner's decision
-  (the ADR-065 addendum, D5).
+  (the ADR-060 addendum, D5).
 - **The ground's own cost** is GPU memory for its tiles (+20 MB on the small plan, +115 MB on
   the large) and up to a second before the first frame is complete; it changes nothing at
   start-up and nothing measurable per edit.
@@ -6635,10 +6635,10 @@ three):
 #### After the removal (L1.10)
 
 The workspace is the only 3D code. What the old view needed and the host does not is the scar
-table of the ADR-065 addendum; what left the bundle is ADR-048's closing addendum. Three rules
+table of the ADR-060 addendum; what left the bundle is ADR-048's closing addendum. Three rules
 remain for whoever touches this area:
 
-- **No Qt 3D anywhere but in history.** `tests/unit/test_no_qt3d_left.py` (§8.10.31) fails on a
+- **No Qt 3D anywhere but in history.** `tests/unit/test_no_qt3d_left.py` (§8.10.13) fails on a
   Qt 3D module or wheel name in code, the spec, the workflows, `quality/`, the manifest and the
   locks, and on any document not on its history list.
 - **The spike's values are data now.** Each spike module has a production successor (docs/05

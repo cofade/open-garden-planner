@@ -457,7 +457,7 @@ class Quick3DHost:
         _connect_queued(self._view.sceneGraphError, self._on_scene_graph_error)
         _connect_queued(self._view.frameSwapped, self._on_frame_swapped)
         #: True when this window was asked to render on the SOFTWARE adapter of its
-        #: graphics API (WARP on Direct3D; L1.3's compatibility mode, ADR-065). Per
+        #: graphics API (WARP on Direct3D; L1.3's compatibility mode, ADR-060). Per
         #: window, and set before its scene graph exists — measured: this works for a
         #: window created at any time, while QSG_RHI_PREFER_SOFTWARE_RENDERER is read
         #: once per process and does nothing after the first Qt Quick window.
@@ -663,7 +663,7 @@ class Quick3DHost:
         if self._open("request_frame") is HostState.LIVE:
             self._view.update()
 
-    # ── the selection ring (L1.8, ADR-065) ───────────────────────────────────
+    # ── the selection ring (L1.8, ADR-060) ───────────────────────────────────
 
     #: The ONE geometry of the selection ring: created with the first selection, as
     #: a child of the scene's ring Model (they go together), and re-loaded for every
@@ -679,7 +679,7 @@ class Quick3DHost:
         loads new vertex data into the one geometry that Model has: a selection
         change creates and destroys no engine object — not a Model (Qt keeps
         graphics state for every Model it once drew until it is told to let go,
-        and about 15 to 20 kB per destroyed Model for good; ADR-065), not a
+        and about 15 to 20 kB per destroyed Model for good; ADR-060), not a
         geometry. The first selection of a host creates that one geometry.
 
         ``clear()`` hides the ring too (the engine then holds nothing to draw).
@@ -1149,7 +1149,7 @@ class Quick3DHost:
         same frame (L1.3, measured on Direct3D 11, GPU and WARP: the readback after
         a release identical to the one before it, every time it was looked at).
 
-        WHY (L1.3, ADR-065): Qt Quick 3D keeps per-draw-call state for every Model
+        WHY (L1.3, ADR-060): Qt Quick 3D keeps per-draw-call state for every Model
         it ever DREW — and keeps it after the Model was destroyed. About 0.2 MB per
         Model with the sun's shadow passes on, independent of the mesh's size;
         nothing but this call gives it back (20 rebuilds of the small bench plan in
@@ -1162,7 +1162,7 @@ class Quick3DHost:
         that itself at the END OF A PRESENTED FRAME, and a readback (``grab()``) is
         not one: a frame rendered for a readback is never presented, and what it
         holds waits for the next frame that is. Which is why nothing takes a frame
-        from a live, shown host on its own (the workspace's rule, ADR-065).
+        from a live, shown host on its own (the workspace's rule, ADR-060).
         """
         self._open("release_cached_resources")
         self._view.releaseResources()

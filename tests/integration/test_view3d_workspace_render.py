@@ -1,4 +1,4 @@
-"""The 3D workspace in the REAL app on a real graphics device (Phase 17 L1.3, ADR-065).
+"""The 3D workspace in the REAL app on a real graphics device (Phase 17 L1.3, ADR-060).
 
 Render tier (``OGP_RENDER3D=1``). Every test here starts the app's own ``main()`` in
 a child process — ``workspace_gate_child.py``, with ``OGP_QUICK3D=1``, on a bench
@@ -315,7 +315,7 @@ def test_no_edit_moves_the_real_cameras_and_a_new_document_does_once(scratch: Pa
 # prove the picture. The gate is judged twice: with the view PRESENTING and with its
 # frames WITHHELD (shown, exposed, nothing draws it — the display asleep).
 #
-# THE GATE MEASURES THE PRODUCT (review 3 of L1.5, P1-2). ADR-065 decision 15 makes G7 the
+# THE GATE MEASURES THE PRODUCT (review 3 of L1.5, P1-2). ADR-060 decision 15 makes G7 the
 # leak half of ADR-048 criterion 10 — the product's memory — and the product always bakes
 # its ground. So every gate below soaks with the ground bake ON, and its bound is the
 # criterion's ``LEAK_BOUND_MB_PER_RELOAD`` plus an allowance for #532 derived from the
@@ -500,7 +500,7 @@ def test_the_positive_control_fails_on_exactly_that_gate(
 def test_what_the_soak_reads_without_the_release_is_reported(scratch: Path) -> None:
     """The A of the A/B, never judged: the same soak — presenting, no readback — with
     the workspace's release out of reach. On Direct3D 11 with a hardware adapter it
-    read 19 MB per reload (ADR-065); on another device it may read anything — which
+    read 19 MB per reload (ADR-060); on another device it may read anything — which
     is why it is a number in the report and not a bound. If it ever reads like the
     run WITH the release, Qt has stopped keeping what it kept, and the release can go."""
     soak = _soak(scratch, "rebuild_on", release="off")
@@ -524,7 +524,7 @@ def test_a_release_inside_the_pass_holds_on_a_real_device_too(scratch: Path) -> 
 @pytest.mark.parametrize("release", ["product", "flood"])
 def test_model_churn_alone_stays_under_the_plain_leak_bound(scratch: Path, release: str) -> None:
     """The ADDITIONAL variant: the same rebuilds with the ground bake OFF (a plain plan
-    rectangle) — what a destroyed MODEL leaves behind, alone, as ADR-065 decision 15 first
+    rectangle) — what a destroyed MODEL leaves behind, alone, as ADR-060 decision 15 first
     measured it — against the plain bound: no tile texture, so nothing of #532.
 
     Judged on the DEDICATED-GPU slope where the device reports one (Ruling R46): private

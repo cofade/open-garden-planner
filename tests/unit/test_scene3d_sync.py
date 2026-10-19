@@ -513,7 +513,7 @@ class TestReset:
 
 
 class TestBuilderFailure:
-    """The rule (ADR-064): a failing builder is CONTAINED. Every builder runs
+    """The rule (ADR-059): a failing builder is CONTAINED. Every builder runs
     before the sink is touched, so the transaction is never half applied; the
     failing item gets no parts and is reported in ``failures``; everything else
     is applied; later applies are not poisoned."""
@@ -1124,7 +1124,7 @@ class TestSunAndGroundCalls:
 
 
 def test_the_documented_builder_workflow() -> None:
-    """§8.32.1 "How to test a builder", as code. If this test has to change, the
+    """§8.29.1 "How to test a builder", as code. If this test has to change, the
     section's example has to change with it."""
     def build_house(rec: Record) -> tuple[MeshPart, ...]:
         assert rec.height_cm is not None

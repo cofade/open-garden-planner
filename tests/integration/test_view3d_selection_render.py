@@ -211,7 +211,7 @@ def test_the_ring_is_the_canvas_selection_blue_on_screen(run: Run) -> None:
 
 
 def test_a_selection_change_creates_and_destroys_no_engine_object(run: Run) -> None:
-    """THE memory rule of the ring (ADR-065): one geometry, made with the first
+    """THE memory rule of the ring (ADR-060): one geometry, made with the first
     selection, re-loaded ever after; the Models and their buffers are not touched."""
     scenario = run[0]["scenarios"]["ring"]
     steps = scenario["steps"]

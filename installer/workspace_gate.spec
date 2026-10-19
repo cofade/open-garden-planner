@@ -8,7 +8,7 @@ throw-away key and refuses any other (it fails closed, exit code 97) — which i
 what makes it safe to script the frozen exe through "open a plan, enter 3D,
 close": a plan load writes Recent Files and a clean close writes the window
 geometry, and the registry key they go to is moved by no environment variable
-(docs/08 §8.10.7).
+(docs/08 §8.10.9).
 
     pyinstaller installer/workspace_gate.spec --noconfirm --distpath <dir> --workpath <dir>
     # then: OGP_WORKSPACE_GATE_EXE=<dir>/OpenGardenPlannerGate/OpenGardenPlannerGate.exe

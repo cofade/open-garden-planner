@@ -47,7 +47,7 @@ Never tune a domain number (species height, spread, planting date) to make a sho
 | Motion | Wind sways grass and crowns via shader values (uv.x = sway weight, uv.y = phase); animation only while the 3D view is visible; reduced-motion setting stops it. |
 
 **Plant v0 (Package L1.7) — what the production plants are, and are not.** The plants the
-pipeline builds (`core/scene3d/builders/plants.py`, §8.32.7) are not the spike's: one cheap
+pipeline builds (`core/scene3d/builders/plants.py`, §8.29.7) are not the spike's: one cheap
 silhouette per 2D sprite archetype — soft volumes and a shell of large geometric leaves, at most
 2,000 triangles a plant, bounded per archetype and by construction (measured: canopy 1,904 …
 flower 316). Judge them as v0:
