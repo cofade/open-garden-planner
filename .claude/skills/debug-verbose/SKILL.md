@@ -643,7 +643,7 @@ Three brand-new fields were declared on the dataclass (US-12.10d) but never adde
 
 **Key signal**: visually, the closing segment looked like a *single hairline*, while the other edges were a clean 4 px stroke. That's the signature of stroking a thin-band shape: the outline gets a 4 px stroke but the band itself is < 4 px wide.
 
-**Root cause**: Qt's `QGraphicsPolygonItem.shape()` (bypassed at `ui/canvas/items/garden_item.py:1073` `drawPolygon`) does **not** return the polygon's outline. It returns the *stroke envelope* — a closed band path that's the polygon outline expanded by the pen width, intended for hit-testing (so clicking near the edge counts as a hit). Stroking that band's outline produces the observed double-line effect, with the addPolygon-induced open seam reduced to a thin closing line.
+**Root cause**: Qt's `QGraphicsPolygonItem.shape()` (bypassed at `ui/canvas/items/garden_item.py:1155` `drawPolygon`) does **not** return the polygon's outline. It returns the *stroke envelope* — a closed band path that's the polygon outline expanded by the pen width, intended for hit-testing (so clicking near the edge counts as a hit). Stroking that band's outline produces the observed double-line effect, with the addPolygon-induced open seam reduced to a thin closing line.
 
 **Fix**: When the item has a `polygon()` method (i.e. it *is* a `QGraphicsPolygonItem`), bypass `shape()` entirely and use `painter.drawPolygon(self.polygon())`. That uses the raw vertex list and produces a uniform stroke on every edge with proper miter joins. Rect / circle / ellipse keep the `drawPath(self.shape())` fallback because their `shape()` *does* return a closed outline.
 
@@ -700,9 +700,9 @@ Three brand-new fields were declared on the dataclass (US-12.10d) but never adde
 
 **Key signal**: in the live session, both bed and plant had `zValue() == 0`. The plant was on top. After load, both still had `zValue() == 0` — but the bed was on top. So the *tie-break* between same-z items had flipped between sessions.
 
-**Root cause**: `ui/canvas/canvas_scene.py:321` `_refresh_layer_z` set every item's z to `layer.z_order * 100` (since revised by #338/ADR-043 into a per-item ranked z within that band — §8.25). Items in the same layer get *the same z*. Qt's `QGraphicsScene` then tie-breaks by item insertion order. The live session inserts bed first, then plant — plant on top. The post-load reconstruction inserts items in scene-traversal order from the saved JSON, which is reversed by serialization, putting the plant first and the bed on top.
+**Root cause**: `ui/canvas/canvas_scene.py:355` `_refresh_layer_z` set every item's z to `layer.z_order * 100` (since revised by #338/ADR-043 into a per-item ranked z within that band — §8.25). Items in the same layer get *the same z*. Qt's `QGraphicsScene` then tie-breaks by item insertion order. The live session inserts bed first, then plant — plant on top. The post-load reconstruction inserts items in scene-traversal order from the saved JSON, which is reversed by serialization, putting the plant first and the bed on top.
 
-**Fix**: Add a third pass in `_update_items_z_order` (mirroring the existing ROOF_RIDGE special case, now `ui/canvas/canvas_scene.py:854` `ROOF_RIDGE` inside `_stack_entries` since #338/ADR-043's rewrite — §8.25) that walks every item with `_parent_bed_id` set and bumps its z to `parent.zValue() + 1`. Now plants always have a strictly higher z than their bed, regardless of insertion order.
+**Fix**: Add a third pass in `_update_items_z_order` (mirroring the existing ROOF_RIDGE special case, now `ui/canvas/canvas_scene.py:925` `ROOF_RIDGE` inside `_stack_entries` since #338/ADR-043's rewrite — §8.25) that walks every item with `_parent_bed_id` set and bumps its z to `parent.zValue() + 1`. Now plants always have a strictly higher z than their bed, regardless of insertion order.
 
 **Lesson**: Identical zValues are a footgun across save/load boundaries because `QGraphicsScene` tie-breaks by *insertion order*, which is **not stable** between live mutation order and JSON-load order. Whenever a parent-child draw relationship matters, encode it explicitly via `parent.zValue() + 1` — never rely on "I inserted them in the right order, it'll just work". Pattern: anywhere `_update_items_z_order` touches multiple item categories, add an explicit ordering pass per parent-child relationship.
 
@@ -2951,3 +2951,61 @@ there started a **real** server. Neither was created by parallel execution; seri
 both windows too narrow to hit. `@pytest.mark.xdist_group` would have scheduled around the
 first one and left it exactly as dangerous for the two-concurrent-pytest-process case that
 `conftest.py` already documents for QSettings. Fix the shared state, not the schedule.
+
+## Case study: green on every dev run, red on the Linux runner — a fixed wait for a pass the product holds (Phase 17 L1.3, fixed 2026-10-19)
+
+**Symptom**: `tests/integration/test_view3d_workspace.py::test_a_plan_with_a_refused_item_shows_the_indicator_and_fixing_it_clears_it`
+read `workspace.problems_text() == ''` 120 ms after the switch to Split — on CI only; green in
+every local run.
+
+**Wrong theory**: *"the indicator is filled late — a race in the product"*. It was not tested,
+it was measured.
+
+**Key evidence**: the CI log had the refused item's snapshot line in the test's **teardown**
+(the pass ran after the assertion). A probe that recorded `problems_text()` inside a slot on
+the controller's `applied` signal: set in the same call, 10 of 10. Time from the switch to the
+pass: 53–62 ms when the "Building the 3D view…" label paints, 295–307 ms when its paint is
+withheld (the pass is held for the paint, or 250 ms, then 25 ms). A scratch pytest plugin that
+withholds the label's paint from the workspace's filter made the slow path deterministic: the
+old test failed with CI's exact message — and so did **21 widget tests and the §8.10 workflow**,
+because the shared helpers (`Bench.settle()`, `_calls()`) waited a fixed 80 ms.
+
+**Root cause**: test helpers guessed how fast a deliberately HELD pass would run.
+
+**Fix**: one condition (`pipeline_settled`: no first pass held, none posted, none timed), waited
+for; the indicator asserted at the signal that sets it.
+
+**Lesson**: **force the slow path to prove a timing test** — a plugin that withholds one event
+turned a once-a-week CI failure into 23 deterministic ones. A fixed wait in a test is a guess
+about the slowest machine it will ever run on.
+
+## Case study: a surviving mutant that was the product's behaviour — Qt's empty `changed([])` (Phase 17 L1.3, fixed 2026-10-19)
+
+**Symptom**: the hand mutant "an explained repaint arms the quiet timer too" survived every test
+of the 3D sync controller. The test written to kill it failed on the UNMUTATED product: a write
+that nudged the plan revision and then repainted was in 3D at once — and 400 ms later a second
+whole-plan snapshot ran and found nothing.
+
+**Wrong theory**: *"the 2D side's debounced work repaints later"* — plausible (the matrix test
+had seen late repaints) and wrong.
+
+**Key evidence**: a probe that logged every `scene.changed` with its rectangles and every pass,
+for five write patterns:
+
+```
+update_only:        changed([(397, 297, 306, 206)]), changed([]), applied(net)
+write_nudge_update: applied(announced), changed([(397, 297, 306, 206)]), changed([]), applied(net)
+```
+
+**Root cause**: with a listener on `QGraphicsScene.changed`, Qt reports an item's `update()` at
+once from `_q_processDirtyItems`; the queued `_q_emitUpdated` the same update asked for arrives
+afterwards and emits what is left — an empty list. The controller's "explained" test compared
+the plan revision with the one the previous `changed` had recorded; the empty echo came right
+after the explained one, saw no move, and armed the net.
+
+**Fix**: an empty `changed` reports no repaint and is ignored
+(`ui/view3d/sync_controller.py::Scene3DController._on_scene_changed`).
+
+**Lesson**: **log a signal's ARGUMENTS, not just that it fired** — two emissions per update looked
+like "something else repainted" until the second one was seen to carry nothing. And a surviving
+mutant is a question about the product as much as about the tests.
