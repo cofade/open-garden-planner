@@ -5549,6 +5549,12 @@ Direct3D 11 — RTX 4070 and WARP ("Microsoft Basic Render Driver"), 2026-10-12:
 | standing against a wall (S10) | 288 frames at the wall and in the inside corner: 0 marker pixels; the control 2 cm from the masonry: 114,560 | 0 |
 | G8 a selection change → the engine has its ring, 120 changes, no readback in the loop | median 11.5, p95 17.7, max 22.9 ms (with the display asleep and no frame presented meanwhile: 6.8 / 9.9 / 10.7); WARP over 28 runs: median 11 to 13, p95 15 to 30, max 22 to 51 | p95 ≤ 50 ms |
 
+Re-run on the merged tree (the integration branch with master v1.30.13), 2026-10-19, on the GPU
+and on WARP: every pick, chain, ring, depth, look-through and click number of the table is
+unchanged (the plant's ring at soil height on WARP: 584 px, 16.75 px from the ground's outline);
+G8 to the real engine, GPU median 15.5, p95 19.3, max 21.1 ms, WARP 14.4 / 24.3 / 50.0 ms; G7 W
+held 0.71 s: 138.1 cm/s on the GPU, 139.9 cm/s on WARP.
+
 Default-tier numbers: G5 — a 20 cm gap blocks and a 60 cm gate passes; diagonally into a wall
 the walker keeps 100 % of its tangential speed; an inside corner does not trap; the same
 inputs at 30 and 144 Hz end within 10⁻⁶ cm; 20,000 seeded steps on each bench plan (841 m and
