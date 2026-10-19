@@ -1,20 +1,15 @@
 #!/usr/bin/env python
-"""Replay eight in-tree perturbations of ``ci.yml`` and assert the perf gate pin notices.
+"""Replay sixteen in-tree perturbations of ``ci.yml`` and assert the perf gate pin notices.
 
 ``tests/unit/test_gate_commands.py::test_ci_runs_the_whole_perf_set_serially`` is the
 pin that keeps the perf gate honest: the ``Test`` job must run the wall-clock-sensitive
 tests alone and serially, and the ``Coverage`` job must deselect them in one step and
-append them in a second. Two review rounds of #509 found that a commit whose *stated*
-purpose was to strengthen that pin had actually deleted a regression test while its
-comment kept claiming the shapes were checked — seven mutations passed the pin, and the
-only reason it was caught is that a reviewer wrote their own harness. That harness lived
-in a scratch directory, so "13/13 behaved as expected" could not be re-run from the
-repository.
+append them in a second. This mutation harness verifies that ``ci.yml`` gate pin assertions
+catch regressions across 14 perturbations (and continue to pass 2 benign controls).
 
-This is that harness, committed. Each case edits ``ci.yml``, runs the pin, and records
-whether the pin failed. A case that *should* be caught but is not, or a case that should
-pass but fails, is a real finding: the pin has stopped watching a shape, or has started
-rejecting valid configuration.
+Each case edits ``ci.yml``, runs the pin, and records whether the pin failed. A case
+that *should* be caught but is not, or a case that should pass but fails, is a real finding:
+the pin has stopped watching a shape, or has started rejecting valid configuration.
 
 Run it alone::
 
@@ -48,7 +43,7 @@ import yaml
 
 REPO = Path(__file__).resolve().parent.parent
 WORKFLOW = REPO / ".github" / "workflows" / "ci.yml"
-PIN = "tests/unit/test_gate_commands.py"
+PIN = "tests/unit/test_gate_commands.py::test_ci_runs_the_whole_perf_set_serially"
 BACKUP = Path(__file__).resolve().parent / ".replay_gate_mutations.backup"
 LOCK = Path(__file__).resolve().parent / ".replay_gate_mutations.lock"
 
@@ -57,13 +52,14 @@ _FAILED_IN_PIN = re.compile(
     r"FAILED tests/unit/test_gate_commands\.py::(?P<name>[\w\[\]:.\-]+)"
 )
 
-QIUET_STEP = "Run performance budgets on a quiet runner"
+QUIET_STEP = "Run performance budgets on a quiet runner"
 SERIAL_STEP = "Measure the perf tests serially and append"
 
 
 def _step(parsed: dict[str, Any], job: str, name: str) -> dict[str, Any]:
     for step in parsed["jobs"][job]["steps"]:
         if step.get("name") == name:
+            assert isinstance(step, dict)
             return step
     raise AssertionError(f"no step {name!r} in job {job!r}")
 
@@ -92,7 +88,12 @@ class Mutation:
     label: str
     expected: str  # "caught" or "passes"
     apply: Callable[[str], str]
-    verify: Callable[[dict[str, Any]], None]
+    verify: Callable[[dict[str, Any]], None] | None = None
+
+
+def _verify_dead_gate(p: dict[str, Any]) -> None:
+    _assert_true(sorted(p["jobs"]["test"]["needs"]) == ["dead-gate"])
+    _assert_present(p["jobs"]["dead-gate"], "if")
 
 
 # Each `verify` asserts the intended *semantic* change actually landed in parsed YAML.
@@ -104,20 +105,20 @@ MUTATIONS: tuple[Mutation, ...] = (
         "caught",
         lambda t: _replace(
             t,
-            f"      - name: {QIUET_STEP}\n",
-            f"      - name: {QIUET_STEP}\n        continue-on-error: true\n",
+            f"      - name: {QUIET_STEP}\n",
+            f"      - name: {QUIET_STEP}\n        continue-on-error: true\n",
         ),
-        lambda p: _assert_true(_step(p, "test", QIUET_STEP).get("continue-on-error")),
+        lambda p: _assert_true(_step(p, "test", QUIET_STEP).get("continue-on-error")),
     ),
     Mutation(
         "quiet-runner step if:",
         "caught",
         lambda t: _replace(
             t,
-            f"      - name: {QIUET_STEP}\n",
-            f"      - name: {QIUET_STEP}\n        if: true\n",
+            f"      - name: {QUIET_STEP}\n",
+            f"      - name: {QUIET_STEP}\n        if: true\n",
         ),
-        lambda p: _assert_present(_step(p, "test", QIUET_STEP), "if"),
+        lambda p: _assert_present(_step(p, "test", QUIET_STEP), "if"),
     ),
     Mutation(
         "serial step continue-on-error",
@@ -176,12 +177,7 @@ MUTATIONS: tuple[Mutation, ...] = (
             "  dead-gate:\n    if: false\n    runs-on: ubuntu-latest\n    steps:\n"
             '      - run: "true"\n\n  security:\n',
         ),
-        lambda p: (
-            _assert_true(
-                sorted(p["jobs"]["test"]["needs"]) == ["dead-gate"]
-            ),
-            _assert_present(p["jobs"]["dead-gate"], "if"),
-        ),
+        _verify_dead_gate,
     ),
     Mutation(
         "tests/perf instead of tests/",
@@ -191,7 +187,7 @@ MUTATIONS: tuple[Mutation, ...] = (
             "        run: pytest tests/ -m perf -v -n 0\n",
             "        run: pytest tests/perf -m perf -v -n 0\n",
         ),
-        lambda p: _assert_true("tests/perf" in _step(p, "test", QIUET_STEP)["run"]),
+        lambda p: _assert_true("tests/perf" in _step(p, "test", QUIET_STEP)["run"]),
     ),
     Mutation(
         "dropped -n 0",
@@ -201,7 +197,7 @@ MUTATIONS: tuple[Mutation, ...] = (
             "        run: pytest tests/ -m perf -v -n 0\n",
             "        run: pytest tests/ -m perf -v\n",
         ),
-        lambda p: _assert_true(_step(p, "test", QIUET_STEP)["run"].endswith("-m perf -v")),
+        lambda p: _assert_true(_step(p, "test", QUIET_STEP)["run"].endswith("-m perf -v")),
     ),
     Mutation(
         "dropped --cov-append",
@@ -221,7 +217,7 @@ MUTATIONS: tuple[Mutation, ...] = (
             "        run: pytest tests/ -m perf -v -n 0\n",
             "        run: pytest tests/ -m perf -v -n 0 || true\n",
         ),
-        lambda p: _assert_true("|| true" in _step(p, "test", QIUET_STEP)["run"]),
+        lambda p: _assert_true("|| true" in _step(p, "test", QUIET_STEP)["run"]),
     ),
     Mutation(
         '-o addopts="--co" on the quiet runner',
@@ -231,19 +227,19 @@ MUTATIONS: tuple[Mutation, ...] = (
             "        run: pytest tests/ -m perf -v -n 0\n",
             '        run: pytest tests/ -m perf -v -n 0 -o addopts="--co"\n',
         ),
-        lambda p: _assert_true("--co" in _step(p, "test", QIUET_STEP)["run"]),
+        lambda p: _assert_true("--co" in _step(p, "test", QUIET_STEP)["run"]),
     ),
     Mutation(
         "PYTEST_ADDOPTS in the quiet runner's env",
         "caught",
         lambda t: _replace(
             t,
-            f"      - name: {QIUET_STEP}\n        env:\n          QT_QPA_PLATFORM: offscreen\n",
-            f"      - name: {QIUET_STEP}\n        env:\n"
+            f"      - name: {QUIET_STEP}\n        env:\n          QT_QPA_PLATFORM: offscreen\n",
+            f"      - name: {QUIET_STEP}\n        env:\n"
             "          QT_QPA_PLATFORM: offscreen\n          PYTEST_ADDOPTS: --co\n",
         ),
         lambda p: _assert_true(
-            _step(p, "test", QIUET_STEP)["env"].get("PYTEST_ADDOPTS") == "--co"
+            _step(p, "test", QUIET_STEP)["env"].get("PYTEST_ADDOPTS") == "--co"
         ),
     ),
     Mutation(
@@ -268,10 +264,10 @@ MUTATIONS: tuple[Mutation, ...] = (
         "passes",
         lambda t: _replace(
             t,
-            f"      - name: {QIUET_STEP}\n",
-            f"      # benign: a comment changes no configuration\n      - name: {QIUET_STEP}\n",
+            f"      - name: {QUIET_STEP}\n",
+            f"      # benign: a comment changes no configuration\n      - name: {QUIET_STEP}\n",
         ),
-        None,  # filled in below: it must leave parsed YAML identical
+        None,  # leaves parsed YAML identical
     ),
 )
 
@@ -363,9 +359,10 @@ def _run(only: set[str], verbose: bool) -> int:
             mutated = mutation.apply(original_text)
             parsed = yaml.safe_load(mutated)
             try:
-                mutation.verify(parsed) if mutation.verify else _unchanged(original_parsed)(
-                    parsed
-                )
+                if mutation.verify is not None:
+                    mutation.verify(parsed)
+                else:
+                    _unchanged(original_parsed)(parsed)
             except AssertionError as exc:
                 results.append((mutation.label, mutation.expected, f"INVALID MUTATION ({exc})"))
                 print(f"  [FAIL] {mutation.label:<46} INVALID MUTATION ({exc})")

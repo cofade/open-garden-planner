@@ -797,18 +797,26 @@ def _is_pytest_run(argv: list[str]) -> bool:
     Closes the delegating-script shape (`bash scripts/ci_perf.sh tests/ -m perf -n 0`,
     which `_marker_arg` reads as a selection) and the bare-`echo` shape (`echo pytest
     tests/ -m perf -n 0`), where the marker is real but no test would run. Only a `pytest`
-    head, or an interpreter invoking it with `-m pytest`, is a runner.
+    head, or a python interpreter invoking it with `-m pytest`, is a runner.
     """
     if not argv:
         return False
-    head = argv[0]
-    if head == "pytest" or head.endswith("/pytest") or head.endswith("\\pytest.exe"):
+    head = argv[0].replace("\\", "/")
+    if head == "pytest" or head.endswith("/pytest") or head.endswith("/pytest.exe"):
         return True
-    return (
-        len(argv) >= 3
-        and argv[1] == "-m"
-        and (argv[2] == "pytest" or argv[2].endswith("/pytest"))
+
+    head_base = head.rsplit("/", 1)[-1]
+    is_python = (
+        head_base in ("python", "python3", "python.exe", "python3.exe")
+        or head_base.startswith("python3.")
     )
+    if is_python:
+        for i in range(1, len(argv) - 1):
+            if argv[i] == "-m":
+                target = argv[i + 1].replace("\\", "/")
+                if target == "pytest" or target.endswith("/pytest") or target.endswith("/pytest.exe"):
+                    return True
+    return False
 
 
 def _collect_only_requested(argv: list[str]) -> str | None:
@@ -863,8 +871,9 @@ def _marker_arg(argv: list[str]) -> str | None:
     later flag is the one that overrides.
     """
     starts: list[int] = []
-    for index, token in enumerate(argv):
-        if token == "pytest" or token.endswith("/pytest") or token.endswith("\\pytest.exe"):
+    for index, raw_token in enumerate(argv):
+        token = raw_token.replace("\\", "/")
+        if token == "pytest" or token.endswith("/pytest") or token.endswith("/pytest.exe"):
             starts.append(index + 1)
     candidates = range(starts[-1], len(argv)) if starts else range(len(argv))
 
@@ -888,8 +897,9 @@ def _flag_value(argv: list[str], flag: str) -> str | None:
     Same reason as `_marker_arg`: `python -m pytest` uses `-m`, and a shell command may
     carry other single-letter flags before the test runner starts.
     """
-    for index, token in enumerate(argv):
-        if token == "pytest":
+    for index, raw_token in enumerate(argv):
+        token = raw_token.replace("\\", "/")
+        if token == "pytest" or token.endswith("/pytest") or token.endswith("/pytest.exe"):
             for pos in range(index + 1, len(argv) - 1):
                 if argv[pos] == flag:
                     return argv[pos + 1]
@@ -921,10 +931,12 @@ def _covers_the_perf_marker(argv: list[str], want_marker: bool) -> bool:
     value = _marker_arg(argv)
     if value is None:
         return False
-    tokens = {part.strip() for part in value.replace("(", " ").replace(")", " ").split()}
-    has_perf = any(tok == "perf" for tok in tokens)
-    negated = "not" in tokens
-    return has_perf and (not negated if want_marker else negated)
+    # Check if perf is referenced in the marker expression
+    if not re.search(r"\bperf\b", value):
+        return False
+    # Check if perf is specifically negated: e.g. "not perf", "not (perf)", "not(perf)"
+    negated = bool(re.search(r"\bnot\s*\(?\s*perf\b", value))
+    return not negated if want_marker else negated
 
 
 def _needs_of(job: dict) -> list[str]:
@@ -970,9 +982,28 @@ class TestTheCommandSplit:
     def test_runner_identity_distinguishes_pytest_from_a_delegating_script(self) -> None:
         assert _is_pytest_run(["pytest", "tests/"])
         assert _is_pytest_run(["python", "-m", "pytest", "tests/"])
+        assert _is_pytest_run(["python3", "-m", "pytest", "tests/"])
+        assert _is_pytest_run(["python", "-u", "-m", "pytest", "tests/"])
         assert _is_pytest_run(["./venv/bin/pytest", "tests/"])
+        assert not _is_pytest_run(["bash", "-m", "pytest", "tests/"])
         assert not _is_pytest_run(["bash", "scripts/ci_perf.sh", "tests/", "-m", "perf", "-n", "0"])
         assert not _is_pytest_run(["echo", "pytest", "tests/"])
+
+    def test_covers_the_perf_marker_handles_compound_expressions(self) -> None:
+        assert _covers_the_perf_marker(["pytest", "-m", "perf"], want_marker=True)
+        assert not _covers_the_perf_marker(["pytest", "-m", "perf"], want_marker=False)
+        assert _covers_the_perf_marker(["pytest", "-m", "not perf"], want_marker=False)
+        assert not _covers_the_perf_marker(["pytest", "-m", "not perf"], want_marker=True)
+        assert _covers_the_perf_marker(["pytest", "-m", "perf and not slow"], want_marker=True)
+        assert not _covers_the_perf_marker(["pytest", "-m", "perf and not slow"], want_marker=False)
+        assert _covers_the_perf_marker(["pytest", "-m", "not perf and not flaky"], want_marker=False)
+        assert not _covers_the_perf_marker(["pytest", "-m", "not perf and not flaky"], want_marker=True)
+        assert not _covers_the_perf_marker(["pytest", "-m", "slow"], want_marker=True)
+        assert not _covers_the_perf_marker(["pytest", "-m", "slow"], want_marker=False)
+
+    def test_flag_value_anchors_to_pytest(self) -> None:
+        assert _flag_value(["./venv/bin/pytest", "tests/", "-n", "0"], "-n") == "0"
+        assert _flag_value(["python", "-u", "-m", "pytest", "tests/", "-n", "0"], "-n") == "0"
 
     def test_collect_only_is_read_directly_and_inside_addopts(self) -> None:
         assert _collect_only_requested(["pytest", "tests/", "--co"]) == "--co"
@@ -1020,17 +1051,12 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
       at all (map-picker close < 0.5 s, point-snapper mean < 16 ms, spatial-index
       medians < 200 ms / < 1 ms).
 
-    **Why this parses the YAML rather than grepping the file.** The first version of this
-    test grepped for `"tests/ -m perf"` and `"-m perf -n 0"` in the whole text, and it
-    passed for the wrong reason: both substrings are satisfied by the COVERAGE job's copy
-    of the command, so mutating the TEST job's step - the one actually named "Run
-    performance budgets on a quiet runner", the one carrying the three zero-slack budgets -
-    to `pytest tests/ -m perf -v` or to the directory form left this test GREEN. Both
-    mutations were run; both passed. A pin that cannot fail is worse than no pin, because
-    it reads as protection. `text.split("  coverage:", 1)[-1]` had the same defect wearing
-    a disguise: if the separator ever goes missing the "scoped" assertion silently becomes
-    a whole-file assertion with the same outcome. So each job is looked up by key, and a
-    missing key is a failure rather than an empty result.
+    **Why this parses the YAML rather than grepping the file.** Substring grepping
+    for `"tests/ -m perf"` and `"-m perf -n 0"` in the whole text is satisfied by the
+    Coverage job's copy of the command alone, so mutating the Test job's step ("Run
+    performance budgets on a quiet runner") would leave a whole-file grep silently green.
+    Each job and step must be looked up by key in the parsed structure so that each
+    runner's configuration is validated independently.
 
     The marker half of this contract was already mechanised - `test_perf_marker_guard.py`
     fails the build if a wall-clock assertion is added without the marker - so the marker
@@ -1188,10 +1214,8 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
                 "fail the workflow, and nothing here was checking that either"
             )
             # A processed-set, not a "seen" set used as a cycle test: a DIAMOND is
-            # valid YAML and common (two jobs that both need a shared setup), and a first
-            # version of this walk failed `test.needs: [lint, agent-context]` plus
-            # `lint.needs: [agent-context]` with "cycle in the needs graph" - three lines
-            # of valid configuration diagnosed as a defect that did not exist.
+            # valid YAML and common (two jobs that both need a shared setup), e.g.
+            # `test.needs: [lint, agent-context]` plus `lint.needs: [agent-context]`.
             if _dependency in _seen:
                 continue
             _seen.add(_dependency)
@@ -1206,10 +1230,7 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
             )
             _queue.extend(_needs_of(jobs[_dependency]))
 
-    # The step-level and job-level neutralisations. These assertions lived in a separate test
-    # (`test_the_perf_steps_cannot_be_neutralised`) until `d9d18860` deleted it while the
-    # comment below went on claiming they were checked; seven mutations were then measured
-    # green against this pin. They belong here rather than in a second test because the pin
+    # The step-level and job-level neutralisations. They belong here because the pin
     # that finds the steps is the pin that must insist they can fail.
     for _job_name in ("test", "coverage"):
         _gate = jobs[_job_name]
@@ -1349,6 +1370,12 @@ def test_the_coverage_floor_step_is_pinned() -> None:
     )
     assert "--xml coverage.xml" in str(step.get("run")), (
         "the floor step must read the `coverage.xml` the coverage steps write"
+    )
+    assert not step.get("continue-on-error"), (
+        "the floor step must not set continue-on-error: it is the required status check"
+    )
+    assert not coverage.get("continue-on-error"), (
+        "the Coverage job must not set continue-on-error"
     )
 
 

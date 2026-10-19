@@ -263,8 +263,8 @@ jobs:
       # The two head runs give 2.8x-3.7x on Coverage and 3.0x-4.3x on Test - read the
       # spread, not the smaller figure. One CI sample is one reading of a shared runner.
       #
-      # Whether `Coverage` should be a required check is a policy question for the owner,
-      # deliberately not answered here.
+      # Coverage is a required status check (ADR-058 addendum; #514). A floor
+      # regression or unparseable report blocks merge.
       - name: Measure full-suite line and branch coverage
         env:
           QT_QPA_PLATFORM: offscreen

@@ -43,9 +43,14 @@ import os
 import subprocess
 import sys
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import pytest
+
+if TYPE_CHECKING:
+    from PyQt6.QtWidgets import QApplication
 
 REPO = Path(__file__).resolve().parent.parent
 if str(REPO) not in sys.path:
@@ -72,10 +77,10 @@ def _prepare_isolation() -> None:
     store = create_qsettings()
     store.setValue(AppSettings.KEY_AGENT_API_ENABLED, False)
     store.setValue(AppSettings.KEY_SHOW_WELCOME, False)
-    GardenPlannerApp._show_welcome_dialog = lambda _self: None  # type: ignore[method-assign]
+    GardenPlannerApp._show_welcome_dialog = lambda _self: None
 
 
-def _counts(app) -> dict[str, int]:
+def _counts(app: QApplication) -> dict[str, int]:
     widgets = app.allWidgets()
     return {
         "widgets": len(widgets),
@@ -84,7 +89,7 @@ def _counts(app) -> dict[str, int]:
     }
 
 
-def _flush(app) -> None:
+def _flush(app: QApplication) -> None:
     from PyQt6.QtCore import QCoreApplication, QEvent
 
     app.processEvents()
@@ -92,13 +97,15 @@ def _flush(app) -> None:
     app.processEvents()
 
 
-def _construct(count: int, delete_each: bool) -> int:
+def _construct(count: int, delete_each: bool) -> QApplication:
     _prepare_isolation()
     from PyQt6.QtWidgets import QApplication
 
     from open_garden_planner.app.application import GardenPlannerApp
 
-    app = QApplication.instance() or QApplication([])
+    raw_app = QApplication.instance() or QApplication([])
+    assert isinstance(raw_app, QApplication)
+    app: QApplication = raw_app
     print(f"start: {_counts(app)}")
     for index in range(count):
         window = GardenPlannerApp()
@@ -160,7 +167,7 @@ def mode_parents(count: int) -> int:
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_teardown(item):  # pragma: no cover - only runs under -p
+def pytest_runtest_teardown(item: Any) -> Generator[None, None, None]:  # pragma: no cover - only runs under -p
     """Plugin role: record the live widget count AFTER each test's teardown."""
 
     def record() -> None:
@@ -172,6 +179,7 @@ def pytest_runtest_teardown(item):  # pragma: no cover - only runs under -p
         app = QApplication.instance()
         counts = {"widgets": 0, "top_level": 0, "visible": 0}
         if app is not None:
+            assert isinstance(app, QApplication)
             counts = _counts(app)
         with open(out, "a", encoding="utf-8") as handle:
             handle.write(json.dumps({"nodeid": item.nodeid, **counts}) + "\n")
@@ -180,7 +188,7 @@ def pytest_runtest_teardown(item):  # pragma: no cover - only runs under -p
     record()
 
 
-def pytest_sessionfinish():  # pragma: no cover - only runs under -p
+def pytest_sessionfinish() -> None:  # pragma: no cover - only runs under -p
     """Plugin role: the decisive experiment for #515's holder question.
 
     When ``OGP_WIDGET_PROBE_GC=1``, count the survivors, run one full collection, and
@@ -196,7 +204,7 @@ def pytest_sessionfinish():  # pragma: no cover - only runs under -p
     from PyQt6.QtWidgets import QApplication
 
     app = QApplication.instance()
-    if app is None:
+    if not isinstance(app, QApplication):
         print("\n[probe] no QApplication at session finish")
         return
     before = _counts(app)

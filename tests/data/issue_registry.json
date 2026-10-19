@@ -939,6 +939,16 @@
     "state": "OPEN",
     "title": "Commit the CI gate mutation harness as scripts/replay_gate_mutations.py"
   },
+  "513": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Close the remaining ci.yml gate-pin holes by parsing each command separately"
+  },
+  "514": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Decide whether a coverage-floor regression should block a merge"
+  },
   "515": {
     "is_pr": false,
     "state": "OPEN",
