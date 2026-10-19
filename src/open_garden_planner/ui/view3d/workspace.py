@@ -959,15 +959,21 @@ class Workspace(QWidget):
             self._controller.refresh_sun()
 
     def _on_applied(self, report: TickReport) -> None:
-        # the look follows the sun the PIPELINE sent — the same pass, the same sun
-        if self._look is not None and self._controller is not None:
-            self._look.set_sun(self._controller.sync.sun)
         # A pass went through: the build is over, and so is a failed update. What the
         # ENGINE reported is not: that notice stays until the engine is gone (it used
         # to be erased by the next pass — one edit, and the only sign of it was lost).
         self._notices.pop(_NOTICE_BUILDING, None)
         self._notices.pop(_NOTICE_SYNC, None)
         self._refresh_notices()
+        if report.ground_pass:
+            # pending ground tiles painted, nothing else: the sun did not move (a
+            # set_sun would restart the look's stale-sky timer on every slice) and no
+            # Model was destroyed (taking it as "the pipeline worked" would push the
+            # quiet-time release back for as long as the ground paints)
+            return
+        # the look follows the sun the PIPELINE sent — the same pass, the same sun
+        if self._look is not None and self._controller is not None:
+            self._look.set_sun(self._controller.sync.sun)
         self._applied_at = _now()
         self._retired += report.retired
         if self._retired >= RELEASE_NOW_RETIRED:
