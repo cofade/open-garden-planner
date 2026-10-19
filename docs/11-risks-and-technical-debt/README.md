@@ -2531,8 +2531,8 @@ second way brought to light. Three of them `master` fixed on its own while L1 wa
 loader's attributes (#438 / #469) by #502's `restore_stored_look`, the offset copy's look (#470)
 by #501's `copy_visual_style` — and since the sync of 2026-10-19 the L1 branch uses master's
 mechanism there (its own loader writes and its own copy helper are gone). The others were fixed on
-the L1 branch, pinned in the 2D suites — each by a test that fails with the pre-L1 code at that
-place — and reached `master` with L1 in v1.30.14 (PR #484); v1.30.13 and earlier still have them.
+the L1 branch, pinned in the 2D suites — each by a test that fails with master v1.30.13's code at
+that place — and reached `master` with L1 in v1.30.14 (PR #484); v1.30.13 still has them.
 
 #### 2D defects the bake found
 
