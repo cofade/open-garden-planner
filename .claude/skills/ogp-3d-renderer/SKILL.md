@@ -831,6 +831,13 @@ test patterns: docs §8.10.27. What the ENGINE taught once it ran inside the rea
   avoid the map but still kept one generation per rebuild in the workspace (holder unknown).
   The `imageMap` loop (~2043–2046) has the same pattern; the mesh branch copies keys first.
   Measured on the L1.5 branch, 2026-10-19 (probes in the plans' `scratch/L1.5/fu22/`).
+  **In the product EVERY release leaks** (the bake asks for none, but item changes do —
+  64 retired Models + 0.5 s quiet, or 512 at once; a date change on a planted plan retires
+  every plant): up to ~42 MB per release for the largest ground (4096² px, ~85 MB with
+  mips). Gate what ships: the workspace's G7 soak runs with the bake ON against
+  `LEAK_BOUND` + 0.6 × its OWN tile-texture bytes per release × releases per reload
+  (the driver reports `ground_texture_mb`) — not with the bake off, not against a fixed
+  ceiling (L1.5 review 3).
 - **Qt keeps graphics state for every Model it ever drew — release it.** After a Model is
   destroyed, Qt Quick 3D still holds its cached per-draw-call state: about 62 kB per Model, about
   190 kB when it casts into the sun's two shadow cascades, independent of the mesh's size

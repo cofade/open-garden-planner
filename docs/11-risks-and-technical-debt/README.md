@@ -2511,34 +2511,48 @@ review had used (a tile's paint); the pin for "any other site" raises in the adm
 instead. *Lesson:* test a failure path by what the user sees on the edit AFTER it, not by the
 state right after the exception — and inject the failure in more than one place.
 
-**A cache release in Qt Quick 3D keeps the textures that were replaced before it — OPEN**
-(L1.5 Part B). *Symptom:* with the ground bake wired in, the workspace's G7 soak (twenty
-rebuilds of bench_small, ADR-065) grew dedicated GPU memory by 7.5 MB per rebuild with its
-release after quiet and by 19 with the release in the pass — 0.0 and −0.1 without the baker;
-two G7 gates failed (13.75 and 28.0 MB per rebuild against 10). *Wrong theory:* "the tiles
-leak on a reset — `GroundTiles.clear()` lets their textures go before a frame"; resets
-without a release are flat. *Isolated on WARP* (a 16-tile ground, twenty cycles, private bytes
-per cycle): re-bake + `releaseResources()` each cycle +10.7 to +13.3 MB; the same without
-mipmaps +7.4 to +8.7; re-bake alone 0.00; reset + re-bake alone 0.00; new tile Models with the
-SAME textures + release −0.28; one release then twenty re-bakes +0.06; a release every fifth
-cycle a 10 to 25 MB step at each release. So it takes BOTH: new `QQuick3DTextureData` objects
-replacing old ones, and a release in between. Qt's `releaseResources()` reaches
-`QSSGBufferManager::clear()`, which releases every cached texture, also the ones shown, and
-reloads them with the next frame. *Root cause (found after the first write-up):* a Qt Quick 3D 6.11.0 bug, read in its source and proven by measurement (#532): `QSSGBufferManager::clear()` walks `customTextureMap` with `++it` while `releaseTextureData(it.key())` erases through its own lookup; Qt 6's `QHash` shifts the next entry of a collision run back into the freed slot, `++it` skips it, and `customTextureMap.clear()` drops the skipped entries unreleased. The key's hash covers only size, depth, format and transparency, so same-size tiles all collide and about half leak per release (WARP, 16 × 512²: +10.8 / +11.7 MB a cycle against a prediction of 8 × 1.333 MiB).
-Static tiles leak as well; the "−0.28" control was broken (a white frame). Tried and rejected:
-in-place updates, distinct sizes (not flat at ≥ 32 tiles), `Texture.sourceItem` images. *What
-Part B does about it:* the bake never asks for a release (tile Models are not counted in
-`TickReport.retired` — they need none), so only a release caused by item changes after a
-re-bake leaks — which is still every rebuild of the workspace's G7 soak: on the branch as it
-stands, dedicated GPU memory +10.2 MB per rebuild (bound 10) and, with the release in the pass,
-private bytes +30.4 (bound 10). *State:* the G7 gate measures Model churn with the bake off;
-`test_the_known_ground_texture_leak_is_reported_and_does_not_get_worse` reports the ground-on
-soak against a ceiling of 60 MB per rebuild; the fix is upstream Qt's (a report draft for the
-owner) or a tile path outside the buffer manager's maps that also passes G7 (#532).
-The probe is in the story's scratch (`probe_release_driver.diff`). *Lesson:* a soak that
-passes alone (G6: re-bakes, no release) and one that passes alone (G7: releases, no textures
-replaced) can both be green while their combination leaks — run the product's own policy
-against the new kind of resource.
+**Every cache release in Qt Quick 3D 6.11 keeps about half of the same-size tile textures —
+OPEN (#532)** (L1.5 Part B, review 3). *Symptom:* with the ground bake wired in, the
+workspace's G7 soak (twenty rebuilds of bench_small, ADR-065) grew dedicated GPU memory by
+7.5 MB per rebuild with its release after quiet and by 19 with the release in the pass — 0.0
+and −0.1 without the baker; two G7 gates failed (13.75 and 28.0 MB per rebuild against 10).
+*Wrong theory:* "the tiles leak on a reset — `GroundTiles.clear()` lets their textures go
+before a frame"; resets without a release are flat. *Isolated on WARP* (a 16-tile ground,
+twenty cycles, private bytes per cycle): re-bake + `releaseResources()` each cycle +10.7 to
++13.3 MB; the same without mipmaps +7.4 to +8.7; re-bake alone 0.00; reset + re-bake alone
+0.00; one release then twenty re-bakes +0.06; a release every fifth cycle a 10 to 25 MB step
+at each release. (A control "new tile Models with the SAME textures + release −0.28" seemed to
+show that it takes a re-bake; that control was broken — its frame was white, no texture ever
+loaded.) *Root cause:* a Qt Quick 3D 6.11.0 bug, read in its source and proven by measurement
+(#532): `QSSGBufferManager::clear()` walks `customTextureMap` with `++it` while
+`releaseTextureData(it.key())` erases through its own lookup; Qt 6's `QHash` shifts the next
+entry of a collision run back into the freed slot, `++it` skips it, and
+`customTextureMap.clear()` drops the skipped entries unreleased. The key's hash covers only
+size, depth, format and transparency, so same-size tiles all collide and about half leak per
+release (WARP, 16 × 512²: +10.8 / +11.7 MB a cycle against a prediction of 8 × 1.333 MiB) —
+static tiles too: every release leaks, re-bake or not. Tried and rejected: in-place updates,
+distinct sizes (not flat at ≥ 32 tiles), `Texture.sourceItem` images. *The exposure:* the bake
+never asks for a release (tile Models are not counted in `TickReport.retired` — they need
+none), but every release the workspace makes for item changes leaks — 64 retired Models and
+half a second of quiet, or 512 at once: a delete or regrow of that many, a document change, a
+date change on a planted plan (every dated plant regrows). The largest ground (~4096² px,
+~85 MB with mips) loses ~42 MB per release; bench_small's (19.5 MiB with mips) read
++9.3 to +11.4 MB of dedicated GPU memory per rebuild in eight runs of review 3. *Wrong first
+answer* (a fallback taken before review 3, which replaced it): gate the leak with the bake OFF
+and report the product against a "regression ceiling" of 60 MB per rebuild — the gate then
+measured a configuration nobody ships, and a ceiling of about three grounds could not fail.
+*State:* G7 measures the product (bake on) against the plain bound plus an allowance derived
+from the soak's OWN ground (0.6 × tile-texture bytes per release × releases per reload,
+§8.10.27); a non-strict `xfail` tripwire holds the GPU slope to the plain bound; the bake-off
+run stays as Model churn alone. Whether 3D may become the default view while #532 is open is
+the owner's decision (put to them with the measured exposure), not a roadmap blocker. The fix
+is upstream Qt's (a report draft for the owner) or a tile path outside the buffer manager's
+maps that also passes G7. The probe is in the story's scratch (`probe_release_driver.diff`).
+*Lesson:* a soak that passes alone (G6: re-bakes, no release) and one that passes alone (G7:
+releases, no textures replaced) can both be green while their combination leaks — run the
+product's own policy against the new kind of resource. And gate what ships: an allowance for a
+known leak, derived from the run's own numbers, keeps the gate able to fail; switching the new
+resource off, or a ceiling chosen by eye, does not.
 
 **A slope estimator meant to ignore one bad reading does not ignore one STEP** (Ruling R41).
 Theil–Sen — the median of all pairwise slopes — shrugs off a single outlier; a single step in

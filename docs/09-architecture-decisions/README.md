@@ -2647,7 +2647,7 @@ itself stays on the owner's manual checklist. The main window is still a raster 
 costs without the 3D view (six alternating rounds of 60 steps along one path at the same canvas
 size; bound 1.3).
 
-**Criterion 10, the leak half — located, and closed by a release.** The pre-registered gate
+**Criterion 10, the leak half — located, and closed by a release — reopened by the ground bake (L1.5, #532): every release keeps about half of the same-size ground-tile textures (a Qt Quick 3D 6.11.0 bug, up to ~42 MB per release for the largest ground); G7 measures the product with an allowance derived from its own ground (§8.32.5 limit 11, ADR-064 addendum "Part B").** The pre-registered gate
 (private bytes, Theil–Sen over reloads 11–20 of 20, below 10 MB per reload, with its positive
 control on the same machine) read **34.6 MB per reload** in the production host on the small
 bench plan (98 parts) when every reload rebuilt the engine scene, 0.2 when it rebuilt nothing,
@@ -5484,30 +5484,44 @@ fixed the same defect, `master`'s mechanism wins:**
   `apply` and cannot know which items get a solid in it.
 - **Pending ground work is a pass of its own.** `SceneSync.continue_ground()` (one bake, no
   snapshot, no diff) is scheduled by the controller exactly like any pass and is preempted by
-  an edit, paused while 3D is hidden, never scheduled after a pass that was given up.
+  an edit, paused while 3D is hidden, never scheduled after a pass that was given up. A ground
+  pass that FAILS is rebuilt by a full pass once per change of the plan; the second failure
+  gives up until the next change (review 3: rebuilding every time paints the first slice,
+  goes through, and fails at the same tile again — 2,308 ground passes in 3 s). The workspace
+  does not take a ground pass as a sun or as "the pipeline worked" (the stale-sky timer, the
+  quiet-time release).
   *Rejected:* `mark_dirty()` per slice, as the controller's seam suggested — a whole-plan
   snapshot (O(total vertices), ADR-065) for every 10-ms slice; a timer of its own — the posted
   event was measured not to starve due timers (offscreen and Windows platforms: a 5 ms timer
   fired after the first of 40 slices of 10 ms).
 - **What the bake could not do reaches the problems list** (`GroundProblems`): an item whose
-  paint failed is an object problem; capped tiles, tiles that could not be painted and a
-  failed bake are NOTES of the ground — rows of no item, first. *Rejected:* listing the
+  paint failed is listed by name, but it is SHOWN (cut off), so it is not counted with the
+  objects "not shown in 3D" — it makes the ground incomplete (review 3; first delivered as an
+  object problem); capped tiles, tiles that could not be painted, a failed bake and ground
+  work given up are NOTES of the ground — rows of no item, first. *Rejected:* listing the
   records a capped tile left out by id — the admission walk keeps only what a tile keeps, and
   naming the rest would put work behind the bound.
 - **A document change clears the baker**; an engine reset clears it through `SceneSync.reset()`.
 - **Release policy: tiles are not counted.** First built conservatively — every tile Model a
   pass destroyed counted in `TickReport.retired` — and reversed by measurement: tile Models need
   no release (new tile Models with the same textures, twenty cycles, with or without a release:
-  flat), and a `releaseResources()` after tile TEXTURES were replaced leaves them behind
-  (+10.7 to +13.3 MB a cycle on WARP with a release each cycle; flat without; −0.28 for Model
-  churn alone). Counting tiles only called the leaking release more often. The leak itself is
+  flat — a reading later found broken, its frame was white), and a `releaseResources()` leaves
+  tile textures behind (+10.7 to +13.3 MB a cycle on WARP with a release each cycle; flat
+  without). Counting tiles only called the leaking release more often; NOT counting them does
+  not make the leak rarer — every release that item changes cause still leaks (review 3). The leak itself is
   OPEN (§11.4.34; the workspace's G7 soak with the baker in: GPU +7.5 MB per rebuild with its
   release after quiet, +19 with the release in the pass, against 0.0 and −0.1 without the
   baker; with tiles no longer counted, GPU +10.2 and private bytes +30.4 with the release in
   the pass). The cause is a Qt Quick 3D 6.11.0 bug, read in its source and proven by measurement (#532): `QSSGBufferManager::clear()` walks `customTextureMap` with `++it` while `releaseTextureData(it.key())` erases through its own lookup; Qt 6's `QHash` shifts the next entry of a collision run back into the freed slot, `++it` skips it, and `customTextureMap.clear()` drops the skipped entries unreleased. The key's hash covers only size, depth, format and transparency, so same-size tiles all collide and about half leak per release (WARP, 16 × 512²: +10.8 / +11.7 MB a cycle against a prediction of 8 × 1.333 MiB) — tried and rejected: in-place updates, distinct tile
-  sizes, tiles as `Texture.sourceItem` images. The workspace's G7 gate therefore measures what a
-  destroyed Model leaves behind with the bake OFF (its purpose since ADR-065 decision 15), and
-  the ground-on soak is reported with a ceiling that fails if the leak gets worse.
+  sizes, tiles as `Texture.sourceItem` images. Static tiles leak too: EVERY release leaks, up
+  to ~42 MB for the largest ground (4096² px, ~85 MB with mips). *Gate (review 3, replacing a
+  first fallback that gated with the bake OFF and reported the product against a 60 MB
+  ceiling that could not fail):* the workspace's G7 soak measures the PRODUCT — ADR-065
+  decision 15 makes it the leak half of ADR-048 criterion 10 — against
+  `LEAK_BOUND_MB_PER_RELOAD` + 0.6 × the soak's own tile-texture bytes per release × releases
+  per reload; a non-strict `xfail` tripwire holds the GPU slope to the plain bound; the
+  bake-off run stays as Model churn alone. Whether 3D becomes the default view while #532 is
+  open is the owner's decision, with the measured exposure (§8.32.5 limit 11).
 - **The tile's material is the endless meadow's** (roughness 1.0, specular amount 0.15), so a
   baked lawn meets the meadow without a step (the L1.4 look review: 0.92 / 0.2 measured 2 to 8
   luma darker; the combined look pass gates the edge at ≤ 1 luma).

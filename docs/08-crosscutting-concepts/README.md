@@ -1513,6 +1513,27 @@ thread once the main window exists.
 - **A slope gate needs its control and its "off" run.** The soak runs with the fix, with 25 MB
   kept per reload (must FAIL) and with the fix out of reach (reported): three numbers from one
   instrument on one machine.
+- **A gate measures the product — a known leak gets an allowance derived from the run, not a
+  configuration nobody ships** (L1.5 review 3, P1-2). The ground bake made two G7 gates fail on
+  a Qt bug (#532: every cache release keeps about half of the same-size tile textures). Turning
+  the bake OFF for the gate measured something that does not ship, and a fixed "regression
+  ceiling" of 60 MB per rebuild (about three grounds of the bench plan) could not fail. Now the
+  soak REPORTS what the ground's textures hold (`ground_texture_mb`: tiles × width × height × 4
+  × 4/3 for the mips) and how many releases it made; the bound is `LEAK_BOUND_MB_PER_RELOAD` +
+  0.6 × that per release × releases per reload (`known_532_allowance_mb`), and the failure
+  message names #532 and the Qt source lines. The control is judged against the same bound,
+  and keeps 25 MB per reload BEYOND the allowance (a fixed 25 MB sat 3 MB above the raised
+  bound in an instrument that swings ±10 MB a run). A `xfail` tripwire holds the product's
+  GPU slope to the PLAIN bound — it passes the day the leak is gone; it is not strict, because
+  on the bench plan the leak reads about as much as the bound (+9.3 to +11.4 MB per rebuild
+  against 10 in eight runs, seven of them under 10: XPASS, XFAIL, XPASS in review 3's three). Model churn alone (the
+  bake off) stays as an additional variant against the plain bound. *The instrument's limit,
+  measured in the same runs:* private bytes swing by ±100 to 200 MB from one reload to the
+  next on this tree, with the bake on or off, so a ten-point slope reads ±13 on a flat curve
+  (Model churn alone: −12.3, +7.5, +8.0, +13.3 in four runs — the last above the plain bound,
+  its GPU slope +0.8); the GPU slope is the stable reading. And "the same picture" before
+  and after a soak allows 2 of 255 per pixel (`SAME_IMAGE_TOLERANCE`): since the L1.4 sky,
+  six sky pixels differ by 1 in about half the runs, at the story's head as well.
 - **Compare two modes along the same path, in alternating short blocks.** The 2D pan cost in
   Split against Plan: six rounds of 60 steps each, every block from the same scroll position
   along the same pixels, the canvas at the same size in both, every step checked to have
@@ -1682,14 +1703,23 @@ tier: `tests/integration/test_scene3d_ground_render.py`):
 - **A pass the controller owes is counted, never waited for by the clock.** The wiring tests
   (`tests/integration/test_scene3d_ground_wiring.py`) give the workspace's controller a baker
   with a budget of 0 — one tile a pass at least, so every multi-pass path is taken — and wait
-  for `Scene3DController.idle` (no pass owed, posted, on a timer, or the ground's). Then they
-  count: one snapshot per edit and none per ground pass (`snapshot_count`, `ground_count`,
+  for `Scene3DController.idle` (no pass owed, posted, on a timer, or the ground's — and a
+  controller that gave up is idle: nothing runs before a change). Then they count: one snapshot
+  per edit and none per ground pass (`snapshot_count`, `ground_count`,
   `TickReport.ground_pass`), `unannounced_changes == 0` after the net's quiet time, the sink's
   state equal to `expected_state()` once nothing is pending, and a tile not yet painted after a
-  document change BARE.
-- **The one wall-clock gate runs on the quiet runner.** G3 — an edit's bake in at most 10 ms in
-  the median — is the story's only assertion on a clock, and it carries `@pytest.mark.perf`
-  (ADR-058, §8.10.4): beside eight workers it read 11.58 ms. Its stopwatch is an ATTRIBUTE of
+  document change BARE. Ordering claims are made INSIDE a pass's `applied` slot
+  (`GroundRig.during`): a 0 ms timer armed in ground pass 5 must fire before ground pass 7
+  (it starves no timer). A failure that repeats is a sink that refuses the same tile every
+  time (review 3's probe, `TileZeroRefused`): after a second of event loop `recovery_count <= 1`,
+  `idle`, ONE ERROR line, a note in the list — and the next edit, and a new document, try
+  again. The workspace's own handling of a ground pass is pinned with a test clock that jumps
+  10 s after the edit's pass: no ground pass hands the look a sun, and the release is due.
+- **The wall-clock gates run on the quiet runner.** G3 — an edit's bake in at most 10 ms in
+  the median — carries `@pytest.mark.perf` (ADR-058, §8.10.4): beside eight workers it read
+  11.58 ms. So does its render-tier twin, whose median is taken in the driver process
+  (`test_scene3d_ground_render.py::test_one_small_edit_re_bakes_within_the_time_budget`; the
+  rest of that test stays in the render tier — review 3, P2-1). G3's stopwatch is an ATTRIBUTE of
   `tests/integration/ground_bake_support.py::TimedBaker`, which the perf-marker guard
   (`tests/unit/test_perf_marker_guard.py`) does not follow, so the marker is set by hand — and the
   class lives in the support module because the guard keys a module's functions by their bare
@@ -5345,24 +5375,43 @@ exist on the C++ side.
   transaction with only `set_ground` — scheduled exactly like any pass (the posted event of
   `_schedule`). Measured with a chain of 40 posted events of 10 ms each, offscreen and on the
   Windows platform: a timer due after 5 ms fired after the first slice — the chain starves no
-  timer (the 2D side's debouncers, the sun animation). An edit preempts it (its records pass
-  continues the ground itself); a hidden view pauses it (a flag, nothing else); a pass that was
-  given up does not schedule it (the next change tries again). `TickReport.ground_pass` marks
-  such a pass; `snapshot_count` does not move, and the net never sees one: the bake paints
-  images, never the scene.
+  timer (the 2D side's debouncers, the sun animation) — pinned: a 0 ms timer armed inside
+  ground pass 5 fires before pass 7. An edit preempts it (its records pass continues the
+  ground itself); a hidden view pauses it (a flag, nothing else); a pass that was given up
+  does not schedule it (the next change tries again). `TickReport.ground_pass` marks such a
+  pass; `snapshot_count` does not move, and the net never sees one: the bake paints images,
+  never the scene. The workspace takes a ground pass for no more than that: it does not hand
+  the look a sun (`set_sun` restarts the stale-sky timer) and does not count it as "the
+  pipeline worked" (that would push the quiet-time release back while the ground paints).
+- **A ground pass that fails is rebuilt ONCE per change** (`GROUND_RECOVERIES`). The sink
+  raised: a full pass resets and applies — which paints the first slice again and goes
+  through — and the next ground pass fails the same way. Rebuilding again was a busy loop on
+  the GUI thread (review 3's probe, an engine that refuses one painted tile: 2,308 ground
+  passes and 329 recoveries in 3 s, never idle). So the second failure since the last change
+  of the plan (`mark_dirty`, `document_changed`, `reset`) gives up like any pass that cannot
+  be rebuilt: records dirty, nothing scheduled, the controller `idle`, ONE ERROR line for the
+  whole outage (a records pass whose ground then fails does not end it), and a NOTE in the
+  problems list — "3D ground: it could not be finished; it is tried again with the next
+  change". A change of the light does not rebuild the ground again (the sun animated over a
+  broken ground would rebuild on every step); the next edit, date or document does.
 - **What the user is told** (`Scene3DController.ground_problems`, plain `GroundProblems`): items
   whose paint raised (`baker.failures`: a row per item — "it could not be painted completely on
-  the 3D ground" — counted with the objects not shown); and NOTES of the ground as a whole, rows
-  that belong to no item and come first: tiles that hold more surfaces than they can show
-  (`baker.capped`), tiles that could not be painted (`baker.tile_failures`), a bake that raised
-  (`sync.ground_failure`, not tried again until a record, the solids or the plan change). The
-  strip says "… the 3D ground does not show all of the plan" for a note.
+  the 3D ground"); and NOTES of the ground as a whole, rows that belong to no item and come
+  first: ground work given up until the next change (`GroundProblems.unfinished`), tiles that
+  hold more surfaces than they can show (`baker.capped`), tiles that could not be painted
+  (`baker.tile_failures`), a bake that raised (`sync.ground_failure`, not tried again until a
+  record, the solids or the plan change). An item whose paint failed IS shown — cut off where
+  it failed — so it is not counted with the objects "not shown in 3D" (`problem_count`); like
+  every note it makes the ground `incomplete`, and the strip says "… the 3D ground does not
+  show all of the plan". The list still names the item.
 - **A new document** drops the baker's tiles with the plan's other memories
   (`_drop_plan_memories`): a tile not yet painted is bare, never a picture of the old plan.
 - **The release policy does not count tiles.** A re-baked tile is a new Model, but tile Models
-  need no cache release (twenty cycles of new tile Models stay flat without one), and a release
-  after tile TEXTURES were replaced leaves them behind (known limit 11) — so `TickReport.retired`
-  counts items only, and ground work never asks for a release.
+  need no cache release (twenty cycles of new tile Models stay flat without one), and every
+  release leaves about half of the same-size tile textures behind (#532, known limit 11) — so
+  `TickReport.retired` counts items only, and ground work never asks for a release or makes
+  one more frequent. It cannot make one rarer either: the releases that item changes cause
+  leak whatever the ground did before them.
 - **The tile's material is the meadow's** — roughness 1.0, specular amount 0.15
   (`Garden.qml`'s `groundTile`): PrincipledMaterial scales the sky's diffuse light by
   (1 − specular amount), so other values put a luma step where a baked lawn meets the endless
@@ -5425,29 +5474,51 @@ A STILL PICTURE of a live view goes that way too, never through repeated `host.g
     item through its cache, which cuts whatever a style draws beyond the item's bounding
     rectangle — the bars of a 30 cm metal fence reach 37.5 cm from the line, the rectangle 17 cm.
     Exports paint without the cache and show them whole; so does the ground.
-11. **OPEN (#532) — a cache release leaves tile textures behind.** *Cause:* a Qt Quick 3D 6.11.0 bug, read in its source and proven by measurement (#532): `QSSGBufferManager::clear()` walks `customTextureMap` with `++it` while `releaseTextureData(it.key())` erases through its own lookup; Qt 6's `QHash` shifts the next entry of a collision run back into the freed slot, `++it` skips it, and `customTextureMap.clear()` drops the skipped entries unreleased. The key's hash covers only size, depth, format and transparency, so same-size tiles all collide and about half leak per release (WARP, 16 × 512²: +10.8 / +11.7 MB a cycle against a prediction of 8 × 1.333 MiB).
-    Static tiles leak too (a release, then a redraw), so the condition is "two or more
-    same-size tile textures cached at a release", re-bake or not; the "same textures + release
-    −0.28" control below was broken (its frame was white: no texture ever loaded). Tried and
-    rejected: in-place updates (leak, and a stale picture), distinct tile sizes (flat at 16
-    tiles, not at 32 / 64 — chance neighbour buckets), tiles as `Texture.sourceItem` images
-    (flat in isolation, one generation per rebuild still kept in the workspace). The G7 gate
-    measures Model churn with the bake OFF; the ground-on soak is reported against a
-    regression ceiling. The first measurements, as taken: The
-    workspace calls `QQuickWindow.releaseResources()` when items lost their Models (ADR-065).
-    When ground tiles were RE-BAKED before such a release — new `QQuick3DTextureData`
-    objects replacing old ones — Qt Quick 3D keeps about one generation of those textures
-    for good. Measured on WARP, a 16-tile ground, twenty cycles: re-bake + release each cycle
-    +10.7 to +13.3 MB a cycle (+7.4 to +8.7 without mipmaps); re-bake without release flat;
-    new tile Models with the SAME textures + release flat (−0.28); one release, then twenty
-    re-bakes flat; a release every fifth cycle a step of 10 to 25 MB at each release. In the
-    workspace's own soak (bench_small, every rebuild re-bakes): dedicated GPU memory +7.5 MB
-    per rebuild with the release after quiet and +19 with the release in the pass, against
-    0.0 and −0.1 without the baker. The bake does not ASK for releases (tile Models
-    are not counted, see "How the product wires it"), so a session leaks only where item
-    changes cause a release after the ground was re-painted. A fix changes how tile textures
-    reach the engine (an image provider; a texture pool that outlives a release) and is a
-    follow-up of its own.
+11. **OPEN (#532) — every cache release leaves about half of the ground's same-size tile
+    textures behind, re-baked or not.** *Cause:* a Qt Quick 3D 6.11.0 bug, read in its source
+    and proven by measurement (#532): `QSSGBufferManager::clear()`
+    (`qssgrenderbuffermanager.cpp` ~2049–2052) walks `customTextureMap` with `++it` while
+    `releaseTextureData(it.key())` erases through its own lookup (~1516); Qt 6's `QHash` shifts
+    the next entry of a collision run back into the freed slot, `++it` skips it, and
+    `customTextureMap.clear()` drops the skipped entries unreleased. The key's hash (~2290,
+    `qssgrendertexturedata_p.h` 74–77) covers only size, depth, format and transparency, so
+    same-size tiles all collide and about half leak per release (WARP, 16 × 512²: +10.8 /
+    +11.7 MB a cycle against a prediction of 8 × 1.333 MiB). *The condition* is "two or more
+    same-size tile textures cached at a release" — a re-bake is not needed: static tiles, a
+    release and a redraw leak too (the "same textures + release −0.28" control of the first
+    measurements below was broken: its frame was white, no texture ever loaded).
+    *The exposure in the product.* The bake asks for no release and makes none more frequent
+    (tile Models are not counted), but EVERY release the workspace makes leaks (ADR-065): at
+    64 items that lost their Models and half a second of quiet, or at once at 512 — a delete
+    or a regrow of that many, a document change, and a DATE change on a planted plan (every
+    dated plant regrows: an animated date releases each time 512 Models have piled up). Each
+    release keeps about half of the ground's same-size tiles. The largest ground is about
+    4096² px (limit 5: larger plans are baked coarser) — ~85 MB with its mip chain, so up to
+    ~42 MB per release; bench_small's ground (2400 × 1600 px in 20 tiles, 19.5 MiB with mips)
+    read, in the workspace's G7 soak on the RTX 4070 (one release per rebuild), dedicated GPU
+    memory +9.3 to +11.4 MB per rebuild (eight runs) with the product's release, against 0.0
+    to +0.8 with the bake off. *Tried and rejected:* in-place updates (leak, and a stale
+    picture), distinct tile sizes (flat at 16 tiles, not at 32 / 64 — chance neighbour
+    buckets), tiles as
+    `Texture.sourceItem` images (flat in isolation, one generation per rebuild still kept in the
+    workspace). *How it is gated* (§8.10.27, review 3): G7 measures the PRODUCT — the bake on —
+    against `LEAK_BOUND_MB_PER_RELOAD` (10) + 0.6 × the soak's own tile-texture bytes per
+    release × releases per reload (11.7 MB on bench_small, so 21.7); a non-strict `xfail`
+    tripwire holds the GPU slope to the plain 10 and passes the day the leak is gone (not
+    strict: the leak reads about as much as the bound on this plan); the bake-off run stays
+    as Model churn alone, against the plain bound. *A fix:* upstream Qt (a report draft for the
+    owner, not filed), or a tile path outside the buffer manager's maps that passes G7.
+    *The first measurements, as taken* (before the cause was known — their "re-baked tiles
+    only" reading is superseded above): the workspace calls `QQuickWindow.releaseResources()`
+    when items lost their Models (ADR-065). When ground tiles were RE-BAKED before such a
+    release — new `QQuick3DTextureData` objects replacing old ones — Qt Quick 3D kept about one
+    generation of those textures for good. Measured on WARP, a 16-tile ground, twenty cycles:
+    re-bake + release each cycle +10.7 to +13.3 MB a cycle (+7.4 to +8.7 without mipmaps);
+    re-bake without release flat; one release, then twenty re-bakes flat; a release every
+    fifth cycle a step of 10 to 25 MB at each release. In the workspace's own soak
+    (bench_small, every rebuild re-bakes): dedicated GPU memory +7.5 MB per rebuild with the
+    release after quiet and +19 with the release in the pass, against 0.0 and −0.1 without the
+    baker.
 
 ### 8.32.6 Built-world builders and base stacking (L1.6)
 
