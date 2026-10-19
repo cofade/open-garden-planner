@@ -164,14 +164,16 @@ class TestLook:
             "sunColor": day["sunColor"], "skyEnergy": 1.0, "groundEnergy": 1.0,
             "groundCurve": 0.1, "sunEnergy": 1.0}
         night = sky_properties(look_for(SunState(-30.0, 10.0), "high").sky)
+        # the night ground hemisphere at the sky's energy, 0.25 — the spike's 0.15 left a
+        # dark line at the night horizon (L1.4 round 5; ``SkySpec.ground_energy``)
         assert (night["sunLatitude"], night["groundBottomColor"], night["skyEnergy"],
-                night["groundEnergy"], night["sunEnergy"]) == (-5.0, "#0a0f14", 0.25, 0.15, 0.0)
+                night["groundEnergy"], night["sunEnergy"]) == (-5.0, "#0a0f14", 0.25, 0.25, 0.0)
         spike = (Path(__file__).resolve().parents[2] / "src" / "open_garden_planner" / "spike_q3d"
                  / "qml" / "GardenSpike.qml").read_text(encoding="utf-8")
         for line in ('data.groundBottomColor = root.night ? "#0a0f14" : "#3c4d2e"',
                      "data.groundHorizonColor = root.skyHorizon",
                      "data.skyEnergy = root.night ? 0.25 : 1.0",
-                     "data.groundEnergy = root.night ? 0.15 : 1.0",
+                     "data.groundEnergy = root.night ? 0.15 : 1.0",   # the one we left
                      "data.groundCurve = 0.1", "data.sunEnergy = root.night ? 0.0 : 1.0"):
             assert line in spike, line
 

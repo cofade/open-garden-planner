@@ -311,8 +311,13 @@ class SkySpec:
     #: The far end of the ground hemisphere; its horizon end is ``horizon``.
     ground_bottom: str
     sky_energy: float
-    #: 1.0 by day with ``ground_curve`` 0.1: the sliver of ground hemisphere under a
-    #: far-clipped meadow drew a 1-3 px dark line at 0.9 / 0.02 (dip 9-10 luma -> 0.1-0.2).
+    #: The sky's own energy, by day AND at night, with ``ground_curve`` 0.1: the sliver
+    #: of ground hemisphere under a far-clipped meadow is drawn at the sky's horizon
+    #: colour, so at any other energy it is a line. By day the spike measured 0.9 / 0.02
+    #: as a 1-3 px dark line (dip 9-10 luma -> 0.1-0.2 at 1.0 / 0.1). At night the
+    #: spike's 0.15 under a sky at 0.25 left the same line (L1.4 round 5, bench_small
+    #: at eye height, 960 x 540: dip 2.07 / 1.04 luma at low / high -> 0.01 / 0.12;
+    #: the fog step 2.51 / 2.50 -> 2.75 / 2.80; night luminance +0.2 %).
     ground_energy: float
     #: 0 at night: no disc (the moon is a light, not a picture).
     sun_energy: float
@@ -422,7 +427,8 @@ def look_for(sun: SunState, preset: str = "high") -> LookSpec:
     cost = PRESET_SPECS[preset]
     night = not sun.is_up
     rig = NIGHT if night else day_rig(sun.elevation_deg)
-    sky_energy, ground_energy, sun_energy = (0.25, 0.15, 0.0) if night else (1.0, 1.0, 1.0)
+    # the ground hemisphere at the sky's own energy (``SkySpec.ground_energy``)
+    sky_energy, ground_energy, sun_energy = (0.25, 0.25, 0.0) if night else (1.0, 1.0, 1.0)
     factor, pcf_factor = _NIGHT_SHADOW if night else _DAY_SHADOW
     fog = fog_linear(rig.sky_horizon, rig.probe_exposure, sky_energy)
     return LookSpec(

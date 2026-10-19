@@ -138,7 +138,7 @@ class TestTheRigIsTheSpikes:
         spike = runner.look_for(SpikeSun(-10.0, 0.0, (0.0, 0.0, -1.0), "#ffffff", 1.0, True))
         assert (look.mood.exposure, look.mood.probe_exposure) == (spike["exposure"], spike["probe"])
 
-    def test_the_one_deliberate_difference_from_the_spike_is_the_night_fog(self) -> None:
+    def test_the_deliberate_differences_from_the_spike_are_the_night_fog_and_ground(self) -> None:
         """L1.4, look-dev round 1. The spike's fog was the horizon x probe exposure x 0.8
         in every mood; its night SKY is drawn x 0.25 on top (``skyEnergy``), so the night
         fog was four times brighter than the sky it met: a bright line along the whole
@@ -155,6 +155,12 @@ class TestTheRigIsTheSpikes:
             spike["skyHorizon"], spike["probe"] * 0.25 * runner.FOG_OF_HORIZON)
         assert night.fog_color != spike["fogColor"]
         assert luma(night.fog_color) < luma(spike["fogColor"]) / 1.5
+        # Round 5: the night sky's ground hemisphere at the sky's own energy (the day
+        # rule), not the spike's 0.15 — that drew a dark line at the night horizon
+        # (dip 2.07 / 1.04 luma at low / high -> 0.01 / 0.12). By day both are 1.0.
+        assert night.sky.ground_energy == night.sky.sky_energy == 0.25
+        day = look_for(sun(30.0))
+        assert day.sky.ground_energy == day.sky.sky_energy == 1.0
 
     def test_the_boards_own_numbers(self) -> None:
         """``ogp-lush-cinematic`` §3, "On the board": what the bench plan's shots get."""
