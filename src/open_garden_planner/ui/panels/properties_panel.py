@@ -50,6 +50,7 @@ from open_garden_planner.ui.canvas.items import (
     RectangleItem,
     TextItem,
 )
+from open_garden_planner.ui.canvas.items.garden_item import note_plan_changed
 from open_garden_planner.ui.theme import set_text_role, theme_color
 
 # Clean, translatable description fragments for TextItem font properties.
@@ -446,6 +447,28 @@ class PropertiesPanel(QWidget):
     def _register_refresh(self, widget: QWidget, setter: Callable[[], object]) -> None:
         """Register an in-place value refresher for ``widget`` (see #206)."""
         self._field_refreshers.append(lambda: self._refresh_widget(widget, setter))
+
+    @staticmethod
+    def _announce_direct_edit(item: QGraphicsItem) -> None:
+        """A handler just wrote into ``item`` DIRECTLY — no command carries the edit.
+
+        So the undo stack announces nothing, and a write into ``metadata`` repaints
+        nothing either: without this, a container's height or material typed here
+        never reached the 3D view, and its shadow kept the old height (measured:
+        30 → 70 cm and plastic → metal through this panel, 0 engine calls after
+        400 ms). Two things, for the two kinds of follower:
+
+        - the scene's plan revision moves (``CanvasScene.note_plan_changed``, ADR-065
+          decision 5) — what follows the PLAN, the 3D view, is told at once;
+        - the item is repainted — what follows the scene's REPAINTS, the sun's
+          shadow, sees it too (``plant_database_panel``'s rule, §11.4).
+
+        Every direct write of this panel calls it. That those writes are not
+        undoable — and do not mark the plan as modified — is a defect of its own
+        that this does not change.
+        """
+        item.update()
+        note_plan_changed(item.scene())
 
     def _refresh_field_values(self) -> None:
         """Re-read the model and push fresh values into the live form widgets.
@@ -1135,6 +1158,7 @@ class PropertiesPanel(QWidget):
             if self._updating:
                 return
             item.grid_enabled = checked
+            self._announce_direct_edit(item)
             if cell_count_label is not None:
                 cell_count_label.setText(str(item.grid_cell_count()))
 
@@ -1142,6 +1166,7 @@ class PropertiesPanel(QWidget):
             if self._updating:
                 return
             item.grid_spacing = val
+            self._announce_direct_edit(item)
             if cell_count_label is not None:
                 cell_count_label.setText(str(item.grid_cell_count()))
 
@@ -1195,6 +1220,7 @@ class PropertiesPanel(QWidget):
             if self._updating:
                 return
             item.metadata["soil_depth_cm"] = val
+            self._announce_direct_edit(item)
 
         depth_spin.valueChanged.connect(on_depth_changed)
         self._form_layout.addRow(self.tr("Soil depth:"), depth_spin)
@@ -1294,28 +1320,36 @@ class PropertiesPanel(QWidget):
                 )
             hint_label.setText(hint)
 
+        # These four write ``metadata`` directly (no command): each announces the
+        # edit and repaints the item itself (``_announce_direct_edit``). The material
+        # and the height are what the 3D view builds a container from, and the
+        # height is what its shadow is cast from.
         def on_material_changed(_index: int) -> None:
             if self._updating:
                 return
             meta["container_material"] = material_combo.currentData()
+            self._announce_direct_edit(item)
             update_feedback()
 
         def on_drainage_changed(checked: bool) -> None:
             if self._updating:
                 return
             meta["container_drainage"] = bool(checked)
+            self._announce_direct_edit(item)
             update_feedback()
 
         def on_height_changed(val: int) -> None:
             if self._updating:
                 return
             meta["container_height_cm"] = float(val)
+            self._announce_direct_edit(item)
             update_feedback()
 
         def on_volume_changed(val: float) -> None:
             if self._updating:
                 return
             meta["container_soil_volume_l"] = None if val <= 0 else float(val)
+            self._announce_direct_edit(item)
             update_feedback()
 
         material_combo.currentIndexChanged.connect(on_material_changed)

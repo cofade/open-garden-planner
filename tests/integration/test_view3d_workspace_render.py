@@ -44,6 +44,9 @@ from tests.integration.quick3d_render_support import render_tier
 from tests.integration.workspace_gate_support import PLANS, GateRun, run_gate
 
 pytestmark = render_tier
+#: G2 and G11 read the wall clock: they carry ``perf`` as well (ADR-058) and run only
+#: when it is asked for — the whole file on the GPU is
+#: ``OGP_RENDER3D=1 pytest tests/integration/test_view3d_workspace_render.py -m "perf or not perf" -n 0``.
 
 #: ADR-048, criterion 10, fixed before run v9 was read: the Theil–Sen slope of committed
 #: memory over the second half of 20 reloads stays below this many MB per reload.
@@ -143,6 +146,32 @@ def test_the_app_closes_clean_with_3d_hidden_again(hidden: GateRun) -> None:
 
 
 @pytest.mark.parametrize("scenario", ["never", "visible", "hidden"])
+def test_the_app_closes_clean_when_its_frames_are_paced_by_the_display(
+        scratch: Path, scenario: str) -> None:
+    """Review 1, P2-12: the three close gates as the PRODUCT starts — without
+    ``QT_D3D_NO_VBLANK_THREAD`` (every other gate of this module runs with it, so that
+    no scenario depends on whether this machine's display is awake).
+
+    What these prove LESS than they seem to: paced by the display, a view on a
+    SLEEPING display presents its first frame and no more. "visible" then closes a
+    view that has presented once — a real case, and the one the timer-paced gate
+    cannot reach — but not a view that presents frame after frame on an awake display
+    while it closes. That stays on the owner's checklist ("close the app with 3D
+    visible", the display on)."""
+    run = _clean(run_gate(scratch, scenario, timer_paced=False))
+    assert run.step("closed")["accepted"] is True
+    if scenario == "visible":
+        shown = run.step("visible")
+        assert shown["state"] == "running" and shown["frames_presented"] >= 1
+        assert shown["parts"] >= shown["records"] == 98 and shown["guard_files"] == []
+    elif scenario == "hidden":
+        last = run.step("hidden")
+        assert last["host_state"] == "hidden" and last["active"] is False
+    MEASURED.setdefault("G5_paced_by_the_display", {})[scenario] = {
+        "adapter": run.qt["adapter"], "qt_messages": run.qt["counts"]}
+
+
+@pytest.mark.parametrize("scenario", ["never", "visible", "hidden"])
 def test_the_frozen_app_closes_clean_too(scratch: Path, scenario: str) -> None:
     exe = os.environ.get("OGP_WORKSPACE_GATE_EXE")
     if not exe:
@@ -230,6 +259,7 @@ def _edit_numbers(run: GateRun) -> dict[str, Any]:
             **{key: step[key] for key in keys}}
 
 
+@pytest.mark.perf
 def test_an_edit_is_in_a_finished_frame_within_50_ms_on_the_small_plan(scratch: Path) -> None:
     """Gate G2: 120 scripted edits of seven kinds in Split mode at 1600 x 900; the clock
     runs from before the app's own command to a finished readback of the 3D view taken
@@ -247,6 +277,7 @@ def test_an_edit_is_in_a_finished_frame_within_50_ms_on_the_small_plan(scratch: 
     assert numbers["total_ms"]["p95"] <= EDIT_TO_FRAME_P95_MS, numbers["total_ms"]
 
 
+@pytest.mark.perf
 def test_the_large_plan_is_measured_and_not_judged(scratch: Path) -> None:
     run = _clean(run_gate(scratch, "edit_latency", plan=PLANS / "bench_large.ogp",
                           width=1600, height=900, edits=120))
@@ -427,6 +458,7 @@ def test_webengine_renders_before_and_after_the_3d_host_exists(scratch: Path) ->
 # ── G11: what the live 3D view costs the 2D canvas ───────────────────────────
 
 
+@pytest.mark.perf
 def test_a_pan_step_beside_the_live_3d_view_costs_at_most_1_3_times(scratch: Path) -> None:
     """Six rounds of 60 pan steps in Split and 60 in Plan with the canvas at the SAME
     size, alternating (what else the machine does lands on both sides alike): the

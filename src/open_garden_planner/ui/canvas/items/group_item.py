@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 from PyQt6.QtCore import QCoreApplication, QRectF, Qt
 from PyQt6.QtGui import QColor, QPainter, QPen
@@ -41,6 +42,17 @@ class GroupItem(GardenItemMixin, QGraphicsItemGroup):
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
+
+    def itemChange(
+        self,
+        change: QGraphicsItem.GraphicsItemChange,
+        value: Any,
+    ) -> Any:
+        """A group that moves, turns or is hidden moves, turns and hides its
+        members — and Qt tells THEM nothing (their own position did not change):
+        the group announces it (``garden_item.handle_item_change``)."""
+        self.handle_item_change(change, value)
+        return super().itemChange(change, value)
 
     # ------------------------------------------------------------------
     # Paint

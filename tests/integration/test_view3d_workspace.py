@@ -39,6 +39,7 @@ from open_garden_planner.core.commands import (
     MoveItemsCommand,
     ResizeItemCommand,
 )
+from open_garden_planner.core.object_height import METADATA_KEY
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.scene3d import GroundSpec, RecordingSink
 from open_garden_planner.core.scene3d.builders import plants
@@ -58,7 +59,11 @@ from open_garden_planner.ui.view3d.workspace import View3DState, Workspace, Work
 from tests.integration.quick3d_render_support import isolated_env
 from tests.integration.test_scene3d_plants import drop
 from tests.integration.test_scene3d_snapshot import _recolour as recolour_fill
-from tests.integration.test_view3d_workspace_widget import FakeHost
+from tests.integration.test_view3d_workspace_widget import (
+    FakeHost,
+    pipeline_settled,
+    wait_for_pipeline,
+)
 
 REPO = Path(__file__).resolve().parents[2]
 PLANS = REPO / "tests" / "fixtures" / "plans"
@@ -76,6 +81,8 @@ class Engines:
         self.calls: list[bool] = []
         self.hosts: list[FakeHost] = []
         self.sinks: list[RecordingSink] = []
+        #: the workspace these engines are built for (``build_app3d`` sets it)
+        self.workspace: Workspace | None = None
 
     def factory(self, prefer_software: bool) -> tuple[FakeHost, RecordingSink]:
         self.calls.append(prefer_software)
@@ -99,9 +106,10 @@ def _quiet_boxes(monkeypatch: pytest.MonkeyPatch) -> None:
                         lambda *_a, **_k: QMessageBox.StandardButton.Ok)
 
 
-@pytest.fixture()
-def app3d(qtbot, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[GardenPlannerApp, Engines]:
-    """The main window with the workspace switched on and the engine replaced."""
+def build_app3d(qtbot: Any, monkeypatch: pytest.MonkeyPatch,
+                tmp_path: Path) -> tuple[GardenPlannerApp, Engines]:
+    """The main window with the workspace switched on and the engine replaced — what
+    the ``app3d`` fixture of this module (and of ``test_view3d_plan_revision.py``) is."""
     monkeypatch.setenv(SWITCH, "1")
     _quiet_boxes(monkeypatch)
     window = GardenPlannerApp()
@@ -110,6 +118,7 @@ def app3d(qtbot, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[Garde
     workspace = window._workspace
     assert isinstance(workspace, Workspace)
     workspace.engine_factory = engines.factory                       # THE SEAM
+    engines.workspace = workspace
     workspace._guard = Init3DGuard(tmp_path / "log", is_running=lambda _pid: False)
     window.show()
     qtbot.waitExposed(window)
@@ -117,8 +126,31 @@ def app3d(qtbot, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[Garde
     return window, engines
 
 
+@pytest.fixture()
+def app3d(qtbot, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[GardenPlannerApp, Engines]:
+    """The main window with the workspace switched on and the engine replaced."""
+    return build_app3d(qtbot, monkeypatch, tmp_path)
+
+
+def first_pass(workspace: Workspace, qtbot: Any, timeout: int = 5000) -> Any:
+    """Wait for the first pass of the document 3D was just opened on, and return the
+    controller. NOT a fixed wait: that pass is HELD until its "Building the 3D view…"
+    notice was painted, or for ``BUILD_NOTICE_WAIT_MS`` (250 ms) when the label is
+    never painted, and then runs ``CATCH_UP_MS`` later (ADR-065). Measured on the dev
+    box: about 55 ms with the paint, about 300 ms without — and a CI runner under load
+    can be the second case (the refused-item test below once read the indicator 120 ms
+    after the switch, found it empty, and the pass ran in its teardown)."""
+    qtbot.waitUntil(lambda: workspace.controller is not None
+                    and workspace.controller.apply_count >= 1 and pipeline_settled(workspace),
+                    timeout=timeout)
+    return workspace.controller
+
+
 def _calls(engines: Engines, qtbot: Any, ms: int = 80) -> list[tuple[str, str | None]]:
-    qtbot.wait(ms)
+    """The engine calls since the last read, once no pass is on its way (by condition:
+    a pass held for its notice is later than any fixed wait on a loaded runner)."""
+    assert engines.workspace is not None
+    wait_for_pipeline(engines.workspace, qtbot, ms)
     calls = engines.sink.ops()
     engines.sink.clear_calls()
     return calls
@@ -416,7 +448,7 @@ def test_a_recovered_document_is_a_document_change_too(app3d, qtbot, tmp_path: P
     window, engines = app3d
     workspace = window._workspace
     workspace.set_mode(VIEW3D)
-    qtbot.wait(80)
+    first_pass(workspace, qtbot)            # the first document is framed before counting
     sent = len(engines.host.cameras)
     recovery = tmp_path / "recovery.ogp"
     recovery.write_bytes((PLANS / "bench_small.ogp").read_bytes())
@@ -453,6 +485,115 @@ def test_fullscreen_preview_hides_the_mode_switch_with_the_rest_of_the_ui(app3d,
     assert workspace._floating.isVisible()
 
 
+@pytest.mark.parametrize("language", ["en", "de", "es"])
+def test_every_notice_of_the_3d_strip_is_shown_whole_in_a_1366_px_window(
+        qtbot, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, language: str) -> None:
+    """Review 1, P2-6. The strip was ONE row of labels that do not wrap: it needed 785
+    px, and Split in a 1366 px main window gives the 3D pane about 455 — the
+    compatibility sentence was cut, with no ellipsis and no tooltip (in German it
+    needed 560 px on its own). The notices now sit below the controls, one per line:
+    every sentence is a label that wraps, and a button holds a short command on a
+    row of its own, never narrower than its text. Pinned with every notice the strip
+    can show at once — the longest (a start that died last time) with its button,
+    and refused items — in every language the app ships."""
+    from PyQt6.QtCore import QCoreApplication, QTranslator
+    from PyQt6.QtWidgets import QAbstractButton, QLabel
+
+    import open_garden_planner
+
+    translator = QTranslator()
+    if language != "en":
+        catalogue = (Path(open_garden_planner.__file__).parent / "resources" / "translations"
+                     / f"open_garden_planner_{language}.qm")
+        assert translator.load(str(catalogue))
+        QCoreApplication.installTranslator(translator)
+    try:
+        window, _engines = build_app3d(qtbot, monkeypatch, tmp_path)
+        workspace, scene = window._workspace, window.canvas_scene
+        folder = tmp_path / "log"
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "view3d-init-999999.marker").write_text(
+            json.dumps({"pid": 999999, "started": 0.0, "mode": "hardware"}), encoding="utf-8")
+        for index in range(2):                           # "2 objects are not shown in 3D"
+            refused = RectangleItem(400.0 + 600.0 * index, 300.0, 300.0, 200.0,
+                                    object_type=ObjectType.RAISED_BED,
+                                    layer_id=scene.active_layer.id)
+            refused.metadata[METADATA_KEY] = float("inf")
+            window.canvas_view.command_manager.execute(CreateItemCommand(scene, refused, "bed"))
+        window.showNormal()                              # the app starts maximised
+        window.resize(1366, 768)
+        qtbot.wait(50)
+        assert window.width() == 1366, (window.width(), window.isMaximized())
+        workspace.set_mode(SPLIT)
+        first_pass(workspace, qtbot)
+        qtbot.wait(50)                                   # the layout has settled
+        pane = workspace.pane
+        assert pane is not None and pane.width() < 600, "a narrow pane: the case of the finding"
+        expected = QCoreApplication.translate(
+            "Workspace", "3D is running in compatibility mode (software rendering) because it "
+            "did not start properly last time.")
+        assert workspace.compat_text() == expected, "the longest notice there is, whole"
+        assert workspace.problems_text() == QCoreApplication.translate(
+            "Workspace", "{count} objects are not shown in 3D").format(count=2)
+        labels = [label for label in pane.notices.findChildren(QLabel) if label.isVisible()]
+        buttons = [button for button in pane.notices.findChildren(QAbstractButton)
+                   if button.isVisible()]
+        assert len(labels) >= 2 and len(buttons) >= 2, (labels, buttons)
+        cut = []
+        for label in labels:
+            if not label.wordWrap() or label.width() > pane.width() or (
+                    label.height() < label.heightForWidth(label.width())):
+                cut.append((label.text(), label.width(), label.height(),
+                            label.heightForWidth(label.width())))
+        for button in buttons:
+            right = button.mapTo(pane, button.rect().topRight()).x()
+            if button.width() < button.sizeHint().width() or right >= pane.width():
+                cut.append((button.text(), button.width(), button.sizeHint().width(), right))
+        assert cut == [], f"cut in a {pane.width()} px pane: {cut}"
+        assert pane.strip.width() <= pane.width()
+        window.close()
+    finally:
+        QCoreApplication.removeTranslator(translator)
+
+
+@pytest.mark.parametrize("cleared", [True, False], ids=["the_stopgap", "control_without_it"])
+def test_3d_mode_clears_the_selection_its_shortcuts_would_act_on(
+        app3d, qtbot, monkeypatch: pytest.MonkeyPatch, cleared: bool) -> None:
+    """Review 1, P2-9. 3D mode hides the canvas — the one place a selection is shown —
+    and keeps the app's shortcuts: Delete would remove what nobody can see. Until the
+    selection story (L1.8) shows the selection in 3D, entering 3D mode clears it, in
+    ONE named function: ``Workspace.clear_selection_hidden_by_3d_mode``. The control
+    turns that function off: the same Delete then removes the hidden shed."""
+    window, _engines = app3d
+    workspace, scene = window._workspace, window.canvas_scene
+    commands = window.canvas_view.command_manager
+    calls: list[int] = []
+    real = Workspace.clear_selection_hidden_by_3d_mode
+
+    def stopgap(self: Workspace) -> None:
+        calls.append(1)
+        if cleared:
+            real(self)
+
+    monkeypatch.setattr(Workspace, "clear_selection_hidden_by_3d_mode", stopgap)
+    shed = RectangleItem(1800.0, 1400.0, 400.0, 300.0, object_type=ObjectType.GARAGE_SHED,
+                         layer_id=scene.active_layer.id)
+    commands.execute(CreateItemCommand(scene, shed, "shed"))
+    shed.setSelected(True)
+    workspace.set_mode(SPLIT)
+    assert shed.isSelected() and calls == [], "Split still shows the plan and its selection"
+    workspace.set_mode(VIEW3D)
+    assert calls == [1], "entering 3D mode, and only that, asks the stopgap"
+    window._delete_action.trigger()                  # the Delete key's action
+    qtbot.wait(20)
+    if cleared:
+        assert scene.selectedItems() == [] and shed.scene() is scene, "nothing hidden was deleted"
+    else:
+        assert shed.scene() is None, "the control: Delete acted on what nobody could see"
+    workspace.set_mode(PLAN)
+    assert calls == [1]
+
+
 def test_closing_with_3d_hidden_or_never_opened_is_quiet(app3d, qtbot) -> None:
     window, engines = app3d
     workspace = window._workspace
@@ -480,28 +621,45 @@ def _ring(count: int, radius: float = 600.0) -> list[QPointF]:
 
 def test_a_plan_with_a_refused_item_shows_the_indicator_and_fixing_it_clears_it(
         app3d, qtbot) -> None:
-    """Addendum point 12. A polygon traced with 6,000 points is drawn by the canvas and
+    """Addendum point 12. A RAISED bed traced with 6,000 points is drawn by the canvas and
     refused by the record layer (``outline_too_large``): it is absent from 3D, and the
-    workspace says so until the outline has fewer points."""
+    workspace says so until the outline has fewer points. A raised bed — something with
+    a height — on purpose: the ground-bake story (L1.5) keeps a FLAT item that the solid
+    path refuses visible, painted on the ground (FR-3D-GROUND-04), so an in-ground bed
+    is no longer "not shown in 3D" there; both stories trace a raised bed.
+
+    The indicator is filled by the pass that finds the problem, in the same call
+    (``problems_changed`` is a direct connection): it is read AT that pass's
+    ``applied`` — never later than the pass, and never by a fixed wait, because the
+    first pass of a document is held for its notice (``first_pass``). This test
+    waited 120 ms once and read ``''`` on a loaded CI runner: the pass came after it."""
     window, engines = app3d
     workspace, scene = window._workspace, window.canvas_scene
     commands = window.canvas_view.command_manager
-    traced = PolygonItem(_ring(6000), object_type=ObjectType.GARDEN_BED, name="Traced bed",
+    traced = PolygonItem(_ring(6000), object_type=ObjectType.RAISED_BED, name="Traced bed",
                          layer_id=scene.active_layer.id)
     commands.execute(CreateItemCommand(scene, traced, "bed"))
     workspace.set_mode(SPLIT)
-    qtbot.wait(120)
+    controller = workspace.controller
+    shown_at_pass: list[str] = []
+    controller.applied.connect(lambda _report: shown_at_pass.append(workspace.problems_text()))
+    first_pass(workspace, qtbot)
+    assert shown_at_pass[0] == "1 object is not shown in 3D", "set by the pass that found it"
     assert workspace.problems_text() == "1 object is not shown in 3D"
     assert str(traced.item_id) not in engines.sink.item_ids()
     workspace._problems_button.click()
     dialog = workspace.problems_dialog
     assert dialog.row_text(0) == (
-        "Traced bed (Garden Bed): its outline has too many points for the 3D view")
+        "Traced bed (Raised Bed): its outline has too many points for the 3D view")
     dialog.activate_row(0)
     assert traced.isSelected()
 
-    traced.setPolygon(QPolygonF(_ring(40)))      # the user simplifies the outline
-    qtbot.wait(120)
+    passes = controller.apply_count
+    traced.setPolygon(QPolygonF(_ring(40)))      # the user simplifies the outline …
+    scene.note_plan_changed()                    # … and a writer round the undo stack says so
+    qtbot.waitUntil(lambda: controller.apply_count > passes and pipeline_settled(workspace),
+                    timeout=5000)
+    assert shown_at_pass[-1] == "", "cleared by the pass that built it"
     assert workspace.problems_text() == "" and dialog.row_count() == 0
     assert str(traced.item_id) in engines.sink.item_ids()
     dialog.close()

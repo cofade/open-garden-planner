@@ -1,33 +1,64 @@
 """The 3D sync pipeline's controller (Phase 17 L1.3, ADR-065). Engine-free.
 
-    scene.changed / stack_changed / date_changed ─► dirty ─► tick ─►
+    scene.plan_changed / date_changed ─► dirty ─► tick ─►
         snapshot_records(scene, clock.plan_date) ─► SceneSync.apply(records, sun, ground) ─► sink
+    scene.changed (a repaint nobody announced) ─► quiet for NET_QUIET_MS ─► the same pass, once
 
 One QObject per main window. It owns a ``SceneSync`` and an ``EngineSink`` it was
 handed (``Quick3DSink`` in the app, ``RecordingSink`` in the tests — the seam),
-listens to the canvas scene and the one ``SimClock``, and turns "something
+listens to the canvas scene and the one ``SimClock``, and turns "the plan
 changed" into at most ONE pipeline pass per event-loop turn.
+
+WHAT STARTS A PASS (ADR-065 decision 5). A whole-plan snapshot is O(total
+vertices) even when every record is cached, and ``QGraphicsScene.changed`` fires
+for every REPAINT: a hover, a selection, a tool's preview under the mouse, the
+sun's shadow while the time slider moves or "Animate" runs. So ``changed`` starts
+no pass. Two layers instead:
+
+- **the fast path — what is announced.** The scene keeps a PLAN REVISION that
+  moves exactly when plan content changed (``CanvasScene.plan_changed``: an item
+  added, removed, moved, turned, shown, hidden, restacked; a command executed,
+  undone or redone; a layer; the canvas size; and ``note_plan_changed()`` for a
+  writer that goes round all of those). A revision that moved marks the records
+  dirty AT ONCE: the pass runs with the next turn of the event loop.
+- **the net — what is not.** A ``changed`` that no announcement explains (the
+  revision did not move since the ``changed`` before it) snapshots nothing; it
+  (re)starts ONE single-shot timer, ``NET_QUIET_MS``. When the scene has been
+  quiet for that long, ONE reconciliation pass runs. It normally finds nothing.
+  If it finds a difference, an edit path is missing its announcement: the pass
+  applies it — so no edit stays out of 3D for longer than the quiet time,
+  whatever wrote it — counts it (``unannounced_changes``) and logs one DEBUG line
+  with the kinds that differed. No ``changed``, no timer: an idle scene costs
+  nothing. A scene that is NEVER quiet (the sun animated for minutes) is
+  reconciled every ``NET_MAX_WAIT_S`` all the same. The timer runs only while 3D
+  is visible; a repaint while it is hidden leaves a flag, and coming back starts
+  the timer once.
 
 The rules it enforces:
 
-- **Paused while 3D is hidden.** ``set_active(False)`` leaves two flags and
-  nothing else: no snapshot, no diff, no sink call, no timer. ``set_active(True)``
-  runs one catch-up pass if a flag is set — a plain ``apply`` of the current
-  snapshot, which ``SceneSync`` guarantees equals a from-scratch apply.
+- **Paused while 3D is hidden.** ``set_active(False)`` leaves flags and nothing
+  else: no snapshot, no diff, no sink call, no timer. ``set_active(True)`` runs
+  one catch-up pass if the plan, the date or the light changed — a plain
+  ``apply`` of the current snapshot, which ``SceneSync`` guarantees equals a
+  from-scratch apply — and starts the net's timer once if all that happened was
+  a repaint.
 - **One tick, one transaction.** Records, sun and ground travel in one
   ``sync.apply`` (L1.1). A time-of-day change is LIGHT ONLY: one ``set_sun``, no
   snapshot (the plan did not change). A date change regrows the plants: a tick.
   Writes that arrive faster than ticks coalesce in the flags — an animated date
   never queues more than one pending regrow.
-- **A snapshot only on a real change, never on a timer.** A whole-plan snapshot
-  is O(total vertices) even when every record is cached (measured in ADR-065);
-  the tick timer is single-shot and started by a change signal only.
+- **A snapshot only on a change of the plan, or once after a quiet time — never
+  on a timer that spins, and never per repaint** (above).
 - **A document change is not a reset.** A new or opened plan is just another
   snapshot; ``apply`` removes what is gone. ``SceneSync.reset()`` is RECOVERY:
   after a sink call raised or the sync is poisoned, the controller resets and
   applies once more, logs it, and never lets the error reach the event loop. If
-  that fails too it gives up for this tick (``failed``), and the next change
-  tries again.
+  that fails too it gives up for this tick (``failed``).
+- **A pass that keeps failing is tried again when something changed, and says so
+  once.** The next change of the plan, of the date or of the light tries again; a
+  mere repaint does not (the net stands down while a pass is owed). The log gets
+  ONE ERROR line per distinct failure of an outage — the same failure again is a
+  DEBUG line — and the next pass that goes through ends the outage.
 - **What 3D could not build is reported, not hidden.** ``skipped`` (the record
   layer refused an item: ``SkipReason``) and ``failures`` (a builder raised) are
   kept from the last tick; ``problems_changed`` fires when they change.
@@ -94,6 +125,19 @@ _PASS_EVENT: Final = QEvent.Type(QEvent.registerEventType())
 #: The catch-up pass after 3D became visible waits this long, so that the pane (and
 #: its "building" note) is painted before a first build that can take a second.
 CATCH_UP_MS: Final = 25
+#: THE NET's quiet time (module docstring): a repaint that no announcement explains
+#: is looked at once the scene has been quiet for this long. Twice the sun
+#: animation's tick (200 ms, ``ui/widgets/sun_sim_toolbar``) on purpose: while
+#: "Animate" runs, the shadows repaint every tick, and a quiet time below that
+#: would reconcile between two ticks — a snapshot per tick, the very cost this
+#: exists to avoid (pinned). It is also the longest an UNANNOUNCED edit stays out
+#: of 3D once the canvas is still.
+NET_QUIET_MS: Final = 400
+#: … and a scene that is never still for that long is reconciled this often anyway.
+NET_MAX_WAIT_S: Final = 5.0
+#: How many distinct failures of one outage are remembered (and so logged at ERROR
+#: once each); a failure beyond that is a DEBUG line.
+_MAX_FAILURES_REMEMBERED: Final = 32
 #: The sun without a garden location — the documented fallback of FR-SUN-06 (the
 #: shipped 3D view's): a southern midday sun.
 NO_LOCATION_SUN: Final = SunState(elevation_deg=50.0, azimuth_deg=180.0)
@@ -103,18 +147,14 @@ LocationProvider = Callable[[], Mapping[str, Any] | None]
 GroundStage = Callable[[Mapping[str, Record], Mapping[str, Record], float, float], GroundSpec]
 
 
-def _log_failure(what: str, error: BaseException) -> None:
-    """ONE line at ERROR — what failed, the exception's type and its message, the
-    message normalised and capped — and the traceback at DEBUG only.
-
-    An exception here can quote the plan (an item's id, a name, a value), and a
-    traceback's last line is that message as it came: a line break in it would
-    write a log line of its own into ``app.log``, the file a user sends to
-    support (``core/plain_text.py``, §8.11). The log file records INFO and up, so
-    the traceback is there for a developer who asks for DEBUG, and nowhere else.
-    """
-    _LOG.error("3D sync: %s (%s: %s)", what, log_text(type(error).__name__), log_text(error))
-    _LOG.debug("3D sync: %s - traceback", what, exc_info=error)
+def _kinds(changes: SceneDiff) -> str:
+    """What differed, for one log line: counts by kind — never an id or a name."""
+    parts = [f"{name} {len(ids)}" for name, ids in (
+        ("added", changes.added), ("removed", changes.removed), ("geometry", changes.geometry),
+        ("transform", changes.transform), ("material", changes.material)) if ids]
+    if changes.reordered:
+        parts.append("reordered")
+    return ", ".join(parts)
 
 
 def plain_ground(_previous: Mapping[str, Record], _records: Mapping[str, Record],
@@ -142,6 +182,10 @@ class TickReport:
     #: drew until it is told to let go; the workspace counts these to know when
     #: (ADR-065, "what a destroyed Model leaves behind").
     retired: int = 0
+    #: True for THE NET's pass: no announcement asked for it, the scene had been
+    #: quiet for ``NET_QUIET_MS`` after a repaint. ``changes`` is empty then unless
+    #: an edit path forgot to announce itself (``Scene3DController.unannounced_changes``).
+    reconciled: bool = False
 
     @property
     def total_ms(self) -> float:
@@ -163,7 +207,12 @@ class Scene3DController(QObject):
 
     def __init__(self, scene: QGraphicsScene, clock: SimClock, location: LocationProvider,
                  sink: EngineSink, registry: BuilderRegistry | None = None, *,
-                 parent: QObject | None = None, tick_ms: int = TICK_MS) -> None:
+                 parent: QObject | None = None, tick_ms: int = TICK_MS,
+                 quiet_ms: int | None = None) -> None:
+        """``scene``: the canvas scene. A ``CanvasScene`` announces its plan's
+        changes (``plan_changed``); any other ``QGraphicsScene`` announces nothing
+        and is kept in step by the net alone — after its quiet time, never at once.
+        ``quiet_ms``: the net's quiet time (default ``NET_QUIET_MS``)."""
         super().__init__(parent)
         if registry is None:
             from open_garden_planner.core.scene3d.builders import production_registry
@@ -182,8 +231,12 @@ class Scene3DController(QObject):
         self._failures: dict[str, BuildFailure] = {}
         self._last_error: str | None = None
         self._retired_by_reset = 0  # items a reset destroyed, not yet reported
+        #: Failures of the current outage that were logged at ERROR already, and
+        #: whether the pass that is running has failed at anything (module docstring).
+        self._failures_logged: set[tuple[str, str, str]] = set()
+        self._failed_in_pass = False
         #: Instruments (the gates read them): whole-plan snapshots taken, passes that
-        #: called ``SceneSync.apply``, light-only passes, recoveries, the last pass.
+        #: called ``SceneSync.apply``, light-only passes, recoveries, the last pass …
         self.snapshot_count = 0
         self.apply_count = 0
         self.light_count = 0
@@ -194,13 +247,30 @@ class Scene3DController(QObject):
         self._selection_dirty = False
         #: Passes that sent ONLY the selection ring (an instrument, like the others).
         self.selection_count = 0
+        #: … the net's passes, and how many of them found a difference: an edit path
+        #: that changed the plan without announcing it. 0 on a healthy app — every
+        #: edit path is pinned to announce itself — and the number a missing
+        #: announcement shows up as.
+        self.reconcile_count = 0
+        self.unannounced_changes = 0
         self._tick_ms = tick_ms
         self._posted = False  # a pass event is in the queue
         self._timer = QTimer(self)
         self._timer.setSingleShot(True)
         self._timer.timeout.connect(self._tick)
+        # THE NET: one single-shot timer, (re)started by a repaint nobody announced
+        self._quiet_ms = NET_QUIET_MS if quiet_ms is None else quiet_ms
+        self._net = QTimer(self)
+        self._net.setSingleShot(True)
+        self._net.timeout.connect(self._reconcile)
+        self._net_since = 0.0     # when the timer was first started in this run of repaints
+        self._net_owed = False    # a repaint arrived while 3D was hidden
+        self._revision_at_changed = self._revision()
+        announced = getattr(scene, "plan_changed", None)  # a CanvasScene has it
+        if announced is not None:
+            announced.connect(self._on_plan_changed)
         scene.changed.connect(self._on_scene_changed)
-        scene.sceneRectChanged.connect(self._on_scene_changed)
+        scene.sceneRectChanged.connect(self._on_rect_changed)
         connect_qobject(clock.date_changed, self._on_date_changed)
         connect_qobject(clock.instant_changed, self._on_instant_changed)
 
@@ -218,6 +288,16 @@ class Scene3DController(QObject):
     def dirty(self) -> bool:
         """Something changed that the sink has not been told."""
         return self._records_dirty or self._sun_dirty
+
+    @property
+    def idle(self) -> bool:
+        """Nothing is on its way: no pass owed, none posted, and the net's quiet timer
+        is not running. (An instrument for tests and gates; a paused controller with
+        a flag set is not idle.)"""
+        with contextlib.suppress(RuntimeError):  # the #230 teardown guard
+            return not (self.dirty or self._selection_dirty or self._posted or self._net_owed
+                        or self._timer.isActive() or self._net.isActive())
+        return True
 
     @property
     def skipped(self) -> tuple[SkippedItem, ...]:
@@ -257,12 +337,21 @@ class Scene3DController(QObject):
         if not active:
             with contextlib.suppress(RuntimeError):  # the #230 teardown guard
                 self._timer.stop()
+                if self._net.isActive():
+                    self._net.stop()
+                    self._net_owed = True  # looked at when 3D comes back
             return
         if self.dirty or self._selection_dirty:
-            self._schedule(max(self._tick_ms, CATCH_UP_MS))
+            self._schedule(max(self._tick_ms, CATCH_UP_MS))  # … and that pass reads everything
+        if self._net_owed and not self.dirty:
+            self._arm_net()  # (a ring-only pass reads no plan: the net is still owed)
 
     def mark_dirty(self) -> None:
-        """Something about the plan may have changed (wire change signals here)."""
+        """The plan changed, or may have: a pass with the next turn of the event loop.
+
+        The slot of the scene's ``plan_changed``, and the call for whoever knows of a
+        change no signal carries (a ground stage with work left). NOT for a repaint:
+        ``QGraphicsScene.changed`` goes to the net (module docstring)."""
         self._records_dirty = True
         self._schedule(self._tick_ms)
 
@@ -309,7 +398,7 @@ class Scene3DController(QObject):
         try:
             self._sync.reset()
         except Exception as error:  # noqa: BLE001 - a dead engine must not take the app down
-            _log_failure("reset failed; the next pass tries again", error)
+            self._log_failure("reset failed; the next pass tries again", error)
         self._records_dirty = self._sun_dirty = True
         self._schedule(self._tick_ms)
 
@@ -325,11 +414,20 @@ class Scene3DController(QObject):
         no plan's worth of memory alive."""
         self._drop_plan_memories()
         self._active = False
+        self._net_owed = False
         with contextlib.suppress(RuntimeError):
             self._timer.stop()
-        for signal in (self._scene.changed, self._scene.sceneRectChanged):
+            self._net.stop()
+        scene = self._scene
+        connections: list[tuple[Any, Callable[..., None]]] = [
+            (scene.changed, self._on_scene_changed),
+            (scene.sceneRectChanged, self._on_rect_changed)]
+        announced = getattr(scene, "plan_changed", None)
+        if announced is not None:
+            connections.append((announced, self._on_plan_changed))
+        for signal, slot in connections:
             with contextlib.suppress(RuntimeError, TypeError):
-                signal.disconnect(self._on_scene_changed)
+                signal.disconnect(slot)
 
     # ── internals ────────────────────────────────────────────────────────────
 
@@ -376,8 +474,64 @@ class Scene3DController(QObject):
             return True
         return super().event(event)
 
-    def _on_scene_changed(self, *_regions: object) -> None:
-        self.mark_dirty()
+    def _revision(self) -> int | None:
+        """The scene's plan revision; None for a scene that keeps none."""
+        revision = getattr(self._scene, "plan_revision", None)
+        return revision if isinstance(revision, int) else None
+
+    def _on_plan_changed(self, _revision: int = 0) -> None:
+        self.mark_dirty()  # the fast path: the plan's content changed, and says so
+
+    def _on_rect_changed(self, *_rect: object) -> None:
+        self.mark_dirty()  # the scene's own rectangle moved: the ground follows
+
+    def _on_scene_changed(self, *regions: object) -> None:
+        """Something was REPAINTED. That is no reason for a pass (module docstring):
+        a repaint that an announcement explains is left alone, any other one is
+        looked at once — when the scene has been quiet for a while.
+
+        A ``changed`` with an EMPTY list reports no repaint: it is Qt's echo of one
+        already reported. With a listener on ``changed`` an item's ``update()`` is
+        emitted at once from the dirty-item pass, and the queued ``_q_emitUpdated``
+        that the same update had asked for arrives after it and finds nothing left
+        (measured: every ``item.update()`` gave ``changed([rect])`` then
+        ``changed([])``). Taken as a repaint, the echo of an ANNOUNCED write whose
+        repaint lands after its pass — the Properties panel repaints, then nudges —
+        was "unexplained" and cost a second whole-plan snapshot a quiet time later,
+        finding nothing."""
+        if regions and isinstance(regions[0], list) and not regions[0]:
+            return
+        revision = self._revision()
+        explained = revision != self._revision_at_changed  # a scene without one: never
+        self._revision_at_changed = revision
+        if explained or self._records_dirty:
+            return  # announced — or a pass is owed anyway, and that pass reads everything
+        if not self._active:
+            self._net_owed = True  # paused: a flag is all that happens
+            return
+        self._arm_net()
+
+    def _arm_net(self) -> None:
+        """(Re)start the quiet timer — and bound the wait in a scene that is never
+        quiet: after ``NET_MAX_WAIT_S`` of repaints the pass runs with the next turn."""
+        self._net_owed = False
+        now = time.monotonic()
+        with contextlib.suppress(RuntimeError):  # the #230 teardown guard
+            if not self._net.isActive():
+                self._net_since = now
+            waited_out = now - self._net_since >= NET_MAX_WAIT_S
+            self._net.start(0 if waited_out else self._quiet_ms)
+
+    def _reconcile(self) -> None:
+        """THE NET's pass: the scene was repainted, nobody announced a change, and it
+        has been quiet since. Read the plan once and apply what differs (normally
+        nothing)."""
+        if not self._active or self._records_dirty:
+            # paused; or a pass is owed and will read everything — also a pass that
+            # FAILED: a repaint is no reason to try a failing pass again
+            return
+        self._failed_in_pass = False
+        self._pass_records(reconciling=True)
 
     def _on_date_changed(self, _day: date) -> None:
         self.mark_dirty()  # growth is keyed on the plan date: the plants regrow
@@ -389,6 +543,7 @@ class Scene3DController(QObject):
     def _tick(self) -> None:
         if not self._active:
             return
+        self._failed_in_pass = False
         if self._records_dirty:
             self._pass_records()
         elif self._sun_dirty:
@@ -407,7 +562,7 @@ class Scene3DController(QObject):
         try:
             sent = self._sync.send_selection()
         except Exception as error:  # noqa: BLE001 - recover through the full pass
-            _log_failure("sending the selection failed; rebuilding the 3D scene", error)
+            self._log_failure("sending the selection failed; rebuilding the 3D scene", error)
             self._records_dirty = True
             self._pass_records()
             return
@@ -422,7 +577,7 @@ class Scene3DController(QObject):
         try:
             self._sync.set_sun(self._sun())
         except Exception as error:  # noqa: BLE001 - recover through the full pass
-            _log_failure("sending the sun failed; rebuilding the 3D scene", error)
+            self._log_failure("sending the sun failed; rebuilding the 3D scene", error)
             self._records_dirty = True
             self._pass_records()
             return
@@ -430,8 +585,13 @@ class Scene3DController(QObject):
         self._done(TickReport(SceneDiff(), False, len(self._sync.records), 0.0,
                               (time.perf_counter() - started) * 1000.0))
 
-    def _pass_records(self) -> None:
+    def _pass_records(self, *, reconciling: bool = False) -> None:
         self._records_dirty = self._sun_dirty = False
+        # whatever was repainted before this line is in the snapshot this pass takes:
+        # the net has nothing left to look at
+        self._net_owed = False
+        with contextlib.suppress(RuntimeError):  # the #230 teardown guard
+            self._net.stop()
         started = time.perf_counter()
         skipped: list[SkippedItem] = []
         try:
@@ -449,14 +609,28 @@ class Scene3DController(QObject):
         sun = self._sun()
         width, depth = self._plan_size()
         started = time.perf_counter()
-        recovered = False
-        try:
-            changes = self._sync.apply(
-                records, sun=sun, ground=self._ground(self._sync.records, records, width, depth))
-        except Exception as error:  # noqa: BLE001 - SyncStateError, or whatever a sink raised
-            _log_failure("a pass failed; resetting the 3D scene and applying again", error)
+        changes: SceneDiff | None = None
+        if self._sync.poisoned:
+            # An engine call failed earlier and the sync refuses every apply until it is
+            # reset: go straight there. The failure that left it so was logged when it
+            # happened — by this class, in a pass; if it was not (somebody else's call
+            # failed), say once that the scene is being rebuilt, and why. Nothing has
+            # failed in THIS pass: if the rebuild goes through, the outage is over.
+            if not self._failures_logged:
+                self._failures_logged.add(("unknown state", "", ""))
+                _LOG.warning("3D sync: the 3D scene was left in an unknown state by a failed "
+                             "engine call; rebuilding it")
+        else:
+            try:
+                changes = self._sync.apply(
+                    records, sun=sun,
+                    ground=self._ground(self._sync.records, records, width, depth))
+            except Exception as error:  # noqa: BLE001 - whatever a sink raised
+                self._log_failure(
+                    "a pass failed; resetting the 3D scene and applying again", error)
+        recovered = changes is None
+        if changes is None:
             self.recovery_count += 1
-            recovered = True
             self._retired_by_reset += len(self._sync.records)
             try:
                 self._sync.reset()
@@ -467,11 +641,23 @@ class Scene3DController(QObject):
                 return
         self.apply_count += 1
         self._last_error = None
+        if not self._failed_in_pass:
+            self._failures_logged.clear()  # a pass in which nothing failed ends the outage
+        if reconciling:
+            self.reconcile_count += 1
+            if not changes.is_empty:
+                # an edit path changed the plan and told nobody: it is in 3D now (this
+                # pass applied it), late by the quiet time — and it is counted, so that
+                # a missing announcement is a number and not a feeling
+                self.unannounced_changes += 1
+                _LOG.debug("3D sync: the plan changed without an announcement (%s); the "
+                           "quiet-time pass found and applied it", _kinds(changes))
         self._set_problems(tuple(skipped), dict(self._sync.failures))
         retired = self._retired_by_reset + len(changes.removed) + len(changes.geometry)
         self._retired_by_reset = 0
         self._done(TickReport(changes, True, len(records), snapshot_ms,
-                              (time.perf_counter() - started) * 1000.0, recovered, retired))
+                              (time.perf_counter() - started) * 1000.0, recovered, retired,
+                              reconciling))
         if self._document_pending:
             self._document_pending = False
             self.document_shown.emit()
@@ -480,9 +666,35 @@ class Scene3DController(QObject):
         self.last_tick = report
         self.applied.emit(report)
 
+    def _log_failure(self, what: str, error: BaseException) -> None:
+        """ONE line at ERROR — what failed, the exception's type and its message, the
+        message normalised and capped — and the traceback at DEBUG only; the SAME
+        failure again, before a pass went through without one, is a DEBUG line.
+
+        An exception here can quote the plan (an item's id, a name, a value), and a
+        traceback's last line is that message as it came: a line break in it would
+        write a log line of its own into ``app.log``, the file a user sends to
+        support (``core/plain_text.py``, §8.11). The log file records INFO and up,
+        so the traceback is there for a developer who asks for DEBUG, and nowhere
+        else. And a pass that fails the same way on every change would otherwise
+        write that file full: one line says it, the next clean pass ends the outage.
+        """
+        self._failed_in_pass = True
+        kind, message = log_text(type(error).__name__), log_text(error)
+        signature = (what, kind, message)
+        known = self._failures_logged
+        if signature in known or len(known) >= _MAX_FAILURES_REMEMBERED:
+            _LOG.debug("3D sync: %s (%s: %s) - again", what, kind, message)
+            return
+        known.add(signature)
+        _LOG.error("3D sync: %s (%s: %s)", what, kind, message)
+        _LOG.debug("3D sync: %s - traceback", what, exc_info=error)
+
     def _give_up(self, what: str, error: BaseException) -> None:
-        _log_failure(what, error)
-        self._records_dirty = self._sun_dirty = True  # the next change tries again
+        self._log_failure(what, error)
+        # nothing was lost: the next CHANGE — of the plan, the date or the light —
+        # tries again; a repaint does not (``_reconcile``)
+        self._records_dirty = self._sun_dirty = True
         # one normalised, capped line: this text travels (a signal, a property) and an
         # exception's message may quote the plan
         self._last_error = f"{what}: {log_text(error)}"
@@ -502,7 +714,7 @@ class Scene3DController(QObject):
         try:
             return self._ground_stage(previous, records, width_cm, depth_cm)
         except Exception as error:  # noqa: BLE001 - a broken baker must not blank the garden
-            _log_failure("the ground stage failed; the bare plan rectangle is shown", error)
+            self._log_failure("the ground stage failed; the bare plan rectangle is shown", error)
             return GroundSpec(width_cm, depth_cm)
 
     def _plan_size(self) -> tuple[float, float]:

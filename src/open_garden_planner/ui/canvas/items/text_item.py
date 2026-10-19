@@ -294,7 +294,7 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
         self, change: QGraphicsItem.GraphicsItemChange, value: Any
     ) -> Any:
         """Show/hide rotation handle on selection change."""
-        self.handle_selection_change_for_cache(change, value)
+        self.handle_item_change(change, value)
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
             if value:
                 self.show_rotation_handle()

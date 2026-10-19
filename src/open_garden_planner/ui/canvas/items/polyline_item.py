@@ -835,7 +835,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         Exits vertex edit mode when deselected.
         Updates annotations when position changes.
         """
-        self.handle_selection_change_for_cache(change, value)
+        self.handle_item_change(change, value)
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
             if value:  # Being selected
                 if not self.is_vertex_edit_mode:

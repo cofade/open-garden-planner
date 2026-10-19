@@ -2438,6 +2438,73 @@ about measuring it.
     hours. **When a sample point is "under" an object, ask what else is under the object.
     And the first plan a sun feature must be tried on is the one the feature is for: a
     vegetable garden is raised beds.**
+16. **A repaint is not an edit.** *Symptom* (the independent review, counting in the real
+    window with a recording sink): with the sun simulation on, 10 time changes cost 10
+    whole-plan snapshots; 20 mouse moves of the polygon tool's preview, nothing created, 20;
+    three selections and a clear, 4; "Animate" is a timer — a snapshot per tick. A preview
+    mouse-move turn cost 6.7 ms in Split against 1.0 in Plan (small bench plan), 18.3 against
+    0.7 (large). The gates had passed: they changed the time with the sun simulation OFF, and
+    the only toolbar that holds the time slider is shown while it is ON. *Root cause:*
+    `QGraphicsScene.changed` — a REPAINT — was wired straight to "the plan is dirty". *Fix:*
+    the scene's plan revision for what is announced, one quiet-time pass for what is not
+    (ADR-065 decision 5); a preview move now costs the same in both modes (median ratio 0.94 and 0.98 on a quiet machine).
+    **A signal named "changed" says what it changes: here the pixels, not the plan. And a gate
+    that a toolbar's visibility can switch off has to be run with the toolbar shown.**
+17. **Qt says "shown" one turn after an item was added — to an item that was visible all
+    along.** The scene polishes a new item in the next turn and sends
+    `ItemVisibleChange` / `ItemVisibleHasChanged(true)` (`_q_polishItems`); announced as a
+    change of the plan, every added item cost a second whole-plan pass. *Fix:* the item hook
+    remembers at the PRE-change notice what the item was, and a "change" to what it already
+    was is not announced (`garden_item.announce_plan_change`).
+18. **A test helper waited a fixed time for a pass the product holds.** *Symptom:* on the Linux
+    CI runner `test_a_plan_with_a_refused_item_shows_the_indicator_and_fixing_it_clears_it`
+    read `problems_text() == ''` 120 ms after the switch to Split; the log line of the pass
+    that refuses the item was in the test's TEARDOWN. Green on the dev box in every run.
+    *Root cause:* the first pass of a document is held until its notice was painted — or for
+    250 ms when it is not — and runs 25 ms later (decision 7): about 55 ms with the paint,
+    300 ms without. The product is not late: the indicator is set by the very pass that
+    finds the problem, in the same call. The tests were early — and not one test: the shared
+    helpers (`Bench.settle()`, 57 uses, and `_calls()`) waited a fixed 80 ms; with the
+    notice's paint withheld on purpose, 23 tests of two files failed. *Fix:* one condition
+    (`pipeline_settled`) waited for, not a time (§8.10.27). **A fixed wait in a test is a
+    guess about the slowest machine the test will ever run on. Wait for the condition the
+    product itself waits for — and to prove the test, run it with the slow path forced.**
+19. **A count of a shared list measured every other test.** *Symptom:* under xdist (and in
+    CI's coverage job) `test_a_destroyed_coordinator_is_never_called_and_takes_its_theme_listener_along`
+    failed with `assert 1 == 3 - 1`. *Root cause:* `ui/theme._theme_listeners` is the
+    process's; the dead coordinators of earlier tests in the same worker had their listeners
+    on it, and the first theme change takes every dead one off. *Fix:* the coordinator keeps
+    its listener by name (`theme_listener`); the test asks whether THAT entry is on the list.
+    Item 13's rule, again, in a new place: **assert about your own object.**
+20. **A sentence on a button is cut where a label would wrap.** The strip's notices were moved
+    to rows of their own with word-wrapping labels, and it was believed fixed; a test at the
+    review's size (1366 px window, a 455 px pane) with every notice at once found two that
+    were still sentences on buttons — "2 objects are not shown in 3D", and "Try Hardware Next
+    Time", whose German text alone is 456 px wide: squeezed to 220 px, cut, no ellipsis. A
+    button with a long text and a fixed policy does the opposite: it makes the pane as wide
+    as the sentence. *Fix:* sentences are labels; buttons hold a short command, never
+    narrower than their text, on a row of their own after a sentence; a click's outcome is
+    said in a label, never written onto the button. **Pin a layout at the size where it
+    broke, with everything on screen at once, in every shipped language.**
+21. **The un-paced close gates prove less than they look.** Every render gate runs with
+    `QT_D3D_NO_VBLANK_THREAD=1`, so that no scenario depends on whether the dev box's display
+    is awake. The three close gates were added once more as the product starts — paced by the
+    display — and pass; but on a SLEEPING display such a view presents its first frame and no
+    more, so "close with 3D visible" there closes a view that presented once, not one that
+    presents frame after frame. That case stays on the owner's checklist (display on).
+22. **`QGraphicsScene.changed` comes twice for one `item.update()` — the second time empty.**
+    *Symptom:* a hand mutant of the net ("an explained repaint arms the net too") survived
+    every test; the test written to kill it found the PRODUCT doing what the mutant did: a
+    write that nudged first and repainted after was in 3D at once — and 400 ms later a second
+    whole-plan snapshot ran and found nothing. *Root cause*, from a probe of the signal order:
+    the announced pass ran, then `changed([rect])` (explained: the revision had moved), then
+    `changed([])` — which compared the revision with the one the first `changed` had just
+    recorded, and so looked unexplained. With a listener on `changed` Qt emits an item's
+    update at once from `_q_processDirtyItems`; the queued `_q_emitUpdated` that update had
+    asked for arrives afterwards and emits what is left: nothing. *Fix:* an empty `changed`
+    reports no repaint and is ignored. **A signal can carry "nothing happened" — read its
+    argument before treating the emission as an event. And a surviving mutant is a question
+    about the product as much as about the tests.**
 
 ### 11.4.36 What selection, the info card and walk mode taught (Phase 17 L1.8, #385)
 

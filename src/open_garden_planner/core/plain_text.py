@@ -22,9 +22,10 @@ then escape**:
    boundary becomes ``"\\n"`` (so the line a cap counts is the line a widget
    breaks: ``\\r``, ``\\x0b``, ``\\x0c``, ``\\x1c``–``\\x1e``, ``\\x85``, U+2028 and
    U+2029 are line breaks to Qt as well), a tab becomes a blank, and every other
-   C0 / C1 control character and the bidirectional overrides and isolates
-   (U+202A–U+202E, U+2066–U+2069: they reorder what is DISPLAYED) become
-   U+FFFD.
+   C0 / C1 control character, the bidirectional overrides and isolates
+   (U+202A–U+202E, U+2066–U+2069: they reorder what is DISPLAYED) and every lone
+   surrogate (U+D800–U+DFFF: legal in a JSON string, impossible to encode — a
+   log handler that meets one writes nothing at all) become U+FFFD.
 2. the caps — lines and characters — are applied to the normalised text, which
    is what the consumer will see;
 3. only then, for a rich-text consumer, the markup characters are escaped.
@@ -74,9 +75,16 @@ LINE_BOUNDARIES: Final = ("\n", "\r", "\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\
 BIDI_CONTROLS: Final = tuple(chr(code) for code in (*range(0x202A, 0x202F), *range(0x2066, 0x206A)))
 
 
+#: Lone surrogates. ``"\\ud800"`` is legal JSON, so a plan file can put one into a
+#: name — and it is not text: no UTF-8 encoder takes it. A ``FileHandler`` without
+#: ``errors=`` then fails on the whole record, and the one log line about the hostile
+#: item is the line that is missing from ``app.log`` (measured: 0 bytes written).
+SURROGATES: Final = range(0xD800, 0xE000)
+
+
 def _table() -> dict[int, str]:
     table: dict[int, str] = dict.fromkeys(
-        (*range(0x00, 0x20), *range(0x7F, 0xA0)), REPLACEMENT)
+        (*range(0x00, 0x20), *range(0x7F, 0xA0), *SURROGATES), REPLACEMENT)
     table.update(dict.fromkeys(map(ord, BIDI_CONTROLS), REPLACEMENT))
     table.update(dict.fromkeys(map(ord, LINE_BOUNDARIES), "\n"))
     table[0x09] = " "

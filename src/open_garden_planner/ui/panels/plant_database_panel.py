@@ -42,6 +42,7 @@ from open_garden_planner.models.plant_data import (
 )
 from open_garden_planner.services import get_plant_library
 from open_garden_planner.services.bundled_species_db import merge_calendar_data
+from open_garden_planner.ui.canvas.items.garden_item import note_plan_changed
 from open_garden_planner.ui.plant_species_assignment import (
     apply_species_to_item,
     confirm_apply_database_values,
@@ -1155,6 +1156,10 @@ class PlantDatabasePanel(QWidget):
         # showing the OLD size after the user edits Current height/spread
         # (US-E8 reads both straight off this dict). See §11.4.
         self._current_plant_item.update()
+        # … and what follows the PLAN rather than its repaints (the 3D view) is
+        # told directly: the one nudge for a write that goes round the undo stack
+        # (CanvasScene.note_plan_changed, ADR-065 decision 5).
+        note_plan_changed(self._current_plant_item.scene())
 
         # Mark project as dirty
         scene = self._current_plant_item.scene()
