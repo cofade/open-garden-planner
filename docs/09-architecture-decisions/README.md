@@ -5061,10 +5061,12 @@ Five facts shaped the design:
      the §8.10 workflow's, undo / redo, layer visibility / lock / opacity, arrange, group /
      ungroup, paste, duplicate, a handle drag, an Agent API write, the Properties-panel edits —
      each moves the revision and reaches 3D by a pass it announced; `unannounced_changes == 0`.
-     A preview mouse-move turn costs in Split what it costs in Plan: median ratio **1.01** on
-     both bench plans (small: 1.86 against 1.84 ms; large: 2.69 against 2.66 ms; a loaded
-     machine; first delivery: 6.7 against 1.0 and 18.3 against 0.7); the gate is ≤ 2.0
-     (`perf`).
+     A preview mouse-move turn costs in Split what it costs in Plan: median ratio **0.94** on
+     the small bench plan (0.58 against 0.62 ms) and **0.98** on the large one (0.76 against
+     0.77 ms), 0 snapshots in 160 moves in Split — the `perf` run on a quiet machine; 1.01 and
+     1.01 in a run beside other suites (1.86 / 1.84 and 2.69 / 2.66 ms); first delivery: 6.7
+     against 1.0 and 18.3 against 0.7. One whole-plan snapshot costs 3.4 and 14.3 ms. The gate
+     is ≤ 2.0 (`perf`).
 
    The pipeline's other rules:
    - *Paused while 3D is hidden*: two flags and nothing else — no snapshot, no diff, no sink call,

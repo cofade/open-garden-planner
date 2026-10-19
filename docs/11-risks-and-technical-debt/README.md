@@ -2447,7 +2447,7 @@ about measuring it.
     the only toolbar that holds the time slider is shown while it is ON. *Root cause:*
     `QGraphicsScene.changed` — a REPAINT — was wired straight to "the plan is dirty". *Fix:*
     the scene's plan revision for what is announced, one quiet-time pass for what is not
-    (ADR-065 decision 5); a preview move now costs the same in both modes (median ratio 1.01).
+    (ADR-065 decision 5); a preview move now costs the same in both modes (median ratio 0.94 and 0.98 on a quiet machine).
     **A signal named "changed" says what it changes: here the pixels, not the plan. And a gate
     that a toolbar's visibility can switch off has to be run with the toolbar shown.**
 17. **Qt says "shown" one turn after an item was added — to an item that was visible all

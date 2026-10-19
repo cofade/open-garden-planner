@@ -4609,7 +4609,8 @@ small bench plan, 18.3 against 0.7 on the large one). Now:
   20 preview moves, three selections and a clear, a hover over handles, "Animate" for 2 s —
   0 snapshots while each happens, 1 after the quiet time, finding nothing; 31 edit paths, each
   announced (`unannounced_changes == 0`). A preview mouse-move turn costs the same in Split as
-  in Plan: median ratio 1.01 on both bench plans (gate: ≤ 2.0, a `perf` test).
+  in Plan: median ratio 0.94 (small bench plan) and 0.98 (large) on a quiet machine, 1.01 beside
+  other suites (gate: ≤ 2.0, a `perf` test).
 
 - **Hidden means paused**: with the pane hidden or the window minimised the controller keeps two
   flags and does nothing else. Showing 3D runs ONE catch-up pass — a plain `apply` of the current
