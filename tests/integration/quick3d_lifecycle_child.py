@@ -93,6 +93,8 @@ def _register_calls() -> None:
         "install_event_filter": lambda host, _part: host.install_event_filter(_input_watcher()),
         "release_cached_resources": lambda host, _part: host.release_cached_resources(),
         "set_selection_ring": lambda host, _part: host.set_selection_ring(None),
+        "focus": lambda host, _part: host.focus(),
+        "has_focus": lambda host, _part: host.has_focus(),
         # the three releases: legal on a closed host, and they do nothing there
         "destroy_part": lambda host, part: host.destroy_part(part),
         "clear": lambda host, _part: host.clear(),

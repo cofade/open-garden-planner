@@ -27,14 +27,17 @@ left free for L1.8's walk mode, which the shipped view already leaves with it.
 THE CLICK (L1.8, ADR-065). A left press and a left release — no other button down,
 at most ``CLICK_SLOP_PX`` apart, at most ``CLICK_MAX_S`` apart in time — are a
 click, and a click PICKS: ``host.pick(x, y)``, once, and ``picked`` carries the
-hit (or None: the ground, the sky) and whether Ctrl or Shift was held. It is the
+hit (or None: the ground, the sky) and the modifiers that were held (the canvas's
+rules differ for Ctrl and Shift — ``selection_bridge.apply_click``). It is the
 ONE place of the workspace that takes a frame from the live view, and it does so
 on a user's own action only — never on a move, a timer or a resize (the memory
 rule; a scan test allows ``pick`` in this module, by name). A host that cannot
 answer (``HostStateError``: mid-resize, collapsed, minimised) means "not now":
 nothing is emitted and nothing is said. While a left press may still become a
 click the camera does not move: a drag starts when the pointer leaves the slop —
-with all of the way it has come, so no drag is ever shortened by it.
+with all of the way it has come, so no drag is ever shortened by it. Walk mode,
+which turns the view on a drag and keeps the move to itself, ends a click in the
+making that way too (``cancel_click``).
 """
 
 from __future__ import annotations
@@ -70,10 +73,6 @@ KEY_PAN_SHARE: Final = 0.1
 CLICK_SLOP_PX: Final = 4.0
 #: … and at most this many seconds lie between them.
 CLICK_MAX_S: Final = 0.4
-#: The modifiers that make a click a toggle: Ctrl (Qt's own on the canvas) and Shift
-#: (the select tool's) — the 2D canvas toggles with either.
-_TOGGLE: Final = Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier
-
 _LEFT: Final = Qt.MouseButton.LeftButton
 _RIGHT: Final = Qt.MouseButton.RightButton
 _MIDDLE: Final = Qt.MouseButton.MiddleButton
@@ -93,8 +92,8 @@ class OrbitInput(QObject):
     #: Home was pressed: frame the plan again.
     reset_requested = pyqtSignal()
     #: A click picked (module docstring): the host's hit — ``PickHit``, or None for the
-    #: ground and the sky — and True when the click is a toggle (Ctrl or Shift).
-    picked = pyqtSignal(object, bool)
+    #: ground and the sky — and the click's ``Qt.KeyboardModifier``s.
+    picked = pyqtSignal(object, object)
 
     def __init__(self, camera: OrbitCamera, viewport_height: Callable[[], float],
                  parent: QObject | None = None) -> None:
@@ -110,6 +109,10 @@ class OrbitInput(QObject):
     def watch(self, host: Any) -> None:
         """The host whose view a click picks in (``host.pick(x, y)``); None: no picking."""
         self._host = host
+
+    def cancel_click(self) -> None:
+        """The press in progress is no click (walk mode turned the view with it)."""
+        self._press = None
 
     def eventFilter(self, _watched: QObject | None, event: QEvent | None) -> bool:  # noqa: N802 - Qt's name
         if event is None:
@@ -158,7 +161,7 @@ class OrbitInput(QObject):
             _LOG.error("3D view: a click could not be picked (%s: %s)",
                        log_text(type(error).__name__), log_text(error))
             return
-        self.picked.emit(hit, bool(event.modifiers() & _TOGGLE))
+        self.picked.emit(hit, event.modifiers())
 
     # ── gestures ─────────────────────────────────────────────────────────────
 

@@ -1012,6 +1012,23 @@ class Quick3DHost:
         self._open("scene_property")
         return _get(self._root, name)
 
+    def focus(self) -> None:
+        """Give the view the keyboard focus (L1.8: walk mode is walked with the keys):
+        ``requestActivate()`` on the view. Measured on the real main window (Windows,
+        fix round 1): afterwards ``QGuiApplication.focusWindow()`` is the view, the
+        widget with the focus is its container, and a key reaches the view's event
+        filters (``ShortcutOverride`` first); the container's ``setFocus()`` does the
+        same there."""
+        self._open("focus")
+        self._view.requestActivate()
+
+    def has_focus(self) -> bool:
+        """True while the view is the window with the keyboard focus."""
+        from PyQt6.QtGui import QGuiApplication
+
+        self._open("has_focus")
+        return QGuiApplication.focusWindow() is self._view
+
     def install_event_filter(self, watcher: QObject) -> None:
         """Let ``watcher`` see the view's events before the view does (L1.3: the orbit
         camera's mouse, wheel and key input). The view is a native window: its input

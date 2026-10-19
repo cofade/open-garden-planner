@@ -63,8 +63,8 @@ class Bench:
         self.filter.watch(self.host)
         self.now = 100.0
         self.filter.clock = lambda: self.now
-        self.picked: list[tuple[Any, bool]] = []
-        self.filter.picked.connect(lambda hit, toggle: self.picked.append((hit, toggle)))
+        self.picked: list[tuple[Any, Any]] = []
+        self.filter.picked.connect(lambda hit, modifiers: self.picked.append((hit, modifiers)))
 
     def send(self, kind: QEvent.Type, x: float, y: float, button: Qt.MouseButton,
              buttons: Qt.MouseButton, modifiers: Qt.KeyboardModifier = PLAIN) -> bool:
@@ -99,21 +99,34 @@ def test_the_thresholds_are_the_stated_ones() -> None:
 def test_a_press_and_a_release_in_place_pick_once_at_that_position(bench: Bench) -> None:
     bench.click(320.5, 240.25)
     assert bench.host.asked == [(320.5, 240.25)]
-    assert bench.picked == [("the hit", False)]
+    assert bench.picked == [("the hit", PLAIN)]
     assert bench.camera.goal == START and not bench.camera.moving, "a click moves no camera"
 
 
 def test_a_click_on_nothing_says_so(bench: Bench) -> None:
     bench.host.answer = None
     bench.click(10.0, 10.0)
-    assert bench.picked == [(None, False)], "the ground and the sky: a hit of None, still a click"
+    assert bench.picked == [(None, PLAIN)], "the ground and the sky: a hit of None, still a click"
 
 
-@pytest.mark.parametrize(("modifiers", "toggle"), [
-    (PLAIN, False), (CTRL, True), (SHIFT, True), (CTRL | SHIFT, True), (ALT, False)])
-def test_ctrl_or_shift_makes_the_click_a_toggle(bench: Bench, modifiers, toggle: bool) -> None:
+@pytest.mark.parametrize("modifiers", [PLAIN, CTRL, SHIFT, CTRL | SHIFT, ALT])
+def test_the_click_carries_its_modifiers(bench: Bench, modifiers) -> None:
+    """Fix round 1: Ctrl and Shift are not the same to the canvas (a Ctrl click on a
+    locked item keeps the selection, a Shift click clears it), so the bridge is told
+    which were held, not only "toggle" (``selection_bridge.apply_click``)."""
     bench.click(50.0, 60.0, modifiers)
-    assert bench.picked == [("the hit", toggle)]
+    assert bench.picked == [("the hit", modifiers)]
+
+
+def test_a_cancelled_press_is_no_click(bench: Bench) -> None:
+    """Walk mode turns the view with a drag and keeps the moves to itself; once it has
+    turned it says so (``cancel_click``) and the release picks nothing (fix round 1)."""
+    bench.press(100.0, 100.0)
+    bench.filter.cancel_click()
+    bench.release(101.0, 100.0)
+    assert bench.picked == [] and bench.host.asked == []
+    bench.click(100.0, 100.0)
+    assert len(bench.picked) == 1, "the next click is a click again"
 
 
 @pytest.mark.parametrize("offset", [(0.0, 0.0), (3.0, 0.0), (0.0, -4.0), (2.8, 2.8)])

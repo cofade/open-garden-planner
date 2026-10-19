@@ -12,8 +12,10 @@ bridge with it.
 What was measured, and is matched:
 
 - a locked item is transparent to a click: it selects what is BEHIND it (on the
-  canvas: below it in the stacking order; in 3D: further along the ray) — and
-  clears the selection when nothing is;
+  canvas: below it in the stacking order; in 3D: further along the ray) — and when
+  nothing is, a plain or Shift click clears the selection while a CTRL click keeps
+  it (Qt's own Ctrl rule; fix round 1 — so the bridge is told WHICH modifier, not
+  only "toggle");
 - Ctrl and Shift both toggle; a click on nothing clears, with or without them;
 - a click on a member of a group selects the group.
 """
@@ -108,9 +110,9 @@ class Plan:
         QTest.mouseClick(self.view.viewport(), Qt.MouseButton.LeftButton, modifiers,
                          QPoint(point.x(), point.y()))
 
-    def click_3d(self, ray: tuple[str, ...], toggle: bool) -> None:
+    def click_3d(self, ray: tuple[str, ...], modifiers: Qt.KeyboardModifier = PLAIN) -> None:
         hit = Hit(self.id_of(ray[0]), tuple(Hit(self.id_of(name)) for name in ray[1:])) if ray else None
-        apply_click(self.scene, hit_ids(hit), toggle=toggle)
+        apply_click(self.scene, hit_ids(hit), modifiers)
 
 
 @pytest.fixture()
@@ -138,6 +140,8 @@ CASES = [
     ("… and toggles it off again", (1400, 1400), CTRL, ("over", "under"), ("free", "under"),
      ["free"]),
     ("a locked item with nothing behind is nothing", (350, 2550), PLAIN, ("alone",), ("free",), []),
+    ("… a ctrl+click on it keeps the selection", (350, 2550), CTRL, ("alone",), ("free",), ["free"]),
+    ("… a shift+click on it clears", (350, 2550), SHIFT, ("alone",), ("free",), []),
     ("a member of a group selects the group", (3150, 2150), PLAIN, ("g1",), ("free",), ["group"]),
     ("the other member too", (3550, 2150), PLAIN, ("g2",), (), ["group"]),
     ("ctrl+click on a member toggles the group", (3150, 2150), CTRL, ("g1",), ("free",),
@@ -155,7 +159,7 @@ def test_a_3d_click_ends_with_the_selection_a_canvas_click_ends_with(
     on_canvas = plan.selected()
     assert on_canvas == measured, f"the CANVAS no longer does what was measured: {name}"
     plan.select(before)
-    plan.click_3d(ray, toggle=modifiers != PLAIN)
+    plan.click_3d(ray, modifiers)
     assert plan.selected() == on_canvas, name
 
 
@@ -178,7 +182,7 @@ def test_shift_through_a_locked_item_is_the_one_place_where_3d_does_not_copy_the
     plan.click_canvas(1400, 1400, SHIFT)
     assert plan.selected() == on_canvas, "the canvas changed: move this case into CASES"
     plan.select(before)
-    plan.click_3d(("over", "under"), toggle=True)
+    plan.click_3d(("over", "under"), SHIFT)
     assert plan.selected() == in_3d
 
 
@@ -192,7 +196,7 @@ def test_an_item_on_a_hidden_layer_cannot_be_named_by_a_click_and_is_not_selecta
     assert plan.id_of("ghost") not in snapshot_records(plan.scene, date(2026, 6, 21))
     assert not is_selectable(ghost)
     plan.select(("free",))
-    plan.click_3d(("ghost",), toggle=False)
+    plan.click_3d(("ghost",), PLAIN)
     assert plan.selected() == [], "as a click on nothing"
     plan.click_canvas(2150, 350, PLAIN)
     assert plan.selected() == [], "the canvas does not hit it either"
@@ -210,7 +214,7 @@ def test_the_locked_layers_items_have_records_and_are_not_selectable(plan: Plan)
     assert not is_selectable(plan.items["over"]) and is_selectable(plan.items["under"])
     plan.scene.update_layer_lock(plan.locked.id, False)
     assert is_selectable(plan.items["over"])
-    plan.click_3d(("over", "under"), toggle=False)
+    plan.click_3d(("over", "under"), PLAIN)
     assert plan.selected() == ["over"], "unlocked: it is the nearest and it is selected"
 
 
@@ -222,7 +226,7 @@ def test_the_click_target_is_the_outermost_group(plan: Plan) -> None:
     assert click_target(plan.items["g1"]) is top and click_target(plan.items["free"]) is top
     assert click_target(plan.items["under"]) is plan.items["under"]
     plan.scene.clearSelection()
-    plan.click_3d(("g2",), toggle=False)
+    plan.click_3d(("g2",), PLAIN)
     assert plan.scene.selectedItems() == [top]
     # one click through two members of the same group is one target, not a toggle twice
     assert selectable_target(plan.scene, [plan.id_of("g1"), plan.id_of("free")]) is top
@@ -239,10 +243,10 @@ def test_the_ray_is_read_nearest_first_and_each_item_once() -> None:
 def test_ids_that_name_nothing_are_passed_over(plan: Plan) -> None:
     assert item_with_id(plan.scene, "") is None and item_with_id(plan.scene, "no such id") is None
     plan.select(("free",))
-    apply_click(plan.scene, ("no such id", plan.id_of("under")), toggle=False)
+    apply_click(plan.scene, ("no such id", plan.id_of("under")), PLAIN)
     assert plan.selected() == ["under"]
-    apply_click(plan.scene, ("no such id",), toggle=True)
-    assert plan.selected() == []
+    apply_click(plan.scene, ("no such id",), CTRL)
+    assert plan.selected() == [], "an id that names NOTHING is a click on nothing, also with Ctrl"
 
 
 def test_the_ids_the_ring_is_drawn_for(plan: Plan) -> None:
@@ -275,13 +279,13 @@ def test_every_step_goes_through_the_scenes_own_selection_signal(plan: Plan) -> 
     plan.scene.selectionChanged.connect(lambda: fired.append(1))
     undo = plan.view.command_manager.can_undo
     stack = len(plan.view.command_manager._undo_stack)  # noqa: SLF001 - "nothing was pushed"
-    plan.click_3d(("free",), toggle=False)
+    plan.click_3d(("free",), PLAIN)
     assert fired and plan.items["free"].isSelected()
     fired.clear()
-    plan.click_3d(("free",), toggle=False)
+    plan.click_3d(("free",), PLAIN)
     assert fired == [], "the same click again changes nothing and says nothing"
-    plan.click_3d(("under",), toggle=True)
-    plan.click_3d((), toggle=False)
+    plan.click_3d(("under",), CTRL)
+    plan.click_3d((), PLAIN)
     assert plan.selected() == [] and len(fired) >= 2
     assert len(plan.view.command_manager._undo_stack) == stack  # noqa: SLF001
     assert plan.view.command_manager.can_undo == undo

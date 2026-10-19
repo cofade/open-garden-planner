@@ -27,11 +27,19 @@ from open_garden_planner.core.scene3d.walk import (
     build_world,
     is_free,
 )
-from open_garden_planner.ui.view3d.orbit_input import OrbitInput
-from open_garden_planner.ui.view3d.walk_mode import LOOK_DEG_PER_PX, WALK_STEP_MS, WalkMode
+from open_garden_planner.ui.view3d.orbit_input import CLICK_SLOP_PX, OrbitInput
+from open_garden_planner.ui.view3d.walk_mode import (
+    LOOK_DEG_PER_PX,
+    PASSED_ON_MODIFIERS,
+    WALK_STEP_MS,
+    WALKER_KEYS,
+    WalkMode,
+)
 
 NONE, LEFT, RIGHT = Qt.MouseButton.NoButton, Qt.MouseButton.LeftButton, Qt.MouseButton.RightButton
 PLAIN, SHIFT = Qt.KeyboardModifier.NoModifier, Qt.KeyboardModifier.ShiftModifier
+CTRL, ALT, META = (Qt.KeyboardModifier.ControlModifier, Qt.KeyboardModifier.AltModifier,
+                   Qt.KeyboardModifier.MetaModifier)
 K = Qt.Key
 
 
@@ -76,6 +84,15 @@ class Bench:
     def key(self, key: Qt.Key, *, down: bool = True, modifiers=PLAIN, repeat: bool = False) -> bool:
         kind = QEvent.Type.KeyPress if down else QEvent.Type.KeyRelease
         return QCoreApplication.sendEvent(self.window, QKeyEvent(kind, key, modifiers, "", repeat))
+
+    def override(self, key: Qt.Key, modifiers=PLAIN) -> tuple[bool, bool]:
+        """Qt's ``ShortcutOverride`` for ``key``, as Qt sends it to the view's window
+        before it looks for a shortcut: (filtered, accepted) — accepted means "no
+        shortcut of the app fires"."""
+        event = QKeyEvent(QEvent.Type.ShortcutOverride, key, modifiers)
+        event.ignore()
+        filtered = QCoreApplication.sendEvent(self.window, event)
+        return filtered, event.isAccepted()
 
     def mouse(self, kind: QEvent.Type, x: float, y: float, button=NONE, buttons=NONE) -> bool:
         event = QMouseEvent(kind, QPointF(x, y), QPointF(x, y), button, buttons, PLAIN)
@@ -219,6 +236,35 @@ def test_a_drag_looks_around_right_is_right_and_down_is_down(bench: Bench) -> No
     assert bench.walk.state.yaw_deg == pytest.approx(10.0 + 40.0 * LOOK_DEG_PER_PX)  # type: ignore[union-attr]
 
 
+def test_a_left_drag_turns_only_once_it_leaves_the_click_slop_and_then_ends_the_click(
+        bench: Bench) -> None:
+    """Review 1, P2-4: walk mode keeps every move to itself, so the orbit filter never
+    saw a flick and picked on the release — a look that turned the view AND selected.
+    Now a left press that stays within ``CLICK_SLOP_PX`` turns nothing (it is still a
+    click, as in orbit); a move past it turns by ALL of the way and says ``turned``,
+    which the workspace hands to ``OrbitInput.cancel_click``."""
+    turned: list[int] = []
+    bench.walk.turned.connect(lambda: turned.append(1))
+    bench.walk.turned.connect(bench.orbit.cancel_click)
+    bench.enter(yaw=10.0)
+    bench.mouse(QEvent.Type.MouseButtonPress, 100.0, 100.0, LEFT, LEFT)
+    assert bench.mouse(QEvent.Type.MouseMove, 102.0, 101.0, NONE, LEFT) is True
+    assert bench.mouse(QEvent.Type.MouseMove, 100.0, 100.0 + CLICK_SLOP_PX, NONE, LEFT) is True
+    assert bench.walk.state.yaw_deg == 10.0 and turned == []  # type: ignore[union-attr]
+    assert bench.orbit._press is not None, "still a click in the making"  # noqa: SLF001
+    bench.mouse(QEvent.Type.MouseMove, 110.0, 100.0, NONE, LEFT)
+    assert bench.walk.state.yaw_deg == pytest.approx(10.0 + 10.0 * LOOK_DEG_PER_PX)  # type: ignore[union-attr]
+    assert turned == [1] and bench.orbit._press is None  # noqa: SLF001
+    bench.mouse(QEvent.Type.MouseMove, 112.0, 100.0, NONE, LEFT)
+    assert turned == [1], "said once per press"
+    bench.mouse(QEvent.Type.MouseButtonRelease, 112.0, 100.0, LEFT, NONE)
+    # a right drag can never be a click: it turns at once
+    bench.mouse(QEvent.Type.MouseButtonPress, 100.0, 100.0, RIGHT, RIGHT)
+    bench.mouse(QEvent.Type.MouseMove, 102.0, 100.0, NONE, RIGHT)
+    assert bench.walk.state.yaw_deg == pytest.approx(10.0 + 14.0 * LOOK_DEG_PER_PX)  # type: ignore[union-attr]
+    assert turned == [1]
+
+
 def test_walking_never_touches_the_orbit_camera(bench: Bench) -> None:
     """Gate G7's root: every gesture that would move the orbit camera is taken or
     swallowed while walking, so leaving shows the pose the user had — exactly."""
@@ -245,6 +291,62 @@ def test_keys_that_are_not_walk_keys_reach_the_application(bench: Bench) -> None
     for key in (K.Key_Z, K.Key_Delete, K.Key_F7, K.Key_V, K.Key_Space):
         assert bench.key(key) is False, key
         assert bench.key(key, modifiers=Qt.KeyboardModifier.ControlModifier) is False
+
+
+# ── the walker's keys belong to the walker (P0 of review 1) ─────────────────
+
+
+def test_the_walkers_keys_are_stated_once() -> None:
+    stated = {K.Key_W, K.Key_A, K.Key_S, K.Key_D, K.Key_Up, K.Key_Down, K.Key_Left, K.Key_Right,
+              K.Key_Shift, K.Key_Escape}
+    assert stated == WALKER_KEYS
+    assert PASSED_ON_MODIFIERS == CTRL | ALT | META
+
+
+@pytest.mark.parametrize("key", sorted(WALKER_KEYS, key=int))
+def test_while_walking_a_walkers_key_is_claimed_before_any_shortcut(bench: Bench, key: Qt.Key) -> None:
+    """Qt sends ``ShortcutOverride`` to the view's window BEFORE it looks for a
+    shortcut; accepting it is what stops the main window's ``S`` (Snap to Grid) from
+    firing (measured on the real main window, fix round 1). Shift still runs."""
+    assert bench.override(key) == (False, False), "not walking: the app's shortcuts get it"
+    bench.enter()
+    assert bench.override(key) == (True, True)
+    assert bench.override(key, SHIFT) == (True, True)
+    for held in (CTRL, ALT, META, CTRL | SHIFT):
+        assert bench.override(key, held) == (False, False), "a key with Ctrl or Alt is passed on"
+
+
+@pytest.mark.parametrize("key", [K.Key_G, K.Key_Z, K.Key_Delete, K.Key_Space, K.Key_F7,
+                                 K.Key_PageUp, K.Key_Home, K.Key_Q, K.Key_E])
+def test_every_other_key_is_left_to_the_apps_shortcuts(bench: Bench, key: Qt.Key) -> None:
+    bench.enter()
+    assert bench.override(key) == (False, False)
+    assert bench.override(key, CTRL) == (False, False)
+
+
+def test_a_walkers_key_with_ctrl_or_alt_is_passed_on_and_does_not_walk(bench: Bench) -> None:
+    bench.enter()
+    for held in (CTRL, ALT):
+        assert bench.key(K.Key_W, modifiers=held) is False, "Ctrl+W, Alt+W: the app's"
+        assert bench.walk.moving is False
+        assert bench.key(K.Key_Escape, modifiers=held) is False and bench.lefts == 0
+        assert bench.key(K.Key_Up, modifiers=held) is True, (
+            "an arrow is the orbit camera's too: swallowed, never walked, never orbited")
+        assert bench.walk.moving is False
+    assert bench.walk.state.shown == (1000.0, 1000.0)  # type: ignore[union-attr]
+
+
+def test_a_held_key_released_with_ctrl_down_is_still_let_go(bench: Bench) -> None:
+    """W held, then Ctrl pressed, then W released: the release carries Ctrl, and it is
+    still the walker's — or W would be stuck down."""
+    bench.enter()
+    bench.key(K.Key_W)
+    bench.tick(0.1)
+    assert bench.key(K.Key_W, down=False, modifiers=CTRL) is True
+    assert bench.walk.moving is False
+    here = bench.at
+    bench.tick(1.0)
+    assert bench.at == here
 
 
 def test_escape_asks_to_leave_and_is_not_passed_on(bench: Bench) -> None:

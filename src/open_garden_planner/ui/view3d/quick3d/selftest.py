@@ -78,8 +78,10 @@ _KIND_PARAM: Final = "material_kind"
 #: The swatch the self-test selects: its ring is the one frame the ring's shader
 #: (``ring.vert`` / ``ring.frag``) draws before a release.
 SELECTED: Final = ("roof",)
-#: At least this share of the ring's band must be ring-coloured (measured: 0.9 and
-#: more on the GPU and on WARP; the rest is the band's anti-aliased rim).
+#: At least this share of the ring's band must be ring-coloured. Measured 2026-10-19 with
+#: ``run_selftest`` (the path of ``--selftest``): 1.00 on the GPU (Direct3D 11, RTX 4070)
+#: and 1.00 on WARP ("Microsoft Basic Render Driver"); a ring drawn behind its swatch
+#: fails the bound (``tests/integration/test_quick3d_selftest.py``). Half is the bound.
 RING_SHARE: Final = 0.5
 
 

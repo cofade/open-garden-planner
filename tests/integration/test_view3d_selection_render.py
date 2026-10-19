@@ -64,7 +64,7 @@ from tests.integration.view3d_selection_support import (
 pytestmark = render_tier
 
 Run = tuple[dict[str, Any], Path]
-SCENARIOS = "ring,ring_depth,pick,lookthrough,workspace"
+SCENARIOS = "ring,ring_depth,pick,lookthrough,workspace,app_walk"
 SOFTWARE_ADAPTERS = ("Basic Render", "llvmpipe", "SwiftShader", "softpipe")
 
 
@@ -704,6 +704,28 @@ def _ring_depth_on_opengl(folder: Path, qml_dir: Path | None = None) -> dict[str
         ring = mask_pixels(ring_mask(rgb))
         shares[name] = (len(ring), float((distances_to(outline, ring) <= 4.0 * dpr).mean()))
     return {"shares": shares, "qt": result["qt_messages"], "adapter": result.get("adapter")}
+
+
+def test_in_the_full_main_window_every_walkers_key_walks_and_no_shortcut_fires(run: Run) -> None:
+    """Review 1, P0 and P1-2 on the real engine in the real ``GardenPlannerApp``: the
+    Walk action gives the 3D view the keyboard; each walker's key, pressed into the window
+    that HAS the keyboard, moves the walker (S too — it was the main window's Snap to
+    Grid); no shortcut fires (Snap to Grid unchanged) and the plan's tool is untouched;
+    Escape leaves walk mode and the keyboard goes back to the plan."""
+    data = run[0]["scenarios"]["app_walk"]
+    assert data["before"]["focus_widget"] == "CanvasView" and not data["before"]["focus_window_is_view"]
+    assert "S" in data["window_shortcuts"], "the main window still has its S shortcut"
+    assert data["entered"] == {"walking": True, "focus_window_is_view": True}
+    least = min(key["moved_cm"] for key in data["keys"])
+    print(f"\n[app walk] {len(data['keys'])} keys into the focus window: each moved the walker "
+          f"{least:.1f} cm or more in {driver.APP_WALK_HOLD_MS} ms; snap {data['snap_before']} -> "
+          f"{data['left']['snap']}; tool {data['tool_before']} -> {data['left']['tool']}")
+    for key in data["keys"]:
+        assert key["to_the_view"], key
+        assert key["moved_cm"] > 0.25 * walk.WALK_SPEED_CM_S * driver.APP_WALK_HOLD_MS / 1000.0, key
+        assert key["snap"] is data["snap_before"] and key["tool"] == data["tool_before"], key
+    assert data["left"]["walking"] is False and data["left"]["focus_widget_is_canvas"] is True
+    assert data["left"]["tool"] == data["tool_before"] and data["left"]["snap"] is data["snap_before"]
 
 
 def test_the_ring_is_in_front_on_the_opengl_backend_too(tmp_path: Path) -> None:

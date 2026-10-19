@@ -2,7 +2,11 @@
 
 ``Workspace`` around a real canvas, the engine replaced at its seam by a
 ``RecordingSink`` and a host that records what it is told and answers a ``pick``
-from a script. Gates G2 (a 3D click → the canvas selection), G3 (the canvas
+from a script. The host's view is a REAL ``QWindow`` in a window container, its
+filters installed on it, and every click and key is delivered to it by ``QTest`` —
+through ``QGuiApplication``'s own input path, ``ShortcutOverride`` and the app's
+shortcut map included (review 1, P1-3: calling ``eventFilter`` by hand skipped the
+path the S key was lost on). Gates G2 (a 3D click → the canvas selection), G3 (the canvas
 selection → the ring, through ONE sink call), G6 (the info card says the record's
 numbers) and G7 (walk mode borrows the camera and gives it back) — everything about
 them that is not a pixel. The same paths on the real engine:
@@ -17,8 +21,10 @@ from datetime import date
 from typing import Any
 
 import pytest
-from PyQt6.QtCore import QEvent, QPointF, Qt
-from PyQt6.QtGui import QKeyEvent, QMouseEvent
+from PyQt6.QtCore import QEvent, QObject, QPoint, QPointF, Qt
+from PyQt6.QtGui import QAction, QGuiApplication, QKeySequence, QWindow
+from PyQt6.QtTest import QTest
+from PyQt6.QtWidgets import QApplication, QLineEdit, QWidget
 
 from open_garden_planner.core.commands import (
     CreateItemCommand,
@@ -62,13 +68,54 @@ class Hit:
     behind: tuple[Any, ...] = ()
 
 
+#: The input events the stand-in window's tail filter records.
+_INPUT = {QEvent.Type.KeyPress, QEvent.Type.KeyRelease, QEvent.Type.ShortcutOverride,
+          QEvent.Type.MouseButtonPress, QEvent.Type.MouseButtonRelease, QEvent.Type.MouseMove}
+
+
+class Tail(QObject):
+    """Installed FIRST on the stand-in's window, so Qt runs it LAST: it sees exactly the
+    input events no filter of the workspace took."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.events: list[QEvent.Type] = []
+
+    def eventFilter(self, _watched: QObject | None, event: QEvent | None) -> bool:  # noqa: N802
+        if event is not None and event.type() in _INPUT:
+            self.events.append(event.type())
+        return False
+
+
 class PickHost(FakeHost):
-    """``FakeHost`` whose ``pick`` answers from a script (and still records the call)."""
+    """``FakeHost`` whose ``pick`` answers from a script (and still records the call) —
+    and whose view is a real ``QWindow`` in a window container, as ``Quick3DHost``'s is:
+    the workspace's filters are installed ON it, and input reaches them only through Qt."""
 
     def __init__(self, prefer_software: bool) -> None:
         super().__init__(prefer_software)
         self.answer: Any = None
         self.error: BaseException | None = None
+        self.window = QWindow()
+        self.tail = Tail()
+        self.window.installEventFilter(self.tail)
+        self.focus_calls = 0
+
+    def container(self, parent: QWidget | None = None) -> QWidget:
+        self.widget = QWidget.createWindowContainer(self.window, parent)
+        return self.widget
+
+    def install_event_filter(self, watcher: Any) -> None:
+        super().install_event_filter(watcher)
+        self.window.installEventFilter(watcher)
+
+    def focus(self) -> None:
+        """``Quick3DHost.focus``: the view's window asks to be activated."""
+        self.focus_calls += 1
+        self.window.requestActivate()
+
+    def has_focus(self) -> bool:
+        return QGuiApplication.focusWindow() is self.window
 
     def pick(self, _x: float, _y: float) -> Any:
         self.frames_taken.append("pick")
@@ -85,25 +132,36 @@ class SelectionBench(Bench):
         self.sinks.append(sink)
         return host, sink
 
-    # ── the 3D view's events, through the filters in the order Qt calls them ──
+    # ── the 3D view's input, delivered by Qt to the host's real window ─────────
 
-    def send(self, event: QEvent) -> bool:
-        return any(watcher.eventFilter(None, event) for watcher in reversed(self.host.filters))
+    def _taken(self, deliver: Any, kind: QEvent.Type) -> bool:
+        """Deliver input with ``deliver()``; True when a filter of the workspace TOOK
+        the event of ``kind`` (it never reached the tail)."""
+        before = self.host.tail.events.count(kind)
+        deliver()
+        return self.host.tail.events.count(kind) == before
 
-    def mouse(self, kind: QEvent.Type, x: float, y: float, button=LEFT, buttons=LEFT,
-              modifiers=PLAIN) -> bool:
-        return self.send(QMouseEvent(kind, QPointF(x, y), QPointF(x, y), button, buttons, modifiers))
+    def mouse(self, kind: QEvent.Type, x: float, y: float, button=LEFT, modifiers=PLAIN) -> bool:
+        window, at = self.host.window, QPoint(round(x), round(y))
+        if kind == QEvent.Type.MouseButtonPress:
+            return self._taken(lambda: QTest.mousePress(window, button, modifiers, at), kind)
+        if kind == QEvent.Type.MouseButtonRelease:
+            return self._taken(lambda: QTest.mouseRelease(window, button, modifiers, at), kind)
+        return self._taken(lambda: QTest.mouseMove(window, at), kind)
 
     def click(self, *ray: Any, modifiers=PLAIN, at: tuple[float, float] = (200.0, 150.0)) -> None:
         """A click whose ray meets the items ``ray`` (nearest first); none: the ground."""
         ids = [str(item.item_id) for item in ray]
         self.host.answer = Hit(ids[0], tuple(Hit(i) for i in ids[1:])) if ids else None
-        self.mouse(QEvent.Type.MouseButtonPress, *at)
-        self.mouse(QEvent.Type.MouseButtonRelease, *at, buttons=NONE, modifiers=modifiers)
+        QTest.mouseClick(self.host.window, LEFT, modifiers, QPoint(round(at[0]), round(at[1])))
 
-    def key(self, key: Qt.Key, down: bool = True) -> bool:
-        kind = QEvent.Type.KeyPress if down else QEvent.Type.KeyRelease
-        return self.send(QKeyEvent(kind, key, PLAIN))
+    def key(self, key: Qt.Key, down: bool = True, modifiers=PLAIN, window: QWindow | None = None) -> bool:
+        """A key pressed (or released) in ``window`` — the host's by default; True when a
+        filter of the workspace took it."""
+        target = window if window is not None else self.host.window
+        if down:
+            return self._taken(lambda: QTest.keyPress(target, key, modifiers), QEvent.Type.KeyPress)
+        return self._taken(lambda: QTest.keyRelease(target, key, modifiers), QEvent.Type.KeyRelease)
 
     def selected(self) -> list[Any]:
         return list(self.scene.selectedItems())
@@ -188,9 +246,9 @@ def test_a_drag_selects_nothing_and_takes_no_frame(bench: SelectionBench) -> Non
     b.setSelected(True)
     bench.host.answer = Hit(str(a.item_id))
     bench.mouse(QEvent.Type.MouseButtonPress, 200.0, 150.0)
-    bench.mouse(QEvent.Type.MouseMove, 205.0, 150.0, button=NONE)
-    bench.mouse(QEvent.Type.MouseMove, 260.0, 190.0, button=NONE)
-    bench.mouse(QEvent.Type.MouseButtonRelease, 260.0, 190.0, buttons=NONE)
+    bench.mouse(QEvent.Type.MouseMove, 205.0, 150.0)
+    bench.mouse(QEvent.Type.MouseMove, 260.0, 190.0)
+    bench.mouse(QEvent.Type.MouseButtonRelease, 260.0, 190.0)
     assert bench.selected() == [b] and bench.host.frames_taken == []
     assert bench.workspace.camera.goal != bench.workspace.camera.pose or bench.workspace.camera.moving, (
         "it was a pan of the orbit camera")
@@ -662,8 +720,7 @@ def test_the_problems_list_still_selects_through_the_same_path(bench: SelectionB
     bench.workspace.select_item(str(wall.item_id))
     assert bench.selected() == []
     bench.workspace.select_item("no such id")
-    bench.workspace.select_item(str(a.item_id), toggle=True, center=False)
-    assert bench.selected() == [group]
+    assert bench.selected() == []
 
 
 def test_every_list_that_names_objects_selects_through_the_one_select_by_id_path(
@@ -692,7 +749,7 @@ def test_every_list_that_names_objects_selects_through_the_one_select_by_id_path
         return bench.selected()
 
     def by_list(item_id: str) -> list[Any]:
-        bench.workspace.select_item(item_id, center=False)
+        bench.workspace.select_item(item_id)
         return bench.selected()
 
     expected = {str(c.item_id): [c], str(b.item_id): [group], str(wall.item_id): [],
@@ -785,8 +842,8 @@ def test_enter_walk_and_leave_restores_the_orbit_pose_exactly(bench: SelectionBe
     bench.settle(120)
     bench.key(Qt.Key.Key_W, down=False)
     bench.mouse(QEvent.Type.MouseButtonPress, 100.0, 100.0)
-    bench.mouse(QEvent.Type.MouseMove, 180.0, 140.0, button=NONE)      # look around
-    bench.mouse(QEvent.Type.MouseButtonRelease, 180.0, 140.0, buttons=NONE)
+    bench.mouse(QEvent.Type.MouseMove, 180.0, 140.0)      # look around
+    bench.mouse(QEvent.Type.MouseButtonRelease, 180.0, 140.0)
     moved = workspace.walk.state
     assert moved.shown != start.shown and moved.yaw_deg != start.yaw_deg
     assert host.cameras[-1][0][:2] == moved.shown, "the engine sees through the walker's eyes"
@@ -800,6 +857,181 @@ def test_enter_walk_and_leave_restores_the_orbit_pose_exactly(bench: SelectionBe
     assert len(bench.commands._undo_stack) == stack, "walking never touches the plan"  # noqa: SLF001
     assert host.frames_taken == [], "and takes no frame"
     assert bench.key(Qt.Key.Key_Escape) is False, "not walking: Escape is the application's again"
+
+
+def _walking_at(bench: SelectionBench, at: tuple[float, float] = (2500.0, 1500.0),
+                yaw: float = 0.0) -> tuple[Any, list[float]]:
+    """Walk mode entered at ``at`` facing ``yaw`` with its clock in the test's hand."""
+    walk_ready(bench)
+    workspace = bench.workspace
+    workspace._camera._pose = type(workspace.camera.pose)(at, 2000.0, yaw, 45.0)  # noqa: SLF001
+    assert workspace.set_walking(True) is True
+    now = [1000.0]
+    workspace.walk.clock = lambda: now[0]
+    return workspace.walk, now
+
+
+def _hold(bench: SelectionBench, walk: Any, now: list[float], key: Qt.Key, seconds: float,
+          modifiers=PLAIN, window: QWindow | None = None) -> bool:
+    """Hold ``key`` for ``seconds`` of the walker's clock (60 Hz); True when it was taken."""
+    taken = bench.key(key, modifiers=modifiers, window=window)
+    for _ in range(round(seconds * 60)):
+        now[0] += 1.0 / 60.0
+        walk.step()
+    bench.key(key, down=False, modifiers=modifiers, window=window)
+    return taken
+
+
+def test_the_walkers_keys_beat_the_windows_shortcuts_and_no_other_key_does(
+        bench: SelectionBench) -> None:
+    """Review 1, P0, on the stand-in's REAL window with keys delivered by Qt: the bench's
+    window gets the main window's Snap to Grid (S, a window shortcut), a G and a Ctrl+S.
+    The CONTROL first: not walking, S pressed in the 3D window IS that shortcut (the path
+    the key was lost on is live here). Walking: S walks the walker back and no action
+    fires; G and Ctrl+S — not the walker's — still reach their shortcuts."""
+    bench.window.activateWindow()
+    bench.qtbot.waitActive(bench.window)
+    fired: list[str] = []
+    for text in ("S", "G", "Ctrl+S"):
+        action = QAction(text, bench.window)
+        action.setShortcut(QKeySequence(text))
+        action.triggered.connect(lambda _checked=False, name=text: fired.append(name))
+        bench.window.addAction(action)
+    walk_ready(bench)
+    bench.key(Qt.Key.Key_S)
+    bench.key(Qt.Key.Key_S, down=False)
+    assert fired == ["S"], "the control: an unclaimed S in the 3D window is the window's shortcut"
+    fired.clear()
+    walk, now = _walking_at(bench)
+    start = walk.state.shown
+    assert _hold(bench, walk, now, Qt.Key.Key_S, 1.0) is True
+    assert fired == [], "S belongs to the walker"
+    back = walk.state.shown
+    assert back[0] == pytest.approx(start[0], abs=1e-6)
+    assert back[1] == pytest.approx(start[1] - WALK_SPEED_CM_S, abs=1e-6), "a second back, south"
+    assert _hold(bench, walk, now, Qt.Key.Key_S, 0.5, modifiers=SHIFT) is True
+    assert walk.state.shown[1] == pytest.approx(back[1] - WALK_SPEED_CM_S, abs=1e-6), "Shift runs"
+    there = walk.state.shown
+    bench.key(Qt.Key.Key_G)
+    bench.key(Qt.Key.Key_G, down=False)
+    bench.key(Qt.Key.Key_S, modifiers=CTRL)
+    bench.key(Qt.Key.Key_S, down=False, modifiers=CTRL)
+    assert fired == ["G", "Ctrl+S"], "every other key, and a key with Ctrl, is passed on"
+    assert walk.state.shown == there and not walk.moving
+
+
+def test_walk_mode_takes_the_keyboard_and_gives_it_back(bench: SelectionBench) -> None:
+    """Review 1, P1-2: the plan had the keyboard (W would pick the Wall tool there,
+    Escape would reach the canvas). Entering walk mode gives it to the 3D view —
+    keys sent to whatever window has the focus now walk — and leaving gives it back."""
+    bench.window.activateWindow()
+    bench.qtbot.waitActive(bench.window)
+    walk_ready(bench)
+    workspace = bench.workspace
+    bench.view.setFocus()
+    bench.qtbot.waitUntil(lambda: QApplication.focusWidget() is bench.view, timeout=2000)
+    workspace._camera._pose = type(workspace.camera.pose)((2500.0, 1500.0), 2000.0, 0.0, 45.0)  # noqa: SLF001
+    workspace.walk_action.trigger()
+    assert workspace.walking and bench.host.focus_calls == 1
+    bench.qtbot.waitUntil(lambda: QGuiApplication.focusWindow() is bench.host.window, timeout=2000)
+    bench.settle(100)  # the platform's focus events, before a key is pressed into it
+    assert QApplication.focusWidget() is bench.host.widget
+    walk = workspace.walk
+    now = [1000.0]
+    walk.clock = lambda: now[0]
+    start = walk.state.shown
+    focused = QGuiApplication.focusWindow()
+    assert _hold(bench, walk, now, Qt.Key.Key_W, 0.5, window=focused) is True
+    assert walk.state.shown[1] == pytest.approx(start[1] + WALK_SPEED_CM_S * 0.5, abs=1e-6)
+    assert bench.key(Qt.Key.Key_Escape, window=QGuiApplication.focusWindow()) is True
+    assert not workspace.walking
+    bench.qtbot.waitUntil(lambda: QApplication.focusWidget() is bench.view, timeout=2000)
+    assert QGuiApplication.focusWindow() is bench.window.windowHandle(), "the plan has it again"
+
+
+def test_a_view_that_lost_the_keyboard_keeps_it_where_it_went(bench: SelectionBench) -> None:
+    """Leaving gives the focus back only while the 3D view still has it: a user who
+    clicked into the plan meanwhile keeps the plan's focus where they put it."""
+    bench.window.activateWindow()
+    bench.qtbot.waitActive(bench.window)
+    walk_ready(bench)
+    workspace = bench.workspace
+    bench.view.setFocus()
+    workspace.set_walking(True)
+    bench.qtbot.waitUntil(lambda: QGuiApplication.focusWindow() is bench.host.window, timeout=2000)
+    bench.settle(100)
+    elsewhere = QLineEdit(bench.window)  # a field of the main window the user clicked into
+    elsewhere.show()
+    bench.window.activateWindow()
+    elsewhere.setFocus()
+    bench.qtbot.waitUntil(lambda: QApplication.focusWidget() is elsewhere
+                          and QGuiApplication.focusWindow() is bench.window.windowHandle(), timeout=2000)
+    bench.settle(100)
+    workspace.set_walking(False)
+    bench.settle(100)
+    assert QApplication.focusWidget() is elsewhere
+
+
+def test_a_flick_that_turns_the_walkers_view_is_no_click(bench: SelectionBench) -> None:
+    """Review 1, P2-4: walking, a left press that moves less than the click's slop is a
+    click (it picks, and the view does not turn); one that moves further turns the view
+    and picks NOTHING on its release — a look never selects."""
+    walk, _now = _walking_at(bench)
+    a = next(item for item in bench.scene.items() if isinstance(item, RectangleItem))
+    bench.host.answer = Hit(str(a.item_id))
+    yaw = walk.state.yaw_deg
+    bench.mouse(QEvent.Type.MouseButtonPress, 200.0, 150.0)
+    bench.mouse(QEvent.Type.MouseMove, 202.0, 151.0)
+    bench.mouse(QEvent.Type.MouseButtonRelease, 202.0, 151.0)
+    assert bench.host.frames_taken == ["pick"] and bench.selected() == [a]
+    assert walk.state.yaw_deg == yaw, "within the slop: a click, and no look"
+    bench.scene.clearSelection()
+    bench.mouse(QEvent.Type.MouseButtonPress, 200.0, 150.0)
+    bench.mouse(QEvent.Type.MouseMove, 203.0, 150.0)
+    bench.mouse(QEvent.Type.MouseMove, 212.0, 150.0)
+    bench.mouse(QEvent.Type.MouseButtonRelease, 212.0, 150.0)
+    assert walk.state.yaw_deg != yaw, "it looked"
+    assert bench.host.frames_taken == ["pick"] and bench.selected() == [], "and picked nothing"
+
+
+def test_the_walkers_world_is_built_from_what_the_engine_holds(
+        bench: SelectionBench, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Review 1, P2-3: entering walk mode builds no mesh a second time — the world is
+    made of the parts the sink holds, and equals the world the builders would make —
+    and a date change (plants regrow; the walker walks through plants) keeps it."""
+    import numpy as np
+
+    from open_garden_planner.core.scene3d.walk import build_world
+
+    walk_ready(bench)
+    drop(bench.view, "TREE:species=apple tree", QPointF(2500.0, 1200.0))
+    bench.settle(150)
+    workspace = bench.workspace
+    controller = workspace.controller
+    registry = controller.sync.registry
+    original = registry.builder_for
+    asked: list[str] = []
+
+    def counting(kind: str) -> Any:
+        asked.append(kind)
+        return original(kind)
+
+    monkeypatch.setattr(registry, "builder_for", counting)
+    workspace._camera._pose = type(workspace.camera.pose)((2500.0, 1500.0), 2000.0, 0.0, 45.0)  # noqa: SLF001
+    assert workspace.set_walking(True) is True
+    assert asked == [], "nothing was built a second time"
+    world = workspace.walk.world
+    bounds = controller.plan_bounds()
+    expected = build_world(controller.sync.records, bounds.max_east, bounds.max_north,
+                           parts_of=lambda record: original(record.kind)(record))
+    assert world.solid_ids == expected.solid_ids
+    assert np.array_equal(world.segments, expected.segments)
+    snapshots = controller.snapshot_count
+    bench.clock.set_date(date(2026, 3, 1))
+    bench.qtbot.waitUntil(lambda: controller.snapshot_count > snapshots and not controller.dirty,
+                          timeout=5000)
+    bench.settle(80)
+    assert workspace.walk.world is world, "a regrown plant is no obstacle: the world is kept"
 
 
 def test_the_toggle_leaves_too_and_walk_mode_can_be_entered_again(bench: SelectionBench) -> None:
@@ -824,8 +1056,8 @@ def test_hiding_and_showing_the_pane_while_walking_keeps_the_walker(bench: Selec
     workspace, host = bench.workspace, bench.host
     workspace.set_walking(True)
     bench.mouse(QEvent.Type.MouseButtonPress, 100.0, 100.0)
-    bench.mouse(QEvent.Type.MouseMove, 150.0, 100.0, button=NONE)
-    bench.mouse(QEvent.Type.MouseButtonRelease, 150.0, 100.0, buttons=NONE)
+    bench.mouse(QEvent.Type.MouseMove, 150.0, 100.0)
+    bench.mouse(QEvent.Type.MouseButtonRelease, 150.0, 100.0)
     bench.key(Qt.Key.Key_W)
     bench.settle(60)
     workspace.set_mode(PLAN)

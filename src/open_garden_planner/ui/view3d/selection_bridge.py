@@ -17,8 +17,11 @@ own. This module is the two translations between them:
   a click on nothing              the selection is cleared — also with Ctrl or
                                   Shift held (the canvas does the same)
   an item on a LOCKED layer       is not selectable: the click falls THROUGH it to
-                                  the first selectable item behind it — and to
-                                  nothing when there is none
+                                  the first selectable item behind it — and when
+                                  there is none: a plain or Shift click clears, a
+                                  Ctrl click changes NOTHING (Qt's own Ctrl rule:
+                                  an unselectable item under a Ctrl click keeps
+                                  the selection — measured, fix round 1)
   an item on a hidden layer       has no record, so the 3D view cannot name it
   an item inside a group          the group is selected (the outermost one)
   ==============================  ==============================================
@@ -44,8 +47,9 @@ No Qt Quick import, no engine call, no state: functions on the scene.
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
-from typing import Any
+from typing import Any, Final
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
 from open_garden_planner.ui.canvas.select_by_id import (
@@ -95,11 +99,23 @@ def selectable_target(scene: QGraphicsScene, item_ids: Iterable[str]) -> QGraphi
     return None
 
 
-def apply_click(scene: QGraphicsScene, item_ids: Iterable[str], *, toggle: bool) -> QGraphicsItem | None:
-    """Do to the canvas selection what a canvas click along ``item_ids`` does (module
-    docstring's table). Returns the item the click landed on, or None for nothing."""
-    target = selectable_target(scene, item_ids)
+_CTRL: Final = Qt.KeyboardModifier.ControlModifier
+_TOGGLE: Final = Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier
+
+
+def apply_click(scene: QGraphicsScene, item_ids: Iterable[str],
+                modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier,
+                ) -> QGraphicsItem | None:
+    """Do to the canvas selection what a canvas click along ``item_ids`` with
+    ``modifiers`` held does (module docstring's table): Ctrl or Shift toggles; a click
+    that names only items it cannot select changes nothing with Ctrl held and clears
+    otherwise. Returns the item the click landed on, or None for nothing."""
+    ids = tuple(item_ids)
+    toggle = bool(modifiers & _TOGGLE)
+    target = selectable_target(scene, ids)
     if target is None:
+        if modifiers & _CTRL and any(item_with_id(scene, item_id) is not None for item_id in ids):
+            return None  # Qt's Ctrl click on an unselectable item keeps the selection
         replace_selection(scene, ())
         return None
     if toggle:

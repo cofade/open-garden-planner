@@ -788,12 +788,102 @@ def scenario_workspace(ctx: Context) -> dict[str, Any]:
         _pump(150)
 
 
+#: The keys walked in the full main window, each held for this long (real time).
+APP_WALK_KEYS = ("W", "S", "A", "D", "Up", "Down", "Left", "Right")
+APP_WALK_HOLD_MS = 300
+
+
+def scenario_app_walk(_ctx: Context) -> dict[str, Any]:
+    """Review 1, P0 / P1-2 on the real engine IN THE FULL MAIN WINDOW (``GardenPlannerApp``,
+    the workspace switched on, its own engine): enter walk mode with the Walk action —
+    the 3D view must take the keyboard — then press every walker's key, S included, into
+    whichever window has the keyboard (``QTest`` on ``QGuiApplication.focusWindow()``:
+    Qt's own path, ``ShortcutOverride`` and the main window's shortcuts included) and
+    record how far the walker went, Snap to Grid and the plan's tool; then Escape — walk
+    mode ends and the keyboard goes back to the plan."""
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtGui import QGuiApplication
+    from PyQt6.QtTest import QTest
+    from PyQt6.QtWidgets import QApplication, QMessageBox
+
+    os.environ["OGP_QUICK3D"] = "1"
+    QMessageBox.question = lambda *_a, **_k: QMessageBox.StandardButton.Discard  # type: ignore[method-assign]
+    QMessageBox.information = lambda *_a, **_k: QMessageBox.StandardButton.Ok  # type: ignore[method-assign]
+    QMessageBox.warning = lambda *_a, **_k: QMessageBox.StandardButton.Ok  # type: ignore[method-assign]
+    from open_garden_planner.app.application import GardenPlannerApp
+    from open_garden_planner.ui.view3d.workspace import WorkspaceMode
+
+    window = GardenPlannerApp()
+    window.resize(1500, 900)
+    window.show()
+    _pump(300)
+    out: dict[str, Any] = {}
+    try:
+        workspace = window._workspace  # noqa: SLF001 - the main window's workspace
+        canvas = window.canvas_view
+        workspace.set_mode(WorkspaceMode.SPLIT)
+        if not _spin_until(lambda: workspace.host is not None and workspace.controller is not None, 30.0):
+            raise RuntimeError(f"the workspace did not start its engine: {workspace.view3d_state}")
+        host, controller = workspace.host, workspace.controller
+        assert host is not None and controller is not None
+        if not host.wait_ready(OPEN_TIMEOUT_S):
+            raise RuntimeError(f"the workspace's host is not live: {host.state.value}")
+        _spin_until(lambda: controller.apply_count >= 1 and not controller.dirty, 30.0)
+        quick_view = host._view  # noqa: SLF001 - the native window a user types into
+        canvas.setFocus()
+        _pump(200)
+        before = QApplication.focusWidget()
+        out["before"] = {"focus_widget": type(before).__name__ if before is not None else None,
+                         "focus_window_is_view": QGuiApplication.focusWindow() is quick_view}
+        window_shortcuts = sorted({action.shortcut().toString() for action in window.findChildren(type(window.snap_action))
+                                   if action.shortcut().count() == 1})
+        out["window_shortcuts"] = window_shortcuts
+        snap, tool = window.snap_action.isChecked(), canvas.tool_manager.active_tool_type
+        workspace.walk_action.trigger()
+        _pump(300)
+        walk = workspace.walk
+        assert walk is not None and walk.state is not None
+        out["entered"] = {"walking": workspace.walking,
+                          "focus_window_is_view": QGuiApplication.focusWindow() is quick_view}
+        keys = []
+        for name in APP_WALK_KEYS:
+            key = getattr(Qt.Key, f"Key_{name}")
+            here = walk.state.shown
+            target = QGuiApplication.focusWindow()
+            QTest.keyPress(target, key)
+            _pump(APP_WALK_HOLD_MS)
+            QTest.keyRelease(QGuiApplication.focusWindow(), key)
+            _pump(60)
+            there = walk.state.shown
+            keys.append({"key": name, "to_the_view": target is quick_view,
+                         "moved_cm": math.hypot(there[0] - here[0], there[1] - here[1]),
+                         "snap": window.snap_action.isChecked(),
+                         "tool": str(canvas.tool_manager.active_tool_type)})
+        out["keys"] = keys
+        out["snap_before"], out["tool_before"] = snap, str(tool)
+        QTest.keyClick(QGuiApplication.focusWindow(), Qt.Key.Key_Escape)
+        _pump(300)
+        after = QApplication.focusWidget()
+        out["left"] = {"walking": workspace.walking,
+                       "focus_widget_is_canvas": after is canvas,
+                       "focus_window_is_view": QGuiApplication.focusWindow() is quick_view,
+                       "tool": str(canvas.tool_manager.active_tool_type),
+                       "snap": window.snap_action.isChecked()}
+        return out
+    finally:
+        window._project_manager.mark_clean()  # noqa: SLF001 - close without the save prompt
+        window.close()
+        window.deleteLater()
+        _pump(300)
+
+
 SCENARIOS: dict[str, Callable[[Context], dict[str, Any]]] = {
     "ring": scenario_ring,
     "ring_depth": scenario_ring_depth,
     "pick": scenario_pick,
     "lookthrough": scenario_lookthrough,
     "workspace": scenario_workspace,
+    "app_walk": scenario_app_walk,
 }
 
 

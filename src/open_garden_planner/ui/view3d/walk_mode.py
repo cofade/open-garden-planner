@@ -14,12 +14,22 @@ along, why the path does not depend on the frame rate — is Qt-free in
   W / Up, S / Down            walk ahead / back
   A / Left, D / Right         step to the left / right
   Shift                       twice the pace
-  a drag (any button)         look around: right is right, down is down
+  a drag (any button)         look around: right is right, down is down — a left
+                              drag only once it leaves the click's slop, and a
+                              drag that turned the view is no click (``turned``)
   Escape                      leave walk mode (``left``)
-  wheel, Page Up/Down, Home   nothing (they would move the orbit camera)
+  wheel, Page Up/Down, Home,  nothing (they would move the orbit camera)
+  an arrow with a modifier
   press and release           passed on: a click still picks (``OrbitInput``)
   every other key             passed on: the app's shortcuts keep working
   ==========================  ================================================
+
+  **The walker's keys belong to the walker** (ADR-065, L1.8 addendum): while walking,
+  ``WALKER_KEYS`` without Ctrl, Alt or Meta are claimed at ``ShortcutOverride`` —
+  the event Qt sends to the view's window BEFORE it looks for a shortcut — so no
+  shortcut of the app fires for them (measured on the real main window: ``S`` was
+  the main window's Snap to Grid, and the walker never saw it). Every key with Ctrl
+  or Alt, and every other key, is passed on.
 
 - **Time.** A timer runs only while a walking key is held; each tick hands the
   core the time that passed. A key change is applied AFTER the time before it was
@@ -31,6 +41,7 @@ No pointer capture, no head bob, no smoothing — reduced motion has nothing to 
 
 from __future__ import annotations
 
+import math
 import time
 from typing import Final
 
@@ -52,6 +63,8 @@ from open_garden_planner.core.scene3d.walk import (
     turned,
 )
 
+from .orbit_input import CLICK_SLOP_PX
+
 #: The walker is stepped at this interval while a walking key is held.
 WALK_STEP_MS: Final = 16
 #: Degrees of turn per pixel of a drag (the orbit drag's, so the two feel alike).
@@ -62,8 +75,23 @@ _BACK: Final = frozenset({Qt.Key.Key_S, Qt.Key.Key_Down})
 _LEFT: Final = frozenset({Qt.Key.Key_A, Qt.Key.Key_Left})
 _RIGHT: Final = frozenset({Qt.Key.Key_D, Qt.Key.Key_Right})
 _WALK_KEYS: Final = _AHEAD | _BACK | _LEFT | _RIGHT
-#: Keys of the orbit camera that must not reach it while walking.
-_SWALLOWED: Final = frozenset({Qt.Key.Key_PageUp, Qt.Key.Key_PageDown, Qt.Key.Key_Home})
+#: THE keys that belong to the walker while walking — stated once (ADR-065, L1.8): claimed
+#: at ``ShortcutOverride`` and taken at the key press, unless Ctrl, Alt or Meta is held.
+WALKER_KEYS: Final = frozenset(_WALK_KEYS | {Qt.Key.Key_Shift, Qt.Key.Key_Escape})
+#: A key with one of these held is passed on (Ctrl+Z undoes while walking).
+PASSED_ON_MODIFIERS: Final = (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier
+                              | Qt.KeyboardModifier.MetaModifier)
+#: Keys of the orbit camera that must not reach it while walking (``OrbitInput`` sits
+#: behind this filter): taken at the key press whatever is held, never claimed from the
+#: app's shortcuts.
+_SWALLOWED: Final = frozenset({Qt.Key.Key_PageUp, Qt.Key.Key_PageDown, Qt.Key.Key_Home,
+                               Qt.Key.Key_Up, Qt.Key.Key_Down, Qt.Key.Key_Left, Qt.Key.Key_Right})
+_LEFT_BUTTON: Final = Qt.MouseButton.LeftButton
+
+
+def claims(event: QKeyEvent) -> bool:
+    """True when ``event`` is a walker's key (``WALKER_KEYS``, no Ctrl / Alt / Meta)."""
+    return event.key() in WALKER_KEYS and not event.modifiers() & PASSED_ON_MODIFIERS
 
 Camera = tuple[tuple[float, float, float], tuple[float, float, float], float]
 
@@ -75,6 +103,9 @@ class WalkMode(QObject):
     changed = pyqtSignal()
     #: Escape was pressed while walking: the workspace leaves walk mode.
     left = pyqtSignal()
+    #: A drag turned the view: the press it started with is no click any more (the
+    #: workspace tells ``OrbitInput.cancel_click``).
+    turned = pyqtSignal()
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -84,6 +115,7 @@ class WalkMode(QObject):
         self._held: set[int] = set()
         self._run = False
         self._look_from: QPointF | None = None
+        self._click_from: QPointF | None = None  # a left press that may still be a click
         self._stepped_at = 0.0
         self._paused = False
         #: The clock a step's length is measured on (the tests hold it).
@@ -191,6 +223,11 @@ class WalkMode(QObject):
             return False
         kind = event.type()
         if isinstance(event, QKeyEvent):
+            if kind == QEvent.Type.ShortcutOverride:
+                if claims(event):
+                    event.accept()  # "this key is the focus object's": no shortcut fires
+                    return True
+                return False
             if kind == QEvent.Type.KeyPress:
                 return self._key(event, pressed=True)
             if kind == QEvent.Type.KeyRelease:
@@ -199,10 +236,13 @@ class WalkMode(QObject):
         if isinstance(event, QMouseEvent):
             if kind == QEvent.Type.MouseButtonPress:
                 self._look_from = event.position()
+                alone = event.button() == _LEFT_BUTTON and event.buttons() == _LEFT_BUTTON
+                self._click_from = event.position() if alone else None
                 return False  # on to the orbit filter: a click still picks
             if kind == QEvent.Type.MouseButtonRelease:
                 if event.buttons() == Qt.MouseButton.NoButton:
                     self._look_from = None
+                self._click_from = None
                 return False
             if kind == QEvent.Type.MouseMove:
                 return self._look(event)
@@ -216,14 +256,15 @@ class WalkMode(QObject):
 
     def _key(self, event: QKeyEvent, *, pressed: bool) -> bool:
         key = event.key()
+        held = key in self._held or (key == Qt.Key.Key_Shift and self._run)
+        if not claims(event) and not (held and not pressed):
+            # not the walker's — but the orbit camera's keys must not reach the orbit
+            # filter behind this one (a release of a held key is always the walker's)
+            return key in _SWALLOWED
         if key == Qt.Key.Key_Escape:
             if pressed and not event.isAutoRepeat():
                 self.left.emit()
             return True
-        if key in _SWALLOWED:
-            return True
-        if key not in _WALK_KEYS and key != Qt.Key.Key_Shift:
-            return False  # not ours: the app's shortcuts get it
         if event.isAutoRepeat():
             return True
         self._settle()  # the time until now was walked with the keys as they were
@@ -245,6 +286,12 @@ class WalkMode(QObject):
         if event.buttons() == Qt.MouseButton.NoButton or self._look_from is None:
             return False  # a hover
         now = event.position()
+        click = self._click_from
+        if click is not None:
+            if math.hypot(now.x() - click.x(), now.y() - click.y()) <= CLICK_SLOP_PX:
+                return True  # still a click in the making (as in orbit): the view stays
+            self._click_from = None
+            self.turned.emit()  # a drag that turns the view is no click
         dx, dy = now.x() - self._look_from.x(), now.y() - self._look_from.y()
         self._look_from = now
         state = self._state
@@ -289,3 +336,4 @@ class WalkMode(QObject):
         self._held.clear()
         self._run = False
         self._look_from = None
+        self._click_from = None

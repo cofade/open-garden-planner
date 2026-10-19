@@ -15,7 +15,7 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from typing import Final
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import QCoreApplication, Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -35,6 +35,28 @@ from .snapshot import SkippedItem, SkipReason
 #: The code of an item whose BUILDER failed (the record layer's codes are ``SkipReason``).
 BUILD_FAILED: Final = "build_failed"
 _ITEM_ID_ROLE: Final = Qt.ItemDataRole.UserRole
+
+
+def reason_text(code: str) -> str:
+    """The user's words for a reason code; an unknown code gets the general text. A
+    function, not only the dialog's method: the 3D info card (L1.8) says the SAME words
+    without building the dialog. Context ``View3DProblemsDialog`` — the dialog's own."""
+    texts = {
+        SkipReason.RECORD_FAILED.value: QCoreApplication.translate(
+            "View3DProblemsDialog", "its shape could not be worked out"),
+        SkipReason.DUPLICATE_ID.value: QCoreApplication.translate(
+            "View3DProblemsDialog", "another object on the plan has the same internal id"),
+        SkipReason.OUTLINE_UNBUILDABLE.value: QCoreApplication.translate(
+            "View3DProblemsDialog", "its outline cannot be turned into a solid"),
+        SkipReason.OUTLINE_TOO_LARGE.value: QCoreApplication.translate(
+            "View3DProblemsDialog", "its outline has too many points for the 3D view"),
+        SkipReason.OUT_OF_RANGE.value: QCoreApplication.translate(
+            "View3DProblemsDialog", "one of its sizes is outside what the 3D view can show"),
+        BUILD_FAILED: QCoreApplication.translate(
+            "View3DProblemsDialog", "its 3D model could not be built"),
+    }
+    return texts.get(code) or QCoreApplication.translate(
+        "View3DProblemsDialog", "it could not be shown")
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,20 +112,8 @@ class View3DProblemsDialog(QDialog):
         layout.addWidget(buttons)
 
     def reason_text(self, code: str) -> str:
-        """The user's words for a reason code; an unknown code gets the general text."""
-        texts = {
-            SkipReason.RECORD_FAILED.value: self.tr("its shape could not be worked out"),
-            SkipReason.DUPLICATE_ID.value: self.tr(
-                "another object on the plan has the same internal id"),
-            SkipReason.OUTLINE_UNBUILDABLE.value: self.tr(
-                "its outline cannot be turned into a solid"),
-            SkipReason.OUTLINE_TOO_LARGE.value: self.tr(
-                "its outline has too many points for the 3D view"),
-            SkipReason.OUT_OF_RANGE.value: self.tr(
-                "one of its sizes is outside what the 3D view can show"),
-            BUILD_FAILED: self.tr("its 3D model could not be built"),
-        }
-        return texts.get(code, self.tr("it could not be shown"))
+        """The user's words for a reason code (``reason_text``)."""
+        return reason_text(code)
 
     def kind_text(self, kind: str) -> str:
         try:

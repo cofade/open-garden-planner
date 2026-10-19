@@ -42,6 +42,14 @@ def _tr_literals(module: str) -> list[tuple[str, str, str]]:
                 assert len(node.args) == 1 and isinstance(node.args[0], ast.Constant), (
                     f"{module}:{node.lineno}: tr() must be given ONE string literal")
                 found.append((cls.name, str(node.args[0].value), interpolated.get(id(node), "")))
+    # QCoreApplication.translate("Context", "literal") — a module function that says
+    # the dialog's words without the dialog (problems_dialog.reason_text, L1.8 fix round 1)
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "translate"):
+            assert len(node.args) == 2 and all(isinstance(arg, ast.Constant) for arg in node.args), (
+                f"{module}:{node.lineno}: translate() takes a literal context and a literal")
+            found.append((str(node.args[0].value), str(node.args[1].value), ""))
     return found
 
 
@@ -70,6 +78,7 @@ def test_the_scan_finds_the_strings_it_is_for() -> None:
     assert ("View3DProblemsDialog", "{kind}: {reason}", "format") in LITERALS
     assert ("Workspace", "&Walk", "") in LITERALS
     assert ("View3DInfoCard", "Not shown in 3D: {reason}.", "format") in LITERALS
+    assert ("View3DProblemsDialog", "its 3D model could not be built", "") in LITERALS
 
 
 @pytest.mark.parametrize(("context", "literal", "how"), LITERALS,
