@@ -310,6 +310,9 @@ def test_select_in_2d_click_in_3d_lock_the_layer_and_walk_through_the_gate(
     def hold(key: Qt.Key, seconds: float) -> None:
         """Hold a key for ``seconds`` of the walker's clock, a 60 Hz frame at a time."""
         assert view3d.key(key) is True
+        # ``key()`` is True also when a main-window shortcut ate the press (the tail
+        # filter never sees it either): the WALKER must hold it (re-check P2)
+        assert int(key) in walk._held, f"{key.name}: the walker does not hold it"  # noqa: SLF001
         for _ in range(round(seconds * 60)):
             now[0] += 1.0 / 60.0
             walk.step()
