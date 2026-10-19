@@ -532,6 +532,11 @@ class Scene3DController(QObject):
         revision = getattr(self._scene, "plan_revision", None)
         return revision if isinstance(revision, int) else None
 
+    def _expire_explanation(self) -> None:
+        """From now on only a new announcement explains a repaint (``_pass_records``)."""
+        with contextlib.suppress(RuntimeError):  # the #230 teardown guard
+            self._revision_at_changed = self._revision()
+
     def _on_plan_changed(self, _revision: int = 0) -> None:
         self.mark_dirty()  # the fast path: the plan's content changed, and says so
 
@@ -715,6 +720,14 @@ class Scene3DController(QObject):
                 self.unannounced_changes += 1
                 _LOG.debug("3D sync: the plan changed without an announcement (%s); the "
                            "quiet-time pass found and applied it", _kinds(changes))
+        # This pass read the whole plan, so every announcement before it is spent. A
+        # repaint of the SAME turn may still be its edit's own (it lands after the
+        # pass); one turn later, a repaint is explained only by a NEW announcement.
+        # Without the expiry an announcement that repaints nothing (a typed height
+        # through its command) left "the revision moved" standing, and the next
+        # UNANNOUNCED write's repaint read as explained: the net never armed and the
+        # write stayed out of 3D (scoped re-check 2026-10-19, P1-B).
+        QTimer.singleShot(0, self._expire_explanation)
         self._set_problems(tuple(skipped), dict(self._sync.failures))
         retired = self._retired_by_reset + len(changes.removed) + len(changes.geometry)
         self._retired_by_reset = 0

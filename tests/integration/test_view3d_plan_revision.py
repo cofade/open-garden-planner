@@ -488,6 +488,19 @@ def _plant_instance_field(live: Live) -> None:
     panel._update_instance_metadata("current_height_cm", 260.0)
 
 
+def _species_max_height(live: Live) -> None:
+    """A SPECIES field of the plant panel (max height), through its real spin box: it
+    writes ``metadata["plant_species"]`` without a command. Found by the scoped
+    re-check: it moved no revision and reached 3D only by the net."""
+    window = live.window
+    _select(live, live.apple)
+    window.plant_database_panel.set_selected_items([live.apple])
+    _turns()
+    spin = window.plant_database_panel.max_height_spin
+    spin.setValue(spin.value() + 150.0)
+    live.scene.clearSelection()
+
+
 def _layer(live: Live) -> Any:
     return live.scene.active_layer
 
@@ -539,6 +552,8 @@ EDIT_PATHS: list[tuple[str, bool, Callable[[Live, MagicMock], Any]]] = [
      lambda live, _e: _container_through_the_panel(live, "material")),
     ("a plant's measured height in the plant panel", True,
      lambda live, _e: _plant_instance_field(live)),
+    ("a species' max height in the plant panel (its spin box)", True,
+     lambda live, _e: _species_max_height(live)),
     ("resize the canvas", True, lambda live, _e: live.scene.resize_canvas(6000.0, 4000.0)),
     ("delete by command", True, lambda live, _e: live.commands.execute(
         DeleteItemsCommand(live.scene, [live.apple]))),
