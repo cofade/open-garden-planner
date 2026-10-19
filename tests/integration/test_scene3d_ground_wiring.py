@@ -59,7 +59,7 @@ class GroundRig:
     """A canvas of 20.48 m, a clock, a recording sink and the controller with a baker
     of budget 0 between them — wired as the workspace wires them."""
 
-    def __init__(self, qtbot: Any, *, budget_s: float | None = 0.0) -> None:
+    def __init__(self, qtbot: Any, *, budget_s: float | None = 0.0, quiet_ms: int | None = None) -> None:
         self.qtbot = qtbot
         self.scene = CanvasScene(width_cm=PLAN_CM, height_cm=PLAN_CM)
         self.view = CanvasView(self.scene)
@@ -70,7 +70,7 @@ class GroundRig:
         self.sink = RecordingSink()
         self.baker = GroundBaker(budget_s=budget_s)
         self.controller = Scene3DController(self.scene, self.clock, lambda: None, self.sink,
-                                            ground_baker=self.baker)
+                                            ground_baker=self.baker, quiet_ms=quiet_ms)
         self.reports: list[TickReport] = []
         self.controller.applied.connect(self.reports.append)
 
@@ -147,6 +147,32 @@ def test_a_drag_snapshots_per_edit_and_the_net_sees_nothing_of_the_bake(rig: Gro
     assert controller.snapshot_count - snapshots <= 8  # an edit's pass, at most one each
     assert controller.ground_count > grounds          # the ground followed in passes of its own
     assert controller.unannounced_changes == 0
+    rig.finished()
+
+
+def test_a_ground_pass_neither_spends_nor_extends_an_announcement(qtbot: Any) -> None:
+    """The net (ADR-065) treats a repaint as explained only in the turn of its
+    announcement's records pass (``_expire_explanation``). A GROUND pass is not a records
+    pass: a write nobody announced, made while ground passes run, is still found by the
+    net after its quiet time — and counted — and the ground still finishes."""
+    from open_garden_planner.core.object_height import METADATA_KEY
+
+    rig = GroundRig(qtbot, quiet_ms=150)
+    rig.lawn()  # nine tiles at one a pass: ground passes for a while
+    bed = rig.add(RectangleItem(1700.0, 1700.0, 200.0, 200.0, object_type=ObjectType.RAISED_BED))
+    rig.controller.set_active(True)
+    rig.qtbot.waitUntil(lambda: rig.controller.apply_count == 1, timeout=5000)
+    rig.qtbot.wait(1)  # one turn: the first pass's announcement has expired
+    assert rig.controller.ground_owed
+    applies = rig.controller.apply_count
+    bed.metadata[METADATA_KEY] = 120.0  # no command, no nudge …
+    bed.update()                        # … a repaint only
+    rig.settle()
+    rig.qtbot.waitUntil(lambda: rig.controller.reconcile_count >= 1, timeout=5000)
+    rig.settle()
+    assert rig.controller.unannounced_changes == 1 and rig.controller.apply_count == applies + 1
+    assert rig.controller.ground_count >= 1
+    assert rig.controller.sync.records[str(bed.item_id)].height_cm == 120.0
     rig.finished()
 
 
