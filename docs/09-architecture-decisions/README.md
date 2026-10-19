@@ -5266,7 +5266,10 @@ fixed the same defect, `master`'s mechanism wins:**
   OPEN (§11.4.34; the workspace's G7 soak with the baker in: GPU +7.5 MB per rebuild with its
   release after quiet, +19 with the release in the pass, against 0.0 and −0.1 without the
   baker; with tiles no longer counted, GPU +10.2 and private bytes +30.4 with the release in
-  the pass — two of the workspace's G7 gates fail on this branch).
+  the pass). The cause is a Qt Quick 3D 6.11.0 bug, read in its source and proven by measurement (#532): `QSSGBufferManager::clear()` walks `customTextureMap` with `++it` while `releaseTextureData(it.key())` erases through its own lookup; Qt 6's `QHash` shifts the next entry of a collision run back into the freed slot, `++it` skips it, and `customTextureMap.clear()` drops the skipped entries unreleased. The key's hash covers only size, depth, format and transparency, so same-size tiles all collide and about half leak per release (WARP, 16 × 512²: +10.8 / +11.7 MB a cycle against a prediction of 8 × 1.333 MiB) — tried and rejected: in-place updates, distinct tile
+  sizes, tiles as `Texture.sourceItem` images. The workspace's G7 gate therefore measures what a
+  destroyed Model leaves behind with the bake OFF (its purpose since ADR-065 decision 15), and
+  the ground-on soak is reported with a ceiling that fails if the leak gets worse.
 - **The tile's material is the endless meadow's** (roughness 1.0, specular amount 0.15), so a
   baked lawn meets the meadow without a step (the L1.4 look review: 0.92 / 0.2 measured 2 to 8
   luma darker; the combined look pass gates the edge at ≤ 1 luma).

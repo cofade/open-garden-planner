@@ -519,7 +519,13 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
     thresholds out of reach: what the same soak reads WITHOUT the release — the
     A of this A/B) or ``flood`` (the "at once" threshold at 1: every pass that
     destroyed a Model releases INSIDE the pass, the path an animated date takes —
-    never waited for, never polled)."""
+    never waited for, never polled).
+
+    ``ground``: ``on`` (the default — the workspace's own ground bake) or ``off`` (the
+    workspace gets no baker: a plain plan rectangle). The leak gate measures what a
+    destroyed Model leaves behind with the bake OFF: with it on, Qt Quick 3D 6.11's
+    ``QSSGBufferManager::clear()`` leaks about half the tile textures on every release
+    (#532), and that known leak is reported by a test of its own."""
     from PyQt6.QtCore import QEvent, QObject
 
     from open_garden_planner.ui.view3d import workspace as workspace_module
@@ -538,6 +544,12 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
     release = str(args.get("release", "product"))
     frames_mode = str(args.get("frames", "presented"))
     grabs = str(args.get("grabs", "none"))
+    ground = str(args.get("ground", "on"))
+    assert ground in ("on", "off"), ground
+    if ground == "off":
+        from open_garden_planner.ui.view3d import ground_bake as ground_bake_module
+
+        ground_bake_module.GroundBaker = lambda: None  # type: ignore[assignment,misc]
     assert frames_mode in ("presented", "withheld") and grabs in ("none", "every"), (frames_mode, grabs)
     if release == "off":
         workspace_module.RELEASE_AFTER_RETIRED = 10**9  # type: ignore[misc]

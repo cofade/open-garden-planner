@@ -5231,7 +5231,15 @@ A STILL PICTURE of a live view goes that way too, never through repeated `host.g
     item through its cache, which cuts whatever a style draws beyond the item's bounding
     rectangle — the bars of a 30 cm metal fence reach 37.5 cm from the line, the rectangle 17 cm.
     Exports paint without the cache and show them whole; so does the ground.
-11. **OPEN — a cache release after re-baked tiles leaves their textures behind.** The
+11. **OPEN (#532) — a cache release leaves tile textures behind.** *Cause:* a Qt Quick 3D 6.11.0 bug, read in its source and proven by measurement (#532): `QSSGBufferManager::clear()` walks `customTextureMap` with `++it` while `releaseTextureData(it.key())` erases through its own lookup; Qt 6's `QHash` shifts the next entry of a collision run back into the freed slot, `++it` skips it, and `customTextureMap.clear()` drops the skipped entries unreleased. The key's hash covers only size, depth, format and transparency, so same-size tiles all collide and about half leak per release (WARP, 16 × 512²: +10.8 / +11.7 MB a cycle against a prediction of 8 × 1.333 MiB).
+    Static tiles leak too (a release, then a redraw), so the condition is "two or more
+    same-size tile textures cached at a release", re-bake or not; the "same textures + release
+    −0.28" control below was broken (its frame was white: no texture ever loaded). Tried and
+    rejected: in-place updates (leak, and a stale picture), distinct tile sizes (flat at 16
+    tiles, not at 32 / 64 — chance neighbour buckets), tiles as `Texture.sourceItem` images
+    (flat in isolation, one generation per rebuild still kept in the workspace). The G7 gate
+    measures Model churn with the bake OFF; the ground-on soak is reported against a
+    regression ceiling. The first measurements, as taken: The
     workspace calls `QQuickWindow.releaseResources()` when items lost their Models (ADR-065).
     When ground tiles were RE-BAKED before such a release — new `QQuick3DTextureData`
     objects replacing old ones — Qt Quick 3D keeps about one generation of those textures

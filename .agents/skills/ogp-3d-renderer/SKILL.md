@@ -819,6 +819,18 @@ every measurement: ADR-048, addendum L1.2. What you need at the keyboard:
 Concept: docs §8.32.3; decisions and every number: ADR-065 and the ADR-048 addendum "L1.3"; the
 test patterns: docs §8.10.27. What the ENGINE taught once it ran inside the real app:
 
+- **`releaseResources()` LEAKS same-size `QQuick3DTextureData` textures (Qt 6.11.0, #532).**
+  `QSSGBufferManager::clear()` (`qssgrenderbuffermanager.cpp` ~2049–2052) iterates
+  `customTextureMap` with `++it` while `releaseTextureData(it.key())` erases through its own
+  lookup (~1516); Qt 6's `QHash` back-shifts the next entry of a collision run into the freed
+  slot, `++it` skips it, and the final `clear()` of the map drops it unreleased. The key's hash
+  (~2290; `qssgrendertexturedata_p.h` 74–77) is size / depth / format / transparency only, so
+  same-size textures all collide: about half leak per release (WARP, 16 × 512²: +10.8 MB a
+  cycle). Static textures too (release, then a redraw). Distinct sizes only help below ~16
+  textures; in-place `setTextureData` updates show a STALE picture; `Texture.sourceItem` images
+  avoid the map but still kept one generation per rebuild in the workspace (holder unknown).
+  The `imageMap` loop (~2043–2046) has the same pattern; the mesh branch copies keys first.
+  Measured on the L1.5 branch, 2026-10-19 (probes in the plans' `scratch/L1.5/fu22/`).
 - **Qt keeps graphics state for every Model it ever drew — release it.** After a Model is
   destroyed, Qt Quick 3D still holds its cached per-draw-call state: about 62 kB per Model, about
   190 kB when it casts into the sun's two shadow cascades, independent of the mesh's size

@@ -2524,13 +2524,17 @@ SAME textures + release −0.28; one release then twenty re-bakes +0.06; a relea
 cycle a 10 to 25 MB step at each release. So it takes BOTH: new `QQuick3DTextureData` objects
 replacing old ones, and a release in between. Qt's `releaseResources()` reaches
 `QSSGBufferManager::clear()`, which releases every cached texture, also the ones shown, and
-reloads them with the next frame; what keeps the replaced ones is not established. *What
+reloads them with the next frame. *Root cause (found after the first write-up):* a Qt Quick 3D 6.11.0 bug, read in its source and proven by measurement (#532): `QSSGBufferManager::clear()` walks `customTextureMap` with `++it` while `releaseTextureData(it.key())` erases through its own lookup; Qt 6's `QHash` shifts the next entry of a collision run back into the freed slot, `++it` skips it, and `customTextureMap.clear()` drops the skipped entries unreleased. The key's hash covers only size, depth, format and transparency, so same-size tiles all collide and about half leak per release (WARP, 16 × 512²: +10.8 / +11.7 MB a cycle against a prediction of 8 × 1.333 MiB).
+Static tiles leak as well; the "−0.28" control was broken (a white frame). Tried and rejected:
+in-place updates, distinct sizes (not flat at ≥ 32 tiles), `Texture.sourceItem` images. *What
 Part B does about it:* the bake never asks for a release (tile Models are not counted in
 `TickReport.retired` — they need none), so only a release caused by item changes after a
 re-bake leaks — which is still every rebuild of the workspace's G7 soak: on the branch as it
 stands, dedicated GPU memory +10.2 MB per rebuild (bound 10) and, with the release in the pass,
-private bytes +30.4 (bound 10) — two G7 gates of `tests/integration/test_view3d_workspace_render.py`
-fail. *A fix* changes how tile textures reach the engine and is its own follow-up.
+private bytes +30.4 (bound 10). *State:* the G7 gate measures Model churn with the bake off;
+`test_the_known_ground_texture_leak_is_reported_and_does_not_get_worse` reports the ground-on
+soak against a ceiling of 60 MB per rebuild; the fix is upstream Qt's (a report draft for the
+owner) or a tile path outside the buffer manager's maps that also passes G7 (#532).
 The probe is in the story's scratch (`probe_release_driver.diff`). *Lesson:* a soak that
 passes alone (G6: re-bakes, no release) and one that passes alone (G7: releases, no textures
 replaced) can both be green while their combination leaks — run the product's own policy
