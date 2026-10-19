@@ -383,34 +383,53 @@ def delta_e76(first: Any, second: Any) -> float:
 # ── the plan rectangle meets the meadow ──────────────────────────────────────
 
 
-def ground_patch_luma(rgb: Any, camera: Pinhole, patch: tuple[float, float, float, float]
-                      ) -> tuple[float, int]:
-    """Mean luma of the pixels that show the ground rectangle ``patch`` = (east0,
-    north0, east1, north1), z = 0 — and how many there are."""
+def plan_edge_step(rgb: Any, camera: Pinhole, *, axis: str, at: float, along: Sequence[float],
+                   reach: tuple[float, float] = (20.0, 220.0), step_cm: float = 10.0
+                   ) -> dict[str, Any]:
+    """The luma STEP where the plan rectangle meets the meadow along the edge line
+    ``east = at`` (``axis="east"``) or ``north = at`` (``axis="north"``), the plan on
+    the side of larger coordinates.
+
+    At every station in ``along`` the ground is sampled on a line across the edge,
+    ``reach`` cm into the plan and as far into the meadow, and each side is fitted
+    with a straight line; the step is the plan's line minus the meadow's AT the edge.
+    A smooth gradient across the view (the sky's sheen changes with the angle: here
+    about 1.4 luma per metre) is not a step and does not count — two band means 2 m
+    apart had read it as one (+4 luma for identical materials). ``step`` is the median
+    over the stations."""
     frame = np.asarray(rgb, dtype=np.float64)[..., :3]
     rows, cols = frame.shape[:2]
     view = camera.scaled((cols, rows))
-    east0, north0, east1, north1 = patch
-    corners = [(east0, north0, 0.0), (east1, north0, 0.0), (east1, north1, 0.0), (east0, north1, 0.0)]
-    px, py, front = view.project(corners)
-    if not front.all():
-        return 0.0, 0
-    xs, ys = np.meshgrid(np.arange(cols) + 0.5, np.arange(rows) + 0.5)
-    inside = polygon_mask(xs, ys, list(zip(px.tolist(), py.tolist(), strict=True)))
-    count = int(inside.sum())
-    return (float(luma(frame)[inside].mean()) if count else 0.0), count
-
-
-def plan_edge_step(rgb: Any, camera: Pinhole, inside: tuple[float, float, float, float],
-                   outside: tuple[float, float, float, float]) -> dict[str, Any]:
-    """The luma step where the plan rectangle meets the meadow: the mean over a ground
-    band just INSIDE the plan minus the same band just OUTSIDE it (each (east0,
-    north0, east1, north1), z = 0). Nothing stands on either, so both are lit alike
-    and any step is the two materials (or the bake's colour, once there is one)."""
-    plan, plan_px = ground_patch_luma(rgb, camera, inside)
-    meadow, meadow_px = ground_patch_luma(rgb, camera, outside)
-    return {"step": round(plan - meadow, 2), "plan_luma": round(plan, 2),
-            "meadow_luma": round(meadow, 2), "plan_px": plan_px, "meadow_px": meadow_px}
+    values = luma(frame)
+    offsets = np.arange(reach[0], reach[1] + 1e-9, step_cm)
+    distances = np.concatenate([-offsets[::-1], offsets])
+    steps: list[float] = []
+    plan_at: list[float] = []
+    meadow_at: list[float] = []
+    for station in along:
+        across = at + distances
+        if axis == "east":
+            points = np.column_stack([across, np.full_like(across, station), np.zeros_like(across)])
+        else:
+            points = np.column_stack([np.full_like(across, station), across, np.zeros_like(across)])
+        px, py, front = view.project(points)
+        col, row = np.floor(px).astype(np.int64), np.floor(py).astype(np.int64)
+        seen = front & (col >= 0) & (col < cols) & (row >= 0) & (row < rows)
+        inside, outside = seen & (distances > 0), seen & (distances < 0)
+        if inside.sum() < 3 or outside.sum() < 3:
+            continue
+        sampled = np.full(distances.shape, np.nan)
+        sampled[seen] = values[row[seen], col[seen]]
+        plan_line = np.polyfit(distances[inside], sampled[inside], 1)
+        meadow_line = np.polyfit(distances[outside], sampled[outside], 1)
+        plan_at.append(float(np.polyval(plan_line, 0.0)))
+        meadow_at.append(float(np.polyval(meadow_line, 0.0)))
+        steps.append(plan_at[-1] - meadow_at[-1])
+    if not steps:
+        return {"step": None, "stations": 0, "plan_luma": None, "meadow_luma": None}
+    return {"step": round(float(np.median(steps)), 2), "stations": len(steps),
+            "plan_luma": round(float(np.median(plan_at)), 2),
+            "meadow_luma": round(float(np.median(meadow_at)), 2)}
 
 
 # ── aliasing of thin repeated geometry (picket fences) ───────────────────────

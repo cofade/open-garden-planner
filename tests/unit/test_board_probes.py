@@ -352,9 +352,10 @@ def test_the_horizon_reports_a_hue_seam_that_luma_cannot_see() -> None:
 # ── the plan rectangle meets the meadow ──────────────────────────────────────
 
 
-def _ground_frame(camera: P.Pinhole, inside: float, outside: float) -> np.ndarray:
-    """A frame of flat ground: east of the line east = 0 (the plan) one luma, west of it
-    another; the sky above."""
+def _ground_frame(camera: P.Pinhole, step: float, gradient: float) -> np.ndarray:
+    """A frame of flat ground whose luma rises ``gradient`` per cm eastwards everywhere
+    (the sky's sheen changing with the angle) and jumps by ``step`` at the line east = 0
+    (the plan to the east); the sky above."""
     cols, rows = camera.size
     xs, ys = np.meshgrid(np.arange(cols) + 0.5, np.arange(rows) + 0.5)
     rays = camera.rays(xs, ys)
@@ -362,23 +363,25 @@ def _ground_frame(camera: P.Pinhole, inside: float, outside: float) -> np.ndarra
     down = rays[..., 2] < 0
     t = np.where(down, -eye[2] / np.where(down, rays[..., 2], -1.0), 0.0)
     east = eye[0] + t * rays[..., 0]
+    level = 110.0 + gradient * east + np.where(east >= 0.0, step, 0.0)
     frame = np.full((rows, cols, 3), 200.0)
-    frame[down & (east >= 0.0)] = inside
-    frame[down & (east < 0.0)] = outside
+    frame[down] = level[down][:, None]
     return frame
 
 
-def test_the_plan_edge_step_is_the_two_materials() -> None:
-    camera = P.Pinhole(eye=(1500.0, 800.0, 165.0), target=(0.0, 800.0, 0.0), fov_deg=40.0, size=SIZE)
-    inside, outside = (20.0, 500.0, 220.0, 1100.0), (-220.0, 500.0, -20.0, 1100.0)
-    flat = P.plan_edge_step(_ground_frame(camera, 120.0, 120.0), camera, inside, outside)
-    assert flat["step"] == 0.0 and flat["plan_px"] > 500 and flat["meadow_px"] > 200
-    darker = P.plan_edge_step(_ground_frame(camera, 112.0, 120.0), camera, inside, outside)
-    assert darker["step"] == pytest.approx(-8.0), "the positive control: a darker plan"
-    behind = P.Pinhole(eye=(-1500.0, 800.0, 165.0), target=(-3000.0, 800.0, 0.0), fov_deg=40.0,
-                       size=SIZE)
-    assert P.ground_patch_luma(np.zeros((SIZE[1], SIZE[0], 3)), behind, inside) == (0.0, 0), \
-        "ground behind the camera is not measured"
+def test_the_plan_edge_step_is_the_jump_at_the_edge_not_the_gradient() -> None:
+    camera = P.Pinhole(eye=(0.0, -700.0, 165.0), target=(0.0, 800.0, 0.0), fov_deg=40.0, size=SIZE)
+    along = [500.0, 650.0, 800.0, 950.0, 1100.0]
+    smooth = P.plan_edge_step(_ground_frame(camera, 0.0, 0.014), camera, axis="east", at=0.0,
+                              along=along)
+    assert smooth["stations"] == 5 and abs(smooth["step"]) < 0.3, smooth
+    # two band means 2 m apart would have read the gradient as a step: +2.8 luma here
+    darker = P.plan_edge_step(_ground_frame(camera, -6.0, 0.014), camera, axis="east", at=0.0,
+                              along=along)
+    assert darker["step"] == pytest.approx(-6.0, abs=0.4), "the positive control"
+    behind = P.Pinhole(eye=(0.0, 3000.0, 165.0), target=(0.0, 5000.0, 0.0), fov_deg=40.0, size=SIZE)
+    assert P.plan_edge_step(np.zeros((SIZE[1], SIZE[0], 3)), behind, axis="east", at=0.0,
+                            along=along)["step"] is None, "ground behind the camera: no number"
 
 
 # ── aliasing of thin repeated geometry ───────────────────────────────────────

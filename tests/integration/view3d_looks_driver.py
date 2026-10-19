@@ -468,9 +468,13 @@ def scenario_wind_soak(ctx: Context) -> dict[str, Any]:
         curve: list[float] = []
         gpu_curve: list[float | None] = []
         seconds = int(minutes * 60.0)
+        js_gc = ctx.flag("jsgc")                  # a diagnosis: the QML engine's collector too
         for _ in range(seconds // 5):
             pump(5000)                            # frames flow; nothing is read back
             gc.collect()
+            if js_gc:
+                host._view.engine().collectGarbage()  # noqa: SLF001 - a diagnostic arm
+                pump(50)
             curve.append(round(private_mb(), 2))
             gpu = gpu_mb()
             gpu_curve.append(gpu.get("process_dedicated_mb") if gpu.get("available") else None)
@@ -481,7 +485,7 @@ def scenario_wind_soak(ctx: Context) -> dict[str, Any]:
         gpu_values = [value for value in gpu_curve if value is not None]
         per_sample = theil_sen(half)
         return {
-            "minutes": minutes, "start_mb": start_mb, "curve_mb": curve,
+            "minutes": minutes, "js_gc": js_gc, "start_mb": start_mb, "curve_mb": curve,
             "slope_second_half_mb_per_min": round(per_sample * 12.0, 3),
             "gpu_curve_mb": gpu_curve,
             "gpu_slope_second_half_mb_per_min": (

@@ -230,9 +230,9 @@ def records_digest(records: dict[str, Record]) -> str:
 #: 0.6°, sunset's crossing to 0.4°, then civil twilight to past its end.
 DUSK_ELEVATIONS = (6.0, 3.1, 2.6, 2.1, 1.6, 1.1, 0.6, 0.4, 0.0, -1.0, -2.0, -3.0, -4.0, -5.0,
                    -6.0, -7.0)
-#: The edge probe's cameras stand this far from the edge they look at, at eye height —
-#: the grazing view under which the two grounds' sheen differs most — and judge a band
-#: this deep and this wide on each side of it, starting this far from the edge.
+#: The edge probe's cameras stand on the edge's line this far from the middle of the
+#: judged stretch, at eye height — the grazing view under which a sheen shows — and judge
+#: a band this wide on each side of the edge, starting this far from it, this long.
 EDGE_BACK_CM, EDGE_EYE_CM, EDGE_BAND_CM, EDGE_HALF_WIDTH_CM, EDGE_INSET_CM = (
     1500.0, 165.0, 200.0, 300.0, 20.0)
 
@@ -663,28 +663,33 @@ class Board:
 
     def plan_edge(self, shots: list[BoardShot], presets: list[str]) -> None:
         """The plan rectangle against the meadow on a plan with nothing on it: the luma
-        step across its west and its south edge at golden hour and at noon, per preset,
-        seen at eye height from 15 m (the grazing view under which a sheen shows).
+        step across its west and its south edge at golden hour and at noon, per preset.
 
-        Each edge is seen twice — from the plan looking out and from the meadow looking
-        in — and the two steps are averaged: at a grazing angle the FARTHER band reads
-        brighter whatever it is made of (+3 … +8 luma here), and that term flips sign
-        between the two views while the materials' own difference does not. The
-        averaged ``material_step`` is the gate's number."""
+        Each edge is seen at eye height ALONG the edge, from both ends (the plan then
+        lies left in one view and right in the other, the sun on the other side), and
+        the step is measured AT the edge line (``probes.plan_edge_step``: both sides
+        fitted, compared at the edge — a smooth gradient across the view is not a step).
+        The gate's number is the largest step of any view (``max_abs_step``): a sheen
+        that differs makes the plan darker looking one way and brighter looking the
+        other (the old material: -4.1 and +4.3 along the south edge at golden hour),
+        and a mean of the two would hide it."""
         from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
 
         by_name = {shot.name: shot for shot in shots}
         mid_e, mid_n = self.width / 2.0, self.depth / 2.0
-        back, band, half, inset = EDGE_BACK_CM, EDGE_BAND_CM, EDGE_HALF_WIDTH_CM, EDGE_INSET_CM
-        west_in = (inset, mid_n - half, inset + band, mid_n + half)
-        west_out = (-inset - band, mid_n - half, -inset, mid_n + half)
-        south_in = (mid_e - half, inset, mid_e + half, inset + band)
-        south_out = (mid_e - half, -inset - band, mid_e + half, -inset)
-        views = {   # name: (eye, target, inside patch, outside patch)
-            "west_from_plan": ((back, mid_n, EDGE_EYE_CM), (0.0, mid_n, 0.0), west_in, west_out),
-            "west_from_meadow": ((-back, mid_n, EDGE_EYE_CM), (0.0, mid_n, 0.0), west_in, west_out),
-            "south_from_plan": ((mid_e, back, EDGE_EYE_CM), (mid_e, 0.0, 0.0), south_in, south_out),
-            "south_from_meadow": ((mid_e, -back, EDGE_EYE_CM), (mid_e, 0.0, 0.0), south_in, south_out),
+        back, half = EDGE_BACK_CM, EDGE_HALF_WIDTH_CM
+        reach = (EDGE_INSET_CM, EDGE_INSET_CM + EDGE_BAND_CM)
+        west_along = [mid_n + k * half / 2.0 for k in (-2, -1, 0, 1, 2)]
+        south_along = [mid_e + k * half / 2.0 for k in (-2, -1, 0, 1, 2)]
+        views = {   # name: (eye, target, axis of the edge line, stations along it)
+            "west_looking_north": ((0.0, mid_n - back, EDGE_EYE_CM), (0.0, mid_n, 0.0),
+                                   "east", west_along),
+            "west_looking_south": ((0.0, mid_n + back, EDGE_EYE_CM), (0.0, mid_n, 0.0),
+                                   "east", west_along),
+            "south_looking_east": ((mid_e - back, 0.0, EDGE_EYE_CM), (mid_e, 0.0, 0.0),
+                                   "north", south_along),
+            "south_looking_west": ((mid_e + back, 0.0, EDGE_EYE_CM), (mid_e, 0.0, 0.0),
+                                   "north", south_along),
         }
         out: dict[str, Any] = {}
         self.metrics["plan_edge"] = out
@@ -694,25 +699,22 @@ class Board:
             for mood in ("golden_hour", "noon"):
                 sun = self.sun_at(by_name[mood].when_utc)
                 rows: dict[str, Any] = {}
-                for name, (eye, target, inside, outside) in views.items():
+                for name, (eye, target, axis, along) in views.items():
                     camera = probes.Pinhole(eye=eye, target=target, fov_deg=40.0, size=self.size)
                     rgb, _frame, info = self.frame(
                         f"edge_{mood}_{name}_{preset}", {}, sun=sun, look=look_for(sun, preset),
                         ground=self.plan_ground(),
                         shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
-                    rows[name] = {**probes.plan_edge_step(rgb, camera, inside, outside),
+                    rows[name] = {**probes.plan_edge_step(rgb, camera, axis=axis, at=0.0,
+                                                          along=along, reach=reach),
                                   "file": info["file"]}
-                for edge in ("west", "south"):
-                    material = (rows[f"{edge}_from_plan"]["step"]
-                                + rows[f"{edge}_from_meadow"]["step"]) / 2.0
-                    rows[f"{edge}_material_step"] = round(material, 2)
-                    worst = max(worst, abs(material))
+                for row in rows.values():
+                    worst = max(worst, abs(row["step"]) if row["step"] is not None else math.inf)
                 out[preset][mood] = rows
                 self.log("plan_edge", preset=preset, mood=mood,
-                         west=rows["west_material_step"], south=rows["south_material_step"],
-                         **{name: row["step"] for name, row in rows.items() if isinstance(row, dict)})
+                         **{name: row["step"] for name, row in rows.items()})
             self.write()
-        out["max_abs_material_step"] = round(worst, 2)
+        out["max_abs_step"] = round(worst, 2)
         self.write()
 
     def restore_check(self, shot: BoardShot, preset: str) -> None:

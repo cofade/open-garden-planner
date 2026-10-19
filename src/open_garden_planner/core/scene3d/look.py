@@ -52,7 +52,7 @@ __all__ = [
     "QUALITY_CHOICES", "SKY_MIN_ELEVATION_DEG", "SKY_REBUILD_DEG", "TWILIGHT_DEG", "AutoPolicy",
     "AutoPreset", "LookSpec", "MoodSpec", "PresetSpec", "Rig", "ShadowSpec", "SkySpec", "day_rig",
     "fill_linear", "fog_color", "fog_linear", "linear_to_srgb_hex", "look_for", "mix_linear",
-    "mix_rig", "mix_stops", "moon_travel_scene", "normalise_quality", "scale_linear", "sky_is_stale",
+    "mix_rig", "moon_travel_scene", "normalise_quality", "scale_linear", "sky_is_stale",
     "sky_phase", "sky_separation_deg", "twilight_fraction", "twilight_rig",
 ]
 
@@ -150,21 +150,6 @@ def mix_linear(first: str, second: str, t: float) -> str:
     return linear_to_srgb_hex(low + (high - low) * t)
 
 
-def mix_stops(first: str, second: str, t: float) -> str:
-    """``#rrggbb`` ``first`` -> ``second`` at ``t``, mixed in STOPS: every channel's
-    linear value geometrically (each step the same FACTOR, as the eye judges light).
-    For a fade into the dark: mixed linearly, the night end of twilight dropped the
-    drawn horizon 3.4x in its last half degree (1.1x in its first); in stops every
-    half degree is 1.34-1.48x. The ends come back exactly."""
-    if t <= 0.0:
-        return first
-    if t >= 1.0:
-        return second
-    low = np.log(np.maximum(_linear(first), 1e-6))
-    high = np.log(np.maximum(_linear(second), 1e-6))
-    return linear_to_srgb_hex(np.exp(low + (high - low) * t))
-
-
 def scale_linear(color: str, factor: float) -> str:
     """``#rrggbb`` scaled by ``factor`` in LINEAR light."""
     return linear_to_srgb_hex(_linear(color) * factor)
@@ -214,21 +199,19 @@ def _ramp(elevation_deg: float) -> tuple[Rig, Rig, float]:
     return mid, high, min((elevation_deg - mid_at) / (high_at - mid_at), 1.0)
 
 
-def mix_rig(low: Rig, high: Rig, t: float, *, colours: str = "linear") -> Rig:
-    """Two rigs mixed at ``t`` (0..1, the ends exact): colours in linear light (or, with
-    ``colours="stops"``, geometrically: ``mix_stops``), exposure in stops, brightness
-    and probe exposure linearly."""
+def mix_rig(low: Rig, high: Rig, t: float) -> Rig:
+    """Two rigs mixed at ``t`` (0..1, the ends exact): colours in linear light,
+    exposure in stops, brightness and probe exposure linearly."""
     if t <= 0.0:
         return low
     if t >= 1.0:
         return high
-    mix = mix_stops if colours == "stops" else mix_linear
     return Rig(
-        sun_color=mix(low.sun_color, high.sun_color, t),
+        sun_color=mix_linear(low.sun_color, high.sun_color, t),
         sun_brightness=low.sun_brightness + (high.sun_brightness - low.sun_brightness) * t,
-        sky_top=mix(low.sky_top, high.sky_top, t),
-        sky_horizon=mix(low.sky_horizon, high.sky_horizon, t),
-        sun_disc=mix(low.sun_disc, high.sun_disc, t),
+        sky_top=mix_linear(low.sky_top, high.sky_top, t),
+        sky_horizon=mix_linear(low.sky_horizon, high.sky_horizon, t),
+        sun_disc=mix_linear(low.sun_disc, high.sun_disc, t),
         # in stops: 1.15 -> 0.85 is -0.44 EV, and a linear mix would spend it unevenly
         exposure=float(2.0 ** (math.log2(low.exposure) * (1.0 - t) + math.log2(high.exposure) * t)),
         probe_exposure=low.probe_exposure + (high.probe_exposure - low.probe_exposure) * t,
@@ -255,13 +238,19 @@ def twilight_fraction(elevation_deg: float) -> float:
 
 def twilight_rig(elevation_deg: float) -> Rig:
     """The rig of a sun under ``NIGHT_BELOW_DEG``: the low-sun rig mixed into the
-    night rig by ``twilight_fraction`` — colours in STOPS (``mix_stops``: a fade into
-    the dark, evenly as the eye sees it), exposure in stops, probe exposure
-    linearly — and the key light is the moon (the sun is down, as the 2D shadows
+    night rig by ``twilight_fraction`` (``mix_rig``: colours in linear light, exposure
+    in stops) — and the key light is the moon (the sun is down, as the 2D shadows
     say), its brightness the night rig's times the fraction: no key, and no shadow,
-    just under 0.5°, the full moon at −6°."""
+    just under 0.5°, the full moon at −6°.
+
+    Colours in linear light, not in stops: in stops the sky faded faster than the
+    moon came in, and the frame went DARKER than the night it ends in, then brighter
+    again (mean luminance 0.116 at 0.6° -> 0.023 at −3/−4° -> 0.034 at −6°, bench_small,
+    the golden-hour camera). Linearly the frame darkens all the way (0.116 -> 0.099 at
+    0° -> 0.052 at −3° -> 0.034 at −6°); the sky band itself moves most in its last
+    half degree, where the moon already carries the frame's light."""
     t = twilight_fraction(elevation_deg)
-    mixed = mix_rig(LOW_SUN, NIGHT, t, colours="stops")
+    mixed = mix_rig(LOW_SUN, NIGHT, t)
     return Rig(mixed.sun_color, NIGHT.sun_brightness * t, mixed.sky_top, mixed.sky_horizon,
                mixed.sun_disc, mixed.exposure, mixed.probe_exposure)
 
@@ -523,7 +512,7 @@ def look_for(sun: SunState, preset: str = "high") -> LookSpec:
             sun_elevation_deg=max(float(sun.elevation_deg), SKY_MIN_ELEVATION_DEG),
             sun_azimuth_deg=float(sun.azimuth_deg) % 360.0,
             top=rig.sky_top, horizon=rig.sky_horizon, sun_disc=rig.sun_disc,
-            ground_bottom=mix_stops(_DAY_GROUND_BOTTOM, _NIGHT_GROUND_BOTTOM, t),
+            ground_bottom=mix_linear(_DAY_GROUND_BOTTOM, _NIGHT_GROUND_BOTTOM, t),
             sky_energy=sky_energy, ground_energy=sky_energy, sun_energy=sun_energy,
             night=night),
         shadow=ShadowSpec(cost.shadow_map_quality, cost.shadow_cascades, cost.soft_shadows,

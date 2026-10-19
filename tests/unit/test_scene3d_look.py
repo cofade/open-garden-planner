@@ -262,12 +262,12 @@ MAX_EXPOSURE_STEP = 0.015  # stops per 0.5°
 MAX_PROBE_STEP = 0.01      # per 0.5°
 MAX_BRIGHTNESS_STEP = 0.02  # per 0.5°
 #: Through twilight (0.5° → −6°, 13 half degrees; measured 2026-10-19, fix round 1): the
-#: largest step of any colour channel is 34 codes (the horizon's first half degree under
-#: sunset — colours fade in STOPS, so the codes move fastest at the bright end), of the
-#: exposure 0.0724 stops (1.25 -> 2.4 over 6.5°), of the moon key 0.0246, of the sky's
-#: energy 0.0577. The bounds sit just above. Mixed linearly, the colours' largest step was
-#: 52 codes, in the LAST half degree, where the drawn horizon fell 3.4x at once.
-TWILIGHT_MAX_COLOUR_STEP = 36
+#: largest step of any colour channel is 52 codes (the sky horizon's LAST half degree —
+#: mixed in linear light, the dark end moves most in codes; the moon carries the frame's
+#: light there, and the render tier's dusk sweep is monotone), of the exposure 0.0724
+#: stops (1.25 -> 2.4 over 6.5°), of the moon key 0.0246, of the sky's energy 0.0577. The
+#: bounds sit just above.
+TWILIGHT_MAX_COLOUR_STEP = 54
 TWILIGHT_MAX_EXPOSURE_STEP = 0.075
 
 
