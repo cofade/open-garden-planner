@@ -164,6 +164,7 @@ def test_a_day_in_the_garden_drives_the_look_and_nothing_else(app3d, qtbot, mous
                           and soon.elevation_deg < now.elevation_deg)),
     ]
     sink.clear_calls()
+    snapshots = controller.snapshot_count
     seen: dict[str, Any] = {}
     for name, wall in script:
         skies_before, shown_sky = len(host.skies), look.sky
@@ -208,6 +209,7 @@ def test_a_day_in_the_garden_drives_the_look_and_nothing_else(app3d, qtbot, mous
     assert not sky_is_stale(look.sky, look_for(nudged, "high").sky)
     assert len(host.skies) == skies, "a quarter of a degree: zero rebuilds"
     assert sink.sun == nudged and sink.ops() == [BEGIN, SUN, COMMIT]
+    assert controller.snapshot_count == snapshots,         "a time of day re-lights the garden; it never snapshots the plan again"
 
     # ── a date change: the same wall time in December ────────────────────────
     sink.clear_calls()

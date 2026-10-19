@@ -16,8 +16,9 @@ every decision (``test_scene3d_look.py``, ``test_view3d_look_controller.py``,
   G1's direction, G8), and the memory soak over twenty sun changes with its
   positive control (G4).
 
-    # Windows (Git Bash)
-    OGP_RENDER3D=1 venv/Scripts/python.exe -m pytest tests/integration/test_view3d_looks_render.py
+    # Windows (Git Bash) - one driver at a time; the one wall-clock bound is ``perf``
+    OGP_RENDER3D=1 venv/Scripts/python.exe -m pytest -n 0 -m "perf or not perf"
+        tests/integration/test_view3d_looks_render.py      (one command line)
 
 NOT box casters — exempt from the shadow gate by ADR-064's divergence table: closed
 fences, and the built-world kinds listed there. The gate's caster is a solid box.
@@ -304,13 +305,19 @@ def test_the_software_fallback_builds_no_light_probe_and_still_tells_the_truth(b
     assert metrics["probe_restore_frame_diff"] == 0.0
 
 
+def test_a_frame_on_the_software_adapter_builds_no_sky_step(board_software) -> None:
+    """Gate G8, by structure: no frame of the fallback has a sky-build step at all."""
+    metrics, _out = board_software
+    assert all("sky_build" not in row["breakdown_ms"] for row in metrics["shots"])
+
+
+@pytest.mark.perf   # a wall-clock bound (ADR-058): run with -m perf, or "perf or not perf"
 def test_a_frame_on_the_software_adapter_costs_no_probe(board_software) -> None:
     """Gate G8, in time: a light probe on WARP costs seconds (9-13 s on this machine,
     40-85 s on a CI runner). A frame of the fallback must cost nothing like one."""
     metrics, _out = board_software
     slowest = max(row["open_ms"] for row in metrics["shots"])
     assert slowest < 6000.0, [(row["shot"], row["preset"], row["open_ms"]) for row in metrics["shots"]]
-    assert all("sky_build" not in row["breakdown_ms"] for row in metrics["shots"])
 
 
 # ── the large bench plan (gate G10) ──────────────────────────────────────────
