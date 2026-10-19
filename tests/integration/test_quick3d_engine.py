@@ -270,7 +270,7 @@ class TestOnTheRealRenderer:
 
     def test_an_edit_is_on_screen_within_the_frame_budget(
             self, run: tuple[dict[str, Any], Path]) -> None:
-        """ADR-048 entries 5/6 (moved here by ADR-056): edit → snapshot → diff → engine →
+        """ADR-048 entries 5/6 (moved here by ADR-064): edit → snapshot → diff → engine →
         FINISHED READBACK. Measured on the dev box (RTX 4070, 98 records, 640 x 400):
         median 7.1 ms, p95 17.9 ms; WARP: median 23.2 ms. The bound is asserted on a
         hardware adapter only — a software rasteriser says nothing about a GPU."""

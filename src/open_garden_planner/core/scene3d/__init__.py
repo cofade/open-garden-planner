@@ -1,4 +1,4 @@
-"""Qt-free 3D scene core (Phase 17 L1.1, #385, ADR-056; concept: §8.27).
+"""Qt-free 3D scene core (Phase 17 L1.1, #385, ADR-064; concept: §8.32).
 
 The pipeline::
 
@@ -37,7 +37,7 @@ Since L1.5: ``ground`` — the plan's flat surfaces as tiles of plain data
 (``GroundGrid``, ``GroundTile``, ``GroundBaking``); ``record`` carries what the 2D
 paint of an item needs (``Paint``, ``Record.outline``), and ``SceneSync`` drives a
 ground baker with the diff the builders get (the baker itself paints with
-``QPainter`` and lives in ``ui/view3d/ground_bake.py``; concept: §8.27.5).
+``QPainter`` and lives in ``ui/view3d/ground_bake.py``; concept: §8.32.5).
 
 "Imports no Qt" is a statement about this package's SOURCE. Importing it still
 runs ``core/__init__.py``, which loads the command system and with it PyQt6.

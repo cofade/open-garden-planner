@@ -1,4 +1,4 @@
-"""``SceneSync`` — snapshots in, minimal engine calls out (Phase 17 L1.1, ADR-056).
+"""``SceneSync`` — snapshots in, minimal engine calls out (Phase 17 L1.1, ADR-064).
 
 Owns the last applied records and an ``EngineSink``. ``apply(records)`` diffs
 the new snapshot against the last one, runs builders ONLY for added items and
@@ -14,7 +14,7 @@ empty sink — incremental == full rebuild (``expected_state`` is that reference
 It also holds across a change of the builder registry: an item whose builder was
 registered or replaced after it was built is rebuilt by the next ``apply``.
 
-Failure rules (decided in ADR-056, pinned by ``tests/unit/test_scene3d_sync.py``):
+Failure rules (decided in ADR-064, pinned by ``tests/unit/test_scene3d_sync.py``):
 
 - A BUILDER that raises is contained. All builders run before the sink is
   touched, so a transaction is never half applied. The failing item is given no

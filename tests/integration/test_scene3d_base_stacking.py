@@ -1174,7 +1174,7 @@ class TestCopiesAndMovesThatDoNotEvaluateTheLink:
     - a BED moved by a typed coordinate or by align / distribute leaves its plants.
 
     Where a plant STANDS is right in every one of them where a link exists: it follows
-    the plant's centre (FR-SUN-09). Where no link exists, the plant is on the ground."""
+    the plant's centre (FR-SUN-20). Where no link exists, the plant is on the ground."""
 
     @pytest.mark.parametrize(("action", "module", "dialog", "settings", "lands"), ARRAY_CASES,
                              ids=[case[0] for case in ARRAY_CASES])
@@ -1256,7 +1256,7 @@ class TestCopiesAndMovesThatDoNotEvaluateTheLink:
     def test_where_a_linked_plant_stands_follows_its_centre_whatever_moved_it(
         self, canvas: CanvasView
     ) -> None:
-        """FR-SUN-09's invariant. ``MoveItemsCommand`` alone is what the arrow keys and
+        """FR-SUN-20's invariant. ``MoveItemsCommand`` alone is what the arrow keys and
         a coordinate typed into the Properties panel execute (``properties_panel.py``,
         ``_on_position_changed``): no evaluator runs, so the link stays — and the base
         follows the plant's centre all the same: 38 → 0 → 38. The other direction is the

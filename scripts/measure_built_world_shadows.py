@@ -1,7 +1,7 @@
 """How the built world's 3D shadows compare with the 2D shadow model, kind by kind.
 
-Committed (Phase 17 L1.6, review round 1) so the table in ADR-056's builders
-addendum, §8.27.6, FR-SUN-09 and the Shadows row of ``ogp-lush-cinematic`` §1 has a
+Committed (Phase 17 L1.6, review round 1) so the table in ADR-064's builders
+addendum, §8.32.6, FR-SUN-20 and the Shadows row of ``ogp-lush-cinematic`` §1 has a
 source a reader can re-run. From the repo root:
 
     venv/Scripts/python.exe scripts/measure_built_world_shadows.py           # the table
@@ -284,7 +284,7 @@ def measure(selected: Sequence[Case] | None = None) -> tuple[Row, ...]:
     return tuple(rows)
 
 
-#: The table as documented (ADR-056 builders addendum, §8.27.6, ``ogp-lush-cinematic``
+#: The table as documented (ADR-064 builders addendum, §8.32.6, ``ogp-lush-cinematic``
 #: §1): name -> (3D / 2D area, IoU, reach 3D - 2D in cm), each at 15 / 35 / 60 degrees.
 #: Measured by this script on 2026-10-11; ``--check`` and the test hold the builders to
 #: it within ``TOLERANCE`` (``REACH_TOLERANCE_CM`` for the reach). A builder change that

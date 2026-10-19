@@ -740,7 +740,7 @@ class TestPolylinesAreBuiltFromTheCentreLine:
 
         This test pins three sides and no range: 12 cm passes, stroke + 12 cm and 1 m
         are refused, 1.5 m passes. Where the default refuses in between was measured
-        once, for square loops at 1 cm steps of the side (ADR-056, decision 5): a WALL
+        once, for square loops at 1 cm steps of the side (ADR-064, decision 5): a WALL
         15 – 120 cm, a stone-wall fence 16 – 118 cm, a hedge fence 19 – 111 cm and
         again at 114 cm — the gate samples the hole on a coarse grid."""
         side = 100.0

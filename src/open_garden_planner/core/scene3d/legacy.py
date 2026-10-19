@@ -1,6 +1,6 @@
 """The pre-L1.1 3D contract of the Qt 3D view (US-E6, #261) — what is left of it.
 
-Until Phase 17 L1.1 (#385, ADR-056) this was ``core/scene3d.py``. It still feeds
+Until Phase 17 L1.1 (#385, ADR-064) this was ``core/scene3d.py``. It still feeds
 the shipped Qt 3D window and the dormant spike, and ``core.scene3d`` re-exports
 every name it ever had, so no importer changed.
 

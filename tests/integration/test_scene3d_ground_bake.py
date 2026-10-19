@@ -4,7 +4,7 @@ test: a real scene, a real plan, an edit session through the app's own commands,
 and a recording sink that receives the tiles.
 
 Every parity number in here is the bake against the canvas's OWN render of the
-same items (``ground_bake_support.canvas_render``, pattern: docs §8.10.8). The
+same items (``ground_bake_support.canvas_render``, pattern: docs §8.10.28). The
 render tier's twin is ``test_scene3d_ground_render.py``.
 """
 
@@ -140,7 +140,7 @@ class TestParityPerPattern:
         assert len({tile.key for tile in changed_tiles((), bake.tiles)[0]}) == 6
         assert len(bake.baker.painted_ids()) == 1
         assert mean <= PARITY, (pattern.name, mean, worst)
-        # measured (docs §8.27.5): not turned, the two renders are the same picture;
+        # measured (docs §8.32.5): not turned, the two renders are the same picture;
         # turned, single values differ by one step of 255 (largest mean seen: 0.0002)
         assert mean <= (0.002 if angle else 0.0), (pattern.name, mean, worst)
         assert worst <= (2 if angle else 0), (pattern.name, mean, worst)
@@ -273,7 +273,7 @@ class TestParityPerShape:
         # in ONE tile the bake is the canvas's own call: the same dashes, bit for bit
         assert compare(scene, tile_px=2048)[:2] == (0.0, 0)
         # across four tiles the outline is cut along chords, turned or not: the dashes
-        # of a round outline then lie up to a pixel from Qt's (§8.27.5; measured for
+        # of a round outline then lie up to a pixel from Qt's (§8.32.5; measured for
         # this circle, unturned and turned alike: mean 0.018, about 980 px by more
         # than 8)
         mean, _worst, _bake = compare(scene)
@@ -1143,7 +1143,7 @@ class TestAnItemMadeFromAnItem:
         record = bake.records[str(derived.item_id)]
         assert bake.baker.painted_ids() == (str(derived.item_id),)
         if isinstance(derived, PolylineItem):
-            # a styled line: single pixels of its elements' edges (§8.27.5, limits 2 and 8
+            # a styled line: single pixels of its elements' edges (§8.32.5, limits 2 and 8
             # — a chamfer's new points are not round numbers; measured: mean 0.0003)
             assert mean <= 0.05, (mean, worst)
         else:
@@ -1263,7 +1263,7 @@ class TestHostilePlans:
                              ids=lambda s: s.name)
     def test_a_dashed_line_of_19_kilometres(self, qtbot: Any, stroke: StrokeStyle) -> None:
         """A dashed pen has no elements of ours to count: Qt's dasher makes the
-        dashes, and skips what lies outside the image (measured, docs §8.27.5: 19 km
+        dashes, and skips what lies outside the image (measured, docs §8.32.5: 19 km
         cost what 100 m cost). Pinned by its result — the bake finishes inside the
         suite's time limit and is the canvas's picture."""
         scene = _hostile_scene()

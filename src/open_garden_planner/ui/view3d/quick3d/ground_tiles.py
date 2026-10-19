@@ -16,7 +16,7 @@
   white; and in a window that presents frames, every re-textured tile was white
   one frame after its edit (the replaced texture is let go when a frame was
   presented). Nothing showed it while a re-bake was followed by a frame and the
-  SAME tiles were re-baked next (docs §11.4.14);
+  SAME tiles were re-baked next (docs §11.4.34);
 - a tile that is no longer named is destroyed with its Model.
 
 Lifetime — the keep-alive rule. A texture made in Python is owned by Python, so
@@ -46,7 +46,7 @@ presented, twenty full re-bakes of a 16 MB ground, every replaced texture
 object destroyed): a ``grab()`` after every re-bake +16 MB a cycle, after every
 fifth +3.2, NO ``grab()`` +0.000 — the growth belongs to the grabbed frame, not
 to the edit or the upload (nothing is rendered, so nothing is uploaded); flat
-in every variant on WARP and wherever frames are presented (docs §11.4.14).
+in every variant on WARP and wherever frames are presented (docs §11.4.34).
 Nothing in here can release what the graphics system holds, and applying edits
 more slowly changes nothing. THE RULE for whoever drives a host: no repeated
 ``grab()`` on a live host that is not presenting — a screenshot goes through

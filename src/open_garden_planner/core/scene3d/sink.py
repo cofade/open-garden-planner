@@ -1,4 +1,4 @@
-"""The engine boundary: ``EngineSink`` and its recording double (L1.1, ADR-056).
+"""The engine boundary: ``EngineSink`` and its recording double (L1.1, ADR-064).
 
 Everything the 3D pipeline tells a renderer goes through the ten methods of
 ``EngineSink``. L1.2 implements it with Qt Quick 3D (``ui/view3d/quick3d/``);

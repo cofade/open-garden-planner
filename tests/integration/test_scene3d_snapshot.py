@@ -1193,7 +1193,7 @@ class TestSelfCrossingPolygon:
 
     def test_a_pentagram_keeps_its_centre(self, canvas: CanvasView) -> None:
         """The non-zero rule, the 2D shadow's: the star is one ring of ten corners,
-        centre included (the canvas paints it odd-even, centre open — ADR-056)."""
+        centre included (the canvas paints it odd-even, centre open — ADR-064)."""
         star = PolygonItem([QPointF(500.0 + 300.0 * math.sin(4.0 * math.pi * k / 5.0),
                                     500.0 + 300.0 * math.cos(4.0 * math.pi * k / 5.0))
                             for k in range(5)], object_type=ObjectType.HOUSE)
@@ -3376,7 +3376,7 @@ class TestOneRingWithManyHoles:
     ) -> None:
         """110 of them, 444 vertices: the bridge search for the strict reading's
         region runs the budget out (it is the dearest family there is — three to
-        seven times its price, stated in section 8.27.1). Refused; no band, no tree."""
+        seven times its price, stated in section 8.32.1). Refused; no band, no tree."""
         asked = _watch_clipper(monkeypatch)
         house = PolygonItem([QPointF(x, y) for x, y in _touching_holes(110)], object_type=ObjectType.HOUSE)
         canvas.scene().addItem(house)

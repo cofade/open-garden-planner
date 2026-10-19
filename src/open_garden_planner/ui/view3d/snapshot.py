@@ -9,7 +9,7 @@ Two collectors live here until L1.10 removes Qt 3D:
 
 - ``collect_scene3d_records`` (US-E6) feeds the shipped Qt 3D window with
   scene-space prisms and decals — unchanged.
-- ``snapshot_records`` (Phase 17 L1.1, #385, ADR-056) produces contract v2:
+- ``snapshot_records`` (Phase 17 L1.1, #385, ADR-064) produces contract v2:
   one ``core.scene3d.Record`` per item, in the item-local frame with a rigid
   transform, for ``SceneSync`` and the Qt Quick 3D sink.
 
@@ -1171,7 +1171,7 @@ def snapshot_records(
     is a finite number and an infinite float32; such an item gets no record
     rather than a solid nobody can draw. One bad item never blanks the view.
 
-    What a record holds, and why (``core.scene3d.record``, §8.27.1):
+    What a record holds, and why (``core.scene3d.record``, §8.32.1):
 
     - geometry in the ITEM-LOCAL frame, centred on the outline's anchor
       (``ui.canvas.footprints.item_outline``), on the record grid; the pose

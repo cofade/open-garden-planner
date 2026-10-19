@@ -1,4 +1,4 @@
-"""The plan's ground as tiles of plain data (Phase 17 L1.5, #385, ADR-056 addendum).
+"""The plan's ground as tiles of plain data (Phase 17 L1.5, #385, ADR-064 addendum).
 
 In 3D everything flat — lawns, terraces, driveways, paths, in-ground beds — is
 not geometry: it is PAINTED into the ground, as the 2D canvas paints it. This

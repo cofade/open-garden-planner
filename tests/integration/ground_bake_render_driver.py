@@ -12,7 +12,7 @@ The scene definitions below are plain, engine-free functions both halves import.
 Every frame is taken with ``host.grab()`` — a FINISHED frame; nothing here waits
 for a swap signal. The keep-alive soak takes NONE in its measured loop: a live
 view does not grab, and a ``grab()`` on a window that presents nothing is what
-grows a Direct3D 11 process (docs §11.4.14 — the soak's ``_grab`` twin is the
+grows a Direct3D 11 process (docs §11.4.34 — the soak's ``_grab`` twin is the
 control that shows it).
 """
 
@@ -512,7 +512,7 @@ def scenario_ground_seams_gap(ctx: base.Context) -> dict[str, Any]:
 def scenario_ground_retexture(ctx: base.Context) -> dict[str, Any]:
     """Re-textured tiles keep their picture — whichever tile was re-textured after them,
     and after the replaced textures were let go. (A ``Texture`` element pointed at a
-    second texture is drawn white once the first one is destroyed: §11.4.14.)"""
+    second texture is drawn white once the first one is destroyed: §11.4.34.)"""
     from open_garden_planner.ui.view3d.quick3d.adapter import Quick3DSink
 
     def show(sink: Any, first: str, second: str) -> None:
@@ -567,7 +567,7 @@ def _keepalive(ctx: base.Context, name: str, *, leak: bool = False, grab: bool =
     presents renders the new tiles on its own while the loop pumps events, and one
     that does not renders nothing. Nor does it ask the QML scene anything: what a
     cycle is judged by are counters on this side. ``grab=True`` is the control of
-    §11.4.14: a ``grab()`` after every re-bake."""
+    §11.4.34: a ``grab()`` after every re-bake."""
     host = ctx.shown_host((320, 240))
     try:
         kept: list[Any] = []
@@ -632,7 +632,7 @@ def scenario_ground_keepalive_leak(ctx: base.Context) -> dict[str, Any]:
 
 
 def scenario_ground_keepalive_grab(ctx: base.Context) -> dict[str, Any]:
-    """The control of §11.4.14: the same twenty re-bakes with a ``grab()`` after each.
+    """The control of §11.4.34: the same twenty re-bakes with a ``grab()`` after each.
     On Direct3D 11 with a hardware adapter, in a window that presents nothing, every
     grabbed frame leaves what it uploaded committed — the rule "no repeated grab on
     a host that is not presenting" exists because of this curve."""

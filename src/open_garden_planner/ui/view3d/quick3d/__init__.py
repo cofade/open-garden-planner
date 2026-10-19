@@ -1,4 +1,4 @@
-"""The Qt Quick 3D engine package (Phase 17 L1.2, #385; ADR-048, concept §8.27.2).
+"""The Qt Quick 3D engine package (Phase 17 L1.2, #385; ADR-048, concept §8.32.2).
 
 The other side of ``core/scene3d``'s ``EngineSink``: ``SceneSync`` drives a
 ``Quick3DSink``, which tells a ``Quick3DHost`` (a ``QQuickView`` showing

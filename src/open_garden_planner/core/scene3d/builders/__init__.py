@@ -1,4 +1,4 @@
-"""The production builders of the 3D scene (Phase 17 L1.6 and L1.7, #385, ADR-056 addenda).
+"""The production builders of the 3D scene (Phase 17 L1.6 and L1.7, #385, ADR-064 addenda).
 
 ``Record -> tuple[MeshPart, ...]`` functions, one module per family, each with a
 module-level ``register(registry)``. Qt-free: standard library, numpy and

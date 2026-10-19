@@ -1,6 +1,6 @@
 """Which ground does a canvas item cover? — the ONE footprint extraction.
 
-Public home (Phase 17 L1.1, #385, ADR-056) of the helpers that used to be
+Public home (Phase 17 L1.1, #385, ADR-064) of the helpers that used to be
 private to ``sun_shadow_controller``: the shadow overlay (US-E3), the
 hours-of-sun heatmap (US-E4), the Qt 3D view (US-E6) and the Qt Quick 3D
 pipeline all ask this module, so a 3D solid can never disagree with its 2D
@@ -45,7 +45,7 @@ solid STANDS must not change when a warning is painted over it.
 
 This module is collecting jobs — footprints, the base rule, the app's
 point-in-bed test, with ``core/commands.py`` importing from ``ui/`` lazily for
-the last one. A known smell (§8.27.6), not restructured in L1.6.
+the last one. A known smell (§8.32.6), not restructured in L1.6.
 """
 
 from __future__ import annotations

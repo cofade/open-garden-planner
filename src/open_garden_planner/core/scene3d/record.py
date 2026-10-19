@@ -1,7 +1,7 @@
 """Scene contract v2 — one plan item as plain, immutable data (Phase 17 L1.1).
 
 A ``Record`` is everything the 3D pipeline knows about one canvas item, and
-everything a builder may read (ADR-056). It is produced on the GUI thread by
+everything a builder may read (ADR-064). It is produced on the GUI thread by
 ``ui/view3d/snapshot.snapshot_records`` and contains no Qt object.
 
 Geometry is ITEM-LOCAL: ``footprints`` / ``holes`` / ``path`` are centimetres
@@ -83,7 +83,7 @@ SHAPES: Final[tuple[str, ...]] = (
     SHAPE_CIRCLE, SHAPE_ELLIPSE, SHAPE_RECTANGLE, SHAPE_POLYGON, SHAPE_POLYLINE,
 )
 
-#: ``Record.params`` keys the snapshot writes (documented in §8.27.1).
+#: ``Record.params`` keys the snapshot writes (documented in §8.32.1).
 PARAM_SEED: Final = "seed"  # str — the item id: the one seed source of a builder
 PARAM_RADIUS_CM: Final = "radius_cm"  # float — circles: the footprint radius
 PARAM_RIDGE: Final = "ridge"  # ((x, y), (x, y)) — a HOUSE's ridge ends, HOUSE-local

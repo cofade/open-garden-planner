@@ -4,7 +4,7 @@ round 1, P1-3; the reach column: review round 2, P1).
 ``scripts/measure_built_world_shadows.py`` projects every built-world mesh onto the
 ground along the sun ray and compares it with what the 2D sun & shade model casts
 for the same item. This file runs that measurement and holds the builders to the
-table the docs quote (ADR-056's builders addendum, §8.27.6, FR-SUN-09,
+table the docs quote (ADR-064's builders addendum, §8.32.6, FR-SUN-20,
 ``ogp-lush-cinematic`` §1 "Shadows") — within ``TOLERANCE`` (0.05; a reach within
 ``REACH_TOLERANCE_CM``, 1 cm), so a builder change that moves a kind by a tenth of
 an IoU or a tip by a centimetre fails here and takes the docs with it.
@@ -257,7 +257,7 @@ def _table_cells(text: str, name: str) -> list[list[str]]:
 
 
 def test_the_adr_s_table_is_the_documented_one() -> None:
-    """ADR-056's builders addendum holds the full table: sixteen rows, each with the
+    """ADR-064's builders addendum holds the full table: sixteen rows, each with the
     script's three number cells, character for character."""
     script = _script()
     text = ADR.read_text(encoding="utf-8")
@@ -270,7 +270,7 @@ def test_the_adr_s_table_is_the_documented_one() -> None:
 
 
 def test_the_concepts_table_carries_the_reach() -> None:
-    """§8.27.6 groups the kinds; its numbers are the script's, and it has the reach
+    """§8.32.6 groups the kinds; its numbers are the script's, and it has the reach
     column with the two that matter: the gable's miss and the nominal sections'."""
     text = _minus(CONCEPTS.read_text(encoding="utf-8"))
     script = _script()

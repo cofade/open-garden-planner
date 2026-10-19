@@ -717,7 +717,7 @@ def _inside_corner(points: Sequence[Point], loop: Sequence[int], at: int, target
 #:   loop each time one is tested.
 #:
 #: What fits, measured (``scripts/measure_region_work.py``, which prints the
-#: tables in section 8.27.1). As ONE region: a plain traced outline of 3,557
+#: tables in section 8.32.1). As ONE region: a plain traced outline of 3,557
 #: vertices; a comb of 1,648; a spiral of 4,334. As a whole outline, clipper and
 #: all: a closed fence along 1,321 traced points (933 when every segment lies
 #: nearly level with every other); a straight fence of about 6,650 posts east–

@@ -1,6 +1,6 @@
 """Plant art — the recipe tables and the species → recipe resolution, shared by
-the 2D sprites and the 3D plants (Phase 17 L1.7, #385; ADR-056 addendum, §8.22,
-§8.27.7).
+the 2D sprites and the 3D plants (Phase 17 L1.7, #385; ADR-064 addendum, §8.22,
+§8.32.7).
 
 Two modules, standard library only (no Qt, no numpy — pinned by an AST scan):
 

@@ -1,6 +1,6 @@
 """The frames of the 3D pipeline — every conversion, each defined once (L1.1).
 
-Three frames (ADR-056):
+Three frames (ADR-064):
 
 - ITEM-LOCAL: centimetres relative to an item's anchor; +z up from the item's
   own ground plane. Records and meshes live here.

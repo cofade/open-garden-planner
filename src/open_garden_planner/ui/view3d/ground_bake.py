@@ -1,5 +1,5 @@
 """The ground bake — every flat surface of the plan painted into ground tiles, as
-the 2D canvas paints it (Phase 17 L1.5, #385, ADR-056 addendum "ground bake").
+the 2D canvas paints it (Phase 17 L1.5, #385, ADR-064 addendum "ground bake").
 
 In 3D a lawn, a terrace, a driveway, a path or an in-ground bed is not geometry:
 it is part of the ground's texture. ``GroundBaker`` paints that texture from the
