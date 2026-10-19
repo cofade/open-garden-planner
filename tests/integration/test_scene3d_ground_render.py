@@ -2,6 +2,8 @@
 the §8.10 twin of ``test_scene3d_ground_bake.py``).
 
 Render tier: opt-in (``OGP_RENDER3D=1``; how to run it: ``quick3d_render_support.py``).
+The one wall-clock bound (the edit's median bake) carries ``perf`` as well (ADR-058):
+the whole file is ``OGP_RENDER3D=1 pytest <this file> -m "perf or not perf" -n 0``.
 One driver process (``ground_bake_render_driver.py``, real QPA) bakes, uploads and
 grabs; the tests here only JUDGE its frames and counts — with a projection of
 their own (``shots.top_down_pixel``), never with the engine's. Assertions are
@@ -170,9 +172,19 @@ def test_one_small_edit_uploads_only_the_tiles_it_re_baked(run: Run) -> None:
         assert step["uploads"] == step["changed"]
         assert step["textures_held"] <= 20 + 4
     assert edits["tiles_in_scene"] == 20 and edits["state_equals_expected"] is True
-    assert edits["median_bake_ms"] <= 10.0
     print(f"\nedit: bake {edits['median_bake_ms']} ms, apply (bake + upload calls) "
           f"{edits['median_apply_ms']} ms, to a finished frame +{edits['median_grab_ms']} ms (medians of 20)")
+
+
+@pytest.mark.perf
+def test_one_small_edit_re_bakes_within_the_time_budget(run: Run) -> None:
+    """The wall-clock half of the test above (review 3, P2-1; ADR-058): the median of
+    twenty re-bakes, taken in the driver, stays within the baker's budget of 10 ms. A
+    median measured beside the default run's workers is the machine's load, not the
+    bake — so it runs on the quiet runner (``-m perf -n 0``) only. (The marker guard
+    cannot see a duration computed in another process: this one is marked by hand.)"""
+    edits = run[0]["scenarios"]["ground_plan"]["edits"]
+    assert edits["median_bake_ms"] <= 10.0, edits["median_bake_ms"]
 
 
 def test_the_edit_is_seen_where_the_item_moved(run: Run) -> None:
