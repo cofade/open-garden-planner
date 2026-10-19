@@ -530,7 +530,7 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
     """``variant``: ``rebuild_off`` (a reload is a plain apply: the plan's ids are the
     same, so no Model is rebuilt), ``rebuild_on`` (every reload also tears the engine
     scene down and builds every Model and geometry again), ``control`` (rebuild on,
-    plus 25 MB kept alive per reload — the gate must FAIL on it).
+    plus ``keep_mb`` — default 25 — MB kept alive per reload: the gate must FAIL on it).
 
     ``frames``: ``presented`` (the default: the view draws and presents as a visible
     view does) or ``withheld`` (the engine story's no-paint device for the length of
@@ -580,6 +580,7 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
     release = str(args.get("release", "product"))
     frames_mode = str(args.get("frames", "presented"))
     grabs = str(args.get("grabs", "none"))
+    keep_mb = int(args.get("keep_mb", 25))  # what ``control`` keeps alive per reload
     ground = str(args.get("ground", "on"))
     assert ground in ("on", "off"), ground
     if ground == "off":
@@ -659,7 +660,7 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
             controller.reset()
             _pump_until(lambda: settled() and len(controller.sync.records) > 0, 30.0)
         if variant == "control":
-            kept.append(b"\x01" * (25 * 1024 * 1024))
+            kept.append(b"\x01" * (keep_mb * 1024 * 1024))
         releases_seen = host.cache_releases
         owed.append(workspace._retired)
         if grabs == "every":
@@ -741,7 +742,7 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
              round(theil_sen(gpu_values[len(gpu_values) // 2:]), 3) if len(gpu_values) > 3 else None),
          geometry_uploads=(getattr(controller.sync.sink, "geometry_uploads", 0) - uploads_before
                            if uploads_before is not None else None),
-         kept_mb=25 * len(kept), parts=parts_before, parts_after=host.part_count(),
+         kept_mb=keep_mb * len(kept), parts=parts_before, parts_after=host.part_count(),
          frames_presented_per_reload=frames_per_reload, in_the_loop=in_the_loop,
          retired_before_release_per_reload=owed,
          cache_releases=host.cache_releases - releases_before,

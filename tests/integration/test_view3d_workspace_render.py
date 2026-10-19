@@ -33,6 +33,7 @@ names it (the build is not this test's job: ``installer/workspace_gate.spec``).
 from __future__ import annotations
 
 import json
+import math
 import os
 import sys
 import uuid
@@ -439,9 +440,9 @@ def test_dedicated_gpu_memory_does_not_grow_with_the_rebuilds(soak_rebuild_on: d
 
 @pytest.mark.xfail(strict=False, reason=(
     "#532 is open: " + KNOWN_532 + ". A tripwire for the day Qt (or a tile path outside the "
-    "buffer manager's maps) stops the leak - NOT strict: on bench_small the leak reads about "
-    "9.6 MB per rebuild on the RTX 4070, against the plain bound of 10, so a pass does not yet "
-    "tell a fix from noise (review 3, P1-2: three runs measured, see the L1.5 report)"))
+    "buffer manager's maps) stops the leak - NOT strict: on bench_small the leak reads 9.3 to "
+    "11.4 MB per rebuild on the RTX 4070 (eight runs, 2026-10-19; seven under 10), against the "
+    "plain bound of 10, so a pass does not tell a fix from noise (review 3, P1-2; L1.5 report)"))
 def test_without_532_dedicated_gpu_memory_would_stay_under_the_plain_leak_bound(
         soak_rebuild_on: dict[str, Any]) -> None:
     """The TRIPWIRE: the product's GPU slope against the plain ``LEAK_BOUND_MB_PER_RELOAD``
@@ -480,12 +481,18 @@ def test_reloads_that_rebuild_nothing_stay_flat(scratch: Path) -> None:
         soak, "curve_mb")
 
 
-def test_the_positive_control_fails_on_exactly_that_gate(scratch: Path) -> None:
-    """25 MB kept alive per reload, on the same machine, through the same measurement and
-    the same bound (allowance included): the gate must see it — or a pass above means
-    nothing."""
-    soak = _soak(scratch, "control")
-    assert soak["kept_mb"] == 25 * RELOADS and soak["in_the_loop"]["frames_read_back"] == 0
+def test_the_positive_control_fails_on_exactly_that_gate(
+        scratch: Path, soak_rebuild_on: dict[str, Any]) -> None:
+    """25 MB kept alive per reload BEYOND what the gate allows for #532, on the same
+    machine, through the same measurement and the same bound: the gate must see it — or
+    a pass above means nothing. (Pre-registered as 25 MB against a bound of 10; with the
+    allowance the bound is about 22 on bench_small, and a fixed 25 MB sat 3 MB above it
+    — run B of review 3 read 24.4 — in an instrument that swings by ±10 MB a run. Kept
+    25 MB above the allowance, the control's margin over the gate is the pre-registered
+    15 MB again.)"""
+    keep = 25 + math.ceil(known_532_allowance_mb(soak_rebuild_on))
+    soak = _soak(scratch, "control", keep_mb=keep)
+    assert soak["kept_mb"] == keep * RELOADS and soak["in_the_loop"]["frames_read_back"] == 0
     assert soak["slope_second_half_mb_per_reload"] >= leak_bound_mb(soak), _beyond(
         soak, "curve_mb")
 
