@@ -806,11 +806,11 @@ class AppSettings:
     @property
     def view3d_reduced_motion(self) -> bool:
         """Whether the 3D view stands still: no wind in leaves and grass (default off)."""
-        return self._settings.value(
+        return bool(self._settings.value(
             self.KEY_VIEW3D_REDUCED_MOTION,
             self.DEFAULT_VIEW3D_REDUCED_MOTION,
             type=bool,
-        )
+        ))
 
     @view3d_reduced_motion.setter
     def view3d_reduced_motion(self, value: bool) -> None:

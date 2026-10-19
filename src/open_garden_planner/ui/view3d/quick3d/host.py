@@ -94,7 +94,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Final, NamedTuple
+from typing import TYPE_CHECKING, Any, Final, NamedTuple, cast
 
 import numpy as np
 from PyQt6 import sip
@@ -946,7 +946,7 @@ class Quick3DHost:
             if name in COLOR_PROPERTIES:
                 value = QColor(str(value))
             elif name in LINEAR_COLOR_PROPERTIES:
-                red, green, blue = value  # type: ignore[misc]  # an sRGB-space float triple
+                red, green, blue = cast("tuple[float, float, float]", value)  # sRGB-space floats
                 value = QColor.fromRgbF(float(red), float(green), float(blue))
             _set(self._root, name, value)
         previous, self._shown_look = self._shown_look, look
