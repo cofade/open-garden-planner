@@ -62,7 +62,7 @@
 | **Look** | `core/scene3d/look.LookSpec`, made by `look_for(sun, preset)` — everything about a frame that is art direction and not truth: the mood (key-light colour and brightness, exposure, the sky's brightness, saturation), the sky's inputs, the fog, the shadow softness and the preset's cost. Plain, frozen, comparable data. Where the sun stands is never part of a day look; a night look states its moon (L1.2 had one fixed look, `NEUTRAL_DAY`; L1.4, §8.32.4) |
 | **Render tier** | The opt-in tests that need a real renderer (`OGP_RENDER3D=1`): a driver process with a real Qt platform renders, the tests judge its frames with a CPU projection of their own. Runs on a GPU, on WARP and on llvmpipe (CI job `render3d`) |
 | **WARP** | Windows Advanced Rasterization Platform — Direct3D's software rasteriser (Qt's log names it "Microsoft Basic Render Driver"). What a GPU-less Windows runner renders with; forced locally with `QSG_RHI_PREFER_SOFTWARE_RENDERER=1` |
-| **Workspace (3D)** | `ui/view3d/workspace.Workspace` — the plan area of the main window with its three **workspace modes**: Plan (the canvas alone), 3D (the 3D pane alone), Split (both in a splitter whose sides do not collapse). Behind `OGP_QUICK3D=1` until L1.9 (Phase 17 L1.3, ADR-065, §8.32.3) |
+| **Workspace (3D)** | `ui/view3d/workspace.Workspace` — the plan area of the main window with its three **workspace modes**: Plan (the canvas alone), 3D (the 3D pane alone), Split (both in a splitter whose sides do not collapse). The plan area of every main window since L1.9 — no switch; View → Sun & 3D → "3D View" shows its 3D pane (Phase 17 L1.3 / L1.9, ADR-065, §8.32.3, §8.32.9) |
 | **3D pane** | The workspace's 3D side: a strip of controls and notices above the engine's native window — or a message in its place. Nothing ever overlays the native window (§8.9.9) |
 | **Sync controller** | `ui/view3d/sync_controller.Scene3DController` — turns the canvas scene's and the sim clock's change signals into at most one **pass** per turn of the event loop: snapshot → `SceneSync.apply`. Paused (flags only) while the 3D pane is hidden (ADR-065) |
 | **Plan revision** | `CanvasScene.plan_revision` — one integer that moves exactly when the plan's CONTENT changed (an item added, removed, moved, turned, shown, hidden, restacked; a command executed, undone or redone; a layer; the canvas size), announced by `plan_changed(int)`. A writer that changes plan content round all of those calls THE nudge, `CanvasScene.note_plan_changed()`. A repaint does not move it (ADR-065 decision 5) |
@@ -81,6 +81,7 @@
 | **Walker** | The user's body in walk mode: a vertical cylinder of radius 22.5 cm with its eye at 165, 150 or 110 cm (`core/scene3d/walk.py`). It moves in fixed ticks, slides along what it meets and is stopped by the built world as it is DRAWN — footprints plus the edges of the shown meshes between step height (25 cm) and headroom (200 cm) |
 | **Select-by-id path** | `ui/canvas/select_by_id.py` — the ONE way an object is selected on the plan from its id: which item carries the id, what selecting it selects (the outermost group it is in) and whether it can be selected (a locked layer says no). Used by the Diagnostics, Canopy and Guilds panels, the plant search, the 3D "Not Shown in 3D" list and a click in 3D (ADR-065 addendum L1.8) |
 | **Walk world** | `core/scene3d/walk.WalkWorld` — the obstacle outlines of a plan as plain arrays in a uniform grid, built from the same records the 3D view shows; rebuilt when an edit changes them |
+| **Date playback (3D)** | The plan date changing again and again in quick succession — an arrow key held in the sun toolbar's date field steps it about 30 times a second. Each date regrows the dated plants (a new Model each), so the 3D view regrows at most once per `DATE_REGROW_MIN_MS` (500 ms) while the light follows every step (`ui/view3d/sync_controller.py`, Phase 17 L1.9, #531, §8.32.9) |
 | **Pick oracle** | `core/scene3d/pick_oracle.py` — a Qt-free ray caster and camera model of our own that says which item a view position shows; what the engine's `pick` is judged against (20 of 20), never part of the product's click path |
 | **Pick chain** | Everything a click's ray meets, nearest first (`PickHit.behind`, from `View3D.pickAll`): how a click falls through an item on a locked layer to what lies behind it |
 | **Presented frame** | A frame Qt rendered AND handed to the window system — as opposed to a readback (`grabWindow()`). Qt Quick 3D frees a destroyed Model's buffers only at the end of a presented frame; with the display asleep Windows presents none (§11.4.33) |
@@ -239,8 +240,9 @@
 | Measure Tool | M |
 | Plant Tool | T |
 | Fullscreen Preview | F11 |
-| Workspace: Plan / 3D / Split (only with the 3D workspace switched on, `OGP_QUICK3D=1`, until L1.9) | Alt+1 / Alt+2 / Alt+3 |
+| Workspace: Plan / 3D / Split | Alt+1 / Alt+2 / Alt+3 |
 | 3D view (keyboard in the 3D view): pan / orbit / zoom / show the whole garden | Arrows / Alt+Arrows / PageUp, PageDown / Home |
+| Walk mode (3D): walk / run / look around / leave | W A S D or Arrows / Shift / mouse drag / Escape |
 | Print | Ctrl+P |
 | Garden Plan tab | Ctrl+1 |
 | Planting Calendar tab | Ctrl+2 |

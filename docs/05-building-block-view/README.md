@@ -183,7 +183,7 @@ src/open_garden_planner/
 │   ├── view3d/                   # 3D view MVP (US-E6): snapshot.py (plan→records: collect_scene3d_records for Qt 3D,
 │   │                             #   snapshot_records for contract v2 — L1.1) + qt3d_adapter.py (ONLY Qt3D importer) + view3d_window.py
 │   │   ├── workspace.py          # the Plan / 3D / Split workspace of the main window (Phase 17 L1.3, ADR-065) — see §5.12;
-│   │   │                         #   behind OGP_QUICK3D=1; builds the engine lazily through engine_factory (the test seam)
+│   │   │                         #   the plan area of every main window since L1.9; builds the engine lazily (engine_factory)
 │   │   ├── sync_controller.py    #   Scene3DController: change signals → at most one pipeline pass per event-loop turn
 │   │   ├── orbit_input.py        #   the 3D window's mouse / wheel / keys → OrbitCamera (an event filter)
 │   │   ├── init_guard.py         #   the start marker and the compatibility flag (standard library only)
@@ -522,8 +522,8 @@ for other `core` modules.
 Black-box view of `ui/view3d/quick3d/`, the engine side of the 3D scene pipeline (§5.10). It is
 the only place in the product that imports `PyQt6.QtQuick3D`, `QtQuick` or `QtQml` (an AST scan
 over the whole tree pins it: `tests/unit/test_quick3d_boundary.py`), it is never loaded at app
-start, and L1.2 wires it into nothing — the shipped "3D View…" still opens the Qt 3D window
-(L1.3 embeds the host). Concept: §8.32.2. Engine facts: the `ogp-3d-renderer` skill.
+start; the workspace (§5.12, L1.3) embeds its host, and since L1.9 that is the product's 3D
+view. Concept: §8.32.2. Engine facts: the `ogp-3d-renderer` skill.
 
 | Building block | Responsibility | Interface (in → out) |
 |----------------|----------------|----------------------|
@@ -541,10 +541,10 @@ start, and L1.2 wires it into nothing — the shipped "3D View…" still opens t
 ## 5.12 3D Workspace (Phase 17 L1.3, #385, ADR-065)
 
 Black-box view of what puts the 3D scene pipeline (§5.10) and the engine package (§5.11) into the
-main window: the Plan / 3D / Split workspace. It exists only behind the internal switch
-`OGP_QUICK3D=1` (`app/settings.py::quick3d_workspace_enabled()`); without it none of these modules
-is imported, and the shipped "3D View…" window (Qt 3D) is unchanged with it. Concept: §8.32.3.
-Tests: §8.10.27.
+main window: the Plan / 3D / Split workspace. Since L1.9 it is the plan area of every main window
+(no switch; View → Sun & 3D → "3D View" shows its 3D pane); `workspace.py` is imported at start
+and imports no engine, and the engine is loaded on the first switch to 3D or Split. Concept:
+§8.32.3, §8.32.9. Tests: §8.10.27, §8.10.31.
 
 | Building block | Responsibility | Interface (in → out) |
 |----------------|----------------|----------------------|
@@ -558,7 +558,7 @@ Tests: §8.10.27.
 | `ui/sim_clock_subscription.py` | `connect_qobject` / `disconnect_qobject`: how a QObject listens to the Qt-free sim clock — a guard that asks `sip.isdeleted` at every delivery, held weakly with its receiver. The only way the product connects to a clock channel (scanned). | channel, bound slot → a subscription that dies with the receiver |
 | `core/plain_text.py` | Qt-free, standard library only. Plan text as text: normalise (every line boundary to one; other controls and bidi overrides to U+FFFD), then cap, then escape. | untrusted text → text for a tooltip, a label, a log line |
 | `ui/view3d/quick3d/host.py` (three additions) | `Quick3DHost(prefer_software=True)` asks Qt for the software adapter for this window; `install_event_filter(watcher)`; `release_cached_resources()` (Qt's `releaseResources()`), counted in `cache_releases`. | — |
-| `app/application.py` (the wiring) | Builds the workspace around the canvas view when the switch is on; nothing for a replaced document — the workspace listens to `CanvasScene.document_replaced` itself (`connect_plan`), the signal master's #428 fix rides on; `workspace.shutdown()` in `closeEvent`; hides the workspace's controls in the fullscreen preview. | — |
+| `app/application.py` (the wiring) | Builds the workspace around the canvas view (always, since L1.9; View → Sun & 3D → "3D View" switches it from Plan to Split, `_on_show_3d_view`); nothing for a replaced document — the workspace listens to `CanvasScene.document_replaced` itself (`connect_plan`), the signal master's #428 fix rides on; `workspace.shutdown()` in `closeEvent`; hides the workspace's controls in the fullscreen preview. | — |
 | `tests/integration/workspace_gate_hook.py`, `installer/workspace_gate.spec` | Test tooling, never shipped: drives the real app (source or frozen) through the workspace on a throw-away settings store and refuses any other (§8.10.27). | scenario file → report |
 
 ## 5.14 Looks, sky and the animation policy (Phase 17 L1.4, #385, ADR-064 addendum)
@@ -576,14 +576,13 @@ heights and the shadows' places stay with `core/solar` and the records. Concept:
 | `ui/view3d/quick3d/look.py` | The thin mapping: `scene_properties(look)` (the scene file's look properties, by their QML names), `sky_properties(sky)` (one `ProceduralSkyTextureData`'s inputs; `sky_longitude` = azimuth + 90°), `engine_srgb` (the inverse of the engine's own colour linearisation, for the three colours derived in linear light). Decides nothing; no Qt import. | `LookSpec` → `{property: value}` |
 | `ui/view3d/quick3d/host.py` (additions) | `set_look(LookSpec)`, `set_sky(SkySpec \| None)` (a fresh Texture with its own data object per call; `sky_builds`, `last_sky_build_ms`), `set_wind_running`, `rest_wind`, and `_apply_light` — the one place that aims the key light: the pipeline's sun, at night the look's stated moon. | — |
 | `ui/view3d/quick3d/qml/Garden.qml` (the look part) | Every look property is a root property written from Python; `buildSky` / `dropSky`; fog and post effects per preset (none in the top-down truth view); a flat fill only where no sky texture lights the view; a `FrameAnimation` as the wind's clock (`windTime`). | properties ← Python |
-| `app/settings.py`, `ui/dialogs/preferences_dialog.py` | `view3d/quality` (default `auto`), `view3d/reduced_motion` (default off), `view3d/auto_quality_level` (where `auto` settled), `view3d/auto_quality_bars` (the levels it had to leave, until when); a "3D View" group in Preferences, shown only where the window has a 3D workspace. | settings ↔ dialog |
+| `app/settings.py`, `ui/dialogs/preferences_dialog.py` | `view3d/quality` (default `auto`), `view3d/reduced_motion` (default off), `view3d/auto_quality_level` (where `auto` settled), `view3d/auto_quality_bars` (the levels it had to leave, until when); a "3D View" group in Preferences. | settings ↔ dialog |
 | `scripts/render_beauty_board.py`, `scripts/board_probes.py` | Dev tools, not shipped. The production Beauty Board: a plan through `snapshot_records` → `SceneSync(production_registry())` → `Quick3DSink` → a never-shown host per frame, lit by `look_for`; PNGs and `metrics.json` (per shot: sun, `sun_date` = `build_date`, `isolated_dark_px`, `clipped_pct`, `mean_luma`; per run: shadow IoU in perspective with the preset's cascades, north-up, the sky's sun azimuth, fog against sky, night against noon, frame rate). The probes are numpy only, each with a positive control in `tests/unit/test_board_probes.py`. | plan, shots, presets → PNGs + `metrics.json` |
 
 ## 5.15 Selection, Info Card and Walk Mode (Phase 17 L1.8, #385, ADR-065 addendum)
 
 Black-box view of what connects the canvas selection with the 3D view and lets the user walk
-through the garden. Everything here lives in the workspace (§5.12) and exists only behind
-`OGP_QUICK3D=1`. Concept: §8.32.8. Tests: §8.10.30. Traps: §11.4.36.
+through the garden. Everything here lives in the workspace (§5.12). Concept: §8.32.8. Tests: §8.10.30. Traps: §11.4.36.
 
 | Building block | Responsibility | Interface (in → out) |
 |----------------|----------------|----------------------|

@@ -1703,6 +1703,42 @@ How §8.32.8 is tested, and the patterns worth reusing. The seam is the workspac
   pressed before they are processed is let go by the walker's `FocusOut`. Wait for the focus
   window, then let the event loop run (100 ms) before the first key.
 
+### 8.10.31 Patterns from the default flip and the removal of Qt 3D (Phase 17 L1.9 / L1.10)
+
+How §8.32.9 is tested. The seam is still the workspace's (`Workspace.engine_factory`, §8.10.27).
+
+| Tier | Files | What it proves |
+|---|---|---|
+| default | `tests/integration/test_view3d_workspace.py` | no switch is read and the workspace is always there (the variable set to "", "0", "1" changes nothing; a source scan finds neither its name nor its function); View → "3D View" shows Split and nothing names the retired window's slot (an `ast` scan); the Keyboard Shortcuts dialog lists every mode action's REAL shortcut; G1: a fresh process that builds the app, opens a plan and closes has no engine module loaded |
+| default | `tests/integration/test_view3d_sync_controller.py` | date playback (#531): a burst of dates regrows at once and once more on its last day; hidden, it is one catch-up and no timer |
+| perf (`-m perf -n 0`) | the same file, `test_a_held_date_key_regrows_at_most_once_per_interval[500\|0]` | a held key for two seconds (a step every 33 ms) against its control without the interval |
+| render + perf | `tests/integration/test_view3d_default_render.py` (scenarios: `workspace_default_measure.py`) | the real `main()` in a child: no engine module at start, the first 3D click to a finished frame, a held date key against the behaviour before L1.9 |
+
+- **Make a burst deterministic by putting it in ONE turn of the event loop.** A throttle's
+  "first at once, last when the interval is over" cannot be asserted with sleeps on a loaded
+  runner. Issuing the 27 later dates inside one turn (no wait between them) makes the deferral
+  certain; the wall-clock bound ("at most once per interval") sits in a `perf` test whose
+  bound is derived from the time it measured (`regrowths <= held_s / interval + 2`), with a
+  control arm on the same machine (interval 0 → one regrowth per step).
+- **A helper that says "settled" must know every timer that books a pass.** The date throttle
+  added a third timer beside the posted pass and the tick timer. `Scene3DController.idle` and
+  the tests' `pipeline_settled` both had to learn it, or a test reads the light-only pass and
+  misses the trailing regrowth. A new timer that books a pass goes into both, in the same
+  change.
+- **A test that writes twice must not depend on the time between its writes.** The workspace
+  workflow writes a date, then another one a few hundred ms later — inside the interval on a
+  fast machine, outside it on a slow one. It pins `DATE_REGROW_MIN_MS = 0` (the throttle has its
+  own tests) instead of hoping for a speed.
+- **Run the "before" arm before crediting a fix.** The wind soak's strict xfail (FU-L14-2) was
+  red on the UNCHANGED code the day the fix was to be measured: the growth L1.4 had measured
+  did not reproduce. Measuring only the "after" arm would have credited the new clock with it.
+  A/B a change against a soak alternately, three runs per arm at least, the same machine and
+  session, and compare the spread, not one number.
+- **Measure what a deleted component cost while it still exists.** The old window's numbers
+  (`scenario_budget_old_view`, called through its own slot because no menu reaches it after the
+  flip) were taken on the L1.9 tree, before L1.10 deleted it; afterwards there is nothing left
+  to compare with.
+
 ## 8.11 Security Scanning (SAST)
 
 **Tool:** [Bandit](https://bandit.readthedocs.io/) — a Python SAST tool that detects common security anti-patterns (subprocess injection, unsafe deserialization, weak cryptography, hardcoded secrets, etc.).
@@ -3178,18 +3214,19 @@ demand only** (a button — never `scene.changed`), and **join the worker
 before teardown** (`shutdown()` from `closeEvent`): a `QThread` destroyed
 while running aborts the interpreter (#230 class).
 
-**The 3D frame (US-E6)** adds ONE more mapping, applied exactly once at
-the engine-adapter boundary: scene `(E, N, up)` → Qt3D Y-up
-`(E, up, −N)` (`core/scene3d.to_engine_frame`; determinant +1, winding
-preserved). All mesh math stays in the scene frame in the Qt-free
-`core/scene3d/` package (the Qt 3D view's part is `legacy.py` since Phase 17
-L1.1); only `ui/view3d/qt3d_adapter.py` may import
-`PyQt6.Qt3D*` (ADR-038's engine-swap insurance). The sun vector's ground
-projection is pinned exactly opposite the 2D shadow direction — if the
-3D light and the 2D overlay ever disagree, a unit test fails first.
-Contract v2 (§8.32.1) keeps the same single mapping as numpy
-(`core/scene3d/frame.py`; a drift-guard test holds the two equal) and adds
-the item-local frame beneath it.
+**The 3D frame.** The 3D view (the workspace's 3D pane, §8.32) adds ONE more mapping,
+applied exactly once, at the engine adapter: scene `(E, N, up)` → engine `(x = E, y = up,
+z = −N)` (`core/scene3d/frame.py`, numpy; determinant +1, so triangle winding survives). The
+adapter applies it when it uploads a mesh or a pose (`core/scene3d/interleave.engine_buffers`,
+`ui/view3d/quick3d/adapter.py`, §8.32.2); nothing else converts a coordinate — not the QML, not a
+builder. All mesh math stays in the scene frame, and in the item's local frame beneath it
+(§8.32.1), in the Qt-free `core/scene3d/` package; only `ui/view3d/quick3d/` may import Qt Quick
+3D (an AST scan over the whole tree). The key light travels along −sun vector
+(`SunState.direction_scene`, from `core/solar`), so its ground projection is exactly opposite
+the 2D shadow direction — pinned by unit tests — and the engine's shadow covers the ground the 2D
+shadow covers (IoU ≥ 0.85 at 15° / 35° / 60°, FR-3D-LOOK-06, on the render tier). If the 3D light
+and the 2D overlay ever disagree, a test fails first. (The same single mapping drove the US-E6
+viewer on Qt 3D, ADR-038; Phase 17 replaced it, ADR-048.)
 
 **One simulation clock (Phase 17 L1.0, ADR-053).** Every sun- or growth-dependent view reads ONE moment, `GardenPlannerApp._sim_clock` (`core/sim_clock.SimClock`, Qt-free). Two time frames, never mixed:
 
@@ -4377,8 +4414,8 @@ to the spike's until L1.10 deletes it.
 
 The other side of the `EngineSink` seam: Qt Quick 3D. The decision, what was ported from the
 spike and every measurement are the **ADR-048 addendum "L1.2"**; the engine's traps are §11.4.32
-and the `ogp-3d-renderer` skill. L1.2 wires nothing into the app — the shipped "3D View…" still
-opens the Qt 3D window; L1.3 embeds this package's host.
+and the `ogp-3d-renderer` skill. The workspace (§8.32.3, L1.3) embeds this package's host; since
+L1.9 that is the product's 3D view.
 
 **The package.** It is the only place in the product that imports `PyQt6.QtQuick3D`, `QtQuick`,
 `QtQml` or `QtQuickWidgets` (it does not import the last one at all), and inside it only two
@@ -4663,9 +4700,8 @@ albedo); no builders beyond the default prism (L1.6, L1.7); no selection (L1.8).
 
 Where the pipeline (§8.32.1) and the engine (§8.32.2) meet the app. The decisions and every
 measurement are **ADR-065**; how it is tested is §8.10.27; what went wrong on the way is §11.4.33.
-Behind the internal switch `OGP_QUICK3D=1` (`app/settings.py::quick3d_workspace_enabled()`, the
-one read of it) until L1.9; without it the app is what it was, and the shipped "3D View…" window
-keeps working with it.
+Since L1.9 the plan area of every main window — no switch; the default and what it costs are
+§8.32.9.
 
 **The parts, and which of them needs the engine.**
 
@@ -5782,3 +5818,151 @@ something was put where it stands. A new document, "Reset 3D View" and Escape le
 
 Not in v0: plants as obstacles, stairs and slopes (the ground is flat), doors, pointer capture,
 a hover highlight, a box selection in 3D.
+
+### 8.32.9 The default, and what the old view promised (L1.9)
+
+The workspace is the 3D view of every main window. The decision and every measurement are the
+**ADR-065 addendum "the default and the removal"**; how it is tested is §8.10.31; what went
+wrong on the way is §11.4.37.
+
+**One code path.** There is no switch: `app/application.py::_setup_central_widget` builds the
+`Workspace` around the canvas view, always. Starting the app imports `ui/view3d/workspace.py`
+and what it needs (no Qt Quick, no QML — the engine is loaded on the first switch to 3D or
+Split, `Workspace.engine_factory`), and the app starts in Plan mode in every session (the mode
+is not saved). View → Sun & 3D → "3D View" — the old window's entry, its place and its icon —
+switches Plan to Split (`_on_show_3d_view`); in 3D or Split it does nothing. The safety net is
+the start marker and compatibility mode (`ui/view3d/init_guard.py`, FR-3D-WS-07), not a flag:
+
+| What goes wrong | What the user gets |
+|---|---|
+| the engine cannot be imported (a missing or mismatched Qt Quick 3D DLL in a frozen build — the #277 class) | the 3D pane says so and offers "Try Again"; the rest of the app runs (`Workspace._start_engine` catches it) |
+| the graphics device cannot be created | "3D is unavailable on this graphics device", and compatibility mode for the next start |
+| the driver kills the process while 3D starts | the marker stays; the next start of 3D is in compatibility mode and says so |
+| it dies in compatibility mode too | 3D is switched off, with the way back on screen |
+| it fails AFTER the first frame | the app starts in Plan mode next time; "Use Compatibility Mode Next Time" is in the 3D strip |
+
+> **Rule: Plan mode costs nothing of 3D.** No engine module is loaded before the user asks
+> for 3D (the import scan, G1 in a fresh process; the render twin in
+> `test_view3d_default_render.py`). A change that imports Qt Quick, QML or `quick3d` at
+> start-up — or makes the workspace build its pane before it is asked — fails both.
+
+**Date playback is throttled** (#531). Each date regrows the dated plants, and every Model
+Qt Quick 3D destroys leaves 15 to 20 kB behind (ADR-065 decision 16): an arrow key held in the
+date field (about 30 steps a second) regrew all of them on every step. `Scene3DController._on_date_changed` regrows at once if
+`DATE_REGROW_MIN_MS` (500) has passed since the last regrowth for a date, and otherwise books ONE
+trailing regrowth for the end of the interval, which runs only if the clock's date is not the
+one the last records pass read. The light follows every step (a light-only pass, no snapshot).
+Hidden, a date is a flag (no timer). Measured below: 1.5 to 1.6 regrowth passes a second while
+the date steps.
+
+> **Rule: a timer that books a pass is part of "idle".** `Scene3DController.idle` and the
+> tests' `pipeline_settled` wait for the posted pass, the tick timer AND the date timer.
+
+**The wind's clock is unchanged.** FU-L14-2 (memory growing while the wind runs) did not
+reproduce on 2026-10-19: six alternating soaks of 4–5 minutes, three with the `FrameAnimation`
+and three with a C++ `NumberAnimation` (no JavaScript per frame), read 0.46–2.03 MB a minute
+from the first sample to the last, second-half slopes 0.0–1.51 — the two clocks inside each
+other's spread, dedicated GPU memory flat. The clock change was reverted, the strict xfail
+removed, and the gate stands at its registered bound of 2.0 MB a minute.
+
+#### FR-SUN-06 / 07 / 08, clause by clause
+
+Each row is a test of the NEW view, or a stated difference the owner sees.
+
+| What the old view promised | The new view | Evidence |
+|---|---|---|
+| View → "3D View…" opens a separate window | **differs:** the same entry shows Split in the main window; 3D and Split are modes (Alt+2 / Alt+3) — no second window, so no window to lose behind the main one | `test_view3d_workspace.py::test_the_3d_view_action_shows_the_3d_pane_and_reaches_no_window` |
+| every visible object with a footprint, extruded at its effective height | the same objects at the same height — the 2D resolver's (FR-SUN-02) | `test_scene3d_snapshot.py::TestRecordContent::test_height_is_the_2d_resolver_s`, `test_scene3d_built_world.py::test_kinds_builders_heights_and_bases` |
+| … as prisms in their fill colour | **differs:** buildings, fences, walls, beds, containers and hedges as built shapes (L1.6); plants as their sprite's archetype (L1.7); the other kinds as prisms in their fill colour | `test_scene3d_built_world.py`, `test_scene3d_plants.py::test_every_gallery_plant_is_built_as_the_sprite_the_canvas_draws`, `test_scene3d_snapshot.py::TestRecordContent::test_material` |
+| the same footprints as the 2D shadow overlay | the same footprints (`ui/canvas/footprints`, one caster walk); a prism's shadow is the 2D model's; other shapes differ by the measured amounts of FR-SUN-20 | `test_scene3d_shadow_agreement.py::test_a_prism_casts_the_shadow_the_2d_model_casts`, `::test_prisms_pots_and_post_fences_end_where_the_2d_shadow_ends` |
+| height-less objects (lawns, paths, in-ground beds) as thin ground decals | **differs until the ground bake (L1.5) joins:** an item without a height has no solid, so it is not drawn; L1.5 paints them onto the ground as on the plan | `tests/unit/test_scene3d_mesh.py::TestDefaultBuilder::test_no_height_means_no_parts` |
+| a ground plane the size of the canvas | the plan ground is the canvas rectangle, in a meadow; it follows a resized canvas | `test_view3d_sync_controller.py::test_a_resized_canvas_moves_the_ground` |
+| an orbit camera (drag rotates, wheel zooms), framed on the plan | **differs in the buttons:** right drag orbits, left drag pans, the wheel zooms, both buttons zoom (Qt 3D's own `QOrbitCameraController` mapping); keys too; framed on the first open and on a new plan, never by an edit | `tests/ui/test_view3d_orbit_input.py`, `test_view3d_workspace_widget.py::test_no_edit_moves_the_camera_and_a_document_change_frames_once` |
+| a directional sun from the sim date / time and the location | the same, the one sim clock; shadows from a shadow map | `test_view3d_sync_controller.py::test_a_time_change_moves_the_light_and_takes_no_snapshot`, `tests/ui/test_quick3d_host.py::TestKeyLight` |
+| no location → a pleasant southern midday (50°, 180°) | the same sun (`NO_LOCATION_SUN`) | `test_view3d_sync_controller.py::test_without_a_location_the_documented_default_sun_is_sent_once` |
+| sun below the horizon → a dim bluish overhead light | **differs:** the light fades through civil twilight (to −6°) into a moonlit night (moon from azimuth 165°, elevation 38°) — darker than noon by more than four times | `test_scene3d_look.py::test_night_begins_at_the_end_of_civil_twilight`, render `test_view3d_looks_render.py::test_night_is_under_a_quarter_of_noons_luminance_on_the_same_shot` |
+| a snapshot: rebuilt on open, by Refresh, on a date change — NOT live | **differs:** live — every edit within 50 ms (p95) on the small bench plan; no Refresh button | `test_view3d_workspace.py::test_the_workflow_plan_split_edit_pause_clock_new_open_close`, render `test_view3d_workspace_render.py::test_an_edit_is_in_a_finished_frame_within_50_ms_on_the_small_plan` |
+| lighting only, no shadow maps | **differs:** shadow maps whose ground coverage matches the 2D shadow (IoU ≥ 0.85 at 15° / 35° / 60°) | render `test_view3d_looks_render.py::test_the_shadow_of_a_box_matches_the_2d_shadow_in_perspective_with_cascades` |
+| read-only (no 3D editing) | the same; a click selects (one selection with the plan) and is no undo step | `test_view3d_selection_workspace.py::test_a_plain_click_selects_only_that_item_on_the_canvas` |
+| nothing 3D in the `.ogp` | the same: camera, mode, walk and selection leave the saved file as it was | `test_view3d_workspace.py::test_using_3d_writes_nothing_into_the_plan_file` |
+| closing the window | **differs:** there is no window; Plan mode hides 3D and pauses it (no work while hidden), and closing the app with 3D visible, hidden or never opened is clean | `test_view3d_workspace_widget.py::test_the_pipeline_is_paused_in_plan_mode_and_catches_up_once`, render `test_view3d_workspace_render.py::test_the_app_closes_clean_with_3d_visible` (and `…hidden_again`, `…never_opened`) |
+| Walk at a fixed 165 cm | 165 cm by default; **differs:** 150 and 110 cm on offer | `test_view3d_selection_workspace.py::test_the_eye_height_presets_move_the_eye_and_are_kept`, `test_scene3d_walk.py::test_the_eye_is_at_eye_height_and_looks_where_the_walker_looks` |
+| W A S D / arrow keys move | the same; Shift runs | `test_view3d_selection_workspace.py::test_the_walkers_keys_beat_the_windows_shortcuts_and_no_other_key_does`, `tests/ui/test_view3d_walk_mode.py` |
+| holding the left button looks around | **differs:** a drag looks around (a click still selects) | `test_view3d_selection_workspace.py::test_a_flick_that_turns_the_walkers_view_is_no_click`, `::test_a_click_still_selects_while_walking` |
+| Esc returns to orbit, the orbit camera restored exactly | the same (Escape or the Walk button) | `test_view3d_selection_workspace.py::test_enter_walk_and_leave_restores_the_orbit_pose_exactly` |
+| clamped to the plan + 150 cm, cannot leave eye height | **differs:** the plan's edge is the edge (no margin); the eye height is held | `test_scene3d_walk.py::test_the_canvas_bounds_are_the_worlds_edge` |
+| no collision (passes through objects) | **differs:** a body 45 cm wide; walls, fences, buildings, hedges, raised beds and containers stop it; plants and furniture do not | `test_scene3d_walk.py`, `test_view3d_walk_bench.py`, `test_view3d_selection_walk.py::test_a_twenty_centimetre_gap_does_not_let_the_walker_through` |
+| the sun stays live while walking | the same | `test_view3d_workspace.py::test_using_3d_writes_nothing_into_the_plan_file` (a time change while walking reaches the engine) |
+| measured current size drives the 3D extrusion | the same: the record's height and canopy are the 2D resolver's (FR-3D-PLANT-02) | `test_scene3d_plants.py::test_a_planted_garden_is_built_to_the_plan_and_grows_with_the_date` |
+| 3D needs Refresh after a measurement edit | **differs:** follows the edit at once | `test_view3d_plan_revision.py` (the Plant Details fields nudge the plan revision) |
+| growth from the planting date, one model, one plan date | the same; dated plants regrow on a date change (at most twice a second while the date keeps changing) | `test_view3d_sync_controller.py::test_a_date_change_regrows_the_dated_plants_and_nothing_else`, `::test_a_date_held_down_regrows_at_once_and_once_more_on_its_last_day` |
+| an explicit height override wins; an unmeasured plant stays mature at every date | the same (the 2D resolver) | `test_scene3d_snapshot.py::TestRecordContent::test_height_is_the_2d_resolver_s`, `TestDiffMatrix::test_the_date_changes_nothing_but_dated_plants` |
+
+FR-SUN-06 / 07 / 08 are rewritten to say what the product does now and point to FR-36.
+
+#### What the default costs (measured, RTX 4070 / Direct3D 11 and WARP, 2026-10-19)
+
+Through the product's own `main()` in a child process (`workspace_default_measure.py`; the
+old window through its own slot on the L1.9 tree, before L1.10 deleted it). Window maximised on
+a 5120 × 1440 desktop: the 3D pane in Split is 2334 × 1105 px. The new view at the product's
+defaults (quality Automatic, the wind running) except where the row says "still" (the workspace
+gate's still look: High, reduced motion). Private bytes swing by 100 MB and more within a run
+(L1.8): every memory figure is the median of three readings 200 ms apart, and dedicated GPU
+memory (DXGI, this process) is the steadier one. "Cold" = the first run after the code changed;
+the later runs had the OS's file cache and the GPU driver's own shader cache (Qt's caches are in
+each run's throw-away profile).
+
+| Row | Small bench plan (98 records) | Large bench plan (424) | Old Qt 3D window (small / large) |
+|---|---|---|---|
+| start-up to the first turn of the event loop, no plan, 3D never opened (median of 5) | 2.20 s (2.12–2.24) — the tree before the flip: 2.19 s (2.04–2.24) | — | (the same start: the old window was never loaded at start-up either) |
+| engine modules loaded before 3D is asked for | 0 | 0 | 0 Qt 3D modules |
+| first 3D click → first presented frame | 1.10 / 1.12 s (cold 1.88) | 1.81 / 1.86 s (cold 1.77) | 0.57 / 0.58 s; 0.74 s (on screen) |
+| first 3D click → first finished readback | 2.29 / 2.33 s (cold 4.49) | 3.25 / 3.31 s (cold 3.30) | — (no readback; opening is synchronous: 0.55 / 0.66 s) |
+| edit → finished frame, 120 edits (still) | p50 24.1, **p95 45.9**, max 83.9 ms | p50 62.1, p95 180, max 327 ms | — (no live sync: Refresh rebuilds the scene in 32 / 196 ms) |
+| snapshot per pass, 100 edits | p50 3.2, p95 3.6 ms (cold 6.7 / 9.4) | p50 13.1, p95 14.6–15.3 ms | — |
+| committed memory before 3D → after the first frame | 880 → 1,428–1,677 MB | 901–909 → 1,849–1,858 MB | 877 → 1,203–1,205 MB; 905 → 1,601 MB |
+| dedicated GPU memory after the first frame | 312 MB | 312 MB | 45 / 47 MB |
+| after 100 more edits (committed / GPU) | 1,415–1,443 / 312–329 MB | 1,682–1,695 / 329 MB | 1,176–1,179 / 45 MB; 1,644 / 50 MB (no Refresh) |
+| on WARP (the whole process on the software adapter): first frame / first readback; edit → frame (still) | 0.96 s / 11.6 s (a sky probe: see below); p50 243, p95 429 ms; snapshot p50 5.2 ms; committed 871–881 → 1,685–1,693 MB | — | not measured: Qt 3D ignores Qt Quick's software switch (it rendered on the GPU) |
+| date playback, 60 s, a step every 33 ms, 20 dated trees: regrowth passes / Models replaced | the interval (500 ms): 90 / 1,800 and 97 / 1,940 (349 and 501 steps); none (before L1.9): 312 / 6,240 and 452 / 9,040 — every step | — | — |
+
+**Frame cost per preset** (`scripts/render_beauty_board.py --size 1280x720 --presets
+low,medium,high,ultra --shots golden_hour --fps-seconds 5`, the wind running; L1.4's table
+re-run on the L1.9 tree). The display was asleep: a vblank-paced run presents no frame there, so
+the GPU rows are timer-paced (`QT_D3D_NO_VBLANK_THREAD=1`, capped near 60). "rb" is the median
+readback of a new frame — an upper bound of a frame's cost on the GPU.
+
+| Plan, device | low | medium | high | ultra |
+|---|---|---|---|---|
+| small, RTX 4070 (paced) | 59.2 fps, rb 7.9 ms | 57.4, rb 9.1 | 58.8, rb 8.9 | 59.4, rb 14.2 |
+| large, RTX 4070 (paced) | 59.4, rb 13.9 | 58.8, rb 12.6 | 59.2, rb 14.8 | 59.4, rb 20.7 |
+| small, WARP (vblank / paced) | 23.2 / 19.7 | 13.8 / 5.7 | 9.8 / 4.1 | 4.8 / 1.9 |
+| large, WARP (vblank / paced) | 6.0 / 12.8 | 7.7 / 8.3 | 2.5 / 5.8 | 1.2 / 3.1 |
+
+L1.4 measured the same shot with the display awake: RTX 4070 small 57–60 fps at every preset,
+large 60 / 51–53 / 45–54 / 36–41; WARP small 22.6 / 14.2 / 9.6 / 4.7, large 10.5 / 7.8 / 5.6 /
+2.9. Today's WARP rows scatter by a factor of two between two runs of the same tree (another
+process shared the CPU) — the order of the presets holds, the numbers do not repeat. An
+integrated GPU is unmeasured.
+
+What the table says, honestly:
+
+- **The new view costs more than the old one did.** It reaches its first frame about twice as
+  late (1.1 against 0.6 s on the small plan), keeps 550–800 MB more committed memory and 312
+  against 45 MB on the graphics card. It draws a sky with a light probe, two shadow cascades,
+  4× multisampling, ambient occlusion, glow and a wind; the old one drew lit prisms. The first
+  frame is still inside the 10 s bound of `test_view3d_default_render.py`; nothing else had a
+  bound before this story — these are the numbers the owner decides on.
+- **Edit → frame on the small plan is 45.9 ms at p95 in a 2334 × 1105 pane** — under ADR-065's
+  50 ms bound, with less room than L1.3 measured (19.7 ms in a 574 × 734 pane, 29.2 maximised);
+  L1.4's look made a frame dearer. The large plan has no bound (180 ms p95).
+- **A machine whose ONLY adapter is WARP** (no GPU at all, not the workspace's compatibility
+  mode) gets the hardware look on the software rasteriser: a sky light probe (the first readback
+  11.6 s) and the wind (L1.4 measured the wind on WARP at 1,351 % of one core) — a follow-up
+  issue, not fixed here: the look's software rule follows compatibility mode, not the adapter.
+- **Date playback**: the interval holds — 1.5 to 1.6 regrowth passes a second however fast the
+  date steps; without it every step regrew all 20 trees. Committed and GPU memory could not
+  resolve a slope in a minute (private bytes swung by ±100 MB, GPU memory by ±80 MB around
+  releases). By the residual L1.3 measured (15–20 kB per destroyed Model), a held key costs at
+  most 2 × 20 × 60 = 2,400 Models a minute — 36 to 48 MB a minute — against the 0.7 GB a minute
+  estimated for a key that regrows on every one of its 30 steps a second.

@@ -335,10 +335,10 @@ flowchart TD
     D{"plan_date changed?"}
     DC["date_changed(plan_date)<br/>_on_sim_date_changed"]
     H["Heatmap for another day shown OR result pending<br/>→ clear(); button unchecked"]
-    R["3D view open → rebuild geometry<br/>(growth at plan_date)"]
+    R["3D shown → Scene3DController regrows the dated plants<br/>(growth at plan_date; at most once per 500 ms<br/>while the date keeps changing, L1.9)"]
     IC["instant_changed(SimChange)"]
     O["SunShadowController._on_clock_changed<br/>enabled → recompute (sun at utc, growth at plan_date)"]
-    M["_on_sim_instant_changed:<br/>toolbar mirrors wall time (signals blocked),<br/>3D light from utc"]
+    M["_on_sim_instant_changed:<br/>toolbar mirrors wall time (signals blocked);<br/>Scene3DController: a light-only pass (sun at utc)"]
 
     U --> T --> W --> N
     N -- no --> X
@@ -353,10 +353,10 @@ would otherwise receive a stale change. Every listener runs even when one raises
 and `instant_changed` is delivered even when a `date_changed` listener failed; the
 first error is re-raised afterwards.
 
-## 6.9 The 3D workspace: an edit, the first open, a new document (Phase 17 L1.3, ADR-065)
+## 6.9 The 3D workspace: an edit, the first open, a new document, the close (Phase 17 L1.3 / L1.9, ADR-065)
 
-Behind `OGP_QUICK3D=1`. Three flows; in all of them the GUI thread is the only thread of ours (Qt
-renders the 3D window on its own).
+The 3D view of every main window since L1.9 (there is no switch). Four flows; in all of them the GUI
+thread is the only thread of ours (Qt renders the 3D window on its own).
 
 **An edit while 3D is visible** — one pass per turn of the event loop, whatever announced it:
 
@@ -387,7 +387,7 @@ the 3D pane hidden, `mark_dirty()` sets a flag and nothing else happens.
 
 ```mermaid
 flowchart TD
-    A([Alt+2 / Alt+3 / the mode buttons / View → Workspace])
+    A([View → Sun & 3D → 3D View (Plan → Split) / Alt+2 / Alt+3 /<br/>the mode buttons / View → Workspace])
     B["Workspace.set_mode: build the 3D pane (strip + stacked body)"]
     G["Init3DGuard.begin(): a marker of a dead process?<br/>→ compatibility flag on. Own marker written"]
     F["engine_factory(prefer_software): import quick3d,<br/>Quick3DHost + Quick3DSink; container into the pane"]
@@ -431,6 +431,29 @@ sequenceDiagram
     K-->>W: applied(retired = the old plan's items)
     Note over W,E: the health poll, the pipeline quiet for 0.5 s:<br/>host.release_cached_resources()
 ```
+
+**Closing the app with 3D visible** (or hidden, or never opened — the same path; L1.9 made it
+the product's):
+
+```mermaid
+sequenceDiagram
+    participant A as GardenPlannerApp.closeEvent
+    participant W as Workspace
+    participant K as Scene3DController
+    participant L as LookController
+    participant H as Quick3DHost
+    A->>A: unsaved changes? (Discard / Save / Cancel) · Agent API stopped · heatmap worker joined
+    A->>W: shutdown() — while the main window still exists
+    W->>W: Split position saved · start marker removed (a clean close is not a crash)
+    W->>L: shutdown() (its timers stopped; the host is not touched)
+    W->>K: shutdown() — no pass, no timer, plan memories dropped, scene signals disconnected
+    W->>H: close() — every Model destroyed, the window closed
+    A->>A: UI state saved · autosave stopped and cleared · accept
+```
+
+Nothing of 3D is built on that path when 3D was never opened (no engine import at all), and it
+ends with no Qt warning and no ERROR line in `app.log` in all three cases, from source and frozen
+(`tests/integration/test_view3d_workspace_render.py`, G5).
 
 ## Guild insertion and computed warning refresh
 

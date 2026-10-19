@@ -29,6 +29,12 @@ description: >
 > (art direction and truth gates). The solar math, shadow geometry and Y-axis discipline
 > in this skill stay authoritative for both renderers.
 >
+> **The new view is the product since Phase 17 L1.9 (#385).** View → Sun & 3D → "3D View"
+> shows the 3D pane of the main window's Plan / 3D / Split workspace (ADR-065, docs/08
+> §8.32); the Qt 3D viewer window of US-E6/E7 is reachable from no menu, and L1.10 deletes
+> it. What FR-SUN-06 / 07 / 08 promised and what the new view does instead is the parity
+> table of §8.32.9. Debug the 3D view with `ogp-3d-renderer`, not with this skill.
+>
 > **Every "TO BUILD" marker below is now STALE — that code EXISTS.** Do not
 > re-implement it. `core/solar.py`, `core/object_height.py`, `core/shadow_geometry.py`,
 > `core/shade_aggregation.py`, `core/heatmap_render.py`, `core/scene3d/legacy.py` (the

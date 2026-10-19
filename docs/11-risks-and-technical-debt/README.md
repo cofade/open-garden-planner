@@ -2602,7 +2602,7 @@ Symptom → root cause → fix, for the things that cost time while the looks (A
     the fence at low. Measured against a 2x-supersampled render: FXAA's luma error 20.0, 2x MSAA
     12.0 (and its dark-pixel share 18.8 %, worse than FXAA's 12.7 %), 4x MSAA 6.2 (medium 7.2).
     *Fix:* low takes 4x MSAA; on the RTX 4070 its cost was inside the run-to-run spread.
-12. **Memory grows while the wind runs — OPEN (FU-L14-2).** *Symptom:* the first soak of the
+12. **Memory grew while the wind ran — not reproduced on 2026-10-19 (FU-L14-2, item 1 of §11.4.37).** *Symptom:* the first soak of the
     default steady state (the plan shown, the wind running; fix round 1) reads 2.6 MB per minute
     of committed memory over 2 minutes and 2.09 over 6 (linear: 1034.2 -> 1045.9 MB, 21,594
     frames, about 0.55 kB a frame); dedicated GPU memory flat. With the QML engine's collector
@@ -2732,6 +2732,40 @@ engine's own facts are in the `ogp-3d-renderer` skill, §15.
     so the orbit filter never saw a flick of up to 4 px within 0.4 s and picked on the
     release. Now a left drag turns only past the click's slop, and a drag that turned cancels
     the click.
+
+### 11.4.37 What the default flip and the removal of Qt 3D taught (Phase 17 L1.9 / L1.10, #385)
+
+Symptom → root cause → fix (ADR-065 addendum "the default and the removal", §8.32.9; tests
+§8.10.31).
+
+1. **A strict xfail turned red the day its fix was to be measured — without the fix.**
+   *Symptom:* the wind soak's strict xfail (FU-L14-2: "committed memory grows 2.1 to 2.6 MB a
+   minute while the wind runs", registered bound 2.0) PASSED on 2026-10-19 on the unchanged
+   code (`--runxfail`; strict, it would have failed the render tier). *Root cause:* not found —
+   the growth L1.4 had measured did not reproduce: six alternating soaks of 4 to 5 minutes,
+   three with L1.4's `FrameAnimation` and three with the planned fix (a C++ `NumberAnimation`
+   on `windTime`, no JavaScript per frame), read 0.77 / 1.04 / 0.89 and 2.03 / 1.04 / 0.46 MB a
+   minute from the first sample to the last (second-half slopes 0.17 / 1.26 / 0.23 and 1.51 /
+   0.83 / 0.00): the two clocks inside each other's spread. *Fix:* the clock change was
+   reverted (it changed nothing measurable), the xfail removed, the gate kept at its bound —
+   red again the day the growth is back. *Lesson:* run the unchanged code first; a fix measured
+   alone would have been credited with a difference that was already there.
+2. **"Settled" must know every timer that books a pass.** *Symptom:* after the date-playback
+   throttle, the workspace workflow test read `[begin, set_sun, commit]` where it expected the
+   tree's regrowth. *Root cause:* the throttle's trailing regrowth waits on a third timer;
+   `Scene3DController.idle` and the tests' `pipeline_settled` knew only the posted pass and the
+   tick timer, so "nothing is on its way" was true while a regrowth was booked. *Fix:* both
+   include `_date_timer` (§8.10.31).
+3. **The same test, and the time between two of its writes.** *Symptom:* that test also wrote
+   the date twice about 200 ms apart: inside the 500 ms interval on the dev box (the second
+   date deferred), outside it on a loaded runner (regrown at once). *Root cause:* its
+   expectation depended on the machine's speed. *Fix:* it pins `DATE_REGROW_MIN_MS = 0`; the
+   throttle's own tests make bursts deterministic (one turn of the event loop) and keep the
+   wall-clock bound in a `perf` test with a control arm.
+4. **The menu text promised a window.** "&3D View…" — the ellipsis says "opens a dialog or a
+   window", and the action now switches a mode of the main window. The text lost its
+   ellipsis (a new source string: German and Spanish had to follow, the gate of #496 says
+   so) and its status tip says "beside the plan".
 
 ### 11.4.8 Guild boundaries found by independent review (F1/F2)
 

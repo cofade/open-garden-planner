@@ -5182,13 +5182,16 @@ with `view3d_looks_driver.py` (§8.10.29).
   with reduced motion): committed memory +2.6 MB per minute over 2 minutes, +2.09 over 6
   (linear, 21,594 frames, dedicated GPU memory flat; 0.81 with the QML engine's collector every
   5 s) — over the 2.0 registered before the first run: OPEN (FU-L14-2), kept as a strict `xfail`.
+  *(L1.9, 2026-10-19: not reproduced — six alternating soaks, 0.46–2.03 MB a minute, the
+  planned NumberAnimation clock no different; the xfail is removed and the gate stands at its
+  bound — ADR-065 addendum "the default and the removal".)*
   The looks' render gates are not in CI's render job; L1.9 decides, with L1.8's selection file.
 
 ## ADR-065: The 3D workspace — Plan / 3D / Split in the main window, one kept engine host (Phase 17, L1.3)
 
 **Status**: Accepted (2026-10-12, #385 story L1.3, epic #383). Behind the internal switch
-`OGP_QUICK3D=1`; the shipped "3D View…" window (Qt 3D) stays the product until L1.9 flips the
-default. Builds on ADR-048 (the engine), ADR-053 (the clock) and ADR-064 (the pipeline), and closes
+`OGP_QUICK3D=1` until L1.9 made the workspace the default and deleted the switch (addendum
+"the default and the removal" at the end of this ADR; decision 1 below is superseded by it). Builds on ADR-048 (the engine), ADR-053 (the clock) and ADR-064 (the pipeline), and closes
 the two things ADR-048 left to this story: criterion 2's deferred half and criterion 10's leak half
 (addendum there).
 
@@ -5217,7 +5220,8 @@ Five facts shaped the design:
 
 ### Decision
 
-1. **One internal switch.** `app/settings.py::quick3d_workspace_enabled()` is the only read of
+1. *(Superseded by L1.9: no switch — addendum "the default and the removal", D1.)* **One
+   internal switch.** `app/settings.py::quick3d_workspace_enabled()` was the only read of
    `OGP_QUICK3D`; exactly `"1"` switches the workspace on. Off, the app is what it was: no
    workspace object, nothing of `ui/view3d/workspace` or of Qt Quick imported, the canvas area's
    widget tree unchanged. No setting, no menu entry, no persisted value: the switch leaves with
@@ -5696,7 +5700,8 @@ survivor that a test in the missing file kills.
 
 ### ADR-065 addendum: selection, info card and walk (L1.8)
 
-**Status**: Accepted (2026-10-12, #385 story L1.8). Behind `OGP_QUICK3D=1`, like the workspace.
+**Status**: Accepted (2026-10-12, #385 story L1.8). Behind `OGP_QUICK3D=1`, like the workspace
+(until L1.9 made it the default).
 
 #### Context
 
@@ -5973,3 +5978,98 @@ p95 (bound 50).
 Hand mutation of the walk core (six text mutants, each killed by the default tier): no
 push-out; one step per frame; footprints only; no sliding; a walker 5 cm thinner; the carried
 time thrown away.
+
+### ADR-065 addendum: the default and the removal (L1.9 / L1.10)
+
+**Status**: Accepted (2026-10-19, #385 stories L1.9 and L1.10) — the default flip is an OWNER
+decision at the L1 pull request (below: #532). Two commit groups: every L1.9 commit (the flip;
+the tree after them still holds the Qt 3D code, reachable from no menu) strictly before every
+L1.10 commit (the removal), so that shipping the flip without the removal is one revert.
+
+#### Context
+
+L1.3 built the workspace behind `OGP_QUICK3D=1`, and L1.4 – L1.8 filled it: looks and sky, the
+built world, plants, selection, the info card and walk mode (L1.5's ground bake joins on the
+integration branch). The product still opened the Qt 3D window of US-E6 / E7 (ADR-038), which
+ADR-048 replaced as a decision. What was left: make the workspace THE 3D view; bound what the
+view costs in its steady state before it is the default (L1.4's wind soak, FU-L14-2; a held key
+in the date field, #531); show that what FR-SUN-06 / 07 / 08 promised is kept or knowingly
+changed; then delete Qt 3D.
+
+#### Decision
+
+**D1. One code path, no switch, no escape hatch.** `quick3d_workspace_enabled()` and the
+variable are gone; `_setup_central_widget` builds the workspace always. An escape hatch was
+considered and rejected: a flag must name a failure the existing net does not cover, and none is
+left. The workspace module imports no engine, the engine starts only when the user asks for 3D
+(the import scan pins it, G1), the app starts in Plan mode in every session (the mode is not
+saved), and a start that fails is caught at every depth (§8.32.9's table: an import that fails →
+a message in the pane; a device that cannot be created → a message and compatibility mode next
+time; a driver that kills the process → the start marker → compatibility mode; a death in
+compatibility mode too → 3D switched off with the way back on screen). The one case the marker
+does not see — a crash AFTER the first frame — leaves the next session in Plan mode with
+"Use Compatibility Mode Next Time" in the strip; an environment variable would not reach a user
+any sooner than that button.
+
+**D2. View → Sun & 3D → "3D View" shows the 3D pane.** From Plan mode it switches to Split — the
+plan stays on screen, and the 3D view appears beside it, where the old window used to open; in 3D
+or Split it changes nothing. Its place, icon and (absent) shortcut are kept; its text lost the
+ellipsis (it opens no window) and its status tip says "beside the plan" (en / de / es). The mode
+actions stay as they were (Alt+1 / 2 / 3). Help → Keyboard Shortcuts lists them, the camera's
+mouse and keys, Home, a click that selects and walk mode's keys. Preferences → 3D View is shown in
+every window (`PreferencesDialog` lost its `show_view3d` parameter: one path).
+
+**D3. Date playback is throttled** (#531, `sync_controller.DATE_REGROW_MIN_MS` = 500): a date
+regrows the dated plants at once when the last regrowth for a date was at least 500 ms ago,
+otherwise ONE trailing regrowth is booked for the end of the interval and runs only if the
+clock's date is not the one the last records pass read. The light follows every step. Rejected:
+reusing the Models (a geometry re-loaded in place, as the selection ring does — no destroyed
+Model, nothing left behind): it would change the adapter's "one geometry per Model lifetime"
+rule for every replace_geometry and its picking, measured nowhere yet; a debounce that regrows
+only when the key is released (no growth seen while holding); a rate limit in the toolbar (it
+would hold back the 2D shadows too). Measured (60 s, a step every 33 ms, 20 dated trees, RTX 4070): 90 and 97 regrowth passes
+(1,800 and 1,940 Models) against 312 and 452 — one per step — without the interval; the view
+ended on the last date every time.
+
+**D4. The wind's clock stays a `FrameAnimation`.** The planned fix for FU-L14-2 — the clock as a
+C++ `NumberAnimation`, no JavaScript per frame — was built and measured against the unchanged
+code in six alternating soaks (§8.32.9): no difference, and the growth L1.4 measured did not
+reproduce on either. Reverted; the strict xfail is removed because it passed; the gate stays at
+its bound.
+
+**D5. The flip with #532 open is the owner's call.** #532 (Qt 6.11's `QSSGBufferManager::clear()`
+skips hash entries, so about half of the same-size ground-tile textures leak on every cache
+release) is L1.5's known limitation; the flip ships the ground with it. The exposure is measured
+by L1.5 (up to ~42 MB per release on a 4096² ground); the consolidated checklist of the L1 pull
+request asks the owner to choose.
+
+#### Alternatives rejected
+
+- **Keep `OGP_QUICK3D` as an "off" switch** — D1: no failure left that it would cover; a second
+  code path to test for nothing.
+- **"3D View" opens 3D-only mode** — it would hide the plan the user was editing; the old window
+  opened BESIDE the plan, and Split is that.
+- **A `NumberAnimation` wind clock** — D4: measured, no difference.
+
+#### Consequences
+
+- Every main window carries the workspace widget; nothing of the engine is loaded before 3D is
+  asked for.
+- The parity of FR-SUN-06 / 07 / 08 is a table of tests and stated differences (§8.32.9); the
+  three FRs are rewritten for the new view and point to FR-36.
+- What the default costs is measured against the old view (§8.32.9 "What the default costs").
+
+#### Evidence
+
+All on the dev box (Windows 11, RTX 4070 / Direct3D 11; WARP = Direct3D's software adapter), the
+product's own `main()` in a child process on a throw-away settings store, 2026-10-19; the full
+table, with what it says, is §8.32.9 "What the default costs".
+
+| What | Measured |
+|---|---|
+| start-up to the first event-loop turn, 3D never opened (median of 5) | 2.20 s; the tree before the flip 2.19 s; 0 engine modules in both |
+| first 3D click → first presented frame / first finished readback | small plan 1.10 / 2.29 s (first run of the day 1.88 / 4.49), large 1.81 / 3.25 s; the old window 0.57 s (small) / 0.74 s (large) to a drawn frame on screen |
+| edit → finished frame, p95 (2334 × 1105 pane) | small 45.9 ms (bound 50), large 180 ms (no bound) |
+| committed / dedicated GPU memory after the first frame | small +550–800 / 312 MB, large +950 / 312 MB; the old window +328 / 45 MB and +696 / 47 MB |
+| date playback, 60 s | the interval: 1.5–1.6 regrowth passes a second; without it one per step (312 and 452) |
+| the wind soak (FU-L14-2), 6 alternating runs of 4–5 min | 0.46–2.03 MB a minute overall, second-half slopes 0.0–1.51, both clocks; the strict xfail passed |
