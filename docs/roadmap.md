@@ -31,8 +31,8 @@
 **Complete, 2026-10-09; released as v1.29.6 via [PR #422](https://github.com/cofade/open-garden-planner/pull/422).** No application behavior change.
 Native uv dependency lock and checked PEP 751 export; clean locked Linux/Windows Python 3.11
 per-file type allowances; measured package line floors and branch reporting; reviewed
-administrator-enforced required checks and normal merges. Coverage is initially not required
-by branch protection. The protection payload and read-only verifier are implemented; live
+administrator-enforced required checks and normal merges. `Coverage` became a required check
+in #514 (ADR-058 addendum); the protection payload and read-only verifier carry it. Live
 master enforcement was activated and read back before the normal approved merge.
 Temporary-branch enforcement passed in PR #420
 (failing head refused; corrected green head merged normally; temporary branches removed).
@@ -82,7 +82,47 @@ manual-test confirmation is required for that mechanical PR. See ADR-050 and dep
 
 ### Translation (i18n)
 
+**Complete, 2026-10-16; released as [v1.30.6](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.6)
+via [PR #497](https://github.com/cofade/open-garden-planner/pull/497), closing #496 after owner acceptance.**
+Source-derived completeness covers every registered language in both directions:
+adding a locale requires all current keys, and adding a wrapped UI string requires
+every target translation. The required Test check validates exact context/source/comment
+keys, completed values, placeholders, compiled bytes and actual Qt lookups. English/German
+each cover 2,631 live keys. Helper/table mutation tests pin extraction; unsupported
+forwarding and plural input fail explicitly. Shared companion fallback and shopping-list/
+offset translation contexts are corrected. Russian registration and wording stay in #495;
+its contributor must merge latest master and pass the shared gate before finalization.
+
+Final evidence: 85 focused tests passed; full Windows suite 8,453 passed / 39 skipped;
+Linux coverage suite 8,452 passed / 40 skipped, 80.0% lines / 63.7% branches with no floor
+regressions. Independent senior review, all CI checks, frozen startup/self-test and 5,262
+packaged translation lookups passed. Owner confirmed the frozen app works correctly.
+The published release and successful provenance workflow match merge `aeb9e79b`.
+
+#### Docs updated on completion (#496)
+
+| Document | Updated contract |
+|---|---|
+| `docs/TRANSLATING.md`, `CONTRIBUTING.md`, PR template | All-locale maintenance workflow |
+| `docs/05-building-block-view/`, `docs/07-deployment-view/` | Extraction tooling and required CI enforcement |
+| `docs/08-crosscutting-concepts/` | Sections 8.3 and 8.10: inventory and validation |
+| `docs/09-architecture-decisions/` | ADR-008 addendum: source authority and compiler boundary |
+| `docs/10-quality-requirements/`, `docs/functional-requirements.md` | NFR-MAINT-05 and FR-I18N-07 |
+| `docs/11-risks-and-technical-debt/` | Section 11.4: extraction blind spots and runtime contexts |
+| Root agent guidance and paired skills | Current commands, gates and regression lessons |
+| `docs/wiki/` | Contribution workflow and shipped status; publication follows protected merge |
+
 Every user-visible string must be wrapped for translation. See `docs/08-crosscutting-concepts/` section 8.3.
+
+### Spanish Translation (i18n) & Contributor Guide
+
+**Implemented 2026-10-18 (US-I18N-ES).**
+Adds full Spanish localization (`es`, "Español") matching the completeness of English and German:
+- 100% key coverage: all 2,631 live source keys across 155 contexts translated with zero missing and zero unfinished keys.
+- Menu mnemonics (`&`): zero accelerator collisions across Spanish menubar and all nested submenus (`test_menu_mnemonics_are_unique_per_language`).
+- Packaging: NSIS installer updated with `!insertmacro MUI_LANGUAGE "Spanish"`.
+- Strict gate verification: passes `scripts/check_translations.py` and `tests/integration/test_translation_gate.py` across English, German, and Spanish.
+- Contributor guide: added a dedicated chapter in `CONTRIBUTING.md` ("Contributing translations and adding languages") documenting step-by-step instructions for contributors to update existing translations or add new languages.
 
 **i18n blind-spot fixes (2026-10-04).** Three defects invisible to `test_german_ts_has_no_unfinished` are fixed together: **#393** (five duplicate `TRANSLATIONS` keys shadowed 62 strings; the five `PdfReportService` journal-notes strings never reached `de.ts`, so the German PDF printed English), **#408** (generated soil-amendment task titles stayed English; the task **id** keeps the English data name so saved done/snooze status survives a language switch), and **#410** (the agent `suggest_companions` `name` now follows the UI language, matching the Companion panel). The CI lint step is widened to `ruff check src/ tests/ scripts/`, and `tests/unit/test_i18n.py::TestTranslationRegistry` pins `TRANSLATIONS` key uniqueness with an `ast` parse. See §11.4, §8.19, and the ADR-045 addendum.
 
@@ -96,7 +136,7 @@ Every user-visible string must be wrapped for translation. See `docs/08-crosscut
 | Status | ID   | Description            | Notes                                                         |
 |--------|------|------------------------|---------------------------------------------------------------|
 | ✅     | DI-1 | SAST pipeline (Bandit) | HIGH-severity scan in CI; `bandit>=1.7.0` added as dev dep   |
-| 🔄     | DI-2 | Repository audit 2026-10 | Snapshot `docs/11-risks-and-technical-debt/audit-2026-10.md`; §11.3 rebuilt as the living register (ADR-047); epic #392 |
+| 🔄     | DI-2 | Repository audit 2026-10 | Historical snapshot preserved; [current reconciliation and packages A1–A13](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audit-2026-10-reconciliation.md) account for 73 P2/P3 findings; all 15 original standalone P0/P1 remediations are complete after #406 in v1.30.2 (PR #477); **A1 (#453), A2 (#454) and A5 (#457) shipped in PRs #487, #490 and #489** — see the delivery-state sections in the reconciliation; epic #392 remains open |
 | ✅     | DI-3 | i18n blind-spot hardening | Unique `TRANSLATIONS` keys + shared `active_language()` + full-tree ruff; issues #393/#408/#410; v1.29.2 (PR #411); §11.4, ADR-045 addendum |
 | ✅     | DI-4 | Serialization & Data Integrity Hardening | Free-text annotations (`TextItem`) in `.ogp` + roundtrip matrix tests (#394), clipboard serializer unification (#400), background image placeholder & UUID deduplication (#397), atomic two-phase plan loading & autosave safety (#403); v1.29.4 (PR #412); §11.3, §11.4 |
 | ✅     | DI-5 | CI and release hardening | Locked dependencies, platform type budgets, package coverage floors, and administrator-enforced checks; issues #404/#401/#402/#399; v1.29.6 (PR #422); ADR-050 |
@@ -2585,7 +2625,7 @@ The preexisting German amendment-task naming gap is tracked in #408.
 
 ---
 
-## Package F — Permaculture & Polyculture (✅ 2 of 5 shipped; F3–F5 planned)
+## Package F — Permaculture & Polyculture (✅ 3 of 5 shipped; F4/F5 planned)
 
 > Filed from the permapeople.org research session (2026-08-17). Membership and
 > order live in the `> Package map & order` blockquote at the head of each issue,
@@ -2596,7 +2636,7 @@ The preexisting German amendment-task naming gap is tracked in #408.
 > | ------ | -- | ----------- |
 > | ✅ v1.30.0 | **F1** ([#312](https://github.com/cofade/open-garden-planner/issues/312)) | **Permaculture layer + plant function tags** — foundation of the package, **do first**. `PermacultureLayer` (7 food-forest layers + `UNKNOWN`) and `PlantFunction` (12 functions) as additive species attributes, captured from Permapeople's `Layer`/`Uses`, filled for all 118 bundled records, editable in Plant Details, filterable in search/gallery, exposed in the curated agent schema. Plus an optional food-forest canvas-layer preset. ADR-054/055 and FR-32. |
 > | ✅ v1.30.0 | **F2** ([#313](https://github.com/cofade/open-garden-planner/issues/313)) | **Plant guilds** — guild templates, canvas membership, missing-role diagnostic. *Depends on F1*: guilds have nothing to reason on without layer/function tags. |
-> | 📋 | **F3** ([#314](https://github.com/cofade/open-garden-planner/issues/314)) | **Sun-requirement × computed hours-of-sun diagnostic** + canvas badge. *Independent*; its layer-stack section follows F1. Builds on the shipped Phase 14 sun/shade engine. |
+> | ✅ v1.30.1 | **F3** ([#314](https://github.com/cofade/open-garden-planner/issues/314)) | **Sun-requirement × computed hours-of-sun diagnostic** + canvas badge. Shipped with #428 via PR #436 after owner acceptance (ADR-056): explicit cached exposure, self-shadow exclusion, unavailable states and mature-canopy groups. *Independent*; its layer-stack section follows F1. Builds on the shipped Phase 14 sun/shade engine. |
 > | 📋 | **F4** ([#315](https://github.com/cofade/open-garden-planner/issues/315)) | **Plan timeline scrubber** — `removal_date` + plan-state-at-date visibility on the shared sim date. *Independent.* |
 > | 📋 | **F5** ([#316](https://github.com/cofade/open-garden-planner/issues/316)) | **Bundled example-plan gallery** + template export/import. **Last** — ideally after F2 and F4. Blocked on nothing technical, but #379 (retiring the hand-made dogfood fixture) waits on it. |
 
@@ -2751,8 +2791,294 @@ up."* while the task was open. See ADR-029 (addendum) and ADR-049.
   the bundled harvest offsets to their true reading. Measured: both readings fit a majority of the 64 comparable rows (38 frost-relative, 45 planting-relative), with 11 fitting neither, so the data is NOT irreconcilable; it needs a cited
   horticultural source per row. **Garlic's harvest window lands ~3 months LATE** (October, not July) until then - and that is independent of which reading you assume, since its row fits the frost-relative one on maturity.
 - **#399** (branch protection), **#401** (mypy gate), and **#402** (coverage gate) completed in v1.29.6 via PR #422. Their baselines measured the settled tree after this package.
-- **#405** and **#418** completed in v1.29.8 via PR #426; **#409** (NFR-PERF-01) completed in this branch; **#406** (constraint-tool coverage) remains open.
+- **#405** and **#418** completed in v1.29.8 via PR #426; **#409** (NFR-PERF-01) shipped in v1.29.9 via PR #430; **#406** (constraint-tool coverage) shipped in v1.30.2 via PR #477 after owner acceptance.
 
 ### Package F1/F2 delivery notes (v1.30.0, PR #433)
 
-F1 (#312) and F2 (#313) shipped together in [v1.30.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.0) via [PR #433](https://github.com/cofade/open-garden-planner/pull/433) after automated gates, independent review and all 13 owner frozen-app checks passed on 11 October 2026. F1 adds saved traits, complete offline filtering/background online fallback and semantic layer assignment. F2 adds immutable guild snapshots, template authoring, preflighted one-step insertion/membership, cosmetic badges and general diagnostics. The template editor and general Diagnostics panel are agreed scope additions. F3–F5 (#314–#316) remain separate. ADR-054/055 and FR-32 record the contracts; mandatory workflows include `test_permaculture_layer.py`, `test_guilds.py` and `test_permaculture_manual_regressions.py`. Wiki pages are rendered from these approved repository sources under ADR-051.
+F1 (#312) and F2 (#313) shipped together in [v1.30.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.0) via [PR #433](https://github.com/cofade/open-garden-planner/pull/433) after automated gates, independent review and all 13 owner frozen-app checks passed on 11 October 2026. F1 adds saved traits, complete offline filtering/background online fallback and semantic layer assignment. F2 adds immutable guild snapshots, template authoring, preflighted one-step insertion/membership, cosmetic badges and general diagnostics. The template editor and general Diagnostics panel are agreed scope additions. F3 (#314) shipped with heatmap document-lifecycle fix #428 in v1.30.1 via PR #436; F4/F5 (#315/#316) remain separate. ADR-054/055 and FR-32 record the contracts; mandatory workflows include `test_permaculture_layer.py`, `test_guilds.py` and `test_permaculture_manual_regressions.py`. Wiki pages are rendered from these approved repository sources under ADR-051.
+
+
+### Package F3 acceptance highlights (v1.30.1, PR #436)
+
+F3 (#314) and heatmap lifecycle fix #428 shipped together in [v1.30.1](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.1) via [PR #436](https://github.com/cofade/open-garden-planner/pull/436) on 12 October 2026. The owner confirmed every manual acceptance check before protected finalization.
+
+- Explicit worker results feed ground-level sun estimates excluding self-shadow, cosmetic warning badges, shared panel/MCP diagnostics and mature-canopy groups. ADR-056 and FR-SUN-09/10 record the measurement and unavailable-state contracts; there is no persistent exposure or file-version change.
+- Document replacement cancels work and rejects running/queued late results. Deterministic GUI New/Open/recovery and real MCP replacement regressions are pinned in `tests/integration/test_sun_document_lifecycle.py`; the feature workflow is `tests/integration/test_sun_mismatch.py`.
+- Independent review reproduced and resolved concave-footprint badge containment and malformed legacy species handling, then returned clean final review. Full validation: 7,938 passed, 34 skipped; line coverage 76.9%, branch 60.3%; 200 casters/receivers 3.267 seconds. Frozen startup, subsystem self-test, real MCP reads/moves/New/Open and inspected renders passed; GitHub CI and release provenance passed.
+
+F4/F5 (#315/#316) remain planned. #328 shipped earlier in PR #352 and was excluded from this package.
+
+### Docs updated on F3 completion
+
+| Document | Section |
+|---|---|
+| `docs/09-architecture-decisions/README.md` | ADR-056 |
+| `docs/functional-requirements.md` | FR-SUN-09/10 and Agent API diagnostic kinds |
+| `docs/05-building-block-view/README.md`, `docs/06-runtime-view/README.md` | Sun aggregation/coordinators and exposure lifecycle |
+| `docs/08-crosscutting-concepts/README.md` | §8.27 cached exposure and shared diagnostics |
+| `docs/11-risks-and-technical-debt/README.md` | §11.4.6 ownership, self-shadow and geometry lessons |
+| `docs/12-glossary/README.md` | Sun exposure and mature-canopy grouping |
+| `docs/wiki/`, root instruction pair, mirrored skills | Shipped status and maintenance contracts |
+
+### Audit P1 constraint-tool characterization (#406; epic #392)
+
+Implementation checkpoints: real point-tool harness; remaining gestures/state/shape matrices;
+shared per-file coverage enforcement (ADR-050 addendum). All 13 registered tools have
+press/move/release scenarios and real command/history integration. A newly exposed rectangle
+edge-length no-op is fixed by reusing the canonical size applier, with a failing-first regression.
+The full-suite baseline measured 679/2340 lines (29.0%) and 68/706 branches (9.6%). The target
+file now has a reviewed 60% full-suite line floor; branch coverage remains a separate report.
+Full-suite result on reviewed code `588e3db`: 2023/2372 lines (85.3%) and 486/720
+branches (67.5%); all package/file floors pass. Overall coverage rose from 76.9%/60.3%
+to 80.1%/63.5% (line/branch). The run recorded 8159 passed, 34 skipped and two repaint
+budget failures under coverage, also reproduced on unchanged master; all three repaint
+budget tests passed in an isolated run without instrumentation. All 13 tool scenarios and 259 focused
+gesture/gate tests passed. Independent senior review is clean. Frozen build, eight-second
+startup, subsystem self-test, straight/45-degree edge resizing, saved graph identity through
+undo/redo, modal cancellation, tool switching and real point-based alignment passed.
+Owner manual acceptance passed on 12 October 2026. Protected [PR #477](https://github.com/cofade/open-garden-planner/pull/477) delivered #406 in [v1.30.2](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.2); the Release workflow completed with build provenance. Backlog intake [PR #466](https://github.com/cofade/open-garden-planner/pull/466) merged first. All 15 original standalone P0/P1 remediation issues are complete; #392 remains open for A1–A13.
+
+Finalization reran 268 focused gesture/gate/context/citation tests, frozen eight-second smoke and `--selftest`, and fresh independent implementation/rebase reviews. The additional full local run without coverage recorded 8160 passed, 34 skipped and one fit-in-view timing miss (16.79 ms against 16.70 ms); unchanged master also missed this budget in the isolated baseline (18.71 ms). CI is green; no timing budget was relaxed.
+
+Owner testing found the pre-existing rotation/constraint interaction, tracked in [#485](https://github.com/cofade/open-garden-planner/issues/485). A real-canvas probe on master and the #406 branch measured a 200 cm corner distance becoming 314.42 cm after rotation and recovering on a nudge. The reported skipped rotation undo was not reproduced in that isolated probe. This follow-up remains separate from #406 and the 73-entry P2/P3 partition.
+
+### Audit package A1 (#453) — shipped in v1.30.3 (PR #487)
+
+Strict numeric `.ogp` ingestion and atomic persistence, release-bound checksum/origin
+verification before installer launch, bounded fully decoded thumbnail/Static Maps
+responses, and owner-only Linux settings with explicit startup failure. One branch
+and one PR (#487) cover AUD-041/042/044/047. Shipped 2026-10-13 as v1.30.3.
+No file-format bump, dependency change, credential-key migration, release-right
+change or renderer change. Epic #392 stays open.
+
+Final validated source: `f0a5d225` (2026-10-13). Locked Linux full-suite coverage:
+8245 passed, 37 skipped; all package/file floors passed. Coverage is 79.9% lines /
+63.5% branches overall, and 85.6% / 74.2% outside UI. Windows full suite:
+8241 passed, 39 skipped, with two repaint timing misses during concurrent gates
+(30.67/23.47 ms against 16.70 ms). Quiet strict repaint reruns passed all three
+tests on both this branch and unchanged master; no thresholds or skips changed.
+Final line/arc/Bezier/preservation tests: 101 passed; translation/interpolation:
+70 passed. Both platform type gates have zero regressions; HIGH Bandit findings:
+zero. Lint, lock/export, secrets, agent parity, citations and offline wiki pass.
+Fresh independent re-review has no outstanding P0/P1. The controlled-PATH frozen
+build passed detached self-test (0) and eight-second startup (124), including
+packaged plan/codecs/hash probes. The real v1.30.2 installer was downloaded and
+verified at 179026922 bytes against its release checksum, without launch.
+Owner manual acceptance on frozen build confirmed 2026-10-13; merged via PR #487
+and released as v1.30.3. Wiki publication follows finalization.
+
+### A1 docs updated on implementation
+
+| Document | Section |
+|---|---|
+| Building blocks / runtime | Shared ingestion components and refusal flows |
+| Crosscutting concepts | Error preservation, settings, security and test evidence |
+| ADR register | ADR-003, ADR-041 and ADR-044 addenda |
+| Deployment / requirements | Verified installation, Linux migration, FR-SAFETY-01–04 |
+| Risk register / reconciliation | A1 evidence and pending acceptance |
+| Agent context / wiki sources | Current implementation and public behavior |
+
+### Audit package A2 (#454) — shipped v1.30.5 (PR #490)
+
+Owner confirmed all manual checks and authorized finalization on 15 October 2026.
+[PR #490](https://github.com/cofade/open-garden-planner/pull/490) merged through
+protection as `6854fe66` and shipped in
+[v1.30.5](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.5).
+All 18 pre-merge CI checks and the matching Release workflow passed, including the
+frozen self-test and provenance. The live monthly dependency report passed in
+[run 38646071241](https://github.com/cofade/open-garden-planner/actions/runs/38646071241),
+created review issue #493 and left the lock unchanged.
+
+Toolchain pins (interpreter `3.11.9`, NSIS `3.13.0`), commit-SHA action pins with a CI
+drift guard, `dist/build-evidence.json` emitted and required by the release, a `pip-audit`
+scan of the locked export (one recorded exception for macOS source-distribution publishing), the verified-unavailable
+Dependabot path replaced by a monthly report-only `dependency-review.yml`, the stale
+`requirements*.txt` manifests deleted, and third-party notices + a CycloneDX SBOM generated
+from the frozen bundle's own metadata, installed next to `LICENSE`, published and attested.
+No runtime dependency change and no lock replacement beyond adding `pip-audit` to the dev
+extra (the audit gate itself); no release-right change or `.ogp` version bump. See
+ADR-044/ADR-050 addenda and the A2 delivery-state section of the reconciliation.
+
+PR #490's 14 October review found that the declared dependency closure omitted code
+collected by PyInstaller hooks. The frozen inventory now also attributes actual Analysis
+inputs to wheel RECORD owners, including distinct vendored copies; verifies its ownership
+manifest against the executable PYZ; and checks declared license texts. The frozen-hook
+regression failed on the original artifact. See ADR-044's review addendum and §11.4.
+
+Final CI also exposed an uncontrolled-duration heartbeat assertion in the existing
+sun-mismatch integration test. The delivery gate now holds the real worker in flight,
+requires GUI heartbeats and a different thread, then validates its real result; a
+synchronous-worker negative control fails. No application behavior or timing budget
+was relaxed. See §8.10 and §11.4.
+
+| Document | Section |
+|---|---|
+| ADR register | ADR-044 and ADR-050 addenda |
+| Deployment view | §7.2 build pipeline and installer files, §7.3 release assets, §7.4 toolchain pins, build evidence and the dependency-update runbook |
+| Risk register / reconciliation | §11.2 build-advisory update; A2 delivery state |
+| Agent context / skills | Mirrored `ogp-config-and-flags` / `ogp-external-positioning` manifest references |
+
+### Audit package A5 (#457) — shipped v1.30.4 (PR #489)
+
+Owner confirmed all frozen-app checks on 14 October 2026, including the German
+localization follow-up. [PR #489](https://github.com/cofade/open-garden-planner/pull/489)
+merged through protection as `9dc37274` and shipped in
+[v1.30.4](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.4).
+The matching Release workflow passed, including frozen checks and provenance.
+
+AUD-012: immutable enum-complete constraint panel presentation descriptors, retaining
+the existing translation context, icons, colors, formatting and theme refresh.
+AUD-023: fresh eight-mutant sample with explicit source/test scope, independent
+residual/geometry/pinning/feasibility/conflict-ID assertions and real panel/history
+workflow. Existing relevant selection: 432 tests; strengthened selection: 501 tests.
+Two confirmed symmetry survivors are killed; one baseline timeout remains identified
+separately. All eight strengthened mutations fail assertions. No historical mutation
+score or co-change count is promoted into current evidence.
+
+Failing-first regressions and tagged caller-stack tracing exposed all-pinned false
+convergence: Newton returned success before computing residuals. Fixed-state residuals
+are now measured before return. No tolerance, damping, arbitrary iteration-count,
+dependency or file-format change. ADR-012 addendum; [detailed plan](implementation-plan-457.md)
+and [reproducible evidence](11-risks-and-technical-debt/audit-2026-10-a5-evidence.md).
+Initial reviewed source: `cda81961`. Windows full suite: **8313 passed, 37 skipped**
+in 910.54 seconds, with no failures or relaxed timing budgets. Focused author checks:
+226 passed plus the timeout regression; fresh independent re-review: 191 passed,
+no outstanding findings. Ruff, HIGH Bandit (0), translations/interpolation (35),
+lock/export, Windows type baseline (0 regressions), context parity, citations,
+secrets and offline wiki pass. Controlled-PATH clean frozen build, detached
+self-test (0) and eight-second startup (124 equivalent) pass. The English/German
+all-type widget board was visually inspected; a real registered Fixed/Fixed/Distance
+gesture refused an incompatible target without scene/graph/history changes.
+Final feature head `d82a0ae1` passed all cross-platform CI checks: **8317 passed,
+37 skipped**; Linux coverage **80.0% lines / 63.6% branches** (non-UI
+85.7% / 74.5%), with zero package/file-floor regressions.
+Owner checks 1 (theme/readability) and 3 (fixed conflict rejection) passed. Check 2
+found English unnamed endpoints in German constraint rows. The follow-up uses
+canonical translated object names for all 52 types and compare-overlay plants,
+adds missing Hecke/Dachfirst catalog entries, and pins duplicates, explicit names
+and real row/tooltip wiring. Owner confirmed the German retest before finalization.
+Follow-up tested source `29429088`: Windows full suite **8317 passed, 37 skipped**
+in 806.45 seconds; fresh reviews clean (70 label tests and the clock regression),
+frozen self-test/startup and other local gates pass. The full run first exposed a
+host-hour-dependent sun test; tagged tracing proved its +1 hour crossed midnight.
+Its fixture now fixes noon without changing production behavior or timeouts.
+Epic #392 remains open; other audit bundles and #485 remain separate.
+
+### A5 docs updated on completion
+
+| Document | Section |
+|---|---|
+| Building blocks / runtime | Presentation descriptor and pinned feasibility sequence |
+| Crosscutting concepts / ADR register | Numerical evidence and ADR-012 addendum |
+| Risk register / reconciliation | AUD-012/023, TD-038/039 and measured all-pinned pitfall |
+| Agent context / mirrored debug skill | Shipped status and failing-first evidence |
+| Wiki sources | Shipped A5 status, descriptor/solver boundary and evidence link; ADR-051 publication |
+
+### Worker lifecycle safety, cache bounds and test hygiene package (#480, #483, #482, #474, #449, #448)
+
+**Complete, 2026-10-16; released as [v1.30.7](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.7) via [PR #498](https://github.com/cofade/open-garden-planner/pull/498), closing #480, #483, #482, #474, #449, #448 after owner acceptance.**
+- **#480 & #483 (Worker thread exit safety)**: Deterministic `cancel()` flag and `shutdown()` handshake for `UpdateChecker` and `_WeatherFetchWorker`. When a thread cannot be joined within timeout_ms (e.g. blocked in synchronous urllib.request.urlopen), the worker is retained in `core.worker_lifecycle._RETIRING_WORKERS` until its finished signal is handled, preventing premature garbage collection and C++ `~QThread()` destruction (`0xC0000409` aborts). Clean encapsulation via `PlantingCalendarView.shutdown()`. Pinned in `tests/unit/test_worker_lifecycle.py`, `tests/unit/test_update_checker.py` and `tests/integration/test_weather_widget.py`.
+- **#482 (Redundant closure cleanup)**: Removed redundant closure connecting to `self.destroyed` in `GlobalSearchField`. Cleaned up unused `contextlib` import. Pinned in `tests/unit/test_global_search.py`.
+- **#474 (Furniture renderer dimension and cache memory bound)**: Clamped maximum furniture dimensions to `MAX_FURNITURE_DIMENSION_PX = 2048` (returning fallback on <= 0, inf, or NaN); capped furniture pixmap cache to `64 MB` with LRU eviction and memory budget tracking. Pinned in `tests/unit/test_furniture_renderer.py`.
+- **#449 (FR-AGENT ID uniqueness)**: Renamed duplicate `FR-AGENT-27` to `FR-AGENT-29` in `docs/functional-requirements.md` and added regression gate in `tests/unit/test_ci_quality_gates.py`.
+- **#448 (Test environment flakiness)**: Decorated `test_type_cli_missing_mypy_is_an_error_not_a_clean_result` with skipif for non-3.11 interpreters matching `test_type_cli_generate_check_regress_and_reduce`. Added multi-round retry and local load tolerance to `tests/perf/test_nfr_budgets.py` while keeping CI budgets strict.
+- **Shortcut overload resolution**: Dedicated `Ctrl+F` to global search focus in `CategoryToolbar` and reassigned Find & Replace to `Ctrl+H` in `GardenPlannerApp`, eliminating ambiguous shortcut overload warnings with whole-window duplicate shortcut assertion gate.
+
+
+### 2D canvas follow-up: a paint bound, one look rule and a line budget (#470, #472, #473, #502)
+
+**Complete, 2026-10-17; released as [v1.30.8](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.8) via [PR #501](https://github.com/cofade/open-garden-planner/pull/501) after owner acceptance.**
+
+Three pre-existing 2D defects found during the Phase 17 L1 work (#385), shipped together
+because none touches the in-flight L1 branch's files (see ADR-057, §8.28, §11.4.9). #502 came
+from the owner's manual pass of that PR. Independent review of the package also caught two
+defects the green suite had passed over — the #472 degrade never ran in the product (it tested
+Qt's `widget`, which is always `0` for a *cached* paint, so the condition was never true on the
+canvas; it now keys on the item's cache mode), and the #502 round-trip test styled items with a
+colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see §11.4.9 and §11.4.10.
+#503 was filed from the same review for the identical `widget` idiom in the LOD flat fill.
+
+- **#502 (manual pass of #501)**: a textured fill did not show the chosen colour - the runtime tint was a
+  31 % wash (`_tint_texture`, alpha 80/255), so a light-green fill over the Roof Tiles texture rendered the standard
+  brown (`#ca6846` → `#b8925d`); raising the wash flattened the low-contrast materials. Replaced by a **luminance map**
+  (chosen colour × the texture's relative luminance), which makes the colour read and preserves relative contrast by
+  construction (ADR-042 addendum). The same pass showed the Properties panel disagreeing with the canvas after a
+  reload: the loader rebuilt the brush/pen but never restored the stored appearance attributes, so the panel showed the
+  object type's defaults and the next save wrote them over the user's colours — the loader now restores them through
+  `core/item_look.restore_stored_look` (#438/#469). The §8.10 gate gained the pale-colour case and a relative-contrast
+  assertion (reverting the tint fails 19 of 48 cases); `tests/integration/test_item_appearance_roundtrip.py` pins the
+  rendered pixels across all five shapes and the Ctrl+D duplicate. Lesson in §11.4.10.
+- **#472 (Bounded polygon paint)**: `PolygonItem` painted any vertex count a plan held, and a
+  reflex-heavy outline makes one antialiased fill quadratic (measured with the item's own pen:
+  ~322 ms at 1,024 vertices, ~5.6 s at 16,384). Full detail is now bounded by
+  `MAX_FULL_DETAIL_VERTICES = 256`; above it an interactive, unselected paint draws the exact
+  outline with a **cosmetic** 1-px pen (essential — a wide solid pen makes the outline a fill
+  again), while exports/offscreen renders and selected items keep the exact fill.
+  `MAX_POLYGON_VERTICES = 16_384` refuses a hostile
+  polygon at the load seam without dropping the rest of the plan. Pinned in
+  `tests/integration/test_polygon_paint_bound.py`.
+- **#470 (Offset copy keeps its look)**: the offset tool made a rectangle, circle or ellipse copy
+  in its object type's default fill, pattern and stroke. One seam, `core/item_look.py::
+  copy_visual_style`, now copies both the serialized attributes and the pen/brush, and is shared
+  with `mirror_geometry` (chamfer/fillet/trim stay with #441 on the L1 branch). Pinned in
+  `tests/integration/test_offset_tool.py`.
+- **#473 (Line paint in the budgets)**: the NFR-PERF-01 reference plan held no polyline, so the
+  three budget scenarios could not see a slower line paint. A second scenario adds plain fences
+  and a styled gravel path to the same plan, with their item cache **disabled** so `paint()` runs
+  every frame, pinned deterministically by a `cacheMode()` guard and behaviourally by a same-run
+  delta; an absolute per-frame budget for the styled lines stays with #450. Pinned in
+  `tests/perf/test_nfr_budgets.py`.
+
+### Shipped v1.30.10: the #409 low-zoom flat fill is removed; the cache-mode predicate is kept (#503, PR #507)
+
+- **#503 (LOD flat fill never fired)**: filed by #501's independent review against its own work —
+  `GardenItemMixin.should_use_lod_flat_fill` (the #409 low-zoom flat fill) decided "interactive"
+  with `widget is not None`, but Qt passes `widget = 0` for every **cached** paint and every
+  unselected canvas item is `DeviceCoordinateCache`, so the branch never ran in the product
+  (measured through a real `CanvasScene` + `CanvasView`: one call per paint, no widget, `False` at
+  every view state) and its tests passed only because they called the helper directly.
+
+  **Resolved by deletion, not by repair** — issue #503 offered both repairs explicitly. The guard
+  was first fixed so the branch ran, then measured on the reference plan it was written for
+  (990 items, best of seven rounds, both scenarios below the 0.4 threshold): `fit_in_view` at zoom
+  0.316 read **10.61 / 11.50 ms median with the flat fill off, 10.87 ms with it on**, and
+  `zoom_step` at 0.348 read **7.97 / 7.98 ms off, 8.20 ms on** — the effect sits below this
+  harness's noise (within-arm variation 8 % against a 0.26 ms between-arm difference, and
+  no reversed-order run was taken, so no claim about which arm is faster survives). All six
+  `tests/perf/test_nfr_budgets.py` cases pass either way, worst reading 12.21 ms against the
+  16.70 ms budget. The earlier single-pair reading (10.58/10.64, 8.21/7.40) is superseded: it
+  put the `zoom_step` sign the other way round.
+  `DeviceCoordinateCache` rasterises a textured item once and every later frame is a blit, so the
+  textured `paint()` the LOD existed to avoid was already amortised by the sibling fix from #409;
+  the branch could only ever subtract detail. The owner's manual pass then settled what the
+  measurement could not: at 20–25 % zoom — where they work, well under the threshold — every
+  texture, plant sprite and furniture sprite would have become a solid colour, and the paint-level
+  diagnostics drawn after the fill branch would have been skipped.
+
+  **Shipped:** `should_use_lod_flat_fill`, `get_lod_fill_color` and `LOD_FLAT_FILL_THRESHOLD`
+  deleted, along with seven call sites in the rectangle, circle, ellipse and polygon items; no
+  zoom-dependent simplification remains in the canvas. `is_interactive_paint` is **kept** — it is
+  the one definition of "which paint is this", and #472's paint bound needs it for real (44.7 ms at
+  1,024 vertices, 589 ms at 16,384); its docstring now records that it classifies paints and does
+  not decide detail. #472's suite is restored to its pre-#507 state in full, including its
+  fit-in-view harness zoom; the low-zoom seam pair and the 100 %-zoom workaround served only the
+  removed branch.
+
+  **The pin inverts, and is parametrised over branches rather than classes.** The seven deleted call
+  sites were never seven instances of one thing: two sat inside `if is_plant` and two inside
+  `if is_furniture_type`, behind type predicates a `GENERIC_*` fixture never satisfies, so a
+  table of the four generic shapes watched only four of seven — and the three unwatched ones are
+  exactly the sprite paths the owner's manual pass objected to. Measured by mutation: a `< 0.4`
+  flat fill in a plant branch renders a `TREE` circle from interior intensity std 43.09 to 0.00,
+  a flat brown disc, while 212 tests in the repo stayed green. The table now carries seven entries
+  (the four generic shapes plus a plant circle and furniture rectangle/circle), each rendered
+  through a real `CanvasView` at five zoom levels — 0.1, 0.25, 0.4, 0.75, 1.0 — plus the export
+  path, asserting the interior still carries its texture's luminance spread with a **lower bound
+  only**, so a future change may soften a texture but cannot delete it. Re-introducing a `< 0.4`
+  flat fill is caught at **all seven** call sites, mutation-verified per site. The sampled interior
+  is the item's own `QGraphicsItem.shape()` — not its bounding box, whose corners are page
+  background for three of the four shapes; not a second paint, which any flat-fill branch
+  overrides on its way through; not alpha, because the scene paints an opaque background — and
+  `TestTheMaskIsTheItem` asserts that invariant, because a mask in the wrong coordinate frame does
+  not fail, it *reads background*, which is what a luminance statistic calls texture. ADR-057
+  addendum, §11.4.11.

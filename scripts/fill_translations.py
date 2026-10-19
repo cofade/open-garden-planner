@@ -1,10 +1,10 @@
-"""Fill in German translations for the .ts file and add missing contexts.
+"""Fill in application translations for supported target locales (.ts files).
 
 This script:
-1. Reads the pylupdate6-generated .ts file
-2. Fills in all German translations
-3. Adds missing contexts (ObjectType, GalleryData, CategoryDropdown, GlobalSearchField)
-4. Writes the completed .ts file
+1. Reads the source-generated .ts files
+2. Fills in all German translations (including missing contexts)
+3. Invokes Spanish translation populator (fill_spanish_translations)
+4. Writes the completed .ts files
 """
 
 import sys
@@ -14,7 +14,11 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from scripts.a1_translations import TRANSLATIONS as _A1_TRANSLATIONS  # noqa: E402
+from scripts.i18n_catalog import Key  # noqa: E402
+from scripts.i18n_sources import inventory  # noqa: E402
 from scripts.permaculture_translations import TRANSLATIONS as _F1_F2_TRANSLATIONS  # noqa: E402
+from scripts.translation_gate_translations import TRANSLATIONS as _GATE_TRANSLATIONS  # noqa: E402
 
 if sys.stdout is not None and hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -358,6 +362,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     # ── ConstraintListItem ──
     "ConstraintListItem": {
+        "{a} – {b}   {detail}": "{a} – {b}   {detail}",
+        "{a}   {detail}": "{a}   {detail}",
+        "{a} – {b} – {c}   {detail}": "{a} – {b} – {c}   {detail}",
+        "{d:.2f} m": "{d:.2f} m",
+        "{d:.1f}°": "{d:.1f}°",
         "◯ Tangent": "◯ Tangente",
         "{a} tangent to {b} (r={d:.2f} m)": "{a} tangential zu {b} (r={d:.2f} m)",
         "= Equal": "= Gleich",
@@ -1978,6 +1987,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Generic Rectangle": "Generisches Rechteck",
         "Generic Polygon": "Generisches Polygon",
         "Generic Circle": "Generischer Kreis",
+        "Hedge": "Hecke",
+        "Roof Ridge": "Dachfirst",
         "Ellipse": "Ellipse",
         "House": "Haus",
         "Garage/Shed": "Garage/Schuppen",
@@ -3181,8 +3192,127 @@ for _ctx, _strings in _PLANT_LISTS_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
+# ── Phase 17 L1.3: the Plan / 3D / Split workspace (#385, ADR-065) ──
+_L13_WORKSPACE_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "Workspace": {
+        "&Plan": "&Plan",
+        "Show the plan only": "Nur den Plan anzeigen",
+        "&3D": "&3D",
+        "Show the garden in 3D": "Den Garten in 3D anzeigen",
+        "&Split": "&Geteilt",
+        "Show the plan and the 3D view side by side":
+            "Plan und 3D-Ansicht nebeneinander anzeigen",
+        "{tip} ({shortcut})": "{tip} ({shortcut})",
+        "&Reset 3D View": "3D-Ansicht &zurücksetzen",
+        "Show the whole garden in the 3D view again":
+            "Wieder den ganzen Garten in der 3D-Ansicht zeigen",
+        "Show the whole garden again (Home)": "Wieder den ganzen Garten zeigen (Pos1)",
+        "&Workspace": "&Arbeitsbereich",
+        "Show which objects are missing from the 3D view":
+            "Zeigen, welche Objekte in der 3D-Ansicht fehlen",
+        "The 3D view could not be started. The rest of the application "
+        "is not affected.\n\nDetails: {error}":
+            "Die 3D-Ansicht konnte nicht gestartet werden. Der Rest der Anwendung "
+            "ist nicht betroffen.\n\nDetails: {error}",
+        "Try Again": "Erneut versuchen",
+        "Building the 3D view…": "3D-Ansicht wird aufgebaut…",
+        "The 3D view could not be updated. It will try again with the next change.":
+            "Die 3D-Ansicht konnte nicht aktualisiert werden. Bei der nächsten "
+            "Änderung wird es erneut versucht.",
+        "1 object is not shown in 3D": "1 Objekt wird in 3D nicht angezeigt",
+        "{count} objects are not shown in 3D": "{count} Objekte werden in 3D nicht angezeigt",
+        "The 3D view reported a problem. Details are in the log file.":
+            "Die 3D-Ansicht hat ein Problem gemeldet. Details stehen in der Protokolldatei.",
+        "3D is unavailable on this graphics device. The rest of the application "
+        "is not affected.\n\nDetails: {error}":
+            "3D ist auf dieser Grafikhardware nicht verfügbar. Der Rest der Anwendung "
+            "ist nicht betroffen.\n\nDetails: {error}",
+        "Use Compatibility Mode Next Time": "Beim nächsten Start Kompatibilitätsmodus verwenden",
+        "3D is running in compatibility mode (software rendering) because "
+        "it did not start properly last time.":
+            "3D läuft im Kompatibilitätsmodus (Software-Rendering), weil es beim "
+            "letzten Mal nicht richtig gestartet ist.",
+        "3D is running in compatibility mode (software rendering).":
+            "3D läuft im Kompatibilitätsmodus (Software-Rendering).",
+        "Try Hardware Next Time": "Beim nächsten Start Hardware versuchen",
+        "Hardware rendering will be tried the next time the application starts.":
+            "Beim nächsten Start der Anwendung wird Hardware-Rendering versucht.",
+        "Compatibility mode will be used the next time the application starts.":
+            "Beim nächsten Start der Anwendung wird der Kompatibilitätsmodus verwendet.",
+    },
+    "View3DProblemsDialog": {
+        "Not Shown in 3D": "In 3D nicht angezeigt",
+        "These objects are on the plan but cannot be shown in the 3D view. "
+        "Double-click an entry to select the object on the plan.":
+            "Diese Objekte sind im Plan, können aber in der 3D-Ansicht nicht gezeigt "
+            "werden. Ein Doppelklick auf einen Eintrag wählt das Objekt im Plan aus.",
+        "its shape could not be worked out": "seine Form konnte nicht ermittelt werden",
+        "another object on the plan has the same internal id":
+            "ein anderes Objekt im Plan hat dieselbe interne Kennung",
+        "its outline cannot be turned into a solid":
+            "sein Umriss lässt sich nicht in einen Körper umsetzen",
+        "its outline has too many points for the 3D view":
+            "sein Umriss hat zu viele Punkte für die 3D-Ansicht",
+        "one of its sizes is outside what the 3D view can show":
+            "eine seiner Abmessungen liegt außerhalb dessen, was die 3D-Ansicht zeigen kann",
+        "its 3D model could not be built": "sein 3D-Modell konnte nicht gebaut werden",
+        "it could not be shown": "es konnte nicht angezeigt werden",
+        "{name} ({kind}): {reason}": "{name} ({kind}): {reason}",
+        "{kind}: {reason}": "{kind}: {reason}",
+    },
+}
+
+for _ctx, _strings in _L13_WORKSPACE_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
 
 for _ctx, _strings in _F1_F2_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+for _ctx, _strings in _A1_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
+_F3_TRANSLATIONS = {
+    "SunExposure": {
+        "full sun": "volle Sonne", "partial sun": "teilweise Sonne",
+        "partial shade": "Halbschatten", "full shade": "Schatten",
+        "unspecified sun requirement": "nicht angegebener Sonnenbedarf",
+        "Compute sun hours to enable sun diagnostics.": "Sonnenstunden berechnen, um die Sonnendiagnose zu aktivieren.",
+        "Computing sun hours…": "Sonnenstunden werden berechnet…",
+        "Not evaluated — recompute sun hours.": "Nicht bewertet — Sonnenstunden neu berechnen.",
+        "Not evaluated — set garden location.": "Nicht bewertet — Gartenstandort festlegen.",
+        "Not evaluated — plant is outside the sun grid.": "Nicht bewertet — Pflanze liegt außerhalb des Sonnenrasters.",
+        "Not evaluated — plant is on a hidden layer.": "Nicht bewertet — Pflanze liegt auf einer ausgeblendeten Ebene.",
+        "Not evaluated — computation cancelled.": "Nicht bewertet — Berechnung abgebrochen.",
+        "Not evaluated — exposure data unavailable.": "Nicht bewertet — Sonnendaten nicht verfügbar.",
+        "{hours} h on {date}": "{hours} h am {date}",
+        "too little sun": "zu wenig Sonne", "too much sun": "zu viel Sonne",
+        "{name} needs {required}, but receives ~{hours} h direct sun on {date} ({direction}).":
+            "{name} benötigt {required}, erhält aber am {date} etwa {hours} h direkte Sonne ({direction}).",
+        "Estimated at ground level, excluding this plant's own shadow; leaf height and canopy translucency are not modelled.":
+            "Schätzung am Boden ohne den eigenen Schatten der Pflanze; Blatthöhe und Lichtdurchlässigkeit der Krone werden nicht modelliert.",
+    },
+    "SunSimToolbar": {
+        "21 June": "21. Juni", "Use 21 June of the current simulation year": "21. Juni des aktuellen Simulationsjahres verwenden",
+    },
+    "CanopyPanel": {
+        "Under this canopy": "Unter dieser Krone",
+        "Plant / food-forest layer": "Pflanze / Waldgartenschicht", "Estimated direct sun": "Geschätzte direkte Sonne",
+        "Mature canopy size unavailable": "Ausgewachsene Kronengröße nicht verfügbar",
+        "Plant centres within the mature canopy; this does not identify the cause of shade.":
+            "Pflanzenmittelpunkte innerhalb der ausgewachsenen Krone; daraus lässt sich die Schattenursache nicht ableiten.",
+    },
+    "DiagnosticsPanel": {
+        "Sun requirement mismatch": "Abweichender Sonnenbedarf", "Sun evaluation": "Sonnenbewertung",
+        "Information": "Information", "{shown} of {total} diagnostics": "{shown} von {total} Diagnosen",
+        "{name}: {status}": "{name}: {status}",
+    },
+}
+for _ctx, _strings in _F3_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+for _ctx, _strings in _GATE_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
@@ -3190,6 +3320,10 @@ def fill_translations() -> None:
     """Fill in German translations in the .ts file."""
     tree = ET.parse(TS_FILE)
     root = tree.getroot()
+    required = inventory(Path(__file__).resolve().parents[1])
+    translations = {context: {source: target for source, target in strings.items()
+                              if Key(context, source) in required}
+                    for context, strings in TRANSLATIONS.items()}
 
     # Set the target language
     root.set("language", "de_DE")
@@ -3205,7 +3339,7 @@ def fill_translations() -> None:
     # Process existing contexts
     for context_elem in root.findall("context"):
         context_name = context_elem.find("name").text
-        context_translations = TRANSLATIONS.get(context_name, {})
+        context_translations = translations.get(context_name, {})
 
         for message_elem in context_elem.findall("message"):
             source_elem = message_elem.find("source")
@@ -3215,6 +3349,8 @@ def fill_translations() -> None:
                 continue
 
             source_text = source_elem.text or ""
+            if Key(context_name, source_text) not in required:
+                continue
 
             if source_text in context_translations:
                 translation_elem.text = context_translations[source_text]
@@ -3222,21 +3358,23 @@ def fill_translations() -> None:
                 if "type" in translation_elem.attrib:
                     del translation_elem.attrib["type"]
                 filled += 1
-            else:
+            elif not (translation_elem.text or "").strip() or translation_elem.get("type") == "unfinished":
                 missing += 1
                 print(f"  MISSING [{context_name}]: {source_text[:60]!r}")
 
     # Add missing contexts (ObjectType, GalleryData, CategoryDropdown,
     # CategoryToolbar, GlobalSearchField — anything not picked up by
     # pylupdate6 because it lives in helper modules).
-    for context_name, translations in TRANSLATIONS.items():
+    for context_name, context_values in translations.items():
+        if not context_values:
+            continue
         if context_name not in existing_contexts:
             # Create new context
             context_elem = ET.SubElement(root, "context")
             name_elem = ET.SubElement(context_elem, "name")
             name_elem.text = context_name
 
-            for source_text, german_text in translations.items():
+            for source_text, german_text in context_values.items():
                 message_elem = ET.SubElement(context_elem, "message")
                 source_elem = ET.SubElement(message_elem, "source")
                 source_elem.text = source_text
@@ -3265,7 +3403,7 @@ def fill_translations() -> None:
                     existing_sources.add(src.text)
 
             # Add missing strings
-            for source_text, german_text in translations.items():
+            for source_text, german_text in context_values.items():
                 if source_text not in existing_sources:
                     message_elem = ET.SubElement(context_elem, "message")
                     source_elem = ET.SubElement(message_elem, "source")
@@ -3289,6 +3427,12 @@ def fill_translations() -> None:
 
     print(f"\nDone! Filled {filled} translations, {missing} missing, {added_contexts} new contexts added.")
 
+    # Also fill Spanish translations
+    from scripts.fill_spanish_translations import fill_spanish_translations
+
+    fill_spanish_translations()
+
 
 if __name__ == "__main__":
     fill_translations()
+

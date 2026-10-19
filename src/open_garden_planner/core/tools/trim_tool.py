@@ -41,7 +41,7 @@ from open_garden_planner.core.commands import (
     TrimPolylineCommand,
     TrimRectangleCommand,
 )
-from open_garden_planner.core.item_style import adopt_pen
+from open_garden_planner.core.item_look import adopt_pen
 from open_garden_planner.core.tools.base_tool import BaseTool, ToolType
 
 if TYPE_CHECKING:

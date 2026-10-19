@@ -48,6 +48,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.object_height import effective_height_cm
+from open_garden_planner.core.shade_aggregation import IdentifiedCaster
 from open_garden_planner.core.shadow_geometry import (
     MIN_SUN_ELEVATION_DEG,
     ShadowCaster,
@@ -55,6 +56,7 @@ from open_garden_planner.core.shadow_geometry import (
 )
 from open_garden_planner.core.sim_clock import SimChange, SimClock
 from open_garden_planner.core.solar import solar_position
+from open_garden_planner.ui.sim_clock_subscription import connect_qobject
 
 from .footprints import ItemLookup, item_base_cm, item_footprints, plant_canopy_radius_cm
 
@@ -212,22 +214,25 @@ _item_footprints = item_footprints
 _plant_canopy_radius_cm = plant_canopy_radius_cm
 
 
-def collect_shadow_casters(
+def collect_identified_casters(
     scene: QGraphicsScene,
     at_date: date | None = None,
-) -> list[ShadowCaster]:
-    """Snapshot every visible item with an effective height as a ``ShadowCaster``
-    — ``(footprint, height_cm, base_cm)``.
+) -> list[IdentifiedCaster]:
+    """THE caster walk: every visible item with an effective height, as one
+    ``IdentifiedCaster`` per item — its id, its solid footprints, its height and
+    where it stands.
 
-    THE caster walk: the shadow overlay and the hours-of-sun heatmap both call
-    it, so they can never disagree. Plain-data output — the snapshot shape the
-    US-E4 worker thread consumes (never live QGraphicsItems). ``at_date``
-    (US-E8) projects dated plants to their grown height AND canopy spread at
-    that date. ``base_cm`` (Phase 17 L1.6, ADR-037 addendum) is where the item
-    stands: 0 on the ground, the soil surface for a plant in a raised bed or
-    container (``footprints.item_base_cm`` — the rule the 3D records use too).
+    The shadow overlay, the hours-of-sun heatmap and the per-plant sun estimates
+    all come from this walk (``collect_shadow_casters`` flattens it), so they can
+    never disagree. Plain-data output — the snapshot shape the heatmap worker
+    thread consumes (never live QGraphicsItems). ``at_date`` (US-E8) projects
+    dated plants to their grown height AND canopy spread at that date.
+    ``item_id`` keeps ownership for own-shadow exclusion (US-F3). ``base_cm``
+    (Phase 17 L1.6, ADR-037 addendum) is where the item stands: 0 on the ground,
+    the soil surface for a plant in a raised bed or container
+    (``footprints.item_base_cm`` — the rule the 3D records use too).
     """
-    casters: list[ShadowCaster] = []
+    casters: list[IdentifiedCaster] = []
     items = scene.items()
     lookup = ItemLookup(items)
     for item in items:
@@ -241,11 +246,25 @@ def collect_shadow_casters(
         )
         if height is None:
             continue
-        base = item_base_cm(item, lookup, at_date)
-        for footprint in item_footprints(item, at_date):
-            if len(footprint) >= 3:
-                casters.append(ShadowCaster(footprint, height, base))
+        footprints = tuple(tuple(footprint) for footprint in item_footprints(item, at_date)
+                           if len(footprint) >= 3)
+        if footprints:
+            casters.append(IdentifiedCaster(
+                str(getattr(item, "item_id", id(item))), footprints, height,
+                item_base_cm(item, lookup, at_date)))
     return casters
+
+
+def collect_shadow_casters(
+    scene: QGraphicsScene,
+    at_date: date | None = None,
+) -> list[ShadowCaster]:
+    """The walk's casters as ``ShadowCaster``s — ``(footprint, height_cm,
+    base_cm)``, one per solid footprint: what the shadow overlay unions. Derived
+    from ``collect_identified_casters``; there is no second walk."""
+    return [ShadowCaster(list(footprint), caster.height_cm, caster.base_cm)
+            for caster in collect_identified_casters(scene, at_date)
+            for footprint in caster.footprints]
 
 
 class SunShadowController(QObject):
@@ -275,7 +294,9 @@ class SunShadowController(QObject):
         # Qt-free channel (ADR-053): like a Qt connection it holds this bound
         # method weakly, so controller → clock → controller is no reference
         # cycle and an unparented controller dies with its last reference.
-        self._clock.instant_changed.connect(self._on_clock_changed)
+        # Through ``connect_qobject`` (L1.3): the channel cannot see Qt destroy
+        # this object with its parent, and would call into the dead slot.
+        connect_qobject(self._clock.instant_changed, self._on_clock_changed)
         self._overlay: SunShadowOverlayItem | None = None
         self._state = STATE_DISABLED
         self._last_key: tuple[Any, ...] | None = None

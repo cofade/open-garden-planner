@@ -18,7 +18,8 @@ test owns.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+import time
+from collections.abc import Collection, Iterable, Mapping
 from typing import Any
 
 import numpy as np
@@ -30,12 +31,14 @@ from open_garden_planner.core.scene3d import (
     GroundGrid,
     GroundSpec,
     GroundTile,
+    Record,
     RecordingSink,
+    SceneDiff,
     SceneSync,
 )
 from open_garden_planner.services.scene_rendering import render_scene_region
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
-from open_garden_planner.ui.view3d.ground_bake import GroundBaker
+from open_garden_planner.ui.view3d.ground_bake import BAKE_BUDGET_S, GroundBaker
 from open_garden_planner.ui.view3d.snapshot import SkippedItem, snapshot_records
 
 FORMAT = QImage.Format.Format_RGBA8888_Premultiplied
@@ -163,3 +166,29 @@ class Bake:
     def image(self) -> np.ndarray:
         """What the SINK was told, assembled."""
         return tiles_rgba(self.tiles, self.grid)
+
+
+class TimedBaker(GroundBaker):
+    """The baker AS THE PRODUCT MAKES IT — its time budget on — with a stopwatch
+    around ``bake`` alone (gate G3, ``test_scene3d_ground_bake.py::TestOneSmallEdit``,
+    a ``perf`` test).
+
+    It lives here and not in the test module on purpose: the perf-marker guard
+    (``tests/unit/test_perf_marker_guard.py``) keys a module's functions by their
+    bare name, so a stopwatch in a method called ``bake`` in the test module made
+    every test there that calls ANY baker's ``bake`` a "wall-clock assertion" — the
+    G5 edit session among them, which times nothing."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        assert self.budget_s == BAKE_BUDGET_S == 0.010
+        self.milliseconds: list[float] = []
+
+    def bake(self, records: Mapping[str, Record], changes: SceneDiff | None,
+             solid: Collection[str], width_cm: float, depth_cm: float
+             ) -> tuple[GroundTile, ...]:
+        started = time.perf_counter()
+        try:
+            return super().bake(records, changes, solid, width_cm, depth_cm)
+        finally:
+            self.milliseconds.append((time.perf_counter() - started) * 1000.0)

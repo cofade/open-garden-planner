@@ -8,6 +8,7 @@ import pytest
 from scripts import prepare_version_sync
 from scripts.audit_metrics import coverage_section, parse_mypy
 from scripts.check_branch_protection import differences
+from scripts.check_coverage_floors import main as coverage_floor_main
 from scripts.check_coverage_floors import regressions as coverage_regressions
 from scripts.check_coverage_floors import validate_floors
 from scripts.check_mypy_baseline import regressions as type_regressions
@@ -142,6 +143,56 @@ def test_protection_requires_checks_for_admins_but_no_review() -> None:
     assert len(differences(payload, payload)) == 2
 
 
+def test_coverage_floor_main_fails_closed_without_a_usable_report(tmp_path: Path, capsys) -> None:
+    """#514: the floor step runs `if: always()`, so it must never pass without a report.
+
+    ``main`` returns 2 when the XML is missing, malformed, or does not resolve into
+    ``src/open_garden_planner``: "unavailable" is a failure, not a pass. The Coverage job
+    depends on that — its floor step is the only step that decides the job, and it runs
+    even when an earlier coverage step died.
+    """
+    floors = Path(__file__).resolve().parents[2] / "quality" / "coverage-floors.json"
+    missing = tmp_path / "nope.xml"
+    assert coverage_floor_main(["--xml", str(missing), "--floors", str(floors)]) == 2
+
+    malformed = tmp_path / "bad.xml"
+    malformed.write_text("<not-closed", encoding="utf-8")
+    assert coverage_floor_main(["--xml", str(malformed), "--floors", str(floors)]) == 2
+
+    empty = tmp_path / "empty.xml"
+    empty.write_text(
+        "<coverage><sources><source>/w/src/open_garden_planner</source></sources></coverage>",
+        encoding="utf-8",
+    )
+    assert coverage_floor_main(["--xml", str(empty), "--floors", str(floors)]) == 2
+
+    # The failure is also recorded, so the uploaded diagnostic says why.
+    report = tmp_path / "summary.json"
+    assert (
+        coverage_floor_main(
+            ["--xml", str(missing), "--floors", str(floors), "--report", str(report)]
+        )
+        == 2
+    )
+    assert json.loads(report.read_text(encoding="utf-8"))["available"] is False
+    capsys.readouterr()  # the verdict JSON belongs in the CI log, not the test output
+
+
+def test_master_protection_requires_the_coverage_floor_too() -> None:
+    """#514: a floor breach blocks a merge, so the payload must name `Coverage`."""
+    payload = json.loads(
+        (
+            Path(__file__).resolve().parents[2] / "quality/master-protection.json"
+        ).read_text(encoding="utf-8")
+    )
+    contexts = set(payload["required_status_checks"]["contexts"])
+    assert "Coverage" in contexts, (
+        "the coverage floor is a merge gate (#514); leaving it out of the protection "
+        "payload means a floor breach is visible and unblocking, which is the state the "
+        "decision removed"
+    )
+
+
 def test_version_edit_preserves_comments_and_other_versions() -> None:
     manifest = '# comment\n[project]\nversion = "1.0.0" # keep\n[other]\nversion="9"\n'
     assert replace_manifest_version(manifest, "1.0.1") == manifest.replace('"1.0.0"', '"1.0.1"')
@@ -224,3 +275,15 @@ def test_current_head_verifier_refuses_absence_and_failed_checks(change: str) ->
     else:
         pr["statusCheckRollup"][0]["conclusion"] = "SKIPPED"
     assert check_differences(pr, "abc", ["Test"])
+
+
+def test_agent_functional_requirements_ids_are_unique() -> None:
+    root = Path(__file__).resolve().parents[2]
+    text = (root / "docs/functional-requirements.md").read_text(encoding="utf-8")
+    definitions = re.findall(r"^- \*\*(FR-AGENT-[0-9a-zA-Z_-]+)\*\*", text, re.MULTILINE)
+    assert len(definitions) >= 30
+    assert len(definitions) == len(set(definitions))
+    assert "FR-AGENT-12a" in definitions
+    assert "FR-AGENT-27" in definitions
+    assert "FR-AGENT-29" in definitions
+

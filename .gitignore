@@ -189,3 +189,12 @@ api_keys.json
 
 # Code statistics
 .VSCodeCounter/
+
+# Lock created by scripts/verify_lod_removal_mutations.py while it rewrites
+# live canvas source files; never belongs in the tree.
+scripts/.verify_lod_removal_mutations.lock
+
+# Lock and restore-backup created by scripts/replay_gate_mutations.py while it
+# rewrites .github/workflows/ci.yml; never belong in the tree.
+scripts/.replay_gate_mutations.lock
+scripts/.replay_gate_mutations.backup

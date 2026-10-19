@@ -89,6 +89,7 @@ if TYPE_CHECKING:
 
     from open_garden_planner.agent_api import AgentApiServer
     from open_garden_planner.core.sim_clock import SimChange
+    from open_garden_planner.services.update_checker import ReleaseInfo
 
 logger = logging.getLogger(__name__)
 
@@ -3935,10 +3936,11 @@ class GardenPlannerApp(QMainWindow):
 
         # Find & Replace
         find_replace_action = QAction(self.tr("&Find && Replace…"), self)
-        find_replace_action.setShortcut(QKeySequence.StandardKey.Find)
+        find_replace_action.setShortcut(QKeySequence("Ctrl+H"))
         find_replace_action.setStatusTip(self.tr("Find and replace objects by name, type, layer or species"))
         find_replace_action.triggered.connect(self._on_toggle_find_replace)
         self._set_action_icon(find_replace_action, "find_replace")
+        self._find_replace_action = find_replace_action
         menu.addAction(find_replace_action)
 
         menu.addSeparator()
@@ -4096,6 +4098,7 @@ class GardenPlannerApp(QMainWindow):
 
     def _setup_view_menu(self, menu: QMenu) -> None:
         """Set up the View menu actions."""
+        self._view_menu = menu  # the 3D workspace adds its submenu later (L1.3)
         # Zoom In
         zoom_in_action = QAction(self.tr("Zoom &In"), self)
         zoom_in_action.setShortcut(QKeySequence("Ctrl++"))
@@ -4667,9 +4670,21 @@ class GardenPlannerApp(QMainWindow):
         # Create sidebar panels
         self._setup_sidebar()
 
-        # Create splitter for canvas and sidebar
+        # Create splitter for canvas and sidebar. Phase 17 L1.3 (ADR-065): behind
+        # the ONE internal switch, the canvas area is the Plan / 3D / Split
+        # workspace — the canvas inside it, and a 3D pane built on first use.
+        # Without the switch nothing of ``ui/view3d`` is imported here.
+        from open_garden_planner.app.settings import quick3d_workspace_enabled
+
+        self._workspace = None
+        canvas_area: QWidget = self.canvas_view
+        if quick3d_workspace_enabled():
+            from open_garden_planner.ui.view3d.workspace import Workspace
+
+            self._workspace = Workspace(self.canvas_view, parent=self)
+            canvas_area = self._workspace
         self._main_splitter = QSplitter(Qt.Orientation.Horizontal)
-        self._main_splitter.addWidget(self.canvas_view)
+        self._main_splitter.addWidget(canvas_area)
         # Route CanvasView's status messages to the window's status bar. This is
         # a signal connection rather than a parent lookup because the canvas's
         # parent is this QSplitter, which has no statusBar() — so the old
@@ -4799,6 +4814,7 @@ class GardenPlannerApp(QMainWindow):
         # (it seeded its own "now" — the clock wins) and writes user edits back.
         self._sun_toolbar.set_datetime_local(self._sim_clock.wall)
         self._sun_toolbar.datetime_changed.connect(self._on_sun_sim_datetime)
+        self._sun_toolbar.june_reference_requested.connect(self._on_june_reference)
         # Keep the menu action + controller in sync with any visibility change
         # that does not come from the action itself — today that is
         # _enforce_toolbar_visibility() at startup. (It used to be Qt's built-in
@@ -4820,6 +4836,13 @@ class GardenPlannerApp(QMainWindow):
         self._sun_heatmap.finished.connect(self._on_heatmap_finished)
         self._sun_toolbar.heatmap_requested.connect(self._on_heatmap_requested)
         self._sun_toolbar.heatmap_cleared.connect(self._sun_heatmap.clear)
+        self.canvas_scene.document_replaced.connect(self._reset_sun_document)
+        from open_garden_planner.ui.sun_exposure_coordinator import SunExposureCoordinator
+
+        self.sun_exposure_coordinator = SunExposureCoordinator(
+            self.canvas_scene, self._sun_heatmap, self._sim_clock, self._project_manager,
+            self._sun_toolbar, self.canopy_panel, self)
+        self.canvas_view.command_manager.stack_changed.connect(self.sun_exposure_coordinator.schedule)
 
         # ── 3D view (US-E6) — created lazily on first menu use ────────────
         self._view3d_window = None  # the currently-OPEN viewer, or None
@@ -4830,8 +4853,28 @@ class GardenPlannerApp(QMainWindow):
         # 3D light. The overlay subscribes itself to instant_changed (constructed
         # above, so on that channel it re-solves before _on_sim_instant_changed;
         # date_changed — and with it _on_sim_date_changed — fires before both).
-        self._sim_clock.date_changed.connect(self._on_sim_date_changed)
-        self._sim_clock.instant_changed.connect(self._on_sim_instant_changed)
+        # Through connect_qobject (L1.3, ADR-053 addendum): every QObject on the
+        # clock is disconnected when Qt destroys it, not only when Python does.
+        from open_garden_planner.ui.sim_clock_subscription import connect_qobject
+
+        connect_qobject(self._sim_clock.date_changed, self._on_sim_date_changed)
+        connect_qobject(self._sim_clock.instant_changed, self._on_sim_instant_changed)
+
+        # ── 3D workspace (L1.3) — what its pipeline reads, and its View submenu ──
+        if self._workspace is not None:
+            self._workspace.connect_plan(
+                self.canvas_scene,
+                self._sim_clock,
+                lambda: self._project_manager.location,
+                self.canvas_view.command_manager,
+                self._ui_state,
+            )
+            self._project_manager.location_changed.connect(
+                self._workspace.location_changed
+            )
+            self._view_menu.insertMenu(
+                self._preview_action, self._workspace.create_menu(self._view_menu)
+            )
 
         # ── Find & Replace panel (US-11.24) ──────────────────────────────────
         from open_garden_planner.ui.panels.find_replace_panel import FindReplacePanel
@@ -5271,6 +5314,14 @@ class GardenPlannerApp(QMainWindow):
         self.companion_panel.layout().addWidget(self.guilds_panel)
         self.guild_coordinator = GuildCoordinator(self.canvas_scene, self.canvas_view.command_manager,
                                                   self.diagnostics_panel, self.guilds_panel, self)
+        from open_garden_planner.ui.diagnostics_coordinator import DiagnosticsCoordinator
+        from open_garden_planner.ui.panels.canopy_panel import CanopyPanel
+
+        self.diagnostics_coordinator = DiagnosticsCoordinator(
+            self.canvas_scene, self.canvas_view.command_manager, self.diagnostics_panel, self)
+        self.canopy_panel = CanopyPanel(self.canvas_scene)
+        self.plant_database_panel.info_layout.insertWidget(
+            self.plant_database_panel.info_layout.count() - 1, self.canopy_panel)
         # Detach each panel from the scratch build layout before handing it to the
         # controller (panels were addWidget'd above purely to set their parent).
         for _key, panel in canonical_panels:
@@ -5369,13 +5420,13 @@ class GardenPlannerApp(QMainWindow):
         self._update_checker.update_available.connect(self._on_update_available)
         self._update_checker.start()
 
-    def _on_update_available(self, tag_name: str, body: str, download_url: str, html_url: str) -> None:
+    def _on_update_available(self, release: "ReleaseInfo") -> None:
         """Show the update bar if the user has not skipped this version."""
         from open_garden_planner.app.settings import get_settings
 
-        if get_settings().skipped_version == tag_name:
+        if get_settings().skipped_version == release.tag_name:
             return
-        self._update_bar.show_update(tag_name, body, download_url, html_url)
+        self._update_bar.show_update(release)
 
     def _on_skip_version(self, tag_name: str) -> None:
         """Persist the skipped version to settings."""
@@ -5800,7 +5851,18 @@ class GardenPlannerApp(QMainWindow):
         try:
             self._load_project_file(file_path)
         except Exception as e:
-            QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to open file:\n{error}").format(error=e))
+            QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to open file:\n{error}").format(error=self._plan_error_message(e)))
+
+    def _plan_error_message(self, error: Exception) -> str:
+        from open_garden_planner.core.plan_io import PlanValidationError
+        if not isinstance(error, PlanValidationError):
+            return str(error)
+        messages = {
+            "finite": self.tr("The plan contains an invalid or non-finite number at {field}."),
+            "canvas": self.tr("The canvas dimension at {field} must be between 50 and 100000 cm."),
+            "positive": self.tr("The plan value at {field} must be positive."),
+        }
+        return messages[error.category].format(field=error.field)
 
     def _load_project_file(self, file_path: str) -> None:
         """THE one open-a-plan path: load and rewire the UI, or raise.
@@ -5948,7 +6010,7 @@ class GardenPlannerApp(QMainWindow):
             self._autosave_manager.clear_autosave()
             self.statusBar().showMessage(self.tr("Saved: {path}").format(path=file_path))
         except Exception as e:
-            QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to save file:\n{error}").format(error=e))
+            QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to save file:\n{error}").format(error=self._plan_error_message(e)))
 
     def _on_export_png(self) -> None:
         """Handle Export as PNG action."""
@@ -6290,6 +6352,14 @@ class GardenPlannerApp(QMainWindow):
             # Join a running heatmap worker — a QThread destroyed while
             # running aborts the process (the #230 class).
             self._sun_heatmap.shutdown()
+            # Cancel and detach in-flight update checker — a QThread destroyed
+            # while running aborts the process (#480).
+            if getattr(self, "_update_checker", None) is not None:
+                self._update_checker.shutdown()
+                self._update_checker = None
+            # Shut down calendar background workers and services (#483).
+            if getattr(self, "calendar_view", None) is not None and hasattr(self.calendar_view, "shutdown"):
+                self.calendar_view.shutdown()
             # Close any open/pending 3D viewer so the app can actually quit —
             # a visible parentless top-level Qt3DWindow keeps the process alive
             # under Qt's default quitOnLastWindowClosed. Hide (not delete): the
@@ -6299,6 +6369,11 @@ class GardenPlannerApp(QMainWindow):
                     _w.hide()
             self._view3d_window = None
             self._view3d_window_retiring = None
+            # The 3D workspace (L1.3): stop its pipeline and close its engine
+            # host while this window still exists — and clear a pending start
+            # marker, because a clean close is not a crash (ADR-065).
+            if self._workspace is not None:
+                self._workspace.shutdown()
             # Persist window/splitter/panel state before tearing down.
             self._save_ui_state()
             # Stop auto-save timer
@@ -6510,6 +6585,12 @@ class GardenPlannerApp(QMainWindow):
         ``_on_sim_instant_changed`` every change."""
         self._sim_clock.set_datetime(dt)
 
+    def _on_june_reference(self) -> None:
+        """An explicit reference shortcut writes the one clock, preserving wall time."""
+        from datetime import date
+
+        self._sim_clock.set_date(date(self._sim_clock.plan_date.year, 6, 21))
+
     def _on_sim_date_changed(self, day: "datetime.date") -> None:
         """A new plan DATE — never a time-of-day change (the clock's L1.0 gate).
 
@@ -6555,6 +6636,11 @@ class GardenPlannerApp(QMainWindow):
         self._sun_toolbar.set_heatmap_active(
             success and self._sun_heatmap.heatmap_visible()
         )
+
+    def _reset_sun_document(self) -> None:
+        """Drop the old document's worker/overlay before items are removed (#428)."""
+        self._sun_heatmap.clear()
+        self._sun_toolbar.set_heatmap_active(False)
 
     def _on_sun_toolbar_visibility(self, visible: bool) -> None:
         """Sync menu action + controller when the toolbar's visibility changes
@@ -7309,6 +7395,8 @@ class GardenPlannerApp(QMainWindow):
             self.soil_overlay_toolbar.isVisible()
         )
         self.soil_overlay_toolbar.hide()
+        if self._workspace is not None:
+            self._workspace.set_chrome_visible(False)
 
         # Hide canvas overlays
         self.canvas_view.set_grid_visible(False)
@@ -7337,6 +7425,8 @@ class GardenPlannerApp(QMainWindow):
         self.sidebar.show()
         if (self._pre_preview_state or {}).get("soil_overlay_toolbar_visible"):
             self.soil_overlay_toolbar.show()
+        if self._workspace is not None:
+            self._workspace.set_chrome_visible(True)
 
         # Restore canvas overlays from saved state
         state = self._pre_preview_state or {}

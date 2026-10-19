@@ -64,6 +64,7 @@ class CanvasScene(QGraphicsScene):
     # Signals
     layers_changed = pyqtSignal()
     document_replaced = pyqtSignal()
+    diagnostics_changed = pyqtSignal()
     active_layer_changed = pyqtSignal(object)  # Layer or None
     layer_auto_unhidden = pyqtSignal(UUID)  # emitted when a draw auto-reveals a hidden layer
 
@@ -1118,7 +1119,7 @@ class CanvasScene(QGraphicsScene):
         """
         self.clear_compare_overlay()
 
-        from open_garden_planner.core.object_types import ObjectType
+        from open_garden_planner.core.object_types import ObjectType, get_translated_display_name
         from open_garden_planner.core.plant_renderer import is_plant_type
 
         for obj in objects:
@@ -1158,7 +1159,7 @@ class CanvasScene(QGraphicsScene):
             # ItemIgnoresTransformations keeps the text right-side-up despite the
             # canvas Y-flip. Position at (cx, cy + r) — above the circle visually
             # because higher scene Y = visually higher in the flipped canvas.
-            name = obj.get("name") or (obj_type.name.title() if obj_type else "")
+            name = obj.get("name") or (get_translated_display_name(obj_type) if obj_type else "")
             if name:
                 label = QGraphicsSimpleTextItem(name)
                 label.setPos(cx, cy + r)
@@ -1205,6 +1206,7 @@ class CanvasScene(QGraphicsScene):
     def reset_document_diagnostics(self) -> None:
         """Drop document-owned caches at clear and successful load commit."""
         self._guild_diagnostics: list[dict[str, Any]] = []
+        self._sun_diagnostics: list[dict[str, Any]] = []
         self._document_generation = getattr(self, "_document_generation", 0) + 1
         self.document_replaced.emit()
 

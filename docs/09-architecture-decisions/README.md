@@ -26,6 +26,29 @@ Architecture Decision Records (ADRs) for significant technical choices.
 **Rationale**: Human-readable, VCS-friendly, no external database needed. Embedded images ensure portability.
 **Consequences**: Large file sizes with embedded images. No binary efficiency. Version migration requires JSON schema evolution.
 
+### Addendum — strict numeric boundaries and atomic persistence (A1, #453, 2026-10-13)
+
+`core/plan_io.py` is the Qt-free `.ogp` read/write boundary. Normal open/save,
+autosave and season reads/writes use it. JSON constants, exponent/conversion
+overflow and non-finite nested values are refused before scene preparation.
+During detached preparation, `ProjectManager` checks Qt's computed local and mapped
+bounds, transform coefficients, every child and aggregate group before active-scene
+mutation. This catches overflow from finite rotation, translation and image calibration
+without duplicating Qt's geometry arithmetic. Decoded image dimensions are checked
+before applying calibration. Opaque metadata strings remain text. The existing agent
+canvas range (50–100000 cm) now has
+one validator shared with the file boundary. Unknown items, finite off-canvas
+geometry and ordinary legacy defaults retain their existing handling.
+
+Encode with `allow_nan=False` before opening a destination, then write a sibling
+temporary file, flush/fsync and atomically replace. Invalid data or an unsuccessful
+replacement cannot truncate the previous file. Journal-pin reconciliation is made
+in a detached candidate and applied to project metadata only after a successful
+save. Rejected Phase 1 loads preserve filename, dirty state, history and recovery;
+unexpected failures after scene mutation retain the existing protective reset.
+The format remains 1.4. This is input/persistence hardening, not a geometry clamp
+or a claim that finite hostile outlines have bounded rendering costs.
+
 ## ADR-004: Command Pattern for Undo/Redo
 
 **Status**: Accepted
@@ -66,6 +89,32 @@ Architecture Decision Records (ADRs) for significant technical choices.
 **Rationale**: Native Qt integration, industry standard for Qt apps, supports plurals and context, good tooling.
 **Consequences**: All strings must be wrapped in tr(). Requires pylupdate6/lrelease build steps. Translation memory maintained in .ts XML files.
 
+### Addendum - source-derived completeness for every registered locale (#496)
+
+**Decision:** Keep Qt Linguist and the existing pure-Python singular compiler. Fresh
+locked PyQt6 extraction plus bounded source AST declarations define required keys;
+translation tables/catalogs cannot define their own required coverage. Source and
+locale additions are symmetric: each registered target locale must complete every key.
+The English template contains identities; retired records remain translation memory.
+
+`i18n_catalog.py` shares strict state/key/format rules between checker and compiler.
+Compilation rejects blanks and nonempty unfinished targets rather than substituting
+English. The read-only gate compares compiled bytes and real Qt lookups. Active
+numerus/variant entries fail explicitly until the compiler has tested plural support;
+no second Qt binding or unpinned system lrelease dependency is introduced.
+
+**Alternatives rejected:** catalog/word counts, German as source authority, trusting
+the old English template, a union of all historical catalog keys, per-locale coverage
+allowances, and an advisory CI job. All can hide omissions. `i18n_bindings.json` selects
+actual finite source symbols/data fields and binds exact dynamic consumers; unresolved
+or stale bindings fail rather than silently excluding a file.
+
+**Consequences:** every new wrapped UI key needs all supported target translations in
+the same PR. Existing English/German catalogs were reconciled without grandfathered
+gaps. Developer diagnostics remain English; linguistic quality, visual fit and truly
+unwrapped text still require review. The existing required Test check owns enforcement.
+Pinned by the translation gate unit/integration tests and registry-driven menu tests.
+
 ## ADR-009: NSIS Windows Installer
 
 **Status**: Accepted (Phase 6)
@@ -100,6 +149,21 @@ Architecture Decision Records (ADRs) for significant technical choices.
 - *scipy.optimize* — adds ~40 MB to the installer for a problem numpy solves in <20 variables.
 - *Analytic Jacobian* — a nice-to-have optimization, but numerical central differences cost microseconds; deferred as TD-008.
 **Consequences**: Robust behaviour for user-built CAD sketches (matches SolveSpace/Onshape expectations). +1 runtime dependency (numpy). Jacobian is numerical, not analytic — mild perf ceiling, no correctness impact. See §8.12 for the full solver architecture.
+
+**Addendum (Audit A5, #457, 2026-10-13).** Shared presentation is an immutable,
+enum-keyed registry in `ui/constraint_presentation.py`: icon, RGB color, translated
+detail/tooltip/row templates and target display conversion. Panel rows consume it;
+the established `ConstraintListItem` translation context is preserved. Geometry,
+residuals and satisfaction evaluation remain separate. Injecting UI callbacks into
+the solver or rewriting its per-type mathematics was rejected: presentation
+exhaustiveness does not establish geometric equivalence. No dependency or file-format
+change. Enum, independent rendering, runtime German and panel/history tests pin the
+extraction. Numerical oracles assert physical residuals, feasibility, pinned state
+and exact conflict IDs, rather than an arbitrary iteration count. A no-variable
+Newton call must evaluate residuals before reporting convergence; incompatible
+pinned anchors are not a solved system. The fresh eight-mutant sample and its test
+selection are recorded in `audit-2026-10-a5-evidence.md`; historical mutmut counts
+are not a current full-suite measurement.
 
 ## ADR-014: Bundled `plant_species.json` is single source of truth for species + calendar
 
@@ -1231,6 +1295,23 @@ The independent review caught four P1s, all fixed before the PR: **(1)** the urg
 
 **Consequences.** `tests/conftest.py` has one isolation fixture instead of two, and it yields the displaced production `(organization, application)` pair so tests can assert that pair is never touched without hardcoding it. `tests/integration/test_settings_isolation.py` builds the whole app and spies on Python-level `QSettings.value`/`setValue`: pre-fix it records 3 reads + 3 writes against the real store (verified by reverting the chokepoint), post-fix zero, with anti-vacuity assertions that the spy and the app both did something. Independently confirmed by hashing the real registry key's 29 values around a 47-test full-app file: byte-identical. Two clean-ups fell out of having one ownership story: `main.py` now takes the `QApplication` organization/application names from `settings` instead of repeating the literals, and `AppSettings`' duplicate, never-called `window_geometry`/`window_state` pair (keys `window/geometry`, `window/state`) is deleted — window geometry belongs to `UiStateStore` alone. **Note what the first clean-up widened:** those two constants were the settings-store identity; they are now also the `QApplication` names, which is what `QStandardPaths.AppDataLocation` derives from — i.e. where `main._write_crash_log` puts `crash.log`. The literals are unchanged so nothing moves today, but a future fixture that rebinds them in a scope where something calls `setOrganizationName()` would move the user-data directory with them. One more thing "one chokepoint" does *not* mean: one object. `AppSettings` and `UiStateStore` hold independent `QSettings` instances on the same key, with independent caches and no explicit `sync()` discipline between them — unchanged from before #285, and fine because their key groups are disjoint, but the phrase is about construction, not coherence. Adding a new persisted setting needs no new store — add a key to `AppSettings`; adding a genuinely separate store means calling `create_qsettings()` *at runtime*, and the gates will say so if you forget either part.
 
+### Addendum — Linux settings protection (A1, #453, 2026-10-13)
+
+The owner chose fail-closed startup over temporary settings. The existing factory
+secures its actual Linux user file to mode 0600 before returning a backend. New
+application directories use mode 0700; existing shared ancestors are unchanged.
+The descriptor must identify a regular file owned by the current user. A legitimate
+symlink is supported through its validated target. Existing preferences and plaintext
+credentials retain their keys; Windows registry and macOS behavior are unchanged.
+No keyring dependency or encryption is introduced.
+
+The baseline was reproduced in isolated Python 3.11 / Qt 6.11: native QSettings
+creates mode 0644 under umask 022. Tests run fresh subprocesses under umasks 022
+and 000, exercise an existing 0644 store, repeated atomic sync, safe symlinks,
+special files and simulated chmod failure. The factory does not alter global
+umask, QSettings format or path statics. A protection failure produces a sanitized,
+translated startup error using the system locale and exits before the main window.
+
 ## ADR-042: Visual Refresh Package 3 — Generated Object Sprites, Forge Textures, Comprehensive Iconography
 
 **Status**: Accepted (2026-08-17 Package 3a; 2026-08-18 Packages 3b and 3c) | **Context**: epic #284 (Phase 15 Package 3), decisions locked in the 2026-08-17 planning session and logged on the issue; sub-issues #308 (3a), #309 (3b), #310 (3c)
@@ -1251,11 +1332,11 @@ The independent review caught four P1s, all fixed before the PR: **(1)** the urg
 
 ### 3b — Textures (#309)
 
-**Decision — one forge, a torus painter, a pixel gate.** All 24 fill-pattern textures are emitted by `scripts/generate_asset_forge_textures.py`; the Qt-painted `scripts/generate_textures.py` (2026-03; it produced 22 textures, 21 of which were still shipped as painted when 3b started — the hedge had been re-forged in #281 — with seams in `glass`/`flagstone`) is deleted and gated deleted. The forge is no longer "Pillow drawing + Pillow blur": it is a **numpy float64 painter on a torus** — every primitive computes analytic anti-aliased coverage on a window indexed modulo the tile, noise is a periodic lattice, Voronoi uses the torus metric, the blur is an in-repo separable Gaussian on `np.roll` — so seamlessness is by construction and nothing in the pipeline depends on a rasterizer or filter implementation (§8.24). Style is the owner's "Lush everywhere" brief: visible material detail, radial rim → crown shading per element, concentric occlusion halos, mottled grounds, in a contrast band where the 80/255 runtime tint still recolours instead of flattening. Seeds are `random.Random("ogp-<name>-lush")` (stream-stable across CPython versions); the pilots' and hedge's seeds/looks were kept, their pixels re-rendered.
+**Decision — one forge, a torus painter, a pixel gate.** All 24 fill-pattern textures are emitted by `scripts/generate_asset_forge_textures.py`; the Qt-painted `scripts/generate_textures.py` (2026-03; it produced 22 textures, 21 of which were still shipped as painted when 3b started — the hedge had been re-forged in #281 — with seams in `glass`/`flagstone`) is deleted and gated deleted. The forge is no longer "Pillow drawing + Pillow blur": it is a **numpy float64 painter on a torus** — every primitive computes analytic anti-aliased coverage on a window indexed modulo the tile, noise is a periodic lattice, Voronoi uses the torus metric, the blur is an in-repo separable Gaussian on `np.roll` — so seamlessness is by construction and nothing in the pipeline depends on a rasterizer or filter implementation (§8.24). Style is the owner's "Lush everywhere" brief: visible material detail, radial rim → crown shading per element, concentric occlusion halos, mottled grounds, in a contrast band where the runtime recolour still shows the chosen colour instead of flattening. Seeds are `random.Random("ogp-<name>-lush")` (stream-stable across CPython versions); the pilots' and hedge's seeds/looks were kept, their pixels re-rendered.
 
 **The determinism contract is pixel-exact, deliberately not byte-exact.** The plan said "true byte gate"; implementing it surfaced that PNG bytes are a property of the zlib build Pillow bundles (zlib vs zlib-ng, per platform/version), not of the art — a Windows wheel and the Linux CI wheel can encode identical pixels to different bytes, and a byte gate would either flap or force a Pillow pin. `--check` therefore decodes the committed PNG and compares arrays; regeneration rewrites only files whose pixels changed (no cross-platform git churn). PNG is lossless, so this is the strongest honest contract; `tests/unit/test_texture_forge_conformance.py` pins it per file and proves the gate has teeth (a one-pixel edit is STALE). The residual dependency is numpy elementwise float64 arithmetic (IEEE-exact for the ops used; transcendental ulp differences are ~1e-16 relative and vanish under `rint` — and instead of quoting the measured margin in prose, `TestRoundingTieMargin` gates it: the closest pre-`rint` value to a .5 tie across all 24 textures must exceed 1e-10, i.e. orders of magnitude above ulp noise; the shipped set sits around 1e-8); CI on `ubuntu-latest` (Python 3.11, its own numpy/Pillow wheels) ran the same pixel gate on the first push of this branch and passed for all 24 textures — GitHub Actions run 32093081715, 2026-08-18 — so the Windows-vs-Linux disagreement the byte gate would have produced does not occur at pixel level; `--check` reports differing-pixel count and max channel delta so a cross-platform disagreement, if one ever appears, is a five-second diagnosis rather than a suspected art regression.
 
-**Gates.** Conformance (registry ↔ `_TEXTURE_FILES` ↔ files, 256² RGB, pixel determinism, tint band: mean 40–225 / std ≥ 4 / local detail ≥ 2, gate teeth, no-churn regeneration, legacy generator absent); tileability for ALL 24 at the unchanged 1.6 threshold (the `KNOWN_SEAMED_LEGACY` grandfather list was emptied and then deleted — the parametrized gate over every file is the contract; the recalibration rule "design seams below 1.6, recalibrate only with a written rationale" held — shipped maximum quoted from the checker in `scripts/check_texture_tileability.py`'s calibration note; structured layouts either straddle the wrap symmetrically (exactly, since the painter — windows, analytic fields, noise and Voronoi alike — samples at pixel centres) or lie clear of it, §8.24); §8.10 integration (`tests/integration/test_texture_forge_rendering.py`: every pattern paints with detail through panel → brush → item → flipped `scene.render`; the wrap column and wrap row of the item's real tinted brush sit inside the fill's own edge family, with a positive control; red vs blue fill colours move the hue without flattening; thumbnails; greenhouse tool draws GLASS seamlessly); the `.ogp` round-trip test now covers every pattern.
+**Gates.** Conformance (registry ↔ `_TEXTURE_FILES` ↔ files, 256² RGB, pixel determinism, tint band: mean 40–225 / std ≥ 4 / local detail ≥ 2, gate teeth, no-churn regeneration, legacy generator absent); tileability for ALL 24 at the unchanged 1.6 threshold (the `KNOWN_SEAMED_LEGACY` grandfather list was emptied and then deleted — the parametrized gate over every file is the contract; the recalibration rule "design seams below 1.6, recalibrate only with a written rationale" held — shipped maximum quoted from the checker in `scripts/check_texture_tileability.py`'s calibration note; structured layouts either straddle the wrap symmetrically (exactly, since the painter — windows, analytic fields, noise and Voronoi alike — samples at pixel centres) or lie clear of it, §8.24); §8.10 integration (`tests/integration/test_texture_forge_rendering.py`: every pattern paints with detail through panel → brush → item → flipped `scene.render`; the wrap column and wrap row of the item's real recoloured brush sit inside the fill's own edge family, with a positive control; red, blue **and a pale** fill colour move the hue without flattening; thumbnails; greenhouse tool draws GLASS seamlessly); the `.ogp` round-trip test now covers every pattern.
 
 **Alternatives rejected.** *Keep Pillow `ImageDraw` + `GaussianBlur` and pin Pillow* (rasterizer/filter changes across releases would still break the gate; a pin is a maintenance tax on a runtime dependency). *Supersampled Pillow drawing + numpy blur only* (the plan's minimum; rejected once the numpy painter proved both simpler and better — smooth radial shading and AA come for free). *Byte-exact gate* (see above). *Regenerate only the two seamed textures* (the owner chose Lush everywhere; a two-generator set would have carried two contracts).
 
@@ -1326,6 +1407,62 @@ The independent review caught four P1s, all fixed before the PR: **(1)** the urg
 **Rejected placement**: running `Attest build provenance` *before* `Create GitHub Release` (the original draft). Rejected in review: it put a never-yet-executed step, pinned to a since-discovered-stale action major, directly in the critical path ahead of the release — any Sigstore/Fulcio hiccup or transient attestations-API error would have failed the whole release, not just the provenance record. Attestation is keyed to the artifact's digest, not to the release, so ordering after release creation is free and strictly safer.
 
 **Addendum (#358, 2026-09-22)**: Norton 360 flagged the v1.27.9 installer as `FileRepMalware[Misc]` — a second AV vendor hitting the same unsigned, zero-reputation PyInstaller profile this ADR already scoped (the only source changes between the clean-scanning v1.27.8 and v1.27.9 were the attestation workflow and the version bump, so the detection tracks a fresh hash, not new application behavior). This confirms the ADR's stated boundary: provenance attestation answers "was this built from the public source?" but deliberately does not answer "does the vendor's reputation engine trust it?" — releases remain unsigned (§11.1/§11.2). **Correction (#376, 2026-10-11):** the earlier claim that a paid certificate was the only fix is withdrawn. Signing options, including no-cost proposals raised after this decision, are being evaluated in [#375](https://github.com/cofade/open-garden-planner/issues/375); none has been adopted, and effectiveness against Defender ML and Norton FileRep remains unproven for this project. Operational path: false-positive submissions per vendor (Microsoft forms for #356, Norton portal `submissions.norton.com/reportfalsepositive` for #358). Both submission portals are CAPTCHA-protected (Norton: math challenge + reCAPTCHA; Symantec SymSubmit: reCAPTCHA v3), so these are human submissions — the maintainer cannot automate them, and neither can a script-kitted "auto-file our FPs" step be added to `release.yml` without bypassing anti-bot measures, which is out of scope. The reporter was additionally advised they can file from inside their own Norton quarantine UI, where their alert's Alert ID is available.
+
+### ADR-044 addendum: the SBOM and third-party notices join the attested subjects (A2 #454, 13 October 2026)
+
+**Status**: Accepted (2026-10-13).
+
+**Decision.** Every release now publishes two inventory artifacts and attests them:
+
+- `ogp-sbom.cdx.json` — a CycloneDX 1.5 SBOM listing every third-party Python
+  distribution bundled into the build (name, version, `pkg:pypi/…` purl, license), and
+- `THIRD_PARTY_NOTICES.md` — the same inventory as a human-readable notices file, also
+  installed next to the GPLv3 `LICENSE` so the obligation survives installation.
+
+Both are generated by `scripts/generate_distribution_inventory.py` **from the frozen
+bundle's own `.dist-info` metadata** (the spec bundles the required runtime closure via
+`installer/runtime_closure.py` and actual collected owners via `installer/frozen_inventory.py`),
+never from a developer's environment or a historical
+count. The generator fails closed: a bundled distribution with no discoverable license
+fails the build rather than printing "UNKNOWN", and `--check` verifies the SBOM against the
+bundle and each version against `pylock.toml`. Licenses are emitted as an SPDX `id` where
+the metadata names one, an SPDX `expression` where it names a compound (`Apache-2.0 OR
+BSD-3-Clause`), and a `name` only when the metadata is prose. The one mapping is
+documented in `LICENSE_OVERRIDES`: the three Qt runtime wheels declare the prose "LGPL v3",
+whose SPDX identifier is `LGPL-3.0-only`. Both files are added to the
+`actions/attest-build-provenance` `subject-path` list, so provenance covers the inventory
+the release publishes.
+
+**What this does and does not prove.** A checksum proves *integrity*, an attestation proves
+*source provenance*, and an SBOM declares *composition*; none of the three Authenticode-
+signs the binary, and none suppresses SmartScreen/Defender/Norton detections (#356, #358,
+[#375](https://github.com/cofade/open-garden-planner/issues/375)). The SBOM must not be
+presented as a security guarantee; it is a machine-readable statement of what is inside.
+
+**Consequences.** The frozen bundle grows by the bundled metadata — a dated measurement
+(Windows, 2026-10-13) of 2.0 MiB of `*.dist-info` in a 610 MiB bundle (0.32 %), with the
+LZMA installer at 169.4 MB — not a fixed property; re-measure on a release build. The
+installer now also installs `LICENSE` itself, so "notices next to LICENSE" is true on disk
+rather than only in the wizard. A new runtime dependency automatically appears in both
+artifacts through the shared resolver, and `tests/unit/test_distribution_inventory.py`
+pins the fail-closed behaviour and the drift between bundle, SBOM and lock.
+
+**Review addendum (PR #490, 14 October 2026).** Requires-Dist is a minimum, not a
+complete frozen inventory: PyInstaller also collected build/dev packages and setuptools'
+vendored libraries. The original 47-component artifact omitted that code while its own
+check passed. The spec now attributes actual Analysis pure modules, binaries, data and
+runtime scripts through physical wheel RECORD paths. Nested vendored RECORDs take
+precedence over their containing wheel. The bundle carries those exact metadata/license
+files and `ogp-collected-distributions.json`, recording module/file ownership. Verification
+reads the executable's PYZ independently and reconciles module names, owner identities and
+collected file presence with the manifest and SBOM. Installed and vendored versions remain
+distinct; a vendored version is verified through its containing wheel's locked version,
+without a package-name exemption. Declared `License-File` entries must exist and their texts
+must appear in the notices, including unusual filenames. The artifact-level regression
+`test_frozen_hook_dependencies_are_in_the_inventory` was observed failing on the old build.
+Synthetic metadata-only pipeline tests prove orchestration; they cannot establish frozen
+code coverage. Collector tests pin nested ownership, both versions and refusal of unowned
+wheel files. No runtime dependency, release permission or plan-format change.
 
 ### ADR-034 addendum: succession domain schema, determinism, and a SHARED season-segment fallback (US-D3.2, #331)
 
@@ -1401,6 +1538,28 @@ The issue listed three options. **Option 1 is taken**: the panel reads the plan 
 
 **Consequences.** FR and §8 docs updated; the ADR-036 US-D3.2 addendum's `suggest_succession` exclusions are now explainable from the GUI, which satisfies the stronger branch of the issue's acceptance criteria. No `FILE_VERSION` change.
 
+
+### Addendum — in-app release checksum verification (A1, #453, 2026-10-13)
+
+An immutable release descriptor carries the exact tag, expected installer basename,
+asset size and `SHA256SUMS.txt` URL through the checker, application and update bar.
+Missing, duplicate, wrong-release or unsafe assets disable in-app installation while
+preserving the manual release link. Downloads begin on the exact repository/tag
+GitHub HTTPS path; every redirect and final response must remain on an exact HTTPS
+GitHub asset host (`github.com`, `release-assets.githubusercontent.com` or
+`objects.githubusercontent.com`), with at most five hops.
+
+The manifest is bounded to 64 KiB and must contain exactly one valid matching
+SHA-256 basename. Installer bytes are streamed in 64 KiB chunks, bounded by and
+matched to the release asset size, hashed and finalized only after verification.
+Cancellation/failure produces no launch and removes partial files. A typed verified
+result is rechecked immediately before process launch. Signed query strings and
+raw network exceptions never enter user-facing failures.
+
+This validates integrity against the release manifest over permitted HTTPS origins.
+It does not independently verify build provenance, add Authenticode signing, change
+the release workflow or establish any effect on antivirus reputation. Attestation
+verification and signing evaluation remain their existing separate processes.
 
 ## ADR-045: Compatible-set search — maximal cliques, ranked by bed coverage (issue #319, US-D3.1)
 
@@ -2469,6 +2628,168 @@ display at a scale other than 100 % (the code and the tests carry the device pix
 machine did not have one); a failed device creation on OpenGL or Vulkan (only Direct3D 11's
 was forced); the memory curve of criterion 10, which stays with L1.3.
 
+### Addendum L1.3 — criterion 2's deferred half and criterion 10's leak half, in the production view (2026-10-12, #385 story L1.3)
+
+Two things this decision left to the workspace story (criterion 2's coexistence with Qt
+WebEngine in the product, and "criterion 10's leak half is open on D3D11" in entry 10 of the
+evidence log above; ADR-065 is the workspace's own record). Both are answered in the REAL app — its own `main()` with
+`OGP_QUICK3D=1`, in a child process on a settings store that is never the developer's
+(`tests/integration/workspace_gate_hook.py`) — on the dev box: Windows 11, Direct3D 11, RTX 4070,
+Qt 6.11. The bounds are asserted in `tests/integration/test_view3d_workspace_render.py`.
+
+**Criterion 2 — Qt WebEngine beside the production host.** A `QWebEngineView` on a page of one
+colour loads and paints (the colour read back from its centre) BEFORE the 3D host was created
+and AFTER, in the same session, with the 3D view drawing its garden beside it (131 and 138
+distinct colours in a 2334 × 1203 frame, two runs); zero Qt warnings. The automated check uses the map picker's
+ENGINE on a local page — the picker's own page needs the network and a key — so the picker
+itself stays on the owner's manual checklist. The main window is still a raster window with the
+3D pane embedded (`surfaceType() == RasterSurface`), and a 2D pan step costs 1.04 times what it
+costs without the 3D view (six alternating rounds of 60 steps along one path at the same canvas
+size; bound 1.3).
+
+**Criterion 10, the leak half — located, and closed by a release.** The pre-registered gate
+(private bytes, Theil–Sen over reloads 11–20 of 20, below 10 MB per reload, with its positive
+control on the same machine) read **34.6 MB per reload** in the production host on the small
+bench plan (98 parts) when every reload rebuilt the engine scene, 0.2 when it rebuilt nothing,
+58.8 for the control (the display was asleep: every frame of those runs was a readback). So
+the growth this log could not explain (entry 10: 1.5 to 9.0 MB per reload on WARP, +62 to +222
+MB by reload 50) is real, grows with what is REBUILT, and is larger on a hardware adapter with
+the production scene's shadow passes. Where it is:
+
+- **Not in Python.** `tracemalloc` between reloads 5 and 15 of the same soak: 0.045 MB per reload.
+  No geometry wrapper survives its Model (a weak set of every `BufferGeometry`: 0 alive).
+- **Not in dedicated GPU memory.** `IDXGIAdapter3::QueryVideoMemoryInfo` (node 0, the local
+  segment group, called through `ctypes` — `CurrentUsage` is the figure for the calling process):
+  298.1 MB before, 305.6 MB after the first reload, the same after the twentieth.
+- **Two retentions inside Qt Quick 3D, separated with a bare host** (100 Models of 3,000
+  vertices — 14.9 MB of buffers — created, drawn and destroyed per round, 20 rounds):
+
+  | What the round does | MB per round |
+  |---|---|
+  | builds the buffers and drops them (no Qt object) | −0.13 |
+  | builds the geometries and drops them (no Model) | 0.00 |
+  | Models created and destroyed, never drawn (hidden host, or shown and not read back) | 0.8 – 1.0 |
+  | drawn through readbacks only (`grabWindow()`), no sun | 22.0 – 22.5 |
+  | drawn in PRESENTED frames (no readback), no sun | 6.3 – 7.7 |
+  | presented, sun up — 300 / 3,000 / 12,000 vertices per Model | 18.2 / 18 – 20 / 22 – 25 |
+  | presented, sun up, the Models cast no shadow | 6.2 |
+  | presented, sun up, `QQuickWindow.releaseResources()` once per round | 2.4 – 3.9 (20 rounds), 0.85 – 1.14 (60 rounds) |
+
+  1. **What a frame holds for destroyed Models comes back at the end of a PRESENTED frame —
+     and a readback is a frame that is never presented.** `grabWindow()` renders a frame of
+     its own and reads it back: it emitted `afterFrameEnd` 0 times in 40 grabs, 40 presented
+     frames emitted it 40 times. On Windows update requests come from a display-vblank
+     thread, and with the display asleep a visible window presents its first frame and no
+     more (the addendum "L1.2" above) — so every soak run with the display asleep, whose
+     every frame was a readback, kept everything it drew. Qt's own
+     `QT_D3D_NO_VBLANK_THREAD=1` paces update requests by timer; the soak runs with it.
+     *This entry was written twice before it was right.* First: "a measuring fact, not a
+     product leak". Then — after the ground story read +16 MB per re-bake in a view that did
+     not present — "a view that presents nothing keeps every byte uploaded to it", and a
+     pacing rule was built on that sentence. Both soaks READ BACK once per cycle. With the
+     readback out of the loop a view that presents nothing is drawn by nobody: nothing is
+     uploaded (dedicated GPU memory does not move) and what grows is the 1.5 MB per rebuild
+     that replacing 98 QML Models costs anyway (the tables below). The growth was per frame
+     rendered by a readback and never presented — not per upload, not per edit. The rule
+     that follows is about the readback, not about the pipeline (ADR-065 decision 17), and
+     the pacing was taken out again.
+  2. **Per Model that was ever drawn, Qt keeps cached draw-call state after the Model is
+     destroyed** — about 62 kB without shadow passes, about 190 kB with the sun's two cascades,
+     independent of the vertex count (the 300-vertex row), 0.16 to 0.2 MB per Model in the
+     production host. `QQuickWindow.releaseResources()` gives it back — on a visible window Qt
+     keeps the scene graph and drops what it caches. Nothing else does: more frames, the QML
+     engine's garbage collection, `clear()` instead of single destroys, an embedded instead of
+     a top-level window and the material kind made no difference. No readback is involved
+     in this one: the bare host's "presented" rows took none (and read the same with two
+     readbacks per round: 6.4 and 18.7 against 6.4 and 18.0).
+
+**The fix** (ADR-065 decisions 15 and 17): `Quick3DHost.release_cached_resources()` — the
+pipeline counts the items whose Models each pass destroyed, and the workspace releases when 64
+piled up and the pipeline has been quiet for half a second, or at once at 512; one release
+costs 2 to 10 ms on the GUI thread — and nothing in the product takes a frame from the live
+view.
+
+**The gate, through the product's own path.** No readback inside the measured loop: ONE frame
+before it and ONE after it, equal in every run below. Each rebuild is followed by the
+workspace's own release, as a user who opened a plan gives it the time. Private bytes,
+Theil–Sen over rebuilds 11–20 of 20; the small bench plan (98 parts); RTX 4070; 2026-10-12.
+"Frames withheld" is the engine story's no-paint device for the length of the loop — an event
+filter that eats the view's expose, update-request and paint events: shown, exposed, on the
+screen, 0 frames presented.
+
+| The view | Variant | MB per rebuild | growth over 20 | releases |
+|---|---|---|---|---|
+| presenting | rebuild on | **2.00** | +125 MB | 20 |
+| frames withheld | rebuild on | **1.48** | +34 MB | 20 |
+| presenting | rebuild off | 0.01 | +1.4 MB | 0 |
+| presenting | positive control (rebuild on, 25 MB kept per rebuild) | 27.3 — fails, as it must | +603 MB | 20 |
+| presenting | rebuild on, the workspace's release out of reach | 19.3 | +391 MB | 0 |
+| frames withheld | rebuild on, the release out of reach | 1.54 | +27 MB | 0 |
+| presenting | rebuild on, the release INSIDE every pass (the "at once" rule, threshold 1) | 1.82 | +42 MB | 20 |
+
+The curve with the release, presenting, in MB: 1374, 1436, 1472, 1472, 1468, 1449, 1452, 1462,
+1464, 1466, 1468, 1469, 1470, 1472, 1489, 1476, 1511, 1497, 1478, 1499 — a rise of about 100
+MB over the first three rebuilds, then about 2 MB per rebuild with a scatter of ±15. Dedicated
+GPU memory rises with it over the first releases (289 → 346 → 362 → 378 MB) and stays there
+(slope 0.0); without the release it never leaves 289. So with the release the driver keeps a
+larger pool, once: about +90 MB dedicated and +100 MB committed. Not explained further, and
+not growing. With frames withheld dedicated GPU memory does not move during the loop at all
+(282.5 MB, twenty readings: nothing is drawn), and the same single step comes with the first
+frame after the dark spell (committed 1382 → 1498 MB).
+
+**What a readback per rebuild adds** — the way this soak measured until the independent review
+of the ground story took the readback out of its own loop; reported, never judged:
+
+| The view | with the release | without it |
+|---|---|---|
+| presenting | 3.85 (the first runs of this addendum, with up to two readbacks per rebuild: 4.90 and 3.88) | 16.4 (those runs: 29.0, 27.9, 38.5) |
+| frames withheld | **8.48** (+266 MB; about 94 MB of it came back with the first presented frame) | **26.0** (+526 MB) |
+
+In a presenting view the readback's frame is given back with the next presented frame, and
+the numbers stay in the spread of the ones without it. In a view that presents nothing they
+do not come back: that is the whole of what the withdrawn pacing rule was aimed at.
+
+**The same soak elsewhere** (no readback in the loop; one run each, the same day):
+
+| Where | with the release | without it |
+|---|---|---|
+| the large bench plan (421 parts), RTX 4070, presenting | **6.38** MB per rebuild (+164 MB), 20 releases; dedicated GPU memory 346 → 378 MB in the first five rebuilds, slope 0.0 after | 65.5 MB per rebuild (+1,111 MB over 20) |
+| the small bench plan on WARP ("Microsoft Basic Render Driver", the whole process), presenting | **3.32** MB per rebuild (+139 MB) | 20.1 MB per rebuild (+396 MB) |
+| the same on WARP, frames withheld | 1.23 MB per rebuild (−1 MB over 20) | — |
+| the same on WARP, frames withheld AND a readback per rebuild | 6.20 MB per rebuild (+250 MB) | — |
+
+So the retention is Qt's own and not the hardware driver's: WARP keeps the same 20 MB per
+rebuild, and a readback into a view that presents nothing costs there too.
+
+**Longer.** 60 rebuilds through the same path, presenting: **1.78 MB per rebuild over rebuilds
+31–60** (2.07 over all 60; +203 MB, of which the first rebuild's step, 1372 → 1445 MB, is 73).
+60 releases, the frame after the loop equal to the frame before it, dedicated GPU memory
+between 362 and 378 MB throughout (slope 0.0 over the second half).
+
+**What remains, and where its floor is.** After the release about **2 MB per rebuild of 98
+Models** stays (6.4 per rebuild of 421) — 15 to 20 kB per destroyed Model, linear over 60
+rebuilds, not converging. It is not the cached draw-call state (that is what the release
+removes: 19 → 2) and not the mesh, **and it is not graphics state at all: the same rebuilds
+in a view that draws nothing leave 1.5 MB each** (1.2 on WARP). A floor of it is Qt's own,
+measured in bare Qt with no product code and nothing ever drawn: 100 objects created with
+`Component.createObject()` and destroyed with `destroy()` per round, 120 rounds, the QML
+engine's garbage collector called every round — **0.78 kB per `QtObject`, 1.4 per `Node`, 2.2
+per `Model`, 3.4 per `Model` with a `PrincipledMaterial`**, each a straight line. The engine
+package's own parts cost 6.6 to 7.8 kB each that way (never drawn), and 15 to 20 kB in the
+production host. Not located further. What it means: a plan change costs about 2 MB, an edit
+that replaces one Model about 20 kB — and anything that replaces MANY Models per tick (a date
+played back day by day regrows every dated plant) pays that per Model per tick, with or
+without the release. Two ways out, neither tried: keep the Model and give it a new geometry
+(the spike measured that a GEOMETRY does not survive its Model; the reverse was not measured),
+or scale a grown plant instead of rebuilding it.
+
+**What this closes and what it does not.** Criterion 10's leak half holds under its
+pre-registered gate, in the production view, presenting and with its frames withheld, on a
+hardware adapter and on WARP, over 20 and over 60 rebuilds, with its control firing and with
+dedicated GPU memory read for the first time. Open: the residual above; the one-time step of
+both memories with the first releases. Not measured: a frozen exe; a CI runner (the
+workspace's render tier is not part of CI's render job).
+
 ## ADR-049: Frost-Date Semantics - One Parser, 29 February Substituted as 1 March
 
 **Status**: Accepted (2026-10, #414 / #416, task-date correctness package)
@@ -2637,6 +2958,86 @@ universal re-resolve and failed on Linux; even uv lock --check did not prime tha
 The sync helper seeds only the editable-project version before native offline validation,
 with full third-party-record comparison. Its subprocess test passes with an empty UV_CACHE_DIR
 on Linux and Windows, preserving the supported-Python range and dependency selections.
+
+### ADR-050 addendum: per-file coverage enforcement (#406, 12 October 2026)
+
+**Decision.** Extend the shared audit coverage parser and the existing coverage-floor CLI.
+Add optional schema-1 `file_line_floors`, keyed by normalized paths relative to the production
+package. Enforce `core/tools/constraint_tool.py: 60` using exact covered-line counts; rounded
+percentages are presentation only. Preserve all package floors, CLI arguments and exit-code
+contracts. Report branch coverage separately with no invented branch floor. Missing required
+files, invalid floor paths/values, malformed or contradictory XML and unresolved layouts fail.
+Explicit Linux/Python 3.11 package rebaselining retains reviewed file floors.
+
+**Evidence.** Tests cover below/exact-floor boundaries, a rounded 60.0% that is below the exact
+floor, missing-file and malformed-report cases, Linux/Windows layouts and package compatibility.
+Registered tool workflows and graph/geometry/history assertions provide behavioral evidence;
+the coverage threshold is a regression floor, not a substitute for those assertions.
+
+### ADR-050 addendum: toolchain pins, the locked audit and the update path (A2 #454, 13 October 2026)
+
+**Status**: Accepted (2026-10-13). No lock replacement; no release-right change.
+
+**Decision.** Close the parts of the build that the Python lock cannot see, and give the
+dependency-update path a documented home:
+
+1. **Interpreter patch pinned** — `python-version: "3.11.9"` in `release.yml` and in the
+   shared `setup-locked-env` composite, so every CI job and the release use one patch. The
+   `requires-python = ">=3.11"` install contract is deliberately unchanged. **3.11.9 is
+   the newest 3.11 with a Windows x64 build** in `actions/python-versions`' manifest
+   (verified 2026-10-13): 3.11 entered security-only mode after it, and the later patches
+   ship Linux artifacts only, so pinning one of those broke the Windows matrix jobs in CI
+   run 38463742285 with "The version '3.11.17' with architecture 'x64' was not found for
+   Windows 2025". The drift test only requires a full `3.11.x`; changing the patch on
+   purpose means re-checking both platform builds.
+2. **Installer toolchain pinned** — `choco install nsis --version=3.13.0` (the newest
+   version in Chocolatey's community feed on 2026-10-13), replacing a floating install.
+3. **External actions pinned to commit SHAs** with a readable `# vX.Y.Z` comment, in
+   `ci.yml`, `release.yml` and the composite action. `scripts/check_action_pins.py` is the
+   drift guard (wired into the `agent-context` CI job) and covers the composite action too.
+4. **Build evidence** — `scripts/emit_build_evidence.py` records the actual Python, `uv`,
+   PyInstaller, `pyinstaller-hooks-contrib`, `setuptools`, `wheel` and NSIS versions plus
+   the commit and run id into `dist/build-evidence.json`, uploaded as a workflow artifact.
+   `--require-complete` makes the release fail rather than publish a build whose toolchain
+   it cannot state.
+5. **Lock-based vulnerability scan** — the `dependencies` CI job exports the committed lock
+   (`uv export --locked --all-extras --group build`) and runs `pip-audit` over it **on both
+   matrix operating systems**, because pip-audit evaluates requirement markers against the
+   running interpreter: the export is universal, so a Linux-only scan never sees the
+   Windows-only runtime dependency (`pywin32`, required by `mcp`). One exception is recorded
+   by ID: the `setuptools` advisory `PYSEC-2026-3447` (`GHSA-h35f-9h28-mq5c`), which only
+   affects publishing macOS source distributions — a thing this project does not do. Its fix
+   (83.0.0) stays reserved for a separately reviewed dependency PR (§11.2, AUD-054).
+6. **Update automation: verified unavailable, manual fallback adopted.** Dependabot's uv
+   ecosystem image ships uv **0.12.19** (`uv/Dockerfile` in dependabot-core, read
+   2026-10-13) while this project pins `uv ==0.12.23`; a `required-version` mismatch makes
+   the updater exit before doing any work, so no automated dependency PR can exist today.
+   `.github/workflows/dependency-review.yml` therefore runs monthly, computes what
+   `uv lock --upgrade` would change with `--dry-run` (measured: `uv.lock`'s hash is
+   unchanged; the workflow fails if the dry run ever writes it), and opens or refreshes
+   **one** issue with the report. It never pushes, commits, opens a PR or merges. The
+   runbook lives in `docs/07-deployment-view` §7.4, and the Qt four-pack / `mcp` v1 caps
+   are pinned by `tests/unit/test_dependency_governance.py`. Automation is to be revisited
+   when hosted uv reaches the pin.
+7. **One dependency source of truth.** `requirements.txt` / `requirements-dev.txt` were
+   deleted (AUD-052); they listed 2 of 15 runtime dependencies and still carried
+   `PyQt6>=6.6.0`, the exact spec behind #277. Installation is `uv sync --locked` from
+   `pyproject.toml` + `uv.lock` + `pylock.toml`, and a test keeps the files deleted and
+   unreferenced.
+
+**Evidence.** The pins were resolved from primary sources on 2026-10-13 (setup-python's
+versions manifest; Chocolatey's feed; dependabot-core's `uv/Dockerfile`). The scan was run
+against the shipped command's export: 93 requirement lines, one vulnerable package
+(setuptools, including code collected into the executable); the affected macOS sdist
+publishing operation is unused, and no unwaived finding remains. `tests/unit/test_build_toolchain_pins.py`,
+`tests/unit/test_action_pins.py`, `tests/unit/test_dependency_governance.py` and
+`tests/unit/test_no_stale_requirement_manifests.py` pin the behaviour, and the frozen
+build proves the pins produce a working artifact.
+
+**Consequences.** Bumping the interpreter patch or NSIS version is now a deliberate edit
+with a test-visible value, not an implicit drift. A new vulnerability fails the audit
+unless it is explicitly recorded with a justification. The parse of `pylock.toml` remains
+read-only; no file format, runtime behaviour or `.ogp` version changes.
 
 ## ADR-051: Repository-owned wiki sources and manual publication (issue #417)
 
@@ -2887,6 +3288,42 @@ It pins:
 - an unparented controller dies without a GC cycle.
 
 All three P1 tests (round 1's two, round 2's typing test) fail when their fix is reverted.
+
+### Addendum L1.3 — `connect_qobject`: the rule of decision 4 as a mechanism (2026-10-12, #385 story L1.3)
+
+Decision 4 ended with a rule: nothing disconnects a QObject receiver whose C++ side is destroyed
+while its Python wrapper lives, so every Qt subscriber disconnects in its own teardown. L1.3 adds
+more subscribers (the 3D pipeline's controller listens on both channels) and turns the rule into
+one helper, `ui/sim_clock_subscription.py`:
+
+```python
+connect_qobject(clock.date_changed, self._on_date_changed)      # a bound method of a QObject
+connect_qobject(clock.instant_changed, self._on_instant_changed)
+```
+
+- The channel calls a **guard**, not the slot. The guard asks `sip.isdeleted(receiver)` at every
+  delivery; a receiver Qt has destroyed is not called, and the guard takes itself off the channel.
+- The guard lives exactly as long as the receiver's Python wrapper (a weak-keyed registry), so
+  L1.0's two properties survive: a subscription never keeps its receiver alive, and a collected
+  receiver leaves the channel at once.
+- Only a bound method of a live QObject is taken (`TypeError` otherwise; `RuntimeError` for a
+  receiver that is already gone). `disconnect_qobject` takes a slot off by hand.
+- **Binding from now on:** no module of the product connects to `date_changed` or
+  `instant_changed` directly. An AST scan of `src/` enforces it
+  (`tests/unit/test_sim_clock_subscription.py::test_no_module_of_the_product_connects_to_a_clock_channel_directly`);
+  the main window's two subscriptions and the shadow overlay's were moved.
+
+**The alternative that was built first and crashed.** "Disconnect on `destroyed`", as decision 4
+suggests, was implemented as `receiver.destroyed.connect(<closure that disconnects>)`. The suite
+then died with an access violation in a test that has nothing to do with it
+(`test_sim_clock_wiring.py::TestHeatmapMidComputeDateChange`). Reproduced in bare PyQt: a Python
+callable connected to `destroyed` lives and dies with Python's idea of the wrapper. When the
+wrapper is garbage in a reference cycle while Qt still owns the C++ object (a `deleteLater()` is
+pending), the cyclic collector clears the callable and the connection stays behind — and then
+the signal is either never delivered (the hook ran 0 times) or delivered into what is left (the
+access violation). The helper therefore hangs nothing on `destroyed`; a test pins that
+(`::test_the_helper_hangs_nothing_on_the_destroyed_signal`). §11.4.33 has the reproduction.
+
 ## ADR-054: Recorded species traits and semantic food-forest layers (#312)
 
 **Status:** Accepted for Package F1, October 2026. Additive `.ogp` version 1.4.
@@ -2921,13 +3358,386 @@ One parented/debounced coordinator computes guild status and applies idempotent 
 
 **Evidence.** Guild workflow, layout/trust-boundary, copy/persistence, real MCP, golden eight-parent and rotated badge tests. Agronomic limitations and template authoring are documented in §8.26.
 
+## ADR-056: Runtime sun diagnostics and document-owned exposure (#314, #428)
+
+**Status:** Accepted; owner testing confirmed on 12 October 2026, shipped in [v1.30.1](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.1) via [PR #436](https://github.com/cofade/open-garden-planner/pull/436).
+
+**Context.** A raw ground heatmap sampled inside a solid receiving plant includes its own shadow: both reference tomatoes measured zero hours. The issue's literal centre lookup therefore cannot distinguish the shaded northern plant from the sunny southern plant. A second defect lets an old worker paint after New/Open because document replacement did not cancel the heatmap or invalidate queued success.
+
+**Decision.** Use the shared `SimClock.plan_date`, with an opt-in **21 June** shortcut retaining the current simulation year. Only the explicit Hours of Sun action computes. One worker accumulates the unchanged ground grid plus sparse receiver exposure at the corresponding cell centres, excluding only each receiver's identified caster. The established integer-grid sweeps, solar positions, date-projected growth and 15-minute sampling remain authoritative. Per-owner unions combine overlapping footprints before coverage counting; bbox pruning and vectorized even-odd point sampling avoid one full aggregation per plant.
+
+The Qt-free classification service derives nominal bands from the existing 2/4/6-hour boundaries. Warning limits are strictly `<5` for full sun, `<3` or `>7` for partial sun, `<1` or `>5` for partial shade, and `>3` for full shade. Exactly one hour outside a nominal boundary is tolerated. UNKNOWN never warns. Compare unrounded values; display one decimal. Every mismatch is warning severity.
+
+Results belong to a document generation and a snapshot of date, location, canvas bounds, identified caster footprints/effective heights and receiver identities/positions. Validate the snapshot before publishing; scene/command/location/date changes compare it in a 60-ms, idempotent coordinator. Requirement-only edits can reclassify valid cached hours. Geometry changes clear measurements and warnings while retaining the ordinary heatmap as an explicitly stale visual snapshot. Date changes and document replacement clear the overlay. Time-only changes preserve daily exposure. `CanvasScene.document_replaced` is the sole document reset seam, before C++ item teardown and after load prevalidation; rejected loads preserve the active result. A cancelled worker remains owned until queued `finished` cleanup; no second launch is accepted meanwhile.
+
+The shared Diagnostics coordinator publishes guild, sun and existing warnings together. Cached `sun_mismatch` records include hours, requirement, ISO date, direction, measurement method and receiver UUID. `sun_evaluation` information records expose unavailable known requirements. Group navigation addresses the enclosing object while retaining the physical receiver UUID. Reads remain unauthenticated, read-only and computation-free.
+
+**Canopy grouping.** One selected TREE groups other footprint centres inside or on its recorded mature `max_spread_cm / 2`, independent of guild, drawing layer and bed. Enum order, translated name and UUID define ordering; missing traits are Unspecified. Missing mature spread produces an unavailable hint, without a spacing override. This geometric membership does not establish the cause of shade.
+
+**Limits and alternatives.** These are estimates of direct sun at ground level excluding self-shadow, not leaf-height measurements or a translucent-canopy model. No automatic recomputation, new date owner, persistent setting, dependency or file-version change. Re-running the full day per receiver was rejected: the planning probe took 17.6 seconds for 20 receivers among 100 casters. The implemented 200-caster/receiver test measured **3.226 seconds** locally (10-second target, 30-second CI ceiling); final delivery reports retain actual repeated timings.
+
+**Evidence.** The committed 24 m × 24 m Berlin plan, 21 June 2026, has a 10 m tree at (12 m, 12 m), 3 m canopy radius, tomatoes 1 m north and 8 m south: independently measured expected values are **0 h north and 16.5 h south**, excluding own casters. Unit tests pin sparse/reference parity, holes, multi-footprint ownership, raw-grid equivalence, strict tolerance boundaries and unavailable states. Integration tests pin explicit compute, badges, panel/MCP parity, canopy navigation, geometry, invalidation, worker responsiveness and document replacement during running/queued results; malformed loads retain the map. #328 shipped in PR #352 and is outside this PR.
+
+**Addendum — merged into the Living Garden 3D tree (#385, story L1.3, 2026-10-12).** Two
+changes to what this decision ships, both in the plain data the one walk hands the worker.
+
+1. *Where a caster stands.* `IdentifiedCaster` gained `base_cm` (ADR-037's base-stacking
+   addendum: a plant on a raised bed's soil is a solid `footprint × [base, base + height]`).
+   `collect_identified_casters` is THE walk — one `ItemLookup`, `footprints.item_base_cm` per
+   item — and `collect_shadow_casters` flattens it for the overlay; `compute_grouped_shadows`
+   takes `GroupedCaster(footprints, height_cm, base_cm)`. The heat-map grid, the per-owner
+   unions and the overlay therefore sweep the same solid (pinned: the grid of
+   `compute_sun_exposure` equals `compute_heatmap` over the overlay's casters, bases included).
+2. *A plant is not shaded by the soil it stands in.* **Measured on v1.30.1**: a tomato in a
+   40 cm raised bed in the open, Berlin, 21 June — **0.0 hours**, a `too_little` mismatch and
+   the warning badge; 16.5 hours for the same tomato on open ground. The estimate samples the
+   ground point under the plant and left out only the plant's own caster; the bed is a caster
+   too, and its footprint covers that point all day. So every plant in every raised bed
+   warned. `SunReceiver` gained `stands_on`: the id of the soil parent the plant stands in —
+   `footprints.standing_parent`, the membership half of the base rule (linked, visible, a
+   soil-capable solid with a height, the plant's centre inside) — and that caster is spared
+   for this receiver like its own. Merged tree, the same day: **16.5 h** on the bed; 10.5 h
+   for a small plant on the ground 10 cm north of the bed; 11.5 h on the bed with a 3 m wall
+   60 cm south of it, exactly what the same plant reads with the bed removed; 16.5 h in a bed
+   2 cm high (a solid that lifts nothing: "is the plant in the parent's solid?" is asked, not
+   "is it lifted?").
+
+**Limits, stated.** Every OTHER caster shades a receiver as at ground level: a neighbour on
+the same raised soil casts onto the ground plane from `base / tan α` on, so right behind it
+the estimate is too sunny (pinned as a decision). A plant inside a bed's outline WITHOUT a
+link to it stands on the ground inside the bed's solid and reads 0 hours — the bed-membership
+follow-up, not this decision. `measurement_method` keeps its identifier
+`ground_cell_centre_excluding_self`. The coordinator's clock subscription goes through
+`connect_qobject` and nothing hangs on its own `destroyed` signal (ADR-053 addendum "L1.3":
+in bare PyQt the closure v1.30.1 hung there runs 0 times when the wrappers are collected
+before Qt's deferred delete, 5 of 5); its theme listener asks at the moment of use and takes
+itself off the registry.
+
+## ADR-057: Bounded 2D canvas paint for crafted plans (#472)
+
+**Status:** Accepted.
+
+**Context.** A plan file may hold a polygon with any number of vertices, and the 2D canvas paints it whatever that costs. A reflex-heavy outline (a "comb" whose teeth span its full height) makes one antialiased *fill* quadratic in vertices: measured on a 512x512 painter with the item's own 2.0 solid pen, one such outline costs ~38 ms at 256 vertices, ~322 ms at 1,024, ~1.4 s at 4,096 and ~5.6 s at 16,384 (the bug report measured 10.5 s at 1,024 on its box). Nothing bounded the vertices on load and nothing degraded the paint, so a crafted `.ogp` froze the window and the loader accepted an unbounded item.
+
+Two measurements decided the remedy, and both were needed:
+
+* the cost is a function of **reflex geometry and pen width**, not vertex count alone — a convex 4,096-vertex outline fills in a few milliseconds, and a comb's fill only stops growing quadratically above ~32k vertices because the geometry collapses sub-pixel (it still takes ~10 s at 65,536);
+* Qt strokes a **wide solid pen by building a fill**, so "just draw the outline" is only cheap with a **cosmetic** pen: measured, the same 1,024-vertex comb takes 319 ms stroked with the item's 2.0 pen and 4 ms with a cosmetic 1-px pen.
+
+**Decision.** One vertex bound governs full-detail painting; a separate ceiling guards the ingestion seam.
+
+- `MAX_FULL_DETAIL_VERTICES = 256` (`ui/canvas/items/polygon_item.py`). At or below it an unselected polygon paints exactly as before.
+- Above it, an **interactive, unselected** paint draws the exact outline with a **cosmetic 1-px pen and no fill** — linear in vertices and independent of the item's own pen width (measured ~4 ms at 1,024, ~20 ms at 4,096, ~69 ms at 16,384).
+- The degrade is **interactive-only, and "interactive" is the item's cache mode, not Qt's `widget`.** Qt passes `widget = 0` for every *cached* paint and every unselected canvas item is `DeviceCoordinateCache`, so a `widget is not None` guard (the LOD flat fill's own idiom) is never true on the path that paints the user's canvas — the first shipped version of this fix therefore never degraded anything (measured through a real view: 44.7 ms at 1,024 vertices, 589 ms at 16,384, on every cache regeneration). Every export, report, print and agent render path disables caches first (`ExportService._disable_item_caches`), so those stay exact, while the cached interactive view degrades; a **selected** item is excluded and paints the exact fill, so editing sees the truth.
+- `MAX_POLYGON_VERTICES = 16_384` refuses a polygon above it at the load seam (`ProjectManager._deserialize_item_core`), non-fatally: the item is skipped (logged, and counted for the app's existing skipped-item notice) and the rest of the plan loads. At the ceiling the degraded 2D outline is ~69 ms, not minutes, and no legible garden outline comes near it.
+
+**Alternatives rejected.** Filling the polygon's bounding box or convex hull is O(1) but *over*-covers — a comb would paint as a solid block and hide items beneath — and the hull costs an O(n log n) pass; outline-only under-covers, which is the safer error and keeps the exact boundary visible. **Reusing the item's own pen for the outline was the first attempt and is quadratic** (the pen-width measurement above); it does not bound the cost, and the earlier draft's "~4 ms at 1,024" was measured with a hairline pen, not the item's. A reflex-count or convexity test to keep large *convex* shapes at full detail needs an O(n) pass per paint; it was rejected as machinery for a case (more than the bound of vertices that is also convex) the outline covers acceptably. A low load ceiling that refuses every polygon above the full-detail bound was rejected because it would refuse legitimate traced or imported outlines — the paint bound protects the frame, the ceiling only protects the loader from hostile memory.
+
+**Consequences (limitations, stated).** Full detail is a bounded, stated budget, **per item per paint — not a plan-wide one**. Above the bound, *all* polygons — including a large convex one whose fill would be cheap — render as an outline interactively; a future refinement could exempt convex outlines. Full-detail paths that stay open above the bound, each capped only by the load ceiling: at exactly the bound a pathological comb still costs about two frames (~31 ms at 256 vertices); a **selected** over-budget item paints full detail on every interactive frame (5.6 s at 16,384); and every export/report/print/agent render, which disables caches and renders through `QGraphicsScene.render`, keeps the exact fill and can stall at the ceiling. The **minimap** renders through `scene.render` *without* disabling caches, so it degrades like the canvas — desirable for a thumbnail, and the one render path whose full-fidelity convention is deliberately different. The same `widget`-based idiom lived in `should_use_lod_flat_fill` (#409); it was re-checked on report and the LOD flat fill was **removed** rather than repaired — it never ran and bought no measurable time, so `should_use_lod_flat_fill` and `get_lod_fill_color` no longer exist and `is_interactive_paint` now serves the paint bound above alone (see the ADR-057 addendum, #503). The two constants are plain module values so a future measurement can retune them in one place.
+
+**Evidence.** The committed `tests/integration/test_polygon_paint_bound.py` pins that an over-budget polygon paints an outline (not a fill) on screen, that the degraded paint is many times cheaper than full detail **with the item's own wide pen**, that a polygon at the bound, an offscreen render and a selected item paint the exact fill, and that a hostile polygon is refused at the seam without dropping the rest of a plan. The cost table above is reproducible with the shapes in that test file.
+
+## ADR-058: The suite runs in parallel, and the timing tests do not (issue #509)
+
+**Status:** Accepted.
+
+**Context.** The full battery took 912.6 s serially on the development box and gated every
+iteration between a change and the owner's hands-on pass. Three candidate causes were
+separated by measurement, and only one of them is a scheduling problem.
+
+The suite was **highly concentrated**: the median test took 0.030 s against a mean of
+0.339 s (11.3×), and ten files of 228 held 57 % of measured call time. But the naive
+reading of that table — "these files are slow" — was **wrong**. `test_iconography_3c.py`
+alone runs 36 tests in 2.14 s; the same file immediately after
+`tests/ui/test_main_window.py` takes 447 s, with individual theme tests at 60–66 s.
+Probing `QApplication` directly: a clean process holds **0** widgets and one
+`apply_theme()` round-trip costs **1.3 ms**; after `test_main_window.py` it holds
+**38 271** widgets and **1 580** top-level widgets, **0 % of them visible**, and the
+round-trip costs **22 478 ms**.
+
+So the expensive tests were **victims**. Thirty apps leaked their widget graphs because
+`qtbot.addWidget` *closes* a widget and closing is not deleting, and `apply_theme()`
+walks `app.allWidgets()` on every call. Fixing the leak — one autouse fixture that
+closes and `deleteLater()`s every top-level widget per test — took the serial suite from
+912.6 s to **673.6 s** and flattened the distribution (slowest-50 share 50.9 % → 37.9 %;
+mean/median 11.3× → 6.8×). It changes no product code and removes no test.
+
+**One measurement detail worth stating, because the two halves of that pair come from
+different runs.** The *before* figures are from the recorded serial run at `132f6715`; the
+*after* figures are from the serial full-suite run immediately after the leak fix. They are
+**not** comparable with a parallel run of the same tree, which measures 32.2 % and 20.7×
+on the identical code: per-test call time inflates when tests contend, so one suite reads
+620.6 s of call time serially and 1 700 s under `-n auto`. The distribution's shape is a
+signal; its sum is a statement about the scheduler.
+`docs/11-risks-and-technical-debt/test-suite-latency-2026-10.md` holds both runs and that
+caveat.
+
+**Decision.** `addopts` carries `-n auto --dist worksteal -m 'not perf'`, and
+`pytest-xdist>=3.8.0` joins the `dev` extra.
+
+Measured on the fixed tree, all four modes genuinely parallel:
+
+| Mode | Wall clock |
+|---|---|
+| **`-n 8 --dist worksteal`** | **156.2 s** |
+| `-n 8 --dist loadfile` | 186.3 s |
+| `-n 8 --dist load` | 250.2 s |
+| `-n 4 --dist worksteal` | 245.2 s |
+
+**`worksteal` is chosen because it splits at test level**, so no single slow file
+becomes one worker's floor. That distinction was only measurable *after* the leak fix:
+before it, `test_iconography_3c.py` at 96.7 s was the binding constraint and
+`loadfile`'s whole-file granularity looked essential. Its advantage over `loadfile` is
+the general one — a suite that grows a slow file should not silently lose a worker.
+
+**Alternatives rejected.**
+
+- **Not parallelising, and only documenting an inner loop.** `pytest tests/unit` is
+  192.6 s against 673.6 s for everything, so this captures a large part of the win with
+  no new dependency. It does not help the case the owner actually described — running
+  *everything* before testing by hand — and a convention nobody is forced to follow is
+  the failure mode this repository has already paid for twice.
+- **`@pytest.mark.xdist_group` + `--dist loadgroup` to keep the colliding tests
+  together.** It works, and it was rejected for three reasons: the `--dist` modes are
+  mutually exclusive, so `loadgroup` *replaces* `loadfile` rather than combining with it;
+  the protection `loadfile` was originally chosen for turns out to be worth under 4.6 s
+  (the three files with module-scoped fixtures do not reach the slowest-30 list); and
+  grouping schedules around the symptom. The actual collision was a test writing into the
+  git working tree, and that hazard also applied to two concurrently launched pytest
+  processes — the 2026-08-17 §11.4 incident that made `TEST_APPLICATION` per-PID in the
+  first place.
+- **Fixing the leak in the 51 files that build an app.** Correct, and it is the reason the
+  chokepoint exists: one place cannot be forgotten, and a 51-file diff would put the fix
+  behind review of every unrelated line.
+
+**The timing tests are excluded deliberately, and this is a scheduling principle rather
+than a convenience.** Two tests were observed failing intermittently when they share a
+runner with the parallel workers — the NFR repaint budget and the map-picker close bound among them — and
+§11.4's #354 entry already holds that a performance test must protect a *sustained*
+regression statistically rather than assert that one shared runner owns a quiet CPU. A
+single-step gate here would have been a gate that cries wolf.
+
+The marker means **wall-clock sensitive, not "lives in `tests/perf/`"**, and that
+distinction is the load-bearing part of the decision. Seven of the 14 marked tests live
+outside `tests/perf/`, which is why the runner command is
+`pytest tests/ -m perf -n 0` and not a directory. All three details of that command are
+load-bearing; the `-n 0` is easy to omit precisely because the command looks complete
+without it. Two errors in this ADR were caught by review and are recorded because
+they are the natural mistakes: an earlier version justified the marker by naming
+`tests/integration/test_tasks.py`, which carries **no marker** and so is not covered by
+the flag at all. Its hazard was real — two schedulers call `_check_overdue_tasks` — but it
+is a shared-*state* defect and was fixed by isolating the arm, not by scheduling around it.
+
+**Consequences (limitations, stated).**
+
+- **`-n auto` in `addopts` makes a *small* targeted run slower**, because worker start-up
+  dominates: one 11-test file measured 2.85 s serial against 5.48 s under `-n auto`.
+  `-n 0` is the escape hatch. The trade is asymmetric and deliberate — 517 s saved on a
+  full run against 2.6 s added to a small one — but it is a real cost and is the first
+  thing to revisit if the inner loop starts using single-file runs heavily.
+- **`pytest tests/` now deselects the perf tests**, so they must be invoked explicitly as
+  `pytest tests/ -m perf -n 0` — three details, all load-bearing. It is `tests/`, because a directory-only form (`pytest tests/perf -m perf`)
+  runs 7 of the 14 and **silently passes**, which is the worst failure mode available to a
+  gate that exists to catch slow drift. It needs `-m perf`, or the `-m 'not perf'` in
+  `addopts` wins and nothing is collected. It needs `-n 0`, because running the timing
+  tests across workers is the thing the split exists to prevent.
+  CI does this as its own step, so nothing stops being verified.
+  `tests/unit/test_perf_marker_guard.py` fails the build if a wall-clock assertion is added
+  without the marker, so this list cannot silently go stale — an audit written in prose had
+  already been wrong twice by the time the third review found the two `TestPerf` classes.
+- **A crashed worker is not a clean abort.** The 180 s `pytest-timeout` guard stays — #448
+  and the 2026-08-17 stall both earn it — but on Windows it currently dumps stacks and
+  aborts the run. Under xdist a timeout kills one worker, which is restarted, and the run
+  continues: **a hang now presents as a crashed worker rather than as a failure.**
+- **A parallel run's first visible failure mode is coverage, not tests.**
+  `quality/coverage-floors.json` holds exact `covered * 100 // statements` integers per
+  package plus a per-file floor, so losing a single line fails that job — and since
+  `Coverage` is not a required check, that red would sit there unblocking merges while
+  looking authoritative.
+- **Coverage tracing and the perf tests are not in conflict; an earlier draft of this ADR
+  said they were, and was wrong.** It claimed the repaint budget "fails under coverage
+  tracing at 20.29 ms against a 16.70 ms budget" and concluded the `Coverage` job had
+  "always been measuring something it cannot gate". Both steps fail. The 20.29 ms figure
+  is a **local** measurement against the **local** budget:
+  `tests/perf/test_nfr_budgets.py:56-57` reads
+  `_IS_CI = os.environ.get("CI") == "true" or ... GITHUB_ACTIONS` and
+  `FRAME_BUDGET_MS = 50.0 if _IS_CI else 16.7`, so on CI the budget is **50 ms** and the
+  test passes under tracing. Verified both ways on one machine, same file, same
+  `--cov`: `CI=true` → 6 passed; `CI` unset → 1 failed. And `gh run view 39076508170`
+  (CI, master `412f01bd`) records the `Coverage` job **succeeded**, 8565 passed.
+  The lesson is this ADR's own first rule about instruments: a measurement taken against
+  one configuration does not describe another, and "locally it fails here" became "it has
+  always been broken there" without anyone running the second half.
+- **What #509 does to that job: two steps, and they are one decision.** The job now runs
+  `pytest tests/ -m 'not perf'` with `-n auto`, and then a **second, serial** step runs the
+  14 perf tests with `-n 0 --cov-append`. The parallel step **keeps** the `-m 'not perf'`
+  filter. The deselect and the append are one decision:
+  **step 1 alone is `agent_api` 2012 of 2195 with the gate exiting 1; step 1 plus the append
+  is 2026 of 2195 with `regressions: []`**, a delta of exactly the fourteen `stop()`
+  escalation lines. Drop the append and the job goes red on `agent_api`; drop the deselect
+  and the append becomes redundant while three zero-slack budgets (map-picker close < 0.5 s,
+  point-snapper mean < 16 ms, spatial-index medians < 200 ms / < 1 ms) run beside workers on
+  a 4-vCPU runner. `-n auto` is 4 workers there and 20 on the dev box; the "eight" this ADR
+  quotes elsewhere is the measurement harness, which matches neither.
+
+**Evidence.** `scripts/measure_test_suite_latency.py` reproduces the concentration table
+from a recorded `--durations` report (11 unit tests pin its arithmetic against a
+hand-computable fixture, including the ways it could report a confident wrong number);
+`docs/11-risks-and-technical-debt/test-suite-latency-2026-10.md` holds the full baseline,
+the per-layer and per-file tables, the widget-leak measurement and the corrections to
+issue #509's stated facts. The CI `Test` job uploads its `--durations=0` report as the
+`test-durations-linux` artifact.
+
+### ADR-058 addendum: the coverage floor blocks, and the perf pin is mutation-verified (#512–#516, 19 October 2026)
+
+**Decision 1 — a coverage-floor regression blocks a merge (#514).** `Coverage` joins the
+required checks; it is **not** folded into `Test`. The floor step already computes a
+deterministic result (executed lines, not wall clock) and the job already runs on every push
+in parallel with `Test` — it has no `needs:` on it, so promotion adds no wall clock to the
+critical path and no runner-minutes. What changes is only whether the existing verdict is
+enforced. The `agent_api` floor's margin is **six lines** (2026 covered of 2195 against
+92% of 2195 = 2020), so an advisory red is precisely the signal that erodes silently. The
+local inner loop never runs `--cov`; CI is the only place the floor is computed, and a sole
+detector that cannot fail a merge is a measurement, not a gate. **Rejected:** folding
+`Coverage` into `Test` — it re-serializes the suite into the required job, re-paying the
+runner-minutes #509 removed, and blurs the check's identity. The floor gate also **fails
+closed**: `check_coverage_floors.main` returns 2 when the XML is missing, malformed or does
+not resolve into `src/open_garden_planner` (pinned by
+`tests/unit/test_ci_quality_gates.py`), so the step's `if: always()` cannot report a pass
+without a measurement. Mechanics: `quality/master-protection.json` gains `Coverage`, the job
+display name is pinned as the protection context, and the owner applies the live payload and
+confirms `scripts/check_branch_protection.py`. Until that application the verifier is
+deliberately red.
+
+**Decision 2 — the perf pin evaluates the command that gates the step (#513).** A `run:`
+script may hold several commands, and the one whose exit status is the step's is the **last**.
+The pin now identifies the command that selects the `perf` marker and requires it to be that
+last command and to actually invoke pytest (a `pytest` head, or `python -m pytest`). This
+closes, in one rule, the echo-smuggle, a here-doc body plus its executor, a delegating script
+(`bash scripts/ci_perf.sh …`), and a trailing `|| true`/pipe. It also refuses collect-only
+flags — directly or inside an `-o addopts=` value — and `PYTEST_ADDOPTS` on the step or job.
+The rules are deliberately few: this matcher's history is five defects in one commit, so the
+remaining shapes (`-k`/`--deselect` inside an override, a control operator embedded mid-token,
+zero-combination matrices, `concurrency` cancellation) are re-listed as measured-open in the
+pin rather than guessed at.
+
+**Evidence — the pin is now re-runnable, not asserted (#512).** `scripts/replay_gate_mutations.py`
+commits the harness that #509's review had to write in a scratch directory: sixteen
+perturbations of `ci.yml`, each applied through a temp file, YAML-validated **structurally**
+(an edit that YAML reads as something else is reported as an invalid mutation, never as an
+honest "not caught"), replayed against the pin, and restored by **copy** with a byte-identity
+assertion after every iteration. Fourteen must be caught and two must pass (a diamond in the
+`needs` graph, and a comment that changes no configuration) — the passing controls are what
+distinguish a working pin from one that fails everything. Run it after touching the matcher.
+
+### ADR-042 addendum: the runtime tint becomes a luminance map (issue #502, 16 October 2026)
+
+The forge's tint-readability band was written for a tint that could not do the job.
+`_tint_texture` drew the texture and overlaid the user's colour at **80/255 (31 %)**;
+over the brown roof-tile texture a light-green fill measured `#ca6846` -> `#b8925d` —
+still brown, i.e. the "standard roof tile colour" the owner reported after setting a
+green fill. Raising the overlay enough to read (160/255) flattened the low-contrast
+materials (SAND luminance std 1.62 against the 2.0 floor), so overlay strength was the
+wrong knob: a constant wash cannot recolour a saturated texture without destroying its
+contrast.
+
+**Decision.** `_tint_texture` now maps luminance: every pixel becomes the user's colour
+scaled by the texture's **relative** luminance (`pixel_luminance / mean_luminance`).
+Hue comes wholly from the user's colour, brightness is preserved on average, and the
+result's coefficient of variation equals the texture's — the recolour is *provably*
+non-flattening rather than tuned not to flatten. The colour's alpha still sets the
+fill's opacity.
+
+**Consequences.** Every textured fill in every plan changes appearance — the owner's
+manual sign-off is the gate (`ogp-asset-forge`: "the owner's manual sign-off
+(sovereign)"). The tint-readability band keeps its purpose but its rationale changes: it
+now guarantees a texture has enough relative luminance structure for the map to show
+detail. The §8.10 integration gate gained the case that was missing: a **pale** colour
+over a strongly coloured texture must read (only red and blue — two saturated,
+far-apart colours — were checked before, so both "passed" while the owner's light green
+rendered brown), and "not flattened" is now asserted as **relative** contrast against
+the same item's untinted render, so a legitimately dark fill colour is not mistaken for
+a flat one.
+
+**Related, same finding.** The report that exposed this also showed the Properties panel
+disagreeing with the canvas after a reload: `ProjectManager._deserialize_item_core`
+rebuilt each item's brush and pen but never wrote back the stored appearance attributes
+(`fill_color`, `stroke_color`, `stroke_width`, `stroke_style`), which the item
+constructors pre-seed with the object type's style — so the panel showed the type
+defaults and the next save wrote them over the user's colours (#438/#469). The loader
+now restores those attributes through `core/item_look.restore_stored_look`, and the
+serializer no longer falls back to a texture brush's black `color()` for `fill_color`.
+
+### ADR-057 addendum: the #409 LOD flat fill is removed, and the cache-mode discriminator is kept for the paint bound alone (issue #503, 17 October 2026)
+
+ADR-057's consequences flagged the sibling directly: "The same `widget`-based idiom
+lives in `should_use_lod_flat_fill` (#409), where it is worth re-checking for the same
+reason." #501's independent review re-checked it, measured it, and filed #503.
+
+**Finding.** Through a real `CanvasScene` + `CanvasView` (offscreen, one `GARDEN_BED`
+rectangle with the `ROOF_TILES` pattern), `should_use_lod_flat_fill` was invoked once
+per paint with **no** widget present — at `fit_in_view` and after four `zoom_out()`s —
+and returned `False` every time; only a `NoCache` control item, a configuration no
+unselected canvas item is ever in, saw a widget. The LOD branch therefore never ran in
+the product, and its tests passed only because they called the helper directly with a
+fabricated widget. The fit-in-view acceptance gain attributed to it at #409 came from
+the `lru_cache` SVG-path resolution and the `DeviceCoordinateCache` shipped alongside.
+
+**Decision.** The obvious repair was to key "interactive" on the item's **cache mode**
+through one shared predicate, `items/garden_item.py::is_interactive_paint`, which the
+over-budget paint bound above calls too. That predicate is **kept** — it is the one
+correct definition of "which paint is this", and the paint bound needs it for real
+(44.7 ms at 1,024 vertices, 589 ms at 16,384). Its docstring now records that it
+classifies paints and does not decide how much detail to draw.
+
+The **flat fill is removed**, with its rationale recorded. Issue #503 offered both
+repairs explicitly; measurement on the reference plan the branch was written for chose
+the second. On the 990-item audit plan, 1600x1000 view, best of seven rounds, both
+scenarios below the 0.4 threshold). `fit_in_view` at zoom 0.316: **10.61 and 11.50 ms median
+with the flat fill disabled, 10.87 ms with it live** — the two arms' ranges overlap
+entirely. `zoom_step` at zoom 0.348: **7.97 / 7.98 ms disabled, 8.20 ms live**. What that
+establishes is that the effect sits below this harness's noise — within-arm run-to-run
+variation is 8 % against a 0.26 ms between-arm difference, and no reversed-order run was
+taken, so no claim about which arm is faster survives. All six
+`tests/perf/test_nfr_budgets.py` cases pass either way, worst reading 12.21 ms against the
+16.70 ms budget. (An earlier single-pair reading — 10.58/10.64 and 8.21/7.40 — is
+superseded and is not to be cited: it put the `zoom_step` sign the other way round.) The
+cause is structural — `DeviceCoordinateCache` rasterises a textured item once and every
+later frame is a blit, so the expensive textured `paint()` the LOD existed to avoid was
+already amortised by the sibling fix. Deleting `should_use_lod_flat_fill`,
+`get_lod_fill_color` and `LOD_FLAT_FILL_THRESHOLD` also removes seven call sites across
+the rectangle, circle, ellipse and polygon items.
+
+**Consequences.** No zoom-dependent simplification remains in the canvas: a textured
+fill, a plant sprite and a furniture sprite paint their full detail at every zoom, and
+the paint-level diagnostics that the removed early return would have skipped (a bed's
+grid, crop-rotation indicator, soil-mismatch border and capacity badge; a plant's
+spacing ring, companion highlight and antagonist badge) are now drawn at every zoom.
+This is not a behaviour change relative to any shipped release — the branch never ran —
+so it needs no visual acceptance pass, and it is a net removal of a risk. The #472
+suite is restored to its pre-#507 state in full, including its fit-in-view harness
+zoom; the low-zoom seam pair and the 100 %-zoom workaround existed only to serve the
+removed branch and are gone with it.
+
+**The pin is parametrised over branches, not classes.** `tests/integration/test_canvas_item_cache.py` (renamed from `test_canvas_item_lod_and_cache.py`) renders a textured, tinted item through a real `CanvasView` at five zoom levels — 0.1, 0.25, 0.4, 0.75, 1.0 — plus the export path, and asserts the interior still carries its texture's luminance spread. **Lower bound only, deliberately** — a future change may soften a texture and must not be able to do so by deleting it; there is no ceiling, and no absolute sample floor, because interior area runs 816 to 429 986 pixels across the cases and any constant fires on the smallest for being small. The seven deleted call sites were **not** seven instances of one thing: two sat inside `if is_plant` and two inside `if is_furniture_type`, so the table carries seven entries — the four generic shapes plus a plant circle and furniture rectangle/circle. Re-introducing a `< 0.4` flat fill is caught at **all seven**, mutation-verified per site. The sampled interior is the item's own `QGraphicsItem.shape()`: not its bounding box (the corners are page background for a circle, an ellipse or a polygon, so a solid circle measured as high-contrast and the pin was vacuous on three of four classes), not a second paint (any flat-fill branch overrides the brush on that pass), and not alpha (the scene paints an opaque background). `TestTheMaskIsTheItem` asserts that invariant, because a displaced mask does not fail — it reads background. The four textured shapes' export column converging on 15.47-16.02 is the calibration check that the instrument is right: with a forgotten `-source.topLeft()` translation those four read 15.83 / 37.27 / 49.85 / 16.37. The Linux/offscreen sampler lesson stands — samples come from a computed region, never a colour filter, which the CI background passed at spread 62.59 against 0.00 on Windows. The mask mechanics, the seven-entry shape list and the calibration table live in the test file rather than here; `venv/Scripts/python.exe scripts/verify_lod_removal_mutations.py` re-applies all seven deleted call sites and exits non-zero if one stops being watched, which is how a negative pin is kept honest between reviews.
+
+**Lesson for ADR-057 itself.** This addendum records a decision that was nearly the
+opposite of the one its first draft took, on the same measured evidence, because the
+owner then exercised the thing that the measurement could not: at 20-25 % zoom — where
+they work, well under the 0.4 threshold — every texture on the canvas would have become
+a solid colour. *Reachability is necessary, not sufficient: before promoting a dormant
+path, ask whether it earns the degradation it costs, and put the answer in front of the
+person who has to look at it.*
+
 ## ADR-064: 3D scene pipeline and the truth principle (Phase 17, L1.1)
 
 **Status**: Accepted (2026-10-11, #385 story L1.1, epic #383). This is the scene-pipeline ADR the
 epic reserved as "ADR-049" (that number went to frost dates; ADR-053 announced it for L1.1). It
-was written as "ADR-054" and renumbered before it reached master, where Package F had taken
-ADR-054 and ADR-055 (likewise its concept section, §8.32, written as 8.26, and FR-36, written
-as FR-32) — an older note or branch that says "ADR-054, 3D scene pipeline" means this record. It
+was written as "ADR-054", then carried as "ADR-056", and renumbered each time before it reached
+master, where Package F had taken those numbers while this package was in work (likewise its
+concept section, written as 8.26 and 8.27, and its requirements bucket, written as FR-32 and
+FR-33) — an older note or branch that says "ADR-054" or "ADR-056, 3D scene pipeline" means this
+record. It
 builds on ADR-048 (Qt Quick 3D, GO) and ADR-053 (one sim clock). Nothing is rendered by this
 story: it is the Qt-free foundation L1.2–L1.7 build on. **Amended the same day by the independent
 review of the story** (two interface defects and a list of smaller ones — decisions 1, 3, 8, 9, 10
@@ -4386,3 +5196,414 @@ mean 0.033 of 255 and 484 px off by more than 8, one paver and its outline (24.4
 before); an edit a pass with one tile a pass — pending 13, 9, 4, 0, 0 after edits 1, 5, 10,
 20 and 40 (14 at each before); the edit after a failing bake — 16 painted tiles shown (1
 before).
+
+#### Sync with the integration branch and master v1.30.13 (2026-10-19)
+
+`master` fixed three of the 2D defects this story had fixed on its own, with mechanisms of its own:
+`core/item_look.py::restore_stored_look` (#502 — the loader writes the saved attributes, #438 /
+#469) and `core/item_look.py::copy_visual_style` (#501 — offset and mirror, #470). **Where both
+fixed the same defect, `master`'s mechanism wins:**
+
+- `core/item_style.py` is deleted. Its helpers that `master` has no equivalent for — `adopt_pen`,
+  `fill_brush`, `style_gaps`, `paints_sprite`, `saved_stroke_width` / `saved_stroke_colour`,
+  `MIN_STROKE_WIDTH`, `stroke_style_of` — moved into `master`'s module, `core/item_look.py`, so
+  that an item's look has ONE module again; this branch's own `copy_visual_style` is gone, and the
+  corner tools and `PolylineItem.clone_with_points` call `master`'s.
+- The loader calls `restore_stored_look` in every branch, as on `master`; this branch's own
+  attribute writes there are gone, and the four filled shapes set their pen as `master` does. What
+  `master` does not cover stays, each pinned by a test that fails with the integration branch's
+  code at that place (10 of 10 checked by putting that code back): the saver writes a dashed
+  line's dash style (#467); a preset line's own saved stroke is read — validated — and stated
+  (#468); a file with a fill colour and no pattern is painted in the type's texture at the saved
+  colour from the first load (`fill_brush`); chamfer / fillet copies, re-pointed lines and trim
+  results carry their source's look (#441); a freshly drawn line states its stroke, and the panel's
+  undo of a type change states the pen it builds; a bent boardwalk or stone wall does not fill its
+  bend (#439).
+- `restore_stored_look` leaves a stroke attribute alone where the file holds no colour or number
+  at all (`null`, a list) instead of raising: merged as it was, it SKIPPED a preset line with
+  `"stroke_width": null` — the regression review 2 had found in this story's round 1, now in
+  `master`'s helper. A plain shape still refuses such a value at its pen, as before.
+- A loaded sprite states what its file holds (`master`'s rule), not its type's stroke as review 2
+  had this branch do; `style_gaps` no longer judges a sprite at all (`master`'s
+  `test_canvas_item_cache.py` gives three sprites a texture brush they never paint).
+- `master`'s strict numeric plan I/O (#453) refuses a whole document whose stroke width is
+  infinite, not a number or an integer no float holds: three of review 2's preset-stroke cases no
+  longer reach an item.
+- Gate G3's median is a wall-clock assertion and carries `@pytest.mark.perf` (ADR-058); it ran at
+  11.58 ms beside eight workers. Its stopwatch moved to `tests/integration/ground_bake_support.py`:
+  in the test module, `master`'s perf-marker guard (which keys a module's functions by their bare
+  name) took every test that calls a baker's `bake` for a timing test.
+- The identifiers are the placeholders (`renumber_385_v2.py`, before the merge): this addendum
+  belongs to ADR-064; its concept section is §8.32.5, its test patterns §8.10.28, its lessons
+  §11.4.34, its requirements FR-36's `FR-3D-GROUND-*`.
+
+## ADR-065: The 3D workspace — Plan / 3D / Split in the main window, one kept engine host (Phase 17, L1.3)
+
+**Status**: Accepted (2026-10-12, #385 story L1.3, epic #383). Behind the internal switch
+`OGP_QUICK3D=1`; the shipped "3D View…" window (Qt 3D) stays the product until L1.9 flips the
+default. Builds on ADR-048 (the engine), ADR-053 (the clock) and ADR-064 (the pipeline), and closes
+the two things ADR-048 left to this story: criterion 2's deferred half and criterion 10's leak half
+(addendum there).
+
+### Context
+
+L1.1 built a pipeline (records → diff → builders → sink) and L1.2 an engine host; nothing connected
+either to the app. The shipped 3D view is a second window that rebuilds its whole scene on every
+change. The epic wants 3D to be a **mode of the main window** — Plan, 3D, or both side by side — in
+which an edit appears while the user watches.
+
+Five facts shaped the design:
+
+- **The engine's view is a native window** (`QQuickView` in `QWidget.createWindowContainer`,
+  ADR-048 criterion 3). No sibling widget paints over it; a notice "on top of 3D" cannot exist.
+- **The host must be built lazily and never built twice.** Importing and starting it costs 0.4 to
+  1.2 s on the GUI thread, and ADR-048 criterion 10 demands zero aborts over hide / show cycles —
+  which the host delivers when it is kept and only hidden.
+- **A first 3D start can kill the process inside the graphics driver** — no exception, no dialog,
+  no log line. A user whose driver does that must still reach 3D at the next start.
+- **The default test tier has no GPU** (`QT_QPA_PLATFORM=offscreen` selects the software scene
+  graph, where Qt Quick 3D draws nothing). Whatever is a decision and not a Qt Quick call must be
+  testable without the engine.
+- **A whole-plan snapshot is O(total vertices) even when every record is cached** (3 to 4 ms on
+  the small bench plan, 13 to 15 ms on the large one, measured below), and the first pass of a
+  plan costs the sum of its items — seconds for a hostile plan.
+
+### Decision
+
+1. **One internal switch.** `app/settings.py::quick3d_workspace_enabled()` is the only read of
+   `OGP_QUICK3D`; exactly `"1"` switches the workspace on. Off, the app is what it was: no
+   workspace object, nothing of `ui/view3d/workspace` or of Qt Quick imported, the canvas area's
+   widget tree unchanged. No setting, no menu entry, no persisted value: the switch leaves with
+   L1.9.
+2. **`Workspace` holds the canvas and, from the first switch to 3D or Split on, a 3D pane beside
+   it** (`ui/view3d/workspace.py`). Three modes: *Plan* (the canvas alone, at the size and with the
+   pixels it had without the workspace), *3D* (the pane alone), *Split* (a splitter; neither side
+   collapses, the pane is at least 220 px wide — a collapsed 3D pane would be a third way of saying
+   "Plan" in which the engine keeps running). The mode is three checkable, exclusive actions:
+   **Alt+1 / Alt+2 / Alt+3**, a *Workspace* submenu of the View menu with "Reset 3D View", and a
+   small button row — floating over the canvas in Plan and Split, in the pane's strip in 3D. The
+   Split position is kept through the UI-state store (ADR-041), and only when the session really
+   was in Split.
+3. **Nothing overlays the native 3D window.** Every control, notice and message of the 3D pane
+   sits in a strip ABOVE the view or REPLACES the view (a message page in a stacked widget). The
+   floating switch is the one overlay there is, and it floats over the canvas, an ordinary widget.
+   L1.8's info card goes into the same pane, beside or below the view.
+4. **One engine host per main window, built on first use, kept, only hidden and shown.**
+   `Workspace.engine_factory(prefer_software) -> (host, sink)` builds it — by default
+   `Quick3DHost` and `Quick3DSink`, imported inside the factory — and is THE test seam: the
+   default tier hands in a recording sink and a stand-in host. The workspace module imports no Qt
+   Quick binding. Shutdown runs in the main window's `closeEvent`, while the window exists:
+   pipeline, start marker, host.
+5. **The pipeline's controller is engine-free** (`ui/view3d/sync_controller.py::Scene3DController`):
+   `scene.changed`, the undo stack's `stack_changed` and the clock's two channels in — at most ONE
+   pass per turn of the event loop out. Its rules:
+   - *Paused while 3D is hidden*: two flags and nothing else — no snapshot, no diff, no sink call,
+     no timer. Showing 3D runs one catch-up pass, which `SceneSync` guarantees equals a
+     from-scratch apply.
+   - *One pass, one transaction*: records, sun and ground travel in one `sync.apply`. A
+     time-of-day change is LIGHT ONLY (one `set_sun`, no snapshot); a date change regrows the dated
+     plants; writes faster than passes coalesce in the flags — an animated date never queues more
+     than one regrow.
+   - *A snapshot only on a real change, never on a timer.*
+   - *A document change is not a reset.* A new or opened plan is another snapshot; `apply` removes
+     what is gone. `SceneSync.reset()` is RECOVERY: after a sink call raised or the sync is
+     poisoned the controller resets, applies once more, logs one line, and never lets the error
+     reach the event loop; if that fails too it gives up for this pass and the next change tries
+     again.
+   - *One snapshotting scene per process* — the record layer's outline memories ride a
+     process-wide generation clock (ADR-064); the workspace has one canvas scene and one
+     controller.
+   - *What 3D remembers per plan is dropped in one place* (`_drop_plan_memories`: the plant
+     builder's shapes, the record layer's outlines) — on a document change and when the view
+     closes.
+   - *The ground seam*: `set_ground_stage(stage)` — `stage(previous_records, records, width_cm,
+     depth_cm) -> GroundSpec` runs BEFORE `apply`, so what it returns rides the same transaction
+     (L1.5's baker).
+6. **A pass is a posted event of normal priority, not a zero timer.** Measured in the real app
+   with the real engine (RTX 4070, window 1600 × 900, 3D pane 574 × 734, 120 scripted edits, clock
+   from before the command to a finished readback taken the moment the pass committed):
+
+   | scheduling | `bench_small` p50 / p95 | `bench_large` p50 / p95 | wait for the pass, p95 (large) |
+   |---|---|---|---|
+   | timer, 1 ms | 16.1 / 24.5 ms | 38.4 / 257.4 ms | 228.5 ms |
+   | posted event, high priority | 14.0 / 18.9 ms | 29.7 / 45.5 ms | 0.1 ms |
+   | **posted event, normal priority** | 13.0 / 17.6 ms | 29.2 / 66.7 ms | 34.9 ms |
+
+   A zero timer waits behind the timers that are due — the 2D side's own debounced work
+   (spacing, companions, the minimap). A posted event is delivered before them. At HIGH priority
+   it also overtakes the scene's own queued `changed` for the same edit, which then costs a
+   SECOND whole-plan snapshot per edit; at normal priority the undo stack's signal and the
+   scene's share one pass.
+7. **The first pass of a document is started by the PAINT of its notice.** "Building the 3D
+   view…" is set, and an event filter on that label starts the pipeline after the label painted
+   — not a timer that hopes the paint came first. A label that is never painted releases the
+   pipeline after 250 ms; with the controls hidden (fullscreen preview) nothing is waited for.
+   The same on a document change while 3D is shown, and for a catch-up pass after hidden edits
+   (which may be a whole new plan).
+8. **The camera is a Qt-free value with one owner** (`core/scene3d/camera.py::OrbitCamera`): a
+   goal pose that input moves and a pose that follows it as a critically damped spring,
+   integrated exactly (a stalled timer lands where many short steps would have). Target on the
+   ground, distance 0.5 to 600 m, pitch 5° to 89°, the target kept within the plan plus 10 m.
+   **It is moved by four things only — user input, "Reset 3D View", the first open and a
+   document change — and "edits never move the camera" is therefore a property of the code:
+   there is no other call site.** The step timer (16 ms) runs only while the camera is still
+   moving and the pane is shown.
+9. **Input is an event filter on the native window** (`ui/view3d/orbit_input.py`,
+   `Quick3DHost.install_event_filter`): the shipped view's gestures — left or middle drag pans,
+   right drag orbits, both buttons or the wheel zoom, arrows pan, Alt+arrows orbit, PageUp /
+   PageDown zoom, Home resets. Escape and every other key are passed on: the app's shortcuts
+   work with the keyboard in the 3D window (measured: Ctrl+Z undoes, Alt+1 leads back to the
+   plan), and Escape stays free for L1.8's walk mode.
+10. **A start guard instead of a crash** (`ui/view3d/init_guard.py`, standard library only). Two
+    small files in the app's log directory, beside `app.log`: `view3d-init-<pid>.marker`, written
+    before the first 3D window of a session is built and removed when a frame was presented (or
+    Qt reported "no graphics device", or Python caught an error, or the app closed in good
+    order); and `view3d-compat.flag`. A marker whose process is gone means the start died: the
+    flag goes on and 3D renders on the software adapter — **per window**
+    (`QQuickGraphicsConfiguration.setPreferSoftwareDevice`), because
+    `QSG_RHI_PREFER_SOFTWARE_RENDERER` is read once per process and does nothing after the first
+    Qt Quick window (measured both ways). The pane says so, and offers "Try Hardware Next Time";
+    ONLY the user removes the flag — a machine whose driver crashes would otherwise alternate
+    between a crash and a software session for ever. A marker is per process, so a second
+    running instance is not a crash; one older than 600 s whose process id "runs" is (the id was
+    handed out again). A session that never opens 3D reads and writes nothing.
+11. **"No graphics device" is a message, not a retry loop.** `health().scene_graph_error` ends
+    the view for the session: the pane shows the message and — once, on hardware — "Use
+    Compatibility Mode Next Time". An error raised in-process (an import, the scene file) is a
+    message with "Try Again". Opening 3D never takes the 2D app down.
+12. **What 3D could not show is said.** The record layer refuses some items the canvas draws
+    (`SkipReason`), and a builder can fail: the strip shows a quiet, persistent count ("3 objects
+    are not shown in 3D") and, on demand, a non-modal list — name, kind, a translated text per
+    reason code — whose rows select the item on the canvas.
+13. **Plan text is text** (`core/plain_text.py`, §8.11). A plan file is untrusted and Qt decides
+    "rich text or plain" by LOOKING at a string. Everything plan-derived that reaches a tooltip,
+    a label or a log goes through one helper: normalise (every line boundary `str.splitlines()`
+    knows becomes one line break; other control characters and the bidi overrides become
+    U+FFFD), THEN cap (lines and length, on what the consumer will see), THEN escape. Labels are
+    `PlainText`; list rows are plain by the default delegate. This story's own log records are
+    one normalised line at ERROR / WARNING with the traceback at DEBUG only.
+14. **`connect_qobject` is how a QObject listens to the clock** (`ui/sim_clock_subscription.py`,
+    ADR-053 addendum): the channel calls a guard that asks `sip.isdeleted` at every delivery. A
+    scan of the product refuses a direct connect.
+15. **What a destroyed Model leaves behind is released.** Qt Quick 3D keeps per-draw-call
+    graphics state for every Model it ever drew, after the Model is destroyed — about 0.2 MB
+    each on Direct3D 11 with the sun's shadow passes on, independent of the mesh — and only
+    `QQuickWindow.releaseResources()` gives it back (`Quick3DHost.release_cached_resources()`,
+    2 to 10 ms, the next frame unchanged). Every pass says how many items lost their Models
+    (`TickReport.retired`: removed, geometry replaced, cleared by a reset); the workspace counts
+    them and releases when 64 piled up and the pipeline has been quiet for half a second, or at
+    once at 512 — an animated date regrows every dated plant per tick and is never quiet.
+    **This is the leak half of ADR-048 criterion 10** (numbers in the addendum there).
+16. **One mechanism says "the document was replaced" — the scene's.**
+    `CanvasScene.document_replaced` fires when the old document is about to go — in `clear()`
+    and at the start of the second, committing phase of a load; never for a load that failed
+    its validation. master's fix of #428 rides on it (ADR-056: `_reset_sun_document`), and the
+    workspace listens to the same signal (`Workspace.connect_plan` → `document_changed`); the
+    main window tells the workspace nothing by hand. The slot reads nothing from the scene —
+    it sets flags, and the pass they ask for runs with a later turn of the event loop, when
+    the new document is in. *This story's first delivery had a mechanism of its own — a pair
+    of hooks of the main window around the three document paths — and it was wrong: the first
+    hook cleared the hours-of-sun map BEFORE `ProjectManager.load()` could fail, so opening a
+    damaged file threw away the map of the plan that stayed open (master pins the opposite).
+    It is gone.* An open that fails leaves the 3D view, its camera and what it remembers of
+    the plan exactly as they were — pinned on the three paths a load can fail on (File → Open,
+    Open Recent on a moved file, the agent's `open_plan`).
+17. **Nothing takes a frame from the live view.** A readback of the shown host — `grab()`, and
+    `wait_ready()` / `pick()` / `project()`, which need a frame — renders a frame of its own
+    that is never presented, and what such a frame holds is given back only when a PRESENTED
+    frame ends. In a view that presents nothing (the display asleep, a session that does not
+    present) that is never: twenty rebuilds of the small bench plan with the view's frames
+    withheld grew by 1.5 MB per rebuild without a readback and by 8.5 MB with one readback
+    per rebuild — 26 without the release of decision 15 (ADR-048 addendum "L1.3"). So the
+    workspace's steady paths — the pass, the health poll, the timers, a resize, the splitter
+    — ask the host for none of them: the workspace tells the engine what the plan is, and
+    Qt draws it when it draws. A picture of the 3D view for a file or a thumbnail goes
+    through `quick3d/offscreen.py` (a host of its own, which gives everything back when it
+    closes), never through repeated readbacks of the shown host. A click that picks (L1.8)
+    is the user's own action, once. **The pipeline is NOT held back in a view that presents
+    nothing**: it applies as always, nothing is drawn, nothing is uploaded (dedicated GPU
+    memory did not move in those twenty rebuilds), and the first frame after the dark spell
+    shows the plan as it is. Pinned twice — a stand-in host that records every frame-taking
+    call through all the steady paths, and a scan of the five modules' source — and the
+    memory soak keeps the same rule: no readback inside its measured loop, one frame before
+    and one after.
+
+### Alternatives considered (rejected)
+
+- **A stacked widget instead of a splitter.** Split is the mode that makes the feature (an edit on
+  the left, its solid on the right); a stack has no Split.
+- **The mode switch in the toolbar, the tab bar or the status bar.** The toolbars are the tools';
+  the tab bar belongs to the tabs. A switch on the surface it switches needs no finding, and in
+  3D mode it must be in the pane anyway. Cost: one small overlay on the canvas in Plan mode — the
+  canvas view's own pixels stay identical (pinned), the area's do not.
+- **A notice over the 3D view.** Not possible over a native window; `QQuickWidget` would allow
+  it and was rejected by ADR-048 (an offscreen round trip per frame).
+- **Building the host at start-up, or rebuilding it per show.** The first costs every session
+  half a second and a graphics device it may never use; the second is the abort ADR-048
+  measured.
+- **Polling the scene on a timer.** A snapshot per tick is O(total vertices): 13 ms of the GUI
+  thread per tick on the large plan, for nothing, also while idle.
+- **A timer of interval zero, or a high-priority event** — decision 6's table.
+- **Pacing the pipeline by presented frames** ("no second pass before the view has presented
+  the first", so that a view that presents nothing is given one generation). Built (commit
+  `f02c5f6`), measured, and taken out again. It was aimed at "a view that presents nothing
+  keeps every byte uploaded to it", read from a soak that READ BACK once per rebuild — and
+  the growth belonged to the readbacks. Without them the same dark view, with no pacing at
+  all, grows by 1.5 MB per rebuild (the cost of replacing 98 QML Models, which a held pass
+  only postpones), and nothing is uploaded. What the rule added was a way to get stuck: a
+  pass that waits for a frame which nothing asks for. Decision 17 is what the measurement
+  supports.
+- **A pair of hooks of the main window around every document path** (this story's first
+  delivery: "before the scene is cleared" / "after the new document is in"). Two mechanisms
+  for one fact, and the "before" hook ran before a load could fail (decision 16). The scene
+  already says when a document is replaced, and says it only when it is.
+- **Keeping the start marker in the settings store.** The marker must be on disk before the
+  engine is imported and must survive a process that dies without flushing anything; it is a
+  fact about a process (it carries a pid), and it belongs where support looks — beside
+  `app.log` and `crash.log`. A registry value is none of these.
+- **Falling back to software automatically, within the session.** A device that could not be
+  created is reported by Qt in good order (`sceneGraphError`), and a second host built at once
+  on the software adapter would be a second engine in a session that was promised one. A dead
+  PROCESS cannot fall back at all. Both lead to the same place: the next start, and a choice
+  the user can undo.
+- **Disconnecting a clock subscriber on its own `destroyed` signal.** Built first; it crashed
+  the suite with an access violation — the cyclic collector clears a Python callable connected
+  to `destroyed` while Qt still owns the object, and Qt then calls what is left (§11.4.33).
+- **Releasing the engine's caches on every pass, on a timer, or never.** Every pass: 2 to 10 ms
+  per edit plus a frame that rebuilds what was dropped. A timer: wake-ups while idle, and no
+  relation to what was destroyed. Never: 19 MB per rebuild of the small bench plan and 65 of
+  the large (measured), and a date animation that keeps hundreds of megabytes per minute.
+
+### Consequences
+
+- **For L1.4 (looks, sky):** subscribe with `connect_qobject`; a look is applied through the host
+  (`set_look`), never through the pipeline. Whatever animates `windTime` makes frames differ from
+  one another — the soak's "the frame after the loop is the frame before it" check and the
+  camera rule's readbacks assume a still scene and must pin the wind clock to 0.
+- **For L1.5 (ground bake):** `Scene3DController.set_ground_stage(stage)` is the seam; the stage
+  runs on the GUI thread inside the pass and is contained when it raises (the bare rectangle is
+  sent). A bake that replaces a texture per pass destroys no Model and so does not count as
+  retired; if it creates and destroys engine objects of its own, they need the same release.
+- **For L1.8 (selection, walk):** `OrbitInput` passes Escape and unknown keys on;
+  `Workspace.select_item(id)` is how the problems list selects on the canvas; a click on the 3D
+  view is `try: host.pick(...) except HostStateError` — never `wait_ready()` (the workspace calls
+  it nowhere); the info card goes beside or below the view.
+- **The workspace needs three things of the host beyond the engine story's contract:**
+  `Quick3DHost(prefer_software=…)`, `install_event_filter(watcher)` and
+  `release_cached_resources()` (with the `cache_releases` counter).
+- **How the workspace is measured follows from decision 17.** A readback is the measuring
+  device of the latency and picture scenarios (edit → finished readback; the camera rule;
+  WebEngine beside 3D) and costs memory of its own, so the memory soak takes none inside its
+  measured loop — one frame before and one after, which must be equal — and is judged
+  twice: with the view presenting and with its frames withheld (`frames="withheld"`: the
+  engine story's no-paint filter on the view). The gate's children run with Qt's
+  `QT_D3D_NO_VBLANK_THREAD=1` by default (`run_gate(timer_paced=True)`): on Windows update
+  requests come from a display-vblank thread, with the display asleep a visible window
+  presents its first frame and no more, and no scenario may depend on whether the dev box's
+  display is awake.
+- **The ground bake (L1.5) plugs in at two places and is not wired here.** Where the pass hands
+  a ground to the engine: `Scene3DController.__init__` builds `SceneSync(sink, registry)` — the
+  bake's `ground_baker=` goes there — and `_pass_records` passes `ground=` from `_ground()`
+  (`set_ground_stage` if a stage function is preferred). Where its problems join the list:
+  `problems_dialog.problems_of(skipped, failures)` and `Scene3DController._set_problems` /
+  `problem_count` are the one path from "something is missing in 3D" to the count in the
+  strip — `GroundBaker.capped`, `.failures` and `sync.ground_failure` become a third source
+  there, with their own reason codes in `View3DProblemsDialog.reason_text`. **The pass is
+  re-runnable while a bake has work left**: `mark_dirty()` — also from inside the stage, or
+  from a slot on `applied` — asks for another pass in the next turn of the event loop
+  (pinned with a ground made in four slices), at the price of one snapshot per pass (3.6 ms
+  on the small bench plan, 15 on the large). Nothing here builds on one pass painting the
+  whole ground; the "Building the 3D view…" notice, though, goes with the FIRST pass.
+- **Known limits, stated.** The Keyboard Shortcuts dialog does not list Alt+1 / 2 / 3 while the
+  workspace is behind its switch (L1.9). Edit latency is measured to a finished READBACK; the
+  time to photons is not measured. The real map picker (it needs the network and a key) is on
+  the manual checklist; the automated check uses its engine on a local page. A change of the
+  device pixel ratio in mid-session, and OS display scaling, are unmeasured (manual checklist).
+  With the release in place, dedicated GPU memory rises once, by about 90 MB over the first
+  releases (289 → 378 MB), and is flat after; committed memory rises with it once, by about
+  100 MB (ADR-048 addendum "L1.3"). The workspace's render tier is not part of CI's render
+  job: it was measured on the dev box only (GPU, and the soak on WARP by hand).
+- **A residual remains: 15 to 20 kB per destroyed Model** (2 MB per rebuild of the small bench
+  plan, 6.4 of the large, linear over 60 rebuilds). It is not graphics state — the same
+  rebuilds in a view that draws nothing leave 1.5 MB each — and its floor is Qt's own cost of
+  creating and destroying a QML object (3.4 kB for a bare `Model` with a material, measured
+  without product code); the rest is not located. It is inside the gate and small for
+  editing; it is NOT small for a story that replaces many Models per tick (date playback) —
+  ADR-048 addendum "L1.3" has the numbers and two ways out.
+- The builder-failure record of `core/scene3d/sync.py` and the record layer's `record_failed`
+  record still attach the exception at ERROR (they are the scene contract's, and pinned by its
+  tests): decision 13's "one line" holds for this story's five modules.
+
+### Validation
+
+Default tier (no GPU; the engine replaced at the seam):
+
+- `tests/unit/test_scene3d_camera.py` (62) — pose, clamps, framing, the exact spring; the module
+  is standard library only.
+- `tests/unit/test_sim_clock_subscription.py` (23), `tests/unit/test_view3d_init_guard.py` (44 —
+  every transition in a temp directory; the default folder under pytest is inside the test
+  root), `tests/unit/test_plain_text.py` (71), `tests/unit/test_view3d_workspace_i18n.py` (40),
+  `tests/unit/test_view3d_workspace_packaging.py` (4).
+- `tests/ui/test_view3d_orbit_input.py` (21), `tests/ui/test_view3d_host_seams.py` (7).
+- `tests/integration/test_view3d_sync_controller.py` (39) — through the real `scene.changed`,
+  `stack_changed` and clock channels: **G4** (28 hidden edits: 0 snapshots, 0 sink calls; one
+  catch-up pass equal to a from-scratch apply), **G9** (time → light only; date → the dated
+  plants and nothing else; a destroyed subscriber is never called), the ground seam (the
+  stage sees both snapshots; a stage that raises is contained; a ground made in four slices
+  asks for its next pass from inside the pass and then stops asking).
+- `tests/integration/test_view3d_workspace_widget.py` (44) — modes, the kept host, **G3** (the
+  pose compared exactly around each of 100 edits of every kind, a date and a time change; a
+  document change frames once), **G6** (the marker and its notices), the notice painted
+  before the first snapshot, the release thresholds, hostile names — and decision 17: a
+  stand-in host that records `grab` / `wait_ready` / `pick` / `project` sees none of them
+  through passes, polls, the camera's timer, a resize, the splitter, a release, mode
+  switches and a document change; a scan finds no such call in the five modules (and finds
+  one in the offscreen driver, its control).
+- `tests/integration/test_view3d_workspace.py` (22) — the §8.10 workflow through a real
+  `GardenPlannerApp`; **G1** in two fresh processes (without the switch: no engine import and
+  the canvas view's pixels identical to the build with it in Plan mode); what **G10** leaves
+  to this story — #428 itself is master's fix and master's tests
+  (`tests/integration/test_sun_document_lifecycle.py`): a replaced document reaches the
+  workspace through the scene's signal alone (one emission, one slot call, the camera framed
+  once, on four ways of replacing it), and an open that fails on any of three paths leaves
+  the view, the camera, the per-plan memories and the hours-of-sun map as they were.
+- `tests/integration/test_workspace_gate.py` (11) — the gate's own safety: `main()` on a plan
+  builds every store on the throw-away key; a decoy organisation is refused with exit code 97.
+
+Render tier (`OGP_RENDER3D=1`), `tests/integration/test_view3d_workspace_render.py` (24) — the
+app's own `main()` in a child, on Direct3D 11 (RTX 4070), 2026-10-12; the numbers of the tier's
+run on the final code unless a cell says "by hand" (the same scenario started from a script):
+
+| Gate | Measured | Bound |
+|---|---|---|
+| G2 edit → finished readback, `bench_small`, Split at 1600 × 900, 120 edits of seven kinds | p50 14.8 / **p95 19.7** / max 52.4 ms (edit 0.9, wait 0.9, snapshot 3.6, apply 0.4, readback 8.6 at the median; an earlier run of the tier: 15.2 / 20.6 / 43.4) | p95 ≤ 50 ms |
+| the same on `bench_large` (424 records) | p50 31.3 / p95 71.8 / max 105 ms (snapshot 13.6 ms at the median, 21.4 at p95; wait p95 39 ms; an earlier run: 29.9 / 80.3 / 150) | reported |
+| the same on the maximised window (5120 × 1369, 3D pane 2334 × 1203), `bench_small`, by hand | p50 18.5 / p95 29.2 / max 51.2 ms (the readback alone 12.9 ms at the median) | reported |
+| G3 twin: 100 edits of nine kinds on the real host | the engine's camera was set 0 times; a new document set it once | exact |
+| G5 never / visible / hidden | exit 0, 0 Qt warnings, no ERROR in `app.log`, nothing of Qt Quick imported before 3D is asked for | — |
+| G5 in the frozen build (`installer/workspace_gate.spec`: the product recipe plus the gate's runtime hook; PyInstaller 6.18, Python 3.12) | the same three: exit 0, 0 Qt warnings, 98 parts drawn on the GPU; every store the exe built is the throw-away one. The product exe from the same tree: the 8-second smoke stays up, `--selftest` exit 0 in 4.2 s | — |
+| G6 twin: died → next start → try hardware → next start | compatibility mode on "Microsoft Basic Render Driver" by Qt's own log, then "NVIDIA GeForce RTX 4070" again | — |
+| G7 soak, 20 rebuilds, the view PRESENTING, no readback inside the measured loop | **1.56 MB / rebuild** (rebuilds 11–20; 2.00 in a run by hand), growth +121 MB, 20 releases, the frame after the loop equal to the frame before it | < 10 |
+| G7 the same with the view's frames WITHHELD (paint events eaten; 0 frames presented) | **1.32 MB / rebuild** (1.48 by hand), growth +36 MB, 20 releases; dedicated GPU memory did not move; the view presents again → the same frame | < 10 |
+| G7 rebuild off / positive control (+25 MB per rebuild) / release out of reach | 0.33 / 26.8 (fails, as it must) / 18.8 (by hand: 0.01 / 27.3 / 19.3, and 1.54 without the release with frames withheld) | < 10 / ≥ 10 / reported |
+| G7 dedicated GPU memory (DXGI, this process), presenting | 289 → 346 → 362 → 378 MB over the first releases, then flat (slope 0.0) | < 10 |
+| G7 elsewhere, with the release (one run each, by hand) | the large plan (421 parts): 6.38 MB / rebuild (65.5 without the release); WARP: 3.32 (20.1 without), 1.23 with frames withheld | < 10 |
+| G7 over 60 rebuilds (by hand); and with the release inside every pass (20 rebuilds) | 1.78 MB / rebuild over rebuilds 31–60 (60 releases, the frame after equal to the frame before); 1.88 (1.82 by hand) | < 10 |
+| What a readback per rebuild adds — why decision 17 (reported, never judged) | frames withheld: 8.63 MB / rebuild with the release (8.48 by hand), 26.0 without (WARP: 6.20 with); presenting, by hand: 3.85 and 16.4 | — |
+| G8 a Qt WebEngine page before and after the 3D host exists | painted both times (`#1e90ff` at its centre); 138 distinct colours in the 3D frame beside it | — |
+| G11 pan step, Split against Plan at the same canvas size (874 × 967) | 1.04 (the fastest tenth: 1.04) | ≤ 1.3 |
+
+Hand mutation (one text mutant at a time, the tests that should notice run, the tree restored;
+a scratch tool, point-in-time, not a gate): on the final code **every mutant killed** in 18
+sets — controller 14, workspace 19, plain text in the dialog 3 and in the workspace 5, the
+plain-text helper 14, log lines 5 + 2 + 2, the application's wiring 11, the switch 2, retired
+counts and plan memories 11, the release 9, the notice 7, the host seam 3, workspace paths
+that moved 6, a pass asked for from inside the pass 1 (114 mutants), and six mutants that ADD
+a frame-taking call to a steady path — a readback in the health poll, a `wait_ready()` there,
+a readback after every pass, a `project()` per camera step, a readback after a release, a
+`pick()` on a moved splitter — each killed by the recording stand-in host ALONE and by the
+source scan ALONE. Two findings of the tool itself are worth
+keeping: every mutant of `application.py` was once "killed" by the same unrelated test, which
+was failing on the unmutated tree (a mutation verdict is only worth something on a green
+tree — run the story's tests first); and one set listed too few test files and reported a
+survivor that a test in the missing file kills.

@@ -171,6 +171,8 @@ persistence without revisiting ADR-030.
 | `OGP_GOOGLE_MAPS_KEY` | production, **user-supplied, never bundled** | Google Maps satellite background picker fallback (ADR-019, docs/08 §8.15) | Preferences (`api_keys/google_maps_key`) takes precedence; this environment/`.env` value is the fallback. The "load satellite background" menu action is disabled with a tooltip when neither source is set; `GoogleMapsKeyMissingError` if reached anyway. Bundling either source in the installer would let it be reverse-engineered and abused (`services/google_maps_service.py` docstring). |
 | `QT_QPA_PLATFORM=offscreen` | production (test infra) | Headless Qt rendering | Set by `tests/conftest.py` via `os.environ.setdefault(...)` (line 11) AND by `ci.yml`'s test job env. Without it, tests need a display server. |
 | `PYTHONUTF8=1` | production (script infra) | Forces UTF-8 I/O for `scripts/fill_translations.py` / `compile_translations.py` (German umlauts) | Mojibake / encode errors on Windows. Per CLAUDE.md, always run translation scripts with it. |
+| `OGP_QUICK3D=1` | **internal switch, temporary** (Phase 17 L1.3; removed when L1.9 flips the default) | Turns the plan area of the main window into the Plan / 3D / Split workspace on Qt Quick 3D (ADR-065, docs/08 §8.32.3). Read in ONE place: `app/settings.py`, `quick3d_workspace_enabled()`; only the exact value `1` counts. | Nothing: without it no module of the workspace and nothing of Qt Quick is imported, and the app is what it was. The shipped "3D View…" window works either way. Not a setting, not persisted, never set by the product or by CI's default tier. |
+| `OGP_RENDER3D=1`, `OGP_WORKSPACE_GATE`, `OGP_WORKSPACE_GATE_EXE` | test infra | The opt-in render tier (real windows on a real device); the scenario file of the workspace gate, read by `tests/integration/workspace_gate_hook.py` only; the frozen gate build's exe for `tests/integration/test_view3d_workspace_render.py -k frozen` (docs/08 §8.10.27). | The render tier skips; the gate's hook still moves the settings store and runs no scenario; the frozen tests skip. |
 
 **.env loading (verified in `main.py` lines 14–27):** `python-dotenv`'s
 `load_dotenv()` on the first existing candidate of, in order:
@@ -229,10 +231,11 @@ visibility calls.
 
 | Toggle | Where | Status |
 |---|---|---|
-| **Smart Symbols sidebar panel hidden** | `application.py:5291` `set_panel_visible("smart_symbols", False)` | **experimental / deferred UI** (US-C4). Engine, persistence, DXF export, and properties editing all ship and are tested; symbols in existing `.ogp` files still regenerate. Re-enable by deleting that one line (the comment says exactly this). |
+| **Smart Symbols sidebar panel hidden** | `application.py:5342` `set_panel_visible("smart_symbols", False)` | **experimental / deferred UI** (US-C4). Engine, persistence, DXF export, and properties editing all ship and are tested; symbols in existing `.ogp` files still regenerate. Re-enable by deleting that one line (the comment says exactly this). |
 | Contextual panels hidden until relevant selection | `set_panel_visible(key, relevant)` for `plant_details` / `companion` / `crop_rotation` in the selection updaters (ADR-030) | production behavior — not a bug when they're absent with nothing selected |
-| Satellite menu action disabled | `application.py:7892` `_update_satellite_menu_state` when both the Preferences key and `OGP_GOOGLE_MAPS_KEY` are unset (§3) | production guard |
+| Satellite menu action disabled | `application.py:7990` `_update_satellite_menu_state` when both the Preferences key and `OGP_GOOGLE_MAPS_KEY` are unset (§3) | production guard |
 | Nearest / perpendicular / tangent snap default-OFF | §1 snap table | production, opt-in |
+| **3D workspace (Plan / 3D / Split) absent** | `OGP_QUICK3D` is not `1` (§3) — `app/settings.py` `quick3d_workspace_enabled()` | **dark until L1.9** (Phase 17, ADR-065): the mode switch, the View → Workspace submenu and Alt+1 / 2 / 3 exist only with the switch on |
 
 If "a feature seems disabled", check this table before debugging.
 
@@ -248,7 +251,7 @@ If "a feature seems disabled", check this table before debugging.
 | `[tool.ruff.lint]` | select `E, W, F, I, B, C4, UP, ARG, SIM`; ignore `E501`, `B008` |
 | per-file ignores | `tests/**/*.py` → `ARG001, ARG002` (unused-but-required `qtbot` fixtures) |
 | `[tool.mypy]` | `strict = true` (+ the usual disallow/warn set), `follow_imports = "silent"`, `ignore_missing_imports = true`; `tests.*` override relaxes `disallow_untyped_defs` |
-| `[tool.pytest.ini_options]` | `testpaths = ["tests"]`, `addopts = "-v --tb=short"`, `qt_api = "pyqt6"` |
+| `[tool.pytest.ini_options]` | `testpaths = ["tests"]`, `addopts = "-v --tb=short -n auto --dist worksteal -m 'not perf'"`, `qt_api = "pyqt6"` |
 | `[tool.coverage]` | `source = src/open_garden_planner`, `branch = true`, standard exclude lines |
 
 ### Dependency pins worth knowing (pyproject `dependencies`)
@@ -259,8 +262,8 @@ If "a feature seems disabled", check this table before debugging.
 | `mcp>=1.23,<2.0` | "Pinned to mcp v1 — v2 renames `FastMCP` -> `MCPServer`." uvicorn/starlette/pydantic/anyio/sse-starlette come transitively but are listed where used. |
 | `uvicorn>=0.30`, `starlette>=0.37`, `pydantic>=2.11` | Agent API server stack |
 
-**Deprecated:** the top-level `requirements.txt` lists only `PyQt6` + `Pillow`
-— it is stale; `pyproject.toml` is the dependency source of truth.
+**Removed (AUD-052, #454):** the stale top-level requirement mirrors were deleted;
+`pyproject.toml` (locked by `uv.lock` + `pylock.toml`) is the dependency source of truth.
 
 ### installer/ogp.spec knobs (verified; see docs/07 + §8.19 for narrative)
 
@@ -269,8 +272,11 @@ If "a feature seems disabled", check this table before debugging.
   sse_starlette, pydantic, pydantic_settings, httpx_sse) — **never top-level
   `mcp`**: walking it imports `mcp.cli`, which `sys.exit(1)`s without the
   unbundled `typer` extra and aborts the build.
-- `copy_metadata` for the same stack (they read distribution metadata at
-  import time in the frozen exe).
+- Metadata: the spec bundles the whole **runtime closure** via
+  `installer/runtime_closure.py` (`copy_metadata` per resolved distribution; the
+  same resolver is read back by `scripts/generate_distribution_inventory.py`).
+  Never add a hand-typed per-stack metadata list: a new dependency would silently
+  leave the notices/SBOM inventory.
 - `excludes` = tkinter/unittest/pydoc/doctest — with an explicit NOTE: **do NOT
   exclude `multiprocessing`** (uvicorn imports it eagerly; excluding it breaks
   the embedded Agent API).

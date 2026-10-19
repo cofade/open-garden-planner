@@ -220,15 +220,19 @@ def _reloaded(pm: ProjectManager, scene: QGraphicsScene, path: Path, cls: type
 def test_a_recoloured_rectangle_keeps_its_colour_through_load_save_load(
         object_type: ObjectType, qtbot: Any, tmp_path: Path) -> None:
     """The loader set a rectangle's brush and left ``fill_color`` — what the saver,
-    the clipboard, the Agent API and the paint below 40 % zoom read — at the
-    type's default. So a recoloured rectangle came back right from the file and
-    was written back WRONG by the next save: measured on master, ``#ffc81e1e``
-    became ``#ff90ee90`` (GENERIC_RECTANGLE), ``#ff64b43c`` (LAWN), ``#ffdeb887``
-    (TERRACE_PATIO), ``#ff8b5a2b`` (GARDEN_BED). Circles, ellipses and polygons
-    never had it."""
+    the clipboard and the Agent API read — at the type's default. So a recoloured
+    rectangle came back right from the file and was written back WRONG by the next
+    save: measured on master v1.30.1, ``#ffc81e1e`` became ``#ff90ee90``
+    (GENERIC_RECTANGLE), ``#ff64b43c`` (LAWN), ``#ffdeb887`` (TERRACE_PATIO),
+    ``#ff8b5a2b`` (GARDEN_BED). Circles, ellipses and polygons never had it.
+
+    Fixed on master by #502 (``core.item_look.restore_stored_look``, pinned there
+    by ``test_item_appearance_roundtrip.py``); this branch's own fix gave way to it.
+    Kept for its breadth: eleven rectangle types with a pattern, and the clipboard's
+    and the Agent API's read of the loaded item."""
     from open_garden_planner.agent_api.queries import _object_detail
     from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
-    from open_garden_planner.core.item_style import style_gaps
+    from open_garden_planner.core.item_look import style_gaps
 
     pm = ProjectManager()
     item = RectangleItem(10.0, 20.0, 300.0, 200.0, object_type=object_type, name="Recoloured")
@@ -244,11 +248,11 @@ def test_a_recoloured_rectangle_keeps_its_colour_through_load_save_load(
         assert (saved["fill_color"], saved["fill_pattern"]) == (RECOLOURED, "BRICK"), turn
         assert QColor(item.fill_color).name(QColor.NameFormat.HexArgb) == RECOLOURED, turn
         assert style_gaps(item) == [], turn
-        # the other readers of the attribute: clipboard, the agent, the low-zoom paint
+        # the other readers of the attribute: the clipboard and the agent (the paint
+        # below 40 % zoom read it too, until #503 removed that paint)
         copied = ProjectManager._serialize_item(item)
         assert copied is not None and copied["fill_color"] == RECOLOURED
         assert _object_detail(copied, {}, {}).fill_color == RECOLOURED
-        assert item.get_lod_fill_color().name(QColor.NameFormat.HexArgb) == RECOLOURED
 
 
 def _stroked(cls: Any) -> Any:
@@ -273,7 +277,7 @@ def test_a_restroked_item_keeps_its_stroke_through_load_save_load(cls: Any, qtbo
     width (its saved stroke was read for style NONE only). And for every shape
     the loaded item's stroke ATTRIBUTES were its type's defaults — the properties
     panel showed them, and undoing a change of width put the default back."""
-    from open_garden_planner.core.item_style import style_gaps
+    from open_garden_planner.core.item_look import style_gaps
     from open_garden_planner.core.object_types import PathFenceStyle, StrokeStyle
 
     pm = ProjectManager()

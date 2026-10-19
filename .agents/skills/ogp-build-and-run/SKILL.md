@@ -12,6 +12,18 @@ description: >
 
 # OGP Build & Run
 
+## Current translation gate (#496)
+
+`scripts/check_translations.py` is the required source/catalog/binary gate for every
+locale in `SUPPORTED_LANGUAGES`. New wrapped UI keys require all target translations;
+new locales require all current keys. Run `update_translations.py`, complete targets
+(the fill helper is German-only), compile, then check. No coverage allowances or manual
+locale test lists. The compiler rejects incomplete/blank targets and unsupported plural
+input; vanished records cannot satisfy coverage. See section 8.3 and docs/TRANSLATING.md.
+The older German-only check mentioned in historical examples below is supplementary.
+Truly unwrapped UI prose and linguistic quality still require review.
+
+
 Everything needed to recreate the environment, run the app and tests, build and
 package, and find where artifacts land. Facts verified against the repo at
 **v1.23.0 (2026-07-04)**: `pyproject.toml`, `.github/workflows/ci.yml`,
@@ -24,8 +36,8 @@ package, and find where artifacts land. Facts verified against the repo at
 - **Agent API** — the MCP (Model Context Protocol) server embedded in the running
   GUI, serving AI agents over HTTP on loopback (`agent_api/` package).
 - **`.ogp`** — the app's JSON project file format.
-- **i18n gate** — the test that fails if any registered UI string lacks a German
-  translation.
+- **i18n gate** — the source-derived check that requires every wrapped UI key in every registered
+  target language.
 
 ## When NOT to use this skill
 
@@ -90,7 +102,8 @@ Command anatomy only — what counts as acceptable results/evidence is
 
 | What | Command (swap `venv/Scripts/python.exe` → `venv/bin/python` on Linux) | Expected outcome |
 |---|---|---|
-| Full suite | `venv/Scripts/python.exe -m pytest tests/ -v` | All pass. `pyproject.toml` sets `addopts = "-v --tb=short"`, `qt_api = "pyqt6"`, `testpaths = ["tests"]` |
+| Correctness battery | `venv/Scripts/python.exe -m pytest tests/ -v` | All pass. Parallel by default (`addopts`), and **excludes the `perf`-marked timing tests** - the next row |
+| Wall-clock budgets | `venv/Scripts/python.exe -m pytest tests/ -m perf -n 0` | All pass, on a quiet runner. `pyproject.toml` sets `addopts = "-v --tb=short -n auto --dist worksteal -m 'not perf'"`, `qt_api = "pyqt6"`, `testpaths = ["tests"]`. `-n 0` because running the timing tests across workers is the thing the split exists to prevent (§8.10.4) |
 | Unit layer only | `venv/Scripts/python.exe -m pytest tests/unit -v` | ~106 files (Qt-free-ish fast tests) |
 | Integration layer | `venv/Scripts/python.exe -m pytest tests/integration -v` | ~74 files (end-to-end UI workflows) |
 | UI layer | `venv/Scripts/python.exe -m pytest tests/ui -v` | ~19 files (widget-level) |
@@ -110,17 +123,20 @@ Notes:
 Run after adding or changing ANY user-visible string:
 
 ```bash
+PYTHONUTF8=1 venv/Scripts/python.exe scripts/update_translations.py
+# Complete every registered target catalog; fill_translations.py assists German only.
 PYTHONUTF8=1 venv/Scripts/python.exe scripts/fill_translations.py
 PYTHONUTF8=1 venv/Scripts/python.exe scripts/compile_translations.py
+venv/Scripts/python.exe scripts/check_translations.py
 ```
 
 | Fact | Value (verified) |
 |---|---|
 | `.ts` / `.qm` location | `src/open_garden_planner/resources/translations/` — `open_garden_planner_de.ts/.qm` and `open_garden_planner_en.ts/.qm` |
-| `fill_translations.py` | Holds the full English→German mapping as a Python dict; writes translations + missing contexts into the `.ts`. New strings must be **added to the script's dict** first |
+| `fill_translations.py` | German convenience mapping; fills live source keys and preserves completed values. Complete other registered target catalogs directly |
 | `compile_translations.py` | Pure-Python `lrelease` replacement — compiles every `.ts` in that dir to `.qm` (no Qt tooling needed) |
 | `PYTHONUTF8=1` | Required on Windows: the scripts handle umlauts; without it the default cp1252 codec mangles them |
-| Gate test | `venv/Scripts/python.exe -m pytest tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished` — fails if any registered string is left unfinished. It CANNOT see hardcoded plain-string call sites that bypass `tr()` (see AGENTS.md i18n section) |
+| Gate test | `venv/Scripts/python.exe -m pytest tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished` — is a supplementary German regression check. The required `scripts/check_translations.py` checks every wrapped source key in every registered locale; truly unwrapped display strings still require review (see AGENTS.md i18n section) |
 | Packaging | `installer/ogp.spec` bundles the whole `resources/translations/` dir into the exe — recompile `.qm` BEFORE building |
 
 ## Building the frozen exe (PyInstaller)
@@ -243,7 +259,7 @@ makes it a merge gate rather than a post-mortem.
 
 | Trap | Rule | Why (source) |
 |---|---|---|
-| MCP stack dynamic imports | `collect_submodules(...)` + `copy_metadata(...)` for `mcp.server`/`mcp.shared`/`mcp.types`, `uvicorn`, `starlette`, `anyio`, `sse_starlette`, `pydantic`, `pydantic_settings`, `httpx_sse` (+ metadata for `pydantic_core`, `mcp`) | uvicorn/anyio/starlette load protocol/loop/lifespan submodules dynamically and read distribution metadata at import; without both, the frozen Agent API fails while dev runs pass (docs/07 §7.6) |
+| MCP stack dynamic imports | `collect_submodules(...)` for `mcp.server`/`mcp.shared`/`mcp.types`, `uvicorn`, `starlette`, `anyio`, `sse_starlette`, `pydantic`, `pydantic_settings`, `httpx_sse`; distribution metadata is bundled for the required runtime closure by `installer/runtime_closure.py`, plus actual collected wheel owners via `installer/frozen_inventory.py` (including hooks and distinct vendored copies) | uvicorn/anyio/starlette load protocol/loop/lifespan submodules dynamically and read distribution metadata at import; without both, the frozen Agent API fails while dev runs pass (docs/07 §7.6). Do not hand-type a per-stack metadata list — a new dependency would silently leave the notices/SBOM inventory (AUD-051/#454) |
 | Never walk top-level `mcp` | Collect the concrete subpackages, NOT `collect_submodules("mcp")` | Walking `mcp` imports `mcp.cli`, which `sys.exit(1)`s without the unbundled `typer` extra and aborts the build; the spec wraps collection in `_safe_collect_submodules` |
 | Never exclude `multiprocessing` | It is deliberately absent from the spec `excludes` (comment in spec) | uvicorn imports it eagerly (`uvicorn.supervisors → basereload → _subprocess`) even single-process; excluding it → GUI runs, embedded server silently dies with `ModuleNotFoundError` |
 | UPX vs pydantic_core | `upx_exclude=["pydantic_core*.pyd"]` | UPX can corrupt that compiled extension, killing the Agent API at runtime |
@@ -268,7 +284,7 @@ Expected outcome: `dist/OpenGardenPlanner-v{VERSION}-Setup.exe` (v1.29.6 release
 The script writes `src/open_garden_planner/_version.py` before freezing (the
 update checker reads it), cleans the previous `dist/OpenGardenPlanner/`, runs
 PyInstaller with `--clean`, then `makensis` on `installer/ogp_installer.nsi`.
-Default version without `--version` is a stale `1.0.0` constant — real releases
+Default version without `--version` comes from `pyproject.toml` — real releases
 come from CI (`release.yml`, windows-latest), which passes the computed version.
 Release/versioning policy itself → **ogp-change-control**.
 
@@ -329,4 +345,16 @@ Volatile facts stamped 2026-07-04 (v1.23.0). Re-verify with:
 | Agent API defaults (enabled/port/path) | `grep -n 'DEFAULT_AGENT_API\|port: int = 8765\|path: str' src/open_garden_planner/app/settings.py src/open_garden_planner/agent_api/server.py` |
 | Path chokepoint + autosave locations | `grep -n 'def default_dialog_dir\|AUTOSAVE_PREFIX' src/open_garden_planner/app/paths.py src/open_garden_planner/services/autosave_service.py` |
 | Translation file set | `ls src/open_garden_planner/resources/translations/` |
-| i18n gate still exists | `grep -n test_german_ts_has_no_unfinished tests/unit/test_i18n.py` |
+| i18n gate still exists | `grep -n test_registered_languages_cover_current_source_and_binary tests/unit/test_i18n.py` |
+
+### Host PATH contamination: ICU / WebEngine (#453, 2026-10-13)
+
+PyInstaller collected ICU 78.3 from the Codex Poppler runtime on PATH. The frozen
+WebEngine import then failed with a missing procedure; source Qt loaded Windows'
+native ICU 72.1. Compare Analysis-00.toc provenance, DLL versions and PE exports
+before changing Qt pins. pefile's default 8,192-export limit can produce false
+missing-symbol reports for Qt; use a higher limit for that diagnostic.
+A clean build with PATH restricted to the locked venv, Windows system directories,
+Python and Git passed detached --selftest (0) and the eight-second smoke (124).
+The package's self-test also checks strict plan persistence, supported image codecs
+and verified-installer hashing. No dependency or spec change was required.

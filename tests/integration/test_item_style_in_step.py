@@ -15,7 +15,7 @@ the part that knows the operations by name:
 
 1. every operation that makes an item out of an item, on a recoloured,
    patterned, dash-stroked source of every shape it accepts: the derived item's
-   attributes describe its brush and pen (``core.item_style.style_gaps``), and
+   attributes describe its brush and pen (``core.item_look.style_gaps``), and
    where the operation is a copy, the copy looks like its source;
 2. the look survives the project file: derived → saved → loaded;
 3. the writers that restyle an item in place — a freshly drawn line, the
@@ -51,9 +51,10 @@ from PyQt6.QtGui import QBrush, QColor, QImage, QKeyEvent, QMouseEvent, QPainter
 
 from open_garden_planner.core import ProjectManager
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
-from open_garden_planner.core.item_style import (
+from open_garden_planner.core.item_look import (
     MIN_STROKE_WIDTH,
     _same_brush,
+    adopt_pen,
     paints_sprite,
     saved_stroke_colour,
     saved_stroke_width,
@@ -537,9 +538,6 @@ PRESET_STROKES: dict[str, tuple[dict[str, Any], tuple[str, float]]] = {
     "width 0.01": ({**SAVED, "stroke_width": 0.01}, ("#ff102030", 8.0)),
     "width just under the panel's minimum": ({**SAVED, "stroke_width": 0.499}, ("#ff102030", 8.0)),
     "width at the panel's minimum": ({**SAVED, "stroke_width": 0.5}, ("#ff102030", 0.5)),
-    "width infinite": ({**SAVED, "stroke_width": float("inf")}, ("#ff102030", 8.0)),
-    "width not a number": ({**SAVED, "stroke_width": float("nan")}, ("#ff102030", 8.0)),
-    "width of 400 digits": ({**SAVED, "stroke_width": 10 ** 400}, ("#ff102030", 8.0)),
     "no width": ({"stroke_color": "#ff102030"}, ("#ff102030", 8.0)),
     "colour null": ({**SAVED, "stroke_color": None}, ("#ffb4aa96", 12.0)),
     "colour a number": ({**SAVED, "stroke_color": 7}, ("#ffb4aa96", 12.0)),
@@ -619,6 +617,25 @@ class TestAFileTheAppDidNotWrite:
         (saved,) = json.loads(again.read_text(encoding="utf-8"))["objects"]
         assert (saved["stroke_color"], saved["stroke_width"]) == (colour, width)
 
+    @pytest.mark.parametrize("width", [float("inf"), float("nan"), 10 ** 400],
+                             ids=["infinite", "not a number", "400 digits"])
+    def test_a_width_no_finite_number_can_hold_refuses_the_whole_plan(
+            self, qtbot: Any, tmp_path: Path, width: float) -> None:
+        """Three of review 2's cases never reach an item since master's strict numeric
+        plan I/O (#453, AUD-041, ``core/plan_io.py``): a stroke width that is infinite,
+        not a number or an integer no float can hold refuses the DOCUMENT before any
+        item is built — the loader raises, the scene stays empty. (On this branch
+        before the sync, each kept the preset's width.)"""
+        from open_garden_planner.core.plan_io import PlanValidationError
+
+        obj = {"type": "polyline", "object_type": "PATH", "path_fence_style": "GRAVEL_PATH",
+               "points": [{"x": 10, "y": 10}, {"x": 200, "y": 40}], **SAVED, "stroke_width": width}
+        scene = CanvasScene()
+        _SCENES.append(scene)
+        with pytest.raises(PlanValidationError):
+            ProjectManager().load(scene, hand_made(tmp_path, obj))
+        assert typed_items(scene) == []
+
     def test_what_counts_as_a_saved_stroke(self) -> None:
         """The two readers themselves — a pen cannot tell every case apart (Qt refuses
         an infinite width on its own and keeps the old one)."""
@@ -668,32 +685,41 @@ class TestAFileTheAppDidNotWrite:
         assert picture(loaded_plan(again)) == first
 
     @pytest.mark.parametrize("kind", sorted(SPRITES))
-    def test_a_loaded_sprite_states_its_types_stroke(self, qtbot: Any, tmp_path: Path, kind: str) -> None:
-        """Review 2: a sprite's pen says nothing about its picture — it is ``NoPen``
-        when the item is built, and a solid black 1.0 once it was loaded (the saver
-        writes the pen's colour and width, the loader gives the pen the saved
-        ``stroke_style``). Reading the stroke attributes off THAT pen made a loaded
-        table state a black 1.0 stroke where it had stated its type's."""
+    def test_a_loaded_sprite_states_what_its_file_holds_and_is_not_held_to_its_pen(
+            self, qtbot: Any, tmp_path: Path, kind: str) -> None:
+        """A sprite's pen says nothing about its picture — it is ``NoPen`` when the
+        item is built, and a solid black 1.0 once it was loaded (the saver writes the
+        pen's colour and width, the loader gives the pen the saved ``stroke_style``).
+
+        What the item STATES after a load is master's rule since #502
+        (``restore_stored_look``: what the file holds — that black 1.0); review 2's
+        "its type's stroke", which this branch had kept by not reading the stroke
+        attributes off the pen, gave way to it in the sync of 2026-10-19 (§11.4.34).
+        What stays this branch's: the guard does not hold a sprite's pen against its
+        attributes (``paints_sprite``), and ``adopt_pen`` does not write a sprite's
+        attributes from a pen."""
         item = SPRITES[kind]()
         style = get_style(item.object_type)
-        want = (QColor(style.stroke_color).name(HEX), style.stroke_width, style.stroke_style)
-        assert paints_sprite(item) and stated(item) == want
+        assert paints_sprite(item)
+        assert stated(item) == (QColor(style.stroke_color).name(HEX), style.stroke_width, style.stroke_style)
         once = through_the_file(item, tmp_path)
-        assert stated(once) == want and style_gaps(once) == []
         assert pen_of(once) == ("#ff000000", 1.0, Qt.PenStyle.SolidLine)  # the pen it is saved with
+        assert stated(once)[:2] == ("#ff000000", 1.0) and style_gaps(once) == []
         twice = through_the_file(once, tmp_path)
-        assert stated(twice) == want and pen_of(twice) == pen_of(once)
+        assert stated(twice) == stated(once) and pen_of(twice) == pen_of(once)
+        # adopt_pen leaves a sprite's attributes alone, whatever the pen
+        before = stated(twice)
+        adopt_pen(twice, QPen(QColor("#ff102030"), 7.0))
+        assert stated(twice) == before and pen_of(twice)[:2] == ("#ff102030", 7.0)
+        assert style_gaps(twice) == []
 
-    def test_the_sprites_of_the_reference_plan_state_their_types_stroke(self, qtbot: Any) -> None:
-        """200 of the 495 items of the audit's reference plan are sprites; each stated
-        ``#ff000000`` / 1.0 after a load that read their stroke attributes off the pen."""
+    def test_the_guard_holds_no_sprite_of_the_reference_plan_to_its_pen(self, qtbot: Any) -> None:
+        """200 of the 495 items of the audit's reference plan are sprites: the whole
+        plan, loaded, is in step — every item, sprites included."""
         scene = loaded_plan(AUDIT_PLAN)
         items = typed_items(scene)
         sprites = [item for item in items if paints_sprite(item)]
         assert (len(items), len(sprites)) == (495, 200)
-        for item in sprites:
-            style = get_style(item.object_type)
-            assert stated(item) == (QColor(style.stroke_color).name(HEX), style.stroke_width, style.stroke_style)
         assert style_gaps_in([scene]) == []
 
 
@@ -906,11 +932,13 @@ def _derives_an_item(function: ast.AST) -> bool:
 
 def test_no_brush_or_pen_is_copied_past_the_helper() -> None:
     """The raw copy — ``a.setBrush(QBrush(b.brush()))`` — exists in ONE place:
-    ``core/item_style.py``. Everywhere else it is the defect of the finding."""
+    ``core/item_look.py``. Everywhere else it is the defect of the finding."""
     raw = []
     for folder in ("core", "ui/canvas"):
         for path in sorted((SRC / folder).rglob("*.py")):
             relative = path.relative_to(SRC).as_posix()
+            if relative == "core/item_look.py":
+                continue  # the one place (``copy_visual_style``)
             for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
                 if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
                         and node.func.attr in ("setBrush", "setPen")
@@ -945,5 +973,5 @@ def test_the_map_of_item_from_item_operations_is_current() -> None:
     # the loader, the wrapper that IS the primitive and the helper itself are not derivations
     found.get("ui/canvas/canvas_view.py", set()).discard("_deserialize_item")
     found.pop("core/project.py", None)
-    found.pop("core/item_style.py", None)
+    found.pop("core/item_look.py", None)
     assert {module: set(names) for module, names in DERIVING.items()} == found

@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import QApplication
 SUPPORTED_LANGUAGES: dict[str, str] = {
     "en": "English",
     "de": "Deutsch",
+    "es": "Español",
 }
 
 _TRANSLATIONS_DIR = Path(__file__).parent.parent / "resources" / "translations"

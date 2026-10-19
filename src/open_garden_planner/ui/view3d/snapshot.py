@@ -877,7 +877,7 @@ def _paint_of(item: Any, shape: str, turn_deg: float = 0.0) -> tuple[Paint, Any]
     """How the canvas paints ``item``'s surface (``core.scene3d.Paint``), and its
     pen's colour (None for an item that strokes nothing) — read from the LIVE pen:
     it is what ``paint()`` strokes with, whatever the item's stored
-    ``stroke_color`` says (``core.item_style`` keeps the two in step; a writer
+    ``stroke_color`` says (``core.item_look`` keeps the two in step; a writer
     that does not is not painted from). A polyline's pen width is its geometry
     (``path_width_cm``) and is not repeated here. ``turn_deg``: the turn the
     record's transform does not carry — a circle's (``Paint.rotation_deg``)."""

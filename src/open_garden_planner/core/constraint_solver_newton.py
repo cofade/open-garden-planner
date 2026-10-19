@@ -121,9 +121,6 @@ def newton_refine(
             slot_index[key] = len(var_slots)
             var_slots.append(key)
 
-    if not var_slots:
-        return True, 0.0
-
     # ── Constraint filter ──────────────────────────────────────────────────
     # Rotation-only constraints (PARALLEL / PERPENDICULAR / EQUAL) and FIXED
     # are delegated to the warm-start pass; Newton handles position/distance
@@ -273,6 +270,10 @@ def newton_refine(
     x = read_x()
     F = eval_residuals(x)
     max_err = float(np.max(np.abs(F))) if F.size > 0 else 0.0
+    # No movable variables does not make pinned constraints feasible (#457).
+    # Evaluate the actual residual before returning it to the full-graph solver.
+    if not var_slots:
+        return max_err <= tol, max_err
     if max_err <= tol:
         # Write back even on the no-op path so callers always observe a
         # consistent (positions, vertex_pos) — guards live-drag callers

@@ -18,7 +18,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.fill_patterns import FillPattern
-from open_garden_planner.core.item_style import MIN_STROKE_WIDTH
+from open_garden_planner.core.item_look import MIN_STROKE_WIDTH
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style
 from open_garden_planner.ui.canvas.items import (
     CircleItem,

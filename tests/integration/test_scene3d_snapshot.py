@@ -49,7 +49,7 @@ from open_garden_planner.core.commands import (
     RotateItemCommand,
 )
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
-from open_garden_planner.core.item_style import adopt_pen
+from open_garden_planner.core.item_look import adopt_pen
 from open_garden_planner.core.object_height import METADATA_KEY, effective_height_cm
 from open_garden_planner.core.object_types import ObjectType, PathFenceStyle
 from open_garden_planner.core.scene3d import (

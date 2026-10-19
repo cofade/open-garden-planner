@@ -24,7 +24,7 @@ from PyQt6.QtGui import QColor, QMouseEvent
 from PyQt6.QtWidgets import QApplication
 
 from open_garden_planner.agent_api.server import SERVER_THREAD_NAME
-from open_garden_planner.core.item_style import fill_brush, style_gaps
+from open_garden_planner.core.item_look import fill_brush, style_gaps
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 
@@ -48,6 +48,23 @@ def _no_leaked_agent_api_thread(qtbot: object):
       ``_disable_agent_api_server`` sets ``KEY_AGENT_API_ENABLED = False`` for
       every test, so ``_maybe_start_agent_api`` returns immediately. That claim
       was never verified and is falsified by the suite's own fixture.
+
+      **SUPERSEDED (#509) — read this before relying on the paragraph above.**
+      The fixture's guarantee used to have a hole: the write lived in
+      ``_disable_agent_api_server`` while the key wipe lived in the autouse
+      ``_reset_app_settings`` it merely depended on, so the instant BETWEEN them had
+      no ``agent_api/enabled`` key at all. A read in that window returned the
+      production default (True) and the port read 8765, and a timer landing there
+      started a REAL server — measured under ``pytest -n 8`` as
+      ``OSError: [Errno 10048]``. The write now happens inside the wipe, so the
+      window is gone; see ``tests/conftest.py``'s ``_reset()``.
+
+      And the whole hazard class is now closed at its source. What is passed to
+      ``singleShot`` is the **bound method** ``self._maybe_start_agent_api``, and
+      PyQt auto-disconnects a bound-method slot when its receiver is destroyed. The
+      new ``_reclaim_widgets`` fixture destroys every top-level widget at the end of
+      each test, so a pending 1500 ms timer cannot outlive the app that armed it —
+      which is why the fix is a reclaim fixture rather than a settings write.
     * It reached the app via ``_stop_agent_api()``, which reaches only the app's
       OWN server. The tests that construct ``AgentApiServer(...)`` directly
       (``test_agent_api_exports.py``, ``test_agent_api_frozen_exe.py``) are
@@ -115,7 +132,7 @@ def watched_scenes() -> Iterator[list[CanvasScene]]:
 
 def style_gaps_in(scenes: list[CanvasScene]) -> list[str]:
     """Every item of ``scenes`` whose style attributes do not describe its brush and
-    pen (``core.item_style.style_gaps``) — one line an item, [] when all are in step.
+    pen (``core.item_look.style_gaps``) — one line an item, [] when all are in step.
     A scene whose C++ object is gone is skipped."""
     found: list[str] = []
     for scene in scenes:
@@ -139,7 +156,7 @@ def fail_on_style_gaps(scenes: list[CanvasScene]) -> None:
         more = f"\n  … and {len(found) - 12} more" if len(found) > 12 else ""
         pytest.fail(
             f"{len(found)} item(s) whose style attributes do not describe their brush and pen "
-            f"(core/item_style.py — give an item its pen with adopt_pen, its look with "
+            f"(core/item_look.py — give an item its pen with adopt_pen, its look with "
             f"copy_visual_style):\n  {shown}{more}", pytrace=False)
 
 
@@ -168,7 +185,7 @@ def guarded(node: Any) -> Iterator[None]:
 
 @pytest.fixture(autouse=True)
 def _every_item_says_what_it_paints(request: pytest.FixtureRequest, qtbot: object):
-    """THE GUARD of the rule in ``core/item_style.py``: at the end of every test in
+    """THE GUARD of the rule in ``core/item_look.py``: at the end of every test in
     this folder, every item of every ``CanvasScene`` the test built states the look it
     paints — its style attributes describe its live brush and pen.
 

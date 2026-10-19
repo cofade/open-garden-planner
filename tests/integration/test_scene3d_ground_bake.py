@@ -13,8 +13,7 @@ from __future__ import annotations
 import ast
 import math
 import statistics
-import time
-from collections.abc import Collection, Mapping
+from collections.abc import Collection
 from pathlib import Path
 from typing import Any
 
@@ -27,13 +26,12 @@ from PyQt6.QtTest import QSignalSpy
 from open_garden_planner.core import ProjectManager
 from open_garden_planner.core.commands import DeleteItemsCommand, MoveItemsCommand
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
-from open_garden_planner.core.item_style import adopt_pen
+from open_garden_planner.core.item_look import adopt_pen
 from open_garden_planner.core.object_types import ObjectType, PathFenceStyle, StrokeStyle
 from open_garden_planner.core.scene3d import (
     MEADOW_RGB,
     BuilderRegistry,
     GroundSpec,
-    GroundTile,
     MeshPart,
     Record,
     SceneDiff,
@@ -51,10 +49,11 @@ from open_garden_planner.ui.canvas.items import (
     PolylineItem,
     RectangleItem,
 )
-from open_garden_planner.ui.view3d.ground_bake import BAKE_BUDGET_S, GroundBaker
+from open_garden_planner.ui.view3d.ground_bake import GroundBaker
 from open_garden_planner.ui.view3d.snapshot import SkipReason
 from tests.integration.ground_bake_support import (
     Bake,
+    TimedBaker,
     canvas_render,
     canvas_rgb,
     difference,
@@ -647,25 +646,6 @@ class TestTheLiveSceneIsLeftAlone:
 # ── G3: one small edit ────────────────────────────────────────────────────────
 
 
-class TimedBaker(GroundBaker):
-    """The baker AS THE PRODUCT MAKES IT — its time budget on — with a stopwatch
-    around ``bake`` alone."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        assert self.budget_s == BAKE_BUDGET_S == 0.010
-        self.milliseconds: list[float] = []
-
-    def bake(self, records: Mapping[str, Record], changes: SceneDiff | None,
-             solid: Collection[str], width_cm: float, depth_cm: float
-             ) -> tuple[GroundTile, ...]:
-        started = time.perf_counter()
-        try:
-            return super().bake(records, changes, solid, width_cm, depth_cm)
-        finally:
-            self.milliseconds.append((time.perf_counter() - started) * 1000.0)
-
-
 def _loaded(plan: str) -> CanvasScene:
     scene = CanvasScene()
     ProjectManager().load(scene, PLANS / plan)
@@ -688,6 +668,12 @@ def _flat_item_up_to_three_metres(scene: CanvasScene, bake: Bake) -> Any:
 
 
 class TestOneSmallEdit:
+    # A WALL-CLOCK gate (the median of an edit's bake, 10 ms): it runs in the quiet
+    # step of ADR-058, never beside the default run's workers — under eight workers
+    # it read 11.58 ms. Marked by hand: the stopwatch is an attribute of
+    # ``ground_bake_support.TimedBaker``, which ``tests/unit/test_perf_marker_guard.py``
+    # does not follow.
+    @pytest.mark.perf
     @pytest.mark.parametrize(("plan", "tiles", "painted"), [("bench_small.ogp", 20, 11),
                                                            ("bench_large.ogp", 60, 45)])
     def test_a_move_repaints_at_most_four_tiles_in_ten_milliseconds(
@@ -1061,7 +1047,7 @@ class TestWhatTheCanvasReallyPaintsWith:
     def test_the_stroke_is_the_live_pens_after_a_load(self, qtbot: Any, tmp_path: Path) -> None:
         """The record — and the ground — follow the PEN, whatever the attribute says.
         (No loader branch set ``stroke_color`` when the bake was built; since its
-        review the loader keeps pen and attribute in step — ``core.item_style`` —
+        review the loader keeps pen and attribute in step — ``core.item_look`` —
         and the snapshot still reads the pen: an attribute set apart is not painted.)"""
         scene = new_scene()
         item = _polygon("border")

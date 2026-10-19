@@ -21,11 +21,11 @@ a surprise directory tree.
 
 from __future__ import annotations
 
-import math
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from open_garden_planner.app.paths import default_dialog_dir, default_save_path
+from open_garden_planner.core.plan_io import validate_canvas_size
 from open_garden_planner.services.dxf_service import DxfExportService
 from open_garden_planner.services.export_service import ExportService
 from open_garden_planner.services.pdf_report_service import PdfReportOptions, PdfReportService
@@ -87,8 +87,6 @@ def resolve_export_path(
 #: to be usable; a ceiling keeps a typo'd 1e9 from asking the view to lay out
 #: an absurd scene. The GUI's New Project dialog is the reference for the
 #: ordinary range; this only has to stop the absurd.
-MIN_CANVAS_CM = 50.0
-MAX_CANVAS_CM = 100_000.0
 
 
 def validate_new_plan(
@@ -109,18 +107,7 @@ def validate_new_plan(
     """
     resolved_width = current_width_cm if width_cm is None else float(width_cm)
     resolved_height = current_height_cm if height_cm is None else float(height_cm)
-    for name, value in (
-        ("width_cm", resolved_width),
-        ("height_cm", resolved_height),
-    ):
-        if not math.isfinite(value):
-            raise ValueError(f"{name} must be a finite number, got {value!r}")
-        if not (MIN_CANVAS_CM <= value <= MAX_CANVAS_CM):
-            raise ValueError(
-                f"{name} must be between {MIN_CANVAS_CM:g} and {MAX_CANVAS_CM:g} cm, "
-                f"got {value:g}"
-            )
-    return resolved_width, resolved_height
+    return validate_canvas_size(resolved_width, resolved_height)
 
 
 def validate_open_plan(file_path: str) -> Path:

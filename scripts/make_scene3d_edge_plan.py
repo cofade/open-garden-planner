@@ -84,7 +84,7 @@ if __name__ == "__main__":  # run as a script: nothing from here on may reach th
 import make_bench_plans as bench  # noqa: E402  (sets up sys.path for the package and Qt's platform)
 from PyQt6.QtWidgets import QApplication  # noqa: E402
 
-from open_garden_planner.core.item_style import adopt_pen  # noqa: E402
+from open_garden_planner.core.item_look import adopt_pen  # noqa: E402
 from open_garden_planner.core.object_types import ObjectType, PathFenceStyle  # noqa: E402
 from open_garden_planner.ui.canvas.geometry_apply import apply_rotation  # noqa: E402
 from open_garden_planner.ui.canvas.items import EllipseItem  # noqa: E402

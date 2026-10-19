@@ -565,7 +565,11 @@ def build_server(
         Args:
             kind: Optional filter — one of 'companion_conflict', 'spacing_overlap',
                 'soil_mismatch', 'capacity_overrun', 'crop_rotation',
-                'outside_canvas', 'guild_role_missing', 'guild_data_warning'.
+                'outside_canvas', 'guild_role_missing', 'guild_data_warning',
+                'sun_mismatch', 'sun_evaluation'. Sun records are cached: this
+                read never computes exposure. Ground-level estimates exclude
+                only the receiving plant's own shadow. Unavailable evaluations
+                have info severity and must not be interpreted as a passed check.
         """
         records = await anyio.to_thread.run_sync(providers.diagnostics)
         return diagnostics_from_records(records, kind=kind)

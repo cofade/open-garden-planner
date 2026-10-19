@@ -209,6 +209,21 @@ class TestOverdueReminderBar:
         # shown from the modal Welcome dialog lands after it closes), not call it
         # inline. Pin the singleShot(0) wiring.
         self._set_toggle(monkeypatch, True)
+        # ISOLATE the arm this test is about. `_startup_sequence` is itself deferred
+        # (`QTimer.singleShot(500, ...)`, application.py:288) and it is what arms the
+        # *other* `singleShot(0, self._check_overdue_tasks)` at application.py:5315.
+        # So the app under test carries a second, unrelated scheduler for the very
+        # method being stubbed, and under parallel load it fired after the patch and
+        # hit the STUB — `calls` came out `[1, 1]` instead of `[1]` (#509 review).
+        #
+        # Removing the arm is the isolation; WAITING for it is not. A first attempt
+        # drained it with `qtbot.wait(50)`, which named the right intent and the wrong
+        # timer: 50 ms cannot cross a 500 ms one. Instrumented, the drain finished at
+        # t≈500 ms with the sequence still pending, and under 8x CPU oversubscription
+        # the margin fell to 32 ms — a race with a shrinking budget, dressed as a fix.
+        from open_garden_planner.app.application import GardenPlannerApp
+
+        monkeypatch.setattr(GardenPlannerApp, "_startup_sequence", lambda _self: None)
         win = self._make_app(qtbot, monkeypatch)
         past = (datetime.date.today() - datetime.timedelta(days=5)).isoformat()
         win._project_manager.set_manual_task(
@@ -223,7 +238,10 @@ class TestOverdueReminderBar:
         monkeypatch.setattr(win, "_check_overdue_tasks", lambda: calls.append(1))
         win._open_project_file(str(path))
         assert calls == []        # deferred, not inline
-        qtbot.wait(50)            # let singleShot(0) fire
+        # Wait for the condition rather than for a fixed span: the assertion is "it
+        # ran", not "it ran within 50 ms", and the second is a statement about the
+        # machine. `waitUntil` pumps the event loop, so the pending singleShot fires.
+        qtbot.waitUntil(lambda: bool(calls), timeout=2000)
         assert calls == [1]
 
     def test_future_and_done_tasks_not_counted(self, qtbot, monkeypatch) -> None:

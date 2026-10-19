@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from open_garden_planner.core.item_style import adopt_pen, copy_visual_style
+from open_garden_planner.core.item_look import adopt_pen, copy_visual_style
 from open_garden_planner.core.object_types import (
     ObjectType,
     PathFenceStyle,
@@ -129,7 +129,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         pen = self.pen()
         pen.setColor(info.stroke_color)
         pen.setWidthF(info.stroke_width)
-        adopt_pen(self, pen)  # the pen AND the stroke attributes (core.item_style)
+        adopt_pen(self, pen)  # the pen AND the stroke attributes (core.item_look)
 
     def _setup_styling(self) -> None:
         """Configure visual appearance based on object type and style preset.
@@ -148,7 +148,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
             pen.setStyle(self.stroke_style.to_qt_pen_style())
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        adopt_pen(self, pen)  # the pen AND the stroke attributes (core.item_style)
+        adopt_pen(self, pen)  # the pen AND the stroke attributes (core.item_look)
 
         # Polylines typically don't have fill
         self.setBrush(QBrush(QColor(0, 0, 0, 0)))

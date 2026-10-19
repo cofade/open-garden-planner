@@ -119,7 +119,13 @@ from PyQt6.QtGui import (
     QVector3D,
     QWindow,
 )
-from PyQt6.QtQuick import QQuickItem, QQuickView, QQuickWindow, QSGRendererInterface
+from PyQt6.QtQuick import (
+    QQuickGraphicsConfiguration,
+    QQuickItem,
+    QQuickView,
+    QQuickWindow,
+    QSGRendererInterface,
+)
 
 from open_garden_planner.core.scene3d import (
     EnginePose,
@@ -369,7 +375,8 @@ class Quick3DHost:
     """
 
     def __init__(self, size: tuple[int, int] = (1280, 720), *, qml_dir: Path | None = None,
-                 look: Look = NEUTRAL_DAY, log: Callable[..., None] | None = None) -> None:
+                 look: Look = NEUTRAL_DAY, log: Callable[..., None] | None = None,
+                 prefer_software: bool = False) -> None:
         self._log: Callable[..., None] = log if log is not None else (lambda *_a, **_k: None)
         self._parts: set[_Part] = set()  # THE owner of every Model and geometry
         self._container: QWidget | None = None
@@ -417,6 +424,18 @@ class Quick3DHost:
             engine.warnings.connect(self._on_qml_warnings)
         _connect_queued(self._view.sceneGraphError, self._on_scene_graph_error)
         _connect_queued(self._view.frameSwapped, self._on_frame_swapped)
+        #: True when this window was asked to render on the SOFTWARE adapter of its
+        #: graphics API (WARP on Direct3D; L1.3's compatibility mode, ADR-065). Per
+        #: window, and set before its scene graph exists — measured: this works for a
+        #: window created at any time, while QSG_RHI_PREFER_SOFTWARE_RENDERER is read
+        #: once per process and does nothing after the first Qt Quick window.
+        self.prefers_software = bool(prefer_software)
+        #: How often ``release_cached_resources()`` was called (L1.3; the soak reads it).
+        self.cache_releases = 0
+        if prefer_software:
+            configuration = QQuickGraphicsConfiguration()
+            configuration.setPreferSoftwareDevice(True)
+            self._view.setGraphicsConfiguration(configuration)
         source = (qml_dir if qml_dir is not None else QML_DIR) / SCENE_FILE
         self._view.setSource(QUrl.fromLocalFile(str(source)))
         root = self._view.rootObject()
@@ -949,6 +968,40 @@ class Quick3DHost:
         for a name the scene does not declare."""
         self._open("scene_property")
         return _get(self._root, name)
+
+    def install_event_filter(self, watcher: QObject) -> None:
+        """Let ``watcher`` see the view's events before the view does (L1.3: the orbit
+        camera's mouse, wheel and key input). The view is a native window: its input
+        never reaches the widget that embeds it. An event filter runs on the GUI
+        thread — unlike a message handler it is safe beside the render thread."""
+        self._open("install_event_filter")
+        self._view.installEventFilter(watcher)
+
+    def release_cached_resources(self) -> None:
+        """Tell Qt to let go of the graphics state it caches for this window
+        (``QQuickWindow.releaseResources()``). Legal in every open state; the scene,
+        the Models and the host's state are untouched, and the next frame is the
+        same frame (L1.3, measured on Direct3D 11, GPU and WARP: the readback after
+        a release identical to the one before it, every time it was looked at).
+
+        WHY (L1.3, ADR-065): Qt Quick 3D keeps per-draw-call state for every Model
+        it ever DREW — and keeps it after the Model was destroyed. About 0.2 MB per
+        Model with the sun's shadow passes on, independent of the mesh's size;
+        nothing but this call gives it back (20 rebuilds of the small bench plan in
+        a presenting view, no readback: 19 MB per rebuild without it, 2 with one
+        call per rebuild). The call takes 2 to 10 ms on the GUI thread and the next
+        frame as much again. WHEN to call it is the caller's policy
+        (``ui/view3d/workspace.py``).
+
+        What it does NOT do: it frees no mesh buffer of a destroyed Model — Qt does
+        that itself at the END OF A PRESENTED FRAME, and a readback (``grab()``) is
+        not one: a frame rendered for a readback is never presented, and what it
+        holds waits for the next frame that is. Which is why nothing takes a frame
+        from a live, shown host on its own (the workspace's rule, ADR-065).
+        """
+        self._open("release_cached_resources")
+        self._view.releaseResources()
+        self.cache_releases += 1
 
     # ── trouble in a live view (GUI thread; module docstring) ────────────────
 

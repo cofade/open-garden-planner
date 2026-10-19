@@ -420,6 +420,7 @@ class TestHeatmapLaunchGuard:
             RectangleItem(100, 100, 40, 40, object_type=ObjectType.TOOL_SHED)
         )
         heatmap = win._sun_heatmap
+        win._sim_clock.set_date(date(2026, 6, 21))
         assert heatmap.run_for_day(date(2026, 6, 21))
         worker = heatmap._worker
         assert worker is not None and worker.wait(60000)
@@ -428,6 +429,7 @@ class TestHeatmapLaunchGuard:
         with qtbot.waitSignal(heatmap.finished, timeout=60000):
             pass
         assert not heatmap.result_pending
+        win._sim_clock.set_date(date(2026, 6, 22))
         with qtbot.waitSignal(heatmap.finished, timeout=60000) as blocker:
             assert heatmap.run_for_day(date(2026, 6, 22))
         assert blocker.args == [True]

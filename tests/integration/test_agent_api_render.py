@@ -22,7 +22,6 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
-import socket
 import threading
 from collections.abc import Callable
 from typing import Any
@@ -46,16 +45,9 @@ from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.models.layer import Layer
 from open_garden_planner.services.soil_service import SoilService
 from open_garden_planner.ui.canvas.items import CircleItem
+from tests.agent_api_helpers import start_server
 from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
 from tests.integration.conftest import recolour
-
-
-def _free_port() -> int:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(("127.0.0.1", 0))
-    port = sock.getsockname()[1]
-    sock.close()
-    return port
 
 
 def _providers(scene: Any) -> AgentProviders:
@@ -178,8 +170,7 @@ def test_render_canvas_image_full_canvas_default(canvas: Any, qtbot: Any) -> Non
     recolour(red, QColor(255, 0, 0))
     scene.addItem(red)
 
-    server = AgentApiServer(_providers(scene), port=_free_port())
-    server.start()
+    server, _ = start_server(_providers(scene))
     assert server.is_running
 
     result: dict[str, Any] = {}
@@ -229,8 +220,7 @@ def test_render_canvas_image_full_canvas_default(canvas: Any, qtbot: Any) -> Non
 
 def test_render_canvas_image_explicit_region(canvas: Any, qtbot: Any) -> None:
     scene = canvas.scene()
-    server = AgentApiServer(_providers(scene), port=_free_port())
-    server.start()
+    server, _ = start_server(_providers(scene))
 
     result: dict[str, Any] = {}
 
@@ -259,8 +249,7 @@ def test_render_canvas_image_explicit_region(canvas: Any, qtbot: Any) -> None:
 
 def test_render_canvas_image_partial_region_args_error(canvas: Any, qtbot: Any) -> None:
     scene = canvas.scene()
-    server = AgentApiServer(_providers(scene), port=_free_port())
-    server.start()
+    server, _ = start_server(_providers(scene))
 
     result: dict[str, Any] = {}
 
@@ -291,8 +280,7 @@ def test_render_canvas_image_layers_filter_hides_and_restores(canvas: Any, qtbot
     scene.addItem(red)
     scene.addItem(blue)
 
-    server = AgentApiServer(_providers(scene), port=_free_port())
-    server.start()
+    server, _ = start_server(_providers(scene))
 
     result: dict[str, Any] = {}
 
@@ -351,8 +339,7 @@ def test_render_canvas_image_layers_filter_shows_layer_hidden_in_ui(
     scene.update_layer_visibility(layer_b.id, False)
     assert blue.isVisible() is False  # sanity: the UI really has it hidden
 
-    server = AgentApiServer(_providers(scene), port=_free_port())
-    server.start()
+    server, _ = start_server(_providers(scene))
 
     result: dict[str, Any] = {}
 
@@ -391,8 +378,7 @@ def test_render_canvas_image_unknown_layer_name_is_tolerated(canvas: Any, qtbot:
     recolour(red, QColor(255, 0, 0))
     scene.addItem(red)
 
-    server = AgentApiServer(_providers(scene), port=_free_port())
-    server.start()
+    server, _ = start_server(_providers(scene))
 
     result: dict[str, Any] = {}
 
@@ -419,8 +405,7 @@ def test_render_canvas_image_preserves_selection(canvas: Any, qtbot: Any) -> Non
     scene.addItem(circle)
     circle.setSelected(True)
 
-    server = AgentApiServer(_providers(scene), port=_free_port())
-    server.start()
+    server, _ = start_server(_providers(scene))
 
     result: dict[str, Any] = {}
 
@@ -456,8 +441,7 @@ def test_render_canvas_image_layer_id_matches_layer_name(canvas: Any, qtbot: Any
     scene.addItem(red)
     scene.addItem(blue)
 
-    server = AgentApiServer(_providers(scene), port=_free_port())
-    server.start()
+    server, _ = start_server(_providers(scene))
 
     result: dict[str, Any] = {}
 

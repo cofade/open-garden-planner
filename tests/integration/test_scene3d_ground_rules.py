@@ -33,7 +33,7 @@ from PyQt6.QtCore import QPointF
 from PyQt6.QtGui import QColor, QImage, QPainter, QPen, QPixmap, QTransform
 
 from open_garden_planner.core.fill_patterns import FillPattern
-from open_garden_planner.core.item_style import adopt_pen
+from open_garden_planner.core.item_look import adopt_pen
 from open_garden_planner.core.object_types import ObjectType, PathFenceStyle
 from open_garden_planner.core.scene3d import (
     MEADOW_RGB,
@@ -254,9 +254,12 @@ class TestATileLosesItsSmallestRecords:
         LAWN rectangle 10 cm inside the plan's edge and pavers drawn on it (400
         places; beyond 400 pavers they lie on one another). Measured before, at
         256 pavers: mean 24.4 of 255, 130,129 px off by more than 8. Now no lawn
-        pixel is bare, and what differs are the pavers the tile could not hold: 1
-        place of 256 at 256 pavers (mean 0.032, 484 px — one paver with its
-        outline), 145 places of 400 at 2,000 (mean 4.88, 71,200 px)."""
+        pixel is bare, what differs are the pavers the tile could not hold — 1
+        place of 256 at 256 pavers (484 px, one paver with its outline), 145 places
+        of 400 at 2,000 (71,200 px) — and every other pixel of the plan is the
+        canvas's, exactly. The mean over the plan is the missing pavers' area times
+        their contrast against the lawn: 0.040 and 6.25 with master's luminance tint
+        of the paver texture (#502; 0.032 and 4.88 with the old wash)."""
         from open_garden_planner.ui.canvas.items import RectangleItem
         from tests.integration.test_scene3d_ground_bake import compare
 
@@ -267,7 +270,7 @@ class TestATileLosesItsSmallestRecords:
             for k in range(count):
                 scene.addItem(RectangleItem(10.0 + 24.0 * (k % 20), 10.0 + 24.0 * ((k // 20) % 20),
                                             20.0, 20.0, object_type=ObjectType.TERRACE_PATIO))
-        mean, _worst, bake = compare(scene)
+        _mean, _worst, bake = compare(scene)
         reference = canvas_render(scene, bake.grid)
         image = bake.image()
         background = np.array(canvas_rgb())
@@ -275,11 +278,16 @@ class TestATileLosesItsSmallestRecords:
         assert int((bare & ~np.all(reference[..., :3] == background, axis=2)).sum()) == 0  # no lawn pixel bare
         assert bake.baker.capped == frozenset({(0, 0)})
         assert str(lawn.item_id) in bake.baker._order[(0, 0)]  # noqa: SLF001
-        off = np.abs(image[..., :3] - reference[..., :3]).max(axis=2) > 8
+        apart_by = np.abs(image[..., :3] - reference[..., :3])
+        off = apart_by.max(axis=2) > 8
         # the places whose pavers are all among the ones the tile could not hold
         missing = len({k % 400 for k in range(count)} - {k % 400 for k in range(count - 255, count)})
         assert missing == (1 if count == 256 else 145)
-        assert missing * 20 * 20 <= int(off.sum()) <= missing * 23 * 23 and mean < 6.0
+        assert missing * 20 * 20 <= int(off.sum()) <= missing * 23 * 23
+        # … and everywhere else the ground IS the canvas. (The mean over the whole
+        # plan is the missing pavers' area times their contrast against the lawn: it
+        # says nothing more, and it moved with the paver texture's tint — #502.)
+        assert int(apart_by[~off].max()) == 0
 
     def test_members_that_overlap_the_tile_equally_keep_the_topmost(self, qtbot: Any) -> None:
         """Ties go to the topmost. Six translucent lawns under 300 pavers: all six

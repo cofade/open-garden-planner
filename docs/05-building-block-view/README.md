@@ -1,5 +1,17 @@
 # 5. Building Block View
 
+## Sun diagnostics runtime blocks (US-F3, ADR-056)
+
+| Block | Responsibility and contract |
+|---|---|
+| `core/shade_aggregation` / `core/shadow_geometry` | Qt-free daylight aggregation; shared integer sweeps supply the unchanged grid union and sparse per-owner coverage. Immutable identified casters/receivers cross the worker boundary. |
+| `services/sun_mismatch_service` | Immutable evaluations/mismatches, tolerance bands and mature-canopy membership; no computation, threading, UI or I/O. |
+| `ui/canvas/sun_exposure_snapshot` | GUI-thread snapshots of document/date/location/bounds/caster geometry and receiver centres. |
+| `ui/canvas/sun_heatmap` | Explicit worker ownership, cancellation and late-result validation; runtime grid and receiver minutes. |
+| `ui/sun_exposure_coordinator` | Debounced invalidation/reclassification, sun badges, cached diagnostics and canopy rows. |
+| `ui/diagnostics_coordinator` | One general-panel publisher harvesting existing, guild and sun producers through the shared converter. |
+| `ui/panels/canopy_panel` / `ui/sun_exposure_text` | UUID navigation and translated, dated exposure/unavailable presentation. |
+
 ## 5.1 High-Level Architecture
 
 ```mermaid
@@ -58,6 +70,7 @@ src/open_garden_planner/
 │   ├── plant_sizing.py           # PlantSizing resolver — footprint/override/max_spread precedence (ADR-028)
 │   ├── solar.py                  # Qt-free NOAA solar position engine — elevation/azimuth/declination/EoT (US-E1, ADR-037)
 │   ├── sim_clock.py              # Qt-free ONE sim moment: local plan date + wall time → UTC; date_changed / instant_changed channels (Phase 17 L1.0, ADR-053)
+│   ├── plain_text.py             # Qt-free: plan text as TEXT — normalise, then cap, then escape; for tooltips, labels and log lines (Phase 17 L1.3, §8.11)
 │   ├── object_height.py          # Qt-free effective-height resolver — explicit/container/species/type-default (US-E2, ADR-037);
 │   │                             #   and where an item STANDS: standing_base_cm / soil_surface_cm (Phase 17 L1.6)
 │   ├── shadow_geometry.py        # Qt-free shadow sweep/union — L=h/tanα, Minkowski sweep, pyclipper union (US-E3, ADR-037);
@@ -86,6 +99,8 @@ src/open_garden_planner/
 │   │   │   ├── beds.py           #     RAISED_BED, CONTAINER, WALL_PLANTER, CONTAINER_ROUND, raised GARDEN_BED — frame + soil
 │   │   │   ├── hedges.py         #     HEDGE_SECTION, HEDGE_POLYGON: core + seeded leaf shell, trimmed at the height
 │   │   │   └── plants.py         #     plant v0: one silhouette per sprite archetype, the placeholder (L1.7)
+│   │   ├── camera.py             #   the orbit camera as a value: goal + critically damped pose, clamps, frame_pose — L1.3
+
 │   │   ├── interleave.py         #   a Mesh as the bytes an engine uploads (stride 48, engine frame) — L1.2
 │   │   └── legacy.py             #   what is left of the former scene3d.py (US-E6, ADR-038): the Qt 3D record + scene-space extrusion — deleted in L1.10
 │   ├── walk_camera.py            # Qt-free walkthrough rules — eye height, bounds clamp, pitch-limited look vector (US-E7)
@@ -107,6 +122,7 @@ src/open_garden_planner/
 │   ├── cad_geometry.py           # arc_from_three_points, fillet_corner, chamfer_corner,
 │   │                             #   reflect_point/reflect_angle_deg/snap_point_to_axis_step (US-B4)
 │   ├── mirror_geometry.py        # build_mirrored_item — per-type reflection rebuild (US-B4, ADR-026)
+│   ├── item_look.py              # an item's look in one place: copy_visual_style, restore_stored_look, adopt_pen, style_gaps (#438/#441/#469/#470)
 │   ├── coordinate_input/         # Typed coordinate pipeline (ADR-021, Package A US-A1/A2/A4)
 │   │   ├── parser.py             #   parse(@dx,dy / @dist<angle / x,y), smart decimal
 │   │   └── buffer.py             #   CoordinateInputBuffer(QObject) — shared state
@@ -162,6 +178,12 @@ src/open_garden_planner/
 │   │       └── resize_handle.py
 │   ├── view3d/                   # 3D view MVP (US-E6): snapshot.py (plan→records: collect_scene3d_records for Qt 3D,
 │   │                             #   snapshot_records for contract v2 — L1.1) + qt3d_adapter.py (ONLY Qt3D importer) + view3d_window.py
+│   │   ├── workspace.py          # the Plan / 3D / Split workspace of the main window (Phase 17 L1.3, ADR-065) — see §5.12;
+│   │   │                         #   behind OGP_QUICK3D=1; builds the engine lazily through engine_factory (the test seam)
+│   │   ├── sync_controller.py    #   Scene3DController: change signals → at most one pipeline pass per event-loop turn
+│   │   ├── orbit_input.py        #   the 3D window's mouse / wheel / keys → OrbitCamera (an event filter)
+│   │   ├── init_guard.py         #   the start marker and the compatibility flag (standard library only)
+│   │   ├── problems_dialog.py    #   the list of what 3D could not show
 │   │   └── quick3d/              # the Qt Quick 3D engine package (Phase 17 L1.2, ADR-048) — see §5.11: the ONLY
 │   │                             #   importer of PyQt6.QtQuick3D / QtQuick / QtQml; adapter.py (Quick3DSink), host.py
 │   │                             #   (QQuickView), lifecycle.py (its states), geometry.py, offscreen.py, selftest.py,
@@ -204,6 +226,8 @@ src/open_garden_planner/
 │   │   ├── sun_sim_toolbar.py    # Sun & shade sim date/time-slider toolbar (US-E3)
 │   │   └── collapsible_panel.py
 │   ├── icons.py                  # Central themed icon provider (#279, ADR-039)
+│   ├── sim_clock_subscription.py # connect_qobject(): a QObject on the Qt-free sim clock, never called after Qt destroyed it (L1.3)
+
 │   └── theme.py                  # Theme system — single source of chrome colors (ADR-039)
 ├── spike_q3d/                    # DORMANT Qt Quick 3D GO/NO-GO spike (ADR-048, Phase 17 L0): only
 │                                 #   reached via `--spike-q3d`, never imported at startup; quick.py is
@@ -477,7 +501,7 @@ for other `core` modules.
 | `core/scene3d/builders/primitives.py` | Numpy primitives in the item-local frame: `flat_mesh` (every triangle stores its winding normal; `outward=` forces the winding), `boxes`, `bevelled_boxes`, `prism`, `polygon_cap`, `sweep` (profile along a plan polyline, open or closed; corners mitred up to `BEVEL_BEYOND` = 2 offsets, bevelled beyond), `plank`, `lathe` (ring vertices on the 2D circle footprint), `tubes`; `offset_ring` (same corner rule), `split_triangles_by_line`. | arrays → `Mesh` |
 | `core/scene3d/builders/palette.py` | The built world's 13 baked colours, each a mirror of a 2D table entry (object-sprite `MATERIALS`, texture-forge literals) naming its source; `TINT` for parts that take the item's own colour. Pinned to the generators by `tests/unit/test_scene3d_builders_palette.py`. | name → linear RGBA |
 | `core/object_height.py` (`standing_base_cm`, `soil_surface_cm`, `SOIL_DROP_CM`, `MAX_PARENT_HEIGHT_CM`) | Where the soil of a parent is (L1.6, ADR-037 addendum): 2 cm under the rim of a bed (an assumption), at the height of a container (its fill height); no soil parent, no height, or a height beyond the bound (10 km, the contract's `MAX_LENGTH_CM`, mirrored and pinned: a base derived from it would be out of a record's range) → the ground. One rule for the 3D records, the 2D shadow casters and the bed meshes' soil. | parent type + metadata (+ date) → cm |
-| `ui/canvas/footprints.py` (`item_base_cm`, `ItemLookup`, `standing_point`, `bed_membership_point`, `shape_contains`, `centre_is_inside`) | Where an item stands: on its parent's soil when it is linked to a visible soil parent (`parent_bed_id`) AND its stable geometric centre (`standing_point`) is inside that parent's shape — else on the ground. The one caller for items: `collect_shadow_casters` and `snapshot_records` both use it; `ItemLookup` holds each parent's shape for the walk. Also the app's one point-in-bed predicate (`shape_contains`), asked by the link decisions — auto-parenting, the re-link after a drag, the agent's re-link and `link_is_geometric`, `find_smallest_bed_containing` — with their own point, the bounding rect's centre (`bed_membership_point`). A known smell: this module is collecting jobs, and `core/commands.py` imports from it (§8.32.6). | canvas item → base in cm |
+| `ui/canvas/footprints.py` (`item_base_cm`, `standing_parent`, `ItemLookup`, `standing_point`, `bed_membership_point`, `shape_contains`, `centre_is_inside`) | Where an item stands: on its parent's soil when it is linked to a visible soil parent (`parent_bed_id`) AND its stable geometric centre (`standing_point`) is inside that parent's shape — else on the ground. The one caller for items: `collect_identified_casters` and `snapshot_records` both use it, and the per-plant sun estimate asks its membership half (`standing_parent`: which soil parent's solid a plant stands in — that parent does not shade it); `ItemLookup` holds each parent's shape for the walk. Also the app's one point-in-bed predicate (`shape_contains`), asked by the link decisions — auto-parenting, the re-link after a drag, the agent's re-link and `link_is_geometric`, `find_smallest_bed_containing` — with their own point, the bounding rect's centre (`bed_membership_point`). A known smell: this module is collecting jobs, and `core/commands.py` imports from it (§8.32.6). | canvas item → base in cm |
 | `core/shadow_geometry.py` (`ShadowCaster`, `caster_fields`) | The shared 2D caster: `(footprint, height_cm, base_cm)`. A raised caster's shadow is its ground shadow moved `base / tan α` along the shadow direction; base 0 is the unchanged, released path. Overlay and heatmap consume the same list. A caster is a `ShadowCaster` or an exact `(footprint, height)` pair; anything else is a `TypeError`. | casters + sun → unioned shadow polygons |
 | `scripts/measure_built_world_shadows.py` | How each built-world mesh's ground shadow compares with the 2D model's for the same item (area ratio, IoU, and the reach — where the tip is, 3D − 2D in cm — at 15° / 35° / 60°): the source of the table in ADR-064's builders addendum, §8.32.6 and the Shadows row of `ogp-lush-cinematic`. `--check` exits 1 on drift; `tests/unit/test_scene3d_shadow_agreement.py` runs it and holds every copy of the table to it — and runs it once in a process of its own to show that, as documented, it constructs no settings object, opens no plan and writes no file. | builders + 2D shadow model → a table |
 | `scripts/mutation_check_built_world.py` | Mutation check for the built world and the base rule (L1.6): breaks one rule at a time in the source — the link alone lifts, the lift asks the bounding rect's centre, no bevel, an unknown style is a picket fence, a container's soil 2 cm low … — and runs the tests that must notice. KILLED needs pytest exit code 1 and a failed test; refuses to run on a dirty `src/`. Not part of the suite (but `tests/unit/test_scene3d_builders_mutation_script.py` keeps its mutants from going stale); run by hand after changing `core/scene3d/builders/`, `ui/canvas/footprints.py` or `core/shadow_geometry.py`. | source + tests → killed / survived per rule |
@@ -507,6 +531,28 @@ start, and L1.2 wires it into nothing — the shipped "3D View…" still opens t
 | `quick3d/qt_messages.py`, `runlog.py` | Qt's messages recorded and classified, by level first (a shader or QML error fails a render) — only around rendering on the calling thread — and the graphics adapter read from Qt's log; a line-flushed log, a watchdog that writes its reason before it ends the process, and the supervising process that ends what the watchdog cannot (`main` dispatches the internal flag `--selftest-supervisor` to it; it acts for one block of its own parent process and for nothing else). | Qt messages → counts, errors |
 | `quick3d/qml/` | `Garden.qml`: lights, cameras, the ground, one part `Component` per material kind, `createPart` / `destroyPart` / `pickAt` / `listParts`; `foliage.vert`, `foliage.frag`, `grass.vert`, `water.frag`. No user-visible strings (scanned: `tests/unit/test_quick3d_qml.py`). | root properties and functions ← Python |
 
+## 5.12 3D Workspace (Phase 17 L1.3, #385, ADR-065)
+
+Black-box view of what puts the 3D scene pipeline (§5.10) and the engine package (§5.11) into the
+main window: the Plan / 3D / Split workspace. It exists only behind the internal switch
+`OGP_QUICK3D=1` (`app/settings.py::quick3d_workspace_enabled()`); without it none of these modules
+is imported, and the shipped "3D View…" window (Qt 3D) is unchanged with it. Concept: §8.32.3.
+Tests: §8.10.27.
+
+| Building block | Responsibility | Interface (in → out) |
+|----------------|----------------|----------------------|
+| `ui/view3d/workspace.py` | `Workspace`: holds the canvas view and, from the first switch to 3D or Split on, a 3D pane beside it (a splitter whose sides do not collapse). Builds the engine through `engine_factory` on first use — the test seam; this module imports no Qt Quick binding — keeps ONE host for the window's life, pauses the pipeline while the pane is hidden or the window minimised, starts a pass that is owed only after its "building" notice was painted, owns the session's one camera, polls `host.health()` (first frame, graphics failure, QML warnings), shows every notice in a strip above the native view or in its place, counts retired Models and releases the engine's caches. | canvas view, scene, sim clock, location, undo stack → three mode actions, a View-menu submenu, `mode_changed`, `view3d_state_changed` |
+| `ui/view3d/sync_controller.py` | `Scene3DController`: engine-free. `scene.changed`, `stack_changed` and the clock's two channels become at most one pipeline pass per event-loop turn (a posted event); a time-of-day change is light only; hidden means flags only; a sink failure is reset, re-applied once and logged; what the record layer refused and what a builder could not build is kept. Drops what 3D remembers per plan on a document change and on shutdown. `set_ground_stage` is the seam for the ground bake (L1.5). | change signals → `SceneSync.apply(records, sun, ground)`; `applied(TickReport)`, `problems_changed`, `document_shown`, `failed` |
+| `core/scene3d/camera.py` | Qt-free, standard library only. `CameraPose`, `Bounds`, `frame_pose` and `OrbitCamera`: a goal that input moves and a pose that follows it as a critically damped spring integrated exactly; clamps for pitch, distance and the target. The pose changes through this class and nothing else. | orbit / zoom / pan / frame / `step(dt)` → pose (eye and target in the scene frame) |
+| `ui/view3d/orbit_input.py` | `OrbitInput`: an event filter on the engine's native window; the shipped view's gestures (drag, wheel, arrows, PageUp / PageDown, Home). Passes Escape and every other key on. | Qt input events → `OrbitCamera` calls; `moved`, `reset_requested` |
+| `ui/view3d/init_guard.py` | Standard library only. `Init3DGuard`: a per-process start marker and a compatibility flag in the app's log directory; `begin()` decides hardware or software from what is on disk; exactly one outcome ends a start. Never raises into the app. | files → `RenderMode`, `ModeReason` |
+| `ui/view3d/problems_dialog.py` | `View3DProblemsDialog` (non-modal) and `problems_of`: the items 3D does not show, with a translated text per reason code; activating a row names the item. Rows are plain text; tooltips go through `core/plain_text.py`. | skipped items and build failures → rows; `item_chosen(id)` |
+| `ui/sim_clock_subscription.py` | `connect_qobject` / `disconnect_qobject`: how a QObject listens to the Qt-free sim clock — a guard that asks `sip.isdeleted` at every delivery, held weakly with its receiver. The only way the product connects to a clock channel (scanned). | channel, bound slot → a subscription that dies with the receiver |
+| `core/plain_text.py` | Qt-free, standard library only. Plan text as text: normalise (every line boundary to one; other controls and bidi overrides to U+FFFD), then cap, then escape. | untrusted text → text for a tooltip, a label, a log line |
+| `ui/view3d/quick3d/host.py` (three additions) | `Quick3DHost(prefer_software=True)` asks Qt for the software adapter for this window; `install_event_filter(watcher)`; `release_cached_resources()` (Qt's `releaseResources()`), counted in `cache_releases`. | — |
+| `app/application.py` (the wiring) | Builds the workspace around the canvas view when the switch is on; nothing for a replaced document — the workspace listens to `CanvasScene.document_replaced` itself (`connect_plan`), the signal master's #428 fix rides on; `workspace.shutdown()` in `closeEvent`; hides the workspace's controls in the fullscreen preview. | — |
+| `tests/integration/workspace_gate_hook.py`, `installer/workspace_gate.spec` | Test tooling, never shipped: drives the real app (source or frozen) through the workspace on a throw-away settings store and refuses any other (§8.10.27). | scenario file → report |
+
 ## 5.13 Ground bake — flat surfaces as ground tiles (Phase 17 L1.5, #385, ADR-064 addendum)
 
 Black-box view of how the plan's flat surfaces reach the 3D ground. A lawn, a terrace, a path or
@@ -523,13 +569,15 @@ tile. Concept, rules and bounds: §8.32.5. L1.5 wires it into nothing: the works
 | `core/scene3d/sink.py`, `sync.py` | `GroundSpec(width_cm, depth_cm, tiles=())`. `SceneSync(…, ground_baker=)` bakes before the sink is touched, with the diff the geometry path uses, in the same transaction; `solid_ids`; `ground_pending` / `continue_ground()` while the baker's time budget left tiles to paint (`expected_state()` is the finished ground); a baker that raises is contained (`ground_failure`: the ground stays as it was, or bare), never poisons the sync, and is not asked again until a record, the solids or the plan change; `reset()` clears it, pending work included. | records + diff → `GroundSpec` with tiles |
 | `ui/view3d/ground_bake.py` | `GroundBaker`, the product's `GroundBaking`: paints the records that have a `Paint` and no solid, bottom to top, into the dirty tiles; an untouched tile is handed out as the same object. A call paints for `BAKE_BUDGET_S` (10 ms, injectable clock; at least one tile, nearest to the last edit first) and leaves the rest `pending`. `paint_record`, `paint_bounds`, `tile_budget`. One implementation with the canvas for brushes, sprites and path styles. The bounds of one tile (`TILE_RECORDS`, `TILE_VERTICES`, `TILE_ELEMENTS`, `TILE_WALK_STEPS`, `TILE_DASHES`, `SPRITE_MAX_PIXELS`) and the rule for what a full tile keeps (`_admit`: the walk ends at an opaque cover; beyond a bound a tile loses its SMALLEST members, ranked by paint-box overlap); a call that brings an edit also paints one tile of the backlog; a tile whose paint raises keeps its picture (`tile_failures`); `restart()` forgets the books and keeps the pictures (what the sync calls after a bake that raised); `capped`, `failures` and the counters. QtGui only: no engine import, no access to a scene or an item (AST-pinned). | records, diff, solid ids, plan size → `tuple[GroundTile, ...]` |
 | `ui/canvas/items/path_style_paint.py` | The path and fence style painters, moved out of `PolylineItem.paint` so that the canvas item and the bake draw with the same code: `PathStylePaint(points, pen, path, clip=, budget=)`, `WalkBudget`, `segment_inside`, `STYLES_PAINTED` (a plain line builds nothing — the table of painters is built once). Without a clip it is the canvas's walk; with one (a ground tile) elements are generated inside the clip only, their phase kept, and charged to the budget. | points + pen + style → paint calls |
-| `core/item_style.py` (2D) | The ONE writer of an item's look: `copy_visual_style(source, dest)` (brush, pen and the style attributes that describe them — every tool that makes an item from an item), `adopt_pen(item, pen)` (the project loader, `PolylineItem._setup_styling` and `apply_style_preset`, the properties panel's `_apply_item_state`), `fill_brush(item, colour)` (the loader's fill), `style_gaps(item)` (where the attributes do not describe brush and pen — the predicate the teardown fixture of `tests/integration/conftest.py` holds every item of every integration test to), `paints_sprite(item)` (exempt in its stroke half), `saved_stroke_width` / `saved_stroke_colour` and `MIN_STROKE_WIDTH` (a preset line's saved stroke, read with care), `stroke_style_of(pen)`. `core/mirror_geometry._copy_visual_style` is an alias. Exists because the record's fill is read from the attributes and the canvas paints the brush (§8.32.5, §11.4.34). | item ↔ item, pen → item |
+| `core/item_look.py` (2D; master's module since #501, extended by L1.5) | The one place an item's look is written, both halves — the style attributes and the live brush and pen: `copy_visual_style(source, dest)` (master's, #470: every tool that makes an item from an item — offset, mirror, and on this branch chamfer / fillet and `PolylineItem.clone_with_points`), `restore_stored_look(item, obj)` (master's, #438/#469: the loader writes the saved attributes; here it leaves an attribute alone where the file holds no colour or number at all instead of raising), and from L1.5: `adopt_pen(item, pen)` (a pen together with the attributes that state it — `PolylineItem._setup_styling`, `apply_style_preset`, the properties panel's `_apply_item_state`, the trim tool, the loader's polyline branch), `fill_brush(item, colour)` (the loader's fill in the item's own pattern), `style_gaps(item)` (where the attributes do not describe brush and pen — the predicate the teardown fixture of `tests/integration/conftest.py` holds every item of every integration test to), `paints_sprite(item)` (a sprite is not judged: neither its brush nor its pen is its picture), `saved_stroke_width` / `saved_stroke_colour` and `MIN_STROKE_WIDTH` (a preset line's saved stroke, read with care), `stroke_style_of(pen)`. The 3D ground bake needs it because the record's fill is read from the attributes and the canvas paints the brush (§8.32.5, §11.4.34). | item ↔ item, file → item, pen → item |
 | `quick3d/adapter.py` (`TilePlacement`, `GroundPlacement.tiles`) | A tile in the engine frame, mapped in one place; its pixels handed on as the same `bytes` object. | `GroundSpec` → `GroundPlacement` |
 | `quick3d/ground_tiles.py` (ENGINE module) | `GroundTiles`: one Model and one `TileTexture` (`QQuick3DTextureData`) per tile; uploads only a tile whose picture changed, as a NEW Model with a new texture (one texture per `Texture` element, for life — a re-pointed one is drawn white); holds per tile the shown texture plus — until the next presented frame or update — the one it replaced. `TileTexture.uploads` / `.alive`. `GroundTileError` becomes the host's `EngineError`. | `TilePlacement`s → Models + textures |
 | `quick3d/qml/Garden.qml` (`groundTile`, `groundTiled`) | The tile component: a quad in the plan's plane, `flipV`, clamped on both axes, takes shadows, not pickable; the bare plan rectangle is not drawn while tiles lie on it. | ← `createGroundTile` / `placeGroundTile` / `destroyGroundTile` / `listGroundTiles` |
 | `quick3d/offscreen.py` | `render_records(…, ground_baker=)` — runs the baker's passes until nothing is pending: a still picture shows the finished ground; `OffscreenFrame.ground_tiles` / `.ground_failure`. | as §5.11 |
 
 ## Developer quality and release tooling
+
+Translation tooling (#496): `scripts/i18n_sources.py` owns fresh source extraction and bounded bindings from `i18n_bindings.json`; `i18n_catalog.py` owns Qt-free key/state/format validation shared by the compiler and checker. `update_translations.py` explicitly updates catalog structure; `check_translations.py` reads every registered catalog, compares live keys and compiled bytes, and verifies Qt lookups. These are development tools, not new runtime dependencies. See ADR-008 and section 8.3.
 
 The shared setup-locked-env GitHub action installs the native uv lock and editable project.
 The audit parser supplies type diagnostics and coverage package membership to the standalone
@@ -539,6 +587,31 @@ verifiers. prepare_version_sync stages mechanical source/lock updates before an 
 Versioned policy files live in quality/. These tools have subprocess integration coverage and
 remain outside application runtime dependencies. See ADR-050.
 
+## Audit A2 build reproducibility and distribution inventory (#454)
+
+- `installer/runtime_closure.py`: the single resolver of the project's installed runtime
+  distribution closure (manifest-anchored, extras- and marker-aware); consumed by the
+  PyInstaller spec (which bundles each distribution's `.dist-info`) and by the inventory
+  generator, so a new dependency appears without a hand-typed list.
+- `installer/frozen_inventory.py`: attributes actual Analysis code, binaries, resources
+  and runtime hooks to wheel RECORD entries after collection. Nested vendored metadata
+  takes precedence over the containing wheel; distinct versions retain separate identities.
+  Bundles each collected owner's metadata/licenses and a module/file ownership manifest.
+- `scripts/generate_distribution_inventory.py`: reads that metadata back out of the frozen
+  bundle and writes `THIRD_PARTY_NOTICES.md` (full license texts) and a CycloneDX 1.5 SBOM;
+  fails closed on an undiscoverable or sentinel license, and `--check`s the artifacts
+  against the bundle, its executable PYZ and ownership manifest, the requested app version
+  and `pylock.toml` (vendored versions are tied to the locked containing wheel).
+  Declared license files must exist and reach the notices. Never a runtime import.
+- `scripts/emit_build_evidence.py`: records the actual Python/uv/PyInstaller/NSIS toolchain
+  plus commit and run id into `dist/build-evidence.json`; `--require-complete` fails a
+  release whose toolchain it cannot state.
+- `scripts/check_action_pins.py`: read-only CI gate; every external `uses:` in the workflows
+  and the shared composite action must be a commit SHA with a `# vX.Y.Z` comment.
+- `installer/build_installer.py` orchestrates PyInstaller → inventory (generate + check) →
+  NSIS, and the installer compiles only when the notices exist. See ADR-044/050 addenda and
+  `docs/07-deployment-view` §7.2/§7.4.
+
 ## Package F1/F2: traits, guilds and diagnostics
 
 `models/plant_data.py` owns stable trait enums and snapshots; `services/permaculture.py` owns provider token mapping and the filter predicate. `species_catalog.py` combines bundled/custom records for search and authoring. `ui/plant_creation.py` builds plants without mutation, shared by drops and guild preflight. Semantic canvas-layer preset/preference commands live in `core/permaculture_commands.py`.
@@ -546,3 +619,23 @@ remain outside application runtime dependencies. See ADR-050.
 `models/guild.py` validates templates, lays out rings and remaps deep copied membership. `guild_library.py` eagerly validates bundles, isolates user-file errors and saves atomically. `guild_service.py` computes explicit-member function counts. `core/guild_commands.py` owns insertion and targeted membership changes; canonical deletion dissolves surviving links. The picker/editor are application widgets, not agent write surfaces.
 
 `ui/guild_coordinator.py` applies one computed snapshot to cosmetic badges, the Companion guild section and Diagnostics. `services/diagnostics.py` is the Qt-free record converter; `agent_api/diagnostics.py` is only its schema adapter. Sidebar rows store UUIDs and navigate through `ObjectNavigator`.
+
+## Audit A1 trust boundaries (#453)
+
+- `core/plan_io.py`: Qt-free raw numeric validation, shared canvas limits, strict
+  `.ogp` reads and atomic writes; consumed by project, autosave and season handling.
+- `services/verified_update.py`: exact release/origin validation, bounded checksum
+  parsing, streamed hashing and a verified installer result; never launches a process.
+- `services/image_download.py`: bounded Requests streaming and full Pillow decoding;
+  consumed by thumbnails and Static Maps. Thumbnails normalize to bounded PNG caches.
+- `app/settings.py`: the existing factory protects Linux credential-file ownership
+  and permissions. `main.py` handles protection failure before constructing the window.
+
+## Constraint presentation descriptors (#457, ADR-012 addendum)
+
+`ui/constraint_presentation.py` owns the immutable descriptor for each ConstraintType:
+icon, status RGB tuple, translatable row/detail/tooltip templates and display units.
+ConstraintListItem looks up and renders a descriptor in the existing translation
+context; it retains theme refresh and delete signals. The module accepts display
+values and returns text, with no commands, scene mutation or solver callbacks.
+Constraint geometry and satisfaction remain in their existing components.

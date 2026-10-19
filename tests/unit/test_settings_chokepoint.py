@@ -274,7 +274,16 @@ def _parse(path: Path) -> ast.Module:
 
 
 def _scan(detector: Detector, *, exempt: Collection[str] = ()) -> list[str]:
-    """Run a detector over every scanned module, formatting hits as ``path:line``."""
+    """Run a detector over every scanned module, formatting hits as ``path:line``.
+
+    Deliberately strict about a file that disappears between `_all_sources()` listing it
+    and this loop reading it. It briefly absorbed `FileNotFoundError` to survive the
+    working-tree race that `test_gate_commands.py`'s canary used to cause (#509), but
+    that canary now stages in a `tmp_path` repo and never touches the tree this scans.
+    The absorption was leftover scaffolding, and for a store-isolation gate a module
+    that silently fails to scan is worse than a red run: it reports "no violations"
+    for a file it never read (#509 review).
+    """
     offenders: list[str] = []
     for path in _all_sources():
         rel = _rel(path)

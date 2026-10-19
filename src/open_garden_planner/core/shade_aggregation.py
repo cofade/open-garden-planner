@@ -29,7 +29,9 @@ import numpy as np
 from .shadow_geometry import (
     MIN_SUN_ELEVATION_DEG,
     CasterLike,
+    GroupedCaster,
     Polygon,
+    compute_grouped_shadows,
     compute_scene_shadows,
 )
 from .solar import solar_position
@@ -99,6 +101,75 @@ class HeatmapGrid:
 #: A rasterizer turns one sample's shadow polygons into a boolean shade mask
 #: of shape (rows, cols), True = shaded. Injected so the core stays Qt-free.
 Rasterizer = Callable[[list[Polygon], HeatmapGrid], np.ndarray]
+
+
+@dataclass(frozen=True)
+class IdentifiedCaster:
+    """All solid footprints belonging to one object (plain worker input).
+
+    ``base_cm`` is where the object stands (Phase 17 L1.6, ADR-037 addendum): 0.0
+    on the garden floor, the soil surface for a plant on raised soil. Its solid is
+    ``footprint x [base_cm, base_cm + height_cm]`` everywhere it shades — the
+    overlay, the heatmap grid and the per-plant estimates.
+    """
+
+    item_id: str
+    footprints: tuple[tuple[tuple[float, float], ...], ...]
+    height_cm: float
+    base_cm: float = 0.0
+
+
+@dataclass(frozen=True)
+class SunReceiver:
+    """A plant whose direct sun is estimated, at the ground point under its centre.
+
+    ``stands_on``: the id of the soil parent whose solid the plant stands in (the
+    membership half of the base rule: linked to a visible bed, raised bed or
+    container that has a height AND its centre inside it —
+    ``ui/canvas/footprints.standing_parent``), else None. That parent is under
+    the plant, not between it and the sun: it is left out for this receiver
+    exactly like the receiver's own solid. Without it every plant in a raised
+    bed reads 0 hours — the bed's footprint covers the point all day. Every
+    OTHER caster shades the receiver as if it stood on the ground (a stated
+    limit of the ground-level estimate).
+    """
+
+    item_id: str
+    x_cm: float
+    y_cm: float
+    stands_on: str | None = None
+
+
+@dataclass(frozen=True)
+class SunExposureResult:
+    """Ground heatmap plus sparse ground exposure excluding each receiver itself."""
+
+    minutes: np.ndarray
+    receiver_minutes: tuple[tuple[str, float], ...]
+
+
+def points_in_polygons(polygons: Sequence[Sequence[tuple[float, float]]], points: np.ndarray) -> np.ndarray:
+    """Vectorized version of the reference's even-odd rule, with bbox pruning.
+
+    Polygons must be union output (including holes). Separate solids belonging
+    to one caster are ORed by the caller, not XORed as if they were holes.
+    """
+    mask = np.zeros(len(points), dtype=bool)
+    for polygon in polygons:
+        if len(polygon) < 3:
+            continue
+        vertices = np.asarray(polygon, dtype=float)
+        indices = np.flatnonzero(np.all((points >= vertices.min(axis=0)) & (points <= vertices.max(axis=0)), axis=1))
+        if not len(indices):
+            continue
+        candidates = points[indices]
+        x1, y1 = vertices[:, 0], vertices[:, 1]
+        x2, y2 = np.roll(x1, -1), np.roll(y1, -1)
+        slopes = np.divide(x2 - x1, y2 - y1, out=np.zeros_like(x1), where=y2 != y1)
+        y = candidates[:, 1, None]
+        crosses = ((y1 > y) != (y2 > y)) & (x1 + (y - y1) * slopes > candidates[:, 0, None])
+        mask[indices] ^= np.count_nonzero(crosses, axis=1) % 2 == 1
+    return mask
 
 
 def daylight_samples(
@@ -187,23 +258,96 @@ def compute_heatmap(
     (this keeps the winter toy case at exactly 0 and the summer one at the
     oracle's 540).
     """
+    result = _aggregate_day(casters, lat_deg, lon_deg, day, grid, rasterize,
+                            step_minutes=step_minutes, progress=progress, should_cancel=should_cancel)
+    return result.minutes if result is not None else None
+
+
+def compute_sun_exposure(
+    casters: Sequence[IdentifiedCaster],
+    receivers: Sequence[SunReceiver],
+    lat_deg: float,
+    lon_deg: float,
+    day: date,
+    grid: HeatmapGrid,
+    rasterize: Rasterizer,
+    *,
+    step_minutes: int = SAMPLE_STEP_MINUTES,
+    progress: Callable[[int, int], None] | None = None,
+    should_cancel: Callable[[], bool] | None = None,
+) -> SunExposureResult | None:
+    """One explicit day run, preserving the ordinary grid and excluding self at receivers.
+
+    Receivers use heatmap cell centres. Out-of-grid receivers are omitted,
+    never returned as zero sun. No leaf-height or transparent-canopy model.
+    """
+    # The grid and the receivers both come from the identified casters' grouped
+    # sweeps (base included); the anonymous list is only for a caller without ids.
+    return _aggregate_day((), lat_deg, lon_deg, day, grid, rasterize,
+                          identified=casters, receivers=receivers, step_minutes=step_minutes,
+                          progress=progress, should_cancel=should_cancel)
+
+
+def _aggregate_day(
+    casters: Sequence[CasterLike],
+    lat_deg: float, lon_deg: float, day: date, grid: HeatmapGrid, rasterize: Rasterizer,
+    *, identified: Sequence[IdentifiedCaster] = (), receivers: Sequence[SunReceiver] = (),
+    step_minutes: int = SAMPLE_STEP_MINUTES,
+    progress: Callable[[int, int], None] | None = None,
+    should_cancel: Callable[[], bool] | None = None,
+) -> SunExposureResult | None:
     samples = daylight_samples(lat_deg, lon_deg, day, step_minutes)
     minutes = np.zeros((grid.rows, grid.cols), dtype=np.float32)
+    valid = [receiver for receiver in receivers
+             if math.isfinite(receiver.x_cm) and math.isfinite(receiver.y_cm)
+             and 0 <= grid.cell_at(receiver.x_cm, receiver.y_cm)[0] < grid.rows
+             and 0 <= grid.cell_at(receiver.x_cm, receiver.y_cm)[1] < grid.cols]
+    points = np.asarray([grid.cell_center(*grid.cell_at(receiver.x_cm, receiver.y_cm))
+                         for receiver in valid], dtype=float).reshape(-1, 2)
+    # caster id -> the receivers it never shades: itself, and the plants standing
+    # on its soil (``SunReceiver.stands_on``)
+    spared: dict[str, list[int]] = {}
+    for index, receiver in enumerate(valid):
+        spared.setdefault(receiver.item_id, []).append(index)
+        if receiver.stands_on is not None and receiver.stands_on != receiver.item_id:
+            spared.setdefault(receiver.stands_on, []).append(index)
+    exposure = np.zeros(len(valid), dtype=np.float32)
     total = len(samples)
     for index, sample in enumerate(samples):
         if should_cancel is not None and should_cancel():
             return None
-        polygons = compute_scene_shadows(
-            casters,
-            max(sample.elevation_deg, MIN_SUN_ELEVATION_DEG),
-            sample.azimuth_deg,
-        )
+        owned_polygons: list[list[Polygon]] = []
+        if identified:
+            shadows = compute_grouped_shadows(
+                [GroupedCaster(caster.footprints, caster.height_cm, caster.base_cm)
+                 for caster in identified],
+                max(sample.elevation_deg, MIN_SUN_ELEVATION_DEG), sample.azimuth_deg, should_cancel)
+            if shadows is None:
+                return None
+            polygons, owned_polygons = shadows
+        else:
+            polygons = compute_scene_shadows(
+                casters, max(sample.elevation_deg, MIN_SUN_ELEVATION_DEG), sample.azimuth_deg)
         if polygons:
             shaded = rasterize(polygons, grid)
             minutes += np.where(shaded, 0.0, float(step_minutes))
         else:
             minutes += float(step_minutes)
+        if len(valid):
+            coverage = np.zeros(len(valid), dtype=np.int32)
+            for caster, caster_polygons in zip(identified, owned_polygons, strict=True):
+                if should_cancel is not None and should_cancel():
+                    return None
+                mask = points_in_polygons(caster_polygons, points)
+                indices = spared.get(caster.item_id)
+                if indices:
+                    mask[indices] = False
+                coverage += mask
+            exposure += np.where(coverage == 0, float(step_minutes), 0.0)
         if progress is not None:
             progress(index + 1, total)
-    return minutes
+    if should_cancel is not None and should_cancel():
+        return None
+    return SunExposureResult(minutes, tuple((receiver.item_id, float(value))
+                                           for receiver, value in zip(valid, exposure, strict=True)))
 

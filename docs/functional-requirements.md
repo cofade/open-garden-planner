@@ -243,9 +243,11 @@ Pre-defined object types for common property elements:
 - **FR-I18N-01**: All UI strings translatable via Qt Linguist (tr() calls)
 - **FR-I18N-02**: English as default language
 - **FR-I18N-03**: German translation shipped at launch
-- **FR-I18N-04**: Language selectable in Settings
+- **FR-I18N-04**: Language selectable via View > Language; restart applies the saved choice
 - **FR-I18N-05**: Extensible: contributors can add languages via .ts files
 - **FR-I18N-06**: Plant scientific names not translated (Latin)
+- **FR-I18N-07**: All registered target languages must completely cover the source-derived UI key set. Both new UI strings and new language registrations require complete catalogs, valid placeholders and matching compiled output before merge. Missing localized companion explanations fall back to English; German explanations are selected only for German (#496).
+- **FR-I18N-08**: Spanish localization (`es`, "Español") shipped with 100% key coverage of all source strings, collision-free menu accelerators, valid placeholders, and NSIS installer support.
 
 ## FR-12: Visual Rendering
 
@@ -585,7 +587,31 @@ Acceptance: `tests/unit/test_stacking.py` (the Qt-free arrange algorithm — nor
 - **FR-GUILD-02**: New/existing-centre insertion preflights mature-spacing/numeric ring layout, all species/layers and boundaries before one undoable command. Cancel/refusal makes no plan/history mutation.
 - **FR-GUILD-03**: Explicit metadata membership remains independent of Qt groups and plant parents. Coverage counts recorded functions once per assigned plant; multifunctional members may cover multiple roles. Existing instances retain template snapshots. Centre deletion dissolves surviving links in the same undo step; complete copies remap IDs and partial copies omit membership.
 - **FR-GUILD-04**: Centre badges, Companion Guilds and the general Diagnostics panel share computed guild warnings with MCP. Malformed saved guild metadata is preserved and excluded with a data warning. UUID navigation and idempotent debounced refresh avoid stale item references and repaint loops.
-- **FR-AGENT-27**: Read-only curated species/object traits and structured diagnostic details add `guild_role_missing` and `guild_data_warning` without new trait writes or authentication changes. Existing diagnostic fields and English API messages are retained.
+- **FR-AGENT-29**: Read-only curated species/object traits and structured diagnostic details add `guild_role_missing` and `guild_data_warning` without new trait writes or authentication changes. Existing diagnostic fields and English API messages are retained.
+
+### FR-SUN-09: Cached sun-requirement diagnostics (US-F3, #314)
+
+- Explicit Hours of Sun computes the ground heatmap and per-plant ground-level estimates at sampled footprint centres, excluding the receiving plant's own caster and — for a plant that stands in a soil parent with a height (a raised bed, a container, a mounded bed: linked to it and its centre inside it, FR-SUN-20's membership) — that parent: the bed is under the plant, not between it and the sun. (In v1.30.1 only the plant's own caster was excluded, and every plant in a raised bed read 0 hours and warned.) Every other caster shades the plant as if it stood on the ground, and each casts from where it stands (FR-SUN-20) in the map and in the estimates alike. A plant inside a bed's outline WITHOUT a link to it stands on the ground inside the bed's solid and reads 0 hours. No automatic computation; no leaf-height or translucent-canopy model.
+- The shared simulation date owns the reference day. An opt-in 21 June shortcut uses the current simulation year. Time-only changes preserve exposure; date changes invalidate it. All results and the chosen date remain runtime-only.
+- Nominal full-sun/partial-sun/partial-shade/full-shade bands are >=6/4-6/2-4/<2 hours. Warn only beyond one hour of tolerance: <5; <3 or >7; <1 or >5; >3, respectively. Exact tolerance boundaries do not warn. UNKNOWN never warns. Compare unrounded values, display one decimal, severity warning.
+- Canvas badges, the shared Diagnostics panel and cached unauthenticated `get_diagnostics` agree. `sun_mismatch` details carry `hours`, `required`, ISO `reference_date`, `direction`, `measurement_method=ground_cell_centre_excluding_self`, and `receiver_id`. Enclosing objects are addressable navigation targets for grouped receivers.
+- Missing, cancelled, stale, hidden and out-of-grid evaluations never become zero measurements or passed checks. Known unavailable requirements emit `sun_evaluation` with Information severity, reason and `status=not_evaluated`. Clear mismatches/badges within 100 ms after relevant edits; keep ordinary edited heatmaps only as explicitly stale snapshots. Requirement-only changes may reclassify valid results.
+- A single selected TREE shows Under this canopy: other footprint centres inside/on its recorded mature max_spread_cm/2. Membership ignores guild/layer/bed, excludes the tree and sorts by enum layer, displayed name and UUID. Missing traits are Unspecified; missing mature spread is unavailable. Rows show dated cached hours or an unavailable hint. Geometric inclusion does not establish the cause of shade.
+
+### FR-SUN-10: Document-owned heatmap lifecycle (#428)
+
+`CanvasScene.document_replaced` clears overlays, receiver results, diagnostics, canopy state and the checked toolbar button, cancelling pending work before item teardown. Generation/signature checks reject old queued success. Worker ownership survives until `finished`; a second launch is refused until pending signals complete. This applies to New, validated Open/Recent/Welcome/recovery/direct loads and agent New/Open. Prevalidation failure preserves the active plan and valid exposure. No project-format or version change.
+
+## Audit A1 data and download safety (issue #453)
+
+- **FR-SAFETY-01**: Opening non-finite/overflowing numeric plan data refuses before
+  replacing the active document; failed saves do not truncate existing plan/recovery files.
+- **FR-SAFETY-02**: In-app installation requires exact release assets, permitted HTTPS
+  origins/redirects, matching byte count and SHA-256; cancellation/refusal launches nothing.
+- **FR-SAFETY-03**: Linux user settings have owner-only file access, preserve existing
+  keys/values and fail startup clearly when protection cannot be established.
+- **FR-SAFETY-04**: Thumbnail/Static Maps responses have byte/pixel limits and full
+  decoding checks; failed input does not publish partial caches or replace the background.
 
 ## FR-36: Living Garden 3D (Phase 17, epic #383, ADR-048 / ADR-064)
 
@@ -597,6 +623,22 @@ The 3D view on Qt Quick 3D. Package L1 (#385) opens this bucket; each story appe
 - **FR-3D-PLANT-04** (L1.7): v0 makes no seasonal claim: no fruit, flowers or flower heads, and no bare crowns. Each plant has at most 2,000 triangles, and two plants of the same species and size are not identical.
 
 Acceptance (L1.7): `tests/unit/test_plant_art.py` (one table, one rule — also with sprite files missing), `tests/unit/test_scene3d_plants.py` (every recipe × every proportion step, and × six real sizes × five ids; the fit's guarantees also on hostile input to the fit itself; hue against the rendered sprites; clones over twelve ids; placeholder; the shape cache, also at its cap), `tests/integration/test_scene3d_plants.py` (§8.10 — a planted garden at two dates through the pipeline; every gallery plant and every species string drawn and built from the same sprite), `tests/perf/test_scene3d_plants_budget.py` (both bench plans: a first build, a daily scrub tick warm and cold).
+
+The workspace (L1.3, ADR-065). Behind the internal switch `OGP_QUICK3D=1` until the flip (L1.9); the shipped "3D View…" window is unchanged.
+
+- **FR-3D-WS-01** (L1.3): The plan area of the main window has three modes — **Plan** (the plan alone, as before), **3D** (the garden in 3D) and **Split** (both, side by side, with a divider the user can drag; neither side can be dragged shut). They are switched with a button row on the view, with View → Workspace, or with Alt+1 / Alt+2 / Alt+3. The Split position is remembered between sessions.
+- **FR-3D-WS-02** (L1.3): Nothing of 3D is started before the user first asks for it; a session that never opens 3D pays nothing for it. The first switch shows "Building the 3D view…" before the garden is built.
+- **FR-3D-WS-03** (L1.3): While 3D is visible, every edit of the plan — draw, move, resize, rotate, recolour, delete, undo, redo, a typed height — appears in 3D without a rebuild of the scene and without a step by the user. On the reference plan of about 100 objects an edit is in a finished 3D frame within 50 ms (95th percentile, measured: 21 ms).
+- **FR-3D-WS-04** (L1.3): While 3D is hidden (Plan mode, another tab, a minimised window) it does no work; when it is shown again it catches up in one step.
+- **FR-3D-WS-05** (L1.3): The 3D view follows the sun toolbar: a time of day moves the light at once; a date regrows the dated plants.
+- **FR-3D-WS-06** (L1.3): The user moves the 3D camera — drag to pan, right-drag to orbit, wheel or both buttons to zoom, arrow keys, Alt+arrows, PageUp / PageDown — and it glides to a stop. **Editing the plan never moves it.** Only the user, "Reset 3D View" (Home), the first open and a new or opened plan change the view. The camera cannot go below the ground or lose the plan.
+- **FR-3D-WS-07** (L1.3): If 3D did not start properly the last time (the graphics driver ended the program), the next session shows 3D in a **compatibility mode** (software rendering), says so, and offers "Try Hardware Next Time". If the graphics device cannot be used at all, the 3D pane says so and offers compatibility mode for the next start. The rest of the application is never affected.
+- **FR-3D-WS-08** (L1.3): An object that cannot be shown in 3D (for example an outline too large to build) is never silently missing: the 3D pane shows how many objects are not shown, and a list names each with the reason and selects it on the plan when chosen. Fixing the object clears its entry.
+- **FR-3D-WS-09** (L1.3): The application's shortcuts keep working while the 3D view has the keyboard (Ctrl+Z undoes).
+- **FR-3D-WS-10** (L1.3): The fullscreen preview hides the workspace's controls with the rest of the interface.
+- **FR-3D-WS-11** (L1.3): A new, opened or recovered plan replaces the garden in 3D and is framed once. A plan that could NOT be opened (a damaged file, a recent file that was moved, an agent's `open_plan` on a bad file) changes nothing: the 3D view, its camera and the open plan's hours-of-sun map stay as they were (FR-SUN-10 is the requirement for the map itself).
+
+Acceptance (L1.3): `tests/integration/test_view3d_workspace.py` (§8.10 — the workflow through the real main window; G1 in two fresh processes; a failed open on its three paths; #428 itself is FR-SUN-10's `tests/integration/test_sun_document_lifecycle.py`), `tests/integration/test_view3d_workspace_widget.py`, `tests/integration/test_view3d_sync_controller.py`, `tests/unit/test_scene3d_camera.py`, `tests/unit/test_view3d_init_guard.py`; on a real graphics device `tests/integration/test_view3d_workspace_render.py` (the app's own `main()`: edit latency, the camera rule, a clean close with 3D visible / hidden / never opened — also in the frozen build —, compatibility mode after a start that died, the memory soak, Qt WebEngine beside 3D, the 2D pan cost).
 
 - **FR-3D-GROUND-01** (L1.5): Every flat surface of the plan — lawn, terrace, driveway, path, in-ground bed, flat furniture, any item without a 3D solid except a plant — is shown on the 3D ground as the plan paints it: the same fill texture and tint anchored the same way, the same outline pen, the same path or fence style, the same furniture sprite, in the plan's stacking order, north up. Measured against the plan's own full-detail render of the same items: the mean difference per channel is at most 6 of 255 for each of the 24 fill patterns, tinted and untinted, turned and not (measured: 0 not turned, ≤ 0.0002 turned). A plant is never painted on the ground.
 - **FR-3D-GROUND-02** (L1.5): An item that has a 3D solid is not painted; under it the ground shows whatever flat surface was drawn there, else meadow. Plan ground no item covers is meadow in the colour of the ground around the plan.

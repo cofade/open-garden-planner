@@ -39,47 +39,29 @@ class MoveObjectCommand(Command):
 
 ## 8.3 Internationalization (i18n)
 
-Uses Qt Linguist translation system:
+Qt Linguist remains the runtime format (ADR-008). English is the source language;
+English, German, and Spanish are currently shipped. Registration in `SUPPORTED_LANGUAGES` makes
+the full source inventory mandatory for that locale. New UI keys require translations
+in every registered target locale in the same PR. The required `Test` CI check enforces
+this through `scripts/check_translations.py` and the normal pytest suite (#496).
 
-1. All user-facing strings wrapped in `self.tr()` or `QCoreApplication.translate()`
-2. Source strings extracted with `pylupdate6` into `.ts` XML files
-3. Translators edit `.ts` files (Qt Linguist tool or text editor)
-4. `.ts` files compiled to `.qm` binary with `lrelease`
-5. `QTranslator` loaded at app startup based on saved language preference
+The canonical inventory comes from fresh PyQt6 extraction plus audited AST/helper/table
+sources in `scripts/i18n_bindings.json`. Qt context, source and disambiguation identify a
+key. Neither German nor the English template is the inventory authority. Unknown dynamic
+lookups fail; finite table additions grow the inventory without a test-list edit.
 
-**Shipped languages**: English (default), German
-**Extensible**: Community can add languages by creating new `.ts` files
+Run `scripts/update_translations.py`, fill every target catalog (helper scripts
+like `fill_translations.py` provide optional assistance), run `scripts/compile_translations.py`,
+then `scripts/check_translations.py` in the locked environment. The updater preserves
+translations and marks genuinely removed keys vanished. The checker is read-only and
+requires exact active keys, completed nonblank targets, preserved placeholders, matching
+compiled files and actual Qt lookup results. Retired records cannot satisfy coverage.
+English retains source identities. Identical target text is valid for proper names/units.
+Current singular-only compilation rejects plural/variant input until tested support is added.
 
-**Translation files location**:
-- `src/open_garden_planner/resources/translations/open_garden_planner_de.ts`
-- `src/open_garden_planner/resources/translations/open_garden_planner_en.ts`
-
-**Not translated**: Plant scientific names (Latin), file format identifiers
-
-### How to add translations when creating/modifying a widget
-
-1. **In code**: wrap every UI string with `self.tr("English text")`. The class name is the translation context automatically.
-
-2. **Update both `.ts` files** — add a `<context>` block (or extend an existing one) to both files:
-
-   ```xml
-   <context>
-       <name>MyWidget</name>
-       <message>
-           <source>English text</source>
-           <translation>Translated text</translation>
-       </message>
-   </context>
-   ```
-
-   Note: German file uses `<name>` with no extra indent, English file uses 4-space indent.
-
-3. **Recompile `.qm` files** after every `.ts` change:
-   ```bash
-   venv/Lib/site-packages/qt6_applications/Qt/bin/lrelease.exe \
-     src/open_garden_planner/resources/translations/open_garden_planner_de.ts \
-     src/open_garden_planner/resources/translations/open_garden_planner_en.ts
-   ```
+Full commands, source declaration rules and new-language steps: [translation guide](../TRANSLATING.md).
+Latin scientific names, provider/user text and machine identifiers are not catalog prose;
+finite bundled common names are extracted from the actual bundled species JSON.
 
 ### Translation rules
 
@@ -161,7 +143,7 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 ### Textures (`resources/textures/`, ADR-042 / #309)
 - **Generated, never hand-edited**: all 24 fill-pattern textures (grass, gravel, concrete, wood, water, soil, mulch, roof tiles, sand, stone, glass, hedge, brick, bark, wildflower, terracotta, pebbles, slate, lattice, compost, flagstone, clay, decking, corten) are emitted by `scripts/generate_asset_forge_textures.py` in the "Lush" texture language; committed PNGs must be pixel-identical to regeneration (`--check` + `tests/unit/test_texture_forge_conformance.py`). See §8.24.
 - 256×256 px RGB, **1 px = 1 cm** on the canvas (no LOD variants — Qt scales the brush); strictly top-down, no directional light; seamless by construction on a torus, gated by `scripts/check_texture_tileability.py` for every file
-- Loaded as `QPixmap` by `core/fill_patterns.py`, tinted with the user's fill colour at 80/255 alpha (`_tint_texture`) and applied via `QBrush` texture pattern; the tint-readability band is gated
+- Loaded as `QPixmap` by `core/fill_patterns.py`, recoloured to the user's fill colour by a luminance map (`_tint_texture`: every pixel becomes the chosen colour scaled by the texture's relative luminance, so the colour reads and the detail survives — #502) and applied via `QBrush` texture pattern; the tint-readability band is gated
 - Provenance: `resources/textures/PROVENANCE.md` (generator = provenance, one register row per file)
 
 ### Object SVGs (`resources/objects/`, ADR-042 / #308)
@@ -190,6 +172,7 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 - **Linting**: Code must pass ruff checks
 - **Test coverage**: CI enforces measured per-package line floors; branch coverage is reported separately (ADR-050, ?10.4). Non-UI means every package except `ui`.
 - **Line length**: 100 characters in the Ruff configuration; no formatter CI gate is claimed.
+- **One dependency source of truth (AUD-052)**: `pyproject.toml` plus the committed `uv.lock` / `pylock.toml`. The old top-level `requirements*.txt` mirrors were removed in #454; toolchain pins, build evidence and the dependency-update runbook live in `docs/07-deployment-view` §7.4.
 
 ### Git Workflow
 
@@ -202,7 +185,7 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 
 - **Graceful degradation when APIs are unavailable**: external services (Google Maps, Trefle, Perenual, Permapeople) degrade quietly without blocking application workflow.
 - **Two-phase atomic project loading (AUD-040, TD-017, #403)**:
-  `ProjectManager.load()` deserializes and validates all items, layers, guides, and constraints in memory (Phase 1) before mutating or clearing the active `CanvasScene` (Phase 2). If Phase 1 raises, the current scene remains 100% intact. On any failure, `_current_file` is cleared (`None`), the document is marked dirty, and `_load_project_file` preserves any existing autosave file on disk, guaranteeing that subsequent Save/Ctrl+S actions cannot overwrite the previous plan file with empty or partial content.
+  `ProjectManager.load()` deserializes and validates all items, layers, guides, and constraints in memory (Phase 1) before mutating or clearing the active `CanvasScene` (Phase 2). A Phase 1 refusal preserves the scene and document identity, including filename, dirty state, selection and command history. Only an unexpected failure after Phase 2 starts clears `_current_file` (`None`) and marks the document dirty, preventing Save/Ctrl+S from overwriting the previous plan with partial content. `_load_project_file` preserves existing autosave files on every failed load.
 - **Missing or corrupt assets load as placeholders (AUD-043, TD-011, #397)**:
   Background images with missing disk paths or invalid embedded image bytes load as non-rendering `BackgroundImageItem` placeholders (`is_placeholder=True`). On subsequent saves, the placeholder re-emits its original raw dictionary so external asset links survive across sessions instead of being silently deleted.
 - **Duplicate item UUID detection & re-minting (AUD-043, TD-011, #397)**:
@@ -213,6 +196,20 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
   Periodic autosaves write to `~autosave_...` next to the project file (or in temp for untitled plans). Autosaves are cleared only after a new file load succeeds.
 - **No silent failures — handled logging & crash backstop (AUD-063, TD-023, #405, ADR-052)**:
   Handled errors and warnings across all application components are routed to a persistent rotating file handler (`app.log`, 1 MB, 3 backups) in the user data directory, with console echoing to stderr when available (preventing discarded records in the windowed frozen executable where `sys.stderr is None`). Uncaught exceptions are intercepted by `_install_excepthook` in `main.py`, written to `crash.log`, and surfaced to the user via a recoverable error dialog so unsaved work can be preserved.
+
+### A1 numeric refusal (#453)
+
+The file boundary is `core/plan_io.py`. Invalid numbers anywhere in the raw payload,
+including nested group/curve geometry, reject the entire plan before preparation;
+they are not silently dropped as malformed items. Phase 1 refusal preserves the
+active scene, selection, command history, filename, dirty state and autosave.
+Finite inputs can still produce infinite bounds after rotation, image scaling or
+group aggregation. The detached-item gate checks Qt's actual bounds and transforms
+recursively before applying anything to the active scene; saves check live items too.
+Numeric-looking strings in opaque metadata remain text.
+All `.ogp` writers validate and encode before replacing files atomically. See the
+ADR-003 addendum. The protective identity reset applies only to unexpected failures
+after scene mutation.
 
 ## 8.8 Settings Storage — One Chokepoint (ADR-041)
 
@@ -415,7 +412,39 @@ self._reposition()
 
 Rect-bearing items (`CircleItem`/`RectangleItem`/`EllipseItem`) serialize their position as `pos + rect.center()` with rotation stored as a *separate* angle pivoting on the centre (`core/project.py`). Every geometry mutation on such an item — rotate, programmatic resize, interactive drag-resize, and the undo/redo of any of them — **must end with `transformOriginPoint() == rect().center()`**, or a rotated item's saved centre diverges from its on-screen centre and it drifts on reload / jumps on the next rotation. Do not re-derive this per gesture. **Route every rect-backed resize through `ui/canvas/geometry_apply.py`** (US-D2.2): `apply_rect_like_geometry` is the `apply_func` every `ResizeItemCommand` must be given, and the `build_*_resize` helpers compute the target geometry for either anchor policy. Its module docstring is the authoritative list of callers and exceptions. Below it sit the two lower-level primitives, a coupled pair rather than pick-and-choose: `resize_handle.resize_rect_item_keeping_anchor(item, new_rect, scene_anchor, local_anchor)` (mutating: `prepareGeometryChange()`, apply rect, re-pin origin, reposition so a chosen scene point stays fixed), whose `scene_anchor` must come from the pure forward transform `scene_point_of` — never hand-derived — and `anchored_position`, the inverse form the `geometry_apply` builders solve `pos` through. **Never hand-derive a position beside a re-pin** — `anchored_position` bakes in `O = new_rect.center()`, so a `pos` computed by hand under the *old* origin and then combined with a re-pin is two half-solutions to one transform: that combination slid a rotated rectangle 671 cm out from under the cursor (§11.4). Rotation goes through `geometry_apply.apply_rotation`, the only definition in the codebase (it delegates to `RotationHandleMixin._apply_rotation`, which pivots on `rect().center()`). Note `ResizeItemCommand` accepts **two** callables — `apply_func` and each `partner_resizes` entry's — and both must obey this. For rect-backed items, the interactive `ResizeHandle._apply_resize` takes the fixed corner/edge **authoritatively from the handle position**, never inferred from scene-space, which disagrees with the item frame under rotation. It lets the item normalise the rect (`CircleItem._constrain_resize_size` squares it so the dragged handle tracks the cursor — never `min(w,h)`, which collapses under rotation), then refreshes via `_after_resize_geometry()`. The non-rect fallback (PolygonItem) is exact compensation, not an alignment accident: it rotates the local delta into scene space (`pos_dx * cos_a - pos_dy * sin_a`) before applying it, so the dragged edge tracks the cursor and the opposite edge stays fixed under rotation too. The pivot must come from the *geometric* `rect()`, never the decoration-expanded `boundingRect()` (a runtime-only badge expands the latter asymmetrically); and any shrink of a custom `boundingRect()` must `prepareGeometryChange()` or Qt leaves a stale "ghost". See ADR-028 and §11.4 (#218/#219). Sizing precedence (footprint vs. spacing override vs. DB `max_spread_cm`) likewise has one home: the Qt-free `core/plant_sizing.py` resolver.
 
+### 8.9.9 A native window inside the layout — nothing overlays it (Phase 17 L1.3)
+
+The 3D view is a `QQuickView` in `QWidget.createWindowContainer` (ADR-048): a NATIVE child
+window. The patterns above — a child widget parented to the view and raised — do not apply to
+it:
+
+- **A sibling or child widget does not paint over a native window.** Raised or not, it is drawn
+  underneath. A control or a notice for the 3D view goes ABOVE the view (the pane's strip),
+  BESIDE it, or IN ITS PLACE (a message page in a stacked widget) — `ui/view3d/workspace.py`,
+  §8.32.3.
+- **Its input does not reach the widget that embeds it.** Mouse, wheel and key events go to the
+  native window; an event filter installed on that window sees them
+  (`Quick3DHost.install_event_filter`). Qt's shortcut map still works across it (measured:
+  Ctrl+Z, Alt+1 with the keyboard in the 3D window) as long as the filter passes on the keys it
+  does not use.
+- **Tests read the 3D view back through the host** (`host.grab()`, in a child process on a real
+  platform), never through `QWidget.grab()` of the workspace: a widget grab renders widgets, and
+  the 3D view is not one.
+- **The top-level window stays a raster window** (`surfaceType() == RasterSurface`, asserted in
+  the render tier): embedding the container did not switch the main window to a composited
+  path, and a 2D pan step costs the same with the view beside it (×1.04).
+- The floating mode switch of the workspace follows §8.9.1 to §8.9.3 — but it is parented to the
+  WORKSPACE and floats over the canvas only; in 3D mode it moves into the pane's strip.
+
 ## 8.10 Integration Test Policy
+
+**Worker responsiveness.** Control an in-flight interval instead of counting timer
+ticks over an uncontrolled computation duration. Hold the real worker at an Event,
+assert GUI heartbeat delivery and a different execution thread while the request
+is still pending, then release and verify the real result. Always release in failure
+cleanup. `test_explicit_worker_keeps_gui_responsive` preserves its three-tick assertion,
+10 ms timer interval and 30-second result timeout; its synchronous-worker negative
+control fails. See §11.4 (PR #490).
 
 **Every user story (US) must ship with at least one end-to-end integration test. No merge without it. No exceptions.**
 
@@ -690,6 +719,141 @@ The CI/release CLIs are tested through real subprocesses in temporary repository
 exit codes, read-only checks, version-sync dry runs and repeated application, and unchanged
 third-party lock records. Remote GitHub responses are supplied as fixtures; deliberately
 failing merge tests belong on a temporary validation base, never master.
+
+### A5 numerical and presentation evidence (#457)
+
+`test_constraint_solver_invariants.py` measures geometry independently of solver
+flags: both symmetry axes, signed axis distances, nonzero anchor offsets, coupled
+residuals, rigid/deformable pins, incompatible fixed systems, feasible projection,
+trial cleanup and exact conflicting IDs. The all-pinned false-convergence regressions
+failed before the fix. No iteration count or internal damping constant is pinned.
+`test_constraint_descriptors.py` covers every enum with independent English text,
+icons and status dots, then installs the compiled German translator and checks the
+rendered strings. `test_constraint_presentation_workflow.py` drives a registered
+tool and real application panel selection/deletion/undo/redo wiring.
+The German workflow also verifies unnamed endpoint text and tooltips, preserving
+explicit user names. `test_constraints_panel.py` checks all 52 `ObjectType` labels
+against the German catalog; this catches absent entries as well as untranslated
+fallbacks. Compare-overlay plant labels share the canonical display-name helper.
+
+`scripts/replay_constraint_mutations.py` uses temporary import overlays and fresh
+pytest processes. `--source-ref` replays both solver modules from an explicit revision;
+`--selection baseline` excludes the A5 tests. An unmutated control must pass first.
+Failures, survivors, invalid runs and timeouts remain distinct; a timeout is not a
+killed mutant. The committed A5 evidence records the eight exact substitutions,
+source hashes and relevant unit/integration/UI selection. This sampled result is not
+a full mutation score. `--inventory-only` records current type-sensitive if conditions.
+
+Do not stage or commit in the checkout while the full suite is running.
+`test_gate_commands.py::TestCheckNoSecrets` briefly stages synthetic canary files
+in the real Git index, scans them, then removes them. A simultaneous commit can
+capture a canary. Wait for suite completion and inspect the staged diff before
+committing; review in a separate worktree keeps its index independent.
+Repository-wide lint and secret scans must also wait for these tests to finish,
+so transient canary files cannot become unrelated lint or scan failures.
+
+### 8.10.3 Constraint tool characterization (#406)
+
+`tests/constraint_tool_helpers.py` drives real CanvasScene/CanvasView tools in raw scene
+coordinates with snapping disabled. The per-tool unit files exercise press, move and release;
+registered workflows reuse the integration canvas fixture and real ToolManager/command wiring.
+Only modal acceptance and input widgets are controlled. Picking, feasibility, solving and graph
+commands are never substituted in successful gestures. Capture Qt points by value (QPointF),
+not wrappers into a temporary QPolygonF. Initialize rotations through the item's canonical
+rotation method; Qt setRotation alone does not update product rotation bookkeeping.
+
+Pin the constraint type, item IDs, anchor types/indexes and target fields; assert the actual
+geometry relation, exactly one history entry, graph/geometry undo and the same constraint ID
+on redo. Exercise rejected dialogs, empty/repeated picks, conflicts, cancellation, Escape and
+tool switching, with overlays cleared. Matrices include 0/45/215-degree rotations, both symmetry
+axes, coincidence on points/edges/circles, rectangle/polygon/polyline edges and equal circle sizes.
+Mixed-graph rectangle cases retain compatible center alignment, refuse incompatible edge
+lengths/fixed-pin movement, and restore exact geometry on probe errors. A registry drift guard
+requires a gesture scenario for every registered constraint tool.
+
+The existing coverage parser reports normalized package-relative per-file line/branch counts.
+Optional `file_line_floors` extends the package gate; `core/tools/constraint_tool.py` requires
+at least 60% full-suite lines. Compare integer covered/total counts; branch counts are reported
+separately without a threshold. Missing files and malformed records fail visibly. Linux
+rebaselining preserves explicit file floors (ADR-050 addendum).
+
+### A1 trust-boundary testing (#453)
+
+Failing-first tests pin invalid-number rejection, mislabeled HTML caching and
+duplicate installer selection. Integration tests drive the real application document
+load and update notification/worker paths with network and process launch controlled.
+A loopback HTTP fixture proves byte limits apply after gzip decoding. Linux settings
+tests run real QSettings in fresh processes with private XDG directories and controlled
+umasks; Windows skips only those platform-specific assertions and pins registry parity.
+No test executes an installer or calls a paid map provider. Test-layer evidence must
+name the platform and locked interpreter, not imply a Windows chmod mock proves Linux.
+
+### Translation gate integration (#496)
+
+`tests/integration/test_translation_gate.py` invokes the real CLI against an isolated
+three-locale project, proves a missing target returns nonzero with useful diagnostics,
+and checks input files remain unchanged. It also exercises the real language menu,
+saved setting and next-window startup translation for every registered locale.
+`tests/unit/test_translation_gate.py` mutates both axes: a new locale missing an old key,
+and a new source key missing from some or all catalogs. Equal-size wrong-key catalogs,
+invalid values/placeholders, stale binaries and stale source declarations fail.
+
+### 8.10.4 The inner loop, and which run is the gate (#509)
+
+`addopts` carries `-n auto --dist worksteal -m 'not perf'` (ADR-058), so the **default**
+run is parallel. Three things follow from that, and each is a trap worth naming.
+
+| Command | What it is | Measured |
+|---|---|---|
+| `pytest tests/` | the correctness battery, parallel, perf deselected | **156 s** (`-n 8`) |
+| `pytest tests/ -m perf -n 0` | the timing-sensitive tests, which never share a runner | **26 s** |
+| `pytest tests/unit` | the natural inner loop for a logic-only change | **193 s** serial, **61 s** parallel |
+
+**The perf tests need `-m perf`, and the marker is about the measurement, not the
+directory.** `addopts` deselects them so that a plain `pytest tests/` **collects no
+perf test at all** — the most likely way to mistakenly believe they ran. They are
+wall-clock budgets, and **7 of the 14 carry that marker *outside* `tests/perf/`**, so the
+split is by auditing for wall-clock assertions rather than by listing a directory. That
+number is worth writing down precisely, because it changes the invocation:
+
+```powershell
+pytest tests/ -m perf -n 0     # all 14 — what CI runs
+pytest tests/perf -m perf      # only 7, and it PASSES. The worst kind of wrong.
+```
+
+A directory-scoped command is the natural mistake here and it fails **silently** — the
+gate is green while half of it never ran. `-m perf` is required because `addopts`' own
+`-m 'not perf'` otherwise wins and collects nothing at all; `-n 0` is required because
+running these across workers is the condition the split exists to prevent.
+
+The audit that produced the split was, twice, incomplete: it read `tests/perf/` and
+grepped for `time.`, and missed four unmarked bounds including two classes literally
+named `TestPerf`. `tests/unit/test_perf_marker_guard.py` now closes that mechanically —
+it walks each module's AST, follows the timing sources (`time.perf_counter`,
+`time.monotonic`, `time.process_time`) across calls, and fails the build if a test orders
+a measured duration against a bound without the marker. **12 of the 14 assert a duration;
+the other two are marked for scenario consistency**, which is the one thing the guard is
+documented not to check — it proves a marker is *required* where it fires, not that every
+marker present is needed.
+
+**Small targeted runs are slower than they were.** Worker start-up dominates when there
+is nothing to distribute: one 11-test file measured 2.85 s serially against 5.48 s under
+`-n auto`. Pass **`-n 0`** for a single file or a handful of tests. The asymmetry is
+deliberate (517 s saved on a full run against 2.6 s added to a small one) but it is a
+real cost, and `-n 0` is the documented escape rather than something to discover.
+
+**Which run is the gate.** A targeted run is good security during a change; the **full**
+correctness battery plus the perf step is the gate before a PR. This is safe in one
+direction only, and the direction matters: a targeted run can fail while the full run
+passes (a false alarm — harmless), but the dangerous direction would be a targeted run
+passing beside a red full run, which is exactly why the full run stays the gate. §11.4
+records the precedent for the fix when that happens: request the fixture the test
+actually needs rather than inheriting it from a neighbour.
+
+One consequence of parallelism is worth expecting: **a hang presents as a crashed
+worker**, not as a clean abort. The `pytest-timeout` guard still applies per test (#448
+and the 2026-08-17 stall earn it); xdist kills and restarts the one worker and
+continues.
 
 ### 8.10.23 Patterns from the 3D scene pipeline (Phase 17 L1.1)
 
@@ -1247,6 +1411,102 @@ and must report failures and not one skip (measured: 9 failed, 43 errors, 12 pas
 - **A failing run must leave its pictures.** `OGP_RENDER3D_ARTIFACTS` makes every driver run
   copy its frames, `result.json` and log there; CI uploads the directory even when the job fails.
 
+### 8.10.27 Patterns from the 3D workspace (Phase 17 L1.3)
+
+How the workspace (§8.32.3, ADR-065) is tested, and the patterns worth reusing.
+
+**Three tiers, one seam.**
+
+| Tier | Files | What stands in for the engine |
+|---|---|---|
+| default, no GPU | `tests/unit/test_scene3d_camera.py`, `test_view3d_init_guard.py`, `test_sim_clock_subscription.py`, `test_plain_text.py`; `tests/ui/test_view3d_orbit_input.py`; `tests/integration/test_view3d_sync_controller.py`, `test_view3d_workspace_widget.py`, `test_view3d_workspace.py` (the §8.10 workflow through a real `GardenPlannerApp`) | `Workspace.engine_factory` returns a stand-in host and a `RecordingSink` — every sink call of an edit session is asserted exactly |
+| default, offscreen host | `tests/ui/test_view3d_host_seams.py` (marked `no_qt_log`) | the real `Quick3DHost`, never shown |
+| render (`OGP_RENDER3D=1`) | `tests/integration/test_view3d_workspace_render.py` | nothing: the app's own `main()` in a child process on a real device |
+
+- **Replace the engine at the documented seam, not by patching.** `window._workspace.engine_factory
+  = factory` before the first switch to 3D. The stand-in host is twenty lines: it records what it
+  is told and has a `health()` the test can set.
+- **Drive the real signals.** The controller tests execute real commands on a real canvas scene
+  and let `QGraphicsScene.changed`, the undo stack's `stack_changed` and the sim clock's channels
+  do the rest; "one pass per turn" is only a fact when the turn is Qt's.
+- **Assert identity where the rule is "unchanged".** The camera rule compares the pose object
+  (`camera.pose is pose`), the goal, the moving flag and the number of camera calls the host got —
+  around each of 100 edits. "Approximately the same pose" would pass a camera that drifts.
+- **Order on the GUI thread is tested with a paint log, not a sleep.** `PaintLog` (an event filter)
+  notes the label's text at every `Paint`; a wrapper around `snapshot_records` notes what had been
+  painted when the first snapshot STARTS. The test keeps the GUI thread busy first, so that every
+  timer of the start is overdue — the case in which a timer would win.
+- **A clock the test holds.** "Quiet for half a second" is read through `workspace._now`; the
+  release tests replace it and advance it by hand. No test of a time rule sleeps.
+
+**Scripting the REAL app — the workspace gate.** `workspace_gate_hook.py` runs inside the app's
+own process (from source: imported by `workspace_gate_child.py` before `main()`; frozen: a
+PyInstaller runtime hook of `installer/workspace_gate.spec`) and plays a scenario on the GUI
+thread once the main window exists.
+
+> **Rule: no scripted run of the app opens a plan on the production settings names.** A plan
+> load writes Recent Files and a clean close writes the window geometry — on Windows into a
+> registry key that no environment variable moves. The hook rebinds the two names before
+> anything builds a store, records every store by the names Qt reports for it, and ends the
+> process with exit code 97 BEFORE a store under any other organisation exists. That is proven
+> in the default tier (`test_workspace_gate.py`: `main()` on a plan; a decoy organisation
+> refused) before the gate is used once on a real platform, and asserted again inside the
+> frozen exe.
+
+- The hook is READ by tests, never imported: importing it rebinds the settings names of the
+  importing process. A test pins who may import it.
+- A scenario is a generator that yields "wait this long" or "wait until this is true"; every
+  step is written to the report at once, so a process that dies leaves the last step it reached.
+- The verdict (`GateRun.problems()`): the exit code, a failed step, any Qt warning or error on
+  stderr (Qt's own handler, never a Python one), any ERROR line in the child's `app.log`, and a
+  run that did not end with a closed window.
+
+**Measuring rules, each paid for** (§11.4.33 has the wrong versions):
+
+- **"A frame" is a finished readback taken the moment the pass committed** — inside a slot on
+  `controller.applied` — not `frameSwapped`, and not after `processEvents()` (which adds the
+  rest of the 2D side's turn to the 3D number). State the window and pane size with the number:
+  a readback grows with the pane's pixels.
+- **A memory soak takes no frame inside its measured loop.** A readback renders a frame of its
+  own that is never presented, and what it holds stays until a presented frame ends: a soak
+  that reads back every cycle measures the readback (twenty rebuilds with the view's frames
+  withheld: 1.5 MB per rebuild without a readback, 8.5 with one per rebuild). ONE frame
+  before the loop and ONE after it prove the picture; in between the scenario waits on
+  `health().frames_presented`, never on a grab. The readback stays the measuring device of
+  the LATENCY and PICTURE scenarios, where it is what is being timed or looked at.
+- **The soak is judged twice: presenting, and with frames withheld.** Qt frees a destroyed
+  Model's buffers at the end of a presented frame, and with the display asleep Windows
+  presents none — so `run_gate` sets Qt's `QT_D3D_NO_VBLANK_THREAD=1` by default (update
+  requests by timer: no scenario may depend on whether the dev box's display is awake), the
+  soak reports how many frames each rebuild presented, and the test asserts at least one.
+  The second slope takes the frames away on purpose (`frames="withheld"`: the engine
+  story's no-paint filter on the view) and asserts that none was presented.
+- **A stand-in host records what must not be called.** The GPU-less tests' host has `grab`,
+  `wait_ready`, `pick` and `project` — each only appends its name to a list — so "the
+  workspace takes no frame from the live view" is an assertion on that list after every
+  steady path ran, beside a scan of the source that would also see a call no test reaches.
+- **A slope gate needs its control and its "off" run.** The soak runs with the fix, with 25 MB
+  kept per reload (must FAIL) and with the fix out of reach (reported): three numbers from one
+  instrument on one machine.
+- **Compare two modes along the same path, in alternating short blocks.** The 2D pan cost in
+  Split against Plan: six rounds of 60 steps each, every block from the same scroll position
+  along the same pixels, the canvas at the same size in both, every step checked to have
+  scrolled. Report the medians and the fastest tenth.
+- **Committed memory, not the working set; and ask DXGI for VRAM** —
+  `IDXGIAdapter3::QueryVideoMemoryInfo` through `ctypes` (`workspace_gate_measure.gpu_dedicated_mb`).
+
+**Checking that a test bites.** After the tests were green, each rule was broken once in the
+source — one text mutant at a time, the story's tests run, the file restored — and a mutant that
+survived got a test (the sets are listed in ADR-065, Validation).
+
+**A test owns no process-wide state, and the suite's order is part of the test** (§11.4.33 item
+13: two tests of this story were green in every run of its own files and red in the whole
+suite). Compare a process-wide table with what was in it BEFORE the test — hold those entries
+for the test's length — never with zero. Compare a widget only with one in the same state: a
+widget that was never shown is not polished, and under an application style sheet an earlier
+test left behind it measures differently from a shown one. Run the whole default tier in its
+own order before a story's files are believed.
+
 ### 8.10.28 Parity against the 2D canvas, and counting instead of timing (Phase 17 L1.5)
 
 The ground bake (§8.32.5) must paint what the canvas paints. How that is tested, and what each
@@ -1337,7 +1597,7 @@ tier: `tests/integration/test_scene3d_ground_render.py`):
   the scan saw one (it knew a keyword spelling and two folders). The guard is now a teardown
   fixture (`tests/integration/conftest.py::_every_item_says_what_it_paints`): every
   `CanvasScene` an integration test builds is tracked, and at the end of the test every item in
-  it must satisfy `core.item_style.style_gaps(item) == []` — whatever tool, panel slot, undo,
+  it must satisfy `core.item_look.style_gaps(item) == []` — whatever tool, panel slot, undo,
   loader branch or test helper wrote it. A test that puts an item out of step on purpose says so
   with `@pytest.mark.style_gaps_allowed("why")`. The guard costs 7 ms for the 495-item reference
   plan and 30 ms for 2,000 textured rectangles; it cannot see a writer no integration test
@@ -1355,12 +1615,39 @@ tier: `tests/integration/test_scene3d_ground_render.py`):
   another tile, the paint turn not carried, …): 23 mutants, 23 killed — the first run left one
   alive (an edge THROUGH a tile was never the deciding fact in a test), and the test that kills
   it is the one that would have missed the defect.
+  Review round 2's rules: 63 mutants, all killed.
+- **The one wall-clock gate runs on the quiet runner.** G3 — an edit's bake in at most 10 ms in
+  the median — is the story's only assertion on a clock, and it carries `@pytest.mark.perf`
+  (ADR-058, §8.10.4): beside eight workers it read 11.58 ms. Its stopwatch is an ATTRIBUTE of
+  `tests/integration/ground_bake_support.py::TimedBaker`, which the perf-marker guard
+  (`tests/unit/test_perf_marker_guard.py`) does not follow, so the marker is set by hand — and the
+  class lives in the support module because the guard keys a module's functions by their bare
+  name: in the test module, a stopwatch in a method called `bake` made every test that calls ANY
+  baker's `bake` a "timing test". Everything else is counted.
+- **A fix kept over another branch's mechanism is pinned by putting that branch's code back.**
+  Where `master` fixed a defect this story had fixed too, `master`'s mechanism won the merge; for
+  every fix the story KEPT, a scratch check put the integration branch's code back at that place
+  (a whole file, or the one hunk) and ran the pinning tests: each had to fail (10 of 10 did — the
+  loader and saver, the corner tools, trim, `clone_with_points`, the fresh line, the panel's undo,
+  the two style painters, and `restore_stored_look` on a stroke of no kind).
 
 ## 8.11 Security Scanning (SAST)
 
 **Tool:** [Bandit](https://bandit.readthedocs.io/) — a Python SAST tool that detects common security anti-patterns (subprocess injection, unsafe deserialization, weak cryptography, hardcoded secrets, etc.).
 
 **CI enforcement:** The `security` job in `ci.yml` runs `bandit -r src/ --severity-level high` on every push. CI fails only on HIGH-severity findings. MEDIUM and LOW findings are omitted by this invocation. Use the separate all-findings command below for awareness; no broader scan is claimed.
+
+**Dependency vulnerability scan (AUD-054, #454):** the `Dependencies` matrix job (Linux and
+Windows) also runs `pip-audit` over the committed lock export
+(`uv export --locked --all-extras --group build`, which by default also includes the dev
+group), so a finding is a finding in a shipped artifact, a build tool or a development tool
+that runs in CI; it runs on both platforms because pip-audit evaluates requirement markers
+for the running interpreter (the Windows-only `pywin32` is invisible to a Linux-only scan).
+One advisory is recorded as an explicit exception — the `setuptools` advisory affecting
+unused macOS source-distribution publishing,
+`PYSEC-2026-3447`, which only affects publishing macOS source distributions (justification in
+§11.2); its fix stays reserved for a separately reviewed dependency PR. Any new advisory
+fails the job.
 
 **Local use:**
 ```bash
@@ -1435,6 +1722,48 @@ can keep: stop BETWEEN units for a time budget and leave the rest pending — th
 least one tile a call and looks at an injectable clock after each (§8.32.5). The budget does not
 bound one unit; say what one unit was measured to cost at its worst, and do not round it down.
 
+**Plan text in Qt's rich-text widgets and in the log (Phase 17 L1.3, #385).** A plan file is
+input, and so is everything that quotes it — an item's name, and an exception's message that
+repeats the name. Two consumers turn such text into something else, and Bandit sees neither:
+
+- **Qt decides "rich text or plain" by looking at the string.** A tooltip, and a `QLabel` left on
+  `AutoText`, render markup found in their text (`Qt.mightBeRichText`): a plant called
+  `<b>x</b><img src="file:///C:/Windows/win.ini">` put a bold `x` and an image request into the
+  tooltip of the "not shown in 3D" list.
+- **A log line ends at a line break.** A name with `"\n2026-10-12 ERROR forged"` in it writes a
+  line of its own into `app.log` — the file a user sends to support. A traceback's last line is
+  the exception's message as it came.
+
+The rule, and the one helper (`core/plain_text.py`, standard library only):
+
+1. **Normalise, then cap, then escape — in that order.** `normalise_text` turns every character
+   `str.splitlines()` splits at (LF, CR, VT, FF, FS, GS, RS, NEL, U+2028, U+2029) into ONE line
+   break, a tab into a blank, and every other C0 / C1 control and the bidi overrides and
+   isolates (U+202A–U+202E, U+2066–U+2069) into U+FFFD. The caps (`clip_text`: lines and
+   characters; `clip_line`: one line) are applied to that normalised text — what the CONSUMER
+   will see. The first version counted `"\n"` only, and a text broken with U+2028 passed a
+   cap of 8 lines with as many lines as it liked. Only then `html.escape`, where the consumer
+   renders rich text (`plain_tooltip`, in an explicit `<qt>` element). Each function reads a
+   prefix of its input whose length depends on the cap alone.
+2. **Labels that can show plan text are `Qt.TextFormat.PlainText`**, said out loud at
+   construction; list rows stay plain through the default delegate (pinned with a hostile name).
+3. **A log record that can quote the plan is ONE normalised, capped line** (`log_text`) at
+   ERROR / WARNING; the traceback goes to DEBUG, which the log file does not record. This holds
+   for the workspace's five modules. The scene contract's own records — the builder failure in
+   `core/scene3d/sync.py`, the `record_failed` and refusal records in `ui/view3d/snapshot.py`
+   — still attach the exception at ERROR or write its message as it came: that story's
+   records, pinned by its tests, and an open item.
+4. **Do not write invisible characters into source.** An editing tool turned three `\u`
+   escapes into the characters themselves, in the very module that defines the separators.
+   Named escapes (`\N{LINE SEPARATOR}`), and `tests/unit/test_plain_text.py` scans `src/` and
+   `tests/` for characters a reader cannot see.
+
+Pinned by `tests/unit/test_plain_text.py` (each separator in turn yields the same capped result;
+the positive control — the old splitter — fails),
+`tests/integration/test_view3d_workspace_widget.py::test_a_hostile_name_is_shown_as_its_characters_everywhere`
+(checked against Qt's own renderer, with the unescaped string as the control) and
+`tests/integration/test_view3d_sync_controller.py::test_an_engine_error_that_quotes_the_plan_is_one_log_line_per_event`.
+
 **Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener. It is **on by default but read-only** and **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply); a Preferences toggle disables it. Default-on is acceptable while read-only (a garden layout isn't sensitive) and removes the discovery friction for AI clients. Reads have no auth (loopback trust). **Writes (US-D2.0 through D2.6, including `undo`/`redo`) are token-gated**: the scene-mutating tools ship only when the user enables editing (off by default) AND require the token — presented in the connect URL as a `?token=` query param (the reliable route; some clients don't transmit auth headers on tool calls) or as an `Authorization: Bearer <token>` header — checked with constant-time comparison. A default-on, unauthenticated *mutate* surface reachable by any local process is exactly what this prevents (ADR-036, §8.19); delivering the token in the URL keeps that protection (a caller still needs the secret) at the cost of a URL-borne secret — mitigated by disabling the uvicorn access log and stripping the `token` param from the request scope right after extraction, so the residual exposure is the client's own config. The gate is per-tool so read-only clients are unaffected. The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding.
 
 **Browser reachability (DNS rebinding) — #396, ADR-033 addendum.** Loopback binding and token gating reason about a *local process* (an MCP client the user launched). They do not cover a **browser**, which is a local process acting for a remote page: a page on `evil.example` can reach `http://127.0.0.1:8765/mcp`, and loopback binding does not stop it because the request originates on this machine. The only barrier is the transport's `Host`/`Origin` validation, so that guard is now **explicitly configured by OGP** rather than inherited from the mcp SDK:
@@ -1477,7 +1806,7 @@ Pinned by `tests/unit/test_quick3d_selftest.py`
 
 ## 8.12 Constraint Solver Architecture
 
-The constraint solver lives in [`core/constraints.py`](../../src/open_garden_planner/core/constraints.py) and [`core/constraint_solver_newton.py`](../../src/open_garden_planner/core/constraint_solver_newton.py). It supports 16 constraint types and runs in two phases.
+The constraint solver lives in [`core/constraints.py`](../../src/open_garden_planner/core/constraints.py) and [`core/constraint_solver_newton.py`](../../src/open_garden_planner/core/constraint_solver_newton.py). It supports 17 constraint types and runs in two phases.
 
 ### 8.12.1 Constraint types
 
@@ -1488,6 +1817,7 @@ Defined in `ConstraintType`. Grouped by the invariant they express:
 | Dimensional (scale-sensitive) | `EDGE_LENGTH`, `DISTANCE`, `HORIZONTAL_DISTANCE`, `VERTICAL_DISTANCE`, `POINT_ON_CIRCLE`, `ANGLE` |
 | Positional | `COINCIDENT`, `POINT_ON_EDGE`, `SYMMETRY_HORIZONTAL`, `SYMMETRY_VERTICAL`, `FIXED` |
 | Orientation (scale-invariant) | `HORIZONTAL`, `VERTICAL`, `PARALLEL`, `PERPENDICULAR`, `EQUAL` |
+| Contact direction | `TANGENT` (edge perpendicular to radius at contact; paired with `POINT_ON_CIRCLE`) |
 
 ### 8.12.2 Two-phase solve
 
@@ -1496,7 +1826,7 @@ Every `solve_anchored` call runs in two phases:
 1. **Gauss-Seidel warm start** — each constraint is resolved by a 1D projection along its own direction. Cheap, robust for decoupled systems, converges in O(N) iterations when the constraints don't share variables in geometrically independent directions.
 2. **Newton-Raphson refinement** — runs when the Gauss-Seidel residual exceeds tolerance. Treats the free variables as a single vector `x`, builds a residual vector `F(x)` from all non-orientation constraints, and takes damped Newton steps on `J · Δx = −F`. The Jacobian is computed numerically via central differences (`h = 1e-3 cm`); the step uses `numpy.linalg.lstsq` so rank-deficient systems yield a minimum-norm step. Armijo backtracking (α halves per failed step) accepts only moves that strictly reduce `max|F|`.
 
-Convergence criterion: `max|F| ≤ tolerance` (default 0.1 cm; 1.0 cm for drag-time solves where cm-level drift is invisible). Caps: 20 Gauss-Seidel iterations, 25 Newton iterations, 15 backtrack steps.
+Convergence criterion: `max|F| ≤ tolerance`. `solve` defaults to 0.1 cm and 20 warm-start iterations; `solve_anchored` defaults to 1.0 cm and 10. Newton defaults to 25 iterations and 15 backtracks. Caller tolerances govern the final physical error. With no movable variables, evaluate the fixed-state residual before reporting feasibility (#457).
 
 ### 8.12.3 Why two phases
 
@@ -2341,8 +2671,9 @@ walks the live scene's badge state directly and was not changed by #338.
 (exempt). Only the Settings UI strings go through `tr()`.
 
 **Packaging.** See §7 deployment view — the `mcp`/`uvicorn`/`starlette` stack
-needs `collect_submodules` + `copy_metadata` in `ogp.spec`, must NOT walk
-`mcp.cli`, and must NOT exclude `multiprocessing` (uvicorn imports it).
+needs `collect_submodules` in `ogp.spec`; its distribution metadata comes from
+the runtime closure (`installer/runtime_closure.py`, AUD-051/#454). The spec must
+NOT walk `mcp.cli`, and must NOT exclude `multiprocessing` (uvicorn imports it).
 
 **US-D2.4/D2.5 — layer addressing and shape/structure creation.** The curated
 schema exposes layers as UUID-addressed records (`layer_id`, name, visibility,
@@ -2767,7 +3098,9 @@ Worked example: a 60 cm perennial on the soil of a 40 cm raised bed (base
 38), α = 35° → the tip lies `(38 + 60) / tan 35° = 140.0 cm` beyond the
 plant, 54.3 cm further than from the ground (85.7 cm) — and no longer inside
 the bed's own 57.1 cm shadow. **One walk makes the casters**
-(`collect_shadow_casters`): the overlay and the heatmap both call it, and the
+(`collect_identified_casters`, which keeps each caster's owner for the per-plant
+sun estimates of §8.27; `collect_shadow_casters` flattens it): the overlay, the
+heatmap and those estimates all come from it, and the
 3D records take `transform.base_cm` from the same
 `ui/canvas/footprints.item_base_cm` (§8.32.6) — a drift guard counts the
 callers and the consumers of `compute_scene_shadows`. A caster is a
@@ -2793,7 +3126,7 @@ let `paint()` only draw the cached path. Guard every timer start with
 
 **Threaded canvas-scale computation** (US-E4 heatmap; the pattern for any
 seconds-scale analysis): snapshot plain data on the GUI thread
-(`collect_shadow_casters` — never live QGraphicsItems across threads),
+(`collect_exposure_snapshot` → `collect_identified_casters` — never live QGraphicsItems across threads),
 run a `_WeatherFetchWorker`-shaped `QThread` whose results come back via
 signals, paint only `QImage` in the worker (`QPixmap` is GUI-thread-only;
 the QImage license is pinned by a 2-thread smoke test), recompute **on
@@ -3171,10 +3504,13 @@ pass for every file (`tests/unit/test_texture_tileability.py` parametrises
 all of them — the #264 grandfather list `KNOWN_SEAMED_LEGACY` was emptied
 and then deleted, a constant that must stay empty being ceremony), and the
 §8.10 test paints the item's real tinted brush two tiles wide and checks the
-wrap column AND wrap row against the same metric. **Tint-readable**: the runtime tint overlays the user colour
-at 80/255 alpha; the conformance gate pins mean luminance 40–225, luminance
+wrap column AND wrap row against the same metric. **Tint-readable**: the runtime recolour is a luminance map (`_tint_texture`,
+#502): each pixel becomes the user's fill colour scaled by the texture's relative
+luminance, so the chosen colour reads as itself and the material's detail survives;
+the conformance gate pins mean luminance 40–225, luminance
 std ≥ 4 and local detail ≥ 2 per texture, and the integration test proves a
-red vs a blue fill colour move the rendered hue without flattening the
+**pale** fill colour (the light green that read as the standard brown roof tile
+before #502), a red and a blue one each move the rendered hue without flattening the
 detail (materials that would collapse under tint fail before an owner sees
 them). A fourth rule is not gated but binding: **no directional light** — the
 view flips Y and fills never rotate, so every shading cue is radial or
@@ -3435,6 +3771,43 @@ The walnut template uses Penn State's [reported tolerance list](https://extensio
 ### Runtime and testing discipline
 
 Guild links are orthogonal to §8.14 plant-parent relationships; no new bed predicate or parentage path exists. The canonical build-only plant constructor is shared by gallery, Plant Lists and guild insertion, and creation commands retain `_auto_parent_plant`. A 100 ms parented timer coordinates snapshots/badges/panels. Cosmetic updates are idempotent, and navigation resolves UUIDs after the clicked row callback. API diagnostics may lag one debounce tick; reads do not force recomputation. Tests must compare refusal scene/history state, undo depth, copied metadata independence, editor failure preservation, unchanged-panel signatures and rotated centre geometry in addition to ordinary success.
+
+## 8.27 Cached sun exposure and shared diagnostics
+
+US-F3 (#314) and #428 follow ADR-056. `core/shade_aggregation.compute_sun_exposure` shares the explicit day's sample loop with the existing grid aggregator. `collect_identified_casters` is the single footprint / height / base collector (one `ItemLookup` per walk; `collect_shadow_casters` flattens it for the overlay). Sparse coverage uses unioned owner footprints — each swept from where its owner stands — and excludes the receiver's own UUID and, for a plant that stands in a soil parent with a height, that parent (`SunReceiver.stands_on`, from `footprints.standing_parent`: without it every plant in a raised bed read 0 hours, ADR-056 addendum). Receiver coordinates use base-shape centres transformed by `mapToScene`; badge/decorative bounds are never sampling geometry. Row zero remains south.
+
+`SunExposureCoordinator` compares immutable runtime snapshots in 60 ms and publishes cached evaluations. Commands are subscribed separately because metadata-only changes need not repaint. Requirement-only edits reclassify without recomputing. No panel, selection, repaint or Agent API read can start work. Ordinary edits retain the grid's visual snapshot with a stale tooltip, but clear receiver minutes, badges and mismatches. Missing location, cancellation, absent results, hidden plants and out-of-grid centres remain unavailable rather than becoming zero hours. Known unavailable requirements produce `sun_evaluation` information diagnostics; Information is a panel severity filter and counts say diagnostics.
+
+`DiagnosticsCoordinator` is the sole general-panel publisher. Producers cache records and emit `CanvasScene.diagnostics_changed`; `ProjectManager.diagnostics_snapshot` harvests all producers for both UI and MCP conversion. Rows store UUIDs and resolve them at click time; document replacement cancels pending navigation. Sun records use enclosing-group navigation UUIDs and retain the physical receiver in details. Theme-aware runtime child badges stay inside plant footprints, with unchanged transform origins, snapping and serialization. Translated labels and one-decimal localized hours are presentation only.
+
+Tests distinguish the displayed ground heatmap from estimated receiver sun. The Berlin constants are measured outside the new sparse implementation, not computed expectations. Deterministic controlled workers emit even after cancellation to prove late-result rejection. Cancellation is checked inside caster loops; an owner keeps its worker until queued `finished` and refuses a second launch while cleanup is pending. The full suite retains the existing heatmap budget and adds a 200-receiver budget plus a live GUI timer assertion.
+
+## A1 security ingestion contracts (#453; sections 8.8, 8.11 and 8.15)
+
+Linux settings protection remains in the one QSettings factory: owner-only 0600,
+regular file/current owner, non-truncating migration, unchanged registry behavior,
+and fail-closed startup. Atomic Qt synchronization stays enabled. See ADR-041.
+
+The updater validates exact release identity/origins, each redirect, the matching
+64 KiB-bounded checksum manifest, actual asset size and SHA-256. It passes a verified
+result to launch and rechecks the file. User failures are translated categories;
+signed URLs, API credentials and raw network diagnostics are not displayed. See ADR-044.
+
+Thumbnail transfers allow at most 16 MiB and 16777216 decoded pixels; cached thumbnails
+are genuine PNGs with at most 2048 pixels per edge. Static Maps transfers allow at most
+8 MiB and the existing 1280×1280 tile dimensions. Content-Type is insufficient: header
+dimensions, structure and full first-frame decoding are checked before use. Responses
+close on all paths, HTTP error excerpts are limited to 200 bytes, and Google keys stay
+redacted. Existing invalid caches are rejected; valid legacy images normalize on use.
+The map's calibration, crop/mosaic math and existing cancellation outcomes are unchanged.
+
+## 8.28 Bounded 2D canvas paint for crafted plans (#472, ADR-057)
+
+`PolygonItem.paint` sizes its work by a vertex bound, not by whatever a plan file happens to hold. `MAX_FULL_DETAIL_VERTICES = 256` is the full-detail budget: at or below it an unselected polygon paints exactly as it always did. Above it, an **interactive** paint draws the exact outline with a **cosmetic 1-px pen and `Qt.BrushStyle.NoBrush`** — and returns, skipping the shadow, grid and status overlays for that frame. "Interactive" is the item's **cache mode**, not Qt's `widget`: every cached paint receives `widget = 0`, and unselected canvas items are cached, so a `widget`-based guess never fires on the canvas (that was the first version's bug — it never degraded anything; see ADR-057). Every export, report, print and agent render path disables caches first, so those stay exact; a **selected** item is excluded and paints the exact fill, so editing sees the truth. The cosmetic pen is load-bearing: Qt strokes a wide solid pen by building a fill, so reusing the item's own pen would leave the degraded frame quadratic (measured 319 ms at 1,024 vertices against 4 ms cosmetic).
+
+The load seam is the second half. `ProjectManager._deserialize_item_core` refuses a polygon above `MAX_POLYGON_VERTICES = 16_384` and skips it with a logged warning (counted for the app's existing skipped-item notice), so a hostile `.ogp` cannot stall the loader or exhaust memory; the rest of the plan loads normally. At this ceiling the degraded outline is ~69 ms, and no legible garden outline comes near it. Both constants live in `ui/canvas/items/polygon_item.py` and are the only place to retune the bound. The measured cost table, the pen-width finding and the rejected alternatives (convex-hull / bounding-box fill, a hairline-but-wide pen, reflex counting, a low load ceiling) are in ADR-057; the regression is pinned by `tests/integration/test_polygon_paint_bound.py`.
+
+An "item made from an item" copies a shape's **look** through one seam that the **offset tool and mirror** share, `core/item_look.py::copy_visual_style`. It copies both the serialized attributes (`fill_pattern`, `fill_color`, `stroke_color`, `stroke_width`, `stroke_style`) and the live `QPen`/`QBrush`, because a copy that writes only one of the two looks right until the next save (#470). Chamfer, fillet and trim are the same shape of bug (#441); the L1 branch routes chamfer and fillet copies and `PolylineItem.clone_with_points` through the same helper, and gives a trim result its pen through `adopt_pen`, the module's pen writer (§8.32.5).
 
 ## 8.32 3D scene pipeline (Phase 17 L1, #385, ADR-064)
 
@@ -4240,6 +4613,131 @@ ground texture
 (L1.5: `set_ground` sizes the bare plan rectangle and the endless meadow, both in the one meadow
 albedo); no builders beyond the default prism (L1.6, L1.7); no selection (L1.8).
 
+### 8.32.3 The workspace — Plan / 3D / Split in the main window (L1.3)
+
+Where the pipeline (§8.32.1) and the engine (§8.32.2) meet the app. The decisions and every
+measurement are **ADR-065**; how it is tested is §8.10.27; what went wrong on the way is §11.4.33.
+Behind the internal switch `OGP_QUICK3D=1` (`app/settings.py::quick3d_workspace_enabled()`, the
+one read of it) until L1.9; without it the app is what it was, and the shipped "3D View…" window
+keeps working with it.
+
+**The parts, and which of them needs the engine.**
+
+| Module | Engine? | What it is |
+|---|---|---|
+| `core/scene3d/camera.py` | Qt-free | `OrbitCamera`: a goal pose that input moves and a pose that follows it as a critically damped spring, integrated exactly; `frame_pose` (the pose that shows a plan); the clamps |
+| `core/plain_text.py` | Qt-free | plan text as text: `normalise_text`, `clip_text` / `clip_line`, `log_text`, `plain_tooltip` (§8.11) |
+| `ui/sim_clock_subscription.py` | no | `connect_qobject(channel, slot)`: a QObject on the sim clock, never called after Qt destroyed it (ADR-053 addendum) |
+| `ui/view3d/init_guard.py` | stdlib only | `Init3DGuard`: the start marker and the compatibility flag as a state machine |
+| `ui/view3d/sync_controller.py` | no | `Scene3DController`: change signals in, at most one pipeline pass per event-loop turn out |
+| `ui/view3d/orbit_input.py` | no | `OrbitInput`: an event filter that turns the 3D window's mouse, wheel and keys into camera calls |
+| `ui/view3d/problems_dialog.py` | no | the list of what 3D could not show |
+| `ui/view3d/workspace.py` | no | `Workspace`: the modes, the lazily built 3D pane, the notices, the timers |
+| `ui/view3d/quick3d/host.py` | **yes** | three things the workspace asked of the host: `prefer_software=`, `install_event_filter()`, `release_cached_resources()` |
+
+`workspace.py` imports no Qt Quick binding: the engine is built by `Workspace.engine_factory`
+— by default `quick3d_engine`, which imports `quick3d.host` and `quick3d.adapter` when it is
+called. That attribute is THE test seam (§8.10.27).
+
+**Layout.** `Workspace` is a splitter: canvas | 3D pane. *Plan* hides the pane, *3D* hides the
+canvas, *Split* shows both, and neither side can be dragged shut. The pane is a strip (mode
+switch, "Reset 3D View", a status line, the "not shown in 3D" count, the compatibility notice)
+above a stacked widget that holds either the engine's window container or a message page.
+
+> **Rule: nothing overlays the 3D view.** It is a native window; a sibling widget does not paint
+> over it. A control or a notice for 3D goes into the strip above the view, beside it, or in its
+> place — never on top. (The one floating thing in the workspace is the mode switch in Plan and
+> Split, and it floats over the canvas.)
+
+**The life of the 3D pane** (`View3DState`): `not_started` → (first switch to 3D or Split: the
+start marker is written, the engine factory runs) → `starting` → (the health poll sees the first
+presented frame: the marker is removed) → `running`. Two ends beside it: `unavailable` (Qt
+reported that it could not create a graphics device — a message, for the session, no retry) and
+`failed` (building the engine raised — a message with "Try Again"). The host is never closed
+and rebuilt on a mode switch; it is hidden with its pane and its scene stays.
+
+**The pipeline pass.**
+
+```
+scene.changed ─┐
+stack_changed ─┼─► dirty flags ─► ONE posted event per turn ─► snapshot_records(scene, plan_date)
+date_changed  ─┘                                              ─► ground stage (L1.5's seam)
+instant_changed ─► sun flag (light only: no snapshot)         ─► SceneSync.apply(records, sun, ground)
+                                                              ─► applied(TickReport)
+```
+
+- **Hidden means paused**: with the pane hidden or the window minimised the controller keeps two
+  flags and does nothing else. Showing 3D runs ONE catch-up pass — a plain `apply` of the current
+  snapshot.
+- **A pass owed to a shown pane waits for its notice.** "Building the 3D view…" is set and the
+  pass starts after that label PAINTED (an event filter on the label; 250 ms fallback): a first
+  pass costs the sum of its items, with the GUI thread inside it.
+- **Nothing takes a frame from the live view.** The workspace tells the engine what the plan
+  is; Qt draws it when it draws. No steady path — the pass, the health poll, a timer, a
+  resize, the splitter — calls `grab()`, `wait_ready()`, `pick()` or `project()` on the shown
+  host: a readback renders a frame that is never presented, and what it holds comes back only
+  when a presented frame ends (in a view that presents nothing, never — ADR-065 decision 17).
+  A picture of the 3D view for a file goes through `quick3d/offscreen.py`. A view that
+  presents nothing is NOT held back: the pass applies, nothing is drawn or uploaded, and the
+  first frame after the dark spell shows the plan as it is.
+- **A document change is a plain apply**, not a reset; it drops what 3D remembers of the old plan
+  (`_drop_plan_memories`: the plant builder's shapes, the record layer's outlines) and frames the
+  camera once, when the new document is in the engine (`document_shown`). The workspace hears of
+  it from `CanvasScene.document_replaced` — the app's ONE "the document was replaced" signal,
+  emitted when the old document is about to go and never for an open that failed its validation
+  (`Workspace.connect_plan`); the main window tells the workspace nothing by hand. A failed open
+  therefore leaves the view, its camera and its memories as they were.
+- **A failure is contained.** A sink call that raised, or a poisoned sync: `reset()`, one more
+  `apply`, one log line. A second failure gives the pass up; the next change tries again. No
+  exception of the pipeline reaches the event loop.
+- **What a pass reports** (`TickReport`): the diff, whether a snapshot was taken, the time of the
+  snapshot and of the apply, whether it had to recover, and `retired` — how many items lost
+  their engine Models.
+
+**What moves the camera.** Four things: user input in the 3D window, "Reset 3D View" (Home), the
+first open, and a document change. Nothing else has a call site — an edit, an undo, a date or a
+time change, a selection, a resized canvas leave the pose exactly as it was (identity, not
+"close": gate G3).
+
+**When 3D cannot start.** A marker file is written before the first 3D window of a session is
+built and removed after the first presented frame. A marker left by a process that is gone means
+the driver took the process down: the next session renders 3D on the software adapter
+("compatibility mode"), says so in the strip and offers "Try Hardware Next Time". Only the user
+switches back. `Init3DGuard`'s docstring is the state machine.
+
+**What 3D could not show.** `Scene3DController.skipped` (the record layer refused the item) and
+`.failures` (its builder raised) feed a count in the strip and a non-modal list; activating a row
+selects the item on the canvas. Fixing the item clears it with the next pass.
+
+**What a destroyed Model leaves behind.** Qt keeps graphics state for every Model it once drew.
+`Workspace` adds up `TickReport.retired` and calls `host.release_cached_resources()` when
+`RELEASE_AFTER_RETIRED` (64) piled up and the pipeline has been quiet for `RELEASE_IDLE_S`
+(0.5 s; the health poll looks), or at once at `RELEASE_NOW_RETIRED` (512). A story that makes
+the engine create and destroy objects on its own (a ground texture per bake, a selection
+outline) must count them the same way, or measure that they leave nothing.
+
+**How to add to it.**
+
+- *A new consumer of the sim clock*: `connect_qobject(clock.date_changed, self._slot)`; never
+  `clock.date_changed.connect(...)` (a scan refuses it).
+- *A new ground* (L1.5): the pass hands the ground to the engine in ONE place —
+  `Scene3DController._pass_records` → `sync.apply(records, sun=…, ground=self._ground(…))`,
+  on the `SceneSync` built in `__init__`. A baker that lives in the sync is one argument there
+  (`SceneSync(sink, registry, ground_baker=…)`); a stage function is
+  `controller.set_ground_stage(stage)` with `stage(previous_records, records, width_cm,
+  depth_cm) -> GroundSpec`, run before `apply` inside the pass (if it raises, the bare
+  rectangle is sent and one line is logged). What the bake could not paint joins the
+  problems list where the other two sources meet: `problems_dialog.problems_of` and
+  `Scene3DController._set_problems`. A bake that stops at a time budget asks for its next
+  slice with `controller.mark_dirty()` (from inside the stage or from a slot on `applied`):
+  the pass is re-runnable, one snapshot per run, and nothing assumes that one pass paints
+  the whole ground.
+- *A look, a sky* (L1.4): through the host; not through the pipeline.
+- *A click in 3D* (L1.8): `try: host.pick(x, y) except HostStateError` in the input filter. The
+  workspace calls `wait_ready()` nowhere and must not start to.
+- *A new notice*: a label in the strip, `Qt.TextFormat.PlainText`, its text through `self.tr()`;
+  anything that came out of a plan through `core/plain_text.py` first.
+
 ### 8.32.5 The ground bake — flat surfaces as ground tiles (L1.5)
 
 A lawn, a terrace, a driveway, a path or an in-ground bed is not geometry in 3D: it is part of the
@@ -4292,9 +4790,10 @@ plant, which is never painted, still changes nothing.
 its tint. So the bake is right exactly where an item's attributes describe its brush, and the
 canvas, which paints the brush, never showed where they parted: the offset tool and the corner
 tools copied the brush alone (an offset copy of a blue brick terrace was baked, and saved, as
-default wood). `core/item_style.py` is now the ONE place that carries a look from item to item
-(`copy_visual_style`) and that sets a pen together with the attributes describing it
-(`adopt_pen`). The guard is behavioural: at the end of every integration test, every item of
+default wood). `core/item_look.py` is the ONE place that carries a look from item to item
+(`copy_visual_style` — `master`'s since #470, which the corner tools now use too), that writes a
+loaded item's attributes (`restore_stored_look`, `master`'s since #502) and that sets a pen
+together with the attributes describing it (`adopt_pen`, L1.5). The guard is behavioural: at the end of every integration test, every item of
 every scene the test built must state the look it paints (`tests/integration/conftest.py`,
 §8.10.28); `tests/integration/test_item_style_in_step.py` walks the shipped operations that build
 an item from an item, and the writers that restyle one in place (§11.4.34).
@@ -4742,7 +5241,9 @@ that asks "where does it stand" takes `standing_point`; one that asks "which bed
 to" takes `bed_membership_point`; neither writes its own containment test (a guard counts them).
 
 `item_base_cm` is asked by `snapshot_records` (→ `transform.base_cm`) and by
-`collect_shadow_casters` (→ `ShadowCaster.base_cm`, §8.20), and `beds.py` puts the soil at the
+`collect_identified_casters` (→ `IdentifiedCaster.base_cm` and, flattened, `ShadowCaster.base_cm`,
+§8.20); its membership half, `standing_parent`, is asked alone by the sun receivers (§8.27: which
+parent's solid a plant stands in). `beds.py` puts the soil at the
 same `soil_surface_cm` — one function for the soil mesh, the 3D base and the 2D caster's base. A
 bed that changes height reaches each of its plants as one `update_transform`; no plant mesh is
 rebuilt. A bed that is resized reaches a plant it no longer contains the same way (38 → 0).
@@ -4755,10 +5256,12 @@ plant, a kept lookup still says 38). Do not keep "the scene's lookup" on a contr
 a test reads the source and holds three things
 (`TestTheParentShapeIsBuiltOncePerWalk::test_a_lookup_lives_for_one_walk_and_is_never_kept`):
 the identifier `ItemLookup` appears in `src/` only as an import (under its own name), as the
-class, as a parameter's annotation and as a call inside the two walks — so `make = ItemLookup`,
+class, as a parameter's annotation and as a call inside the three walks (the casters, the sun
+receivers, the 3D records) — so `make = ItemLookup`,
 an alias import and `functools.partial(ItemLookup, …)` fail it; a walk binds its lookup to a
-local name and uses that name ONLY as an argument of `item_base_cm` / `_record_of` — so a list,
-a dict, `.append(lookup)`, `setattr`, `return lookup, 1` and a closure fail it; and the two
+local name and uses that name ONLY as an argument of `item_base_cm` / `standing_parent` /
+`_record_of` — so a list,
+a dict, `.append(lookup)`, `setattr`, `return lookup, 1` and a closure fail it; and the three
 functions that take a lookup use their parameter the same way. What a reading cannot see is
 stated in the helpers: a dynamic spelling (`type(lookup)(…)`, `getattr(module, "Item" +
 "Lookup")`, `copy.copy(lookup)`), and what a callee that only shares the NAME of a taker does.

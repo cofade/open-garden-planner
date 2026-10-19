@@ -4,6 +4,9 @@
 
 | Term | Definition |
 |------|-----------|
+| **Receiver sun estimate** | Direct sun accumulated at a plant footprint's heatmap cell centre at ground level, excluding only its own solid shadow; 15-minute sampling, no leaf-height or translucent-canopy model (ADR-056). |
+| **Sun evaluation** | Cached hours for a runtime document/date/geometry snapshot, or an explicit unavailable reason. An absent mismatch is not evidence of completed evaluation. |
+| **Mature-canopy grouping** | Other footprint centres inside/on a selected tree's recorded mature spread circle; independent of guild, bed and drawing layer, without asserting the cause of shade. |
 | **arc42** | Template for software architecture documentation (12 sections) |
 | **Accent sentinel** | The reserved hex `#3D8B37` inside UI icon SVGs — replaced with the active theme's `accent` at render time by the icon provider (equals the light-theme accent so raw files preview correctly). ADR-039 |
 | **Icon provider** | `ui/icons.py` — the single render path for chrome icons. Substitutes theme colors into the SVG text before rasterizing (QSvgRenderer paints raw `currentColor` black), renders at devicePixelRatio, caches per (name, size, tint, accent) |
@@ -38,6 +41,7 @@
 | **Placeholder (3D plant)** | What the 3D view shows for a plant whose height the plan does not know (no species data, no measurement, no typed height): a low, smooth, neutral dome over its canopy circle that casts no shadow — a marker, never a guessed plant. A height turns it into the plant. Common: every category plant from the gallery, every plant drawn with a tool, and any plant whose species string names one of the twelve sprites without a bundled species record (§8.32.7) |
 | **Standing base** | How high above the garden floor an item stands, in cm: the soil surface of its parent bed or container when it is linked to that parent AND its centre lies inside the parent's shape, the parent holds soil and has a height — else 0. One rule (`core/object_height.standing_base_cm`, asked through `ui/canvas/footprints.item_base_cm`) for a scene record's `transform.base_cm` and a shadow caster's `base_cm`. An item's height is measured from its base (ADR-037 addendum, §8.32.6) |
 | **Soil drop** | The 2 cm assumed between the rim of a BED (raised bed, a garden bed with a height) and its soil (`core/object_height.SOIL_DROP_CM`) — a modelling assumption: the plan holds no fill level for a bed. A plant in a 40 cm raised bed stands at 38 cm. A container has no drop: its height is its soil fill height, so a plant in a 30 cm pot stands at 30 cm. The 3D bed meshes put their soil at the same heights |
+| **Standing parent** | The soil parent whose solid a plant stands in: the plant is linked to it, it is visible, it is a bed, raised bed or container WITH a height, and the plant's centre lies inside its shape (`ui/canvas/footprints.standing_parent` — the membership half of the base rule). The per-plant sun estimate spares that parent for the plant, like the plant's own solid: the bed is under the plant, not between it and the sun (ADR-056 addendum) |
 | **Shadow caster** | `core/shadow_geometry.ShadowCaster(footprint, height_cm, base_cm)` — one solid of the sun & shade model: its scene footprint, its height above its own ground and the height of that ground. Collected once per recompute by `collect_shadow_casters`; the shadow overlay and the hours-of-sun heatmap consume the same list. The shadow functions accept a `ShadowCaster` or an exact `(footprint, height)` pair and nothing else |
 | **Built world** | In the 3D pipeline, everything that is constructed rather than grown: buildings, fences, walls, beds, containers, hedges. Its builders live in `core/scene3d/builders/` (ADR-064 addendum) |
 | **Tinted part** | A mesh part whose vertices are pure white and whose colour is the plan item's own (fill, else stroke), multiplied in by the engine sink. Fences, walls, building walls and containers are tinted, so recolouring one never rebuilds its mesh |
@@ -69,10 +73,23 @@
 | **Parked tile** | A ground tile whose paint raised as a whole: it keeps the picture it had, is listed in `GroundBaker.tile_failures`, is not pending, and is tried again by the next call that brings a change. |
 | **Restart (of a ground baker)** | `GroundBaking.restart()`: forget what the tiles were painted with, keep their pictures until each is painted anew. What `SceneSync` does to a baker whose `bake` raised — `clear()`, which forgets the pictures too, is for a new plan. |
 | **Paint turn** | The rotation of a circle's own coordinates, which its record's transform does not carry (a circle's footprint and solid do not turn): `Paint.rotation_deg`. What is painted IN the circle — texture, dashes, sprite — turns with it; a material change. |
-| **Style attributes (of an item)** | `fill_color`, `fill_pattern`, `stroke_color`, `stroke_width`, `stroke_style`: what an item says about its look to the project file, the clipboard, the properties panel and the 3D snapshot — beside the live brush and pen the canvas paints with. Kept in step by `core/item_style.py`, the one writer; held to it by a teardown fixture over every integration test. An item whose picture is a sprite (`paints_sprite`) is exempt in its stroke half: its pen paints nothing. |
+| **Style attributes (of an item)** | `fill_color`, `fill_pattern`, `stroke_color`, `stroke_width`, `stroke_style`: what an item says about its look to the project file, the clipboard, the properties panel and the 3D snapshot — beside the live brush and pen the canvas paints with. Kept in step by `core/item_look.py`, the one writer; held to it by a teardown fixture over every integration test. An item whose picture is a sprite (`paints_sprite`) is exempt: neither its brush nor its pen paints its picture. |
 | **Keep-alive rule (ground textures)** | Per ground tile the engine side holds exactly the texture the scene shows, plus — until the next presented frame, at the latest the next update — the one it replaced (`quick3d/ground_tiles.py`). `TileTexture.alive` counts the objects that exist on the C++ side. The L0 spike's append-only list grew by one ground per reload. |
 | **Render tier** | The opt-in tests that need a real renderer (`OGP_RENDER3D=1`): a driver process with a real Qt platform renders, the tests judge its frames with a CPU projection of their own. Runs on a GPU, on WARP and on llvmpipe (CI job `render3d`) |
 | **WARP** | Windows Advanced Rasterization Platform — Direct3D's software rasteriser (Qt's log names it "Microsoft Basic Render Driver"). What a GPU-less Windows runner renders with; forced locally with `QSG_RHI_PREFER_SOFTWARE_RENDERER=1` |
+| **Workspace (3D)** | `ui/view3d/workspace.Workspace` — the plan area of the main window with its three **workspace modes**: Plan (the canvas alone), 3D (the 3D pane alone), Split (both in a splitter whose sides do not collapse). Behind `OGP_QUICK3D=1` until L1.9 (Phase 17 L1.3, ADR-065, §8.32.3) |
+| **3D pane** | The workspace's 3D side: a strip of controls and notices above the engine's native window — or a message in its place. Nothing ever overlays the native window (§8.9.9) |
+| **Sync controller** | `ui/view3d/sync_controller.Scene3DController` — turns the canvas scene's and the sim clock's change signals into at most one **pass** per turn of the event loop: snapshot → `SceneSync.apply`. Paused (flags only) while the 3D pane is hidden (ADR-065) |
+| **Pass (3D pipeline)** | One run of snapshot and apply, started by a posted event; a time-of-day change is a light-only pass without a snapshot. Reported as a `TickReport` |
+| **Catch-up pass** | The one pass that runs when the 3D pane becomes visible with changes owed; a plain apply of the current snapshot, equal to a from-scratch apply. It starts after its "building" notice was painted |
+| **Readback (3D)** | A frame rendered for reading its pixels (`Quick3DHost.grab()`; `wait_ready()`, `pick()` and `project()` need one too). It is never presented, and what it holds comes back only when a presented frame ends — so nothing takes one from the live, shown view by itself; pictures for files go through the offscreen host (ADR-065 decision 17) |
+| **Retired item** | An item whose engine Models a pass destroyed — removed, its geometry replaced, or cleared by a reset (`TickReport.retired`). Qt keeps graphics state for every Model it once drew; the workspace counts retired items to know when to release it (ADR-065 decision 15) |
+| **Orbit camera** | `core/scene3d/camera.OrbitCamera` — the session's one 3D camera as a Qt-free value: a goal pose and a critically damped pose that follows it. Moved only by user input, "Reset 3D View", the first open and a document change — never by an edit |
+| **Start marker / start guard** | `ui/view3d/init_guard.Init3DGuard` — a per-process file written before the first 3D window of a session is built and removed after its first presented frame. A marker left by a process that is gone means the graphics driver took the process down (ADR-065 decision 10) |
+| **Compatibility mode (3D)** | 3D rendered on the software adapter (WARP on Windows) for this window, after a start that died or at the user's request; shown as a notice in the 3D pane with "Try Hardware Next Time". Only the user switches back |
+| **Engine factory** | `Workspace.engine_factory(prefer_software) -> (host, sink)` — what builds the engine on first use, and the seam at which the GPU-less tests put a recording sink and a stand-in host |
+| **Workspace gate** | `tests/integration/workspace_gate_hook.py` — test tooling that runs a scripted scenario inside the real app (from source, or as a runtime hook of the **gate build**, `installer/workspace_gate.spec`) on a throw-away settings store, and ends the process before a store under any other organisation exists (§8.10.27) |
+| **Presented frame** | A frame Qt rendered AND handed to the window system — as opposed to a readback (`grabWindow()`). Qt Quick 3D frees a destroyed Model's buffers only at the end of a presented frame; with the display asleep Windows presents none (§11.4.33) |
 | **Light probe (IBL)** | An environment image (here the procedural sky) that lights a Qt Quick 3D scene from all directions — image-based lighting. Pre-filtered once per texture object, so a sun change builds a new one; costly on software rasterisers (ADR-048 evidence) |
 | **Canopy Diameter** | The spread/width of a tree or shrub's foliage when viewed from above |
 | **Amendment** | Soil-improving substance (lime, blood meal, compost, etc.) loaded from `resources/data/amendments.json`. Carries application rate (g/m²) and per-fix effect coefficients used by the calculator |
@@ -222,6 +239,8 @@
 | Measure Tool | M |
 | Plant Tool | T |
 | Fullscreen Preview | F11 |
+| Workspace: Plan / 3D / Split (only with the 3D workspace switched on, `OGP_QUICK3D=1`, until L1.9) | Alt+1 / Alt+2 / Alt+3 |
+| 3D view (keyboard in the 3D view): pan / orbit / zoom / show the whole garden | Arrows / Alt+Arrows / PageUp, PageDown / Home |
 | Print | Ctrl+P |
 | Garden Plan tab | Ctrl+1 |
 | Planting Calendar tab | Ctrl+2 |
@@ -267,3 +286,9 @@
 | Nitrogen fixer | A plant capable of symbiotic nitrogen fixation under appropriate conditions; not immediate nitrogen supply to its neighbours. |
 | Dynamic accumulator | A recorded design-use token for nutrient accumulation; no bundled species is assigned it without adequate evidence. |
 | Canopy edge | Guild ring at effective mature spacing radius, respecting a manual spacing override before database spread/2. |
+
+### Verified installer
+
+A downloaded installer whose permitted release origin, matching manifest entry,
+byte count and SHA-256 digest were checked before finalizing its file. This denotes
+download integrity; it is not an Authenticode signature or provenance attestation.

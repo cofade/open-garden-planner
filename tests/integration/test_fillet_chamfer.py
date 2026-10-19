@@ -185,11 +185,16 @@ class TestFilletWorkflow:
         and width."""
         from PyQt6.QtGui import QColor, QPen
 
+        from open_garden_planner.core.item_look import adopt_pen
+
         pl = PolylineItem(
             points=[QPointF(100, 0), QPointF(0, 0), QPointF(0, 100)],
         )
         host_pen = QPen(QColor(20, 140, 40), 3.5)
-        pl.setPen(host_pen)
+        # as the properties panel gives a line its stroke: the pen AND the stroke
+        # attributes (a bare setPen builds a line no user can make, and the corner
+        # copy carries its attributes on: tests/integration/conftest.py's guard)
+        adopt_pen(pl, host_pen)
         canvas.scene().addItem(pl)
 
         tool = _activate_fillet(canvas, radius_cm=20.0)

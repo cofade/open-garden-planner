@@ -86,9 +86,11 @@ MUTANTS: tuple[Mutant, ...] = (
     # ── where an item stands (ADR-037 addendum, decision 5) ─────────────────
     Mutant("the link alone lifts (round 0: a bed shrunk away leaves a plant casting from 38 cm)",
            SRC + "ui/canvas/footprints.py",
+           # the geometric test lives in ``standing_parent`` since the merge of master's
+           # US-F3 (L1.3 fix round 1): ``item_base_cm`` is built on it
            "    if point is None or not shape_contains(parent, point, lookup.shape_of(parent)):\n"
-           "        return 0.0\n    return base\n",
-           "    return base\n",
+           "        return None\n    return parent\n",
+           "    return parent\n",
            (STACKING,), "TestTheLinkAloneNeverLifts"),
     Mutant("the lift asks the link decisions' point (round 1: a badge moves a plant off its soil)",
            SRC + "ui/canvas/footprints.py",

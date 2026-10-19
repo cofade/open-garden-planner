@@ -257,7 +257,7 @@ def rebuild_with_corner_replaced(
     the undo command keeps a reference to the original rectangle so
     "undo" restores it whole (see ADR-022).
     """
-    from open_garden_planner.core.item_style import copy_visual_style
+    from open_garden_planner.core.item_look import copy_visual_style
     from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
     from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
     from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
