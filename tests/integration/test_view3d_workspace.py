@@ -124,6 +124,20 @@ def app3d(qtbot, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[Garde
     return build_app3d(qtbot, monkeypatch, tmp_path)
 
 
+def first_pass(workspace: Workspace, qtbot: Any, timeout: int = 5000) -> Any:
+    """Wait for the first pass of the document 3D was just opened on, and return the
+    controller. NOT a fixed wait: that pass is HELD until its "Building the 3D view…"
+    notice was painted, or for ``BUILD_NOTICE_WAIT_MS`` (250 ms) when the label is
+    never painted, and then runs ``CATCH_UP_MS`` later (ADR-065). Measured on the dev
+    box: about 55 ms with the paint, about 300 ms without — and a CI runner under load
+    can be the second case (the refused-item test below once read the indicator 120 ms
+    after the switch, found it empty, and the pass ran in its teardown)."""
+    qtbot.waitUntil(lambda: workspace.controller is not None
+                    and workspace.controller.apply_count >= 1 and workspace.controller.idle,
+                    timeout=timeout)
+    return workspace.controller
+
+
 def _calls(engines: Engines, qtbot: Any, ms: int = 80) -> list[tuple[str, str | None]]:
     qtbot.wait(ms)
     calls = engines.sink.ops()
@@ -420,7 +434,7 @@ def test_a_recovered_document_is_a_document_change_too(app3d, qtbot, tmp_path: P
     window, engines = app3d
     workspace = window._workspace
     workspace.set_mode(VIEW3D)
-    qtbot.wait(80)
+    first_pass(workspace, qtbot)            # the first document is framed before counting
     sent = len(engines.host.cameras)
     recovery = tmp_path / "recovery.ogp"
     recovery.write_bytes((PLANS / "bench_small.ogp").read_bytes())
@@ -486,7 +500,13 @@ def test_a_plan_with_a_refused_item_shows_the_indicator_and_fixing_it_clears_it(
         app3d, qtbot) -> None:
     """Addendum point 12. A polygon traced with 6,000 points is drawn by the canvas and
     refused by the record layer (``outline_too_large``): it is absent from 3D, and the
-    workspace says so until the outline has fewer points."""
+    workspace says so until the outline has fewer points.
+
+    The indicator is filled by the pass that finds the problem, in the same call
+    (``problems_changed`` is a direct connection): it is read AT that pass's
+    ``applied`` — never later than the pass, and never by a fixed wait, because the
+    first pass of a document is held for its notice (``first_pass``). This test
+    waited 120 ms once and read ``''`` on a loaded CI runner: the pass came after it."""
     window, engines = app3d
     workspace, scene = window._workspace, window.canvas_scene
     commands = window.canvas_view.command_manager
@@ -494,7 +514,11 @@ def test_a_plan_with_a_refused_item_shows_the_indicator_and_fixing_it_clears_it(
                          layer_id=scene.active_layer.id)
     commands.execute(CreateItemCommand(scene, traced, "bed"))
     workspace.set_mode(SPLIT)
-    qtbot.wait(120)
+    controller = workspace.controller
+    shown_at_pass: list[str] = []
+    controller.applied.connect(lambda _report: shown_at_pass.append(workspace.problems_text()))
+    first_pass(workspace, qtbot)
+    assert shown_at_pass[0] == "1 object is not shown in 3D", "set by the pass that found it"
     assert workspace.problems_text() == "1 object is not shown in 3D"
     assert str(traced.item_id) not in engines.sink.item_ids()
     workspace._problems_button.click()
@@ -504,9 +528,11 @@ def test_a_plan_with_a_refused_item_shows_the_indicator_and_fixing_it_clears_it(
     dialog.activate_row(0)
     assert traced.isSelected()
 
+    passes = controller.apply_count
     traced.setPolygon(QPolygonF(_ring(40)))      # the user simplifies the outline …
     scene.note_plan_changed()                    # … and a writer round the undo stack says so
-    qtbot.wait(120)
+    qtbot.waitUntil(lambda: controller.apply_count > passes and controller.idle, timeout=5000)
+    assert shown_at_pass[-1] == "", "cleared by the pass that built it"
     assert workspace.problems_text() == "" and dialog.row_count() == 0
     assert str(traced.item_id) in engines.sink.item_ids()
     dialog.close()
