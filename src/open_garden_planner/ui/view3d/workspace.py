@@ -1595,11 +1595,16 @@ class Workspace(QWidget):
 
         controller = self._controller
         assert controller is not None
-        bounds, sink = controller.plan_bounds(), controller.sync.sink
+        bounds = controller.plan_bounds()
+        # the sink's own books (``Quick3DSink.item`` / ``RecordingSink.item``) — asked as
+        # ``_has_model`` asks them: not every EngineSink keeps them
+        held = getattr(controller.sync.sink, "item", None)
 
         def held_parts(record: Record) -> tuple[MeshPart, ...]:
+            if not callable(held):
+                return ()
             try:
-                return tuple(sink.item(record.item_id).parts)
+                return tuple(held(record.item_id).parts)
             except KeyError:
                 return ()
 
