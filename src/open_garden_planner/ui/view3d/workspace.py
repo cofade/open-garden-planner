@@ -537,8 +537,9 @@ class Workspace(QWidget):
             self._remember_split()
             self.save_state()
         self._mode = mode
-        if mode is WorkspaceMode.VIEW3D:
-            self.clear_selection_hidden_by_3d_mode()
+        # (L1.8) 3D mode keeps the selection: the ring shows it in 3D and the card names
+        # it — so the app's shortcuts (Delete, Ctrl+X, Ctrl+D) act on what is SHOWN.
+        # This replaces the workspace's stopgap ``clear_selection_hidden_by_3d_mode``.
         if mode is not WorkspaceMode.PLAN:
             self._ensure_pane()
         pane = self._pane
@@ -554,19 +555,6 @@ class Workspace(QWidget):
             self._apply_split()
         self._place_floating()
         self.mode_changed.emit(mode)
-
-    def clear_selection_hidden_by_3d_mode(self) -> None:
-        """3D mode hides the canvas — the one place a selection is SHOWN — and keeps
-        every shortcut: Delete, Ctrl+X and Ctrl+D would act on items nobody can see.
-        So entering 3D mode clears the selection.
-
-        A STOPGAP WITH AN OWNER: the selection story (L1.8) shows the selection in the
-        3D view itself; when its ring exists it removes this function (and its one
-        call, in ``set_mode``) or replaces it. Split is not touched: there the canvas
-        still shows what is selected."""
-        scene = self._scene
-        if scene is not None:
-            scene.clearSelection()
 
     def set_chrome_visible(self, visible: bool) -> None:
         """Fullscreen preview hides the workspace's own controls with the rest of the UI."""
