@@ -2468,7 +2468,7 @@ Symptom → root cause → fix, for the things that cost time while the looks (A
    at night they did.**
 3. **The engine animates a hidden window.** *Symptom:* none yet — found by the render tier
    before it could become one: with the window hidden and the wind's `FrameAnimation` still
-   running, `windTime` went on advancing (a hidden, running clock moved more than 0.2 s).
+   running, `windTime` went on advancing (0.59 s of clock in 0.6 s hidden; RTX 4070).
    *Root cause:* a hidden `QQuickView` keeps its animation driver ticking. *Fix:* the animation
    policy STOPS the clock when the pane is hidden (`set_wind_running(False)`) rather than trust
    "hidden"; hidden means zero ticks. And stopped is not rest: a paused non-zero clock keeps the
@@ -2483,8 +2483,8 @@ Symptom → root cause → fix, for the things that cost time while the looks (A
    after the old pairs are gone is the same sky, its sun at the solar azimuth. Measured over
    twenty sun changes, frames presented and withheld: no growth per change in committed memory
    and in dedicated GPU memory — no cache release needed, unlike a retired Model (§11.4.33
-   item 2); the positive control (a `buildSky` that never destroys the old Texture) reads about
-   8 MB per change.
+   item 2); the positive control (a `buildSky` that never destroys the old Texture) reads 8.2 MB per
+   change (presenting: 0.0; frames withheld: 0.125; the bound 1.0).
 5. **A sun-grazed lit wall hatched only on Direct3D 11.** *Symptom:* at high and ultra, on the
    dev box's GPU, a wall the sun lit at n·l 0.33 showed a fine diagonal hatch (pixel noise
    1.15 % of its luma, the face 3.7 luma darker). *Root cause:* the spike's shadow bias of 5 was

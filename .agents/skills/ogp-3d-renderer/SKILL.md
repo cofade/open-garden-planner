@@ -849,12 +849,12 @@ machine):
   on the software adapter, ever (`LookController(sky_light=False)`).
 - **A retired sky needs no `releaseResources()`.** Twenty sun changes, each a new 8 MB sky and
   probe, frames presented and frames withheld: no growth per change in committed memory or in
-  dedicated GPU memory (Theil–Sen over the second half, under the pre-registered 1.0 MB per
-  change); the positive control — a `buildSky` that never destroys the old Texture — reads about
-  8 MB per change. Unlike a destroyed Model (§13), it does not count towards the workspace's
+  dedicated GPU memory (Theil–Sen over the second half: 0.0 presenting, 0.125 withheld, against
+  the pre-registered 1.0 MB per change); the positive control — a `buildSky` that never destroys
+  the old Texture — reads 8.2 MB per change. Unlike a destroyed Model (§13), it does not count towards the workspace's
   release policy.
 - **A hidden window's `FrameAnimation` keeps running.** With the window hidden and the wind's
-  clock running, `windTime` went on advancing. The animation policy stops the clock when the
+  clock running, `windTime` went on advancing (0.59 s of clock in 0.6 s hidden). The animation policy stops the clock when the
   pane hides; "hidden" stops nothing by itself. A stopped clock holds its value (the sway of that
   moment) — rest is `windTime = 0` (`Quick3DHost.rest_wind`).
 - **Shadow bias is per backend and preset.** At the spike's bias 5, a lit wall grazed at n·l 0.33
@@ -864,7 +864,7 @@ machine):
   azimuth 225°, the board's `--iou`; the L0 table above was orthographic without cascades):
   bench_small 960 × 540, GPU — low (1 cascade) 0.921 / 0.985 / 0.974, high (2) 0.976 / 0.986 /
   0.978 at 15° / 35° / 60°. At 640 × 360 the render tier holds all four presets ≥ 0.85 on the GPU
-  and on WARP (numbers: the ADR-064 addendum). The weakest cell is always low at 15°: one
+  and on WARP (min 0.919 on both; every cell in the ADR-064 addendum). The weakest cell is always low at 15°: one
   cascade over a 7.5 m shadow.
 - **The frame rate to the display is capped by vsync** on a 60 Hz screen: count presented frames
   (`health().frames_presented`) and report a readback's time only as the cost of a finished

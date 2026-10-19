@@ -4945,6 +4945,182 @@ a pot — through the production builders;
 edit session with exact sink calls, the ridge in the mesh against the live ridge item for turned
 and non-rectangular houses, ≤ 0.1 cm); `tests/perf/test_scene3d_built_world_budget.py`.
 
+### ADR-064 addendum: looks, sky and the animation policy (Phase 17, L1.4)
+
+**Status**: Accepted (2026-10-19, #385 story L1.4). The look itself is judged by the independent
+3D reviewer and the owner on the production Beauty Board, not by this record; this record states
+what was decided and what was measured.
+
+**Context.** L1.2 shipped ONE fixed look (`NEUTRAL_DAY`: the spike's noon rig, a plain sky colour,
+a flat fill light), no sky texture, no fog, no presets, and a wind clock standing still. The L0
+spike had measured the rest — three day anchors joined by continuous ramps, a night rig, a
+procedural sky rebuilt per sun change, fog = sky horizon × probe exposure × 0.8, four presets —
+in one QML file, with every preset's settings inline, the sky regenerated at High quality on the
+GUI thread for every sun change, and, on WARP, 40–85 s for each new light probe. Issue #385 row
+L1.4: "look presets + auto with hysteresis, sky from the sun, animation policy. Key gates: light
+= −sun vector; IoU ≥ 0.85 at 15°/35°/60°; night < ¼ luminance; fps table."
+
+**Decision.**
+
+1. **The look is data, Qt-free** (`core/scene3d/look.py`): `look_for(sun, preset) -> LookSpec` —
+   plain, frozen, comparable — holds the mood (key-light colour and brightness, exposure, probe
+   exposure, saturation, contrast), the sky's inputs (`SkySpec`), the shadow settings
+   (`ShadowSpec`: the preset's map, cascades, filter and bias; the mood's darkness and blur), the
+   fog, the flat fill and the plain sky (each in LINEAR light), and at night the moon's direction.
+   The day rig is the spike's three anchors — noon at 30° and above, golden at 6°, low sun at
+   0.5° — joined by continuous ramps (colours mixed in linear light, exposure in stops, the rest
+   linearly); night below `MIN_SUN_ELEVATION_DEG` (0.5°), the 2D shadow overlay's own threshold.
+   The values are the spike's, with their provenance, pinned against the spike's functions at
+   every quarter degree until the spike retires. Two deliberate differences, each from a board:
+   the night fog carries the night sky's energy (× 0.25), and the night sky's ground hemisphere
+   is drawn at that same energy (the spike: 0.15).
+2. **Truth stays out of the look.** A day look has no direction in it (`moon_travel_scene` is
+   None); a night look states its moon (azimuth 165°, elevation 38° — a look, not an ephemeris).
+   The host aims the key light in ONE place (`Quick3DHost._apply_light`): the look's moon if it
+   has one, else the sun the pipeline sent (light travel = −sun vector, `core/solar`), else none.
+3. **A preset is cost, never mood.** `PRESET_SPECS`: low / medium / high / ultra differ in shadow
+   map (VeryHigh / High / VeryHigh / Ultra), cascades (1 / 1 / 2 / 3), PCF (4 / 8 / 16 / 32), bias
+   (15 / 15 / 10 / 10), anti-aliasing (FXAA with specular AA at low, MSAA above), ambient
+   occlusion and glow (medium up), screen-space reflections (ultra). Fog at every preset, no
+   sharpening at any, SSGI at none. A preset change is ONE `set_look`: no camera, no geometry, no
+   sky (pinned by the §8.10 test's sink log).
+4. **The automatic preset** (the default, `auto`) is a Qt-free state machine, `AutoPreset`, fed
+   with the host's count of PRESENTED frames (`health().frames_presented`, Qt's own frame
+   signal), polled every 0.5 s and only while the wind animates — a view drawn on demand has no
+   frame rate. It moves among low, medium and high (ultra only by choice): down when the median
+   frame time of at least three samples over at least 3 s exceeds 1/27 s; up only when every
+   sample is under 1/50 s, at least 10 s after the last change, and the level above is not
+   barred; a level left for being slow is barred for 300 s, doubling up to 3,600 s. Ten seconds
+   without a presented frame is NO DATA (the display asleep, a stall): what was collected is
+   dropped and the preset holds. Where it settled is stored (`view3d/auto_quality_level`,
+   default `medium`) and is where it starts next time.
+5. **The sky follows the sun — when the sun moved noticeably.** `sky_is_stale`: a new sky when
+   the sun stands 1° (great circle) or more from where the SHOWN sky draws it, at dusk and at
+   dawn at once, and never for the sun's position at night (a night sky draws no disc). While the
+   sun is dragged the sky is built once it has rested 150 ms (`SKY_SETTLE_MS`). Light, exposure
+   and fog follow every instant; while the sky lags, the fog is computed for the sky ON SCREEN.
+   Each build is a fresh `Texture` with its own `ProceduralSkyTextureData` as its child, every
+   input set at the cheapest quality and Medium quality set last; the old pair is destroyed after
+   the scene shows the new one (#476). `sunLongitude = azimuth + 90°`; the ground hemisphere takes
+   the sky's horizon colour, curve 0.1 and the sky's energy. No sky before the first sun; no sky
+   input bound live.
+6. **No image-based light on the software adapter.** In compatibility mode
+   (`LookController(sky_light=False)`) no sky texture — and so no light probe — is ever created: a
+   plain background in the fog's colour and a flat fill (the mean of the sky's top and horizon in
+   linear light × probe exposure × the sky's energy). The top-down truth view and the
+   `--selftest` frame render the same; the self-test FAILS when its frame built a sky.
+   `render_records(sky_light=True, prefer_software=True)` is refused.
+7. **Colours derived in linear light reach the engine exactly.** The fog, the plain sky and the
+   fill are handed over as `QColor.fromRgbF(engine_srgb(linear))`, the inverse of Qt Quick 3D's
+   own polynomial linearisation of a colour property (§11.4.35 item 1).
+8. **The animation policy.** The wind's clock (`windTime`, a `FrameAnimation`) runs only while
+   the 3D pane is shown and reduced motion is off; hidden, it stops where it is (no tick);
+   reduced motion RESTS it at 0 (`rest_wind`), so every vertex is drawn where its mesh puts it.
+   The policy stops the clock rather than trust "hidden": the engine keeps a hidden window's
+   animation running. Qt 6.11 exposes no operating-system "reduce motion" preference, so the
+   setting `view3d/reduced_motion` (default off) is the application's own.
+9. **Wiring.** One `LookController` per host (`ui/view3d/look_controller.py`, engine-free). The
+   workspace hands it the sun the pipeline last sent (`Scene3DController.sync.sun`) after every
+   pass, so the light and the look come from one moment and one solar path; a time-of-day change
+   stays a light-only pass (no snapshot). Nothing in it takes a frame from the live host (ADR-065
+   decision 17; a source scan pins it). The quality and reduced motion are a "3D View" group in
+   Preferences, offered only where the window has a 3D workspace; "Save" re-reads them.
+10. **A retired sky does not count towards the release policy for retired Models** (ADR-065
+    decision 15): twenty sun changes, frames presented and withheld, leave no growth per change
+    without a cache release (Evidence).
+11. **The production Beauty Board** (`scripts/render_beauty_board.py`) replaces the spike as the
+    board of record: the spike's shots, dates, times and cameras, through the production
+    pipeline, one never-shown host per frame, with the truth rows in `metrics.json`
+    (`ogp-lush-cinematic` §5). The spike's board remains the "before" until L1.10.
+
+**Alternatives rejected.**
+
+- *A sky per sun change (the spike).* Every step of a dragged time slider would hold the GUI
+  thread for the generation (95 ms at Medium on the dev box's GPU, 215 ms at High) and, on WARP,
+  for the probe's filtering (9–13 s on the dev box, 40–85 s on a CI runner).
+- *Sky inputs bound live to the look.* One full generation per input change (the spike measured
+  2,192 ms for a sun change that way against 344 ms set-then-raise).
+- *High sky quality.* The same picture at 2.3× the GUI-thread time (round 3).
+- *One Texture, a new data object per build.* A Texture loses its data when a data object it held
+  earlier is destroyed (#476): a white or black sky after the second build.
+- *The automatic preset from readback times.* A readback is a frame that is never presented and
+  holds memory until a presented one ends (ADR-065 decision 17); on a sleeping display it never
+  returns it.
+- *The automatic preset from the frames of a still view.* A view drawn on demand presents nothing
+  while nothing changes: "slow" for no reason.
+- *Ultra as an automatic level.* It adds screen-space reflections and the largest shadow map for
+  no gain in readability; a user may choose it.
+- *The flat fill also beside a sky (L1.2's seam).* The sky is the fill; a second fill flattens the
+  frame — the first spike renders read flat and blue for that reason. The fill now exists only
+  where no sky texture lights the view.
+- *The spike's night fog and night ground energy.* Each drew a line along the night horizon
+  (§11.4.35 item 2).
+
+**Consequences.**
+
+- Truth and look are separable by construction: no look value can move a shadow, and a stale
+  look aims nothing.
+- The sky lags the sun by less than 1° and 150 ms of rest; the light, the exposure and the fog
+  never lag.
+- On the dev box's display (60 Hz, vsync) every preset presents about 60 frames a second on both
+  bench plans; what a frame COSTS is the readback number in the table below. An integrated GPU
+  (the target the automatic preset's default `medium` is budgeted for) is unmeasured — the
+  owner's manual check.
+- The moon is fixed (a look); night shows no stars, no moon disc.
+- Compatibility mode keeps the sun's direction, the shadows and the presets but has no sky
+  picture and no light from the sky.
+
+**Evidence** (RTX 4070, Direct3D 11, Windows 11; WARP = Direct3D's software adapter on the same
+machine; 2026-10-19 unless stated).
+
+| Gate | What | Measured |
+|---|---|---|
+| G1 | the light's rotation read back from the QML scene: (0, 0, −1) onto −sun, engine frame | 49 suns × 2 presets within 1e-5 (`TestKeyLight`); at night the moon's stated direction; through a scripted day on a real host, GPU and WARP |
+| G2 | shadow IoU of a 100 × 100 × 200 cm box, azimuth 225°, PERSPECTIVE view with the preset's cascades, at 15° / 35° / 60° (gate ≥ 0.85) | bench_small board 960 × 540, GPU: low (1 cascade) 0.921 / 0.985 / 0.974, high (2) 0.976 / 0.986 / 0.978 (the L0 board of the same day, orthographic without cascades: 0.984 / 0.982 / 0.965 and 0.981 / 0.985 / 0.963). Render tier 640 × 360, all four presets: GPU low 0.919 / 0.968 / 0.962, medium 0.961 / 0.969 / 0.956, high 0.985 / 0.975 / 0.968, ultra 0.986 / 0.983 / 0.970; WARP (no sky, flat fill) low 0.919 / 0.971 / 0.964, medium 0.961 / 0.975 / 0.960, high 0.986 / 0.979 / 0.968, ultra 0.986 / 0.985 / 0.971 |
+| G3 | night against noon, one camera and date, mean luminance in linear light (gate < 0.25) | 0.104 (low) / 0.093 (high) on bench_small, 0.098 / 0.088 on bench_large; the lower the sun, the darker the frame in every preset; ramp: no step between adjacent half degrees above the bounds of `test_scene3d_look.py` |
+| G4 | the sky's sun disc read 25° off centre, sun in the east, south and west (gate < 6°) | max 0.07° (both bench plans); one sky per noticeable move and none below 1° (§8.10 test; on a real host 9 builds for the scripted day's 9 noticeable moves); the old sky released: twenty sun changes, committed memory per change over the second half (Theil–Sen; bound 1.0 MB, registered before the first run): 0.0 presenting, 0.125 with the frames withheld; dedicated GPU memory 0.008 / 0.0; positive control (no destroy) 8.2 MB per change; no cache release in the loop |
+| G5 | fog against sky at eye height, per mood and preset: row-mean step / dip / ridge within 0.4° of the horizon (bounds 6.0 / 4.5 / 2.5 luma) | max 3.1 / 0.12 / 0.71 (bench_small and bench_large, low and high); speckle: isolated dark pixels at 640 × 360 medium: noon 194 (the far picket fence, the same with and without sharpening), December noon 2; the 0.08-sharpening control 315 / 150 (bounds 260 / 30, control at least +80) |
+| G6 | auto preset on synthetic series; a preset change moves no camera and rebuilds nothing | `TestAutoPreset` (28 tests: slow, fast, noisy around each threshold, stalled, hitch, counter restart); the §8.10 test: a quality change is ONE `set_look`, zero sink calls, the camera pose object unchanged |
+| G7 | hidden → no tick, reduced motion → no animation, at rest rendered = mesh | the controller tests; on the engine: rest, run, stop, stop again, rest again — the last frame equal to the first to the pixel; a hidden window's running clock advanced (why the policy stops it) |
+| G8 | software adapter: no light probe; the self-test's wall time | 0 sky builds in every WARP frame; `--selftest` wall time (s, three alternating runs each, other test runs sharing the CPU): GPU base 10.00 / 6.72 / 5.80, head 6.29 / 6.43 / 4.83; WARP base 5.61 / 5.95 / 5.07, head 5.54 / 5.67 / 5.66 |
+| G10 | the production board end to end | bench_small and bench_large, low and high, all seven shots: `status: ok`, 0 Qt errors and warnings, every `sun_date` = `build_date`, 0 build failures, `probe_restore_frame_diff` 0.0, `wind_time` 0.0 |
+
+**G9 — the frame-rate table.** 1280 × 720, the golden-hour camera, the wind running, five seconds
+per preset, frames PRESENTED to a 60 Hz display (vsync caps the GPU at 60); two runs on the GPU
+(other agents' test runs were sharing the CPU), one on WARP. A readback's time (a new frame each,
+`--fps-seconds`) is reported beside it in the board's `metrics.json`; on the GPU it is dominated
+by the copy back and is not the frame's cost.
+
+| Plan | Device | low | medium | high | ultra |
+|---|---|---|---|---|---|
+| bench_small (98 records) | RTX 4070 | 59.6 / 56.8 | 58.2 / 59.6 | 58.2 / 59.8 | 59.8 / 59.6 |
+| bench_large (424 records) | RTX 4070 | 60.0 / 60.0 | 53.2 / 51.0 | 53.5 / 44.6 | 40.6 / 36.2 |
+| bench_small | WARP | 22.6 | 14.2 | 9.6 | 4.7 |
+| bench_large | WARP | 10.5 | 7.8 | 5.6 | 2.9 |
+
+A first run under a heavier CPU load read bench_large 45.8 / 51.2 / 40.7 / 24.3: the frame rate
+of the large plan on this machine is sensitive to CPU load (one 5-s window per preset). An
+integrated GPU, the device `medium` is the automatic preset's start for, is unmeasured.
+
+**Sky cost.** GUI-thread generation of one Medium sky: 95 ms against 215 ms at High in the round-3
+A/B on a quiet machine; 123–301 ms (median 171–201) in the 2026-10-19 boards, a fresh host per
+frame, the CPU shared. On WARP the first frame after a new sky took 11.1 / 13.2 / 12.3 s (the
+probe's filtering; the generation 145–340 ms at High) — the reason for decision 6.
+
+**Look-dev log** (bench_small, 960 × 540, `low` and `high`; boards in the story's scratch):
+round 1 — the night fog carries the sky's energy and reaches the engine in linear light: night
+horizon step 10.5 / 21.2 → 2.4 / 3.2; round 2 — bias 10 at high and ultra: a grazed lit wall's
+hatch 1.15 % → 0.18 % of its luma, IoU unchanged; round 3 — Medium sky: same picture (mean luma
+within 0.02, disc within 0.07°), 215 → 95 ms; round 4 — no change: the merged tree against the
+L0 board of the same day (like for like: shots, dates, cameras, size); round 5 — the night ground
+hemisphere at the sky's energy: night dip 2.07 / 1.04 → 0.01 / 0.12.
+
+Tests: `tests/unit/test_scene3d_look.py`, `test_view3d_look_settings.py`, `test_board_probes.py`,
+`test_render_beauty_board.py`, `test_quick3d_pure.py`; `tests/ui/test_quick3d_host.py`
+(`TestKeyLight`, `TestSky`, `TestWind`); `tests/integration/test_view3d_look_controller.py`,
+`test_view3d_looks.py` (§8.10); on a real device `tests/integration/test_view3d_looks_render.py`
+with `view3d_looks_driver.py` (§8.10.29).
+
 ## ADR-065: The 3D workspace — Plan / 3D / Split in the main window, one kept engine host (Phase 17, L1.3)
 
 **Status**: Accepted (2026-10-12, #385 story L1.3, epic #383). Behind the internal switch
