@@ -1278,9 +1278,7 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
     # is only informative next to the things on the other side of it.
     #
     # CLOSED, and every entry names the ASSERTION that closes it rather than the shape. A
-    # list of shapes reads as coverage even when nothing checks them - which is exactly what
-    # happened here: `d9d18860` deleted the test holding the step/job assertions while this
-    # comment went on claiming the shapes were verified, and seven mutations then passed.
+    # list of shapes reads as coverage even when nothing checks them;
     # `scripts/replay_gate_mutations.py` replays every closed shape and asserts each is
     # caught, so this list can be re-measured in one command rather than believed.
     #
