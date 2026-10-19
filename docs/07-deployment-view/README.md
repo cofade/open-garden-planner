@@ -228,9 +228,11 @@ Qt workflows use `QT_QPA_PLATFORM=offscreen`; xvfb is not part of this CI recipe
 | `coverage` | Coverage | Linux | Full-suite line/branch report and per-package line floors |
 
 The matrix jobs each emit two concrete check names. The reviewed protection payload requires
-the existing checks plus both dependency/type matrix results and an up-to-date PR. Coverage
-is initially not required by GitHub protection; failed CI still requires investigation before
-finalization. Master protection was activated and independently verified during approved v1.29.6 finalization (PR #422).
+the existing checks plus both dependency/type matrix results and an up-to-date PR. `Coverage`
+became a required check in #514: the floor step runs `if: always()` and exits non-zero when the
+report is missing or malformed, so a floor breach blocks a merge (ADR-058 addendum). Failed CI
+still requires investigation before finalization. Master protection was activated and
+independently verified during approved v1.29.6 finalization (PR #422).
 
 ```mermaid
 flowchart LR

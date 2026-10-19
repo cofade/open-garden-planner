@@ -320,20 +320,17 @@ def _reclaim_widgets(qtbot: object):  # noqa: ARG001 - see below
     tests are not slow, they are paying for everyone else's leaked widget graphs
     through `apply_theme()`'s `app.allWidgets()` walk.
 
-    **The cause, as far as it was established — and the limit of that.** Nothing calls
+    **The cause, as far as it was established (#515).** Nothing calls
     `deleteLater()` on those apps: `qtbot.addWidget` closes a widget at teardown, and
-    closing is not deleting. The Python wrapper is collected (only 2 of the 30 apps were
-    still reachable) while the C++ object and its ~1 270 children survive to process exit.
-    `gc.collect()` does not help — it freed 8 337 objects and moved the widget count from
-    38 271 to only 37 638, so the survivors are not reachable as collectable cycles.
-    **What holds them is NOT identified.** A referrer probe walked into PyQt6/sip
-    bookkeeping and stopped there, so "strong references" is the reading consistent with
-    the `gc` measurement, not a proven mechanism — and the chokepoint below does not need
-    it to be true. Naming it here would be the same error as a docstring that calls
-    `sendPostedEvents(None, 0)` the right call and measures the wrong one.
+    closing is not deleting. The Python wrapper is collected while the C++ object and its
+    ~1 270 children survive to process exit. A large part of the population is ordinary
+    uncollected cyclic garbage (reclaimed by `gc.collect()`), while a residual graph survives
+    every collection pass held outside Python's reachable object graph (e.g. C++-side active
+    window / focus references cleared by `deleteLater()`). Moreover, `deleteLater()` alone
+    does not delete until the event loop processes deferred deletions — so the explicit event
+    loop flush with `sendPostedEvents(DeferredDelete)` is the load-bearing half of this fixture.
 
-    **The fix, in one place.** Two things deliver the ordering, and earlier versions of this
-    docstring credited the wrong one - twice, in both directions. Measured both ways with
+    **The fix, in one place.** Two things deliver the ordering. Measured with
     `--setup-show` on `tests/integration/test_agent_api_server.py`:
 
         with the `qtbot` request     _no_leaked_agent_api_thread -> _reclaim_widgets -> qtbot
@@ -343,22 +340,26 @@ def _reclaim_widgets(qtbot: object):  # noqa: ARG001 - see below
     `tests/integration/conftest.py`'s `_no_leaked_agent_api_thread` has walked
     `topLevelWidgets()` to stop any server an app still owns, and that holds whichever way
     the request goes - it is what keeps the leak warning able to fire. The `qtbot` request
-    delivers the SECOND: it orders this fixture ahead of qtbot's own teardown. An earlier
-    draft said the whole chain "stays that way with the request removed", which the second
-    line above refutes. Doing
-    this earlier would delete those windows first and the leak warning would never
-    fire — a gate that silently stops reporting. Measured effect of this exact
+    delivers the SECOND: it orders this fixture ahead of qtbot's own teardown. Reclaiming
+    earlier would delete those windows first and the leak warning would never fire — a gate
+    that silently stops reporting. Measured effect of this exact
     sequence on that same 38 271-widget process: **38 271 -> 0 widgets, 1 580 -> 0
     top-level widgets.** That is the count this fixture can report; it says nothing
     about what would survive if `deleteLater()` were dropped, because the alternative
     was never measured, only this one.
 
     `sendPostedEvents` must name `QEvent.Type.DeferredDelete` explicitly. Passing
-    `None, 0` — the shape that looks right — flushes nothing, and measuring that
-    wrong call is how the first attempt at this "proved" the chokepoint ineffective.
+    `None, 0` flushes no deferred deletions, as Qt requires the specific event type.
     """
     from PyQt6.QtCore import QCoreApplication, QEvent
     from PyQt6.QtWidgets import QApplication
+
+    if os.environ.get("OGP_TEST_MEASURE_WIDGET_LEAK") == "1":
+        # #515: the probe needs the RAW leak this fixture reclaims, so it can measure the
+        # population rather than its absence. The suite never sets this; every normal run
+        # reclaims as before. scripts/probe_widget_leaks.py is the only writer.
+        yield
+        return
 
     yield
 

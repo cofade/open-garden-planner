@@ -726,52 +726,139 @@ def test_ci_still_scans_for_committed_secrets() -> None:
     )
 
 
-def _script_lines(run: object) -> list[str]:
-    """A step's `run` as executable lines, with line-initial shell comments removed.
+#: Shell control operators that separate one command from the next. `shlex.split` yields
+#: these as standalone tokens whenever the source has whitespace around them, which every
+#: documented shape does. `2>&1` is deliberately NOT one: it is a redirection with no
+#: surrounding whitespace, so it survives as a single token and the line stays whole.
+_COMMAND_OPERATORS = frozenset({";", "&&", "||", "|", "&"})
 
-    A `#` that starts a line inside a `run:` block is text, not a command. Measured: a step
-    whose script was
+#: Operators that also split when they LEAD a token (`… -n 0 ||true`, `… |tee out`). Bare
+#: `&` is excluded: it leads bash's `&>file` redirection, where splitting would be wrong.
+_LEADING_OPERATORS = ("||", "&&", "|", ";")
 
-        # pytest tests/ -m perf -v -n 0
-        pytest tests/ -m 'not perf' -v -n 0
 
-    left both pins green while the perf tests ran nothing - the selector and the substring
-    assertions were reading the comment.
+def _leading_operator(token: str) -> str | None:
+    """The control operator `token` starts with, if any, else None."""
+    for operator in _LEADING_OPERATORS:
+        if token.startswith(operator):
+            return operator
+    return None
 
-    A `run:` expressed as a YAML list returns `[]`, which shows up as `found == 0` rather
-    than as a TypeError from a regex.
+
+def _commands_of(run: object) -> list[list[str]]:
+    """A step's `run` as a list of commands, each an argv.
+
+    Issue #513. The old helper tokenised every line and CONCATENATED the tokens, so a
+    script whose earlier line merely *named* the perf command (`echo pytest tests/ -m perf
+    -n 0`) satisfied all three substring assertions while the step ran nothing. A step's
+    `run` is a SCRIPT, not one command: the pin has to evaluate the command whose exit
+    status is the step's, which is the last one.
+
+    Newlines and the control operators `;`, `&&`, `||`, `|` and `&` end a command, whether
+    they stand alone (`… || true`) or lead the next token (`… ||true`). A `run: >` folded
+    scalar is one logical line after YAML folding, so it stays one command; a `run: |`
+    literal block keeps its newlines and becomes one command per line. Quotes are honoured
+    by `shlex`, so `echo "a;b"` is one token and does not split.
+
+    A `#` comment is stripped the way a shell strips it (`comments=True`), so a comment
+    naming the perf command never reaches `_marker_arg`. A `run:` expressed as a YAML list
+    returns `[]`, which surfaces as `found == 0` below rather than as a TypeError.
+    Unbalanced quotes also return `[]` — loud, if unhelpful.
     """
     if isinstance(run, list):
         return []
-    return [
-        line
-        for line in str(run).splitlines()
-        if line.strip() and not line.lstrip().startswith("#")
-    ]
-
-
-def _argv_of(script: str) -> list[str]:
-    """The argv of a step's script, with shell comments stripped.
-
-    Every line is tokenised and the tokens are concatenated, NOT just the last line: a
-    `run: >` folded scalar is one command spread over several source lines, and the CI
-    Coverage steps are written that way - reading only the last line of one finds
-    `--cov=...` and no `-m` at all. Measured: the first version of this helper made both
-    pins go from 3 matching steps to 1.
-
-    `comments=True` is what a shell does with `#`: it ends the command. Without it the
-    trailing `# -n 0 would need the quiet runner` in a signaller script became real argv
-    tokens and satisfied the `-n 0` check.
-
-    Unbalanced quotes return `[]`, which surfaces as "found 0" - loud, if unhelpful.
-    """
-    argv: list[str] = []
-    for line in _script_lines(script):
+    commands: list[list[str]] = []
+    current: list[str] = []
+    for line in str(run).splitlines():
         try:
-            argv.extend(shlex.split(line, comments=True))
+            tokens = shlex.split(line, comments=True)
         except ValueError:
             return []
-    return argv
+        for token in tokens:
+            operator = token if token in _COMMAND_OPERATORS else _leading_operator(token)
+            if operator is not None:
+                if current:
+                    commands.append(current)
+                    current = []
+                rest = token[len(operator) :]
+                if rest:
+                    current.append(rest)
+                continue
+            current.append(token)
+        if current:
+            commands.append(current)
+            current = []
+    return commands
+
+
+def _is_pytest_run(argv: list[str]) -> bool:
+    """Whether `argv` actually invokes pytest, rather than naming it in its arguments.
+
+    Closes the delegating-script shape (`bash scripts/ci_perf.sh tests/ -m perf -n 0`,
+    which `_marker_arg` reads as a selection) and the bare-`echo` shape (`echo pytest
+    tests/ -m perf -n 0`), where the marker is real but no test would run. Only a `pytest`
+    head, or a python interpreter invoking it with `-m pytest`, is a runner.
+    """
+    if not argv:
+        return False
+    head = argv[0].replace("\\", "/")
+    if head == "pytest" or head.endswith("/pytest") or head.endswith("/pytest.exe"):
+        return True
+
+    head_base = head.rsplit("/", 1)[-1]
+    is_python = (
+        head_base in ("python", "python3", "python.exe", "python3.exe")
+        or head_base.startswith("python3.")
+    )
+    if is_python:
+        for i in range(1, len(argv) - 1):
+            if argv[i] == "-m":
+                target = argv[i + 1].replace("\\", "/")
+                if target == "pytest" or target.endswith("/pytest") or target.endswith("/pytest.exe"):
+                    return True
+    return False
+
+
+def _collect_only_requested(argv: list[str]) -> str | None:
+    """A collect-only flag the command carries, whether spelled directly or inside `-o`.
+
+    Closes the `-o addopts="--co"` injection: the step would succeed having run no test.
+    The override value is split like the argv, so an exact `--co`/`--collect-only` word is
+    required and `--cov`, `--cov-branch` and friends are not mistaken for it.
+    """
+    index = 0
+    while index < len(argv):
+        token = argv[index]
+        if token in ("--co", "--collect-only"):
+            return token
+        if token in ("-o", "--override-ini") and index + 1 < len(argv):
+            value = argv[index + 1]
+            if value.startswith("addopts="):
+                value = value.split("=", 1)[1]
+            value = value.strip().strip('"').strip("'")
+            match = re.search(r"(?:^|\s)(--co|--collect-only)(?=\s|$)", value)
+            if match:
+                return f"{match.group(1)} inside an addopts override"
+            index += 2
+            continue
+        index += 1
+    return None
+
+
+def _pytest_addopts_env(step: dict, *jobs: dict) -> bool:
+    """Whether a step or any of its jobs sets `PYTEST_ADDOPTS`.
+
+    Closes the `env: PYTEST_ADDOPTS: --co` shape, which is literal YAML text and therefore
+    pinnable: the flag would reach every pytest invocation in the step without appearing in
+    any `run:` line.
+    """
+    sources = [step, *jobs]
+    for source in sources:
+        mapping = source.get("env") if isinstance(source, dict) else None
+        if isinstance(mapping, dict) and "PYTEST_ADDOPTS" in mapping:
+            return True
+    return False
+
 
 
 def _marker_arg(argv: list[str]) -> str | None:
@@ -784,8 +871,9 @@ def _marker_arg(argv: list[str]) -> str | None:
     later flag is the one that overrides.
     """
     starts: list[int] = []
-    for index, token in enumerate(argv):
-        if token == "pytest" or token.endswith("/pytest") or token.endswith("\\pytest.exe"):
+    for index, raw_token in enumerate(argv):
+        token = raw_token.replace("\\", "/")
+        if token == "pytest" or token.endswith("/pytest") or token.endswith("/pytest.exe"):
             starts.append(index + 1)
     candidates = range(starts[-1], len(argv)) if starts else range(len(argv))
 
@@ -809,8 +897,9 @@ def _flag_value(argv: list[str], flag: str) -> str | None:
     Same reason as `_marker_arg`: `python -m pytest` uses `-m`, and a shell command may
     carry other single-letter flags before the test runner starts.
     """
-    for index, token in enumerate(argv):
-        if token == "pytest":
+    for index, raw_token in enumerate(argv):
+        token = raw_token.replace("\\", "/")
+        if token == "pytest" or token.endswith("/pytest") or token.endswith("/pytest.exe"):
             for pos in range(index + 1, len(argv) - 1):
                 if argv[pos] == flag:
                     return argv[pos + 1]
@@ -842,10 +931,12 @@ def _covers_the_perf_marker(argv: list[str], want_marker: bool) -> bool:
     value = _marker_arg(argv)
     if value is None:
         return False
-    tokens = {part.strip() for part in value.replace("(", " ").replace(")", " ").split()}
-    has_perf = any(tok == "perf" for tok in tokens)
-    negated = "not" in tokens
-    return has_perf and (not negated if want_marker else negated)
+    # Check if perf is referenced in the marker expression
+    if not re.search(r"\bperf\b", value):
+        return False
+    # Check if perf is specifically negated: e.g. "not perf", "not (perf)", "not(perf)"
+    negated = bool(re.search(r"\bnot\s*\(?\s*perf\b", value))
+    return not negated if want_marker else negated
 
 
 def _needs_of(job: dict) -> list[str]:
@@ -856,9 +947,95 @@ def _needs_of(job: dict) -> list[str]:
     return [needs] if isinstance(needs, str) else list(needs)
 
 
+class TestTheCommandSplit:
+    """Teeth for the #513 per-command matcher, pinned against the shapes it must close."""
+
+    def test_separators_end_a_command(self) -> None:
+        assert _commands_of("a ; b && c || d | e") == [["a"], ["b"], ["c"], ["d"], ["e"]]
+
+    def test_newlines_end_a_command(self) -> None:
+        assert _commands_of("a\nb") == [["a"], ["b"]]
+
+    def test_a_quoted_separator_does_not_split(self) -> None:
+        # shlex honours the quotes, so `"a;b"` is one token and the command stays whole.
+        assert _commands_of('echo "a;b" && pytest tests/') == [
+            ["echo", "a;b"],
+            ["pytest", "tests/"],
+        ]
+
+    def test_an_operator_leading_a_token_still_splits(self) -> None:
+        assert _commands_of("pytest x -n 0 ||true") == [["pytest", "x", "-n", "0"], ["true"]]
+        assert _commands_of("pytest x |tee out") == [["pytest", "x"], ["tee", "out"]]
+
+    def test_a_redirection_survives_as_one_token(self) -> None:
+        # `2>&1` has no surrounding whitespace, so it must not be treated as an operator.
+        assert _commands_of("pytest x 2>&1 | tee out") == [["pytest", "x", "2>&1"], ["tee", "out"]]
+
+    def test_a_comment_is_not_a_command(self) -> None:
+        commands = _commands_of("# pytest tests/ -m perf -n 0\npytest tests/ -m 'not perf' -v")
+        assert commands == [["pytest", "tests/", "-m", "not perf", "-v"]]
+        assert _covers_the_perf_marker(commands[0], want_marker=False)
+
+    def test_a_yaml_list_is_empty(self) -> None:
+        assert _commands_of(["pytest", "tests/"]) == []
+
+    def test_runner_identity_distinguishes_pytest_from_a_delegating_script(self) -> None:
+        assert _is_pytest_run(["pytest", "tests/"])
+        assert _is_pytest_run(["python", "-m", "pytest", "tests/"])
+        assert _is_pytest_run(["python3", "-m", "pytest", "tests/"])
+        assert _is_pytest_run(["python", "-u", "-m", "pytest", "tests/"])
+        assert _is_pytest_run(["./venv/bin/pytest", "tests/"])
+        assert not _is_pytest_run(["bash", "-m", "pytest", "tests/"])
+        assert not _is_pytest_run(["bash", "scripts/ci_perf.sh", "tests/", "-m", "perf", "-n", "0"])
+        assert not _is_pytest_run(["echo", "pytest", "tests/"])
+
+    def test_covers_the_perf_marker_handles_compound_expressions(self) -> None:
+        assert _covers_the_perf_marker(["pytest", "-m", "perf"], want_marker=True)
+        assert not _covers_the_perf_marker(["pytest", "-m", "perf"], want_marker=False)
+        assert _covers_the_perf_marker(["pytest", "-m", "not perf"], want_marker=False)
+        assert not _covers_the_perf_marker(["pytest", "-m", "not perf"], want_marker=True)
+        assert _covers_the_perf_marker(["pytest", "-m", "perf and not slow"], want_marker=True)
+        assert not _covers_the_perf_marker(["pytest", "-m", "perf and not slow"], want_marker=False)
+        assert _covers_the_perf_marker(["pytest", "-m", "not perf and not flaky"], want_marker=False)
+        assert not _covers_the_perf_marker(["pytest", "-m", "not perf and not flaky"], want_marker=True)
+        assert not _covers_the_perf_marker(["pytest", "-m", "slow"], want_marker=True)
+        assert not _covers_the_perf_marker(["pytest", "-m", "slow"], want_marker=False)
+
+    def test_flag_value_anchors_to_pytest(self) -> None:
+        assert _flag_value(["./venv/bin/pytest", "tests/", "-n", "0"], "-n") == "0"
+        assert _flag_value(["python", "-u", "-m", "pytest", "tests/", "-n", "0"], "-n") == "0"
+
+    def test_collect_only_is_read_directly_and_inside_addopts(self) -> None:
+        assert _collect_only_requested(["pytest", "tests/", "--co"]) == "--co"
+        assert _collect_only_requested(["pytest", "tests/", "--collect-only"]) == "--collect-only"
+        assert (
+            _collect_only_requested(["pytest", "tests/", "-o", 'addopts="--co"'])
+            == "--co inside an addopts override"
+        )
+        # The legitimate Coverage step's override and the coverage flags must stay green.
+        assert _collect_only_requested(["pytest", "tests/", "--cov-branch", "--cov-append"]) is None
+        assert (
+            _collect_only_requested(
+                ["pytest", "tests/", "-o", 'addopts="-v --tb=short -n auto -m not perf"']
+            )
+            is None
+        )
+
+    def test_pytest_addopts_is_found_on_the_step_or_its_job(self) -> None:
+        assert _pytest_addopts_env({"env": {"PYTEST_ADDOPTS": "--co"}})
+        assert _pytest_addopts_env({"env": {}}, {"env": {"PYTEST_ADDOPTS": "--co"}})
+        assert not _pytest_addopts_env({"env": {"QT_QPA_PLATFORM": "offscreen"}}, {})
+
+    def test_the_echo_smuggle_has_a_gate_command_that_is_not_last(self) -> None:
+        commands = _commands_of("echo pytest tests/ -m perf -n 0\ntrue")
+        gate = [c for c in commands if _marker_arg(c) is not None and "perf" in str(_marker_arg(c))]
+        assert len(gate) == 1, "an echo naming the command is still one marker-carrying command"
+        assert commands[-1] is not gate[0], "the gate command must not be the step's last command"
+
+
 def test_ci_runs_the_whole_perf_set_serially() -> None:
-    """The three perf steps are pinned by their argv, and by the two keys that can make a
-    step or a job not gate at all. Both halves exist because prose got them wrong.
+    """The three perf steps are pinned by their commands, and by the two keys that can make
+    a step or a job not gate at all. Both halves exist because prose got them wrong.
 
     `addopts` carries `-n auto --dist worksteal -m 'not perf'` (#509), so the perf tests
     run in neither mode by default: the battery deselects them, and the workers are the
@@ -874,23 +1051,27 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
       at all (map-picker close < 0.5 s, point-snapper mean < 16 ms, spatial-index
       medians < 200 ms / < 1 ms).
 
-    **Why this parses the YAML rather than grepping the file.** The first version of this
-    test grepped for `"tests/ -m perf"` and `"-m perf -n 0"` in the whole text, and it
-    passed for the wrong reason: both substrings are satisfied by the COVERAGE job's copy
-    of the command, so mutating the TEST job's step - the one actually named "Run
-    performance budgets on a quiet runner", the one carrying the three zero-slack budgets -
-    to `pytest tests/ -m perf -v` or to the directory form left this test GREEN. Both
-    mutations were run; both passed. A pin that cannot fail is worse than no pin, because
-    it reads as protection. `text.split("  coverage:", 1)[-1]` had the same defect wearing
-    a disguise: if the separator ever goes missing the "scoped" assertion silently becomes
-    a whole-file assertion with the same outcome. So each job is looked up by key, and a
-    missing key is a failure rather than an empty result.
+    **Why this parses the YAML rather than grepping the file.** Substring grepping
+    for `"tests/ -m perf"` and `"-m perf -n 0"` in the whole text is satisfied by the
+    Coverage job's copy of the command alone, so mutating the Test job's step ("Run
+    performance budgets on a quiet runner") would leave a whole-file grep silently green.
+    Each job and step must be looked up by key in the parsed structure so that each
+    runner's configuration is validated independently.
 
     The marker half of this contract was already mechanised - `test_perf_marker_guard.py`
     fails the build if a wall-clock assertion is added without the marker - so the marker
     was the safe half to leave in prose and the invocation the dangerous one. Four
     documents carried a wrong invocation inside this change while every check stayed
     green.
+
+    **Why it evaluates each COMMAND, not the step's whole token stream (#513).** A `run:`
+    script may hold several commands; the one whose exit status is the step's is the LAST.
+    Evaluating the concatenation let a script satisfy every assertion with a command that
+    runs nothing - an earlier line naming the perf invocation, a here-doc body supplying
+    the flags, a `|| true`, or an `-o addopts="--co"` at the end. So the marker-selecting
+    command is identified, required to be the last command, required to actually invoke
+    pytest, and refused if it collects-only. `scripts/replay_gate_mutations.py` replays
+    each of these shapes and asserts this pin notices; run it after changing the matcher.
     """
     import yaml
 
@@ -899,43 +1080,94 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
     )
     jobs = workflow["jobs"]
 
-    def perf_steps(job: str) -> list[list[str]]:
+    def perf_steps(job: str) -> list[tuple[dict, list[list[str]], list[list[str]]]]:
+        """Each step in `job` carrying at least one perf-marker command.
+
+        Returns `(step, commands, gate)`; `gate` is the commands whose `-m` selects the
+        marker. The helper below requires exactly one such command per step and that it is
+        the step's last command.
+        """
         assert job in jobs, f"ci.yml no longer has a `{job}` job"
-        found: list[list[str]] = []
+        found: list[tuple[dict, list[list[str]], list[list[str]]]] = []
         for step in jobs[job]["steps"]:
-            argv = _argv_of(step.get("run"))
-            if argv and _marker_arg(argv) is not None and "perf" in str(_marker_arg(argv)):
-                found.append(argv)
+            commands = _commands_of(step.get("run"))
+            gate = [
+                argv
+                for argv in commands
+                if _marker_arg(argv) is not None and "perf" in str(_marker_arg(argv))
+            ]
+            if gate:
+                found.append((step, commands, gate))
         return found
+
+    def gated_command(
+        job_name: str, step: dict, commands: list[list[str]], gate: list[list[str]]
+    ) -> list[str]:
+        """The one command that gates `step`, with the #513 shape checks applied."""
+        _name = step.get("name") or step.get("run")
+        assert len(gate) == 1, (
+            f"`{_name}` carries {len(gate)} commands that select the perf marker; exactly "
+            "one may, or the pin cannot say which one gates the step. A second "
+            "marker-carrying command is how an `echo` or a here-doc body smuggles the flags "
+            "into the token stream"
+        )
+        argv = gate[0]
+        assert _is_pytest_run(argv), (
+            f"`{_name}`'s perf command is `{' '.join(argv)}`, which does not invoke pytest - "
+            "a delegating script (`bash scripts/ci_perf.sh …`) carries the marker without "
+            "running a test"
+        )
+        assert commands[-1] is argv, (
+            f"`{_name}`'s perf command is not the LAST command of the step, so it does not "
+            "decide the step's exit status: `|| true`, a pipe to `tee`, or a script ending "
+            "with another executor would let the step pass with the perf tests not run"
+        )
+        collect_only = _collect_only_requested(argv)
+        assert collect_only is None, (
+            f"`{_name}`'s perf command collects without running: {collect_only}. "
+            "`--co`/`--collect-only` make the step succeed having run no test"
+        )
+        assert not _pytest_addopts_env(step, jobs[job_name]), (
+            f"`{_name}` or its job sets PYTEST_ADDOPTS, which reaches every pytest "
+            "invocation in the step without appearing in any `run:` line"
+        )
+        return argv
 
     test_steps = perf_steps("test")
     # ONE assertion, not two: an `assert test_steps` after this could never fire, because
-    # `len(test_steps) == 1` is already false at zero and the message documenting the
-    # unquoted-`echo` hole would never print. A dead assertion reads as coverage.
+    # `len(test_steps) == 1` is already false at zero and this message would never print.
+    # A dead assertion reads as coverage.
     assert len(test_steps) == 1, (
-        f"expected exactly one perf step in the `test` job, found {len(test_steps)}: "
-        f"{test_steps}. `-m` is read as a token pair, which catches a command hidden inside "
-        "a comment - but NOT one hidden inside an unquoted `echo`, because `_argv_of` "
-        "concatenates the tokens of every line; see the measured-open list below"
+        f"expected exactly one step carrying the perf marker in the `test` job, found "
+        f"{len(test_steps)}. A renamed or moved step is a failure here rather than an empty "
+        "result"
     )
-    quiet = test_steps[0]
+    quiet_step, quiet_commands, quiet_gate = test_steps[0]
+    quiet = gated_command("test", quiet_step, quiet_commands, quiet_gate)
     assert _covers_the_perf_marker(quiet, want_marker=True), (
-        f"the test job's perf step is `{' '.join(quiet)}`. Its `-m` must SELECT `perf`, not "
-        "deselect it"
+        f"the test job's perf command is `{' '.join(quiet)}`. Its `-m` must SELECT `perf`, "
+        "not deselect it"
     )
     assert _targets_tests_dir(quiet), (
-        f"the test job's perf step is `{' '.join(quiet)}`. It must name `tests/`, not "
+        f"the test job's perf command is `{' '.join(quiet)}`. It must name `tests/`, not "
         "`tests/perf`: the marker means 'wall-clock sensitive', 7 of the 14 marked tests "
         "live outside tests/perf/, and the directory form collects those 7 and PASSES"
     )
     assert _flag_value(quiet, "-n") == "0", (
-        f"the test job's perf step is `{' '.join(quiet)}`; `-n` must be `0`. Without it the "
-        "timing tests run across workers, which is the condition the split exists to prevent"
+        f"the test job's perf command is `{' '.join(quiet)}`; `-n` must be `0`. Without it "
+        "the timing tests run across workers, which is the condition the split exists to "
+        "prevent"
     )
 
     coverage_steps = perf_steps("coverage")
-    parallel = [argv for argv in coverage_steps if _covers_the_perf_marker(argv, want_marker=False)]
-    serial = [argv for argv in coverage_steps if _covers_the_perf_marker(argv, want_marker=True)]
+    parallel: list[list[str]] = []
+    serial: list[list[str]] = []
+    for _step, _commands, _gate in coverage_steps:
+        _argv = gated_command("coverage", _step, _commands, _gate)
+        if _covers_the_perf_marker(_argv, want_marker=False):
+            parallel.append(_argv)
+        elif _covers_the_perf_marker(_argv, want_marker=True):
+            serial.append(_argv)
     assert parallel, (
         "the Coverage job's parallel step must deselect the perf tests with `-m 'not perf'`; "
         "the perf set is then measured by the serial step instead of running under `-n auto`, "
@@ -982,10 +1214,8 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
                 "fail the workflow, and nothing here was checking that either"
             )
             # A processed-set, not a "seen" set used as a cycle test: a DIAMOND is
-            # valid YAML and common (two jobs that both need a shared setup), and a first
-            # version of this walk failed `test.needs: [lint, agent-context]` plus
-            # `lint.needs: [agent-context]` with "cycle in the needs graph" - three lines
-            # of valid configuration diagnosed as a defect that did not exist.
+            # valid YAML and common (two jobs that both need a shared setup), e.g.
+            # `test.needs: [lint, agent-context]` plus `lint.needs: [agent-context]`.
             if _dependency in _seen:
                 continue
             _seen.add(_dependency)
@@ -1000,10 +1230,7 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
             )
             _queue.extend(_needs_of(jobs[_dependency]))
 
-    # The step-level and job-level neutralisations. These assertions lived in a separate test
-    # (`test_the_perf_steps_cannot_be_neutralised`) until `d9d18860` deleted it while the
-    # comment below went on claiming they were checked; seven mutations were then measured
-    # green against this pin. They belong here rather than in a second test because the pin
+    # The step-level and job-level neutralisations. They belong here because the pin
     # that finds the steps is the pin that must insist they can fail.
     for _job_name in ("test", "coverage"):
         _gate = jobs[_job_name]
@@ -1016,10 +1243,15 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
             "skipped entirely, which is reported differently from passing"
         )
         for _step in _gate.get("steps", []):
-            _argv = _argv_of(_step.get("run"))
-            if not (_argv and "perf" in str(_marker_arg(_argv))):
+            _commands = _commands_of(_step.get("run"))
+            _gate_commands = [
+                _argv
+                for _argv in _commands
+                if _marker_arg(_argv) is not None and "perf" in str(_marker_arg(_argv))
+            ]
+            if not _gate_commands:
                 continue
-            _where = f"{_job_name} / {_step.get('name') or ' '.join(_argv)[:40]}"
+            _where = f"{_job_name} / {_step.get('name') or ' '.join(_gate_commands[0])[:40]}"
             assert not _step.get("continue-on-error"), (
                 f"`{_where}` has continue-on-error: the perf tests would run, could fail, "
                 "and the job would still be green - a gate that reports nothing"
@@ -1032,7 +1264,7 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
             # the three zero-slack budgets must not do.
             _skipped = (
                 "the perf tests would never run"
-                if _covers_the_perf_marker(_argv, want_marker=True)
+                if _covers_the_perf_marker(_gate_commands[0], want_marker=True)
                 else "the deselect would be skipped, so the perf tests would run under "
                 "`-n auto` in the parallel step beside workers"
             )
@@ -1046,13 +1278,13 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
     # is only informative next to the things on the other side of it.
     #
     # CLOSED, and every entry names the ASSERTION that closes it rather than the shape. A
-    # list of shapes reads as coverage even when nothing checks them - which is exactly what
-    # happened here: `d9d18860` deleted the test holding the step/job assertions while this
-    # comment went on claiming the shapes were verified, and seven mutations then passed.
+    # list of shapes reads as coverage even when nothing checks them;
+    # `scripts/replay_gate_mutations.py` replays every closed shape and asserts each is
+    # caught, so this list can be re-measured in one command rather than believed.
     #
     #   * a `#` comment naming the perf command - line-initial, mid-line in a block scalar,
     #     inside an `echo`, and after `true;`
-    #         -> `_argv_of` tokenises each line with `shlex.split(comments=True)`, so a
+    #         -> `_commands_of` strips comments with `shlex.split(comments=True)` (#513), so a
     #            comment never reaches `_marker_arg` / `_flag_value` / `_targets_tests_dir`.
     #   * `tests/perf` instead of `tests/`
     #         -> `_targets_tests_dir`, which compares a PATH token against `tests`.
@@ -1066,23 +1298,31 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
     #         -> the `for _job_name in ("test", "coverage")` loop above.
     #   * a `needs:` dependency that can never run
     #         -> the `needs` walk above. A skipped job is reported differently from a pass.
+    #   * an earlier line naming the perf command, a here-doc body supplying the flags, and
+    #     `bash scripts/ci_perf.sh tests/ -m perf -n 0` (#513)
+    #         -> `gated_command`: the marker-selecting command must be the step's LAST command
+    #            and must itself invoke pytest.
+    #   * `|| true`, or a pipe to `tee` without `pipefail`, at the end of the command (#513)
+    #         -> the same last-command rule: any command after the runner makes the runner
+    #            not the step's exit status. A piped gate is refused even though `shell: bash`
+    #            runs `-eo pipefail` and WOULD propagate the failure: the pin requires the gate
+    #            to be the step's last command, so this is a shape it declines rather than one
+    #            it reasons about. The one step that pipes (`pytest … | tee` for the duration
+    #            report) carries no perf marker, so the rule does not touch it.
+    #   * `-o addopts="--co"`, `--co`, `--collect-only` (#513)
+    #         -> `_collect_only_requested`, which reads the flag directly or inside the
+    #            `addopts=` override value.
+    #   * `env: PYTEST_ADDOPTS: --co` on a perf step or its job (#513)
+    #         -> `_pytest_addopts_env`.
     #
     # STILL OPEN, measured:
-    #   * `-o addopts="--collect-only"`, `--co`, or `env: PYTEST_ADDOPTS: --co` on a perf
-    #     step's command - the step succeeds without running a single test.
-    #   * `|| true`, or a pipe to `tee` without `pipefail`, on the same command. Note this
-    #     is NOT unpinnable: `shlex.split` yields `||` and `true` as tokens, so a check for a
-    #     disjunction after the command is a few lines. An earlier version of this note said
-    #     "shell semantics cannot be pinned statically", which was an overclaim - it is
-    #     unwritten, not unwritable.
-    #   * tokens belonging to a different command taken as the command's. `_argv_of`
-    #     concatenates every line's tokens, so a script whose real command lacks `-n 0` and
-    #     whose earlier line is `echo pytest tests/ -m perf -n 0` satisfies all three
-    #     assertions while running nothing. Same shape: a here-doc body supplying the flags,
-    #     and `bash scripts/ci_perf.sh tests/ -m perf -n 0`. The fix is to split the token
-    #     stream into commands and evaluate the checks on the one that selects the marker;
-    #     it is not written yet, and an earlier version of the assertion message claimed it
-    #     was covered.
+    #   * a control operator embedded in the MIDDLE of a token with no whitespace, e.g.
+    #     `… ||true` is caught (`_leading_operator` splits the leading `||`), but a token
+    #     like `a;b` or a `-n` value of `0;true` is not - though the latter fails the `-n`
+    #     check loudly rather than passing, so it is over-strict, not a hole.
+    #   * a `-k` / `--deselect` / `--ignore` filter, or a short `--maxfail`, inside the
+    #     command or an `addopts` override. The command still runs tests, so this is a weaker
+    #     shape than collect-only and is not screened yet.
     #   * `strategy.matrix` producing zero combinations, and a `concurrency` group that
     #     cancels the run. Neither has a pinned check; a `timeout-minutes` short enough to
     #     kill the step does fail the job, which is loud enough to count as covered.
@@ -1091,6 +1331,50 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
     #   * a `run:` expressed as a YAML list is caught as `found == 0` - loud, and not for the
     #     reason a draft gave (a TypeError from a regex);
     #   * a perf step moved into a reusable workflow is caught by the `found >= 3` guard.
+
+
+def test_the_coverage_floor_step_is_pinned() -> None:
+    """#514: the `Coverage` job's floor step must exist, always run, and read its report.
+
+    `Coverage` is a required check now. The job's display name IS the branch-protection
+    context, and the floor step is what decides the job: the two coverage steps are
+    measurements, and this step is the gate. It must run `if: always()` so a skipped or
+    failed measurement never reports a pass, and it must read `coverage.xml` explicitly.
+    """
+    import yaml
+
+    workflow = yaml.safe_load(
+        (_REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    )
+    coverage = workflow["jobs"]["coverage"]
+    assert coverage.get("name") == "Coverage", (
+        "the Coverage job's display name IS the required-check context; a rename would "
+        "leave branch protection waiting forever on a check that never reports"
+    )
+    floor_steps = [
+        step
+        for step in coverage["steps"]
+        if "check_coverage_floors.py" in str(step.get("run", ""))
+    ]
+    assert len(floor_steps) == 1, (
+        f"expected exactly one coverage-floor step in the Coverage job, found "
+        f"{len(floor_steps)} - the floor is the gate, not an optional report"
+    )
+    step = floor_steps[0]
+    assert step.get("if") == "always()", (
+        "the floor step must run `if: always()`: it is the only step that decides the job, "
+        "and skipping it when an earlier step failed would report success without a "
+        "measurement"
+    )
+    assert "--xml coverage.xml" in str(step.get("run")), (
+        "the floor step must read the `coverage.xml` the coverage steps write"
+    )
+    assert not step.get("continue-on-error"), (
+        "the floor step must not set continue-on-error: it is the required status check"
+    )
+    assert not coverage.get("continue-on-error"), (
+        "the Coverage job must not set continue-on-error"
+    )
 
 
 class TestCheckNoSecrets:

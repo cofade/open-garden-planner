@@ -71,13 +71,11 @@ jobs:
       # captured where the wall clock went, so every speed-up was a guess; this
       # makes the measurement a byproduct of a run that has to happen anyway.
       # `tee` keeps the live progress and failures in the log while also writing
-      # the report for the artifact below. The `pipefail` that keeps a failing suite
-      # from reporting green comes from the `shell: bash` line further down, which
-      # runs `bash --noprofile --norc -eo pipefail {0}`; the explicit `set -o pipefail`
-      # in the script body is therefore a no-op. It is kept because removing it would
-      # make the guarantee depend on a reader remembering that `shell:` line, but the
-      # guarantee itself does not live here — an earlier version of this comment credited
-      # this line and so would have kept the script safe even if `shell:` changed.
+      # the report for the artifact below. `set -o pipefail` keeps a failing suite from
+      # reporting green; it is redundant with the `shell: bash` line further down, which
+      # runs `bash --noprofile --norc -eo pipefail {0}`, and is kept as a visible
+      # declaration of the fail-fast contract at the point of reading rather than as the
+      # mechanism that provides it.
       #
       # Parallelism is NOT spelled out here. `addopts` carries `-n auto --dist
       # worksteal`, which resolves to 4 workers on ubuntu-latest's 4 vCPUs. On this
@@ -102,10 +100,8 @@ jobs:
       # agent_api shutdown tests, the map-picker close bound (0.5 s), the shadow-overlay
       # and sun-heatmap budgets, the point-snapper mean (16 ms) and the spatial-index
       # medians (200 ms / 1 ms). The directory form collects the other seven and passes.
-      # (An earlier version of this comment said "three", which is the count of marked
-      # tests that carry NO CI slack — a different set that happened to be written down
-      # first. `tests/unit/test_gate_commands.py` pins the command so it cannot be
-      # changed to the directory form.)
+      # `tests/unit/test_gate_commands.py` pins the command so it cannot be changed to
+      # the directory form.
       - name: Run performance budgets on a quiet runner
         env:
           QT_QPA_PLATFORM: offscreen
@@ -267,8 +263,8 @@ jobs:
       # The two head runs give 2.8x-3.7x on Coverage and 3.0x-4.3x on Test - read the
       # spread, not the smaller figure. One CI sample is one reading of a shared runner.
       #
-      # Whether `Coverage` should be a required check is a policy question for the owner,
-      # deliberately not answered here.
+      # Coverage is a required status check (ADR-058 addendum; #514). A floor
+      # regression or unparseable report blocks merge.
       - name: Measure full-suite line and branch coverage
         env:
           QT_QPA_PLATFORM: offscreen
