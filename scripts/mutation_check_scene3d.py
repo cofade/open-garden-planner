@@ -263,9 +263,15 @@ MUTANTS: tuple[Mutant, ...] = (
            (SYNC, PIPELINE)),
     Mutant("reset() keeps the sun it deduplicates against",
            SRC + "core/scene3d/sync.py",
-           "        self._failures = {}\n        self._sun = None\n        self._ground = None\n        try:\n",
-           "        self._failures = {}\n        try:\n",
+           "        self._failures = {}\n        self._sun = None\n        self._ground = None\n"
+           "        self._selection = EMPTY_SELECTION",
+           "        self._failures = {}\n        self._selection = EMPTY_SELECTION",
            (SYNC,)),
+    Mutant("reset() keeps the selection ring it sent (L1.8)",
+           SRC + "core/scene3d/sync.py",
+           "        self._selection = EMPTY_SELECTION  # what was SENT; what is selected stays asked for\n",
+           "",
+           (U + "test_scene3d_selection.py",)),
     Mutant("a clear() that raises leaves the sync usable",
            SRC + "core/scene3d/sync.py",
            "            self._sink.clear()\n        except BaseException:\n            self._poisoned = True\n            raise\n",
@@ -288,9 +294,14 @@ MUTANTS: tuple[Mutant, ...] = (
            (SYNC,)),
     Mutant("RecordingSink.clear() leaves the transaction open",
            SRC + "core/scene3d/sink.py",
-           "        self._ground = None\n        self._open = False\n        self.calls.append(SinkCall(\"clear\", None, ()))\n",
-           "        self._ground = None\n        self.calls.append(SinkCall(\"clear\", None, ()))\n",
+           "        self._open = False\n        self.calls.append(SinkCall(\"clear\", None, ()))\n",
+           "        self.calls.append(SinkCall(\"clear\", None, ()))\n",
            (SYNC,)),
+    Mutant("RecordingSink.clear() keeps the selection ring (L1.8)",
+           SRC + "core/scene3d/sink.py",
+           "        self._ground = None\n        self._selection = EMPTY_SELECTION\n        self._open = False\n",
+           "        self._ground = None\n        self._open = False\n",
+           (U + "test_scene3d_selection.py",)),
     Mutant("RecordingSink.clear() keeps the sun",
            SRC + "core/scene3d/sink.py",
            "        self._items.clear()\n        self._sun = None\n", "        self._items.clear()\n",
@@ -975,7 +986,7 @@ def run(mutant: Mutant) -> tuple[str, str]:
     try:
         path.write_text(text.replace(mutant.old, mutant.new), encoding="utf-8", newline="")
         proc = subprocess.run(
-            [sys.executable, "-m", "pytest", *mutant.tests, "-q", "-x", "-p", "no:cacheprovider"],
+            [sys.executable, "-m", "pytest", *mutant.tests, "-q", "-x", "-n", "0", "-p", "no:cacheprovider"],
             cwd=REPO, capture_output=True, text=True, encoding="utf-8", errors="replace",
             timeout=1800, check=False,
         )

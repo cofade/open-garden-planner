@@ -404,7 +404,7 @@ def run(mutant: Mutant, root: Path) -> tuple[str, str]:
     try:
         path.write_text(text, encoding="utf-8", newline="")
         proc = subprocess.run(
-            [sys.executable, "-m", "pytest", *mutant.tests, "-q", "-x", "-p", "no:cacheprovider"],
+            [sys.executable, "-m", "pytest", *mutant.tests, "-q", "-x", "-n", "0", "-p", "no:cacheprovider"],
             cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace",
             timeout=1800, check=False,
         )
@@ -449,7 +449,7 @@ def main(argv: list[str] | None = None) -> int:
         root = Path(scratch)
         copy_tree(root)
         baseline = subprocess.run(
-            [sys.executable, "-m", "pytest", *ART, *UNIT, *PIPE, "-q", "-x", "-p", "no:cacheprovider"],
+            [sys.executable, "-m", "pytest", *ART, *UNIT, *PIPE, "-q", "-x", "-n", "0", "-p", "no:cacheprovider"],
             cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace",
             timeout=3600, check=False)
         last = (baseline.stdout.strip().splitlines() or ["?"])[-1]
