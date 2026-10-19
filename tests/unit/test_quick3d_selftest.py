@@ -780,6 +780,10 @@ def test_the_supervisor_leaves_a_process_alone_whose_block_finished_first(tmp_pa
     assert "[watchdog] released=True what=the supervised block supervisor_exit=0" in text
 
 
+# Wall-clock: the child looks 1.5 s into its block for a supervising process that must be
+# gone by then; beside the default run's workers that process starts and leaves later
+# ("DURING None" — measured twice on 2026-10-19), so it runs in the serial perf step (ADR-058).
+@pytest.mark.perf
 @windows_only
 def test_a_supervisor_that_never_supervised_says_so_in_its_exit_code(tmp_path: Path) -> None:
     """Review round 4, P2-1 — the reviewer's sequence. The supervisor cannot find its
