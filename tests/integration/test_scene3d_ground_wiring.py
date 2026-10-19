@@ -195,9 +195,13 @@ def test_a_new_document_shows_none_of_the_old_ground(rig: GroundRig) -> None:
     rig.finished()
 
 
-def test_a_re_baked_tile_is_counted_as_a_retired_model(qtbot: Any) -> None:
-    """A re-baked tile is a NEW Model (``quick3d/ground_tiles.py``): the old one is
-    destroyed, and the workspace's release policy counts what was destroyed."""
+def test_a_re_baked_tile_is_not_counted_for_the_release_policy(qtbot: Any) -> None:
+    """A re-baked tile is a NEW Model (``quick3d/ground_tiles.py``), but tile Models are
+    not what the workspace's cache release is for: twenty cycles of new tile Models
+    stay flat without a release, and a release after tile TEXTURES were replaced
+    leaves them behind in Qt Quick 3D (§11.4.34, measured on WARP: +10.7 to +13.3 MB
+    a cycle with a release each cycle, flat without). So a pass that only re-baked
+    tiles reports nothing retired — and asks for no release."""
     rig = GroundRig(qtbot, budget_s=None)  # the whole ground in one pass: exact counts
     lawn = rig.lawn(100.0, 100.0, 700.0, 300.0)  # two tiles
     rig.controller.set_active(True)
@@ -208,7 +212,7 @@ def test_a_re_baked_tile_is_counted_as_a_retired_model(qtbot: Any) -> None:
     rig.settle()
     (report,) = rig.reports[before:]
     assert report.changes.material == (str(lawn.item_id),)
-    assert report.retired == 2  # its two tiles, each a new Model
+    assert report.retired == 0  # its two tiles are new Models, and are not counted
     rig.finished()
 
 

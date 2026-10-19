@@ -1674,7 +1674,11 @@ tier: `tests/integration/test_scene3d_ground_render.py`):
   one step is one of ten: the median is about 0. The bound is unchanged (2.0 MB a cycle); the
   measured curves are pinned in the default tier
   (`tests/unit/test_scene3d_ground.py::TestTheLeakGatesStatistic`, which also shows the old
-  statistic reading the step as > 2.0).
+  statistic reading the step as > 2.0). *Its blind spot, measured the same day:* a leak that
+  strikes less often than every other cycle is a minority of the steps — a release every fifth
+  cycle stepped a curve up by 10 to 25 MB at each release (+44 MB over twenty cycles) and the
+  median of the steps read +0.07. G6 leaks per re-bake, every cycle, so the gate sees what it
+  is for; a soak for an occasional leak must look at the total growth as well.
 - **A pass the controller owes is counted, never waited for by the clock.** The wiring tests
   (`tests/integration/test_scene3d_ground_wiring.py`) give the workspace's controller a baker
   with a budget of 0 — one tile a pass at least, so every multi-pass path is taken — and wait
@@ -5158,9 +5162,10 @@ exist on the C++ side.
   strip says "… the 3D ground does not show all of the plan" for a note.
 - **A new document** drops the baker's tiles with the plan's other memories
   (`_drop_plan_memories`): a tile not yet painted is bare, never a picture of the old plan.
-- **The release policy:** a re-baked tile is a new Model, so a pass counts every tile Model it
-  destroyed (a replaced or dropped tile) in `TickReport.retired`, which the workspace's
-  `RELEASE_AFTER_RETIRED` / `RELEASE_NOW_RETIRED` read (a reset counts every tile it cleared).
+- **The release policy does not count tiles.** A re-baked tile is a new Model, but tile Models
+  need no cache release (twenty cycles of new tile Models stay flat without one), and a release
+  after tile TEXTURES were replaced leaves them behind (known limit 11) — so `TickReport.retired`
+  counts items only, and ground work never asks for a release.
 - **The tile's material is the meadow's** — roughness 1.0, specular amount 0.15
   (`Garden.qml`'s `groundTile`): PrincipledMaterial scales the sky's diffuse light by
   (1 − specular amount), so other values put a luma step where a baked lawn meets the endless
@@ -5223,6 +5228,21 @@ A STILL PICTURE of a live view goes that way too, never through repeated `host.g
     item through its cache, which cuts whatever a style draws beyond the item's bounding
     rectangle — the bars of a 30 cm metal fence reach 37.5 cm from the line, the rectangle 17 cm.
     Exports paint without the cache and show them whole; so does the ground.
+11. **OPEN — a cache release after re-baked tiles leaves their textures behind.** The
+    workspace calls `QQuickWindow.releaseResources()` when items lost their Models (ADR-065).
+    When ground tiles were RE-BAKED before such a release — new `QQuick3DTextureData`
+    objects replacing old ones — Qt Quick 3D keeps about one generation of those textures
+    for good. Measured on WARP, a 16-tile ground, twenty cycles: re-bake + release each cycle
+    +10.7 to +13.3 MB a cycle (+7.4 to +8.7 without mipmaps); re-bake without release flat;
+    new tile Models with the SAME textures + release flat (−0.28); one release, then twenty
+    re-bakes flat; a release every fifth cycle a step of 10 to 25 MB at each release. In the
+    workspace's own soak (bench_small, every rebuild re-bakes): dedicated GPU memory +7.5 MB
+    per rebuild with the release after quiet and +19 with the release in the pass, against
+    0.0 and −0.1 without the baker. The bake does not ASK for releases (tile Models
+    are not counted, see "How the product wires it"), so a session leaks only where item
+    changes cause a release after the ground was re-painted. A fix changes how tile textures
+    reach the engine (an image provider; a texture pool that outlives a release) and is a
+    follow-up of its own.
 
 ### 8.32.6 Built-world builders and base stacking (L1.6)
 

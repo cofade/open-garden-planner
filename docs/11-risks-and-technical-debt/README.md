@@ -2511,6 +2511,28 @@ review had used (a tile's paint); the pin for "any other site" raises in the adm
 instead. *Lesson:* test a failure path by what the user sees on the edit AFTER it, not by the
 state right after the exception — and inject the failure in more than one place.
 
+**A cache release in Qt Quick 3D keeps the textures that were replaced before it — OPEN**
+(L1.5 Part B). *Symptom:* with the ground bake wired in, the workspace's G7 soak (twenty
+rebuilds of bench_small, ADR-065) grew dedicated GPU memory by 7.5 MB per rebuild with its
+release after quiet and by 19 with the release in the pass — 0.0 and −0.1 without the baker;
+two G7 gates failed (13.75 and 28.0 MB per rebuild against 10). *Wrong theory:* "the tiles
+leak on a reset — `GroundTiles.clear()` lets their textures go before a frame"; resets
+without a release are flat. *Isolated on WARP* (a 16-tile ground, twenty cycles, private bytes
+per cycle): re-bake + `releaseResources()` each cycle +10.7 to +13.3 MB; the same without
+mipmaps +7.4 to +8.7; re-bake alone 0.00; reset + re-bake alone 0.00; new tile Models with the
+SAME textures + release −0.28; one release then twenty re-bakes +0.06; a release every fifth
+cycle a 10 to 25 MB step at each release. So it takes BOTH: new `QQuick3DTextureData` objects
+replacing old ones, and a release in between. Qt's `releaseResources()` reaches
+`QSSGBufferManager::clear()`, which releases every cached texture, also the ones shown, and
+reloads them with the next frame; what keeps the replaced ones is not established. *What
+Part B does about it:* the bake never asks for a release (tile Models are not counted in
+`TickReport.retired` — they need none), so only a release caused by item changes after a
+re-bake leaks. *A fix* changes how tile textures reach the engine and is its own follow-up.
+The probe is in the story's scratch (`probe_release_driver.diff`). *Lesson:* a soak that
+passes alone (G6: re-bakes, no release) and one that passes alone (G7: releases, no textures
+replaced) can both be green while their combination leaks — run the product's own policy
+against the new kind of resource.
+
 **A slope estimator meant to ignore one bad reading does not ignore one STEP** (Ruling R41).
 Theil–Sen — the median of all pairwise slopes — shrugs off a single outlier; a single step in
 the middle of a window is not an outlier but a level change, and most pairs straddle it. G6's

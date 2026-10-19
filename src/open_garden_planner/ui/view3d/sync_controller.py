@@ -78,11 +78,14 @@ the ground itself). A ground pass is a pass: ``applied`` carries its report
 list (``ground_problems``: items whose paint failed, tiles that hold less than
 the plan, tiles that could not be painted, a bake that raised); a document
 change drops the baker's tiles with the other memories of a plan (a new plan
-must not show the old one's ground while its own is painted); and every tile
-whose Model a pass destroyed — a re-baked tile is a new Model — is counted in
-``TickReport.retired`` for the workspace's release policy. The bake paints
-images, never the scene: it moves no plan revision and causes no repaint, so
-the net never sees it. ``set_ground_stage(stage)`` — the function that sizes
+must not show the old one's ground while its own is painted). A re-baked tile
+is a new Model, but tile Models are NOT counted in ``TickReport.retired``: they
+need no cache release (measured: twenty cycles of new tile Models stay flat
+without one), and a release after tile TEXTURES were replaced leaves those
+textures behind in Qt Quick 3D (about one generation of the re-baked tiles per
+release, §11.4.34) — counting them would only call it more often. The bake
+paints images, never the scene: it moves no plan revision and causes no repaint,
+so the net never sees it. ``set_ground_stage(stage)`` — the function that sizes
 each tick's ``GroundSpec``, ``stage(previous, records, width_cm, depth_cm)``,
 default the bare plan rectangle, contained when it raises — stays; with a baker
 the stage's rectangle is what the tiles are laid on.
@@ -118,7 +121,6 @@ from open_garden_planner.core.scene3d import (
     SceneDiff,
     SceneSync,
     SunState,
-    changed_tiles,
 )
 from open_garden_planner.core.scene3d.camera import Bounds
 from open_garden_planner.core.sim_clock import SimChange, SimClock
@@ -232,18 +234,6 @@ class GroundProblems:
     def incomplete(self) -> bool:
         """The ground shows less than the plan somewhere — beyond ``items``."""
         return bool(self.capped_tiles or self.failed_tiles or self.failure is not None)
-
-
-def _tiles_retired(before: GroundSpec | None, after: GroundSpec | None) -> int:
-    """How many tile Models a ground change destroyed: a re-baked tile is a NEW Model
-    (``quick3d/ground_tiles.py``), and a tile that is no longer named goes."""
-    old = before.tiles if before is not None else ()
-    new = after.tiles if after is not None else ()
-    if old is new or not old:
-        return 0
-    held = {tile.key for tile in old}
-    uploaded, dropped = changed_tiles(old, new)
-    return sum(1 for tile in uploaded if tile.key in held) + len(dropped)
 
 
 class Scene3DController(QObject):
@@ -630,7 +620,6 @@ class Scene3DController(QObject):
         """One more slice of pending ground work (module docstring): one bake, no
         snapshot. A failure is contained like the light's: a full pass rebuilds."""
         self._ground_owed = False
-        before = self._sync.ground
         started = time.perf_counter()
         try:
             self._sync.continue_ground()
@@ -641,10 +630,9 @@ class Scene3DController(QObject):
             return
         self.ground_count += 1
         self._set_problems(self._skipped, dict(self._sync.failures))
+        # retired 0: tile Models are not counted (module docstring)
         self._done(TickReport(SceneDiff(), False, len(self._sync.records), 0.0,
-                              (time.perf_counter() - started) * 1000.0,
-                              retired=_tiles_retired(before, self._sync.ground),
-                              ground_pass=True))
+                              (time.perf_counter() - started) * 1000.0, ground_pass=True))
 
     def _pass_light(self) -> None:
         self._sun_dirty = False
@@ -684,7 +672,6 @@ class Scene3DController(QObject):
         sun = self._sun()
         width, depth = self._plan_size()
         started = time.perf_counter()
-        ground_before = self._sync.ground
         changes: SceneDiff | None = None
         if self._sync.poisoned:
             # An engine call failed earlier and the sync refuses every apply until it is
@@ -708,9 +695,6 @@ class Scene3DController(QObject):
         if changes is None:
             self.recovery_count += 1
             self._retired_by_reset += len(self._sync.records)
-            # … and every ground tile the reset clears
-            self._retired_by_reset += len(ground_before.tiles) if ground_before is not None else 0
-            ground_before = None
             try:
                 self._sync.reset()
                 changes = self._sync.apply(
@@ -732,8 +716,7 @@ class Scene3DController(QObject):
                 _LOG.debug("3D sync: the plan changed without an announcement (%s); the "
                            "quiet-time pass found and applied it", _kinds(changes))
         self._set_problems(tuple(skipped), dict(self._sync.failures))
-        retired = (self._retired_by_reset + len(changes.removed) + len(changes.geometry)
-                   + _tiles_retired(ground_before, self._sync.ground))
+        retired = self._retired_by_reset + len(changes.removed) + len(changes.geometry)
         self._retired_by_reset = 0
         self._done(TickReport(changes, True, len(records), snapshot_ms,
                               (time.perf_counter() - started) * 1000.0, recovered, retired,

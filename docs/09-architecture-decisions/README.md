@@ -5257,10 +5257,15 @@ fixed the same defect, `master`'s mechanism wins:**
   records a capped tile left out by id — the admission walk keeps only what a tile keeps, and
   naming the rest would put work behind the bound.
 - **A document change clears the baker**; an engine reset clears it through `SceneSync.reset()`.
-- **Release policy:** every tile Model a pass destroys counts in `TickReport.retired` —
-  conservative: review 2 measured 12,000 one-tile edits growing the process by 0.8 MB with
-  `releaseResources()` freeing nothing, so a release this triggers may free nothing; it costs
-  2 to 10 ms, at most once per quiet period.
+- **Release policy: tiles are not counted.** First built conservatively — every tile Model a
+  pass destroyed counted in `TickReport.retired` — and reversed by measurement: tile Models need
+  no release (new tile Models with the same textures, twenty cycles, with or without a release:
+  flat), and a `releaseResources()` after tile TEXTURES were replaced leaves them behind
+  (+10.7 to +13.3 MB a cycle on WARP with a release each cycle; flat without; −0.28 for Model
+  churn alone). Counting tiles only called the leaking release more often. The leak itself is
+  OPEN (§11.4.34; the workspace's G7 soak with the baker in: GPU +7.5 MB per rebuild with its
+  release after quiet, +19 with the release in the pass, against 0.0 and −0.1 without the
+  baker).
 - **The tile's material is the endless meadow's** (roughness 1.0, specular amount 0.15), so a
   baked lawn meets the meadow without a step (the L1.4 look review: 0.92 / 0.2 measured 2 to 8
   luma darker; the combined look pass gates the edge at ≤ 1 luma).
