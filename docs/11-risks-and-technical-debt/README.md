@@ -2963,7 +2963,7 @@ Symptom → root cause → fix, for the things that cost time while the looks (A
     the fence at low. Measured against a 2x-supersampled render: FXAA's luma error 20.0, 2x MSAA
     12.0 (and its dark-pixel share 18.8 %, worse than FXAA's 12.7 %), 4x MSAA 6.2 (medium 7.2).
     *Fix:* low takes 4x MSAA; on the RTX 4070 its cost was inside the run-to-run spread.
-12. **Memory grew while the wind ran — not reproduced on 2026-10-19 (FU-L14-2, item 1 of §11.4.37).** *Symptom:* the first soak of the
+12. **Memory grows while the wind runs — intermittent (FU-L14-2, #534; item 1 of §11.4.37).** *Symptom:* the first soak of the
     default steady state (the plan shown, the wind running; fix round 1) reads 2.6 MB per minute
     of committed memory over 2 minutes and 2.09 over 6 (linear: 1034.2 -> 1045.9 MB, 21,594
     frames, about 0.55 kB a frame); dedicated GPU memory flat. With the QML engine's collector
@@ -3108,8 +3108,8 @@ Symptom → root cause → fix (ADR-065 addendum "the default and the removal", 
    on `windTime`, no JavaScript per frame), read 0.77 / 1.04 / 0.89 and 2.03 / 1.04 / 0.46 MB a
    minute from the first sample to the last (second-half slopes 0.17 / 1.26 / 0.23 and 1.51 /
    0.83 / 0.00): the two clocks inside each other's spread. *Fix:* the clock change was
-   reverted (it changed nothing measurable), the xfail removed, the gate kept at its bound —
-   red again the day the growth is back. *Lesson:* run the unchanged code first; a fix measured
+   reverted (it changed nothing measurable) and the xfail removed — and a seventh run the same day (the final render tier on the L1.9/L1.10 tree) read a second-half slope of 2.637
+   MB a minute: intermittent, not gone. The gate is a non-strict xfail again (#534). *Lesson:* run the unchanged code first; a fix measured
    alone would have been credited with a difference that was already there.
 2. **"Settled" must know every timer that books a pass.** *Symptom:* after the date-playback
    throttle, the workspace workflow test read `[begin, set_sun, commit]` where it expected the

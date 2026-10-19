@@ -1911,7 +1911,8 @@ How §8.32.9 is tested. The seam is still the workspace's (`Workspace.engine_fac
   red on the UNCHANGED code the day the fix was to be measured: the growth L1.4 had measured
   did not reproduce. Measuring only the "after" arm would have credited the new clock with it.
   A/B a change against a soak alternately, three runs per arm at least, the same machine and
-  session, and compare the spread, not one number.
+  session, and compare the spread, not one number. And do not read six quiet runs as "gone":
+  a seventh run the same day (the final render tier on the L1.9/L1.10 tree) read a second-half slope of 2.637 MB a minute, so the gate is a non-strict xfail again (#534).
 - **Measure what a deleted component cost while it still exists.** The old window's numbers
   (`scenario_budget_old_view`, called through its own slot because no menu reaches it after the
   flip) were taken on the L1.9 tree, before L1.10 deleted it; afterwards there is nothing left
@@ -6493,8 +6494,9 @@ the date steps.
 reproduce on 2026-10-19: six alternating soaks of 4–5 minutes, three with the `FrameAnimation`
 and three with a C++ `NumberAnimation` (no JavaScript per frame), read 0.46–2.03 MB a minute
 from the first sample to the last, second-half slopes 0.0–1.51 — the two clocks inside each
-other's spread, dedicated GPU memory flat. The clock change was reverted, the strict xfail
-removed, and the gate stands at its registered bound of 2.0 MB a minute.
+other's spread, dedicated GPU memory flat. The clock change was reverted. But a seventh run the same day (the final render tier on the L1.9/L1.10 tree) read a second-half slope of 2.637
+MB a minute against the registered bound of 2.0: the growth is intermittent, not gone. The gate
+is a non-strict `xfail` citing #534 until the growth is fixed.
 
 #### FR-SUN-06 / 07 / 08, clause by clause
 

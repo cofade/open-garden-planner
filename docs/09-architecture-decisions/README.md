@@ -6444,8 +6444,8 @@ ended on the last date every time.
 **D4. The wind's clock stays a `FrameAnimation`.** The planned fix for FU-L14-2 — the clock as a
 C++ `NumberAnimation`, no JavaScript per frame — was built and measured against the unchanged
 code in six alternating soaks (§8.32.9): no difference, and the growth L1.4 measured did not
-reproduce on either. Reverted; the strict xfail is removed because it passed; the gate stays at
-its bound.
+reproduce on either. Reverted. The final render tier the same day read 2.637 MB a minute (bound
+2.0): intermittent, not gone — the gate is a non-strict `xfail` citing #534.
 
 **D5. The flip with #532 open is the owner's call.** #532 (Qt 6.11's `QSSGBufferManager::clear()`
 skips hash entries, so about half of the same-size ground-tile textures leak on every cache
@@ -6484,7 +6484,7 @@ table, with what it says, is §8.32.9 "What the default costs".
 | edit → finished frame, p95 (2334 × 1105 pane) | small 45.9 ms (bound 50), large 180 ms (no bound) |
 | committed / dedicated GPU memory after the first frame | small +550–800 / 312 MB, large +950 / 312 MB; the old window +328 / 45 MB and +696 / 47 MB |
 | date playback, 60 s | the interval: 1.5–1.6 regrowth passes a second; without it one per step (312 and 452) |
-| the wind soak (FU-L14-2), 6 alternating runs of 4–5 min | 0.46–2.03 MB a minute overall, second-half slopes 0.0–1.51, both clocks; the strict xfail passed |
+| the wind soak (FU-L14-2), 6 alternating runs of 4–5 min | 0.46–2.03 MB a minute overall, second-half slopes 0.0–1.51, both clocks; a seventh run (the final render tier) 2.637 — intermittent, #534 |
 | after L1.5 joined (the ground on) | first readback small 2.68–2.96 s, large 4.21–4.33 s; GPU memory 332 / 428 MB; edit → frame p95 small 41.5 ms; a held date key keeps 41–63 MB of GPU memory a minute through #532 (76–112 without the interval) |
 
 #### L1.10: the removal, and the scars it retires
