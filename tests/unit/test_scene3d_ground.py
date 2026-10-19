@@ -391,6 +391,41 @@ class LoggingSink(RecordingSink):
 PLAN = GroundSpec(2400.0, 1600.0)
 
 
+class TestTheLeakGatesStatistic:
+    """Ruling R41 (FU-19): gate G6 reads the MEDIAN of the last ten cycles' growth.
+    The curves are the ones measured on this box."""
+
+    #: WARP, 2026-10-19: flat, ONE step of +20.6 MB at cycle 15, flat again — the run
+    #: the old statistic (Theil-Sen over the second half) read as +2.80 MB a cycle.
+    STEP = [790.5, 819.3, 819.2, 816.6, 814.9, 813.5, 813.1, 814.1, 814.1, 814.1, 814.1, 814.1,
+            813.9, 814.1, 814.2, 834.8, 835.7, 836.4, 836.5, 836.4]
+    #: The leak control on the same box: every replaced texture kept, +32 MB a cycle.
+    LEAK = [836.6, 870.3, 902.5, 931.8, 964.1, 999.2, 1031.4, 1063.6, 1094.0, 1127.1, 1159.3,
+            1192.5, 1224.7, 1256.9, 1286.8, 1320.4, 1352.6, 1384.8, 1417.0, 1447.5]
+
+    def test_one_step_is_no_leak_and_a_leak_is_one(self) -> None:
+        import statistics
+
+        from tests.integration.ground_bake_render_driver import tail_growth
+
+        assert abs(tail_growth(self.STEP)) < 0.2 < 2.0  # the bound
+        assert tail_growth(self.LEAK) > 30.0 > 8.0      # the control's floor
+        # … and what the statistic before read for the same step
+        tail = self.STEP[len(self.STEP) // 2:]
+        theil_sen = statistics.median((tail[j] - tail[i]) / (j - i)
+                                      for i in range(len(tail)) for j in range(i + 1, len(tail)))
+        assert theil_sen > 2.0
+
+    def test_a_leak_of_a_quarter_of_the_bound_a_cycle_is_its_own_median(self) -> None:
+        from tests.integration.ground_bake_render_driver import tail_growth
+
+        curve = [800.0 + 0.5 * cycle for cycle in range(20)]
+        curve[15] += 20.0  # with one step on top of it
+        assert tail_growth(curve) == 0.5
+        with pytest.raises(ValueError, match="no 10 cycles"):
+            tail_growth(curve[:10])
+
+
 class TestSyncWithAGroundBaker:
     def test_the_double_is_a_ground_baker(self) -> None:
         assert isinstance(FakeBaker(), GroundBaking)

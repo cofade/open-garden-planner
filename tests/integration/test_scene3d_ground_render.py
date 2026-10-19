@@ -470,8 +470,10 @@ def test_bare_ground_in_tiles_is_the_bare_rectangles_colour(run: Run) -> None:
 
 # ── G6: the keep-alive rule ──────────────────────────────────────────────────
 
-#: MB per cycle over the second half of the curve: an eighth of the 16 MB one kept
-#: generation of this ground holds. Written down before the first run.
+#: MB per cycle at the end of the curve (``driver.tail_growth``: the median of the
+#: last ten cycles' steps — Ruling R41; it was Theil-Sen over the second half): an
+#: eighth of the 16 MB one kept generation of this ground holds. Written down before
+#: the first run; unchanged by R41.
 SLOPE_BOUND_MB = 2.0
 CONTROL_SLOPE_MB = 8.0
 #: A software rasteriser keeps its textures in the process's own memory, so the leak
@@ -494,8 +496,8 @@ def soak(run: Run, tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
 
 
 def test_twenty_full_re_bakes_hold_two_generations_of_textures_at_most(run: Run) -> None:
-    """Gate G6, the rule itself, counted on the C++ side (Qt's ``destroyed`` signal
-    counts a texture down, not Python's books): twenty times every tile of a 16-tile
+    """Gate G6, the rule itself, counted on the C++ side (``textures_alive()``: the
+    textures whose C++ object sip says exists, not Python's books): twenty times every tile of a 16-tile
     ground is re-baked and handed to the scene — sixteen uploads and sixteen Models
     a cycle, and never more than the shown generation plus the one it replaced. The
     control keeps every replaced texture: the same count reads 320."""
@@ -515,12 +517,13 @@ def test_twenty_full_re_bakes_hold_two_generations_of_textures_at_most(run: Run)
 
 
 def _said(kept: dict[str, Any], adapter: str) -> tuple[float, str]:
-    slope = driver.tail_slope(kept["curve_mb"])
+    slope = driver.tail_growth(kept["curve_mb"])
     return slope, (
         f"{kept['graphics_api']} on {adapter}, {'a grab() a cycle' if kept['grab'] else 'no grab'}: "
         f"{kept['frames_presented']} frames presented in 20 cycles; {kept['metric']} "
-        f"{kept['curve_mb'][0]} -> {kept['curve_mb'][-1]} MB, slope {slope:+.3f} MB/cycle; "
-        f"{kept['mb_after_clear']} MB once the tiles are cleared")
+        f"{kept['curve_mb'][0]} -> {kept['curve_mb'][-1]} MB, growth {slope:+.3f} MB/cycle "
+        f"(median of the last ten cycles' steps); {kept['mb_after_clear']} MB once the tiles "
+        f"are cleared")
 
 
 def _judge_memory(kept: dict[str, Any], adapter: str) -> None:
@@ -543,9 +546,9 @@ def _judge_memory(kept: dict[str, Any], adapter: str) -> None:
 
 
 def test_twenty_full_re_bakes_do_not_grow_the_process(soak: dict[str, Any]) -> None:
-    """Gate G6, in memory: the second half of the curve is flat (Theil-Sen slope) on
-    a renderer whose textures the instrument can see — a software rasteriser keeps
-    them in the process's own memory."""
+    """Gate G6, in memory: the end of the curve is flat (the median of the last ten
+    cycles' growth, Ruling R41) on a renderer whose textures the instrument can see
+    — a software rasteriser keeps them in the process's own memory."""
     kept = soak["ground_keepalive"]
     assert kept["uploads_per_cycle"] == [16] * 20 and max(kept["alive_per_cycle"]) <= 32
     _judge_memory(kept, "a software rasteriser" if SOFTWARE else "the tier's default")
@@ -557,8 +560,8 @@ def test_the_leak_gate_sees_a_texture_list_that_only_grows(soak: dict[str, Any])
     +32.3 MB a cycle — the picture and Qt's copy of it)."""
     leak = soak["ground_keepalive_leak"]
     assert leak["alive_per_cycle"][-1] == 16 * 20  # every generation is still there
-    slope = driver.tail_slope(leak["curve_mb"])
-    print(f"\nG6 control: {leak['metric']} {leak['curve_mb']} MB, slope {slope:+.3f} MB/cycle")
+    slope = driver.tail_growth(leak["curve_mb"])
+    print(f"\nG6 control: {leak['metric']} {leak['curve_mb']} MB, growth {slope:+.3f} MB/cycle")
     assert slope > CONTROL_SLOPE_MB, leak["curve_mb"]
 
 
@@ -612,5 +615,5 @@ def test_a_grab_a_cycle_is_what_grows_a_direct3d_window_that_presents_nothing(ru
         assert slope < SLOPE_BOUND_MB, said
         pytest.skip(f"the control needs a Direct3D 11 hardware window that presents nothing — {said}")
     assert slope > CONTROL_SLOPE_MB, said
-    plain = driver.tail_slope(run[0]["scenarios"]["ground_keepalive"]["curve_mb"])
+    plain = driver.tail_growth(run[0]["scenarios"]["ground_keepalive"]["curve_mb"])
     assert plain < SLOPE_BOUND_MB < slope  # the same window, the same re-bakes, no grab: flat

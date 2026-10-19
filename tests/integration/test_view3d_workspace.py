@@ -41,7 +41,7 @@ from open_garden_planner.core.commands import (
 )
 from open_garden_planner.core.object_height import METADATA_KEY
 from open_garden_planner.core.object_types import ObjectType
-from open_garden_planner.core.scene3d import GroundSpec, RecordingSink
+from open_garden_planner.core.scene3d import RecordingSink
 from open_garden_planner.core.scene3d.builders import plants
 from open_garden_planner.core.scene3d.camera import Bounds, frame_pose
 from open_garden_planner.core.tools import ToolType
@@ -345,7 +345,10 @@ def test_the_workflow_plan_split_edit_pause_clock_new_open_close(
     assert calls[0] == BEGIN and calls[-3:] == [GROUND, SUN, COMMIT]
     assert sorted(calls[1:-3]) == sorted([("add", bed_id), ("add", apple_id)])
     sink, controller = engines.sink, workspace.controller
-    assert sink.ground == GroundSpec(5000.0, 3000.0) and sink.sun == NO_LOCATION_SUN
+    # the plan rectangle — baked into ground tiles since L1.5 wired its baker in (a bed
+    # and a tree have solids: the tiles are bare ground)
+    assert (sink.ground.width_cm, sink.ground.depth_cm) == (5000.0, 3000.0) and sink.ground.tiles
+    assert sink.sun == NO_LOCATION_SUN
     assert workspace.view3d_state is View3DState.STARTING
     engines.host.health_now.frames_presented = 1
     qtbot.waitUntil(lambda: workspace.view3d_state is View3DState.RUNNING, timeout=3000)
@@ -418,7 +421,9 @@ def test_the_workflow_plan_split_edit_pause_clock_new_open_close(
     assert cleared == [1] and ("clear", None) not in calls
     assert sorted(c for c in calls if c[0] == "remove") == sorted(
         [("remove", bed_id), ("remove", apple_id)])
-    assert sink.item_ids() == () and sink.ground == GroundSpec(2000.0, 1000.0)
+    assert sink.item_ids() == ()
+    # the new plan's rectangle, as ground tiles (L1.5): an empty plan's are all bare
+    assert (sink.ground.width_cm, sink.ground.depth_cm) == (2000.0, 1000.0) and sink.ground.tiles
     assert workspace.camera.pose == frame_pose(Bounds.of_plan(2000.0, 1000.0), 800.0 / 500.0)
     assert len(engines.host.cameras) == sent + 1
 
@@ -426,6 +431,8 @@ def test_the_workflow_plan_split_edit_pause_clock_new_open_close(
     window._load_project_file(str(PLANS / "bench_small.ogp"))
     qtbot.waitUntil(lambda: len(sink.item_ids()) == 98, timeout=20000)
     qtbot.wait(120)
+    # … and its ground, which the baker paints over a few passes of its own (L1.5)
+    qtbot.waitUntil(lambda: controller.idle, timeout=20000)
     assert cleared == [1, 1]
     assert len(engines.host.cameras) == sent + 2, "framed once more, for the opened plan"
     assert workspace.camera.pose == frame_pose(controller.plan_bounds(), 800.0 / 500.0)

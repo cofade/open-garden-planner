@@ -13,6 +13,10 @@ the artifact it runs in: can THIS build render the garden? It
    ground is meadow, the ground north-east of the box is in the box's shadow
    (where ``core/shadow_geometry`` — the 2D overlay's code — says it falls),
    every swatch drew. "Not empty" is not enough.
+4. bakes the plan's ground with the product's ground baker (L1.5): one flat
+   lawn, painted into twelve ground tiles over as many passes (a budget of 0 —
+   at least one tile a pass), uploaded as textures — and the judge finds the
+   lawn's colour where the lawn lies.
 
 A QML error, a shader that does not compile, a frame that fails the judge or an
 exception fails the self-test. So does a hang: a watchdog dumps every thread's
@@ -44,6 +48,7 @@ from open_garden_planner.core.scene3d import (
     GroundSpec,
     Material,
     MeshPart,
+    Paint,
     Params,
     Record,
     SunState,
@@ -72,6 +77,13 @@ SWATCH_TINT: Final = (200, 60, 40, 255)
 #: Every material kind but the box's own ``vc``, west to east.
 SWATCH_KINDS: Final = ("roof", "foliage", "grass", "glass", "water")
 _KIND_PARAM: Final = "material_kind"
+#: The flat lawn the ground baker paints: a colour no other part of the frame has.
+LAWN_TINT: Final = (40, 70, 220, 255)
+#: The ground's tiles: 128 px at 1 px/cm over the 400 x 300 cm plan — 4 x 3 tiles, and
+#: with a time budget of 0 one tile a pass at least: the upload of many tiles AND the
+#: multi-pass path, in a frame that renders in milliseconds.
+GROUND_TILE_PX: Final = 128
+GROUND_TILES: Final = 12
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +106,7 @@ def _ring(width: float, depth: float) -> tuple[tuple[float, float], ...]:
 
 
 _BOX: Final = _at(0.0, 20.0, 100.0, 100.0)           # footprint of the 100 cm cube
+_LAWN: Final = _at(-150.0, 125.0, 60.0, 30.0)        # in the lit north-west corner, flat
 _SWATCH_SIDE: Final = 40.0
 _SWATCHES: Final = {kind: _at(-150.0 + 75.0 * index, -105.0, _SWATCH_SIDE, _SWATCH_SIDE)
                     for index, kind in enumerate(SWATCH_KINDS)}
@@ -105,6 +118,7 @@ REGIONS: Final[dict[str, Region]] = {
     "box": _at(0.0, 20.0, 50.0, 50.0),
     "lit ground": _at(-150.0, 60.0, 40.0, 60.0),
     "shadow": _at(60.0, 85.0, 15.0, 15.0),
+    "lawn": _at(-150.0, 125.0, 30.0, 14.0),
     **{kind: Region(region.east_cm, region.north_cm, 20.0, 20.0)
        for kind, region in _SWATCHES.items()},
 }
@@ -121,11 +135,24 @@ def _item(item_id: str, footprint: Region, height: float, tint: tuple[int, int, 
     )
 
 
+def _lawn() -> Record:
+    """A FLAT item — no height, no solid: the ground baker paints it."""
+    return Record(
+        item_id="lawn", kind="LAWN", shape="rectangle",
+        footprints=(_ring(_LAWN.width_cm, _LAWN.depth_cm),),
+        transform=Transform(east_cm=_LAWN.east_cm, north_cm=_LAWN.north_cm),
+        material=Material("LAWN", fill_rgba=LAWN_TINT, paint=Paint()),
+        params=Params({"seed": "lawn"}),
+    )
+
+
 def records() -> dict[str, Record]:
-    """The self-test scene: the box and one low swatch per other material kind."""
+    """The self-test scene: the box, one low swatch per other material kind, and a
+    flat lawn on the ground."""
     scene = {"box": _item("box", _BOX, 100.0, BOX_TINT, "vc")}
     for kind, region in _SWATCHES.items():
         scene[kind] = _item(kind, region, 30.0, SWATCH_TINT, kind)
+    scene["lawn"] = _lawn()
     return scene
 
 
@@ -193,6 +220,9 @@ def judge_frame(rgba: NDArray[np.uint8], device_pixel_ratio: float = 1.0) -> lis
                 problems.append(f"the glass swatch did not draw: {_shown(swatch)}")
         elif not (swatch[0] > 40 and swatch[0] > 2 * swatch[1] and swatch[0] > 2 * swatch[2]):
             problems.append(f"the {kind} swatch did not draw in its tint: {_shown(swatch)}")
+    lawn = _mean(rgba, REGIONS["lawn"], device_pixel_ratio)
+    if not (lawn[2] > 40 and lawn[2] > 1.5 * lawn[0] and lawn[2] > 1.5 * lawn[1]):
+        problems.append(f"the baked ground does not show the lawn: {_shown(lawn)}")
     return problems
 
 
@@ -215,6 +245,12 @@ class Rendered:
     #: rendered (``QtMessages.other_threads``): any is a FAIL — the recorder is only
     #: allowed here because there are none, and a frozen exe is where that must hold.
     other_threads: int = 0
+    #: Ground tiles the frame shows, and how many tile paints the baker made for them
+    #: (one pass paints at least one): anything but ``GROUND_TILES`` shown is a FAIL.
+    ground_tiles: int = 0
+    ground_tiles_painted: int = 0
+    #: ``(ErrorType, message)`` of a bake that failed: a FAIL.
+    ground_failure: tuple[str, str] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -245,14 +281,20 @@ def default_log_path() -> Path:
 
 
 def _render(log: RenderLog, qml_dir: Path | None) -> Rendered:
+    from ..ground_bake import GroundBaker
     from .offscreen import render_records  # the engine loads here
 
+    # the PRODUCT's baker, with a budget of 0: one tile a pass at least, so the frame
+    # is reached through every pass the workspace would run
+    baker = GroundBaker(budget_s=0.0, tile_px=GROUND_TILE_PX)
     frame = render_records(records(), shot=SHOT, sun=SUN, ground=GROUND, size=SIZE,
-                           registry=registry(), qml_dir=qml_dir, log=log, graphics_info=True)
+                           registry=registry(), qml_dir=qml_dir, log=log, graphics_info=True,
+                           ground_baker=baker)
     return Rendered(frame.rgba(), frame.device_pixel_ratio, frame.graphics_api, frame.adapter,
                     frame.open_ms, dict(frame.qt.get("counts", {})),
                     tuple(f"{item_id}: {error}" for item_id, error in frame.build_failures.items()),
-                    int(frame.qt.get("other_threads", 0)))
+                    int(frame.qt.get("other_threads", 0)),
+                    int(frame.ground_tiles), int(baker.tiles_painted), frame.ground_failure)
 
 
 def run_selftest(log_path: Path | None = None, *, watchdog_s: float | None = WATCHDOG_S,
@@ -300,6 +342,12 @@ def run_selftest(log_path: Path | None = None, *, watchdog_s: float | None = WAT
                 problems.append(
                     f"{rendered.other_threads} Qt message(s) of the render arrived on another "
                     "thread than the one that rendered: the message recorder is not safe here")
+            if rendered.ground_failure is not None:
+                problems.append("the ground could not be baked: "
+                                f"{rendered.ground_failure[0]}: {rendered.ground_failure[1]}")
+            if rendered.ground_tiles != GROUND_TILES:
+                problems.append(f"the ground shows {rendered.ground_tiles} tiles, "
+                                f"expected {GROUND_TILES}")
             problems += judge_frame(rendered.rgba, rendered.device_pixel_ratio)
             where = f"{rendered.graphics_api} / {rendered.adapter or 'adapter unknown'}"
             if problems:
@@ -308,7 +356,9 @@ def run_selftest(log_path: Path | None = None, *, watchdog_s: float | None = WAT
             else:
                 height, width = rendered.rgba.shape[:2]
                 say(True, f"Qt Quick 3D frame {width}x{height} on {where} in "
-                          f"{rendered.open_ms:.0f} ms (Garden.qml, {len(SWATCH_KINDS) + 1} materials)")
+                          f"{rendered.open_ms:.0f} ms (Garden.qml, {len(SWATCH_KINDS) + 1} materials, "
+                          f"a baked ground of {rendered.ground_tiles} tiles in "
+                          f"{rendered.ground_tiles_painted} tile paints)")
         except Exception as exc:  # noqa: BLE001 - a QML or shader error arrives here
             say(False, f"Qt Quick 3D render -> {type(exc).__name__}: {exc}")
     ok = all(line.startswith("  OK  ") for line in lines)

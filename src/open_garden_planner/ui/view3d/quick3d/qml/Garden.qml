@@ -283,8 +283,12 @@ Item {
                     generateMipmaps: true
                     mipFilter: Texture.Linear
                 }
-                roughness: 0.92
-                specularAmount: 0.2
+                // the endless meadow's values (below): PrincipledMaterial scales the
+                // sky's diffuse light by (1 - specularAmount), so any other pair puts a
+                // luma step where a baked lawn meets the meadow at the plan's edge
+                // (the L1.4 look review measured 2-8 luma for 0.92 / 0.2)
+                roughness: 1.0
+                specularAmount: 0.15
             }
         }
     }

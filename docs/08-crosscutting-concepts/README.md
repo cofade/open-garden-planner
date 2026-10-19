@@ -1663,6 +1663,26 @@ tier: `tests/integration/test_scene3d_ground_render.py`):
   alive (an edge THROUGH a tile was never the deciding fact in a test), and the test that kills
   it is the one that would have missed the defect.
   Review round 2's rules: 63 mutants, all killed.
+- **A leak gate reads the median STEP, not a slope that one step can tilt (Ruling R41).** G6
+  first read Theil–Sen over the last ten cycles of twenty (the median of all pairwise slopes).
+  On WARP a curve flat at 813–814 MB took ONE step of +20.6 MB at cycle 15 and was flat again —
+  and read +2.80 MB a cycle, over the bound of 2.0: a step in the middle of the window tilts
+  most PAIRS, so the median of pairs moves (1 of 4 runs that day). A leak adds memory every
+  cycle; an allocator takes one more block once. G6 now reads the MEDIAN of the last ten
+  cycles' growth (`ground_bake_render_driver.tail_growth`): a leak is most of the steps — the
+  median is its size (+32 MB a cycle for the control, which still fails the bound by far) — and
+  one step is one of ten: the median is about 0. The bound is unchanged (2.0 MB a cycle); the
+  measured curves are pinned in the default tier
+  (`tests/unit/test_scene3d_ground.py::TestTheLeakGatesStatistic`, which also shows the old
+  statistic reading the step as > 2.0).
+- **A pass the controller owes is counted, never waited for by the clock.** The wiring tests
+  (`tests/integration/test_scene3d_ground_wiring.py`) give the workspace's controller a baker
+  with a budget of 0 — one tile a pass at least, so every multi-pass path is taken — and wait
+  for `Scene3DController.idle` (no pass owed, posted, on a timer, or the ground's). Then they
+  count: one snapshot per edit and none per ground pass (`snapshot_count`, `ground_count`,
+  `TickReport.ground_pass`), `unannounced_changes == 0` after the net's quiet time, the sink's
+  state equal to `expected_state()` once nothing is pending, and a tile not yet painted after a
+  document change BARE.
 - **The one wall-clock gate runs on the quiet runner.** G3 — an edit's bake in at most 10 ms in
   the median — is the story's only assertion on a clock, and it carries `@pytest.mark.perf`
   (ADR-058, §8.10.4): beside eight workers it read 11.58 ms. Its stopwatch is an ATTRIBUTE of
@@ -1670,7 +1690,7 @@ tier: `tests/integration/test_scene3d_ground_render.py`):
   (`tests/unit/test_perf_marker_guard.py`) does not follow, so the marker is set by hand — and the
   class lives in the support module because the guard keys a module's functions by their bare
   name: in the test module, a stopwatch in a method called `bake` made every test that calls ANY
-  baker's `bake` a "timing test". Everything else is counted.
+  baker's `bake` a "timing test" (both halves of that are #528). Everything else is counted.
 - **A fix kept over another branch's mechanism is pinned by putting that branch's code back.**
   Where `master` fixed a defect this story had fixed too, `master`'s mechanism won the merge; for
   every fix the story KEPT, a scratch check put the integration branch's code back at that place
@@ -4843,18 +4863,16 @@ outline) must count them the same way, or measure that they leave nothing.
 
 - *A new consumer of the sim clock*: `connect_qobject(clock.date_changed, self._slot)`; never
   `clock.date_changed.connect(...)` (a scan refuses it).
-- *A new ground* (L1.5): the pass hands the ground to the engine in ONE place —
-  `Scene3DController._pass_records` → `sync.apply(records, sun=…, ground=self._ground(…))`,
-  on the `SceneSync` built in `__init__`. A baker that lives in the sync is one argument there
-  (`SceneSync(sink, registry, ground_baker=…)`); a stage function is
-  `controller.set_ground_stage(stage)` with `stage(previous_records, records, width_cm,
-  depth_cm) -> GroundSpec`, run before `apply` inside the pass (if it raises, the bare
-  rectangle is sent and one line is logged). What the bake could not paint joins the
-  problems list where the other two sources meet: `problems_dialog.problems_of` and
-  `Scene3DController._set_problems`. A bake that stops at a time budget asks for its next
-  slice with `controller.mark_dirty()` (from inside the stage or from a slot on `applied`):
-  the pass is re-runnable, one snapshot per run, and nothing assumes that one pass paints
-  the whole ground.
+- *The ground* (L1.5, wired — §8.32.5): the workspace builds the controller with
+  `ground_baker=GroundBaker()`, which the controller hands to its `SceneSync`; every pass's
+  `apply` bakes in the same transaction. While the baker's time budget leaves tiles pending
+  the controller owes a GROUND pass (`SceneSync.continue_ground()`: no snapshot), scheduled
+  like any pass — NOT `mark_dirty()`, which would snapshot the whole plan per 10-ms slice.
+  What the bake could not do joins the problems list where the other sources meet:
+  `problems_dialog.problems_of` and `Scene3DController._set_problems` (`ground_problems`).
+  `set_ground_stage(stage)` stays the seam for another ground (`stage(previous_records,
+  records, width_cm, depth_cm) -> GroundSpec`, run before `apply`; if it raises, the bare
+  rectangle is sent and one line is logged).
 - *A look, a sky* (L1.4): through the host; not through the pipeline.
 - *A click in 3D* (L1.8): `try: host.pick(x, y) except HostStateError` in the input filter. The
   workspace calls `wait_ready()` nowhere and must not start to.
@@ -5114,20 +5132,43 @@ per tile the texture the scene shows, plus — until the next presented frame, a
 the next update — the one it replaced. `ground_tiles.textures_alive()` counts the objects that
 exist on the C++ side.
 
-**Wiring it** (the workspace, L1.3 — nothing in L1.5 calls this in the product):
+**How the product wires it** (L1.5 Part B, in the workspace of L1.3 — `ui/view3d/workspace.py`,
+`ui/view3d/sync_controller.py`):
 
-```python
-baker = GroundBaker()                                   # ui/view3d/ground_bake.py; ONE a session
-sync = SceneSync(Quick3DSink(host), production_registry(), ground_baker=baker)
-sync.apply(snapshot_records(scene, plan_date, skipped=skipped), sun=sun,
-           ground=GroundSpec(scene.width_cm, scene.height_cm))
-if sync.ground_pending:          # the time budget cut the bake short: tiles are stale
-    schedule_one_more_pass()     # → sync.continue_ground(); again while it returns True
-# what the user must be told: baker.capped (tiles that hold less than the plan), baker.failures
-# (items whose paint raised), baker.tile_failures (tiles that could not be painted at all and
-# show an older picture), sync.ground_failure (the bake as a whole failed: the ground stays as
-# it was, or bare — and is not tried again until a record, the solids or the plan change)
-```
+- **One baker per engine.** The workspace builds its `Scene3DController` with
+  `ground_baker=GroundBaker()` (a budget of 10 ms a pass); the controller hands it to its
+  `SceneSync`. Every pass of the plan — an edit, a date, the catch-up, the net — bakes in the
+  same transaction as the geometry, with the same diff.
+- **A ground pass, not a snapshot.** While tiles are pending (`SceneSync.ground_pending`) the
+  controller owes a GROUND pass: `SceneSync.continue_ground()` — one bake, at most one
+  transaction with only `set_ground` — scheduled exactly like any pass (the posted event of
+  `_schedule`). Measured with a chain of 40 posted events of 10 ms each, offscreen and on the
+  Windows platform: a timer due after 5 ms fired after the first slice — the chain starves no
+  timer (the 2D side's debouncers, the sun animation). An edit preempts it (its records pass
+  continues the ground itself); a hidden view pauses it (a flag, nothing else); a pass that was
+  given up does not schedule it (the next change tries again). `TickReport.ground_pass` marks
+  such a pass; `snapshot_count` does not move, and the net never sees one: the bake paints
+  images, never the scene.
+- **What the user is told** (`Scene3DController.ground_problems`, plain `GroundProblems`): items
+  whose paint raised (`baker.failures`: a row per item — "it could not be painted completely on
+  the 3D ground" — counted with the objects not shown); and NOTES of the ground as a whole, rows
+  that belong to no item and come first: tiles that hold more surfaces than they can show
+  (`baker.capped`), tiles that could not be painted (`baker.tile_failures`), a bake that raised
+  (`sync.ground_failure`, not tried again until a record, the solids or the plan change). The
+  strip says "… the 3D ground does not show all of the plan" for a note.
+- **A new document** drops the baker's tiles with the plan's other memories
+  (`_drop_plan_memories`): a tile not yet painted is bare, never a picture of the old plan.
+- **The release policy:** a re-baked tile is a new Model, so a pass counts every tile Model it
+  destroyed (a replaced or dropped tile) in `TickReport.retired`, which the workspace's
+  `RELEASE_AFTER_RETIRED` / `RELEASE_NOW_RETIRED` read (a reset counts every tile it cleared).
+- **The tile's material is the meadow's** — roughness 1.0, specular amount 0.15
+  (`Garden.qml`'s `groundTile`): PrincipledMaterial scales the sky's diffuse light by
+  (1 − specular amount), so other values put a luma step where a baked lawn meets the endless
+  meadow at the plan's edge (the L1.4 look review measured 2 to 8 luma for 0.92 / 0.2).
+- **The frozen `--selftest`** bakes one flat lawn with the product's baker (budget 0, 128-px
+  tiles: twelve tiles over as many passes) and judges the lawn's colour where it lies.
+
+Pinned by `tests/integration/test_scene3d_ground_wiring.py` (§8.10.28).
 
 `render_records(..., ground_baker=GroundBaker())` does the same for one offscreen frame — it runs
 the passes until nothing is pending — and reports `ground_tiles` / `ground_failure` with it.

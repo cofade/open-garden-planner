@@ -32,6 +32,7 @@ SHADOW = (8, 26, 6)
 BOX = (255, 6, 4)
 SWATCH = (150, 12, 6)
 GLASS = (60, 60, 14)
+LAWN = (12, 30, 150)
 
 
 def _paint(frame: np.ndarray, region: selftest.Region, colour: tuple[int, int, int],
@@ -56,7 +57,17 @@ def _good_frame(scale: float = 1.0) -> np.ndarray:
     for kind in selftest.SWATCH_KINDS:
         _paint(frame, selftest.REGIONS[kind], GLASS if kind == "glass" else SWATCH, scale, grow_cm=4.0)
     _paint(frame, selftest.REGIONS["box"], BOX, scale, grow_cm=10.0)
+    _paint(frame, selftest.REGIONS["lawn"], LAWN, scale, grow_cm=6.0)
     return frame
+
+
+def _rendered(rgba: np.ndarray, **extra: object) -> selftest.Rendered:
+    """A self-test render as ``_render`` returns it for a good run: the frame, the
+    device, and a baked ground of ``GROUND_TILES`` tiles; ``extra`` overrides."""
+    fields: dict[str, object] = {"ground_tiles": selftest.GROUND_TILES,
+                                 "ground_tiles_painted": selftest.GROUND_TILES, **extra}
+    return selftest.Rendered(rgba, 1.0, "Direct3D11", "Microsoft Basic Render Driver", 321.0,
+                             {"error": 0}, **fields)  # type: ignore[arg-type]
 
 
 class TestJudge:
@@ -68,7 +79,7 @@ class TestJudge:
         frame = _good_frame()
         frame[..., :3] = (207, 226, 242)  # the bare sky colour: nothing was drawn
         problems = selftest.judge_frame(frame)
-        assert len(problems) == 3 + len(selftest.SWATCH_KINDS)  # ground, box, shadow, each swatch
+        assert len(problems) == 4 + len(selftest.SWATCH_KINDS)  # ground, box, shadow, swatches, lawn
         assert problems[0].startswith("the ground is not lit meadow")
         assert problems[1].startswith("the box is not there")
 
@@ -78,7 +89,8 @@ class TestJudge:
         problems = selftest.judge_frame(frame)
         assert problems[0].startswith("the box is not there")       # the ground itself is fine
         assert problems[1].startswith("the shadow is missing")
-        assert len(problems) == 2 + len(selftest.SWATCH_KINDS)
+        assert len(problems) == 3 + len(selftest.SWATCH_KINDS)  # … and the lawn
+        assert problems[-1].startswith("the baked ground does not show the lawn")
 
     def test_a_missing_shadow_fails(self) -> None:
         """The sun is switched off, or the shadow map is broken: lit box, no shadow."""
@@ -101,6 +113,15 @@ class TestJudge:
         _paint(frame, selftest.REGIONS[kind], GROUND, 1.0, grow_cm=4.0)
         (problem,) = selftest.judge_frame(frame)
         assert kind in problem
+
+    def test_a_ground_that_was_not_baked_fails(self) -> None:
+        """The lawn is a FLAT item: only the ground bake puts it in the frame. Bare
+        ground where it lies — a sink that dropped the tiles, a baker that painted
+        nothing — fails."""
+        frame = _good_frame()
+        _paint(frame, selftest.REGIONS["lawn"], GROUND, 1.0, grow_cm=6.0)
+        (problem,) = selftest.judge_frame(frame)
+        assert problem.startswith("the baked ground does not show the lawn")
 
     def test_a_frame_of_the_wrong_size_fails_before_any_pixel_is_read(self) -> None:
         (problem,) = selftest.judge_frame(np.zeros((30, 40, 4), np.uint8))
@@ -179,6 +200,31 @@ class TestScene:
             assert not _inside(shadows, x, y), (x, y)
             assert not any(_inside([ring], x, y) for ring in rings), (x, y)
 
+    def test_the_lawn_is_flat_and_its_patch_lies_inside_it_in_no_shadow(self) -> None:
+        """The lawn has no height (no builder makes a solid: the ground bake paints
+        it), its patch is well inside it, and no item and no shadow covers that patch."""
+        records = selftest.records()
+        lawn = records["lawn"]
+        assert lawn.height_cm is None and selftest.registry().builder_for(lawn.kind)(lawn) == ()
+        ring = _footprint(lawn)
+        low_x, high_x = min(x for x, _ in ring), max(x for x, _ in ring)
+        low_y, high_y = min(y for _, y in ring), max(y for _, y in ring)
+        solids = [(_footprint(record), record.height_cm) for record in records.values()
+                  if record.height_cm is not None]
+        shadows = compute_scene_shadows(solids, selftest.SUN.elevation_deg, selftest.SUN.azimuth_deg)
+        for x, y in _samples(selftest.REGIONS["lawn"]):
+            assert low_x + 5 <= x <= high_x - 5 and low_y + 5 <= y <= high_y - 5
+            assert not _inside(shadows, x, y), (x, y)
+            assert not any(_inside([ring], x, y) for ring, _height in solids), (x, y)
+
+    def test_the_ground_has_the_tiles_the_selftest_expects(self) -> None:
+        """12 tiles: 128-px tiles at 1 px/cm over the 400 x 300 cm plan."""
+        from open_garden_planner.core.scene3d import GroundGrid
+
+        grid = GroundGrid.for_plan(selftest.GROUND.width_cm, selftest.GROUND.depth_cm,
+                                   tile_px=selftest.GROUND_TILE_PX)
+        assert len(list(grid.tile_keys())) == selftest.GROUND_TILES
+
     def test_everything_stands_on_the_plan_rectangle(self) -> None:
         for record in selftest.records().values():
             for x, y in _footprint(record):
@@ -218,8 +264,7 @@ class TestRun:
     def test_a_frame_the_judge_rejects_fails(self, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
         blank = _good_frame()
         blank[..., :3] = (207, 226, 242)
-        monkeypatch.setattr(selftest, "_render", lambda *_a, **_k: selftest.Rendered(
-            blank, 1.0, "Direct3D11", "Microsoft Basic Render Driver", 321.0, {"error": 0}))
+        monkeypatch.setattr(selftest, "_render", lambda *_a, **_k: _rendered(blank))
         result = selftest.run_selftest(tmp_path / "selftest.log")
         assert not result.ok and any("FAIL" in line and "box" in line for line in result.lines)
 
@@ -227,8 +272,7 @@ class TestRun:
             self, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
         """Review P2-4: the pipeline CONTAINS a failed builder — the item is then in the
         frame without a solid. ``render_records`` names it; the self-test must look."""
-        monkeypatch.setattr(selftest, "_render", lambda *_a, **_k: selftest.Rendered(
-            _good_frame(), 1.0, "Direct3D11", "Microsoft Basic Render Driver", 321.0, {"error": 0},
+        monkeypatch.setattr(selftest, "_render", lambda *_a, **_k: _rendered(_good_frame(),
             build_failures=("water: ValueError: degenerate footprint",)))
         result = selftest.run_selftest(tmp_path / "selftest.log")
         assert not result.ok
@@ -241,8 +285,7 @@ class TestRun:
         only because every message of it arrives on the rendering thread. The render tier
         asserted that; the self-test dropped the number — and a frozen exe on a runner is
         where it must hold."""
-        monkeypatch.setattr(selftest, "_render", lambda *_a, **_k: selftest.Rendered(
-            _good_frame(), 1.0, "Direct3D11", "Microsoft Basic Render Driver", 321.0, {"error": 0},
+        monkeypatch.setattr(selftest, "_render", lambda *_a, **_k: _rendered(_good_frame(),
             other_threads=2))
         result = selftest.run_selftest(tmp_path / "selftest.log")
         assert not result.ok
@@ -257,9 +300,54 @@ class TestRun:
 
         frame = SimpleNamespace(rgba=_good_frame, device_pixel_ratio=1.0, graphics_api="Direct3D11",
                                 adapter="x", open_ms=1.0, build_failures={},
-                                qt={"counts": {"error": 0}, "other_threads": 3})
+                                qt={"counts": {"error": 0}, "other_threads": 3},
+                                ground_tiles=selftest.GROUND_TILES, ground_failure=None)
         monkeypatch.setattr(offscreen, "render_records", lambda *_a, **_k: frame)
         assert selftest._render(lambda *_a, **_k: None, None).other_threads == 3  # noqa: SLF001
+
+    @pytest.mark.parametrize(("extra", "said"), [
+        ({"ground_tiles": 0}, "the ground shows 0 tiles, expected 12"),
+        ({"ground_tiles": 1}, "the ground shows 1 tiles, expected 12"),
+        ({"ground_failure": ("MemoryError", "no image")},
+         "the ground could not be baked: MemoryError: no image"),
+    ], ids=["no tiles", "one tile", "a bake that raised"])
+    def test_a_ground_that_was_not_baked_fails_the_selftest_even_if_the_frame_looks_right(
+            self, monkeypatch: pytest.MonkeyPatch, tmp_path, extra: dict[str, object],
+            said: str) -> None:
+        """L1.5: the frozen exe bakes its ground with the product's baker — the tile
+        upload and the multi-pass path. A ground of other tiles than the grid's, or a
+        bake that raised, fails whatever the pixels say."""
+        monkeypatch.setattr(selftest, "_render", lambda *_a, **_k: _rendered(_good_frame(), **extra))
+        result = selftest.run_selftest(tmp_path / "selftest.log")
+        assert not result.ok
+        (failure,) = [line for line in result.lines if "FAIL" in line]
+        assert said in failure
+
+    def test_the_render_bakes_with_the_products_baker_in_passes(
+            self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """``_render`` hands ``render_records`` the product's ``GroundBaker`` with a
+        budget of 0 and 128-px tiles, and reports what it painted."""
+        from types import SimpleNamespace
+
+        from open_garden_planner.ui.view3d.ground_bake import GroundBaker
+        from open_garden_planner.ui.view3d.quick3d import offscreen
+
+        seen: dict[str, object] = {}
+
+        def fake(*_args: object, **kwargs: object) -> object:
+            baker = kwargs["ground_baker"]
+            assert isinstance(baker, GroundBaker)
+            seen.update(budget=baker.budget_s, grid=None)
+            baker.tiles_painted = 12  # what a full run of passes paints (the render tier runs one)
+            return SimpleNamespace(rgba=_good_frame, device_pixel_ratio=1.0,
+                                   graphics_api="Direct3D11", adapter="x", open_ms=1.0,
+                                   build_failures={}, qt={"counts": {}, "other_threads": 0},
+                                   ground_tiles=12, ground_failure=None)
+
+        monkeypatch.setattr(offscreen, "render_records", fake)
+        rendered = selftest._render(lambda *_a, **_k: None, None)  # noqa: SLF001
+        assert seen["budget"] == 0.0 and selftest.GROUND_TILE_PX == 128
+        assert (rendered.ground_tiles, rendered.ground_tiles_painted) == (12, 12)
 
     def test_with_the_callers_log_it_arms_no_watchdog_and_leaves_the_log_open(
             self, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
@@ -268,8 +356,7 @@ class TestRun:
         replace the outer one, and cancel it on the way out)."""
         from open_garden_planner.ui.view3d.quick3d.runlog import RenderLog
 
-        monkeypatch.setattr(selftest, "_render", lambda *_a, **_k: selftest.Rendered(
-            _good_frame(), 1.0, "Direct3D11", "Microsoft Basic Render Driver", 321.0, {"error": 0}))
+        monkeypatch.setattr(selftest, "_render", lambda *_a, **_k: _rendered(_good_frame()))
         log = RenderLog(tmp_path / "whole.log", mirror=False)
         try:
             result = selftest.run_selftest(log=log, watchdog_s=None)
@@ -283,8 +370,7 @@ class TestRun:
 
     def test_a_good_frame_passes_and_names_the_device(self, monkeypatch: pytest.MonkeyPatch,
                                                       tmp_path) -> None:
-        monkeypatch.setattr(selftest, "_render", lambda *_a, **_k: selftest.Rendered(
-            _good_frame(), 1.0, "Direct3D11", "Microsoft Basic Render Driver", 321.0, {"error": 0}))
+        monkeypatch.setattr(selftest, "_render", lambda *_a, **_k: _rendered(_good_frame()))
         result = selftest.run_selftest(tmp_path / "selftest.log")
         assert result.ok, result.lines
         assert all(line.startswith("  OK  ") for line in result.lines)

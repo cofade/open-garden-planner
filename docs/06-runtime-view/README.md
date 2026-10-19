@@ -432,6 +432,27 @@ sequenceDiagram
     Note over W,E: the health poll, the pipeline quiet for 0.5 s:<br/>host.release_cached_resources()
 ```
 
+**The ground of an edit** (L1.5, §8.32.5) — the bake rides the edit's pass; what its time
+budget leaves is painted in ground passes, one per turn of the event loop:
+
+```mermaid
+sequenceDiagram
+    participant K as Scene3DController
+    participant Y as SceneSync
+    participant B as GroundBaker
+    participant E as Quick3DSink → host
+    K->>Y: apply(records, sun, ground)
+    Y->>B: bake(records, the diff, solid ids, plan) — 10 ms, at least one tile
+    Y->>E: begin · the item calls · set_ground(tiles) · commit
+    Note over K: ground_pending → a GROUND pass is owed (posted, like any pass)
+    loop while tiles are pending (the view visible, no edit waiting)
+        K->>Y: continue_ground() — no snapshot, no diff
+        Y->>B: bake(records, no change) — the next tiles, nearest to the edit first
+        Y->>E: begin · set_ground(tiles) · commit
+        K-->>K: applied(TickReport: ground_pass, retired = replaced tile Models)
+    end
+```
+
 ## Guild insertion and computed warning refresh
 
 ```mermaid

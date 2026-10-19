@@ -2278,7 +2278,7 @@ was a defect nobody saw on the canvas:
 | the project saver, polylines | no `stroke_style` written | **a dashed line came back solid** (`DashDotLine` → `SolidLine`; its colour and width survive) |
 | the project loader, polylines with a style preset | the saved stroke read for style NONE only | **a restyled path's own colour and width came back as the preset's** — a gravel path saved with `#dc1e50c8`, 7.5 loads as `#ffb4aa96`, 8.0, and the next save writes that |
 | the offset tool (polygons, polylines), the chamfer and fillet tools, `PolylineItem.clone_with_points`, the trim tool's results | brush and pen copied, the attributes at the type's defaults | **the copy changed colour and pattern on save** (an offset copy of a blue brick terrace: default wood); in 3D it was baked as the default at once. The offset tool (and mirror) **fixed on `master` by #501** (#470, `copy_visual_style`, which also gave an offset rectangle, circle or ellipse its source's look); chamfer, fillet, `clone_with_points` and trim fixed on the L1 branch through the same module (#441) |
-| `PolylineItem.__init__` / `_setup_styling` (found by review 2) | the pen built, the stroke attributes `None` until the line had been through a project file | **undo raised on a freshly drawn line** — in the shipped app: a stroke-width edit undone `TypeError: setWidthF(NoneType)` (the pen stays at the new width), a dash edit undone `AttributeError` (the pen stays dashed), a type change in the properties panel undone `TypeError` (the type goes back, the pen stays the new type's). The same line behaved after a reopen |
+| `PolylineItem.__init__` / `_setup_styling` (found by review 2) | the pen built, the stroke attributes `None` until the line had been through a project file | **undo raised on a freshly drawn line** — in the shipped app: a stroke-width edit undone `TypeError: setWidthF(NoneType)` (the pen stays at the new width), a dash edit undone `AttributeError` (the pen stays dashed), a type change in the properties panel undone `TypeError` (the type goes back, the pen stays the new type's). The same line behaved after a reopen. Still in master v1.30.13: #523 |
 | the properties panel's `_apply_item_state` (the undo and redo of a type change) | the attributes set, overwritten by `apply_style_preset`, then the pen built from the state | a re-stroked preset line after the undo of a type change: pen 12.0, stated 8.0 |
 | `GardenItemMixin._dispatch_change_type` on a line (the context menu) | the attributes set from the state, the pen built from the TYPE | **undoing a context-menu type change reset a re-stroked line's pen to its type's** — a fence of 7.5 dashed came back 3.0 solid, stating 7.5 dashed |
 | the project loader, all four filled shapes, for a file with a fill colour and NO fill pattern | the brush the constructor made recoloured — which does nothing to a texture — and the attribute set | **the picture changed across a save**: first the type's texture at the type's tint, after save and reopen at the saved colour (the middle of a lawn: (79, 144, 54) → (111, 97, 44)). On `master` for circles, ellipses and polygons; for rectangles since round 1 of this story |
@@ -2296,8 +2296,9 @@ branch's had read the stroke off the pen, so a source a test built out of step n
 on (one older test, `test_fillet_chamfer.py::test_fillet_arc_inherits_host_pen`, gave its host a
 bare `setPen` — it uses `adopt_pen` now); and `restore_stored_look` raised on a saved stroke of no
 kind (`null`, a list) before the branch's validated preset stroke ran, so a preset line with
-`"stroke_width": null` was SKIPPED on the integration branch — it now leaves such an attribute
-alone (pinned: `TestAFileTheAppDidNotWrite`, whose `null` cases fail with master's version).
+`"stroke_width": null` was SKIPPED on the integration branch (and is on master v1.30.13: #527)
+— it now leaves such an attribute alone (pinned: `TestAFileTheAppDidNotWrite`, whose `null`
+cases fail with master's version).
 
 *Guard for the class, not the instances — and the first guard was not one.* Round 1 guarded the
 class by reading the source: an AST scan for functions that build an item from an item (a
@@ -2334,11 +2335,11 @@ a pen. What a LOADED sprite states is `master`'s rule since #502: what the file 
 which `master` then decided otherwise).
 
 *Not changed, and inconsistent:* undoing a preset pick in the properties panel returns the style to "none" and leaves the preset's pen (a path of
-`#ffa0522d` 5.0 stays `#ffb4aa96` 8.0). The two ways to change a line's type disagree on a
+`#ffa0522d` 5.0 stays `#ffb4aa96` 8.0; #524). The two ways to change a line's type disagree on a
 preset line — the context menu keeps the preset's stroke, the panel gives the new type's — and
-the context menu's undo gives a re-stroked preset line the preset's stroke back, not its own.
-A type change in the panel builds a new pen: a line's round caps and joins are square and
-bevelled until the plan is reopened. *Lesson:* an attribute that mirrors a Qt object's state is a
+the context menu's undo gives a re-stroked preset line the preset's stroke back, not its own
+(#525). A type change in the panel builds a new pen: a line's round caps and joins are square
+and bevelled until the plan is reopened (#526). *Lesson:* an attribute that mirrors a Qt object's state is a
 second source of truth; a second consumer finds where they parted — and the fix is one writer,
 not one more reader. *And:* a guard that reads the source knows the spellings its author knew;
 judge the objects a test leaves behind.
@@ -2509,6 +2510,22 @@ tile is painted anew (§8.32.5). The first version of this fix covered only the 
 review had used (a tile's paint); the pin for "any other site" raises in the admission walk
 instead. *Lesson:* test a failure path by what the user sees on the edit AFTER it, not by the
 state right after the exception — and inject the failure in more than one place.
+
+**A slope estimator meant to ignore one bad reading does not ignore one STEP** (Ruling R41).
+Theil–Sen — the median of all pairwise slopes — shrugs off a single outlier; a single step in
+the middle of a window is not an outlier but a level change, and most pairs straddle it. G6's
+WARP cell read +2.80 MB a cycle for a curve flat on both sides of one +20.6 MB step (bound 2.0;
+re-runs +0.09, −0.01, +0.00). A leak is a property of every cycle, so the gate reads the median
+of the per-cycle steps now (§8.10.28). *Lesson:* choose the statistic by the shape of the
+failure it must reject AND the shape of the noise it must accept, and pin both with measured
+curves.
+
+**A flat item the solid path refuses is not "missing from 3D" any more.** The workspace's
+problems list counted an in-ground bed traced with 6,000 points as not shown; with the ground
+bake that bed is painted on the ground (FR-3D-GROUND-04), so the count — and a test that
+expected it — changed with the merge (both stories' tests now trace a RAISED bed, which is
+truly absent). *Lesson:* when one story makes something visible that another reports as
+missing, the reporting side's test is the one that notices.
 
 **A budget shared between new and old work starves the old.** One tile a pass, nearest to the
 last edit first, and an edit before every pass: the edit's tile was painted, the budget was

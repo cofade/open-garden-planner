@@ -145,6 +145,23 @@ class TestTheTileComponent:
         assert re.search(r"receivesShadows:\s*true\b", TILE)
         assert re.search(r"castsShadows:\s*false\b", TILE)
 
+    def test_its_material_is_the_meadows_so_the_plan_edge_shows_no_step(self) -> None:
+        """The L1.4 look review: PrincipledMaterial scales the sky's diffuse light by
+        (1 - specularAmount), so a tile of other values than the endless meadow's puts
+        a luma step where a baked lawn meets the meadow at the plan's edge (0.92 / 0.2
+        measured 2-8 luma darker). The tile takes the meadow's roughness and
+        specular amount, whatever they are."""
+        # the endless meadow: the Model 4 x 4 km wide (comments are stripped from CODE)
+        (meadow,) = [block for found in re.finditer(r"Model\s*\{", CODE)
+                     if "4000, 4000" in (block := _block(CODE[found.start():], r"Model\s*\{"))]
+        values = {}
+        for name, block in (("tile", TILE), ("meadow", meadow)):
+            roughness = re.search(r"roughness:\s*([0-9.]+)", block)
+            specular = re.search(r"specularAmount:\s*([0-9.]+)", block)
+            assert roughness and specular, name
+            values[name] = (float(roughness.group(1)), float(specular.group(1)))
+        assert values["tile"] == values["meadow"] == (1.0, 0.15)
+
     def test_the_tiles_are_drawn_instead_of_the_bare_rectangle_never_with_it(self) -> None:
         """Two coplanar surfaces fight for the depth buffer: while tiles lie on the
         plan the bare rectangle is not drawn."""

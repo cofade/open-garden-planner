@@ -81,6 +81,8 @@ from dataclasses import dataclass
 from functools import lru_cache
 from types import MappingProxyType
 
+from open_garden_planner.core.plain_text import log_text
+
 from .build import Builder, BuilderRegistry, checked_parts
 from .ground import GroundBaking
 from .mesh import MeshPart
@@ -433,8 +435,11 @@ class SceneSync:
             self._ground_failure = (type(error).__name__, str(error))
             self._ground_failed_for = asked_for
             if not self._quiet:
-                _log.error("the 3D ground could not be baked; it stays as it was",
-                           exc_info=error)
+                # ONE normalised, capped line (an exception's message can quote the plan:
+                # core/plain_text.py, §8.11) and the traceback at DEBUG only
+                _log.error("the 3D ground could not be baked; it stays as it was (%s: %s)",
+                           log_text(type(error).__name__), log_text(error))
+                _log.debug("the 3D ground could not be baked - traceback", exc_info=error)
             # its books are not the ground of these records — its pictures are what
             # the sink shows, and stay until the baker has painted each tile anew
             baker.restart()

@@ -166,6 +166,7 @@ from PyQt6.QtGui import QBrush, QColor, QImage, QPainter, QPainterPath, QPen, QP
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.furniture_renderer import is_furniture_type, render_furniture_pixmap
 from open_garden_planner.core.object_types import ObjectType, PathFenceStyle
+from open_garden_planner.core.plain_text import log_text
 from open_garden_planner.core.scene3d import (
     MAX_GROUND_PIXELS,
     MEADOW_RGB,
@@ -1426,8 +1427,11 @@ class GroundBaker:
         seen = (f"tile {key}", type(error).__name__)
         if seen not in self._reported and len(self._reported) < 256:
             self._reported.add(seen)
-            _log.error("3D ground: tile %s could not be painted; it keeps the picture it had",
-                       key, exc_info=error)
+            # ONE normalised, capped line — an exception's message can quote the plan
+            # (core/plain_text.py, §8.11) — and the traceback at DEBUG only
+            _log.error("3D ground: tile %s could not be painted; it keeps the picture it had "
+                       "(%s: %s)", key, log_text(type(error).__name__), log_text(error))
+            _log.debug("3D ground: tile %s - traceback", key, exc_info=error)
 
     def _bare_tile(self, grid: GroundGrid, key: TileKey) -> GroundTile:
         """A tile of bare ground: the bytes are shared by all bare tiles of its size."""
@@ -1517,8 +1521,10 @@ class GroundBaker:
         seen = (record.item_id, type(error).__name__)
         if seen not in self._reported and len(self._reported) < 256:
             self._reported.add(seen)
-            _log.error("3D ground: %s item %r could not be painted; it is cut off where it "
-                       "failed", record.kind, record.item_id, exc_info=error)
+            _log.error("3D ground: %s item %s could not be painted; it is cut off where it "
+                       "failed (%s: %s)", log_text(record.kind), log_text(record.item_id),
+                       log_text(type(error).__name__), log_text(error))
+            _log.debug("3D ground: item %s - traceback", log_text(record.item_id), exc_info=error)
         return (type(error).__name__, str(error))
 
 

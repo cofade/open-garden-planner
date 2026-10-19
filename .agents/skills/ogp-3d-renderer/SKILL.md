@@ -205,6 +205,14 @@ are §12, and rows it added to the tables below say "(L1.2)".
 
 ## 5. Ground texture
 
+- **The ground tiles' material is the endless meadow's** (roughness 1.0, specular amount 0.15,
+  `Garden.qml`'s `groundTile`): PrincipledMaterial scales the sky's diffuse light by
+  (1 − specular amount), and 0.92 / 0.2 measured 2–8 luma darker than the meadow at the plan's
+  edge (L1.4 look review, 2026-10-19). Pinned by
+  `tests/unit/test_quick3d_ground_tiles.py::TestTheTileComponent::test_its_material_is_the_meadows_so_the_plan_edge_shows_no_step`.
+- **Slices of work on the GUI thread may chain posted events.** A chain of 40 posted events of
+  10 ms each starved no timer: a 5 ms `QTimer` fired after the first slice, offscreen and on the
+  Windows platform (L1.5 Part B, 2026-10-19) — the controller's ground passes rely on it.
 - A `QImage` → `QQuick3DTextureData` (RGBA8) on a `#Rectangle` needs **`flipV: true`**: texture
   rows are north-up. Orientation probe (`--orient`): NCC identity 0.94 vs flip_v −0.10.
 - **Re-attach renders white** (the texture twin of the geometry rule in §2): the IoU and

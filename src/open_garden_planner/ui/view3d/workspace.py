@@ -694,7 +694,12 @@ class Workspace(QWidget):
             container = host.container(pane)
             orbit = OrbitInput(self._camera, self._view_height, parent=self)
             host.install_event_filter(orbit)
-            controller = Scene3DController(scene, clock, self._location, sink, parent=self)
+            from .ground_bake import GroundBaker
+
+            # ONE baker for this engine's life: it holds the ground's tiles, and paints
+            # for at most its budget (10 ms) a pass — the controller runs the rest
+            controller = Scene3DController(scene, clock, self._location, sink, parent=self,
+                                           ground_baker=GroundBaker())
         except Exception as error:  # noqa: BLE001 - an import, the scene file, anything
             guard.init_failed()
             _log_failure("The 3D view could not be started", error)
@@ -953,11 +958,20 @@ class Workspace(QWidget):
     def _update_problems(self) -> None:
         controller = self._controller
         count = controller.problem_count if controller is not None else 0
-        if count == 0:
+        partial = controller is not None and controller.ground_problems.incomplete
+        if count == 0 and not partial:
             self._problems_row.hide()
         else:
-            text = (self.tr("1 object is not shown in 3D") if count == 1
-                    else self.tr("{count} objects are not shown in 3D").format(count=count))
+            if count == 0:
+                text = self.tr("The 3D ground does not show all of the plan")
+            elif count == 1:
+                text = (self.tr("1 object is not shown in 3D; the 3D ground does not show "
+                                "all of the plan") if partial
+                        else self.tr("1 object is not shown in 3D"))
+            else:
+                text = (self.tr("{count} objects are not shown in 3D; the 3D ground does "
+                                "not show all of the plan") if partial
+                        else self.tr("{count} objects are not shown in 3D")).format(count=count)
             self._problems_label.setText(text)
             self._problems_row.show()
         self._refresh_notices()
@@ -994,7 +1008,8 @@ class Workspace(QWidget):
         if controller is None:
             dialog.set_problems((), lambda _item_id: "")
             return
-        problems = problems_of(controller.skipped, controller.failures)
+        problems = problems_of(controller.skipped, controller.failures,
+                               controller.ground_problems)
         wanted = {problem.item_id for problem in problems[:MAX_PROBLEM_ROWS]}
         names: dict[str, str] = {}
         scene = self._scene

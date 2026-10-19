@@ -5222,7 +5222,7 @@ fixed the same defect, `master`'s mechanism wins:**
 - `restore_stored_look` leaves a stroke attribute alone where the file holds no colour or number
   at all (`null`, a list) instead of raising: merged as it was, it SKIPPED a preset line with
   `"stroke_width": null` — the regression review 2 had found in this story's round 1, now in
-  `master`'s helper. A plain shape still refuses such a value at its pen, as before.
+  `master`'s helper (#527). A plain shape still refuses such a value at its pen, as before.
 - A loaded sprite states what its file holds (`master`'s rule), not its type's stroke as review 2
   had this branch do; `style_gaps` no longer judges a sprite at all (`master`'s
   `test_canvas_item_cache.py` gives three sprites a texture brush they never paint).
@@ -5236,6 +5236,44 @@ fixed the same defect, `master`'s mechanism wins:**
 - The identifiers are the placeholders (`renumber_385_v2.py`, before the merge): this addendum
   belongs to ADR-064; its concept section is §8.32.5, its test patterns §8.10.28, its lessons
   §11.4.34, its requirements FR-36's `FR-3D-GROUND-*`.
+
+#### Part B: the bake wired into the workspace (2026-10-19)
+
+- **The baker lives in the sync, not in a ground stage.** The workspace's controller gets
+  `ground_baker=` and hands it to `SceneSync`, which bakes with the diff the builders run from
+  AND the set of items a builder made a solid for (`solid_ids`) — what decides whether an item
+  is ground. *Rejected:* the controller's ground stage (`set_ground_stage`), which runs BEFORE
+  `apply` and cannot know which items get a solid in it.
+- **Pending ground work is a pass of its own.** `SceneSync.continue_ground()` (one bake, no
+  snapshot, no diff) is scheduled by the controller exactly like any pass and is preempted by
+  an edit, paused while 3D is hidden, never scheduled after a pass that was given up.
+  *Rejected:* `mark_dirty()` per slice, as the controller's seam suggested — a whole-plan
+  snapshot (O(total vertices), ADR-065) for every 10-ms slice; a timer of its own — the posted
+  event was measured not to starve due timers (offscreen and Windows platforms: a 5 ms timer
+  fired after the first of 40 slices of 10 ms).
+- **What the bake could not do reaches the problems list** (`GroundProblems`): an item whose
+  paint failed is an object problem; capped tiles, tiles that could not be painted and a
+  failed bake are NOTES of the ground — rows of no item, first. *Rejected:* listing the
+  records a capped tile left out by id — the admission walk keeps only what a tile keeps, and
+  naming the rest would put work behind the bound.
+- **A document change clears the baker**; an engine reset clears it through `SceneSync.reset()`.
+- **Release policy:** every tile Model a pass destroys counts in `TickReport.retired` —
+  conservative: review 2 measured 12,000 one-tile edits growing the process by 0.8 MB with
+  `releaseResources()` freeing nothing, so a release this triggers may free nothing; it costs
+  2 to 10 ms, at most once per quiet period.
+- **The tile's material is the endless meadow's** (roughness 1.0, specular amount 0.15), so a
+  baked lawn meets the meadow without a step (the L1.4 look review: 0.92 / 0.2 measured 2 to 8
+  luma darker; the combined look pass gates the edge at ≤ 1 luma).
+- **The bake's log lines follow §8.11**: one normalised, capped line at ERROR, the traceback at
+  DEBUG (they quoted an exception's message as it came).
+- **Ruling R41:** gate G6 reads the median of the last ten cycles' growth instead of Theil–Sen
+  over them (one +20.6 MB step read +2.80 MB a cycle); bound unchanged; §8.10.28.
+- **The frozen `--selftest`** bakes one flat lawn with the product's baker over twelve tiles and
+  as many passes, and fails on a wrong tile count, a bake that raised, or no lawn in the frame.
+
+Validation: `tests/integration/test_scene3d_ground_wiring.py` (12 tests), the workspace's suites
+with the baker in (two of their assertions said "a bare plan rectangle" and say "tiles" now),
+`tests/unit/test_quick3d_selftest.py`, the render tier (GPU and WARP).
 
 ## ADR-065: The 3D workspace — Plan / 3D / Split in the main window, one kept engine host (Phase 17, L1.3)
 

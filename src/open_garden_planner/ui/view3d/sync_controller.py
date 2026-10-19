@@ -63,18 +63,29 @@ The rules it enforces:
   layer refused an item: ``SkipReason``) and ``failures`` (a builder raised) are
   kept from the last tick; ``problems_changed`` fires when they change.
 
-THE GROUND SEAM (L1.5). ``set_ground_stage(stage)`` installs the function that
-makes the tick's ``GroundSpec``: ``stage(previous, records, width_cm, depth_cm)``
-with the records applied last (``{}`` after a reset) and the new snapshot. It
-runs BEFORE ``apply`` so that what it returns travels in the same transaction as
-the geometry; a baker diffs the two snapshots with ``core.scene3d.diff`` — the
-function ``SceneSync`` itself uses, on the same inputs. The default is the bare
-plan rectangle. A stage that raises is contained (logged; the bare rectangle is
-sent instead). THE PASS IS RE-RUNNABLE: ``mark_dirty()`` — also from inside the
-stage, or from a slot on ``applied`` — asks for another pass in the next turn of
-the event loop (the flags are cleared when a pass STARTS). A ground that is made
-in slices (a bake that stops at a time budget and leaves tiles for later) asks
-for its next slice that way; nothing here assumes that one pass paints it all.
+THE GROUND (L1.5, §8.32.5). A ``ground_baker`` handed to the constructor goes
+into the ``SceneSync``: every pass's ``apply`` bakes the plan's flat surfaces
+into ground tiles with the SAME diff the builders run from and the set of items
+a builder made a solid for — in the same transaction. A baker stops at its time
+budget (10 ms) and leaves tiles PENDING (``SceneSync.ground_pending``); then
+the controller owes a GROUND PASS — ``SceneSync.continue_ground()``: one bake,
+no snapshot, no diff, no builder — scheduled exactly like any other pass (the
+posted event of ``_schedule``; measured on the offscreen and on the Windows
+platform: a chain of such events leaves a due timer its turn after one slice),
+paused while 3D is hidden, and preempted by an edit (a records pass continues
+the ground itself). A ground pass is a pass: ``applied`` carries its report
+(``TickReport.ground_pass``). What the bake could not do reaches the problems
+list (``ground_problems``: items whose paint failed, tiles that hold less than
+the plan, tiles that could not be painted, a bake that raised); a document
+change drops the baker's tiles with the other memories of a plan (a new plan
+must not show the old one's ground while its own is painted); and every tile
+whose Model a pass destroyed — a re-baked tile is a new Model — is counted in
+``TickReport.retired`` for the workspace's release policy. The bake paints
+images, never the scene: it moves no plan revision and causes no repaint, so
+the net never sees it. ``set_ground_stage(stage)`` — the function that sizes
+each tick's ``GroundSpec``, ``stage(previous, records, width_cm, depth_cm)``,
+default the bare plan rectangle, contained when it raises — stays; with a baker
+the stage's rectangle is what the tiles are laid on.
 
 NO PASS TAKES A FRAME. This module never asks the engine for one (it has only the
 sink), and the workspace keeps the same rule for the host: a readback renders a
@@ -92,7 +103,7 @@ import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date
-from typing import Any, Final
+from typing import TYPE_CHECKING, Any, Final
 
 from PyQt6.QtCore import QCoreApplication, QEvent, QObject, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QGraphicsScene
@@ -107,6 +118,7 @@ from open_garden_planner.core.scene3d import (
     SceneDiff,
     SceneSync,
     SunState,
+    changed_tiles,
 )
 from open_garden_planner.core.scene3d.camera import Bounds
 from open_garden_planner.core.sim_clock import SimChange, SimClock
@@ -114,6 +126,9 @@ from open_garden_planner.core.solar import solar_position
 from open_garden_planner.ui.sim_clock_subscription import connect_qobject
 
 from .snapshot import SkippedItem, snapshot_records
+
+if TYPE_CHECKING:
+    from .ground_bake import GroundBaker
 
 _LOG: Final = logging.getLogger(__name__)
 
@@ -186,10 +201,49 @@ class TickReport:
     #: quiet for ``NET_QUIET_MS`` after a repaint. ``changes`` is empty then unless
     #: an edit path forgot to announce itself (``Scene3DController.unannounced_changes``).
     reconciled: bool = False
+    #: True for a GROUND pass (module docstring): pending ground tiles painted, no
+    #: snapshot, no records — ``changes`` is empty and ``snapshot`` False.
+    ground_pass: bool = False
 
     @property
     def total_ms(self) -> float:
         return self.snapshot_ms + self.apply_ms
+
+
+@dataclass(frozen=True, slots=True)
+class GroundProblems:
+    """What the ground bake could not do, as of the last pass — plain data for the
+    problems list (``problems_dialog.problems_of``)."""
+
+    #: Items whose paint raised: ``(item id, kind, error type, message)``. They lie on
+    #: the ground cut off where they failed (``GroundBaker.failures``).
+    items: tuple[tuple[str, str, str, str], ...] = ()
+    #: Ground tiles that hold fewer surfaces than the plan puts there — the smallest
+    #: are left out (``GroundBaker.capped``).
+    capped_tiles: int = 0
+    #: Ground tiles that could not be painted at all: they show an older picture
+    #: (``GroundBaker.tile_failures``).
+    failed_tiles: int = 0
+    #: The whole bake raised: ``(error type, message)``; the ground shown is older
+    #: (``SceneSync.ground_failure``).
+    failure: tuple[str, str] | None = None
+
+    @property
+    def incomplete(self) -> bool:
+        """The ground shows less than the plan somewhere — beyond ``items``."""
+        return bool(self.capped_tiles or self.failed_tiles or self.failure is not None)
+
+
+def _tiles_retired(before: GroundSpec | None, after: GroundSpec | None) -> int:
+    """How many tile Models a ground change destroyed: a re-baked tile is a NEW Model
+    (``quick3d/ground_tiles.py``), and a tile that is no longer named goes."""
+    old = before.tiles if before is not None else ()
+    new = after.tiles if after is not None else ()
+    if old is new or not old:
+        return 0
+    held = {tile.key for tile in old}
+    uploaded, dropped = changed_tiles(old, new)
+    return sum(1 for tile in uploaded if tile.key in held) + len(dropped)
 
 
 class Scene3DController(QObject):
@@ -208,11 +262,13 @@ class Scene3DController(QObject):
     def __init__(self, scene: QGraphicsScene, clock: SimClock, location: LocationProvider,
                  sink: EngineSink, registry: BuilderRegistry | None = None, *,
                  parent: QObject | None = None, tick_ms: int = TICK_MS,
-                 quiet_ms: int | None = None) -> None:
+                 quiet_ms: int | None = None, ground_baker: GroundBaker | None = None) -> None:
         """``scene``: the canvas scene. A ``CanvasScene`` announces its plan's
         changes (``plan_changed``); any other ``QGraphicsScene`` announces nothing
         and is kept in step by the net alone — after its quiet time, never at once.
-        ``quiet_ms``: the net's quiet time (default ``NET_QUIET_MS``)."""
+        ``quiet_ms``: the net's quiet time (default ``NET_QUIET_MS``).
+        ``ground_baker``: paints the plan's flat surfaces into the ground (module
+        docstring); without one the plan ground is bare."""
         super().__init__(parent)
         if registry is None:
             from open_garden_planner.core.scene3d.builders import production_registry
@@ -221,11 +277,14 @@ class Scene3DController(QObject):
         self._scene = scene
         self._clock = clock
         self._location = location
-        self._sync = SceneSync(sink, registry)
+        self._baker = ground_baker
+        self._sync = SceneSync(sink, registry, ground_baker=ground_baker)
         self._ground_stage: GroundStage = plain_ground
         self._active = False
         self._records_dirty = True   # nothing was ever applied
         self._sun_dirty = True
+        self._ground_owed = False    # ground tiles are pending: a ground pass is owed
+        self._ground_problems = GroundProblems()
         self._document_pending = True  # the first pass shows a document
         self._skipped: tuple[SkippedItem, ...] = ()
         self._failures: dict[str, BuildFailure] = {}
@@ -248,6 +307,8 @@ class Scene3DController(QObject):
         #: announcement shows up as.
         self.reconcile_count = 0
         self.unannounced_changes = 0
+        #: … and the GROUND passes (pending tiles painted; no snapshot).
+        self.ground_count = 0
         self._tick_ms = tick_ms
         self._posted = False  # a pass event is in the queue
         self._timer = QTimer(self)
@@ -290,9 +351,19 @@ class Scene3DController(QObject):
         is not running. (An instrument for tests and gates; a paused controller with
         a flag set is not idle.)"""
         with contextlib.suppress(RuntimeError):  # the #230 teardown guard
-            return not (self.dirty or self._posted or self._net_owed
+            return not (self.dirty or self._ground_owed or self._posted or self._net_owed
                         or self._timer.isActive() or self._net.isActive())
         return True
+
+    @property
+    def ground_owed(self) -> bool:
+        """Ground tiles are pending: a ground pass will run (module docstring)."""
+        return self._ground_owed
+
+    @property
+    def ground_problems(self) -> GroundProblems:
+        """What the ground bake could not do, as of the last pass."""
+        return self._ground_problems
 
     @property
     def skipped(self) -> tuple[SkippedItem, ...]:
@@ -306,7 +377,10 @@ class Scene3DController(QObject):
 
     @property
     def problem_count(self) -> int:
-        return len(self._skipped) + len(self._failures)
+        """Items 3D does not show as the plan draws them: refused, a builder failed,
+        or their paint on the ground failed. (That the ground holds less than the
+        plan in some PLACES is ``ground_problems.incomplete``.)"""
+        return len(self._skipped) + len(self._failures) + len(self._ground_problems.items)
 
     @property
     def last_error(self) -> str | None:
@@ -338,6 +412,8 @@ class Scene3DController(QObject):
             return
         if self.dirty:
             self._schedule(max(self._tick_ms, CATCH_UP_MS))  # … and that pass reads everything
+        elif self._ground_owed:
+            self._schedule(self._tick_ms)  # the ground goes on where it stopped
         elif self._net_owed:
             self._arm_net()
 
@@ -426,6 +502,11 @@ class Scene3DController(QObject):
 
         clear_shape_cache()    # the plant builder's shapes
         clear_outline_cache()  # the record layer's outlines: regions, cuts, ring facts
+        if self._baker is not None:
+            # the ground's tiles: a new plan must not show the old one's ground as
+            # pending tiles while its own is painted (bare until it is)
+            self._baker.clear()
+        self._ground_owed = False
 
     def _schedule(self, delay_ms: int) -> None:
         if not self._active:
@@ -514,6 +595,7 @@ class Scene3DController(QObject):
             return
         self._failed_in_pass = False
         self._pass_records(reconciling=True)
+        self._follow_ground()
 
     def _on_date_changed(self, _day: date) -> None:
         self.mark_dirty()  # growth is keyed on the plan date: the plants regrow
@@ -530,6 +612,39 @@ class Scene3DController(QObject):
             self._pass_records()
         elif self._sun_dirty:
             self._pass_light()
+        elif self._ground_owed:
+            self._pass_ground()
+        self._follow_ground()
+
+    def _follow_ground(self) -> None:
+        """After a pass: owe a ground pass while tiles are pending — scheduled like any
+        pass, so that an edit, the light or a hidden view comes first or stops it."""
+        pending = self._sync.ground_pending and not self._sync.poisoned
+        self._ground_owed = pending
+        if pending and not self._records_dirty:
+            # (records still dirty here = the pass was given up: the next CHANGE tries
+            # again, never a loop of failing passes — the ground waits with it)
+            self._schedule(self._tick_ms)
+
+    def _pass_ground(self) -> None:
+        """One more slice of pending ground work (module docstring): one bake, no
+        snapshot. A failure is contained like the light's: a full pass rebuilds."""
+        self._ground_owed = False
+        before = self._sync.ground
+        started = time.perf_counter()
+        try:
+            self._sync.continue_ground()
+        except Exception as error:  # noqa: BLE001 - a sink that raised: the full pass recovers
+            self._log_failure("painting the 3D ground failed; rebuilding the 3D scene", error)
+            self._records_dirty = True
+            self._pass_records()
+            return
+        self.ground_count += 1
+        self._set_problems(self._skipped, dict(self._sync.failures))
+        self._done(TickReport(SceneDiff(), False, len(self._sync.records), 0.0,
+                              (time.perf_counter() - started) * 1000.0,
+                              retired=_tiles_retired(before, self._sync.ground),
+                              ground_pass=True))
 
     def _pass_light(self) -> None:
         self._sun_dirty = False
@@ -569,6 +684,7 @@ class Scene3DController(QObject):
         sun = self._sun()
         width, depth = self._plan_size()
         started = time.perf_counter()
+        ground_before = self._sync.ground
         changes: SceneDiff | None = None
         if self._sync.poisoned:
             # An engine call failed earlier and the sync refuses every apply until it is
@@ -592,6 +708,9 @@ class Scene3DController(QObject):
         if changes is None:
             self.recovery_count += 1
             self._retired_by_reset += len(self._sync.records)
+            # … and every ground tile the reset clears
+            self._retired_by_reset += len(ground_before.tiles) if ground_before is not None else 0
+            ground_before = None
             try:
                 self._sync.reset()
                 changes = self._sync.apply(
@@ -613,7 +732,8 @@ class Scene3DController(QObject):
                 _LOG.debug("3D sync: the plan changed without an announcement (%s); the "
                            "quiet-time pass found and applied it", _kinds(changes))
         self._set_problems(tuple(skipped), dict(self._sync.failures))
-        retired = self._retired_by_reset + len(changes.removed) + len(changes.geometry)
+        retired = (self._retired_by_reset + len(changes.removed) + len(changes.geometry)
+                   + _tiles_retired(ground_before, self._sync.ground))
         self._retired_by_reset = 0
         self._done(TickReport(changes, True, len(records), snapshot_ms,
                               (time.perf_counter() - started) * 1000.0, recovered, retired,
@@ -662,10 +782,24 @@ class Scene3DController(QObject):
 
     def _set_problems(self, skipped: tuple[SkippedItem, ...],
                       failures: dict[str, BuildFailure]) -> None:
-        if skipped == self._skipped and failures == self._failures:
+        ground = self._ground_report()
+        if (skipped == self._skipped and failures == self._failures
+                and ground == self._ground_problems):
             return
-        self._skipped, self._failures = skipped, failures
+        self._skipped, self._failures, self._ground_problems = skipped, failures, ground
         self.problems_changed.emit()
+
+    def _ground_report(self) -> GroundProblems:
+        """The baker's and the sync's reports as one plain value."""
+        baker = self._baker
+        if baker is None:
+            return GroundProblems()
+        records = self._sync.records
+        items = tuple(
+            (item_id, records[item_id].kind if item_id in records else "", error_type, message)
+            for item_id, (error_type, message) in sorted(baker.failures.items()))
+        return GroundProblems(items, len(baker.capped), len(baker.tile_failures),
+                              self._sync.ground_failure)
 
     def _ground(self, previous: Mapping[str, Record], records: Mapping[str, Record],
                 width_cm: float, depth_cm: float) -> GroundSpec | None:

@@ -143,14 +143,24 @@ def plan_top(ground: GroundSpec) -> TopDownShot:
     return TopDownShot(center=(ground.width_cm / 2.0, ground.depth_cm / 2.0), px_per_cm=scale)
 
 
-def tail_slope(curve: list[float]) -> float:
-    """MB per cycle over the second half of a memory curve (Theil-Sen: the median of
-    all pairwise slopes, so one noisy reading can neither make nor hide a trend). A
-    leak keeps climbing at its per-cycle size; an allocator settles after a few
-    cycles, so the first half is not a trend."""
-    tail = curve[len(curve) // 2:]
-    slopes = [(tail[j] - tail[i]) / (j - i) for i in range(len(tail)) for j in range(i + 1, len(tail))]
-    return float(statistics.median(slopes))
+#: How many of the last cycles gate G6 reads (the first ones are the allocator settling).
+TAIL_CYCLES = 10
+
+
+def tail_growth(curve: list[float], cycles: int = TAIL_CYCLES) -> float:
+    """MB per cycle at the end of a memory curve: the MEDIAN of the growth of each of
+    the last ``cycles`` cycles (``curve[i] - curve[i - 1]``) — Ruling R41.
+
+    A leak adds memory EVERY cycle, so most steps are the leak and the median is
+    its size; a one-off step (an allocator taking one more block — measured on WARP:
+    +20.6 MB once at cycle 15 of a flat curve) is one step of ten, and the median
+    does not see it. The statistic before (Theil-Sen over the second half: the
+    median of all pairwise slopes) read that one step as +2.80 MB a cycle — over a
+    bound of 2.0 — because a step in the middle of the window tilts most pairs."""
+    if len(curve) < cycles + 1:
+        raise ValueError(f"a curve of {len(curve)} readings has no {cycles} cycles to judge")
+    steps = [curve[index] - curve[index - 1] for index in range(len(curve) - cycles, len(curve))]
+    return float(statistics.median(steps))
 
 
 # ── the engine side ──────────────────────────────────────────────────────────
