@@ -59,8 +59,9 @@ jobs:
       # The release recipe, not a copy of it: the same script, the same spec, the
       # same `PyInstaller --noconfirm --clean`; without NSIS no installer is built.
       # The one difference: release.yml passes `--version <the release>`, this
-      # does not -- and the script then writes _version.py with its default,
-      # 1.0.0. So THIS bundle calls itself v1.0.0 (see the smoke test below).
+      # does not -- and the script then writes _version.py with the version in
+      # pyproject.toml (master's #490). So THIS bundle calls itself by the last
+      # synced release, not by the one a merge would produce (see the smoke test).
       - name: Build the bundle (the release recipe, without the installer)
         timeout-minutes: 30
         run: python installer/build_installer.py --skip-nsis
@@ -77,9 +78,10 @@ jobs:
       #
       # The frozen app asks GitHub for the latest release two seconds after its
       # window is up (services/update_checker.py; the app has no switch to turn
-      # that off). As v1.0.0 this bundle finds one and shows its update bar. The
-      # verdict does not depend on the answer: the checker runs on a thread of
-      # its own and swallows every network error.
+      # that off). As the last synced release it normally finds nothing newer;
+      # if a release landed after this branch's last version sync, it shows its
+      # update bar. The verdict does not depend on the answer: the checker runs
+      # on a thread of its own and swallows every network error.
       - name: Smoke test (the process stays up for 8 seconds)
         shell: bash
         timeout-minutes: 5

@@ -1040,6 +1040,9 @@ class TestStateMachine:
         assert not container.isVisible()
 
 
+# Every test here bounds how long wait_ready() takes: wall-clock assertions, so they run
+# in the serial `-m perf -n 0` step, not beside the default run's workers (ADR-058).
+@pytest.mark.perf
 class TestWaitReady:
     """The contract's sentences 2 and 3 (``lifecycle.py``): ``wait_ready(timeout_s)``
     starts no pass of the event loop once ``timeout_s`` is up; True means a frame of the

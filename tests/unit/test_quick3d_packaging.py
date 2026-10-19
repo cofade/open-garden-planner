@@ -220,7 +220,7 @@ class TestFrozenSelftestWorkflow:
 
     def test_it_uses_no_action_that_ci_does_not_use(self) -> None:
         used = set(re.findall(r"uses: (\S+)", _code(FROZEN)))
-        assert used == {"actions/checkout@v4", "./.github/actions/setup-locked-env"}
+        assert used == {"actions/checkout@11d5960a326750d5838078e36cf38b85af677262", "./.github/actions/setup-locked-env"}
         assert used <= set(re.findall(r"uses: (\S+)", _code(CI)))
 
     def test_it_builds_with_the_release_recipe_not_a_copy_of_it(self) -> None:
@@ -245,7 +245,8 @@ class TestFrozenSelftestWorkflow:
         steps = re.findall(r"^      - (?:name|uses): (.+)$", code, re.MULTILINE)
         limits = [int(n) for n in re.findall(r"^        timeout-minutes: (\d+)$", code, re.MULTILINE)]
         job = int(re.search(r"^    timeout-minutes: (\d+)$", FROZEN, re.MULTILINE).group(1))  # type: ignore[union-attr]
-        assert len(steps) == 6 and steps[:2] == ["actions/checkout@v4", "./.github/actions/setup-locked-env"]
+        assert len(steps) == 6 and steps[:2] == ["actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0",
+                                                 "./.github/actions/setup-locked-env"]
         assert limits == [5, 10, 30, 5, 10, 2], "one limit per step, in the steps' order"
         for name, after in zip(steps, re.split(r"^      - (?:name|uses): .+$", code, flags=re.MULTILINE)[1:],
                                strict=True):
@@ -256,12 +257,14 @@ class TestFrozenSelftestWorkflow:
 
     def test_the_comments_say_what_the_bundle_and_the_smoke_really_are(self) -> None:
         """Review round 2, P2-7 / P2-10. The workflow said "no ``_version.py`` is written"
-        — the build script always writes one, with its default ``1.0.0`` when no version
-        is passed, so the pull-request exe runs the update check as v1.0.0 during the
+        — the build script always writes one; without ``--version`` it is the version in
+        ``pyproject.toml`` (master's #490 — it was a fixed ``1.0.0`` before), so the
+        pull-request exe runs the update check as the last synced release during the
         smoke. And "survived 8 seconds" is also true of a process blocked in an error
         dialog. Pinned against the files the statements are about."""
         script = (REPO / "installer" / "build_installer.py").read_text(encoding="utf-8")
-        assert 'APP_VERSION = "1.0.0"' in script
+        assert "APP_VERSION = _manifest_version()" in script
+        assert 'tomllib.load(fh)["project"]["version"]' in script
         assert re.search(r"if not args\.skip_pyinstaller:\n\s+_write_version_module\(APP_VERSION\)", script)
         application = (REPO / "src/open_garden_planner/app/application.py").read_text(encoding="utf-8")
         start = application.index("    def _start_update_check(self) -> None:")
@@ -273,7 +276,7 @@ class TestFrozenSelftestWorkflow:
         assert "except Exception:  # noqa: BLE001" in checker[checker.index("class UpdateChecker"):]
         comments = "\n".join(line for line in FROZEN.splitlines() if line.lstrip().startswith("#"))
         assert "no _version.py" not in comments.lower()
-        for statement in ("writes _version.py with its default", "calls itself v1.0.0",
+        for statement in ("writes _version.py with the version in pyproject.toml", "calls itself by the last synced release",
                           "blocked in an error dialog", "The self-test below is the real gate",
                           "the app has no switch to turn", "swallows every network error"):
             assert " ".join(statement.split()) in " ".join(comments.replace("#", " ").split()), statement
