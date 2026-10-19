@@ -1,6 +1,6 @@
 ---
 name: ogp-3d-renderer
-description: "Measured facts and runbook for Open Garden Planner's Qt Quick 3D renderer (Phase 17, ADR-048; spike in src/open_garden_planner/spike_q3d/, production package ui/view3d/quick3d/ from L1.2). Load when: writing or debugging anything that imports QtQuick3D/QtQuick/QtQml/QtQuickWidgets; feeding numpy geometry or textures to the engine; placing the sun, sky, shadows or camera; choosing render presets or post effects; hosting a View3D in a QQuickWidget or QQuickView; picking; taking screenshots or offscreen renders; rendering in CI (xvfb + Mesa, Windows WARP); packaging Qt Quick 3D in the PyInstaller exe; or when a 3D frame is black, white, mirrored, washed out, slow or seems to hang. Only facts measured in this repo, each with where and how it was measured."
+description: "Measured facts and runbook for Open Garden Planner's Qt Quick 3D renderer (Phase 17, ADR-048; production package ui/view3d/quick3d/ since L1.2; the L0 spike it was measured in, src/open_garden_planner/spike_q3d/, was deleted in L1.10). Load when: writing or debugging anything that imports QtQuick3D/QtQuick/QtQml/QtQuickWidgets; feeding numpy geometry or textures to the engine; placing the sun, sky, shadows or camera; choosing render presets or post effects; hosting a View3D in a QQuickWidget or QQuickView; picking; taking screenshots or offscreen renders; rendering in CI (xvfb + Mesa, Windows WARP); packaging Qt Quick 3D in the PyInstaller exe; or when a 3D frame is black, white, mirrored, washed out, slow or seems to hang. Only facts measured in this repo, each with where and how it was measured."
 ---
 
 # Qt Quick 3D renderer — measured facts and runbook
@@ -10,15 +10,21 @@ was measured in this repo; the machine is named because software rasterisers (Me
 Windows WARP) say nothing about absolute GPU speed — only about correctness, ratios and
 relative cost. Art direction lives in `ogp-lush-cinematic`; this skill is the engine.
 Since L1.2 the production package `ui/view3d/quick3d/` exists: its measured facts and commands
-are §12, and rows it added to the tables below say "(L1.2)".
+are §12, and rows it added to the tables below say "(L1.2)". **L1.10 deleted the spike**
+(`spike_q3d/`, `--spike-q3d`, `scripts/bench_view3d.py`): where a row below names a spike module,
+flag or class, it names where the fact was measured. docs/05 §5.8 says where each spike part
+lives now; the values production was drift-guarded against are frozen in
+`tests/data/l0_spike_reference.json`.
 
 ## 1. Boundary rules (pinned by tests)
 
-- The spike is **dormant**: dispatched from `main()` on `--spike-q3d`, never imported at app
-  start (`tests/unit/test_spike_q3d_isolation.py`).
-- **One engine module.** Only `spike_q3d/quick.py` may import `PyQt6.QtQuick3D`, `QtQuick`,
-  `QtQml` or `QtQuickWidgets` (AST scan in the same test). The production package inherits the
-  rule as `ui/view3d/quick3d/`.
+- The L0 spike was **dormant** — dispatched from `main()` on `--spike-q3d`, never imported at
+  app start — and **L1.10 deleted it** (ADR-048's closing addendum);
+  `tests/unit/test_quick3d_boundary.py::test_the_spike_is_gone_and_nothing_names_it` keeps it
+  gone.
+- **One engine module (L0).** Only the spike's `quick.py` imported `PyQt6.QtQuick3D`, `QtQuick`,
+  `QtQml` or `QtQuickWidgets`. The production package inherited the rule as
+  `ui/view3d/quick3d/`.
 - **One engine package (L1.2).** In the product, only `ui/view3d/quick3d/` imports those
   bindings — and inside it only `geometry.py`, `host.py` and (L1.5, the ground's tile
   textures) `ground_tiles.py` do; `selftest.py` names them as
@@ -28,7 +34,8 @@ are §12, and rows it added to the tables below say "(L1.2)".
   package never uses a `QQuickWidget`.
 - **QML carries no user-visible strings** — `pylupdate6` does not extract `qsTr`, so any text
   goes through a QWidget overlay with `self.tr()` (§8.3).
-- `spike_q3d/meshes.py` is **Qt-free numpy** (it graduates into `core/`).
+- The spike's `meshes.py` was **Qt-free numpy**; it graduated into `core/scene3d/` (L1.1,
+  L1.6, L1.7).
 - **`core/scene3d/` is Qt-free** (standard library + numpy; AST scan in
   `tests/unit/test_scene3d_contract.py`). That is a rule about its source — no module there uses
   Qt — not about the interpreter: importing the package runs `core/__init__.py`, which loads
@@ -528,10 +535,11 @@ topmost triangle under a vertical ray over every pickable mesh, merged per item)
   shader` and `Failed to compile fragment shader` arrive as `QtWarningMsg`, and the frame
   still renders (measured: one renamed call in `water.frag` changed 449 pond pixels' colour,
   exit 0, `status: ok`). Record every Qt message
-  (`spike_q3d/qt_messages.py`: `qInstallMessageHandler`, into the log and `metrics.json`) and
+  (`ui/view3d/quick3d/qt_messages.py` since L1.2 — the spike had its own:
+  `qInstallMessageHandler`, into the log and `metrics.json`) and
   fail on shader/QML errors — a frozen exe has no stderr to read them from. A clean llvmpipe
   run emits no Qt messages at all, so the gate has no false alarms there.
-- **Aim probes at the actual view size** (`SpikeRenderer.view_size()`), not the requested
+- **Aim probes at the actual view size** (measured in the spike, `SpikeRenderer.view_size()`), not the requested
   one: a window larger than the screen is clamped.
 - **Which device rendered? (L1.2)** `rendererInterface().graphicsApi()` names the API, not the
   adapter. Switch on Qt's `qt.rhi.general` debug output
@@ -575,20 +583,25 @@ topmost triangle under a vertical ray over every pickable mesh, merged per item)
   ```bash
   OGP_RENDER3D=1 QSG_RHI_BACKEND=opengl QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 \
     xvfb-run -a -s "-screen 0 1920x1080x24" \
-    venv/bin/python -m pytest tests/integration/test_spike_q3d_render.py
+    venv/bin/python -m pytest tests/integration/test_quick3d_render.py -n 0
   ```
+
+  (Until L1.10 the tier's only file was the spike's `test_spike_q3d_render.py`; CI's `render3d`
+  job runs the engine package's render files on Linux and on Windows WARP, §12.)
 
 ## 9. Packaging (PyInstaller)
 
 - The spec needs a data loop for the QML + shader files and hidden imports for
-  `PyQt6.QtQuick`, `QtQml`, `QtQuickWidgets`, `QtQuick3D`.
+  `PyQt6.QtQuick`, `QtQml`, `QtQuick3D` (`QtQuickWidgets` left the spec with the spike in
+  L1.10: the product never uses a `QQuickWidget`).
 - **The Qt Quick 3D runtime already ships in today's bundle.** Windows dist, branch vs master
   built in the same job: 626.2 MB vs 624.5 MB → **+1.7 MB** (only `QtQuick3D.pyd` and the QML
   files are new). Quick3D + ShaderTools files: 21.1 MB (Windows), ~23 MB (Linux); the Qt 3D DLLs
   it replaced: 5.8 MB (L1.10 removed them; the bundle before and after is ADR-048's closing
   addendum).
-- Frozen Windows exe with the spike bundled: the unchanged `--selftest` gate still exits 0
-  (ogp-change-control §2.8 is its home).
+- Frozen Windows exe with the spike bundled: the `--selftest` gate exited 0 (ogp-change-control
+  §2.8 is its home); it exits 0 without the spike and the Qt 3D wheels too (L1.10, ADR-048's
+  closing addendum).
 - **L1.2:** the production package adds its five QML and shader files (a data loop in
   `installer/ogp.spec`) and eleven modules: **+79,008 bytes** (650,815,562 vs 650,736,554,
   same machine, same day, same shell). `--selftest` now also RENDERS one hidden 160 × 120
@@ -605,7 +618,9 @@ topmost triangle under a vertical ray over every pickable mesh, merged per item)
 
 `bench_small.ogp` (99 items): plan load 0.1–0.5 s, ground bake 0.1–0.3 s, mesh build ~0.5 s
 for 185k triangles (Linux and Windows alike). `bench_large.ogp` (425 items): 2.28 s for 1.46M
-triangles (`scripts/bench_view3d.py`).
+triangles (`scripts/bench_view3d.py`, deleted with the spike in L1.10; its last run, on the
+L1.9 tree: small 260 ms for 205,032 triangles, large 1,523 ms for 1,429,032, the spike's
+build).
 
 ## 11. Symptom → cause (spike chronicle)
 

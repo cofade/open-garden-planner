@@ -3127,6 +3127,46 @@ Symptom → root cause → fix (ADR-065 addendum "the default and the removal", 
    window", and the action now switches a mode of the main window. The text lost its
    ellipsis (a new source string: German and Spanish had to follow, the gate of #496 says
    so) and its status tip says "beside the plan".
+5. **Qt 3D ignored Qt Quick's software switch.** *Symptom:* the old window's "WARP" budget run
+   reported the RTX 4070 as its adapter and GPU-speed numbers. *Root cause:*
+   `QSG_RHI_PREFER_SOFTWARE_RENDERER` is read by Qt Quick's scene graph; Qt 3D creates its own
+   RHI and does not read it. *Fix:* none needed after L1.10 — the row says "not measured"
+   rather than reporting a GPU run as WARP. *Lesson:* check the adapter a run REPORTS, not the
+   switch it was given.
+6. **A sleeping display presents no frames.** *Symptom:* the frame-cost board measured 0 fps on
+   the RTX 4070. *Root cause:* the desktop's display was asleep; a vblank-paced swap chain
+   presents nothing then. *Fix:* the GPU rows ran timer-paced (`QT_D3D_NO_VBLANK_THREAD=1`,
+   capped near 60) and say so. *Lesson:* a frame rate of 0 is a measurement of the display
+   first.
+7. **A mock that accepts every call proved a call, not a light.** *Symptom:* moved from the
+   old window's `MagicMock` onto the workspace's recording engine, "a date edit moves the 3D
+   light" failed: no `set_sun` reached the engine. *Root cause:* the test plan had no location,
+   so the light is the fixed default sun, which no date moves; the mock had answered the old
+   app's unconditional `set_sun` call. *Fix:* the test gives the plan a location. *Lesson:* a
+   recording double that keeps the protocol (here: a repeated sun sends nothing) finds what a
+   catch-all mock hides.
+8. **A lock refresh changes more than the packages it drops.** *Symptom:* `uv lock --offline`
+   after removing two pins removed their two entries from `uv.lock` — and reordered three
+   resolution-marker lines. *Root cause:* uv writes the marker list in its own order; the
+   strings were the same and no version changed (checked line by line). The PEP 751 export
+   (`pylock.toml`) changed by exactly the two packages' 26 lines. *Lesson:* read a lock diff
+   by what it resolves, and say what else moved.
+9. **A branch merged after the removal used the deleted spike.** *Symptom:* after L1.5 joined,
+   a ground-bake test imported `spike_q3d.runner.MEADOW_ALBEDO`. *Root cause:* L1.5 was written
+   while the spike existed; the removal and the new use met only at the merge. *Fix:* the test
+   reads the meadow from the frozen reference. *Lesson:* after merging into a removal, scan the
+   merged tree for every removed name, not only the files that conflicted.
+10. **A local build bundles what the build environment has installed, not what the lock pins.**
+   *Symptom:* the first frozen build after the removal, made with the shared development venv,
+   still carried Qt 3D's eleven `Qt63D*.dll` and the `qml/Qt3D` folder — though nothing imports
+   them and the spec names none of them. *Root cause:* that venv still had `PyQt6-3D-Qt6`
+   installed (removing a pin does not uninstall a wheel); the QML hook collects the QML modules
+   it finds in the installed `PyQt6/Qt6/qml` folder, and their plugins pull their DLLs in.
+   *Fix:* the before / after bundles were built in ONE clean environment synced from each tree's
+   lock (`uv sync --locked`), which is what CI and the release do; after pulling this change,
+   re-sync a development venv (`uv sync --locked …`, ogp-build-and-run) before building locally.
+   *Lesson:* judge a bundle built from a locked environment; a dev venv's bundle answers what
+   the dev venv holds.
 
 ### 11.4.8 Guild boundaries found by independent review (F1/F2)
 

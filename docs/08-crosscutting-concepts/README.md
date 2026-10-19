@@ -1917,6 +1917,31 @@ How §8.32.9 is tested. The seam is still the workspace's (`Workspace.engine_fac
   flip) were taken on the L1.9 tree, before L1.10 deleted it; afterwards there is nothing left
   to compare with.
 
+The removal (L1.10) added three tests of what is NOT there and moved the drift guards onto
+frozen data:
+
+| Tier | Files | What it proves |
+|---|---|---|
+| default | `tests/unit/test_no_qt3d_left.py` | no file a clone contains (`git ls-files`) in the code areas — `src/`, `installer/`, `scripts/`, `tests/`, `.github/`, `quality/`, `pyproject.toml`, `uv.lock`, `pylock.toml` — names Qt 3D's modules or wheels (the test's pattern, any case; "Qt 3D" with a space is the prose name and allowed); documentation names them only in the files listed as history (ADRs, roadmap, §11, the failure archaeology, debug case studies, the Phase 14 campaign); every listed history file exists; a positive control of the pattern |
+| default | `tests/unit/test_qt_runtime_pins.py` | `PyQt6` and `PyQt6-Qt6` are pinned exactly and equally, the lock holds exactly those versions, `qVersion()` equals the pin, and the Qt Quick 3D binding, DLL and QML module are in the installed wheels |
+| default | `tests/unit/test_quick3d_boundary.py::test_the_spike_is_gone_and_nothing_names_it`, `test_quick3d_packaging.py::test_the_spike_left_the_bundle_with_l1_10` | the spike's package, flag and spec entries are gone |
+| default | the drift guards in `test_scene3d_look.py`, `test_quick3d_pure.py`, `test_quick3d_qml.py`, `test_scene3d_mesh.py`, `test_scene3d_builders_primitives.py`, `test_board_probes.py`, `test_render_beauty_board.py`, `test_scene3d_ground_bake.py` | production equals the L0 spike's values, read from `tests/data/l0_spike_reference.json` |
+
+- **Freeze a reference before deleting what produced it.** A drift guard that imports the code
+  it guards against dies with that code. Run the producer once more, write what the guards
+  compare with into a data file with its provenance, point the guards at the file, THEN delete.
+  The freezer ran against an archive of the tree before the removal, not the working tree.
+- **An absence gate reads what a clone contains, and is mutation-checked per kind of
+  presence.** `test_no_qt3d_left` lists files with `git ls-files` — a stray build folder cannot
+  fail it and an uncommitted file cannot hide from review. Measured when it was written: an
+  import put back in `src/`, a pin in `pyproject.toml`, a hidden import in the spec, a
+  self-test import in `main.py`, a lock entry in `pylock.toml`, a comment in `ci.yml`, a line
+  in docs/05 and one in a skill each failed it (8 of 8), and each file restored passed.
+- **History is a list of files, not a folder.** A directory-wide exemption (all of `docs/`)
+  would let new prose describe the removed view as current; the gate names each history file
+  with its reason, and only the ADR-048 evidence folder (measured runs, never edited) as a
+  folder.
+
 ## 8.11 Security Scanning (SAST)
 
 **Tool:** [Bandit](https://bandit.readthedocs.io/) — a Python SAST tool that detects common security anti-patterns (subprocess injection, unsafe deserialization, weak cryptography, hardcoded secrets, etc.).
@@ -6425,7 +6450,7 @@ something was put where it stands. A new document, "Reset 3D View" and Escape le
 Not in v0: plants as obstacles, stairs and slopes (the ground is flat), doors, pointer capture,
 a hover highlight, a box selection in 3D.
 
-### 8.32.9 The default, and what the old view promised (L1.9)
+### 8.32.9 The default, what the old view promised, and its removal (L1.9 / L1.10)
 
 The workspace is the 3D view of every main window. The decision and every measurement are the
 **ADR-065 addendum "the default and the removal"**; how it is tested is §8.10.31; what went
@@ -6481,8 +6506,8 @@ Each row is a test of the NEW view, or a stated difference the owner sees.
 | every visible object with a footprint, extruded at its effective height | the same objects at the same height — the 2D resolver's (FR-SUN-02) | `test_scene3d_snapshot.py::TestRecordContent::test_height_is_the_2d_resolver_s`, `test_scene3d_built_world.py::test_kinds_builders_heights_and_bases` |
 | … as prisms in their fill colour | **differs:** buildings, fences, walls, beds, containers and hedges as built shapes (L1.6); plants as their sprite's archetype (L1.7); the other kinds as prisms in their fill colour | `test_scene3d_built_world.py`, `test_scene3d_plants.py::test_every_gallery_plant_is_built_as_the_sprite_the_canvas_draws`, `test_scene3d_snapshot.py::TestRecordContent::test_material` |
 | the same footprints as the 2D shadow overlay | the same footprints (`ui/canvas/footprints`, one caster walk); a prism's shadow is the 2D model's; other shapes differ by the measured amounts of FR-SUN-20 | `test_scene3d_shadow_agreement.py::test_a_prism_casts_the_shadow_the_2d_model_casts`, `::test_prisms_pots_and_post_fences_end_where_the_2d_shadow_ends` |
-| height-less objects (lawns, paths, in-ground beds) as thin ground decals | **differs until the ground bake (L1.5) joins:** an item without a height has no solid, so it is not drawn; L1.5 paints them onto the ground as on the plan | `tests/unit/test_scene3d_mesh.py::TestDefaultBuilder::test_no_height_means_no_parts` |
-| a ground plane the size of the canvas | the plan ground is the canvas rectangle, in a meadow; it follows a resized canvas | `test_view3d_sync_controller.py::test_a_resized_canvas_moves_the_ground` |
+| height-less objects (lawns, paths, in-ground beds) as thin ground decals | **differs:** no decal — they are painted onto the 3D ground as the plan paints them: the same textures and tints, pens, path and fence styles and sprites, north up, in the plan's stacking order; under a solid the ground shows what was drawn there (FR-3D-GROUND-01 / 02, L1.5) | `test_scene3d_ground_bake.py::TestParityPerPattern`, `::TestParityOfPaths`, `::TestParityOfSprites`, `::TestWhatIsPainted::test_a_solid_is_not_painted_and_the_lawn_runs_on_under_it`, `test_scene3d_ground_wiring.py::test_the_workspace_bakes_the_ground_of_what_is_drawn`, render `test_scene3d_ground_render.py::test_a_real_plan_shows_its_baked_ground_in_the_engine` |
+| a ground plane the size of the canvas | the plan ground is the canvas rectangle, baked from the plan, in a meadow; it follows a resized canvas | `test_view3d_sync_controller.py::test_a_resized_canvas_moves_the_ground` |
 | an orbit camera (drag rotates, wheel zooms), framed on the plan | **differs in the buttons:** right drag orbits, left drag pans, the wheel zooms, both buttons zoom (Qt 3D's own `QOrbitCameraController` mapping); keys too; framed on the first open and on a new plan, never by an edit | `tests/ui/test_view3d_orbit_input.py`, `test_view3d_workspace_widget.py::test_no_edit_moves_the_camera_and_a_document_change_frames_once` |
 | a directional sun from the sim date / time and the location | the same, the one sim clock; shadows from a shadow map | `test_view3d_sync_controller.py::test_a_time_change_moves_the_light_and_takes_no_snapshot`, `tests/ui/test_quick3d_host.py::TestKeyLight` |
 | no location → a pleasant southern midday (50°, 180°) | the same sun (`NO_LOCATION_SUN`) | `test_view3d_sync_controller.py::test_without_a_location_the_documented_default_sun_is_sent_once` |
@@ -6572,3 +6597,53 @@ What the table says, honestly:
   releases). By the residual L1.3 measured (15–20 kB per destroyed Model), a held key costs at
   most 2 × 20 × 60 = 2,400 Models a minute — 36 to 48 MB a minute — against the 0.7 GB a minute
   estimated for a key that regrows on every one of its 30 steps a second.
+
+#### With the ground (L1.5 joined; measured on the merged tree, 2026-10-19)
+
+L1.5's ground bake joined after the tables above were measured. The same scenarios on the merged
+tree (RTX 4070 unless the row says WARP; the small plan one cold and two warm runs, the large one
+cold and one warm; dedicated GPU memory is the steady reading, committed memory the median of
+three):
+
+| Row | Small bench plan | Large bench plan | Against the tables above |
+|---|---|---|---|
+| start-up, 3D never opened (3 runs) | 2.12–2.14 s, 0 engine modules | — | unchanged |
+| first 3D click → first presented frame | 1.11–1.22 s | 1.91–2.15 s | small unchanged, large +0.1–0.3 s |
+| first 3D click → first finished readback | 2.68–2.96 s | 4.21–4.33 s | +0.4–0.6 s and +1.0 s: the ground's first passes |
+| dedicated GPU memory after the first frame | 332.5 MB | 427–429 MB | +20 MB and +115 MB: the ground's tile textures |
+| committed memory before 3D → after the first frame | 880 → 1,724–1,743 MB | 903–904 → 2,180 MB | higher by ~50–300 and ~320 MB (private bytes swing) |
+| after 100 more edits (committed / GPU) | 1,490–1,495 / 332.6 MB | 1,913–1,914 / 408 MB | — |
+| snapshot per pass, p50 / p95 | 3.5 / 4.0–6.3 ms | 14.6 / 21.8–24.8 ms | — |
+| edit → finished frame (still), 120 edits | p50 22.2, **p95 41.5**, max 64.9 ms | p50 54.7, p95 103, max 235 ms | within run-to-run spread (45.9 and 180 above) |
+| WARP, small: first frame / first readback; edit → frame | 1.05 s / 12.8 s; p50 370, p95 427 ms | — | the readback +1.2 s |
+| date playback, 60 s, a step every 33 ms, 20 dated trees: regrowth passes / cache releases / dedicated GPU memory | the interval: 101 and 104 passes, 5 and 6 releases, **+41 and +63 MB a minute**; none: 339 and 219 passes, 13 and 9 releases, +112 and +76 MB a minute | — | without the ground (above) no GPU trend could be resolved (−18.6 to +2.7 MB a minute) |
+
+- **#532, measured on the default's own path.** Each cache release now keeps 8.2 to 10.5 MB of
+  dedicated GPU memory (the minute's GPU slope over its releases, four runs) — about half of
+  bench_small's ground, what L1.5 measured in G7 (+9.3 to +11.4 MB per rebuild). Date playback
+  releases about once per 512 retired Models: the interval cut a held key's releases from 9–13 to
+  5–6 a minute, so a minute of held date key keeps 41–63 MB on this plan instead of 76–112; on the
+  largest ground (~42 MB per release) that would be about 210–250 MB a minute. The interval
+  cannot make one release leak less. Shipping the default with #532 open is the owner's decision
+  (the ADR-065 addendum, D5).
+- **The ground's own cost** is GPU memory for its tiles (+20 MB on the small plan, +115 MB on
+  the large) and up to a second before the first frame is complete; it changes nothing at
+  start-up and nothing measurable per edit.
+
+#### After the removal (L1.10)
+
+The workspace is the only 3D code. What the old view needed and the host does not is the scar
+table of the ADR-065 addendum; what left the bundle is ADR-048's closing addendum. Three rules
+remain for whoever touches this area:
+
+- **No Qt 3D anywhere but in history.** `tests/unit/test_no_qt3d_left.py` (§8.10.31) fails on a
+  Qt 3D module or wheel name in code, the spec, the workflows, `quality/`, the manifest and the
+  locks, and on any document not on its history list.
+- **The spike's values are data now.** Each spike module has a production successor (docs/05
+  §5.8); what the drift guards compared with is `tests/data/l0_spike_reference.json`. A
+  production value that leaves it is a deliberate change: update the file only together with
+  the ADR or skill row that records why.
+- **`--selftest` is three blocks** — the Agent API server, the A1 checks, and the Qt Quick 3D
+  render (with L1.5's baked ground and the selection ring). The render block is what now
+  catches #277's class: a missing or mismatched Qt Quick 3D library fails the frame in the real
+  artifact, as the Qt 3D import used to.

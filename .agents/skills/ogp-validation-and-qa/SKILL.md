@@ -245,7 +245,7 @@ Volatile facts date-stamped 2026-07-04 (v1.23.0): CI-vs-local gate split, BED_SH
 Use the locked Python 3.11 environment described in ogp-build-and-run. Run
 `scripts/check_dependency_lock.py`, `scripts/check_mypy_baseline.py` and Linux
 `scripts/check_coverage_floors.py --xml coverage.xml` before delivery. Strict mypy
-checks production source including spike_q3d, with separate Linux/Windows per-file
+checks all production source, with separate Linux/Windows per-file
 allowances. New files have zero allowance. Coverage floors compare exact covered-line
 counts; branch coverage is reported separately. CI uploads reports even on failure.
 Coverage is initially not required by protection, but a failed job must be investigated.

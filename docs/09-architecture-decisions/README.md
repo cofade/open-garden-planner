@@ -1146,7 +1146,7 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 
 ## ADR-038: 3D Engine Choice — GO/NO-GO Spike (Phase 14, US-E5)
 
-**Status**: Proposed — GO recommendation, owner sign-off pending on the US-E5 PR (evaluated 2026-07-19/20) | **Context**: Epic #255, issue #260, `docs/11` §11.1 open question ("Qt6 3D capabilities vs dedicated engine? Prototype with Qt3D, evaluate PyVista"). Timebox: 5 working days, hard stop.
+**Status**: **Superseded** by ADR-048 (2026-10-05); the code this decision chose was deleted in Phase 17 L1.10 (2026-10-19, ADR-065 addendum "the default and the removal", ADR-048's closing addendum). Was: Proposed — GO recommendation, owner sign-off pending on the US-E5 PR (evaluated 2026-07-19/20) | **Context**: Epic #255, issue #260, `docs/11` §11.1 open question ("Qt6 3D capabilities vs dedicated engine? Prototype with Qt3D, evaluate PyVista"). Timebox: 5 working days, hard stop.
 
 **Decision criteria (written BEFORE gathering evidence — the issue's discipline):**
 
@@ -2789,6 +2789,63 @@ hardware adapter and on WARP, over 20 and over 60 rebuilds, with its control fir
 dedicated GPU memory read for the first time. Open: the residual above; the one-time step of
 both memories with the first releases. Not measured: a frozen exe; a CI runner (the
 workspace's render tier is not part of CI's render job).
+
+### Addendum L1.10 — closing: Qt 3D removed (2026-10-19, #385 story L1.10)
+
+**Status**: Executed. The decision above is carried out: Qt Quick 3D is the product's only 3D
+engine and Qt 3D (ADR-038, now *Superseded*) is out of the code, the dependencies and the
+bundle. Nothing of criterion 10 changes with it — its leak half stays reopened by L1.5's ground
+textures (#532, above).
+
+**What left.** The US-E6 / E7 window and its adapter (`ui/view3d/view3d_window.py`,
+`qt3d_adapter.py`), the pre-L1.1 scene module (`core/scene3d/legacy.py`), the walkthrough helper
+(`core/walk_camera.py`), every path of the main window that drove them, the L0 spike
+(`spike_q3d/`, `--spike-q3d`, `scripts/bench_view3d.py`, eleven test files), `--selftest`'s Qt 3D
+import block, the spec's six Qt 3D hidden imports with `QtQuickWidgets` and the spike's data,
+and the two wheels `PyQt6-3D` / `PyQt6-3D-Qt6` 6.11.0. The scars the old window carried and why
+the workspace's host needs none of them: ADR-065 addendum "the default and the removal", L1.10
+part. The spike's measured values outlive it in `tests/data/l0_spike_reference.json` (the drift
+guards read it, §8.10.31); this ADR's evidence log and `adr-048-evidence/` stay as they are.
+
+**The lock** (ADR-050): `uv lock --offline` (uv 0.12.23) after removing the two pins — `uv.lock`
+lost the two packages and reordered three resolution-marker lines (the same strings; no version
+changed), and `uv export --locked --all-extras --group build --no-emit-project --no-header
+--format pylock.toml --output-file pylock.toml --offline` removed exactly the two packages' 26
+lines from `pylock.toml`. `scripts/check_dependency_lock.py` agrees; the dependency provenance
+record drops the two entries and says why.
+
+**The bundle**, built twice in ONE clean environment (Python 3.11.9, the release pin): synced from
+the L1.9 tree's lock and built, then synced from the L1.10 tree's lock — which uninstalled
+exactly `pyqt6-3d` and `pyqt6-3d-qt6` — and built again (2026-10-19, the dev box, Git Bash):
+
+| | Before (L1.9 tree) | After (L1.10, with L1.5 merged) | Difference |
+|---|---|---|---|
+| total | 652,687,676 bytes, 2,876 files | 639,202,072 bytes, 2,819 files | −13,485,604 bytes (−13.5 MB), −57 files |
+| Qt 3D bindings (`PyQt6/Qt3D*.pyd`) | 6 files, 2,382,336 bytes | none | all left |
+| Qt 3D runtime (`Qt6/bin/Qt63D*.dll`, 11, and `Qt6Concurrent.dll`, which nothing left in the bundle links) | 12 files, 6,078,624 bytes | none | all left |
+| Qt 3D plugins (`geometryloaders/`, `renderers/`, `sceneparsers/`) | 7 files, 4,169,352 bytes | none | all left |
+| QML modules `Qt3D/` and `QtQuick/Scene2D/` | 15 files, 688,952 bytes | none | all left |
+| the spike's QML and shaders | 5 files, 20,612 bytes | none | left |
+| the two wheels' metadata | 12 files | none | left |
+| Qt Quick 3D + ShaderTools | 610 files, 21,923,461 bytes | the same | nothing new since master |
+| SBOM components / `THIRD_PARTY_NOTICES.md` | 74 / 13,200 lines | 72 / 12,348 lines | exactly `pyqt6-3d` and `pyqt6-3d-qt6`: one deleted block, nothing added |
+
+No file arrived; nine changed size — the exe (−82,512 bytes, its archive of Python modules: the
+removed modules, with L1.5's ground bake added), the collected-distributions record, the six
+translation catalogues and `Garden.qml` (L1.5's ground). Both bundles pass the 8-second smoke and
+`--selftest` on the RTX 4070 and on WARP (after: 5.1 s and 4.0 s; the log names "a baked ground of
+12 tiles … the selection ring"). A bundle built in a development venv that still has the two
+wheels installed carries their DLLs and QML modules anyway (§11.4.37 item 10): judge bundles
+built from a locked environment.
+
+**Start-up** is unchanged: Qt 3D was never loaded at start (it was imported when the window
+opened), and the workspace loads no engine before 3D is asked for — 2.20 s to the first turn of
+the event loop on the L1.9 tree against 2.19 s before the flip (median of five), 0 engine modules
+in both; after L1.10 with L1.5 merged: 2.12–2.14 s in three runs, 0 engine modules.
+
+**What it leaves open.** The residual per destroyed Model (above) is still Qt's; L1.9 bounded the
+one path that destroyed many Models per second (date playback, ADR-065 addendum D3). #532 is the
+owner's decision at the L1 pull request.
 
 ## ADR-049: Frost-Date Semantics - One Parser, 29 February Substituted as 1 March
 
@@ -6342,8 +6399,8 @@ L1.10 commit (the removal), so that shipping the flip without the removal is one
 #### Context
 
 L1.3 built the workspace behind `OGP_QUICK3D=1`, and L1.4 – L1.8 filled it: looks and sky, the
-built world, plants, selection, the info card and walk mode (L1.5's ground bake joins on the
-integration branch). The product still opened the Qt 3D window of US-E6 / E7 (ADR-038), which
+built world, plants, selection, the info card and walk mode (L1.5's ground bake, built in parallel,
+joined on the integration branch before L1.10). The product still opened the Qt 3D window of US-E6 / E7 (ADR-038), which
 ADR-048 replaced as a decision. What was left: make the workspace THE 3D view; bound what the
 view costs in its steady state before it is the default (L1.4's wind soak, FU-L14-2; a held key
 in the date field, #531); show that what FR-SUN-06 / 07 / 08 promised is kept or knowingly
@@ -6393,8 +6450,10 @@ its bound.
 **D5. The flip with #532 open is the owner's call.** #532 (Qt 6.11's `QSSGBufferManager::clear()`
 skips hash entries, so about half of the same-size ground-tile textures leak on every cache
 release) is L1.5's known limitation; the flip ships the ground with it. The exposure is measured
-by L1.5 (up to ~42 MB per release on a 4096² ground); the consolidated checklist of the L1 pull
-request asks the owner to choose.
+by L1.5 (up to ~42 MB per release on a 4096² ground) and, on the default's own path, after the
+merge: a held date key on bench_small keeps 41–63 MB of dedicated GPU memory a minute (5–6
+releases of 8–10 MB each) with D3's interval, 76–112 without it (§8.32.9 "With the ground"); the
+consolidated checklist of the L1 pull request asks the owner to choose.
 
 #### Alternatives rejected
 
@@ -6426,3 +6485,40 @@ table, with what it says, is §8.32.9 "What the default costs".
 | committed / dedicated GPU memory after the first frame | small +550–800 / 312 MB, large +950 / 312 MB; the old window +328 / 45 MB and +696 / 47 MB |
 | date playback, 60 s | the interval: 1.5–1.6 regrowth passes a second; without it one per step (312 and 452) |
 | the wind soak (FU-L14-2), 6 alternating runs of 4–5 min | 0.46–2.03 MB a minute overall, second-half slopes 0.0–1.51, both clocks; the strict xfail passed |
+| after L1.5 joined (the ground on) | first readback small 2.68–2.96 s, large 4.21–4.33 s; GPU memory 332 / 428 MB; edit → frame p95 small 41.5 ms; a held date key keeps 41–63 MB of GPU memory a minute through #532 (76–112 without the interval) |
+
+#### L1.10: the removal, and the scars it retires
+
+**D6. Qt 3D leaves the product.** Deleted: the US-E6 / E7 window and its adapter
+(`ui/view3d/view3d_window.py`, `qt3d_adapter.py`), the pre-L1.1 scene module
+(`core/scene3d/legacy.py`: the Qt 3D record, scene-space extrusion, decals,
+`collect_scene3d_records`), the walkthrough helper (`core/walk_camera.py`, replaced in L1.8 by
+`core/scene3d/walk.py`), every path of the main window that drove them, the L0 spike with its
+flag and its benchmark script, the two wheels (`PyQt6-3D`, `PyQt6-3D-Qt6`) from the manifest,
+the lock and the bundle, and `--selftest`'s Qt 3D import block. ADR-048's closing addendum has
+the bundle and the lock before and after; `tests/unit/test_no_qt3d_left.py` keeps the code
+areas free of the names, and documentation names them only where history is kept (§8.10.31).
+
+Each workaround the old window carried existed because of how Qt 3D hosted its scene; the
+workspace's host does not need it:
+
+| Scar in the old view | Why it was there | Why the workspace does without it |
+|---|---|---|
+| `closeEvent` hid every 3D window before quitting | the viewer was a parentless top-level `Qt3DWindow`; a visible one kept the process alive under `quitOnLastWindowClosed` | the engine's window is a child of the main window (`QWidget.createWindowContainer` in the 3D pane); `Workspace.shutdown()` closes the host while the main window still exists (§6.9, G5: no warning, no ERROR line, from source and frozen) |
+| a new window on every open, the old one kept hidden for later | a hidden and re-shown `Qt3DWindow` painted white — Qt 3D never rebuilt its swapchain for the re-exposed surface | ONE host for the session, hidden and shown (L1.3: re-entry 7–53 ms); a hidden pane does no work and catches up once |
+| the closed window retired with `deleteLater` only at the NEXT open | deleting it at close raced its live render thread and segfaulted (#230 class) | Models are created and destroyed on the GUI thread through the sink; no Python runs on the render thread (signals from it are queued, §8.32.2) |
+| a "3D View Unavailable" dialog around the import | a Qt 3D wheel built for another Qt micro failed to load (#277) and would otherwise have killed the process | `Workspace._start_engine` turns anything the start raises into a message in the pane with "Try Again" (§8.32.9's safety-net table); `--selftest` RENDERS the engine in the frozen artifact |
+| the app forwarded the sun to the window (`_apply_sun_to_3d`), with a fixed 50° / 180° sun without a location | the window had no clock of its own | the controller subscribes to the one sim clock (ADR-053) and keeps the same fallback as `NO_LOCATION_SUN` |
+| a Refresh button and a rebuild on open | no live sync | live: every change of the plan within one pass (FR-3D-WS) |
+
+**Values that outlive their producer are frozen first.** The production look, sky, fog,
+materials, meshes and probe geometry were ported from the spike and drift-guarded against it.
+Before the spike was deleted, a scratch tool ran it on the L1.9 tree and wrote everything those
+guards compared with into `tests/data/l0_spike_reference.json` (provenance inside the file); the
+guards read the file now. A production value that leaves it is a deliberate, documented change,
+as before — only the comparison no longer needs the spike's code.
+
+Rejected: keeping the spike as "evidence tooling" (it was the last importer of Qt 3D's era of
+the code and a second QML scene to keep compiling — the Beauty Board and the render tier
+measure the product itself); deleting the drift guards with the spike (the values they pin are
+the L0 measurements the look was accepted on).

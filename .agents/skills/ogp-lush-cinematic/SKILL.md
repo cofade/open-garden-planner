@@ -6,7 +6,8 @@ description: "The art-direction contract for Open Garden Planner's 3D mode ('Lus
 # Lush Cinematic — the 3D art-direction contract
 
 **Status:** v1, written from the Package L0 spike (ADR-048, *Accepted — GO 2026-10-05*). Values marked
-*spike* are measured starting points from `src/open_garden_planner/spike_q3d/`, not dogma —
+*spike* are measured starting points from the L0 spike (`src/open_garden_planner/spike_q3d/`,
+deleted in L1.10; its values are frozen in `tests/data/l0_spike_reference.json`), not dogma —
 tune them, but only with a before/after board and a note in the taste log below.
 
 **Owner decisions (2026-10-03):** look = *Lush Cinematic* (stylised-realistic, cozy-game
@@ -102,7 +103,7 @@ flower 316). Judge them as v0:
   the dormant spike's renderer only (scratch) — enough to find a floating cushion and bald crown
   tops, not enough to judge the look. The Beauty Board decides.
 
-## 3. Light rigs per mood (*spike* values, `look_for` / `sun_light` / `sun_state` in `spike_q3d/runner.py`)
+## 3. Light rigs per mood (*spike* values, `look_for` / `sun_light` / `sun_state` of the spike's `runner.py`, frozen in `tests/data/l0_spike_reference.json`)
 
 **In production** (L1.4) the rig is DATA in `core/scene3d/look.py` (`NOON`, `GOLDEN`, `LOW_SUN`,
 `NIGHT`, `day_rig`, `look_for(sun, preset) -> LookSpec`), ported with these values and pinned
@@ -197,10 +198,10 @@ snapshot: June and December must differ; `build_date` is read back from the reco
 and, with the flags above, `dusk`, `fence_moire` and `plan_edge`. The instruments are `scripts/board_probes.py` (numpy
 only, each with a positive control in `tests/unit/test_board_probes.py`).
 
-The L0 spike's board stays the reference for "before" until the spike retires (L1.10):
-`venv/Scripts/python.exe -m open_garden_planner --spike-q3d --out <dir> --presets low,high
---shots all --iou --orient --size 960x540 --watchdog-s 1800` (its `spike.log`; it isolates
-its own settings). Always show **before vs after** with the same plan, date, camera and size,
+The L0 spike's board was the reference for "before" until L1.10 deleted the spike; its
+numbers stay in ADR-048's evidence log and its values in `tests/data/l0_spike_reference.json`.
+"Before" is now the production board run on the base commit (an archive of it, never a
+checkout over the working tree). Always show **before vs after** with the same plan, date, camera and size,
 and attach `metrics.json` — a board without its numbers is not evidence.
 
 ## 6. Review rubric (the reviewer agent's checklist)

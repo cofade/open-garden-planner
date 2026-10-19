@@ -389,7 +389,16 @@ last condition matters: a local bundle's content depends on PATH — built from 
 carries Git for Windows' `libcrypto-3-x64.dll` and `libssl-3-x64.dll` (5.5 MB), built from a
 plain PowerShell process it does not (645,326,627 bytes for the head of review round 1). Both
 pass the smoke and `--selftest`. Spec trimming — the
-dormant spike's files and `PyQt6.QtQuickWidgets` — happens when the spike retires (L1.10).
+dormant spike's files and `PyQt6.QtQuickWidgets` — happened when the spike retired (L1.10).
+
+**Bundle size (L1.10).** Removing Qt 3D took **13,485,604 bytes (−13.5 MB) and 57 files** out of
+the bundle: the six Qt 3D binding modules, eleven Qt 3D runtime DLLs and `Qt6Concurrent.dll`,
+seven Qt 3D plugins, the Qt 3D and `QtQuick/Scene2D` QML modules, the spike's QML and the two
+wheels' metadata (652,687,676 → 639,202,072 bytes, both built in one clean environment synced from each
+tree's lock, Python 3.11.9; ADR-048's closing addendum has the table). Nothing arrived; the SBOM
+lost exactly the two components. **A development venv keeps an uninstalled pin's wheel:** after
+pulling a change that drops a dependency, re-sync it (`uv sync --locked …`) before building, or
+the local bundle still carries what the old wheel installed (§11.4.37).
 
 ### Release Workflow (`release.yml`)
 

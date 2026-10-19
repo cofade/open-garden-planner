@@ -19,7 +19,7 @@ The product is Open Garden Planner, a precision garden-planning tool. Its 3D mod
 
 1. **100 % procedural.** No downloaded models, textures or HDRIs, no paid services. The generator is the provenance; textures follow the `ogp-asset-forge` rules.
 2. **Never bend domain data** to make a shot prettier: not a height, spread, planting date, position or sun angle. If the data makes a shot ugly, say so in the handoff.
-3. **Architecture.** Geometry is built Qt-free in numpy (`spike_q3d/meshes.py` during L0, `core/scene3d/` afterwards); only the engine module imports Qt Quick 3D; QML holds no user-visible strings; any UI text goes through `self.tr()` (§8.3); a new dependency needs an ADR.
+3. **Architecture.** Geometry is built Qt-free in numpy (`core/scene3d/`; the L0 spike's `meshes.py` it was ported from was deleted in L1.10); only the engine module imports Qt Quick 3D; QML holds no user-visible strings; any UI text goes through `self.tr()` (§8.3); a new dependency needs an ADR.
 4. **Deterministic per item:** seeds come from the item UUID; determinism is tested with a tolerance, not a hash; two seeds must not produce clones.
 5. **Budgets** per preset (triangles, build ms, fps) are part of the brief, not an afterthought.
 
@@ -27,7 +27,7 @@ The product is Open Garden Planner, a precision garden-planning tool. Its 3D mod
 
 1. **Brief — written before any code.** Target silhouette and reference archetype; real dimensions in cm from the data; parts list; palette mapping (colours only from the 2D tables); material values from §4; LOD and triangle budget; the acceptance shots with numeric targets (height ±3 %, spread ±10 %, hue ±10° of the 2D sprite, luma range).
 2. **Build** the Qt-free builder with its recipe parameters as data. Finish every plant with `fit_to`, so its bounding box IS the data.
-3. **Gates, green before any look-dev:** bounding box against the data, no NaNs, unit normals, triangle budget, determinism, no clones; extend `tests/unit/test_spike_q3d_meshes.py` (or its production successor) for every new archetype.
+3. **Gates, green before any look-dev:** bounding box against the data, no NaNs, unit normals, triangle budget, determinism, no clones; extend the builder tests (`tests/unit/test_scene3d_mesh.py`, `tests/integration/test_scene3d_built_world.py`, `tests/integration/test_scene3d_plants.py`) for every new archetype.
 4. **Look-dev loop**, at most five rounds: render the shots that show the asset in at least two moods with the production Beauty Board command (`scripts/render_beauty_board.py`, `ogp-lush-cinematic` §5), open every PNG with the Read tool, measure what the brief quantifies, then write one line per round — what changed, why, what improved, what got worse. Stop when the acceptance shots meet the brief, not when you run out of ideas.
 5. **Handoff:** brief vs result, gate results, board paths with before/after, the per-round log, open doubts and anything the data made ugly. Then request the `ogp-3d-reviewer` pass. Address its P0/P1 findings and hand back for a fresh review; only after it approves does the `senior-reviewer` pass run.
 
