@@ -406,6 +406,7 @@ class TestAppGlue:
         assert not win._sun_toolbar._heatmap_button.isChecked()
 
 
+@pytest.mark.perf
 class TestPerf:
     def test_60k_cells_full_day_budget(self, qtbot) -> None:  # noqa: ARG002
         """The stated budget: 30 m × 20 m at 10 cm cells (60 000 cells),

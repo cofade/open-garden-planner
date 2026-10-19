@@ -16,6 +16,8 @@ from PyQt6.QtWidgets import (
     QMenu,
 )
 
+from open_garden_planner.core.plan_io import PlanValidationError, finite_number
+
 
 class BackgroundImageItem(QGraphicsPixmapItem):
     """A background image that can be scaled and positioned.
@@ -117,7 +119,17 @@ class BackgroundImageItem(QGraphicsPixmapItem):
 
         # Apply geo-derived scale so the image lands at true size on the canvas.
         if not self._is_placeholder and self._scale_factor != 1.0:
-            self.setScale(1.0 / self._scale_factor)
+            self._apply_checked_scale()
+
+    def _apply_checked_scale(self) -> None:
+        """Check decoded pixel extents before applying calibration to Qt."""
+        factor = finite_number(self._scale_factor, "background.scale_factor")
+        if factor <= 0:
+            raise PlanValidationError("background.scale_factor", "positive")
+        scale = finite_number(1.0 / factor, "background.scale")
+        for dimension in (self.pixmap().width(), self.pixmap().height()):
+            finite_number(dimension * scale, "background.scaled_extent")
+        self.setScale(scale)
 
     def shape(self):
         """Return the shape for clipping to canvas bounds."""
@@ -264,6 +276,8 @@ class BackgroundImageItem(QGraphicsPixmapItem):
                 )
             else:
                 item = cls(image_path, geo_metadata=geo_metadata)
+        except PlanValidationError:
+            raise
         except Exception:
             item = cls(
                 image_path,
@@ -280,7 +294,7 @@ class BackgroundImageItem(QGraphicsPixmapItem):
         # may have manually re-calibrated since import.
         item._scale_factor = data.get("scale_factor", item._scale_factor)
         if not getattr(item, "_is_placeholder", False):
-            item.setScale(1.0 / item._scale_factor)
+            item._apply_checked_scale()
         return item
 
     @classmethod

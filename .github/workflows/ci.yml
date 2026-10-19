@@ -14,26 +14,29 @@ jobs:
     name: Agent context parity
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
-          python-version: "3.11"
+          python-version: "3.11.9"
 
       - name: Check Claude/Codex context parity
         run: python scripts/check_agent_context.py
+
+      - name: Check external action pins
+        run: python scripts/check_action_pins.py
 
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
-          python-version: "3.11"
+          python-version: "3.11.9"
 
       - uses: ./.github/actions/setup-locked-env
 
@@ -47,12 +50,12 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
-          python-version: "3.11"
+          python-version: "3.11.9"
 
       - name: Install system dependencies
         run: |
@@ -61,21 +64,66 @@ jobs:
 
       - uses: ./.github/actions/setup-locked-env
 
+      - name: Check all translation catalogs against current source
+        run: python scripts/check_translations.py
+
+      # `--durations=0` records the per-test cost (#509). Nothing in the repo
+      # captured where the wall clock went, so every speed-up was a guess; this
+      # makes the measurement a byproduct of a run that has to happen anyway.
+      # `tee` keeps the live progress and failures in the log while also writing
+      # the report for the artifact below. `set -o pipefail` keeps a failing suite from
+      # reporting green; it is redundant with the `shell: bash` line further down, which
+      # runs `bash --noprofile --norc -eo pipefail {0}`, and is kept as a visible
+      # declaration of the fail-fast contract at the point of reading rather than as the
+      # mechanism that provides it.
+      #
+      # Parallelism is NOT spelled out here. `addopts` carries `-n auto --dist
+      # worksteal`, which resolves to 4 workers on ubuntu-latest's 4 vCPUs. On this
+      # 20-core box the same flag gave 4.31x over serial at `-n 8` (673.6s ->
+      # 156.2s); at 4 workers the measured figure is 2.7x (245.2s), so 4.31x must not
+      # be quoted as this job's speed-up.
       - name: Run tests
+        shell: bash
         env:
           QT_QPA_PLATFORM: offscreen
-        run: pytest tests/ -v
+        run: |
+          set -o pipefail
+          pytest tests/ -v --durations=0 2>&1 | tee test-durations.txt
+
+      # The wall-clock-sensitive tests, deselected from the default run by
+      # `addopts` (-m 'not perf') so they never share a runner with the parallel
+      # workers. They still run on every push, here, alone and serial.
+      #
+      # `tests/ -m perf`, NOT `tests/perf -m perf`: the marker means "wall-clock
+      # sensitive", so it is applied by measurement rather than by directory, and
+      # SEVEN of the fourteen marked tests live outside tests/perf/ — the two
+      # agent_api shutdown tests, the map-picker close bound (0.5 s), the shadow-overlay
+      # and sun-heatmap budgets, the point-snapper mean (16 ms) and the spatial-index
+      # medians (200 ms / 1 ms). The directory form collects the other seven and passes.
+      # `tests/unit/test_gate_commands.py` pins the command so it cannot be changed to
+      # the directory form.
+      - name: Run performance budgets on a quiet runner
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: pytest tests/ -m perf -v -n 0
+
+      - name: Upload the per-test duration report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-durations-linux
+          path: test-durations.txt
 
   security:
     name: Security
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
-          python-version: "3.11"
+          python-version: "3.11.9"
 
       - uses: ./.github/actions/setup-locked-env
 
@@ -112,10 +160,33 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/setup-locked-env
       - name: Verify lock and export
         run: python scripts/check_dependency_lock.py
+
+      # Lock-based dependency vulnerability scan (AUD-054). Audits the same
+      # locked closure the environment installs (all extras, the dev group and
+      # the build group), so a finding here is a finding in a shipped or build
+      # artifact — or in a development tool that would run in CI.
+      #
+      # Runs on BOTH matrix OSes on purpose: the export is universal and
+      # pip-audit evaluates markers against the running interpreter, so a
+      # Windows-only runtime dependency (mcp requires pywin32 on win32) is
+      # invisible to a Linux-only scan — measured, senior review round 3.
+      # `shell: bash` keeps the redirection UTF-8 on the Windows runner.
+      #
+      # The single recorded exception is the setuptools advisory
+      # PYSEC-2026-3447 / GHSA-h35f-9h28-mq5c: it only affects publishing macOS
+      # source distributions, which this project never does. Setuptools code is
+      # bundled; the waiver concerns that unused operation — justified in
+      # docs/11-risks-and-technical-debt/README.md §11.2, and its fix (83.0.0)
+      # is tracked for a separately reviewed dependency PR.
+      - name: Audit locked dependencies
+        shell: bash
+        run: |
+          uv export --locked --all-extras --group build --no-emit-project --no-hashes > locked-requirements.txt
+          pip-audit -r locked-requirements.txt --progress-spinner off --ignore-vuln PYSEC-2026-3447
 
   types:
     name: Types (${{ matrix.os }})
@@ -125,13 +196,13 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/setup-locked-env
       - name: Enforce per-file type allowances
         run: python scripts/check_mypy_baseline.py --report type-report.json
       - name: Upload type diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: types-${{ matrix.os }}
           path: type-report.json
@@ -140,22 +211,80 @@ jobs:
     name: Coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Install Qt system libraries
         run: |
           sudo apt-get update
           sudo apt-get install -y libegl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0
       - uses: ./.github/actions/setup-locked-env
+
+      # The `perf` marker means "wall-clock sensitive" (see ADR-058). `addopts` carries
+      # `-n auto --dist worksteal -m 'not perf'`, so this job has to say what it wants
+      # instead of inheriting it, and it says two different things in two steps:
+      #
+      #   step 1  deselects the perf tests  - three of the fourteen carry no CI slack and
+      #                                        must not share a runner with 4 workers
+      #   step 2  runs exactly those 14 at `-n 0` and appends
+      #
+      # Step 2 is load-bearing, not tidiness, and the two steps are ONE decision:
+      #   step 1 alone (`-m 'not perf'`, -n auto, --cov)  agent_api 2012/2195  gate EXIT 1
+      #   step 1 + step 2 (-n 0, --cov-append)            agent_api 2026/2195  gate EXIT 0
+      # Delete step 2 and this job goes red on `agent_api`; drop the deselect from step 1
+      # and step 2 becomes redundant while three budgets run under load. The gate needs
+      # 92% of 2195 = 2020 covered statements, so the margin is SIX either way - the
+      # append does not widen it, it restores what the deselect removed.
+      #
+      # The fourteen statements, from diffing two full `--cov` reports (with and without
+      # the filter) rather than listed from memory: 2686, 2691, 2715, 2716, 2718, 2719,
+      # 2720, 2728, 2729, 2733, 2734, 2735, 2737, 2768. All are `stop()`'s forced-shutdown
+      # escalation in agent_api/server.py - `_run`'s `_forced_stop` branch,
+      # `_cancel_loop_tasks`, `_force_stop`, the #373 fix - and the ONLY coverage of it is
+      # the two `perf`-marked tests in tests/integration/test_agent_api_shutdown.py.
+      #
+      # The three that carry no CI slack, and why they are the reason step 1 deselects:
+      #   tests/integration/test_map_picker_dialog.py  - close() under 0.5 s
+      #   tests/unit/test_point_snapper.py              - mean under 16 ms
+      #   tests/unit/test_snap_spatial_index.py         - 200 ms build / 1 ms query medians
+      # The last one's own docstring records "a single wall-clock sample previously produced
+      # a false failure at 284 ms" against a 200 ms budget. (The docstring says CI runners are shared; the "unloaded" reading is the author's, from that 284 ms overrun.)
+      #
+      # A footgun worth keeping next to the code: `tests/perf/test_nfr_budgets.py` reads
+      # `_IS_CI = os.environ.get("CI") == "true" or os.environ.get("GITHUB_ACTIONS") == "true"`
+      # and `FRAME_BUDGET_MS = 50.0 if _IS_CI else 16.7`. The `== "true"` is load-bearing -
+      # a runner that sets `CI=1` takes the LOCAL 16.7 ms budget - so `_IS_CI = CI or ...`
+      # written into a new test would silently take the wrong branch.
+      #
+      # Measured job durations (`gh run view <id> --json jobs`), same workflow and runner
+      # class throughout. Every run is cited with the head it measured, because an ID
+      # alone does not say what code it ran:
+      #   master 412f01bd, run 39076508170   Coverage 1270 s, Test 1047 s
+      #   head 1b2398f7, run 39115631489     Coverage  339 s, Test  354 s
+      #   head 1b2398f7, run 39115635791     Coverage  456 s, Test  245 s
+      # The two head runs give 2.8x-3.7x on Coverage and 3.0x-4.3x on Test - read the
+      # spread, not the smaller figure. One CI sample is one reading of a shared runner.
+      #
+      # Coverage is a required status check (ADR-058 addendum; #514). A floor
+      # regression or unparseable report blocks merge.
       - name: Measure full-suite line and branch coverage
         env:
           QT_QPA_PLATFORM: offscreen
-        run: python -m pytest tests/ -v --cov=open_garden_planner --cov-branch --cov-report=xml --cov-report=term
+        run: >
+          python -m pytest tests/ -v -m 'not perf'
+          -o addopts="-v --tb=short -n auto --dist worksteal -m 'not perf'"
+          --cov=open_garden_planner --cov-branch --cov-report=xml --cov-report=term
+      - name: Measure the perf tests serially and append
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: >
+          python -m pytest tests/ -m perf -n 0 -v
+          --cov=open_garden_planner --cov-branch --cov-append
+          --cov-report=xml --cov-report=term
       - name: Enforce package line floors
         if: always()
         run: python scripts/check_coverage_floors.py --xml coverage.xml --report coverage-summary.json
       - name: Upload coverage diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage-linux
           path: |
@@ -176,7 +305,9 @@ jobs:
   #   Windows: the runner has no GPU -- Direct3D 11 renders on WARP, which is
   #            exactly the condition release.yml's `--selftest` runs under.
   # Kept lean for software rasterisers: 480x360 probe frames, no sky light
-  # probe, one driver process per module, per-test timeouts.
+  # probe, one driver process per module, per-test timeouts, and `-n 0`:
+  # addopts' `-n auto` would start several driver processes at once on the
+  # one software rasteriser (ADR-058).
   #
   # NOT a required check (quality/master-protection.json): a software
   # rasteriser on a shared runner proves correctness, not speed, and the
@@ -193,7 +324,7 @@ jobs:
       OGP_RENDER3D: "1"
       OGP_RENDER3D_ARTIFACTS: ${{ github.workspace }}/render3d-artifacts
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Install Qt, X11 and Mesa libraries (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -205,13 +336,13 @@ jobs:
         env:
           QSG_RHI_BACKEND: opengl
           LIBGL_ALWAYS_SOFTWARE: "1"
-        run: xvfb-run -a -s "-screen 0 1920x1080x24" python -m pytest tests/integration/test_quick3d_render.py tests/integration/test_quick3d_engine.py tests/integration/test_quick3d_selftest.py tests/integration/test_quick3d_lifecycle.py -v
+        run: xvfb-run -a -s "-screen 0 1920x1080x24" python -m pytest tests/integration/test_quick3d_render.py tests/integration/test_quick3d_engine.py tests/integration/test_quick3d_selftest.py tests/integration/test_quick3d_lifecycle.py -v -n 0
       - name: Render tier (Windows -- Direct3D 11 on WARP)
         if: runner.os == 'Windows'
-        run: python -m pytest tests/integration/test_quick3d_render.py tests/integration/test_quick3d_engine.py tests/integration/test_quick3d_selftest.py tests/integration/test_quick3d_lifecycle.py -v
+        run: python -m pytest tests/integration/test_quick3d_render.py tests/integration/test_quick3d_engine.py tests/integration/test_quick3d_selftest.py tests/integration/test_quick3d_lifecycle.py -v -n 0
       - name: Upload frames, results and logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: render3d-${{ matrix.os }}
           path: render3d-artifacts/

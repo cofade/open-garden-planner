@@ -39,47 +39,29 @@ class MoveObjectCommand(Command):
 
 ## 8.3 Internationalization (i18n)
 
-Uses Qt Linguist translation system:
+Qt Linguist remains the runtime format (ADR-008). English is the source language;
+English, German, and Spanish are currently shipped. Registration in `SUPPORTED_LANGUAGES` makes
+the full source inventory mandatory for that locale. New UI keys require translations
+in every registered target locale in the same PR. The required `Test` CI check enforces
+this through `scripts/check_translations.py` and the normal pytest suite (#496).
 
-1. All user-facing strings wrapped in `self.tr()` or `QCoreApplication.translate()`
-2. Source strings extracted with `pylupdate6` into `.ts` XML files
-3. Translators edit `.ts` files (Qt Linguist tool or text editor)
-4. `.ts` files compiled to `.qm` binary with `lrelease`
-5. `QTranslator` loaded at app startup based on saved language preference
+The canonical inventory comes from fresh PyQt6 extraction plus audited AST/helper/table
+sources in `scripts/i18n_bindings.json`. Qt context, source and disambiguation identify a
+key. Neither German nor the English template is the inventory authority. Unknown dynamic
+lookups fail; finite table additions grow the inventory without a test-list edit.
 
-**Shipped languages**: English (default), German
-**Extensible**: Community can add languages by creating new `.ts` files
+Run `scripts/update_translations.py`, fill every target catalog (helper scripts
+like `fill_translations.py` provide optional assistance), run `scripts/compile_translations.py`,
+then `scripts/check_translations.py` in the locked environment. The updater preserves
+translations and marks genuinely removed keys vanished. The checker is read-only and
+requires exact active keys, completed nonblank targets, preserved placeholders, matching
+compiled files and actual Qt lookup results. Retired records cannot satisfy coverage.
+English retains source identities. Identical target text is valid for proper names/units.
+Current singular-only compilation rejects plural/variant input until tested support is added.
 
-**Translation files location**:
-- `src/open_garden_planner/resources/translations/open_garden_planner_de.ts`
-- `src/open_garden_planner/resources/translations/open_garden_planner_en.ts`
-
-**Not translated**: Plant scientific names (Latin), file format identifiers
-
-### How to add translations when creating/modifying a widget
-
-1. **In code**: wrap every UI string with `self.tr("English text")`. The class name is the translation context automatically.
-
-2. **Update both `.ts` files** — add a `<context>` block (or extend an existing one) to both files:
-
-   ```xml
-   <context>
-       <name>MyWidget</name>
-       <message>
-           <source>English text</source>
-           <translation>Translated text</translation>
-       </message>
-   </context>
-   ```
-
-   Note: German file uses `<name>` with no extra indent, English file uses 4-space indent.
-
-3. **Recompile `.qm` files** after every `.ts` change:
-   ```bash
-   venv/Lib/site-packages/qt6_applications/Qt/bin/lrelease.exe \
-     src/open_garden_planner/resources/translations/open_garden_planner_de.ts \
-     src/open_garden_planner/resources/translations/open_garden_planner_en.ts
-   ```
+Full commands, source declaration rules and new-language steps: [translation guide](../TRANSLATING.md).
+Latin scientific names, provider/user text and machine identifiers are not catalog prose;
+finite bundled common names are extracted from the actual bundled species JSON.
 
 ### Translation rules
 
@@ -161,7 +143,7 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 ### Textures (`resources/textures/`, ADR-042 / #309)
 - **Generated, never hand-edited**: all 24 fill-pattern textures (grass, gravel, concrete, wood, water, soil, mulch, roof tiles, sand, stone, glass, hedge, brick, bark, wildflower, terracotta, pebbles, slate, lattice, compost, flagstone, clay, decking, corten) are emitted by `scripts/generate_asset_forge_textures.py` in the "Lush" texture language; committed PNGs must be pixel-identical to regeneration (`--check` + `tests/unit/test_texture_forge_conformance.py`). See §8.24.
 - 256×256 px RGB, **1 px = 1 cm** on the canvas (no LOD variants — Qt scales the brush); strictly top-down, no directional light; seamless by construction on a torus, gated by `scripts/check_texture_tileability.py` for every file
-- Loaded as `QPixmap` by `core/fill_patterns.py`, tinted with the user's fill colour at 80/255 alpha (`_tint_texture`) and applied via `QBrush` texture pattern; the tint-readability band is gated
+- Loaded as `QPixmap` by `core/fill_patterns.py`, recoloured to the user's fill colour by a luminance map (`_tint_texture`: every pixel becomes the chosen colour scaled by the texture's relative luminance, so the colour reads and the detail survives — #502) and applied via `QBrush` texture pattern; the tint-readability band is gated
 - Provenance: `resources/textures/PROVENANCE.md` (generator = provenance, one register row per file)
 
 ### Object SVGs (`resources/objects/`, ADR-042 / #308)
@@ -190,6 +172,7 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 - **Linting**: Code must pass ruff checks
 - **Test coverage**: CI enforces measured per-package line floors; branch coverage is reported separately (ADR-050, ?10.4). Non-UI means every package except `ui`.
 - **Line length**: 100 characters in the Ruff configuration; no formatter CI gate is claimed.
+- **One dependency source of truth (AUD-052)**: `pyproject.toml` plus the committed `uv.lock` / `pylock.toml`. The old top-level `requirements*.txt` mirrors were removed in #454; toolchain pins, build evidence and the dependency-update runbook live in `docs/07-deployment-view` §7.4.
 
 ### Git Workflow
 
@@ -202,7 +185,7 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 
 - **Graceful degradation when APIs are unavailable**: external services (Google Maps, Trefle, Perenual, Permapeople) degrade quietly without blocking application workflow.
 - **Two-phase atomic project loading (AUD-040, TD-017, #403)**:
-  `ProjectManager.load()` deserializes and validates all items, layers, guides, and constraints in memory (Phase 1) before mutating or clearing the active `CanvasScene` (Phase 2). If Phase 1 raises, the current scene remains 100% intact. On any failure, `_current_file` is cleared (`None`), the document is marked dirty, and `_load_project_file` preserves any existing autosave file on disk, guaranteeing that subsequent Save/Ctrl+S actions cannot overwrite the previous plan file with empty or partial content.
+  `ProjectManager.load()` deserializes and validates all items, layers, guides, and constraints in memory (Phase 1) before mutating or clearing the active `CanvasScene` (Phase 2). A Phase 1 refusal preserves the scene and document identity, including filename, dirty state, selection and command history. Only an unexpected failure after Phase 2 starts clears `_current_file` (`None`) and marks the document dirty, preventing Save/Ctrl+S from overwriting the previous plan with partial content. `_load_project_file` preserves existing autosave files on every failed load.
 - **Missing or corrupt assets load as placeholders (AUD-043, TD-011, #397)**:
   Background images with missing disk paths or invalid embedded image bytes load as non-rendering `BackgroundImageItem` placeholders (`is_placeholder=True`). On subsequent saves, the placeholder re-emits its original raw dictionary so external asset links survive across sessions instead of being silently deleted.
 - **Duplicate item UUID detection & re-minting (AUD-043, TD-011, #397)**:
@@ -213,6 +196,20 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
   Periodic autosaves write to `~autosave_...` next to the project file (or in temp for untitled plans). Autosaves are cleared only after a new file load succeeds.
 - **No silent failures — handled logging & crash backstop (AUD-063, TD-023, #405, ADR-052)**:
   Handled errors and warnings across all application components are routed to a persistent rotating file handler (`app.log`, 1 MB, 3 backups) in the user data directory, with console echoing to stderr when available (preventing discarded records in the windowed frozen executable where `sys.stderr is None`). Uncaught exceptions are intercepted by `_install_excepthook` in `main.py`, written to `crash.log`, and surfaced to the user via a recoverable error dialog so unsaved work can be preserved.
+
+### A1 numeric refusal (#453)
+
+The file boundary is `core/plan_io.py`. Invalid numbers anywhere in the raw payload,
+including nested group/curve geometry, reject the entire plan before preparation;
+they are not silently dropped as malformed items. Phase 1 refusal preserves the
+active scene, selection, command history, filename, dirty state and autosave.
+Finite inputs can still produce infinite bounds after rotation, image scaling or
+group aggregation. The detached-item gate checks Qt's actual bounds and transforms
+recursively before applying anything to the active scene; saves check live items too.
+Numeric-looking strings in opaque metadata remain text.
+All `.ogp` writers validate and encode before replacing files atomically. See the
+ADR-003 addendum. The protective identity reset applies only to unexpected failures
+after scene mutation.
 
 ## 8.8 Settings Storage — One Chokepoint (ADR-041)
 
@@ -440,6 +437,14 @@ it:
   WORKSPACE and floats over the canvas only; in 3D mode it moves into the pane's strip.
 
 ## 8.10 Integration Test Policy
+
+**Worker responsiveness.** Control an in-flight interval instead of counting timer
+ticks over an uncontrolled computation duration. Hold the real worker at an Event,
+assert GUI heartbeat delivery and a different execution thread while the request
+is still pending, then release and verify the real result. Always release in failure
+cleanup. `test_explicit_worker_keeps_gui_responsive` preserves its three-tick assertion,
+10 ms timer interval and 30-second result timeout; its synchronous-worker negative
+control fails. See §11.4 (PR #490).
 
 **Every user story (US) must ship with at least one end-to-end integration test. No merge without it. No exceptions.**
 
@@ -714,6 +719,141 @@ The CI/release CLIs are tested through real subprocesses in temporary repository
 exit codes, read-only checks, version-sync dry runs and repeated application, and unchanged
 third-party lock records. Remote GitHub responses are supplied as fixtures; deliberately
 failing merge tests belong on a temporary validation base, never master.
+
+### A5 numerical and presentation evidence (#457)
+
+`test_constraint_solver_invariants.py` measures geometry independently of solver
+flags: both symmetry axes, signed axis distances, nonzero anchor offsets, coupled
+residuals, rigid/deformable pins, incompatible fixed systems, feasible projection,
+trial cleanup and exact conflicting IDs. The all-pinned false-convergence regressions
+failed before the fix. No iteration count or internal damping constant is pinned.
+`test_constraint_descriptors.py` covers every enum with independent English text,
+icons and status dots, then installs the compiled German translator and checks the
+rendered strings. `test_constraint_presentation_workflow.py` drives a registered
+tool and real application panel selection/deletion/undo/redo wiring.
+The German workflow also verifies unnamed endpoint text and tooltips, preserving
+explicit user names. `test_constraints_panel.py` checks all 52 `ObjectType` labels
+against the German catalog; this catches absent entries as well as untranslated
+fallbacks. Compare-overlay plant labels share the canonical display-name helper.
+
+`scripts/replay_constraint_mutations.py` uses temporary import overlays and fresh
+pytest processes. `--source-ref` replays both solver modules from an explicit revision;
+`--selection baseline` excludes the A5 tests. An unmutated control must pass first.
+Failures, survivors, invalid runs and timeouts remain distinct; a timeout is not a
+killed mutant. The committed A5 evidence records the eight exact substitutions,
+source hashes and relevant unit/integration/UI selection. This sampled result is not
+a full mutation score. `--inventory-only` records current type-sensitive if conditions.
+
+Do not stage or commit in the checkout while the full suite is running.
+`test_gate_commands.py::TestCheckNoSecrets` briefly stages synthetic canary files
+in the real Git index, scans them, then removes them. A simultaneous commit can
+capture a canary. Wait for suite completion and inspect the staged diff before
+committing; review in a separate worktree keeps its index independent.
+Repository-wide lint and secret scans must also wait for these tests to finish,
+so transient canary files cannot become unrelated lint or scan failures.
+
+### 8.10.3 Constraint tool characterization (#406)
+
+`tests/constraint_tool_helpers.py` drives real CanvasScene/CanvasView tools in raw scene
+coordinates with snapping disabled. The per-tool unit files exercise press, move and release;
+registered workflows reuse the integration canvas fixture and real ToolManager/command wiring.
+Only modal acceptance and input widgets are controlled. Picking, feasibility, solving and graph
+commands are never substituted in successful gestures. Capture Qt points by value (QPointF),
+not wrappers into a temporary QPolygonF. Initialize rotations through the item's canonical
+rotation method; Qt setRotation alone does not update product rotation bookkeeping.
+
+Pin the constraint type, item IDs, anchor types/indexes and target fields; assert the actual
+geometry relation, exactly one history entry, graph/geometry undo and the same constraint ID
+on redo. Exercise rejected dialogs, empty/repeated picks, conflicts, cancellation, Escape and
+tool switching, with overlays cleared. Matrices include 0/45/215-degree rotations, both symmetry
+axes, coincidence on points/edges/circles, rectangle/polygon/polyline edges and equal circle sizes.
+Mixed-graph rectangle cases retain compatible center alignment, refuse incompatible edge
+lengths/fixed-pin movement, and restore exact geometry on probe errors. A registry drift guard
+requires a gesture scenario for every registered constraint tool.
+
+The existing coverage parser reports normalized package-relative per-file line/branch counts.
+Optional `file_line_floors` extends the package gate; `core/tools/constraint_tool.py` requires
+at least 60% full-suite lines. Compare integer covered/total counts; branch counts are reported
+separately without a threshold. Missing files and malformed records fail visibly. Linux
+rebaselining preserves explicit file floors (ADR-050 addendum).
+
+### A1 trust-boundary testing (#453)
+
+Failing-first tests pin invalid-number rejection, mislabeled HTML caching and
+duplicate installer selection. Integration tests drive the real application document
+load and update notification/worker paths with network and process launch controlled.
+A loopback HTTP fixture proves byte limits apply after gzip decoding. Linux settings
+tests run real QSettings in fresh processes with private XDG directories and controlled
+umasks; Windows skips only those platform-specific assertions and pins registry parity.
+No test executes an installer or calls a paid map provider. Test-layer evidence must
+name the platform and locked interpreter, not imply a Windows chmod mock proves Linux.
+
+### Translation gate integration (#496)
+
+`tests/integration/test_translation_gate.py` invokes the real CLI against an isolated
+three-locale project, proves a missing target returns nonzero with useful diagnostics,
+and checks input files remain unchanged. It also exercises the real language menu,
+saved setting and next-window startup translation for every registered locale.
+`tests/unit/test_translation_gate.py` mutates both axes: a new locale missing an old key,
+and a new source key missing from some or all catalogs. Equal-size wrong-key catalogs,
+invalid values/placeholders, stale binaries and stale source declarations fail.
+
+### 8.10.4 The inner loop, and which run is the gate (#509)
+
+`addopts` carries `-n auto --dist worksteal -m 'not perf'` (ADR-058), so the **default**
+run is parallel. Three things follow from that, and each is a trap worth naming.
+
+| Command | What it is | Measured |
+|---|---|---|
+| `pytest tests/` | the correctness battery, parallel, perf deselected | **156 s** (`-n 8`) |
+| `pytest tests/ -m perf -n 0` | the timing-sensitive tests, which never share a runner | **26 s** |
+| `pytest tests/unit` | the natural inner loop for a logic-only change | **193 s** serial, **61 s** parallel |
+
+**The perf tests need `-m perf`, and the marker is about the measurement, not the
+directory.** `addopts` deselects them so that a plain `pytest tests/` **collects no
+perf test at all** — the most likely way to mistakenly believe they ran. They are
+wall-clock budgets, and **7 of the 14 carry that marker *outside* `tests/perf/`**, so the
+split is by auditing for wall-clock assertions rather than by listing a directory. That
+number is worth writing down precisely, because it changes the invocation:
+
+```powershell
+pytest tests/ -m perf -n 0     # all 14 — what CI runs
+pytest tests/perf -m perf      # only 7, and it PASSES. The worst kind of wrong.
+```
+
+A directory-scoped command is the natural mistake here and it fails **silently** — the
+gate is green while half of it never ran. `-m perf` is required because `addopts`' own
+`-m 'not perf'` otherwise wins and collects nothing at all; `-n 0` is required because
+running these across workers is the condition the split exists to prevent.
+
+The audit that produced the split was, twice, incomplete: it read `tests/perf/` and
+grepped for `time.`, and missed four unmarked bounds including two classes literally
+named `TestPerf`. `tests/unit/test_perf_marker_guard.py` now closes that mechanically —
+it walks each module's AST, follows the timing sources (`time.perf_counter`,
+`time.monotonic`, `time.process_time`) across calls, and fails the build if a test orders
+a measured duration against a bound without the marker. **12 of the 14 assert a duration;
+the other two are marked for scenario consistency**, which is the one thing the guard is
+documented not to check — it proves a marker is *required* where it fires, not that every
+marker present is needed.
+
+**Small targeted runs are slower than they were.** Worker start-up dominates when there
+is nothing to distribute: one 11-test file measured 2.85 s serially against 5.48 s under
+`-n auto`. Pass **`-n 0`** for a single file or a handful of tests. The asymmetry is
+deliberate (517 s saved on a full run against 2.6 s added to a small one) but it is a
+real cost, and `-n 0` is the documented escape rather than something to discover.
+
+**Which run is the gate.** A targeted run is good security during a change; the **full**
+correctness battery plus the perf step is the gate before a PR. This is safe in one
+direction only, and the direction matters: a targeted run can fail while the full run
+passes (a false alarm — harmless), but the dangerous direction would be a targeted run
+passing beside a red full run, which is exactly why the full run stays the gate. §11.4
+records the precedent for the fix when that happens: request the fixture the test
+actually needs rather than inheriting it from a neighbour.
+
+One consequence of parallelism is worth expecting: **a hang presents as a crashed
+worker**, not as a clean abort. The `pytest-timeout` guard still applies per test (#448
+and the 2026-08-17 stall earn it); xdist kills and restarts the one worker and
+continues.
 
 ### 8.10.23 Patterns from the 3D scene pipeline (Phase 17 L1.1)
 
@@ -1373,6 +1513,18 @@ own order before a story's files are believed.
 
 **CI enforcement:** The `security` job in `ci.yml` runs `bandit -r src/ --severity-level high` on every push. CI fails only on HIGH-severity findings. MEDIUM and LOW findings are omitted by this invocation. Use the separate all-findings command below for awareness; no broader scan is claimed.
 
+**Dependency vulnerability scan (AUD-054, #454):** the `Dependencies` matrix job (Linux and
+Windows) also runs `pip-audit` over the committed lock export
+(`uv export --locked --all-extras --group build`, which by default also includes the dev
+group), so a finding is a finding in a shipped artifact, a build tool or a development tool
+that runs in CI; it runs on both platforms because pip-audit evaluates requirement markers
+for the running interpreter (the Windows-only `pywin32` is invisible to a Linux-only scan).
+One advisory is recorded as an explicit exception — the `setuptools` advisory affecting
+unused macOS source-distribution publishing,
+`PYSEC-2026-3447`, which only affects publishing macOS source distributions (justification in
+§11.2); its fix stays reserved for a separately reviewed dependency PR. Any new advisory
+fails the job.
+
 **Local use:**
 ```bash
 venv/Scripts/python.exe -m bandit -r src/ --severity-level high
@@ -1502,7 +1654,7 @@ Pinned by `tests/unit/test_quick3d_selftest.py`
 
 ## 8.12 Constraint Solver Architecture
 
-The constraint solver lives in [`core/constraints.py`](../../src/open_garden_planner/core/constraints.py) and [`core/constraint_solver_newton.py`](../../src/open_garden_planner/core/constraint_solver_newton.py). It supports 16 constraint types and runs in two phases.
+The constraint solver lives in [`core/constraints.py`](../../src/open_garden_planner/core/constraints.py) and [`core/constraint_solver_newton.py`](../../src/open_garden_planner/core/constraint_solver_newton.py). It supports 17 constraint types and runs in two phases.
 
 ### 8.12.1 Constraint types
 
@@ -1513,6 +1665,7 @@ Defined in `ConstraintType`. Grouped by the invariant they express:
 | Dimensional (scale-sensitive) | `EDGE_LENGTH`, `DISTANCE`, `HORIZONTAL_DISTANCE`, `VERTICAL_DISTANCE`, `POINT_ON_CIRCLE`, `ANGLE` |
 | Positional | `COINCIDENT`, `POINT_ON_EDGE`, `SYMMETRY_HORIZONTAL`, `SYMMETRY_VERTICAL`, `FIXED` |
 | Orientation (scale-invariant) | `HORIZONTAL`, `VERTICAL`, `PARALLEL`, `PERPENDICULAR`, `EQUAL` |
+| Contact direction | `TANGENT` (edge perpendicular to radius at contact; paired with `POINT_ON_CIRCLE`) |
 
 ### 8.12.2 Two-phase solve
 
@@ -1521,7 +1674,7 @@ Every `solve_anchored` call runs in two phases:
 1. **Gauss-Seidel warm start** — each constraint is resolved by a 1D projection along its own direction. Cheap, robust for decoupled systems, converges in O(N) iterations when the constraints don't share variables in geometrically independent directions.
 2. **Newton-Raphson refinement** — runs when the Gauss-Seidel residual exceeds tolerance. Treats the free variables as a single vector `x`, builds a residual vector `F(x)` from all non-orientation constraints, and takes damped Newton steps on `J · Δx = −F`. The Jacobian is computed numerically via central differences (`h = 1e-3 cm`); the step uses `numpy.linalg.lstsq` so rank-deficient systems yield a minimum-norm step. Armijo backtracking (α halves per failed step) accepts only moves that strictly reduce `max|F|`.
 
-Convergence criterion: `max|F| ≤ tolerance` (default 0.1 cm; 1.0 cm for drag-time solves where cm-level drift is invisible). Caps: 20 Gauss-Seidel iterations, 25 Newton iterations, 15 backtrack steps.
+Convergence criterion: `max|F| ≤ tolerance`. `solve` defaults to 0.1 cm and 20 warm-start iterations; `solve_anchored` defaults to 1.0 cm and 10. Newton defaults to 25 iterations and 15 backtracks. Caller tolerances govern the final physical error. With no movable variables, evaluate the fixed-state residual before reporting feasibility (#457).
 
 ### 8.12.3 Why two phases
 
@@ -2366,8 +2519,9 @@ walks the live scene's badge state directly and was not changed by #338.
 (exempt). Only the Settings UI strings go through `tr()`.
 
 **Packaging.** See §7 deployment view — the `mcp`/`uvicorn`/`starlette` stack
-needs `collect_submodules` + `copy_metadata` in `ogp.spec`, must NOT walk
-`mcp.cli`, and must NOT exclude `multiprocessing` (uvicorn imports it).
+needs `collect_submodules` in `ogp.spec`; its distribution metadata comes from
+the runtime closure (`installer/runtime_closure.py`, AUD-051/#454). The spec must
+NOT walk `mcp.cli`, and must NOT exclude `multiprocessing` (uvicorn imports it).
 
 **US-D2.4/D2.5 — layer addressing and shape/structure creation.** The curated
 schema exposes layers as UUID-addressed records (`layer_id`, name, visibility,
@@ -3198,10 +3352,13 @@ pass for every file (`tests/unit/test_texture_tileability.py` parametrises
 all of them — the #264 grandfather list `KNOWN_SEAMED_LEGACY` was emptied
 and then deleted, a constant that must stay empty being ceremony), and the
 §8.10 test paints the item's real tinted brush two tiles wide and checks the
-wrap column AND wrap row against the same metric. **Tint-readable**: the runtime tint overlays the user colour
-at 80/255 alpha; the conformance gate pins mean luminance 40–225, luminance
+wrap column AND wrap row against the same metric. **Tint-readable**: the runtime recolour is a luminance map (`_tint_texture`,
+#502): each pixel becomes the user's fill colour scaled by the texture's relative
+luminance, so the chosen colour reads as itself and the material's detail survives;
+the conformance gate pins mean luminance 40–225, luminance
 std ≥ 4 and local detail ≥ 2 per texture, and the integration test proves a
-red vs a blue fill colour move the rendered hue without flattening the
+**pale** fill colour (the light green that read as the standard brown roof tile
+before #502), a red and a blue one each move the rendered hue without flattening the
 detail (materials that would collapse under tint fail before an owner sees
 them). A fourth rule is not gated but binding: **no directional light** — the
 view flips Y and fills never rotate, so every shading cue is radial or
@@ -3472,6 +3629,33 @@ US-F3 (#314) and #428 follow ADR-056. `core/shade_aggregation.compute_sun_exposu
 `DiagnosticsCoordinator` is the sole general-panel publisher. Producers cache records and emit `CanvasScene.diagnostics_changed`; `ProjectManager.diagnostics_snapshot` harvests all producers for both UI and MCP conversion. Rows store UUIDs and resolve them at click time; document replacement cancels pending navigation. Sun records use enclosing-group navigation UUIDs and retain the physical receiver in details. Theme-aware runtime child badges stay inside plant footprints, with unchanged transform origins, snapping and serialization. Translated labels and one-decimal localized hours are presentation only.
 
 Tests distinguish the displayed ground heatmap from estimated receiver sun. The Berlin constants are measured outside the new sparse implementation, not computed expectations. Deterministic controlled workers emit even after cancellation to prove late-result rejection. Cancellation is checked inside caster loops; an owner keeps its worker until queued `finished` and refuses a second launch while cleanup is pending. The full suite retains the existing heatmap budget and adds a 200-receiver budget plus a live GUI timer assertion.
+
+## A1 security ingestion contracts (#453; sections 8.8, 8.11 and 8.15)
+
+Linux settings protection remains in the one QSettings factory: owner-only 0600,
+regular file/current owner, non-truncating migration, unchanged registry behavior,
+and fail-closed startup. Atomic Qt synchronization stays enabled. See ADR-041.
+
+The updater validates exact release identity/origins, each redirect, the matching
+64 KiB-bounded checksum manifest, actual asset size and SHA-256. It passes a verified
+result to launch and rechecks the file. User failures are translated categories;
+signed URLs, API credentials and raw network diagnostics are not displayed. See ADR-044.
+
+Thumbnail transfers allow at most 16 MiB and 16777216 decoded pixels; cached thumbnails
+are genuine PNGs with at most 2048 pixels per edge. Static Maps transfers allow at most
+8 MiB and the existing 1280×1280 tile dimensions. Content-Type is insufficient: header
+dimensions, structure and full first-frame decoding are checked before use. Responses
+close on all paths, HTTP error excerpts are limited to 200 bytes, and Google keys stay
+redacted. Existing invalid caches are rejected; valid legacy images normalize on use.
+The map's calibration, crop/mosaic math and existing cancellation outcomes are unchanged.
+
+## 8.28 Bounded 2D canvas paint for crafted plans (#472, ADR-057)
+
+`PolygonItem.paint` sizes its work by a vertex bound, not by whatever a plan file happens to hold. `MAX_FULL_DETAIL_VERTICES = 256` is the full-detail budget: at or below it an unselected polygon paints exactly as it always did. Above it, an **interactive** paint draws the exact outline with a **cosmetic 1-px pen and `Qt.BrushStyle.NoBrush`** — and returns, skipping the shadow, grid and status overlays for that frame. "Interactive" is the item's **cache mode**, not Qt's `widget`: every cached paint receives `widget = 0`, and unselected canvas items are cached, so a `widget`-based guess never fires on the canvas (that was the first version's bug — it never degraded anything; see ADR-057). Every export, report, print and agent render path disables caches first, so those stay exact; a **selected** item is excluded and paints the exact fill, so editing sees the truth. The cosmetic pen is load-bearing: Qt strokes a wide solid pen by building a fill, so reusing the item's own pen would leave the degraded frame quadratic (measured 319 ms at 1,024 vertices against 4 ms cosmetic).
+
+The load seam is the second half. `ProjectManager._deserialize_item_core` refuses a polygon above `MAX_POLYGON_VERTICES = 16_384` and skips it with a logged warning (counted for the app's existing skipped-item notice), so a hostile `.ogp` cannot stall the loader or exhaust memory; the rest of the plan loads normally. At this ceiling the degraded outline is ~69 ms, and no legible garden outline comes near it. Both constants live in `ui/canvas/items/polygon_item.py` and are the only place to retune the bound. The measured cost table, the pen-width finding and the rejected alternatives (convex-hull / bounding-box fill, a hairline-but-wide pen, reflex counting, a low load ceiling) are in ADR-057; the regression is pinned by `tests/integration/test_polygon_paint_bound.py`.
+
+An "item made from an item" copies a shape's **look** through one seam that the **offset tool and mirror** share, `core/item_look.py::copy_visual_style`. It copies both the serialized attributes (`fill_pattern`, `fill_color`, `stroke_color`, `stroke_width`, `stroke_style`) and the live `QPen`/`QBrush`, because a copy that writes only one of the two looks right until the next save (#470). Chamfer, fillet and trim are the same shape of bug and are **not** routed here: they are owned by the in-flight L1 branch's #441, so routing them now would collide.
 
 ## 8.32 3D scene pipeline (Phase 17 L1, #385, ADR-064)
 

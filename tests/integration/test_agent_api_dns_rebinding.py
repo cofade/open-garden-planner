@@ -30,7 +30,6 @@ PoC returned HTTP 200 with a full initialize result.
 from __future__ import annotations
 
 import json
-import socket
 import urllib.error
 import urllib.request
 from typing import Any
@@ -38,7 +37,8 @@ from typing import Any
 import pytest
 
 from open_garden_planner.agent_api import providers as _providers
-from open_garden_planner.agent_api.server import AgentApiServer, build_server
+from open_garden_planner.agent_api.server import build_server
+from tests.agent_api_helpers import free_port, start_server
 
 
 def _stub_providers() -> _providers.AgentProviders:
@@ -47,10 +47,8 @@ def _stub_providers() -> _providers.AgentProviders:
     )
 
 
-def _free_port() -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("127.0.0.1", 0))
-        return int(s.getsockname()[1])
+# One copy of `free_port` used to live here; ten files had one and none of them
+# reserved anything. See tests/agent_api_helpers.py.
 
 
 # ── Unit level: the settings OGP constructs ────────────────────────────────────
@@ -70,7 +68,7 @@ class TestExplicitTransportSecurity:
         SDK default does NOT carry is a port-specific allow-list, so naming the
         bound port is what actually pins the behaviour.
         """
-        port = _free_port()
+        port = free_port()
         allowed = self._settings(port).allowed_hosts
         assert f"127.0.0.1:{port}" in allowed, (
             "allowed_hosts must name the bound port explicitly; the SDK default "
@@ -81,7 +79,7 @@ class TestExplicitTransportSecurity:
 
     def test_no_wildcard_port_or_host_entries(self) -> None:
         """A ``*`` or ``:*`` entry would restore the SDK default's breadth."""
-        settings = self._settings(_free_port())
+        settings = self._settings(free_port())
         for entry in [*settings.allowed_hosts, *settings.allowed_origins]:
             assert not entry.endswith(":*"), entry
             assert entry.strip() not in ("*", ""), entry
@@ -136,10 +134,13 @@ def _post(port: int, headers: dict[str, str]) -> tuple[int, str]:
 
 @pytest.fixture()
 def live_server(qtbot: Any) -> Any:
-    """A real AgentApiServer on an ephemeral loopback port."""
-    port = _free_port()
-    server = AgentApiServer(_stub_providers(), port=port)
-    server.start()
+    """A real AgentApiServer on an ephemeral loopback port.
+
+    `start_server` retries rather than trusting the port, because `free_port()` closes
+    its probe socket before the server binds — the window that made this fixture the
+    one measured failure under `-n auto` (#509).
+    """
+    server, port = start_server(_stub_providers())
     qtbot.waitUntil(lambda: bool(server.is_running), timeout=20000)
     yield server, port
     server.stop()

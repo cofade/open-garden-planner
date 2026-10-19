@@ -681,7 +681,7 @@
   },
   "406": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "constraint_tool.py is 29.0 % line / 9.6 % branch covered: 1 661 of 2 340 statements never run, 50 public methods never executed (25 non-trivial) (Audit 2026-10, epic #392)"
   },
   "408": {
@@ -778,5 +778,190 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(US-F3): add sun diagnostics and fix heatmap document ownership"
+  },
+  "438": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Data loss: a recoloured rectangle-based object is saved with its type's default colour after load → save → load"
+  },
+  "441": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Offset, chamfer and fillet copies keep the source's brush but not its fill_color / fill_pattern: the copy loses its colour and pattern on save"
+  },
+  "448": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Two tests fail for reasons of the environment, not the product (type-CLI test under Python 3.12, 2D repaint budgets under machine load)"
+  },
+  "449": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Duplicate requirement id in the docs: FR-AGENT-27 is used twice in docs/functional-requirements.md"
+  },
+  "453": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Audit A1: Imported data, downloads and credential storage safety (epic #392)"
+  },
+  "454": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Audit A2: Dependency maintenance, build reproducibility and distribution inventory (epic #392)"
+  },
+  "457": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Audit A5: Constraint descriptors and stronger solver assertions (epic #392)"
+  },
+  "465": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Audit A13: Contributor onboarding and maintainer continuity (epic #392)"
+  },
+  "469": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "A loaded item's stroke_color / stroke_width attributes are its object type's defaults (rectangle, circle, ellipse, polygon): the Properties panel shows the defaults and undo of a stroke edit restores the wrong values"
+  },
+  "470": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "An offset copy of a rectangle, circle or ellipse does not keep its source's look"
+  },
+  "472": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "One polygon of a plan file can freeze the 2D canvas for minutes"
+  },
+  "473": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "The reference plan of NFR-PERF-01 holds no line, so the repaint budgets cannot see a slower line paint"
+  },
+  "474": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "The furniture sprite renderer is asked for the item's size without a bound; its cache is bounded by entries, not bytes"
+  },
+  "477": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(406): characterize constraint gestures and enforce per-file coverage"
+  },
+  "480": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "The installed app aborts at exit (0xC0000409, \"QThread: Destroyed while thread is still running\") when it is closed while its update check is in flight"
+  },
+  "482": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "The global search field connects a Python closure to its own destroyed signal"
+  },
+  "483": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "The weather forecast's worker thread has the same shape as the update check: an abort at exit when the app is closed mid-request (not measured)"
+  },
+  "484": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "WIP: Phase 17 L1 - Qt Quick 3D engine, scene pipeline and workspace (paused; refs #385)"
+  },
+  "485": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Rotating constrained objects leaves distance broken until the next move; investigate skipped rotation undo"
+  },
+  "487": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(453): validate plan inputs, verify downloads and secure Linux settings"
+  },
+  "489": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(457): constraint descriptors and stronger solver assertions"
+  },
+  "490": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "build(454): pin the build toolchain and publish the frozen inventory"
+  },
+  "495": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "feat(i18n): add Russian translation (ru)"
+  },
+  "496": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Enforce source-based translation completeness for every supported language before merge"
+  },
+  "497": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(i18n): require complete source coverage in every supported language"
+  },
+  "498": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix: resolve app exit thread aborts, cache bounds, and test hygiene (#480, #483, #482, #474, #449, #448)"
+  },
+  "501": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(470,472,473,502): bound polygon paint, one look-copy rule, line budgets, and show the chosen fill colour"
+  },
+  "502": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "A textured fill does not show the chosen colour (the tint is a 31 % wash) and the panel disagrees with the canvas after a reload"
+  },
+  "503": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "The LOD flat fill never fires on the canvas: 'widget is not None' is false for every cached paint (follow-up of #409/#430)"
+  },
+  "507": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(503): remove the #409 low-zoom LOD flat fill instead of making it reachable"
+  },
+  "509": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "The test suite takes ~15.5 minutes and runs serially: no pytest-xdist, and CI runs all 8 551 tests twice"
+  },
+  "512": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Commit the CI gate mutation harness as scripts/replay_gate_mutations.py"
+  },
+  "513": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Close the remaining ci.yml gate-pin holes by parsing each command separately"
+  },
+  "514": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Decide whether a coverage-floor regression should block a merge"
+  },
+  "515": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Identify the holder of the test suite's leaked widget graphs (38 271 widgets)"
+  },
+  "516": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Remove the remaining review archaeology from shipped comments"
+  },
+  "520": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(#512-#516): mutation-verified gate pin, required coverage floor, and the widget-leak probe"
   }
 }

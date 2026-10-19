@@ -453,3 +453,62 @@ sequenceDiagram
 Cancel/refusal never executes the command. Undo restores an existing centre snapshot and removes new plants. Template-file saves replace only user files, not placed plan snapshots or undo history. Species search resolves filtered offline records before starting a background provider request; obsolete generations and closed dialogs discard completed responses.
 
 Gallery drag/drop and gallery-click circle placement both construct plants through `ui/plant_creation.py::build_plant`. It resolves species metadata before semantic layer assignment, reads the current per-plan preference and uses the active layer when the matching layer is hidden, locked or absent. The existing creation command owns parentage and the single undo entry. Guild picker/editor/member rows translate catalog common names at display time through the shared `GalleryData` translation context; saved species keys, names and template snapshots remain language-independent. Explicit user object names take precedence over the translated catalog label.
+
+### Constraint panel and pinned feasibility (#457)
+
+Panel refresh resolves the current graph's object labels and satisfaction state,
+then each ConstraintListItem selects an immutable presentation descriptor, translates
+its templates and formats the target in metres or degrees. Delete still enters
+RemoveConstraintCommand through the application signal; stack_changed refreshes rows
+on execute, undo and redo. Templates are translated at rendering time, never cached
+in a selected language.
+
+Feasibility runs the existing Gauss-Seidel/Newton sequence. If every positional
+variable is pinned, Newton evaluates the residual on that fixed state and returns
+its actual error; it cannot overwrite an incompatible warm-start error with zero.
+The probe preserves graph, input geometry and history. See ADR-012 and the A5 evidence.
+
+### Constraint edge-length creation (#406)
+
+A single click picks an edge, then the distance modal supplies the target. Polygon/polyline
+edges use the existing endpoint solver. Rectangle edges bundle the existing canonical size
+applier on AddConstraintCommand, preserving the scene center/pivot. Feasibility sees the
+proposed canonical rectangle geometry; refusal or a probe error restores the exact snapshot.
+The synchronous probe restores its snapshot before any modal event loop, so autosave cannot
+see uncommitted geometry. Resizes that move a FIXED position, change an EQUAL dimension or
+conflict with existing rows are refused; this path does not offer destructive Override.
+Unrelated equal-height relations survive width changes. The normal trial solve,
+command execution and graph row use one history entry; undo restores size and graph, redo
+restores the same constraint identity. Cancellation/refusal creates no history entry.
+
+## A1 input and download refusal paths (#453)
+
+```mermaid
+sequenceDiagram
+    participant UI
+    participant ProjectManager
+    participant PlanIO
+    participant Scene
+    UI->>ProjectManager: open(candidate)
+    ProjectManager->>PlanIO: strict read and numeric preflight
+    alt invalid input
+        PlanIO-->>UI: rejection before document replacement
+    else valid input
+        ProjectManager->>ProjectManager: prepare items, layers, constraints
+        ProjectManager->>Scene: apply prepared document
+    end
+```
+
+Save builds a detached candidate including journal positions, validates/encodes,
+writes a sibling temporary file and replaces the destination. Only then do filename,
+clean state, recent files and journal metadata advance. Autosave and season writes
+reuse the same persistence boundary.
+
+The update checker passes a complete release descriptor to the update bar. Its worker
+downloads the bounded manifest, streams and hashes the installer, checks size/digest,
+then emits a verified result. The UI rechecks cancellation and persisted bytes before
+launch. Rejection and cancellation never reach process launch.
+
+Linux startup creates QApplication, secures the settings backend, loads preferences
+and constructs the main window. An ownership/permission failure exits with a visible
+error before the preference and window steps.

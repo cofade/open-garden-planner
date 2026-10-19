@@ -66,6 +66,10 @@ NOT_ISOLATED: dict[str, str] = {
     "measure_task_window_sweep.py":
         "imports the species database and the task generator; no application, no plan saved or "
         "loaded; a unit test imports it into the pytest process",
+    "probe_widget_leaks.py":
+        "master's #515 widget-leak probe: before it builds an application it imports "
+        "tests.conftest, whose module-level code IS the suite's isolation (settings names, "
+        "APPDATA / XDG variables, the redirected Qt locations); it saves and loads no plan",
 }
 #: Scripts of the other Phase 17 L1 stories, not on this branch: named here so that
 #: merging them does not turn this test red, with what was READ on their branches

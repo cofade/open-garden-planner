@@ -286,12 +286,11 @@ def _destroyed_connects(source: str) -> list[int]:
     ]
 
 
-#: The one shipped site that still hangs a Python closure on its own ``destroyed``
-#: signal (the global search field's focus listener). Known and written up as a
-#: follow-up; it is not a clock subscriber and is not this story's to change. A NEW
-#: site fails the test below — master's sun coordinator (v1.30.1) was one until it
-#: was routed through ``connect_qobject``.
-_KNOWN_DESTROYED_HOOKS = {"ui/widgets/global_search.py": 1}
+#: Shipped sites that still hang a Python closure on their own ``destroyed`` signal.
+#: None any more: the global search field's focus listener was the last one, filed as
+#: #482 and removed by master's PR #498. A NEW site fails the test below — master's
+#: sun coordinator (v1.30.1) was one until it was routed through ``connect_qobject``.
+_KNOWN_DESTROYED_HOOKS: dict[str, int] = {}
 
 
 def test_nothing_new_hangs_clean_up_on_a_destroyed_signal() -> None:

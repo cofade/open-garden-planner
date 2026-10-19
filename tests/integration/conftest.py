@@ -44,6 +44,23 @@ def _no_leaked_agent_api_thread(qtbot: object):
       ``_disable_agent_api_server`` sets ``KEY_AGENT_API_ENABLED = False`` for
       every test, so ``_maybe_start_agent_api`` returns immediately. That claim
       was never verified and is falsified by the suite's own fixture.
+
+      **SUPERSEDED (#509) — read this before relying on the paragraph above.**
+      The fixture's guarantee used to have a hole: the write lived in
+      ``_disable_agent_api_server`` while the key wipe lived in the autouse
+      ``_reset_app_settings`` it merely depended on, so the instant BETWEEN them had
+      no ``agent_api/enabled`` key at all. A read in that window returned the
+      production default (True) and the port read 8765, and a timer landing there
+      started a REAL server — measured under ``pytest -n 8`` as
+      ``OSError: [Errno 10048]``. The write now happens inside the wipe, so the
+      window is gone; see ``tests/conftest.py``'s ``_reset()``.
+
+      And the whole hazard class is now closed at its source. What is passed to
+      ``singleShot`` is the **bound method** ``self._maybe_start_agent_api``, and
+      PyQt auto-disconnects a bound-method slot when its receiver is destroyed. The
+      new ``_reclaim_widgets`` fixture destroys every top-level widget at the end of
+      each test, so a pending 1500 ms timer cannot outlive the app that armed it —
+      which is why the fix is a reclaim fixture rather than a settings write.
     * It reached the app via ``_stop_agent_api()``, which reaches only the app's
       OWN server. The tests that construct ``AgentApiServer(...)`` directly
       (``test_agent_api_exports.py``, ``test_agent_api_frozen_exe.py``) are

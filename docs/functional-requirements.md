@@ -243,9 +243,11 @@ Pre-defined object types for common property elements:
 - **FR-I18N-01**: All UI strings translatable via Qt Linguist (tr() calls)
 - **FR-I18N-02**: English as default language
 - **FR-I18N-03**: German translation shipped at launch
-- **FR-I18N-04**: Language selectable in Settings
+- **FR-I18N-04**: Language selectable via View > Language; restart applies the saved choice
 - **FR-I18N-05**: Extensible: contributors can add languages via .ts files
 - **FR-I18N-06**: Plant scientific names not translated (Latin)
+- **FR-I18N-07**: All registered target languages must completely cover the source-derived UI key set. Both new UI strings and new language registrations require complete catalogs, valid placeholders and matching compiled output before merge. Missing localized companion explanations fall back to English; German explanations are selected only for German (#496).
+- **FR-I18N-08**: Spanish localization (`es`, "Español") shipped with 100% key coverage of all source strings, collision-free menu accelerators, valid placeholders, and NSIS installer support.
 
 ## FR-12: Visual Rendering
 
@@ -585,7 +587,7 @@ Acceptance: `tests/unit/test_stacking.py` (the Qt-free arrange algorithm — nor
 - **FR-GUILD-02**: New/existing-centre insertion preflights mature-spacing/numeric ring layout, all species/layers and boundaries before one undoable command. Cancel/refusal makes no plan/history mutation.
 - **FR-GUILD-03**: Explicit metadata membership remains independent of Qt groups and plant parents. Coverage counts recorded functions once per assigned plant; multifunctional members may cover multiple roles. Existing instances retain template snapshots. Centre deletion dissolves surviving links in the same undo step; complete copies remap IDs and partial copies omit membership.
 - **FR-GUILD-04**: Centre badges, Companion Guilds and the general Diagnostics panel share computed guild warnings with MCP. Malformed saved guild metadata is preserved and excluded with a data warning. UUID navigation and idempotent debounced refresh avoid stale item references and repaint loops.
-- **FR-AGENT-27**: Read-only curated species/object traits and structured diagnostic details add `guild_role_missing` and `guild_data_warning` without new trait writes or authentication changes. Existing diagnostic fields and English API messages are retained.
+- **FR-AGENT-29**: Read-only curated species/object traits and structured diagnostic details add `guild_role_missing` and `guild_data_warning` without new trait writes or authentication changes. Existing diagnostic fields and English API messages are retained.
 
 ### FR-SUN-09: Cached sun-requirement diagnostics (US-F3, #314)
 
@@ -599,6 +601,17 @@ Acceptance: `tests/unit/test_stacking.py` (the Qt-free arrange algorithm — nor
 ### FR-SUN-10: Document-owned heatmap lifecycle (#428)
 
 `CanvasScene.document_replaced` clears overlays, receiver results, diagnostics, canopy state and the checked toolbar button, cancelling pending work before item teardown. Generation/signature checks reject old queued success. Worker ownership survives until `finished`; a second launch is refused until pending signals complete. This applies to New, validated Open/Recent/Welcome/recovery/direct loads and agent New/Open. Prevalidation failure preserves the active plan and valid exposure. No project-format or version change.
+
+## Audit A1 data and download safety (issue #453)
+
+- **FR-SAFETY-01**: Opening non-finite/overflowing numeric plan data refuses before
+  replacing the active document; failed saves do not truncate existing plan/recovery files.
+- **FR-SAFETY-02**: In-app installation requires exact release assets, permitted HTTPS
+  origins/redirects, matching byte count and SHA-256; cancellation/refusal launches nothing.
+- **FR-SAFETY-03**: Linux user settings have owner-only file access, preserve existing
+  keys/values and fail startup clearly when protection cannot be established.
+- **FR-SAFETY-04**: Thumbnail/Static Maps responses have byte/pixel limits and full
+  decoding checks; failed input does not publish partial caches or replace the background.
 
 ## FR-36: Living Garden 3D (Phase 17, epic #383, ADR-048 / ADR-064)
 

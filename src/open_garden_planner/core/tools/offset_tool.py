@@ -5,10 +5,11 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QT_TR_NOOP, QPointF, QRectF, Qt
+from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QMouseEvent, QPen
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsPathItem
 
+from open_garden_planner.core.item_look import copy_visual_style
 from open_garden_planner.core.tools.base_tool import BaseTool, ToolType
 
 if TYPE_CHECKING:
@@ -110,6 +111,7 @@ def _offset_rectangle(item: RectangleItem, d: float) -> QGraphicsItem | None:
         object_type=item.object_type,
         layer_id=item.layer_id,
     )
+    copy_visual_style(item, result)
     if hasattr(item, 'rotation_angle') and abs(item.rotation_angle) > 0.01:
         result._apply_rotation(item.rotation_angle)
     return result
@@ -123,7 +125,9 @@ def _offset_circle(item: CircleItem, d: float) -> QGraphicsItem | None:
         return None
     cx = item.pos().x() + item.center.x()
     cy = item.pos().y() + item.center.y()
-    return CircleItem(cx, cy, new_r, object_type=item.object_type, layer_id=item.layer_id)
+    result = CircleItem(cx, cy, new_r, object_type=item.object_type, layer_id=item.layer_id)
+    copy_visual_style(item, result)
+    return result
 
 
 def _offset_ellipse(item: EllipseItem, d: float) -> QGraphicsItem | None:
@@ -141,6 +145,7 @@ def _offset_ellipse(item: EllipseItem, d: float) -> QGraphicsItem | None:
         object_type=item.object_type,
         layer_id=item.layer_id,
     )
+    copy_visual_style(item, result)
     if hasattr(item, 'rotation_angle') and abs(item.rotation_angle) > 0.01:
         result._apply_rotation(item.rotation_angle)
     return result
@@ -202,8 +207,7 @@ def _offset_polygon(item: PolygonItem, d: float) -> QGraphicsItem | None:
         object_type=item.object_type,
         layer_id=item.layer_id,
     )
-    new_item.setPen(QPen(item.pen()))
-    new_item.setBrush(QBrush(item.brush()))
+    copy_visual_style(item, new_item)
     return new_item
 
 
@@ -237,8 +241,7 @@ def _offset_polyline(item: PolylineItem, d: float) -> QGraphicsItem | None:
         object_type=item.object_type,
         layer_id=item.layer_id,
     )
-    new_item.setPen(QPen(item.pen()))
-    new_item.setBrush(QBrush(item.brush()))
+    copy_visual_style(item, new_item)
     return new_item
 
 
@@ -305,7 +308,7 @@ class OffsetTool(BaseTool):
 
         self._update_target_from_selection()
         if self._target is None:
-            self._view.set_status_message(self._view.tr("Select a shape to offset"))
+            self._view.set_status_message(QCoreApplication.translate("CanvasView", "Select a shape to offset"))
             return False
 
         local_pos = self._target.mapFromScene(scene_pos)
@@ -320,14 +323,14 @@ class OffsetTool(BaseTool):
         result = _compute_offset_item(self._target, dist, self._inward)
         if result is None:
             self._view.set_status_message(
-                self._view.tr("Offset result is empty — try a smaller distance")
+                QCoreApplication.translate("CanvasView", "Offset result is empty — try a smaller distance")
             )
             return True
 
         self._view.add_item(result, "offset")
-        direction = self._view.tr("inward") if self._inward else self._view.tr("outward")
+        direction = QCoreApplication.translate("CanvasView", "inward") if self._inward else QCoreApplication.translate("CanvasView", "outward")
         self._view.set_status_message(
-            self._view.tr("Created {dir} offset of {dist:.1f} cm").format(dir=direction, dist=dist)
+            QCoreApplication.translate("CanvasView", "Created {dir} offset of {dist:.1f} cm").format(dir=direction, dist=dist)
         )
         self._view._tool_manager.set_active_tool(ToolType.SELECT)
         return True

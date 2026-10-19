@@ -7,12 +7,27 @@ mocked end-to-end ``fetch_bbox`` path. No real HTTP is performed.
 from __future__ import annotations
 
 import io
+from contextlib import contextmanager
 from unittest.mock import patch
 
 import pytest
 from PIL import Image
 
 from open_garden_planner.services import google_maps_service as gms
+from open_garden_planner.services import image_download
+
+
+@contextmanager
+def mock_http():
+    with patch.object(image_download, "requests") as mocked:
+        response = mocked.get.return_value
+        response.__enter__.return_value = response
+        response.headers = {"Content-Type": "image/png"}
+        def chunks(chunk_size):
+            content = response.content if response.status_code == 200 else response.text.encode()
+            yield from (content[i:i + chunk_size] for i in range(0, len(content), chunk_size))
+        response.iter_content.side_effect = chunks
+        yield mocked
 
 
 class TestMetersPerPixel:
@@ -142,7 +157,7 @@ class TestFetchBbox:
             se_lat=52.5197, se_lng=13.4056,
         )
         png = _make_png_bytes((128, 200, 128))
-        with patch.object(gms, "requests") as mock_requests:
+        with mock_http() as mock_requests:
             mock_requests.get.return_value.status_code = 200
             mock_requests.get.return_value.content = png
             mock_requests.RequestException = Exception
@@ -162,7 +177,7 @@ class TestFetchBbox:
             se_lat=52.5246, se_lng=13.4090,
         )
         png = _make_png_bytes((50, 50, 50))
-        with patch.object(gms, "requests") as mock_requests:
+        with mock_http() as mock_requests:
             mock_requests.get.return_value.status_code = 200
             mock_requests.get.return_value.content = png
             mock_requests.RequestException = Exception
@@ -185,7 +200,7 @@ class TestFetchBbox:
                     "url=/maps/api/staticmap?center=52.5,13.4&key=SECRET_KEY_AIza_xxxx"
                 )
 
-        with patch.object(gms, "requests") as mock_requests:
+        with mock_http() as mock_requests:
             mock_requests.RequestException = _BoomingException
             mock_requests.get.side_effect = _BoomingException()
             with pytest.raises(gms.GoogleMapsFetchError) as ei:
@@ -200,7 +215,7 @@ class TestFetchBbox:
             nw_lat=52.5200, nw_lng=13.4050,
             se_lat=52.5197, se_lng=13.4056,
         )
-        with patch.object(gms, "requests") as mock_requests:
+        with mock_http() as mock_requests:
             mock_requests.get.return_value.status_code = 403
             mock_requests.get.return_value.text = (
                 "API key SECRET_KEY_AIza_xxxx is not authorized for this API"
@@ -216,7 +231,7 @@ class TestFetchBbox:
             nw_lat=52.5200, nw_lng=13.4050,
             se_lat=52.5197, se_lng=13.4056,
         )
-        with patch.object(gms, "requests") as mock_requests:
+        with mock_http() as mock_requests:
             mock_requests.get.return_value.status_code = 403
             mock_requests.get.return_value.text = "REQUEST_DENIED"
             mock_requests.RequestException = Exception
@@ -234,7 +249,7 @@ class TestFetchBbox:
             se_lat=52.5197, se_lng=13.4056,
         )
         png = _make_png_bytes((0, 0, 0))
-        with patch.object(gms, "requests") as mock_requests:
+        with mock_http() as mock_requests:
             mock_requests.get.return_value.status_code = 200
             mock_requests.get.return_value.content = png
             mock_requests.RequestException = Exception
@@ -252,7 +267,7 @@ class TestFetchBbox:
             se_lat=52.5197, se_lng=13.4056,
         )
         png = _make_png_bytes((0, 0, 0))
-        with patch.object(gms, "requests") as mock_requests:
+        with mock_http() as mock_requests:
             mock_requests.get.return_value.status_code = 200
             mock_requests.get.return_value.content = png
             mock_requests.RequestException = Exception
@@ -275,7 +290,7 @@ class TestFetchBbox:
             nw_lat=52.5300, nw_lng=13.4000,
             se_lat=52.5246, se_lng=13.4090,
         )
-        with patch.object(gms, "requests") as mock_requests:
+        with mock_http() as mock_requests:
             mock_requests.RequestException = Exception
             with pytest.raises(gms.FetchCancelled):
                 gms.fetch_bbox(bbox, cancel_check=lambda: True)
@@ -292,12 +307,13 @@ class TestFetchBbox:
             se_lng=13.4056,
         )
         png = _make_png_bytes((128, 200, 128))
-        with patch.object(gms, "requests") as mock_requests:
+        with mock_http() as mock_requests:
             mock_requests.get.return_value.status_code = 200
             mock_requests.get.return_value.content = png
             mock_requests.RequestException = Exception
             with pytest.raises(gms.FetchCancelled):
-                gms.fetch_bbox(bbox, cancel_check=lambda: True)
+                checks = iter((False, True))
+                gms.fetch_bbox(bbox, cancel_check=lambda: next(checks))
         assert mock_requests.get.call_count == 1
 
     def test_cancel_check_aborts_after_single_tile_crop(self, monkeypatch) -> None:
@@ -310,11 +326,22 @@ class TestFetchBbox:
             se_lng=13.4056,
         )
         png = _make_png_bytes((128, 200, 128))
-        checks = iter((False, True))
-        with patch.object(gms, "requests") as mock_requests:
+        # Check before request, between chunks, after streaming, after fetch,
+        # then after the crop. The cancellation must happen at the last seam.
+        cancelled = False
+        original_crop = gms.crop_image_to_bbox
+
+        def cancel_after_crop(*args):
+            nonlocal cancelled
+            result = original_crop(*args)
+            cancelled = True
+            return result
+
+        monkeypatch.setattr(gms, "crop_image_to_bbox", cancel_after_crop)
+        with mock_http() as mock_requests:
             mock_requests.get.return_value.status_code = 200
             mock_requests.get.return_value.content = png
             mock_requests.RequestException = Exception
             with pytest.raises(gms.FetchCancelled):
-                gms.fetch_bbox(bbox, cancel_check=lambda: next(checks))
+                gms.fetch_bbox(bbox, cancel_check=lambda: cancelled)
         assert mock_requests.get.call_count == 1

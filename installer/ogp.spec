@@ -90,6 +90,27 @@ for f in (SRC / "open_garden_planner" / "spike_q3d" / "qml").rglob("*"):
 # embedded server.
 from PyInstaller.utils.hooks import collect_submodules, copy_metadata
 
+# AUD-051/AUD-055: bundle the .dist-info of every runtime distribution so the
+# third-party notices and the SBOM can be generated from the ACTUAL frozen
+# inventory (scripts/generate_distribution_inventory.py reads them back out of
+# the built bundle). The closure walks Requires-Dist instead of keeping a
+# hand-typed list, so a new dependency appears automatically.
+if str(SPECPATH) not in sys.path:
+    sys.path.insert(0, str(SPECPATH))
+from runtime_closure import runtime_distribution_names  # noqa: E402
+from frozen_inventory import MANIFEST_NAME, collected_metadata, write_manifest  # noqa: E402
+
+# The project's own metadata and build-time-only helpers are not third-party.
+_EXCLUDED_METADATA = {"open-garden-planner", "pyinstaller-hooks-contrib"}
+
+for _dist in runtime_distribution_names():
+    if _dist in _EXCLUDED_METADATA:
+        continue
+    try:
+        datas += copy_metadata(_dist)
+    except Exception as exc:  # noqa: BLE001 - fail closed, but say which distribution
+        raise RuntimeError(f"ogp.spec: cannot collect metadata for {_dist!r}: {exc}") from exc
+
 
 def _safe_collect_submodules(pkg):
     # collect_submodules imports every submodule to enumerate it. Some optional
@@ -119,19 +140,6 @@ for _pkg in (
     "httpx_sse",
 ):
     _mcp_hiddenimports += _safe_collect_submodules(_pkg)
-
-for _pkg in (
-    "mcp",
-    "uvicorn",
-    "starlette",
-    "anyio",
-    "sse_starlette",
-    "pydantic",
-    "pydantic_core",
-    "pydantic_settings",
-    "httpx_sse",
-):
-    datas += copy_metadata(_pkg)
 
 a = Analysis(
     [str(SRC / "open_garden_planner" / "__main__.py")],
@@ -244,7 +252,21 @@ a = Analysis(
     noarchive=False,
 )
 
+# Requires-Dist is a minimum, not the shipped inventory. Hooks can collect
+# build/dev packages and copies vendored by setuptools; index actual source
+# ownership after Analysis and preserve each copy's own metadata and licenses.
+_inventory_datas, _inventory_manifest = collected_metadata(
+    a.pure, a.binaries, a.datas, required_names=runtime_distribution_names(), scripts=a.scripts
+)
+a.datas += _inventory_datas
+_inventory_path = Path(workpath) / MANIFEST_NAME
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+# PYZ removes bootstrap stdlib modules (e.g. struct) from Analysis.pure.
+# Record its normalized contents, then independently verify the executable.
+_inventory_manifest["python_modules"] = sorted(row[0] for row in pyz.toc)
+write_manifest(_inventory_path, _inventory_manifest)
+a.datas += [(MANIFEST_NAME, str(_inventory_path), "DATA")]
 
 exe = EXE(
     pyz,
