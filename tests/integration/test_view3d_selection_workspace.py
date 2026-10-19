@@ -317,14 +317,43 @@ def test_the_ring_follows_the_canvas_selection_through_every_kind_of_change(
     calls = step(tuple(sorted(str(i.item_id) for i in bench.scene.selectedItems())))
     assert ("add", str(b.item_id)) in calls
     assert len(records) == 3 or len(bench.workspace.controller.sync.records) == 3
-    bench.scene.clear()                                                   # a plan change
+    bench.scene.clear()             # a plan change: CanvasScene.document_replaced tells it
     fresh = bench.item(700.0, 700.0)
-    bench.workspace.document_changed()
     bench.settle(200)
     assert bench.ring_ids() == () and bench.sink.selection == EMPTY_SELECTION
     bench.sink.clear_calls()
     fresh.setSelected(True)
     assert step(ids(fresh)) == [BEGIN, SELECT, COMMIT]
+
+
+def test_a_replaced_document_takes_the_selection_along_even_when_its_ids_come_back(
+        bench: SelectionBench) -> None:
+    """Re-opening the same file brings the same item ids back, unselected. The scene
+    says "document replaced" while the OLD items are still in it and still selected
+    (``CanvasScene.document_replaced``): reading the selection then would ring the
+    new document's twin of the old selection. Nothing is rung, and the card's place
+    shows the hint."""
+    a = bench.item(400.0, 300.0)
+    bench.open3d()
+    a.setSelected(True)
+    bench.settle()
+    assert bench.ring_ids() == ids(a)
+    replaced: list[tuple[str, ...]] = []
+    bench.scene.document_replaced.connect(
+        lambda: replaced.append(tuple(str(i.item_id) for i in bench.scene.selectedItems())))
+    bench.scene.clear()
+    assert replaced == [ids(a)], "the signal comes while the old item is still selected"
+    twin = RectangleItem(400.0, 300.0, 300.0, 200.0, object_type=ObjectType.RAISED_BED,
+                         layer_id=bench.scene.active_layer.id)
+    twin._item_id = a.item_id  # noqa: SLF001 - what loading the same file does
+    bench.scene.addItem(twin)
+    bench.settle(200)
+    assert str(twin.item_id) in bench.workspace.controller.sync.records
+    assert bench.scene.selectedItems() == []
+    assert bench.ring_ids() == () and bench.sink.selection == EMPTY_SELECTION
+    card = bench.workspace.info_card
+    assert card is not None and not card.isVisible() and card.item_id == ""
+    assert card.parentWidget().hint() == "Click an object to see what the 3D view shows of it."
 
 
 def test_a_selected_item_that_moves_takes_its_ring_along_in_the_same_transaction(
@@ -859,10 +888,9 @@ def test_reset_view_and_a_new_document_leave_walk_mode(bench: SelectionBench) ->
     bench.qtbot.waitUntil(lambda: not workspace.camera.moving, timeout=5000)
     assert bench.host.cameras[-1][2] == FOV_DEG
     workspace.set_walking(True)
-    bench.scene.clear()
-    bench.item(700.0, 700.0)
-    workspace.document_changed()
+    bench.scene.clear()                     # CanvasScene.document_replaced tells it
     assert not workspace.walking
+    bench.item(700.0, 700.0)
     bench.settle(200)
     assert bench.host.cameras[-1][2] == FOV_DEG, "the new document is framed by the orbit camera"
 
@@ -895,6 +923,9 @@ def test_walk_mode_needs_a_running_view_and_free_ground(bench: SelectionBench) -
     assert bench.host.cameras[-1][2] == FOV_DEG
 
 
+# wall-clock: the distance is checked against the time W was really held, so it runs in
+# the serial `-m perf -n 0` step, not beside the default run's workers (ADR-058)
+@pytest.mark.perf
 def test_the_walker_walks_at_walking_pace_on_the_workspaces_timer(bench: SelectionBench) -> None:
     """End to end through Qt's timer: W held for about half a second moves the walker
     about 70 cm ahead (the timer's own jitter is the tolerance)."""

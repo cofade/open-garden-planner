@@ -808,7 +808,11 @@ class Workspace(QWidget):
             return
         self.set_walking(False)  # L1.8: the walker's world is gone with the document
         controller.document_changed()
-        self._on_canvas_selection()  # … and so is what was selected
+        # … and so is what was selected. NOT read from the scene: the old items are
+        # still in it (and still selected) when the signal comes. The new document
+        # starts with nothing selected; a selection made in it arrives as the canvas's
+        # own selectionChanged, and the card is refreshed with the document's first pass.
+        controller.set_selection(())
         if controller.active and self._pane_is_showing():
             controller.set_active(False)  # whatever pass is on its way finds it paused
             self._announce_build()
