@@ -352,7 +352,7 @@ def test_the_workspace_bakes_the_ground_of_what_is_drawn(
 @pytest.mark.parametrize(("language", "capped", "painted"), [
     ("de", "3D-Boden: an 3 Stellen liegen mehr Flächen, als der Boden zeigen kann; die kleinsten "
            "werden weggelassen",
-     "Rasen: es konnte auf dem 3D-Boden nicht vollständig gemalt werden"),
+     "Rasen: die Darstellung auf dem 3D-Boden ist unvollständig"),
     ("es", "Suelo 3D: en 3 lugares el plano pone más superficies de las que el suelo puede "
            "mostrar; se omiten las más pequeñas",
      "Césped: no se pudo pintar completo sobre el suelo 3D"),

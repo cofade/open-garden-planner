@@ -1747,7 +1747,7 @@
             <translation>protección contra heladas</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1225" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1229" />
             <source>functions</source>
             <translation>funciones</translation>
         </message>
@@ -1777,7 +1777,7 @@
             <translation>estilo de camino/valla</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1216" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1220" />
             <source>permaculture_layer</source>
             <translation>capa de permacultura</translation>
         </message>
@@ -9088,27 +9088,27 @@ Puede capturar la vista satelital directamente desde el mapa a continuación en 
     <context>
         <name>PlantDatabasePanel</name>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="924" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="928" />
             <source>(future)</source>
             <translation>(futuro)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="932" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="936" />
             <source>({days} days)</source>
             <translation>({days} días)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="935" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="939" />
             <source>({months} mo)</source>
             <translation>({months} m.)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="940" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="944" />
             <source>({years}y {remaining_months}mo)</source>
             <translation>({years}a {remaining_months}m)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="942" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="946" />
             <source>({years}y)</source>
             <translation>({years}a)</translation>
         </message>
@@ -9123,7 +9123,7 @@ Puede capturar la vista satelital directamente desde el mapa a continuación en 
             <translation>Añadir un campo de metadatos personalizado</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1756" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1760" />
             <location filename="../../ui/panels/plant_database_panel.py" line="271" />
             <source>Add to Favorites</source>
             <translation>Añadir a favoritos</translation>
@@ -9154,12 +9154,12 @@ Puede capturar la vista satelital directamente desde el mapa a continuación en 
             <translation>Incluido</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1189" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1193" />
             <source>Centre</source>
             <translation>Centro</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1026" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1030" />
             <source>Cold stratification</source>
             <translation>Estratificación en frío</translation>
         </message>
@@ -9194,7 +9194,7 @@ Puede capturar la vista satelital directamente desde el mapa a continuación en 
             <translation>Planta personalizada</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1836" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1840" />
             <source>Custom Species</source>
             <translation>Especie personalizada</translation>
         </message>
@@ -9209,7 +9209,7 @@ Puede capturar la vista satelital directamente desde el mapa a continuación en 
             <translation>Ciclo biológico:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1598" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1602" />
             <source>Data Source: {source}</source>
             <translation>Fuente de datos: {source}</translation>
         </message>
@@ -9274,7 +9274,7 @@ Puede capturar la vista satelital directamente desde el mapa a continuación en 
             <translation>Familia:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1054" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1058" />
             <source>Field name</source>
             <translation>Nombre del campo</translation>
         </message>
@@ -9309,7 +9309,7 @@ Puede capturar la vista satelital directamente desde el mapa a continuación en 
             <translation>Pleno sol</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1020" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1024" />
             <source>Germination: %1 days</source>
             <translation>Germinación: %1 días</translation>
         </message>
@@ -9340,7 +9340,7 @@ Puede capturar la vista satelital directamente desde el mapa a continuación en 
             <translation>Alto</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1189" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1193" />
             <source>Invalid role</source>
             <translation>Función no válida</translation>
         </message>
@@ -9414,7 +9414,7 @@ Puede capturar la vista satelital directamente desde el mapa a continuación en 
             <translation>Monoica (flores ♂/♀ separadas)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1837" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1841" />
             <source>My Custom Plant</source>
             <translation>Mi planta personalizada</translation>
         </message>
@@ -9424,23 +9424,23 @@ Puede capturar la vista satelital directamente desde el mapa a continuación en 
             <translation>Demanda de N:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1799" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1803" />
             <source>No Custom Plants</source>
             <translation>Sin plantas personalizadas</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1787" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="1829" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1791" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1833" />
             <source>No Plant Selected</source>
             <translation>Ninguna planta seleccionada</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1200" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1204" />
             <source>No guild</source>
             <translation>Sin gremio</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1355" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1359" />
             <source>No species data.
 
 Click 'Search' to find species online,
@@ -9461,7 +9461,7 @@ o en 'Crear personalizada' para definir la suya propia.</translation>
             <translation>Notas:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1023" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1027" />
             <source>Opt. temp: %1°C</source>
             <translation>Temp. ópt.: %1°C</translation>
         </message>
@@ -9501,8 +9501,8 @@ o en 'Crear personalizada' para definir la suya propia.</translation>
             <translation>Plantado:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1788" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="1830" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1792" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1834" />
             <source>Please select a plant object (tree, shrub, or perennial) first.</source>
             <translation>Por favor, seleccione primero un objeto vegetal (árbol, arbusto o vivaz).</translation>
         </message>
@@ -9517,12 +9517,12 @@ o en 'Crear personalizada' para definir la suya propia.</translation>
             <translation>Funciones registradas:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1756" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1760" />
             <source>Remove from Favorites</source>
             <translation>Quitar de favoritos</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1070" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1074" />
             <source>Remove this field</source>
             <translation>Eliminar este campo</translation>
         </message>
@@ -9547,12 +9547,12 @@ o en 'Crear personalizada' para definir la suya propia.</translation>
             <translation>Sobre de semillas:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1812" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1816" />
             <source>Select Custom Plant</source>
             <translation>Seleccionar planta personalizada</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1319" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1323" />
             <location filename="../../ui/panels/plant_database_panel.py" line="345" />
             <source>Select a plant to view details</source>
             <translation>Seleccione una planta para ver los detalles</translation>
@@ -9588,7 +9588,7 @@ o en 'Crear personalizada' para definir la suya propia.</translation>
             <translation>Fuente desconocida</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1062" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1066" />
             <source>Value</source>
             <translation>Valor</translation>
         </message>
@@ -9603,7 +9603,7 @@ o en 'Crear personalizada' para definir la suya propia.</translation>
             <translation>Agua:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1800" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1804" />
             <source>Your custom plant library is empty.
 
 Use 'Create Custom' to add plants, or use the Plants menu to manage your custom plant library.</source>
@@ -9622,7 +9622,7 @@ Use 'Crear personalizada' para añadir plantas, o use el menú Plantas para gest
             <translation>Rango de pH:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1198" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1202" />
             <source>{name} — {role}</source>
             <translation>{name} — {role}</translation>
         </message>
@@ -9646,7 +9646,7 @@ Use 'Crear personalizada' para añadir plantas, o use el menú Plantas para gest
             <translation>—</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="972" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="976" />
             <source>— No packet linked —</source>
             <translation>— Ningún sobre vinculado —</translation>
         </message>
@@ -13860,12 +13860,12 @@ Use Archivo › Establecer ubicación del huerto para configurar las coordenadas
             <translation>1 objeto no se muestra en 3D; el suelo 3D no muestra todo el plano</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1106" />
+            <location filename="../../ui/view3d/workspace.py" line="1107" />
             <source>3D is running in compatibility mode (software rendering) because it did not start properly last time.</source>
             <translation>3D se ejecuta en modo de compatibilidad (renderizado por software) porque no se inició correctamente la última vez.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1108" />
+            <location filename="../../ui/view3d/workspace.py" line="1109" />
             <source>3D is running in compatibility mode (software rendering).</source>
             <translation>3D se ejecuta en modo de compatibilidad (renderizado por software).</translation>
         </message>
@@ -13875,12 +13875,12 @@ Use Archivo › Establecer ubicación del huerto para configurar las coordenadas
             <translation>3D está desactivado en este equipo: no se inició, ni siquiera en modo de compatibilidad (renderizado por software). El resto de la aplicación no se ve afectado.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1112" />
+            <location filename="../../ui/view3d/workspace.py" line="1113" />
             <source>3D is switched off: it did not start in compatibility mode (software rendering) either.</source>
             <translation>3D está desactivado: tampoco se inició en modo de compatibilidad (renderizado por software).</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1086" />
+            <location filename="../../ui/view3d/workspace.py" line="1087" />
             <source>3D is unavailable on this graphics device. The rest of the application is not affected.
 
 Details: {error}</source>
@@ -13894,17 +13894,17 @@ Detalles: {error}</translation>
             <translation>Construyendo la vista 3D…</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1110" />
+            <location filename="../../ui/view3d/workspace.py" line="1111" />
             <source>Compatibility mode (software rendering) is switched on.</source>
             <translation>El modo de compatibilidad (renderizado por software) está activado.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1115" />
+            <location filename="../../ui/view3d/workspace.py" line="1116" />
             <source>Compatibility mode will be used the next time the application starts.</source>
             <translation>La próxima vez que se inicie la aplicación se usará el modo de compatibilidad.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1134" />
+            <location filename="../../ui/view3d/workspace.py" line="1135" />
             <source>Hardware rendering will be tried the next time the application starts.</source>
             <translation>La próxima vez que se inicie la aplicación se intentará el renderizado por hardware.</translation>
         </message>
@@ -13963,12 +13963,12 @@ Detalles: {error}</translation>
             <translation>No se pudo actualizar la vista 3D. Se volverá a intentar con el próximo cambio.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1068" />
+            <location filename="../../ui/view3d/workspace.py" line="1069" />
             <source>The 3D view reported a problem. Details are in the log file.</source>
             <translation>La vista 3D informó de un problema. Los detalles están en el archivo de registro.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1144" />
+            <location filename="../../ui/view3d/workspace.py" line="1145" />
             <source>The setting could not be changed. Details are in the log file.</source>
             <translation>No se pudo cambiar la configuración. Los detalles están en el archivo de registro.</translation>
         </message>
@@ -13978,17 +13978,17 @@ Detalles: {error}</translation>
             <translation>Reintentar</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1121" />
+            <location filename="../../ui/view3d/workspace.py" line="1122" />
             <source>Try Hardware Next Time</source>
             <translation>Probar hardware la próxima vez</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1088" />
+            <location filename="../../ui/view3d/workspace.py" line="1089" />
             <source>Use Compatibility Mode Next Time</source>
             <translation>Usar modo de compatibilidad</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="974" />
+            <location filename="../../ui/view3d/workspace.py" line="975" />
             <source>{count} objects are not shown in 3D</source>
             <translation>{count} objetos no se muestran en 3D</translation>
         </message>

@@ -3287,7 +3287,7 @@ for _ctx, _strings in _L13_WORKSPACE_TRANSLATIONS.items():
 _L15_GROUND_TRANSLATIONS: dict[str, dict[str, str]] = {
     "View3DProblemsDialog": {
         'it could not be painted completely on the 3D ground':
-            'es konnte auf dem 3D-Boden nicht vollständig gemalt werden',
+            'die Darstellung auf dem 3D-Boden ist unvollständig',
         '3D ground: in one place the plan puts more surfaces than the ground can show; the smallest are left out':
             '3D-Boden: an einer Stelle liegen mehr Flächen, als der Boden zeigen kann; die kleinsten werden weggelassen',
         '3D ground: in {count} places the plan puts more surfaces than the ground can show; the smallest are left out':

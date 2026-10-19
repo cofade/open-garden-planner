@@ -968,10 +968,11 @@ class Workspace(QWidget):
                 text = (self.tr("1 object is not shown in 3D; the 3D ground does not show "
                                 "all of the plan") if partial
                         else self.tr("1 object is not shown in 3D"))
+            elif partial:
+                text = self.tr("{count} objects are not shown in 3D; the 3D ground does not "
+                               "show all of the plan").format(count=count)
             else:
-                text = (self.tr("{count} objects are not shown in 3D; the 3D ground does "
-                                "not show all of the plan") if partial
-                        else self.tr("{count} objects are not shown in 3D")).format(count=count)
+                text = self.tr("{count} objects are not shown in 3D").format(count=count)
             self._problems_label.setText(text)
             self._problems_row.show()
         self._refresh_notices()
