@@ -146,6 +146,32 @@ def test_the_app_closes_clean_with_3d_hidden_again(hidden: GateRun) -> None:
 
 
 @pytest.mark.parametrize("scenario", ["never", "visible", "hidden"])
+def test_the_app_closes_clean_when_its_frames_are_paced_by_the_display(
+        scratch: Path, scenario: str) -> None:
+    """Review 1, P2-12: the three close gates as the PRODUCT starts — without
+    ``QT_D3D_NO_VBLANK_THREAD`` (every other gate of this module runs with it, so that
+    no scenario depends on whether this machine's display is awake).
+
+    What these prove LESS than they seem to: paced by the display, a view on a
+    SLEEPING display presents its first frame and no more. "visible" then closes a
+    view that has presented once — a real case, and the one the timer-paced gate
+    cannot reach — but not a view that presents frame after frame on an awake display
+    while it closes. That stays on the owner's checklist ("close the app with 3D
+    visible", the display on)."""
+    run = _clean(run_gate(scratch, scenario, timer_paced=False))
+    assert run.step("closed")["accepted"] is True
+    if scenario == "visible":
+        shown = run.step("visible")
+        assert shown["state"] == "running" and shown["frames_presented"] >= 1
+        assert shown["parts"] >= shown["records"] == 98 and shown["guard_files"] == []
+    elif scenario == "hidden":
+        last = run.step("hidden")
+        assert last["host_state"] == "hidden" and last["active"] is False
+    MEASURED.setdefault("G5_paced_by_the_display", {})[scenario] = {
+        "adapter": run.qt["adapter"], "qt_messages": run.qt["counts"]}
+
+
+@pytest.mark.parametrize("scenario", ["never", "visible", "hidden"])
 def test_the_frozen_app_closes_clean_too(scratch: Path, scenario: str) -> None:
     exe = os.environ.get("OGP_WORKSPACE_GATE_EXE")
     if not exe:
