@@ -1,4 +1,4 @@
-"""The Qt-free orbit camera of the 3D workspace (Phase 17 L1.3, ADR-064).
+"""The Qt-free orbit camera of the 3D workspace (Phase 17 L1.3, ADR-065).
 
 ``core/scene3d/camera.py`` holds the whole camera: the pose, the clamps, the fit
 of a plan into the view and the critically damped follow. Nothing here needs Qt,
@@ -233,6 +233,62 @@ class TestInput:
         camera.frame(PLAN, 1.6, snap=True)
         assert camera.pose == camera.goal == frame_pose(PLAN, 1.6)
         assert camera.moving is False
+
+    def _at_rest(self, camera: OrbitCamera) -> None:
+        for _ in range(2000):
+            if not camera.step(1.0 / 60.0):
+                return
+        raise AssertionError("the camera never came to rest")
+
+    def test_home_after_six_turns_takes_the_shortest_way_back(self) -> None:
+        """Yaw is free while orbiting. Aiming at the default yaw itself unwound every
+        turn: from 2,477.5 degrees back to 317.5 — six full spins before the plan was
+        framed (measured). The goal is the equivalent angle nearest to the camera."""
+        camera = OrbitCamera()
+        camera.frame(PLAN, 1.6, snap=True)
+        home = frame_pose(PLAN, 1.6)
+        for _ in range(24):
+            camera.orbit(90.0, 0.0)              # six turns to the right
+        camera.orbit(20.0, 5.0)                  # … and a little further
+        self._at_rest(camera)
+        assert camera.pose.yaw_deg == pytest.approx(home.yaw_deg + 6 * 360.0 + 20.0)
+
+        camera.frame(PLAN, 1.6)                  # Home
+        assert camera.goal.yaw_deg == home.yaw_deg + 6 * 360.0, "the same side, six turns on"
+        assert abs(camera.goal.yaw_deg - camera.pose.yaw_deg) <= 180.0
+        travelled, last = 0.0, camera.pose.yaw_deg
+        for _ in range(2000):
+            moving = camera.step(1.0 / 60.0)
+            travelled += abs(camera.pose.yaw_deg - last)
+            last = camera.pose.yaw_deg
+            if not moving:
+                break
+        assert travelled == pytest.approx(20.0, abs=0.5), "it turned back the 20 degrees, no more"
+        assert camera.pose.eye == pytest.approx(home.eye), "and stands where Home is"
+        assert camera.pose.target == home.target and camera.pose.pitch_deg == home.pitch_deg
+
+    @pytest.mark.parametrize(("turned", "expected"), [
+        (0.0, 0.0), (179.0, 0.0), (181.0, 360.0), (-181.0, -360.0), (540.5, 720.0),
+        (-2000.0, -2160.0),
+    ])
+    def test_home_is_never_more_than_half_a_turn_away(self, turned: float, expected: float) -> None:
+        camera = OrbitCamera()
+        camera.frame(PLAN, 1.6, snap=True)
+        home = frame_pose(PLAN, 1.6)
+        camera.orbit(turned, 0.0)
+        camera.snap()
+        camera.frame(PLAN, 1.6)
+        assert camera.goal.yaw_deg == home.yaw_deg + expected
+        assert abs(camera.goal.yaw_deg - camera.pose.yaw_deg) <= 180.0
+
+    def test_a_snap_lands_on_the_default_yaw_itself(self) -> None:
+        """A new document frames with a snap: no turn count is carried over."""
+        camera = OrbitCamera()
+        camera.frame(PLAN, 1.6, snap=True)
+        camera.orbit(2000.0, 0.0)
+        camera.snap()
+        camera.frame(PLAN, 1.6, snap=True)
+        assert camera.pose == frame_pose(PLAN, 1.6)
 
     def test_input_that_changes_nothing_does_not_wake_the_camera(self) -> None:
         camera = OrbitCamera(CameraPose((0.0, 0.0), MIN_DISTANCE_CM, 0.0, MAX_PITCH_DEG))

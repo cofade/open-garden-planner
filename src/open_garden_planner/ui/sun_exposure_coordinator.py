@@ -68,6 +68,12 @@ class SunExposureCoordinator(QObject):
             coordinator.schedule()
 
         register_theme_listener(theme_listener)
+        #: This coordinator's entry in the theme registry, by name. The registry is
+        #: shared by every window the process ever built, so "the list is one
+        #: shorter" says nothing about THIS coordinator; whether this entry is still
+        #: on it does. (Holding it adds no cycle: the closure holds the coordinator
+        #: weakly.)
+        self.theme_listener = theme_listener
         self.schedule()
 
     def reset(self) -> None:

@@ -311,7 +311,8 @@ class CanvasView(QGraphicsView):
 
         # Command manager for undo/redo
         self._command_manager = CommandManager(self)
-        self._canvas_scene._command_manager = self._command_manager
+        # the scene's plan revision moves with every executed / undone / redone command
+        self._canvas_scene.set_command_manager(self._command_manager)
 
         # Update dimension lines after any command (constraint add/remove, item move, etc.)
         self._command_manager.command_executed.connect(

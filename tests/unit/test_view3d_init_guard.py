@@ -1,8 +1,9 @@
 """The crash marker of the 3D workspace — every transition (Phase 17 L1.3, ADR-065).
 
 ``ui/view3d/init_guard.py`` decides, before the first 3D window of a session is
-built, whether to render on the graphics card or on the software rasteriser, and
-keeps the two small files that carry that decision across a process that died.
+built, whether to render on the graphics card, on the software rasteriser or not
+at all, and keeps the two small files that carry that decision across a process
+that died.
 Standard library only: every test here runs it against a temp directory, with the
 "is that process still running?" question and the wall clock handed in.
 """
@@ -162,11 +163,60 @@ class TestADeathDuringTheFirstStart:
         assert again.begin() is RenderMode.SOFTWARE
         assert again.reason is ModeReason.PREVIOUS_START_DIED
 
-    def test_a_death_in_software_mode_keeps_software_mode(self, tmp_path: Path) -> None:
-        _die_in_init(tmp_path)
-        _die_in_init(tmp_path, pid=OTHER + 1)   # began in software, died as well
+    def test_a_death_in_software_mode_switches_3d_off(self, tmp_path: Path) -> None:
+        """The third outcome. The marker's ``mode`` used to be written and never read:
+        the flag on plus a dead marker that says "software" gave SOFTWARE again — a
+        machine that dies in software mode died at every 3D open."""
+        _die_in_init(tmp_path)                    # died on the graphics card
+        _die_in_init(tmp_path, pid=OTHER + 1)     # began in software, died as well
+        dead = json.loads((tmp_path / marker_name(OTHER + 1)).read_text(encoding="utf-8"))
+        assert dead["mode"] == "software"
         guard = _guard(tmp_path)
+        assert guard.begin() is RenderMode.OFF
+        assert guard.mode is RenderMode.OFF
+        assert guard.reason is ModeReason.PREVIOUS_START_DIED
+        assert guard.pending is False, "nothing is started, so nothing is marked"
+        assert _files(tmp_path) == [COMPAT_NAME]
+        assert (tmp_path / COMPAT_NAME).read_text(encoding="utf-8") == "off"
+        assert guard.requested_mode() is RenderMode.OFF and guard.software_requested() is True
+        for outcome in (guard.confirm_first_frame, guard.graphics_failed, guard.init_failed,
+                        guard.abandon, guard.mark_again):
+            outcome()                             # none of them has anything to do
+        assert _files(tmp_path) == [COMPAT_NAME]
+
+    def test_off_is_kept_until_the_user_asks_for_hardware(self, tmp_path: Path) -> None:
+        _die_in_init(tmp_path)
+        _die_in_init(tmp_path, pid=OTHER + 1)
+        assert _guard(tmp_path).begin() is RenderMode.OFF
+        later = _guard(tmp_path, pid=ME + 1)
+        assert later.begin() is RenderMode.OFF
+        assert later.reason is ModeReason.KEPT_FROM_AN_EARLIER_SESSION
+        assert _files(tmp_path) == [COMPAT_NAME], "an OFF session writes nothing"
+        assert later.try_hardware_next_time() is True
+        assert _files(tmp_path) == [] and later.requested_mode() is RenderMode.HARDWARE
+        assert later.mode is RenderMode.OFF, "this session stays as it began"
+        nxt = _guard(tmp_path, pid=ME + 2)
+        assert nxt.begin() is RenderMode.HARDWARE and nxt.reason is ModeReason.NORMAL
+
+    def test_a_death_on_hardware_never_undoes_off(self, tmp_path: Path) -> None:
+        (tmp_path / COMPAT_NAME).write_text("off", encoding="utf-8")
+        (tmp_path / marker_name(OTHER)).write_text(
+            json.dumps({"pid": OTHER, "started": 1.0, "mode": "hardware"}), encoding="utf-8")
+        guard = _guard(tmp_path)
+        assert guard.begin() is RenderMode.OFF
+        assert (tmp_path / COMPAT_NAME).read_text(encoding="utf-8") == "off"
+        assert _files(tmp_path) == [COMPAT_NAME], "the dead marker is spent all the same"
+
+    def test_a_marker_with_our_own_id_and_no_start_of_ours_is_a_death(self, tmp_path: Path) -> None:
+        """A process id is handed out again. The process that died in its first 3D
+        start may have had OUR id: its marker was skipped ("that is us") and then
+        overwritten by our own — the death went unnoticed."""
+        _die_in_init(tmp_path, pid=ME)
+        guard = _guard(tmp_path, running=(ME,))   # "does process ME run?" — yes: it is us
         assert guard.begin() is RenderMode.SOFTWARE
+        assert guard.reason is ModeReason.PREVIOUS_START_DIED
+        ours = json.loads((tmp_path / marker_name(ME)).read_text(encoding="utf-8"))
+        assert ours["mode"] == "software" and guard.pending is True, "the marker is ours now"
         assert _files(tmp_path) == sorted([COMPAT_NAME, marker_name(ME)])
 
     @pytest.mark.parametrize("content", [b"", b"not json", b"\xff\xfe\x00", b"[1, 2]", b'{"pid": "x"}'])
@@ -206,7 +256,124 @@ class TestASecondRunningInstance:
         assert _files(tmp_path) == [marker_name(ME)]
 
 
+class TestAStartThatIsNotWatched:
+    """The first frame is confirmed by a poll that runs only while the 3D view is
+    shown. Hidden before its first frame, the view's start is no longer watched."""
+
+    def test_hidden_before_the_first_frame_the_marker_goes_and_comes_back(self, tmp_path: Path) -> None:
+        guard = _guard(tmp_path)
+        guard.begin()
+        guard.abandon()                    # hidden: nothing confirms a frame now
+        assert _files(tmp_path) == [] and guard.pending is False
+        guard.mark_again()                 # shown again, still no first frame
+        assert _files(tmp_path) == [marker_name(ME)] and guard.pending is True
+        written = json.loads((tmp_path / marker_name(ME)).read_text(encoding="utf-8"))
+        assert written["mode"] == "hardware", "in the mode begin() decided"
+        guard.mark_again()                 # watched already: nothing
+        assert _files(tmp_path) == [marker_name(ME)]
+        guard.confirm_first_frame()
+        assert _files(tmp_path) == []
+
+    @pytest.mark.parametrize("ending", ["confirm_first_frame", "graphics_failed", "init_failed"])
+    def test_a_start_that_has_ended_is_never_marked_again(self, tmp_path: Path, ending: str) -> None:
+        guard = _guard(tmp_path)
+        guard.begin()
+        getattr(guard, ending)()
+        guard.mark_again()
+        guard.abandon()
+        guard.mark_again()
+        assert _files(tmp_path) == [] and guard.pending is False
+
+    def test_a_start_that_never_began_is_not_marked(self, tmp_path: Path) -> None:
+        guard = _guard(tmp_path)
+        guard.mark_again()
+        assert _files(tmp_path) == [] and guard.mode is None
+
+    def test_a_second_instance_never_reads_a_hidden_start_as_a_death(self, tmp_path: Path) -> None:
+        """Measured before: a session that left 3D before its first presented frame kept
+        its marker; 601 s later a second instance read PREVIOUS_START_DIED, deleted the
+        LIVE marker and went to software rendering on a healthy machine."""
+        start = 1_000_000.0
+        first = _guard(tmp_path, running=(ME, OTHER), now=start)
+        first.begin()
+        first.abandon()                    # what hiding the view does now
+        second = _guard(tmp_path, pid=OTHER, running=(ME, OTHER), now=start + MAX_INIT_S + 1.0)
+        assert second.begin() is RenderMode.HARDWARE and second.reason is ModeReason.NORMAL
+        second.confirm_first_frame()
+        first.mark_again()                 # the first one comes back to 3D
+        assert _files(tmp_path) == [marker_name(ME)]
+        first.confirm_first_frame()
+        assert _files(tmp_path) == []
+
+    def test_without_the_abandon_that_start_is_read_as_a_death(self, tmp_path: Path) -> None:
+        """The control for the test above: the marker left in place IS a death after
+        ``MAX_INIT_S`` — which is right for a process whose id was handed out again."""
+        start = 1_000_000.0
+        first = _guard(tmp_path, running=(ME, OTHER), now=start)
+        first.begin()
+        second = _guard(tmp_path, pid=OTHER, running=(ME, OTHER), now=start + MAX_INIT_S + 1.0)
+        assert second.begin() is RenderMode.SOFTWARE
+
+
+class TestTheFlagSaysWhich:
+    @pytest.mark.parametrize(("content", "mode"), [
+        ("", RenderMode.SOFTWARE),            # what the first delivery wrote
+        ("software", RenderMode.SOFTWARE),
+        ("off", RenderMode.OFF),
+        ("off\n", RenderMode.OFF),
+        ("OFF", RenderMode.SOFTWARE),         # anything that does not say "off" is the milder one
+        ("hardware", RenderMode.SOFTWARE),
+    ])
+    def test_what_the_flag_asks_for(self, tmp_path: Path, content: str, mode: RenderMode) -> None:
+        (tmp_path / COMPAT_NAME).write_text(content, encoding="utf-8")
+        guard = _guard(tmp_path)
+        assert guard.requested_mode() is mode and guard.software_requested() is True
+        assert guard.begin() is mode
+
+    def test_no_flag_asks_for_hardware(self, tmp_path: Path) -> None:
+        guard = _guard(tmp_path)
+        assert guard.requested_mode() is RenderMode.HARDWARE
+        assert guard.software_requested() is False
+
+    def test_a_flag_nobody_can_read_asks_for_software(self, tmp_path: Path) -> None:
+        (tmp_path / COMPAT_NAME).write_bytes(b"\xff\xfe\x00off")
+        assert _guard(tmp_path).requested_mode() is RenderMode.SOFTWARE
+
+    def test_a_death_writes_what_it_asks_for(self, tmp_path: Path) -> None:
+        _die_in_init(tmp_path)
+        _guard(tmp_path).begin()
+        assert (tmp_path / COMPAT_NAME).read_text(encoding="utf-8") == "software"
+
+
 class TestTheUsersSwitch:
+    def test_the_switches_say_whether_they_took_effect(
+            self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """"Try Hardware Next Time" used to report success whatever ``unlink`` did."""
+        guard = _guard(tmp_path)
+        assert guard.use_software_next_time() is True
+        assert (tmp_path / COMPAT_NAME).read_text(encoding="utf-8") == "software"
+        assert guard.try_hardware_next_time() is True and _files(tmp_path) == []
+
+        guard.use_software_next_time()
+
+        def refuse(*_arguments: object, **_options: object) -> None:
+            raise PermissionError("the folder is read-only")
+
+        monkeypatch.setattr(Path, "unlink", refuse)
+        assert guard.try_hardware_next_time() is False, "the flag is still there"
+        assert guard.software_requested() is True
+        monkeypatch.undo()
+        guard.try_hardware_next_time()
+        monkeypatch.setattr(Path, "write_text", refuse)
+        assert guard.use_software_next_time() is False
+        assert guard.software_requested() is False
+
+    def test_asking_for_software_replaces_off(self, tmp_path: Path) -> None:
+        (tmp_path / COMPAT_NAME).write_text("off", encoding="utf-8")
+        guard = _guard(tmp_path)
+        assert guard.use_software_next_time() is True
+        assert guard.requested_mode() is RenderMode.SOFTWARE
+
     def test_software_can_be_asked_for_without_any_crash(self, tmp_path: Path) -> None:
         guard = _guard(tmp_path)
         guard.use_software_next_time()
@@ -284,6 +451,10 @@ _BEGIN_TABLE = [
     ("dead+compat",        RenderMode.SOFTWARE, ModeReason.PREVIOUS_START_DIED,          {"own", "compat"}),
     ("alive",              RenderMode.HARDWARE, ModeReason.NORMAL,                       {"own", "other"}),
     ("alive+compat",       RenderMode.SOFTWARE, ModeReason.KEPT_FROM_AN_EARLIER_SESSION, {"own", "other", "compat"}),
+    ("off",                RenderMode.OFF,      ModeReason.KEPT_FROM_AN_EARLIER_SESSION, {"compat"}),
+    ("dead+off",           RenderMode.OFF,      ModeReason.PREVIOUS_START_DIED,          {"compat"}),
+    ("alive+off",          RenderMode.OFF,      ModeReason.KEPT_FROM_AN_EARLIER_SESSION, {"other", "compat"}),
+    ("dead-in-software",   RenderMode.OFF,      ModeReason.PREVIOUS_START_DIED,          {"compat"}),
 ]
 
 
@@ -292,12 +463,17 @@ _BEGIN_TABLE = [
 def test_begin_decides_from_what_is_on_disk(tmp_path: Path, before: str, mode: RenderMode,
                                             reason: ModeReason, after: set[str]) -> None:
     running: tuple[int, ...] = ()
-    if "dead" in before or "alive" in before:
-        _die_in_init(tmp_path)
+    if before == "dead-in-software":
+        (tmp_path / COMPAT_NAME).write_text("", encoding="utf-8")
+        _die_in_init(tmp_path)     # the flag was on: that start was a software one
+    elif "dead" in before or "alive" in before:
+        _die_in_init(tmp_path)     # a start on the graphics card
     if "alive" in before:
         running = (OTHER,)
     if "compat" in before:
         (tmp_path / COMPAT_NAME).write_text("", encoding="utf-8")
+    if "off" in before:
+        (tmp_path / COMPAT_NAME).write_text("off", encoding="utf-8")
     guard = _guard(tmp_path, running=running)
     assert (guard.begin(), guard.reason) == (mode, reason)
     names = {"own": marker_name(ME), "other": marker_name(OTHER), "compat": COMPAT_NAME}

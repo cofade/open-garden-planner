@@ -112,10 +112,18 @@ class View3DProblemsDialog(QDialog):
             return kind
 
     def set_problems(self, problems: Iterable[Problem],
-                     name_of: Callable[[str], str]) -> None:
-        """Show ``problems``; ``name_of(item_id)`` is the item's own name ("" if none)."""
+                     name_of: Callable[[str], str], *, max_rows: int | None = None) -> None:
+        """Show ``problems``; ``name_of(item_id)`` is the item's own name ("" if none).
+
+        ``max_rows``: show at most that many, and say in a last row how many more
+        there are (that row belongs to no item: activating it does nothing). A plan
+        can refuse thousands of items, and this runs on the GUI thread."""
         self._list.clear()
-        for problem in problems:
+        rows = list(problems)
+        more = 0 if max_rows is None else max(0, len(rows) - max_rows)
+        if more:
+            rows = rows[:max_rows]
+        for problem in rows:
             # A name comes from the plan file and a detail from an exception that may
             # quote it: both are untrusted (core/plain_text.py, §8.11). The row is plain
             # text by the default delegate — a name is shown as its characters — and
@@ -132,6 +140,10 @@ class View3DProblemsDialog(QDialog):
             row.setData(_ITEM_ID_ROLE, problem.item_id)
             row.setToolTip(plain_tooltip(problem.detail))
             self._list.addItem(row)
+        if more:
+            last = QListWidgetItem(self.tr("… and {count} more").format(count=more))
+            last.setFlags(Qt.ItemFlag.NoItemFlags)  # not selectable, not activatable
+            self._list.addItem(last)
 
     def row_count(self) -> int:
         return self._list.count()
