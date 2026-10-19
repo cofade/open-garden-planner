@@ -24,6 +24,13 @@ What moves the camera: user input (``OrbitInput``), "Reset 3D view", the first
 open, and a document change — the four calls in ``_on_document_shown``,
 ``reset_view`` and the input filter. No edit does.
 
+Selection, the info card and walk mode (L1.8) are the class's last section. There is
+ONE selection — the canvas scene's: a click in the 3D view becomes a canvas
+selection by the canvas's own rules, the canvas's selection becomes the ring in 3D
+and the card BELOW the view. Walk mode is a second source for ``_apply_camera``
+(the walker's eye instead of the orbit pose) and touches nothing else — not the
+orbit camera, not the plan, not the undo stack.
+
 Timers: the pipeline's tick is ``Scene3DController``'s; this module adds three, and
 all stop when the 3D pane is hidden — the camera step (runs only while the camera
 is still moving), the health poll (``Quick3DHost.health()``: first frame,
@@ -47,8 +54,9 @@ timers, a resize and the splitter ask the host for none of them: the workspace
 tells the engine what the plan is, and Qt draws it when it draws. A picture of the
 3D view for a file or a thumbnail goes through ``quick3d/offscreen.py`` (a host of
 its own that gives everything back when it closes), never through the shown host.
-A click that picks (L1.8) is a user's own action, once. Pinned by a scan of this
-package's five modules and by a stand-in host that records such calls.
+A click that picks (L1.8) is a user's own action, once — and it is made in
+``orbit_input.py``, nowhere else. Pinned by a scan of this package's modules and by
+a stand-in host that records such calls.
 
 WHAT A DESTROYED MODEL LEAVES BEHIND (ADR-065, measured). Qt Quick 3D keeps
 graphics state for every Model it once drew — about 0.2 MB each on Direct3D 11
@@ -95,12 +103,15 @@ if TYPE_CHECKING:
     from PyQt6.QtWidgets import QGraphicsScene
 
     from open_garden_planner.core.scene3d import EngineSink
+    from open_garden_planner.core.scene3d.walk import WalkWorld
     from open_garden_planner.core.sim_clock import SimClock
 
+    from .info_card import CardSubject, View3DCardSlot, View3DInfoCard
     from .look_controller import LookController
     from .orbit_input import OrbitInput
     from .problems_dialog import View3DProblemsDialog
     from .sync_controller import Scene3DController, TickReport
+    from .walk_mode import WalkMode
 
 _LOG: Final = logging.getLogger(__name__)
 
@@ -165,6 +176,8 @@ class EngineHost(Protocol):
 
     def container(self, parent: QWidget | None = None) -> QWidget: ...
     def install_event_filter(self, watcher: QObject) -> None: ...
+    def focus(self) -> None: ...
+    def has_focus(self) -> bool: ...
     def release_cached_resources(self) -> None: ...
     def set_camera(self, eye_scene: tuple[float, float, float],
                    target_scene: tuple[float, float, float], fov_deg: float = ...) -> None: ...
@@ -385,6 +398,7 @@ class Workspace(QWidget):
         self._build_timer.timeout.connect(self._begin_build)
 
         self._build_actions()
+        self._init_selection_and_walk()  # L1.8: its state and the Walk action
         # on the widget itself too: the shortcuts work whichever button row is shown
         self.addActions(self.mode_actions())
         self._floating = ModeSwitch(self.mode_actions(), self)
@@ -541,8 +555,9 @@ class Workspace(QWidget):
             self._remember_split()
             self.save_state()
         self._mode = mode
-        if mode is WorkspaceMode.VIEW3D:
-            self.clear_selection_hidden_by_3d_mode()
+        # (L1.8) 3D mode keeps the selection: the ring shows it in 3D and the card names
+        # it — so the app's shortcuts (Delete, Ctrl+X, Ctrl+D) act on what is SHOWN.
+        # This replaces the workspace's stopgap ``clear_selection_hidden_by_3d_mode``.
         if mode is not WorkspaceMode.PLAN:
             self._ensure_pane()
         pane = self._pane
@@ -559,31 +574,21 @@ class Workspace(QWidget):
         self._place_floating()
         self.mode_changed.emit(mode)
 
-    def clear_selection_hidden_by_3d_mode(self) -> None:
-        """3D mode hides the canvas — the one place a selection is SHOWN — and keeps
-        every shortcut: Delete, Ctrl+X and Ctrl+D would act on items nobody can see.
-        So entering 3D mode clears the selection.
-
-        A STOPGAP WITH AN OWNER: the selection story (L1.8) shows the selection in the
-        3D view itself; when its ring exists it removes this function (and its one
-        call, in ``set_mode``) or replaces it. Split is not touched: there the canvas
-        still shows what is selected."""
-        scene = self._scene
-        if scene is not None:
-            scene.clearSelection()
-
     def set_chrome_visible(self, visible: bool) -> None:
         """Fullscreen preview hides the workspace's own controls with the rest of the UI."""
         self._chrome_visible = visible
         if self._pane is not None:
             self._pane.strip.setVisible(visible)
         self._place_floating()
+        self._refresh_card()  # L1.8: the card is one of the pane's controls
 
     def reset_view(self) -> None:
-        """Frame the whole plan again (the camera glides there)."""
+        """Frame the whole plan again (the camera glides there). Asked while walking,
+        it leaves walk mode first: "show the whole garden" is the orbit view's."""
         controller = self._controller
         if controller is None:
             return
+        self.set_walking(False)
         self._camera.frame(controller.plan_bounds(), self._aspect())
         self._start_camera()
 
@@ -637,6 +642,7 @@ class Workspace(QWidget):
         self._reset_button.setAutoRaise(True)
         self._reset_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         strip.addWidget(self._reset_button)
+        self._build_walk_controls(pane)  # L1.8: the Walk toggle and the eye height
         strip.addStretch(1)
         # the notices, one per line; every sentence wraps (class docstring of the pane)
         notices = pane.notice_layout
@@ -678,6 +684,7 @@ class Workspace(QWidget):
         pane.hide()
         self._splitter.addWidget(pane)
         self._splitter.setCollapsible(self._splitter.indexOf(pane), False)
+        self._build_card(pane)  # L1.8: the info card, BELOW the view
         self._pane = pane
 
     def _start_engine(self) -> None:
@@ -749,6 +756,7 @@ class Workspace(QWidget):
         self._look = look
         orbit.moved.connect(self._start_camera)
         orbit.reset_requested.connect(self.reset_view)
+        self._wire_selection(host, orbit, controller)  # L1.8: the click, the ring, the card
         controller.applied.connect(self._on_applied)
         controller.problems_changed.connect(self._update_problems)
         controller.document_shown.connect(self._on_document_shown)
@@ -905,9 +913,14 @@ class Workspace(QWidget):
         host = self._host
         if host is None:
             return
-        pose = self._camera.pose
+        walk = self._walk
+        if walk is not None and walk.active:
+            eye, target, fov = walk.camera()  # L1.8: the walker's eye; the orbit pose rests
+        else:
+            pose = self._camera.pose
+            eye, target, fov = pose.eye, pose.target_scene, FOV_DEG
         try:
-            host.set_camera(pose.eye, pose.target_scene, FOV_DEG)
+            host.set_camera(eye, target, fov)
         except Exception:  # noqa: BLE001 - the health poll reports a host that died
             _LOG.debug("3D workspace: the camera could not be set", exc_info=True)
 
@@ -949,7 +962,13 @@ class Workspace(QWidget):
         controller = self._controller
         if controller is None:
             return
+        self.set_walking(False)  # L1.8: the walker's world is gone with the document
         controller.document_changed()
+        # … and so is what was selected. NOT read from the scene: the old items are
+        # still in it (and still selected) when the signal comes. The new document
+        # starts with nothing selected; a selection made in it arrives as the canvas's
+        # own selectionChanged, and the card is refreshed with the document's first pass.
+        controller.set_selection(())
         if controller.active and self._pane_is_showing():
             controller.set_active(False)  # whatever pass is on its way finds it paused
             self._announce_build()
@@ -1064,25 +1083,26 @@ class Workspace(QWidget):
                             max_rows=MAX_PROBLEM_ROWS)
 
     def _find_item(self, item_id: str) -> Any:
+        from open_garden_planner.ui.canvas.select_by_id import item_with_id
+
         scene = self._scene
-        if scene is None:
-            return None
-        for item in scene.items():
-            if str(getattr(item, "item_id", "")) == item_id:
-                return item
-        return None
+        return None if scene is None else item_with_id(scene, item_id)
 
     def select_item(self, item_id: str) -> None:
-        """Select the item on the plan (a row of the problems list was activated)."""
+        """Select the item on the plan and scroll the plan to it (a row of the problems
+        list was activated) — through the app's ONE select-by-id path,
+        ``ui/canvas/select_by_id.py``, which the Diagnostics, Canopy and Guilds panels
+        use too: its group when it is in one, nothing when its layer is locked."""
+        from open_garden_planner.ui.canvas.select_by_id import select_by_ids
+
         scene, item = self._scene, self._find_item(item_id)
         if scene is None or item is None:
             return
         if self._mode is WorkspaceMode.VIEW3D:
-            # the plan is hidden in 3D mode, and a selection nobody can see is what
-            # ``clear_selection_hidden_by_3d_mode`` exists to prevent: show the plan
+            # an item of this list is one the 3D view does NOT show — no ring can mark
+            # it — so the plan is shown, where it is selected and centred
             self.set_mode(WorkspaceMode.SPLIT)
-        scene.clearSelection()
-        item.setSelected(True)
+        select_by_ids(scene, (item_id,))
         center_on = getattr(self._canvas, "centerOn", None)
         if callable(center_on) and self._canvas.isVisible():
             center_on(item)
@@ -1215,6 +1235,7 @@ class Workspace(QWidget):
             _log_failure("3D workspace: the engine host did not close cleanly", error)
 
     def _stop_engine(self) -> None:
+        self._unwire_selection()  # L1.8: walk mode ends, the canvas is let go
         self._camera_timer.stop()
         self._health_timer.stop()
         self._drop_held_build()
@@ -1258,3 +1279,396 @@ class Workspace(QWidget):
         if state is not self._state:
             self._state = state
             self.view3d_state_changed.emit(state)
+
+    # ── selection, the info card and walk mode (L1.8, ADR-065) ───────────────
+    #
+    # ONE selection: the canvas scene's. A click in the 3D view becomes a canvas
+    # selection by the canvas's own rules (``selection_bridge``); the canvas's
+    # ``selectionChanged`` becomes the ring in 3D (``Scene3DController.set_selection``
+    # — a flag while 3D is hidden) and the info card below the view. Walk mode is a
+    # second source for ``_apply_camera`` and nothing more: it never touches the orbit
+    # camera, the plan or the undo stack.
+
+    def _init_selection_and_walk(self) -> None:
+        self._walk: WalkMode | None = None
+        self._card: View3DInfoCard | None = None
+        self._card_slot: View3DCardSlot | None = None
+        self._selection_wired = False
+        self._eye_height: float | None = None  # None: the walk's default (the first preset)
+        #: Where the keyboard focus was when walk mode began (it goes back there).
+        self._focus_before: QWidget | None = None
+        self._walk_action = QAction(self.tr("&Walk"), self)
+        self._walk_action.setCheckable(True)
+        self._walk_action.setStatusTip(self.tr("Walk through the garden at eye height"))
+        self._walk_action.setToolTip(self.tr(
+            "Walk through the garden at eye height (W A S D or the arrow keys walk, "
+            "drag to look around, Shift runs, Esc leaves)"))
+        self._walk_action.triggered.connect(lambda checked=False: self.set_walking(bool(checked)))
+        self._walk_action.setEnabled(False)
+
+    @property
+    def walk_action(self) -> QAction:
+        """The checkable "Walk" action (the 3D pane's strip shows it)."""
+        return self._walk_action
+
+    @property
+    def walk(self) -> WalkMode | None:
+        """Walk mode's state — None until walk mode was first entered."""
+        return self._walk
+
+    @property
+    def walking(self) -> bool:
+        return self._walk is not None and self._walk.active
+
+    @property
+    def info_card(self) -> View3DInfoCard | None:
+        """The info card (None until the 3D pane was first asked for)."""
+        return self._card
+
+    def _build_walk_controls(self, pane: _Pane3D) -> None:
+        from open_garden_planner.core.measurements import format_length
+        from open_garden_planner.core.scene3d.walk import EYE_HEIGHTS_CM
+
+        strip = pane.strip_layout
+        self._walk_button = QToolButton(pane.strip)
+        self._walk_button.setDefaultAction(self._walk_action)
+        self._walk_button.setAutoRaise(True)
+        self._walk_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        # The eye height is the Walk button's menu (the arrow beside it). A box of its own
+        # beside the button made the strip's row 574 px wide — wider than a 455 px pane,
+        # whose notices were then cut — and, hidden while not walking, it had to keep its
+        # room to keep the view from resizing (fix round 1, after the workspace's strip
+        # became two rows). A menu takes no room and comes and goes with nothing.
+        menu = QMenu(self._walk_button)
+        menu.addSection(self.tr("Eye height while walking"))
+        group = QActionGroup(menu)
+        group.setExclusive(True)
+        people = (self.tr("Adult"), self.tr("Smaller adult"), self.tr("Child"))
+        self._eye_actions: list[QAction] = []
+        for who, height in zip(people, EYE_HEIGHTS_CM, strict=True):
+            action = QAction(self.tr("{who} – {height}").format(
+                who=who, height=format_length(height)), menu)
+            action.setCheckable(True)
+            action.setData(height)
+            action.triggered.connect(lambda _checked=False, cm=height: self.set_eye_height(cm))
+            group.addAction(action)
+            menu.addAction(action)
+            self._eye_actions.append(action)
+        self._eye_actions[EYE_HEIGHTS_CM.index(self._eye_height or EYE_HEIGHTS_CM[0])].setChecked(True)
+        self._walk_button.setMenu(menu)
+        self._walk_button.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
+        strip.addWidget(self._walk_button)
+
+    @property
+    def eye_height_actions(self) -> list[QAction]:
+        """The Walk button's menu: one checkable action per eye height (``EYE_HEIGHTS_CM``,
+        in that order; empty before the 3D pane was first built)."""
+        return list(getattr(self, "_eye_actions", ()))
+
+    def set_eye_height(self, height_cm: float) -> None:
+        """The walker's eye height — now, while walking, and for the next walk."""
+        from open_garden_planner.core.scene3d.walk import EYE_HEIGHTS_CM
+
+        if height_cm not in EYE_HEIGHTS_CM:
+            raise ValueError(f"an eye height is one of {EYE_HEIGHTS_CM}, got {height_cm!r}")
+        self._eye_height = float(height_cm)
+        for action in self.eye_height_actions:
+            action.setChecked(action.data() == height_cm)
+        if self._walk is not None:
+            self._walk.set_eye_height(float(height_cm))
+
+    def _build_card(self, pane: _Pane3D) -> None:
+        from .info_card import View3DCardSlot
+
+        # The card's PLACE, of one constant height: a card that came and went with the
+        # selection resized the 3D view under the pointer (info_card's docstring).
+        slot = View3DCardSlot(pane)
+        slot.card.show_in_plan.connect(self.show_in_plan)
+        slot.hide()  # until there is an engine view to stand below
+        layout = pane.layout()
+        if layout is not None:
+            layout.addWidget(slot)  # BELOW the view: nothing is ever drawn over it
+        pane.showing_changed.connect(self._on_showing_for_selection)
+        self._card_slot = slot
+        self._card = slot.card
+
+    def _wire_selection(self, host: EngineHost, orbit: OrbitInput,
+                        controller: Scene3DController) -> None:
+        orbit.watch(host)
+        orbit.picked.connect(self._on_picked)
+        controller.applied.connect(self._on_applied_for_selection)
+        controller.problems_changed.connect(self._refresh_card)
+        scene = self._scene
+        if scene is not None and not self._selection_wired:
+            scene.selectionChanged.connect(self._on_canvas_selection)
+            self._selection_wired = True
+        self._walk_action.setEnabled(True)
+        self._on_canvas_selection()  # what is selected NOW — a flag until 3D is shown
+
+    def _unwire_selection(self) -> None:
+        self.set_walking(False)
+        walk, self._walk = self._walk, None
+        if walk is not None:
+            walk.deleteLater()  # it filtered the host that is going
+        scene = self._scene
+        if scene is not None and self._selection_wired:
+            try:
+                scene.selectionChanged.disconnect(self._on_canvas_selection)
+            except (RuntimeError, TypeError):
+                _LOG.debug("3D workspace: the canvas selection was already disconnected")
+        self._selection_wired = False
+        self._walk_action.setEnabled(False)
+        if self._card_slot is not None:
+            self._card_slot.show_hint("")
+            self._card_slot.hide()  # no engine view: nothing to stand below
+
+    def _on_canvas_selection(self) -> None:
+        """The canvas selection changed: the ring follows, and the card."""
+        from .selection_bridge import selected_record_ids
+
+        controller, scene = self._controller, self._scene
+        if controller is None or scene is None:
+            return
+        try:
+            ids = selected_record_ids(scene)
+        except RuntimeError:  # the scene is being torn down under the signal
+            return
+        controller.set_selection(ids)
+        self._refresh_card()
+
+    def _on_picked(self, hit: object, modifiers: object) -> None:
+        """A click in the 3D view picked ``hit`` (None: the ground, the sky) with
+        ``modifiers`` held: it becomes what a click on the canvas there would have
+        become."""
+        from .selection_bridge import apply_click, hit_ids
+
+        scene = self._scene
+        if scene is not None:
+            held = (modifiers if isinstance(modifiers, Qt.KeyboardModifier)
+                    else Qt.KeyboardModifier.NoModifier)
+            apply_click(scene, hit_ids(hit), held)
+
+    def show_in_plan(self, item_id: str) -> None:
+        """The info card's action: the plan centred on the item. From 3D-only mode the
+        workspace goes to Split first — there is no plan to show it in otherwise."""
+        if self._mode is WorkspaceMode.VIEW3D:
+            self.set_mode(WorkspaceMode.SPLIT)
+        item = self._find_item(item_id)
+        center_on = getattr(self._canvas, "centerOn", None)
+        if item is not None and callable(center_on) and self._canvas.isVisible():
+            center_on(item)
+
+    def _on_showing_for_selection(self, showing: bool) -> None:
+        walk = self._walk
+        if walk is not None and walk.active:
+            if showing:
+                walk.resume()
+            else:
+                walk.pause()  # a hidden view gets no key release: every key is let go
+        if showing:
+            self._refresh_card()
+
+    def _on_applied_for_selection(self, report: TickReport) -> None:
+        """A pass reached the engine: the card's numbers may be another day's, and a
+        walker's world may have moved — rebuilt only when what moved was, or now is, a
+        solid (a date change regrows plants, which the walker walks through)."""
+        from open_garden_planner.core.scene3d.walk import is_solid
+
+        self._refresh_card()
+        walk, changes, controller = self._walk, report.changes, self._controller
+        if walk is None or not walk.active or not report.snapshot or controller is None:
+            return
+        touched = {*changes.added, *changes.removed, *changes.geometry, *changes.transform}
+        records = controller.sync.records
+        world = walk.world
+        was_solid = touched & set(world.solid_ids) if world is not None else touched
+        if was_solid or any(is_solid(records[i]) for i in touched if i in records):
+            walk.set_world(self._walk_world())
+            self._after_walk_change()
+
+    def _refresh_card(self) -> None:
+        slot = self._card_slot
+        if slot is None:
+            return
+        # the card's place is there with the view's other controls, card or no card:
+        # a selection never changes the size of the 3D view
+        slot.setVisible(self._chrome_visible and self._controller is not None)
+        if not self._pane_is_showing():
+            return  # hidden: nothing is computed; the card is refreshed when it shows
+        subject = self._card_subject()
+        if subject is None:
+            slot.show_hint(self._selection_hint())
+        else:
+            slot.show_subject(subject)
+
+    def _selection_hint(self) -> str:
+        """What stands in the card's place while it shows no item."""
+        scene = self._scene
+        try:
+            count = len(scene.selectedItems()) if scene is not None else 0
+        except RuntimeError:  # the scene is being torn down
+            count = 0
+        if count > 1:
+            return self.tr("{count} objects selected.").format(count=count)
+        return self.tr("Click an object to see what the 3D view shows of it.")
+
+    def _card_subject(self) -> CardSubject | None:
+        """What the card shows: the ONE selected item, with the record the engine was
+        last sent for it — None when the card shows nothing."""
+        from .info_card import CardSubject
+        from .problems_dialog import BUILD_FAILED, reason_text
+        from .selection_bridge import sole_selected
+
+        controller, scene, clock = self._controller, self._scene, self._clock
+        if controller is None or scene is None or not self._chrome_visible:
+            return None
+        try:
+            item = sole_selected(scene)
+        except RuntimeError:
+            return None
+        if item is None:
+            return None
+        item_id = str(getattr(item, "item_id", "") or "")
+        record = controller.sync.records.get(item_id)
+        problem = ""
+        for skipped in controller.skipped:
+            if skipped.item_id == item_id:
+                problem = reason_text(str(skipped.reason.value))
+        if item_id in controller.failures:
+            problem = reason_text(BUILD_FAILED)
+        if getattr(item, "object_type", None) is None and record is None:
+            # a group: it covers no ground itself — its members are what 3D shows
+            has_model = any(self._has_model(str(getattr(member, "item_id", "")))
+                            for member in item.childItems())
+        else:
+            has_model = not problem and self._has_model(item_id)
+        parent_id = record.parent_id if record is not None else None
+        return CardSubject(item, record, has_model, problem,
+                           str(getattr(self._find_item(parent_id), "name", "") or "")
+                           if parent_id else "",
+                           clock.plan_date if clock is not None else None)
+
+    def _has_model(self, item_id: str) -> bool:
+        """True when the engine holds at least one mesh for the item (asked of the
+        sink's own books — the recording double answers the same question)."""
+        controller = self._controller
+        held = getattr(controller.sync.sink, "item", None) if controller is not None else None
+        if not callable(held):
+            return False
+        try:
+            return any(part.mesh.triangle_count for part in held(item_id).parts)
+        except KeyError:
+            return False
+
+    # … walk mode
+
+    def set_walking(self, on: bool) -> bool:
+        """Enter or leave walk mode; returns whether the view is walking afterwards.
+
+        Entering puts the walker where the orbit camera looks (its target), facing
+        the way it looks — or on the nearest free ground when that spot is inside a
+        solid — and is refused (False) when 3D is not running or the plan has no
+        free ground. Leaving shows the orbit pose again: walking never touched it.
+        """
+        action = self._walk_action
+        walk = self._walk
+        if not on:
+            if walk is not None and walk.active:
+                walk.leave()
+                self._after_walk_change()
+                self._give_focus_back()
+            action.setChecked(False)
+            return False
+        controller, host = self._controller, self._host
+        if controller is None or host is None:
+            action.setChecked(False)
+            return False
+        if walk is None:
+            from .walk_mode import WalkMode
+
+            walk = WalkMode(self)
+            # installed AFTER the orbit filter, so it sees every event first; it passes
+            # everything on while not walking
+            host.install_event_filter(walk)
+            walk.changed.connect(self._apply_camera)
+            walk.left.connect(lambda: self.set_walking(False))
+            orbit = self._input
+            if orbit is not None:
+                walk.turned.connect(orbit.cancel_click)  # a drag that turned is no click
+            if self._eye_height is not None:
+                walk.set_eye_height(self._eye_height)
+            self._walk = walk
+        if not walk.active:
+            pose = self._camera.pose
+            if not walk.enter(self._walk_world(), pose.target, pose.yaw_deg):
+                self._status_label.setText(self.tr("There is no free ground to walk on."))
+                action.setChecked(False)
+                return False
+            if not self._pane_is_showing():
+                walk.pause()
+            self._after_walk_change()
+            self._take_focus(host)
+        action.setChecked(True)
+        return True
+
+    def _take_focus(self, host: EngineHost) -> None:
+        """Walking is done with the keyboard: the 3D view takes the focus (else W picks
+        the Wall tool on the plan and Escape reaches the canvas), and it goes back where
+        it was when walk mode ends."""
+        from PyQt6.QtWidgets import QApplication
+
+        before = QApplication.focusWidget()
+        engine = self._pane.engine_widget if self._pane is not None else None
+        self._focus_before = before if before is not engine else None
+        try:
+            host.focus()
+        except Exception as error:  # noqa: BLE001 - a view that cannot take focus still walks
+            _log_failure("3D workspace: the 3D view could not take the keyboard focus", error)
+
+    def _give_focus_back(self) -> None:
+        """Walk mode ended: if the 3D view still has the keyboard, it goes back to the
+        widget that had it before (a document change or a hidden pane leaves it alone)."""
+        from PyQt6 import sip
+
+        before, self._focus_before = self._focus_before, None
+        host = self._host
+        if before is None or sip.isdeleted(before) or host is None:
+            return
+        try:
+            still_ours = host.has_focus()
+        except Exception:  # noqa: BLE001 - a host that cannot say keeps the focus where it is
+            still_ours = False
+        if still_ours:
+            before.activateWindow()
+            before.setFocus(Qt.FocusReason.OtherFocusReason)
+
+    def _after_walk_change(self) -> None:
+        self._apply_camera()
+
+    def _walk_world(self) -> WalkWorld:
+        """The walker's world: the records the engine was last sent, with the mesh parts
+        the ENGINE holds for them — what blocks is what is drawn (``core/scene3d/walk``),
+        and nothing is built a second time (a record whose build failed has no parts:
+        its footprint blocks)."""
+        from open_garden_planner.core.scene3d.mesh import MeshPart
+        from open_garden_planner.core.scene3d.record import Record
+        from open_garden_planner.core.scene3d.walk import build_world
+
+        controller = self._controller
+        assert controller is not None
+        bounds = controller.plan_bounds()
+        # the sink's own books (``Quick3DSink.item`` / ``RecordingSink.item``) — asked as
+        # ``_has_model`` asks them: not every EngineSink keeps them
+        held = getattr(controller.sync.sink, "item", None)
+
+        def held_parts(record: Record) -> tuple[MeshPart, ...]:
+            if not callable(held):
+                return ()
+            try:
+                return tuple(held(record.item_id).parts)
+            except KeyError:
+                return ()
+
+        return build_world(controller.sync.records, bounds.max_east, bounds.max_north,
+                           parts_of=held_parts)
+

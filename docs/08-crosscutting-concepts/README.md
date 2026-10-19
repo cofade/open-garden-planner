@@ -1801,6 +1801,86 @@ patterns worth reusing.
   is darker one way and brighter the other (the old material: −4.1 / +4.3). Positive control:
   the old material reads 4.65, the meadow's 0.21.
 
+### 8.10.30 Patterns from selection, the info card and walk mode (Phase 17 L1.8)
+
+How §8.32.8 is tested, and the patterns worth reusing. The seam is the workspace's
+(§8.10.27): `Workspace.engine_factory`.
+
+| Tier | Files | What stands in for the engine |
+|---|---|---|
+| default, Qt-free | `tests/unit/test_scene3d_walk.py`, `test_scene3d_selection.py`, `test_scene3d_pick_oracle.py`, `test_quick3d_selection_ring.py` (the QML and shader text) | nothing is needed |
+| default, widgets | `tests/ui/test_view3d_click.py`, `test_view3d_walk_mode.py`, `test_view3d_info_card.py`, `test_view3d_selection_ring_host.py` | a host that records; the real `Quick3DHost`, never shown |
+| default, the workspace | `tests/integration/test_view3d_selection_bridge.py`, `test_view3d_selection_workspace.py`, `test_view3d_selection_controller.py`, `test_view3d_walk_bench.py`, `test_view3d_selection_walk.py` (§8.10: a real `GardenPlannerApp`); `tests/perf/test_view3d_selection_walk_budget.py` | `RecordingSink` and a host whose `pick` answers from a script |
+| render (`OGP_RENDER3D=1`) | `tests/integration/test_view3d_selection_render.py` (driver: `view3d_selection_driver.py`, judge: `view3d_selection_support.py`); `test_quick3d_selftest.py` | nothing: the real engine in a child process, GPU and WARP |
+
+- **Measure the other side's rules before mirroring them.** "A locked layer is respected" has
+  three possible meanings. `test_view3d_selection_bridge.py` first clicks the REAL canvas with
+  `QTest.mouseClick` (through a locked item, with Shift, on a group member) and writes down what
+  it does; the 3D rule is then asserted to be that — and the one place where 3D deliberately
+  differs is a test of its own that names the canvas's behaviour as the defect.
+- **An oracle that shares no code with the thing it judges.** Picks are judged by
+  `core/scene3d/pick_oracle.py`: its own camera model, its own projection, its own ray caster
+  over the records' meshes. The walker is judged by `Brute` in `test_view3d_walk_bench.py`: the
+  distance to EVERY segment (no grid) and a crossing count of its own over the records' rings.
+  The engine's `project()` and the walk core's index are never asked whether they are right.
+- **Judge a pick only where the answer does not hang on a pixel.** `robust_answer` asks the
+  oracle 1.5 px all round a position; where the answer changes, the position is on a silhouette
+  edge and either answer is right. Report both counts (off the edges: 360 of 360; on one: 36 of
+  40) — "400 of 400" would be a claim about float rounding.
+- **Seeded points must be able to fail the gate.** Of the twenty seeded picks at most six may be
+  "nothing": twenty lawn clicks prove nothing about picking. The workspace's sixty clicks are
+  aimed at the middle of the view for the same reason.
+- **Controls for everything a frame is asked.** The look-through test (288 frames, 0 marker
+  pixels) has two: the marker IS that colour in a frame, and an eye inside the near distance
+  DOES see it. The ring's depth has two: the same frame depth-tested, and the same shader with
+  its first formula on OpenGL. The clean-run test has one: a broken `ring.vert` is heard.
+- **A timing loop takes no frame.** Selection → the engine has its ring is timed to the end of
+  the pass (a slot on `applied`), 120 times, with no readback; one frame is taken after the
+  loop, and the ring must be in it. A change that does not arrive is counted as a MISS, never
+  dropped — and every pass of a missed change is recorded for the failure message.
+- **Drive walk mode's time by hand.** `WalkMode.clock` is an attribute and `WalkMode.step()` is
+  the timer's slot: a test sets the clock, calls `step()`, and exactly that much time has
+  passed (`hold(key, seconds)` in `test_view3d_selection_walk.py`).
+- **Pin a layout rule on geometry.** `test_no_selection_change_and_no_walk_resizes_the_3d_view`
+  records the engine widget's rectangle through eight states; the render tier records the real
+  view's size at every click. Both were written after the defect, and both fail on it.
+- **Real input for one row.** `QTest.mouseClick(host._view, …)` and `QTest.keyPress(host._view,
+  …)` on the real `QQuickView` reach the event filters as a user's input does; everything else
+  sends events to the filters directly.
+- **Mutation as a sanity check of the walk tests**: six text mutants of `walk.py` (no push-out,
+  a step per frame, footprints only, no sliding, a thinner walker, the carried time dropped),
+  each killed. A scratch tool, point in time, not a gate.
+- **Pin "one path" twice: by behaviour and by structure.** The select-by-id path is pinned by a
+  parity test (a Diagnostics-panel row and a 3D-list row, four kinds of id, the same selection)
+  AND an AST scan (the callers call `select_by_ids`; no `clearSelection` elsewhere in the panels
+  or the 3D package). The parity test alone passes on the old, duplicated code — it agreed by
+  accident; only the scan fails on it (mutant: master's former `_navigate`).
+- **A tripwire for a fix that belongs to another story.** A canvas selection in Split cost
+  whole-plan snapshots (the pipeline read the canvas's repaint as a change); the fix was the
+  workspace story's plan revision. `test_a_canvas_selection_in_split_takes_no_snapshot`
+  asserted the target as `xfail(strict=True)`; when the fix landed it XPASSED, failed the run
+  as intended, and its mark was removed (0 snapshots for 4 selection changes; the net it arms
+  finds nothing).
+- **Wall-clock asserts carry `@pytest.mark.perf`** (ADR-058): the walking-pace test checks a
+  distance against the time W was really held, so it runs in the serial `-m perf -n 0` step;
+  master's `test_perf_marker_guard` names any that is not marked.
+- **Deliver input the way the app gets it** (review 1, P1-3). Calling `eventFilter` by hand
+  skips `ShortcutOverride` and the main window's shortcut map — exactly where S was lost. The
+  stand-in host (`PickHost`) has a REAL `QWindow` in a window container with the filters on
+  it, and a "tail" filter installed first (so Qt runs it last: it sees what no filter took);
+  clicks go in with `QTest.mouseClick`, keys with `QTest.keyPress` to
+  `QGuiApplication.focusWindow()` — the window that has the keyboard, as the OS would.
+- **A control before the claim.** Not walking, S pressed into the 3D view toggles Snap to Grid
+  — proof that the shortcut path is live in the test; only then does "walking, S walks and
+  nothing fires" mean something.
+- **Derive the set, never list it from memory.** The §8.10 test collects every single-key
+  shortcut of the live main window (`QAction`s, buttons, `QShortcut`s: 12 today) and checks
+  the walker's keys against all of them, and the canvas tool, after each.
+- **Offscreen focus is asynchronous.** Under `QT_QPA_PLATFORM=offscreen` the focus window
+  changes at once, but the `FocusOut` / `FocusIn` events of an activation arrive later — a key
+  pressed before they are processed is let go by the walker's `FocusOut`. Wait for the focus
+  window, then let the event loop run (100 ms) before the first key.
+
 ## 8.11 Security Scanning (SAST)
 
 **Tool:** [Bandit](https://bandit.readthedocs.io/) — a Python SAST tool that detects common security anti-patterns (subprocess injection, unsafe deserialization, weak cryptography, hardcoded secrets, etc.).
@@ -4387,9 +4467,10 @@ across items (the seed is the item id).
 
 The three lists are independent: an item appears under each aspect that changed and no other.
 
-**The sink protocol** (`core/scene3d/sink.py`) — ten methods: `begin`, `commit`, `add(item_id,
+**The sink protocol** (`core/scene3d/sink.py`) — eleven methods: `begin`, `commit`, `add(item_id,
 parts, transform, material)`, `remove`, `update_transform`, `update_material`,
-`replace_geometry(item_id, parts)`, `set_sun(SunState)`, `set_ground(GroundSpec)` and `clear()`.
+`replace_geometry(item_id, parts)`, `set_sun(SunState)`, `set_ground(GroundSpec)`,
+`set_selection(Selection)` (the selection ring, since L1.8 — §8.32.8) and `clear()`.
 Every call but `clear` sits inside `begin`/`commit`; `add` takes an id the sink does not hold,
 every other item call one it does; `parts` may be empty (an item without a solid still has a pose
 and a material). A part with `tinted=True` is multiplied with `material.tint_linear()` by the
@@ -4929,11 +5010,11 @@ time change, a selection, a resized canvas leave the pose exactly as it was (ide
 orbiting, and aiming at the default yaw itself unwound every turn (six turns: 2,477.5° back to
 317.5°); a snap (first open, new document) lands on the default itself.
 
-**3D mode clears the canvas selection** — `Workspace.clear_selection_hidden_by_3d_mode`, a
-stopgap with an owner. The canvas is the one place a selection is shown, and 3D mode hides it
-while the app's shortcuts stay: Delete, Ctrl+X and Ctrl+D would act on what nobody can see.
-Split keeps the selection. The selection story (L1.8) shows the selection in 3D and removes or
-replaces this function and its one call (in `set_mode`).
+**3D mode keeps the canvas selection — and shows it.** 3D mode hides the canvas while the
+app's shortcuts stay (Delete, Ctrl+X, Ctrl+D). The workspace first cleared the selection on
+entering 3D mode (a stopgap, `clear_selection_hidden_by_3d_mode`); the selection story (L1.8)
+removed it, because the selection is SHOWN in 3D: the ring round every selected item, and the
+info card below the view (§8.32.8). So the shortcuts act on what the user sees.
 
 **When 3D cannot start.** A marker file is written before the first 3D window of a session is
 built and removed after the first presented frame. A marker left by a process that is gone means
@@ -6184,3 +6265,126 @@ proportions use it (a count that depends on the proportion must not move the str
 then run by themselves — `tests/unit/test_scene3d_plants.py` builds every recipe of both tables
 at every proportion step and at six real sizes — and `scripts/mutation_check_plant_art.py` says
 whether they would notice a broken rule.
+
+### 8.32.8 Selection, the info card and walk mode (L1.8)
+
+What connects the canvas selection with the 3D view, and how the garden is walked. The decisions
+and every measurement are the **ADR-065 addendum "selection, info card and walk (L1.8)"**; how it
+is tested is §8.10.30; what went wrong on the way is §11.4.36. The modules are §5.15.
+
+**One selection.** There is one: the canvas scene's. The 3D view holds none.
+
+```
+a click in the 3D window                         the canvas
+  OrbitInput._release ── host.pick(x, y) ──▶  selection_bridge.apply_click ──▶ setSelected / clearSelection
+  (press + release within 4 px, 0.4 s)        (the canvas's rules)                    │
+                                                                         scene.selectionChanged
+  the ring in the engine  ◀── SceneSync ◀── Scene3DController.set_selection ◀─────────┤
+  (one Model, one geometry)   (apply / send_selection)                    the info card ◀┘
+```
+
+> **Rule: a selection never touches a model.** Selection is in none of a record's signatures. A
+> selection change makes zero `add` / `remove` / `replace_geometry` / `update_transform` /
+> `update_material` calls, creates no engine object and destroys none. It is ONE sink call —
+> `set_selection(Selection)` — and one re-load of the ring's geometry.
+
+**The canvas's rules are the rules** (`ui/view3d/selection_bridge.py`, measured with real clicks —
+the table is in the ADR): a plain click selects one item; Ctrl and Shift toggle; a click on the
+ground or the sky clears; an item on a locked layer is transparent — the click selects what lies
+behind it along the ray (`PickHit.behind`), or clears; a member of a group selects the outermost
+group, and the ring runs round every member.
+
+> **Rule: selecting by id is ONE path for the whole app** — `ui/canvas/select_by_id.py`
+> (`item_with_id`, `click_target`, `is_selectable`, `replace_selection`, `select_by_ids`). The
+> Diagnostics, Canopy and Guilds panels, the plant search, the 3D "Not Shown in 3D" list
+> (`Workspace.select_item`) and a click in 3D (`selection_bridge`, which adds the ray's rule) go
+> through it. A new list that names objects calls `select_by_ids` and writes no resolver, group
+> rule or locked-layer rule of its own; a structure scan in `test_view3d_selection_workspace.py`
+> refuses a `clearSelection` in the panels or the 3D package outside it.
+
+> **Rule: a replaced document reads no selection.** `CanvasScene.document_replaced` comes while
+> the OLD items are still in the scene and still selected; the workspace's slot empties the
+> ring's wish (`set_selection(())`) instead of reading the scene. A selection made in the new
+> document arrives as `selectionChanged`, like any other.
+
+> **Rule: a selection change reads nothing of the plan.** The selection path is
+> `Scene3DController.set_selection` → `SceneSync.send_selection`: no snapshot, no builder, one
+> sink call — and, since the workspace's plan revision, none with the canvas visible either: a
+> repaint goes to the quiet-time net, which finds nothing (measured: 0 snapshots for 4
+> selection changes in Split, `unannounced_changes` 0).
+
+> **Rule: `host.pick` is called in one place.** `OrbitInput._release`, once per click. It takes a
+> frame from the live view (ADR-065 decision 17): never on a mouse move, a timer or a resize. The
+> scan test allows exactly this call, by module, function and name. `HostStateError` means "not
+> now": the click does nothing and says nothing.
+
+**The ring** is the outline of the item's footprint — every outer ring, every hole — at its
+standing base plus 1 cm, so a plant on a raised bed is ringed at the bed's soil. It is a band of
+3 px ON SCREEN (a vertex shader moves each outline point outward by band widths), in the canvas's
+selection blue, unlit, casting no shadow, not pickable, and drawn in front of everything: the
+built world is thicker than the plan's strokes, and a depth-tested ring of a wall lies inside
+its masonry. `core/scene3d/selection.py` builds the mesh; the engine holds one static Model and
+one geometry that is re-loaded in place.
+
+To change what is ringed, change `selection_of` (the mesh) — not the shader, which knows only
+"outward" and "up". To change the look (width, colour, depth), the three numbers are in
+`selection.py` and `Garden.qml` and are pinned against each other by
+`tests/unit/test_quick3d_selection_ring.py`.
+
+**The info card** (`ui/view3d/info_card.py`) says what the 3D view shows of the one selected
+item: its name and kind, a plant's species, its height and canopy diameter at the plan date or
+a built item's height and footprint, the bed it stands on — and, when it has no model, why.
+
+> **Rule: the card reads the record.** Every number on it comes from the item's APPLIED record
+> (`SceneSync.records`): the numbers the model was built from. No second computation — a card
+> that resolved a height by itself could disagree with the solid beside it.
+
+> **Rule: nothing that comes and goes may resize the 3D view.** The card lives in
+> `View3DCardSlot`, a strip of one constant height that is there card or no card; walk mode's
+> eye height is a menu on the Walk button, which takes no room. A view that changes its size re-scales its picture
+> under the pointer (the next click misses), gets a new swapchain, and answers no click while it
+> is between two sizes. `test_no_selection_change_and_no_walk_resizes_the_3d_view` pins the
+> engine widget's geometry through every state.
+
+Plan text on the card is untrusted (§8.11): every label is `Qt.TextFormat.PlainText`, every
+plan-derived string goes through `clip_line`, no tooltip carries plan text, and no label asks
+for the width of its text.
+
+**Walk mode.** The rules are Qt-free in `core/scene3d/walk.py`; `ui/view3d/walk_mode.py` is an
+event filter that holds one `WalkState` and feeds it keys and time.
+
+| | |
+|---|---|
+| The walker | a cylinder of radius 22.5 cm; eye at 165 / 150 / 110 cm; 140 cm/s, twice that with Shift |
+| What blocks | built-world records and greenhouses whose top is more than 25 cm up: their footprint (outer minus holes) and the plan-view edges of their SHOWN mesh between 25 and 200 cm |
+| What does not | plants other than hedges, furniture, flat items, anything above 200 cm (eaves) |
+| Motion | ticks of 1/120 s whatever the frame rate; move, then be pushed out along the normal (sliding); 8 pushes at most, else the tick is refused |
+| The edge | the plan rectangle |
+| The camera | field of view 60°, near plane 5 cm — its farthest corner is 6.9 cm from the eye, under the walker's radius |
+| Keys | W A S D / arrows walk, Shift runs, a drag looks, Escape leaves; a click still selects; every other key, and every key with Ctrl or Alt, is the app's |
+| The keyboard | "Walk" gives the 3D view the keyboard (`Quick3DHost.focus`) and leaving gives it back (while the view still has it) |
+
+> **Rule: while walking, the walk keys belong to the walker** (`walk_mode.WALKER_KEYS`, stated
+> once). They are claimed at `ShortcutOverride` — the event Qt sends to the view's window
+> before it looks for a shortcut — unless Ctrl, Alt or Meta is held; every other key is passed
+> on. A filter that takes only `KeyPress` loses a key to any shortcut of the main window: the
+> 3D view is embedded, so the main window stays the active window and its shortcuts are live
+> (S was Snap to Grid). A new key for walk mode goes into `WALKER_KEYS` and nowhere else.
+
+> **Rule: the walker collides with what is drawn.** `build_world(records, width, depth,
+> parts_of=…)` is handed the registry's own builder. A new builder that makes a solid wider than
+> its footprint blocks the walker with no line of walk code; a new KIND that should block is
+> added to `WALK_SOLID_KINDS` (it is `BUILT_WORLD_KINDS` plus the greenhouse).
+
+> **Rule: walk mode borrows the camera and gives it back.** `Workspace._apply_camera` is the one
+> place that tells the host where the camera is; while walking it asks `WalkMode.camera()`. Walk
+> mode never writes the orbit camera, the plan or the undo stack: leaving shows the pose the
+> user had, to the last digit.
+
+The walker starts where the orbit camera looks — on the nearest free ground if that spot is
+inside a solid — facing the way it looks. A hidden pane lets go of every key and keeps the
+walker; an edit while walking rebuilds its world, and the walker is moved to free ground if
+something was put where it stands. A new document, "Reset 3D View" and Escape leave walk mode.
+
+Not in v0: plants as obstacles, stairs and slopes (the ground is flat), doors, pointer capture,
+a hover highlight, a box selection in 3D.

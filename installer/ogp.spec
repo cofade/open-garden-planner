@@ -215,6 +215,14 @@ a = Analysis(
         # The look of the 3D view (L1.4): imported with the first switch to 3D.
         "open_garden_planner.ui.view3d.look_controller",
         "open_garden_planner.core.scene3d.look",
+        # Selection, the info card and walk mode (ADR-065 addendum, L1.8): the
+        # card and the bridge are imported when the 3D pane is first built, walk
+        # mode when it is first entered.
+        "open_garden_planner.ui.view3d.selection_bridge",
+        "open_garden_planner.ui.view3d.info_card",
+        "open_garden_planner.ui.view3d.walk_mode",
+        "open_garden_planner.core.scene3d.selection",
+        "open_garden_planner.core.scene3d.walk",
         # Qt Quick 3D spike (ADR-048, L0) — dormant evidence tooling behind
         # --spike-q3d. PyQt6.QtQuickWidgets is ITS import only; both leave
         # with the spike in L1.10 (see the data loop above).

@@ -292,7 +292,7 @@ def run(mutant: Mutant, appdata: str) -> tuple[str, str]:
     text = original.decode("utf-8").replace("\r\n", "\n")
     if text.count(mutant.old) != 1:
         return "STALE", f"pattern found {text.count(mutant.old)}x in {mutant.path}"
-    command = [sys.executable, "-m", "pytest", *mutant.tests, "-q", "-x", "-p", "no:cacheprovider"]
+    command = [sys.executable, "-m", "pytest", *mutant.tests, "-q", "-x", "-n", "0", "-p", "no:cacheprovider"]
     if mutant.select:
         command += ["-k", mutant.select]
     try:

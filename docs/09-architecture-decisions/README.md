@@ -3924,7 +3924,8 @@ it stands after that round.
    an `update_material` and never a rebuild.
 8. **The engine boundary is ten methods** (`sink.py`): `begin`, `commit`, `add`, `remove`,
    `update_transform`, `update_material`, `replace_geometry`, `set_sun`, `set_ground` — and
-   `clear`. `RecordingSink` implements it with a list and a dict, answers "what would the engine
+   `clear`. (Eleven since L1.8: `set_selection`, the selection ring — ADR-065 addendum
+   "selection, info card and walk".) `RecordingSink` implements it with a list and a dict, answers "what would the engine
    hold now?", and enforces the protocol — every call but `clear` inside `begin`/`commit`, no
    `add` of a held id, no update of an unknown one. `set_sun` takes plain solar data from
    `core/solar` (light = −sun vector, ADR-037); `set_ground` a deliberately minimal plan rectangle
@@ -5584,12 +5585,12 @@ Five facts shaped the design:
    Split position is kept through the UI-state store (ADR-041), and only when the session really
    was in Split — saved the moment Split is LEFT, and when the app closes in it (FR-3D-WS-01
    says "remembered between sessions"; it used to be saved only by an app closed in Split).
-   **Entering 3D mode clears the canvas selection** — a stopgap with an owner, in ONE function,
-   `Workspace.clear_selection_hidden_by_3d_mode`: 3D mode hides the canvas, the one place a
-   selection is shown, and the app's shortcuts stay, so Delete, Ctrl+X and Ctrl+D would act on
-   what nobody can see (pinned with its control: without the stopgap the same Delete removes
-   the hidden item). Split keeps the selection. The selection story (L1.8) shows the selection
-   in 3D and removes or replaces the function and its one call in `set_mode`.
+   **Entering 3D mode cleared the canvas selection** — a stopgap with an owner,
+   `Workspace.clear_selection_hidden_by_3d_mode`: 3D mode hides the canvas, and the app's
+   shortcuts stay, so Delete, Ctrl+X and Ctrl+D would have acted on what nobody could see.
+   **Removed by the selection story (L1.8 addendum)**: the selection is shown in 3D — the ring
+   round every selected item and the info card below the view — so 3D mode keeps it and the
+   shortcuts act on what is shown (`test_view3d_workspace.py::test_3d_mode_keeps_the_selection_and_shows_it_so_its_shortcuts_act_on_what_is_seen`).
 3. **Nothing overlays the native 3D window.** Every control, notice and message of the 3D pane
    sits in a strip ABOVE the view or REPLACES the view (a message page in a stacked widget). The
    floating switch is the one overlay there is, and it floats over the canvas, an ordinary widget.
@@ -5905,7 +5906,8 @@ Five facts shaped the design:
   `garden_item.note_plan_changed(item.scene())`) — and `item.update()` if the canvas shows it.
   Forgetting it is not silent: the net applies it after 400 ms and counts it.
 - **For L1.8 (selection, walk):** `Workspace.clear_selection_hidden_by_3d_mode` is yours to
-  remove or replace once the selection is shown in 3D (decision 2). `OrbitInput` passes Escape and unknown keys on;
+  remove or replace once the selection is shown in 3D (decision 2) — removed, see the L1.8
+  addendum. `OrbitInput` passes Escape and unknown keys on;
   `Workspace.select_item(id)` is how the problems list selects on the canvas; a click on the 3D
   view is `try: host.pick(...) except HostStateError` — never `wait_ready()` (the workspace calls
   it nowhere); the info card goes beside or below the view.
@@ -6044,3 +6046,283 @@ keeping: every mutant of `application.py` was once "killed" by the same unrelate
 was failing on the unmutated tree (a mutation verdict is only worth something on a green
 tree — run the story's tests first); and one set listed too few test files and reported a
 survivor that a test in the missing file kills.
+
+### ADR-065 addendum: selection, info card and walk (L1.8)
+
+**Status**: Accepted (2026-10-12, #385 story L1.8). Behind `OGP_QUICK3D=1`, like the workspace.
+
+#### Context
+
+The workspace shows the plan in 3D and nothing connects the two views: what is selected on the
+plan is not marked in 3D, a click in 3D does nothing, and the garden can only be looked at from
+outside. Six facts shaped what was built:
+
+- **Selection is in none of a record's three signatures** (ADR-064). Whatever marks a selected
+  item must not rebuild, re-pose or re-tint its model.
+- **A destroyed Model is never free** (15 to 20 kB stay, decision 16 above). A marker made of
+  Models that come and go with the selection is retired work on every click.
+- **`pick()` takes a frame from the live view** (decision 17): on a click, once — never on a
+  move, a timer or a resize.
+- **The view is a native window.** Nothing can be drawn over it; whatever is shown beside it
+  takes room from it — and a view that changes its size re-scales its picture.
+- **The built world is thicker than the plan's strokes.** A wall drawn with a 5 cm line is built
+  30 cm thick with a 38 cm coping (ADR-064 addendum L1.6). Whoever reasons from the footprint —
+  an outline to mark, an obstacle to stop at — reasons about something the user does not see.
+- **The canvas has selection rules, and none of them is written down.** What a click through a
+  locked item does, what Shift does, what a click on a group member selects: measured with real
+  clicks on the real canvas before anything was decided
+  (`tests/integration/test_view3d_selection_bridge.py`).
+
+#### Decision
+
+**S1. One selection: the canvas scene's.** 3D keeps none. A click in the 3D view becomes a
+canvas selection — through `QGraphicsItem.setSelected` / `clearSelection`, the canvas's own
+path, so the property panel, the status bar and the undo stack behave as after a click on the
+plan (a selection is no command: the undo stack does not move). The canvas's `selectionChanged`
+becomes the ring in 3D and the info card. Selecting by id is ONE path for the whole app,
+`ui/canvas/select_by_id.py` (revision of 2026-10-19): which item an id names (`item_with_id`),
+what selecting it selects (`click_target`, the outermost group), whether it can be selected
+(`is_selectable`, which a locked layer answers) and `select_by_ids` on top. The Diagnostics,
+Canopy and Guilds panels (`ObjectNavigator`, which had a resolver and a group rule of its own),
+the plant search, the 3D "Not Shown in 3D" list (`Workspace.select_item(item_id, *,
+toggle=False, center=True)`) and a click in 3D (`ui/view3d/selection_bridge.py`, which adds
+only the ray's rule) all go through it, so a row of a panel and a click in 3D cannot disagree
+about an id. The panels' behaviour is unchanged (their tests pass as they were).
+
+**S2. The rules are the canvas's, as measured.**
+
+| A click … | on the canvas (measured) | in 3D |
+|---|---|---|
+| on an item | selects it alone | the same |
+| with Ctrl, or with Shift | toggles it; the rest stays | the same |
+| on nothing (the ground, the sky) | clears — with any modifier | the same |
+| on an item of a LOCKED layer | the item is transparent: what lies behind it is selected; with nothing behind, a plain or Shift click clears and a CTRL click keeps the selection (Qt's Ctrl rule) | the same, along the ray (`PickHit.behind`) — the bridge is told which modifier was held, not only "toggle" (fix round 1) |
+| on an item of a HIDDEN layer | cannot happen: it is not drawn | cannot happen: it has no record |
+| on a member of a group | selects the outermost group | the same; the ring runs round every member |
+| with Shift THROUGH a locked item | acts as a PLAIN click: the selection is replaced | toggles, as Shift does everywhere else |
+
+The last row is the one deliberate difference: the canvas's behaviour there is a defect of the
+select tool (its Shift branch looks at the top item only), reported as a follow-up, and 3D does
+not copy it. A flat item — a lawn, a path: no height, no solid — cannot be selected from 3D: it
+has no mesh to hit. Selecting it on the plan still rings it.
+
+**S3. A click is a press and a release of the left button within 4 px and 0.4 s**
+(`orbit_input.CLICK_SLOP_PX`, `CLICK_MAX_S`); inside that slop the press does not pan. Anything
+else is a drag and never selects. `OrbitInput._release` is the ONE place of the workspace's
+modules that calls `host.pick` (the scan test allows exactly that call, by module, function and
+name). `HostStateError` — the host cannot answer now — is no click: nothing changes and nothing is
+said. Any other exception is one ERROR line. `picked` carries the click's modifiers (fix round 1:
+Ctrl and Shift differ on a locked item). In walk mode a left drag turns the view only once it
+leaves the same slop, and a drag that turned cancels the click (`WalkMode.turned` →
+`OrbitInput.cancel_click`): a look never selects.
+
+**S4. `pick()` answers with the whole chain.** `PickHit.behind` holds what the ray meets after
+the first hit, nearest first (`View3D.pickAll`). A second host call (`pick_all`) would have been
+a second frame-taking call to allow in the scan and to keep off the steady paths; a field costs
+neither.
+
+**S5. The seam is the sink: `EngineSink.set_selection(Selection)`** — the eleventh method, inside
+`begin` / `commit` like every other. Not a method of the host, for three reasons: a selected item
+that moves must take its ring along in the move's own transaction (one frame, never the model
+here and the ring there); recovery must restore it (`SceneSync.reset()` forgets what was sent
+and keeps what is asked for); and `RecordingSink` logs it, so "what did a selection change tell
+the engine" is a default-tier question with an exact answer. A `Selection` is the sorted ids
+that have a record plus ONE merged mesh in the scene frame, built by the Qt-free
+`core/scene3d/selection.py` from the records' own regions — every outer ring and every hole —
+at the item's standing base plus 1 cm (a plant on a raised bed: at the bed's soil).
+
+**S6. The sync remembers a wish and sends a difference.** `SceneSync.select(ids)` calls nothing.
+The ring goes out with the next `apply` — in its transaction — or alone (`send_selection`). It
+is rebuilt only when the wish changed or the diff touches a selected item's outline or pose (a
+recolour does not), and sent only when it then differs from the ring the sink has. While 3D is
+hidden a selection change is a flag (`Scene3DController.set_selection`).
+
+**S7. Engine side: one Model, one geometry, for the life of the host.** `Garden.qml` declares
+ONE static ring Model; the first selection creates ONE `ReloadableGeometry` for it; every later
+selection re-loads that geometry in place, and an empty selection hides the Model.
+`host.clear()` hides it; nothing destroys it. **A selection change creates 0 engine objects and
+destroys 0** (measured: 120 changes in the real workspace — 120 loads, one geometry, the count
+of Models and of model-geometry uploads unchanged). Nothing counts towards `TickReport.retired`.
+
+**S8. The ring is a band of 3 px on screen, in the canvas's selection blue, drawn in front.**
+Constant width on screen (a vertex shader moves each outline point outward by band widths —
+`ring.vert`), so it is a hair neither with the whole garden framed nor a plank in walk mode;
+outside the outline; unlit, casting no shadow, not pickable; the colour is the select tool's
+`#0078d7`, handed over in linear light. **In front of everything** — its depth is pulled to a
+hundredth of its distance from the near plane, wherever the backend has that plane
+(`mix(NEAR_CLIP_VALUE * POSITION.w, POSITION.z, 0.01)`) — because of the fifth fact above:
+measured from above, the depth-tested ring of a wall shows 3.6 % of its outline; it lies
+inside the masonry.
+
+**S9a. 3D mode keeps the selection** (fix round 1, after the workspace's plan revision landed).
+The workspace's stopgap — `clear_selection_hidden_by_3d_mode`, which cleared the canvas
+selection on entering 3D-only mode so that Delete could not act on what nobody saw — is
+REMOVED, not replaced: what is selected is shown in 3D (the ring; the card, which also names
+an item 3D does not show and counts several). The problems list still switches 3D-only mode to
+Split before it selects: an item of that list is one 3D does not show, so no ring can mark it.
+
+**S9. The info card has a place of ONE height.** `ui/view3d/info_card.py`: `View3DInfoCard` in a
+`View3DCardSlot` below the view. The card is shown while exactly one item is selected and the
+3D pane is visible; the slot is there with the engine view whether or not a card is, and holds
+a line of hint text otherwise. Every number on the card is read from the item's APPLIED record
+(`height_cm`, `params["radius_cm"]`, its regions) — the numbers the model was built from, no
+second computation; an item without a model shows why, in the words of the "Not Shown in 3D"
+list. Every label is `Qt.TextFormat.PlainText`, plan text goes through `clip_line`, no tooltip
+carries plan text, and no label asks for the width of its text — a plan cannot widen or
+heighten the pane. One action: "Show in Plan" (from 3D-only mode it switches to Split).
+
+**S10. Walking is a Qt-free core** (`core/scene3d/walk.py`: standard library and numpy, plain
+frozen data, pure functions) and a thin input filter (`ui/view3d/walk_mode.py`).
+
+- *The walker*: a vertical cylinder of radius 22.5 cm (shoulders 45 cm); eye heights 165 / 150 /
+  110 cm; 140 cm/s, twice that with Shift; no head bob, no smoothing — reduced motion has
+  nothing to switch off.
+- *What blocks*: every record of a built-world kind (`BUILT_WORLD_KINDS`) or a greenhouse whose
+  shown top is more than a step of 25 cm above the ground — over its footprint (outer rings
+  minus holes: a courtyard is free ground) AND over the plan-view edges of the mesh the view
+  shows for it between 25 cm and a headroom of 200 cm. The second half is what makes a wall
+  stop the walker at the masonry and not at the stroke. Plants other than hedges, furniture and
+  flat items are walked through or over in v0. The plan rectangle is the world's edge.
+- *Motion*: fixed ticks of 1/120 s (2.3 cm at a run: a tenth of the radius — no tunnelling), the
+  time not yet ticked carried and shown one resolved partial step ahead; each tick is "move,
+  then be pushed out along the normal of what the circle entered", which is sliding; a
+  position that is still not free after 8 pushes refuses the tick, so a narrow gap stops the
+  walker and never traps it. A uniform grid over the outline segments finds the candidates.
+- *The camera*: `Workspace._apply_camera` stays the one place that tells the host where the
+  camera is — it asks walk mode while walking. Field of view 60°, the engine's near plane
+  5 cm: the farthest corner of the near rectangle is 6.94 cm from the eye at 4:3 and under the
+  walker's radius up to an aspect of 7:1, so a walker pressed against a solid cannot look
+  through it.
+- *Entering and leaving*: the "Walk" toggle in the pane's strip puts the walker where the orbit
+  camera looks (the nearest free spot, if that is inside a solid), facing the way it looks.
+  Walk mode never touches the orbit camera, the plan or the undo stack: Escape, the toggle,
+  "Reset 3D View" and a new document leave it, and the orbit pose is the one the user had.
+  W A S D / the arrow keys move, a drag looks (pitch within ±80°), a click still selects, the
+  wheel does nothing. A hidden view lets go of every key and keeps the walker; an edit while
+  walking rebuilds the walker's world (from the parts the sink holds — nothing is built twice —
+  and only when a solid moved) and moves it to free ground if something was put where it stands.
+- *The keyboard* (fix round 1, review P0 / P1-2). **While walking, the walk keys belong to the
+  walker; every key with Ctrl or Alt, and every other key, is passed on.** The walk keys are
+  `walk_mode.WALKER_KEYS` — W A S D, the arrows, Shift, Escape — stated once. They are claimed
+  at `ShortcutOverride`, which Qt sends to the view's window BEFORE it looks for a shortcut
+  (measured on the real main window: the override reaches the `QQuickView` first, then its
+  active focus item; accepted at the view's filter, no shortcut fires). Without that the main
+  window's Snap to Grid (`S`) fired and the walker never saw S. "Walk" gives the 3D view the
+  keyboard (`Quick3DHost.focus`: `requestActivate`; measured: the focus window is the view and
+  its container is the focus widget) — else W picked the Wall tool on the plan and Escape
+  went to the canvas — and leaving gives it back to where it was, while the view still has it
+  (`Quick3DHost.has_focus`).
+
+#### Alternatives considered (rejected)
+
+- **A highlight by tinting or scaling the selected model.** Selection would enter the material
+  signature — every selection change a material update on every part, and a "selected" look
+  that depends on the item's own colour.
+- **A ring Model per selected item (a pool).** More objects for the same picture; one merged
+  mesh in one geometry needs no pool and no policy for its size.
+- **A world-space ring width.** 3 cm is invisible with the garden framed and 3 cm is a plank at
+  eye height; the canvas's own selection outline is a pen of constant width.
+- **A depth-tested ring.** Measured: inside the masonry of a wall (3.6 % visible).
+- **Pulling the ring forward by scaling clip z** (`POSITION.z *= 0.01`) — the first version.
+  Right where clip z runs 0..1 (Direct3D); where it runs −1..1 (OpenGL) it moves the ring to
+  the middle of the depth range, behind the ground of the orthographic truth view: 0 ring
+  pixels in every top-down frame. Found by one run with `QSG_RHI_BACKEND=opengl`; the
+  perspective frame had hidden it.
+- **A card that comes and goes with the selection** — the first version. Measured on the real
+  engine: 152 px taken from the view each time, the picture re-scaled under the pointer, and
+  a Ctrl+click on the neighbour of the item just selected cleared the selection. Also a new
+  swapchain per selection, and a view that answers no click while it is between two sizes.
+- **A card over the view.** Not possible over a native window (decision 2 above).
+- **Colliding with footprints alone.** The walker would stand 12.5 cm inside a wall's masonry.
+- **Stepping per frame.** The path would depend on the frame rate, and a slow frame could step
+  over a thin wall. (Pinned: the same inputs at 30 and 144 Hz end within a micrometre.)
+- **Plants as obstacles in v0.** A canopy circle is not where a trunk is; stopping at it would
+  fence off half of a planted bed. Out of scope by the story; stated on the manual checklist.
+
+#### Consequences
+
+- **`EngineSink` has eleven methods.** An adapter that does not implement `set_selection` is not
+  a sink; `Quick3DSink` and `RecordingSink` do, and `expected_state()` includes the selection.
+- **The 3D view is 80 to 94 px lower** (the slot: a title line and three lines of facts in the
+  desktop's font — 94 px in Segoe UI 9 pt) — permanently, card or no card. That is the price
+  of a view that never jumps.
+- **`host.pick()` calls `pickAll`**: one probe frame as before, and it returns more.
+- **The frozen `--selftest` selects one swatch** and judges the ring's band: the ring's shaders
+  are compiled only when something is selected, and a release must not ship one that does
+  not compile.
+- **For L1.4 (looks)**: the ring's colour goes through the exposure and the tone curve (the
+  canvas blue arrives as rgb(0, 142, 226), hue 202° against 206°); a look that changes the
+  exposure changes its brightness. The ring writes a near depth: a depth-reading post effect
+  will see it.
+- **For L1.5 (ground)**: ground tiles are not pickable — a click on the ground is "nothing" and
+  clears the selection.
+- **Known limits, stated.** Flat items cannot be selected from 3D. Plants, furniture and
+  pergolas do not stop the walker; there are no stairs, slopes or doors, and no pointer
+  capture. A selection change costs NO snapshot, also with the canvas visible — since the
+  workspace's plan revision (before it: 6 snapshots for 4 selection changes, the canvas's
+  repaints read as edits; after it: 0, the repaints go to the quiet-time net, which finds
+  nothing — `test_a_canvas_selection_in_split_takes_no_snapshot`, a strict `xfail` until the
+  plan revision landed). The ring is drawn in front of
+  everything, the item's own model included: it reads as an outline seen through the model.
+  A device pixel ratio other than 1 was not exercised through the real window.
+- **One open doubt.** In the first WARP run of the timing loop one selection change of 120 did
+  not reach the engine within two seconds, and the ring was loaded 121 times instead of 120.
+  It did not happen again in 3,240 changes on WARP and 480 on the GPU; the cause is not known
+  (§11.4.36, item 11). The driver records every pass of a change that misses.
+
+#### Validation
+
+Default tier (no GPU): `tests/unit/test_scene3d_walk.py`, `test_scene3d_pick_oracle.py`,
+`test_scene3d_selection.py`, `test_quick3d_selection_ring.py`; `tests/ui/test_view3d_click.py`,
+`test_view3d_walk_mode.py`, `test_view3d_info_card.py`, `test_view3d_selection_ring_host.py`;
+`tests/integration/test_view3d_selection_bridge.py` (the canvas's rules, with real clicks),
+`test_view3d_selection_workspace.py` (also the one select-by-id path: a panel row and a 3D list
+row give the same selection, and a structure scan), `test_view3d_selection_controller.py`,
+`test_view3d_walk_bench.py`, `test_view3d_selection_walk.py` (the §8.10 workflow through a real
+`GardenPlannerApp`); `tests/perf/test_view3d_selection_walk_budget.py`.
+
+Render tier (`OGP_RENDER3D=1`), `tests/integration/test_view3d_selection_render.py`, on
+Direct3D 11 — RTX 4070 and WARP ("Microsoft Basic Render Driver"), 2026-10-12:
+
+| Gate | Measured (GPU; WARP where it differs) | Bound |
+|---|---|---|
+| G1 twenty seeded picks against the CPU oracle, `bench_small` and the edge-case plan | 20 / 20 and 20 / 20; all 400 seeded positions: 360 of 360 and 362 of 362 off the silhouette edges, 36 of 40 and 38 of 38 on one; a plant on a bed, a polygon's hole, the sky: as the oracle says | 20 / 20 |
+| what lies behind a hit (`PickHit.behind`) | 349 of 349 and 362 of 362 whole chains equal to the oracle's | exact |
+| G2 sixty real clicks on the `QQuickView` of the real workspace | 54 of 54 off the edges select on the canvas what the ray meets (11 items of 8 kinds, 39 on nothing); plain / Ctrl / Ctrl / Shift / plain: {a}, {a, b}, {a}, {a, b}, {a} | exact |
+| G4 the ring from above: a turned rectangle, a polygon with a hole, a circle, a plant on a bed | every ring pixel within 3.82 / 3.54 / 2.97 / 2.88 px of our projection of the outline; the outline covered 100 % | ≤ 5.24 px; ≥ 98 % |
+| G4 the height of a plant's ring | 1.64 px (mean) from the outline at the bed's soil height, 16.77 px from the one on the ground | ≤ 3 px; ≥ 4 × |
+| the ring depth-tested (the control of S8) | 3.6 % of a wall's outline visible (48 px of 1,548) | — |
+| the ring on the OpenGL backend | the outline covered 100 %; with clip z plainly scaled (the first version): 0 px | ≥ 98 % |
+| a selection change in the engine | 0 Models, 0 model uploads, one ring geometry for 120 loads | 0 |
+| G7 walk mode with real keys | W held 0.70 s: 139.9 cm/s, straight ahead; a drag of 60 px: 18°, nothing selected; Escape: the engine's camera equal to the last digit, the frame equal (mean difference 0.02 of 255) | — |
+| standing against a wall (S10) | 288 frames at the wall and in the inside corner: 0 marker pixels; the control 2 cm from the masonry: 114,560 | 0 |
+| G8 a selection change → the engine has its ring, 120 changes, no readback in the loop | median 11.5, p95 17.7, max 22.9 ms (with the display asleep and no frame presented meanwhile: 6.8 / 9.9 / 10.7); WARP over 28 runs: median 11 to 13, p95 15 to 30, max 22 to 51 | p95 ≤ 50 ms |
+
+Re-run on the merged tree (the integration branch with master v1.30.13), 2026-10-19, on the GPU
+and on WARP: every pick, chain, ring, depth, look-through and click number of the table is
+unchanged (the plant's ring at soil height on WARP: 584 px, 16.75 px from the ground's outline);
+G8 to the real engine, GPU median 15.5, p95 19.3, max 21.1 ms, WARP 14.4 / 24.3 / 50.0 ms; G7 W
+held 0.71 s: 138.1 cm/s on the GPU, 139.9 cm/s on WARP.
+
+Fix round 1 (review 1, 2026-10-19): the walker's keys in the FULL main window, real engine
+(`test_view3d_selection_render.py::test_in_the_full_main_window_every_walkers_key_walks_and_no_shortcut_fires`)
+and with a stand-in engine whose view is a real `QWindow`, keys delivered by `QTest` to the
+window that has the keyboard (`test_view3d_selection_walk.py`): of the main window's 12
+single-key shortcuts — derived from the live app — the one on a walker's key is Snap to Grid
+(S); all eight movement keys walk and none fires; the control (not walking, S into the 3D view)
+toggles Snap to Grid. Ctrl on a locked item with nothing behind: the canvas keeps
+`['free']`, 3D the same (`test_view3d_selection_bridge.py`, two new measured rows). The
+self-test's ring share through `run_selftest`: 1.00 on the GPU and 1.00 on WARP.
+
+Default-tier numbers: G5 — a 20 cm gap blocks and a 60 cm gate passes; diagonally into a wall
+the walker keeps 100 % of its tangential speed; an inside corner does not trap; the same
+inputs at 30 and 144 Hz end within 10⁻⁶ cm; 20,000 seeded steps on each bench plan (841 m and
+945 m walked, 5,469 and 3,664 of them in contact) never leave free ground by a brute-force
+judge that uses no index. G8 — a walk tick's collision resolve on the large plan (32,548
+outline segments): 0.02 to 0.03 ms at the median, 0.03 to 0.04 in contact (bound 0.5); a
+selection change to the end of its pass on the recording sink: 10.3 ms at the median, 14.9 at
+p95 (bound 50).
+
+Hand mutation of the walk core (six text mutants, each killed by the default tier): no
+push-out; one step per frame; footprints only; no sliding; a walker 5 cm thinner; the carried
+time thrown away.

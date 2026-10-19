@@ -134,6 +134,54 @@ def test_the_3d_selftest_fails_on_a_shader_that_does_not_compile(tmp_path: Path)
     assert "result=FAIL" in log
 
 
+def test_the_3d_selftest_draws_and_judges_the_selection_ring(tmp_path: Path) -> None:
+    """L1.8: the ring's shader is compiled only when something is selected, so the
+    self-test selects one swatch — and says so in its verdict line."""
+    proc, log = _selftest(tmp_path)
+    assert proc.returncode == 0, proc.stdout + proc.stderr[-2000:] + log
+    (frame,) = [line for line in proc.stdout.splitlines() if "Qt Quick 3D frame" in line]
+    assert frame.endswith("(Garden.qml, 6 materials, the selection ring)")
+
+
+@pytest.mark.parametrize(("file", "old", "new"), [
+    ("ring.vert", "POSITION.z, uDepthScale);", "POSITION.z, uDepthScaleMissing);"),
+    ("ring.frag", "vec4(uColor, 1.0)", "vec4(uColorMissing, 1.0)"),
+], ids=["ring.vert", "ring.frag"])
+def test_the_3d_selftest_fails_on_a_ring_shader_that_does_not_compile(
+        tmp_path: Path, file: str, old: str, new: str) -> None:
+    """Positive control for the release gate: without the selected swatch the ring's
+    shaders would never be compiled before a user selects something."""
+    qml = tmp_path / "qml"
+    shutil.copytree(QML_SOURCE, qml)
+    shader = qml / file
+    text = shader.read_text(encoding="utf-8")
+    assert old in text
+    shader.write_text(text.replace(old, new), encoding="utf-8")
+    proc, log = _selftest(tmp_path, str(qml))
+    assert proc.returncode == 1, proc.stdout + proc.stderr[-2000:]
+    (failure,) = [line for line in proc.stdout.splitlines() if "FAIL" in line]
+    assert "Qt Quick 3D render -> RenderError" in failure and "shader" in failure.lower()
+    assert "result=FAIL" in log
+
+
+def test_the_3d_selftest_fails_when_the_ring_is_drawn_behind_its_item(tmp_path: Path) -> None:
+    """…and the JUDGE is not deaf either: a ring that compiles but is not where the
+    band is (moved inward instead of outward) fails on the pixels."""
+    qml = tmp_path / "qml"
+    shutil.copytree(QML_SOURCE, qml)
+    shader = qml / "ring.vert"
+    text = shader.read_text(encoding="utf-8")
+    assert "world.xyz += outward * (UV0.x * width);" in text
+    shader.write_text(text.replace("world.xyz += outward * (UV0.x * width);",
+                                   "world.xyz -= outward * (UV0.x * width * 4.0);"),
+                      encoding="utf-8")
+    proc, log = _selftest(tmp_path, str(qml))
+    assert proc.returncode == 1, proc.stdout + proc.stderr[-2000:]
+    failures = [line for line in proc.stdout.splitlines() if "FAIL" in line]
+    assert any("the selection ring did not draw round the roof swatch" in line for line in failures)
+    assert "result=FAIL" in log
+
+
 def test_the_3d_selftest_fails_where_nothing_renders(tmp_path: Path) -> None:
     """Under the offscreen platform Qt Quick falls back to the software scene graph,
     which has no 3D. The render refuses to hand out a frame without the garden and

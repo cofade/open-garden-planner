@@ -246,14 +246,50 @@ Item {
     }
 
     function pickAt(x, y) {
-        var r = view.pick(x, y)
-        if (!r.objectHit)
-            return {"hit": false}
-        return {
-            "hit": true, "id": r.objectHit.itemId || "",
-            "part": r.objectHit.partIndex === undefined ? -1 : r.objectHit.partIndex,
-            "x": r.scenePosition.x, "y": r.scenePosition.y, "z": r.scenePosition.z
+        // every hit along the ray, nearest first (L1.8): the first is THE hit, the rest
+        // go along as "behind" - a click on an item of a locked layer falls through to
+        // what is behind it, as it does on the 2D canvas
+        var all = view.pickAll(x, y)
+        var hits = []
+        for (var i = 0; i < all.length; ++i) {
+            var r = all[i]
+            if (!r.objectHit)
+                continue
+            hits.push({
+                "id": r.objectHit.itemId || "",
+                "part": r.objectHit.partIndex === undefined ? -1 : r.objectHit.partIndex,
+                "x": r.scenePosition.x, "y": r.scenePosition.y, "z": r.scenePosition.z
+            })
         }
+        if (hits.length === 0)
+            return {"hit": false}
+        var first = hits[0]
+        first["hit"] = true
+        first["behind"] = hits.slice(1)
+        return first
+    }
+
+    // ---- selection ring (Quick3DSink.set_selection; L1.8, ADR-065) ----
+    // ONE Model for the life of the scene (selectionRing, at the end of the View3D):
+    // Python loads the ring mesh into its one geometry and switches it on and off.
+    // No Model is created or destroyed by a selection change.
+    property bool selectionVisible: false
+    property color selectionColor: "#0078d7"        // core.scene3d.selection.SELECTION_RGB
+    property vector3d selectionColorLinear: Qt.vector3d(0.0, 0.1878, 0.6795)   // the same, linear
+    readonly property real ringWidthPx: 3.0         // core.scene3d.selection.RING_WIDTH_PX
+    // 0.01: the ring is drawn in front of everything further than a hand's breadth from
+    // the camera - a highlight is found, not searched for. 1.0 would depth-test it, and
+    // it would be hidden inside a wall's body (a wall is built 30 cm thick on a 5 cm
+    // stroke) and under a crown seen from above.
+    property real ringDepthScale: 0.01
+
+    function selectionRingModel() {
+        return selectionRing
+    }
+
+    function setSelectionGeometry(geometry) {
+        selectionRing.geometry = geometry
+        return true
     }
 
     // ---- one Component per material kind: a Model with its OWN material instance ----
@@ -601,5 +637,31 @@ Item {
 
         Node { id: groundTiles }
         Node { id: parts }
+
+        // The selection ring (L1.8): unlit, casts and receives no shadow, cannot be
+        // picked - a click on it meets what is behind it. Not a child of `parts`:
+        // it is no item's part, and listParts() must not see it. Its width is the
+        // shader's: uv.x band widths along the stored normal, uv.y band widths up,
+        // one band width = ringWidthPx pixels at the vertex's depth (ring.vert).
+        Model {
+            id: selectionRing
+            visible: root.selectionVisible && geometry !== null
+            pickable: false
+            castsShadows: false
+            receivesShadows: false
+            materials: CustomMaterial {
+                property vector3d uColor: root.selectionColorLinear
+                // centimetres per unit of depth (perspective) / centimetres flat (top-down)
+                property real uPerDepth: root.topDown ? 0.0
+                    : root.ringWidthPx * 2.0 * Math.tan(root.camFov * Math.PI / 360.0)
+                      / Math.max(view.height, 1.0)
+                property real uFlat: root.topDown ? root.ringWidthPx / root.topDownScale : 0.0
+                property real uDepthScale: root.ringDepthScale
+                shadingMode: CustomMaterial.Unshaded
+                cullMode: Material.NoCulling
+                vertexShader: "ring.vert"
+                fragmentShader: "ring.frag"
+            }
+        }
     }
 }

@@ -141,11 +141,14 @@ class TestRecordingSink:
         sink.clear_calls()
         assert sink.calls == [] and sink.item_ids() == ("a",)
 
-    def test_the_protocol_has_ten_methods_and_clear_is_one(self) -> None:
+    def test_the_protocol_has_eleven_methods_and_clear_is_one(self) -> None:
+        """Ten since L1.1; ``set_selection`` since L1.8 — the one ADDITIVE seam of the
+        selection ring (``tests/unit/test_scene3d_selection.py``)."""
         methods = sorted(name for name in vars(EngineSink)
                          if not name.startswith("_") and callable(getattr(EngineSink, name)))
         assert methods == ["add", "begin", "clear", "commit", "remove", "replace_geometry",
-                           "set_ground", "set_sun", "update_material", "update_transform"]
+                           "set_ground", "set_selection", "set_sun", "update_material",
+                           "update_transform"]
 
         class NineMethods:  # an engine written against the first contract
             def begin(self) -> None: ...

@@ -105,6 +105,7 @@ class FakeScene:
         self.parts.clear()
         self.sun = None
         self.ground = None
+        self.ring = None  # hidden with everything else (the host's clear() does)
 
     def part_count(self) -> int:
         self._alive()  # asked of a dead engine it raises, like the host
@@ -154,6 +155,15 @@ class FakeScene:
     def request_frame(self) -> None:
         self._alive("request_frame")
         self.calls.append(("frame",))
+
+    #: The selection ring's bytes (L1.8) — None: hidden. Not a part: the scene keeps
+    #: ONE ring Model, and ``clear()`` of the sink hides it.
+    ring: Any = None
+
+    def set_selection_ring(self, ring: Any) -> None:
+        self._alive("set_selection_ring")
+        self.ring = ring
+        self.calls.append(("ring", None if ring is None else ring.vertex_count))
 
     def of(self, item_id: str) -> list[FakePart]:
         return [p for p in self.parts if p.spec.item_id == item_id]

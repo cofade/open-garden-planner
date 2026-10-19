@@ -188,7 +188,8 @@ def test_shaders_named_by_the_scene_ship_beside_it_and_none_is_orphaned() -> Non
     in front of a user. The data loop of ``installer/ogp.spec`` ships this directory."""
     named = set(re.findall(r'(?:vertexShader|fragmentShader):\s*"([^"]+)"', _scene()))
     shipped = {path.name for path in QML_DIR.iterdir() if path.suffix in (".frag", ".vert")}
-    assert named == shipped == {"foliage.vert", "foliage.frag", "grass.vert", "water.frag"}
+    assert named == shipped == {"foliage.vert", "foliage.frag", "grass.vert", "water.frag",
+                                "ring.vert", "ring.frag"}   # the selection ring: L1.8
     assert {path.name for path in QML_DIR.iterdir()} == shipped | {"Garden.qml"}
 
 

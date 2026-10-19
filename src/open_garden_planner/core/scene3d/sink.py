@@ -1,7 +1,7 @@
 """The engine boundary: ``EngineSink`` and its recording double (L1.1, ADR-064).
 
-Everything the 3D pipeline tells a renderer goes through the ten methods of
-``EngineSink``. L1.2 implements it with Qt Quick 3D (``ui/view3d/quick3d/``);
+Everything the 3D pipeline tells a renderer goes through the eleven methods of
+``EngineSink`` (ten since L1.1; ``set_selection`` since L1.8). L1.2 implements it with Qt Quick 3D (``ui/view3d/quick3d/``);
 ``RecordingSink`` implements it with a list and a dict, so builders and the
 sync logic are tested with no GPU — and, on the NO-GO path of ADR-048, a Qt 3D
 sink could be written against the same protocol.
@@ -12,7 +12,7 @@ Protocol rules (``RecordingSink`` raises ``SinkProtocolError`` on each breach):
   ``begin`` does not nest;
 - ``clear()`` is legal at ANY time — inside an open transaction (it aborts it),
   outside one, on an empty sink. After it the engine holds nothing: no items, no
-  sun, no ground, no open transaction. It is the one verb recovery needs
+  sun, no ground, no selection ring, no open transaction. It is the one verb recovery needs
   (``SceneSync.reset``): without it "tear the scene down" could not be said
   through the protocol;
 - ``add`` takes an id the sink does not hold; ``remove``, ``update_transform``,
@@ -23,6 +23,12 @@ Protocol rules (``RecordingSink`` raises ``SinkProtocolError`` on each breach):
 A sink poses a part with ``frame.engine_pose(transform)`` and maps its mesh with
 ``frame.scene_to_engine_points`` — once. A part with ``tinted=True`` is
 multiplied with ``material.tint_linear()``.
+
+SELECTION (L1.8, ADR-065) is not an item and touches none: ``set_selection``
+hands the sink ONE mesh, already in the scene frame (``selection.Selection``),
+and the sink shows it in one Model it keeps — a selection change is never an
+``add``, a ``remove``, a ``replace_geometry``, an ``update_transform`` or an
+``update_material``.
 """
 
 from __future__ import annotations
@@ -37,6 +43,7 @@ from .frame import sun_direction_scene
 from .ground import GroundTile
 from .mesh import MeshPart
 from .record import Material, Transform
+from .selection import EMPTY_SELECTION, Selection
 
 if TYPE_CHECKING:
     from ..solar import SolarPosition
@@ -148,9 +155,13 @@ class EngineSink(Protocol):
     def set_ground(self, ground: GroundSpec) -> None:
         """The plan's ground changed."""
 
+    def set_selection(self, selection: Selection) -> None:
+        """What is selected changed, or a selected item's outline did: draw this
+        ring mesh (scene frame) and no other; an empty selection draws none."""
+
     def clear(self) -> None:
-        """Hold nothing: drop every item, the sun and the ground, and abort an
-        open transaction. Legal at any time, also on an empty sink."""
+        """Hold nothing: drop every item, the sun, the ground and the selection
+        ring, and abort an open transaction. Legal at any time, also on an empty sink."""
 
 
 class SinkProtocolError(RuntimeError):
@@ -183,6 +194,8 @@ class SinkState:
     items: dict[str, SinkItem]
     sun: SunState | None
     ground: GroundSpec | None
+    #: The selection ring last handed over (L1.8); the empty one when there is none.
+    selection: Selection = EMPTY_SELECTION
 
 
 def _checked(parts: Sequence[MeshPart]) -> tuple[MeshPart, ...]:
@@ -207,6 +220,7 @@ class RecordingSink:
         self._items: dict[str, SinkItem] = {}
         self._sun: SunState | None = None
         self._ground: GroundSpec | None = None
+        self._selection: Selection = EMPTY_SELECTION
         self._open = False
 
     # ── what the engine would hold ──────────────────────────────────────────
@@ -223,6 +237,10 @@ class RecordingSink:
     def ground(self) -> GroundSpec | None:
         return self._ground
 
+    @property
+    def selection(self) -> Selection:
+        return self._selection
+
     def item_ids(self) -> tuple[str, ...]:
         return tuple(self._items)
 
@@ -230,7 +248,7 @@ class RecordingSink:
         return self._items[item_id]
 
     def state(self) -> SinkState:
-        return SinkState(dict(self._items), self._sun, self._ground)
+        return SinkState(dict(self._items), self._sun, self._ground, self._selection)
 
     def ops(self) -> list[tuple[str, str | None]]:
         """The call log as ``(name, item_id)`` pairs."""
@@ -305,10 +323,18 @@ class RecordingSink:
         self._ground = ground
         self.calls.append(SinkCall("set_ground", None, (ground,)))
 
+    def set_selection(self, selection: Selection) -> None:
+        self._require_open("set_selection")
+        if not isinstance(selection, Selection):
+            raise SinkProtocolError(f"set_selection() takes a Selection, got {selection!r:.80}")
+        self._selection = selection
+        self.calls.append(SinkCall("set_selection", None, (selection,)))
+
     def clear(self) -> None:
         self._items.clear()
         self._sun = None
         self._ground = None
+        self._selection = EMPTY_SELECTION
         self._open = False
         self.calls.append(SinkCall("clear", None, ()))
 

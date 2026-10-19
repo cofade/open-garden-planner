@@ -1,4 +1,4 @@
-"""Spanish translations for the Phase 17 3D workspace (L1.3) and its looks (L1.4), #385."""
+"""Spanish translations for the Phase 17 3D workspace (L1.3), its looks (L1.4) and selection / walk (L1.8), #385."""
 
 TRANSLATIONS = {
     "View3DProblemsDialog": {
@@ -57,6 +57,50 @@ TRANSLATIONS = {
         "Use Compatibility Mode Next Time": "Usar modo de compatibilidad",
         "{count} objects are not shown in 3D": "{count} objetos no se muestran en 3D",
         "{tip} ({shortcut})": "{tip} ({shortcut})",
+        # L1.8: walk mode and the info card's place (#385)
+        "&Walk": "&Pasear",  # a short command: the 3D strip is one row in a 455 px pane
+        "Walk through the garden at eye height": "Recorra el huerto a la altura de los ojos",
+        "Walk through the garden at eye height (W A S D or the arrow keys walk, "
+        "drag to look around, Shift runs, Esc leaves)": (
+            "Recorra el huerto a la altura de los ojos (W A S D o las teclas de flecha "
+            "para caminar, arrastrar para mirar alrededor, Mayús para correr, Esc para salir)"
+        ),
+        "Eye height while walking": "Altura de los ojos durante el paseo",
+        "Adult": "Adulto",
+        "Smaller adult": "Adulto más bajo",
+        "Child": "Niño",
+        "{who} – {height}": "{who} – {height}",
+        "There is no free ground to walk on.": "No hay suelo libre por el que caminar.",
+        "Click an object to see what the 3D view shows of it.": (
+            "Haga clic en un objeto para ver lo que la vista 3D muestra de él."
+        ),
+        "{count} objects selected.": "{count} objetos seleccionados.",
+    },
+    "View3DInfoCard": {
+        "Show in Plan": "Mostrar en el plano",
+        "Centre the plan on this object": "Centrar el plano en este objeto",
+        "Type:": "Tipo:",
+        "Species:": "Especie:",
+        "Scientific name:": "Nombre científico:",
+        "Height:": "Alto:",
+        "not known": "no se conoce",
+        "Canopy diameter:": "Diámetro de la copa:",
+        "Diameter:": "Diámetro:",
+        "Length:": "Longitud:",
+        "Size:": "Tamaño:",
+        "{width} × {depth}": "{width} × {depth}",
+        "Area:": "Superficie:",
+        "Bed:": "Bancal:",
+        "Sizes on:": "Medidas a fecha de:",
+        "Group": "Grupo",
+        "Object": "Objeto",
+        "Not shown in 3D: {reason}.": "No se muestra en 3D: {reason}.",
+        "Not shown in 3D: this kind of object has no 3D form.": (
+            "No se muestra en 3D: este tipo de objeto no tiene forma 3D."
+        ),
+        "Drawn on the ground in 3D: the plan gives it no height.": (
+            "Dibujado en el suelo en 3D: el plano no le da altura."
+        ),
     },
     "PreferencesDialog": {
         "3D View": "Vista 3D",

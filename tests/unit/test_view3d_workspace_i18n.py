@@ -21,7 +21,8 @@ from open_garden_planner.core.i18n import _TRANSLATIONS_DIR
 
 SRC = Path(__file__).resolve().parents[2] / "src" / "open_garden_planner" / "ui" / "view3d"
 #: module → the classes whose ``self.tr`` it uses (the context is the class name)
-MODULES = {"workspace.py": ("Workspace",), "problems_dialog.py": ("View3DProblemsDialog",)}
+MODULES = {"workspace.py": ("Workspace",), "problems_dialog.py": ("View3DProblemsDialog",),
+           "info_card.py": ("View3DInfoCard",)}   # the info card: L1.8
 
 
 def _tr_literals(module: str) -> list[tuple[str, str, str]]:
@@ -41,6 +42,14 @@ def _tr_literals(module: str) -> list[tuple[str, str, str]]:
                 assert len(node.args) == 1 and isinstance(node.args[0], ast.Constant), (
                     f"{module}:{node.lineno}: tr() must be given ONE string literal")
                 found.append((cls.name, str(node.args[0].value), interpolated.get(id(node), "")))
+    # QCoreApplication.translate("Context", "literal") — a module function that says
+    # the dialog's words without the dialog (problems_dialog.reason_text, L1.8 fix round 1)
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "translate"):
+            assert len(node.args) == 2 and all(isinstance(arg, ast.Constant) for arg in node.args), (
+                f"{module}:{node.lineno}: translate() takes a literal context and a literal")
+            found.append((str(node.args[0].value), str(node.args[1].value), ""))
     return found
 
 
@@ -61,12 +70,15 @@ LITERALS = [entry for module in MODULES for entry in _tr_literals(module)]
 
 
 def test_the_scan_finds_the_strings_it_is_for() -> None:
-    assert len(LITERALS) >= 35
+    assert len(LITERALS) >= 64
     contexts = {context for context, _literal, _how in LITERALS}
     assert contexts == {name for names in MODULES.values() for name in names}, (
         "a tr() call in a helper class would be asked for under ANOTHER context")
     assert ("Workspace", "&Split", "") in LITERALS
     assert ("View3DProblemsDialog", "{kind}: {reason}", "format") in LITERALS
+    assert ("Workspace", "&Walk", "") in LITERALS
+    assert ("View3DInfoCard", "Not shown in 3D: {reason}.", "format") in LITERALS
+    assert ("View3DProblemsDialog", "its 3D model could not be built", "") in LITERALS
 
 
 @pytest.mark.parametrize(("context", "literal", "how"), LITERALS,
@@ -120,14 +132,19 @@ def test_the_compiled_catalogue_answers_for_both_contexts(qtbot) -> None:  # noq
         assert QCoreApplication.translate(
             "View3DProblemsDialog", "its outline has too many points for the 3D view") == (
             "der Umriss hat zu viele Punkte für die 3D-Ansicht")
+        assert QCoreApplication.translate("Workspace", "&Walk") == "&Rundgang"
+        assert QCoreApplication.translate("View3DInfoCard", "Show in Plan") == "Im Plan zeigen"
+        assert QCoreApplication.translate("View3DInfoCard", "Canopy diameter:") == (
+            "Kronendurchmesser:")
     finally:
         app.removeTranslator(translator)
 
 
 def test_no_other_module_of_the_story_shows_a_string_of_its_own() -> None:
-    """The controller, the guard, the input filter and the camera are not widgets:
+    """The controller, the guard, the input filters and the selection bridge are not widgets:
     they hold no user-visible text (their log lines are English, for ``app.log``)."""
-    for module in ("sync_controller.py", "init_guard.py", "orbit_input.py"):
+    for module in ("sync_controller.py", "init_guard.py", "orbit_input.py",
+                   "walk_mode.py", "selection_bridge.py"):
         tree = ast.parse((SRC / module).read_text(encoding="utf-8"))
         calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
                  and isinstance(node.func, ast.Attribute)

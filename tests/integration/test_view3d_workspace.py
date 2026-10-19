@@ -335,6 +335,9 @@ def test_the_workflow_plan_split_edit_pause_clock_new_open_close(
     apple.metadata["plant_instance"] = {
         "planting_date": "2024-04-01", "current_height_cm": 180.0, "current_spread_cm": 120.0}
     bed_id, apple_id = str(bed.item_id), str(apple.item_id)
+    # nothing is selected in this workflow: a selected item gets a ring in 3D, one more
+    # call in its transaction (L1.8 — test_view3d_selection_walk.py is that workflow)
+    scene.clearSelection()
     qtbot.wait(60)
     assert engines.calls == [] and workspace.controller is None
 
@@ -561,42 +564,34 @@ def test_every_notice_of_the_3d_strip_is_shown_whole_in_a_1366_px_window(
         QCoreApplication.removeTranslator(translator)
 
 
-@pytest.mark.parametrize("cleared", [True, False], ids=["the_stopgap", "control_without_it"])
-def test_3d_mode_clears_the_selection_its_shortcuts_would_act_on(
-        app3d, qtbot, monkeypatch: pytest.MonkeyPatch, cleared: bool) -> None:
-    """Review 1, P2-9. 3D mode hides the canvas — the one place a selection is shown —
-    and keeps the app's shortcuts: Delete would remove what nobody can see. Until the
-    selection story (L1.8) shows the selection in 3D, entering 3D mode clears it, in
-    ONE named function: ``Workspace.clear_selection_hidden_by_3d_mode``. The control
-    turns that function off: the same Delete then removes the hidden shed."""
+def test_3d_mode_keeps_the_selection_and_shows_it_so_its_shortcuts_act_on_what_is_seen(
+        app3d, qtbot) -> None:
+    """Review 1, P2-9, as L1.8 resolved it. 3D mode hides the canvas and keeps the app's
+    shortcuts. The workspace's stopgap cleared the selection on entering 3D mode
+    (``clear_selection_hidden_by_3d_mode``); the selection story SHOWS it in 3D instead
+    — the ring round the item, the card below the view naming it — so the stopgap is
+    gone, the selection is kept, and Delete removes what the ring and the card show."""
     window, _engines = app3d
     workspace, scene = window._workspace, window.canvas_scene
     commands = window.canvas_view.command_manager
-    calls: list[int] = []
-    real = Workspace.clear_selection_hidden_by_3d_mode
-
-    def stopgap(self: Workspace) -> None:
-        calls.append(1)
-        if cleared:
-            real(self)
-
-    monkeypatch.setattr(Workspace, "clear_selection_hidden_by_3d_mode", stopgap)
+    assert not hasattr(Workspace, "clear_selection_hidden_by_3d_mode"), "the stopgap is gone"
     shed = RectangleItem(1800.0, 1400.0, 400.0, 300.0, object_type=ObjectType.GARAGE_SHED,
-                         layer_id=scene.active_layer.id)
+                         layer_id=scene.active_layer.id, name="Shed")
     commands.execute(CreateItemCommand(scene, shed, "shed"))
     shed.setSelected(True)
     workspace.set_mode(SPLIT)
-    assert shed.isSelected() and calls == [], "Split still shows the plan and its selection"
+    first_pass(workspace, qtbot)
     workspace.set_mode(VIEW3D)
-    assert calls == [1], "entering 3D mode, and only that, asks the stopgap"
+    controller = workspace.controller
+    assert shed.isSelected(), "3D mode keeps the selection"
+    qtbot.waitUntil(lambda: controller.sync.sink.selection.ids == (str(shed.item_id),), timeout=3000)
+    card = workspace.info_card
+    qtbot.waitUntil(lambda: card is not None and card.isVisible(), timeout=3000)
+    assert card.title() == "Shed", "the card names what is selected"
     window._delete_action.trigger()                  # the Delete key's action
     qtbot.wait(20)
-    if cleared:
-        assert scene.selectedItems() == [] and shed.scene() is scene, "nothing hidden was deleted"
-    else:
-        assert shed.scene() is None, "the control: Delete acted on what nobody could see"
-    workspace.set_mode(PLAN)
-    assert calls == [1]
+    assert shed.scene() is None, "Delete removed the item the ring showed"
+    qtbot.waitUntil(lambda: controller.sync.sink.selection.ids == (), timeout=3000)
 
 
 def test_closing_with_3d_hidden_or_never_opened_is_quiet(app3d, qtbot) -> None:

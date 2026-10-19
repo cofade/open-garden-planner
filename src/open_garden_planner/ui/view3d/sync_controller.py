@@ -114,7 +114,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date
 from typing import TYPE_CHECKING, Any, Final
@@ -323,6 +323,11 @@ class Scene3DController(QObject):
         self.light_count = 0
         self.recovery_count = 0
         self.last_tick: TickReport | None = None
+        #: (L1.8) the canvas selection changed since the engine was last told — a flag
+        #: of its own, beside ``dirty``: a selection owes no build and no notice.
+        self._selection_dirty = False
+        #: Passes that sent ONLY the selection ring (an instrument, like the others).
+        self.selection_count = 0
         #: … the net's passes, and how many of them found a difference: an edit path
         #: that changed the plan without announcing it. 0 on a healthy app — every
         #: edit path is pinned to announce itself — and the number a missing
@@ -374,7 +379,7 @@ class Scene3DController(QObject):
         a flag set is not idle. One that gave a pass up is, until the next change:
         its records are dirty, but nothing runs before a change asks.)"""
         with contextlib.suppress(RuntimeError):  # the #230 teardown guard
-            owed = (self.dirty or self._ground_owed) and not self._given_up
+            owed = (self.dirty or self._ground_owed or self._selection_dirty) and not self._given_up
             return not (owed or self._posted or self._net_owed
                         or self._timer.isActive() or self._net.isActive())
         return True
@@ -434,11 +439,12 @@ class Scene3DController(QObject):
                     self._net.stop()
                     self._net_owed = True  # looked at when 3D comes back
             return
-        if self.dirty:
+        if self.dirty or self._selection_dirty:
             self._schedule(max(self._tick_ms, CATCH_UP_MS))  # … and that pass reads everything
         elif self._ground_owed:
             self._schedule(self._tick_ms)  # the ground goes on where it stopped
-        elif self._net_owed:
+        if self._net_owed and not self.dirty:
+            # (a ring-only or a ground pass reads no plan: the net is still owed)
             self._arm_net()
 
     def mark_dirty(self) -> None:
@@ -468,6 +474,19 @@ class Scene3DController(QObject):
         self._drop_plan_memories()
         self._document_pending = True
         self.mark_dirty()
+
+    def set_selection(self, ids: Iterable[str]) -> None:
+        """The canvas selection changed (L1.8, ADR-065): the ids of the selected items.
+
+        The sync REMEMBERS them at once and calls nothing (``SceneSync.select``); the
+        ring that shows them goes to the engine with the next pass — in the pass's
+        own transaction when records changed too (a selected item that moves takes
+        its ring along), else in one of its own, which touches no model. While 3D
+        is hidden this is a flag: the ring is part of the catch-up pass.
+        """
+        self._sync.select(ids)
+        self._selection_dirty = True
+        self._schedule(self._tick_ms)
 
     def set_ground_stage(self, stage: GroundStage | None) -> None:
         """Install the function that makes each tick's ``GroundSpec`` (L1.5's baker);
@@ -661,6 +680,11 @@ class Scene3DController(QObject):
             # a ground pass CONTINUES the pass before it: what failed there still
             # counts, and the outage ends when the work is done (``_end_outage``)
             self._pass_ground()
+        if self._selection_dirty and not self._records_dirty:
+            # (L1.8) a records pass that went through carried the ring in its own
+            # transaction — then this finds nothing left to send; one that gave up
+            # left the flag for the next change
+            self._pass_selection()
         self._follow_ground()
 
     def _follow_ground(self) -> None:
@@ -711,6 +735,23 @@ class Scene3DController(QObject):
         # retired 0: tile Models are not counted (module docstring)
         self._done(TickReport(SceneDiff(), False, len(self._sync.records), 0.0,
                               (time.perf_counter() - started) * 1000.0, ground_pass=True))
+
+    def _pass_selection(self) -> None:
+        """The selection ring, in a transaction of its own — no snapshot, no builder,
+        no model touched. A sink that fails here is recovered by the full pass."""
+        self._selection_dirty = False
+        started = time.perf_counter()
+        try:
+            sent = self._sync.send_selection()
+        except Exception as error:  # noqa: BLE001 - recover through the full pass
+            self._log_failure("sending the selection failed; rebuilding the 3D scene", error)
+            self._records_dirty = True
+            self._pass_records()
+            return
+        if sent:
+            self.selection_count += 1
+            self._done(TickReport(SceneDiff(), False, len(self._sync.records), 0.0,
+                                  (time.perf_counter() - started) * 1000.0))
 
     def _pass_light(self) -> None:
         self._sun_dirty = False

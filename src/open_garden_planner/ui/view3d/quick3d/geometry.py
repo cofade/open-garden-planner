@@ -9,6 +9,9 @@ Model using a ``QQuick3DGeometry`` is destroyed, the same geometry given to a
 new Model renders nothing and picks nothing, and ``update()`` does not help
 (``ogp-3d-renderer`` §2). A geometry therefore lives exactly as long as its
 Model; new geometry means a new object.
+
+The one exception has a class of its own, ``ReloadableGeometry`` (L1.8): the
+selection ring's Model is never destroyed, so its geometry is re-loaded in place.
 """
 
 from __future__ import annotations
@@ -33,6 +36,17 @@ _F32: Final = QQuick3DGeometry.Attribute.ComponentType.F32Type
 _U32: Final = QQuick3DGeometry.Attribute.ComponentType.U32Type
 
 
+def _declare_layout(geometry: QQuick3DGeometry) -> None:
+    """The one vertex layout of the package (``core/scene3d/interleave.py``)."""
+    geometry.setStride(VERTEX_STRIDE)
+    geometry.setPrimitiveType(QQuick3DGeometry.PrimitiveType.Triangles)
+    geometry.addAttribute(_SEMANTIC.PositionSemantic, POSITION_OFFSET, _F32)
+    geometry.addAttribute(_SEMANTIC.NormalSemantic, NORMAL_OFFSET, _F32)
+    geometry.addAttribute(_SEMANTIC.ColorSemantic, COLOR_OFFSET, _F32)
+    geometry.addAttribute(_SEMANTIC.TexCoordSemantic, UV_OFFSET, _F32)
+    geometry.addAttribute(_SEMANTIC.IndexSemantic, 0, _U32)
+
+
 class BufferGeometry(QQuick3DGeometry):
     """One mesh part on the GPU: ``buffers`` uploaded once, at construction."""
 
@@ -43,16 +57,51 @@ class BufferGeometry(QQuick3DGeometry):
     def __init__(self, buffers: EngineBuffers, parent: QQuick3DObject | None = None) -> None:
         super().__init__(parent)
         self.vertex_count = buffers.vertex_count
-        self.setStride(VERTEX_STRIDE)
+        _declare_layout(self)
         self.setVertexData(QByteArray(buffers.vertex_data))
         self.setIndexData(QByteArray(buffers.index_data))
-        self.setPrimitiveType(QQuick3DGeometry.PrimitiveType.Triangles)
-        self.addAttribute(_SEMANTIC.PositionSemantic, POSITION_OFFSET, _F32)
-        self.addAttribute(_SEMANTIC.NormalSemantic, NORMAL_OFFSET, _F32)
-        self.addAttribute(_SEMANTIC.ColorSemantic, COLOR_OFFSET, _F32)
-        self.addAttribute(_SEMANTIC.TexCoordSemantic, UV_OFFSET, _F32)
-        self.addAttribute(_SEMANTIC.IndexSemantic, 0, _U32)
         self.setBounds(QVector3D(*buffers.bounds_min), QVector3D(*buffers.bounds_max))
         # QQuick3DObject.update() exists at runtime; PyQt6 6.11's stubs do not declare it
         self.update()  # type: ignore[attr-defined]
         BufferGeometry.uploads += 1
+
+
+class ReloadableGeometry(QQuick3DGeometry):
+    """A geometry whose data is loaded again and again INTO THE SAME OBJECT (L1.8: the
+    selection ring) — the opposite of ``BufferGeometry``, for the opposite case.
+
+    A ``BufferGeometry`` lives exactly as long as its Model, because a geometry
+    that outlives its Model draws nothing in the next one. This one belongs to a
+    Model that is never destroyed — the scene's one ring Model, its ``parent`` —
+    so new data goes into the object the Model already has: a selection change
+    creates and destroys NO engine object. (Measured on the L0 spike: a full
+    re-upload into a geometry is what works; ``ogp-3d-renderer`` §2.)
+
+    ``loads`` counts them — apart from ``BufferGeometry.uploads``, so that "a move
+    uploads no MODEL geometry" keeps its meaning while a selected item's ring
+    follows it.
+    """
+
+    loads: ClassVar[int] = 0
+    #: How many of these objects were ever made in this process: one per host that
+    #: showed a selection — the instrument behind "a selection change creates nothing".
+    created: ClassVar[int] = 0
+
+    def __init__(self, parent: QQuick3DObject | None = None) -> None:
+        super().__init__(parent)
+        self.vertex_count = 0
+        _declare_layout(self)
+        ReloadableGeometry.created += 1
+
+    def load(self, buffers: EngineBuffers, margin_cm: float = 0.0) -> None:
+        """Replace what this geometry draws. ``margin_cm`` widens its bounds on every
+        side — for a mesh whose vertex shader moves vertices outwards (the engine
+        culls by the bounds it is told)."""
+        self.setVertexData(QByteArray(buffers.vertex_data))
+        self.setIndexData(QByteArray(buffers.index_data))
+        low = tuple(value - margin_cm for value in buffers.bounds_min)
+        high = tuple(value + margin_cm for value in buffers.bounds_max)
+        self.setBounds(QVector3D(*low), QVector3D(*high))
+        self.vertex_count = buffers.vertex_count
+        self.update()  # type: ignore[attr-defined]  # as above
+        ReloadableGeometry.loads += 1

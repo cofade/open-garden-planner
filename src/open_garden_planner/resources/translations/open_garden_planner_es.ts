@@ -2952,137 +2952,137 @@ Esto la eliminará de su biblioteca personalizada. Las plantas ya colocadas en p
     <context>
         <name>DiagnosticsPanel</name>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="70" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="58" />
             <source>All kinds</source>
             <translation>Todos los tipos</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="83" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="71" />
             <source>All severities</source>
             <translation>Todas las gravedades</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="71" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="59" />
             <source>Companion conflict</source>
             <translation>Conflicto de asociación</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="73" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="61" />
             <source>Container capacity</source>
             <translation>Capacidad del recipiente</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="85" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="73" />
             <source>Critical</source>
             <translation>Crítica</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="75" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="63" />
             <source>Crop rotation</source>
             <translation>Rotación de cultivos</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="120" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="108" />
             <source>Guild data needs repair: {reason}</source>
             <translation>Los datos del gremio necesitan reparación: {reason}</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="78" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="66" />
             <source>Guild data warning</source>
             <translation>Advertencia de datos del gremio</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="86" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="74" />
             <source>Information</source>
             <translation>Información</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="119" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="107" />
             <source>Invalid saved membership or template</source>
             <translation>Pertenencia o plantilla guardada no válida</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="77" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="65" />
             <source>Missing guild role</source>
             <translation>Función de gremio ausente</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="76" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="64" />
             <source>Outside canvas</source>
             <translation>Fuera del lienzo</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="74" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="62" />
             <source>Soil mismatch</source>
             <translation>Incompatibilidad de suelo</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="72" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="60" />
             <source>Spacing overlap</source>
             <translation>Solapamiento de separación</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="81" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="69" />
             <source>Sun evaluation</source>
             <translation>Evaluación solar</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="80" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="68" />
             <source>Sun requirement mismatch</source>
             <translation>Discrepancia de requisitos de sol</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="84" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="72" />
             <source>Warning</source>
             <translation>Advertencia</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="122" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="110" />
             <source>{name}: antagonistic plant nearby</source>
             <translation>{name}: planta incompatible cerca</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="124" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="112" />
             <source>{name}: container capacity exceeded</source>
             <translation>{name}: capacidad del recipiente superada</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="126" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="114" />
             <source>{name}: crop rotation conflict</source>
             <translation>{name}: conflicto de rotación de cultivos</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="129" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="117" />
             <source>{name}: diagnostic warning</source>
             <translation>{name}: advertencia de diagnóstico</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="127" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="115" />
             <source>{name}: outside the canvas</source>
             <translation>{name}: fuera del lienzo</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="125" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="113" />
             <source>{name}: soil requirements not met</source>
             <translation>{name}: requisitos de suelo no cumplidos</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="123" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="111" />
             <source>{name}: spacing overlap</source>
             <translation>{name}: solapamiento de separación</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="114" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="102" />
             <source>{name}: {function} — {present}/{required}</source>
             <translation>{name}: {function} — {present}/{required}</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="109" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="97" />
             <source>{name}: {status}</source>
             <translation>{name}: {status}</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/diagnostics_panel.py" line="140" />
+            <location filename="../../ui/panels/diagnostics_panel.py" line="128" />
             <source>{shown} of {total} diagnostics</source>
             <translation>{shown} de {total} diagnósticos</translation>
         </message>
@@ -10163,38 +10163,38 @@ Por favor, compruebe su conexión a internet y las credenciales de la API.</tran
     <context>
         <name>PlantSearchPanel</name>
         <message>
-            <location filename="../../ui/panels/plant_search_panel.py" line="176" />
-            <location filename="../../ui/panels/plant_search_panel.py" line="341" />
+            <location filename="../../ui/panels/plant_search_panel.py" line="177" />
+            <location filename="../../ui/panels/plant_search_panel.py" line="342" />
             <source>No plants in project</source>
             <translation>No hay plantas en el proyecto</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_search_panel.py" line="166" />
+            <location filename="../../ui/panels/plant_search_panel.py" line="167" />
             <source>Perennials</source>
             <translation>Vivaces</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_search_panel.py" line="143" />
+            <location filename="../../ui/panels/plant_search_panel.py" line="144" />
             <source>Search plants...</source>
             <translation>Buscar plantas...</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_search_panel.py" line="346" />
+            <location filename="../../ui/panels/plant_search_panel.py" line="347" />
             <source>Showing {shown} of {total} plants</source>
             <translation>Mostrando {shown} de {total} plantas</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_search_panel.py" line="160" />
+            <location filename="../../ui/panels/plant_search_panel.py" line="161" />
             <source>Shrubs</source>
             <translation>Arbustos</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_search_panel.py" line="154" />
+            <location filename="../../ui/panels/plant_search_panel.py" line="155" />
             <source>Trees</source>
             <translation>Árboles</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_search_panel.py" line="343" />
+            <location filename="../../ui/panels/plant_search_panel.py" line="344" />
             <source>{count} plant(s) in project</source>
             <translation>{count} planta(s) en el proyecto</translation>
         </message>
@@ -13601,99 +13601,203 @@ Open Garden Planner se cerrará cuando comience la instalación.
         </message>
     </context>
     <context>
+        <name>View3DInfoCard</name>
+        <message>
+            <location filename="../../ui/view3d/info_card.py" line="292" />
+            <source>Area:</source>
+            <translation>Superficie:</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/info_card.py" line="232" />
+            <source>Bed:</source>
+            <translation>Bancal:</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/info_card.py" line="277" />
+            <source>Canopy diameter:</source>
+            <translation>Diámetro de la copa:</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/info_card.py" line="130" />
+            <source>Centre the plan on this object</source>
+            <translation>Centrar el plano en este objeto</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/info_card.py" line="284" />
+            <source>Diameter:</source>
+            <translation>Diámetro:</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/info_card.py" line="302" />
+            <source>Drawn on the ground in 3D: the plan gives it no height.</source>
+            <translation>Dibujado en el suelo en 3D: el plano no le da altura.</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/info_card.py" line="250" />
+            <source>Group</source>
+            <translation>Grupo</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/info_card.py" line="270" />
+            <location filename="../../ui/view3d/info_card.py" line="271" />
+            <source>Height:</source>
+            <translation>Alto:</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/info_card.py" line="286" />
+            <source>Length:</source>
+            <translation>Longitud:</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/info_card.py" line="301" />
+            <source>Not shown in 3D: this kind of object has no 3D form.</source>
+            <translation>No se muestra en 3D: este tipo de objeto no tiene forma 3D.</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/info_card.py" line="299" />
+            <source>Not shown in 3D: {reason}.</source>
+            <translation>No se muestra en 3D: {reason}.</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/info_card.py" line="251" />
+            <source>Object</source>
+            <translation>Objeto</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/info_card.py" line="265" />
+            <source>Scientific name:</source>
+            <translation>Nombre científico:</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/info_card.py" line="129" />
+            <source>Show in Plan</source>
+            <translation>Mostrar en el plano</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/info_card.py" line="289" />
+            <source>Size:</source>
+            <translation>Tamaño:</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/info_card.py" line="235" />
+            <source>Sizes on:</source>
+            <translation>Medidas a fecha de:</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/info_card.py" line="263" />
+            <source>Species:</source>
+            <translation>Especie:</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/info_card.py" line="221" />
+            <source>Type:</source>
+            <translation>Tipo:</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/info_card.py" line="270" />
+            <source>not known</source>
+            <translation>no se conoce</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/info_card.py" line="289" />
+            <source>{width} × {depth}</source>
+            <translation>{width} × {depth}</translation>
+        </message>
+    </context>
+    <context>
         <name>View3DProblemsDialog</name>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="149" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="159" />
             <source>3D ground: in one place the plan puts more surfaces than the ground can show; the smallest are left out</source>
             <translation>Suelo 3D: en un lugar el plano pone más superficies de las que el suelo puede mostrar; se omiten las más pequeñas</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="151" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="161" />
             <source>3D ground: in {count} places the plan puts more surfaces than the ground can show; the smallest are left out</source>
             <translation>Suelo 3D: en {count} lugares el plano pone más superficies de las que el suelo puede mostrar; se omiten las más pequeñas</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="162" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="172" />
             <source>3D ground: it could not be finished; it is tried again with the next change</source>
             <translation>Suelo 3D: no se pudo terminar; se volverá a intentar con el próximo cambio</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="164" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="174" />
             <source>3D ground: it could not be painted; it shows an older picture</source>
             <translation>Suelo 3D: no se pudo pintar; muestra una imagen anterior</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="156" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="166" />
             <source>3D ground: one piece could not be painted and shows an older picture</source>
             <translation>Suelo 3D: un fragmento no se pudo pintar y muestra una imagen anterior</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="158" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="168" />
             <source>3D ground: {count} pieces could not be painted and show an older picture</source>
             <translation>Suelo 3D: {count} fragmentos no se pudieron pintar y muestran una imagen anterior</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="108" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="132" />
             <source>Not Shown in 3D</source>
             <translation>No se muestra en 3D</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="112" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="136" />
             <source>These objects are on the plan but cannot be shown in the 3D view. Double-click an entry to select the object on the plan.</source>
             <translation>Estos objetos están en el plano, pero no se pueden mostrar en la vista 3D. Haga doble clic en una entrada para seleccionar el objeto en el plano.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="131" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="66" />
             <source>another object on the plan has the same internal id</source>
             <translation>otro objeto del plano tiene el mismo identificador interno</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="140" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="76" />
             <source>it could not be painted completely on the 3D ground</source>
             <translation>no se pudo pintar completo sobre el suelo 3D</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="143" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="79" />
             <source>it could not be shown</source>
             <translation>no se pudo mostrar</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="139" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="74" />
             <source>its 3D model could not be built</source>
             <translation>no se pudo construir su modelo 3D</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="133" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="68" />
             <source>its outline cannot be turned into a solid</source>
             <translation>su contorno no se puede convertir en un sólido</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="135" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="70" />
             <source>its outline has too many points for the 3D view</source>
             <translation>su contorno tiene demasiados puntos para la vista 3D</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="130" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="64" />
             <source>its shape could not be worked out</source>
             <translation>no se pudo determinar su forma</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="137" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="72" />
             <source>one of its sizes is outside what the 3D view can show</source>
             <translation>una de sus medidas está fuera de lo que la vista 3D puede mostrar</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="202" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="212" />
             <source>{kind}: {reason}</source>
             <translation>{kind}: {reason}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="199" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="209" />
             <source>{name} ({kind}): {reason}</source>
             <translation>{name} ({kind}): {reason}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="208" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="218" />
             <source>… and {count} more</source>
             <translation>… y {count} más</translation>
         </message>
@@ -13880,62 +13984,67 @@ Use Archivo › Establecer ubicación del huerto para configurar las coordenadas
     <context>
         <name>Workspace</name>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="423" />
+            <location filename="../../ui/view3d/workspace.py" line="437" />
             <source>&amp;3D</source>
             <translation>&amp;3D</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="421" />
+            <location filename="../../ui/view3d/workspace.py" line="435" />
             <source>&amp;Plan</source>
             <translation>&amp;Plano</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="439" />
+            <location filename="../../ui/view3d/workspace.py" line="453" />
             <source>&amp;Reset 3D View</source>
             <translation>&amp;Restablecer vista 3D</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="425" />
+            <location filename="../../ui/view3d/workspace.py" line="439" />
             <source>&amp;Split</source>
             <translation>&amp;Dividido</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="455" />
+            <location filename="../../ui/view3d/workspace.py" line="1300" />
+            <source>&amp;Walk</source>
+            <translation>&amp;Pasear</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/workspace.py" line="469" />
             <source>&amp;Workspace</source>
             <translation>&amp;Espacio de trabajo</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1011" />
+            <location filename="../../ui/view3d/workspace.py" line="1030" />
             <source>1 object is not shown in 3D</source>
             <translation>1 objeto no se muestra en 3D</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1009" />
+            <location filename="../../ui/view3d/workspace.py" line="1028" />
             <source>1 object is not shown in 3D; the 3D ground does not show all of the plan</source>
             <translation>1 objeto no se muestra en 3D; el suelo 3D no muestra todo el plano</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1148" />
+            <location filename="../../ui/view3d/workspace.py" line="1168" />
             <source>3D is running in compatibility mode (software rendering) because it did not start properly last time.</source>
             <translation>3D se ejecuta en modo de compatibilidad (renderizado por software) porque no se inició correctamente la última vez.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1150" />
+            <location filename="../../ui/view3d/workspace.py" line="1170" />
             <source>3D is running in compatibility mode (software rendering).</source>
             <translation>3D se ejecuta en modo de compatibilidad (renderizado por software).</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="699" />
+            <location filename="../../ui/view3d/workspace.py" line="706" />
             <source>3D is switched off on this computer: it did not start, not even in compatibility mode (software rendering). The rest of the application is not affected.</source>
             <translation>3D está desactivado en este equipo: no se inició, ni siquiera en modo de compatibilidad (renderizado por software). El resto de la aplicación no se ve afectado.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1154" />
+            <location filename="../../ui/view3d/workspace.py" line="1174" />
             <source>3D is switched off: it did not start in compatibility mode (software rendering) either.</source>
             <translation>3D está desactivado: tampoco se inició en modo de compatibilidad (renderizado por software).</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1128" />
+            <location filename="../../ui/view3d/workspace.py" line="1148" />
             <source>3D is unavailable on this graphics device. The rest of the application is not affected.
 
 Details: {error}</source>
@@ -13944,67 +14053,92 @@ Details: {error}</source>
 Detalles: {error}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="813" />
+            <location filename="../../ui/view3d/workspace.py" line="1346" />
+            <source>Adult</source>
+            <translation>Adulto</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/workspace.py" line="821" />
             <source>Building the 3D view…</source>
             <translation>Construyendo la vista 3D…</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1152" />
+            <location filename="../../ui/view3d/workspace.py" line="1346" />
+            <source>Child</source>
+            <translation>Niño</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/workspace.py" line="1513" />
+            <source>Click an object to see what the 3D view shows of it.</source>
+            <translation>Haga clic en un objeto para ver lo que la vista 3D muestra de él.</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/workspace.py" line="1172" />
             <source>Compatibility mode (software rendering) is switched on.</source>
             <translation>El modo de compatibilidad (renderizado por software) está activado.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1157" />
+            <location filename="../../ui/view3d/workspace.py" line="1177" />
             <source>Compatibility mode will be used the next time the application starts.</source>
             <translation>La próxima vez que se inicie la aplicación se usará el modo de compatibilidad.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1176" />
+            <location filename="../../ui/view3d/workspace.py" line="1343" />
+            <source>Eye height while walking</source>
+            <translation>Altura de los ojos durante el paseo</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/workspace.py" line="1196" />
             <source>Hardware rendering will be tried the next time the application starts.</source>
             <translation>La próxima vez que se inicie la aplicación se intentará el renderizado por hardware.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="659" />
+            <location filename="../../ui/view3d/workspace.py" line="665" />
             <source>Show List</source>
             <translation>Mostrar lista</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="424" />
+            <location filename="../../ui/view3d/workspace.py" line="438" />
             <source>Show the garden in 3D</source>
             <translation>Mostrar el jardín en 3D</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="426" />
+            <location filename="../../ui/view3d/workspace.py" line="440" />
             <source>Show the plan and the 3D view side by side</source>
             <translation>Mostrar el plano y la vista 3D lado a lado</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="422" />
+            <location filename="../../ui/view3d/workspace.py" line="436" />
             <source>Show the plan only</source>
             <translation>Mostrar solo el plano</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="441" />
+            <location filename="../../ui/view3d/workspace.py" line="455" />
             <source>Show the whole garden again (Home)</source>
             <translation>Volver a mostrar todo el jardín (Inicio)</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="440" />
+            <location filename="../../ui/view3d/workspace.py" line="454" />
             <source>Show the whole garden in the 3D view again</source>
             <translation>Volver a mostrar todo el jardín en la vista 3D</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="660" />
+            <location filename="../../ui/view3d/workspace.py" line="666" />
             <source>Show which objects are missing from the 3D view</source>
             <translation>Mostrar qué objetos faltan en la vista 3D</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1007" />
+            <location filename="../../ui/view3d/workspace.py" line="1346" />
+            <source>Smaller adult</source>
+            <translation>Adulto más bajo</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/workspace.py" line="1026" />
             <source>The 3D ground does not show all of the plan</source>
             <translation>El suelo 3D no muestra todo el plano</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="741" />
+            <location filename="../../ui/view3d/workspace.py" line="748" />
             <source>The 3D view could not be started. The rest of the application is not affected.
 
 Details: {error}</source>
@@ -14013,49 +14147,74 @@ Details: {error}</source>
 Detalles: {error}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="996" />
+            <location filename="../../ui/view3d/workspace.py" line="1015" />
             <source>The 3D view could not be updated. It will try again with the next change.</source>
             <translation>No se pudo actualizar la vista 3D. Se volverá a intentar con el próximo cambio.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1110" />
+            <location filename="../../ui/view3d/workspace.py" line="1130" />
             <source>The 3D view reported a problem. Details are in the log file.</source>
             <translation>La vista 3D informó de un problema. Los detalles están en el archivo de registro.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1186" />
+            <location filename="../../ui/view3d/workspace.py" line="1206" />
             <source>The setting could not be changed. Details are in the log file.</source>
             <translation>No se pudo cambiar la configuración. Los detalles están en el archivo de registro.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="743" />
+            <location filename="../../ui/view3d/workspace.py" line="1604" />
+            <source>There is no free ground to walk on.</source>
+            <translation>No hay suelo libre por el que caminar.</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/workspace.py" line="750" />
             <source>Try Again</source>
             <translation>Reintentar</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1163" />
+            <location filename="../../ui/view3d/workspace.py" line="1183" />
             <source>Try Hardware Next Time</source>
             <translation>Probar hardware la próxima vez</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1130" />
+            <location filename="../../ui/view3d/workspace.py" line="1150" />
             <source>Use Compatibility Mode Next Time</source>
             <translation>Usar modo de compatibilidad</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1016" />
+            <location filename="../../ui/view3d/workspace.py" line="1302" />
+            <source>Walk through the garden at eye height</source>
+            <translation>Recorra el huerto a la altura de los ojos</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/workspace.py" line="1303" />
+            <source>Walk through the garden at eye height (W A S D or the arrow keys walk, drag to look around, Shift runs, Esc leaves)</source>
+            <translation>Recorra el huerto a la altura de los ojos (W A S D o las teclas de flecha para caminar, arrastrar para mirar alrededor, Mayús para correr, Esc para salir)</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/workspace.py" line="1035" />
             <source>{count} objects are not shown in 3D</source>
             <translation>{count} objetos no se muestran en 3D</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1013" />
+            <location filename="../../ui/view3d/workspace.py" line="1032" />
             <source>{count} objects are not shown in 3D; the 3D ground does not show all of the plan</source>
             <translation>{count} objetos no se muestran en 3D; el suelo 3D no muestra todo el plano</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="434" />
+            <location filename="../../ui/view3d/workspace.py" line="1512" />
+            <source>{count} objects selected.</source>
+            <translation>{count} objetos seleccionados.</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/workspace.py" line="448" />
             <source>{tip} ({shortcut})</source>
             <translation>{tip} ({shortcut})</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/workspace.py" line="1349" />
+            <source>{who} – {height}</source>
+            <translation>{who} – {height}</translation>
         </message>
     </context>
     <context>

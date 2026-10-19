@@ -220,6 +220,15 @@ STALL_S: Final = 0.5
 REPROBE_S: Final = 0.25
 
 
+class HostStateError(RuntimeError):
+    """A call the host cannot answer truthfully in its current state (module docstring:
+    "What raises what"). It lives HERE, in the engine-free module — ``host.py`` raises
+    it and exports it — so that a caller which must tell "not now" from a hit can
+    name it without loading the engine: the click handler of the 3D view
+    (``ui/view3d/orbit_input.py``, L1.8) is ``try: host.pick(x, y)`` /
+    ``except HostStateError``."""
+
+
 class HostState(enum.Enum):
     """Where a host is in its life (module docstring)."""
 

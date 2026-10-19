@@ -168,10 +168,14 @@ class Live:
         return controller.snapshot_count, controller.reconcile_count, controller.unannounced_changes
 
     def assert_3d_is_the_plan(self, what: str = "") -> None:
-        """What the engine was told equals a from-scratch apply of the plan as it is."""
+        """What the engine was told equals a from-scratch apply of the plan as it is —
+        with its selection ring (L1.8: the sink holds the ring of what is selected)."""
+        from open_garden_planner.ui.view3d.selection_bridge import selected_record_ids
+
         sync = self.controller.sync
         fresh_sink = RecordingSink()
         fresh = SceneSync(fresh_sink, sync.registry)
+        fresh.select(selected_record_ids(self.scene))
         fresh.apply(snapshot_records(self.scene, self.window._sim_clock.plan_date),
                     sun=sync.sun, ground=sync.ground)
         assert self.engines.sink.state() == fresh_sink.state() == sync.expected_state(), what
@@ -618,7 +622,10 @@ def test_a_containers_height_and_material_typed_into_the_properties_panel_reach_
     qtbot.waitUntil(lambda: live.controller.sync.records[pot_id].height_cm == 70.0, timeout=5000)
     assert live.pot.metadata["container_height_cm"] == 70.0         # type: ignore[attr-defined]
     # at once: by a pass the edit ANNOUNCED, not by the net after the quiet time
-    assert live.reports[seen].snapshot and live.reports[seen].reconciled is False
+    # (L1.8: selecting the pot for the panel first sends its selection ring, in a pass
+    # of its own that reads nothing of the plan — snapshot False, reconciled False)
+    passes = [report for report in live.reports[seen:] if report.snapshot or report.reconciled]
+    assert passes[0].snapshot and passes[0].reconciled is False
     assert ("replace_geometry", pot_id) in live.engines.sink.ops()[calls:]
     assert len(live.repaints) > repaints, "and the item was repainted (the sun's shadow listens)"
 
@@ -627,7 +634,8 @@ def test_a_containers_height_and_material_typed_into_the_properties_panel_reach_
     qtbot.waitUntil(lambda: live.controller.sync.records[pot_id].params["container_material"]
                     == "metal", timeout=5000)
     assert live.pot.metadata["container_material"] == "metal"       # type: ignore[attr-defined]
-    assert live.reports[seen].snapshot and live.reports[seen].reconciled is False
+    passes = [report for report in live.reports[seen:] if report.snapshot or report.reconciled]
+    assert passes[0].snapshot and passes[0].reconciled is False
     assert len(live.engines.sink.ops()) > calls, "the engine was told"
     live.quiet()
     assert live.controller.unannounced_changes == 0

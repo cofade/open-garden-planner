@@ -128,21 +128,24 @@ from PyQt6.QtQuick import (
 )
 
 from open_garden_planner.core.scene3d import (
+    EngineBuffers,
     EnginePose,
     Rgba,
     engine_to_scene_points,
     scene_to_engine_points,
     scene_to_engine_vectors,
 )
+from open_garden_planner.core.scene3d.selection import SELECTION_RGBA
 
 from .adapter import GroundPlacement, PartSpec
-from .geometry import BufferGeometry
+from .geometry import BufferGeometry, ReloadableGeometry
 from .ground_tiles import GroundTileError, GroundTiles
 from .lifecycle import (
     REPROBE_S,
     STALL_S,
     WAIT_READY_DEFAULT_S,
     HostState,
+    HostStateError,
     WindowFacts,
     state_of,
     why_no_frame,
@@ -178,6 +181,10 @@ _BUSY_PASS_S: Final = 0.05
 #: The longest timeout ``wait_ready()`` takes, seconds: a day. Qt's ``processEvents``
 #: takes milliseconds in a C int; ``inf`` and 3e6 s overflowed it.
 _LONGEST_WAIT_S: Final = 86_400.0
+#: The selection ring's vertex shader moves vertices outwards by pixels, which at a
+#: distance are centimetres; the engine culls by the bounds it is told. So the ring's
+#: bounds are this much wider than its mesh on every side (L1.8).
+RING_BOUNDS_MARGIN_CM: Final = 500.0
 #: Qt sizes a render target as ``qRound(logical × ratio)`` per side: the RIGHT frame is
 #: at most half a device pixel off ``logical × ratio``. The rest is the float error of
 #: that product (3000 × 1.1 is not exact; a neighbour's frame is at least 0.1 px further).
@@ -208,18 +215,21 @@ class EngineError(RuntimeError):
     failed, this backend cannot render 3D)."""
 
 
-class HostStateError(RuntimeError):
-    """A call the host cannot answer truthfully in its current state."""
-
-
 @dataclass(frozen=True, slots=True)
 class PickHit:
     """What is under a view position: the item, its mesh part and the hit point in
-    the SCENE frame (east, north, up — centimetres)."""
+    the SCENE frame (east, north, up — centimetres).
+
+    ``behind`` (L1.8): what the same ray meets AFTER this hit, nearest first — every
+    further Model, also further parts of the same item. A click on an item of a
+    locked layer falls through to the first selectable item behind it, as it does
+    on the 2D canvas (``ui/view3d/selection_bridge.py``); the hits in ``behind``
+    carry no ``behind`` of their own."""
 
     item_id: str
     part_index: int
     point: tuple[float, float, float]
+    behind: tuple[PickHit, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -562,11 +572,12 @@ class Quick3DHost:
         return len(self._parts)
 
     def clear(self) -> None:
-        """Destroy EVERY Model, switch the sun off, drop the plan ground. On a closed
-        host: a no-op. This is the sink's teardown (``Quick3DSink.clear``).
+        """Destroy EVERY Model, switch the sun off, drop the plan ground, hide the
+        selection ring. On a closed host: a no-op. This is the sink's teardown
+        (``Quick3DSink.clear``).
 
-        It finishes whatever fails: every Model is tried, then the sun, then the
-        ground, and only then the first failure is raised (``EngineError``). A Model
+        It finishes whatever fails: every Model is tried, then the sun, the ground
+        and the ring, and only then the first failure is raised (``EngineError``). A Model
         the engine did not destroy STAYS in the host's books — books and engine agree
         after a failure, and the next ``clear()`` tries it again.
         """
@@ -582,7 +593,8 @@ class Quick3DHost:
             except Exception as error:  # noqa: BLE001 - finish the teardown, then report
                 failures.append(error)
         steps: tuple[Callable[[], None], ...] = (
-            lambda: self.set_sun(None), lambda: self.set_ground(None))
+            lambda: self.set_sun(None), lambda: self.set_ground(None),
+            lambda: self.set_selection_ring(None))  # the ring is no item's: hidden, not destroyed
         for step in steps:
             try:
                 step()
@@ -590,7 +602,7 @@ class Quick3DHost:
                 failures.append(error)
         if failures:
             raise EngineError(
-                f"clear(): {len(failures)} of {total + 2} steps failed; the engine still holds "
+                f"clear(): {len(failures)} of {total + len(steps)} steps failed; the engine still holds "
                 f"{len(self._parts)} Model(s), and so do the host's books. First: "
                 f"{failures[0]}") from failures[0]
 
@@ -650,6 +662,47 @@ class Quick3DHost:
         state shows the new scene with its next frame anyway."""
         if self._open("request_frame") is HostState.LIVE:
             self._view.update()
+
+    # ── the selection ring (L1.8, ADR-065) ───────────────────────────────────
+
+    #: The ONE geometry of the selection ring: created with the first selection, as
+    #: a child of the scene's ring Model (they go together), and re-loaded for every
+    #: later one. A class default, so that no host starts with one.
+    _ring: ReloadableGeometry | None = None
+    #: How often the ring's data was loaded into the engine (the gates read it).
+    ring_loads = 0
+
+    def set_selection_ring(self, ring: EngineBuffers | None) -> None:
+        """Show ``ring`` (engine frame) as the selection ring, or hide it (None).
+
+        ``Garden.qml`` declares ONE ring Model for the life of the scene. This
+        loads new vertex data into the one geometry that Model has: a selection
+        change creates and destroys no engine object — not a Model (Qt keeps
+        graphics state for every Model it once drew until it is told to let go,
+        and about 15 to 20 kB per destroyed Model for good; ADR-065), not a
+        geometry. The first selection of a host creates that one geometry.
+
+        ``clear()`` hides the ring too (the engine then holds nothing to draw).
+        """
+        self._open("set_selection_ring")
+        if ring is None or ring.is_empty:
+            _set(self._root, "selectionVisible", False)
+            return
+        geometry = self._ring
+        if geometry is None or sip.isdeleted(geometry):
+            model = self._call("selectionRingModel")
+            try:
+                geometry = ReloadableGeometry(model)
+            except TypeError as error:
+                raise EngineError(f"the scene's selection ring is no 3D object ({error})") from error
+            geometry.load(ring, RING_BOUNDS_MARGIN_CM)
+            self._call("setSelectionGeometry", geometry)
+            _set(self._root, "selectionColorLinear", QVector3D(*tint_uniform(SELECTION_RGBA)))
+            self._ring = geometry
+        else:
+            geometry.load(ring, RING_BOUNDS_MARGIN_CM)
+        self.ring_loads += 1
+        _set(self._root, "selectionVisible", True)
 
     # ── lifecycle ────────────────────────────────────────────────────────────
 
@@ -1025,15 +1078,16 @@ class Quick3DHost:
         ``LIVE`` hosts only; anything else raises ``HostStateError`` (a backend
         that renders no 3D, or a scene whose pick function failed,
         ``EngineError``): "no hit" must never mean "could not look".
+
+        The hit carries what lies ``behind`` it along the same ray (``PickHit``).
         """
         self._require_frame("pick")
         result = self._call("pickAt", float(x), float(y))
         if not result.get("hit"):
             return None
-        point = engine_to_scene_points(
-            np.array([result["x"], result["y"], result["z"]], dtype=np.float64))
-        return PickHit(item_id=str(result.get("id", "")), part_index=int(result.get("part", -1)),
-                       point=(float(point[0]), float(point[1]), float(point[2])))
+        first = _pick_hit(result)
+        behind = tuple(_pick_hit(row) for row in result.get("behind") or ())
+        return PickHit(first.item_id, first.part_index, first.point, behind)
 
     def project(self, east_cm: float, north_cm: float, up_cm: float) -> tuple[float, float]:
         """Scene point → view position in LOGICAL pixels (the space ``pick`` takes),
@@ -1062,6 +1116,23 @@ class Quick3DHost:
         for a name the scene does not declare."""
         self._open("scene_property")
         return _get(self._root, name)
+
+    def focus(self) -> None:
+        """Give the view the keyboard focus (L1.8: walk mode is walked with the keys):
+        ``requestActivate()`` on the view. Measured on the real main window (Windows,
+        fix round 1): afterwards ``QGuiApplication.focusWindow()`` is the view, the
+        widget with the focus is its container, and a key reaches the view's event
+        filters (``ShortcutOverride`` first); the container's ``setFocus()`` does the
+        same there."""
+        self._open("focus")
+        self._view.requestActivate()
+
+    def has_focus(self) -> bool:
+        """True while the view is the window with the keyboard focus."""
+        from PyQt6.QtGui import QGuiApplication
+
+        self._open("has_focus")
+        return QGuiApplication.focusWindow() is self._view
 
     def install_event_filter(self, watcher: QObject) -> None:
         """Let ``watcher`` see the view's events before the view does (L1.3: the orbit
@@ -1243,6 +1314,13 @@ def shown_quick_windows() -> int:
     message recorder may be installed (``qt_messages.py``)."""
     return sum(1 for window in QGuiApplication.allWindows()
                if isinstance(window, QQuickWindow) and window.isVisible())
+
+
+def _pick_hit(row: Any) -> PickHit:
+    """One row of the scene's ``pickAt`` answer (engine frame) as a hit in the SCENE frame."""
+    point = engine_to_scene_points(np.array([row["x"], row["y"], row["z"]], dtype=np.float64))
+    return PickHit(item_id=str(row.get("id", "")), part_index=int(row.get("part", -1)),
+                   point=(float(point[0]), float(point[1]), float(point[2])))
 
 
 def _engine_vector(point_scene: tuple[float, float, float]) -> QVector3D:

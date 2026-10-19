@@ -20,6 +20,7 @@ import numpy as np
 import pytest
 
 from open_garden_planner.core.scene3d import MATERIAL_KINDS, Record, SceneSync
+from open_garden_planner.core.scene3d.selection import MITRE_LIMIT, RING_WIDTH_PX
 from open_garden_planner.core.shadow_geometry import compute_scene_shadows
 from open_garden_planner.ui.view3d.quick3d import selftest
 from open_garden_planner.ui.view3d.quick3d.adapter import Quick3DSink
@@ -33,6 +34,7 @@ BOX = (255, 6, 4)
 SWATCH = (150, 12, 6)
 GLASS = (60, 60, 14)
 LAWN = (12, 30, 150)
+RING = (0, 48, 173)          # the canvas's selection blue in linear light (the truth view)
 
 
 def _paint(frame: np.ndarray, region: selftest.Region, colour: tuple[int, int, int],
@@ -54,6 +56,10 @@ def _good_frame(scale: float = 1.0) -> np.ndarray:
     frame[..., :3] = GROUND
     frame[..., 3] = 255
     _paint(frame, selftest.REGIONS["shadow"], SHADOW, scale, grow_cm=6.0)
+    # the ring: RING_WIDTH_PX outside the selected swatch's footprint, ground inside it
+    _paint(frame, selftest.RING_REGION, RING, scale,
+           grow_cm=RING_WIDTH_PX / selftest.SHOT.px_per_cm)
+    _paint(frame, selftest.RING_REGION, GROUND, scale)
     for kind in selftest.SWATCH_KINDS:
         _paint(frame, selftest.REGIONS[kind], GLASS if kind == "glass" else SWATCH, scale, grow_cm=4.0)
     _paint(frame, selftest.REGIONS["box"], BOX, scale, grow_cm=10.0)
@@ -79,7 +85,8 @@ class TestJudge:
         frame = _good_frame()
         frame[..., :3] = (207, 226, 242)  # the bare sky colour: nothing was drawn
         problems = selftest.judge_frame(frame)
-        assert len(problems) == 4 + len(selftest.SWATCH_KINDS)  # ground, box, shadow, swatches, lawn
+        # ground, box, shadow, each swatch, the lawn, the ring
+        assert len(problems) == 5 + len(selftest.SWATCH_KINDS)
         assert problems[0].startswith("the ground is not lit meadow")
         assert problems[1].startswith("the box is not there")
 
@@ -89,8 +96,31 @@ class TestJudge:
         problems = selftest.judge_frame(frame)
         assert problems[0].startswith("the box is not there")       # the ground itself is fine
         assert problems[1].startswith("the shadow is missing")
-        assert len(problems) == 3 + len(selftest.SWATCH_KINDS)  # … and the lawn
-        assert problems[-1].startswith("the baked ground does not show the lawn")
+        assert problems[-1].startswith("the selection ring did not draw round the roof swatch")
+        assert len(problems) == 4 + len(selftest.SWATCH_KINDS)  # … the lawn and the ring
+        assert any(p.startswith("the baked ground does not show the lawn") for p in problems)
+
+    def test_a_ring_that_did_not_draw_fails(self) -> None:
+        """The ring's shader failed, or nothing was selected: every material is there,
+        the band round the selected swatch is bare ground."""
+        frame = _good_frame()
+        _paint(frame, selftest.RING_REGION, GROUND, 1.0,
+               grow_cm=RING_WIDTH_PX / selftest.SHOT.px_per_cm)
+        _paint(frame, selftest.REGIONS[selftest.SELECTED[0]], SWATCH, 1.0, grow_cm=4.0)
+        (problem,) = selftest.judge_frame(frame)
+        assert problem == ("the selection ring did not draw round the roof swatch: 0% of its "
+                           "band is in the ring's colour")
+
+    def test_a_ring_drawn_inside_the_footprint_is_not_the_ring(self) -> None:
+        """A band that is there but in the wrong place (depth-tested into the solid, or
+        on the wrong side of the outline) does not pass for the ring."""
+        frame = _good_frame()
+        _paint(frame, selftest.RING_REGION, GROUND, 1.0,
+               grow_cm=RING_WIDTH_PX / selftest.SHOT.px_per_cm)
+        _paint(frame, selftest.RING_REGION, RING, 1.0, grow_cm=-1.0)
+        _paint(frame, selftest.REGIONS[selftest.SELECTED[0]], SWATCH, 1.0, grow_cm=4.0)
+        problems = selftest.judge_frame(frame)
+        assert [p for p in problems if "selection ring" in p], problems
 
     def test_a_missing_shadow_fails(self) -> None:
         """The sun is switched off, or the shadow map is broken: lit box, no shadow."""
@@ -224,6 +254,45 @@ class TestScene:
         grid = GroundGrid.for_plan(selftest.GROUND.width_cm, selftest.GROUND.depth_cm,
                                    tile_px=selftest.GROUND_TILE_PX)
         assert len(list(grid.tile_keys())) == selftest.GROUND_TILES
+
+    def test_the_selected_swatch_is_in_the_scene_and_its_ring_disturbs_no_other_check(self) -> None:
+        """The ring's shader compiles only when something is selected (L1.8). The band the
+        judge looks for it in — and all a mitred corner can reach — lies inside the frame
+        and clear of every patch the other checks sample."""
+        (selected,) = selftest.SELECTED
+        assert selected in selftest.records() and selected in selftest.SWATCH_KINDS
+        region = selftest.RING_REGION
+        footprint = _footprint(selftest.records()[selected])
+        assert (min(x for x, _ in footprint), max(x for x, _ in footprint)) == (
+            region.east_cm - region.width_cm / 2, region.east_cm + region.width_cm / 2)
+        reach = RING_WIDTH_PX * MITRE_LIMIT / selftest.SHOT.px_per_cm     # cm
+        low_x, high_x = region.east_cm - region.width_cm / 2 - reach, region.east_cm + region.width_cm / 2 + reach
+        low_y, high_y = region.north_cm - region.depth_cm / 2 - reach, region.north_cm + region.depth_cm / 2 + reach
+        assert low_x > 0.0 and high_x < selftest.GROUND.width_cm
+        assert low_y > 0.0 and high_y < selftest.GROUND.depth_cm
+        for name, patch in selftest.REGIONS.items():
+            if name == selected:
+                continue   # its own patch is inside the footprint (the test above)
+            for x, y in _samples(patch):
+                assert not (low_x <= x <= high_x and low_y <= y <= high_y), name
+        band = selftest.ring_band((selftest.SIZE[1], selftest.SIZE[0]), 1.0)
+        side = region.width_cm * selftest.SHOT.px_per_cm
+        assert int(band.sum()) == pytest.approx(4 * RING_WIDTH_PX * (side + RING_WIDTH_PX), rel=0.05)
+
+    def test_the_render_selects_it(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """…and ``_render`` really asks for the ring (not a default of nothing)."""
+        from open_garden_planner.ui.view3d.quick3d import offscreen
+
+        asked: dict[str, object] = {}
+
+        def render(*_arguments: object, **options: object) -> object:
+            asked.update(options)
+            raise RuntimeError("far enough")
+
+        monkeypatch.setattr(offscreen, "render_records", render)
+        with pytest.raises(RuntimeError, match="far enough"):
+            selftest._render(lambda *_a, **_k: None, None)  # noqa: SLF001
+        assert asked["selected"] == ("roof",)
 
     def test_everything_stands_on_the_plan_rectangle(self) -> None:
         for record in selftest.records().values():

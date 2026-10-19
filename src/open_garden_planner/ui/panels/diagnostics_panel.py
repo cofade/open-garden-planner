@@ -3,13 +3,13 @@
 from dataclasses import asdict
 from datetime import date
 from typing import Any
-from uuid import UUID
 
 from PyQt6.QtCore import QCoreApplication, Qt, QTimer
 from PyQt6.QtWidgets import QComboBox, QLabel, QListWidget, QListWidgetItem, QVBoxLayout, QWidget
 
 from open_garden_planner.models.plant_data import SunRequirement
 from open_garden_planner.services.diagnostics import DiagnosticRecord
+from open_garden_planner.ui.canvas.select_by_id import select_by_ids
 from open_garden_planner.ui.guild_errors import guild_error_details
 from open_garden_planner.ui.sun_exposure_text import mismatch_message, unavailable_message
 from open_garden_planner.ui.widgets.trait_filters import trait_label
@@ -36,23 +36,11 @@ class ObjectNavigator(QWidget):
         self._navigation.start(0)
 
     def _navigate(self) -> None:
+        # the app's ONE select-by-id path (ui/canvas/select_by_id.py): the same
+        # resolver, group rule and locked-layer rule as the 3D view's list and clicks
         try:
-            items = []
-            for identity in self._pending_ids:
-                try:
-                    item = self.scene.find_item_by_id(UUID(identity))
-                except ValueError:
-                    continue
-                if item is not None:
-                    while item.parentItem() is not None and hasattr(item.parentItem(), "item_id"):
-                        item = item.parentItem()
-                    items.append(item)
-            if not items:
-                return
-            self.scene.clearSelection()
-            for item in items:
-                item.setSelected(True)
-            if self.scene.views():
+            items = select_by_ids(self.scene, self._pending_ids)
+            if items and self.scene.views():
                 self.scene.views()[0].ensureVisible(items[0])
         except RuntimeError:
             return

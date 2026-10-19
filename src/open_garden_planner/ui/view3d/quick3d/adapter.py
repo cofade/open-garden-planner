@@ -37,6 +37,13 @@ What the sink guarantees:
   counts every buffer handed to the engine, and neither call changes it.
 - **Errors are loud.** A protocol breach raises ``SinkProtocolError`` before the
   engine is touched; an engine error propagates (``SceneSync`` poisons itself).
+- **The selection ring is one mesh in one Model that is never destroyed (L1.8).**
+  ``set_selection`` maps the ring to the engine frame (``engine_buffers`` — the
+  same single mapping as every mesh) and hands the bytes to
+  ``EngineScene.set_selection_ring``; an empty selection hides the ring. No
+  Model is created or destroyed by it, ``geometry_uploads`` does not move
+  (``ring_uploads`` counts), and the scene's ``clear()`` hides the ring with
+  everything else.
 
 GUI thread only, like everything that touches the scene.
 """
@@ -67,6 +74,7 @@ from open_garden_planner.core.scene3d import (
     scene_to_engine_points,
     scene_to_engine_vectors,
 )
+from open_garden_planner.core.scene3d.selection import EMPTY_SELECTION, Selection
 
 from .materials import part_tint
 
@@ -119,7 +127,8 @@ class EngineScene(Protocol):
         """Destroy the Model (and its geometry) for good. A no-op when the engine is gone."""
 
     def clear(self) -> None:
-        """Destroy every Model, no sun, no plan ground. A no-op when the engine is gone
+        """Destroy every Model, no sun, no plan ground, no selection ring (hidden — its
+        one Model stays). A no-op when the engine is gone
         — it must not raise then: a sync whose engine died still has to be reset. A
         LIVE engine that cannot destroy a Model finishes the rest, keeps that Model
         in its own books and raises: the next ``clear()`` tries again."""
@@ -145,6 +154,11 @@ class EngineScene(Protocol):
     def request_frame(self) -> None:
         """A transaction closed: show the new state."""
 
+    def set_selection_ring(self, ring: EngineBuffers | None) -> None:
+        """Draw this mesh (engine frame) as the selection ring, in the ONE Model the
+        scene keeps for it — or None: hide the ring. Creates and destroys no Model.
+        ``clear()`` hides it with everything else."""
+
 
 @dataclass(slots=True)
 class _Held:
@@ -169,6 +183,10 @@ class Quick3DSink:
         #: Vertex/index buffers handed to the engine so far. A move or a recolour
         #: must leave it unchanged — the instrument behind that gate.
         self.geometry_uploads = 0
+        self._selection: Selection = EMPTY_SELECTION
+        #: Ring meshes handed to the engine so far (L1.8) — counted apart from the
+        #: Models' buffers: the ring follows a selected item that moves.
+        self.ring_uploads = 0
 
     # ── what the sink holds (the same questions ``RecordingSink`` answers) ────
 
@@ -199,7 +217,12 @@ class Quick3DSink:
         """Comparable with ``RecordingSink.state()``: equal means the two were told the
         same scene. (What the ENGINE holds is ``Quick3DHost.engine_parts()``.)"""
         return SinkState({item_id: self.item(item_id) for item_id in self._items},
-                         self._sun, self._ground)
+                         self._sun, self._ground, self._selection)
+
+    @property
+    def selection(self) -> Selection:
+        """The selection ring the engine was last handed (the empty one: none)."""
+        return self._selection
 
     def part_count(self, item_id: str) -> int:
         """Engine Models the item has (parts without triangles have none)."""
@@ -228,12 +251,13 @@ class Quick3DSink:
         """
         self._engine_unknown = True
         try:
-            self._scene.clear()  # the ONE owner of the Models destroys them all
+            self._scene.clear()  # the ONE owner of the Models destroys them all (and hides the ring)
             self._engine_unknown = False
         finally:  # the books are empty whatever the engine said: a second clear() is clean
             self._items.clear()
             self._sun = None
             self._ground = None
+            self._selection = EMPTY_SELECTION
             self._open = False
 
     def attach(self, scene: EngineScene) -> None:
@@ -319,6 +343,18 @@ class Quick3DSink:
             center=(float(center[0]), float(center[1]), float(center[2])),
             width_cm=ground.width_cm, depth_cm=ground.depth_cm,
             tiles=tuple(_tile_placement(tile) for tile in ground.tiles)))
+
+    def set_selection(self, selection: Selection) -> None:
+        self._require_open("set_selection")
+        if not isinstance(selection, Selection):
+            raise SinkProtocolError(f"set_selection() takes a Selection, got {selection!r:.80}")
+        self._selection = selection
+        buffers = engine_buffers(selection.ring) if selection else None
+        if buffers is None or buffers.is_empty:
+            self._scene.set_selection_ring(None)
+            return
+        self._scene.set_selection_ring(buffers)
+        self.ring_uploads += 1
 
     # ── internals ────────────────────────────────────────────────────────────
 

@@ -3339,6 +3339,55 @@ for _ctx, _strings in _L15_GROUND_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
+# ── Phase 17 L1.8: selection, the info card and walk mode (#385, ADR-065) ──
+_L18_SELECTION_WALK_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "Workspace": {
+        "&Walk": "&Rundgang",
+        "Walk through the garden at eye height": "Auf Augenhöhe durch den Garten gehen",
+        "Walk through the garden at eye height (W A S D or the arrow keys walk, "
+        "drag to look around, Shift runs, Esc leaves)":
+            "Auf Augenhöhe durch den Garten gehen (W A S D oder die Pfeiltasten gehen, "
+            "Ziehen schaut sich um, Umschalt läuft, Esc beendet)",
+        "Eye height while walking": "Augenhöhe beim Rundgang",
+        "Adult": "Erwachsene Person",
+        "Smaller adult": "Kleinere erwachsene Person",
+        "Child": "Kind",
+        "{who} – {height}": "{who} – {height}",
+        "There is no free ground to walk on.": "Es gibt keinen freien Boden zum Begehen.",
+        "Click an object to see what the 3D view shows of it.":
+            "Ein Objekt anklicken, um zu sehen, was die 3D-Ansicht davon zeigt.",
+        "{count} objects selected.": "{count} Objekte ausgewählt.",
+    },
+    "View3DInfoCard": {
+        "Show in Plan": "Im Plan zeigen",
+        "Centre the plan on this object": "Den Plan auf dieses Objekt zentrieren",
+        "Type:": "Typ:",
+        "Species:": "Art:",
+        "Scientific name:": "Wissenschaftlicher Name:",
+        "Height:": "Höhe:",
+        "not known": "nicht bekannt",
+        "Canopy diameter:": "Kronendurchmesser:",
+        "Diameter:": "Durchmesser:",
+        "Length:": "Länge:",
+        "Size:": "Größe:",
+        "{width} × {depth}": "{width} × {depth}",
+        "Area:": "Fläche:",
+        "Bed:": "Beet:",
+        "Sizes on:": "Größen am:",
+        "Group": "Gruppe",
+        "Object": "Objekt",
+        "Not shown in 3D: {reason}.": "In 3D nicht angezeigt: {reason}.",
+        "Not shown in 3D: this kind of object has no 3D form.":
+            "In 3D nicht angezeigt: Diese Art von Objekt hat keine 3D-Form.",
+        "Drawn on the ground in 3D: the plan gives it no height.":
+            "In 3D auf dem Boden gezeichnet: Der Plan gibt keine Höhe an.",
+    },
+}
+
+for _ctx, _strings in _L18_SELECTION_WALK_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
 
 for _ctx, _strings in _F1_F2_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)

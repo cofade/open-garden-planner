@@ -45,7 +45,7 @@ from __future__ import annotations
 import contextlib
 import sys
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -165,6 +165,7 @@ def render_records(
     log: Callable[..., None] | None = None,
     graphics_info: bool = False,
     ground_baker: GroundBaking | None = None,
+    selected: Iterable[str] = (),
     sky_light: bool = False,
     prefer_software: bool = False,
 ) -> OffscreenFrame:
@@ -181,6 +182,8 @@ def render_records(
     with a time budget is run until nothing is pending (``GroundBaker(budget_s=
     None)`` does it in one pass). ``log``: a ``log(phase, **fields)`` callable
     (``runlog.RenderLog``); without one nothing is written anywhere.
+    ``selected``: ids drawn with the selection ring (L1.8) — the ring's shader is
+    compiled only when something is selected.
     ``graphics_info=True`` also reports the graphics adapter (it switches Qt's
     ``qt.rhi.general`` debug output on for the duration of the call).
     ``sky_light=True`` builds ``look.sky`` and lets it back and light a perspective
@@ -226,6 +229,7 @@ def render_records(
             mark = time.perf_counter()
             sink = Quick3DSink(host)
             sync = SceneSync(sink, registry, ground_baker=ground_baker)
+            sync.select(selected)  # the ring rides the same transaction (L1.8)
             sync.apply(records, sun=sun, ground=ground)  # one transaction
             while sync.ground_pending:  # a baker with a time budget: a still picture
                 sync.continue_ground()  # shows the FINISHED ground, however many passes

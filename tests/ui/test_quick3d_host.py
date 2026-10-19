@@ -2072,7 +2072,7 @@ class TestTeardownIsExceptionSafe:
         sync.apply(records, sun=SunState(40.0, 180.0), ground=GroundSpec(500.0, 500.0))
         self._refuse(refusing, True)
         for attempt in range(1, 6):  # the fourth used to "succeed"
-            with pytest.raises(EngineError, match=r"clear\(\): 3 of 5 steps failed.*still holds 3 Model"):
+            with pytest.raises(EngineError, match=r"clear\(\): 3 of 6 steps failed.*still holds 3 Model"):
                 sync.reset()
             assert sync.poisoned, f"reset() {attempt} must not report success"
             assert refusing.part_count() == 3 == len(refusing.engine_parts()), (
@@ -2143,7 +2143,7 @@ class TestTeardownIsExceptionSafe:
                                       engine_pose(Transform()), RED)
             with pytest.raises(EngineError, match=r"no function destroyPart\(\)"):
                 made.destroy_part(handle)
-            with pytest.raises(EngineError, match=r"clear\(\): 1 of 3 steps failed"):
+            with pytest.raises(EngineError, match=r"clear\(\): 1 of 4 steps failed"):
                 made.clear()
             assert made.part_count() == 1 == len(made.engine_parts())
         finally:

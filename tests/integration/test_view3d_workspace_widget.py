@@ -677,7 +677,11 @@ def test_ground_passes_neither_restart_the_sky_timer_nor_postpone_the_release(
 #: stays until a presented frame ends — in a view that presents nothing, for good.
 FRAME_TAKERS = frozenset({"grab", "grabWindow", "grabFramebuffer", "wait_ready", "pick", "project"})
 WORKSPACE_MODULES = ("workspace.py", "sync_controller.py", "orbit_input.py",
-                     "problems_dialog.py", "init_guard.py")
+                     "problems_dialog.py", "init_guard.py",
+                     "selection_bridge.py", "info_card.py", "walk_mode.py")  # L1.8's three
+#: The ONE frame-taking call the workspace makes, by name and by place (L1.8): the
+#: click handler of the 3D view picks — a user's own action, once per click.
+THE_CLICK = ("orbit_input.py", "_release", "pick")
 
 
 def test_no_steady_path_takes_a_frame_from_the_live_view(
@@ -727,18 +731,38 @@ def test_no_steady_path_takes_a_frame_from_the_live_view(
 
 def test_the_workspaces_modules_never_ask_a_host_for_a_frame() -> None:
     """The same rule, read from the source: not one call of a frame-taking method in the
-    five modules of the workspace. The story that adds the click (picking) allows
-    ``pick`` for ``orbit_input.py`` here, by name — and for nothing that runs by itself."""
+    modules of the workspace — but ONE, allowed by name and by place (L1.8): the click
+    handler of ``orbit_input.py`` calls ``pick``, once, and nothing that runs by itself
+    does. Not in a move handler, not in a timer slot, not in any other module."""
     import ast
 
     folder = Path(workspace_module.__file__).resolve().parent
     found = []
     for name in WORKSPACE_MODULES:
         tree = ast.parse((folder / name).read_text(encoding="utf-8"), filename=name)
-        found += [f"{name}:{node.lineno} .{node.func.attr}()" for node in ast.walk(tree)
-                  if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
-                  and node.func.attr in FRAME_TAKERS]
-    assert found == []
+        for function in (node for node in ast.walk(tree)
+                         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda)):
+            where = getattr(function, "name", "<lambda>")
+            found += [(name, where, node.func.attr) for node in ast.walk(function)
+                      if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                      and node.func.attr in FRAME_TAKERS]
+        calls = sum(isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                    and node.func.attr in FRAME_TAKERS for node in ast.walk(tree))
+        assert calls == sum(1 for hit in found if hit[0] == name), f"{name}: a call at module level"
+    assert found == [THE_CLICK]
+    # … and the click is a RELEASE handler: no move, wheel or key handler reaches it
+    orbit = ast.parse((folder / "orbit_input.py").read_text(encoding="utf-8"))
+    callers = sorted(function.name for function in ast.walk(orbit)
+                     if isinstance(function, ast.FunctionDef) and any(
+                         isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                         and node.func.attr == "_release" for node in ast.walk(function)))
+    assert callers == ["eventFilter"]
+    source = ast.get_source_segment(
+        (folder / "orbit_input.py").read_text(encoding="utf-8"),
+        next(node for node in ast.walk(orbit)
+             if isinstance(node, ast.FunctionDef) and node.name == "eventFilter")) or ""
+    release = source.index("self._release(event)")
+    assert source.rindex("MouseButtonRelease", 0, release) > source.rindex("MouseButtonPress", 0, release)
     # the control: the scan sees such a call where there is one (the engine's own driver)
     offscreen = (folder / "quick3d" / "offscreen.py").read_text(encoding="utf-8")
     assert any(isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
