@@ -4377,5 +4377,12 @@ the one case its author thought of. What was decided in answer (the findings are
 Validation of the round: `tests/integration/test_scene3d_ground_rules.py`
 (`TestATileLosesItsSmallestRecords`, `TestATileThatCannotBePainted`, the backlog tests),
 `tests/integration/test_item_style_in_step.py` (the fresh line and its undos, the hand-made
-files, the guard's own teeth), the fixture across the integration folder, and the round's
-mutants.
+files, the guard's own teeth), the fixture across the integration folder (4,232 tests of the
+integration and ui folders passed under it), and 63 mutants of the round's rules, all killed.
+The review's own probes, run on the finished round: a lawn 10 cm and 0.5 cm inside the plan's
+edge under 255, 256, 300 and 2,000 pavers — 0 lawn pixels bare in every case (149,604 and
+158,721 before at 256); the real scene of 256 pavers on an inset lawn against the canvas —
+mean 0.033 of 255 and 484 px off by more than 8, one paver and its outline (24.4 and 130,129
+before); an edit a pass with one tile a pass — pending 13, 9, 4, 0, 0 after edits 1, 5, 10,
+20 and 40 (14 at each before); the edit after a failing bake — 16 painted tiles shown (1
+before).
