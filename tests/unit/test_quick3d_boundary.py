@@ -35,7 +35,7 @@ ENGINE_MODULES = ("PyQt6.QtQuick3D", "PyQt6.QtQuick", "PyQt6.QtQml", "PyQt6.QtQu
 #: engine module was the one exception until L1.10 deleted the spike).
 ALLOWED_OUTSIDE: set[Path] = set()
 #: Inside the package: the modules that IMPORT the engine …
-ENGINE_IMPORTERS = {"geometry.py", "host.py"}
+ENGINE_IMPORTERS = {"geometry.py", "ground_tiles.py", "host.py"}  # ground_tiles: L1.5
 #: … and the one that names its bindings as strings, to import them one by one and
 #: report each (the self-test).
 ENGINE_NAMERS = {"selftest.py"}

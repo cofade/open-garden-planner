@@ -233,6 +233,17 @@ class LocalFrame:
         """The record transform of this frame."""
         return Transform(self.east_cm, self.north_cm, self.rotation_deg, base_cm)
 
+    @property
+    def paint_turn_deg(self) -> float:
+        """The turn of the item's own coordinates that ``rotation_deg`` does NOT
+        carry (``Paint.rotation_deg``): a circle's (``rotatable=False``) — its
+        footprint does not turn, what is painted in its coordinates does. 0.0
+        where the rotation carries the turn, and for a frame that is not rigid
+        (its linear part is in the local coordinates)."""
+        if not self.rigid or self.rotation_deg != 0.0:
+            return 0.0
+        return quantize_deg(math.degrees(math.atan2(self.m12, self.m11))) + 0.0
+
     def local_from_item(self, x: float, y: float) -> Point:
         """An item-coordinate point → record-local coordinates."""
         u, v = x - self.anchor_x, y - self.anchor_y

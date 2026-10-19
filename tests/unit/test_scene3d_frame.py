@@ -236,6 +236,22 @@ class TestLocalFrame:
         assert (transform.east_cm, transform.north_cm) == pytest.approx(
             _map(_affine(213.5, 40.0, 50.0), 7.0, 8.0), abs=1e-7)
 
+    @pytest.mark.parametrize("angle", [0.0, 33.0, 90.0, 213.5, -17.25])
+    def test_the_turn_a_frame_does_not_carry_is_its_paint_turn(self, angle: float) -> None:
+        """What is PAINTED in a circle's coordinates turns with the item although its
+        record does not (L1.5: ``Paint.rotation_deg``). A frame whose rotation
+        carries the turn has none left over; nor has one that is not rigid."""
+        matrix = _affine(angle, 40.0, 50.0)
+        round_frame = F.local_frame(*matrix, 7.0, 8.0, rotatable=False)
+        turned = F.local_frame(*matrix, 7.0, 8.0)
+        assert round_frame.rotation_deg == 0.0
+        assert round_frame.paint_turn_deg == turned.rotation_deg  # the same number, elsewhere
+        assert turned.paint_turn_deg == 0.0
+        if angle == 0.0:
+            assert math.copysign(1.0, round_frame.paint_turn_deg) == 1.0  # never −0.0
+        sheared = F.local_frame(1.0, 0.0, 0.5, 1.0, 0.0, 0.0, 0.0, 0.0, rotatable=False)
+        assert not sheared.rigid and sheared.paint_turn_deg == 0.0
+
     def test_float_dust_in_qt_s_matrix_is_still_rigid(self) -> None:
         c, s = math.cos(math.radians(17.0)), math.sin(math.radians(17.0))
         frame = F.local_frame(c + 3e-16, s, -s - 2e-16, c, 0.0, 0.0, 0.0, 0.0)

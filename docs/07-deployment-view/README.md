@@ -305,8 +305,8 @@ a GitHub job.
 **The 3D render tier (`render3d`, Phase 17 L1.2).** The `test` job cannot render 3D: under the
 offscreen platform Qt Quick uses the software scene graph. The `render3d` job runs
 `tests/integration/test_quick3d_render.py`, `test_quick3d_engine.py`,
-`test_quick3d_selftest.py` and `test_quick3d_lifecycle.py` with a driver process on a real Qt
-platform (§8.10.26). Both runners are GPU-less, so the job proves correctness on software
+`test_quick3d_selftest.py`, `test_quick3d_lifecycle.py` and — the baked ground, L1.5 —
+`test_scene3d_ground_render.py` with a driver process on a real Qt platform (§8.10.26, §8.10.28). Both runners are GPU-less, so the job proves correctness on software
 rasterisers — small frames, no sky light probe, timing budgets skipped — and it is deliberately
 not a required check. Measured locally (2026-10-11): the tier passes on an RTX 4070 and on
 WARP. **First run on GitHub's runners (commit af9300d, the first three files):** windows-latest

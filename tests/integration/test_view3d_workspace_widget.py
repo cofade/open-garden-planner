@@ -615,6 +615,63 @@ def test_a_host_that_cannot_release_is_one_log_line_and_no_loop(
     assert bench.workspace.view3d_state is not View3DState.FAILED, "the view goes on"
 
 
+def test_ground_passes_neither_restart_the_sky_timer_nor_postpone_the_release(
+        bench: Bench, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Review 3, P2-2. A GROUND pass paints pending tiles and nothing else. It must not
+    tell the look a sun — ``set_sun`` (re)starts the stale-sky timer, so a sky would
+    wait for the whole ground — nor count as "the pipeline worked": the quiet-time
+    release would wait for as long as the ground paints. Here one edit retires two
+    Models and leaves the ground several passes of work (a baker of budget 0), and the
+    test's clock jumps 10 s after the edit's own pass: every ground pass runs "later"."""
+    from open_garden_planner.ui.view3d import ground_bake
+
+    real_baker = ground_bake.GroundBaker
+    monkeypatch.setattr(ground_bake, "GroundBaker", lambda: real_baker(budget_s=0.0))
+    rig = Releases(bench, monkeypatch, after=2, beds=2)
+    lawn = RectangleItem(100.0, 600.0, 2400.0, 1600.0, object_type=ObjectType.LAWN,
+                         layer_id=bench.scene.active_layer.id)
+    bench.commands.execute(CreateItemCommand(bench.scene, lawn, "lawn"))
+    bench.settle()
+    workspace = bench.workspace
+    controller, look = workspace.controller, workspace.look
+    assert controller is not None and look is not None
+    bench.qtbot.waitUntil(lambda: controller.idle, timeout=10_000)
+    rig.idle()
+    bench.poll()
+    assert bench.host.releases == 0, "nothing destroyed yet"
+
+    suns: list[bool] = []   # per set_sun: was it a ground pass that asked?
+    real_set_sun = look.set_sun
+
+    def set_sun(sun: Any) -> None:
+        tick = controller.last_tick
+        suns.append(tick is not None and tick.ground_pass)
+        real_set_sun(sun)
+
+    monkeypatch.setattr(look, "set_sun", set_sun)
+    reports: list[Any] = []
+
+    def later(report: Any) -> None:  # after the workspace's own slot (connected first)
+        reports.append(report)
+        if not report.ground_pass:
+            rig.now += 10.0
+
+    controller.applied.connect(later)
+    # ONE turn: two beds deleted (two Models retired) and the lawn recoloured (its
+    # tiles painted again, a tile a pass) — one records pass, then ground passes
+    bench.commands.execute(DeleteItemsCommand(bench.scene, rig.beds))
+    bench.commands.execute(recolour_fill(lawn, QColor(200, 40, 40)))
+    bench.qtbot.waitUntil(lambda: controller.idle, timeout=10_000)
+    grounds = [report for report in reports if report.ground_pass]
+    assert len(grounds) >= 2, "the ground needed passes of its own"
+    assert sum(not report.ground_pass for report in reports) == 1
+    assert suns == [False], "the edit's pass told the look its sun; no ground pass did"
+    # the clock stood still since the edit's pass (10 s after it): the release is due —
+    # unless a ground pass counted as the pipeline's work and reset the quiet time
+    bench.poll()
+    assert bench.host.releases == 1, "the ground passes after the edit did not postpone it"
+
+
 # ── nothing takes a frame from the live view (the memory rule) ───────────────
 
 #: The host calls that render a frame of their own. Measured (ADR-048 addendum

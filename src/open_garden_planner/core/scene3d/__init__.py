@@ -28,6 +28,12 @@ in ``polygon`` (plane polygons — orientation, outer rings and holes, triangula
 and ``sun_direction_scene`` in ``frame``. The module of ``diff``
 is ``scene_diff``, so that ``core.scene3d.diff`` is one thing: the function.
 
+Since L1.5: ``ground`` — the plan's flat surfaces as tiles of plain data
+(``GroundGrid``, ``GroundTile``, ``GroundBaking``); ``record`` carries what the 2D
+paint of an item needs (``Paint``, ``Record.outline``), and ``SceneSync`` drives a
+ground baker with the diff the builders get (the baker itself paints with
+``QPainter`` and lives in ``ui/view3d/ground_bake.py``; concept: §8.32.5).
+
 "Imports no Qt" is a statement about this package's SOURCE. Importing it still
 runs ``core/__init__.py``, which loads the command system and with it PyQt6.
 """
@@ -276,4 +282,39 @@ __all__ += [
     "exceeds_work_bound",
     "is_region_too_large",
     "region_work",
+]
+# The ground bake (L1.5): the tiles of ``ground`` and a record's ``Paint`` — imported and
+# listed down here, in a block of their own, for the same reason.
+from .ground import (  # noqa: E402
+    MAX_GROUND_PIXELS,
+    MEADOW_RGB,
+    TILE_PX,
+    GroundBaking,
+    GroundGrid,
+    GroundTile,
+    TileKey,
+    changed_tiles,
+)
+from .record import (  # noqa: E402
+    PARAM_PAINT_ORIGIN,
+    PEN_CAPS,
+    PEN_JOINS,
+    PEN_STYLES,
+    Paint,
+)
+
+__all__ += [
+    "MAX_GROUND_PIXELS",
+    "MEADOW_RGB",
+    "PARAM_PAINT_ORIGIN",
+    "PEN_CAPS",
+    "PEN_JOINS",
+    "PEN_STYLES",
+    "TILE_PX",
+    "GroundBaking",
+    "GroundGrid",
+    "GroundTile",
+    "Paint",
+    "TileKey",
+    "changed_tiles",
 ]

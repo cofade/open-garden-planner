@@ -141,6 +141,7 @@ qt_api = "pyqt6"
 markers = [
     "perf: performance benchmarks and NFR budget tests",
     "real_weather_worker: tests exercising the real _WeatherFetchWorker lifecycle",
+    "style_gaps_allowed(reason): an integration test that leaves an item's style attributes out of step with its brush and pen on purpose (tests/integration/conftest.py)",
 ]
 # `addopts` carries two #509 decisions, both measured rather than assumed.
 #

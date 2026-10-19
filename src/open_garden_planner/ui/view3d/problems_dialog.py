@@ -6,6 +6,14 @@ a builder can fail. Such an item is simply ABSENT from 3D, so the workspace says
 so: a quiet count in its strip and, on demand, this list — one row per item, with
 the reason in the user's language. Activating a row selects the item on the plan.
 
+The ground bake (L1.5, §8.32.5) adds two kinds of row: an ITEM whose paint on the
+3D ground failed (it is cut off there — shown, so it is not counted among the
+objects 3D does not show; it makes the ground incomplete), and NOTES about the
+ground as a whole — places that hold more surfaces than the ground can show (the
+smallest are left out), pieces that could not be painted, a bake that failed,
+ground work given up until the next change. A note belongs to no item: it comes
+first, and activating it does nothing.
+
 Engine-free: plain widgets and the reason codes of ``ui/view3d/snapshot.py``.
 """
 
@@ -13,7 +21,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
 from PyQt6.QtCore import QCoreApplication, Qt, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -32,8 +40,19 @@ from open_garden_planner.core.scene3d import BuildFailure
 
 from .snapshot import SkippedItem, SkipReason
 
+if TYPE_CHECKING:
+    from .sync_controller import GroundProblems
+
 #: The code of an item whose BUILDER failed (the record layer's codes are ``SkipReason``).
 BUILD_FAILED: Final = "build_failed"
+#: An item whose PAINT on the 3D ground failed (``GroundBaker.failures``).
+GROUND_PAINT_FAILED: Final = "ground_paint_failed"
+#: Notes about the ground as a whole (no item; ``Problem.count`` says how many tiles).
+GROUND_CAPPED: Final = "ground_capped"
+GROUND_TILES_FAILED: Final = "ground_tiles_failed"
+GROUND_FAILED: Final = "ground_failed"
+#: The ground passes were given up until the next change (``GroundProblems.unfinished``).
+GROUND_UNFINISHED: Final = "ground_unfinished"
 _ITEM_ID_ROLE: Final = Qt.ItemDataRole.UserRole
 
 
@@ -54,6 +73,8 @@ def reason_text(code: str) -> str:
             "View3DProblemsDialog", "one of its sizes is outside what the 3D view can show"),
         BUILD_FAILED: QCoreApplication.translate(
             "View3DProblemsDialog", "its 3D model could not be built"),
+        GROUND_PAINT_FAILED: QCoreApplication.translate(
+            "View3DProblemsDialog", "it could not be painted completely on the 3D ground"),
     }
     return texts.get(code) or QCoreApplication.translate(
         "View3DProblemsDialog", "it could not be shown")
@@ -63,20 +84,36 @@ def reason_text(code: str) -> str:
 class Problem:
     """One item that is missing from the 3D view (or shown without its solid)."""
 
-    item_id: str
-    kind: str    # an ``ObjectType`` name
-    code: str    # a ``SkipReason`` value, or ``BUILD_FAILED``
+    item_id: str  # "" for a note about the ground as a whole
+    kind: str    # an ``ObjectType`` name ("" for a note)
+    code: str    # a ``SkipReason`` value, ``BUILD_FAILED`` or a ``GROUND_*`` code
     detail: str = ""  # the exception's type and message — for the tooltip, as logged
+    count: int = 0    # a note's number of ground tiles
 
 
-def problems_of(skipped: Iterable[SkippedItem],
-                failures: Mapping[str, BuildFailure]) -> tuple[Problem, ...]:
-    """The controller's two reports as one list: refused records first, in paint order."""
-    rows = [Problem(item.item_id, item.kind, str(item.reason.value),
-                    _detail(item.error_type, item.error_message)) for item in skipped]
+def problems_of(skipped: Iterable[SkippedItem], failures: Mapping[str, BuildFailure],
+                ground: GroundProblems | None = None) -> tuple[Problem, ...]:
+    """The controller's reports as one list: the ground's notes first (they belong to
+    no item, and must not fall under a row cap), then refused records in paint order,
+    failed builders, and items whose paint on the ground failed."""
+    rows: list[Problem] = []
+    if ground is not None:
+        if ground.unfinished is not None:
+            rows.append(Problem("", "", GROUND_UNFINISHED, _detail(*ground.unfinished)))
+        if ground.failure is not None:
+            rows.append(Problem("", "", GROUND_FAILED, _detail(*ground.failure)))
+        if ground.failed_tiles:
+            rows.append(Problem("", "", GROUND_TILES_FAILED, count=ground.failed_tiles))
+        if ground.capped_tiles:
+            rows.append(Problem("", "", GROUND_CAPPED, count=ground.capped_tiles))
+    rows += [Problem(item.item_id, item.kind, str(item.reason.value),
+                     _detail(item.error_type, item.error_message)) for item in skipped]
     rows += [Problem(failure.item_id, failure.kind, BUILD_FAILED,
                      _detail(failure.error_type, failure.error_message))
              for failure in failures.values()]
+    if ground is not None:
+        rows += [Problem(item_id, kind, GROUND_PAINT_FAILED, _detail(error_type, message))
+                 for item_id, kind, error_type, message in ground.items]
     return tuple(rows)
 
 
@@ -115,6 +152,27 @@ class View3DProblemsDialog(QDialog):
         """The user's words for a reason code (``reason_text``)."""
         return reason_text(code)
 
+    def note_text(self, problem: Problem) -> str:
+        """The row of a note about the ground as a whole (``problem.item_id == ""``)."""
+        if problem.code == GROUND_CAPPED:
+            if problem.count == 1:
+                return self.tr("3D ground: in one place the plan puts more surfaces than the "
+                               "ground can show; the smallest are left out")
+            return self.tr(
+                "3D ground: in {count} places the plan puts more surfaces than the ground "
+                "can show; the smallest are left out").format(count=problem.count)
+        if problem.code == GROUND_TILES_FAILED:
+            if problem.count == 1:
+                return self.tr("3D ground: one piece could not be painted and shows an older "
+                               "picture")
+            return self.tr(
+                "3D ground: {count} pieces could not be painted and show an older "
+                "picture").format(count=problem.count)
+        if problem.code == GROUND_UNFINISHED:
+            return self.tr("3D ground: it could not be finished; it is tried again with the "
+                           "next change")
+        return self.tr("3D ground: it could not be painted; it shows an older picture")
+
     def kind_text(self, kind: str) -> str:
         try:
             return get_translated_display_name(ObjectType[kind])
@@ -134,6 +192,12 @@ class View3DProblemsDialog(QDialog):
         if more:
             rows = rows[:max_rows]
         for problem in rows:
+            if not problem.item_id:  # a note about the ground: no name, no kind
+                note = QListWidgetItem(self.note_text(problem))
+                note.setData(_ITEM_ID_ROLE, "")
+                note.setToolTip(plain_tooltip(problem.detail))
+                self._list.addItem(note)
+                continue
             # A name comes from the plan file and a detail from an exception that may
             # quote it: both are untrusted (core/plain_text.py, §8.11). The row is plain
             # text by the default delegate — a name is shown as its characters — and

@@ -139,6 +139,7 @@ from open_garden_planner.core.scene3d.selection import SELECTION_RGBA
 
 from .adapter import GroundPlacement, PartSpec
 from .geometry import BufferGeometry, ReloadableGeometry
+from .ground_tiles import GroundTileError, GroundTiles
 from .lifecycle import (
     REPROBE_S,
     STALL_S,
@@ -476,6 +477,8 @@ class Quick3DHost:
             self._closed = True
             raise EngineError(f"{source} did not load: {errors or 'no root object'}")
         self._root: QQuickItem = root
+        #: The baked ground this host shows — its tile Models and their textures (L1.5).
+        self.ground = GroundTiles(root)
         self.qml_load_ms = (time.perf_counter() - started) * 1000.0
         self._log("qml_loaded", ms=round(self.qml_load_ms, 1), source=source.name)
         try:
@@ -580,6 +583,7 @@ class Quick3DHost:
         """
         if self.state is HostState.CLOSED:
             self._forget_parts()
+            self.ground.forget()
             return
         total = len(self._parts)
         failures: list[Exception] = []
@@ -639,14 +643,19 @@ class Quick3DHost:
 
     def set_ground(self, ground: GroundPlacement | None) -> None:
         self._open("set_ground")
-        if ground is None:
-            _set(self._root, "groundVisible", False)
-            _set(self._root, "groundCenter", QVector3D(0.0, 0.0, 0.0))
-            return
-        _set(self._root, "groundCenter", QVector3D(*ground.center))
-        _set(self._root, "groundWidth", float(ground.width_cm))
-        _set(self._root, "groundDepth", float(ground.depth_cm))
-        _set(self._root, "groundVisible", True)
+        try:
+            if ground is None:
+                self.ground.clear()
+                _set(self._root, "groundVisible", False)
+                _set(self._root, "groundCenter", QVector3D(0.0, 0.0, 0.0))
+                return
+            _set(self._root, "groundCenter", QVector3D(*ground.center))
+            _set(self._root, "groundWidth", float(ground.width_cm))
+            _set(self._root, "groundDepth", float(ground.depth_cm))
+            _set(self._root, "groundVisible", True)
+            self.ground.show(ground.tiles)  # the baked tiles (L1.5); none: bare ground
+        except GroundTileError as error:  # an engine failure like any other
+            raise EngineError(f"set_ground(): {error}") from error
 
     def request_frame(self) -> None:
         """A transaction closed. A live view is asked to repaint; any other open
@@ -840,6 +849,7 @@ class Quick3DHost:
             return
         if sip.isdeleted(self._view):
             self._forget_parts()  # the Models died with the scene
+            self.ground.forget()
             self._container = None
             self._closed = True
             return
@@ -849,6 +859,7 @@ class Quick3DHost:
             except Exception as error:  # noqa: BLE001 - the Model dies with the view
                 _LOG.warning("close(): a Model could not be destroyed (%s); it goes with the view",
                              error)
+        self.ground.forget()  # its Models die with the view; the textures are Python's
         self._view.hide()
         self._view.removeEventFilter(self._watch)
         container, self._container = self._container, None
@@ -1174,6 +1185,7 @@ class Quick3DHost:
     def _on_frame_swapped(self) -> None:
         self._on_gui_thread()
         self.frames_presented += 1
+        self.ground.frame_presented()  # the scene shows the new tiles: the replaced ones go
 
     def _on_qml_warnings(self, warnings: Any) -> None:
         self._on_gui_thread()

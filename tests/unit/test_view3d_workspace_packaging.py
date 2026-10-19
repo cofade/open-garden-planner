@@ -1,7 +1,7 @@
 """What the frozen build has to carry for the 3D workspace — and what it must not (L1.3).
 
-The workspace and everything behind it are imported lazily (behind ``OGP_QUICK3D=1``,
-and most of it only on the first switch to 3D), so ``installer/ogp.spec`` names the
+The workspace is built with every main window since L1.9, and the engine behind it
+only on the first switch to 3D — imported lazily, so ``installer/ogp.spec`` names the
 modules. The GATE build (``installer/workspace_gate.spec``) is the product build
 plus one runtime hook that moves the settings store: test tooling that must never
 drift from the product recipe, and a hook the product must never ship.

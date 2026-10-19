@@ -387,8 +387,11 @@ class TestRecord:
          ("path", ((-1.0, 0.0), (10.0, 0.0)), ((-2.0, 0.0), (10.0, 0.0))),
          ("path_width_cm", 1.0, 2.0**-61),
          ("height_cm", 2.0**-9 + 2.0**-42, 2.0**19 + 2.0**-9),
-         ("params", Params({"seed": "a", "radius_cm": -1.0}), Params({"seed": "a", "radius_cm": -2.0}))],
-        ids=["footprints", "holes", "path", "path_width_cm", "height_cm", "params"],
+         ("params", Params({"seed": "a", "radius_cm": -1.0}), Params({"seed": "a", "radius_cm": -2.0})),
+         # the polygon as drawn (L1.5): the ground bake paints it — an edit of it that
+         # only the hash saw would leave the old picture on the ground
+         ("outline", ((-1.0, 3.0), (5.0, 3.0), (5.0, 9.0)), ((-2.0, 3.0), (5.0, 3.0), (5.0, 9.0)))],
+        ids=["footprints", "holes", "path", "path_width_cm", "height_cm", "params", "outline"],
     )
     def test_every_geometry_value_is_compared_not_only_hashed(self, field, one, other) -> None:
         """The same collision in each field that holds numbers. Two floats collide
@@ -442,6 +445,7 @@ def _other(field: str) -> object:
         "height_cm": 41.0,
         "params": Params({"seed": "a", "radius_cm": 3.0}),
         "holes": ((HOLE,),),
+        "outline": SQUARE[::-1],  # L1.5: the polygon as drawn (here: clockwise)
     }[field]
 
 

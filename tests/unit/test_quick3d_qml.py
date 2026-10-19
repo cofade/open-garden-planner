@@ -145,7 +145,7 @@ def test_every_material_kind_has_its_part_component() -> None:
 def test_every_part_component_is_a_pickable_model_with_the_tint_properties() -> None:
     code = _scene()
     blocks = [block for block in re.split(r"Component\s*\{\s*id:\s*", code)[1:]
-              if block.split()[0].endswith("Part")]   # the others build the sky (L1.4)
+              if block.split()[0].endswith("Part")]   # the others build the sky (L1.4) or a ground tile (L1.5)
     assert len(blocks) == len(PART_COMPONENTS)
     for block in blocks:
         name = block.split()[0]

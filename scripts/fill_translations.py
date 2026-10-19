@@ -3262,6 +3262,38 @@ for _ctx, _strings in _L13_WORKSPACE_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
+# Phase 17 L1.5 Part B (#385): what the 3D ground could not do, in the problems list
+_L15_GROUND_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "View3DProblemsDialog": {
+        'it could not be painted completely on the 3D ground':
+            'die Darstellung auf dem 3D-Boden ist unvollständig',
+        '3D ground: in one place the plan puts more surfaces than the ground can show; the smallest are left out':
+            '3D-Boden: an einer Stelle liegen mehr Flächen, als der Boden zeigen kann; die kleinsten werden weggelassen',
+        '3D ground: in {count} places the plan puts more surfaces than the ground can show; the smallest are left out':
+            '3D-Boden: an {count} Stellen liegen mehr Flächen, als der Boden zeigen kann; die kleinsten werden weggelassen',
+        '3D ground: one piece could not be painted and shows an older picture':
+            '3D-Boden: ein Stück konnte nicht gemalt werden und zeigt ein älteres Bild',
+        '3D ground: {count} pieces could not be painted and show an older picture':
+            '3D-Boden: {count} Stücke konnten nicht gemalt werden und zeigen ein älteres Bild',
+        '3D ground: it could not be painted; it shows an older picture':
+            '3D-Boden: er konnte nicht gemalt werden; er zeigt ein älteres Bild',
+        '3D ground: it could not be finished; it is tried again with the next change':
+            '3D-Boden: er konnte nicht fertiggestellt werden; mit der nächsten Änderung wird es erneut versucht',
+    },
+    "Workspace": {
+        'The 3D ground does not show all of the plan':
+            'Der 3D-Boden zeigt nicht den ganzen Plan',
+        '1 object is not shown in 3D; the 3D ground does not show all of the plan':
+            '1 Objekt wird in 3D nicht angezeigt; der 3D-Boden zeigt nicht den ganzen Plan',
+        '{count} objects are not shown in 3D; the 3D ground does not show all of the plan':
+            '{count} Objekte werden in 3D nicht angezeigt; der 3D-Boden zeigt nicht den ganzen Plan',
+    },
+}
+
+for _ctx, _strings in _L15_GROUND_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
 # ── Phase 17 L1.8: selection, the info card and walk mode (#385, ADR-065) ──
 _L18_SELECTION_WALK_TRANSLATIONS: dict[str, dict[str, str]] = {
     "Workspace": {

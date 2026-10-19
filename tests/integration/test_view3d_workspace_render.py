@@ -13,9 +13,11 @@ The gates of the story that need pixels, a device or a clock:
 - **G5** the app closes clean with 3D visible, hidden, and never opened;
 - **G6** (twin) a start that died → compatibility mode with its notice, on the
   software adapter by Qt's own account → "try hardware" → hardware again;
-- **G7** the leak half of ADR-048 criterion 10: the A/B memory soak — no readback in
-  its measured loop; once with the view presenting and once with its frames withheld —
-  with its positive control, and DXGI's reading of dedicated GPU memory;
+- **G7** the leak half of ADR-048 criterion 10: the A/B memory soak of the PRODUCT (the
+  ground bake on; the bound allows for the known Qt leak #532, derived from the soak's own
+  ground) — no readback in its measured loop; once with the view presenting and once with
+  its frames withheld — with its positive control, DXGI's reading of dedicated GPU memory,
+  a tripwire for the day #532 is gone, and Model churn alone (the bake off);
 - **G8** Qt WebEngine renders before AND after the 3D host exists;
 - **G11** the 2D pan step beside the live 3D view costs at most 1.3 times what it
   costs alone.
@@ -31,6 +33,7 @@ names it (the build is not this test's job: ``installer/workspace_gate.spec``).
 from __future__ import annotations
 
 import json
+import math
 import os
 import sys
 import uuid
@@ -311,16 +314,62 @@ def test_no_edit_moves_the_real_cameras_and_a_new_document_does_once(scratch: Pa
 # back every cycle measures the readback. One frame before the loop and one after it
 # prove the picture. The gate is judged twice: with the view PRESENTING and with its
 # frames WITHHELD (shown, exposed, nothing draws it — the display asleep).
+#
+# THE GATE MEASURES THE PRODUCT (review 3 of L1.5, P1-2). ADR-065 decision 15 makes G7 the
+# leak half of ADR-048 criterion 10 — the product's memory — and the product always bakes
+# its ground. So every gate below soaks with the ground bake ON, and its bound is the
+# criterion's ``LEAK_BOUND_MB_PER_RELOAD`` plus an allowance for #532 derived from the
+# soak's OWN ground (``known_532_allowance_mb``). Model churn alone — the bake off — is an
+# additional variant against the plain bound; a tripwire watches for the day #532 is gone.
+
+#: #532, a Qt Quick 3D 6.11.0 bug: every cache release keeps about half of the same-size
+#: tile textures it finds cached. ``QSSGBufferManager::clear()``
+#: (``qssgrenderbuffermanager.cpp`` ~2049-2052) iterates ``customTextureMap`` with ``++it``
+#: while ``releaseTextureData(it.key())`` erases through its own lookup (~1516); Qt 6's
+#: ``QHash`` shifts the next entry of a collision run back into the freed slot, ``++it``
+#: skips it, and the map's final ``clear()`` drops it unreleased. The key's hash (~2290;
+#: ``qssgrendertexturedata_p.h`` 74-77) covers only size, depth, format and transparency,
+#: so every same-size tile collides. The allowance is this share of the ground's tile
+#: textures per release: about half leak; 0.6 is the room for how the collision runs fall.
+KNOWN_532_SHARE = 0.6
+KNOWN_532 = ("#532 (Qt Quick 3D 6.11.0): QSSGBufferManager::clear(), qssgrenderbuffermanager.cpp "
+             "~2049-2052, skips the QHash entries it erases while iterating customTextureMap "
+             "(releaseTextureData ~1516); same-size tile textures collide (key hash ~2290, "
+             "qssgrendertexturedata_p.h 74-77): about half of them leak per release")
+
+
+def known_532_allowance_mb(soak: dict[str, Any]) -> float:
+    """What #532 may add per reload, from the soak's OWN ground: ``KNOWN_532_SHARE`` of the
+    tile textures' bytes (the driver's ``ground_texture_mb`` — tiles × width × height × 4
+    × 4/3 for the mip chain) per release, times the releases per reload. Zero without a
+    ground bake, and zero for a soak that released nothing."""
+    return KNOWN_532_SHARE * soak["ground_texture_mb"] * soak["cache_releases"] / soak["reloads"]
+
+
+def leak_bound_mb(soak: dict[str, Any]) -> float:
+    return LEAK_BOUND_MB_PER_RELOAD + known_532_allowance_mb(soak)
+
+
+def _beyond(soak: dict[str, Any], curve: str) -> str:
+    """The failure message of a product gate: the curve, the bound's parts, #532."""
+    return (f"{curve} {soak[curve]}; bound {leak_bound_mb(soak):.2f} MB per reload = "
+            f"{LEAK_BOUND_MB_PER_RELOAD} + {known_532_allowance_mb(soak):.2f} "
+            f"({KNOWN_532_SHARE} x {soak['ground_texture_mb']} MB of {soak['ground_tiles']} "
+            f"tile textures x {soak['cache_releases']} releases / {soak['reloads']} reloads). "
+            f"A slope above it is MORE than {KNOWN_532}")
 
 
 def _soak(scratch: Path, variant: str, **options: Any) -> dict[str, Any]:
     run = _clean(run_gate(scratch, "soak", variant=variant, reloads=RELOADS, **options))
     step = run.step("soak")
-    keys = ("variant", "frames", "grabs", "release", "reloads", "start_mb", "curve_mb",
+    keys = ("variant", "frames", "grabs", "release", "ground", "ground_baker", "ground_tiles",
+            "ground_tile_px", "ground_texture_mb", "reloads", "start_mb", "curve_mb",
             "slope_second_half_mb_per_reload", "slope_all_mb_per_reload", "growth_mb",
             "after_the_last_frame_mb", "geometry_uploads", "kept_mb", "parts", "parts_after",
             "cache_releases", "in_the_loop", "frames_presented_per_reload", "presented_again",
-            "same_image_at_the_end", "gpu_curve_mb", "gpu_slope_second_half_mb_per_reload")
+            "same_image_at_the_end", "identical_image_at_the_end", "image_difference",
+            "gpu_curve_mb",
+            "gpu_slope_second_half_mb_per_reload")
     numbers = {key: step.get(key) for key in keys}
     numbers["adapter"] = run.qt["adapter"]
     numbers["gpu_before_mb"] = step["gpu_before"].get("process_dedicated_mb")
@@ -328,7 +377,10 @@ def _soak(scratch: Path, variant: str, **options: Any) -> dict[str, Any]:
     numbers["gpu_reading"] = ("IDXGIAdapter3::QueryVideoMemoryInfo, local segment, this process"
                               if step["gpu_before"].get("available") else
                               step["gpu_before"].get("why", "not available"))
-    name = "/".join([variant, *(f"{key}={options[key]}" for key in ("frames", "grabs", "release")
+    numbers["allowance_532_mb_per_reload"] = round(known_532_allowance_mb(numbers), 3)
+    numbers["bound_mb_per_reload"] = round(leak_bound_mb(numbers), 3)
+    name = "/".join([variant, *(f"{key}={options[key]}" for key in ("frames", "grabs", "release",
+                                                                   "ground")
                                 if key in options)])
     MEASURED.setdefault("G7", {})[name] = numbers
     return numbers
@@ -336,24 +388,36 @@ def _soak(scratch: Path, variant: str, **options: Any) -> dict[str, Any]:
 
 def _took_no_frame(soak: dict[str, Any]) -> None:
     assert soak["grabs"] == "none" and soak["in_the_loop"]["frames_read_back"] == 0
-    assert soak["same_image_at_the_end"] is True, "the ONE frame after the loop is the one before it"
+    # the same picture: no pixel more than ``SAME_IMAGE_TOLERANCE`` (2 of 255) apart — the
+    # sky can differ by 1 in a few pixels (workspace_gate_measure.py)
+    assert soak["same_image_at_the_end"] is True, (
+        f"the ONE frame after the loop is the one before it: {soak['image_difference']}")
     assert soak["parts_after"] == soak["parts"]
+
+
+def _the_product(soak: dict[str, Any]) -> None:
+    """The soak ran what ships: the workspace's own baker, and a ground of tiles."""
+    assert soak["ground"] == "on" and soak["ground_baker"] is True
+    assert soak["ground_tiles"] > 0 and soak["ground_texture_mb"] > 0.0, soak["ground_tile_px"]
 
 
 @pytest.fixture(scope="module")
 def soak_rebuild_on(scratch: Path) -> dict[str, Any]:
-    return _soak(scratch, "rebuild_on")
+    return _soak(scratch, "rebuild_on", ground="on")
 
 
 def test_twenty_rebuilds_of_the_engine_scene_stay_under_the_leak_bound(
         soak_rebuild_on: dict[str, Any]) -> None:
-    """ADR-048 criterion 10's leak half, in the production host, the view PRESENTING:
-    every reload tears the engine scene down and builds every Model and geometry again."""
+    """ADR-048 criterion 10's leak half, in the production host, the view PRESENTING, the
+    ground baked: every reload tears the engine scene down and builds every Model, every
+    geometry and every ground tile again."""
     soak = soak_rebuild_on
+    _the_product(soak)
     _took_no_frame(soak)
     assert soak["geometry_uploads"] == RELOADS * soak["parts"], "every reload rebuilt everything"
     assert min(soak["frames_presented_per_reload"]) >= 1, "every rebuild was drawn and presented"
-    assert soak["slope_second_half_mb_per_reload"] < LEAK_BOUND_MB_PER_RELOAD, soak["curve_mb"]
+    assert soak["slope_second_half_mb_per_reload"] < leak_bound_mb(soak), _beyond(
+        soak, "curve_mb")
 
 
 def test_the_workspace_released_the_engines_caches_after_every_rebuild(
@@ -367,6 +431,25 @@ def test_dedicated_gpu_memory_does_not_grow_with_the_rebuilds(soak_rebuild_on: d
     """What private bytes cannot see (ADR-048: "on a discrete GPU the gate is blind to
     VRAM leaks"): DXGI's own figure for THIS process on the adapter's local segment."""
     soak = soak_rebuild_on
+    _the_product(soak)
+    if soak["gpu_slope_second_half_mb_per_reload"] is None:
+        pytest.skip(f"no dedicated-GPU-memory reading here: {soak['gpu_reading']}")
+    assert soak["gpu_slope_second_half_mb_per_reload"] < leak_bound_mb(soak), _beyond(
+        soak, "gpu_curve_mb")
+
+
+@pytest.mark.xfail(strict=False, reason=(
+    "#532 is open: " + KNOWN_532 + ". A tripwire for the day Qt (or a tile path outside the "
+    "buffer manager's maps) stops the leak - NOT strict: on bench_small the leak reads 9.3 to "
+    "11.4 MB per rebuild on the RTX 4070 (eight runs, 2026-10-19; seven under 10), against the "
+    "plain bound of 10, so a pass does not tell a fix from noise (review 3, P1-2; L1.5 report)"))
+def test_without_532_dedicated_gpu_memory_would_stay_under_the_plain_leak_bound(
+        soak_rebuild_on: dict[str, Any]) -> None:
+    """The TRIPWIRE: the product's GPU slope against the plain ``LEAK_BOUND_MB_PER_RELOAD``
+    — no allowance. Expected to fail while #532 leaks; it passing means the leak is gone
+    and ``KNOWN_532_SHARE`` can go."""
+    soak = soak_rebuild_on
+    _the_product(soak)
     if soak["gpu_slope_second_half_mb_per_reload"] is None:
         pytest.skip(f"no dedicated-GPU-memory reading here: {soak['gpu_reading']}")
     assert soak["gpu_slope_second_half_mb_per_reload"] < LEAK_BOUND_MB_PER_RELOAD, soak["gpu_curve_mb"]
@@ -378,13 +461,15 @@ def test_the_same_rebuilds_stay_under_the_bound_in_a_view_that_presents_nothing(
     frame (the display asleep, a session that does not present — made on purpose: the
     view's expose, update and paint events are eaten). The pipeline goes on applying;
     nothing draws; and when the view presents again it shows the plan as it is."""
-    soak = _soak(scratch, "rebuild_on", frames="withheld")
+    soak = _soak(scratch, "rebuild_on", frames="withheld", ground="on")
+    _the_product(soak)
     _took_no_frame(soak)
     spell = soak["in_the_loop"]
     assert spell["frames_presented"] == 0 and spell["paint_events_eaten"] > 0, "the device"
     assert soak["geometry_uploads"] == RELOADS * soak["parts"], "the pipeline was not held back"
     assert spell["parts_at_the_end"] == soak["parts"]
-    assert soak["slope_second_half_mb_per_reload"] < LEAK_BOUND_MB_PER_RELOAD, soak["curve_mb"]
+    assert soak["slope_second_half_mb_per_reload"] < leak_bound_mb(soak), _beyond(
+        soak, "curve_mb")
     assert soak["presented_again"] is True
 
 
@@ -392,15 +477,24 @@ def test_reloads_that_rebuild_nothing_stay_flat(scratch: Path) -> None:
     soak = _soak(scratch, "rebuild_off")
     _took_no_frame(soak)
     assert soak["geometry_uploads"] == 0, "the same plan again: no Model is rebuilt"
-    assert soak["slope_second_half_mb_per_reload"] < LEAK_BOUND_MB_PER_RELOAD, soak["curve_mb"]
+    assert soak["slope_second_half_mb_per_reload"] < leak_bound_mb(soak), _beyond(
+        soak, "curve_mb")
 
 
-def test_the_positive_control_fails_on_exactly_that_gate(scratch: Path) -> None:
-    """25 MB kept alive per reload, on the same machine, through the same measurement:
-    the gate must see it — or a pass above means nothing."""
-    soak = _soak(scratch, "control")
-    assert soak["kept_mb"] == 25 * RELOADS and soak["in_the_loop"]["frames_read_back"] == 0
-    assert soak["slope_second_half_mb_per_reload"] >= LEAK_BOUND_MB_PER_RELOAD, soak["curve_mb"]
+def test_the_positive_control_fails_on_exactly_that_gate(
+        scratch: Path, soak_rebuild_on: dict[str, Any]) -> None:
+    """25 MB kept alive per reload BEYOND what the gate allows for #532, on the same
+    machine, through the same measurement and the same bound: the gate must see it — or
+    a pass above means nothing. (Pre-registered as 25 MB against a bound of 10; with the
+    allowance the bound is about 22 on bench_small, and a fixed 25 MB sat 3 MB above it
+    — run B of review 3 read 24.4 — in an instrument that swings by ±10 MB a run. Kept
+    25 MB above the allowance, the control's margin over the gate is the pre-registered
+    15 MB again.)"""
+    keep = 25 + math.ceil(known_532_allowance_mb(soak_rebuild_on))
+    soak = _soak(scratch, "control", keep_mb=keep)
+    assert soak["kept_mb"] == keep * RELOADS and soak["in_the_loop"]["frames_read_back"] == 0
+    assert soak["slope_second_half_mb_per_reload"] >= leak_bound_mb(soak), _beyond(
+        soak, "curve_mb")
 
 
 def test_what_the_soak_reads_without_the_release_is_reported(scratch: Path) -> None:
@@ -418,11 +512,37 @@ def test_a_release_inside_the_pass_holds_on_a_real_device_too(scratch: Path) -> 
     """The "at once" rule — what an animated date runs into — releases from INSIDE the
     pipeline's pass, right after Models were destroyed and created. Here every
     rebuild is such a flood (the threshold set to 1): no poll, no quiet moment."""
-    soak = _soak(scratch, "rebuild_on", release="flood")
+    soak = _soak(scratch, "rebuild_on", release="flood", ground="on")
+    _the_product(soak)
     _took_no_frame(soak)
     assert soak["cache_releases"] >= RELOADS, "every rebuild released with its pass"
     assert soak["geometry_uploads"] == RELOADS * soak["parts"]
-    assert soak["slope_second_half_mb_per_reload"] < LEAK_BOUND_MB_PER_RELOAD, soak["curve_mb"]
+    assert soak["slope_second_half_mb_per_reload"] < leak_bound_mb(soak), _beyond(
+        soak, "curve_mb")
+
+
+@pytest.mark.parametrize("release", ["product", "flood"])
+def test_model_churn_alone_stays_under_the_plain_leak_bound(scratch: Path, release: str) -> None:
+    """The ADDITIONAL variant: the same rebuilds with the ground bake OFF (a plain plan
+    rectangle) — what a destroyed MODEL leaves behind, alone, as ADR-065 decision 15 first
+    measured it — against the plain bound: no tile texture, so nothing of #532.
+
+    Judged on the DEDICATED-GPU slope where the device reports one (Ruling R46): private
+    bytes swing by 100–200 MB from one reload to the next with the bake on or off, so a
+    ten-point slope reads about ±13 MB on a flat curve (Model churn alone read −12.3, +7.5,
+    +8.0, +13.3 in four runs, the +13.3 with a flat GPU slope); the GPU reading was
+    −0.9 … +0.8 throughout. Private bytes are reported, and judged only where no GPU reading
+    exists (WARP / software)."""
+    soak = _soak(scratch, "rebuild_on", release=release, ground="off")
+    assert soak["ground_baker"] is False and soak["ground_tiles"] == 0
+    assert known_532_allowance_mb(soak) == 0.0
+    _took_no_frame(soak)
+    assert soak["cache_releases"] >= RELOADS
+    gpu = soak["gpu_slope_second_half_mb_per_reload"]
+    if gpu is None:
+        assert soak["slope_second_half_mb_per_reload"] < LEAK_BOUND_MB_PER_RELOAD, soak["curve_mb"]
+    else:
+        assert gpu < LEAK_BOUND_MB_PER_RELOAD, soak["gpu_curve_mb"]
 
 
 def test_what_a_readback_per_rebuild_costs_a_view_that_presents_nothing_is_reported(

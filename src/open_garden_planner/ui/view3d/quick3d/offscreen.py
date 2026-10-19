@@ -57,6 +57,7 @@ from PyQt6.QtGui import QImage
 
 from open_garden_planner.core.scene3d import (
     BuilderRegistry,
+    GroundBaking,
     GroundSpec,
     Record,
     SceneSync,
@@ -135,6 +136,11 @@ class OffscreenFrame:
     build_failures: Mapping[str, str] = field(default_factory=dict)
     #: ``QtMessages.report()``: counts per class, the errors, warnings, environment.
     qt: Mapping[str, Any] = field(default_factory=dict)
+    #: Ground tiles the frame shows (0: bare plan ground, or no ground at all).
+    ground_tiles: int = 0
+    #: ``(ErrorType, message)`` when a ground baker was given and its bake failed — the
+    #: frame then shows the plan ground BARE; None: baked, or nothing to bake with.
+    ground_failure: tuple[str, str] | None = None
     #: Sky textures built for this frame: 1 with ``sky_light=True``, else 0 (L1.4).
     sky_builds: int = 0
 
@@ -158,6 +164,7 @@ def render_records(
     qml_dir: Path | None = None,
     log: Callable[..., None] | None = None,
     graphics_info: bool = False,
+    ground_baker: GroundBaking | None = None,
     selected: Iterable[str] = (),
     sky_light: bool = False,
     prefer_software: bool = False,
@@ -169,7 +176,11 @@ def render_records(
     this inside the running app.
 
     ``sun=None``: no sunlight (fill only). ``ground=None``: the endless meadow
-    without a plan rectangle. ``log``: a ``log(phase, **fields)`` callable
+    without a plan rectangle. ``ground_baker``: paints the plan's flat surfaces
+    onto that rectangle (``ui.view3d.ground_bake.GroundBaker()``, L1.5); without
+    one the plan ground is bare. The picture shows the finished ground: a baker
+    with a time budget is run until nothing is pending (``GroundBaker(budget_s=
+    None)`` does it in one pass). ``log``: a ``log(phase, **fields)`` callable
     (``runlog.RenderLog``); without one nothing is written anywhere.
     ``selected``: ids drawn with the selection ring (L1.8) — the ring's shader is
     compiled only when something is selected.
@@ -217,9 +228,11 @@ def render_records(
                     "can be rendered")
             mark = time.perf_counter()
             sink = Quick3DSink(host)
-            sync = SceneSync(sink, registry)
+            sync = SceneSync(sink, registry, ground_baker=ground_baker)
             sync.select(selected)  # the ring rides the same transaction (L1.8)
             sync.apply(records, sun=sun, ground=ground)  # one transaction
+            while sync.ground_pending:  # a baker with a time budget: a still picture
+                sync.continue_ground()  # shows the FINISHED ground, however many passes
             host.set_shot(shot)
             breakdown["scene_apply"] = (time.perf_counter() - mark) * 1000.0
             if sky_light:
@@ -240,6 +253,7 @@ def render_records(
                 device_pixel_ratio=host.device_pixel_ratio(), view_size=host.view_size(),
                 items=len(sink.item_ids()), parts=parts, build_failures=failures,
                 qt=messages.report(), sky_builds=host.sky_builds,
+                ground_tiles=len(host.ground.keys()), ground_failure=sync.ground_failure,
             )
             emit("rendered", open_ms=round(open_ms, 1), api=api, adapter=frame.adapter,
                  px=f"{image.width()}x{image.height()}", qt=messages.report()["counts"],

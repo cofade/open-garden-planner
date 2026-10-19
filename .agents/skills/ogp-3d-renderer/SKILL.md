@@ -20,7 +20,8 @@ are §12, and rows it added to the tables below say "(L1.2)".
   `QtQml` or `QtQuickWidgets` (AST scan in the same test). The production package inherits the
   rule as `ui/view3d/quick3d/`.
 - **One engine package (L1.2).** In the product, only `ui/view3d/quick3d/` imports those
-  bindings — and inside it only `geometry.py` and `host.py` do; `selftest.py` names them as
+  bindings — and inside it only `geometry.py`, `host.py` and (L1.5, the ground's tile
+  textures) `ground_tiles.py` do; `selftest.py` names them as
   strings to import them one by one. Pinned over the WHOLE tree, imports by name included
   (`__import__("PyQt6.QtQuick3D")` is an import), by `tests/unit/test_quick3d_boundary.py`,
   which also pins that app start loads neither the bindings nor the package and that the
@@ -205,6 +206,14 @@ are §12, and rows it added to the tables below say "(L1.2)".
 
 ## 5. Ground texture
 
+- **The ground tiles' material is the endless meadow's** (roughness 1.0, specular amount 0.15,
+  `Garden.qml`'s `groundTile`): PrincipledMaterial scales the sky's diffuse light by
+  (1 − specular amount), and 0.92 / 0.2 measured 2–8 luma darker than the meadow at the plan's
+  edge (L1.4 look review, 2026-10-19). Pinned by
+  `tests/unit/test_quick3d_ground_tiles.py::TestTheTileComponent::test_its_material_is_the_meadows_so_the_plan_edge_shows_no_step`.
+- **Slices of work on the GUI thread may chain posted events.** A chain of 40 posted events of
+  10 ms each starved no timer: a 5 ms `QTimer` fired after the first slice, offscreen and on the
+  Windows platform (L1.5 Part B, 2026-10-19) — the controller's ground passes rely on it.
 - A `QImage` → `QQuick3DTextureData` (RGBA8) on a `#Rectangle` needs **`flipV: true`**: texture
   rows are north-up. Orientation probe (`--orient`): NCC identity 0.94 vs flip_v −0.10.
 - **Re-attach renders white** (the texture twin of the geometry rule in §2): the IoU and
@@ -241,6 +250,91 @@ are §12, and rows it added to the tables below say "(L1.2)".
   bytes; a discrete GPU keeps it in VRAM, unseen). Cause unidentified; locate it with an A/B
   soak, not a longer one. Record the whole curve (`leak_curve_mb`) with the verdict, and write
   numbers, not shapes: "ceiling", "slowing" and "threefold" each overreached on these curves.
+- **Production ground (L1.5): tiles, not one texture.** `ui/view3d/ground_bake.py` paints the
+  flat records into 512 px tiles (`core/scene3d/ground.py`: the finest of 1, ½, ¼ … px/cm within
+  4096 × 4096 px and 256 tiles; every tile a crop of ONE pixel grid);
+  `ui/view3d/quick3d/ground_tiles.py` shows one `#Rectangle` quad and one `QQuick3DTextureData`
+  per tile, and uploads only a tile whose `bytes` changed. Concept and bounds: docs §8.32.5.
+  Measured on bench_small (20 tiles, RTX 4070): first show 20 uploads; a 3 m item moved: ≤ 2
+  uploads, bake 3–6 ms, a finished `grab()` 4–10 ms later.
+- **The ground arrives in PASSES.** `GroundBaker()` paints for 10 ms a call (`BAKE_BUDGET_S`; at
+  least one tile, nearest to the last edit first) and leaves the rest pending — stale tiles, the
+  same objects as before, bare on first open. `SceneSync.ground_pending` says so;
+  `sync.continue_ground()` is one more pass (one transaction when a tile changed). bench_small
+  opens in 2 passes, bench_large in 8; one tile a pass on the RTX 4070: 14 transactions, each
+  uploading the tile it painted. A test or a screenshot that needs the FINISHED ground uses
+  `GroundBaker(budget_s=None)` or loops until nothing is pending (`render_records` loops); a
+  test of the budget injects a clock (`clock=`), never sleeps. Two rules of the queue: a call
+  that brings an EDIT while older tiles are pending paints the edit's own tiles first and then
+  one tile of the backlog whatever the budget says (a drag used to keep 14 of 15 tiles pending
+  for as long as it lasted) — so a pass is the budget plus up to two tiles; and a tile whose
+  paint raises as a whole keeps its picture, is listed in `GroundBaker.tile_failures`, is NOT
+  pending, and is retried by the next call that brings a change (clearing the baker instead
+  made the next edit blank 15 of 16 tiles). A bake that raises anywhere else is the sync's
+  `ground_failure`, and the sync calls `baker.restart()` — books forgotten, PICTURES kept until
+  each tile is painted anew — never `clear()`, which is for a new plan.
+- **A full tile loses its SMALLEST records, never a large one.** More than 256 records (or
+  262,144 vertex passes) in a tile: the members are ranked by how much of the tile their paint
+  box overlaps — box against box, ties to the topmost — and the lowest go; the rest is painted
+  in z order and the tile is in `GroundBaker.capped`. A lawn under 2,000 pavers stays wherever
+  its edge runs. The ranking does not know a shape: a thin diagonal line counts as large, and a
+  small item on top of 256 larger ones is lost.
+- **`ClampToEdge` on both axes of a tile texture.** With the default Repeat, linear filtering at
+  a tile's edge blends in its OPPOSITE edge. Invisible on a uniform lawn; on a lawn with another
+  colour at the tiles' far edges the luma spread at a four-tile corner was 7.9 (and 24.9 along a
+  border, minified) against 0.0 clamped. A seam test needs that second lawn.
+- **Lay each quad a hair wider than its tile** (`SEAM_OVERLAP_CM` = 0.02): two quads whose
+  shared edge is computed twice in float32 must not leave a line of the meadow below. The
+  control — quads 1 cm SHORT on every side — reads a luma spread of 48 magnified and a line dip
+  of 29 in a low oblique view (0.46 without the gap). The bare plan rectangle is hidden while
+  tiles lie on it (two coplanar surfaces fight for the depth buffer).
+- **An attached `QQuick3DTextureData` cannot be updated in place.** `setTextureData(new)` +
+  `update()` on a texture a `Texture` shows changed nothing on screen; nor did emitting
+  `textureDataNodeDirty` by hand, nor setting the `Texture`'s property to null and back in the
+  same turn (each variant rendered and read back: twelve cycles, the first picture every time).
+  A fresh object per change shows. (`markAllDirty()` is not exposed by PyQt6 6.11.)
+- **ONE texture per `Texture` element, for life — a re-pointed `Texture` goes WHITE.** When a
+  `QQuick3DTextureData` that a `Texture` once held is destroyed, Qt resets that element's
+  `textureData` to null, whatever it holds by then (a QML binding `textureData: someProperty`
+  does not run again). Measured, two tiles, RTX 4070 and WARP: tile A re-textured, then tile B,
+  then a frame — A is white; a tile re-textured, a frame, its replaced texture let go — white one
+  frame later. Hidden for a whole story because every scenario re-baked the SAME tiles after each
+  frame (which sets the property again) and the hardware window presented no frames (so the
+  release after a frame never ran). So a re-baked tile is a NEW Model with its own texture
+  (`ground_tiles._replace` = drop + create), like "one geometry per Model". Test updates WITHOUT
+  a frame between them, on different objects, and look again one frame later.
+- **Count texture objects on the C++ side, not Python references.** `ground_tiles.textures_alive()`
+  counts the textures made (held in a weak set) whose C++ object `sip.isdeleted` says still
+  exists: over twenty full re-bakes of 16 tiles it never exceeds 32 (the shown generation and
+  the one it replaced), and reads 320 with the spike's keep-alive list. A Python-owned `QObject`
+  subclass instance IS destroyed when Python lets go of it. (It first counted down on Qt's
+  `destroyed` signal; a Python callable on `destroyed` may never run once the cyclic collector
+  reached the wrapper first, so the product hangs none — `test_sim_clock_subscription.py`.)
+- **No repeated `grab()` on a live host that is not presenting — it is the grab that grows a
+  Direct3D 11 process, not the upload.** Direct3D frees what was released when a frame is
+  PRESENTED; a frame rendered by `grab()` is rendered (its textures are uploaded for it) and
+  never presented. Twenty full re-bakes of a 16 MB ground on the RTX 4070 while its window
+  presented 0 frames, private bytes per re-bake: a `grab()` after every re-bake **+16 to
+  +17 MB** (one generation, given back only when the view closes; 32 texture objects alive, never
+  more); a `grab()` every fifth **+3.2**; NO `grab()` **+0.0** (nothing is rendered, so nothing is
+  uploaded). Flat in all three on WARP (33–41 frames presented), on OpenGL, and on the same
+  hardware window once it presented (38 frames, a grab a cycle: +0.04). The first diagnosis here
+  — "keeps every upload until a frame is presented; apply edits no faster than frames" — came
+  from a soak that grabbed every cycle, and its remedy targeted the wrong variable. So: (1) a
+  leak soak takes NO frame in its measured loop (a live view takes none) — and asks the QML
+  scene nothing there either: per cycle it reads counters on the Python side — and is then an
+  unconditional gate; the grabbing soak is its control. Say which CELL a run measured: in a
+  hardware window that presents nothing the soak renders nothing, so it shows the process side
+  only (half a gate); a hardware window that presents is a manual check ("watch Commit size
+  while dragging a lawn with the display on"). (2) A still picture of a live view goes
+  through the offscreen path (`offscreen.render_records`: its own hidden view, closed after one
+  frame — everything is given back), never through repeated `host.grab()`. (3) Record
+  `host.health().frames_presented` with every memory curve. Why that window presented nothing is
+  not established (an OpenGL window on the same GPU presented 45 frames in the same session).
+- **Compare a top-down frame with a baked image like with like.** The truth view is linear
+  light and each frame pixel covers several texels: the bake against the frame scored NCC 0.93
+  compared naively and 0.98 after linearising the bake and averaging the texels a pixel covers
+  (flips: 0.08 / −0.11 / −0.07 either way).
 
 ## 6. Hosts
 
@@ -539,6 +633,10 @@ triangles (`scripts/bench_view3d.py`).
 | A custom material renders the wrong colour, run "ok" | shader compile error is a `QtWarningMsg` | record Qt messages; fail on shader/QML errors |
 | "Cold" open time on the second run of the day | Qt/Mesa disk caches from the first | `--cold`, and read `shader_caches.found_before_run` |
 | RSS climbs ~30 MB per project reload | append-only keep-alive list of ground textures | hold only the shown texture; judge by the tail slope |
+| Private bytes climb by one ground upload per cycle, and fall back when the view closes | `grab()` on a Direct3D 11 hardware window that presents no frame: the grabbed frame's uploads stay committed until a Present | not a lifetime bug if `textures_alive()` stays ≤ 2 generations; take the grab out of the loop — the curve is flat; screenshots through the offscreen path (§5) |
+| A ground tile turns WHITE after another tile was re-baked, or one frame after its own re-bake | its `Texture` element was pointed at a second `QQuick3DTextureData`; destroying the first reset `textureData` to null | one texture per `Texture`, for life: a re-baked tile is a new Model (§5) |
+| A tile border shows as a line only on patterned ground | the tile texture repeats: its opposite edge is blended in | `tilingModeHorizontal` / `Vertical: Texture.ClampToEdge` (§5) |
+| A re-baked tile keeps its old picture | its `QQuick3DTextureData` was updated in place | a NEW Model with a new texture object per change (§5) |
 | Plan ground white after a probe; the second window "differs" by ~10 luma | the same `QQuick3DTextureData` re-attached after being detached | re-upload it on re-attach; assert `probe_restore_frame_diff` < 1 |
 | The second offscreen frame is an empty sky (L1.2) | a never-shown window renders one frame, then its scene is gone | one host per offscreen frame |
 | A wait for frames times out although the window is visible (L1.2) | display asleep: no vertical blank, no update requests | never wait for presented frames; `grab()` |
@@ -723,6 +821,25 @@ every measurement: ADR-048, addendum L1.2. What you need at the keyboard:
 Concept: docs §8.32.3; decisions and every number: ADR-065 and the ADR-048 addendum "L1.3"; the
 test patterns: docs §8.10.27. What the ENGINE taught once it ran inside the real app:
 
+- **`releaseResources()` LEAKS same-size `QQuick3DTextureData` textures (Qt 6.11.0, #532).**
+  `QSSGBufferManager::clear()` (`qssgrenderbuffermanager.cpp` ~2049–2052) iterates
+  `customTextureMap` with `++it` while `releaseTextureData(it.key())` erases through its own
+  lookup (~1516); Qt 6's `QHash` back-shifts the next entry of a collision run into the freed
+  slot, `++it` skips it, and the final `clear()` of the map drops it unreleased. The key's hash
+  (~2290; `qssgrendertexturedata_p.h` 74–77) is size / depth / format / transparency only, so
+  same-size textures all collide: about half leak per release (WARP, 16 × 512²: +10.8 MB a
+  cycle). Static textures too (release, then a redraw). Distinct sizes only help below ~16
+  textures; in-place `setTextureData` updates show a STALE picture; `Texture.sourceItem` images
+  avoid the map but still kept one generation per rebuild in the workspace (holder unknown).
+  The `imageMap` loop (~2043–2046) has the same pattern; the mesh branch copies keys first.
+  Measured on the L1.5 branch, 2026-10-19 (probes in the plans' `scratch/L1.5/fu22/`).
+  **In the product EVERY release leaks** (the bake asks for none, but item changes do —
+  64 retired Models + 0.5 s quiet, or 512 at once; a date change on a planted plan retires
+  every plant): up to ~42 MB per release for the largest ground (4096² px, ~85 MB with
+  mips). Gate what ships: the workspace's G7 soak runs with the bake ON against
+  `LEAK_BOUND` + 0.6 × its OWN tile-texture bytes per release × releases per reload
+  (the driver reports `ground_texture_mb`) — not with the bake off, not against a fixed
+  ceiling (L1.5 review 3).
 - **Qt keeps graphics state for every Model it ever drew — release it.** After a Model is
   destroyed, Qt Quick 3D still holds its cached per-draw-call state: about 62 kB per Model, about
   190 kB when it casts into the sun's two shadow cascades, independent of the mesh's size

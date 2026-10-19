@@ -51,7 +51,7 @@ GUI thread only, like everything that touches the scene.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 
 import numpy as np
@@ -60,6 +60,7 @@ from open_garden_planner.core.scene3d import (
     EngineBuffers,
     EnginePose,
     GroundSpec,
+    GroundTile,
     Material,
     MeshPart,
     Rgba,
@@ -90,12 +91,30 @@ class PartSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class TilePlacement:
+    """One baked ground tile (``core.scene3d.GroundTile``) in the ENGINE frame: where
+    its quad lies, and its picture (L1.5)."""
+
+    key: tuple[int, int]
+    center: tuple[float, float, float]
+    width_cm: float    # along engine x (East)
+    depth_cm: float    # along engine z (North)
+    width_px: int
+    height_px: int
+    #: RGBA8, row 0 on the NORTH edge — the very ``bytes`` object of the tile: an
+    #: engine scene tells an unchanged tile by it and uploads nothing.
+    pixels: bytes = field(repr=False)
+
+
+@dataclass(frozen=True, slots=True)
 class GroundPlacement:
-    """The plan rectangle in the ENGINE frame: its centre and its extents in cm."""
+    """The plan rectangle in the ENGINE frame: its centre and its extents in cm —
+    and the COMPLETE set of its baked tiles (none: bare ground)."""
 
     center: tuple[float, float, float]
     width_cm: float    # along engine x (East)
     depth_cm: float    # along engine z (North)
+    tiles: tuple[TilePlacement, ...] = ()
 
 
 class EngineScene(Protocol):
@@ -127,7 +146,10 @@ class EngineScene(Protocol):
         """The unit vector the sunlight travels along, engine frame — or None: no sun."""
 
     def set_ground(self, ground: GroundPlacement | None) -> None:
-        """Size and place the plan rectangle — or None: no plan ground."""
+        """Size and place the plan rectangle and show its tiles — or None: no plan
+        ground. ``ground.tiles`` is the complete set: a tile the scene already
+        shows (the same ``pixels``) is left alone, another is uploaded, one that is
+        no longer named is dropped."""
 
     def request_frame(self) -> None:
         """A transaction closed: show the new state."""
@@ -319,7 +341,8 @@ class Quick3DSink:
             np.array([ground.width_cm / 2.0, ground.depth_cm / 2.0, 0.0], dtype=np.float64))
         self._scene.set_ground(GroundPlacement(
             center=(float(center[0]), float(center[1]), float(center[2])),
-            width_cm=ground.width_cm, depth_cm=ground.depth_cm))
+            width_cm=ground.width_cm, depth_cm=ground.depth_cm,
+            tiles=tuple(_tile_placement(tile) for tile in ground.tiles)))
 
     def set_selection(self, selection: Selection) -> None:
         self._require_open("set_selection")
@@ -362,6 +385,17 @@ class Quick3DSink:
         if held is None:
             raise SinkProtocolError(f"{op}(): unknown item {item_id!r}")
         return held
+
+
+def _tile_placement(tile: GroundTile) -> TilePlacement:
+    """A ground tile in the engine frame — the ONE place its rectangle is mapped."""
+    center = scene_to_engine_points(np.array(
+        [tile.east_cm + tile.width_cm / 2.0, tile.north_cm + tile.depth_cm / 2.0, 0.0],
+        dtype=np.float64))
+    return TilePlacement(
+        key=tile.key, center=(float(center[0]), float(center[1]), float(center[2])),
+        width_cm=tile.width_cm, depth_cm=tile.depth_cm,
+        width_px=tile.width_px, height_px=tile.height_px, pixels=tile.pixels)
 
 
 def _require_empty(call: str, scene: EngineScene) -> None:

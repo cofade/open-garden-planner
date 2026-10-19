@@ -11,8 +11,8 @@ as a solid turns a 3.6 m² fence into an 80 m² slab (senior review, fix round 1
 Plain Python on float pairs, except where a test is quadratic and runs on every
 edit of a ring — the simplicity test of a large ring and the triangulation of a
 region with holes run on numpy. ``triangulate_polygon`` is the ear clipper the
-Qt 3D view has always used (US-E6), moved here unchanged so it survives
-``legacy.py``; ``triangulate_region`` adds holes by bridging each hole to the
+Qt 3D view of US-E6 used, moved here unchanged from the pre-L1.1 module that L1.10
+deleted with that view; ``triangulate_region`` adds holes by bridging each hole to the
 boundary and clipping ears of the merged ring.
 
 ONE predicate says whether a region may be handed to a builder:

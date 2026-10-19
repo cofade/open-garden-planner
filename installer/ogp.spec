@@ -154,6 +154,7 @@ a = Analysis(
         # imported with the first switch to 3D.
         "open_garden_planner.ui.view3d",
         "open_garden_planner.ui.view3d.snapshot",
+        "open_garden_planner.ui.view3d.ground_bake",
         # Qt Quick 3D engine (ADR-048, L1.2): ui/view3d/quick3d/ is the ONE
         # package that imports these bindings, and it is loaded lazily (the
         # workspace opens 3D on demand; `--selftest` renders a frame). The
@@ -167,6 +168,7 @@ a = Analysis(
         "open_garden_planner.ui.view3d.quick3d",
         "open_garden_planner.ui.view3d.quick3d.adapter",
         "open_garden_planner.ui.view3d.quick3d.geometry",
+        "open_garden_planner.ui.view3d.quick3d.ground_tiles",
         "open_garden_planner.ui.view3d.quick3d.host",
         "open_garden_planner.ui.view3d.quick3d.lifecycle",
         "open_garden_planner.ui.view3d.quick3d.look",

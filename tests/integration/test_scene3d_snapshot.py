@@ -49,11 +49,13 @@ from open_garden_planner.core.commands import (
     RotateItemCommand,
 )
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
+from open_garden_planner.core.item_look import adopt_pen
 from open_garden_planner.core.object_height import METADATA_KEY, effective_height_cm
 from open_garden_planner.core.object_types import ObjectType, PathFenceStyle
 from open_garden_planner.core.scene3d import (
     SHAPES,
     Material,
+    Paint,
     Params,
     Record,
     RecordingSink,
@@ -149,7 +151,7 @@ def _polyline() -> Any:
     item = PolylineItem(points, object_type=ObjectType.WALL)
     pen = item.pen()
     pen.setWidthF(24.5)
-    item.setPen(pen)
+    adopt_pen(item, pen)
     return item
 
 
@@ -236,7 +238,7 @@ def _restroke(item: Any, color: QColor) -> ChangePropertyCommand:
         target.stroke_color = value
         pen = target.pen()
         pen.setColor(value)
-        target.setPen(pen)
+        adopt_pen(target, pen)
 
     return ChangePropertyCommand(item, "stroke color", QColor(item.pen().color()), color, apply)
 
@@ -300,20 +302,33 @@ class TestDiffMatrix:
         before = stage.record
         stage.commands.execute(RotateItemCommand(stage.item, 0.0, angle, apply_rotation))
         result = stage.step()
-        assert result.geometry == () and result.material == ()
+        assert result.geometry == ()
         assert result.added == () and result.removed == () and not result.reordered
         after = stage.record
         assert after.footprints == before.footprints and after.path == before.path
-        if stage.shape in ROUND:
+        if stage.shape == "plant":
             # A circle's footprint does not turn with its item (`item_footprints`
             # polygonises it around the mapped centre), so its record keeps rotation
             # 0 — and a turn about its own centre, which is the app's rotation
             # gesture, changes nothing at all: "transform only" with nothing in it.
             assert result == SceneDiff()
             assert after == before
+        elif stage.shape == "circle":
+            # … for a circle the canvas PAINTS, one thing does turn: what is painted in
+            # its coordinates — a fill texture, a dash pattern, a sprite (the ground
+            # bake, L1.5). That turn is a fact of its PAINT: a material change, which
+            # no builder sees. Geometry and transform are what they were — the solid
+            # of a circle does not turn.
+            assert result == SceneDiff(material=(stage.id,))
+            assert after.transform == before.transform and after.transform.rotation_deg == 0.0
+            assert after.same_geometry(before) and after.params == before.params
+            assert before.material.paint is not None and after.material.paint is not None
+            assert before.material.paint.rotation_deg == 0.0
+            assert after.material.paint.rotation_deg == angle
         else:
             assert result == SceneDiff(transform=(stage.id,))
             assert after.transform.rotation_deg == angle
+            assert after.material == before.material
 
     def test_a_rotated_item_still_moves_as_transform_only(self, stage: Stage) -> None:
         stage.commands.execute(RotateItemCommand(stage.item, 0.0, 213.5, apply_rotation))
@@ -374,7 +389,7 @@ class TestDiffMatrix:
         stage = Stage(canvas, "polyline")  # only a polyline's footprint depends on its stroke
         pen = stage.item.pen()
         pen.setWidthF(40.0)
-        stage.item.setPen(pen)
+        adopt_pen(stage.item, pen)
         assert stage.step() == SceneDiff(geometry=(stage.id,))
         assert stage.record.path_width_cm == 40.0
 
@@ -710,7 +725,7 @@ def _plain(value: Any) -> bool:
         return all(_plain(v) for v in value)
     if isinstance(value, Params):
         return all(_plain(v) for v in value.values())
-    if isinstance(value, Transform | Material):
+    if isinstance(value, Transform | Material | Paint):  # Paint: the material's own part (L1.5)
         return all(_plain(getattr(value, f)) for f in value.__dataclass_fields__)
     return False
 
@@ -865,8 +880,10 @@ class TestRecordContent:
     def test_a_circle_turned_about_another_pivot_moves_and_still_does_not_rotate(
         self, canvas: CanvasView
     ) -> None:
-        """Only a pivot away from the centre makes a circle's rotation visible — as a
-        new position. Its record still carries rotation 0."""
+        """Only a pivot away from the centre makes a circle's rotation visible in its
+        GEOMETRY — as a new position. Its record still carries rotation 0; the
+        turn itself is a fact of its paint (L1.5: what is painted in a circle
+        turns with it), a material change."""
         item = _circle()
         canvas.scene().addItem(item)
         before = snapshot_records(canvas.scene())
@@ -874,8 +891,10 @@ class TestRecordContent:
         item.setRotation(90.0)
         after = snapshot_records(canvas.scene())
         item_id = str(item.item_id)
-        assert diff(before, after) == SceneDiff(transform=(item_id,))
+        assert diff(before, after) == SceneDiff(transform=(item_id,), material=(item_id,))
         assert after[item_id].transform == Transform(-220.25, 310.5, 0.0)  # (x, y) → (−y, x)
+        assert after[item_id].material.paint.rotation_deg == 90.0
+        assert after[item_id].same_geometry(before[item_id])
 
     @pytest.mark.parametrize("height", [1e300, 1.0000001e6, float("inf")],
                              ids=["1e300", "just over the bound", "infinite"])
@@ -988,7 +1007,7 @@ class TestRecordContent:
         canvas.scene().addItem(fence)
         pen = fence.pen()
         pen.setWidthF(3.0e6)
-        fence.setPen(pen)
+        adopt_pen(fence, pen)
         assert fence.pen().widthF() < 32768.0  # Qt kept the old width
         real = snapshot_module.item_outline
         monkeypatch.setattr(snapshot_module, "item_outline", lambda item, at_date=None:
@@ -1031,7 +1050,7 @@ def _fence(points: list[tuple[float, float]], width_cm: float = 10.0) -> Any:
     item = PolylineItem([QPointF(x, y) for x, y in points], object_type=ObjectType.FENCE)
     pen = item.pen()
     pen.setWidthF(width_cm)
-    item.setPen(pen)
+    adopt_pen(item, pen)
     return item
 
 

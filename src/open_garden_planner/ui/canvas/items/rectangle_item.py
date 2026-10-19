@@ -167,12 +167,17 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         self._setup_flags()
         self.initialize_label()
 
+    @property
+    def paints_sprite(self) -> bool:
+        """A furniture rectangle is painted as an SVG sprite (``GardenItemMixin.paints_sprite``)."""
+        return is_furniture_type(self.object_type)
+
     def _setup_styling(self) -> None:
         """Configure visual appearance based on object type."""
         style = get_style(self.object_type) if self.object_type else get_style(ObjectType.GENERIC_RECTANGLE)
 
         # Furniture types use SVG rendering — hide pen and brush
-        if is_furniture_type(self.object_type):
+        if self.paints_sprite:
             self.setPen(QPen(Qt.PenStyle.NoPen))
             self.setBrush(QBrush())
             return

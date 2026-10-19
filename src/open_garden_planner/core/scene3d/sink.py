@@ -40,6 +40,7 @@ from typing import TYPE_CHECKING, NamedTuple, Protocol, runtime_checkable
 
 from ..shadow_geometry import MIN_SUN_ELEVATION_DEG
 from .frame import sun_direction_scene
+from .ground import GroundTile
 from .mesh import MeshPart
 from .record import Material, Transform
 from .selection import EMPTY_SELECTION, Selection
@@ -90,19 +91,36 @@ class SunState:
 @dataclass(frozen=True, slots=True)
 class GroundSpec:
     """The plan's ground: the canvas rectangle from scene (0, 0) to
-    (``width_cm`` east, ``depth_cm`` north).
+    (``width_cm`` east, ``depth_cm`` north), and what is painted on it.
 
-    Deliberately minimal — L1.5 (ground bake) owns the final shape and adds the
-    baked surface to it.
+    ``tiles`` (L1.5, ``core/scene3d/ground.py``): the baked surface, as the
+    COMPLETE set of its tiles — every flat item of the plan painted as the 2D
+    canvas paints it, bare ground in the meadow's albedo. Empty: bare ground
+    all over. A sink compares the tiles with those it already shows
+    (``ground.changed_tiles``) and uploads only the ones that differ; a tile
+    that was not re-baked is the same object as before, so that comparison is
+    free. ``SceneSync`` fills them in from its ground baker; a caller without
+    one passes the rectangle alone.
     """
 
     width_cm: float
     depth_cm: float
+    tiles: tuple[GroundTile, ...] = ()
 
     def __post_init__(self) -> None:
         for name, value in (("width_cm", self.width_cm), ("depth_cm", self.depth_cm)):
             if not math.isfinite(value) or value <= 0.0:
                 raise ValueError(f"GroundSpec.{name} must be a positive length, got {value!r}")
+        if not isinstance(self.tiles, tuple) or not all(
+                isinstance(tile, GroundTile) for tile in self.tiles):
+            raise TypeError("GroundSpec.tiles is a tuple of GroundTile")
+        if len({tile.key for tile in self.tiles}) != len(self.tiles):
+            raise ValueError("GroundSpec.tiles holds two tiles for one place in the grid")
+
+    @property
+    def plan(self) -> GroundSpec:
+        """The rectangle alone — this ground without its tiles."""
+        return self if not self.tiles else GroundSpec(self.width_cm, self.depth_cm)
 
 
 @runtime_checkable

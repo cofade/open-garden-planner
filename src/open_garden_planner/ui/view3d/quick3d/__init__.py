@@ -19,6 +19,7 @@ module          engine  what it is
 ``qt_messages`` no      Qt message capture — a shader or QML error fails a render
 ``selftest``    lazy    the frozen exe's 3D self-test (imports the engine in ``run``)
 ``geometry``    YES     ``QQuick3DGeometry`` fed from ``core.scene3d.engine_buffers``
+``ground_tiles`` YES    the baked ground: one textured quad per tile (L1.5)
 ``host``        YES     ``Quick3DHost``: the view, the scene, grab, pick, camera
 ``offscreen``   YES     one hidden view → one ``QImage``; log and watchdog
 ==============  ======  =====================================================

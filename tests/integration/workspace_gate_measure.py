@@ -231,6 +231,40 @@ def _grab(host: Any) -> tuple[float, Any]:
     return (time.perf_counter() - started) * 1000.0, image
 
 
+#: Two readbacks of the same plan and camera are "the same picture" when no channel of
+#: any pixel differs by more than this (of 255). Since the L1.4 sky, the frame after a
+#: soak is not always bit-identical to the one before it: measured on the RTX 4070,
+#: 2026-10-19 (L1.5 review 3), rebuild_off soaks differed in 6 pixels of the sky band by
+#: 1 in about half the runs, at the story's head as well. A tile left bare, a missing
+#: Model or a different camera differs by far more (a bare tile against a lawn: > 30).
+SAME_IMAGE_TOLERANCE = 2
+
+
+def _image_difference(first: Any, last: Any) -> dict[str, Any]:
+    """How two readbacks differ — for the report when they are not the same image: the
+    pixels that differ, the largest channel difference, and the box they lie in."""
+    import numpy as np
+    from PyQt6.QtGui import QImage
+
+    def pixels(image: Any) -> Any:
+        rgba = image.convertToFormat(QImage.Format.Format_RGBA8888)
+        data = rgba.constBits()
+        data.setsize(rgba.sizeInBytes())
+        rows = np.frombuffer(data, np.uint8).reshape(rgba.height(), rgba.bytesPerLine())
+        return rows[:, :rgba.width() * 4].reshape(rgba.height(), rgba.width(), 4).astype(np.int16)
+
+    if first is None or last is None or first.size() != last.size():
+        return {"comparable": False}
+    delta = np.abs(pixels(first) - pixels(last)).max(axis=2)
+    rows, columns = np.nonzero(delta)
+    if rows.size == 0:
+        return {"comparable": True, "pixels": 0}
+    return {"comparable": True, "pixels": int(rows.size), "largest": int(delta.max()),
+            "over_8": int((delta > 8).sum()),
+            "box": [int(columns.min()), int(rows.min()), int(columns.max()), int(rows.max())],
+            "size": [first.width(), first.height()]}
+
+
 def _editable(window: Any) -> dict[str, list[Any]]:
     """Items of the open plan the scripted edits use, by shape."""
     from open_garden_planner.ui.canvas.items.circle_item import CircleItem
@@ -496,7 +530,7 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
     """``variant``: ``rebuild_off`` (a reload is a plain apply: the plan's ids are the
     same, so no Model is rebuilt), ``rebuild_on`` (every reload also tears the engine
     scene down and builds every Model and geometry again), ``control`` (rebuild on,
-    plus 25 MB kept alive per reload — the gate must FAIL on it).
+    plus ``keep_mb`` — default 25 — MB kept alive per reload: the gate must FAIL on it).
 
     ``frames``: ``presented`` (the default: the view draws and presents as a visible
     view does) or ``withheld`` (the engine story's no-paint device for the length of
@@ -519,7 +553,15 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
     thresholds out of reach: what the same soak reads WITHOUT the release — the
     A of this A/B) or ``flood`` (the "at once" threshold at 1: every pass that
     destroyed a Model releases INSIDE the pass, the path an animated date takes —
-    never waited for, never polled)."""
+    never waited for, never polled).
+
+    ``ground``: ``on`` (the default — the product: the workspace's own ground bake) or
+    ``off`` (the workspace gets no baker: a plain plan rectangle — Model churn alone).
+    With the bake on, Qt Quick 3D 6.11's ``QSSGBufferManager::clear()`` leaks about
+    half the same-size tile textures on every release (#532), so the soak REPORTS what
+    the ground's textures hold (``ground_texture_mb``: tiles × width × height × 4 bytes
+    × 4/3 for the mip chain — the tiles generate mipmaps, ``Garden.qml``); the gate
+    derives its allowance for #532 from that number and the releases it counted."""
     from PyQt6.QtCore import QEvent, QObject
 
     from open_garden_planner.ui.view3d import workspace as workspace_module
@@ -538,6 +580,13 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
     release = str(args.get("release", "product"))
     frames_mode = str(args.get("frames", "presented"))
     grabs = str(args.get("grabs", "none"))
+    keep_mb = int(args.get("keep_mb", 25))  # what ``control`` keeps alive per reload
+    ground = str(args.get("ground", "on"))
+    assert ground in ("on", "off"), ground
+    if ground == "off":
+        from open_garden_planner.ui.view3d import ground_bake as ground_bake_module
+
+        ground_bake_module.GroundBaker = lambda: None  # type: ignore[assignment,misc]
     assert frames_mode in ("presented", "withheld") and grabs in ("none", "every"), (frames_mode, grabs)
     if release == "off":
         workspace_module.RELEASE_AFTER_RETIRED = 10**9  # type: ignore[misc]
@@ -563,9 +612,14 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
         host._view.update()
         return _pump_until(lambda: host.health().frames_presented >= wanted, timeout_s)
 
+    def settled() -> bool:
+        """No pass owed — and no GROUND pass either: the ground is painted to the end
+        (a frame taken while tiles are pending shows them bare, and differs)."""
+        return not controller.dirty and not controller.ground_owed
+
     # the ONE frame before the loop — and presented frames after it, so that what
     # the readback's own frame held is given back before anything is measured
-    _pump_until(lambda: not controller.dirty, 10.0)
+    _pump_until(settled, 10.0)
     present()
     first = _grab(host)[1]
     present()
@@ -601,12 +655,12 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
             traced[str(_index)] = tracemalloc.take_snapshot()
         frames = host.health().frames_presented
         window._load_project_file(plan)
-        _pump_until(lambda: not controller.dirty, 30.0)
+        _pump_until(settled, 30.0)
         if variant in ("rebuild_on", "control"):
             controller.reset()
-            _pump_until(lambda: not controller.dirty and len(controller.sync.records) > 0, 30.0)
+            _pump_until(lambda: settled() and len(controller.sync.records) > 0, 30.0)
         if variant == "control":
-            kept.append(b"\x01" * (25 * 1024 * 1024))
+            kept.append(b"\x01" * (keep_mb * 1024 * 1024))
         releases_seen = host.cache_releases
         owed.append(workspace._retired)
         if grabs == "every":
@@ -638,7 +692,7 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
     # the ONE frame after the loop: the same plan, the same camera — the same picture
     if blocker is not None:
         host._view.removeEventFilter(blocker)
-    _pump_until(lambda: not controller.dirty and host.part_count() == parts_before, 20.0)
+    _pump_until(lambda: settled() and host.part_count() == parts_before, 20.0)
     presented_again = present(10.0)
     last = _grab(host)[1]
     present()
@@ -648,6 +702,13 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
     end_mb = round(private_mb(), 2)  # after the view presented again: what the loop left
     second_half = curve[len(curve) // 2:]
     gpu_values = [value for value in gpu_curve if value is not None]
+    difference = (_image_difference(first, last) if first != last
+                  else {"comparable": True, "pixels": 0, "largest": 0})
+    # what the ground's tile textures hold (the plan is the same every reload, and so is
+    # its ground): RGBA8, and the mip chain a third again
+    ground_shown = controller.sync.ground
+    tiles = ground_shown.tiles if ground_shown is not None else ()
+    texture_bytes = sum(tile.width_px * tile.height_px * 4 for tile in tiles) * 4.0 / 3.0
     python_growth: dict[str, Any] = {}
     if trace and len(traced) == 2:
         import tracemalloc
@@ -666,6 +727,10 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
         }
         tracemalloc.stop()
     step("soak", variant=variant, reloads=reloads, frames=frames_mode, grabs=grabs, release=release,
+         ground=ground, ground_baker=controller.sync.ground_baker is not None,
+         ground_tiles=len(tiles),
+         ground_tile_px=sorted({(tile.width_px, tile.height_px) for tile in tiles}),
+         ground_texture_mb=round(texture_bytes / 1048576.0, 3),
          start_mb=start_mb, curve_mb=curve, python_growth=python_growth,
          slope_second_half_mb_per_reload=round(theil_sen(second_half), 3),
          slope_all_mb_per_reload=round(theil_sen(curve), 3),
@@ -677,12 +742,16 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
              round(theil_sen(gpu_values[len(gpu_values) // 2:]), 3) if len(gpu_values) > 3 else None),
          geometry_uploads=(getattr(controller.sync.sink, "geometry_uploads", 0) - uploads_before
                            if uploads_before is not None else None),
-         kept_mb=25 * len(kept), parts=parts_before, parts_after=host.part_count(),
+         kept_mb=keep_mb * len(kept), parts=parts_before, parts_after=host.part_count(),
          frames_presented_per_reload=frames_per_reload, in_the_loop=in_the_loop,
          retired_before_release_per_reload=owed,
          cache_releases=host.cache_releases - releases_before,
          presented_again=bool(presented_again),
-         same_image_at_the_end=bool(first == last), facts=facts(window))
+         same_image_at_the_end=bool(first == last) or (
+             bool(difference.get("comparable"))
+             and int(difference.get("largest", 255)) <= SAME_IMAGE_TOLERANCE),
+         identical_image_at_the_end=bool(first == last), image_difference=difference,
+         facts=facts(window))
     yield 100
 
 

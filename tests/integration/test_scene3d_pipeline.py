@@ -360,7 +360,11 @@ Edit = tuple[str, set[str], Callable[[Stage], None], Callable[[str], SceneDiff]]
 EDITS: list[Edit] = [
     ("move", ALL, _move, _transform),
     ("rotate", ALL - ROUND, _rotate, _transform),
-    ("rotate a circle about its centre", ROUND, _rotate, _nothing),
+    # A circle's footprint and solid do not turn: no geometry, no transform, no builder.
+    # What the canvas PAINTS in a circle's coordinates does (a texture, a sprite — the
+    # ground bake, L1.5): one update_material. A plant is not painted: nothing at all.
+    ("rotate a circle about its centre", ROUND - {"plant"}, _rotate, _material),
+    ("rotate a plant about its centre", {"plant"}, _rotate, _nothing),
     ("recolour", ALL, _colour, _material),
     ("height", ALL, _height, _geometry),
     ("centred resize", {"circle", "ellipse", "rectangle"}, _resize_centred, _geometry),
@@ -459,7 +463,8 @@ def test_the_matrix_names_every_edit_of_the_gate() -> None:
                   "hide", "send to back"}
     for shape, names in by_shape.items():
         assert everywhere <= names, shape
-        assert {"rotate", "rotate a circle about its centre"} & names, shape
+        assert {"rotate", "rotate a circle about its centre",
+                "rotate a plant about its centre"} & names, shape
         assert any("resize" in n or "vertex" in n for n in names), shape
     assert len(CASES) == 70
 

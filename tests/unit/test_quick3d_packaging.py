@@ -36,7 +36,8 @@ FROZEN = (REPO / ".github" / "workflows" / "frozen-selftest.yml").read_text(enco
 RENDER_TESTS = ("tests/integration/test_quick3d_render.py",
                 "tests/integration/test_quick3d_engine.py",
                 "tests/integration/test_quick3d_selftest.py",
-                "tests/integration/test_quick3d_lifecycle.py")
+                "tests/integration/test_quick3d_lifecycle.py",
+                "tests/integration/test_scene3d_ground_render.py")  # the baked ground (L1.5)
 
 
 def _code(text: str) -> str:

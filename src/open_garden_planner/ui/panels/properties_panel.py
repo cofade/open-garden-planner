@@ -33,6 +33,7 @@ from open_garden_planner.core.commands import (
 )
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.furniture_renderer import get_furniture_svg_path
+from open_garden_planner.core.item_look import MIN_STROKE_WIDTH, adopt_pen
 from open_garden_planner.core.object_types import (
     ObjectType,
     PathFenceStyle,
@@ -1959,7 +1960,7 @@ class PropertiesPanel(QWidget):
 
         # Stroke width
         width_spin = QDoubleSpinBox()
-        width_spin.setRange(0.5, 20.0)
+        width_spin.setRange(MIN_STROKE_WIDTH, 20.0)
         width_spin.setSingleStep(0.5)
         width_spin.setDecimals(1)
         width_spin.setSuffix(" px")
@@ -2101,7 +2102,11 @@ class PropertiesPanel(QWidget):
         pen = QPen(stroke_color)
         pen.setWidthF(stroke_width)
         pen.setStyle(stroke_style.to_qt_pen_style())
-        item.setPen(pen)
+        # The pen AND the stroke attributes (core.item_look): ``apply_style_preset``
+        # above has just set the attributes to the preset's, and the pen built here is
+        # the state's — the undo of a type change on a re-stroked preset line left
+        # the two apart.
+        adopt_pen(item, pen)
 
         # Update scene
         scene = item.scene()

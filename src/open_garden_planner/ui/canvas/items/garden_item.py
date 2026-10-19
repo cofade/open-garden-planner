@@ -490,6 +490,17 @@ class GardenItemMixin:
         self._stroke_style = value
 
     @property
+    def paints_sprite(self) -> bool:
+        """Whether the item's picture is a sprite and not its brush and pen.
+
+        False here; a furniture rectangle and a plant or furniture circle say
+        True. Such an item's pen says nothing about what is painted, so
+        ``core.item_look`` neither writes its stroke attributes from the pen
+        nor holds the two against each other.
+        """
+        return False
+
+    @property
     def layer_id(self) -> uuid.UUID | None:
         """Layer ID this item belongs to."""
         return self._layer_id

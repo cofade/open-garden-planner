@@ -2,6 +2,13 @@
 
 TRANSLATIONS = {
     "View3DProblemsDialog": {
+        'it could not be painted completely on the 3D ground': 'no se pudo pintar completo sobre el suelo 3D',
+        '3D ground: in one place the plan puts more surfaces than the ground can show; the smallest are left out': 'Suelo 3D: en un lugar el plano pone más superficies de las que el suelo puede mostrar; se omiten las más pequeñas',
+        '3D ground: in {count} places the plan puts more surfaces than the ground can show; the smallest are left out': 'Suelo 3D: en {count} lugares el plano pone más superficies de las que el suelo puede mostrar; se omiten las más pequeñas',
+        '3D ground: one piece could not be painted and shows an older picture': 'Suelo 3D: un fragmento no se pudo pintar y muestra una imagen anterior',
+        '3D ground: {count} pieces could not be painted and show an older picture': 'Suelo 3D: {count} fragmentos no se pudieron pintar y muestran una imagen anterior',
+        '3D ground: it could not be painted; it shows an older picture': 'Suelo 3D: no se pudo pintar; muestra una imagen anterior',
+        '3D ground: it could not be finished; it is tried again with the next change': 'Suelo 3D: no se pudo terminar; se volverá a intentar con el próximo cambio',
         "Not Shown in 3D": "No se muestra en 3D",
         "These objects are on the plan but cannot be shown in the 3D view. Double-click an entry to select the object on the plan.": "Estos objetos están en el plano, pero no se pueden mostrar en la vista 3D. Haga doble clic en una entrada para seleccionar el objeto en el plano.",
         "another object on the plan has the same internal id": "otro objeto del plano tiene el mismo identificador interno",
@@ -16,6 +23,9 @@ TRANSLATIONS = {
         "… and {count} more": "… y {count} más",
     },
     "Workspace": {
+        'The 3D ground does not show all of the plan': 'El suelo 3D no muestra todo el plano',
+        '1 object is not shown in 3D; the 3D ground does not show all of the plan': '1 objeto no se muestra en 3D; el suelo 3D no muestra todo el plano',
+        '{count} objects are not shown in 3D; the 3D ground does not show all of the plan': '{count} objetos no se muestran en 3D; el suelo 3D no muestra todo el plano',
         "&3D": "&3D",
         "&Plan": "&Plano",
         "&Reset 3D View": "&Restablecer vista 3D",

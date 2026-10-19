@@ -84,6 +84,7 @@ if __name__ == "__main__":  # run as a script: nothing from here on may reach th
 import make_bench_plans as bench  # noqa: E402  (sets up sys.path for the package and Qt's platform)
 from PyQt6.QtWidgets import QApplication  # noqa: E402
 
+from open_garden_planner.core.item_look import adopt_pen  # noqa: E402
 from open_garden_planner.core.object_types import ObjectType, PathFenceStyle  # noqa: E402
 from open_garden_planner.ui.canvas.geometry_apply import apply_rotation  # noqa: E402
 from open_garden_planner.ui.canvas.items import EllipseItem  # noqa: E402
@@ -153,7 +154,7 @@ def build_edge_cases() -> bench.PlanBuilder:
         fence = b.polyline(centre_line, T.FENCE, PathFenceStyle.NONE, name)
         pen = fence.pen()
         pen.setWidthF(FENCE_WIDTH_CM)
-        fence.setPen(pen)
+        adopt_pen(fence, pen)
 
     bed = b.rect(1700.0, 1300.0, 520.0, 120.0, T.RAISED_BED, "Turned raised bed")
     apply_rotation(bed, BED_TURN_DEG)
@@ -172,13 +173,13 @@ def build_edge_cases() -> bench.PlanBuilder:
         fence = b.polyline(centre_line, T.FENCE, PathFenceStyle.NONE, name)
         pen = fence.pen()
         pen.setWidthF(FENCE_WIDTH_CM)
-        fence.setPen(pen)
+        adopt_pen(fence, pen)
     b.house(CROSSED_HOUSE, "Crossed house")  # with a ridge item, as the polygon tool makes one
     for name, centre_line in LAST_FENCES.items():
         fence = b.polyline(centre_line, T.FENCE, PathFenceStyle.NONE, name)
         pen = fence.pen()
         pen.setWidthF(FENCE_WIDTH_CM)
-        fence.setPen(pen)
+        adopt_pen(fence, pen)
     return b
 
 

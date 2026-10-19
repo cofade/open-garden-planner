@@ -724,12 +724,17 @@ class Workspace(QWidget):
             container = host.container(pane)
             orbit = OrbitInput(self._camera, self._view_height, parent=self)
             host.install_event_filter(orbit)
+            from .ground_bake import GroundBaker
+
             # the look (L1.4): the render mode decides sky, wind and the automatic
             # preset together — in compatibility mode no sky (a light probe costs
             # seconds there), no wind (an animated view renders continuously) and
             # ``auto`` = low (ADR-064 addendum)
             look = LookController.from_settings(host, software=software, parent=self)
-            controller = Scene3DController(scene, clock, self._location, sink, parent=self)
+            # ONE baker for this engine's life: it holds the ground's tiles, and paints
+            # for at most its budget (10 ms) a pass — the controller runs the rest
+            controller = Scene3DController(scene, clock, self._location, sink, parent=self,
+                                           ground_baker=GroundBaker())
         except Exception as error:  # noqa: BLE001 - an import, the scene file, anything
             guard.init_failed()
             _log_failure("The 3D view could not be started", error)
@@ -975,15 +980,21 @@ class Workspace(QWidget):
             self._controller.refresh_sun()
 
     def _on_applied(self, report: TickReport) -> None:
-        # the look follows the sun the PIPELINE sent — the same pass, the same sun
-        if self._look is not None and self._controller is not None:
-            self._look.set_sun(self._controller.sync.sun)
         # A pass went through: the build is over, and so is a failed update. What the
         # ENGINE reported is not: that notice stays until the engine is gone (it used
         # to be erased by the next pass — one edit, and the only sign of it was lost).
         self._notices.pop(_NOTICE_BUILDING, None)
         self._notices.pop(_NOTICE_SYNC, None)
         self._refresh_notices()
+        if report.ground_pass:
+            # pending ground tiles painted, nothing else: the sun did not move (a
+            # set_sun would restart the look's stale-sky timer on every slice) and no
+            # Model was destroyed (taking it as "the pipeline worked" would push the
+            # quiet-time release back for as long as the ground paints)
+            return
+        # the look follows the sun the PIPELINE sent — the same pass, the same sun
+        if self._look is not None and self._controller is not None:
+            self._look.set_sun(self._controller.sync.sun)
         self._applied_at = _now()
         self._retired += report.retired
         if self._retired >= RELEASE_NOW_RETIRED:
@@ -1009,11 +1020,21 @@ class Workspace(QWidget):
     def _update_problems(self) -> None:
         controller = self._controller
         count = controller.problem_count if controller is not None else 0
-        if count == 0:
+        partial = controller is not None and controller.ground_problems.incomplete
+        if count == 0 and not partial:
             self._problems_row.hide()
         else:
-            text = (self.tr("1 object is not shown in 3D") if count == 1
-                    else self.tr("{count} objects are not shown in 3D").format(count=count))
+            if count == 0:
+                text = self.tr("The 3D ground does not show all of the plan")
+            elif count == 1:
+                text = (self.tr("1 object is not shown in 3D; the 3D ground does not show "
+                                "all of the plan") if partial
+                        else self.tr("1 object is not shown in 3D"))
+            elif partial:
+                text = self.tr("{count} objects are not shown in 3D; the 3D ground does not "
+                               "show all of the plan").format(count=count)
+            else:
+                text = self.tr("{count} objects are not shown in 3D").format(count=count)
             self._problems_label.setText(text)
             self._problems_row.show()
         self._refresh_notices()
@@ -1050,7 +1071,8 @@ class Workspace(QWidget):
         if controller is None:
             dialog.set_problems((), lambda _item_id: "")
             return
-        problems = problems_of(controller.skipped, controller.failures)
+        problems = problems_of(controller.skipped, controller.failures,
+                               controller.ground_problems)
         wanted = {problem.item_id for problem in problems[:MAX_PROBLEM_ROWS]}
         names: dict[str, str] = {}
         scene = self._scene
