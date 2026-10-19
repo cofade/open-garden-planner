@@ -1568,6 +1568,22 @@ How §8.32.8 is tested, and the patterns worth reusing. The seam is the workspac
 - **Wall-clock asserts carry `@pytest.mark.perf`** (ADR-058): the walking-pace test checks a
   distance against the time W was really held, so it runs in the serial `-m perf -n 0` step;
   master's `test_perf_marker_guard` names any that is not marked.
+- **Deliver input the way the app gets it** (review 1, P1-3). Calling `eventFilter` by hand
+  skips `ShortcutOverride` and the main window's shortcut map — exactly where S was lost. The
+  stand-in host (`PickHost`) has a REAL `QWindow` in a window container with the filters on
+  it, and a "tail" filter installed first (so Qt runs it last: it sees what no filter took);
+  clicks go in with `QTest.mouseClick`, keys with `QTest.keyPress` to
+  `QGuiApplication.focusWindow()` — the window that has the keyboard, as the OS would.
+- **A control before the claim.** Not walking, S pressed into the 3D view toggles Snap to Grid
+  — proof that the shortcut path is live in the test; only then does "walking, S walks and
+  nothing fires" mean something.
+- **Derive the set, never list it from memory.** The §8.10 test collects every single-key
+  shortcut of the live main window (`QAction`s, buttons, `QShortcut`s: 12 today) and checks
+  the walker's keys against all of them, and the canvas tool, after each.
+- **Offscreen focus is asynchronous.** Under `QT_QPA_PLATFORM=offscreen` the focus window
+  changes at once, but the `FocusOut` / `FocusIn` events of an activation arrive later — a key
+  pressed before they are processed is let go by the walker's `FocusOut`. Wait for the focus
+  window, then let the event loop run (100 ms) before the first key.
 
 ## 8.11 Security Scanning (SAST)
 
@@ -5408,7 +5424,15 @@ event filter that holds one `WalkState` and feeds it keys and time.
 | Motion | ticks of 1/120 s whatever the frame rate; move, then be pushed out along the normal (sliding); 8 pushes at most, else the tick is refused |
 | The edge | the plan rectangle |
 | The camera | field of view 60°, near plane 5 cm — its farthest corner is 6.9 cm from the eye, under the walker's radius |
-| Keys | W A S D / arrows walk, Shift runs, a drag looks, Escape leaves; a click still selects; every other key is the app's |
+| Keys | W A S D / arrows walk, Shift runs, a drag looks, Escape leaves; a click still selects; every other key, and every key with Ctrl or Alt, is the app's |
+| The keyboard | "Walk" gives the 3D view the keyboard (`Quick3DHost.focus`) and leaving gives it back (while the view still has it) |
+
+> **Rule: while walking, the walk keys belong to the walker** (`walk_mode.WALKER_KEYS`, stated
+> once). They are claimed at `ShortcutOverride` — the event Qt sends to the view's window
+> before it looks for a shortcut — unless Ctrl, Alt or Meta is held; every other key is passed
+> on. A filter that takes only `KeyPress` loses a key to any shortcut of the main window: the
+> 3D view is embedded, so the main window stays the active window and its shortcuts are live
+> (S was Snap to Grid). A new key for walk mode goes into `WALKER_KEYS` and nowhere else.
 
 > **Rule: the walker collides with what is drawn.** `build_world(records, width, depth,
 > parts_of=…)` is handed the registry's own builder. A new builder that makes a solid wider than

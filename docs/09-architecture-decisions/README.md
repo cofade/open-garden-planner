@@ -5366,7 +5366,7 @@ about an id. The panels' behaviour is unchanged (their tests pass as they were).
 | on an item | selects it alone | the same |
 | with Ctrl, or with Shift | toggles it; the rest stays | the same |
 | on nothing (the ground, the sky) | clears — with any modifier | the same |
-| on an item of a LOCKED layer | the item is transparent: what lies behind it is selected, and nothing behind clears | the same, along the ray (`PickHit.behind`) |
+| on an item of a LOCKED layer | the item is transparent: what lies behind it is selected; with nothing behind, a plain or Shift click clears and a CTRL click keeps the selection (Qt's Ctrl rule) | the same, along the ray (`PickHit.behind`) — the bridge is told which modifier was held, not only "toggle" (fix round 1) |
 | on an item of a HIDDEN layer | cannot happen: it is not drawn | cannot happen: it has no record |
 | on a member of a group | selects the outermost group | the same; the ring runs round every member |
 | with Shift THROUGH a locked item | acts as a PLAIN click: the selection is replaced | toggles, as Shift does everywhere else |
@@ -5381,7 +5381,10 @@ has no mesh to hit. Selecting it on the plan still rings it.
 else is a drag and never selects. `OrbitInput._release` is the ONE place of the workspace's
 modules that calls `host.pick` (the scan test allows exactly that call, by module, function and
 name). `HostStateError` — the host cannot answer now — is no click: nothing changes and nothing is
-said. Any other exception is one ERROR line.
+said. Any other exception is one ERROR line. `picked` carries the click's modifiers (fix round 1:
+Ctrl and Shift differ on a locked item). In walk mode a left drag turns the view only once it
+leaves the same slop, and a drag that turned cancels the click (`WalkMode.turned` →
+`OrbitInput.cancel_click`): a look never selects.
 
 **S4. `pick()` answers with the whole chain.** `PickHit.behind` holds what the ray meets after
 the first hit, nearest first (`View3D.pickAll`). A second host call (`pick_all`) would have been
@@ -5458,9 +5461,20 @@ frozen data, pure functions) and a thin input filter (`ui/view3d/walk_mode.py`).
   Walk mode never touches the orbit camera, the plan or the undo stack: Escape, the toggle,
   "Reset 3D View" and a new document leave it, and the orbit pose is the one the user had.
   W A S D / the arrow keys move, a drag looks (pitch within ±80°), a click still selects, the
-  wheel does nothing; every other key is passed on, so the app's shortcuts keep working. A
-  hidden view lets go of every key and keeps the walker; an edit while walking rebuilds the
-  walker's world and moves it to free ground if something was put where it stands.
+  wheel does nothing. A hidden view lets go of every key and keeps the walker; an edit while
+  walking rebuilds the walker's world (from the parts the sink holds — nothing is built twice —
+  and only when a solid moved) and moves it to free ground if something was put where it stands.
+- *The keyboard* (fix round 1, review P0 / P1-2). **While walking, the walk keys belong to the
+  walker; every key with Ctrl or Alt, and every other key, is passed on.** The walk keys are
+  `walk_mode.WALKER_KEYS` — W A S D, the arrows, Shift, Escape — stated once. They are claimed
+  at `ShortcutOverride`, which Qt sends to the view's window BEFORE it looks for a shortcut
+  (measured on the real main window: the override reaches the `QQuickView` first, then its
+  active focus item; accepted at the view's filter, no shortcut fires). Without that the main
+  window's Snap to Grid (`S`) fired and the walker never saw S. "Walk" gives the 3D view the
+  keyboard (`Quick3DHost.focus`: `requestActivate`; measured: the focus window is the view and
+  its container is the focus widget) — else W picked the Wall tool on the plan and Escape
+  went to the canvas — and leaving gives it back to where it was, while the view still has it
+  (`Quick3DHost.has_focus`).
 
 #### Alternatives considered (rejected)
 
@@ -5554,6 +5568,16 @@ and on WARP: every pick, chain, ring, depth, look-through and click number of th
 unchanged (the plant's ring at soil height on WARP: 584 px, 16.75 px from the ground's outline);
 G8 to the real engine, GPU median 15.5, p95 19.3, max 21.1 ms, WARP 14.4 / 24.3 / 50.0 ms; G7 W
 held 0.71 s: 138.1 cm/s on the GPU, 139.9 cm/s on WARP.
+
+Fix round 1 (review 1, 2026-10-19): the walker's keys in the FULL main window, real engine
+(`test_view3d_selection_render.py::test_in_the_full_main_window_every_walkers_key_walks_and_no_shortcut_fires`)
+and with a stand-in engine whose view is a real `QWindow`, keys delivered by `QTest` to the
+window that has the keyboard (`test_view3d_selection_walk.py`): of the main window's 12
+single-key shortcuts — derived from the live app — the one on a walker's key is Snap to Grid
+(S); all eight movement keys walk and none fires; the control (not walking, S into the 3D view)
+toggles Snap to Grid. Ctrl on a locked item with nothing behind: the canvas keeps
+`['free']`, 3D the same (`test_view3d_selection_bridge.py`, two new measured rows). The
+self-test's ring share through `run_selftest`: 1.00 on the GPU and 1.00 on WARP.
 
 Default-tier numbers: G5 — a 20 cm gap blocks and a 60 cm gate passes; diagonally into a wall
 the walker keeps 100 % of its tangential speed; an inside corner does not trap; the same

@@ -886,6 +886,18 @@ walk (L1.8)"; test patterns: docs §8.10.30; traps: docs §11.4.36. What the ENG
 - **Real input in a test.** `QTest.mouseClick(host._view, button, modifiers, QPoint)` and
   `QTest.keyPress` / `keyRelease(host._view, key)` reach the event filters as a user's do; a
   drag needs its buttons said — `QCoreApplication.sendEvent(view, QMouseEvent(...))`.
+- **A key in the embedded view meets the MAIN window's shortcuts first** (fix round 1,
+  measured on Windows with the real main window). The `QQuickView` sits in a window
+  container, so the main window stays the active window and its window shortcuts are live.
+  Qt sends `ShortcutOverride` to the view's window (and then to its active focus item, if it
+  has one) BEFORE it tries a shortcut: an event filter on the view that accepts it
+  (`event.accept()`, return True) owns the key — the `KeyPress` follows. A filter that takes
+  only `KeyPress` lost S to Snap to Grid. To give the view the keyboard,
+  `QQuickView.requestActivate()` (or the container's `setFocus()`): afterwards
+  `QGuiApplication.focusWindow()` is the view and the container is the focus widget; the
+  previous widget's `activateWindow()` + `setFocus()` gives it back. Under the offscreen
+  platform the focus window changes at once but its focus events come later — let the loop
+  run before the first key.
 - **Near plane 5 cm, walk field of view 60°.** The farthest corner of the near rectangle is
   6.94 cm from the eye at 4:3 (`walk.near_plane_reach_cm`; below the walker's 22.5 cm up to
   an aspect of 7:1). Pressed against a 180 cm wall and into an inside corner of two, all

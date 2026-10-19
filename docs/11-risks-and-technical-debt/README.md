@@ -2531,6 +2531,25 @@ engine's own facts are in the `ogp-3d-renderer` skill, §14.
     re-anchored, and the new lines got mutants of their own. *Lesson:* a tool that reads an
     exit code must be re-checked when the runner's defaults change — run one mutant whose kill
     is certain.
+15. **In walk mode S toggled Snap to Grid and never moved the walker** (review 1, P0). *Root
+    cause:* Qt sends `ShortcutOverride` to the view's window before it looks for a shortcut;
+    the walker took only `KeyPress`, and the 3D view is embedded, so the main window stayed the
+    active window and its `S` shortcut fired. W A D and the arrows worked only because no
+    shortcut sat on them. Every test passed: they called `eventFilter` by hand, which has no
+    shortcut map. *Fix:* claim `WALKER_KEYS` at `ShortcutOverride`; deliver test input through
+    Qt (§8.10.30). *Lesson:* a key filter in an embedded window owns a key only if it owns
+    its `ShortcutOverride`.
+16. **"Walk" left the keyboard on the plan** (review 1, P1-2): W then picked the Wall tool and
+    Escape went to the canvas. *Fix:* `Quick3DHost.focus` (`requestActivate`), measured on the
+    real window; the focus goes back on leaving while the view still has it.
+17. **Ctrl+click on a locked item with nothing behind it cleared in 3D; the canvas keeps the
+    selection** (review 1, P1-1). The bridge was told only "toggle"; Qt's own rule is that a
+    Ctrl click on an unselectable item changes nothing, while Shift (the select tool's)
+    and a plain click clear. Measured rows pin both now.
+18. **A look in walk mode could select** (review 1, P2-4): walk mode kept every move to itself,
+    so the orbit filter never saw a flick of up to 4 px within 0.4 s and picked on the
+    release. Now a left drag turns only past the click's slop, and a drag that turned cancels
+    the click.
 
 ### 11.4.8 Guild boundaries found by independent review (F1/F2)
 
