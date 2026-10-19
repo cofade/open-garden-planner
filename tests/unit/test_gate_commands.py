@@ -1285,7 +1285,11 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
     #            and must itself invoke pytest.
     #   * `|| true`, or a pipe to `tee` without `pipefail`, at the end of the command (#513)
     #         -> the same last-command rule: any command after the runner makes the runner
-    #            not the step's exit status.
+    #            not the step's exit status. A piped gate is refused even though `shell: bash`
+    #            runs `-eo pipefail` and WOULD propagate the failure: the pin requires the gate
+    #            to be the step's last command, so this is a shape it declines rather than one
+    #            it reasons about. The one step that pipes (`pytest … | tee` for the duration
+    #            report) carries no perf marker, so the rule does not touch it.
     #   * `-o addopts="--co"`, `--co`, `--collect-only` (#513)
     #         -> `_collect_only_requested`, which reads the flag directly or inside the
     #            `addopts=` override value.
