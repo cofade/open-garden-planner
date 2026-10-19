@@ -323,6 +323,10 @@ def horizon_step(rgb: Any, camera: Pinhole, *, reach_deg: float = 0.4, line_deg:
     ``ridge``  the same for a thin BRIGHT line (a fog brighter than the sky it meets).
 
     ``sky_luma`` / ``ground_luma``: the means just above and below, for the record.
+    ``delta_e``: CIE76 colour difference between the sky from 0.4° above the horizon
+    down to it and the ground 0.6° to 2° under it — the HUE seam that the luma rows
+    cannot see (a grey-blue horizon over a lime meadow: ΔE 59.6 at noon for a luma
+    difference of 7.5). Reported, not gated.
     ``columns``: the share of the image width to use (to keep a sun disc out).
     """
     frame = np.asarray(rgb, dtype=np.float64)[..., :3]
@@ -344,11 +348,119 @@ def horizon_step(rgb: Any, camera: Pinhole, *, reach_deg: float = 0.4, line_deg:
     step = float(np.abs(near[span:] - near[:-span]).max()) if near.size > span else 0.0
     dip = max(0.0, float((np.minimum(above, below) - near).max()))
     ridge = max(0.0, float((near - np.maximum(above, below)).max()))
+    row_rgb = frame[:, left:right].mean(axis=1)
+    sky_rows = row_rgb[max(0, int(math.floor(horizon - 0.4 * per_degree))):max(1, int(math.floor(horizon)))]
+    ground_rows = row_rgb[min(rows - 1, int(math.ceil(horizon + 0.6 * per_degree))):
+                          min(rows, int(math.ceil(horizon + 2.0 * per_degree)) + 1)]
+    delta_e = (delta_e76(sky_rows.mean(axis=0), ground_rows.mean(axis=0))
+               if len(sky_rows) and len(ground_rows) else None)
     return {"step": round(step, 2), "dip": round(dip, 2), "ridge": round(ridge, 2),
+            "delta_e": None if delta_e is None else round(delta_e, 1),
             "sky_luma": round(float(row_luma[first - apart:first].mean()), 2),
             "ground_luma": round(float(row_luma[last + 1:last + 1 + apart].mean()), 2),
             "horizon_row": round(horizon, 1), "rows_per_degree": round(per_degree, 2),
             "judged_rows": int(near.size)}
+
+
+def srgb_to_lab(rgb: Any) -> Array:
+    """CIE L*a*b* (D65) of sRGB codes ``(..., 3)``."""
+    codes = np.asarray(rgb, dtype=np.float64)[..., :3] / 255.0
+    linear = np.where(codes <= 0.04045, codes / 12.92, ((codes + 0.055) / 1.055) ** 2.4)
+    matrix = np.array([[0.4124564, 0.3575761, 0.1804375],
+                       [0.2126729, 0.7151522, 0.0721750],
+                       [0.0193339, 0.1191920, 0.9503041]])
+    xyz = linear @ matrix.T / np.array([0.95047, 1.0, 1.08883])
+    f = np.where(xyz > (6.0 / 29.0) ** 3, np.cbrt(xyz), xyz / (3.0 * (6.0 / 29.0) ** 2) + 4.0 / 29.0)
+    return np.stack([116.0 * f[..., 1] - 16.0, 500.0 * (f[..., 0] - f[..., 1]),
+                     200.0 * (f[..., 1] - f[..., 2])], axis=-1)
+
+
+def delta_e76(first: Any, second: Any) -> float:
+    """CIE76 colour difference of two sRGB colours (codes)."""
+    return float(np.linalg.norm(srgb_to_lab(first) - srgb_to_lab(second)))
+
+
+# ── the plan rectangle meets the meadow ──────────────────────────────────────
+
+
+def ground_patch_luma(rgb: Any, camera: Pinhole, patch: tuple[float, float, float, float]
+                      ) -> tuple[float, int]:
+    """Mean luma of the pixels that show the ground rectangle ``patch`` = (east0,
+    north0, east1, north1), z = 0 — and how many there are."""
+    frame = np.asarray(rgb, dtype=np.float64)[..., :3]
+    rows, cols = frame.shape[:2]
+    view = camera.scaled((cols, rows))
+    east0, north0, east1, north1 = patch
+    corners = [(east0, north0, 0.0), (east1, north0, 0.0), (east1, north1, 0.0), (east0, north1, 0.0)]
+    px, py, front = view.project(corners)
+    if not front.all():
+        return 0.0, 0
+    xs, ys = np.meshgrid(np.arange(cols) + 0.5, np.arange(rows) + 0.5)
+    inside = polygon_mask(xs, ys, list(zip(px.tolist(), py.tolist(), strict=True)))
+    count = int(inside.sum())
+    return (float(luma(frame)[inside].mean()) if count else 0.0), count
+
+
+def plan_edge_step(rgb: Any, camera: Pinhole, inside: tuple[float, float, float, float],
+                   outside: tuple[float, float, float, float]) -> dict[str, Any]:
+    """The luma step where the plan rectangle meets the meadow: the mean over a ground
+    band just INSIDE the plan minus the same band just OUTSIDE it (each (east0,
+    north0, east1, north1), z = 0). Nothing stands on either, so both are lit alike
+    and any step is the two materials (or the bake's colour, once there is one)."""
+    plan, plan_px = ground_patch_luma(rgb, camera, inside)
+    meadow, meadow_px = ground_patch_luma(rgb, camera, outside)
+    return {"step": round(plan - meadow, 2), "plan_luma": round(plan, 2),
+            "meadow_luma": round(meadow, 2), "plan_px": plan_px, "meadow_px": meadow_px}
+
+
+# ── aliasing of thin repeated geometry (picket fences) ───────────────────────
+
+#: A fence pixel this dark (luma) is one the anti-aliasing let alias to near-black.
+MOIRE_DARK_LUMA = 40.0
+
+
+def downsample(rgb: Any, factor: int) -> Array:
+    """Box-filter an ``(h·f, w·f, 3+)`` frame down by ``factor`` in LINEAR light, back to
+    sRGB codes — the reference a supersampled render gives."""
+    codes = np.asarray(rgb, dtype=np.float64)[..., :3] / 255.0
+    linear = np.where(codes <= 0.04045, codes / 12.92, ((codes + 0.055) / 1.055) ** 2.4)
+    rows, cols = linear.shape[0] // factor, linear.shape[1] // factor
+    blocks = linear[:rows * factor, :cols * factor].reshape(rows, factor, cols, factor, 3).mean(axis=(1, 3))
+    encoded = np.where(blocks <= 0.0031308, blocks * 12.92, 1.055 * np.power(blocks, 1.0 / 2.4) - 0.055)
+    return np.asarray(encoded * 255.0)
+
+
+def thin_geometry_moire(with_it: Any, without_it: Any, reference: Any = None, *,
+                        changed: float = 12.0) -> dict[str, Any]:
+    """How a frame that shows thin repeated geometry (``with_it``) aliases. Its pixels
+    are those that differ from the same frame WITHOUT it (``without_it``) by more than
+    ``changed`` in a channel (the pickets and their shadow).
+
+    ``alias_error``: the mean absolute luma difference over those pixels against
+    ``reference`` — the same view rendered at a multiple of the size and box-filtered
+    down (``downsample``): what the frame would show with every picket resolved. An
+    aliased fence is a moiré of dark slits and bands where the reference is a smooth
+    texture; the number does not depend on how dark the pickets are by themselves.
+    Also reported: the share darker than ``MOIRE_DARK_LUMA`` and the mean absolute
+    Laplacian of the luma (both include the fences' own shaded sides)."""
+    a = np.asarray(with_it, dtype=np.float64)[..., :3]
+    b = np.asarray(without_it, dtype=np.float64)[..., :3]
+    mask = np.abs(a - b).max(axis=2) > changed
+    count = int(mask.sum())
+    if not count:
+        return {"pixels": 0, "dark_share": 0.0, "laplacian": 0.0, "alias_error": None}
+    values = luma(a)
+    padded = np.pad(values, 1, mode="edge")
+    laplacian = np.abs(4.0 * values - padded[:-2, 1:-1] - padded[2:, 1:-1]
+                       - padded[1:-1, :-2] - padded[1:-1, 2:])
+    error = None
+    if reference is not None:
+        ref = np.asarray(reference, dtype=np.float64)[..., :3]
+        if ref.shape == a.shape:
+            error = round(float(np.abs(values - luma(ref))[mask].mean()), 2)
+    return {"pixels": count,
+            "dark_share": round(float((values[mask] < MOIRE_DARK_LUMA).mean()), 4),
+            "laplacian": round(float(laplacian[mask].mean()), 2), "alias_error": error}
 
 
 # ── north is up: the orientation of a top-down frame ─────────────────────────

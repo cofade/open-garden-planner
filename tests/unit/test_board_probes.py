@@ -323,3 +323,92 @@ def test_the_orientation_of_a_top_down_frame() -> None:
         result = P.orientation_scores(wrong, plan)
         assert result["ok"] is False and result["best"] == name
     assert P.ncc(np.ones((4, 4)), plan[:4, :4]) == 0.0, "a flat image correlates with nothing"
+
+
+# ── the hue at the horizon (reported) ────────────────────────────────────────
+
+
+def test_colour_difference_is_cie76() -> None:
+    assert P.delta_e76((120.0, 120.0, 120.0), (120.0, 120.0, 120.0)) == 0.0
+    white, black = P.srgb_to_lab((255.0, 255.0, 255.0)), P.srgb_to_lab((0.0, 0.0, 0.0))
+    assert white == pytest.approx([100.0, 0.0, 0.0], abs=0.05)
+    assert black == pytest.approx([0.0, 0.0, 0.0], abs=0.05)
+    assert P.delta_e76((255.0, 255.0, 255.0), (0.0, 0.0, 0.0)) == pytest.approx(100.0, abs=0.1)
+
+
+def test_the_horizon_reports_a_hue_seam_that_luma_cannot_see() -> None:
+    """A grey-blue sky over a lime meadow of almost the same luma: the luma rows see a
+    step of a few codes, the hue difference is large — the review's noon horizon."""
+    frame, camera = _horizon(0.0, 0.0)
+    horizon = int(round(camera.horizon_row()))
+    frame[:horizon] = (150.0, 165.0, 185.0)
+    frame[horizon:] = (150.0, 170.0, 60.0)
+    result = P.horizon_step(frame, camera)
+    assert result["step"] < 6.0 and result["delta_e"] > 40.0, result
+    same, _camera = _horizon(140.0, 140.0)
+    assert P.horizon_step(same, camera)["delta_e"] == pytest.approx(0.0, abs=1e-6)
+
+
+# ── the plan rectangle meets the meadow ──────────────────────────────────────
+
+
+def _ground_frame(camera: P.Pinhole, inside: float, outside: float) -> np.ndarray:
+    """A frame of flat ground: east of the line east = 0 (the plan) one luma, west of it
+    another; the sky above."""
+    cols, rows = camera.size
+    xs, ys = np.meshgrid(np.arange(cols) + 0.5, np.arange(rows) + 0.5)
+    rays = camera.rays(xs, ys)
+    eye = np.asarray(camera.eye)
+    down = rays[..., 2] < 0
+    t = np.where(down, -eye[2] / np.where(down, rays[..., 2], -1.0), 0.0)
+    east = eye[0] + t * rays[..., 0]
+    frame = np.full((rows, cols, 3), 200.0)
+    frame[down & (east >= 0.0)] = inside
+    frame[down & (east < 0.0)] = outside
+    return frame
+
+
+def test_the_plan_edge_step_is_the_two_materials() -> None:
+    camera = P.Pinhole(eye=(1500.0, 800.0, 165.0), target=(0.0, 800.0, 0.0), fov_deg=40.0, size=SIZE)
+    inside, outside = (20.0, 500.0, 220.0, 1100.0), (-220.0, 500.0, -20.0, 1100.0)
+    flat = P.plan_edge_step(_ground_frame(camera, 120.0, 120.0), camera, inside, outside)
+    assert flat["step"] == 0.0 and flat["plan_px"] > 500 and flat["meadow_px"] > 200
+    darker = P.plan_edge_step(_ground_frame(camera, 112.0, 120.0), camera, inside, outside)
+    assert darker["step"] == pytest.approx(-8.0), "the positive control: a darker plan"
+    behind = P.Pinhole(eye=(-1500.0, 800.0, 165.0), target=(-3000.0, 800.0, 0.0), fov_deg=40.0,
+                       size=SIZE)
+    assert P.ground_patch_luma(np.zeros((SIZE[1], SIZE[0], 3)), behind, inside) == (0.0, 0), \
+        "ground behind the camera is not measured"
+
+
+# ── aliasing of thin repeated geometry ───────────────────────────────────────
+
+
+def test_a_supersampled_reference_is_the_box_filter_in_linear_light() -> None:
+    large = np.zeros((4, 4, 3))
+    large[0::2, 0::2] = 255.0                    # one white sample in four
+    down = P.downsample(large, 2)
+    assert down.shape == (2, 2, 3)
+    assert down[0, 0, 0] == pytest.approx(255.0 * (1.055 * 0.25 ** (1 / 2.4) - 0.055), abs=0.01)
+
+
+def test_pickets_that_alias_are_measured_against_their_resolved_texture() -> None:
+    """Thin dark/light stripes: resolved, they average to a mid grey; aliased, each
+    pixel lands on a stripe and the frame is a hard pattern. The error against the
+    supersampled reference is the measure; a frame equal to its reference scores 0."""
+    rows, cols = 60, 80
+    meadow = np.zeros((rows, cols, 3)) + MEADOW
+    stripes = meadow.copy()
+    stripes[20:40, ::2] = 30.0                   # aliased: dark pickets on every other column
+    stripes[20:40, 1::2] = 200.0
+    large = np.zeros((2 * rows, 2 * cols, 3)) + MEADOW
+    large[40:80, ::2] = 30.0                     # the same pickets at twice the size …
+    large[40:80, 1::2] = 200.0
+    reference = P.downsample(large, 2)           # … filtered down: resolved, a mid grey
+    aliased = P.thin_geometry_moire(stripes, meadow, reference)
+    resolved = P.thin_geometry_moire(reference, meadow, reference)
+    assert resolved["alias_error"] == 0.0
+    assert aliased["alias_error"] > 40.0 and aliased["dark_share"] == pytest.approx(0.5)
+    assert aliased["pixels"] == resolved["pixels"] == 20 * cols
+    assert P.thin_geometry_moire(meadow, meadow) == {"pixels": 0, "dark_share": 0.0,
+                                                     "laplacian": 0.0, "alias_error": None}

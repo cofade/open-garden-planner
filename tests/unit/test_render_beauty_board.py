@@ -128,3 +128,36 @@ def test_plan_derived_text_is_logged_through_the_plain_text_helper() -> None:
     source = SCRIPT.read_text(encoding="utf-8")
     assert "log_text(self.args.plan.name)" in source
     assert "plan=str(" not in source and 'f"{self.args.plan' not in source
+
+
+def test_a_shots_day_is_the_plans_local_day_not_the_utc_date() -> None:
+    """Review P2: the board took the UTC date where ADR-053 says the plan's LOCAL day
+    (the sim clock's ``tz=None``: the system zone)."""
+    from datetime import UTC, datetime
+
+    late = datetime(2026, 6, 21, 23, 30, tzinfo=UTC)
+    assert board.plan_day(late) == late.astimezone().date()
+
+
+def test_the_date_row_can_fail(qtbot, tmp_path: Path) -> None:  # noqa: ARG001 - Qt must be up
+    """Review P2: ``sun_date`` and ``build_date`` were the same variable written twice.
+    Now ``build_date`` is read back from the records actually rendered, and every
+    snapshot carries a digest of its (item, height): the board's two dates grow the
+    bench plan's plants differently, so a board that rendered June's models for
+    December could not hide behind equal date strings."""
+    import argparse
+    from datetime import date
+
+    args = argparse.Namespace(plan=board.DEFAULT_PLAN, size="320x180", software=False,
+                              qml_dir=None, list=True)
+    run = board.Board(args, tmp_path, lambda *_a, **_k: None, {})
+    run.load()
+    june, december = run.records_for(date(2026, 6, 21)), run.records_for(date(2026, 12, 21))
+    assert run.snapshot_day(june) == date(2026, 6, 21)
+    assert run.snapshot_day(december) == date(2026, 12, 21)
+    assert run.records_for(date(2026, 6, 21)) is june, "one snapshot per date"
+    digests = {day: block["digest"] for day, block in run.metrics["builds"].items()}
+    assert digests["2026-06-21"] != digests["2026-12-21"]
+    assert board.records_digest(june) == digests["2026-06-21"]
+    with pytest.raises(KeyError):
+        run.snapshot_day(dict(june))                  # records nobody snapshotted

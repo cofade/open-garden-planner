@@ -47,9 +47,11 @@ def test_the_settings_module_does_not_import_the_3d_core() -> None:
 @pytest.fixture()
 def settings(qtbot):  # noqa: ARG001 - Qt must be up
     store = get_settings()
-    saved = (store.view3d_quality, store.view3d_reduced_motion, store.view3d_auto_level)
+    saved = (store.view3d_quality, store.view3d_reduced_motion, store.view3d_auto_level,
+             store.view3d_auto_bars)
     yield store
-    store.view3d_quality, store.view3d_reduced_motion, store.view3d_auto_level = saved
+    (store.view3d_quality, store.view3d_reduced_motion, store.view3d_auto_level,
+     store.view3d_auto_bars) = saved
 
 
 @pytest.mark.parametrize("value", ["auto", "low", "medium", "high", "ultra"])
@@ -83,6 +85,28 @@ def test_the_automatic_level_is_one_of_the_levels_auto_moves_between(settings, w
     assert settings.view3d_auto_level == read
     settings._settings.setValue(AppSettings.KEY_VIEW3D_AUTO_LEVEL, written)
     assert settings.view3d_auto_level == read
+
+
+def test_the_automatic_bars_round_trip(settings) -> None:
+    """Review P1: which levels the automatic quality had to leave, until when, and how
+    long the next bar lasts — kept beside the level so a new session does not retry."""
+    assert AppSettings.KEY_VIEW3D_AUTO_BARS == "view3d/auto_quality_bars"
+    settings.view3d_auto_bars = {}
+    assert settings.view3d_auto_bars == {}
+    bars = {"high": (1_900_000_000.5, 600.0), "medium": (1_800_000_000.0, 300.0)}
+    settings.view3d_auto_bars = bars
+    assert settings.view3d_auto_bars == bars
+
+
+@pytest.mark.parametrize("stored", [
+    "not json", "[1, 2]", '{"ultra": [1, 2]}', '{"high": [1]}', '{"high": ["x", 2]}',
+    '{"high": [true, 2]}', '{"high": [1e999, 2]}'])
+def test_a_hand_edited_bar_store_only_loses_bars(settings, stored: str) -> None:
+    settings._settings.setValue(AppSettings.KEY_VIEW3D_AUTO_BARS, stored)
+    assert settings.view3d_auto_bars == {}
+    settings._settings.setValue(AppSettings.KEY_VIEW3D_AUTO_BARS,
+                                '{"low": [5.0, 300], "ultra": [1, 2]}')
+    assert settings.view3d_auto_bars == {"low": (5.0, 300.0)}
 
 
 def test_qt_still_exposes_no_motion_preference(qtbot) -> None:  # noqa: ARG001

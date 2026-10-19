@@ -715,9 +715,11 @@ class Workspace(QWidget):
             container = host.container(pane)
             orbit = OrbitInput(self._camera, self._view_height, parent=self)
             host.install_event_filter(orbit)
-            # the look (L1.4): no sky light in compatibility mode — on a software
-            # adapter every light probe costs seconds (ADR-064 addendum)
-            look = LookController.from_settings(host, sky_light=not software, parent=self)
+            # the look (L1.4): the render mode decides sky, wind and the automatic
+            # preset together — in compatibility mode no sky (a light probe costs
+            # seconds there), no wind (an animated view renders continuously) and
+            # ``auto`` = low (ADR-064 addendum)
+            look = LookController.from_settings(host, software=software, parent=self)
             controller = Scene3DController(scene, clock, self._location, sink, parent=self)
         except Exception as error:  # noqa: BLE001 - an import, the scene file, anything
             guard.init_failed()

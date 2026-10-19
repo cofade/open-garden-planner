@@ -151,7 +151,7 @@ def board(tmp_path_factory: pytest.TempPathFactory) -> tuple[dict[str, Any], Pat
     out = tmp_path_factory.mktemp("looks") / "board"
     return _ok_board(run_board(out, "--presets", ",".join(PRESETS), "--shots",
                                "noon,december_noon,night", "--iou", "--orient", "--horizon",
-                               "--moods"), out), out
+                               "--moods", "--dusk", "--fence", "--edge"), out), out
 
 
 def test_the_production_board_runs_end_to_end_and_every_truth_row_is_green(board) -> None:
@@ -172,6 +172,10 @@ def test_the_production_board_runs_end_to_end_and_every_truth_row_is_green(board
         assert 5.0 < row["mean_luma"] < 235.0, row          # neither black nor white
         assert row["clipped_pct"] < 2.0, row
     assert {row["sun_date"] for row in rows} == {"2026-06-21", "2026-12-21"}
+    # the date row can fail: build_date is read back from the records rendered, and two
+    # dates that grow the plants differently must give two different models
+    digests = {day: block["digest"] for day, block in metrics["builds"].items()}
+    assert digests["2026-06-21"] != digests["2026-12-21"], digests
     assert metrics["orientation"]["ok"] is True, metrics["orientation"]
     assert metrics["orientation"]["ncc"]["identity"] > 0.6
     assert metrics["probe_restore_frame_diff"] == 0.0, "a probe left something behind"
@@ -229,6 +233,66 @@ def test_fog_meets_the_sky_at_every_preset_and_in_every_mood(board) -> None:
         assert set(horizon[preset]) == {"noon", "golden_hour", "sunset", "night"}
         for mood in horizon[preset].values():
             assert mood["away"]["judged_rows"] >= 5 and mood["across"]["judged_rows"] >= 5
+
+
+def test_dusk_fades_and_sunset_is_no_cliff(board) -> None:
+    """Review P1 (the twilight ramp). The evening of the golden-hour shot from a 6° sun
+    to a −7° one, one camera: the light never rises, and crossing sunset (0.6° -> 0.4°,
+    where the sun's key light goes as the 2D shadows do) is no larger a step than the
+    largest half degree of the day ramp before it. Before the ramp: 0.116 -> 0.034
+    (low), 3.0 to 3.4 times the day ramp's largest step."""
+    metrics, _out = board
+    for preset in PRESETS:
+        dusk = metrics["dusk"][preset]
+        assert len(dusk["rows"]) == 16, dusk
+        assert dusk["monotone"], (preset, dusk["rises"])
+        assert dusk["sunset_step"] <= dusk["day_ramp_max_step"], (preset, dusk)
+        night = [row for row in dusk["rows"] if row["target"] <= -6.0]
+        assert all(row["night"] for row in night) and not any(
+            row["night"] for row in dusk["rows"] if row["target"] > -5.9)
+
+
+#: Review P1 (#529): the picket moiré at low. ``alias_error`` (``board_probes.
+#: thin_geometry_moire``): the fence's mean luma error against the same view rendered at
+#: twice the size and filtered down. Measured (960 x 540): FXAA at low 20.04, 2x MSAA
+#: 11.96, 4x MSAA (low = medium's anti-aliasing) 7.17; medium 7.17, high 6.79, ultra 5.40.
+#: Low may not alias more than medium by more than this.
+MAX_LOW_OVER_MEDIUM_ALIAS = 1.5
+
+
+def test_the_low_preset_does_not_alias_the_pickets(board) -> None:
+    metrics, _out = board
+    moire = metrics["fence_moire"]
+    assert moire["fences"] >= 1
+    low, medium = moire["low"]["alias_error"], moire["medium"]["alias_error"]
+    assert low is not None and medium is not None, moire
+    assert low <= medium + MAX_LOW_OVER_MEDIUM_ALIAS, moire
+    assert moire["low"]["dark_share"] <= moire["medium"]["dark_share"] + 0.02, moire
+
+
+#: Review P2: the plan rectangle meets the meadow without a step (luma), on a plan with
+#: nothing on it — the mean of the two views across an edge (``plan_edge``).
+MAX_PLAN_EDGE_STEP = 1.0
+
+
+def test_the_plan_ground_meets_the_meadow_without_a_step(board) -> None:
+    metrics, _out = board
+    edge = metrics["plan_edge"]
+    assert edge["max_abs_material_step"] <= MAX_PLAN_EDGE_STEP, edge
+    for preset in PRESETS:
+        for mood in ("golden_hour", "noon"):
+            rows = edge[preset][mood]
+            assert all(rows[name]["plan_px"] > 500 and rows[name]["meadow_px"] > 500
+                       for name in rows if isinstance(rows[name], dict)), rows
+
+
+def test_the_horizon_hue_seam_is_reported(board) -> None:
+    """Review P2: the luma rows cannot see a HUE seam (grey-blue sky over lime meadow);
+    ``delta_e`` (CIE76) is reported for every mood — not gated (an owner question)."""
+    metrics, _out = board
+    for preset in PRESETS:
+        for mood in metrics["horizon"][preset].values():
+            assert mood["away"]["delta_e"] is not None and mood["across"]["delta_e"] is not None
 
 
 # ── speckle: the bound and its positive control ──────────────────────────────
@@ -395,7 +459,8 @@ def test_the_look_controller_on_a_real_host_through_a_day(tmp_path: Path, softwa
     for step, (elevation, azimuth) in zip(data["steps"], driver.DAY, strict=True):
         sun = SunState(elevation, azimuth)
         look = look_for(sun, "high")
-        travel = moon_travel_scene() if look.night else tuple(-c for c in sun.direction_scene)
+        travel = (moon_travel_scene() if look.moon_travel_scene is not None
+                  else tuple(-c for c in sun.direction_scene))
         assert step["light_travel"] == pytest.approx(_engine(travel), abs=1e-5), step
         assert step["night"] is look.night
         assert step["exposure"] == pytest.approx(look.mood.exposure)
@@ -405,9 +470,14 @@ def test_the_look_controller_on_a_real_host_through_a_day(tmp_path: Path, softwa
             assert step["sky_builds"] == 0 and step["sky_built"] is False, step
         else:
             assert step["sky_builds"] == step["controller_rebuilds"] == expected_builds, step
-    assert expected_builds == 9, "the scripted day has nine noticeable moves"
+    # eight noticeable moves by day, sunset (0.6 -> 0.4: the disc goes), nightfall
+    # (-12), dawn (0.7) and one more by day
+    assert expected_builds == 10, "the scripted day has ten noticeable moves"
     wind = data["wind"]
-    assert wind["running_while_shown"] is True and wind["moved_while_shown"] > 0.1, wind
+    if software:   # review P0: no wind on a software adapter — it would render continuously
+        assert wind["running_while_shown"] is False and wind["moved_while_shown"] == 0.0, wind
+    else:
+        assert wind["running_while_shown"] is True and wind["moved_while_shown"] > 0.1, wind
     assert wind["moved_while_hidden"] == 0.0, "hidden: the clock stands"
     assert wind["after_reduced_motion"] == 0.0, "reduced motion: the clock is AT REST"
     assert (out / data["last"]).is_file()
@@ -460,6 +530,20 @@ def test_twenty_sun_changes_leave_no_sky_behind(tmp_path: Path, frames: str) -> 
     assert data["presented_again"] is True
     before, after = load_rgb(out / data["before"]), load_rgb(out / data["after"])
     assert float(np.abs(before - after).mean()) < 0.5, "the same sun again is not the same picture"
+
+
+def test_the_wind_running_for_two_minutes_leaves_nothing_behind(tmp_path: Path) -> None:
+    """The product's default steady state — the plan shown, the wind running — had no
+    soak (review): every workspace soak runs with reduced motion. Two minutes, committed
+    memory every five seconds, no readback in the loop; the bound was registered first."""
+    out = tmp_path / "wind_soak"
+    data = _ok_scenario(run_scenario(out, "wind_soak", minutes="2"), out)
+    loop = data["in_the_loop"]
+    assert loop["frames_read_back"] == 0 and loop["sky_builds"] == 0
+    assert loop["wind_clock_moved_s"] > 60.0, "the wind ran"
+    assert data["slope_second_half_mb_per_min"] <= driver.WIND_SOAK_BOUND_MB_PER_MIN, data["curve_mb"]
+    gpu = data["gpu_slope_second_half_mb_per_min"]
+    assert gpu is None or gpu <= driver.WIND_SOAK_BOUND_MB_PER_MIN, data["gpu_curve_mb"]
 
 
 def test_the_soak_sees_a_sky_that_is_not_released(tmp_path: Path) -> None:

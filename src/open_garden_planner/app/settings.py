@@ -5,6 +5,8 @@ Provides persistent storage for user preferences using QSettings, and owns
 is constructed (issue #285, ADR-041).
 """
 
+import json
+import math
 import os
 import stat
 import sys
@@ -162,6 +164,7 @@ class AppSettings:
     KEY_VIEW3D_QUALITY = "view3d/quality"
     KEY_VIEW3D_REDUCED_MOTION = "view3d/reduced_motion"
     KEY_VIEW3D_AUTO_LEVEL = "view3d/auto_quality_level"
+    KEY_VIEW3D_AUTO_BARS = "view3d/auto_quality_bars"
 
     # Default values
     DEFAULT_AUTOSAVE_ENABLED = True
@@ -833,6 +836,37 @@ class AppSettings:
         if text not in self.VIEW3D_AUTO_LEVELS:
             text = self.DEFAULT_VIEW3D_AUTO_LEVEL
         self._settings.setValue(self.KEY_VIEW3D_AUTO_LEVEL, text)
+
+    @property
+    def view3d_auto_bars(self) -> dict[str, tuple[float, float]]:
+        """The levels the automatic quality had to leave for being too slow, each with
+        when it may be tried again (seconds since the epoch) and how long its next bar
+        lasts — ``{level: (until, next_retry_s)}``. Stored as JSON; anything that is not
+        a level with two finite numbers is dropped, so a hand-edited store only ever
+        loses a bar.
+
+        Not a preference with a control: the app writes it when ``auto`` steps."""
+        raw = self._settings.value(self.KEY_VIEW3D_AUTO_BARS, "", type=str)
+        try:
+            data = json.loads(raw) if raw else {}
+        except (TypeError, ValueError):
+            return {}
+        bars: dict[str, tuple[float, float]] = {}
+        if not isinstance(data, dict):
+            return bars
+        for level, value in data.items():
+            if (level in self.VIEW3D_AUTO_LEVELS and isinstance(value, list) and len(value) == 2
+                    and all(isinstance(v, (int, float)) and not isinstance(v, bool)
+                            and math.isfinite(v) for v in value)):
+                bars[level] = (float(value[0]), float(value[1]))
+        return bars
+
+    @view3d_auto_bars.setter
+    def view3d_auto_bars(self, bars: dict[str, tuple[float, float]]) -> None:
+        clean = {level: [float(until), float(retry)] for level, (until, retry) in bars.items()
+                 if level in self.VIEW3D_AUTO_LEVELS
+                 and math.isfinite(until) and math.isfinite(retry)}
+        self._settings.setValue(self.KEY_VIEW3D_AUTO_BARS, json.dumps(clean, sort_keys=True))
 
     def sync(self) -> None:
         """Force settings to be written to storage."""

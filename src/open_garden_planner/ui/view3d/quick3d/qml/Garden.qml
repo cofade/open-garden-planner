@@ -43,7 +43,7 @@ Item {
     // where NO sky texture lights the view (the top-down truth view; a host without a
     // sky: the software fallback, the self-test): a plain background and a flat fill
     property color skyColor: "#8f9ca8"
-    property color fillColor: "#778bab"
+    property color fillColor: "#56657c"
     property color meadowColor: "#487f34"   // ONE albedo for the meadow and for bare plan ground
     // the key light's shadows: the preset's cost, the mood's softness
     property string shadowMapQuality: "very_high"   // high | very_high | ultra
@@ -54,7 +54,7 @@ Item {
     property real pcfFactor: 2
     // the preset: what the frame costs
     property string antialiasing: "msaa"            // msaa | fxaa
-    property string antialiasingQuality: "high"     // high | very_high
+    property string antialiasingQuality: "high"     // medium (2x) | high (4x) | very_high (8x)
     property bool ambientOcclusion: true
     property int aoSampleRate: 3
     property bool glow: true
@@ -417,11 +417,13 @@ Item {
                 depthCurve: 1.4
                 density: 1.0
             }
-            // the truth view is always multisampled: its pixels do not depend on a preset
+            // the truth view is always multisampled at 4x: its pixels do not depend on a preset
             antialiasingMode: (root.topDown || root.antialiasing === "msaa")
                               ? SceneEnvironment.MSAA : SceneEnvironment.NoAA
-            antialiasingQuality: root.antialiasingQuality === "very_high"
-                                 ? SceneEnvironment.VeryHigh : SceneEnvironment.High
+            antialiasingQuality: root.topDown ? SceneEnvironment.High
+                                 : root.antialiasingQuality === "very_high" ? SceneEnvironment.VeryHigh
+                                 : root.antialiasingQuality === "medium" ? SceneEnvironment.Medium
+                                 : SceneEnvironment.High
             // without MSAA: FXAA (a post effect) and specular anti-aliasing instead
             fxaaEnabled: !root.topDown && root.antialiasing === "fxaa"
             specularAAEnabled: !root.topDown && root.antialiasing === "fxaa"
@@ -506,7 +508,10 @@ Item {
 
         // the plan rectangle. L1.5 puts the baked 2D surfaces on it (a Texture from a
         // QQuick3DTextureData needs flipV: true - texture rows are north-up); until
-        // then it is bare ground in the meadow's albedo.
+        // then it is bare ground in the meadow's albedo. The MEADOW's material too
+        // (roughness 1.0, specular 0.15): at 0.92 / 0.2 its sheen made the plan read as
+        // a darker or brighter rectangle under a grazing view (-8.9 luma at golden
+        // hour; L1.4 fix round 1). The bake's material keeps these values.
         Model {
             source: "#Rectangle"
             position: Qt.vector3d(root.groundCenter.x, 0, root.groundCenter.z)
@@ -517,8 +522,8 @@ Item {
             visible: root.groundVisible
             materials: PrincipledMaterial {
                 baseColor: root.meadowColor
-                roughness: 0.92
-                specularAmount: 0.2
+                roughness: 1.0
+                specularAmount: 0.15
             }
         }
 

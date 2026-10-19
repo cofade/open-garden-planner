@@ -788,23 +788,38 @@ class TestWind:
         assert (ticks, moved) == (0, 0.0)
         assert host.scene_property("windTime") == 0.0
 
+    @staticmethod
+    def _advances(host: Any, qtbot: Any, ticks: int = 3) -> float:
+        """Wait for ``ticks`` changes of the running clock (no seconds bound: how fast
+        frames come is the machine's business) and return how far it moved."""
+        from PyQt6.QtQml import QQmlProperty
+
+        count = [0]
+
+        def tick() -> None:
+            count[0] += 1
+
+        watched = QQmlProperty(host._root, "windTime")
+        assert watched.connectNotifySignal(tick)
+        before = float(host.scene_property("windTime"))
+        qtbot.waitUntil(lambda: count[0] >= ticks, timeout=20000)
+        return float(host.scene_property("windTime")) - before
+
     def test_running_it_advances_and_stopping_freezes_it_where_it_is(self, host, qtbot) -> None:
         host.set_wind_running(True)
-        ticks, moved = self._ticks(host, qtbot, 400)
-        assert ticks >= 3 and 0.1 < moved < 2.0, (ticks, moved)   # the positive control
+        assert self._advances(host, qtbot) > 0.0      # the positive control
         host.set_wind_running(False)
         frozen = host.scene_property("windTime")
         ticks, moved = self._ticks(host, qtbot, 300)
         assert (ticks, moved) == (0, 0.0), "stopped: not one tick"
         assert host.scene_property("windTime") == frozen > 0.0, "frozen — which is NOT rest"
         host.set_wind_running(True)
-        assert self._ticks(host, qtbot, 200)[1] > 0.0, "and it goes on from there"
+        assert self._advances(host, qtbot, 1) > 0.0, "and it goes on from there"
         assert host.scene_property("windTime") > frozen
 
     def test_rest_stops_the_clock_and_puts_it_back_to_zero(self, host, qtbot) -> None:
         host.set_wind_running(True)
-        qtbot.wait(200)
-        assert host.scene_property("windTime") > 0.0
+        qtbot.waitUntil(lambda: host.scene_property("windTime") > 0.0, timeout=20000)
         host.rest_wind()
         assert host.scene_property("windTime") == 0.0
         assert host.scene_property("windRunning") is False

@@ -104,7 +104,8 @@ class TestLook:
         assert (properties["shadowMapQuality"], properties["shadowCascades"],
                 properties["softShadows"], properties["shadowBias"]) == ("very_high", 1, "pcf4", 15.0)
         assert (properties["antialiasing"], properties["ambientOcclusion"], properties["glow"],
-                properties["fog"], properties["reflections"]) == ("fxaa", False, False, True, False)
+                properties["fog"], properties["reflections"]) == ("msaa", False, False, True, False)
+        assert properties["antialiasingQuality"] == "high", "low: 4x MSAA (fix round 1, #529)"
         assert properties["fillColor"] == engine_srgb(look.fill_linear)
         assert properties["skyColor"] == properties["fogColor"] == engine_srgb(look.fog_linear)
 
@@ -135,7 +136,7 @@ class TestLook:
 
     def test_the_scene_files_defaults_are_the_engine_colours_of_the_neutral_day(self) -> None:
         assert engine_hex(NEUTRAL_DAY.fog_linear) == "#8f9ca8"
-        assert engine_hex(NEUTRAL_DAY.fill_linear) == "#778bab"
+        assert engine_hex(NEUTRAL_DAY.fill_linear) == "#56657c", "half L1.2's #778bab (FILL_OF_SKY)"
 
     def test_no_property_of_the_mapping_could_aim_the_light(self) -> None:
         """Truth: where the sun stands is the pipeline's (``Quick3DSink.set_sun``). The
@@ -167,7 +168,7 @@ class TestLook:
         # the night ground hemisphere at the sky's energy, 0.25 — the spike's 0.15 left a
         # dark line at the night horizon (L1.4 round 5; ``SkySpec.ground_energy``)
         assert (night["sunLatitude"], night["groundBottomColor"], night["skyEnergy"],
-                night["groundEnergy"], night["sunEnergy"]) == (-5.0, "#0a0f14", 0.25, 0.25, 0.0)
+                night["groundEnergy"], night["sunEnergy"]) == (-6.0, "#0a0f14", 0.25, 0.25, 0.0)
         spike = (Path(__file__).resolve().parents[2] / "src" / "open_garden_planner" / "spike_q3d"
                  / "qml" / "GardenSpike.qml").read_text(encoding="utf-8")
         for line in ('data.groundBottomColor = root.night ? "#0a0f14" : "#3c4d2e"',

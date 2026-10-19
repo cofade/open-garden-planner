@@ -80,7 +80,7 @@ def sun(elevation: float, azimuth: float = 180.0) -> SunState:
 
 
 def make(qtbot: Any, host: Host, **kwargs: Any) -> LookController:  # noqa: ARG001 - Qt must be up
-    kwargs.setdefault("sky_light", True)
+    kwargs.setdefault("software", False)
     kwargs.setdefault("quality", "high")
     return LookController(host, **kwargs)
 
@@ -140,8 +140,45 @@ def test_a_host_that_refuses_is_a_log_line_not_a_crash(qtbot, caplog) -> None:
     assert any("refused the look" in record.getMessage() for record in caplog.records)
     assert all("\n" not in record.getMessage() for record in caplog.records)
     host.fail = None
-    look.set_sun(sun(31.5))          # the next pass tries again, with everything
-    assert [name for name, _value in host.calls] == ["sky", "look"]
+    look.set_sun(sun(31.5))          # the next pass sends the look; the sky stays plain
+    assert [name for name, _value in host.calls] == ["look"]
+    assert not look.sky_light, "a sky that could not be built: the plain sky, for the session"
+
+
+class SkylessHost(Host):
+    """An engine whose sky alone cannot be built (a missing shader, a dead GPU
+    texture): ``set_sky`` raises, everything else works."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.sky_attempts = 0
+
+    def set_sky(self, sky: SkySpec | None) -> None:
+        self.sky_attempts += 1
+        raise RuntimeError("no sky texture")
+
+
+def test_a_sky_that_cannot_be_built_never_keeps_the_look_from_the_screen(qtbot, caplog) -> None:
+    """Review P1: the sky and the look shared one ``try`` — a sky that failed was
+    retried in every pass, and every pass failed before the look: 20 suns, 0 looks, 20
+    sky attempts, 20 ERROR lines. Now: ONE error, the plain sky for the session, and
+    every look reaches the engine."""
+    host = SkylessHost()
+    look = make(qtbot, host)
+    look.set_showing(True)
+    suns = [sun(20.0 + 1.5 * k, 100.0 + 4.0 * k) for k in range(20)]
+    with caplog.at_level("ERROR"):
+        for each in suns:
+            look.set_sun(each)
+            qtbot.wait(5)
+        qtbot.wait(SKY_SETTLE_MS + 100)
+    assert host.named("look") == [look_for(each, "high") for each in suns]
+    assert host.sky_attempts == 2, "one build, and one call that drops what it left"
+    sky_errors = [r for r in caplog.records if r.levelname == "ERROR" and "sky" in r.getMessage()]
+    assert len(sky_errors) == 1, [r.getMessage() for r in caplog.records]
+    assert look.sky is None and not look.sky_light and look.sky_rebuilds == 0
+    last = host.named("look")[-1]
+    assert last.fog_color == look_for(suns[-1], "high").fog_color, "the fog of the plain sky"
 
 
 # ── gate G4, the decision: one sky per noticeable move ───────────────────────
@@ -201,22 +238,44 @@ def test_a_sun_that_comes_back_owes_no_sky(qtbot) -> None:
     assert look.sky_rebuilds == 1
 
 
-def test_dusk_and_dawn_rebuild_at_once(qtbot) -> None:
+def test_sunset_nightfall_and_dawn_rebuild_at_once(qtbot) -> None:
+    """A change of the sky's phase is built in the same pass: sunset (0.5°: the disc
+    goes), the end of civil twilight (−6°: the night sky), and back."""
     host = Host()
     look = make(qtbot, host)
     look.set_showing(True)
     look.set_sun(sun(0.6, 300.0))
     host.take()
-    look.set_sun(sun(0.4, 300.1))       # a move of 0.2 degrees — and night
-    night = look_for(sun(0.4, 300.1), "high")
-    assert host.calls == [("sky", night.sky), ("look", night)]
-    look.set_sun(sun(-30.0, 10.0))      # the night goes on: the sky draws no sun
-    look.set_sun(sun(-12.0, 60.0))
+    look.set_sun(sun(0.4, 300.1))       # a move of 0.2 degrees — and the sun has set
+    dusk = look_for(sun(0.4, 300.1), "high")
+    assert host.calls == [("sky", dusk.sky), ("look", dusk)]
+    assert not dusk.night and dusk.mood.twilight > 0.0 and dusk.sky.sun_energy == 0.0
+    look.set_sun(sun(-30.0, 10.0))      # night: the night sky at once
+    assert look.sky_rebuilds == 3 and look.sky is not None and look.sky.night
+    look.set_sun(sun(-12.0, 60.0))      # the night goes on: the sky draws no sun
     qtbot.wait(SKY_SETTLE_MS + 120)
-    assert look.sky_rebuilds == 2
+    assert look.sky_rebuilds == 3
     host.take()
     look.set_sun(sun(0.7, 50.0))        # dawn
     assert [name for name, _value in host.calls] == ["sky", "look"]
+
+
+def test_twilight_rebuilds_the_sky_once_per_degree(qtbot) -> None:
+    """Review P1 (the twilight ramp): through civil twilight the sky's colours follow
+    the sun's elevation — one rebuild per noticeable (1°) move, none in between."""
+    host = Host()
+    look = make(qtbot, host)
+    look.set_showing(True)
+    look.set_sun(sun(0.3, 300.0))
+    built = look.sky_rebuilds
+    for step in range(1, 6):              # 0.3° -> -5.2°, resting at each sun
+        look.set_sun(sun(0.3 - 1.1 * step + 0.6, 300.0))    # 0.5° on: no rebuild
+        qtbot.wait(SKY_SETTLE_MS + 60)
+        assert look.sky_rebuilds - built == step - 1
+        look.set_sun(sun(0.3 - 1.1 * step, 300.0))          # 1.1° from the shown sky
+        qtbot.wait(SKY_SETTLE_MS + 60)
+        assert look.sky_rebuilds - built == step, step
+    assert all(not each.night and each.sun_energy == 0.0 for each in host.named("sky")[1:])
 
 
 def test_while_the_sky_lags_the_fog_meets_the_sky_on_screen(qtbot) -> None:
@@ -253,11 +312,11 @@ def test_a_hidden_view_builds_no_sky_until_it_is_seen_again(qtbot) -> None:
     assert host.named("sky")[-1] == look_for(sun(45.0, 240.0), "high").sky
 
 
-def test_without_sky_light_no_sky_is_ever_built(qtbot) -> None:
+def test_on_a_software_adapter_no_sky_is_ever_built(qtbot) -> None:
     """Gate G8's decision: the software fallback gets the look — plain background, flat
     fill — and never a light probe, whatever the sun does."""
     host = Host()
-    look = make(qtbot, host, sky_light=False)
+    look = make(qtbot, host, software=True)
     look.set_showing(True)
     for elevation, azimuth in ((35.0, 225.0), (50.0, 180.0), (0.4, 300.0), (-20.0, 20.0), (10.0, 80.0)):
         look.set_sun(sun(elevation, azimuth))
@@ -268,6 +327,27 @@ def test_without_sky_light_no_sky_is_ever_built(qtbot) -> None:
         (35.0, 225.0), (50.0, 180.0), (0.4, 300.0), (-20.0, 20.0), (10.0, 80.0))]
     last = host.named("look")[-1]
     assert last.plain_sky == last.fog_color, "the plain background is the fog's colour"
+
+
+@pytest.mark.parametrize("quality", ["auto", "low", "ultra"])
+def test_a_software_adapter_never_animates_and_auto_is_low(qtbot, quality: str) -> None:
+    """Review P0: the wind ran in compatibility mode — an animated view renders every
+    frame, 1,351 % of one core on WARP. The ONE render-mode parameter decides the sky,
+    the wind and the automatic preset together: no wind, ever; ``auto`` is ``low``
+    (with nothing animated there are no presented frames to choose from)."""
+    host = Host()
+    look = make(qtbot, host, software=True, quality=quality)
+    look.set_showing(True)
+    look.set_sun(sun(30.0))
+    look.set_showing(False)
+    look.set_showing(True)
+    look.set_reduced_motion(True)
+    look.set_reduced_motion(False)
+    assert host.named("wind") == [], "no wind call that could start the clock"
+    assert not look.animating and not look._auto_timer.isActive()
+    assert look.software and not look.sky_light
+    assert look.preset == ("low" if quality == "auto" else quality)
+    assert host.named("look")[0] == look_for(sun(30.0), look.preset)
 
 
 def test_every_sky_built_is_announced(qtbot) -> None:
@@ -407,16 +487,19 @@ def test_auto_starts_where_it_was_left_and_steps_down_when_slow(qtbot) -> None:
 
 
 def test_auto_steps_up_only_after_the_hold_time(qtbot) -> None:
+    """Also the FIRST step up of a session waits the hold time, from the first poll."""
     host, clock = Host(), Clock()
     look = make(qtbot, host, quality="auto", auto_level="low", clock=clock)
     look.set_showing(True)
     look.set_sun(sun(40.0))
     started = clock.now
-    _run(look, host, clock, 5.0, 60.0)
+    hold = AutoPolicy().hold_s
+    _run(look, host, clock, hold - 1.0, 60.0)
+    assert look.preset == "low", "a new session holds its level first"
+    _run(look, host, clock, 2.0, 60.0)
     assert look.preset == "medium"
     stepped_at = look.auto.steps[0][0]
-    assert stepped_at - started <= 5.0
-    hold = AutoPolicy().hold_s
+    assert hold <= stepped_at - started <= hold + 1.0
     _run(look, host, clock, hold - (clock.now - stepped_at) - 0.5, 60.0)
     assert look.preset == "medium", "inside the hold time, however fast the view is"
     _run(look, host, clock, 2.0, 60.0)
@@ -482,6 +565,70 @@ def test_a_store_that_cannot_be_written_does_not_stop_the_step(qtbot, caplog) ->
     assert look.preset == "medium"
 
 
+class Store:
+    """Where a session leaves the automatic preset — what the settings keep."""
+
+    def __init__(self) -> None:
+        self.level = "medium"
+        self.bars: dict[str, tuple[float, float]] = {}
+
+    def keep_level(self, level: str) -> None:
+        self.level = level
+
+    def keep_bars(self, bars: dict[str, tuple[float, float]]) -> None:
+        self.bars = dict(bars)
+
+
+def _session(qtbot: Any, store: Store, wall: Clock, minutes: float,
+             fps: dict[str, float]) -> list[tuple[float, str, str]]:
+    """One session of ``minutes``, the view animated throughout; the GPU runs each
+    preset at ``fps[preset]`` frames a second. Returns the session's steps."""
+    host, clock = Host(), Clock()
+    look = make(qtbot, host, quality="auto", auto_level=store.level, auto_bars=store.bars,
+                on_auto_level=store.keep_level, on_auto_bars=store.keep_bars, clock=clock,
+                wall_clock=wall)
+    look.set_showing(True)
+    look.set_sun(sun(40.0))
+    step = AUTO_SAMPLE_MS / 1000.0
+    owed = 0.0
+    for _ in range(int(round(minutes * 60.0 / step))):
+        clock.now += step
+        wall.now += step
+        owed += fps[look.preset] * step
+        host.frames += int(owed)
+        owed -= int(owed)
+        look._sample_frames()
+    look.shutdown()
+    return list(look.auto.steps)
+
+
+def test_a_level_that_was_too_slow_stays_barred_in_the_next_session(qtbot) -> None:
+    """Review P1: the bar on a level lived in memory only — "high is too slow, medium
+    is fine" stepped medium -> high -> medium in EVERY session. The bar and its
+    deadline are stored with the level (wall-clock seconds), so the next session
+    does not try high again before the bar is over — and when it is over and high
+    fails once more, the next bar is twice as long."""
+    store, wall = Store(), Clock()
+    fps = {"low": 120.0, "medium": 60.0, "high": 12.0}
+    started = wall.now
+    first = _session(qtbot, store, wall, 1.0, fps)
+    assert [(a, b) for _t, a, b in first] == [("medium", "high"), ("high", "medium")]
+    assert store.level == "medium" and set(store.bars) == {"high"}
+    until, retry = store.bars["high"]
+    # the session's own clock starts at 1000: the bar ends retry_s after the step down
+    assert until == pytest.approx(started + (first[1][0] - 1000.0) + AutoPolicy().retry_s, abs=1.0)
+    assert retry == 2 * AutoPolicy().retry_s
+    wall.now += 60.0                      # the app is closed for a minute
+    second = _session(qtbot, store, wall, 2.0, fps)
+    assert second == [], "barred: the next session does not try high"
+    wall.now = until + 1.0                # the bar is over
+    third = _session(qtbot, store, wall, 1.0, fps)
+    assert [(a, b) for _t, a, b in third] == [("medium", "high"), ("high", "medium")]
+    assert store.bars["high"][1] == min(4 * AutoPolicy().retry_s, AutoPolicy().max_retry_s), \
+        "failed again: the next bar doubles"
+    assert store.bars["high"][0] >= wall.now + 2 * AutoPolicy().retry_s - 60.0
+
+
 # ── settings ─────────────────────────────────────────────────────────────────
 
 
@@ -490,9 +637,11 @@ def settings(qtbot):  # noqa: ARG001 - Qt must be up
     from open_garden_planner.app.settings import get_settings
 
     store = get_settings()
-    saved = (store.view3d_quality, store.view3d_reduced_motion, store.view3d_auto_level)
+    saved = (store.view3d_quality, store.view3d_reduced_motion, store.view3d_auto_level,
+             store.view3d_auto_bars)
     yield store
-    store.view3d_quality, store.view3d_reduced_motion, store.view3d_auto_level = saved
+    (store.view3d_quality, store.view3d_reduced_motion, store.view3d_auto_level,
+     store.view3d_auto_bars) = saved
 
 
 def test_from_settings_reads_the_three_values_and_keeps_where_auto_settles(qtbot, settings) -> None:
@@ -500,18 +649,21 @@ def test_from_settings_reads_the_three_values_and_keeps_where_auto_settles(qtbot
     settings.view3d_reduced_motion = True
     settings.view3d_auto_level = "low"
     host = Host()
-    look = LookController.from_settings(host, sky_light=False)
-    assert (look.quality, look.preset, look.reduced_motion, look.sky_light) == (
-        "auto", "low", True, False)
+    look = LookController.from_settings(host, software=True)
+    assert (look.quality, look.preset, look.reduced_motion, look.sky_light, look.software) == (
+        "auto", "low", True, False, True)
+    assert look._on_auto_level is not None and look._on_auto_bars is not None
     look._on_auto_level("high")               # what a step calls
+    look._on_auto_bars({"high": (2_000_000_000.0, 600.0)})
     assert settings.view3d_auto_level == "high"
+    assert settings.view3d_auto_bars == {"high": (2_000_000_000.0, 600.0)}
 
 
 def test_reload_settings_follows_the_preferences_dialog(qtbot, settings) -> None:
     settings.view3d_quality = "high"
     settings.view3d_reduced_motion = False
     host = Host()
-    look = LookController.from_settings(host, sky_light=True)
+    look = LookController.from_settings(host, software=False)
     look.set_showing(True)
     look.set_sun(sun(30.0))
     host.take()

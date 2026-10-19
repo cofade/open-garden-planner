@@ -33,6 +33,13 @@ laid beside an L0 board): ``golden_hour``, ``sunset`` (the 6° golden anchor),
 ``--horizon``  how the fogged meadow meets the sky, per mood and preset
 ``--moods``    ONE camera and ONE date under the suns of noon, golden hour, sunset and
                night: how dark the night is against the noon of the same shot
+``--dusk``     the evening of the golden-hour shot from a 6° sun to a −7° one, one camera:
+               the light must fade (luminance never rises) and crossing sunset (0.6° →
+               0.4°) is no larger a step than a half degree of the day ramp
+``--fence``    the plan's fences alone against the same frame without them, at the noon
+               camera, per preset: how the pickets alias (dark share, Laplacian)
+``--edge``     an empty plan at golden hour and noon: the luma step where the plan
+               rectangle meets the meadow (gate: within 1)
 ``--fps-seconds N``  frames a SHOWN view presents per second with the wind running,
                per preset — or, where nothing is presented (the display asleep), the
                cost of a finished readback, labelled as such
@@ -63,6 +70,7 @@ writes Recent Files, and outside pytest the settings are the user's.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import platform
@@ -71,7 +79,7 @@ import sys
 import time
 import traceback
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -203,6 +211,32 @@ def iou_camera(elevation: float, size: tuple[int, int]) -> probes.Pinhole:
                           target=(middle[0], middle[1], 0.0), fov_deg=40.0, size=size)
 
 
+def plan_day(when_utc: datetime) -> date:
+    """The plan's day of an instant: the LOCAL calendar day, as the app's sim clock
+    reads it (ADR-053: ``tz=None`` = the system zone) — never the UTC date."""
+    return when_utc.astimezone().date()
+
+
+def records_digest(records: dict[str, Record]) -> str:
+    """A short digest of (item id, height) over a snapshot: two plan dates that grow
+    the plants differently give two digests — a board that rendered one date's
+    models for another cannot hide behind equal date strings."""
+    rows = sorted((item_id, None if record.height_cm is None else round(float(record.height_cm), 2))
+                  for item_id, record in records.items())
+    return hashlib.sha256(repr(rows).encode("utf-8")).hexdigest()[:16]
+
+
+#: The dusk probe's sun elevations, high to low: the day ramp in half degrees down to
+#: 0.6°, sunset's crossing to 0.4°, then civil twilight to past its end.
+DUSK_ELEVATIONS = (6.0, 3.1, 2.6, 2.1, 1.6, 1.1, 0.6, 0.4, 0.0, -1.0, -2.0, -3.0, -4.0, -5.0,
+                   -6.0, -7.0)
+#: The edge probe's cameras stand this far from the edge they look at, at eye height —
+#: the grazing view under which the two grounds' sheen differs most — and judge a band
+#: this deep and this wide on each side of it, starting this far from the edge.
+EDGE_BACK_CM, EDGE_EYE_CM, EDGE_BAND_CM, EDGE_HALF_WIDTH_CM, EDGE_INSET_CM = (
+    1500.0, 165.0, 200.0, 300.0, 20.0)
+
+
 # ── the run ──────────────────────────────────────────────────────────────────
 
 
@@ -217,6 +251,9 @@ class Board:
         self.qt_errors: list[str] = []
         self.qt_warnings: list[str] = []
         self._records: dict[date, dict[str, Record]] = {}
+        #: The day each snapshot was taken for, by the identity of the records it made:
+        #: a row's ``build_date`` is read back from the records actually rendered.
+        self._snapshot_day: dict[int, date] = {}
         self.scene: Any = None
         self.location: dict[str, Any] | None = None
 
@@ -267,12 +304,18 @@ class Board:
             started = time.perf_counter()
             skipped: list[Any] = []
             self._records[at] = snapshot_records(self.scene, at, skipped=skipped)
+            self._snapshot_day[id(self._records[at])] = at
             self.metrics.setdefault("builds", {})[at.isoformat()] = {
                 "records": len(self._records[at]), "skipped": len(skipped),
-                "snapshot_ms": round((time.perf_counter() - started) * 1000.0, 1)}
+                "snapshot_ms": round((time.perf_counter() - started) * 1000.0, 1),
+                "digest": records_digest(self._records[at])}
             self.log("records", date=at.isoformat(), records=len(self._records[at]),
                      skipped=len(skipped))
         return self._records[at]
+
+    def snapshot_day(self, records: dict[str, Record]) -> date:
+        """The plan date the given records were snapshotted for."""
+        return self._snapshot_day[id(records)]
 
     # ── one frame ────────────────────────────────────────────────────────────
 
@@ -330,7 +373,7 @@ class Board:
         self.metrics["shots"] = rows
         for preset in presets:
             for shot in shots:
-                at = shot.when_utc.date()            # the 2D overlay's rule: the instant's date
+                at = plan_day(shot.when_utc)         # the plan's LOCAL day (ADR-053)
                 records = self.records_for(at)
                 sun = self.sun_at(shot.when_utc)
                 look = look_for(sun, preset)
@@ -338,8 +381,9 @@ class Board:
                     f"{shot.name}_{preset}", records, sun=sun, look=look, ground=self.plan_ground(),
                     registry=registry, shot=PerspectiveShot(shot.eye, shot.target, shot.fov_deg))
                 row = {"shot": shot.name, "preset": preset, "sun_elev": round(sun.elevation_deg, 2),
-                       "sun_az": round(sun.azimuth_deg, 2), "sun_date": at.isoformat(),
-                       "build_date": at.isoformat(), "night": look.night,
+                       "sun_az": round(sun.azimuth_deg, 2),
+                       "sun_date": plan_day(shot.when_utc).isoformat(),
+                       "build_date": self.snapshot_day(records).isoformat(), "night": look.night,
                        "exposure": round(look.mood.exposure, 3), "sun_color": look.mood.sun_color,
                        **info, **probes.frame_stats(rgb)}
                 rows.append(row)
@@ -358,7 +402,7 @@ class Board:
 
         by_name = {shot.name: shot for shot in shots}
         camera = by_name["golden_hour"]
-        at = by_name["noon"].when_utc.date()
+        at = plan_day(by_name["noon"].when_utc)
         records, registry = self.records_for(at), production_registry()
         out: dict[str, Any] = {}
         self.metrics["moods"] = out
@@ -525,6 +569,152 @@ class Board:
         out["max"] = {key: round(value, 2) for key, value in worst.items()}
         self.write()
 
+    def dusk(self, shots: list[BoardShot], presets: list[str]) -> None:
+        """Day into night on ONE camera and ONE date (the golden-hour shot's): the plan's
+        own suns of that evening, found by elevation (``DUSK_ELEVATIONS``). The light
+        must fade — the mean luminance never rises from 6° to −7° — and crossing sunset
+        (0.6° → 0.4°, where the key light leaves as the 2D shadows do) is no larger a
+        step than the largest half degree of the day ramp before it (6° … 0.6°)."""
+        from open_garden_planner.core.scene3d.builders import production_registry
+        from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
+
+        camera = {shot.name: shot for shot in shots}["golden_hour"]
+        day = plan_day(camera.when_utc)
+        records, registry = self.records_for(day), production_registry()
+        found: dict[float, tuple[datetime, SunState]] = {}
+        moment = camera.when_utc.replace(hour=15, minute=0)
+        end = moment + timedelta(hours=8)
+        while moment < end and len(found) < len(DUSK_ELEVATIONS):
+            sun = self.sun_at(moment)
+            for target in DUSK_ELEVATIONS:
+                if target not in found and sun.elevation_deg <= target:
+                    found[target] = (moment, sun)
+            moment += timedelta(seconds=20)
+        out: dict[str, Any] = {}
+        self.metrics["dusk"] = out
+        for preset in presets:
+            rows = []
+            for target in DUSK_ELEVATIONS:
+                if target not in found:
+                    continue
+                moment, sun = found[target]
+                look = look_for(sun, preset)
+                rgb, _frame, info = self.frame(
+                    f"dusk_{target:+.1f}_{preset}", records, sun=sun, look=look,
+                    ground=self.plan_ground(), registry=registry,
+                    shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
+                rows.append({"target": target, "utc": moment.isoformat(),
+                             "sun_elev": round(sun.elevation_deg, 3), "twilight": round(look.mood.twilight, 4),
+                             "night": look.night, "exposure": round(look.mood.exposure, 4),
+                             "key_brightness": round(look.mood.sun_brightness, 4),
+                             "file": info["file"], **probes.frame_stats(rgb)})
+            lums = [row["mean_luminance"] for row in rows]
+            # a rise beyond the frames' own noise (two renders of one light differ by
+            # up to 1e-5 in mean luminance: the night rows of the first measurement)
+            rises = [round(after - before, 5) for before, after in zip(lums, lums[1:], strict=False)
+                     if after > before * 1.002 + 1e-5]
+            by_target = {row["target"]: row["mean_luminance"] for row in rows}
+            day_ramp = [target for target in DUSK_ELEVATIONS if target >= 0.6]
+            day_steps = [abs(by_target[a] - by_target[b])
+                         for a, b in zip(day_ramp, day_ramp[1:], strict=False)
+                         if a in by_target and b in by_target]
+            crossing = (abs(by_target[0.6] - by_target[0.4])
+                        if 0.6 in by_target and 0.4 in by_target else None)
+            out[preset] = {"rows": rows, "rises": rises,
+                           "monotone": not rises,
+                           "day_ramp_max_step": round(max(day_steps), 5) if day_steps else None,
+                           "sunset_step": None if crossing is None else round(crossing, 5)}
+            self.log("dusk", preset=preset, monotone=not rises, sunset_step=out[preset]["sunset_step"],
+                     day_ramp_max_step=out[preset]["day_ramp_max_step"])
+            self.write()
+
+    def fence_moire(self, shots: list[BoardShot], presets: list[str]) -> None:
+        """How the plan's fences alias, per preset: the fences alone at the noon camera
+        against the same frame without them (``probes.thin_geometry_moire``)."""
+        from open_garden_planner.core.scene3d.builders import production_registry
+        from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
+
+        camera = {shot.name: shot for shot in shots}["noon"]
+        records = self.records_for(plan_day(camera.when_utc))
+        fences = {key: record for key, record in records.items() if record.kind == "FENCE"}
+        sun = self.sun_at(camera.when_utc)
+        shot = PerspectiveShot(camera.eye, camera.target, camera.fov_deg)
+        out: dict[str, Any] = {"fences": len(fences)}
+        self.metrics["fence_moire"] = out
+        if not fences:
+            return
+        registry = production_registry()
+        for preset in presets:
+            look = look_for(sun, preset)
+            with_them, _frame, info = self.frame(f"fence_{preset}", fences, sun=sun, look=look,
+                                                 ground=self.plan_ground(), registry=registry,
+                                                 shot=shot)
+            without, _frame, _info = self.frame(f"fence_empty_{preset}", {}, sun=sun, look=look,
+                                                ground=self.plan_ground(), shot=shot)
+            large, _frame, _info = self.frame(f"fence_2x_{preset}", fences, sun=sun, look=look,
+                                              ground=self.plan_ground(), registry=registry, shot=shot,
+                                              size=(2 * self.size[0], 2 * self.size[1]))
+            reference = probes.downsample(large, 2) if large.shape[0] == 2 * with_them.shape[0] else None
+            out[preset] = {**probes.thin_geometry_moire(with_them, without, reference),
+                           "file": info["file"]}
+            self.log("fence_moire", preset=preset, **{k: v for k, v in out[preset].items()
+                                                      if k != "file"})
+            self.write()
+
+    def plan_edge(self, shots: list[BoardShot], presets: list[str]) -> None:
+        """The plan rectangle against the meadow on a plan with nothing on it: the luma
+        step across its west and its south edge at golden hour and at noon, per preset,
+        seen at eye height from 15 m (the grazing view under which a sheen shows).
+
+        Each edge is seen twice — from the plan looking out and from the meadow looking
+        in — and the two steps are averaged: at a grazing angle the FARTHER band reads
+        brighter whatever it is made of (+3 … +8 luma here), and that term flips sign
+        between the two views while the materials' own difference does not. The
+        averaged ``material_step`` is the gate's number."""
+        from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
+
+        by_name = {shot.name: shot for shot in shots}
+        mid_e, mid_n = self.width / 2.0, self.depth / 2.0
+        back, band, half, inset = EDGE_BACK_CM, EDGE_BAND_CM, EDGE_HALF_WIDTH_CM, EDGE_INSET_CM
+        west_in = (inset, mid_n - half, inset + band, mid_n + half)
+        west_out = (-inset - band, mid_n - half, -inset, mid_n + half)
+        south_in = (mid_e - half, inset, mid_e + half, inset + band)
+        south_out = (mid_e - half, -inset - band, mid_e + half, -inset)
+        views = {   # name: (eye, target, inside patch, outside patch)
+            "west_from_plan": ((back, mid_n, EDGE_EYE_CM), (0.0, mid_n, 0.0), west_in, west_out),
+            "west_from_meadow": ((-back, mid_n, EDGE_EYE_CM), (0.0, mid_n, 0.0), west_in, west_out),
+            "south_from_plan": ((mid_e, back, EDGE_EYE_CM), (mid_e, 0.0, 0.0), south_in, south_out),
+            "south_from_meadow": ((mid_e, -back, EDGE_EYE_CM), (mid_e, 0.0, 0.0), south_in, south_out),
+        }
+        out: dict[str, Any] = {}
+        self.metrics["plan_edge"] = out
+        worst = 0.0
+        for preset in presets:
+            out[preset] = {}
+            for mood in ("golden_hour", "noon"):
+                sun = self.sun_at(by_name[mood].when_utc)
+                rows: dict[str, Any] = {}
+                for name, (eye, target, inside, outside) in views.items():
+                    camera = probes.Pinhole(eye=eye, target=target, fov_deg=40.0, size=self.size)
+                    rgb, _frame, info = self.frame(
+                        f"edge_{mood}_{name}_{preset}", {}, sun=sun, look=look_for(sun, preset),
+                        ground=self.plan_ground(),
+                        shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
+                    rows[name] = {**probes.plan_edge_step(rgb, camera, inside, outside),
+                                  "file": info["file"]}
+                for edge in ("west", "south"):
+                    material = (rows[f"{edge}_from_plan"]["step"]
+                                + rows[f"{edge}_from_meadow"]["step"]) / 2.0
+                    rows[f"{edge}_material_step"] = round(material, 2)
+                    worst = max(worst, abs(material))
+                out[preset][mood] = rows
+                self.log("plan_edge", preset=preset, mood=mood,
+                         west=rows["west_material_step"], south=rows["south_material_step"],
+                         **{name: row["step"] for name, row in rows.items() if isinstance(row, dict)})
+            self.write()
+        out["max_abs_material_step"] = round(worst, 2)
+        self.write()
+
     def restore_check(self, shot: BoardShot, preset: str) -> None:
         """The first shot again, after every probe: the same picture, to the pixel."""
         from PyQt6.QtGui import QImage
@@ -536,7 +726,7 @@ class Board:
         first = QImage(str(self.out / f"{shot.name}_{preset}.png"))
         sun = self.sun_at(shot.when_utc)
         again, _frame, _info = self.frame(
-            "probes_restored", self.records_for(shot.when_utc.date()), sun=sun,
+            "probes_restored", self.records_for(plan_day(shot.when_utc)), sun=sun,
             look=look_for(sun, preset), ground=self.plan_ground(), registry=production_registry(),
             shot=PerspectiveShot(shot.eye, shot.target, shot.fov_deg))
         before = image_rgba(first)[..., :3].astype(np.float64)
@@ -583,7 +773,7 @@ class Board:
             return round(statistics.median(costs), 2), round(max(costs), 2)
 
         sun = self.sun_at(shot.when_utc)
-        records = self.records_for(shot.when_utc.date())
+        records = self.records_for(plan_day(shot.when_utc))
         host = Quick3DHost(self.size, qml_dir=self.args.qml_dir, log=self.log,
                            prefer_software=self.software)
         table: dict[str, Any] = {}
@@ -639,6 +829,12 @@ def _parse(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--horizon", action="store_true", help="how fog meets sky, per mood")
     parser.add_argument("--moods", action="store_true",
                         help="one camera and one date through noon, golden hour, sunset and night")
+    parser.add_argument("--dusk", action="store_true",
+                        help="the evening from 6 to -7 degrees on one camera: the light must fade")
+    parser.add_argument("--fence", action="store_true",
+                        help="the plan's fences alone at the noon camera: how they alias, per preset")
+    parser.add_argument("--edge", action="store_true",
+                        help="an empty plan: the step where the plan rectangle meets the meadow")
     parser.add_argument("--fps-seconds", type=float, default=0.0,
                         help="frames a SHOWN window presents per second, per preset (0 = off)")
     parser.add_argument("--software", action="store_true",
@@ -696,11 +892,17 @@ def run(args: argparse.Namespace, out: Path, log: Any, metrics: dict[str, Any]) 
     if args.iou:
         board.shadow_iou(presets)
     if args.orient:
-        board.orientation(shots[0].when_utc.date() if shots else date(2026, 6, 21))
+        board.orientation(plan_day(shots[0].when_utc) if shots else date(2026, 6, 21))
         board.sky_azimuth()
     if args.horizon:
         board.horizon(default_shots(board.width, board.depth), presets)
-    if shots and (args.iou or args.orient or args.horizon):
+    if args.dusk:
+        board.dusk(default_shots(board.width, board.depth), presets)
+    if args.fence:
+        board.fence_moire(default_shots(board.width, board.depth), presets)
+    if args.edge:
+        board.plan_edge(default_shots(board.width, board.depth), presets)
+    if shots and (args.iou or args.orient or args.horizon or args.dusk or args.fence or args.edge):
         board.restore_check(shots[0], presets[0])
     if args.fps_seconds > 0 and shots:
         board.frame_rate(shots[0], presets, float(args.fps_seconds))

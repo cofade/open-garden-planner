@@ -46,13 +46,14 @@ from .frame import sun_direction_scene
 from .sink import SunState
 
 __all__ = [
-    "AUTO", "AUTO_LEVELS", "DAY", "FOG_OF_HORIZON", "GOLDEN", "GOLDEN_DEG", "LOW_SUN",
-    "MEADOW_ALBEDO", "MOON_AZIMUTH_DEG", "MOON_ELEVATION_DEG", "NEUTRAL_DAY", "NIGHT",
-    "NIGHT_BELOW_DEG", "NOON", "NOON_DEG", "PRESETS", "PRESET_SPECS", "QUALITY_CHOICES",
-    "SKY_MIN_ELEVATION_DEG", "SKY_REBUILD_DEG", "AutoPolicy", "AutoPreset", "LookSpec",
-    "MoodSpec", "PresetSpec", "Rig", "ShadowSpec", "SkySpec", "day_rig", "fill_linear",
-    "fog_color", "fog_linear", "linear_to_srgb_hex", "look_for", "mix_linear", "moon_travel_scene",
-    "normalise_quality", "scale_linear", "sky_is_stale", "sky_separation_deg",
+    "AUTO", "AUTO_LEVELS", "DAY", "FILL_OF_SKY", "FOG_OF_HORIZON", "GOLDEN", "GOLDEN_DEG",
+    "LOW_SUN", "MEADOW_ALBEDO", "MOON_AZIMUTH_DEG", "MOON_ELEVATION_DEG", "NEUTRAL_DAY", "NIGHT",
+    "NIGHT_BELOW_DEG", "NIGHT_SKY_ENERGY", "NOON", "NOON_DEG", "PRESETS", "PRESET_SPECS",
+    "QUALITY_CHOICES", "SKY_MIN_ELEVATION_DEG", "SKY_REBUILD_DEG", "TWILIGHT_DEG", "AutoPolicy",
+    "AutoPreset", "LookSpec", "MoodSpec", "PresetSpec", "Rig", "ShadowSpec", "SkySpec", "day_rig",
+    "fill_linear", "fog_color", "fog_linear", "linear_to_srgb_hex", "look_for", "mix_linear",
+    "mix_rig", "mix_stops", "moon_travel_scene", "normalise_quality", "scale_linear", "sky_is_stale",
+    "sky_phase", "sky_separation_deg", "twilight_fraction", "twilight_rig",
 ]
 
 # ── the rig ──────────────────────────────────────────────────────────────────
@@ -60,6 +61,11 @@ __all__ = [
 #: Below this geometric sun elevation it is night — the 2D shadow overlay's own
 #: threshold, so 2D and 3D never disagree about whether the sun is up.
 NIGHT_BELOW_DEG: Final = MIN_SUN_ELEVATION_DEG
+#: Where civil twilight ends: from ``NIGHT_BELOW_DEG`` down to here the day's last
+#: rig (the low sun) fades into the night rig — a ramp, not a switch (L1.4 fix round
+#: 1: the switch at 0.5° dropped the frame from luma 77 to 37 within 90 s of plan
+#: time and drew all of civil twilight as full night). Below it, night.
+TWILIGHT_DEG: Final = -6.0
 #: The golden anchor, and where the noon rig begins (it holds above).
 GOLDEN_DEG: Final = 6.0
 NOON_DEG: Final = 30.0
@@ -74,14 +80,22 @@ MEADOW_ALBEDO: Final = "#487f34"
 #: over the sky row above the horizon, x probe x 0.8 measured -0.7 / -0.5 / +1.4
 #: (golden hour, morning, walk; high — spike).
 FOG_OF_HORIZON: Final = 0.8
+#: The flat fill that stands in for the sky's light where no sky texture lights the
+#: view is HALF the sky's mean radiance: at full strength the compatibility mode
+#: read +22 luma brighter than the GPU's sky-lit frame at golden hour, sunset and in
+#: the walk (the sky lights a surface from one hemisphere, a flat ambient from all
+#: directions). L1.4 fix round 1.
+FILL_OF_SKY: Final = 0.5
 #: Amplitude of the foliage and grass sway, in the shaders' units (spike).
 WIND_STRENGTH: Final = 2.5
 #: The moon of the night rig: fixed, high in the south (spike). It is a LOOK, not an
 #: ephemeris — the plan's sun is below the horizon, and the scene still needs a key.
 MOON_ELEVATION_DEG: Final = 38.0
 MOON_AZIMUTH_DEG: Final = 165.0
-#: The procedural sky is never asked for a sun further below the horizon than this.
-SKY_MIN_ELEVATION_DEG: Final = -5.0
+#: The procedural sky is never asked for a sun further below the horizon than the end
+#: of civil twilight: through twilight its colours follow the elevation (one rebuild
+#: per degree); the night sky does not.
+SKY_MIN_ELEVATION_DEG: Final = TWILIGHT_DEG
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,6 +150,21 @@ def mix_linear(first: str, second: str, t: float) -> str:
     return linear_to_srgb_hex(low + (high - low) * t)
 
 
+def mix_stops(first: str, second: str, t: float) -> str:
+    """``#rrggbb`` ``first`` -> ``second`` at ``t``, mixed in STOPS: every channel's
+    linear value geometrically (each step the same FACTOR, as the eye judges light).
+    For a fade into the dark: mixed linearly, the night end of twilight dropped the
+    drawn horizon 3.4x in its last half degree (1.1x in its first); in stops every
+    half degree is 1.34-1.48x. The ends come back exactly."""
+    if t <= 0.0:
+        return first
+    if t >= 1.0:
+        return second
+    low = np.log(np.maximum(_linear(first), 1e-6))
+    high = np.log(np.maximum(_linear(second), 1e-6))
+    return linear_to_srgb_hex(np.exp(low + (high - low) * t))
+
+
 def scale_linear(color: str, factor: float) -> str:
     """``#rrggbb`` scaled by ``factor`` in LINEAR light."""
     return linear_to_srgb_hex(_linear(color) * factor)
@@ -169,8 +198,10 @@ def fill_linear(sky_top: str, sky_horizon: str, probe_exposure: float,
                 sky_energy: float = 1.0) -> tuple[float, float, float]:
     """The flat fill that stands in for a sky's diffuse light where no sky texture
     lights the scene (the top-down truth view, the software fallback): the mean of
-    the sky's top and horizon in linear light, x probe exposure x the sky's energy."""
-    mean = (_linear(sky_top) + _linear(sky_horizon)) / 2.0 * probe_exposure * sky_energy
+    the sky's top and horizon in linear light, x probe exposure x the sky's energy
+    x ``FILL_OF_SKY``."""
+    mean = ((_linear(sky_top) + _linear(sky_horizon)) / 2.0 * probe_exposure * sky_energy
+            * FILL_OF_SKY)
     return (float(mean[0]), float(mean[1]), float(mean[2]))
 
 
@@ -183,25 +214,56 @@ def _ramp(elevation_deg: float) -> tuple[Rig, Rig, float]:
     return mid, high, min((elevation_deg - mid_at) / (high_at - mid_at), 1.0)
 
 
-def day_rig(elevation_deg: float) -> Rig:
-    """The day rig at a sun elevation: an anchor exactly at its own elevation, a
-    continuous mix in between, the noon rig above ``NOON_DEG``, the low-sun rig at
-    and below ``NIGHT_BELOW_DEG`` (night itself is ``NIGHT``: ``look_for`` decides)."""
-    low, high, t = _ramp(elevation_deg)
+def mix_rig(low: Rig, high: Rig, t: float, *, colours: str = "linear") -> Rig:
+    """Two rigs mixed at ``t`` (0..1, the ends exact): colours in linear light (or, with
+    ``colours="stops"``, geometrically: ``mix_stops``), exposure in stops, brightness
+    and probe exposure linearly."""
     if t <= 0.0:
         return low
     if t >= 1.0:
         return high
+    mix = mix_stops if colours == "stops" else mix_linear
     return Rig(
-        sun_color=mix_linear(low.sun_color, high.sun_color, t),
+        sun_color=mix(low.sun_color, high.sun_color, t),
         sun_brightness=low.sun_brightness + (high.sun_brightness - low.sun_brightness) * t,
-        sky_top=mix_linear(low.sky_top, high.sky_top, t),
-        sky_horizon=mix_linear(low.sky_horizon, high.sky_horizon, t),
-        sun_disc=mix_linear(low.sun_disc, high.sun_disc, t),
+        sky_top=mix(low.sky_top, high.sky_top, t),
+        sky_horizon=mix(low.sky_horizon, high.sky_horizon, t),
+        sun_disc=mix(low.sun_disc, high.sun_disc, t),
         # in stops: 1.15 -> 0.85 is -0.44 EV, and a linear mix would spend it unevenly
         exposure=float(2.0 ** (math.log2(low.exposure) * (1.0 - t) + math.log2(high.exposure) * t)),
         probe_exposure=low.probe_exposure + (high.probe_exposure - low.probe_exposure) * t,
     )
+
+
+def day_rig(elevation_deg: float) -> Rig:
+    """The day rig at a sun elevation: an anchor exactly at its own elevation, a
+    continuous mix in between, the noon rig above ``NOON_DEG``, the low-sun rig at
+    and below ``NIGHT_BELOW_DEG`` (below it ``look_for`` takes ``twilight_rig``)."""
+    low, high, t = _ramp(elevation_deg)
+    return mix_rig(low, high, t)
+
+
+def twilight_fraction(elevation_deg: float) -> float:
+    """How far into the night a sun elevation is: 0 while the sun is up (at and above
+    ``NIGHT_BELOW_DEG``), 1 at and below ``TWILIGHT_DEG``, linear in between."""
+    if elevation_deg >= NIGHT_BELOW_DEG:
+        return 0.0
+    if elevation_deg <= TWILIGHT_DEG:
+        return 1.0
+    return (NIGHT_BELOW_DEG - elevation_deg) / (NIGHT_BELOW_DEG - TWILIGHT_DEG)
+
+
+def twilight_rig(elevation_deg: float) -> Rig:
+    """The rig of a sun under ``NIGHT_BELOW_DEG``: the low-sun rig mixed into the
+    night rig by ``twilight_fraction`` — colours in STOPS (``mix_stops``: a fade into
+    the dark, evenly as the eye sees it), exposure in stops, probe exposure
+    linearly — and the key light is the moon (the sun is down, as the 2D shadows
+    say), its brightness the night rig's times the fraction: no key, and no shadow,
+    just under 0.5°, the full moon at −6°."""
+    t = twilight_fraction(elevation_deg)
+    mixed = mix_rig(LOW_SUN, NIGHT, t, colours="stops")
+    return Rig(mixed.sun_color, NIGHT.sun_brightness * t, mixed.sky_top, mixed.sky_horizon,
+               mixed.sun_disc, mixed.exposure, mixed.probe_exposure)
 
 
 def moon_travel_scene() -> tuple[float, float, float]:
@@ -242,7 +304,7 @@ class PresetSpec:
     shadow_bias: float
     #: ``fxaa`` (a post effect, with specular anti-aliasing) | ``msaa``.
     antialiasing: str
-    #: ``high`` | ``very_high`` (MSAA only).
+    #: ``medium`` (2x) | ``high`` (4x) | ``very_high`` (8x) — MSAA's sample count.
     antialiasing_quality: str
     ambient_occlusion: bool
     ao_sample_rate: int
@@ -266,7 +328,7 @@ class PresetSpec:
             raise ValueError(f"PresetSpec.soft_shadows: {self.soft_shadows!r}")
         if self.antialiasing not in ("fxaa", "msaa"):
             raise ValueError(f"PresetSpec.antialiasing: {self.antialiasing!r}")
-        if self.antialiasing_quality not in ("high", "very_high"):
+        if self.antialiasing_quality not in ("medium", "high", "very_high"):
             raise ValueError(f"PresetSpec.antialiasing_quality: {self.antialiasing_quality!r}")
         if not 0 <= self.shadow_cascades <= 3:
             raise ValueError(f"PresetSpec.shadow_cascades: {self.shadow_cascades!r}")
@@ -274,12 +336,18 @@ class PresetSpec:
 
 #: Low: a 2048 map with ONE cascade — Medium-sized without cascades stair-stepped and
 #: acned the roof, and the 1024 map still cut ~25 px scallops of ~11 luma under the
-#: ridge cap. No MSAA: FXAA and specular anti-aliasing instead. No ambient occlusion,
-#: no glow — fog stays.
+#: ridge cap. 4x MSAA (L1.4 fix round 1, #529): FXAA let the picket fences alias into a
+#: moiré — the fence's luma error against a 2x-supersampled render 20.0 (medium: 7.2) —
+#: and 2x MSAA still 12.0, its dark-pixel share 18.8 % (medium 12.3 %); 4x: 6.2 and
+#: 13.1 %. Its cost on the RTX 4070 (bench_large, a new frame's readback) is inside the
+#: run-to-run spread (FXAA 23-28 ms, 4x 24-32 ms); on WARP 2x and 4x read 96-199 ms
+#: against FXAA's 67-152 under a shared CPU. No ambient occlusion, no glow — fog stays.
+#: Medium: the 2048 map too (it had 1024, smaller than low's): on bench_large it cost
+#: +4 % of a WARP frame (183 -> 191 ms) and nothing measurable on the GPU (30-40 ms).
 PRESET_SPECS: Final[Mapping[str, PresetSpec]] = MappingProxyType({
-    "low": PresetSpec("low", "very_high", 1, "pcf4", 15.0, "fxaa", "high", False, 2, False,
+    "low": PresetSpec("low", "very_high", 1, "pcf4", 15.0, "msaa", "high", False, 2, False,
                       False, False),
-    "medium": PresetSpec("medium", "high", 1, "pcf8", 15.0, "msaa", "high", True, 2, True,
+    "medium": PresetSpec("medium", "very_high", 1, "pcf8", 15.0, "msaa", "high", True, 2, True,
                          False, False),
     "high": PresetSpec("high", "very_high", 2, "pcf16", 10.0, "msaa", "high", True, 3, True,
                        False, False),
@@ -344,6 +412,7 @@ class ShadowSpec:
 class MoodSpec:
     """The part of a look that follows the sun alone (no preset in it)."""
 
+    #: Full night: the sun at or below ``TWILIGHT_DEG``.
     night: bool
     sun_color: str
     sun_brightness: float
@@ -353,6 +422,9 @@ class MoodSpec:
     #: than noon (0.550 vs 0.537) — a dimmed day, not a night.
     saturation: float
     contrast: float
+    #: How far into the night (``twilight_fraction``): 0 while the sun is up, 1 at
+    #: night; in between the key light is the fading-in moon and the sky draws no sun.
+    twilight: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -378,8 +450,9 @@ class LookSpec:
     #: … and the plain background: the fog's colour, so that the fogged meadow
     #: meets it without a line.
     plain_sky_linear: tuple[float, float, float]
-    #: The night rig's key light travels along this (scene frame); None by day —
-    #: by day the key is the sun, whose direction is not part of any look.
+    #: The night rig's key light travels along this (scene frame) — at night and in
+    #: twilight, when the sun is down; None while the sun is up: then the key is the
+    #: sun, whose direction is not part of any look.
     moon_travel_scene: tuple[float, float, float] | None
     meadow_albedo: str = MEADOW_ALBEDO
     wind_strength: float = WIND_STRENGTH
@@ -413,43 +486,52 @@ _DAY_SHADOW: Final = (82.0, 2.0)     # factor, pcf factor
 _NIGHT_SHADOW: Final = (25.0, 8.0)
 _DAY_GROUND_BOTTOM: Final = "#3c4d2e"
 _NIGHT_GROUND_BOTTOM: Final = "#0a0f14"
+#: The night sky is drawn at a quarter of its energy (spike); twilight ramps 1 -> this.
+NIGHT_SKY_ENERGY: Final = 0.25
 
 
 def look_for(sun: SunState, preset: str = "high") -> LookSpec:
     """The look of a frame under ``sun`` at ``preset`` (one of ``PRESETS``).
 
-    Night below ``NIGHT_BELOW_DEG`` — exactly where ``sun.is_up`` turns False.
-    The sun's DIRECTION is not in the result (by day): the engine takes it from
-    the ``SunState`` the pipeline sends, never from a look.
+    Three phases. DAY while the sun is up (``sun.is_up``: at and above
+    ``NIGHT_BELOW_DEG``, where the 2D shadows end): the day rig, the key light is the
+    sun — and its DIRECTION is not in the look: the engine takes it from the
+    ``SunState`` the pipeline sends, never from a look. TWILIGHT down to
+    ``TWILIGHT_DEG``: the low-sun rig fades into the night rig (``twilight_rig``),
+    the sky draws no sun, the key is the moon fading in. NIGHT below: the night rig.
     """
     if preset not in PRESET_SPECS:
         raise ValueError(f"unknown preset {preset!r}; choose from {list(PRESETS)}")
     cost = PRESET_SPECS[preset]
-    night = not sun.is_up
-    rig = NIGHT if night else day_rig(sun.elevation_deg)
-    # the ground hemisphere at the sky's own energy (``SkySpec.ground_energy``)
-    sky_energy, ground_energy, sun_energy = (0.25, 0.25, 0.0) if night else (1.0, 1.0, 1.0)
-    factor, pcf_factor = _NIGHT_SHADOW if night else _DAY_SHADOW
+    t = 0.0 if sun.is_up else twilight_fraction(sun.elevation_deg)
+    sun_down = not sun.is_up
+    night = t >= 1.0
+    rig = twilight_rig(sun.elevation_deg) if sun_down else day_rig(sun.elevation_deg)
+    # the sky dims by its energy (the ground hemisphere at the same energy:
+    # ``SkySpec.ground_energy``); it draws a sun only while the sun is up
+    sky_energy = 1.0 + (NIGHT_SKY_ENERGY - 1.0) * t
+    sun_energy = 0.0 if sun_down else 1.0
+    factor, pcf_factor = _NIGHT_SHADOW if sun_down else _DAY_SHADOW   # the moon's, from 0.5°
     fog = fog_linear(rig.sky_horizon, rig.probe_exposure, sky_energy)
     return LookSpec(
         preset=cost,
         mood=MoodSpec(night=night, sun_color=rig.sun_color, sun_brightness=rig.sun_brightness,
                       exposure=rig.exposure, probe_exposure=rig.probe_exposure,
-                      saturation=_NIGHT_SATURATION if night else _DAY_SATURATION,
-                      contrast=_CONTRAST),
+                      saturation=_DAY_SATURATION + (_NIGHT_SATURATION - _DAY_SATURATION) * t,
+                      contrast=_CONTRAST, twilight=t),
         sky=SkySpec(
             sun_elevation_deg=max(float(sun.elevation_deg), SKY_MIN_ELEVATION_DEG),
             sun_azimuth_deg=float(sun.azimuth_deg) % 360.0,
             top=rig.sky_top, horizon=rig.sky_horizon, sun_disc=rig.sun_disc,
-            ground_bottom=_NIGHT_GROUND_BOTTOM if night else _DAY_GROUND_BOTTOM,
-            sky_energy=sky_energy, ground_energy=ground_energy, sun_energy=sun_energy,
+            ground_bottom=mix_stops(_DAY_GROUND_BOTTOM, _NIGHT_GROUND_BOTTOM, t),
+            sky_energy=sky_energy, ground_energy=sky_energy, sun_energy=sun_energy,
             night=night),
         shadow=ShadowSpec(cost.shadow_map_quality, cost.shadow_cascades, cost.soft_shadows,
                           cost.shadow_bias, factor, pcf_factor),
         fog_linear=fog,
         fill_linear=fill_linear(rig.sky_top, rig.sky_horizon, rig.probe_exposure, sky_energy),
         plain_sky_linear=fog,
-        moon_travel_scene=moon_travel_scene() if night else None,
+        moon_travel_scene=moon_travel_scene() if sun_down else None,
     )
 
 
@@ -476,15 +558,25 @@ def sky_separation_deg(first: SkySpec, second: SkySpec) -> float:
     return math.degrees(math.acos(min(1.0, max(-1.0, dot))))
 
 
+def sky_phase(sky: SkySpec) -> str:
+    """``"day"`` (the sky draws its sun), ``"twilight"`` (no sun; its colours still
+    follow the sun's elevation) or ``"night"`` (the night sky, whatever the sun does)."""
+    if sky.night:
+        return "night"
+    return "day" if sky.sun_energy > 0.0 else "twilight"
+
+
 def sky_is_stale(shown: SkySpec | None, wanted: SkySpec,
                  threshold_deg: float = SKY_REBUILD_DEG) -> bool:
     """True when the sky on screen must be rebuilt to show ``wanted``.
 
-    No sky yet; day became night or night day; by day, the sun moved
-    ``threshold_deg`` or more. At night the sky draws no sun (``sun_energy`` 0),
-    so a night sky is never rebuilt for the sun's position.
+    No sky yet; the phase changed (``sky_phase``: sunset at 0.5°, the end of civil
+    twilight at −6°, and back — the caller builds those at once); by day and in
+    twilight, the sun moved ``threshold_deg`` or more (in twilight the sky draws no
+    sun, but its colours follow the elevation: one rebuild per degree). A night sky
+    is never rebuilt for the sun's position.
     """
-    if shown is None or shown.night != wanted.night:
+    if shown is None or sky_phase(shown) != sky_phase(wanted):
         return True
     if wanted.night:
         return False
@@ -547,21 +639,49 @@ class AutoPreset:
     Rules: a decision needs ``window_s`` of samples and ``min_samples`` of them.
     It steps DOWN when their median frame time is above ``slow_frame_s``. It steps
     UP when every one of them is below ``fast_frame_s``, ``hold_s`` has passed
-    since the last change, and the level above is not barred. A level it had to
-    leave is barred for ``retry_s``, doubling each time. No data never moves it.
+    since the last change — or since the FIRST poll, so a new session never steps
+    up before it has held a level that long — and the level above is not barred. A
+    level it had to leave is barred for ``retry_s``, doubling each time. No data
+    never moves it.
+
+    The bars outlive a session: ``bars`` seeds them — ``{level: (remaining_s,
+    next_retry_s)}``, the seconds still to wait from the first poll and how long
+    the next bar on that level will be — and ``bars_at(now_s)`` hands them back in
+    the same form for the caller to store. Without that, "high is too slow, medium
+    is fine" stepped up and down once in every session.
     """
 
-    def __init__(self, start: str = "medium", policy: AutoPolicy | None = None) -> None:
+    def __init__(self, start: str = "medium", policy: AutoPolicy | None = None,
+                 bars: Mapping[str, tuple[float, float]] | None = None) -> None:
         self._policy = policy if policy is not None else AutoPolicy()
         self._level = AUTO_LEVELS.index(start if start in AUTO_LEVELS else "medium")
         self._seen: tuple[float, int] | None = None    # the last poll: (time, count)
         self._open: tuple[float, int] | None = None    # where the open sample began
         self._window: list[tuple[float, int]] = []     # closed samples: (seconds, frames)
-        self._changed_at: float | None = None
+        self._changed_at: float | None = None          # set at the first poll
         self._barred_until: dict[int, float] = {}
         self._retry_s: dict[int, float] = {}
+        #: The seeded bars, waiting for the first poll to give them a time base.
+        self._seed: dict[int, tuple[float, float]] = {}
+        for level, (remaining, retry) in (bars or {}).items():
+            if level in AUTO_LEVELS and math.isfinite(remaining) and math.isfinite(retry):
+                self._seed[AUTO_LEVELS.index(level)] = (
+                    max(0.0, remaining),
+                    min(max(retry, self._policy.retry_s), self._policy.max_retry_s))
         #: Every step so far, as ``(now_s, from, to)`` — a diagnostic.
         self.steps: list[tuple[float, str, str]] = []
+
+    def bars_at(self, now_s: float) -> dict[str, tuple[float, float]]:
+        """Every level that was left for being slow: ``(seconds still barred from
+        now_s — 0 once the bar is over, next bar's length)``. The next bar's length
+        is kept after a bar is over: a level that fails again waits longer."""
+        out: dict[str, tuple[float, float]] = {}
+        for index, retry in self._retry_s.items():
+            until = self._barred_until.get(index, now_s)
+            out[AUTO_LEVELS[index]] = (max(0.0, until - now_s), retry)
+        for index, (remaining, retry) in self._seed.items():   # not polled yet
+            out.setdefault(AUTO_LEVELS[index], (remaining, retry))
+        return out
 
     @property
     def preset(self) -> str:
@@ -578,6 +698,12 @@ class AutoPreset:
 
     def observe(self, now_s: float, frames_presented: int) -> str | None:
         policy = self._policy
+        if self._changed_at is None:       # the first poll: the session's time base
+            self._changed_at = now_s
+            for index, (remaining, retry) in self._seed.items():
+                self._barred_until[index] = now_s + remaining
+                self._retry_s[index] = retry
+            self._seed.clear()
         seen = self._seen
         if seen is None or now_s < seen[0] or frames_presented < seen[1]:
             # the first poll — or a clock or a counter that began again (a fresh host)
@@ -610,7 +736,7 @@ class AutoPreset:
             return self._step(now_s, -1)
         top = len(AUTO_LEVELS) - 1
         if (times[-1] < policy.fast_frame_s and self._level < top
-                and (self._changed_at is None or now_s - self._changed_at >= policy.hold_s)
+                and now_s - self._changed_at >= policy.hold_s
                 and now_s >= self._barred_until.get(self._level + 1, -math.inf)):
             return self._step(now_s, +1)
         return None

@@ -98,12 +98,33 @@ class TestTheRigIsTheSpikes:
         assert L.MEADOW_ALBEDO == runner.MEADOW_ALBEDO
         assert L.FOG_OF_HORIZON == runner.FOG_OF_HORIZON
 
-    def test_night_begins_where_the_2d_overlay_says(self) -> None:
-        """ONE night threshold: 2D shadows stop below it, the 3D night rig starts below it."""
+    def test_the_sun_sets_where_the_2d_overlay_says(self) -> None:
+        """ONE sunset threshold: 2D shadows stop below it, and so does the sun's key light
+        in 3D — below it the key is the moon of the twilight ramp, faint at first."""
         assert L.NIGHT_BELOW_DEG == shadow_geometry.MIN_SUN_ELEVATION_DEG
-        assert not look_for(sun(L.NIGHT_BELOW_DEG)).night and sun(L.NIGHT_BELOW_DEG).is_up
-        below = sun(L.NIGHT_BELOW_DEG - 1e-9)
-        assert look_for(below).night and not below.is_up
+        at = look_for(sun(L.NIGHT_BELOW_DEG))
+        assert sun(L.NIGHT_BELOW_DEG).is_up and at.moon_travel_scene is None
+        assert at.mood.twilight == 0.0 and at.sky.sun_energy == 1.0
+        below_sun = sun(L.NIGHT_BELOW_DEG - 1e-9)
+        below = look_for(below_sun)
+        assert not below_sun.is_up and below.moon_travel_scene is not None
+        assert below.mood.sun_brightness < 1e-6, "no key, and no shadow, just below 0.5°"
+        assert below.sky.sun_energy == 0.0 and not below.night
+
+    def test_night_begins_at_the_end_of_civil_twilight(self) -> None:
+        """Review P1 (truth first): night was a switch at 0.5° — all of civil twilight
+        drew as full moonlit night. Now the low-sun rig fades into the night rig down
+        to −6°; at and below it, night."""
+        assert L.TWILIGHT_DEG == -6.0
+        assert not look_for(sun(-5.99)).night and look_for(sun(-6.0)).night
+        assert look_for(sun(-6.0)).mood == look_for(sun(-30.0)).mood
+        half = look_for(sun((L.NIGHT_BELOW_DEG + L.TWILIGHT_DEG) / 2.0))
+        assert half.mood.twilight == pytest.approx(0.5)
+        assert half.mood.sun_brightness == pytest.approx(NIGHT.sun_brightness / 2.0)
+        assert half.mood.exposure == pytest.approx(math.sqrt(LOW_SUN.exposure * NIGHT.exposure))
+        assert half.sky.sky_energy == pytest.approx(0.625) == half.sky.ground_energy
+        assert half.mood.saturation == pytest.approx((1.06 + 0.6) / 2.0)
+        assert half.shadow.factor == 25.0, "the key is the moon: its soft shadow"
 
     @pytest.mark.parametrize("elevation", [round(0.5 + 0.25 * k, 2) for k in range(0, 160)])
     def test_the_day_ramp_at_every_quarter_degree(self, elevation: float) -> None:
@@ -217,13 +238,17 @@ class TestAnchorsAndMixing:
         sky's energy: a quarter at night)."""
         noon = look_for(sun(60.0))
         top, horizon = srgb_to_linear(NOON.sky_top), srgb_to_linear(NOON.sky_horizon)
+        assert L.FILL_OF_SKY == 0.5
         assert noon.fill_linear == pytest.approx(
-            tuple(float(v) for v in (top + horizon) / 2.0 * NOON.probe_exposure), abs=1e-6)
-        assert noon.fill_linear == pytest.approx((0.1853, 0.2608, 0.4048), abs=5e-4), "L1.2's value"
+            tuple(float(v) for v in (top + horizon) / 2.0 * NOON.probe_exposure * 0.5), abs=1e-6)
+        # half of L1.2's value: at full strength compatibility mode read +22 luma over the
+        # GPU's sky-lit frame (review P2, fix round 1)
+        assert noon.fill_linear == pytest.approx((0.0927, 0.1304, 0.2024), abs=5e-4)
         night = look_for(sun(-12.0))
         top, horizon = srgb_to_linear(NIGHT.sky_top), srgb_to_linear(NIGHT.sky_horizon)
         assert night.fill_linear == pytest.approx(
-            tuple(float(v) for v in (top + horizon) / 2.0 * NIGHT.probe_exposure * 0.25), abs=1e-6)
+            tuple(float(v) for v in (top + horizon) / 2.0 * NIGHT.probe_exposure * 0.25 * 0.5),
+            abs=1e-6)
         assert noon.fill_color == L.linear_to_srgb_hex(noon.fill_linear)
 
 
@@ -236,6 +261,14 @@ MAX_COLOUR_STEP = 6        # 8-bit sRGB codes per 0.5°
 MAX_EXPOSURE_STEP = 0.015  # stops per 0.5°
 MAX_PROBE_STEP = 0.01      # per 0.5°
 MAX_BRIGHTNESS_STEP = 0.02  # per 0.5°
+#: Through twilight (0.5° → −6°, 13 half degrees; measured 2026-10-19, fix round 1): the
+#: largest step of any colour channel is 34 codes (the horizon's first half degree under
+#: sunset — colours fade in STOPS, so the codes move fastest at the bright end), of the
+#: exposure 0.0724 stops (1.25 -> 2.4 over 6.5°), of the moon key 0.0246, of the sky's
+#: energy 0.0577. The bounds sit just above. Mixed linearly, the colours' largest step was
+#: 52 codes, in the LAST half degree, where the drawn horizon fell 3.4x at once.
+TWILIGHT_MAX_COLOUR_STEP = 36
+TWILIGHT_MAX_EXPOSURE_STEP = 0.075
 
 
 def _day_elevations(step: float = 0.5) -> list[float]:
@@ -282,6 +315,58 @@ class TestTheRampIsContinuous:
                            zip(codes(first), codes(second), strict=True)) <= 2
             assert abs(math.log2(after.mood.exposure / before.mood.exposure)) <= 0.004
 
+    def test_the_sweep_through_twilight_has_no_cliff(self) -> None:
+        """Review P1: the sweep now crosses sunset and civil twilight, −18° … 90° in
+        half degrees. The day keeps the day bounds; twilight has its own (measured,
+        just above): it spends 0.94 stops of exposure and the whole way from the low
+        sun's sky to the night sky over 6.5°. ONE step is not in the ramp, by truth:
+        at 0.5° the sun's key light (1.7) goes, as the 2D shadows do — every other
+        value crosses it within the twilight bounds."""
+        elevations = [-18.0 + 0.5 * k for k in range(217)]
+        looks = {e: look_for(sun(e)) for e in elevations}
+        worst = {"colour": 0, "exposure": 0.0, "probe": 0.0, "brightness": 0.0, "energy": 0.0}
+        for low, high in zip(elevations, elevations[1:], strict=False):
+            if low >= L.NIGHT_BELOW_DEG:
+                continue                   # the day ramp: test_no_step_larger_than_…
+            before, after = looks[low], looks[high]
+            for first, second in ((before.sky.top, after.sky.top),
+                                  (before.sky.horizon, after.sky.horizon),
+                                  (before.fog_color, after.fog_color),
+                                  (before.plain_sky, after.plain_sky),
+                                  (before.fill_color, after.fill_color)):
+                step = max(abs(a - b) for a, b in zip(codes(first), codes(second), strict=True))
+                worst["colour"] = max(worst["colour"], step)
+            worst["exposure"] = max(worst["exposure"], abs(
+                math.log2(after.mood.exposure) - math.log2(before.mood.exposure)))
+            worst["probe"] = max(worst["probe"], abs(
+                after.mood.probe_exposure - before.mood.probe_exposure))
+            worst["energy"] = max(worst["energy"], abs(after.sky.sky_energy - before.sky.sky_energy))
+            if high < L.NIGHT_BELOW_DEG:   # the key: the moon fading in (not across sunset)
+                worst["brightness"] = max(worst["brightness"], abs(
+                    after.mood.sun_brightness - before.mood.sun_brightness))
+        assert worst["colour"] <= TWILIGHT_MAX_COLOUR_STEP, worst
+        assert worst["exposure"] <= TWILIGHT_MAX_EXPOSURE_STEP, worst
+        assert worst["probe"] <= MAX_PROBE_STEP, worst
+        assert worst["brightness"] <= MAX_BRIGHTNESS_STEP * 2, worst
+        assert worst["energy"] <= 0.06, worst
+        # the one step that is not in the ramp: the sun's key light at 0.5°
+        day, dusk = look_for(sun(0.5)), look_for(sun(0.4999))
+        assert day.mood.sun_brightness == LOW_SUN.sun_brightness and dusk.mood.sun_brightness < 0.001
+        assert (day.mood.exposure, day.mood.probe_exposure) == pytest.approx(
+            (dusk.mood.exposure, dusk.mood.probe_exposure), abs=1e-3)
+        assert max(abs(a - b) for a, b in zip(codes(day.sky.horizon), codes(dusk.sky.horizon),
+                                             strict=True)) <= 1
+
+    def test_dusk_never_brightens(self) -> None:
+        """From 6° down to night the light only fades: no exposure x energy product
+        rises — the sky's light (probe x energy x exposure) never grows as the sun sinks."""
+        values = []
+        for k in range(0, 121):
+            look = look_for(sun(6.0 - 0.1 * k))
+            values.append(look.mood.exposure * look.mood.probe_exposure * look.sky.sky_energy)
+        assert all(after <= before + 1e-9 for before, after in zip(values, values[1:], strict=False)), \
+            values
+
     def test_no_mood_contradicts_its_time_of_day(self) -> None:
         """Lower sun: never a brighter key, never a cooler one, never a lower exposure —
         so a 14° December noon cannot come out warmer than a 15° June golden hour again."""
@@ -324,28 +409,45 @@ class TestTheRampIsContinuous:
 
 class TestPresets:
     def test_the_four_presets_are_the_measured_ones(self) -> None:
-        """``ogp-3d-renderer`` §4 / the spike's ``GardenSpike.qml``, as data — with ONE
-        value moved in L1.4's round 2: the shadow bias of high and ultra, 5 -> 10 (a
-        sun-grazed lit wall was hatched at 5 on Direct3D 11; the numbers are at
-        ``PresetSpec.shadow_bias``)."""
+        """``ogp-3d-renderer`` §4 / the spike's ``GardenSpike.qml``, as data — with three
+        values moved in L1.4: the shadow bias of high and ultra, 5 -> 10 (round 2: a
+        sun-grazed lit wall was hatched at 5 on Direct3D 11); low's anti-aliasing FXAA
+        -> 4x MSAA (fix round 1, #529: the picket moiré); medium's map 1024 -> 2048 (fix
+        round 1: no preset has a smaller map than the one below it). The numbers are at
+        ``PRESET_SPECS``."""
         rows = {name: (p.shadow_map_quality, p.shadow_cascades, p.soft_shadows, p.shadow_bias,
                        p.antialiasing, p.antialiasing_quality, p.ambient_occlusion,
                        p.ao_sample_rate, p.glow, p.glow_high_quality, p.reflections)
                 for name, p in PRESET_SPECS.items()}
         assert rows == {
-            "low": ("very_high", 1, "pcf4", 15.0, "fxaa", "high", False, 2, False, False, False),
-            "medium": ("high", 1, "pcf8", 15.0, "msaa", "high", True, 2, True, False, False),
+            "low": ("very_high", 1, "pcf4", 15.0, "msaa", "high", False, 2, False, False, False),
+            "medium": ("very_high", 1, "pcf8", 15.0, "msaa", "high", True, 2, True, False, False),
             "high": ("very_high", 2, "pcf16", 10.0, "msaa", "high", True, 3, True, False, False),
             "ultra": ("ultra", 3, "pcf32", 10.0, "msaa", "very_high", True, 4, True, True, True),
         }
         assert tuple(PRESET_SPECS) == PRESETS == ("low", "medium", "high", "ultra")
+
+    def test_no_preset_costs_less_than_the_one_below_it(self) -> None:
+        """Review P2: low had a larger shadow map (2048) than medium (1024). Map size,
+        cascades, filter and anti-aliasing samples never fall from low to ultra."""
+        size = {"high": 1024, "very_high": 2048, "ultra": 4096}
+        pcf = {"pcf4": 4, "pcf8": 8, "pcf16": 16, "pcf32": 32}
+        samples = {("msaa", "medium"): 2, ("msaa", "high"): 4, ("msaa", "very_high"): 8,
+                   ("fxaa", "high"): 1, ("fxaa", "medium"): 1, ("fxaa", "very_high"): 1}
+        specs = [PRESET_SPECS[name] for name in PRESETS]
+        for lower, higher in zip(specs, specs[1:], strict=False):
+            assert size[lower.shadow_map_quality] <= size[higher.shadow_map_quality]
+            assert lower.shadow_cascades <= higher.shadow_cascades
+            assert pcf[lower.soft_shadows] <= pcf[higher.soft_shadows]
+            assert (samples[(lower.antialiasing, lower.antialiasing_quality)]
+                    <= samples[(higher.antialiasing, higher.antialiasing_quality)])
 
     def test_everything_else_of_the_presets_is_still_the_spikes_scene_file(self) -> None:
         """Drift guard until the spike retires: map, cascades and filter per preset, read
         from ``GardenSpike.qml``'s own bindings."""
         spike = (SOURCE.parents[2] / "spike_q3d" / "qml" / "GardenSpike.qml").read_text(
             encoding="utf-8")
-        for line in (
+        for line in (   # (the spike's medium map — 1024 — and low's FXAA: moved, above)
             'shadowMapQuality: root.preset === "low" ? Light.ShadowMapQualityVeryHigh',
             ': root.preset === "medium" ? Light.ShadowMapQualityHigh',
             ': root.preset === "high" ? Light.ShadowMapQualityVeryHigh',
@@ -441,19 +543,29 @@ class TestSkyStaleness:
         low = look_for(sun(10.0, 0.0)).sky, look_for(sun(10.0, 2.0)).sky
         assert sky_separation_deg(*low) == pytest.approx(2.0 * math.cos(math.radians(10.0)), abs=1e-3)
 
-    def test_day_to_night_and_back_rebuilds(self) -> None:
-        day, night = look_for(sun(0.6, 300.0)).sky, look_for(sun(0.4, 300.0)).sky
-        assert sky_separation_deg(day, night) < 1.0
-        assert sky_is_stale(day, night) and sky_is_stale(night, day)
+    def test_a_change_of_phase_rebuilds_whatever_the_distance(self) -> None:
+        """Sunset (0.5°: the disc goes), nightfall (−6°: the night sky), and back."""
+        day, dusk = look_for(sun(0.6, 300.0)).sky, look_for(sun(0.4, 300.0)).sky
+        assert sky_separation_deg(day, dusk) < 1.0
+        assert (L.sky_phase(day), L.sky_phase(dusk)) == ("day", "twilight")
+        assert sky_is_stale(day, dusk) and sky_is_stale(dusk, day)
+        late, night = look_for(sun(-5.9, 330.0)).sky, look_for(sun(-6.1, 330.5)).sky
+        assert (L.sky_phase(late), L.sky_phase(night)) == ("twilight", "night")
+        assert sky_is_stale(late, night) and sky_is_stale(night, late)
+
+    def test_twilight_skies_follow_the_sun_by_the_degree(self) -> None:
+        shown = look_for(sun(-1.0, 310.0)).sky
+        assert not sky_is_stale(shown, look_for(sun(-1.6, 310.0)).sky)
+        assert sky_is_stale(shown, look_for(sun(-2.1, 310.0)).sky)
 
     def test_a_night_sky_is_never_rebuilt_for_the_suns_position(self) -> None:
         """At night the sky draws no sun (its energy is 0): nothing to follow."""
-        shown = look_for(sun(-3.0, 310.0)).sky
-        for elevation, azimuth in ((-10.0, 330.0), (-40.0, 20.0), (-2.0, 60.0)):
+        shown = look_for(sun(-8.0, 310.0)).sky
+        for elevation, azimuth in ((-10.0, 330.0), (-40.0, 20.0), (-7.0, 60.0)):
             assert not sky_is_stale(shown, look_for(sun(elevation, azimuth)).sky)
 
     def test_the_sky_never_asks_for_a_sun_far_below_the_horizon(self) -> None:
-        assert look_for(sun(-40.0)).sky.sun_elevation_deg == L.SKY_MIN_ELEVATION_DEG == -5.0
+        assert look_for(sun(-40.0)).sky.sun_elevation_deg == L.SKY_MIN_ELEVATION_DEG == L.TWILIGHT_DEG == -6.0
         assert look_for(sun(12.0, 725.0)).sky.sun_azimuth_deg == pytest.approx(5.0)
 
 
@@ -521,14 +633,49 @@ class TestAutoPreset:
         assert feed.changes == [] and feed.auto.preset == "low"
 
     def test_it_steps_up_only_after_the_hold_time(self) -> None:
+        """Every step up waits out the hold — the FIRST one counted from the first poll
+        (review P1: a new session stepped up after one window)."""
         feed = Feed(AutoPreset("low"))
         feed.run(60.0, FAST)
         assert [name for _at, name in feed.changes] == ["medium", "high"]
         first, second = (at for at, _name in feed.changes)
-        assert first <= AutoPolicy().window_s + 2 * feed.step, "the first step needs only its window"
-        assert second - first >= AutoPolicy().hold_s, "the next one waits out the hold"
-        assert second - first <= AutoPolicy().hold_s + AutoPolicy().window_s
+        hold = AutoPolicy().hold_s
+        assert hold <= first <= hold + 2 * feed.step, "the first step waits the hold, too"
+        assert second - first >= hold, "the next one waits out the hold"
+        assert second - first <= hold + AutoPolicy().window_s
         assert feed.auto.preset == "high"
+
+    def test_the_bars_are_handed_back_and_seeded_across_sessions(self) -> None:
+        """Review P1: the bar on a level that proved too slow lived in memory only. A
+        session hands its bars back (``bars_at``: seconds still barred, next bar's
+        length) and the next one is seeded with them at its first poll."""
+        policy = AutoPolicy()
+        feed = Feed(AutoPreset("medium"))
+        feed.run(30.0, lambda preset: SLOW if preset == "high" else FAST)
+        assert [name for _at, name in feed.changes] == ["high", "medium"]
+        down_at = feed.changes[1][0]
+        bars = feed.auto.bars_at(feed.now)
+        assert bars == {"high": (pytest.approx(policy.retry_s - (feed.now - down_at)),
+                                 2 * policy.retry_s)}
+        # the next session, started 60 s later: high stays barred for what is left
+        left = bars["high"][0] - 60.0
+        nxt = Feed(AutoPreset("medium", bars={"high": (left, bars["high"][1])}))
+        assert nxt.auto.bars_at(0.0) == {"high": (left, 2 * policy.retry_s)}, "not polled yet"
+        nxt.run(left - 1.0, FAST)
+        assert nxt.changes == [], "barred: no step up while the bar lasts"
+        nxt.run(policy.hold_s + policy.window_s, FAST)
+        assert [name for _at, name in nxt.changes] == ["high"], "the bar is over: one retry"
+        nxt.run(policy.window_s + 2.0, lambda preset: SLOW if preset == "high" else FAST)
+        assert [name for _at, name in nxt.changes] == ["high", "medium"]
+        assert nxt.auto.bars_at(nxt.now)["high"][1] == 4 * policy.retry_s, "failed again: doubled"
+
+    def test_seeded_bars_are_cleaned(self) -> None:
+        """A store that holds nonsense loses the bar, never the session."""
+        policy = AutoPolicy()
+        auto = AutoPreset("medium", bars={"ultra": (10.0, 10.0), "high": (math.inf, 5.0),
+                                          "low": (-30.0, 1e9)})
+        auto.observe(0.0, 0)
+        assert auto.bars_at(0.0) == {"low": (0.0, policy.max_retry_s)}
 
     def test_nothing_happens_inside_the_dead_band(self) -> None:
         for start in AUTO_LEVELS:

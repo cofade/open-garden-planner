@@ -245,13 +245,13 @@ def test_every_key_the_look_can_hold_is_one_the_scene_understands() -> None:
     for prop, values in (("shadowMapQuality", ("high", "ultra")),          # very_high: the else
                          ("softShadows", ("pcf4", "pcf8", "pcf32")),       # pcf16: the else
                          ("antialiasing", ("msaa", "fxaa")),
-                         ("antialiasingQuality", ("very_high",))):         # high: the else
+                         ("antialiasingQuality", ("very_high", "medium"))):  # high: the else
         for value in values:
             assert f'root.{prop} === "{value}"' in code, (prop, value)
     from open_garden_planner.core.scene3d.look import PRESET_SPECS
 
-    assert {spec.shadow_map_quality for spec in PRESET_SPECS.values()} == {
-        "high", "very_high", "ultra"}
+    assert {spec.shadow_map_quality for spec in PRESET_SPECS.values()} == {"very_high", "ultra"}
+    assert {spec.antialiasing for spec in PRESET_SPECS.values()} == {"msaa"}
     assert {spec.soft_shadows for spec in PRESET_SPECS.values()} == {"pcf4", "pcf8", "pcf16", "pcf32"}
 
 

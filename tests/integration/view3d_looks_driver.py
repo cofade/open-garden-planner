@@ -25,7 +25,11 @@ Scenarios:
                   stopped (frozen where it is), at rest again — with the frames.
 ``controller``    the product's ``LookController`` on a real host through a scripted
                   day: sky builds counted in the ENGINE, the light's direction read
-                  from the scene. ``software=1``: the compatibility mode.
+                  from the scene. ``software=1``: the compatibility mode (no sky, no
+                  wind).
+``wind_soak``     the product's default steady state — the plan shown, the wind
+                  running — for ``minutes``: committed memory every 5 s, NO readback in
+                  the loop; the slope per minute over the second half.
 ``sky_soak``      N sun changes with a sky each, committed memory after every one,
                   NO readback inside the loop (a readback renders a frame that is
                   never presented: ADR-065). ``frames=withheld``: nothing is drawn
@@ -84,6 +88,11 @@ DAY = ((35.0, 120.0), (35.2, 120.3), (35.4, 120.6), (48.0, 150.0), (48.3, 150.2)
 #: the control must exceed 4.0.
 SOAK_BOUND_MB = 1.0
 SOAK_CONTROL_MB = 4.0
+#: The wind soak's gate (review, fix round 1: no soak measured the default steady state,
+#: the wind running while shown): committed memory per MINUTE over the second half
+#: (Theil-Sen), registered at 2.0 before the first run — a frame of a running wind
+#: allocates nothing it keeps; 2 MB a minute would be 120 MB an hour.
+WIND_SOAK_BOUND_MB_PER_MIN = 2.0
 
 
 def sky_camera() -> tuple[tuple[float, float, float], tuple[float, float, float]]:
@@ -262,7 +271,7 @@ def scenario_controller(ctx: Context) -> dict[str, Any]:
     try:
         sync = SceneSync(Quick3DSink(host))
         sync.set_ground(GroundSpec(2400.0, 1600.0))
-        look = LookController(host, sky_light=not software, quality="high")
+        look = LookController(host, software=software, quality="high")
         look.set_showing(True)
         host.set_camera((1200.0, -1500.0, 700.0), (1200.0, 800.0, 100.0), 46.0)
         steps: list[dict[str, Any]] = []
@@ -426,11 +435,74 @@ def scenario_sky_soak(ctx: Context) -> dict[str, Any]:
         pump()
 
 
+def scenario_wind_soak(ctx: Context) -> dict[str, Any]:
+    from datetime import date
+
+    from open_garden_planner.core import ProjectManager
+    from open_garden_planner.core.scene3d.builders import production_registry
+    from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+    from open_garden_planner.ui.view3d.quick3d.adapter import Quick3DSink
+    from open_garden_planner.ui.view3d.snapshot import snapshot_records
+
+    tools = instruments()
+    private_mb, theil_sen, gpu_mb = tools["private_mb"], tools["theil_sen"], tools["gpu_dedicated_mb"]
+    minutes = float(ctx.arguments.get("minutes", "2"))
+    scene = CanvasScene()
+    ProjectManager().load(scene, PLAN)
+    records = snapshot_records(scene, date(2026, 6, 21))
+    host = ctx.host()
+    try:
+        sync = SceneSync(Quick3DSink(host), production_registry())
+        sun = SunState(30.0, 200.0)
+        sync.apply(records, sun=sun, ground=GroundSpec(float(scene.width_cm), float(scene.height_cm)))
+        host.set_camera((2700.0, -700.0, 600.0), (1100.0, 900.0, 160.0), 46.0)
+        look = look_for(sun, "high")
+        host.set_look(look)
+        host.set_sky(look.sky)
+        host.set_wind_running(True)              # the default steady state: shown, wind on
+        pump(5000)                                # warm up: shaders, the probe, the first frames
+        gc.collect()
+        frames_at_start, clock_at_start = host.health().frames_presented, float(
+            host.scene_property("windTime"))
+        start_mb = round(private_mb(), 2)
+        curve: list[float] = []
+        gpu_curve: list[float | None] = []
+        seconds = int(minutes * 60.0)
+        for _ in range(seconds // 5):
+            pump(5000)                            # frames flow; nothing is read back
+            gc.collect()
+            curve.append(round(private_mb(), 2))
+            gpu = gpu_mb()
+            gpu_curve.append(gpu.get("process_dedicated_mb") if gpu.get("available") else None)
+        frames = host.health().frames_presented - frames_at_start
+        clock_moved = float(host.scene_property("windTime")) - clock_at_start
+        host.rest_wind()
+        half = curve[len(curve) // 2:]
+        gpu_values = [value for value in gpu_curve if value is not None]
+        per_sample = theil_sen(half)
+        return {
+            "minutes": minutes, "start_mb": start_mb, "curve_mb": curve,
+            "slope_second_half_mb_per_min": round(per_sample * 12.0, 3),
+            "gpu_curve_mb": gpu_curve,
+            "gpu_slope_second_half_mb_per_min": (
+                round(theil_sen(gpu_values[len(gpu_values) // 2:]) * 12.0, 3)
+                if len(gpu_values) > 3 else None),
+            "in_the_loop": {"frames_presented": frames, "frames_read_back": 0,
+                            "wind_clock_moved_s": round(clock_moved, 2),
+                            "sky_builds": host.sky_builds - 1},
+            "bound_mb_per_min": WIND_SOAK_BOUND_MB_PER_MIN, "health": _health(host),
+            "graphics_api": host.graphics_api()}
+    finally:
+        host.close()
+        pump()
+
+
 SCENARIOS: dict[str, Callable[[Context], dict[str, Any]]] = {
     "sky_sequence": scenario_sky_sequence,
     "wind": scenario_wind,
     "controller": scenario_controller,
     "sky_soak": scenario_sky_soak,
+    "wind_soak": scenario_wind_soak,
 }
 
 

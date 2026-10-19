@@ -120,7 +120,27 @@ def _settle(qtbot: Any, ms: int = 0) -> None:
     qtbot.wait(max(ms, SKY_SETTLE_MS + 150))
 
 
-def test_a_day_in_the_garden_drives_the_look_and_nothing_else(app3d, qtbot, mouse_event) -> None:
+def _preferences(window: GardenPlannerApp, monkeypatch: pytest.MonkeyPatch, *,
+                 quality: str | None = None, reduced_motion: bool | None = None) -> None:
+    """Edit → Preferences through the REAL window (``_on_preferences``): the dialog it
+    builds is changed as a user would and saved — its ``exec`` returns Accepted — and
+    what the window does on "Save" is what is tested (review P1: the window's call to
+    the workspace could be deleted and every test still passed)."""
+    def run(dialog: PreferencesDialog) -> int:
+        if quality is not None:
+            combo = dialog._view3d_quality_combo
+            combo.setCurrentIndex(combo.findData(quality))
+        if reduced_motion is not None:
+            dialog._view3d_reduced_motion_check.setChecked(reduced_motion)
+        dialog._save_and_accept()
+        return 1
+
+    monkeypatch.setattr(PreferencesDialog, "exec", run)
+    window._on_preferences()
+
+
+def test_a_day_in_the_garden_drives_the_look_and_nothing_else(app3d, qtbot, mouse_event,
+                                                               monkeypatch) -> None:
     window, engines = app3d
     workspace, canvas = window._workspace, window.canvas_view
     clock = window._sim_clock
@@ -164,7 +184,8 @@ def test_a_day_in_the_garden_drives_the_look_and_nothing_else(app3d, qtbot, mous
                           and soon.elevation_deg < now.elevation_deg)),
     ]
     sink.clear_calls()
-    snapshots = controller.snapshot_count
+    snapshots, reconciles = controller.snapshot_count, controller.reconcile_count
+    unannounced = controller.unannounced_changes
     seen: dict[str, Any] = {}
     for name, wall in script:
         skies_before, shown_sky = len(host.skies), look.sky
@@ -209,7 +230,12 @@ def test_a_day_in_the_garden_drives_the_look_and_nothing_else(app3d, qtbot, mous
     assert not sky_is_stale(look.sky, look_for(nudged, "high").sky)
     assert len(host.skies) == skies, "a quarter of a degree: zero rebuilds"
     assert sink.sun == nudged and sink.ops() == [BEGIN, SUN, COMMIT]
-    assert controller.snapshot_count == snapshots,         "a time of day re-lights the garden; it never snapshots the plan again"
+    # a time of day re-lights the garden; the look never snapshots the plan. A snapshot
+    # after a time change can only be the workspace's quiet-time check (the 2D shadows
+    # repaint), and it finds nothing to change
+    qtbot.waitUntil(lambda: controller.idle, timeout=5000)
+    assert controller.snapshot_count - snapshots == controller.reconcile_count - reconciles
+    assert controller.unannounced_changes == unannounced
 
     # ── a date change: the same wall time in December ────────────────────────
     sink.clear_calls()
@@ -227,21 +253,15 @@ def test_a_day_in_the_garden_drives_the_look_and_nothing_else(app3d, qtbot, mous
     # ── Preferences: another quality, then reduced motion ────────────────────
     sink.clear_calls()
     looks, skies, wind = len(host.looks), len(host.skies), len(host.wind)
-    dialog = PreferencesDialog(window, show_view3d=True)
-    qtbot.addWidget(dialog)
-    dialog._view3d_quality_combo.setCurrentIndex(dialog._view3d_quality_combo.findData("low"))
-    dialog._save_and_accept()
-    workspace.apply_look_settings()                 # what the main window does on "Save"
+    _preferences(window, monkeypatch, quality="low")       # Edit → Preferences → Save
     assert host.looks[looks:] == [look_for(winter, "low")], "a preset change is ONE look call"
     assert (look.quality, look.preset) == ("low", "low")
     assert len(host.skies) == skies and len(host.wind) == wind
-    dialog = PreferencesDialog(window, show_view3d=True)
-    qtbot.addWidget(dialog)
-    assert dialog._view3d_quality_combo.currentData() == "low", "the dialog shows what is stored"
-    dialog._view3d_reduced_motion_check.setChecked(True)
-    dialog._save_and_accept()
-    workspace.apply_look_settings()
-    assert host.wind[wind:] == ["rest"] and not look.animating
+    shown = PreferencesDialog(window, show_view3d=True)
+    qtbot.addWidget(shown)
+    assert shown._view3d_quality_combo.currentData() == "low", "the dialog shows what is stored"
+    _preferences(window, monkeypatch, reduced_motion=True)
+    assert host.wind[wind:] == ["rest"] and not look.animating, "reduced motion stops the wind"
     assert len(host.looks) == looks + 1, "reduced motion is not a look"
 
     # ── hide and show: nothing ticks, nothing is rebuilt ─────────────────────
@@ -252,8 +272,7 @@ def test_a_day_in_the_garden_drives_the_look_and_nothing_else(app3d, qtbot, mous
     _settle(qtbot)
     assert (len(host.looks), len(host.skies), len(host.wind)) == (looks, skies, wind), \
         "the same sun, the same settings: showing the view again tells the engine nothing"
-    get_settings().view3d_reduced_motion = False
-    workspace.apply_look_settings()
+    _preferences(window, monkeypatch, reduced_motion=False)
     assert host.wind[wind:] == ["run"] and look.animating
     workspace.set_mode(PLAN)
     assert host.wind[wind:] == ["run", "stop"], "hidden: the wind's clock stops where it is"
@@ -277,7 +296,8 @@ def test_a_day_in_the_garden_drives_the_look_and_nothing_else(app3d, qtbot, mous
     assert not look._sky_timer.isActive() and not look._auto_timer.isActive()
 
 
-def test_compatibility_mode_gets_the_look_without_a_sky(app3d, qtbot, tmp_path: Path) -> None:
+def test_compatibility_mode_gets_the_look_without_a_sky(app3d, qtbot, tmp_path: Path,
+                                                        monkeypatch) -> None:
     """Gate G8's wiring: a workspace that starts in software mode hands its host looks
     and never a sky — the light probe that costs seconds there is never created."""
     window, engines = app3d
@@ -299,6 +319,18 @@ def test_compatibility_mode_gets_the_look_without_a_sky(app3d, qtbot, tmp_path: 
         assert host.looks[-1].plain_sky == host.looks[-1].fog_color
     assert host.skies == [], "no sky texture, so no light probe, in compatibility mode"
     assert len(host.looks) >= 4
+    # review P0: no wind in compatibility mode — an animated view renders continuously
+    # (1,351 % of one core on WARP); hidden and shown again, still no wind
+    workspace.set_mode(PLAN)
+    workspace.set_mode(VIEW3D)
+    _settle(qtbot)
+    assert "run" not in host.wind and not look.animating
+    assert look.software and look.preset == look.quality == "high", "a chosen preset is used"
+    looks = len(host.looks)
+    _preferences(window, monkeypatch, quality="auto")
+    assert look.preset == "low", "auto on a software adapter is low: no frames to measure"
+    assert host.looks[looks:] == [look_for(_sun_at(clock, datetime(2026, 6, 21, 23, 0)), "low")]
+    assert "run" not in host.wind
 
 
 def test_the_3d_settings_are_offered_only_where_there_is_a_3d_workspace(qtbot, look_settings) -> None:

@@ -13,23 +13,33 @@ look can never be computed from two moments or two solar paths.
 
 What it owns:
 
+- **The render mode** (``software``): ONE parameter decides the three things a
+  software adapter cannot afford — no sky texture (each light probe costs seconds
+  there), no wind (an animated view renders continuously: 1,351 % of one core on
+  WARP, measured by the review), and ``auto`` pinned to ``low`` (it measures
+  presented frames, and a still view presents none). The workspace passes its
+  compatibility mode.
 - **The preset.** A fixed one from the settings, or ``auto``: ``AutoPreset`` fed
   with the host's count of PRESENTED frames, polled on a timer that runs only
   while the wind animates (a view that draws on demand has no frame rate to
-  measure). A view that presents nothing — the display asleep — is no data, and
-  the preset holds. A preset step is one ``set_look``: no camera, no geometry.
+  measure — so reduced motion also freezes the automatic choice). A view that
+  presents nothing — the display asleep — is no data, and the preset holds. A
+  preset step is one ``set_look``: no camera, no geometry. Where ``auto`` settled
+  and which levels it had to leave (and until when) are stored, so a new session
+  neither starts over nor retries a barred level.
 - **The sky.** The procedural sky is a whole texture generated on the GUI thread
   (about 0.1 s) and a light probe Qt filters once per texture, so it follows the
   sun only when the sun moved noticeably (``look.sky_is_stale``), and — while the
-  sun is being dragged — only once it rests (``SKY_SETTLE_MS``). The light, the
-  exposure and the fog follow every instant. The fog is derived from the sky
-  that is ON SCREEN, so it meets the horizon also while the sky lags. Never on a
-  software adapter (``sky_light=False``): there the look's plain background and
-  flat fill are used, and no light probe is ever created.
-- **The animation policy.** Wind runs only while the 3D pane is shown and the
-  reduced-motion setting is off. Hidden: the clock stops where it is and nothing
-  ticks. Reduced motion: the clock rests at 0 — every vertex where its mesh
-  puts it.
+  sun is being dragged — only once it rests (``SKY_SETTLE_MS``); a change of phase
+  (sunset, the end of twilight, and back: ``look.sky_phase``) is built at once.
+  The light, the exposure and the fog follow every instant. The fog is derived
+  from the sky that is ON SCREEN, so it meets the horizon also while the sky lags.
+  A sky the engine cannot build is logged ONCE, the session goes on with the
+  plain sky and the flat fill, and the look is sent all the same.
+- **The animation policy.** Wind runs only while the 3D pane is shown, the
+  reduced-motion setting is off and the adapter is not a software one. Hidden:
+  the clock stops where it is and nothing ticks. Reduced motion: the clock rests
+  at 0 — every vertex where its mesh puts it.
 
 NOTHING HERE TAKES A FRAME (ADR-065 decision 17): the host is told things and
 asked for ``health()``; ``grab`` / ``wait_ready`` / ``pick`` / ``project`` are not
@@ -43,7 +53,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from typing import Any, Final, Protocol
 
@@ -62,6 +72,7 @@ from open_garden_planner.core.scene3d.look import (
     look_for,
     normalise_quality,
     sky_is_stale,
+    sky_phase,
 )
 
 _LOG: Final = logging.getLogger(__name__)
@@ -97,19 +108,33 @@ class LookController(QObject):
     #: destroyed reads 8.1) — unlike a retired Model (ADR-065 decision 15).
     sky_rebuilt = pyqtSignal()
 
-    def __init__(self, host: LookHost, *, sky_light: bool, quality: str = AUTO,
+    def __init__(self, host: LookHost, *, software: bool, quality: str = AUTO,
                  reduced_motion: bool = False, auto_level: str = "medium",
+                 auto_bars: Mapping[str, tuple[float, float]] | None = None,
                  on_auto_level: Callable[[str], None] | None = None,
+                 on_auto_bars: Callable[[dict[str, tuple[float, float]]], None] | None = None,
                  policy: AutoPolicy | None = None, parent: QObject | None = None,
-                 clock: Callable[[], float] = time.monotonic) -> None:
+                 clock: Callable[[], float] = time.monotonic,
+                 wall_clock: Callable[[], float] = time.time) -> None:
+        """``software``: the host renders on a software adapter (the workspace's
+        compatibility mode) — no sky, no wind, ``auto`` = ``low``. ``auto_bars``:
+        the stored bars, ``{level: (until, next_retry_s)}`` with ``until`` in
+        ``wall_clock`` seconds; ``on_auto_level`` / ``on_auto_bars`` store them again
+        after every step of the automatic preset."""
         super().__init__(parent)
         self._host = host
-        self._sky_light = bool(sky_light)
+        self._software = bool(software)
+        self._sky_light = not self._software
         self._quality = normalise_quality(quality)
         self._reduced_motion = bool(reduced_motion)
         self._on_auto_level = on_auto_level
+        self._on_auto_bars = on_auto_bars
         self._clock = clock
-        self._auto = AutoPreset(auto_level, policy)
+        self._wall_clock = wall_clock
+        now = wall_clock()
+        self._auto = AutoPreset(auto_level, policy, bars={
+            level: (until - now, retry) for level, (until, retry) in (auto_bars or {}).items()})
+        self._sky_failed = False
         self._sun: SunState | None = None
         self._look: LookSpec | None = None       # the look the host was last given
         self._sky_shown: SkySpec | None = None   # the sky the host shows
@@ -129,19 +154,24 @@ class LookController(QObject):
         self._auto_timer.timeout.connect(self._sample_frames)
 
     @classmethod
-    def from_settings(cls, host: LookHost, *, sky_light: bool,
+    def from_settings(cls, host: LookHost, *, software: bool,
                       parent: QObject | None = None) -> LookController:
-        """A controller on the user's settings; it stores where ``auto`` settles."""
+        """A controller on the user's settings; it stores where ``auto`` settles and
+        which levels it had to leave."""
         from open_garden_planner.app.settings import get_settings
 
         settings = get_settings()
 
-        def keep(level: str) -> None:
+        def keep_level(level: str) -> None:
             get_settings().view3d_auto_level = level
 
-        return cls(host, sky_light=sky_light, quality=settings.view3d_quality,
+        def keep_bars(bars: dict[str, tuple[float, float]]) -> None:
+            get_settings().view3d_auto_bars = bars
+
+        return cls(host, software=software, quality=settings.view3d_quality,
                    reduced_motion=settings.view3d_reduced_motion,
-                   auto_level=settings.view3d_auto_level, on_auto_level=keep, parent=parent)
+                   auto_level=settings.view3d_auto_level, auto_bars=settings.view3d_auto_bars,
+                   on_auto_level=keep_level, on_auto_bars=keep_bars, parent=parent)
 
     # ── reads ────────────────────────────────────────────────────────────────
 
@@ -152,8 +182,16 @@ class LookController(QObject):
 
     @property
     def preset(self) -> str:
-        """The preset in use."""
-        return self._auto.preset if self._quality == AUTO else self._quality
+        """The preset in use. ``auto`` on a software adapter is ``low``: nothing is
+        animated there, so there are no presented frames to choose from."""
+        if self._quality != AUTO:
+            return self._quality
+        return "low" if self._software else self._auto.preset
+
+    @property
+    def software(self) -> bool:
+        """The render mode the workspace gave: a software adapter."""
+        return self._software
 
     @property
     def reduced_motion(self) -> bool:
@@ -161,7 +199,8 @@ class LookController(QObject):
 
     @property
     def sky_light(self) -> bool:
-        """Whether this host is lit by a sky texture (False: the software fallback)."""
+        """Whether this host is lit by a sky texture (False: the software fallback, or
+        a sky the engine could not build — for the rest of the session)."""
         return self._sky_light
 
     @property
@@ -242,38 +281,56 @@ class LookController(QObject):
 
     def _apply(self) -> None:
         """Bring the host's look — and, if it must follow, its sky — to the current sun
-        and preset. A look equal to the one the host has is not sent again."""
+        and preset. A look equal to the one the host has is not sent again. The sky
+        and the look are sent separately: a sky the engine refuses never keeps the
+        look from the screen."""
         sun = self._sun
         if sun is None:
             return
         look = look_for(sun, self.preset)
+        if self._sky_light:
+            shown = self._sky_shown
+            if shown is None or sky_phase(shown) != sky_phase(look.sky):
+                self._build_sky(look.sky)       # the first sky; sunset, nightfall: at once
+            elif sky_is_stale(shown, look.sky):
+                if self._showing:
+                    self._sky_timer.start()     # (re)started: built when the sun rests
+            else:
+                self._sky_timer.stop()          # back within the threshold: nothing owed
+            shown = self._sky_shown
+            if shown is not None and shown.horizon != look.sky.horizon:
+                # the sky on screen is an older one: the fog must meet THAT horizon
+                look = replace(look, fog_linear=fog_linear(
+                    shown.horizon, look.mood.probe_exposure, shown.sky_energy))
+        if look == self._look:
+            return
         try:
-            if self._sky_light:
-                shown = self._sky_shown
-                if shown is None or shown.night != look.sky.night:
-                    self._build_sky(look.sky)       # the first sky; dusk and dawn: at once
-                elif sky_is_stale(shown, look.sky):
-                    if self._showing:
-                        self._sky_timer.start()     # (re)started: built when the sun rests
-                else:
-                    self._sky_timer.stop()          # back within the threshold: nothing owed
-                shown = self._sky_shown
-                if shown is not None and shown.horizon != look.sky.horizon:
-                    # the sky on screen is an older one: the fog must meet THAT horizon
-                    look = replace(look, fog_linear=fog_linear(
-                        shown.horizon, look.mood.probe_exposure, shown.sky_energy))
-            if look != self._look:
-                self._host.set_look(look)
-                self._look = look
-                self.look_calls += 1
+            self._host.set_look(look)
         except Exception as error:  # noqa: BLE001 - a dead engine must not take the app down
             _LOG.error("3D look: the engine refused the look (%s: %s)",
                        log_text(type(error).__name__), log_text(error))
             _LOG.debug("3D look: the engine refused the look - traceback", exc_info=error)
+            return
+        self._look = look
+        self.look_calls += 1
 
     def _build_sky(self, sky: SkySpec) -> None:
+        """Build ``sky`` — or, when the engine cannot, log it ONCE and go on for the rest
+        of the session with the plain sky and the flat fill (``sky_light`` False)."""
         self._sky_timer.stop()
-        self._host.set_sky(sky)
+        try:
+            self._host.set_sky(sky)
+        except Exception as error:  # noqa: BLE001 - the look must reach the screen anyway
+            self._sky_light = False
+            self._sky_shown = None
+            if not self._sky_failed:
+                self._sky_failed = True
+                _LOG.error("3D look: the sky could not be built; the view goes on with a plain "
+                           "sky (%s: %s)", log_text(type(error).__name__), log_text(error))
+                _LOG.debug("3D look: the sky could not be built - traceback", exc_info=error)
+            with contextlib.suppress(Exception):  # whatever half a sky left behind goes
+                self._host.set_sky(None)
+            return
         self._sky_shown = sky
         self.sky_rebuilds += 1
         self.sky_rebuilt.emit()
@@ -286,17 +343,13 @@ class LookController(QObject):
         wanted = look_for(sun, self.preset).sky
         if not sky_is_stale(self._sky_shown, wanted):
             return
-        try:
-            self._build_sky(wanted)
-        except Exception as error:  # noqa: BLE001 - as in _apply
-            _LOG.error("3D look: the sky could not be built (%s: %s)",
-                       log_text(type(error).__name__), log_text(error))
-            return
-        self._apply()   # the fog meets the new horizon
+        self._build_sky(wanted)
+        self._apply()   # the fog meets the new horizon (or the plain sky, if it failed)
 
     def _update_wind(self) -> None:
-        """The animation policy: wind only while shown and motion is not reduced."""
-        run = self._showing and not self._reduced_motion
+        """The animation policy: wind only while shown, motion not reduced, and not on a
+        software adapter (an animated view renders continuously)."""
+        run = self._showing and not self._reduced_motion and not self._software
         try:
             if self._reduced_motion:
                 if not self._rested or self._wind_running:
@@ -332,12 +385,17 @@ class LookController(QObject):
         if stepped is None:
             return
         _LOG.info("3D look: automatic quality %s -> %s", before, stepped)
-        if self._on_auto_level is not None and stepped in AUTO_LEVELS:
-            try:
+        now_wall = self._wall_clock()
+        bars = {level: (now_wall + remaining, retry)
+                for level, (remaining, retry) in self._auto.bars_at(self._clock()).items()}
+        try:
+            if self._on_auto_level is not None and stepped in AUTO_LEVELS:
                 self._on_auto_level(stepped)
-            except Exception as error:  # noqa: BLE001 - a store that cannot be written
-                _LOG.warning("3D look: the automatic quality could not be stored (%s)",
-                             log_text(error))
+            if self._on_auto_bars is not None:
+                self._on_auto_bars(bars)
+        except Exception as error:  # noqa: BLE001 - a store that cannot be written
+            _LOG.warning("3D look: the automatic quality could not be stored (%s)",
+                         log_text(error))
         self._preset_may_have_changed(before)
 
     def _preset_may_have_changed(self, before: str) -> None:
