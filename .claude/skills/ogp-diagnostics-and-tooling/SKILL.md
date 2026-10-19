@@ -271,8 +271,8 @@ venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
 ```
 
 Then the two gate commands from `ogp-change-control` §2.8 — the 8-second smoke (exit
-124 = survived) and `--selftest` (exit 0 = Qt3D bindings, Qt-version match, the Agent
-API server AND the Qt Quick 3D engine all alive: since Phase 17 L1.2 it renders one
+124 = survived) and `--selftest` (exit 0 = the Agent API server, the A1 checks AND the
+Qt Quick 3D engine all alive: since Phase 17 L1.2 it renders one
 hidden frame from the bundle's QML and shaders and checks its pixels). The smoke alone
 cannot see any of them dying; `ogp-build-and-run` documents the invocation traps, and
 where the self-test's log is. A hang is bounded: one watchdog around the whole command

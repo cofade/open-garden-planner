@@ -34,10 +34,10 @@ venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
 timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe
 # Exit code 124 (killed by timeout) = success
 powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanner.exe" -ArgumentList "--selftest" -Wait -PassThru; exit $p.ExitCode'
-# Exit code 0 = Qt3D bindings import, the Qt runtime matches the Qt3D wheel
-# version (the check that caught #277), the Agent API server binds, AND the
+# Exit code 0 = the Agent API server binds, the A1 checks pass, AND the
 # Qt Quick 3D engine renders one hidden frame from the bundle's own QML and
-# shaders with the right pixels (no GPU needed; its log lands beside app.log,
+# shaders with the right pixels — #277's lesson: a lazily loaded part is
+# exercised in the real artifact (no GPU needed; its log lands beside app.log,
 # or where OGP_SELFTEST_LOG says). It FAILS under QT_QPA_PLATFORM=offscreen.
 # The 8-s smoke only proves the process stays up; --selftest is what sees a
 # silently-dead subsystem (#291 hid from the smoke for six releases). Must be

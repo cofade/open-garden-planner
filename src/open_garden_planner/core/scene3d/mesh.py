@@ -17,7 +17,7 @@ uvs        float32  (n, 2)    builder-defined (the spike: u = wind weight, v = p
 indices    uint32   (m, 3)    one row per triangle, counter-clockwise from outside
 =========  =======  ========  ==============================================
 
-Port map from ``spike_q3d/meshes.py::MeshData`` (L1.6 / L1.7 port builders with a
+Port map from the L0 spike's ``meshes.MeshData`` (deleted in L1.10; L1.6 / L1.7 port builders with a
 rename): ``MeshData`` → ``Mesh``; ``uv`` → ``uvs``; flat ``indices`` (M,) →
 ``(m, 3)``, and ``Mesh.from_arrays`` accepts either; ``MeshData.concat`` →
 ``Mesh.merge``; ``meshes.translated(mesh, x, y, z)`` → ``mesh.translated(x, y,
@@ -35,8 +35,8 @@ from typing import Final
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-#: Material kinds a part can ask the sink for — the L0 spike's set
-#: (``GardenSpike.qml``; pinned against it by a drift-guard test until L1.10).
+#: Material kinds a part can ask the sink for — the L0 spike's set (its scene file's,
+#: frozen in ``tests/data/l0_spike_reference.json`` when L1.10 deleted the spike).
 #: ``vc`` = plain vertex colour.
 MATERIAL_KINDS: Final[frozenset[str]] = frozenset(
     {"vc", "roof", "foliage", "grass", "glass", "water"}

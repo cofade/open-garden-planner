@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ast
 import dataclasses
+import json
 import math
 import random
 from pathlib import Path
@@ -40,6 +41,10 @@ from open_garden_planner.core.scene3d.look import (
 )
 
 SOURCE = Path(L.__file__)
+#: What the L0 spike measured, frozen when L1.10 deleted it (``tests/data``; its provenance
+#: field says how it was made). The drift guards below compare with it.
+SPIKE = json.loads((Path(__file__).resolve().parents[1] / "data" / "l0_spike_reference.json")
+                   .read_text(encoding="utf-8"))
 
 
 def sun(elevation: float, azimuth: float = 180.0) -> SunState:
@@ -76,27 +81,25 @@ def test_the_module_imports_no_qt() -> None:
 
 
 class TestTheRigIsTheSpikes:
-    """Drift guard until the spike retires (L1.10): the values of ``ogp-lush-cinematic``
-    §3 are measured, and this module must BE them."""
+    """The values of ``ogp-lush-cinematic`` §3 are measured, and this module must BE them:
+    the L0 spike's, frozen in ``tests/data/l0_spike_reference.json`` when the spike was
+    deleted (L1.10) — a drift guard against the measurement, no longer against code."""
 
     def test_the_anchors(self) -> None:
-        from open_garden_planner.spike_q3d import runner
-
-        for rig, light, look in ((NOON, runner.SUN_NOON, runner.LOOK_NOON),
-                                 (GOLDEN, runner.SUN_GOLDEN, runner.LOOK_GOLDEN),
-                                 (LOW_SUN, runner.SUN_LOW, runner.LOOK_LOW)):
-            assert (rig.sun_color, rig.sun_brightness) == light
+        anchors = SPIKE["rig"]["anchors"]
+        for rig, name in ((NOON, "NOON"), (GOLDEN, "GOLDEN"), (LOW_SUN, "LOW")):
+            light, look = anchors[name]["sun"], anchors[name]["look"]
+            assert [rig.sun_color, rig.sun_brightness] == light
             assert rig.sky_top == look["skyTop"] and rig.sky_horizon == look["skyHorizon"]
             assert rig.sun_disc == look["sunDiscColor"]
             assert rig.exposure == look["exposure"] and rig.probe_exposure == look["probe"]
-        night = runner.LOOK_NIGHT
+        night = SPIKE["rig"]["night_look"]
         assert (NIGHT.sky_top, NIGHT.sky_horizon, NIGHT.sun_disc) == (
             night["skyTop"], night["skyHorizon"], night["sunDiscColor"])
         assert (NIGHT.exposure, NIGHT.probe_exposure) == (night["exposure"], night["probe"])
-        assert (L.NOON_DEG, L.GOLDEN_DEG, L.NIGHT_BELOW_DEG) == (
-            runner.SUN_RAMP_HIGH_DEG, runner.SUN_RAMP_LOW_DEG, runner.SUN_LOW_DEG)
-        assert L.MEADOW_ALBEDO == runner.MEADOW_ALBEDO
-        assert L.FOG_OF_HORIZON == runner.FOG_OF_HORIZON
+        assert SPIKE["rig"]["ramp_degrees"] == [L.NOON_DEG, L.GOLDEN_DEG, L.NIGHT_BELOW_DEG]
+        assert SPIKE["rig"]["meadow_albedo"] == L.MEADOW_ALBEDO
+        assert SPIKE["rig"]["fog_of_horizon"] == L.FOG_OF_HORIZON
 
     def test_the_sun_sets_where_the_2d_overlay_says(self) -> None:
         """ONE sunset threshold: 2D shadows stop below it, and so does the sun's key light
@@ -129,13 +132,11 @@ class TestTheRigIsTheSpikes:
     @pytest.mark.parametrize("elevation", [round(0.5 + 0.25 * k, 2) for k in range(0, 160)])
     def test_the_day_ramp_at_every_quarter_degree(self, elevation: float) -> None:
         """0.5° … 40.25° in quarter degrees: key light, sky, sun disc, both exposures and
-        the fog are the spike's ``sun_light`` / ``day_look`` / ``look_for`` to the bit."""
-        from open_garden_planner.spike_q3d import runner
-        from open_garden_planner.spike_q3d.quick import SunState as SpikeSun
-
+        the fog are the spike's ``sun_light`` / ``day_look`` / ``look_for`` to the bit
+        (frozen)."""
         rig = day_rig(elevation)
-        assert (rig.sun_color, rig.sun_brightness) == runner.sun_light(elevation)
-        spike = runner.look_for(SpikeSun(elevation, 180.0, (0.0, 0.0, -1.0), "#ffffff", 1.0, False))
+        spike = SPIKE["rig"]["day_ramp"][repr(elevation)]
+        assert (rig.sun_color, rig.sun_brightness) == (spike["sun_color"], spike["sun_brightness"])
         look = look_for(sun(elevation))
         assert (rig.sky_top, rig.sky_horizon, rig.sun_disc) == (
             spike["skyTop"], spike["skyHorizon"], spike["sunDiscColor"])
@@ -145,18 +146,14 @@ class TestTheRigIsTheSpikes:
             rig.sky_top, rig.sky_horizon, rig.sun_disc)
 
     def test_the_night_rig(self) -> None:
-        from open_garden_planner.spike_q3d import runner
-        from open_garden_planner.spike_q3d.quick import SunState as SpikeSun
-
-        spike_sun = runner.sun_state(52.52, 13.405, __import__("datetime").datetime(
-            2026, 6, 21, 21, 30, tzinfo=__import__("datetime").UTC))
-        assert spike_sun.night
-        look = look_for(sun(spike_sun.elevation, spike_sun.azimuth))
+        spike_sun = SPIKE["rig"]["night_sun_berlin_2026_06_21_2130_utc"]
+        assert spike_sun["night"]
+        look = look_for(sun(spike_sun["elevation"], spike_sun["azimuth"]))
         assert look.night
-        assert (look.mood.sun_color, look.mood.sun_brightness) == (spike_sun.color,
-                                                                  spike_sun.brightness)
-        assert look.moon_travel_scene == pytest.approx(spike_sun.travel_scene, abs=1e-12)
-        spike = runner.look_for(SpikeSun(-10.0, 0.0, (0.0, 0.0, -1.0), "#ffffff", 1.0, True))
+        assert (look.mood.sun_color, look.mood.sun_brightness) == (spike_sun["color"],
+                                                                  spike_sun["brightness"])
+        assert look.moon_travel_scene == pytest.approx(spike_sun["travel_scene"], abs=1e-12)
+        spike = SPIKE["rig"]["night_look_at_minus_10"]
         assert (look.mood.exposure, look.mood.probe_exposure) == (spike["exposure"], spike["probe"])
 
     def test_the_deliberate_differences_from_the_spike_are_the_night_fog_and_ground(self) -> None:
@@ -166,14 +163,10 @@ class TestTheRigIsTheSpikes:
         horizon (a one-row step of 10.5 luma at high and 21.2 at low at eye height; with
         the sky's energy in the fog, and the fog handed to the engine in linear light:
         2.4 / 3.2). By day the energy is 1 and nothing changed."""
-        from open_garden_planner.spike_q3d import runner
-        from open_garden_planner.spike_q3d.quick import SunState as SpikeSun
-
-        spike = runner.look_for(SpikeSun(-10.0, 0.0, (0.0, 0.0, -1.0), "#ffffff", 1.0, True))
+        spike = SPIKE["rig"]["night_look_at_minus_10"]
         night = look_for(sun(-10.0))
         assert night.sky.sky_energy == 0.25
-        assert night.fog_color == runner.scale_linear(
-            spike["skyHorizon"], spike["probe"] * 0.25 * runner.FOG_OF_HORIZON)
+        assert night.fog_color == SPIKE["rig"]["night_fog_at_the_sky_energy"]
         assert night.fog_color != spike["fogColor"]
         assert luma(night.fog_color) < luma(spike["fogColor"]) / 1.5
         # Round 5: the night sky's ground hemisphere at the sky's own energy (the day
@@ -443,10 +436,9 @@ class TestPresets:
                     <= samples[(higher.antialiasing, higher.antialiasing_quality)])
 
     def test_everything_else_of_the_presets_is_still_the_spikes_scene_file(self) -> None:
-        """Drift guard until the spike retires: map, cascades and filter per preset, read
-        from ``GardenSpike.qml``'s own bindings."""
-        spike = (SOURCE.parents[2] / "spike_q3d" / "qml" / "GardenSpike.qml").read_text(
-            encoding="utf-8")
+        """Map, cascades and filter per preset: the bindings of the spike's
+        ``GardenSpike.qml``, frozen when L1.10 deleted the spike."""
+        spike = "\n".join(SPIKE["qml"]["preset_bindings"])
         for line in (   # (the spike's medium map — 1024 — and low's FXAA: moved, above)
             'shadowMapQuality: root.preset === "low" ? Light.ShadowMapQualityVeryHigh',
             ': root.preset === "medium" ? Light.ShadowMapQualityHigh',

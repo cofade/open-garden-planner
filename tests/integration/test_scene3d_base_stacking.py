@@ -1751,8 +1751,6 @@ class TestOneCasterWalk:
         calls: dict[str, set[str]] = {}
         for path in src.rglob("*.py"):
             relative = path.relative_to(src).as_posix()
-            if relative.startswith("spike_q3d/"):
-                continue  # the dormant spike keeps its own copy until L1.10
             tree = ast.parse(path.read_text(encoding="utf-8"))
             for node in ast.walk(tree):
                 if isinstance(node, ast.Call):

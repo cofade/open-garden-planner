@@ -17,7 +17,7 @@ import math
 import numpy as np
 import pytest
 
-from open_garden_planner.core.scene3d import Transform, to_engine_frame
+from open_garden_planner.core.scene3d import Transform
 from open_garden_planner.core.scene3d import frame as F
 
 ANGLES = [0.0, 17.0, 90.0, 180.0, 213.5, 270.0, 359.5]
@@ -95,12 +95,12 @@ class TestSceneToEngine:
         with pytest.raises(ValueError, match="last axis"):
             F.scene_to_engine_points(np.zeros((4, 2)))
 
-    def test_legacy_scalar_mapping_agrees(self) -> None:
-        """Drift guard: the Qt 3D adapter's scalar ``to_engine_frame`` and the numpy
-        mapping are ONE rule until L1.10 deletes the former."""
-        rng = np.random.default_rng(3)
-        for e, n, u in rng.uniform(-900.0, 900.0, size=(25, 3)):
-            assert tuple(F.scene_to_engine_points([e, n, u])) == to_engine_frame(e, n, u)
+    def test_the_one_mapping_by_hand(self) -> None:
+        """(E, N, up) → (E, up, −N): the rule the retired Qt 3D view applied as a scalar
+        function (deleted in L1.10) and the numpy mapping applies now."""
+        assert tuple(F.scene_to_engine_points([1.0, 2.0, 3.0])) == (1.0, 3.0, -2.0)
+        # North maps to −z; up stays y — one flip, applied once
+        assert tuple(F.scene_to_engine_points([0.0, 1.0, 0.0])) == (0.0, 0.0, -1.0)
 
 
 # ── item-local → scene ────────────────────────────────────────────────────────

@@ -490,8 +490,9 @@ topmost triangle under a vertical ray over every pickable mesh, merged per item)
   `PyQt6.QtQuick`, `QtQml`, `QtQuickWidgets`, `QtQuick3D`.
 - **The Qt Quick 3D runtime already ships in today's bundle.** Windows dist, branch vs master
   built in the same job: 626.2 MB vs 624.5 MB → **+1.7 MB** (only `QtQuick3D.pyd` and the QML
-  files are new). Quick3D + ShaderTools files: 21.1 MB (Windows), ~23 MB (Linux); the Qt3D DLLs
-  this replaces: 5.8 MB.
+  files are new). Quick3D + ShaderTools files: 21.1 MB (Windows), ~23 MB (Linux); the Qt 3D DLLs
+  it replaced: 5.8 MB (L1.10 removed them; the bundle before and after is ADR-048's closing
+  addendum).
 - Frozen Windows exe with the spike bundled: the unchanged `--selftest` gate still exits 0
   (ogp-change-control §2.8 is its home).
 - **L1.2:** the production package adds its five QML and shader files (a data loop in

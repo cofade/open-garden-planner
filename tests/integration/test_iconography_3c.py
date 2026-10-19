@@ -251,18 +251,6 @@ class TestPanelsAndWidgets:
         finally:
             apply_theme(app, ThemeMode.LIGHT)
 
-    def test_view3d_toolbar_actions_carry_icons(self, qtbot) -> None:
-        pytest.importorskip("PyQt6.Qt3DCore")
-        from open_garden_planner.ui.view3d.view3d_window import View3DWindow
-
-        try:
-            win = View3DWindow()
-        except Exception:  # noqa: BLE001 — no GL / no Qt3D on this machine
-            pytest.skip("Qt3D window not constructible here")
-        qtbot.addWidget(win)
-        assert not win._refresh_action.icon().isNull()
-        assert not win._walk_action.icon().isNull()
-
     def test_sun_sim_toolbar_buttons_carry_icons(self, qtbot) -> None:
         bar = SunSimToolbar()
         qtbot.addWidget(bar)

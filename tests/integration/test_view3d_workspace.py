@@ -27,7 +27,6 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock
 
 import pytest
 from PyQt6.QtCore import QPointF
@@ -191,8 +190,8 @@ def test_the_workspace_is_always_there_and_no_switch_is_read(qtbot, monkeypatch)
 def test_the_3d_view_action_shows_the_3d_pane_and_reaches_no_window(app3d, qtbot) -> None:
     """L1.9: View → Sun & 3D → "3D View" (its place, its icon) opens no window any
     more: from Plan mode it shows Split — the plan stays, the 3D view appears beside
-    it — and in 3D or Split mode it changes nothing. Nothing in the UI reaches the
-    retired Qt 3D window: the action is connected to the workspace alone."""
+    it — and in 3D or Split mode it changes nothing. The retired Qt 3D window is
+    reached by nothing (L1.9) and does not exist (L1.10)."""
     window, engines = app3d
     workspace = window._workspace
     action = window._view3d_action
@@ -203,15 +202,14 @@ def test_the_3d_view_action_shows_the_3d_pane_and_reaches_no_window(app3d, qtbot
     assert workspace.mode is SPLIT and engines.calls == [False]
     assert window.canvas_view.isVisible()
     first_pass(workspace, qtbot)
-    assert window._view3d_window is None, "no Qt 3D window was built"
+    assert not hasattr(window, "_view3d_window"), "no Qt 3D window exists (L1.10)"
     workspace.set_mode(VIEW3D)
     action.trigger()
     assert workspace.mode is VIEW3D, "in 3D mode the 3D view is already showing"
     workspace.set_mode(PLAN)
     action.trigger()
     assert workspace.mode is SPLIT and engines.calls == [False], "one engine, kept"
-    assert window._view3d_window is None
-    # nothing names the retired window's slot: no code path leads to it
+    # nothing names the retired window's slot
     import ast
 
     tree = ast.parse((REPO / "src" / "open_garden_planner" / "app" / "application.py")
@@ -527,21 +525,6 @@ def test_a_recovered_document_is_a_document_change_too(app3d, qtbot, tmp_path: P
     qtbot.waitUntil(lambda: len(engines.sink.item_ids()) == 98, timeout=20000)
     qtbot.wait(120)
     assert len(engines.host.cameras) == sent + 1
-
-
-def test_the_shipped_3d_window_is_still_driven_with_the_workspace_on(app3d, qtbot) -> None:
-    """The Qt 3D window and its wiring stay exactly as they are until L1.10."""
-    window, _engines = app3d
-    stand_in = MagicMock()
-    window._view3d_window = stand_in
-    window._sim_clock.set_datetime(datetime(2026, 6, 21, 12, 0))
-    stand_in.reset_mock()
-    window._on_sun_sim_datetime(datetime(2026, 6, 21, 15, 0))
-    assert stand_in.set_sun.call_count == 1 and stand_in.rebuild.call_count == 0
-    window._on_sun_sim_datetime(datetime(2026, 7, 1, 15, 0))
-    assert stand_in.rebuild.call_count == 1
-    window._view3d_window = None
-    qtbot.wait(20)
 
 
 def test_fullscreen_preview_hides_the_mode_switch_with_the_rest_of_the_ui(app3d, qtbot) -> None:

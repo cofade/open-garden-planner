@@ -72,17 +72,6 @@ for f in (SRC / "open_garden_planner" / "ui" / "view3d" / "quick3d" / "qml").rgl
         rel = f.relative_to(SRC)
         datas.append((str(f), str(rel.parent)))
 
-# Qt Quick 3D renderer spike (ADR-048, Phase 17 L0): the QML scene + shader
-# snippets live next to the package (quick.py resolves them via __file__). The
-# spike is dormant (`--spike-q3d` only). It stays until L1.10 retires it, and
-# THAT is where this spec gets trimmed: this loop, the spike's hidden imports
-# below and `PyQt6.QtQuickWidgets` (only the spike's quick.py imports it — the
-# production package hosts a QQuickView, never a QQuickWidget) all go together.
-for f in (SRC / "open_garden_planner" / "spike_q3d" / "qml").rglob("*"):
-    if f.is_file():
-        rel = f.relative_to(SRC)
-        datas.append((str(f), str(rel.parent)))
-
 # Agent API (US-D1.1): the MCP server stack (mcp / uvicorn / starlette / anyio /
 # sse-starlette / pydantic) imports protocol, loop and lifespan submodules
 # dynamically, and several of these packages read their distribution metadata at
@@ -161,29 +150,17 @@ a = Analysis(
         "PyQt6.QtWebEngineCore",
         "PyQt6.QtWebEngineWidgets",
         "PyQt6.QtWebChannel",
-        # Qt3D — US-E6 3D view (ADR-038; engine imports live only in
-        # ui/view3d/qt3d_adapter.py, loaded lazily). PyInstaller's PyQt6 hook
-        # collects the Qt3D DLLs once these bindings are named. NOTE: all four
-        # Qt wheels (PyQt6, PyQt6-Qt6, PyQt6-3D, PyQt6-3D-Qt6) are pinned to the
-        # SAME micro in pyproject.toml — a drifting PyQt6-Qt6 micro makes these
-        # bindings fail at import with 'Die angegebene Prozedur wurde nicht
-        # gefunden' and crash the 3D view (issue #277, ADR-038). The frozen
-        # exe's `--selftest` (release.yml) imports them to catch that drift.
-        "PyQt6.Qt3DCore",
-        "PyQt6.Qt3DExtras",
-        "PyQt6.Qt3DRender",
-        "PyQt6.Qt3DInput",
-        "PyQt6.Qt3DLogic",
-        "PyQt6.Qt3DAnimation",
+        # The 3D view (Phase 17: the workspace's 3D pane, ADR-065). Its snapshot is
+        # imported with the first switch to 3D.
         "open_garden_planner.ui.view3d",
         "open_garden_planner.ui.view3d.snapshot",
-        "open_garden_planner.ui.view3d.qt3d_adapter",
-        "open_garden_planner.ui.view3d.view3d_window",
         # Qt Quick 3D engine (ADR-048, L1.2): ui/view3d/quick3d/ is the ONE
         # package that imports these bindings, and it is loaded lazily (the
         # workspace opens 3D on demand; `--selftest` renders a frame). The
         # QtQml hook collects the QtQuick3D QML modules (QtQuick3D,
-        # QtQuick3D.Helpers) once the bindings are named.
+        # QtQuick3D.Helpers) once the bindings are named. They ship INSIDE the
+        # two pinned Qt wheels (PyQt6, PyQt6-Qt6), which move together
+        # (tests/unit/test_qt_runtime_pins.py).
         "PyQt6.QtQuick",
         "PyQt6.QtQml",
         "PyQt6.QtQuick3D",
@@ -199,9 +176,10 @@ a = Analysis(
         "open_garden_planner.ui.view3d.quick3d.runlog",
         "open_garden_planner.ui.view3d.quick3d.selftest",
         "open_garden_planner.ui.view3d.quick3d.shots",
-        # The Plan / 3D / Split workspace (ADR-057, L1.3) — behind OGP_QUICK3D=1
-        # and imported only then; the pipeline, the orbit input and the list of
-        # what 3D could not show are imported on the first switch to 3D.
+        # The Plan / 3D / Split workspace (ADR-065, L1.3; the default since L1.9):
+        # the main window imports workspace.py at start-up; the pipeline, the orbit
+        # input and the list of what 3D could not show come with the first switch
+        # to 3D.
         "open_garden_planner.ui.view3d.workspace",
         "open_garden_planner.ui.view3d.sync_controller",
         "open_garden_planner.ui.view3d.init_guard",
@@ -221,15 +199,6 @@ a = Analysis(
         "open_garden_planner.ui.view3d.walk_mode",
         "open_garden_planner.core.scene3d.selection",
         "open_garden_planner.core.scene3d.walk",
-        # Qt Quick 3D spike (ADR-048, L0) — dormant evidence tooling behind
-        # --spike-q3d. PyQt6.QtQuickWidgets is ITS import only; both leave
-        # with the spike in L1.10 (see the data loop above).
-        "PyQt6.QtQuickWidgets",
-        "open_garden_planner.spike_q3d",
-        "open_garden_planner.spike_q3d.meshes",
-        "open_garden_planner.spike_q3d.quick",
-        "open_garden_planner.spike_q3d.runner",
-        "open_garden_planner.spike_q3d.probes",
         "ezdxf",
         "ezdxf.xclip",
         "ezdxf.fonts",

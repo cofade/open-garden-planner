@@ -15,7 +15,8 @@ Frame: the SCENE frame of ``core/scene3d`` (x = East, y = North, z = up, cm).
 The camera looks at a point ON THE GROUND (``target``) from ``distance_cm``
 away. ``yaw_deg`` is the compass bearing it looks along (0 = north, 90 = east),
 ``pitch_deg`` how far the view tilts DOWN from the horizontal (90 = straight
-down). The house style follows ``core/walk_camera.py``.
+down). The house style followed the retired walkthrough's helper (US-E7, deleted in
+L1.10).
 
 Damping: every input moves the GOAL; ``step(dt)`` moves the pose towards it as a
 critically damped spring — the fastest approach without overshoot from rest —
@@ -46,10 +47,10 @@ MAX_DISTANCE_CM: Final = 60_000.0
 PAN_MARGIN_CM: Final = 1_000.0
 #: A framed plan fills the view up to 1 / FRAME_MARGIN of its half-extent.
 FRAME_MARGIN: Final = 1.08
-#: Where the shipped Qt 3D view puts its camera: plan centre + this x the plan's
-#: diagonal, in ITS engine frame (x east, y up, z = -north) —
-#: ``ui/view3d/qt3d_adapter.py::_frame_camera``. The new view opens from the same
-#: side, so the two show the same garden the same way round.
+#: Where the retired Qt 3D view put its camera (US-E6; deleted in L1.10): plan centre
+#: + this x the plan's diagonal, in its engine frame (x east, y up, z = -north). The
+#: new view opens from the same side, so a user of the old one sees the garden the same
+#: way round.
 SHIPPED_VIEW_OFFSET: Final = (0.55, 0.5, 0.6)
 DEFAULT_YAW_DEG: Final = math.degrees(
     math.atan2(-SHIPPED_VIEW_OFFSET[0], SHIPPED_VIEW_OFFSET[2])) % 360.0

@@ -45,10 +45,6 @@ SCRIPTS = REPO / "scripts"
 NOT_ISOLATED: dict[str, str] = {
     "script_isolation.py":
         "the isolation itself: it imports app.settings inside the function that rebinds its names",
-    "bench_view3d.py":
-        "the Qt 3D benchmark of the L0 spike (ADR-048): it rebinds the settings names with the spike's "
-        "own helper (spike_q3d.runner._isolate_settings) before it builds anything, pinned by "
-        "tests/integration/test_bench_view3d.py; it does not redirect the profile. Goes with the spike.",
     "dogfood_agent_api.py":
         "drives the developer's REAL app on purpose (the Agent API against the installed exe): it "
         "snapshots the real settings, Recent Files included, and restores them itself",

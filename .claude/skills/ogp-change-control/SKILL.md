@@ -211,10 +211,10 @@ powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanne
 ```
 **Both checks, not just the smoke.** The 8-second smoke proves only that the process stays
 up; it cannot see a *silently dead subsystem*, which is how issue #291 (the Agent API never
-started in the frozen windowed exe) survived six releases, and how #277 (a Qt6Core/Qt3D micro
-mismatch behind a lazy import) shipped a crash. `--selftest` (`main.py`) has three blocks: it
-imports the Qt3D bindings and checks the Qt runtime against the Qt3D wheel version; it starts
-a real `AgentApiServer` and asserts it binds; and — since Phase 17 L1.2 — it loads the Qt
+started in the frozen windowed exe) survived six releases, and how #277 (a micro mismatch
+between the core Qt runtime and the old 3D view's wheels, behind a lazy import) shipped a
+crash. `--selftest` (`main.py`) has three blocks: it starts a real `AgentApiServer` and asserts
+it binds; it runs the A1 checks; and — since Phase 17 L1.2 — it loads the Qt
 Quick 3D scene and its shaders FROM THE BUNDLE, renders one hidden 160 × 120 frame and checks
 its pixels (no GPU needed). One watchdog bounds the whole command: after 300 s it writes the
 reason into the self-test log and exits with code 1 — and a second process (the exe itself,

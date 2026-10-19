@@ -11,9 +11,9 @@ Four things:
   at 0.5°) joined by continuous ramps, and a separate night rig below 0.5°
   (``day_rig``, ``NIGHT``). Colours are mixed in LINEAR light, exposure in stops
   (log2), everything else linearly. The values are the L0 spike's, measured on
-  its boards (``ogp-lush-cinematic`` §3; ``spike_q3d/runner.py``); a drift-guard
-  test compares this module with the spike's functions until the spike retires
-  (L1.10).
+  its boards (``ogp-lush-cinematic`` §3); a drift-guard test compares this module
+  with the spike's answers, frozen in ``tests/data/l0_spike_reference.json`` when L1.10
+  deleted the spike.
 - **The presets** — low / medium / high / ultra as data (``PRESET_SPECS``): what
   a preset may change is cost (shadow map, cascades, filtering, anti-aliasing,
   ambient occlusion, glow), never the mood and never the truth.

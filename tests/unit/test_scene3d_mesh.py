@@ -10,8 +10,8 @@ The meshes of REAL canvas items are validated in
 from __future__ import annotations
 
 import dataclasses
+import json
 import math
-import re
 from pathlib import Path
 
 import numpy as np
@@ -43,6 +43,10 @@ from open_garden_planner.core.scene3d.build import (
     HOLE_MIN_WIDTH_CM,
     PLAN_MARGIN_CM,
 )
+
+#: What the L0 spike measured, frozen when L1.10 deleted it (its provenance field says how).
+SPIKE = json.loads((Path(__file__).resolve().parents[1] / "data" / "l0_spike_reference.json")
+                   .read_text(encoding="utf-8"))
 
 SQUARE = ((-50.0, -50.0), (50.0, -50.0), (50.0, 50.0), (-50.0, 50.0))
 L_SHAPE = ((0.0, 0.0), (100.0, 0.0), (100.0, 50.0), (50.0, 50.0), (50.0, 100.0), (0.0, 100.0))
@@ -323,11 +327,9 @@ class TestMeshPart:
             MeshPart(triangle(), "marble")
 
     def test_material_kinds_are_the_spike_s(self) -> None:
-        """Drift guard (dies with the spike in L1.10): the kinds the L0 scene file
-        switches on, plus its default ``vc``; ``white`` is the IoU probe's, not a
-        builder's."""
-        qml = (REPO / "src/open_garden_planner/spike_q3d/qml/GardenSpike.qml").read_text("utf-8")
-        switched = set(re.findall(r'modelData\.kind === "(\w+)"', qml))
+        """The kinds the L0 scene file switched on (frozen when L1.10 deleted the spike),
+        plus its default ``vc``; ``white`` was the IoU probe's, not a builder's."""
+        switched = set(SPIKE["qml"]["material_kinds"])
         assert switched - {"white"} | {"vc"} == MATERIAL_KINDS
         assert frozenset({"vc", "roof", "foliage", "grass", "glass", "water"}) == MATERIAL_KINDS
 
@@ -336,37 +338,34 @@ class TestMeshPart:
         assert MeshPart(triangle(), "roof") != MeshPart(triangle(), "vc")
 
 
-# ── ports from the spike: one rule each, until L1.10 ──────────────────────────
+# ── ports from the spike: one rule each, against its frozen answers (L1.10) ───
 
 
 class TestSpikeDriftGuards:
     def test_srgb_to_linear(self) -> None:
-        from open_garden_planner.spike_q3d import meshes as spike
-
-        for colour in ("#000000", "#ffffff", "#b4553d", "#487f34", "#0a0b0c", "#4d92c5"):
-            np.testing.assert_array_equal(srgb_to_linear(colour), spike.srgb_to_linear(colour))
+        for colour, theirs in SPIKE["meshes"]["srgb_to_linear"].items():
+            np.testing.assert_array_equal(srgb_to_linear(colour), np.asarray(theirs, np.float32))
         with pytest.raises(ValueError):
             srgb_to_linear("b4553d")
 
     def test_item_seed(self) -> None:
-        from open_garden_planner.spike_q3d import meshes as spike
-
-        for item_id in ("11111111-2222-3333-4444-555555555555", "", "x"):
-            for salt in ("", "leaves"):
-                assert item_seed(item_id, salt) == spike.item_seed(item_id, salt)
+        for key, theirs in SPIKE["meshes"]["item_seed"].items():
+            item_id, salt = key.split("|")
+            assert item_seed(item_id, salt) == theirs
         assert item_seed("a") != item_seed("b") and item_seed("a") != item_seed("a", "s")
 
     def test_normal_vs_winding(self) -> None:
-        from open_garden_planner.spike_q3d import meshes as spike
-
+        """Also what the retired Qt 3D view built for a hole-free ring: the spike's prism
+        WAS its ``extrude_footprint`` (both deleted in L1.10), vertex for vertex."""
+        theirs = SPIKE["meshes"]["prism_l_shape_120"]
         ours = prism_mesh((L_SHAPE,), 120.0)
-        theirs = spike.prism(list(L_SHAPE), 120.0, 0.0, "#ffffff")
         dots, flat = normal_vs_winding(ours)
-        spike_dots, spike_flat = spike.normal_vs_winding(theirs)
-        np.testing.assert_array_equal(dots, spike_dots)
-        np.testing.assert_array_equal(flat, spike_flat)
-        np.testing.assert_array_equal(ours.positions, theirs.positions)
-        np.testing.assert_array_equal(ours.normals, theirs.normals)
+        np.testing.assert_array_equal(dots, np.asarray(theirs["dots"], dots.dtype))
+        np.testing.assert_array_equal(flat, np.asarray(theirs["flat"], flat.dtype))
+        np.testing.assert_array_equal(ours.positions, np.asarray(theirs["positions"],
+                                                                 ours.positions.dtype))
+        np.testing.assert_array_equal(ours.normals, np.asarray(theirs["normals"],
+                                                               ours.normals.dtype))
 
 
 # ── the default builder (honest v0) ───────────────────────────────────────────
@@ -450,14 +449,6 @@ class TestDefaultBuilder:
         assert cap_area(slab) == pytest.approx(1010.0 * 810.0, rel=1e-6)
         with pytest.raises(ValueError, match="2 hole groups for 1 footprint"):
             prism_mesh((FRAME,), 40.0, ((FRAME_HOLE,), ()))
-
-    def test_a_hole_free_ring_is_still_the_qt3d_prism_vertex_for_vertex(self) -> None:
-        from open_garden_planner.core.scene3d import extrude_footprint
-
-        positions, normals = extrude_footprint(list(L_SHAPE), 120.0)
-        mesh = prism_mesh((L_SHAPE,), 120.0)
-        np.testing.assert_array_equal(mesh.positions, np.array(positions, np.float32).reshape(-1, 3))
-        np.testing.assert_array_equal(mesh.normals, np.array(normals, np.float32).reshape(-1, 3))
 
     # ── any sequence of pairs is a ring (fix round 2, P2-7) ───────────────────
 

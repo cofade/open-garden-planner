@@ -419,8 +419,8 @@ Item {
         // probe can predict it, whatever the preset. The perspective view is the one
         // people look at: filmic, exposed and graded by the look.
         //
-        // The numbers that are not properties are the spike's, the same at every
-        // preset (pinned against GardenSpike.qml until the spike retires).
+        // The numbers that are not properties are the L0 spike's, the same at every
+        // preset (pinned against its scene file's values, frozen when L1.10 deleted it).
         environment: ExtendedSceneEnvironment {
             backgroundMode: view.skyShown ? SceneEnvironment.SkyBox : SceneEnvironment.Color
             clearColor: root.skyColor

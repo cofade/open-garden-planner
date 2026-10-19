@@ -564,11 +564,13 @@ def _core_module_file(name: str) -> Path | None:
 
 def test_the_scan_covers_the_whole_package() -> None:
     assert {p.name for p in MODULES} >= {
-        "__init__.py", "legacy.py", "color.py", "record.py", "scene_diff.py", "frame.py",
+        "__init__.py", "color.py", "record.py", "scene_diff.py", "frame.py",
         "polygon.py", "mesh.py", "sink.py", "build.py", "sync.py",
     }
     # fix round 1: the module is `scene_diff`; `core.scene3d.diff` is only the function
     assert not (PACKAGE / "diff.py").exists()
+    # L1.10: the pre-L1.1 module left with the Qt 3D view
+    assert not (PACKAGE / "legacy.py").exists()
     assert _package_of(PACKAGE / "record.py") == ["open_garden_planner", "core", "scene3d"]
 
 

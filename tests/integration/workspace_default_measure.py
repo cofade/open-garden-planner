@@ -199,64 +199,7 @@ def scenario_date_playback(window: Any, args: dict[str, Any]) -> Iterator[Any]:
     yield 100
 
 
-def _painted(image: Any) -> bool:
-    """Whether a screen grab shows a drawn 3D frame and not an empty window."""
-    if image is None or image.isNull() or image.width() < 8 or image.height() < 8:
-        return False
-    colours = {image.pixel(x, y) for x in range(0, image.width(), max(1, image.width() // 40))
-               for y in range(0, image.height(), max(1, image.height() // 40))}
-    return len(colours) > 12
-
-
-def scenario_budget_old_view(window: Any, args: dict[str, Any]) -> Iterator[Any]:
-    """The RETIRED Qt 3D window's numbers, for the comparison in L1.9's budget table —
-    reachable from no menu since L1.9 (its slot is called directly) and deleted with
-    the window in L1.10. The old window has no readback of its own: its first frame
-    is taken from the screen (``QScreen.grabWindow``) until it shows a drawn garden."""
-    from PyQt6.QtGui import QGuiApplication
-
-    step("before_3d", qt3d=sorted(name for name in sys.modules if name.startswith("PyQt6.Qt3D")),
-         modules=len(sys.modules), started_s=round(time.time() - hook._state["started"], 3))
-    memory_before = _memory()
-    clicked = time.perf_counter()
-    window._on_open_3d_view()
-    opened_s = time.perf_counter() - clicked
-    view = window._view3d_window
-    container = view.centralWidget()
-    found: dict[str, Any] = {}
-
-    def drawn() -> bool:
-        screen = QGuiApplication.primaryScreen()
-        if not container.isVisible() or screen is None:
-            return False
-        image = screen.grabWindow(int(container.winId())).toImage()
-        if _painted(image):
-            found["at"] = time.perf_counter()
-            return True
-        return False
-
-    yield drawn
-    first_frame_s = found.get("at", float("nan")) - clicked
-    yield 1500
-    step("opened", opened_s=round(opened_s, 3), first_frame_s=round(first_frame_s, 3),
-         memory_before_3d=memory_before, memory_after_open=_memory(),
-         qt3d=len([name for name in sys.modules if name.startswith("PyQt6.Qt3D")]))
-    script = measure._edits(window, int(args.get("edits", 100)))
-    for _kind, edit in script:
-        edit()
-        measure._pump(10)
-    yield 1000
-    started = time.perf_counter()
-    window._refresh_3d_view()            # the old window's only way to show the edits
-    refresh_ms = (time.perf_counter() - started) * 1000.0
-    yield 1500
-    step("edited", edits=len(script), refresh_ms=round(refresh_ms, 1),
-         memory_after_edits=_memory())
-    yield 100
-
-
 SCENARIOS = {
     "budget": scenario_budget,
     "date_playback": scenario_date_playback,
-    "budget_old_view": scenario_budget_old_view,   # L1.9 only: L1.10 deletes the old window
 }

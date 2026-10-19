@@ -58,7 +58,7 @@ from open_garden_planner.core.sim_clock import SimChange, SimClock
 from open_garden_planner.core.solar import solar_position
 from open_garden_planner.ui.sim_clock_subscription import connect_qobject
 
-from .footprints import ItemLookup, item_base_cm, item_footprints, plant_canopy_radius_cm
+from .footprints import ItemLookup, item_base_cm, item_footprints
 
 # Simulation states (stable identifiers — user-visible hints live in the app).
 STATE_DISABLED = "disabled"
@@ -206,12 +206,8 @@ class SunShadowOverlayItem(QGraphicsPathItem):
 
 
 # The footprint extraction lives in ``ui/canvas/footprints.py`` since Phase 17
-# L1.1 (#385) — its public home, shared with the 3D pipeline. These two private
-# names stay ONLY because ``tests/integration/test_3d_view.py`` and
-# ``tests/unit/test_spike_q3d_board.py`` import them and those suites are frozen
-# until L1.10 removes Qt 3D and the spike; new code imports the public names.
-_item_footprints = item_footprints
-_plant_canopy_radius_cm = plant_canopy_radius_cm
+# L1.1 (#385) — its public home, shared with the 3D pipeline. (Two private aliases
+# here served the Qt 3D view's tests and the L0 spike's; they left with both in L1.10.)
 
 
 def collect_identified_casters(

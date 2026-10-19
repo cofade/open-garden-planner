@@ -7,6 +7,7 @@ the render tier only has to prove that the engine does what they say.
 
 from __future__ import annotations
 
+import json
 import math
 import subprocess
 import sys
@@ -53,6 +54,10 @@ from open_garden_planner.ui.view3d.quick3d.shots import (
 )
 from tests.integration.quick3d_render_support import isolated_env
 
+#: What the L0 spike measured, frozen when L1.10 deleted it (its provenance field says how).
+SPIKE = json.loads((Path(__file__).resolve().parents[1] / "data" / "l0_spike_reference.json")
+                   .read_text(encoding="utf-8"))
+
 SRC = Path(__file__).resolve().parents[2] / "src"
 SQUARE = ((-50.0, -50.0), (50.0, -50.0), (50.0, 50.0), (-50.0, 50.0))
 
@@ -66,18 +71,17 @@ class TestLook:
 
     def test_the_neutral_day_is_the_cores_and_the_spikes_noon_rig(self) -> None:
         """What a host shows before anyone hands it a look is measured, not invented:
-        the L0 spike's noon anchor. Drift guard until the spike retires (L1.10)."""
+        the L0 spike's noon anchor (frozen when L1.10 deleted the spike)."""
         from open_garden_planner.core.scene3d import look as core_look
-        from open_garden_planner.spike_q3d import runner
 
+        noon = SPIKE["rig"]["anchors"]["NOON"]
         assert NEUTRAL_DAY is core_look.NEUTRAL_DAY
         properties = scene_properties(NEUTRAL_DAY)
-        assert (properties["sunColor"], properties["sunBrightness"]) == runner.SUN_NOON
-        assert properties["exposure"] == runner.LOOK_NOON["exposure"]
-        assert properties["probeExposure"] == runner.LOOK_NOON["probe"]
-        assert properties["meadowColor"] == runner.MEADOW_ALBEDO
-        assert NEUTRAL_DAY.fog_color == NEUTRAL_DAY.plain_sky == runner.scale_linear(
-            runner.LOOK_NOON["skyHorizon"], runner.LOOK_NOON["probe"] * runner.FOG_OF_HORIZON)
+        assert [properties["sunColor"], properties["sunBrightness"]] == noon["sun"]
+        assert properties["exposure"] == noon["look"]["exposure"]
+        assert properties["probeExposure"] == noon["look"]["probe"]
+        assert properties["meadowColor"] == SPIKE["rig"]["meadow_albedo"]
+        assert NEUTRAL_DAY.fog_color == NEUTRAL_DAY.plain_sky == SPIKE["rig"]["noon_fog"]
         assert properties["fogColor"] == properties["skyColor"] == engine_srgb(NEUTRAL_DAY.fog_linear)
 
     def test_the_mapping_holds_plain_values_only(self) -> None:
@@ -150,10 +154,9 @@ class TestLook:
     @pytest.mark.parametrize("azimuth", [0.0, 90.0, 180.0, 270.0, 301.5, 359.5])
     def test_the_sky_longitude_is_the_measured_convention(self, azimuth: float) -> None:
         """``sunLongitude = azimuth + 90°`` — the spike's sky probe; the L1.4 render tier
-        measures it again in pixels. Drift guard against the spike's own function."""
-        from open_garden_planner.spike_q3d.quick import sky_longitude as spike_longitude
-
-        assert sky_longitude(azimuth) == spike_longitude(azimuth) == (azimuth + 90.0) % 360.0
+        measures it again in pixels. Against the spike's own function's answers (frozen)."""
+        spike_longitude = SPIKE["sky_longitude"][repr(azimuth)]
+        assert sky_longitude(azimuth) == spike_longitude == (azimuth + 90.0) % 360.0
 
     def test_the_sky_inputs_are_the_spikes(self) -> None:
         """Day and night, against what ``GardenSpike.qml``'s ``rebuildSky`` sets."""
@@ -169,8 +172,7 @@ class TestLook:
         # dark line at the night horizon (L1.4 round 5; ``SkySpec.ground_energy``)
         assert (night["sunLatitude"], night["groundBottomColor"], night["skyEnergy"],
                 night["groundEnergy"], night["sunEnergy"]) == (-6.0, "#0a0f14", 0.25, 0.25, 0.0)
-        spike = (Path(__file__).resolve().parents[2] / "src" / "open_garden_planner" / "spike_q3d"
-                 / "qml" / "GardenSpike.qml").read_text(encoding="utf-8")
+        spike = "\n".join(SPIKE["qml"]["sky_inputs"])   # GardenSpike.qml's lines, frozen
         for line in ('data.groundBottomColor = root.night ? "#0a0f14" : "#3c4d2e"',
                      "data.groundHorizonColor = root.skyHorizon",
                      "data.skyEnergy = root.night ? 0.25 : 1.0",

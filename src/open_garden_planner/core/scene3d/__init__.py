@@ -21,16 +21,11 @@ The production builders are the sub-package ``builders`` (L1.6: buildings,
 fences, walls, beds, hedges — ``builders.production_registry()``). It is not
 re-exported here: a consumer of the contract does not need the built world.
 
-``legacy`` is the pre-L1.1 contract (the former ``core/scene3d.py``, moved
-here when the package was made, less the two functions contract v2 shares with
-it): the ``Scene3DRecord`` collector types, ``extrude_footprint`` and the scalar
-``to_engine_frame``. It feeds the shipped Qt 3D window and the dormant spike,
-and L1.10 deletes it with them. Every name the old module had is still exported
-here, so no importer changed.
-
-Since the review of L1.1: ``polygon`` (plane polygons — orientation, outer rings
-and holes, triangulation; it also holds ``triangulate_polygon``, which outlives
-``legacy``), and ``frame`` holds ``sun_direction_scene``. The module of ``diff``
+The pre-L1.1 contract of the Qt 3D window (``legacy``: ``Scene3DRecord``,
+``extrude_footprint``, the scalar ``to_engine_frame``) was deleted with that window
+in L1.10; the two functions contract v2 shares with it stay: ``triangulate_polygon``
+in ``polygon`` (plane polygons — orientation, outer rings and holes, triangulation)
+and ``sun_direction_scene`` in ``frame``. The module of ``diff``
 is ``scene_diff``, so that ``core.scene3d.diff`` is one thing: the function.
 
 "Imports no Qt" is a statement about this package's SOURCE. Importing it still
@@ -76,16 +71,6 @@ from .interleave import (
     VERTEX_STRIDE,
     EngineBuffers,
     engine_buffers,
-)
-from .legacy import (
-    DECAL_LIFT_CM,
-    DECAL_MAX_LIFT_CM,
-    DECAL_STACK_STEP_CM,
-    FLAT_THICKNESS_CM,
-    Scene3DRecord,
-    extrude_footprint,
-    records_from_raw,
-    to_engine_frame,
 )
 from .mesh import (
     BENT_NORMAL_KINDS,
@@ -176,14 +161,10 @@ __all__ = [
     "BENT_NORMAL_KINDS",
     "BUILT_HEIGHT_TOLERANCE",
     "COLOR_OFFSET",
-    "DECAL_LIFT_CM",
-    "DECAL_MAX_LIFT_CM",
-    "DECAL_STACK_STEP_CM",
     "EMPTY_PARAMS",
     "ENGINE_TO_SCENE",
     "FALLBACK_RGBA",
     "FLAT_NORMAL_MIN_DOT",
-    "FLAT_THICKNESS_CM",
     "GEOMETRY_FIELDS",
     "LENGTH_DECIMALS",
     "MATERIAL_FIELDS",
@@ -234,7 +215,6 @@ __all__ = [
     "Region",
     "Rgba",
     "Ring",
-    "Scene3DRecord",
     "SceneDiff",
     "SceneSync",
     "SinkCall",
@@ -254,7 +234,6 @@ __all__ = [
     "engine_pose",
     "engine_to_scene_points",
     "engine_to_scene_vectors",
-    "extrude_footprint",
     "group_rings",
     "is_buildable_region",
     "is_flat_ring",
@@ -271,7 +250,6 @@ __all__ = [
     "prism_mesh",
     "quantize_cm",
     "quantize_deg",
-    "records_from_raw",
     "regions_area",
     "ring_area",
     "scene_to_engine_points",
@@ -281,7 +259,6 @@ __all__ = [
     "srgb_channel_to_linear",
     "srgb_to_linear",
     "sun_direction_scene",
-    "to_engine_frame",
     "triangulate_polygon",
     "triangulate_region",
     "verify_builder",

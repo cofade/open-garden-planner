@@ -11,6 +11,7 @@ another experiment. The frames themselves are judged by
 from __future__ import annotations
 
 import ast
+import json
 import math
 from pathlib import Path
 
@@ -21,34 +22,38 @@ from scripts import render_beauty_board as board
 from open_garden_planner.core.scene3d import pose_ring
 from open_garden_planner.core.shadow_geometry import compute_scene_shadows
 
+#: What the L0 spike measured, frozen when L1.10 deleted it (its provenance field says how).
+SPIKE = json.loads((Path(__file__).resolve().parents[1] / "data" / "l0_spike_reference.json")
+                   .read_text(encoding="utf-8"))
+
 SCRIPT = Path(board.__file__)
 
 
 @pytest.mark.parametrize("size", [(2400.0, 1600.0), (5000.0, 4000.0), (800.0, 3000.0)])
 def test_the_shots_are_the_spikes(size: tuple[float, float]) -> None:
-    """Same dates, times and cameras as the L0 board — drift guard until the spike
-    retires (L1.10): before / after is like for like only while this holds."""
-    from open_garden_planner.spike_q3d import runner
-
-    ours, theirs = board.default_shots(*size), runner.default_shots(*size)
+    """Same dates, times and cameras as the L0 board (frozen when L1.10 deleted the
+    spike): before / after is like for like only while this holds."""
+    ours, theirs = board.default_shots(*size), SPIKE["shots"][f"{size[0]:g}x{size[1]:g}"]
     assert [shot.name for shot in ours] == [
         "golden_hour", "sunset", "noon", "morning", "december_noon", "night", "walk"]
     assert len(ours) == len(theirs)
     for mine, spike in zip(ours, theirs, strict=True):
-        assert (mine.name, mine.when_utc, mine.fov_deg) == (spike.name, spike.when_utc, spike.fov)
-        assert mine.eye == pytest.approx(spike.eye) and mine.target == pytest.approx(spike.target)
+        assert (mine.name, mine.when_utc.isoformat(), mine.fov_deg) == (
+            spike["name"], spike["when_utc"], spike["fov"])
+        assert mine.eye == pytest.approx(spike["eye"]) and mine.target == pytest.approx(
+            spike["target"])
 
 
 def test_the_probes_scene_is_the_spikes_caster() -> None:
-    from open_garden_planner.spike_q3d import probes as spike
-
-    source = Path(spike.__file__).read_text(encoding="utf-8")
-    assert "side, height = 100.0, 200.0" in source and "azimuth = 225.0" in source
-    assert "for elev in (15.0, 35.0, 60.0)" in source
-    assert (board.CASTER_SIDE, board.CASTER_HEIGHT, board.IOU_AZIMUTH) == (100.0, 200.0, 225.0)
-    assert board.IOU_ELEVATIONS == (15.0, 35.0, 60.0)
-    assert spike.SKY_LOOK_OFFSETS_DEG == board.SKY_OFFSETS_DEG
-    assert spike.SKY_PITCH_DEG == board.SKY_PITCH_DEG and board.SKY_MAX_ERROR_DEG == 6.0
+    """The L0 probes' caster and sky look, frozen when L1.10 deleted the spike."""
+    spike = SPIKE["probes"]
+    assert spike["caster_in_source"] is True
+    caster = spike["caster"]
+    assert (board.CASTER_SIDE, board.CASTER_HEIGHT, board.IOU_AZIMUTH) == (
+        caster["side"], caster["height"], caster["azimuth"]) == (100.0, 200.0, 225.0)
+    assert list(board.IOU_ELEVATIONS) == caster["elevations"] == [15.0, 35.0, 60.0]
+    assert list(board.SKY_OFFSETS_DEG) == spike["sky_look_offsets_deg"]
+    assert spike["sky_pitch_deg"] == board.SKY_PITCH_DEG and board.SKY_MAX_ERROR_DEG == 6.0
     record = board.caster_record()
     ring = pose_ring(record.transform, record.footprints[0])
     assert sorted(ring) == sorted(board.caster_footprint()) and record.height_cm == 200.0

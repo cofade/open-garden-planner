@@ -1,6 +1,7 @@
 """Every Qt message of a render, recorded; a shader or QML error fails it (L1.2).
 
-Ported from the L0 spike (``spike_q3d/qt_messages.py``, ADR-048 entry 17).
+Ported from the L0 spike's ``qt_messages.py`` (ADR-048 entry 17; the spike was
+deleted in L1.10).
 Why it exists: a custom shader that does not compile is only a ``QtWarningMsg``
 — ``QSpirvCompiler: Failed to parse shader`` goes to stderr, the frame still
 renders, in another colour. Measured in the spike: one renamed call in

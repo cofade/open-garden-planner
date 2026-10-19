@@ -99,7 +99,7 @@ jobs:
       # Check 2 of 2.8. See release.yml for why it is started with Start-Process
       # -Wait -PassThru and why the exit code alone decides: this script is the
       # SAME text as release.yml's (pinned by tests/unit/test_quick3d_packaging.py).
-      - name: Verify frozen subsystems (Qt3D #277, Agent API #291, Qt Quick 3D render)
+      - name: Verify frozen subsystems (Agent API #291, A1 checks, Qt Quick 3D render #277)
         shell: pwsh
         timeout-minutes: 10
         env:
@@ -109,10 +109,10 @@ jobs:
           if (-not (Test-Path $exe)) { Write-Host "::error::Frozen exe not found: $exe"; exit 1 }
           $p = Start-Process -FilePath $exe -ArgumentList "--selftest" -Wait -PassThru
           if ($p.ExitCode -ne 0) {
-            Write-Host "::error::Frozen self-test failed (exit $($p.ExitCode)). It covers the Qt3D bindings + Qt version match (#277), the embedded Agent API server binding (#291) AND the Qt Quick 3D engine (Garden.qml and its shaders loaded from the bundle and rendered into one frame on this GPU-less runner, Direct3D 11 on WARP) - one of those is dead in this build. The next step prints the self-test log: it names the failed 3D check, or shows the watchdog's reason and stack dump if any part hung."
+            Write-Host "::error::Frozen self-test failed (exit $($p.ExitCode)). It covers the embedded Agent API server binding (#291), the A1 ingestion checks AND the Qt Quick 3D engine (Garden.qml and its shaders loaded from the bundle and rendered into one frame on this GPU-less runner, Direct3D 11 on WARP) - one of those is dead in this build, a lazily loaded part only the real artifact shows (the #277 class). The next step prints the self-test log: it names the failed 3D check, or shows the watchdog's reason and stack dump if any part hung."
             exit 1
           }
-          Write-Host "Frozen self-test passed (exit 0): Qt3D bindings, Agent API and the Qt Quick 3D render are all alive."
+          Write-Host "Frozen self-test passed (exit 0): Agent API, A1 checks and the Qt Quick 3D render are all alive."
 
       # The log, in a step of its own that ALWAYS runs: a self-test step that was
       # cut off by its time limit prints nothing after the cut, and the log is

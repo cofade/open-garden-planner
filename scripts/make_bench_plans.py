@@ -87,9 +87,9 @@ OUT_DIR = REPO / "tests" / "fixtures" / "plans"
 # end of the longest non-freezing run per year (MERRA-2 reanalysis), the closest
 # published analogue of what services/climate_service.py derives from ERA5 (the median
 # last / first <= 0 °C day). The app's own lookup could not be run when this was set:
-# the archive host was blocked by the environment's egress policy. The 3D view reads
-# them to decide whether fruit and flowers are in season
-# (spike_q3d/runner.in_frost_free_season).
+# the archive host was blocked by the environment's egress policy. The L0 spike's 3D
+# view read them to decide whether fruit and flowers are in season (the spike was
+# deleted in Phase 17 L1.10; production plants v0 show neither, FR-3D-PLANT-04).
 # Off by one day at each end, knowingly: WeatherSpark's bounds are the first and last
 # NON-freezing days, while these keys name the last and first FROST day, so a strict
 # transcription would be 04-08 and 11-01. That is inside WeatherSpark's own "around";

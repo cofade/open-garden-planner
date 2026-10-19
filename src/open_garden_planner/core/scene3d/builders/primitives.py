@@ -14,9 +14,9 @@ about the item's own origin with +z up. Two shading modes:
 No function loops over vertices in Python; the loops that exist run over a
 footprint's edges or an ear-clipped polygon's handful of triangles.
 
-Ported from ``spike_q3d/meshes.py`` (``box``, ``tubes``, ``_face_normal``,
-``_clip_halfplane``) and generalised; the spike builds at scene positions, these
-build at the origin of whatever frame the caller is in.
+Ported from the L0 spike's ``meshes.py`` (``box``, ``tubes``, ``_face_normal``,
+``_clip_halfplane``; the spike was deleted in L1.10) and generalised; the spike built
+at scene positions, these build at the origin of whatever frame the caller is in.
 """
 
 from __future__ import annotations
@@ -28,8 +28,8 @@ from typing import Final, TypeAlias
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from ..legacy import triangulate_polygon
 from ..mesh import Mesh
+from ..polygon import triangulate_polygon
 
 F64: TypeAlias = NDArray[np.float64]
 

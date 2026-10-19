@@ -170,13 +170,15 @@ after ANY dependency change (see traps below).
 The smoke test proves the process **stays up**. It cannot see a subsystem that
 died silently behind an `except`, which is exactly how issue **#291** (the Agent
 API never started in any released exe) survived six releases, and how **#277** (a
-`Qt6Core`/Qt3D micro mismatch) shipped a crash — Qt3D is imported lazily, so
-startup and the 8 s smoke both passed. `main.py --selftest` closes both: it
-imports all six Qt3D bindings, asserts `qVersion()` matches the `PyQt6-3D-Qt6`
-wheel version, then binds an ephemeral port and starts a real `AgentApiServer`
-with poisoned providers, asserting `is_running`.
+micro mismatch between the core Qt runtime and the old 3D view's Qt 3D wheels) shipped
+a crash — that view was imported lazily, so startup and the 8 s smoke both passed.
+`main.py --selftest` binds an ephemeral port and starts a real `AgentApiServer` with
+poisoned providers, asserting `is_running`, and runs the A1 checks. (Until Phase 17
+L1.10 it also imported the six Qt 3D bindings and compared the runtime with their
+wheel's micro; that view and its two wheels are gone, and the two remaining Qt pins
+are guarded by `tests/unit/test_qt_runtime_pins.py`.)
 
-Since Phase 17 L1.2 it also **renders**: the Qt Quick 3D engine package
+Since Phase 17 L1.2 it **renders**: the Qt Quick 3D engine package
 (`ui/view3d/quick3d/`) is lazily loaded too, and its scene is QML and shader
 *files* in the bundle. `--selftest` loads them from the bundle, draws one
 hidden 160 × 120 frame with every material kind and checks the pixels

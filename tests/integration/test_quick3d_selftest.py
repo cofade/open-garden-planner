@@ -78,10 +78,10 @@ def test_the_3d_selftest_passes_without_a_gpu(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(sys.platform != "win32",
-                    reason="the whole --selftest also imports Qt3D, which needs the bundled Qt runtime")
+                    reason="the self-test ships in the Windows exe: the whole command runs there")
 def test_the_whole_selftest_command_passes(tmp_path: Path) -> None:
-    """``python -m open_garden_planner --selftest`` — the Qt3D block, the Agent API
-    block and the new 3D block together, as the frozen exe runs them."""
+    """``python -m open_garden_planner --selftest`` — the Agent API block, the A1 checks
+    and the 3D block together, as the frozen exe runs them."""
     log = tmp_path / "selftest.log"
     stores = tmp_path / "stores.txt"
     proc = subprocess.run(  # noqa: S603 - fixed argv, our own code

@@ -8,8 +8,8 @@ and so a normal start never pays for it.
 
 The scan is an AST scan over the WHOLE source tree, and it also reads module
 names out of string literals: ``__import__("PyQt6.QtQuick3D")`` is an import.
-The dormant L0 spike keeps its own, older rule (``test_spike_q3d_isolation.py``)
-until it retires in L1.10.
+Since L1.10 there is no exception: the dormant L0 spike, which kept an older rule of
+its own, was deleted with Qt 3D.
 
 The second half of the file is the same kind of scan for a second boundary: NO
 PYTHON ON QT'S RENDER THREAD (review round 3; see the section's own comment).
@@ -31,9 +31,9 @@ PRODUCT = SRC / "open_garden_planner"
 PACKAGE = PRODUCT / "ui" / "view3d" / "quick3d"
 ENGINE_MODULES = ("PyQt6.QtQuick3D", "PyQt6.QtQuick", "PyQt6.QtQml", "PyQt6.QtQuickWidgets")
 
-#: The only files outside the engine package that may touch the engine: the L0 spike's
-#: one engine module (dormant, ``--spike-q3d`` only; deleted with the spike in L1.10).
-ALLOWED_OUTSIDE = {PRODUCT / "spike_q3d" / "quick.py"}
+#: The files outside the engine package that may touch the engine: none (the L0 spike's
+#: engine module was the one exception until L1.10 deleted the spike).
+ALLOWED_OUTSIDE: set[Path] = set()
 #: Inside the package: the modules that IMPORT the engine …
 ENGINE_IMPORTERS = {"geometry.py", "host.py"}
 #: … and the one that names its bindings as strings, to import them one by one and
@@ -242,11 +242,9 @@ def test_the_engine_free_modules_load_without_the_engine(tmp_path: Path) -> None
 
 #: Qt calls that install a process-wide Python callback, run on WHATEVER thread logs.
 PROCESS_WIDE_HOOKS = frozenset({"qInstallMessageHandler", "installFilter"})
-SPIKE = PRODUCT / "spike_q3d"
-#: The files that may name one: the offscreen render's recorder — and the dormant L0
-#: spike's own (it installs one beside shown windows; ``--spike-q3d`` only, and it retires
-#: with the spike in L1.10).
-HOOK_FILES = {PACKAGE / "qt_messages.py", SPIKE / "qt_messages.py"}
+#: The one file that may name one: the offscreen render's recorder (the L0 spike's own,
+#: which installed one beside shown windows, left with the spike in L1.10).
+HOOK_FILES = {PACKAGE / "qt_messages.py"}
 #: The one module that may reach the recorder's ``install``: the offscreen render, which
 #: refuses beside a shown window BEFORE it installs.
 RECORDER = "qt_messages"
@@ -323,9 +321,9 @@ def unqueued_render_thread_signals(path: Path) -> list[str]:
 
 
 def _product_sources() -> list[Path]:
-    """The shipped product without the dormant spike (which predates every rule here and
-    is deleted in L1.10; ``test_the_spike_is_the_only_exception…`` says what it does)."""
-    return [path for path in _sources() if SPIKE not in path.parents]
+    """The shipped product — all of it since L1.10 deleted the dormant spike, which
+    predated every rule here."""
+    return list(_sources())
 
 
 def test_only_the_recorder_names_a_process_wide_qt_hook() -> None:
@@ -382,21 +380,14 @@ def test_every_render_thread_signal_is_connected_queued() -> None:
     assert connected == ["frameSwapped", "sceneGraphError"], "what the host listens to today"
 
 
-def test_the_spike_is_the_only_exception_and_it_is_dormant() -> None:
-    """Record, not approval: the L0 spike installs a process-wide Python handler and
-    connects render-thread signals directly, beside shown windows. It runs only under
-    ``--spike-q3d`` and is deleted in L1.10; until then this pins that the exception has
-    not grown beyond the spike's own two files."""
-    assert {path.relative_to(SPIKE).as_posix() for path in SPIKE.rglob("*.py") if hook_names(path)} == {
-        "qt_messages.py"}
-    direct = {path.relative_to(SPIKE).as_posix() for path in SPIKE.rglob("*.py")
-              if unqueued_render_thread_signals(path)}
-    assert direct == {"quick.py"}
-    importers = sorted(
-        str(path.relative_to(PRODUCT)) for path in _product_sources()
-        if any(isinstance(node, (ast.Import, ast.ImportFrom)) and "spike_q3d" in ast.unparse(node)
-               for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))))
-    assert importers == ["main.py"], "only main's --spike-q3d dispatch names the spike"
+def test_the_spike_is_gone_and_nothing_names_it() -> None:
+    """The L0 spike installed a process-wide Python handler and connected render-thread
+    signals directly, beside shown windows — the one exception to this file's rules,
+    tolerated while it was dormant. L1.10 deleted it: no package, no ``--spike-q3d``."""
+    assert not (PRODUCT / "spike_q3d").exists()
+    assert not [str(path.relative_to(PRODUCT)) for path in _product_sources()
+                if "spike_q3d" in path.read_text(encoding="utf-8")
+                or "--spike-q3d" in path.read_text(encoding="utf-8")]
 
 
 @pytest.mark.parametrize(("source", "expected"), [

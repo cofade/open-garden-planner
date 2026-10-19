@@ -67,15 +67,13 @@ class TestSpec:
         for binding in ("PyQt6.QtQuick", "PyQt6.QtQml", "PyQt6.QtQuick3D"):
             assert f'"{binding}",' in code
 
-    def test_the_dormant_spike_is_still_bundled_until_l1_10(self) -> None:
-        """Spec trimming is L1.10's, together with the spike: its QML, its modules and
-        ``PyQt6.QtQuickWidgets`` (which only the spike's ``quick.py`` imports)."""
+    def test_the_spike_left_the_bundle_with_l1_10(self) -> None:
+        """L1.10 trimmed the spec with the spike: its QML, its modules and
+        ``PyQt6.QtQuickWidgets`` (which only the spike's ``quick.py`` imported — the
+        product hosts a ``QQuickView``, never a ``QQuickWidget``)."""
         code = _code(SPEC)
-        assert '"open_garden_planner" / "spike_q3d" / "qml"' in code
-        for name in ("PyQt6.QtQuickWidgets", "open_garden_planner.spike_q3d.quick",
-                     "open_garden_planner.spike_q3d.runner"):
-            assert f'"{name}",' in code
-        assert "L1.10" in SPEC
+        assert "spike_q3d" not in code
+        assert '"PyQt6.QtQuickWidgets",' not in code
 
 
 def _step(workflow: str, name: str) -> str:
@@ -151,8 +149,8 @@ class TestReleaseWorkflow:
         all), reads inside try/catch and ends with ``exit 0``."""
         after = RELEASE[RELEASE.index("      - name: Verify frozen subsystems"):]
         names = re.findall(r"^      - name: (.+)$", after, re.MULTILINE)
-        assert names[:2] == ["Verify frozen subsystems (Qt3D #277, Agent API #291, Qt Quick 3D render)",
-                             "Print the self-test log"]
+        assert names[:2] == ["Verify frozen subsystems (Agent API #291, A1 checks, Qt Quick 3D "
+                             "render #277)", "Print the self-test log"]
         step = _log_step(RELEASE)
         assert "        if: always() && steps.check_tag.outputs.exists == 'false'\n" in step
         script = _script(step)

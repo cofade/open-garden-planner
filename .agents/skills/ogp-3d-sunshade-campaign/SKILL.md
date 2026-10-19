@@ -3,7 +3,7 @@ name: ogp-3d-sunshade-campaign
 description: >
   Reference pack for Open Garden Planner's SHIPPED 3D + sun/shade subsystems
   (Phase 14, v1.24.5 – v1.24.12 — complete; epic #255 closed). Load this skill
-  when MAINTAINING or debugging any of it: 3D view, Qt3D usage, sun path or
+  when MAINTAINING or debugging any of it: 3D view history (Qt 3D, retired), sun path or
   solar position math, shadow projection/casting, shade or hours-of-sun
   heatmaps, object height property, seasonal/time-of-day sun animation,
   first-person walkthrough, or growth visualization. It is a reference, NOT a
@@ -31,16 +31,20 @@ description: >
 >
 > **The new view is the product since Phase 17 L1.9 (#385).** View → Sun & 3D → "3D View"
 > shows the 3D pane of the main window's Plan / 3D / Split workspace (ADR-065, docs/08
-> §8.32); the Qt 3D viewer window of US-E6/E7 is reachable from no menu, and L1.10 deletes
-> it. What FR-SUN-06 / 07 / 08 promised and what the new view does instead is the parity
-> table of §8.32.9. Debug the 3D view with `ogp-3d-renderer`, not with this skill.
+> §8.32). **L1.10 deleted the Qt 3D viewer window of US-E6/E7** — its adapter, the window,
+> `core/scene3d/legacy.py`, `core/walk_camera.py`, the L0 spike and the two Qt 3D wheels.
+> What FR-SUN-06 / 07 / 08 promised and what the new view does instead is the parity
+> table of §8.32.9. Debug the 3D view with `ogp-3d-renderer`, not with this skill. Below,
+> every mention of Qt 3D, its window or its modules is the Phase 14 campaign's history.
+> (`tests/unit/test_no_qt3d_left.py` lists this file among the history documents.)
 >
 > **Every "TO BUILD" marker below is now STALE — that code EXISTS.** Do not
 > re-implement it. `core/solar.py`, `core/object_height.py`, `core/shadow_geometry.py`,
-> `core/shade_aggregation.py`, `core/heatmap_render.py`, `core/scene3d/legacy.py` (the
-> former `core/scene3d.py`; a package since Phase 17 L1.1, which re-exports every name),
-> `core/walk_camera.py`, `core/growth_model.py`, `ui/view3d/` and
-> `ui/canvas/sun_heatmap.py` are all shipped and gated by tests.
+> `core/shade_aggregation.py`, `core/heatmap_render.py`, `core/growth_model.py` and
+> `ui/canvas/sun_heatmap.py` are shipped and gated by tests. `core/scene3d/` (a package
+> since Phase 17 L1.1; the pre-L1.1 `legacy.py` module left with L1.10), `core/scene3d/walk.py`
+> (which replaced `core/walk_camera.py` in L1.8) and `ui/view3d/` are Phase 17's — see
+> `ogp-3d-renderer`.
 >
 > **This skill is now a REFERENCE, not a runbook.** What stays valid and load-bearing:
 > the NOAA/Meeus solar formulas with their pinned reference numbers, the

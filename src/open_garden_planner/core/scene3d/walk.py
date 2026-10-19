@@ -49,7 +49,7 @@ is settled with the velocity it was accumulated under.
 No head bob and no smoothing of any kind: reduced motion has nothing to switch off.
 
 NOT here: stairs and slopes (the ground is flat at 0), plants as obstacles,
-doors. ``core/walk_camera.py`` is the shipped Qt 3D walkthrough's helper and goes
+doors. The shipped Qt 3D walkthrough's helper (``core/walk_camera.py``) went
 with it (L1.10); this module shares no code with it on purpose.
 """
 

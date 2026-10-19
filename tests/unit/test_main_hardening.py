@@ -76,33 +76,21 @@ def keep_the_qt_identity():
 
 @pytest.mark.skipif(
     sys.platform != "win32",
-    reason="importing the Qt3D bindings needs the bundled Qt runtime "
-    "(the Windows dev/CI-release environment)",
+    reason="the self-test ships in the Windows exe: its real blocks are run where it ships",
 )
 @pytest.mark.usefixtures("keep_the_qt_identity")
 class TestSelfTest:
-    """The Qt3D and Agent API blocks run for real here; the Qt Quick 3D block (L1.2)
-    is a stand-in. The real 3D block runs in a subprocess with a real window system
+    """The Agent API and A1 blocks run for real here; the Qt Quick 3D block (L1.2) is a
+    stand-in. The real 3D block runs in a subprocess with a real window system
     (``tests/integration/test_quick3d_selftest.py``, render tier) and in the frozen
-    exe before every release."""
+    exe before every release. (Until L1.10 a Qt 3D block imported the old view's
+    bindings and compared the Qt runtime with their wheel's micro — the #277 detector;
+    the two remaining Qt pins are guarded by ``tests/unit/test_qt_runtime_pins.py`` and
+    the 3D block renders a frame from the bundle.)"""
 
     def test_passes_on_a_consistent_qt_stack(self, monkeypatch) -> None:
         _stub_3d(monkeypatch)
         assert _run_selftest() == 0
-
-    def test_returns_nonzero_on_version_mismatch(self, monkeypatch) -> None:
-        """The load-bearing #277 detector: a Qt runtime that differs from the
-        Qt3D wheel micro must fail (exit 1), even when the imports succeed."""
-        import importlib.metadata as md
-
-        _stub_3d(monkeypatch)
-        real = md.version
-        monkeypatch.setattr(
-            md,
-            "version",
-            lambda name: "0.0.0-mismatch" if name == "PyQt6-3D-Qt6" else real(name),
-        )
-        assert _run_selftest() == 1
 
     def test_a_failed_3d_frame_fails_the_whole_selftest(self, monkeypatch, capsys) -> None:
         """Everything else healthy, the 3D engine not: exit 1."""
@@ -111,7 +99,7 @@ class TestSelfTest:
         assert "SELFTEST: FAIL" in capsys.readouterr().out
 
     def test_the_real_blocks_build_no_settings_store(self, monkeypatch) -> None:
-        """The Qt3D imports and a real Agent API server, in this process: no settings
+        """The real Agent API server and A1 checks, in this process: no settings
         store is asked for. (The 3D block and the whole command are shown the same way
         in a child with a real platform: ``tests/integration/test_quick3d_selftest.py``.)
         A consumer that bound the factory's name before this test replaced it would not
@@ -318,7 +306,7 @@ _HUNG_BLOCK = textwrap.dedent("""
     import open_garden_planner.main as ogp_main
 
     def hangs(log=None):
-        print("  OK   import PyQt6.Qt3DCore (stand-in)", flush=True)
+        print("  OK   A1 checks (stand-in)", flush=True)
         time.sleep(120)   # e.g. the Agent API server that never reports its port
         return 0
 
@@ -349,8 +337,9 @@ class _StandInSupervisor:
 
 @pytest.mark.usefixtures("keep_the_qt_identity")
 class TestBoundedSelfTest:
-    """Review P1-4. The watchdog used to cover the 3D render only; the Qt3D imports and
-    the Agent API block could hang a release job until GitHub's six-hour limit."""
+    """Review P1-4. The watchdog used to cover the 3D render only; the other blocks (the
+    Qt 3D imports of the time, the Agent API) could hang a release job until GitHub's
+    six-hour limit."""
 
     @pytest.fixture(autouse=True)
     def supervisors(self, monkeypatch) -> Any:
@@ -495,7 +484,7 @@ class TestBoundedSelfTest:
         """Not a stand-in for ``_run_selftest``: its own code passes the log on, so the
         3D block does not arm a second watchdog. Windows only, like ``TestSelfTest``."""
         if sys.platform != "win32":
-            pytest.skip("importing the Qt3D bindings needs the bundled Qt runtime")
+            pytest.skip("the self-test ships in the Windows exe")
         import open_garden_planner.main as ogp_main
 
         log_file = tmp_path / "selftest.log"

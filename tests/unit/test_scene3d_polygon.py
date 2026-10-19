@@ -30,7 +30,6 @@ from open_garden_planner.core.scene3d import (
     triangulate_polygon,
     triangulate_region,
 )
-from open_garden_planner.core.scene3d import legacy as legacy_module
 from open_garden_planner.core.scene3d import polygon as polygon_module
 from open_garden_planner.core.scene3d.polygon import (
     HELD_VERTICES,
@@ -371,17 +370,16 @@ def review_ladder(rungs: int, width: float = 6.0):
 
 
 class TestTriangulateRegion:
-    def test_without_holes_it_is_the_qt3d_ear_clipper(self) -> None:
+    def test_without_holes_it_is_the_ear_clipper(self) -> None:
         points, triangles = triangulate_region(L_SHAPE)
         assert points == L_SHAPE and triangles == triangulate_polygon(L_SHAPE)
         assert len(triangles) == 4
 
     def test_the_moved_function_is_one_object_everywhere(self) -> None:
-        """``triangulate_polygon`` left ``legacy.py`` (it outlives it); every old
-        import path still reaches the same function."""
-        assert legacy_module.triangulate_polygon is polygon_module.triangulate_polygon
+        """``triangulate_polygon`` left the pre-L1.1 module (it outlived it: L1.10 deleted
+        that module with the Qt 3D view); the package exports the one function."""
         assert scene3d.triangulate_polygon is polygon_module.triangulate_polygon
-        assert legacy_module.sun_direction_scene is scene3d.frame.sun_direction_scene
+        assert scene3d.sun_direction_scene is scene3d.frame.sun_direction_scene
 
     def test_a_frame(self) -> None:
         assert_triangulates(SQUARE, (rect(40.0, 40.0, 60.0, 60.0, clockwise=True),))

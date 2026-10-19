@@ -61,14 +61,16 @@ _SUPERVISOR_FLAG = "--selftest-supervisor"
 def _run_selftest(log: "RenderLog | None" = None) -> int:
     """Headless self-test for lazily-imported subsystems (issue #277).
 
-    The pre-release exe smoke test only exercises startup; the 3D view's Qt3D
-    bindings are imported lazily (ADR-038), so a Qt micro-version mismatch
-    passes startup and only crashes when the user opens the 3D view. This
-    imports every Qt3D binding the view uses — the DLL load + symbol resolution
-    here is the EXACT failure surface of #277 — and checks the runtime Qt equals
-    the Qt version the Qt3D wheels were built for. No window and no GL context,
-    so it runs on a headless CI runner. Returns non-zero on any failure so a
-    broken frozen build fails the release instead of shipping.
+    The pre-release exe smoke test only exercises startup; a subsystem that is
+    imported lazily passes startup and only fails when the user reaches it. That
+    is how #277 shipped: the 3D view of the time (Qt 3D, ADR-038, removed in
+    Phase 17 L1.10) was built against another Qt micro than the bundled runtime
+    and killed the process when it was opened. The lesson stands for every
+    block below: exercise the REAL artifact's lazily-loaded parts — the Agent API
+    server binds a port, the A1 checks run, and the 3D engine (Qt Quick 3D) loads
+    its scene from the bundle and RENDERS a frame, which fails on a mismatched or
+    missing Qt Quick 3D library as the #277 import did. Returns non-zero on any
+    failure so a broken frozen build fails the release instead of shipping.
 
     A windowed (console=False) frozen exe is given no CONSOLE, so when it is
     launched detached -- `Start-Process -Wait -PassThru`, what CI does -- it has
@@ -76,35 +78,7 @@ def _run_selftest(log: "RenderLog | None" = None) -> int:
     shell that redirects (a pipe), it *does* inherit a handle and the prints
     below are visible; that is the local/dev case.
     """
-    from importlib.metadata import PackageNotFoundError, version
-
-    from PyQt6.QtCore import qVersion
-
     ok = True
-    for mod in (
-        "PyQt6.Qt3DCore",
-        "PyQt6.Qt3DExtras",
-        "PyQt6.Qt3DRender",
-        "PyQt6.Qt3DInput",
-        "PyQt6.Qt3DLogic",
-        "PyQt6.Qt3DAnimation",
-    ):
-        try:
-            __import__(mod)
-            print(f"  OK   import {mod}")
-        except Exception as exc:  # noqa: BLE001 - report every failure, never abort
-            ok = False
-            print(f"  FAIL import {mod} -> {exc}")
-
-    runtime = qVersion()
-    try:
-        qt3d_qt = version("PyQt6-3D-Qt6")
-    except PackageNotFoundError:
-        qt3d_qt = "?"
-    print(f"Qt runtime (Qt6Core.dll): {runtime}   Qt3D wheels built for: {qt3d_qt}")
-    if runtime != qt3d_qt:
-        ok = False
-        print("  FAIL Qt runtime micro != Qt3D wheel micro (issue #277 mismatch)")
 
     # --- Agent API embedded server (issue #291) ---------------------------
     #
@@ -115,7 +89,7 @@ def _run_selftest(log: "RenderLog | None" = None) -> int:
     # inherited stdout handle has sys.stdout is None.
     #
     # Starting a real server here exercises the real failure surface in the
-    # real artifact -- same reasoning as the Qt3D imports above (#277).
+    # real artifact -- the reasoning of #277 (the docstring above).
     #
     # But note WHICH launch reproduces #291, because this was stated wrongly for
     # a while (see the dated correction in section 11.4): `console=False` means
@@ -210,10 +184,10 @@ def _run_selftest_bounded() -> int:
     A self-test that hangs must fail, not hold a release job for six hours (the
     GitHub default): after ``SELFTEST_WATCHDOG_S`` the watchdog writes the reason
     and every thread's stack into the self-test log and ends the process with
-    exit code 1. It covers the Qt3D imports, the Agent API block and the A1
-    ingestion checks too, not only the 3D render. The log also records the
-    overall exit code, so a log whose 3D part passed and whose exit code is 1
-    points at the first three blocks.
+    exit code 1. It covers the Agent API block and the A1 ingestion checks too,
+    not only the 3D render. The log also records the overall exit code, so a log
+    whose 3D part passed and whose exit code is 1 points at the first two
+    blocks.
 
     The watchdog is SUPERVISED: a second, tiny process (this exe with
     ``--selftest-supervisor``) ends this one from outside when it is still alive
@@ -263,8 +237,8 @@ def _run_selftest_bounded() -> int:
             print("SELFTEST: FAIL (no log)")
             code = 1
         log("selftest_exit", code=code, result="PASS" if code == 0 else "FAIL",
-            note="covers the Qt3D bindings, the Agent API server, the A1 ingestion checks "
-                 "and the Qt Quick 3D frame")
+            note="covers the Agent API server, the A1 ingestion checks and the Qt Quick 3D "
+                 "frame")
         return code
     finally:
         log.close()
@@ -273,8 +247,8 @@ def _run_selftest_bounded() -> int:
 def _selftest_quick3d(log: "RenderLog | None" = None) -> bool:
     """The Qt Quick 3D part of the self-test (Phase 17 L1.2, ADR-048); True for a pass.
 
-    The new 3D engine is loaded lazily, so the reasoning of the Qt3D block
-    applies -- and importing its bindings is not enough: its scene is QML and
+    The 3D engine is loaded lazily, so the reasoning of #277 applies (the
+    docstring of ``_run_selftest``) -- and importing its bindings is not enough: its scene is QML and
     shader FILES in the bundle, and a shader that does not compile is only a
     Qt warning. So this RENDERS: it loads Garden.qml from the bundle, draws one
     160x120 frame WITHOUT showing a window (a lit box, its shadow, one swatch
@@ -430,13 +404,6 @@ def main() -> int:
     # Headless subsystem self-test (issue #277) — before any Qt UI is created.
     if "--selftest" in sys.argv:
         return _run_selftest_bounded()
-
-    # Dormant Qt Quick 3D renderer spike (ADR-048, Phase 17 L0): evidence
-    # tooling only, imported lazily so a normal start never loads it.
-    if "--spike-q3d" in sys.argv:
-        from open_garden_planner.spike_q3d.runner import run_spike_cli
-
-        return run_spike_cli(sys.argv)
 
     # Import here to avoid slow startup for --help, --version, etc.
     from PyQt6.QtGui import QIcon

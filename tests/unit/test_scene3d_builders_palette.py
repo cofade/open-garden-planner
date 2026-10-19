@@ -6,7 +6,7 @@ makes the mirror safe: it loads both generators and fails when a mirrored value
 and its source disagree —
 
 - object sprites: ``scripts/generate_object_sprites.py`` ``MATERIALS[table][key]``
-  (the module is executed, as ``test_spike_q3d_meshes.py`` does for the spike);
+  (the module is executed, as the L0 spike's own tests did for it);
 - texture forge: ``scripts/generate_asset_forge_textures.py`` — its palettes are
   literals inside the ``generate_*`` functions, so the function's source is
   parsed and the named literal read from the syntax tree (the script needs

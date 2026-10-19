@@ -8,7 +8,10 @@ that is wrong in the way the instrument exists to catch.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import math
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -16,6 +19,10 @@ from scripts import board_probes as P
 
 from open_garden_planner.core.scene3d import sun_direction_scene
 from open_garden_planner.core.shadow_geometry import compute_scene_shadows
+
+#: What the L0 spike measured, frozen when L1.10 deleted it (its provenance field says how).
+SPIKE = json.loads((Path(__file__).resolve().parents[1] / "data" / "l0_spike_reference.json")
+                   .read_text(encoding="utf-8"))
 
 SIZE = (480, 270)
 MEADOW = np.array([86.0, 150.0, 60.0])
@@ -40,14 +47,18 @@ def test_the_module_needs_nothing_but_numpy() -> None:
 
 
 def test_frame_statistics_are_the_spikes() -> None:
-    """Drift guard until the spike retires: the same numbers for the same frame."""
-    from open_garden_planner.spike_q3d import probes as spike
-
+    """The same numbers for the same frame as the L0 spike's probes gave (frozen when
+    L1.10 deleted the spike)."""
+    spike = SPIKE["probes"]
+    frozen = spike["noise_rng7_90x160"]
     noise = np.random.default_rng(7).integers(0, 256, size=(90, 160, 3)).astype(np.float64)
-    assert P.isolated_dark_pixels(noise) == spike.isolated_dark_pixels(noise)
-    assert (P.SPECKLE_MAX_LUMA, P.SPECKLE_MIN_NEIGHBOURS) == (
-        spike.SPECKLE_MAX_LUMA, spike.SPECKLE_MIN_NEIGHBOURS)
-    assert np.allclose(P.luma(noise), spike._luma(noise))
+    assert P.isolated_dark_pixels(noise) == frozen["isolated_dark_pixels"]
+    assert (
+        spike["speckle_max_luma"], spike["speckle_min_neighbours"]) == (P.SPECKLE_MAX_LUMA, P.SPECKLE_MIN_NEIGHBOURS)
+    luma = P.luma(noise)
+    assert float(luma.mean()) == pytest.approx(frozen["luma_mean"], abs=1e-9)
+    assert np.allclose(luma[0], frozen["luma_first_row"], atol=1e-9)
+    assert hashlib.sha256(np.round(luma, 9).tobytes()).hexdigest() == frozen["luma_sha256_9dp"]
 
 
 def test_a_clean_frame_has_no_speckles_and_a_speckled_one_is_counted() -> None:

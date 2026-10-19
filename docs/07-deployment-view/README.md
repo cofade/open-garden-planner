@@ -327,9 +327,15 @@ developer machine is not GitHub's runner: the job itself is the judge.
 
 | Block | Since | What a pass means |
 |---|---|---|
-| Qt3D bindings + Qt version match | #277 | the six Qt3D bindings load and the Qt runtime equals the Qt3D wheels' version |
 | Agent API server | #291 | a real embedded server binds a port with no inherited stdout |
+| A1 checks | #453 | strict plan I/O, the image codecs and the verified-installer check work in the bundle |
 | Qt Quick 3D render | L1.2 (ADR-048) | the Qt Quick bindings load; `Garden.qml` and its four shaders load FROM THE BUNDLE; one hidden 160 × 120 frame renders with every material kind; the pixels are right — the box, the meadow, the box's shadow where the 2D shadow code puts it, every swatch |
+
+Until Phase 17 L1.10 a fourth block imported the six Qt 3D bindings of the old 3D view and
+compared the Qt runtime with their wheels' micro — the check #277 asked for. That view and its
+two wheels are gone (ADR-048's closing addendum); the two Qt pins left are equal and exact by
+`tests/unit/test_qt_runtime_pins.py`, and the render block fails on a missing or mismatched
+Qt Quick 3D library as the old import did.
 
 The 3D block needs no GPU: on `windows-latest` Direct3D 11 renders it on WARP. Measured on the
 dev box with `Start-Process -Wait -PassThru` (the whole `--selftest`, three runs each): frozen
@@ -344,7 +350,6 @@ machine, 4.0–6.5 s on a busy one.
 |---|---|---|
 | (none) | everybody | the application |
 | `--selftest` | the release gate; a developer before a merge | the three blocks above; the exit code is the verdict |
-| `--spike-q3d …` | nobody any more | the dormant L0 spike (ADR-048); it retires in L1.10 |
 | `--selftest-supervisor` and six arguments | **internal** — only the self-test's own watchdog passes it | the process that ends a hung self-test from outside (below). Started by hand, or with arguments that do not name a running block of its own parent process, it refuses: one line, exit code 2, nothing opened, nothing terminated. (0: it held its block's release event — it was released, or it ended a hang; 4: it found no block to wait for and never supervised; 3: it failed itself — also when its own wait fails) |
 
 **It cannot hang a job.** Inside the exe ONE watchdog bounds the whole self-test — all three
@@ -460,7 +465,8 @@ automation when hosted uv reaches the pin.
 The runbook for acting on the monthly issue:
 
 1. `git checkout -b chore/dependency-update` and `uv lock --upgrade`.
-2. Keep the Qt four-pack (`PyQt6`, `PyQt6-Qt6`, `PyQt6-3D`, `PyQt6-3D-Qt6`) on one micro
+2. Keep the Qt pair (`PyQt6`, `PyQt6-Qt6`) on one micro (two wheels since Phase 17 L1.10
+   removed the old 3D view's pair; `tests/unit/test_qt_runtime_pins.py`)
    and keep `PyQt6-WebEngine` below 6.11 and `mcp` on v1; `tests/unit/test_dependency_governance.py`
    pins those caps.
 3. `python scripts/check_dependency_lock.py` (lock/export agreement) and the full gates,

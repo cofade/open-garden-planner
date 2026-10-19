@@ -5,13 +5,10 @@ same snapshot-boundary discipline as the US-E4 worker). Footprints reuse
 the US-E3 extraction (rotation/position are Qt's answer via ``mapToScene``)
 so the 3D solids can never disagree with the 2D shadow footprints.
 
-Two collectors live here until L1.10 removes Qt 3D:
-
-- ``collect_scene3d_records`` (US-E6) feeds the shipped Qt 3D window with
-  scene-space prisms and decals — unchanged.
-- ``snapshot_records`` (Phase 17 L1.1, #385, ADR-064) produces contract v2:
-  one ``core.scene3d.Record`` per item, in the item-local frame with a rigid
-  transform, for ``SceneSync`` and the Qt Quick 3D sink.
+``snapshot_records`` (Phase 17 L1.1, #385, ADR-064) produces contract v2: one
+``core.scene3d.Record`` per item, in the item-local frame with a rigid
+transform, for ``SceneSync`` and the Qt Quick 3D sink. (The US-E6 collector of
+the retired Qt 3D window, ``collect_scene3d_records``, left with it in L1.10.)
 
 Four things on record about the contract-v2 half (reviews of fix rounds 1, 3 and 4):
 
@@ -80,12 +77,10 @@ from open_garden_planner.core.scene3d import (
     Region,
     Rgba,
     Ring,
-    Scene3DRecord,
     ccw,
     group_rings,
     local_frame,
     quantize_cm,
-    records_from_raw,
     ring_area,
 )
 from open_garden_planner.core.scene3d.polygon import (
@@ -119,7 +114,6 @@ from open_garden_planner.ui.canvas.footprints import (
     OUTLINE_POLYLINE,
     ItemLookup,
     item_base_cm,
-    item_footprints,
     item_outline,
 )
 from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
@@ -130,53 +124,6 @@ if TYPE_CHECKING:
 
 _log = logging.getLogger(__name__)
 
-_FALLBACK_COLOR = (158, 158, 148, 255)
-
-
-def _item_color_rgba(item: Any) -> tuple[int, int, int, int]:
-    color = getattr(item, "fill_color", None)
-    if isinstance(color, str):
-        color = QColor(color)
-    if isinstance(color, QColor) and color.isValid():
-        return (color.red(), color.green(), color.blue(), 255)
-    return _FALLBACK_COLOR
-
-
-def collect_scene3d_records(
-    scene: QGraphicsScene, at_date: date | None = None
-) -> list[Scene3DRecord]:
-    """Every visible item with a footprint → an engine-ready record.
-
-    Items with an effective height become extruded prisms; the rest
-    (lawns, paths, in-ground beds …) become thin ground decals, so the
-    2D layout stays recognizable from above. ``at_date`` (US-E8) projects
-    dated plants to their grown height and canopy spread — scrub the sim
-    date and trees grow in 3D.
-    """
-    raw: list[dict[str, Any]] = []
-    # Bottom-to-top stacking order (scene.items() is top-first) so flat decals
-    # can be lifted up the 2D layer order — a higher layer renders on top.
-    for item in reversed(scene.items()):
-        if not item.isVisible():
-            continue
-        object_type = getattr(item, "object_type", None)
-        if object_type is None:
-            continue
-        metadata = getattr(item, "metadata", None)
-        height = effective_height_cm(object_type, metadata, at_date=at_date)
-        color = _item_color_rgba(item)
-        name = str(getattr(item, "name", "") or object_type.name)
-        for footprint in item_footprints(item, at_date):
-            if len(footprint) >= 3:
-                raw.append(
-                    {
-                        "footprint": footprint,
-                        "height_cm": height,
-                        "color_rgba": color,
-                        "name": name,
-                    }
-                )
-    return records_from_raw(raw)
 
 
 # ── contract v2 (Phase 17 L1.1) ──────────────────────────────────────────────
@@ -1059,7 +1006,7 @@ def snapshot_records(
     order (the list is not cleared first; without one the report goes to the log
     only). It stays empty on a healthy plan.
 
-    Left out by design, silently: invisible items (as ``collect_scene3d_records``
+    Left out by design, silently: invisible items (as the retired Qt 3D collector
     does), items without an ``object_type``, items that cover no ground (text,
     groups, arcs, a polyline shorter than two points, a shape without an area),
     and ``ROOF_RIDGE`` items (a ridge reaches 3D as its HOUSE's ``ridge`` param).

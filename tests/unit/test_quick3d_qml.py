@@ -9,6 +9,7 @@ part components the Python side asks for exist, the look it starts with is
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -22,6 +23,10 @@ from open_garden_planner.ui.view3d.quick3d.look import (
     scene_properties,
 )
 from open_garden_planner.ui.view3d.quick3d.materials import PART_COMPONENTS
+
+#: What the L0 spike measured, frozen when L1.10 deleted it (its provenance field says how).
+SPIKE = json.loads((Path(__file__).resolve().parents[1] / "data" / "l0_spike_reference.json")
+                   .read_text(encoding="utf-8"))
 
 QML_DIR = (Path(__file__).resolve().parents[2] / "src" / "open_garden_planner" / "ui" / "view3d"
            / "quick3d" / "qml")
@@ -309,19 +314,17 @@ def test_the_winds_clock_runs_only_while_it_is_told_to() -> None:
 
 
 def test_the_environments_constants_are_the_spikes() -> None:
-    """Drift guard until the spike retires (L1.10): the numbers that are the same at
-    every preset were measured on its boards."""
-    spike = strip_comments((SCENE.parents[3].parent / "spike_q3d" / "qml" / "GardenSpike.qml")
-                           .read_text(encoding="utf-8"))
+    """The numbers that are the same at every preset were measured on the L0 spike's
+    boards — its scene file's values, frozen when L1.10 deleted the spike."""
+    environment = SPIKE["qml"]["environment"]
     code = _scene()
     for name in ("aoStrength", "aoDistance", "aoSoftness", "glowStrength", "glowIntensity",
                  "glowBloom", "glowHDRMinimumValue", "depthNear", "depthFar", "depthCurve",
                  "density", "skyboxBlurAmount", "csmBlendRatio", "shadowMapFar", "clipNear",
                  "clipFar"):
         ours = re.findall(rf"\b{name}:\s*([\d.]+)", code)
-        theirs = re.findall(rf"\b{name}:\s*([\d.]+)", spike)
-        assert ours and theirs, name
-        assert {float(v) for v in ours} == {float(v) for v in theirs}, name
+        assert ours and environment[name], name
+        assert sorted({float(v) for v in ours}) == environment[name], name
 
 
 def test_the_scene_obeys_the_measured_engine_rules() -> None:

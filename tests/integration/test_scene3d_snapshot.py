@@ -98,7 +98,6 @@ from open_garden_planner.ui.view3d import snapshot as snapshot_module
 from open_garden_planner.ui.view3d.snapshot import (
     SkippedItem,
     SkipReason,
-    collect_scene3d_records,
     snapshot_records,
 )
 
@@ -829,18 +828,19 @@ class TestRecordContent:
         assert str(fence.item_id) in diff(before, snapshot_records(canvas.scene())).geometry
 
     def test_order_is_bottom_to_top_like_the_legacy_collector(self, qtbot) -> None:
+        """Bottom to top, as the retired Qt 3D view's collector was (L1.10 deleted it: it
+        drew the ridge LINE as a decal, 99 records for this plan)."""
         scene = CanvasScene()
         ProjectManager().load(scene, PLANS / "bench_small.ogp")
         records = snapshot_records(scene, JUNE)
         items = {str(i.item_id): i for i in scene.items() if hasattr(i, "item_id")}
         zs = [items[item_id].zValue() for item_id in records]
         assert zs == sorted(zs) and len(set(zs)) > 5
-        legacy = collect_scene3d_records(scene, JUNE)
         ridges = [i for i in items.values() if i.object_type is ObjectType.ROOF_RIDGE]
-        # the legacy collector draws the ridge LINE as a decal; contract v2 hands the
-        # ridge to its house as a param and gives the ridge item no record
+        # contract v2 hands the ridge to its house as a param and gives the ridge item
+        # no record
         assert len(ridges) == 1 and str(ridges[0].item_id) not in records
-        assert len(legacy) == 99 and len(records) == 98
+        assert len(records) == 98
 
     def test_skipped_items(self, canvas: CanvasView) -> None:
         from open_garden_planner.ui.canvas.items.text_item import TextItem
@@ -2790,7 +2790,6 @@ class TestHouseRidge:
         snapshot, skipped = snapshot_with_report(canvas.scene())
         assert list(snapshot) == [str(house.item_id)]
         assert skipped == []  # by design, not a fault
-        assert len(collect_scene3d_records(canvas.scene())) == 2  # the Qt 3D view still draws the line
         ridge.setVisible(False)  # … and hiding the line does not take the ridge off the roof
         assert "ridge" in snapshot_records(canvas.scene())[str(house.item_id)].params
 

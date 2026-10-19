@@ -638,10 +638,10 @@ The `offscreen` platform plugin selects Qt Quick's *software* scene graph, which
 ```bash
 OGP_RENDER3D=1 QSG_RHI_BACKEND=opengl QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 \
   xvfb-run -a -s "-screen 0 1920x1080x24" \
-  venv/bin/python -m pytest tests/integration/test_spike_q3d_render.py
+  venv/bin/python -m pytest tests/integration/test_quick3d_render.py -n 0
 ```
 
-The tier is **Linux/X11-only**: it forces `xcb` + OpenGL and is skipped without `DISPLAY` (Mesa llvmpipe in a container needs `libegl1` and `libxcb-cursor0`). On Windows the same probes run through the spike itself — `--spike-q3d … --iou --orient --pick …` in the dev venv or the frozen exe — and are judged from its `metrics.json`. Its module fixtures run a full render subprocess, which outlasts the global 180 s per-test timeout, so the tier carries its own `pytest.mark.timeout`. The render runs in a subprocess, and its assertions are about **meaning, never pixel-exact goldens**: shadow-map footprint vs the analytic shadow (IoU ≥ 0.85), north-up ground, the sky's sun at the solar azimuth, 20/20 picks against a CPU oracle, WebEngine and 3D drawing in one process, a clean exit while animating. Headless render tooling writes its own timestamped log and per-phase metrics and arms a watchdog, because a frozen GUI exe has no stdout (§11.4.5). A permanent CI job for this tier is planned with the production engine package (Phase 17, L1.2).
+On Linux the tier forces `xcb` + OpenGL and is skipped without `DISPLAY` (Mesa llvmpipe in a container needs `libegl1` and `libxcb-cursor0`); on Windows it renders with Direct3D 11 — on the GPU, or on WARP with `QSG_RHI_PREFER_SOFTWARE_RENDERER=1`. CI's `render3d` job (§7.4, since L1.2) runs the engine package's render files on both. The render files are `tests/integration/test_quick3d_*.py`, `test_view3d_*_render.py` and `tests/unit/test_render_beauty_board.py`; until L1.10 the L0 spike's `test_spike_q3d_render.py` was the tier's only file. The assertions are about **meaning, never pixel-exact goldens**: shadow-map footprint vs the analytic shadow (IoU ≥ 0.85), north-up ground, the sky's sun at the solar azimuth, picks against a CPU oracle (`core/scene3d/pick_oracle.py`), a clean exit while animating. Headless render tooling writes its own timestamped log and per-phase metrics and arms a watchdog, because a frozen GUI exe has no stdout (§11.4.5).
 
 ### 8.10.1 Gating our own documentation's shell commands
 
@@ -4146,8 +4146,8 @@ Not bounded, and stated — four things:
 - **What a LIVE plan holds in memory has no cap** — it is linear in the plan (next paragraph):
   at most about 1.8 MB for one item, 156 MB measured for 400 accepted polygons of 3,000
   vertices. `clear_outline_cache()` gives all of it back.
-- The shipped Qt 3D collector (`collect_scene3d_records`, removed with L1.10) and the 2D
-  shadow overlay inflate a polyline with no bound at all, as they always have.
+- The 2D shadow overlay inflates a polyline with no bound at all, as it always has (so did
+  the retired Qt 3D view's collector until L1.10 removed it).
 
 **What is remembered: everything the plan asks for, and a bounded rest.** `polygon.ring_keyed`
 is the one memory for functions of rings (`ring_area`, the verdict-and-cut of a region, a
@@ -4404,11 +4404,12 @@ diffs safe after each step of an edit sequence: the sink's `state()` equals
 `sync.expected_state()` (`tests/integration/test_scene3d_pipeline.py::Pipeline`). And add a mutant
 for each rule your builder must keep to `scripts/mutation_check_scene3d.py`.
 
-**Porting from the spike** (`spike_q3d/meshes.py`): `MeshData` → `Mesh`, `uv` → `uvs`, flat
-`indices` → `(m, 3)` (`Mesh.from_arrays` takes either), `MeshData.concat` → `Mesh.merge`,
-`translated(mesh, …)` → `mesh.translated(…)` *within the local frame*, `normal_vs_winding`,
-`srgb_to_linear` and `item_seed` keep their names. Drift-guard tests keep the ported helpers equal
-to the spike's until L1.10 deletes it.
+**Ported from the spike** (`spike_q3d/meshes.py`, deleted in L1.10): `MeshData` → `Mesh`,
+`uv` → `uvs`, flat `indices` → `(m, 3)` (`Mesh.from_arrays` takes either), `MeshData.concat` →
+`Mesh.merge`, `translated(mesh, …)` → `mesh.translated(…)` *within the local frame*;
+`normal_vs_winding`, `srgb_to_linear` and `item_seed` kept their names. The drift guards that
+kept the ported helpers equal to the spike's now compare them with the spike's values frozen in
+`tests/data/l0_spike_reference.json` (§8.10.31).
 
 ### 8.32.2 The engine package — `ui/view3d/quick3d/` (L1.2)
 
@@ -4621,9 +4622,8 @@ it answers in every state, also on a closed host. Three things about it are not 
   it cannot see a handler that a third-party package installs (pytest-qt does, in tests),
   nor a Python override of a virtual that Qt calls on the render thread — and the host does
   not refuse to show itself beside such a handler (ruled out in review round 3: it cannot
-  know whose it is). One exception is on record: the dormant L0 spike installs a
-  process-wide Python handler beside shown windows (`spike_q3d/qt_messages.py`). It runs
-  only under `--spike-q3d` and retires with the spike in L1.10.
+  know whose it is). The one exception on record — the L0 spike's process-wide Python
+  handler beside shown windows, only under `--spike-q3d` — left with the spike in L1.10.
 - **`sceneGraphError` is connected, always.** With no slot on it Qt answers a failed graphics
   initialisation with a modal error box and then aborts the process — the whole 2D app.
 - **No Python runs on Qt's render thread.** The two signals Qt may emit from it are connected
@@ -4667,8 +4667,8 @@ one hidden 160 × 120 frame from the bundle's own QML and shaders — a lit box,
 swatch per material kind, so every shipped shader is compiled by the real backend — and judges
 the pixels with a pure function: the box where our projection puts it, meadow beside it, shadow
 where `core/shadow_geometry` puts the 2D shadow, every swatch drawn, no builder failed. It
-needs no GPU (§7.4). ONE watchdog bounds the whole command — the Qt3D imports and the Agent API
-block as well as the render — and one log records it: after 300 s the reason is written in
+needs no GPU (§7.4). ONE watchdog bounds the whole command — the Agent API block and the A1
+checks as well as the render — and one log records it: after 300 s the reason is written in
 words, then every thread's stack, and the process exits with code 1. The watchdog is
 supervised: the exe starts itself a second time with the internal flag
 `--selftest-supervisor`, and that process terminates the first — exit code 1, the reason in

@@ -138,7 +138,8 @@ class BoardShot:
 
 def default_shots(width: float, depth: float) -> list[BoardShot]:
     """The board's shots for a plan of ``width`` x ``depth`` cm — the L0 spike's
-    (``spike_q3d/runner.default_shots``; pinned against it until the spike retires).
+    (pinned against its answers, frozen in ``tests/data/l0_spike_reference.json`` when L1.10
+    deleted the spike).
     Times are UTC; the sun is the plan's. ``sunset`` samples the golden anchor
     itself (5.9° on the bench plan); ``golden_hour`` (15.2°) and ``december_noon``
     (14.0°) lie between the golden and the noon rig."""

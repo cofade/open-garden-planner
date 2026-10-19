@@ -526,23 +526,3 @@ class TestResolution:
         assert species_sprites == 106  # the other 12 take their item type's category
 
 
-# ── the spike keeps a copy until L1.10 ────────────────────────────────────────
-
-
-class TestSpikeCopy:
-    def test_palette_copy_equals_the_shared_table(self) -> None:
-        """Drift guard (dies with the spike in L1.10): nobody tunes one of them."""
-        from open_garden_planner.spike_q3d import meshes as spike
-
-        assert set(spike.PALETTES) == set(recipes.PALETTES)
-        for name, palette in recipes.PALETTES.items():
-            assert spike.PALETTES[name] == (
-                palette["t0"], palette["t1"], palette["b0"], palette["b1"]), name
-
-    def test_accent_copy_is_made_of_shared_colours(self) -> None:
-        from open_garden_planner.spike_q3d import meshes as spike
-
-        shared = {triad[1] for triad in recipes.FRUITS.values()} | {
-            spec[0] for spec in recipes.FLOWERS.values()
-        }
-        assert set(spike.ACCENTS.values()) <= shared
