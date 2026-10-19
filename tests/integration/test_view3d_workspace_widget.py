@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import time as stopwatch
+import weakref
 from datetime import date, time
 from pathlib import Path
 from typing import Any
@@ -64,6 +65,9 @@ from tests.integration.test_view3d_sync_controller import NOON
 PLAN, VIEW3D, SPLIT = WorkspaceMode.PLAN, WorkspaceMode.VIEW3D, WorkspaceMode.SPLIT
 ME = 4242
 NOTICE = "Building the 3D view\N{HORIZONTAL ELLIPSIS}"
+#: A canvas view -> the bench window it was put into (``Bench``): strong while the view's
+#: wrapper lives, gone with it.
+_WINDOW_OF_VIEW: weakref.WeakKeyDictionary[QWidget, QWidget] = weakref.WeakKeyDictionary()
 
 
 class FakeHealth:
@@ -172,6 +176,15 @@ class Bench:
         self.workspace = Workspace(view, engine_factory=self._factory, guard=self.guard)
         self.workspace.connect_plan(self.scene, self.clock, lambda: None, self.commands, ui_state)
         layout.addWidget(self.workspace)
+        # The canvas view now lives in this window, and pytest-qt holds the widgets it
+        # closes WEAKLY, before any fixture is torn down. A Bench that is a local of the
+        # test is cyclic garbage once the test returns; when the collector runs before
+        # pytest-qt's teardown it frees this window — and the view inside it — and closing
+        # the view the ``canvas`` fixture registered raises "wrapped C/C++ object of type
+        # CanvasView has been deleted" (seen once in a whole parallel run; every local
+        # Bench, 14 tests, with a ``gc.collect()`` forced there). So the view keeps its
+        # window for as long as anything holds the view.
+        _WINDOW_OF_VIEW[view] = self.window
         qtbot.addWidget(self.window)
         self.window.show()
         qtbot.waitExposed(self.window)

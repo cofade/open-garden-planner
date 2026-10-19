@@ -618,9 +618,12 @@ def _ring(count: int, radius: float = 600.0) -> list[QPointF]:
 
 def test_a_plan_with_a_refused_item_shows_the_indicator_and_fixing_it_clears_it(
         app3d, qtbot) -> None:
-    """Addendum point 12. A polygon traced with 6,000 points is drawn by the canvas and
+    """Addendum point 12. A RAISED bed traced with 6,000 points is drawn by the canvas and
     refused by the record layer (``outline_too_large``): it is absent from 3D, and the
-    workspace says so until the outline has fewer points.
+    workspace says so until the outline has fewer points. A raised bed — something with
+    a height — on purpose: the ground-bake story (L1.5) keeps a FLAT item that the solid
+    path refuses visible, painted on the ground (FR-3D-GROUND-04), so an in-ground bed
+    is no longer "not shown in 3D" there; both stories trace a raised bed.
 
     The indicator is filled by the pass that finds the problem, in the same call
     (``problems_changed`` is a direct connection): it is read AT that pass's
@@ -630,7 +633,7 @@ def test_a_plan_with_a_refused_item_shows_the_indicator_and_fixing_it_clears_it(
     window, engines = app3d
     workspace, scene = window._workspace, window.canvas_scene
     commands = window.canvas_view.command_manager
-    traced = PolygonItem(_ring(6000), object_type=ObjectType.GARDEN_BED, name="Traced bed",
+    traced = PolygonItem(_ring(6000), object_type=ObjectType.RAISED_BED, name="Traced bed",
                          layer_id=scene.active_layer.id)
     commands.execute(CreateItemCommand(scene, traced, "bed"))
     workspace.set_mode(SPLIT)
@@ -644,7 +647,7 @@ def test_a_plan_with_a_refused_item_shows_the_indicator_and_fixing_it_clears_it(
     workspace._problems_button.click()
     dialog = workspace.problems_dialog
     assert dialog.row_text(0) == (
-        "Traced bed (Garden Bed): its outline has too many points for the 3D view")
+        "Traced bed (Raised Bed): its outline has too many points for the 3D view")
     dialog.activate_row(0)
     assert traced.isSelected()
 
