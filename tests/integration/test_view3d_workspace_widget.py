@@ -47,6 +47,7 @@ from open_garden_planner.ui.view3d.init_guard import (
     COMPAT_NAME,
     MAX_INIT_S,
     Init3DGuard,
+    ModeReason,
     RenderMode,
     marker_name,
 )
@@ -128,6 +129,28 @@ class FakeHost:
             self.widget.deleteLater()
 
 
+def pipeline_settled(workspace: Workspace) -> bool:
+    """No pass of the 3D pipeline is on its way: no first pass held for its notice,
+    none posted, none on the catch-up timer. A CONDITION to wait for, never a fixed
+    wait: a held first pass runs once its "Building the 3D view…" notice was PAINTED,
+    or ``BUILD_NOTICE_WAIT_MS`` after it was asked for when the label is not painted
+    — measured about 55 ms with the paint and 300 ms without, and a loaded CI runner
+    can be the second case (a test that read 120 ms after the switch went red there).
+    The net's quiet timer is not waited for: where it matters it is the subject."""
+    if workspace._build_pending:
+        return False
+    controller = workspace.controller
+    if controller is None or not controller.active:
+        return True
+    return not (controller._posted or controller._timer.isActive())
+
+
+def wait_for_pipeline(workspace: Workspace, qtbot: Any, ms: int = 80) -> None:
+    """Let the event loop run ``ms``, then until ``pipeline_settled``."""
+    qtbot.wait(ms)
+    qtbot.waitUntil(lambda: pipeline_settled(workspace), timeout=5000)
+
+
 class Bench:
     """A window with the workspace in it, the engine replaced at the seam."""
 
@@ -171,7 +194,7 @@ class Bench:
         return self.sinks[-1]
 
     def settle(self, ms: int = 80) -> None:
-        self.qtbot.wait(ms)
+        wait_for_pipeline(self.workspace, self.qtbot, ms)
 
     def files(self) -> list[str]:
         return sorted(path.name for path in self.folder.iterdir())
@@ -396,7 +419,7 @@ def test_a_notice_that_is_never_painted_does_not_hold_3d_back(
     workspace = bench.workspace
     workspace.set_mode(SPLIT)
     log = PaintLog(workspace._status_label, swallow=True)
-    bench.settle(40)
+    bench.qtbot.wait(40)                          # a fixed wait ON PURPOSE: before the fallback
     assert bench.sink.item_ids() == (), "it waits for the notice first"
     bench.qtbot.waitUntil(lambda: bench.sink.item_ids() == (str(bed.item_id),), timeout=3000)
     assert workspace.controller is not None and workspace.controller.active
@@ -799,6 +822,37 @@ def test_the_health_poll_runs_only_while_3d_is_shown(bench: Bench) -> None:
     bench.qtbot.waitUntil(lambda: workspace.view3d_state is View3DState.RUNNING, timeout=3000)
     workspace.set_mode(PLAN)
     assert workspace._health_timer.isActive() is False
+
+
+def test_3d_hidden_before_its_first_frame_leaves_no_marker_a_second_instance_could_misread(
+        bench: Bench) -> None:
+    """Review 1, P2-3. The poll that confirms the first frame runs only while 3D is
+    shown. A session that left 3D before its first frame kept its start marker — and
+    ``MAX_INIT_S`` later a second instance read it as a death, deleted it and put a
+    healthy machine into compatibility mode. Now: hidden before the first frame, the
+    marker goes (``abandon``); shown again, it comes back (``mark_again``); the frame
+    clears it for good."""
+    workspace = bench.workspace
+    workspace.set_mode(SPLIT)
+    bench.settle()
+    assert workspace.view3d_state is View3DState.STARTING and bench.files() == [marker_name(ME)]
+    workspace.set_mode(PLAN)                      # hidden, no frame presented yet
+    assert bench.files() == [], "the start is no longer watched: its marker goes"
+    later = Init3DGuard(bench.folder, pid=ME + 1, is_running=lambda pid: pid == ME,
+                        now=lambda: stopwatch.time() + MAX_INIT_S + 1.0)
+    assert later.begin() is RenderMode.HARDWARE and later.reason is ModeReason.NORMAL
+    assert bench.files() == [marker_name(ME + 1)], "no death was read, no compat flag written"
+    later.abandon()
+    workspace.set_mode(SPLIT)                     # shown again, the first frame still owed
+    bench.settle()
+    assert bench.files() == [marker_name(ME)] and bench.guard.pending is True
+    bench.host.health_now.frames_presented = 1
+    bench.poll()
+    assert workspace.view3d_state is View3DState.RUNNING and bench.files() == []
+    workspace.set_mode(PLAN)                      # after the first frame: nothing to write
+    workspace.set_mode(SPLIT)
+    bench.settle()
+    assert bench.files() == [] and bench.guard.pending is False
 
 
 def test_a_death_last_time_means_software_mode_with_one_notice_and_a_way_back(

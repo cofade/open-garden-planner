@@ -58,7 +58,11 @@ from open_garden_planner.ui.view3d.workspace import View3DState, Workspace, Work
 from tests.integration.quick3d_render_support import isolated_env
 from tests.integration.test_scene3d_plants import drop
 from tests.integration.test_scene3d_snapshot import _recolour as recolour_fill
-from tests.integration.test_view3d_workspace_widget import FakeHost
+from tests.integration.test_view3d_workspace_widget import (
+    FakeHost,
+    pipeline_settled,
+    wait_for_pipeline,
+)
 
 REPO = Path(__file__).resolve().parents[2]
 PLANS = REPO / "tests" / "fixtures" / "plans"
@@ -76,6 +80,8 @@ class Engines:
         self.calls: list[bool] = []
         self.hosts: list[FakeHost] = []
         self.sinks: list[RecordingSink] = []
+        #: the workspace these engines are built for (``build_app3d`` sets it)
+        self.workspace: Workspace | None = None
 
     def factory(self, prefer_software: bool) -> tuple[FakeHost, RecordingSink]:
         self.calls.append(prefer_software)
@@ -111,6 +117,7 @@ def build_app3d(qtbot: Any, monkeypatch: pytest.MonkeyPatch,
     workspace = window._workspace
     assert isinstance(workspace, Workspace)
     workspace.engine_factory = engines.factory                       # THE SEAM
+    engines.workspace = workspace
     workspace._guard = Init3DGuard(tmp_path / "log", is_running=lambda _pid: False)
     window.show()
     qtbot.waitExposed(window)
@@ -133,13 +140,16 @@ def first_pass(workspace: Workspace, qtbot: Any, timeout: int = 5000) -> Any:
     can be the second case (the refused-item test below once read the indicator 120 ms
     after the switch, found it empty, and the pass ran in its teardown)."""
     qtbot.waitUntil(lambda: workspace.controller is not None
-                    and workspace.controller.apply_count >= 1 and workspace.controller.idle,
+                    and workspace.controller.apply_count >= 1 and pipeline_settled(workspace),
                     timeout=timeout)
     return workspace.controller
 
 
 def _calls(engines: Engines, qtbot: Any, ms: int = 80) -> list[tuple[str, str | None]]:
-    qtbot.wait(ms)
+    """The engine calls since the last read, once no pass is on its way (by condition:
+    a pass held for its notice is later than any fixed wait on a loaded runner)."""
+    assert engines.workspace is not None
+    wait_for_pipeline(engines.workspace, qtbot, ms)
     calls = engines.sink.ops()
     engines.sink.clear_calls()
     return calls
@@ -531,7 +541,8 @@ def test_a_plan_with_a_refused_item_shows_the_indicator_and_fixing_it_clears_it(
     passes = controller.apply_count
     traced.setPolygon(QPolygonF(_ring(40)))      # the user simplifies the outline …
     scene.note_plan_changed()                    # … and a writer round the undo stack says so
-    qtbot.waitUntil(lambda: controller.apply_count > passes and controller.idle, timeout=5000)
+    qtbot.waitUntil(lambda: controller.apply_count > passes and pipeline_settled(workspace),
+                    timeout=5000)
     assert shown_at_pass[-1] == "", "cleared by the pass that built it"
     assert workspace.problems_text() == "" and dialog.row_count() == 0
     assert str(traced.item_id) in engines.sink.item_ids()
