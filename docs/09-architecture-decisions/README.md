@@ -4991,11 +4991,27 @@ Five facts shaped the design:
    **Alt+1 / Alt+2 / Alt+3**, a *Workspace* submenu of the View menu with "Reset 3D View", and a
    small button row — floating over the canvas in Plan and Split, in the pane's strip in 3D. The
    Split position is kept through the UI-state store (ADR-041), and only when the session really
-   was in Split.
+   was in Split — saved the moment Split is LEFT, and when the app closes in it (FR-3D-WS-01
+   says "remembered between sessions"; it used to be saved only by an app closed in Split).
+   **Entering 3D mode clears the canvas selection** — a stopgap with an owner, in ONE function,
+   `Workspace.clear_selection_hidden_by_3d_mode`: 3D mode hides the canvas, the one place a
+   selection is shown, and the app's shortcuts stay, so Delete, Ctrl+X and Ctrl+D would act on
+   what nobody can see (pinned with its control: without the stopgap the same Delete removes
+   the hidden item). Split keeps the selection. The selection story (L1.8) shows the selection
+   in 3D and removes or replaces the function and its one call in `set_mode`.
 3. **Nothing overlays the native 3D window.** Every control, notice and message of the 3D pane
    sits in a strip ABOVE the view or REPLACES the view (a message page in a stacked widget). The
    floating switch is the one overlay there is, and it floats over the canvas, an ordinary widget.
-   L1.8's info card goes into the same pane, beside or below the view.
+   L1.8's info card goes into the same pane, beside or below the view. **The strip is a row of
+   controls with the notices below it, one per line; a sentence is a label that wraps, and a
+   button holds a short command, is never narrower than its text and, after a sentence, has a
+   row of its own.** Measured on the first delivery: one row of non-wrapping labels needed 785
+   px, and Split in a 1366 px window gives the pane 455 — the compatibility sentence was cut
+   with no ellipsis and no tooltip. After the labels were made to wrap, two sentences were
+   still on BUTTONS (the problems count; "Try Hardware Next Time", whose German text alone is
+   456 px): squeezed to 220 px, cut. A click's outcome is said in a label of the strip, never
+   written onto a button (a sentence on a button of fixed size made the pane as wide as the
+   sentence). Pinned at 1366 px with every notice at once, in English, German and Spanish.
 4. **One engine host per main window, built on first use, kept, only hidden and shown.**
    `Workspace.engine_factory(prefer_software) -> (host, sink)` builds it — by default
    `Quick3DHost` and `Quick3DSink`, imported inside the factory — and is THE test seam: the
@@ -5003,8 +5019,54 @@ Five facts shaped the design:
    Quick binding. Shutdown runs in the main window's `closeEvent`, while the window exists:
    pipeline, start marker, host.
 5. **The pipeline's controller is engine-free** (`ui/view3d/sync_controller.py::Scene3DController`):
-   `scene.changed`, the undo stack's `stack_changed` and the clock's two channels in — at most ONE
-   pass per turn of the event loop out. Its rules:
+   the scene's PLAN REVISION, the clock's two channels and one quiet timer in — at most ONE pass
+   per turn of the event loop out. **What starts a pass is an announced change of the plan, not
+   a repaint** (two layers):
+   - *The fast path — the plan revision.* `CanvasScene.plan_revision` / `plan_changed(int)` move
+     exactly when plan CONTENT changed, at the chokepoints the scene and the undo stack already
+     have: an item added or removed; a command executed, undone or redone
+     (`CanvasScene.set_command_manager` → `stack_changed`); a `GardenItem`'s position,
+     transform, visibility, z or parent changing (`garden_item.handle_item_change`, THE hook
+     every item's `itemChange` calls first — a census of `ui/canvas/items` pins it; a group,
+     whose members Qt tells nothing when it moves, has one too); a layer added, removed,
+     reordered, shown, hidden, locked or made translucent (`layers_changed`); the canvas
+     resized; the scene cleared; every mouse move of the four handles that change a geometry
+     in place; and **THE nudge, `CanvasScene.note_plan_changed()`**, for a writer that goes
+     round all of those (the plant panel's instance fields — its shipped ad-hoc `item.update()`
+     "nudge" calls it now — and the Properties panel's seven direct writes). A moved revision
+     marks the records dirty at once. Qt's polish of a new item (`ItemVisibleHasChanged(true)`
+     one turn after it was added, to an item that was visible all along) is not announced: the
+     hook remembers at the pre-change notice what the item was.
+   - *The net — what is not announced.* A `scene.changed` that no revision move explains
+     snapshots nothing: it (re)starts ONE single-shot timer, `NET_QUIET_MS` = **400 ms** (twice
+     the sun animation's tick, pinned, so that "Animate" never reconciles between two ticks),
+     only while 3D is visible. When the scene has been quiet that long, ONE reconciliation pass
+     runs (`TickReport.reconciled`). It normally finds nothing; when it finds a difference an
+     edit path forgot its announcement — the pass applies it, `unannounced_changes` counts it
+     and one DEBUG line names the kinds that differed, with no id. So no edit stays out of 3D
+     for longer than the quiet time, whatever wrote it. No `changed`, no timer; a scene that is
+     never quiet is reconciled every `NET_MAX_WAIT_S` (5 s); a repaint while 3D is hidden
+     leaves a flag, and coming back starts the timer once. A `changed` with an EMPTY list is
+     not a repaint and is ignored: with a listener on `changed`, Qt reports an item's
+     `update()` at once from its dirty-item pass, and the queued `_q_emitUpdated` the same
+     update asked for arrives afterwards and finds nothing (measured: every `item.update()` gave
+     `changed([rect])`, then `changed([])`). Taken as a repaint, that echo of an announced write
+     whose repaint lands after its pass (the Properties panel repaints, then nudges) was
+     "unexplained" and cost a second snapshot a quiet time later — found by a hand mutant that
+     survived, not by a gate.
+   - *Measured* in the real window (Split, a recording sink): a time sweep with the sun
+     simulation on, 20 preview moves of the polygon tool, three selections and a clear, a hover
+     over handles, "Animate" for 2 s — 0 snapshots while each happens and 1 after the quiet
+     time, which found nothing (first delivery: 10, 20, 4, …, one per tick). 31 edit paths —
+     the §8.10 workflow's, undo / redo, layer visibility / lock / opacity, arrange, group /
+     ungroup, paste, duplicate, a handle drag, an Agent API write, the Properties-panel edits —
+     each moves the revision and reaches 3D by a pass it announced; `unannounced_changes == 0`.
+     A preview mouse-move turn costs in Split what it costs in Plan: median ratio **1.01** on
+     both bench plans (small: 1.86 against 1.84 ms; large: 2.69 against 2.66 ms; a loaded
+     machine; first delivery: 6.7 against 1.0 and 18.3 against 0.7); the gate is ≤ 2.0
+     (`perf`).
+
+   The pipeline's other rules:
    - *Paused while 3D is hidden*: two flags and nothing else — no snapshot, no diff, no sink call,
      no timer. Showing 3D runs one catch-up pass, which `SceneSync` guarantees equals a
      from-scratch apply.
@@ -5012,7 +5074,13 @@ Five facts shaped the design:
      time-of-day change is LIGHT ONLY (one `set_sun`, no snapshot); a date change regrows the dated
      plants; writes faster than passes coalesce in the flags — an animated date never queues more
      than one regrow.
-   - *A snapshot only on a real change, never on a timer.*
+   - *A snapshot only on an announced change of the plan, or once after a quiet time — never on
+     a timer that spins, and never per repaint* (above).
+   - *A pass that keeps failing is tried again when something changed, and says so once.* The
+     next change of the plan, of the date or of the light tries again; a repaint does not (the
+     net stands down while a pass is owed). The log gets ONE ERROR line per distinct failure of
+     an outage (the same failure again is a DEBUG line; the next pass in which nothing failed
+     ends the outage). It used to be 2 to 3 ERROR lines per change, with no backoff.
    - *A document change is not a reset.* A new or opened plan is another snapshot; `apply` removes
      what is gone. `SceneSync.reset()` is RECOVERY: after a sink call raised or the sync is
      poisoned the controller resets, applies once more, logs one line, and never lets the error
@@ -5055,7 +5123,11 @@ Five facts shaped the design:
    **It is moved by four things only — user input, "Reset 3D View", the first open and a
    document change — and "edits never move the camera" is therefore a property of the code:
    there is no other call site.** The step timer (16 ms) runs only while the camera is still
-   moving and the pane is shown.
+   moving and the pane is shown. Home (and "Reset 3D View") takes the SHORTEST turn to the
+   default side: yaw is free while orbiting, and aiming at the default yaw itself unwound every
+   turn (six turns, then Home: 2,477.5° back to 317.5°). The goal is the equivalent angle
+   nearest to where the camera is; a snap (first open, new document) lands on the default
+   itself.
 9. **Input is an event filter on the native window** (`ui/view3d/orbit_input.py`,
    `Quick3DHost.install_event_filter`): the shipped view's gestures — left or middle drag pans,
    right drag orbits, both buttons or the wheel zoom, arrows pan, Alt+arrows orbit, PageUp /
@@ -5074,15 +5146,35 @@ Five facts shaped the design:
     ONLY the user removes the flag — a machine whose driver crashes would otherwise alternate
     between a crash and a software session for ever. A marker is per process, so a second
     running instance is not a crash; one older than 600 s whose process id "runs" is (the id was
-    handed out again). A session that never opens 3D reads and writes nothing.
+    handed out again). A session that never opens 3D reads and writes nothing. **Three outcomes,
+    not two — hardware, software, off.** A start that died in SOFTWARE mode switches 3D off (the
+    flag says `off`; nothing is built or marked; the pane says why) — before, such a machine
+    died at every 3D open, because the marker's mode was written and never read. A marker with
+    this process's OWN id and no start of ours pending is a death (the process that had the id
+    before us). And the poll that confirms the first frame runs only while 3D is shown: 3D
+    hidden before its first frame takes its marker away (`Init3DGuard.abandon`), and shown
+    again puts it back (`mark_again`) — a marker left pending was read as a death by a second
+    instance 601 s later, and a healthy machine was put into compatibility mode. The notice and
+    "Try Hardware Next Time" are on screen in EVERY state of the pane while the flag is on
+    (running, failed to start, no device, switched off), and the button reports what happened
+    to the file, not what was asked.
 11. **"No graphics device" is a message, not a retry loop.** `health().scene_graph_error` ends
     the view for the session: the pane shows the message and — once, on hardware — "Use
-    Compatibility Mode Next Time". An error raised in-process (an import, the scene file) is a
-    message with "Try Again". Opening 3D never takes the 2D app down.
+    Compatibility Mode Next Time". Clicked, the button goes and the strip says what happens
+    next, with the way back beside it; a setting that cannot be written is said in the strip
+    and the button stays. An error raised in-process (an import, the scene file) is a message
+    with "Try Again". Opening 3D never takes the 2D app down.
 12. **What 3D could not show is said.** The record layer refuses some items the canvas draws
     (`SkipReason`), and a builder can fail: the strip shows a quiet, persistent count ("3 objects
-    are not shown in 3D") and, on demand, a non-modal list — name, kind, a translated text per
-    reason code — whose rows select the item on the canvas.
+    are not shown in 3D", with "Show List") and, on demand, a non-modal list — name, kind, a
+    translated text per reason code — whose rows select the item on the canvas. The list shows
+    at most `MAX_PROBLEM_ROWS` (200) rows and then "… and N more"; a fill walks the scene ONCE
+    for every name (it walked it per row: 300 rows over 3,000 items took 0.55 s, 3,000 rows
+    3.1 s, on the GUI thread, again on every change while the list was open — and duplicated
+    ids, one hostile plan, are a reason code). The German reasons name no possessive ("der
+    Umriss", not "sein Umriss"): they follow objects of every gender. A notice of the ENGINE
+    ("The 3D view reported a problem") stays until that engine is gone — a pass used to erase
+    it.
 13. **Plan text is text** (`core/plain_text.py`, §8.11). A plan file is untrusted and Qt decides
     "rich text or plain" by LOOKING at a string. Everything plan-derived that reaches a tooltip,
     a label or a log goes through one helper: normalise (every line boundary `str.splitlines()`
@@ -5152,6 +5244,17 @@ Five facts shaped the design:
 - **Polling the scene on a timer.** A snapshot per tick is O(total vertices): 13 ms of the GUI
   thread per tick on the large plan, for nothing, also while idle.
 - **A timer of interval zero, or a high-priority event** — decision 6's table.
+- **`scene.changed` as "the plan is dirty"** (the first delivery). `changed` is a REPAINT: a
+  hover, a selection, a tool's preview under the mouse, the sun's shadow while the time slider
+  moves. Measured by the independent review: a snapshot per repaint, a preview mouse-move turn
+  6.7 ms in Split against 1.0 in Plan (large plan: 18.3 against 0.7). Its gates had passed only
+  because they changed the time with the sun simulation off — and the toolbar that holds the
+  time slider is shown while it is on.
+- **The plan revision alone, without the net.** Every writer that goes round the chokepoints
+  would have to be found — and the next one written would not be. The net turns a missing
+  announcement from "3D silently stale" into "3D right after the quiet time, and a number".
+- **The net alone, without the plan revision** (reconcile after every quiet time). Every edit
+  would reach 3D 400 ms late; the gate is 50 ms.
 - **Pacing the pipeline by presented frames** ("no second pass before the view has presented
   the first", so that a view that presents nothing is given one generation). Built (commit
   `f02c5f6`), measured, and taken out again. It was aimed at "a view that presents nothing
@@ -5192,7 +5295,12 @@ Five facts shaped the design:
   runs on the GUI thread inside the pass and is contained when it raises (the bare rectangle is
   sent). A bake that replaces a texture per pass destroys no Model and so does not count as
   retired; if it creates and destroys engine objects of its own, they need the same release.
-- **For L1.8 (selection, walk):** `OrbitInput` passes Escape and unknown keys on;
+- **For every writer of plan content:** a change that goes round the command stack, the item
+  hook and the scene's other chokepoints calls `CanvasScene.note_plan_changed()` (or
+  `garden_item.note_plan_changed(item.scene())`) — and `item.update()` if the canvas shows it.
+  Forgetting it is not silent: the net applies it after 400 ms and counts it.
+- **For L1.8 (selection, walk):** `Workspace.clear_selection_hidden_by_3d_mode` is yours to
+  remove or replace once the selection is shown in 3D (decision 2). `OrbitInput` passes Escape and unknown keys on;
   `Workspace.select_item(id)` is how the problems list selects on the canvas; a click on the 3D
   view is `try: host.pick(...) except HostStateError` — never `wait_ready()` (the workspace calls
   it nowhere); the info card goes beside or below the view.
@@ -5208,7 +5316,14 @@ Five facts shaped the design:
   `QT_D3D_NO_VBLANK_THREAD=1` by default (`run_gate(timer_paced=True)`): on Windows update
   requests come from a display-vblank thread, with the display asleep a visible window
   presents its first frame and no more, and no scenario may depend on whether the dev box's
-  display is awake.
+  display is awake. The three close gates run once more as the product starts — paced by the
+  display (`timer_paced=False`) — which proves less than it seems: on a sleeping display such
+  a view presents one frame, so "close with 3D visible" there is not a view presenting frame
+  after frame while it closes. That case stays on the owner's checklist.
+- **Wall-clock gates carry the `perf` marker** (ADR-058): the strict repaint gate and the
+  preview-move cost ratio (default tier: their load-proof half — no repaint starts a pass of
+  its own, the net finds nothing), and G2 / G11 of the render tier, whose whole file is run
+  with `-m "perf or not perf" -n 0`.
 - **The ground bake (L1.5) plugs in at two places and is not wired here.** Where the pass hands
   a ground to the engine: `Scene3DController.__init__` builds `SceneSync(sink, registry)` — the
   bake's `ground_baker=` goes there — and `_pass_records` passes `ground=` from `_ground()`
@@ -5267,6 +5382,15 @@ Default tier (no GPU; the engine replaced at the seam):
   through passes, polls, the camera's timer, a resize, the splitter, a release, mode
   switches and a document change; a scan finds no such call in the five modules (and finds
   one in the offscreen driver, its control).
+- `tests/integration/test_plan_revision.py` — the scene's plan revision: every chokepoint
+  moves it (an edit matrix), no repaint does, Qt's polish of a new item is not a second edit, a
+  census pins THE hook in every item class's `itemChange` and in every geometry handle's mouse
+  move. `tests/integration/test_view3d_plan_revision.py` — in the real window with a recording
+  sink: the gates (five activities; default tier: no repaint starts a pass of its own; `perf`:
+  0 snapshots while it happens, ≤ 1 after the quiet time), the announcement matrix (31 edit
+  paths, `unannounced_changes == 0`), the container's height and material through the real
+  Properties panel (by an ANNOUNCED pass), the net applying and counting a write nobody
+  announced, and the preview-move cost ratio (`perf`).
 - `tests/integration/test_view3d_workspace.py` (22) — the §8.10 workflow through a real
   `GardenPlannerApp`; **G1** in two fresh processes (without the switch: no engine import and
   the canvas view's pixels identical to the build with it in Plan mode); what **G10** leaves
