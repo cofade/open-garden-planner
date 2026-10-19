@@ -467,10 +467,22 @@ class Scene3DController(QObject):
     def _on_rect_changed(self, *_rect: object) -> None:
         self.mark_dirty()  # the scene's own rectangle moved: the ground follows
 
-    def _on_scene_changed(self, *_regions: object) -> None:
+    def _on_scene_changed(self, *regions: object) -> None:
         """Something was REPAINTED. That is no reason for a pass (module docstring):
         a repaint that an announcement explains is left alone, any other one is
-        looked at once — when the scene has been quiet for a while."""
+        looked at once — when the scene has been quiet for a while.
+
+        A ``changed`` with an EMPTY list reports no repaint: it is Qt's echo of one
+        already reported. With a listener on ``changed`` an item's ``update()`` is
+        emitted at once from the dirty-item pass, and the queued ``_q_emitUpdated``
+        that the same update had asked for arrives after it and finds nothing left
+        (measured: every ``item.update()`` gave ``changed([rect])`` then
+        ``changed([])``). Taken as a repaint, the echo of an ANNOUNCED write whose
+        repaint lands after its pass — the Properties panel repaints, then nudges —
+        was "unexplained" and cost a second whole-plan snapshot a quiet time later,
+        finding nothing."""
+        if regions and isinstance(regions[0], list) and not regions[0]:
+            return
         revision = self._revision()
         explained = revision != self._revision_at_changed  # a scene without one: never
         self._revision_at_changed = revision

@@ -466,6 +466,47 @@ def test_a_pass_for_an_announced_change_leaves_the_net_nothing_to_do(
     assert controller.reconcile_count == reconciled and rig.reports[-1].reconciled is False
 
 
+def test_a_repaint_after_the_pass_of_its_announcement_starts_no_quiet_timer(
+        canvas: CanvasView, qtbot) -> None:
+    """A writer that nudges FIRST and repaints after (``note_plan_changed()``, then
+    ``item.update()``): the pass is posted before the scene's queued ``changed``, runs
+    first, and the repaint arrives with no pass owed. It is still explained — the
+    revision moved since the last repaint — so it starts no quiet timer: an announced
+    edit costs ONE snapshot, not a second one 400 ms later that finds nothing."""
+    rig = _net_rig(canvas, qtbot)
+    controller, bed = rig.controller, rig.item
+    snapshots, reconciled = controller.snapshot_count, controller.reconcile_count
+    bed.metadata[METADATA_KEY] = 75.0
+    rig.scene.note_plan_changed()               # the pass is posted now …
+    bed.update()                                # … the scene's changed after it
+    _turns()
+    assert controller.snapshot_count == snapshots + 1, "the announced pass ran"
+    assert controller.idle, "the repaint after it was explained: no quiet timer"
+    qtbot.wait(QUIET * 3)
+    assert controller.snapshot_count == snapshots + 1
+    assert controller.reconcile_count == reconciled and controller.unannounced_changes == 0
+
+
+def test_a_quiet_time_cut_short_by_hiding_is_owed_when_3d_comes_back(
+        canvas: CanvasView, qtbot) -> None:
+    """An unannounced write was repainted and the quiet timer ran — then 3D was hidden
+    before it fired, and nothing repainted while it was hidden. Coming back owes that
+    look: the timer starts again, and the write reaches 3D one quiet time later."""
+    rig = _net_rig(canvas, qtbot)
+    controller, bed = rig.controller, rig.item
+    bed.metadata[METADATA_KEY] = 75.0           # no command, no nudge …
+    bed.update()                                # … a repaint only
+    _turns()
+    assert not controller.idle, "the quiet timer runs"
+    controller.set_active(False)                # hidden before it fires
+    qtbot.wait(QUIET * 3)
+    assert rig.recorder.ops() == [] and controller.unannounced_changes == 0
+    controller.set_active(True)                 # nothing was repainted in between
+    qtbot.wait(QUIET * 3)
+    assert rig.recorder.ops() == [BEGIN, ("replace_geometry", str(bed.item_id)), COMMIT]
+    assert controller.unannounced_changes == 1
+
+
 def test_the_net_does_not_run_while_3d_is_hidden_and_once_when_it_comes_back(
         canvas: CanvasView, qtbot) -> None:
     rig = _net_rig(canvas, qtbot)
@@ -526,6 +567,36 @@ def test_a_scene_that_is_never_quiet_is_reconciled_after_the_longest_wait(
     _turns()
     qtbot.wait(40)
     assert controller.snapshot_count == snapshots + 1
+
+
+def test_a_net_that_fires_while_an_announced_pass_is_on_its_way_stands_down(
+        canvas: CanvasView, qtbot) -> None:
+    """A controller whose pass waits LONGER than the quiet time (``tick_ms`` above it;
+    the app's is 0): the quiet timer of an earlier repaint fires while an ANNOUNCED pass
+    is still on its way. The net stands down — that pass reads everything — so the
+    change is applied once, by its own pass, and never counted as one nobody announced."""
+    scene = canvas.scene()
+    bed = RectangleItem(400.0, 300.0, 300.0, 200.0, object_type=ObjectType.RAISED_BED,
+                        layer_id=scene.active_layer.id)
+    canvas.command_manager.execute(CreateItemCommand(scene, bed, "bed"))
+    sink = RecordingSink()
+    controller = Scene3DController(scene, SimClock(NOON), lambda: None, sink,
+                                   quiet_ms=QUIET, tick_ms=QUIET * 4)
+    controller.set_active(True)
+    qtbot.waitUntil(lambda: controller.apply_count >= 1 and controller.idle, timeout=5000)
+    sink.clear_calls()
+    applies = controller.apply_count
+    reconciled, snapshots = controller.reconcile_count, controller.snapshot_count
+    bed.update()                                # an unexplained repaint: the quiet timer runs
+    _turns()
+    bed.metadata[METADATA_KEY] = 75.0
+    scene.note_plan_changed()                   # announced; its pass waits QUIET * 4
+    qtbot.waitUntil(lambda: controller.apply_count > applies and controller.idle, timeout=5000)
+    assert sink.ops() == [BEGIN, ("replace_geometry", str(bed.item_id)), COMMIT]
+    assert controller.snapshot_count == snapshots + 1, "one pass, not the net's and then its own"
+    assert controller.reconcile_count == reconciled and controller.unannounced_changes == 0
+    assert controller.last_tick is not None and controller.last_tick.reconciled is False
+    controller.shutdown()
 
 
 def test_a_scene_that_announces_nothing_is_kept_in_step_by_the_net_alone(qtbot) -> None:
