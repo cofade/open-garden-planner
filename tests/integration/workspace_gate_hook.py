@@ -462,13 +462,17 @@ SCENARIOS: dict[str, Callable[[Any, dict[str, Any]], Iterator[Any]]] = {
 
 def _measured_scenario(name: str) -> Callable[[Any, dict[str, Any]], Iterator[Any]] | None:
     """The measuring scenarios live beside this file and exist from source only (the
-    frozen gate build carries this one file)."""
-    try:
-        import workspace_gate_measure  # type: ignore[import-not-found]
-    except ImportError:
-        return None
-    found = getattr(workspace_gate_measure, "SCENARIOS", {}).get(name)
-    return found if callable(found) else None
+    frozen gate build carries this one file): the workspace story's, and the default
+    flip's (L1.9)."""
+    for module_name in ("workspace_gate_measure", "workspace_default_measure"):
+        try:
+            module = __import__(module_name)
+        except ImportError:
+            continue
+        found = getattr(module, "SCENARIOS", {}).get(name)
+        if callable(found):
+            return found  # type: ignore[no-any-return]
+    return None
 
 
 _load_spec()

@@ -62,14 +62,13 @@ def read_report(out: Path) -> dict[str, Any]:
 
 def test_main_on_a_plan_builds_every_store_on_the_throw_away_key(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """THE proof. The app's own ``main()``, given a plan on its command line, with the
-    workspace switched on: it opens the plan (Recent Files is written), shows the
+    """THE proof. The app's own ``main()``, given a plan on its command line (its
+    3D workspace is always there): it opens the plan (Recent Files is written), shows the
     window, and is closed by the scenario (the window geometry is written)."""
     spec, out, store = gate_spec(tmp_path, "never")
     proc = subprocess.run(  # noqa: S603 - fixed argv, our own code
         [sys.executable, str(CHILD), str(PLAN)],
-        env=isolated_env(tmp_path, QT_QPA_PLATFORM="offscreen", OGP_QUICK3D="1",
-                         OGP_WORKSPACE_GATE=str(spec)),
+        env=isolated_env(tmp_path, QT_QPA_PLATFORM="offscreen", OGP_WORKSPACE_GATE=str(spec)),
         capture_output=True, text=True, timeout=170, cwd=tmp_path)
     assert proc.returncode == 0, proc.stderr[-3000:]
     report = read_report(out)
@@ -167,17 +166,21 @@ def test_nothing_in_the_test_tree_imports_the_hook_into_the_test_process() -> No
             if any(name.split(".")[-1] == "workspace_gate_hook" or "workspace_gate_hook" in
                    name.split(".") for name in names):
                 importers.append(path.name)
-    assert sorted(set(importers)) == ["workspace_gate_child.py", "workspace_gate_measure.py"]
-    # … and nothing imports THOSE two into the test process either
+    assert sorted(set(importers)) == ["workspace_default_measure.py", "workspace_gate_child.py",
+                                      "workspace_gate_measure.py"]
+    # … and nothing imports THOSE into the test process either (the default flip's
+    # scenarios, L1.9, use the workspace story's tools — inside the child)
+    children = {"workspace_gate_hook.py", "workspace_default_measure.py"}
     for path in sorted((REPO / "tests").rglob("*.py")):
         source = path.read_text(encoding="utf-8")
-        for name in ("workspace_gate_child", "workspace_gate_measure"):
-            assert f"import {name}" not in source or path.name == "workspace_gate_hook.py", path
+        for name in ("workspace_gate_child", "workspace_gate_measure", "workspace_default_measure"):
+            assert f"import {name}" not in source or path.name in children, path
 
 
 @pytest.mark.parametrize("name", [
     "test_workspace_gate.py", "test_view3d_workspace.py", "test_view3d_workspace_render.py",
     "workspace_gate_hook.py", "workspace_gate_child.py", "workspace_gate_measure.py",
+    "test_view3d_default_render.py", "workspace_default_measure.py",
 ])
 def test_every_child_of_the_workspace_tests_gets_its_environment_from_the_helper(name: str) -> None:
     """The engine story's rule (``child_environment_problems``), held here too: no child
