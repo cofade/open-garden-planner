@@ -110,6 +110,8 @@ def _hidden_layers_not_in(
     for item in layer_items:
         lid = str(item.layer_id)
         should_show = lid in wanted or names_by_id.get(lid, "") in wanted
+        if hasattr(scene, "is_present"):
+            should_show = should_show and scene.is_present(item)
         item.setVisible(should_show)
     try:
         yield

@@ -216,3 +216,11 @@
 A downloaded installer whose permitted release origin, matching manifest entry,
 byte count and SHA-256 digest were checked before finalizing its file. This denotes
 download integrity; it is not an Authenticode signature or provenance attestation.
+
+### Plan date and removal date
+
+**Plan date:** the simulated local calendar day held by SimClock, shared by the plan
+timeline, growth and solar views. It is session state and starts at today.
+**Removal date:** an optional plant-instance ISO date, exclusive: the plant is absent
+on this day and later. Planting is inclusive. This is separate from a Season Manager
+yearly plan copy and from task reminder reference dates (ADR-059).

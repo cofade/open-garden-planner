@@ -491,3 +491,13 @@ ConstraintListItem looks up and renders a descriptor in the existing translation
 context; it retains theme refresh and delete signals. The module accepts display
 values and returns text, with no commands, scene mutation or solver callbacks.
 Constraint geometry and satisfaction remain in their existing components.
+
+## Plan timeline (US-F4, ADR-059)
+
+`core/plan_timeline.py` owns Qt-free ISO lifetime parsing, half-open presence and
+month bounds. `ui/plant_lifetime.py` validates date edits and applies them through
+ChangePropertyCommand. `ui/widgets/plan_timeline_toolbar.py` displays the scene's
+shared clock date, requests month/Today changes, and resolves hidden-plant menu IDs.
+CanvasScene combines layer and date visibility, exposes the clock date to renderers,
+and reapplies state after commands and document replacement. The existing serializers
+store instance metadata unchanged; API snapshots add runtime presence annotations.

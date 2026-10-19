@@ -51,6 +51,9 @@ class _FakeItem:
     def parent_bed_id(self) -> str | None:
         return self._parent_bed_id
 
+    def isVisible(self) -> bool:
+        return True
+
 
 class _FakeScene:
     def __init__(self, items: list[Any]) -> None:

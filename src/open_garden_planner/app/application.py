@@ -532,7 +532,7 @@ class GardenPlannerApp(QMainWindow):
         build the item, apply the species, auto-populate its species metadata
         from the bundled DB (so the plant-detail panel and US-12.10d
         soil-mismatch warnings light up without a manual "Suchen"), stamp
-        today's planting date (US-E8 — deliberately OUTSIDE the species guard,
+        the active plan date as planting date (US-E8/F4 — OUTSIDE the species guard,
         so a placeholder that gains a species later is not left permanently
         undated, which would break the growth model), and assign the active
         layer.
@@ -554,7 +554,6 @@ class GardenPlannerApp(QMainWindow):
         (all in the Qt-free ``creates`` module), or a locked active layer — the
         GUI can't draw onto a locked layer either.
         """
-        from datetime import date
 
         from open_garden_planner.agent_api import creates
         from open_garden_planner.core.commands import CreateItemCommand, CreateItemsCommand
@@ -602,7 +601,7 @@ class GardenPlannerApp(QMainWindow):
                 item.plant_species = species
                 populate_item_species_metadata(item, species)
             # US-E8: every new plant is dated, species or not (see docstring).
-            stamp_default_planting_date(item.metadata, date.today())
+            stamp_default_planting_date(item.metadata, self._sim_clock.plan_date)
 
         linked_items: list[Any] = []
         if object_type == "HOUSE":
@@ -4778,6 +4777,13 @@ class GardenPlannerApp(QMainWindow):
         # they hold bound methods weakly but do NOT disconnect a destroyed
         # QObject, so every subscriber lives as long as this window.
         self._sim_clock = SimClock()
+        self.canvas_scene.bind_plan_clock(self._sim_clock)
+        from open_garden_planner.ui.widgets.plan_timeline_toolbar import PlanTimelineToolbar
+
+        self._timeline_toolbar = PlanTimelineToolbar(self.canvas_scene, self)
+        self.addToolBarBreak()
+        self.addToolBar(self._timeline_toolbar)
+        self._timeline_toolbar.date_requested.connect(self._sim_clock.set_date)
         self._sun_controller = SunShadowController(
             self.canvas_scene,
             lambda: self._project_manager.location,
@@ -4845,6 +4851,7 @@ class GardenPlannerApp(QMainWindow):
 
         # Connect undo/redo action enable state to command manager
         cmd_mgr = self.canvas_view.command_manager
+        cmd_mgr.stack_changed.connect(self.canvas_scene.refresh_timeline)
         cmd_mgr.can_undo_changed.connect(self._undo_action.setEnabled)
         cmd_mgr.can_redo_changed.connect(self._redo_action.setEnabled)
 
@@ -6375,6 +6382,7 @@ class GardenPlannerApp(QMainWindow):
             toolbar.setVisible(True)
         self._sun_toolbar.setVisible(False)
         self.soil_overlay_toolbar.setVisible(False)
+        self._timeline_toolbar.setVisible(True)
 
     def createPopupMenu(self) -> QMenu | None:
         """Suppress QMainWindow's built-in toolbar context menu.
@@ -6557,6 +6565,10 @@ class GardenPlannerApp(QMainWindow):
         US-E8: growth is keyed on the date, so the 3D geometry regrows here and
         only here; scrubbing the time of day must not rebuild the scene.
         """
+        self.canvas_scene.refresh_timeline()
+        self._update_companion_highlights()
+        self._update_spacing_overlaps()
+        self.canvas_view.refresh_soil_mismatches()
         heatmap = self._sun_heatmap
         if heatmap.computed_day != day and (
             heatmap.heatmap_visible() or heatmap.result_pending
@@ -6952,7 +6964,7 @@ class GardenPlannerApp(QMainWindow):
         # left with a stale ring/badge); only named plants take part in the
         # relationship scan.
         canvas_plants = [it for it in scene_items if self._is_canvas_plant(it)]
-        all_plants = [it for it in canvas_plants if self._companion_species_name(it)]
+        all_plants = [it for it in canvas_plants if it.isVisible() and self._companion_species_name(it)]
 
         # Desired final state per plant, computed before any setter call so
         # each item is mutated at most once this pass.
@@ -7060,6 +7072,8 @@ class GardenPlannerApp(QMainWindow):
             bed_groups: dict[str, list] = {}
             orphans: list = []
             for plant in all_plants:
+                if not plant.isVisible():
+                    continue
                 bed_id = getattr(plant, '_parent_bed_id', None)
                 if bed_id is not None:
                     key = str(bed_id)
@@ -7212,7 +7226,7 @@ class GardenPlannerApp(QMainWindow):
             child_areas: list[float] = []
             for child_id in item.child_item_ids:
                 child = by_id.get(str(child_id))
-                if child is None:
+                if child is None or not getattr(child, "isVisible", lambda: True)():
                     continue
                 area = child._compute_area_cm2() if hasattr(child, "_compute_area_cm2") else None
                 if area:

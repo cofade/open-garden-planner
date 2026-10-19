@@ -60,6 +60,8 @@ class Layer(BaseModel):
 class PlanSummary(BaseModel):
     """A high-level overview of the garden plan currently open in the app."""
 
+    as_of_date: str | None = Field(default=None, description="Shared local plan date (ISO), session state.")
+
     file_name: str | None = Field(
         default=None,
         description=(
@@ -115,6 +117,9 @@ class PlanSummary(BaseModel):
 
 class ObjectRef(BaseModel):
     """Lightweight reference to one object, returned by list/spatial queries."""
+
+    as_of_date: str | None = Field(default=None, description="Shared local plan date used to evaluate presence.")
+    present: bool = Field(default=True, description="False before planting or on/after removal; independent of layer visibility.")
 
     item_id: str = Field(description="Stable UUID — address objects by this id.")
     type: str = Field(

@@ -433,3 +433,25 @@ launch. Rejection and cancellation never reach process launch.
 Linux startup creates QApplication, secures the settings backend, loads preferences
 and constructs the main window. An ownership/permission failure exits with a visible
 error before the preference and window steps.
+
+## Viewing a plan at another date (US-F4)
+
+```mermaid
+sequenceDiagram
+    participant Timeline
+    participant SimClock
+    participant App
+    participant Scene
+    Timeline->>SimClock: set_date(month start / Today)
+    SimClock->>App: date_changed(local day)
+    App->>Scene: refresh_timeline()
+    Scene->>Scene: layer AND plant presence; invalidate sprite caches
+    Scene-->>Timeline: timeline_changed (read clock, update hidden count)
+    App->>App: visible diagnostics; invalidate daily heatmap; refresh 3D
+    SimClock->>App: instant_changed (mirror exact date/time; move light)
+```
+
+Plant Details validates planting/removal dates before executing one property command.
+Execute/undo/redo reapplies presence without deleting an item. A document load applies
+visibility after all items/layers exist. Save and Season Manager still serialize the
+whole plan, including date-absent plants; visual exports render the current state.

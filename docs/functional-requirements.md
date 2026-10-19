@@ -609,3 +609,18 @@ Acceptance: `tests/unit/test_stacking.py` (the Qt-free arrange algorithm — nor
   keys/values and fail startup clearly when protection cannot be established.
 - **FR-SAFETY-04**: Thumbnail/Static Maps responses have byte/pixel limits and full
   decoding checks; failed input does not publish partial caches or replace the background.
+
+## FR-33: Plan timeline and plant lifetimes (US-F4, #315)
+
+- **FR-TIMELINE-01:** One shared local plan date controls month scrubbing, Today,
+  exact Sun & Shade dates, plant presence, sprite/3D growth and solar analyses.
+- **FR-TIMELINE-02:** Optional removal dates round-trip additively; valid planting
+  and removal edits each have one undo step and reject inverted/empty lifetimes.
+- **FR-TIMELINE-03:** Plants before planting or on/after removal are hidden and
+  unselectable; visible-set diagnostics exclude them. A named-date popover permits
+  discovery and navigation. A non-today indicator identifies the viewed date.
+- **FR-TIMELINE-04:** Visual exports reflect current visibility; PDF reports identify
+  a non-today date. API objects retain absent plants and expose presence/as_of_date.
+- **FR-TIMELINE-05:** Viewing dates never deletes plant data or changes yearly Season
+  Manager copies. Generated plant tasks stop after removal, with surviving instances
+  retaining a species schedule; manual tasks and succession dates remain independent.

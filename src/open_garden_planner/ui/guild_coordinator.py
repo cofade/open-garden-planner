@@ -50,7 +50,7 @@ class GuildCoordinator(QObject):
             snapshots = [{"item_id": str(item.item_id), "guild": deepcopy(item.metadata.get("guild")),
                           "functions": deepcopy(item.metadata["plant_species"].get("functions", []))
                           if isinstance(item.metadata.get("plant_species"), dict) else []}
-                         for item in plants]
+                         for item in plants if item.isVisible()]
             self.statuses, errors = compute_guilds(snapshots)
             diagnostics = guild_diagnostics(self.statuses) + errors
             # Agent object queries address top-level objects. Keep the physical

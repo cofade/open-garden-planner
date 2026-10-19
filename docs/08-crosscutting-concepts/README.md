@@ -2636,3 +2636,27 @@ The map's calibration, crop/mosaic math and existing cancellation outcomes are u
 The load seam is the second half. `ProjectManager._deserialize_item_core` refuses a polygon above `MAX_POLYGON_VERTICES = 16_384` and skips it with a logged warning (counted for the app's existing skipped-item notice), so a hostile `.ogp` cannot stall the loader or exhaust memory; the rest of the plan loads normally. At this ceiling the degraded outline is ~69 ms, and no legible garden outline comes near it. Both constants live in `ui/canvas/items/polygon_item.py` and are the only place to retune the bound. The measured cost table, the pen-width finding and the rejected alternatives (convex-hull / bounding-box fill, a hairline-but-wide pen, reflex counting, a low load ceiling) are in ADR-057; the regression is pinned by `tests/integration/test_polygon_paint_bound.py`.
 
 An "item made from an item" copies a shape's **look** through one seam that the **offset tool and mirror** share, `core/item_look.py::copy_visual_style`. It copies both the serialized attributes (`fill_pattern`, `fill_color`, `stroke_color`, `stroke_width`, `stroke_style`) and the live `QPen`/`QBrush`, because a copy that writes only one of the two looks right until the next save (#470). Chamfer, fillet and trim are the same shape of bug and are **not** routed here: they are owned by the in-flight L1 branch's #441, so routing them now would collide.
+
+## 8.29 Plan date, visibility and lifetime (US-F4, ADR-059)
+
+The shared SimClock local date is the plan date. The compact month slider writes
+month starts; Today preserves wall time. The Sun & Shade picker writes exact days.
+Neither date navigation nor visibility filtering adds history or persists a date.
+
+CanvasScene is the layer/date visibility seam: a plant is visible only when its
+layer permits it and planting <= plan date < removal (an absent bound is open).
+Construction geometry continues to use its tool toggle. Never force-show an absent
+plant when updating layers or rendering an explicitly requested API layer. Hidden
+plants remain serialized and listed in the API. Marquee selection checks isVisible.
+The popover lists hidden plants by name and date bounds and navigates to a present day.
+
+Lifetime fields use the existing Plant Details controls and one undoable command;
+the removal minimum is an explicit nonempty unset label with a Clear button. Signals
+are blocked during panel refresh. Hiding an edited plant can synchronously clear its
+selection, so the command callback keeps its target independently of the panel.
+
+The visible set drives companion/spacing/capacity, guild and sun/canopy diagnostics.
+Sprite growth, shadow casters, heatmaps and 3D all use the plan date, while task
+reminders retain their real-world reference day. Plant task windows stop at removal;
+species aggregation keeps the schedule while any instance remains. Manual/succession
+dates and Season Manager file copies retain their existing behavior.

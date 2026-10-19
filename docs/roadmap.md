@@ -2637,7 +2637,7 @@ The preexisting German amendment-task naming gap is tracked in #408.
 > | ✅ v1.30.0 | **F1** ([#312](https://github.com/cofade/open-garden-planner/issues/312)) | **Permaculture layer + plant function tags** — foundation of the package, **do first**. `PermacultureLayer` (7 food-forest layers + `UNKNOWN`) and `PlantFunction` (12 functions) as additive species attributes, captured from Permapeople's `Layer`/`Uses`, filled for all 118 bundled records, editable in Plant Details, filterable in search/gallery, exposed in the curated agent schema. Plus an optional food-forest canvas-layer preset. ADR-054/055 and FR-32. |
 > | ✅ v1.30.0 | **F2** ([#313](https://github.com/cofade/open-garden-planner/issues/313)) | **Plant guilds** — guild templates, canvas membership, missing-role diagnostic. *Depends on F1*: guilds have nothing to reason on without layer/function tags. |
 > | ✅ v1.30.1 | **F3** ([#314](https://github.com/cofade/open-garden-planner/issues/314)) | **Sun-requirement × computed hours-of-sun diagnostic** + canvas badge. Shipped with #428 via PR #436 after owner acceptance (ADR-056): explicit cached exposure, self-shadow exclusion, unavailable states and mature-canopy groups. *Independent*; its layer-stack section follows F1. Builds on the shipped Phase 14 sun/shade engine. |
-> | 📋 | **F4** ([#315](https://github.com/cofade/open-garden-planner/issues/315)) | **Plan timeline scrubber** — `removal_date` + plan-state-at-date visibility on the shared sim date. *Independent.* |
+> | 🔨 implementation / review | **F4** ([#315](https://github.com/cofade/open-garden-planner/issues/315)) | **Plan timeline scrubber** — `removal_date` + plan-state-at-date visibility on the shared sim date. *Independent.* |
 > | 📋 | **F5** ([#316](https://github.com/cofade/open-garden-planner/issues/316)) | **Bundled example-plan gallery** + template export/import. **Last** — ideally after F2 and F4. Blocked on nothing technical, but #379 (retiring the hand-made dogfood fixture) waits on it. |
 
 ## Package G — Plant Data Quality & Attribution (✅ 4 of 4 shipped — Complete)
@@ -2806,7 +2806,7 @@ F3 (#314) and heatmap lifecycle fix #428 shipped together in [v1.30.1](https://g
 - Document replacement cancels work and rejects running/queued late results. Deterministic GUI New/Open/recovery and real MCP replacement regressions are pinned in `tests/integration/test_sun_document_lifecycle.py`; the feature workflow is `tests/integration/test_sun_mismatch.py`.
 - Independent review reproduced and resolved concave-footprint badge containment and malformed legacy species handling, then returned clean final review. Full validation: 7,938 passed, 34 skipped; line coverage 76.9%, branch 60.3%; 200 casters/receivers 3.267 seconds. Frozen startup, subsystem self-test, real MCP reads/moves/New/Open and inspected renders passed; GitHub CI and release provenance passed.
 
-F4/F5 (#315/#316) remain planned. #328 shipped earlier in PR #352 and was excluded from this package.
+F4 (#315) is implemented pending review and owner acceptance; F5 (#316) remains planned. #328 shipped earlier in PR #352 and was excluded from this package.
 
 ### Docs updated on F3 completion
 
@@ -3082,3 +3082,13 @@ colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see §11.4
   `TestTheMaskIsTheItem` asserts that invariant, because a mask in the wrong coordinate frame does
   not fail, it *reads background*, which is what a luminance statistic calls texture. ADR-057
   addendum, §11.4.11.
+
+### US-F4 plan timeline (#315) — implementation pending owner acceptance
+
+ADR-059 and FR-33 define a month scrubber/Today on the existing SimClock, undoable
+plant removal dates, half-open presence, visible-set diagnostics and current-state
+exports/API annotations. The 2D sprite now shares the growth date; fresh creation
+uses that date too. Season Manager remains a whole-plan yearly copy. Integration
+workflows include real controls, exact boundaries, history, round-trip and rendered
+growth/export checks. F5 (#316) remains a separate story. Validation evidence and
+the owner's remaining frozen-app checklist accompany the draft PR.

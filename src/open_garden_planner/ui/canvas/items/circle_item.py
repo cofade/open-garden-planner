@@ -310,13 +310,13 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         return base
 
     def _visual_plant_diameter_cm(self, footprint_diameter: float) -> float:
-        """The diameter (cm) the plant's SVG icon should render at today.
+        """The diameter (cm) the plant's SVG icon should render at the plan date.
 
         Deliberately distinct from ``footprint_diameter`` (this item's drawn
         rect, which stays at the mature ``max_spread_cm`` for spacing/overlap
         correctness -- see ``core/plant_sizing.py``'s "three legitimate sizes"
         note). When the plant has both a planting date and a measured current
-        size, the icon instead reflects today's growth-interpolated spread
+        size, the icon reflects the shared plan date's growth-interpolated spread
         (``core/growth_model.grown_spread_cm``), so a young sapling LOOKS
         smaller even though its reserved footprint doesn't shrink -- matching
         the shadow, which already did this. Falls back to the footprint
@@ -325,8 +325,9 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         species = self.metadata.get("plant_species")
         if not isinstance(species, dict):
             return footprint_diameter
+        day = getattr(self.scene(), "plan_date", None) or date.today()
         grown = grown_spread_cm(
-            species, self.metadata, date.today(), getattr(self.object_type, "name", "")
+            species, self.metadata, day, getattr(self.object_type, "name", "")
         )
         return grown if grown is not None else footprint_diameter
 

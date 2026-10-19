@@ -703,6 +703,20 @@ class PlantDatabasePanel(QWidget):
 
         self.details_form.addRow(self.tr("Planted:"), planting_layout)
 
+        removal_layout = QHBoxLayout()
+        self.removal_date_edit = ClickableDateEdit()
+        self.removal_date_edit.setDisplayFormat("yyyy-MM-dd")
+        self.removal_date_edit.setSpecialValueText(self.tr("Not removed"))
+        self.removal_date_edit.setDate(self.removal_date_edit.minimumDate())
+        self.removal_date_edit.dateChanged.connect(self._on_removal_date_changed)
+        removal_layout.addWidget(self.removal_date_edit, 1)
+        self.clear_removal_button = QToolButton()
+        self.clear_removal_button.setText(self.tr("Clear"))
+        self.clear_removal_button.clicked.connect(
+            lambda: self.removal_date_edit.setDate(self.removal_date_edit.minimumDate()))
+        removal_layout.addWidget(self.clear_removal_button)
+        self.details_form.addRow(self.tr("Removed on:"), removal_layout)
+
         # === NOTES ===
 
         # Notes (instance-specific)
@@ -904,9 +918,40 @@ class PlantDatabasePanel(QWidget):
         d = self.planting_date_edit.date()
         # Save the selected date
         value = d.toPyDate().isoformat()
-        self._update_instance_metadata("planting_date", value)
+        self._change_lifetime_date("planting_date", value)
         # Update age display
         self._update_age_label(d.toPyDate())
+
+    def _on_removal_date_changed(self) -> None:
+        day = self.removal_date_edit.date()
+        value = None if day == self.removal_date_edit.minimumDate() else day.toPyDate().isoformat()
+        self._change_lifetime_date("removal_date", value)
+
+    def _change_lifetime_date(self, field: str, value: str | None) -> None:
+        if self._current_plant_item is None:
+            return
+        from open_garden_planner.ui.plant_lifetime import change_lifetime_date
+
+        item = self._current_plant_item
+        try:
+            change_lifetime_date(item, field, value)
+        except ValueError:
+            QMessageBox.warning(self, self.tr("Invalid plant dates"),
+                                self.tr("Removal date must be after planting date."))
+        if self._current_plant_item is item:
+            self._refresh_lifetime_dates(item)
+
+    def _refresh_lifetime_dates(self, item: QGraphicsItem) -> None:
+        from open_garden_planner.core.plan_timeline import instance_date
+
+        removed = instance_date(getattr(item, "metadata", None), "removal_date")
+        planted = instance_date(getattr(item, "metadata", None), "planting_date")
+        self.planting_date_edit.blockSignals(True)
+        self.planting_date_edit.setDate(QDate(planted.year, planted.month, planted.day) if planted else QDate.currentDate())
+        self.planting_date_edit.blockSignals(False)
+        self.removal_date_edit.blockSignals(True)
+        self.removal_date_edit.setDate(QDate(removed.year, removed.month, removed.day) if removed else self.removal_date_edit.minimumDate())
+        self.removal_date_edit.blockSignals(False)
 
     def _update_age_label(self, planting_date: date | None) -> None:
         """Update the age label based on planting date.
@@ -1233,6 +1278,8 @@ class PlantDatabasePanel(QWidget):
         # reason the unguarded sibling here was "safe only by luck" (issue #200).
         # A genuine selection change still falls through and updates the panel.
         if len(items) == 1 and items[0] is self._current_plant_item:
+            if not (self.planting_date_edit.hasFocus() or self.removal_date_edit.hasFocus()):
+                self._refresh_lifetime_dates(items[0])
             species = getattr(items[0], "metadata", {}).get("plant_species")
             if isinstance(species, dict):
                 data = PlantSpeciesData.from_dict(species)
@@ -1545,6 +1592,7 @@ class PlantDatabasePanel(QWidget):
             # No date saved - default to today
             self.planting_date_edit.setDate(QDate.currentDate())
         self.planting_date_edit.blockSignals(False)
+        self._refresh_lifetime_dates(plant_item)
 
         # Update age label
         self._update_age_label(planting_date_val)

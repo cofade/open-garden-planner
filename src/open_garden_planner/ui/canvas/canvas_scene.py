@@ -8,6 +8,7 @@ The view handles the Y-flip for display.
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 from uuid import UUID
 
@@ -23,12 +24,16 @@ from PyQt6.QtGui import QBrush, QColor, QPainter, QPen
 from PyQt6.QtWidgets import (
     QGraphicsEllipseItem,
     QGraphicsItem,
+    QGraphicsItemGroup,
     QGraphicsLineItem,
     QGraphicsScene,
     QGraphicsSimpleTextItem,
 )
 
 from open_garden_planner.core import stacking
+from open_garden_planner.core.object_types import is_plant_type
+from open_garden_planner.core.plan_timeline import plant_present
+from open_garden_planner.core.sim_clock import SimClock
 from open_garden_planner.models.layer import Layer, create_default_layers
 
 
@@ -65,6 +70,7 @@ class CanvasScene(QGraphicsScene):
     layers_changed = pyqtSignal()
     document_replaced = pyqtSignal()
     diagnostics_changed = pyqtSignal()
+    timeline_changed = pyqtSignal()
     active_layer_changed = pyqtSignal(object)  # Layer or None
     layer_auto_unhidden = pyqtSignal(UUID)  # emitted when a draw auto-reveals a hidden layer
 
@@ -82,6 +88,7 @@ class CanvasScene(QGraphicsScene):
             parent: Parent object
         """
         super().__init__(parent)
+        self._plan_clock: SimClock | None = None
 
         self._width_cm = width_cm
         self._height_cm = height_cm
@@ -264,6 +271,9 @@ class CanvasScene(QGraphicsScene):
             item.shadows_enabled = self._shadows_enabled
             item.set_global_labels_visible(self._labels_enabled)
             item.spacing_circles_visible = self._spacing_circles_visible
+            self._apply_item_visibility(item)
+            for child in item.childItems():
+                self._apply_item_visibility(child)
 
             # Auto-unhide the target layer so drawing on a hidden layer reveals it
             if item.layer_id:
@@ -1029,21 +1039,48 @@ class CanvasScene(QGraphicsScene):
             self._active_layer = layer
             self.active_layer_changed.emit(layer)
 
-    def _update_items_visibility(self) -> None:
-        """Update visibility and interaction of all items based on layer state."""
+    @property
+    def plan_date(self) -> date | None:
+        """Read the shared clock; standalone scenes need no timeline."""
+        return self._plan_clock.plan_date if self._plan_clock is not None else None
+
+    def bind_plan_clock(self, clock: SimClock) -> None:
+        self._plan_clock = clock
+        self.refresh_timeline()
+
+    def is_present(self, item: QGraphicsItem) -> bool:
+        if isinstance(item, QGraphicsItemGroup):
+            members = [child for child in item.childItems() if hasattr(child, "item_id")]
+            return not members or any(self.is_present(child) for child in members)
+        return not is_plant_type(getattr(item, "object_type", None)) or plant_present(
+            getattr(item, "metadata", None), self.plan_date)
+
+    def refresh_timeline(self) -> None:
+        """Apply the current date after edits/undo/load without changing history."""
         for item in self.items():
-            if hasattr(item, 'layer_id') and item.layer_id:
-                layer = self.get_layer_by_id(item.layer_id)
-                if layer:
-                    # Set visibility
-                    item.setVisible(layer.visible)
-                    # Set opacity
-                    item.setOpacity(layer.opacity)
-                    # Set selectability based on lock state
-                    if hasattr(item, 'setFlag'):
-                        from PyQt6.QtWidgets import QGraphicsItem
-                        item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, not layer.locked)
-                        item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, not layer.locked)
+            if is_plant_type(getattr(item, "object_type", None)):
+                item.prepareGeometryChange()
+                item.update()  # invalidate DeviceCoordinateCache for the new canopy
+        self._update_items_visibility()
+        self.timeline_changed.emit()
+
+    def _apply_item_visibility(self, item: QGraphicsItem) -> None:
+        if not hasattr(item, "layer_id"):
+            return
+        layer = self.get_layer_by_id(item.layer_id) if item.layer_id else None
+        present = self.is_present(item)
+        if layer is not None or isinstance(item, QGraphicsItemGroup) or is_plant_type(getattr(item, "object_type", None)):
+            item.setVisible(present and (layer is None or layer.visible))
+        if layer is not None:
+            item.setOpacity(layer.opacity)
+            if item.group() is None:
+                item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, not layer.locked)
+                item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, not layer.locked)
+
+    def _update_items_visibility(self) -> None:
+        """Combine layer and plant-date visibility; construction has its own toggle."""
+        for item in self.items():
+            self._apply_item_visibility(item)
 
     def update_layer_visibility(self, layer_id: UUID, visible: bool) -> None:
         """Update visibility of a layer and its items.

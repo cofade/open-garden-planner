@@ -1420,12 +1420,17 @@ class PlantingCalendarView(QWidget):
         for (species_key, anchor_year), plan in propagate_plans_by_anchor(
             state, frost_anchor_years(state, year_start, year_end)
         ).items():
+            from open_garden_planner.services.task_generator import species_removal_dates
+
+            removed = species_removal_dates(state.plant_rows).get(species_key)
             for step in plan.steps:
                 if step.end_date < year_start or step.start_date > year_end:
                     continue
+                if removed is not None and step.start_date >= removed:
+                    continue
                 prop_steps.setdefault(species_key, []).append(_PropStepWindow(
                     start=max(step.start_date, year_start),
-                    end=min(step.end_date, year_end),
+                    end=min(step.end_date, year_end, removed - datetime.timedelta(days=1)) if removed else min(step.end_date, year_end),
                     step_id=step.step_id,
                     anchor_year=anchor_year,
                 ))

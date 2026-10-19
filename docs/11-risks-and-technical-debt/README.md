@@ -1387,3 +1387,16 @@ dynamic consumers retain comments, and unresolved receivers/helper imports fail 
   **Lesson: a missing `finally` around a side effect is a correctness bug and an unbounded
   retry loop is a hang; both are worth catching by asking what a helper swallows, not what
   it returns.**
+
+### Timeline growth must change the rendered sprite, not only its collectors (#315)
+
+The existing 3D/shadow collectors read SimClock.plan_date, but CircleItem's sprite
+resolver read date.today. Tagged evidence recorded `[F4-GROWTH] sprite_day=2026-10-19
+plan_day=2025-06-01` and the same sprite day after scrubbing to 2030, with a stack
+through scene rendering. The resolver now reads the scene's shared date and a date
+refresh invalidates DeviceCoordinateCache. The mature footprint remains unchanged.
+The regression compares rendered canopy pixels at two dates. Its first sampler was
+itself wrong: the spacing ring's translucent fill covered the sampled region at both
+dates (40000/40000 pixels), so the final sampler explicitly disables that overlay.
+PDF text extraction may break lines between glyphs despite correct rendered layout;
+whitespace is normalized for content checks and rendered pages are inspected.

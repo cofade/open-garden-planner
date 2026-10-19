@@ -256,7 +256,7 @@ class CompanionPanel(QWidget):
 
         nearby: set[str] = set()
         for item in self._canvas_scene.items():  # type: ignore[attr-defined]
-            if item is selected_item:
+            if item is selected_item or not item.isVisible():
                 continue
             if not hasattr(item, "plant_species"):
                 continue
@@ -469,6 +469,8 @@ class CompanionPanel(QWidget):
             return []
         plants: list[str] = []
         for item in self._canvas_scene.items():
+            if not item.isVisible():
+                continue
             if not hasattr(item, "plant_species"):
                 continue
             # parent_bed_id is a property on GardenItem, not in metadata

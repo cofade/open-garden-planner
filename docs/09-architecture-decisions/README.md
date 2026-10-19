@@ -2942,3 +2942,60 @@ they work, well under the 0.4 threshold — every texture on the canvas would ha
 a solid colour. *Reachability is necessary, not sufficient: before promoting a dormant
 path, ask whether it earns the degradation it costs, and put the answer in front of the
 person who has to look at it.*
+
+## ADR-059: Plant lifetimes on the shared plan date (US-F4, #315)
+
+**Status:** Accepted for implementation; owner acceptance pending.
+
+### Context
+
+Season Manager copies a whole plan into a separate yearly file. Multi-year designs
+also need an in-plan view of plants before planting and after removal. ADR-053 already
+provides one local plan date through SimClock; another timeline date would split
+growth, shadows and visibility. The 2D sprite still read today's wall date, so it
+could disagree with the existing date-projected 3D canopy.
+
+### Decision
+
+- Keep SimClock as the only date state. The always available Plan Timeline toolbar
+  requests month starts and Today, while the existing Sun & Shade date picker offers
+  exact days. Time of day is preserved. The date is session state, never saved.
+- A plant is present on the half-open interval `[planting_date, removal_date)`.
+  Missing/malformed ISO bounds are open; a stored inverted interval has no present
+  day. UI edits reject removal on/before planting before changing data/history.
+  `removal_date` is optional additive `plant_instance` metadata; no FILE_VERSION bump.
+  Fresh creation stamps the active plan date. Copies and loads preserve saved dates.
+- CanvasScene combines presence with layer visibility; construction geometry retains
+  its separate tool toggle. Date edits use one ChangePropertyCommand per gesture.
+  Command stack changes, document loads and clock date changes reapply visibility.
+  Hidden plants cannot be selected, including marquee selection. The hidden-plant
+  menu names dates and can navigate to a present day to edit the plant again.
+- Companion, spacing, capacity, guild, canopy and sun diagnostics evaluate the visible
+  set. Hidden plants remain saved. API summary counts retain their existing counting
+  rule, and object lists retain absent plants with `present=false`; `as_of_date`
+  names the shared plan date. Runtime annotations live only in the API snapshot.
+- PNG/SVG/PDF/DXF export the current visible state. The PDF plant table excludes
+  hidden plants and every report page identifies a non-today plan date. An API layer
+  override may reveal a hidden layer but cannot reveal a date-absent plant.
+- Both 2D sprites and the existing shadow/heatmap/3D collectors use the shared date
+  with the unchanged US-E8 growth model. Sprites invalidate their cached paint after
+  a scrub; mature drawing geometry and spacing reservations remain unchanged.
+- Task reminders keep their real-world reference day (or an explicit API reference
+  day). Historical calendar windows end before removal; actionable plant tasks stop
+  once all instances of that species are removed. A surviving undated/later-removal
+  instance keeps the species schedule. Future sowing tasks are useful before planting
+  and are retained. Manual tasks and succession plans retain their independent dates.
+- Season Manager retains hard copies and its existing keep/remove-plants choice;
+  scrubbing never deletes objects or changes the season year.
+
+### Alternatives rejected and consequences
+
+A second slider date, deleting/recreating absent plants, and persisting the viewed
+date were rejected: they create conflicting simulations, undo mutations while viewing,
+or stale startup dates. Editing hidden plants requires navigation or undo, so their
+names and date bounds remain discoverable. This feature filters plant instances only;
+structure installation/removal dates and a new growth model are outside this story.
+
+Evidence: `tests/integration/test_plan_timeline.py` exercises real controls, history,
+save/load, diagnostics, rendered sprites and export artifacts; boundary and task
+aggregation tests live in `tests/unit/test_plan_timeline.py`.

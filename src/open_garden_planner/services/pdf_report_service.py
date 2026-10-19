@@ -339,7 +339,7 @@ def _render_plant_list(
 
     plant_items = [
         i for i in scene.items()
-        if hasattr(i, "object_type") and getattr(i, "object_type", None) in (
+        if i.isVisible() and hasattr(i, "object_type") and getattr(i, "object_type", None) in (
             ObjectType.TREE, ObjectType.SHRUB, ObjectType.PERENNIAL
         )
     ]
@@ -935,6 +935,16 @@ class PdfReportService:
                 elif page_type == "legend":
                     _render_legend(painter, page_rect, scene, opts)
 
+                day = getattr(scene, "plan_date", None)
+                if day is not None and day != date.today():
+                    painter.setFont(QFont("Arial", 8))
+                    painter.setPen(QColor("#333333"))
+                    painter.drawText(
+                        QRectF(page_rect.left(), page_rect.top(), page_rect.width(), _pt(6)),
+                        Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+                        _tr("Plan as of {date}").format(date=day.isoformat()),
+                    )
+
         finally:
             painter.end()
 
@@ -999,5 +1009,5 @@ class PdfReportService:
         return [
             item
             for item in scene.items()
-            if hasattr(item, "object_type") and is_bed_type(getattr(item, "object_type", None))
+            if item.isVisible() and hasattr(item, "object_type") and is_bed_type(getattr(item, "object_type", None))
         ]

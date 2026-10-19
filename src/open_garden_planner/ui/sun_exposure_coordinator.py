@@ -97,6 +97,9 @@ class SunExposureCoordinator(QObject):
         canopy_plants = []
         species_snapshots = {}
         for plant in plants:
+            if not plant.isVisible():
+                self._badge(plant, None, "")
+                continue
             identity = str(plant.item_id)
             species = plant.metadata.get("plant_species")
             species = species if isinstance(species, dict) else {}

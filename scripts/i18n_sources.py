@@ -195,6 +195,7 @@ class Sources:
                                 values.append((value.value, call.lineno))
                             elif (source_file, ast.unparse(value)) not in {
                                 ("ui/plant_traits.py", "field"),
+                                ("ui/plant_lifetime.py", "field"),
                                 ("ui/panels/properties_panel.py", "label"),
                                 ("ui/panels/properties_panel.py", "f'param:{name}'"),
                             }:
