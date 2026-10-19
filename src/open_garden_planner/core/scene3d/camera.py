@@ -1,4 +1,4 @@
-"""The orbit camera of the 3D workspace — pose, clamps, framing, damping (L1.3, ADR-064).
+"""The orbit camera of the 3D workspace — pose, clamps, framing, damping (L1.3, ADR-065).
 
 Qt-free, standard library only. The UI layer (``ui/view3d/``) owns ONE
 ``OrbitCamera`` per main window, forwards mouse, wheel and key input to it, steps
@@ -192,6 +192,13 @@ def frame_pose(bounds: Bounds, aspect: float, *, fov_deg: float = FOV_DEG,
     return CameraPose(center, _clamp(needed, MIN_DISTANCE_CM, MAX_DISTANCE_CM), yaw_deg, pitch_deg)
 
 
+def _nearest_turn(yaw_deg: float, near_deg: float) -> float:
+    """The angle that looks the same way as ``yaw_deg`` — a whole number of turns
+    away from it — and is nearest to ``near_deg``. No turn at all returns ``yaw_deg``
+    itself, bit for bit."""
+    return yaw_deg + 360.0 * round((near_deg - yaw_deg) / 360.0)
+
+
 def _damped(value: float, velocity: float, goal: float, stiffness: float,
             dt: float) -> tuple[float, float]:
     """One exact step of a critically damped spring: x(t) = (a + b t) e^(-w t)."""
@@ -290,9 +297,19 @@ class OrbitCamera:
     def frame(self, bounds: Bounds, aspect: float, *, fov_deg: float = FOV_DEG,
               snap: bool = False) -> None:
         """Head for the pose that shows the whole plan from the default side, and
-        take ``bounds`` as the pan limits. ``snap``: be there at once (first open)."""
+        take ``bounds`` as the pan limits. ``snap``: be there at once (first open).
+
+        The default side is reached by the SHORTEST turn. Yaw is free while
+        orbiting — six turns of the mouse are a yaw of 2,160 degrees more — and
+        aiming at the default yaw itself unwound every one of them (measured: from
+        2,477.5 degrees back to 317.5, six full spins). The goal is the equivalent
+        angle nearest to where the camera is; a snap lands on the default itself."""
         self._bounds = bounds
-        self._aim(frame_pose(bounds, aspect, fov_deg=fov_deg))
+        goal = frame_pose(bounds, aspect, fov_deg=fov_deg)
+        if not snap:
+            goal = CameraPose(goal.target, goal.distance_cm,
+                              _nearest_turn(goal.yaw_deg, self._pose.yaw_deg), goal.pitch_deg)
+        self._aim(goal)
         if snap:
             self.snap()
 

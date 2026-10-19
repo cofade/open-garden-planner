@@ -3,11 +3,13 @@
 ``ui/view3d/sync_controller.Scene3DController`` is the wiring between the plan and
 the 3D engine: change signals in, at most one pipeline pass per event-loop turn
 out. Everything here runs without a GPU — the sink is the recording double — and
-through the REAL signals: ``QGraphicsScene.changed``, the undo stack's
-``stack_changed`` and the sim clock's two channels. Gates of the story pinned here:
-G4 (paused while hidden; one catch-up pass that equals a from-scratch apply) and
-G9 (time → light only; date → the dated plants regrow, nothing else; a destroyed
-subscriber is never called).
+through the REAL signals: the scene's ``plan_changed`` (its plan revision: items,
+the undo stack, layers, the canvas size), ``QGraphicsScene.changed`` (a repaint —
+which starts no pass, only the net's quiet timer) and the sim clock's two channels.
+Gates of the story pinned here: G4 (paused while hidden; one catch-up pass that
+equals a from-scratch apply) and G9 (time → light only; date → the dated plants
+regrow, nothing else; a destroyed subscriber is never called; a repaint is not a
+snapshot). The same in the real main window: ``test_view3d_plan_revision.py``.
 """
 
 from __future__ import annotations
@@ -18,8 +20,9 @@ from typing import Any
 
 import pytest
 from PyQt6 import sip
-from PyQt6.QtCore import QPointF
+from PyQt6.QtCore import QPointF, QRectF
 from PyQt6.QtGui import QColor
+from PyQt6.QtWidgets import QApplication, QGraphicsRectItem, QGraphicsScene
 
 from open_garden_planner.core.commands import (
     CreateItemCommand,
@@ -51,6 +54,7 @@ from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 from open_garden_planner.ui.view3d import snapshot as snapshot_module
+from open_garden_planner.ui.view3d import sync_controller
 from open_garden_planner.ui.view3d.snapshot import SkipReason, snapshot_records
 from open_garden_planner.ui.view3d.sync_controller import (
     NO_LOCATION_SUN,
@@ -72,18 +76,21 @@ class Rig:
     the way the workspace wires them."""
 
     def __init__(self, view: CanvasView, qtbot: Any, *, location: dict[str, float] | None = None,
-                 sink: Any = None, registry: Any = None) -> None:
+                 sink: Any = None, registry: Any = None, quiet_ms: int | None = None) -> None:
         self.view, self.qtbot = view, qtbot
         self.scene = view.scene()
         self.commands = view.command_manager
         self.clock = SimClock(NOON)
         self.location = location
         self.sink = sink if sink is not None else RecordingSink()
+        # nothing else is wired: the scene announces its own plan (items, the undo
+        # stack, layers, the canvas size) and the controller listens to the scene
         self.controller = Scene3DController(
-            self.scene, self.clock, lambda: self.location, self.sink, registry)
-        self.commands.stack_changed.connect(self.controller.mark_dirty)
+            self.scene, self.clock, lambda: self.location, self.sink, registry,
+            **({} if quiet_ms is None else {"quiet_ms": quiet_ms}))
         self.reports: list[TickReport] = []
         self.controller.applied.connect(self.reports.append)
+        self.item: Any = None   # the net's tests keep their one bed here
 
     def settle(self) -> list[tuple[str, str | None]]:
         """Let the event loop run until the pipeline is quiet; the sink calls since
@@ -237,11 +244,13 @@ def test_an_edit_session_sends_the_minimal_calls_one_pass_per_turn(rig: Rig) -> 
     rig.commands.undo()
     assert rig.settle() == [BEGIN, ("add", bed_id), COMMIT]
 
-    bed.setSelected(True)     # a selection repaints the scene: a pass, and nothing to send
+    snapshots = rig.controller.snapshot_count
+    bed.setSelected(True)     # a selection repaints the scene: no pass, and nothing to send
     bed.setSelected(False)
-    assert rig.settle() == []
+    assert rig.settle() == [] and rig.controller.snapshot_count == snapshots
     rig.assert_equals_a_from_scratch_apply()
     assert rig.controller.recovery_count == 0 and rig.controller.last_error is None
+    assert rig.controller.unannounced_changes == 0, "every edit above announced itself"
 
 
 def test_many_edits_in_one_turn_of_the_event_loop_are_one_snapshot(rig: Rig) -> None:
@@ -256,12 +265,11 @@ def test_many_edits_in_one_turn_of_the_event_loop_are_one_snapshot(rig: Rig) -> 
     assert rig.recorder.ops() == [BEGIN, ("update_transform", str(bed.item_id)), COMMIT]
 
 
-def test_one_command_is_one_snapshot_although_two_signals_announce_it(rig: Rig) -> None:
-    """A command fires the undo stack's ``stack_changed`` at once and the scene's
-    ``changed`` a moment later (it is queued). Both mark the plan dirty; the pass is a
-    posted event of NORMAL priority, which Qt delivers after the scene's own queued
-    signal — so the two share one pass. (Posted at high priority the pass ran first
-    and ``changed`` cost a second whole-plan snapshot per edit: measured, ADR-065.)"""
+def test_one_command_is_one_snapshot_although_several_signals_announce_it(rig: Rig) -> None:
+    """A move by command announces itself more than once — the item's own notice, the
+    undo stack's ``stack_changed`` — and the scene's ``changed`` follows a moment later
+    (it is queued). The announcements share one pass (a posted event, one per turn),
+    and the repaint is explained by them: it starts nothing."""
     bed = rig.bed()
     rig.controller.set_active(True)
     rig.settle()
@@ -275,8 +283,8 @@ def test_one_command_is_one_snapshot_although_two_signals_announce_it(rig: Rig) 
 
 
 def test_a_height_typed_into_the_metadata_reaches_3d_through_the_undo_stack_signal(rig: Rig) -> None:
-    """A metadata-only edit repaints nothing, so ``scene.changed`` stays silent: the
-    undo stack's ``stack_changed`` is the second trigger (the shadow overlay's rule)."""
+    """A metadata-only edit repaints nothing and moves no item: the undo stack's
+    ``stack_changed`` is its announcement (the scene's plan revision follows it)."""
     bed = rig.bed()
     rig.controller.set_active(True)
     rig.settle()
@@ -285,13 +293,25 @@ def test_a_height_typed_into_the_metadata_reaches_3d_through_the_undo_stack_sign
     assert rig.settle() == [BEGIN, ("replace_geometry", str(bed.item_id)), COMMIT]
 
 
+def test_a_metadata_write_round_the_undo_stack_reaches_3d_through_the_nudge(rig: Rig) -> None:
+    """… and a writer that goes round the stack too says so itself:
+    ``CanvasScene.note_plan_changed()`` — at once, not after the quiet time."""
+    bed = rig.bed()
+    rig.controller.set_active(True)
+    rig.settle()
+    bed.metadata[METADATA_KEY] = 75.0
+    rig.scene.note_plan_changed()
+    assert rig.settle() == [BEGIN, ("replace_geometry", str(bed.item_id)), COMMIT]
+    assert rig.reports[-1].reconciled is False and rig.controller.unannounced_changes == 0
+
+
 def test_an_edit_reaches_3d_while_the_canvas_itself_is_hidden(rig: Rig) -> None:
-    """3D mode hides the canvas view. ``QGraphicsScene.changed`` does not need a view."""
+    """3D mode hides the canvas view. An item's own notice does not need a view."""
     bed = rig.bed()
     rig.view.hide()
     rig.controller.set_active(True)
     rig.settle()
-    bed.setPos(bed.pos() + QPointF(50.0, 0.0))   # no command, no stack signal: the scene alone
+    bed.setPos(bed.pos() + QPointF(50.0, 0.0))   # no command, no stack signal: the item alone
     assert rig.settle() == [BEGIN, ("update_transform", str(bed.item_id)), COMMIT]
 
 
@@ -302,6 +322,369 @@ def test_a_resized_canvas_moves_the_ground(rig: Rig) -> None:
     assert rig.settle() == [BEGIN, GROUND, COMMIT]
     assert rig.recorder.ground == GroundSpec(8000.0, 6000.0)
     assert rig.controller.plan_bounds() == Bounds.of_plan(8000.0, 6000.0, 0.0)
+
+
+# ── the net: a repaint is not an edit; an edit nobody announced still arrives ──
+#
+# ``QGraphicsScene.changed`` fires for every repaint. It starts no pass (the reviewer
+# counted, in the real window: 10 time changes with the sun simulation on = 10 whole-
+# plan snapshots, 20 preview mouse moves = 20). It (re)starts one quiet timer, and
+# after the quiet time one reconciliation pass runs — which finds nothing unless an
+# edit path forgot to announce itself.
+
+QUIET = 150   # ms — the net's quiet time in these tests (the app's: NET_QUIET_MS)
+
+
+def _net_rig(canvas: CanvasView, qtbot: Any, **options: Any) -> Rig:
+    rig = Rig(canvas, qtbot, quiet_ms=QUIET, **options)
+    rig.item = rig.bed()
+    rig.controller.set_active(True)
+    rig.qtbot.wait(QUIET * 3)   # the first pass — and whatever its own repaint asked for
+    rig.recorder.clear_calls()
+    return rig
+
+
+def _turns(count: int = 3) -> None:
+    """Let queued signals and posted events be delivered — without letting time pass."""
+    for _ in range(count):
+        QApplication.processEvents()
+
+
+def _select(rig: Rig) -> None:
+    rig.item.setSelected(not rig.item.isSelected())
+
+
+def _preview(rig: Rig) -> None:
+    rubber = QGraphicsRectItem(QRectF(100.0, 100.0, 40.0, 30.0))
+    rig.scene.addItem(rubber)
+    _turns(1)
+    rubber.setRect(QRectF(100.0, 100.0, 80.0, 60.0))
+    _turns(1)
+    rig.scene.removeItem(rubber)
+
+
+@pytest.mark.parametrize("repaint", [
+    _select, _preview, lambda rig: rig.item.update(), lambda rig: rig.scene.update(),
+    lambda rig: rig.item.setOpacity(0.5 if rig.item.opacity() == 1.0 else 1.0),
+], ids=["selection", "tool_preview", "item_update", "scene_update", "opacity"])
+def test_a_repaint_takes_no_snapshot_and_one_reconciliation_once_the_scene_is_quiet(
+        canvas: CanvasView, qtbot, repaint: Any) -> None:
+    rig = _net_rig(canvas, qtbot)
+    controller = rig.controller
+    snapshots, reconciled = controller.snapshot_count, controller.reconcile_count
+    changed: list[int] = []
+    rig.scene.changed.connect(lambda *_regions: changed.append(1))
+    for _ in range(20):
+        repaint(rig)
+        _turns()
+    assert len(changed) >= 10, "the scene did repaint, again and again"
+    assert controller.snapshot_count == snapshots, "… and not one snapshot was taken for it"
+    assert rig.recorder.ops() == []
+    qtbot.wait(QUIET * 3)
+    assert controller.snapshot_count == snapshots + 1, "ONE pass, once the scene was quiet"
+    assert controller.reconcile_count == reconciled + 1
+    report = rig.reports[-1]
+    assert report.reconciled is True and report.snapshot is True and report.changes.is_empty
+    assert rig.recorder.ops() == [], "it found nothing: no engine call"
+    assert controller.unannounced_changes == 0
+    qtbot.wait(QUIET * 3)
+    assert controller.snapshot_count == snapshots + 1, "and then nothing: no timer spins"
+
+
+def test_the_apps_quiet_time_is_twice_the_sun_animations_tick() -> None:
+    """While "Animate" runs, the shadows repaint every tick. A quiet time below the tick
+    would reconcile BETWEEN two ticks — a snapshot per tick again."""
+    from open_garden_planner.ui.widgets import sun_sim_toolbar
+
+    assert sync_controller.NET_QUIET_MS == 400
+    assert sync_controller.NET_QUIET_MS >= 2 * sun_sim_toolbar._ANIMATE_INTERVAL_MS
+    assert sync_controller.NET_MAX_WAIT_S * 1000.0 > 10 * sync_controller.NET_QUIET_MS
+
+
+def test_an_edit_nobody_announced_is_in_3d_after_the_quiet_time_and_is_counted(
+        canvas: CanvasView, qtbot, caplog: pytest.LogCaptureFixture) -> None:
+    """A writer that changes what an item IS — here its height, in ``metadata`` —
+    without a command, without moving it and without the nudge, but with a repaint
+    (the shipped ad-hoc "nudge" was ``item.update()``). Nothing announces it; the net
+    finds it: applied after the quiet time, counted, one DEBUG line that says what
+    KIND of difference it was and names no item."""
+    rig = _net_rig(canvas, qtbot)
+    controller, bed = rig.controller, rig.item
+    with caplog.at_level(logging.DEBUG, logger=LOGGER):
+        bed.metadata[METADATA_KEY] = 75.0
+        bed.update()
+        _turns()
+        assert rig.recorder.ops() == [] and controller.unannounced_changes == 0, "not at once"
+        qtbot.wait(QUIET * 3)
+    assert rig.recorder.ops() == [BEGIN, ("replace_geometry", str(bed.item_id)), COMMIT]
+    assert controller.unannounced_changes == 1 and rig.reports[-1].reconciled is True
+    said = [record for record in caplog.records
+            if record.name == LOGGER and "without an announcement" in record.getMessage()]
+    assert [(record.levelno, record.getMessage()) for record in said] == [(logging.DEBUG, (
+        "3D sync: the plan changed without an announcement (geometry 1); the quiet-time "
+        "pass found and applied it"))]
+    assert str(bed.item_id) not in said[0].getMessage()
+    rig.assert_equals_a_from_scratch_apply()
+    # the same edit ANNOUNCED is there at once and counts nothing
+    rig.recorder.clear_calls()
+    bed.metadata[METADATA_KEY] = 90.0
+    rig.scene.note_plan_changed()
+    assert rig.settle() == [BEGIN, ("replace_geometry", str(bed.item_id)), COMMIT]
+    assert controller.unannounced_changes == 1
+
+
+def test_a_write_that_neither_announces_nor_repaints_waits_for_the_next_repaint(
+        canvas: CanvasView, qtbot) -> None:
+    """The limit, stated: the net is started by a repaint. A write that tells nobody
+    AND paints nothing is invisible to everything that follows the scene, until
+    anything at all repaints it — a hover is enough."""
+    rig = _net_rig(canvas, qtbot)
+    controller, bed = rig.controller, rig.item
+    bed.metadata[METADATA_KEY] = 75.0
+    qtbot.wait(QUIET * 3)
+    assert rig.recorder.ops() == [] and controller.unannounced_changes == 0
+    bed.setSelected(True)                       # any repaint
+    qtbot.wait(QUIET * 3)
+    assert rig.recorder.ops() == [BEGIN, ("replace_geometry", str(bed.item_id)), COMMIT]
+    assert controller.unannounced_changes == 1
+
+
+def test_a_pass_for_an_announced_change_leaves_the_net_nothing_to_do(
+        canvas: CanvasView, qtbot) -> None:
+    """A repaint started the quiet timer; then an announced change runs its pass, and
+    that pass read the whole plan: the timer is stopped, and the edit's own repaint —
+    explained by its announcement — does not start it again."""
+    rig = _net_rig(canvas, qtbot)
+    controller, bed = rig.controller, rig.item
+    snapshots, reconciled = controller.snapshot_count, controller.reconcile_count
+    bed.update()
+    _turns()
+    rig.commands.execute(MoveItemsCommand([bed], QPointF(25.0, 0.0)))
+    qtbot.wait(QUIET * 3)
+    assert rig.recorder.ops() == [BEGIN, ("update_transform", str(bed.item_id)), COMMIT]
+    assert controller.snapshot_count == snapshots + 1
+    assert controller.reconcile_count == reconciled and rig.reports[-1].reconciled is False
+
+
+def test_a_repaint_after_the_pass_of_its_announcement_starts_no_quiet_timer(
+        canvas: CanvasView, qtbot) -> None:
+    """A writer that nudges FIRST and repaints after (``note_plan_changed()``, then
+    ``item.update()``): the pass is posted before the scene's queued ``changed``, runs
+    first, and the repaint arrives with no pass owed. It is still explained — the
+    revision moved since the last repaint — so it starts no quiet timer: an announced
+    edit costs ONE snapshot, not a second one 400 ms later that finds nothing."""
+    rig = _net_rig(canvas, qtbot)
+    controller, bed = rig.controller, rig.item
+    snapshots, reconciled = controller.snapshot_count, controller.reconcile_count
+    bed.metadata[METADATA_KEY] = 75.0
+    rig.scene.note_plan_changed()               # the pass is posted now …
+    bed.update()                                # … the scene's changed after it
+    _turns()
+    assert controller.snapshot_count == snapshots + 1, "the announced pass ran"
+    assert controller.idle, "the repaint after it was explained: no quiet timer"
+    qtbot.wait(QUIET * 3)
+    assert controller.snapshot_count == snapshots + 1
+    assert controller.reconcile_count == reconciled and controller.unannounced_changes == 0
+
+
+def test_a_quiet_time_cut_short_by_hiding_is_owed_when_3d_comes_back(
+        canvas: CanvasView, qtbot) -> None:
+    """An unannounced write was repainted and the quiet timer ran — then 3D was hidden
+    before it fired, and nothing repainted while it was hidden. Coming back owes that
+    look: the timer starts again, and the write reaches 3D one quiet time later."""
+    rig = _net_rig(canvas, qtbot)
+    controller, bed = rig.controller, rig.item
+    bed.metadata[METADATA_KEY] = 75.0           # no command, no nudge …
+    bed.update()                                # … a repaint only
+    _turns()
+    assert not controller.idle, "the quiet timer runs"
+    controller.set_active(False)                # hidden before it fires
+    qtbot.wait(QUIET * 3)
+    assert rig.recorder.ops() == [] and controller.unannounced_changes == 0
+    controller.set_active(True)                 # nothing was repainted in between
+    qtbot.wait(QUIET * 3)
+    assert rig.recorder.ops() == [BEGIN, ("replace_geometry", str(bed.item_id)), COMMIT]
+    assert controller.unannounced_changes == 1
+
+
+def test_the_net_does_not_run_while_3d_is_hidden_and_once_when_it_comes_back(
+        canvas: CanvasView, qtbot) -> None:
+    rig = _net_rig(canvas, qtbot)
+    controller, bed = rig.controller, rig.item
+    snapshots = controller.snapshot_count
+    bed.update()
+    _turns()                                    # the timer runs …
+    controller.set_active(False)                # … and 3D is hidden before it fires
+    bed.metadata[METADATA_KEY] = 75.0           # an unannounced edit while hidden
+    bed.update()
+    qtbot.wait(QUIET * 3)
+    assert controller.snapshot_count == snapshots and rig.recorder.ops() == []
+    assert controller.dirty is False, "a repaint is not a change of the plan"
+    controller.set_active(True)
+    _turns()
+    assert controller.snapshot_count == snapshots, "coming back is not a pass either"
+    qtbot.wait(QUIET * 3)
+    assert controller.snapshot_count == snapshots + 1 and controller.unannounced_changes == 1
+    assert rig.recorder.ops() == [BEGIN, ("replace_geometry", str(bed.item_id)), COMMIT]
+    # hidden and shown with nothing repainted in between: nothing at all
+    controller.set_active(False)
+    controller.set_active(True)
+    qtbot.wait(QUIET * 3)
+    assert controller.snapshot_count == snapshots + 1
+
+
+def test_a_scene_that_is_never_quiet_is_reconciled_after_the_longest_wait(
+        canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The sun animated for minutes repaints every 200 ms: the quiet time never
+    comes. After ``NET_MAX_WAIT_S`` of repaints the pass runs with the next turn."""
+    import time as real_time
+    import types
+
+    now = [1000.0]
+    monkeypatch.setattr(sync_controller, "time", types.SimpleNamespace(
+        monotonic=lambda: now[0], perf_counter=real_time.perf_counter))
+    rig = Rig(canvas, qtbot, quiet_ms=60_000)   # a quiet time that never comes in this test
+    bed = rig.bed()
+    rig.controller.set_active(True)
+    rig.settle()
+    controller = rig.controller
+    snapshots = controller.snapshot_count
+    for second in range(4):                     # four seconds of repaints: inside the wait
+        now[0] = 1000.0 + second
+        bed.update()
+        _turns()
+        qtbot.wait(20)
+    assert controller.snapshot_count == snapshots
+    now[0] = 1000.0 + sync_controller.NET_MAX_WAIT_S + 0.5
+    bed.metadata[METADATA_KEY] = 75.0           # (unannounced, to see the pass apply it)
+    bed.update()
+    _turns()
+    qtbot.wait(40)
+    assert controller.snapshot_count == snapshots + 1 and rig.reports[-1].reconciled is True
+    assert controller.unannounced_changes == 1
+    now[0] += 1.0                               # the next run of repaints starts a new wait
+    bed.update()
+    _turns()
+    qtbot.wait(40)
+    assert controller.snapshot_count == snapshots + 1
+
+
+def test_a_net_that_fires_while_an_announced_pass_is_on_its_way_stands_down(
+        canvas: CanvasView, qtbot) -> None:
+    """A controller whose pass waits LONGER than the quiet time (``tick_ms`` above it;
+    the app's is 0): the quiet timer of an earlier repaint fires while an ANNOUNCED pass
+    is still on its way. The net stands down — that pass reads everything — so the
+    change is applied once, by its own pass, and never counted as one nobody announced."""
+    scene = canvas.scene()
+    bed = RectangleItem(400.0, 300.0, 300.0, 200.0, object_type=ObjectType.RAISED_BED,
+                        layer_id=scene.active_layer.id)
+    canvas.command_manager.execute(CreateItemCommand(scene, bed, "bed"))
+    sink = RecordingSink()
+    controller = Scene3DController(scene, SimClock(NOON), lambda: None, sink,
+                                   quiet_ms=QUIET, tick_ms=QUIET * 4)
+    controller.set_active(True)
+    qtbot.waitUntil(lambda: controller.apply_count >= 1 and controller.idle, timeout=5000)
+    sink.clear_calls()
+    applies = controller.apply_count
+    reconciled, snapshots = controller.reconcile_count, controller.snapshot_count
+    bed.update()                                # an unexplained repaint: the quiet timer runs
+    _turns()
+    bed.metadata[METADATA_KEY] = 75.0
+    scene.note_plan_changed()                   # announced; its pass waits QUIET * 4
+    qtbot.waitUntil(lambda: controller.apply_count > applies and controller.idle, timeout=5000)
+    assert sink.ops() == [BEGIN, ("replace_geometry", str(bed.item_id)), COMMIT]
+    assert controller.snapshot_count == snapshots + 1, "one pass, not the net's and then its own"
+    assert controller.reconcile_count == reconciled and controller.unannounced_changes == 0
+    assert controller.last_tick is not None and controller.last_tick.reconciled is False
+    controller.shutdown()
+
+
+def test_a_scene_that_announces_nothing_is_kept_in_step_by_the_net_alone(qtbot) -> None:
+    """A plain ``QGraphicsScene`` has no plan revision. The controller still follows
+    it — late by the quiet time, and every edit counted as unannounced."""
+    scene = QGraphicsScene()
+    scene.setSceneRect(QRectF(0.0, 0.0, 5000.0, 3000.0))
+    bed = RectangleItem(400.0, 300.0, 300.0, 200.0, object_type=ObjectType.RAISED_BED)
+    scene.addItem(bed)
+    sink = RecordingSink()
+    controller = Scene3DController(scene, SimClock(NOON), lambda: None, sink, quiet_ms=QUIET)
+    controller.set_active(True)
+    qtbot.wait(QUIET * 3)
+    assert sink.item_ids() == (str(bed.item_id),)
+    sink.clear_calls()
+    bed.setPos(bed.pos() + QPointF(50.0, 0.0))
+    _turns()
+    assert sink.ops() == []
+    qtbot.wait(QUIET * 3)
+    assert sink.ops() == [BEGIN, ("update_transform", str(bed.item_id)), COMMIT]
+    assert controller.unannounced_changes == 1
+    controller.shutdown()
+
+
+def test_a_failing_pass_is_not_tried_again_by_a_repaint_and_says_so_once(
+        canvas: CanvasView, qtbot, caplog: pytest.LogCaptureFixture) -> None:
+    """An engine that is gone for good: every change of the plan tries again (nothing
+    is lost) — a repaint does not. And the log gets ONE ERROR line per distinct failure
+    of the outage, not two per failed pass; the same failure again is a DEBUG line. The
+    next pass that goes through ends the outage, and a new one is said again."""
+    sink = FailingSink()
+    rig = _net_rig(canvas, qtbot, sink=sink)
+    controller, bed = rig.controller, rig.item
+    errors: list[str] = []
+    controller.failed.connect(errors.append)
+    sink.fail_on, sink.failures_left = "begin", 10**6
+    with caplog.at_level(logging.DEBUG, logger=LOGGER):
+        for index in range(5):
+            rig.commands.execute(MoveItemsCommand([bed], QPointF(1.0 + index, 0.0)))
+            rig.settle()
+        lines, debug = _own_records(caplog)
+        assert [line.split(" (RuntimeError: ")[0] for line in lines] == [
+            "3D sync: a pass failed; resetting the 3D scene and applying again",
+            "3D sync: the 3D scene could not be rebuilt"], "two lines for five failed passes"
+        again = [record.getMessage() for record in debug if record.getMessage().endswith("- again")]
+        # the four passes after the first find the sync refusing every apply (it knows
+        # an engine call failed) and go straight to the rebuild — which fails the same way
+        assert len(again) == 4 and all("could not be rebuilt" in line for line in again)
+        assert len(errors) == 5, "every change of the plan tried again"
+
+        reconciled = controller.reconcile_count
+        for _ in range(5):                      # repaints, and the quiet time after them
+            bed.update()
+            _turns()
+        qtbot.wait(QUIET * 3)
+        assert len(errors) == 5 and controller.reconcile_count == reconciled, (
+            "a repaint is no reason to try a failing pass again")
+        assert controller.dirty is True
+
+        sink.failures_left = 0                  # the engine is back
+        rig.commands.execute(MoveItemsCommand([bed], QPointF(1.0, 0.0)))
+        rig.settle()
+        assert controller.last_error is None
+        rig.assert_equals_a_from_scratch_apply()
+
+        caplog.clear()
+        sink.failures_left = 2                  # … and gone again: a NEW outage
+        rig.commands.execute(MoveItemsCommand([bed], QPointF(1.0, 0.0)))
+        rig.settle()
+        lines, _debug = _own_records(caplog)
+        assert len(lines) == 2, "said again: the outage before it had ended"
+
+
+def test_a_failure_that_recovers_every_time_is_said_once_too(
+        canvas: CanvasView, qtbot, caplog: pytest.LogCaptureFixture) -> None:
+    """A sink that fails every move and recovers through the reset: each pass goes
+    through in the end, but not CLEANLY — the outage is not over, one line says it."""
+    sink = FailingSink()
+    rig = _net_rig(canvas, qtbot, sink=sink)
+    bed = rig.item
+    with caplog.at_level(logging.DEBUG, logger=LOGGER):
+        for index in range(4):
+            sink.fail_on, sink.failures_left = "update_transform", 1
+            rig.commands.execute(MoveItemsCommand([bed], QPointF(1.0 + index, 0.0)))
+            rig.settle()
+        lines, _debug = _own_records(caplog)
+    assert rig.controller.recovery_count == 4
+    assert len(lines) == 1 and "resetting the 3D scene" in lines[0]
 
 
 # ── G9: the sim clock ────────────────────────────────────────────────────────
@@ -509,7 +892,8 @@ def test_a_sink_that_keeps_failing_is_given_up_for_this_pass_and_tried_again_lat
     rig.assert_equals_a_from_scratch_apply()
 
 
-def test_a_poisoned_sync_is_recovered_by_the_next_pass(rig: Rig) -> None:
+def test_a_poisoned_sync_is_recovered_by_the_next_pass(
+        rig: Rig, caplog: pytest.LogCaptureFixture) -> None:
     bed = rig.bed()
     rig.controller.set_active(True)
     rig.settle()
@@ -517,11 +901,18 @@ def test_a_poisoned_sync_is_recovered_by_the_next_pass(rig: Rig) -> None:
         rig.controller.sync._transact(lambda: rig.recorder.remove("nobody"))
     assert rig.controller.sync.poisoned is True
     rig.recorder.clear_calls()
-    rig.commands.execute(MoveItemsCommand([bed], QPointF(5.0, 0.0)))
-    calls = rig.settle()
+    with caplog.at_level(logging.DEBUG, logger=LOGGER):
+        rig.commands.execute(MoveItemsCommand([bed], QPointF(5.0, 0.0)))
+        calls = rig.settle()
     assert rig.controller.recovery_count == 1 and calls[0] == ("clear", None)
     assert rig.controller.sync.poisoned is False
     rig.assert_equals_a_from_scratch_apply()
+    # the pass does not run into the sync's refusal first: it rebuilds, and — nobody
+    # having logged the failed call — says once why
+    lines, _debug = _own_records(caplog)
+    assert lines == ["3D sync: the 3D scene was left in an unknown state by a failed engine "
+                     "call; rebuilding it"]
+    assert rig.reports[-1].recovered is True
 
 
 def test_reset_after_the_engine_scene_was_rebuilt_sends_everything_again(rig: Rig) -> None:
@@ -698,8 +1089,6 @@ def _own_records(caplog: pytest.LogCaptureFixture) -> tuple[list[str], list[logg
 
 def test_a_plan_that_cannot_be_read_is_one_log_line(
         rig: Rig, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
-    from open_garden_planner.ui.view3d import sync_controller
-
     def unreadable(*_arguments: Any, **_options: Any) -> dict:
         raise RuntimeError("item 'x'" + FORGED)
 

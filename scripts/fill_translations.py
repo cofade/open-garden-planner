@@ -3227,18 +3227,34 @@ _L13_WORKSPACE_TRANSLATIONS: dict[str, dict[str, str]] = {
         "is not affected.\n\nDetails: {error}":
             "3D ist auf dieser Grafikhardware nicht verfügbar. Der Rest der Anwendung "
             "ist nicht betroffen.\n\nDetails: {error}",
-        "Use Compatibility Mode Next Time": "Beim nächsten Start Kompatibilitätsmodus verwenden",
+        "Use Compatibility Mode Next Time": "Kompatibilitätsmodus verwenden",
         "3D is running in compatibility mode (software rendering) because "
         "it did not start properly last time.":
             "3D läuft im Kompatibilitätsmodus (Software-Rendering), weil es beim "
             "letzten Mal nicht richtig gestartet ist.",
         "3D is running in compatibility mode (software rendering).":
             "3D läuft im Kompatibilitätsmodus (Software-Rendering).",
-        "Try Hardware Next Time": "Beim nächsten Start Hardware versuchen",
+        "Try Hardware Next Time": "Hardware wieder versuchen",
+        "Show List": "Liste zeigen",
         "Hardware rendering will be tried the next time the application starts.":
             "Beim nächsten Start der Anwendung wird Hardware-Rendering versucht.",
         "Compatibility mode will be used the next time the application starts.":
             "Beim nächsten Start der Anwendung wird der Kompatibilitätsmodus verwendet.",
+        "Compatibility mode (software rendering) is switched on.":
+            "Der Kompatibilitätsmodus (Software-Rendering) ist eingeschaltet.",
+        "3D is switched off: it did not start in compatibility mode "
+        "(software rendering) either.":
+            "3D ist ausgeschaltet: Es ist auch im Kompatibilitätsmodus "
+            "(Software-Rendering) nicht gestartet.",
+        "3D is switched off on this computer: it did not start, not even in "
+        "compatibility mode (software rendering). The rest of the application is "
+        "not affected.":
+            "3D ist auf diesem Computer ausgeschaltet: Es ist nicht gestartet, auch nicht "
+            "im Kompatibilitätsmodus (Software-Rendering). Der Rest der Anwendung ist "
+            "nicht betroffen.",
+        "The setting could not be changed. Details are in the log file.":
+            "Die Einstellung konnte nicht geändert werden. Details stehen in der "
+            "Protokolldatei.",
     },
     "View3DProblemsDialog": {
         "Not Shown in 3D": "In 3D nicht angezeigt",
@@ -3246,17 +3262,18 @@ _L13_WORKSPACE_TRANSLATIONS: dict[str, dict[str, str]] = {
         "Double-click an entry to select the object on the plan.":
             "Diese Objekte sind im Plan, können aber in der 3D-Ansicht nicht gezeigt "
             "werden. Ein Doppelklick auf einen Eintrag wählt das Objekt im Plan aus.",
-        "its shape could not be worked out": "seine Form konnte nicht ermittelt werden",
+        "its shape could not be worked out": "die Form konnte nicht ermittelt werden",
         "another object on the plan has the same internal id":
             "ein anderes Objekt im Plan hat dieselbe interne Kennung",
         "its outline cannot be turned into a solid":
-            "sein Umriss lässt sich nicht in einen Körper umsetzen",
+            "der Umriss lässt sich nicht in einen Körper umsetzen",
         "its outline has too many points for the 3D view":
-            "sein Umriss hat zu viele Punkte für die 3D-Ansicht",
+            "der Umriss hat zu viele Punkte für die 3D-Ansicht",
         "one of its sizes is outside what the 3D view can show":
-            "eine seiner Abmessungen liegt außerhalb dessen, was die 3D-Ansicht zeigen kann",
-        "its 3D model could not be built": "sein 3D-Modell konnte nicht gebaut werden",
-        "it could not be shown": "es konnte nicht angezeigt werden",
+            "eine der Abmessungen liegt außerhalb dessen, was die 3D-Ansicht zeigen kann",
+        "its 3D model could not be built": "das 3D-Modell konnte nicht gebaut werden",
+        "it could not be shown": "die Anzeige ist nicht möglich",
+        "… and {count} more": "… und {count} weitere",
         "{name} ({kind}): {reason}": "{name} ({kind}): {reason}",
         "{kind}: {reason}": "{kind}: {reason}",
     },

@@ -87,6 +87,25 @@ def test_every_literal_has_a_finished_german_translation(context: str, literal: 
         f"{literal!r} and its translation end differently")
 
 
+#: German possessives and pronouns that agree with the GENDER of what they refer to.
+_GENDERED = ("sein ", "seine ", "seinen ", "seiner ", "seines ", "seinem ", "es ")
+
+
+def test_no_german_reason_guesses_the_gender_of_the_object() -> None:
+    """A reason is shown after ANY kind of object — "Hochbeet (neutral): sein Umriss …"
+    reads right, "Hecke (feminine): sein Umriss …" does not. The English "its" has no
+    gender; the German says "der Umriss", "die Form", "das 3D-Modell" instead
+    (review 1, P2-14)."""
+    german = _german()
+    reasons = [literal for context, literal, _how in LITERALS
+               if context == "View3DProblemsDialog" and literal.startswith(("its ", "it ", "one of its"))]
+    assert len(reasons) >= 6, "the scan finds the reason sentences"
+    for literal in reasons:
+        text = german[("View3DProblemsDialog", literal)][0]
+        lowered = f" {text.lower()}"
+        assert not any(f" {word}" in lowered for word in _GENDERED), (literal, text)
+
+
 def test_the_compiled_catalogue_answers_for_both_contexts(qtbot) -> None:  # noqa: ARG001
     """Through Qt itself: the .qm that ships, asked the way ``self.tr`` asks."""
     translator = QTranslator()
@@ -100,7 +119,7 @@ def test_the_compiled_catalogue_answers_for_both_contexts(qtbot) -> None:  # noq
             "1 Objekt wird in 3D nicht angezeigt")
         assert QCoreApplication.translate(
             "View3DProblemsDialog", "its outline has too many points for the 3D view") == (
-            "sein Umriss hat zu viele Punkte für die 3D-Ansicht")
+            "der Umriss hat zu viele Punkte für die 3D-Ansicht")
     finally:
         app.removeTranslator(translator)
 

@@ -369,7 +369,7 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         Exits vertex edit mode when deselected.
         Updates annotations when position changes.
         """
-        self.handle_selection_change_for_cache(change, value)
+        self.handle_item_change(change, value)
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
             if value:  # Being selected
                 # Only show resize/rotation handles if not in vertex edit mode

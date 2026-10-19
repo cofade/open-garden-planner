@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import time as stopwatch
+import weakref
 from datetime import date, time
 from pathlib import Path
 from typing import Any
@@ -43,8 +44,16 @@ from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 from open_garden_planner.ui.view3d import sync_controller
 from open_garden_planner.ui.view3d import workspace as workspace_module
-from open_garden_planner.ui.view3d.init_guard import COMPAT_NAME, Init3DGuard, marker_name
+from open_garden_planner.ui.view3d.init_guard import (
+    COMPAT_NAME,
+    MAX_INIT_S,
+    Init3DGuard,
+    ModeReason,
+    RenderMode,
+    marker_name,
+)
 from open_garden_planner.ui.view3d.workspace import (
+    MAX_PROBLEM_ROWS,
     MIN_PANE_WIDTH,
     View3DState,
     Workspace,
@@ -56,6 +65,9 @@ from tests.integration.test_view3d_sync_controller import NOON
 PLAN, VIEW3D, SPLIT = WorkspaceMode.PLAN, WorkspaceMode.VIEW3D, WorkspaceMode.SPLIT
 ME = 4242
 NOTICE = "Building the 3D view\N{HORIZONTAL ELLIPSIS}"
+#: A canvas view -> the bench window it was put into (``Bench``): strong while the view's
+#: wrapper lives, gone with it.
+_WINDOW_OF_VIEW: weakref.WeakKeyDictionary[QWidget, QWidget] = weakref.WeakKeyDictionary()
 
 
 class FakeHealth:
@@ -122,6 +134,28 @@ class FakeHost:
             self.widget.deleteLater()
 
 
+def pipeline_settled(workspace: Workspace) -> bool:
+    """No pass of the 3D pipeline is on its way: no first pass held for its notice,
+    none posted, none on the catch-up timer. A CONDITION to wait for, never a fixed
+    wait: a held first pass runs once its "Building the 3D view…" notice was PAINTED,
+    or ``BUILD_NOTICE_WAIT_MS`` after it was asked for when the label is not painted
+    — measured about 55 ms with the paint and 300 ms without, and a loaded CI runner
+    can be the second case (a test that read 120 ms after the switch went red there).
+    The net's quiet timer is not waited for: where it matters it is the subject."""
+    if workspace._build_pending:
+        return False
+    controller = workspace.controller
+    if controller is None or not controller.active:
+        return True
+    return not (controller._posted or controller._timer.isActive())
+
+
+def wait_for_pipeline(workspace: Workspace, qtbot: Any, ms: int = 80) -> None:
+    """Let the event loop run ``ms``, then until ``pipeline_settled``."""
+    qtbot.wait(ms)
+    qtbot.waitUntil(lambda: pipeline_settled(workspace), timeout=5000)
+
+
 class Bench:
     """A window with the workspace in it, the engine replaced at the seam."""
 
@@ -142,6 +176,15 @@ class Bench:
         self.workspace = Workspace(view, engine_factory=self._factory, guard=self.guard)
         self.workspace.connect_plan(self.scene, self.clock, lambda: None, self.commands, ui_state)
         layout.addWidget(self.workspace)
+        # The canvas view now lives in this window, and pytest-qt holds the widgets it
+        # closes WEAKLY, before any fixture is torn down. A Bench that is a local of the
+        # test is cyclic garbage once the test returns; when the collector runs before
+        # pytest-qt's teardown it frees this window — and the view inside it — and closing
+        # the view the ``canvas`` fixture registered raises "wrapped C/C++ object of type
+        # CanvasView has been deleted" (seen once in a whole parallel run; every local
+        # Bench, 14 tests, with a ``gc.collect()`` forced there). So the view keeps its
+        # window for as long as anything holds the view.
+        _WINDOW_OF_VIEW[view] = self.window
         qtbot.addWidget(self.window)
         self.window.show()
         qtbot.waitExposed(self.window)
@@ -165,7 +208,7 @@ class Bench:
         return self.sinks[-1]
 
     def settle(self, ms: int = 80) -> None:
-        self.qtbot.wait(ms)
+        wait_for_pipeline(self.workspace, self.qtbot, ms)
 
     def files(self) -> list[str]:
         return sorted(path.name for path in self.folder.iterdir())
@@ -390,7 +433,7 @@ def test_a_notice_that_is_never_painted_does_not_hold_3d_back(
     workspace = bench.workspace
     workspace.set_mode(SPLIT)
     log = PaintLog(workspace._status_label, swallow=True)
-    bench.settle(40)
+    bench.qtbot.wait(40)                          # a fixed wait ON PURPOSE: before the fallback
     assert bench.sink.item_ids() == (), "it waits for the notice first"
     bench.qtbot.waitUntil(lambda: bench.sink.item_ids() == (str(bed.item_id),), timeout=3000)
     assert workspace.controller is not None and workspace.controller.active
@@ -795,6 +838,37 @@ def test_the_health_poll_runs_only_while_3d_is_shown(bench: Bench) -> None:
     assert workspace._health_timer.isActive() is False
 
 
+def test_3d_hidden_before_its_first_frame_leaves_no_marker_a_second_instance_could_misread(
+        bench: Bench) -> None:
+    """Review 1, P2-3. The poll that confirms the first frame runs only while 3D is
+    shown. A session that left 3D before its first frame kept its start marker — and
+    ``MAX_INIT_S`` later a second instance read it as a death, deleted it and put a
+    healthy machine into compatibility mode. Now: hidden before the first frame, the
+    marker goes (``abandon``); shown again, it comes back (``mark_again``); the frame
+    clears it for good."""
+    workspace = bench.workspace
+    workspace.set_mode(SPLIT)
+    bench.settle()
+    assert workspace.view3d_state is View3DState.STARTING and bench.files() == [marker_name(ME)]
+    workspace.set_mode(PLAN)                      # hidden, no frame presented yet
+    assert bench.files() == [], "the start is no longer watched: its marker goes"
+    later = Init3DGuard(bench.folder, pid=ME + 1, is_running=lambda pid: pid == ME,
+                        now=lambda: stopwatch.time() + MAX_INIT_S + 1.0)
+    assert later.begin() is RenderMode.HARDWARE and later.reason is ModeReason.NORMAL
+    assert bench.files() == [marker_name(ME + 1)], "no death was read, no compat flag written"
+    later.abandon()
+    workspace.set_mode(SPLIT)                     # shown again, the first frame still owed
+    bench.settle()
+    assert bench.files() == [marker_name(ME)] and bench.guard.pending is True
+    bench.host.health_now.frames_presented = 1
+    bench.poll()
+    assert workspace.view3d_state is View3DState.RUNNING and bench.files() == []
+    workspace.set_mode(PLAN)                      # after the first frame: nothing to write
+    workspace.set_mode(SPLIT)
+    bench.settle()
+    assert bench.files() == [] and bench.guard.pending is False
+
+
 def test_a_death_last_time_means_software_mode_with_one_notice_and_a_way_back(
         canvas: CanvasView, qtbot, tmp_path: Path) -> None:
     Init3DGuard(tmp_path, pid=7777).begin()        # a process that never came back
@@ -858,20 +932,127 @@ def test_no_graphics_device_is_a_message_not_a_crash_and_not_a_retry_loop(bench:
     button = workspace.pane.message_button
     assert button.isVisible() and button.text() == "Use Compatibility Mode Next Time"
     button.click()
-    assert bench.files() == [COMPAT_NAME] and button.isEnabled() is False
-    assert button.text() == "Compatibility mode will be used the next time the application starts."
+    assert bench.files() == [COMPAT_NAME]
+    # what came of it is said in the strip, which wraps — never on the button (a button
+    # cannot wrap: a sentence on it made the pane as wide as the sentence)
+    assert not button.isVisible()
+    assert workspace.compat_text() == (
+        "Compatibility mode will be used the next time the application starts.")
+    assert workspace._compat_button.isVisible(), "and the way back is beside it"
+    assert workspace._compat_button.text() == "Try Hardware Next Time"
 
 
-def test_no_graphics_device_in_software_mode_offers_nothing_more(
-        canvas: CanvasView, qtbot, tmp_path: Path) -> None:
-    (tmp_path / COMPAT_NAME).write_text("", encoding="utf-8")
-    bench = Bench(canvas, qtbot, tmp_path)
-    bench.workspace.set_mode(VIEW3D)
+def test_asking_for_compatibility_mode_says_so_when_the_setting_cannot_be_written(
+        bench: Bench, monkeypatch: pytest.MonkeyPatch) -> None:
+    workspace = bench.workspace
+    workspace.set_mode(VIEW3D)
+    bench.settle()
     bench.host.health_now.scene_graph_error = "no device"
     bench.poll()
-    assert bench.workspace.view3d_state is View3DState.UNAVAILABLE
-    assert bench.workspace.pane.message_button.isVisible() is False
-    assert bench.workspace.compat_text() == ""
+    button = workspace.pane.message_button
+    assert button.isVisible() and button.text() == "Use Compatibility Mode Next Time"
+
+    def refuse(*_arguments: object, **_options: object) -> None:
+        raise PermissionError("the folder is read-only")
+
+    monkeypatch.setattr(Path, "write_text", refuse)
+    button.click()
+    assert workspace.compat_text() == "The setting could not be changed. Details are in the log file."
+    assert button.isVisible() and button.text() == "Use Compatibility Mode Next Time", (
+        "nothing changed: the button stays, to be tried again")
+    assert COMPAT_NAME not in bench.files()
+
+
+def test_no_graphics_device_in_software_mode_still_shows_the_way_back(
+        canvas: CanvasView, qtbot, tmp_path: Path) -> None:
+    """Software mode cannot start either. There is nothing more to offer — and the
+    way back to the graphics card is still on screen (it used to be hidden with the
+    notice: the flag stayed on, and nothing in the app could take it off)."""
+    (tmp_path / COMPAT_NAME).write_text("", encoding="utf-8")
+    bench = Bench(canvas, qtbot, tmp_path)
+    workspace = bench.workspace
+    workspace.set_mode(VIEW3D)
+    bench.host.health_now.scene_graph_error = "no device"
+    bench.poll()
+    assert workspace.view3d_state is View3DState.UNAVAILABLE
+    assert workspace.pane.message_button.isVisible() is False, "no second mode to offer"
+    assert workspace.compat_text() == "Compatibility mode (software rendering) is switched on."
+    button = workspace._compat_button
+    assert button.isVisible() and button.text() == "Try Hardware Next Time"
+    button.click()
+    assert bench.files() == [] and not button.isVisible()
+    assert workspace.compat_text() == (
+        "Hardware rendering will be tried the next time the application starts.")
+
+
+def test_an_engine_that_cannot_be_built_in_software_mode_shows_the_way_back_too(
+        canvas: CanvasView, qtbot, tmp_path: Path) -> None:
+    """"Try Again" asks for the same mode again — software, while the flag is on. The
+    strip offers the other way out in that state too."""
+    (tmp_path / COMPAT_NAME).write_text("software", encoding="utf-8")
+    bench = Bench(canvas, qtbot, tmp_path, fail_first=RuntimeError("the software adapter is gone"))
+    workspace = bench.workspace
+    workspace.set_mode(VIEW3D)
+    assert workspace.view3d_state is View3DState.FAILED and bench.factory_calls == [True]
+    assert workspace.pane.message_button.text() == "Try Again"
+    assert workspace.compat_text() == "Compatibility mode (software rendering) is switched on."
+    assert workspace._compat_button.isVisible()
+    workspace._compat_button.click()
+    assert bench.files() == [], "the flag is gone: the next START uses the graphics card"
+
+
+def test_try_hardware_says_what_really_happened_to_the_flag(
+        canvas: CanvasView, qtbot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """It reported success whatever ``unlink`` did."""
+    (tmp_path / COMPAT_NAME).write_text("software", encoding="utf-8")
+    bench = Bench(canvas, qtbot, tmp_path)
+    workspace = bench.workspace
+    workspace.set_mode(VIEW3D)
+    button = workspace._compat_button
+
+    def refuse(*_arguments: object, **_options: object) -> None:
+        raise PermissionError("the folder is read-only")
+
+    monkeypatch.setattr(Path, "unlink", refuse)
+    button.click()
+    assert workspace.compat_text() == "The setting could not be changed. Details are in the log file."
+    assert button.isVisible(), "the flag is still on: the button stays"
+    assert bench.files() == sorted([COMPAT_NAME, marker_name(ME)])
+    monkeypatch.undo()
+    button.click()
+    assert workspace.compat_text() == (
+        "Hardware rendering will be tried the next time the application starts.")
+    assert not button.isVisible() and bench.files() == [marker_name(ME)]
+
+
+def test_a_death_in_software_mode_switches_3d_off_and_says_so(
+        canvas: CanvasView, qtbot, tmp_path: Path) -> None:
+    """The third outcome: nothing is built, nothing is marked, the pane says why, and
+    the one way back is there. Before, this machine died at every 3D open."""
+    Init3DGuard(tmp_path, pid=7777).begin()        # died on the graphics card …
+    Init3DGuard(tmp_path, pid=7778).begin()        # … and the software start after it died too
+    bench = Bench(canvas, qtbot, tmp_path)
+    workspace = bench.workspace
+    workspace.set_mode(VIEW3D)
+    assert bench.factory_calls == [], "no engine is built"
+    assert workspace.view3d_state is View3DState.UNAVAILABLE
+    assert workspace.controller is None and workspace.host is None
+    assert bench.files() == [COMPAT_NAME]
+    assert workspace.message_text() == (
+        "3D is switched off on this computer: it did not start, not even in compatibility "
+        "mode (software rendering). The rest of the application is not affected.")
+    assert workspace.pane.message_button.isVisible() is False
+    assert workspace.compat_text() == (
+        "3D is switched off: it did not start in compatibility mode (software rendering) either.")
+    button = workspace._compat_button
+    assert button.isVisible() and button.text() == "Try Hardware Next Time"
+    for mode in (PLAN, SPLIT, VIEW3D):             # the 2D app goes on; nothing is retried
+        workspace.set_mode(mode)
+    assert bench.factory_calls == []
+    button.click()
+    assert bench.files() == [] and not button.isVisible()
+    # the next session starts on the graphics card again
+    assert Init3DGuard(tmp_path, pid=ME + 1).begin() is RenderMode.HARDWARE
 
 
 def test_an_engine_that_cannot_be_built_is_a_message_and_can_be_tried_again(
@@ -902,19 +1083,50 @@ def test_an_engine_that_cannot_be_built_is_a_message_and_can_be_tried_again(
     assert bench.sink.item_ids() == (str(bed.item_id),)
 
 
-def test_trouble_in_a_running_view_is_a_quiet_line_in_the_strip(bench: Bench) -> None:
+ENGINE_PROBLEM = "The 3D view reported a problem. Details are in the log file."
+UPDATE_FAILED = "The 3D view could not be updated. It will try again with the next change."
+
+
+def test_trouble_in_a_running_view_is_a_line_in_the_strip_until_it_is_over(bench: Bench) -> None:
+    """A notice stays until what it says is over. Every pass used to erase the status
+    line — so "the 3D view reported a problem" lived until the next edit, and after
+    it the only sign of the problem was gone."""
     workspace = bench.workspace
     workspace.set_mode(VIEW3D)
     bench.settle()
+    assert workspace.status_text() == "" and not workspace._status_label.isVisible()
     bench.host.health_now.qml_warning_count = 2
     bench.poll()
-    assert workspace.status_text() == "The 3D view reported a problem. Details are in the log file."
-    workspace.controller.failed.emit("the engine refused")
-    assert workspace.status_text() == (
-        "The 3D view could not be updated. It will try again with the next change.")
-    bench.bed()
+    assert workspace.status_text() == ENGINE_PROBLEM and workspace._status_label.isVisible()
+    bed = bench.bed()
     bench.settle()
-    assert workspace.status_text() == "", "a pass that went through clears it"
+    assert workspace.status_text() == ENGINE_PROBLEM, "a pass does not make the engine's problem go"
+    bench.poll()                                   # the same count again: nothing new
+    assert workspace.status_text() == ENGINE_PROBLEM
+
+    workspace.controller.failed.emit("the engine refused")
+    assert workspace.status_text() == UPDATE_FAILED, "the more pressing notice is the one shown"
+    bench.commands.execute(MoveItemsCommand([bed], QPointF(20.0, 0.0)))
+    bench.settle()
+    assert workspace.status_text() == ENGINE_PROBLEM, (
+        "a pass that went through ends the failed update — and the engine's notice is back")
+
+    # the engine goes (no graphics device): its notice goes with it
+    bench.host.health_now.scene_graph_error = "device lost"
+    bench.poll()
+    assert workspace.view3d_state is View3DState.UNAVAILABLE and workspace.status_text() == ""
+
+
+def test_the_building_notice_ends_with_the_first_pass_and_leaves_the_others_alone(
+        bench: Bench) -> None:
+    workspace = bench.workspace
+    bench.bed()
+    workspace.set_mode(SPLIT)
+    assert workspace.status_text() == NOTICE
+    workspace._say(workspace_module._NOTICE_ENGINE, ENGINE_PROBLEM)   # reported during the start
+    assert workspace.status_text() == NOTICE, "building is the most pressing"
+    bench.settle()
+    assert workspace.status_text() == ENGINE_PROBLEM
 
 
 # ── what 3D could not build (acceptance criterion) ───────────────────────────
@@ -953,6 +1165,70 @@ def test_a_refused_item_shows_a_count_a_list_and_selects_on_activation(bench: Be
     bench.settle()
     assert workspace.problems_text() == "" and not workspace._problems_button.isVisible()
     assert dialog.row_count() == 0
+
+
+def test_a_plan_that_refuses_hundreds_fills_a_capped_list_in_one_walk_of_the_scene(
+        bench: Bench, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Review 1, P2-5. The list looked every row's item up by walking the scene — rows
+    x items on the GUI thread, and again on every change while it was open: 300 rows
+    over 3,000 items took 0.55 s, 3,000 rows 3.1 s, and one plan with duplicated ids
+    is enough to get them. Now ONE walk per fill (an id -> name map) and at most
+    ``MAX_PROBLEM_ROWS`` rows, then one that says how many more. Counted, not timed."""
+    workspace, scene = bench.workspace, bench.scene
+    more = 60
+    count = MAX_PROBLEM_ROWS + more
+    for index in range(count):
+        bed = RectangleItem(100.0 + 15.0 * (index % 30), 100.0 + 15.0 * (index // 30), 10.0, 10.0,
+                            object_type=ObjectType.RAISED_BED, layer_id=scene.active_layer.id)
+        bed.name = f"Bed {index}"
+        bed.metadata[METADATA_KEY] = float("inf")       # refused: OUT_OF_RANGE
+        scene.addItem(bed)
+    workspace.set_mode(SPLIT)
+    bench.settle()
+    assert workspace.problems_text() == f"{count} objects are not shown in 3D"
+    walks: list[int] = []      # walks of the scene made while the list is FILLED
+    fills: list[int] = []
+    real_items, real_fill = scene.items, Workspace._fill_problems
+
+    def counted(*arguments: Any) -> Any:
+        if fills and fills[-1] == 0:
+            walks.append(1)
+        return real_items(*arguments)
+
+    def fill(self: Workspace, dialog: Any) -> None:
+        fills.append(0)
+        try:
+            real_fill(self, dialog)
+        finally:
+            fills[-1] = 1
+
+    monkeypatch.setattr(scene, "items", counted)
+    monkeypatch.setattr(Workspace, "_fill_problems", fill)
+    workspace.show_problems()
+    dialog = workspace.problems_dialog
+    assert dialog is not None
+    assert fills == [1] and walks == [1], "one walk of the scene for every name in the list"
+    assert dialog.row_count() == MAX_PROBLEM_ROWS + 1
+    assert all(dialog.row_text(row).startswith("Bed ") for row in range(MAX_PROBLEM_ROWS)), (
+        "every row has its item's name, from that one walk")
+    assert dialog.row_text(MAX_PROBLEM_ROWS) == f"… and {more} more"
+    last = dialog._list.item(MAX_PROBLEM_ROWS)
+    assert last.flags() == Qt.ItemFlag.NoItemFlags, "a row that belongs to no item"
+    chosen: list[str] = []
+    dialog.item_chosen.connect(chosen.append)
+    dialog.activate_row(MAX_PROBLEM_ROWS)
+    assert chosen == [] and scene.selectedItems() == []
+    # while it is open, a change of the problems refills it: one walk again, not rows x items
+    walks.clear()
+    fills.clear()
+    first = next(item for item in real_items() if getattr(item, "name", "") == "Bed 0")
+    first.metadata[METADATA_KEY] = 40.0
+    bench.commands.stack_changed.emit()
+    bench.settle()
+    assert workspace.problems_text() == f"{count - 1} objects are not shown in 3D"
+    assert dialog.row_text(MAX_PROBLEM_ROWS) == f"… and {more - 1} more"
+    assert fills == [1] and walks == [1], "the open list was refilled once, with one walk"
+    dialog.close()
 
 
 def test_every_reason_code_has_words_of_its_own(bench: Bench) -> None:
@@ -1180,13 +1456,48 @@ def test_the_split_position_is_kept_for_the_next_session(canvas: CanvasView, qtb
     assert again.workspace.splitter.sizes() == kept
 
 
-def test_a_plan_mode_close_does_not_overwrite_a_kept_split_position(
+@pytest.mark.parametrize("left_for", [PLAN, VIEW3D], ids=["plan", "3d"])
+def test_leaving_split_keeps_its_position_for_the_next_session(
+        canvas: CanvasView, qtbot, tmp_path: Path, left_for: WorkspaceMode) -> None:
+    """FR-3D-WS-01: "remembered between sessions". It was saved only by an app that
+    was CLOSED in Split — set a position, go back to Plan, close: gone."""
+    from open_garden_planner.app import settings as app_settings
+    from open_garden_planner.app.ui_state import UiStateStore
+    from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+
+    bench = Bench(canvas, qtbot, tmp_path, ui_state=UiStateStore())
+    workspace = bench.workspace
+    workspace.set_mode(SPLIT)
+    bench.settle()
+    workspace.splitter.setSizes([800, 400])
+    workspace._remember_split()
+    kept = workspace.splitter.sizes()
+    assert kept[0] - kept[1] > 300
+    assert app_settings.create_qsettings().value("UiState/splitter_workspace") is None
+    workspace.set_mode(left_for)                    # leaving Split saves it, at once
+    saved = app_settings.create_qsettings().value("UiState/splitter_workspace")
+    assert saved is not None
+    workspace.shutdown()                            # closed in another mode …
+    assert app_settings.create_qsettings().value("UiState/splitter_workspace") == saved, (
+        "… which does not overwrite it with a splitter that has one side hidden")
+
+    folder = tmp_path / "next-session"
+    folder.mkdir()
+    second_view = CanvasView(CanvasScene(width_cm=5000, height_cm=3000))
+    qtbot.addWidget(second_view)
+    again = Bench(second_view, qtbot, folder, ui_state=UiStateStore())
+    again.workspace.set_mode(SPLIT)
+    again.settle()
+    assert again.workspace.splitter.sizes() == kept
+
+
+def test_a_session_that_never_enters_split_keeps_nothing(
         canvas: CanvasView, qtbot, tmp_path: Path) -> None:
     from open_garden_planner.app import settings as app_settings
     from open_garden_planner.app.ui_state import UiStateStore
 
     bench = Bench(canvas, qtbot, tmp_path, ui_state=UiStateStore())
-    bench.workspace.set_mode(SPLIT)
+    bench.workspace.set_mode(VIEW3D)
     bench.workspace.set_mode(PLAN)
     bench.workspace.shutdown()
     assert app_settings.create_qsettings().value("UiState/splitter_workspace") is None

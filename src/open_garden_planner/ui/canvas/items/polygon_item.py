@@ -733,7 +733,7 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         Updates annotations when position changes.
         Moves the attached ridge when the polygon moves.
         """
-        self.handle_selection_change_for_cache(change, value)
+        self.handle_item_change(change, value)
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
             if value:  # Being selected
                 # Only show resize/rotation handles if not in vertex edit mode
