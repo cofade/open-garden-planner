@@ -300,7 +300,7 @@ class TestRun:
 
         frame = SimpleNamespace(rgba=_good_frame, device_pixel_ratio=1.0, graphics_api="Direct3D11",
                                 adapter="x", open_ms=1.0, build_failures={},
-                                qt={"counts": {"error": 0}, "other_threads": 3},
+                                qt={"counts": {"error": 0}, "other_threads": 3}, sky_builds=0,
                                 ground_tiles=selftest.GROUND_TILES, ground_failure=None)
         monkeypatch.setattr(offscreen, "render_records", lambda *_a, **_k: frame)
         assert selftest._render(lambda *_a, **_k: None, None).other_threads == 3  # noqa: SLF001
@@ -342,12 +342,47 @@ class TestRun:
             return SimpleNamespace(rgba=_good_frame, device_pixel_ratio=1.0,
                                    graphics_api="Direct3D11", adapter="x", open_ms=1.0,
                                    build_failures={}, qt={"counts": {}, "other_threads": 0},
-                                   ground_tiles=12, ground_failure=None)
+                                   ground_tiles=12, ground_failure=None, sky_builds=0)
 
         monkeypatch.setattr(offscreen, "render_records", fake)
         rendered = selftest._render(lambda *_a, **_k: None, None)  # noqa: SLF001
         assert seen["budget"] == 0.0 and selftest.GROUND_TILE_PX == 128
         assert (rendered.ground_tiles, rendered.ground_tiles_painted) == (12, 12)
+
+    def test_a_sky_in_the_selftest_fails_it_even_if_the_frame_looks_right(
+            self, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+        """L1.4, gate G8. The self-test runs where there is no GPU (``release.yml``, on
+        WARP), and there ONE sky's light probe costs longer than the whole test may
+        take (9-13 s on the dev box's WARP, 40-85 s on a CI runner). It renders the
+        plain background and the flat fill; a sky that crept in is a FAIL, not a slow
+        release."""
+        monkeypatch.setattr(selftest, "_render", lambda *_a, **_k: selftest.Rendered(
+            _good_frame(), 1.0, "Direct3D11", "Microsoft Basic Render Driver", 321.0, {"error": 0},
+            ground_tiles=selftest.GROUND_TILES, sky_builds=1))
+        result = selftest.run_selftest(tmp_path / "selftest.log")
+        assert not result.ok
+        (failure,) = [line for line in result.lines if "FAIL" in line]
+        assert "built 1 sky texture(s)" in failure
+
+    def test_the_selftest_asks_for_no_sky_and_reads_the_count_from_the_frame(
+            self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from types import SimpleNamespace
+
+        from open_garden_planner.ui.view3d.quick3d import offscreen
+
+        asked: dict[str, object] = {}
+
+        def render(*_arguments: object, **options: object) -> SimpleNamespace:
+            asked.update(options)
+            return SimpleNamespace(rgba=_good_frame, device_pixel_ratio=1.0, graphics_api="x",
+                                   adapter="x", open_ms=1.0, build_failures={}, sky_builds=2,
+                                   qt={"counts": {}, "other_threads": 0},
+                                   ground_tiles=selftest.GROUND_TILES, ground_failure=None)
+
+        monkeypatch.setattr(offscreen, "render_records", render)
+        assert selftest._render(lambda *_a, **_k: None, None).sky_builds == 2  # noqa: SLF001
+        assert not asked.get("sky_light", False) and not asked.get("prefer_software", False)
+        assert "look" not in asked, "the self-test renders the host's own neutral day"
 
     def test_with_the_callers_log_it_arms_no_watchdog_and_leaves_the_log_open(
             self, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:

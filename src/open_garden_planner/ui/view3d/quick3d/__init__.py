@@ -14,7 +14,7 @@ module          engine  what it is
 ==============  ======  =====================================================
 ``adapter``     no      ``Quick3DSink`` + the ``EngineScene`` boundary it drives
 ``materials``   no      material kinds → QML part components; tint rule
-``look``        no      the one fixed look of L1.2 (``NEUTRAL_DAY``)
+``look``        no      a ``core.scene3d.look.LookSpec`` as the scene's properties (L1.4)
 ``shots``       no      camera placements as plain data; the top-down projection
 ``qt_messages`` no      Qt message capture — a shader or QML error fails a render
 ``selftest``    lazy    the frozen exe's 3D self-test (imports the engine in ``run``)

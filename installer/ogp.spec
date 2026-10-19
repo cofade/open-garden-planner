@@ -212,6 +212,9 @@ a = Analysis(
         "open_garden_planner.ui.sim_clock_subscription",
         "open_garden_planner.core.scene3d.camera",
         "open_garden_planner.core.plain_text",
+        # The look of the 3D view (L1.4): imported with the first switch to 3D.
+        "open_garden_planner.ui.view3d.look_controller",
+        "open_garden_planner.core.scene3d.look",
         # Qt Quick 3D spike (ADR-048, L0) — dormant evidence tooling behind
         # --spike-q3d. PyQt6.QtQuickWidgets is ITS import only; both leave
         # with the spike in L1.10 (see the data loop above).

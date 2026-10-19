@@ -65,8 +65,16 @@ from open_garden_planner.core.scene3d import (
     engine_buffers,
     prism_mesh,
 )
+from open_garden_planner.core.scene3d.look import PRESETS, look_for, moon_travel_scene
 from open_garden_planner.ui.view3d.quick3d.adapter import PartSpec, Quick3DSink
-from open_garden_planner.ui.view3d.quick3d.look import NEUTRAL_DAY, Look
+from open_garden_planner.ui.view3d.quick3d.look import (
+    COLOR_PROPERTIES,
+    LINEAR_COLOR_PROPERTIES,
+    NEUTRAL_DAY,
+    engine_linear,
+    scene_properties,
+    sky_properties,
+)
 from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot, TopDownShot
 from tests.integration import quick3d_lifecycle_child as lifecycle
 from tests.integration.quick3d_render_support import isolated_env
@@ -260,6 +268,45 @@ def _uploads() -> int:
     return int(BufferGeometry.uploads)
 
 
+def _assert_look_shown(host: Any, look: Any) -> None:
+    """Every look property of the scene file holds what ``scene_properties`` maps."""
+    for name, value in scene_properties(look).items():
+        shown = host.scene_property(name)
+        if name in COLOR_PROPERTIES:
+            assert shown == QColor(str(value)), name
+        elif name in LINEAR_COLOR_PROPERTIES:
+            # handed over as floats: a QColor keeps 16 bits a channel, so that a night
+            # colour of a few thousandths survives (8 bits are steps of a fifth there)
+            assert (shown.redF(), shown.greenF(), shown.blueF()) == pytest.approx(value, abs=2e-5), name
+        elif isinstance(value, float):
+            assert shown == pytest.approx(value, rel=1e-12), name
+        else:
+            assert shown == value, name
+
+
+def test_a_night_fog_reaches_the_scene_as_the_linear_value_the_look_derived(qtbot) -> None:  # noqa: ARG001
+    """L1.4 round 1: the scene's fog colour, put through the ENGINE's own linearisation,
+    is the look's linear fog — to four significant digits, also at a few thousandths.
+    (As ``#rrggbb`` through the sRGB curve it arrived three times too dark.)"""
+    made = _new_host((320, 240))
+    try:
+        night = look_for(SunState(-11.07, 337.12), "high")
+        made.set_look(night)
+        shown = made.scene_property("fogColor")
+        reached = tuple(engine_linear(channel) for channel in (shown.redF(), shown.greenF(), shown.blueF()))
+        assert reached == pytest.approx(night.fog_linear, rel=2e-2)
+        assert max(night.fog_linear) < 0.005, "a night fog IS a few thousandths in linear light"
+    finally:
+        made.close()
+
+
+def _light_travel(host: Any) -> tuple[float, float, float]:
+    """Where the scene's key light shines: its rotation applied to a light's own -Z."""
+    rotation: QQuaternion = host.scene_property("sunRotation")
+    shines = rotation.rotatedVector(QVector3D(0.0, 0.0, -1.0))
+    return (shines.x(), shines.y(), shines.z())
+
+
 def _broken_copy(tmp_path: Path, old: str, new: str) -> Path:
     from open_garden_planner.ui.view3d.quick3d.host import QML_DIR
 
@@ -276,26 +323,42 @@ class TestSceneFile:
     def test_garden_qml_loads_with_the_neutral_day_look(self, host) -> None:
         assert host.qml_load_ms > 0.0
         assert host.view_size() == (320.0, 240.0)
-        assert host.scene_property("sunColor") == QColor(NEUTRAL_DAY.sun_color)
-        assert host.scene_property("sunBrightness") == NEUTRAL_DAY.sun_brightness
-        assert host.scene_property("fillColor") == QColor(NEUTRAL_DAY.fill_color)
-        assert host.scene_property("exposure") == NEUTRAL_DAY.exposure
-        assert host.scene_property("skyColor") == QColor(NEUTRAL_DAY.sky_color)
-        assert host.scene_property("meadowColor") == QColor(NEUTRAL_DAY.meadow_albedo)
-        assert host.scene_property("windTime") == 0.0, "the wind is at rest until L1.4 animates it"
+        _assert_look_shown(host, NEUTRAL_DAY)
+        assert host.look is NEUTRAL_DAY
+        assert host.scene_property("windTime") == 0.0, "the wind is at rest until a policy animates it"
+        assert host.scene_property("windRunning") is False
         assert host.scene_property("sunUp") is False and host.scene_property("groundVisible") is False
+        assert host.sky is None and host.sky_builds == 0, "no sky before somebody asks for one"
+        assert host.scene_property("skyBuilt") is False and host.scene_property("skyBuilds") == 0
         assert host.engine_parts() == []
 
-    def test_a_look_is_applied_as_plain_data(self, host) -> None:
-        golden = Look(sun_color="#ffb878", sun_brightness=1.7, fill_linear=(0.2, 0.1, 0.05),
-                      exposure=1.15, sky_color="#f4d2a6", meadow_albedo="#335522",
-                      wind_strength=0.0)
-        host.set_look(golden)
-        assert host.scene_property("sunColor") == QColor("#ffb878")
-        assert host.scene_property("sunBrightness") == 1.7
-        assert host.scene_property("fillColor") == QColor(golden.fill_color)
-        assert host.scene_property("exposure") == 1.15
-        assert host.scene_property("windStrength") == 0.0
+    @pytest.mark.parametrize("preset", PRESETS)
+    @pytest.mark.parametrize(("elevation", "azimuth"), [(-20.0, 10.0), (0.5, 300.0), (5.89, 301.5),
+                                                        (15.23, 280.0), (60.9, 170.0)])
+    def test_a_look_is_applied_as_plain_data(self, host, preset: str, elevation: float,
+                                             azimuth: float) -> None:
+        """Every mood at every preset: each look property of the scene holds what the
+        mapping says — and afterwards the neutral day again, so nothing sticks."""
+        look = look_for(SunState(elevation, azimuth), preset)
+        host.set_look(look)
+        _assert_look_shown(host, look)
+        assert host.look is look
+        host.set_look(NEUTRAL_DAY)
+        _assert_look_shown(host, NEUTRAL_DAY)
+
+    def test_a_look_builds_no_sky_and_touches_no_model_and_no_camera(self, host) -> None:
+        """G6's engine half: a change of look (a preset step) writes look properties and
+        nothing else — no geometry, no camera, no sky."""
+        sync = SceneSync(Quick3DSink(host))
+        sync.apply({"a": _record("a")}, sun=SunState(40.0, 200.0), ground=GroundSpec(800.0, 600.0))
+        host.set_camera((0.0, -900.0, 500.0), (0.0, 0.0, 50.0))
+        before = (_uploads(), host.part_count(), host.engine_parts(),
+                  host.scene_property("camVersion"), host.scene_property("sunRotation"))
+        for preset in PRESETS:
+            host.set_look(look_for(SunState(40.0, 200.0), preset))
+        assert (_uploads(), host.part_count(), host.engine_parts(),
+                host.scene_property("camVersion"), host.scene_property("sunRotation")) == before
+        assert host.sky_builds == 0 and host.scene_property("skyBuilds") == 0
 
     def test_a_scene_file_that_does_not_load_is_a_loud_error(self, qtbot, tmp_path: Path) -> None:  # noqa: ARG002
         """The Model/Light property-name trap as a load error, with file and line."""
@@ -551,6 +614,216 @@ class TestSunGroundCamera:
             host.set_camera((1.0, 2.0, 3.0), (1.0, 2.0, 3.0))
         with pytest.raises(ValueError, match="px_per_cm"):
             host.set_top_down((0.0, 0.0), 0.0)
+
+
+def _engine(scene_vector: tuple[float, float, float]) -> tuple[float, float, float]:
+    """Scene (E, N, up) -> engine (x = E, y = up, z = -N), written out by hand."""
+    east, north, up = scene_vector
+    return (east, up, -north)
+
+
+class TestKeyLight:
+    """Gate G1 of L1.4: light travel = -sun vector — whatever look is on screen; at night
+    the moon rig's stated direction. Read from the QML scene the engine draws from."""
+
+    @pytest.mark.parametrize("preset", ["low", "high"])
+    @pytest.mark.parametrize("elevation", [0.5, 3.0, 5.89, 15.23, 30.0, 60.9, 89.9])
+    @pytest.mark.parametrize("azimuth", [0.0, 45.0, 135.0, 180.0, 225.0, 301.5, 359.0])
+    def test_by_day_the_light_travels_along_minus_the_sun_vector(
+            self, host, elevation: float, azimuth: float, preset: str) -> None:
+        sun = SunState(elevation, azimuth)
+        sync = SceneSync(Quick3DSink(host))
+        host.set_look(look_for(sun, preset))            # the look first …
+        sync.set_sun(sun)
+        expected = _engine(tuple(-c for c in sun.direction_scene))
+        assert host.scene_property("sunUp") is True
+        assert _light_travel(host) == pytest.approx(expected, abs=1e-5)
+        host.set_look(look_for(sun, "medium"))          # … and the look after the sun
+        assert _light_travel(host) == pytest.approx(expected, abs=1e-5)
+        assert _light_travel(host)[1] < 0.0, "downwards"
+
+    def test_a_day_look_made_for_another_sun_cannot_aim_the_light(self, host) -> None:
+        """Truth before beauty: the look carries no sun direction, so a stale or foreign
+        day look changes colours and nothing else."""
+        sun = SunState(35.0, 225.0)
+        SceneSync(Quick3DSink(host)).set_sun(sun)
+        host.set_look(look_for(SunState(8.0, 90.0), "high"))
+        assert _light_travel(host) == pytest.approx(
+            _engine(tuple(-c for c in sun.direction_scene)), abs=1e-5)
+
+    @pytest.mark.parametrize(("elevation", "azimuth"), [(0.49, 310.0), (-6.0, 330.0), (-40.0, 20.0)])
+    def test_at_night_the_key_light_is_the_moon_rigs_stated_direction(
+            self, host, elevation: float, azimuth: float) -> None:
+        sun = SunState(elevation, azimuth)
+        sync = SceneSync(Quick3DSink(host))
+        sync.set_sun(sun)
+        assert host.scene_property("sunUp") is False, "the sun is down and no look said night yet"
+        host.set_look(look_for(sun, "high"))
+        assert host.scene_property("sunUp") is True
+        assert _light_travel(host) == pytest.approx(_engine(moon_travel_scene()), abs=1e-5)
+        east, north, up = moon_travel_scene()
+        assert up < 0.0 and north > 0.0, "from high in the south: it travels down and northwards"
+
+    def test_dusk_and_dawn_hand_the_light_over(self, host) -> None:
+        sync = SceneSync(Quick3DSink(host))
+        day, night = SunState(4.0, 290.0), SunState(-4.0, 300.0)
+        for sun in (day, night, day):
+            sync.set_sun(sun)
+            host.set_look(look_for(sun, "high"))
+            travel = moon_travel_scene() if not sun.is_up else tuple(-c for c in sun.direction_scene)
+            assert host.scene_property("sunUp") is True
+            assert _light_travel(host) == pytest.approx(_engine(travel), abs=1e-5)
+
+    def test_no_sun_and_a_day_look_is_no_key_light(self, host) -> None:
+        host.set_look(look_for(SunState(40.0, 180.0), "high"))
+        assert host.scene_property("sunUp") is False
+        sync = SceneSync(Quick3DSink(host))
+        sync.set_sun(SunState(40.0, 180.0))
+        sync.reset()        # the sink's teardown: the sun goes, the look stays
+        assert host.scene_property("sunUp") is False
+
+    def test_the_antiparallel_direction_is_aimed_too(self, host) -> None:
+        """Light travelling along the engine's +Z is the one direction a rotation "from
+        -Z" has no unique axis for."""
+        host.set_sun((0.0, 0.0, 1.0))
+        assert _light_travel(host) == pytest.approx((0.0, 0.0, 1.0), abs=1e-5)
+
+
+class TestSky:
+    """Gate G4's engine half that needs no GPU: what is built, when, and from what."""
+
+    def test_a_sky_is_built_only_when_asked_and_once_per_call(self, host) -> None:
+        look = look_for(SunState(20.0, 240.0), "high")
+        host.set_look(look)
+        assert host.sky is None and host.scene_property("skyBuilt") is False
+        host.set_sky(look.sky)
+        assert host.sky == look.sky and host.sky_builds == 1
+        assert host.scene_property("skyBuilt") is True and host.scene_property("skyBuilds") == 1
+        assert host.last_sky_build_ms > 0.0
+        for preset in PRESETS:                    # looks, however many, build nothing
+            host.set_look(look_for(SunState(20.0, 240.0), preset))
+        assert host.sky_builds == 1 and host.scene_property("skyBuilds") == 1
+        other = look_for(SunState(22.0, 243.0), "high").sky
+        host.set_sky(other)
+        assert host.sky == other and host.sky_builds == 2 and host.scene_property("skyBuilds") == 2
+
+    def test_every_build_is_a_fresh_texture_that_owns_its_own_data(self, host) -> None:
+        """The pair lives and dies together (``Garden.qml``): a Texture loses its data
+        when a data object it held EARLIER is destroyed, so no Texture is re-pointed and
+        the data object is its Texture's child."""
+        from PyQt6.QtCore import QCoreApplication, QEvent
+
+        seen = []
+        for azimuth in (100.0, 140.0, 180.0):
+            host.set_sky(look_for(SunState(30.0, azimuth), "high").sky)
+            texture = _sky_texture(host)
+            data = texture.property("textureData")
+            assert data is not None and data.parent() is texture, "the data is the Texture's child"
+            assert all(texture is not old_texture and data is not old_data
+                       for old_texture, old_data in seen)
+            seen.append((texture, data))
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
+        from PyQt6 import sip
+
+        assert [sip.isdeleted(texture) for texture, _data in seen] == [True, True, False]
+        assert [sip.isdeleted(data) for _texture, data in seen] == [True, True, False]
+        assert _sky_texture(host) is seen[-1][0]
+
+    def test_the_inputs_reach_the_generator(self, host) -> None:
+        sky = look_for(SunState(12.0, 250.0), "high").sky
+        host.set_sky(sky)
+        data = _sky_texture(host).property("textureData")
+        for name, value in sky_properties(sky).items():
+            shown = data.property(name)
+            if isinstance(value, str):
+                assert shown == QColor(value), name
+            else:
+                assert shown == pytest.approx(value), name
+        assert data.property("sunLongitude") == pytest.approx(340.0), "azimuth + 90 degrees"
+
+    def test_dropping_the_sky_goes_back_to_the_plain_background(self, host) -> None:
+        host.set_sky(look_for(SunState(30.0, 180.0), "high").sky)
+        host.set_sky(None)
+        assert host.sky is None and host.scene_property("skyBuilt") is False
+        host.set_sky(None)      # nothing to drop: no call into the scene
+        assert host.sky_builds == 1
+
+    def test_the_sinks_teardown_leaves_the_look_and_the_sky_alone(self, host) -> None:
+        sync = SceneSync(Quick3DSink(host))
+        look = look_for(SunState(-10.0, 0.0), "medium")
+        sync.apply({"a": _record("a")}, sun=SunState(-10.0, 0.0))
+        host.set_look(look)
+        host.set_sky(look.sky)
+        sync.reset()
+        _assert_look_shown(host, look)
+        assert host.sky == look.sky and host.scene_property("skyBuilt") is True
+        assert host.scene_property("sunUp") is True, "the moon is the look's, not the pipeline's"
+
+
+def _sky_texture(host: Any) -> Any:
+    """The scene's sky Texture object (None: no sky)."""
+    return host.scene_property("skyTextureObject")
+
+
+class TestWind:
+    """Gate G7's engine half: the wind's clock runs only while it is told to."""
+
+    @staticmethod
+    def _ticks(host: Any, qtbot: Any, ms: int) -> tuple[int, float]:
+        from PyQt6.QtQml import QQmlProperty
+
+        count = [0]
+
+        def tick() -> None:
+            count[0] += 1
+
+        watched = QQmlProperty(host._root, "windTime")
+        assert watched.connectNotifySignal(tick)
+        before = float(host.scene_property("windTime"))
+        qtbot.wait(ms)
+        return count[0], float(host.scene_property("windTime")) - before
+
+    def test_at_rest_nothing_ticks(self, host, qtbot) -> None:
+        ticks, moved = self._ticks(host, qtbot, 300)
+        assert (ticks, moved) == (0, 0.0)
+        assert host.scene_property("windTime") == 0.0
+
+    @staticmethod
+    def _advances(host: Any, qtbot: Any, ticks: int = 3) -> float:
+        """Wait for ``ticks`` changes of the running clock (no seconds bound: how fast
+        frames come is the machine's business) and return how far it moved."""
+        from PyQt6.QtQml import QQmlProperty
+
+        count = [0]
+
+        def tick() -> None:
+            count[0] += 1
+
+        watched = QQmlProperty(host._root, "windTime")
+        assert watched.connectNotifySignal(tick)
+        before = float(host.scene_property("windTime"))
+        qtbot.waitUntil(lambda: count[0] >= ticks, timeout=20000)
+        return float(host.scene_property("windTime")) - before
+
+    def test_running_it_advances_and_stopping_freezes_it_where_it_is(self, host, qtbot) -> None:
+        host.set_wind_running(True)
+        assert self._advances(host, qtbot) > 0.0      # the positive control
+        host.set_wind_running(False)
+        frozen = host.scene_property("windTime")
+        ticks, moved = self._ticks(host, qtbot, 300)
+        assert (ticks, moved) == (0, 0.0), "stopped: not one tick"
+        assert host.scene_property("windTime") == frozen > 0.0, "frozen — which is NOT rest"
+        host.set_wind_running(True)
+        assert self._advances(host, qtbot, 1) > 0.0, "and it goes on from there"
+        assert host.scene_property("windTime") > frozen
+
+    def test_rest_stops_the_clock_and_puts_it_back_to_zero(self, host, qtbot) -> None:
+        host.set_wind_running(True)
+        qtbot.waitUntil(lambda: host.scene_property("windTime") > 0.0, timeout=20000)
+        host.rest_wind()
+        assert host.scene_property("windTime") == 0.0
+        assert host.scene_property("windRunning") is False
+        assert self._ticks(host, qtbot, 200) == (0, 0.0)
 
 
 def _facts(**changes: Any) -> Any:

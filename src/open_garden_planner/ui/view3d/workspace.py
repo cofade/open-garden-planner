@@ -97,6 +97,7 @@ if TYPE_CHECKING:
     from open_garden_planner.core.scene3d import EngineSink
     from open_garden_planner.core.sim_clock import SimClock
 
+    from .look_controller import LookController
     from .orbit_input import OrbitInput
     from .problems_dialog import View3DProblemsDialog
     from .sync_controller import Scene3DController, TickReport
@@ -170,6 +171,11 @@ class EngineHost(Protocol):
     def view_size(self) -> tuple[float, float]: ...
     def health(self) -> Any: ...
     def close(self) -> None: ...
+    # the look (L1.4): ``look_controller.LookHost``
+    def set_look(self, look: Any) -> None: ...
+    def set_sky(self, sky: Any) -> None: ...
+    def set_wind_running(self, running: bool) -> None: ...
+    def rest_wind(self) -> None: ...
 
 
 #: ``factory(prefer_software) -> (host, sink)`` — builds the engine. THE TEST SEAM.
@@ -340,6 +346,7 @@ class Workspace(QWidget):
         self._pane: _Pane3D | None = None
         self._host: EngineHost | None = None
         self._controller: Scene3DController | None = None
+        self._look: LookController | None = None   # the look of the view (L1.4)
         self._input: OrbitInput | None = None
         self._problems_dialog: View3DProblemsDialog | None = None
         #: The session's one camera: created with the workspace, so its pose survives
@@ -473,6 +480,18 @@ class Workspace(QWidget):
     @property
     def host(self) -> EngineHost | None:
         return self._host
+
+    @property
+    def look(self) -> LookController | None:
+        """The look controller — None until 3D was first opened (L1.4)."""
+        return self._look
+
+    def apply_look_settings(self) -> None:
+        """The 3D settings changed (the Preferences dialog was accepted): the look
+        follows — quality and reduced motion. Nothing to do before 3D was opened:
+        the look controller reads the settings when it is built."""
+        if self._look is not None:
+            self._look.reload_settings()
 
     @property
     def guard(self) -> Init3DGuard:
@@ -686,7 +705,9 @@ class Workspace(QWidget):
         software = mode is RenderMode.SOFTWARE
         host: EngineHost | None = None
         orbit: OrbitInput | None = None
+        look: LookController | None = None
         try:
+            from .look_controller import LookController
             from .orbit_input import OrbitInput
             from .sync_controller import Scene3DController
 
@@ -696,6 +717,11 @@ class Workspace(QWidget):
             host.install_event_filter(orbit)
             from .ground_bake import GroundBaker
 
+            # the look (L1.4): the render mode decides sky, wind and the automatic
+            # preset together — in compatibility mode no sky (a light probe costs
+            # seconds there), no wind (an animated view renders continuously) and
+            # ``auto`` = low (ADR-064 addendum)
+            look = LookController.from_settings(host, software=software, parent=self)
             # ONE baker for this engine's life: it holds the ground's tiles, and paints
             # for at most its budget (10 ms) a pass — the controller runs the rest
             controller = Scene3DController(scene, clock, self._location, sink, parent=self,
@@ -703,6 +729,9 @@ class Workspace(QWidget):
         except Exception as error:  # noqa: BLE001 - an import, the scene file, anything
             guard.init_failed()
             _log_failure("The 3D view could not be started", error)
+            if look is not None:
+                look.shutdown()
+                look.deleteLater()
             if orbit is not None:
                 orbit.deleteLater()
             if host is not None:
@@ -717,6 +746,7 @@ class Workspace(QWidget):
             self._update_compat_notice()
             return
         self._host, self._controller, self._input = host, controller, orbit
+        self._look = look
         orbit.moved.connect(self._start_camera)
         orbit.reset_requested.connect(self.reset_view)
         controller.applied.connect(self._on_applied)
@@ -743,6 +773,8 @@ class Workspace(QWidget):
 
     def _on_pane_showing(self, _shown: bool = False) -> None:
         showing = self._pane_is_showing()
+        if self._look is not None:
+            self._look.set_showing(showing)  # wind and frame sampling: only while shown
         controller = self._controller
         if controller is None or self._host is None:
             self._health_timer.stop()
@@ -927,6 +959,9 @@ class Workspace(QWidget):
             self._controller.refresh_sun()
 
     def _on_applied(self, report: TickReport) -> None:
+        # the look follows the sun the PIPELINE sent — the same pass, the same sun
+        if self._look is not None and self._controller is not None:
+            self._look.set_sun(self._controller.sync.sun)
         # A pass went through: the build is over, and so is a failed update. What the
         # ENGINE reported is not: that notice stays until the engine is gone (it used
         # to be erased by the next pass — one edit, and the only sign of it was lost).
@@ -1180,6 +1215,10 @@ class Workspace(QWidget):
         self._retired = 0  # the host goes, and what it cached with it
         self._notices.clear()  # … and whatever the status line said about it
         self._refresh_notices()
+        look, self._look = self._look, None
+        if look is not None:
+            look.shutdown()
+            look.deleteLater()
         controller, self._controller = self._controller, None
         if controller is not None:
             controller.shutdown()

@@ -304,7 +304,7 @@ class Quick3DSink:
     def set_sun(self, sun: SunState) -> None:
         self._require_open("set_sun")
         self._sun = sun
-        if not sun.is_up:  # no light from below the horizon; the night rig is L1.4
+        if not sun.is_up:  # no SUNLIGHT from below the horizon (a night look's moon is the host's)
             self._scene.set_sun(None)
             return
         travel = scene_to_engine_vectors(np.array(sun.light_travel_scene, dtype=np.float64))

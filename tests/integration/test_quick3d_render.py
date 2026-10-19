@@ -562,8 +562,9 @@ def test_a_lit_top_face_has_the_radiance_the_sun_predicts(run: Run) -> None:
     measured 171: the rest is the material's small specular term)."""
     rgb, dpr = _frame(run, run[0]["scenarios"]["materials"]["top"])
     tint = srgb8_to_linear(driver.SWATCH_TINT)
-    sun_colour = srgb_to_linear(NEUTRAL_DAY.sun_color)
-    direct = NEUTRAL_DAY.sun_brightness * math.sin(math.radians(driver.SWATCH_SUN.elevation_deg))
+    sun_colour = srgb_to_linear(NEUTRAL_DAY.mood.sun_color)
+    direct = (NEUTRAL_DAY.mood.sun_brightness
+              * math.sin(math.radians(driver.SWATCH_SUN.elevation_deg)))
     predicted = 255.0 * tint[0] * (direct * float(sun_colour[0]) + NEUTRAL_DAY.fill_linear[0])
     assert predicted < 250, "the probe must not clip"
     assert _swatch(rgb, "vc", dpr)[0] == pytest.approx(predicted, rel=0.06)

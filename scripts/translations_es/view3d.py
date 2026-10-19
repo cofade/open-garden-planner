@@ -1,4 +1,4 @@
-"""Spanish translations for the Phase 17 3D workspace (L1.3, #385)."""
+"""Spanish translations for the Phase 17 3D workspace (L1.3) and its looks (L1.4), #385."""
 
 TRANSLATIONS = {
     "View3DProblemsDialog": {
@@ -56,5 +56,17 @@ TRANSLATIONS = {
         "Use Compatibility Mode Next Time": "Usar modo de compatibilidad",
         "{count} objects are not shown in 3D": "{count} objetos no se muestran en 3D",
         "{tip} ({shortcut})": "{tip} ({shortcut})",
+    },
+    "PreferencesDialog": {
+        "3D View": "Vista 3D",
+        "Automatic": "Automática",
+        "High": "Alta",
+        "How detailed the 3D view is drawn. Automatic picks a level from the frame rate it measures on this computer.": "Con qué nivel de detalle se dibuja la vista 3D. «Automática» elige un nivel según la velocidad de fotogramas que mide en este equipo.",
+        "Keep leaves and grass still instead of swaying in the wind.": "Mantener quietas las hojas y la hierba en lugar de mecerse con el viento.",
+        "Low": "Baja",
+        "Medium": "Media",
+        "Quality:": "Calidad:",
+        "Reduce motion in the 3D view": "Reducir el movimiento en la vista 3D",
+        "Ultra": "Ultra",
     },
 }

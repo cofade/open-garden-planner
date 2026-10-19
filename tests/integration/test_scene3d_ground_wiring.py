@@ -19,12 +19,13 @@ release policy; and the main window's workspace builds its controller with a bak
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import pytest
-from PyQt6.QtCore import QPointF
+from PyQt6.QtCore import QPointF, QTimer
 from PyQt6.QtGui import QColor
 
 from open_garden_planner.core.commands import CreateItemCommand, MoveItemsCommand
@@ -82,6 +83,28 @@ class GroundRig:
     def lawn(self, x: float = 100.0, y: float = 100.0, w: float = 1400.0, h: float = 1400.0) -> Any:
         """A lawn over most of the plan: nine of its sixteen tiles hold it."""
         return self.add(RectangleItem(x, y, w, h, object_type=ObjectType.LAWN))
+
+    def during(self, which: Callable[[TickReport], bool], action: Callable[[], None],
+               nth: int = 1) -> list[bool]:
+        """Run ``action`` INSIDE the slot of the ``nth`` pass ``which`` accepts. Ground
+        passes are posted events: none can run between a pass and its ``applied`` slot,
+        so what the action sees is the state that pass left — whatever the machine's
+        speed. (Waiting for "apply_count == 1" and then reading ``ground_owed`` raced:
+        on a quiet machine every one-tile ground pass had run before the wait looked.)
+        Returns a list that holds True once the action ran."""
+        ran: list[bool] = []
+        seen = [0]
+
+        def slot(report: TickReport) -> None:
+            if ran or not which(report):
+                return
+            seen[0] += 1
+            if seen[0] == nth:
+                ran.append(True)
+                action()
+
+        self.controller.applied.connect(slot)
+        return ran
 
     def settle(self, timeout: int = 10_000) -> None:
         self.qtbot.waitUntil(lambda: self.controller.idle, timeout=timeout)
@@ -160,13 +183,20 @@ def test_a_ground_pass_neither_spends_nor_extends_an_announcement(qtbot: Any) ->
     rig = GroundRig(qtbot, quiet_ms=150)
     rig.lawn()  # nine tiles at one a pass: ground passes for a while
     bed = rig.add(RectangleItem(1700.0, 1700.0, 200.0, 200.0, object_type=ObjectType.RAISED_BED))
+    owed: list[bool] = []
+
+    def write_unannounced() -> None:
+        # inside the SECOND ground pass: the first records pass's announcement has
+        # expired one turn after it, and ground work is still owed
+        owed.append(rig.controller.sync.ground_pending)  # (the controller owes its pass after the slot)
+        bed.metadata[METADATA_KEY] = 120.0  # no command, no nudge …
+        bed.update()                        # … a repaint only
+
+    ran = rig.during(lambda report: report.ground_pass, write_unannounced, nth=2)
     rig.controller.set_active(True)
-    rig.qtbot.waitUntil(lambda: rig.controller.apply_count == 1, timeout=5000)
-    rig.qtbot.wait(1)  # one turn: the first pass's announcement has expired
-    assert rig.controller.ground_owed
+    rig.qtbot.waitUntil(lambda: bool(ran), timeout=5000)
+    assert owed == [True], "the write landed while ground passes were still owed"
     applies = rig.controller.apply_count
-    bed.metadata[METADATA_KEY] = 120.0  # no command, no nudge …
-    bed.update()                        # … a repaint only
     rig.settle()
     rig.qtbot.waitUntil(lambda: rig.controller.reconcile_count >= 1, timeout=5000)
     rig.settle()
@@ -178,10 +208,19 @@ def test_a_ground_pass_neither_spends_nor_extends_an_announcement(qtbot: Any) ->
 
 def test_an_edit_preempts_pending_ground_work_and_the_ground_still_finishes(rig: GroundRig) -> None:
     rig.lawn()
+    owed: list[bool] = []
+
+    def edit() -> None:
+        owed.append(rig.controller.sync.ground_pending)  # nine tiles at one a pass: work is pending
+        # the edit with the NEXT turn (a user's edit never runs inside a pass), and before
+        # the first ground pass, which waits for the tick timer
+        QTimer.singleShot(0, lambda: rig.add(RectangleItem(1800.0, 1800.0, 150.0, 150.0,
+                                                          object_type=ObjectType.TERRACE_PATIO)))
+
+    ran = rig.during(lambda report: report.snapshot and not report.ground_pass, edit)
     rig.controller.set_active(True)
-    rig.qtbot.waitUntil(lambda: rig.controller.apply_count == 1, timeout=5000)
-    assert rig.controller.ground_owed  # nine tiles at one a pass: work is pending
-    rig.add(RectangleItem(1800.0, 1800.0, 150.0, 150.0, object_type=ObjectType.TERRACE_PATIO))
+    rig.qtbot.waitUntil(lambda: bool(ran), timeout=5000)
+    assert owed == [True]
     rig.settle()
     assert rig.controller.apply_count == 2
     rig.finished()
@@ -189,9 +228,10 @@ def test_an_edit_preempts_pending_ground_work_and_the_ground_still_finishes(rig:
 
 def test_a_hidden_3d_view_does_no_ground_work_and_goes_on_when_shown(rig: GroundRig) -> None:
     rig.lawn()
+    ran = rig.during(lambda report: report.snapshot and not report.ground_pass,
+                     lambda: rig.controller.set_active(False))  # hidden right after the pass
     rig.controller.set_active(True)
-    rig.qtbot.waitUntil(lambda: rig.controller.apply_count == 1, timeout=5000)
-    rig.controller.set_active(False)
+    rig.qtbot.waitUntil(lambda: bool(ran), timeout=5000)
     painted, grounds = rig.baker.tiles_painted, rig.controller.ground_count
     rig.qtbot.wait(150)
     assert (rig.baker.tiles_painted, rig.controller.ground_count) == (painted, grounds)

@@ -1,7 +1,12 @@
 // The garden in Qt Quick 3D (Phase 17 L1.2, ADR-048). Ported from the L0 spike's
-// GardenSpike.qml: what L1.2 keeps is its measured core — frame, light, shadows,
-// materials, picking. Looks by sun elevation, the procedural sky, fog, presets and
-// post effects are L1.4; the baked ground texture is L1.5.
+// GardenSpike.qml: its measured core — frame, light, shadows, materials, picking
+// (L1.2) — and its look: the sky from the sun, fog, the presets' post effects, wind
+// (L1.4). The baked ground texture is L1.5.
+//
+// THE LOOK IS DATA FROM PYTHON. Every look property below is written by
+// Quick3DHost.set_look from a core.scene3d.look.LookSpec (quick3d/look.py is the
+// mapping); nothing in this file decides a mood or knows a preset by name, and the
+// defaults ARE look.NEUTRAL_DAY (pinned by tests/unit/test_quick3d_qml.py).
 //
 // Rules of this file:
 //  - NO user-visible strings (pinned by tests/unit/test_quick3d_qml.py): pylupdate6
@@ -23,22 +28,53 @@ Item {
     height: 720
 
     // ---- look (Quick3DHost.set_look; defaults = look.NEUTRAL_DAY) ----
-    property color sunColor: "#fff1dc"
+    // the mood: follows the sun's elevation
+    property color sunColor: "#fff1dc"      // the key light: the sun, at night the moon
     property real sunBrightness: 1.9
-    property color fillColor: "#778cab"     // flat fill: stands in for the sky's light until L1.4
     property real exposure: 0.85
-    property color skyColor: "#cfe2f2"
+    property real probeExposure: 0.55       // how bright the sky texture is drawn and lights
+    // The three colours the look derives in LINEAR light arrive as the colour the
+    // engine's own linearisation turns back into that value (quick3d/look.py:
+    // engine_srgb) - Qt linearises a colour property with a polynomial, not the sRGB
+    // curve, and reads a dark sRGB code up to three times too dark.
+    property color fogColor: "#8f9ca8"      // sky horizon x sky energy x probe exposure x 0.8
+    property real saturation: 1.06
+    property real contrast: 1.04
+    // where NO sky texture lights the view (the top-down truth view; a host without a
+    // sky: the software fallback, the self-test): a plain background and a flat fill
+    property color skyColor: "#8f9ca8"
+    property color fillColor: "#56657c"
     property color meadowColor: "#487f34"   // ONE albedo for the meadow and for bare plan ground
+    // the key light's shadows: the preset's cost, the mood's softness
+    property string shadowMapQuality: "very_high"   // high | very_high | ultra
+    property int shadowCascades: 2                   // perspective view only
+    property string softShadows: "pcf16"            // pcf4 | pcf8 | pcf16 | pcf32
+    property real shadowBias: 10
+    property real shadowFactor: 82
+    property real pcfFactor: 2
+    // the preset: what the frame costs
+    property string antialiasing: "msaa"            // msaa | fxaa
+    property string antialiasingQuality: "high"     // medium (2x) | high (4x) | very_high (8x)
+    property bool ambientOcclusion: true
+    property int aoSampleRate: 3
+    property bool glow: true
+    property bool glowHighQuality: false
+    property bool reflections: false
+    property bool fog: true
+    // wind
     property real windStrength: 2.5
-    // the shaders' clock, in seconds; nothing animates it before L1.4. At 0 the wind is
-    // at REST: every vertex is exactly where its mesh puts it (the shaders ease the sway
-    // in over the first two seconds), so what is drawn is what the CPU measured.
-    // ONLY at 0: a clock paused anywhere else leaves the sway in the frame. A truth
-    // probe pins windTime to 0 (or windStrength to 0); "paused" is not "at rest".
+    // the shaders' clock, in seconds. At 0 the wind is at REST: every vertex is exactly
+    // where its mesh puts it (the shaders ease the sway in over the first two seconds),
+    // so what is drawn is what the CPU measured. ONLY at 0: a clock paused anywhere
+    // else leaves the sway in the frame. A truth probe pins windTime to 0 (or
+    // windStrength to 0); "paused" is not "at rest".
     property real windTime: 0
+    // the animation policy's switch (Quick3DHost.set_wind_running): the clock runs
+    // only while this is true — while it is false nothing ticks at all
+    property bool windRunning: false
 
-    // ---- sun (Quick3DSink.set_sun): direction only, from core/solar ----
-    property bool sunUp: false              // false until the first sun, and whenever it is down
+    // ---- key light (Quick3DHost: the sun the pipeline sent, or a night look's moon) ----
+    property bool sunUp: false              // false until the first sun, and whenever there is no key light
     property quaternion sunRotation: Qt.quaternion(1, 0, 0, 0)   // rotates -Z onto the light's travel
 
     // ---- ground (Quick3DSink.set_ground) ----
@@ -62,6 +98,63 @@ Item {
         cam.position = camPos
         cam.lookAt(camTarget)
     }
+
+    // The wind's clock. A FrameAnimation advances with the frames Qt draws, holds its
+    // value when it stops (hidden is "stopped", not "at rest": showing the view again
+    // goes on where it was) and has no timer of its own while it is not running.
+    FrameAnimation {
+        running: root.windRunning
+        onTriggered: root.windTime += frameTime
+    }
+
+    // ---- sky (Quick3DHost.set_sky) ----
+    // Built on request and never bound live: the generator recomputes the whole sky
+    // synchronously on the GUI thread for EVERY input change, and the environment
+    // filters its light probe once per Texture OBJECT (later textureData changes are
+    // ignored: the sky's sun stayed in the north). So every build is a fresh Texture
+    // with a fresh data object of its own; the inputs are set at the cheapest quality
+    // and the quality is raised last: one full generation (spike: QML load 1709 ->
+    // 70 ms, a sun change 2192 -> 344 ms on llvmpipe).
+    //
+    // MEDIUM quality (1024 x 512 float texels, 8 MB), not the spike's High (2048 x
+    // 1024, 32 MB): the sky is a smooth gradient and a soft glow, and the build is
+    // GUI-thread time while the user drags the time slider. Measured (L1.4 round 3,
+    // RTX 4070, bench_small at 960 x 540, all seven shots): the build 215 -> 95 ms,
+    // every shot's mean luma within 0.02, the sun's azimuth read back within 0.07
+    // degrees (0.03 at High), the horizon step 3.4 -> 2.9.
+    //
+    // The pair lives and dies TOGETHER: the data object is the Texture's child, and
+    // only the Texture is ever destroyed. A Texture loses its textureData when a data
+    // object it held EARLIER is destroyed (measured by the ground bake, GPU and WARP:
+    // a re-pointed Texture drew white) - so no Texture here is ever re-pointed, and no
+    // data object outlives or predeceases its Texture.
+    function buildSky(inputs) {
+        var texture = skyTextureComponent.createObject(view.scene)
+        var data = skyDataComponent.createObject(texture)
+        for (var key in inputs)
+            data[key] = inputs[key]
+        data.textureQuality = ProceduralSkyTextureData.SkyTextureQualityMedium
+        texture.textureData = data
+        var old = view.skyTexture
+        view.skyTexture = texture      // the scene shows the new sky ...
+        if (old)
+            old.destroy()              // ... and only then the old pair goes (deferred)
+        root.skyBuilds += 1
+        return {"builds": root.skyBuilds}
+    }
+
+    function dropSky() {
+        var old = view.skyTexture
+        view.skyTexture = null
+        if (old)
+            old.destroy()
+        return {"builds": root.skyBuilds}
+    }
+
+    property int skyBuilds: 0
+    // read-backs for the host and its tests: is there a sky, and which object is it
+    readonly property bool skyBuilt: view.skyTexture !== null
+    readonly property var skyTextureObject: view.skyTexture
 
     // MeshPart.material_kind -> part Component (keys = core.scene3d.MATERIAL_KINDS,
     // pinned against quick3d/materials.py PART_COMPONENTS)
@@ -342,22 +435,81 @@ Item {
         anchors.fill: parent
         camera: root.topDown ? topCam : cam
 
-        // The top-down view is the TRUTH view: no tone mapping, so a pixel is the
-        // surface's linear radiance (albedo x light) and a probe can predict it. The
-        // perspective view is the one people look at: filmic, exposed by the look.
+        // the sky texture of the last buildSky(), or null: no sky was asked for
+        property var skyTexture: null
+        // a sky lights and backs the PERSPECTIVE view only
+        readonly property bool skyShown: skyTexture !== null && !root.topDown
+
+        Component {
+            id: skyTextureComponent
+            Texture {}
+        }
+        Component {
+            id: skyDataComponent
+            ProceduralSkyTextureData {
+                textureQuality: ProceduralSkyTextureData.SkyTextureQualityLow
+            }
+        }
+
+        // The top-down view is the TRUTH view: no tone mapping, no fog, no post effect,
+        // no sky - a pixel is the surface's linear radiance (albedo x light) and a
+        // probe can predict it, whatever the preset. The perspective view is the one
+        // people look at: filmic, exposed and graded by the look.
         //
-        // ExtendedSceneEnvironment only for its `exposure` (the plain SceneEnvironment
-        // has none): every effect it offers stays off until L1.4's presets. No
-        // sharpening ever - 0.08 overshot thin lit edges into near-black dots (spike).
+        // The numbers that are not properties are the spike's, the same at every
+        // preset (pinned against GardenSpike.qml until the spike retires).
         environment: ExtendedSceneEnvironment {
-            backgroundMode: SceneEnvironment.Color
+            backgroundMode: view.skyShown ? SceneEnvironment.SkyBox : SceneEnvironment.Color
             clearColor: root.skyColor
+            lightProbe: view.skyShown ? view.skyTexture : null
+            probeExposure: root.probeExposure
+            skyboxBlurAmount: 0.0
             tonemapMode: root.topDown ? SceneEnvironment.TonemapModeNone
                                       : SceneEnvironment.TonemapModeFilmic
             exposure: root.topDown ? 1.0 : root.exposure
-            antialiasingMode: SceneEnvironment.MSAA
-            antialiasingQuality: SceneEnvironment.High
+            ditheringEnabled: !root.topDown
+            aoEnabled: !root.topDown && root.ambientOcclusion
+            aoStrength: 55
+            aoDistance: 14
+            aoSoftness: 45
+            aoSampleRate: root.aoSampleRate
+            glowEnabled: !root.topDown && root.glow
+            glowStrength: 1.05
+            glowIntensity: 0.55
+            glowBloom: 0.18
+            glowHDRMinimumValue: 1.1
+            glowQualityHigh: root.glowHighQuality
+            fog: Fog {
+                // blends the endless meadow into the sky's horizon, at EVERY preset:
+                // without it low drew a one-row cliff where the meadow meets the sky
+                enabled: !root.topDown && root.fog
+                color: root.fogColor
+                depthEnabled: true
+                depthNear: 2600
+                depthFar: 16000
+                depthCurve: 1.4
+                density: 1.0
+            }
+            // the truth view is always multisampled at 4x: its pixels do not depend on a preset
+            antialiasingMode: (root.topDown || root.antialiasing === "msaa")
+                              ? SceneEnvironment.MSAA : SceneEnvironment.NoAA
+            antialiasingQuality: root.topDown ? SceneEnvironment.High
+                                 : root.antialiasingQuality === "very_high" ? SceneEnvironment.VeryHigh
+                                 : root.antialiasingQuality === "medium" ? SceneEnvironment.Medium
+                                 : SceneEnvironment.High
+            // without MSAA: FXAA (a post effect) and specular anti-aliasing instead
+            fxaaEnabled: !root.topDown && root.antialiasing === "fxaa"
+            specularAAEnabled: !root.topDown && root.antialiasing === "fxaa"
+            // SSGI renders a black frame on Mesa llvmpipe: no preset turns it on
+            ssgiEnabled: false
+            ssrEnabled: !root.topDown && root.reflections
+            // No sharpening ever - 0.08 overshot every thin lit/dark edge to near-black,
+            // red-less pixels (1,500-3,100 isolated dark pixels per daytime frame at
+            // 1280x720); 0.03 is nearly as bad. The render tier bounds the speckles.
             sharpnessAmount: 0.0
+            colorAdjustmentsEnabled: !root.topDown
+            adjustmentSaturation: root.saturation
+            adjustmentContrast: root.contrast
         }
 
         PerspectiveCamera {
@@ -376,10 +528,11 @@ Item {
             clipFar: 10000
         }
 
-        // The sun. A DirectionalLight shines down its local -Z; Python hands over the
-        // rotation that puts -Z onto the light's travel (= -sun vector, core/solar).
-        // Shadow settings: the spike's High preset, the ones behind its shadow-IoU table
-        // (ogp-3d-renderer 4) - but no cascades in the orthographic view, as there.
+        // The key light: the sun - at night the look's moon. A DirectionalLight shines
+        // down its local -Z; Python hands over the rotation that puts -Z onto the
+        // light's travel (= -sun vector, core/solar). Its shadow settings are the
+        // look's (the preset's map, cascades, filter and bias; the mood's darkness and
+        // blur) - but no cascades in the orthographic truth view.
         DirectionalLight {
             id: sun
             visible: root.sunUp
@@ -388,21 +541,26 @@ Item {
             brightness: root.sunBrightness
             ambientColor: Qt.rgba(0, 0, 0, 1)
             castsShadow: true
-            shadowFactor: 82
-            shadowMapQuality: Light.ShadowMapQualityVeryHigh
-            csmNumSplits: root.topDown ? 0 : 2
+            shadowFactor: root.shadowFactor
+            shadowMapQuality: root.shadowMapQuality === "ultra" ? Light.ShadowMapQualityUltra
+                            : root.shadowMapQuality === "high" ? Light.ShadowMapQualityHigh
+                            : Light.ShadowMapQualityVeryHigh
+            csmNumSplits: root.topDown ? 0 : root.shadowCascades
             csmBlendRatio: 0.05
-            softShadowQuality: Light.PCF16
-            pcfFactor: 2.0
-            shadowBias: 5
+            softShadowQuality: root.softShadows === "pcf4" ? Light.PCF4
+                             : root.softShadows === "pcf8" ? Light.PCF8
+                             : root.softShadows === "pcf32" ? Light.PCF32 : Light.PCF16
+            pcfFactor: root.pcfFactor
+            shadowBias: root.shadowBias
             shadowMapFar: 9000
             lockShadowmapTexels: true
         }
-        // The fill: no direct light of its own, only the flat ambient term. Separate
-        // from the sun so a night (sun switched off) is dim, not black.
+        // The flat fill - ONLY where no sky texture lights the view (the truth view, a
+        // host without a sky). No direct light of its own; separate from the key light
+        // so that a frame without one is dim, not black. With a sky, the sky is the fill.
         DirectionalLight {
             brightness: 0
-            ambientColor: root.fillColor
+            ambientColor: view.skyShown ? Qt.rgba(0, 0, 0, 1) : root.fillColor
             castsShadow: false
         }
 
@@ -422,7 +580,10 @@ Item {
         }
 
         // the plan rectangle, bare: ground in the meadow's albedo. Drawn only while no
-        // baked tiles lie on the plan (L1.5: the groundTile component above).
+        // baked tiles lie on the plan (L1.5: the groundTile component above). The
+        // MEADOW's material too (roughness 1.0, specular 0.15): at 0.92 / 0.2 its sheen
+        // made the plan read as a darker or brighter rectangle under a grazing view
+        // (-8.9 luma at golden hour; L1.4 fix round 1); the tiles keep these values.
         Model {
             source: "#Rectangle"
             position: Qt.vector3d(root.groundCenter.x, 0, root.groundCenter.z)
@@ -433,8 +594,8 @@ Item {
             visible: root.groundVisible && !root.groundTiled
             materials: PrincipledMaterial {
                 baseColor: root.meadowColor
-                roughness: 0.92
-                specularAmount: 0.2
+                roughness: 1.0
+                specularAmount: 0.15
             }
         }
 

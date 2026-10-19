@@ -251,6 +251,11 @@ class Rendered:
     ground_tiles_painted: int = 0
     #: ``(ErrorType, message)`` of a bake that failed: a FAIL.
     ground_failure: tuple[str, str] | None = None
+    #: Sky textures built for the frame: any is a FAIL (L1.4). The self-test must pass
+    #: on a machine without a GPU, where the light probe of ONE sky costs seconds to a
+    #: minute and more (measured: 9-13 s on WARP on the dev box, 40-85 s on a CI
+    #: runner) — it renders the plain background and the flat fill, and stays that way.
+    sky_builds: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -294,7 +299,8 @@ def _render(log: RenderLog, qml_dir: Path | None) -> Rendered:
                     frame.open_ms, dict(frame.qt.get("counts", {})),
                     tuple(f"{item_id}: {error}" for item_id, error in frame.build_failures.items()),
                     int(frame.qt.get("other_threads", 0)),
-                    int(frame.ground_tiles), int(baker.tiles_painted), frame.ground_failure)
+                    int(frame.ground_tiles), int(baker.tiles_painted), frame.ground_failure,
+                    int(frame.sky_builds))
 
 
 def run_selftest(log_path: Path | None = None, *, watchdog_s: float | None = WATCHDOG_S,
@@ -348,6 +354,10 @@ def run_selftest(log_path: Path | None = None, *, watchdog_s: float | None = WAT
             if rendered.ground_tiles != GROUND_TILES:
                 problems.append(f"the ground shows {rendered.ground_tiles} tiles, "
                                 f"expected {GROUND_TILES}")
+            if rendered.sky_builds:
+                problems.append(
+                    f"the self-test built {rendered.sky_builds} sky texture(s): on a machine "
+                    "without a GPU its light probe alone takes longer than the whole test may")
             problems += judge_frame(rendered.rgba, rendered.device_pixel_ratio)
             where = f"{rendered.graphics_api} / {rendered.adapter or 'adapter unknown'}"
             if problems:

@@ -93,6 +93,22 @@ class FakeHost:
         #: Every call that would take a FRAME from the live view. The workspace makes
         #: none by itself (the memory rule, ADR-065); the real host has all four.
         self.frames_taken: list[str] = []
+        #: The look (L1.4): what the look controller told the host, in order.
+        self.looks: list[Any] = []
+        self.skies: list[Any] = []
+        self.wind: list[str] = []
+
+    def set_look(self, look: Any) -> None:
+        self.looks.append(look)
+
+    def set_sky(self, sky: Any) -> None:
+        self.skies.append(sky)
+
+    def set_wind_running(self, running: bool) -> None:
+        self.wind.append("run" if running else "stop")
+
+    def rest_wind(self) -> None:
+        self.wind.append("rest")
 
     def release_cached_resources(self) -> None:
         self.releases += 1
