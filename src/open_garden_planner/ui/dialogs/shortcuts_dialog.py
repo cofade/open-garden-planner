@@ -106,6 +106,32 @@ class ShortcutsDialog(QDialog):
         ])
         container_layout.addWidget(view_group)
 
+        # The 3D workspace (Phase 17, ADR-065) — the camera keys act while the 3D
+        # view has the keyboard (click into it first)
+        view3d_group = self._create_shortcut_group(self.tr("3D View"), [
+            (self._localize_shortcut("Alt+1"), self.tr("Plan only")),
+            (self._localize_shortcut("Alt+2"), self.tr("3D only")),
+            (self._localize_shortcut("Alt+3"), self.tr("Plan and 3D side by side (Split)")),
+            (self.tr("Left Mouse Drag"), self.tr("Pan the 3D view")),
+            (self.tr("Right Mouse Drag"), self.tr("Orbit the 3D view")),
+            (self.tr("Scroll Wheel"), self.tr("Zoom")),
+            (self.tr("Arrow Keys"), self.tr("Pan the 3D view")),
+            (self._localize_shortcut("Alt+") + self.tr("Arrow Keys"),
+             self.tr("Orbit the 3D view")),
+            (self.tr("Page Up / Page Down"), self.tr("Zoom")),
+            ("Home", self.tr("Reset 3D View")),
+            (self.tr("Click"), self.tr("Select the object under the pointer")),
+        ])
+        container_layout.addWidget(view3d_group)
+
+        walk_group = self._create_shortcut_group(self.tr("Walk Mode (3D)"), [
+            (self.tr("W A S D / Arrow Keys"), self.tr("Walk")),
+            (self._localize_shortcut("Shift"), self.tr("Run")),
+            (self.tr("Mouse Drag"), self.tr("Look around")),
+            (self._localize_shortcut("Escape"), self.tr("Leave walk mode")),
+        ])
+        container_layout.addWidget(walk_group)
+
         # Dashboard tabs (contiguous 1–5 since #310)
         tabs_group = self._create_shortcut_group(self.tr("Dashboard Tabs"), [
             (self._localize_shortcut("Ctrl+1"), self.tr("Garden Plan tab")),

@@ -4272,12 +4272,13 @@ class GardenPlannerApp(QMainWindow):
         self._set_action_icon(self._sun_sim_action, "sun_sim")
         sun_menu.addAction(self._sun_sim_action)
 
-        # 3D view (US-E6) — viewer window, engine per ADR-038 (PyQt6-3D).
-        self._view3d_action = QAction(self.tr("&3D View…"), self)
+        # 3D view (US-E6; since Phase 17 L1.9 the workspace's 3D pane, ADR-065): it
+        # opens no window any more — it shows the 3D view beside the plan (Split).
+        self._view3d_action = QAction(self.tr("&3D View"), self)
         self._view3d_action.setStatusTip(
-            self.tr("Open a 3D view of the plan with solar lighting")
+            self.tr("Show the garden in 3D beside the plan, lit by the simulated sun")
         )
-        self._view3d_action.triggered.connect(self._on_open_3d_view)
+        self._view3d_action.triggered.connect(self._on_show_3d_view)
         self._set_action_icon(self._view3d_action, "view3d")
         sun_menu.addAction(self._view3d_action)
 
@@ -4670,21 +4671,16 @@ class GardenPlannerApp(QMainWindow):
         # Create sidebar panels
         self._setup_sidebar()
 
-        # Create splitter for canvas and sidebar. Phase 17 L1.3 (ADR-065): behind
-        # the ONE internal switch, the canvas area is the Plan / 3D / Split
-        # workspace — the canvas inside it, and a 3D pane built on first use.
-        # Without the switch nothing of ``ui/view3d`` is imported here.
-        from open_garden_planner.app.settings import quick3d_workspace_enabled
+        # Create splitter for canvas and sidebar. The canvas area is the Plan / 3D /
+        # Split workspace (Phase 17, ADR-065; the default since L1.9) — the canvas
+        # inside it, and a 3D pane built the first time the user asks for 3D. The
+        # workspace module imports no engine: Qt Quick 3D is loaded on that first
+        # switch and never at start-up (the import scan pins it).
+        from open_garden_planner.ui.view3d.workspace import Workspace
 
-        self._workspace = None
-        canvas_area: QWidget = self.canvas_view
-        if quick3d_workspace_enabled():
-            from open_garden_planner.ui.view3d.workspace import Workspace
-
-            self._workspace = Workspace(self.canvas_view, parent=self)
-            canvas_area = self._workspace
+        self._workspace = Workspace(self.canvas_view, parent=self)
         self._main_splitter = QSplitter(Qt.Orientation.Horizontal)
-        self._main_splitter.addWidget(canvas_area)
+        self._main_splitter.addWidget(self._workspace)
         # Route CanvasView's status messages to the window's status bar. This is
         # a signal connection rather than a parent lookup because the canvas's
         # parent is this QSplitter, which has no statusBar() — so the old
@@ -4861,20 +4857,23 @@ class GardenPlannerApp(QMainWindow):
         connect_qobject(self._sim_clock.instant_changed, self._on_sim_instant_changed)
 
         # ── 3D workspace (L1.3) — what its pipeline reads, and its View submenu ──
-        if self._workspace is not None:
-            self._workspace.connect_plan(
-                self.canvas_scene,
-                self._sim_clock,
-                lambda: self._project_manager.location,
-                self.canvas_view.command_manager,
-                self._ui_state,
-            )
-            self._project_manager.location_changed.connect(
-                self._workspace.location_changed
-            )
-            self._view_menu.insertMenu(
-                self._preview_action, self._workspace.create_menu(self._view_menu)
-            )
+        self._workspace.connect_plan(
+            self.canvas_scene,
+            self._sim_clock,
+            lambda: self._project_manager.location,
+            self.canvas_view.command_manager,
+            self._ui_state,
+        )
+        self._project_manager.location_changed.connect(self._workspace.location_changed)
+        workspace_menu = self._workspace.create_menu(self._view_menu)
+        # every menu action carries an icon (#310) — the workspace's too, now that it is
+        # in every window (L1.9); its own buttons keep their words (ToolButtonTextOnly)
+        self._set_action_icon(workspace_menu.menuAction(), "view3d")
+        for action, icon_name in zip(self._workspace.mode_actions(),
+                                     ("tab_plan", "view3d", "compare_overlay"), strict=True):
+            self._set_action_icon(action, icon_name)
+        self._set_action_icon(self._workspace.reset_view_action, "zoom_fit")
+        self._view_menu.insertMenu(self._preview_action, workspace_menu)
 
         # ── Find & Replace panel (US-11.24) ──────────────────────────────────
         from open_garden_planner.ui.panels.find_replace_panel import FindReplacePanel
@@ -6372,8 +6371,7 @@ class GardenPlannerApp(QMainWindow):
             # The 3D workspace (L1.3): stop its pipeline and close its engine
             # host while this window still exists — and clear a pending start
             # marker, because a clean close is not a crash (ADR-065).
-            if self._workspace is not None:
-                self._workspace.shutdown()
+            self._workspace.shutdown()
             # Persist window/splitter/panel state before tearing down.
             self._save_ui_state()
             # Stop auto-save timer
@@ -6695,6 +6693,17 @@ class GardenPlannerApp(QMainWindow):
             self._apply_sun_to_3d()
 
     # ── 3D view (US-E6) ──────────────────────────────────────────
+
+    def _on_show_3d_view(self) -> None:
+        """View → Sun & 3D → "3D View": the workspace's 3D pane (Phase 17 L1.9).
+
+        From Plan mode it switches to Split — the plan stays on screen and the 3D
+        view appears beside it, where the old viewer window used to open. In 3D or
+        Split mode the 3D view is already showing and nothing changes."""
+        from open_garden_planner.ui.view3d.workspace import WorkspaceMode
+
+        if self._workspace.mode is WorkspaceMode.PLAN:
+            self._workspace.set_mode(WorkspaceMode.SPLIT)
 
     def _on_open_3d_view(self) -> None:
         """Open the 3D viewer; snapshot the plan on open.
@@ -7395,8 +7404,7 @@ class GardenPlannerApp(QMainWindow):
             self.soil_overlay_toolbar.isVisible()
         )
         self.soil_overlay_toolbar.hide()
-        if self._workspace is not None:
-            self._workspace.set_chrome_visible(False)
+        self._workspace.set_chrome_visible(False)
 
         # Hide canvas overlays
         self.canvas_view.set_grid_visible(False)
@@ -7425,8 +7433,7 @@ class GardenPlannerApp(QMainWindow):
         self.sidebar.show()
         if (self._pre_preview_state or {}).get("soil_overlay_toolbar_visible"):
             self.soil_overlay_toolbar.show()
-        if self._workspace is not None:
-            self._workspace.set_chrome_visible(True)
+        self._workspace.set_chrome_visible(True)
 
         # Restore canvas overlays from saved state
         state = self._pre_preview_state or {}
@@ -8028,12 +8035,10 @@ class GardenPlannerApp(QMainWindow):
             )
 
         before = _agent_api_state()
-        # the 3D view's settings are offered only where there is a 3D workspace (L1.4)
-        dialog = PreferencesDialog(self, show_view3d=self._workspace is not None)
+        dialog = PreferencesDialog(self)
         if dialog.exec():
             self._update_satellite_menu_state()
-            if self._workspace is not None:
-                self._workspace.apply_look_settings()  # quality, reduced motion
+            self._workspace.apply_look_settings()  # 3D quality, reduced motion (L1.4)
             after = _agent_api_state()
             if before != after:
                 # Restart so a toggle, port, writes or token change takes effect.

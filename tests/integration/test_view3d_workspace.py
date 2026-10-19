@@ -1,6 +1,6 @@
 """The Plan / 3D / Split workspace in the real main window (Phase 17 L1.3, §8.10).
 
-A real ``GardenPlannerApp`` started with the internal switch ``OGP_QUICK3D=1``, its
+A real ``GardenPlannerApp`` (the workspace is the default since L1.9), its
 3D engine replaced at the documented seam (``Workspace.engine_factory``) by a
 recording host and a ``RecordingSink``: the user switches modes, edits the plan,
 changes the sim date and time, creates and opens documents, and closes the app —
@@ -8,8 +8,9 @@ and the exact engine calls are asserted. Nothing is rendered here; the same
 workflow runs through the real Qt Quick 3D host in
 ``test_view3d_workspace_render.py`` (opt-in, ``OGP_RENDER3D=1``).
 
-Also here: gate G1 (without the switch the app is what it was and the engine is
-never imported; with it, Plan mode is today's layout), what gate G10 leaves to this
+Also here: gate G1 (the engine is never imported before 3D is asked for; Plan mode
+is today's layout) and L1.9's flip (no switch is read; View → "3D View" shows the
+3D pane and reaches no window), what gate G10 leaves to this
 story since master fixed #428 itself (a replaced document reaches the workspace
 through ``CanvasScene.document_replaced`` alone; an open that FAILS leaves the 3D
 view as it was) and the acceptance criterion that what 3D cannot build is shown to
@@ -54,6 +55,7 @@ from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
 from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 from open_garden_planner.ui.view3d import snapshot as snapshot_module
+from open_garden_planner.ui.view3d import sync_controller
 from open_garden_planner.ui.view3d.init_guard import Init3DGuard
 from open_garden_planner.ui.view3d.sync_controller import NET_QUIET_MS, NO_LOCATION_SUN
 from open_garden_planner.ui.view3d.workspace import View3DState, Workspace, WorkspaceMode
@@ -72,6 +74,7 @@ BERLIN = {"latitude": 52.52, "longitude": 13.405}
 PLAN, VIEW3D, SPLIT = WorkspaceMode.PLAN, WorkspaceMode.VIEW3D, WorkspaceMode.SPLIT
 BEGIN, COMMIT = ("begin", None), ("commit", None)
 GROUND, SUN = ("set_ground", None), ("set_sun", None)
+#: The internal switch of L1.3 — gone with L1.9's flip; nothing may read it again.
 SWITCH = "OGP_QUICK3D"
 
 
@@ -109,9 +112,8 @@ def _quiet_boxes(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def build_app3d(qtbot: Any, monkeypatch: pytest.MonkeyPatch,
                 tmp_path: Path) -> tuple[GardenPlannerApp, Engines]:
-    """The main window with the workspace switched on and the engine replaced — what
-    the ``app3d`` fixture of this module (and of ``test_view3d_plan_revision.py``) is."""
-    monkeypatch.setenv(SWITCH, "1")
+    """The main window with the engine of its workspace replaced — what the ``app3d``
+    fixture of this module (and of ``test_view3d_plan_revision.py``) is."""
     _quiet_boxes(monkeypatch)
     window = GardenPlannerApp()
     qtbot.addWidget(window)
@@ -129,7 +131,7 @@ def build_app3d(qtbot: Any, monkeypatch: pytest.MonkeyPatch,
 
 @pytest.fixture()
 def app3d(qtbot, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[GardenPlannerApp, Engines]:
-    """The main window with the workspace switched on and the engine replaced."""
+    """The main window with the engine of its workspace replaced."""
     return build_app3d(qtbot, monkeypatch, tmp_path)
 
 
@@ -160,47 +162,65 @@ def _calls(engines: Engines, qtbot: Any, ms: int = 80) -> list[tuple[str, str | 
 # ── gate G1 ──────────────────────────────────────────────────────────────────
 
 
-def test_without_the_switch_the_main_window_is_what_it_was(qtbot, monkeypatch) -> None:
-    monkeypatch.delenv(SWITCH, raising=False)
-    _quiet_boxes(monkeypatch)
-    window = GardenPlannerApp()
-    qtbot.addWidget(window)
-    assert window._workspace is None
-    assert window._main_splitter.widget(0) is window.canvas_view
-    assert window.canvas_view.parentWidget() is window._main_splitter
-    assert window.findChildren(Workspace) == []
-    titles = [menu.title() for menu in window._view_menu.findChildren(QMenu)]
-    assert "&Workspace" not in titles
-    assert not [a for a in window.findChildren(QAction)
-                if a.shortcut().toString() in {"Alt+1", "Alt+2", "Alt+3"}]
-    assert window._view3d_action.text() == "&3D View…", "the shipped 3D window is still there"
-
-
-@pytest.mark.parametrize("value", ["", "0", "true", "yes", " 1", "2"])
-def test_only_the_exact_value_switches_the_workspace_on(qtbot, monkeypatch, value: str) -> None:
-    monkeypatch.setenv(SWITCH, value)
-    _quiet_boxes(monkeypatch)
-    window = GardenPlannerApp()
-    qtbot.addWidget(window)
-    assert window._workspace is None
-
-
-def test_the_switch_is_read_in_one_place() -> None:
-    """Decision 1: one function reads the variable; nothing else may name it."""
+def test_the_workspace_is_always_there_and_no_switch_is_read(qtbot, monkeypatch) -> None:
+    """L1.9: ONE code path. The canvas area IS the workspace whatever the environment
+    says — the old internal switch is read nowhere (its value changes nothing) — and
+    the safety net for a machine whose graphics fail is the start marker and the
+    compatibility mode (ADR-065 addendum "the default and the removal"), not a flag."""
+    for value in ("", "0", "1"):
+        monkeypatch.setenv(SWITCH, value)
+        _quiet_boxes(monkeypatch)
+        window = GardenPlannerApp()
+        qtbot.addWidget(window)
+        workspace = window._workspace
+        assert isinstance(workspace, Workspace), value
+        assert window._main_splitter.widget(0) is workspace
+        assert window.canvas_view.parentWidget() is workspace.splitter
+        assert workspace.mode is PLAN and workspace.view3d_state is View3DState.NOT_STARTED
+        assert workspace.pane is None and workspace.host is None, "nothing 3D before it is asked for"
+        titles = [menu.title() for menu in window._view_menu.findChildren(QMenu)]
+        assert "&Workspace" in titles
     source = REPO / "src" / "open_garden_planner"
     naming = sorted(str(path.relative_to(source)).replace("\\", "/")
                     for path in source.rglob("*.py")
-                    if SWITCH in path.read_text(encoding="utf-8"))
-    assert naming == ["app/settings.py"]
-    settings_source = (source / "app" / "settings.py").read_text(encoding="utf-8")
-    assert settings_source.count("os.environ") == 1
-    callers = sorted(str(path.relative_to(source)).replace("\\", "/")
-                     for path in source.rglob("*.py")
-                     if "quick3d_workspace_enabled()" in path.read_text(encoding="utf-8"))
-    assert callers == ["app/application.py", "app/settings.py"]
+                    if SWITCH in path.read_text(encoding="utf-8")
+                    or "quick3d_workspace_enabled" in path.read_text(encoding="utf-8"))
+    assert naming == [], naming
 
 
-def test_with_the_switch_plan_mode_is_todays_layout(app3d) -> None:
+def test_the_3d_view_action_shows_the_3d_pane_and_reaches_no_window(app3d, qtbot) -> None:
+    """L1.9: View → Sun & 3D → "3D View" (its place, its icon) opens no window any
+    more: from Plan mode it shows Split — the plan stays, the 3D view appears beside
+    it — and in 3D or Split mode it changes nothing. Nothing in the UI reaches the
+    retired Qt 3D window: the action is connected to the workspace alone."""
+    window, engines = app3d
+    workspace = window._workspace
+    action = window._view3d_action
+    assert action.text() == "&3D View" and not action.text().endswith("…")
+    assert "beside the plan" in action.statusTip()
+    assert any(action in menu.actions() for menu in window._view_menu.findChildren(QMenu))
+    action.trigger()
+    assert workspace.mode is SPLIT and engines.calls == [False]
+    assert window.canvas_view.isVisible()
+    first_pass(workspace, qtbot)
+    assert window._view3d_window is None, "no Qt 3D window was built"
+    workspace.set_mode(VIEW3D)
+    action.trigger()
+    assert workspace.mode is VIEW3D, "in 3D mode the 3D view is already showing"
+    workspace.set_mode(PLAN)
+    action.trigger()
+    assert workspace.mode is SPLIT and engines.calls == [False], "one engine, kept"
+    assert window._view3d_window is None
+    # nothing names the retired window's slot: no code path leads to it
+    import ast
+
+    tree = ast.parse((REPO / "src" / "open_garden_planner" / "app" / "application.py")
+                     .read_text(encoding="utf-8"))
+    assert not [node for node in ast.walk(tree)
+                if isinstance(node, ast.Attribute) and node.attr == "_on_open_3d_view"]
+
+
+def test_plan_mode_is_todays_layout(app3d) -> None:
     window, engines = app3d
     workspace = window._workspace
     assert window._main_splitter.widget(0) is workspace
@@ -231,8 +251,60 @@ def test_the_view_menu_offers_the_three_modes_with_shortcuts_nobody_else_has(app
             taken.setdefault(key, []).append(action.text())
     for action in modes:
         assert taken[action.shortcut().toString()] == [action.text()]
-    # … and the shipped 3D window's action is untouched
-    assert window._view3d_action.text() == "&3D View…"
+    # … and View → Sun & 3D → "3D View" has no shortcut that could collide (L1.9)
+    assert window._view3d_action.shortcut().isEmpty()
+
+
+def test_the_keyboard_shortcuts_dialog_lists_the_workspace_and_its_3d_keys(app3d, qtbot) -> None:
+    """L1.9 (L1.3's report: "add Alt+1 / 2 / 3 and the 3D camera keys to the Keyboard
+    Shortcuts dialog" once the workspace is the default): every mode action's REAL
+    shortcut is listed, and so are the camera's and the walker's keys."""
+    from PyQt6.QtWidgets import QGroupBox, QLabel
+
+    from open_garden_planner.ui.dialogs.shortcuts_dialog import ShortcutsDialog
+
+    window, _engines = app3d
+    dialog = ShortcutsDialog()
+    qtbot.addWidget(dialog)
+    labels = [label.text() for label in dialog.findChildren(QLabel)]
+    labels += [group.title() for group in dialog.findChildren(QGroupBox)]
+    for action in window._workspace.mode_actions():
+        assert action.shortcut().toString() in labels, action.text()
+    for expected in ("3D View", "Home", "Reset 3D View", "Pan the 3D view", "Orbit the 3D view",
+                     "Page Up / Page Down", "Select the object under the pointer",
+                     "Walk Mode (3D)", "W A S D / Arrow Keys", "Leave walk mode"):
+        assert expected in labels, expected
+
+
+def test_using_3d_writes_nothing_into_the_plan_file(app3d, qtbot, tmp_path: Path) -> None:
+    """FR-SUN-06 / 07 (parity, L1.9): "nothing 3D is written to the .ogp" — after 3D was
+    opened, the camera moved, walk mode entered and left, the time changed while walking
+    (the light follows: FR-SUN-07), an item selected and the mode switched, the saved plan is
+    the plan saved before 3D was ever opened."""
+    window, engines = app3d
+    workspace = window._workspace
+    window._open_project_file(str(PLANS / "bench_small.ogp"))
+    qtbot.wait(50)
+    before, after = tmp_path / "before.ogp", tmp_path / "after.ogp"
+    window._save_to_file(before)
+    window._view3d_action.trigger()
+    first_pass(workspace, qtbot)
+    workspace.camera.orbit(35.0, -10.0)
+    workspace.camera.zoom(0.6)
+    walking = workspace.set_walking(True)
+    window._on_sun_sim_datetime(datetime(2026, 6, 21, 18, 30))     # the evening, walking
+    wait_for_pipeline(workspace, qtbot)
+    assert ("set_sun", None) in engines.sink.ops(), "the light follows the clock while walking"
+    workspace.set_walking(False)
+    items = [item for item in window.canvas_scene.items() if getattr(item, "item_id", None)]
+    items[0].setSelected(True)
+    workspace.set_mode(VIEW3D)
+    wait_for_pipeline(workspace, qtbot)
+    window._save_to_file(after)
+    first, second = (json.loads(path.read_text(encoding="utf-8")) for path in (before, after))
+    for document in (first, second):
+        document.get("metadata", {}).pop("modified", None)
+    assert walking is True and second == first
 
 
 _G1_CHILD = r'''
@@ -278,40 +350,34 @@ print("RESULT " + json.dumps(out))
 '''
 
 
-def _g1_child(scratch: Path, switch: str) -> dict[str, Any]:
-    """``switch``: the variable's value in the child — set explicitly either way, so
-    that what the developer's own shell exports cannot decide the test."""
+def _g1_child(scratch: Path) -> dict[str, Any]:
+    """The old switch is set to "" in the child, explicitly: what the developer's own
+    shell exports cannot decide the test (and since L1.9 it decides nothing)."""
     proc = subprocess.run(  # noqa: S603 - fixed argv, our own code
         [sys.executable, "-c", _G1_CHILD, str(PLANS / "bench_small.ogp")],
-        env=isolated_env(scratch, QT_QPA_PLATFORM="offscreen", OGP_QUICK3D=switch),
+        env=isolated_env(scratch, QT_QPA_PLATFORM="offscreen", OGP_QUICK3D=""),
         capture_output=True, text=True, timeout=170, cwd=scratch)
     assert proc.returncode == 0, proc.stderr[-3000:]
     (line,) = [line for line in proc.stdout.splitlines() if line.startswith("RESULT ")]
     return json.loads(line[len("RESULT "):])
 
 
-def test_g1_the_engine_is_never_imported_and_the_canvas_is_pixel_identical(tmp_path: Path) -> None:
-    """Gate G1, in two fresh processes that build the real app, open a plan and close.
-
-    WITHOUT the switch: nothing of ``ui/view3d`` and no Qt Quick binding is loaded,
-    before or after the close. WITH it: the workspace module is loaded and still no
-    engine — and the canvas has the same place, the same size and the same PIXELS."""
-    (tmp_path / "off").mkdir()
-    (tmp_path / "on").mkdir()
-    off = _g1_child(tmp_path / "off", "")
-    on = _g1_child(tmp_path / "on", "1")
-    assert off["workspace"] == "NoneType" and off["splitter0"] == "CanvasView"
-    assert off["loaded"] == [] and off["loaded_after_close"] == []
+def test_g1_the_engine_is_never_imported_before_3d_is_asked_for(tmp_path: Path) -> None:
+    """Gate G1 — the import scan of the default (L1.9), in a fresh process that builds
+    the real app, opens a plan and closes: the workspace module is loaded (it IS the
+    canvas area) and no engine module — no Qt Quick, no QML, nothing of
+    ``ui/view3d/quick3d`` — before or after the close. (Until L1.9 the same child also
+    ran without the workspace and compared the canvas's pixels; there is no "without"
+    any more.)"""
+    on = _g1_child(tmp_path)
     assert on["workspace"] == "Workspace" and on["splitter0"] == "Workspace"
     assert not [name for name in on["loaded"] if "Quick" in name or "Qml" in name
                 or "quick3d" in name], on["loaded"]
     assert "open_garden_planner.ui.view3d.workspace" in on["loaded"]
     assert on["loaded_after_close"] == [], "closing without ever opening 3D loads no engine"
-    assert on["items"] == off["items"] > 90
-    assert on["canvas"] == off["canvas"], "the canvas area has today's geometry"
-    assert on["image"] == off["image"] and on["pixels"] == off["pixels"], (
-        "the canvas view's own pixels are identical with and without the workspace")
-    assert off["store"].startswith("Open Garden Planner Test Child ")
+    assert on["items"] > 90
+    assert on["canvas"][2] > 0 and on["canvas"][3] > 0
+    assert on["store"].startswith("Open Garden Planner Test Child ")
 
 
 # ── the §8.10 workflow ───────────────────────────────────────────────────────
@@ -323,6 +389,10 @@ def test_the_workflow_plan_split_edit_pause_clock_new_open_close(
     workspace, canvas = window._workspace, window.canvas_view
     scene, commands = window.canvas_scene, canvas.command_manager
     plan_action, view3d_action, split_action = workspace.mode_actions()
+    # every date change below regrows at once: the date-playback interval (L1.9, #531)
+    # would defer a date that follows another within half a second — its own tests are
+    # in test_view3d_sync_controller.py
+    monkeypatch.setattr(sync_controller, "DATE_REGROW_MIN_MS", 0)
 
     # ── the user draws in Plan mode: nothing 3D exists ───────────────────────
     canvas.set_active_tool(ToolType.RAISED_BED)

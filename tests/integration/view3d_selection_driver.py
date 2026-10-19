@@ -814,7 +814,6 @@ def scenario_app_walk(_ctx: Context) -> dict[str, Any]:
     # gate hook and tests/conftest.py do): the settings store is this driver's own
     # (``_isolate_settings``), the welcome dialog (a modal exec) is silenced, the Agent
     # API server stays off, and every network request is "offline" at once
-    os.environ["OGP_QUICK3D"] = "1"
     store = app_settings.create_qsettings()
     store.setValue(app_settings.AppSettings.KEY_SHOW_WELCOME, False)
     store.setValue(app_settings.AppSettings.KEY_AGENT_API_ENABLED, False)

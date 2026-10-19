@@ -99,7 +99,6 @@ class Engines:
 
 @pytest.fixture()
 def app3d(qtbot, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[GardenPlannerApp, Engines]:
-    monkeypatch.setenv("OGP_QUICK3D", "1")
     monkeypatch.setattr(QMessageBox, "question", lambda *_a, **_k: QMessageBox.StandardButton.Discard)
     monkeypatch.setattr(QMessageBox, "information", lambda *_a, **_k: QMessageBox.StandardButton.Ok)
     window = GardenPlannerApp()

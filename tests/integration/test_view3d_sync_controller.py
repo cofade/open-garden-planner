@@ -15,7 +15,7 @@ snapshot). The same in the real main window: ``test_view3d_plan_revision.py``.
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from typing import Any
 
 import pytest
@@ -784,6 +784,126 @@ def test_an_animated_date_never_queues_more_than_one_regrow(canvas: CanvasView, 
     calls = rig.settle()
     assert rig.controller.snapshot_count == snapshots + 1
     assert calls == [BEGIN, ("replace_geometry", str(apple.item_id)), COMMIT]
+
+
+def _dated_apple(canvas: CanvasView) -> Any:
+    apple = drop(canvas, "TREE:species=apple tree", QPointF(900.0, 700.0))
+    apple.metadata["plant_instance"] = {
+        "planting_date": "2024-04-01", "current_height_cm": 180.0, "current_spread_cm": 120.0}
+    return apple
+
+
+def _regrowths(rig: Rig, item_id: str) -> int:
+    return sum(1 for report in rig.reports if item_id in report.changes.geometry)
+
+
+def _until_idle(rig: Rig) -> None:
+    rig.qtbot.waitUntil(lambda: rig.controller.idle, timeout=5000)
+    rig.qtbot.wait(20)
+
+
+def test_a_date_held_down_regrows_at_once_and_once_more_on_its_last_day(
+        canvas: CanvasView, qtbot) -> None:
+    """DATE PLAYBACK (L1.9, #531): the first change of a date regrows at once; changes
+    within ``DATE_REGROW_MIN_MS`` after it only move the light, and ONE trailing
+    regrowth shows the last day — never the day before it. Deterministic: the steps
+    of each burst arrive inside one turn of the event loop."""
+    rig = Rig(canvas, qtbot, location=dict(BERLIN))
+    apple = _dated_apple(canvas)
+    rig.controller.set_active(True)
+    _until_idle(rig)
+    rig.reports.clear()
+    light, snapshots = rig.controller.light_count, rig.controller.snapshot_count
+
+    rig.clock.set_date(date(2027, 3, 1))                # the first step: a regrowth at once
+    rig.qtbot.waitUntil(lambda: _regrowths(rig, str(apple.item_id)) == 1, timeout=5000)
+    for day in range(2, 29):                              # the key repeats: 27 more steps
+        rig.clock.set_date(date(2027, 3, day))
+        QApplication.processEvents()                      # each step's light-only pass
+    assert rig.controller.date_deferrals == 27
+    assert rig.controller.light_count >= light + 1, "the light follows the steps"
+    _until_idle(rig)
+    assert _regrowths(rig, str(apple.item_id)) == 2, "the first day and the last one"
+    assert rig.controller.snapshot_count == snapshots + 2
+    assert rig.controller._pass_date == date(2027, 3, 28)
+    assert rig.controller.sync.sun == SunState.from_solar_position(
+        solar_position(BERLIN["latitude"], BERLIN["longitude"], rig.clock.utc))
+    rig.assert_equals_a_from_scratch_apply()
+
+
+def test_a_trailing_regrowth_that_finds_its_day_already_shown_takes_no_snapshot(
+        canvas: CanvasView, qtbot) -> None:
+    """28 steps inside one turn: the posted pass reads the 28th day, so the trailing
+    check finds nothing to do — one snapshot in all (the pre-L1.9 bound holds)."""
+    rig = Rig(canvas, qtbot)
+    apple = _dated_apple(canvas)
+    rig.controller.set_active(True)
+    _until_idle(rig)
+    rig.reports.clear()
+    snapshots = rig.controller.snapshot_count
+    for day in range(1, 29):
+        rig.clock.set_date(date(2027, 2, day))
+    _until_idle(rig)
+    assert rig.controller.snapshot_count == snapshots + 1
+    assert _regrowths(rig, str(apple.item_id)) == 1
+    assert rig.controller._pass_date == date(2027, 2, 28)
+
+
+def test_a_date_that_changes_while_3d_is_hidden_is_one_catch_up_and_no_timer(
+        canvas: CanvasView, qtbot) -> None:
+    rig = Rig(canvas, qtbot)
+    apple = _dated_apple(canvas)
+    rig.controller.set_active(True)
+    _until_idle(rig)
+    rig.clock.set_date(date(2027, 5, 1))
+    rig.clock.set_date(date(2027, 5, 2))                 # booked: a trailing regrowth
+    QApplication.processEvents()
+    rig.controller.set_active(False)                     # hidden before it is due
+    assert rig.controller._date_timer.isActive() is False
+    for day in range(3, 20):
+        rig.clock.set_date(date(2027, 5, day))
+    assert rig.controller._date_timer.isActive() is False, "hidden: flags only"
+    rig.reports.clear()
+    rig.controller.set_active(True)
+    _until_idle(rig)
+    assert _regrowths(rig, str(apple.item_id)) == 1
+    assert rig.controller._pass_date == date(2027, 5, 19)
+
+
+FIRST_DAY, ONE_DAY = date(2028, 1, 1), timedelta(days=1)
+
+
+@pytest.mark.perf
+@pytest.mark.parametrize("interval_ms", [sync_controller.DATE_REGROW_MIN_MS, 0])
+def test_a_held_date_key_regrows_at_most_once_per_interval(
+        canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch, interval_ms: int) -> None:
+    """#531, wall clock: an arrow key held in the date field for two seconds (a step every
+    33 ms, Windows' repeat rate). With the product's interval the dated plant regrows at
+    most once per interval plus the first and the last; with no interval (the control,
+    the behaviour before L1.9) it regrows on every step."""
+    import time as wall
+
+    monkeypatch.setattr(sync_controller, "DATE_REGROW_MIN_MS", interval_ms)
+    rig = Rig(canvas, qtbot, location=dict(BERLIN))
+    apple = _dated_apple(canvas)
+    rig.controller.set_active(True)
+    _until_idle(rig)
+    rig.reports.clear()
+    steps = 60
+    started = wall.perf_counter()
+    for step in range(steps):
+        rig.clock.set_date(FIRST_DAY + ONE_DAY * step)
+        qtbot.wait(33)
+    held_s = wall.perf_counter() - started
+    _until_idle(rig)
+    regrowths = _regrowths(rig, str(apple.item_id))
+    if interval_ms == 0:
+        assert regrowths == steps
+    else:
+        assert regrowths <= held_s * 1000.0 / interval_ms + 2, (regrowths, held_s)
+        assert regrowths < steps / 4
+    assert rig.controller._pass_date == FIRST_DAY + ONE_DAY * (steps - 1)
+    rig.assert_equals_a_from_scratch_apply()
 
 
 def test_a_destroyed_controller_is_never_called_again(canvas: CanvasView, qtbot) -> None:

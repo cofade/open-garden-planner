@@ -639,6 +639,8 @@ class Workspace(QWidget):
         strip.addWidget(self._pane_switch)
         self._reset_button = QToolButton(pane.strip)
         self._reset_button.setDefaultAction(self._reset_action)
+        # its words, not the menu's icon (the main window gives the action one, L1.9)
+        self._reset_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
         self._reset_button.setAutoRaise(True)
         self._reset_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         strip.addWidget(self._reset_button)

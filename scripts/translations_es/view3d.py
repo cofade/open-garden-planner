@@ -1,4 +1,4 @@
-"""Spanish translations for the Phase 17 3D workspace (L1.3), its looks (L1.4) and selection / walk (L1.8), #385."""
+"""Spanish translations for the Phase 17 3D workspace (L1.3), its looks (L1.4), selection / walk (L1.8) and the default flip (L1.9), #385."""
 
 TRANSLATIONS = {
     "View3DProblemsDialog": {
@@ -103,5 +103,30 @@ TRANSLATIONS = {
         "Quality:": "Calidad:",
         "Reduce motion in the 3D view": "Reducir el movimiento en la vista 3D",
         "Ultra": "Ultra",
+    },
+    "GardenPlannerApp": {
+        "&3D View": "Vista &3D",
+        "Show the garden in 3D beside the plan, lit by the simulated sun": "Mostrar el huerto en 3D junto al plano, iluminado por el sol simulado",
+    },
+    "ShortcutsDialog": {
+        "3D View": "Vista 3D",
+        "3D only": "Solo 3D",
+        "Click": "Clic",
+        "Leave walk mode": "Salir del paseo virtual",
+        "Left Mouse Drag": "Arrastrar con el botón izquierdo",
+        "Look around": "Mirar alrededor",
+        "Mouse Drag": "Arrastrar con el ratón",
+        "Orbit the 3D view": "Orbitar la vista 3D",
+        "Page Up / Page Down": "Re Pág / Av Pág",
+        "Pan the 3D view": "Desplazar la vista 3D",
+        "Plan and 3D side by side (Split)": "Plano y 3D lado a lado (Dividido)",
+        "Plan only": "Solo plano",
+        "Reset 3D View": "Restablecer vista 3D",
+        "Right Mouse Drag": "Arrastrar con el botón derecho",
+        "Run": "Correr",
+        "Select the object under the pointer": "Seleccionar el objeto bajo el puntero",
+        "W A S D / Arrow Keys": "W A S D / Teclas de flecha",
+        "Walk": "Caminar",
+        "Walk Mode (3D)": "Paseo virtual (3D)",
     },
 }

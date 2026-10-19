@@ -163,7 +163,9 @@ def pipeline_settled(workspace: Workspace) -> bool:
     controller = workspace.controller
     if controller is None or not controller.active:
         return True
-    return not (controller._posted or controller._timer.isActive())
+    # (L1.9) a regrowth booked for a date that kept changing is a pass on its way too
+    return not (controller._posted or controller._timer.isActive()
+                or controller._date_timer.isActive())
 
 
 def wait_for_pipeline(workspace: Workspace, qtbot: Any, ms: int = 80) -> None:

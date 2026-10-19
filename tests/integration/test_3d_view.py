@@ -185,7 +185,9 @@ class TestAppWorkflow:
         # change below regrows the scene whatever today is.
         win._sim_clock.set_datetime(datetime(2026, 3, 1, 12, 0))
 
-        win._view3d_action.trigger()
+        # L1.9: the menu action shows the workspace's 3D pane now; the retired window
+        # is reached only through its own slot, until L1.10 deletes it
+        win._on_open_3d_view()
         window = win._view3d_window
         assert window is not None
         assert window.adapter.rebuild_count == 1
@@ -231,7 +233,7 @@ class TestAppWorkflow:
 
         # Re-triggering the menu while the viewer is still OPEN refreshes and
         # raises the SAME window (live swapchain — no recreate).
-        win._view3d_action.trigger()
+        win._on_open_3d_view()
         assert win._view3d_window is window
         assert window.adapter.rebuild_count == 5
 
@@ -243,7 +245,7 @@ class TestAppWorkflow:
         window.close()
         assert win._view3d_window is None
         old_window = window
-        win._view3d_action.trigger()  # reopen → fresh window, fresh snapshot
+        win._on_open_3d_view()  # reopen → fresh window, fresh snapshot
         assert win._view3d_window is not None
         assert win._view3d_window is not old_window
         assert win._view3d_window.adapter.rebuild_count == 1

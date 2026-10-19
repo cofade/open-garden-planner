@@ -46,7 +46,10 @@ The rules it enforces:
   ``sync.apply`` (L1.1). A time-of-day change is LIGHT ONLY: one ``set_sun``, no
   snapshot (the plan did not change). A date change regrows the plants: a tick.
   Writes that arrive faster than ticks coalesce in the flags — an animated date
-  never queues more than one pending regrow.
+  never queues more than one pending regrow. And a date that keeps changing (an
+  arrow key held in the date field) regrows at most once per ``DATE_REGROW_MIN_MS``
+  — the first change at once, the last one when the interval is over — while the
+  light follows every step (DATE PLAYBACK, #531, L1.9).
 - **A snapshot only on a change of the plan, or once after a quiet time — never
   on a timer that spins, and never per repaint** (above).
 - **A document change is not a reset.** A new or opened plan is just another
@@ -88,6 +91,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import math
 import time
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
@@ -135,6 +139,16 @@ CATCH_UP_MS: Final = 25
 NET_QUIET_MS: Final = 400
 #: … and a scene that is never still for that long is reconciled this often anyway.
 NET_MAX_WAIT_S: Final = 5.0
+#: DATE PLAYBACK (L1.9, #531). A plan date that keeps changing — an arrow key held in
+#: the toolbar's date field steps it about 30 times a second — regrows the dated
+#: plants at most once per this interval: the first change at once, the last one
+#: when the interval is over (if the date is not the one the last pass read). Every
+#: step still moves the light (a light-only pass, no snapshot). Why: a regrowth
+#: replaces the Models of every dated plant, and each Model Qt Quick 3D destroys
+#: leaves 15 to 20 kB behind that no cache release returns (#531) — 20 dated plants
+#: at 30 steps a second were an estimated 0.7 GB a minute; at two a second it is a
+#: fifteenth of that (the measured numbers are in §8.32.9).
+DATE_REGROW_MIN_MS: Final = 500
 #: How many distinct failures of one outage are remembered (and so logged at ERROR
 #: once each); a failure beyond that is a DEBUG line.
 _MAX_FAILURES_REMEMBERED: Final = 32
@@ -265,6 +279,15 @@ class Scene3DController(QObject):
         self._net.timeout.connect(self._reconcile)
         self._net_since = 0.0     # when the timer was first started in this run of repaints
         self._net_owed = False    # a repaint arrived while 3D was hidden
+        # DATE PLAYBACK (#531): when the date last asked for a regrowth, the date the
+        # last records pass read, and the one timer that books the trailing regrowth
+        self._regrown_at = -math.inf
+        self._pass_date: date | None = None
+        self._date_timer = QTimer(self)
+        self._date_timer.setSingleShot(True)
+        self._date_timer.timeout.connect(self._regrow_if_the_date_moved)
+        #: Date changes that did not regrow at once (an instrument).
+        self.date_deferrals = 0
         self._revision_at_changed = self._revision()
         announced = getattr(scene, "plan_changed", None)  # a CanvasScene has it
         if announced is not None:
@@ -291,12 +314,13 @@ class Scene3DController(QObject):
 
     @property
     def idle(self) -> bool:
-        """Nothing is on its way: no pass owed, none posted, and the net's quiet timer
-        is not running. (An instrument for tests and gates; a paused controller with
-        a flag set is not idle.)"""
+        """Nothing is on its way: no pass owed, none posted, the net's quiet timer is
+        not running and no regrowth of a date is booked. (An instrument for tests and
+        gates; a paused controller with a flag set is not idle.)"""
         with contextlib.suppress(RuntimeError):  # the #230 teardown guard
             return not (self.dirty or self._selection_dirty or self._posted or self._net_owed
-                        or self._timer.isActive() or self._net.isActive())
+                        or self._timer.isActive() or self._net.isActive()
+                        or self._date_timer.isActive())
         return True
 
     @property
@@ -340,6 +364,9 @@ class Scene3DController(QObject):
                 if self._net.isActive():
                     self._net.stop()
                     self._net_owed = True  # looked at when 3D comes back
+                if self._date_timer.isActive():
+                    self._date_timer.stop()
+                    self._records_dirty = True  # the catch-up pass reads the date
             return
         if self.dirty or self._selection_dirty:
             self._schedule(max(self._tick_ms, CATCH_UP_MS))  # … and that pass reads everything
@@ -418,6 +445,7 @@ class Scene3DController(QObject):
         with contextlib.suppress(RuntimeError):
             self._timer.stop()
             self._net.stop()
+            self._date_timer.stop()
         scene = self._scene
         connections: list[tuple[Any, Callable[..., None]]] = [
             (scene.changed, self._on_scene_changed),
@@ -539,7 +567,31 @@ class Scene3DController(QObject):
         self._pass_records(reconciling=True)
 
     def _on_date_changed(self, _day: date) -> None:
-        self.mark_dirty()  # growth is keyed on the plan date: the plants regrow
+        """Growth is keyed on the plan date: the dated plants regrow — at most once per
+        ``DATE_REGROW_MIN_MS`` while the date keeps changing (DATE PLAYBACK, #531): the
+        first change at once, the last one when the interval is over. The light follows
+        every change on its own (``_on_instant_changed``)."""
+        if not self._active:
+            self.mark_dirty()  # paused: the flag is all that happens
+            return
+        with contextlib.suppress(RuntimeError):  # the #230 teardown guard
+            if self._date_timer.isActive():
+                self.date_deferrals += 1  # the trailing regrowth reads the date then
+                return
+            waited_ms = (time.monotonic() - self._regrown_at) * 1000.0
+            if waited_ms < DATE_REGROW_MIN_MS:
+                self.date_deferrals += 1
+                self._date_timer.start(max(1, math.ceil(DATE_REGROW_MIN_MS - waited_ms)))
+                return
+        self._regrown_at = time.monotonic()
+        self.mark_dirty()
+
+    def _regrow_if_the_date_moved(self) -> None:
+        """The trailing regrowth of a date that kept changing: only if the plan date is
+        not the one the last records pass read (an edit's pass may have read it)."""
+        self._regrown_at = time.monotonic()
+        if self._clock.plan_date != self._pass_date:
+            self.mark_dirty()
 
     def _on_instant_changed(self, _change: SimChange) -> None:
         self._sun_dirty = True  # the light follows every instant
@@ -605,7 +657,8 @@ class Scene3DController(QObject):
             # tick after tick is answered from memory; several scenes taking turns
             # would recompute everything on every tick. The workspace has one canvas
             # scene and one controller — keep it that way (L1.1's contract).
-            records = snapshot_records(self._scene, self._clock.plan_date, skipped=skipped)
+            self._pass_date = self._clock.plan_date
+            records = snapshot_records(self._scene, self._pass_date, skipped=skipped)
         except Exception as error:  # noqa: BLE001 - one item never raises; this is the scene itself
             self._give_up("the plan could not be read for the 3D view", error)
             return

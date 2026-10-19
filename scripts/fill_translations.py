@@ -3356,6 +3356,40 @@ for _ctx, _strings in _L18_SELECTION_WALK_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
+# ── Phase 17 L1.9: the 3D workspace is the default (#385, ADR-065) ──
+_L19_DEFAULT_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "GardenPlannerApp": {
+        "&3D View": "&3D-Ansicht",
+        "Show the garden in 3D beside the plan, lit by the simulated sun":
+            "Den Garten in 3D neben dem Plan zeigen, beleuchtet von der simulierten Sonne",
+    },
+    "ShortcutsDialog": {
+        "3D View": "3D-Ansicht",
+        "Plan only": "Nur Plan",
+        "3D only": "Nur 3D",
+        "Plan and 3D side by side (Split)": "Plan und 3D nebeneinander (Geteilt)",
+        "Left Mouse Drag": "Ziehen mit linker Maustaste",
+        "Right Mouse Drag": "Ziehen mit rechter Maustaste",
+        "Pan the 3D view": "3D-Ansicht verschieben",
+        "Orbit the 3D view": "3D-Ansicht drehen",
+        "Page Up / Page Down": "Bild auf / Bild ab",
+        "Reset 3D View": "3D-Ansicht zurücksetzen",
+        "Click": "Klick",
+        "Select the object under the pointer": "Objekt unter dem Mauszeiger auswählen",
+        "Walk Mode (3D)": "Rundgang (3D)",
+        "W A S D / Arrow Keys": "W A S D / Pfeiltasten",
+        "Walk": "Gehen",
+        "Run": "Laufen",
+        "Mouse Drag": "Ziehen mit der Maus",
+        "Look around": "Umsehen",
+        "Leave walk mode": "Rundgang beenden",
+    },
+}
+
+for _ctx, _strings in _L19_DEFAULT_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
 
 for _ctx, _strings in _F1_F2_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)

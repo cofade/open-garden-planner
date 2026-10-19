@@ -1,6 +1,6 @@
 """A day in the garden: the look of the 3D view in the real main window (L1.4, §8.10).
 
-A real ``GardenPlannerApp`` started with the internal switch ``OGP_QUICK3D=1``; its
+A real ``GardenPlannerApp`` (the 3D workspace is the default since L1.9); its
 3D engine is replaced at the documented seam (``Workspace.engine_factory``) by a
 host that records what it is told and a ``RecordingSink``. The user sets the
 garden's location, moves the toolbar's time through sunrise, noon, sunset and
@@ -38,7 +38,6 @@ from open_garden_planner.ui.view3d.workspace import Workspace, WorkspaceMode
 from tests.integration.test_view3d_workspace_widget import FakeHost
 
 BERLIN = {"latitude": 52.52, "longitude": 13.405}
-SWITCH = "OGP_QUICK3D"
 JUNE = date(2026, 6, 21)
 DECEMBER = date(2026, 12, 21)
 BEGIN, COMMIT, SUN = ("begin", None), ("commit", None), ("set_sun", None)
@@ -81,7 +80,6 @@ def look_settings(qtbot):  # noqa: ARG001 - Qt must be up
 @pytest.fixture()
 def app3d(qtbot, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, look_settings
           ) -> tuple[GardenPlannerApp, Engines]:  # noqa: ARG001 - the settings come first
-    monkeypatch.setenv(SWITCH, "1")
     monkeypatch.setattr(QMessageBox, "question",
                         lambda *_a, **_k: QMessageBox.StandardButton.Discard)
     window = GardenPlannerApp()
@@ -257,7 +255,7 @@ def test_a_day_in_the_garden_drives_the_look_and_nothing_else(app3d, qtbot, mous
     assert host.looks[looks:] == [look_for(winter, "low")], "a preset change is ONE look call"
     assert (look.quality, look.preset) == ("low", "low")
     assert len(host.skies) == skies and len(host.wind) == wind
-    shown = PreferencesDialog(window, show_view3d=True)
+    shown = PreferencesDialog(window)
     qtbot.addWidget(shown)
     assert shown._view3d_quality_combo.currentData() == "low", "the dialog shows what is stored"
     _preferences(window, monkeypatch, reduced_motion=True)
@@ -333,20 +331,13 @@ def test_compatibility_mode_gets_the_look_without_a_sky(app3d, qtbot, tmp_path: 
     assert "run" not in host.wind
 
 
-def test_the_3d_settings_are_offered_only_where_there_is_a_3d_workspace(qtbot, look_settings) -> None:
-    """While the workspace is behind its internal switch, Preferences does not show a
-    setting for a view nobody can open — and a hidden group never rewrites the store."""
+def test_the_3d_settings_are_always_offered_and_saved(qtbot, look_settings) -> None:
+    """Preferences → 3D View: shown and saved like every other group — since L1.9 every
+    main window has the 3D workspace (until then a hidden group never rewrote the
+    store)."""
     look_settings.view3d_quality = "medium"
     look_settings.view3d_reduced_motion = True
-    hidden = PreferencesDialog()
-    qtbot.addWidget(hidden)
-    group = hidden._view3d_quality_combo.parentWidget()
-    assert group.isHidden()
-    hidden._view3d_quality_combo.setCurrentIndex(0)
-    hidden._view3d_reduced_motion_check.setChecked(False)
-    hidden._save_and_accept()
-    assert (look_settings.view3d_quality, look_settings.view3d_reduced_motion) == ("medium", True)
-    shown = PreferencesDialog(show_view3d=True)
+    shown = PreferencesDialog()
     qtbot.addWidget(shown)
     assert not shown._view3d_quality_combo.parentWidget().isHidden()
     assert shown._view3d_quality_combo.currentData() == "medium"
@@ -359,9 +350,10 @@ def test_the_3d_settings_are_offered_only_where_there_is_a_3d_workspace(qtbot, l
     assert (look_settings.view3d_quality, look_settings.view3d_reduced_motion) == ("auto", False)
 
 
-def test_the_main_window_offers_them_exactly_when_it_has_a_workspace(
+def test_the_main_windows_preferences_offer_the_3d_view_group(
         qtbot, monkeypatch: pytest.MonkeyPatch, look_settings) -> None:  # noqa: ARG001
-    """The Edit → Preferences action of the real window: the dialog it opens."""
+    """The Edit → Preferences action of the real window: the dialog it opens shows the
+    3D View group."""
     opened: list[PreferencesDialog] = []
 
     def record(self: PreferencesDialog) -> int:
@@ -369,10 +361,8 @@ def test_the_main_window_offers_them_exactly_when_it_has_a_workspace(
         return 0
 
     monkeypatch.setattr(PreferencesDialog, "exec", record)
-    for switch, expected in (("", False), ("1", True)):
-        monkeypatch.setenv(SWITCH, switch)
-        window = GardenPlannerApp()
-        qtbot.addWidget(window)
-        window._on_preferences()
-        assert opened[-1]._show_view3d is expected, switch
-        window.close()
+    window = GardenPlannerApp()
+    qtbot.addWidget(window)
+    window._on_preferences()
+    assert not opened[-1]._view3d_quality_combo.parentWidget().isHidden()
+    window.close()

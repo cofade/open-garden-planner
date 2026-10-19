@@ -69,14 +69,10 @@ class PreferencesDialog(QDialog):
     via QSettings so they don't need environment variables.
     """
 
-    def __init__(self, parent: QWidget | None = None, *, show_view3d: bool = False) -> None:
-        """``show_view3d``: offer the 3D view's settings (Phase 17 L1.4). The main
-        window passes whether it HAS a 3D workspace — while the workspace is behind
-        its internal switch, a setting for a view nobody can open is not shown."""
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("Preferences"))
         self.setMinimumSize(550, 400)
-        self._show_view3d = bool(show_view3d)
         self._setup_ui()
         self._load_settings()
 
@@ -351,7 +347,6 @@ class PreferencesDialog(QDialog):
         )
         view3d_layout.addRow(self._view3d_reduced_motion_check)
 
-        view3d_group.setVisible(self._show_view3d)
         layout.addWidget(view3d_group)
 
         layout.addStretch()
@@ -511,9 +506,8 @@ class PreferencesDialog(QDialog):
         settings.agent_api_enabled = self._agent_api_check.isChecked()
         settings.agent_api_port = self._agent_api_port_spin.value()
         settings.agent_api_writes_enabled = self._agent_api_writes_check.isChecked()
-        if self._show_view3d:  # a hidden group never rewrites what it could not show
-            settings.view3d_quality = str(self._view3d_quality_combo.currentData())
-            settings.view3d_reduced_motion = self._view3d_reduced_motion_check.isChecked()
+        settings.view3d_quality = str(self._view3d_quality_combo.currentData())
+        settings.view3d_reduced_motion = self._view3d_reduced_motion_check.isChecked()
         settings.sync()
         self.accept()
 
