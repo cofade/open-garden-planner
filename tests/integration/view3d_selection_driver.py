@@ -801,17 +801,36 @@ def scenario_app_walk(_ctx: Context) -> dict[str, Any]:
     Qt's own path, ``ShortcutOverride`` and the main window's shortcuts included) and
     record how far the walker went, Snap to Grid and the plan's tool; then Escape — walk
     mode ends and the keyboard goes back to the plan."""
+    import urllib.request
+
     from PyQt6.QtCore import Qt
     from PyQt6.QtGui import QGuiApplication
     from PyQt6.QtTest import QTest
     from PyQt6.QtWidgets import QApplication, QMessageBox
 
+    import open_garden_planner.app.settings as app_settings
+
+    # the app as a user starts it, minus what would block or reach out (as the workspace
+    # gate hook and tests/conftest.py do): the settings store is this driver's own
+    # (``_isolate_settings``), the welcome dialog (a modal exec) is silenced, the Agent
+    # API server stays off, and every network request is "offline" at once
     os.environ["OGP_QUICK3D"] = "1"
+    store = app_settings.create_qsettings()
+    store.setValue(app_settings.AppSettings.KEY_SHOW_WELCOME, False)
+    store.setValue(app_settings.AppSettings.KEY_AGENT_API_ENABLED, False)
+    store.sync()
+
+    def offline(*_arguments: Any, **_options: Any) -> Any:
+        raise OSError("the selection driver runs without a network")
+
+    urllib.request.urlopen = offline  # type: ignore[assignment]
     QMessageBox.question = lambda *_a, **_k: QMessageBox.StandardButton.Discard  # type: ignore[method-assign]
     QMessageBox.information = lambda *_a, **_k: QMessageBox.StandardButton.Ok  # type: ignore[method-assign]
     QMessageBox.warning = lambda *_a, **_k: QMessageBox.StandardButton.Ok  # type: ignore[method-assign]
     from open_garden_planner.app.application import GardenPlannerApp
     from open_garden_planner.ui.view3d.workspace import WorkspaceMode
+
+    GardenPlannerApp._show_welcome_dialog = lambda _self: None  # type: ignore[method-assign]
 
     window = GardenPlannerApp()
     window.resize(1500, 900)

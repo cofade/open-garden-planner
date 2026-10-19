@@ -19,10 +19,11 @@ runner, a tripwire at x10 under a line tracer:
   median, 14.9 ms p95, 37.7 ms max over 120 changes. The frame itself is the render tier's
   (``test_view3d_selection_render.py``).
 
-What the second number contains and should not: the canvas repaints a selected
-item, the scene says ``changed``, and the pipeline takes a whole-plan snapshot for
-it — although a selection changes nothing a record holds. The ring itself needs no
-snapshot (``test_view3d_selection_controller.py``). Reported with this story.
+What the second number no longer contains: until the workspace's plan revision the
+canvas's repaint of a selected item was read as an edit — a whole-plan snapshot per
+change (120 of 120, 2026-10-12). Since the revision a selection change is a ring-only
+pass: no snapshot, asserted below (the repaints go to the quiet-time net, which finds
+nothing — ``test_view3d_selection_workspace.py::test_a_canvas_selection_in_split_takes_no_snapshot``).
 """
 
 from __future__ import annotations
@@ -147,4 +148,5 @@ def test_a_selection_change_reaches_the_engine_within_the_edit_budget(qtbot, tmp
     print(f"\n[selection to engine] {len(latencies)} changes on bench_small: median "
           f"{statistics.median(latencies):.2f} ms, p95 {p95:.2f} ms, max {ordered[-1]:.2f} ms; "
           f"{snapshots} of them rode a pass that took a snapshot")
+    assert snapshots == 0, "a selection change reads nothing of the plan"
     assert p95 <= SELECTION_BUDGET_MS * factor()
