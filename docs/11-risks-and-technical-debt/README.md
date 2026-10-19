@@ -2473,7 +2473,9 @@ engine's own facts are in the `ogp-3d-renderer` skill, §14.
    the scene emits `changed`, and the pipeline's controller cannot tell a repaint from an edit:
    120 of 120 selection changes rode a pass that took a snapshot (3.6 ms on the small bench
    plan, 14 on the large). The ring itself needs none. Not fixed here — it is the pipeline's
-   rule ("every `changed` marks the plan dirty") — and reported.
+   rule ("every `changed` marks the plan dirty"; the workspace story's plan revision is the
+   fix) — and reported. A strict-`xfail` test asserts zero snapshots and fails the day the fix
+   lands (re-measured 2026-10-19: 6 snapshots for 4 selection changes).
 5. **The canvas does not treat Shift the same everywhere.** A Shift+click on an item toggles it.
    A Shift+click THROUGH a locked item acts as a plain click: the select tool's Shift branch
    looks at the top item only, finds it locked, and falls into the plain path, which replaces
@@ -2502,6 +2504,22 @@ engine's own facts are in the `ogp-3d-renderer` skill, §14.
     without load on the machine. The cause is not known. The driver now records every pass of a
     change that misses (what was selected on the canvas, what the sync wished and sent, the
     ring loads), so the next occurrence explains itself. Stated as an open doubt, not as fixed.
+12. **"The document was replaced" comes BEFORE the old document goes** (found when master's
+    #428 mechanism, `CanvasScene.document_replaced`, replaced the main window's hand-called
+    hook). The workspace's slot used to read the canvas selection "for the new document" —
+    and at that moment the old items are still in the scene and still selected. It did no
+    harm only because Qt's `clear()` / `removeItem` then emit `selectionChanged` for every
+    removed selected item (measured: a mutant that keeps the read passes the same test). *Fix:*
+    the slot reads nothing of the scene and empties the ring's wish. *Lesson:* a slot of a
+    "replaced" signal must not read the thing being replaced; a test that passes on both
+    versions is a pin of the outcome, not of the fix — say so.
+13. **Five lists, five ways to select an object by its id.** The Diagnostics, Canopy and Guilds
+    panels walked `parentItem()` to a group, the plant search took the item as found, the 3D
+    list used the canvas's click rules — each with its own resolver. They agreed only because
+    every group in the app is a `QGraphicsItemGroup` (whose `setSelected` hands the selection
+    to the group) and a locked item's `setSelected(True)` does nothing. *Fix:* ONE path,
+    `ui/canvas/select_by_id.py`. *Lesson:* a behavioural test cannot tell two copies that
+    happen to agree from one path; pin the structure as well (§8.10.30).
 
 ### 11.4.8 Guild boundaries found by independent review (F1/F2)
 

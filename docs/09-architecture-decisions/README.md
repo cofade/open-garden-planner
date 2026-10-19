@@ -5349,9 +5349,15 @@ outside. Six facts shaped what was built:
 canvas selection — through `QGraphicsItem.setSelected` / `clearSelection`, the canvas's own
 path, so the property panel, the status bar and the undo stack behave as after a click on the
 plan (a selection is no command: the undo stack does not move). The canvas's `selectionChanged`
-becomes the ring in 3D and the info card. `ui/view3d/selection_bridge.py` is the one module that
-knows the canvas's rules; `Workspace.select_item(item_id, *, toggle=False, center=True)` — what
-the "Not Shown in 3D" list already used — is the one entry.
+becomes the ring in 3D and the info card. Selecting by id is ONE path for the whole app,
+`ui/canvas/select_by_id.py` (revision of 2026-10-19): which item an id names (`item_with_id`),
+what selecting it selects (`click_target`, the outermost group), whether it can be selected
+(`is_selectable`, which a locked layer answers) and `select_by_ids` on top. The Diagnostics,
+Canopy and Guilds panels (`ObjectNavigator`, which had a resolver and a group rule of its own),
+the plant search, the 3D "Not Shown in 3D" list (`Workspace.select_item(item_id, *,
+toggle=False, center=True)`) and a click in 3D (`ui/view3d/selection_bridge.py`, which adds
+only the ray's rule) all go through it, so a row of a panel and a click in 3D cannot disagree
+about an id. The panels' behaviour is unchanged (their tests pass as they were).
 
 **S2. The rules are the canvas's, as measured.**
 
@@ -5504,7 +5510,10 @@ frozen data, pure functions) and a thin input filter (`ui/view3d/walk_mode.py`).
   capture. Every selection change still costs one whole-plan snapshot while the canvas is
   visible: the canvas repaints the item, the scene says `changed`, and the pipeline cannot
   tell that from an edit (3.6 ms on the small bench plan, 14 on the large; the ring itself
-  needs none — reported as a follow-up for the pipeline). The ring is drawn in front of
+  needs none — reported as a follow-up for the pipeline; measured on the merged tree of
+  2026-10-19: 6 snapshots for 4 selection changes, each with the sink told the ring alone).
+  The workspace story's plan revision is the fix; `test_a_canvas_selection_in_split_takes_no_snapshot`
+  is a strict `xfail` until it lands, so that day it fails and its mark goes. The ring is drawn in front of
   everything, the item's own model included: it reads as an outline seen through the model.
   A device pixel ratio other than 1 was not exercised through the real window.
 - **One open doubt.** In the first WARP run of the timing loop one selection change of 120 did
@@ -5518,7 +5527,8 @@ Default tier (no GPU): `tests/unit/test_scene3d_walk.py`, `test_scene3d_pick_ora
 `test_scene3d_selection.py`, `test_quick3d_selection_ring.py`; `tests/ui/test_view3d_click.py`,
 `test_view3d_walk_mode.py`, `test_view3d_info_card.py`, `test_view3d_selection_ring_host.py`;
 `tests/integration/test_view3d_selection_bridge.py` (the canvas's rules, with real clicks),
-`test_view3d_selection_workspace.py`, `test_view3d_selection_controller.py`,
+`test_view3d_selection_workspace.py` (also the one select-by-id path: a panel row and a 3D list
+row give the same selection, and a structure scan), `test_view3d_selection_controller.py`,
 `test_view3d_walk_bench.py`, `test_view3d_selection_walk.py` (the §8.10 workflow through a real
 `GardenPlannerApp`); `tests/perf/test_view3d_selection_walk_budget.py`.
 

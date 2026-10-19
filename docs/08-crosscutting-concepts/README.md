@@ -1556,6 +1556,18 @@ How §8.32.8 is tested, and the patterns worth reusing. The seam is the workspac
 - **Mutation as a sanity check of the walk tests**: six text mutants of `walk.py` (no push-out,
   a step per frame, footprints only, no sliding, a thinner walker, the carried time dropped),
   each killed. A scratch tool, point in time, not a gate.
+- **Pin "one path" twice: by behaviour and by structure.** The select-by-id path is pinned by a
+  parity test (a Diagnostics-panel row and a 3D-list row, four kinds of id, the same selection)
+  AND an AST scan (the callers call `select_by_ids`; no `clearSelection` elsewhere in the panels
+  or the 3D package). The parity test alone passes on the old, duplicated code — it agreed by
+  accident; only the scan fails on it (mutant: master's former `_navigate`).
+- **A tripwire for a fix that belongs to another story.** A canvas selection in Split still costs
+  whole-plan snapshots (the pipeline reads the canvas's repaint as a change); the fix is the
+  workspace story's plan revision. `test_a_canvas_selection_in_split_takes_no_snapshot` asserts
+  the target and is `xfail(strict=True)`: it fails the day the fix lands, and the mark goes.
+- **Wall-clock asserts carry `@pytest.mark.perf`** (ADR-058): the walking-pace test checks a
+  distance against the time W was really held, so it runs in the serial `-m perf -n 0` step;
+  master's `test_perf_marker_guard` names any that is not marked.
 
 ## 8.11 Security Scanning (SAST)
 
@@ -5328,8 +5340,25 @@ a click in the 3D window                         the canvas
 the table is in the ADR): a plain click selects one item; Ctrl and Shift toggle; a click on the
 ground or the sky clears; an item on a locked layer is transparent — the click selects what lies
 behind it along the ray (`PickHit.behind`), or clears; a member of a group selects the outermost
-group, and the ring runs round every member. A new caller that wants "select this item" calls
-`Workspace.select_item(item_id, toggle=…, center=…)` and writes no second path.
+group, and the ring runs round every member.
+
+> **Rule: selecting by id is ONE path for the whole app** — `ui/canvas/select_by_id.py`
+> (`item_with_id`, `click_target`, `is_selectable`, `replace_selection`, `select_by_ids`). The
+> Diagnostics, Canopy and Guilds panels, the plant search, the 3D "Not Shown in 3D" list
+> (`Workspace.select_item`) and a click in 3D (`selection_bridge`, which adds the ray's rule) go
+> through it. A new list that names objects calls `select_by_ids` and writes no resolver, group
+> rule or locked-layer rule of its own; a structure scan in `test_view3d_selection_workspace.py`
+> refuses a `clearSelection` in the panels or the 3D package outside it.
+
+> **Rule: a replaced document reads no selection.** `CanvasScene.document_replaced` comes while
+> the OLD items are still in the scene and still selected; the workspace's slot empties the
+> ring's wish (`set_selection(())`) instead of reading the scene. A selection made in the new
+> document arrives as `selectionChanged`, like any other.
+
+> **Rule: a selection change reads nothing of the plan.** The selection path is
+> `Scene3DController.set_selection` → `SceneSync.send_selection`: no snapshot, no builder, one
+> sink call. (With the canvas visible the pipeline still reads the canvas's repaint as a
+> change — the workspace's plan revision removes that; a strict-`xfail` tripwire waits for it.)
 
 > **Rule: `host.pick` is called in one place.** `OrbitInput._release`, once per click. It takes a
 > frame from the live view (ADR-065 decision 17): never on a mouse move, a timer or a resize. The
