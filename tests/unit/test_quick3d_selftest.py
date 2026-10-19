@@ -313,7 +313,10 @@ def test_nothing_in_the_engine_package_writes_into_the_temp_directory() -> None:
     """CWE-377: a predictable file name in the shared temp directory can be pre-created
     or symlinked by another local user (``/tmp`` on Linux). The self-test log first
     went there; it now goes into the app's per-user log directory, and no module of
-    the package — nor ``main.py``, which runs the self-test — touches ``tempfile``."""
+    the package touches ``tempfile``. ``main.py``, which runs the self-test, may import
+    it since master's A1 block (#453) — for ``tempfile.TemporaryDirectory``, whose name
+    is random and whose directory is the user's own — but neither file may reach for a
+    predictable name (``gettempdir`` / ``mktemp`` / ``tempdir``)."""
     import ast
 
     package = Path(selftest.__file__).resolve().parent
@@ -325,7 +328,8 @@ def test_nothing_in_the_engine_package_writes_into_the_temp_directory() -> None:
                     for alias in node.names}
         imported |= {node.module for node in ast.walk(tree)
                      if isinstance(node, ast.ImportFrom) and node.module}
-        assert "tempfile" not in imported, path.name
+        if path.name != "main.py":
+            assert "tempfile" not in imported, path.name
         names = {node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)}
         assert not names & {"gettempdir", "mktemp", "tempdir"}, path.name
 
