@@ -1266,6 +1266,8 @@ class GardenPlannerApp(QMainWindow):
 
         out: list[str] = []
         for item in items:
+            if not item.isVisible():
+                continue
             if getattr(item, "parent_bed_id", None) != bed_id:
                 continue
             # Delegate to the SHARED resolver rather than re-implementing the

@@ -2660,3 +2660,10 @@ Sprite growth, shadow casters, heatmaps and 3D all use the plan date, while task
 reminders retain their real-world reference day. Plant task windows stop at removal;
 species aggregation keeps the schedule while any instance remains. Manual/succession
 dates and Season Manager file copies retain their existing behavior.
+
+Post-clear timeline notification refreshes New Plan only after the old items are gone.
+Hidden-layer discovery executes the existing layer visibility command and marks dirty;
+the date navigation itself remains runtime-only. Lifetime refresh derives the age
+label from stored metadata, including undo and rejected edits. Automatic API companion
+checks use visible bed members; task soil warnings use presence on their explicit
+reference day, independently of the displayed simulation date.

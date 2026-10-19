@@ -2625,7 +2625,7 @@ The preexisting German amendment-task naming gap is tracked in #408.
 
 ---
 
-## Package F — Permaculture & Polyculture (✅ 3 of 5 shipped; F4/F5 planned)
+## Package F — Permaculture & Polyculture (✅ 3 of 5 shipped; F4 in review, F5 planned)
 
 > Filed from the permapeople.org research session (2026-08-17). Membership and
 > order live in the `> Package map & order` blockquote at the head of each issue,

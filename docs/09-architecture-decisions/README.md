@@ -2970,6 +2970,7 @@ could disagree with the existing date-projected 3D canopy.
   Command stack changes, document loads and clock date changes reapply visibility.
   Hidden plants cannot be selected, including marquee selection. The hidden-plant
   menu names dates and can navigate to a present day to edit the plant again.
+  Revealing a hidden layer uses the normal undoable layer command.
 - Companion, spacing, capacity, guild, canopy and sun diagnostics evaluate the visible
   set. Hidden plants remain saved. API summary counts retain their existing counting
   rule, and object lists retain absent plants with `present=false`; `as_of_date`

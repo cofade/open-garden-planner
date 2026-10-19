@@ -34,7 +34,7 @@ from typing import Any
 from PyQt6.QtCore import QCoreApplication
 
 from open_garden_planner.core.frost_dates import parse_frost
-from open_garden_planner.core.plan_timeline import instance_date
+from open_garden_planner.core.plan_timeline import instance_date, plant_present
 from open_garden_planner.models.propagation import PropagationPlan, compute_propagation_plan
 from open_garden_planner.models.succession import SuccessionPlan
 from open_garden_planner.models.task import ManualTask
@@ -582,7 +582,7 @@ def build_plan_state(
                 bed_id=bed_id,
                 name=name,
                 amendment_recs=_bed_amendment_recs(bed_id, item, soil_service),
-                mismatch_plants=_bed_mismatch_plants(item, items_by_id, soil_service),
+                mismatch_plants=_bed_mismatch_plants(item, items_by_id, soil_service, today),
             ))
 
     manual_tasks = tuple(
@@ -926,7 +926,7 @@ def _bed_amendment_recs(
 
 
 def _bed_mismatch_plants(
-    item: Any, items_by_id: dict[str, Any], soil_service: Any | None
+    item: Any, items_by_id: dict[str, Any], soil_service: Any | None, today: datetime.date
 ) -> tuple[str, ...]:
     """Names of a bed's child plants whose soil preference clashes (US-12.10d)."""
     if soil_service is None:
@@ -943,6 +943,8 @@ def _bed_mismatch_plants(
         if child is None:
             continue
         metadata = getattr(child, "metadata", None) or {}
+        if not plant_present(metadata, today):
+            continue
         ps_dict = metadata.get("plant_species") if isinstance(metadata, dict) else None
         if ps_dict and isinstance(ps_dict, dict):
             try:

@@ -107,7 +107,14 @@ class PlanTimelineToolbar(QToolBar):
             while ancestor.parentItem() is not None:
                 ancestor = ancestor.parentItem()
             if ancestor.layer_id:
-                self._scene.update_layer_visibility(ancestor.layer_id, True)
+                layer = self._scene.get_layer_by_id(ancestor.layer_id)
+                if layer is not None and not layer.visible:
+                    from open_garden_planner.core.commands import SetLayerPropertyCommand
+
+                    manager = self._scene._command_manager
+                    if manager is None:
+                        return
+                    manager.execute(SetLayerPropertyCommand(self._scene, layer, "visible", False, True))
             self._scene.clearSelection()
             ancestor.setSelected(True)
             for view in self._scene.views():

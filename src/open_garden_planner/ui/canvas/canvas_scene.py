@@ -1239,6 +1239,7 @@ class CanvasScene(QGraphicsScene):
         self._calibration_image = None
         self._calibration_mode = False
         super().clear()
+        self.timeline_changed.emit()  # readers must see the empty, completed document
 
     def reset_document_diagnostics(self) -> None:
         """Drop document-owned caches at clear and successful load commit."""

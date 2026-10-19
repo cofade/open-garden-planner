@@ -919,8 +919,6 @@ class PlantDatabasePanel(QWidget):
         # Save the selected date
         value = d.toPyDate().isoformat()
         self._change_lifetime_date("planting_date", value)
-        # Update age display
-        self._update_age_label(d.toPyDate())
 
     def _on_removal_date_changed(self) -> None:
         day = self.removal_date_edit.date()
@@ -952,6 +950,7 @@ class PlantDatabasePanel(QWidget):
         self.removal_date_edit.blockSignals(True)
         self.removal_date_edit.setDate(QDate(removed.year, removed.month, removed.day) if removed else self.removal_date_edit.minimumDate())
         self.removal_date_edit.blockSignals(False)
+        self._update_age_label(planted)
 
     def _update_age_label(self, planting_date: date | None) -> None:
         """Update the age label based on planting date.
@@ -1278,8 +1277,7 @@ class PlantDatabasePanel(QWidget):
         # reason the unguarded sibling here was "safe only by luck" (issue #200).
         # A genuine selection change still falls through and updates the panel.
         if len(items) == 1 and items[0] is self._current_plant_item:
-            if not (self.planting_date_edit.hasFocus() or self.removal_date_edit.hasFocus()):
-                self._refresh_lifetime_dates(items[0])
+            self._refresh_lifetime_dates(items[0])
             species = getattr(items[0], "metadata", {}).get("plant_species")
             if isinstance(species, dict):
                 data = PlantSpeciesData.from_dict(species)

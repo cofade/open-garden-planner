@@ -137,6 +137,35 @@ def test_panel_removal_edit_clear_undo_redo_and_roundtrip(win, qtbot, tmp_path):
     assert panel.removal_date_edit.date() == QDate(2027, 3, 1)
 
 
+def test_planting_date_age_tracks_undo_redo_and_rejected_edits(win, qtbot, monkeypatch):
+    from PyQt6.QtWidgets import QMessageBox
+
+    item = plant(win, "Apple", "2024-04-01", "2027-03-01")
+    item.setSelected(True)
+    panel = win.plant_database_panel
+    panel.set_selected_items([item])
+    original_age = panel.age_label.text()
+    panel.planting_date_edit.setDate(QDate(2025, 4, 1))
+    new_age = panel.age_label.text()
+    assert new_age != original_age
+    manager = win.canvas_view.command_manager
+    manager.undo()
+    qtbot.wait(20)
+    assert panel.planting_date_edit.date() == QDate(2024, 4, 1)
+    assert panel.age_label.text() == original_age
+    manager.redo()
+    qtbot.wait(20)
+    assert panel.planting_date_edit.date() == QDate(2025, 4, 1)
+    assert panel.age_label.text() == new_age
+    warnings = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *args: warnings.append(args))
+    before = len(manager._undo_stack)
+    panel.planting_date_edit.setDate(QDate(2027, 3, 1))
+    assert warnings and len(manager._undo_stack) == before
+    assert panel.planting_date_edit.date() == QDate(2025, 4, 1)
+    assert panel.age_label.text() == new_age
+
+
 def test_hidden_discovery_reveals_date_and_today_preserves_time(win):
     item = plant(win, "Hazel", "2024-04-01", "2027-03-01")
     scrub(win, 2028, 6)
@@ -151,6 +180,26 @@ def test_hidden_discovery_reveals_date_and_today_preserves_time(win):
     toolbar._today_button.click()
     assert win._sim_clock.plan_date == date.today()
     assert win._sim_clock.time_of_day == old_time
+
+
+def test_hidden_discovery_shows_a_hidden_layer_in_one_dirty_undo_step(win, tmp_path):
+    item = plant(win, "Hazel", "2024-04-01", "2027-03-01")
+    layer = win.canvas_scene.active_layer
+    item.layer_id = layer.id
+    win.canvas_scene.update_layer_visibility(layer.id, False)
+    win._project_manager.save(win.canvas_scene, tmp_path / "hidden.ogp")
+    scrub(win, 2028, 6)
+    manager = win.canvas_view.command_manager
+    before = len(manager._undo_stack)
+    win._timeline_toolbar._populate_hidden()
+    win._timeline_toolbar._hidden_menu.actions()[0].trigger()
+    assert layer.visible and item.isVisible() and item.isSelected()
+    assert len(manager._undo_stack) == before + 1
+    assert win._project_manager.is_dirty
+    manager.undo()
+    assert not layer.visible and not item.isVisible()
+    manager.redo()
+    assert layer.visible and item.isVisible()
 
 
 def test_layer_changes_marquee_and_undo_do_not_resurrect_hidden_plants(win):
@@ -227,6 +276,64 @@ def test_presence_fields_survive_real_mcp_transport(win, qtbot):
         _run(server, body, qtbot)
     finally:
         server.stop()
+
+
+def test_absent_plants_do_not_produce_agent_companion_warnings(win, qtbot):
+    from tests.integration.test_agent_api_lifecycle import _run, _server
+
+    bed = RectangleItem(100, 100, 1000, 1000, object_type=ObjectType.GARDEN_BED)
+    win.canvas_scene.addItem(bed)
+    item = plant(win, "Potato", "2024-01-01", "2026-01-01")
+    item._parent_bed_id = bed.item_id
+    server = _server(win)
+
+    async def body(ctx):
+        http_client, client_session, url = ctx
+        async with http_client(url) as (read, write, _), client_session(read, write) as session:
+            await session.initialize()
+            result = await session.call_tool("check_placement", {"species_key": "Tomato", "bed_id": str(bed.item_id)})
+            assert not result.isError
+            assert result.structuredContent["antagonists_present"] == []
+            explicit = await session.call_tool("check_placement", {"species_key": "Tomato", "bed_id": str(bed.item_id), "bed_plants": ["Potato"]})
+            assert explicit.structuredContent["antagonists_present"]
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+
+def test_task_soil_warnings_use_reference_presence_even_when_scrubbed_elsewhere(win):
+    from open_garden_planner.models.soil_test import SoilTestHistory, SoilTestRecord
+    from open_garden_planner.services.task_generator import (
+        build_plan_state,
+        generate_actionable_for_surface,
+    )
+
+    bed = RectangleItem(100, 100, 1000, 1000, object_type=ObjectType.GARDEN_BED)
+    win.canvas_scene.addItem(bed)
+    item = plant(win, "Removed plant", "2024-01-01", "2026-01-01")
+    item._parent_bed_id = bed.item_id
+    bed._child_item_ids = [item.item_id]
+    item.metadata["plant_species"].update(ph_min=5.0, ph_max=6.0)
+    win._project_manager.set_soil_test_history(str(bed.item_id), SoilTestHistory(
+        target_id=str(bed.item_id), records=[SoilTestRecord(date="2025-01-01", ph=8.0)]))
+    scrub(win, 2025, 6)  # The displayed plant is present, but the reminder day is later.
+    state = build_plan_state(win.canvas_scene, win._project_manager,
+                             soil_service=win._soil_service, today=date(2026, 6, 1))
+    assert not any(t.task_type == "soil_mismatch" for t in generate_actionable_for_surface(state))
+    historical = build_plan_state(win.canvas_scene, win._project_manager,
+                                  soil_service=win._soil_service, today=date(2025, 6, 1))
+    assert any(t.task_type == "soil_mismatch" for t in generate_actionable_for_surface(historical))
+
+
+def test_new_document_resets_hidden_count_and_scrubber_bounds(win):
+    plant(win, "Future", "2090-05-01", "2091-03-01")
+    win.canvas_scene.refresh_timeline()
+    assert win._timeline_toolbar._hidden_button.isEnabled()
+    win._new_project_document(width_cm=5000, height_cm=3000)
+    assert win._timeline_toolbar._hidden_button.text().startswith("0 ")
+    assert not win._timeline_toolbar._hidden_button.isEnabled()
+    assert win._timeline_toolbar._month_slider.maximum() < month_number(date(2090, 1, 1))
 
 
 def test_fresh_gui_and_agent_plants_use_the_active_date(win):
