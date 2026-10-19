@@ -5229,14 +5229,26 @@ Five facts shaped the design:
      `changed([rect])`, then `changed([])`). Taken as a repaint, that echo of an announced write
      whose repaint lands after its pass (the Properties panel repaints, then nudges) was
      "unexplained" and cost a second snapshot a quiet time later — found by a hand mutant that
-     survived, not by a gate.
+     survived, not by a gate. **An announcement explains repaints for one turn after its pass,
+     no longer** (`_expire_explanation`, scheduled at the end of every records pass): an
+     announcement that repaints nothing (a typed height through its command, the bare nudge)
+     otherwise left "the revision moved" standing, and the NEXT unannounced write's repaint read
+     as explained — no timer, and the write stayed out of 3D until some unrelated repaint
+     (measured by the scoped re-check: 3D height 250 against 777 in the plan after 1.5 s). The
+     guarantee above holds only with the expiry; pinned by
+     `test_an_unannounced_write_after_an_announcement_that_repainted_nothing_is_still_found`.
+     The one write the net cannot see is a write to an item on an opacity-0 layer: Qt emits no
+     `changed` at all (a limit of a repaint-driven net, recorded). While "Animate" runs, the
+     `NET_MAX_WAIT_S` bound reconciles every 5 s (a whole-plan snapshot that finds nothing) — a
+     stated cost.
    - *Measured* in the real window (Split, a recording sink): a time sweep with the sun
      simulation on, 20 preview moves of the polygon tool, three selections and a clear, a hover
      over handles, "Animate" for 2 s — 0 snapshots while each happens and 1 after the quiet
      time, which found nothing (first delivery: 10, 20, 4, …, one per tick). 31 edit paths —
      the §8.10 workflow's, undo / redo, layer visibility / lock / opacity, arrange, group /
-     ungroup, paste, duplicate, a handle drag, an Agent API write, the Properties-panel edits —
-     each moves the revision and reaches 3D by a pass it announced; `unannounced_changes == 0`.
+     ungroup, paste, duplicate, a handle drag, an Agent API write, the Properties-panel edits,
+     the plant panel's instance AND species fields (the species fields were missing their
+     nudge until the scoped re-check found them) — each moves the revision and reaches 3D by a pass it announced; `unannounced_changes == 0`.
      A preview mouse-move turn costs in Split what it costs in Plan: median ratio **0.94** on
      the small bench plan (0.58 against 0.62 ms) and **0.98** on the large one (0.76 against
      0.77 ms), 0 snapshots in 160 moves in Split — the `perf` run on a quiet machine; 1.01 and
