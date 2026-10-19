@@ -120,7 +120,7 @@ Two disciplines that apply specifically at package scale:
   it. A `Callable` injection point with N call sites is N implementations of one behaviour, and
   nothing will tell you when one stops matching the others (see #326 for the worked example).
 - **Wrap every user-visible string as you write it** (`self.tr()` / `QCoreApplication.translate`
-  / `QT_TR_NOOP`), not in a cleanup pass. The i18n gate only sees strings already registered; a
+  / `QT_TR_NOOP`), not in a cleanup pass. The i18n gate checks wrapped source keys in every registered locale; a
   hardcoded f-string sails straight past it (§11.4).
 
 Route to `ogp-qt-cad-reference` for canvas/geometry, `ogp-garden-domain-reference` for domain
@@ -157,8 +157,11 @@ after every review-driven fix, not the subset near the fix. On the Windows dev m
 venv/Scripts/python.exe -m pytest tests/ -v
 venv/Scripts/python.exe -m ruff check src/
 venv/Scripts/python.exe -m bandit -r src/ --severity-level high
+PYTHONUTF8=1 venv/Scripts/python.exe scripts/update_translations.py
+# Complete every registered target; the fill helper assists German only.
 PYTHONUTF8=1 venv/Scripts/python.exe scripts/fill_translations.py
 PYTHONUTF8=1 venv/Scripts/python.exe scripts/compile_translations.py
+PYTHONUTF8=1 venv/Scripts/python.exe scripts/check_translations.py
 venv/Scripts/python.exe -m pytest tests/unit/test_i18n.py -v
 venv/Scripts/python.exe scripts/check_agent_context.py
 venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm

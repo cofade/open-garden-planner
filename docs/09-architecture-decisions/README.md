@@ -26,6 +26,29 @@ Architecture Decision Records (ADRs) for significant technical choices.
 **Rationale**: Human-readable, VCS-friendly, no external database needed. Embedded images ensure portability.
 **Consequences**: Large file sizes with embedded images. No binary efficiency. Version migration requires JSON schema evolution.
 
+### Addendum — strict numeric boundaries and atomic persistence (A1, #453, 2026-10-13)
+
+`core/plan_io.py` is the Qt-free `.ogp` read/write boundary. Normal open/save,
+autosave and season reads/writes use it. JSON constants, exponent/conversion
+overflow and non-finite nested values are refused before scene preparation.
+During detached preparation, `ProjectManager` checks Qt's computed local and mapped
+bounds, transform coefficients, every child and aggregate group before active-scene
+mutation. This catches overflow from finite rotation, translation and image calibration
+without duplicating Qt's geometry arithmetic. Decoded image dimensions are checked
+before applying calibration. Opaque metadata strings remain text. The existing agent
+canvas range (50–100000 cm) now has
+one validator shared with the file boundary. Unknown items, finite off-canvas
+geometry and ordinary legacy defaults retain their existing handling.
+
+Encode with `allow_nan=False` before opening a destination, then write a sibling
+temporary file, flush/fsync and atomically replace. Invalid data or an unsuccessful
+replacement cannot truncate the previous file. Journal-pin reconciliation is made
+in a detached candidate and applied to project metadata only after a successful
+save. Rejected Phase 1 loads preserve filename, dirty state, history and recovery;
+unexpected failures after scene mutation retain the existing protective reset.
+The format remains 1.4. This is input/persistence hardening, not a geometry clamp
+or a claim that finite hostile outlines have bounded rendering costs.
+
 ## ADR-004: Command Pattern for Undo/Redo
 
 **Status**: Accepted
@@ -66,6 +89,32 @@ Architecture Decision Records (ADRs) for significant technical choices.
 **Rationale**: Native Qt integration, industry standard for Qt apps, supports plurals and context, good tooling.
 **Consequences**: All strings must be wrapped in tr(). Requires pylupdate6/lrelease build steps. Translation memory maintained in .ts XML files.
 
+### Addendum - source-derived completeness for every registered locale (#496)
+
+**Decision:** Keep Qt Linguist and the existing pure-Python singular compiler. Fresh
+locked PyQt6 extraction plus bounded source AST declarations define required keys;
+translation tables/catalogs cannot define their own required coverage. Source and
+locale additions are symmetric: each registered target locale must complete every key.
+The English template contains identities; retired records remain translation memory.
+
+`i18n_catalog.py` shares strict state/key/format rules between checker and compiler.
+Compilation rejects blanks and nonempty unfinished targets rather than substituting
+English. The read-only gate compares compiled bytes and real Qt lookups. Active
+numerus/variant entries fail explicitly until the compiler has tested plural support;
+no second Qt binding or unpinned system lrelease dependency is introduced.
+
+**Alternatives rejected:** catalog/word counts, German as source authority, trusting
+the old English template, a union of all historical catalog keys, per-locale coverage
+allowances, and an advisory CI job. All can hide omissions. `i18n_bindings.json` selects
+actual finite source symbols/data fields and binds exact dynamic consumers; unresolved
+or stale bindings fail rather than silently excluding a file.
+
+**Consequences:** every new wrapped UI key needs all supported target translations in
+the same PR. Existing English/German catalogs were reconciled without grandfathered
+gaps. Developer diagnostics remain English; linguistic quality, visual fit and truly
+unwrapped text still require review. The existing required Test check owns enforcement.
+Pinned by the translation gate unit/integration tests and registry-driven menu tests.
+
 ## ADR-009: NSIS Windows Installer
 
 **Status**: Accepted (Phase 6)
@@ -100,6 +149,21 @@ Architecture Decision Records (ADRs) for significant technical choices.
 - *scipy.optimize* — adds ~40 MB to the installer for a problem numpy solves in <20 variables.
 - *Analytic Jacobian* — a nice-to-have optimization, but numerical central differences cost microseconds; deferred as TD-008.
 **Consequences**: Robust behaviour for user-built CAD sketches (matches SolveSpace/Onshape expectations). +1 runtime dependency (numpy). Jacobian is numerical, not analytic — mild perf ceiling, no correctness impact. See §8.12 for the full solver architecture.
+
+**Addendum (Audit A5, #457, 2026-10-13).** Shared presentation is an immutable,
+enum-keyed registry in `ui/constraint_presentation.py`: icon, RGB color, translated
+detail/tooltip/row templates and target display conversion. Panel rows consume it;
+the established `ConstraintListItem` translation context is preserved. Geometry,
+residuals and satisfaction evaluation remain separate. Injecting UI callbacks into
+the solver or rewriting its per-type mathematics was rejected: presentation
+exhaustiveness does not establish geometric equivalence. No dependency or file-format
+change. Enum, independent rendering, runtime German and panel/history tests pin the
+extraction. Numerical oracles assert physical residuals, feasibility, pinned state
+and exact conflict IDs, rather than an arbitrary iteration count. A no-variable
+Newton call must evaluate residuals before reporting convergence; incompatible
+pinned anchors are not a solved system. The fresh eight-mutant sample and its test
+selection are recorded in `audit-2026-10-a5-evidence.md`; historical mutmut counts
+are not a current full-suite measurement.
 
 ## ADR-014: Bundled `plant_species.json` is single source of truth for species + calendar
 
@@ -1231,6 +1295,23 @@ The independent review caught four P1s, all fixed before the PR: **(1)** the urg
 
 **Consequences.** `tests/conftest.py` has one isolation fixture instead of two, and it yields the displaced production `(organization, application)` pair so tests can assert that pair is never touched without hardcoding it. `tests/integration/test_settings_isolation.py` builds the whole app and spies on Python-level `QSettings.value`/`setValue`: pre-fix it records 3 reads + 3 writes against the real store (verified by reverting the chokepoint), post-fix zero, with anti-vacuity assertions that the spy and the app both did something. Independently confirmed by hashing the real registry key's 29 values around a 47-test full-app file: byte-identical. Two clean-ups fell out of having one ownership story: `main.py` now takes the `QApplication` organization/application names from `settings` instead of repeating the literals, and `AppSettings`' duplicate, never-called `window_geometry`/`window_state` pair (keys `window/geometry`, `window/state`) is deleted — window geometry belongs to `UiStateStore` alone. **Note what the first clean-up widened:** those two constants were the settings-store identity; they are now also the `QApplication` names, which is what `QStandardPaths.AppDataLocation` derives from — i.e. where `main._write_crash_log` puts `crash.log`. The literals are unchanged so nothing moves today, but a future fixture that rebinds them in a scope where something calls `setOrganizationName()` would move the user-data directory with them. One more thing "one chokepoint" does *not* mean: one object. `AppSettings` and `UiStateStore` hold independent `QSettings` instances on the same key, with independent caches and no explicit `sync()` discipline between them — unchanged from before #285, and fine because their key groups are disjoint, but the phrase is about construction, not coherence. Adding a new persisted setting needs no new store — add a key to `AppSettings`; adding a genuinely separate store means calling `create_qsettings()` *at runtime*, and the gates will say so if you forget either part.
 
+### Addendum — Linux settings protection (A1, #453, 2026-10-13)
+
+The owner chose fail-closed startup over temporary settings. The existing factory
+secures its actual Linux user file to mode 0600 before returning a backend. New
+application directories use mode 0700; existing shared ancestors are unchanged.
+The descriptor must identify a regular file owned by the current user. A legitimate
+symlink is supported through its validated target. Existing preferences and plaintext
+credentials retain their keys; Windows registry and macOS behavior are unchanged.
+No keyring dependency or encryption is introduced.
+
+The baseline was reproduced in isolated Python 3.11 / Qt 6.11: native QSettings
+creates mode 0644 under umask 022. Tests run fresh subprocesses under umasks 022
+and 000, exercise an existing 0644 store, repeated atomic sync, safe symlinks,
+special files and simulated chmod failure. The factory does not alter global
+umask, QSettings format or path statics. A protection failure produces a sanitized,
+translated startup error using the system locale and exits before the main window.
+
 ## ADR-042: Visual Refresh Package 3 — Generated Object Sprites, Forge Textures, Comprehensive Iconography
 
 **Status**: Accepted (2026-08-17 Package 3a; 2026-08-18 Packages 3b and 3c) | **Context**: epic #284 (Phase 15 Package 3), decisions locked in the 2026-08-17 planning session and logged on the issue; sub-issues #308 (3a), #309 (3b), #310 (3c)
@@ -1251,11 +1332,11 @@ The independent review caught four P1s, all fixed before the PR: **(1)** the urg
 
 ### 3b — Textures (#309)
 
-**Decision — one forge, a torus painter, a pixel gate.** All 24 fill-pattern textures are emitted by `scripts/generate_asset_forge_textures.py`; the Qt-painted `scripts/generate_textures.py` (2026-03; it produced 22 textures, 21 of which were still shipped as painted when 3b started — the hedge had been re-forged in #281 — with seams in `glass`/`flagstone`) is deleted and gated deleted. The forge is no longer "Pillow drawing + Pillow blur": it is a **numpy float64 painter on a torus** — every primitive computes analytic anti-aliased coverage on a window indexed modulo the tile, noise is a periodic lattice, Voronoi uses the torus metric, the blur is an in-repo separable Gaussian on `np.roll` — so seamlessness is by construction and nothing in the pipeline depends on a rasterizer or filter implementation (§8.24). Style is the owner's "Lush everywhere" brief: visible material detail, radial rim → crown shading per element, concentric occlusion halos, mottled grounds, in a contrast band where the 80/255 runtime tint still recolours instead of flattening. Seeds are `random.Random("ogp-<name>-lush")` (stream-stable across CPython versions); the pilots' and hedge's seeds/looks were kept, their pixels re-rendered.
+**Decision — one forge, a torus painter, a pixel gate.** All 24 fill-pattern textures are emitted by `scripts/generate_asset_forge_textures.py`; the Qt-painted `scripts/generate_textures.py` (2026-03; it produced 22 textures, 21 of which were still shipped as painted when 3b started — the hedge had been re-forged in #281 — with seams in `glass`/`flagstone`) is deleted and gated deleted. The forge is no longer "Pillow drawing + Pillow blur": it is a **numpy float64 painter on a torus** — every primitive computes analytic anti-aliased coverage on a window indexed modulo the tile, noise is a periodic lattice, Voronoi uses the torus metric, the blur is an in-repo separable Gaussian on `np.roll` — so seamlessness is by construction and nothing in the pipeline depends on a rasterizer or filter implementation (§8.24). Style is the owner's "Lush everywhere" brief: visible material detail, radial rim → crown shading per element, concentric occlusion halos, mottled grounds, in a contrast band where the runtime recolour still shows the chosen colour instead of flattening. Seeds are `random.Random("ogp-<name>-lush")` (stream-stable across CPython versions); the pilots' and hedge's seeds/looks were kept, their pixels re-rendered.
 
 **The determinism contract is pixel-exact, deliberately not byte-exact.** The plan said "true byte gate"; implementing it surfaced that PNG bytes are a property of the zlib build Pillow bundles (zlib vs zlib-ng, per platform/version), not of the art — a Windows wheel and the Linux CI wheel can encode identical pixels to different bytes, and a byte gate would either flap or force a Pillow pin. `--check` therefore decodes the committed PNG and compares arrays; regeneration rewrites only files whose pixels changed (no cross-platform git churn). PNG is lossless, so this is the strongest honest contract; `tests/unit/test_texture_forge_conformance.py` pins it per file and proves the gate has teeth (a one-pixel edit is STALE). The residual dependency is numpy elementwise float64 arithmetic (IEEE-exact for the ops used; transcendental ulp differences are ~1e-16 relative and vanish under `rint` — and instead of quoting the measured margin in prose, `TestRoundingTieMargin` gates it: the closest pre-`rint` value to a .5 tie across all 24 textures must exceed 1e-10, i.e. orders of magnitude above ulp noise; the shipped set sits around 1e-8); CI on `ubuntu-latest` (Python 3.11, its own numpy/Pillow wheels) ran the same pixel gate on the first push of this branch and passed for all 24 textures — GitHub Actions run 32093081715, 2026-08-18 — so the Windows-vs-Linux disagreement the byte gate would have produced does not occur at pixel level; `--check` reports differing-pixel count and max channel delta so a cross-platform disagreement, if one ever appears, is a five-second diagnosis rather than a suspected art regression.
 
-**Gates.** Conformance (registry ↔ `_TEXTURE_FILES` ↔ files, 256² RGB, pixel determinism, tint band: mean 40–225 / std ≥ 4 / local detail ≥ 2, gate teeth, no-churn regeneration, legacy generator absent); tileability for ALL 24 at the unchanged 1.6 threshold (the `KNOWN_SEAMED_LEGACY` grandfather list was emptied and then deleted — the parametrized gate over every file is the contract; the recalibration rule "design seams below 1.6, recalibrate only with a written rationale" held — shipped maximum quoted from the checker in `scripts/check_texture_tileability.py`'s calibration note; structured layouts either straddle the wrap symmetrically (exactly, since the painter — windows, analytic fields, noise and Voronoi alike — samples at pixel centres) or lie clear of it, §8.24); §8.10 integration (`tests/integration/test_texture_forge_rendering.py`: every pattern paints with detail through panel → brush → item → flipped `scene.render`; the wrap column and wrap row of the item's real tinted brush sit inside the fill's own edge family, with a positive control; red vs blue fill colours move the hue without flattening; thumbnails; greenhouse tool draws GLASS seamlessly); the `.ogp` round-trip test now covers every pattern.
+**Gates.** Conformance (registry ↔ `_TEXTURE_FILES` ↔ files, 256² RGB, pixel determinism, tint band: mean 40–225 / std ≥ 4 / local detail ≥ 2, gate teeth, no-churn regeneration, legacy generator absent); tileability for ALL 24 at the unchanged 1.6 threshold (the `KNOWN_SEAMED_LEGACY` grandfather list was emptied and then deleted — the parametrized gate over every file is the contract; the recalibration rule "design seams below 1.6, recalibrate only with a written rationale" held — shipped maximum quoted from the checker in `scripts/check_texture_tileability.py`'s calibration note; structured layouts either straddle the wrap symmetrically (exactly, since the painter — windows, analytic fields, noise and Voronoi alike — samples at pixel centres) or lie clear of it, §8.24); §8.10 integration (`tests/integration/test_texture_forge_rendering.py`: every pattern paints with detail through panel → brush → item → flipped `scene.render`; the wrap column and wrap row of the item's real recoloured brush sit inside the fill's own edge family, with a positive control; red, blue **and a pale** fill colour move the hue without flattening; thumbnails; greenhouse tool draws GLASS seamlessly); the `.ogp` round-trip test now covers every pattern.
 
 **Alternatives rejected.** *Keep Pillow `ImageDraw` + `GaussianBlur` and pin Pillow* (rasterizer/filter changes across releases would still break the gate; a pin is a maintenance tax on a runtime dependency). *Supersampled Pillow drawing + numpy blur only* (the plan's minimum; rejected once the numpy painter proved both simpler and better — smooth radial shading and AA come for free). *Byte-exact gate* (see above). *Regenerate only the two seamed textures* (the owner chose Lush everywhere; a two-generator set would have carried two contracts).
 
@@ -1326,6 +1407,62 @@ The independent review caught four P1s, all fixed before the PR: **(1)** the urg
 **Rejected placement**: running `Attest build provenance` *before* `Create GitHub Release` (the original draft). Rejected in review: it put a never-yet-executed step, pinned to a since-discovered-stale action major, directly in the critical path ahead of the release — any Sigstore/Fulcio hiccup or transient attestations-API error would have failed the whole release, not just the provenance record. Attestation is keyed to the artifact's digest, not to the release, so ordering after release creation is free and strictly safer.
 
 **Addendum (#358, 2026-09-22)**: Norton 360 flagged the v1.27.9 installer as `FileRepMalware[Misc]` — a second AV vendor hitting the same unsigned, zero-reputation PyInstaller profile this ADR already scoped (the only source changes between the clean-scanning v1.27.8 and v1.27.9 were the attestation workflow and the version bump, so the detection tracks a fresh hash, not new application behavior). This confirms the ADR's stated boundary: provenance attestation answers "was this built from the public source?" but deliberately does not answer "does the vendor's reputation engine trust it?" — releases remain unsigned (§11.1/§11.2). **Correction (#376, 2026-10-11):** the earlier claim that a paid certificate was the only fix is withdrawn. Signing options, including no-cost proposals raised after this decision, are being evaluated in [#375](https://github.com/cofade/open-garden-planner/issues/375); none has been adopted, and effectiveness against Defender ML and Norton FileRep remains unproven for this project. Operational path: false-positive submissions per vendor (Microsoft forms for #356, Norton portal `submissions.norton.com/reportfalsepositive` for #358). Both submission portals are CAPTCHA-protected (Norton: math challenge + reCAPTCHA; Symantec SymSubmit: reCAPTCHA v3), so these are human submissions — the maintainer cannot automate them, and neither can a script-kitted "auto-file our FPs" step be added to `release.yml` without bypassing anti-bot measures, which is out of scope. The reporter was additionally advised they can file from inside their own Norton quarantine UI, where their alert's Alert ID is available.
+
+### ADR-044 addendum: the SBOM and third-party notices join the attested subjects (A2 #454, 13 October 2026)
+
+**Status**: Accepted (2026-10-13).
+
+**Decision.** Every release now publishes two inventory artifacts and attests them:
+
+- `ogp-sbom.cdx.json` — a CycloneDX 1.5 SBOM listing every third-party Python
+  distribution bundled into the build (name, version, `pkg:pypi/…` purl, license), and
+- `THIRD_PARTY_NOTICES.md` — the same inventory as a human-readable notices file, also
+  installed next to the GPLv3 `LICENSE` so the obligation survives installation.
+
+Both are generated by `scripts/generate_distribution_inventory.py` **from the frozen
+bundle's own `.dist-info` metadata** (the spec bundles the required runtime closure via
+`installer/runtime_closure.py` and actual collected owners via `installer/frozen_inventory.py`),
+never from a developer's environment or a historical
+count. The generator fails closed: a bundled distribution with no discoverable license
+fails the build rather than printing "UNKNOWN", and `--check` verifies the SBOM against the
+bundle and each version against `pylock.toml`. Licenses are emitted as an SPDX `id` where
+the metadata names one, an SPDX `expression` where it names a compound (`Apache-2.0 OR
+BSD-3-Clause`), and a `name` only when the metadata is prose. The one mapping is
+documented in `LICENSE_OVERRIDES`: the three Qt runtime wheels declare the prose "LGPL v3",
+whose SPDX identifier is `LGPL-3.0-only`. Both files are added to the
+`actions/attest-build-provenance` `subject-path` list, so provenance covers the inventory
+the release publishes.
+
+**What this does and does not prove.** A checksum proves *integrity*, an attestation proves
+*source provenance*, and an SBOM declares *composition*; none of the three Authenticode-
+signs the binary, and none suppresses SmartScreen/Defender/Norton detections (#356, #358,
+[#375](https://github.com/cofade/open-garden-planner/issues/375)). The SBOM must not be
+presented as a security guarantee; it is a machine-readable statement of what is inside.
+
+**Consequences.** The frozen bundle grows by the bundled metadata — a dated measurement
+(Windows, 2026-10-13) of 2.0 MiB of `*.dist-info` in a 610 MiB bundle (0.32 %), with the
+LZMA installer at 169.4 MB — not a fixed property; re-measure on a release build. The
+installer now also installs `LICENSE` itself, so "notices next to LICENSE" is true on disk
+rather than only in the wizard. A new runtime dependency automatically appears in both
+artifacts through the shared resolver, and `tests/unit/test_distribution_inventory.py`
+pins the fail-closed behaviour and the drift between bundle, SBOM and lock.
+
+**Review addendum (PR #490, 14 October 2026).** Requires-Dist is a minimum, not a
+complete frozen inventory: PyInstaller also collected build/dev packages and setuptools'
+vendored libraries. The original 47-component artifact omitted that code while its own
+check passed. The spec now attributes actual Analysis pure modules, binaries, data and
+runtime scripts through physical wheel RECORD paths. Nested vendored RECORDs take
+precedence over their containing wheel. The bundle carries those exact metadata/license
+files and `ogp-collected-distributions.json`, recording module/file ownership. Verification
+reads the executable's PYZ independently and reconciles module names, owner identities and
+collected file presence with the manifest and SBOM. Installed and vendored versions remain
+distinct; a vendored version is verified through its containing wheel's locked version,
+without a package-name exemption. Declared `License-File` entries must exist and their texts
+must appear in the notices, including unusual filenames. The artifact-level regression
+`test_frozen_hook_dependencies_are_in_the_inventory` was observed failing on the old build.
+Synthetic metadata-only pipeline tests prove orchestration; they cannot establish frozen
+code coverage. Collector tests pin nested ownership, both versions and refusal of unowned
+wheel files. No runtime dependency, release permission or plan-format change.
 
 ### ADR-034 addendum: succession domain schema, determinism, and a SHARED season-segment fallback (US-D3.2, #331)
 
@@ -1401,6 +1538,28 @@ The issue listed three options. **Option 1 is taken**: the panel reads the plan 
 
 **Consequences.** FR and §8 docs updated; the ADR-036 US-D3.2 addendum's `suggest_succession` exclusions are now explainable from the GUI, which satisfies the stronger branch of the issue's acceptance criteria. No `FILE_VERSION` change.
 
+
+### Addendum — in-app release checksum verification (A1, #453, 2026-10-13)
+
+An immutable release descriptor carries the exact tag, expected installer basename,
+asset size and `SHA256SUMS.txt` URL through the checker, application and update bar.
+Missing, duplicate, wrong-release or unsafe assets disable in-app installation while
+preserving the manual release link. Downloads begin on the exact repository/tag
+GitHub HTTPS path; every redirect and final response must remain on an exact HTTPS
+GitHub asset host (`github.com`, `release-assets.githubusercontent.com` or
+`objects.githubusercontent.com`), with at most five hops.
+
+The manifest is bounded to 64 KiB and must contain exactly one valid matching
+SHA-256 basename. Installer bytes are streamed in 64 KiB chunks, bounded by and
+matched to the release asset size, hashed and finalized only after verification.
+Cancellation/failure produces no launch and removes partial files. A typed verified
+result is rechecked immediately before process launch. Signed query strings and
+raw network exceptions never enter user-facing failures.
+
+This validates integrity against the release manifest over permitted HTTPS origins.
+It does not independently verify build provenance, add Authenticode signing, change
+the release workflow or establish any effect on antivirus reputation. Attestation
+verification and signing evaluation remain their existing separate processes.
 
 ## ADR-045: Compatible-set search — maximal cliques, ranked by bed coverage (issue #319, US-D3.1)
 
@@ -2800,6 +2959,86 @@ The sync helper seeds only the editable-project version before native offline va
 with full third-party-record comparison. Its subprocess test passes with an empty UV_CACHE_DIR
 on Linux and Windows, preserving the supported-Python range and dependency selections.
 
+### ADR-050 addendum: per-file coverage enforcement (#406, 12 October 2026)
+
+**Decision.** Extend the shared audit coverage parser and the existing coverage-floor CLI.
+Add optional schema-1 `file_line_floors`, keyed by normalized paths relative to the production
+package. Enforce `core/tools/constraint_tool.py: 60` using exact covered-line counts; rounded
+percentages are presentation only. Preserve all package floors, CLI arguments and exit-code
+contracts. Report branch coverage separately with no invented branch floor. Missing required
+files, invalid floor paths/values, malformed or contradictory XML and unresolved layouts fail.
+Explicit Linux/Python 3.11 package rebaselining retains reviewed file floors.
+
+**Evidence.** Tests cover below/exact-floor boundaries, a rounded 60.0% that is below the exact
+floor, missing-file and malformed-report cases, Linux/Windows layouts and package compatibility.
+Registered tool workflows and graph/geometry/history assertions provide behavioral evidence;
+the coverage threshold is a regression floor, not a substitute for those assertions.
+
+### ADR-050 addendum: toolchain pins, the locked audit and the update path (A2 #454, 13 October 2026)
+
+**Status**: Accepted (2026-10-13). No lock replacement; no release-right change.
+
+**Decision.** Close the parts of the build that the Python lock cannot see, and give the
+dependency-update path a documented home:
+
+1. **Interpreter patch pinned** — `python-version: "3.11.9"` in `release.yml` and in the
+   shared `setup-locked-env` composite, so every CI job and the release use one patch. The
+   `requires-python = ">=3.11"` install contract is deliberately unchanged. **3.11.9 is
+   the newest 3.11 with a Windows x64 build** in `actions/python-versions`' manifest
+   (verified 2026-10-13): 3.11 entered security-only mode after it, and the later patches
+   ship Linux artifacts only, so pinning one of those broke the Windows matrix jobs in CI
+   run 38463742285 with "The version '3.11.17' with architecture 'x64' was not found for
+   Windows 2025". The drift test only requires a full `3.11.x`; changing the patch on
+   purpose means re-checking both platform builds.
+2. **Installer toolchain pinned** — `choco install nsis --version=3.13.0` (the newest
+   version in Chocolatey's community feed on 2026-10-13), replacing a floating install.
+3. **External actions pinned to commit SHAs** with a readable `# vX.Y.Z` comment, in
+   `ci.yml`, `release.yml` and the composite action. `scripts/check_action_pins.py` is the
+   drift guard (wired into the `agent-context` CI job) and covers the composite action too.
+4. **Build evidence** — `scripts/emit_build_evidence.py` records the actual Python, `uv`,
+   PyInstaller, `pyinstaller-hooks-contrib`, `setuptools`, `wheel` and NSIS versions plus
+   the commit and run id into `dist/build-evidence.json`, uploaded as a workflow artifact.
+   `--require-complete` makes the release fail rather than publish a build whose toolchain
+   it cannot state.
+5. **Lock-based vulnerability scan** — the `dependencies` CI job exports the committed lock
+   (`uv export --locked --all-extras --group build`) and runs `pip-audit` over it **on both
+   matrix operating systems**, because pip-audit evaluates requirement markers against the
+   running interpreter: the export is universal, so a Linux-only scan never sees the
+   Windows-only runtime dependency (`pywin32`, required by `mcp`). One exception is recorded
+   by ID: the `setuptools` advisory `PYSEC-2026-3447` (`GHSA-h35f-9h28-mq5c`), which only
+   affects publishing macOS source distributions — a thing this project does not do. Its fix
+   (83.0.0) stays reserved for a separately reviewed dependency PR (§11.2, AUD-054).
+6. **Update automation: verified unavailable, manual fallback adopted.** Dependabot's uv
+   ecosystem image ships uv **0.12.19** (`uv/Dockerfile` in dependabot-core, read
+   2026-10-13) while this project pins `uv ==0.12.23`; a `required-version` mismatch makes
+   the updater exit before doing any work, so no automated dependency PR can exist today.
+   `.github/workflows/dependency-review.yml` therefore runs monthly, computes what
+   `uv lock --upgrade` would change with `--dry-run` (measured: `uv.lock`'s hash is
+   unchanged; the workflow fails if the dry run ever writes it), and opens or refreshes
+   **one** issue with the report. It never pushes, commits, opens a PR or merges. The
+   runbook lives in `docs/07-deployment-view` §7.4, and the Qt four-pack / `mcp` v1 caps
+   are pinned by `tests/unit/test_dependency_governance.py`. Automation is to be revisited
+   when hosted uv reaches the pin.
+7. **One dependency source of truth.** `requirements.txt` / `requirements-dev.txt` were
+   deleted (AUD-052); they listed 2 of 15 runtime dependencies and still carried
+   `PyQt6>=6.6.0`, the exact spec behind #277. Installation is `uv sync --locked` from
+   `pyproject.toml` + `uv.lock` + `pylock.toml`, and a test keeps the files deleted and
+   unreferenced.
+
+**Evidence.** The pins were resolved from primary sources on 2026-10-13 (setup-python's
+versions manifest; Chocolatey's feed; dependabot-core's `uv/Dockerfile`). The scan was run
+against the shipped command's export: 93 requirement lines, one vulnerable package
+(setuptools, including code collected into the executable); the affected macOS sdist
+publishing operation is unused, and no unwaived finding remains. `tests/unit/test_build_toolchain_pins.py`,
+`tests/unit/test_action_pins.py`, `tests/unit/test_dependency_governance.py` and
+`tests/unit/test_no_stale_requirement_manifests.py` pin the behaviour, and the frozen
+build proves the pins produce a working artifact.
+
+**Consequences.** Bumping the interpreter patch or NSIS version is now a deliberate edit
+with a test-visible value, not an implicit drift. A new vulnerability fails the audit
+unless it is explicitly recorded with a justification. The parse of `pylock.toml` remains
+read-only; no file format, runtime behaviour or `.ogp` version changes.
+
 ## ADR-051: Repository-owned wiki sources and manual publication (issue #417)
 
 **Status**: Accepted (9 October 2026). Publication requires owner approval and protected merge.
@@ -3173,6 +3412,322 @@ follow-up, not this decision. `measurement_method` keeps its identifier
 in bare PyQt the closure v1.30.1 hung there runs 0 times when the wrappers are collected
 before Qt's deferred delete, 5 of 5); its theme listener asks at the moment of use and takes
 itself off the registry.
+
+## ADR-057: Bounded 2D canvas paint for crafted plans (#472)
+
+**Status:** Accepted.
+
+**Context.** A plan file may hold a polygon with any number of vertices, and the 2D canvas paints it whatever that costs. A reflex-heavy outline (a "comb" whose teeth span its full height) makes one antialiased *fill* quadratic in vertices: measured on a 512x512 painter with the item's own 2.0 solid pen, one such outline costs ~38 ms at 256 vertices, ~322 ms at 1,024, ~1.4 s at 4,096 and ~5.6 s at 16,384 (the bug report measured 10.5 s at 1,024 on its box). Nothing bounded the vertices on load and nothing degraded the paint, so a crafted `.ogp` froze the window and the loader accepted an unbounded item.
+
+Two measurements decided the remedy, and both were needed:
+
+* the cost is a function of **reflex geometry and pen width**, not vertex count alone — a convex 4,096-vertex outline fills in a few milliseconds, and a comb's fill only stops growing quadratically above ~32k vertices because the geometry collapses sub-pixel (it still takes ~10 s at 65,536);
+* Qt strokes a **wide solid pen by building a fill**, so "just draw the outline" is only cheap with a **cosmetic** pen: measured, the same 1,024-vertex comb takes 319 ms stroked with the item's 2.0 pen and 4 ms with a cosmetic 1-px pen.
+
+**Decision.** One vertex bound governs full-detail painting; a separate ceiling guards the ingestion seam.
+
+- `MAX_FULL_DETAIL_VERTICES = 256` (`ui/canvas/items/polygon_item.py`). At or below it an unselected polygon paints exactly as before.
+- Above it, an **interactive, unselected** paint draws the exact outline with a **cosmetic 1-px pen and no fill** — linear in vertices and independent of the item's own pen width (measured ~4 ms at 1,024, ~20 ms at 4,096, ~69 ms at 16,384).
+- The degrade is **interactive-only, and "interactive" is the item's cache mode, not Qt's `widget`.** Qt passes `widget = 0` for every *cached* paint and every unselected canvas item is `DeviceCoordinateCache`, so a `widget is not None` guard (the LOD flat fill's own idiom) is never true on the path that paints the user's canvas — the first shipped version of this fix therefore never degraded anything (measured through a real view: 44.7 ms at 1,024 vertices, 589 ms at 16,384, on every cache regeneration). Every export, report, print and agent render path disables caches first (`ExportService._disable_item_caches`), so those stay exact, while the cached interactive view degrades; a **selected** item is excluded and paints the exact fill, so editing sees the truth.
+- `MAX_POLYGON_VERTICES = 16_384` refuses a polygon above it at the load seam (`ProjectManager._deserialize_item_core`), non-fatally: the item is skipped (logged, and counted for the app's existing skipped-item notice) and the rest of the plan loads. At the ceiling the degraded 2D outline is ~69 ms, not minutes, and no legible garden outline comes near it.
+
+**Alternatives rejected.** Filling the polygon's bounding box or convex hull is O(1) but *over*-covers — a comb would paint as a solid block and hide items beneath — and the hull costs an O(n log n) pass; outline-only under-covers, which is the safer error and keeps the exact boundary visible. **Reusing the item's own pen for the outline was the first attempt and is quadratic** (the pen-width measurement above); it does not bound the cost, and the earlier draft's "~4 ms at 1,024" was measured with a hairline pen, not the item's. A reflex-count or convexity test to keep large *convex* shapes at full detail needs an O(n) pass per paint; it was rejected as machinery for a case (more than the bound of vertices that is also convex) the outline covers acceptably. A low load ceiling that refuses every polygon above the full-detail bound was rejected because it would refuse legitimate traced or imported outlines — the paint bound protects the frame, the ceiling only protects the loader from hostile memory.
+
+**Consequences (limitations, stated).** Full detail is a bounded, stated budget, **per item per paint — not a plan-wide one**. Above the bound, *all* polygons — including a large convex one whose fill would be cheap — render as an outline interactively; a future refinement could exempt convex outlines. Full-detail paths that stay open above the bound, each capped only by the load ceiling: at exactly the bound a pathological comb still costs about two frames (~31 ms at 256 vertices); a **selected** over-budget item paints full detail on every interactive frame (5.6 s at 16,384); and every export/report/print/agent render, which disables caches and renders through `QGraphicsScene.render`, keeps the exact fill and can stall at the ceiling. The **minimap** renders through `scene.render` *without* disabling caches, so it degrades like the canvas — desirable for a thumbnail, and the one render path whose full-fidelity convention is deliberately different. The same `widget`-based idiom lived in `should_use_lod_flat_fill` (#409); it was re-checked on report and the LOD flat fill was **removed** rather than repaired — it never ran and bought no measurable time, so `should_use_lod_flat_fill` and `get_lod_fill_color` no longer exist and `is_interactive_paint` now serves the paint bound above alone (see the ADR-057 addendum, #503). The two constants are plain module values so a future measurement can retune them in one place.
+
+**Evidence.** The committed `tests/integration/test_polygon_paint_bound.py` pins that an over-budget polygon paints an outline (not a fill) on screen, that the degraded paint is many times cheaper than full detail **with the item's own wide pen**, that a polygon at the bound, an offscreen render and a selected item paint the exact fill, and that a hostile polygon is refused at the seam without dropping the rest of a plan. The cost table above is reproducible with the shapes in that test file.
+
+## ADR-058: The suite runs in parallel, and the timing tests do not (issue #509)
+
+**Status:** Accepted.
+
+**Context.** The full battery took 912.6 s serially on the development box and gated every
+iteration between a change and the owner's hands-on pass. Three candidate causes were
+separated by measurement, and only one of them is a scheduling problem.
+
+The suite was **highly concentrated**: the median test took 0.030 s against a mean of
+0.339 s (11.3×), and ten files of 228 held 57 % of measured call time. But the naive
+reading of that table — "these files are slow" — was **wrong**. `test_iconography_3c.py`
+alone runs 36 tests in 2.14 s; the same file immediately after
+`tests/ui/test_main_window.py` takes 447 s, with individual theme tests at 60–66 s.
+Probing `QApplication` directly: a clean process holds **0** widgets and one
+`apply_theme()` round-trip costs **1.3 ms**; after `test_main_window.py` it holds
+**38 271** widgets and **1 580** top-level widgets, **0 % of them visible**, and the
+round-trip costs **22 478 ms**.
+
+So the expensive tests were **victims**. Thirty apps leaked their widget graphs because
+`qtbot.addWidget` *closes* a widget and closing is not deleting, and `apply_theme()`
+walks `app.allWidgets()` on every call. Fixing the leak — one autouse fixture that
+closes and `deleteLater()`s every top-level widget per test — took the serial suite from
+912.6 s to **673.6 s** and flattened the distribution (slowest-50 share 50.9 % → 37.9 %;
+mean/median 11.3× → 6.8×). It changes no product code and removes no test.
+
+**One measurement detail worth stating, because the two halves of that pair come from
+different runs.** The *before* figures are from the recorded serial run at `132f6715`; the
+*after* figures are from the serial full-suite run immediately after the leak fix. They are
+**not** comparable with a parallel run of the same tree, which measures 32.2 % and 20.7×
+on the identical code: per-test call time inflates when tests contend, so one suite reads
+620.6 s of call time serially and 1 700 s under `-n auto`. The distribution's shape is a
+signal; its sum is a statement about the scheduler.
+`docs/11-risks-and-technical-debt/test-suite-latency-2026-10.md` holds both runs and that
+caveat.
+
+**Decision.** `addopts` carries `-n auto --dist worksteal -m 'not perf'`, and
+`pytest-xdist>=3.8.0` joins the `dev` extra.
+
+Measured on the fixed tree, all four modes genuinely parallel:
+
+| Mode | Wall clock |
+|---|---|
+| **`-n 8 --dist worksteal`** | **156.2 s** |
+| `-n 8 --dist loadfile` | 186.3 s |
+| `-n 8 --dist load` | 250.2 s |
+| `-n 4 --dist worksteal` | 245.2 s |
+
+**`worksteal` is chosen because it splits at test level**, so no single slow file
+becomes one worker's floor. That distinction was only measurable *after* the leak fix:
+before it, `test_iconography_3c.py` at 96.7 s was the binding constraint and
+`loadfile`'s whole-file granularity looked essential. Its advantage over `loadfile` is
+the general one — a suite that grows a slow file should not silently lose a worker.
+
+**Alternatives rejected.**
+
+- **Not parallelising, and only documenting an inner loop.** `pytest tests/unit` is
+  192.6 s against 673.6 s for everything, so this captures a large part of the win with
+  no new dependency. It does not help the case the owner actually described — running
+  *everything* before testing by hand — and a convention nobody is forced to follow is
+  the failure mode this repository has already paid for twice.
+- **`@pytest.mark.xdist_group` + `--dist loadgroup` to keep the colliding tests
+  together.** It works, and it was rejected for three reasons: the `--dist` modes are
+  mutually exclusive, so `loadgroup` *replaces* `loadfile` rather than combining with it;
+  the protection `loadfile` was originally chosen for turns out to be worth under 4.6 s
+  (the three files with module-scoped fixtures do not reach the slowest-30 list); and
+  grouping schedules around the symptom. The actual collision was a test writing into the
+  git working tree, and that hazard also applied to two concurrently launched pytest
+  processes — the 2026-08-17 §11.4 incident that made `TEST_APPLICATION` per-PID in the
+  first place.
+- **Fixing the leak in the 51 files that build an app.** Correct, and it is the reason the
+  chokepoint exists: one place cannot be forgotten, and a 51-file diff would put the fix
+  behind review of every unrelated line.
+
+**The timing tests are excluded deliberately, and this is a scheduling principle rather
+than a convenience.** Two tests were observed failing intermittently when they share a
+runner with the parallel workers — the NFR repaint budget and the map-picker close bound among them — and
+§11.4's #354 entry already holds that a performance test must protect a *sustained*
+regression statistically rather than assert that one shared runner owns a quiet CPU. A
+single-step gate here would have been a gate that cries wolf.
+
+The marker means **wall-clock sensitive, not "lives in `tests/perf/`"**, and that
+distinction is the load-bearing part of the decision. Seven of the 14 marked tests live
+outside `tests/perf/`, which is why the runner command is
+`pytest tests/ -m perf -n 0` and not a directory. All three details of that command are
+load-bearing; the `-n 0` is easy to omit precisely because the command looks complete
+without it. Two errors in this ADR were caught by review and are recorded because
+they are the natural mistakes: an earlier version justified the marker by naming
+`tests/integration/test_tasks.py`, which carries **no marker** and so is not covered by
+the flag at all. Its hazard was real — two schedulers call `_check_overdue_tasks` — but it
+is a shared-*state* defect and was fixed by isolating the arm, not by scheduling around it.
+
+**Consequences (limitations, stated).**
+
+- **`-n auto` in `addopts` makes a *small* targeted run slower**, because worker start-up
+  dominates: one 11-test file measured 2.85 s serial against 5.48 s under `-n auto`.
+  `-n 0` is the escape hatch. The trade is asymmetric and deliberate — 517 s saved on a
+  full run against 2.6 s added to a small one — but it is a real cost and is the first
+  thing to revisit if the inner loop starts using single-file runs heavily.
+- **`pytest tests/` now deselects the perf tests**, so they must be invoked explicitly as
+  `pytest tests/ -m perf -n 0` — three details, all load-bearing. It is `tests/`, because a directory-only form (`pytest tests/perf -m perf`)
+  runs 7 of the 14 and **silently passes**, which is the worst failure mode available to a
+  gate that exists to catch slow drift. It needs `-m perf`, or the `-m 'not perf'` in
+  `addopts` wins and nothing is collected. It needs `-n 0`, because running the timing
+  tests across workers is the thing the split exists to prevent.
+  CI does this as its own step, so nothing stops being verified.
+  `tests/unit/test_perf_marker_guard.py` fails the build if a wall-clock assertion is added
+  without the marker, so this list cannot silently go stale — an audit written in prose had
+  already been wrong twice by the time the third review found the two `TestPerf` classes.
+- **A crashed worker is not a clean abort.** The 180 s `pytest-timeout` guard stays — #448
+  and the 2026-08-17 stall both earn it — but on Windows it currently dumps stacks and
+  aborts the run. Under xdist a timeout kills one worker, which is restarted, and the run
+  continues: **a hang now presents as a crashed worker rather than as a failure.**
+- **A parallel run's first visible failure mode is coverage, not tests.**
+  `quality/coverage-floors.json` holds exact `covered * 100 // statements` integers per
+  package plus a per-file floor, so losing a single line fails that job — and since
+  `Coverage` is not a required check, that red would sit there unblocking merges while
+  looking authoritative.
+- **Coverage tracing and the perf tests are not in conflict; an earlier draft of this ADR
+  said they were, and was wrong.** It claimed the repaint budget "fails under coverage
+  tracing at 20.29 ms against a 16.70 ms budget" and concluded the `Coverage` job had
+  "always been measuring something it cannot gate". Both steps fail. The 20.29 ms figure
+  is a **local** measurement against the **local** budget:
+  `tests/perf/test_nfr_budgets.py:56-57` reads
+  `_IS_CI = os.environ.get("CI") == "true" or ... GITHUB_ACTIONS` and
+  `FRAME_BUDGET_MS = 50.0 if _IS_CI else 16.7`, so on CI the budget is **50 ms** and the
+  test passes under tracing. Verified both ways on one machine, same file, same
+  `--cov`: `CI=true` → 6 passed; `CI` unset → 1 failed. And `gh run view 39076508170`
+  (CI, master `412f01bd`) records the `Coverage` job **succeeded**, 8565 passed.
+  The lesson is this ADR's own first rule about instruments: a measurement taken against
+  one configuration does not describe another, and "locally it fails here" became "it has
+  always been broken there" without anyone running the second half.
+- **What #509 does to that job: two steps, and they are one decision.** The job now runs
+  `pytest tests/ -m 'not perf'` with `-n auto`, and then a **second, serial** step runs the
+  14 perf tests with `-n 0 --cov-append`. The parallel step **keeps** the `-m 'not perf'`
+  filter. The deselect and the append are one decision:
+  **step 1 alone is `agent_api` 2012 of 2195 with the gate exiting 1; step 1 plus the append
+  is 2026 of 2195 with `regressions: []`**, a delta of exactly the fourteen `stop()`
+  escalation lines. Drop the append and the job goes red on `agent_api`; drop the deselect
+  and the append becomes redundant while three zero-slack budgets (map-picker close < 0.5 s,
+  point-snapper mean < 16 ms, spatial-index medians < 200 ms / < 1 ms) run beside workers on
+  a 4-vCPU runner. `-n auto` is 4 workers there and 20 on the dev box; the "eight" this ADR
+  quotes elsewhere is the measurement harness, which matches neither.
+
+**Evidence.** `scripts/measure_test_suite_latency.py` reproduces the concentration table
+from a recorded `--durations` report (11 unit tests pin its arithmetic against a
+hand-computable fixture, including the ways it could report a confident wrong number);
+`docs/11-risks-and-technical-debt/test-suite-latency-2026-10.md` holds the full baseline,
+the per-layer and per-file tables, the widget-leak measurement and the corrections to
+issue #509's stated facts. The CI `Test` job uploads its `--durations=0` report as the
+`test-durations-linux` artifact.
+
+### ADR-058 addendum: the coverage floor blocks, and the perf pin is mutation-verified (#512–#516, 19 October 2026)
+
+**Decision 1 — a coverage-floor regression blocks a merge (#514).** `Coverage` joins the
+required checks; it is **not** folded into `Test`. The floor step already computes a
+deterministic result (executed lines, not wall clock) and the job already runs on every push
+in parallel with `Test` — it has no `needs:` on it, so promotion adds no wall clock to the
+critical path and no runner-minutes. What changes is only whether the existing verdict is
+enforced. The `agent_api` floor's margin is **six lines** (2026 covered of 2195 against
+92% of 2195 = 2020), so an advisory red is precisely the signal that erodes silently. The
+local inner loop never runs `--cov`; CI is the only place the floor is computed, and a sole
+detector that cannot fail a merge is a measurement, not a gate. **Rejected:** folding
+`Coverage` into `Test` — it re-serializes the suite into the required job, re-paying the
+runner-minutes #509 removed, and blurs the check's identity. The floor gate also **fails
+closed**: `check_coverage_floors.main` returns 2 when the XML is missing, malformed or does
+not resolve into `src/open_garden_planner` (pinned by
+`tests/unit/test_ci_quality_gates.py`), so the step's `if: always()` cannot report a pass
+without a measurement. Mechanics: `quality/master-protection.json` gains `Coverage`, the job
+display name is pinned as the protection context, and the owner applies the live payload and
+confirms `scripts/check_branch_protection.py`. Until that application the verifier is
+deliberately red.
+
+**Decision 2 — the perf pin evaluates the command that gates the step (#513).** A `run:`
+script may hold several commands, and the one whose exit status is the step's is the **last**.
+The pin now identifies the command that selects the `perf` marker and requires it to be that
+last command and to actually invoke pytest (a `pytest` head, or `python -m pytest`). This
+closes, in one rule, the echo-smuggle, a here-doc body plus its executor, a delegating script
+(`bash scripts/ci_perf.sh …`), and a trailing `|| true`/pipe. It also refuses collect-only
+flags — directly or inside an `-o addopts=` value — and `PYTEST_ADDOPTS` on the step or job.
+The rules are deliberately few: this matcher's history is five defects in one commit, so the
+remaining shapes (`-k`/`--deselect` inside an override, a control operator embedded mid-token,
+zero-combination matrices, `concurrency` cancellation) are re-listed as measured-open in the
+pin rather than guessed at.
+
+**Evidence — the pin is now re-runnable, not asserted (#512).** `scripts/replay_gate_mutations.py`
+commits the harness that #509's review had to write in a scratch directory: sixteen
+perturbations of `ci.yml`, each applied through a temp file, YAML-validated **structurally**
+(an edit that YAML reads as something else is reported as an invalid mutation, never as an
+honest "not caught"), replayed against the pin, and restored by **copy** with a byte-identity
+assertion after every iteration. Fourteen must be caught and two must pass (a diamond in the
+`needs` graph, and a comment that changes no configuration) — the passing controls are what
+distinguish a working pin from one that fails everything. Run it after touching the matcher.
+
+### ADR-042 addendum: the runtime tint becomes a luminance map (issue #502, 16 October 2026)
+
+The forge's tint-readability band was written for a tint that could not do the job.
+`_tint_texture` drew the texture and overlaid the user's colour at **80/255 (31 %)**;
+over the brown roof-tile texture a light-green fill measured `#ca6846` -> `#b8925d` —
+still brown, i.e. the "standard roof tile colour" the owner reported after setting a
+green fill. Raising the overlay enough to read (160/255) flattened the low-contrast
+materials (SAND luminance std 1.62 against the 2.0 floor), so overlay strength was the
+wrong knob: a constant wash cannot recolour a saturated texture without destroying its
+contrast.
+
+**Decision.** `_tint_texture` now maps luminance: every pixel becomes the user's colour
+scaled by the texture's **relative** luminance (`pixel_luminance / mean_luminance`).
+Hue comes wholly from the user's colour, brightness is preserved on average, and the
+result's coefficient of variation equals the texture's — the recolour is *provably*
+non-flattening rather than tuned not to flatten. The colour's alpha still sets the
+fill's opacity.
+
+**Consequences.** Every textured fill in every plan changes appearance — the owner's
+manual sign-off is the gate (`ogp-asset-forge`: "the owner's manual sign-off
+(sovereign)"). The tint-readability band keeps its purpose but its rationale changes: it
+now guarantees a texture has enough relative luminance structure for the map to show
+detail. The §8.10 integration gate gained the case that was missing: a **pale** colour
+over a strongly coloured texture must read (only red and blue — two saturated,
+far-apart colours — were checked before, so both "passed" while the owner's light green
+rendered brown), and "not flattened" is now asserted as **relative** contrast against
+the same item's untinted render, so a legitimately dark fill colour is not mistaken for
+a flat one.
+
+**Related, same finding.** The report that exposed this also showed the Properties panel
+disagreeing with the canvas after a reload: `ProjectManager._deserialize_item_core`
+rebuilt each item's brush and pen but never wrote back the stored appearance attributes
+(`fill_color`, `stroke_color`, `stroke_width`, `stroke_style`), which the item
+constructors pre-seed with the object type's style — so the panel showed the type
+defaults and the next save wrote them over the user's colours (#438/#469). The loader
+now restores those attributes through `core/item_look.restore_stored_look`, and the
+serializer no longer falls back to a texture brush's black `color()` for `fill_color`.
+
+### ADR-057 addendum: the #409 LOD flat fill is removed, and the cache-mode discriminator is kept for the paint bound alone (issue #503, 17 October 2026)
+
+ADR-057's consequences flagged the sibling directly: "The same `widget`-based idiom
+lives in `should_use_lod_flat_fill` (#409), where it is worth re-checking for the same
+reason." #501's independent review re-checked it, measured it, and filed #503.
+
+**Finding.** Through a real `CanvasScene` + `CanvasView` (offscreen, one `GARDEN_BED`
+rectangle with the `ROOF_TILES` pattern), `should_use_lod_flat_fill` was invoked once
+per paint with **no** widget present — at `fit_in_view` and after four `zoom_out()`s —
+and returned `False` every time; only a `NoCache` control item, a configuration no
+unselected canvas item is ever in, saw a widget. The LOD branch therefore never ran in
+the product, and its tests passed only because they called the helper directly with a
+fabricated widget. The fit-in-view acceptance gain attributed to it at #409 came from
+the `lru_cache` SVG-path resolution and the `DeviceCoordinateCache` shipped alongside.
+
+**Decision.** The obvious repair was to key "interactive" on the item's **cache mode**
+through one shared predicate, `items/garden_item.py::is_interactive_paint`, which the
+over-budget paint bound above calls too. That predicate is **kept** — it is the one
+correct definition of "which paint is this", and the paint bound needs it for real
+(44.7 ms at 1,024 vertices, 589 ms at 16,384). Its docstring now records that it
+classifies paints and does not decide how much detail to draw.
+
+The **flat fill is removed**, with its rationale recorded. Issue #503 offered both
+repairs explicitly; measurement on the reference plan the branch was written for chose
+the second. On the 990-item audit plan, 1600x1000 view, best of seven rounds, both
+scenarios below the 0.4 threshold). `fit_in_view` at zoom 0.316: **10.61 and 11.50 ms median
+with the flat fill disabled, 10.87 ms with it live** — the two arms' ranges overlap
+entirely. `zoom_step` at zoom 0.348: **7.97 / 7.98 ms disabled, 8.20 ms live**. What that
+establishes is that the effect sits below this harness's noise — within-arm run-to-run
+variation is 8 % against a 0.26 ms between-arm difference, and no reversed-order run was
+taken, so no claim about which arm is faster survives. All six
+`tests/perf/test_nfr_budgets.py` cases pass either way, worst reading 12.21 ms against the
+16.70 ms budget. (An earlier single-pair reading — 10.58/10.64 and 8.21/7.40 — is
+superseded and is not to be cited: it put the `zoom_step` sign the other way round.) The
+cause is structural — `DeviceCoordinateCache` rasterises a textured item once and every
+later frame is a blit, so the expensive textured `paint()` the LOD existed to avoid was
+already amortised by the sibling fix. Deleting `should_use_lod_flat_fill`,
+`get_lod_fill_color` and `LOD_FLAT_FILL_THRESHOLD` also removes seven call sites across
+the rectangle, circle, ellipse and polygon items.
+
+**Consequences.** No zoom-dependent simplification remains in the canvas: a textured
+fill, a plant sprite and a furniture sprite paint their full detail at every zoom, and
+the paint-level diagnostics that the removed early return would have skipped (a bed's
+grid, crop-rotation indicator, soil-mismatch border and capacity badge; a plant's
+spacing ring, companion highlight and antagonist badge) are now drawn at every zoom.
+This is not a behaviour change relative to any shipped release — the branch never ran —
+so it needs no visual acceptance pass, and it is a net removal of a risk. The #472
+suite is restored to its pre-#507 state in full, including its fit-in-view harness
+zoom; the low-zoom seam pair and the 100 %-zoom workaround existed only to serve the
+removed branch and are gone with it.
+
+**The pin is parametrised over branches, not classes.** `tests/integration/test_canvas_item_cache.py` (renamed from `test_canvas_item_lod_and_cache.py`) renders a textured, tinted item through a real `CanvasView` at five zoom levels — 0.1, 0.25, 0.4, 0.75, 1.0 — plus the export path, and asserts the interior still carries its texture's luminance spread. **Lower bound only, deliberately** — a future change may soften a texture and must not be able to do so by deleting it; there is no ceiling, and no absolute sample floor, because interior area runs 816 to 429 986 pixels across the cases and any constant fires on the smallest for being small. The seven deleted call sites were **not** seven instances of one thing: two sat inside `if is_plant` and two inside `if is_furniture_type`, so the table carries seven entries — the four generic shapes plus a plant circle and furniture rectangle/circle. Re-introducing a `< 0.4` flat fill is caught at **all seven**, mutation-verified per site. The sampled interior is the item's own `QGraphicsItem.shape()`: not its bounding box (the corners are page background for a circle, an ellipse or a polygon, so a solid circle measured as high-contrast and the pin was vacuous on three of four classes), not a second paint (any flat-fill branch overrides the brush on that pass), and not alpha (the scene paints an opaque background). `TestTheMaskIsTheItem` asserts that invariant, because a displaced mask does not fail — it reads background. The four textured shapes' export column converging on 15.47-16.02 is the calibration check that the instrument is right: with a forgotten `-source.topLeft()` translation those four read 15.83 / 37.27 / 49.85 / 16.37. The Linux/offscreen sampler lesson stands — samples come from a computed region, never a colour filter, which the CI background passed at spread 62.59 against 0.00 on Windows. The mask mechanics, the seven-entry shape list and the calibration table live in the test file rather than here; `venv/Scripts/python.exe scripts/verify_lod_removal_mutations.py` re-applies all seven deleted call sites and exits non-zero if one stops being watched, which is how a negative pin is kept honest between reviews.
+
+**Lesson for ADR-057 itself.** This addendum records a decision that was nearly the
+opposite of the one its first draft took, on the same measured evidence, because the
+owner then exercised the thing that the measurement could not: at 20-25 % zoom — where
+they work, well under the 0.4 threshold — every texture on the canvas would have become
+a solid colour. *Reachability is necessary, not sufficient: before promoting a dormant
+path, ask whether it earns the degradation it costs, and put the answer in front of the
+person who has to look at it.*
 
 ## ADR-064: 3D scene pipeline and the truth principle (Phase 17, L1.1)
 

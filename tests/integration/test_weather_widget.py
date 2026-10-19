@@ -12,6 +12,8 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from open_garden_planner.services.weather_service import DayForecast, WeatherForecast
 from open_garden_planner.ui.widgets.weather_widget import WeatherWidget
 
@@ -198,6 +200,107 @@ class TestWeatherWidgetFetchTrigger:
 
         widget.set_location(None, None)
         widget.refresh()
-
         assert widget._empty_lbl.isVisible()
         assert not widget._strip.isVisible()
+
+
+@pytest.mark.real_weather_worker
+class TestWeatherWidgetLifecycle:
+    def test_worker_cancel_suppresses_signals(self, monkeypatch, qtbot) -> None:  # noqa: ARG002
+        import time
+
+        from open_garden_planner.ui.widgets.weather_widget import _WeatherFetchWorker
+
+        def slow_fetch(*_args, **_kwargs):
+            time.sleep(0.05)
+            return None
+
+        import open_garden_planner.services.weather_service as ws
+
+        service = ws.get_weather_service()
+        monkeypatch.setattr(service, "fetch_forecast", slow_fetch)
+
+        worker = _WeatherFetchWorker(52.5, 13.4)
+        successes, errors = [], []
+        worker.success.connect(successes.append)
+        worker.error.connect(errors.append)
+
+        worker.cancel()
+        worker.start()
+        worker.wait(500)
+
+        assert successes == []
+        assert errors == []
+
+    def test_shutdown_cancels_and_cleans_up_worker(self, monkeypatch, qtbot) -> None:
+        import time
+
+        from PyQt6 import sip
+
+        def slow_fetch(*_args, **_kwargs):
+            time.sleep(0.3)
+            return None
+
+        import open_garden_planner.services.weather_service as ws
+        service = ws.get_weather_service()
+        monkeypatch.setattr(service, "fetch_forecast", slow_fetch)
+
+        widget = WeatherWidget()
+        widget.set_location(52.5, 13.4)
+        widget.refresh()
+
+        worker = widget._worker
+        assert worker is not None
+        assert worker.isRunning()
+
+        # Shutdown widget and delete it
+        widget.shutdown(timeout_ms=50)
+        assert widget._worker is None
+        sip.delete(widget)
+
+        # Dropping worker stack reference and forcing GC must not abort while running
+        import gc
+        del worker
+        gc.collect()
+
+        time.sleep(0.3)
+        gc.collect()
+
+    def test_repeated_refresh_shuts_down_previous_worker(self, monkeypatch, qtbot) -> None:
+        import time
+
+        def slow_fetch(*_args, **_kwargs):
+            time.sleep(0.3)
+            return None
+
+        import open_garden_planner.services.weather_service as ws
+        service = ws.get_weather_service()
+        monkeypatch.setattr(service, "fetch_forecast", slow_fetch)
+
+        widget = WeatherWidget()
+        qtbot.addWidget(widget)
+        widget.set_location(52.5, 13.4)
+        widget.refresh()
+
+        first_worker = widget._worker
+        assert first_worker is not None
+
+        # Trigger refresh with different coordinates
+        widget.set_location(48.8, 2.3)
+        widget.refresh()
+
+        second_worker = widget._worker
+        assert second_worker is not None
+        assert second_worker is not first_worker
+        assert first_worker._is_cancelled
+
+        # Dropping first_worker stack reference must not cause GC crash while running
+        import gc
+        del first_worker
+        gc.collect()
+
+        widget.shutdown(timeout_ms=50)
+        time.sleep(0.3)
+        gc.collect()
+
+

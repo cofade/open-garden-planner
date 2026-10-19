@@ -1807,3 +1807,9 @@ class PlantingCalendarView(QWidget):
 
     def _on_weather_failed(self, message: str) -> None:
         """Weather forecast fetch failed — no frost alerts shown."""
+
+    def shutdown(self) -> None:
+        """Shut down child background workers and services (#483)."""
+        if hasattr(self, "_weather") and self._weather is not None:
+            self._weather.shutdown()
+

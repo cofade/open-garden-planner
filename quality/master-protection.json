@@ -9,7 +9,8 @@
       "Dependencies (ubuntu-latest)",
       "Dependencies (windows-latest)",
       "Types (ubuntu-latest)",
-      "Types (windows-latest)"
+      "Types (windows-latest)",
+      "Coverage"
     ]
   },
   "enforce_admins": true,

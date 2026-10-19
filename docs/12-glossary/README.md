@@ -271,3 +271,9 @@
 | Nitrogen fixer | A plant capable of symbiotic nitrogen fixation under appropriate conditions; not immediate nitrogen supply to its neighbours. |
 | Dynamic accumulator | A recorded design-use token for nutrient accumulation; no bundled species is assigned it without adequate evidence. |
 | Canopy edge | Guild ring at effective mature spacing radius, respecting a manual spacing override before database spread/2. |
+
+### Verified installer
+
+A downloaded installer whose permitted release origin, matching manifest entry,
+byte count and SHA-256 digest were checked before finalizing its file. This denotes
+download integrity; it is not an Authenticode signature or provenance attestation.

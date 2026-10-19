@@ -27,26 +27,20 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import socket
 import threading
 import time
 from typing import Any
 
+import pytest
+
 from open_garden_planner.agent_api import AgentApiServer, AgentProviders
+from tests.agent_api_helpers import free_port, start_server
 from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
 
 #: A healthy stop is ~0.2 s idle and ~1.3-2.2 s with a streaming client (the
 #: graceful bound is part of that); a #373 regression is ~10 s.
 #: 4.0 s cleanly separates them without sitting on the 5 s join timeout.
 _PROMPT_SHUTDOWN_MAX_S = 4.0
-
-
-def _free_port() -> int:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(("127.0.0.1", 0))
-    port = sock.getsockname()[1]
-    sock.close()
-    return port
 
 
 def _unused(*_a: Any, **_k: Any) -> dict[str, Any]:
@@ -114,9 +108,9 @@ def _assert_own_server_thread_stopped(server: AgentApiServer) -> None:
     )
 
 
+@pytest.mark.perf
 def test_stop_without_a_client_is_prompt(caplog: Any) -> None:
-    server = AgentApiServer(_providers(), port=_free_port())
-    server.start()
+    server, _ = start_server(_providers())
     try:
         with caplog.at_level(logging.WARNING):
             started = time.monotonic()
@@ -164,13 +158,12 @@ def _wait_for_established_stream(server: AgentApiServer, timeout: float = 10.0) 
     return False
 
 
+@pytest.mark.perf
 def test_stop_with_a_streaming_client_is_prompt(caplog: Any) -> None:
     """The #373 regression: an open SSE stream must not delay shutdown 10 s."""
     import httpx
 
-    port = _free_port()
-    server = AgentApiServer(_providers(), port=port)
-    server.start()
+    server, port = start_server(_providers())
 
     release = threading.Event()
 
@@ -221,8 +214,11 @@ def test_stop_with_a_streaming_client_is_prompt(caplog: Any) -> None:
 
 
 def test_stop_is_idempotent(caplog: Any) -> None:
-    server = AgentApiServer(_providers(), port=_free_port())
-    server.start()
+    # Never started, so `free_port()` is the right helper and there is no bind to
+    # race — but the port is still ephemeral rather than the default, because naming
+    # 8765 here would contradict §11.4's claim that no test names the fixed port
+    # outside settings assertions (#509 review).
+    server = AgentApiServer(_providers(), port=free_port())
     server.stop()
     with caplog.at_level(logging.ERROR, logger="open_garden_planner.agent_api.server"):
         server.stop()  # second call must be a harmless no-op

@@ -11,7 +11,6 @@ header, ``csv.DictReader``).
 from __future__ import annotations
 
 import asyncio
-import socket
 import threading
 from collections.abc import Callable
 from pathlib import Path
@@ -37,6 +36,7 @@ from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.models.harvest_log import HarvestHistory, HarvestRecord
 from open_garden_planner.services.soil_service import SoilService
 from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
+from tests.agent_api_helpers import start_server
 from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
 
 
@@ -44,14 +44,6 @@ from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
 def _redirect_documents_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Never touch the real Documents folder — default-path tests stay hermetic."""
     monkeypatch.setattr(paths_module, "get_documents_dir", lambda: tmp_path)
-
-
-def _free_port() -> int:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(("127.0.0.1", 0))
-    port = sock.getsockname()[1]
-    sock.close()
-    return port
 
 
 def _providers(
@@ -193,8 +185,7 @@ def test_save_plan_no_file_open_errors(canvas: Any, qtbot: Any) -> None:
     scene = canvas.scene()
     project_manager = ProjectManager()
     soil_service = SoilService(project_manager)
-    server = AgentApiServer(_providers(scene, project_manager, soil_service), port=_free_port())
-    server.start()
+    server, _ = start_server(_providers(scene, project_manager, soil_service))
 
     result: dict[str, Any] = {}
 
@@ -215,8 +206,7 @@ def test_save_plan_saves_to_current_file(canvas: Any, qtbot: Any, tmp_path: Path
     existing = tmp_path / "existing.ogp"
     project_manager.save(scene, existing)
     soil_service = SoilService(project_manager)
-    server = AgentApiServer(_providers(scene, project_manager, soil_service), port=_free_port())
-    server.start()
+    server, _ = start_server(_providers(scene, project_manager, soil_service))
 
     result: dict[str, Any] = {}
 
@@ -242,8 +232,7 @@ def test_save_plan_save_as_new_path_reports_previous(
     original = tmp_path / "original.ogp"
     project_manager.save(scene, original)
     soil_service = SoilService(project_manager)
-    server = AgentApiServer(_providers(scene, project_manager, soil_service), port=_free_port())
-    server.start()
+    server, _ = start_server(_providers(scene, project_manager, soil_service))
 
     new_path = tmp_path / "renamed.ogp"
 
@@ -274,8 +263,7 @@ def test_save_plan_first_save_reports_null_previous_file(
     project_manager = ProjectManager()
     assert project_manager.current_file is None
     soil_service = SoilService(project_manager)
-    server = AgentApiServer(_providers(scene, project_manager, soil_service), port=_free_port())
-    server.start()
+    server, _ = start_server(_providers(scene, project_manager, soil_service))
 
     new_path = tmp_path / "first_save.ogp"
 
@@ -303,8 +291,7 @@ def test_export_pdf_default_and_explicit_path(canvas: Any, qtbot: Any, tmp_path:
     scene.addItem(RectangleItem(0, 0, 100, 80))
     project_manager = ProjectManager()
     soil_service = SoilService(project_manager)
-    server = AgentApiServer(_providers(scene, project_manager, soil_service), port=_free_port())
-    server.start()
+    server, _ = start_server(_providers(scene, project_manager, soil_service))
 
     explicit_path = tmp_path / "custom_report.pdf"
 
@@ -350,8 +337,7 @@ def test_export_dxf_round_trips(canvas: Any, qtbot: Any, tmp_path: Path) -> None
     scene.addItem(RectangleItem(0, 0, 200, 100))
     project_manager = ProjectManager()
     soil_service = SoilService(project_manager)
-    server = AgentApiServer(_providers(scene, project_manager, soil_service), port=_free_port())
-    server.start()
+    server, _ = start_server(_providers(scene, project_manager, soil_service))
 
     explicit_path = tmp_path / "custom.dxf"
     result: dict[str, Any] = {}
@@ -385,8 +371,7 @@ def test_export_csv_shopping_list(canvas: Any, qtbot: Any) -> None:
     _add_plant(scene, "Tomato", "solanum_lycopersicum")
     project_manager = ProjectManager()
     soil_service = SoilService(project_manager)
-    server = AgentApiServer(_providers(scene, project_manager, soil_service), port=_free_port())
-    server.start()
+    server, _ = start_server(_providers(scene, project_manager, soil_service))
 
     result: dict[str, Any] = {}
 
@@ -424,8 +409,7 @@ def test_export_csv_harvest(canvas: Any, qtbot: Any) -> None:
         ),
     )
     soil_service = SoilService(project_manager)
-    server = AgentApiServer(_providers(scene, project_manager, soil_service), port=_free_port())
-    server.start()
+    server, _ = start_server(_providers(scene, project_manager, soil_service))
 
     result: dict[str, Any] = {}
 
