@@ -60,7 +60,8 @@ class GroundRig:
     """A canvas of 20.48 m, a clock, a recording sink and the controller with a baker
     of budget 0 between them — wired as the workspace wires them."""
 
-    def __init__(self, qtbot: Any, *, budget_s: float | None = 0.0, quiet_ms: int | None = None) -> None:
+    def __init__(self, qtbot: Any, *, budget_s: float | None = 0.0, quiet_ms: int | None = None,
+                 sink: RecordingSink | None = None) -> None:
         self.qtbot = qtbot
         self.scene = CanvasScene(width_cm=PLAN_CM, height_cm=PLAN_CM)
         self.view = CanvasView(self.scene)
@@ -68,7 +69,7 @@ class GroundRig:
         self.view.set_snap_enabled(False)
         self.commands = self.view.command_manager
         self.clock = SimClock(NOON)
-        self.sink = RecordingSink()
+        self.sink = sink if sink is not None else RecordingSink()
         self.baker = GroundBaker(budget_s=budget_s)
         self.controller = Scene3DController(self.scene, self.clock, lambda: None, self.sink,
                                             ground_baker=self.baker, quiet_ms=quiet_ms)
@@ -206,6 +207,25 @@ def test_a_ground_pass_neither_spends_nor_extends_an_announcement(qtbot: Any) ->
     rig.finished()
 
 
+def test_ground_passes_starve_no_timer(rig: GroundRig) -> None:
+    """Review 3, P2-4 — the no-starvation guarantee (§8.32.5): a ground pass is a posted
+    event, one per turn of the event loop, so a timer that is due runs between two of
+    them. A 0 ms timer armed inside ground pass 5 fires before ground pass 7 — whatever
+    the machine's speed (``during``: the timer is armed in the pass's own slot)."""
+    rig.lawn(0.0, 0.0, PLAN_CM, PLAN_CM)  # all sixteen tiles: many passes at budget 0
+    fired: list[int] = []
+
+    def arm() -> None:
+        QTimer.singleShot(0, lambda: fired.append(rig.controller.ground_count))
+
+    ran = rig.during(lambda report: report.ground_pass, arm, nth=5)
+    rig.controller.set_active(True)
+    rig.settle()
+    assert ran and rig.controller.ground_count >= 7, rig.controller.ground_count
+    assert fired and fired[0] <= 6, f"the timer ran after ground pass {fired}"
+    rig.finished()
+
+
 def test_an_edit_preempts_pending_ground_work_and_the_ground_still_finishes(rig: GroundRig) -> None:
     rig.lawn()
     owed: list[bool] = []
@@ -302,13 +322,50 @@ def test_an_item_whose_paint_fails_is_listed_in_the_users_words(
     rig.settle()
     problems = rig.controller.ground_problems
     assert problems.items == ((str(lawn.item_id), "LAWN", "MemoryError", "no image for the lawn"),)
-    assert not problems.incomplete and rig.controller.problem_count == 1 and changes
+    # review 3, P2-3: the lawn IS shown (cut off), so it is no object "not shown in 3D";
+    # the ground is incomplete, and the list still names it
+    assert problems.incomplete and rig.controller.problem_count == 0 and changes
     rows = problems_of(rig.controller.skipped, rig.controller.failures, problems)
     assert [row.code for row in rows] == [GROUND_PAINT_FAILED]
     dialog = View3DProblemsDialog()
     rig.qtbot.addWidget(dialog)
     dialog.set_problems(rows, lambda _item_id: "Front lawn")
     assert dialog.row_text(0) == "Front lawn (Lawn): it could not be painted completely on the 3D ground"
+
+
+def test_the_strip_counts_no_object_whose_ground_paint_failed(
+        canvas: CanvasView, qtbot: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Review 3, P2-3, through the workspace: a lawn whose paint on the ground failed
+    lies there cut off — it IS shown. The strip does not count it among the objects
+    "not shown in 3D"; it says the ground does not show all of the plan, and the list
+    still names the lawn."""
+    from tests.integration.test_view3d_workspace_widget import SPLIT, Bench
+
+    real = ground_bake.paint_record
+    bench = Bench(canvas, qtbot, tmp_path)
+    lawn = RectangleItem(300.0, 300.0, 600.0, 400.0, object_type=ObjectType.LAWN,
+                         layer_id=bench.scene.active_layer.id)
+
+    def brittle(painter: Any, record: Any, *, budget: Any = None) -> None:
+        if record.item_id == str(lawn.item_id):
+            raise MemoryError("no image for the lawn")
+        real(painter, record, budget=budget)
+
+    monkeypatch.setattr(ground_bake, "paint_record", brittle)
+    bench.commands.execute(CreateItemCommand(bench.scene, lawn, "lawn"))
+    workspace = bench.workspace
+    workspace.set_mode(SPLIT)
+    bench.settle()
+    controller = workspace.controller
+    assert controller is not None
+    qtbot.waitUntil(lambda: controller.idle, timeout=10_000)
+    assert controller.ground_problems.items and controller.problem_count == 0
+    assert workspace.problems_text() == "The 3D ground does not show all of the plan"
+    workspace.show_problems()
+    dialog = workspace.problems_dialog
+    assert dialog is not None and dialog.row_count() == 1
+    assert dialog.row_text(0) == "Lawn: it could not be painted completely on the 3D ground"
+    dialog.close()
 
 
 def test_a_tile_that_cannot_hold_its_surfaces_is_a_note_of_the_ground(rig: GroundRig) -> None:
@@ -357,6 +414,82 @@ def test_a_bake_that_raises_is_a_note_and_is_not_tried_again_on_an_idle_tick(
     assert "\n" not in errors[0].getMessage() and errors[0].exc_info is None
 
 
+class TileZeroRefused(RecordingSink):
+    """Review 3's probe (P1-1): an engine that refuses the ground as soon as tile (0, 0)
+    carries a painted picture — the same way every time. After a reset the first slice
+    paints other tiles and goes through; the ground pass that reaches (0, 0) fails."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.rig: GroundRig | None = None
+        self.refused = 0
+
+    def set_ground(self, ground: Any) -> None:
+        rig = self.rig
+        if rig is not None and any(tile.key == (0, 0) and not _bare(rig, tile)
+                                   for tile in ground.tiles):
+            self.refused += 1
+            raise RuntimeError("the engine refused tile (0, 0)")
+        super().set_ground(ground)
+
+
+def test_a_ground_pass_that_fails_the_same_way_every_time_gives_up_and_waits_for_a_change(
+        qtbot: Any, caplog: pytest.LogCaptureFixture) -> None:
+    """Review 3, P1-1. It looped: the ground pass failed → a recovery pass reset and
+    applied the first slice, which went through → another ground pass → the same failure
+    (measured: 2,308 ground passes and 329 recoveries in 3 s, never idle — a busy loop
+    on the GUI thread). Now the SECOND recovery caused by a ground pass since the last
+    change is not made: the controller gives up — records dirty, nothing scheduled, one
+    ERROR line, a note in the problems list — and the next real edit tries again."""
+    from open_garden_planner.ui.view3d.problems_dialog import GROUND_UNFINISHED
+
+    sink = TileZeroRefused()
+    rig = GroundRig(qtbot, sink=sink)
+    sink.rig = rig
+    lawn = rig.lawn()  # tile (0, 0) is under it
+    failed: list[str] = []
+    rig.controller.failed.connect(failed.append)
+    controller = rig.controller
+    with caplog.at_level("DEBUG", logger="open_garden_planner.ui.view3d.sync_controller"):
+        controller.set_active(True)
+        rig.qtbot.wait(1000)
+        assert controller.recovery_count <= 1, (controller.recovery_count, controller.ground_count)
+        assert controller.idle, "nothing is scheduled after the give-up"
+        assert controller.snapshot_count <= 2 and sink.refused == 2
+        assert controller.dirty, "nothing was lost: the next change tries again"
+        assert len(failed) == 1 and controller.last_error == failed[0]
+        problems = controller.ground_problems
+        assert problems.unfinished == ("RuntimeError", "the engine refused tile (0, 0)")
+        assert problems.incomplete and controller.problem_count == 0
+        rows = problems_of(controller.skipped, controller.failures, problems)
+        assert [(row.item_id, row.code) for row in rows] == [("", GROUND_UNFINISHED)]
+        dialog = View3DProblemsDialog()
+        rig.qtbot.addWidget(dialog)
+        dialog.set_problems(rows, lambda _item_id: "")
+        assert dialog.row_text(0) == ("3D ground: it could not be finished; it is tried again "
+                                      "with the next change")
+        grounds = controller.ground_count
+        rig.qtbot.wait(300)
+        assert controller.ground_count == grounds, "no ground pass while given up"
+
+        # the next real edit tries again: its pass rebuilds the scene the failed call
+        # left unknown, the ground fails, ONE rebuild for that, it fails again — and waits
+        rig.commands.execute(MoveItemsCommand([lawn], QPointF(10.0, 0.0)))
+        rig.qtbot.wait(1000)
+        assert controller.recovery_count == 1 + 2 and sink.refused == 4
+        assert controller.idle and len(failed) == 2
+        assert controller.ground_problems.unfinished is not None
+        controller.document_changed()  # … and so does a new document
+        rig.qtbot.wait(1000)
+        assert controller.recovery_count == 3 + 2 and sink.refused == 6 and controller.idle
+    lines = [record for record in caplog.records
+             if record.name == "open_garden_planner.ui.view3d.sync_controller"
+             and record.levelno >= 40]
+    assert len(lines) == 1, [record.getMessage() for record in lines]
+    assert "painting the 3D ground failed" in lines[0].getMessage()
+    assert "\n" not in lines[0].getMessage() and lines[0].exc_info is None
+
+
 # ── the main window's workspace ──────────────────────────────────────────────
 
 
@@ -389,16 +522,19 @@ def test_the_workspace_bakes_the_ground_of_what_is_drawn(
     assert workspace.problems_text() == "" and controller.unannounced_changes == 0
 
 
-@pytest.mark.parametrize(("language", "capped", "painted"), [
-    ("de", "3D-Boden: an 3 Stellen liegen mehr Flächen, als der Boden zeigen kann; die kleinsten "
-           "werden weggelassen",
+@pytest.mark.parametrize(("language", "unfinished", "capped", "painted"), [
+    ("de", "3D-Boden: er konnte nicht fertiggestellt werden; mit der nächsten Änderung wird es "
+           "erneut versucht",
+     "3D-Boden: an 3 Stellen liegen mehr Flächen, als der Boden zeigen kann; die kleinsten "
+     "werden weggelassen",
      "Rasen: die Darstellung auf dem 3D-Boden ist unvollständig"),
-    ("es", "Suelo 3D: en 3 lugares el plano pone más superficies de las que el suelo puede "
-           "mostrar; se omiten las más pequeñas",
+    ("es", "Suelo 3D: no se pudo terminar; se volverá a intentar con el próximo cambio",
+     "Suelo 3D: en 3 lugares el plano pone más superficies de las que el suelo puede "
+     "mostrar; se omiten las más pequeñas",
      "Césped: no se pudo pintar completo sobre el suelo 3D"),
 ])
 def test_the_ground_rows_speak_the_users_language(
-        qtbot: Any, language: str, capped: str, painted: str) -> None:
+        qtbot: Any, language: str, unfinished: str, capped: str, painted: str) -> None:
     """Through Qt's own translator and the compiled catalogs the app ships — the rows
     a user reads, not the catalogs' entries."""
     from PyQt6.QtCore import QCoreApplication, QTranslator
@@ -412,10 +548,11 @@ def test_the_ground_rows_speak_the_users_language(
     QCoreApplication.installTranslator(translator)
     try:
         rows = problems_of((), {}, GroundProblems(items=(("id-1", "LAWN", "MemoryError", "x"),),
-                                                  capped_tiles=3))
+                                                  capped_tiles=3,
+                                                  unfinished=("RuntimeError", "y")))
         dialog = View3DProblemsDialog()
         qtbot.addWidget(dialog)
         dialog.set_problems(rows, lambda _item_id: "")
-        assert [dialog.row_text(0), dialog.row_text(1)] == [capped, painted]
+        assert [dialog.row_text(index) for index in range(3)] == [unfinished, capped, painted]
     finally:
         QCoreApplication.removeTranslator(translator)

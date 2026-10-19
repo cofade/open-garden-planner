@@ -7,10 +7,12 @@ so: a quiet count in its strip and, on demand, this list — one row per item, w
 the reason in the user's language. Activating a row selects the item on the plan.
 
 The ground bake (L1.5, §8.32.5) adds two kinds of row: an ITEM whose paint on the
-3D ground failed (it is cut off there), and NOTES about the ground as a whole —
-places that hold more surfaces than the ground can show (the smallest are left
-out), pieces that could not be painted, a bake that failed. A note belongs to no
-item: it comes first, and activating it does nothing.
+3D ground failed (it is cut off there — shown, so it is not counted among the
+objects 3D does not show; it makes the ground incomplete), and NOTES about the
+ground as a whole — places that hold more surfaces than the ground can show (the
+smallest are left out), pieces that could not be painted, a bake that failed,
+ground work given up until the next change. A note belongs to no item: it comes
+first, and activating it does nothing.
 
 Engine-free: plain widgets and the reason codes of ``ui/view3d/snapshot.py``.
 """
@@ -49,6 +51,8 @@ GROUND_PAINT_FAILED: Final = "ground_paint_failed"
 GROUND_CAPPED: Final = "ground_capped"
 GROUND_TILES_FAILED: Final = "ground_tiles_failed"
 GROUND_FAILED: Final = "ground_failed"
+#: The ground passes were given up until the next change (``GroundProblems.unfinished``).
+GROUND_UNFINISHED: Final = "ground_unfinished"
 _ITEM_ID_ROLE: Final = Qt.ItemDataRole.UserRole
 
 
@@ -70,6 +74,8 @@ def problems_of(skipped: Iterable[SkippedItem], failures: Mapping[str, BuildFail
     failed builders, and items whose paint on the ground failed."""
     rows: list[Problem] = []
     if ground is not None:
+        if ground.unfinished is not None:
+            rows.append(Problem("", "", GROUND_UNFINISHED, _detail(*ground.unfinished)))
         if ground.failure is not None:
             rows.append(Problem("", "", GROUND_FAILED, _detail(*ground.failure)))
         if ground.failed_tiles:
@@ -152,6 +158,9 @@ class View3DProblemsDialog(QDialog):
             return self.tr(
                 "3D ground: {count} pieces could not be painted and show an older "
                 "picture").format(count=problem.count)
+        if problem.code == GROUND_UNFINISHED:
+            return self.tr("3D ground: it could not be finished; it is tried again with the "
+                           "next change")
         return self.tr("3D ground: it could not be painted; it shows an older picture")
 
     def kind_text(self, kind: str) -> str:

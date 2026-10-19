@@ -8,6 +8,7 @@ TRANSLATIONS = {
         '3D ground: one piece could not be painted and shows an older picture': 'Suelo 3D: un fragmento no se pudo pintar y muestra una imagen anterior',
         '3D ground: {count} pieces could not be painted and show an older picture': 'Suelo 3D: {count} fragmentos no se pudieron pintar y muestran una imagen anterior',
         '3D ground: it could not be painted; it shows an older picture': 'Suelo 3D: no se pudo pintar; muestra una imagen anterior',
+        '3D ground: it could not be finished; it is tried again with the next change': 'Suelo 3D: no se pudo terminar; se volverá a intentar con el próximo cambio',
         "Not Shown in 3D": "No se muestra en 3D",
         "These objects are on the plan but cannot be shown in the 3D view. Double-click an entry to select the object on the plan.": "Estos objetos están en el plano, pero no se pueden mostrar en la vista 3D. Haga doble clic en una entrada para seleccionar el objeto en el plano.",
         "another object on the plan has the same internal id": "otro objeto del plano tiene el mismo identificador interno",

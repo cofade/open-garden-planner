@@ -13603,92 +13603,97 @@ Open Garden Planner se cerrará cuando comience la instalación.
     <context>
         <name>View3DProblemsDialog</name>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="143" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="149" />
             <source>3D ground: in one place the plan puts more surfaces than the ground can show; the smallest are left out</source>
             <translation>Suelo 3D: en un lugar el plano pone más superficies de las que el suelo puede mostrar; se omiten las más pequeñas</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="145" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="151" />
             <source>3D ground: in {count} places the plan puts more surfaces than the ground can show; the smallest are left out</source>
             <translation>Suelo 3D: en {count} lugares el plano pone más superficies de las que el suelo puede mostrar; se omiten las más pequeñas</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="155" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="162" />
+            <source>3D ground: it could not be finished; it is tried again with the next change</source>
+            <translation>Suelo 3D: no se pudo terminar; se volverá a intentar con el próximo cambio</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/problems_dialog.py" line="164" />
             <source>3D ground: it could not be painted; it shows an older picture</source>
             <translation>Suelo 3D: no se pudo pintar; muestra una imagen anterior</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="150" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="156" />
             <source>3D ground: one piece could not be painted and shows an older picture</source>
             <translation>Suelo 3D: un fragmento no se pudo pintar y muestra una imagen anterior</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="152" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="158" />
             <source>3D ground: {count} pieces could not be painted and show an older picture</source>
             <translation>Suelo 3D: {count} fragmentos no se pudieron pintar y muestran una imagen anterior</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="102" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="108" />
             <source>Not Shown in 3D</source>
             <translation>No se muestra en 3D</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="106" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="112" />
             <source>These objects are on the plan but cannot be shown in the 3D view. Double-click an entry to select the object on the plan.</source>
             <translation>Estos objetos están en el plano, pero no se pueden mostrar en la vista 3D. Haga doble clic en una entrada para seleccionar el objeto en el plano.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="125" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="131" />
             <source>another object on the plan has the same internal id</source>
             <translation>otro objeto del plano tiene el mismo identificador interno</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="134" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="140" />
             <source>it could not be painted completely on the 3D ground</source>
             <translation>no se pudo pintar completo sobre el suelo 3D</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="137" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="143" />
             <source>it could not be shown</source>
             <translation>no se pudo mostrar</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="133" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="139" />
             <source>its 3D model could not be built</source>
             <translation>no se pudo construir su modelo 3D</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="127" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="133" />
             <source>its outline cannot be turned into a solid</source>
             <translation>su contorno no se puede convertir en un sólido</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="129" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="135" />
             <source>its outline has too many points for the 3D view</source>
             <translation>su contorno tiene demasiados puntos para la vista 3D</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="124" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="130" />
             <source>its shape could not be worked out</source>
             <translation>no se pudo determinar su forma</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="131" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="137" />
             <source>one of its sizes is outside what the 3D view can show</source>
             <translation>una de sus medidas está fuera de lo que la vista 3D puede mostrar</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="193" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="202" />
             <source>{kind}: {reason}</source>
             <translation>{kind}: {reason}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="190" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="199" />
             <source>{name} ({kind}): {reason}</source>
             <translation>{name} ({kind}): {reason}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/problems_dialog.py" line="199" />
+            <location filename="../../ui/view3d/problems_dialog.py" line="208" />
             <source>… and {count} more</source>
             <translation>… y {count} más</translation>
         </message>
@@ -13900,22 +13905,22 @@ Use Archivo › Establecer ubicación del huerto para configurar las coordenadas
             <translation>&amp;Espacio de trabajo</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1005" />
+            <location filename="../../ui/view3d/workspace.py" line="1011" />
             <source>1 object is not shown in 3D</source>
             <translation>1 objeto no se muestra en 3D</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1003" />
+            <location filename="../../ui/view3d/workspace.py" line="1009" />
             <source>1 object is not shown in 3D; the 3D ground does not show all of the plan</source>
             <translation>1 objeto no se muestra en 3D; el suelo 3D no muestra todo el plano</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1142" />
+            <location filename="../../ui/view3d/workspace.py" line="1148" />
             <source>3D is running in compatibility mode (software rendering) because it did not start properly last time.</source>
             <translation>3D se ejecuta en modo de compatibilidad (renderizado por software) porque no se inició correctamente la última vez.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1144" />
+            <location filename="../../ui/view3d/workspace.py" line="1150" />
             <source>3D is running in compatibility mode (software rendering).</source>
             <translation>3D se ejecuta en modo de compatibilidad (renderizado por software).</translation>
         </message>
@@ -13925,12 +13930,12 @@ Use Archivo › Establecer ubicación del huerto para configurar las coordenadas
             <translation>3D está desactivado en este equipo: no se inició, ni siquiera en modo de compatibilidad (renderizado por software). El resto de la aplicación no se ve afectado.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1148" />
+            <location filename="../../ui/view3d/workspace.py" line="1154" />
             <source>3D is switched off: it did not start in compatibility mode (software rendering) either.</source>
             <translation>3D está desactivado: tampoco se inició en modo de compatibilidad (renderizado por software).</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1122" />
+            <location filename="../../ui/view3d/workspace.py" line="1128" />
             <source>3D is unavailable on this graphics device. The rest of the application is not affected.
 
 Details: {error}</source>
@@ -13944,17 +13949,17 @@ Detalles: {error}</translation>
             <translation>Construyendo la vista 3D…</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1146" />
+            <location filename="../../ui/view3d/workspace.py" line="1152" />
             <source>Compatibility mode (software rendering) is switched on.</source>
             <translation>El modo de compatibilidad (renderizado por software) está activado.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1151" />
+            <location filename="../../ui/view3d/workspace.py" line="1157" />
             <source>Compatibility mode will be used the next time the application starts.</source>
             <translation>La próxima vez que se inicie la aplicación se usará el modo de compatibilidad.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1170" />
+            <location filename="../../ui/view3d/workspace.py" line="1176" />
             <source>Hardware rendering will be tried the next time the application starts.</source>
             <translation>La próxima vez que se inicie la aplicación se intentará el renderizado por hardware.</translation>
         </message>
@@ -13994,7 +13999,7 @@ Detalles: {error}</translation>
             <translation>Mostrar qué objetos faltan en la vista 3D</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1001" />
+            <location filename="../../ui/view3d/workspace.py" line="1007" />
             <source>The 3D ground does not show all of the plan</source>
             <translation>El suelo 3D no muestra todo el plano</translation>
         </message>
@@ -14008,17 +14013,17 @@ Details: {error}</source>
 Detalles: {error}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="990" />
+            <location filename="../../ui/view3d/workspace.py" line="996" />
             <source>The 3D view could not be updated. It will try again with the next change.</source>
             <translation>No se pudo actualizar la vista 3D. Se volverá a intentar con el próximo cambio.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1104" />
+            <location filename="../../ui/view3d/workspace.py" line="1110" />
             <source>The 3D view reported a problem. Details are in the log file.</source>
             <translation>La vista 3D informó de un problema. Los detalles están en el archivo de registro.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1180" />
+            <location filename="../../ui/view3d/workspace.py" line="1186" />
             <source>The setting could not be changed. Details are in the log file.</source>
             <translation>No se pudo cambiar la configuración. Los detalles están en el archivo de registro.</translation>
         </message>
@@ -14028,22 +14033,22 @@ Detalles: {error}</translation>
             <translation>Reintentar</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1157" />
+            <location filename="../../ui/view3d/workspace.py" line="1163" />
             <source>Try Hardware Next Time</source>
             <translation>Probar hardware la próxima vez</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1124" />
+            <location filename="../../ui/view3d/workspace.py" line="1130" />
             <source>Use Compatibility Mode Next Time</source>
             <translation>Usar modo de compatibilidad</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1010" />
+            <location filename="../../ui/view3d/workspace.py" line="1016" />
             <source>{count} objects are not shown in 3D</source>
             <translation>{count} objetos no se muestran en 3D</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1007" />
+            <location filename="../../ui/view3d/workspace.py" line="1013" />
             <source>{count} objects are not shown in 3D; the 3D ground does not show all of the plan</source>
             <translation>{count} objetos no se muestran en 3D; el suelo 3D no muestra todo el plano</translation>
         </message>

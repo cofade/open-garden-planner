@@ -3322,6 +3322,8 @@ _L15_GROUND_TRANSLATIONS: dict[str, dict[str, str]] = {
             '3D-Boden: {count} Stücke konnten nicht gemalt werden und zeigen ein älteres Bild',
         '3D ground: it could not be painted; it shows an older picture':
             '3D-Boden: er konnte nicht gemalt werden; er zeigt ein älteres Bild',
+        '3D ground: it could not be finished; it is tried again with the next change':
+            '3D-Boden: er konnte nicht fertiggestellt werden; mit der nächsten Änderung wird es erneut versucht',
     },
     "Workspace": {
         'The 3D ground does not show all of the plan':
