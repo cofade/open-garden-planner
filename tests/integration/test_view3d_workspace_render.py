@@ -65,6 +65,10 @@ def _software(adapter: object) -> bool:
 
 def _clean(run: GateRun) -> GateRun:
     assert run.problems() == [], f"{run.problems()}\n{run.stderr[-3000:]}"
+    # a gate run talks to nobody: the hook answers every request with "offline" — so no
+    # close gate says anything about a close DURING the frozen app's update check
+    # (workspace_gate_hook.py, point 4: a defect of the shipped app, a follow-up issue)
+    assert run.report["network"] == "offline"
     return run
 
 
@@ -155,8 +159,12 @@ def test_the_frozen_app_closes_clean_too(scratch: Path, scenario: str) -> None:
     if scenario != "never":
         shown = run.step("visible")
         assert shown["state"] == "running" and shown["parts"] >= 98 and shown["guard_files"] == []
-    MEASURED.setdefault("G5_frozen", {})[scenario] = {"adapter": run.qt["adapter"],
-                                                    "qt_messages": run.qt["counts"]}
+    # the frozen app's update check (two seconds after its window exists) was answered
+    # "offline": at most one request, and none when the run closed before it was made
+    assert run.report["network_calls"] <= 1
+    MEASURED.setdefault("G5_frozen", {})[scenario] = {
+        "adapter": run.qt["adapter"], "qt_messages": run.qt["counts"],
+        "seconds": run.report["seconds"], "update_checks_answered_offline": run.report["network_calls"]}
 
 
 # ── G6: a start that died, compatibility mode, and the way back ──────────────

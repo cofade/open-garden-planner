@@ -4,6 +4,32 @@ from PyQt6.QtCore import QPointF
 
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 
+
+def test_unnamed_compare_plants_use_translated_labels(qtbot):
+    from pathlib import Path
+
+    from PyQt6.QtCore import QCoreApplication, QTranslator
+    from PyQt6.QtWidgets import QGraphicsSimpleTextItem
+
+    import open_garden_planner
+
+    translator = QTranslator()
+    resource = Path(open_garden_planner.__file__).parent / "resources/translations/open_garden_planner_de.qm"
+    assert translator.load(str(resource))
+    QCoreApplication.installTranslator(translator)
+    try:
+        scene = CanvasScene()
+        objects = [{"type": "circle", "object_type": kind, "name": name}
+                   for kind, name in (("TREE", ""), ("SHRUB", ""), ("PERENNIAL", ""), ("TREE", "My Tree"))]
+        original = [dict(obj) for obj in objects]
+        scene.set_compare_overlay(objects)
+        labels = [item.text() for item in scene._compare_items if isinstance(item, QGraphicsSimpleTextItem)]
+        assert labels == ["Baum", "Strauch", "Staude", "My Tree"]
+        assert objects == original
+        scene.clear_compare_overlay()
+    finally:
+        QCoreApplication.removeTranslator(translator)
+
 PLANT_OBJECTS = [
     {
         "type": "circle",

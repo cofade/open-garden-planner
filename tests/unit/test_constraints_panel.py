@@ -2,6 +2,7 @@
 
 from uuid import UUID, uuid4
 
+import pytest
 from PyQt6.QtWidgets import QLabel
 
 from open_garden_planner.core.constraints import AnchorRef, ConstraintGraph
@@ -74,6 +75,66 @@ class _FakeItem(GardenItemMixin):
 
     def setSelected(self, _selected: bool) -> None:
         pass  # No-op for tests
+
+
+@pytest.fixture
+def german_object_labels(qtbot):
+    from pathlib import Path
+
+    from PyQt6.QtCore import QCoreApplication, QTranslator
+
+    import open_garden_planner
+
+    translator = QTranslator()
+    resource = Path(open_garden_planner.__file__).parent / "resources/translations/open_garden_planner_de.qm"
+    assert translator.load(str(resource))
+    QCoreApplication.installTranslator(translator)
+    try:
+        yield
+    finally:
+        QCoreApplication.removeTranslator(translator)
+
+
+def test_all_unnamed_object_types_use_catalog_labels(qtbot, german_object_labels):
+    """Exercise the label builder, which direct A/B row tests bypassed (#457)."""
+    from pathlib import Path
+    from xml.etree import ElementTree
+
+    import open_garden_planner
+    from open_garden_planner.core.object_types import ObjectType, get_style
+
+    resource = Path(open_garden_planner.__file__).parent / "resources/translations/open_garden_planner_de.ts"
+    catalog = ElementTree.parse(resource)
+    context = next(c for c in catalog.findall("context") if c.findtext("name") == "ObjectType")
+    translations = {m.findtext("source"): m.findtext("translation") for m in context.findall("message")}
+    panel = ConstraintsPanel()
+    qtbot.addWidget(panel)
+    scene = _FakeScene()
+    panel.set_scene(scene)
+    # Each type separately: distinct enum members may share a display name.
+    for kind in ObjectType:
+        item = _FakeItem(uuid4(), object_type=kind)
+        scene._items = [item]
+        expected = translations[get_style(kind).display_name]
+        assert expected
+        assert panel._build_item_labels() == {item.item_id: expected}, kind.name
+
+
+def test_translated_duplicates_and_explicit_names(qtbot, german_object_labels):
+    from open_garden_planner.core.object_types import ObjectType
+
+    panel = ConstraintsPanel()
+    qtbot.addWidget(panel)
+    scene = _FakeScene()
+    scene._items = [
+        _FakeItem(uuid4(), object_type=ObjectType.GENERIC_RECTANGLE),
+        _FakeItem(uuid4(), object_type=ObjectType.GENERIC_RECTANGLE),
+        _FakeItem(uuid4(), name="Rectangle", object_type=ObjectType.GENERIC_RECTANGLE),
+        _FakeItem(uuid4()),
+    ]
+    panel.set_scene(scene)
+    assert list(panel._build_item_labels().values()) == ["Rechteck 1", "Rechteck 2", "Rectangle", "Objekt"]
+    assert [item.name for item in scene._items] == ["", "", "Rectangle", ""]
 
 
 class TestConstraintsPanel:

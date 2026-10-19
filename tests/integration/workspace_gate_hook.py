@@ -23,7 +23,19 @@ names are rebound BEFORE anything builds a store. So this module, first of all,
    under any other organisation is REFUSED before it exists: the process ends with
    exit code ``REFUSED`` (97). The guard fails closed;
 3. turns the Welcome dialog and the Agent API off in that throw-away store (a modal
-   dialog and a listening port have no place in a scripted run).
+   dialog and a listening port have no place in a scripted run);
+4. answers every ``urllib.request.urlopen`` with "offline", at once, and counts the
+   calls (``_no_network``). A gate run talks to nobody — and the FROZEN app asks
+   GitHub for a newer release two seconds after its window exists
+   (``GardenPlannerApp._start_update_check``, frozen only). That request runs in a
+   ``QThread`` owned by the main window and nothing joins it: a window closed while
+   the answer is still on its way takes the running thread with it, and Qt aborts the
+   process ("QThread: Destroyed while thread is still running", exit code
+   0xC0000409). That is a defect of the shipped app, written up as a follow-up issue
+   — and it made "the frozen app closes clean" depend on how fast GitHub answered
+   (it failed once in a loaded run, in the scenario that closes about two seconds
+   after the start). So the close gates say nothing about a close DURING an update
+   check; the report's ``network`` field says so in every run.
 
 Then, if ``OGP_WORKSPACE_GATE`` names a JSON file ``{"scenario", "out", "store",
 "args"}``, it arms a scenario that runs INSIDE the app on the GUI thread once the
@@ -88,6 +100,8 @@ def _write() -> None:
         "stores": _stores, "production": _state["production"],
         "late": bool(_state.get("late")),
         "frozen": bool(getattr(sys, "frozen", False)),
+        "network": _state.get("network", "real"),
+        "network_calls": int(_state.get("network_calls", 0)),
         "seconds": round(time.time() - _state["started"], 2),
     }
     with contextlib.suppress(OSError):
@@ -135,6 +149,20 @@ def _guard_settings(module: ModuleType) -> None:
     quiet.setValue(module.AppSettings.KEY_SHOW_WELCOME, False)
     quiet.setValue(module.AppSettings.KEY_AGENT_API_ENABLED, False)
     quiet.sync()
+
+
+def _no_network() -> None:
+    """4. of the module docstring: every ``urllib.request.urlopen`` of this process is
+    answered with "offline" at once (the app's update check and its weather forecast
+    both go through it, and both treat an ``OSError`` as "no network today")."""
+    import urllib.request
+
+    def offline(*_arguments: Any, **_options: Any) -> Any:
+        _state["network_calls"] = int(_state.get("network_calls", 0)) + 1
+        raise OSError("the workspace gate runs without a network")
+
+    urllib.request.urlopen = offline
+    _state["network"] = "offline"
 
 
 def _arm(module: ModuleType) -> None:
@@ -425,6 +453,7 @@ def _measured_scenario(name: str) -> Callable[[Any, dict[str, Any]], Iterator[An
 
 
 _load_spec()
+_no_network()
 sys.meta_path.insert(0, _Rebinder())
 atexit.register(_at_exit)
 # Imported too late — the app's modules are loaded already: rebind and guard NOW (a

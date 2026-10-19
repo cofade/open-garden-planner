@@ -17,6 +17,19 @@ These improvements apply across the project.
 The repository audit remains open under [#392](https://github.com/cofade/open-garden-planner/issues/392).
 The [living debt register](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/README.md)
 records individual outcomes. The dated audit snapshot preserves the original findings.
+The [current reconciliation and package map](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audit-2026-10-reconciliation.md)
+links the remaining work to thematic bundle issues.
+All 15 original standalone P0/P1 remediation issues are complete after #406 shipped in [v1.30.2](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.2) via [PR #477](https://github.com/cofade/open-garden-planner/pull/477).
+The rotation/constraint interaction discovered during manual testing is a separate follow-up, [#485](https://github.com/cofade/open-garden-planner/issues/485).
+Audit package A1 (#453: numeric input safety, verified release downloads, bounded image ingestion and owner-only Linux settings) shipped in [v1.30.3](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.3) via [PR #487](https://github.com/cofade/open-garden-planner/pull/487) after owner acceptance.
+Audit package A5 (#457: constraint descriptors, numerical solver assertions,
+fixed-state feasibility and German default object labels) shipped in
+[v1.30.4](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.4) via
+[PR #489](https://github.com/cofade/open-garden-planner/pull/489) after owner acceptance.
+Audit package A2 (#454: pinned build tools, dependency review, frozen-package notices
+and SBOM) shipped in [v1.30.5](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.5) via [PR #490](https://github.com/cofade/open-garden-planner/pull/490) after owner acceptance.
+Translation completeness for every registered locale (#496) shipped in [v1.30.6](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.6) via [PR #497](https://github.com/cofade/open-garden-planner/pull/497) after owner acceptance.
+Worker lifecycle safety, bounded caches, and test hygiene (#480, #483, #482, #474, #449, #448) shipped in [v1.30.7](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.7) via [PR #498](https://github.com/cofade/open-garden-planner/pull/498) after owner acceptance.
 
 ## Phases 1–12: complete
 
@@ -50,7 +63,7 @@ and companion, succession, task, and soil tools.
 It runs on loopback. Reads and exports do not require a token. Writes require editing to be enabled and a valid token.
 Geometry writes refuse constrained objects. Task-status writes remain unavailable because they are not undoable.
 
-## Package F: F1/F2 complete; F3–F5 planned
+## Package F: F1–F3 complete; F4/F5 planned
 
 F1/F2 passed owner frozen-app acceptance and shipped via [PR #433](https://github.com/cofade/open-garden-planner/pull/433).
 
@@ -58,7 +71,7 @@ F1/F2 passed owner frozen-app acceptance and shipped via [PR #433](https://githu
 |---|---|---|---|
 | F1 | Species traits, function filters and food-forest layers. | ✅ v1.30.0 | [#312](https://github.com/cofade/open-garden-planner/issues/312) |
 | F2 | Plant guilds, template editing, saved membership and diagnostics. | ✅ v1.30.0 | [#313](https://github.com/cofade/open-garden-planner/issues/313) |
-| F3 | Sun requirements compared with computed hours of sun. | Planned | [#314](https://github.com/cofade/open-garden-planner/issues/314) |
+| F3 | Sun requirements compared with computed hours of sun. | ✅ v1.30.1 (with #428, PR #436) | [#314](https://github.com/cofade/open-garden-planner/issues/314) |
 | F4 | Plan timeline. | Planned | [#315](https://github.com/cofade/open-garden-planner/issues/315) |
 | F5 | Example plans and templates. Last in the package. | Planned | [#316](https://github.com/cofade/open-garden-planner/issues/316) |
 
@@ -101,10 +114,15 @@ The community documentation in this wiki does not mark Phase 16 complete.
 - **v1.29.4:** annotation persistence, shared clipboard serialization, background placeholders, and atomic plan loading.
 - **v1.29.5:** task windows across year boundaries, propagation dates, explicit MCP Host/Origin checks, and array-tool tests.
 - **v1.29.6:** locked dependencies, platform type budgets, coverage floors, and administrator-enforced branch checks.
+- **v1.29.8:** persistent handled-error logging and corrected harvest offsets, including garlic calibration ([PR #426](https://github.com/cofade/open-garden-planner/pull/426), #405/#418).
+- **v1.29.9:** canvas performance correction on the 500-object reference plan ([PR #430](https://github.com/cofade/open-garden-planner/pull/430), #409).
+- **v1.30.2:** constraint-tool characterization and coverage ([PR #477](https://github.com/cofade/open-garden-planner/pull/477), #406).
+- **v1.30.6:** source-derived translation completeness for every registered locale ([PR #497](https://github.com/cofade/open-garden-planner/pull/497), #496).
 
 Issues #399, #401, #402, and #404 completed in v1.29.6.
-Remaining audit work includes logging [#405](https://github.com/cofade/open-garden-planner/issues/405),
+Logging [#405](https://github.com/cofade/open-garden-planner/issues/405),
 constraint-tool coverage [#406](https://github.com/cofade/open-garden-planner/issues/406),
-and canvas performance [#409](https://github.com/cofade/open-garden-planner/issues/409).
-Harvest-data correction remains tracked in [#418](https://github.com/cofade/open-garden-planner/issues/418).
-Garlic's calculated harvest window remains about three months late under both existing interpretations.
+canvas performance [#409](https://github.com/cofade/open-garden-planner/issues/409),
+and harvest-data correction [#418](https://github.com/cofade/open-garden-planner/issues/418)
+are complete. Use [the canonical roadmap](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md)
+and [audit epic #392](https://github.com/cofade/open-garden-planner/issues/392) for the remaining work.

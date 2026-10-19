@@ -60,7 +60,12 @@ from open_garden_planner.core.shadow_geometry import (
 )
 from open_garden_planner.core.solar import solar_position
 from open_garden_planner.core.tools.base_tool import ToolType
-from open_garden_planner.ui.canvas import footprints, sun_heatmap, sun_shadow_controller
+from open_garden_planner.ui.canvas import (
+    footprints,
+    sun_exposure_snapshot,
+    sun_heatmap,
+    sun_shadow_controller,
+)
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.geometry_apply import (
@@ -473,7 +478,9 @@ def _is_item_lookup_call(node: ast.AST) -> bool:
 
 #: The functions that take a lookup — the only ones a walk may hand its own to.
 #: Matched by NAME (a stated limit of ``lookup_escapes``).
-LOOKUP_TAKERS = frozenset({"item_base_cm", "_record_of"})
+#: ``standing_parent`` is the membership half of ``item_base_cm`` (which calls it); the
+#: sun receivers' walk asks it alone (master's US-F3, merged in L1.3's fix round 1).
+LOOKUP_TAKERS = frozenset({"item_base_cm", "standing_parent", "_record_of"})
 
 
 def _parent_map(tree: ast.AST) -> dict[int, ast.AST]:
@@ -1394,7 +1401,10 @@ class TestTheParentShapeIsBuiltOncePerWalk:
 
         1. THE CENSUS. The identifier ``ItemLookup`` appears only as an import under its
            own name, as the class, as a parameter's annotation and as a call inside the
-           two walks. An alias import, ``make = ItemLookup``,
+           three walks (since master's US-F3 was merged: the caster walk is
+           ``collect_identified_casters``, and the walk over the sun RECEIVERS asks the
+           base rule too — a plant on a parent's soil is not shaded by that parent).
+           An alias import, ``make = ItemLookup``,
            ``functools.partial(ItemLookup, items)`` and ``getattr(module, "ItemLookup")``
            are other appearances and fail here — the first cut did not see them at all.
         2. THE WALKS. Each binds its lookup to a LOCAL name and only ever hands that
@@ -1427,15 +1437,19 @@ class TestTheParentShapeIsBuiltOncePerWalk:
                 takers[function.name] = lookup_escapes(function, parameter)
         assert census == {
             "ui/canvas/footprints.py": [("<module>", "class definition"),
-                                        ("item_base_cm", "parameter annotation")],
+                                        ("item_base_cm", "parameter annotation"),
+                                        ("standing_parent", "parameter annotation")],
+            "ui/canvas/sun_exposure_snapshot.py": [("<module>", "import"),
+                                                   ("collect_exposure_snapshot", "call")],
             "ui/canvas/sun_shadow_controller.py": [("<module>", "import"),
-                                                   ("collect_shadow_casters", "call")],
+                                                   ("collect_identified_casters", "call")],
             "ui/view3d/snapshot.py": [("<module>", "import"),
                                       ("_record_of", "parameter annotation"),
                                       ("snapshot_records", "call")],
         }
         assert constructed == {
-            "ui/canvas/sun_shadow_controller.py": {"collect_shadow_casters"},  # the 2D caster walk
+            "ui/canvas/sun_exposure_snapshot.py": {"collect_exposure_snapshot"},  # the sun receivers
+            "ui/canvas/sun_shadow_controller.py": {"collect_identified_casters"},  # the 2D caster walk
             "ui/view3d/snapshot.py": {"snapshot_records"},                      # the 3D record walk
         }
         assert kept == []
@@ -1720,7 +1734,13 @@ class TestOneCasterWalk:
     and 3D takes its base from the same function."""
 
     def test_overlay_and_heatmap_call_the_same_function(self) -> None:
-        assert sun_heatmap.collect_shadow_casters is sun_shadow_controller.collect_shadow_casters
+        # Since master's US-F3 the heatmap takes its casters from the exposure snapshot,
+        # and the snapshot from THE walk; the overlay's ShadowCasters are that walk,
+        # flattened. One walk, three consumers.
+        assert sun_heatmap.collect_exposure_snapshot is sun_exposure_snapshot.collect_exposure_snapshot
+        assert (sun_exposure_snapshot.collect_identified_casters
+                is sun_shadow_controller.collect_identified_casters)
+        assert not hasattr(sun_heatmap, "collect_shadow_casters")
         assert sun_shadow_controller.item_base_cm is footprints.item_base_cm
         assert snapshot_module.item_base_cm is footprints.item_base_cm
 
@@ -1747,12 +1767,23 @@ class TestOneCasterWalk:
         assert calls["caster_fields"] == {"core/shadow_geometry.py"}  # the ONE unpacking, by type
         assert calls["collect_shadow_casters"] == {
             "ui/canvas/sun_shadow_controller.py",   # the overlay
-            "ui/canvas/sun_heatmap.py",             # the heatmap
         }
+        assert calls["collect_identified_casters"] == {
+            "ui/canvas/sun_shadow_controller.py",   # flattened for the overlay
+            "ui/canvas/sun_exposure_snapshot.py",   # the heatmap and the per-plant estimates
+        }
+        assert calls["IdentifiedCaster"] == {"ui/canvas/sun_shadow_controller.py"}  # one maker
+        assert calls["compute_grouped_shadows"] == {"core/shade_aggregation.py"}
+        assert calls["GroupedCaster"] == {"core/shade_aggregation.py"}  # base included
         assert calls["item_base_cm"] == {
             "ui/canvas/sun_shadow_controller.py",   # 2D: the caster walk
             "ui/view3d/snapshot.py",                # 3D: the record walk
         }
+        assert calls["standing_parent"] == {
+            "ui/canvas/footprints.py",              # inside item_base_cm: the membership half
+            "ui/canvas/sun_exposure_snapshot.py",   # which parent a sun receiver stands in
+        }
+        assert calls["is_solid_soil_parent"] == {"ui/canvas/footprints.py"}  # inside standing_parent
         assert calls["standing_base_cm"] == {"ui/canvas/footprints.py"}  # inside item_base_cm
         assert calls["soil_surface_cm"] == {
             "core/object_height.py",                # inside standing_base_cm

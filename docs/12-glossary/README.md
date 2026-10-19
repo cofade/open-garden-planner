@@ -4,6 +4,9 @@
 
 | Term | Definition |
 |------|-----------|
+| **Receiver sun estimate** | Direct sun accumulated at a plant footprint's heatmap cell centre at ground level, excluding only its own solid shadow; 15-minute sampling, no leaf-height or translucent-canopy model (ADR-056). |
+| **Sun evaluation** | Cached hours for a runtime document/date/geometry snapshot, or an explicit unavailable reason. An absent mismatch is not evidence of completed evaluation. |
+| **Mature-canopy grouping** | Other footprint centres inside/on a selected tree's recorded mature spread circle; independent of guild, bed and drawing layer, without asserting the cause of shade. |
 | **arc42** | Template for software architecture documentation (12 sections) |
 | **Accent sentinel** | The reserved hex `#3D8B37` inside UI icon SVGs — replaced with the active theme's `accent` at render time by the icon provider (equals the light-theme accent so raw files preview correctly). ADR-039 |
 | **Icon provider** | `ui/icons.py` — the single render path for chrome icons. Substitutes theme colors into the SVG text before rasterizing (QSvgRenderer paints raw `currentColor` black), renders at devicePixelRatio, caches per (name, size, tint, accent) |
@@ -38,6 +41,7 @@
 | **Placeholder (3D plant)** | What the 3D view shows for a plant whose height the plan does not know (no species data, no measurement, no typed height): a low, smooth, neutral dome over its canopy circle that casts no shadow — a marker, never a guessed plant. A height turns it into the plant. Common: every category plant from the gallery, every plant drawn with a tool, and any plant whose species string names one of the twelve sprites without a bundled species record (§8.32.7) |
 | **Standing base** | How high above the garden floor an item stands, in cm: the soil surface of its parent bed or container when it is linked to that parent AND its centre lies inside the parent's shape, the parent holds soil and has a height — else 0. One rule (`core/object_height.standing_base_cm`, asked through `ui/canvas/footprints.item_base_cm`) for a scene record's `transform.base_cm` and a shadow caster's `base_cm`. An item's height is measured from its base (ADR-037 addendum, §8.32.6) |
 | **Soil drop** | The 2 cm assumed between the rim of a BED (raised bed, a garden bed with a height) and its soil (`core/object_height.SOIL_DROP_CM`) — a modelling assumption: the plan holds no fill level for a bed. A plant in a 40 cm raised bed stands at 38 cm. A container has no drop: its height is its soil fill height, so a plant in a 30 cm pot stands at 30 cm. The 3D bed meshes put their soil at the same heights |
+| **Standing parent** | The soil parent whose solid a plant stands in: the plant is linked to it, it is visible, it is a bed, raised bed or container WITH a height, and the plant's centre lies inside its shape (`ui/canvas/footprints.standing_parent` — the membership half of the base rule). The per-plant sun estimate spares that parent for the plant, like the plant's own solid: the bed is under the plant, not between it and the sun (ADR-056 addendum) |
 | **Shadow caster** | `core/shadow_geometry.ShadowCaster(footprint, height_cm, base_cm)` — one solid of the sun & shade model: its scene footprint, its height above its own ground and the height of that ground. Collected once per recompute by `collect_shadow_casters`; the shadow overlay and the hours-of-sun heatmap consume the same list. The shadow functions accept a `ShadowCaster` or an exact `(footprint, height)` pair and nothing else |
 | **Built world** | In the 3D pipeline, everything that is constructed rather than grown: buildings, fences, walls, beds, containers, hedges. Its builders live in `core/scene3d/builders/` (ADR-064 addendum) |
 | **Tinted part** | A mesh part whose vertices are pure white and whose colour is the plan item's own (fill, else stroke), multiplied in by the engine sink. Fences, walls, building walls and containers are tinted, so recolouring one never rebuilds its mesh |
@@ -273,3 +277,9 @@
 | Nitrogen fixer | A plant capable of symbiotic nitrogen fixation under appropriate conditions; not immediate nitrogen supply to its neighbours. |
 | Dynamic accumulator | A recorded design-use token for nutrient accumulation; no bundled species is assigned it without adequate evidence. |
 | Canopy edge | Guild ring at effective mature spacing radius, respecting a manual spacing override before database spread/2. |
+
+### Verified installer
+
+A downloaded installer whose permitted release origin, matching manifest entry,
+byte count and SHA-256 digest were checked before finalizing its file. This denotes
+download integrity; it is not an Authenticode signature or provenance attestation.

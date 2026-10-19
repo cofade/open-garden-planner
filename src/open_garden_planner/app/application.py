@@ -89,6 +89,7 @@ if TYPE_CHECKING:
 
     from open_garden_planner.agent_api import AgentApiServer
     from open_garden_planner.core.sim_clock import SimChange
+    from open_garden_planner.services.update_checker import ReleaseInfo
 
 logger = logging.getLogger(__name__)
 
@@ -3935,10 +3936,11 @@ class GardenPlannerApp(QMainWindow):
 
         # Find & Replace
         find_replace_action = QAction(self.tr("&Find && Replace…"), self)
-        find_replace_action.setShortcut(QKeySequence.StandardKey.Find)
+        find_replace_action.setShortcut(QKeySequence("Ctrl+H"))
         find_replace_action.setStatusTip(self.tr("Find and replace objects by name, type, layer or species"))
         find_replace_action.triggered.connect(self._on_toggle_find_replace)
         self._set_action_icon(find_replace_action, "find_replace")
+        self._find_replace_action = find_replace_action
         menu.addAction(find_replace_action)
 
         menu.addSeparator()
@@ -4812,6 +4814,7 @@ class GardenPlannerApp(QMainWindow):
         # (it seeded its own "now" — the clock wins) and writes user edits back.
         self._sun_toolbar.set_datetime_local(self._sim_clock.wall)
         self._sun_toolbar.datetime_changed.connect(self._on_sun_sim_datetime)
+        self._sun_toolbar.june_reference_requested.connect(self._on_june_reference)
         # Keep the menu action + controller in sync with any visibility change
         # that does not come from the action itself — today that is
         # _enforce_toolbar_visibility() at startup. (It used to be Qt's built-in
@@ -4833,6 +4836,13 @@ class GardenPlannerApp(QMainWindow):
         self._sun_heatmap.finished.connect(self._on_heatmap_finished)
         self._sun_toolbar.heatmap_requested.connect(self._on_heatmap_requested)
         self._sun_toolbar.heatmap_cleared.connect(self._sun_heatmap.clear)
+        self.canvas_scene.document_replaced.connect(self._reset_sun_document)
+        from open_garden_planner.ui.sun_exposure_coordinator import SunExposureCoordinator
+
+        self.sun_exposure_coordinator = SunExposureCoordinator(
+            self.canvas_scene, self._sun_heatmap, self._sim_clock, self._project_manager,
+            self._sun_toolbar, self.canopy_panel, self)
+        self.canvas_view.command_manager.stack_changed.connect(self.sun_exposure_coordinator.schedule)
 
         # ── 3D view (US-E6) — created lazily on first menu use ────────────
         self._view3d_window = None  # the currently-OPEN viewer, or None
@@ -5304,6 +5314,14 @@ class GardenPlannerApp(QMainWindow):
         self.companion_panel.layout().addWidget(self.guilds_panel)
         self.guild_coordinator = GuildCoordinator(self.canvas_scene, self.canvas_view.command_manager,
                                                   self.diagnostics_panel, self.guilds_panel, self)
+        from open_garden_planner.ui.diagnostics_coordinator import DiagnosticsCoordinator
+        from open_garden_planner.ui.panels.canopy_panel import CanopyPanel
+
+        self.diagnostics_coordinator = DiagnosticsCoordinator(
+            self.canvas_scene, self.canvas_view.command_manager, self.diagnostics_panel, self)
+        self.canopy_panel = CanopyPanel(self.canvas_scene)
+        self.plant_database_panel.info_layout.insertWidget(
+            self.plant_database_panel.info_layout.count() - 1, self.canopy_panel)
         # Detach each panel from the scratch build layout before handing it to the
         # controller (panels were addWidget'd above purely to set their parent).
         for _key, panel in canonical_panels:
@@ -5402,13 +5420,13 @@ class GardenPlannerApp(QMainWindow):
         self._update_checker.update_available.connect(self._on_update_available)
         self._update_checker.start()
 
-    def _on_update_available(self, tag_name: str, body: str, download_url: str, html_url: str) -> None:
+    def _on_update_available(self, release: "ReleaseInfo") -> None:
         """Show the update bar if the user has not skipped this version."""
         from open_garden_planner.app.settings import get_settings
 
-        if get_settings().skipped_version == tag_name:
+        if get_settings().skipped_version == release.tag_name:
             return
-        self._update_bar.show_update(tag_name, body, download_url, html_url)
+        self._update_bar.show_update(release)
 
     def _on_skip_version(self, tag_name: str) -> None:
         """Persist the skipped version to settings."""
@@ -5519,13 +5537,11 @@ class GardenPlannerApp(QMainWindow):
             recovery_path: Path to the recovery file
         """
         try:
-            self._before_document_change()
             self._project_manager.load(self.canvas_scene, recovery_path)
             self.canvas_view.command_manager.clear()
             self.canvas_view.fit_in_view()
             self.canvas_scene.update_dimension_lines()
             self.constraints_panel.refresh()
-            self._after_document_change()
 
             # Mark as dirty since this is a recovery (not a normal saved project)
             self._project_manager.mark_dirty()
@@ -5714,8 +5730,6 @@ class GardenPlannerApp(QMainWindow):
         (see ``CommandManager.clear``, which does not emit ``stack_changed`` so
         the new plan starts clean and not dirty), exactly as the GUI path did.
         """
-        self._before_document_change()
-
         # Reset constraints and dimension lines BEFORE scene.clear() to
         # avoid RuntimeError from accessing deleted C++ graphics objects
         self.canvas_scene.reset_constraints()
@@ -5757,8 +5771,6 @@ class GardenPlannerApp(QMainWindow):
         # A fresh project has no overdue tasks — clear any stale reminder.
         self._task_reminder_bar.hide()
 
-        self._after_document_change()
-
         # Update status bar
         width_m = width_cm / 100.0
         height_m = height_cm / 100.0
@@ -5769,24 +5781,6 @@ class GardenPlannerApp(QMainWindow):
                     width=f"{width_m:.1f}", height=f"{height_m:.1f}"
                 )
             )
-
-    def _before_document_change(self) -> None:
-        """The open document is about to be replaced (new, open, recovery load).
-
-        Called BEFORE the scene is cleared. #428: an hours-of-sun map belongs to
-        the plan it was computed for. ``clear()`` hides a shown map and — the
-        point — cancels a compute that is still running and drops its late
-        result, which used to paint the previous plan's map onto the new one;
-        the toolbar button is unchecked with it, or it would stay checked for a
-        map ``scene.clear()`` is about to destroy.
-        """
-        self._sun_heatmap.clear()
-        self._sun_toolbar.set_heatmap_active(False)
-
-    def _after_document_change(self) -> None:
-        """The new document is in the scene: the 3D workspace frames it (L1.3)."""
-        if self._workspace is not None:
-            self._workspace.document_changed()
 
     def _on_canvas_size(self) -> None:
         """Handle Canvas Size action — resize the current canvas."""
@@ -5857,7 +5851,18 @@ class GardenPlannerApp(QMainWindow):
         try:
             self._load_project_file(file_path)
         except Exception as e:
-            QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to open file:\n{error}").format(error=e))
+            QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to open file:\n{error}").format(error=self._plan_error_message(e)))
+
+    def _plan_error_message(self, error: Exception) -> str:
+        from open_garden_planner.core.plan_io import PlanValidationError
+        if not isinstance(error, PlanValidationError):
+            return str(error)
+        messages = {
+            "finite": self.tr("The plan contains an invalid or non-finite number at {field}."),
+            "canvas": self.tr("The canvas dimension at {field} must be between 50 and 100000 cm."),
+            "positive": self.tr("The plan value at {field} must be positive."),
+        }
+        return messages[error.category].format(field=error.field)
 
     def _load_project_file(self, file_path: str) -> None:
         """THE one open-a-plan path: load and rewire the UI, or raise.
@@ -5874,7 +5879,6 @@ class GardenPlannerApp(QMainWindow):
         has no wrapper to do it. A recovery that only the GUI ran would have
         been a #337-class bug waiting on the caller the extraction created.
         """
-        self._before_document_change()
         try:
             self._project_manager.load(self.canvas_scene, Path(file_path))
         except Exception:
@@ -5887,7 +5891,6 @@ class GardenPlannerApp(QMainWindow):
         self._autosave_manager.clear_autosave()
         self.canvas_view.command_manager.clear()
         self.canvas_view.fit_in_view()
-        self._after_document_change()
         self.layers_panel.set_layers(self.canvas_scene.layers)
         self.canvas_scene.update_dimension_lines()
         self.constraints_panel.refresh()
@@ -6007,7 +6010,7 @@ class GardenPlannerApp(QMainWindow):
             self._autosave_manager.clear_autosave()
             self.statusBar().showMessage(self.tr("Saved: {path}").format(path=file_path))
         except Exception as e:
-            QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to save file:\n{error}").format(error=e))
+            QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to save file:\n{error}").format(error=self._plan_error_message(e)))
 
     def _on_export_png(self) -> None:
         """Handle Export as PNG action."""
@@ -6349,6 +6352,14 @@ class GardenPlannerApp(QMainWindow):
             # Join a running heatmap worker — a QThread destroyed while
             # running aborts the process (the #230 class).
             self._sun_heatmap.shutdown()
+            # Cancel and detach in-flight update checker — a QThread destroyed
+            # while running aborts the process (#480).
+            if getattr(self, "_update_checker", None) is not None:
+                self._update_checker.shutdown()
+                self._update_checker = None
+            # Shut down calendar background workers and services (#483).
+            if getattr(self, "calendar_view", None) is not None and hasattr(self.calendar_view, "shutdown"):
+                self.calendar_view.shutdown()
             # Close any open/pending 3D viewer so the app can actually quit —
             # a visible parentless top-level Qt3DWindow keeps the process alive
             # under Qt's default quitOnLastWindowClosed. Hide (not delete): the
@@ -6574,6 +6585,12 @@ class GardenPlannerApp(QMainWindow):
         ``_on_sim_instant_changed`` every change."""
         self._sim_clock.set_datetime(dt)
 
+    def _on_june_reference(self) -> None:
+        """An explicit reference shortcut writes the one clock, preserving wall time."""
+        from datetime import date
+
+        self._sim_clock.set_date(date(self._sim_clock.plan_date.year, 6, 21))
+
     def _on_sim_date_changed(self, day: "datetime.date") -> None:
         """A new plan DATE — never a time-of-day change (the clock's L1.0 gate).
 
@@ -6619,6 +6636,11 @@ class GardenPlannerApp(QMainWindow):
         self._sun_toolbar.set_heatmap_active(
             success and self._sun_heatmap.heatmap_visible()
         )
+
+    def _reset_sun_document(self) -> None:
+        """Drop the old document's worker/overlay before items are removed (#428)."""
+        self._sun_heatmap.clear()
+        self._sun_toolbar.set_heatmap_active(False)
 
     def _on_sun_toolbar_visibility(self, visible: bool) -> None:
         """Sync menu action + controller when the toolbar's visibility changes

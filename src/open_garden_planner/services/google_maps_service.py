@@ -15,7 +15,6 @@ be reverse-engineered and the key abused. See ADR-019.
 
 from __future__ import annotations
 
-import io
 import math
 import os
 import re
@@ -23,8 +22,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from urllib.parse import urlencode
 
-import requests
 from PIL import Image
+
+from open_garden_planner.services.image_download import STATIC_MAP_MAX_BYTES, fetch_image
 
 _STATIC_MAPS_URL = "https://maps.googleapis.com/maps/api/staticmap"
 _EARTH_CIRCUMFERENCE_M = 2 * math.pi * 6378137.0
@@ -207,6 +207,7 @@ def _fetch_tile(
     api_key: str,
     *,
     timeout: float = 10.0,
+    cancel_check: Callable[[], bool] | None = None,
 ) -> Image.Image:
     """HTTP-fetch a single Static Maps tile and return as PIL Image.
 
@@ -215,18 +216,13 @@ def _fetch_tile(
     """
     url = _build_static_url(center_lat, center_lng, zoom, _TILE_BASE_PX, api_key)
     try:
-        response = requests.get(url, timeout=timeout)
-    except requests.RequestException as e:
-        raise GoogleMapsFetchError(
-            f"Network error: {_scrub_key(str(e), api_key)}"
-        ) from None
-    if response.status_code != 200:
-        body = _scrub_key(response.text[:200], api_key)
-        raise GoogleMapsFetchError(
-            f"Static Maps returned HTTP {response.status_code}: {body}"
-        )
-    try:
-        return Image.open(io.BytesIO(response.content)).convert("RGB")
+        return fetch_image(
+            url, max_bytes=STATIC_MAP_MAX_BYTES,
+            max_pixels=_TILE_EFFECTIVE_PX ** 2, max_edge=_TILE_EFFECTIVE_PX,
+            timeout=timeout, check_cancel=lambda: _raise_if_cancelled(cancel_check),
+        ).convert("RGB")
+    except FetchCancelled:
+        raise
     except Exception as e:
         raise GoogleMapsFetchError(
             f"Invalid image response: {_scrub_key(str(e), api_key)}"
@@ -297,7 +293,7 @@ def fetch_bbox(
     call_span_m = _TILE_BASE_PX * standard_mpp  # ground covered per call
 
     if cols == 1 and rows == 1:
-        raw = _fetch_tile(center_lat, center_lng, zoom, api_key, timeout=timeout)
+        raw = _fetch_tile(center_lat, center_lng, zoom, api_key, timeout=timeout, cancel_check=cancel_check)
         _raise_if_cancelled(cancel_check)
         image = crop_image_to_bbox(raw, output_mpp, bbox)
         _raise_if_cancelled(cancel_check)
@@ -323,7 +319,7 @@ def fetch_bbox(
             tile_lat = center_lat + offset_y * tile_dlat
             tile_lng = center_lng + offset_x * tile_dlng
             tile_img = _fetch_tile(
-                tile_lat, tile_lng, zoom, api_key, timeout=timeout
+                tile_lat, tile_lng, zoom, api_key, timeout=timeout, cancel_check=cancel_check
             )
             _raise_if_cancelled(cancel_check)
             mosaic.paste(

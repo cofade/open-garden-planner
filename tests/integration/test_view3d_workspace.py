@@ -9,9 +9,11 @@ workflow runs through the real Qt Quick 3D host in
 ``test_view3d_workspace_render.py`` (opt-in, ``OGP_RENDER3D=1``).
 
 Also here: gate G1 (without the switch the app is what it was and the engine is
-never imported; with it, Plan mode is today's layout), gate G10 (#428: an
-hours-of-sun map never survives a document change) and the acceptance criterion
-that what 3D cannot build is shown to the user.
+never imported; with it, Plan mode is today's layout), what gate G10 leaves to this
+story since master fixed #428 itself (a replaced document reaches the workspace
+through ``CanvasScene.document_replaced`` alone; an open that FAILS leaves the 3D
+view as it was) and the acceptance criterion that what 3D cannot build is shown to
+the user.
 """
 
 from __future__ import annotations
@@ -20,7 +22,7 @@ import json
 import math
 import subprocess
 import sys
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -49,6 +51,7 @@ from open_garden_planner.ui.canvas.geometry_apply import (
 from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
 from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
+from open_garden_planner.ui.view3d import snapshot as snapshot_module
 from open_garden_planner.ui.view3d.init_guard import Init3DGuard
 from open_garden_planner.ui.view3d.sync_controller import NO_LOCATION_SUN
 from open_garden_planner.ui.view3d.workspace import View3DState, Workspace, WorkspaceMode
@@ -504,65 +507,132 @@ def test_a_plan_with_a_refused_item_shows_the_indicator_and_fixing_it_clears_it(
     dialog.close()
 
 
-# ── gate G10: #428 ───────────────────────────────────────────────────────────
+# ── gate G10: #428, and what a FAILED open leaves alone ──────────────────────
+#
+# #428 itself — "a sun map still computing never paints onto the next document" — is
+# master's fix (v1.30.1: ``CanvasScene.document_replaced`` -> ``_reset_sun_document``)
+# and master's tests: ``tests/integration/test_sun_document_lifecycle.py``. This story's
+# own mechanism for it ran BEFORE a load could fail and threw away the map of the plan
+# that stayed open; it is gone. What is pinned here is what master's tests do not say:
+# the 3D workspace hears of a replaced document from that same signal and from nothing
+# else, and an open that fails leaves the 3D view exactly as it was.
 
 
-def _computing_heatmap(window: GardenPlannerApp) -> Any:
-    """A sun map that is still being computed, with its toolbar button checked."""
-    window._project_manager._location = dict(BERLIN)
-    wall = PolylineItem([QPointF(50.0, 200.0), QPointF(450.0, 200.0)],
-                        object_type=ObjectType.WALL)
-    window.canvas_scene.addItem(wall)
-    heatmap = window._sun_heatmap
-    assert heatmap.run_for_day(date(2026, 6, 21), cell_cm=2.0)
-    assert heatmap.is_running
-    window._sun_toolbar.set_heatmap_active(True)
-    window._sun_toolbar.set_heatmap_busy(True)
-    return heatmap
+def _split_with_a_bed(window: GardenPlannerApp, engines: Engines, qtbot: Any) -> Any:
+    scene, commands = window.canvas_scene, window.canvas_view.command_manager
+    bed = RectangleItem(400.0, 300.0, 300.0, 200.0, object_type=ObjectType.RAISED_BED,
+                        layer_id=scene.active_layer.id)
+    commands.execute(CreateItemCommand(scene, bed, "bed"))
+    window._workspace.set_mode(SPLIT)
+    qtbot.waitUntil(lambda: engines.sinks and engines.sink.item_ids() == (str(bed.item_id),),
+                    timeout=5000)
+    engines.host.health_now.frames_presented = 1
+    qtbot.waitUntil(lambda: window._workspace.view3d_state is View3DState.RUNNING, timeout=3000)
+    return bed
 
 
-@pytest.mark.parametrize("change", ["new", "open", "recover"])
-def test_a_sun_map_still_computing_never_paints_onto_the_next_document(
-        qtbot, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, change: str) -> None:
-    """Gate G10 (#428), on the shipped app (no switch needed): start the compute,
-    replace the document, wait for the worker — no map, and the button is unchecked."""
-    monkeypatch.delenv(SWITCH, raising=False)
-    _quiet_boxes(monkeypatch)
-    window = GardenPlannerApp()
-    qtbot.addWidget(window)
-    heatmap = _computing_heatmap(window)
-    button = window._sun_toolbar._heatmap_button
-    with qtbot.waitSignal(heatmap.finished, timeout=60000) as blocker:
-        if change == "new":
-            window._new_project_document(width_cm=3000.0, height_cm=2000.0)
-        elif change == "open":
-            window._load_project_file(str(PLANS / "bench_small.ogp"))
-        else:
-            recovery = tmp_path / "recovery.ogp"
-            recovery.write_bytes((PLANS / "bench_small.ogp").read_bytes())
-            window._load_recovery_file(recovery)
-        assert button.isChecked() is False, "unchecked at once, not when the worker ends"
-    assert blocker.args == [False]
-    qtbot.wait(100)   # a stray queued success slot would land here
-    assert not heatmap.heatmap_visible()
-    assert button.isChecked() is False and button.isEnabled() is True
+def _bad_file(tmp_path: Path) -> Path:
+    broken = tmp_path / "broken.ogp"
+    broken.write_text("{broken", encoding="utf-8")
+    return broken
 
 
-def test_a_shown_sun_map_goes_with_its_document_and_so_does_the_buttons_check(
-        qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The sibling symptom of #428: ``scene.clear()`` destroys the overlay, and the
-    toolbar button used to stay checked for a map that no longer exists."""
-    monkeypatch.delenv(SWITCH, raising=False)
-    _quiet_boxes(monkeypatch)
-    window = GardenPlannerApp()
-    qtbot.addWidget(window)
-    window._project_manager._location = dict(BERLIN)
-    window.canvas_scene.addItem(PolylineItem(
-        [QPointF(50.0, 200.0), QPointF(450.0, 200.0)], object_type=ObjectType.WALL))
-    heatmap = window._sun_heatmap
+def _open_from_the_file_menu(window: GardenPlannerApp, tmp_path: Path) -> None:
+    window._open_project_file(str(_bad_file(tmp_path)))            # File > Open: a dialog, no raise
+
+
+def _open_a_recent_file_that_moved(window: GardenPlannerApp, tmp_path: Path) -> None:
+    window._on_open_recent_file(str(tmp_path / "moved-away.ogp"))  # Open Recent: the file is gone
+
+
+def _open_through_the_agent(window: GardenPlannerApp, tmp_path: Path) -> None:
+    with pytest.raises(ValueError):
+        window._do_agent_open_plan(str(_bad_file(tmp_path)), force=True)
+
+
+@pytest.mark.parametrize("failing_open", [
+    _open_from_the_file_menu, _open_a_recent_file_that_moved, _open_through_the_agent,
+], ids=["file_open_bad_file", "open_recent_moved_file", "agent_open_plan_bad_file"])
+def test_an_open_that_fails_leaves_the_3d_view_its_camera_and_its_memories_as_they_were(
+        app3d, qtbot, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, failing_open: Any) -> None:
+    """The review's P1-1, on all three ways a load can fail. Before: this story cleared
+    the hours-of-sun map (and unchecked its button) BEFORE ``ProjectManager.load`` had
+    validated anything. Now nothing of the document is touched until the scene says
+    ``document_replaced`` — which a failed validation never reaches."""
+    window, engines = app3d
+    errors: list[str] = []
+    monkeypatch.setattr(QMessageBox, "critical", lambda *args, **_k: errors.append(str(args[2])))
+    monkeypatch.setattr(window, "_confirm_discard_changes", lambda: True)
+    window._project_manager.set_location(dict(BERLIN))
+    bed = _split_with_a_bed(window, engines, qtbot)
+    workspace, controller = window._workspace, window._workspace.controller
+    heatmap, button = window._sun_heatmap, window._sun_toolbar._heatmap_button
     with qtbot.waitSignal(heatmap.finished, timeout=60000):
         window._on_heatmap_requested()
-    button = window._sun_toolbar._heatmap_button
     assert heatmap.heatmap_visible() and button.isChecked()
-    window._load_project_file(str(PLANS / "bench_small.ogp"))
-    assert not heatmap.heatmap_visible() and button.isChecked() is False
+
+    workspace.camera.orbit(40.0, 12.0)                 # the user has looked around
+    workspace.camera.snap()
+    workspace._apply_camera()
+    pose, sent = workspace.camera.pose, len(engines.host.cameras)
+    dropped: list[str] = []
+    monkeypatch.setattr(plants, "clear_shape_cache", lambda: dropped.append("shapes"))
+    monkeypatch.setattr(snapshot_module, "clear_outline_cache", lambda: dropped.append("outlines"))
+    shown: list[int] = []
+    controller.document_shown.connect(lambda: shown.append(1))
+    qtbot.wait(120)
+    engines.sink.clear_calls()
+    counts = (controller.snapshot_count, controller.apply_count, controller.recovery_count)
+    records = dict(controller.sync.records)
+
+    failing_open(window, tmp_path)
+    qtbot.wait(200)
+
+    assert errors or failing_open is _open_through_the_agent, "the GUI paths said what failed"
+    # the plan that stays open is untouched …
+    assert bed.scene() is window.canvas_scene
+    assert heatmap.heatmap_visible() and button.isChecked(), "its hours-of-sun map stays (P1-1)"
+    # … and so is its 3D view: no pass, no notice, no camera move, nothing forgotten
+    assert (controller.snapshot_count, controller.apply_count, controller.recovery_count) == counts
+    assert engines.sink.ops() == [] and controller.sync.records == records
+    assert workspace.status_text() == "" and controller.dirty is False
+    assert workspace.camera.pose is pose and len(engines.host.cameras) == sent
+    assert dropped == [] and shown == []
+    heatmap.shutdown()
+
+
+def test_a_replaced_document_reaches_the_workspace_through_the_scenes_signal_alone(
+        app3d, qtbot, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """The positive control of the test above, and the ONE mechanism: every way the
+    document is replaced — new, open, recovery, the agent — makes the scene emit
+    ``document_replaced`` once, the workspace's slot runs once, the plan's memories
+    are dropped, and the camera frames the new plan once."""
+    window, engines = app3d
+    monkeypatch.setattr(window, "_confirm_discard_changes", lambda: True)
+    _split_with_a_bed(window, engines, qtbot)
+    workspace, controller = window._workspace, window._workspace.controller
+    emitted: list[int] = []
+    window.canvas_scene.document_replaced.connect(lambda: emitted.append(1))
+    told: list[int] = []
+    original = controller.document_changed
+    monkeypatch.setattr(controller, "document_changed",
+                        lambda: (told.append(1), original())[1])
+    recovery = tmp_path / "recovery.ogp"
+    recovery.write_bytes((PLANS / "bench_small.ogp").read_bytes())
+    ways = [
+        lambda: window._new_project_document(width_cm=2000.0, height_cm=1000.0),
+        lambda: window._open_project_file(str(PLANS / "bench_small.ogp")),
+        lambda: window._load_recovery_file(recovery),
+        lambda: window._do_agent_open_plan(str(PLANS / "bench_small.ogp"), force=True),
+    ]
+    for count, replace in enumerate(ways, start=1):
+        sent = len(engines.host.cameras)
+        replace()
+        assert (len(emitted), len(told)) == (count, count), "one signal, one slot call"
+        qtbot.waitUntil(lambda: not controller.dirty and workspace.status_text() == "",
+                        timeout=20000)
+        qtbot.wait(120)
+        assert len(engines.host.cameras) == sent + 1, "framed once for the new document"
+    source = (REPO / "src" / "open_garden_planner" / "app" / "application.py").read_text(
+        encoding="utf-8")
+    assert "document_changed" not in source, "the main window tells the workspace nothing by hand"

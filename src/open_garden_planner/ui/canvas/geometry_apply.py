@@ -39,7 +39,7 @@ resize:
 * ``RectVertexEditMixin._on_corner_move_end`` — the corner-drag **undo**
   closure (the live drag in ``_move_corner_to`` applies geometry directly, but
   solves its position through the same :func:`anchored_position`);
-* the EQUAL-constraint **rectangle** partner appliers
+* the EQUAL and EDGE_LENGTH constraint **rectangle** size appliers
   (``core/tools/constraint_tool._apply_partner_extents``);
 * the Agent API's ``resize_object``.
 

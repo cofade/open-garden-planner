@@ -1,14 +1,17 @@
 """Shared-record diagnostics UI and deferred identity-based object navigation."""
 
 from dataclasses import asdict
+from datetime import date
 from typing import Any
 from uuid import UUID
 
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import QCoreApplication, Qt, QTimer
 from PyQt6.QtWidgets import QComboBox, QLabel, QListWidget, QListWidgetItem, QVBoxLayout, QWidget
 
+from open_garden_planner.models.plant_data import SunRequirement
 from open_garden_planner.services.diagnostics import DiagnosticRecord
 from open_garden_planner.ui.guild_errors import guild_error_details
+from open_garden_planner.ui.sun_exposure_text import mismatch_message, unavailable_message
 from open_garden_planner.ui.widgets.trait_filters import trait_label
 
 
@@ -74,10 +77,13 @@ class DiagnosticsPanel(ObjectNavigator):
                            ("guild_role_missing", self.tr("Missing guild role")),
                            ("guild_data_warning", self.tr("Guild data warning"))):
             self.kind_filter.addItem(label, key)
+        self.kind_filter.addItem(self.tr("Sun requirement mismatch"), "sun_mismatch")
+        self.kind_filter.addItem(self.tr("Sun evaluation"), "sun_evaluation")
         self.severity_filter = QComboBox()
         self.severity_filter.addItem(self.tr("All severities"), None)
         self.severity_filter.addItem(self.tr("Warning"), "warning")
         self.severity_filter.addItem(self.tr("Critical"), "critical")
+        self.severity_filter.addItem(self.tr("Information"), "info")
         layout.addWidget(self.kind_filter)
         layout.addWidget(self.severity_filter)
         self.rows = QListWidget()
@@ -97,6 +103,13 @@ class DiagnosticsPanel(ObjectNavigator):
     def _message(self, record: DiagnosticRecord) -> str:
         details = record.details
         name = details.get("label", "")
+        if record.kind in ("sun_mismatch", "sun_evaluation") and details.get("label_is_species"):
+            name = QCoreApplication.translate("GalleryData", name)
+        if record.kind == "sun_evaluation":
+            return self.tr("{name}: {status}").format(name=name, status=unavailable_message(details["reason"]))
+        if record.kind == "sun_mismatch":
+            return mismatch_message(name, SunRequirement(details["required"]), details["hours"],
+                                    date.fromisoformat(details["reference_date"]), details["direction"])
         if record.kind == "guild_role_missing":
             return self.tr("{name}: {function} — {present}/{required}").format(
                 name=details["guild_name"], function=trait_label(details["function"]),
@@ -124,7 +137,7 @@ class DiagnosticsPanel(ObjectNavigator):
         visible = [record for record in self.records
                    if (self.kind_filter.currentData() in (None, record.kind))
                    and (self.severity_filter.currentData() in (None, record.severity))]
-        self.count_label.setText(self.tr("{shown} of {total} warnings").format(shown=len(visible), total=len(self.records)))
+        self.count_label.setText(self.tr("{shown} of {total} diagnostics").format(shown=len(visible), total=len(self.records)))
         for record in visible:
             row = QListWidgetItem(self._message(record))
             row.setData(Qt.ItemDataRole.UserRole, record.item_ids)

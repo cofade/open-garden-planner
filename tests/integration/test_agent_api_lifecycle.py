@@ -19,7 +19,6 @@ the remaining models are covered by the existing transport suites.)
 from __future__ import annotations
 
 import asyncio
-import socket
 import threading
 from pathlib import Path
 from typing import Any
@@ -30,6 +29,7 @@ from open_garden_planner.agent_api import providers as _providers
 from open_garden_planner.agent_api.server import SERVER_THREAD_NAME, AgentApiServer
 from open_garden_planner.app.application import GardenPlannerApp
 from open_garden_planner.app.settings import get_settings
+from tests.agent_api_helpers import start_server
 
 _TOKEN = "lifecycle-transport-token-abcdef123456"
 
@@ -40,12 +40,6 @@ def _stub_providers() -> _providers.AgentProviders:
     return _providers.AgentProviders(
         **dict.fromkeys(_providers.AgentProviders.__dataclass_fields__)
     )
-
-
-def _free_port() -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("127.0.0.1", 0))
-        return int(s.getsockname()[1])
 
 
 def _drive(server: AgentApiServer, body: Any, result: dict[str, Any]) -> None:
@@ -93,13 +87,8 @@ def app(qtbot: Any, monkeypatch: Any) -> Any:
 
 
 def _server(win: Any) -> AgentApiServer:
-    server = AgentApiServer(
-        win._build_agent_providers(),
-        port=_free_port(),
-        write_token=_TOKEN,
-        writes_enabled=True,
-    )
-    server.start()
+    server, _ = start_server(win._build_agent_providers(), write_token=_TOKEN,
+        writes_enabled=True)
     return server
 
 
@@ -244,10 +233,9 @@ class TestServerTeardownLeavesNothingRunning:
     """
 
     def test_stop_leaves_no_server_thread_behind(self) -> None:
-        srv = AgentApiServer(
-            _stub_providers(), port=_free_port(), write_token=_TOKEN, writes_enabled=True
+        srv, _ = start_server(
+            _stub_providers(), write_token=_TOKEN, writes_enabled=True
         )
-        srv.start()
         thread = srv._thread
         assert thread is not None and thread.is_alive(), "should run while started"
 
@@ -262,10 +250,9 @@ class TestServerTeardownLeavesNothingRunning:
         """It is documented as idempotent and the app calls it from both the
         quit path and the teardown fixtures, so a second call must be a no-op
         rather than an error."""
-        srv = AgentApiServer(
-            _stub_providers(), port=_free_port(), write_token=_TOKEN, writes_enabled=True
+        srv, _ = start_server(
+            _stub_providers(), write_token=_TOKEN, writes_enabled=True
         )
-        srv.start()
         thread = srv._thread
         srv.stop()
         srv.stop()  # must not raise
@@ -278,9 +265,8 @@ class TestServerTeardownLeavesNothingRunning:
         Counted before and after, so it measures what THIS loop leaked."""
         before = len(_alive_server_threads())
         for _ in range(3):
-            srv = AgentApiServer(
-                _stub_providers(), port=_free_port(), write_token=_TOKEN, writes_enabled=True
+            srv, _ = start_server(
+                _stub_providers(), write_token=_TOKEN, writes_enabled=True
             )
-            srv.start()
             srv.stop()
         assert len(_alive_server_threads()) == before

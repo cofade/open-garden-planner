@@ -289,6 +289,27 @@ def standing_base_cm(
         parent_type, effective_height_cm(parent_type, parent_metadata, at_date=at_date))
 
 
+def is_solid_soil_parent(
+    parent_type: Any,
+    parent_metadata: dict[str, Any] | None,
+    at_date: date | None = None,
+) -> bool:
+    """Is that parent a SOIL-capable solid: a bed, raised bed, container or wall
+    planter (``is_bed_type``) with a resolved, positive, finite height?
+
+    Such a parent is a shadow caster whose footprint covers the plants that grow
+    in it. Whether they are LIFTED is another question — ``standing_base_cm``,
+    0.0 where the soil is not above the ground (a 2 cm edging) — but a plant in
+    it is in the parent's solid either way, and the per-plant sun estimate must
+    not count that solid as shade (``ui/canvas/footprints.standing_parent``).
+    False for an in-ground bed without a height, a trellis, no parent at all.
+    """
+    if parent_type is None or _type_name(parent_type) not in _SOIL_PARENT_TYPE_NAMES:
+        return False
+    height = effective_height_cm(parent_type, parent_metadata, at_date=at_date)
+    return height is not None and math.isfinite(height) and height > 0.0
+
+
 def height_source(object_type: Any, metadata: dict[str, Any] | None) -> str:
     """Which precedence rule produced ``effective_height_cm``.
 

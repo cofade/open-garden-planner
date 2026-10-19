@@ -37,7 +37,7 @@ volatile fact.
   A GPL-incompatible license (e.g. CC BY-NC for code, SSPL, proprietary SDKs) is a
   **blocker**, not a judgment call.
 - **New-dependency checklist** (run before adding anything to `pyproject.toml` /
-  `requirements.txt` / `installer/ogp.spec`):
+  `installer/ogp.spec`):
   1. Identify the dependency's license (check PyPI metadata AND the repo's LICENSE file —
      PyPI classifiers are sometimes wrong).
   2. Confirm GPL-3.0 compatibility (MIT/BSD/Apache-2.0/LGPL/GPL: yes; permissive-with-

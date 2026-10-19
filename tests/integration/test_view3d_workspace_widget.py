@@ -431,9 +431,8 @@ def test_a_new_document_is_announced_before_its_first_snapshot_too(
     _note_each_snapshot(monkeypatch, lambda: seen.append(
         (workspace.status_text(), list(paints.texts))))
 
-    bench.scene.clear()                           # what "open" does, in one turn of the loop
-    new = bench.bed(100.0, 100.0)
-    workspace.document_changed()
+    bench.scene.clear()                           # what "open" does, in one turn of the loop:
+    new = bench.bed(100.0, 100.0)                 # the scene itself says "document replaced"
     assert workspace.status_text() == NOTICE and seen == []
     stopwatch.sleep(0.12)
     bench.qtbot.waitUntil(lambda: bool(seen), timeout=3000)
@@ -514,9 +513,8 @@ def test_a_flood_of_destroyed_models_is_released_at_once(
 def test_a_new_document_releases_what_the_old_one_left(
         bench: Bench, monkeypatch: pytest.MonkeyPatch) -> None:
     rig = Releases(bench, monkeypatch, after=5)
-    bench.scene.clear()
+    bench.scene.clear()                           # CanvasScene.document_replaced tells it
     bench.bed(100.0, 100.0)
-    bench.workspace.document_changed()
     bench.settle(150)
     assert bench.workspace.controller is not None and not bench.workspace.controller.dirty
     rig.idle()
@@ -606,7 +604,6 @@ def test_no_steady_path_takes_a_frame_from_the_live_view(
         bench.settle(40)
     bench.scene.clear()                                      # a new document
     bench.bed(100.0, 100.0)
-    workspace.document_changed()
     bench.settle(150)
     host.health_now.frames_presented = 3
     bench.poll()
@@ -713,9 +710,8 @@ def test_no_edit_moves_the_camera_and_a_document_change_frames_once(bench: Bench
     assert workspace.controller.apply_count + workspace.controller.light_count > applied + 50
 
     # a document change DOES frame — once
-    bench.scene.clear()
+    bench.scene.clear()                           # the scene's own signal is the mechanism
     bench.scene.resize_canvas(2000.0, 1000.0)
-    workspace.document_changed()
     bench.settle()
     framed = frame_pose(Bounds.of_plan(2000.0, 1000.0, 0.0), 800.0 / 500.0)
     assert camera.pose == framed and len(host.cameras) == sent + 1

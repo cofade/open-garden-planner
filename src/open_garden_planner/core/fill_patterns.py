@@ -1,14 +1,15 @@
 """Fill pattern definitions and texture loading for object styling.
 
-Loads tileable PNG textures from resources/textures/ and applies color
-tinting to create QBrush objects for rendering garden items.
+Loads tileable PNG textures from resources/textures/ and recolours each one to
+the item's fill colour to create QBrush objects for rendering garden items.
 """
 
 from enum import Enum, auto
 from pathlib import Path
+from typing import Any
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QBrush, QColor, QPainter, QPixmap
+import numpy as np
+from PyQt6.QtGui import QBrush, QColor, QImage, QPixmap
 
 # Directory containing texture PNG files
 _TEXTURES_DIR = Path(__file__).parent.parent / "resources" / "textures"
@@ -116,38 +117,68 @@ def _color_key(color: QColor) -> int:
 
 
 def _tint_texture(texture: QPixmap, color: QColor) -> QPixmap:
-    """Apply a color tint to a texture pixmap.
+    """Recolour a texture to the user's colour, keeping its detail (issues #502).
 
-    Blends the user's color onto the texture to allow customization
-    while preserving the texture detail. The color's alpha channel
-    controls the overall fill opacity.
+    Maps every pixel to the user's colour scaled by the texture's **relative**
+    luminance (``pixel_luminance / mean_luminance``). That gives:
+
+    * **hue = the user's colour** everywhere — a light-green fill over the brown
+      roof-tile texture is green tiles, not brown ones;
+    * **detail and relative contrast preserved exactly** — the result's
+      coefficient of variation equals the texture's, so the tint never flattens
+      it;
+    * **brightness preserved on average** — the mean maps onto the colour.
+
+    It replaces an overlay of the colour at 80/255 (31 %) over the texture. That
+    wash could not recolour a strongly coloured texture at all: the owner's
+    light-green fill over the roof tiles measured ``#ca6846`` -> ``#b8925d``,
+    i.e. the "standard roof tile colour" the owner reported, and raising the
+    wash enough to read (160/255) flattened the low-contrast textures (SAND
+    luminance std 1.62 against a 2.0 floor). The colour's alpha still sets the
+    overall fill opacity.
 
     Args:
-        texture: Base texture pixmap
-        color: Color to tint with
+        texture: Base texture pixmap (RGB; the asset forge ships no alpha)
+        color: Colour to recolour the texture with
 
     Returns:
-        Tinted pixmap
+        Recoloured pixmap
     """
-    result = QPixmap(texture.size())
-    result.fill(Qt.GlobalColor.transparent)
+    image = texture.toImage().convertToFormat(QImage.Format.Format_RGB32)
+    width, height = image.width(), image.height()
+    if width == 0 or height == 0:
+        return QPixmap(texture.size())
 
-    painter = QPainter(result)
-    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    # Qt's stub types the raw pointer as voidptr; Any here is the typing gap,
+    # not a semantic choice. The copy is trivial: 256x256, once per
+    # pattern+colour, then cached.
+    buffer: Any = image.bits()
+    buffer.setsize(image.sizeInBytes())
+    rows = np.frombuffer(buffer, dtype=np.uint8).reshape(height, image.bytesPerLine() // 4, 4)
+    pixels = rows[:, :width, :]
+    lum = (
+        0.114 * pixels[:, :, 0].astype(np.float32)
+        + 0.587 * pixels[:, :, 1].astype(np.float32)
+        + 0.299 * pixels[:, :, 2].astype(np.float32)
+    )
+    mean_lum = max(float(lum.mean()), 1.0)
+    scale = lum / mean_lum
 
-    # Draw the base texture at the color's alpha level
-    alpha = color.alpha()
-    if alpha < 255:
-        painter.setOpacity(alpha / 255.0)
-    painter.drawPixmap(0, 0, texture)
-
-    # Overlay the user's color at reduced opacity for tinting
-    painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceAtop)
-    tint = QColor(color.red(), color.green(), color.blue(), 80)
-    painter.fillRect(result.rect(), tint)
-
-    painter.end()
-    return result
+    out = np.empty((height, width, 4), dtype=np.uint8)
+    out[:, :, 0] = np.clip(color.blue() * scale, 0, 255).astype(np.uint8)
+    out[:, :, 1] = np.clip(color.green() * scale, 0, 255).astype(np.uint8)
+    out[:, :, 2] = np.clip(color.red() * scale, 0, 255).astype(np.uint8)
+    out[:, :, 3] = color.alpha()
+    # An opaque fill stays RGB32: a per-pixel alpha channel would make every
+    # textured item blend on every repaint (measured ~2x on the NFR-PERF-01
+    # fit-in-view scenario). Only a translucent colour needs ARGB32.
+    if color.alpha() == 255:
+        return QPixmap.fromImage(
+            QImage(out.tobytes(), width, height, width * 4, QImage.Format.Format_RGB32).copy()
+        )
+    return QPixmap.fromImage(
+        QImage(out.tobytes(), width, height, width * 4, QImage.Format.Format_ARGB32).copy()
+    )
 
 
 def create_pattern_brush(pattern: FillPattern, color: QColor) -> QBrush:

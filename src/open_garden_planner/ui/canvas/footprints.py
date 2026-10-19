@@ -59,7 +59,7 @@ from typing import Any
 from PyQt6.QtCore import QPointF
 from PyQt6.QtGui import QPainterPath
 
-from open_garden_planner.core.object_height import standing_base_cm
+from open_garden_planner.core.object_height import is_solid_soil_parent, standing_base_cm
 from open_garden_planner.core.shadow_geometry import (
     Point,
     Polygon,
@@ -164,8 +164,9 @@ class ItemLookup:
     from its plant still "contains" it). Construct one as a local of the walk and
     let it die there — a test reads the source and fails otherwise: in the
     application the name ``ItemLookup`` appears only as an import, as this class,
-    as a parameter's annotation and as a call inside the two walks, and a lookup
-    is handed to ``item_base_cm`` / ``_record_of`` and to nothing else
+    as a parameter's annotation and as a call inside the three walks (the shadow
+    casters, the sun receivers, the 3D records), and a lookup is handed to
+    ``item_base_cm`` / ``standing_parent`` / ``_record_of`` and to nothing else
     (``tests/integration/test_scene3d_base_stacking.py``, which also says what
     such a reading cannot see).
     """
@@ -292,25 +293,49 @@ def item_base_cm(item: Any, lookup: ItemLookup, at_date: date | None = None) -> 
 
     ONE rule, asked by the 2D shadow casters and by ``snapshot_records``.
     Parents do not nest (only plants are parented), so there is nothing to sum.
-    The geometric test runs last and only for an item that would be lifted, so
-    a plan without raised soil never pays for it; the parent's shape is built
-    once per walk (``ItemLookup.shape_of``).
+    WHICH parent an item stands in is ``standing_parent`` (the sun estimate asks
+    that half alone); how high its soil is, ``standing_base_cm``.
+    """
+    parent = standing_parent(item, lookup, at_date)
+    if parent is None:
+        return 0.0
+    return standing_base_cm(
+        getattr(parent, "object_type", None), getattr(parent, "metadata", None), at_date
+    )
+
+
+def standing_parent(item: Any, lookup: ItemLookup, at_date: date | None = None) -> Any | None:
+    """The soil parent whose solid the item stands in, or None — the membership
+    half of the base rule (``item_base_cm`` has the whole rule and its reasons).
+
+    The parent when ALL hold: the item's ``parent_bed_id`` names it; it is
+    VISIBLE; it is a soil-capable solid (``core.object_height
+    .is_solid_soil_parent``: a bed, raised bed, container or wall planter with a
+    resolved height); and the item's ``standing_point`` lies inside its shape.
+
+    Asked on its own by the per-plant sun estimate (US-F3): the ground point
+    under such a plant is inside that parent's footprint all day, and the parent
+    is under the plant, not between it and the sun — it must not count as shade,
+    whether its soil lifts the plant by 38 cm or (a 2 cm edging) by nothing.
+
+    The geometric test runs last and only for an item with such a parent, so a
+    plan without raised soil never pays for it; the parent's shape is built once
+    per walk (``ItemLookup.shape_of``).
     """
     parent_id = getattr(item, "parent_bed_id", None)
     if parent_id is None:
-        return 0.0
+        return None
     parent = lookup.get(parent_id)
     if parent is None or not parent.isVisible():
-        return 0.0
-    base = standing_base_cm(
+        return None
+    if not is_solid_soil_parent(
         getattr(parent, "object_type", None), getattr(parent, "metadata", None), at_date
-    )
-    if base <= 0.0:
-        return 0.0
+    ):
+        return None
     point = standing_point(item)
     if point is None or not shape_contains(parent, point, lookup.shape_of(parent)):
-        return 0.0
-    return base
+        return None
+    return parent
 
 
 def _bounding_center(points: tuple[Point, ...]) -> Point:

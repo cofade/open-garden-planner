@@ -78,9 +78,16 @@ def executed_lines(tests: list[str]) -> set[int]:
     it, and then hardcoded the default here — a promise the code did not keep.
     """
     env = dict(os.environ, PYTHONUTF8="1", QT_QPA_PLATFORM="offscreen")
+    # `-n 0` is load-bearing, not hygiene. `coverage run` traces only THIS process,
+    # so with `addopts` supplying `-n auto` the xdist workers are untraced
+    # subprocesses and every worker-run line is reported as `never_run`. Measured on
+    # this branch: 4 run / 321 never_run — which is verbatim the master baseline
+    # quoted in this module's own docstring, i.e. the instrument had started
+    # printing its own "before" numbers as "after" and still exiting 0 (#509). The
+    # parallel default is right for humans and wrong for coverage tracing.
     subprocess.run(
         [str(PYTHON), "-m", "coverage", "run", "-m", "pytest", *tests, "-q",
-         "--timeout=300", "-p", "no:cacheprovider"],
+         "--timeout=300", "-p", "no:cacheprovider", "-n", "0"],
         cwd=REPO, capture_output=True, text=True, env=env, check=False,
     )
     report = REPO / "coverage-report.json"

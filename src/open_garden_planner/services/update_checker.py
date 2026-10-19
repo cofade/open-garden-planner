@@ -5,8 +5,10 @@ Only active when running from the installed .exe (sys.frozen).
 Uses only stdlib (urllib) — no extra dependencies.
 """
 
+import contextlib
 import json
 import logging
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -15,13 +17,16 @@ from typing import Any
 
 from PyQt6.QtCore import QThread, pyqtSignal
 
+from open_garden_planner.core.worker_lifecycle import retain_worker_until_finished
+from open_garden_planner.services.verified_update import validate_release_asset
+
 logger = logging.getLogger(__name__)
 
 _RELEASES_URL = "https://api.github.com/repos/cofade/open-garden-planner/releases/latest"
 _REQUEST_TIMEOUT = 10
 
 
-@dataclass
+@dataclass(frozen=True)
 class ReleaseInfo:
     """Parsed information from a GitHub release."""
 
@@ -29,6 +34,13 @@ class ReleaseInfo:
     body: str
     download_url: str | None
     html_url: str
+    installer_name: str = ""
+    installer_size: int = 0
+    checksum_url: str | None = None
+
+    @property
+    def installable(self) -> bool:
+        return bool(self.download_url and self.checksum_url and self.installer_size > 0)
 
 
 def compare_versions(current: str, latest: str) -> bool:
@@ -64,16 +76,30 @@ def parse_release_info(data: dict[str, Any]) -> ReleaseInfo:
     tag_name = str(data.get("tag_name", ""))
     body_raw = data.get("body") or ""
     body = str(body_raw)[:300]
-    html_url = str(data.get("html_url", ""))
+    html_url = (
+        f"https://github.com/cofade/open-garden-planner/releases/tag/{tag_name}"
+        if re.fullmatch(r"v\d+\.\d+\.\d+", tag_name) else ""
+    )
 
     download_url: str | None = None
-    for asset in data.get("assets", []):
-        name = str(asset.get("name", ""))
-        if name.endswith("-Setup.exe"):
-            download_url = str(asset.get("browser_download_url", "")) or None
-            break
-
-    return ReleaseInfo(tag_name=tag_name, body=body, download_url=download_url, html_url=html_url)
+    filename = f"OpenGardenPlanner-{tag_name}-Setup.exe"
+    assets = data.get("assets") or []
+    installers = [a for a in assets if isinstance(a, dict) and a.get("name") == filename]
+    manifests = [a for a in assets if isinstance(a, dict) and a.get("name") == "SHA256SUMS.txt"]
+    checksum_url = None
+    size = 0
+    try:
+        if len(installers) == 1 and len(manifests) == 1 and html_url:
+            installer_url = str(installers[0]["browser_download_url"])
+            manifest_url = str(manifests[0]["browser_download_url"])
+            validate_release_asset(installer_url, tag_name, filename)
+            validate_release_asset(manifest_url, tag_name, "SHA256SUMS.txt")
+            raw_size = installers[0]["size"]
+            if isinstance(raw_size, int) and not isinstance(raw_size, bool) and raw_size > 0:
+                download_url, checksum_url, size = installer_url, manifest_url, raw_size
+    except Exception:
+        logger.warning("Release assets cannot be verified")
+    return ReleaseInfo(tag_name, body, download_url, html_url, filename, size, checksum_url)
 
 
 def get_current_version() -> str:
@@ -102,13 +128,33 @@ class UpdateChecker(QThread):
     Silently swallows all network / parse errors so it never blocks the UI.
     """
 
-    #: Emitted with (tag_name, release_body_snippet, download_url, html_url).
-    #: ``download_url`` may be an empty string if no Setup.exe asset was found.
-    update_available = pyqtSignal(str, str, str, str)
+    #: Emitted with one immutable ReleaseInfo, including verification metadata.
+    update_available = pyqtSignal(object)
+
+    def __init__(self, parent: Any = None) -> None:
+        super().__init__(parent)
+        self._is_cancelled = False
+
+    def cancel(self) -> None:
+        """Mark the check as cancelled so no signals are emitted."""
+        self._is_cancelled = True
+
+    def shutdown(self, timeout_ms: int = 100) -> None:
+        """Cancel and detach/join before parent teardown (#480)."""
+        self.cancel()
+        with contextlib.suppress(TypeError, RuntimeError):
+            self.update_available.disconnect()
+        self.setParent(None)
+        if self.isRunning():
+            self.wait(timeout_ms)
+            if self.isRunning():
+                retain_worker_until_finished(self)
 
     def run(self) -> None:
         """Perform the update check in the background thread."""
         try:
+            if self._is_cancelled:
+                return
             current = get_current_version()
             req = urllib.request.Request(
                 _RELEASES_URL,
@@ -118,15 +164,18 @@ class UpdateChecker(QThread):
                 },
             )
             with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:
-                data: dict[str, Any] = json.loads(resp.read().decode())
+                if self._is_cancelled:
+                    return
+                content = resp.read(1_048_577)
+                if len(content) > 1_048_576 or self._is_cancelled:
+                    return
+                data: dict[str, Any] = json.loads(content.decode())
 
+            if self._is_cancelled:
+                return
             info = parse_release_info(data)
-            if info.tag_name and compare_versions(current, info.tag_name):
-                self.update_available.emit(
-                    info.tag_name,
-                    info.body,
-                    info.download_url or "",
-                    info.html_url,
-                )
+            if info.tag_name and compare_versions(current, info.tag_name) and not self._is_cancelled:
+                self.update_available.emit(info)
         except Exception:  # noqa: BLE001
-            logger.debug("Update check skipped (offline or error)", exc_info=True)
+            if not self._is_cancelled:
+                logger.debug("Update check skipped (offline or error)", exc_info=True)

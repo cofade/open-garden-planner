@@ -357,9 +357,17 @@ class Workspace(QWidget):
                      command_manager: Any, ui_state: Any = None) -> None:
         """What the 3D pipeline reads: the canvas scene, the one sim clock, the garden
         location, the undo stack (its ``stack_changed`` marks the plan dirty) and,
-        optionally, the store the Split position is kept in."""
+        optionally, the store the Split position is kept in.
+
+        "The document was replaced" has ONE source in the app:
+        ``CanvasScene.document_replaced`` (new, open, recovery load — emitted when
+        the old document is about to go, and never for an open that FAILED its
+        validation). The workspace listens to it here; nobody tells it by hand."""
         self._scene, self._clock, self._location = scene, clock, location
         self._command_manager, self._ui_state = command_manager, ui_state
+        replaced = getattr(scene, "document_replaced", None)  # a CanvasScene has it
+        if replaced is not None:
+            replaced.connect(self.document_changed)
 
     def _build_actions(self) -> None:
         self._mode_group = QActionGroup(self)
@@ -784,11 +792,17 @@ class Workspace(QWidget):
     # ── the pipeline's reports ───────────────────────────────────────────────
 
     def document_changed(self) -> None:
-        """A new, opened or recovered plan replaced the scene (the main window says so).
+        """A new, opened or recovered plan replaces the scene's content — the slot of
+        ``CanvasScene.document_replaced`` (``connect_plan``).
 
-        While 3D is shown, the new document's first pass is held like the very first
-        one: it costs the sum of the plan's items, so its notice is painted first.
-        While 3D is hidden this leaves flags only (the controller is paused)."""
+        The signal comes when the OLD document is about to go, so nothing is read
+        from the scene here: this sets flags, and the pass they ask for runs with a
+        later turn of the event loop, when the new document is in the scene. While
+        3D is shown, that first pass is held like the very first one: it costs the
+        sum of the plan's items, so its notice is painted first. While 3D is hidden
+        this leaves flags only (the controller is paused). An open that fails its
+        validation never gets here: the view, its camera and what it remembers of
+        the plan stay as they were."""
         controller = self._controller
         if controller is None:
             return

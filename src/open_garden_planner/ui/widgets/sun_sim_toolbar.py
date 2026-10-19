@@ -53,6 +53,7 @@ class SunSimToolbar(QToolBar):
     heatmap_requested = pyqtSignal()
     #: Heatmap button unchecked — the app should hide the heatmap.
     heatmap_cleared = pyqtSignal()
+    june_reference_requested = pyqtSignal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__("", parent)
@@ -111,6 +112,13 @@ class SunSimToolbar(QToolBar):
             )
         )
         self.addWidget(self._heatmap_button)
+
+        self._june_button = QToolButton(self)
+        self._june_button.setText(self.tr("21 June"))
+        self._june_button.setToolTip(self.tr("Use 21 June of the simulation year as the reference date"))
+        self._june_button.clicked.connect(self.june_reference_requested)
+        self.addWidget(self._june_button)
+        self._exposure_hint = ""
 
         # NOTE: the night / no-location HINT is deliberately NOT a widget here.
         # A variable-width label in this toolbar's flow reflowed Qt's overflow
@@ -199,6 +207,14 @@ class SunSimToolbar(QToolBar):
             self._heatmap_button.setChecked(active)
         finally:
             self._heatmap_button.blockSignals(False)
+
+    def set_exposure_hint(self, text: str) -> None:
+        """Hints live in the button tooltip: variable-width labels reflow this toolbar."""
+        if text == self._exposure_hint:
+            return
+        self._exposure_hint = text
+        self._heatmap_button.setToolTip(self.tr("Compute a full-day hours-of-sun heatmap for the shown date")
+                                       + ("\n" + text if text else ""))
 
     # ── internals ──────────────────────────────────────────────
 

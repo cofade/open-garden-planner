@@ -1,5 +1,36 @@
 # 6. Runtime View
 
+## Explicit sun evaluation and document replacement (ADR-056)
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant A as Application / SimClock
+    participant H as Heatmap controller
+    participant W as Worker
+    participant C as Sun coordinator
+    participant D as Shared Diagnostics / MCP
+    U->>A: Optional 21 June shortcut
+    U->>H: Hours of Sun
+    H->>W: Immutable document snapshot + receivers
+    W-->>H: Grid and own-shadow-excluded receiver minutes
+    H->>H: Check generation and complete signature
+    H-->>C: Exposure changed
+    C->>D: Cached mismatch / unavailable records
+    U->>A: Move caster or edit geometry
+    A-->>C: Scene or command change
+    C->>H: Invalidate within 60 ms (keep visual snapshot)
+    C->>D: Clear warnings; publish unavailable state
+    U->>A: New / validated Open / recovery / agent lifecycle
+    A->>H: document_replaced before item teardown
+    H->>W: Cancel; retain ownership until finished
+    H->>H: Clear overlay and cached results
+    W-->>H: Possible queued old success
+    H->>H: Reject unwanted / old-generation result
+```
+
+Prevalidation load failure emits no document replacement and preserves the active valid result. Time-only changes preserve daily exposure; date changes clear it. Diagnostics and canopy reads never launch a worker.
+
 ## 6.1 Drawing Workflow
 
 ```mermaid
@@ -384,13 +415,15 @@ the next session that opens 3D starts in compatibility mode and says so.
 ```mermaid
 sequenceDiagram
     participant A as GardenPlannerApp
+    participant S as CanvasScene
     participant W as Workspace
     participant K as Scene3DController
     participant E as engine
-    A->>A: _before_document_change(): hours-of-sun map cleared, button unchecked (#428)
-    A->>A: scene cleared / plan loaded
-    A->>W: document_changed()
+    A->>S: clear() / the committing phase of a load (never for an open that failed its validation)
+    S-->>A: document_replaced → hours-of-sun map cleared, button unchecked (#428, ADR-056)
+    S-->>W: document_replaced → document_changed()
     W->>K: document_changed(): plant shapes and outline memories dropped, dirty
+    A->>S: the new document's items
     W->>K: set_active(False) — the pass is HELD
     W->>W: "Building the 3D view…" — the label paints
     W->>K: set_active(True) → one pass: a plain apply (remove what is gone, add what is new)
@@ -420,3 +453,62 @@ sequenceDiagram
 Cancel/refusal never executes the command. Undo restores an existing centre snapshot and removes new plants. Template-file saves replace only user files, not placed plan snapshots or undo history. Species search resolves filtered offline records before starting a background provider request; obsolete generations and closed dialogs discard completed responses.
 
 Gallery drag/drop and gallery-click circle placement both construct plants through `ui/plant_creation.py::build_plant`. It resolves species metadata before semantic layer assignment, reads the current per-plan preference and uses the active layer when the matching layer is hidden, locked or absent. The existing creation command owns parentage and the single undo entry. Guild picker/editor/member rows translate catalog common names at display time through the shared `GalleryData` translation context; saved species keys, names and template snapshots remain language-independent. Explicit user object names take precedence over the translated catalog label.
+
+### Constraint panel and pinned feasibility (#457)
+
+Panel refresh resolves the current graph's object labels and satisfaction state,
+then each ConstraintListItem selects an immutable presentation descriptor, translates
+its templates and formats the target in metres or degrees. Delete still enters
+RemoveConstraintCommand through the application signal; stack_changed refreshes rows
+on execute, undo and redo. Templates are translated at rendering time, never cached
+in a selected language.
+
+Feasibility runs the existing Gauss-Seidel/Newton sequence. If every positional
+variable is pinned, Newton evaluates the residual on that fixed state and returns
+its actual error; it cannot overwrite an incompatible warm-start error with zero.
+The probe preserves graph, input geometry and history. See ADR-012 and the A5 evidence.
+
+### Constraint edge-length creation (#406)
+
+A single click picks an edge, then the distance modal supplies the target. Polygon/polyline
+edges use the existing endpoint solver. Rectangle edges bundle the existing canonical size
+applier on AddConstraintCommand, preserving the scene center/pivot. Feasibility sees the
+proposed canonical rectangle geometry; refusal or a probe error restores the exact snapshot.
+The synchronous probe restores its snapshot before any modal event loop, so autosave cannot
+see uncommitted geometry. Resizes that move a FIXED position, change an EQUAL dimension or
+conflict with existing rows are refused; this path does not offer destructive Override.
+Unrelated equal-height relations survive width changes. The normal trial solve,
+command execution and graph row use one history entry; undo restores size and graph, redo
+restores the same constraint identity. Cancellation/refusal creates no history entry.
+
+## A1 input and download refusal paths (#453)
+
+```mermaid
+sequenceDiagram
+    participant UI
+    participant ProjectManager
+    participant PlanIO
+    participant Scene
+    UI->>ProjectManager: open(candidate)
+    ProjectManager->>PlanIO: strict read and numeric preflight
+    alt invalid input
+        PlanIO-->>UI: rejection before document replacement
+    else valid input
+        ProjectManager->>ProjectManager: prepare items, layers, constraints
+        ProjectManager->>Scene: apply prepared document
+    end
+```
+
+Save builds a detached candidate including journal positions, validates/encodes,
+writes a sibling temporary file and replaces the destination. Only then do filename,
+clean state, recent files and journal metadata advance. Autosave and season writes
+reuse the same persistence boundary.
+
+The update checker passes a complete release descriptor to the update bar. Its worker
+downloads the bounded manifest, streams and hashes the installer, checks size/digest,
+then emits a verified result. The UI rechecks cancellation and persisted bytes before
+launch. Rejection and cancellation never reach process launch.
+
+Linux startup creates QApplication, secures the settings backend, loads preferences
+and constructs the main window. An ownership/permission failure exits with a visible
+error before the preference and window steps.

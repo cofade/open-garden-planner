@@ -1,5 +1,17 @@
 # 5. Building Block View
 
+## Sun diagnostics runtime blocks (US-F3, ADR-056)
+
+| Block | Responsibility and contract |
+|---|---|
+| `core/shade_aggregation` / `core/shadow_geometry` | Qt-free daylight aggregation; shared integer sweeps supply the unchanged grid union and sparse per-owner coverage. Immutable identified casters/receivers cross the worker boundary. |
+| `services/sun_mismatch_service` | Immutable evaluations/mismatches, tolerance bands and mature-canopy membership; no computation, threading, UI or I/O. |
+| `ui/canvas/sun_exposure_snapshot` | GUI-thread snapshots of document/date/location/bounds/caster geometry and receiver centres. |
+| `ui/canvas/sun_heatmap` | Explicit worker ownership, cancellation and late-result validation; runtime grid and receiver minutes. |
+| `ui/sun_exposure_coordinator` | Debounced invalidation/reclassification, sun badges, cached diagnostics and canopy rows. |
+| `ui/diagnostics_coordinator` | One general-panel publisher harvesting existing, guild and sun producers through the shared converter. |
+| `ui/panels/canopy_panel` / `ui/sun_exposure_text` | UUID navigation and translated, dated exposure/unavailable presentation. |
+
 ## 5.1 High-Level Architecture
 
 ```mermaid
@@ -113,6 +125,7 @@ src/open_garden_planner/
 │   ├── cad_geometry.py           # arc_from_three_points, fillet_corner, chamfer_corner,
 │   │                             #   reflect_point/reflect_angle_deg/snap_point_to_axis_step (US-B4)
 │   ├── mirror_geometry.py        # build_mirrored_item — per-type reflection rebuild (US-B4, ADR-026)
+│   ├── item_look.py              # copy_visual_style — one look-copy rule for item copies (#470)
 │   ├── coordinate_input/         # Typed coordinate pipeline (ADR-021, Package A US-A1/A2/A4)
 │   │   ├── parser.py             #   parse(@dx,dy / @dist<angle / x,y), smart decimal
 │   │   └── buffer.py             #   CoordinateInputBuffer(QObject) — shared state
@@ -494,7 +507,7 @@ for other `core` modules.
 | `core/scene3d/builders/primitives.py` | Numpy primitives in the item-local frame: `flat_mesh` (every triangle stores its winding normal; `outward=` forces the winding), `boxes`, `bevelled_boxes`, `prism`, `polygon_cap`, `sweep` (profile along a plan polyline, open or closed; corners mitred up to `BEVEL_BEYOND` = 2 offsets, bevelled beyond), `plank`, `lathe` (ring vertices on the 2D circle footprint), `tubes`; `offset_ring` (same corner rule), `split_triangles_by_line`. | arrays → `Mesh` |
 | `core/scene3d/builders/palette.py` | The built world's 13 baked colours, each a mirror of a 2D table entry (object-sprite `MATERIALS`, texture-forge literals) naming its source; `TINT` for parts that take the item's own colour. Pinned to the generators by `tests/unit/test_scene3d_builders_palette.py`. | name → linear RGBA |
 | `core/object_height.py` (`standing_base_cm`, `soil_surface_cm`, `SOIL_DROP_CM`, `MAX_PARENT_HEIGHT_CM`) | Where the soil of a parent is (L1.6, ADR-037 addendum): 2 cm under the rim of a bed (an assumption), at the height of a container (its fill height); no soil parent, no height, or a height beyond the bound (10 km, the contract's `MAX_LENGTH_CM`, mirrored and pinned: a base derived from it would be out of a record's range) → the ground. One rule for the 3D records, the 2D shadow casters and the bed meshes' soil. | parent type + metadata (+ date) → cm |
-| `ui/canvas/footprints.py` (`item_base_cm`, `ItemLookup`, `standing_point`, `bed_membership_point`, `shape_contains`, `centre_is_inside`) | Where an item stands: on its parent's soil when it is linked to a visible soil parent (`parent_bed_id`) AND its stable geometric centre (`standing_point`) is inside that parent's shape — else on the ground. The one caller for items: `collect_shadow_casters` and `snapshot_records` both use it; `ItemLookup` holds each parent's shape for the walk. Also the app's one point-in-bed predicate (`shape_contains`), asked by the link decisions — auto-parenting, the re-link after a drag, the agent's re-link and `link_is_geometric`, `find_smallest_bed_containing` — with their own point, the bounding rect's centre (`bed_membership_point`). A known smell: this module is collecting jobs, and `core/commands.py` imports from it (§8.32.6). | canvas item → base in cm |
+| `ui/canvas/footprints.py` (`item_base_cm`, `standing_parent`, `ItemLookup`, `standing_point`, `bed_membership_point`, `shape_contains`, `centre_is_inside`) | Where an item stands: on its parent's soil when it is linked to a visible soil parent (`parent_bed_id`) AND its stable geometric centre (`standing_point`) is inside that parent's shape — else on the ground. The one caller for items: `collect_identified_casters` and `snapshot_records` both use it, and the per-plant sun estimate asks its membership half (`standing_parent`: which soil parent's solid a plant stands in — that parent does not shade it); `ItemLookup` holds each parent's shape for the walk. Also the app's one point-in-bed predicate (`shape_contains`), asked by the link decisions — auto-parenting, the re-link after a drag, the agent's re-link and `link_is_geometric`, `find_smallest_bed_containing` — with their own point, the bounding rect's centre (`bed_membership_point`). A known smell: this module is collecting jobs, and `core/commands.py` imports from it (§8.32.6). | canvas item → base in cm |
 | `core/shadow_geometry.py` (`ShadowCaster`, `caster_fields`) | The shared 2D caster: `(footprint, height_cm, base_cm)`. A raised caster's shadow is its ground shadow moved `base / tan α` along the shadow direction; base 0 is the unchanged, released path. Overlay and heatmap consume the same list. A caster is a `ShadowCaster` or an exact `(footprint, height)` pair; anything else is a `TypeError`. | casters + sun → unioned shadow polygons |
 | `scripts/measure_built_world_shadows.py` | How each built-world mesh's ground shadow compares with the 2D model's for the same item (area ratio, IoU, and the reach — where the tip is, 3D − 2D in cm — at 15° / 35° / 60°): the source of the table in ADR-064's builders addendum, §8.32.6 and the Shadows row of `ogp-lush-cinematic`. `--check` exits 1 on drift; `tests/unit/test_scene3d_shadow_agreement.py` runs it and holds every copy of the table to it — and runs it once in a process of its own to show that, as documented, it constructs no settings object, opens no plan and writes no file. | builders + 2D shadow model → a table |
 | `scripts/mutation_check_built_world.py` | Mutation check for the built world and the base rule (L1.6): breaks one rule at a time in the source — the link alone lifts, the lift asks the bounding rect's centre, no bevel, an unknown style is a picket fence, a container's soil 2 cm low … — and runs the tests that must notice. KILLED needs pytest exit code 1 and a failed test; refuses to run on a dirty `src/`. Not part of the suite (but `tests/unit/test_scene3d_builders_mutation_script.py` keeps its mutants from going stale); run by hand after changing `core/scene3d/builders/`, `ui/canvas/footprints.py` or `core/shadow_geometry.py`. | source + tests → killed / survived per rule |
@@ -543,7 +556,7 @@ Tests: §8.10.27.
 | `ui/sim_clock_subscription.py` | `connect_qobject` / `disconnect_qobject`: how a QObject listens to the Qt-free sim clock — a guard that asks `sip.isdeleted` at every delivery, held weakly with its receiver. The only way the product connects to a clock channel (scanned). | channel, bound slot → a subscription that dies with the receiver |
 | `core/plain_text.py` | Qt-free, standard library only. Plan text as text: normalise (every line boundary to one; other controls and bidi overrides to U+FFFD), then cap, then escape. | untrusted text → text for a tooltip, a label, a log line |
 | `ui/view3d/quick3d/host.py` (three additions) | `Quick3DHost(prefer_software=True)` asks Qt for the software adapter for this window; `install_event_filter(watcher)`; `release_cached_resources()` (Qt's `releaseResources()`), counted in `cache_releases`. | — |
-| `app/application.py` (the wiring) | Builds the workspace around the canvas view when the switch is on; `_before_document_change()` (clears the hours-of-sun map: #428) and `_after_document_change()` on new / open / recovery load; `workspace.shutdown()` in `closeEvent`; hides the workspace's controls in the fullscreen preview. | — |
+| `app/application.py` (the wiring) | Builds the workspace around the canvas view when the switch is on; nothing for a replaced document — the workspace listens to `CanvasScene.document_replaced` itself (`connect_plan`), the signal master's #428 fix rides on; `workspace.shutdown()` in `closeEvent`; hides the workspace's controls in the fullscreen preview. | — |
 | `tests/integration/workspace_gate_hook.py`, `installer/workspace_gate.spec` | Test tooling, never shipped: drives the real app (source or frozen) through the workspace on a throw-away settings store and refuses any other (§8.10.27). | scenario file → report |
 
 ## 5.15 Selection, Info Card and Walk Mode (Phase 17 L1.8, #385, ADR-065 addendum)
@@ -568,6 +581,8 @@ through the garden. Everything here lives in the workspace (§5.12) and exists o
 
 ## Developer quality and release tooling
 
+Translation tooling (#496): `scripts/i18n_sources.py` owns fresh source extraction and bounded bindings from `i18n_bindings.json`; `i18n_catalog.py` owns Qt-free key/state/format validation shared by the compiler and checker. `update_translations.py` explicitly updates catalog structure; `check_translations.py` reads every registered catalog, compares live keys and compiled bytes, and verifies Qt lookups. These are development tools, not new runtime dependencies. See ADR-008 and section 8.3.
+
 The shared setup-locked-env GitHub action installs the native uv lock and editable project.
 The audit parser supplies type diagnostics and coverage package membership to the standalone
 check_mypy_baseline and check_coverage_floors CLIs. check_dependency_lock verifies the native
@@ -576,6 +591,31 @@ verifiers. prepare_version_sync stages mechanical source/lock updates before an 
 Versioned policy files live in quality/. These tools have subprocess integration coverage and
 remain outside application runtime dependencies. See ADR-050.
 
+## Audit A2 build reproducibility and distribution inventory (#454)
+
+- `installer/runtime_closure.py`: the single resolver of the project's installed runtime
+  distribution closure (manifest-anchored, extras- and marker-aware); consumed by the
+  PyInstaller spec (which bundles each distribution's `.dist-info`) and by the inventory
+  generator, so a new dependency appears without a hand-typed list.
+- `installer/frozen_inventory.py`: attributes actual Analysis code, binaries, resources
+  and runtime hooks to wheel RECORD entries after collection. Nested vendored metadata
+  takes precedence over the containing wheel; distinct versions retain separate identities.
+  Bundles each collected owner's metadata/licenses and a module/file ownership manifest.
+- `scripts/generate_distribution_inventory.py`: reads that metadata back out of the frozen
+  bundle and writes `THIRD_PARTY_NOTICES.md` (full license texts) and a CycloneDX 1.5 SBOM;
+  fails closed on an undiscoverable or sentinel license, and `--check`s the artifacts
+  against the bundle, its executable PYZ and ownership manifest, the requested app version
+  and `pylock.toml` (vendored versions are tied to the locked containing wheel).
+  Declared license files must exist and reach the notices. Never a runtime import.
+- `scripts/emit_build_evidence.py`: records the actual Python/uv/PyInstaller/NSIS toolchain
+  plus commit and run id into `dist/build-evidence.json`; `--require-complete` fails a
+  release whose toolchain it cannot state.
+- `scripts/check_action_pins.py`: read-only CI gate; every external `uses:` in the workflows
+  and the shared composite action must be a commit SHA with a `# vX.Y.Z` comment.
+- `installer/build_installer.py` orchestrates PyInstaller → inventory (generate + check) →
+  NSIS, and the installer compiles only when the notices exist. See ADR-044/050 addenda and
+  `docs/07-deployment-view` §7.2/§7.4.
+
 ## Package F1/F2: traits, guilds and diagnostics
 
 `models/plant_data.py` owns stable trait enums and snapshots; `services/permaculture.py` owns provider token mapping and the filter predicate. `species_catalog.py` combines bundled/custom records for search and authoring. `ui/plant_creation.py` builds plants without mutation, shared by drops and guild preflight. Semantic canvas-layer preset/preference commands live in `core/permaculture_commands.py`.
@@ -583,3 +623,23 @@ remain outside application runtime dependencies. See ADR-050.
 `models/guild.py` validates templates, lays out rings and remaps deep copied membership. `guild_library.py` eagerly validates bundles, isolates user-file errors and saves atomically. `guild_service.py` computes explicit-member function counts. `core/guild_commands.py` owns insertion and targeted membership changes; canonical deletion dissolves surviving links. The picker/editor are application widgets, not agent write surfaces.
 
 `ui/guild_coordinator.py` applies one computed snapshot to cosmetic badges, the Companion guild section and Diagnostics. `services/diagnostics.py` is the Qt-free record converter; `agent_api/diagnostics.py` is only its schema adapter. Sidebar rows store UUIDs and navigate through `ObjectNavigator`.
+
+## Audit A1 trust boundaries (#453)
+
+- `core/plan_io.py`: Qt-free raw numeric validation, shared canvas limits, strict
+  `.ogp` reads and atomic writes; consumed by project, autosave and season handling.
+- `services/verified_update.py`: exact release/origin validation, bounded checksum
+  parsing, streamed hashing and a verified installer result; never launches a process.
+- `services/image_download.py`: bounded Requests streaming and full Pillow decoding;
+  consumed by thumbnails and Static Maps. Thumbnails normalize to bounded PNG caches.
+- `app/settings.py`: the existing factory protects Linux credential-file ownership
+  and permissions. `main.py` handles protection failure before constructing the window.
+
+## Constraint presentation descriptors (#457, ADR-012 addendum)
+
+`ui/constraint_presentation.py` owns the immutable descriptor for each ConstraintType:
+icon, status RGB tuple, translatable row/detail/tooltip templates and display units.
+ConstraintListItem looks up and renders a descriptor in the existing translation
+context; it retains theme refresh and delete signals. The module accepts display
+values and returns text, with no commands, scene mutation or solver callbacks.
+Constraint geometry and satisfaction remain in their existing components.

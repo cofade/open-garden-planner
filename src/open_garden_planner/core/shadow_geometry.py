@@ -48,7 +48,7 @@ binding misbehaves (visually identical at garden scale).
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from typing import NamedTuple
 
 import pyclipper
@@ -200,6 +200,55 @@ def union_shadows(polygons: Iterable[Sequence[Point]]) -> list[Polygon]:
     """Union of already-computed shadow polygons (holes come out CW)."""
     int_paths = [_to_int(p) for p in polygons if len(p) >= 3]
     return [_from_int(p) for p in _union_int(int_paths)]
+
+
+class GroupedCaster(NamedTuple):
+    """All solid footprints of ONE owner with its height and its base — the caster
+    shape of ``compute_grouped_shadows``. ``base_cm`` as in ``ShadowCaster``."""
+
+    footprints: Sequence[Sequence[Point]]
+    height_cm: float
+    base_cm: float = 0.0
+
+
+def compute_grouped_shadows(
+    casters: Iterable[GroupedCaster | tuple[Sequence[Sequence[Point]], float]],
+    elevation_deg: float,
+    azimuth_deg: float,
+    should_cancel: Callable[[], bool] | None = None,
+) -> tuple[list[Polygon], list[list[Polygon]]] | None:
+    """Shared sweeps for the displayed union and sparse per-owner coverage.
+
+    Keep paths on the existing integer grid. Union each owner's footprints
+    before sparse sampling, so overlapping footprints count as one caster.
+    A ``GroupedCaster`` carries its base — the same swept solid
+    ``compute_scene_shadows`` makes of a ``ShadowCaster``; an exact
+    ``(footprints, height_cm)`` pair stands on the ground. By TYPE, never by
+    length (``caster_fields``).
+    """
+    direction = shadow_direction_scene(azimuth_deg)
+    all_paths: list[list[tuple[int, int]]] = []
+    owned = []
+    for caster in casters:
+        if should_cancel is not None and should_cancel():
+            return None
+        if isinstance(caster, GroupedCaster):
+            footprints, height, base = caster.footprints, caster.height_cm, caster.base_cm
+        elif type(caster) is tuple and len(caster) == 2:
+            footprints, height, base = caster[0], caster[1], 0.0
+        else:
+            raise TypeError(
+                "a grouped caster is a GroupedCaster or a (footprints, height_cm) tuple, "
+                f"not {type(caster).__name__}")
+        length = shadow_length_cm(height, elevation_deg)
+        paths = []
+        if length is not None:
+            start = base_offset_cm(base, elevation_deg)
+            for footprint in footprints:
+                paths.extend(_caster_paths_int(footprint, length, direction, start))
+        all_paths.extend(paths)
+        owned.append([_from_int(p) for p in _union_int(paths)])
+    return [_from_int(p) for p in _union_int(all_paths)], owned
 
 
 def compute_scene_shadows(

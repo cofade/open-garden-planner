@@ -273,3 +273,46 @@ def test_the_helper_hangs_nothing_on_the_destroyed_signal() -> None:
     tree = ast.parse(_HELPER.read_text(encoding="utf-8"))
     names = {node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)}
     assert "destroyed" not in names
+
+
+def _destroyed_connects(source: str) -> list[int]:
+    """Lines of ``<…>.destroyed.connect(…)`` — a Python callable on an object's
+    ``destroyed`` signal."""
+    return [
+        node.lineno for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "connect" and isinstance(node.func.value, ast.Attribute)
+        and node.func.value.attr == "destroyed"
+    ]
+
+
+#: The one shipped site that still hangs a Python closure on its own ``destroyed``
+#: signal (the global search field's focus listener). Known and written up as a
+#: follow-up; it is not a clock subscriber and is not this story's to change. A NEW
+#: site fails the test below — master's sun coordinator (v1.30.1) was one until it
+#: was routed through ``connect_qobject``.
+_KNOWN_DESTROYED_HOOKS = {"ui/widgets/global_search.py": 1}
+
+
+def test_nothing_new_hangs_clean_up_on_a_destroyed_signal() -> None:
+    """Measured in bare PyQt 6.11 (§11.4, the workspace's lessons, item 1): a closure
+    on an object's own ``destroyed`` signal runs 0 times when the cyclic collector
+    reaches the wrappers before Qt's deferred delete — the clean-up silently does not
+    happen — and on a Qt-owned object in that order it is an access violation."""
+    offenders = {
+        path.relative_to(_SRC).as_posix(): len(lines)
+        for path in sorted(_SRC.rglob("*.py"))
+        for lines in [_destroyed_connects(path.read_text(encoding="utf-8"))] if lines
+    }
+    assert offenders == _KNOWN_DESTROYED_HOOKS
+
+
+@pytest.mark.parametrize(("source", "found"), [
+    ("self.destroyed.connect(disconnect)\n", 1),
+    ("receiver.destroyed.connect(lambda *_: forget(receiver))\n", 1),
+    ("self.destroyed.disconnect(slot)\n", 0),
+    ("worker.finished.connect(self._on_destroyed)\n", 0),
+    ("if sip.isdeleted(receiver):\n    return\n", 0),
+])
+def test_the_scan_sees_a_callable_on_destroyed_and_nothing_else(source: str, found: int) -> None:
+    assert len(_destroyed_connects(source)) == found

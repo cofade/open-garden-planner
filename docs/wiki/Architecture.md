@@ -21,6 +21,13 @@ The 2D analytic shadow and sun-hours calculations are separate from the 3D rende
 
 ## Detailed documentation
 
+Constraint row presentation has an enum-complete immutable descriptor, separate
+from geometric solving. Solver checks assert actual residuals, pinned anchors and
+feasibility, with a reproducible sampled mutation experiment. A5 (#457) shipped in
+[v1.30.4](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.4) after
+owner acceptance; see [its evidence and scope](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audit-2026-10-a5-evidence.md)
+and [ADR-012](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-012-hybrid-constraint-solver-gauss-seidel-warm-start--newton-raphson-refinement).
+
 | Document | Purpose |
 |---|---|
 | [Introduction](https://github.com/cofade/open-garden-planner/tree/master/docs/01-introduction-and-goals) | Goals and audience. |
@@ -39,3 +46,10 @@ The 2D analytic shadow and sun-hours calculations are separate from the 3D rende
 ## Recorded traits and guild templates
 
 Package F1/F2 keeps species niches/functions separate from artwork and drawing-layer names. Guilds use explicit saved metadata and immutable template snapshots, independent of bed parentage. The Diagnostics sidebar and Agent API share the warning converter. See [the contracts and authoring guide](https://github.com/cofade/open-garden-planner/blob/master/docs/08-crosscutting-concepts/README.md#826-recorded-permaculture-traits-and-guild-templates) and [ADRs](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md).
+
+F3 sun diagnostics use explicit cached ground-level exposure excluding each receiving plant's own shadow. Shared date and document/geometry ownership prevent stale measurements; unavailable evaluations are visible information records. Mature-canopy groups are geometric only. Shipped in [v1.30.1](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.1) via [PR #436](https://github.com/cofade/open-garden-planner/pull/436) after owner acceptance. See [ADR-056](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-056-runtime-sun-diagnostics-and-document-owned-exposure-314-428) and [sun diagnostics contracts](https://github.com/cofade/open-garden-planner/blob/master/docs/08-crosscutting-concepts/README.md#827-cached-sun-exposure-and-shared-diagnostics).
+
+Audit A1 adds shared strict plan persistence, verified installer downloads, bounded
+image ingestion and owner-only Linux settings. Contracts and evidence live in the
+[architecture decisions](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md)
+and [runtime documentation](https://github.com/cofade/open-garden-planner/blob/master/docs/06-runtime-view/README.md).

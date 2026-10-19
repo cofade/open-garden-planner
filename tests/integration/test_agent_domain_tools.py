@@ -8,12 +8,10 @@ scene, then drives it with the real MCP streamable-HTTP client.
 from __future__ import annotations
 
 import asyncio
-import socket
 import threading
 from typing import Any
 
 from open_garden_planner.agent_api import (
-    AgentApiServer,
     AgentProviders,
     MainThreadBridge,
 )
@@ -30,15 +28,8 @@ from open_garden_planner.services.companion_planting_service import (
 )
 from open_garden_planner.services.companion_sets import find_sets_for_bed
 from open_garden_planner.ui.canvas.items import RectangleItem
+from tests.agent_api_helpers import start_server
 from tests.integration.agent_task_soil_stubs import TASK_SOIL_STUBS
-
-
-def _free_port() -> int:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(("127.0.0.1", 0))
-    port = sock.getsockname()[1]
-    sock.close()
-    return port
 
 
 def _providers(scene: Any, command_manager: Any) -> AgentProviders:
@@ -121,8 +112,7 @@ class TestDomainToolsIntegration:
         scene = _make_scene()
         command_manager = _make_command_manager()
         providers = _providers(scene, command_manager)
-        server = AgentApiServer(providers, port=_free_port())
-        server.start()
+        server, _ = start_server(providers)
         assert server.is_running
 
         result: dict[str, Any] = {}
@@ -171,8 +161,7 @@ class TestDomainToolsIntegration:
         scene = _make_scene()
         command_manager = _make_command_manager()
         providers = _providers(scene, command_manager)
-        server = AgentApiServer(providers, port=_free_port())
-        server.start()
+        server, _ = start_server(providers)
         assert server.is_running
 
         result: dict[str, Any] = {}
@@ -225,8 +214,7 @@ class TestDomainToolsIntegration:
         scene = _make_scene()
         command_manager = _make_command_manager()
         providers = _providers(scene, command_manager)
-        server = AgentApiServer(providers, port=_free_port())
-        server.start()
+        server, _ = start_server(providers)
         assert server.is_running
 
         result: dict[str, Any] = {}
@@ -267,8 +255,7 @@ class TestDomainToolsIntegration:
         scene = _make_scene()
         command_manager = _make_command_manager()
         providers = _providers(scene, command_manager)
-        server = AgentApiServer(providers, port=_free_port())
-        server.start()
+        server, _ = start_server(providers)
         assert server.is_running
 
         result: dict[str, Any] = {}
@@ -324,8 +311,7 @@ class TestDomainToolsIntegration:
         scene = _make_scene()
         command_manager = _make_command_manager()
         providers = _providers(scene, command_manager)
-        server = AgentApiServer(providers, port=_free_port())
-        server.start()
+        server, _ = start_server(providers)
         assert server.is_running
 
         result: dict[str, Any] = {}

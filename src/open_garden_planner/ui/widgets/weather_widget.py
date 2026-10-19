@@ -6,6 +6,7 @@ Fetches data in a background QThread and caches results.
 
 from __future__ import annotations
 
+import contextlib
 import datetime
 from typing import Any
 
@@ -21,6 +22,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.core.worker_lifecycle import retain_worker_until_finished
 from open_garden_planner.services.weather_service import (
     WeatherForecast,
     _wmo_to_description,
@@ -42,16 +44,39 @@ class _WeatherFetchWorker(QThread):
         super().__init__()
         self._lat = lat
         self._lon = lon
+        self._is_cancelled = False
+
+    def cancel(self) -> None:
+        """Mark the worker as cancelled so no signals are emitted."""
+        self._is_cancelled = True
+
+    def shutdown(self, timeout_ms: int = 100) -> None:
+        """Cancel and detach/wait before widget teardown (#483)."""
+        self.cancel()
+        with contextlib.suppress(TypeError, RuntimeError):
+            self.success.disconnect()
+        with contextlib.suppress(TypeError, RuntimeError):
+            self.error.disconnect()
+        self.setParent(None)
+        if self.isRunning():
+            self.wait(timeout_ms)
+            if self.isRunning():
+                retain_worker_until_finished(self)
 
     def run(self) -> None:
         try:
+            if self._is_cancelled:
+                return
             forecast = get_weather_service().fetch_forecast(self._lat, self._lon)
+            if self._is_cancelled:
+                return
             if forecast is not None:
                 self.success.emit(forecast)
             else:
                 self.error.emit(self.tr("Forecast unavailable"))
         except Exception as exc:  # noqa: BLE001
-            self.error.emit(str(exc))
+            if not self._is_cancelled:
+                self.error.emit(str(exc))
 
 
 # ─── Widget ───────────────────────────────────────────────────────────────────
@@ -195,14 +220,27 @@ class WeatherWidget(QFrame):
             return
 
         self._show_loading()
-        if self._worker is not None and self._worker.isRunning():
-            self._worker.wait(500)
+        if self._worker is not None:
+            old_worker = self._worker
+            self._worker = None
+            old_worker.shutdown(100)
 
         self._worker = _WeatherFetchWorker(self._lat, self._lon)
         self._worker.success.connect(self._on_fetch_success)
         self._worker.error.connect(self._on_fetch_error)
         self._worker.finished.connect(self._on_fetch_finished)
         self._worker.start()
+
+    def shutdown(self, timeout_ms: int = 100) -> None:
+        """Cancel and detach/join running worker before teardown (#483)."""
+        worker = self._worker
+        if worker is not None:
+            self._worker = None
+            worker.shutdown(timeout_ms)
+
+    def closeEvent(self, event: Any) -> None:
+        self.shutdown()
+        super().closeEvent(event)
 
     def forecast(self) -> WeatherForecast | None:
         """Return the currently-held forecast, or None."""
@@ -234,7 +272,8 @@ class WeatherWidget(QFrame):
         self._show_error(message)
 
     def _on_fetch_finished(self) -> None:
-        self._worker = None
+        if self.sender() is self._worker:
+            self._worker = None
 
     def _on_refresh_clicked(self) -> None:
         if self._lat is not None and self._lon is not None:

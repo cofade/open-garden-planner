@@ -6,7 +6,6 @@ Handles project state, serialization, and file I/O.
 from __future__ import annotations
 
 import contextlib
-import json
 import logging
 from collections.abc import Iterable
 from copy import deepcopy
@@ -22,7 +21,15 @@ from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
 from open_garden_planner.app.settings import get_settings
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
+from open_garden_planner.core.item_look import restore_stored_look
 from open_garden_planner.core.object_types import PathFenceStyle, StrokeStyle
+from open_garden_planner.core.plan_io import (
+    PlanValidationError,
+    finite_number,
+    read_plan,
+    validate_plan_data,
+    write_plan,
+)
 from open_garden_planner.models.layer import Layer, create_default_layers
 
 # File format version for backward compatibility.
@@ -757,7 +764,9 @@ class ProjectManager(QObject):
         """Reset a task to open (remove any stored state)."""
         self.set_task_status(task_id, "open")
 
-    def _sync_journal_note_positions(self, scene: QGraphicsScene) -> None:
+    def _sync_journal_note_positions(
+        self, scene: QGraphicsScene, notes: dict[str, Any] | None = None
+    ) -> None:
         """Copy each ``JournalPinItem.pos()`` into its matching note dict (US-12.9).
 
         The pin's position is updated by the standard Qt drag pathway, but the
@@ -770,10 +779,11 @@ class ProjectManager(QObject):
             JournalPinItem,
         )
 
+        target_notes = self._garden_journal_notes if notes is None else notes
         for item in scene.items():
             if not isinstance(item, JournalPinItem):
                 continue
-            raw = self._garden_journal_notes.get(item.note_id)
+            raw = target_notes.get(item.note_id)
             if raw is None:
                 continue
             raw["scene_x"] = item.pos().x()
@@ -857,8 +867,8 @@ class ProjectManager(QObject):
         data = self._build_project_data(scene, sync_journal=True)
         file_path = file_path.with_suffix(".ogp")
 
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(data.to_dict(), f, indent=2)
+        write_plan(file_path, data.to_dict())
+        self._garden_journal_notes = data.garden_journal_notes
 
         self._current_file = file_path
         self.mark_clean()
@@ -902,12 +912,12 @@ class ProjectManager(QObject):
         data.prefer_organic = self._prefer_organic
         data.succession_plans = dict(self._succession_plans)
         data.auto_assign_permaculture_layers = self.auto_assign_permaculture_layers
+        data.garden_journal_notes = deepcopy(self._garden_journal_notes)
         if sync_journal:
             # US-12.9: the pin's pos() on the canvas is the source of truth for
             # journal-note coordinates; sync each note dict's scene_x/y from the
             # matching pin before serialising so dragged pins round-trip cleanly.
-            self._sync_journal_note_positions(scene)
-        data.garden_journal_notes = dict(self._garden_journal_notes)
+            self._sync_journal_note_positions(scene, data.garden_journal_notes)
         data.manual_tasks = dict(self._manual_tasks)
         data.task_states = dict(self._task_states)
         data.harvest_logs = dict(self._harvest_logs)
@@ -1004,6 +1014,8 @@ class ProjectManager(QObject):
             )
         if getattr(scene, "_guild_diagnostics", None):
             records.append({"diagnostics": deepcopy(getattr(scene, "_guild_diagnostics", []))})
+        if getattr(scene, "_sun_diagnostics", None):
+            records.append({"diagnostics": deepcopy(getattr(scene, "_sun_diagnostics", []))})
         return records
 
     def load(self, scene: QGraphicsScene, file_path: Path) -> None:
@@ -1022,8 +1034,7 @@ class ProjectManager(QObject):
         self._last_load_skipped_items_count = 0
         scene_mutated = False
         try:
-            with open(file_path, encoding="utf-8") as f:
-                raw_data = json.load(f)
+            raw_data = read_plan(file_path)
 
             # Forward-compat guard: older binaries reading a newer file would
             # silently drop unknown content on save (issue surfaced in the
@@ -1221,14 +1232,12 @@ class ProjectManager(QObject):
         current_data.linked_seasons = linked
         new_file_path = new_file_path.with_suffix(".ogp")
 
-        with open(new_file_path, "w", encoding="utf-8") as f:
-            json.dump(current_data.to_dict(), f, indent=2)
+        write_plan(new_file_path, current_data.to_dict())
 
         # Bidirectional link: update the SOURCE season file so it also lists the new season.
         if self._current_file is not None and self._current_file.exists():
             try:
-                with open(self._current_file, encoding="utf-8") as f:
-                    source_raw = json.load(f)
+                source_raw = read_plan(self._current_file)
                 source_linked: list[dict[str, Any]] = source_raw.get("linked_seasons", [])
                 # Build relative path from source file's directory to the new file
                 try:
@@ -1240,8 +1249,7 @@ class ProjectManager(QObject):
                     source_linked.append({"year": new_year, "file": new_file_str})
                     source_linked.sort(key=lambda s: s.get("year", 0))
                     source_raw["linked_seasons"] = source_linked
-                    with open(self._current_file, "w", encoding="utf-8") as f:
-                        json.dump(source_raw, f, indent=2)
+                    write_plan(self._current_file, source_raw)
                     # Also update in-memory linked_seasons
                     self._linked_seasons = source_linked
             except Exception:
@@ -1310,8 +1318,7 @@ class ProjectManager(QObject):
         Returns:
             List of serialized object dicts from the season file
         """
-        with open(file_path, encoding="utf-8") as f:
-            raw_data = json.load(f)
+        raw_data = read_plan(file_path)
         return raw_data.get("objects", [])
 
     def _sync_custom_plants(self, scene: QGraphicsScene) -> None:
@@ -1378,6 +1385,7 @@ class ProjectManager(QObject):
         # file order (see _deserialize_to_scene) reproduces the same stack
         # instead of inverting it -- see ADR-043 and §11.4.
         for item in reversed(list(scene.items())):
+            self._validate_item_geometry(item)
             obj_data = self._serialize_item(item)
             if obj_data:
                 objects.append(obj_data)
@@ -1431,8 +1439,32 @@ class ProjectManager(QObject):
         return data
 
     @staticmethod
+    def _stored_fill_color(item: Any) -> QColor:
+        """The fill colour to persist for ``item`` (issues #438/#469).
+
+        Prefer the item's stored ``fill_color`` attribute. A **texture** brush's
+        ``color()`` is black — not a tint — so writing it would repaint the fill
+        black on the next load; for a textured fill with no stored colour, fall
+        back to the object type's style colour, which is what the item paints.
+        """
+        if getattr(item, "fill_color", None):
+            return QColor(item.fill_color)
+        brush = item.brush()
+        if not brush.textureImage().isNull() and getattr(item, "object_type", None) is not None:
+            from open_garden_planner.core.object_types import get_style
+
+            return QColor(get_style(item.object_type).fill_color)
+        return QColor(brush.color())
+
+    @staticmethod
     def _serialize_item_core(item: QGraphicsItem) -> dict[str, Any] | None:
         """Core serialization logic for a single graphics item."""
+        for field_name, value in (("x", item.pos().x()), ("y", item.pos().y()),
+                                  ("rotation", item.rotation()), ("scale", item.scale())):
+            finite_number(value, field_name)
+        if hasattr(item, "rotation_angle"):
+            # NaN would otherwise be omitted by abs(angle) > 0.01 below.
+            finite_number(item.rotation_angle, "rotation_angle")
         # Import here to avoid circular dependency
         from open_garden_planner.ui.canvas.items import (
             ArcItem,
@@ -1480,12 +1512,8 @@ class ProjectManager(QObject):
             if hasattr(item, "label_visible") and not item.label_visible:
                 data["label_visible"] = False
             # Save custom fill and stroke colors (with alpha)
-            # Use stored fill_color if available (for textured brushes), otherwise get from brush
-            if hasattr(item, "fill_color") and item.fill_color:
-                fill_color = item.fill_color
-            else:
-                fill_color = item.brush().color()
-            data["fill_color"] = fill_color.name(QColor.NameFormat.HexArgb)
+            # A texture brush's color() is black, not a tint (issue #438)
+            data["fill_color"] = ProjectManager._stored_fill_color(item).name(QColor.NameFormat.HexArgb)
             stroke_color = item.pen().color()
             data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
             data["stroke_width"] = item.pen().widthF()
@@ -1523,8 +1551,7 @@ class ProjectManager(QObject):
                 data["layer_id"] = str(item.layer_id)
             if hasattr(item, "label_visible") and not item.label_visible:
                 data["label_visible"] = False
-            fill_color = item.fill_color if hasattr(item, "fill_color") and item.fill_color else item.brush().color()
-            data["fill_color"] = fill_color.name(QColor.NameFormat.HexArgb)
+            data["fill_color"] = ProjectManager._stored_fill_color(item).name(QColor.NameFormat.HexArgb)
             data["stroke_color"] = item.pen().color().name(QColor.NameFormat.HexArgb)
             data["stroke_width"] = item.pen().widthF()
             if hasattr(item, "fill_pattern") and item.fill_pattern:
@@ -1555,12 +1582,8 @@ class ProjectManager(QObject):
             if hasattr(item, "label_visible") and not item.label_visible:
                 data["label_visible"] = False
             # Save custom fill and stroke colors (with alpha)
-            # Use stored fill_color if available (for textured brushes), otherwise get from brush
-            if hasattr(item, "fill_color") and item.fill_color:
-                fill_color = item.fill_color
-            else:
-                fill_color = item.brush().color()
-            data["fill_color"] = fill_color.name(QColor.NameFormat.HexArgb)
+            # A texture brush's color() is black, not a tint (issue #438)
+            data["fill_color"] = ProjectManager._stored_fill_color(item).name(QColor.NameFormat.HexArgb)
             stroke_color = item.pen().color()
             data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
             data["stroke_width"] = item.pen().widthF()
@@ -1639,12 +1662,8 @@ class ProjectManager(QObject):
             if hasattr(item, "label_visible") and not item.label_visible:
                 data["label_visible"] = False
             # Save custom fill and stroke colors (with alpha)
-            # Use stored fill_color if available (for textured brushes), otherwise get from brush
-            if hasattr(item, "fill_color") and item.fill_color:
-                fill_color = item.fill_color
-            else:
-                fill_color = item.brush().color()
-            data["fill_color"] = fill_color.name(QColor.NameFormat.HexArgb)
+            # A texture brush's color() is black, not a tint (issue #438)
+            data["fill_color"] = ProjectManager._stored_fill_color(item).name(QColor.NameFormat.HexArgb)
             stroke_color = item.pen().color()
             data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
             data["stroke_width"] = item.pen().widthF()
@@ -1770,6 +1789,7 @@ class ProjectManager(QObject):
         and parses layers, constraints, and guides into memory without touching
         the QGraphicsScene.
         """
+        validate_plan_data(data.to_dict())
         import logging
         logger = logging.getLogger(__name__)
 
@@ -1781,6 +1801,8 @@ class ProjectManager(QObject):
         for obj in data.objects:
             try:
                 item = self._deserialize_item(obj)
+            except PlanValidationError:
+                raise
             except (KeyError, ValueError, TypeError, AttributeError) as e:
                 logger.warning(
                     "Failed to deserialize object of type %s: %s",
@@ -1794,6 +1816,12 @@ class ProjectManager(QObject):
                 continue
 
             deserialized_items.append(item)
+
+        # Let Qt compute rotation, image calibration and aggregate group bounds.
+        # Check the detached graph before any active-document mutation, rather
+        # than maintaining a second implementation of Qt transform arithmetic.
+        for item in deserialized_items:
+            self._validate_item_geometry(item)
 
         # Recursive duplicate UUID deduplication across items and children (FIND-03)
         self._deduplicate_item_uuids(deserialized_items, seen_uuids, reminted_map, logger)
@@ -1825,6 +1853,21 @@ class ProjectManager(QObject):
 
         self._last_load_skipped_items_count = skipped_count
         return deserialized_items, parsed_layers, parsed_constraints, parsed_guides
+
+    @staticmethod
+    def _validate_item_geometry(item: QGraphicsItem) -> None:
+        """Reject derived non-finite geometry in a detached or live item graph."""
+        for bounds in (item.boundingRect(), item.sceneBoundingRect()):
+            for value in (bounds.x(), bounds.y(), bounds.width(), bounds.height(),
+                          bounds.right(), bounds.bottom()):
+                finite_number(value, "object.bounds")
+        for transform in (item.transform(), item.sceneTransform()):
+            for value in (transform.m11(), transform.m12(), transform.m13(),
+                          transform.m21(), transform.m22(), transform.m23(),
+                          transform.m31(), transform.m32(), transform.m33()):
+                finite_number(value, "object.transform")
+        for child in item.childItems():
+            ProjectManager._validate_item_geometry(child)
 
     @staticmethod
     def _deduplicate_item_uuids(
@@ -2156,6 +2199,9 @@ class ProjectManager(QObject):
             # Restore item_id so constraints referencing this item still resolve
             if "item_id" in obj:
                 item._item_id = UUID(obj["item_id"])
+            # Restore the STORED appearance before deriving brush/pen from it
+            # (issues #438/#469: the panel reads these attributes)
+            restore_stored_look(item, obj, fill_pattern=fill_pattern, stroke_style=stroke_style)
             # Restore custom colors if saved
             if "fill_color" in obj:
                 # If we have a pattern, recreate the brush with both color and pattern
@@ -2196,12 +2242,12 @@ class ProjectManager(QObject):
             )
             if "item_id" in obj:
                 item._item_id = UUID(obj["item_id"])
+            # Restore the STORED appearance before deriving brush/pen from it (#469)
+            restore_stored_look(item, obj, fill_pattern=fill_pattern, stroke_style=stroke_style)
             # Restore custom colors if saved
             if "fill_color" in obj:
                 color = QColor(obj["fill_color"])
                 # Store the base color in the item
-                if hasattr(item, 'fill_color'):
-                    item.fill_color = color
                 # If we have a pattern, recreate the brush with both color and pattern
                 if fill_pattern:
                     brush = create_pattern_brush(fill_pattern, color)
@@ -2258,10 +2304,10 @@ class ProjectManager(QObject):
             )
             if "item_id" in obj:
                 item._item_id = UUID(obj["item_id"])
+            # Restore the STORED appearance before deriving brush/pen from it (#469)
+            restore_stored_look(item, obj, fill_pattern=fill_pattern, stroke_style=stroke_style)
             if "fill_color" in obj:
                 color = QColor(obj["fill_color"])
-                if hasattr(item, 'fill_color'):
-                    item.fill_color = color
                 if fill_pattern:
                     item.setBrush(create_pattern_brush(fill_pattern, color))
                 else:
@@ -2304,6 +2350,8 @@ class ProjectManager(QObject):
                     item._item_id = UUID(obj["item_id"])
                 if metadata:
                     item._metadata = metadata
+                # Restore the STORED appearance (the panel reads these; #469)
+                restore_stored_look(item, obj)
                 # Restore custom stroke color if saved (only if no preset overrides it)
                 if "stroke_color" in obj and path_fence_style == PathFenceStyle.NONE:
                     pen = item.pen()
@@ -2320,6 +2368,20 @@ class ProjectManager(QObject):
                 return item
         elif obj_type == "polygon":
             points = [QPointF(p["x"], p["y"]) for p in obj.get("points", [])]
+            from open_garden_planner.ui.canvas.items.polygon_item import (
+                MAX_POLYGON_VERTICES,
+            )
+
+            # A crafted plan file can hold a polygon with any number of
+            # vertices; refuse a hostile one before it becomes a scene item
+            # (issue #472). Normal plans are orders of magnitude below this.
+            if len(points) > MAX_POLYGON_VERTICES:
+                logging.getLogger(__name__).warning(
+                    "Refusing polygon with %d vertices (limit %d) from plan file",
+                    len(points),
+                    MAX_POLYGON_VERTICES,
+                )
+                return None
             if len(points) >= 3:
                 item = PolygonItem(
                     points,
@@ -2332,12 +2394,11 @@ class ProjectManager(QObject):
                 )
                 if "item_id" in obj:
                     item._item_id = UUID(obj["item_id"])
+                # Restore the STORED appearance before deriving brush/pen from it (#469)
+                restore_stored_look(item, obj, fill_pattern=fill_pattern, stroke_style=stroke_style)
                 # Restore custom colors if saved
                 if "fill_color" in obj:
                     color = QColor(obj["fill_color"])
-                    # Store the base color in the item
-                    if hasattr(item, 'fill_color'):
-                        item.fill_color = color
                     # If we have a pattern, recreate the brush with both color and pattern
                     if fill_pattern:
                         brush = create_pattern_brush(fill_pattern, color)

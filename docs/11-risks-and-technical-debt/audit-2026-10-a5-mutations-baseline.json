@@ -1,0 +1,172 @@
+{
+  "selection": "baseline",
+  "source_ref": "ca92f048",
+  "source_sha256": {
+    "open_garden_planner.core.constraint_solver_newton": "d07b20ae307540f33beb792b38630c91df36c2c4836dda02d6f64f2ae6e73e4d",
+    "open_garden_planner.core.constraints": "b2a3cc6bb9bf8c9078b0eaa6d2da9ce2ec90de5ab585b46d68d7014c0741b1ce"
+  },
+  "tests": [
+    "tests/integration/test_auto_constraint_emit.py",
+    "tests/integration/test_constraint_creation.py",
+    "tests/integration/test_constraint_solver_robustness.py",
+    "tests/integration/test_constraint_tool_gestures.py",
+    "tests/integration/test_edge_length_constraints.py",
+    "tests/integration/test_iconography_3c.py",
+    "tests/integration/test_polyline_vertex_edit.py",
+    "tests/unit/test_constraint_drag.py",
+    "tests/unit/test_constraint_tangent_math.py",
+    "tests/unit/test_constraint_tool.py",
+    "tests/unit/test_constraint_tool_angle.py",
+    "tests/unit/test_constraint_tool_coincident.py",
+    "tests/unit/test_constraint_tool_distance.py",
+    "tests/unit/test_constraint_tool_edge_length.py",
+    "tests/unit/test_constraint_tool_equal.py",
+    "tests/unit/test_constraint_tool_fixed.py",
+    "tests/unit/test_constraint_tool_horizontal.py",
+    "tests/unit/test_constraint_tool_horizontal_distance.py",
+    "tests/unit/test_constraint_tool_mixed_constraints.py",
+    "tests/unit/test_constraint_tool_parallel.py",
+    "tests/unit/test_constraint_tool_perpendicular.py",
+    "tests/unit/test_constraint_tool_shapes.py",
+    "tests/unit/test_constraint_tool_symmetry.py",
+    "tests/unit/test_constraint_tool_transitions.py",
+    "tests/unit/test_constraint_tool_vertical.py",
+    "tests/unit/test_constraint_tool_vertical_distance.py",
+    "tests/unit/test_constraints.py",
+    "tests/unit/test_constraints_panel.py"
+  ],
+  "mutations": [
+    {
+      "name": "newton-horizontal-axis",
+      "module": "open_garden_planner.core.constraint_solver_newton",
+      "function": "newton_refine",
+      "before": "ay + by - 2.0 * axis_y",
+      "after": "ay + by - axis_y"
+    },
+    {
+      "name": "newton-vertical-axis",
+      "module": "open_garden_planner.core.constraint_solver_newton",
+      "function": "newton_refine",
+      "before": "ax + bx - 2.0 * axis_x",
+      "after": "ax + bx - axis_x"
+    },
+    {
+      "name": "newton-pinned-offset-y",
+      "module": "open_garden_planner.core.constraint_solver_newton",
+      "function": "newton_refine",
+      "before": "return p[0] + off[0], p[1] + off[1]",
+      "after": "return p[0] + off[0], p[1] - off[1]"
+    },
+    {
+      "name": "newton-reported-error",
+      "module": "open_garden_planner.core.constraint_solver_newton",
+      "function": "newton_refine",
+      "before": "    write_x(x)\n    return max_err <= tol, max_err",
+      "after": "    write_x(x)\n    return max_err <= tol, 0.0"
+    },
+    {
+      "name": "newton-no-writeback",
+      "module": "open_garden_planner.core.constraint_solver_newton",
+      "function": "newton_refine",
+      "before": "    write_x(x)\n    return max_err <= tol, max_err",
+      "after": "    # mutant: discard final state\n    return max_err <= tol, max_err"
+    },
+    {
+      "name": "anchored-ignore-pins",
+      "module": "open_garden_planner.core.constraints",
+      "function": "solve_anchored",
+      "before": "pinned_items = set(pinned_items)",
+      "after": "pinned_items = set()"
+    },
+    {
+      "name": "anchored-offset-y",
+      "module": "open_garden_planner.core.constraints",
+      "function": "solve_anchored",
+      "before": "positions[item_id][1] + off[1]",
+      "after": "positions[item_id][1] - off[1]"
+    },
+    {
+      "name": "conflict-drop-identities",
+      "module": "open_garden_planner.core.constraints",
+      "function": "find_conflicting_constraints",
+      "before": "return conflicting",
+      "after": "return []"
+    }
+  ],
+  "control": {
+    "name": "control",
+    "status": "passed",
+    "returncode": 0,
+    "summary": "============================= 432 passed in 6.94s ============================="
+  },
+  "results": [
+    {
+      "name": "newton-horizontal-axis",
+      "status": "survived",
+      "returncode": 0,
+      "assertion_evidence": [
+        "============================= 432 passed in 6.97s ============================="
+      ]
+    },
+    {
+      "name": "newton-vertical-axis",
+      "status": "survived",
+      "returncode": 0,
+      "assertion_evidence": [
+        "============================= 432 passed in 6.82s ============================="
+      ]
+    },
+    {
+      "name": "newton-pinned-offset-y",
+      "status": "killed",
+      "returncode": 1,
+      "assertion_evidence": [
+        "FAILED tests/integration/test_polyline_vertex_edit.py::TestPolylineVertexDragStability::test_no_drift_dragging_fully_constrained_vertex",
+        "======================== 1 failed, 80 passed in 5.07s ========================="
+      ]
+    },
+    {
+      "name": "newton-reported-error",
+      "status": "timeout",
+      "assertion_evidence": []
+    },
+    {
+      "name": "newton-no-writeback",
+      "status": "killed",
+      "returncode": 1,
+      "assertion_evidence": [
+        "FAILED tests/integration/test_constraint_solver_robustness.py::TestNewtonRefinementUnit::test_newton_converges_when_gauss_seidel_fails",
+        "======================== 1 failed, 17 passed in 1.52s ========================="
+      ]
+    },
+    {
+      "name": "anchored-ignore-pins",
+      "status": "killed",
+      "returncode": 1,
+      "assertion_evidence": [
+        "FAILED tests/integration/test_constraint_creation.py::TestDistanceConstraintCreation::test_only_item_a_moves_when_distance_constraint_added",
+        "======================== 1 failed, 11 passed in 1.42s ========================="
+      ]
+    },
+    {
+      "name": "anchored-offset-y",
+      "status": "killed",
+      "returncode": 1,
+      "assertion_evidence": [
+        "FAILED tests/integration/test_auto_constraint_emit.py::TestTangentDragHolds::test_tangency_and_weld_hold_large_drag_user_geometry",
+        "========================= 1 failed, 8 passed in 1.37s ========================="
+      ]
+    },
+    {
+      "name": "conflict-drop-identities",
+      "status": "killed",
+      "returncode": 1,
+      "assertion_evidence": [
+        "FAILED tests/unit/test_constraint_tool_mixed_constraints.py::test_rectangle_incompatible_edge_length_refused_atomically[0]",
+        "======================== 1 failed, 186 passed in 5.47s ========================"
+      ]
+    }
+  ],
+  "timeout_seconds": 45,
+  "scope": "explicit sampled substitutions; direct test consumers and constraint-named files; not full-suite mutation coverage"
+}

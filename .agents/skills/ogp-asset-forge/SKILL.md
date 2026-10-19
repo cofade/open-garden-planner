@@ -30,8 +30,9 @@ shipped textures (`src/open_garden_planner/resources/textures/`) at 1:1 AND
   fills never rotate with anything, so every shading cue must be
   radial/concentric (halo grows around the body, never offset to a side).
   Symmetric sheen bands are fine; a "light from top-left" gradient is not.
-- **Tint-readable contrast**: the runtime tint (`core/fill_patterns._tint_texture`,
-  user colour at 80/255 alpha) must recolour the material without
+- **Tint-readable contrast**: the runtime recolour (`core/fill_patterns._tint_texture`,
+  since #502 a **luminance map**: each pixel becomes the user's colour scaled by the
+  texture's relative luminance) must recolour the material without
   flattening it. Gated band (`tests/unit/test_texture_forge_conformance.py`):
   mean luminance 40–225, luminance std ≥ 4, local detail ≥ 2 (shipped set:
   compost 47 → glass 215; corten is the smoothest at 2.5 — re-measure after any regeneration, the band comment in the test is the record). Verify tinted

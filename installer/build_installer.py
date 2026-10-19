@@ -12,6 +12,7 @@ import argparse
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
@@ -19,9 +20,24 @@ INSTALLER_DIR = ROOT / "installer"
 DIST_DIR = ROOT / "dist"
 BUILD_DIR = ROOT / "build"
 
+
+def _manifest_version() -> str:
+    """Read the authoritative project version from pyproject.toml (PEP 621).
+
+    A local build without ``--version`` must not invent a version: the update
+    checker and the frozen ``_version.py`` both claim to be the manifest's, and
+    CI passes the release-computed version explicitly (release.yml).
+    """
+    try:
+        with (ROOT / "pyproject.toml").open("rb") as fh:
+            return str(tomllib.load(fh)["project"]["version"])
+    except (OSError, KeyError, tomllib.TOMLDecodeError) as exc:
+        raise SystemExit(f"Cannot read the project version from pyproject.toml: {exc}") from exc
+
+
 # App metadata
 APP_NAME = "Open Garden Planner"
-APP_VERSION = "1.0.0"
+APP_VERSION = _manifest_version()
 APP_EXE_NAME = "OpenGardenPlanner"
 
 # NSIS paths to search
@@ -90,8 +106,47 @@ def run_pyinstaller() -> None:
     print(f"Bundle size: {total_size / (1024 * 1024):.1f} MB")
 
 
+def run_inventory(bundle_dir: Path | None = None, output_dir: Path | None = None,
+                  lock_path: Path | None = None, version: str | None = None) -> None:
+    """Generate third-party notices and the SBOM from the frozen bundle (AUD-051/055).
+
+    ``version`` MUST be the version this build is producing: ``pyproject.toml``
+    lags the release tag until the post-release sync commit, so the default would
+    describe the previous release.
+    """
+    print("\n" + "=" * 60)
+    print("Step 1b: Distribution inventory (notices + SBOM)")
+    print("=" * 60)
+
+    script = ROOT / "scripts" / "generate_distribution_inventory.py"
+    if not script.is_file():
+        print(f"ERROR: Inventory generator not found: {script}")
+        sys.exit(1)
+
+    bundle = bundle_dir if bundle_dir is not None else DIST_DIR / APP_EXE_NAME
+    output = output_dir if output_dir is not None else DIST_DIR
+    lock = lock_path if lock_path is not None else ROOT / "pylock.toml"
+    cmd = [sys.executable, str(script), "--bundle", str(bundle),
+           "--output-dir", str(output), "--lock", str(lock),
+           "--app-version", str(version if version is not None else APP_VERSION)]
+    print(f"Running: {' '.join(cmd)}")
+    if subprocess.run(cmd, cwd=str(ROOT)).returncode != 0:
+        print("ERROR: Could not write the distribution inventory!")
+        sys.exit(1)
+    if subprocess.run([*cmd, "--check"], cwd=str(ROOT)).returncode != 0:
+        print("ERROR: Distribution inventory check failed!")
+        sys.exit(1)
+
+
 def run_nsis() -> None:
-    """Run NSIS to create the installer."""
+    """Run NSIS to create the installer.
+
+    ``--skip-pyinstaller`` is for iterating on the installer itself: the NSIS
+    step, the inventory and the frozen ``_version.py`` all label the *existing*
+    bundle, so the version passed on the command line must be the one that
+    bundle was built with — otherwise the installer, SBOM and notices can claim
+    a version the packaged exe does not carry (senior review round 3).
+    """
     print("\n" + "=" * 60)
     print("Step 2: Building NSIS installer")
     print("=" * 60)
@@ -121,6 +176,7 @@ def run_nsis() -> None:
         f"/DSRCDIR={bundle_dir}",
         f"/DOUTDIR={DIST_DIR}",
         f"/DLICENSE_FILE={ROOT / 'LICENSE'}",
+        f"/DNOTICES_FILE={DIST_DIR / 'THIRD_PARTY_NOTICES.md'}",
         f"/DAPP_ICON={INSTALLER_DIR / 'ogp_app.ico'}",
         f"/DFILE_ICON={INSTALLER_DIR / 'ogp_file.ico'}",
         str(nsi_script),
@@ -165,7 +221,9 @@ def main() -> None:
     global APP_VERSION
 
     parser = argparse.ArgumentParser(description="Build Open Garden Planner installer")
-    parser.add_argument("--skip-pyinstaller", action="store_true", help="Skip PyInstaller step")
+    parser.add_argument("--skip-pyinstaller", action="store_true",
+                        help="Skip PyInstaller step (the existing bundle keeps its version; "
+                             "pass the version it was built with)")
     parser.add_argument("--skip-nsis", action="store_true", help="Skip NSIS step")
     parser.add_argument("--version", type=str, help="Override version (e.g. 1.2.0)")
     args = parser.parse_args()
@@ -181,6 +239,8 @@ def main() -> None:
         run_pyinstaller()
     else:
         print("Skipping PyInstaller (--skip-pyinstaller)")
+
+    run_inventory(version=APP_VERSION)
 
     if not args.skip_nsis:
         run_nsis()

@@ -16,7 +16,31 @@ The **9 October 2026** documentation audit used **v1.29.6** as its release basel
 Phases 1–15 and Phase 13 Packages A–D are complete.
 Package G's attribution, plant profiles, and provider companion data (G1–G3) shipped in v1.28.1.
 Package G is complete: G4, plant favourites and collections, merged in [PR #421](https://github.com/cofade/open-garden-planner/pull/421).
-Package F1/F2 shipped in [v1.30.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.0) via [PR #433](https://github.com/cofade/open-garden-planner/pull/433): species traits, food-forest layers, plant guilds, template editing and diagnostics. F3–F5 remain planned.
+Package F1/F2 shipped in [v1.30.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.0) via [PR #433](https://github.com/cofade/open-garden-planner/pull/433): species traits, food-forest layers, plant guilds, template editing and diagnostics. F3 sun diagnostics and the #428 heatmap lifecycle fix shipped in [v1.30.1](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.1) via [PR #436](https://github.com/cofade/open-garden-planner/pull/436) after owner acceptance; F4/F5 remain planned.
+
+Constraint-tool characterization (#406) shipped in [v1.30.2](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.2) via [PR #477](https://github.com/cofade/open-garden-planner/pull/477) after owner acceptance. Audit package A1 (#453: numeric input safety, verified release downloads, bounded image ingestion and owner-only Linux settings) shipped in [v1.30.3](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.3) via [PR #487](https://github.com/cofade/open-garden-planner/pull/487) after owner acceptance.
+Audit package A5 (#457: constraint presentation, solver assertions, fixed-state
+feasibility and German default object labels) shipped in
+[v1.30.4](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.4) via
+[PR #489](https://github.com/cofade/open-garden-planner/pull/489) after owner acceptance.
+Audit package A2 (#454: pinned build tools, dependency review, frozen-package notices
+and SBOM) shipped in
+[v1.30.5](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.5) via
+[PR #490](https://github.com/cofade/open-garden-planner/pull/490) after owner acceptance.
+
+Translation completeness for every registered locale (#496) shipped in
+[v1.30.6](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.6) via
+[PR #497](https://github.com/cofade/open-garden-planner/pull/497) after owner acceptance.
+New languages must cover all current UI keys, and new wrapped UI strings require every
+target translation. See the [translation workflow](https://github.com/cofade/open-garden-planner/blob/master/docs/TRANSLATING.md).
+
+Worker lifecycle safety, bounded caches, and test hygiene (#480, #483, #482, #474, #449, #448) shipped in
+[v1.30.7](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.7) via
+[PR #498](https://github.com/cofade/open-garden-planner/pull/498) after owner acceptance:
+clean worker shutdown on application exit, bounded furniture rendering cache, FR ID deduplication, and Ctrl+F/Ctrl+H shortcut resolution.
+
+[#392](https://github.com/cofade/open-garden-planner/issues/392) remains open for
+packages A3–A4 and A6–A13.
 
 Phase 17's L0 investigation is complete with a **GO** decision, and L1 is under way: its first story, one shared simulation date and time for the sun, shadow, heatmap and 3D tools, shipped in v1.29.10 ([PR #429](https://github.com/cofade/open-garden-planner/pull/429)).
 The shipped 3D view still uses **Qt 3D**. Qt Quick 3D remains a dormant spike until L1 delivers the replacement.
