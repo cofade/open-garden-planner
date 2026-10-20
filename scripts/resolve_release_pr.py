@@ -21,13 +21,20 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def extract_pr_from_commit_subject(subject: str) -> int | None:
-    """Extract PR number from a squash-and-merge commit subject.
+    """Extract PR number from a squash-and-merge or merge commit subject.
 
     GitHub appends ' (#N)' to the subject of a squash-and-merge commit by default.
+    Also handles standard merge commit syntax 'Merge pull request #N'.
     Allows optional trailing whitespace.
     """
-    match = re.search(r"\(#(\d+)\)\s*$", subject.strip())
-    return int(match.group(1)) if match else None
+    cleaned = subject.strip()
+    match = re.search(r"\(#(\d+)\)\s*$", cleaned)
+    if match:
+        return int(match.group(1))
+    merge_match = re.search(r"^Merge pull request #(\d+)", cleaned)
+    if merge_match:
+        return int(merge_match.group(1))
+    return None
 
 
 def select_merged_pr(
@@ -57,11 +64,6 @@ def select_merged_pr(
         # Sort by merged_at descending so the most recent merge wins
         matching.sort(key=lambda p: str(p.get("merged_at") or ""), reverse=True)
         return matching[0]
-
-    # Fallback to the first valid PR object in the array
-    for pull in pulls:
-        if isinstance(pull, dict) and pull.get("number") is not None:
-            return pull
 
     return None
 
@@ -130,14 +132,18 @@ def resolve_pr_and_bump(
     # Get latest tag
     latest_tag = "v1.0.0"
     try:
-        tag_out = subprocess.run(
-            [git, "describe", "--tags", "--abbrev=0"],
+        tag_args = [git, "describe", "--tags", "--abbrev=0"]
+        if commit_sha:
+            tag_args.append(commit_sha)
+        tag_proc = subprocess.run(
+            tag_args,
             cwd=ROOT,
             capture_output=True,
             text=True,
             check=False,
-        ).stdout.strip()
-        if tag_out:
+        )
+        tag_out = tag_proc.stdout.strip()
+        if tag_proc.returncode == 0 and tag_out:
             latest_tag = tag_out
     except Exception:
         pass
@@ -236,6 +242,11 @@ def resolve_pr_and_bump(
 
 
 def main(argv: list[str] | None = None) -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--commit",
@@ -309,6 +320,11 @@ def main(argv: list[str] | None = None) -> int:
                 f.write(f"tag={result['tag']}\n")
                 f.write(f"bump={result['bump']}\n")
                 f.write(f"pr_number={result['pr_number'] or ''}\n")
+        else:
+            print(
+                "Warning: --write-github-output specified but GITHUB_OUTPUT environment variable is not set",
+                file=sys.stderr,
+            )
 
     return 0
 

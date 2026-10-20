@@ -47,6 +47,7 @@ RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
         ("no pr suffix here", None),
         ("suffix with words (#123) extra", None),
         ("suffix with non-digits (#abc)", None),
+        ("Merge pull request #543 from cofade/fix-something", 543),
         ("", None),
     ],
 )
@@ -144,18 +145,17 @@ def test_select_merged_pr_empty_list_returns_none() -> None:
     assert select_merged_pr([{}]) is None
 
 
-def test_select_merged_pr_fallback_and_edge_cases() -> None:
-    # Non-dict elements and non-dict base objects
+def test_select_merged_pr_unmerged_or_foreign_branch_returns_none() -> None:
+    # Non-dict elements, unmerged PRs, or PRs targeting other branches return None
     pulls: list[Any] = [
         "not a dict",
         None,
         {"number": 301, "base": "not a dict", "merged_at": "2026-10-19T10:00:00Z"},
-        {"number": 302, "base": {"ref": "develop"}},  # No merged_at
+        {"number": 302, "base": {"ref": "develop"}, "merged_at": "2026-10-19T10:00:00Z"},
+        {"number": 303, "base": {"ref": "master"}},  # No merged_at (unmerged/open PR)
     ]
-    # No PR matches master + merged_at, falls back to first valid PR object
-    selected = select_merged_pr(pulls, target_base="master")
-    assert selected is not None
-    assert selected["number"] == 301
+    # None match target base master AND merged_at is not None; falls back to None so subject parsing runs
+    assert select_merged_pr(pulls, target_base="master") is None
 
 
 # ---------------------------------------------------------------------------
@@ -511,6 +511,37 @@ def test_main_fails_when_git_rev_parse_fails(monkeypatch: pytest.MonkeyPatch) ->
     assert code == 1
 
 
+def test_resolve_pr_and_bump_passes_commit_sha_to_git_describe() -> None:
+    recorded_cmds: list[list[str]] = []
+
+    def recording_run(cmd: list[str], *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        recorded_cmds.append(cmd)
+        if "describe" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, stdout="v1.30.13\n", stderr="")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    with patch("subprocess.run", side_effect=recording_run):
+        resolve_pr_and_bump(commit_sha="fedcba98")
+
+    describe_calls = [c for c in recorded_cmds if "describe" in c]
+    assert describe_calls, "git describe was not called"
+    assert "fedcba98" in describe_calls[0], "git describe was not passed commit_sha"
+
+
+def test_main_warns_when_write_github_output_without_env(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    fake_run = _make_subprocess_run(tag="v1.30.13", api_pulls=[])
+    with patch("subprocess.run", side_effect=fake_run):
+        code = main(["--commit", "bf4fd77a", "--write-github-output"])
+
+    assert code == 0
+    err = capsys.readouterr().err
+    assert "Warning: --write-github-output specified but GITHUB_OUTPUT environment variable is not set" in err
+
+
+
 # ---------------------------------------------------------------------------
 # Static pins on .github/workflows/release.yml
 # ---------------------------------------------------------------------------
@@ -538,8 +569,9 @@ def test_release_workflow_does_not_use_latest_created_merged_pr() -> None:
 
 
 def test_release_workflow_passes_required_env() -> None:
-    """release.yml must supply GH_TOKEN, GITHUB_SHA, and GITHUB_REPOSITORY."""
+    """release.yml must supply GH_TOKEN, GITHUB_SHA, GITHUB_REPOSITORY, and PYTHONUTF8."""
     text = RELEASE_WORKFLOW.read_text(encoding="utf-8")
     assert "GH_TOKEN: ${{ github.token }}" in text
     assert "GITHUB_SHA: ${{ github.sha }}" in text
     assert "GITHUB_REPOSITORY: ${{ github.repository }}" in text
+    assert 'PYTHONUTF8: "1"' in text

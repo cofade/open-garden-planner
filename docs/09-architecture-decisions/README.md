@@ -3122,13 +3122,13 @@ read-only; no file format, runtime behaviour or `.ogp` version changes.
 **Context.** PR #484 (Phase 17 L1) was merged with the `minor` label on 2026-10-19 as commit `bf4fd77a`. The Release workflow published `v1.30.14`, a patch release, instead of `v1.31.0`. The root cause was `.github/workflows/release.yml` using `gh pr list --state merged --base master --limit 1` to pick the PR whose labels to inspect. `gh pr list` sorts by PR creation date (`createdAt` descending), not merge time or triggering commit SHA. PR #484 was created weeks earlier and was shadowed by PR #521 (created and merged earlier on the same day without a label). Additionally, `echo "$LABELS" | grep -q "minor"` used substring matching rather than exact line matching.
 
 **Decision.**
-1. In `.github/workflows/release.yml`, resolve the PR from the triggering commit SHA:
-   - Primary: `gh api "repos/${REPO}/commits/${COMMIT_SHA}/pulls" --jq '[.[] | select(.base.ref == "master" and .merged_at != null)] | .[0].number'`.
-   - Direct: `gh api "repos/${REPO}/commits/${COMMIT_SHA}/pulls" --jq '.[0].number'`.
-   - Fallback: parse `(#N)` suffix from the squash commit subject (`git log -1 --format=%s "$COMMIT_SHA" | sed -nE 's/.*\(#([0-9]+)\)$/\1/p'`).
-2. Match labels with exact line regex: `grep -qx "major"` and `grep -qx "minor"`.
-3. Provide `scripts/resolve_release_pr.py` for Python-based resolution and testing.
-4. Pin the behavior in `tests/unit/test_release_version.py` covering old-created newly-merged PRs, squash subject regex, exact label matching, and workflow static guards.
+1. Delegate version determination in `.github/workflows/release.yml` directly to `python scripts/resolve_release_pr.py --write-github-output`, maintaining one canonical implementation.
+2. In `scripts/resolve_release_pr.py`, resolve the merged PR from the triggering commit SHA:
+   - Primary: `gh api "repos/${REPO}/commits/${COMMIT_SHA}/pulls"` selecting the newest master-merged PR.
+   - Fallback: parse `(#N)` suffix or merge syntax from the commit subject (`git log -1 --format=%s`).
+   - Query `gh pr view` for labels when resolved via subject fallback.
+3. Match labels with exact set equality (`"major"`, `"minor"`), eliminating substring matches.
+4. Pin the behavior in `tests/unit/test_release_version.py` covering multi-PR timestamp ordering, squash subject regex, exact label matching, subprocess error recovery, CLI output formats, and workflow static guards.
 
 ## ADR-051: Repository-owned wiki sources and manual publication (issue #417)
 

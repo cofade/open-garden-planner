@@ -36,6 +36,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GITHUB_SHA: ${{ github.sha }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          PYTHONUTF8: "1"
         run: |
           python scripts/resolve_release_pr.py --write-github-output
 
