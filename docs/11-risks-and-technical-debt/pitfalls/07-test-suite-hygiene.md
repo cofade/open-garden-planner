@@ -134,7 +134,6 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 
 ### PF-TST-13
 
-
 - **Rule:** A hidden texture wrap seam is located by measuring the per-column difference between row 0 and row 255, not by theorising about the layout, because the metric already knows where the seam is.
 - **Pinned by:** none — the body names no test; it describes a measurement method for locating a texture seam.
 - **Source:** #309

@@ -200,7 +200,7 @@ bugs. **When many tests fail the same way, find the shared assumption before fix
 
 - **Rule:** The Tasks tab and dashboard list reminder tasks through `generate_actionable_for_surface` while the Gantt consumes `generate_for_date_window`, so neither the GUI nor the agent hides a task the other shows.
 - **Pinned by:** `tests/unit/test_task_windows_multi_anchor.py`
-- **Source:** none recorded
+- **Source:** #414
 - **Status:** pointer → [ADR: Addendum (#414 — one frost anchor per surface, and one date-window entry point)](../../09-architecture-decisions/README.md#addendum-414--one-frost-anchor-per-surface-and-one-date-window-entry-point)
 - **Legacy:** b1faaa9 README L1078
 
