@@ -42,8 +42,8 @@ clean worker shutdown on application exit, bounded furniture rendering cache, FR
 [#392](https://github.com/cofade/open-garden-planner/issues/392) remains open for
 packages A3–A4 and A6–A13.
 
-Phase 17's L0 investigation is complete with a **GO** decision, and L1 is under way: its first story, one shared simulation date and time for the sun, shadow, heatmap and 3D tools, shipped in v1.29.10 ([PR #429](https://github.com/cofade/open-garden-planner/pull/429)).
-The shipped 3D view still uses **Qt 3D**. Qt Quick 3D remains a dormant spike until L1 delivers the replacement.
+Phase 17's L0 investigation is complete with a **GO** decision, and L1 is complete: one shared simulation date and time for the sun, shadow, heatmap and 3D tools shipped in v1.29.10 ([PR #429](https://github.com/cofade/open-garden-planner/pull/429)), and the new 3D view shipped in [v1.30.14](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.14) via [PR #484](https://github.com/cofade/open-garden-planner/pull/484) after owner acceptance.
+The 3D view is now a Qt Quick 3D workspace beside the plan (Plan / 3D / Split), and the separate Qt 3D window is removed.
 
 Use the [latest release](https://github.com/cofade/open-garden-planner/releases/latest)
 for the current version. The [canonical roadmap](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md)

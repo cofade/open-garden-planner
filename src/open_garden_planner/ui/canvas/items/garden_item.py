@@ -213,6 +213,79 @@ def handle_selection_change_for_cache(
             enable_device_coordinate_cache(item)
 
 
+# ── The plan revision (ADR-060 decision 5; ``CanvasScene.note_plan_changed``) ──
+
+_CHANGE = QGraphicsItem.GraphicsItemChange
+#: What Qt tells an item AFTER the fact, and what makes it a different plan: where it
+#: is, how it is turned and scaled, whether it is shown, how it is stacked, whose child
+#: it is. (Position and transform notices need ``ItemSendsGeometryChanges``, which
+#: every garden item sets.) A selection, a hover, a flag, an opacity are not here: they
+#: repaint the canvas and leave the plan as it was.
+PLAN_CHANGES: frozenset[QGraphicsItem.GraphicsItemChange] = frozenset({
+    _CHANGE.ItemPositionHasChanged,
+    _CHANGE.ItemTransformHasChanged,
+    _CHANGE.ItemRotationHasChanged,
+    _CHANGE.ItemScaleHasChanged,
+    _CHANGE.ItemTransformOriginPointHasChanged,
+    _CHANGE.ItemVisibleHasChanged,
+    _CHANGE.ItemZValueHasChanged,
+    _CHANGE.ItemParentHasChanged,
+})
+#: Where an item keeps, between Qt's two visibility notices, whether it WAS visible.
+_VISIBLE_BEFORE = "_plan_visible_before_change"
+
+
+def note_plan_changed(scene: Any) -> None:
+    """Tell ``scene`` that its plan changed — if it is a scene that keeps a plan
+    revision (a plain ``QGraphicsScene``, or none at all, is told nothing)."""
+    note = getattr(scene, "note_plan_changed", None)
+    if note is not None:
+        note()
+
+
+def announce_plan_change(
+    item: QGraphicsItem, change: QGraphicsItem.GraphicsItemChange, value: Any
+) -> None:
+    """Move the scene's plan revision when ``change`` changed the plan.
+
+    An item that enters or leaves a scene is announced from ``ItemSceneChange`` —
+    the one notice in which Qt still knows BOTH scenes (``item.scene()`` is the old
+    one, ``value`` the new): each is told. Qt sends no notice for an item it
+    destroys with its scene; ``CanvasScene.clear()`` announces that itself.
+
+    "Shown" needs a second look. One turn of the event loop after an item was
+    added, Qt POLISHES it and tells it ``ItemVisibleChange`` / ``ItemVisibleHasChanged``
+    (true) although it was visible all along (``QGraphicsScene``'s ``_q_polishItems``)
+    — measured: every added item cost a second whole-plan pass, a turn late. Only the
+    pre-change notice can still say what the item WAS, so it is remembered there and
+    a "change" to what it was already is not announced.
+    """
+    if change == _CHANGE.ItemVisibleChange:
+        vars(item)[_VISIBLE_BEFORE] = item.isVisible()
+        return
+    if change == _CHANGE.ItemVisibleHasChanged and vars(item).pop(
+            _VISIBLE_BEFORE, None) is bool(value):
+        return  # Qt's polish: shown, and it was
+    if change in PLAN_CHANGES:
+        note_plan_changed(item.scene())
+    elif change == _CHANGE.ItemSceneChange:
+        note_plan_changed(item.scene())
+        note_plan_changed(value)
+
+
+def handle_item_change(
+    item: QGraphicsItem, change: QGraphicsItem.GraphicsItemChange, value: Any
+) -> None:
+    """THE hook every garden item's ``itemChange`` calls first, with what Qt gave it.
+
+    Two things no item may forget, in one place so that a new item type cannot
+    forget one of them: the paint cache follows the selection, and the scene's plan
+    revision moves when the plan changed (pinned by a census of ``ui/canvas/items``).
+    """
+    handle_selection_change_for_cache(item, change, value)
+    announce_plan_change(item, change, value)
+
+
 class GardenItemMixin:
     """Mixin providing common functionality for garden items.
 
@@ -321,6 +394,15 @@ class GardenItemMixin:
         if isinstance(self, QGraphicsItem):
             handle_selection_change_for_cache(self, change, value)
 
+    def handle_item_change(
+        self, change: QGraphicsItem.GraphicsItemChange, value: Any
+    ) -> None:
+        """What every garden item's ``itemChange`` does first (module function
+        ``handle_item_change``): the paint cache follows the selection, and the
+        scene's plan revision moves when the plan changed."""
+        if isinstance(self, QGraphicsItem):
+            handle_item_change(self, change, value)
+
     @property
     def item_id(self) -> uuid.UUID:
         """Unique identifier for this item."""
@@ -406,6 +488,17 @@ class GardenItemMixin:
     def stroke_style(self, value: StrokeStyle | None) -> None:
         """Set the stroke/outline style."""
         self._stroke_style = value
+
+    @property
+    def paints_sprite(self) -> bool:
+        """Whether the item's picture is a sprite and not its brush and pen.
+
+        False here; a furniture rectangle and a plant or furniture circle say
+        True. Such an item's pen says nothing about what is painted, so
+        ``core.item_look`` neither writes its stroke attributes from the pen
+        nor holds the two against each other.
+        """
+        return False
 
     @property
     def layer_id(self) -> uuid.UUID | None:

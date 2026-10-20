@@ -170,11 +170,49 @@ after ANY dependency change (see traps below).
 The smoke test proves the process **stays up**. It cannot see a subsystem that
 died silently behind an `except`, which is exactly how issue **#291** (the Agent
 API never started in any released exe) survived six releases, and how **#277** (a
-`Qt6Core`/Qt3D micro mismatch) shipped a crash — Qt3D is imported lazily, so
-startup and the 8 s smoke both passed. `main.py --selftest` closes both: it
-imports all six Qt3D bindings, asserts `qVersion()` matches the `PyQt6-3D-Qt6`
-wheel version, then binds an ephemeral port and starts a real `AgentApiServer`
-with poisoned providers, asserting `is_running`.
+micro mismatch between the core Qt runtime and the old 3D view's Qt 3D wheels) shipped
+a crash — that view was imported lazily, so startup and the 8 s smoke both passed.
+`main.py --selftest` binds an ephemeral port and starts a real `AgentApiServer` with
+poisoned providers, asserting `is_running`, and runs the A1 checks. (Until Phase 17
+L1.10 it also imported the six Qt 3D bindings and compared the runtime with their
+wheel's micro; that view and its two wheels are gone, and the two remaining Qt pins
+are guarded by `tests/unit/test_qt_runtime_pins.py`.)
+
+Since Phase 17 L1.2 it **renders**: the Qt Quick 3D engine package
+(`ui/view3d/quick3d/`) is lazily loaded too, and its scene is QML and shader
+*files* in the bundle. `--selftest` loads them from the bundle, draws one
+hidden 160 × 120 frame with every material kind and checks the pixels
+(`ui/view3d/quick3d/selftest.py`). It needs no GPU — Direct3D 11 on WARP will
+do, which is what the release runner has. **It cannot hang:** ONE watchdog
+bounds the whole self-test — all three blocks, not only the render — and after
+300 s writes the reason and every thread's stack into the log and exits with
+code 1 (`main._run_selftest_bounded`). That exit was measured NOT to end a
+Windows process deadlocked inside Qt, so the watchdog is supervised: the exe
+starts itself a second time (`--selftest-supervisor`), and that process
+terminates the first at 310 s, exit code 1. Four things to know when it fails:
+
+- The exit code cannot say which check failed; the self-test writes a log to
+  `%APPDATA%\cofade\Open Garden Planner\OpenGardenPlanner-selftest-3d.log`
+  (beside `app.log`), or to the path in `OGP_SELFTEST_LOG`. It names the
+  graphics adapter that rendered, every 3D check, and ends with
+  `[selftest_exit] code=…`. A log whose 3D part passed and whose exit code is
+  1 points at the first two blocks.
+- `[watchdog] fired=True … did not finish within 300 s`, then `Timeout` and
+  stack traces: a hang. The frame at the top of the main thread's stack is
+  where.
+- `[supervisor] fired=True … terminated from outside`: the process survived
+  its own watchdog — a deadlock inside Qt; the stack dump above that line
+  shows the threads waiting for each other. (`[watchdog] armed=True …
+  supervisor=process <pid>` only says the second process was started.)
+- Under `QT_QPA_PLATFORM=offscreen` nothing renders 3D, so the 3D block
+  FAILS there by design (`RenderError: Qt Quick runs on the Software backend`).
+  Run `--selftest` with the real platform. To check the GPU-less path locally,
+  set `QSG_RHI_PREFER_SOFTWARE_RENDERER=1` (the log then says
+  `Microsoft Basic Render Driver`).
+
+Measured 2026-10-11 (three runs each, the whole `--selftest`): frozen exe
+3.0–4.1 s on an RTX 4070 and 3.0–3.1 s on WARP on a quiet machine; 6.1–7.2 s on either
+while other test suites were running.
 
 ```bash
 powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanner.exe" -ArgumentList "--selftest" -Wait -PassThru; exit $p.ExitCode'
@@ -207,7 +245,17 @@ child exiting 3 propagates 3).
    state the claim without the no-inherited-handle condition).
 
 `release.yml` runs `--selftest` against the built exe, but only *after* merge.
-Running it locally is what makes it a merge gate rather than a post-mortem.
+`frozen-selftest.yml` (Phase 17 L1.2) builds the bundle with the release recipe
+— `python installer/build_installer.py --skip-nsis` — and runs the smoke and
+the self-test on every pull request that changes shipped code
+(`src/open_garden_planner/**`), the installer, the dependency files or the gate
+workflows; it is path-filtered and not a required check. Two things about that
+bundle: built without `--version` it calls itself v1.0.0 (the script's
+default), so during the smoke its update check finds a newer release and shows
+the update bar — the app has no switch for that check, and the verdict does not
+depend on it; and the smoke also passes a process that is blocked in an error
+dialog — the self-test is the gate. Running the gate locally is still what
+makes it a merge gate rather than a post-mortem.
 
 ### Known build traps (all encoded in `installer/ogp.spec`; verified 2026-07-04)
 
@@ -220,6 +268,7 @@ Running it locally is what makes it a merge gate rather than a post-mortem.
 | PyQt6-WebEngine pin | `PyQt6-WebEngine>=6.10.0,<6.11` in `pyproject.toml` | Pinned below 6.11 (satellite map picker uses QWebEngineView); do not bump casually |
 | mcp major pin | `mcp>=1.23,<2.0` | mcp v2 renames `FastMCP` → `MCPServer` (pyproject comment); `structured_output=False` behavior verified against mcp 1.28.1 |
 | Any new dependency | Re-run the exe build + `timeout 8` smoke **and `--selftest`** BEFORE merge | Frozen imports diverge from dev imports, and the smoke alone cannot see a subsystem that died silently (#291, #277) — see the `--selftest` section above (AGENTS.md Quick Reference) |
+| A dependency REMOVED from the lock | Re-sync the venv (`uv sync --locked …`, the from-scratch checklist) before building locally | Removing a pin does not uninstall its wheel; PyInstaller's Qt hooks collect the QML modules (and the DLLs their plugins need) of every Qt wheel installed. Measured in Phase 17 L1.10: a dev-venv build after dropping the old 3D view's runtime wheel still carried its eleven DLLs and its QML module; a locked-env build did not (ADR-048 closing addendum, §11.4.20) |
 | WebEngine import order | `PyQt6.QtWebEngineCore/Widgets/WebChannel` are explicit hiddenimports; the import must run before `QApplication` is created (handled in `main.py`) | Spec comment |
 
 ## Building the NSIS installer

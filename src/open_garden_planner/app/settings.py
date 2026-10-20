@@ -5,6 +5,8 @@ Provides persistent storage for user preferences using QSettings, and owns
 is constructed (issue #285, ADR-041).
 """
 
+import json
+import math
 import os
 import stat
 import sys
@@ -83,6 +85,18 @@ def create_qsettings() -> QSettings:
     return settings
 
 
+def _finite_float(value: object) -> float | None:
+    """``value`` as a finite float, or None: no bool, no string, no NaN / infinity, and
+    no integer too large for a float (``float`` raises ``OverflowError`` on it)."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    try:
+        number = float(value)
+    except OverflowError:
+        return None
+    return number if math.isfinite(number) else None
+
+
 class AppSettings:
     """Manages application settings using Qt's QSettings.
 
@@ -142,6 +156,12 @@ class AppSettings:
     KEY_DOWNLOAD_PLANT_IMAGES = "plants/download_images"
     KEY_FETCH_COMPANION_DATA = "plants/fetch_companion_data"
 
+    # 3D view (Phase 17 L1.4): rendering quality and the animation policy
+    KEY_VIEW3D_QUALITY = "view3d/quality"
+    KEY_VIEW3D_REDUCED_MOTION = "view3d/reduced_motion"
+    KEY_VIEW3D_AUTO_LEVEL = "view3d/auto_quality_level"
+    KEY_VIEW3D_AUTO_BARS = "view3d/auto_quality_bars"
+
     # Default values
     DEFAULT_AUTOSAVE_ENABLED = True
     DEFAULT_SHOW_WELCOME = True
@@ -195,6 +215,20 @@ class AppSettings:
     # Plant data (US-G2, issue #317)
     DEFAULT_DOWNLOAD_PLANT_IMAGES = True
     DEFAULT_FETCH_COMPANION_DATA = True
+
+    # 3D view (Phase 17 L1.4, ADR-059 addendum). The two tuples ARE
+    # ``core.scene3d.look.QUALITY_CHOICES`` / ``AUTO_LEVELS`` — written out here so
+    # that reading a setting does not import the 3D core at app start; a unit test
+    # pins them against it.
+    VIEW3D_QUALITY_CHOICES = ("auto", "low", "medium", "high", "ultra")
+    VIEW3D_AUTO_LEVELS = ("low", "medium", "high")
+    # "auto": the app picks low / medium / high from the frame rate it measures.
+    DEFAULT_VIEW3D_QUALITY = "auto"
+    # Wind sways leaves and grass unless the user asks for a still view.
+    DEFAULT_VIEW3D_REDUCED_MOTION = False
+    # Where "auto" starts before it has measured anything on this machine: the
+    # preset budgeted for an integrated GPU. Afterwards it starts where it ended.
+    DEFAULT_VIEW3D_AUTO_LEVEL = "medium"
 
     def __init__(self) -> None:
         """Initialize the settings manager."""
@@ -748,6 +782,91 @@ class AppSettings:
         token = secrets.token_urlsafe(32)
         self._settings.setValue(self.KEY_AGENT_API_TOKEN, token)
         return token
+
+    @property
+    def view3d_quality(self) -> str:
+        """Rendering quality of the 3D view: ``auto`` or a preset name (L1.4).
+
+        Anything else in the store (a hand-edited value, a preset a later version
+        dropped) reads as the default — a quality nobody can name must not reach
+        the renderer.
+        """
+        value = self._settings.value(self.KEY_VIEW3D_QUALITY, self.DEFAULT_VIEW3D_QUALITY, type=str)
+        text = str(value).strip().lower()
+        return text if text in self.VIEW3D_QUALITY_CHOICES else self.DEFAULT_VIEW3D_QUALITY
+
+    @view3d_quality.setter
+    def view3d_quality(self, value: str) -> None:
+        text = str(value).strip().lower()
+        if text not in self.VIEW3D_QUALITY_CHOICES:
+            text = self.DEFAULT_VIEW3D_QUALITY
+        self._settings.setValue(self.KEY_VIEW3D_QUALITY, text)
+
+    @property
+    def view3d_reduced_motion(self) -> bool:
+        """Whether the 3D view stands still: no wind in leaves and grass (default off)."""
+        return bool(self._settings.value(
+            self.KEY_VIEW3D_REDUCED_MOTION,
+            self.DEFAULT_VIEW3D_REDUCED_MOTION,
+            type=bool,
+        ))
+
+    @view3d_reduced_motion.setter
+    def view3d_reduced_motion(self, value: bool) -> None:
+        self._settings.setValue(self.KEY_VIEW3D_REDUCED_MOTION, bool(value))
+
+    @property
+    def view3d_auto_level(self) -> str:
+        """The preset the automatic quality last settled on — where it starts next time.
+
+        Not a preference with a control: the app writes it when ``auto`` steps.
+        """
+        value = self._settings.value(
+            self.KEY_VIEW3D_AUTO_LEVEL, self.DEFAULT_VIEW3D_AUTO_LEVEL, type=str)
+        text = str(value).strip().lower()
+        return text if text in self.VIEW3D_AUTO_LEVELS else self.DEFAULT_VIEW3D_AUTO_LEVEL
+
+    @view3d_auto_level.setter
+    def view3d_auto_level(self, value: str) -> None:
+        text = str(value).strip().lower()
+        if text not in self.VIEW3D_AUTO_LEVELS:
+            text = self.DEFAULT_VIEW3D_AUTO_LEVEL
+        self._settings.setValue(self.KEY_VIEW3D_AUTO_LEVEL, text)
+
+    @property
+    def view3d_auto_bars(self) -> dict[str, tuple[float, float]]:
+        """The levels the automatic quality had to leave for being too slow, each with
+        when it may be tried again (seconds since the epoch) and how long its next bar
+        lasts — ``{level: (until, next_retry_s)}``. Stored as JSON; anything that is not
+        a level with two finite numbers is dropped — also an integer too large for a
+        float, on which ``math.isfinite`` raises (re-check of L1.4 fix round 1) — so a
+        hand-edited store only ever loses a bar. How far ahead a bar may reach is the
+        reader's to cap (``AutoPreset`` clamps it to its longest retry).
+
+        Not a preference with a control: the app writes it when ``auto`` steps."""
+        raw = self._settings.value(self.KEY_VIEW3D_AUTO_BARS, "", type=str)
+        try:
+            data = json.loads(raw) if raw else {}
+        except (TypeError, ValueError):
+            return {}
+        bars: dict[str, tuple[float, float]] = {}
+        if not isinstance(data, dict):
+            return bars
+        for level, value in data.items():
+            if not (level in self.VIEW3D_AUTO_LEVELS and isinstance(value, list)
+                    and len(value) == 2):
+                continue
+            numbers = [_finite_float(v) for v in value]
+            if numbers[0] is not None and numbers[1] is not None:
+                bars[level] = (numbers[0], numbers[1])
+        return bars
+
+    @view3d_auto_bars.setter
+    def view3d_auto_bars(self, bars: dict[str, tuple[float, float]]) -> None:
+        clean = {level: [float(until), float(retry)] for level, (until, retry) in bars.items()
+                 if level in self.VIEW3D_AUTO_LEVELS
+                 and math.isfinite(until) and math.isfinite(retry)}
+        self._settings.setValue(self.KEY_VIEW3D_AUTO_BARS, json.dumps(clean, sort_keys=True))
 
     def sync(self) -> None:
         """Force settings to be written to storage."""

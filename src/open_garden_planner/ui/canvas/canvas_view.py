@@ -311,7 +311,8 @@ class CanvasView(QGraphicsView):
 
         # Command manager for undo/redo
         self._command_manager = CommandManager(self)
-        self._canvas_scene._command_manager = self._command_manager
+        # the scene's plan revision moves with every executed / undone / redone command
+        self._canvas_scene.set_command_manager(self._command_manager)
 
         # Update dimension lines after any command (constraint add/remove, item move, etc.)
         self._command_manager.command_executed.connect(
@@ -3909,6 +3910,7 @@ class CanvasView(QGraphicsView):
         """Re-evaluate parent-child links for all selected plants after a move."""
         from open_garden_planner.core.commands import SetParentBedCommand
         from open_garden_planner.core.plant_renderer import is_plant_type
+        from open_garden_planner.ui.canvas.footprints import bed_membership_point
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
         for item in self.scene().selectedItems():
@@ -3917,7 +3919,7 @@ class CanvasView(QGraphicsView):
             if not is_plant_type(item.object_type):
                 continue
 
-            plant_center = item.mapToScene(item.boundingRect().center())
+            plant_center = bed_membership_point(item)
             current_parent_id = item.parent_bed_id
 
             new_bed = self._canvas_scene.find_smallest_bed_containing(plant_center)

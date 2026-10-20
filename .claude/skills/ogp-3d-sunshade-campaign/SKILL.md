@@ -3,7 +3,7 @@ name: ogp-3d-sunshade-campaign
 description: >
   Reference pack for Open Garden Planner's SHIPPED 3D + sun/shade subsystems
   (Phase 14, v1.24.5 – v1.24.12 — complete; epic #255 closed). Load this skill
-  when MAINTAINING or debugging any of it: 3D view, Qt3D usage, sun path or
+  when MAINTAINING or debugging any of it: 3D view history (Qt 3D, retired), sun path or
   solar position math, shadow projection/casting, shade or hours-of-sun
   heatmaps, object height property, seasonal/time-of-day sun animation,
   first-person walkthrough, or growth visualization. It is a reference, NOT a
@@ -29,11 +29,22 @@ description: >
 > (art direction and truth gates). The solar math, shadow geometry and Y-axis discipline
 > in this skill stay authoritative for both renderers.
 >
+> **The new view is the product since Phase 17 L1.9 (#385).** View → Sun & 3D → "3D View"
+> shows the 3D pane of the main window's Plan / 3D / Split workspace (ADR-060, docs/08
+> §8.29). **L1.10 deleted the Qt 3D viewer window of US-E6/E7** — its adapter, the window,
+> `core/scene3d/legacy.py`, `core/walk_camera.py`, the L0 spike and the two Qt 3D wheels.
+> What FR-SUN-06 / 07 / 08 promised and what the new view does instead is the parity
+> table of §8.29.9. Debug the 3D view with `ogp-3d-renderer`, not with this skill. Below,
+> every mention of Qt 3D, its window or its modules is the Phase 14 campaign's history.
+> (`tests/unit/test_no_qt3d_left.py` lists this file among the history documents.)
+>
 > **Every "TO BUILD" marker below is now STALE — that code EXISTS.** Do not
 > re-implement it. `core/solar.py`, `core/object_height.py`, `core/shadow_geometry.py`,
-> `core/shade_aggregation.py`, `core/heatmap_render.py`, `core/scene3d.py`,
-> `core/walk_camera.py`, `core/growth_model.py`, `ui/view3d/` and
-> `ui/canvas/sun_heatmap.py` are all shipped and gated by tests.
+> `core/shade_aggregation.py`, `core/heatmap_render.py`, `core/growth_model.py` and
+> `ui/canvas/sun_heatmap.py` are shipped and gated by tests. `core/scene3d/` (a package
+> since Phase 17 L1.1; the pre-L1.1 `legacy.py` module left with L1.10), `core/scene3d/walk.py`
+> (which replaced `core/walk_camera.py` in L1.8) and `ui/view3d/` are Phase 17's — see
+> `ogp-3d-renderer`.
 >
 > **This skill is now a REFERENCE, not a runbook.** What stays valid and load-bearing:
 > the NOAA/Meeus solar formulas with their pinned reference numbers, the
@@ -46,6 +57,27 @@ description: >
 > prominent enough to carry a major-version claim). Read "v2.0" as "Phase 14" — the
 > scope exclusions it labels (flat ground, no terrain slopes, geometric sun elevation)
 > are all still real.
+>
+> **A caster has a base since Phase 17 L1.6 (ADR-037 addendum "base stacking").**
+> The shared caster is `core/shadow_geometry.ShadowCaster(footprint, height_cm, base_cm)`:
+> a plant that is LINKED to a raised bed or container (`parent_bed_id`) AND whose centre
+> lies inside it casts from that parent's soil (`ui/canvas/footprints.item_base_cm` →
+> `core/object_height.standing_base_cm`: 2 cm under a bed's rim — an assumption — and AT a
+> container's height, which is its soil fill height), so its shadow starts, and its tip
+> lies, `base / tan α` further from the sun. The link alone never lifts: the app does not
+> keep it geometric (a bed resized away from its plant keeps the link). "Centre" is the
+> plant's stable geometric centre (`footprints.standing_point`), NOT the centre of its
+> `boundingRect()` — that one moves by up to 1.8 cm along each axis (about 2.5 cm
+> diagonally) while the antagonist badge shows, and
+> it stays the link decisions' point (`bed_membership_point`), exactly as shipped. Where the text
+> below says `(polygon, height)`, read `ShadowCaster`; the shadow functions take a
+> `ShadowCaster` or an exact `(footprint, height)` pair and raise `TypeError` for anything
+> else. A caster on the ground runs the Phase 14 code unchanged — proven on every platform
+> against the released v1.29.10 module kept as an oracle
+> (`tests/unit/test_shadow_caster_base.py::TestTheGroundPathIsTheReleasedCode`); the golden
+> `tests/integration/test_shadow_caster_golden.py` pins the absolute numbers, bit for bit
+> on win32 only, to 2e-3 cm on Linux. §8.20 has the worked example, the ADR the known
+> limits (a bed drawn round a plant, a trellis in a raised bed, a pot on a bed).
 
 **Status of the inventory below (2026-07-04):** Everything under "EXISTS (verified)"
 was read from the repo at v1.23.0 (post-US-D1.3). Items marked **TO BUILD** were
@@ -116,14 +148,14 @@ You are NOT starting from zero. These assets exist and were read from source:
 | cm-calibrated Y-up model | ADR-002; `docs/08-crosscutting-concepts/README.md` §8.1 (+y = North/up, origin bottom-left). §8.10's "Qt scene is Y-down / `scene_to_canvas`" is the abstract-Qt wording — see `ogp-qt-cad-reference` §1 (owner) for why the data path treats scene as Y-up | A ready ground plane: 1 scene unit = 1 cm, +y(scene) = North. The Y-flip is the #1 trap — see Phase 3. |
 | Polygon booleans | `pyclipper>=1.3.0` (`pyproject.toml:47`), used with an integer scale factor in `core/tools/offset_tool.py` (line 22, `PyclipperOffset`). Separately `core/shape_boolean.py` = **QPainterPath-based** union/intersect/subtract (Qt-DEPENDENT, not pyclipper) | Shadow-polygon union. For the Qt-free core, use `pyclipper` (offset_tool precedent). `shape_boolean.py` is fine only in the Qt overlay layer. |
 | numpy | pyproject dependency (`numpy>=1.24`) | Heatmap accumulation without a new dependency. |
-| Layers system | `models/layer.py` (`Layer`), `ui/canvas/canvas_scene.py:649` `layers`, `ui/panels/layers_panel.py`; all layer ops undoable (#207/#208) | Home for a non-serialized "Sun/Shade" overlay layer; per-layer visibility already respected by render pipeline. |
+| Layers system | `models/layer.py` (`Layer`), `ui/canvas/canvas_scene.py:694` `layers`, `ui/panels/layers_panel.py`; all layer ops undoable (#207/#208) | Home for a non-serialized "Sun/Shade" overlay layer; per-layer visibility already respected by render pipeline. |
 | Render/export pipeline | `services/scene_rendering.py` `render_scene_region()` (line 132, `y_flip=True` default); Agent API `render_canvas_image` (`agent_api/render.py` line 120, `px_per_cm = width_px / source_rect.width()` line 146). Pixel formula (§8.19; canonical statement: `ogp-qt-cad-reference` §1): `px_x = (x_cm − region_x_cm)·px_per_cm`; `px_y = image_height_px − (y_cm − region_y_cm)·px_per_cm` | **Machine-checkable visual validation**: render the canvas, compute where a shadow tip must land in pixels, assert on actual pixels. Use it — never eyeball. |
 | Weather/climate services + async precedent | `services/weather_service.py` (stdlib urllib, 3 h disk cache), `services/climate_service.py`; QThread workers: `ui/widgets/weather_widget.py::_WeatherFetchWorker` (line 33), `services/update_checker.py::UpdateChecker` (line 98) | The blessed off-GUI-thread pattern for Phase 4 heatmap computation. |
 | Species height data | `src/open_garden_planner/resources/data/plant_species.json` — top key `plants`, **118 records, 118/118 have `max_height_cm`** (plus `min_height_cm`, `max_spread_cm`). Model: `models/plant_data.py` `min/max_height_cm` (lines 96–97), `current_height_cm` (line 313) | Default plant heights for shadows AND the growth-over-time slice (min→max interpolation). |
 | Additive item metadata | `garden_item.py` `_metadata` dict (line 202), `set_metadata`/`get_metadata` (line 739+); `project.py` serializes `item.metadata` wholesale (lines ~1400/1444/1475). Precedent: `core/container_model.py` documents additive `container_*` keys incl. **`container_height_cm`** (default 30) — Qt-free, mirrors `core/plant_sizing` | New `object_height_cm` key round-trips with ZERO serializer changes and old apps ignore it. **No FILE_VERSION bump** (currently `"1.4"`, `core/project.py` line 35 — bump only for new item *types*). |
 | Undo machinery | `core/commands.py:544` `ChangePropertyCommand` (takes `apply_func` — works for metadata keys); two-chokepoint invariant `execute()`/`register_applied()` (#209); `stack_changed` signal for panel refresh (#223) | Height edits become one undoable command. NOTE: the existing container section mutates `meta[...]` directly (NOT undoable) — that is debt, not a precedent to copy. |
 | `ObjectType` inventory | `core/object_types.py` line 148+: `FENCE`, `WALL` (polyline), `HOUSE`, `GARAGE_SHED`, `GREENHOUSE`, `HEDGE_*`, `TREE`/`SHRUB`/`PERENNIAL` (circle), `TRELLIS`, containers, furniture | The height-default table in Phase 2 keys off these. |
-| Decorative shadows toggle | `app/settings.py:101` `KEY_SHOW_SHADOWS` → `application.py` `_on_toggle_shadows` (~line 2628) → `canvas_scene.set_shadows_enabled` (line 154) → per-item painted drop shadow (`garden_item.py` lines 211/718) | **Cosmetic only.** Phase 14 must NOT reuse this key or its menu item; rename risk is a UX decision — see Phase 3 step 5. |
+| Decorative shadows toggle | `app/settings.py:131` `KEY_SHOW_SHADOWS` → `application.py` `_on_toggle_shadows` (~line 2628) → `canvas_scene.set_shadows_enabled` (line 154) → per-item painted drop shadow (`garden_item.py` lines 211/718) | **Cosmetic only.** Phase 14 must NOT reuse this key or its menu item; rename risk is a UX decision — see Phase 3 step 5. |
 | Roadmap + open question | `docs/roadmap.md` line 2447 "Phase 14: 3D Visualization & Sun/Shade (Future, v2.0)" (Qt3D integration, object heights, sun path sim, walkthrough, growth vis); `docs/11-risks-and-technical-debt/README.md` line 10: "Qt6 3D capabilities vs dedicated engine? Prototype with Qt3D, evaluate PyVista" | The scope contract and the mandated Phase 5 spike. |
 | License | `pyproject.toml` line 10: **GPL-3.0-or-later** | Any new dep must be GPL-compatible (Phase 5 table). |
 | ADR home | `docs/09-architecture-decisions/README.md` — single file, ADR-001…ADR-036 (as of v1.24.3). **Next free number: ADR-037** | Where the solar-architecture (ADR-037) and 3D-engine (ADR-038) ADRs go. |
@@ -728,7 +760,7 @@ other facts held). One-line re-verification commands (run from repo root):
 
 Shipped on 12 October 2026 in v1.30.1 (PR #436), after owner acceptance and protected merge.
 
-US-F3 (#314) adds sparse receiver exposure alongside the unchanged explicit ground heatmap. The one identified caster collector supplies both anonymous legacy inputs and owned footprints; per-owner integer unions feed vectorized even-odd point coverage. Exclude only the receiving UUID, not all plants. Receiver centres use base geometry through mapToScene; row zero stays south. Estimates are ground-level direct sun, not leaf-height/translucent-canopy measurements.
+US-F3 (#314) adds sparse receiver exposure alongside the unchanged explicit ground heatmap. The one identified caster collector supplies both anonymous legacy inputs and owned footprints; per-owner integer unions feed vectorized even-odd point coverage. Exclude the receiving UUID and — for a plant that stands in a soil parent with a height (a raised bed, a container: `SunReceiver.stands_on`, from `ui/canvas/footprints.standing_parent`) — that parent, not all plants: v1.30.1 excluded only the plant itself, and every plant in a raised bed read 0 hours (measured: a tomato in a 40 cm bed in the open, Berlin, 21 June, 0.0 h and a warning; 16.5 h since the L1 merge). Every caster is swept from where it stands (`IdentifiedCaster.base_cm`, `GroupedCaster`), in the grid and in the estimates alike. Receiver centres use base geometry through mapToScene; row zero stays south. Estimates are ground-level direct sun, not leaf-height/translucent-canopy measurements.
 
 Use SimClock.plan_date and the opt-in 21 June shortcut. Geometry/date/location/bounds/document changes invalidate runtime exposure; time-only changes preserve it and requirement-only edits reclassify. Neither diagnostics, canopy selection nor MCP reads compute. Known unavailable sun requirements emit info sun_evaluation; do not equate no mismatch with evaluated success. Mature canopy membership uses recorded max_spread_cm/2, not spacing overrides or guild membership.
 

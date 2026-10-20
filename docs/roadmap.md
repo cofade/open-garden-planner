@@ -21,7 +21,7 @@
 | **14** | **v1.24.5 – v1.24.12** | **✅ Complete** ([epic #255](https://github.com/cofade/open-garden-planner/issues/255); no v2.0 bump — see the Phase 14 section) | **3D Visualization & Sun/Shade** |
 | **15** | **v1.25.0 – v1.27.0** | **✅ Complete** (Packages 1–3; epic [#284](https://github.com/cofade/open-garden-planner/issues/284)) | **Visual Refresh** |
 | 16 | — | Future | Platform & Community |
-| 17 | — | In progress (L0 ✅ **GO** — ADR-048, 2026-10-05; L1.0 ✅ v1.29.10, L1.1 next; epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) | Living Garden 3D |
+| 17 | — | In progress (L0 ✅ **GO** — ADR-048, 2026-10-05; L1 ✅ v1.29.10 + v1.30.14, L2 next; epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) | Living Garden 3D |
 
 ---
 
@@ -2714,16 +2714,16 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 
 ---
 
-## Phase 17: Living Garden 3D (epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) — L0 complete (GO), L1 in progress
+## Phase 17: Living Garden 3D (epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) — L0 complete (GO), L1 complete
 
-**Current product**: the shipped 3D view still uses **Qt 3D**. The Qt Quick 3D implementation remains a dormant `--spike-q3d` spike until L1 delivers the production replacement. L0 is complete with a GO, and L1.0 (one simulation clock) shipped in v1.29.10 — neither is a shipped renderer switch; that is L1.9.
+**Current product (since v1.30.14, [PR #484](https://github.com/cofade/open-garden-planner/pull/484))**: the 3D view is the Qt Quick 3D workspace in the main window — View → Sun & 3D → "3D View" shows it beside the plan (Plan / 3D / Split, Alt+1 / 2 / 3); it follows every edit, casts shadow-map shadows checked against the 2D ones, selects in both directions and walks with collision. The Qt 3D viewer window of US-E6 / E7, unreachable since L1.9, was deleted in L1.10 with its two `PyQt6-3D*` pins, the pre-L1.1 scene module and the L0 spike (its values frozen in `tests/data/l0_spike_reference.json`). The workspace also paints the plan's flat surfaces onto its ground (L1.5). What FR-SUN-06 / 07 / 08 promised and what the new view does is §8.29.9's parity table; the owner shipped the default with #532 open (ADR-060 addendum D5). v1.30.13 was the last release with the Qt 3D window. L0 is complete with a GO; L1.0 (one simulation clock) shipped in v1.29.10 and L1.1–L1.10 in v1.30.14.
 
 **Goal**: make the 3D mode the reason to open the app — *Lush Cinematic* look, experience + analyze (editing stays in 2D, 3D only selects), 100 % procedural models, and **truth before beauty** (heights, spreads, sun, shadows, date and north gated against the data). Owner decisions 2026-10-03. Renderer: Qt Quick 3D replacing the deprecated Qt 3D, decided by the ADR-048 GO/NO-GO spike. Every 3D-visible change goes `ogp-3d-creator` → `ogp-3d-reviewer` → `senior-reviewer` (skills `ogp-lush-cinematic`, `ogp-3d-renderer`).
 
 | Status | Package | Description | Issue |
 | ------ | ------- | ----------- | ----- |
 | ✅ | L0 | **Proof of Beauty** — ADR-048 criteria committed before measuring; deterministic bench plans; dormant `--spike-q3d` renderer with sky, soft shadows, procedural trees/plants/roofs/fences; measurements M1–M12 in the container and the frozen Windows exe; Beauty Board; agents + skills. **GO 2026-10-05 (owner GPU run in ADR-048 entry 19); evidence tooling deleted.** | [#384](https://github.com/cofade/open-garden-planner/issues/384) |
-| 🔄 | L1 | **New engine, new light** — sim clock, scene contract v2, engine package, Plan/3D/Split workspace without camera resets, sky + presets, ground bake, built world v0, plant v0, selection sync + walk collision, default flip, Qt 3D removal. **L1.0 ✅ sim clock shipped v1.29.10 ([PR #429](https://github.com/cofade/open-garden-planner/pull/429))** — see below; L1.1 next | [#385](https://github.com/cofade/open-garden-planner/issues/385) |
+| ✅ | L1 | **New engine, new light** — sim clock, scene contract v2, engine package, Plan/3D/Split workspace without camera resets, sky + presets, ground bake, built world v0, plant v0, selection sync + walk collision, default flip, Qt 3D removal. **L1.0 ✅ sim clock shipped v1.29.10 ([PR #429](https://github.com/cofade/open-garden-planner/pull/429)); L1.1–L1.10 ✅ shipped v1.30.14 ([PR #484](https://github.com/cofade/open-garden-planner/pull/484))** — see below | [#385](https://github.com/cofade/open-garden-planner/issues/385) |
 | 📋 | L2 | **Analyze in 3D** — shadow and sun-hours drapes, sun path + day sweep, info card + growth jump, cutaway | [#386](https://github.com/cofade/open-garden-planner/issues/386) |
 | 📋 | L3 | **Plant Forge** — procedural species models from the sprite recipes, LODs, phenology | [#387](https://github.com/cofade/open-garden-planner/issues/387) |
 | 📋 | L4 | **Built world complete** — roof styles, paths, glass, 24 object builders, water and lawn | [#388](https://github.com/cofade/open-garden-planner/issues/388) |
@@ -2739,7 +2739,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
   - shadows and 3D grew plants for the instant's UTC date, while the heatmap used the local date;
   - a date change while the heatmap computed, or after the worker returned with its result still queued, let the old day's map paint (and a second launch in that queued window could abort the process — unreachable from the busy button, now refused);
   - the date picker allowed years that Windows' system-zone conversion cannot handle (now 1971–2999).
-- No `.ogp` change and no new UI strings. The plan for the other ten stories is outlined in the #385 issue table; each ships as its own branch and draft PR.
+- No `.ogp` change and no new UI strings. The plan for the other ten stories is outlined in the #385 issue table; they were built on story branches and shipped together in PR #484 (v1.30.14).
 
 ### L1.0 docs updated on completion
 
@@ -2754,6 +2754,16 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | `docs/11-risks-and-technical-debt/` | §11.4.7 |
 | `docs/12-glossary/` | Plan date, Sim clock |
 | `CLAUDE.md` / `AGENTS.md` | Phase 17 pickup note |
+
+### L1.1–L1.10 — the new 3D view (#385, ADR-059, ADR-060) — **shipped v1.30.14, [PR #484](https://github.com/cofade/open-garden-planner/pull/484)**
+
+- **The 3D view is a Plan / 3D / Split workspace in the main window**, rendered with Qt Quick 3D (View → Sun & 3D → "3D View" opens Split; Alt+1 / 2 / 3). The Qt 3D viewer window, `core/scene3d/legacy.py`, `core/walk_camera.py`, the L0 spike and both `PyQt6-3D*` wheels are deleted, and `tests/unit/test_no_qt3d_left.py` keeps them out.
+- **One story each:** L1.1 scene contract v2 (`core/scene3d/`); L1.2 the engine package (`ui/view3d/quick3d/`, CI `Render 3D` on Windows WARP and Linux); L1.3 the workspace (lazy engine, crash marker and software fallback); L1.4 looks and sky (presets with Automatic, twilight, wind, reduced motion); L1.5 the ground bake (the plan's flat surfaces painted onto the ground, matching 2D pixel for pixel); L1.6 the built world; L1.7 plant silhouettes (`core/plant_art/`); L1.8 selection sync, the info card and walk collision; L1.9 the default flip with throttled date playback (§8.29.9 holds the FR-SUN-06 / 07 / 08 parity table and the measured budgets); L1.10 the removal.
+- **Fixed on the way:** defects of the released app #438, #439, #441, #467, #468, #469, #478, #479, #523, #527; the test suite and developer scripts writing into the developer's real profile, #442; and two found in the new view before it shipped, #476 (a Qt Quick 3D texture trap) and #529 (picket moiré at Low).
+- **Owner acceptance, 2026-10-19:** the 36-step manual checklist passed, and the seven decisions put at the pull request were all kept as built — the twilight fade, the noon horizon's lime band, 4× MSAA at Low, the flat sky in compatibility mode, `master`'s rule for a loaded sprite's stated stroke, the new view's cost over the old window (no lighter default preset), and the default shipped with Qt 6.11's ground-texture leak #532 open (ADR-060 addendum D5).
+- **Known limitations, filed:** #531 and #532, and the `priority: high` follow-ups #534–#542 (wind memory, the look on a software-only adapter, a render-test flake, removal leftovers, a local build's contents, "3D View" from tabs other than Garden Plan, CI coverage of the default workspace, an untranslated shortcut name, the date-playback throttle).
+- **Docs:** ADR-059 and ADR-060 with their addenda, ADR-048's closing addendum, §8.29, §8.10.5–8.10.13, §11.4.12–11.4.20, FR-SUN-06 / 07 / 08, FR-SUN-11, FR-33, the FR-3D-* requirements and the glossary's scene terms (Scene record, Scene diff, Engine sink, …).
+
 ---
 
 ## Task-date correctness + audit P1 cluster — **shipped v1.29.5** (PR [#419](https://github.com/cofade/open-garden-planner/pull/419))
@@ -3020,7 +3030,7 @@ colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see §11.4
 - **#470 (Offset copy keeps its look)**: the offset tool made a rectangle, circle or ellipse copy
   in its object type's default fill, pattern and stroke. One seam, `core/item_look.py::
   copy_visual_style`, now copies both the serialized attributes and the pen/brush, and is shared
-  with `mirror_geometry` (chamfer/fillet/trim stay with #441 on the L1 branch). Pinned in
+  with `mirror_geometry` (chamfer/fillet/trim stayed with #441 on the L1 branch, shipped in v1.30.14). Pinned in
   `tests/integration/test_offset_tool.py`.
 - **#473 (Line paint in the budgets)**: the NFR-PERF-01 reference plan held no polyline, so the
   three budget scenarios could not see a slower line paint. A second scenario adds plain fences
@@ -3085,7 +3095,7 @@ colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see §11.4
 
 ### US-F4 plan timeline (#315) — implementation pending owner acceptance
 
-ADR-059 and FR-33 define a month scrubber/Today on the existing SimClock, undoable
+ADR-061 and FR-34 define a month scrubber/Today on the existing SimClock, undoable
 plant removal dates, half-open presence, visible-set diagnostics and current-state
 exports/API annotations. The 2D sprite now shares the growth date; fresh creation
 uses that date too. Season Manager remains a whole-plan yearly copy. Integration

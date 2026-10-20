@@ -59,11 +59,13 @@ def test_pip_audit_is_part_of_the_locked_dev_environment() -> None:
     assert any(Requirement(raw).name.lower() == "pip-audit" for raw in dev)
 
 
-def test_the_qt_four_pack_moves_as_one_and_mcp_stays_on_v1() -> None:
-    qt = {name: _requirement(name) for name in ("PyQt6", "PyQt6-Qt6", "PyQt6-3D", "PyQt6-3D-Qt6")}
+def test_the_qt_pair_moves_as_one_and_mcp_stays_on_v1() -> None:
+    """The two Qt pins that remain since Phase 17 L1.10 (the Qt 3D wheel pair left with
+    the old view; tests/unit/test_qt_runtime_pins.py holds the rest of the rule)."""
+    qt = {name: _requirement(name) for name in ("PyQt6", "PyQt6-Qt6")}
     versions = {str(r.specifier) for r in qt.values()}
     assert len(versions) == 1 and versions.pop().startswith("==6.11.0"), (
-        "all four Qt wheels must pin the SAME micro or the frozen 3D import breaks (#277)"
+        "PyQt6 and PyQt6-Qt6 must pin the SAME micro (#277)"
     )
     webengine = _requirement("PyQt6-WebEngine")
     assert "<6.11" in str(webengine.specifier)

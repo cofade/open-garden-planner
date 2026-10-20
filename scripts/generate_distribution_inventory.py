@@ -49,11 +49,10 @@ SCHEMA_VERSION = 1
 #: project's own LICENSE file); an optional ``text`` replaces the license text
 #: taken from the wheel. Do not add one without checking upstream.
 LICENSE_OVERRIDES: dict[str, dict[str, str]] = {
-    # The Qt runtime wheels (PyQt6-Qt6, PyQt6-3D-Qt6, PyQt6-WebEngine-Qt6)
-    # declare the prose "LGPL v3" in their metadata; LGPL-3.0-only is that
-    # license's SPDX identifier. The notices carry each wheel's own LICENSE text.
+    # The Qt runtime wheels (PyQt6-Qt6, PyQt6-WebEngine-Qt6) declare the prose
+    # "LGPL v3" in their metadata; LGPL-3.0-only is that license's SPDX
+    # identifier. The notices carry each wheel's own LICENSE text.
     "pyqt6-qt6": {"spdx": "LGPL-3.0-only"},
-    "pyqt6-3d-qt6": {"spdx": "LGPL-3.0-only"},
     "pyqt6-webengine-qt6": {"spdx": "LGPL-3.0-only"},
 }
 

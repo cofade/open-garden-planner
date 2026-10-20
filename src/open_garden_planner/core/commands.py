@@ -237,6 +237,7 @@ def trigger_soil_mismatch_refresh(scene: QGraphicsScene) -> None:
 def _auto_parent_plant(scene: QGraphicsScene, item: QGraphicsItem) -> None:
     """If *item* is a plant inside a bed, establish the parent-child link."""
     from open_garden_planner.core.plant_renderer import is_plant_type
+    from open_garden_planner.ui.canvas.footprints import bed_membership_point
     from open_garden_planner.ui.canvas.items import GardenItemMixin
 
     if not isinstance(item, GardenItemMixin):
@@ -247,7 +248,7 @@ def _auto_parent_plant(scene: QGraphicsScene, item: QGraphicsItem) -> None:
     if item.parent_bed_id is not None:
         return
 
-    plant_center = item.mapToScene(item.boundingRect().center())
+    plant_center = bed_membership_point(item)
 
     if hasattr(scene, "find_smallest_bed_containing"):
         best_bed = scene.find_smallest_bed_containing(plant_center)

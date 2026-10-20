@@ -192,12 +192,17 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         self._setup_flags()
         self.initialize_label()
 
+    @property
+    def paints_sprite(self) -> bool:
+        """A plant or furniture circle is painted as an SVG sprite (``GardenItemMixin.paints_sprite``)."""
+        return is_plant_type(self.object_type) or is_furniture_type(self.object_type)
+
     def _setup_styling(self) -> None:
         """Configure visual appearance based on object type."""
         style = get_style(self.object_type) if self.object_type else get_style(ObjectType.GENERIC_CIRCLE)
 
         # Plant and furniture types use SVG rendering — hide pen and brush
-        if is_plant_type(self.object_type) or is_furniture_type(self.object_type):
+        if self.paints_sprite:
             self.setPen(QPen(Qt.PenStyle.NoPen))
             self.setBrush(QBrush())
             return
@@ -591,7 +596,7 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
 
         Shows/hides resize and rotation handles based on selection state.
         """
-        self.handle_selection_change_for_cache(change, value)
+        self.handle_item_change(change, value)
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
             if value:  # Being selected
                 self.show_resize_handles()

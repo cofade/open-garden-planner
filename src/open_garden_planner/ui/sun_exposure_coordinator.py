@@ -5,6 +5,7 @@ import weakref
 from dataclasses import asdict
 from typing import Any
 
+from PyQt6 import sip
 from PyQt6.QtCore import QObject, Qt, QTimer
 from PyQt6.QtGui import QTransform
 from PyQt6.QtWidgets import QGraphicsPixmapItem
@@ -26,6 +27,7 @@ from open_garden_planner.ui.canvas.sun_exposure_snapshot import collect_exposure
 from open_garden_planner.ui.canvas.sun_heatmap import SunHeatmapController
 from open_garden_planner.ui.icons import get_pixmap
 from open_garden_planner.ui.plant_traits import species_display_name
+from open_garden_planner.ui.sim_clock_subscription import connect_qobject
 from open_garden_planner.ui.sun_exposure_text import mismatch_message, unavailable_message
 from open_garden_planner.ui.theme import register_theme_listener, unregister_theme_listener
 
@@ -45,23 +47,33 @@ class SunExposureCoordinator(QObject):
         scene.document_replaced.connect(self.reset)
         heatmap.exposure_changed.connect(self.schedule)
         project_manager.location_changed.connect(self.schedule)
-        clock.date_changed.connect(self.schedule)
-        # Non-Qt registries outlive the QObject. A weak callback plus an
-        # external destruction closure cannot retain a deleted coordinator.
+        # The clock is not a Qt object: a QObject listens to it through
+        # connect_qobject (ADR-053 addendum), which asks at every delivery whether
+        # Qt has destroyed the receiver. Nothing hangs on this object's own
+        # ``destroyed`` signal: a Python closure there runs 0 times when the cyclic
+        # collector reaches the wrappers before Qt's deferred delete does, and a
+        # closure on a Qt-owned object's own signal is an access violation in that
+        # order (both measured in bare PyQt; the workspace story's lessons, item 1).
+        connect_qobject(clock.date_changed, self.schedule)
+        # The theme registry is a module-level list and outlives the QObject too.
+        # The same rule: a weak callback that asks at the moment of use, and takes
+        # itself off the list the first time it finds its coordinator gone.
         reference = weakref.ref(self)
+
         def theme_listener(*_args: Any) -> None:
             coordinator = reference()
-            if coordinator is not None:
-                coordinator.schedule()
+            if coordinator is None or sip.isdeleted(coordinator):
+                unregister_theme_listener(theme_listener)
+                return
+            coordinator.schedule()
+
         register_theme_listener(theme_listener)
-        subscriber = self.schedule
-        def disconnect() -> None:
-            # Cyclic Python collection can prune Channel's weak receiver
-            # before Qt emits destroyed. Teardown is idempotent in that case.
-            with contextlib.suppress(ValueError):
-                clock.date_changed.disconnect(subscriber)
-            unregister_theme_listener(theme_listener)
-        self.destroyed.connect(disconnect)
+        #: This coordinator's entry in the theme registry, by name. The registry is
+        #: shared by every window the process ever built, so "the list is one
+        #: shorter" says nothing about THIS coordinator; whether this entry is still
+        #: on it does. (Holding it adds no cycle: the closure holds the coordinator
+        #: weakly.)
+        self.theme_listener = theme_listener
         self.schedule()
 
     def reset(self) -> None:

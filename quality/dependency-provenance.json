@@ -59,8 +59,6 @@
     "pyjwt": "2.15.1",
     "pyparsing": "3.3.3",
     "pyqt6": "6.11.0",
-    "pyqt6-3d": "6.11.0",
-    "pyqt6-3d-qt6": "6.11.0",
     "pyqt6-qt6": "6.11.0",
     "pyqt6-sip": "13.13.0",
     "pyqt6-webengine": "6.10.0",
@@ -87,5 +85,6 @@
     "urllib3": "2.8.0",
     "uvicorn": "0.54.0"
   },
+  "removed_since_release": "Phase 17 L1.10 (#385): the two wheels of the retired Qt 3D view, released in v1.29.5 at 6.11.0, left the manifest and the lock (ADR-048 closing addendum); every other entry is the v1.29.5 record unchanged.",
   "workflow_run": 37690407471
 }

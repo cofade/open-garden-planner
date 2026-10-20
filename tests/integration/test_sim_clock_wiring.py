@@ -10,9 +10,8 @@ grow plants for the instant's UTC date, while the heatmap used the toolbar's
 local date. After local midnight east of UTC those were different days; now
 there is one plan date.
 
-The 3D window is a ``MagicMock`` stand-in, as in ``test_plant_growth_wiring``:
-the Qt 3D view needs an RHI context, which only the Windows-only tests in
-``test_3d_view`` provide.
+The 3D view is the workspace's 3D pane (since L1.9), its engine replaced at the
+workspace's seam by a recording one, as in ``test_plant_growth_wiring``.
 """
 
 from __future__ import annotations
@@ -20,7 +19,6 @@ from __future__ import annotations
 import functools
 import weakref
 from datetime import UTC, date, datetime, time, timedelta, timezone
-from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import pytest
@@ -131,8 +129,33 @@ def _app(qtbot):
 
     win = GardenPlannerApp()
     qtbot.addWidget(win)
-    win._view3d_window = MagicMock()  # the Qt 3D window needs an RHI context
     return win
+
+
+def _app3d(qtbot, monkeypatch):
+    """The app with its 3D pane open in Split, the engine replaced at the workspace's seam
+    by a recording one (the Qt 3D window this used to mock was deleted in L1.10). Every
+    date regrows at once here: the held-key interval (L1.9) has tests of its own."""
+    from open_garden_planner.core.scene3d import RecordingSink
+    from open_garden_planner.ui.view3d import sync_controller
+    from open_garden_planner.ui.view3d.workspace import WorkspaceMode
+    from tests.integration.test_view3d_workspace_widget import FakeHost, wait_for_pipeline
+
+    monkeypatch.setattr(sync_controller, "DATE_REGROW_MIN_MS", 0)
+    win = _app(qtbot)
+    sinks: list[RecordingSink] = []
+
+    def factory(prefer_software: bool):
+        sinks.append(RecordingSink())
+        return FakeHost(prefer_software), sinks[-1]
+
+    workspace = win._workspace
+    workspace.engine_factory = factory
+    workspace.set_mode(WorkspaceMode.SPLIT)
+    qtbot.waitUntil(lambda: workspace.controller is not None
+                    and workspace.controller.apply_count >= 1, timeout=5000)
+    wait_for_pipeline(workspace, qtbot)
+    return win, workspace.controller, sinks[-1], lambda: wait_for_pipeline(workspace, qtbot)
 
 
 def _local(y: int, mo: int, d: int, h: int, mi: int = 0) -> datetime:
@@ -153,10 +176,11 @@ class TestAppOwnsOneClock:
         assert win._sun_controller.clock is win._sim_clock
         assert win._sun_toolbar.current_wall_datetime() == win._sim_clock.wall
 
-    def test_time_drag_moves_the_light_only(self, qtbot) -> None:
-        win = _app(qtbot)
+    def test_time_drag_moves_the_light_only(self, qtbot, monkeypatch) -> None:
+        win, controller, sink, settle = _app3d(qtbot, monkeypatch)
         win._sim_clock.set_datetime(_local(2026, 6, 21, 10))
-        win._view3d_window.reset_mock()
+        settle()
+        snapshots, lights = controller.snapshot_count, controller.light_count
         heatmap = win._sun_heatmap
         heatmap._ensure_overlay().setVisible(True)
         heatmap._computed_day = date(2026, 6, 21)
@@ -168,15 +192,21 @@ class TestAppOwnsOneClock:
         assert win._sim_clock.time_of_day == time(16, 30)
         assert win._sim_clock.plan_date == date(2026, 6, 21)
         assert dates == []
-        win._view3d_window.rebuild.assert_not_called()
-        win._view3d_window.set_sun.assert_called()
+        settle()
+        assert controller.snapshot_count == snapshots, "no regrowth: the plan was not read"
+        assert controller.light_count > lights, "the 3D light follows"
         assert heatmap.heatmap_visible(), "a time drag keeps the whole-day map"
         assert win._sun_toolbar._heatmap_button.isChecked()
 
-    def test_date_edit_regrows_and_clears_the_stale_heatmap(self, qtbot) -> None:
-        win = _app(qtbot)
+    def test_date_edit_regrows_and_clears_the_stale_heatmap(self, qtbot, monkeypatch) -> None:
+        win, controller, sink, settle = _app3d(qtbot, monkeypatch)
+        # a located plan: without a location the 3D light is the fixed default sun, which
+        # no date moves
+        win._project_manager._location = dict(BERLIN)  # silent: no weather fetch
         win._sim_clock.set_datetime(_local(2026, 6, 21, 12))
-        win._view3d_window.reset_mock()
+        settle()
+        snapshots = controller.snapshot_count
+        sink.clear_calls()
         heatmap = win._sun_heatmap
         heatmap._ensure_overlay().setVisible(True)
         heatmap._computed_day = date(2026, 6, 21)
@@ -187,15 +217,17 @@ class TestAppOwnsOneClock:
 
         assert dates == [date(2031, 6, 21)]
         assert win._sim_clock.time_of_day == time(12, 0)
-        win._view3d_window.rebuild.assert_called_once()
-        win._view3d_window.set_sun.assert_called()
+        settle()
+        assert controller.snapshot_count == snapshots + 1, "one regrowth pass for the new day"
+        assert ("set_sun", None) in sink.ops()
         assert not heatmap.heatmap_visible()
         assert not win._sun_toolbar._heatmap_button.isChecked()
 
-    def test_animation_wrap_past_midnight_keeps_the_date(self, qtbot) -> None:
-        win = _app(qtbot)
+    def test_animation_wrap_past_midnight_keeps_the_date(self, qtbot, monkeypatch) -> None:
+        win, controller, _sink, settle = _app3d(qtbot, monkeypatch)
         win._sim_clock.set_datetime(_local(2026, 6, 21, 23, 50))
-        win._view3d_window.reset_mock()
+        settle()
+        snapshots = controller.snapshot_count
         dates = _date_spy(win)
 
         win._sun_toolbar._on_animate_tick()  # one 10-minute animation step
@@ -203,7 +235,8 @@ class TestAppOwnsOneClock:
         assert win._sim_clock.time_of_day == time(0, 0)
         assert win._sim_clock.plan_date == date(2026, 6, 21)
         assert dates == []
-        win._view3d_window.rebuild.assert_not_called()
+        settle()
+        assert controller.snapshot_count == snapshots
 
     def test_an_external_clock_write_moves_the_toolbar(self, qtbot) -> None:
         """A later writer (the 3D view's own time control, L1.3+) only writes
@@ -287,7 +320,7 @@ class TestOnePlanDateEastOfUtc:
         )
         spy = _AtDateSpy(overlay_module.collect_shadow_casters)
         monkeypatch.setattr(overlay_module, "collect_shadow_casters", spy)
-        win = _app(qtbot)
+        win, controller, _sink, settle = _app3d(qtbot, monkeypatch)
         win._project_manager._location = dict(BERLIN)  # silent: no weather fetch
         win._sim_clock.set_datetime(datetime(2026, 6, 22, 1, 0))  # 16:00 UTC, 21 June
         assert win._sim_clock.utc.date() == date(2026, 6, 21)
@@ -299,15 +332,24 @@ class TestOnePlanDateEastOfUtc:
         )
         win._on_heatmap_requested()  # heatmap
         records_dates: list[date | None] = []
-        monkeypatch.setattr(
-            "open_garden_planner.ui.view3d.snapshot.collect_scene3d_records",
-            lambda _scene, at_date=None: records_dates.append(at_date) or [],
-        )
-        win._refresh_3d_view()  # 3D geometry
+        from open_garden_planner.ui.view3d import sync_controller
+
+        real = sync_controller.snapshot_records
+
+        def recorded(scene, at_date=None, **options):
+            records_dates.append(at_date)
+            return real(scene, at_date, **options)
+
+        monkeypatch.setattr(sync_controller, "snapshot_records", recorded)
+        settle()
+        controller.mark_dirty()  # 3D geometry: one pass, which reads the plan date
+        settle()
 
         assert spy.dates[-1] == date(2026, 6, 22)
         assert requested == [date(2026, 6, 22)]
-        assert records_dates == [date(2026, 6, 22)]
+        # every records pass (the overlay switched on may book one of its own) read the
+        # plan's local date, not the UTC one
+        assert records_dates and set(records_dates) == {date(2026, 6, 22)}
         assert win._sun_toolbar._date_edit.date() == QDate(2026, 6, 22)
 
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "open-garden-planner"
-version = "1.30.13"
+version = "1.30.14"
 description = "Open-source garden planning tool with CAD-like precision"
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
@@ -25,21 +25,18 @@ classifiers = [
     "Topic :: Multimedia :: Graphics :: Editors",
 ]
 dependencies = [
-    # 3D view (US-E6/US-E7, ADR-038, issue #277). PyQt6's Qt3D bindings link
-    # against the Qt DLLs bundled by PyQt6-Qt6, so the Qt3D runtime wheel
-    # (PyQt6-3D-Qt6) MUST be the SAME Qt micro — otherwise Qt3DCore fails to
-    # import ("DLL load failed … Die angegebene Prozedur wurde nicht
-    # gefunden") and the lazily-loaded 3D view crashes the whole process.
-    # Pinning PyQt6-3D-Qt6 alone was NOT enough (issue #277): an unpinned
-    # "PyQt6>=6.6.0" let a fresh CI resolve float PyQt6-Qt6 to a newer micro
-    # (6.11.1) next to the 6.11.0 Qt3D wheels. ALL FOUR move together to equal
-    # micros — pin the core Qt runtime too. tests/unit/test_qt3d_version_guard.py
-    # fails CI if these ever drift again.
+    # The Qt runtime and its bindings: two exact pins that move TOGETHER. PyQt6's
+    # bindings link against the Qt DLLs bundled by PyQt6-Qt6, and the 3D view (Qt
+    # Quick 3D, ADR-048) ships inside these two wheels — the bindings in PyQt6, the
+    # runtime and its QML modules in PyQt6-Qt6 — so no third wheel has to match.
+    # Exact, because an unpinned "PyQt6>=6.6.0" once let a fresh CI resolve float
+    # the runtime to another micro than a separately pinned 3D wheel (issue #277,
+    # ADR-038; that wheel pair left with Qt 3D in Phase 17 L1.10).
+    # tests/unit/test_qt_runtime_pins.py fails CI if the two drift apart, if the
+    # lock disagrees, or if Qt Quick 3D is not in what they pin.
     "PyQt6==6.11.0",
     "PyQt6-Qt6==6.11.0",
     "PyQt6-WebEngine>=6.10.0,<6.11",
-    "PyQt6-3D==6.11.0",
-    "PyQt6-3D-Qt6==6.11.0",
     "Pillow>=10.0.0",
     "requests>=2.31.0",
     "python-dotenv>=1.0.0",
@@ -144,6 +141,7 @@ qt_api = "pyqt6"
 markers = [
     "perf: performance benchmarks and NFR budget tests",
     "real_weather_worker: tests exercising the real _WeatherFetchWorker lifecycle",
+    "style_gaps_allowed(reason): an integration test that leaves an item's style attributes out of step with its brush and pen on purpose (tests/integration/conftest.py)",
 ]
 # `addopts` carries two #509 decisions, both measured rather than assumed.
 #

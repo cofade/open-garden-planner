@@ -3,12 +3,12 @@ revision = 5
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform == 'win32'",
-    "python_full_version == '3.14.*' and sys_platform == 'win32'",
     "python_full_version >= '3.15' and sys_platform != 'win32'",
+    "python_full_version == '3.14.*' and sys_platform == 'win32'",
     "python_full_version == '3.14.*' and sys_platform != 'win32'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'win32'",
-    "python_full_version < '3.12' and sys_platform == 'win32'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform != 'win32'",
+    "python_full_version < '3.12' and sys_platform == 'win32'",
     "python_full_version < '3.12' and sys_platform != 'win32'",
 ]
 
@@ -1305,8 +1305,8 @@ version = "2.5.4"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform == 'win32'",
-    "python_full_version == '3.14.*' and sys_platform == 'win32'",
     "python_full_version >= '3.15' and sys_platform != 'win32'",
+    "python_full_version == '3.14.*' and sys_platform == 'win32'",
     "python_full_version == '3.14.*' and sys_platform != 'win32'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'win32'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform != 'win32'",
@@ -1382,7 +1382,7 @@ wheels = [
 
 [[package]]
 name = "open-garden-planner"
-version = "1.30.13"
+version = "1.30.14"
 source = { editable = "." }
 dependencies = [
     { name = "ezdxf" },
@@ -1393,8 +1393,6 @@ dependencies = [
     { name = "pyclipper" },
     { name = "pydantic" },
     { name = "pyqt6" },
-    { name = "pyqt6-3d" },
-    { name = "pyqt6-3d-qt6" },
     { name = "pyqt6-qt6" },
     { name = "pyqt6-webengine" },
     { name = "python-dotenv" },
@@ -1436,8 +1434,6 @@ requires-dist = [
     { name = "pyclipper", specifier = ">=1.3.0" },
     { name = "pydantic", specifier = ">=2.11" },
     { name = "pyqt6", specifier = "==6.11.0" },
-    { name = "pyqt6-3d", specifier = "==6.11.0" },
-    { name = "pyqt6-3d-qt6", specifier = "==6.11.0" },
     { name = "pyqt6-qt6", specifier = "==6.11.0" },
     { name = "pyqt6-webengine", specifier = ">=6.10.0,<6.11" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
@@ -1968,37 +1964,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/d3/db/425b184ac2430ba1978bb507ffd285ec007a872644e2ae5df13332dbcb05/pyqt6-6.11.0-cp310-abi3-manylinux_2_39_aarch64.whl", hash = "sha256:0734959955adde095af9a074213a7f73386d1bbbddfc27346b4c0621641a692e", size = 8321484, upload-time = "2026-03-30T09:16:08.135Z" },
     { url = "https://files.pythonhosted.org/packages/6f/85/dd9f03d78d87460e109e0121cd6201c5802bdd655656bf2780e964870fea/pyqt6-6.11.0-cp310-abi3-win_amd64.whl", hash = "sha256:bd11b459c54dca068e988a42cf838303334f0d441b9d16d92ae6719fcb5ac6ba", size = 6844358, upload-time = "2026-03-30T09:16:09.766Z" },
     { url = "https://files.pythonhosted.org/packages/cd/75/970b041bde4372cc6739c5ef9db1de83a6b36e788e4992e598baa35b2255/pyqt6-6.11.0-cp310-abi3-win_arm64.whl", hash = "sha256:b6324e3501b19b4292c7a55b1f22e82d3e80e519e383ce4fe79b4a754c6f0288", size = 5933984, upload-time = "2026-03-30T09:16:11.817Z" },
-]
-
-[[package]]
-name = "pyqt6-3d"
-version = "6.11.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pyqt6" },
-    { name = "pyqt6-3d-qt6" },
-    { name = "pyqt6-sip" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/32/5e/7ef5875f6db3afd14c1bb56b4da9475ce779c7d6dc6c8d31a0456de31948/pyqt6_3d-6.11.0.tar.gz", hash = "sha256:7d5467b42b31d3c7b9651009852a084b3feace904b0d89a63a23ae4bc6f74021", size = 7471573, upload-time = "2026-03-30T09:16:42.617Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/50/59/a3ef199d8e6f48f70ce1e61a7dbe905f01f435606d3f2d5a7dc8d39078da/pyqt6_3d-6.11.0-cp310-abi3-macosx_10_14_universal2.whl", hash = "sha256:36c1e3a96dea076691fb04a52ed05f0e5cd98f623607ff98d66fc485026074a8", size = 1487943, upload-time = "2026-03-30T09:16:35.132Z" },
-    { url = "https://files.pythonhosted.org/packages/70/39/d843e865b5b6913c9b823ebe64dc275c23156f39d2c35d87822287f66207/pyqt6_3d-6.11.0-cp310-abi3-manylinux_2_34_x86_64.whl", hash = "sha256:f4dbede3c571c7f2c66c27a0c65b71595a47c7648bc3850b4e3c762a9098de64", size = 1005832, upload-time = "2026-03-30T09:16:37.031Z" },
-    { url = "https://files.pythonhosted.org/packages/36/03/cd11d9c75404b995253639f402b4d77ce02770d0b3ed562dc7ca61b5169a/pyqt6_3d-6.11.0-cp310-abi3-manylinux_2_39_aarch64.whl", hash = "sha256:a6d902230ca8c33b3567c0623ef65ce7a854e80969be5280e8084f0ebe5c85f7", size = 991093, upload-time = "2026-03-30T09:16:38.668Z" },
-    { url = "https://files.pythonhosted.org/packages/6a/ee/1b9b6ef24ef2ec99b4ef5269a6b9e269705a53cdba3b36bb40c2c65ac840/pyqt6_3d-6.11.0-cp310-abi3-win_amd64.whl", hash = "sha256:a9f028661a5395595caddd9529a18d026d58c35574a5c6d900cb41ac53f99b7c", size = 897434, upload-time = "2026-03-30T09:16:39.854Z" },
-    { url = "https://files.pythonhosted.org/packages/ec/c2/adaa5ff8649ae5ceca5549cb3bead1630e04f8a7004abb241881db75e1c8/pyqt6_3d-6.11.0-cp310-abi3-win_arm64.whl", hash = "sha256:1543fe51ce17ed7972b519914fbf8c9ebd034949e3af496464f98a98aff302f8", size = 759123, upload-time = "2026-03-30T09:16:41.099Z" },
-]
-
-[[package]]
-name = "pyqt6-3d-qt6"
-version = "6.11.0"
-source = { registry = "https://pypi.org/simple" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b6/20/81ed3e9c543f0e9105c885beb20945603f589211c9527213f35f482c56eb/pyqt6_3d_qt6-6.11.0-py3-none-macosx_10_14_x86_64.whl", hash = "sha256:b2c53120c2b082e1a876654a8f8cded85642d2755828600416e3c76dffc2aa38", size = 1965579, upload-time = "2026-03-24T15:09:40.069Z" },
-    { url = "https://files.pythonhosted.org/packages/c6/ff/f03fcb3567c3d59afa40779fc459405247d972fdf143bd82947f3967c906/pyqt6_3d_qt6-6.11.0-py3-none-macosx_11_0_arm64.whl", hash = "sha256:209579f6b53aaf21eb4c3cfb4f3c7d72bf661e88040d756df8a3fbe1643a1d4d", size = 1762172, upload-time = "2026-03-24T15:09:43.565Z" },
-    { url = "https://files.pythonhosted.org/packages/c4/dd/1260c47c8747f067611086b947e34c8662e18c127d20be98708c6f93209c/pyqt6_3d_qt6-6.11.0-py3-none-manylinux_2_34_x86_64.whl", hash = "sha256:e7e8d3c911c18dc75821664dcc3319bf9436b5c53cd6e7301ad4e4e29bf25fc8", size = 2224271, upload-time = "2026-03-24T15:09:47.567Z" },
-    { url = "https://files.pythonhosted.org/packages/60/0f/5d5f43b1805d31c5eb29dd1aea1c137622b09f36af66bc7289c0cbd3f251/pyqt6_3d_qt6-6.11.0-py3-none-manylinux_2_39_aarch64.whl", hash = "sha256:543d32b980c428c145b51519316b75f96b2ddd34a3be6ffaa2410b48bdd3e492", size = 2260663, upload-time = "2026-03-24T15:09:50.962Z" },
-    { url = "https://files.pythonhosted.org/packages/78/26/10015b242a364aea28f7416fbf033dc05d15b94c818f3c9f419bc1d5edfd/pyqt6_3d_qt6-6.11.0-py3-none-win_amd64.whl", hash = "sha256:4928a35220ae8ff093c299474f12b284f7517a757efe3171b82a734a7efa3a34", size = 2190771, upload-time = "2026-03-24T15:09:54.534Z" },
-    { url = "https://files.pythonhosted.org/packages/23/d0/6e87f3a9c6dbdd65deb91294139408916e6faeadefb0d7c6620eb46294b8/pyqt6_3d_qt6-6.11.0-py3-none-win_arm64.whl", hash = "sha256:9e131b0e09a1b55c4d2a68cbceed1eb4d5fb193a4b65e606ab6b24dadb827ce1", size = 1817016, upload-time = "2026-03-24T15:09:57.449Z" },
 ]
 
 [[package]]

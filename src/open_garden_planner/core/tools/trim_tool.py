@@ -41,6 +41,7 @@ from open_garden_planner.core.commands import (
     TrimPolylineCommand,
     TrimRectangleCommand,
 )
+from open_garden_planner.core.item_look import adopt_pen
 from open_garden_planner.core.tools.base_tool import BaseTool, ToolType
 
 if TYPE_CHECKING:
@@ -501,7 +502,7 @@ class TrimExtendTool(BaseTool):
             points=piece_pts,
             object_type=ObjectType.FENCE,
         )
-        result_polyline.setPen(QPen(item.pen()))
+        adopt_pen(result_polyline, item.pen())  # the pen AND the stroke attributes
         result_polyline.setBrush(QBrush(Qt.BrushStyle.NoBrush))
 
         cmd = TrimPolygonCommand(self._view.scene(), item, result_polyline)
@@ -546,7 +547,7 @@ class TrimExtendTool(BaseTool):
             points=piece_pts,
             object_type=ObjectType.FENCE,
         )
-        result_polyline.setPen(QPen(item.pen()))
+        adopt_pen(result_polyline, item.pen())  # the pen AND the stroke attributes
         result_polyline.setBrush(QBrush(Qt.BrushStyle.NoBrush))
 
         cmd = TrimRectangleCommand(self._view.scene(), item, result_polyline)

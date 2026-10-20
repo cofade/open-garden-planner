@@ -30,6 +30,7 @@ Open Garden Planner fills the gap: **engineering-grade precision meets gardener-
 - **Layers**: Organize objects into manageable layers with visibility/lock controls
 - **Standard Formats**: JSON project files (.ogp), PNG/SVG/PDF/DXF export, CSV plant lists
 - **Garden Smart Features**: Harvest tracking, task management & reminders, succession planting, soil health tracking
+- **Sun, Shade & 3D**: Analytic 2D shadows and hours-of-sun maps for your garden's location, date and time; a 3D view beside the plan (Plan / 3D / Split) lit by the same sun, with shadows, plant growth over the simulated dates and a walk mode — it follows every edit. Flat ground only; frame rate depends on your graphics card (a software fallback exists)
 - **AI Agent Integration**: Embedded MCP server exposes the live plan for reading, visualization, export, and optional token-gated editing (including stable low-level geometry)
 - **Modern UI**: Clean interface with light and dark modes, keyboard shortcuts
 - **Auto-Save**: Periodic auto-save with crash recovery
@@ -145,7 +146,7 @@ To enable online plant search, see the [Plant API Setup Guide](docs/03-context-a
 
 **Core 2D, 3D, and visual-refresh phases shipped** — CAD precision tooling and garden
 smart features are complete; the embedded AI Agent Integration's read/export and
-token-gated D1/D2 tools and D3 domain intelligence are live; Phase 17 Living Garden 3D is next. See the
+token-gated D1/D2 tools and D3 domain intelligence are live; Phase 17 Living Garden 3D is in progress (package L1 replaced the Qt 3D window with the Qt Quick 3D view beside the plan in v1.30.14; L2 is next). See the
 [Development Roadmap](docs/roadmap.md) for the authoritative, up-to-date phase/user-story
 table and current version.
 

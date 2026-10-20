@@ -20,8 +20,15 @@ from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
 from open_garden_planner.app.settings import get_settings
-from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
-from open_garden_planner.core.item_look import restore_stored_look
+from open_garden_planner.core.fill_patterns import FillPattern
+from open_garden_planner.core.item_look import (
+    adopt_pen,
+    fill_brush,
+    restore_stored_look,
+    saved_stroke_colour,
+    saved_stroke_width,
+    stroke_style_of,
+)
 from open_garden_planner.core.object_types import PathFenceStyle, StrokeStyle
 from open_garden_planner.core.plan_io import (
     PlanValidationError,
@@ -1646,6 +1653,12 @@ class ProjectManager(QObject):
             stroke_color = item.pen().color()
             data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
             data["stroke_width"] = item.pen().widthF()
+            # … and its dash style when it has one (a dashed line came back solid).
+            # Read off the pen, like the colour and the width; a solid line writes
+            # nothing, as before.
+            dash = stroke_style_of(item.pen())
+            if dash is not None and dash is not StrokeStyle.SOLID:
+                data["stroke_style"] = dash.name
             # Save path/fence style preset
             if hasattr(item, "path_fence_style") and item.path_fence_style and item.path_fence_style.name != "NONE":
                 data["path_fence_style"] = item.path_fence_style.name
@@ -2222,13 +2235,13 @@ class ProjectManager(QObject):
             restore_stored_look(item, obj, fill_pattern=fill_pattern, stroke_style=stroke_style)
             # Restore custom colors if saved
             if "fill_color" in obj:
-                # If we have a pattern, recreate the brush with both color and pattern
-                if fill_pattern:
-                    brush = create_pattern_brush(fill_pattern, QColor(obj["fill_color"]))
-                else:
-                    brush = item.brush()
-                    brush.setColor(QColor(obj["fill_color"]))
-                item.setBrush(brush)
+                # The brush: the saved colour in the item's pattern — the saved
+                # pattern, or the type's for a file that names none (what the
+                # constructor gave the item and what the next save writes).
+                # Recolouring the brush the constructor made left a TEXTURED
+                # fill at the type's tint until the plan had been saved and
+                # opened once more.
+                item.setBrush(fill_brush(item, QColor(obj["fill_color"])))
             if "stroke_color" in obj:
                 pen = item.pen()
                 pen.setColor(QColor(obj["stroke_color"]))
@@ -2265,14 +2278,7 @@ class ProjectManager(QObject):
             # Restore custom colors if saved
             if "fill_color" in obj:
                 color = QColor(obj["fill_color"])
-                # Store the base color in the item
-                # If we have a pattern, recreate the brush with both color and pattern
-                if fill_pattern:
-                    brush = create_pattern_brush(fill_pattern, color)
-                else:
-                    brush = item.brush()
-                    brush.setColor(color)
-                item.setBrush(brush)
+                item.setBrush(fill_brush(item, color))  # see the rectangle branch
             if "stroke_color" in obj:
                 pen = item.pen()
                 pen.setColor(QColor(obj["stroke_color"]))
@@ -2326,12 +2332,7 @@ class ProjectManager(QObject):
             restore_stored_look(item, obj, fill_pattern=fill_pattern, stroke_style=stroke_style)
             if "fill_color" in obj:
                 color = QColor(obj["fill_color"])
-                if fill_pattern:
-                    item.setBrush(create_pattern_brush(fill_pattern, color))
-                else:
-                    brush = item.brush()
-                    brush.setColor(color)
-                    item.setBrush(brush)
+                item.setBrush(fill_brush(item, color))  # see the rectangle branch
             if "stroke_color" in obj:
                 pen = item.pen()
                 pen.setColor(QColor(obj["stroke_color"]))
@@ -2370,13 +2371,35 @@ class ProjectManager(QObject):
                     item._metadata = metadata
                 # Restore the STORED appearance (the panel reads these; #469)
                 restore_stored_look(item, obj)
-                # Restore custom stroke color if saved (only if no preset overrides it)
-                if "stroke_color" in obj and path_fence_style == PathFenceStyle.NONE:
+                # Restore the stroke that was saved — for a style preset too. The file
+                # holds the pen the line was painted with; until the 3D ground bake's
+                # review this was restored for style NONE only, so a gravel path
+                # widened in the properties panel came back at the preset's width.
+                #
+                # For a PRESET line that stroke is read with care: a file whose stroke
+                # the app could not have written (a width that is no finite number of
+                # at least the panel's minimum, a colour that is none) keeps the
+                # preset's value, as every such file did while the saved stroke was not
+                # read at all — and nothing here raises, which would skip the item. A
+                # plain line's stroke is applied as it always was. ``adopt_pen`` then
+                # states the pen the line paints with (a preset's value where the
+                # file's could not be used, and the dash style the saver writes).
+                if "stroke_color" in obj:
                     pen = item.pen()
-                    pen.setColor(QColor(obj["stroke_color"]))
-                    if "stroke_width" in obj:
-                        pen.setWidthF(obj["stroke_width"])
-                    item.setPen(pen)
+                    if path_fence_style == PathFenceStyle.NONE:
+                        pen.setColor(QColor(obj["stroke_color"]))
+                        if "stroke_width" in obj:
+                            pen.setWidthF(obj["stroke_width"])
+                    else:
+                        colour = saved_stroke_colour(obj["stroke_color"])
+                        if colour is not None:
+                            pen.setColor(colour)
+                        width = saved_stroke_width(obj.get("stroke_width"))
+                        if width is not None:
+                            pen.setWidthF(width)
+                    if stroke_style:
+                        pen.setStyle(stroke_style.to_qt_pen_style())
+                    adopt_pen(item, pen)  # the pen AND the stroke attributes
                 # Restore label visibility
                 if not label_visible:
                     item.label_visible = False
@@ -2417,13 +2440,7 @@ class ProjectManager(QObject):
                 # Restore custom colors if saved
                 if "fill_color" in obj:
                     color = QColor(obj["fill_color"])
-                    # If we have a pattern, recreate the brush with both color and pattern
-                    if fill_pattern:
-                        brush = create_pattern_brush(fill_pattern, color)
-                    else:
-                        brush = item.brush()
-                        brush.setColor(color)
-                    item.setBrush(brush)
+                    item.setBrush(fill_brush(item, color))  # see the rectangle branch
                 if "stroke_color" in obj:
                     pen = item.pen()
                     pen.setColor(QColor(obj["stroke_color"]))

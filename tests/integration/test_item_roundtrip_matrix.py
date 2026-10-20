@@ -187,3 +187,123 @@ def test_file_version_stays_1_4() -> None:
     Bumping to 1.5 would break backward compatibility across all 1.4 installs.
     """
     assert FILE_VERSION == "1.4"
+
+
+# ── a recoloured item keeps its look through load → save → load ──────────────
+# (found by the 3D ground bake, Phase 17 L1.5 — a second reader of the same items)
+
+RECOLOURED = "#ffc81e1e"  # no object type's default
+#: Types a rectangle is drawn as (furniture is a sprite: no fill of its own).
+RECTANGLE_TYPES = [
+    ObjectType.GENERIC_RECTANGLE, ObjectType.LAWN, ObjectType.TERRACE_PATIO, ObjectType.GARDEN_BED,
+    ObjectType.DRIVEWAY, ObjectType.POND_POOL, ObjectType.GREENHOUSE, ObjectType.HOUSE,
+    ObjectType.GARAGE_SHED, ObjectType.CONTAINER, ObjectType.WALL_PLANTER,
+]
+
+
+def _reloaded(pm: ProjectManager, scene: QGraphicsScene, path: Path, cls: type
+              ) -> tuple[QGraphicsScene, Any, dict[str, Any]]:
+    """Save ``scene`` to ``path`` and load it: the new scene (it owns the item), the
+    one item of ``cls`` in it, and that item as the file holds it."""
+    import json
+
+    pm.save(scene, path)
+    saved = next(obj for obj in json.loads(path.read_text(encoding="utf-8"))["objects"]
+                 if obj.get("type") != "background_image")
+    loaded = QGraphicsScene()
+    pm.load(loaded, path)
+    (item,) = [candidate for candidate in loaded.items() if isinstance(candidate, cls)]
+    return loaded, item, saved
+
+
+@pytest.mark.parametrize("object_type", RECTANGLE_TYPES, ids=lambda t: t.name)
+def test_a_recoloured_rectangle_keeps_its_colour_through_load_save_load(
+        object_type: ObjectType, qtbot: Any, tmp_path: Path) -> None:
+    """The loader set a rectangle's brush and left ``fill_color`` — what the saver,
+    the clipboard and the Agent API read — at the type's default. So a recoloured
+    rectangle came back right from the file and was written back WRONG by the next
+    save: measured on master v1.30.1, ``#ffc81e1e`` became ``#ff90ee90``
+    (GENERIC_RECTANGLE), ``#ff64b43c`` (LAWN), ``#ffdeb887`` (TERRACE_PATIO),
+    ``#ff8b5a2b`` (GARDEN_BED). Circles, ellipses and polygons never had it.
+
+    Fixed on master by #502 (``core.item_look.restore_stored_look``, pinned there
+    by ``test_item_appearance_roundtrip.py``); this branch's own fix gave way to it.
+    Kept for its breadth: eleven rectangle types with a pattern, and the clipboard's
+    and the Agent API's read of the loaded item."""
+    from open_garden_planner.agent_api.queries import _object_detail
+    from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
+    from open_garden_planner.core.item_look import style_gaps
+
+    pm = ProjectManager()
+    item = RectangleItem(10.0, 20.0, 300.0, 200.0, object_type=object_type, name="Recoloured")
+    item.fill_pattern = FillPattern.BRICK
+    item.fill_color = QColor(RECOLOURED)
+    item.setBrush(create_pattern_brush(FillPattern.BRICK, QColor(RECOLOURED)))
+    scene = QGraphicsScene()
+    scene.addItem(item)
+    kept = [scene]
+    for turn in ("first", "second"):
+        scene, item, saved = _reloaded(pm, scene, tmp_path / f"{turn}.ogp", RectangleItem)
+        kept.append(scene)
+        assert (saved["fill_color"], saved["fill_pattern"]) == (RECOLOURED, "BRICK"), turn
+        assert QColor(item.fill_color).name(QColor.NameFormat.HexArgb) == RECOLOURED, turn
+        assert style_gaps(item) == [], turn
+        # the other readers of the attribute: the clipboard and the agent (the paint
+        # below 40 % zoom read it too, until #503 removed that paint)
+        copied = ProjectManager._serialize_item(item)
+        assert copied is not None and copied["fill_color"] == RECOLOURED
+        assert _object_detail(copied, {}, {}).fill_color == RECOLOURED
+
+
+def _stroked(cls: Any) -> Any:
+    from open_garden_planner.core.object_types import PathFenceStyle
+
+    if cls == "styled path":
+        return PolylineItem([QPointF(0.0, 0.0), QPointF(50.0, 50.0), QPointF(100.0, 50.0)],
+                            object_type=ObjectType.PATH, path_fence_style=PathFenceStyle.GRAVEL_PATH)
+    if cls is CircleItem:  # the sample is a plant — a sprite, no stroke of its own
+        return CircleItem(150.0, 150.0, 40.0, object_type=ObjectType.GENERIC_CIRCLE, name="Round")
+    return _create_sample_item(cls)
+
+
+@pytest.mark.parametrize("cls", [RectangleItem, CircleItem, PolygonItem, EllipseItem, PolylineItem,
+                                 "styled path"],
+                         ids=lambda c: c if isinstance(c, str) else c.__name__)
+def test_a_restroked_item_keeps_its_stroke_through_load_save_load(cls: Any, qtbot: Any, tmp_path: Path) -> None:
+    """Colour, width and dash style of a stroke set in the properties panel (the
+    attribute and the pen, as the panel sets them). Two losses were found here:
+    a dashed LINE came back solid (the polyline branch never wrote a stroke
+    style), and a line with a style preset came back with the preset's colour and
+    width (its saved stroke was read for style NONE only). And for every shape
+    the loaded item's stroke ATTRIBUTES were its type's defaults — the properties
+    panel showed them, and undoing a change of width put the default back."""
+    from open_garden_planner.core.item_look import style_gaps
+    from open_garden_planner.core.object_types import PathFenceStyle, StrokeStyle
+
+    pm = ProjectManager()
+    item = _stroked(cls)
+    item_cls = type(item)
+    if isinstance(item, RectangleItem) and item.object_type is ObjectType.RAISED_BED:
+        item = RectangleItem(10.0, 20.0, 100.0, 50.0, object_type=ObjectType.GARDEN_BED, name="MyBed")
+    dashed = getattr(item, "path_fence_style", PathFenceStyle.NONE) is PathFenceStyle.NONE
+    pen = item.pen()
+    pen.setColor(QColor("#dc1e50c8"))
+    pen.setWidthF(7.5)
+    item.stroke_color, item.stroke_width = QColor("#dc1e50c8"), 7.5
+    if dashed:
+        pen.setStyle(StrokeStyle.DASH_DOT.to_qt_pen_style())
+        item.stroke_style = StrokeStyle.DASH_DOT
+    item.setPen(pen)
+    wanted = ("#dc1e50c8", 7.5, pen.style())
+    scene = QGraphicsScene()
+    scene.addItem(item)
+    kept = [scene]
+    for turn in ("first", "second"):
+        scene, item, saved = _reloaded(pm, scene, tmp_path / f"{turn}.ogp", item_cls)
+        kept.append(scene)
+        assert (saved["stroke_color"], saved["stroke_width"]) == wanted[:2], turn
+        assert saved.get("stroke_style", "SOLID") == ("DASH_DOT" if dashed else "SOLID"), turn
+        live = item.pen()
+        assert (live.color().name(QColor.NameFormat.HexArgb), live.widthF(), live.style()) == wanted, turn
+        assert (QColor(item.stroke_color).name(QColor.NameFormat.HexArgb), item.stroke_width) == wanted[:2]
+        assert style_gaps(item) == [], turn

@@ -606,8 +606,13 @@
   },
   "385": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "L1 \"New engine, new light\": Qt Quick 3D becomes the 3D view, Qt 3D removed (Phase 17)"
+  },
+  "386": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L2 \"Analyze in 3D\": shadow and sun-hours drapes, sun path, info card, growth jump, cutaway (Phase 17)"
   },
   "392": {
     "is_pr": false,
@@ -781,12 +786,12 @@
   },
   "438": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Data loss: a recoloured rectangle-based object is saved with its type's default colour after load → save → load"
   },
   "441": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Offset, chamfer and fillet copies keep the source's brush but not its fill_color / fill_pattern: the copy loses its colour and pattern on save"
   },
   "448": {
@@ -821,7 +826,7 @@
   },
   "469": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A loaded item's stroke_color / stroke_width attributes are its object type's defaults (rectangle, circle, ellipse, polygon): the Properties panel shows the defaults and undo of a stroke edit restores the wrong values"
   },
   "470": {
@@ -866,8 +871,8 @@
   },
   "484": {
     "is_pr": true,
-    "state": "OPEN",
-    "title": "WIP: Phase 17 L1 - Qt Quick 3D engine, scene pipeline and workspace (paused; refs #385)"
+    "state": "MERGED",
+    "title": "feat(#385): Phase 17 L1 - Qt Quick 3D replaces Qt 3D: the Plan / 3D / Split workspace with ground, looks, selection and walk"
   },
   "485": {
     "is_pr": false,
@@ -939,16 +944,6 @@
     "state": "CLOSED",
     "title": "Commit the CI gate mutation harness as scripts/replay_gate_mutations.py"
   },
-  "513": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Close the remaining ci.yml gate-pin holes by parsing each command separately"
-  },
-  "514": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Decide whether a coverage-floor regression should block a merge"
-  },
   "515": {
     "is_pr": false,
     "state": "OPEN",
@@ -963,5 +958,45 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix(#512-#516): mutation-verified gate pin, required coverage floor, and the widget-leak probe"
+  },
+  "532": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: Qt Quick 3D 6.11 leaks about half the ground-tile textures on every cache release (QSSGBufferManager::clear skips QHash entries)"
+  },
+  "534": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: committed memory grows ~2 MB/min while the wind runs (FU-L14-2, intermittent)"
+  },
+  "535": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: a software-only adapter (WARP, no GPU) gets the hardware look - 12.8 s to the first readback"
+  },
+  "536": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Render tier: one slow first frame errors all of test_quick3d_render.py (wait_ready no-progress cutoff)"
+  },
+  "539": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D View and Alt+1/2/3 do nothing visible from any tab other than Garden Plan"
+  },
+  "540": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "CI never runs the default 3D workspace on a real host; local WARP failures in the workspace/selection/default render files"
+  },
+  "542": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Date-playback throttle: wall-clock-dependent test and a no-op trailing check that defers the next date pick"
+  },
+  "543": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "release.yml reads the bump label from the newest-created merged PR, not the merged one (#484 shipped as v1.30.14 despite 'minor')"
   }
 }

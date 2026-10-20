@@ -30,6 +30,13 @@ Height precedence (ADR-037):
 4. A per-object-type default (``DEFAULT_HEIGHTS_CM`` below).
 5. ``None`` — the object has no meaningful height and casts no shadow.
 
+Where an object STANDS is the second question this module answers (Phase 17
+L1.6, ADR-037 addendum): ``standing_base_cm`` — the soil surface of a
+soil-capable parent with a height, ``SOIL_DROP_CM`` below its rim, else the
+ground. A height is always measured from there, so a 60 cm plant on the soil
+of a 40 cm raised bed occupies 38–98 cm. One rule for the 2D shadow casters
+and the 3D records.
+
 ``object_height_cm`` is ADDITIVE item metadata: it round-trips through the
 ``.ogp`` serializer wholesale and old app versions ignore it (graceful
 degrade) — NO FILE_VERSION bump (precedent: the ``container_*`` keys).
@@ -42,6 +49,7 @@ sets against the real enum so a rename cannot silently break the mapping.
 
 from __future__ import annotations
 
+import math
 from datetime import date
 from typing import Any
 
@@ -78,7 +86,7 @@ DEFAULT_HEIGHTS_CM: dict[str, float] = {
     "COMPOST_BIN": 100.0,
     # Package 3a roster (#308) — solid objects only. SWING / PERGOLA / HAMMOCK
     # deliberately have NO default: the shadow/3D model extrudes the FULL item
-    # footprint as a solid prism (`sun_shadow_controller._item_footprints`), and
+    # footprint as a solid prism (`ui/canvas/footprints.item_footprints`), and
     # a pergola or swing frame is mostly air (sprite ink 0.20-0.53) — a solid
     # 3x3 m block at 2.3 m would misstate a sun study. They still expose the
     # Height field (`_HEIGHT_FIELD_TYPES`) so a user can opt in explicitly.
@@ -97,6 +105,37 @@ _CONTAINER_TYPE_NAMES = frozenset({"CONTAINER", "CONTAINER_ROUND", "WALL_PLANTER
 # height from their species; a placeholder plant without species has no
 # default height but the properties panel still offers the Height field.
 _PLANT_TYPE_NAMES = frozenset({"TREE", "SHRUB", "PERENNIAL"})
+
+# Mirrors SOIL_CONTAINER_TYPES in core/object_types.py — the ``is_bed_type``
+# predicate, "this type holds soil" (pinned by unit test). A plant stands on
+# the soil of such a parent (``standing_base_cm``); a trellis holds none.
+_SOIL_PARENT_TYPE_NAMES = frozenset(
+    {"GARDEN_BED", "RAISED_BED", "CONTAINER", "CONTAINER_ROUND", "WALL_PLANTER"}
+)
+
+#: The soil of a BED lies this far below its rim. A modelling ASSUMPTION, not a
+#: datum of the plan: a bed has a height (its rim) and nothing says how full it
+#: is. ONE constant for the 3D bed meshes, the height a plant stands at and the
+#: base of its 2D shadow caster (Phase 17 L1.6, ``ogp-lush-cinematic`` §1
+#: "Base") — so it moves a raised plant's shadow by ``2 / tan α``: 7.5 cm at a
+#: 15° sun, 1.2 cm at 60°. A CONTAINER has no drop: its height IS its soil fill
+#: height (``soil_surface_cm``).
+SOIL_DROP_CM = 2.0
+
+#: No base is derived from a parent height beyond this — as none is from an
+#: infinite one. That is all this bound says: a base is itself a length of a 3D
+#: scene record (``transform.base_cm``), and one derived from a taller parent
+#: would be out of the record's range, so the plant would lose its record over
+#: its parent's nonsense height. The number is the scene contract's
+#: ``core/scene3d/record.MAX_LENGTH_CM`` (10 km), mirrored — this module serves
+#: the 2D app and does not import the 3D package — and pinned equal by a test.
+#: It is NOT the rule "nothing stands on a parent the 3D scene does not hold":
+#: whether a parent has a record is the snapshot's knowledge, and
+#: ``ui/view3d/snapshot.snapshot_records`` settles that for every reason a parent
+#: can be left out (a bed 30 km wide has an ordinary height). In 2D a bed taller
+#: than this still casts while its plant casts from the ground — an oddity,
+#: stated here, of plans no garden has.
+MAX_PARENT_HEIGHT_CM = 1e6
 
 # height_source() return values (stable identifiers, not user-visible text).
 SOURCE_CUSTOM = "custom"
@@ -196,6 +235,79 @@ def effective_height_cm(
         if mature is not None:
             return mature
     return DEFAULT_HEIGHTS_CM.get(name)
+
+
+def soil_surface_cm(object_type: Any, height_cm: float | None) -> float:
+    """Height above ground of the soil in a soil parent of that type, ``height_cm``
+    tall. 0.0 without a usable height: none at all (an in-ground bed), not
+    positive, not finite, or beyond ``MAX_PARENT_HEIGHT_CM`` (no base is derived
+    from a height beyond the bound).
+
+    Two kinds of soil parent, because the plan says two different things:
+
+    - a **container** (pot, box, wall planter): its resolved height IS its soil
+      fill height (``effective_height_cm``: the fill stands in for the height),
+      so the soil is AT that height. The plan's one soil datum is not moved for
+      the look of a lip — and where the user overrode the height, the soil is at
+      the top they gave, so a plant never stands inside the solid;
+    - a **bed** (raised bed, an edged garden bed): the plan holds a rim height
+      and no fill, so the soil is assumed ``SOIL_DROP_CM`` below the rim, never
+      below the ground.
+
+    The 3D bed builders put their soil here and plants stand here
+    (``standing_base_cm``), so for the bed builders a plant is on its soil by
+    construction. A bed whose outline is not one plain outline (several rings, a
+    hole, or an outline the scene contract had to resolve) is built as a plain
+    block up to its rim instead (``scene3d.builders.common.plain_block``); its
+    plants stand ``SOIL_DROP_CM`` inside that block.
+    """
+    if (height_cm is None or not math.isfinite(height_cm) or height_cm <= 0.0
+            or height_cm > MAX_PARENT_HEIGHT_CM):
+        return 0.0
+    if _type_name(object_type) in _CONTAINER_TYPE_NAMES:
+        return height_cm
+    return max(height_cm - SOIL_DROP_CM, 0.0)
+
+
+def standing_base_cm(
+    parent_type: Any,
+    parent_metadata: dict[str, Any] | None,
+    at_date: date | None = None,
+) -> float:
+    """How high above the ground an item stands, given the parent it grows in.
+
+    The soil surface of a SOIL-capable parent (``is_bed_type``: beds, raised
+    beds, containers, wall planters) that has a resolved height; 0.0 for every
+    other parent — an in-ground bed (no height), a trellis (holds no soil), no
+    parent at all. The item's own ``effective_height_cm`` is measured from
+    there: it occupies ``[base, base + height]`` (Phase 17 L1.6; the caller
+    resolves ``parent_bed_id``, see ``ui/canvas/footprints.item_base_cm``).
+    """
+    if parent_type is None or _type_name(parent_type) not in _SOIL_PARENT_TYPE_NAMES:
+        return 0.0
+    return soil_surface_cm(
+        parent_type, effective_height_cm(parent_type, parent_metadata, at_date=at_date))
+
+
+def is_solid_soil_parent(
+    parent_type: Any,
+    parent_metadata: dict[str, Any] | None,
+    at_date: date | None = None,
+) -> bool:
+    """Is that parent a SOIL-capable solid: a bed, raised bed, container or wall
+    planter (``is_bed_type``) with a resolved, positive, finite height?
+
+    Such a parent is a shadow caster whose footprint covers the plants that grow
+    in it. Whether they are LIFTED is another question — ``standing_base_cm``,
+    0.0 where the soil is not above the ground (a 2 cm edging) — but a plant in
+    it is in the parent's solid either way, and the per-plant sun estimate must
+    not count that solid as shade (``ui/canvas/footprints.standing_parent``).
+    False for an in-ground bed without a height, a trellis, no parent at all.
+    """
+    if parent_type is None or _type_name(parent_type) not in _SOIL_PARENT_TYPE_NAMES:
+        return False
+    height = effective_height_cm(parent_type, parent_metadata, at_date=at_date)
+    return height is not None and math.isfinite(height) and height > 0.0
 
 
 def height_source(object_type: Any, metadata: dict[str, Any] | None) -> str:

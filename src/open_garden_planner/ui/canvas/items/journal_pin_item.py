@@ -24,7 +24,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core.object_types import ObjectType
 
-from .garden_item import GardenItemMixin
+from .garden_item import GardenItemMixin, announce_plan_change
 
 if TYPE_CHECKING:
     from PyQt6.QtWidgets import (
@@ -87,6 +87,18 @@ class JournalPinItem(GardenItemMixin, QGraphicsObject):
     @property
     def note_id(self) -> str:
         return self._note_id
+
+    def itemChange(  # noqa: N802 (Qt API)
+        self,
+        change: QGraphicsItem.GraphicsItemChange,
+        value: Any,
+    ) -> Any:
+        """A pin is part of the plan: placing, moving and removing one moves the
+        scene's plan revision. Only that half of the items' hook
+        (``garden_item.handle_item_change``): a pin is drawn at a constant pixel
+        size and takes no part in the paint cache that follows the selection."""
+        announce_plan_change(self, change, value)
+        return super().itemChange(change, value)
 
     # ── Geometry / painting ──────────────────────────────────────
 

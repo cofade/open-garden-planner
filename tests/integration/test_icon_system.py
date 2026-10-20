@@ -116,10 +116,12 @@ class TestAppWiring:
         assert missing == [], missing
 
         # View menu is regrouped (#310): Snapping / Overlays / Sun & 3D submenus,
-        # Theme + Language still top-level, the toggle attributes unchanged.
+        # Theme + Language still top-level, the toggle attributes unchanged; the 3D
+        # workspace's submenu (Phase 17, in every window since L1.9) before Theme.
         view_menu = next(a.menu() for a in win.menuBar().actions() if a.text() == "&View")
         submenu_titles = [a.text() for a in view_menu.actions() if a.menu() is not None]
-        assert submenu_titles == ["&Snapping", "O&verlays", "S&un && 3D", "&Theme", "&Language"], submenu_titles
+        assert submenu_titles == ["&Snapping", "O&verlays", "S&un && 3D", "&Workspace", "&Theme",
+                                  "&Language"], submenu_titles
         snap_menu = next(a.menu() for a in view_menu.actions() if a.text() == "&Snapping")
         assert win.grid_action in snap_menu.actions() and win._dynamic_input_action in snap_menu.actions()
         overlays = next(a.menu() for a in view_menu.actions() if a.text() == "O&verlays")

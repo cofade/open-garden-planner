@@ -5,6 +5,7 @@ Coordinates are in centimeters with Y-axis pointing down (Qt convention).
 The view handles the Y-flip for display.
 """
 
+import contextlib
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -60,6 +61,32 @@ class CanvasScene(QGraphicsScene):
     Signals:
         layers_changed: Emitted when layers are added, removed, or reordered
         active_layer_changed: Emitted when the active layer changes
+        plan_changed: Emitted with the new ``plan_revision`` whenever plan CONTENT
+            changed (see ``note_plan_changed``)
+
+    The plan revision (ADR-060 decision 5). ``QGraphicsScene.changed`` says "something
+    was repainted": a hover, a selection, a tool's preview, the sun's shadow moving —
+    and an edit. Nothing can tell them apart from that signal, so a consumer that must
+    follow the PLAN (the 3D view) used to read the whole plan on every repaint.
+    ``plan_revision`` is one integer that moves exactly when plan content changed, and
+    ``plan_changed`` says so at once. It is bumped where the scene and the undo stack
+    already have a chokepoint:
+
+    - a garden item enters or leaves the scene, moves, turns, is scaled, is shown or
+      hidden, changes its z or its parent — ``items/garden_item.handle_item_change``,
+      which every garden item's ``itemChange`` calls first;
+    - a command is executed, undone or redone — the undo stack's ``stack_changed``
+      (``set_command_manager``);
+    - a layer is added, removed, reordered, shown, hidden, locked or made translucent —
+      ``layers_changed``;
+    - the canvas is resized, the scene is cleared;
+    - and ``note_plan_changed()`` — THE nudge — for every writer that goes round all
+      of those: a handle drag (Qt has no ``itemChange`` for a geometry), a panel that
+      writes ``metadata`` without a command.
+
+    A writer that announces nothing is still not lost: the 3D pipeline reconciles
+    after a quiet time and counts what it found (``Scene3DController``). The revision
+    is never saved and means nothing across documents; it only ever grows.
     """
 
     # Default canvas colors (overridden by apply_theme_colors)
@@ -68,6 +95,8 @@ class CanvasScene(QGraphicsScene):
 
     # Signals
     layers_changed = pyqtSignal()
+    #: Plan content changed; the argument is the new ``plan_revision``.
+    plan_changed = pyqtSignal(int)
     document_replaced = pyqtSignal()
     diagnostics_changed = pyqtSignal()
     timeline_changed = pyqtSignal()
@@ -119,8 +148,13 @@ class CanvasScene(QGraphicsScene):
         self._layers: list[Layer] = create_default_layers()
         self._active_layer: Layer | None = self._layers[0] if self._layers else None  # Default to first layer
 
-        # Command manager reference (set by CanvasView after construction)
+        # Command manager reference (set by CanvasView after construction,
+        # through set_command_manager)
         self._command_manager = None
+
+        # The plan revision (class docstring). A layer change is plan content.
+        self._plan_revision = 0
+        self.layers_changed.connect(self.note_plan_changed)
 
         # Constraint graph for distance constraints
         from open_garden_planner.core.constraints import ConstraintGraph
@@ -491,6 +525,42 @@ class CanvasScene(QGraphicsScene):
         """Get the command manager for undo/redo operations."""
         return self._command_manager
 
+    def set_command_manager(self, command_manager: Any) -> None:
+        """Hand the scene its undo stack (``CanvasView`` does, once).
+
+        Every executed, undone or redone command is a change of the plan: the
+        stack's ``stack_changed`` moves the plan revision. (A cleared stack is a
+        new document; ``clear()`` moves it.)
+        """
+        previous = self._command_manager
+        if previous is command_manager:
+            return
+        if previous is not None:
+            with contextlib.suppress(RuntimeError, TypeError):
+                previous.stack_changed.disconnect(self.note_plan_changed)
+        self._command_manager = command_manager
+        if command_manager is not None:
+            command_manager.stack_changed.connect(self.note_plan_changed)
+
+    @property
+    def plan_revision(self) -> int:
+        """One integer that moves exactly when plan content changed (class docstring)."""
+        return self._plan_revision
+
+    def note_plan_changed(self) -> None:
+        """THE nudge: the content of the plan just changed.
+
+        Called by the chokepoints named in the class docstring, and by every
+        writer that goes round them — one that changes what an item IS (its
+        geometry, its ``metadata``, its name, its colours) without a command and
+        without moving it. Cheap: one integer and one signal; safe to call many
+        times in one turn of the event loop (listeners coalesce). It repaints
+        nothing — a writer whose change shows on the canvas still calls
+        ``item.update()`` itself.
+        """
+        self._plan_revision += 1
+        self.plan_changed.emit(self._plan_revision)
+
     @property
     def guide_lines(self) -> list[GuideLine]:
         """List of persistent guide lines."""
@@ -515,6 +585,7 @@ class CanvasScene(QGraphicsScene):
         self._height_cm = height_cm
         self._update_scene_rect()
         self.update()  # Trigger redraw
+        self.note_plan_changed()
 
     def start_image_calibration(self, image_item) -> None:
         """Start inline calibration mode for an image.
@@ -1241,6 +1312,10 @@ class CanvasScene(QGraphicsScene):
         super().clear()
         self.timeline_changed.emit()  # readers must see the empty, completed document
 
+        # Qt destroys the items without an ``itemChange`` for any of them: the
+        # plan's content is gone, and this is the one place that knows.
+        self.note_plan_changed()
+
     def reset_document_diagnostics(self) -> None:
         """Drop document-owned caches at clear and successful load commit."""
         self._guild_diagnostics: list[dict[str, Any]] = []
@@ -1293,6 +1368,7 @@ class CanvasScene(QGraphicsScene):
             The best-matching plant-parent item, or None.
         """
         from open_garden_planner.core.object_types import is_plant_parent_type
+        from open_garden_planner.ui.canvas.footprints import shape_contains
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
         best_bed: QGraphicsItem | None = None
@@ -1303,8 +1379,7 @@ class CanvasScene(QGraphicsScene):
                 continue
             if not is_plant_parent_type(item.object_type):
                 continue
-            local_pt = item.mapFromScene(scene_point)
-            if item.contains(local_pt):
+            if shape_contains(item, scene_point):
                 rect = item.boundingRect()
                 area = rect.width() * rect.height()
                 if area < best_area:
