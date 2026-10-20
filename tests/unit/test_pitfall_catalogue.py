@@ -92,8 +92,11 @@ def entries() -> list[dict[str, object]]:
             match = ENTRY_HEADING.match(line)
             if not match:
                 continue
+            # an entry ends at the next heading: a short entry must not read the fields of the next
+            end = next((k for k in range(index + 1, len(lines)) if ANY_HEADING.match(lines[k])),
+                       len(lines))
             fields: dict[str, str] = {}
-            for follow in lines[index + 1:index + 12]:
+            for follow in lines[index + 1:end]:
                 field = FIELD.match(follow)
                 if field:
                     fields[field.group(1)] = field.group(2)

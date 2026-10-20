@@ -28,7 +28,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 
 - **Rule:** A stale `*.egg-info` on `sys.path` silently shrinks anything derived from installed metadata (#454, 2026-10-13).
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #454, #490
 - **Status:** pointer → [debug-verbose: Case study: frozen code absent from a passing SBOM (#454, 2026-10-14)](../../../.claude/skills/debug-verbose/SKILL.md#case-study-frozen-code-absent-from-a-passing-sbom-454-2026-10-14)
 - **Legacy:** README L126

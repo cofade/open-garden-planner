@@ -161,7 +161,7 @@ Held in [ADR: ADR-017: Bed-Specific Features Built Centrally on `GardenItemMixin
 
 
 - **Rule:** QSvgRenderer paints `currentColor` BLACK — never feed a contract icon SVG to it directly
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #279, #333
 - **Status:** pointer → [ADR: ADR-039: Visual Refresh — Semantic Theme Tokens + Central Runtime-Tinted Icon Provider](../../09-architecture-decisions/README.md#adr-039-visual-refresh--semantic-theme-tokens--central-runtime-tinted-icon-provider)
 - **Legacy:** README L375
@@ -192,7 +192,7 @@ Held in [ADR: ADR-039: Visual Refresh — Semantic Theme Tokens + Central Runtim
 
 
 - **Rule:** A toolbar carrying essential tools must not be user-hideable — `QMainWindow`'s free context menu is a trap with no way back
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #283, #286
 - **Status:** pointer → [ADR: ADR-018: Object Gallery Moves to Top Toolbar (Sims-style Category Dropdowns + Global Search)](../../09-architecture-decisions/README.md#adr-018-object-gallery-moves-to-top-toolbar-sims-style-category-dropdowns--global-search)
 - **Legacy:** README L383
@@ -213,7 +213,7 @@ Held in [ADR: ADR-018: Object Gallery Moves to Top Toolbar (Sims-style Category 
 
 
 - **Rule:** `QDialog.accept()` hides the window — a live harness that watches for the accepted result can see the whole app exit first
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #346
 - **Status:** pointer → [debug-verbose: Case study: live capture harness saw "capture did not complete" while the feature worked (Issue](../../../.claude/skills/debug-verbose/SKILL.md#case-study-live-capture-harness-saw-capture-did-not-complete-while-the-feature-worked-issue-346-fixed-2026-09-01)
 - **Legacy:** README L426

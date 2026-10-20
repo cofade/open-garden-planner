@@ -6,7 +6,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 
 - **Rule:** A CLI's SUCCESS output needs the same treatment as its failure output.
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #366
 - **Status:** pointer → [§8: 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1–D1.6, D2.0–D2.6, D3.1–D3.4, ADR-033/034/](../../08-crosscutting-concepts/README.md#819-agent-api--embedded-mcp-server--thread-marshaling-us-d11d16-d20d26-d31d34-adr-033034035036)
 - **Legacy:** README L183
@@ -17,7 +17,7 @@ Held in [§8: 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.
 
 
 - **Rule:** An INDETERMINATE answer must never select the more DANGEROUS option.
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #366
 - **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** README L185
@@ -48,7 +48,7 @@ Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registrati
 
 
 - **Rule:** Verify the installed binary's CAPABILITY, not the product's documented interface — and check that a stub cannot stand in for a real binary.
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #366
 - **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** README L189
@@ -59,7 +59,7 @@ Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registrati
 
 
 - **Rule:** A refusal must leave the filesystem exactly as it found it — so take the backup as late as possible.
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #366
 - **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** README L191
@@ -70,7 +70,7 @@ Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registrati
 
 
 - **Rule:** "Unparseable" and "parseable but the wrong shape" are different failures and must not share a policy.
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #366
 - **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** README L192
@@ -81,7 +81,7 @@ Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registrati
 
 
 - **Rule:** A "best-effort, never raises" reader must own its failure type — and, more importantly, must not enumerate.
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #366
 - **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** README L193
@@ -92,7 +92,7 @@ Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registrati
 
 
 - **Rule:** A guard checked on some paths is not a guard.
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #366
 - **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** README L194
@@ -103,7 +103,7 @@ Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registrati
 
 
 - **Rule:** A required dataclass field is a contract with an explicit consumer list, not a struct you can extend freely.
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #277, #291, #365
 - **Status:** pointer → [ADR: ADR-038 addendum: issue #277 — the release shipped a mismatched Qt micro (post-mortem)](../../09-architecture-decisions/README.md#adr-038-addendum-issue-277--the-release-shipped-a-mismatched-qt-micro-post-mortem)
 - **Legacy:** README L195
@@ -114,7 +114,7 @@ Held in [ADR: ADR-038 addendum: issue #277 — the release shipped a mismatched 
 
 
 - **Rule:** A tool's declared return model is part of its contract, and testing the provider is not the same as testing the tool.
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #365
 - **Status:** pointer → [ADR: Addendum (US-D3.3 + US-D3.4 — the D3 localisation convention)](../../09-architecture-decisions/README.md#addendum-us-d33--us-d34--the-d3-localisation-convention)
 - **Legacy:** README L197
@@ -125,7 +125,7 @@ Held in [ADR: Addendum (US-D3.3 + US-D3.4 — the D3 localisation convention)](.
 
 
 - **Rule:** A third-party config file is a *superset* of the format you assume, and fail-closed turns that into a dead end.
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #366
 - **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** README L198
@@ -136,7 +136,7 @@ Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registrati
 
 
 - **Rule:** Never re-serialise a file you do not own.
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #366
 - **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** README L199
@@ -176,7 +176,7 @@ Held in [ogp-failure-archaeology: Index — scan this first](../../../.claude/sk
 
 
 - **Rule:** **Agent creation must share the loader's construction path and its undo
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #329
 - **Status:** pointer → [ADR: Addendum (US-D3.3 + US-D3.4 — the D3 localisation convention)](../../09-architecture-decisions/README.md#addendum-us-d33--us-d34--the-d3-localisation-convention)
 - **Legacy:** README L442

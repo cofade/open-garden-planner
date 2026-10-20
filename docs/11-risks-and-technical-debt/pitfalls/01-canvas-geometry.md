@@ -14,7 +14,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 
 - **Rule:** A plant's drawn icon has a fourth independent size, reversing an explicit ADR-037 rejection on the owner's call (issue #299).
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #218, #219, #299
 - **Status:** pointer → [ADR: ADR-028: Plant Sizing Resolver + Unified Rotation-Aware Resize](../../09-architecture-decisions/README.md#adr-028-plant-sizing-resolver--unified-rotation-aware-resize)
 - **Legacy:** README L220

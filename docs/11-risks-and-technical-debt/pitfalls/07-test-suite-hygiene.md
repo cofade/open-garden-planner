@@ -58,7 +58,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 
 - **Rule:** A test that exercises a real external binary will exercise it on the developer's machine.
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #366
 - **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** README L196
@@ -138,7 +138,7 @@ Duplicate of [PF-TST-07](07-test-suite-hygiene.md#pf-tst-07): the 2026-08-17 re-
 
 
 - **Rule:** A hidden wrap seam is located by measuring `|row0 − row255|` per column, not by theorising about the layout
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #309
 - **Status:** pointer → [debug-verbose: Case study: regenerated wood texture fails the seam gate in y — the "obvious" layout theories w](../../../.claude/skills/debug-verbose/SKILL.md#case-study-regenerated-wood-texture-fails-the-seam-gate-in-y--the-obvious-layout-theories-were-wrong-one-primitive-default-was-the-bug-package-3b-309-fixed-2026-08-18)
 - **Legacy:** README L408

@@ -16,7 +16,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 
 - **Rule:** Opening a corrupt plan must never contaminate document identity or wipe existing recovery files.
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #403
 - **Status:** pointer → [§8: 8.7 Error Handling](../../08-crosscutting-concepts/README.md#87-error-handling)
 - **Legacy:** README L179
@@ -27,7 +27,7 @@ Held in [§8: 8.7 Error Handling](../../08-crosscutting-concepts/README.md#87-er
 
 
 - **Rule:** Missing or corrupt external assets must load as placeholders to survive save cycles.
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #397
 - **Status:** pointer → [§8: 8.7 Error Handling](../../08-crosscutting-concepts/README.md#87-error-handling)
 - **Legacy:** README L180
@@ -140,7 +140,7 @@ Held in [ADR: ADR-036 addendum: species assignment + explicit bed reparenting (U
 
 
 - **Rule:** Lesson (design review, #338): a refresh that writes model state breaks snapshot-based undo.: The stacking-order design w
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #338
 - **Status:** pointer → [ADR: ADR-036 addendum: species assignment + explicit bed reparenting (US-D2.3, #327)](../../09-architecture-decisions/README.md#adr-036-addendum-species-assignment--explicit-bed-reparenting-us-d23-327)
 - **Legacy:** README L418

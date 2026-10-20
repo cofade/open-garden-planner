@@ -6,7 +6,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 
 - **Rule:** No free solver variables does not imply feasibility
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #457
 - **Status:** pointer → [§8: A5 numerical and presentation evidence (#457)](../../08-crosscutting-concepts/README.md#a5-numerical-and-presentation-evidence-457)
 - **Legacy:** README L128
@@ -42,7 +42,7 @@ Held in [§8: A5 numerical and presentation evidence (#457)](../../08-crosscutti
 
 
 - **Rule:** `search()` and `get_by_id()` returned structurally different field sets for the same provider, and nothing wired the richer one into the selection flow (issue #297).
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #297
 - **Status:** pointer → [debug-verbose: Case study: Trefle search results never carried sun/water/pH/foliage data -- dead code, a wrong](../../../.claude/skills/debug-verbose/SKILL.md#case-study-trefle-search-results-never-carried-sunwaterphfoliage-data----dead-code-a-wrong-theory-refuted-live-and-three-more-bugs-found-only-by-trying-to-break-the-fix-issue-297-fixed-2026-08-10)
 - **Legacy:** README L207
@@ -175,7 +175,7 @@ Held in [debug-verbose: Case study: Trefle search results never carried sun/wate
 
 
 - **Rule:** A derived texture's orientation is gravity-relative, and naming a half "left" does not make it the downhill side
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #364, #372
 - **Status:** pointer → [debug-verbose: Case study: the roof-ridge sync was a membrane, not a recompute (issue #364, fixed 2026-09-29)](../../../.claude/skills/debug-verbose/SKILL.md#case-study-the-roof-ridge-sync-was-a-membrane-not-a-recompute-issue-364-fixed-2026-09-29)
 - **Legacy:** README L469
@@ -224,7 +224,7 @@ Held in [ADR: Addendum (#414 — one frost anchor per surface, and one date-wind
 
 
 - **Rule:** A shared generator's flags are inherited per iteration, so a wrapper can filter before the wrapper's own filter runs.
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #326
 - **Status:** pointer → [ADR: ADR-028: Plant Sizing Resolver + Unified Rotation-Aware Resize](../../09-architecture-decisions/README.md#adr-028-plant-sizing-resolver--unified-rotation-aware-resize)
 - **Legacy:** README L1084

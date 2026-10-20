@@ -48,7 +48,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 
 - **Rule:** A `scene.changed` slot that touches a `QTimer` must guard against the C++ object being torn down
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #230
 - **Status:** pointer → [ADR: ADR-037 addendum: 2D analytic shadow overlay (US-E3, #258)](../../09-architecture-decisions/README.md#adr-037-addendum-2d-analytic-shadow-overlay-us-e3-258)
 - **Legacy:** README L254
@@ -69,7 +69,7 @@ Held in [ADR: ADR-037 addendum: 2D analytic shadow overlay (US-E3, #258)](../../
 
 
 - **Rule:** Qt silently drops the mouse grab on `ItemIgnoresTransformations` handles between events (PyQt6)
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #193
 - **Status:** pointer → [ogp-qt-cad-reference: 3. `ItemIgnoresTransformations` — what it buys and its two traps](../../../.claude/skills/ogp-qt-cad-reference/SKILL.md#3-itemignorestransformations--what-it-buys-and-its-two-traps)
 - **Legacy:** README L290
@@ -80,7 +80,7 @@ Held in [ogp-qt-cad-reference: 3. `ItemIgnoresTransformations` — what it buys 
 
 
 - **Rule:** `QGraphicsScene.changed` only fires on geometry/visibility, not on Python attribute mutations
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #173
 - **Status:** pointer → [debug-verbose: Case study: soil-mismatch warning goes stale on plant move/reparent (issue #173, fixed 2026-05-](../../../.claude/skills/debug-verbose/SKILL.md#case-study-soil-mismatch-warning-goes-stale-on-plant-movereparent-issue-173-fixed-2026-05-07)
 - **Legacy:** README L304

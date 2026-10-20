@@ -17,7 +17,7 @@ Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registrati
 
 
 - **Rule:** A claim written from the producer's side is not a delivered feature — and a test that skips the consumer cannot catch it.
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #366
 - **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** README L190
@@ -68,7 +68,7 @@ Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registrati
 
 
 - **Rule:** A drift-tolerance window that is merely "generous" is a false safety claim, not a weaker one
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #336
 - **Status:** pointer → [§8: 8.10.1 Gating our own documentation's shell commands](../../08-crosscutting-concepts/README.md#8101-gating-our-own-documentations-shell-commands)
 - **Legacy:** README L438
@@ -89,7 +89,7 @@ Held in [§8: 8.10.1 Gating our own documentation's shell commands](../../08-cro
 
 
 - **Rule:** **An issue's "verified repo facts" are a claim about the code, not the code — and a rule that
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** #331
 - **Status:** pointer → [ADR: ADR-034 addendum: succession domain schema, determinism, and a SHARED season-segment fallback (US-D3.2, #](../../09-architecture-decisions/README.md#adr-034-addendum-succession-domain-schema-determinism-and-a-shared-season-segment-fallback-us-d32-331)
 - **Legacy:** README L471
@@ -100,7 +100,7 @@ Held in [ADR: ADR-034 addendum: succession domain schema, determinism, and a SHA
 
 
 - **Rule:** Lesson: verify every file:line and every "reuse X" instruction against the code before writing it
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the home holds this rule (see Status); no test is named here
 - **Source:** none recorded
 - **Status:** pointer → [PF-PRC-09](12-process-and-docs.md#pf-prc-09)
 - **Legacy:** README L504
