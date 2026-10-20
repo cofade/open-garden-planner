@@ -46,7 +46,8 @@ class SunExportGate(QObject):
         self.timeout_s = 30.0
         self._leases = 0
         self._resume = False
-        self._release_worker.connect(self._finish_worker, Qt.ConnectionType.QueuedConnection)
+        self._release_worker.connect(  # type: ignore[call-arg]
+            self._finish_worker, Qt.ConnectionType.QueuedConnection)
 
     def _begin_worker(self, operation: _WorkerExport) -> _ExportRequest:
         with operation.lock:
