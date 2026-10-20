@@ -44,8 +44,8 @@ def select_merged_pr(
     """Select the merged PR targeting `target_base` from a commit's pulls list.
 
     Prioritizes PRs merged to the target base branch. If multiple match, picks
-    the one with the newest `merged_at` timestamp. If none explicitly match base
-    and merged_at, falls back to the first available PR record.
+    the one with the newest `merged_at` timestamp. If none match base and
+    merged_at, returns None so caller falls back to commit subject parsing.
     """
     if not pulls:
         return None
@@ -178,7 +178,7 @@ def resolve_pr_and_bump(
     except Exception:
         pass
 
-    # Method 2: fallback to squash commit subject " (#N)"
+    # Method 2: fallback to commit subject " (#N)" or "Merge pull request #N"
     if pr_number is None:
         try:
             subject_proc = subprocess.run(
