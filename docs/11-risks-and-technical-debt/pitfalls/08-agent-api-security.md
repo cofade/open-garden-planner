@@ -14,14 +14,13 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 
 ### PF-API-02
 
-
 - **Rule:** A capability probe is tri-state, and an indeterminate answer never selects the more dangerous option: only a definitive absence of the flag may choose the legacy argv that fails silently.
 - **Pinned by:** none — the body names no test for this rule.
 - **Source:** #366
-- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
+- **Status:** standing
 - **Legacy:** b1faaa9 README L185
 
-Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
+- **An INDETERMINATE answer must never select the more DANGEROUS option.** (Issue #366, the final pre-merge review's only P0): the client-CLI capability probe returned an empty flag set when it could not read a binary's help, and the caller read empty as "this CLI is too old" — which selected `legacy_cli_argv`, the argv *without* `--global`. On a MODERN CLI that writes a **project** config into the user's current working directory and returns `success=True`; reproduced end to end, with the user config never touched and the dialog row then contradicting the success message it had just shown. The reasoning was backwards because it asked "which answer is absent" instead of "which failure is dangerous": **the modern argv fails loudly (the CLI prints its help), the legacy one fails silently and writes the wrong file.** So the probe is tri-state — `supported` / `unsupported` / `unknown` — and only a *definitive* absence of the flag may take the legacy path. The same review found the probe's `except` still enumerated `(OSError, subprocess.SubprocessError)` at a trust boundary, which invariant 14 forbids and which this module's own `registered_url` comment explains; it is now broad, and `errors="replace"` keeps a single undecodable byte in someone else's help from becoming an exception on POSIX (where `subprocess` decodes in the calling thread, so it would escape into the dialog's `__init__`) or an empty string on Windows (where it kills the reader thread — the silent path that caused this very bug). **A capability check is a three-valued question, and "I could not tell" is an answer.**
 
 ### PF-API-03
 
@@ -110,14 +109,13 @@ Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registrati
 
 ### PF-API-11
 
-
 - **Rule:** A tool's declared return model is part of its contract, so a test calls the tool itself over the wire, not only its provider, because the model is constructed only between the two.
 - **Pinned by:** none — the body names no test for this rule.
 - **Source:** #365
-- **Status:** pointer → [ADR-034 addendum (US-D3.3 + US-D3.4), the declared-return-model paragraph near its end](../../09-architecture-decisions/README.md#addendum-us-d33--us-d34--the-d3-localisation-convention)
+- **Status:** standing
 - **Legacy:** b1faaa9 README L197
 
-Held in [ADR: Addendum (US-D3.3 + US-D3.4 — the D3 localisation convention)](../../09-architecture-decisions/README.md#addendum-us-d33--us-d34--the-d3-localisation-convention). The entry keeps the rule and its pin; the account is in the link.
+- **A tool's declared return model is part of its contract, and testing the provider is not the same as testing the tool.** (Issue #365): `new_plan` and `open_plan` first shipped returning `ExportResult(**result)` while their providers returned a dict with no `format` key and a `None` `file_path` against a `str` field. Both therefore raised a pydantic `ValidationError` on **every successful call over the wire** — after the document had already been replaced — while all 22 body-level tests passed, because the main-thread body builds a plain dict and never constructs the model. The two lines between provider and tool were the untested part. A `BaseModel` on a tool's return type is a contract, and it needs coverage at the same level as the handler.
 
 ### PF-API-12
 
@@ -171,14 +169,13 @@ Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registrati
 
 ### PF-API-17
 
-
 - **Rule:** Agent creation feeds a Qt-free validated dict to the loader, `ProjectManager._deserialize_item_core`, inside one undo command, and is tested through create, read, save, load and read again.
 - **Pinned by:** none — the body describes integration tests and a drift guard but names no test file or function.
 - **Source:** #329
-- **Status:** pointer → [ADR-034 addendum (US-D3.3 + US-D3.4), the US-D2.5 shape-creation paragraph near its end](../../09-architecture-decisions/README.md#addendum-us-d33--us-d34--the-d3-localisation-convention)
+- **Status:** standing
 - **Legacy:** b1faaa9 README L442
 
-Held in [ADR: Addendum (US-D3.3 + US-D3.4 — the D3 localisation convention)](../../09-architecture-decisions/README.md#addendum-us-d33--us-d34--the-d3-localisation-convention). The entry keeps the rule and its pin; the account is in the link.
+- **Agent creation must share the loader's construction path and its undo boundary (US-D2.5, #329).** The tempting implementation is to instantiate each shape class directly from its geometry parameters, but that creates a second set of defaults and serialization assumptions beside `ProjectManager._deserialize_item_core`. The safer contract is a Qt-free validation/dict builder followed by the loader on the Qt main thread; integration tests then prove the saved snapshot and live geometry agree. The same boundary matters for composites: a `HOUSE`'s derived `ROOF_RIDGE` is created in the same `CreateItemsCommand`, so one agent call has one Ctrl+Z step and cannot leave an orphaned ridge. Callout UUIDs are persisted explicitly because a visually correct callout whose id changes on save/load breaks every subsequent agent reference. The durable lesson is to test create -> read -> save/load -> read, not only the immediate canvas item, and to make every deliberate unsupported type visible through the discovery tool and a drift guard.
 
 ### PF-API-18
 

@@ -81,10 +81,10 @@ Held in [ogp-qt-cad-reference: 3. `ItemIgnoresTransformations` — what it buys 
 - **Rule:** `QGraphicsScene.changed` ignores plain Python attribute writes, so any path that re-parents a plant calls `trigger_soil_mismatch_refresh(scene)` or goes through `SetParentBedCommand`.
 - **Pinned by:** none — The body names no test for this rule.
 - **Source:** #173
-- **Status:** pointer → [debug-verbose: Case study: soil-mismatch warning goes stale on plant move/reparent (issue #173, fixed 2026-05-](../../../.claude/skills/debug-verbose/SKILL.md#case-study-soil-mismatch-warning-goes-stale-on-plant-movereparent-issue-173-fixed-2026-05-07)
+- **Status:** pointer → [debug-verbose: Case study: soil-mismatch warning goes stale on plant move/reparent (issue #173, fixed 2026-05-07)](../../../.claude/skills/debug-verbose/SKILL.md#case-study-soil-mismatch-warning-goes-stale-on-plant-movereparent-issue-173-fixed-2026-05-07)
 - **Legacy:** b1faaa9 README L304
 
-Held in [debug-verbose: Case study: soil-mismatch warning goes stale on plant move/reparent (issue #173, fixed 2026-05-](../../../.claude/skills/debug-verbose/SKILL.md#case-study-soil-mismatch-warning-goes-stale-on-plant-movereparent-issue-173-fixed-2026-05-07). The entry keeps the rule and its pin; the account is in the link.
+Held in [debug-verbose: Case study: soil-mismatch warning goes stale on plant move/reparent (issue #173, fixed 2026-05-07)](../../../.claude/skills/debug-verbose/SKILL.md#case-study-soil-mismatch-warning-goes-stale-on-plant-movereparent-issue-173-fixed-2026-05-07). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-LIF-09
 

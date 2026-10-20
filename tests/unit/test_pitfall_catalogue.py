@@ -261,6 +261,17 @@ def test_pointer_entries_name_a_home_that_holds_their_issues_and_pins() -> None:
         for path, _ in PIN.findall(str(entry["fields"]["Pinned by"])):  # type: ignore[index]
             # a home may name its test by file name alone
             assert path.rsplit("/", 1)[1] in section, f"{entry['id']}: its home does not name its pin {path}"
+        # A home must preserve the substance of the rule, not merely cite its issue numbers
+        rule = str(entry["fields"]["Rule"])
+        keywords = [
+            word.lower()
+            for word in re.findall(r"\b[A-Za-z]{5,}\b", rule)
+            if word.lower() not in {"every", "other", "their", "which", "where", "after", "never", "under"}
+        ]
+        matched = [kw for kw in keywords if kw in section.lower()]
+        assert len(matched) >= min(3, len(keywords)), (
+            f"{entry['id']}: its home #{match.group(2)} matches only {matched} out of substantive rule keywords {keywords}"
+        )
 
 
 def test_archive_links_resolve_to_an_existing_anchor() -> None:
@@ -342,7 +353,12 @@ def scanned_text() -> list[tuple[Path, int, str]]:
     for root in SCAN_ROOTS:
         candidates += [path for path in (ROOT / root).rglob("*") if path.is_file()]
     for path in sorted(set(candidates)):
-        if "__pycache__" in path.parts or path.suffix in SKIP_SUFFIXES or path == Path(__file__).resolve():
+        if (
+            "__pycache__" in path.parts
+            or "worktrees" in path.parts
+            or path.suffix in SKIP_SUFFIXES
+            or path == Path(__file__).resolve()
+        ):
             continue
         if path.is_relative_to(ARCHIVE):
             continue

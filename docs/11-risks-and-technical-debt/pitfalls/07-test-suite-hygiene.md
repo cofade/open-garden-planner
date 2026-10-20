@@ -56,14 +56,13 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 
 ### PF-TST-05
 
-
 - **Rule:** A test that could reach a real external CLI stubs `shutil.which` for the whole module, so its default is no CLI rather than whatever happens to be installed on the developer's machine.
 - **Pinned by:** none — the body names no test file; the remedy is an autouse module fixture that stubs `shutil.which`, which applies the rule rather than failing when it is broken.
 - **Source:** #366
-- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
+- **Status:** standing
 - **Legacy:** b1faaa9 README L196
 
-Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
+- **Tests that probe third-party binaries must never run them against the developer's real user environment.** (Issue #366): a unit test called `detect_clients()`, which executed `opencode mcp add --global` and modified the developer's own `~/.config/opencode/opencode.jsonc`. `shutil.which` finds those CLIs on a machine that has them, so "no CLI" is not the default a test gets. The fix is an **autouse fixture that stubs `shutil.which` for the whole module**, so the default is "no CLI" rather than "whatever happens to be installed here" — and the scar is worth more than the fix, because the same test produced the single most useful finding in the change: OpenCode's real container key is `mcp.servers`, not the `mcp` its published schema implies (`additionalProperties: {}`, which says nothing). The developer's config was restored.
 
 ### PF-TST-06
 
@@ -139,10 +138,10 @@ Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registrati
 - **Rule:** A hidden texture wrap seam is located by measuring the per-column difference between row 0 and row 255, not by theorising about the layout, because the metric already knows where the seam is.
 - **Pinned by:** none — the body names no test; it describes a measurement method for locating a texture seam.
 - **Source:** #309
-- **Status:** pointer → [debug-verbose: Case study: regenerated wood texture fails the seam gate in y — the "obvious" layout theories w](../../../.claude/skills/debug-verbose/SKILL.md#case-study-regenerated-wood-texture-fails-the-seam-gate-in-y--the-obvious-layout-theories-were-wrong-one-primitive-default-was-the-bug-package-3b-309-fixed-2026-08-18)
+- **Status:** pointer → [debug-verbose: Case study: regenerated wood texture fails the seam gate in y — the "obvious" layout theories were wrong; one primitive default was the bug (Package 3b #309, fixed 2026-08-18)](../../../.claude/skills/debug-verbose/SKILL.md#case-study-regenerated-wood-texture-fails-the-seam-gate-in-y--the-obvious-layout-theories-were-wrong-one-primitive-default-was-the-bug-package-3b-309-fixed-2026-08-18)
 - **Legacy:** b1faaa9 README L408
 
-Held in [debug-verbose: Case study: regenerated wood texture fails the seam gate in y — the "obvious" layout theories w](../../../.claude/skills/debug-verbose/SKILL.md#case-study-regenerated-wood-texture-fails-the-seam-gate-in-y--the-obvious-layout-theories-were-wrong-one-primitive-default-was-the-bug-package-3b-309-fixed-2026-08-18). The entry keeps the rule and its pin; the account is in the link.
+Held in [debug-verbose: Case study: regenerated wood texture fails the seam gate in y — the "obvious" layout theories were wrong; one primitive default was the bug (Package 3b #309, fixed 2026-08-18)](../../../.claude/skills/debug-verbose/SKILL.md#case-study-regenerated-wood-texture-fails-the-seam-gate-in-y--the-obvious-layout-theories-were-wrong-one-primitive-default-was-the-bug-package-3b-309-fixed-2026-08-18). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-TST-14
 
