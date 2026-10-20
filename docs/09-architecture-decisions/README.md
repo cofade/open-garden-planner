@@ -1877,13 +1877,14 @@ P0/P1 row links its own issue, as decision 1 requires of every P0/P1 row (TD-037
 
 The eight dated 2026-10 artifacts moved from `docs/11-risks-and-technical-debt/` into
 `docs/11-risks-and-technical-debt/audits/2026-10/`, and the reference-plan fixture moved to
-`tests/fixtures/plans/`. The snapshot's text is unchanged, and all of its links stay inside
-its folder, so the move needs no edit to it. Its statement that it was "not edited after
-merge" is corrected: commit `07241b9` (#426, 2026-10-10) changed its AUD-063 status once.
-That edit is recorded here and in ADR-061.
+`tests/fixtures/plans/`. The snapshot's text is unchanged, and it contains no relative links, so
+the move needed no edit to it. Its statement that it was "not edited after merge" is corrected:
+commit `07241b9` (#426, 2026-10-10) rewrote its AUD-063 entry and table row (the issue resolved via
+ADR-052). That edit is recorded here and in ADR-061. The convention for future snapshots in the
+decision above now reads `audits/YYYY-MM/audit-YYYY-MM.md`.
 
 `audit-2026-10-metrics.json` still records the snapshot-date values (2,104 mypy errors in
-134 files). TD-020 in §11.3 holds the current baseline (1,966 errors).
+134 files). TD-020 in §11.3 records the later baseline (1,966 errors).
 
 
 ## ADR-048: 3D Renderer — Qt Quick 3D replaces Qt 3D (supersedes ADR-038's engine choice) — GO/NO-GO spike (Phase 17, Package L0)
@@ -2078,7 +2079,7 @@ That edit is recorded here and in ADR-061.
       - octahedron flower centres;
       - a VeryHigh shadow map at low: ridge-cap scallops 25 → 2 columns, low IoU 0.953 / 0.959 / 0.922 at 1280×720;
       - a `sunset` shot at 5.9°, the golden anchor of the rig.
-    - **Pass 5** (f1b998e): **APPROVE**, no P0 or P1. The reviewer's own board is bit-identical to the creator's (21 of 21 PNGs), and every round-4 claim reproduced: isolated dark pixels as above, December clipping 0.27 % at both presets (noon: 0.25 %), 0 of 448 swept trees over budget against a hand-checked bound of 22,466, ridge-scallop columns 25 → 2, and the sunset shot on the golden anchor with truthful shadow directions. It confirmed that none of its pass-4 numbers came from a render that imported the main checkout's code (PF-E3D-04 item 14). Open P2s, deferred to L1: the trampoline mat reads tan in low sun (the broad specular sheen of the shared vertex-colour material; a rubber material measured 97 → 70 luma at golden hour); the roof's tile courses; meadow value noise. `sharpnessAmount` has no clean middle value (0.03 overshoots nearly like 0.08), so it stays at 0, and the frames lost 16–29 % of their edge energy (an owner question).
+    - **Pass 5** (f1b998e): **APPROVE**, no P0 or P1. The reviewer's own board is bit-identical to the creator's (21 of 21 PNGs), and every round-4 claim reproduced: isolated dark pixels as above, December clipping 0.27 % at both presets (noon: 0.25 %), 0 of 448 swept trees over budget against a hand-checked bound of 22,466, ridge-scallop columns 25 → 2, and the sunset shot on the golden anchor with truthful shadow directions. It confirmed that none of its pass-4 numbers came from a render that imported the main checkout's code (PF-E3D-04). Open P2s, deferred to L1: the trampoline mat reads tan in low sun (the broad specular sheen of the shared vertex-colour material; a rubber material measured 97 → 70 luma at golden hour); the roof's tile courses; meadow value noise. `sharpnessAmount` has no clean middle value (0.03 overshoots nearly like 0.08), so it stays at 0, and the frames lost 16–29 % of their edge energy (an owner question).
 
 17. *Custom materials*: the pond's `water.frag` samples the image-based light through Qt-internal shader-library functions (`qt_sampleDiffuse`, `qt_sampleGlossy`, guarded by `QSSG_ENABLE_LIGHT_PROBE`), not documented built-ins, so a Qt upgrade (Package L7 plans 6.12) can break it silently. Since a shader error now fails the run (entry 14), the render tier and the Windows run check it on OpenGL and D3D11; production adopts it only with that check in its own render tests and a line in the L1 ADR.
 18. *What L1 inherits, and how the owner measures*:
@@ -3392,7 +3393,7 @@ wrapper is garbage in a reference cycle while Qt still owns the C++ object (a `d
 pending), the cyclic collector clears the callable and the connection stays behind — and then
 the signal is either never delivered (the hook ran 0 times) or delivered into what is left (the
 access violation). The helper therefore hangs nothing on `destroyed`; a test pins that
-(`::test_the_helper_hangs_nothing_on_the_destroyed_signal`). PF-E3D-07 has the reproduction.
+(`::test_the_helper_hangs_nothing_on_the_destroyed_signal`). PF-E3D-07, item 1 of archive/05-l1-3-workspace.md, has the reproduction.
 
 ## ADR-054: Recorded species traits and semantic food-forest layers (#312)
 
@@ -4273,7 +4274,7 @@ it stands after that round.
   `item_footprints` hands a closed fence's two rings to `compute_scene_shadows` as two solids, so
   a 10 m × 8 m fence 1.2 m high shades 88.8 m² at a 60° sun where its stroke shades 17.5 m². The
   golden footprint fixture pins `item_footprints` byte for byte, so the fix is a follow-up of its
-  own (PF-E3D-05 has the reproduction). Until it lands, 2D and 3D disagree ON PURPOSE for a closed
+  own (PF-L3D-02 has the reproduction). Until it lands, 2D and 3D disagree ON PURPOSE for a closed
   stroke and for a polygon that crosses itself: the 3D record is the stroke, or the resolved
   regions; the 2D footprint is every ring as a solid, or the ring as drawn. That follow-up should
   also move "resolve an outline" and "sort rings into regions" into one `core` function both
@@ -5299,7 +5300,7 @@ for every edit, and kept every texture it ever made alive.
    `render_furniture_pixmap`, and the path-style painters were moved out of `PolylineItem.paint`
    into `ui/canvas/items/path_style_paint.py`, which both call. Only single `QPainter` calls are
    mirrored. A second implementation of ten path and fence styles would have been a second place to be
-   wrong; the extraction found two defects of the first (PF-L3D-03).
+   wrong; the extraction found two defects of the first (PF-L3D-03, PF-L3D-04 and PF-CAN-21).
 6. **Tiles are crops of one pixel grid.** 512 px tiles; the finest of 1, ½, ¼ … px/cm within
    4096 × 4096 px and 256 tiles; whole-pixel offsets — seamless by construction, not by
    blending. A tile is a pure function of its records in order, so an untouched tile can be handed
@@ -5328,7 +5329,7 @@ for every edit, and kept every texture it ever made alive.
   texture, sprite and path style rebuilt as geometry: a third implementation.
 - *A paint-only side channel beside the records* — a second snapshot with its own diff; one edit
   would be two diffs that can disagree.
-- *Updating a tile's texture in place* — measured not to show (PF-L3D-03).
+- *Updating a tile's texture in place* — measured not to show (PF-L3D-04).
 - *Hairline-exact tiles by rendering the plan in one image and cropping* — exact, but every edit
   costs the whole plan.
 
@@ -5354,7 +5355,7 @@ for every edit, and kept every texture it ever made alive.
   nor on the hardware adapter, whose window presented NONE — where nothing is rendered, so that
   cell shows the process side only. A hardware window that presents is on the story's manual
   checklist. What the first version of this addendum reported as "unmet where no frame is
-  presented" was its own soak calling `grab()` after every re-bake (PF-L3D-03).
+  presented" was its own soak calling `grab()` after every re-bake (PF-L3D-04).
 
 **Validation.** Default tier — `tests/integration/test_scene3d_ground_bake.py`: G1 parity for the
 25 fill patterns × tinted/untinted × 0° / 33° × two tile-straddling positions (200 cases: not
@@ -5380,7 +5381,7 @@ the loop; the grabbing control +16.1 to +17.4).
 
 The story's independent review found no regression of the 2D canvas and no unbounded count, and
 five places where the bake did not keep its promise. What was DECIDED in answer — the findings
-themselves, with their measurements, are PF-L3D-03:
+themselves, with their measurements, are PF-L3D-03, PF-L3D-04 and PF-CAN-21:
 
 - **Decision 3, amended — a circle's turn is paint.** A circle's record does not turn (decision 9
   of the contract: footprint and solid are the same whatever its rotation). What the canvas
@@ -5440,7 +5441,7 @@ Validation of the round: `tests/integration/test_scene3d_ground_rules.py` (42 te
 the lawn under 255, 256 and 2,000 pavers; six shapes of cover; the budget with a clock that
 advances a second a reading; random edit sessions through three bakers; a raising painter),
 `tests/unit/test_scene3d_ground.py::TestSyncWithAGroundBaker` (pending work, the remembered
-failure, poisoning in a continuation), the 2D suites named in PF-L3D-03, the render tier's
+failure, poisoning in a continuation), the 2D suites named in PF-CAN-21, the render tier's
 budgeted open and five re-texture sequences on the RTX 4070 and on WARP, and 23 mutants of the
 new rules, all killed.
 
@@ -5448,7 +5449,7 @@ new rules, all killed.
 
 The re-check found the save / load work of round 1 clean, the round-1 rule for a full tile right
 in its wording and wrong in its outcome, and several places where a rule had been guarded by
-the one case its author thought of. What was decided in answer (the findings are PF-L3D-03):
+the one case its author thought of. What was decided in answer (the findings are PF-L3D-03, PF-L3D-04 and PF-CAN-21):
 
 - **Decision 8, amended again — admission by outcome.** "The topmost 256, and under them what
   covers the WHOLE tile" kept a lawn only when it was the plan rectangle; 10 cm inside the plan's
@@ -5549,7 +5550,7 @@ fixed the same defect, `master`'s mechanism wins:**
   name) took every test that calls a baker's `bake` for a timing test.
 - The identifiers are the placeholders (`renumber_385_v2.py`, before the merge): this addendum
   belongs to ADR-059; its concept section is §8.29.5, its test patterns §8.10.10, its lessons
-  PF-L3D-03, its requirements FR-33's `FR-3D-GROUND-*`.
+  PF-L3D-03, PF-L3D-04 and PF-CAN-21, its requirements FR-33's `FR-3D-GROUND-*`.
 
 #### Part B: the bake wired into the workspace (2026-10-19)
 
@@ -5585,7 +5586,7 @@ fixed the same defect, `master`'s mechanism wins:**
   tile textures behind (+10.7 to +13.3 MB a cycle on WARP with a release each cycle; flat
   without). Counting tiles only called the leaking release more often; NOT counting them does
   not make the leak rarer — every release that item changes cause still leaks (review 3). The leak itself is
-  OPEN (PF-L3D-03; the workspace's G7 soak with the baker in: GPU +7.5 MB per rebuild with its
+  OPEN (PF-L3D-04; the workspace's G7 soak with the baker in: GPU +7.5 MB per rebuild with its
   release after quiet, +19 with the release in the pass, against 0.0 and −0.1 without the
   baker; with tiles no longer counted, GPU +10.2 and private bytes +30.4 with the release in
   the pass). The cause is a Qt Quick 3D 6.11.0 bug, read in its source and proven by measurement (#532): `QSSGBufferManager::clear()` walks `customTextureMap` with `++it` while `releaseTextureData(it.key())` erases through its own lookup; Qt 6's `QHash` shifts the next entry of a collision run back into the freed slot, `++it` skips it, and `customTextureMap.clear()` drops the skipped entries unreleased. The key's hash covers only size, depth, format and transparency, so same-size tiles all collide and about half leak per release (WARP, 16 × 512²: +10.8 / +11.7 MB a cycle against a prediction of 8 × 1.333 MiB) — tried and rejected: in-place updates, distinct tile
@@ -5962,7 +5963,7 @@ Five facts shaped the design:
   the user can undo.
 - **Disconnecting a clock subscriber on its own `destroyed` signal.** Built first; it crashed
   the suite with an access violation — the cyclic collector clears a Python callable connected
-  to `destroyed` while Qt still owns the object, and Qt then calls what is left (PF-E3D-07).
+  to `destroyed` while Qt still owns the object, and Qt then calls what is left (PF-E3D-07, item 1 of archive/05-l1-3-workspace.md).
 - **Releasing the engine's caches on every pass, on a timer, or never.** Every pass: 2 to 10 ms
   per edit plus a frame that rebuilds what was dropped. A timer: wake-ups while idle, and no
   relation to what was destroyed. Never: 19 MB per rebuild of the small bench plan and 65 of
@@ -6473,7 +6474,7 @@ consolidated checklist of the L1 pull request asked the owner to choose. **Decid
 the owner accepted the L1 pull request after its manual checklist and chose (a), ship the flip
 with #532 open. The six other decisions put to them there were kept as built: the twilight fade
 (FR-3D-LOOK-01), the noon horizon's lime band, 4× MSAA at Low (FR-3D-LOOK-07), the flat sky in
-compatibility mode, `master`'s rule for a loaded sprite's stated stroke (PF-L3D-03), and the new
+compatibility mode, `master`'s rule for a loaded sprite's stated stroke (PF-CAN-21), and the new
 view's cost over the old window (§8.29.9) with no lighter default preset.
 
 #### Alternatives rejected
@@ -6546,30 +6547,33 @@ the L0 measurements the look was accepted on).
 
 ## ADR-061: The pitfall catalogue — numbered area files, permanent IDs, one index and a verbatim archive
 
-**Status**: Accepted (2026-10-20, branch `ccr-8b9510b4-o53uve`). Supersedes the single-section layout of §11.4 ("Known Development Pitfalls") that ADR-047 left in place. The audit family's move is recorded in the ADR-047 addendum above.
+**Status**: Accepted (2026-10-20). Owner review of the dedupe table and of the pins flagged for a human look is pending. Supersedes the single-section layout of §11.4 ("Known Development Pitfalls") that ADR-047 left in place. The audit family's move is recorded in the ADR-047 addendum above.
 
 ### Context
 
-Chapter 11's README had grown to 3,432 lines and 532 KB. §11.4 held every lesson: about 150 unstructured items in its intro (about 220 KB) and 20 numbered diaries (about 258 KB, of which about 205 KB were Phase 17 3D narratives). Each feature PR appended to that one file, and the README changed in 27 of the 50 commits visible in the shallow clone. The numbering was broken: one legacy number named two entries, two headings came out of order, and two lessons sat under §11.5. The citation gate (`scripts/check_skill_citations.py`) resolves `§N.M` only against chapter-README headings, so the restructure had to keep that resolution honest.
+At b1faaa9 the chapter README was 3,432 lines and 532 KB. Its §11.4 ("Known Development Pitfalls") was 498 KB in two parts: 145 unstructured items in the intro (240 KB) and 21 numbered diaries (258 KB), of which the nine Phase 17 L-step diaries (numbered 12 to 20) held 180 KB. Every feature PR appended to that one file, and the README changed in 27 of the 50 commits visible in the shallow clone. The numbering was broken: diary 6 named two different entries, the headings were out of order, and two engineering lessons sat under §11.5. The citation gate (`scripts/check_skill_citations.py`) resolves `§N.M` only against chapter-README headings. The `§11.4` heading is kept, so bare references still resolve; the numbered forms are retired.
 
 ### Decision
 
-1. **Layout.** The chapter README keeps §11.1–11.3 and §11.5 and carries the §11.4 index: one row per entry (ID, rule, status, link) and a redirect table from the legacy numbered IDs. Standing rules live in `pitfalls/01…12-*.md`, one file per area. Incident narratives and retired work are copied verbatim into `archive/01…13-*.md`: files 01–11 are the Phase 17 L-steps, 12 holds incidents outside Phase 17, and 13 holds retired work.
-2. **IDs.** `PF-<AREA>-<NN>`, with area codes CAN, LIF, PER, UI, I18, CI, TST, API, DOM, E3D, L3D and PRC. An ID is never reused; a retired or pointer entry keeps its ID. The 21 legacy numbered headings (one number was used twice) resolve through the redirect table.
-3. **Entry template.** A `### PF-…` heading, then the fields **Rule**, **Pinned by** (a real `path::name`, or `none — <reason>`), **Source**, **Status** (`standing`, `pointer → …`, or `retired → …`) and **Legacy**. The body names symptom, root cause and fix.
-4. **Canonical home.** A fact already held in substance in an ADR addendum, a §8 section or an ogp skill is not repeated. The entry becomes a pointer to that heading, after any missing sentence has been merged there. The pitfall file is canonical only where no other home holds the mechanism and its pin.
-5. **Frozen snapshot.** `audits/2026-10/audit-2026-10.md` keeps its text, and its family moves with it. Commit `07241b9` (#426) edited the snapshot once; that edit is recorded in the ADR-047 addendum, and the "never edited" statements are corrected.
-6. **Gates.** `tests/unit/test_pitfall_catalogue.py` checks that the index and the entries agree, that every anchor resolves, that every pin names a real test, that every archive link resolves, that the redirect table covers every legacy number, that the size budgets hold (48 KB per area file), and that no legacy numbered citation survives outside the archive and the legacy columns.
+1. **Layout.** The chapter README keeps §11.1 to §11.3 and §11.5 (governance only). Its §11.4 is the index: one row per entry (ID, rule, status, where, legacy) and a redirect table from the 20 legacy numbers, which has 23 rows because diary 6 names two entries and diary 17 names three. Standing rules live in `pitfalls/01…12-*.md`, one file per area (3 KB to 52 KB). Narratives are copied verbatim into `archive/01…13-*.md`: 01 to 11 are the Phase 17 L-steps, 12 holds incidents outside Phase 17, and 13 holds retired work.
+2. **IDs.** `PF-<AREA>-<NN>`, with the area codes CAN, LIF, PER, UI, I18, CI, TST, API, DOM, E3D, L3D and PRC. An ID is never reused, and a pointer or retired entry keeps its ID. The numbers in the file names give reading order only.
+3. **Entry template.** A `### PF-…` heading, then the fields **Rule** (one sentence, with no pipe and no bold), **Pinned by** (`tests/…py` or `tests/…py::name`, joined by `; `, or `none — <reason>`), **Source** (issues, PRs and ADRs), **Status** (`standing`, `standing; narrative in […]`, `pointer → […]` or `retired; narrative in […]`) and **Legacy** (`b1faaa9 README L…`, with the legacy number of a numbered diary). A standing entry keeps its verbatim b1faaa9 body where it has one, with relative links re-based for `pitfalls/`; a narrative with no entry body lives in the archive.
+4. **Canonical home.** A fact already held in substance in an ADR addendum, a §8 section or a skill is not repeated. An entry becomes a pointer only when its home section holds the entry's issue numbers, the test files and functions its body names, and at least half of its distinctive identifiers. Of 44 candidates, 22 passed and are pointers; 22 failed and were restored verbatim. `audits/2026-10/dedupe-2026-10.md` records every entry's origin and decision.
+5. **Rules and pins** were decided per entry from each verbatim body, in five passes by area, and then validated mechanically: every pinned file exists and defines the named test, and no placeholder remains. 67 entries carry pins; 113 give the reason they have none.
+6. **Frozen snapshot.** `audits/2026-10/audit-2026-10.md` keeps its text (SHA-256 `8f9ea849…c27`, unchanged since Phase 0). Its family moves with it, per the ADR-047 addendum.
+7. **Gates.** `tests/unit/test_pitfall_catalogue.py` (15 tests) checks that index rows and entries agree (ID, rule, status, legacy and anchor); that every heading in an area file is an entry heading; that no placeholder remains; that every pin names a real test under `tests/`; that every pointer's home holds its issue numbers and pins; that every archive link resolves; that the redirect table matches the Legacy fields; that every PF citation resolves; that no legacy numbered citation survives outside the archive and the legacy columns; and the size budgets. The budgets are 64 KB per area file and 80 KB for the chapter README. The area budget is raised from the 48 KB first set, because the UI area holds 22 entries with their full rules and measures 52 KB; the README budget is raised because each index row now carries a full rule (73 KB measured).
+8. **Citations.** 117 numbered citations in the files outside the chapter became PF citations; 136 PF citations exist now, because a diary-level citation names every standing rule of its diary. Where a citation relies on a sub-lesson that has no entry of its own, it names the entry and the item of the archived narrative, for example `PF-E3D-07, item 1 of archive/05-l1-3-workspace.md`.
 
 ### Consequences
 
-- One place per lesson. A reader of §11.4 reads an index and an area file of 3 to 48 KB, not a 532 KB README, and a new lesson goes to the file for its subject.
-- Pointers make some entries depend on a skill or an ADR section, so a reader follows a link. The owner accepted this when choosing full dedupe.
-- Of the numbered citations outside the exempt files, 111 were rewritten through the redirect table and five were reworded by hand. The ambiguous legacy number was resolved by reading each context. For each of the nine Python files the migration touched, reversing the mapping reproduces the committed file, so only comments and docstrings changed.
+- One place per lesson. A reader scans the index, which carries each entry's rule, status and legacy number, and opens an area file for the body.
+- A pointer depends on its home. The gate fails when the home stops naming the issue numbers or pins the entry names; it does not compare prose.
+- Some standing rules state the headline of a diary. The archived narrative holds the full text, and a sub-lesson without its own entry is cited by item.
+- Open points for owner review. Some rules compress several lessons (PF-API-21 covers seven findings; PF-DOM-02, PF-DOM-22, PF-DOM-23 and PF-DOM-24 hold more than one rule each). Some pins are judgements: PF-E3D-06's control test shows that the trap exists, PF-E3D-08's named test covers another item, and PF-PER-13's pin cannot tell a restored layer id from the active-layer fallback. Conftest fixtures count as pins only where the entry names one (PF-TST-07); the other fixture guards are recorded as the fix. PF-E3D-09 has no pin, because its body does not name the removal gate `tests/unit/test_no_qt3d_left.py`.
 
 ### Evidence
 
-- Verbatim split: all 181 blocks of §11.4 at `b1faaa9` were checked against their destination files. None is missing.
-- Dedupe: 42 standing entries whose issue numbers, pinned tests and code identifiers all occur in one home became pointers. Two duplicates point at their survivors: PF-TST-11 at PF-TST-07 (its re-hit facts are merged into PF-TST-07) and PF-PRC-10 at PF-PRC-09. The other 93 standing entries keep their bodies, because their evidence was partial or absent and a reader must check them.
-- Pins: every pin a standing entry names exists. The first extraction recorded a neighbouring test for one rule; the review corrected it, archived narratives now point to the pins in their own text, and 65 standing entries that name no test are marked pending review.
-- The per-entry decisions, with the evidence for each, are in the migration log of the change.
+- Verbatim split: the 181 blocks of §11.4 at b1faaa9 were checked against their destination files before the dedupe. The 22 restored bodies were checked equal to the base text after link re-basing.
+- Dedupe: `audits/2026-10/dedupe-2026-10.md` lists all 180 entries with their origin line at b1faaa9, their kind and their decision.
+- Gates: `tests/unit/test_pitfall_catalogue.py` (15 tests, passing), with `test_no_qt3d_left`, `test_quick3d_packaging`, `test_dependency_governance` and `test_skill_citations` (89 passing), `scripts/check_skill_citations.py`, `scripts/check_agent_context.py` and `scripts/sync_wiki.py --check` passing.
+- Code: no runtime file moved. Of the Python lines changed since b1faaa9, all are comments or docstrings except two fixture path constants, `AUDIT_PLAN` in `tests/integration/test_item_style_in_step.py` and `BENCHMARK_PLAN` in `tests/perf/test_nfr_budgets.py`.

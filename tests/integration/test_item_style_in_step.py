@@ -694,7 +694,7 @@ class TestAFileTheAppDidNotWrite:
         What the item STATES after a load is master's rule since #502
         (``restore_stored_look``: what the file holds — that black 1.0); review 2's
         "its type's stroke", which this branch had kept by not reading the stroke
-        attributes off the pen, gave way to it in the sync of 2026-10-19 (PF-L3D-03).
+        attributes off the pen, gave way to it in the sync of 2026-10-19 (PF-CAN-21).
         What stays this branch's: the guard does not hold a sprite's pen against its
         attributes (``paints_sprite``), and ``adopt_pen`` does not write a sprite's
         attributes from a pen."""

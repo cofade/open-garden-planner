@@ -65,7 +65,7 @@ single `README.md` — there are no per-ADR or per-chapter sub-files.
 | Crosscutting concepts | `docs/08-crosscutting-concepts/README.md` | §8.1–§8.25: coordinate system, commands, **i18n (§8.3)**, **QGraphicsView patterns (§8.9)**, **integration-test policy (§8.10)**, **SAST (§8.11)**, **bed-only features (§8.14)**, sidebar accordion (§8.17), smart symbols (§8.18), agent API (§8.19), icon/sprite/texture pipelines (§8.21–§8.24), stacking order (§8.25) |
 | ADR register | `docs/09-architecture-decisions/README.md` | **All** ADRs (ADR-001…043) in this ONE file — append new ADRs here, never create a separate file |
 | Quality requirements | `docs/10-quality-requirements/README.md` | Quality scenarios |
-| Risks & technical debt | `docs/11-risks-and-technical-debt/README.md` | §11.1 open questions, §11.2 risks, §11.3 TD-* debt register (living: Status + Issue columns, ADR-047; dated audit snapshots `audit-YYYY-MM.md` beside it), **§11.4 index of the pitfall catalogue** (`pitfalls/NN-*.md`, ADR-061) |
+| Risks & technical debt | `docs/11-risks-and-technical-debt/README.md` | §11.1 open questions, §11.2 risks, §11.3 TD-* debt register (living: Status + Issue columns, ADR-047; dated audit snapshots under `audits/YYYY-MM/`), **§11.4 index of the pitfall catalogue** (`pitfalls/NN-*.md`, ADR-061) |
 | Glossary | `docs/12-glossary/README.md` | §12.1 terms, §12.2 keyboard shortcuts, §12.3 references |
 | Roadmap | `docs/roadmap.md` | User stories, acceptance criteria, per-US completion notes, "Docs updated on completion" tables |
 | FR register | `docs/functional-requirements.md` | Numbered FR-* requirements, the specification of user-visible capability |
@@ -122,22 +122,24 @@ Additional targets observed in practice (beyond the AGENTS.md tables):
 
 Standing rules live in `docs/11-risks-and-technical-debt/pitfalls/NN-<area>.md`, one entry
 per lesson, each with a permanent ID `PF-<AREA>-<NN>`. Take the next free number for the
-area; IDs are never reused. The §11.4 index in that folder's README gets one row per entry.
+area; IDs are never reused. The §11.4 index in the chapter README gets one row per entry.
 Read a few entries of the area before writing one, and match their shape.
 
 An entry is a heading and five fields; the body follows:
 
 - **Rule:** one sentence, imperative or invariant, so a skimmer gets the contract without
   the story.
-- **Pinned by:** a test that fails when the rule breaks (`tests/<path>::<name>`), or
-  `none — <reason>`. The gate checks that the path and the function exist; a reviewer
-  checks that the test enforces the rule.
+- **Pinned by:** the test or tests that fail when the rule breaks, each as
+  `tests/<path>.py::<name>`, separated by `; `, or `none — <reason>`. Only files under
+  `tests/` pin: a script or a source file cannot. The gate checks that each file and
+  function exists; a reviewer checks that the test enforces the rule.
 - **Source:** the issues, PRs and ADRs the lesson came from.
 - **Status:** `standing`; `pointer → [home](link)` when an ADR addendum, a §8 section or a
   skill already holds the mechanism; `standing; narrative in [archive/…](link)` when the
-  story has been archived; or `retired → archive/13-retired.md`.
-- **Legacy:** for entries moved by the restructure, the README line and the legacy
-  `§11.4.N` number; otherwise `none (new entry)`.
+  story has been archived; or `retired; narrative in [archive/13-retired.md](../archive/13-retired.md#…)`.
+- **Legacy:** the line of the b1faaa9 README the entry came from (`README L2526`), with its
+  legacy number when it had one (for example `(legacy 17)`); `none (new entry)` for an entry written
+  after the restructure.
 
 The body names symptom, root cause and fix in that order, with files and functions in
 backticks, then the contract future callers rely on. Keep it short: the story belongs in
@@ -149,11 +151,12 @@ Rules that follow from the layout:
    sentence into that home first, then make the entry a pointer.
 2. A fixed bug keeps its rule and its entry; its story moves to the archive and is never
    deleted. Retired work keeps its ID.
-3. A process rule belongs to the skill that owns the process, or to CLAUDE.md and AGENTS.md
-   when it applies to every session. It does not belong in a pitfall file.
-4. `tests/unit/test_pitfall_catalogue.py` holds the index to the entries, the anchors, the
-   pins, the archive links, the redirect table and the size budgets, and bans legacy
-   numbered citations outside the archive. Run it after any change to the catalogue.
+3. A process rule belongs to CLAUDE.md and AGENTS.md when it applies to every session, or to
+   the skill that owns the process. The PRC area keeps only the lessons that have no such home.
+4. `tests/unit/test_pitfall_catalogue.py` holds the index to the entries (IDs, rule, status,
+   legacy number and anchor), each pointer's home (its issue numbers and pins), the pins, the
+   archive links, the redirect table and the size budgets, and bans legacy numbered citations
+   outside the archive. Run it after any change to the catalogue.
 
 ### 3.2 ADR format (`docs/09-architecture-decisions/README.md`)
 
@@ -213,7 +216,7 @@ append.
 ### PF-<AREA>-<NN>
 
 - **Rule:** <one-line imperative rule, e.g. "Sidebar list panels must store item ids, not live `QGraphicsItem` refs">
-- **Pinned by:** `tests/<path>::<test_name>` (or `none — <reason>`)
+- **Pinned by:** `tests/<path>.py::<test_name>` (or `none — <reason>`)
 - **Source:** #NNN, PR #NNN, ADR-0NN
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -389,7 +392,7 @@ ls docs/{01..12}*/README.md docs/roadmap.md docs/functional-requirements.md docs
 # ADRs still single-file; current max ADR number
 grep -c "^## ADR-" docs/09-architecture-decisions/README.md && grep "^## ADR-" docs/09-architecture-decisions/README.md | sort -V | tail -1
 # §11.4 still the pitfalls section; §8 section map unchanged
-grep -n "^## 11.4" docs/11-risks-and-technical-debt/README.md; grep -c "^## 8\." docs/08-crosscutting-concepts/README.md
+grep -n "^## 11.4" docs/11-risks-and-technical-debt/README.md; grep -c "^### PF-" docs/11-risks-and-technical-debt/pitfalls/*.md; grep -c "^## 8\." docs/08-crosscutting-concepts/README.md
 # AGENTS.md mandatory tables unchanged
 grep -n "Update Target\|Document In" AGENTS.md
 # Debug-verbose case-study count (grows over time)

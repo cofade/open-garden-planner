@@ -2,7 +2,7 @@
 
 Measured 13 October 2026 against base `ca92f048` (v1.30.3). Owner accepted the
 delivery on 14 October 2026; shipped in v1.30.4 through PR #489.
-See [the implementation plan](../../implementation-plan-457.md) and ADR-012 addendum.
+See [the implementation plan](../../../implementation-plan-457.md) and ADR-012 addendum.
 The dated audit snapshot is unchanged. This report measures a new, explicitly scoped
 sample; it does not reproduce the historical mutmut population or co-change ratios.
 

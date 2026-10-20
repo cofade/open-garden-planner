@@ -1014,7 +1014,7 @@ machine):
   compatibility mode.
 - **Committed memory grew while the wind ran** (FU-L14-2, L1.4): 2.1–2.6 MB per minute,
   linear over 6 minutes (21,594 frames), dedicated GPU memory flat; 0.8 with the QML engine's
-  `collectGarbage()` every 5 s. Not isolated. **Re-measured 2026-10-19 (L1.9): not reproduced** — six alternating 4–5 min soaks, three with this `FrameAnimation` and three with a C++ `NumberAnimation` as the clock: 0.46–2.03 MB a minute overall, second-half slopes 0.0–1.51, the two clocks inside each other's spread. The clock change was reverted. But the final render tier the same day read 2.637 (bound 2.0): intermittent, not gone — `test_the_wind_running_for_two_minutes_leaves_nothing_behind` is a non-strict xfail citing #534 (PF-E3D-09).
+  `collectGarbage()` every 5 s. Not isolated. **Re-measured 2026-10-19 (L1.9): not reproduced** — six alternating 4–5 min soaks, three with this `FrameAnimation` and three with a C++ `NumberAnimation` as the clock: 0.46–2.03 MB a minute overall, second-half slopes 0.0–1.51, the two clocks inside each other's spread. The clock change was reverted. But the final render tier the same day read 2.637 (bound 2.0): intermittent, not gone — `test_the_wind_running_for_two_minutes_leaves_nothing_behind` is a non-strict xfail citing #534.
 - **A software adapter presents frames while the GPU's display sleeps**: with the display
   asleep the GPU host presented 0 frames (only readbacks measure there), the WARP host 30–60 in
   5 s. Say which a frame-rate number is.

@@ -1637,7 +1637,7 @@ tier: `tests/integration/test_scene3d_ground_render.py`):
   grab instead of the re-bake (+16 MB a cycle on a Direct3D 11 window that presents nothing,
   +0.00 without the grab) and excused the result as an expected failure. The gate is
   unconditional now; the grabbing soak is kept as the CONTROL that shows the effect, and is
-  reported as not run where the window presents (PF-L3D-03). Nothing but the re-bake belongs in
+  reported as not run where the window presents (PF-L3D-04). Nothing but the re-bake belongs in
   the measured loop — not a query of the QML scene either: per cycle the test reads counters on
   the Python side and reads the scene back once, after the loop. And say which CELL a run was:
   on a hardware window that presents nothing the soak renders nothing, so that cell cannot see
@@ -1645,7 +1645,7 @@ tier: `tests/integration/test_scene3d_ground_render.py`):
 - **Render tier: updates without a frame between them are a case of their own.** Every scenario
   of the first delivery re-baked, took a frame, and re-baked the SAME tiles — which hid a tile
   that turned white when another tile was re-textured after it, or one frame after its replaced
-  texture was let go (PF-L3D-03). `ground_retexture` drives five sequences (one tile twice, five
+  texture was let go (PF-L3D-04). `ground_retexture` drives five sequences (one tile twice, five
   times, two tiles in turn, a frame between, the other tile after a frame), lets the replaced
   textures go as a presenting window would, and judges each tile's colour against a reference
   frame of that colour — right after the last update and again one frame later.
@@ -5267,7 +5267,7 @@ A lawn, a terrace, a driveway, a path or an in-ground bed is not geometry in 3D:
 ground's picture. `ui/view3d/ground_bake.py` paints that picture from the snapshot's **records**
 and never from the live scene (the L0 spike hid items and rendered the scene: it toggled item
 visibility, cleared the selection and painted the canvas's beige). Building blocks: §5.13.
-Decision record: the ADR-059 addendum "ground bake". Traps: PF-L3D-03. Test pattern: §8.10.10.
+Decision record: the ADR-059 addendum "ground bake". Traps: PF-L3D-03, PF-L3D-04 and PF-CAN-21. Test pattern: §8.10.10.
 
 **What is painted.** A record is painted when the snapshot gave it a paint description
 (`Material.paint` — every item but a plant) **and** the scene holds no solid for it
@@ -5319,7 +5319,7 @@ loaded item's attributes (`restore_stored_look`, `master`'s since #502) and that
 together with the attributes describing it (`adopt_pen`, L1.5). The guard is behavioural: at the end of every integration test, every item of
 every scene the test built must state the look it paints (`tests/integration/conftest.py`,
 §8.10.10); `tests/integration/test_item_style_in_step.py` walks the shipped operations that build
-an item from an item, and the writers that restyle one in place (PF-L3D-03).
+an item from an item, and the writers that restyle one in place (PF-CAN-21).
 
 **Flat items the solid path refuses.** A path of 3,000 points or a lawn of 5,000 vertices costs
 too much to cut into buildable regions (`outline_too_large`) — but painting needs no regions.
@@ -5501,7 +5501,7 @@ its tile on every side; the bare plan rectangle is not drawn while tiles lie on 
 pickable. Only a tile whose picture changed is uploaded — as a **new Model with a new texture**,
 and its old Model is destroyed: ONE TEXTURE PER `Texture` ELEMENT, FOR LIFE. (An attached
 `QQuick3DTextureData` cannot be updated in place; and a `Texture` pointed at a second data object
-forgets it when the first is destroyed — the tile is drawn white: PF-L3D-03.) **Keep-alive rule:**
+forgets it when the first is destroyed — the tile is drawn white: PF-L3D-04.) **Keep-alive rule:**
 per tile the texture the scene shows, plus — until the next presented frame, and at the latest
 the next update — the one it replaced. `ground_tiles.textures_alive()` counts the objects that
 exist on the C++ side.
@@ -5594,11 +5594,11 @@ A STILL PICTURE of a live view goes that way too, never through repeated `host.g
 6. **No repeated `grab()` on a live host that is not presenting.** Direct3D 11 frees what was
    released when a frame is PRESENTED, and a frame rendered by `grab()` is never presented: in a
    hardware-adapter window that presents nothing, each grabbed frame leaves what was uploaded for
-   it committed until the view closes (PF-L3D-03: a `grab()` after every re-bake of a 16 MB ground
+   it committed until the view closes (PF-L3D-04: a `grab()` after every re-bake of a 16 MB ground
    +16 to +17 MB a cycle; no `grab()` +0.0; flat on WARP and wherever frames are presented).
    Re-bakes themselves do not grow the process — gate G6 is unconditional in the two cells it
    has (a software rasteriser that presents; the hardware adapter, whose window presented
-   nothing and so renders nothing: PF-L3D-03). A screenshot goes through the offscreen path,
+   nothing and so renders nothing: PF-L3D-04). A screenshot goes through the offscreen path,
    which gives everything back when its view closes.
 7. **While ground work is pending, tiles are stale.** After opening a plan, and after an edit
    that touches a costly tile, the ground catches up over several passes; a tile not yet painted
