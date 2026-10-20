@@ -16,7 +16,7 @@
   white; and in a window that presents frames, every re-textured tile was white
   one frame after its edit (the replaced texture is let go when a frame was
   presented). Nothing showed it while a re-bake was followed by a frame and the
-  SAME tiles were re-baked next (docs §11.4.17);
+  SAME tiles were re-baked next (PF-L3D-04);
 - a tile that is no longer named is destroyed with its Model.
 
 Lifetime — the keep-alive rule. A texture made in Python is owned by Python, so
@@ -46,7 +46,7 @@ presented, twenty full re-bakes of a 16 MB ground, every replaced texture
 object destroyed): a ``grab()`` after every re-bake +16 MB a cycle, after every
 fifth +3.2, NO ``grab()`` +0.000 — the growth belongs to the grabbed frame, not
 to the edit or the upload (nothing is rendered, so nothing is uploaded); flat
-in every variant on WARP and wherever frames are presented (docs §11.4.17).
+in every variant on WARP and wherever frames are presented (PF-L3D-04, the grab() paragraph of archive/07-l1-5-ground-bake.md).
 Nothing in here can release what the graphics system holds, and applying edits
 more slowly changes nothing. THE RULE for whoever drives a host: no repeated
 ``grab()`` on a live host that is not presenting — a screenshot goes through
@@ -117,7 +117,7 @@ def textures_alive() -> int:
     its C++ object has not been destroyed (a texture made in Python is owned by
     Python, so the two go together). No Python callable hangs on ``destroyed``: such a
     hook may run 0 times when the cyclic collector reaches the wrapper first, and is
-    an access violation on a Qt-owned object (§11.4.16; pinned by
+    an access violation on a Qt-owned object (PF-E3D-07, item 1 of archive/05-l1-3-workspace.md; pinned by
     ``tests/unit/test_sim_clock_subscription.py``)."""
     return sum(1 for texture in list(_MADE) if not sip.isdeleted(texture))
 

@@ -4,7 +4,7 @@ A PyInstaller **windowed** build (``console=False``, which is what we ship)
 allocates no console. When it is launched with no inherited stdout handle — a
 double-click, or CI's ``Start-Process`` — ``sys.stdout`` and ``sys.stderr``
 are ``None``. Run through a shell pipe, the exe does inherit a handle and the
-condition does not arise (see §11.4's dated correction). This test's
+condition does not arise (see PF-CI-04). This test's
 simulation is unaffected: it sets the streams to ``None`` explicitly.
 uvicorn's DEFAULT logging config calls ``sys.stdout.isatty()`` while
 ``dictConfig`` builds its formatter. So ``uvicorn.Config.__init__`` raised

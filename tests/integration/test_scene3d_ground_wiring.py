@@ -285,7 +285,7 @@ def test_a_re_baked_tile_is_not_counted_for_the_release_policy(qtbot: Any) -> No
     """A re-baked tile is a NEW Model (``quick3d/ground_tiles.py``), but tile Models are
     not what the workspace's cache release is for: twenty cycles of new tile Models
     stay flat without a release, and a release after tile TEXTURES were replaced
-    leaves them behind in Qt Quick 3D (§11.4.17, measured on WARP: +10.7 to +13.3 MB
+    leaves them behind in Qt Quick 3D (PF-L3D-04, measured on WARP: +10.7 to +13.3 MB
     a cycle with a release each cycle, flat without). So a pass that only re-baked
     tiles reports nothing retired — and asks for no release."""
     rig = GroundRig(qtbot, budget_s=None)  # the whole ground in one pass: exact counts

@@ -17,8 +17,8 @@ description: >
 # OGP Failure Archaeology
 
 Repo state when written: v1.23.0, 2026-07-03, default branch `master`, history is
-squash-merged PRs. Sources: `docs/11-risks-and-technical-debt/README.md` §11.4 (the
-richest), `CLAUDE.md` progress tables, `.claude/skills/debug-verbose/SKILL.md` case
+squash-merged PRs. Sources: the pitfall entries in `docs/11-risks-and-technical-debt/pitfalls/` (their index is
+§11.4 of the chapter README; the narratives are in `archive/`; the richest), `CLAUDE.md` progress tables, `.claude/skills/debug-verbose/SKILL.md` case
 studies, `docs/roadmap.md`, `docs/09-architecture-decisions/README.md`, `git log`.
 Every "pinned by" test file was verified to exist on disk on 2026-07-03.
 
@@ -749,7 +749,7 @@ thumbnails fell through to the round fallback because a SOLID fill has no textur
   constant-time per-call check). The entry was written when the server was
   read-only and is retained here only as the historical shape of the problem.
   **What is still open**: *reads* remain loopback-trust with no auth (challenged
-  decision C2 in `audit-2026-10.md`), and the browser-reachability vector is a
+  decision C2 in `audits/2026-10/audit-2026-10.md`), and the browser-reachability vector is a
   separate barrier — the Host/Origin (DNS-rebinding) guard, now configured
   explicitly by OGP rather than inherited from the SDK (#396, ADR-033 addendum).
   Do not read "token auth shipped" as "the Agent API is authenticated".
@@ -789,9 +789,9 @@ thumbnails fell through to the round fallback because a SOLID fill has no textur
 
 ## Provenance and maintenance
 
-Primary sources, in order of density: `docs/11-risks-and-technical-debt/README.md`
-§11.4 (read PAST line 127 — the file is 167 lines and the truncation point hides
-#199/#209/#206/#210/#227/#235 entries), `.claude/skills/debug-verbose/SKILL.md` case
+Primary sources, in order of density: the pitfall entries in
+`docs/11-risks-and-technical-debt/pitfalls/` (the index is §11.4 of the chapter README; the
+narratives are in `archive/`), `.claude/skills/debug-verbose/SKILL.md` case
 studies, `CLAUDE.md` progress tables, `docs/roadmap.md` (US-B7 note ~line 2277),
 `docs/09-architecture-decisions/README.md`, `git log --oneline`.
 
@@ -807,8 +807,8 @@ ls tests/integration/test_rotation_aware_resize.py tests/integration/test_undo_r
    tests/integration/test_save_location.py tests/unit/test_paths.py tests/integration/test_bed_context_menu.py
 grep -rn "TestCrossSurfaceSync\|TestOverdueReminderBar\|TestHandleDragViaView\|TestFrostDashboardNavigation" tests/ -l
 
-# §11.4 keyword sweep (new entries land here first — re-mine after every merged fix):
-grep -n "Closed (#\|Lesson\|pinned\|Pinned\|Regression test" docs/11-risks-and-technical-debt/README.md
+# Pitfall keyword sweep (new entries land in `pitfalls/` first — re-mine after every merged fix):
+grep -rn "Closed (#\|Lesson\|pinned\|Pinned\|Regression test" docs/11-risks-and-technical-debt/pitfalls docs/11-risks-and-technical-debt/archive
 
 # New sagas since this skill was written:
 git log --oneline -30

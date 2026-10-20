@@ -294,7 +294,7 @@ _KNOWN_DESTROYED_HOOKS: dict[str, int] = {}
 
 
 def test_nothing_new_hangs_clean_up_on_a_destroyed_signal() -> None:
-    """Measured in bare PyQt 6.11 (§11.4, the workspace's lessons, item 1): a closure
+    """Measured in bare PyQt 6.11 (PF-E3D-07, item 1 of archive/05-l1-3-workspace.md): a closure
     on an object's own ``destroyed`` signal runs 0 times when the cyclic collector
     reaches the wrappers before Qt's deferred delete — the clean-up silently does not
     happen — and on a Qt-owned object in that order it is an access violation."""

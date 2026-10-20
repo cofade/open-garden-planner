@@ -136,7 +136,7 @@ Adds full Spanish localization (`es`, "Español") matching the completeness of E
 | Status | ID   | Description            | Notes                                                         |
 |--------|------|------------------------|---------------------------------------------------------------|
 | ✅     | DI-1 | SAST pipeline (Bandit) | HIGH-severity scan in CI; `bandit>=1.7.0` added as dev dep   |
-| 🔄     | DI-2 | Repository audit 2026-10 | Historical snapshot preserved; [current reconciliation and packages A1–A13](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audit-2026-10-reconciliation.md) account for 73 P2/P3 findings; all 15 original standalone P0/P1 remediations are complete after #406 in v1.30.2 (PR #477); **A1 (#453), A2 (#454) and A5 (#457) shipped in PRs #487, #490 and #489** — see the delivery-state sections in the reconciliation; epic #392 remains open |
+| 🔄     | DI-2 | Repository audit 2026-10 | Historical snapshot preserved; [current reconciliation and packages A1–A13](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audits/2026-10/audit-2026-10-reconciliation.md) account for 73 P2/P3 findings; all 15 original standalone P0/P1 remediations are complete after #406 in v1.30.2 (PR #477); **A1 (#453), A2 (#454) and A5 (#457) shipped in PRs #487, #490 and #489** — see the delivery-state sections in the reconciliation; epic #392 remains open |
 | ✅     | DI-3 | i18n blind-spot hardening | Unique `TRANSLATIONS` keys + shared `active_language()` + full-tree ruff; issues #393/#408/#410; v1.29.2 (PR #411); §11.4, ADR-045 addendum |
 | ✅     | DI-4 | Serialization & Data Integrity Hardening | Free-text annotations (`TextItem`) in `.ogp` + roundtrip matrix tests (#394), clipboard serializer unification (#400), background image placeholder & UUID deduplication (#397), atomic two-phase plan loading & autosave safety (#403); v1.29.4 (PR #412); §11.3, §11.4 |
 | ✅     | DI-5 | CI and release hardening | Locked dependencies, platform type budgets, package coverage floors, and administrator-enforced checks; issues #404/#401/#402/#399; v1.29.6 (PR #422); ADR-050 |
@@ -2584,7 +2584,7 @@ D3.3/D3.4 verification includes actual MCP-client calls against the production
 provider graph and the frozen app. Review corrected soil response envelopes,
 full-year/cross-year task generation, missing propagation, global-record
 staleness, German amendment display names and numeric input coercion. See
-§11.4.4. The complete write-enabled surface is 57 tools, 5 resources and
+PF-API-21. The complete write-enabled surface is 57 tools, 5 resources and
 6 prompts. Owner approved release after plan/PR review and agent-driven live QA.
 The preexisting German amendment-task naming gap is tracked in #408.
 
@@ -2735,7 +2735,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 
 - **One moment for the whole app.** `core/sim_clock.SimClock` (Qt-free) is owned by `GardenPlannerApp`. The sun toolbar is a view of it (it writes edits and mirrors the clock back silently). The shadow overlay reads it (`utc` for the sun, `plan_date` for growth), and the heatmap request and the 3D view read it too. It is not persisted, and every session starts at "now" (FR-SUN-04).
 - **Gate: a time change never fires `date_changed`.** It holds by construction on the product's path: the toolbar hands the clock its naive wall reading, which is stored as given, never derived from an instant. It is swept over every minute of an ordinary day and of both DST days, and through the real toolbar on America/Nuuk's pre-midnight-gap day (every slider value plus Animate ticks). The sun and heatmap suites stay green; four app-glue tests in three files now pass local wall times, and the toolbar's `datetime_changed` now carries the wall reading (one toolbar test renamed).
-- **Fixes found on the way** (§11.4.7):
+- **Fixes found on the way** (PF-DOM-22):
   - shadows and 3D grew plants for the instant's UTC date, while the heatmap used the local date;
   - a date change while the heatmap computed, or after the worker returned with its result still queued, let the old day's map paint (and a second launch in that queued window could abort the process — unreachable from the busy button, now refused);
   - the date picker allowed years that Windows' system-zone conversion cannot handle (now 1971–2999).
@@ -2751,7 +2751,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | `docs/08-crosscutting-concepts/` | §8.20 "One simulation clock" |
 | `docs/05-building-block-view/` | `core/sim_clock.py` |
 | `docs/06-runtime-view/` | §6.8 Sim clock fan-out |
-| `docs/11-risks-and-technical-debt/` | §11.4.7 |
+| `docs/11-risks-and-technical-debt/` | PF-DOM-22 |
 | `docs/12-glossary/` | Plan date, Sim clock |
 | `CLAUDE.md` / `AGENTS.md` | Phase 17 pickup note |
 
@@ -2762,7 +2762,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 - **Fixed on the way:** defects of the released app #438, #439, #441, #467, #468, #469, #478, #479, #523, #527; the test suite and developer scripts writing into the developer's real profile, #442; and two found in the new view before it shipped, #476 (a Qt Quick 3D texture trap) and #529 (picket moiré at Low).
 - **Owner acceptance, 2026-10-19:** the 36-step manual checklist passed, and the seven decisions put at the pull request were all kept as built — the twilight fade, the noon horizon's lime band, 4× MSAA at Low, the flat sky in compatibility mode, `master`'s rule for a loaded sprite's stated stroke, the new view's cost over the old window (no lighter default preset), and the default shipped with Qt 6.11's ground-texture leak #532 open (ADR-060 addendum D5).
 - **Known limitations, filed:** #531 and #532, and the `priority: high` follow-ups #534–#542 (wind memory, the look on a software-only adapter, a render-test flake, removal leftovers, a local build's contents, "3D View" from tabs other than Garden Plan, CI coverage of the default workspace, an untranslated shortcut name, the date-playback throttle).
-- **Docs:** ADR-059 and ADR-060 with their addenda, ADR-048's closing addendum, §8.29, §8.10.5–8.10.13, §11.4.12–11.4.20, FR-SUN-06 / 07 / 08, FR-SUN-11, FR-33, the FR-3D-* requirements and the glossary's scene terms (Scene record, Scene diff, Engine sink, …).
+- **Docs:** ADR-059 and ADR-060 with their addenda, ADR-048's closing addendum, §8.29, §8.10.5–8.10.13, PF-L3D-01 to PF-L3D-05 and PF-E3D-01 to PF-E3D-09, FR-SUN-06 / 07 / 08, FR-SUN-11, FR-33, the FR-3D-* requirements and the glossary's scene terms (Scene record, Scene diff, Engine sink, …).
 
 ---
 
@@ -2826,7 +2826,7 @@ F4/F5 (#315/#316) remain planned. #328 shipped earlier in PR #352 and was exclud
 | `docs/functional-requirements.md` | FR-SUN-09/10 and Agent API diagnostic kinds |
 | `docs/05-building-block-view/README.md`, `docs/06-runtime-view/README.md` | Sun aggregation/coordinators and exposure lifecycle |
 | `docs/08-crosscutting-concepts/README.md` | §8.27 cached exposure and shared diagnostics |
-| `docs/11-risks-and-technical-debt/README.md` | §11.4.6 ownership, self-shadow and geometry lessons |
+| `docs/11-risks-and-technical-debt/README.md` | PF-UI-21 (dead code path) and PF-DOM-24 (sun self-shadow) |
 | `docs/12-glossary/README.md` | Sun exposure and mature-canopy grouping |
 | `docs/wiki/`, root instruction pair, mirrored skills | Shipped status and maintenance contracts |
 
@@ -2949,7 +2949,7 @@ Failing-first regressions and tagged caller-stack tracing exposed all-pinned fal
 convergence: Newton returned success before computing residuals. Fixed-state residuals
 are now measured before return. No tolerance, damping, arbitrary iteration-count,
 dependency or file-format change. ADR-012 addendum; [detailed plan](implementation-plan-457.md)
-and [reproducible evidence](11-risks-and-technical-debt/audit-2026-10-a5-evidence.md).
+and [reproducible evidence](11-risks-and-technical-debt/audits/2026-10/audit-2026-10-a5-evidence.md).
 Initial reviewed source: `cda81961`. Windows full suite: **8313 passed, 37 skipped**
 in 910.54 seconds, with no failures or relaxed timing budgets. Focused author checks:
 226 passed plus the timeout regression; fresh independent re-review: 191 passed,
@@ -3000,12 +3000,12 @@ Epic #392 remains open; other audit bundles and #485 remain separate.
 **Complete, 2026-10-17; released as [v1.30.8](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.8) via [PR #501](https://github.com/cofade/open-garden-planner/pull/501) after owner acceptance.**
 
 Three pre-existing 2D defects found during the Phase 17 L1 work (#385), shipped together
-because none touches the in-flight L1 branch's files (see ADR-057, §8.28, §11.4.9). #502 came
+because none touches the in-flight L1 branch's files (see ADR-057, §8.28, PF-CAN-18). #502 came
 from the owner's manual pass of that PR. Independent review of the package also caught two
 defects the green suite had passed over — the #472 degrade never ran in the product (it tested
 Qt's `widget`, which is always `0` for a *cached* paint, so the condition was never true on the
 canvas; it now keys on the item's cache mode), and the #502 round-trip test styled items with a
-colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see §11.4.9 and §11.4.10.
+colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see PF-CAN-18 and PF-CAN-19.
 #503 was filed from the same review for the identical `widget` idiom in the LOD flat fill.
 
 - **#502 (manual pass of #501)**: a textured fill did not show the chosen colour - the runtime tint was a
@@ -3017,7 +3017,7 @@ colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see §11.4
   object type's defaults and the next save wrote them over the user's colours — the loader now restores them through
   `core/item_look.restore_stored_look` (#438/#469). The §8.10 gate gained the pale-colour case and a relative-contrast
   assertion (reverting the tint fails 19 of 48 cases); `tests/integration/test_item_appearance_roundtrip.py` pins the
-  rendered pixels across all five shapes and the Ctrl+D duplicate. Lesson in §11.4.10.
+  rendered pixels across all five shapes and the Ctrl+D duplicate. Lesson in PF-CAN-19.
 - **#472 (Bounded polygon paint)**: `PolygonItem` painted any vertex count a plan held, and a
   reflex-heavy outline makes one antialiased fill quadratic (measured with the item's own pen:
   ~322 ms at 1,024 vertices, ~5.6 s at 16,384). Full detail is now bounded by
@@ -3091,4 +3091,4 @@ colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see §11.4
   overrides on its way through; not alpha, because the scene paints an opaque background — and
   `TestTheMaskIsTheItem` asserts that invariant, because a mask in the wrong coordinate frame does
   not fail, it *reads background*, which is what a luminance statistic calls texture. ADR-057
-  addendum, §11.4.11.
+  addendum, PF-CAN-20.

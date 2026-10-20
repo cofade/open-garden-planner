@@ -641,7 +641,7 @@ OGP_RENDER3D=1 QSG_RHI_BACKEND=opengl QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=
   venv/bin/python -m pytest tests/integration/test_quick3d_render.py -n 0
 ```
 
-On Linux the tier forces `xcb` + OpenGL and is skipped without `DISPLAY` (Mesa llvmpipe in a container needs `libegl1` and `libxcb-cursor0`); on Windows it renders with Direct3D 11 — on the GPU, or on WARP with `QSG_RHI_PREFER_SOFTWARE_RENDERER=1`. CI's `render3d` job (§7.4, since L1.2) runs the engine package's render files on both. The render files are `tests/integration/test_quick3d_*.py`, `test_view3d_*_render.py` and `tests/unit/test_render_beauty_board.py`; until L1.10 the L0 spike's `test_spike_q3d_render.py` was the tier's only file. The assertions are about **meaning, never pixel-exact goldens**: shadow-map footprint vs the analytic shadow (IoU ≥ 0.85), north-up ground, the sky's sun at the solar azimuth, picks against a CPU oracle (`core/scene3d/pick_oracle.py`), a clean exit while animating. Headless render tooling writes its own timestamped log and per-phase metrics and arms a watchdog, because a frozen GUI exe has no stdout (§11.4.5).
+On Linux the tier forces `xcb` + OpenGL and is skipped without `DISPLAY` (Mesa llvmpipe in a container needs `libegl1` and `libxcb-cursor0`); on Windows it renders with Direct3D 11 — on the GPU, or on WARP with `QSG_RHI_PREFER_SOFTWARE_RENDERER=1`. CI's `render3d` job (§7.4, since L1.2) runs the engine package's render files on both. The render files are `tests/integration/test_quick3d_*.py`, `test_view3d_*_render.py` and `tests/unit/test_render_beauty_board.py`; until L1.10 the L0 spike's `test_spike_q3d_render.py` was the tier's only file. The assertions are about **meaning, never pixel-exact goldens**: shadow-map footprint vs the analytic shadow (IoU ≥ 0.85), north-up ground, the sky's sun at the solar azimuth, picks against a CPU oracle (`core/scene3d/pick_oracle.py`), a clean exit while animating. Headless render tooling writes its own timestamped log and per-phase metrics and arms a watchdog, because a frozen GUI exe has no stdout (PF-E3D-04).
 
 ### 8.10.1 Gating our own documentation's shell commands
 
@@ -935,7 +935,7 @@ suite (ADR-059, "What the first version got wrong").
 
 Patterns from `tests/unit/test_plant_art.py`, `tests/unit/test_scene3d_plants.py`,
 `tests/integration/test_scene3d_plants.py` and `tests/perf/test_scene3d_plants_budget.py`; the
-stories behind them are §11.4.12. The first three were there from the start; the rest are what an
+stories behind them are PF-L3D-01. The first three were there from the start; the rest are what an
 independent review found missing behind a green suite.
 
 - **A golden of answers before extracting a rule.** The companion of "a golden fixture before a
@@ -1043,7 +1043,7 @@ independent review found missing behind a green suite.
   settings and the app-data directory for the SUITE; a script run by hand gets neither.
   `scripts/measure_plant_art_3d.py scrub` loads plans, `ProjectManager.load` ends with
   `add_recent_file`, and on Windows the settings are the registry, which no environment variable
-  redirects (§11.4.12). The script now isolates itself at import, before any app import (settings
+  redirects (PF-L3D-01). The script now isolates itself at import, before any app import (settings
   names rebound to a per-process test key, profile variables to a temporary directory, both
   undone at exit; a process that is isolated already is left alone). The test runs it in a child
   process without conftest and asserts where the write LANDED — and its driver refuses to load a
@@ -1247,7 +1247,7 @@ window where a 1024 × 768 screen leaves it (asserted: the pane WAS shown beyond
 and the condition that broke CI is not waited for, it is made: `pane_without_paint` puts an
 event filter on the view that eats `Expose`, `UpdateRequest` and `Paint` — the view is on
 the screen and nothing draws it — because whether a machine withholds those by itself was
-measured to change within a day (display asleep, display awake; §11.4.15).
+measured to change within a day (display asleep, display awake; PF-E3D-06).
 
 **Running it** (it opens windows on the desktop):
 
@@ -1324,7 +1324,7 @@ and must report failures and not one skip (measured: 9 failed, 43 errors, 12 pas
   embedding test must turn the window into an RHI surface. Angles that cannot tell two senses
   apart (0°, 90° for a rectangle) are not enough — the matrix has two that can.
 - **`grab()` on a live host is the only moment of certainty.** The tier never waits for a frame
-  to be presented (§11.4.15: with the display asleep a visible window presents one frame and
+  to be presented (PF-E3D-06: with the display asleep a visible window presents one frame and
   then none); every step is "change, grab, judge" — after `wait_ready()` said the host is live,
   an answer the driver checks at every place it asks.
 - **A crash is not an exception: one call order per process.** The lifecycle matrix starts a
@@ -1486,7 +1486,7 @@ thread once the main window exists.
   depended on how fast GitHub answered. The abort itself was a defect of the shipped app,
   fixed on master by `core.worker_lifecycle` (#480); the gates stay offline all the same.
 
-**Measuring rules, each paid for** (§11.4.16 has the wrong versions):
+**Measuring rules, each paid for** (PF-E3D-07 has the wrong versions):
 
 - **"A frame" is a finished readback taken the moment the pass committed** — inside a slot on
   `controller.applied` — not `frameSwapped`, and not after `processEvents()` (which adds the
@@ -1567,7 +1567,7 @@ their text (German: 220 px for 488 needed). Assert per visible label `wordWrap()
 `height() >= heightForWidth(width())`, per visible button `width() >= sizeHint().width()` and its
 right edge inside the pane. The app starts maximised: `showNormal()` before `resize()`.
 
-**A test owns no process-wide state, and the suite's order is part of the test** (§11.4.16 item
+**A test owns no process-wide state, and the suite's order is part of the test** (PF-E3D-07 item
 13: two tests of this story were green in every run of its own files and red in the whole
 suite). Compare a process-wide table with what was in it BEFORE the test — hold those entries
 for the test's length — never with zero. Compare a widget only with one in the same state: a
@@ -1637,7 +1637,7 @@ tier: `tests/integration/test_scene3d_ground_render.py`):
   grab instead of the re-bake (+16 MB a cycle on a Direct3D 11 window that presents nothing,
   +0.00 without the grab) and excused the result as an expected failure. The gate is
   unconditional now; the grabbing soak is kept as the CONTROL that shows the effect, and is
-  reported as not run where the window presents (§11.4.17). Nothing but the re-bake belongs in
+  reported as not run where the window presents (PF-L3D-04, the grab() paragraph of archive/07-l1-5-ground-bake.md). Nothing but the re-bake belongs in
   the measured loop — not a query of the QML scene either: per cycle the test reads counters on
   the Python side and reads the scene back once, after the loop. And say which CELL a run was:
   on a hardware window that presents nothing the soak renders nothing, so that cell cannot see
@@ -1645,7 +1645,7 @@ tier: `tests/integration/test_scene3d_ground_render.py`):
 - **Render tier: updates without a frame between them are a case of their own.** Every scenario
   of the first delivery re-baked, took a frame, and re-baked the SAME tiles — which hid a tile
   that turned white when another tile was re-textured after it, or one frame after its replaced
-  texture was let go (§11.4.17). `ground_retexture` drives five sequences (one tile twice, five
+  texture was let go (PF-L3D-04). `ground_retexture` drives five sequences (one tile twice, five
   times, two tiles in turn, a frame between, the other tile after a frame), lets the replaced
   textures go as a presenting window would, and judges each tile's colour against a reference
   frame of that colour — right after the last update and again one frame later.
@@ -3462,7 +3462,7 @@ viewer on Qt 3D, ADR-038; Phase 17 replaced it, ADR-048.)
 
 **One simulation clock (Phase 17 L1.0, ADR-053).** Every sun- or growth-dependent view reads ONE moment, `GardenPlannerApp._sim_clock` (`core/sim_clock.SimClock`, Qt-free). Two time frames, never mixed:
 
-- **`plan_date`** is the user's LOCAL calendar day: the growth date of shadows, heatmap and 3D. It is *stored as the user picked it*, never derived from an instant. A day taken from a UTC instant is not the user's day: the overlay used `utc.date()` and named another day than the heatmap after local midnight east of UTC. Even a *local* day read back from an instant fails inside a spring-forward gap that straddles midnight (America/Nuuk), so UI writers hand the clock a **naive wall reading** — the toolbar's `datetime_changed` carries one (§11.4.7).
+- **`plan_date`** is the user's LOCAL calendar day: the growth date of shadows, heatmap and 3D. It is *stored as the user picked it*, never derived from an instant. A day taken from a UTC instant is not the user's day: the overlay used `utc.date()` and named another day than the heatmap after local midnight east of UTC. Even a *local* day read back from an instant fails inside a spring-forward gap that straddles midnight (America/Nuuk), so UI writers hand the clock a **naive wall reading** — the toolbar's `datetime_changed` carries one (PF-DOM-22).
 - **`utc`** is derived from the stored wall-clock reading and is what `core/solar` takes. PEP 495 `fold` keeps the repeated DST hour exact.
 
 Writers call `set_datetime` / `set_date` / `set_time_of_day`. The clock emits `date_changed(plan_date)` only when the date moved (heatmap stale rule, 3D regrow), then `instant_changed(SimChange)` (overlay re-solve, toolbar mirror, 3D light). A time change can never fire `date_changed` on a wall-reading write: the stored date is the one given. Channels are Qt-like in two respects: a bound method is held weakly (no owner ↔ clock cycle), and every listener runs, with the first error re-raised after the last. Writing the clock from a listener raises. They are **not** Qt-like in a third: nothing disconnects a destroyed QObject. A Qt subscriber disconnects in its own teardown and never connects a bound signal's `emit` (ADR-053 decision 4). A two-way view, like the toolbar, writes back only the fields that changed. New consumers (the L1.3 workspace, L2's day sweep, L5's playback) subscribe; they never keep a private copy of the moment. Plan dates are limited to 1971–2999, because Windows' system-zone conversion raises `OSError` near the 1970 epoch and during 3001.
@@ -3682,7 +3682,7 @@ and not the species data's name) and its plant category. The record carries
 that string as `params["sprite_species"]` for this purpose alone. The first
 version of the builder resolved from `species_name`, which prefers the species
 DATA's common name — and a gallery Pumpkin, whose bundled data is named "Winter
-Squash", was drawn as a pumpkin and built as a squash (§11.4.12).
+Squash", was drawn as a pumpkin and built as a squash (PF-L3D-01).
 
 **The golden has a generator.** `scripts/make_sprite_resolution_golden.py` keeps
 the resolver as it stood before the extraction, statement for statement, with
@@ -4646,7 +4646,7 @@ kept the ported helpers equal to the spike's now compare them with the spike's v
 ### 8.29.2 The engine package — `ui/view3d/quick3d/` (L1.2)
 
 The other side of the `EngineSink` seam: Qt Quick 3D. The decision, what was ported from the
-spike and every measurement are the **ADR-048 addendum "L1.2"**; the engine's traps are §11.4.15
+spike and every measurement are the **ADR-048 addendum "L1.2"**; the engine's traps are PF-E3D-06
 and the `ogp-3d-renderer` skill. The workspace (§8.29.3, L1.3) embeds this package's host; since
 L1.9 that is the product's 3D view.
 
@@ -4726,7 +4726,7 @@ show it.
 
 A Qt Quick window can be asked for a frame at moments when answering kills the process — not
 with an exception: the grab returns a correct image and the process dies in the next passes of
-the event loop — and at moments when the answer is a picture that is not the scene (§11.4.15).
+the event loop — and at moments when the answer is a picture that is not the scene (PF-E3D-06).
 So the host never guesses. `host.state` is derived on every call from facts the host reads
 from Qt (`Quick3DHost._facts()` → `lifecycle.state_of`, a pure function whose whole truth table
 runs in the unit tests) plus the two things Qt cannot report: the one offscreen frame was
@@ -4736,7 +4736,7 @@ resized and collapsed by its parent, which asks nobody.
 **The contract is written down in ONE place: the module docstring of
 `src/open_garden_planner/ui/view3d/quick3d/lifecycle.py`** — the facts, the six states, what
 each state promises, which call is legal in which state, what `wait_ready()` means and what
-raises what. Nothing else restates it — not this section, not ADR-048, not §11.4.15, not the
+raises what. Nothing else restates it — not this section, not ADR-048, not PF-E3D-06, not the
 `ogp-3d-renderer` skill, not `host.py`. It stood in nine places once, and three of them were
 wrong (review round 3); `tests/unit/test_quick3d_packaging.py` now fails a second copy of the
 state table. Read it there before calling the host. What this section adds is how to live
@@ -4756,7 +4756,7 @@ with it:
   frame per call — a tick that projected 200 labels spent 0.4 to 0.8 s on 200 refusals.)
 - **Where a frame must be HAD and the caller can wait — an export, a tool, a test — call
   `wait_ready()` and act on its answer.** Do not reason about passes of the event loop: Qt
-  delivers some resizes inside the call that caused them and others later (§11.4.15), and
+  delivers some resizes inside the call that caused them and others later (PF-E3D-06), and
   the main window the workspace is embedded in is put into full screen by
   `application.py`. It starts no pass of the event loop once its timeout — 1 s by default —
   is up, and it returns within that PLUS whatever was queued on the event loop when its
@@ -4772,7 +4772,7 @@ with it:
   and what to do; a caller that draws on a timer skips that tick. `EngineError` says the
   engine failed.
 - **`grab()` on a live host is the synchronisation point**: it renders the current state now
-  and reads it back. Do not wait for `frameSwapped` to be sure of a frame (§11.4.15).
+  and reads it back. Do not wait for `frameSwapped` to be sure of a frame (PF-E3D-06).
 - **`pick(x, y)` answers for the frame rendered last** and returns the item id, the part index
   and the hit point in the SCENE frame. "No hit" never means "could not look": a scene
   function that fails is an `EngineError`, not an empty answer.
@@ -4890,7 +4890,7 @@ logging rules put back. A process that owns itself wraps the call in `runlog.wat
 the time is up the reason, then every thread's stack, are written to the log and the process
 exits with code 1. With `supervised=True` a second process ends the first from outside ten
 seconds later if it is still there — on Windows the in-process exit was measured not to end a
-process deadlocked inside Qt (§11.4.15). One watchdog per process at a time: a second one
+process deadlocked inside Qt (PF-E3D-06). One watchdog per process at a time: a second one
 while the first is armed raises `WatchdogError` (the timer behind it is one per process, and
 a supervising process acts for exactly one block).
 
@@ -4908,7 +4908,7 @@ the log — when it is still alive at 310 s. It acts for ONE block of ONE proces
 nothing else: the process is named by pid and creation time and must be the supervisor's own
 parent (in the frozen build: running the same image); the block by a random nonce in the name
 of its release event — a name per process let a finished block's late supervisor terminate
-the block after it (§11.4.15); and arguments it may not act on end it with exit code 2 and one
+the block after it (PF-E3D-06); and arguments it may not act on end it with exit code 2 and one
 line, before anything is opened. The safety net is checked like the subsystems it guards: on
 Windows the self-test FAILS when that process did not start, refused, never found this block
 (exit code 4 — it used to leave with 0, like one that did its job), failed itself (3 — also
@@ -4931,7 +4931,7 @@ albedo); no builders beyond the default prism (L1.6, L1.7); no selection (L1.8).
 ### 8.29.3 The workspace — Plan / 3D / Split in the main window (L1.3)
 
 Where the pipeline (§8.29.1) and the engine (§8.29.2) meet the app. The decisions and every
-measurement are **ADR-060**; how it is tested is §8.10.9; what went wrong on the way is §11.4.16.
+measurement are **ADR-060**; how it is tested is §8.10.9; what went wrong on the way is PF-E3D-07.
 Since L1.9 the plan area of every main window — no switch; the default and what it costs are
 §8.29.9.
 
@@ -5141,7 +5141,7 @@ outline) must count them the same way, or measure that they leave nothing.
 
 How the 3D view LOOKS — and why none of it can move a shadow. The decisions and every number are
 the **ADR-059 addendum "looks, sky and the animation policy (L1.4)"**; how it is tested is
-§8.10.11; what went wrong on the way is §11.4.18; the art direction behind the values is the
+§8.10.11; what went wrong on the way is PF-L3D-05; the art direction behind the values is the
 `ogp-lush-cinematic` skill (§3 rigs, §5 the Beauty Board, §7 the fix log).
 
 **Truth and look are separate by construction.** Where the sun stands comes from `core/solar`
@@ -5180,7 +5180,7 @@ warmer and more exposed, not stronger; the light never rises as the sun sinks.
 the shadow map, cascades, filtering and bias, anti-aliasing, ambient occlusion, glow and (ultra)
 screen-space reflections — and no preset costs less than the one below it in any of them
 (pinned). Low and medium both use 4x MSAA: FXAA let picket fences alias into a moiré, and 2x
-MSAA still did (§11.4.18). Fog is on at every preset (low without it drew a one-row cliff where
+MSAA still did (PF-L3D-05). Fog is on at every preset (low without it drew a one-row cliff where
 the meadow meets the sky); sharpening is 0 everywhere; screen-space GI is never on. A preset
 change is one `set_look` call: no camera, no geometry, no sky.
 
@@ -5267,7 +5267,7 @@ A lawn, a terrace, a driveway, a path or an in-ground bed is not geometry in 3D:
 ground's picture. `ui/view3d/ground_bake.py` paints that picture from the snapshot's **records**
 and never from the live scene (the L0 spike hid items and rendered the scene: it toggled item
 visibility, cleared the selection and painted the canvas's beige). Building blocks: §5.13.
-Decision record: the ADR-059 addendum "ground bake". Traps: §11.4.17. Test pattern: §8.10.10.
+Decision record: the ADR-059 addendum "ground bake". Traps: PF-L3D-03, PF-L3D-04 and PF-CAN-21. Test pattern: §8.10.10.
 
 **What is painted.** A record is painted when the snapshot gave it a paint description
 (`Material.paint` — every item but a plant) **and** the scene holds no solid for it
@@ -5319,7 +5319,7 @@ loaded item's attributes (`restore_stored_look`, `master`'s since #502) and that
 together with the attributes describing it (`adopt_pen`, L1.5). The guard is behavioural: at the end of every integration test, every item of
 every scene the test built must state the look it paints (`tests/integration/conftest.py`,
 §8.10.10); `tests/integration/test_item_style_in_step.py` walks the shipped operations that build
-an item from an item, and the writers that restyle one in place (§11.4.17).
+an item from an item, and the writers that restyle one in place (PF-CAN-21).
 
 **Flat items the solid path refuses.** A path of 3,000 points or a lawn of 5,000 vertices costs
 too much to cut into buildable regions (`outline_too_large`) — but painting needs no regions.
@@ -5501,7 +5501,7 @@ its tile on every side; the bare plan rectangle is not drawn while tiles lie on 
 pickable. Only a tile whose picture changed is uploaded — as a **new Model with a new texture**,
 and its old Model is destroyed: ONE TEXTURE PER `Texture` ELEMENT, FOR LIFE. (An attached
 `QQuick3DTextureData` cannot be updated in place; and a `Texture` pointed at a second data object
-forgets it when the first is destroyed — the tile is drawn white: §11.4.17.) **Keep-alive rule:**
+forgets it when the first is destroyed — the tile is drawn white: PF-L3D-04.) **Keep-alive rule:**
 per tile the texture the scene shows, plus — until the next presented frame, and at the latest
 the next update — the one it replaced. `ground_tiles.textures_alive()` counts the objects that
 exist on the C++ side.
@@ -5594,11 +5594,11 @@ A STILL PICTURE of a live view goes that way too, never through repeated `host.g
 6. **No repeated `grab()` on a live host that is not presenting.** Direct3D 11 frees what was
    released when a frame is PRESENTED, and a frame rendered by `grab()` is never presented: in a
    hardware-adapter window that presents nothing, each grabbed frame leaves what was uploaded for
-   it committed until the view closes (§11.4.17: a `grab()` after every re-bake of a 16 MB ground
+   it committed until the view closes (PF-L3D-04, the grab() paragraph of archive/07-l1-5-ground-bake.md: a `grab()` after every re-bake of a 16 MB ground
    +16 to +17 MB a cycle; no `grab()` +0.0; flat on WARP and wherever frames are presented).
    Re-bakes themselves do not grow the process — gate G6 is unconditional in the two cells it
    has (a software rasteriser that presents; the hardware adapter, whose window presented
-   nothing and so renders nothing: §11.4.17). A screenshot goes through the offscreen path,
+   nothing and so renders nothing: PF-L3D-04, the grab() paragraph of archive/07-l1-5-ground-bake.md). A screenshot goes through the offscreen path,
    which gives everything back when its view closes.
 7. **While ground work is pending, tiles are stale.** After opening a plan, and after an edit
    that touches a costly tile, the ground catches up over several passes; a tile not yet painted
@@ -6332,7 +6332,7 @@ whether they would notice a broken rule.
 
 What connects the canvas selection with the 3D view, and how the garden is walked. The decisions
 and every measurement are the **ADR-060 addendum "selection, info card and walk (L1.8)"**; how it
-is tested is §8.10.12; what went wrong on the way is §11.4.19. The modules are §5.15.
+is tested is §8.10.12; what went wrong on the way is PF-E3D-08. The modules are §5.15.
 
 **One selection.** There is one: the canvas scene's. The 3D view holds none.
 
@@ -6455,7 +6455,7 @@ a hover highlight, a box selection in 3D.
 
 The workspace is the 3D view of every main window. The decision and every measurement are the
 **ADR-060 addendum "the default and the removal"**; how it is tested is §8.10.13; what went
-wrong on the way is §11.4.20.
+wrong on the way is PF-E3D-09.
 
 **One code path.** There is no switch: `app/application.py::_setup_central_widget` builds the
 `Workspace` around the canvas view, always. Starting the app imports `ui/view3d/workspace.py`

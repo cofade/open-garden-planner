@@ -162,7 +162,7 @@ extraction. Numerical oracles assert physical residuals, feasibility, pinned sta
 and exact conflict IDs, rather than an arbitrary iteration count. A no-variable
 Newton call must evaluate residuals before reporting convergence; incompatible
 pinned anchors are not a solved system. The fresh eight-mutant sample and its test
-selection are recorded in `audit-2026-10-a5-evidence.md`; historical mutmut counts
+selection are recorded in `audits/2026-10/audit-2026-10-a5-evidence.md`; historical mutmut counts
 are not a current full-suite measurement.
 
 ## ADR-014: Bundled `plant_species.json` is single source of truth for species + calendar
@@ -840,6 +840,8 @@ Neither tool is an undo step — a new or loaded document resets the undo stack
 (`CommandManager.clear` emits no `stack_changed`, so the new plan starts clean
 and not dirty), so there is nothing to Ctrl+Z back to.
 
+### Addendum (US-D2.1 + US-D2.2 — tool return models, #365)
+
 **A tool's declared return model is part of its contract, and testing the
 provider is not the same as testing the tool.** `new_plan` and `open_plan`
 first shipped returning `ExportResult(**result)` while their providers returned
@@ -857,7 +859,9 @@ tool's result crosses a `BaseModel`, that model needs coverage at the same level
 as the handler, and the cheapest form is one transport test per new result type
 rather than per tool.
 
-**Addendum (US-D2.5 — shape/structure creation, #329):** `create_object`
+### Addendum (US-D2.5 — shape/structure creation, #329)
+
+`create_object`
 continues to build through `ProjectManager._deserialize_item_core`, now with
 explicit circle, rectangle, ellipse, polygon, polyline, and callout families.
 Vertices use the native scene centimetre/Y-up frame with no conversion; the
@@ -1795,7 +1799,7 @@ fail against the unfixed brush assignment. Landscape cases alone would leave the
 ## ADR-047: Audit snapshots plus a living debt register (2026-10 repository audit)
 
 **Status**: Accepted (2026-10-04). Introduced by the first whole-repository audit
-(`docs/11-risks-and-technical-debt/audit-2026-10.md`); changes how technical debt is
+(`docs/11-risks-and-technical-debt/audits/2026-10/audit-2026-10.md`); changes how technical debt is
 recorded, not what the code does.
 
 **Context.** The project records lessons at the incident level with unusual discipline:
@@ -1872,6 +1876,21 @@ real window) were handed to the owner's local run (see the snapshot's handover s
 outside an audit, in another ADR's evidence (TD-035 to TD-037, ADR-048), links the work
 package that carries it instead of the audit checklist, because no audit epic owns it; a
 P0/P1 row links its own issue, as decision 1 requires of every P0/P1 row (TD-037: #414).
+
+### ADR-047 addendum: the audit family moves to `audits/2026-10/` (ADR-061)
+
+The eight dated 2026-10 artifacts moved from `docs/11-risks-and-technical-debt/` into
+`docs/11-risks-and-technical-debt/audits/2026-10/`, and the reference-plan fixture moved to
+`tests/fixtures/plans/`. The snapshot's text is unchanged, and it contains no relative links, so
+the move needed no edit to it. Its statement that it was "not edited after merge" is corrected:
+commit `07241b9` (#426, 2026-10-10) rewrote its AUD-063 entry and table row (the issue resolved via
+ADR-052). That edit is recorded here and in ADR-061. The decision above keeps its original convention for future
+snapshots (beside the register); this addendum supersedes it: future snapshots go to
+`audits/YYYY-MM/audit-YYYY-MM.md`, with their metrics JSON beside them.
+
+`audit-2026-10-metrics.json` still records the snapshot-date values (2,104 mypy errors in
+134 files). TD-020 in §11.3 records the later baseline (1,966 errors).
+
 
 ## ADR-048: 3D Renderer — Qt Quick 3D replaces Qt 3D (supersedes ADR-038's engine choice) — GO/NO-GO spike (Phase 17, Package L0)
 
@@ -2010,7 +2029,7 @@ P0/P1 row links its own issue, as decision 1 requires of every P0/P1 row (TD-037
       - **So criterion 10's leak half is open on D3D11.** An A/B soak (ground re-bake off, geometry rebuild off) would locate the growth; a longer soak would not.
       - **How it closes.** The owner's run cannot close it, only add to it: a GPU resource sits in a discrete GPU's VRAM, which private bytes do not see, while a runtime or driver allocation in system memory would show whether WARP's growth reproduces on real hardware. The spike's share of criterion 10 as written (show/hide cycles, project reloads, close while animating: zero aborts) holds; the full pytest run with the production view is L1.3's. The leak half closes in L1.3, whose production-view soak runs that A/B and adds a dedicated-GPU-memory reading (for example DXGI `QueryVideoMemoryInfo`; not yet tried) under the same pre-registered slope gate. A GO before then accepts the open half explicitly, and the decision records it (senior review, passes 6–7).
     - **Container render tier** (llvmpipe, 640×360, 479d78c), the same gate on RSS: 0.02 MB/reload over reloads 11–20, +4.7 MB over reloads 2–20 (1715.6 → 1720.3 MB), Theil–Sen over all 20 points 0.24. Its control read **25.0 MB/reload** for the 25 MB it held; the five later runs named above read 26.97, 27.85, 28.24, 24.5 and 26.28. Four of their five intervals include 25 (36e3d18 20.6–33.0, f71cdef 18.9–36.7, 308c773 16.6–27.3, 46d88ff 23.7–29.6); a64ae9e's, 25.6–35.4, does not. Until pass 4 that control ran 5 reloads at 320×180, a two- or three-point slope and so a smoke check rather than a control (senior review); it now runs the pre-registered 20 reloads in the clean run's window.
-    - **A leak the reloads found, in the spike's own code:** RSS grew linearly, one baked ground (2400×1600 RGBA ≈ 15 MB plus its GPU copy) per reload, 771 → 1035 MB over 10 reloads. `set_ground()` appended every texture to an append-only keep-alive list. Holding only the shown texture settles at ~885 MB; an A/B on llvmpipe isolated it, and the engine and the geometries released their memory. Both variants grew ~70 MB on the first reload, so the soak gates the RSS **slope over the second half of the reloads** (< 10 MB/reload), not the total growth (§11.4.5).
+    - **A leak the reloads found, in the spike's own code:** RSS grew linearly, one baked ground (2400×1600 RGBA ≈ 15 MB plus its GPU copy) per reload, 771 → 1035 MB over 10 reloads. `set_ground()` appended every texture to an append-only keep-alive list. Holding only the shown texture settles at ~885 MB; an A/B on llvmpipe isolated it, and the engine and the geometries released their memory. Both variants grew ~70 MB on the first reload, so the soak gates the RSS **slope over the second half of the reloads** (< 10 MB/reload), not the total growth (PF-E3D-04).
     - **Earlier soaks** (same models re-set, no reloads): 10 cycles in the container, 1010.0 → 1010.2 MB; 20 cycles in the frozen exe, 723.6 → 731.5 MB (v4) and 692.0 → 725.4 MB (v6).
     - **Not covered by the spike:** a full pytest run with the production 3D view (L1.3).
 11. *Size (criterion 9)*: Windows dist built from this branch and from master in the same job: **626.2–626.3 MB vs 624.5 MB = +1.7 MB**, the same in v2–v6, with 5–6 new files (v6 adds the creator's `water.frag`; output committed as [`windows-v6-footprint.txt`](adr-048-evidence/windows-v6-footprint.txt)). The Qt Quick 3D runtime (Quick3D + ShaderTools, 21.1 MB) **already ships** with today's bundle; only `QtQuick3D.pyd` and the spike's QML files are new. Qt 3D's own DLLs are 5.8 MB.
@@ -2065,7 +2084,7 @@ P0/P1 row links its own issue, as decision 1 requires of every P0/P1 row (TD-037
       - octahedron flower centres;
       - a VeryHigh shadow map at low: ridge-cap scallops 25 → 2 columns, low IoU 0.953 / 0.959 / 0.922 at 1280×720;
       - a `sunset` shot at 5.9°, the golden anchor of the rig.
-    - **Pass 5** (f1b998e): **APPROVE**, no P0 or P1. The reviewer's own board is bit-identical to the creator's (21 of 21 PNGs), and every round-4 claim reproduced: isolated dark pixels as above, December clipping 0.27 % at both presets (noon: 0.25 %), 0 of 448 swept trees over budget against a hand-checked bound of 22,466, ridge-scallop columns 25 → 2, and the sunset shot on the golden anchor with truthful shadow directions. It confirmed that none of its pass-4 numbers came from a render that imported the main checkout's code (§11.4.5 #14). Open P2s, deferred to L1: the trampoline mat reads tan in low sun (the broad specular sheen of the shared vertex-colour material; a rubber material measured 97 → 70 luma at golden hour); the roof's tile courses; meadow value noise. `sharpnessAmount` has no clean middle value (0.03 overshoots nearly like 0.08), so it stays at 0, and the frames lost 16–29 % of their edge energy (an owner question).
+    - **Pass 5** (f1b998e): **APPROVE**, no P0 or P1. The reviewer's own board is bit-identical to the creator's (21 of 21 PNGs), and every round-4 claim reproduced: isolated dark pixels as above, December clipping 0.27 % at both presets (noon: 0.25 %), 0 of 448 swept trees over budget against a hand-checked bound of 22,466, ridge-scallop columns 25 → 2, and the sunset shot on the golden anchor with truthful shadow directions. It confirmed that none of its pass-4 numbers came from a render that imported the main checkout's code (PF-E3D-04). Open P2s, deferred to L1: the trampoline mat reads tan in low sun (the broad specular sheen of the shared vertex-colour material; a rubber material measured 97 → 70 luma at golden hour); the roof's tile courses; meadow value noise. `sharpnessAmount` has no clean middle value (0.03 overshoots nearly like 0.08), so it stays at 0, and the frames lost 16–29 % of their edge energy (an owner question).
 
 17. *Custom materials*: the pond's `water.frag` samples the image-based light through Qt-internal shader-library functions (`qt_sampleDiffuse`, `qt_sampleGlossy`, guarded by `QSSG_ENABLE_LIGHT_PROBE`), not documented built-ins, so a Qt upgrade (Package L7 plans 6.12) can break it silently. Since a shader error now fails the run (entry 14), the render tier and the Windows run check it on OpenGL and D3D11; production adopts it only with that check in its own render tests and a line in the L1 ADR.
 18. *What L1 inherits, and how the owner measures*:
@@ -2322,7 +2341,7 @@ rig's numbers.
 | the water colour as one uniform for every pond | water albedo = vertex colour × tint (`VAR_COLOR`) | the same rule as every other kind; the mesh carries its colour |
 | sky light probe, fog, glow, AO, four presets | plain sky colour, flat fill, one look | L1.4 owns looks; a probe costs 40–85 s once on WARP — nothing for a self-test |
 | the meadow hidden and a white probe ground in the orthographic view | the meadow and the plan rectangle always shown | the truth view shows the scene, not a probe rig |
-| `wait_frames` on `frameSwapped`, then grab | grab only | a visible window may present one frame and no more (§11.4.15) |
+| `wait_frames` on `frameSwapped`, then grab | grab only | a visible window may present one frame and no more (PF-E3D-06) |
 | two hosts, `QQuickView` and `QQuickWidget` | `QQuickView` only | criterion 3; the package does not import `QtQuickWidgets` |
 | one process-wide message recorder | recorders that chain; an exact `environment` class | a render inside a recorded run, or inside the app, must not deafen the outer listener |
 | `SunState` with colour and brightness | direction (`core/scene3d.SunState`) apart from the look | where the sun stands is truth; what it looks like is art direction |
@@ -2835,7 +2854,7 @@ removed modules, with L1.5's ground bake added), the collected-distributions rec
 translation catalogues and `Garden.qml` (L1.5's ground). Both bundles pass the 8-second smoke and
 `--selftest` on the RTX 4070 and on WARP (after: 5.1 s and 4.0 s; the log names "a baked ground of
 12 tiles … the selection ring"). A bundle built in a development venv that still has the two
-wheels installed carries their DLLs and QML modules anyway (§11.4.20 item 10): judge bundles
+wheels installed carries their DLLs and QML modules anyway (PF-E3D-09 item 10): judge bundles
 built from a locked environment.
 
 **Start-up** is unchanged: Qt 3D was never loaded at start (it was imported when the window
@@ -3303,7 +3322,7 @@ more consumers of the same moment — the 3D workspace (L1.3), sky and looks (L1
 - Senior review, round 1, found the two P1s that decisions 3 and 7 now close. The first draft's
   gate held on `set_time_of_day` but not on the toolbar's real path, and its stale rule keyed on
   `isRunning()`. It also found the channel's strong-reference cycle and the doc numbers corrected in
-  decision 6. Lesson (§11.4.7): test the gate on the path the product actually takes.
+  decision 6. Lesson (PF-DOM-22): test the gate on the path the product actually takes.
 - Round 2 found the P1 the round-1 fix introduced: the clock-to-toolbar mirror rewrote the
   unchanged date on every Animate tick and wiped a date being typed. It also found the launch
   guard, the overclaimed "Qt's rules", the instant-derived `local` reads, and app-glue tests that
@@ -3379,7 +3398,7 @@ wrapper is garbage in a reference cycle while Qt still owns the C++ object (a `d
 pending), the cyclic collector clears the callable and the connection stays behind — and then
 the signal is either never delivered (the hook ran 0 times) or delivered into what is left (the
 access violation). The helper therefore hangs nothing on `destroyed`; a test pins that
-(`::test_the_helper_hangs_nothing_on_the_destroyed_signal`). §11.4.16 has the reproduction.
+(`::test_the_helper_hangs_nothing_on_the_destroyed_signal`). PF-E3D-07, item 1 of archive/05-l1-3-workspace.md, has the reproduction.
 
 ## ADR-054: Recorded species traits and semantic food-forest layers (#312)
 
@@ -3526,7 +3545,7 @@ different runs.** The *before* figures are from the recorded serial run at `132f
 on the identical code: per-test call time inflates when tests contend, so one suite reads
 620.6 s of call time serially and 1 700 s under `-n auto`. The distribution's shape is a
 signal; its sum is a statement about the scheduler.
-`docs/11-risks-and-technical-debt/test-suite-latency-2026-10.md` holds both runs and that
+`docs/11-risks-and-technical-debt/audits/2026-10/test-suite-latency-2026-10.md` holds both runs and that
 caveat.
 
 **Decision.** `addopts` carries `-n auto --dist worksteal -m 'not perf'`, and
@@ -3640,7 +3659,7 @@ is a shared-*state* defect and was fixed by isolating the arm, not by scheduling
 **Evidence.** `scripts/measure_test_suite_latency.py` reproduces the concentration table
 from a recorded `--durations` report (11 unit tests pin its arithmetic against a
 hand-computable fixture, including the ways it could report a confident wrong number);
-`docs/11-risks-and-technical-debt/test-suite-latency-2026-10.md` holds the full baseline,
+`docs/11-risks-and-technical-debt/audits/2026-10/test-suite-latency-2026-10.md` holds the full baseline,
 the per-layer and per-file tables, the widget-leak measurement and the corrections to
 issue #509's stated facts. The CI `Test` job uploads its `--durations=0` report as the
 `test-durations-linux` artifact.
@@ -3795,8 +3814,7 @@ reached master, where Package F and the audit packages had taken those numbers w
 (likewise its concept section, written as 8.26, 8.27 and 8.32 before it became 8.29, and its requirements
 bucket, written as FR-32, FR-33 and FR-36 before it became FR-33) — an older note or branch that says
 "ADR-054", "ADR-056" or "ADR-064, 3D scene pipeline" means this record, and "ADR-065" means ADR-060. The
-same renumber moved the test-policy sections 8.10.23–31 to 8.10.5–13 and the pitfall sections
-11.4.29–37 to 11.4.12–20. It
+same renumber moved the test-policy sections 8.10.23–31 to 8.10.5–13 and the pitfall sections, now the PF entries of §11.4. It
 builds on ADR-048 (Qt Quick 3D, GO) and ADR-053 (one sim clock). Nothing is rendered by this
 story: it is the Qt-free foundation L1.2–L1.7 build on. **Amended the same day by the independent
 review of the story** (two interface defects and a list of smaller ones — decisions 1, 3, 8, 9, 10
@@ -4261,7 +4279,7 @@ it stands after that round.
   `item_footprints` hands a closed fence's two rings to `compute_scene_shadows` as two solids, so
   a 10 m × 8 m fence 1.2 m high shades 88.8 m² at a 60° sun where its stroke shades 17.5 m². The
   golden footprint fixture pins `item_footprints` byte for byte, so the fix is a follow-up of its
-  own (§11.4.14 has the reproduction). Until it lands, 2D and 3D disagree ON PURPOSE for a closed
+  own (PF-L3D-02 has the reproduction). Until it lands, 2D and 3D disagree ON PURPOSE for a closed
   stroke and for a polygon that crosses itself: the 3D record is the stroke, or the resolved
   regions; the 2D footprint is every ring as a solid, or the ring as drawn. That follow-up should
   also move "resolve an outline" and "sort rings into regions" into one `core` function both
@@ -4488,7 +4506,7 @@ with the sprite on the plan about its shape or its green, and no test would noti
    well, the elements that draw a plant's outline are regular (`_RIM_REACH`, `_RIM_JITTER`): with
    outlines of any reach at any angle a fitted plant left its canopy circle by up to 39 %. A
    plant is never *lifted* to put its lowest vertex at zero — that made a cushion float on one
-   hanging leaf (§11.4.12).
+   hanging leaf (PF-L3D-01).
 5. **Foliage colours come from the recipe's palette alone, and their balance from the sprite.** A
    vertex is an sRGB mix of the palette's base anchors and tip anchors, in linear light times a
    hue-neutral depth shade. The mean tip weight of a plant is a constant per archetype, measured
@@ -4699,7 +4717,7 @@ with the sprite on the plan about its shape or its green, and no test would noti
 ### What the first version of the plant art got wrong (independent review, same day)
 
 Recorded because each of these passed every gate the story had set itself (the entries with
-their measurements: §11.4.12).
+their measurements: PF-L3D-01).
 
 - **A squash was built 1.6 times too tall and squashed back.** The height gate compared the
   mesh's top with the plan's height after a fit that scales the top onto the height: it could
@@ -5087,7 +5105,7 @@ L1.4: "look presets + auto with hysteresis, sky from the sun, animation policy. 
    `render_records(sky_light=True, prefer_software=True)` is refused.
 7. **Colours derived in linear light reach the engine exactly.** The fog, the plain sky and the
    fill are handed over as `QColor.fromRgbF(engine_srgb(linear))`, the inverse of Qt Quick 3D's
-   own polynomial linearisation of a colour property (§11.4.18 item 1).
+   own polynomial linearisation of a colour property (PF-L3D-05 item 1).
 8. **The animation policy.** The wind's clock (`windTime`, a `FrameAnimation`) runs only while
    the 3D pane is shown, reduced motion is off and the adapter is not a software one; hidden, it stops where it is (no tick);
    reduced motion RESTS it at 0 (`rest_wind`), so every vertex is drawn where its mesh puts it.
@@ -5129,7 +5147,7 @@ L1.4: "look presets + auto with hysteresis, sky from the sun, animation policy. 
   frame — the first spike renders read flat and blue for that reason. The fill now exists only
   where no sky texture lights the view.
 - *The spike's night fog and night ground energy.* Each drew a line along the night horizon
-  (§11.4.18 item 2).
+  (PF-L3D-05 item 2).
 
 **Consequences.**
 
@@ -5287,7 +5305,7 @@ for every edit, and kept every texture it ever made alive.
    `render_furniture_pixmap`, and the path-style painters were moved out of `PolylineItem.paint`
    into `ui/canvas/items/path_style_paint.py`, which both call. Only single `QPainter` calls are
    mirrored. A second implementation of ten path and fence styles would have been a second place to be
-   wrong; the extraction found two defects of the first (§11.4.17).
+   wrong; the extraction found two defects of the first (PF-L3D-03, PF-L3D-04 and PF-CAN-21).
 6. **Tiles are crops of one pixel grid.** 512 px tiles; the finest of 1, ½, ¼ … px/cm within
    4096 × 4096 px and 256 tiles; whole-pixel offsets — seamless by construction, not by
    blending. A tile is a pure function of its records in order, so an untouched tile can be handed
@@ -5316,7 +5334,7 @@ for every edit, and kept every texture it ever made alive.
   texture, sprite and path style rebuilt as geometry: a third implementation.
 - *A paint-only side channel beside the records* — a second snapshot with its own diff; one edit
   would be two diffs that can disagree.
-- *Updating a tile's texture in place* — measured not to show (§11.4.17).
+- *Updating a tile's texture in place* — measured not to show (PF-L3D-04).
 - *Hairline-exact tiles by rendering the plan in one image and cropping* — exact, but every edit
   costs the whole plan.
 
@@ -5342,7 +5360,7 @@ for every edit, and kept every texture it ever made alive.
   nor on the hardware adapter, whose window presented NONE — where nothing is rendered, so that
   cell shows the process side only. A hardware window that presents is on the story's manual
   checklist. What the first version of this addendum reported as "unmet where no frame is
-  presented" was its own soak calling `grab()` after every re-bake (§11.4.17).
+  presented" was its own soak calling `grab()` after every re-bake (PF-L3D-04, the grab() paragraph of archive/07-l1-5-ground-bake.md).
 
 **Validation.** Default tier — `tests/integration/test_scene3d_ground_bake.py`: G1 parity for the
 25 fill patterns × tinted/untinted × 0° / 33° × two tile-straddling positions (200 cases: not
@@ -5368,7 +5386,7 @@ the loop; the grabbing control +16.1 to +17.4).
 
 The story's independent review found no regression of the 2D canvas and no unbounded count, and
 five places where the bake did not keep its promise. What was DECIDED in answer — the findings
-themselves, with their measurements, are §11.4.17:
+themselves, with their measurements, are PF-L3D-03, PF-L3D-04 and PF-CAN-21:
 
 - **Decision 3, amended — a circle's turn is paint.** A circle's record does not turn (decision 9
   of the contract: footprint and solid are the same whatever its rotation). What the canvas
@@ -5428,7 +5446,7 @@ Validation of the round: `tests/integration/test_scene3d_ground_rules.py` (42 te
 the lawn under 255, 256 and 2,000 pavers; six shapes of cover; the budget with a clock that
 advances a second a reading; random edit sessions through three bakers; a raising painter),
 `tests/unit/test_scene3d_ground.py::TestSyncWithAGroundBaker` (pending work, the remembered
-failure, poisoning in a continuation), the 2D suites named in §11.4.17, the render tier's
+failure, poisoning in a continuation), the 2D suites named in PF-CAN-21, the render tier's
 budgeted open and five re-texture sequences on the RTX 4070 and on WARP, and 23 mutants of the
 new rules, all killed.
 
@@ -5436,7 +5454,7 @@ new rules, all killed.
 
 The re-check found the save / load work of round 1 clean, the round-1 rule for a full tile right
 in its wording and wrong in its outcome, and several places where a rule had been guarded by
-the one case its author thought of. What was decided in answer (the findings are §11.4.17):
+the one case its author thought of. What was decided in answer (the findings are PF-L3D-03, PF-L3D-04 and PF-CAN-21):
 
 - **Decision 8, amended again — admission by outcome.** "The topmost 256, and under them what
   covers the WHOLE tile" kept a lawn only when it was the plan rectangle; 10 cm inside the plan's
@@ -5537,7 +5555,7 @@ fixed the same defect, `master`'s mechanism wins:**
   name) took every test that calls a baker's `bake` for a timing test.
 - The identifiers are the placeholders (`renumber_385_v2.py`, before the merge): this addendum
   belongs to ADR-059; its concept section is §8.29.5, its test patterns §8.10.10, its lessons
-  §11.4.17, its requirements FR-33's `FR-3D-GROUND-*`.
+  PF-L3D-03, PF-L3D-04 and PF-CAN-21, its requirements FR-33's `FR-3D-GROUND-*`.
 
 #### Part B: the bake wired into the workspace (2026-10-19)
 
@@ -5573,7 +5591,7 @@ fixed the same defect, `master`'s mechanism wins:**
   tile textures behind (+10.7 to +13.3 MB a cycle on WARP with a release each cycle; flat
   without). Counting tiles only called the leaking release more often; NOT counting them does
   not make the leak rarer — every release that item changes cause still leaks (review 3). The leak itself is
-  OPEN (§11.4.17; the workspace's G7 soak with the baker in: GPU +7.5 MB per rebuild with its
+  OPEN (PF-L3D-04; the workspace's G7 soak with the baker in: GPU +7.5 MB per rebuild with its
   release after quiet, +19 with the release in the pass, against 0.0 and −0.1 without the
   baker; with tiles no longer counted, GPU +10.2 and private bytes +30.4 with the release in
   the pass). The cause is a Qt Quick 3D 6.11.0 bug, read in its source and proven by measurement (#532): `QSSGBufferManager::clear()` walks `customTextureMap` with `++it` while `releaseTextureData(it.key())` erases through its own lookup; Qt 6's `QHash` shifts the next entry of a collision run back into the freed slot, `++it` skips it, and `customTextureMap.clear()` drops the skipped entries unreleased. The key's hash covers only size, depth, format and transparency, so same-size tiles all collide and about half leak per release (WARP, 16 × 512²: +10.8 / +11.7 MB a cycle against a prediction of 8 × 1.333 MiB) — tried and rejected: in-place updates, distinct tile
@@ -5950,7 +5968,7 @@ Five facts shaped the design:
   the user can undo.
 - **Disconnecting a clock subscriber on its own `destroyed` signal.** Built first; it crashed
   the suite with an access violation — the cyclic collector clears a Python callable connected
-  to `destroyed` while Qt still owns the object, and Qt then calls what is left (§11.4.16).
+  to `destroyed` while Qt still owns the object, and Qt then calls what is left (PF-E3D-07, item 1 of archive/05-l1-3-workspace.md).
 - **Releasing the engine's caches on every pass, on a timer, or never.** Every pass: 2 to 10 ms
   per edit plus a frame that rebuilds what was dropped. A timer: wake-ups while idle, and no
   relation to what was destroyed. Never: 19 MB per rebuild of the small bench plan and 65 of
@@ -6334,7 +6352,7 @@ frozen data, pure functions) and a thin input filter (`ui/view3d/walk_mode.py`).
 - **One open doubt.** In the first WARP run of the timing loop one selection change of 120 did
   not reach the engine within two seconds, and the ring was loaded 121 times instead of 120.
   It did not happen again in 3,240 changes on WARP and 480 on the GPU; the cause is not known
-  (§11.4.19, item 11). The driver records every pass of a change that misses.
+  (PF-E3D-08, item 11). The driver records every pass of a change that misses.
 
 #### Validation
 
@@ -6461,7 +6479,7 @@ consolidated checklist of the L1 pull request asked the owner to choose. **Decid
 the owner accepted the L1 pull request after its manual checklist and chose (a), ship the flip
 with #532 open. The six other decisions put to them there were kept as built: the twilight fade
 (FR-3D-LOOK-01), the noon horizon's lime band, 4× MSAA at Low (FR-3D-LOOK-07), the flat sky in
-compatibility mode, `master`'s rule for a loaded sprite's stated stroke (§11.4.17), and the new
+compatibility mode, `master`'s rule for a loaded sprite's stated stroke (PF-CAN-21), and the new
 view's cost over the old window (§8.29.9) with no lighter default preset.
 
 #### Alternatives rejected
@@ -6531,3 +6549,36 @@ Rejected: keeping the spike as "evidence tooling" (it was the last importer of Q
 the code and a second QML scene to keep compiling — the Beauty Board and the render tier
 measure the product itself); deleting the drift guards with the spike (the values they pin are
 the L0 measurements the look was accepted on).
+
+## ADR-061: The pitfall catalogue — numbered area files, permanent IDs, one index and a verbatim archive
+
+**Status**: Accepted (2026-10-20). Owner review of the dedupe table and of the pins flagged for a human look is pending. Supersedes the single-section layout of §11.4 ("Known Development Pitfalls") that ADR-047 left in place. The audit family's move is recorded in the ADR-047 addendum above.
+
+### Context
+
+At b1faaa9 the chapter README was 3,432 lines and 532 KB. Its §11.4 ("Known Development Pitfalls") was 498 KB in two parts: 145 unstructured items in the intro (240 KB) and 21 numbered diaries (258 KB), of which the nine Phase 17 L-step diaries (numbered 12 to 20) held 180 KB. Every feature PR appended to that one file, and the README changed in 27 of the 50 commits visible in the shallow clone. The numbering was broken: diary 6 named two different entries, the headings were out of order, and six engineering lessons sat under §11.5. The citation gate (`scripts/check_skill_citations.py`) resolves `§N.M` against the headings of the skill files and of the chapter READMEs. The `§11.4` heading is kept, so bare references still resolve; the numbered forms are retired.
+
+### Decision
+
+1. **Layout.** The chapter README keeps §11.1 to §11.3 and §11.5 (governance only). Its §11.4 is the index: one row per entry (ID, rule, status, where, legacy) and a redirect table from the 20 legacy numbers, which has 23 rows because diary 6 names two entries and diary 17 names three. Standing rules live in `pitfalls/01…12-*.md`, one file per area (3 KB to 52 KB). Narratives are copied verbatim into `archive/01…13-*.md`: 01 to 11 are the Phase 17 L-steps, 12 holds incidents outside Phase 17, and 13 holds retired work.
+2. **IDs.** `PF-<AREA>-<NN>`, with the area codes CAN, LIF, PER, UI, I18, CI, TST, API, DOM, E3D, L3D and PRC. An ID is never reused, and a pointer or retired entry keeps its ID. The numbers in the file names give reading order only.
+3. **Entry template.** A `### PF-…` heading, then the fields **Rule** (one sentence, with no pipe and no bold), **Pinned by** (`tests/…py` or `tests/…py::name`, joined by `; `, or `none — <reason>`), **Source** (issues, PRs and ADRs), **Status** (`standing`, `standing; narrative in […]`, `pointer → […]` or `retired; narrative in […]`) and **Legacy** (`b1faaa9 README L…`, with the legacy number of a numbered diary). A standing entry keeps its verbatim b1faaa9 body where it has one, with relative links re-based for `pitfalls/`; a narrative with no entry body lives in the archive.
+4. **Canonical home.** A fact already held in substance in an ADR addendum, a §8 section or a skill is not repeated. An entry becomes a pointer only when its home section holds the entry's issue numbers, the test files and functions its body names, and at least half of its distinctive identifiers. Of 44 candidates, 17 passed and are pointers; 27 failed and were restored verbatim. `audits/2026-10/dedupe-2026-10.md` records every entry's origin and decision.
+5. **Rules and pins** were decided per entry from each verbatim body, in five passes by area, and then validated mechanically: every pinned file exists and defines the named test, and no placeholder remains. 68 entries carry pins (a Pinned by field that starts with a backticked test path); 112 give the reason they have none.
+6. **Frozen snapshot.** `audits/2026-10/audit-2026-10.md` keeps its text (SHA-256 `8f9ea849…c27`, identical to its copy at b1faaa9). Its family moves with it, per the ADR-047 addendum.
+7. **Gates.** `tests/unit/test_pitfall_catalogue.py` (16 tests) checks that index rows and entries agree (ID, rule, status, legacy and anchor); that every heading in an area file is an entry heading; that every Status is one of the four forms; that no placeholder remains; that every pin names a real test under `tests/`; that every pointer's home holds its issue numbers and pins; that every archive link resolves; that the redirect table matches the Legacy fields; that every PF citation resolves; that no legacy numbered citation survives outside the archive and the legacy columns; and the size budgets. The budgets are 64 KB per area file and 80 KB for the chapter README. The area budget is raised from the 48 KB first set, because the UI area holds 22 entries with their full rules and measures 52 KB; the README budget is raised because each index row now carries a full rule (73 KB measured).
+8. **Citations.** 117 numbered citations in the files outside the chapter became PF citations. A diary-level citation names every standing rule of its diary, so one citation may name up to three entries. Where a citation relies on a sub-lesson that has no entry of its own, it names the entry and the item of the archived narrative, for example `PF-E3D-07, item 1 of archive/05-l1-3-workspace.md`.
+
+### Consequences
+
+- One place per lesson. A reader scans the index, which carries each entry's rule, status and legacy number, and opens an area file for the body.
+- A pointer depends on its home. The gate fails when the home stops naming the issue numbers or pins the entry names; it does not compare prose. Fourteen of the 17 pointers name no test in their body, so for them the issue number is the only anchor, and a long home weakens even that. A reviewer must read the home of each pointer; the gate does not replace that.
+- Some standing rules state the headline of a diary. The archived narrative holds the full text, and a sub-lesson without its own entry is cited by item.
+- Open points for owner review. Some rules compress several lessons (PF-API-21 covers seven findings; PF-DOM-02, PF-DOM-22, PF-DOM-23 and PF-DOM-24 hold more than one rule each). Some pins are judgements: PF-E3D-06's control test shows that the trap exists, PF-E3D-08's named test covers another item, and PF-PER-13's pin cannot tell a restored layer id from the active-layer fallback. Conftest fixtures count as pins only where the entry names one (PF-TST-07); the other fixture guards are recorded as the fix. PF-E3D-09 has no pin, because its body does not name the removal gate `tests/unit/test_no_qt3d_left.py`. The gate checks that a named file mentions the pinned name, not that the test covers the rule: a review found a pointer whose home mentioned the same function in an unrelated context (PF-API-01), and that entry is now standing with its own text. Method pins are written without their class, and the gate checks that the name is defined in the file.
+
+### Evidence
+
+- Verbatim split: the 181 blocks of §11.4 at b1faaa9 were checked against their destination files before the dedupe. The 27 restored bodies were checked equal to the base text after link re-basing.
+- Dedupe: `audits/2026-10/dedupe-2026-10.md` lists all 180 entries with their origin line at b1faaa9, their kind and their decision.
+- Gates: `tests/unit/test_pitfall_catalogue.py` (16 tests, passing), with `test_no_qt3d_left`, `test_quick3d_packaging`, `test_dependency_governance` and `test_skill_citations` (89 passing), `scripts/check_skill_citations.py`, `scripts/check_agent_context.py` and `scripts/sync_wiki.py --check` passing.
+- Code: no runtime file moved. Of the Python lines changed since b1faaa9, all are comments or docstrings except two fixture path constants, `AUDIT_PLAN` in `tests/integration/test_item_style_in_step.py` and `BENCHMARK_PLAN` in `tests/perf/test_nfr_budgets.py`.

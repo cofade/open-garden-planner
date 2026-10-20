@@ -27,7 +27,7 @@ a Python callable connected to an object's signal as that object's for the
 cyclic garbage collector, so the collector clears the callable together with an
 unreachable wrapper — while the C++ object, owned by its Qt parent, lives on and
 later emits ``destroyed`` into the cleared function: an access violation
-(``docs/11-risks-and-technical-debt`` §11.4.16; reproduced in twenty lines of
+(PF-E3D-07, item 1 of ``docs/11-risks-and-technical-debt/archive/05-l1-3-workspace.md``; reproduced in twenty lines of
 bare PyQt). A check at delivery has no such window.
 """
 

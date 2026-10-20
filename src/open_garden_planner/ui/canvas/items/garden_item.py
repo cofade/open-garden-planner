@@ -186,7 +186,7 @@ def is_interactive_paint(item: object, widget: QWidget | None) -> bool:
     The ``widget is not None`` half stays as robustness for a cache-disabled item
     painted by a real widget; ``TestIsInteractivePaint`` pins both halves. The
     full reachability history — this idiom shipped wrong twice — is in
-    ``docs/11-risks-and-technical-debt/`` §11.4.11, not here.
+    ``docs/11-risks-and-technical-debt/`` PF-CAN-20, not here.
     """
     return widget is not None or (
         isinstance(item, QGraphicsItem)
