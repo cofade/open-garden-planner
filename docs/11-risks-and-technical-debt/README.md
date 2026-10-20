@@ -118,7 +118,7 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | ID | Rule | Status | Where | Legacy |
 |---|---|---|---|---|
 | PF-CAN-01 | A selected item paints without a device cache so its handles do not ghost, and an export clears every item cache so the render is full vector fidelity. | standing | [01](pitfalls/01-canvas-geometry.md#pf-can-01) |  |
-| PF-CAN-02 | A plant's icon and decorative drop-shadow draw at today's growth-interpolated spread, while `rect()`, `pos()` and `transformOriginPoint()` keep the footprint that selection, snap and spacing read. | standing | [01](pitfalls/01-canvas-geometry.md#pf-can-02) |  |
+| PF-CAN-02 | A plant's icon and decorative drop-shadow draw at the shared plan date's growth-interpolated spread, while `rect()`, `pos()` and `transformOriginPoint()` keep the footprint that selection, snap and spacing read. | standing | [01](pitfalls/01-canvas-geometry.md#pf-can-02) |  |
 | PF-CAN-03 | Compute a plant's visual diameter once at the top of `paint()` and reuse it for both the drop-shadow and the icon, and prove such a change on a rendered frame, not on private helpers. | standing | [01](pitfalls/01-canvas-geometry.md#pf-can-03) |  |
 | PF-CAN-04 | Anchors of the same `AnchorType` each carry a unique `anchor_index` in `get_anchor_points()`, or `_resolve_anchor_position()` falls back to type-only matching and picks the first one. | standing | [01](pitfalls/01-canvas-geometry.md#pf-can-04) |  |
 | PF-CAN-05 | Positive scene Y is visually upward on the canvas, so an offset computed from a user-facing angle negates `dy` (`dy = -spacing * sin(angle_rad)`) to match screen intuition. | standing | [01](pitfalls/01-canvas-geometry.md#pf-can-05) |  |
@@ -297,6 +297,11 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | PF-PRC-08 | The citation checker's window limits drift distance but not symbol selectivity, so a citation of a common identifier such as `execute` in a large file is only weak protection. | standing | [12](pitfalls/12-process-and-docs.md#pf-prc-08) |  |
 | PF-PRC-09 | Treat an issue's verified repo facts as claims to check against the code, and confirm that a reusable-looking method can see the shape of the question before reusing it. | standing | [12](pitfalls/12-process-and-docs.md#pf-prc-09) |  |
 | PF-PRC-10 | Verify every file-and-line citation and every reuse instruction in an issue against the code before writing any code, treating the issue's context section as a hypothesis. | standing | [12](pitfalls/12-process-and-docs.md#pf-prc-10) |  |
+| PF-DOM-25 | Project plant presence and rendered growth from the one plan date, preserving stored lifetime metadata and undo semantics. | standing | [09](pitfalls/09-domain-solver.md#pf-dom-25) |  |
+| PF-LIF-11 | Keep displayed sun results separate from requested inputs, withdraw stale measurements immediately and debounce scene collection itself. | standing | [02](pitfalls/02-lifecycle-threads.md#pf-lif-11) |  |
+| PF-API-23 | Cancellation and abandoned queued export calls must prevent later writes and release animation leases exactly once on Qt. | standing | [08](pitfalls/08-agent-api-security.md#pf-api-23) |  |
+| PF-UI-22 | Measure translated control-group size hints at narrow widths and high DPI before accepting adaptive toolbar packing. | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-22) |  |
+| PF-E3D-10 | Derived lifetime visibility must preserve the existing throttled 3D clock path while real plan edits still announce revisions. | standing | [10](pitfalls/10-3d-engine-scene.md#pf-e3d-10) |  |
 
 ### Redirect of legacy numbered IDs
 
@@ -327,11 +332,6 @@ Citations written before ADR-061 used the numbered form. Each resolves through t
 | 11.4.18 | PF-L3D-05 | What the looks, the sky and the wind taught (Phase 17 L1.4, #385) |
 | 11.4.19 | PF-E3D-08 | What selection, the info card and walk mode taught (Phase 17 L1.8, #385) |
 | 11.4.20 | PF-E3D-09 | What the default flip and the removal of Qt 3D taught (Phase 17 L1.9 / L1.10, #385) |
-| PF-DOM-25 | Project plant presence and rendered growth from the one plan date, preserving stored lifetime metadata and undo semantics. | standing | [09](pitfalls/09-domain-solver.md#pf-dom-25) |  |
-| PF-LIF-11 | Keep displayed sun results separate from requested inputs, withdraw stale measurements immediately and debounce scene collection itself. | standing | [02](pitfalls/02-lifecycle-threads.md#pf-lif-11) |  |
-| PF-API-23 | Cancellation and abandoned queued export calls must prevent later writes and release animation leases exactly once on Qt. | standing | [08](pitfalls/08-agent-api-security.md#pf-api-23) |  |
-| PF-UI-22 | Measure translated control-group size hints at narrow widths and high DPI before accepting adaptive toolbar packing. | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-22) |  |
-| PF-E3D-10 | Derived lifetime visibility must preserve the existing throttled 3D clock path while real plan edits still announce revisions. | standing | [10](pitfalls/10-3d-engine-scene.md#pf-e3d-10) |  |
 
 ## 11.5 Community and Governance
 
