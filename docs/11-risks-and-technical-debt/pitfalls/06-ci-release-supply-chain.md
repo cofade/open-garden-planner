@@ -137,3 +137,14 @@ automatic security-update support is unresolved, not a successful remediation. A
 bootstrap pin must be checked against hosted update tooling as well as installation tooling.
 
 **Unicode CLI output needs an explicit stream encoding** (issue #417): UTF-8 wiki files did not prevent redirected Windows stdout from using cp1252. The comparison command emitted byte 0x96 for an en dash and failed to encode a check mark. `scripts/sync_wiki.py` now sets stdout and stderr to UTF-8 before printing. The subprocess comparison regression in `tests/integration/test_wiki_publication.py` captures real Unicode diffs without a UTF-8 environment override.
+
+### PF-CI-10
+
+- **Rule:** Release version bump derives from the triggering merge commit SHA (`commits/$GITHUB_SHA/pulls` with squash subject `(#N)` fallback) with exact label matching (`grep -qx`), never from `gh pr list --state merged` which sorts by creation date and ignores older-created PRs.
+- **Pinned by:** `tests/unit/test_release_version.py`
+- **Source:** #484, #543
+- **Status:** standing
+- **Legacy:** none
+
+**Release version determination must resolve the triggering merge commit, not the latest-created PR (#543, 2026-10-20).** PR #484 (Phase 17 L1) carried the `minor` label when merged as `bf4fd77a`, but `release.yml` published `v1.30.14` (patch) instead of `v1.31.0`. `gh pr list --state merged --base master --limit 1` sorts by PR creation date (`createdAt` descending), not merge time. Because PR #484 was created weeks earlier in September, it was shadowed by PR #521 (created and merged earlier on the same day without a label). Additionally, `grep -q "minor"` used loose substring matching. Resolution: `release.yml` and `scripts/resolve_release_pr.py` resolve the triggering commit SHA via `gh api repos/{repo}/commits/{commit_sha}/pulls` filtering for master merges, falling back to extracting `(#N)` from the squash commit subject line, and match labels with exact line matching (`grep -qx`).
+

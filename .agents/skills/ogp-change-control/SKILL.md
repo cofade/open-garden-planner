@@ -199,8 +199,8 @@ GitHub releases are **the** source of truth for the version. After the merge tri
 ### 2.7 Bump size via PR labels, before merging
 
 CI defaults to a **patch** bump. For a minor or major release, add the `minor` or `major`
-**label to the PR before merging** — `release.yml` reads the labels of the most recently
-merged PR at run time; a label added after the workflow ran does nothing.
+**label to the PR before merging** — `release.yml` reads the labels of the PR whose merge
+commit triggered the push to master (issue #543); a label added after the workflow ran does nothing.
 
 ### 2.8 Build & verify the frozen exe before every merge
 

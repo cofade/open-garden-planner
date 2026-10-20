@@ -42,19 +42,31 @@ jobs:
           MINOR=$(echo "$VERSION" | cut -d. -f2)
           PATCH=$(echo "$VERSION" | cut -d. -f3)
 
-          # Get labels from the merged PR that triggered this push
-          PR_NUMBER=$(gh pr list --state merged --base master --limit 1 --json number --jq '.[0].number')
-          LABELS=""
-          if [ -n "$PR_NUMBER" ]; then
-            LABELS=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' 2>/dev/null || echo "")
+          # Get the PR that triggered this push to master (issue #543).
+          # Resolve by commit SHA first, fallback to squash commit subject `(#N)`.
+          COMMIT_SHA="${GITHUB_SHA:-$(git rev-parse HEAD)}"
+          REPO="${GITHUB_REPOSITORY:-cofade/open-garden-planner}"
+
+          PR_NUMBER=$(gh api "repos/${REPO}/commits/${COMMIT_SHA}/pulls" --jq '[.[] | select(.base.ref == "master" and .merged_at != null)] | .[0].number' 2>/dev/null || echo "")
+          if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
+            PR_NUMBER=$(gh api "repos/${REPO}/commits/${COMMIT_SHA}/pulls" --jq '.[0].number' 2>/dev/null || echo "")
+          fi
+          if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
+            COMMIT_SUBJECT=$(git log -1 --format=%s "$COMMIT_SHA" 2>/dev/null || echo "")
+            PR_NUMBER=$(echo "$COMMIT_SUBJECT" | sed -nE 's/.*\(#([0-9]+)\)$/\1/p')
           fi
 
-          # Determine bump type
-          if echo "$LABELS" | grep -q "major"; then
+          LABELS=""
+          if [ -n "$PR_NUMBER" ] && [ "$PR_NUMBER" != "null" ]; then
+            LABELS=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json labels --jq '.labels[].name' 2>/dev/null || echo "")
+          fi
+
+          # Determine bump type (exact matching with grep -qx)
+          if echo "$LABELS" | grep -qx "major"; then
             MAJOR=$((MAJOR + 1))
             MINOR=0
             PATCH=0
-          elif echo "$LABELS" | grep -q "minor"; then
+          elif echo "$LABELS" | grep -qx "minor"; then
             MINOR=$((MINOR + 1))
             PATCH=0
           else
