@@ -4,7 +4,6 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 
 ### PF-DOM-01
 
-
 - **Rule:** No free solver variables does not imply feasibility, so the Newton solver evaluates the pinned-state residual before returning and a convergence flag agrees with measured geometry.
 - **Pinned by:** `tests/unit/test_constraint_solver_invariants.py`; `tests/integration/test_constraint_presentation_workflow.py::test_fixed_items_make_incompatible_trial_infeasible`
 - **Source:** #457
@@ -199,8 +198,7 @@ bugs. **When many tests fail the same way, find the shared assumption before fix
 
 ### PF-DOM-19
 
-
-- **Rule:** The Tasks tab, dashboard and Gantt list tasks through the shared `generate_actionable_for_surface`, so neither the GUI nor the agent's `generate_for_date_window` hides a task the other shows.
+- **Rule:** The Tasks tab and dashboard list reminder tasks through `generate_actionable_for_surface` while the Gantt consumes `generate_for_date_window`, so neither the GUI nor the agent hides a task the other shows.
 - **Pinned by:** `tests/unit/test_task_windows_multi_anchor.py`
 - **Source:** none recorded
 - **Status:** pointer → [ADR: Addendum (#414 — one frost anchor per surface, and one date-window entry point)](../../09-architecture-decisions/README.md#addendum-414--one-frost-anchor-per-surface-and-one-date-window-entry-point)

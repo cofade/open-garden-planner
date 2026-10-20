@@ -106,7 +106,6 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 
 ### PF-UI-10
 
-
 - **Rule:** Bed-only context-menu actions are built and dispatched centrally through `GardenItemMixin.build_bed_context_menu` and `dispatch_bed_action`, never hand-coded into each bed shape class.
 - **Pinned by:** `tests/integration/test_bed_context_menu.py::test_bed_context_menu_has_all_features`; `tests/integration/test_bed_context_menu.py::test_context_menu_uses_shared_builder`
 - **Source:** #173
@@ -208,7 +207,6 @@ Held in [ADR: ADR-017: Bed-Specific Features Built Centrally on `GardenItemMixin
 - **Google's satellite tile `<img>`s taint any canvas — html2canvas-style capture is structurally impossible, and DOM tile URLs leak the API key** (#346 spike, 2026-09-01): measured inside QtWebEngine 6.10.2 against the live JS-API map with a real key: `fetch(tileUrl, {mode:'cors'})` returns 200 but the response carries **no** `Access-Control-Allow-Origin` header, and drawing a tile `<img>` onto a `<canvas>` makes `getImageData`/`toDataURL` throw `SecurityError` ("canvas has been tainted"). Additionally the tile URLs themselves (e.g. `maps.googleapis.com/maps/vt?pb=...&key=AIza...`) embed the API key as a query parameter — so harvesting them from the DOM and sending them to Python would pipe the credential through every log/error path in both directions. The working engine is the **widget grab** (`QWebEngineView.grab()` / `QWidget.grab()`), which renders at exactly `css_size × devicePixelRatio` (verified at dpr 1.0 and 1.25) and never touches the DOM. Rule: **pixels leave the embedded map only through the widget grab; metadata only through the QWebChannel bridge.** Never add DOM-side image extraction — it is not a "future optimization", it is a dead end by Google's own headers.
 
 ### PF-UI-20
-
 
 - **Rule:** A live-verification harness hooks a dialog's accept or its `finished` signal, never a polling timer, because `QDialog.accept()` hides the window and can end the app before the next poll.
 - **Pinned by:** none — The body names no test; it records a lesson for live-verification harnesses rather than guarded product behaviour.

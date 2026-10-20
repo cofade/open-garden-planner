@@ -66,7 +66,6 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 
 ### PF-LIF-07
 
-
 - **Rule:** Every new `ItemIgnoresTransformations` drag handle joins the allow-list in `CanvasView.mousePressEvent`, because Qt drops its mouse grab and the view re-grabs only known handle types.
 - **Pinned by:** none — The body names no test for this rule.
 - **Source:** #193
@@ -76,7 +75,6 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 Held in [ogp-qt-cad-reference: 3. `ItemIgnoresTransformations` — what it buys and its two traps](../../../.claude/skills/ogp-qt-cad-reference/SKILL.md#3-itemignorestransformations--what-it-buys-and-its-two-traps). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-LIF-08
-
 
 - **Rule:** `QGraphicsScene.changed` ignores plain Python attribute writes, so any path that re-parents a plant calls `trigger_soil_mismatch_refresh(scene)` or goes through `SetParentBedCommand`.
 - **Pinned by:** none — The body names no test for this rule.

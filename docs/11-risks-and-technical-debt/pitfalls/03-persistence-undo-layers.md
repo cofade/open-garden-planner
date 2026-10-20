@@ -14,7 +14,6 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 
 ### PF-PER-02
 
-
 - **Rule:** A failed plan load must leave no partial scene behind a stale file path: deserialize in memory first, clear `_current_file` on failure, and keep the autosave until the new plan loads.
 - **Pinned by:** none — The body names no test for this rule.
 - **Source:** #403
@@ -24,7 +23,6 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 Held in [§8: 8.7 Error Handling](../../08-crosscutting-concepts/README.md#87-error-handling). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-PER-03
-
 
 - **Rule:** A missing or undecodable background image loads as a placeholder that saves its original data back, so a momentarily unreadable asset is never dropped on the next save.
 - **Pinned by:** none — The body names no test for this rule.

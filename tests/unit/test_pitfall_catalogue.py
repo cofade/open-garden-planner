@@ -263,12 +263,15 @@ def test_pointer_entries_name_a_home_that_holds_their_issues_and_pins() -> None:
             assert path.rsplit("/", 1)[1] in section, f"{entry['id']}: its home does not name its pin {path}"
         # A home must preserve the substance of the rule, not merely cite its issue numbers
         rule = str(entry["fields"]["Rule"])
-        keywords = [
+        keywords = {
             word.lower()
             for word in re.findall(r"\b[A-Za-z]{5,}\b", rule)
-            if word.lower() not in {"every", "other", "their", "which", "where", "after", "never", "under"}
-        ]
-        matched = [kw for kw in keywords if kw in section.lower()]
+            if word.lower() not in {
+                "every", "other", "their", "which", "where", "after", "never", "under",
+                "because", "first", "lines", "shows", "about", "could", "would", "should",
+            }
+        }
+        matched = {kw for kw in keywords if kw in section.lower()}
         assert len(matched) >= min(3, len(keywords)), (
             f"{entry['id']}: its home #{match.group(2)} matches only {matched} out of substantive rule keywords {keywords}"
         )

@@ -64,7 +64,6 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 
 ### PF-PRC-07
 
-
 - **Rule:** A drift-tolerance window must sit strictly below the smallest measured real drift it has to catch, so the citation checker's `_SYMBOL_WINDOW_LINES` is 20 lines rather than a generous guess.
 - **Pinned by:** none — The body names no test; `tests/unit/test_skill_citations.py::test_seventy_six_line_drift_with_correct_symbol_is_rejected` covers it but is not named here.
 - **Source:** #336
