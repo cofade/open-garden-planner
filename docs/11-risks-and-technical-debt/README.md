@@ -1,6 +1,6 @@
 # 11. Risks and Technical Debt
 
-Dated audit snapshots: [audit-2026-10.md](audits/2026-10/audit-2026-10.md) (numbers: `audit-2026-10-metrics.json`, re-run with `scripts/audit_metrics.py`; findings tracked in epic #392). §11.3 is the living register (ADR-047).
+Dated audit snapshots: [audit-2026-10.md](audits/2026-10/audit-2026-10.md) (numbers: `audit-2026-10-metrics.json`, re-run with `scripts/audit_metrics.py`; findings tracked in epic #392). §11.3 is the living register (ADR-047). §11.4 indexes the pitfall catalogue (ADR-061).
 
 ## 11.1 Open Questions
 

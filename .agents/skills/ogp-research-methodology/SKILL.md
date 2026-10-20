@@ -195,7 +195,7 @@ Every accepted change in this project traversed this pipeline; use it as the map
 6. **Senior-review rounds** — until no outstanding P0/P1 (§3). Multiple rounds expected.
 7. **Draft PR** — every coding job ends with one; never a bare pushed branch.
 8. **Manual test (sovereign)** — may reject code, design, or the feature itself (§4).
-9. **Docs of record** — §11.4 pitfall entry (with "Rule:" / "Lesson:"), ADR or ADR addendum,
+9. **Docs of record** — pitfall entry in `pitfalls/` (Rule, Pinned by, Source, Status), ADR or ADR addendum,
    FR-* entry, roadmap completion note, debug-verbose case study. AGENTS.md: "all lessons
    learned MUST be documented." A result that isn't in the docs of record is not yet
    accepted — it is merely merged.

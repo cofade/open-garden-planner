@@ -3,7 +3,7 @@ name: ogp-docs-and-writing
 description: >
   Load when finishing ANY feature or fix in Open Garden Planner and you owe documentation
   updates (you always do — this project practices continuous documentation); when writing
-  an ADR, an FR-* entry, a §11.4 pitfall entry, or a debug-verbose case study; when
+  an ADR, an FR-* entry, a pitfall entry (`pitfalls/`, ADR-061), or a debug-verbose case study; when
   updating docs/roadmap.md, docs/functional-requirements.md, or AGENTS.md progress tables;
   when syncing the GitHub wiki; or whenever you are unsure WHERE a piece of knowledge
   should live in the docs. Contains the verified docs-of-record map, the mandatory
@@ -65,7 +65,7 @@ single `README.md` — there are no per-ADR or per-chapter sub-files.
 | Crosscutting concepts | `docs/08-crosscutting-concepts/README.md` | §8.1–§8.25: coordinate system, commands, **i18n (§8.3)**, **QGraphicsView patterns (§8.9)**, **integration-test policy (§8.10)**, **SAST (§8.11)**, **bed-only features (§8.14)**, sidebar accordion (§8.17), smart symbols (§8.18), agent API (§8.19), icon/sprite/texture pipelines (§8.21–§8.24), stacking order (§8.25) |
 | ADR register | `docs/09-architecture-decisions/README.md` | **All** ADRs (ADR-001…043) in this ONE file — append new ADRs here, never create a separate file |
 | Quality requirements | `docs/10-quality-requirements/README.md` | Quality scenarios |
-| Risks & technical debt | `docs/11-risks-and-technical-debt/README.md` | §11.1 open questions, §11.2 risks, §11.3 TD-* debt register (living: Status + Issue columns, ADR-047; dated audit snapshots `audit-YYYY-MM.md` beside it), **§11.4 Known Development Pitfalls** (the hard-won-lessons log) |
+| Risks & technical debt | `docs/11-risks-and-technical-debt/README.md` | §11.1 open questions, §11.2 risks, §11.3 TD-* debt register (living: Status + Issue columns, ADR-047; dated audit snapshots `audit-YYYY-MM.md` beside it), **§11.4 index of the pitfall catalogue** (`pitfalls/NN-*.md`, ADR-061) |
 | Glossary | `docs/12-glossary/README.md` | §12.1 terms, §12.2 keyboard shortcuts, §12.3 references |
 | Roadmap | `docs/roadmap.md` | User stories, acceptance criteria, per-US completion notes, "Docs updated on completion" tables |
 | FR register | `docs/functional-requirements.md` | Numbered FR-* requirements, the specification of user-visible capability |
@@ -96,7 +96,7 @@ synced") assumes they were followed.
 
 | Issue Category | Document In | Capture |
 |----------------|-------------|---------|
-| PyQt6 quirks | `docs/11-risks-and-technical-debt/` §11.4 | Symptoms → Root cause → Fix |
+| PyQt6 quirks | `docs/11-risks-and-technical-debt/pitfalls/` (area file; index row in §11.4) | Rule → Pinned by → Fix |
 | Performance issues | `docs/08-crosscutting-concepts/` | Optimization technique |
 | Testing patterns | `docs/08-crosscutting-concepts/` §8.10 | How to test this pattern |
 | Security fixes | `docs/08-crosscutting-concepts/` §8.11 | Vulnerability + mitigation |
@@ -118,31 +118,42 @@ Additional targets observed in practice (beyond the AGENTS.md tables):
 
 ## 3. House style, from real exemplars
 
-### 3.1 §11.4 pitfall entry anatomy
+### 3.1 Pitfall entry anatomy (ADR-061)
 
-Observed across ~30 real entries (e.g. the #212 sidebar-list entry, the #231 enum-combo
-entry, the US-C4 trust-boundary entry). Structure of a strong entry:
+Standing rules live in `docs/11-risks-and-technical-debt/pitfalls/NN-<area>.md`, one entry
+per lesson, each with a permanent ID `PF-<AREA>-<NN>`. Take the next free number for the
+area; IDs are never reused. The §11.4 index in that folder's README gets one row per entry.
+Read a few entries of the area before writing one, and match their shape.
 
-1. **Bold one-line rule first** — the generalized imperative, so a skimmer gets the
-   contract without reading the story. E.g. *"Sidebar list panels must store item ids,
-   not live QGraphicsItem refs, and defer the selection"* (issue #212); *"At a trust
-   boundary that ingests untrusted files, catch `Exception` at the ingestion seam — do
-   NOT enumerate exception families"* (PR #236).
-2. Issue/PR number in parentheses right after the bold rule.
-3. Symptom as the user saw it (often quoted: *"handle shows but won't move"*, *"list
-   jumps back to the top"*).
-4. Root cause, with file/function names in backticks.
-5. Fix, naming the exact code location and contract for future callers.
-6. **"Pinned by `tests/...`"** — the regression test that enforces the lesson.
-7. A closing generalized **Lesson/Rule** sentence.
+An entry is a heading and five fields; the body follows:
 
-Entries are single bullets (`- **Rule**: …`), long is fine. Follow-ups nest as indented
-bold-led paragraphs under the parent bullet (see the #213 entry's *"Manual-test
-follow-up"* / *"Second trap"* / *"Closed (#219)"* sub-paragraphs). When a pitfall is
-later fixed structurally, do NOT delete it — retitle it **"Closed (#NNN): …"** and
-describe what retired it (see the #228 dual-store entry). The section header's standing
-instruction: *"Hard-won lessons from implementation. Read these before modifying the
-related subsystems."*
+- **Rule:** one sentence, imperative or invariant, so a skimmer gets the contract without
+  the story.
+- **Pinned by:** a test that fails when the rule breaks (`tests/<path>::<name>`), or
+  `none — <reason>`. The gate checks that the path and the function exist; a reviewer
+  checks that the test enforces the rule.
+- **Source:** the issues, PRs and ADRs the lesson came from.
+- **Status:** `standing`; `pointer → [home](link)` when an ADR addendum, a §8 section or a
+  skill already holds the mechanism; `standing; narrative in [archive/…](link)` when the
+  story has been archived; or `retired → archive/13-retired.md`.
+- **Legacy:** for entries moved by the restructure, the README line and the legacy
+  `§11.4.N` number; otherwise `none (new entry)`.
+
+The body names symptom, root cause and fix in that order, with files and functions in
+backticks, then the contract future callers rely on. Keep it short: the story belongs in
+an archive narrative.
+
+Rules that follow from the layout:
+
+1. If a fact is already held in substance elsewhere, do not repeat it. Merge any missing
+   sentence into that home first, then make the entry a pointer.
+2. A fixed bug keeps its rule and its entry; its story moves to the archive and is never
+   deleted. Retired work keeps its ID.
+3. A process rule belongs to the skill that owns the process, or to CLAUDE.md and AGENTS.md
+   when it applies to every session. It does not belong in a pitfall file.
+4. `tests/unit/test_pitfall_catalogue.py` holds the index to the entries, the anchors, the
+   pins, the archive links, the redirect table and the size budgets, and bans legacy
+   numbered citations outside the archive. Run it after any change to the catalogue.
 
 ### 3.2 ADR format (`docs/09-architecture-decisions/README.md`)
 
@@ -166,7 +177,7 @@ before opening the PR too: a parallel branch can take your number while yours is
 review (the sim clock's ADR-052 became ADR-053 when #426 merged first, and every
 reference had to move — `git grep -l "ADR-052"` on the branch, not on master). Reference
 the ADR from AGENTS.md progress notes, the roadmap completion note, and any related
-§8/§11.4 entry.
+§8 section or pitfall entry.
 
 ### 3.3 Roadmap style (`docs/roadmap.md`)
 
@@ -196,14 +207,20 @@ append.
 
 ## 4. Templates (copy-paste, derived from the real formats above)
 
-### §11.4 pitfall entry
+### Pitfall entry (`docs/11-risks-and-technical-debt/pitfalls/`)
 
 ```markdown
-- **<Generalized one-line rule in imperative form>** (issue #NNN / PR #NNN): <symptom
-  as observed — quote the user-visible behavior>. <Root cause: what the code actually
-  did, with `file.py` / `function()` names>. Fix: <what changed, where, and the
-  contract any future caller must follow>. Pinned by `tests/<path>::<test_name>`.
-  <Lesson: the generalized takeaway in one or two sentences.>
+### PF-<AREA>-<NN>
+
+- **Rule:** <one-line imperative rule, e.g. "Sidebar list panels must store item ids, not live `QGraphicsItem` refs">
+- **Pinned by:** `tests/<path>::<test_name>` (or `none — <reason>`)
+- **Source:** #NNN, PR #NNN, ADR-0NN
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom as observed: <what the user saw, quoted where possible>. Root cause: <what the code
+actually did, with `file.py` and `function()` names>. Fix: <what changed, where, and the
+contract any future caller must follow>.
 ```
 
 ### ADR (modern form, append to `docs/09-architecture-decisions/README.md`)
@@ -226,7 +243,7 @@ files/subsystems involved.>
 
 **Consequences**: <Files added/changed, `.ogp` format impact ("no FILE_VERSION bump" /
 bump + migration), dependencies, user-visible strings. Tests: `tests/...` (what they
-pin). Cross-refs: FR-*, §8.x, §11.4.>
+pin). Cross-refs: FR-*, §8.x, PF-*.>
 ```
 
 (Refinements later: append `**Addendum (PR #NNN)**: …` — do not rewrite the Decision.)
@@ -294,7 +311,7 @@ pin). Cross-refs: FR-*, §8.x, §11.4.>
 |-----------------------------|--------------|
 | "We chose X over Y because Z" | ADR (docs/09) |
 | "The app can now do X" (user-visible) | FR-* + roadmap highlights (+ glossary if new term/shortcut) |
-| "Qt/PyQt6 bit me; here's the contract" | §11.4 pitfall (+ debug-verbose case study if instrumented) |
+| "Qt/PyQt6 bit me; here's the contract" | pitfall entry in `pitfalls/` (+ debug-verbose case study if instrumented) |
 | "This is how you build/test this kind of widget" | §8.9 (UI pattern) / §8.10 (test pattern) |
 | "New module exists; here's its responsibility" | docs/05 black box |
 | "The startup/save/render sequence changed" | docs/06 sequence diagrams |

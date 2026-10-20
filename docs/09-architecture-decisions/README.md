@@ -1873,6 +1873,19 @@ outside an audit, in another ADR's evidence (TD-035 to TD-037, ADR-048), links t
 package that carries it instead of the audit checklist, because no audit epic owns it; a
 P0/P1 row links its own issue, as decision 1 requires of every P0/P1 row (TD-037: #414).
 
+### ADR-047 addendum: the audit family moves to `audits/2026-10/` (ADR-061)
+
+The eight dated 2026-10 artifacts moved from `docs/11-risks-and-technical-debt/` into
+`docs/11-risks-and-technical-debt/audits/2026-10/`, and the reference-plan fixture moved to
+`tests/fixtures/plans/`. The snapshot's text is unchanged, and all of its links stay inside
+its folder, so the move needs no edit to it. Its statement that it was "not edited after
+merge" is corrected: commit `07241b9` (#426, 2026-10-10) changed its AUD-063 status once.
+That edit is recorded here and in ADR-061.
+
+`audit-2026-10-metrics.json` still records the snapshot-date values (2,104 mypy errors in
+134 files). TD-020 in §11.3 holds the current baseline (1,966 errors).
+
+
 ## ADR-048: 3D Renderer — Qt Quick 3D replaces Qt 3D (supersedes ADR-038's engine choice) — GO/NO-GO spike (Phase 17, Package L0)
 
 **Status**: **Accepted (GO)** (owner decision 2026-10-05, Package L0 "Proof of Beauty"). This entry committed its criteria **before** any GO evidence was gathered; the evidence log below records the measurements, and entry 19 the owner-GPU runs. | **Context**: Owner goal (2026-10-03): make the 3D mode "modern, beautiful, really usable" in a *Lush Cinematic* look, experience + analyze (editing stays 2D), fully procedural models. ADR-038 chose PyQt6-3D (Qt 3D) among PyQt6-3D, PyVista, pyqtgraph.opengl and a 2.5D fallback — **Qt Quick 3D was never evaluated**. Since then: Qt 3D is deprecated since Qt 6.8 and no longer part of official Qt releases (Riverbank still ships PyQt6-3D up to 6.11.0); its forward renderer has no shadow maps, no image-based lighting and no post-processing out of the box (the US-E6 "lighting-only" MVP), and its separately-versioned wheel pair is the #277 failure class. Qt Quick 3D ships **inside the already-pinned wheels** (`PyQt6==6.11.0` provides `QtQuick3D` with `QQuick3DGeometry` + `QQuick3DTextureData`; `PyQt6-Qt6==6.11.0` provides the runtime incl. Helpers/Effects/Particles/AssetUtils QML modules) and offers PBR, IBL, cascaded soft shadows (blue-noise PCF in 6.11), SSAO, `ExtendedSceneEnvironment` (tonemapping, glow, DOF, LUT, fog; SSGI/SSR in 6.11), particles and custom materials. Timebox: 6 working days, hard stop.
@@ -6530,3 +6543,33 @@ Rejected: keeping the spike as "evidence tooling" (it was the last importer of Q
 the code and a second QML scene to keep compiling — the Beauty Board and the render tier
 measure the product itself); deleting the drift guards with the spike (the values they pin are
 the L0 measurements the look was accepted on).
+
+## ADR-061: The pitfall catalogue — numbered area files, permanent IDs, one index and a verbatim archive
+
+**Status**: Accepted (2026-10-20, branch `ccr-8b9510b4-o53uve`). Supersedes the single-section layout of §11.4 ("Known Development Pitfalls") that ADR-047 left in place. The audit family's move is recorded in the ADR-047 addendum above.
+
+### Context
+
+Chapter 11's README had grown to 3,432 lines and 532 KB. §11.4 held every lesson: about 150 unstructured items in its intro (about 220 KB) and 20 numbered diaries (about 258 KB, of which about 205 KB were Phase 17 3D narratives). Each feature PR appended to that one file, and the README changed in 27 of the 50 commits visible in the shallow clone. The numbering was broken: one legacy number named two entries, two headings came out of order, and two lessons sat under §11.5. The citation gate (`scripts/check_skill_citations.py`) resolves `§N.M` only against chapter-README headings, so the restructure had to keep that resolution honest.
+
+### Decision
+
+1. **Layout.** The chapter README keeps §11.1–11.3 and §11.5 and carries the §11.4 index: one row per entry (ID, rule, status, link) and a redirect table from the legacy numbered IDs. Standing rules live in `pitfalls/01…12-*.md`, one file per area. Incident narratives and retired work are copied verbatim into `archive/01…13-*.md`: files 01–11 are the Phase 17 L-steps, 12 holds incidents outside Phase 17, and 13 holds retired work.
+2. **IDs.** `PF-<AREA>-<NN>`, with area codes CAN, LIF, PER, UI, I18, CI, TST, API, DOM, E3D, L3D and PRC. An ID is never reused; a retired or pointer entry keeps its ID. The 21 legacy numbered headings (one number was used twice) resolve through the redirect table.
+3. **Entry template.** A `### PF-…` heading, then the fields **Rule**, **Pinned by** (a real `path::name`, or `none — <reason>`), **Source**, **Status** (`standing`, `pointer → …`, or `retired → …`) and **Legacy**. The body names symptom, root cause and fix.
+4. **Canonical home.** A fact already held in substance in an ADR addendum, a §8 section or an ogp skill is not repeated. The entry becomes a pointer to that heading, after any missing sentence has been merged there. The pitfall file is canonical only where no other home holds the mechanism and its pin.
+5. **Frozen snapshot.** `audits/2026-10/audit-2026-10.md` keeps its text, and its family moves with it. Commit `07241b9` (#426) edited the snapshot once; that edit is recorded in the ADR-047 addendum, and the "never edited" statements are corrected.
+6. **Gates.** `tests/unit/test_pitfall_catalogue.py` checks that the index and the entries agree, that every anchor resolves, that every pin names a real test, that every archive link resolves, that the redirect table covers every legacy number, that the size budgets hold (48 KB per area file), and that no legacy numbered citation survives outside the archive and the legacy columns.
+
+### Consequences
+
+- One place per lesson. A reader of §11.4 reads an index and an area file of 3 to 48 KB, not a 532 KB README, and a new lesson goes to the file for its subject.
+- Pointers make some entries depend on a skill or an ADR section, so a reader follows a link. The owner accepted this when choosing full dedupe.
+- Of the numbered citations outside the exempt files, 111 were rewritten through the redirect table and five were reworded by hand. The ambiguous legacy number was resolved by reading each context. For each of the nine Python files the migration touched, reversing the mapping reproduces the committed file, so only comments and docstrings changed.
+
+### Evidence
+
+- Verbatim split: all 181 blocks of §11.4 at `b1faaa9` were checked against their destination files. None is missing.
+- Dedupe: 42 standing entries whose issue numbers, pinned tests and code identifiers all occur in one home became pointers. Two duplicates point at their survivors: PF-TST-11 at PF-TST-07 (its re-hit facts are merged into PF-TST-07) and PF-PRC-10 at PF-PRC-09. The other 93 standing entries keep their bodies, because their evidence was partial or absent and a reader must check them.
+- Pins: every pin a standing entry names exists. The first extraction recorded a neighbouring test for one rule; the review corrected it, archived narratives now point to the pins in their own text, and 65 standing entries that name no test are marked pending review.
+- The per-entry decisions, with the evidence for each, are in the migration log of the change.
