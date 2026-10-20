@@ -242,7 +242,7 @@ class TestToolbarVisibilityIsOwnedByTheApp:
 
         assert second._geometry_restored, "no state was restored — test proves nothing"
         assert second.soil_overlay_toolbar.isHidden()
-        assert second._sun_toolbar.isHidden()
+        assert not second._sun_toolbar.isHidden()
         # The pairing is what matters: a visible toolbar whose action is
         # unchecked (and whose canvas tint is off) is the #286 desync. A bare
         # `not isChecked()` would pass in exactly that broken state, since the

@@ -3222,3 +3222,76 @@ net, and its pass is blamed on the open. The product was clean (the reviewer's i
 act. **Lesson**: "idle once" is not "settled" when another subsystem repaints asynchronously; a
 negative window must start from a scene that has been quiet for longer than the window's own
 timer. Under xdist, log to a file per pid.
+
+
+## Case study: readiness must protect exports even without a sun map (US-F4 combined controls)
+
+**Symptom:** the new export guard failed on a fresh plan: CanvasScene has no
+_document_generation attribute until its first document reset. An already-ready
+no-map Future also carried no document identity.
+**Wrong theories:** none adopted; the failing integration trace identified the
+missing attribute directly, and the explicit replacement test exposed the missing
+no-map check rather than a worker problem.
+**Key evidence:** AttributeError at SunExportGate._begin on the untouched fresh
+CanvasScene; controlled export tests then exercise generation zero, replacement,
+pending workers, cancellation and API-thread timeout without writing output.
+**Root cause:** exposure readiness and export document identity are different
+contracts. The exposure collector already treats a missing generation as zero.
+**Fix:** capture generation/revision/wall time independently of optional exposure,
+use the collector's zero-generation convention, and validate immediately before
+rendering. **Lesson:** an optional analysis cannot be the sole identity token for
+a mandatory export boundary.
+
+
+## Case study: timeline presence bypassed Quick 3D date throttle (US-F4, #315)
+
+**Symptom.** Scrubbing over a plant's planting/removal date rebuilt Quick 3D on
+every calendar step, although its clock listener throttled regrowth to 500 ms.
+Ten removal-boundary crossings produced ten snapshots and ten plan revisions in
+156 ms; the same number of steps without a presence transition produced none.
+
+**Wrong theories.** An earlier same-presence burst could exceed the throttle
+interval on a loaded runner; that explained timing-dependent extra work in that
+test but did not explain the boundary case. Same-turn coalescing could not prove
+the user's repeated, separate event-loop steps were throttled.
+
+**Evidence.** The independent review probe logged [BOUNDARY-REV] with
+traceback.format_stack(): refresh_timeline → setVisible → ItemVisibleHasChanged
+→ announce_plan_change → note_plan_changed → the controller's fast mark_dirty
+path. Reproduced [BOUNDARY-RESULT] boundary snapshots 10 revision 10 in 156 ms;
+after the scoped guard, snapshots 0 revision 0 in 157 ms. Control stayed 0 / 0.
+
+**Root cause.** Canvas presence is derived from the shared clock. Qt's real
+visibility notification made that derived state look like an edit of plan
+content, which bypassed the separate date-throttling subscription.
+
+**Fix.** CanvasScene.refresh_timeline sets a try/finally-restored scope only while
+applying visibility. The common GardenItem announcement hook suppresses only
+ItemVisibleHasChanged inside that scope. Manual visibility, layer commands and
+metadata/history edits keep announcing; all other item changes remain untouched.
+No temporary instrumentation remains in production.
+
+**Lesson.** Trace every path to the expensive work, and exercise state boundaries
+on separate event-loop turns. A throttle on the intended callback does not bound
+another callback that the same user action triggers. Regression:
+tests/integration/test_timeline_quick3d.py covers planting/removal crossings,
+settled final geometry, and controls for visibility/layer/history writes.
+
+
+## Case study: complete toolbar groups still wrapped to three German rows (US-F4)
+
+**Symptom:** all English layout tests passed at 800 pixels, while the German
+native-widget capture put the hidden-plants button alone on a third row.
+**Wrong theories:** stale size hints were considered, then rejected by logging
+the actual child widths and layout hints before changing layout logic.
+**Key log:** `[F4-FLOW] groups=[249,196,321,346,100] sliders=[150,150] width=800`,
+with traceback.format_stack() at the unexpected extra-row probe. The first three
+groups plus gaps needed 790 pixels; the available content width was 788.
+**Root cause:** translated word lengths left a small but real packing deficit;
+English sizes were not evidence for German. **Fix:** the adaptive narrow-window
+slider width leaves headroom for the measured German controls. Calendar width
+remains font-derived; wide windows keep larger sliders. Regression checks cover
+both translated languages at 800 pixels; native captures cover EN/DE/ES at wide
+and narrow widths, including scaled rendering. No instrumentation remains in
+production. **Lesson:** inspect the rendered translated controls and log actual
+group geometry before blaming the framework's layout cache.

@@ -565,16 +565,28 @@ sequenceDiagram
     participant SimClock
     participant App
     participant Scene
-    Timeline->>SimClock: set_date(month start / Today)
+    Timeline->>SimClock: set_date(preferred day in month / Today)
     SimClock->>App: date_changed(local day)
     App->>Scene: refresh_timeline()
     Scene->>Scene: layer AND plant presence; invalidate sprite caches
     Scene-->>Timeline: timeline_changed (read clock, update hidden count)
-    App->>App: visible diagnostics; invalidate daily heatmap; refresh 3D
-    SimClock->>App: instant_changed (mirror exact date/time; move light)
+    App->>App: visible diagnostics; request latest map if enabled
+    SimClock->>App: instant_changed (mirror exact date/time; 3D relights itself)
 ```
 
 Plant Details validates planting/removal dates before executing one property command.
 Execute/undo/redo reapplies presence without deleting an item. A document load applies
 visibility after all items/layers exist. Save and Season Manager still serialize the
 whole plan, including date-absent plants; visual exports render the current state.
+
+
+With Hours of Sun checked, a changed exposure snapshot invalidates measurements and
+queues the newest request after a short pause. A previous map stays visible with its
+actual date and Updating label; the old worker is canceled, retained until finished,
+and its late success is rejected. Only an accepted current result replaces the map
+and feeds diagnostics. Daily animation changes lighting without scheduling this work.
+
+A visual export pauses animation, requests current exposure, and waits without
+blocking Qt event delivery. GUI cancellation or an API timeout abandons the export.
+After readiness, document/revision/time/exposure are checked on Qt immediately before
+rendering; the final counted export lease restores the prior animation state.

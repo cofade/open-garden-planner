@@ -263,9 +263,12 @@ def announce_plan_change(
     if change == _CHANGE.ItemVisibleChange:
         vars(item)[_VISIBLE_BEFORE] = item.isVisible()
         return
-    if change == _CHANGE.ItemVisibleHasChanged and vars(item).pop(
-            _VISIBLE_BEFORE, None) is bool(value):
-        return  # Qt's polish: shown, and it was
+    if change == _CHANGE.ItemVisibleHasChanged:
+        before = vars(item).pop(_VISIBLE_BEFORE, None)
+        if before is bool(value):
+            return  # Qt's polish: shown, and it was
+        if getattr(item.scene(), "_applying_timeline_visibility", False):
+            return  # presence follows the clock; no plan content was edited
     if change in PLAN_CHANGES:
         note_plan_changed(item.scene())
     elif change == _CHANGE.ItemSceneChange:

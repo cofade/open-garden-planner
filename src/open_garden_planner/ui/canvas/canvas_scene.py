@@ -1132,7 +1132,15 @@ class CanvasScene(QGraphicsScene):
             if is_plant_type(getattr(item, "object_type", None)):
                 item.prepareGeometryChange()
                 item.update()  # invalidate DeviceCoordinateCache for the new canopy
-        self._update_items_visibility()
+        # Presence is a view of the clock, not a plan edit. In particular its
+        # ItemVisibleHasChanged notices must not bypass the 3D controller's
+        # throttled date-regrowth path. Other item changes keep announcing edits.
+        previous = getattr(self, "_applying_timeline_visibility", False)
+        self._applying_timeline_visibility = True
+        try:
+            self._update_items_visibility()
+        finally:
+            self._applying_timeline_visibility = previous
         self.timeline_changed.emit()
 
     def _apply_item_visibility(self, item: QGraphicsItem) -> None:

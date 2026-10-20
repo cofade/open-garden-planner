@@ -689,12 +689,22 @@ context; it retains theme refresh and delete signals. The module accepts display
 values and returns text, with no commands, scene mutation or solver callbacks.
 Constraint geometry and satisfaction remain in their existing components.
 
-## Plan timeline (US-F4, ADR-059)
+## Plan timeline (US-F4, ADR-061)
 
 `core/plan_timeline.py` owns Qt-free ISO lifetime parsing, half-open presence and
 month bounds. `ui/plant_lifetime.py` validates date edits and applies them through
-ChangePropertyCommand. `ui/widgets/plan_timeline_toolbar.py` displays the scene's
+ChangePropertyCommand. `ui/widgets/sun_sim_toolbar.py` displays the scene's
 shared clock date, requests month/Today changes, and resolves hidden-plant menu IDs.
 CanvasScene combines layer and date visibility, exposes the clock date to renderers,
 and reapplies state after commands and document replacement. The existing serializers
 store instance metadata unchanged; API snapshots add runtime presence annotations.
+
+
+The permanent combined toolbar groups the calendar/Today/status, month slider,
+editable time/day animation, live-map status and hidden-plant navigation. Its flow
+layout wraps complete groups. `ui/live_sun_map.py` separates user intent, requested
+exposure and the last displayed map; it schedules the existing single worker.
+`ui/sun_export_gate.py` shares current-map readiness, animation leases and document
+validation between GUI exports and API provider threads. Neither component computes
+solar math or introduces another clock. The Qt Quick 3D controller retains its own
+existing clock subscription and date-throttled scene pipeline (ADR-060).

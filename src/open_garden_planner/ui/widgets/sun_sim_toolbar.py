@@ -1,42 +1,92 @@
-"""Date/time control toolbar for the sun & shade simulation (US-E3, #258).
-
-A plain ``QToolBar``: date picker + time-of-day slider + animate button +
-hint label. It edits a WALL-CLOCK reading — a calendar date plus a time of
-day — in the clock's zone (the system zone in the app: the garden and the
-computer share a timezone in practice).
-
-Since Phase 17 L1.0 (ADR-053) the toolbar is a VIEW of the app's one
-``core/sim_clock.SimClock``. ``datetime_changed`` carries the naive wall
-reading, which the app stores unchanged, so the plan date IS the picker's
-date by construction — handing over an instant instead would let a time-only
-drag move the date inside a spring-forward gap that starts before midnight
-(America/Nuuk). The app mirrors the clock back with ``set_datetime_local``
-(signals blocked). Its own "now" seed only matters standalone. The sim time
-is deliberately NOT persisted — not in ``UiStateStore``, not in the ``.ogp`` —
-so a fresh run always reflects today. The date picker is limited to the
-clock's supported range (the system zone's conversion fails near the 1970
-epoch and during 3001 on Windows).
-"""
+"""Permanent adaptive plan-date and solar-time view of the one SimClock (ADR-061)."""
 
 from __future__ import annotations
 
-from datetime import datetime
+from calendar import monthrange
+from datetime import date, datetime, timedelta
+from typing import Any
 
-from PyQt6.QtCore import QDate, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QDate, QRect, QSize, Qt, QTime, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
     QDateEdit,
+    QHBoxLayout,
     QLabel,
+    QLayout,
+    QLayoutItem,
+    QMenu,
+    QSizePolicy,
     QSlider,
+    QTimeEdit,
     QToolBar,
     QToolButton,
     QWidget,
 )
 
+from open_garden_planner.core.object_types import get_translated_display_name, is_plant_type
+from open_garden_planner.core.plan_timeline import instance_date, month_number, timeline_month_range
 from open_garden_planner.core.sim_clock import MAX_PLAN_DATE, MIN_PLAN_DATE
-from open_garden_planner.ui.icons import get_icon, get_pixmap
+from open_garden_planner.ui.icons import get_icon
 
 _ANIMATE_INTERVAL_MS = 200
 _ANIMATE_STEP_MINUTES = 10
+
+
+
+class _GroupFlow(QLayout):
+    """Wrap complete control groups, without QToolBar's overflow popup."""
+
+    def __init__(self, parent: QWidget) -> None:
+        super().__init__(parent)
+        self._items: list[QLayoutItem] = []
+        self.setContentsMargins(2, 2, 2, 2)
+        self.setSpacing(12)
+
+    def addItem(self, item: QLayoutItem | None) -> None:
+        if item is not None:
+            self._items.append(item)
+
+    def count(self) -> int:
+        return len(self._items)
+
+    def itemAt(self, index: int) -> QLayoutItem | None:
+        return self._items[index] if 0 <= index < len(self._items) else None
+
+    def takeAt(self, index: int) -> QLayoutItem | None:
+        return self._items.pop(index) if 0 <= index < len(self._items) else None
+
+    def expandingDirections(self) -> Qt.Orientation:
+        return Qt.Orientation.Horizontal
+
+    def hasHeightForWidth(self) -> bool:
+        return True
+
+    def heightForWidth(self, width: int) -> int:
+        return self._arrange(QRect(0, 0, width, 0), False)
+
+    def minimumSize(self) -> QSize:
+        sizes = [item.minimumSize() for item in self._items]
+        return QSize(max((s.width() for s in sizes), default=0) + 4,
+                     max((s.height() for s in sizes), default=0) + 4)
+
+    def sizeHint(self) -> QSize:
+        return self.minimumSize()
+
+    def setGeometry(self, rect: QRect) -> None:
+        super().setGeometry(rect)
+        self._arrange(rect, True)
+
+    def _arrange(self, rect: QRect, apply: bool) -> int:
+        left, top, right, bottom = self.getContentsMargins()
+        x, y, row_height = rect.x() + left, rect.y() + top, 0
+        for item in self._items:
+            size = item.sizeHint()
+            if x > rect.x() + left and x + size.width() > rect.right() - right + 1:
+                x, y, row_height = rect.x() + left, y + row_height + 4, 0
+            if apply:
+                item.setGeometry(QRect(x, y, size.width(), size.height()))
+            x += size.width() + self.spacing()
+            row_height = max(row_height, size.height())
+        return y + row_height + bottom - rect.y()
 
 
 class SunSimToolbar(QToolBar):
@@ -53,90 +103,120 @@ class SunSimToolbar(QToolBar):
     heatmap_requested = pyqtSignal()
     #: Heatmap button unchecked — the app should hide the heatmap.
     heatmap_cleared = pyqtSignal()
-    june_reference_requested = pyqtSignal()
+    date_requested = pyqtSignal(object)
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None = None, *, scene: Any = None) -> None:
         super().__init__("", parent)
-        self.setObjectName("SunSimToolbar")  # required for QMainWindow.saveState
-        self.setWindowTitle(self.tr("Sun & Shade Simulation"))
+        self.setObjectName("SunSimToolbar")
+        self.setWindowTitle(self.tr("Plan & Sun"))
         self.setMovable(False)
+        self._scene = scene
+        self._requesting_month = False
+        self._preferred_day = 1
+        self._exposure_hint = ""
+        self._content = QWidget(self)
+        self._content.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self._flow = _GroupFlow(self._content)
+        self.addWidget(self._content)
 
-        self.addWidget(QLabel(self.tr("Date:")))
+        group = self._group()
         self._date_edit = QDateEdit(self)
         self._date_edit.setCalendarPopup(True)
         self._date_edit.setDisplayFormat("yyyy-MM-dd")
-        self._date_edit.setDateRange(
-            QDate(MIN_PLAN_DATE.year, MIN_PLAN_DATE.month, MIN_PLAN_DATE.day),
-            QDate(MAX_PLAN_DATE.year, MAX_PLAN_DATE.month, MAX_PLAN_DATE.day),
-        )
-        self._date_edit.setToolTip(self.tr("Simulation date"))
-        self.addWidget(self._date_edit)
+        self._date_edit.setDateRange(QDate(MIN_PLAN_DATE.year, 1, 1), QDate(MAX_PLAN_DATE.year, 12, 31))
+        self._date_edit.setMinimumWidth(self._date_edit.fontMetrics().horizontalAdvance("2000-00-00") + 48)
+        self._date_edit.setToolTip(self.tr("Plan date: plant presence, growth and sunlight"))
+        group.addWidget(self._date_edit)
+        self._today_button = self._button(self.tr("Today"), group)
+        self._today_button.clicked.connect(lambda: self.date_requested.emit(date.today()))
+        self._state_label = QLabel(self)
+        self._state_label.setMinimumWidth(max(self.fontMetrics().horizontalAdvance(text)
+                                              for text in (self.tr("Past"), self.tr("Today"), self.tr("Future"))))
+        self._state_label.setToolTip(self.tr("The plan date controls plant presence, growth and sunlight."))
+        group.addWidget(self._state_label)
 
-        self._time_icon = QLabel(self)
-        self._time_icon.setFixedSize(16, 16)
-        self._time_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.addWidget(self._time_icon)
-        self._time_label = QLabel("12:00", self)
-        self._time_label.setMinimumWidth(48)
-        self._time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.addWidget(self._time_label)
+        group = self._group()
+        group.addWidget(QLabel(self.tr("Months"), self))
+        self._month_slider = QSlider(Qt.Orientation.Horizontal, self)
+        self._month_slider.setFixedWidth(180)
+        self._month_slider.setPageStep(12)
+        self._month_slider.setToolTip(self.tr("Scrub by month; Page Up/Down jumps one year"))
+        group.addWidget(self._month_slider)
 
+        group = self._group()
+        self._time_edit = QTimeEdit(self)
+        self._time_edit.setDisplayFormat("HH:mm")
+        self._time_edit.setToolTip(self.tr("Time of day"))
+        self._time_edit.setMinimumWidth(self._time_edit.fontMetrics().horizontalAdvance("00:00") + 40)
+        group.addWidget(self._time_edit)
         self._slider = QSlider(Qt.Orientation.Horizontal, self)
         self._slider.setRange(0, 24 * 60 - 1)
         self._slider.setPageStep(60)
-        self._slider.setValue(12 * 60)
-        self._slider.setFixedWidth(220)
+        self._slider.setFixedWidth(180)
         self._slider.setToolTip(self.tr("Time of day"))
-        self.addWidget(self._slider)
+        group.addWidget(self._slider)
+        self._animate_button = self._button(self.tr("Animate"), group, checkable=True)
+        self._animate_button.setToolTip(self.tr("Animate the sun across the selected day"))
 
-        self._animate_button = QToolButton(self)
-        self._animate_button.setText(self.tr("Animate"))
-        self._animate_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self._animate_button.setCheckable(True)
-        self._animate_button.toggled.connect(lambda _c: self._update_animate_icon())
-        self._animate_button.setToolTip(
-            self.tr("Animate the sun across the day")
-        )
-        self.addWidget(self._animate_button)
+        group = self._group()
+        self._heatmap_button = self._button(self.tr("Hours of Sun"), group, checkable=True)
+        self._map_label = QLabel(self)
+        self._map_label.setWordWrap(True)
+        self._map_label.setFixedWidth(220)
+        group.addWidget(self._map_label)
+        group = self._group()
+        self._hidden_button = self._button("", group)
+        self._hidden_menu = QMenu(self._hidden_button)
+        self._hidden_button.setMenu(self._hidden_menu)
+        self._hidden_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self._hidden_button.setToolTip(self.tr("Plants hidden by the plan date"))
+        self._hidden_menu.aboutToShow.connect(self._populate_hidden)
 
-        self.addSeparator()
-
-        # ── Hours-of-sun heatmap (US-E4) — recompute on demand only ───────
-        self._heatmap_button = QToolButton(self)
-        self._heatmap_button.setText(self.tr("Hours of Sun"))
-        self._heatmap_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self._heatmap_button.setCheckable(True)
-        self._heatmap_button.setToolTip(
-            self.tr(
-                "Compute a full-day hours-of-sun heatmap for the shown date"
-            )
-        )
-        self.addWidget(self._heatmap_button)
-
-        self._june_button = QToolButton(self)
-        self._june_button.setText(self.tr("21 June"))
-        self._june_button.setToolTip(self.tr("Use 21 June of the simulation year as the reference date"))
-        self._june_button.clicked.connect(self.june_reference_requested)
-        self.addWidget(self._june_button)
-        self._exposure_hint = ""
-
-        # NOTE: the night / no-location HINT is deliberately NOT a widget here.
-        # A variable-width label in this toolbar's flow reflowed Qt's overflow
-        # popup and bumped the Animate button to another row when the night
-        # text toggled on/off; the hint now lives on the status bar instead
-        # (GardenPlannerApp._set_sun_hint). 2026-07 fix.
         self._animate_timer = QTimer(self)
         self._animate_timer.setInterval(_ANIMATE_INTERVAL_MS)
         self._animate_timer.timeout.connect(self._on_animate_tick)
-
-        self._date_edit.dateChanged.connect(self._on_inputs_changed)
-        self._slider.valueChanged.connect(self._on_inputs_changed)
+        self._date_edit.dateChanged.connect(self._on_calendar_changed)
+        self._time_edit.timeChanged.connect(self._on_time_edited)
+        self._slider.valueChanged.connect(self._on_time_slid)
+        self._month_slider.valueChanged.connect(self._request_month)
+        self._month_slider.sliderReleased.connect(self._finish_month_drag)
         self._animate_button.toggled.connect(self._on_animate_toggled)
         self._heatmap_button.toggled.connect(self._on_heatmap_toggled)
-
-        # Standalone seed only — in the app the sim clock's wall time replaces it.
+        if scene is not None:
+            scene.timeline_changed.connect(self.refresh)
         self.set_datetime_local(datetime.now().replace(second=0, microsecond=0))
         self.refresh_theme_icons()
+
+    def _group(self) -> QHBoxLayout:
+        widget = QWidget(self._content)
+        group = QHBoxLayout(widget)
+        group.setContentsMargins(0, 0, 0, 0)
+        group.setSpacing(5)
+        group.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
+        self._flow.addWidget(widget)
+        return group
+
+    def _button(self, text: str, group: QHBoxLayout, *, checkable: bool = False) -> QToolButton:
+        button = QToolButton(self)
+        button.setText(text)
+        button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        button.setCheckable(checkable)
+        group.addWidget(button)
+        return button
+
+    def resizeEvent(self, event: Any) -> None:
+        super().resizeEvent(event)
+        self._reflow()
+
+    def _reflow(self) -> None:
+        slider_width = 140 if self.width() < 1100 else 180
+        for slider in (self._month_slider, self._slider):
+            if slider.width() != slider_width:
+                slider.setFixedWidth(slider_width)
+        height = self._flow.heightForWidth(max(1, self.width() - 12))
+        if self._content.height() != height:
+            self._content.setFixedHeight(height)
+            self.setFixedHeight(height + 8)
 
     # ── public API ─────────────────────────────────────────────
 
@@ -152,9 +232,6 @@ class SunSimToolbar(QToolBar):
         heat = get_icon("sun_sim")
         if heat is not None:
             self._heatmap_button.setIcon(heat)
-        clock = get_pixmap("clock", 14)
-        if clock is not None:
-            self._time_icon.setPixmap(clock)
 
     def current_wall_datetime(self) -> datetime:
         """The selected date + time of day as a naive wall-clock reading."""
@@ -178,6 +255,8 @@ class SunSimToolbar(QToolBar):
             raise ValueError("set_datetime_local takes a naive wall reading")
         target_date = QDate(dt.year, dt.month, dt.day)
         target_minutes = dt.hour * 60 + dt.minute
+        if self._date_edit.date() != target_date and not self._requesting_month:
+            self._preferred_day = dt.day
         self._date_edit.blockSignals(True)
         self._slider.blockSignals(True)
         try:
@@ -189,16 +268,21 @@ class SunSimToolbar(QToolBar):
             self._date_edit.blockSignals(False)
             self._slider.blockSignals(False)
         self._update_time_label()
+        self.refresh()
+
+    @property
+    def animation_active(self) -> bool:
+        return self._animate_button.isChecked()
+
+    def set_animation_active(self, active: bool) -> None:
+        self._animate_button.setChecked(active)
 
     def stop_animation(self) -> None:
         self._animate_button.setChecked(False)
 
     def set_heatmap_busy(self, busy: bool) -> None:
         """Busy indication while the worker computes."""
-        self._heatmap_button.setEnabled(not busy)
-        self._heatmap_button.setText(
-            self.tr("Computing…") if busy else self.tr("Hours of Sun")
-        )
+        self._heatmap_button.setProperty("busy", busy)
 
     def set_heatmap_active(self, active: bool) -> None:
         """Reflect heatmap visibility (button check state), no signals."""
@@ -213,20 +297,50 @@ class SunSimToolbar(QToolBar):
         if text == self._exposure_hint:
             return
         self._exposure_hint = text
-        self._heatmap_button.setToolTip(self.tr("Compute a full-day hours-of-sun heatmap for the shown date")
+        self._heatmap_button.setToolTip(self.tr("Full-day hours of sun; updates automatically while enabled")
                                        + ("\n" + text if text else ""))
 
     # ── internals ──────────────────────────────────────────────
 
     def _update_time_label(self) -> None:
         minutes = self._slider.value()
-        self._time_label.setText(f"{minutes // 60:02d}:{minutes % 60:02d}")
+        self._time_edit.blockSignals(True)
+        self._time_edit.setTime(QTime(minutes // 60, minutes % 60))
+        self._time_edit.blockSignals(False)
 
-    def _on_inputs_changed(self) -> None:
+    def _on_time_slid(self, _minutes: int) -> None:
         self._update_time_label()
         self.datetime_changed.emit(self.current_wall_datetime())
 
+    def _on_calendar_changed(self, day: QDate) -> None:
+        self._preferred_day = day.day()
+        self.datetime_changed.emit(self.current_wall_datetime())
+        self.refresh()
+
+    def _on_time_edited(self, tod: QTime) -> None:
+        self._slider.blockSignals(True)
+        self._slider.setValue(tod.hour() * 60 + tod.minute())
+        self._slider.blockSignals(False)
+        self.datetime_changed.emit(self.current_wall_datetime())
+
+    def _finish_month_drag(self) -> None:
+        self._preferred_day = self._date_edit.date().day()
+
+    def set_map_status(self, day: date | None, updating: bool, unavailable: str = "") -> None:
+        text = self.tr("Map: {date}").format(date=day.isoformat()) if day else ""
+        if updating:
+            text = (self.tr("Map: {date} — Updating…").format(date=day.isoformat())
+                    if day else self.tr("Updating…"))
+        elif unavailable and day:
+            text = self.tr("Map: {date} — Unavailable").format(date=day.isoformat())
+        self._map_label.setText(text or unavailable)
+        self._map_label.setToolTip(text or unavailable)
+        self._flow.invalidate()
+        self.updateGeometry()
+        self._reflow()
+
     def _on_animate_toggled(self, checked: bool) -> None:
+        self._update_animate_icon()
         if checked:
             self._animate_timer.start()
         else:
@@ -242,3 +356,82 @@ class SunSimToolbar(QToolBar):
         # Advancing the slider fires valueChanged → one recompute per tick.
         next_value = self._slider.value() + _ANIMATE_STEP_MINUTES
         self._slider.setValue(next_value % (24 * 60))
+
+    def _request_month(self, number: int) -> None:
+        year, month0 = divmod(number, 12)
+        day = date(year, month0 + 1, min(self._preferred_day, monthrange(year, month0 + 1)[1]))
+        self._requesting_month = True
+        try:
+            self.date_requested.emit(day)
+        finally:
+            self._requesting_month = False
+
+    def refresh(self) -> None:
+        day = self._scene.plan_date if self._scene is not None else self._date_edit.date().toPyDate()
+        if day is None:
+            return
+        plants = [] if self._scene is None else [item for item in self._scene.items()
+                  if is_plant_type(getattr(item, "object_type", None))]
+        low, high = timeline_month_range((p.metadata for p in plants), date.today(), day)
+        self._month_slider.blockSignals(True)
+        self._month_slider.setRange(low, high)
+        self._month_slider.setValue(month_number(day))
+        self._month_slider.blockSignals(False)
+        self._state_label.setText(self.tr("Past") if day < date.today() else
+                                  self.tr("Future") if day > date.today() else self.tr("Today"))
+        self._today_button.setEnabled(day != date.today())
+        count = sum(not self._scene.is_present(p) for p in plants)
+        self._hidden_button.setText(self.tr("{count} hidden").format(count=count))
+        self._hidden_button.setEnabled(count > 0)
+        self._reflow()
+
+    def _populate_hidden(self) -> None:
+        self._hidden_menu.clear()
+        if self._scene is None:
+            return
+        for item in self._scene.items():
+            if not is_plant_type(getattr(item, "object_type", None)) or self._scene.is_present(item):
+                continue
+            name = item.name or get_translated_display_name(item.object_type)
+            planted = instance_date(item.metadata, "planting_date")
+            removed = instance_date(item.metadata, "removal_date")
+            text = self.tr("{name} — planted: {planted}; removed: {removed}").format(
+                name=name, planted=planted.isoformat() if planted else "—",
+                removed=removed.isoformat() if removed else "—")
+            action = self._hidden_menu.addAction(text)
+            assert action is not None
+            # Retain only an id in a menu that can outlive the current document.
+            action.triggered.connect(lambda _checked=False, iid=str(item.item_id): self._reveal(iid))
+
+    def _reveal(self, item_id: str) -> None:
+        from open_garden_planner.core.sim_clock import MAX_PLAN_DATE, MIN_PLAN_DATE
+
+        for item in self._scene.items():
+            if str(getattr(item, "item_id", "")) != item_id:
+                continue
+            planted = instance_date(item.metadata, "planting_date")
+            removed = instance_date(item.metadata, "removal_date")
+            target = planted if planted and self._scene.plan_date < planted else (
+                removed - timedelta(days=1) if removed and removed > date.min else None)
+            if target is None or not MIN_PLAN_DATE <= target <= MAX_PLAN_DATE:
+                return
+            self.date_requested.emit(target)
+            if not self._scene.is_present(item):
+                return
+            ancestor = item
+            while ancestor.parentItem() is not None:
+                ancestor = ancestor.parentItem()
+            if ancestor.layer_id:
+                layer = self._scene.get_layer_by_id(ancestor.layer_id)
+                if layer is not None and not layer.visible:
+                    from open_garden_planner.core.commands import SetLayerPropertyCommand
+
+                    manager = self._scene._command_manager
+                    if manager is None:
+                        return
+                    manager.execute(SetLayerPropertyCommand(self._scene, layer, "visible", False, True))
+            self._scene.clearSelection()
+            ancestor.setSelected(True)
+            for view in self._scene.views():
+                view.ensureVisible(ancestor)
+            return

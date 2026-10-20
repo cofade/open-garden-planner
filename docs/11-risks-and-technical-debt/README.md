@@ -3443,3 +3443,40 @@ itself wrong: the spacing ring's translucent fill covered the sampled region at 
 dates (40000/40000 pixels), so the final sampler explicitly disables that overlay.
 PDF text extraction may break lines between glyphs despite correct rendered layout;
 whitespace is normalized for content checks and rendered pages are inspected.
+
+
+### A live sun-map preview is not a current measurement or an export (#315)
+
+The former on-demand map intentionally disappeared on date changes. Retaining its
+pixels for the combined timeline requires three separate identities: desired inputs,
+in-flight snapshot, and the snapshot whose image is actually displayed. The launched
+worker's computed_day changes before its result arrives, so it cannot label the old
+image. displayed_snapshot is updated only on accepted success; stale measurements
+are cleared immediately and cannot feed badges. The preview remains visibly dated.
+
+Export readiness must also guard the no-map case: a document can be replaced between
+two API GUI hops even when its exposure Future is already ready. SunExportGate checks
+generation (zero before the first replacement), plan revision and wall time immediately
+before writing. Its waits happen outside the API bridge call; cancellation and timeouts
+write nothing. The pending-Future test, map date/late-result tests and guarded GUI/API
+export tests pin these distinctions. Shutdown is idempotent, including a second call
+after QObject teardown; the test fixture releases its controlled workers on cancel.
+
+
+### Derived lifetime visibility must not announce a plan edit (#315)
+
+The first native Quick3D review found ten regrowth snapshots in 156–172 ms when
+ten date steps crossed a planting/removal boundary; the same-presence control
+produced none. Tagged stacks traced Qt's ItemVisibleHasChanged through the plan
+revision signal to the controller's immediate edit path, bypassing its 500 ms
+date throttle. refresh_timeline now scopes only those visibility announcements
+as derived runtime state (restored in finally). Manual visibility, layer commands
+and lifetime undo/redo still announce edits. Separate-event-loop boundary tests
+pin both halves. The identical probe reads zero extra snapshots/revisions after
+the fix and the existing clock's trailing update produces the final state.
+
+Translated layout also needs its own evidence: German's first three control
+groups missed the available 800-pixel content width by two pixels despite English
+passing. The actual group hints, not a guessed Qt cache bug, explained the third
+row. Narrow sliders now leave translated text headroom; native-widget captures
+and two-locale regressions supplement the English geometry tests.

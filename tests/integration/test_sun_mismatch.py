@@ -5,7 +5,7 @@ from pathlib import Path
 from threading import Event, get_ident
 
 import pytest
-from PyQt6.QtCore import QLocale, QPointF, Qt, QTimer
+from PyQt6.QtCore import QDate, QLocale, QPointF, Qt, QTimer
 from PyQt6.QtWidgets import QApplication
 
 from open_garden_planner.app.application import GardenPlannerApp
@@ -54,9 +54,10 @@ def sun_app(qtbot, monkeypatch):
 
 
 def compute(win, qtbot):
-    with qtbot.waitSignal(win._sun_heatmap.finished, timeout=30000) as blocker:
-        win._on_heatmap_requested()
-    assert blocker.args == [True]
+    win._sun_toolbar._heatmap_button.setChecked(True)
+    readiness = win._live_sun_map.ensure_current()
+    qtbot.waitUntil(readiness.done, timeout=30000)
+    readiness.result()
     qtbot.waitUntil(lambda: bool(win.sun_exposure_coordinator.evaluations)
                    and any(e.hours is not None for e in win.sun_exposure_coordinator.evaluations.values()))
 
@@ -76,7 +77,7 @@ def test_explicit_compute_badges_canopy_invalidation_and_requirements(sun_app, q
     original = (north.rect(), north.pos(), north.transformOriginPoint(), north.boundingRect())
     qtbot.waitUntil(lambda: len(sun_records(win, "sun_evaluation")) == 3)
     assert win._sun_heatmap.run_count == 0
-    win._sun_toolbar._june_button.click()
+    win._sun_toolbar._date_edit.setDate(QDate(DAY.year, DAY.month, DAY.day))
     assert win._sim_clock.plan_date == DAY
     compute(win, qtbot)
     assert win.sun_exposure_coordinator.evaluations[str(north.item_id)].hours == 0
@@ -101,14 +102,15 @@ def test_explicit_compute_badges_canopy_invalidation_and_requirements(sun_app, q
     win.canvas_view.command_manager.undo()
     qtbot.waitUntil(lambda: north._sun_badge.isVisible())
     tree.setPos(200, 0)
-    qtbot.waitUntil(lambda: win._sun_heatmap.exposure_reason == "stale", timeout=1000)
-    qtbot.waitUntil(lambda: not sun_records(win) and len(sun_records(win, "sun_evaluation")) == 3, timeout=1000)
-    assert not north._sun_badge.isVisible() and win._sun_heatmap.heatmap_visible()
-    assert win._sun_heatmap.run_count == run_count
+    assert not win._live_sun_map.is_current()
+    assert win._sun_heatmap.heatmap_visible()  # dated preview remains
     compute(win, qtbot)
+    assert win._sun_heatmap.run_count > run_count
     win._sim_clock.set_date(DAY + timedelta(days=1))
-    qtbot.waitUntil(lambda: not win._sun_heatmap.heatmap_visible())
+    assert win._sun_heatmap.heatmap_visible()
     assert not win._sun_heatmap.receiver_minutes
+    compute(win, qtbot)
+    assert win._sun_heatmap.displayed_snapshot.day == DAY + timedelta(days=1)
 
 
 @pytest.mark.parametrize("mode", [ThemeMode.LIGHT, ThemeMode.DARK])
@@ -120,7 +122,7 @@ def test_badge_group_navigation_geometry_and_reload(sun_app, qtbot, tmp_path, mo
     win.canvas_view.scale(.3, .3)
     north.setRotation(45)
     # Rotating a round receiver about its corner changes its centre: invalid.
-    qtbot.waitUntil(lambda: win._sun_heatmap.exposure_reason == "stale")
+    assert not win._live_sun_map.is_current()
     north.setRotation(0)
     compute(win, qtbot)
     win.canvas_scene.clearSelection()
@@ -253,7 +255,7 @@ def test_explicit_worker_keeps_gui_responsive(sun_app, qtbot, monkeypatch):
     timer.start(10)
     try:
         with qtbot.waitSignal(sun_app._sun_heatmap.finished, timeout=30000) as blocker:
-            sun_app._on_heatmap_requested()
+            sun_app._sun_toolbar._heatmap_button.setChecked(True)
             qtbot.waitUntil(lambda: entered.is_set() and len(ticks) >= 3, timeout=5000)
             assert len(worker_threads) == 1 and worker_threads[0] != gui_thread
             assert sun_app._sun_heatmap.is_running and sun_app._sun_heatmap.result_pending

@@ -281,7 +281,6 @@ def _live_for(app3d: Any, qtbot: Any, activity: str) -> Live:
     _act, sun_on, _least = ACTIVITIES[activity]
     live = Live(app3d, qtbot)
     if sun_on:
-        live.window._sun_sim_action.trigger()       # the toolbar with the time slider
         assert live.window._sun_toolbar.isVisible()
     live.start()
     return live

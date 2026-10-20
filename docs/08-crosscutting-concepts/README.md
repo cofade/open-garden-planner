@@ -6655,8 +6655,9 @@ An "item made from an item" copies a shape's **look** through one seam that the 
 
 ## 8.30 Plan date, visibility and lifetime (US-F4, ADR-061)
 
-The shared SimClock local date is the plan date. The compact month slider writes
-month starts; Today preserves wall time. The Sun & Shade picker writes exact days.
+The shared SimClock local date is the plan date. One permanent Plan & Sun strip
+holds the exact calendar and monthly slider, which preserves the preferred day
+(clamping short months). Today preserves wall time.
 Neither date navigation nor visibility filtering adds history or persists a date.
 
 CanvasScene is the layer/date visibility seam: a plant is visible only when its
@@ -6683,3 +6684,26 @@ the date navigation itself remains runtime-only. Lifetime refresh derives the ag
 label from stored metadata, including undo and rejected edits. Automatic API companion
 checks use visible bed members; task soil warnings use presence on their explicit
 reference day, independently of the displayed simulation date.
+
+
+### 8.30.1 Permanent controls and live-map/export lifecycle
+
+SunSimToolbar is the sole toolbar instance for date/time. Atomic groups wrap rather
+than disappear into overflow; date width is derived from font metrics. Past/Today/
+Future gives context without repeating the date. The former PlanTimelineToolbar is
+removed and restored hidden toolbar state is healed. Solar and decorative shadows
+are automatic; Hours of Sun and daily animation remain opt-in session state.
+
+Never confuse an enabled map with a finished map: LiveSunMap tracks the requested
+snapshot; SunHeatmapController keeps its in-flight snapshot and displayed_snapshot
+separate. A retained preview names the displayed date, never the requested date.
+Only current measurements may reach diagnostics. A failure remains visible as an
+unavailable state; changing document/location/grid discards the preview. Repainting
+an overlay does not request more daily work: scheduling compares semantic snapshots.
+
+SunExportGate returns readiness through a Future, so API threads wait outside Qt.
+Its GUI modal progress loop continues delivering worker results and cancellation.
+The 30-second timeout does not widen the generic main-thread bridge timeout.
+Generation/revision/wall-time checks protect exports even when no map is enabled.
+No output is written until readiness and identity checks succeed. Animation uses
+counted pause leases so concurrent exports cannot resume it prematurely.

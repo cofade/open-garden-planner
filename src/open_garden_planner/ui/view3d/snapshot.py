@@ -1142,7 +1142,11 @@ def snapshot_records(
       An item whose parent got NO record here — left out for any of the reasons
       above — stands on the ground: nothing stands on a solid the scene does
       not hold (``_ground_items_without_a_parent_record``).
-    - ``at_date`` (US-E8) grows dated plants: canopy radius and height.
+    - ``at_date`` (US-E8) grows dated plants: canopy radius and height. Lifetime
+      presence comes from the scene's combined layer/date visibility (US-F4),
+      applied before this snapshot. The workspace passes the same
+      ``SimClock.plan_date`` for growth; a snapshot does not move that clock or
+      temporarily reveal plants hidden by the current plan date.
     """
     items: list[Any] = scene.items()  # top-first; garden items are duck-typed below
     lookup = ItemLookup(items)

@@ -241,6 +241,8 @@ class SunHeatmapController(QObject):
         self._result_wanted = False
         self._success_seen = False
         self.snapshot: ExposureSnapshot | None = None
+        # The published map can remain visible while a different snapshot runs.
+        self.displayed_snapshot: ExposureSnapshot | None = None
         self.receiver_minutes: dict[str, float] = {}
         self.exposure_reason = "absent"
         #: Test instrument — number of worker launches.
@@ -353,6 +355,7 @@ class SunHeatmapController(QObject):
         self.last_minutes = None
         self.last_grid = None
         self.snapshot = None
+        self.displayed_snapshot = None
         self.receiver_minutes = {}
         self.exposure_reason = "absent"
         self.cancel()
@@ -415,6 +418,7 @@ class SunHeatmapController(QObject):
         overlay.setVisible(True)
         self._rebuild_contours(minutes, grid)
         self._success_seen = True
+        self.displayed_snapshot = self.snapshot
         self.exposure_reason = "ready"
         self.exposure_changed.emit()
 

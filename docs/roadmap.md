@@ -2716,7 +2716,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 
 ## Phase 17: Living Garden 3D (epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) — L0 complete (GO), L1 complete
 
-**Current product (since v1.30.14, [PR #484](https://github.com/cofade/open-garden-planner/pull/484))**: the 3D view is the Qt Quick 3D workspace in the main window — View → Sun & 3D → "3D View" shows it beside the plan (Plan / 3D / Split, Alt+1 / 2 / 3); it follows every edit, casts shadow-map shadows checked against the 2D ones, selects in both directions and walks with collision. The Qt 3D viewer window of US-E6 / E7, unreachable since L1.9, was deleted in L1.10 with its two `PyQt6-3D*` pins, the pre-L1.1 scene module and the L0 spike (its values frozen in `tests/data/l0_spike_reference.json`). The workspace also paints the plan's flat surfaces onto its ground (L1.5). What FR-SUN-06 / 07 / 08 promised and what the new view does is §8.29.9's parity table; the owner shipped the default with #532 open (ADR-060 addendum D5). v1.30.13 was the last release with the Qt 3D window. L0 is complete with a GO; L1.0 (one simulation clock) shipped in v1.29.10 and L1.1–L1.10 in v1.30.14.
+**Current product (since v1.30.14, [PR #484](https://github.com/cofade/open-garden-planner/pull/484))**: the 3D view is the Qt Quick 3D workspace in the main window — View → "3D View" shows it beside the plan (Plan / 3D / Split, Alt+1 / 2 / 3); it follows every edit, casts shadow-map shadows checked against the 2D ones, selects in both directions and walks with collision. The Qt 3D viewer window of US-E6 / E7, unreachable since L1.9, was deleted in L1.10 with its two `PyQt6-3D*` pins, the pre-L1.1 scene module and the L0 spike (its values frozen in `tests/data/l0_spike_reference.json`). The workspace also paints the plan's flat surfaces onto its ground (L1.5). What FR-SUN-06 / 07 / 08 promised and what the new view does is §8.29.9's parity table; the owner shipped the default with #532 open (ADR-060 addendum D5). v1.30.13 was the last release with the Qt 3D window. L0 is complete with a GO; L1.0 (one simulation clock) shipped in v1.29.10 and L1.1–L1.10 in v1.30.14.
 
 **Goal**: make the 3D mode the reason to open the app — *Lush Cinematic* look, experience + analyze (editing stays in 2D, 3D only selects), 100 % procedural models, and **truth before beauty** (heights, spreads, sun, shadows, date and north gated against the data). Owner decisions 2026-10-03. Renderer: Qt Quick 3D replacing the deprecated Qt 3D, decided by the ADR-048 GO/NO-GO spike. Every 3D-visible change goes `ogp-3d-creator` → `ogp-3d-reviewer` → `senior-reviewer` (skills `ogp-lush-cinematic`, `ogp-3d-renderer`).
 
@@ -3102,3 +3102,13 @@ uses that date too. Season Manager remains a whole-plan yearly copy. Integration
 workflows include real controls, exact boundaries, history, round-trip and rendered
 growth/export checks. F5 (#316) remains a separate story. Validation evidence and
 the owner's remaining frozen-app checklist accompany the draft PR.
+
+
+F4 owner-planned integration follow-up (20 October 2026, PR #533): master v1.30.14
+is merged into the branch. One permanent adaptive Plan & Sun strip replaces the
+duplicate date controls and optional simulation toolbar; solar/decorative shadows
+are automatic, Hours of Sun updates while enabled with an honest dated preview,
+and image/PDF exports wait for current results. Monthly scrubbing preserves the
+preferred day; the 21 June shortcut is removed. ADR-061 / FR-34 / §8.30 record the
+decision, with combined-controls and native Qt Quick 3D integration evidence. Owner
+acceptance and publication remain pending; F5 stays separate.

@@ -6546,9 +6546,10 @@ could disagree with the existing date-projected 3D canopy.
 
 ### Decision
 
-- Keep SimClock as the only date state. The always available Plan Timeline toolbar
-  requests month starts and Today, while the existing Sun & Shade date picker offers
-  exact days. Time of day is preserved. The date is session state, never saved.
+- Keep SimClock as the only date state. One permanent adaptive Plan & Sun toolbar
+  has an exact calendar, Today, a monthly slider preserving the preferred day, editable
+  time, the daily animation and an optional live Hours of Sun map. Time is preserved
+  by date navigation. The date is session state, never saved.
 - A plant is present on the half-open interval `[planting_date, removal_date)`.
   Missing/malformed ISO bounds are open; a stored inverted interval has no present
   day. UI edits reject removal on/before planting before changing data/history.
@@ -6589,3 +6590,46 @@ structure installation/removal dates and a new growth model are outside this sto
 Evidence: `tests/integration/test_plan_timeline.py` exercises real controls, history,
 save/load, diagnostics, rendered sprites and export artifacts; boundary and task
 aggregation tests live in `tests/unit/test_plan_timeline.py`.
+
+
+### Addendum: combined controls and live exposure (owner planning session, 2026-10-20)
+
+The master merge brings ADR-059/060's Qt Quick 3D workspace. This timeline decision
+is ADR-061 (the original branch's ADR-059 collided); its requirement bucket is FR-34.
+
+The owner chose one adaptive strip, monthly steps preserving the calendar day,
+current local time at startup, a dated old-map preview during refresh, and exports
+that wait for current exposure. The 21 June shortcut is removed. Past/Today/Future
+replaces the duplicated date text. Complete control groups wrap at narrow widths;
+the calendar's width derives from font metrics. Page steps remain twelve months.
+Within a continuous month drag a preferred 31st survives February; direct calendar
+edits establish a new preferred day. Today preserves time and daily animation keeps
+running while the user changes the date. No independent date state is introduced.
+
+Decorative shadows and solar simulation are always on, including night/no-location
+behavior. The old shadow-disable preference no longer overrides this policy. The
+View menu's direct 3D View action uses the existing workspace; no new 3D window,
+growth path or ground heatmap is added. The old simulation submenu/toggles are gone.
+
+`LiveSunMap` owns the opt-in intent and latest desired exposure snapshot, separate
+from the worker's snapshot and the displayed result. A 200 ms debounce coalesces
+input bursts. One worker remains owned through queued finished; superseded work is
+canceled and only the latest pending request is launched when ownership is released.
+Date/geometry/lifetime/layer/location/bounds changes refresh while enabled; time-only
+animation and requirement-only reclassification do not launch daily work. The old
+map's actual date remains labelled Updating; stale receiver measurements cannot feed
+badges/diagnostics. Document/location/grid replacement drops old imagery. Failure is
+labelled Unavailable; unchecking cancels work and clears the preview. A failed open
+that never commits leaves the current document/result intact.
+
+`SunExportGate` is the shared visual-export readiness boundary. It pauses animation
+under a counted lease and restores it after the last export. GUI waits pump a modal,
+cancellable progress dialog; API waits occur in the existing provider worker thread,
+outside the five-second GUI bridge call, with a 30-second deadline. Immediately before
+writing, it checks document generation, plan revision, wall time and accepted exposure
+identity. Cancellation, changed inputs, timeout or calculation failure writes no new
+output. PNG/SVG/PDF and API image/PDF share this rule; DXF/data exports are unchanged.
+
+Tests: `test_plan_sun_controls.py`, `test_timeline_quick3d.py`, the lifetime workflow,
+the existing clock/heatmap/document/badge suites and the export transport tests.
+No dependency, project-file version or persisted simulation-state change.

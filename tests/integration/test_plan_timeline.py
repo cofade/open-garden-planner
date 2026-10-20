@@ -43,11 +43,11 @@ def plant(win, name, planted=None, removed=None, x=400):
 
 
 def scrub(win, year, month):
-    win._timeline_toolbar._month_slider.setValue(month_number(date(year, month, 1)))
+    win._sun_toolbar._month_slider.setValue(month_number(date(year, month, 1)))
 
 
 def test_month_scrub_shared_date_growth_and_half_open_visibility(win):
-    from open_garden_planner.ui.view3d.snapshot import collect_scene3d_records
+    from open_garden_planner.ui.view3d.snapshot import snapshot_records
 
     apple = plant(win, "Apple", "2024-04-01")
     lettuce = plant(win, "Lettuce", "2026-05-01", x=700)
@@ -60,19 +60,19 @@ def test_month_scrub_shared_date_growth_and_half_open_visibility(win):
     assert win._sun_toolbar._date_edit.date() == QDate(2025, 6, 1)
     assert apple.isVisible() and hazel.isVisible() and not lettuce.isVisible()
     assert bed.isVisible()
-    young = collect_scene3d_records(win.canvas_scene, win._sim_clock.plan_date)
+    young = snapshot_records(win.canvas_scene, win._sim_clock.plan_date)
     assert len(young) == 3
     scrub(win, 2027, 3)
     assert not hazel.isVisible() and lettuce.isVisible()
     scrub(win, 2030, 6)
-    grown = collect_scene3d_records(win.canvas_scene, win._sim_clock.plan_date)
+    grown = snapshot_records(win.canvas_scene, win._sim_clock.plan_date)
     # Exact US-E8 growth values are covered by its own tests; this pins routing.
     from open_garden_planner.core.object_height import effective_height_cm
 
     assert effective_height_cm(apple.object_type, apple.metadata, date(2030, 6, 1)) > effective_height_cm(
         apple.object_type, apple.metadata, date(2025, 6, 1))
     assert len(grown) == 3
-    assert "2030-06" in win._timeline_toolbar._month_label.text()
+    assert win._sun_toolbar._state_label.text() == "Future"
 
 
 def test_canvas_sprite_regrows_through_real_render_without_resizing_footprint(win):
@@ -171,7 +171,7 @@ def test_planting_date_age_tracks_undo_redo_and_rejected_edits(win, qtbot, monke
 def test_hidden_discovery_reveals_date_and_today_preserves_time(win):
     item = plant(win, "Hazel", "2024-04-01", "2027-03-01")
     scrub(win, 2028, 6)
-    toolbar = win._timeline_toolbar
+    toolbar = win._sun_toolbar
     toolbar._populate_hidden()
     action = toolbar._hidden_menu.actions()[0]
     assert "Hazel" in action.text() and "2027-03-01" in action.text()
@@ -193,8 +193,8 @@ def test_hidden_discovery_shows_a_hidden_layer_in_one_dirty_undo_step(win, tmp_p
     scrub(win, 2028, 6)
     manager = win.canvas_view.command_manager
     before = len(manager._undo_stack)
-    win._timeline_toolbar._populate_hidden()
-    win._timeline_toolbar._hidden_menu.actions()[0].trigger()
+    win._sun_toolbar._populate_hidden()
+    win._sun_toolbar._hidden_menu.actions()[0].trigger()
     assert layer.visible and item.isVisible() and item.isSelected()
     assert len(manager._undo_stack) == before + 1
     assert win._project_manager.is_dirty
@@ -331,11 +331,11 @@ def test_task_soil_warnings_use_reference_presence_even_when_scrubbed_elsewhere(
 def test_new_document_resets_hidden_count_and_scrubber_bounds(win):
     plant(win, "Future", "2090-05-01", "2091-03-01")
     win.canvas_scene.refresh_timeline()
-    assert win._timeline_toolbar._hidden_button.isEnabled()
+    assert win._sun_toolbar._hidden_button.isEnabled()
     win._new_project_document(width_cm=5000, height_cm=3000)
-    assert win._timeline_toolbar._hidden_button.text().startswith("0 ")
-    assert not win._timeline_toolbar._hidden_button.isEnabled()
-    assert win._timeline_toolbar._month_slider.maximum() < month_number(date(2090, 1, 1))
+    assert win._sun_toolbar._hidden_button.text().startswith("0 ")
+    assert not win._sun_toolbar._hidden_button.isEnabled()
+    assert win._sun_toolbar._month_slider.maximum() < month_number(date(2090, 1, 1))
 
 
 def test_fresh_gui_and_agent_plants_use_the_active_date(win):
