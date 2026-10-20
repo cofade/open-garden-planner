@@ -23,7 +23,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def extract_pr_from_commit_subject(subject: str) -> int | None:
     """Extract PR number from a squash-and-merge commit subject.
 
-    GitHub Appends ' (#N)' to the subject of a squash-and-merge commit by default.
+    GitHub appends ' (#N)' to the subject of a squash-and-merge commit by default.
+    Allows optional trailing whitespace.
     """
     match = re.search(r"\(#(\d+)\)\s*$", subject.strip())
     return int(match.group(1)) if match else None
@@ -71,7 +72,6 @@ def determine_bump_type(labels: list[str]) -> str:
     Matches 'major' > 'minor' > 'patch'. Substrings like 'not-minor' or
     'minor-fix' do not trigger a minor bump.
     """
-    # Exact matching only
     normalized = {lbl.strip() for lbl in labels if isinstance(lbl, str)}
     if "major" in normalized:
         return "major"
@@ -104,6 +104,19 @@ def compute_next_version(latest_tag: str, bump_type: str) -> tuple[str, str]:
     return version_str, tag_str
 
 
+def _resolve_gh_executable(gh_cmd: str | None) -> str:
+    if gh_cmd:
+        return gh_cmd
+    found = shutil.which("gh")
+    if found:
+        return found
+    if sys.platform == "win32":
+        default_win = Path(r"C:\Program Files\GitHub CLI\gh.exe")
+        if default_win.is_file():
+            return str(default_win)
+    return "gh"
+
+
 def resolve_pr_and_bump(
     commit_sha: str,
     repo: str = "cofade/open-garden-planner",
@@ -111,7 +124,7 @@ def resolve_pr_and_bump(
     git_cmd: str | None = None,
 ) -> dict[str, Any]:
     """Resolve PR number, labels, bump type, and next version for a commit."""
-    gh = gh_cmd or shutil.which("gh") or r"C:\Program Files\GitHub CLI\gh.exe"
+    gh = _resolve_gh_executable(gh_cmd)
     git = git_cmd or shutil.which("git") or "git"
 
     # Get latest tag
@@ -129,6 +142,7 @@ def resolve_pr_and_bump(
     except Exception:
         pass
 
+    source: str | None = None
     pr_number: int | None = None
     labels: list[str] = []
 
@@ -146,6 +160,7 @@ def resolve_pr_and_bump(
             if isinstance(pulls_data, list):
                 selected = select_merged_pr(pulls_data, target_base="master")
                 if selected:
+                    source = "api"
                     pr_number = selected.get("number")
                     raw_labels = selected.get("labels", [])
                     if isinstance(raw_labels, list):
@@ -169,11 +184,13 @@ def resolve_pr_and_bump(
             )
             if subject_proc.returncode == 0:
                 pr_number = extract_pr_from_commit_subject(subject_proc.stdout)
+                if pr_number is not None:
+                    source = "subject"
         except Exception:
             pass
 
-    # If we got PR number from subject fallback, fetch labels via gh pr view
-    if pr_number is not None and not labels:
+    # If resolved via subject fallback, query gh pr view for labels
+    if source == "subject" and pr_number is not None:
         try:
             view_proc = subprocess.run(
                 [
@@ -214,12 +231,17 @@ def resolve_pr_and_bump(
         "latest_tag": latest_tag,
         "version": version,
         "tag": tag,
+        "source": source,
     }
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--commit", help="Commit SHA (defaults to HEAD)")
+    parser.add_argument(
+        "--commit",
+        default=os.environ.get("GITHUB_SHA"),
+        help="Commit SHA (defaults to $GITHUB_SHA or HEAD)",
+    )
     parser.add_argument(
         "--repo",
         default=os.environ.get("GITHUB_REPOSITORY", "cofade/open-garden-planner"),
@@ -236,7 +258,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--write-github-output",
         action="store_true",
-        help="Append version and tag variables to $GITHUB_OUTPUT file if set",
+        help="Append version, tag, bump, and pr_number to $GITHUB_OUTPUT file if set",
     )
     args = parser.parse_args(argv)
 
@@ -277,6 +299,7 @@ def main(argv: list[str] | None = None) -> int:
             f"Commit: {result['commit_sha'][:8]} | {pr_str} | {labels_str} | "
             f"Bump: {result['bump']} | {result['latest_tag']} -> {result['tag']}"
         )
+        print(f"Releasing version: {result['version']}")
 
     if args.write_github_output:
         gh_output = os.environ.get("GITHUB_OUTPUT")
@@ -292,4 +315,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
