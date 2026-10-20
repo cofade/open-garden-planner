@@ -808,7 +808,7 @@ ls tests/integration/test_rotation_aware_resize.py tests/integration/test_undo_r
 grep -rn "TestCrossSurfaceSync\|TestOverdueReminderBar\|TestHandleDragViaView\|TestFrostDashboardNavigation" tests/ -l
 
 # Pitfall keyword sweep (new entries land in `pitfalls/` first — re-mine after every merged fix):
-grep -n "Closed (#\|Lesson\|pinned\|Pinned\|Regression test" docs/11-risks-and-technical-debt/pitfalls docs/11-risks-and-technical-debt/archive
+grep -rn "Closed (#\|Lesson\|pinned\|Pinned\|Regression test" docs/11-risks-and-technical-debt/pitfalls docs/11-risks-and-technical-debt/archive
 
 # New sagas since this skill was written:
 git log --oneline -30

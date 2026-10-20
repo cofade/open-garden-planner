@@ -212,6 +212,16 @@ def test_every_entry_has_the_template_fields_and_no_placeholder() -> None:
             assert not PLACEHOLDER.search(str(line)), f"{entry['id']} still holds placeholder text"
 
 
+#: The four forms a Status field may take (ADR-061, decision 3).
+STATUS_FORMS = re.compile(r"^(standing|standing; narrative in \[|pointer → \[|retired; narrative in \[)")
+
+
+def test_every_status_uses_one_of_the_four_forms() -> None:
+    for entry in entries():
+        status = str(entry["fields"]["Status"])  # type: ignore[index]
+        assert STATUS_FORMS.match(status), f"{entry['id']}: Status is not one of the four forms: {status[:60]!r}"
+
+
 def test_pins_name_real_tests_or_say_why_there_are_none() -> None:
     for entry in entries():
         pinned = str(entry["fields"]["Pinned by"])  # type: ignore[index]

@@ -137,9 +137,8 @@ An entry is a heading and five fields; the body follows:
 - **Status:** `standing`; `pointer → [home](link)` when an ADR addendum, a §8 section or a
   skill already holds the mechanism; `standing; narrative in [archive/…](link)` when the
   story has been archived; or `retired; narrative in [archive/13-retired.md](../archive/13-retired.md#…)`.
-- **Legacy:** the line of the b1faaa9 README the entry came from (`README L2526`), with its
-  legacy number when it had one (for example `(legacy 17)`); `none (new entry)` for an entry written
-  after the restructure.
+- **Legacy:** `b1faaa9 README L2526 (legacy 11.4.17)` for an entry moved from a numbered diary,
+  `b1faaa9 README L183` for a bullet, or `none (new entry)` for an entry written after the restructure.
 
 The body names symptom, root cause and fix in that order, with files and functions in
 backticks, then the contract future callers rely on. Keep it short: the story belongs in

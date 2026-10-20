@@ -46,7 +46,7 @@ presented, twenty full re-bakes of a 16 MB ground, every replaced texture
 object destroyed): a ``grab()`` after every re-bake +16 MB a cycle, after every
 fifth +3.2, NO ``grab()`` +0.000 — the growth belongs to the grabbed frame, not
 to the edit or the upload (nothing is rendered, so nothing is uploaded); flat
-in every variant on WARP and wherever frames are presented (PF-L3D-04).
+in every variant on WARP and wherever frames are presented (PF-L3D-04, the grab() paragraph of archive/07-l1-5-ground-bake.md).
 Nothing in here can release what the graphics system holds, and applying edits
 more slowly changes nothing. THE RULE for whoever drives a host: no repeated
 ``grab()`` on a live host that is not presenting — a screenshot goes through

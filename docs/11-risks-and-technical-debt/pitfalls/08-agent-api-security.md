@@ -4,14 +4,13 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 
 ### PF-API-01
 
-
 - **Rule:** A CLI's success output is sanitised like its failure output before a label shows it, removing every ANSI escape, not only SGR, and the box glyphs that survive escape removal.
 - **Pinned by:** none — the body says a test now uses the real CLI output bytes verbatim but names no test file or function.
 - **Source:** #366
-- **Status:** pointer → [§8: 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1–D1.6, D2.0–D2.6, D3.1–D3.4, ADR-033/034/](../../08-crosscutting-concepts/README.md#819-agent-api--embedded-mcp-server--thread-marshaling-us-d11d16-d20d26-d31d34-adr-033034035036)
+- **Status:** standing
 - **Legacy:** b1faaa9 README L183
 
-Held in [§8: 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1–D1.6, D2.0–D2.6, D3.1–D3.4, ADR-033/034/](../../08-crosscutting-concepts/README.md#819-agent-api--embedded-mcp-server--thread-marshaling-us-d11d16-d20d26-d31d34-adr-033034035036). The entry keeps the rule and its pin; the account is in the link.
+- **A CLI's SUCCESS output needs the same treatment as its failure output.** (Issue #366, owner's manual test): the failure path got a condenser (a CLI that rejects its arguments prints its whole help, and the dialog renders that in a one-line label). The success path did not — and `install_to_client` returns the CLI's **stdout** as `detail`, which the dialog appends to the status line. OpenCode 1.18.x frames its confirmation in a coloured box, so the label showed literal `[]90m` fragments and mojibake, because `│`/`◆` are multi-byte and a `QLabel` is not a terminal. Two things had to be stripped, not one: **ANSI is not only SGR** (`ESC [ 2K` erase-line and cursor moves are just as destructive), and the **box glyphs survive escape removal** and have to go separately. Worth noting *which* client: 2.0.16 prints plain text, so probing only the modern binary showed clean output and the bug looked version-specific when it was version-*detection*-specific. The test now uses the real 1.18.32 bytes verbatim.
 
 ### PF-API-02
 
