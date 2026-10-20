@@ -29,7 +29,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-E3D-04
 
 - **Rule:** Time a stall with a trusted clock before blaming the engine
-- **Pinned by:** `scripts/make_bench_plans.py`; `tests/conftest.py`; `tests/integration/test_bench_plans.py`; `tests/unit/test_gate_commands.py`
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #291, #413
 - **Status:** standing; narrative in [archive/01-l0-spike.md](../archive/01-l0-spike.md#1145-the-qt-quick-3d-spike-engine-traps-and-a-hang-that-was-a-stopwatch-problem-adr-048-phase-17-l0)
 - **Legacy:** README L890 (legacy 11.4.5)
@@ -37,7 +37,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-E3D-05
 
 - **Rule:** A hash is not equality; float dust is an edit; a bound checked after the work is a report
-- **Pinned by:** `scripts/measure_region_work.py`; `scripts/mutation_check_scene3d.py`; `tests/integration/test_scene3d_snapshot.py::TestClosedStrokes`; `tests/integration/test_scene3d_snapshot.py::TestHouseRidge`; `tests/unit/test_scene3d_contract.py::TestRecord`; `tests/unit/test_scene3d_polygon.py::TestSimpleRingAtScale`
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #385
 - **Status:** standing; narrative in [archive/03-l1-1-scene-contract.md](../archive/03-l1-1-scene-contract.md#11414-four-things-measured-while-building-the-3d-scene-contract-phase-17-l11-385)
 - **Legacy:** README L1633 (legacy 11.4.14)
@@ -45,7 +45,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-E3D-06
 
 - **Rule:** A judge must not ask the suspect; no Qt window predicate is trusted until measured; a Python message handler beside a shown Qt Quick window deadlocks
-- **Pinned by:** `tests/integration/test_quick3d_lifecycle.py`; `tests/ui/test_quick3d_host.py::TestStateMachine`; `tests/ui/test_quick3d_host.py::TestWaitReady`; `tests/unit/test_quick3d_lifecycle_states.py`; `tests/unit/test_quick3d_packaging.py`; `tests/unit/test_quick3d_pure.py::TestClassify`; `tests/unit/test_quick3d_pure.py::test_nested_recorders_both_hear_an_error`
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #291, #385
 - **Status:** standing; narrative in [archive/04-l1-2-engine-package.md](../archive/04-l1-2-engine-package.md#11415-what-the-engine-taught-while-the-production-package-was-built-phase-17-l12-385)
 - **Legacy:** README L1896 (legacy 11.4.15)
@@ -53,15 +53,16 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-E3D-07
 
 - **Rule:** No frame inside a measured loop; wait for a condition, not a duration
-- **Pinned by:** `tests/unit/test_plain_text.py`
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #385, #428
 - **Status:** standing; narrative in [archive/05-l1-3-workspace.md](../archive/05-l1-3-workspace.md#11416-what-the-3d-workspace-taught-phase-17-l13-385)
 - **Legacy:** README L2313 (legacy 11.4.16)
+- **Note:** §8.10.9 corrects the original entry's bullets 2–4, which describe earlier versions of the rule; read the correction there before relying on them.
 
 ### PF-E3D-08
 
 - **Rule:** What selection, the info card and walk mode taught (Phase 17 L1.8, #385)
-- **Pinned by:** `scripts/mutation_check_scene3d.py`
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #385, #428
 - **Status:** standing; narrative in [archive/10-l1-8-selection-walk.md](../archive/10-l1-8-selection-walk.md#11419-what-selection-the-info-card-and-walk-mode-taught-phase-17-l18-385)
 - **Legacy:** README L3042 (legacy 11.4.19)
@@ -69,7 +70,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-E3D-09
 
 - **Rule:** What the default flip and the removal of Qt 3D taught (Phase 17 L1.9 / L1.10, #385)
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #385, #496, #534
 - **Status:** standing; narrative in [archive/11-l1-9-l1-10-default-removal.md](../archive/11-l1-9-l1-10-default-removal.md#11420-what-the-default-flip-and-the-removal-of-qt-3d-taught-phase-17-l19--l110-385)
 - **Legacy:** README L3157 (legacy 11.4.20)

@@ -4,28 +4,30 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 ### PF-API-01
 
+
 - **Rule:** A CLI's SUCCESS output needs the same treatment as its failure output.
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #366
-- **Status:** standing
+- **Status:** pointer → [§8: 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1–D1.6, D2.0–D2.6, D3.1–D3.4, ADR-033/034/](../../08-crosscutting-concepts/README.md#819-agent-api--embedded-mcp-server--thread-marshaling-us-d11d16-d20d26-d31d34-adr-033034035036)
 - **Legacy:** README L183
 
-- **A CLI's SUCCESS output needs the same treatment as its failure output.** (Issue #366, owner's manual test): the failure path got a condenser (a CLI that rejects its arguments prints its whole help, and the dialog renders that in a one-line label). The success path did not — and `install_to_client` returns the CLI's **stdout** as `detail`, which the dialog appends to the status line. OpenCode 1.18.x frames its confirmation in a coloured box, so the label showed literal `[]90m` fragments and mojibake, because `│`/`◆` are multi-byte and a `QLabel` is not a terminal. Two things had to be stripped, not one: **ANSI is not only SGR** (`ESC [ 2K` erase-line and cursor moves are just as destructive), and the **box glyphs survive escape removal** and have to go separately. Worth noting *which* client: 2.0.16 prints plain text, so probing only the modern binary showed clean output and the bug looked version-specific when it was version-*detection*-specific. The test now uses the real 1.18.32 bytes verbatim.
+Held in [§8: 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1–D1.6, D2.0–D2.6, D3.1–D3.4, ADR-033/034/](../../08-crosscutting-concepts/README.md#819-agent-api--embedded-mcp-server--thread-marshaling-us-d11d16-d20d26-d31d34-adr-033034035036). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-API-02
+
 
 - **Rule:** An INDETERMINATE answer must never select the more DANGEROUS option.
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #366
-- **Status:** standing
+- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** README L185
 
-- **An INDETERMINATE answer must never select the more DANGEROUS option.** (Issue #366, the final pre-merge review's only P0): the client-CLI capability probe returned an empty flag set when it could not read a binary's help, and the caller read empty as "this CLI is too old" — which selected `legacy_cli_argv`, the argv *without* `--global`. On a MODERN CLI that writes a **project** config into the user's current working directory and returns `success=True`; reproduced end to end, with the user config never touched and the dialog row then contradicting the success message it had just shown. The reasoning was backwards because it asked "which answer is absent" instead of "which failure is dangerous": **the modern argv fails loudly (the CLI prints its help), the legacy one fails silently and writes the wrong file.** So the probe is tri-state — `supported` / `unsupported` / `unknown` — and only a *definitive* absence of the flag may take the legacy path. The same review found the probe's `except` still enumerated `(OSError, subprocess.SubprocessError)` at a trust boundary, which invariant 14 forbids and which this module's own `registered_url` comment explains; it is now broad, and `errors="replace"` keeps a single undecodable byte in someone else's help from becoming an exception on POSIX (where `subprocess` decodes in the calling thread, so it would escape into the dialog's `__init__`) or an empty string on Windows (where it kills the reader thread — the silent path that caused this very bug). **A capability check is a three-valued question, and "I could not tell" is an answer.**
+Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-API-03
 
 - **Rule:** "Unparseable" and "empty" are different failures, and only one of them is dangerous.
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #366
 - **Status:** standing
 - **Legacy:** README L186
@@ -35,7 +37,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-API-04
 
 - **Rule:** A refusal nobody asked for is a capability removal wearing a safety hat.
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #366
 - **Status:** standing
 - **Legacy:** README L187
@@ -44,98 +46,107 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 ### PF-API-05
 
+
 - **Rule:** Verify the installed binary's CAPABILITY, not the product's documented interface — and check that a stub cannot stand in for a real binary.
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #366
-- **Status:** standing
+- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** README L189
 
-- **Verify the installed binary's CAPABILITY, not the product's documented interface — and check that a stub cannot stand in for a real binary.** (Issue #366, found by the owner's manual test, not by review): the OpenCode row's argv (`mcp add <name> --url <url> --global`) was verified by *running* `opencode mcp add --help` — but only against **one** of the two OpenCode installs on the machine. `~/.opencode/bin/opencode.exe` is **2.0.16** and has `--global`; an npm `opencode-ai` on the same box is **1.18.32** and has **no `--global`** at all (it writes the user config by default, and stores servers FLAT as `mcp.<name>` rather than nested under `mcp.servers`). `shutil.which` returns whichever comes first on `PATH`, and which one that is depends on **how the process was launched** — the owner's shell resolved 2.0.16, the GUI resolved 1.18.32, so the same button succeeded in one and failed in the other. The failure was not clean: a CLI handed an unknown flag answers with **its entire help text** and a non-zero exit, and the dialog renders `detail` in a one-line status label, so the user saw a wall of flag descriptions and no explanation. Two lessons. (1) **When argv is verified against one version, either verify the version or require the flag** — `ClientTarget.cli_required_flags` now does the latter, probing the resolved binary's own `mcp add --help` and refusing before anything is written; a *version string* was measured and deliberately not used, because parsing a help for a flag is evidence the binary accepts it, while `--version` output is a naming convention. (2) **A `shutil.which` stub returns a path that does not exist, which correct code reads as "cannot probe, therefore cannot use"** — so a stub-based test cannot detect this class of bug and in fact *depends* on the stricter behaviour. The only thing that found it was clicking the button on a machine that had two installs. Note also that the 1.18.x help has **no `USAGE:` line at all** (it opens with the command line and goes straight to `Positionals:`), so a "is this a help dump?" heuristic keyed on `USAGE:` alone would have missed the exact case it was written for; a test with the real help text as a fixture is what caught that.
+Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-API-06
+
 
 - **Rule:** A refusal must leave the filesystem exactly as it found it — so take the backup as late as possible.
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #366
-- **Status:** standing
+- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** README L191
 
-- **A refusal must leave the filesystem exactly as it found it — so take the backup as late as possible.** (Issue #366, senior-review round 4): the onboarding merge copied a `.bak` *before* deciding whether to write. Every refusal therefore littered a second file next to a config OGP had just declined to touch, and the module's whole safety rule is about foreign files (`~/.claude.json` holds OAuth and project trust; `~/.codex/config.toml` holds the user's model choice). The trigger is mundane: it surfaced only because a test asserted the whole directory listing rather than "the file is unchanged" — which is the lesson. **Assert on the directory, not just the target file**, when a failure mode is "we declined to act"; a `.bak` beside an untouched file is invisible to `read_text()` assertions and reads as correct. The corollary is user-facing: when a write *does* happen, the backup path now goes into `InstallResult.detail`, because a backup that is made but never reported is not a safety feature, it is litter the user cannot find.
+Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-API-07
+
 
 - **Rule:** "Unparseable" and "parseable but the wrong shape" are different failures and must not share a policy.
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #366
-- **Status:** standing
+- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** README L192
 
-- **"Unparseable" and "parseable but the wrong shape" are different failures and must not share a policy.** (Issue #366, senior-review round 4): the onboarding merge's fail-closed rule reads "an unreadable `foreign` file is left byte-for-byte untouched". But the code also treated a *readable* file whose `mcpServers` key was the wrong type (`{"mcpServers": "oops"}`) as replaceable — it did `servers = data.get(...); if not isinstance(servers, dict): servers = {}`, which **overwrote the wrong-typed container even when `replace_on_parse_error=False`**, i.e. it clobbered a file it had just promised to protect, and took the user's unrelated top-level keys with it. The distinction: a **parse** error means we understood nothing and a replace is defensible for a file we own; a **shape** error means we read the document perfectly well and only one key is the wrong type, so replacing discards data for no reason. Shape errors now fail closed whatever the ownership says — a deliberate narrowing of the one `own` target's contract. A backstop that is written as "if we cannot use it, start again" quietly answers a question the safety rule never asked.
+Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-API-08
+
 
 - **Rule:** A "best-effort, never raises" reader must own its failure type — and, more importantly, must not enumerate.
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #366
-- **Status:** standing
+- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** README L193
 
-- **A "best-effort, never raises" reader must own its failure type — and, more importantly, must not enumerate.** (Issue #366, senior-review rounds 2 and 3): the JSONC reader was made to *raise* on an unterminated `/*` rather than silently swallow the rest of the file (swallowing is how a user's server entry gets eaten). Round 2 gave it a module-owned exception; round 3 found the *enumerated* `except` tuple underneath was the actual bug, when `RecursionError` — which both `json.loads` and `tomllib.loads` raise on a deeply nested document — escaped `registered_url` → `detect_clients` → the dialog's `__init__`, and PyQt6 turned the unhandled exception into `qFatal()`/`abort()`. The user-visible symptom: put a deeply nested config where a client keeps its settings, click Help → "Connect AI Assistant…", and the application dies. The general rule is invariant 14's: **one broad `except Exception` at the ingestion chokepoint for untrusted input, and never a list of families** — every family added is a family still missing, and the correct reading is that the broad catch *is* the fix, not a concession. Corollary: a docstring claiming "yields `None` … never an error" is only true if some test drives the function through its *real* caller.
+Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-API-09
+
 
 - **Rule:** A guard checked on some paths is not a guard.
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #366
-- **Status:** standing
+- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** README L194
 
-- **A guard checked on some paths is not a guard.** (Issue #366, senior-review rounds 2 and 3): `ClientTarget.merge_supported=False` was meant to guarantee "OGP will not rewrite your OpenCode config". Round 2 found it checked on the no-CLI path but not on the CLI's "already exists" self-heal — the path a user reaches after a **port change or token rotation**, the case the whole issue exists for — and the merge there re-serialised the file and reported success. Round 3 found a third seam that bypassed it entirely (a record with a `cli_name` on `PATH` but no `cli_argv`). The check now lives **inside** the merge. The general shape: a flag that gates a destructive operation wants to be enforced at the seam, not at the call sites its author happened to think of. Ask, for every guard, "name the path that reaches the dangerous operation *without* passing my check" — and note that the code and the ADR can agree with each other and both contradict the flag, which is how this survived a review that had already read both.
+Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-API-10
+
 
 - **Rule:** A required dataclass field is a contract with an explicit consumer list, not a struct you can extend freely.
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #277, #291, #365
-- **Status:** standing
+- **Status:** pointer → [ADR: ADR-038 addendum: issue #277 — the release shipped a mismatched Qt micro (post-mortem)](../../09-architecture-decisions/README.md#adr-038-addendum-issue-277--the-release-shipped-a-mismatched-qt-micro-post-mortem)
 - **Legacy:** README L195
 
-- **A required dataclass field is a contract with an explicit consumer list, not a struct you can extend freely.** (Issue #365): adding `new_plan`/`open_plan` to `agent_api.providers.AgentProviders` is two lines that five test harnesses and one production path pick up automatically *only if you go and edit them*. The one that bites is `main.py`'s `--selftest`, which builds its own throwaway `AgentProviders` to prove the Agent API can bind. All 6304 ordinary tests passed while `--selftest` failed with `TypeError: missing 2 required positional arguments` — the product path constructs the real providers from the application, and every harness that touches it had been updated. Same class as #277 and #291: a subsystem dead while the process is alive. When you extend it, run `--selftest` (exit 0) rather than trusting a green `pytest`.
+Held in [ADR: ADR-038 addendum: issue #277 — the release shipped a mismatched Qt micro (post-mortem)](../../09-architecture-decisions/README.md#adr-038-addendum-issue-277--the-release-shipped-a-mismatched-qt-micro-post-mortem). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-API-11
+
 
 - **Rule:** A tool's declared return model is part of its contract, and testing the provider is not the same as testing the tool.
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #365
-- **Status:** standing
+- **Status:** pointer → [ADR: Addendum (US-D3.3 + US-D3.4 — the D3 localisation convention)](../../09-architecture-decisions/README.md#addendum-us-d33--us-d34--the-d3-localisation-convention)
 - **Legacy:** README L197
 
-- **A tool's declared return model is part of its contract, and testing the provider is not the same as testing the tool.** (Issue #365): `new_plan` and `open_plan` first shipped returning `ExportResult(**result)` while their providers returned a dict with no `format` key and a `None` `file_path` against a `str` field. Both therefore raised a pydantic `ValidationError` on **every successful call over the wire** — after the document had already been replaced — while all 22 body-level tests passed, because the main-thread body builds a plain dict and never constructs the model. The two lines between provider and tool were the untested part. A `BaseModel` on a tool's return type is a contract, and it needs coverage at the same level as the handler.
+Held in [ADR: Addendum (US-D3.3 + US-D3.4 — the D3 localisation convention)](../../09-architecture-decisions/README.md#addendum-us-d33--us-d34--the-d3-localisation-convention). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-API-12
+
 
 - **Rule:** A third-party config file is a *superset* of the format you assume, and fail-closed turns that into a dead end.
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #366
-- **Status:** standing
+- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** README L198
 
-- **A third-party config file is a *superset* of the format you assume, and fail-closed turns that into a dead end.** (Issue #366): the onboarding module's safety rule is "an unreadable `foreign` file is left byte-for-byte untouched rather than replaced" (`~/.claude.json` also holds OAuth and project trust). OpenCode's `~/.config/opencode/opencode.jsonc` is a **JSONC** file — comments and trailing commas are legal — and the merge path read it with `json.load()`, which *raises* on a comment. Combine the two and the feature is not merely degraded but **impossible**: every real user's commented config fails to parse, fail-closed refuses to touch it, and OGP can never register. A fail-closed rule is not automatically the safe choice; it is only safe while the *read* can actually understand what it is refusing to clobber. Two lessons: (a) a tolerant reader must be **scoped to the format that needs it** — the strict `json` reader still raises, pinned by a negative test, because leniency leaking into the fail-closed path would turn genuine corruption into silent replacement; and (b) comment stripping has to be a **character scan, not a regex**, since `//` and `#` inside a string literal are data. Note also that this file is named `.jsonc`, so a detector that globs for `opencode.json` misses every real installation.
+Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-API-13
+
 
 - **Rule:** Never re-serialise a file you do not own.
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #366
-- **Status:** standing
+- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** README L199
 
-- **Never re-serialise a file you do not own.** (Issue #366): writing Codex's `~/.codex/config.toml` with `tomli_w` would be the obvious way to add a `[mcp_servers.<name>]` table, and it would silently **discard every comment and the user's own formatting** in a config file they maintain by hand. The surgical alternative is barely more code: `tomllib` (stdlib, read-only) parses and validates, then only the one table's line span between its header and the next header is rewritten. It also removes the dependency the obvious approach would have added. The general form of the mistake: a "rewrite the document" API is safe for *your own* file and destructive for someone else's, and the difference is invisible in the code.
+Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-API-14
 
 - **Rule:** A CLI's default scope can write into the user's project directory.
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #366
 - **Status:** standing
 - **Legacy:** README L200
@@ -144,45 +155,33 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 ### PF-API-15
 
+
 - **Rule:** At a trust boundary that ingests untrusted files, catch `Exception` at the ingestion seam — do NOT enumerate exception families
 - **Pinned by:** `tests/unit/test_smart_symbol_library.py`
 - **Source:** #236
-- **Status:** standing
+- **Status:** pointer → [ogp-failure-archaeology: Index — scan this first](../../../.claude/skills/ogp-failure-archaeology/SKILL.md#index--scan-this-first)
 - **Legacy:** README L244
 
-- **At a trust boundary that ingests untrusted files, catch `Exception` at the ingestion seam — do NOT enumerate exception families** (US-C4 smart symbols, PR #236, found over three senior-review rounds). The smart-symbol library loads user-dropped JSON (`<app-data>/smart_symbols/*.json`). The contract — "a bad user file must never crash the app" — was first enforced by catching `(OSError, JSONDecodeError, ValueError)`. That broke three times in a row, each a different exception family escaping the too-narrow catch: (1) `from_dict`'s dry-run `generate()` raised `ArithmeticError`/`TypeError` (divide-by-zero, `9**9**9` overflow, `round(x, float)`) — none subclass `ValueError`; (2) a deeply-nested expression (`"+".join(["1"]*5000)`) raised `RecursionError` (a `RuntimeError`) *during `ast.parse`*; (3) a non-dict `parameters` entry (`[42]`) raised `AttributeError` in `from_dict`'s **structural** phase, which runs *before* the dry-run and so bypassed `generate()`'s wrapper entirely. Each "fix" added the family that bit it, then re-declared victory — the losing game. The real fix is structural: the **user-file load loop catches `Exception`** (log-and-skip), so *any* failure of `from_dict` on untrusted input is non-fatal **by construction** (`smart_symbol_library.py`); the **bundled** load loop stays narrow (`ValueError`/`OSError`/`JSONDecodeError` → crash-loud) so our own packaging bugs still surface and stay tested. `BaseException` (Ctrl-C/`SystemExit`) deliberately still propagates. Defense in depth: `generate()` also wraps its body in `except Exception → SmartSymbolError` (for the *runtime* regeneration path — param edits, deserialization — which doesn't go through the loader), the evaluator caps AST node count (`parametric_eval._MAX_NODES`) so its recursion surface is bounded, and `from_dict` guards `isinstance(data, dict)`. Rule: when code ingests untrusted data, put **one broad catch at the ingestion seam**; keep narrow typed catches only for trusted/first-party input (where a surprise exception *should* be loud). Enumerating exception families at a trust boundary is a recurring bug, not a safety measure. Pinned by `tests/unit/test_smart_symbol_library.py` (arithmetic/recursion/structural/non-object poison all skipped; malformed *bundled* still crashes loud).
+Held in [ogp-failure-archaeology: Index — scan this first](../../../.claude/skills/ogp-failure-archaeology/SKILL.md#index--scan-this-first). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-API-16
 
 - **Rule:** Agent API described the compass backwards (issue #267, fixed)
-- **Pinned by:** `tests/unit/test_agent_api_auth.py::test_move_object_description_uses_y_up_compass_frame`
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #267
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l282-agent-api-described-the-compass-backwards-issue-267-fixed)
 - **Legacy:** README L282
 
 ### PF-API-17
 
+
 - **Rule:** **Agent creation must share the loader's construction path and its undo
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #329
-- **Status:** standing
+- **Status:** pointer → [ADR: Addendum (US-D3.3 + US-D3.4 — the D3 localisation convention)](../../09-architecture-decisions/README.md#addendum-us-d33--us-d34--the-d3-localisation-convention)
 - **Legacy:** README L442
 
-**Agent creation must share the loader's construction path and its undo
-boundary (US-D2.5, #329).** The tempting implementation is to instantiate each
-shape class directly from its geometry parameters, but that creates a second
-set of defaults and serialization assumptions beside
-`ProjectManager._deserialize_item_core`. The safer contract is a Qt-free
-validation/dict builder followed by the loader on the Qt main thread;
-integration tests then prove the saved snapshot and live geometry agree. The
-same boundary matters for composites: a `HOUSE`'s derived `ROOF_RIDGE` is
-created in the same `CreateItemsCommand`, so one agent call has one Ctrl+Z
-step and cannot leave an orphaned ridge. Callout UUIDs are persisted explicitly
-because a visually correct callout whose id changes on save/load breaks every
-subsequent agent reference. The durable lesson is to test create -> read ->
-save/load -> read, not only the immediate canvas item, and to make every
-deliberate unsupported type visible through the discovery tool and a drift
-guard.
+Held in [ADR: Addendum (US-D3.3 + US-D3.4 — the D3 localisation convention)](../../09-architecture-decisions/README.md#addendum-us-d33--us-d34--the-d3-localisation-convention). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-API-18
 
@@ -259,7 +258,7 @@ dogfood harness found none of them.
 ### PF-API-20
 
 - **Rule:** Six defects a single package found, and what each one was really about (US-D3.3 #332 + US-D3.4 #333)
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #332, #333
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l737-six-defects-a-single-package-found-and-what-each-one-was-really-about-us-d33-332--us-d34-333)
 - **Legacy:** README L737 (legacy 11.4.3)
@@ -267,7 +266,7 @@ dogfood harness found none of them.
 ### PF-API-21
 
 - **Rule:** Review and frozen-client findings in D3.3/D3.4 (#332/#333)
-- **Pinned by:** `tests/integration/test_agent_task_soil_tools.py`
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #332, #333
 - **Status:** standing
 - **Legacy:** README L820 (legacy 11.4.4)
@@ -343,7 +342,7 @@ dogfood harness found none of them.
 ### PF-API-22
 
 - **Rule:** A product surface can be "protected" by a library default nobody pinned.
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L1086

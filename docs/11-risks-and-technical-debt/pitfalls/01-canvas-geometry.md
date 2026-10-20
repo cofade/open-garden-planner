@@ -12,18 +12,19 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 ### PF-CAN-02
 
+
 - **Rule:** A plant's drawn icon has a fourth independent size, reversing an explicit ADR-037 rejection on the owner's call (issue #299).
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #218, #219, #299
-- **Status:** standing
+- **Status:** pointer → [ADR: ADR-028: Plant Sizing Resolver + Unified Rotation-Aware Resize](../../09-architecture-decisions/README.md#adr-028-plant-sizing-resolver--unified-rotation-aware-resize)
 - **Legacy:** README L220
 
-**A plant's drawn icon has a fourth independent size, reversing an explicit ADR-037 rejection on the owner's call (issue #299).** A user assigning a Trefle-sourced Apple tree (max spread 590 cm) saw the shadow correctly shrink after setting "Current Spread" to 200 cm (a young tree), but the SVG icon on the canvas stayed at 590 cm. This was, at the time, a *deliberate* decision — ADR-037's growth addendum explicitly rejected rescaling canvas circles ("a display-scale on live items perturbs selection/snap/`mapToScene`, exactly the #218/#219 territory") — but the owner judged the resulting behaviour (a full-size mature icon casting a visibly smaller shadow) to read as a bug, not a feature, and chose to reverse the conclusion while keeping the original hazard analysis intact: never touch `rect()`/`pos()`/`transformOriginPoint()` (the actual thing selection/snap/`mapToScene` depend on). `CircleItem._visual_plant_diameter_cm()` renders the SVG pixmap (and, since a first cut missed this, the decorative drop-shadow — see below) at today's growth-interpolated spread when available, falling back to the footprint diameter unchanged otherwise; `rect()`/`radius` (spacing/overlap correctness, still governed by `core/plant_sizing.py`) are provably untouched, since selection/drag/rotation/undo/save all read only those, none of which this change reads or writes.
+Held in [ADR: ADR-028: Plant Sizing Resolver + Unified Rotation-Aware Resize](../../09-architecture-decisions/README.md#adr-028-plant-sizing-resolver--unified-rotation-aware-resize). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-CAN-03
 
 - **Rule:** A first cut of this fix shipped a severe, unrendered regression a senior-review pass caught before merge
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** none recorded
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l222-a-first-cut-of-this-fix-shipped-a-severe-unrendered-regression-a-senior-review-pass-caught-before-merge)
 - **Legacy:** README L222
@@ -31,7 +32,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-CAN-04
 
 - **Rule:** Anchor index on same-type anchors
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L272
@@ -41,7 +42,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-CAN-05
 
 - **Rule:** Canvas Y-axis flip
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L280
@@ -51,7 +52,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-CAN-06
 
 - **Rule:** EDGE_* anchor type instability on polygons/polylines
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L284
@@ -61,7 +62,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-CAN-07
 
 - **Rule:** `scene.render()` with negative-height target rect is empty (PyQt6)
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L286
@@ -71,7 +72,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-CAN-08
 
 - **Rule:** `ItemIgnoresTransformations` items render at fixed device-pixel size in `scene.render()`
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L288
@@ -81,7 +82,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-CAN-09
 
 - **Rule:** QPdfWriter must use `setResolution(72)` before `setPageLayout()`
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L292
@@ -91,7 +92,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-CAN-10
 
 - **Rule:** `scene.render()` directly on QPdfWriter painter is unreliable (Y-flip + margins)
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L294
@@ -101,7 +102,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-CAN-11
 
 - **Rule:** Plant items store center in `boundingRect()`, not in `pos()`
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L296
@@ -111,7 +112,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-CAN-12
 
 - **Rule:** SVG pattern tiles appear Y-inverted under painter Y-flip
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L298
@@ -121,7 +122,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-CAN-13
 
 - **Rule:** `QSvgGenerator` does not serialize painter clip regions — texture fills bleed across the canvas
-- **Pinned by:** `scripts/svg_preview.py`
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L300
@@ -131,7 +132,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-CAN-14
 
 - **Rule:** DXF Y-axis: scene Y is already Y-up, no negation needed
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L302
@@ -141,7 +142,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-CAN-15
 
 - **Rule:** `painter.drawText()` inside `QGraphicsItem.paint()` renders upside-down on the Y-flipped canvas
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L328
@@ -171,7 +172,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-CAN-18
 
 - **Rule:** A frame sized by a polygon's most expensive vertex, and one look rule for item copies (#470/#472/#473)
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #438, #441, #450, #469, #470, #472, #473
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l1119-a-frame-sized-by-a-polygons-most-expensive-vertex-and-one-look-rule-for-item-copies-470472473)
 - **Legacy:** README L1119 (legacy 11.4.9)
@@ -179,7 +180,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-CAN-19
 
 - **Rule:** A fill colour nobody could see, and the round-trip test that asserted the wrong thing (#502, from #470/#472/#473's manual pass)
-- **Pinned by:** `tests/integration/test_item_appearance_roundtrip.py`
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #438, #469, #470, #472, #473, #502
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l1127-a-fill-colour-nobody-could-see-and-the-round-trip-test-that-asserted-the-wrong-thing-502-from-470472473s-manual-pass)
 - **Legacy:** README L1127 (legacy 11.4.10)
@@ -187,7 +188,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-CAN-20
 
 - **Rule:** A dead optimisation is not a latent feature, and a negative pin can stop noticing (#503)
-- **Pinned by:** `scripts/verify_lod_removal_mutations.py`; `tests/integration/test_canvas_item_cache.py`; `tests/perf/test_nfr_budgets.py`
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #409, #472, #501, #503
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l1139-a-dead-optimisation-is-not-a-latent-feature-and-a-negative-pin-can-stop-noticing-503)
 - **Legacy:** README L1139 (legacy 11.4.11)
@@ -195,7 +196,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-CAN-21
 
 - **Rule:** An item states its look once
-- **Pinned by:** `tests/integration/conftest.py::_every_item_says_what_it_paints`; `tests/integration/test_item_roundtrip_matrix.py`; `tests/integration/test_item_style_in_step.py`; `tests/integration/test_polyline_style_paint.py`
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #441, #453, #470, #501, #502, #503, #523, #524, #525, #526, #527
 - **Status:** standing; narrative in [archive/07-l1-5-ground-bake.md](../archive/07-l1-5-ground-bake.md#2d-defects-the-bake-found)
 - **Legacy:** README L2537

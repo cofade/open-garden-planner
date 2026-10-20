@@ -5,7 +5,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-CI-01
 
 - **Rule:** Attribute frozen code from collected files, not only declared dependencies
-- **Pinned by:** `tests/integration/test_distribution_inventory_pipeline.py::test_frozen_hook_dependencies_are_in_the_inventory`; `tests/unit/test_frozen_inventory.py`
+- **Pinned by:** `tests/unit/test_frozen_inventory.py`; `tests/integration/test_distribution_inventory_pipeline.py::test_frozen_hook_dependencies_are_in_the_inventory`
 - **Source:** #454, #490
 - **Status:** standing
 - **Legacy:** README L112
@@ -26,18 +26,19 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 ### PF-CI-02
 
+
 - **Rule:** A stale `*.egg-info` on `sys.path` silently shrinks anything derived from installed metadata (#454, 2026-10-13).
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #454, #490
-- **Status:** standing
+- **Status:** pointer → [debug-verbose: Case study: frozen code absent from a passing SBOM (#454, 2026-10-14)](../../../.claude/skills/debug-verbose/SKILL.md#case-study-frozen-code-absent-from-a-passing-sbom-454-2026-10-14)
 - **Legacy:** README L126
 
-- **A stale `*.egg-info` on `sys.path` silently shrinks anything derived from installed metadata (#454, 2026-10-13).** The runtime-distribution resolver behind the release's third-party notices and SBOM returned **five** distributions (the project + `Pillow` + the three `PyQt6*` wheels) when a test ran it, but the same interpreter returned **48** when the module was run directly. Root cause: a legacy `src/open_garden_planner.egg-info` (version `0.1.0`, written years earlier) was still on disk; the editable install puts `src/` on `sys.path`, and `importlib.metadata.distribution("open-garden-planner")` returns the **first** match — so `Requires-Dist` described a two-year-old project. Two lessons. (1) **Check what `sys.path` order resolves** — when a metadata lookup disagrees with a file a human can read, print the distribution's `_path`; the answer is usually "you got a different distribution than you meant". (2) **Anchor build inputs on the manifest, not on the environment's copy of yourself**: the resolver now reads `[project].dependencies` from `pyproject.toml` and only walks *third parties* through installed metadata, so no stale artefact of the project's own history can change what ships. Related, same task: PyInstaller's `hook-importlib_metadata` bundles setuptools' **vendored** `importlib_metadata` (Apache-2.0) even though nothing declares it — the initial explicit hook exception was superseded in PR #490 by physical RECORD attribution of every collected wheel owner, including vendored copies (see the preceding pitfall).
+Held in [debug-verbose: Case study: frozen code absent from a passing SBOM (#454, 2026-10-14)](../../../.claude/skills/debug-verbose/SKILL.md#case-study-frozen-code-absent-from-a-passing-sbom-454-2026-10-14). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-CI-03
 
 - **Rule:** A source checkout's `.env` is not automatically present in a packaged build, and a credential setting must not become a project secret.
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #342
 - **Status:** standing
 - **Legacy:** README L203
@@ -47,7 +48,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-CI-04
 
 - **Rule:** A windowed PyInstaller build launched with no console has `sys.stdout is None`, and uvicorn's default log config dereferences it — the Agent API was dead in every released exe (issue #291, closed).
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #277, #291, #334
 - **Status:** standing
 - **Legacy:** README L232
@@ -60,7 +61,7 @@ Hard-won lessons from implementation. Read these before modifying the related su
 ### PF-CI-05
 
 - **Rule:** Release workflow race condition with chore commits
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** none recorded
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l270-release-workflow-race-condition-with-chore-commits)
 - **Legacy:** README L270
@@ -76,7 +77,7 @@ Hard-won lessons from implementation. Read these before modifying the related su
 ### PF-CI-07
 
 - **Rule:** Never default a file dialog into the install directory; never let the uninstaller wipe it blind
-- **Pinned by:** `tests/integration/test_save_location.py`; `tests/unit/test_paths.py`
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #199
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l354-never-default-a-file-dialog-into-the-install-directory-never-let-the-uninstaller-wipe-it-blind)
 - **Legacy:** README L354
@@ -92,7 +93,7 @@ Hard-won lessons from implementation. Read these before modifying the related su
 ### PF-CI-09
 
 - **Rule:** CI/release hardening: locked metadata also contains the application version
-- **Pinned by:** `scripts/prepare_version_sync.py`; `scripts/sync_wiki.py`; `tests/integration/test_wiki_publication.py`
+- **Pinned by:** `tests/integration/test_wiki_publication.py`
 - **Source:** #399, #402, #404, #417, #420, #422
 - **Status:** standing
 - **Legacy:** README L2886

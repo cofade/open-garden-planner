@@ -24,7 +24,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-TST-02
 
 - **Rule:** Within-day simulation tests must fix time as well as date
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L146
@@ -39,7 +39,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-TST-03
 
 - **Rule:** Every placeable graphics item must be covered by serializer round-trip matrix tests.
-- **Pinned by:** `tests/integration/test_item_roundtrip_matrix.py`
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #394
 - **Status:** standing
 - **Legacy:** README L181
@@ -49,25 +49,26 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-TST-04
 
 - **Rule:** A cleanup fixture that runs in the wrong ORDER is not a cleanup — and a plausible mechanism is not a mechanism.
-- **Pinned by:** `tests/conftest.py`; `tests/integration/conftest.py`
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #366
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l184-a-cleanup-fixture-that-runs-in-the-wrong-order-is-not-a-cleanup--and-a-plausible-mechanism-is-not-a-mechanism)
 - **Legacy:** README L184
 
 ### PF-TST-05
 
+
 - **Rule:** A test that exercises a real external binary will exercise it on the developer's machine.
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #366
-- **Status:** standing
+- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** README L196
 
-- **A test that exercises a real external binary will exercise it on the developer's machine.** (Issue #366): a unit test that installed a CLI-capable target called the *real* `opencode` binary, which executed `opencode mcp add --global` and modified the developer's own `~/.config/opencode/opencode.jsonc`. `shutil.which` finds those CLIs on a machine that has them, so "no CLI" is not the default a test gets. The fix is an **autouse fixture that stubs `shutil.which` for the whole module**, so the default is "no CLI" rather than "whatever happens to be installed here" — and the scar is worth more than the fix, because the same test produced the single most useful finding in the change: OpenCode's real container key is `mcp.servers`, not the `mcp` its published schema implies (`additionalProperties: {}`, which says nothing). The developer's config was restored.
+Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-TST-06
 
 - **Rule:** `QSettings.setDefaultFormat()` / `setPath()` are process-global statics Qt never reverts — never call them from a test
-- **Pinned by:** `tests/conftest.py`; `tests/unit/test_settings_chokepoint.py`; `tests/unit/test_ui_state.py`
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #285
 - **Status:** standing
 - **Legacy:** README L366
@@ -77,17 +78,17 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-TST-07
 
 - **Rule:** A full-app integration test that outlives ~500 ms must silence the startup Welcome dialog — its modal `exec()` blocks pytest-qt forever
-- **Pinned by:** `tests/integration/test_icon_system.py::_make_app`
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #279
 - **Status:** standing
 - **Legacy:** README L377
 
-- **A full-app integration test that outlives ~500 ms must silence the startup Welcome dialog — its modal `exec()` blocks pytest-qt forever** (#279 test-infra finding): `GardenPlannerApp` arms `QTimer.singleShot(500, self._startup_sequence)`, which — with `show_welcome_on_startup` enabled, the default on dev machines — opens the **modal** `WelcomeDialog` via `dialog.exec()`. Headless nobody closes it, so the first event processing after the timer fires (typically pytest-qt's `_process_events` between/after tests) parks the session inside the modal event loop forever — and because pytest's output is block-buffered, the log stays EMPTY, so the hang masquerades as a collection freeze. Existing app-boot tests never hit it because they finish inside the 500 ms window; the #279 theme-switch tests (pixel scans + two full restyles) were the first to outlive it. Fix pattern (`tests/integration/test_icon_system.py::_make_app`): `monkeypatch.setattr(GardenPlannerApp, "_show_welcome_dialog", lambda self: None)` before construction, alongside the established `QMessageBox.question` → Discard patch. Diagnosis tool that found it: `pytest -o faulthandler_timeout=40` dumps every thread's stack at the hang moment — reach for it whenever a Qt test "hangs with no output."
+- **A full-app integration test that outlives ~500 ms must silence the startup Welcome dialog — its modal `exec()` blocks pytest-qt forever** (#279 test-infra finding): `GardenPlannerApp` arms `QTimer.singleShot(500, self._startup_sequence)`, which — with `show_welcome_on_startup` enabled, the default on dev machines — opens the **modal** `WelcomeDialog` via `dialog.exec()`. Headless nobody closes it, so the first event processing after the timer fires (typically pytest-qt's `_process_events` between/after tests) parks the session inside the modal event loop forever — and because pytest's output is block-buffered, the log stays EMPTY, so the hang masquerades as a collection freeze. Existing app-boot tests never hit it because they finish inside the 500 ms window; the #279 theme-switch tests (pixel scans + two full restyles) were the first to outlive it. Fix pattern (`tests/integration/test_icon_system.py::_make_app`): `monkeypatch.setattr(GardenPlannerApp, "_show_welcome_dialog", lambda self: None)` before construction, alongside the established `QMessageBox.question` → Discard patch. Diagnosis tool that found it: `pytest -o faulthandler_timeout=40` dumps every thread's stack at the hang moment — reach for it whenever a Qt test "hangs with no output." Re-hit on 2026-08-17 (Package 3a): the fix had been applied per file, and only three of 34 app-building test files carried it, so a full `pytest tests/` run stalled for 18 minutes inside `tests/integration/test_trellis.py`. The stall showed only as an old log modification time. The fix now lives in `tests/conftest.py::_silence_welcome_dialog`.
 
 ### PF-TST-08
 
 - **Rule:** `UiStateStore` builds its own `QSettings`, so it escapes the conftest isolation — full-app tests read *and overwrite* the developer's real window state
-- **Pinned by:** `tests/conftest.py`; `tests/conftest.py::isolate_qsettings`; `tests/integration/test_settings_isolation.py`
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #283, #285
 - **Status:** standing
 - **Legacy:** README L385
@@ -97,7 +98,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-TST-09
 
 - **Rule:** The test suite wrote into the developer's real plant library — isolating one store is not isolating the process
-- **Pinned by:** `scripts/script_isolation.py`; `tests/conftest.py`; `tests/integration/test_app_data_isolation.py`; `tests/ui/test_plant_database_panel.py`; `tests/unit/test_ai_client_onboarding.py`; `tests/unit/test_main_hardening.py::TestExceptHook`; `tests/unit/test_paths.py::test_get_projects_dir_falls_back_to_home`
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #285
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l387-the-test-suite-wrote-into-the-developers-real-plant-library--isolating-one-store-is-not-isolating-the-process)
 - **Legacy:** README L387
@@ -105,7 +106,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-TST-10
 
 - **Rule:** A "nobody may use X" gate belongs in the AST, not in a regex — and it must be falsified twice
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #285
 - **Status:** standing
 - **Legacy:** README L396
@@ -114,18 +115,19 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 ### PF-TST-11
 
+
 - **Rule:** The Welcome-dialog hang above was re-hit on 2026-08-17 (Package 3a) — because its fix was per-file, and only three of 34 app-building test files had it.
 - **Pinned by:** `tests/conftest.py`; `tests/conftest.py::_silence_welcome_dialog`; `tests/integration/test_trellis.py`
 - **Source:** none recorded
-- **Status:** standing
+- **Status:** pointer → [PF-TST-07](07-test-suite-hygiene.md#pf-tst-07)
 - **Legacy:** README L402
 
-- **The Welcome-dialog hang above was re-hit on 2026-08-17 (Package 3a) — because its fix was per-file, and only three of 34 app-building test files had it.** A full `pytest tests/` run stalled silently for 18 minutes inside `tests/integration/test_trellis.py` (2nd test), noticed only because the log's **modification time** was old — the tail looked like normal progress. A first write-up of this incident misfiled it as an unsolved "leaked slot" hang and reached for `pytest-timeout` as the fix; the senior review's stack dump (`application.py` → `dialog.exec()` inside pytest-qt's teardown `processEvents()`) pointed straight back at the entry above, which nobody had grepped for "Welcome" first — an institutional-memory failure committed inside a documentation commit. **Fix (structural):** `tests/conftest.py::_silence_welcome_dialog` — a **session**-scoped autouse fixture that replaces `GardenPlannerApp._show_welcome_dialog` with a no-op for the whole run (the class-level patch three files had applied per file), plus `_disable_welcome_dialog`, a per-test store write of `KEY_SHOW_WELCOME=False`. The class patch is the load-bearing one: a store-only guard was tried first and *lost a race once in a full run* — the read returned the default inside a `qtbot.wait` although both a conftest and a module fixture had written `False` before the app was built (`test_idle_scene_quiescence.py`, 2026-08-17). **The mechanism was then pinned down with two 15-line probes, and it is a second, independent pitfall (Windows registry backend):** a `QSettings` that has called `clear()` deletes its registry key **when it is destroyed** (`deleteWriteHandleOnExit`), and **every store built between that `clear()` and that destruction becomes a "black hole" — its writes vanish and its reads return defaults** (probe: `t.clear()`; build `s`; `s.setValue("x", 1)` reads 1; `del t` → `s.value("x")` reads the default and further writes are lost). **And the clearing instance was in ANOTHER PROCESS.** The test key was a fixed name (`cofade_test / Open Garden Planner Test`), so a second pytest run on the same machine — here the senior-reviewer agent running the suite in its worktree while the main battery ran — shared it, and every one of *its* per-test `clear()`s deleted the key under *this* process's live singleton. Decisive experiment: the same three files produce black holes on every run with a deliberately concurrent pytest process, and pass 3/3 under the same concurrency with the fix below. It also explains why the failures moved between tests and runs, and why "passes alone" told nothing. **Fix (three layers, all in `tests/conftest.py`):** (1) **per-process test key** — `TEST_APPLICATION = f"Open Garden Planner Test {os.getpid()}"`, so concurrent suites cannot see each other's key (the session-end `clear()` removes this process's key; a crashed run leaves an orphan `… Test <pid>` under `HKCU\Software\cofade_test`, harmless); (2) `_reset_app_settings` wipes per key (`remove(key)` for `allKeys()`, then `sync()`) instead of `clear()` — defence in depth against the same mechanism inside one process; (3) a **tripwire** at teardown that probes the live singleton and fails the test with "settings singleton is a BLACK HOLE …" if it is dead — the next such incident is a diagnosis, not a mystery. Rules: **never `clear()` a QSettings key that other live instances (in any process) share — `remove()` keys instead; and never assume a settings-based test guard is airtight when a concurrent process can exist (the senior-reviewer worktree runs the suite while you do).** `pytest-timeout` (MIT, dev dependency; `[tool.pytest.ini_options] timeout = 180`) stays — as a guard against *unknown* hangs, not as the fix for this one: on Linux/CI the signal method fails just the hung test; on Windows the thread method dumps every thread's stack and aborts the run, which names the culprit. **Lessons:** (1) before writing a new §11.4 entry, grep §11.4 for the symptom's nouns — this file is only institutional memory if it is read; (2) a hang guard is worth having, but never ship a detector for a landmine you know how to defuse without also defusing it; (3) when waiting on a long run, watch the log's **age**, not its tail (`stat -c %Y` vs `date +%s`); if it stalls, kill it, run the stalled file alone, then after its collection-order predecessors — or use `-o faulthandler_timeout=40` as the "silence the startup Welcome dialog" entry above prescribes.
+Duplicate of [PF-TST-07](07-test-suite-hygiene.md#pf-tst-07): the 2026-08-17 re-hit of the Welcome-dialog hang. Its facts are merged into that entry.
 
 ### PF-TST-12
 
 - **Rule:** A "byte-deterministic" PNG gate is a zlib gate in disguise — compare decoded pixels, never file bytes
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #309
 - **Status:** standing
 - **Legacy:** README L406
@@ -134,28 +136,30 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 ### PF-TST-13
 
+
 - **Rule:** A hidden wrap seam is located by measuring `|row0 − row255|` per column, not by theorising about the layout
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #309
-- **Status:** standing
+- **Status:** pointer → [debug-verbose: Case study: regenerated wood texture fails the seam gate in y — the "obvious" layout theories w](../../../.claude/skills/debug-verbose/SKILL.md#case-study-regenerated-wood-texture-fails-the-seam-gate-in-y--the-obvious-layout-theories-were-wrong-one-primitive-default-was-the-bug-package-3b-309-fixed-2026-08-18)
 - **Legacy:** README L408
 
-- **A hidden wrap seam is located by measuring `|row0 − row255|` per column, not by theorising about the layout** (Package 3b #309, 2026-08-18): the regenerated `wood.png` failed the seam gate in *y* (1.85 ×) although its planks run vertically and every grain line is periodic. Two plausible theories (the full-height plank rectangles' bevelled top/bottom edges wrapping into a band; the blur) were wrong; the per-column seam step named exactly the plank-*joint* columns, and painting the joint primitive alone on a fresh `Tile` showed its coverage falling from 110 at row 0 to 142 at row 511 — the `capsule` primitive's `taper` default was 0.0, i.e. "pointed at the far end", so every constant-width line in the set (joints, straw, cracks, cleft streaks) was secretly a blade. One default flipped to 1.0; the lesson is the method: the metric already knows *where* the seam is — ask it (debugging-playbook row 36).
+Held in [debug-verbose: Case study: regenerated wood texture fails the seam gate in y — the "obvious" layout theories w](../../../.claude/skills/debug-verbose/SKILL.md#case-study-regenerated-wood-texture-fails-the-seam-gate-in-y--the-obvious-layout-theories-were-wrong-one-primitive-default-was-the-bug-package-3b-309-fixed-2026-08-18). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-TST-14
+
 
 - **Rule:** A debounce `QTimer` armed by a test outlives the test — and a timer slot that can open a modal `QMessageBox` becomes a heap-corruption crash in whatever test runs 500 ms later
 - **Pinned by:** `tests/unit/test_plant_search_dialog_timer.py`
 - **Source:** #210, #310
-- **Status:** standing
+- **Status:** pointer → [debug-verbose: Case study: Trefle search results never carried sun/water/pH/foliage data -- dead code, a wrong](../../../.claude/skills/debug-verbose/SKILL.md#case-study-trefle-search-results-never-carried-sunwaterphfoliage-data----dead-code-a-wrong-theory-refuted-live-and-three-more-bugs-found-only-by-trying-to-break-the-fix-issue-297-fixed-2026-08-10)
 - **Legacy:** README L410
 
-- **A debounce `QTimer` armed by a test outlives the test — and a timer slot that can open a modal `QMessageBox` becomes a heap-corruption crash in whatever test runs 500 ms later** (Package 3c #310, 2026-08-18): `PlantSearchDialog` created its debounce timer as `QTimer()` (no parent). Every test that typed into `search_input` armed it, called `_perform_search()` synchronously, and finished well inside 500 ms — leaving the timer ARMED (a file-logged probe over the full battery counted 17 such calls, all with `timer.isActive() == True`). Two mechanisms are consistent with what was observed, and the run that crashed predates the probe, so the exact liveness state at fire time is not known: (a) the dialog's Python object had been collected → the C++ dialog deleted → the *unparented* timer (Python-owned, still referenced through the signal connection) fired into a dead widget; or (b) the dialog was still alive (its own `timeout → bound method` connection forms a reference cycle that only a later GC breaks) and the slot opened a modal `QMessageBox.warning(self)` in the middle of another test's `processEvents`, whose nested loop then processed the deferred deletion of that very dialog under the modal's feet. Either way the symptom was `Windows fatal exception: code 0xc0000374` in `test_plant_sprite_rendering.py`, a file that has nothing to do with plant search, and it had never fired before because the timing landed in harmless places until two new test files shifted the schedule. Fix, three legs, covering both mechanisms: `QTimer(self)` (lifetime bound to the widget — closes (a)), `done()` stops it (a pending debounced action must be settled before the dialog goes — the #210 flush rule), and **`_perform_search()` itself stops it first** (a search that runs NOW must not run again 500 ms later — this is what closes (b), and it is why the first fix round with parenting alone still aborted). Pinned by `tests/unit/test_plant_search_dialog_timer.py`. Rules: any `QTimer` created in a widget takes that widget as parent; a debounced action settles its own timer when it runs; any timer slot that can open a modal or touch child widgets is stopped in `done()`/`closeEvent`. Diagnostic tell: the crash's stack ends in a widget method under `pytestqt/plugin.py … _process_events` during the SETUP or CALL of an unrelated test — read the crashing FRAME, not the test name; the culprit is whichever earlier test left a timer or thread alive; log the probe to a file, pytest capture dies with the process (playbook row 37).
+Held in [debug-verbose: Case study: Trefle search results never carried sun/water/pH/foliage data -- dead code, a wrong](../../../.claude/skills/debug-verbose/SKILL.md#case-study-trefle-search-results-never-carried-sunwaterphfoliage-data----dead-code-a-wrong-theory-refuted-live-and-three-more-bugs-found-only-by-trying-to-break-the-fix-issue-297-fixed-2026-08-10). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-TST-15
 
 - **Rule:** JavaScript `let` declarations never land on `window` — verification JS that reads `window.map`/`window.bridge` from a page written with top-level `let` returns `undefined` forever, even when the page state is perfectly healthy
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #346
 - **Status:** standing
 - **Legacy:** README L424
@@ -165,7 +169,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-TST-16
 
 - **Rule:** A real short-interval `QTimer` racing pytest-qt's `waitUntil` loop segfaults the linux-offscreen suite — drive timer-handler coverage by emitting the signal instead
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #346
 - **Status:** standing
 - **Legacy:** README L428
@@ -174,18 +178,19 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 ### PF-TST-17
 
+
 - **Rule:** JS-side guards comparing a NUMBER token with its STRING form silently eat every capture report — the capture "times out" while every test is green
 - **Pinned by:** `scripts/live_capture_harness.py`
 - **Source:** #346, #347
-- **Status:** standing
+- **Status:** pointer → [debug-verbose: Case study: live capture harness saw "capture did not complete" while the feature worked (Issue](../../../.claude/skills/debug-verbose/SKILL.md#case-study-live-capture-harness-saw-capture-did-not-complete-while-the-feature-worked-issue-346-fixed-2026-09-01)
 - **Legacy:** README L432
 
-- **JS-side guards comparing a NUMBER token with its STRING form silently eat every capture report — the capture "times out" while every test is green** (#347 live manual test, 2026-09-02): the new capture choreography's page-side guards read `if (!captureState || captureState.token !== String(token)) return;`. Python calls `window.beginCaptureChrome(1)` — a JS **number** literal — so `captureState.token` was a number, `String(token)` a string, and `1 !== '1'` was **always true**. Every profile/frame readiness report died in the guard; Python's 20 s watchdog then popped "The capture timed out — check your network or the API key" while the map was perfectly healthy. All 109 automated tests were green because they drive the QtWebEngine-free bridge directly and never execute the page's JavaScript. The `TestBridgeContract` drift guard only greps function *names*. Fix: stringify at **storage** (`captureState = { token: String(token), … }`) so the echo comparison is string-vs-string; the drift guard now also pins `token: String(token)` in the HTML. Proof: `scripts/live_capture_harness.py` (real dialog + real map + real key) showed `js_result 'ok'` then silence; after the fix it shows the full profile → frame → stitch sequence completing. Rule: **any page-side guard that compares a value echoed from Python must stringify BOTH operands (or store stringified)** — Python hand-builds JS literals, and `1 !== '1'` is a silent always-false guard, exactly the failure shape that automated tests cannot see (same lesson as #346's live harness — the page's JavaScript is only exercised by a live run).
+Held in [debug-verbose: Case study: live capture harness saw "capture did not complete" while the feature worked (Issue](../../../.claude/skills/debug-verbose/SKILL.md#case-study-live-capture-harness-saw-capture-did-not-complete-while-the-feature-worked-issue-346-fixed-2026-09-01). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-TST-18
 
 - **Rule:** A single wall-clock CI sample cannot distinguish a scheduler spike from a spatial-index regression (issue #354, 2026-09-24).
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #354
 - **Status:** standing
 - **Legacy:** README L462
@@ -195,7 +200,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-TST-19
 
 - **Rule:** The four bugs a manual pass found that a green suite could not (#377, #380, #373)
-- **Pinned by:** `tests/integration/test_agent_api_shutdown.py`; `tests/integration/test_tool_preview_z_order.py`; `tests/unit/test_preview_z.py`
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #373, #377, #378, #380
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l630-the-four-bugs-a-manual-pass-found-that-a-green-suite-could-not-377-380-373)
 - **Legacy:** README L630 (legacy 11.4.2)
@@ -203,7 +208,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-TST-20
 
 - **Rule:** `qtbot.addWidget` closes a widget, and closing is not deleting
-- **Pinned by:** `tests/conftest.py`; `tests/integration/conftest.py`
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #509
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l3322-qtbotaddwidget-closes-a-widget-and-closing-is-not-deleting)
 - **Legacy:** README L3322
@@ -211,7 +216,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-TST-21
 
 - **Rule:** **Two autouse fixtures, one merely depending on the other, are an atomicity claim with
-- **Pinned by:** `tests/conftest.py`
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #509
 - **Status:** standing
 - **Legacy:** README L3360
@@ -242,7 +247,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-TST-22
 
 - **Rule:** **A test that writes into the git working tree is unsafe under any scheduler, and
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #507, #509
 - **Status:** standing
 - **Legacy:** README L3383
@@ -269,7 +274,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-TST-23
 
 - **Rule:** **`pytest-timeout`'s per-test bound is necessary but not sufficient for a Qt suite
-- **Pinned by:** `tests/perf/test_nfr_budgets.py`
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #509
 - **Status:** standing
 - **Legacy:** README L3402

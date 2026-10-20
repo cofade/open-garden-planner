@@ -4,28 +4,30 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 ### PF-PRC-01
 
+
 - **Rule:** "The app changed behaviour" is a claim about a *setting* until the setting has been read.
 - **Pinned by:** `tests/conftest.py`
 - **Source:** #366
-- **Status:** standing
+- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** README L182
 
-- **"The app changed behaviour" is a claim about a *setting* until the setting has been read.** (Issue #366, owner's manual test): "on startup it no longer asks for my recent projects, it lands on the empty canvas." The obvious suspect was this branch, and the obvious suspect was **wrong twice** — first I blamed the test suite for persisting `show_welcome_on_startup = False`, then I "corrected" myself by pointing at the settings getter, which was also wrong because `QSettings` maps a slash key (`startup/show_welcome`) to a registry **subkey**, so a `Get-ItemProperty` on the parent shows nothing and the key looks absent. The value was there, set to `false`, and the test suite was innocent: `tests/conftest.py` rebinds the org to `cofade_test`, so test writes cannot reach `cofade` — proven by running a test that sets the flag and re-reading the real key. Nothing in the PR touched `welcome_dialog.py` or `settings.py` (empty diff), and the dialog's "Show this screen on startup" checkbox persists that value on click. So it was a user preference, undone with one `reg delete`. Two lessons: **read the persisted value with the same API that wrote it** — `reg query <key> /v` on the *subkey*, or the getter itself, not a parent-key dump; and **check the PR's own diff before blaming it or writing a fix.** A settings-shaped report is the one class of bug report where the correct patch is very often no patch.
+Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-PRC-02
+
 
 - **Rule:** A claim written from the producer's side is not a delivered feature — and a test that skips the consumer cannot catch it.
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #366
-- **Status:** standing
+- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** README L190
 
-- **A claim written from the producer's side is not a delivered feature — and a test that skips the consumer cannot catch it.** (Issue #366, senior-review round 5, five rounds into one branch): round 4 moved the merge's `.bak` to just before the write, put its location into `InstallResult.detail`, and documented the user-facing consequence in three places — the function's docstring, ADR-035 and this log. All three were true about the **producer** and false about the **product**: the Connect dialog's success branch renders `Added to {client}.` and never read `result.detail`; only the *failure* branch formatted it. The field was populated, the field was documented, and the user's experience was exactly what it was before the fix. The test named `test_a_successful_merge_does_report_its_backup` made this invisible by construction — it asserted `backup is not None and backup.exists()` while its name and docstring promised "the caller is told where it is", and it called the private `_merge_into_config`, which cannot see `_report()` or `install_to_client`. Two rules, both cheap: **a test about a user-visible claim has to go through the path the user goes through** (that one now drives `install_to_client` and asserts the string names both paths, so the name is enforceable); and when a field is added to a result object, **grep for its consumers** — `InstallResult` had two fields the success path never read, and nothing in the type system or the suite noticed. The sibling failure in the same round was a fixture that cleared `CLAUDE_CONFIG_DIR` but not `XDG_CONFIG_HOME`, so a test read the developer's real `opencode.jsonc` and passed vacuously against a file the code could not reach — which is the §11.4 scar from round 1, in a new place. **A fixture that redirects config paths must clear every env var the resolver honours, and the fix is to look at the sibling fixture that already got it right.**
+Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-PRC-03
 
 - **Rule:** Lesson: before treating "the UI doesn't update" as a bug, check whether the change contradicts a *formally accepted* dec
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L224
@@ -35,7 +37,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-PRC-04
 
 - **Rule:** NEVER use PowerShell `Set-Content -Encoding UTF8` for files containing non-ASCII characters
-- **Pinned by:** `scripts/fill_translations.py`
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L330
@@ -45,7 +47,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-PRC-05
 
 - **Rule:** A `file.py:line` citation drifts silently when unrelated features grow the file — measured, not hypothetical
-- **Pinned by:** `scripts/check_skill_citations.py`
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #334, #336, #342, #346, #347
 - **Status:** standing
 - **Legacy:** README L434
@@ -55,7 +57,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-PRC-06
 
 - **Rule:** The citation gate's own senior review found the gate had almost no teeth on the dimension that motivated it, and the fix needed its own mutation-tested regressions before it actually had any
-- **Pinned by:** `scripts/refresh_issue_registry.py`
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #336
 - **Status:** standing
 - **Legacy:** README L436
@@ -64,18 +66,19 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 ### PF-PRC-07
 
+
 - **Rule:** A drift-tolerance window that is merely "generous" is a false safety claim, not a weaker one
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #336
-- **Status:** standing
+- **Status:** pointer → [§8: 8.10.1 Gating our own documentation's shell commands](../../08-crosscutting-concepts/README.md#8101-gating-our-own-documentations-shell-commands)
 - **Legacy:** README L438
 
-- **A drift-tolerance window that is merely "generous" is a false safety claim, not a weaker one** (#336, 2026-09-05): a follow-up review demonstrated that requiring a symbol span (see above) did not, by itself, close the gap it was built for. The original `_SYMBOL_WINDOW_LINES = 300` was chosen to comfortably survive the ~1319-line drift already found in this file's own motivating example — but measured directly, `core/object_types.py:595` `is_bed_type` (the citation later found to sit 76 lines from the real `is_bed_type`) resolves cleanly at a 300-line window *with the correct symbol attached*, because 76 &lt; 300. Worse, for a common name in a large file (`core/commands.py`'s `execute`, which appears on 76 of 2861 lines) essentially every possible line number in the file passes at that width — the "drift check" had no power at all for that citation. The module docstring asserted the mandatory-symbol rule had already fixed the motivating bug; it had not, and shipping that claim uncorrected would have been the exact "documentation says something the code doesn't do" failure this whole issue exists to catch. Fix: shrink the window to 20 lines — small enough to be below every real drift incident this project has measured (76, ~510, ~1300), large enough to tolerate a docstring or unrelated line inserted just above a citation's target. A symbol moving further than 20 lines now requires a one-line citation fix, which is the gate doing its job, not a false alarm. Lesson: a tolerance window's job is to sit strictly below the smallest real defect you want to catch — picking a width that merely "feels generous enough" and never checking it against a measured incident produces a check that passes by construction rather than by evidence, and the only way to know which one you built is to run the exact rot you're worried about through it before trusting the number.
+Held in [§8: 8.10.1 Gating our own documentation's shell commands](../../08-crosscutting-concepts/README.md#8101-gating-our-own-documentations-shell-commands). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-PRC-08
 
 - **Rule:** Named residual, measured, not swept under the fix
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L440
@@ -84,54 +87,22 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 ### PF-PRC-09
 
+
 - **Rule:** **An issue's "verified repo facts" are a claim about the code, not the code — and a rule that
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #331
-- **Status:** standing
+- **Status:** pointer → [ADR: ADR-034 addendum: succession domain schema, determinism, and a SHARED season-segment fallback (US-D3.2, #](../../09-architecture-decisions/README.md#adr-034-addendum-succession-domain-schema-determinism-and-a-shared-season-segment-fallback-us-d32-331)
 - **Legacy:** README L471
 
-**An issue's "verified repo facts" are a claim about the code, not the code — and a rule that
-sounds reusable can be structurally blind to the case in front of you** (US-D3.2, #331)
-
-Four of #331's own "verified repo facts" were wrong, and three of the four would have produced
-a plausible, tested, wrong implementation:
-
-1. It described **three** season segments (`spring`/`summer`/`fall`). `models/succession.py`
-   has always had **four** (`early_spring`/`late_spring`/`summer`/`fall`), with boundaries in the
-   module docstring. Building to the issue's prose mislabels a third of the growing season. The
-   issue's *acceptance criterion* ("labels matching the module's own segment definitions - pinned
-   against the documented formulas, not against a re-implementation") was the correct instruction
-   and was followed instead. **An acceptance criterion that contradicts the issue's own context
-   is usually the accurate one.**
-2. It said a plan with no geo-location has "unknown" season segments, implying new code. The
-   succession **dialog already had** a calendar-month fallback, as a private table. Copying it
-   would have given an agent and the GUI two definitions of "summer" for the same bed. It was
-   moved to `models/succession.py` and both callers now use
-   `resolve_season_segments(year, location) -> (segments, are_fallback)`.
-   **`is the behaviour absent, or just absent from where you looked?`** An issue describing
-   something as missing is evidence about the issue, not about the repo.
-3. It said to reuse `crop_rotation_service` "rather than re-derive family rules". The cross-year
-   cooldown *is* reused verbatim. But the acceptance criterion - never propose a crop that
-   conflicts with **an earlier entry in the same bed** - is unmeetable by
-   `check_plant_placement`, which compares a candidate only against `records[0]`, the single most
-   recent planting record. It cannot see "tomato after the garlic entry three slots ago".
-   Succession is several crops in ONE season; that service models one record per season across
-   YEARS. And succession entries never enter rotation history at all, because only the Crop
-   Rotation panel writes `PlantingRecord`s. **A reusable-looking method can be blind to the shape
-   of the question.** Two unrelated mismatches (arity and history-provenance) had to be checked
-   separately, and either alone would have produced a call that looked right, passed a casual
-   test, and excluded almost nothing.
-4. `commands.py:2472` for `SetSuccessionPlanCommand` was ~216 lines stale (it is at 2688).
+Held in [ADR: ADR-034 addendum: succession domain schema, determinism, and a SHARED season-segment fallback (US-D3.2, #](../../09-architecture-decisions/README.md#adr-034-addendum-succession-domain-schema-determinism-and-a-shared-season-segment-fallback-us-d32-331). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-PRC-10
 
-- **Rule:** **Lesson
+
+- **Rule:** Lesson: verify every file:line and every "reuse X" instruction against the code before writing it
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** none recorded
-- **Status:** standing
+- **Status:** pointer → [PF-PRC-09](12-process-and-docs.md#pf-prc-09)
 - **Legacy:** README L504
 
-**Lesson: verify every `file:line` and every "reuse X" instruction against the code before writing
-a line, and treat an issue's context section as a hypothesis.** The costs here were cheap only
-because the check was done first; the third one in particular would have shipped a tool that
-excluded almost nothing while reporting a rotation check it had not performed.
+Duplicate of [PF-PRC-09](12-process-and-docs.md#pf-prc-09): the same lesson, with the same pins.

@@ -25,7 +25,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-LIF-03
 
 - **Rule:** A private item-tracking list must be dropped at the SAME chokepoint that destroys the items it tracks, not just at the one call site that happened to crash — and an audit that finds one sibling case must check for others in the same class (issue #337, shipped 2026-08-21 in v1.27.2 via PR #339).
-- **Pinned by:** `tests/integration/test_compare_overlay.py`; `tests/unit/test_compare_overlay.py`
+- **Pinned by:** `tests/unit/test_compare_overlay.py`; `tests/integration/test_compare_overlay.py`
 - **Source:** #337, #339
 - **Status:** standing
 - **Legacy:** README L205
@@ -35,7 +35,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-LIF-04
 
 - **Rule:** A background `QThread` with a parent `QObject` aborts the app with `0xC0000409` (`QThread: Destroyed while thread is still running`) on window close (issues #480, #483).
-- **Pinned by:** `tests/integration/test_weather_widget.py`; `tests/unit/test_update_checker.py`
+- **Pinned by:** `tests/unit/test_update_checker.py`; `tests/integration/test_weather_widget.py`
 - **Source:** #480, #483
 - **Status:** standing
 - **Legacy:** README L237
@@ -46,18 +46,19 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 ### PF-LIF-05
 
+
 - **Rule:** A `scene.changed` slot that touches a `QTimer` must guard against the C++ object being torn down
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #230
-- **Status:** standing
+- **Status:** pointer → [ADR: ADR-037 addendum: 2D analytic shadow overlay (US-E3, #258)](../../09-architecture-decisions/README.md#adr-037-addendum-2d-analytic-shadow-overlay-us-e3-258)
 - **Legacy:** README L254
 
-- **A `scene.changed` slot that touches a `QTimer` must guard against the C++ object being torn down** (#230 CI crash): handlers wired to `QGraphicsScene.changed` that call `self._some_timer.start()` (the soil-mismatch / companion / spacing debouncers) can fire **during widget/app teardown** — the scene still emits `changed` as it is cleared, after the owning view's child `QTimer` has been deleted. Accessing the deleted timer raises `RuntimeError: wrapped C/C++ object of type QTimer has been deleted` *inside a Qt slot*, which Qt/pytest-qt escalates to `Fatal Python error: Aborted` — aborting the whole interpreter (locally it was timing-dependent and passed; on the CI Linux runner it reliably crashed the Test job). Symptom: a test that builds the full `GardenPlannerApp` and mutates the scene passes, then the *next* test errors and the run aborts mid-suite. Fix/contract: every `scene.changed` slot that starts a timer must wrap the `.start()` in `with contextlib.suppress(RuntimeError):` (see `canvas_view._on_scene_changed_for_soil`, `application._on_scene_changed_for_{companion,spacing,plant_search}`). Timers driven by *command/status* signals (`stack_changed`, `task_states_changed`) don't need it — those signals aren't emitted during teardown. **Never connect `scene.changed` to a bare `lambda: self._timer.start()`** — a lambda can't be made teardown-safe.
+Held in [ADR: ADR-037 addendum: 2D analytic shadow overlay (US-E3, #258)](../../09-architecture-decisions/README.md#adr-037-addendum-2d-analytic-shadow-overlay-us-e3-258). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-LIF-06
 
 - **Rule:** A slot connected to an *application*-global signal (`QApplication.focusChanged`) outlives its widget and must be teardown-safe
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #235
 - **Status:** standing
 - **Legacy:** README L256
@@ -66,28 +67,30 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 ### PF-LIF-07
 
+
 - **Rule:** Qt silently drops the mouse grab on `ItemIgnoresTransformations` handles between events (PyQt6)
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #193
-- **Status:** standing
+- **Status:** pointer → [ogp-qt-cad-reference: 3. `ItemIgnoresTransformations` — what it buys and its two traps](../../../.claude/skills/ogp-qt-cad-reference/SKILL.md#3-itemignorestransformations--what-it-buys-and-its-two-traps)
 - **Legacy:** README L290
 
-- **Qt silently drops the mouse grab on `ItemIgnoresTransformations` handles between events (PyQt6)** (#193 follow-up): A handle item that sets `ItemIgnoresTransformations` (all our drag handles — `VertexHandle`, `ResizeHandle`, `RotationHandle`, `RectCornerHandle`, `MidpointHandle`, `CurveControlHandle`) grabs the mouse in its `mousePressEvent`, but Qt loses that grab before the first `mouseMoveEvent` — so the handle receives the press and then *nothing*, and the drag appears inert (symptom: "handle shows but won't move"). **Root cause**: PyQt6 quirk with `ItemIgnoresTransformations` + child-item mouse grab. **Fix/contract**: `CanvasView` re-establishes the grab each `mouseMove`/`mouseRelease` (`if self._active_drag_handle is not None and scene().mouseGrabberItem() is None: self._active_drag_handle.grabMouse()`), but only for handle types it recognises — **every new such handle MUST be added to the `isinstance(grabber, (...))` allow-list in `CanvasView.mousePressEvent`** (grep `_active_drag_handle`). A faithful copy of an existing handle is still dead until the view knows its type. **Testing note**: a hand-built `QMouseEvent` is *not* delivered to an `ItemIgnoresTransformations` child — use `QTest.mousePress/Move/Release` on `view.viewport()` (after `centerOn` the target) for real handle-drag tests. See ADR-025 and the debug-verbose case study.
+Held in [ogp-qt-cad-reference: 3. `ItemIgnoresTransformations` — what it buys and its two traps](../../../.claude/skills/ogp-qt-cad-reference/SKILL.md#3-itemignorestransformations--what-it-buys-and-its-two-traps). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-LIF-08
+
 
 - **Rule:** `QGraphicsScene.changed` only fires on geometry/visibility, not on Python attribute mutations
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #173
-- **Status:** standing
+- **Status:** pointer → [debug-verbose: Case study: soil-mismatch warning goes stale on plant move/reparent (issue #173, fixed 2026-05-](../../../.claude/skills/debug-verbose/SKILL.md#case-study-soil-mismatch-warning-goes-stale-on-plant-movereparent-issue-173-fixed-2026-05-07)
 - **Legacy:** README L304
 
-- **`QGraphicsScene.changed` only fires on geometry/visibility, not on Python attribute mutations** (issue #173): The 500 ms debounce timer in `CanvasView` that drives `_update_soil_mismatches` is wired to `scene.changed`. Mutating `parent_bed_id` / `_child_item_ids` on a `GardenItemMixin` instance is a plain Python attribute write — no signal, no scene invalidation, no debounce trigger. Any code path that re-parents a plant (drag-and-drop, properties-panel "Unlink", paste, duplicate, future callers) must explicitly call `trigger_soil_mismatch_refresh(scene)` (in `commands.py`), or the warning borders go stale until the next unrelated scene change. Funnel attach/detach through `SetParentBedCommand` whenever possible — it triggers the refresh itself.
+Held in [debug-verbose: Case study: soil-mismatch warning goes stale on plant move/reparent (issue #173, fixed 2026-05-](../../../.claude/skills/debug-verbose/SKILL.md#case-study-soil-mismatch-warning-goes-stale-on-plant-movereparent-issue-173-fixed-2026-05-07). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-LIF-09
 
 - **Rule:** `QGraphicsScene.changed` feedback loops: a slot driven by `scene.changed` that itself mutates the scene runs forever while the app is idle
-- **Pinned by:** `tests/integration/test_idle_scene_quiescence.py`; `tests/unit/test_minimap_widget.py::TestMinimapIdleQuiescence`
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #305
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l398-qgraphicsscenechanged-feedback-loops-a-slot-driven-by-scenechanged-that-itself-mutates-the-scene-runs-forever-while-the-app-is-idle)
 - **Legacy:** README L398
@@ -95,7 +98,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-LIF-10
 
 - **Rule:** Subclassing `QWebEnginePage` to siphon `javaScriptConsoleMessage` hard-crashes the process
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #346
 - **Status:** standing
 - **Legacy:** README L422

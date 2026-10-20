@@ -21,8 +21,8 @@ ARCHIVE = DOC / "archive"
 
 #: The README index plus its redirect table must stay small enough to scan.
 README_MAX_BYTES = 64_000
-#: Area files. Tightened once the dedupe has landed (ADR-061).
-PITFALL_MAX_BYTES = 64_000
+#: Area files: the dedupe has landed, so the budget is the one ADR-061 sets.
+PITFALL_MAX_BYTES = 48_000
 
 ENTRY_ID = re.compile(r"^PF-[A-Z0-9]+-\d{2}$")
 ENTRY_HEADING = re.compile(r"^### (PF-[A-Z0-9]+-\d{2})$")
@@ -198,8 +198,10 @@ def test_every_archive_file_named_by_an_entry_exists() -> None:
     named = set()
     for entry in entries():
         for target in LINK.findall(str(entry["fields"]["Status"])):  # type: ignore[index]
-            named.add((ARCHIVE / target.partition("#")[0].split("/")[-1]).name)
-    for name in named:
+            if "archive/" in target:
+                named.add(target.partition("#")[0].split("/")[-1])
+    assert named, "no entry links into the archive"
+    for name in sorted(named):
         assert (ARCHIVE / name).is_file(), f"archive file {name} is missing"
 
 

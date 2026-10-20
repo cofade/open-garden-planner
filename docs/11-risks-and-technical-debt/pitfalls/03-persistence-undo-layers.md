@@ -5,7 +5,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-PER-01
 
 - **Rule:** Two divergent item serializers create silent data-loss gaps on clipboard operations; unify under one chokepoint.
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #400
 - **Status:** standing
 - **Legacy:** README L178
@@ -14,28 +14,30 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 ### PF-PER-02
 
+
 - **Rule:** Opening a corrupt plan must never contaminate document identity or wipe existing recovery files.
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #403
-- **Status:** standing
+- **Status:** pointer → [§8: 8.7 Error Handling](../../08-crosscutting-concepts/README.md#87-error-handling)
 - **Legacy:** README L179
 
-- **Opening a corrupt plan must never contaminate document identity or wipe existing recovery files.** (Issue #403, AUD-040, TD-017): When loading a corrupt `.ogp` file where deserialization raised mid-loop, the previous scene items had already been cleared while `_current_file` still pointed to the previously open plan file. Hitting Ctrl+S immediately overwrote the good plan on disk with the empty or partial scene. Furthermore, `_load_project_file` cleared the existing autosave *before* the load succeeded. Fix: (1) two-phase atomic deserialization validates all items, layers, guides, and constraints in memory before mutating the scene; (2) on any load failure, `ProjectManager.load()` clears `_current_file = None` and marks the document dirty, ensuring Ctrl+S triggers Save As rather than overwriting; (3) `GardenPlannerApp` preserves the existing autosave file on disk until the new plan loads successfully.
+Held in [§8: 8.7 Error Handling](../../08-crosscutting-concepts/README.md#87-error-handling). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-PER-03
+
 
 - **Rule:** Missing or corrupt external assets must load as placeholders to survive save cycles.
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #397
-- **Status:** standing
+- **Status:** pointer → [§8: 8.7 Error Handling](../../08-crosscutting-concepts/README.md#87-error-handling)
 - **Legacy:** README L180
 
-- **Missing or corrupt external assets must load as placeholders to survive save cycles.** (Issue #397, AUD-043, TD-011): A legacy plan whose background image file had moved on disk or whose embedded image bytes failed decoding previously caught the exception and returned `None`. As a result, the background image was silently dropped from the scene and permanently lost on the next save. Fix: `BackgroundImageItem` loads a lightweight placeholder item (`is_placeholder=True`) that preserves the original metadata, scale, opacity, and file paths. On save, the placeholder emits its original raw dictionary so assets are preserved even when momentarily unreadable. Additionally, duplicate `item_id`s in a plan file are detected on load and re-minted with fresh UUIDs to prevent corrupted scene graphs.
+Held in [§8: 8.7 Error Handling](../../08-crosscutting-concepts/README.md#87-error-handling). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-PER-04
 
 - **Rule:** Dimension line updates after undo/redo
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L274
@@ -53,7 +55,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-PER-06
 
 - **Rule:** Excel reads UTF-8 CSV as Latin-1 unless a BOM is present
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L316
@@ -73,7 +75,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-PER-08
 
 - **Rule:** Layer subsystem: panel is a pure view; ALL mutations go through undoable commands
-- **Pinned by:** `scripts/fill_translations.py`
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #201, #209
 - **Status:** standing
 - **Legacy:** README L345
@@ -93,7 +95,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-PER-10
 
 - **Rule:** Undo/redo must dirty the document — and so must every "already-applied" edit; route them all through one chokepoint
-- **Pinned by:** `src/open_garden_planner/app/application.py`; `tests/integration/test_undo_redo_dirty.py`
+- **Pinned by:** `tests/integration/test_undo_redo_dirty.py`
 - **Source:** #209
 - **Status:** standing
 - **Legacy:** README L356
@@ -104,23 +106,25 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 ### PF-PER-11
 
+
 - **Rule:** A bug that is exactly 0 at the default value hides forever — and a `Callable` parameter is where two implementations of one behaviour go to drift
 - **Pinned by:** `tests/integration/test_geometry_apply_shared_path.py`
 - **Source:** #218, #326
-- **Status:** standing
+- **Status:** pointer → [ADR: ADR-028: Plant Sizing Resolver + Unified Rotation-Aware Resize](../../09-architecture-decisions/README.md#adr-028-plant-sizing-resolver--unified-rotation-aware-resize)
 - **Legacy:** README L412
 
-- **A bug that is exactly 0 at the default value hides forever — and a `Callable` parameter is where two implementations of one behaviour go to drift** (US-D2.2 #326, 2026-08-18): `ResizeItemCommand` and `RotateItemCommand` take a caller-supplied `apply_func`, so every call site wrote its own closure. And `ResizeItemCommand` accepts **two** callables, not one — `apply_func` plus each `partner_resizes` entry's apply function, both run on execute and undo — so the call sites were: three numeric-entry branches in `properties_panel`, a drag-release handler on each item class, `RectVertexEditMixin._move_corner_to`/`_on_corner_move_end` in `resize_handle.py`, and the EQUAL-constraint partner appliers in `core/tools/constraint_tool.py`. When #218 added `setTransformOriginPoint(rect().center())` to keep the rotation pivot on the new centre, it landed in the **item-class drag-release** copies only. The panel's copies kept resizing without re-pinning, so a **rotated** object resized by typing a number pivoted about a point that was no longer its centre. Measured: a `TREE` at (200, 200) rotated 30°, resized 50 → 100 cm through the panel's own code, ended up centred at (263.4, 163.4) — **73.2 cm** away, and it then *saves* that position. Two lessons. (1) **At rotation 0 the drift is exactly 0.0**, and the overwhelming majority of objects are never rotated, so every existing test and every manual pass since #218 was blind to it; when a defect's magnitude is proportional to a parameter that is usually at its neutral value, coverage of the neutral case proves nothing — parametrise the test over the parameter (here `[0, 30, 90, 215]°`). (2) The bug was not found by looking for it: it surfaced because US-D2.2 needed a *third* caller and the extraction forced a byte-level comparison of the existing two. **A `Callable` injection point with N call sites is N implementations of one behaviour**, and nothing in the type system will tell you when one of them stops matching the others — if you are about to become caller N+1, diff callers 1..N first. Fix: `ui/canvas/geometry_apply.py` now holds the one apply function, and **its module docstring is the authoritative list of callers and exceptions** (stated there only — the five paraphrases of it drifted into three inconsistent answers during review, proving the point); `tests/integration/test_geometry_apply_shared_path.py` pins it, and was verified to fail with the re-pin removed (17 tests go red when the re-pin is removed; 10 when the guard was first written). **(3) The first pass converted most call sites and then asserted completeness in six documents — and missed two.** `RectVertexEditMixin._move_corner_to` had the identical omission and was found only by the senior review, because its call site lives in `resize_handle.py` rather than in an item class: measured 640 cm of stale origin and a 331 cm disagreement between the stored and visual centres on a 30° rectangle. The second miss was worse: the EQUAL-constraint partner appliers, reached through `ResizeItemCommand`'s *other* callable parameter (`partner_resizes`), carrying the same rotation bug — 70.7 cm at 90°. An extraction that claims "every caller" is worse than one that names its exceptions, because the next reader stops looking; grep the constructor (`ResizeItemCommand(`) and enumerate **every callable it accepts, including the ones passed in a list**, rather than reasoning from the files you happened to open.
+Held in [ADR: ADR-028: Plant Sizing Resolver + Unified Rotation-Aware Resize](../../09-architecture-decisions/README.md#adr-028-plant-sizing-resolver--unified-rotation-aware-resize). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-PER-12
+
 
 - **Rule:** Same-layer stacking inverted on every save/load
 - **Pinned by:** `tests/integration/test_stacking_roundtrip.py`
 - **Source:** #338
-- **Status:** standing
+- **Status:** pointer → [ADR: ADR-036 addendum: species assignment + explicit bed reparenting (US-D2.3, #327)](../../09-architecture-decisions/README.md#adr-036-addendum-species-assignment--explicit-bed-reparenting-us-d23-327)
 - **Legacy:** README L414
 
-- **Same-layer stacking inverted on every save/load** (#338): a plan drawn as `lawn → path → bed` (bottom to top) reloaded as `bed → path → lawn` — every same-layer pair silently flipped on every `.ogp` round-trip, and had done so since layers existed. Root cause: `ProjectManager._serialize_scene` walked `scene.items()`, which is Qt's **top-first** order, and wrote objects to the file in that order; load then re-inserted them via `scene.addItem()` in **file order**, which `addItem` stacks bottom-up — so the file's top-first write order became the load's bottom-first read order, exactly reversing every same-z tie. Only the plant-above-bed and ROOF_RIDGE-above-owner cases were ever band-aided (an explicit `zValue() + 1` pass — failure-archaeology incident 22); every other same-layer pair (two beds, a lawn and a path, …) had no such band-aid and simply inverted, unnoticed, because nothing before #338 gave the user a reason to care which of two untied objects was "in front". Fix: `_serialize_scene` now iterates `reversed(scene.items())`, writing objects bottom→top — which also fixes every *older* app version's reads, since they load in file order the same way. Combined with the new persisted `stack_order` rank (ADR-043), a round-trip through the current app is now exact; a round-trip through an app that predates #338 loads in (now-correct) file order and simply has no explicit ranks to preserve. Pinned by `tests/integration/test_stacking_roundtrip.py` (the inversion regression, ranks round-trip, an old file without the `stack_order` key loads in file order). Lesson: a serializer that iterates a Qt container's *default* order without checking what that order means (top-first vs. bottom-first) will silently invert on the next read — never assume `scene.items()`'s order is "the" order without naming which end is first.
+Held in [ADR: ADR-036 addendum: species assignment + explicit bed reparenting (US-D2.3, #327)](../../09-architecture-decisions/README.md#adr-036-addendum-species-assignment--explicit-bed-reparenting-us-d23-327). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-PER-13
 
@@ -134,18 +138,19 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 ### PF-PER-14
 
+
 - **Rule:** Lesson (design review, #338): a refresh that writes model state breaks snapshot-based undo.: The stacking-order design w
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #338
-- **Status:** standing
+- **Status:** pointer → [ADR: ADR-036 addendum: species assignment + explicit bed reparenting (US-D2.3, #327)](../../09-architecture-decisions/README.md#adr-036-addendum-species-assignment--explicit-bed-reparenting-us-d23-327)
 - **Legacy:** README L418
 
-- **Lesson (design review, #338): a refresh that writes model state breaks snapshot-based undo.** The stacking-order design went through two drafts that a design review caught before either shipped: (1) a "refresh also renumbers ranks" variant — since the z-refresh runs on many paths that have nothing to do with an explicit arrange (a layer visibility toggle, an opacity-preview commit, any unrelated command's cleanup pass), a command's undo snapshot taken before `execute()` would no longer match the ranks in force by the time `undo()` ran, silently breaking Ctrl+Z for any command that happened to trigger a refresh in between; and (2) a "provisional z assigned at add time, finalized lazily" variant, which breaks the moment an item is deleted from the middle of a layer — the reserved slots stop describing a contiguous order and a later finalize pass can't tell a genuine gap from a reusable one. The shipped design (ADR-043) keeps rank-writing to exactly four call sites and makes every refresh a pure read of whatever ranks already exist. General rule: any code path that both (a) runs unconditionally/opportunistically and (b) can be reached between a command's `execute()` and its `undo()` must never mutate the same state an undo snapshot depends on — if it needs to run there, make it derive its output instead of writing it.
+Held in [ADR: ADR-036 addendum: species assignment + explicit bed reparenting (US-D2.3, #327)](../../09-architecture-decisions/README.md#adr-036-addendum-species-assignment--explicit-bed-reparenting-us-d23-327). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-PER-15
 
 - **Rule:** A same-scene project load can leave stale callouts/curves, and UUID lookup then turns a delete into a false success (issue #353, 2026-09-24).
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #353
 - **Status:** standing
 - **Legacy:** README L458
@@ -155,7 +160,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-PER-16
 
 - **Rule:** A finite float is not a safe Qt geometry input, and JSON normalization can turn hostile Infinity/NaN into an apparently valid default (issue #355, 2026-09-24).
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #355
 - **Status:** standing
 - **Legacy:** README L460
@@ -165,7 +170,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-PER-17
 
 - **Rule:** A widget that rewrites a displayed date for "readability" corrupted persisted data.
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** none recorded
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l1080-a-widget-that-rewrites-a-displayed-date-for-readability-corrupted-persisted-data)
 - **Legacy:** README L1080
@@ -173,7 +178,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-PER-18
 
 - **Rule:** A1 numeric, download and settings boundaries (#453)
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #453, #480, #483, #485
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l3247-a1-numeric-download-and-settings-boundaries-453)
 - **Legacy:** README L3247

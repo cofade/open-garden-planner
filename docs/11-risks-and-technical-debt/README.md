@@ -118,7 +118,7 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | ID | Rule | Status | Where | Legacy |
 |---|---|---|---|---|
 | PF-CAN-01 | Canvas item caching, Level of Detail (LOD), and selection handle ghosting (issue #409, TD-034, AUD-056) | retired | [01](pitfalls/01-canvas-geometry.md#pf-can-01) |  |
-| PF-CAN-02 | A plant's drawn icon has a fourth independent size, reversing an explicit ADR-037 rejection on the owner's call (issue #299). | standing | [01](pitfalls/01-canvas-geometry.md#pf-can-02) |  |
+| PF-CAN-02 | A plant's drawn icon has a fourth independent size, reversing an explicit ADR-037 rejection on the owner's call (issue #299). | pointer | [01](pitfalls/01-canvas-geometry.md#pf-can-02) |  |
 | PF-CAN-03 | A first cut of this fix shipped a severe, unrendered regression a senior-review pass caught before merge | standing (narrative archived) | [01](pitfalls/01-canvas-geometry.md#pf-can-03) |  |
 | PF-CAN-04 | Anchor index on same-type anchors | standing | [01](pitfalls/01-canvas-geometry.md#pf-can-04) |  |
 | PF-CAN-05 | Canvas Y-axis flip | standing | [01](pitfalls/01-canvas-geometry.md#pf-can-05) |  |
@@ -142,15 +142,15 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | PF-LIF-02 | A Qt dialog must not synchronously join a network worker during `closeEvent()`. | standing | [02](pitfalls/02-lifecycle-threads.md#pf-lif-02) |  |
 | PF-LIF-03 | A private item-tracking list must be dropped at the SAME chokepoint that destroys the items it tracks, not just at the one call site that happened to crash — and an audit that finds one sibling case must check for others in the same class (issue #337, shipped 2026-08-21 in v1.27.2 via PR #339). | standing | [02](pitfalls/02-lifecycle-threads.md#pf-lif-03) |  |
 | PF-LIF-04 | A background `QThread` with a parent `QObject` aborts the app with `0xC0000409` (`QThread: Destroyed while thread is still running`) on window close (issues #480, #483). | standing | [02](pitfalls/02-lifecycle-threads.md#pf-lif-04) |  |
-| PF-LIF-05 | A `scene.changed` slot that touches a `QTimer` must guard against the C++ object being torn down | standing | [02](pitfalls/02-lifecycle-threads.md#pf-lif-05) |  |
+| PF-LIF-05 | A `scene.changed` slot that touches a `QTimer` must guard against the C++ object being torn down | pointer | [02](pitfalls/02-lifecycle-threads.md#pf-lif-05) |  |
 | PF-LIF-06 | A slot connected to an *application*-global signal (`QApplication.focusChanged`) outlives its widget and must be teardown-safe | standing | [02](pitfalls/02-lifecycle-threads.md#pf-lif-06) |  |
-| PF-LIF-07 | Qt silently drops the mouse grab on `ItemIgnoresTransformations` handles between events (PyQt6) | standing | [02](pitfalls/02-lifecycle-threads.md#pf-lif-07) |  |
-| PF-LIF-08 | `QGraphicsScene.changed` only fires on geometry/visibility, not on Python attribute mutations | standing | [02](pitfalls/02-lifecycle-threads.md#pf-lif-08) |  |
+| PF-LIF-07 | Qt silently drops the mouse grab on `ItemIgnoresTransformations` handles between events (PyQt6) | pointer | [02](pitfalls/02-lifecycle-threads.md#pf-lif-07) |  |
+| PF-LIF-08 | `QGraphicsScene.changed` only fires on geometry/visibility, not on Python attribute mutations | pointer | [02](pitfalls/02-lifecycle-threads.md#pf-lif-08) |  |
 | PF-LIF-09 | `QGraphicsScene.changed` feedback loops: a slot driven by `scene.changed` that itself mutates the scene runs forever while the app is idle | standing (narrative archived) | [02](pitfalls/02-lifecycle-threads.md#pf-lif-09) |  |
 | PF-LIF-10 | Subclassing `QWebEnginePage` to siphon `javaScriptConsoleMessage` hard-crashes the process | standing | [02](pitfalls/02-lifecycle-threads.md#pf-lif-10) |  |
 | PF-PER-01 | Two divergent item serializers create silent data-loss gaps on clipboard operations; unify under one chokepoint. | standing | [03](pitfalls/03-persistence-undo-layers.md#pf-per-01) |  |
-| PF-PER-02 | Opening a corrupt plan must never contaminate document identity or wipe existing recovery files. | standing | [03](pitfalls/03-persistence-undo-layers.md#pf-per-02) |  |
-| PF-PER-03 | Missing or corrupt external assets must load as placeholders to survive save cycles. | standing | [03](pitfalls/03-persistence-undo-layers.md#pf-per-03) |  |
+| PF-PER-02 | Opening a corrupt plan must never contaminate document identity or wipe existing recovery files. | pointer | [03](pitfalls/03-persistence-undo-layers.md#pf-per-02) |  |
+| PF-PER-03 | Missing or corrupt external assets must load as placeholders to survive save cycles. | pointer | [03](pitfalls/03-persistence-undo-layers.md#pf-per-03) |  |
 | PF-PER-04 | Dimension line updates after undo/redo | standing | [03](pitfalls/03-persistence-undo-layers.md#pf-per-04) |  |
 | PF-PER-05 | Plants stack behind beds when both share a layer's default z | retired | [03](pitfalls/03-persistence-undo-layers.md#pf-per-05) |  |
 | PF-PER-06 | Excel reads UTF-8 CSV as Latin-1 unless a BOM is present | standing | [03](pitfalls/03-persistence-undo-layers.md#pf-per-06) |  |
@@ -158,10 +158,10 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | PF-PER-08 | Layer subsystem: panel is a pure view; ALL mutations go through undoable commands | standing | [03](pitfalls/03-persistence-undo-layers.md#pf-per-08) |  |
 | PF-PER-09 | Undoable layer preconditions must be revalidated on redo | standing | [03](pitfalls/03-persistence-undo-layers.md#pf-per-09) |  |
 | PF-PER-10 | Undo/redo must dirty the document — and so must every "already-applied" edit; route them all through one chokepoint | standing | [03](pitfalls/03-persistence-undo-layers.md#pf-per-10) |  |
-| PF-PER-11 | A bug that is exactly 0 at the default value hides forever — and a `Callable` parameter is where two implementations of one behaviour go to drift | standing | [03](pitfalls/03-persistence-undo-layers.md#pf-per-11) |  |
-| PF-PER-12 | Same-layer stacking inverted on every save/load | standing | [03](pitfalls/03-persistence-undo-layers.md#pf-per-12) |  |
+| PF-PER-11 | A bug that is exactly 0 at the default value hides forever — and a `Callable` parameter is where two implementations of one behaviour go to drift | pointer | [03](pitfalls/03-persistence-undo-layers.md#pf-per-11) |  |
+| PF-PER-12 | Same-layer stacking inverted on every save/load | pointer | [03](pitfalls/03-persistence-undo-layers.md#pf-per-12) |  |
 | PF-PER-13 | Clipboard-pasted items were layer-less | standing | [03](pitfalls/03-persistence-undo-layers.md#pf-per-13) |  |
-| PF-PER-14 | Lesson (design review, #338): a refresh that writes model state breaks snapshot-based undo.: The stacking-order design w | standing | [03](pitfalls/03-persistence-undo-layers.md#pf-per-14) |  |
+| PF-PER-14 | Lesson (design review, #338): a refresh that writes model state breaks snapshot-based undo.: The stacking-order design w | pointer | [03](pitfalls/03-persistence-undo-layers.md#pf-per-14) |  |
 | PF-PER-15 | A same-scene project load can leave stale callouts/curves, and UUID lookup then turns a delete into a false success (issue #353, 2026-09-24). | standing | [03](pitfalls/03-persistence-undo-layers.md#pf-per-15) |  |
 | PF-PER-16 | A finite float is not a safe Qt geometry input, and JSON normalization can turn hostile Infinity/NaN into an apparently valid default (issue #355, 2026-09-24). | standing | [03](pitfalls/03-persistence-undo-layers.md#pf-per-16) |  |
 | PF-PER-17 | A widget that rewrites a displayed date for "readability" corrupted persisted data. | standing (narrative archived) | [03](pitfalls/03-persistence-undo-layers.md#pf-per-17) |  |
@@ -175,28 +175,28 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | PF-UI-07 | Two-tab dialog: caller must not create a new record when user clicked OK from History tab | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-07) |  |
 | PF-UI-08 | `mousePressEvent` monkey-patch must return None, not the result of `openUrl()` | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-08) |  |
 | PF-UI-09 | `ThemeColors.get_colors(ThemeMode.SYSTEM)` ignores the user's theme choice | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-09) |  |
-| PF-UI-10 | Bed-only features must NOT be hand-coded into each shape item | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-10) |  |
+| PF-UI-10 | Bed-only features must NOT be hand-coded into each shape item | pointer | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-10) |  |
 | PF-UI-11 | `QLineEdit` ignores Return — Enter bubbles to the canvas and finalizes the active tool | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-11) |  |
 | PF-UI-12 | Dynamic Input overlay must freeze while the user is typing | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-12) |  |
 | PF-UI-13 | Properties panel updates incrementally — rebuild only on a genuine selection/structure change | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-13) |  |
 | PF-UI-14 | Free-text property fields commit on a debounce, not per keystroke — and not on focus-out alone | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-14) |  |
-| PF-UI-15 | QSvgRenderer paints `currentColor` BLACK — never feed a contract icon SVG to it directly | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-15) |  |
+| PF-UI-15 | QSvgRenderer paints `currentColor` BLACK — never feed a contract icon SVG to it directly | pointer | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-15) |  |
 | PF-UI-16 | A `statusBar().showMessage()` set while a modal dialog is open is invisible — and a transient status blip is the wrong channel for a startup reminder | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-16) |  |
 | PF-UI-17 | A `QToolBar` added to the main window MUST carry a unique `objectName` — an empty one does not merely warn, it *aliases | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-17) |  |
-| PF-UI-18 | A toolbar carrying essential tools must not be user-hideable — `QMainWindow`'s free context menu is a trap with no way back | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-18) |  |
+| PF-UI-18 | A toolbar carrying essential tools must not be user-hideable — `QMainWindow`'s free context menu is a trap with no way back | pointer | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-18) |  |
 | PF-UI-19 | Google's satellite tile `<img>`s taint any canvas — html2canvas-style capture is structurally impossible, and DOM tile URLs leak the API key | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-19) |  |
-| PF-UI-20 | `QDialog.accept()` hides the window — a live harness that watches for the accepted result can see the whole app exit first | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-20) |  |
+| PF-UI-20 | `QDialog.accept()` hides the window — a live harness that watches for the accepted result can see the whole app exit first | pointer | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-20) |  |
 | PF-UI-21 | A silently-dead code path is a hiding place — fixing it *publishes* its content | standing (narrative archived) | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-21) | 11.4.6 |
-| PF-I18-01 | Translated row templates can still contain English object labels | standing | [05](pitfalls/05-i18n.md#pf-i18-01) |  |
+| PF-I18-01 | Translated row templates can still contain English object labels | pointer | [05](pitfalls/05-i18n.md#pf-i18-01) |  |
 | PF-I18-02 | `test_german_ts_has_no_unfinished` does NOT catch hardcoded English strings in source code | retired | [05](pitfalls/05-i18n.md#pf-i18-02) |  |
 | PF-I18-03 | `tr()` + `.format()` is a silent no-op on a Qt positional `%N` literal | standing | [05](pitfalls/05-i18n.md#pf-i18-03) |  |
-| PF-I18-04 | A repeated top-level key in the `TRANSLATIONS` literal of `scripts/fill_translations.py` silently shadows the earlier block, and the i18n gate cannot see the strings it drops | standing | [05](pitfalls/05-i18n.md#pf-i18-04) |  |
+| PF-I18-04 | A repeated top-level key in the `TRANSLATIONS` literal of `scripts/fill_translations.py` silently shadows the earlier block, and the i18n gate cannot see the strings it drops | pointer | [05](pitfalls/05-i18n.md#pf-i18-04) |  |
 | PF-I18-05 | A shared, Qt-free service that renders a bilingual data field must resolve the active UI language explicitly; a `lang="en"` default is a silent English leak | standing | [05](pitfalls/05-i18n.md#pf-i18-05) |  |
 | PF-I18-06 | Command-description `{property}` fragments must be registered under the "Commands" i18n context | standing | [05](pitfalls/05-i18n.md#pf-i18-06) |  |
 | PF-I18-07 | The canonical translation workflow is `fill_translations.py` alone — running `pylupdate6` over the source tree churns the entire `.ts` and marks whole contexts "vanished"/"unfinished" | standing | [05](pitfalls/05-i18n.md#pf-i18-07) |  |
 | PF-I18-08 | Registered strings are not the source inventory (#496) | standing | [05](pitfalls/05-i18n.md#pf-i18-08) |  |
 | PF-CI-01 | Attribute frozen code from collected files, not only declared dependencies | standing | [06](pitfalls/06-ci-release-supply-chain.md#pf-ci-01) |  |
-| PF-CI-02 | A stale `*.egg-info` on `sys.path` silently shrinks anything derived from installed metadata (#454, 2026-10-13). | standing | [06](pitfalls/06-ci-release-supply-chain.md#pf-ci-02) |  |
+| PF-CI-02 | A stale `*.egg-info` on `sys.path` silently shrinks anything derived from installed metadata (#454, 2026-10-13). | pointer | [06](pitfalls/06-ci-release-supply-chain.md#pf-ci-02) |  |
 | PF-CI-03 | A source checkout's `.env` is not automatically present in a packaged build, and a credential setting must not become a project secret. | standing | [06](pitfalls/06-ci-release-supply-chain.md#pf-ci-03) |  |
 | PF-CI-04 | A windowed PyInstaller build launched with no console has `sys.stdout is None`, and uvicorn's default log config dereferences it — the Agent API was dead in every released exe (issue #291, closed). | standing | [06](pitfalls/06-ci-release-supply-chain.md#pf-ci-04) |  |
 | PF-CI-05 | Release workflow race condition with chore commits | standing (narrative archived) | [06](pitfalls/06-ci-release-supply-chain.md#pf-ci-05) |  |
@@ -208,50 +208,50 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | PF-TST-02 | Within-day simulation tests must fix time as well as date | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-02) |  |
 | PF-TST-03 | Every placeable graphics item must be covered by serializer round-trip matrix tests. | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-03) |  |
 | PF-TST-04 | A cleanup fixture that runs in the wrong ORDER is not a cleanup — and a plausible mechanism is not a mechanism. | standing (narrative archived) | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-04) |  |
-| PF-TST-05 | A test that exercises a real external binary will exercise it on the developer's machine. | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-05) |  |
+| PF-TST-05 | A test that exercises a real external binary will exercise it on the developer's machine. | pointer | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-05) |  |
 | PF-TST-06 | `QSettings.setDefaultFormat()` / `setPath()` are process-global statics Qt never reverts — never call them from a test | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-06) |  |
 | PF-TST-07 | A full-app integration test that outlives ~500 ms must silence the startup Welcome dialog — its modal `exec()` blocks pytest-qt forever | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-07) |  |
 | PF-TST-08 | `UiStateStore` builds its own `QSettings`, so it escapes the conftest isolation — full-app tests read *and overwrite* the developer's real window state | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-08) |  |
 | PF-TST-09 | The test suite wrote into the developer's real plant library — isolating one store is not isolating the process | standing (narrative archived) | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-09) |  |
 | PF-TST-10 | A "nobody may use X" gate belongs in the AST, not in a regex — and it must be falsified twice | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-10) |  |
-| PF-TST-11 | The Welcome-dialog hang above was re-hit on 2026-08-17 (Package 3a) — because its fix was per-file, and only three of 34 app-building test files had it. | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-11) |  |
+| PF-TST-11 | The Welcome-dialog hang above was re-hit on 2026-08-17 (Package 3a) — because its fix was per-file, and only three of 34 app-building test files had it. | pointer | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-11) |  |
 | PF-TST-12 | A "byte-deterministic" PNG gate is a zlib gate in disguise — compare decoded pixels, never file bytes | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-12) |  |
-| PF-TST-13 | A hidden wrap seam is located by measuring `\|row0 − row255\|` per column, not by theorising about the layout | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-13) |  |
-| PF-TST-14 | A debounce `QTimer` armed by a test outlives the test — and a timer slot that can open a modal `QMessageBox` becomes a heap-corruption crash in whatever test runs 500 ms later | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-14) |  |
+| PF-TST-13 | A hidden wrap seam is located by measuring `\|row0 − row255\|` per column, not by theorising about the layout | pointer | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-13) |  |
+| PF-TST-14 | A debounce `QTimer` armed by a test outlives the test — and a timer slot that can open a modal `QMessageBox` becomes a heap-corruption crash in whatever test runs 500 ms later | pointer | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-14) |  |
 | PF-TST-15 | JavaScript `let` declarations never land on `window` — verification JS that reads `window.map`/`window.bridge` from a page written with top-level `let` returns `undefined` forever, even when the page state is perfectly healthy | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-15) |  |
 | PF-TST-16 | A real short-interval `QTimer` racing pytest-qt's `waitUntil` loop segfaults the linux-offscreen suite — drive timer-handler coverage by emitting the signal instead | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-16) |  |
-| PF-TST-17 | JS-side guards comparing a NUMBER token with its STRING form silently eat every capture report — the capture "times out" while every test is green | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-17) |  |
+| PF-TST-17 | JS-side guards comparing a NUMBER token with its STRING form silently eat every capture report — the capture "times out" while every test is green | pointer | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-17) |  |
 | PF-TST-18 | A single wall-clock CI sample cannot distinguish a scheduler spike from a spatial-index regression (issue #354, 2026-09-24). | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-18) |  |
 | PF-TST-19 | The four bugs a manual pass found that a green suite could not (#377, #380, #373) | standing (narrative archived) | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-19) | 11.4.2 |
 | PF-TST-20 | `qtbot.addWidget` closes a widget, and closing is not deleting | standing (narrative archived) | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-20) |  |
 | PF-TST-21 | **Two autouse fixtures, one merely depending on the other, are an atomicity claim with | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-21) |  |
 | PF-TST-22 | **A test that writes into the git working tree is unsafe under any scheduler, and | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-22) |  |
 | PF-TST-23 | **`pytest-timeout`'s per-test bound is necessary but not sufficient for a Qt suite | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-23) |  |
-| PF-API-01 | A CLI's SUCCESS output needs the same treatment as its failure output. | standing | [08](pitfalls/08-agent-api-security.md#pf-api-01) |  |
-| PF-API-02 | An INDETERMINATE answer must never select the more DANGEROUS option. | standing | [08](pitfalls/08-agent-api-security.md#pf-api-02) |  |
+| PF-API-01 | A CLI's SUCCESS output needs the same treatment as its failure output. | pointer | [08](pitfalls/08-agent-api-security.md#pf-api-01) |  |
+| PF-API-02 | An INDETERMINATE answer must never select the more DANGEROUS option. | pointer | [08](pitfalls/08-agent-api-security.md#pf-api-02) |  |
 | PF-API-03 | "Unparseable" and "empty" are different failures, and only one of them is dangerous. | standing | [08](pitfalls/08-agent-api-security.md#pf-api-03) |  |
 | PF-API-04 | A refusal nobody asked for is a capability removal wearing a safety hat. | standing | [08](pitfalls/08-agent-api-security.md#pf-api-04) |  |
-| PF-API-05 | Verify the installed binary's CAPABILITY, not the product's documented interface — and check that a stub cannot stand in for a real binary. | standing | [08](pitfalls/08-agent-api-security.md#pf-api-05) |  |
-| PF-API-06 | A refusal must leave the filesystem exactly as it found it — so take the backup as late as possible. | standing | [08](pitfalls/08-agent-api-security.md#pf-api-06) |  |
-| PF-API-07 | "Unparseable" and "parseable but the wrong shape" are different failures and must not share a policy. | standing | [08](pitfalls/08-agent-api-security.md#pf-api-07) |  |
-| PF-API-08 | A "best-effort, never raises" reader must own its failure type — and, more importantly, must not enumerate. | standing | [08](pitfalls/08-agent-api-security.md#pf-api-08) |  |
-| PF-API-09 | A guard checked on some paths is not a guard. | standing | [08](pitfalls/08-agent-api-security.md#pf-api-09) |  |
-| PF-API-10 | A required dataclass field is a contract with an explicit consumer list, not a struct you can extend freely. | standing | [08](pitfalls/08-agent-api-security.md#pf-api-10) |  |
-| PF-API-11 | A tool's declared return model is part of its contract, and testing the provider is not the same as testing the tool. | standing | [08](pitfalls/08-agent-api-security.md#pf-api-11) |  |
-| PF-API-12 | A third-party config file is a *superset* of the format you assume, and fail-closed turns that into a dead end. | standing | [08](pitfalls/08-agent-api-security.md#pf-api-12) |  |
-| PF-API-13 | Never re-serialise a file you do not own. | standing | [08](pitfalls/08-agent-api-security.md#pf-api-13) |  |
+| PF-API-05 | Verify the installed binary's CAPABILITY, not the product's documented interface — and check that a stub cannot stand in for a real binary. | pointer | [08](pitfalls/08-agent-api-security.md#pf-api-05) |  |
+| PF-API-06 | A refusal must leave the filesystem exactly as it found it — so take the backup as late as possible. | pointer | [08](pitfalls/08-agent-api-security.md#pf-api-06) |  |
+| PF-API-07 | "Unparseable" and "parseable but the wrong shape" are different failures and must not share a policy. | pointer | [08](pitfalls/08-agent-api-security.md#pf-api-07) |  |
+| PF-API-08 | A "best-effort, never raises" reader must own its failure type — and, more importantly, must not enumerate. | pointer | [08](pitfalls/08-agent-api-security.md#pf-api-08) |  |
+| PF-API-09 | A guard checked on some paths is not a guard. | pointer | [08](pitfalls/08-agent-api-security.md#pf-api-09) |  |
+| PF-API-10 | A required dataclass field is a contract with an explicit consumer list, not a struct you can extend freely. | pointer | [08](pitfalls/08-agent-api-security.md#pf-api-10) |  |
+| PF-API-11 | A tool's declared return model is part of its contract, and testing the provider is not the same as testing the tool. | pointer | [08](pitfalls/08-agent-api-security.md#pf-api-11) |  |
+| PF-API-12 | A third-party config file is a *superset* of the format you assume, and fail-closed turns that into a dead end. | pointer | [08](pitfalls/08-agent-api-security.md#pf-api-12) |  |
+| PF-API-13 | Never re-serialise a file you do not own. | pointer | [08](pitfalls/08-agent-api-security.md#pf-api-13) |  |
 | PF-API-14 | A CLI's default scope can write into the user's project directory. | standing | [08](pitfalls/08-agent-api-security.md#pf-api-14) |  |
-| PF-API-15 | At a trust boundary that ingests untrusted files, catch `Exception` at the ingestion seam — do NOT enumerate exception families | standing | [08](pitfalls/08-agent-api-security.md#pf-api-15) |  |
+| PF-API-15 | At a trust boundary that ingests untrusted files, catch `Exception` at the ingestion seam — do NOT enumerate exception families | pointer | [08](pitfalls/08-agent-api-security.md#pf-api-15) |  |
 | PF-API-16 | Agent API described the compass backwards (issue #267, fixed) | standing (narrative archived) | [08](pitfalls/08-agent-api-security.md#pf-api-16) |  |
-| PF-API-17 | **Agent creation must share the loader's construction path and its undo | standing | [08](pitfalls/08-agent-api-security.md#pf-api-17) |  |
+| PF-API-17 | **Agent creation must share the loader's construction path and its undo | pointer | [08](pitfalls/08-agent-api-security.md#pf-api-17) |  |
 | PF-API-18 | A stable geometry API must read live transforms, and a constrained write must refuse rather than half-run the solver | standing | [08](pitfalls/08-agent-api-security.md#pf-api-18) |  |
 | PF-API-19 | Three guards in the wrong place (US-D3.2 final pre-merge review, #374) | standing | [08](pitfalls/08-agent-api-security.md#pf-api-19) | 11.4.1 |
 | PF-API-20 | Six defects a single package found, and what each one was really about (US-D3.3 #332 + US-D3.4 #333) | standing (narrative archived) | [08](pitfalls/08-agent-api-security.md#pf-api-20) | 11.4.3 |
 | PF-API-21 | Review and frozen-client findings in D3.3/D3.4 (#332/#333) | standing | [08](pitfalls/08-agent-api-security.md#pf-api-21) | 11.4.4 |
 | PF-API-22 | A product surface can be "protected" by a library default nobody pinned. | standing | [08](pitfalls/08-agent-api-security.md#pf-api-22) |  |
-| PF-DOM-01 | No free solver variables does not imply feasibility | standing | [09](pitfalls/09-domain-solver.md#pf-dom-01) |  |
+| PF-DOM-01 | No free solver variables does not imply feasibility | pointer | [09](pitfalls/09-domain-solver.md#pf-dom-01) |  |
 | PF-DOM-02 | A graph row can conceal a no-op geometry path (#406, 2026-10-12). | standing | [09](pitfalls/09-domain-solver.md#pf-dom-02) |  |
-| PF-DOM-03 | `search()` and `get_by_id()` returned structurally different field sets for the same provider, and nothing wired the richer one into the selection flow (issue #297). | standing | [09](pitfalls/09-domain-solver.md#pf-dom-03) |  |
+| PF-DOM-03 | `search()` and `get_by_id()` returned structurally different field sets for the same provider, and nothing wired the richer one into the selection flow (issue #297). | pointer | [09](pitfalls/09-domain-solver.md#pf-dom-03) |  |
 | PF-DOM-04 | This shipped over seven senior-review rounds, each finding a real, live-reproducible defect in the previous round's own fix | standing (narrative archived) | [09](pitfalls/09-domain-solver.md#pf-dom-04) |  |
 | PF-DOM-05 | Takeaway: this project's `.env` has working credentials for Trefle, Perenual, and Permapeople. A live call costs thirty | standing | [09](pitfalls/09-domain-solver.md#pf-dom-05) |  |
 | PF-DOM-06 | Update (manual testing, 2026-08-10): a defect one layer above the seven-round fix, invisible to every review round.: The | standing (narrative archived) | [09](pitfalls/09-domain-solver.md#pf-dom-06) |  |
@@ -265,11 +265,11 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | PF-DOM-14 | Two surfaces that share a status store must derive the key identically — reuse the canonical `species_key()` | standing | [09](pitfalls/09-domain-solver.md#pf-dom-14) |  |
 | PF-DOM-15 | A handler fed a canonical `species_key` must match on the canonical key, not a raw name — and a "navigate by species" channel must also handle unkeyed targets | standing | [09](pitfalls/09-domain-solver.md#pf-dom-15) |  |
 | PF-DOM-16 | A derived child must be recomputed from its owner, never re-projected from its own current state | standing | [09](pitfalls/09-domain-solver.md#pf-dom-16) |  |
-| PF-DOM-17 | A derived texture's orientation is gravity-relative, and naming a half "left" does not make it the downhill side | standing | [09](pitfalls/09-domain-solver.md#pf-dom-17) |  |
+| PF-DOM-17 | A derived texture's orientation is gravity-relative, and naming a half "left" does not make it the downhill side | pointer | [09](pitfalls/09-domain-solver.md#pf-dom-17) |  |
 | PF-DOM-18 | Corollary - `species_key` is a function, not a field.: The first draft of `suggest_succession` | standing | [09](pitfalls/09-domain-solver.md#pf-dom-18) |  |
-| PF-DOM-19 | The GUI anchored task windows on the current year while the agent anchored on every year that could reach the date (TD-037). | standing | [09](pitfalls/09-domain-solver.md#pf-dom-19) |  |
+| PF-DOM-19 | The GUI anchored task windows on the current year while the agent anchored on every year that could reach the date (TD-037). | pointer | [09](pitfalls/09-domain-solver.md#pf-dom-19) |  |
 | PF-DOM-20 | The "weeks after planting" comment in the bundled plant data was wrong — and the first measurement of how wrong was itself wrong. | standing | [09](pitfalls/09-domain-solver.md#pf-dom-20) |  |
-| PF-DOM-21 | A shared generator's flags are inherited per iteration, so a wrapper can filter before the wrapper's own filter runs. | standing | [09](pitfalls/09-domain-solver.md#pf-dom-21) |  |
+| PF-DOM-21 | A shared generator's flags are inherited per iteration, so a wrapper can filter before the wrapper's own filter runs. | pointer | [09](pitfalls/09-domain-solver.md#pf-dom-21) |  |
 | PF-DOM-22 | A day derived from a UTC instant is not the user's day (Phase 17 L1.0, #385) | standing (narrative archived) | [09](pitfalls/09-domain-solver.md#pf-dom-22) | 11.4.7 |
 | PF-DOM-23 | Guild boundaries found by independent review (F1/F2) | standing (narrative archived) | [09](pitfalls/09-domain-solver.md#pf-dom-23) | 11.4.8 |
 | PF-DOM-24 | Sun self-shadow and late document results (#314, #428) | standing (narrative archived) | [09](pitfalls/09-domain-solver.md#pf-dom-24) | 11.4.6 |
@@ -287,16 +287,16 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | PF-L3D-03 | A bound that keeps the topmost N drops what everything stands on; a count is not a time | standing (narrative archived) | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-03) | 11.4.17 |
 | PF-L3D-04 | Never point a Texture at a second texture | standing (narrative archived) | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-04) |  |
 | PF-L3D-05 | What the looks, the sky and the wind taught (Phase 17 L1.4, #385) | standing (narrative archived) | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-05) | 11.4.18 |
-| PF-PRC-01 | "The app changed behaviour" is a claim about a *setting* until the setting has been read. | standing | [12](pitfalls/12-process-and-docs.md#pf-prc-01) |  |
-| PF-PRC-02 | A claim written from the producer's side is not a delivered feature — and a test that skips the consumer cannot catch it. | standing | [12](pitfalls/12-process-and-docs.md#pf-prc-02) |  |
+| PF-PRC-01 | "The app changed behaviour" is a claim about a *setting* until the setting has been read. | pointer | [12](pitfalls/12-process-and-docs.md#pf-prc-01) |  |
+| PF-PRC-02 | A claim written from the producer's side is not a delivered feature — and a test that skips the consumer cannot catch it. | pointer | [12](pitfalls/12-process-and-docs.md#pf-prc-02) |  |
 | PF-PRC-03 | Lesson: before treating "the UI doesn't update" as a bug, check whether the change contradicts a *formally accepted* dec | standing | [12](pitfalls/12-process-and-docs.md#pf-prc-03) |  |
 | PF-PRC-04 | NEVER use PowerShell `Set-Content -Encoding UTF8` for files containing non-ASCII characters | standing | [12](pitfalls/12-process-and-docs.md#pf-prc-04) |  |
 | PF-PRC-05 | A `file.py:line` citation drifts silently when unrelated features grow the file — measured, not hypothetical | standing | [12](pitfalls/12-process-and-docs.md#pf-prc-05) |  |
 | PF-PRC-06 | The citation gate's own senior review found the gate had almost no teeth on the dimension that motivated it, and the fix needed its own mutation-tested regressions before it actually had any | standing | [12](pitfalls/12-process-and-docs.md#pf-prc-06) |  |
-| PF-PRC-07 | A drift-tolerance window that is merely "generous" is a false safety claim, not a weaker one | standing | [12](pitfalls/12-process-and-docs.md#pf-prc-07) |  |
+| PF-PRC-07 | A drift-tolerance window that is merely "generous" is a false safety claim, not a weaker one | pointer | [12](pitfalls/12-process-and-docs.md#pf-prc-07) |  |
 | PF-PRC-08 | Named residual, measured, not swept under the fix | standing | [12](pitfalls/12-process-and-docs.md#pf-prc-08) |  |
-| PF-PRC-09 | **An issue's "verified repo facts" are a claim about the code, not the code — and a rule that | standing | [12](pitfalls/12-process-and-docs.md#pf-prc-09) |  |
-| PF-PRC-10 | **Lesson | standing | [12](pitfalls/12-process-and-docs.md#pf-prc-10) |  |
+| PF-PRC-09 | **An issue's "verified repo facts" are a claim about the code, not the code — and a rule that | pointer | [12](pitfalls/12-process-and-docs.md#pf-prc-09) |  |
+| PF-PRC-10 | **Lesson | pointer | [12](pitfalls/12-process-and-docs.md#pf-prc-10) |  |
 
 ### Redirect of legacy numbered IDs
 

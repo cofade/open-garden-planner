@@ -5,7 +5,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-UI-01
 
 - **Rule:** A connectivity "Test" probe must fetch the smallest page the API allows, and a swallowed non-credential failure must not be relabeled "check your credentials" (issue #294).
-- **Pinned by:** `tests/integration/test_plant_api_test_button.py`; `tests/unit/test_permapeople_client.py`
+- **Pinned by:** `tests/unit/test_permapeople_client.py`; `tests/integration/test_plant_api_test_button.py`
 - **Source:** #291, #294
 - **Status:** standing
 - **Legacy:** README L230
@@ -15,7 +15,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-UI-02
 
 - **Rule:** A variable-width widget in a `QToolBar`'s flow reflows Qt's overflow-extension popup and shuffles neighbouring buttons
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L242
@@ -25,7 +25,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-UI-03
 
 - **Rule:** Sidebar list panels must store item *ids*, not live `QGraphicsItem` refs, and defer the selection
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #206, #212
 - **Status:** standing
 - **Legacy:** README L248
@@ -37,7 +37,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-UI-04
 
 - **Rule:** An enum `QComboBox` that excludes `UNKNOWN` misrepresents missing data as its first option
-- **Pinned by:** `tests/integration/test_rotation_aware_resize.py`; `tests/ui/test_plant_database_panel.py`; `tests/unit/test_plant_sizing.py`
+- **Pinned by:** `tests/ui/test_plant_database_panel.py`; `tests/integration/test_rotation_aware_resize.py`; `tests/unit/test_plant_sizing.py`
 - **Source:** #206, #213, #218, #219, #221, #231
 - **Status:** standing
 - **Legacy:** README L258
@@ -57,7 +57,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-UI-05
 
 - **Rule:** Context-menu wiring must cover all bed-shape item types
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L308
@@ -67,7 +67,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-UI-06
 
 - **Rule:** Two-tab dialog: OK must not trigger entry-tab validation when user is on History tab
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L310
@@ -77,7 +77,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-UI-07
 
 - **Rule:** Two-tab dialog: caller must not create a new record when user clicked OK from History tab
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L312
@@ -87,7 +87,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-UI-08
 
 - **Rule:** `mousePressEvent` monkey-patch must return None, not the result of `openUrl()`
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L314
@@ -97,7 +97,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-UI-09
 
 - **Rule:** `ThemeColors.get_colors(ThemeMode.SYSTEM)` ignores the user's theme choice
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L315
@@ -106,18 +106,19 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 ### PF-UI-10
 
+
 - **Rule:** Bed-only features must NOT be hand-coded into each shape item
 - **Pinned by:** `tests/integration/test_bed_context_menu.py`
 - **Source:** #173
-- **Status:** standing
+- **Status:** pointer → [ADR: ADR-017: Bed-Specific Features Built Centrally on `GardenItemMixin`](../../09-architecture-decisions/README.md#adr-017-bed-specific-features-built-centrally-on-gardenitemmixin)
 - **Legacy:** README L326
 
-- **Bed-only features must NOT be hand-coded into each shape item**: Bed-capable shapes are four classes (`RectangleItem`, `PolygonItem`, `EllipseItem`, `CircleItem`). When a new bed-only action (soil test, pest log, succession plan, future ones) is added to only one shape's `contextMenuEvent`, the feature is invisible on the other three. Recurred twice: pest log missing from PolygonItem/EllipseItem until #173; succession plan missing from all three non-rectangle shapes until the US-12.8 post-bug fix. Mitigation: bed actions are now built and dispatched centrally via `GardenItemMixin.build_bed_context_menu` + `dispatch_bed_action`, gated by a parametrised regression test (`tests/integration/test_bed_context_menu.py`) that iterates over all four shape classes. See ADR-017 and § 8.14. **When adding a new bed feature, extend the parametrised test with one new `assert actions.<new_field> is not None` line per shape — that single addition is what blocks future regressions.**
+Held in [ADR: ADR-017: Bed-Specific Features Built Centrally on `GardenItemMixin`](../../09-architecture-decisions/README.md#adr-017-bed-specific-features-built-centrally-on-gardenitemmixin). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-UI-11
 
 - **Rule:** `QLineEdit` ignores Return — Enter bubbles to the canvas and finalizes the active tool
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L349
@@ -127,7 +128,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-UI-12
 
 - **Rule:** Dynamic Input overlay must freeze while the user is typing
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L350
@@ -137,7 +138,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-UI-13
 
 - **Rule:** Properties panel updates incrementally — rebuild only on a genuine selection/structure change
-- **Pinned by:** `src/open_garden_planner/app/application.py`; `tests/integration/test_panel_refresh_wiring.py`; `tests/integration/test_panel_refresh_wiring.py::TestCompanionCropRotationRefreshOnUndoRedo`; `tests/integration/test_properties_panel_incremental.py`; `tests/ui/test_properties_panel.py::TestFocusPreservation`
+- **Pinned by:** `src/open_garden_planner/app/application.py`; `tests/integration/test_properties_panel_incremental.py`; `tests/ui/test_properties_panel.py::TestFocusPreservation`; `tests/integration/test_panel_refresh_wiring.py`; `tests/integration/test_panel_refresh_wiring.py::TestCompanionCropRotationRefreshOnUndoRedo`
 - **Source:** #200, #206, #210, #222, #225
 - **Status:** standing
 - **Legacy:** README L360
@@ -158,13 +159,14 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 ### PF-UI-15
 
+
 - **Rule:** QSvgRenderer paints `currentColor` BLACK — never feed a contract icon SVG to it directly
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #279, #333
-- **Status:** standing
+- **Status:** pointer → [ADR: ADR-039: Visual Refresh — Semantic Theme Tokens + Central Runtime-Tinted Icon Provider](../../09-architecture-decisions/README.md#adr-039-visual-refresh--semantic-theme-tokens--central-runtime-tinted-icon-provider)
 - **Legacy:** README L375
 
-- **QSvgRenderer paints `currentColor` BLACK — never feed a contract icon SVG to it directly** (#279, ADR-039): Qt's SVG renderer does not resolve `currentColor` against any palette — it falls back to black. This is precisely why the legacy `icons/tools/` set carried baked hex overrides on every element (`constraint.svg` declared `stroke="currentColor"` and then overrode it with `#333` everywhere). Every chrome-icon render must go through the provider `ui/icons.py`, which substitutes the active theme's colors into the SVG text *before* rasterizing; the conformance gate guarantees the files contain only substitutable tokens, so the failure can only re-enter via a NEW direct `QSvgRenderer` call on a contract icon — don't add one. (`gallery_data.render_svg_thumbnail` remains correct for the full-color plant/furniture art, which never uses `currentColor`.)
+Held in [ADR: ADR-039: Visual Refresh — Semantic Theme Tokens + Central Runtime-Tinted Icon Provider](../../09-architecture-decisions/README.md#adr-039-visual-refresh--semantic-theme-tokens--central-runtime-tinted-icon-provider). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-UI-16
 
@@ -188,18 +190,19 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 ### PF-UI-18
 
+
 - **Rule:** A toolbar carrying essential tools must not be user-hideable — `QMainWindow`'s free context menu is a trap with no way back
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #283, #286
-- **Status:** standing
+- **Status:** pointer → [ADR: ADR-018: Object Gallery Moves to Top Toolbar (Sims-style Category Dropdowns + Global Search)](../../09-architecture-decisions/README.md#adr-018-object-gallery-moves-to-top-toolbar-sims-style-category-dropdowns--global-search)
 - **Legacy:** README L383
 
-- **A toolbar carrying essential tools must not be user-hideable — `QMainWindow`'s free context menu is a trap with no way back** (#283 manual test): `QMainWindow` supplies a right-click menu with a checkbox per toolbar, for free, whether or not the app wants it. Since ADR-018 the `CategoryToolbar` *is* the object gallery, so one stray click removed **every** placement tool at once; the layout is saved on exit, so it stayed gone across restarts; and the only route back was that same menu, which a user who has just lost their toolbars has no reason to go looking for. Surfaced in #283's own manual test, reported as "all the drawing tools are gone" — the fix's regression test had happily proved that hiding *persists*, which is the behaviour, not the requirement. Fix: `GardenPlannerApp.createPopupMenu()` returns `None`, and `_enforce_toolbar_visibility()` re-asserts the invariant after every `restoreState()` — three core toolbars on, two feature toolbars off. The two halves are load-bearing together: enforcement without suppression leaves the trap open, and **suppression without enforcement is worse than the bug** — a user whose saved state already hides a core toolbar could never recover it, because those three have no View-menu toggle of their own. (The two feature toolbars are not in that position: each has a checkable View-menu action driving `setVisible`, so a stale-visible one can be dismissed in two clicks — measured, after an earlier draft of this entry claimed otherwise. Their defect is the action/toolbar/overlay desync of #286, not unrecoverability.) **The context menu is not even the likeliest trigger:** preview mode (F11) hides the main toolbar and `closeEvent` persists whatever is on screen, so quitting straight out of preview reopened the app with no drawing tools at all, no right-click involved. Measured as pre-existing — it fires with the `setObjectName` lines reverted too — and healed by the same enforcement, which is why the invariant must be *asserted* rather than merely made unreachable through one menu. Closes #286 as a side effect (soil-overlay toolbar returning visible with its action unchecked). Lesson: before persisting a piece of UI state, ask whether the user can get back out of every state you are about to make durable.
+Held in [ADR: ADR-018: Object Gallery Moves to Top Toolbar (Sims-style Category Dropdowns + Global Search)](../../09-architecture-decisions/README.md#adr-018-object-gallery-moves-to-top-toolbar-sims-style-category-dropdowns--global-search). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-UI-19
 
 - **Rule:** Google's satellite tile `<img>`s taint any canvas — html2canvas-style capture is structurally impossible, and DOM tile URLs leak the API key
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #346
 - **Status:** standing
 - **Legacy:** README L420
@@ -208,18 +211,19 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 ### PF-UI-20
 
+
 - **Rule:** `QDialog.accept()` hides the window — a live harness that watches for the accepted result can see the whole app exit first
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #346
-- **Status:** standing
+- **Status:** pointer → [debug-verbose: Case study: live capture harness saw "capture did not complete" while the feature worked (Issue](../../../.claude/skills/debug-verbose/SKILL.md#case-study-live-capture-harness-saw-capture-did-not-complete-while-the-feature-worked-issue-346-fixed-2026-09-01)
 - **Legacy:** README L426
 
-- **`QDialog.accept()` hides the window — a live harness that watches for the accepted result can see the whole app exit first** (#346 live verification, 2026-09-01): the capture flow ends with `dialog.accept()`, which sets the result AND hides the (only) window; with `quitOnLastWindowClosed` the event loop ends before the harness's next poll tick can read `fetch_result`. The capture had succeeded — the run just ended too fast to print it. Lesson for live-verification harnesses: hook the *accept* itself (or connect to `finished`), never poll the result from a timer that can lose the race.
+Held in [debug-verbose: Case study: live capture harness saw "capture did not complete" while the feature worked (Issue](../../../.claude/skills/debug-verbose/SKILL.md#case-study-live-capture-harness-saw-capture-did-not-complete-while-the-feature-worked-issue-346-fixed-2026-09-01). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-UI-21
 
 - **Rule:** A silently-dead code path is a hiding place — fixing it *publishes* its content
-- **Pinned by:** `scripts/measure_harvest_offsets.py`; `tests/unit/test_status_literals_are_translated.py`
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #415
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l575-a-silently-dead-code-path-is-a-hiding-place--fixing-it-publishes-its-content)
 - **Legacy:** README L575 (legacy 11.4.6)

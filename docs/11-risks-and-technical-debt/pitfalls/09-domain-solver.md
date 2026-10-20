@@ -4,25 +4,19 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 ### PF-DOM-01
 
+
 - **Rule:** No free solver variables does not imply feasibility
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #457
-- **Status:** standing
+- **Status:** pointer → [§8: A5 numerical and presentation evidence (#457)](../../08-crosscutting-concepts/README.md#a5-numerical-and-presentation-evidence-457)
 - **Legacy:** README L128
 
-- **No free solver variables does not imply feasibility** (#457, ADR-012):
-  two pinned anchors 100 cm apart with a 200 cm target were reported converged
-  with zero error. `[A5-NEWTON] no free slots` and its caller stack showed Newton
-  returning before residual evaluation; `solve_anchored` then took the minimum
-  with that fabricated zero. Evaluate the fixed-state residual before returning.
-  Pinned by `test_constraint_solver_invariants.py` (both direct Newton and graph
-  regressions failed first) and the real CanvasView feasibility integration test.
-  A convergence flag must agree with independently measured geometry.
+Held in [§8: A5 numerical and presentation evidence (#457)](../../08-crosscutting-concepts/README.md#a5-numerical-and-presentation-evidence-457). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-DOM-02
 
 - **Rule:** A graph row can conceal a no-op geometry path (#406, 2026-10-12).
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #406
 - **Status:** standing
 - **Legacy:** README L153
@@ -46,18 +40,19 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 ### PF-DOM-03
 
+
 - **Rule:** `search()` and `get_by_id()` returned structurally different field sets for the same provider, and nothing wired the richer one into the selection flow (issue #297).
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #297
-- **Status:** standing
+- **Status:** pointer → [debug-verbose: Case study: Trefle search results never carried sun/water/pH/foliage data -- dead code, a wrong](../../../.claude/skills/debug-verbose/SKILL.md#case-study-trefle-search-results-never-carried-sunwaterphfoliage-data----dead-code-a-wrong-theory-refuted-live-and-three-more-bugs-found-only-by-trying-to-break-the-fix-issue-297-fixed-2026-08-10)
 - **Legacy:** README L207
 
-**`search()` and `get_by_id()` returned structurally different field sets for the same provider, and nothing wired the richer one into the selection flow (issue #297).** Trefle's `/plants/search` carries only identity/taxonomy fields; `growth`/`specifications`/`foliage` (and therefore sun/water/pH/nutrient/foliage) only exist on `/plants/{id}`'s detail response. `PlantAPIManager.get_by_id()` already existed, fully implemented per provider, but nothing called it — `PlantSearchDialog` assigned the raw sparse `search()` result straight through. **Fix**: `PlantSearchDialog._enrich_selected_plant()` fetches the detail record once, on confirm (not per browsed row, to bound the cost against rate-limited free tiers), and merges it onto the search result via a generic loop over every `PlantSpeciesData` dataclass field (`_merge_detail_into_search_result()`): a field at its dataclass default — or `None`, regardless of the field's own default type — in the detail response defers to the search result's value; everything else takes the detail response's value; `source_id`/`data_source`/`raw_data` always come from the detail response. A provider signaling "no richer detail exists" (`PlantDetailUnavailableError` — Perenual's free-tier paywall, HTTP 429 with a healthy rate-limit budget remaining, not exhaustion; or a Trefle record with a null `main_species`, ~4% of a live sample) falls back quietly; a genuine failure (any exception, or a `source_id` mismatch) shows a translated warning first, so a real error can't silently reproduce #297's own symptom.
+Held in [debug-verbose: Case study: Trefle search results never carried sun/water/pH/foliage data -- dead code, a wrong](../../../.claude/skills/debug-verbose/SKILL.md#case-study-trefle-search-results-never-carried-sunwaterphfoliage-data----dead-code-a-wrong-theory-refuted-live-and-three-more-bugs-found-only-by-trying-to-break-the-fix-issue-297-fixed-2026-08-10). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-DOM-04
 
 - **Rule:** This shipped over seven senior-review rounds, each finding a real, live-reproducible defect in the previous round's own fix
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #210, #296
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l209-this-shipped-over-seven-senior-review-rounds-each-finding-a-real-live-reproducible-defect-in-the-previous-rounds-own-fix)
 - **Legacy:** README L209
@@ -65,7 +60,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-DOM-05
 
 - **Rule:** Takeaway: this project's `.env` has working credentials for Trefle, Perenual, and Permapeople. A live call costs thirty
-- **Pinned by:** `tests/integration/test_plant_search_enrichment.py`; `tests/unit/test_plant_search_dialog_merge.py`; `tests/unit/test_trefle_client.py`
+- **Pinned by:** `tests/integration/test_plant_search_enrichment.py`; `tests/unit/test_trefle_client.py`; `tests/unit/test_plant_search_dialog_merge.py`
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L216
@@ -75,7 +70,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-DOM-06
 
 - **Rule:** Update (manual testing, 2026-08-10): a defect one layer above the seven-round fix, invisible to every review round.: The
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** none recorded
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l218-update-manual-testing-2026-08-10-a-defect-one-layer-above-the-seven-round-fix-invisible-to-every-review-round-the)
 - **Legacy:** README L218
@@ -93,7 +88,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-DOM-08
 
 - **Rule:** Available API fields silently discarded, independent of the crash above (issue #296).
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #213, #218, #296, #297
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l228-available-api-fields-silently-discarded-independent-of-the-crash-above-issue-296)
 - **Legacy:** README L228
@@ -101,7 +96,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-DOM-09
 
 - **Rule:** Closed (#228): task status now has a single write-path
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #188, #227, #228
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l246-closed-228-task-status-now-has-a-single-write-path)
 - **Legacy:** README L246
@@ -109,7 +104,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-DOM-10
 
 - **Rule:** Writing `metadata["plant_species"]` does not repaint the canvas, and a manual `spacing_radius_cm` override masks the database value
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #210, #213
 - **Status:** standing
 - **Legacy:** README L252
@@ -119,7 +114,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-DOM-11
 
 - **Rule:** 3-anchor constraints not solved on add
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L276
@@ -129,7 +124,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-DOM-12
 
 - **Rule:** Live-drag projection tolerance must be sub-pixel
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #169
 - **Status:** standing
 - **Legacy:** README L278
@@ -139,7 +134,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-DOM-13
 
 - **Rule:** `ShoppingListItem.id` must encode the display unit when units auto-promote
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L324
@@ -149,7 +144,7 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 ### PF-DOM-14
 
 - **Rule:** Two surfaces that share a status store must derive the key identically — reuse the canonical `species_key()`
-- **Pinned by:** `src/open_garden_planner/models/plant_data.py`; `tests/integration/test_tasks.py::TestCrossSurfaceSync`
+- **Pinned by:** `tests/integration/test_tasks.py::TestCrossSurfaceSync`
 - **Source:** #12, #227
 - **Status:** standing
 - **Legacy:** README L371
@@ -178,18 +173,19 @@ Standing rules for this area, one entry each. The heading is the rule. Pins and 
 
 ### PF-DOM-17
 
+
 - **Rule:** A derived texture's orientation is gravity-relative, and naming a half "left" does not make it the downhill side
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #364, #372
-- **Status:** standing
+- **Status:** pointer → [debug-verbose: Case study: the roof-ridge sync was a membrane, not a recompute (issue #364, fixed 2026-09-29)](../../../.claude/skills/debug-verbose/SKILL.md#case-study-the-roof-ridge-sync-was-a-membrane-not-a-recompute-issue-364-fixed-2026-09-29)
 - **Legacy:** README L469
 
-**A derived texture's orientation is gravity-relative, and naming a half "left" does not make it the downhill side** (issue #372, 2026-09-30). Symptom: a HOUSE's roof tiles lapped back **up toward the ridge** on both halves - they read the same outward sequence, being mirror images of each other, so the inversion could not show on one side only - so water would run uphill under the laps, reported by the owner as "regardless of whether I paint a vertical or horizontal house, it is always the wrong direction", a phrasing that is the whole diagnosis. The two first theories were both wrong in an instructive way: the *rotation* was not broken (the transform was computed and applied correctly, provable in isolation), and the *texture* was not upside-down (its `+Y` is genuinely down-slope: a dark lapse line near `y=10` with the light free edge beneath). The halves were assigned by `_split_path_by_line`'s `left`/`right` naming, which follows the left-perpendicular `n = (-uy, ux)` and therefore the ridge's **direction** - for a +X ridge `left_path` is the LOWER half, for a +Y ridge it is the LEFT half. The half that needed the texture's true down-slope was the one being handed the mirror, so the error tracked ridge direction rather than gravity and appeared at every angle. Measured through the production paint path, the two builds differ in **absolute phase** while staying mirror-symmetric: fixed `RBBRBB`, pre-fix `BRRBRR` on both halves. Third lesson, and the one that nearly cost the fix itself: **check that your measuring instrument reaches the code under test.** A test harness called `scene.removeItem(ridge)` to stop the ridge's stroke covering its sample points - which made `_find_ridge()` return `None`, which means `_paint_with_ridge` is never called at all. Every render then measured `super().paint()`, the fallback fill that both builds share, and the fix hashed byte-identical. A "no-op" measured by an instrument that bypasses the code is not evidence of a no-op; when the reviewer reported that the test did not call production code, the correct response was to re-measure the *fix* with a corrected instrument, not to conclude from the broken one. Hide the obstacle with `setVisible(False)` - **not** by clearing its pen, which does nothing here because `_paint_roof_ridge` strokes three *hardcoded* pens and never reads `self.pen()` - and never remove the thing whose presence gates the code path. The same class of bug appeared twice more in the same file: the ridge points were run through `house.mapToScene` although they are already scene space (since #364), so the harness sampled 30 degrees off the real ridge normal at 30 degrees of rotation and invented a "degenerate" band at 90/270 that does not exist. **A fourth trap was a test that looked thorough and pinned nothing:** it swept the house's *rotation* across nine angles and called that angle coverage, but the angle `_paint_with_ridge` feeds to `normal_tx.rotate()` is the ridge direction in the polygon's **local** frame, which `compute_roof_ridge_endpoints` pins to the longest bounding-box axis - 0 for a landscape house at *every* rotation, 90 for a portrait one at every rotation (measured by spying on the value). Since `rotate(-a)` and `rotate(+a)` are the same transform when `a` is 0, a rotation-only sweep is structurally blind to a negated sign, which is the very term the swap argument rests on. Adding a portrait house caught it immediately: negated, the landscape cases still read `RBBRBB` and all four portrait cases read `BRRBRR`. **When a test sweeps a transformation, check which quantity the code under test actually consumes** - an item transform, a local-frame angle and a scene-frame angle are three different things, and only one of them is what a rotation sweep moves. The fix is a swap, not a probe, because of an exact identity: `normal_tx` is `translate . rotate(angle)` and a `QBrush` samples the texture at `T^-1.p`, so texture `+Y` lands at `R(angle).(0,1) = (-sin a, cos a)` - precisely `n`. **Lesson: a geometric naming convention is not a physical one.** Whenever a half, a side, or a region is named by geometry (left/right, near/far, first/second), check that the name survives rotation before branching on it. Second lesson, about the measurement itself: correlating the real 256 px tile texture against the render had **no discriminating power** - peak correlation ~0.03 either way, with the diagonal case a 0.020-vs-0.019 coin flip - because a few hundred sampled pixels span barely one texture period, and a metric that cannot separate right from wrong will happily pass broken code. The fix came from replacing the texture with a **two-colour probe** (red on top, blue on bottom, so blue *is* the down-slope) and sampling a six-point sequence outward from the ridge. When a rendering assertion will not separate, change what it measures rather than loosening the threshold. And note what it took to see this at all: a green 6515-test suite, because nothing in `tests/` had ever looked at a rendered roof pixel.
+Held in [debug-verbose: Case study: the roof-ridge sync was a membrane, not a recompute (issue #364, fixed 2026-09-29)](../../../.claude/skills/debug-verbose/SKILL.md#case-study-the-roof-ridge-sync-was-a-membrane-not-a-recompute-issue-364-fixed-2026-09-29). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-DOM-18
 
 - **Rule:** Corollary - `species_key` is a function, not a field.: The first draft of `suggest_succession`
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** none recorded
 - **Status:** standing
 - **Legacy:** README L509
@@ -205,18 +201,19 @@ bugs. **When many tests fail the same way, find the shared assumption before fix
 
 ### PF-DOM-19
 
+
 - **Rule:** The GUI anchored task windows on the current year while the agent anchored on every year that could reach the date (TD-037).
 - **Pinned by:** `scripts/measure_task_window_sweep.py`; `tests/unit/test_task_windows_multi_anchor.py`
 - **Source:** none recorded
-- **Status:** standing
+- **Status:** pointer → [ADR: Addendum (#414 — one frost anchor per surface, and one date-window entry point)](../../09-architecture-decisions/README.md#addendum-414--one-frost-anchor-per-surface-and-one-date-window-entry-point)
 - **Legacy:** README L1078
 
-- **The GUI anchored task windows on the current year while the agent anchored on every year that could reach the date (TD-037).** Symptom: a southern plan (20 September last frost) put a tomato harvest at 29 Nov 2026 – 7 Feb 2027, and on 1 January 2027 the Tasks tab and the dashboard showed nothing — a tomato-only plan read *"No tasks — you're all caught up."* while the task was open; the agent's `get_tasks` listed it. Wrong theories: (a) that the dashboard and the Tasks tab filtered differently — they did not, both called `generate_all(build_plan_state(...))`, and the agent called `generate_for_date_window`; (b) that the offset maths was wrong — it was right, and `generate_for_date_window` already derived the anchor-year range correctly from the offsets. The decisive evidence was a sweep applying the GUI's own listing rule (`classify_urgency(...) is not None`) to **both** sides, over the 64 bundled species that carry calendar offsets x 6 frost dates x every 10th day of 2026 (222 cases): **1,836 missed (task, frost date, day) cases on master and 0 after the fix**, with **0** tasks the GUI listed that the agent did not. The absolute count is harness-dependent — the wider sweep of all 118 species on every day of 2026 (2,190 cases) gives 17,884 before / 0 after — so quote the harness with the number (committed as `scripts/measure_task_window_sweep.py`). The invariant, not the count, is what `tests/unit/test_task_windows_multi_anchor.py` pins: `agent <= gui` **and** `gui <= agent`, so neither side may hide a task the other can see. Root cause: three surfaces each built their own list — the Tasks tab and the dashboard passed the snapshot to `generate_all`, and the Gantt went further and re-derived every window from `self._last_frost` plus the raw species offsets, so the chart was a *second* implementation of "offset to date" — the agent's `generate_for_date_window` and the dashboard's `generate_all` both *call* `generate_calendar_tasks` rather than reimplementing it, so the generator itself is the first implementation and the Gantt's re-derivation the second; the old count included the callers. Fix: one shared entry point, `task_generator.generate_actionable_for_surface`, which wraps `generate_for_date_window` (not a reimplementation) and re-applies the GUI's urgency filter; the Gantt now consumes the generated windows instead of recomputing them, and the dashboard and chart read the same `PlanState`. Two traps inside that fix, both of which produced a green-looking but wrong result: `generate_for_date_window` inherits the caller's `actionable_only` **per anchor year**, so passing the GUI's `True` into it silently dropped anchors before the outer filter ever ran (the Gantt lost most of its chart this way); and comparing raw agent output against the filtered GUI list is apples to oranges — a window 43 days out is *supposed* to be hidden. *Two surfaces that call the same generator can still disagree about which inputs they pass it; find the divergence by comparing the two lists under one rule, not by reading the call sites.*
+Held in [ADR: Addendum (#414 — one frost anchor per surface, and one date-window entry point)](../../09-architecture-decisions/README.md#addendum-414--one-frost-anchor-per-surface-and-one-date-window-entry-point). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-DOM-20
 
 - **Rule:** The "weeks after planting" comment in the bundled plant data was wrong — and the first measurement of how wrong was itself wrong.
-- **Pinned by:** `scripts/measure_harvest_offsets.py`
+- **Pinned by:** none — the entry names no test as its pin; pending review
 - **Source:** #311, #418
 - **Status:** standing
 - **Legacy:** README L1082
@@ -225,18 +222,19 @@ bugs. **When many tests fail the same way, find the shared assumption before fix
 
 ### PF-DOM-21
 
+
 - **Rule:** A shared generator's flags are inherited per iteration, so a wrapper can filter before the wrapper's own filter runs.
 - **Pinned by:** none — pending Phase 3 review
 - **Source:** #326
-- **Status:** standing
+- **Status:** pointer → [ADR: ADR-028: Plant Sizing Resolver + Unified Rotation-Aware Resize](../../09-architecture-decisions/README.md#adr-028-plant-sizing-resolver--unified-rotation-aware-resize)
 - **Legacy:** README L1084
 
-- **A shared generator's flags are inherited per iteration, so a wrapper can filter before the wrapper's own filter runs.** Symptom: routing the Tasks tab through the shared multi-anchor path produced an **empty** task list and the Gantt produced **no bars at all**, while the unit tests of the same helper passed. Root cause: `generate_for_date_window` builds each anchor year with `replace(state, ...)`, so `actionable_only=True` (the GUI default) is re-applied inside every anchor — dropping anchors whose windows are not currently urgent *before* the outer `classify_urgency` filter saw them. Fix: both call sites pass `actionable_only=False` into the inner pass and keep exactly one urgency filter, which is the one they document. This is the same shape as the #326 "`Callable` injection with N call sites" lesson: a flag that is silently defaulted somewhere in the middle of a chain is not a flag, it is an accident waiting for a caller. *A default inside a loop over derived inputs is a filter nobody wrote; when a wrapper delegates, pass the permissive value inward and filter once at the edge.*
+Held in [ADR: ADR-028: Plant Sizing Resolver + Unified Rotation-Aware Resize](../../09-architecture-decisions/README.md#adr-028-plant-sizing-resolver--unified-rotation-aware-resize). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-DOM-22
 
 - **Rule:** A day derived from a UTC instant is not the user's day (Phase 17 L1.0, #385)
-- **Pinned by:** `tests/integration/test_sim_clock_wiring.py::TestOnePlanDateEastOfUtc`; `tests/unit/test_sim_clock.py::TestTimeChangeNeverFiresDateChanged`
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #385
 - **Status:** standing; narrative in [archive/02-l1-0-clock.md](../archive/02-l1-0-clock.md#1147-a-day-derived-from-a-utc-instant-is-not-the-users-day-phase-17-l10-385)
 - **Legacy:** README L1087 (legacy 11.4.7)
@@ -244,7 +242,7 @@ bugs. **When many tests fail the same way, find the shared assumption before fix
 ### PF-DOM-23
 
 - **Rule:** Guild boundaries found by independent review (F1/F2)
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #433
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l1095-guild-boundaries-found-by-independent-review-f1f2)
 - **Legacy:** README L1095 (legacy 11.4.8)
@@ -252,7 +250,7 @@ bugs. **When many tests fail the same way, find the shared assumption before fix
 ### PF-DOM-24
 
 - **Rule:** Sun self-shadow and late document results (#314, #428)
-- **Pinned by:** none — pending Phase 3 review
+- **Pinned by:** none — the tests this narrative names are cited in the archive (see Status); pending review
 - **Source:** #314, #428
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l1109-sun-self-shadow-and-late-document-results-314-428)
 - **Legacy:** README L1109 (legacy 11.4.6)
