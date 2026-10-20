@@ -555,3 +555,15 @@ independent render, and measure the actual cache path. Pinned by
 ### Frozen reference portability observed during line-package validation
 
 Clean master and the branch each failed the same six day-ramp exposure assertions on Windows Python 3.11.9: a one-binary64-ULP difference from the historical JSON. The reference test now permits exactly one ULP for nonlinear exposure only; colors, brightness, fog and linear probe exposure remain exact. All 262 lighting tests then pass. Production lighting and the frozen reference data are unchanged.
+
+### A process-isolated search test still inherited custom plants
+
+The line-package Linux Test job found two offline apple results where
+	est_permaculture_search.py assumed one. Tagged tracing on unchanged master
+reproduced the assertion with a distinct-ID custom apple: the catalog correctly
+merges bundled and process-wide custom records. The specific earlier CI writer
+was not identified. A module-local empty custom-library stub now isolates these
+bundled-catalog scenarios, matching the existing zero-results/enrichment pattern.
+All five tests pass with the global library deliberately primed. The exact count,
+real bundled database/filtering and provider/dialog path remain unchanged; no
+production singleton reset or count relaxation was added. See section 8.10.

@@ -658,3 +658,9 @@ Verify inventory and both frozen gates on the rebuilt artifact. A process waitin
 on an unhandled-exception dialog satisfies the survival smoke and has not passed
 startup or self-test. When diagnosis needs a console build, keep it separate and
 repeat the final checks with the windowed executable.
+
+Do not rebuild while the test suite reads this checkout's existing frozen bundle.
+The inventory tests decide whether to skip at collection, then inspect the exe
+and manifest later. PyInstaller COLLECT replaces that directory; concurrent runs
+can therefore produce a missing-exe or missing-manifest failure. Finish the build
+and inventory generation before running the suite against the stable artifact.

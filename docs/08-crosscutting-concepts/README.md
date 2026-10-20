@@ -470,6 +470,13 @@ built while a module is being *imported* already lands in the test location; a f
 after collection and cannot cover that. (The settings store is the first; §8.8 is its
 specification.)
 
+Process isolation does not reset custom-library contents between tests in one
+worker. A bundled-catalog search test must supply an empty custom-library stub,
+as `test_permaculture_search.py` and `test_plant_search_zero_results.py` do. Keep
+the real bundled database, filtering and dialog/provider wiring. The line-package
+CI run exposed a two-result assertion failure; priming a custom apple reproduces
+it on unchanged master. The original CI writer remains unconfirmed.
+
 | What | Production location | How the suite redirects it |
 | ---- | ------------------- | -------------------------- |
 | Settings (`QSettings`) | organisation / application of `app.settings` | the two names are rebound to a per-process test key (§8.8, ADR-041) |
