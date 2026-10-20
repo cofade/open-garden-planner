@@ -3554,8 +3554,8 @@ tracked in `_icon_labels`; the sun-hint icon follows the hint's visibility
 via an event filter), the dashboard tabs (`setTabIcon`, tracked in
 `_tab_icons`), the frost badge (icon tinted with `on_status`, state kept so
 the theme walk re-applies it), the View menu's grouped submenus (Snapping /
-Overlays / Sun & 3D — the flat list of 22 toggles was hard to scan; the
-toggle attribute names are unchanged so callers/tests keep working), the
+Overlays) and the direct 3D View action (ADR-061 removes the former
+Sun & 3D submenu and its redundant shadow/simulation toggles), the
 layers panel (eye/eye_off/lock/lock_open tinted accent / text_secondary /
 warning), the constraints panel (a type-icon column reusing the constraint
 toolbar's glyphs; row text is now "A – B   detail"), seed viability, task /
@@ -6461,7 +6461,7 @@ wrong on the way is §11.4.20.
 `Workspace` around the canvas view, always. Starting the app imports `ui/view3d/workspace.py`
 and what it needs (no Qt Quick, no QML — the engine is loaded on the first switch to 3D or
 Split, `Workspace.engine_factory`), and the app starts in Plan mode in every session (the mode
-is not saved). View → Sun & 3D → "3D View" — the old window's entry, its place and its icon —
+is not saved). View → "3D View" — the direct workspace action, with its icon —
 switches Plan to Split (`_on_show_3d_view`); in 3D or Split it does nothing. The safety net is
 the start marker and compatibility mode (`ui/view3d/init_guard.py`, FR-3D-WS-07), not a flag:
 
@@ -6651,7 +6651,6 @@ remain for whoever touches this area:
   catches #277's class: a missing or mismatched Qt Quick 3D library fails the frame in the real
   artifact, as the Qt 3D import used to.
 
-An "item made from an item" copies a shape's **look** through one seam that the **offset tool and mirror** share, `core/item_look.py::copy_visual_style`. It copies both the serialized attributes (`fill_pattern`, `fill_color`, `stroke_color`, `stroke_width`, `stroke_style`) and the live `QPen`/`QBrush`, because a copy that writes only one of the two looks right until the next save (#470). Chamfer, fillet and trim are the same shape of bug and are **not** routed here: they are owned by the in-flight L1 branch's #441, so routing them now would collide.
 
 ## 8.30 Plan date, visibility and lifetime (US-F4, ADR-061)
 
@@ -6707,3 +6706,15 @@ The 30-second timeout does not widen the generic main-thread bridge timeout.
 Generation/revision/wall-time checks protect exports even when no map is enabled.
 No output is written until readiness and identity checks succeed. Animation uses
 counted pause leases so concurrent exports cannot resume it prematurely.
+
+
+Collection itself is debounced: notifications only mark inputs dirty, withdraw
+measurements and compare constant-time document/location/grid identity. The timer
+collects one latest snapshot; a matching displayed receiver cache restores results
+without a worker for requirement-only edits. is_current and UI reflection never
+scan the scene. Export readiness and final validation remain explicit trust boundaries.
+
+API export operations own their pause lease across queued calls. A lock coordinates
+abandonment with begin and render admission; late calls refuse and queued cleanup
+releases an acquired lease exactly once. Already-started rendering returns its actual
+outcome. GUI cancellation wins even if readiness completed in the same event turn.

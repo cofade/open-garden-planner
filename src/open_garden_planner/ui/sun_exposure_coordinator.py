@@ -94,7 +94,9 @@ class SunExposureCoordinator(QObject):
     def _refresh(self) -> None:
         location = self.project_manager.location
         snapshot = collect_exposure_snapshot(self.scene, location, self.clock.plan_date)
-        if self.heatmap.snapshot is not None and snapshot != self.heatmap.snapshot:
+        measured = (self.heatmap.displayed_snapshot if self.heatmap.exposure_reason == "ready"
+                    else self.heatmap.snapshot)
+        if measured is not None and snapshot != measured:
             self.heatmap.invalidate_exposure()
         reason = self.heatmap.exposure_reason
         if snapshot.latitude is None or snapshot.longitude is None:

@@ -3480,3 +3480,18 @@ groups missed the available 800-pixel content width by two pixels despite Englis
 passing. The actual group hints, not a guessed Qt cache bug, explained the third
 row. Narrow sliders now leave translated text headroom; native-widget captures
 and two-locale regressions supplement the English geometry tests.
+
+
+### Debounce collection and own abandoned export calls (#315)
+
+Worker-count tests missed 154 synchronous whole-scene captures during one 150-item
+layer command. Live-map notifications now dirty cheap state; collection occurs once
+after debounce, and requirement-only changes restore cached measurements. The bulk
+command regression asserts both synchronous and eventual capture counts.
+
+A completed map Future also masked a real-dialog Cancel in the same event turn.
+Cancellation now wins independently. Generic bridge timeouts leave queued calls in
+Qt, so an abandoned begin could acquire a permanent animation lease and an abandoned
+render could write later. Locked operation state refuses late admission and releases
+leases through queued Qt cleanup. Fail-first tests withhold actual bridge delivery
+until after timeout, then assert resumed animation and absent output files.

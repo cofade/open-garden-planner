@@ -1,6 +1,6 @@
 # 6. Runtime View
 
-## Explicit sun evaluation and document replacement (ADR-056)
+## Live sun evaluation and document replacement (ADR-056 / ADR-061)
 
 ```mermaid
 sequenceDiagram
@@ -10,8 +10,8 @@ sequenceDiagram
     participant W as Worker
     participant C as Sun coordinator
     participant D as Shared Diagnostics / MCP
-    U->>A: Optional 21 June shortcut
-    U->>H: Hours of Sun
+    U->>A: Select the single calendar date
+    U->>H: Enable Hours of Sun
     H->>W: Immutable document snapshot + receivers
     W-->>H: Grid and own-shadow-excluded receiver minutes
     H->>H: Check generation and complete signature
@@ -19,7 +19,10 @@ sequenceDiagram
     C->>D: Cached mismatch / unavailable records
     U->>A: Move caster or edit geometry
     A-->>C: Scene or command change
-    C->>H: Invalidate within 60 ms (keep visual snapshot)
+    A->>H: Withdraw stale measurements immediately (keep dated preview)
+    A->>A: Debounce collection of the latest exposure snapshot
+    A->>H: Cancel obsolete work; request latest after worker retirement
+    H->>W: Compute latest exposure inputs
     C->>D: Clear warnings; publish unavailable state
     U->>A: New / validated Open / recovery / agent lifecycle
     A->>H: document_replaced before item teardown
@@ -29,7 +32,7 @@ sequenceDiagram
     H->>H: Reject unwanted / old-generation result
 ```
 
-Prevalidation load failure emits no document replacement and preserves the active valid result. Time-only changes preserve daily exposure; date changes clear it. Diagnostics and canopy reads never launch a worker.
+Prevalidation load failure emits no document replacement and preserves the active valid result. Time-only changes preserve daily exposure; date changes retain the labelled old preview while requesting the current map. Document replacement and location/grid changes clear old imagery. Diagnostics and canopy reads never launch a worker.
 
 ## 6.1 Drawing Workflow
 
@@ -387,7 +390,7 @@ the 3D pane hidden, `mark_dirty()` sets a flag and nothing else happens.
 
 ```mermaid
 flowchart TD
-    A([View → Sun & 3D → 3D View (Plan → Split) / Alt+2 / Alt+3 /<br/>the mode buttons / View → Workspace])
+    A([View → 3D View (Plan → Split) / Alt+2 / Alt+3 /<br/>the mode buttons / View → Workspace])
     B["Workspace.set_mode: build the 3D pane (strip + stacked body)"]
     G["Init3DGuard.begin(): a marker of a dead process?<br/>→ compatibility flag on. Own marker written"]
     F["engine_factory(prefer_software): import quick3d,<br/>Quick3DHost + Quick3DSink; container into the pane"]

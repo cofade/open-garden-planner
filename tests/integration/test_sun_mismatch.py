@@ -97,7 +97,7 @@ def test_explicit_compute_badges_canopy_invalidation_and_requirements(sun_app, q
     qtbot.wait(120)
     assert win._sun_heatmap.exposure_reason == "ready"
     assert change_trait(north, "sun_requirement", "full_shade")
-    qtbot.waitUntil(lambda: not north._sun_badge.isVisible())
+    qtbot.waitUntil(lambda: not north._sun_badge.isVisible() and win._sun_heatmap.exposure_reason == "ready")
     assert win._sun_heatmap.exposure_reason == "ready" and win._sun_heatmap.run_count == run_count
     win.canvas_view.command_manager.undo()
     qtbot.waitUntil(lambda: north._sun_badge.isVisible())
@@ -129,6 +129,7 @@ def test_badge_group_navigation_geometry_and_reload(sun_app, qtbot, tmp_path, mo
     north.setSelected(True)
     by_name(win)["Southern tomato"].setSelected(True)
     win.canvas_view._group_selected()
+    compute(win, qtbot)
     qtbot.waitUntil(lambda: bool(sun_records(win)))
     root = north.parentItem()
     win.sun_exposure_coordinator.refresh()

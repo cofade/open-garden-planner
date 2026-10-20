@@ -243,6 +243,7 @@ class SunHeatmapController(QObject):
         self.snapshot: ExposureSnapshot | None = None
         # The published map can remain visible while a different snapshot runs.
         self.displayed_snapshot: ExposureSnapshot | None = None
+        self.displayed_receiver_minutes: dict[str, float] = {}
         self.receiver_minutes: dict[str, float] = {}
         self.exposure_reason = "absent"
         #: Test instrument — number of worker launches.
@@ -356,6 +357,7 @@ class SunHeatmapController(QObject):
         self.last_grid = None
         self.snapshot = None
         self.displayed_snapshot = None
+        self.displayed_receiver_minutes = {}
         self.receiver_minutes = {}
         self.exposure_reason = "absent"
         self.cancel()
@@ -370,16 +372,25 @@ class SunHeatmapController(QObject):
         if overlay is not None and overlay.toolTip() != text:
             overlay.setToolTip(text)
 
+    def suspend_measurements(self) -> None:
+        """Withdraw badges immediately while debounced inputs are unverified."""
+        if self.exposure_reason != "stale":
+            self.receiver_minutes = {}
+            self.exposure_reason = "stale"
+            self.exposure_changed.emit()
+
+    def restore_displayed_measurements(self) -> None:
+        """Reuse the completed result after an unchanged exposure snapshot."""
+        self.receiver_minutes = dict(self.displayed_receiver_minutes)
+        self.exposure_reason = "ready"
+        self.exposure_changed.emit()
+
     def invalidate_exposure(self) -> None:
         """Leave a shown overlay as a snapshot; stop publishing stale measurements."""
-        if self.exposure_reason == "stale":
-            return
         self._result_wanted = False
         self._success_seen = False
         self.cancel()
-        self.receiver_minutes = {}
-        self.exposure_reason = "stale"
-        self.exposure_changed.emit()
+        self.suspend_measurements()
 
     def cancel(self) -> None:
         if self._worker is not None:
@@ -409,6 +420,7 @@ class SunHeatmapController(QObject):
         # always emits a SunExposureResult.
         minutes = result.minutes if isinstance(result, SunExposureResult) else result
         self.receiver_minutes = dict(result.receiver_minutes) if isinstance(result, SunExposureResult) else {}
+        self.displayed_receiver_minutes = dict(self.receiver_minutes)
         self.last_minutes = minutes
         image = build_heatmap_image(minutes, self._daylight_minutes)
         overlay = self._ensure_overlay()

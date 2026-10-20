@@ -1,6 +1,6 @@
 """Combined date/time controls, accurate live-map previews and export readiness."""
 
-from concurrent.futures import ThreadPoolExecutor, TimeoutError
+from concurrent.futures import Future, ThreadPoolExecutor, TimeoutError
 from datetime import date, datetime, time
 from threading import Event, get_ident
 
@@ -169,6 +169,66 @@ def test_time_animation_does_not_request_full_day_work(win, qtbot, jobs):
     assert len(jobs) == 1 and win._live_sun_map.is_current()
 
 
+def test_bulk_layer_changes_debounce_scene_collection_itself(win, qtbot, jobs, monkeypatch):
+    from open_garden_planner.core.commands import SetLayerPropertyCommand
+
+    layer = win.canvas_scene.layers[0]
+    for number in range(150):
+        item = RectangleItem(number, 100, 20, 20, object_type=ObjectType.TOOL_SHED)
+        item.layer_id = layer.id
+        win.canvas_scene.addItem(item)
+    start(win, qtbot, jobs)
+    complete(win, qtbot, jobs)
+    captures = []
+    collect = win._live_sun_map._snapshot
+    def counted():
+        captures.append(True)
+        return collect()
+    monkeypatch.setattr(win._live_sun_map, "_snapshot", counted)
+    win.canvas_view.command_manager.execute(
+        SetLayerPropertyCommand(win.canvas_scene, layer, "visible", True, False))
+    assert captures == []  # no synchronous O(N) scan for any of the N notifications
+    assert not win._live_sun_map.is_current()
+    qtbot.waitUntil(lambda: len(jobs) == 2)
+    assert len(captures) == 1
+    complete(win, qtbot, jobs, 1)
+
+
+@pytest.mark.parametrize("hop", ["begin", "render"])
+def test_abandoned_bridge_hop_cannot_pause_animation_or_write_later(win, qtbot, monkeypatch, tmp_path, hop):
+    gate = win._sun_export_gate
+    bridge = win._agent_bridge
+    original = bridge.run_on_main
+    queued = Event()
+    deliver = Event()
+    calls = []
+    def short_hop(action):
+        calls.append(True)
+        if len(calls) == (1 if hop == "begin" else 2):
+            queued.set()
+            assert deliver.wait(2)
+            return original(action, timeout=.05)
+        return original(action)
+    monkeypatch.setattr(bridge, "run_on_main", short_hop)
+    win._sun_toolbar.set_animation_active(True)
+    target = tmp_path / "abandoned.png"
+    with ThreadPoolExecutor(1) as pool:
+        future = pool.submit(gate.run_worker, bridge, lambda: target.write_bytes(b"wrong"))
+        if hop == "render":
+            # Let the initial hop execute, then deliberately stop servicing Qt.
+            qtbot.waitUntil(queued.is_set)
+        else:
+            assert queued.wait(1)
+        deliver.set()
+        # Waiting here without event processing deterministically abandons the hop.
+        with pytest.raises(TimeoutError):
+            future.result(timeout=1)
+    QApplication.processEvents()  # deliver the abandoned begin/render and its cleanup
+    qtbot.waitUntil(lambda: gate._leases == 0)
+    assert win._sun_toolbar.animation_active
+    assert not target.exists()
+
+
 def test_edit_refreshes_map_and_off_rejects_late_result(win, qtbot, jobs):
     start(win, qtbot, jobs)
     complete(win, qtbot, jobs)
@@ -216,6 +276,20 @@ def test_gui_export_cancel_writes_nothing(win, qtbot, jobs, tmp_path):
     QTimer.singleShot(60, cancel)
     with pytest.raises(RuntimeError, match="canceled"):
         win._sun_export_gate.run_gui(lambda: target.write_bytes(b"wrong"))
+    assert not target.exists()
+
+
+def test_gui_cancel_wins_when_readiness_finishes_in_same_event_turn(win, monkeypatch, tmp_path):
+    readiness = Future()
+    monkeypatch.setattr(win._live_sun_map, "ensure_current", lambda: readiness)
+    target = tmp_path / "must-not-write-ready-map.png"
+    def ready_then_cancel():
+        readiness.set_result(None)
+        dialog = next(w for w in QApplication.topLevelWidgets() if isinstance(w, QProgressDialog))
+        dialog.cancel()
+    QTimer.singleShot(40, ready_then_cancel)
+    with pytest.raises(RuntimeError, match="canceled"):
+        win._sun_export_gate.run_gui(lambda: target.write_bytes(b"must not be written"))
     assert not target.exists()
 
 

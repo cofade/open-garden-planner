@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-import contextlib
 from collections.abc import Callable
 from concurrent.futures import Future, TimeoutError
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
+from threading import Lock
 from typing import Any, TypeVar, cast
 
-from PyQt6.QtCore import QObject, Qt, QThread, QTimer
+from PyQt6.QtCore import QObject, Qt, QThread, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QProgressDialog, QWidget
 
 from open_garden_planner.ui.canvas.sun_exposure_snapshot import ExposureSnapshot
@@ -26,13 +26,55 @@ class _ExportRequest:
     wall: datetime
 
 
+@dataclass
+class _WorkerExport:
+    """Synchronize abandonment with lease acquisition and render admission."""
+
+    lock: Any = field(default_factory=Lock)
+    request: _ExportRequest | None = None
+    abandoned: bool = False
+    rendering: bool = False
+    rendered: Future[Any] = field(default_factory=Future)
+
+
 class SunExportGate(QObject):
+    _release_worker = pyqtSignal(object)
+
     def __init__(self, live: LiveSunMap, toolbar: Any, parent: QWidget) -> None:
         super().__init__(parent)
         self.live, self.toolbar = live, toolbar
         self.timeout_s = 30.0
         self._leases = 0
         self._resume = False
+        self._release_worker.connect(self._finish_worker, Qt.ConnectionType.QueuedConnection)
+
+    def _begin_worker(self, operation: _WorkerExport) -> _ExportRequest:
+        with operation.lock:
+            if operation.abandoned:
+                raise RuntimeError(self.tr("Export canceled."))
+            operation.request = self._begin()
+            return operation.request
+
+    def _finish_worker(self, operation: _WorkerExport) -> None:
+        with operation.lock:
+            if operation.request is not None:
+                operation.request = None
+                self._end()
+
+    def _render_worker(self, operation: _WorkerExport, action: Callable[[], T]) -> T | None:
+        with operation.lock:
+            if operation.abandoned or operation.request is None:
+                return None
+            operation.rendering = True
+            request = operation.request
+        try:
+            result = self._render(request, action)
+        except BaseException as error:
+            operation.rendered.set_exception(error)
+            raise
+        else:
+            operation.rendered.set_result(result)
+            return result
 
     def _begin(self) -> _ExportRequest:
         if self._leases == 0:
@@ -84,11 +126,12 @@ class SunExportGate(QObject):
                 deadline.timeout.connect(expired)
                 poll.start()
                 deadline.start(round(self.timeout_s * 1000))
-                progress.exec()
+                outcome = progress.exec()
+                canceled = progress.wasCanceled() or outcome != QProgressDialog.DialogCode.Accepted
                 poll.stop()
                 deadline.stop()
                 progress.deleteLater()
-                if not future.done():
+                if canceled or not future.done():
                     future.cancel()
                     raise RuntimeError(self.tr("Export canceled."))
             return self._render(request, action)
@@ -98,15 +141,30 @@ class SunExportGate(QObject):
     def run_worker(self, bridge: Any, action: Callable[[], T]) -> T:
         if QThread.currentThread() is self.thread():
             return self.run_gui(action)
-        request = bridge.run_on_main(self._begin)
-        future = request.ready
+        operation = _WorkerExport()
         try:
+            request = bridge.run_on_main(lambda: self._begin_worker(operation))
             try:
-                future.result(timeout=self.timeout_s)
+                request.ready.result(timeout=self.timeout_s)
             except TimeoutError as error:
                 raise TimeoutError(self.tr("Sun-map calculation timed out. Please retry.")) from error
-            return cast(T, bridge.run_on_main(lambda: self._render(request, action)))
+            try:
+                return cast(T, bridge.run_on_main(lambda: self._render_worker(operation, action)))
+            except TimeoutError:
+                with operation.lock:
+                    rendering = operation.rendering
+                    if not rendering:
+                        operation.abandoned = True
+                if rendering:
+                    # Once writing began, return its actual outcome rather than report
+                    # a queue timeout while the GUI is still producing that output.
+                    return cast(T, operation.rendered.result())
+                raise
         finally:
-            future.cancel()
-            with contextlib.suppress(RuntimeError):
-                bridge.run_on_main(self._end)
+            with operation.lock:
+                operation.abandoned = True
+                if operation.request is not None:
+                    operation.request.ready.cancel()
+            # A signal cannot time out before cleanup is delivered. The operation
+            # owns its lease, so late begin delivery and repeated cleanup are safe.
+            self._release_worker.emit(operation)
