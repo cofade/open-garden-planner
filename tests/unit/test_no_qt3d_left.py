@@ -39,7 +39,7 @@ HISTORY = frozenset({
     "docs/09-architecture-decisions/README.md",        # ADR-038, ADR-048 and their addenda
     "docs/roadmap.md",                                 # what shipped when (Phase 14, L0, L1)
     "docs/11-risks-and-technical-debt/README.md",      # §11.1 / §11.4: what was learned
-    "docs/11-risks-and-technical-debt/audit-2026-10.md",  # a dated snapshot, never edited
+    "docs/11-risks-and-technical-debt/audits/2026-10/audit-2026-10.md",  # a dated snapshot, never edited
     ".claude/skills/ogp-failure-archaeology/SKILL.md",  # the chronicle of settled battles
     ".agents/skills/ogp-failure-archaeology/SKILL.md",
     ".claude/skills/debug-verbose/SKILL.md",            # case studies of fixed bugs

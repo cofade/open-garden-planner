@@ -562,7 +562,7 @@ SPRITES: dict[str, Callable[[], Any]] = {
     "furniture circle": lambda: CircleItem(300.0, 300.0, 50.0, object_type=ObjectType.TABLE_ROUND),
     "plant circle": lambda: CircleItem(300.0, 300.0, 90.0, object_type=ObjectType.TREE),
 }
-AUDIT_PLAN = REPO / "docs" / "11-risks-and-technical-debt" / "audit-2026-10-plan_500.ogp"
+AUDIT_PLAN = REPO / "tests" / "fixtures" / "plans" / "audit-2026-10-plan_500.ogp"
 
 
 def hand_made(tmp_path: Path, obj: dict[str, Any]) -> Path:

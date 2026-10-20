@@ -1,7 +1,7 @@
 """NFR performance budget verification tests (NFR-PERF-01, issue #409).
 
 Asserts frame timing on the reference benchmark plan
-`docs/11-risks-and-technical-debt/audit-2026-10-plan_500.ogp` (990 scene items)
+`tests/fixtures/plans/audit-2026-10-plan_500.ogp` (990 scene items)
 in a 1600x1000 viewport:
 - Fit-in-view repaint <= 16.7 ms median (>= 60 fps)
 - Zoom step repaint <= 16.7 ms median (>= 60 fps)
@@ -30,7 +30,7 @@ from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-BENCHMARK_PLAN = REPO_ROOT / "docs" / "11-risks-and-technical-debt" / "audit-2026-10-plan_500.ogp"
+BENCHMARK_PLAN = REPO_ROOT / "tests" / "fixtures" / "plans" / "audit-2026-10-plan_500.ogp"
 
 # --- Issue #473: a line-paint scenario -------------------------------------
 #

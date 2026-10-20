@@ -162,7 +162,7 @@ extraction. Numerical oracles assert physical residuals, feasibility, pinned sta
 and exact conflict IDs, rather than an arbitrary iteration count. A no-variable
 Newton call must evaluate residuals before reporting convergence; incompatible
 pinned anchors are not a solved system. The fresh eight-mutant sample and its test
-selection are recorded in `audit-2026-10-a5-evidence.md`; historical mutmut counts
+selection are recorded in `audits/2026-10/audit-2026-10-a5-evidence.md`; historical mutmut counts
 are not a current full-suite measurement.
 
 ## ADR-014: Bundled `plant_species.json` is single source of truth for species + calendar
@@ -1795,7 +1795,7 @@ fail against the unfixed brush assignment. Landscape cases alone would leave the
 ## ADR-047: Audit snapshots plus a living debt register (2026-10 repository audit)
 
 **Status**: Accepted (2026-10-04). Introduced by the first whole-repository audit
-(`docs/11-risks-and-technical-debt/audit-2026-10.md`); changes how technical debt is
+(`docs/11-risks-and-technical-debt/audits/2026-10/audit-2026-10.md`); changes how technical debt is
 recorded, not what the code does.
 
 **Context.** The project records lessons at the incident level with unusual discipline:
@@ -3526,7 +3526,7 @@ different runs.** The *before* figures are from the recorded serial run at `132f
 on the identical code: per-test call time inflates when tests contend, so one suite reads
 620.6 s of call time serially and 1 700 s under `-n auto`. The distribution's shape is a
 signal; its sum is a statement about the scheduler.
-`docs/11-risks-and-technical-debt/test-suite-latency-2026-10.md` holds both runs and that
+`docs/11-risks-and-technical-debt/audits/2026-10/test-suite-latency-2026-10.md` holds both runs and that
 caveat.
 
 **Decision.** `addopts` carries `-n auto --dist worksteal -m 'not perf'`, and
@@ -3640,7 +3640,7 @@ is a shared-*state* defect and was fixed by isolating the arm, not by scheduling
 **Evidence.** `scripts/measure_test_suite_latency.py` reproduces the concentration table
 from a recorded `--durations` report (11 unit tests pin its arithmetic against a
 hand-computable fixture, including the ways it could report a confident wrong number);
-`docs/11-risks-and-technical-debt/test-suite-latency-2026-10.md` holds the full baseline,
+`docs/11-risks-and-technical-debt/audits/2026-10/test-suite-latency-2026-10.md` holds the full baseline,
 the per-layer and per-file tables, the widget-leak measurement and the corrections to
 issue #509's stated facts. The CI `Test` job uploads its `--durations=0` report as the
 `test-durations-linux` artifact.

@@ -749,7 +749,7 @@ thumbnails fell through to the round fallback because a SOLID fill has no textur
   constant-time per-call check). The entry was written when the server was
   read-only and is retained here only as the historical shape of the problem.
   **What is still open**: *reads* remain loopback-trust with no auth (challenged
-  decision C2 in `audit-2026-10.md`), and the browser-reachability vector is a
+  decision C2 in `audits/2026-10/audit-2026-10.md`), and the browser-reachability vector is a
   separate barrier — the Host/Origin (DNS-rebinding) guard, now configured
   explicitly by OGP rather than inherited from the SDK (#396, ADR-033 addendum).
   Do not read "token auth shipped" as "the Agent API is authenticated".
