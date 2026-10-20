@@ -562,7 +562,7 @@ SPRITES: dict[str, Callable[[], Any]] = {
     "furniture circle": lambda: CircleItem(300.0, 300.0, 50.0, object_type=ObjectType.TABLE_ROUND),
     "plant circle": lambda: CircleItem(300.0, 300.0, 90.0, object_type=ObjectType.TREE),
 }
-AUDIT_PLAN = REPO / "docs" / "11-risks-and-technical-debt" / "audit-2026-10-plan_500.ogp"
+AUDIT_PLAN = REPO / "tests" / "fixtures" / "plans" / "audit-2026-10-plan_500.ogp"
 
 
 def hand_made(tmp_path: Path, obj: dict[str, Any]) -> Path:
@@ -694,7 +694,7 @@ class TestAFileTheAppDidNotWrite:
         What the item STATES after a load is master's rule since #502
         (``restore_stored_look``: what the file holds — that black 1.0); review 2's
         "its type's stroke", which this branch had kept by not reading the stroke
-        attributes off the pen, gave way to it in the sync of 2026-10-19 (§11.4.17).
+        attributes off the pen, gave way to it in the sync of 2026-10-19 (PF-CAN-21).
         What stays this branch's: the guard does not hold a sprite's pen against its
         attributes (``paints_sprite``), and ``adopt_pen`` does not write a sprite's
         attributes from a pen."""

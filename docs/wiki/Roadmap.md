@@ -17,7 +17,7 @@ These improvements apply across the project.
 The repository audit remains open under [#392](https://github.com/cofade/open-garden-planner/issues/392).
 The [living debt register](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/README.md)
 records individual outcomes. The dated audit snapshot preserves the original findings.
-The [current reconciliation and package map](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audit-2026-10-reconciliation.md)
+The [current reconciliation and package map](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audits/2026-10/audit-2026-10-reconciliation.md)
 links the remaining work to thematic bundle issues.
 All 15 original standalone P0/P1 remediation issues are complete after #406 shipped in [v1.30.2](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.2) via [PR #477](https://github.com/cofade/open-garden-planner/pull/477).
 The rotation/constraint interaction discovered during manual testing is a separate follow-up, [#485](https://github.com/cofade/open-garden-planner/issues/485).

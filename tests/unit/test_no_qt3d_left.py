@@ -39,7 +39,9 @@ HISTORY = frozenset({
     "docs/09-architecture-decisions/README.md",        # ADR-038, ADR-048 and their addenda
     "docs/roadmap.md",                                 # what shipped when (Phase 14, L0, L1)
     "docs/11-risks-and-technical-debt/README.md",      # §11.1 / §11.4: what was learned
-    "docs/11-risks-and-technical-debt/audit-2026-10.md",  # a dated snapshot, never edited
+    "docs/11-risks-and-technical-debt/audits/2026-10/audit-2026-10.md",  # a dated snapshot (one status edit, #426; ADR-047)
+    "docs/11-risks-and-technical-debt/pitfalls/06-ci-release-supply-chain.md",  # retired Qt 3D DLL entry (L1.10)
+    "docs/11-risks-and-technical-debt/pitfalls/10-3d-engine-scene.md",  # retired Qt 3D window entries (L1.10)
     ".claude/skills/ogp-failure-archaeology/SKILL.md",  # the chronicle of settled battles
     ".agents/skills/ogp-failure-archaeology/SKILL.md",
     ".claude/skills/debug-verbose/SKILL.md",            # case studies of fixed bugs
@@ -49,7 +51,10 @@ HISTORY = frozenset({
     ".claude/skills/ogp-3d-sunshade-campaign/SKILL.md",
     ".agents/skills/ogp-3d-sunshade-campaign/SKILL.md",
 })
-HISTORY_DIRS = ("docs/09-architecture-decisions/adr-048-evidence/",)  # measured runs, kept
+HISTORY_DIRS = (  # measured runs, kept; the verbatim archive of retired work (ADR-061)
+    "docs/09-architecture-decisions/adr-048-evidence/",
+    "docs/11-risks-and-technical-debt/archive/",
+)
 #: This gate's own name: citing it is not naming Qt 3D.
 SELF = "test_no_qt3d_left"
 #: Files in the code areas that may name Qt 3D, each with its reason.

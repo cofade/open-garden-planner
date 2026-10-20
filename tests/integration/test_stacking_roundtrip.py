@@ -79,7 +79,7 @@ def test_stacking_order_survives_save_load_roundtrip(manager, tmp_path) -> None:
 
     Before the #338 fix, `_serialize_scene` walked `scene.items()` (top-first)
     directly, and load re-inserted in file order -- so every same-layer
-    stacking order got reversed on every save/load cycle (docs/11.4).
+    stacking order got reversed on every save/load cycle (PF-PER-12).
     """
     scene = CanvasScene(5000, 3000)
     layer_id = scene.active_layer.id
@@ -161,7 +161,7 @@ def test_old_format_file_without_stack_order_loads_in_file_order(
     bottom-to-top INSERTION order on load, regardless of which app reads
     it. A file listing the topmost item first therefore loads back
     *inverted* from how it originally looked when saved -- that is the
-    historical bug (docs/11.4) baked permanently into any file an old app
+    historical bug (PF-PER-12) baked permanently into any file an old app
     already wrote, and it is self-consistent: reloading it in the OLD app
     would show the exact same inverted order, not a fresh corruption. This
     test pins that the current loader reproduces that same result (doesn't

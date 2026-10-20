@@ -24,7 +24,7 @@ bound. G6 is an UNCONDITIONAL gate, on the machine's own adapter and on a softwa
 rasteriser: the soak takes no frame in its measured loop, as a live view takes
 none. What grows a Direct3D 11 process is something else, and has a control of its
 own here: a ``grab()`` after every re-bake in a window that presents nothing
-(docs §11.4.17) — the reason a live host is never grabbed repeatedly.
+(PF-L3D-04, the grab() paragraph of archive/07-l1-5-ground-bake.md) — the reason a live host is never grabbed repeatedly.
 
 WHAT G6's MEMORY HALF CAN SEE — two cells, and one of them is half a gate. On a
 software rasteriser the window presents its frames and the textures are the
@@ -608,7 +608,7 @@ def test_a_grab_after_every_re_bake_does_not_grow_a_software_rasteriser(soak: di
 
 def test_a_grab_a_cycle_is_what_grows_a_direct3d_window_that_presents_nothing(run: Run) -> None:
     """THE CONTROL of the rule "no repeated ``grab()`` on a live host that is not
-    presenting" (docs §11.4.17). Direct3D 11 frees what was released when a frame
+    presenting" (PF-L3D-04, the grab() paragraph of archive/07-l1-5-ground-bake.md). Direct3D 11 frees what was released when a frame
     is PRESENTED; a frame rendered by ``grab()`` is never presented. On a hardware
     adapter whose window presents nothing, the twenty re-bakes with a grab after
     each must show the growth the grab-free soak does not (measured: +16.0 MB a

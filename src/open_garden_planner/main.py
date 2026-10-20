@@ -92,7 +92,7 @@ def _run_selftest(log: "RenderLog | None" = None) -> int:
     # real artifact -- the reasoning of #277 (the docstring above).
     #
     # But note WHICH launch reproduces #291, because this was stated wrongly for
-    # a while (see the dated correction in section 11.4): `console=False` means
+    # a while (see PF-CI-04): `console=False` means
     # no console is ALLOCATED, not that stdout is unconditionally None. Run this
     # exe through a shell pipe and it inherits a real handle -- measured, ~300
     # bytes of the prints below reached stdout -- so `isatty()` answers and a

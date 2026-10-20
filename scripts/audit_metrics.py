@@ -25,7 +25,7 @@ disabled with ``--no-*`` is ``null``. The script never modifies the repository. 
 versions, the load average at start and end, and whether the tree was dirty are recorded
 in ``meta``: mypy counts depend on the mypy version, coverage on test order and timing.
 
-First produced for the 2026-10 repository audit (docs/11-risks-and-technical-debt/).
+First produced for the 2026-10 repository audit (docs/11-risks-and-technical-debt/audits/2026-10/).
 """
 
 from __future__ import annotations

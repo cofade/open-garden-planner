@@ -68,7 +68,7 @@ All rows **production** unless noted.
 |---|---|---|---|---|
 | `appearance/theme_mode` | `theme_mode` | `ThemeMode` (`light`/`dark`/`system`; invalid → SYSTEM) | `"system"` | `ui/theme.py` + every color consumer — **see trap below** |
 | `appearance/language` | `language` | str | `"en"` | `core/i18n.py` |
-| `appearance/show_shadows` | `show_shadows` | bool | `True` | obsolete compatibility accessor; ignored by application, shadows always on (ADR-061) |
+| `appearance/show_shadows` | `show_shadows` | bool | `True` | obsolete compatibility accessor; ignored by application, shadows always on (ADR-062) |
 | `appearance/show_scale_bar` | `show_scale_bar` | bool | `True` | canvas / View menu |
 | `appearance/show_labels` | `show_labels` | bool | `True` | canvas / View menu |
 | `appearance/show_constraints` | `show_constraints` | bool | `True` | canvas / View menu |

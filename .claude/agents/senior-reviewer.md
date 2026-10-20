@@ -37,7 +37,7 @@ Cover the following dimensions; only report findings, not the dimensions themsel
    - Translation step performed (`fill_translations.py` + `compile_translations.py`, `test_german_ts_has_no_unfinished` passes)?
    - Mandatory doc updates from the "Contributing to Documentation" table actually performed?
    - For non-obvious bugs fixed: was a `/debug-verbose` case study added to `.claude/skills/debug-verbose/SKILL.md`?
-   - For PyQt6 quirks / pitfalls discovered: was an entry added to `docs/11-risks-and-technical-debt/` § 11.4?
+   - For PyQt6 quirks / pitfalls discovered: was a pitfall entry added to the matching `docs/11-risks-and-technical-debt/pitfalls/` file, with its index row in § 11.4?
    - No manually created git tags (CI release workflow is the sole source of truth)?
 
 ## How to investigate
