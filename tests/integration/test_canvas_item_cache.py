@@ -548,7 +548,7 @@ class TestTexturesAreNeverDropped:
     so the intensity std of a fill's interior tells the two apart. This class
     asserts the *absence* of the regression rather than the presence of a
     feature: the #409 low-zoom flat fill was removed in #503 because it was
-    measured to buy nothing (docs/11 §11.4.11), and removing dead code leaves
+    measured to buy nothing (PF-CAN-20), and removing dead code leaves
     no test behind to catch it creeping back.
 
     **It is parametrised over rectangle, circle, ellipse and polygon *and* over the

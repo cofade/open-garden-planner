@@ -957,7 +957,7 @@ automated check uses its engine on a local page).
 ## 14. Looks, sky and wind on the engine (L1.4)
 
 Concept: docs §8.29.4; decisions and the evidence table: the ADR-059 addendum "looks, sky and
-the animation policy (L1.4)"; tests: docs §8.10.11; lessons: §11.4.18. The art-direction values
+the animation policy (L1.4)"; tests: docs §8.10.11; lessons: PF-L3D-05. The art-direction values
 are `ogp-lush-cinematic` §3. What the ENGINE taught (RTX 4070, Direct3D 11; WARP on the same
 machine):
 
@@ -970,7 +970,7 @@ machine):
 - **A sky build is a fresh `Texture` with its own `ProceduralSkyTextureData` as its child**,
   every input set at `SkyTextureQualityLow` and the quality raised LAST (one generation). Only the
   Texture is ever destroyed — after the scene shows the new one — so a pair lives and dies
-  together (a Texture loses its data when a data object it held earlier dies — the Qt texture trap the ground bake found, docs §11.4.18 item 4). A sequence
+  together (a Texture loses its data when a data object it held earlier dies — the Qt texture trap the ground bake found, PF-L3D-05 item 4). A sequence
   A → B → C with a frame after each, then two frames after the old pairs are gone: the same sky,
   its disc at the solar azimuth (`test_a_sky_rebuilt_three_times_…`).
 - **Medium sky quality is enough.** 1024 × 512 float texels (8 MB) against High's 2048 × 1024
@@ -1014,7 +1014,7 @@ machine):
   compatibility mode.
 - **Committed memory grew while the wind ran** (FU-L14-2, L1.4): 2.1–2.6 MB per minute,
   linear over 6 minutes (21,594 frames), dedicated GPU memory flat; 0.8 with the QML engine's
-  `collectGarbage()` every 5 s. Not isolated. **Re-measured 2026-10-19 (L1.9): not reproduced** — six alternating 4–5 min soaks, three with this `FrameAnimation` and three with a C++ `NumberAnimation` as the clock: 0.46–2.03 MB a minute overall, second-half slopes 0.0–1.51, the two clocks inside each other's spread. The clock change was reverted. But the final render tier the same day read 2.637 (bound 2.0): intermittent, not gone — `test_the_wind_running_for_two_minutes_leaves_nothing_behind` is a non-strict xfail citing #534 (docs/11 §11.4.20).
+  `collectGarbage()` every 5 s. Not isolated. **Re-measured 2026-10-19 (L1.9): not reproduced** — six alternating 4–5 min soaks, three with this `FrameAnimation` and three with a C++ `NumberAnimation` as the clock: 0.46–2.03 MB a minute overall, second-half slopes 0.0–1.51, the two clocks inside each other's spread. The clock change was reverted. But the final render tier the same day read 2.637 (bound 2.0): intermittent, not gone — `test_the_wind_running_for_two_minutes_leaves_nothing_behind` is a non-strict xfail citing #534 (PF-E3D-09).
 - **A software adapter presents frames while the GPU's display sleeps**: with the display
   asleep the GPU host presented 0 frames (only readbacks measure there), the WARP host 30–60 in
   5 s. Say which a frame-rate number is.
@@ -1024,7 +1024,7 @@ machine):
 ## 15. Selection, picking in perspective, walk mode (L1.8)
 
 Concept: docs §8.29.8; decisions and every number: ADR-060 addendum "selection, info card and
-walk (L1.8)"; test patterns: docs §8.10.12; traps: docs §11.4.19. What the ENGINE taught:
+walk (L1.8)"; test patterns: docs §8.10.12; traps: PF-E3D-08. What the ENGINE taught:
 
 - **`View3D.pick()` agrees with a ray caster of our own in the perspective view too.** 400
   seeded view positions per plan, from the orbit camera's own framing, against

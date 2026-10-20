@@ -1891,7 +1891,7 @@ it was suppressing. The guard that followed walks every `set_status_message` cal
 site by AST — because a bare literal is invisible to any scan for translations, and
 that is how this survived one round of scanning.
 
-Related: §11.4.6, `tests/unit/test_status_literals_are_translated.py`.
+Related: PF-UI-21, `tests/unit/test_status_literals_are_translated.py`.
 
 
 ## Case study: source version changes stale a locked release environment (#404/#399)
