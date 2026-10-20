@@ -213,7 +213,7 @@ def test_every_entry_has_the_template_fields_and_no_placeholder() -> None:
 
 
 #: The four forms a Status field may take (ADR-061, decision 3).
-STATUS_FORMS = re.compile(r"^(standing|standing; narrative in \[|pointer → \[|retired; narrative in \[)")
+STATUS_FORMS = re.compile(r"^(?:standing|standing; narrative in \[[^\]]+\]\([^)]+\)|pointer → \[[^\]]+\]\([^)]+\)|retired; narrative in \[[^\]]+\]\([^)]+\))$")
 
 
 def test_every_status_uses_one_of_the_four_forms() -> None:

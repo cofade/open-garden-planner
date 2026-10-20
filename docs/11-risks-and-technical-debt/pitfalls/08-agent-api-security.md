@@ -114,7 +114,7 @@ Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registrati
 - **Rule:** A tool's declared return model is part of its contract, so a test calls the tool itself over the wire, not only its provider, because the model is constructed only between the two.
 - **Pinned by:** none — the body names no test for this rule.
 - **Source:** #365
-- **Status:** pointer → [ADR: Addendum (US-D3.3 + US-D3.4 — the D3 localisation convention)](../../09-architecture-decisions/README.md#addendum-us-d33--us-d34--the-d3-localisation-convention)
+- **Status:** pointer → [ADR-034 addendum (US-D3.3 + US-D3.4), the declared-return-model paragraph near its end](../../09-architecture-decisions/README.md#addendum-us-d33--us-d34--the-d3-localisation-convention)
 - **Legacy:** b1faaa9 README L197
 
 Held in [ADR: Addendum (US-D3.3 + US-D3.4 — the D3 localisation convention)](../../09-architecture-decisions/README.md#addendum-us-d33--us-d34--the-d3-localisation-convention). The entry keeps the rule and its pin; the account is in the link.
@@ -175,7 +175,7 @@ Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registrati
 - **Rule:** Agent creation feeds a Qt-free validated dict to the loader, `ProjectManager._deserialize_item_core`, inside one undo command, and is tested through create, read, save, load and read again.
 - **Pinned by:** none — the body describes integration tests and a drift guard but names no test file or function.
 - **Source:** #329
-- **Status:** pointer → [ADR: Addendum (US-D3.3 + US-D3.4 — the D3 localisation convention)](../../09-architecture-decisions/README.md#addendum-us-d33--us-d34--the-d3-localisation-convention)
+- **Status:** pointer → [ADR-034 addendum (US-D3.3 + US-D3.4), the US-D2.5 shape-creation paragraph near its end](../../09-architecture-decisions/README.md#addendum-us-d33--us-d34--the-d3-localisation-convention)
 - **Legacy:** b1faaa9 README L442
 
 Held in [ADR: Addendum (US-D3.3 + US-D3.4 — the D3 localisation convention)](../../09-architecture-decisions/README.md#addendum-us-d33--us-d34--the-d3-localisation-convention). The entry keeps the rule and its pin; the account is in the link.
