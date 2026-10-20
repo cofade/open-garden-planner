@@ -49,6 +49,11 @@ Use the [latest release](https://github.com/cofade/open-garden-planner/releases/
 for the current version. The [canonical roadmap](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md)
 owns phase status. [Open issues](https://github.com/cofade/open-garden-planner/issues) own the work list.
 
+The line-appearance follow-ups (#524, #525, #526, #471) are being delivered together:
+exact preset/type undo, consistent round line corners, and complete styled-line
+canvas bounds. Owner acceptance and merge remain pending; see the
+[implementation contract](https://github.com/cofade/open-garden-planner/blob/master/docs/08-crosscutting-concepts/README.md#830-line-appearance-snapshots-and-paint-containment-524-525-526-471).
+
 ## Community
 
 - [Discussions](https://github.com/cofade/open-garden-planner/discussions): public questions and ideas.

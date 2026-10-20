@@ -33,7 +33,14 @@ from open_garden_planner.core.commands import (
 )
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.furniture_renderer import get_furniture_svg_path
-from open_garden_planner.core.item_look import MIN_STROKE_WIDTH, adopt_pen
+from open_garden_planner.core.item_look import (
+    MIN_STROKE_WIDTH,
+    adopt_pen,
+    apply_line_look,
+    capture_line_look,
+    line_look_for_preset,
+    line_look_for_type,
+)
 from open_garden_planner.core.object_types import (
     ObjectType,
     PathFenceStyle,
@@ -2372,6 +2379,31 @@ class PropertiesPanel(QWidget):
         # Capture old state for undo
         old_state = self._capture_item_state(item)
 
+        # One line-style restore path for both UI surfaces. Snapshot callbacks do
+        # not retain this panel, which may be rebuilt before an undo is requested.
+        if isinstance(item, PolylineItem) and property_name in ('object_type', 'path_fence_style'):
+            old_value = item.object_type if property_name == 'object_type' else item.path_fence_style
+            if value == old_value:
+                return
+            before = capture_line_look(item)
+            after = (line_look_for_type(value) if property_name == 'object_type'
+                     else line_look_for_preset(item, value))
+            apply_line_look(item, after)
+            if self._command_manager:
+                if property_name == 'object_type':
+                    command = ChangePropertyCommand(item, 'type', before, after, apply_line_look)
+                else:
+                    command = ChangePropertyCommand(item, 'path/fence style', before, after, apply_line_look)
+                self._command_manager.register_applied(command)
+            if property_name == 'object_type':
+                refresh = QTimer(self)
+                refresh.setSingleShot(True)
+                refresh.timeout.connect(lambda: self.set_selected_items([item]))
+                refresh.timeout.connect(self.object_type_changed.emit)
+                refresh.timeout.connect(refresh.deleteLater)
+                refresh.start(0)
+            return
+
         # Apply the change to the item
         if property_name == 'object_type' and hasattr(item, 'object_type'):
             # Object type change affects many properties
@@ -2481,24 +2513,6 @@ class PropertiesPanel(QWidget):
                     p.setStyle(val.to_qt_pen_style())
                     itm.setPen(p)
                 cmd = ChangePropertyCommand(item, "stroke style", old_style, value, apply_stroke_style)
-                self._command_manager.register_applied(cmd)
-
-        elif property_name == 'path_fence_style':
-            old_pfs = item.path_fence_style if hasattr(item, 'path_fence_style') else PathFenceStyle.NONE
-            if hasattr(item, 'path_fence_style'):
-                item.path_fence_style = value
-            if hasattr(item, 'apply_style_preset'):
-                item.apply_style_preset()
-            item.update()
-
-            if self._command_manager:
-                def apply_pfs(itm, val):
-                    if hasattr(itm, 'path_fence_style'):
-                        itm.path_fence_style = val
-                    if hasattr(itm, 'apply_style_preset'):
-                        itm.apply_style_preset()
-                    itm.update()
-                cmd = ChangePropertyCommand(item, "path/fence style", old_pfs, value, apply_pfs)
                 self._command_manager.register_applied(cmd)
 
         # Mark scene as modified

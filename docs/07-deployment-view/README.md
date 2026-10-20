@@ -626,3 +626,35 @@ caused a frozen WebEngine import error. The source environment loaded Windows'
 native ICU 72.1. A clean rebuild with PATH restricted to the locked environment,
 Windows system directories, Python and Git passed detached `--selftest` (exit 0)
 and the eight-second smoke (exit 124). No dependency pin or spec change was needed.
+
+
+### Controlled PATH for a local frozen build
+
+An agent host can add native-tool DLL directories to PATH. PyInstaller may collect
+an incompatible DLL from one of them even when the Python environment is locked.
+During line-package validation, a Poppler ICU78 DLL caused QtWebEngineWidgets to
+fail before self-test began; the windowed process stayed alive on an error dialog.
+Rebuilding with this controlled PATH removed the foreign dependency. Do not repair
+the final bundle by copying or deleting DLLs after collection.
+
+Run from the checkout with its prepared locked environment:
+
+```powershell
+$taskOriginalPath = $env:PATH
+try {
+    $taskBasePython = & '.venv/Scripts/python.exe' -c 'import sys; print(sys.base_prefix)'
+    $env:PATH = [string]::Join(';', @(
+        "$env:SystemRoot/System32", "$env:SystemRoot", $taskBasePython,
+        (Join-Path (Get-Location) '.venv/Scripts')
+    ))
+    .venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --clean --noconfirm
+    if ($LASTEXITCODE -ne 0) { throw 'Frozen build failed' }
+} finally {
+    $env:PATH = $taskOriginalPath
+}
+```
+
+Verify inventory and both frozen gates on the rebuilt artifact. A process waiting
+on an unhandled-exception dialog satisfies the survival smoke and has not passed
+startup or self-test. When diagnosis needs a console build, keep it separate and
+repeat the final checks with the windowed executable.

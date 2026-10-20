@@ -3189,3 +3189,76 @@ net, and its pass is blamed on the open. The product was clean (the reviewer's i
 act. **Lesson**: "idle once" is not "settled" when another subsystem repaints asynchronously; a
 negative window must start from a scene that has been quiet for longer than the window's own
 timer. Under xdist, log to a file per pid.
+
+## Case study: a preset name is not an appearance snapshot (#524–#526, #471)
+
+**Symptom.** Preset undo returned the name NONE but retained gravel's 8 cm stroke;
+context-menu undo discarded a custom 12 cm stroke. Properties rebuilt square caps
+and bevel joins. Metal and acute paved/stone details exceeded cached paint bounds.
+
+**Wrong theories.** A pen/attribute agreement check alone cannot prove undo restored
+the previous appearance. The historical issue's 17 cm bound was not assumed current.
+Neither disabling caches nor changing painters addresses the geometric contract.
+
+**Evidence.** In-memory `[LINE-PLAN]` logs with caller stacks observed preset
+application through `apply_pfs` during undo and through `_setup_styling` on context
+restoration. The changed Properties line was gray 4 cm SquareCap/BevelJoin; context
+was gravel 8 cm RoundCap/RoundJoin. Fixed-image uncached pixels exceeded bounds.
+
+**Root cause and fix.** Preset names and reconstructed defaults lost prior values.
+Copied LineLook snapshots restore through one panel-independent callback and
+adopt_pen. Owner-selected type changes clear presets and use the new defaults.
+The canvas and ground baker share one conservative reach. Geometry notification
+precedes mutation. Temporary instrumentation is not committed.
+
+**Lesson.** Assert exact before/after appearance, not only internally consistent
+attributes. An oracle cropped to the bounds under test cannot detect clipping.
+Do not invalidate a cache while measuring its reuse; rotated Qt transforms may
+regenerate it. Pins: tests/integration/test_line_appearance_history.py and
+tests/integration/test_styled_line_bounds.py; crosscutting section 8.30.
+
+**Review follow-up.** A dynamic cached edit/history/move test exposed a weak pixel
+mask: absolute darkness counted the outside-page background, and a threshold
+assuming white could not classify the cream page as cleared. Empty-scene contrast
+separates the line from both backgrounds and sees faint subpixel rails. Test a
+populated cache through edits, undo/redo and movement; assert vacated pixels clear.
+
+
+## Case study: a passing frozen smoke was a startup error dialog (line-package validation)
+
+**Symptom.** The windowed executable survived eight seconds, but --selftest produced
+no log or supervising process. Its window title was "Unhandled exception in script".
+A separate console build exposed a DLL-load failure importing QtWebEngineWidgets.
+
+**Wrong theory.** Root VC runtime DLLs were older than the Qt wheel's copies;
+replacing them in the separate diagnostic artifact did not fix startup. The original
+copies were restored before the successful next experiment. Major Qt DLL hashes
+matched the installed wheel, and source imports succeeded.
+
+**Evidence.** Analysis selected icuuc.dll from the Codex host's Poppler directory
+on PATH. Its ICU78 exports are versioned; Qt6Core imports unversioned Windows ICU
+symbols. System32 ICU supplies those symbols. Moving only the foreign ICU out of
+the diagnostic artifact let self-test exit zero. No installed files were changed.
+
+**Root cause/fix.** Dependency discovery searched the agent host's tool PATH and
+collected an incompatible DLL. Rebuild from scratch with a controlled PATH of
+Windows, base Python and the locked environment's Scripts directory. Do not ship a
+hand-edited bundle. Source, lock and installer logic need no change for this host
+finding. The clean rebuilt windowed artifact must still pass both frozen checks.
+
+**Lesson.** Smoke proves survival, including a modal failure dialog. Require the
+windowed self-test and its actual log. Audit a collected DLL's source path and
+exports before changing dependency pins. See the controlled-build recipe in
+ogp-build-and-run and the deployment documentation.
+
+## Case study: historical exposure floats differ by one ULP on Python 3.11
+
+**Symptom/evidence.** Both clean master and the line branch failed the same six
+day-ramp comparisons against frozen JSON on Windows Python 3.11.9. Every difference
+was exactly one binary64 ULP; the other 256 lighting cases passed.
+**Wrong theory.** The line-style changes did not alter lighting; master reproduced
+the identical values. **Fix.** Permit one ULP for nonlinear exposure only. Keep
+colors, brightness, fog and linear probe exposure exact. All 262 lighting tests
+pass; production code and reference JSON are unchanged. **Lesson.** Use the measured
+numeric representation's precision for cross-platform frozen float references,
+not a broad default relative tolerance.

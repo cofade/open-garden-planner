@@ -6565,6 +6565,27 @@ the code and a second QML scene to keep compiling — the Beauty Board and the r
 measure the product itself); deleting the drift guards with the spike (the values they pin are
 the L0 measurements the look was accepted on).
 
+### ADR-059 addendum: line history restores values; cache bounds contain paint (#524–#526, #471)
+
+The owner selected one type-change rule for both UI surfaces: use the new type's
+defaults and clear the old preset. This supersedes the L1.5 expectation that a
+Properties type change retains its preset. Undo restores the old type and preset,
+including a custom stroke. Existing project files retain their stored presets;
+this policy applies only to a new type-change gesture. No file-format bump is needed.
+
+`LineLook` in the existing `core.item_look` module holds copied appearance values.
+Both controls use one restore function rather than rebuilding defaults on undo.
+Reapplying a preset during restoration was rejected: it overwrites user stroke
+changes and makes Properties and context-menu history disagree. Preserving the old
+appearance through a type change was considered and not selected by the owner.
+
+The shared style painter now also owns its conservative geometric reach. The
+canvas contains that reach in its cache rectangle; the ground baker retains its
+previous formula and pixel allowance through the shared helper. Disabling caches,
+changing painters and deriving expected pixels from the rectangle under test were
+rejected. Width/preset geometry notifications precede mutation. Regression coverage
+is documented in section 8.30; the existing ground hairpin/tile-border gates remain.
+
 ## ADR-061: The pitfall catalogue — numbered area files, permanent IDs, one index and a verbatim archive
 
 **Status**: Accepted (2026-10-20). Owner review of the dedupe table and of the pins flagged for a human look is pending. Supersedes the single-section layout of §11.4 ("Known Development Pitfalls") that ADR-047 left in place. The audit family's move is recorded in the ADR-047 addendum above.
