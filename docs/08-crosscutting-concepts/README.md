@@ -6696,7 +6696,9 @@ reference day, independently of the displayed simulation date.
 ### 8.30.1 Permanent controls and live-map/export lifecycle
 
 SunSimToolbar is the sole toolbar instance for date/time. Atomic groups wrap rather
-than disappear into overflow; date width is derived from font metrics. Past/Today/
+than disappear into overflow; date width is derived from font metrics. Slider
+lengths compact only when the flow's measured groups need it to fit two rows;
+group geometry is refreshed before measuring, including on wider platform fonts. Past/Today/
 Future gives context without repeating the date. The former PlanTimelineToolbar is
 removed and restored hidden toolbar state is healed. Solar and decorative shadows
 are automatic; Hours of Sun and daily animation remain opt-in session state.

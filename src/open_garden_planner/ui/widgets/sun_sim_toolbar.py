@@ -1,4 +1,4 @@
-"""Permanent adaptive plan-date and solar-time view of the one SimClock (ADR-061)."""
+"""Permanent adaptive plan-date and solar-time view of the one SimClock (ADR-062)."""
 
 from __future__ import annotations
 
@@ -61,7 +61,10 @@ class _GroupFlow(QLayout):
         return True
 
     def heightForWidth(self, width: int) -> int:
-        return self._arrange(QRect(0, 0, width, 0), False)
+        return self._arrange(QRect(0, 0, width, 0), False)[0]
+
+    def rows_for_width(self, width: int) -> int:
+        return self._arrange(QRect(0, 0, width, 0), False)[1]
 
     def minimumSize(self) -> QSize:
         sizes = [item.minimumSize() for item in self._items]
@@ -75,18 +78,20 @@ class _GroupFlow(QLayout):
         super().setGeometry(rect)
         self._arrange(rect, True)
 
-    def _arrange(self, rect: QRect, apply: bool) -> int:
+    def _arrange(self, rect: QRect, apply: bool) -> tuple[int, int]:
         left, top, right, bottom = self.getContentsMargins()
         x, y, row_height = rect.x() + left, rect.y() + top, 0
+        rows = 1
         for item in self._items:
             size = item.sizeHint()
             if x > rect.x() + left and x + size.width() > rect.right() - right + 1:
                 x, y, row_height = rect.x() + left, y + row_height + 4, 0
+                rows += 1
             if apply:
                 item.setGeometry(QRect(x, y, size.width(), size.height()))
             x += size.width() + self.spacing()
             row_height = max(row_height, size.height())
-        return y + row_height + bottom - rect.y()
+        return y + row_height + bottom - rect.y(), rows
 
 
 class SunSimToolbar(QToolBar):
@@ -210,10 +215,24 @@ class SunSimToolbar(QToolBar):
 
     def _reflow(self) -> None:
         slider_width = 140 if self.width() < 1100 else 180
-        for slider in (self._month_slider, self._slider):
-            if slider.width() != slider_width:
+        available = max(1, self.width() - 12)
+        while True:
+            for slider in (self._month_slider, self._slider):
                 slider.setFixedWidth(slider_width)
-        height = self._flow.heightForWidth(max(1, self.width() - 12))
+            # Font metrics vary across platforms and themes. Recalculate group
+            # hints before deciding whether the preferred slider length fits.
+            for index in range(self._flow.count()):
+                item = self._flow.itemAt(index)
+                widget = item.widget() if item is not None else None
+                layout = widget.layout() if widget is not None else None
+                if widget is not None and layout is not None:
+                    layout.invalidate()
+                    layout.activate()
+                    widget.updateGeometry()
+            if self._flow.rows_for_width(available) <= 2 or slider_width <= 90:
+                break
+            slider_width -= 10
+        height = self._flow.heightForWidth(available)
         if self._content.height() != height:
             self._content.setFixedHeight(height)
             self.setFixedHeight(height + 8)

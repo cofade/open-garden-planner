@@ -233,4 +233,4 @@ Held in [debug-verbose: Case study: live capture harness saw "capture did not co
 - **Status:** standing; narrative in [archive/14-plan-timeline.md](../archive/14-plan-timeline.md)
 - **Legacy:** none (new entry)
 
-German control groups missed the 800-pixel content width by two pixels and wrapped into three rows while English passed. Narrow slider hints leave translation headroom; native-widget captures cover all locales at 100 and 150 percent DPI. See section 8.30 and ADR-062 for the current lifecycle contract.
+German control groups missed the 800-pixel content width by two pixels and wrapped into three rows while English passed. A fixed narrow width still failed under Linux fonts. The flow now measures its actual row count and compacts sliders as needed; activating group layouts and updating geometry avoids QWidgetItem hints from the preceding pass. Wider-font regressions and native captures cover font variation and 100/150 percent DPI. See section 8.30 and ADR-062 for the current lifecycle contract.

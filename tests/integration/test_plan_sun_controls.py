@@ -7,6 +7,7 @@ from threading import Event, get_ident
 import numpy as np
 import pytest
 from PyQt6.QtCore import QDate, QTime, QTimer
+from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QApplication, QDateEdit, QProgressDialog, QToolBar
 from PyQt6.sip import isdeleted
 
@@ -114,11 +115,14 @@ def test_groups_wrap_without_clipping_and_calendar_fits(win, qtbot, width):
 
 
 @pytest.mark.parametrize("language", ["de", "es"])
-def test_translated_controls_fit_two_rows_at_narrow_width(qtbot, language):
+@pytest.mark.parametrize("font_points", [9, 10])
+def test_translated_controls_fit_two_rows_at_narrow_width(qtbot, language, font_points):
     from open_garden_planner.core.i18n import load_translator
 
     app = QApplication.instance()
+    original_font = app.font()
     try:
+        app.setFont(QFont("Verdana", font_points))
         assert load_translator(app, language)
         win = GardenPlannerApp()
         qtbot.addWidget(win)
@@ -130,9 +134,11 @@ def test_translated_controls_fit_two_rows_at_narrow_width(qtbot, language):
         qtbot.wait(50)
         bar = win._sun_toolbar
         groups = [bar._flow.itemAt(i).widget() for i in range(bar._flow.count())]
-        assert len({group.y() for group in groups}) == 2
+        assert len({group.y() for group in groups}) == 2, [
+            (group.width(), group.sizeHint().width(), group.y()) for group in groups]
         assert all(bar._content.rect().contains(group.geometry()) for group in groups)
     finally:
+        app.setFont(original_font)
         load_translator(app, "en")
 
 
