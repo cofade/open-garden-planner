@@ -21,7 +21,7 @@ from open_garden_planner.ui.canvas.sun_heatmap import HeatmapWorker
 BERLIN = {"latitude": 52.52, "longitude": 13.405}
 
 
-def test_find_replace_revalidates_cached_results_after_date_and_document_changes(win):
+def test_find_replace_revalidates_cached_results_after_date_and_document_changes(win, qtbot):
     from open_garden_planner.ui.canvas.items.circle_item import CircleItem
     from open_garden_planner.ui.panels.find_replace_panel import FindReplacePanel
 
@@ -30,24 +30,49 @@ def test_find_replace_revalidates_cached_results_after_date_and_document_changes
         "plant_instance": {"planting_date": "2030-01-01"}})
     win.canvas_scene.addItem(plant)
     panel = FindReplacePanel(win.canvas_view)
+    qtbot.addWidget(panel)
     win._sim_clock.set_date(date(2030, 1, 1))
     panel._name_edit.setText("Future tree")
     panel._on_search()
     result = panel._results_list.item(0)
     assert result is not None
+    identity = plant.item_id_str
+    assert result.data(Qt.ItemDataRole.UserRole) == identity
+    win.canvas_scene.clearSelection()
+    panel._results_list.itemClicked.emit(result)
+    qtbot.waitUntil(lambda: win.canvas_scene.selectedItems() == [plant])
     panel._replace_species_edit.setText("Changed")
     win._sim_clock.set_date(date(2029, 1, 1))
     panel._on_replace_species()
-    panel._on_result_clicked(result)
+    panel._results_list.itemClicked.emit(result)
+    qtbot.wait(10)
     assert plant.metadata["plant_species"]["common_name"] == "Apple"
     assert not plant.isSelected()
     win._sim_clock.set_date(date(2030, 1, 1))
     assert panel._eligible_matches() == [plant]
+    panel._results_list.itemClicked.emit(result)  # queued click precedes document replacement
     win.canvas_scene.clear()
+    assert panel._matched_items == [] and panel._results_list.count() == 0
     panel._on_replace_species()
-    panel._on_result_clicked(result)  # cached wrapper has been destroyed by Qt
     assert panel._eligible_matches() == []
-    panel.deleteLater()
+    panel._on_select_all()
+    for number in range(40):
+        win.canvas_scene.addItem(RectangleItem(10 * number, 100, 20, 20,
+                                              ObjectType.HOUSE, name=f"New {number}"))
+    panel._name_edit.clear()
+    panel._on_select_all()
+    assert panel._results_list.count() == 40
+    assert all(panel._results_list.item(n).data(Qt.ItemDataRole.UserRole) != identity for n in range(40))
+    win.canvas_scene.clearSelection()
+    qtbot.wait(10)
+    assert win.canvas_scene.selectedItems() == []  # queued old click cannot alias
+    panel._selection_id = identity  # even a delayed old UUID resolves to nothing
+    panel._select_result()
+    assert win.canvas_scene.selectedItems() == []
+    current = panel._results_list.item(0)
+    panel._results_list.itemClicked.emit(current)
+    qtbot.waitUntil(lambda: len(win.canvas_scene.selectedItems()) == 1)
+    assert win.canvas_scene.selectedItems()[0].item_id_str == current.data(Qt.ItemDataRole.UserRole)
 
 
 @pytest.mark.parametrize("field", ["planting_date_edit", "removal_date_edit"])

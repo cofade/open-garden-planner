@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -20,6 +20,8 @@ from PyQt6.QtWidgets import (
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
 
+from open_garden_planner.ui.canvas.select_by_id import item_with_id, select_by_ids
+
 
 class FindReplacePanel(QWidget):
     """Floating panel for finding canvas items by name/type/layer/species and bulk-editing them."""
@@ -28,7 +30,12 @@ class FindReplacePanel(QWidget):
         super().__init__(parent, Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint)
         self._canvas_view = canvas_view
         self._matched_items: list = []
+        self._selection_id = ""
+        self._selection_timer = QTimer(self)
+        self._selection_timer.setSingleShot(True)
+        self._selection_timer.timeout.connect(self._select_result)
         self._setup_ui()
+        self._canvas_view._canvas_scene.document_replaced.connect(self._clear_results)
         self.setVisible(False)
         self.setWindowTitle(self.tr("Find & Replace"))
         self.resize(320, 420)
@@ -203,9 +210,7 @@ class FindReplacePanel(QWidget):
         scene = self._canvas_view.scene()
         if scene is None:
             return
-        scene.clearSelection()
-        for item in items:
-            item.setSelected(True)
+        select_by_ids(scene, [str(item.item_id) for item in items])
 
     # ------------------------------------------------------------------
     # Slots
@@ -219,26 +224,34 @@ class FindReplacePanel(QWidget):
             ot = getattr(item, "object_type", None)
             type_str = getattr(ot, "name", str(ot)) if ot is not None else "?"
             list_item = QListWidgetItem(f"{item_name}  [{type_str}]")
-            # A QVariant holding QGraphicsItem can dereference a deleted C++
-            # pointer before Python can validate it after document replacement.
-            list_item.setData(Qt.ItemDataRole.UserRole, id(item))
+            # Stable UUIDs survive wrapper churn; a live item in QVariant can
+            # dereference a deleted C++ pointer before Python can validate it.
+            list_item.setData(Qt.ItemDataRole.UserRole, item.item_id_str)
             self._results_list.addItem(list_item)
         self._highlight(self._matched_items)
 
     def _on_select_all(self) -> None:
-        self._matched_items = self._search()
-        self._highlight(self._matched_items)
+        self._on_search()
 
     def _on_result_clicked(self, list_item: QListWidgetItem) -> None:
-        identity = list_item.data(Qt.ItemDataRole.UserRole)
-        item = next((item for item in self._eligible_matches() if id(item) == identity), None)
-        if item is None:
-            return
+        self._selection_id = str(list_item.data(Qt.ItemDataRole.UserRole) or "")
+        self._selection_timer.start(0)
+
+    def _select_result(self) -> None:
         scene = self._canvas_view.scene()
-        if scene:
-            scene.clearSelection()
-            item.setSelected(True)
+        if scene is None:
+            return
+        item = item_with_id(scene, self._selection_id)
+        if item is None or not getattr(scene, "is_present", lambda _item: True)(item):
+            return
+        select_by_ids(scene, [self._selection_id])
         self._canvas_view.ensureVisible(item)
+
+    def _clear_results(self) -> None:
+        self._selection_timer.stop()
+        self._selection_id = ""
+        self._matched_items.clear()
+        self._results_list.clear()
 
     def _on_apply_layer(self) -> None:
         target_layer_id = self._target_layer_combo.currentData()

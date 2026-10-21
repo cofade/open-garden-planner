@@ -302,6 +302,7 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | PF-LIF-11 | Keep displayed sun results separate from requested inputs, withdraw stale measurements immediately and debounce scene collection itself. | standing | [02](pitfalls/02-lifecycle-threads.md#pf-lif-11) |  |
 | PF-API-23 | Cancellation and abandoned queued export calls must prevent later writes and release animation leases exactly once on Qt. | standing | [08](pitfalls/08-agent-api-security.md#pf-api-23) |  |
 | PF-UI-22 | Measure translated control-group size hints at narrow widths and high DPI before accepting adaptive toolbar packing. | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-22) |  |
+| PF-UI-23 | Calendar-only lifetime selectors ignore wheel edits and bound new choices to the shared clock range while preserving legacy metadata. | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-23) |  |
 | PF-E3D-10 | Derived lifetime visibility must preserve the existing throttled 3D clock path while real plan edits still announce revisions. | standing | [10](pitfalls/10-3d-engine-scene.md#pf-e3d-10) |  |
 
 ### Redirect of legacy numbered IDs
