@@ -1,6 +1,7 @@
 """Properties panel for live editing of selected objects."""
 
 from collections.abc import Callable
+from typing import Any
 
 from PyQt6.QtCore import QCoreApplication, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QFocusEvent, QIcon, QPen
@@ -457,26 +458,55 @@ class PropertiesPanel(QWidget):
         self._field_refreshers.append(lambda: self._refresh_widget(widget, setter))
 
     @staticmethod
-    def _announce_direct_edit(item: QGraphicsItem) -> None:
-        """A handler just wrote into ``item`` DIRECTLY — no command carries the edit.
+    def _announce_edit(item: QGraphicsItem) -> None:
+        """An edit of ``item`` has happened - tell the followers that a write
+        into ``metadata`` does not.
 
-        So the undo stack announces nothing, and a write into ``metadata`` repaints
-        nothing either: without this, a container's height or material typed here
-        never reached the 3D view, and its shadow kept the old height (measured:
-        30 → 70 cm and plastic → metal through this panel, 0 engine calls after
-        400 ms). Two things, for the two kinds of follower:
+        A write into ``metadata`` repaints nothing and moves no revision: without
+        this, a container's height or material typed here never reached the 3D
+        view, and its shadow kept the old height (measured: 30 → 70 cm and
+        plastic → metal through this panel, 0 engine calls after 400 ms). Two
+        things, for the two kinds of follower:
 
         - the scene's plan revision moves (``CanvasScene.note_plan_changed``, ADR-060
           decision 5) — what follows the PLAN, the 3D view, is told at once;
         - the item is repainted — what follows the scene's REPAINTS, the sun's
           shadow, sees it too (``plant_database_panel``'s rule, §11.4).
 
-        Every direct write of this panel calls it. That those writes are not
-        undoable — and do not mark the plan as modified — is a defect of its own
-        that this does not change.
+        The undo stack is told by the command that carries the edit
+        (``_commit_property_edit``), not by this.
         """
         item.update()
         note_plan_changed(item.scene())
+
+    def _commit_property_edit(
+        self,
+        item: QGraphicsItem,
+        property_name: str,
+        old_value: Any,
+        new_value: Any,
+        apply_func: Callable[[QGraphicsItem, Any], None],
+    ) -> None:
+        """Commit one edit of an item's property as ONE undoable step (#530).
+
+        The command carries the edit to the undo stack, which is what marks the
+        plan modified — a direct write marked nothing, so closing the app asked
+        nothing and the edit was lost. The two notices the edit still needs are
+        made by ``_announce_edit``.
+
+        ``old_value`` and ``new_value`` are what the command restores and
+        applies; ``apply_func`` writes the value into the item. A value that
+        did not change commits nothing.
+        """
+        if old_value == new_value:
+            return
+        cmd = ChangePropertyCommand(item, property_name, old_value, new_value,
+                                     apply_func=apply_func)
+        if self._command_manager is not None:
+            self._command_manager.execute(cmd)
+        else:
+            apply_func(item, new_value)
+        self._announce_edit(item)
 
     def _refresh_field_values(self) -> None:
         """Re-read the model and push fresh values into the live form widgets.
@@ -1165,16 +1195,20 @@ class PropertiesPanel(QWidget):
         def on_grid_check(checked: bool) -> None:
             if self._updating:
                 return
-            item.grid_enabled = checked
-            self._announce_direct_edit(item)
+            self._commit_property_edit(
+                item, "grid", item.grid_enabled, checked,
+                lambda itm, val: setattr(itm, "grid_enabled", val),
+            )
             if cell_count_label is not None:
                 cell_count_label.setText(str(item.grid_cell_count()))
 
         def on_spacing_changed(val: float) -> None:
             if self._updating:
                 return
-            item.grid_spacing = val
-            self._announce_direct_edit(item)
+            self._commit_property_edit(
+                item, "grid spacing", item.grid_spacing, float(val),
+                lambda itm, value: setattr(itm, "grid_spacing", value),
+            )
             if cell_count_label is not None:
                 cell_count_label.setText(str(item.grid_cell_count()))
 
@@ -1227,8 +1261,17 @@ class PropertiesPanel(QWidget):
         def on_depth_changed(val: int) -> None:
             if self._updating:
                 return
-            item.metadata["soil_depth_cm"] = val
-            self._announce_direct_edit(item)
+
+            def apply_depth(itm: QGraphicsItem, value: int | None) -> None:
+                if value is None:
+                    itm.metadata.pop("soil_depth_cm", None)  # type: ignore[attr-defined]
+                else:
+                    itm.metadata["soil_depth_cm"] = int(value)  # type: ignore[attr-defined]
+
+            self._commit_property_edit(
+                item, "soil depth", item.metadata.get("soil_depth_cm"), int(val),
+                apply_depth,
+            )
 
         depth_spin.valueChanged.connect(on_depth_changed)
         self._form_layout.addRow(self.tr("Soil depth:"), depth_spin)
@@ -1328,36 +1371,58 @@ class PropertiesPanel(QWidget):
                 )
             hint_label.setText(hint)
 
-        # These four write ``metadata`` directly (no command): each announces the
-        # edit and repaints the item itself (``_announce_direct_edit``). The material
-        # and the height are what the 3D view builds a container from, and the
-        # height is what its shadow is cast from.
+        # These four write ``metadata`` - each through a command, so the edit is
+        # one undoable step and the plan is marked modified (#530), and each
+        # announces itself and repaints the item (``_commit_property_edit``).
+        # The material and the height are what the 3D view builds a container
+        # from, and the height is what its shadow is cast from.
+        def write_metadata(key: str) -> Callable[[QGraphicsItem, Any], None]:
+            """An apply function for one metadata key. None means the key is
+            ABSENT again - which is what an undo of a value that was never set
+            has to restore (the model's defaults answer for an absent key, not
+            for a key holding None)."""
+            def apply(itm: QGraphicsItem, value: Any) -> None:
+                if value is None:
+                    itm.metadata.pop(key, None)  # type: ignore[attr-defined]
+                else:
+                    itm.metadata[key] = value  # type: ignore[attr-defined]
+            return apply
+
         def on_material_changed(_index: int) -> None:
             if self._updating:
                 return
-            meta["container_material"] = material_combo.currentData()
-            self._announce_direct_edit(item)
+            self._commit_property_edit(
+                item, "container material", meta.get("container_material"),
+                material_combo.currentData(), write_metadata("container_material"),
+            )
             update_feedback()
 
         def on_drainage_changed(checked: bool) -> None:
             if self._updating:
                 return
-            meta["container_drainage"] = bool(checked)
-            self._announce_direct_edit(item)
+            self._commit_property_edit(
+                item, "container drainage", meta.get("container_drainage"), bool(checked),
+                write_metadata("container_drainage"),
+            )
             update_feedback()
 
         def on_height_changed(val: int) -> None:
             if self._updating:
                 return
-            meta["container_height_cm"] = float(val)
-            self._announce_direct_edit(item)
+            self._commit_property_edit(
+                item, "container height", meta.get("container_height_cm"), float(val),
+                write_metadata("container_height_cm"),
+            )
             update_feedback()
 
         def on_volume_changed(val: float) -> None:
             if self._updating:
                 return
-            meta["container_soil_volume_l"] = None if val <= 0 else float(val)
-            self._announce_direct_edit(item)
+            self._commit_property_edit(
+                item, "container soil volume", meta.get("container_soil_volume_l"),
+                None if val <= 0 else float(val),
+                write_metadata("container_soil_volume_l"),
+            )
             update_feedback()
 
         material_combo.currentIndexChanged.connect(on_material_changed)
