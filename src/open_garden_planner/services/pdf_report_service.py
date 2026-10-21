@@ -339,7 +339,7 @@ def _render_plant_list(
 
     plant_items = [
         i for i in scene.items()
-        if i.isVisible() and hasattr(i, "object_type") and getattr(i, "object_type", None) in (
+        if scene.is_present(i) and hasattr(i, "object_type") and getattr(i, "object_type", None) in (
             ObjectType.TREE, ObjectType.SHRUB, ObjectType.PERENNIAL
         )
     ]
@@ -1009,5 +1009,5 @@ class PdfReportService:
         return [
             item
             for item in scene.items()
-            if item.isVisible() and hasattr(item, "object_type") and is_bed_type(getattr(item, "object_type", None))
+            if hasattr(item, "object_type") and is_bed_type(getattr(item, "object_type", None))
         ]

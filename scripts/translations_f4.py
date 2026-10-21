@@ -1,52 +1,37 @@
 """German and Spanish targets for the plan timeline (US-F4)."""
 
 DE = {
-    "Commands": {"planting_date": "Pflanzdatum", "removal_date": "Entfernungsdatum"},
+    "Commands": {"planting date": "Pflanzdatum", "removal date": "Entfernungsdatum"},
     "PdfReportService": {"Plan as of {date}": "Plan zum {date}"},
-    "PlanTimelineToolbar": {
-        "Plan Timeline": "Plan-Zeitachse",
-        "Plan date:": "Plandatum:",
-        "Scrub the plan by month": "Den Plan monatsweise durchlaufen",
-        "Today": "Heute",
-        "Viewing plan as of {date}": "Planansicht zum {date}",
-        "Viewing today's plan": "Heutige Planansicht",
-        "{count} plants hidden by date": "{count} Pflanzen wegen Datum ausgeblendet",
-        "{name} — planted: {planted}; removed: {removed}": "{name} — gepflanzt: {planted}; entfernt: {removed}",
+    "GardenPlannerApp": {
+        "Print Error": "Druckfehler",
+        "Failed to print:\n{error}": "Drucken fehlgeschlagen:\n{error}",
     },
     "PlantDatabasePanel": {
         "Clear": "Zurücksetzen",
         "Invalid plant dates": "Ungültige Pflanzendaten",
         "Not removed": "Nicht entfernt",
-        "Removal date must be after planting date.": "Das Entfernungsdatum muss nach dem Pflanzdatum liegen.",
+        "Choose dates between {min} and {max}. Removal must be after planting.": "Wählen Sie Daten zwischen {min} und {max}. Das Entfernungsdatum muss nach dem Pflanzdatum liegen.",
         "Removed on:": "Entfernt am:",
     },
 }
 
 ES = {
-    "Commands": {"planting_date": "fecha de plantación", "removal_date": "fecha de retirada"},
+    "Commands": {"planting date": "fecha de plantación", "removal date": "fecha de retirada"},
     "PdfReportService": {"Plan as of {date}": "Plano a fecha de {date}"},
-    "PlanTimelineToolbar": {
-        "Plan Timeline": "Cronología del plano",
-        "Plan date:": "Fecha del plano:",
-        "Scrub the plan by month": "Recorrer el plano mes a mes",
-        "Today": "Hoy",
-        "Viewing plan as of {date}": "Vista del plano a fecha de {date}",
-        "Viewing today's plan": "Vista del plano de hoy",
-        "{count} plants hidden by date": "{count} plantas ocultas por fecha",
-        "{name} — planted: {planted}; removed: {removed}": "{name} — plantada: {planted}; retirada: {removed}",
+    "GardenPlannerApp": {
+        "Print Error": "Error de impresión",
+        "Failed to print:\n{error}": "No se pudo imprimir:\n{error}",
     },
     "PlantDatabasePanel": {
         "Clear": "Borrar",
         "Invalid plant dates": "Fechas de planta no válidas",
         "Not removed": "Sin retirar",
-        "Removal date must be after planting date.": "La fecha de retirada debe ser posterior a la fecha de plantación.",
+        "Choose dates between {min} and {max}. Removal must be after planting.": "Elija fechas entre {min} y {max}. La retirada debe ser posterior a la plantación.",
         "Removed on:": "Retirada el:",
     },
 }
 
-# The permanent combined strip replaces the separate timeline toolbar.
-DE.pop("PlanTimelineToolbar")
-ES.pop("PlanTimelineToolbar")
 DE["SunSimToolbar"] = {
     "Plan & Sun": "Plan & Sonne",
     "Plan date: plant presence, growth and sunlight": "Plandatum: Pflanzenbestand, Wachstum und Sonnenlicht",
@@ -60,6 +45,8 @@ DE["SunSimToolbar"] = {
     "Map: {date} — Unavailable": "Karte: {date} — Nicht verfügbar",
     "Updating…": "Wird aktualisiert…", "{count} hidden": "{count} ausgeblendet",
     "{name} — planted: {planted}; removed: {removed}": "{name} — gepflanzt: {planted}; entfernt: {removed}",
+    "Plant date unavailable": "Pflanzendatum nicht verfügbar",
+    "This plant is not present within the supported plan dates ({min} to {max}). Its stored dates have been preserved.": "Diese Pflanze ist innerhalb der unterstützten Plandaten ({min} bis {max}) nicht vorhanden. Ihre gespeicherten Daten wurden beibehalten.",
 }
 ES["SunSimToolbar"] = {
     "Plan & Sun": "Plano y sol",
@@ -74,6 +61,8 @@ ES["SunSimToolbar"] = {
     "Map: {date} — Unavailable": "Mapa: {date} — No disponible",
     "Updating…": "Actualizando…", "{count} hidden": "{count} ocultas",
     "{name} — planted: {planted}; removed: {removed}": "{name} — plantada: {planted}; retirada: {removed}",
+    "Plant date unavailable": "Fecha de planta no disponible",
+    "This plant is not present within the supported plan dates ({min} to {max}). Its stored dates have been preserved.": "Esta planta no está presente dentro de las fechas admitidas del plano ({min} a {max}). Se han conservado sus fechas guardadas.",
 }
 DE["LiveSunMap"] = {
     "Hours of Sun was switched off during export.": "Sonnenstunden wurde während des Exports ausgeschaltet.",

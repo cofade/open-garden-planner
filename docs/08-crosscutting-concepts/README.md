@@ -6679,7 +6679,10 @@ the removal minimum is an explicit nonempty unset label with a Clear button. Sig
 are blocked during panel refresh. Hiding an edited plant can synchronously clear its
 selection, so the command callback keeps its target independently of the panel.
 
-The visible set drives companion/spacing/capacity, guild and sun/canopy diagnostics.
+The date-present set drives companion/spacing/capacity, guild and data diagnostics,
+independently of drawing-layer visibility. PDF data pages retain hidden beds and
+date-present plants. Solar receivers/casters and rendered overlays additionally
+honor layer visibility. Use CanvasScene.is_present for data and isVisible for drawing.
 Sprite growth, shadow casters, heatmaps and 3D all use the plan date, while task
 reminders retain their real-world reference day. Plant task windows stop at removal;
 species aggregation keeps the schedule while any instance remains. Manual/succession
@@ -6688,8 +6691,11 @@ dates and Season Manager file copies retain their existing behavior.
 Post-clear timeline notification refreshes New Plan only after the old items are gone.
 Hidden-layer discovery executes the existing layer visibility command and marks dirty;
 the date navigation itself remains runtime-only. Lifetime refresh derives the age
-label from stored metadata, including undo and rejected edits. Automatic API companion
-checks use visible bed members; task soil warnings use presence on their explicit
+label from stored metadata, including undo and rejected edits. Calendar selectors
+ignore wheel edits; new lifetime dates stay within the SimClock range while existing
+legacy dates remain unchanged and readable. Only date changes invalidate all plant
+paint caches; a lifetime command updates its own item. Automatic API companion
+checks use date-present bed members; task soil warnings use presence on their explicit
 reference day, independently of the displayed simulation date.
 
 
@@ -6723,7 +6729,10 @@ Its GUI modal progress loop continues delivering worker results and cancellation
 The 30-second timeout does not widen the generic main-thread bridge timeout.
 Generation/revision/wall-time checks protect exports even when no map is enabled.
 No output is written until readiness and identity checks succeed. Animation uses
-counted pause leases so concurrent exports cannot resume it prematurely.
+counted pause leases so concurrent exports cannot resume it prematurely. Print
+uses the same readiness boundary and holds its lease until preview closes, validating
+the snapshot before each paint. Its legend names the plan date. Cancellation closes
+quietly; a changed document/date or failed calculation prevents rendering.
 
 
 Collection itself is debounced: notifications only mark inputs dirty, withdraw

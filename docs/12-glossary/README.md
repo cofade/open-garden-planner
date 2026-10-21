@@ -124,7 +124,7 @@
 | **OGP** | Open Garden Planner (the application) |
 | **.ogp** | Project file format (JSON-based) |
 | **Object Snap** | Automatic snapping of new/moved objects to edges/vertices of existing objects |
-| **Plan date** | The simulated LOCAL calendar day of the sun & shade simulation — the day the sun toolbar shows and the growth date of shadows, heatmap and 3D. Stored by the sim clock, never derived from the UTC instant (ADR-053) |
+| **Plan date** | The simulated LOCAL calendar day shared by plant presence, growth, shadows, heatmap and 3D. Session state held by SimClock, initially today; never derived from the UTC instant (ADR-053, ADR-062) |
 | **Plant Type** | Category of plant: tree, shrub, perennial, annual, ground cover |
 | **Plant List** | A user-defined, named collection of plant species with snapshots and notes (US-G4, #320). Stored across projects in `<app-data>/plant_lists.json` and draggable to canvas for direct creation |
 | **Favorites (Plants)** | The reserved, non-deletable default plant list (`favorites`) indicated by ⭐ across the search dialog, plant database panel, category dropdown, and sidebar list |
@@ -315,8 +315,6 @@ download integrity; it is not an Authenticode signature or provenance attestatio
 
 ### Plan date and removal date
 
-**Plan date:** the simulated local calendar day held by SimClock, shared by the plan
-timeline, growth and solar views. It is session state and starts at today.
 **Removal date:** an optional plant-instance ISO date, exclusive: the plant is absent
 on this day and later. Planting is inclusive. This is separate from a Season Manager
-yearly plan copy and from task reminder reference dates (ADR-059).
+yearly plan copy and from task reminder reference dates (ADR-062).

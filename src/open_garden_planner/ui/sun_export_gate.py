@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from concurrent.futures import Future, TimeoutError
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from threading import Lock
@@ -16,6 +17,10 @@ from open_garden_planner.ui.canvas.sun_exposure_snapshot import ExposureSnapshot
 from open_garden_planner.ui.live_sun_map import LiveSunMap
 
 T = TypeVar("T")
+
+
+class ExportCanceled(RuntimeError):
+    """A user cancellation, distinct from a failed calculation or render."""
 
 
 @dataclass(frozen=True)
@@ -52,7 +57,7 @@ class SunExportGate(QObject):
     def _begin_worker(self, operation: _WorkerExport) -> _ExportRequest:
         with operation.lock:
             if operation.abandoned:
-                raise RuntimeError(self.tr("Export canceled."))
+                raise ExportCanceled(self.tr("Export canceled."))
             operation.request = self._begin()
             return operation.request
 
@@ -103,6 +108,16 @@ class SunExportGate(QObject):
         return action()
 
     def run_gui(self, action: Callable[[], T]) -> T:
+        with self.gui_session():
+            return action()
+
+    @contextmanager
+    def gui_session(self) -> Iterator[Callable[[], None]]:
+        """Keep readiness, identity and the animation lease for a modal preview.
+
+        The yielded validator runs again before each preview/print paint, so
+        document edits during the nested dialog cannot print another snapshot.
+        """
         request = self._begin()
         future = request.ready
         try:
@@ -134,8 +149,9 @@ class SunExportGate(QObject):
                 progress.deleteLater()
                 if canceled or not future.done():
                     future.cancel()
-                    raise RuntimeError(self.tr("Export canceled."))
-            return self._render(request, action)
+                    raise ExportCanceled(self.tr("Export canceled."))
+            self._render(request, lambda: None)
+            yield lambda: self._render(request, lambda: None)
         finally:
             self._end()
 

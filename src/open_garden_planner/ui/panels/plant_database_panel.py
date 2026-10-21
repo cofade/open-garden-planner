@@ -4,10 +4,12 @@ from collections.abc import Callable
 from datetime import date
 from typing import cast
 
-from PyQt6.QtCore import QDate, Qt, pyqtSignal
+from PyQt6.QtCore import QDate, QSignalBlocker, Qt, pyqtSignal
+from PyQt6.QtGui import QShowEvent, QWheelEvent
 from PyQt6.QtWidgets import (
     QAbstractSpinBox,
     QApplication,
+    QCalendarWidget,
     QCheckBox,
     QComboBox,
     QDateEdit,
@@ -30,6 +32,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.object_types import ObjectType
+from open_garden_planner.core.sim_clock import MAX_PLAN_DATE, MIN_PLAN_DATE
 from open_garden_planner.models.plant_data import (
     FlowerType,
     PermacultureLayer,
@@ -51,6 +54,19 @@ from open_garden_planner.ui.plant_species_assignment import (
 from open_garden_planner.ui.theme import set_text_role, theme_color
 
 
+def _qt_date(day: date) -> QDate:
+    return QDate(day.year, day.month, day.day)
+
+
+class _PlanCalendar(QCalendarWidget):
+    """Bound new calendar choices while the editor can display legacy dates."""
+
+    def showEvent(self, event: QShowEvent | None) -> None:
+        with QSignalBlocker(self):
+            self.setDateRange(_qt_date(MIN_PLAN_DATE), _qt_date(MAX_PLAN_DATE))
+        super().showEvent(event)
+
+
 class ClickableDateEdit(QDateEdit):
     """A QDateEdit with a visible dropdown arrow for calendar popup.
 
@@ -61,8 +77,9 @@ class ClickableDateEdit(QDateEdit):
         """Initialize the date edit."""
         super().__init__(parent)
         self.setCalendarPopup(True)
-        self._min_date = QDate(1900, 1, 1)
-        self.setMinimumDate(self._min_date)
+        self.setCalendarWidget(_PlanCalendar(self))
+        self.setDateRange(_qt_date(MIN_PLAN_DATE), _qt_date(MAX_PLAN_DATE))
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
         # Make the line edit read-only
         line_edit = self.lineEdit()
@@ -74,6 +91,21 @@ class ClickableDateEdit(QDateEdit):
 
         # Initialize to today's date
         self.setDate(QDate.currentDate())
+
+    def wheelEvent(self, event: QWheelEvent | None) -> None:
+        # These are calendar selectors. Wheel gestures belong to the details
+        # panel's scroll area, even when a date was the last focused control.
+        if event is not None:
+            event.ignore()
+
+    def set_stored_date(self, day: date | None) -> None:
+        """Display old metadata faithfully; only new writes have clock bounds."""
+        minimum = QDate(1, 1, 1) if self.specialValueText() else _qt_date(MIN_PLAN_DATE)
+        maximum = _qt_date(MAX_PLAN_DATE)
+        selected = _qt_date(day) if day is not None else (
+            minimum if self.specialValueText() else QDate.currentDate())
+        self.setDateRange(min(minimum, selected), max(maximum, selected))
+        self.setDate(selected)
 
 
 class EditableField(QWidget):
@@ -708,7 +740,7 @@ class PlantDatabasePanel(QWidget):
         self.removal_date_edit = ClickableDateEdit()
         self.removal_date_edit.setDisplayFormat("yyyy-MM-dd")
         self.removal_date_edit.setSpecialValueText(self.tr("Not removed"))
-        self.removal_date_edit.setDate(self.removal_date_edit.minimumDate())
+        self.removal_date_edit.set_stored_date(None)
         self.removal_date_edit.dateChanged.connect(self._on_removal_date_changed)
         removal_layout.addWidget(self.removal_date_edit, 1)
         self.clear_removal_button = QToolButton()
@@ -940,7 +972,8 @@ class PlantDatabasePanel(QWidget):
             change_lifetime_date(item, field, value)
         except ValueError:
             QMessageBox.warning(self, self.tr("Invalid plant dates"),
-                                self.tr("Removal date must be after planting date."))
+                                self.tr("Choose dates between {min} and {max}. Removal must be after planting.").format(
+                                    min=MIN_PLAN_DATE.isoformat(), max=MAX_PLAN_DATE.isoformat()))
         if self._current_plant_item is item:
             self._refresh_lifetime_dates(item)
 
@@ -950,10 +983,10 @@ class PlantDatabasePanel(QWidget):
         removed = instance_date(getattr(item, "metadata", None), "removal_date")
         planted = instance_date(getattr(item, "metadata", None), "planting_date")
         self.planting_date_edit.blockSignals(True)
-        self.planting_date_edit.setDate(QDate(planted.year, planted.month, planted.day) if planted else QDate.currentDate())
+        self.planting_date_edit.set_stored_date(planted)
         self.planting_date_edit.blockSignals(False)
         self.removal_date_edit.blockSignals(True)
-        self.removal_date_edit.setDate(QDate(removed.year, removed.month, removed.day) if removed else self.removal_date_edit.minimumDate())
+        self.removal_date_edit.set_stored_date(removed)
         self.removal_date_edit.blockSignals(False)
         self._update_age_label(planted)
 

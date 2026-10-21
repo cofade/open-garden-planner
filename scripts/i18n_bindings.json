@@ -145,10 +145,10 @@
       "scope": ""
     },
     "lifetime_properties": {
-      "file": "ui/panels/plant_database_panel.py",
+      "file": "ui/plant_lifetime.py",
       "context": "Commands",
-      "symbol": "",
-      "selector": "argument:self._change_lifetime_date:0",
+      "symbol": "_DATE_LABELS",
+      "selector": "values",
       "scope": ""
     },
     "tree": {

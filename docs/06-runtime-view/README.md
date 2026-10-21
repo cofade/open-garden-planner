@@ -573,7 +573,7 @@ sequenceDiagram
     App->>Scene: refresh_timeline()
     Scene->>Scene: layer AND plant presence; invalidate sprite caches
     Scene-->>Timeline: timeline_changed (read clock, update hidden count)
-    App->>App: visible diagnostics; request latest map if enabled
+    App->>App: date-present data diagnostics; request latest map if enabled
     SimClock->>App: instant_changed (mirror exact date/time; 3D relights itself)
 ```
 
@@ -593,3 +593,8 @@ A visual export pauses animation, requests current exposure, and waits without
 blocking Qt event delivery. GUI cancellation or an API timeout abandons the export.
 After readiness, document/revision/time/exposure are checked on Qt immediately before
 rendering; the final counted export lease restores the prior animation state.
+
+Print enters the same readiness gate before opening its preview and retains the
+animation pause lease until the preview closes. Every paint revalidates the
+document/date/exposure before touching the printer; failure rejects the preview.
+Its legend names the shared plan date. Cancellation is a quiet return.

@@ -6,8 +6,8 @@ from threading import Event, get_ident
 
 import numpy as np
 import pytest
-from PyQt6.QtCore import QDate, QPoint, QTime, QTimer
-from PyQt6.QtGui import QFont
+from PyQt6.QtCore import QDate, QPoint, QPointF, Qt, QTime, QTimer
+from PyQt6.QtGui import QFont, QPainter, QWheelEvent
 from PyQt6.QtWidgets import QApplication, QDateEdit, QProgressDialog, QToolBar
 from PyQt6.sip import isdeleted
 
@@ -19,6 +19,249 @@ from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 from open_garden_planner.ui.canvas.sun_heatmap import HeatmapWorker
 
 BERLIN = {"latitude": 52.52, "longitude": 13.405}
+
+
+def test_find_replace_revalidates_cached_results_after_date_and_document_changes(win):
+    from PyQt6.QtWidgets import QListWidgetItem
+
+    from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+    from open_garden_planner.ui.panels.find_replace_panel import FindReplacePanel
+
+    plant = CircleItem(100, 100, 50, ObjectType.TREE, name="Future tree", metadata={
+        "plant_species": {"common_name": "Apple"},
+        "plant_instance": {"planting_date": "2030-01-01"}})
+    win.canvas_scene.addItem(plant)
+    panel = FindReplacePanel(win.canvas_view)
+    result = QListWidgetItem("Future tree")
+    result.setData(Qt.ItemDataRole.UserRole, plant)
+    panel._matched_items = [plant]
+    panel._replace_species_edit.setText("Changed")
+    win._sim_clock.set_date(date(2029, 1, 1))
+    panel._on_replace_species()
+    panel._on_result_clicked(result)
+    assert plant.metadata["plant_species"]["common_name"] == "Apple"
+    assert not plant.isSelected()
+    win._sim_clock.set_date(date(2030, 1, 1))
+    assert panel._eligible_matches() == [plant]
+    win.canvas_scene.clear()
+    panel._on_replace_species()
+    panel._on_result_clicked(result)  # cached wrapper has been destroyed by Qt
+    assert panel._eligible_matches() == []
+    panel.deleteLater()
+
+
+@pytest.mark.parametrize("field", ["planting_date_edit", "removal_date_edit"])
+def test_scrolling_lifetime_calendar_does_not_edit_or_remove_a_legacy_plant(win, qtbot, monkeypatch, field):
+    from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+    from open_garden_planner.ui.panels.plant_database_panel import PlantDatabasePanel
+
+    plant = CircleItem(100, 100, 50, ObjectType.TREE, name="Legacy tree", metadata={})
+    win.canvas_scene.addItem(plant)
+    panel = PlantDatabasePanel()
+    qtbot.addWidget(panel)
+    panel._current_plant_item = plant
+    panel._refresh_lifetime_dates(plant)
+    panel.show()
+    warnings = []
+    monkeypatch.setattr("open_garden_planner.ui.panels.plant_database_panel.QMessageBox.warning",
+                        lambda *args: warnings.append(args))
+    edit = getattr(panel, field)
+    edit.clearFocus()
+    before = edit.date()
+    history = len(win.canvas_view.command_manager._undo_stack)
+    wheel = QWheelEvent(QPointF(5, 5), QPointF(5, 5), QPoint(), QPoint(0, 120),
+                        Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier,
+                        Qt.ScrollPhase.NoScrollPhase, False)
+    QApplication.sendEvent(edit, wheel)
+    assert edit.date() == before
+    assert len(win.canvas_view.command_manager._undo_stack) == history
+    assert not warnings and plant.metadata == {} and plant.isVisible()
+
+
+def test_hidden_layers_do_not_remove_data_diagnostics_report_beds_or_capacity(win):
+    from open_garden_planner.core.project import ProjectManager
+    from open_garden_planner.services.pdf_report_service import PdfReportService
+    from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+
+    scene = win.canvas_scene
+    bed = RectangleItem(100, 100, 100, 100, ObjectType.CONTAINER)
+    house = RectangleItem(-2000, -2000, 100, 100, ObjectType.HOUSE, name="Outside house")
+    plant = CircleItem(150, 150, 100, ObjectType.PERENNIAL, name="Big plant")
+    for item in (bed, house, plant):
+        scene.addItem(item)
+        item.layer_id = scene.active_layer.id
+    bed._child_item_ids = [plant.item_id]
+    plant._parent_bed_id = bed.item_id
+    scene.update_layer_visibility(scene.active_layer.id, False)
+    records = ProjectManager.diagnostics_snapshot(scene)
+    assert any(r.get("item_id") == str(house.item_id) and r["outside_canvas"] for r in records)
+    # Containers are not report beds; a hidden normal bed must still get its data page.
+    report_bed = RectangleItem(0, 0, 100, 100, ObjectType.GARDEN_BED)
+    scene.addItem(report_bed)
+    report_bed.layer_id = scene.active_layer.id
+    scene.update_layer_visibility(scene.active_layer.id, False)
+    assert report_bed in PdfReportService._find_beds(scene)
+    win._update_container_capacity()
+    assert bed.capacity_overrun
+
+
+def test_unrelated_commands_keep_plant_paint_caches_but_date_changes_regrow(win, qtbot, monkeypatch):
+    from open_garden_planner.core.commands import ChangePropertyCommand
+    from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+
+    paints = []
+    original = CircleItem.paint
+    def count(item, *args):
+        paints.append(item.item_id)
+        return original(item, *args)
+    monkeypatch.setattr(CircleItem, "paint", count)
+    plant = CircleItem(100, 100, 50, ObjectType.TREE, name="Tree")
+    house = RectangleItem(300, 100, 100, 100, ObjectType.HOUSE, name="House")
+    win.canvas_scene.addItem(plant)
+    win.canvas_scene.addItem(house)
+    win.show()
+    qtbot.wait(150)
+    win.canvas_view.viewport().grab()
+    assert plant.item_id in paints
+    paints.clear()
+    win.canvas_view.command_manager.execute(ChangePropertyCommand(house, "name", "House", "Home"))
+    win.canvas_view.viewport().grab()
+    assert plant.item_id not in paints
+    win._sim_clock.set_date(date(2027, 6, 21))
+    win.canvas_view.viewport().grab()
+    assert plant.item_id in paints
+
+
+def test_print_legend_uses_the_rendered_plan_date(win, tmp_path, monkeypatch):
+    from PyQt6.QtGui import QPdfWriter
+
+    from open_garden_planner.ui.dialogs.print_dialog import GardenPrintManager
+
+    win._sim_clock.set_date(date(2030, 6, 21))
+    texts = []
+    original = QPainter.drawText
+    def draw(painter, *args):
+        texts.extend(value for value in args if isinstance(value, str))
+        return original(painter, *args)
+    monkeypatch.setattr(QPainter, "drawText", draw)
+    output = tmp_path / "print.pdf"
+    printer = QPdfWriter(str(output))
+    printer.setResolution(96)
+    GardenPrintManager(win.canvas_scene)._render_to_printer(printer)
+    assert output.read_bytes().startswith(b"%PDF")
+    assert "2030-06-21" in texts and date.today().isoformat() not in texts
+
+
+def test_print_waits_for_current_map_and_holds_animation_through_preview(win, qtbot, jobs, monkeypatch, tmp_path):
+    from PyQt6.QtGui import QPdfWriter
+
+    from open_garden_planner.ui.dialogs.print_dialog import GardenPrintManager, PrintOptionsDialog
+
+    start(win, qtbot, jobs)
+    complete(win, qtbot, jobs)
+    win._sun_toolbar._date_edit.setDate(QDate(2030, 6, 21))
+    win._sun_toolbar.set_animation_active(True)
+    monkeypatch.setattr(PrintOptionsDialog, "exec", lambda _self: PrintOptionsDialog.DialogCode.Accepted)
+    output = tmp_path / "printed.pdf"
+    seen = []
+    def preview(manager, parent=None):
+        assert win._live_sun_map.is_current()
+        assert win._sun_heatmap.displayed_snapshot.day == date(2030, 6, 21)
+        assert not win._sun_toolbar.animation_active
+        writer = QPdfWriter(str(output))
+        writer.setResolution(96)
+        manager._render_to_printer(writer)
+        seen.append(True)
+    monkeypatch.setattr(GardenPrintManager, "print_preview", preview)
+    release = QTimer(win)
+    release.setInterval(10)
+    release.timeout.connect(lambda: jobs[1][1].set() if len(jobs) > 1 else None)
+    release.start()
+    try:
+        win._on_print()
+    finally:
+        release.stop()
+    assert seen and output.read_bytes().startswith(b"%PDF")
+    assert win._sun_toolbar.animation_active and win._sun_export_gate._leases == 0
+
+
+def test_cancel_print_readiness_is_quiet_and_creates_no_preview(win, qtbot, jobs, monkeypatch):
+    from open_garden_planner.ui.dialogs.print_dialog import GardenPrintManager, PrintOptionsDialog
+
+    start(win, qtbot, jobs)
+    win._sun_toolbar.set_animation_active(True)
+    monkeypatch.setattr(PrintOptionsDialog, "exec", lambda _self: PrintOptionsDialog.DialogCode.Accepted)
+    def cancel(dialog):
+        dialog.cancel()
+        return QProgressDialog.DialogCode.Rejected
+    monkeypatch.setattr(QProgressDialog, "exec", cancel)
+    previews, errors = [], []
+    monkeypatch.setattr(GardenPrintManager, "print_preview", lambda *_a, **_k: previews.append(True))
+    monkeypatch.setattr("open_garden_planner.app.application.QMessageBox.critical", lambda *a: errors.append(a))
+    win._on_print()
+    assert not previews and not errors
+    assert win._sun_toolbar.animation_active and win._sun_export_gate._leases == 0
+
+
+def test_print_revalidates_document_before_each_paint(win, monkeypatch):
+    from open_garden_planner.ui.dialogs.print_dialog import GardenPrintManager, PrintOptionsDialog
+
+    monkeypatch.setattr(PrintOptionsDialog, "exec", lambda _self: PrintOptionsDialog.DialogCode.Accepted)
+    errors, touches = [], []
+    def preview(manager, parent=None):
+        win._sim_clock.set_date(date(2030, 6, 21))
+        class UntouchedPrinter:
+            def pageLayout(self):
+                touches.append(True)
+                raise AssertionError("Stale printing touched its output device")
+        manager._render_to_printer(UntouchedPrinter())
+    monkeypatch.setattr(GardenPrintManager, "print_preview", preview)
+    monkeypatch.setattr("open_garden_planner.app.application.QMessageBox.critical", lambda *a: errors.append(a))
+    win._on_print()
+    assert errors and not touches and win._sun_export_gate._leases == 0
+
+
+def test_gui_map_timeout_releases_animation_and_never_renders(win, qtbot, jobs):
+    start(win, qtbot, jobs)
+    win._sun_toolbar.set_animation_active(True)
+    win._sun_export_gate.timeout_s = .04
+    rendered = []
+    with pytest.raises(TimeoutError, match="timed out"):
+        win._sun_export_gate.run_gui(lambda: rendered.append(True))
+    assert not rendered and win._sun_toolbar.animation_active
+    assert win._sun_export_gate._leases == 0
+
+
+def test_legacy_dates_remain_visible_but_new_calendar_choices_are_bounded(win, qtbot):
+    from PyQt6.QtTest import QTest
+
+    from open_garden_planner.core.sim_clock import MAX_PLAN_DATE, MIN_PLAN_DATE
+    from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+    from open_garden_planner.ui.panels.plant_database_panel import PlantDatabasePanel
+    from open_garden_planner.ui.plant_lifetime import change_lifetime_date
+
+    plant = CircleItem(100, 100, 50, ObjectType.TREE, metadata={
+        "plant_species": {"common_name": "Old tree", "scientific_name": "Old tree"},
+        "plant_instance": {"planting_date": "1900-01-01"}})
+    win.canvas_scene.addItem(plant)
+    panel = PlantDatabasePanel()
+    qtbot.addWidget(panel)
+    panel.set_selected_items([plant])
+    panel.show()
+    qtbot.wait(30)
+    assert panel.planting_date_edit.date() == QDate(1900, 1, 1)
+    calendar = panel.planting_date_edit.calendarWidget()
+    edit = panel.planting_date_edit
+    QTest.mouseClick(edit, Qt.MouseButton.LeftButton, pos=QPoint(edit.width() - 8, edit.height() // 2))
+    qtbot.waitUntil(calendar.isVisible)
+    assert calendar.minimumDate() == QDate(MIN_PLAN_DATE)
+    assert calendar.maximumDate() == QDate(MAX_PLAN_DATE)
+    assert plant.metadata["plant_instance"]["planting_date"] == "1900-01-01"
+    assert panel.planting_date_edit.date() == QDate(1900, 1, 1)
+    calendar.hide()
+    with pytest.raises(ValueError, match="supported plan range"):
+        change_lifetime_date(plant, "removal_date", "1901-01-01")
+    assert "removal_date" not in plant.metadata["plant_instance"]
 
 
 @pytest.fixture

@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QLayout,
     QLayoutItem,
     QMenu,
+    QMessageBox,
     QSizePolicy,
     QSlider,
     QTimeEdit,
@@ -449,7 +450,11 @@ class SunSimToolbar(QToolBar):
             removed = instance_date(item.metadata, "removal_date")
             target = planted if planted and self._scene.plan_date < planted else (
                 removed - timedelta(days=1) if removed and removed > date.min else None)
-            if target is None or not MIN_PLAN_DATE <= target <= MAX_PLAN_DATE:
+            if (target is None or not MIN_PLAN_DATE <= target <= MAX_PLAN_DATE
+                    or (planted is not None and removed is not None and removed <= planted)):
+                QMessageBox.information(self, self.tr("Plant date unavailable"),
+                    self.tr("This plant is not present within the supported plan dates ({min} to {max}). Its stored dates have been preserved.").format(
+                        min=MIN_PLAN_DATE.isoformat(), max=MAX_PLAN_DATE.isoformat()))
                 return
             self.date_requested.emit(target)
             if not self._scene.is_present(item):

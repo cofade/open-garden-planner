@@ -435,7 +435,7 @@ class TestHeatmapMidComputeDateChange:
 
         button.setChecked(True)  # the user asks for the hours-of-sun map
         qtbot.waitUntil(lambda: heatmap.result_pending)
-        assert button.isEnabled()  # busy while computing
+        assert button.isEnabled()  # can still be switched off while computing
         worker = heatmap._worker
         assert worker is not None
         assert worker.wait(60000)  # run() returned; its signals are queued

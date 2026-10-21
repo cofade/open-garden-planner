@@ -987,7 +987,7 @@ class ProjectManager(QObject):
         for item in scene.items():
             if not isinstance(item, GardenItemMixin):
                 continue
-            if not item.isVisible():
+            if not getattr(scene, "is_present", lambda _item: True)(item):
                 continue
             # Mirror _serialize_item: group children are not top-level objects, so
             # skip them — a diagnostic id must be resolvable via get_object/list_objects.

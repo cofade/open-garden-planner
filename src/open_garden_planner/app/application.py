@@ -64,6 +64,7 @@ from open_garden_planner.ui.panels import (
     PropertiesPanel,
     SmartSymbolsPanel,
 )
+from open_garden_planner.ui.sun_export_gate import ExportCanceled
 from open_garden_planner.ui.theme import (
     ThemeMode,
     apply_theme,
@@ -1267,7 +1268,7 @@ class GardenPlannerApp(QMainWindow):
 
         out: list[str] = []
         for item in items:
-            if not item.isVisible():
+            if not self.canvas_scene.is_present(item):
                 continue
             if getattr(item, "parent_bed_id", None) != bed_id:
                 continue
@@ -6024,6 +6025,8 @@ class GardenPlannerApp(QMainWindow):
                 output_width_cm=dialog.selected_output_width_cm,
             ))
             self.statusBar().showMessage(self.tr("Exported: {path}").format(path=file_path))
+        except ExportCanceled:
+            return
         except Exception as e:
             QMessageBox.critical(self, self.tr("Export Error"), self.tr("Failed to export PNG:\n{error}").format(error=e))
 
@@ -6055,6 +6058,8 @@ class GardenPlannerApp(QMainWindow):
                 description="Created with Open Garden Planner",
             ))
             self.statusBar().showMessage(self.tr("Exported: {path}").format(path=file_path))
+        except ExportCanceled:
+            return
         except Exception as e:
             QMessageBox.critical(self, self.tr("Export Error"), self.tr("Failed to export SVG:\n{error}").format(error=e))
 
@@ -6113,20 +6118,26 @@ class GardenPlannerApp(QMainWindow):
         if options.exec() != PrintOptionsDialog.DialogCode.Accepted:
             return
 
-        # Create print manager and configure
-        print_mgr = GardenPrintManager(
-            self.canvas_scene,
-            project_name=self._project_manager.project_name,
-        )
-        print_mgr.configure(
-            scale_denominator=options.scale_denominator,
-            include_grid=options.include_grid,
-            include_labels=options.include_labels,
-            include_legend=options.include_legend,
-        )
-
-        # Show print preview (which allows printing)
-        print_mgr.print_preview(parent=self)
+        try:
+            with self._sun_export_gate.gui_session() as validate_snapshot:
+                print_mgr = GardenPrintManager(
+                    self.canvas_scene,
+                    project_name=self._project_manager.project_name,
+                    snapshot_validator=validate_snapshot,
+                )
+                print_mgr.configure(
+                    scale_denominator=options.scale_denominator,
+                    include_grid=options.include_grid,
+                    include_labels=options.include_labels,
+                    include_legend=options.include_legend,
+                )
+                # The animation lease lasts until preview/printing closes.
+                print_mgr.print_preview(parent=self)
+        except ExportCanceled:
+            return
+        except Exception as error:
+            QMessageBox.critical(self, self.tr("Print Error"),
+                                 self.tr("Failed to print:\n{error}").format(error=error))
 
     def _on_import_dxf(self) -> None:
         """Handle Import DXF action."""
@@ -6264,16 +6275,24 @@ class GardenPlannerApp(QMainWindow):
             self.tr("Generating PDF…"), self.tr("Cancel"), 0, 100, self
         )
         progress.setWindowModality(Qt.WindowModality.WindowModal)
-        progress.setMinimumDuration(500)
+        # It must not open behind the map-readiness dialog. Start its normal
+        # delay only after the shared readiness boundary admits the renderer.
+        progress.setMinimumDuration(2**31 - 1)
 
         def on_progress(current: int, total: int) -> None:
             if total > 0:
                 progress.setValue(int(current / total * 100))
 
+        def generate() -> None:
+            progress.setMinimumDuration(500)
+            PdfReportService.generate(self.canvas_scene, opts, file_path_obj, on_progress)
+
         try:
-            self._sun_export_gate.run_gui(lambda: PdfReportService.generate(self.canvas_scene, opts, file_path_obj, on_progress))
+            self._sun_export_gate.run_gui(generate)
             progress.setValue(100)
             self.statusBar().showMessage(self.tr("Exported: {path}").format(path=file_path_obj))
+        except ExportCanceled:
+            progress.cancel()
         except Exception as e:
             progress.cancel()
             QMessageBox.critical(
@@ -6281,6 +6300,8 @@ class GardenPlannerApp(QMainWindow):
                 self.tr("Export Error"),
                 self.tr("Failed to export PDF report:\n{error}").format(error=e),
             )
+        finally:
+            progress.close()
 
     def _confirm_discard_changes(self) -> bool:
         """Ask user to save if there are unsaved changes.
@@ -6783,7 +6804,7 @@ class GardenPlannerApp(QMainWindow):
         # left with a stale ring/badge); only named plants take part in the
         # relationship scan.
         canvas_plants = [it for it in scene_items if self._is_canvas_plant(it)]
-        all_plants = [it for it in canvas_plants if it.isVisible() and self._companion_species_name(it)]
+        all_plants = [it for it in canvas_plants if self.canvas_scene.is_present(it) and self._companion_species_name(it)]
 
         # Desired final state per plant, computed before any setter call so
         # each item is mutated at most once this pass.
@@ -6891,7 +6912,7 @@ class GardenPlannerApp(QMainWindow):
             bed_groups: dict[str, list] = {}
             orphans: list = []
             for plant in all_plants:
-                if not plant.isVisible():
+                if not self.canvas_scene.is_present(plant):
                     continue
                 bed_id = getattr(plant, '_parent_bed_id', None)
                 if bed_id is not None:
@@ -7045,7 +7066,7 @@ class GardenPlannerApp(QMainWindow):
             child_areas: list[float] = []
             for child_id in item.child_item_ids:
                 child = by_id.get(str(child_id))
-                if child is None or not getattr(child, "isVisible", lambda: True)():
+                if child is None or not self.canvas_scene.is_present(child):
                     continue
                 area = child._compute_area_cm2() if hasattr(child, "_compute_area_cm2") else None
                 if area:

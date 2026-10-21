@@ -956,7 +956,7 @@ class CanvasView(QGraphicsView):
             child_ids = {str(c) for c in getattr(item, "_child_item_ids", [])}
             specs: list[PlantSpeciesData] = []
             for child in all_items:
-                if not child.isVisible():
+                if not self._canvas_scene.is_present(child):
                     continue
                 if str(getattr(child, "item_id", "")) not in child_ids:
                     continue

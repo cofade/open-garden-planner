@@ -67,7 +67,7 @@ def analyse_plan(
 
     all_plants = [
         it for it in scene.items()
-        if it.isVisible() and is_plant_fn(it) and species_name_fn(it)
+        if scene.is_present(it) and is_plant_fn(it) and species_name_fn(it)
     ]
 
     beneficial: list[PlantPairResult] = []

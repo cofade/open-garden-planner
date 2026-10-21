@@ -70,7 +70,7 @@ def sun_records(win, kind="sun_mismatch"):
     return [record for record in win.diagnostics_panel.records if record.kind == kind]
 
 
-def test_explicit_compute_badges_canopy_invalidation_and_requirements(sun_app, qtbot):
+def test_explicit_compute_badges_canopy_invalidation_and_requirements(sun_app, qtbot, monkeypatch):
     win = sun_app
     items = by_name(win)
     north, south, tree = items["Northern tomato"], items["Southern tomato"], items["Reference tree"]
@@ -101,9 +101,38 @@ def test_explicit_compute_badges_canopy_invalidation_and_requirements(sun_app, q
     assert win._sun_heatmap.exposure_reason == "ready" and win._sun_heatmap.run_count == run_count
     win.canvas_view.command_manager.undo()
     qtbot.waitUntil(lambda: north._sun_badge.isVisible())
-    tree.setPos(200, 0)
-    assert not win._live_sun_map.is_current()
-    assert win._sun_heatmap.heatmap_visible()  # dated preview remains
+    from open_garden_planner.ui.canvas.sun_heatmap import HeatmapWorker
+    from tests.integration.test_agent_api_lifecycle import _run, _server
+
+    release = Event()
+    run = HeatmapWorker.run
+    def held(worker):
+        while not release.wait(.01) and not worker._cancelled:
+            pass
+        run(worker)
+    monkeypatch.setattr(HeatmapWorker, "run", held)
+    server = _server(win)
+    try:
+        tree.setPos(200, 0)
+        assert not win._live_sun_map.is_current()
+        assert win._sun_heatmap.heatmap_visible()  # honestly dated preview remains
+        # Exercise the coordinator's real debounce while fresh work is held.
+        qtbot.waitUntil(lambda: not sun_records(win) and len(sun_records(win, "sun_evaluation")) == 3
+                       and not north._sun_badge.isVisible())
+        assert all(e.hours is None for e in win.sun_exposure_coordinator.evaluations.values())
+        async def stale_wire(ctx):
+            http_client, client_session, url = ctx
+            async with http_client(url) as (read, write, _), client_session(read, write) as session:
+                await session.initialize()
+                mismatches = await session.call_tool("get_diagnostics", {"kind": "sun_mismatch"})
+                evaluations = await session.call_tool("get_diagnostics", {"kind": "sun_evaluation"})
+                assert not mismatches.isError and not mismatches.structuredContent["result"]
+                rows = evaluations.structuredContent["result"]
+                assert len(rows) == 3 and all(row["details"]["hours"] is None for row in rows)
+        _run(server, stale_wire, qtbot)
+    finally:
+        release.set()
+        server.stop()
     compute(win, qtbot)
     assert win._sun_heatmap.run_count > run_count
     win._sim_clock.set_date(DAY + timedelta(days=1))

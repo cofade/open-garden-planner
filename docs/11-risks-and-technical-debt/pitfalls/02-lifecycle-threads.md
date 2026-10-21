@@ -112,3 +112,9 @@ Held in [debug-verbose: Case study: soil-mismatch warning goes stale on plant mo
 - **Legacy:** none (new entry)
 
 A new worker date mislabeled old imagery, and one bulk layer command made 154 synchronous captures. Cheap dirty state, constant-time spatial checks and debounced semantic capture preserve a dated preview and allow only current measurements. Requirement-only edits restore the completed receiver cache. See section 8.30 and ADR-062 for the current lifecycle contract.
+
+Print shares the visual-export readiness and animation lease, including each
+paint triggered by its modal preview. The legend must use the plan date.
+Stale measurement tests hold a real worker beyond the debounce and query both
+GUI badges and the live MCP boundary. Pinned by
+`tests/integration/test_plan_sun_controls.py` and `tests/integration/test_sun_mismatch.py`.

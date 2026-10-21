@@ -6627,12 +6627,13 @@ could disagree with the existing date-projected 3D canopy.
   Hidden plants cannot be selected, including marquee selection. The hidden-plant
   menu names dates and can navigate to a present day to edit the plant again.
   Revealing a hidden layer uses the normal undoable layer command.
-- Companion, spacing, capacity, guild, canopy and sun diagnostics evaluate the visible
-  set. Hidden plants remain saved. API summary counts retain their existing counting
+- Companion, spacing, capacity, guild and data diagnostics evaluate the date-present
+  set independently of drawing-layer visibility. Solar receivers and casters also
+  honor layer visibility. Hidden plants remain saved. API summary counts retain their existing counting
   rule, and object lists retain absent plants with `present=false`; `as_of_date`
   names the shared plan date. Runtime annotations live only in the API snapshot.
-- PNG/SVG/PDF/DXF export the current visible state. The PDF plant table excludes
-  hidden plants and every report page identifies a non-today plan date. An API layer
+- PNG/SVG/PDF/DXF render the current visible state. The PDF plant table excludes
+  date-absent plants while retaining hidden-layer data; every report page identifies a non-today plan date. An API layer
   override may reveal a hidden layer but cannot reveal a date-absent plant.
 - Both 2D sprites and the existing shadow/heatmap/3D collectors use the shared date
   with the unchanged US-E8 growth model. Sprites invalidate their cached paint after
@@ -6699,8 +6700,25 @@ cancellable progress dialog; API waits occur in the existing provider worker thr
 outside the five-second GUI bridge call, with a 30-second deadline. Immediately before
 writing, it checks document generation, plan revision, wall time and accepted exposure
 identity. Cancellation, changed inputs, timeout or calculation failure writes no new
-output. PNG/SVG/PDF and API image/PDF share this rule; DXF/data exports are unchanged.
+  output. PNG/SVG/PDF, Print and API image/PDF share this rule; DXF/data exports are unchanged.
 
 Tests: `test_plan_sun_controls.py`, `test_timeline_quick3d.py`, the lifetime workflow,
 the existing clock/heatmap/document/badge suites and the export transport tests.
 No dependency, project-file version or persisted simulation-state change.
+
+
+F4 finalization review (21 October 2026) found six P1 gaps before release:
+wheel gestures could remove legacy undated plants; Print bypassed map readiness
+and used today's legend date; drawing-layer visibility leaked into data queries;
+ordinary commands discarded every plant paint cache; the stale sun badge/MCP
+regression had lost assertions; current agent instructions still described F3's
+retired controls. All six are addressed on the feature branch. The combined strip's
+owner-approved layout is unchanged. Regression evidence lives in
+`tests/integration/test_plan_sun_controls.py`, `test_sun_mismatch.py` and
+`test_timeline_quick3d.py`; the draft remains gated by the final fresh review and CI.
+
+Nonblocking review follow-ups: reduce private coordinator coupling and per-tick
+toolbar scene scans; offer explicit retry after an exposure failure; support repair
+of inverted legacy lifetime intervals; remove remaining unused timeline helpers;
+and distinguish temporary API render-layer visibility from semantic plan edits for
+concurrent exports. These are limitations, not evidence of completed work.

@@ -242,3 +242,9 @@ children, and exercise the production theme in both light and dark. Empty status
 labels must hide and current results must share the primary date presentation.
 Pinned by `tests/integration/test_plan_sun_controls.py::test_themed_strip_centres_controls_and_uses_status_space_only_when_needed`
 for both themes, all supported locales and wide/narrow windows.
+
+Lifetime calendars also need native-input coverage: a read-only line edit still
+lets QDateEdit wheel events change a date. Ignore those gestures and bound new
+choices to the clock's range without rewriting stored legacy dates. Pinned by
+`tests/integration/test_plan_sun_controls.py::test_scrolling_lifetime_calendar_does_not_edit_or_remove_a_legacy_plant`
+and `test_legacy_dates_remain_visible_but_new_calendar_choices_are_bounded`.

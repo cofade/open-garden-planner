@@ -90,12 +90,11 @@ class TestRowClickSelection:
     def test_row_click_selects_items_on_scene(
         self, qtbot, service: CompanionPlantingService  # noqa: ARG002
     ) -> None:
-        from PyQt6.QtWidgets import QGraphicsScene
-
         from open_garden_planner.core.object_types import ObjectType
+        from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
         from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 
-        scene = QGraphicsScene()
+        scene = CanvasScene()
         tomato = CircleItem(100.0, 100.0, 25.0, object_type=ObjectType.TREE)
         tomato.plant_species = "tomato"
         scene.addItem(tomato)
@@ -131,13 +130,12 @@ class TestRowClickSelection:
 
 class TestAnalysePlan:
     def test_finds_antagonistic_pair(self, qtbot, service: CompanionPlantingService) -> None:  # noqa: ARG002
-        from PyQt6.QtWidgets import QGraphicsScene
-
         from open_garden_planner.core.object_types import ObjectType
         from open_garden_planner.core.plant_renderer import is_plant_type
+        from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
         from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 
-        scene = QGraphicsScene()
+        scene = CanvasScene()
 
         tomato = CircleItem(100.0, 100.0, 25.0, object_type=ObjectType.TREE)
         tomato.plant_species = "tomato"
@@ -167,13 +165,12 @@ class TestAnalysePlan:
         assert len(antagonistic[0].items) == 2
 
     def test_finds_beneficial_pair(self, qtbot, service: CompanionPlantingService) -> None:  # noqa: ARG002
-        from PyQt6.QtWidgets import QGraphicsScene
-
         from open_garden_planner.core.object_types import ObjectType
         from open_garden_planner.core.plant_renderer import is_plant_type
+        from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
         from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 
-        scene = QGraphicsScene()
+        scene = CanvasScene()
 
         tomato = CircleItem(100.0, 100.0, 25.0, object_type=ObjectType.TREE)
         tomato.plant_species = "tomato"
@@ -203,13 +200,12 @@ class TestAnalysePlan:
         assert len(antagonistic) == 0
 
     def test_out_of_range_ignored(self, qtbot, service: CompanionPlantingService) -> None:  # noqa: ARG002
-        from PyQt6.QtWidgets import QGraphicsScene
-
         from open_garden_planner.core.object_types import ObjectType
         from open_garden_planner.core.plant_renderer import is_plant_type
+        from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
         from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 
-        scene = QGraphicsScene()
+        scene = CanvasScene()
 
         tomato = CircleItem(0.0, 0.0, 25.0, object_type=ObjectType.TREE)
         tomato.plant_species = "tomato"

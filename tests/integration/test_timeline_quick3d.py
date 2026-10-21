@@ -139,6 +139,19 @@ def test_date_burst_keeps_quick3d_regrowth_throttled_and_shows_its_last_day(time
 
 
 @pytest.mark.parametrize("boundary", [date(2026, 5, 1), date(2027, 3, 1)])
+def test_presence_navigation_never_announces_a_plan_edit(timeline3d, boundary):
+    """Deterministic revision contract runs in the normal correctness selection."""
+    from datetime import timedelta
+
+    window, _engines, _plants = timeline3d
+    scene = window.canvas_scene
+    revision = scene.plan_revision
+    for day in (boundary - timedelta(days=1), boundary, boundary - timedelta(days=1)):
+        window._sim_clock.set_date(day)
+        assert scene.plan_revision == revision
+
+
+@pytest.mark.parametrize("boundary", [date(2026, 5, 1), date(2027, 3, 1)])
 @pytest.mark.perf
 def test_crossing_a_lifetime_boundary_does_not_bypass_date_regrowth_throttle(
         timeline3d, qtbot, boundary):

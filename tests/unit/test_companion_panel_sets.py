@@ -62,6 +62,9 @@ class _FakeScene:
     def items(self) -> list[Any]:
         return list(self._items)
 
+    def is_present(self, _item: Any) -> bool:
+        return True
+
 
 def _panel(qtbot: Any, service: CompanionPlantingService, items: list[Any]) -> CompanionPanel:
     panel = CompanionPanel(service)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
@@ -168,6 +168,8 @@ class FindReplacePanel(QWidget):
         for item in scene.items():
             if not isinstance(item, GardenItemMixin):
                 continue
+            if not getattr(scene, "is_present", lambda _item: True)(item):
+                continue
 
             if name_filter:
                 item_name = (getattr(item, "name", None) or "").lower()
@@ -227,7 +229,7 @@ class FindReplacePanel(QWidget):
 
     def _on_result_clicked(self, list_item: QListWidgetItem) -> None:
         item = list_item.data(Qt.ItemDataRole.UserRole)
-        if item is None:
+        if item is None or item not in self._eligible_matches():
             return
         scene = self._canvas_view.scene()
         if scene:
@@ -246,7 +248,7 @@ class FindReplacePanel(QWidget):
             return
         target_layer = scene.get_layer_by_id(target_layer_id)
         layer_name = target_layer.name if target_layer else str(target_layer_id)
-        items = [i for i in self._matched_items if hasattr(i, "layer_id")]
+        items = [i for i in self._eligible_matches() if hasattr(i, "layer_id")]
         if not items:
             return
         cmd = MoveToLayerCommand(items, target_layer_id, scene, layer_name)
@@ -260,7 +262,7 @@ class FindReplacePanel(QWidget):
         new_species = self._replace_species_edit.text().strip()
         if not new_species or not self._matched_items:
             return
-        for item in self._matched_items:
+        for item in self._eligible_matches():
             meta = getattr(item, "metadata", None)
             if not isinstance(meta, dict):
                 continue
@@ -271,3 +273,12 @@ class FindReplacePanel(QWidget):
             elif species_data is not None:
                 meta["plant_species"] = {"common_name": new_species}
                 item.update()
+
+    def _eligible_matches(self) -> list[Any]:
+        """Revalidate results after date changes or document replacement."""
+        scene = self._canvas_view.scene()
+        if scene is None:
+            return []
+        current = {id(item) for item in scene.items()}
+        present = getattr(scene, "is_present", lambda _item: True)
+        return [item for item in self._matched_items if id(item) in current and present(item)]

@@ -1,4 +1,4 @@
-"""Qt-free plant lifetime rules for the shared plan date (US-F4, ADR-061).
+"""Qt-free plant lifetime rules for the shared plan date (US-F4, ADR-062).
 
 Missing or malformed dates are open bounds. Planting is inclusive, removal
 exclusive. These are instance dates, never species traits or season copies.

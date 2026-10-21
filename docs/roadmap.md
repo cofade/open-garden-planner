@@ -2757,7 +2757,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 
 ### L1.1–L1.10 — the new 3D view (#385, ADR-059, ADR-060) — **shipped v1.30.14, [PR #484](https://github.com/cofade/open-garden-planner/pull/484)**
 
-- **The 3D view is a Plan / 3D / Split workspace in the main window**, rendered with Qt Quick 3D (View → Sun & 3D → "3D View" opens Split; Alt+1 / 2 / 3). The Qt 3D viewer window, `core/scene3d/legacy.py`, `core/walk_camera.py`, the L0 spike and both `PyQt6-3D*` wheels are deleted, and `tests/unit/test_no_qt3d_left.py` keeps them out.
+- **The 3D view is a Plan / 3D / Split workspace in the main window**, rendered with Qt Quick 3D (View → "3D View" opens Split; Alt+1 / 2 / 3). The Qt 3D viewer window, `core/scene3d/legacy.py`, `core/walk_camera.py`, the L0 spike and both `PyQt6-3D*` wheels are deleted, and `tests/unit/test_no_qt3d_left.py` keeps them out.
 - **One story each:** L1.1 scene contract v2 (`core/scene3d/`); L1.2 the engine package (`ui/view3d/quick3d/`, CI `Render 3D` on Windows WARP and Linux); L1.3 the workspace (lazy engine, crash marker and software fallback); L1.4 looks and sky (presets with Automatic, twilight, wind, reduced motion); L1.5 the ground bake (the plan's flat surfaces painted onto the ground, matching 2D pixel for pixel); L1.6 the built world; L1.7 plant silhouettes (`core/plant_art/`); L1.8 selection sync, the info card and walk collision; L1.9 the default flip with throttled date playback (§8.29.9 holds the FR-SUN-06 / 07 / 08 parity table and the measured budgets); L1.10 the removal.
 - **Fixed on the way:** defects of the released app #438, #439, #441, #467, #468, #469, #478, #479, #523, #527; the test suite and developer scripts writing into the developer's real profile, #442; and two found in the new view before it shipped, #476 (a Qt Quick 3D texture trap) and #529 (picket moiré at Low).
 - **Owner acceptance, 2026-10-19:** the 36-step manual checklist passed, and the seven decisions put at the pull request were all kept as built — the twilight fade, the noon horizon's lime band, 4× MSAA at Low, the flat sky in compatibility mode, `master`'s rule for a loaded sprite's stated stroke, the new view's cost over the old window (no lighter default preset), and the default shipped with Qt 6.11's ground-texture leak #532 open (ADR-060 addendum D5).
@@ -3119,3 +3119,20 @@ the time field consistently with the calendar, supplies visible calendar/menu
 arrows, shows Today once and repeats a date only for an older map preview. Empty
 map labels no longer reserve space before the hidden-plants menu. The integration
 workflow checks both themes and all supported locales; owner acceptance is pending.
+
+
+F4 finalization review (21 October 2026) found six P1 gaps before release:
+wheel gestures could remove legacy undated plants; Print bypassed map readiness
+and used today's legend date; drawing-layer visibility leaked into data queries;
+ordinary commands discarded every plant paint cache; the stale sun badge/MCP
+regression had lost assertions; current agent instructions still described F3's
+retired controls. All six are addressed on the feature branch. The combined strip's
+owner-approved layout is unchanged. Regression evidence lives in
+`tests/integration/test_plan_sun_controls.py`, `test_sun_mismatch.py` and
+`test_timeline_quick3d.py`; the draft remains gated by the final fresh review and CI.
+
+Nonblocking review follow-ups: reduce private coordinator coupling and per-tick
+toolbar scene scans; offer explicit retry after an exposure failure; support repair
+of inverted legacy lifetime intervals; remove remaining unused timeline helpers;
+and distinguish temporary API render-layer visibility from semantic plan edits for
+concurrent exports. These are limitations, not evidence of completed work.

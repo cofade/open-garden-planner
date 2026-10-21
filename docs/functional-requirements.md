@@ -686,10 +686,12 @@ Acceptance (L1.9): `tests/integration/test_view3d_workspace.py` (no switch is re
 - **FR-TIMELINE-02:** Optional removal dates round-trip additively; valid planting
   and removal edits each have one undo step and reject inverted/empty lifetimes.
 - **FR-TIMELINE-03:** Plants before planting or on/after removal are hidden and
-  unselectable; visible-set diagnostics exclude them. A named-date popover permits
+  unselectable; date-present data diagnostics exclude them independently of drawing
+  layer visibility. Solar analyses also honor visible layers. A named-date popover permits
   discovery and navigation. A non-today indicator identifies the viewed date.
 - **FR-TIMELINE-04:** Visual exports reflect current visibility; PDF reports identify
-  a non-today date. API objects retain absent plants and expose presence/as_of_date.
+  a non-today date. Print uses the same current-map readiness and animation pause,
+  validates each preview paint and labels the plan date. API objects retain absent plants and expose presence/as_of_date.
 - **FR-TIMELINE-05:** Viewing dates never deletes plant data or changes yearly Season
   Manager copies. Generated plant tasks stop after removal, with surviving instances
   retaining a species schedule; manual tasks and succession dates remain independent.

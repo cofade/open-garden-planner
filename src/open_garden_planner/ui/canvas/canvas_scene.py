@@ -1128,10 +1128,13 @@ class CanvasScene(QGraphicsScene):
 
     def refresh_timeline(self) -> None:
         """Apply the current date after edits/undo/load without changing history."""
-        for item in self.items():
-            if is_plant_type(getattr(item, "object_type", None)):
-                item.prepareGeometryChange()
-                item.update()  # invalidate DeviceCoordinateCache for the new canopy
+        day = self.plan_date
+        if day != getattr(self, "_painted_plan_date", None):
+            self._painted_plan_date = day
+            for item in self.items():
+                if is_plant_type(getattr(item, "object_type", None)):
+                    item.prepareGeometryChange()
+                    item.update()  # only a new date invalidates every canopy cache
         # Presence is a view of the clock, not a plan edit. In particular its
         # ItemVisibleHasChanged notices must not bypass the 3D controller's
         # throttled date-regrowth path. Other item changes keep announcing edits.
