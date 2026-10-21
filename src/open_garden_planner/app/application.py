@@ -6271,37 +6271,35 @@ class GardenPlannerApp(QMainWindow):
             author=dialog.author,
         )
 
-        progress = QProgressDialog(
-            self.tr("Generating PDF…"), self.tr("Cancel"), 0, 100, self
-        )
-        progress.setWindowModality(Qt.WindowModality.WindowModal)
-        # It must not open behind the map-readiness dialog. Start its normal
-        # delay only after the shared readiness boundary admits the renderer.
-        progress.setMinimumDuration(2**31 - 1)
-
-        def on_progress(current: int, total: int) -> None:
-            if total > 0:
-                progress.setValue(int(current / total * 100))
-
         def generate() -> None:
+            # Construct only after readiness: QProgressDialog can retain its
+            # constructor's delayed-show timer even after changing its duration.
+            progress = QProgressDialog(
+                self.tr("Generating PDF…"), self.tr("Cancel"), 0, 100, self
+            )
+            progress.setWindowModality(Qt.WindowModality.WindowModal)
             progress.setMinimumDuration(500)
-            PdfReportService.generate(self.canvas_scene, opts, file_path_obj, on_progress)
+            def on_progress(current: int, total: int) -> None:
+                if total > 0:
+                    progress.setValue(int(current / total * 100))
+            try:
+                PdfReportService.generate(self.canvas_scene, opts, file_path_obj, on_progress)
+                progress.setValue(100)
+            finally:
+                progress.close()
+                progress.deleteLater()
 
         try:
             self._sun_export_gate.run_gui(generate)
-            progress.setValue(100)
             self.statusBar().showMessage(self.tr("Exported: {path}").format(path=file_path_obj))
         except ExportCanceled:
-            progress.cancel()
+            return
         except Exception as e:
-            progress.cancel()
             QMessageBox.critical(
                 self,
                 self.tr("Export Error"),
                 self.tr("Failed to export PDF report:\n{error}").format(error=e),
             )
-        finally:
-            progress.close()
 
     def _confirm_discard_changes(self) -> bool:
         """Ask user to save if there are unsaved changes.

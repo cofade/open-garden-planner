@@ -20,7 +20,13 @@ from PyQt6.QtWidgets import (
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
 
-from open_garden_planner.ui.canvas.select_by_id import item_with_id, select_by_ids
+from open_garden_planner.ui.canvas.select_by_id import (
+    click_target,
+    is_selectable,
+    item_with_id,
+    replace_selection,
+    select_by_ids,
+)
 
 
 class FindReplacePanel(QWidget):
@@ -210,7 +216,9 @@ class FindReplacePanel(QWidget):
         scene = self._canvas_view.scene()
         if scene is None:
             return
-        select_by_ids(scene, [str(item.item_id) for item in items])
+        targets = {id(target): target for item in items for target in (click_target(item),)
+                   if is_selectable(target)}
+        replace_selection(scene, list(targets.values()))
 
     # ------------------------------------------------------------------
     # Slots
@@ -291,7 +299,8 @@ class FindReplacePanel(QWidget):
                 item.update()
 
     def _eligible_matches(self) -> list[Any]:
-        """Revalidate results after date changes or document replacement."""
+        """Revalidate date presence; matched wrappers keep these temporary ids
+        unique until the live-membership check. Rows themselves use UUIDs."""
         scene = self._canvas_view.scene()
         if scene is None:
             return []

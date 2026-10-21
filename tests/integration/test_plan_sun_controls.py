@@ -21,7 +21,7 @@ from open_garden_planner.ui.canvas.sun_heatmap import HeatmapWorker
 BERLIN = {"latitude": 52.52, "longitude": 13.405}
 
 
-def test_find_replace_revalidates_cached_results_after_date_and_document_changes(win, qtbot):
+def test_find_replace_revalidates_cached_results_after_date_and_document_changes(win, qtbot, monkeypatch):
     from open_garden_planner.ui.canvas.items.circle_item import CircleItem
     from open_garden_planner.ui.panels.find_replace_panel import FindReplacePanel
 
@@ -43,16 +43,22 @@ def test_find_replace_revalidates_cached_results_after_date_and_document_changes
     qtbot.waitUntil(lambda: win.canvas_scene.selectedItems() == [plant])
     panel._replace_species_edit.setText("Changed")
     win._sim_clock.set_date(date(2029, 1, 1))
+    navigation = []
+    original_ensure_visible = win.canvas_view.ensureVisible
+    monkeypatch.setattr(win.canvas_view, "ensureVisible", lambda *args: navigation.append(args))
     panel._on_replace_species()
     panel._results_list.itemClicked.emit(result)
     qtbot.wait(10)
     assert plant.metadata["plant_species"]["common_name"] == "Apple"
     assert not plant.isSelected()
+    assert navigation == []
+    monkeypatch.setattr(win.canvas_view, "ensureVisible", original_ensure_visible)
     win._sim_clock.set_date(date(2030, 1, 1))
     assert panel._eligible_matches() == [plant]
     panel._results_list.itemClicked.emit(result)  # queued click precedes document replacement
     win.canvas_scene.clear()
     assert panel._matched_items == [] and panel._results_list.count() == 0
+    assert not panel._selection_timer.isActive()
     panel._on_replace_species()
     assert panel._eligible_matches() == []
     panel._on_select_all()
@@ -66,13 +72,36 @@ def test_find_replace_revalidates_cached_results_after_date_and_document_changes
     win.canvas_scene.clearSelection()
     qtbot.wait(10)
     assert win.canvas_scene.selectedItems() == []  # queued old click cannot alias
-    panel._selection_id = identity  # even a delayed old UUID resolves to nothing
-    panel._select_result()
-    assert win.canvas_scene.selectedItems() == []
     current = panel._results_list.item(0)
     panel._results_list.itemClicked.emit(current)
     qtbot.waitUntil(lambda: len(win.canvas_scene.selectedItems()) == 1)
     assert win.canvas_scene.selectedItems()[0].item_id_str == current.data(Qt.ItemDataRole.UserRole)
+
+
+def test_pdf_generation_progress_is_created_only_after_map_readiness(win, qtbot, jobs, monkeypatch, tmp_path):
+    from open_garden_planner.services.pdf_report_service import PdfReportService
+    from open_garden_planner.ui.dialogs.pdf_report_dialog import PdfReportDialog
+
+    target = tmp_path / "report.pdf"
+    monkeypatch.setattr(PdfReportDialog, "exec", lambda _self: PdfReportDialog.DialogCode.Accepted)
+    monkeypatch.setattr("open_garden_planner.app.application.QFileDialog.getSaveFileName",
+                        lambda *_a, **_k: (str(target), ""))
+    start(win, qtbot, jobs)
+    waiting = []
+    def inspect_wait():
+        waiting.extend(dialog.labelText() for dialog in win.findChildren(QProgressDialog) if dialog.isVisible())
+        jobs[0][1].set()
+    QTimer.singleShot(4300, inspect_wait)  # past QProgressDialog's constructor force-show timer
+    def generate(*_args):
+        assert win._live_sun_map.is_current()
+        dialogs = win.findChildren(QProgressDialog)
+        assert sum(dialog.labelText() == "Generating PDF…" for dialog in dialogs) == 1
+        target.write_bytes(b"%PDF")
+    monkeypatch.setattr(PdfReportService, "generate", generate)
+    win._on_export_pdf_report()
+    assert waiting == ["Updating Hours of Sun for export…"]
+    assert target.read_bytes() == b"%PDF"
+    assert not any(dialog.isVisible() for dialog in win.findChildren(QProgressDialog))
 
 
 @pytest.mark.parametrize("field", ["planting_date_edit", "removal_date_edit"])

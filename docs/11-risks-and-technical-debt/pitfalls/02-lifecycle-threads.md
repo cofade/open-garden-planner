@@ -118,3 +118,9 @@ paint triggered by its modal preview. The legend must use the plan date.
 Stale measurement tests hold a real worker beyond the debounce and query both
 GUI badges and the live MCP boundary. Pinned by
 `tests/integration/test_plan_sun_controls.py` and `tests/integration/test_sun_mismatch.py`.
+
+Construct PDF generation progress only after readiness. Changing a newly created
+QProgressDialog's minimumDuration does not stop its constructor force-show timer
+while its value is -1. A held-worker integration test crosses four seconds and
+asserts that the readiness dialog remains the sole visible progress dialog:
+`tests/integration/test_plan_sun_controls.py::test_pdf_generation_progress_is_created_only_after_map_readiness`.

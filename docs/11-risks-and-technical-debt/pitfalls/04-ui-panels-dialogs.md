@@ -24,8 +24,8 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 
 ### PF-UI-03
 
-- **Rule:** A sidebar list that drives canvas selection stores item ids, resolves the live item at click time, defers the selection with `QTimer.singleShot(0)`, and skips a rebuild when its rows are unchanged.
-- **Pinned by:** `tests/integration/test_plan_sun_controls.py::test_find_replace_revalidates_cached_results_after_date_and_document_changes`
+- **Rule:** A sidebar list that drives canvas selection stores item ids, resolves the live item at click time, defers selection until the list click completes, and skips a rebuild when its rows are unchanged.
+- **Pinned by:** `tests/integration/test_plan_sun_controls.py::test_find_replace_revalidates_cached_results_after_date_and_document_changes`; `tests/ui/test_plant_search_panel.py::TestPlantSearchPanel::test_rows_store_item_id_not_graphics_item`; `tests/ui/test_plant_search_panel.py::TestPlantSearchPanel::test_noop_refresh_does_not_rebuild`
 - **Source:** #206, #212, #315, PR #533
 - **Status:** standing
 - **Legacy:** b1faaa9 README L248
@@ -262,4 +262,4 @@ for both themes, all supported locales and wide/narrow windows.
 A read-only line edit does not stop QDateEdit's wheel handling. The old removal
 sentinel advanced to 1901 and made an undated plant absent at every supported date.
 Ignore those gestures and constrain new calendar choices without rewriting stored
-legacy values. An unavailable reveal reports that limitation instead of silently failing.
+legacy values.
