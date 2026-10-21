@@ -855,6 +855,14 @@ worker**, not as a clean abort. The `pytest-timeout` guard still applies per tes
 and the 2026-08-17 stall earn it); xdist kills and restarts the one worker and
 continues.
 
+
+Frozen nonlinear numeric answers need a representable-value bound when replayed
+across runtimes. In the F4 master merge, Windows matched 154/160 L0 exposure
+samples exactly and six at exactly one binary64 ULP, with production lighting
+byte-identical to master. test_scene3d_look permits one math.ulp of the expected
+exposure with zero relative tolerance; probe exposure, colours and brightness stay
+exact. Never replace such evidence with a broad default relative tolerance.
+
 ### 8.10.5 Patterns from the 3D scene pipeline (Phase 17 L1.1)
 
 Patterns `tests/integration/test_footprints_golden.py`, `test_scene3d_snapshot.py`,
