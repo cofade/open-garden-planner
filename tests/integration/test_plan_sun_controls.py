@@ -137,6 +137,14 @@ def test_translated_controls_fit_two_rows_at_narrow_width(qtbot, language, font_
         assert len({group.y() for group in groups}) == 2, [
             (group.width(), group.sizeHint().width(), group.y()) for group in groups]
         assert all(bar._content.rect().contains(group.geometry()) for group in groups)
+        win.resize(1650, 800)
+        qtbot.wait(50)
+        assert len({group.y() for group in groups}) == 1
+        assert bar._month_slider.width() == bar._slider.width() == 180
+        win.resize(800, 800)
+        qtbot.wait(50)
+        assert len({group.y() for group in groups}) == 2
+        assert all(bar._content.rect().contains(group.geometry()) for group in groups)
     finally:
         app.setFont(original_font)
         load_translator(app, "en")
