@@ -654,10 +654,13 @@ class TestCoverage:
         assert pumpkin == SpriteRef("species", "pumpkin")
         # the data's names alone pick nothing: the type's default category, as in 2D
         assert sprite_of(**{PARAM_SPECIES_NAME: "Winter Squash", PARAM_SPECIES_KEY: "cucurbita maxima"})             == SpriteRef("categories", "flowering_perennial")
-        # raw means raw: blanks are not stripped away before the rule sees them — the 2D
-        # rule answers the rose for a string of blanks, and so does 3D
-        assert resolve_sprite("PERENNIAL", "  ", None) == SpriteRef("species", "rose")
-        assert sprite_of(**{PARAM_SPRITE_SPECIES: "  "}) == SpriteRef("species", "rose")
+        # raw means raw: blanks are not stripped away before the rule sees them —
+        # but the rule matches a name as a whole name (#446), so a string of
+        # blanks is no species and takes the type's default category, as in 2D
+        assert resolve_sprite("PERENNIAL", "  ", None) == SpriteRef(
+            "categories", "flowering_perennial")
+        assert sprite_of(**{PARAM_SPRITE_SPECIES: "  "}) == SpriteRef(
+            "categories", "flowering_perennial")
         assert sprite_of(**{PARAM_SPRITE_SPECIES: " Tomato "}) == SpriteRef("species", "tomato")
         assert sprite_of() == SpriteRef("categories", "flowering_perennial")
 

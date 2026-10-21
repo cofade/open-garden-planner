@@ -25,10 +25,18 @@ answered BEFORE the move, and this script is how it was — and is — made:
   (``resolve_sprite`` with an ``available`` predicate) and the renderer itself
   (``_resolve_svg_path`` with ``Path.exists`` patched) are compared.
 
+**#446 changed the rule, so the reference changed with it.** The old rule
+matched a species name by substring; it is kept here as ``legacy_resolve``,
+statement for statement, and ``--legacy-diff`` prints what the change does to
+every case — the before / after of a rule that decides what a plant looks like
+in 2D *and* in 3D. The golden is written from the CURRENT rule
+(``reference_resolve``); the legacy rule is what it replaced.
+
 Usage:
     venv/Scripts/python.exe scripts/make_sprite_resolution_golden.py            # write the golden
     venv/Scripts/python.exe scripts/make_sprite_resolution_golden.py --check    # compare, exit 1 on drift
     venv/Scripts/python.exe scripts/make_sprite_resolution_golden.py --differential
+    venv/Scripts/python.exe scripts/make_sprite_resolution_golden.py --legacy-diff
 """
 
 from __future__ import annotations
@@ -36,6 +44,7 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import re
 import sys
 from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
@@ -70,6 +79,67 @@ ODD = [
 ]
 
 
+def _reference_candidates(species: str, species_files: Mapping[str, str]) -> list[str]:
+    """The sprite stems a species name can mean, best first — the current rule
+    (#446), statement for statement with ``core.plant_art.resolve.species_candidates``.
+
+    1. the whole name (normalised: lower case, blanks collapsed, ``-`` and
+       ``_`` read as blanks);
+    2. a key whose every word is a word of the name — the key with the most
+       words wins, then the longest key, then the table's order;
+    3. a key that holds every word of the name — the key with the fewest extra
+       words wins, then the table's order.
+    """
+    if not species:
+        return []
+    wanted = re.sub(r"[\s\-_]+", " ", species.lower()).strip()
+    if not wanted:
+        return []
+    found: list[str] = []
+    normalised, keyed = _normalised_index(species_files)
+    exact = normalised.get(wanted)
+    if exact is not None:
+        found.append(exact)
+    words = frozenset(wanted.split())
+    contained = sorted(
+        ((len(key_words), length, index, stem)
+         for index, (key_words, length, stem) in enumerate(keyed)
+         if key_words <= words),
+        key=lambda row: (-row[0], -row[1], row[2]),
+    )
+    found.extend(row[3] for row in contained)
+    supersets = sorted(
+        ((len(key_words) - len(words), index, stem)
+         for index, (key_words, _length, stem) in enumerate(keyed)
+         if words <= key_words),
+        key=lambda row: (row[0], row[1]),
+    )
+    found.extend(row[2] for row in supersets)
+    return list(dict.fromkeys(found))
+
+
+_INDEX_CACHE: dict[int, tuple[dict[str, str], tuple[tuple[frozenset[str], int, str], ...]]] = {}
+
+
+def _normalised_index(
+    species_files: Mapping[str, str],
+) -> tuple[dict[str, str], tuple[tuple[frozenset[str], int, str], ...]]:
+    """(normalised key -> sprite, every key as (words, length, sprite)), cached
+    per map: the differential asks this hundreds of thousands of times."""
+    cached = _INDEX_CACHE.get(id(species_files))
+    if cached is not None:
+        return cached
+    normalised: dict[str, str] = {}
+    words: list[tuple[frozenset[str], int, str]] = []
+    for key, stem in species_files.items():
+        folded = re.sub(r"[\s\-_]+", " ", key.lower()).strip()
+        normalised.setdefault(folded, stem)
+        words.append((frozenset(folded.split()), len(folded), stem))
+    built = (normalised, tuple(words))
+    _INDEX_CACHE[id(species_files)] = built
+    return built
+
+
 def reference_resolve(
     kind: str,
     species: str,
@@ -79,9 +149,48 @@ def reference_resolve(
     category_files: Mapping[str, str] = CATEGORY_SPRITES,
     default_category: Mapping[str, str] = DEFAULT_CATEGORY,
 ) -> str | None:
-    """``core/plant_renderer._resolve_svg_path`` at ``aaec048`` — the answer as
-    ``"<group>/<stem>"``, or None. Kept statement for statement (which is why it
-    reads the way it does); enum members are their names here."""
+    """The CURRENT rule (#446) as ``"<group>/<stem>"``, or None. Kept statement
+    for statement (which is why it reads the way it does); enum members are
+    their names here."""
+    if kind not in default_category:
+        return None
+
+    # 1. Try species-specific SVG
+    for stem in _reference_candidates(species, species_files):
+        if exists("species", stem):
+            return f"species/{stem}"
+
+    # 2. Try category SVG
+    if category is not None:
+        filename = category_files.get(category)
+        if filename and exists("categories", filename):
+            return f"categories/{filename}"
+
+    # 3. Fall back to default category based on ObjectType
+    fallback = default_category.get(kind)
+    if fallback:
+        filename = category_files.get(fallback)
+        if filename and exists("categories", filename):
+            return f"categories/{filename}"
+
+    return None
+
+
+def legacy_resolve(
+    kind: str,
+    species: str,
+    category: str | None,
+    exists: Exists,
+    species_files: Mapping[str, str] = SPECIES_SPRITES,
+    category_files: Mapping[str, str] = CATEGORY_SPRITES,
+    default_category: Mapping[str, str] = DEFAULT_CATEGORY,
+) -> str | None:
+    """The rule #446 replaced: the substring match, statement for statement.
+
+    Kept so the change can be measured rather than asserted — ``--legacy-diff``
+    prints what the new rule answers against what this one answered, for every
+    case of the golden.
+    """
     if kind not in default_category:
         return None
 
@@ -110,6 +219,18 @@ def reference_resolve(
             return f"categories/{filename}"
 
     return None
+
+
+def legacy_diff() -> list[tuple[str, str, str | None, str | None, str | None]]:
+    """``(species, kind, category, legacy answer, current answer)`` for every
+    case the two rules answer differently."""
+    rows = []
+    for name, kind, category in cases():
+        was = legacy_resolve(kind, name, category, file_exists)
+        now = reference_resolve(kind, name, category, file_exists)
+        if was != now:
+            rows.append((name, kind, category, was, now))
+    return rows
 
 
 def species_strings() -> list[str]:
@@ -219,7 +340,16 @@ def main() -> int:
     parser.add_argument("--check", action="store_true", help="compare with the committed golden")
     parser.add_argument("--differential", action="store_true",
                         help="old rule vs extracted rule vs renderer, with sprite files missing")
+    parser.add_argument("--legacy-diff", action="store_true",
+                        help="the rule #446 replaced vs the current rule, for every case")
     args = parser.parse_args()
+    if args.legacy_diff:
+        rows = legacy_diff()
+        for name, kind, category, was, now in rows:
+            print(f"{name!r} [{kind}{'' if category is None else f'/{category}'}]: "
+                  f"{was} -> {now}")
+        print(f"{len(rows)} of {len(cases())} cases answer differently")
+        return 0
     if args.differential:
         compared, wrong = differential()
         for line in wrong[:20]:
@@ -243,4 +373,5 @@ if __name__ == "__main__":
 
 
 # kept importable for the tests: tests/unit/test_plant_art.py loads this file by path
-__all__ = ["SpriteRef", "cases", "differential", "golden_text", "missing_sets", "reference_resolve"]
+__all__ = ["SpriteRef", "cases", "differential", "golden_text", "legacy_diff", "legacy_resolve",
+           "missing_sets", "reference_resolve"]

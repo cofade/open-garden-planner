@@ -9,16 +9,19 @@ pins the move:
 - the generator and the renderer hold no table of their own any more: the
   renderer holds the package's objects, the generator executes the package's
   ``recipes.py`` by file path (so that it still needs no Qt);
-- ``resolve_sprite`` answers exactly what the 2D resolver answered before the
-  extraction (``tests/fixtures/plant_art/sprite_resolution_golden.json``, written
-  from the unchanged code in the commit before the move; its generator, with
-  that resolver kept statement for statement, is
-  ``scripts/make_sprite_resolution_golden.py``) — with every sprite file present
-  and with sprite files MISSING, at the pure function and at the renderer;
+- ``resolve_sprite`` answers exactly what the golden holds, and the golden is
+  what its generator's reference resolver answers — with every sprite file
+  present and with sprite files MISSING, at the pure function and at the
+  renderer;
 - the dormant spike's palette copy still equals the shared table (until L1.10).
 
 The sprites themselves are pinned by ``test_plant_sprite_conformance.py``, which
 regenerates all 123 SVGs in memory and compares them with the shipped files.
+
+**#446 changed the rule** (a plant's name is matched as a whole name, not as a
+substring). The golden was regenerated from the new rule; the rule it replaced
+is kept in the generator script as ``legacy_resolve``, and
+``--legacy-diff`` prints what the change does to every case.
 """
 
 from __future__ import annotations
@@ -251,10 +254,10 @@ class TestResolution:
 
     @pytest.mark.parametrize("available", [None, _file_exists, resolve.has_recipe],
                              ids=["everything", "file-exists", "has-recipe"])
-    def test_resolve_sprite_answers_what_the_2d_resolver_answered(self, available) -> None:
-        """Held to the answers of the unchanged resolver — whichever way
-        availability is asked: the 2D renderer asks for a file, the 3D builder
-        for a recipe, and the two sets are the same 123 names."""
+    def test_resolve_sprite_answers_the_golden(self, available) -> None:
+        """Held to the golden's answers — whichever way availability is asked: the
+        2D renderer asks for a file, the 3D builder for a recipe, and the two sets
+        are the same 123 names."""
         wrong = []
         for species, kind, category, expected in GOLDEN_ROWS:
             sprite = resolve_sprite(kind, species, category, available=available)
@@ -488,12 +491,127 @@ class TestResolution:
                               available=without("tomato", "palm", "round_deciduous")) is None
 
     def test_the_partial_match_keeps_its_2d_quirks(self) -> None:
-        """Not a wish list: the 2D renderer draws these today, so 3D builds them."""
+        """The residue of the old substring rule that the new one keeps.
+
+        "Lemon Balm" still takes the lemon tree's sprite: "lemon" is a whole
+        word of the name, and the tables hold no herb by that name. Fixing it
+        would need a curated alias table, which the owner declined (#446); the
+        quirk is pinned so that a later change to the rule has to say so.
+        """
         assert resolve_sprite("PERENNIAL", "Lemon Balm") == SpriteRef("species", "lemon_tree")
-        assert resolve_sprite("PERENNIAL", "Melon") == SpriteRef("species", "eggplant")
-        assert resolve_sprite("PERENNIAL", " \t ") == SpriteRef("species", "rose")
+        assert resolve_sprite("PERENNIAL", "Bean (Bush)") == SpriteRef("species", "bean")
+        assert resolve_sprite("PERENNIAL", "Sweet Potato") == SpriteRef("species", "potato")
         assert resolve_sprite("PERENNIAL", "Echinacea") == SpriteRef(
             "categories", "flowering_perennial")
+
+
+class TestTheNameIsMatchedAsAWholeName:
+    """#446: the old rule matched a name by SUBSTRING, so a herb was drawn as a
+    tree, a melon as an eggplant and a blank species as a rose. The name is now
+    matched as a whole name or alias."""
+
+    @pytest.mark.parametrize(("species", "expected"), [
+        # the issues' own examples, with what each of them answered before
+        ("Melon", "categories/flowering_perennial"),      # was species/eggplant
+        ("melon", "categories/flowering_perennial"),      # was species/eggplant
+        ("Lemon Balm", "species/lemon_tree"),              # unchanged - see above
+        ("Bean (Bush)", "species/bean"),                   # unchanged - see above
+        ("Sweet Potato", "species/potato"),               # unchanged - see above
+        (" ", "categories/flowering_perennial"),          # was species/rose
+        (" \t ", "categories/flowering_perennial"),        # was species/rose
+        ("Petroselinum crispum", "species/parsley"),      # was species/rose
+        ("Linum usitatissimum", "categories/flowering_perennial"),
+        ("grass", "categories/flowering_perennial"),      # was species/lemongrass
+        ("a", "categories/flowering_perennial"),          # was species/rose
+        ("e", "categories/flowering_perennial"),          # was species/rose
+        ("ee", "categories/flowering_perennial"),         # was species/apple_tree
+        ("peach_tree", "species/peach_tree"),              # was species/pea
+        ("pear_tree", "species/pear_tree"),                # was species/pea
+        ("prunus persica 'Redhaven'", "species/peach_tree"),  # was species/cherry_tree
+    ])
+    def test_the_name_answers_the_sprite_it_names(self, species: str, expected: str) -> None:
+        sprite = resolve_sprite("PERENNIAL", species)
+        assert sprite is not None
+        assert f"{sprite.group}/{sprite.name}" == expected
+
+    def test_a_qualified_name_still_finds_its_species(self) -> None:
+        """The point of matching a whole name: a name with extra words is still
+        the species it names. The substring rule got these by accident; they
+        must not be lost by the fix."""
+        for species, expected in [
+            ("Broad Bean", "species/bean"),
+            ("Runner Bean", "species/bean"),
+            ("Sweet Corn", "species/corn"),
+            ("Sweet Cherry", "species/cherry_tree"),
+            ("Sweet Pepper", "species/pepper"),
+            ("Chinese Cabbage", "species/cabbage"),
+            ("Garden Pea", "species/pea"),
+            ("Rocket (Arugula)", "species/arugula"),
+            ("Winter Squash", "species/squash"),
+            ("Wild Rose Hip", "species/rose"),
+            ("Broad Bean", "species/bean"),
+            ("Quercus robur", "species/oak"),
+            ("Malus domestica", "species/apple_tree"),
+            ("Lycopersicon esculentum", "categories/flowering_perennial"),
+        ]:
+            sprite = resolve_sprite("PERENNIAL", species)
+            assert sprite is not None, species
+            assert f"{sprite.group}/{sprite.name}" == expected, species
+
+    def test_a_scientific_name_still_finds_its_species(self) -> None:
+        for species, expected in [
+            ("Quercus robur", "species/oak"),
+            ("Malus domestica", "species/apple_tree"),
+            ("Petroselinum crispum", "species/parsley"),
+            ("Rosmarinus officinalis", "species/rosemary"),
+            ("Sambucus nigra", "species/elderberry"),
+            ("Lavandula angustifolia", "species/lavender"),
+        ]:
+            sprite = resolve_sprite("PERENNIAL", species)
+            assert sprite is not None, species
+            assert f"{sprite.group}/{sprite.name}" == expected, species
+
+    def test_a_genus_still_finds_its_species(self) -> None:
+        """The name is shorter than the key: "Solanum" names the tomato."""
+        assert resolve_sprite("PERENNIAL", "Solanum") == SpriteRef("species", "tomato")
+
+    def test_a_name_the_sprites_do_not_know_falls_back_to_the_category(self) -> None:
+        """No species sprite: the category, else the kind's default category."""
+        assert resolve_sprite("PERENNIAL", "no such plant") == SpriteRef(
+            "categories", "flowering_perennial")
+        assert resolve_sprite("PERENNIAL", "no such plant", "VEGETABLE") == SpriteRef(
+            "categories", "vegetable")
+        assert resolve_sprite("TREE", "no such plant", "VEGETABLE") == SpriteRef(
+            "categories", "vegetable")
+
+    def test_the_rule_changes_nothing_else_in_the_bundled_data(self) -> None:
+        """The blast radius, measured rather than asserted: of the bundled
+        species' 118 names, the new rule changes exactly one name — the melon,
+        which was drawn as an eggplant — in all three plant kinds."""
+        bundled = json.loads(BUNDLED.read_text(encoding="utf-8"))["plants"]
+        script = _load_golden_script()
+        changed = []
+        for record in bundled:
+            name = record["common_name"]
+            for kind in sorted(PLANT_KINDS):
+                was = script.legacy_resolve(kind, name, None, script.file_exists)
+                now = script.reference_resolve(kind, name, None, script.file_exists)
+                if was != now:
+                    changed.append((name, kind, was, now))
+        assert changed == [
+            ("Melon", "PERENNIAL", "species/eggplant", "categories/flowering_perennial"),
+            ("Melon", "SHRUB", "species/eggplant", "categories/spreading_shrub"),
+            ("Melon", "TREE", "species/eggplant", "categories/round_deciduous"),
+        ]
+
+    def test_the_change_is_small_and_measured(self) -> None:
+        """74 of the golden's 1,562 answers change, and 37 distinct names are
+        involved. The number is pinned so that a later change to the rule is a
+        deliberate act with a visible number attached."""
+        script = _load_golden_script()
+        rows = script.legacy_diff()
+        assert len(rows) == 74
+        assert len({(name, was, now) for name, _kind, _cat, was, now in rows}) == 37
 
     def test_recipe_for_and_resolve_recipe(self) -> None:
         assert recipe_for(SpriteRef("species", "tomato")) is recipes.SPECIES["tomato"]
@@ -523,6 +641,6 @@ class TestResolution:
                 assert path is not None
                 assert (path.parent.name, path.stem) == (sprite.group, sprite.name), name
             species_sprites += resolved[0].group == "species"
-        assert species_sprites == 106  # the other 12 take their item type's category
+        assert species_sprites == 105  # the other 13 take their item type's category
 
 
