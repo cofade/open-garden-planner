@@ -25,7 +25,7 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 ### PF-UI-03
 
 - **Rule:** A sidebar list that drives canvas selection stores item ids, resolves the live item at click time, defers selection until the list click completes, and skips a rebuild when its rows are unchanged.
-- **Pinned by:** `tests/integration/test_plan_sun_controls.py::test_find_replace_revalidates_cached_results_after_date_and_document_changes`; `tests/ui/test_plant_search_panel.py::TestPlantSearchPanel::test_rows_store_item_id_not_graphics_item`; `tests/ui/test_plant_search_panel.py::TestPlantSearchPanel::test_noop_refresh_does_not_rebuild`
+- **Pinned by:** `tests/integration/test_plan_sun_controls.py::test_find_replace_revalidates_cached_results_after_date_and_document_changes`; `tests/ui/test_plant_search_panel.py::test_rows_store_item_id_not_graphics_item`; `tests/ui/test_plant_search_panel.py::test_noop_refresh_does_not_rebuild`
 - **Source:** #206, #212, #315, PR #533
 - **Status:** standing
 - **Legacy:** b1faaa9 README L248
