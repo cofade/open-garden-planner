@@ -39,7 +39,9 @@ is a real hole, verified, not a caveat about a hypothetical:
   resolve last-definition-wins. `test_agent_api_writes.py` has 37 `body` definitions, so
   the collision is real in this suite; it is currently harmless because no timing helper
   shares a name with a test elsewhere in a module, and that is a latent landmine, not a
-  safety property.
+  safety property. The measurement that travels in an ATTRIBUTE is scoped to its class
+  (`TimedBaker.milliseconds` is not `GroundBaker.milliseconds`), so that half of the
+  collision does not reach this guard.
 - **It is one-directional.** It proves a marker is *required* where it fires, not that
   every marker present is needed. Two tests in `test_nfr_budgets.py` are marked because
   they build the same scenario on the quiet runner, not because they assert a duration.
@@ -47,12 +49,21 @@ is a real hole, verified, not a caveat about a hypothetical:
 A guard whose limits are written down is auditable. One that claims more than it checks is
 the defect §11.4 keeps finding, and it has been found in three consecutive reviews of this
 very file.
+
+**A measurement that travels in an attribute** (#528) is a third source of sensitivity,
+beside the clock itself and the call graph: the stopwatch is in one method and the
+assertion reads the attribute it fills - often in ANOTHER module, the class's own. The
+guard follows the carrier into the local support modules a test file imports, and an
+attribute is timed when a clock-reading method of its class fills it. A value that is
+only COUNTED (`len(timestamps)`) is not a duration and does not make a test sensitive:
+the gates that count repaints and passes are meant to hold on any machine under any load,
+and they run beside the workers (ADR-058).
 """
 
 from __future__ import annotations
 
 import ast
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
 from pathlib import Path
 
 TESTS_ROOT = Path(__file__).resolve().parents[1]
@@ -95,7 +106,181 @@ def _calls_any(func: ast.AST, names: Collection[str]) -> bool:
     )
 
 
-def _reads_a_clock(tree: ast.Module) -> set[str]:
+#: The calls that put a value INTO a container. A measurement that travels in
+#: an attribute is usually appended to a list, not assigned to it.
+_MUTATORS = frozenset({"append", "add", "extend", "insert"})
+
+
+def _module_key(path: Path) -> str:
+    """The module's name in the repo: its path without the suffix."""
+    return path.relative_to(TESTS_ROOT.parent).with_suffix("").as_posix()
+
+
+def _module_path(module: str) -> Path | None:
+    """The file of a dotted module name under ``tests/``, or None."""
+    parts = module.split(".")
+    if not parts or parts[0] != "tests":
+        return None
+    candidate = TESTS_ROOT.joinpath(*parts[1:]).with_suffix(".py")
+    return candidate if candidate.exists() else None
+
+
+def _support_modules(path: Path) -> dict[str, ast.Module]:
+    """The LOCAL modules a test file imports, parsed.
+
+    A measurement that travels in an attribute usually has its stopwatch in
+    the module that owns the class - and that module is often a support
+    module beside the test, not the test file itself (#528). The guard has to
+    see it, or the wall-clock assertion that reads the attribute is invisible.
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    found: dict[str, ast.Module] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ImportFrom) or not node.module:
+            continue
+        support_path = _module_path(node.module)
+        if support_path is None or support_path == path:
+            continue
+        found[_module_key(support_path)] = ast.parse(
+            support_path.read_text(encoding="utf-8"), filename=str(support_path))
+    return found
+
+
+def _class_modules(trees: Mapping[str, ast.Module]) -> dict[str, str]:
+    """Class name -> the module that defines it, for the classes that are
+    defined in exactly one of the analysed modules."""
+    owners: dict[str, str | None] = {}
+    for key, tree in trees.items():
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                owners[node.name] = None if node.name in owners else key
+    return {name: key for name, key in owners.items() if key is not None}
+
+
+def _mentions_a_clock(value: ast.AST, timed: Collection[str]) -> bool:
+    """True when the expression reads a timing source, directly or through a
+    function that does."""
+    for node in ast.walk(value):
+        if isinstance(node, ast.Call) and (
+            _call_name(node) in TIMING_SOURCES or _call_name(node) in timed
+        ):
+            return True
+    return False
+
+
+def _attributes_written_with_a_clock(
+    method: ast.FunctionDef | ast.AsyncFunctionDef, timed: Collection[str]
+) -> set[str]:
+    """The attributes of ``self`` that this method fills with a measurement."""
+    written: set[str] = set()
+    for node in ast.walk(method):
+        target: ast.AST | None = None
+        value: ast.AST | None = None
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            target, value = node.targets[0], node.value
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            target, value = node.target, node.value
+        elif (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                and node.func.attr in _MUTATORS and node.args):
+            target, value = node.func.value, node.args[0]
+        if target is None or value is None:
+            continue
+        if not (isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name)
+                and target.value.id == "self"):
+            continue
+        if _mentions_a_clock(value, timed):
+            written.add(target.attr)
+    return written
+
+
+def _timed_attributes(trees: Mapping[str, ast.Module]) -> set[tuple[str, str, str]]:
+    """(module, class, attribute) of every attribute that a measurement travels
+    in.
+
+    The carrier is what the guard has to follow: the stopwatch is in one method
+    and the assertion reads the attribute later - often in ANOTHER module, the
+    test's. The attribute is scoped to its class, so one class's stopwatch
+    never taints another class's attribute of the same name (#528).
+    """
+    timed: set[tuple[str, str, str]] = set()
+    for key, tree in trees.items():
+        clock_reading = _reads_a_clock(tree)
+        for class_node in ast.walk(tree):
+            if not isinstance(class_node, ast.ClassDef):
+                continue
+            for method in class_node.body:
+                if not isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                if method.name not in clock_reading:
+                    continue
+                for attr in _attributes_written_with_a_clock(method, clock_reading):
+                    timed.add((key, class_node.name, attr))
+    return timed
+
+
+def _local_classes(func: ast.AST) -> dict[str, str]:
+    """The local names of a function that hold an instance of a class:
+    ``baker = TimedBaker()`` -> ``{"baker": "TimedBaker"}``."""
+    found: dict[str, str] = {}
+    for node in ast.walk(func):
+        if not isinstance(node, ast.Assign) or len(node.targets) != 1:
+            continue
+        target, value = node.targets[0], node.value
+        if not (isinstance(target, ast.Name) and isinstance(value, ast.Call)
+                and isinstance(value.func, ast.Name)):
+            continue
+        found[target.id] = value.func.id
+    return found
+
+
+def _counted_attributes(func: ast.AST) -> set[int]:
+    """The attributes whose value is only COUNTED: the argument of ``len()``.
+
+    A list of timestamps that a test only counts is not a duration - the gates
+    that count repaints and passes are meant to hold on any machine under any
+    load, and they run beside the workers (ADR-058). Counting is not asserting
+    a time.
+    """
+    counted: set[int] = set()
+    for node in ast.walk(func):
+        if isinstance(node, ast.Call) and _call_name(node) == "len" and len(node.args) == 1:
+            for inner in ast.walk(node.args[0]):
+                if isinstance(inner, ast.Attribute):
+                    counted.add(id(inner))
+    return counted
+
+
+def _reads_a_timed_attribute(
+    func: ast.AST,
+    class_name: str | None,
+    module_key: str,
+    timed_attributes: Collection[tuple[str, str, str]],
+    class_modules: Mapping[str, str],
+) -> bool:
+    """True when the function reads an attribute that carries a measurement."""
+    if not timed_attributes:
+        return False
+    local = _local_classes(func)
+    counted = _counted_attributes(func)
+    for node in ast.walk(func):
+        if not isinstance(node, ast.Attribute) or id(node) in counted:
+            continue
+        owner = node.value
+        if isinstance(owner, ast.Name) and owner.id == "self":
+            if class_name is None:
+                continue
+            if (module_key, class_name, node.attr) in timed_attributes:
+                return True
+        elif isinstance(owner, ast.Name) and owner.id in local:
+            class_of = class_modules.get(local[owner.id])
+            if class_of is None:
+                continue
+            if (class_of, local[owner.id], node.attr) in timed_attributes:
+                return True
+    return False
+
+
+def _reads_a_clock(tree: ast.Module, seed: Collection[str] = ()) -> set[str]:
     """Names of functions that reach a timing source, transitively through calls.
 
     A fixed point rather than a single pass: `_assert_repaint_budget` only becomes
@@ -103,7 +288,7 @@ def _reads_a_clock(tree: ast.Module) -> set[str]:
     is not a dependency order.
     """
     functions = _functions(tree)
-    timed: set[str] = set()
+    timed: set[str] = set(seed)
     changed = True
     while changed:
         changed = False
@@ -141,7 +326,12 @@ def _closure(seed: set[str], tree: ast.Module) -> set[str]:
     return grown
 
 
-def _sensitive_names(tree: ast.Module) -> set[str]:
+def _sensitive_names(
+    tree: ast.Module,
+    module_key: str = "",
+    timed_attributes: Collection[tuple[str, str, str]] = (),
+    class_modules: Mapping[str, str] = {},
+) -> set[str]:
     """Functions that order a measured duration against a bound, and their callers.
 
     Two closures, not one. `_reads_a_clock` closes the clock over the call graph, then
@@ -154,12 +344,36 @@ def _sensitive_names(tree: ast.Module) -> set[str]:
     directly. Closing only the clock and asking whether a test *directly* calls a
     sensitive function misses that whole chain; it was caught executing against this
     file's own `collect_duration_asserts`, which returned `[]` for it.
+
+    A third source joins the clock: an attribute that carries a measurement
+    (#528). The stopwatch may sit in another module entirely — in the class
+    that owns it — and the assertion reads the attribute, so the reader is
+    clock-reading too.
     """
-    timed = _reads_a_clock(tree)
+    seed = {
+        name for name, func in _functions(tree).items()
+        if _reads_a_timed_attribute(func, _class_owners(tree).get(name), module_key,
+                                    timed_attributes, class_modules)
+    }
+    timed = _reads_a_clock(tree, seed)
     sensitive = {
         name for name in timed if _orders_a_value_against_a_bound(_functions(tree)[name])
     }
     return _closure(sensitive, tree)
+
+
+def _class_owners(tree: ast.Module) -> dict[str, str | None]:
+    """Function name -> the class it is a method of (None for a module-level
+    one). A name that two classes share resolves to None: the guard would
+    rather not guess."""
+    owners: dict[str, str | None] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef):
+            continue
+        for member in node.body:
+            if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                owners[member.name] = None if member.name in owners else node.name
+    return owners
 
 
 def _marker_names(node: ast.AST) -> set[str]:
@@ -186,7 +400,12 @@ def is_perf_marked(node: ast.AST) -> bool:
     return MARKER in _marker_names(node)
 
 
-def collect_duration_asserts(tree: ast.Module) -> list[tuple[str, bool]]:
+def collect_duration_asserts(
+    tree: ast.Module,
+    *,
+    module_key: str = "",
+    support: Mapping[str, ast.Module] | None = None,
+) -> list[tuple[str, bool]]:
     """`(node_id, marked)` for every test that can be wall-clock sensitive.
 
     A test qualifies when it orders a duration itself, or when it calls something that
@@ -197,8 +416,17 @@ def collect_duration_asserts(tree: ast.Module) -> list[tuple[str, bool]]:
     One timing test in a class of twenty ordinary ones must not force all twenty onto
     the quiet runner, and a first version that propagated sensitivity to the class got
     that wrong in the opposite direction - it demanded markers for every sibling test.
+
+    ``support`` holds the LOCAL modules the test file imports (#528): a
+    measurement that travels in an attribute has its stopwatch in the module
+    that owns the class, which is usually one of them.
     """
-    sensitive = _sensitive_names(tree)
+    trees: dict[str, ast.Module] = dict(support or {})
+    if module_key:
+        trees[module_key] = tree
+    timed_attributes = _timed_attributes(trees)
+    class_modules = _class_modules(trees)
+    sensitive = _sensitive_names(tree, module_key, timed_attributes, class_modules)
     found: list[tuple[str, bool]] = []
 
     def visit(node: ast.AST, marked: bool, prefix: str) -> None:
@@ -229,7 +457,10 @@ def test_no_wall_clock_assertion_is_unmarked() -> None:
     scanned = 0
     for path in _python_files():
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        for node_id, marked in collect_duration_asserts(tree):
+        support = _support_modules(path)
+        for node_id, marked in collect_duration_asserts(
+            tree, module_key=_module_key(path), support=support
+        ):
             scanned += 1
             if not marked:
                 rel = path.relative_to(TESTS_ROOT.parent).as_posix()
@@ -245,6 +476,79 @@ def test_no_wall_clock_assertion_is_unmarked() -> None:
         "`-n auto` workers in the default run and fail intermittently there:\n  "
         + "\n  ".join(offenders)
         + "\nAdd the marker, or rewrite the assertion to be robust (§11.4 #354)."
+    )
+
+
+def test_a_measurement_that_travels_in_an_attribute_is_seen() -> None:
+    """#528, first half: the stopwatch is in ANOTHER module - in the class that
+    owns it - and the assertion reads the attribute it fills. The guard has to
+    follow the carrier, or the wall-clock assertion is invisible and the marker
+    is a comment instead of a rule.
+
+    This is the shape of the ground bake's G3 gate: ``TimedBaker.bake`` times
+    itself into ``milliseconds``, and the test compares the median against
+    10 ms."""
+    support = ast.parse(
+        "import time\n"
+        "class TimedBaker:\n"
+        "    def __init__(self):\n"
+        "        self.milliseconds = []\n"
+        "    def bake(self, records):\n"
+        "        started = time.perf_counter()\n"
+        "        try:\n"
+        "            return records\n"
+        "        finally:\n"
+        "            self.milliseconds.append((time.perf_counter() - started) * 1000.0)\n",
+        filename="support.py",
+    )
+    test_module = ast.parse(
+        "import statistics\n"
+        "from support import TimedBaker\n"
+        "def test_the_median_of_a_bake_is_under_ten_milliseconds():\n"
+        "    baker = TimedBaker()\n"
+        "    baker.bake([])\n"
+        "    median = statistics.median(baker.milliseconds)\n"
+        "    assert median <= 10.0\n",
+        filename="test_the_bake.py",
+    )
+    verdict = collect_duration_asserts(
+        test_module, module_key="tests/test_the_bake", support={"tests/support": support})
+    assert verdict == [("test_the_median_of_a_bake_is_under_ten_milliseconds", False)], (
+        "the wall-clock assertion behind an attribute was not seen"
+    )
+
+
+def test_a_test_that_times_nothing_is_not_seen() -> None:
+    """#528, second half: a stopwatch in a method of the same bare name
+    elsewhere does not make an unrelated test a wall-clock assertion.
+
+    The test below calls the timed method and asserts nothing about a
+    duration; it must not be dragged onto the quiet runner by a stopwatch that
+    lives in another class, in another module."""
+    support = ast.parse(
+        "import time\n"
+        "class TimedBaker:\n"
+        "    def bake(self, records):\n"
+        "        started = time.perf_counter()\n"
+        "        try:\n"
+        "            return records\n"
+        "        finally:\n"
+        "            self.milliseconds.append(time.perf_counter() - started)\n",
+        filename="support.py",
+    )
+    test_module = ast.parse(
+        "from support import TimedBaker\n"
+        "def test_a_scripted_session_ends_on_a_from_scratch_bake():\n"
+        "    baker = TimedBaker()\n"
+        "    tiles = baker.bake([])\n"
+        "    assert tiles == []\n",
+        filename="test_the_session.py",
+    )
+    verdict = collect_duration_asserts(
+        test_module, module_key="tests/test_the_session", support={"tests/support": support})
+    assert verdict == [], (
+        "a test that times nothing was flagged because a method of the same bare name "
+        "elsewhere holds a stopwatch"
     )
 
 

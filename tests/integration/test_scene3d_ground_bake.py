@@ -674,9 +674,10 @@ def _flat_item_up_to_three_metres(scene: CanvasScene, bake: Bake) -> Any:
 class TestOneSmallEdit:
     # A WALL-CLOCK gate (the median of an edit's bake, 10 ms): it runs in the quiet
     # step of ADR-058, never beside the default run's workers — under eight workers
-    # it read 11.58 ms. Marked by hand: the stopwatch is an attribute of
-    # ``ground_bake_support.TimedBaker``, which ``tests/unit/test_perf_marker_guard.py``
-    # does not follow.
+    # it read 11.58 ms. The marker is REQUIRED, not a habit: the stopwatch is an
+    # attribute of ``ground_bake_support.TimedBaker``, and the perf-marker guard
+    # follows a measurement that travels in an attribute (#528) - so it demands
+    # this marker here.
     @pytest.mark.perf
     @pytest.mark.parametrize(("plan", "tiles", "painted"), [("bench_small.ogp", 20, 11),
                                                            ("bench_large.ogp", 60, 45)])
