@@ -248,3 +248,9 @@ lets QDateEdit wheel events change a date. Ignore those gestures and bound new
 choices to the clock's range without rewriting stored legacy dates. Pinned by
 `tests/integration/test_plan_sun_controls.py::test_scrolling_lifetime_calendar_does_not_edit_or_remove_a_legacy_plant`
 and `test_legacy_dates_remain_visible_but_new_calendar_choices_are_bounded`.
+
+Search result rows store numeric identities, never native QGraphicsItem pointers
+in QVariant. Document replacement destroys C++ items even while Python wrappers
+remain; reading a stale QVariant can crash before a Python validity guard.
+Resolve against live scene membership and presence first. Pinned by
+`tests/integration/test_plan_sun_controls.py::test_find_replace_revalidates_cached_results_after_date_and_document_changes`.

@@ -219,7 +219,9 @@ class FindReplacePanel(QWidget):
             ot = getattr(item, "object_type", None)
             type_str = getattr(ot, "name", str(ot)) if ot is not None else "?"
             list_item = QListWidgetItem(f"{item_name}  [{type_str}]")
-            list_item.setData(Qt.ItemDataRole.UserRole, item)
+            # A QVariant holding QGraphicsItem can dereference a deleted C++
+            # pointer before Python can validate it after document replacement.
+            list_item.setData(Qt.ItemDataRole.UserRole, id(item))
             self._results_list.addItem(list_item)
         self._highlight(self._matched_items)
 
@@ -228,8 +230,9 @@ class FindReplacePanel(QWidget):
         self._highlight(self._matched_items)
 
     def _on_result_clicked(self, list_item: QListWidgetItem) -> None:
-        item = list_item.data(Qt.ItemDataRole.UserRole)
-        if item is None or item not in self._eligible_matches():
+        identity = list_item.data(Qt.ItemDataRole.UserRole)
+        item = next((item for item in self._eligible_matches() if id(item) == identity), None)
+        if item is None:
             return
         scene = self._canvas_view.scene()
         if scene:

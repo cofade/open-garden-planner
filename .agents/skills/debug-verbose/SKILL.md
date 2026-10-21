@@ -7,6 +7,25 @@ argument: "Optional: short description of the bug or area to instrument"
 
 # Verbose Debug Instrumentation
 
+## Case study: stale search row crashes before its Python guard (#315)
+
+**Symptom.** The full parallel suite crashed on a search-result click after clearing
+the document, despite a passing focused run and a live-membership check.
+**Wrong theory.** Filtering the returned item after reading QVariant data was
+assumed sufficient; the crash happened before that guard could run.
+**Evidence.** The Windows access-violation dump pins find_replace_panel.py's
+list_item.data(UserRole), called by the document-replacement regression after
+CanvasScene.clear. The native stack is the instrumentation: no Python exception
+is delivered and no later membership check can catch it.
+**Root cause.** A QGraphicsItem stored in QVariant can become a dangling C++ pointer
+when its scene deletes it. Reading that QVariant dereferences it inside SIP.
+**Fix.** Store a numeric row identity, then resolve it through the matched Python
+wrappers intersected with live scene membership and current date presence. The
+regression drives the real search path before clearing the document.
+**Lesson.** Validate identity before crossing a native pointer boundary; retaining
+a Python wrapper does not keep a scene-owned C++ item alive. Pinned by
+test_find_replace_revalidates_cached_results_after_date_and_document_changes.
+
 ## Case study: final review exposes gaps outside the accepted strip (#315)
 
 **Symptom.** Scrolling a lifetime selector could remove an undated legacy plant;

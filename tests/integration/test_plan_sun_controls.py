@@ -22,8 +22,6 @@ BERLIN = {"latitude": 52.52, "longitude": 13.405}
 
 
 def test_find_replace_revalidates_cached_results_after_date_and_document_changes(win):
-    from PyQt6.QtWidgets import QListWidgetItem
-
     from open_garden_planner.ui.canvas.items.circle_item import CircleItem
     from open_garden_planner.ui.panels.find_replace_panel import FindReplacePanel
 
@@ -32,9 +30,11 @@ def test_find_replace_revalidates_cached_results_after_date_and_document_changes
         "plant_instance": {"planting_date": "2030-01-01"}})
     win.canvas_scene.addItem(plant)
     panel = FindReplacePanel(win.canvas_view)
-    result = QListWidgetItem("Future tree")
-    result.setData(Qt.ItemDataRole.UserRole, plant)
-    panel._matched_items = [plant]
+    win._sim_clock.set_date(date(2030, 1, 1))
+    panel._name_edit.setText("Future tree")
+    panel._on_search()
+    result = panel._results_list.item(0)
+    assert result is not None
     panel._replace_species_edit.setText("Changed")
     win._sim_clock.set_date(date(2029, 1, 1))
     panel._on_replace_species()
