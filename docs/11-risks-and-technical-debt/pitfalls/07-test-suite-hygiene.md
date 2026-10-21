@@ -305,3 +305,29 @@ Held in [debug-verbose: Case study: regenerated wood texture fails the seam gate
   **Lesson: a missing `finally` around a side effect is a correctness bug and an unbounded
   retry loop is a hang; both are worth catching by asking what a helper swallows, not what
   it returns.**
+
+### PF-TST-24
+
+- **Rule:** A measurement that travels in an attribute is a wall-clock assertion too: the perf-marker guard follows the carrier into the local support modules, scoped to the class that owns it, and a value that is only counted is not a duration.
+- **Pinned by:** `tests/unit/test_perf_marker_guard.py::test_a_measurement_that_travels_in_an_attribute_is_seen`; `tests/unit/test_perf_marker_guard.py::test_a_test_that_times_nothing_is_not_seen`
+- **Source:** #528
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The guard matched a timing SOURCE and followed the call graph - and a
+measurement that travels in an ATTRIBUTE was invisible: the stopwatch sat in one
+method, the assertion read the attribute it filled, and often the two were in
+different modules (the class that owns the attribute is usually in a support
+module beside the test). The ground bake's G3 gate was marked `perf` BY HAND
+for exactly that reason.
+
+The carrier is now followed: an attribute is timed when a clock-reading method
+of its class fills it, and the guard looks into the local support modules a test
+file imports. The attribute is scoped to its class, so one class's stopwatch
+never taints another class's attribute of the same name - that is the half of
+the bare-name collision that reaches this guard.
+
+A value that is only COUNTED is not a duration: `len(timestamps)` is how the
+gates that count repaints and passes are written, and they are meant to hold on
+any machine under any load and to run beside the workers (ADR-058). Counting
+them as durations would have dragged them onto the quiet runner.

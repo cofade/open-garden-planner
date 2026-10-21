@@ -794,6 +794,16 @@
     "state": "CLOSED",
     "title": "Offset, chamfer and fillet copies keep the source's brush but not its fill_color / fill_pattern: the copy loses its colour and pattern on save"
   },
+  "445": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "A species assigned from the plant database does not change the plant's 2D sprite"
+  },
+  "446": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Plant sprite lookup matches by substring: \"Lemon Balm\" is drawn as a lemon tree, \"Melon\" as an eggplant, \"Bean (Bush)\" as a climbing bean, \"Sweet Potato\" as a potato, a blank species as a rose"
+  },
   "448": {
     "is_pr": false,
     "state": "CLOSED",
@@ -964,6 +974,11 @@
     "state": "MERGED",
     "title": "fix(#512-#516): mutation-verified gate pin, required coverage floor, and the widget-leak probe"
   },
+  "522": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Canvas: Shift+click through an item on a locked layer replaces the selection instead of toggling"
+  },
   "524": {
     "is_pr": false,
     "state": "CLOSED",
@@ -978,6 +993,16 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Properties-panel type change gives a line square caps and bevelled joins until the plan is reopened"
+  },
+  "528": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "perf-marker guard misses a median kept in an attribute and flags a test that times nothing"
+  },
+  "530": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Seven Properties-panel edits (grid, soil depth, container material/drainage/height, soil volume) are not undoable and do not mark the plan modified"
   },
   "532": {
     "is_pr": false,

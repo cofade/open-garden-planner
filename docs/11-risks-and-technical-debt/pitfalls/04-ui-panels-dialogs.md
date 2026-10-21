@@ -263,3 +263,51 @@ A read-only line edit does not stop QDateEdit's wheel handling. The old removal
 sentinel advanced to 1901 and made an undated plant absent at every supported date.
 Ignore those gestures and constrain new calendar choices without rewriting stored
 legacy values.
+
+### PF-UI-24
+
+- **Rule:** Every property the Properties panel edits is one undoable command; a direct write into the item is neither undoable nor a mark of a modified plan.
+- **Pinned by:** `tests/integration/test_properties_panel_undo.py::test_the_grid_edits_of_a_bed_are_one_undo_step_each`; `tests/integration/test_properties_panel_undo.py::test_the_soil_depth_of_a_bed_is_one_undo_step`; `tests/integration/test_properties_panel_undo.py::test_the_container_edits_are_one_undo_step_each`
+- **Source:** #530
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Seven handlers wrote into the item DIRECTLY: a bed's grid on/off and grid
+spacing, a bed's soil depth, and a container's material, drainage, height and
+soil volume. A direct write is no command, so the undo stack never heard of it:
+Ctrl+Z undid the container's CREATION instead of its height, the plan was not
+marked modified, and closing the app asked nothing and lost the edit.
+
+The panel's own docstring had called this "documented debt" - and it was also
+the reason the 3D view needed a second announcement (`note_plan_changed`),
+because a command announces itself and a write does not. An edit now goes
+through `ChangePropertyCommand` like the panel's name, height, fill and stroke
+edits, and the announcement stays.
+
+Two details worth keeping: a value that was never set is restored as ABSENT
+again, not as `None` (the model's defaults answer for an absent key, not for a
+key holding `None`), and the property name is a LITERAL at the command call,
+because it is the undo label and it is what the i18n gate reads.
+
+
+### PF-UI-25
+
+- **Rule:** A Shift+click picks the first SELECTABLE item under the cursor, not the topmost one: `itemAt` answers a locked item, which is not selectable.
+- **Pinned by:** `tests/integration/test_view3d_selection_bridge.py::test_shift_through_a_locked_item_toggles_what_is_behind_it`
+- **Source:** #522
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+A locked layer takes the selectable flag away from its items - that is all it
+takes, and the items are still drawn and still hit. The select tool asked
+`itemAt`, which answers the TOPMOST item, so a Shift+click on a locked item
+found an item that cannot be selected, gave up and handed the click to Qt -
+whose own toggle key is Ctrl. The Shift+click was therefore a PLAIN click on
+what was behind it, and it REPLACED the selection instead of toggling it.
+
+The tool now asks for the first SELECTABLE item under the cursor, so
+Shift+click toggles what lies behind the locked item - the canvas's own rule.
+With nothing selectable beneath, the click goes through as before, so a locked
+item with nothing behind it still clears the selection. The 3D selection bridge
+already did this, and the one measured difference between the two views is
+gone.
