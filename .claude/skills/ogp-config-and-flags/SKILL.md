@@ -313,7 +313,7 @@ ubuntu-latest: **lint** (`ruff check src/`), **test** (apt Qt libs, then
   `!startsWith(message, 'chore:') && !startsWith(message, 'chore(')` — the
   scoped form was added after `chore(finalize-us):` slipped through and
   wrongly cut a release.
-- Version bump from the **labels of the most recently merged master PR**:
+- Version bump from the **labels of the triggering commit's PR** (issue #543):
   label `major` → X+1.0.0, `minor` → Y+1, else **patch** (default). Skips
   cleanly if the computed tag already exists.
 - Builds on windows-latest via `installer/build_installer.py`, NSIS installer +

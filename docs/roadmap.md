@@ -3104,8 +3104,8 @@ growth/export checks. F5 (#316) remains a separate story. Validation evidence an
 the owner's remaining frozen-app checklist accompany the draft PR.
 
 
-F4 owner-planned integration follow-up (20 October 2026, PR #533): master v1.30.14
-is merged into the branch. One permanent adaptive Plan & Sun strip replaces the
+F4 owner-planned integration follow-up (20 October 2026, PR #533): master through v1.30.15 and
+release fix #543 are merged into the branch. One permanent adaptive Plan & Sun strip replaces the
 duplicate date controls and optional simulation toolbar; solar/decorative shadows
 are automatic, Hours of Sun updates while enabled with an honest dated preview,
 and image/PDF exports wait for current results. Monthly scrubbing preserves the
