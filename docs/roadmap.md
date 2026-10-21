@@ -3095,8 +3095,8 @@ colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see PF-CAN
 
 ### Line appearance and cache-containment follow-ups (#524, #525, #526, #471)
 
-Implemented together on `fix/524-line-appearance-and-undo`; owner frozen-app
-acceptance and protected merge remain pending. Preset selection undo restores
+Shipped on 2026-10-21 as v1.30.16 ([PR #545](https://github.com/cofade/open-garden-planner/pull/545))
+after owner acceptance on the built executable. Preset selection undo restores
 the exact previous stroke (#524). Both type-change controls apply the new type's
 defaults and clear the preset, restoring the original look on undo (#525).
 Round caps and joins survive history (#526). Styled-line bounds contain metal
