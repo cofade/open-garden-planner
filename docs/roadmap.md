@@ -2625,7 +2625,7 @@ The preexisting German amendment-task naming gap is tracked in #408.
 
 ---
 
-## Package F — Permaculture & Polyculture (✅ 3 of 5 shipped; F4 in review, F5 planned)
+## Package F — Permaculture & Polyculture (✅ 4 of 5 shipped; F5 planned)
 
 > Filed from the permapeople.org research session (2026-08-17). Membership and
 > order live in the `> Package map & order` blockquote at the head of each issue,
@@ -2637,7 +2637,7 @@ The preexisting German amendment-task naming gap is tracked in #408.
 > | ✅ v1.30.0 | **F1** ([#312](https://github.com/cofade/open-garden-planner/issues/312)) | **Permaculture layer + plant function tags** — foundation of the package, **do first**. `PermacultureLayer` (7 food-forest layers + `UNKNOWN`) and `PlantFunction` (12 functions) as additive species attributes, captured from Permapeople's `Layer`/`Uses`, filled for all 118 bundled records, editable in Plant Details, filterable in search/gallery, exposed in the curated agent schema. Plus an optional food-forest canvas-layer preset. ADR-054/055 and FR-32. |
 > | ✅ v1.30.0 | **F2** ([#313](https://github.com/cofade/open-garden-planner/issues/313)) | **Plant guilds** — guild templates, canvas membership, missing-role diagnostic. *Depends on F1*: guilds have nothing to reason on without layer/function tags. |
 > | ✅ v1.30.1 | **F3** ([#314](https://github.com/cofade/open-garden-planner/issues/314)) | **Sun-requirement × computed hours-of-sun diagnostic** + canvas badge. Shipped with #428 via PR #436 after owner acceptance (ADR-056): explicit cached exposure, self-shadow exclusion, unavailable states and mature-canopy groups. *Independent*; its layer-stack section follows F1. Builds on the shipped Phase 14 sun/shade engine. |
-> | 🔨 implementation / review | **F4** ([#315](https://github.com/cofade/open-garden-planner/issues/315)) | **Plan timeline scrubber** — `removal_date` + plan-state-at-date visibility on the shared sim date. *Independent.* |
+> | ✅ v1.30.17, PR #533 | **F4** ([#315](https://github.com/cofade/open-garden-planner/issues/315)) | **Plan timeline scrubber** — `removal_date` + plan-state-at-date visibility on the shared sim date. *Independent.* |
 > | 📋 | **F5** ([#316](https://github.com/cofade/open-garden-planner/issues/316)) | **Bundled example-plan gallery** + template export/import. **Last** — ideally after F2 and F4. Blocked on nothing technical, but #379 (retiring the hand-made dogfood fixture) waits on it. |
 
 ## Package G — Plant Data Quality & Attribution (✅ 4 of 4 shipped — Complete)
@@ -2805,7 +2805,7 @@ up."* while the task was open. See ADR-029 (addendum) and ADR-049.
 
 ### Package F1/F2 delivery notes (v1.30.0, PR #433)
 
-F1 (#312) and F2 (#313) shipped together in [v1.30.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.0) via [PR #433](https://github.com/cofade/open-garden-planner/pull/433) after automated gates, independent review and all 13 owner frozen-app checks passed on 11 October 2026. F1 adds saved traits, complete offline filtering/background online fallback and semantic layer assignment. F2 adds immutable guild snapshots, template authoring, preflighted one-step insertion/membership, cosmetic badges and general diagnostics. The template editor and general Diagnostics panel are agreed scope additions. F3 (#314) shipped with heatmap document-lifecycle fix #428 in v1.30.1 via PR #436; F4/F5 (#315/#316) remain separate. ADR-054/055 and FR-32 record the contracts; mandatory workflows include `test_permaculture_layer.py`, `test_guilds.py` and `test_permaculture_manual_regressions.py`. Wiki pages are rendered from these approved repository sources under ADR-051.
+F1 (#312) and F2 (#313) shipped together in [v1.30.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.0) via [PR #433](https://github.com/cofade/open-garden-planner/pull/433) after automated gates, independent review and all 13 owner frozen-app checks passed on 11 October 2026. F1 adds saved traits, complete offline filtering/background online fallback and semantic layer assignment. F2 adds immutable guild snapshots, template authoring, preflighted one-step insertion/membership, cosmetic badges and general diagnostics. The template editor and general Diagnostics panel are agreed scope additions. F3 (#314) shipped with heatmap document-lifecycle fix #428 in v1.30.1 via PR #436; F4 (#315) shipped in v1.30.17 via PR #533; F5 (#316) remains separate. ADR-054/055 and FR-32 record the contracts; mandatory workflows include `test_permaculture_layer.py`, `test_guilds.py` and `test_permaculture_manual_regressions.py`. Wiki pages are rendered from these approved repository sources under ADR-051.
 
 
 ### Package F3 acceptance highlights (v1.30.1, PR #436)
@@ -2816,7 +2816,7 @@ F3 (#314) and heatmap lifecycle fix #428 shipped together in [v1.30.1](https://g
 - Document replacement cancels work and rejects running/queued late results. Deterministic GUI New/Open/recovery and real MCP replacement regressions are pinned in `tests/integration/test_sun_document_lifecycle.py`; the feature workflow is `tests/integration/test_sun_mismatch.py`.
 - Independent review reproduced and resolved concave-footprint badge containment and malformed legacy species handling, then returned clean final review. Full validation: 7,938 passed, 34 skipped; line coverage 76.9%, branch 60.3%; 200 casters/receivers 3.267 seconds. Frozen startup, subsystem self-test, real MCP reads/moves/New/Open and inspected renders passed; GitHub CI and release provenance passed.
 
-F4 (#315) is implemented pending review and owner acceptance; F5 (#316) remains planned. #328 shipped earlier in PR #352 and was excluded from this package.
+F4 (#315) shipped in [v1.30.17](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.17) via [PR #533](https://github.com/cofade/open-garden-planner/pull/533) after owner acceptance; F5 (#316) remains planned. #328 shipped earlier in PR #352 and was excluded from this package.
 
 ### Docs updated on F3 completion
 
@@ -3093,15 +3093,14 @@ colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see PF-CAN
   not fail, it *reads background*, which is what a luminance statistic calls texture. ADR-057
   addendum, PF-CAN-20.
 
-### US-F4 plan timeline (#315) — implementation pending owner acceptance
+### US-F4 plan timeline (#315) — complete, v1.30.17, PR #533
 
 ADR-062 and FR-34 define a month scrubber/Today on the existing SimClock, undoable
-plant removal dates, half-open presence, visible-set diagnostics and current-state
+plant removal dates, half-open presence, date-present data diagnostics and current-state
 exports/API annotations. The 2D sprite now shares the growth date; fresh creation
 uses that date too. Season Manager remains a whole-plan yearly copy. Integration
 workflows include real controls, exact boundaries, history, round-trip and rendered
-growth/export checks. F5 (#316) remains a separate story. Validation evidence and
-the owner's remaining frozen-app checklist accompany the draft PR.
+growth/export checks. F5 (#316) remains a separate story. Validation evidence and owner acceptance are recorded in PR #533.
 
 
 F4 owner-planned integration follow-up (20 October 2026, PR #533): master through v1.30.15 and
@@ -3111,31 +3110,16 @@ are automatic, Hours of Sun updates while enabled with an honest dated preview,
 and image/PDF exports wait for current results. Monthly scrubbing preserves the
 preferred day; the 21 June shortcut is removed. ADR-062 / FR-34 / §8.31 record the
 decision, with combined-controls and native Qt Quick 3D integration evidence. Owner
-acceptance and publication remain pending; F5 stays separate.
+acceptance and protected merge are complete; F5 stays separate. Wiki publication follows ADR-051.
 
 Owner visual follow-up (21 October): the initial layout checks omitted the app's
 theme and proved containment only. The themed strip now centres whole rows, styles
 the time field consistently with the calendar, supplies visible calendar/menu
 arrows, shows Today once and repeats a date only for an older map preview. Empty
 map labels no longer reserve space before the hidden-plants menu. The integration
-workflow checks both themes and all supported locales; owner acceptance is pending.
+workflow checks both themes and all supported locales; the owner accepted the revised interface and requested release.
 
-
-F4 finalization review (21 October 2026) found six P1 gaps before release:
-wheel gestures could remove legacy undated plants; Print bypassed map readiness
-and used today's legend date; drawing-layer visibility leaked into data queries;
-ordinary commands discarded every plant paint cache; the stale sun badge/MCP
-regression had lost assertions; current agent instructions still described F3's
-retired controls. All six are addressed on the feature branch. The combined strip's
-owner-approved layout is unchanged. Regression evidence lives in
-`tests/integration/test_plan_sun_controls.py`, `test_sun_mismatch.py` and
-`test_timeline_quick3d.py`; the draft remains gated by the final fresh review and CI.
-
-Nonblocking review follow-ups: reduce private coordinator coupling and per-tick
-toolbar scene scans; offer explicit retry after an exposure failure; support repair
-of inverted legacy lifetime intervals; remove remaining unused timeline helpers;
-and distinguish temporary API render-layer visibility from semantic plan edits for
-concurrent exports. These are limitations, not evidence of completed work.
+F4 final delivery: **[v1.30.17](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.17) via [PR #533](https://github.com/cofade/open-garden-planner/pull/533), 2026-10-21**, after owner acceptance. The full local suite, isolated performance selection, all feature CI checks, locale gates, frozen build/smoke/self-test and live MCP checks passed. Coverage floors passed. Independent 3D and senior reviews passed. Six finalization P1 findings were fixed and independently re-reviewed before merge; the accepted strip layout is unchanged.
 
 ### Line appearance and cache-containment follow-ups (#524, #525, #526, #471)
 
