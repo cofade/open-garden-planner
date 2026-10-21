@@ -2751,6 +2751,10 @@ class GardenPlannerApp(QMainWindow):
                 None,
                 getattr(item, "spacing_radius_cm", None),
                 getattr(item, "spacing_radius_cm", None),
+                None,
+                None,
+                getattr(item, "plant_species", "") or "",   # the name it had ...
+                "",                                        # ... and the name it has now
             )
             self.canvas_view.command_manager.execute(cmd)
             self._agent_refresh_soil_mismatches()

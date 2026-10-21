@@ -617,6 +617,8 @@ class ApplySpeciesCommand(Command):
         new_spacing_override: float | None,
         old_radius: float | None = None,
         new_radius: float | None = None,
+        old_species_name: str = "",
+        new_species_name: str = "",
     ) -> None:
         """Initialize the apply-species command.
 
@@ -631,6 +633,9 @@ class ApplySpeciesCommand(Command):
                 footprint untouched.
             new_radius: Footprint radius (cm) after applying, or None to leave
                 the footprint untouched.
+            old_species_name: The item's own species STRING before the
+                assignment — what the sprite resolver reads (#445).
+            new_species_name: The species string after the assignment.
         """
         self._item = item
         # Defensive copies so later mutations of the source dicts can't alias
@@ -641,6 +646,8 @@ class ApplySpeciesCommand(Command):
         self._new_spacing_override = new_spacing_override
         self._old_radius = old_radius
         self._new_radius = new_radius
+        self._old_species_name = old_species_name
+        self._new_species_name = new_species_name
 
     @property
     def description(self) -> str:
@@ -652,6 +659,7 @@ class ApplySpeciesCommand(Command):
         species: dict[str, Any] | None,
         spacing_override: float | None,
         radius: float | None,
+        species_name: str = "",
     ) -> None:
         # ``metadata`` is a read-only property returning the item's live dict, so
         # mutate it in place (a plant item always has one; a non-plant item would
@@ -661,8 +669,13 @@ class ApplySpeciesCommand(Command):
             metadata.pop("plant_species", None)
         else:
             metadata["plant_species"] = dict(species)
-        # The setter triggers prepareGeometryChange()/update(); set it last so
-        # the spacing circle repaints with the new metadata in place.
+        # The item's own species STRING is what the sprite resolver reads, so
+        # the assignment has to write it too (#445): without it the plant keeps
+        # the sprite it was drawn with, in 2D and in 3D alike. The setter
+        # triggers prepareGeometryChange()/update(); set it last so the
+        # spacing circle repaints with the new metadata in place.
+        if hasattr(self._item, "plant_species"):
+            self._item.plant_species = species_name  # type: ignore[attr-defined]
         self._item.spacing_radius_cm = spacing_override  # type: ignore[attr-defined]
         # Resize the drawn footprint so it reflects the species' real size
         # (no-op when radius is None or unchanged).
@@ -671,11 +684,13 @@ class ApplySpeciesCommand(Command):
 
     def execute(self) -> None:
         """Apply the new species + spacing override + footprint radius."""
-        self._apply(self._new_species, self._new_spacing_override, self._new_radius)
+        self._apply(self._new_species, self._new_spacing_override, self._new_radius,
+                    self._new_species_name)
 
     def undo(self) -> None:
         """Restore the previous species + spacing override + footprint radius."""
-        self._apply(self._old_species, self._old_spacing_override, self._old_radius)
+        self._apply(self._old_species, self._old_spacing_override, self._old_radius,
+                    self._old_species_name)
 
 
 class ResizeItemCommand(Command):

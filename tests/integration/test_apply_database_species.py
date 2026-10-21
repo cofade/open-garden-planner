@@ -18,7 +18,11 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
+from PyQt6.QtCore import QRectF
+from PyQt6.QtGui import QImage, QPainter
+from PyQt6.QtWidgets import QGraphicsItem
 
+from open_garden_planner.core import plant_renderer
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.services.bundled_species_db import (
     lookup_species,
@@ -360,3 +364,108 @@ def test_editing_current_spread_shrinks_icon_without_shrinking_footprint(
     assert generic_plant.rect().width() == pytest.approx(footprint_before)
     assert generic_plant.radius == pytest.approx(_DB_RADIUS)
     assert generic_plant._visual_plant_diameter_cm(footprint_before) == pytest.approx(10.0)
+
+
+# ---------------------------------------------------------------------------
+# #445: the assignment changes what the plant is DRAWN with, not only what its
+# data says. The sprite resolver reads the item's own species STRING; the
+# assignment wrote only the record, so the plant kept the sprite it was drawn
+# with - a tomato that still looked like a shrub.
+
+
+def _drawn_sprite(item: CircleItem) -> tuple[str, str]:
+    """(group, stem) of the SVG the canvas draws the item with."""
+    path = plant_renderer._resolve_svg_path(
+        item.object_type, item.plant_species, item.plant_category)
+    assert path is not None
+    return (path.parent.name, path.stem)
+
+
+def _painted(item: CircleItem) -> bytes:
+    """The pixels the canvas paints for the item."""
+    image = QImage(160, 160, QImage.Format.Format_ARGB32)
+    image.fill(0)
+    painter = QPainter(image)
+    item.scene().render(painter, QRectF(0, 0, 160, 160), item.sceneBoundingRect())
+    painter.end()
+    bits = image.constBits()
+    bits.setsize(image.sizeInBytes())
+    return bytes(bits)
+
+
+def test_the_assigned_species_is_the_sprite_the_plant_is_drawn_with(
+    canvas: CanvasView, panel: PlantDatabasePanel, generic_plant: CircleItem, monkeypatch
+) -> None:
+    """The regression pin for #445: before the fix the plant kept its generic
+    shrub sprite after the assignment."""
+    _fail_prompt(panel, monkeypatch)
+    generic_plant.setCacheMode(QGraphicsItem.CacheMode.NoCache)
+
+    assert _drawn_sprite(generic_plant) == ("categories", "spreading_shrub")
+    before = _painted(generic_plant)
+
+    panel._apply_species_to_item(generic_plant, _species_dict())
+
+    assert generic_plant.plant_species == "Tomato"
+    assert _drawn_sprite(generic_plant) == ("species", "tomato")
+    assert _painted(generic_plant) != before, "the canvas still draws the old sprite"
+
+
+def test_undo_puts_the_old_sprite_back(
+    canvas: CanvasView, panel: PlantDatabasePanel, generic_plant: CircleItem, monkeypatch
+) -> None:
+    """One undo step, and it restores the name as well as the data and the
+    footprint - the sprite follows the name back."""
+    _fail_prompt(panel, monkeypatch)
+    assert generic_plant.plant_species == ""
+    panel._apply_species_to_item(generic_plant, _species_dict())
+    assert generic_plant.plant_species == "Tomato"
+
+    canvas.command_manager.undo()
+
+    assert generic_plant.plant_species == ""
+    assert _drawn_sprite(generic_plant) == ("categories", "spreading_shrub")
+    assert generic_plant.metadata.get("plant_species") is None
+
+
+def test_the_whole_assignment_is_still_one_undo_step(
+    canvas: CanvasView, panel: PlantDatabasePanel, generic_plant: CircleItem, monkeypatch
+) -> None:
+    """The name is part of the same step: the data, the footprint and the name
+    revert together."""
+    _fail_prompt(panel, monkeypatch)
+    cmd_mgr = canvas.command_manager
+    steps = cmd_mgr.undo_depth
+    panel._apply_species_to_item(generic_plant, _species_dict())
+
+    cmd_mgr.undo()
+    assert generic_plant.plant_species == ""
+    assert generic_plant.metadata.get("plant_species") is None
+    assert generic_plant.radius == pytest.approx(_PLACED_RADIUS)
+    assert cmd_mgr.undo_depth == steps
+
+
+def test_a_species_without_a_sprite_keeps_the_plant_s_own_name(
+    canvas: CanvasView, panel: PlantDatabasePanel, generic_plant: CircleItem, monkeypatch
+) -> None:
+    """A record the sprites do not know is still the plant's name: the plant
+    draws its category's sprite, and the name says what it is."""
+    _fail_prompt(panel, monkeypatch)
+    panel._apply_species_to_item(generic_plant, {"common_name": "Echinacea",
+                                                  "scientific_name": "Echinacea purpurea"})
+
+    assert generic_plant.plant_species == "Echinacea"
+    assert _drawn_sprite(generic_plant) == ("categories", "spreading_shrub")
+
+
+def test_the_scientific_name_is_used_when_the_common_one_has_no_sprite(
+    canvas: CanvasView, panel: PlantDatabasePanel, generic_plant: CircleItem, monkeypatch
+) -> None:
+    """The common name first, the scientific name when a sprite answers to it."""
+    _fail_prompt(panel, monkeypatch)
+    panel._apply_species_to_item(generic_plant, {"common_name": "Winter Squash",
+                                                  "scientific_name": "Cucurbita maxima"})
+
+    assert generic_plant.plant_species == "Winter Squash"
+    assert _drawn_sprite(generic_plant) == ("species", "squash")
+
