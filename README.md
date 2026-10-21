@@ -30,6 +30,7 @@ Open Garden Planner fills the gap: **engineering-grade precision meets gardener-
 - **Layers**: Organize objects into manageable layers with visibility/lock controls
 - **Standard Formats**: JSON project files (.ogp), PNG/SVG/PDF/DXF export, CSV plant lists
 - **Garden Smart Features**: Harvest tracking, task management & reminders, succession planting, soil health tracking
+- **Plan Timeline**: One date controls plant presence, growth and sunlight; edit planting/removal dates, scrub months and keep an enabled 2D hours-of-sun map current
 - **Sun, Shade & 3D**: Analytic 2D shadows and hours-of-sun maps for your garden's location, date and time; a 3D view beside the plan (Plan / 3D / Split) lit by the same sun, with shadows, plant growth over the simulated dates and a walk mode — it follows every edit. Flat ground only; frame rate depends on your graphics card (a software fallback exists)
 - **AI Agent Integration**: Embedded MCP server exposes the live plan for reading, visualization, export, and optional token-gated editing (including stable low-level geometry)
 - **Modern UI**: Clean interface with light and dark modes, keyboard shortcuts

@@ -3453,6 +3453,8 @@ One parented/debounced coordinator computes guild status and applies idempotent 
 
 **Status:** Accepted; owner testing confirmed on 12 October 2026, shipped in [v1.30.1](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.1) via [PR #436](https://github.com/cofade/open-garden-planner/pull/436).
 
+Control layout, the 21 June shortcut and explicit-only refresh are superseded by ADR-062. The receiver-estimate model remains applicable.
+
 **Context.** A raw ground heatmap sampled inside a solid receiving plant includes its own shadow: both reference tomatoes measured zero hours. The issue's literal centre lookup therefore cannot distinguish the shaded northern plant from the sunny southern plant. A second defect lets an old worker paint after New/Open because document replacement did not cancel the heatmap or invalidate queued success.
 
 **Decision.** Use the shared `SimClock.plan_date`, with an opt-in **21 June** shortcut retaining the current simulation year. Only the explicit Hours of Sun action computes. One worker accumulates the unchanged ground grid plus sparse receiver exposure at the corresponding cell centres, excluding only each receiver's identified caster. The established integer-grid sweeps, solar positions, date-projected growth and 15-minute sampling remain authoritative. Per-owner unions combine overlapping footprints before coverage counting; bbox pruning and vectorized even-odd point sampling avoid one full aggregation per plant.
@@ -6728,18 +6730,12 @@ the existing clock/heatmap/document/badge suites and the export transport tests.
 No dependency, project-file version or persisted simulation-state change.
 
 
-F4 finalization review (21 October 2026) found six P1 gaps before release:
-wheel gestures could remove legacy undated plants; Print bypassed map readiness
-and used today's legend date; drawing-layer visibility leaked into data queries;
-ordinary commands discarded every plant paint cache; the stale sun badge/MCP
-regression had lost assertions; current agent instructions still described F3's
-retired controls. All six are addressed on the feature branch. The combined strip's
-owner-approved layout is unchanged. Regression evidence lives in
-`tests/integration/test_plan_sun_controls.py`, `test_sun_mismatch.py` and
-`test_timeline_quick3d.py`; the draft remains gated by the final fresh review and CI.
+### Current constraints
 
-Nonblocking review follow-ups: reduce private coordinator coupling and per-tick
-toolbar scene scans; offer explicit retry after an exposure failure; support repair
-of inverted legacy lifetime intervals; remove remaining unused timeline helpers;
-and distinguish temporary API render-layer visibility from semantic plan edits for
-concurrent exports. These are limitations, not evidence of completed work.
+New lifetime calendar choices currently use the SimClock range (1971–2999);
+stored legacy dates are preserved and displayed. Entering a new pre-1971 planting
+date through this editor is not available. Some legacy intervals have no present
+day in the viewing range; the reveal action reports that limitation. Exposure
+failure retry, per-tick scene scans, duplicate lifetime refresh and temporary
+render-layer changes during concurrent exports remain maintenance follow-ups.
+The review record and validation detail belong to PR #533.

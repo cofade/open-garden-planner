@@ -52,3 +52,10 @@ Audit A1 adds shared strict plan persistence, verified installer downloads, boun
 image ingestion and owner-only Linux settings. Contracts and evidence live in the
 [architecture decisions](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md)
 and [runtime documentation](https://github.com/cofade/open-garden-planner/blob/master/docs/06-runtime-view/README.md).
+
+F4 shipped in [v1.30.17](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.17) via [PR #533](https://github.com/cofade/open-garden-planner/pull/533). The permanent Plan & Sun strip shares one
+simulation date for plant presence, growth and sunlight. While enabled, the 2D
+Hours of Sun map refreshes after exposure inputs change; time-only animation does
+not recalculate a full day. Visual exports wait for a current map. See
+[the timeline and export contracts](https://github.com/cofade/open-garden-planner/blob/master/docs/08-crosscutting-concepts/README.md#831-plan-date-visibility-and-lifetime-us-f4-adr-062)
+and ADR-062 in the architecture decision register.
