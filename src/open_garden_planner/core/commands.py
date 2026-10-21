@@ -675,7 +675,10 @@ class ApplySpeciesCommand(Command):
         # triggers prepareGeometryChange()/update(); set it last so the
         # spacing circle repaints with the new metadata in place.
         if hasattr(self._item, "plant_species"):
-            self._item.plant_species = species_name  # type: ignore[attr-defined]
+            # setattr, not an assignment: the setter is what repaints the item,
+            # and the item may be any QGraphicsItem (a non-plant has no such
+            # attribute, and must not grow one).
+            setattr(self._item, "plant_species", species_name)
         self._item.spacing_radius_cm = spacing_override  # type: ignore[attr-defined]
         # Resize the drawn footprint so it reflects the species' real size
         # (no-op when radius is None or unchanged).
