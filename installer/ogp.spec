@@ -201,6 +201,7 @@ a = Analysis(
         "open_garden_planner.ui.view3d.walk_mode",
         "open_garden_planner.core.scene3d.selection",
         "open_garden_planner.core.scene3d.walk",
+        "open_garden_planner.app.win32_taskbar",
         "ezdxf",
         "ezdxf.xclip",
         "ezdxf.fonts",

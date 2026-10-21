@@ -5,6 +5,10 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
+from dotenv import load_dotenv
+
+WINDOWS_APP_ID = "cofade.opengardenplanner.app"
+
 # Windows-specific taskbar icon support: Tell Windows this is a distinct app
 # (not generic Python) for taskbar icon grouping. MUST be called before creating
 # any UI or importing GUI engines (like WebEngine) so the AUMID is established early.
@@ -12,12 +16,9 @@ if sys.platform == "win32" and "--selftest-supervisor" not in sys.argv:
     try:
         import ctypes
 
-        myappid = "cofade.opengarden.planner.1.0"
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(WINDOWS_APP_ID)
     except (AttributeError, ImportError):
         pass
-
-from dotenv import load_dotenv
 
 if TYPE_CHECKING:
     from PyQt6.QtGui import QIcon

@@ -249,6 +249,8 @@ class GardenPlannerApp(QMainWindow):
         app = QApplication.instance()
         if app is not None and not app.windowIcon().isNull():
             self.setWindowIcon(app.windowIcon())
+        from open_garden_planner.app.win32_taskbar import setup_windows_taskbar_icon
+        setup_windows_taskbar_icon(self)
 
         self.setMinimumSize(800, 600)
 

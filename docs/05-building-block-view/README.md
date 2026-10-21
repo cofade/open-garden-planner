@@ -57,7 +57,8 @@ src/open_garden_planner/
 │   ├── paths.py                  # Safe file-dialog directory chokepoint (ADR-027)
 │   ├── settings.py               # Preferences + create_qsettings(), the ONE
 │   │                             #   settings-store factory (ADR-041)
-│   └── ui_state.py               # Window geometry / splitter persistence
+│   ├── ui_state.py               # Window geometry / splitter persistence
+│   └── win32_taskbar.py          # Native Win32 taskbar properties and icons (PF-CI-11)
 ├── core/
 │   ├── commands.py               # Undo/redo command pattern
 │   ├── project.py                # Save/load, ProjectManager

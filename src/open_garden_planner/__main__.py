@@ -7,7 +7,7 @@ if sys.platform == "win32" and "--selftest-supervisor" not in sys.argv:
     try:
         import ctypes
 
-        myappid = "cofade.opengarden.planner.1.0"
+        myappid = "cofade.opengardenplanner.app"
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     except (AttributeError, ImportError):
         pass

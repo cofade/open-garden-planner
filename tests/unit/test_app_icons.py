@@ -7,7 +7,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import QApplication
 from scripts.generate_app_icons import STANDARD_SIZES, check_icons
 
-from open_garden_planner.main import get_app_icon, get_icon_path
+from open_garden_planner.main import WINDOWS_APP_ID, get_app_icon, get_icon_path
 
 
 def test_app_icon_conformance() -> None:
@@ -45,3 +45,21 @@ def test_main_window_has_window_icon(qtbot) -> None:
     window = GardenPlannerApp()
     qtbot.addWidget(window)
     assert not window.windowIcon().isNull(), "GardenPlannerApp should have a window icon"
+
+def test_windows_app_id_format() -> None:
+    """Ensure WINDOWS_APP_ID uses standard reverse-DNS identifier format."""
+    assert WINDOWS_APP_ID == "cofade.opengardenplanner.app"
+
+
+def test_setup_windows_taskbar_icon(qtbot) -> None:  # noqa: ARG001
+    """Ensure _setup_windows_taskbar_icon runs safely on top-level window."""
+    from PyQt6.QtWidgets import QMainWindow
+
+    from open_garden_planner.app.win32_taskbar import setup_windows_taskbar_icon
+
+    _app = QApplication.instance() or QApplication([])
+    win = QMainWindow()
+    qtbot.addWidget(win)
+    # Must not raise on any platform
+    setup_windows_taskbar_icon(win)
+
