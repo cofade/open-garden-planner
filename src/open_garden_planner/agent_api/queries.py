@@ -255,6 +255,8 @@ def _object_ref(
     lid = str(obj.get("layer_id") or "")
     item_id = str(obj.get("item_id", ""))
     return ObjectRef(
+        as_of_date=obj.get("as_of_date"),
+        present=obj.get("present", True),
         item_id=item_id,
         type=str(obj.get("type", "")),
         object_type=obj.get("object_type"),

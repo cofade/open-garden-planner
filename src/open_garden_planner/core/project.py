@@ -943,13 +943,27 @@ class ProjectManager(QObject):
         # agent's curated Layer model reports it (US-D2.4) — agent_meta is the
         # designated home for runtime info the on-disk format doesn't store.
         active_layer = getattr(scene, "active_layer", None)
+        plan_date = getattr(scene, "plan_date", None)
         out["agent_meta"] = {
             "file_name": self._current_file.name if self._current_file else None,
             "is_dirty": self._dirty,
             "active_layer_id": (
                 str(active_layer.id) if active_layer is not None else None
             ),
+            "as_of_date": plan_date.isoformat() if plan_date is not None else None,
         }
+        from open_garden_planner.core.plan_timeline import plant_present
+
+        def annotate(objects: list[dict[str, Any]]) -> None:
+            for obj in objects:
+                obj["as_of_date"] = out["agent_meta"]["as_of_date"]
+                obj["present"] = not self._is_plant_object(obj) or plant_present(
+                    obj.get("metadata"), plan_date)
+                annotate(obj.get("children") or [])
+                if obj.get("type") == "group" and obj.get("children"):
+                    obj["present"] = any(child["present"] for child in obj["children"])
+
+        annotate(out.get("objects") or [])
         return out
 
     @staticmethod
@@ -972,6 +986,8 @@ class ProjectManager(QObject):
         records: list[dict[str, Any]] = []
         for item in scene.items():
             if not isinstance(item, GardenItemMixin):
+                continue
+            if not getattr(scene, "is_present", lambda _item: True)(item):
                 continue
             # Mirror _serialize_item: group children are not top-level objects, so
             # skip them — a diagnostic id must be resolvable via get_object/list_objects.
@@ -2007,7 +2023,9 @@ class ProjectManager(QObject):
                 scene.addItem(item)
 
         # Apply layer visibility/opacity/lock/z-order to all items now that they exist
-        if hasattr(scene, "_update_items_visibility"):
+        if hasattr(scene, "refresh_timeline"):
+            scene.refresh_timeline()
+        elif hasattr(scene, "_update_items_visibility"):
             scene._update_items_visibility()
         if not has_suspend_ctx and hasattr(scene, "_update_items_z_order"):
             scene._update_items_z_order()

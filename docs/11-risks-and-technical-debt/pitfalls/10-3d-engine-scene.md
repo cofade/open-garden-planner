@@ -74,3 +74,14 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 - **Source:** #385, #496, #534
 - **Status:** standing; narrative in [archive/11-l1-9-l1-10-default-removal.md](../archive/11-l1-9-l1-10-default-removal.md#11420-what-the-default-flip-and-the-removal-of-qt-3d-taught-phase-17-l19--l110-385)
 - **Legacy:** b1faaa9 README L3157 (legacy 11.4.20)
+
+
+### PF-E3D-10
+
+- **Rule:** Derived lifetime visibility must preserve the existing throttled 3D clock path while real plan edits still announce revisions.
+- **Pinned by:** `tests/integration/test_timeline_quick3d.py`
+- **Source:** #315, PR #533, ADR-062
+- **Status:** standing; narrative in [archive/14-plan-timeline.md](../archive/14-plan-timeline.md)
+- **Legacy:** none (new entry)
+
+Ten planting/removal boundary steps produced ten immediate snapshots through ItemVisibleHasChanged. CanvasScene scopes only derived timeline visibility announcements, restoring the scope in finally. The same probe produces zero immediate snapshots and the trailing clock update reaches the final date. See section 8.31 and ADR-062 for the current lifecycle contract.

@@ -6,6 +6,7 @@ selects that plant on the canvas (if placed).
 """
 
 import math
+from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -26,6 +27,9 @@ from open_garden_planner.services.companion_planting_service import (
 )
 from open_garden_planner.ui.icons import get_icon, get_pixmap
 from open_garden_planner.ui.theme import set_text_role, theme_color
+
+if TYPE_CHECKING:
+    from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 
 _NEARBY_ROLE = Qt.ItemDataRole.UserRole + 1  # bool: row carries the nearby star
 
@@ -53,7 +57,7 @@ class CompanionPanel(QWidget):
     ) -> None:
         super().__init__(parent)
         self._service = companion_service
-        self._canvas_scene: object | None = None
+        self._canvas_scene: CanvasScene | None = None
         self._radius_cm: float = 200.0  # 2 m default, should match app radius
         self._setup_ui()
         self.update_for_plant(None)
@@ -62,7 +66,7 @@ class CompanionPanel(QWidget):
     # Public interface
     # ------------------------------------------------------------------
 
-    def set_canvas_scene(self, scene: object) -> None:
+    def set_canvas_scene(self, scene: "CanvasScene") -> None:
         """Attach the canvas scene used to cross-reference placed plants."""
         self._canvas_scene = scene
 
@@ -255,8 +259,8 @@ class CompanionPanel(QWidget):
             return set()
 
         nearby: set[str] = set()
-        for item in self._canvas_scene.items():  # type: ignore[attr-defined]
-            if item is selected_item:
+        for item in self._canvas_scene.items():
+            if item is selected_item or not self._canvas_scene.is_present(item):
                 continue
             if not hasattr(item, "plant_species"):
                 continue
@@ -469,6 +473,8 @@ class CompanionPanel(QWidget):
             return []
         plants: list[str] = []
         for item in self._canvas_scene.items():
+            if not self._canvas_scene.is_present(item):
+                continue
             if not hasattr(item, "plant_species"):
                 continue
             # parent_bed_id is a property on GardenItem, not in metadata

@@ -249,3 +249,14 @@ Held in [ADR: Addendum (#414 — one frost anchor per surface, and one date-wind
 - **Source:** #314, #428
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l1109-sun-self-shadow-and-late-document-results-314-428)
 - **Legacy:** b1faaa9 README L1109 (legacy 11.4.6)
+
+
+### PF-DOM-25
+
+- **Rule:** Project plant presence and rendered growth from the one plan date, preserving stored lifetime metadata and undo semantics.
+- **Pinned by:** `tests/integration/test_plan_timeline.py`; `tests/unit/test_plan_timeline.py`
+- **Source:** #315, PR #533, ADR-062
+- **Status:** standing; narrative in [archive/14-plan-timeline.md](../archive/14-plan-timeline.md)
+- **Legacy:** none (new entry)
+
+A collector-only growth fix left the sprite unchanged. Date visibility, cached paint invalidation, instance metadata and task windows share the documented timeline contract; the workflow tests assert rendered output, persistence and history. See section 8.31 and ADR-062 for the current lifecycle contract.

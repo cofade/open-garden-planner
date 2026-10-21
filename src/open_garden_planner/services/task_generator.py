@@ -34,6 +34,7 @@ from typing import Any
 from PyQt6.QtCore import QCoreApplication
 
 from open_garden_planner.core.frost_dates import parse_frost
+from open_garden_planner.core.plan_timeline import instance_date, plant_present
 from open_garden_planner.models.propagation import PropagationPlan, compute_propagation_plan
 from open_garden_planner.models.succession import SuccessionPlan
 from open_garden_planner.models.task import ManualTask
@@ -83,6 +84,7 @@ class PlantRowInput:
     transplant_end: int | None = None
     harvest_start: int | None = None
     harvest_end: int | None = None
+    removal_date: datetime.date | None = None
 
 
 @dataclass(frozen=True)
@@ -218,7 +220,11 @@ def generate_calendar_tasks(state: PlanState) -> list[Task]:
         return []
     last_frost = state.last_frost
     tasks: list[Task] = []
+    removals = species_removal_dates(state.plant_rows)
     for row in state.plant_rows:
+        removed = removals[row.species_key]
+        if state.actionable_only and removed is not None and state.today >= removed:
+            continue
         for task_type, start_attr, end_attr in _CALENDAR_TASK_DEFS:
             start_weeks = getattr(row, start_attr)
             end_weeks = getattr(row, end_attr)
@@ -226,6 +232,10 @@ def generate_calendar_tasks(state: PlanState) -> list[Task]:
                 continue
             start = last_frost + datetime.timedelta(weeks=start_weeks)
             end = last_frost + datetime.timedelta(weeks=end_weeks)
+            if removed is not None:
+                if start >= removed:
+                    continue
+                end = min(end, removed - datetime.timedelta(days=1))
             if state.actionable_only and classify_urgency(start, end, state.today) is None:
                 continue
             tasks.append(Task(
@@ -248,7 +258,11 @@ def generate_propagation_tasks(state: PlanState) -> list[Task]:
     of the frost anchor being evaluated. Both GUI and period reads use this id.
     """
     tasks: list[Task] = []
+    removals = species_removal_dates(state.plant_rows)
     for row in state.plant_rows:
+        removed = removals[row.species_key]
+        if state.actionable_only and removed is not None and state.today >= removed:
+            continue
         plan = state.prop_plans.get(row.species_key)
         if plan is None:
             continue
@@ -256,7 +270,10 @@ def generate_propagation_tasks(state: PlanState) -> list[Task]:
             step = plan.get_step(step_id)
             if step is None:
                 continue
-            if state.actionable_only and classify_urgency(step.start_date, step.end_date, state.today) is None:
+            if removed is not None and step.start_date >= removed:
+                continue
+            step_end = min(step.end_date, removed - datetime.timedelta(days=1)) if removed else step.end_date
+            if state.actionable_only and classify_urgency(step.start_date, step_end, state.today) is None:
                 continue
             tasks.append(Task(
                 task_id=make_calendar_task_id(
@@ -267,7 +284,7 @@ def generate_propagation_tasks(state: PlanState) -> list[Task]:
                 task_type=step_id,
                 title=row.display_name,
                 start_date=step.start_date,
-                end_date=step.end_date,
+                end_date=step_end,
                 species_key=row.species_key,
                 dismissible=False,
             ))
@@ -520,6 +537,7 @@ def build_plan_state(
     for item in all_items:
         object_type = getattr(item, "object_type", None)
         metadata = getattr(item, "metadata", None) or {}
+        removed = instance_date(metadata, "removal_date")
         ps_dict = metadata.get("plant_species") if isinstance(metadata, dict) else None
         if ps_dict:
             try:
@@ -553,6 +571,7 @@ def build_plan_state(
                         transplant_end=sp.transplant_end,
                         harvest_start=sp.harvest_start,
                         harvest_end=sp.harvest_end,
+                        removal_date=removed,
                     ))
         if is_bed_type(object_type):
             bed_id = str(getattr(item, "item_id", ""))
@@ -563,7 +582,7 @@ def build_plan_state(
                 bed_id=bed_id,
                 name=name,
                 amendment_recs=_bed_amendment_recs(bed_id, item, soil_service),
-                mismatch_plants=_bed_mismatch_plants(item, items_by_id, soil_service),
+                mismatch_plants=_bed_mismatch_plants(item, items_by_id, soil_service, today),
             ))
 
     manual_tasks = tuple(
@@ -808,7 +827,11 @@ def generate_actionable_for_surface(
     ]
 
     actionable: list[Task] = []
+    removals = species_removal_dates(state.plant_rows)
     for task in tasks:
+        removed = removals.get(task.species_key)
+        if task.source in {"calendar", "propagation"} and removed is not None and state.today >= removed:
+            continue
         if task.start_date is None or task.end_date is None:
             # Undated (manual, or defensively any future undated source):
             # cannot be classified, so keep it rather than crash or drop it.
@@ -821,6 +844,18 @@ def generate_actionable_for_surface(
         if classify_urgency(task.start_date, task.end_date, state.today) is not None:
             actionable.append(task)
     return actionable
+
+
+def species_removal_dates(rows: tuple[PlantRowInput, ...]) -> dict[str, datetime.date | None]:
+    """Species tasks persist while any instance remains; undated removal wins."""
+    result: dict[str, datetime.date | None] = {}
+    for row in rows:
+        if row.species_key not in result:
+            result[row.species_key] = row.removal_date
+        else:
+            old = result[row.species_key]
+            result[row.species_key] = max(old, row.removal_date) if old and row.removal_date else None
+    return result
 
 
 def propagate_plans_by_anchor(
@@ -891,7 +926,7 @@ def _bed_amendment_recs(
 
 
 def _bed_mismatch_plants(
-    item: Any, items_by_id: dict[str, Any], soil_service: Any | None
+    item: Any, items_by_id: dict[str, Any], soil_service: Any | None, today: datetime.date
 ) -> tuple[str, ...]:
     """Names of a bed's child plants whose soil preference clashes (US-12.10d)."""
     if soil_service is None:
@@ -908,6 +943,8 @@ def _bed_mismatch_plants(
         if child is None:
             continue
         metadata = getattr(child, "metadata", None) or {}
+        if not plant_present(metadata, today):
+            continue
         ps_dict = metadata.get("plant_species") if isinstance(metadata, dict) else None
         if ps_dict and isinstance(ps_dict, dict):
             try:

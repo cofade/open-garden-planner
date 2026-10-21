@@ -29,7 +29,7 @@ description: >
 > (art direction and truth gates). The solar math, shadow geometry and Y-axis discipline
 > in this skill stay authoritative for both renderers.
 >
-> **The new view is the product since Phase 17 L1.9 (#385).** View → Sun & 3D → "3D View"
+> **The new view is the product since Phase 17 L1.9 (#385).** View → "3D View"
 > shows the 3D pane of the main window's Plan / 3D / Split workspace (ADR-060, docs/08
 > §8.29). **L1.10 deleted the Qt 3D viewer window of US-E6/E7** — its adapter, the window,
 > `core/scene3d/legacy.py`, `core/walk_camera.py`, the L0 spike and the two Qt 3D wheels.
@@ -98,8 +98,8 @@ Y-flipped canvas is the single most likely way to ship a wrong feature here).
 
 **When NOT to use this skill:**
 - Ordinary 2D feature/bug work → `ogp-change-control` + `ogp-debugging-playbook`.
-- The decorative per-item drop shadows (`View → shadows`, settings key
-  `appearance/show_shadows`) — those are cosmetic paint effects, NOT solar
+- The automatic decorative per-item drop shadows (the obsolete
+  `appearance/show_shadows` setting is ignored under ADR-062) — those are cosmetic paint effects, NOT solar
   shadows. Fixing them is not Phase 14 work (but see the naming-collision
   warning in Phase 3).
 - Weather *forecast* work (US-12.1/12.2) — that's `weather_service.py`,
@@ -148,7 +148,7 @@ You are NOT starting from zero. These assets exist and were read from source:
 | cm-calibrated Y-up model | ADR-002; `docs/08-crosscutting-concepts/README.md` §8.1 (+y = North/up, origin bottom-left). §8.10's "Qt scene is Y-down / `scene_to_canvas`" is the abstract-Qt wording — see `ogp-qt-cad-reference` §1 (owner) for why the data path treats scene as Y-up | A ready ground plane: 1 scene unit = 1 cm, +y(scene) = North. The Y-flip is the #1 trap — see Phase 3. |
 | Polygon booleans | `pyclipper>=1.3.0` (`pyproject.toml:47`), used with an integer scale factor in `core/tools/offset_tool.py` (line 22, `PyclipperOffset`). Separately `core/shape_boolean.py` = **QPainterPath-based** union/intersect/subtract (Qt-DEPENDENT, not pyclipper) | Shadow-polygon union. For the Qt-free core, use `pyclipper` (offset_tool precedent). `shape_boolean.py` is fine only in the Qt overlay layer. |
 | numpy | pyproject dependency (`numpy>=1.24`) | Heatmap accumulation without a new dependency. |
-| Layers system | `models/layer.py` (`Layer`), `ui/canvas/canvas_scene.py:694` `layers`, `ui/panels/layers_panel.py`; all layer ops undoable (#207/#208) | Home for a non-serialized "Sun/Shade" overlay layer; per-layer visibility already respected by render pipeline. |
+| Layers system | `models/layer.py` (`Layer`), `ui/canvas/canvas_scene.py:721` `layers`, `ui/panels/layers_panel.py`; all layer ops undoable (#207/#208) | Home for a non-serialized "Sun/Shade" overlay layer; per-layer visibility already respected by render pipeline. |
 | Render/export pipeline | `services/scene_rendering.py` `render_scene_region()` (line 132, `y_flip=True` default); Agent API `render_canvas_image` (`agent_api/render.py` line 120, `px_per_cm = width_px / source_rect.width()` line 146). Pixel formula (§8.19; canonical statement: `ogp-qt-cad-reference` §1): `px_x = (x_cm − region_x_cm)·px_per_cm`; `px_y = image_height_px − (y_cm − region_y_cm)·px_per_cm` | **Machine-checkable visual validation**: render the canvas, compute where a shadow tip must land in pixels, assert on actual pixels. Use it — never eyeball. |
 | Weather/climate services + async precedent | `services/weather_service.py` (stdlib urllib, 3 h disk cache), `services/climate_service.py`; QThread workers: `ui/widgets/weather_widget.py::_WeatherFetchWorker` (line 33), `services/update_checker.py::UpdateChecker` (line 98) | The blessed off-GUI-thread pattern for Phase 4 heatmap computation. |
 | Species height data | `src/open_garden_planner/resources/data/plant_species.json` — top key `plants`, **118 records, 118/118 have `max_height_cm`** (plus `min_height_cm`, `max_spread_cm`). Model: `models/plant_data.py` `min/max_height_cm` (lines 96–97), `current_height_cm` (line 313) | Default plant heights for shadows AND the growth-over-time slice (min→max interpolation). |
@@ -520,9 +520,9 @@ keep the math in scene cm.
 - **Empty states**: no `project.location` → overlay disabled + one-line hint
   ("Set garden location first: File → Set Garden Location"), i18n'd. Sun below
   horizon → no shadows + "night" hint.
-- **Naming collision**: the View menu already has the cosmetic shadows toggle
-  (`appearance/show_shadows`). Name the new action distinctly — "Sun & Shade
-  Simulation…" — and file a UX note; do not touch the old toggle's key.
+- **Historical naming collision (superseded by ADR-062)**: Phase 14 distinguished
+  solar simulation from the cosmetic shadow toggle. Both now run automatically;
+  neither toggle nor the Sun & 3D submenu remains. Ignore the old saved preference.
 
 ### Gate P3
 
@@ -753,7 +753,7 @@ other facts held). One-line re-verification commands (run from repo root):
 - FILE_VERSION: `grep -n "FILE_VERSION" src/open_garden_planner/core/project.py` → `"1.4"` (if higher, re-read the bumping ADR before trusting the additive-metadata rules).
 - pyclipper + numpy deps: `grep -nE "pyclipper|numpy" pyproject.toml`.
 - Species height coverage: the python3 one-liner in §0 → `118 / 118` (or more records, same full coverage expected).
-- Cosmetic-shadow collision: `grep -n "KEY_SHOW_SHADOWS" src/open_garden_planner/app/settings.py` → `appearance/show_shadows` still cosmetic-only.
+- Cosmetic-shadow collision: `grep -n "KEY_SHOW_SHADOWS" src/open_garden_planner/app/settings.py` → `appearance/show_shadows` is a retained compatibility accessor, ignored by the application (ADR-062).
 - Next ADR number: `grep -oE "^## ADR-[0-9]+" docs/09-architecture-decisions/README.md | sort -V | tail -1` and take max+1 (036 as of 2026-07-19; campaign reserves 037 + 038). (`grep -c` would miscount if numbering ever gains a gap.)
 
 ## F3 maintenance: receiver estimates and document ownership (ADR-056)
@@ -762,6 +762,25 @@ Shipped on 12 October 2026 in v1.30.1 (PR #436), after owner acceptance and prot
 
 US-F3 (#314) adds sparse receiver exposure alongside the unchanged explicit ground heatmap. The one identified caster collector supplies both anonymous legacy inputs and owned footprints; per-owner integer unions feed vectorized even-odd point coverage. Exclude the receiving UUID and — for a plant that stands in a soil parent with a height (a raised bed, a container: `SunReceiver.stands_on`, from `ui/canvas/footprints.standing_parent`) — that parent, not all plants: v1.30.1 excluded only the plant itself, and every plant in a raised bed read 0 hours (measured: a tomato in a 40 cm bed in the open, Berlin, 21 June, 0.0 h and a warning; 16.5 h since the L1 merge). Every caster is swept from where it stands (`IdentifiedCaster.base_cm`, `GroupedCaster`), in the grid and in the estimates alike. Receiver centres use base geometry through mapToScene; row zero stays south. Estimates are ground-level direct sun, not leaf-height/translucent-canopy measurements.
 
-Use SimClock.plan_date and the opt-in 21 June shortcut. Geometry/date/location/bounds/document changes invalidate runtime exposure; time-only changes preserve it and requirement-only edits reclassify. Neither diagnostics, canopy selection nor MCP reads compute. Known unavailable sun requirements emit info sun_evaluation; do not equate no mismatch with evaluated success. Mature canopy membership uses recorded max_spread_cm/2, not spacing overrides or guild membership.
+Use SimClock.plan_date from the permanent combined strip (ADR-062). The June shortcut has been removed. While Hours of Sun is enabled, geometry/date/location/bounds changes request debounced live refresh; document replacement clears the map and disables it. Time-only changes preserve exposure and requirement-only edits reclassify without a new worker. Neither diagnostics, canopy selection nor MCP reads compute. Known unavailable sun requirements emit info sun_evaluation; do not equate no mismatch with evaluated success. Mature canopy membership uses recorded max_spread_cm/2, not spacing overrides or guild membership.
 
 #428 resets only through CanvasScene.document_replaced. Keep worker ownership through queued finished, even after run() returns. Accept success only for wanted, same-generation, identical-signature results. A prevalidation load failure must retain the current result. See tests/integration/test_sun_document_lifecycle.py, tests/integration/test_sun_mismatch.py, tests/unit/test_sparse_sun_exposure.py and tests/perf/test_sun_receiver_budget.py.
+
+## F4 maintenance: plant lifetime on the shared date (ADR-062)
+
+The plan timeline reads/writes the existing SimClock. Presence is inclusive planting,
+exclusive removal. CanvasScene combines this with layers before the existing visible
+shadow/heatmap/3D collectors run. The 2D sprite also reads scene.plan_date and invalidates
+its cached paint on a date refresh. Fresh plants use the selected plan date; copies
+and loads keep stored dates. No changes to solar/growth math; the production Qt Quick 3D workspace follows its existing clock subscriptions.
+Visual exports use current presence; API reads retain absent plants. Season Manager
+continues to copy complete yearly files. See tests/integration/test_plan_timeline.py.
+
+
+F4's combined-controls follow-up retires the simulation visibility switch, decorative
+shadow toggle and 21 June shortcut. SunSimToolbar is permanent; its monthly slider
+preserves the chosen day. Hours of Sun is opt-in live intent: LiveSunMap coalesces
+semantic input changes, keeps a correctly dated old preview, and publishes only current
+receiver measurements. Time-only animation never launches a full-day map. All image/
+PDF exports use SunExportGate readiness, animation leases and identity checks; API
+waiting occurs outside Qt. Tests: test_plan_sun_controls.py and test_timeline_quick3d.py.

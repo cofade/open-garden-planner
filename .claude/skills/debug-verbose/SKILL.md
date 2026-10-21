@@ -7,6 +7,105 @@ argument: "Optional: short description of the bug or area to instrument"
 
 # Verbose Debug Instrumentation
 
+## Case study: deferred PDF progress still force-shows (#315)
+
+**Symptom.** A second progress dialog covers the operable readiness Cancel button.
+**Wrong theory.** Setting minimumDuration to INT_MAX was assumed to delay creation.
+**Evidence.** Independent Qt 6.11 instrumentation recorded constructor value -1,
+minimum 0, and both dialogs visible at 4.6 seconds in the real export handler.
+**Root cause.** The constructor's four-second force-show timer is not restarted by
+setMinimumDuration while value differs from minimum.
+**Fix.** Construct generation progress only inside the admitted render callback;
+close/delete it in finally. A real held-worker regression waits 4.3 seconds and
+asserts only readiness progress is visible before allowing the current-map export.
+**Lesson.** Match object lifetime to readiness, rather than trying to silence its timer.
+Pinned by test_pdf_generation_progress_is_created_only_after_map_readiness.
+
+## Case study: stale-row semantics do not mean exact search selection (#315)
+
+**Symptom.** Searching for no matches left previous canvas objects selected.
+**Wrong theory.** The click-by-UUID helper was assumed suitable for bulk highlights.
+**Evidence.** Review traced its explicit "no resolved ids: preserve selection" branch;
+the new zero-match Search and Select All regressions fail against that implementation.
+**Root cause.** A stale click preserves selection, while a search replaces it exactly.
+**Fix.** Bulk highlighting resolves live click targets once and uses replace_selection,
+which clears an empty result, avoiding repeated full-scene UUID walks.
+**Lesson.** Reuse the helper whose contract matches the operation, not its name.
+Pinned by tests/integration/test_find_replace.py::test_no_matches_clear_previous_canvas_selection.
+
+## Case study: stale search row crashes before its Python guard (#315)
+
+**Symptom.** The full parallel suite crashed on a search-result click after clearing
+the document, despite a passing focused run and a live-membership check.
+**Wrong theory.** Filtering the returned item after reading QVariant data was
+assumed sufficient; the crash happened before that guard could run. An initial
+numeric id() fix also ignored the existing PF-UI-03 UUID rule. Independent
+review reproduced address reuse selecting unrelated new-plan items after Select All.
+**Evidence.** The Windows access-violation dump pins find_replace_panel.py's
+list_item.data(UserRole), called by the document-replacement regression after
+CanvasScene.clear. The native stack is the instrumentation: no Python exception
+is delivered and no later membership check can catch it.
+**Root cause.** A QGraphicsItem stored in QVariant can become a dangling C++ pointer
+when its scene deletes it. Reading that QVariant dereferences it inside SIP.
+**Fix.** Apply PF-UI-03: store stable item UUIDs, resolve live items at click time,
+use the canonical select_by_ids path and defer selection with an owned timer.
+Document replacement clears matches/rows and stops pending selection. Select All
+rebuilds rows. The test asserts the UUID payload before deletion (a deterministic
+pin), positive live clicks and stale rejection across Select All and new items.
+**Lesson.** Validate identity before crossing a native pointer boundary; retaining
+a Python wrapper does not keep a scene-owned C++ item alive. Pinned by
+test_find_replace_revalidates_cached_results_after_date_and_document_changes.
+
+## Case study: final review exposes gaps outside the accepted strip (#315)
+
+**Symptom.** Scrolling a lifetime selector could remove an undated legacy plant;
+renaming a house invalidated every plant's cached paint. Print and hidden-layer
+data also bypassed contracts already enforced by image exports and date presence.
+**Wrong theories.** A read-only nested line editor was mistaken for a read-only
+spin control; refreshing visibility was mistaken for requiring all geometry caches
+to be cleared. No alternate theory was accepted before reproduction.
+**Evidence.** Isolated old-head instrumentation printed `[F4-FINAL] unfocused
+removal wheel 1900-01-01 -> 1901-01-01`, removal metadata and `visible=False`.
+The unexpected invalidation hook printed traceback.format_stack(), tracing an
+unrelated house command through stack_changed to refresh_timeline and every
+plant's prepareGeometryChange. Fail-first integration tests also measured today's
+print legend on a 2030 plan and hidden beds/data disappearing from reports/diagnostics.
+**Root cause.** QDateEdit still processes wheel gestures when its line edit is
+read-only. Lifetime selectors offered dates outside the shared clock's range;
+refresh_timeline always invalidated geometry; isVisible combined drawing layers
+with presence in data consumers; Print had its own unguarded render entry.
+**Fix.** Ignore calendar wheel gestures, bound new choices while preserving legacy
+metadata, update all plant caches only on a date change, use is_present for data,
+and hold the shared export readiness/animation lease throughout Print preview with
+validation before each paint. Restore stale badge and real MCP assertions while
+a controlled exposure worker remains held beyond the debounce.
+**Lesson.** Validate every entry point, including printing and legacy controls.
+UI acceptance and existing image-export tests do not cover those paths. Pins live
+in test_plan_sun_controls.py, test_sun_mismatch.py and test_timeline_quick3d.py.
+Instrumentation ran in an isolated external probe and is absent from production.
+
+## Case study: toolbar containment passed while the themed strip was misaligned (#315)
+
+**Symptom.** Owner review found sliders at different heights, Today twice, a repeated
+map date, a large gap before hidden plants, a short time field and a blank calendar arrow.
+**Wrong theories.** Passing bounds and font-width checks had been treated as visual
+acceptance. No alternate runtime theory was adopted before rendering the actual theme.
+**Evidence.** `[STRIP-VISUAL]` from a real themed main window recorded month slider
+at y=6, daily slider at y=13, date height 31, time height 19, and an empty visible
+map label 220 pixels wide. The unexpected-offset probe included traceback.format_stack().
+The same widget without apply_theme did not reproduce the production appearance.
+**Root cause.** The flow placed every group at the row's top before knowing the row
+height, fixed-size group layouts could not grow to centre controls, independent labels
+repeated the current date/context and a fixed empty label always reserved width.
+QTimeEdit had no theme selectors; the date arrow had no image.
+**Fix.** Measure each complete row before assigning equal-height group boxes; use
+minimum-size group constraints. Hide redundant/empty labels, reproject retained map
+status when the calendar changes, style time controls and supply centred arrow images.
+Themed integration workflows cover both themes and EN/DE/ES at wide/narrow widths;
+captures also exercise 150 percent scaling. All instrumentation stays outside production.
+**Lesson.** Geometry containment does not establish visual quality. Render with the
+startup theme and inspect alignment, redundant content and empty space explicitly.
+
 ## Case study: compiled catalogs passed while current UI keys were missing (#496)
 
 **Symptom.** A newly registered Russian locale passed existing tests while current UI
@@ -2952,6 +3051,39 @@ both windows too narrow to hit. `@pytest.mark.xdist_group` would have scheduled 
 first one and left it exactly as dangerous for the two-concurrent-pytest-process case that
 `conftest.py` already documents for QSettings. Fix the shared state, not the schedule.
 
+## Case study: timeline changes 3D growth but the 2D sprite stays at today (#315)
+
+**Symptom:** two timeline dates produced the same 2D sprite while the collectors grew
+the tree. **Wrong theories:** no new growth formula was needed; a first pixel sampler
+was also masked by the translucent spacing-ring fill (40000/40000 sampled pixels).
+**Evidence:** `[F4-GROWTH] sprite_day=2026-10-19 plan_day=2025-06-01`, then the same
+sprite day for 2030, with traceback through scene.render and CircleItem.paint.
+**Root cause:** `_visual_plant_diameter_cm` passed date.today; cached canvas paint
+also needs invalidation when the shared date moves. **Fix:** read scene.plan_date,
+invalidate the plant cache on refresh, and compare actual rendered pixels with the
+spacing overlay disabled. **Lesson:** assert the user's image, and isolate the overlay
+that can swamp a measurement. Instrumentation removed; the regression remains in
+tests/integration/test_plan_timeline.py.
+
+## Case study: timeline state missed existing consumers and command paths (#315)
+
+**Symptoms:** hidden-layer discovery changed a saved layer without undo; planting
+age stayed stale on undo/rejection; MCP companions and soil tasks still warned about
+removed plants; New retained the old hidden count. **Wrong theories:** a correct
+canvas filter did not imply that domain readers or document reset followed it.
+**Evidence:** independent tagged probes recorded `[F4-REVEAL] before False 0 0`
+and `after True 0 0 True` (visibility, undo depth, stack signal count, selected),
+and 2024 planting paired with the 2025 age after undo. Real MCP returned the absent
+potato as an antagonist; a removed child produced a soil-mismatch task. New showed
+one hidden plant after clearing all objects. **Root causes:** direct layer setter,
+fast panel return, complete-population readers, and no post-clear timeline signal.
+**Fixes:** canonical layer command, persisted-date age refresh, visible automatic
+companions, reference-date soil-task presence, and post-clear notification. Each
+workflow is pinned in tests/integration/test_plan_timeline.py; temporary logs removed.
+**Lesson:** audit consumers and the completed document transition, not only the
+filtering helper. Fresh creation must also stamp the active plan date, otherwise a
+new guild disappears while planning the past (the full-suite F3 workflow exposed it).
+
 ## Case study: ground tiles that turned white — only when a DIFFERENT tile was re-baked next (Phase 17 L1.5, fixed 2026-10-12)
 
 **Symptom**: the first run of the ground bake's time budget on a real engine painted a plan over
@@ -3189,6 +3321,178 @@ net, and its pass is blamed on the open. The product was clean (the reviewer's i
 act. **Lesson**: "idle once" is not "settled" when another subsystem repaints asynchronously; a
 negative window must start from a scene that has been quiet for longer than the window's own
 timer. Under xdist, log to a file per pid.
+
+
+## Case study: readiness must protect exports even without a sun map (US-F4 combined controls)
+
+**Symptom:** the new export guard failed on a fresh plan: CanvasScene has no
+_document_generation attribute until its first document reset. An already-ready
+no-map Future also carried no document identity.
+**Wrong theories:** none adopted; the failing integration trace identified the
+missing attribute directly, and the explicit replacement test exposed the missing
+no-map check rather than a worker problem.
+**Key evidence:** AttributeError at SunExportGate._begin on the untouched fresh
+CanvasScene; controlled export tests then exercise generation zero, replacement,
+pending workers, cancellation and API-thread timeout without writing output.
+**Root cause:** exposure readiness and export document identity are different
+contracts. The exposure collector already treats a missing generation as zero.
+**Fix:** capture generation/revision/wall time independently of optional exposure,
+use the collector's zero-generation convention, and validate immediately before
+rendering. **Lesson:** an optional analysis cannot be the sole identity token for
+a mandatory export boundary.
+
+
+## Case study: timeline presence bypassed Quick 3D date throttle (US-F4, #315)
+
+**Symptom.** Scrubbing over a plant's planting/removal date rebuilt Quick 3D on
+every calendar step, although its clock listener throttled regrowth to 500 ms.
+Ten removal-boundary crossings produced ten snapshots and ten plan revisions in
+156 ms; the same number of steps without a presence transition produced none.
+
+**Wrong theories.** An earlier same-presence burst could exceed the throttle
+interval on a loaded runner; that explained timing-dependent extra work in that
+test but did not explain the boundary case. Same-turn coalescing could not prove
+the user's repeated, separate event-loop steps were throttled.
+
+**Evidence.** The independent review probe logged [BOUNDARY-REV] with
+traceback.format_stack(): refresh_timeline → setVisible → ItemVisibleHasChanged
+→ announce_plan_change → note_plan_changed → the controller's fast mark_dirty
+path. Reproduced [BOUNDARY-RESULT] boundary snapshots 10 revision 10 in 156 ms;
+after the scoped guard, snapshots 0 revision 0 in 157 ms. Control stayed 0 / 0.
+
+**Root cause.** Canvas presence is derived from the shared clock. Qt's real
+visibility notification made that derived state look like an edit of plan
+content, which bypassed the separate date-throttling subscription.
+
+**Fix.** CanvasScene.refresh_timeline sets a try/finally-restored scope only while
+applying visibility. The common GardenItem announcement hook suppresses only
+ItemVisibleHasChanged inside that scope. Manual visibility, layer commands and
+metadata/history edits keep announcing; all other item changes remain untouched.
+No temporary instrumentation remains in production.
+
+**Lesson.** Trace every path to the expensive work, and exercise state boundaries
+on separate event-loop turns. A throttle on the intended callback does not bound
+another callback that the same user action triggers. Regression:
+tests/integration/test_timeline_quick3d.py covers planting/removal crossings,
+settled final geometry, and controls for visibility/layer/history writes.
+
+
+## Case study: complete toolbar groups still wrapped to three German rows (US-F4)
+
+**Symptom:** all English layout tests passed at 800 pixels, while the German
+native-widget capture put the hidden-plants button alone on a third row.
+**Wrong theories:** stale size hints were considered, then rejected by logging
+the actual child widths and layout hints before changing layout logic.
+**Key log:** `[F4-FLOW] groups=[249,196,321,346,100] sliders=[150,150] width=800`,
+with traceback.format_stack() at the unexpected extra-row probe. The first three
+groups plus gaps needed 790 pixels; the available content width was 788.
+**Root cause:** translated word lengths left a small but real packing deficit;
+English sizes were not evidence for German. **Fix:** the adaptive narrow-window
+slider width leaves headroom for the measured German controls. Calendar width
+remains font-derived; wide windows keep larger sliders. Regression checks cover
+both translated languages at 800 pixels; native captures cover EN/DE/ES at wide
+and narrow widths, including scaled rendering. No instrumentation remains in
+production. **Lesson:** inspect the rendered translated controls and log actual
+group geometry before blaming the framework's layout cache.
+
+
+## Case study: cancel and queued API export abandonment (#315)
+
+**Symptom.** Cancel could still write an export if readiness finished in the same
+GUI event turn. A timed-out first API hop could later pause animation forever;
+a timed-out render hop could later write a file after reporting failure.
+
+**Wrong theories.** A completed readiness Future does not mean the user accepted
+the dialog. The generic bridge timeout does not retract queued Qt delivery.
+
+**Evidence.** The real-dialog probe logged `[F4-CANCEL] ready=True canceled=True`
+but still ran the action. Real-bridge tests deliberately withheld Qt event delivery:
+the old begin path retained one lease, and the old render path created the file.
+All three regressions failed before the fix and pass afterward.
+
+**Root cause.** Readiness completion masked cancellation. Stateful lease acquisition
+preceded cleanup ownership, while queued callables outlived their callers.
+
+**Fix.** Check dialog cancellation independently. A locked export operation owns its
+request, abandonment and render admission. Late acquisition/render calls refuse;
+a queued cleanup signal releases an acquired lease exactly once on Qt. If rendering
+already began, return its actual outcome instead of a queue-timeout fiction.
+
+**Lesson.** Future readiness, user consent and queued-call lifetime are independent
+states. Exercise real queued delivery after timeout, not only mocked bridge returns.
+
+## Case study: debounce protected workers but not scene collection (#315)
+
+**Symptom.** One layer visibility command synchronously scanned the whole garden
+for every object's notification even though it launched no worker immediately.
+
+**Wrong theories.** Counting worker launches alone cannot prove responsiveness;
+no worker-thread or rasterization bottleneck was assumed before measuring capture.
+
+**Evidence.** The fail-first collection-count regression counted 154 synchronous
+snapshots for 150 sheds. Afterward the same command captures zero synchronously
+and one latest input snapshot when debounce expires. Requirement-only changes reuse
+the completed measurements without launching a worker.
+
+**Root cause.** Both schedule and UI reflection collected exposure before debounce.
+
+**Fix.** Notifications mark inputs dirty and withdraw measurements cheaply. Constant
+time spatial identity checks immediately clear incompatible imagery; collection and
+semantic comparison wait for debounce. Explicit export boundaries still revalidate.
+A separately retained receiver cache restores a matching completed map without work.
+
+**Lesson.** Debounce the expensive input capture itself. Assert collection counts
+across bulk commands as well as launches and the final result.
+
+
+## Case study: frozen lighting replay differed by one binary64 ULP on Windows (#315 merge)
+
+**Symptom.** Six quarter-degree exposure samples failed exact equality against the
+frozen L0 JSON while the production lighting source was byte-identical to master.
+
+**Wrong theories.** No garden-timeline lighting change was assumed: source identity
+and all 160 replay samples were measured before changing any comparison.
+
+**Evidence.** `[F4-FLOAT] lighting-source-identical-to-master True`; six exposure
+mismatches at 7.75, 13.5, 16.5, 21, 22.25 and 22.75 degrees, each exactly one ULP.
+For example 1.1249297944784713 versus 1.124929794478471. Probe exposure, colours,
+brightness and the remaining exposure samples matched exactly.
+
+**Root cause.** The frozen nonlinear exposure replay required identical binary64
+answers across runtimes. That was stronger than this Windows replay could satisfy.
+
+**Fix.** Permit exactly one math.ulp of the expected exposure with zero relative
+tolerance. Keep every other field exact and leave production lighting untouched.
+The six tests were observed failing before the comparison fix.
+
+**Lesson.** Measure drift in representable units before choosing a numeric tolerance;
+a generic relative tolerance would silently allow many more representable values.
+
+
+## Case study: a Windows-only toolbar width did not survive Linux fonts (#315)
+
+**Symptom.** CI's German combined strip wrapped into three rows while Windows
+captures passed. A wider-font regression also caught a Spanish group outside its
+content rectangle.
+
+**Wrong theories.** A fixed 140-pixel narrow slider was not a portable fit proof.
+No style-cache workaround was adopted before tagged size-hint measurements.
+
+**Evidence.** The regression failed first for Verdana 9/10 German and 10 Spanish.
+`[F4-PACK]` at 796 pixels showed group item hints stuck at 189/324 while their
+actual layout hints had shrunk to 139/274. Unexpected-row stacks traced _reflow;
+QWidgetItem's cached hints lagged the changed fixed-size child layouts.
+
+**Root cause.** The slider width assumed one platform's font metrics, and deciding
+fit immediately after changing width read stale group/item geometry constraints.
+
+**Fix.** Use the flow's own placement calculation to count rows, compact sliders
+only as needed down to 90 pixels, and activate group layouts/update geometry before
+reading their hints. Actual placement and row-count planning share one algorithm.
+Wider-font translated tests now pass without clipping; controls remain atomic.
+
+**Lesson.** Plan wrapping with current geometry constraints, not guessed widths or
+widget-item caches from the preceding layout pass. Test more than one font metric.
 
 ## Case study: a preset name is not an appearance snapshot (#524–#526, #471)
 

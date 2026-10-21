@@ -862,6 +862,14 @@ worker**, not as a clean abort. The `pytest-timeout` guard still applies per tes
 and the 2026-08-17 stall earn it); xdist kills and restarts the one worker and
 continues.
 
+
+Frozen nonlinear numeric answers need a representable-value bound when replayed
+across runtimes. In the F4 master merge, Windows matched 154/160 L0 exposure
+samples exactly and six at exactly one binary64 ULP, with production lighting
+byte-identical to master. test_scene3d_look permits one math.ulp of the expected
+exposure with zero relative tolerance; probe exposure, colours and brightness stay
+exact. Never replace such evidence with a broad default relative tolerance.
+
 ### 8.10.5 Patterns from the 3D scene pipeline (Phase 17 L1.1)
 
 Patterns `tests/integration/test_footprints_golden.py`, `test_scene3d_snapshot.py`,
@@ -3561,8 +3569,8 @@ tracked in `_icon_labels`; the sun-hint icon follows the hint's visibility
 via an event filter), the dashboard tabs (`setTabIcon`, tracked in
 `_tab_icons`), the frost badge (icon tinted with `on_status`, state kept so
 the theme walk re-applies it), the View menu's grouped submenus (Snapping /
-Overlays / Sun & 3D — the flat list of 22 toggles was hard to scan; the
-toggle attribute names are unchanged so callers/tests keep working), the
+Overlays) and the direct 3D View action (ADR-062 removes the former
+Sun & 3D submenu and its redundant shadow/simulation toggles), the
 layers panel (eye/eye_off/lock/lock_open tinted accent / text_secondary /
 warning), the constraints panel (a type-icon column reusing the constraint
 toolbar's glyphs; row text is now "A – B   detail"), seed viability, task /
@@ -6468,7 +6476,7 @@ wrong on the way is PF-E3D-09.
 `Workspace` around the canvas view, always. Starting the app imports `ui/view3d/workspace.py`
 and what it needs (no Qt Quick, no QML — the engine is loaded on the first switch to 3D or
 Split, `Workspace.engine_factory`), and the app starts in Plan mode in every session (the mode
-is not saved). View → Sun & 3D → "3D View" — the old window's entry, its place and its icon —
+is not saved). View → "3D View" — the direct workspace action, with its icon —
 switches Plan to Split (`_on_show_3d_view`); in 3D or Split it does nothing. The safety net is
 the start marker and compatibility mode (`ui/view3d/init_guard.py`, FR-3D-WS-07), not a flag:
 
@@ -6658,6 +6666,7 @@ remain for whoever touches this area:
   catches #277's class: a missing or mismatched Qt Quick 3D library fails the frame in the real
   artifact, as the Qt 3D import used to.
 
+
 ## 8.30 Line appearance snapshots and paint containment (#524, #525, #526, #471)
 
 `core/item_look.py` owns `LineLook`, `capture_line_look`, `apply_line_look`,
@@ -6702,3 +6711,89 @@ square/bevel pen, old bounds and late geometry notification defects. Each must
 cause assertion failures without setup errors; an unmodified full integration
 control must pass. Plugins do not rewrite production source. Reports go to
 `artifacts/line-mutations/`.
+
+## 8.31 Plan date, visibility and lifetime (US-F4, ADR-062)
+
+The shared SimClock local date is the plan date. One permanent Plan & Sun strip
+holds the exact calendar and monthly slider, which preserves the preferred day
+(clamping short months). Today preserves wall time.
+Neither date navigation nor visibility filtering adds history or persists a date.
+
+CanvasScene is the layer/date visibility seam: a plant is visible only when its
+layer permits it and planting <= plan date < removal (an absent bound is open).
+Construction geometry continues to use its tool toggle. Never force-show an absent
+plant when updating layers or rendering an explicitly requested API layer. Hidden
+plants remain serialized and listed in the API. Marquee selection checks isVisible.
+The popover lists hidden plants by name and date bounds and navigates to a present day.
+
+Lifetime fields use the existing Plant Details controls and one undoable command;
+the removal minimum is an explicit nonempty unset label with a Clear button. Signals
+are blocked during panel refresh. Hiding an edited plant can synchronously clear its
+selection, so the command callback keeps its target independently of the panel.
+
+The date-present set drives companion/spacing/capacity, guild and data diagnostics,
+independently of drawing-layer visibility. PDF data pages retain hidden beds and
+date-present plants. Solar receivers/casters and rendered overlays additionally
+honor layer visibility. Use CanvasScene.is_present for data and isVisible for drawing.
+Sprite growth, shadow casters, heatmaps and 3D all use the plan date, while task
+reminders retain their real-world reference day. Plant task windows stop at removal;
+species aggregation keeps the schedule while any instance remains. Manual/succession
+dates and Season Manager file copies retain their existing behavior.
+
+Post-clear timeline notification refreshes New Plan only after the old items are gone.
+Hidden-layer discovery executes the existing layer visibility command and marks dirty;
+the date navigation itself remains runtime-only. Lifetime refresh derives the age
+label from stored metadata, including undo and rejected edits. Calendar selectors
+ignore wheel edits; new lifetime dates stay within the SimClock range while existing
+legacy dates remain unchanged and readable. Only date changes invalidate all plant
+paint caches; a lifetime command updates its own item. Automatic API companion
+checks use date-present bed members; task soil warnings use presence on their explicit
+reference day, independently of the displayed simulation date.
+
+
+### 8.31.1 Permanent controls and live-map/export lifecycle
+
+SunSimToolbar is the sole toolbar instance for date/time. Atomic groups wrap rather
+than disappear into overflow; date width is derived from font metrics. Slider
+lengths compact only when the flow's measured groups need it to fit two rows;
+group geometry is refreshed before measuring, including on wider platform fonts.
+Each row is measured before placement so all group layouts share the row's height
+and centre their controls vertically. Date/time fields use the same themed sizing.
+Past/Future gives context without repeating the date; the Today action itself
+indicates today, so there is no second Today label. Map status consumes space only
+while needed: a completed current map shares the calendar's date, an updating map
+for that date says Updating, and an older preview retains its actual date. The
+hidden-plants menu follows the visible map controls without an empty reserved slot.
+Themed renders in both themes and all three locales test alignment as well as fit.
+The former PlanTimelineToolbar is
+removed and restored hidden toolbar state is healed. Solar and decorative shadows
+are automatic; Hours of Sun and daily animation remain opt-in session state.
+
+Never confuse an enabled map with a finished map: LiveSunMap tracks the requested
+snapshot; SunHeatmapController keeps its in-flight snapshot and displayed_snapshot
+separate. A retained preview names the displayed date, never the requested date.
+Only current measurements may reach diagnostics. A failure remains visible as an
+unavailable state; changing document/location/grid discards the preview. Repainting
+an overlay does not request more daily work: scheduling compares semantic snapshots.
+
+SunExportGate returns readiness through a Future, so API threads wait outside Qt.
+Its GUI modal progress loop continues delivering worker results and cancellation.
+The 30-second timeout does not widen the generic main-thread bridge timeout.
+Generation/revision/wall-time checks protect exports even when no map is enabled.
+No output is written until readiness and identity checks succeed. Animation uses
+counted pause leases so concurrent exports cannot resume it prematurely. Print
+uses the same readiness boundary and holds its lease until preview closes, validating
+the snapshot before each paint. Its legend names the plan date. Cancellation closes
+quietly; a changed document/date or failed calculation prevents rendering.
+
+
+Collection itself is debounced: notifications only mark inputs dirty, withdraw
+measurements and compare constant-time document/location/grid identity. The timer
+collects one latest snapshot; a matching displayed receiver cache restores results
+without a worker for requirement-only edits. is_current and UI reflection never
+scan the scene. Export readiness and final validation remain explicit trust boundaries.
+
+API export operations own their pause lease across queued calls. A lock coordinates
+abandonment with begin and render admission; late calls refuse and queued cleanup
+releases an acquired lease exactly once. Already-started rendering returns its actual
+outcome. GUI cancellation wins even if readiness completed in the same event turn.

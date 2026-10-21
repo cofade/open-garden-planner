@@ -252,11 +252,13 @@ class TestAppOwnsOneClock:
     def test_heatmap_request_uses_the_plan_date(self, qtbot, monkeypatch) -> None:
         win = _app(qtbot)
         win._sim_clock.set_datetime(_local(2026, 12, 21, 15))
+        win._project_manager._location = dict(BERLIN)
         requested: list[date] = []
         monkeypatch.setattr(
             win._sun_heatmap, "run_for_day", lambda day: requested.append(day) or True
         )
-        win._on_heatmap_requested()
+        win._sun_toolbar._heatmap_button.setChecked(True)
+        win._live_sun_map._start_latest()
         assert requested == [date(2026, 12, 21)]
 
     def test_enabling_the_sim_keeps_the_clock(self, qtbot) -> None:
@@ -265,7 +267,6 @@ class TestAppOwnsOneClock:
         win = _app(qtbot)
         win._sim_clock.set_datetime(_local(2026, 9, 1, 7, 45))
         before = win._sim_clock.instant
-        win._sun_sim_action.trigger()
         assert win._sun_controller.enabled
         assert win._sim_clock.instant == before
         assert win._sun_controller.sim_datetime_utc == before.utc
@@ -289,7 +290,6 @@ class TestTypingUnderAnimate:
 
         win = _app(qtbot)
         win._sim_clock.set_datetime(_local(2026, 6, 21, 12))
-        win._sun_sim_action.trigger()  # show the toolbar
         win.show()
         qtbot.waitExposed(win)
         edit = win._sun_toolbar._date_edit
@@ -326,11 +326,12 @@ class TestOnePlanDateEastOfUtc:
         assert win._sim_clock.utc.date() == date(2026, 6, 21)
 
         win._sun_controller.set_enabled(True)  # overlay
+        win._project_manager._location = dict(BERLIN)
         requested: list[date] = []
         monkeypatch.setattr(
             win._sun_heatmap, "run_for_day", lambda day: requested.append(day) or True
         )
-        win._on_heatmap_requested()  # heatmap
+        win._sun_toolbar._heatmap_button.setChecked(True)  # heatmap
         records_dates: list[date | None] = []
         from open_garden_planner.ui.view3d import sync_controller
 
@@ -346,6 +347,7 @@ class TestOnePlanDateEastOfUtc:
         settle()
 
         assert spy.dates[-1] == date(2026, 6, 22)
+        win._live_sun_map._start_latest()
         assert requested == [date(2026, 6, 22)]
         # every records pass (the overlay switched on may book one of its own) read the
         # plan's local date, not the UTC one
@@ -432,8 +434,8 @@ class TestHeatmapMidComputeDateChange:
         idle_text = button.text()
 
         button.setChecked(True)  # the user asks for the hours-of-sun map
-        assert heatmap.result_pending
-        assert not button.isEnabled()  # busy while computing
+        qtbot.waitUntil(lambda: heatmap.result_pending)
+        assert button.isEnabled()  # can still be switched off while computing
         worker = heatmap._worker
         assert worker is not None
         assert worker.wait(60000)  # run() returned; its signals are queued
@@ -445,7 +447,7 @@ class TestHeatmapMidComputeDateChange:
         qtbot.wait(100)
         assert not heatmap.heatmap_visible()
         assert not heatmap.result_pending
-        assert not button.isChecked()
+        assert button.isChecked()  # live intent survives the superseded result
         assert button.isEnabled()
         assert button.text() == idle_text
 

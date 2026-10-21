@@ -24,15 +24,23 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 
 ### PF-UI-03
 
-- **Rule:** A sidebar list that drives canvas selection stores item ids, resolves the live item at click time, defers the selection with `QTimer.singleShot(0)`, and skips a rebuild when its rows are unchanged.
-- **Pinned by:** none — The body names no test for this rule.
-- **Source:** #206, #212
+- **Rule:** A sidebar list that drives canvas selection stores item ids, resolves the live item at click time, defers selection until the list click completes, and skips a rebuild when its rows are unchanged.
+- **Pinned by:** `tests/integration/test_plan_sun_controls.py::test_find_replace_revalidates_cached_results_after_date_and_document_changes`; `tests/ui/test_plant_search_panel.py::test_rows_store_item_id_not_graphics_item`; `tests/ui/test_plant_search_panel.py::test_noop_refresh_does_not_rebuild`
+- **Source:** #206, #212, #315, PR #533
 - **Status:** standing
 - **Legacy:** b1faaa9 README L248
 
 - **Sidebar list panels must store item *ids*, not live `QGraphicsItem` refs, and defer the selection** (issue #212): `PlantSearchPanel` ("Find Plants") used to cache the live `QGraphicsItem` in each row's `UserRole` and call `setSelected(True)` on it inline. Two problems compounded into "selection works only sometimes": (1) the cached reference goes stale after undo/redo/delete/reparent — `setSelected` then silently no-ops on a detached item; (2) `QGraphicsScene.changed` (very chatty — fires on every repaint, including the repaint caused by selecting) was wired straight to a full `refresh_plant_list()` that `clear()`s and rebuilds every row, so a refresh could destroy the row the user was mid-clicking. Fix: store only the stable `item_id`, resolve the live item at click time via `scene.find_item_by_id(item_id)` (returns `None` → refresh the list and bail, no crash); defer the scene mutation with `QTimer.singleShot(0, ...)` so it runs after the `QListWidget` finishes its own click processing (same pattern as `_on_companion_highlight_species`); and debounce the `scene.changed` → refresh through a single-shot `QTimer` (~150 ms) so the list isn't torn down on every repaint. Single-click uses `view.ensureVisible()` (scroll only if off-screen); double-click uses `view.centerOn()`. General rule: any sidebar list that drives canvas selection must key on ids + defer, never hold graphics-item references across scene mutations.
 
   **Follow-up (#212 manual-test round 2): debouncing `scene.changed` is NOT enough — the refresh must also skip the rebuild when nothing changed.** The 150 ms debounce only *coalesces* a burst; it still fires once the burst settles and still did a destructive `results_list.clear()` + recreate-every-row. Because *selecting* a plant triggers its own burst (`selectionChanged` → `_update_spacing_overlaps`/`_update_companion_highlights` mutate item visuals → repaint → more `scene.changed`), every selection ended in a full list rebuild — which (a) reset the list's scroll position (symptom: "list jumps back to the top a moment after I stop scrolling" with >5 plants) and (b) destroyed the row the user just clicked, racing the deferred `_apply_selection` (symptom: "single-click sometimes needs a second/third click"). Fix: `_update_results_display` computes a **signature** of the visible rows (ordered tuple of `(item_id, name, species, plant_type)` after sort+search+type-filter) and **early-returns when it equals the last rendered signature** — so a no-op refresh touches neither scroll nor selection. On a real rebuild it captures+restores the scroll value and re-selects the prior row by `item_id` (scroll preserved on scene-driven refreshes; reset to top on user search/filter via a `from_user_input` flag). `family` is excluded from the signature (search-only, never displayed; any family change that alters results already changes membership). Lesson: a debounce limits *how often* you rebuild, not *whether* you needed to — a list driven by the repaint firehose must also be **idempotent** (diff before rebuild) or it will fight the user's scroll and clicks. (The underlying "rebuild the world on every repaint" smell is the same one tracked for the properties panel in #206; the signature guard is a local band-aid, not a structural fix — the firehose still re-queries the whole scene every tick.) Also hardened: row widgets installed via `setItemWidget` set `WA_TransparentForMouseEvents` so a press always hit-tests to the list row regardless of the row widget's child layout.
+
+Find & Replace exposed a stronger failure of the same rule: reading a native
+QGraphicsItem pointer from QVariant after scene deletion can crash inside SIP
+before Python can validate it. CPython id() is also unsuitable for row identity:
+Select All can release old wrappers while rows remain, allowing address reuse.
+Rows carry stable UUIDs and use the shared select-by-id path; document replacement
+clears results and cancels pending selection. Tests pin the UUID payload before
+deletion, valid clicks, absent-date rejection and newly created replacement items.
 
 ### PF-UI-04
 
@@ -223,3 +231,35 @@ Held in [debug-verbose: Case study: live capture harness saw "capture did not co
 - **Source:** #415
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l575-a-silently-dead-code-path-is-a-hiding-place--fixing-it-publishes-its-content)
 - **Legacy:** b1faaa9 README L575 (legacy 11.4.6)
+
+
+### PF-UI-22
+
+- **Rule:** Measure translated control-group size hints at narrow widths and high DPI before accepting adaptive toolbar packing.
+- **Pinned by:** `tests/integration/test_plan_sun_controls.py::test_translated_controls_fit_two_rows_at_narrow_width`; `tests/integration/test_plan_sun_controls.py::test_groups_wrap_without_clipping_and_calendar_fits`
+- **Source:** #315, PR #533, ADR-062
+- **Status:** standing; narrative in [archive/14-plan-timeline.md](../archive/14-plan-timeline.md)
+- **Legacy:** none (new entry)
+
+German control groups missed the 800-pixel content width by two pixels and wrapped into three rows while English passed. A fixed narrow width still failed under Linux fonts. The flow now measures its actual row count and compacts sliders as needed; activating group layouts and updating geometry avoids QWidgetItem hints from the preceding pass. Wider-font regressions and native captures cover font variation and 100/150 percent DPI. See section 8.31 and ADR-062 for the current lifecycle contract.
+
+Owner review found that containment also missed vertical alignment, redundant
+labels and empty reserved space: the capture harness had never applied the app's
+theme. Measure row heights before positioning groups, let their layouts centre
+children, and exercise the production theme in both light and dark. Empty status
+labels must hide and current results must share the primary date presentation.
+Pinned by `tests/integration/test_plan_sun_controls.py::test_themed_strip_centres_controls_and_uses_status_space_only_when_needed`
+for both themes, all supported locales and wide/narrow windows.
+
+### PF-UI-23
+
+- **Rule:** Calendar-only lifetime selectors ignore wheel edits and bound new choices to the shared clock range while preserving legacy metadata.
+- **Pinned by:** `tests/integration/test_plan_sun_controls.py::test_scrolling_lifetime_calendar_does_not_edit_or_remove_a_legacy_plant`; `tests/integration/test_plan_sun_controls.py::test_legacy_dates_remain_visible_but_new_calendar_choices_are_bounded`
+- **Source:** #315, PR #533, ADR-062
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+A read-only line edit does not stop QDateEdit's wheel handling. The old removal
+sentinel advanced to 1901 and made an undated plant absent at every supported date.
+Ignore those gestures and constrain new calendar choices without rewriting stored
+legacy values.

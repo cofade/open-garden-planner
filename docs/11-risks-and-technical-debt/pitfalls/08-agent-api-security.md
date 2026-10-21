@@ -335,3 +335,14 @@ dogfood harness found none of them.
 - **Legacy:** b1faaa9 README L1086
 
 - **A product surface can be "protected" by a library default nobody pinned.** Symptom: the Agent API's only barrier against a web page reaching it through DNS rebinding was the mcp SDK's Host/Origin validation, and the declared floor (`mcp>=1.12`) admitted SDKs that leave it **off** — measured: on 1.22.0 a crafted `Host: evil.example` initialize returned HTTP 200 with a full MCP result, where the 1.30.0 wheel answers 421. No shipped exe was known to be exposed, because every release happened to bundle a 1.30-era wheel. Root cause: the property belonged to *whichever wheel resolved at build time*, not to the product. Fix: `build_server` now takes the host/port it binds and passes explicit `TransportSecuritySettings`, and the floor rises to `mcp>=1.23`. The instructive part is the test design: with mcp 1.30.0 installed, the black-box 421/403 tests **pass even with our settings deleted** (measured). So does a naive object-level assertion that the settings are not None and the flag is True — the SDK auto-enable returns exactly such an object. What actually detects the removal is asserting something the default cannot satisfy: that `allowed_hosts` names the **bound port** and that no entry is a wildcard. Measured: deleting the `transport_security=` argument fails 3 of the 4 object-level tests. *A test that passes because of a library default is not testing your code; assert the configuration object as well as the behaviour it produces.*
+
+
+### PF-API-23
+
+- **Rule:** Cancellation and abandoned queued export calls must prevent later writes and release animation leases exactly once on Qt.
+- **Pinned by:** `tests/integration/test_plan_sun_controls.py::test_gui_cancel_wins_when_readiness_finishes_in_same_event_turn`; `tests/integration/test_plan_sun_controls.py::test_abandoned_bridge_hop_cannot_pause_animation_or_write_later`
+- **Source:** #315, PR #533, ADR-062
+- **Status:** standing; narrative in [archive/14-plan-timeline.md](../archive/14-plan-timeline.md)
+- **Legacy:** none (new entry)
+
+Readiness completion masked Cancel, while a bridge timeout left stateful calls queued. An export operation now synchronizes abandonment with begin/render admission and queues lease cleanup on Qt. Already-started rendering returns its actual outcome. See section 8.31 and ADR-062 for the current lifecycle contract.

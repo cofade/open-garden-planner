@@ -1,6 +1,6 @@
 # 6. Runtime View
 
-## Explicit sun evaluation and document replacement (ADR-056)
+## Live sun evaluation and document replacement (ADR-056 / ADR-062)
 
 ```mermaid
 sequenceDiagram
@@ -10,8 +10,8 @@ sequenceDiagram
     participant W as Worker
     participant C as Sun coordinator
     participant D as Shared Diagnostics / MCP
-    U->>A: Optional 21 June shortcut
-    U->>H: Hours of Sun
+    U->>A: Select the single calendar date
+    U->>H: Enable Hours of Sun
     H->>W: Immutable document snapshot + receivers
     W-->>H: Grid and own-shadow-excluded receiver minutes
     H->>H: Check generation and complete signature
@@ -19,7 +19,10 @@ sequenceDiagram
     C->>D: Cached mismatch / unavailable records
     U->>A: Move caster or edit geometry
     A-->>C: Scene or command change
-    C->>H: Invalidate within 60 ms (keep visual snapshot)
+    A->>H: Withdraw stale measurements immediately (keep dated preview)
+    A->>A: Debounce collection of the latest exposure snapshot
+    A->>H: Cancel obsolete work; request latest after worker retirement
+    H->>W: Compute latest exposure inputs
     C->>D: Clear warnings; publish unavailable state
     U->>A: New / validated Open / recovery / agent lifecycle
     A->>H: document_replaced before item teardown
@@ -29,7 +32,7 @@ sequenceDiagram
     H->>H: Reject unwanted / old-generation result
 ```
 
-Prevalidation load failure emits no document replacement and preserves the active valid result. Time-only changes preserve daily exposure; date changes clear it. Diagnostics and canopy reads never launch a worker.
+Prevalidation load failure emits no document replacement and preserves the active valid result. Time-only changes preserve daily exposure; date changes retain the labelled old preview while requesting the current map. Document replacement and location/grid changes clear old imagery. Diagnostics and canopy reads never launch a worker.
 
 ## 6.1 Drawing Workflow
 
@@ -387,7 +390,7 @@ the 3D pane hidden, `mark_dirty()` sets a flag and nothing else happens.
 
 ```mermaid
 flowchart TD
-    A([View → Sun & 3D → 3D View (Plan → Split) / Alt+2 / Alt+3 /<br/>the mode buttons / View → Workspace])
+    A([View → 3D View (Plan → Split) / Alt+2 / Alt+3 /<br/>the mode buttons / View → Workspace])
     B["Workspace.set_mode: build the 3D pane (strip + stacked body)"]
     G["Init3DGuard.begin(): a marker of a dead process?<br/>→ compatibility flag on. Own marker written"]
     F["engine_factory(prefer_software): import quick3d,<br/>Quick3DHost + Quick3DSink; container into the pane"]
@@ -556,6 +559,45 @@ launch. Rejection and cancellation never reach process launch.
 Linux startup creates QApplication, secures the settings backend, loads preferences
 and constructs the main window. An ownership/permission failure exits with a visible
 error before the preference and window steps.
+
+## Viewing a plan at another date (US-F4)
+
+```mermaid
+sequenceDiagram
+    participant Timeline
+    participant SimClock
+    participant App
+    participant Scene
+    Timeline->>SimClock: set_date(preferred day in month / Today)
+    SimClock->>App: date_changed(local day)
+    App->>Scene: refresh_timeline()
+    Scene->>Scene: layer AND plant presence; invalidate sprite caches
+    Scene-->>Timeline: timeline_changed (read clock, update hidden count)
+    App->>App: date-present data diagnostics; request latest map if enabled
+    SimClock->>App: instant_changed (mirror exact date/time; 3D relights itself)
+```
+
+Plant Details validates planting/removal dates before executing one property command.
+Execute/undo/redo reapplies presence without deleting an item. A document load applies
+visibility after all items/layers exist. Save and Season Manager still serialize the
+whole plan, including date-absent plants; visual exports render the current state.
+
+
+With Hours of Sun checked, a changed exposure snapshot invalidates measurements and
+queues the newest request after a short pause. A previous map stays visible with its
+actual date and Updating label; the old worker is canceled, retained until finished,
+and its late success is rejected. Only an accepted current result replaces the map
+and feeds diagnostics. Daily animation changes lighting without scheduling this work.
+
+A visual export pauses animation, requests current exposure, and waits without
+blocking Qt event delivery. GUI cancellation or an API timeout abandons the export.
+After readiness, document/revision/time/exposure are checked on Qt immediately before
+rendering; the final counted export lease restores the prior animation state.
+
+Print enters the same readiness gate before opening its preview and retains the
+animation pause lease until the preview closes. Every paint revalidates the
+document/date/exposure before touching the printer; failure rejects the preview.
+Its legend names the shared plan date. Cancellation is a quiet return.
 
 ## Line appearance changes and history (#524–#526)
 

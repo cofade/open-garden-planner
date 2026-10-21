@@ -256,7 +256,7 @@ class TestPanelsAndWidgets:
         qtbot.addWidget(bar)
         assert not bar._animate_button.icon().isNull()
         assert not bar._heatmap_button.icon().isNull()
-        assert bar._time_icon.pixmap() is not None and not bar._time_icon.pixmap().isNull()
+        assert bar._time_edit.displayFormat() == "HH:mm"  # editable time replaces the clock glyph
         play = _img(bar._animate_button.icon().pixmap(QSize(20, 20)))
         bar._animate_button.setChecked(True)  # play → pause
         assert _img(bar._animate_button.icon().pixmap(QSize(20, 20))) != play

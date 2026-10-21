@@ -169,6 +169,8 @@ class SelectTool(BaseTool):
         scene = self._view.scene()
 
         for item in scene.items():
+            if not item.isVisible():
+                continue
             # Skip non-selectable items and our own box item
             if not (item.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsSelectable):
                 continue

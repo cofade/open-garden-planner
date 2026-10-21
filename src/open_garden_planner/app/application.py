@@ -64,6 +64,7 @@ from open_garden_planner.ui.panels import (
     PropertiesPanel,
     SmartSymbolsPanel,
 )
+from open_garden_planner.ui.sun_export_gate import ExportCanceled
 from open_garden_planner.ui.theme import (
     ThemeMode,
     apply_theme,
@@ -330,7 +331,7 @@ class GardenPlannerApp(QMainWindow):
         """Render a PNG of the live plan ON the Qt main thread (for the server)."""
         from open_garden_planner.agent_api.render import render_canvas_image
 
-        return self._agent_bridge.run_on_main(
+        return self._sun_export_gate.run_worker(self._agent_bridge,
             lambda: render_canvas_image(self.canvas_scene, region, layers, image_width_px)
         )
 
@@ -457,7 +458,7 @@ class GardenPlannerApp(QMainWindow):
         """Export the PDF report ON the Qt main thread (for the server)."""
         from open_garden_planner.agent_api.exports import export_pdf_file
 
-        return self._agent_bridge.run_on_main(
+        return self._sun_export_gate.run_worker(self._agent_bridge,
             lambda: export_pdf_file(
                 self.canvas_scene, self._project_manager, file_path, paper_size, orientation
             )
@@ -539,7 +540,7 @@ class GardenPlannerApp(QMainWindow):
         build the item, apply the species, auto-populate its species metadata
         from the bundled DB (so the plant-detail panel and US-12.10d
         soil-mismatch warnings light up without a manual "Suchen"), stamp
-        today's planting date (US-E8 — deliberately OUTSIDE the species guard,
+        the active plan date as planting date (US-E8/F4 — OUTSIDE the species guard,
         so a placeholder that gains a species later is not left permanently
         undated, which would break the growth model), and assign the active
         layer.
@@ -561,7 +562,6 @@ class GardenPlannerApp(QMainWindow):
         (all in the Qt-free ``creates`` module), or a locked active layer — the
         GUI can't draw onto a locked layer either.
         """
-        from datetime import date
 
         from open_garden_planner.agent_api import creates
         from open_garden_planner.core.commands import CreateItemCommand, CreateItemsCommand
@@ -609,7 +609,7 @@ class GardenPlannerApp(QMainWindow):
                 item.plant_species = species
                 populate_item_species_metadata(item, species)
             # US-E8: every new plant is dated, species or not (see docstring).
-            stamp_default_planting_date(item.metadata, date.today())
+            stamp_default_planting_date(item.metadata, self._sim_clock.plan_date)
 
         linked_items: list[Any] = []
         if object_type == "HOUSE":
@@ -1275,6 +1275,8 @@ class GardenPlannerApp(QMainWindow):
 
         out: list[str] = []
         for item in items:
+            if not self.canvas_scene.is_present(item):
+                continue
             if getattr(item, "parent_bed_id", None) != bed_id:
                 continue
             # Delegate to the SHARED resolver rather than re-implementing the
@@ -4133,15 +4135,13 @@ class GardenPlannerApp(QMainWindow):
         menu.addSeparator()
 
         # Grouped submenus (#310, owner decision 2026-08-17): the flat list of
-        # 22 toggles was hard to scan. Zoom | Snapping ▸ | Overlays ▸ | Sun & 3D ▸
+        # 22 toggles was hard to scan. Zoom | Snapping ▸ | Overlays ▸ | 3D View
         # | Panels (Fullscreen Preview) | Theme ▸ | Language ▸. Action attribute
         # names are unchanged — only the container moved.
         snap_menu = menu.addMenu(self.tr("&Snapping"))
         self._set_action_icon(snap_menu.menuAction(), "snapping")
         overlays_menu = menu.addMenu(self.tr("O&verlays"))
         self._set_action_icon(overlays_menu.menuAction(), "overlays")
-        sun_menu = menu.addMenu(self.tr("S&un && 3D"))
-        self._set_action_icon(sun_menu.menuAction(), "sun")
 
         # Toggle Grid
         self.grid_action = QAction(self.tr("Show &Grid"), self)
@@ -4258,27 +4258,6 @@ class GardenPlannerApp(QMainWindow):
         snap_menu.addAction(self._dynamic_input_action)
 
 
-        # Toggle Shadows
-        self._shadows_action = QAction(self.tr("Show &Shadows"), self)
-        self._shadows_action.setCheckable(True)
-        self._shadows_action.setChecked(True)  # Updated from settings in _setup_central_widget
-        self._shadows_action.setStatusTip(self.tr("Toggle drop shadows on objects"))
-        self._shadows_action.triggered.connect(self._on_toggle_shadows)
-        self._set_action_icon(self._shadows_action, "shadows")
-        sun_menu.addAction(self._shadows_action)
-
-        # Sun & shade simulation (US-E3) — deliberately named distinctly from
-        # the cosmetic per-item drop shadows above; different machinery.
-        self._sun_sim_action = QAction(self.tr("S&un && Shade Simulation"), self)
-        self._sun_sim_action.setCheckable(True)
-        self._sun_sim_action.setChecked(False)  # always starts off (runtime-only)
-        self._sun_sim_action.setStatusTip(
-            self.tr("Simulate solar shadows for a chosen date and time of day")
-        )
-        self._sun_sim_action.triggered.connect(self._on_toggle_sun_sim)
-        self._set_action_icon(self._sun_sim_action, "sun_sim")
-        sun_menu.addAction(self._sun_sim_action)
-
         # 3D view (US-E6; since Phase 17 L1.9 the workspace's 3D pane, ADR-060): it
         # opens no window any more — it shows the 3D view beside the plan (Split).
         self._view3d_action = QAction(self.tr("&3D View"), self)
@@ -4287,7 +4266,7 @@ class GardenPlannerApp(QMainWindow):
         )
         self._view3d_action.triggered.connect(self._on_show_3d_view)
         self._set_action_icon(self._view3d_action, "view3d")
-        sun_menu.addAction(self._view3d_action)
+        menu.addAction(self._view3d_action)
 
         # Toggle Scale Bar
         self._scale_bar_action = QAction(self.tr("Show Scale &Bar"), self)
@@ -4802,6 +4781,7 @@ class GardenPlannerApp(QMainWindow):
         # they hold bound methods weakly but do NOT disconnect a destroyed
         # QObject, so every subscriber lives as long as this window.
         self._sim_clock = SimClock()
+        self.canvas_scene.bind_plan_clock(self._sim_clock)
         self._sun_controller = SunShadowController(
             self.canvas_scene,
             lambda: self._project_manager.location,
@@ -4809,20 +4789,15 @@ class GardenPlannerApp(QMainWindow):
             clock=self._sim_clock,
         )
         self._sun_controller.state_changed.connect(self._on_sun_state_changed)
-        self._sun_toolbar = SunSimToolbar(self)
+        self._sun_toolbar = SunSimToolbar(self, scene=self.canvas_scene)
         self.addToolBarBreak()
         self.addToolBar(self._sun_toolbar)
-        self._sun_toolbar.setVisible(False)
+        self._sun_toolbar.setVisible(True)
         # The toolbar is a view of the clock: it shows the clock's wall time
         # (it seeded its own "now" — the clock wins) and writes user edits back.
         self._sun_toolbar.set_datetime_local(self._sim_clock.wall)
         self._sun_toolbar.datetime_changed.connect(self._on_sun_sim_datetime)
-        self._sun_toolbar.june_reference_requested.connect(self._on_june_reference)
-        # Keep the menu action + controller in sync with any visibility change
-        # that does not come from the action itself — today that is
-        # _enforce_toolbar_visibility() at startup. (It used to be Qt's built-in
-        # toolbar context menu, which #283 suppressed via createPopupMenu.)
-        self._sun_toolbar.visibilityChanged.connect(self._on_sun_toolbar_visibility)
+        self._sun_toolbar.date_requested.connect(self._sim_clock.set_date)
         # The sim instant is deliberately NOT persisted: the clock starts at the
         # current date/time on every app start, so a fresh simulation always
         # reflects today (FR-SUN-04).
@@ -4830,16 +4805,12 @@ class GardenPlannerApp(QMainWindow):
             self._on_location_changed_for_sun
         )
 
-        # ── Hours-of-sun heatmap (US-E4) — recompute on demand only ────────
+        # ── Hours-of-sun heatmap (US-E4/F4) — opt-in live updates ────────
         from open_garden_planner.ui.canvas.sun_heatmap import SunHeatmapController
 
         self._sun_heatmap = SunHeatmapController(
             self.canvas_scene, lambda: self._project_manager.location, self
         )
-        self._sun_heatmap.finished.connect(self._on_heatmap_finished)
-        self._sun_toolbar.heatmap_requested.connect(self._on_heatmap_requested)
-        self._sun_toolbar.heatmap_cleared.connect(self._sun_heatmap.clear)
-        self.canvas_scene.document_replaced.connect(self._reset_sun_document)
         from open_garden_planner.ui.sun_exposure_coordinator import SunExposureCoordinator
 
         self.sun_exposure_coordinator = SunExposureCoordinator(
@@ -4858,6 +4829,14 @@ class GardenPlannerApp(QMainWindow):
 
         connect_qobject(self._sim_clock.date_changed, self._on_sim_date_changed)
         connect_qobject(self._sim_clock.instant_changed, self._on_sim_instant_changed)
+
+        from open_garden_planner.ui.live_sun_map import LiveSunMap
+        from open_garden_planner.ui.sun_export_gate import SunExportGate
+
+        self._live_sun_map = LiveSunMap(
+            self.canvas_scene, self._sim_clock, self._project_manager, self._sun_heatmap,
+            self._sun_toolbar, self.canvas_view.command_manager, self)
+        self._sun_export_gate = SunExportGate(self._live_sun_map, self._sun_toolbar, self)
 
         # ── 3D workspace (L1.3) — what its pipeline reads, and its View submenu ──
         self._workspace.connect_plan(
@@ -4888,6 +4867,7 @@ class GardenPlannerApp(QMainWindow):
 
         # Connect undo/redo action enable state to command manager
         cmd_mgr = self.canvas_view.command_manager
+        cmd_mgr.stack_changed.connect(self.canvas_scene.refresh_timeline)
         cmd_mgr.can_undo_changed.connect(self._undo_action.setEnabled)
         cmd_mgr.can_redo_changed.connect(self._redo_action.setEnabled)
 
@@ -5096,7 +5076,6 @@ class GardenPlannerApp(QMainWindow):
         self.update_selection(0, [])
 
         # Initialize shadow, scale bar, labels, constraints, and object snap state from settings
-        QTimer.singleShot(0, self._init_shadows_from_settings)
         QTimer.singleShot(0, self._init_scale_bar_from_settings)
         QTimer.singleShot(0, self._init_labels_from_settings)
         QTimer.singleShot(0, self._init_constraints_from_settings)
@@ -6046,13 +6025,15 @@ class GardenPlannerApp(QMainWindow):
             file_path = file_path.with_suffix(".png")
 
         try:
-            ExportService.export_to_png(
+            self._sun_export_gate.run_gui(lambda: ExportService.export_to_png(
                 self.canvas_scene,
                 file_path,
                 dpi=dialog.selected_dpi,
                 output_width_cm=dialog.selected_output_width_cm,
-            )
+            ))
             self.statusBar().showMessage(self.tr("Exported: {path}").format(path=file_path))
+        except ExportCanceled:
+            return
         except Exception as e:
             QMessageBox.critical(self, self.tr("Export Error"), self.tr("Failed to export PNG:\n{error}").format(error=e))
 
@@ -6076,14 +6057,16 @@ class GardenPlannerApp(QMainWindow):
             file_path = file_path.with_suffix(".svg")
 
         try:
-            ExportService.export_to_svg(
+            self._sun_export_gate.run_gui(lambda: ExportService.export_to_svg(
                 self.canvas_scene,
                 file_path,
                 output_width_cm=ExportService.PAPER_A4_LANDSCAPE_WIDTH_CM,
                 title=self._project_manager.project_name,
                 description="Created with Open Garden Planner",
-            )
+            ))
             self.statusBar().showMessage(self.tr("Exported: {path}").format(path=file_path))
+        except ExportCanceled:
+            return
         except Exception as e:
             QMessageBox.critical(self, self.tr("Export Error"), self.tr("Failed to export SVG:\n{error}").format(error=e))
 
@@ -6142,20 +6125,26 @@ class GardenPlannerApp(QMainWindow):
         if options.exec() != PrintOptionsDialog.DialogCode.Accepted:
             return
 
-        # Create print manager and configure
-        print_mgr = GardenPrintManager(
-            self.canvas_scene,
-            project_name=self._project_manager.project_name,
-        )
-        print_mgr.configure(
-            scale_denominator=options.scale_denominator,
-            include_grid=options.include_grid,
-            include_labels=options.include_labels,
-            include_legend=options.include_legend,
-        )
-
-        # Show print preview (which allows printing)
-        print_mgr.print_preview(parent=self)
+        try:
+            with self._sun_export_gate.gui_session() as validate_snapshot:
+                print_mgr = GardenPrintManager(
+                    self.canvas_scene,
+                    project_name=self._project_manager.project_name,
+                    snapshot_validator=validate_snapshot,
+                )
+                print_mgr.configure(
+                    scale_denominator=options.scale_denominator,
+                    include_grid=options.include_grid,
+                    include_labels=options.include_labels,
+                    include_legend=options.include_legend,
+                )
+                # The animation lease lasts until preview/printing closes.
+                print_mgr.print_preview(parent=self)
+        except ExportCanceled:
+            return
+        except Exception as error:
+            QMessageBox.critical(self, self.tr("Print Error"),
+                                 self.tr("Failed to print:\n{error}").format(error=error))
 
     def _on_import_dxf(self) -> None:
         """Handle Import DXF action."""
@@ -6289,22 +6278,30 @@ class GardenPlannerApp(QMainWindow):
             author=dialog.author,
         )
 
-        progress = QProgressDialog(
-            self.tr("Generating PDF…"), self.tr("Cancel"), 0, 100, self
-        )
-        progress.setWindowModality(Qt.WindowModality.WindowModal)
-        progress.setMinimumDuration(500)
-
-        def on_progress(current: int, total: int) -> None:
-            if total > 0:
-                progress.setValue(int(current / total * 100))
+        def generate() -> None:
+            # Construct only after readiness: QProgressDialog can retain its
+            # constructor's delayed-show timer even after changing its duration.
+            progress = QProgressDialog(
+                self.tr("Generating PDF…"), self.tr("Cancel"), 0, 100, self
+            )
+            progress.setWindowModality(Qt.WindowModality.WindowModal)
+            progress.setMinimumDuration(500)
+            def on_progress(current: int, total: int) -> None:
+                if total > 0:
+                    progress.setValue(int(current / total * 100))
+            try:
+                PdfReportService.generate(self.canvas_scene, opts, file_path_obj, on_progress)
+                progress.setValue(100)
+            finally:
+                progress.close()
+                progress.deleteLater()
 
         try:
-            PdfReportService.generate(self.canvas_scene, opts, file_path_obj, on_progress)
-            progress.setValue(100)
+            self._sun_export_gate.run_gui(generate)
             self.statusBar().showMessage(self.tr("Exported: {path}").format(path=file_path_obj))
+        except ExportCanceled:
+            return
         except Exception as e:
-            progress.cancel()
             QMessageBox.critical(
                 self,
                 self.tr("Export Error"),
@@ -6353,6 +6350,7 @@ class GardenPlannerApp(QMainWindow):
             self._stop_agent_api()
             # Join a running heatmap worker — a QThread destroyed while
             # running aborts the process (the #230 class).
+            self._live_sun_map.shutdown()
             self._sun_heatmap.shutdown()
             # Cancel and detach in-flight update checker — a QThread destroyed
             # while running aborts the process (#480).
@@ -6401,9 +6399,8 @@ class GardenPlannerApp(QMainWindow):
           that the built-in toolbar context menu is suppressed
           (``createPopupMenu``). Force them on, which also heals any state
           already saved with one of them hidden.
-        * The two feature toolbars belong to runtime-only features that
-          always start OFF, so a stale "visible" would show a toolbar whose
-          menu action is unchecked and whose overlay is not running (#286).
+        * Plan & Sun is permanent. Only the soil-overlay toolbar follows
+          a runtime-only feature that always starts OFF (#286).
         """
         for toolbar in (
             self.main_toolbar,
@@ -6411,7 +6408,9 @@ class GardenPlannerApp(QMainWindow):
             self.category_toolbar,
         ):
             toolbar.setVisible(True)
-        self._sun_toolbar.setVisible(False)
+        self._sun_toolbar.setVisible(True)
+        self._sun_controller.set_enabled(True)
+        self.canvas_scene.set_shadows_enabled(True)
         self.soil_overlay_toolbar.setVisible(False)
 
     def createPopupMenu(self) -> QMenu | None:
@@ -6421,8 +6420,8 @@ class GardenPlannerApp(QMainWindow):
         the drawing tools — persistently, since the layout is saved on exit
         (#283) — and the only way back was that same easily-missed menu.
         None of this app's toolbars are user-optional: the three core ones are
-        always on, and the sun-sim and soil-overlay ones follow their own View
-        menu actions.
+        always on, Plan & Sun is permanent, and the soil overlay follows its View
+        menu action.
         """
         return None
 
@@ -6537,32 +6536,6 @@ class GardenPlannerApp(QMainWindow):
             2000,
         )
 
-    def _init_shadows_from_settings(self) -> None:
-        """Initialize shadow state from persisted settings."""
-        from open_garden_planner.app.settings import get_settings
-
-        enabled = get_settings().show_shadows
-        self._shadows_action.setChecked(enabled)
-        self.canvas_scene.set_shadows_enabled(enabled)
-
-    def _on_toggle_shadows(self, checked: bool) -> None:
-        """Handle toggle shadows action."""
-        from open_garden_planner.app.settings import get_settings
-
-        self.canvas_scene.set_shadows_enabled(checked)
-        get_settings().show_shadows = checked
-
-    def _on_toggle_sun_sim(self, checked: bool) -> None:
-        """Toggle the sun & shade simulation overlay + its time toolbar (US-E3)."""
-        self._sun_toolbar.setVisible(checked)
-        if checked:
-            self._sun_controller.set_enabled(True)  # reads the sim clock
-        else:
-            self._sun_toolbar.stop_animation()
-            self._sun_controller.set_enabled(False)
-            self._sun_heatmap.clear()
-            self._sun_toolbar.set_heatmap_active(False)
-
     def _on_sun_sim_datetime(self, dt) -> None:
         """The toolbar's date/time edit: write the one sim clock (L1.0).
 
@@ -6575,75 +6548,26 @@ class GardenPlannerApp(QMainWindow):
         ``_on_sim_instant_changed`` every change."""
         self._sim_clock.set_datetime(dt)
 
-    def _on_june_reference(self) -> None:
-        """An explicit reference shortcut writes the one clock, preserving wall time."""
-        from datetime import date
-
-        self._sim_clock.set_date(date(self._sim_clock.plan_date.year, 6, 21))
-
-    def _on_sim_date_changed(self, day: "datetime.date") -> None:
+    def _on_sim_date_changed(self, _day: "datetime.date") -> None:
         """A new plan DATE — never a time-of-day change (the clock's L1.0 gate).
 
-        The whole-day heatmap goes stale (FR-SUN-05): cleared when shown AND
-        while a launched compute's result is still pending — before L1.0 only a
-        shown map was cleared, so a late result painted the old day under the
-        new date. ``result_pending`` (not ``is_running``) also covers the window
-        after the worker's ``run()`` returned but before its queued result
-        reached the GUI thread. (The 3D view regrows its dated plants on its own
-        subscription — ``Scene3DController``, growth keyed on the plan date.)
+        Presence and 2D diagnostics refresh here. LiveSunMap schedules exposure
+        from the updated scene; the Quick 3D controller owns its throttled date
+        subscription. A time-only change follows the instant channel instead.
         """
-        heatmap = self._sun_heatmap
-        if heatmap.computed_day != day and (
-            heatmap.heatmap_visible() or heatmap.result_pending
-        ):
-            heatmap.clear()
+        self.canvas_scene.refresh_timeline()
+        self._update_companion_highlights()
+        self._update_spacing_overlaps()
+        self.canvas_view.refresh_soil_mismatches()
+        # A direct controller computation has no live refresh intent.
+        if not self._live_sun_map.enabled and self._sun_heatmap.computed_day != _day:
+            self._sun_heatmap.clear()
             self._sun_toolbar.set_heatmap_active(False)
 
     def _on_sim_instant_changed(self, change: "SimChange") -> None:
         """Any new sim instant: the toolbar shows it (silently — no write-back
         echo). The 3D light follows on the 3D view's own subscription."""
         self._sun_toolbar.set_datetime_local(change.current.wall)
-
-    def _on_heatmap_requested(self) -> None:
-        """Heatmap button checked — compute the plan date's hours of sun."""
-        day = self._sim_clock.plan_date
-        if self._sun_heatmap.run_for_day(day):
-            self._sun_toolbar.set_heatmap_busy(True)
-            return
-        # Refused: a previous result still pending, or no garden location.
-        self._sun_toolbar.set_heatmap_active(False)
-        if not self._sun_heatmap.result_pending:
-            self._set_sun_hint(
-                self.tr("Set garden location first: File → Set Garden Location…")
-            )
-
-    def _on_heatmap_finished(self, success: bool) -> None:
-        """Worker done — clear busy state, sync the button."""
-        self._sun_toolbar.set_heatmap_busy(False)
-        self._sun_toolbar.set_heatmap_active(
-            success and self._sun_heatmap.heatmap_visible()
-        )
-
-    def _reset_sun_document(self) -> None:
-        """Drop the old document's worker/overlay before items are removed (#428)."""
-        self._sun_heatmap.clear()
-        self._sun_toolbar.set_heatmap_active(False)
-
-    def _on_sun_toolbar_visibility(self, visible: bool) -> None:
-        """Sync menu action + controller when the toolbar's visibility changes
-        without going through our action — e.g. the startup enforcement in
-        ``_enforce_toolbar_visibility()``. (Qt's built-in toolbar context menu
-        was the original such path; #283 suppressed it.)"""
-        if visible == self._sun_controller.enabled:
-            return
-        self._sun_sim_action.setChecked(visible)
-        if visible:
-            self._sun_controller.set_enabled(True)  # reads the sim clock
-        else:
-            self._sun_toolbar.stop_animation()
-            self._sun_controller.set_enabled(False)
-            self._sun_heatmap.clear()
-            self._sun_toolbar.set_heatmap_active(False)
 
     def _on_sun_state_changed(self, state: str) -> None:
         """Surface the simulation's empty states as a toolbar hint."""
@@ -6680,7 +6604,7 @@ class GardenPlannerApp(QMainWindow):
     # ── 3D view (US-E6) ──────────────────────────────────────────
 
     def _on_show_3d_view(self) -> None:
-        """View → Sun & 3D → "3D View": the workspace's 3D pane (Phase 17 L1.9).
+        """View → "3D View": the workspace's 3D pane (Phase 17 L1.9).
 
         From Plan mode it switches to Split — the plan stays on screen and the 3D
         view appears beside it, where the old viewer window used to open. In 3D or
@@ -6885,7 +6809,7 @@ class GardenPlannerApp(QMainWindow):
         # left with a stale ring/badge); only named plants take part in the
         # relationship scan.
         canvas_plants = [it for it in scene_items if self._is_canvas_plant(it)]
-        all_plants = [it for it in canvas_plants if self._companion_species_name(it)]
+        all_plants = [it for it in canvas_plants if self.canvas_scene.is_present(it) and self._companion_species_name(it)]
 
         # Desired final state per plant, computed before any setter call so
         # each item is mutated at most once this pass.
@@ -6993,6 +6917,8 @@ class GardenPlannerApp(QMainWindow):
             bed_groups: dict[str, list] = {}
             orphans: list = []
             for plant in all_plants:
+                if not self.canvas_scene.is_present(plant):
+                    continue
                 bed_id = getattr(plant, '_parent_bed_id', None)
                 if bed_id is not None:
                     key = str(bed_id)
@@ -7145,7 +7071,7 @@ class GardenPlannerApp(QMainWindow):
             child_areas: list[float] = []
             for child_id in item.child_item_ids:
                 child = by_id.get(str(child_id))
-                if child is None:
+                if child is None or not self.canvas_scene.is_present(child):
                     continue
                 area = child._compute_area_cm2() if hasattr(child, "_compute_area_cm2") else None
                 if area:

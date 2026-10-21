@@ -148,6 +148,7 @@ bootstrap pin must be checked against hosted update tooling as well as installat
 
 **Release version determination must resolve the triggering merge commit, not the latest-created PR (#543, 2026-10-20).** PR #484 (Phase 17 L1) carried the `minor` label when merged as `bf4fd77a`, but `release.yml` published `v1.30.14` (patch) instead of `v1.31.0`. `gh pr list --state merged --base master --limit 1` sorts by PR creation date (`createdAt` descending), not merge time. Because PR #484 was created weeks earlier in September, it was shadowed by PR #521 (created and merged earlier on the same day without a label). Additionally, loose `grep -q` used substring matching. Resolution: `release.yml` delegates version determination to `scripts/resolve_release_pr.py --write-github-output`, which resolves the triggering commit SHA via `gh api repos/{repo}/commits/{commit_sha}/pulls` filtering for master merges, falls back to extracting `(#N)` from the commit subject line, and evaluates bump types using exact label matching.
 
+
 ### PF-CI-11
 
 - **Rule:** Windows executables, installers, and desktop shortcuts require multi-resolution `.ico` files containing all standard frames (16x16 to 256x256), and `SetCurrentProcessExplicitAppUserModelID` must be called before any GUI or WebEngine subsystem imports; an icon with only 16x16 leaves the Windows taskbar with a generic blank window icon.

@@ -543,7 +543,7 @@ view. Concept: §8.29.2. Engine facts: the `ogp-3d-renderer` skill.
 
 Black-box view of what puts the 3D scene pipeline (§5.10) and the engine package (§5.11) into the
 main window: the Plan / 3D / Split workspace. Since L1.9 it is the plan area of every main window
-(no switch; View → Sun & 3D → "3D View" shows its 3D pane); `workspace.py` is imported at start
+(no switch; View → "3D View" shows its 3D pane); `workspace.py` is imported at start
 and imports no engine, and the engine is loaded on the first switch to 3D or Split. Concept:
 §8.29.3, §8.29.9. Tests: §8.10.9, §8.10.13.
 
@@ -559,7 +559,7 @@ and imports no engine, and the engine is loaded on the first switch to 3D or Spl
 | `ui/sim_clock_subscription.py` | `connect_qobject` / `disconnect_qobject`: how a QObject listens to the Qt-free sim clock — a guard that asks `sip.isdeleted` at every delivery, held weakly with its receiver. The only way the product connects to a clock channel (scanned). | channel, bound slot → a subscription that dies with the receiver |
 | `core/plain_text.py` | Qt-free, standard library only. Plan text as text: normalise (every line boundary to one; other controls and bidi overrides to U+FFFD), then cap, then escape. | untrusted text → text for a tooltip, a label, a log line |
 | `ui/view3d/quick3d/host.py` (three additions) | `Quick3DHost(prefer_software=True)` asks Qt for the software adapter for this window; `install_event_filter(watcher)`; `release_cached_resources()` (Qt's `releaseResources()`), counted in `cache_releases`. | — |
-| `app/application.py` (the wiring) | Builds the workspace around the canvas view (always, since L1.9; View → Sun & 3D → "3D View" switches it from Plan to Split, `_on_show_3d_view`); nothing for a replaced document — the workspace listens to `CanvasScene.document_replaced` itself (`connect_plan`), the signal master's #428 fix rides on; `workspace.shutdown()` in `closeEvent`; hides the workspace's controls in the fullscreen preview. | — |
+| `app/application.py` (the wiring) | Builds the workspace around the canvas view (always, since L1.9; View → "3D View" switches it from Plan to Split, `_on_show_3d_view`); nothing for a replaced document — the workspace listens to `CanvasScene.document_replaced` itself (`connect_plan`), the signal master's #428 fix rides on; `workspace.shutdown()` in `closeEvent`; hides the workspace's controls in the fullscreen preview. | — |
 | `tests/integration/workspace_gate_hook.py`, `installer/workspace_gate.spec` | Test tooling, never shipped: drives the real app (source or frozen) through the workspace on a throw-away settings store and refuses any other (§8.10.9). | scenario file → report |
 
 ## 5.13 Ground bake — flat surfaces as ground tiles (Phase 17 L1.5, #385, ADR-059 addendum)
@@ -689,6 +689,26 @@ ConstraintListItem looks up and renders a descriptor in the existing translation
 context; it retains theme refresh and delete signals. The module accepts display
 values and returns text, with no commands, scene mutation or solver callbacks.
 Constraint geometry and satisfaction remain in their existing components.
+
+## Plan timeline (US-F4, ADR-062)
+
+`core/plan_timeline.py` owns Qt-free ISO lifetime parsing, half-open presence and
+month bounds. `ui/plant_lifetime.py` validates date edits and applies them through
+ChangePropertyCommand. `ui/widgets/sun_sim_toolbar.py` displays the scene's
+shared clock date, requests month/Today changes, and resolves hidden-plant menu IDs.
+CanvasScene combines layer and date visibility, exposes the clock date to renderers,
+and reapplies state after commands and document replacement. The existing serializers
+store instance metadata unchanged; API snapshots add runtime presence annotations.
+
+
+The permanent combined toolbar groups the calendar/Today/status, month slider,
+editable time/day animation, live-map status and hidden-plant navigation. Its flow
+layout wraps complete groups. `ui/live_sun_map.py` separates user intent, requested
+exposure and the last displayed map; it schedules the existing single worker.
+`ui/sun_export_gate.py` shares current-map readiness, animation leases and document
+validation between GUI exports and API provider threads. Neither component computes
+solar math or introduces another clock. The Qt Quick 3D controller retains its own
+existing clock subscription and date-throttled scene pipeline (ADR-060).
 
 ## Shared line appearance values (#524–#526, #471)
 

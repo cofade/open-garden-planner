@@ -6,10 +6,23 @@ and species replace on canvas items.
 
 # ruff: noqa: ARG002
 
+import pytest
 
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 from open_garden_planner.ui.panels.find_replace_panel import FindReplacePanel
+
+
+@pytest.mark.parametrize("action", ["_on_search", "_on_select_all"])
+def test_no_matches_clear_previous_canvas_selection(canvas, qtbot, action):
+    item = _make_rect(canvas, name="Previous result")
+    panel = _panel(canvas)
+    qtbot.addWidget(panel)
+    item.setSelected(True)
+    panel._name_edit.setText("No such item")
+    getattr(panel, action)()
+    assert panel._results_list.count() == 0
+    assert canvas.scene().selectedItems() == []
 
 
 def _make_rect(canvas: CanvasView, name: str = "", w: float = 100.0) -> RectangleItem:

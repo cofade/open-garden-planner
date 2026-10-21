@@ -51,6 +51,9 @@ class _FakeItem:
     def parent_bed_id(self) -> str | None:
         return self._parent_bed_id
 
+    def isVisible(self) -> bool:
+        return True
+
 
 class _FakeScene:
     def __init__(self, items: list[Any]) -> None:
@@ -58,6 +61,9 @@ class _FakeScene:
 
     def items(self) -> list[Any]:
         return list(self._items)
+
+    def is_present(self, _item: Any) -> bool:
+        return True
 
 
 def _panel(qtbot: Any, service: CompanionPlantingService, items: list[Any]) -> CompanionPanel:

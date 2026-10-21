@@ -5,7 +5,7 @@ from pathlib import Path
 from threading import Event, get_ident
 
 import pytest
-from PyQt6.QtCore import QLocale, QPointF, Qt, QTimer
+from PyQt6.QtCore import QDate, QLocale, QPointF, Qt, QTimer
 from PyQt6.QtWidgets import QApplication
 
 from open_garden_planner.app.application import GardenPlannerApp
@@ -54,9 +54,10 @@ def sun_app(qtbot, monkeypatch):
 
 
 def compute(win, qtbot):
-    with qtbot.waitSignal(win._sun_heatmap.finished, timeout=30000) as blocker:
-        win._on_heatmap_requested()
-    assert blocker.args == [True]
+    win._sun_toolbar._heatmap_button.setChecked(True)
+    readiness = win._live_sun_map.ensure_current()
+    qtbot.waitUntil(readiness.done, timeout=30000)
+    readiness.result()
     qtbot.waitUntil(lambda: bool(win.sun_exposure_coordinator.evaluations)
                    and any(e.hours is not None for e in win.sun_exposure_coordinator.evaluations.values()))
 
@@ -69,14 +70,14 @@ def sun_records(win, kind="sun_mismatch"):
     return [record for record in win.diagnostics_panel.records if record.kind == kind]
 
 
-def test_explicit_compute_badges_canopy_invalidation_and_requirements(sun_app, qtbot):
+def test_explicit_compute_badges_canopy_invalidation_and_requirements(sun_app, qtbot, monkeypatch):
     win = sun_app
     items = by_name(win)
     north, south, tree = items["Northern tomato"], items["Southern tomato"], items["Reference tree"]
     original = (north.rect(), north.pos(), north.transformOriginPoint(), north.boundingRect())
     qtbot.waitUntil(lambda: len(sun_records(win, "sun_evaluation")) == 3)
     assert win._sun_heatmap.run_count == 0
-    win._sun_toolbar._june_button.click()
+    win._sun_toolbar._date_edit.setDate(QDate(DAY.year, DAY.month, DAY.day))
     assert win._sim_clock.plan_date == DAY
     compute(win, qtbot)
     assert win.sun_exposure_coordinator.evaluations[str(north.item_id)].hours == 0
@@ -96,19 +97,49 @@ def test_explicit_compute_badges_canopy_invalidation_and_requirements(sun_app, q
     qtbot.wait(120)
     assert win._sun_heatmap.exposure_reason == "ready"
     assert change_trait(north, "sun_requirement", "full_shade")
-    qtbot.waitUntil(lambda: not north._sun_badge.isVisible())
+    qtbot.waitUntil(lambda: not north._sun_badge.isVisible() and win._sun_heatmap.exposure_reason == "ready")
     assert win._sun_heatmap.exposure_reason == "ready" and win._sun_heatmap.run_count == run_count
     win.canvas_view.command_manager.undo()
     qtbot.waitUntil(lambda: north._sun_badge.isVisible())
-    tree.setPos(200, 0)
-    qtbot.waitUntil(lambda: win._sun_heatmap.exposure_reason == "stale", timeout=1000)
-    qtbot.waitUntil(lambda: not sun_records(win) and len(sun_records(win, "sun_evaluation")) == 3, timeout=1000)
-    assert not north._sun_badge.isVisible() and win._sun_heatmap.heatmap_visible()
-    assert win._sun_heatmap.run_count == run_count
+    from open_garden_planner.ui.canvas.sun_heatmap import HeatmapWorker
+    from tests.integration.test_agent_api_lifecycle import _run, _server
+
+    release = Event()
+    run = HeatmapWorker.run
+    def held(worker):
+        while not release.wait(.01) and not worker._cancelled:
+            pass
+        run(worker)
+    monkeypatch.setattr(HeatmapWorker, "run", held)
+    server = _server(win)
+    try:
+        tree.setPos(200, 0)
+        assert not win._live_sun_map.is_current()
+        assert win._sun_heatmap.heatmap_visible()  # honestly dated preview remains
+        # Exercise the coordinator's real debounce while fresh work is held.
+        qtbot.waitUntil(lambda: not sun_records(win) and len(sun_records(win, "sun_evaluation")) == 3
+                       and not north._sun_badge.isVisible())
+        assert all(e.hours is None for e in win.sun_exposure_coordinator.evaluations.values())
+        async def stale_wire(ctx):
+            http_client, client_session, url = ctx
+            async with http_client(url) as (read, write, _), client_session(read, write) as session:
+                await session.initialize()
+                mismatches = await session.call_tool("get_diagnostics", {"kind": "sun_mismatch"})
+                evaluations = await session.call_tool("get_diagnostics", {"kind": "sun_evaluation"})
+                assert not mismatches.isError and not mismatches.structuredContent["result"]
+                rows = evaluations.structuredContent["result"]
+                assert len(rows) == 3 and all(row["details"]["hours"] is None for row in rows)
+        _run(server, stale_wire, qtbot)
+    finally:
+        release.set()
+        server.stop()
     compute(win, qtbot)
+    assert win._sun_heatmap.run_count > run_count
     win._sim_clock.set_date(DAY + timedelta(days=1))
-    qtbot.waitUntil(lambda: not win._sun_heatmap.heatmap_visible())
+    assert win._sun_heatmap.heatmap_visible()
     assert not win._sun_heatmap.receiver_minutes
+    compute(win, qtbot)
+    assert win._sun_heatmap.displayed_snapshot.day == DAY + timedelta(days=1)
 
 
 @pytest.mark.parametrize("mode", [ThemeMode.LIGHT, ThemeMode.DARK])
@@ -120,13 +151,14 @@ def test_badge_group_navigation_geometry_and_reload(sun_app, qtbot, tmp_path, mo
     win.canvas_view.scale(.3, .3)
     north.setRotation(45)
     # Rotating a round receiver about its corner changes its centre: invalid.
-    qtbot.waitUntil(lambda: win._sun_heatmap.exposure_reason == "stale")
+    assert not win._live_sun_map.is_current()
     north.setRotation(0)
     compute(win, qtbot)
     win.canvas_scene.clearSelection()
     north.setSelected(True)
     by_name(win)["Southern tomato"].setSelected(True)
     win.canvas_view._group_selected()
+    compute(win, qtbot)
     qtbot.waitUntil(lambda: bool(sun_records(win)))
     root = north.parentItem()
     win.sun_exposure_coordinator.refresh()
@@ -253,7 +285,7 @@ def test_explicit_worker_keeps_gui_responsive(sun_app, qtbot, monkeypatch):
     timer.start(10)
     try:
         with qtbot.waitSignal(sun_app._sun_heatmap.finished, timeout=30000) as blocker:
-            sun_app._on_heatmap_requested()
+            sun_app._sun_toolbar._heatmap_button.setChecked(True)
             qtbot.waitUntil(lambda: entered.is_set() and len(ticks) >= 3, timeout=5000)
             assert len(worker_threads) == 1 and worker_threads[0] != gui_thread
             assert sun_app._sun_heatmap.is_running and sun_app._sun_heatmap.result_pending

@@ -79,9 +79,10 @@ class Plot:
 
     def compute(self) -> None:
         window, qtbot = self.window, self.qtbot
-        with qtbot.waitSignal(window._sun_heatmap.finished, timeout=60000) as blocker:
-            window._on_heatmap_requested()
-        assert blocker.args == [True]
+        window._sun_toolbar._heatmap_button.setChecked(True)
+        readiness = window._live_sun_map.ensure_current()
+        qtbot.waitUntil(readiness.done, timeout=60000)
+        readiness.result()
         coordinator = window.sun_exposure_coordinator
         qtbot.waitUntil(lambda: bool(coordinator.evaluations) and any(
             e.hours is not None for e in coordinator.evaluations.values()), timeout=10000)

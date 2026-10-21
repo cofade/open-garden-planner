@@ -2625,7 +2625,7 @@ The preexisting German amendment-task naming gap is tracked in #408.
 
 ---
 
-## Package F — Permaculture & Polyculture (✅ 3 of 5 shipped; F4/F5 planned)
+## Package F — Permaculture & Polyculture (✅ 3 of 5 shipped; F4 in review, F5 planned)
 
 > Filed from the permapeople.org research session (2026-08-17). Membership and
 > order live in the `> Package map & order` blockquote at the head of each issue,
@@ -2637,7 +2637,7 @@ The preexisting German amendment-task naming gap is tracked in #408.
 > | ✅ v1.30.0 | **F1** ([#312](https://github.com/cofade/open-garden-planner/issues/312)) | **Permaculture layer + plant function tags** — foundation of the package, **do first**. `PermacultureLayer` (7 food-forest layers + `UNKNOWN`) and `PlantFunction` (12 functions) as additive species attributes, captured from Permapeople's `Layer`/`Uses`, filled for all 118 bundled records, editable in Plant Details, filterable in search/gallery, exposed in the curated agent schema. Plus an optional food-forest canvas-layer preset. ADR-054/055 and FR-32. |
 > | ✅ v1.30.0 | **F2** ([#313](https://github.com/cofade/open-garden-planner/issues/313)) | **Plant guilds** — guild templates, canvas membership, missing-role diagnostic. *Depends on F1*: guilds have nothing to reason on without layer/function tags. |
 > | ✅ v1.30.1 | **F3** ([#314](https://github.com/cofade/open-garden-planner/issues/314)) | **Sun-requirement × computed hours-of-sun diagnostic** + canvas badge. Shipped with #428 via PR #436 after owner acceptance (ADR-056): explicit cached exposure, self-shadow exclusion, unavailable states and mature-canopy groups. *Independent*; its layer-stack section follows F1. Builds on the shipped Phase 14 sun/shade engine. |
-> | 📋 | **F4** ([#315](https://github.com/cofade/open-garden-planner/issues/315)) | **Plan timeline scrubber** — `removal_date` + plan-state-at-date visibility on the shared sim date. *Independent.* |
+> | 🔨 implementation / review | **F4** ([#315](https://github.com/cofade/open-garden-planner/issues/315)) | **Plan timeline scrubber** — `removal_date` + plan-state-at-date visibility on the shared sim date. *Independent.* |
 > | 📋 | **F5** ([#316](https://github.com/cofade/open-garden-planner/issues/316)) | **Bundled example-plan gallery** + template export/import. **Last** — ideally after F2 and F4. Blocked on nothing technical, but #379 (retiring the hand-made dogfood fixture) waits on it. |
 
 ## Package G — Plant Data Quality & Attribution (✅ 4 of 4 shipped — Complete)
@@ -2716,7 +2716,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 
 ## Phase 17: Living Garden 3D (epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) — L0 complete (GO), L1 complete
 
-**Current product (since v1.30.14, [PR #484](https://github.com/cofade/open-garden-planner/pull/484))**: the 3D view is the Qt Quick 3D workspace in the main window — View → Sun & 3D → "3D View" shows it beside the plan (Plan / 3D / Split, Alt+1 / 2 / 3); it follows every edit, casts shadow-map shadows checked against the 2D ones, selects in both directions and walks with collision. The Qt 3D viewer window of US-E6 / E7, unreachable since L1.9, was deleted in L1.10 with its two `PyQt6-3D*` pins, the pre-L1.1 scene module and the L0 spike (its values frozen in `tests/data/l0_spike_reference.json`). The workspace also paints the plan's flat surfaces onto its ground (L1.5). What FR-SUN-06 / 07 / 08 promised and what the new view does is §8.29.9's parity table; the owner shipped the default with #532 open (ADR-060 addendum D5). v1.30.13 was the last release with the Qt 3D window. L0 is complete with a GO; L1.0 (one simulation clock) shipped in v1.29.10 and L1.1–L1.10 in v1.30.14.
+**Current product (since v1.30.14, [PR #484](https://github.com/cofade/open-garden-planner/pull/484))**: the 3D view is the Qt Quick 3D workspace in the main window — View → "3D View" shows it beside the plan (Plan / 3D / Split, Alt+1 / 2 / 3); it follows every edit, casts shadow-map shadows checked against the 2D ones, selects in both directions and walks with collision. The Qt 3D viewer window of US-E6 / E7, unreachable since L1.9, was deleted in L1.10 with its two `PyQt6-3D*` pins, the pre-L1.1 scene module and the L0 spike (its values frozen in `tests/data/l0_spike_reference.json`). The workspace also paints the plan's flat surfaces onto its ground (L1.5). What FR-SUN-06 / 07 / 08 promised and what the new view does is §8.29.9's parity table; the owner shipped the default with #532 open (ADR-060 addendum D5). v1.30.13 was the last release with the Qt 3D window. L0 is complete with a GO; L1.0 (one simulation clock) shipped in v1.29.10 and L1.1–L1.10 in v1.30.14.
 
 **Goal**: make the 3D mode the reason to open the app — *Lush Cinematic* look, experience + analyze (editing stays in 2D, 3D only selects), 100 % procedural models, and **truth before beauty** (heights, spreads, sun, shadows, date and north gated against the data). Owner decisions 2026-10-03. Renderer: Qt Quick 3D replacing the deprecated Qt 3D, decided by the ADR-048 GO/NO-GO spike. Every 3D-visible change goes `ogp-3d-creator` → `ogp-3d-reviewer` → `senior-reviewer` (skills `ogp-lush-cinematic`, `ogp-3d-renderer`).
 
@@ -2757,7 +2757,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 
 ### L1.1–L1.10 — the new 3D view (#385, ADR-059, ADR-060) — **shipped v1.30.14, [PR #484](https://github.com/cofade/open-garden-planner/pull/484)**
 
-- **The 3D view is a Plan / 3D / Split workspace in the main window**, rendered with Qt Quick 3D (View → Sun & 3D → "3D View" opens Split; Alt+1 / 2 / 3). The Qt 3D viewer window, `core/scene3d/legacy.py`, `core/walk_camera.py`, the L0 spike and both `PyQt6-3D*` wheels are deleted, and `tests/unit/test_no_qt3d_left.py` keeps them out.
+- **The 3D view is a Plan / 3D / Split workspace in the main window**, rendered with Qt Quick 3D (View → "3D View" opens Split; Alt+1 / 2 / 3). The Qt 3D viewer window, `core/scene3d/legacy.py`, `core/walk_camera.py`, the L0 spike and both `PyQt6-3D*` wheels are deleted, and `tests/unit/test_no_qt3d_left.py` keeps them out.
 - **One story each:** L1.1 scene contract v2 (`core/scene3d/`); L1.2 the engine package (`ui/view3d/quick3d/`, CI `Render 3D` on Windows WARP and Linux); L1.3 the workspace (lazy engine, crash marker and software fallback); L1.4 looks and sky (presets with Automatic, twilight, wind, reduced motion); L1.5 the ground bake (the plan's flat surfaces painted onto the ground, matching 2D pixel for pixel); L1.6 the built world; L1.7 plant silhouettes (`core/plant_art/`); L1.8 selection sync, the info card and walk collision; L1.9 the default flip with throttled date playback (§8.29.9 holds the FR-SUN-06 / 07 / 08 parity table and the measured budgets); L1.10 the removal.
 - **Fixed on the way:** defects of the released app #438, #439, #441, #467, #468, #469, #478, #479, #523, #527; the test suite and developer scripts writing into the developer's real profile, #442; and two found in the new view before it shipped, #476 (a Qt Quick 3D texture trap) and #529 (picket moiré at Low).
 - **Owner acceptance, 2026-10-19:** the 36-step manual checklist passed, and the seven decisions put at the pull request were all kept as built — the twilight fade, the noon horizon's lime band, 4× MSAA at Low, the flat sky in compatibility mode, `master`'s rule for a loaded sprite's stated stroke, the new view's cost over the old window (no lighter default preset), and the default shipped with Qt 6.11's ground-texture leak #532 open (ADR-060 addendum D5).
@@ -2816,7 +2816,7 @@ F3 (#314) and heatmap lifecycle fix #428 shipped together in [v1.30.1](https://g
 - Document replacement cancels work and rejects running/queued late results. Deterministic GUI New/Open/recovery and real MCP replacement regressions are pinned in `tests/integration/test_sun_document_lifecycle.py`; the feature workflow is `tests/integration/test_sun_mismatch.py`.
 - Independent review reproduced and resolved concave-footprint badge containment and malformed legacy species handling, then returned clean final review. Full validation: 7,938 passed, 34 skipped; line coverage 76.9%, branch 60.3%; 200 casters/receivers 3.267 seconds. Frozen startup, subsystem self-test, real MCP reads/moves/New/Open and inspected renders passed; GitHub CI and release provenance passed.
 
-F4/F5 (#315/#316) remain planned. #328 shipped earlier in PR #352 and was excluded from this package.
+F4 (#315) is implemented pending review and owner acceptance; F5 (#316) remains planned. #328 shipped earlier in PR #352 and was excluded from this package.
 
 ### Docs updated on F3 completion
 
@@ -3092,6 +3092,50 @@ colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see PF-CAN
   `TestTheMaskIsTheItem` asserts that invariant, because a mask in the wrong coordinate frame does
   not fail, it *reads background*, which is what a luminance statistic calls texture. ADR-057
   addendum, PF-CAN-20.
+
+### US-F4 plan timeline (#315) — implementation pending owner acceptance
+
+ADR-062 and FR-34 define a month scrubber/Today on the existing SimClock, undoable
+plant removal dates, half-open presence, visible-set diagnostics and current-state
+exports/API annotations. The 2D sprite now shares the growth date; fresh creation
+uses that date too. Season Manager remains a whole-plan yearly copy. Integration
+workflows include real controls, exact boundaries, history, round-trip and rendered
+growth/export checks. F5 (#316) remains a separate story. Validation evidence and
+the owner's remaining frozen-app checklist accompany the draft PR.
+
+
+F4 owner-planned integration follow-up (20 October 2026, PR #533): master through v1.30.15 and
+release fix #543 are merged into the branch. One permanent adaptive Plan & Sun strip replaces the
+duplicate date controls and optional simulation toolbar; solar/decorative shadows
+are automatic, Hours of Sun updates while enabled with an honest dated preview,
+and image/PDF exports wait for current results. Monthly scrubbing preserves the
+preferred day; the 21 June shortcut is removed. ADR-062 / FR-34 / §8.31 record the
+decision, with combined-controls and native Qt Quick 3D integration evidence. Owner
+acceptance and publication remain pending; F5 stays separate.
+
+Owner visual follow-up (21 October): the initial layout checks omitted the app's
+theme and proved containment only. The themed strip now centres whole rows, styles
+the time field consistently with the calendar, supplies visible calendar/menu
+arrows, shows Today once and repeats a date only for an older map preview. Empty
+map labels no longer reserve space before the hidden-plants menu. The integration
+workflow checks both themes and all supported locales; owner acceptance is pending.
+
+
+F4 finalization review (21 October 2026) found six P1 gaps before release:
+wheel gestures could remove legacy undated plants; Print bypassed map readiness
+and used today's legend date; drawing-layer visibility leaked into data queries;
+ordinary commands discarded every plant paint cache; the stale sun badge/MCP
+regression had lost assertions; current agent instructions still described F3's
+retired controls. All six are addressed on the feature branch. The combined strip's
+owner-approved layout is unchanged. Regression evidence lives in
+`tests/integration/test_plan_sun_controls.py`, `test_sun_mismatch.py` and
+`test_timeline_quick3d.py`; the draft remains gated by the final fresh review and CI.
+
+Nonblocking review follow-ups: reduce private coordinator coupling and per-tick
+toolbar scene scans; offer explicit retry after an exposure failure; support repair
+of inverted legacy lifetime intervals; remove remaining unused timeline helpers;
+and distinguish temporary API render-layer visibility from semantic plan edits for
+concurrent exports. These are limitations, not evidence of completed work.
 
 ### Line appearance and cache-containment follow-ups (#524, #525, #526, #471)
 

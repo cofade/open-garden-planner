@@ -314,7 +314,7 @@ class TestToolbarHeatmapControls:
         toolbar = SunSimToolbar()
         qtbot.addWidget(toolbar)
         toolbar.set_heatmap_busy(True)
-        assert not toolbar._heatmap_button.isEnabled()
+        assert toolbar._heatmap_button.isEnabled()  # Off remains available while computing
         toolbar.set_heatmap_busy(False)
         assert toolbar._heatmap_button.isEnabled()
         toolbar.set_heatmap_active(True)

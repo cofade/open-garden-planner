@@ -112,6 +112,21 @@ def index_rows() -> list[dict[str, str]]:
     return rows
 
 
+def test_entry_rows_belong_to_the_five_column_index_table() -> None:
+    """A PF row in the three-column redirect table loses its navigation cells."""
+    header: list[str] = []
+    for line in section_11_4().splitlines():
+        if not line.startswith("|"):
+            header = []
+            continue
+        cells = [cell.strip() for cell in re.split(r"(?<!\\)\|", line)[1:-1]]
+        if not header:
+            header = cells
+        if cells[0].startswith("PF-"):
+            assert header == ["ID", "Rule", "Status", "Where", "Legacy"]
+            assert len(cells) == len(header)
+
+
 def redirect_rows() -> list[tuple[str, str]]:
     section = section_11_4()
     tail = section[section.index("### Redirect of legacy numbered IDs"):]

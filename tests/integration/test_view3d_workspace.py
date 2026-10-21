@@ -197,7 +197,8 @@ def test_the_3d_view_action_shows_the_3d_pane_and_reaches_no_window(app3d, qtbot
     action = window._view3d_action
     assert action.text() == "&3D View" and not action.text().endswith("…")
     assert "beside the plan" in action.statusTip()
-    assert any(action in menu.actions() for menu in window._view_menu.findChildren(QMenu))
+    assert action in window._view_menu.actions()
+    assert not any(action in menu.actions() for menu in window._view_menu.findChildren(QMenu))
     action.trigger()
     assert workspace.mode is SPLIT and engines.calls == [False]
     assert window.canvas_view.isVisible()
@@ -778,8 +779,10 @@ def test_an_open_that_fails_leaves_the_3d_view_its_camera_and_its_memories_as_th
     bed = _split_with_a_bed(window, engines, qtbot)
     workspace, controller = window._workspace, window._workspace.controller
     heatmap, button = window._sun_heatmap, window._sun_toolbar._heatmap_button
-    with qtbot.waitSignal(heatmap.finished, timeout=60000):
-        window._on_heatmap_requested()
+    button.setChecked(True)
+    readiness = window._live_sun_map.ensure_current()
+    qtbot.waitUntil(readiness.done, timeout=60000)
+    readiness.result()
     assert heatmap.heatmap_visible() and button.isChecked()
 
     workspace.camera.orbit(40.0, 12.0)                 # the user has looked around

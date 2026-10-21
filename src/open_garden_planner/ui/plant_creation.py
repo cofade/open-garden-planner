@@ -27,7 +27,7 @@ def build_plant(scene: Any, position: QPointF, object_type: ObjectType, radius: 
         item.metadata["plant_species"] = deepcopy(species_dict)
     elif species_name:
         populate_item_species_metadata(item, species_name)
-    stamp_default_planting_date(item.metadata, date.today())
+    stamp_default_planting_date(item.metadata, getattr(scene, "plan_date", None) or date.today())
     layer = placement_layer(scene, item.metadata.get("plant_species", {}), auto_assign)
     if layer is not None:
         item.layer_id = layer.id

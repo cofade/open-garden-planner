@@ -120,14 +120,15 @@ class TestAppWiring:
         # workspace's submenu (Phase 17, in every window since L1.9) before Theme.
         view_menu = next(a.menu() for a in win.menuBar().actions() if a.text() == "&View")
         submenu_titles = [a.text() for a in view_menu.actions() if a.menu() is not None]
-        assert submenu_titles == ["&Snapping", "O&verlays", "S&un && 3D", "&Workspace", "&Theme",
+        assert submenu_titles == ["&Snapping", "O&verlays", "&Workspace", "&Theme",
                                   "&Language"], submenu_titles
         snap_menu = next(a.menu() for a in view_menu.actions() if a.text() == "&Snapping")
         assert win.grid_action in snap_menu.actions() and win._dynamic_input_action in snap_menu.actions()
         overlays = next(a.menu() for a in view_menu.actions() if a.text() == "O&verlays")
         assert win._minimap_action in overlays.actions() and win._labels_action in overlays.actions()
-        sun_menu = next(a.menu() for a in view_menu.actions() if a.text() == "S&un && 3D")
-        assert win._shadows_action in sun_menu.actions() and win._view3d_action in sun_menu.actions()
+        assert win._view3d_action in view_menu.actions()
+        assert not hasattr(win, "_shadows_action")
+        assert not hasattr(win, "_sun_sim_action")
         # Fullscreen Preview stays top-level (the "Panels" slot)
         assert win._preview_action in view_menu.actions()
 
@@ -218,6 +219,7 @@ class TestAppWiring:
         through the main window's event filter."""
         win = _make_app(qtbot, monkeypatch)
         win.show()
+        win._set_sun_hint("")  # permanent simulation initially reports no location
         assert win._sun_hint_label.isHidden() and win._sun_hint_icon.isHidden()
         win._sun_hint_label.setText("night")
         win._sun_hint_label.setVisible(True)

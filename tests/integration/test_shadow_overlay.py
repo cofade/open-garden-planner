@@ -571,15 +571,14 @@ class TestSunSimToolbar:
 
 
 class TestAppWiring:
-    def test_menu_action_toggles_toolbar_and_overlay(self, qtbot) -> None:
+    def test_combined_toolbar_and_solar_overlay_are_permanent(self, qtbot) -> None:
         from open_garden_planner.app.application import GardenPlannerApp
 
         win = GardenPlannerApp()
         qtbot.addWidget(win)
-        assert not win._sun_toolbar.isVisible()
-        assert not win._sun_controller.enabled
+        assert not win._sun_toolbar.isHidden()
+        assert win._sun_controller.enabled
 
-        win._sun_sim_action.trigger()
         assert win._sun_controller.enabled
         # No location on a fresh project → the empty-state hint shows.
         assert win._sun_controller.state == STATE_NO_LOCATION
@@ -588,9 +587,8 @@ class TestAppWiring:
         assert win._sun_hint_label.text() != ""
         assert not hasattr(win._sun_toolbar, "_hint_label")
 
-        win._sun_sim_action.trigger()
-        assert not win._sun_controller.enabled
-        assert win._sun_controller.state == "disabled"
+        assert win._sun_controller.enabled
+        assert win._sun_controller.state == STATE_NO_LOCATION
 
     def test_sun_hint_on_status_bar_keeps_toolbar_width_stable(self, qtbot) -> None:
         """Regression: the night / no-location hint is a STATUS-BAR label, not
@@ -606,7 +604,6 @@ class TestAppWiring:
 
         win = GardenPlannerApp()
         qtbot.addWidget(win)
-        win._sun_sim_action.trigger()  # reveal the sun toolbar
 
         assert not hasattr(win._sun_toolbar, "_hint_label")
 

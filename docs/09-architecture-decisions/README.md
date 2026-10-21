@@ -6618,3 +6618,128 @@ At b1faaa9 the chapter README was 3,432 lines and 532 KB. Its §11.4 ("Known Dev
 - Dedupe: `audits/2026-10/dedupe-2026-10.md` lists all 180 entries with their origin line at b1faaa9, their kind and their decision.
 - Gates: `tests/unit/test_pitfall_catalogue.py` (16 tests, passing), with `test_no_qt3d_left`, `test_quick3d_packaging`, `test_dependency_governance` and `test_skill_citations` (89 passing), `scripts/check_skill_citations.py`, `scripts/check_agent_context.py` and `scripts/sync_wiki.py --check` passing.
 - Code: no runtime file moved. Of the Python lines changed since b1faaa9, all are comments or docstrings except two fixture path constants, `AUDIT_PLAN` in `tests/integration/test_item_style_in_step.py` and `BENCHMARK_PLAN` in `tests/perf/test_nfr_budgets.py`.
+
+## ADR-062: Plant lifetimes on the shared plan date (US-F4, #315)
+
+**Status:** Accepted for implementation; owner acceptance pending.
+
+### Context
+
+Season Manager copies a whole plan into a separate yearly file. Multi-year designs
+also need an in-plan view of plants before planting and after removal. ADR-053 already
+provides one local plan date through SimClock; another timeline date would split
+growth, shadows and visibility. The 2D sprite still read today's wall date, so it
+could disagree with the existing date-projected 3D canopy.
+
+### Decision
+
+- Keep SimClock as the only date state. One permanent adaptive Plan & Sun toolbar
+  has an exact calendar, Today, a monthly slider preserving the preferred day, editable
+  time, the daily animation and an optional live Hours of Sun map. Time is preserved
+  by date navigation. The date is session state, never saved.
+- A plant is present on the half-open interval `[planting_date, removal_date)`.
+  Missing/malformed ISO bounds are open; a stored inverted interval has no present
+  day. UI edits reject removal on/before planting before changing data/history.
+  `removal_date` is optional additive `plant_instance` metadata; no FILE_VERSION bump.
+  Fresh creation stamps the active plan date. Copies and loads preserve saved dates.
+- CanvasScene combines presence with layer visibility; construction geometry retains
+  its separate tool toggle. Date edits use one ChangePropertyCommand per gesture.
+  Command stack changes, document loads and clock date changes reapply visibility.
+  Hidden plants cannot be selected, including marquee selection. The hidden-plant
+  menu names dates and can navigate to a present day to edit the plant again.
+  Revealing a hidden layer uses the normal undoable layer command.
+- Companion, spacing, capacity, guild and data diagnostics evaluate the date-present
+  set independently of drawing-layer visibility. Solar receivers and casters also
+  honor layer visibility. Hidden plants remain saved. API summary counts retain their existing counting
+  rule, and object lists retain absent plants with `present=false`; `as_of_date`
+  names the shared plan date. Runtime annotations live only in the API snapshot.
+- PNG/SVG/PDF/DXF render the current visible state. The PDF plant table excludes
+  date-absent plants while retaining hidden-layer data; every report page identifies a non-today plan date. An API layer
+  override may reveal a hidden layer but cannot reveal a date-absent plant.
+- Both 2D sprites and the existing shadow/heatmap/3D collectors use the shared date
+  with the unchanged US-E8 growth model. Sprites invalidate their cached paint after
+  a scrub; mature drawing geometry and spacing reservations remain unchanged.
+- Task reminders keep their real-world reference day (or an explicit API reference
+  day). Historical calendar windows end before removal; actionable plant tasks stop
+  once all instances of that species are removed. A surviving undated/later-removal
+  instance keeps the species schedule. Future sowing tasks are useful before planting
+  and are retained. Manual tasks and succession plans retain their independent dates.
+- Season Manager retains hard copies and its existing keep/remove-plants choice;
+  scrubbing never deletes objects or changes the season year.
+
+### Alternatives rejected and consequences
+
+A second slider date, deleting/recreating absent plants, and persisting the viewed
+date were rejected: they create conflicting simulations, undo mutations while viewing,
+or stale startup dates. Editing hidden plants requires navigation or undo, so their
+names and date bounds remain discoverable. This feature filters plant instances only;
+structure installation/removal dates and a new growth model are outside this story.
+
+Evidence: `tests/integration/test_plan_timeline.py` exercises real controls, history,
+save/load, diagnostics, rendered sprites and export artifacts; boundary and task
+aggregation tests live in `tests/unit/test_plan_timeline.py`.
+
+
+### Addendum: combined controls and live exposure (owner planning session, 2026-10-20)
+
+The master merge brings ADR-059/060's Qt Quick 3D workspace. This timeline decision
+is ADR-062: the original ADR-059 collided with the workspace, and the initially
+chosen ADR-061 was taken by the later pitfall-catalogue merge (#546). Its
+requirement bucket remains FR-34.
+
+The owner chose one adaptive strip, monthly steps preserving the calendar day,
+current local time at startup, a dated old-map preview during refresh, and exports
+that wait for current exposure. The 21 June shortcut is removed. Past/Future
+replaces the duplicated date text; on today the Today action already supplies that
+context. A current map uses the calendar's date rather than repeating it, and empty
+map status takes no space. Complete control groups centre vertically within each
+row and wrap at narrow widths;
+the calendar's width derives from font metrics. Page steps remain twelve months.
+Within a continuous month drag a preferred 31st survives February; direct calendar
+edits establish a new preferred day. Today preserves time and daily animation keeps
+running while the user changes the date. No independent date state is introduced.
+
+Decorative shadows and solar simulation are always on, including night/no-location
+behavior. The old shadow-disable preference no longer overrides this policy. The
+View menu's direct 3D View action uses the existing workspace; no new 3D window,
+growth path or ground heatmap is added. The old simulation submenu/toggles are gone.
+
+`LiveSunMap` owns the opt-in intent and latest desired exposure snapshot, separate
+from the worker's snapshot and the displayed result. A 200 ms debounce coalesces
+input bursts. One worker remains owned through queued finished; superseded work is
+canceled and only the latest pending request is launched when ownership is released.
+Date/geometry/lifetime/layer/location/bounds changes refresh while enabled; time-only
+animation and requirement-only reclassification do not launch daily work. The old
+map's actual date remains labelled Updating; stale receiver measurements cannot feed
+badges/diagnostics. Document/location/grid replacement drops old imagery. Failure is
+labelled Unavailable; unchecking cancels work and clears the preview. A failed open
+that never commits leaves the current document/result intact.
+
+`SunExportGate` is the shared visual-export readiness boundary. It pauses animation
+under a counted lease and restores it after the last export. GUI waits pump a modal,
+cancellable progress dialog; API waits occur in the existing provider worker thread,
+outside the five-second GUI bridge call, with a 30-second deadline. Immediately before
+writing, it checks document generation, plan revision, wall time and accepted exposure
+identity. Cancellation, changed inputs, timeout or calculation failure writes no new
+  output. PNG/SVG/PDF, Print and API image/PDF share this rule; DXF/data exports are unchanged.
+
+Tests: `test_plan_sun_controls.py`, `test_timeline_quick3d.py`, the lifetime workflow,
+the existing clock/heatmap/document/badge suites and the export transport tests.
+No dependency, project-file version or persisted simulation-state change.
+
+
+F4 finalization review (21 October 2026) found six P1 gaps before release:
+wheel gestures could remove legacy undated plants; Print bypassed map readiness
+and used today's legend date; drawing-layer visibility leaked into data queries;
+ordinary commands discarded every plant paint cache; the stale sun badge/MCP
+regression had lost assertions; current agent instructions still described F3's
+retired controls. All six are addressed on the feature branch. The combined strip's
+owner-approved layout is unchanged. Regression evidence lives in
+`tests/integration/test_plan_sun_controls.py`, `test_sun_mismatch.py` and
+`test_timeline_quick3d.py`; the draft remains gated by the final fresh review and CI.
+
+Nonblocking review follow-ups: reduce private coordinator coupling and per-tick
+toolbar scene scans; offer explicit retry after an exposure failure; support repair
+of inverted legacy lifetime intervals; remove remaining unused timeline helpers;
+and distinguish temporary API render-layer visibility from semantic plan edits for
+concurrent exports. These are limitations, not evidence of completed work.

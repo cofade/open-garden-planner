@@ -101,3 +101,26 @@ Held in [debug-verbose: Case study: soil-mismatch warning goes stale on plant mo
 - **Legacy:** b1faaa9 README L422
 
 - **Subclassing `QWebEnginePage` to siphon `javaScriptConsoleMessage` hard-crashes the process** (#346 spike, 2026-09-01): overriding the console-message hook in a Python `QWebEnginePage` subclass (with or without calling `super()`) crash-exited the app with `STATUS_STACK_BUFFER_OVERRUN (0xC0000409)` and **no Python traceback** — first seen as the whole spike process dying with an empty exit. Symptom shape: a fatally clean exit, nothing on stderr. Rule: never subclass `QWebEnginePage` for telemetry; if a WebEngine page's console output is ever needed, use the remote-debugging/CDP route instead.
+
+
+### PF-LIF-11
+
+- **Rule:** Keep displayed sun results separate from requested inputs, withdraw stale measurements immediately and debounce scene collection itself.
+- **Pinned by:** `tests/integration/test_plan_sun_controls.py::test_bulk_layer_changes_debounce_scene_collection_itself`; `tests/integration/test_plan_sun_controls.py::test_live_date_change_retains_honestly_dated_preview_and_latest_request`
+- **Source:** #315, PR #533, ADR-062
+- **Status:** standing; narrative in [archive/14-plan-timeline.md](../archive/14-plan-timeline.md)
+- **Legacy:** none (new entry)
+
+A new worker date mislabeled old imagery, and one bulk layer command made 154 synchronous captures. Cheap dirty state, constant-time spatial checks and debounced semantic capture preserve a dated preview and allow only current measurements. Requirement-only edits restore the completed receiver cache. See section 8.31 and ADR-062 for the current lifecycle contract.
+
+Print shares the visual-export readiness and animation lease, including each
+paint triggered by its modal preview. The legend must use the plan date.
+Stale measurement tests hold a real worker beyond the debounce and query both
+GUI badges and the live MCP boundary. Pinned by
+`tests/integration/test_plan_sun_controls.py` and `tests/integration/test_sun_mismatch.py`.
+
+Construct PDF generation progress only after readiness. Changing a newly created
+QProgressDialog's minimumDuration does not stop its constructor force-show timer
+while its value is -1. A held-worker integration test crosses four seconds and
+asserts that the readiness dialog remains the sole visible progress dialog:
+`tests/integration/test_plan_sun_controls.py::test_pdf_generation_progress_is_created_only_after_map_readiness`.
