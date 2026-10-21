@@ -12,12 +12,16 @@ bridge with it.
 What was measured, and is matched:
 
 - a locked item is transparent to a click: it selects what is BEHIND it (on the
-  canvas: below it in the stacking order; in 3D: further along the ray) — and when
+  canvas: below it in the stacking order; in 3D: further along the ray) - and when
   nothing is, a plain or Shift click clears the selection while a CTRL click keeps
-  it (Qt's own Ctrl rule; fix round 1 — so the bridge is told WHICH modifier, not
+  it (Qt's own Ctrl rule; fix round 1 - so the bridge is told WHICH modifier, not
   only "toggle");
 - Ctrl and Shift both toggle; a click on nothing clears, with or without them;
 - a click on a member of a group selects the group.
+
+The one difference this file used to carry - Shift+click through a locked item -
+was a defect of the canvas and is repaired (#522): the select tool now asks for the
+first SELECTABLE item under the cursor, so the canvas and the bridge agree.
 """
 
 from __future__ import annotations
@@ -139,6 +143,10 @@ CASES = [
      ["free", "under"]),
     ("… and toggles it off again", (1400, 1400), CTRL, ("over", "under"), ("free", "under"),
      ["free"]),
+    ("… and a shift+click toggles what is behind it too", (1400, 1400), SHIFT,
+     ("over", "under"), ("free",), ["free", "under"]),
+    ("… and a shift+click on it toggles it off again", (1400, 1400), SHIFT,
+     ("over", "under"), ("free", "under"), ["free"]),
     ("a locked item with nothing behind is nothing", (350, 2550), PLAIN, ("alone",), ("free",), []),
     ("… a ctrl+click on it keeps the selection", (350, 2550), CTRL, ("alone",), ("free",), ["free"]),
     ("… a shift+click on it clears", (350, 2550), SHIFT, ("alone",), ("free",), []),
@@ -163,27 +171,24 @@ def test_a_3d_click_ends_with_the_selection_a_canvas_click_ends_with(
     assert plan.selected() == on_canvas, name
 
 
-@pytest.mark.parametrize(("before", "on_canvas", "in_3d"), [
-    (("free", "under"), ["under"], ["free"]),
-    (("free",), ["under"], ["free", "under"]),
-])
-def test_shift_through_a_locked_item_is_the_one_place_where_3d_does_not_copy_the_canvas(
-        plan: Plan, before, on_canvas, in_3d) -> None:
-    """The ONE measured difference, kept on purpose. On the canvas Shift toggles only
-    when the item right under the cursor is selectable (the select tool asks
-    ``itemAt``, which answers the LOCKED item on top, and hands the click to Qt —
-    whose own toggle key is Ctrl): Shift+click through a locked item is a PLAIN click
-    on what is behind it. That is a defect of the canvas (its own rule is "Shift+click
-    adds or removes"; a follow-up issue is filed with this story), and 3D does not
-    reproduce it: there Shift toggles what the click reaches, like Ctrl. This test
-    pins BOTH answers — when the canvas is repaired, its half fails and the case
-    moves into the table above."""
-    plan.select(before)
+def test_shift_through_a_locked_item_toggles_what_is_behind_it(plan: Plan) -> None:
+    """#522: the repair of the one measured difference this file used to carry.
+
+    The select tool asked ``itemAt``, which answers the LOCKED item on top, and
+    handed the click to Qt - whose own toggle key is Ctrl. So Shift+click
+    through a locked item was a PLAIN click on what was behind it, and it
+    REPLACED the selection instead of toggling it. The tool now asks for the
+    first SELECTABLE item under the cursor, so Shift+click toggles what lies
+    behind the locked item - the canvas's own rule ("Shift+click adds or
+    removes") - and the 3D view, which always did that, no longer differs.
+    """
+    plan.select(("free",))
     plan.click_canvas(1400, 1400, SHIFT)
-    assert plan.selected() == on_canvas, "the canvas changed: move this case into CASES"
-    plan.select(before)
-    plan.click_3d(("over", "under"), SHIFT)
-    assert plan.selected() == in_3d
+    assert plan.selected() == ["free", "under"], "the locked item must not swallow the click"
+
+    plan.select(("free", "under"))
+    plan.click_canvas(1400, 1400, SHIFT)
+    assert plan.selected() == ["free"], "and a second one takes it back off"
 
 
 def test_an_item_on_a_hidden_layer_cannot_be_named_by_a_click_and_is_not_selectable(plan: Plan) -> None:
