@@ -556,3 +556,14 @@ launch. Rejection and cancellation never reach process launch.
 Linux startup creates QApplication, secures the settings backend, loads preferences
 and constructs the main window. An ownership/permission failure exits with a visible
 error before the preference and window steps.
+
+## Line appearance changes and history (#524–#526)
+
+Properties or a context-menu action captures a `LineLook`, builds the selected
+type/preset state, applies it once and registers a ChangePropertyCommand. The
+command carries copied before/after values and the shared `apply_line_look`
+callback. Execute/undo/redo restore exact values through that callback; normal
+stack signals mark the plan dirty and invalidate the 3D snapshot. A preset is
+applied when selected, not while restoring history. Geometry notifications precede
+pen/preset mutation so Qt can retire the old scene/cache bounds. Panel destruction
+does not invalidate the command callback. See crosscutting section 8.30.

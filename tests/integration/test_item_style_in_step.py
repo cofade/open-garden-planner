@@ -469,20 +469,21 @@ class TestUndoOnAFreshLine:
     @pytest.mark.parametrize("kind", sorted(LINES))
     def test_a_type_change_in_the_panel(self, canvas: CanvasView, panel: PropertiesPanel, qtbot: Any,
                                         kind: str) -> None:
-        """… and what the change itself gives: the NEW TYPE's stroke, also beside a
-        preset, which stays (A.14 of the story's report: a gravel path changed to a
-        fence is drawn 3.0 wide, where a version that did not read a preset line's
-        saved stroke showed the preset's 8.0 after a reopen)."""
+        """The owner's #525 policy: the new type's defaults, with the preset cleared.
+
+        Undo still restores the old preset and its own stroke, not preset defaults.
+        """
         line = on_canvas(canvas, panel, fresh_line(kind))
         was_type, preset = LINES[kind]
         new_type = OTHER_TYPE[was_type]
         style = get_style(new_type)
         before = pen_of(line), stated(line)
         panel._on_property_changed(line, "object_type", new_type)  # noqa: SLF001
-        assert line.object_type is new_type and line.path_fence_style is preset
+        assert line.object_type is new_type and line.path_fence_style is PathFenceStyle.NONE
         assert pen_of(line) == (QColor(style.stroke_color).name(HEX), style.stroke_width, Qt.PenStyle.SolidLine)
         assert style_gaps(line) == []
         canvas.command_manager.undo()
+        assert line.path_fence_style is preset
         assert line.object_type is was_type and (pen_of(line), stated(line)) == before
         canvas.command_manager.redo()
         assert line.object_type is new_type and style_gaps(line) == []
@@ -498,7 +499,7 @@ class TestUndoOnAFreshLine:
         assert before[0] == ("#ffb4aa96", 12.0, Qt.PenStyle.SolidLine)
         panel._on_property_changed(line, "object_type", ObjectType.WALL)  # noqa: SLF001
         assert pen_of(line) == ("#ff696969", 4.0, Qt.PenStyle.SolidLine)  # the wall's, beside the gravel
-        assert line.path_fence_style is PathFenceStyle.GRAVEL_PATH and style_gaps(line) == []
+        assert line.path_fence_style is PathFenceStyle.NONE and style_gaps(line) == []
         canvas.command_manager.undo()
         assert (pen_of(line), stated(line)) == before and style_gaps(line) == []
         qtbot.wait(1)

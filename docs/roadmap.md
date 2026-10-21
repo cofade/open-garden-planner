@@ -3092,3 +3092,16 @@ colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see PF-CAN
   `TestTheMaskIsTheItem` asserts that invariant, because a mask in the wrong coordinate frame does
   not fail, it *reads background*, which is what a luminance statistic calls texture. ADR-057
   addendum, PF-CAN-20.
+
+### Line appearance and cache-containment follow-ups (#524, #525, #526, #471)
+
+Implemented together on `fix/524-line-appearance-and-undo`; owner frozen-app
+acceptance and protected merge remain pending. Preset selection undo restores
+the exact previous stroke (#524). Both type-change controls apply the new type's
+defaults and clear the preset, restoring the original look on undo (#525).
+Round caps and joins survive history (#526). Styled-line bounds contain metal
+details and acute paved-path/stone-wall tips through the painter's shared reach (#471).
+The focused regressions cover all ten styles, real controls, history/persistence,
+panel lifetime, dirty state, cached transforms and ground output. Actual delivery
+gate totals are recorded in the PR; no release is claimed before owner acceptance.
+The timeline and Russian translation PRs remain separate.

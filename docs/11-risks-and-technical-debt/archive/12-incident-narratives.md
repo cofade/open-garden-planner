@@ -511,3 +511,59 @@ Source: README at b1faaa9, lines 3322-3359 (PF-TST-20).
   is — it took four wrong hypotheses to find the cause, and the first one cost an hour
   because the instrument (a benchmark of synthetic `QLabel` widgets) never requested an
   icon and so could not see the icon cache it was testing.
+
+## Archive L3432: Line history can restore the preset name while losing the pen (#524–#526, #471)
+
+### Line history can restore the preset name while losing the pen (#524–#526, #471)
+
+**Symptoms:** preset undo retained gravel's 8 cm stroke instead of the previous
+5 cm brown stroke. A re-stroked gravel path changed to WALL through Properties
+used gray 4 cm with square caps/bevel joins; the context menu used gravel's 8 cm.
+Context-menu undo lost the user's 12 cm #102030 stroke. Styled metal tips and
+acute paved-path/stone-wall tips also exceeded the canvas bounds.
+
+**Evidence:** an in-memory tagged probe traced preset application during undo
+through pply_pfs and _setup_styling. A fixed-image uncached oracle independently
+found out-of-bounds pixels. The old issue's bounds numbers were not reused: current
+Qt base bounds and the optional shadow already contribute additional margins.
+
+**Cause/fix:** commands stored only a preset name or rebuilt styling from defaults;
+the two UI surfaces reconstructed pens differently. Copied LineLook snapshots
+now restore through one callback. Type changes intentionally clear the preset, per
+owner decision. Canvas and ground admission share the conservative style reach,
+and pen/preset setters announce the old geometry before changing it.
+
+**Testing lessons:** expanded bounds made an existing negative numpy slice empty;
+the comparison now clamps an independent paint-reach band to the image. Setting
+the same Qt cache mode invalidates the cache; the harness must not do that while
+measuring reuse. Rotated transforms may regenerate a device cache. A widget
+explicitly destroyed by a test must not remain registered for qtbot to close again.
+Pixel masks must subtract an empty-scene image: the dark outside-page background
+is not line detail, and the cream page is not white. Dynamic cache cases now edit
+width/preset after the first paint, undo/redo and move, including vacated pixels.
+
+The standard Beauty Board omits the offscreen renderer's optional ground baker,
+so a board without errors can still omit a flat path. This package's validation
+supplies production GroundBaker through the supported ground_baker parameter
+and records actual tile counts/failures before comparing ground-aware frames.
+
+**Rule:** undo restores captured values, not defaults; validate bounds against an
+independent render, and measure the actual cache path. Pinned by
+	ests/integration/test_line_appearance_history.py and
+	ests/integration/test_styled_line_bounds.py.
+
+### Frozen reference portability observed during line-package validation
+
+Clean master and the branch each failed the same six day-ramp exposure assertions on Windows Python 3.11.9: a one-binary64-ULP difference from the historical JSON. The reference test now permits exactly one ULP for nonlinear exposure only; colors, brightness, fog and linear probe exposure remain exact. All 262 lighting tests then pass. Production lighting and the frozen reference data are unchanged.
+
+### A process-isolated search test still inherited custom plants
+
+The line-package Linux Test job found two offline apple results where
+	est_permaculture_search.py assumed one. Tagged tracing on unchanged master
+reproduced the assertion with a distinct-ID custom apple: the catalog correctly
+merges bundled and process-wide custom records. The specific earlier CI writer
+was not identified. A module-local empty custom-library stub now isolates these
+bundled-catalog scenarios, matching the existing zero-results/enrichment pattern.
+All five tests pass with the global library deliberately primed. The exact count,
+real bundled database/filtering and provider/dialog path remain unchanged; no
+production singleton reset or count relaxation was added. See section 8.10.

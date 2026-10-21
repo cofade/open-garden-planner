@@ -57,7 +57,8 @@ src/open_garden_planner/
 │   ├── paths.py                  # Safe file-dialog directory chokepoint (ADR-027)
 │   ├── settings.py               # Preferences + create_qsettings(), the ONE
 │   │                             #   settings-store factory (ADR-041)
-│   └── ui_state.py               # Window geometry / splitter persistence
+│   ├── ui_state.py               # Window geometry / splitter persistence
+│   └── win32_taskbar.py          # Native Win32 taskbar properties and icons (PF-CI-11)
 ├── core/
 │   ├── commands.py               # Undo/redo command pattern
 │   ├── project.py                # Save/load, ProjectManager
@@ -688,3 +689,11 @@ ConstraintListItem looks up and renders a descriptor in the existing translation
 context; it retains theme refresh and delete signals. The module accepts display
 values and returns text, with no commands, scene mutation or solver callbacks.
 Constraint geometry and satisfaction remain in their existing components.
+
+## Shared line appearance values (#524–#526, #471)
+
+The existing `core.item_look` module owns copied line-style snapshots and the
+restore operation used by both Properties and context-menu commands. It imports
+no UI module. The shared `path_style_paint` module owns both style painting and
+its conservative geometric reach, consumed by the canvas and ground baker.
+See crosscutting section 8.30 and the ADR-059 addendum for the contracts.

@@ -245,6 +245,13 @@ class GardenPlannerApp(QMainWindow):
         """Initialize the main window."""
         super().__init__()
 
+        # Ensure main window inherits application icon directly for Win32 taskbar
+        app = QApplication.instance()
+        if app is not None and not app.windowIcon().isNull():
+            self.setWindowIcon(app.windowIcon())
+        from open_garden_planner.app.win32_taskbar import setup_windows_taskbar_icon
+        setup_windows_taskbar_icon(self)
+
         self.setMinimumSize(800, 600)
 
         # Persistent UI state (window geometry, main splitter)

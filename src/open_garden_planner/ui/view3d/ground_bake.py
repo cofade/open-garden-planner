@@ -193,6 +193,7 @@ from open_garden_planner.ui.canvas.items.path_style_paint import (
     PathStylePaint,
     WalkBudget,
     segment_inside,
+    style_paint_reach,
 )
 
 __all__ = ["BAKE_BUDGET_S", "SPRITE_MAX_PIXELS", "TILE_DASHES", "TILE_ELEMENTS", "TILE_RECORDS",
@@ -221,14 +222,13 @@ _MITRE_LIMIT: Final = float(QPen().miterLimit())
 #: mitre limit. Generous on purpose — a record listed for a tile it does not
 #: reach costs a clipped paint call, one that is NOT listed for a tile it reaches
 #: is cut off at the tile's edge.
-_PATH_REACH: Final = (max(1.5, _MITRE_LIMIT), 4.0)
 _OUTLINE_REACH: Final = (1.0, 2.0)
 _MITRED_OUTLINE_REACH: Final = (max(1.0, _MITRE_LIMIT), 2.0)
 #: … and the pixels an antialiased edge and a sprite's whole-centimetre alignment
 #: can spill, whatever the resolution.
 _SPILL_PX: Final = 2.0
 #: How far outside a tile a style's elements are still generated, as a multiple of
-#: the line's width plus a constant: an element's own reach (``_PATH_REACH``) and
+#: the line's width plus a constant: an element's own reach (``style_paint_reach``) and
 #: one more element — the chain-link mesh is drawn from each element to the next.
 _ELEMENT_REACH: Final = (2.5, 8.0)
 
@@ -388,13 +388,14 @@ def paint_bounds(record: Record, px_per_cm: float = 1.0
         return None
     paint = record.material.paint or _PLAIN_PAINT
     if record.shape == SHAPE_POLYLINE:
-        factor, constant = _PATH_REACH
         width = record.path_width_cm or 0.0
+        reach = style_paint_reach(width)
     else:
         mitred = paint.stroke_join in ("MiterJoin", "SvgMiterJoin")
         factor, constant = _MITRED_OUTLINE_REACH if mitred else _OUTLINE_REACH
         width = paint.stroke_width_cm
-    reach = factor * width + constant + _SPILL_PX / px_per_cm
+        reach = factor * width + constant
+    reach += _SPILL_PX / px_per_cm
     transform = record.transform
     # a circle's sprite is a square that turns with the paint (``Paint.rotation_deg``)
     cos, sin = cos_sin(transform.rotation_deg + paint.rotation_deg)

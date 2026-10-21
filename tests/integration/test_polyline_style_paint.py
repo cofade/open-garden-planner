@@ -121,17 +121,16 @@ def test_away_from_its_bend_a_bent_line_is_the_straight_line(
     picture of its first leg alone. (With the patch, the planks and stones of the
     first leg were painted over.)
 
-    Compared inside the first leg's own bounding rectangle, which is all the live
-    canvas shows of it: the item cache cuts what a style draws beyond it — the
-    bars of a 30 cm metal fence reach 37.5 cm from the line, the rectangle 17 cm;
-    an export, which paints without the cache, shows them whole. And to two steps
+    Compared across the first leg's independent paint-reach band, clipped to the
+    fixed image (a negative numpy slice would silently sample its far edge).
+    The cache bounds are separately pinned by test_styled_line_bounds. To two steps
     of 255: a thin antialiased rail with a corner in it is not rasterised exactly
     as one without (measured: at most 2, on the rails of three styles)."""
     bent = _line(AN_L, style, width)
     straight = _line(FIRST_LEG, style, width)
     reach = _reach(bent.pen().widthF())
-    bounds = straight.sceneBoundingRect()
-    rows = slice(int(bounds.top()) + 1, int(bounds.bottom()) - 1)
+    rows = slice(max(0, int(FIRST_LEG[0].y() - reach) - 1),
+                 min(SIZE, int(FIRST_LEG[0].y() + reach) + 2))
     columns = slice(0, int(CORNER.x() - reach - 1.0))
     first, second = _rendered(bent)[rows, columns], _rendered(straight)[rows, columns]
     assert np.any(second != 255)

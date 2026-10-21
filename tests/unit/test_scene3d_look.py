@@ -132,15 +132,17 @@ class TestTheRigIsTheSpikes:
     @pytest.mark.parametrize("elevation", [round(0.5 + 0.25 * k, 2) for k in range(0, 160)])
     def test_the_day_ramp_at_every_quarter_degree(self, elevation: float) -> None:
         """0.5° … 40.25° in quarter degrees: key light, sky, sun disc, both exposures and
-        the fog are the spike's ``sun_light`` / ``day_look`` / ``look_for`` to the bit
-        (frozen)."""
+        the fog are the spike's frozen values. The nonlinear exposure interpolation
+        may differ by one binary64 ULP between Python/libm platforms; colors,
+        brightness and the linear probe interpolation still match exactly."""
         rig = day_rig(elevation)
         spike = SPIKE["rig"]["day_ramp"][repr(elevation)]
         assert (rig.sun_color, rig.sun_brightness) == (spike["sun_color"], spike["sun_brightness"])
         look = look_for(sun(elevation))
         assert (rig.sky_top, rig.sky_horizon, rig.sun_disc) == (
             spike["skyTop"], spike["skyHorizon"], spike["sunDiscColor"])
-        assert rig.exposure == spike["exposure"] and rig.probe_exposure == spike["probe"]
+        assert abs(rig.exposure - spike["exposure"]) <= math.ulp(spike["exposure"])
+        assert rig.probe_exposure == spike["probe"]
         assert look.fog_color == spike["fogColor"]
         assert (look.sky.top, look.sky.horizon, look.sky.sun_disc) == (
             rig.sky_top, rig.sky_horizon, rig.sun_disc)

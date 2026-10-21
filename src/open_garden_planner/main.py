@@ -7,7 +7,22 @@ from typing import TYPE_CHECKING, Any, cast
 
 from dotenv import load_dotenv
 
+WINDOWS_APP_ID = "cofade.opengardenplanner.app"
+
+# Windows-specific taskbar icon support: Tell Windows this is a distinct app
+# (not generic Python) for taskbar icon grouping. MUST be called before creating
+# any UI or importing GUI engines (like WebEngine) so the AUMID is established early.
+if sys.platform == "win32" and "--selftest-supervisor" not in sys.argv:
+    try:
+        import ctypes
+
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(WINDOWS_APP_ID)
+    except (AttributeError, ImportError):
+        pass
+
 if TYPE_CHECKING:
+    from PyQt6.QtGui import QIcon
+
     from open_garden_planner.ui.view3d.quick3d.runlog import RenderLog
 
 # QtWebEngineWidgets (used by the satellite map picker) must be imported
@@ -31,20 +46,25 @@ for _candidate in (_frozen_env, _dev_env):
         load_dotenv(_candidate)
         break
 
-# Windows-specific imports for taskbar icon support
-try:
-    import ctypes
-    # Tell Windows this is a distinct app (not Python) for taskbar icon grouping
-    myappid = 'cofade.opengarden.planner.1.0'
-    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
-except (AttributeError, ImportError):
-    # Not on Windows or ctypes not available
-    pass
-
 
 def get_icon_path() -> Path:
     """Get the path to the application icon."""
     return Path(__file__).parent / "resources" / "icons" / "OGP_logo.png"
+
+
+def get_app_icon() -> "QIcon":
+    """Get the application QIcon with all available multi-resolution frames."""
+    from PyQt6.QtGui import QIcon
+
+    icon = QIcon()
+    icons_dir = Path(__file__).parent / "resources" / "icons"
+    ico_path = icons_dir / "ogp_app.ico"
+    if ico_path.exists():
+        icon.addFile(str(ico_path))
+    png_path = icons_dir / "OGP_logo.png"
+    if png_path.exists():
+        icon.addFile(str(png_path))
+    return icon
 
 
 #: A whole ``--selftest`` that has not finished after this many seconds is a hang:
@@ -317,6 +337,8 @@ def _run_a1_selftest() -> None:
         installer = Path(directory) / "fixture.bin"
         installer.write_bytes(b"synthetic installer")
         VerifiedInstaller(installer, 19, hashlib.sha256(b"synthetic installer").hexdigest()).check()
+        assert get_icon_path().is_file()
+        assert (get_icon_path().parent / "ogp_app.ico").is_file()
 
 
 def _write_crash_log(message: str) -> None:
@@ -406,7 +428,6 @@ def main() -> int:
         return _run_selftest_bounded()
 
     # Import here to avoid slow startup for --help, --version, etc.
-    from PyQt6.QtGui import QIcon
     from PyQt6.QtWidgets import QApplication
 
     from open_garden_planner.app.application import GardenPlannerApp
@@ -431,9 +452,9 @@ def main() -> int:
     setup_logging()
 
     # Set application icon (appears in taskbar, window title bar, etc.)
-    icon_path = get_icon_path()
-    if icon_path.exists():
-        app.setWindowIcon(QIcon(str(icon_path)))
+    app_icon = get_app_icon()
+    if not app_icon.isNull():
+        app.setWindowIcon(app_icon)
 
     # Apply saved preferences
     try:

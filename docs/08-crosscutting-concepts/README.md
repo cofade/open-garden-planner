@@ -470,6 +470,13 @@ built while a module is being *imported* already lands in the test location; a f
 after collection and cannot cover that. (The settings store is the first; §8.8 is its
 specification.)
 
+Process isolation does not reset custom-library contents between tests in one
+worker. A bundled-catalog search test must supply an empty custom-library stub,
+as `test_permaculture_search.py` and `test_plant_search_zero_results.py` do. Keep
+the real bundled database, filtering and dialog/provider wiring. The line-package
+CI run exposed a two-result assertion failure; priming a custom apple reproduces
+it on unchanged master. The original CI writer remains unconfirmed.
+
 | What | Production location | How the suite redirects it |
 | ---- | ------------------- | -------------------------- |
 | Settings (`QSettings`) | organisation / application of `app.settings` | the two names are rebound to a per-process test key (§8.8, ADR-041) |
@@ -6650,3 +6657,48 @@ remain for whoever touches this area:
   render (with L1.5's baked ground and the selection ring). The render block is what now
   catches #277's class: a missing or mismatched Qt Quick 3D library fails the frame in the real
   artifact, as the Qt 3D import used to.
+
+## 8.30 Line appearance snapshots and paint containment (#524, #525, #526, #471)
+
+`core/item_look.py` owns `LineLook`, `capture_line_look`, `apply_line_look`,
+`line_look_for_type` and `line_look_for_preset`. Commands capture copied Qt pen,
+brush and color values. Restoring a snapshot never reapplies preset defaults;
+`adopt_pen` updates the live pen and serialized stroke attributes together.
+The callback does not retain a Properties panel. The panel's deferred type refresh
+uses a parented timer, so destroying the panel also cancels the refresh.
+
+Both type-change surfaces use the new type's defaults and clear the previous
+path/fence preset. Undo restores the prior type, preset and exact stroke. Picking
+NONE removes decoration while keeping the current stroke. Selecting the existing
+type/preset adds no history entry. Context-menu multi-selection retains one command
+per affected line. Existing non-line type changes are unchanged.
+
+`ui/canvas/items/path_style_paint.py::style_paint_reach` owns the conservative
+styled reach: `max(1.5, default_miter_limit) * width_cm + 4.0`. The canvas unions
+that expansion of the path's control bounds with its existing bounds, then retains
+its shadow allowance. The ground baker uses the same reach and its existing pixel
+spill. No decorative elements are generated to calculate bounds. Pen and preset
+changes notify Qt before mutating the values that determine the bounds. Unselected
+items retain DeviceCoordinateCache; selection, hit testing and exports keep their
+existing policies.
+
+The integration pins are `test_line_appearance_history.py` (real controls, context
+actions, command counts, exact history, full-window dirty state, persistence and
+ground output) and `test_styled_line_bounds.py` (all ten painters, preset/narrow/wide
+strokes, bends and hairpins, transformed cached views and notification order).
+The uncached oracle paints into an independent fixed image, never into the bounds
+being tested. Rotated Qt device caches may regenerate; the zero-rotation control
+proves actual reuse by counting paint calls.
+The dynamic cases populate the cache before width/preset edits, undo/redo and a
+move, comparing every frame with a separate uncached view and checking that the
+old location clears. Contrast is measured against an empty-scene image: absolute
+darkness also counts the dark outside-page background, while a white-background
+threshold misses the cream page. One device pixel permits antialiasing alignment;
+the fixed-image geometric-containment oracle retains its separate exact bound.
+
+The reproducible mutation replay is `scripts/replay_line_appearance_mutations.py`:
+five isolated runtime plugins restore the name-only undo, preset overwrite,
+square/bevel pen, old bounds and late geometry notification defects. Each must
+cause assertion failures without setup errors; an unmodified full integration
+control must pass. Plugins do not rewrite production source. Reports go to
+`artifacts/line-mutations/`.
