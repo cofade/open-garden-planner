@@ -363,8 +363,8 @@ class SunSimToolbar(QToolBar):
                 if day and day != self._date_edit.date().toPyDate() else "")
         if updating:
             text = (self.tr("Map: {date} — Updating…").format(date=day.isoformat())
-                    if text else self.tr("Updating…"))
-        elif unavailable and text:
+                    if text and day is not None else self.tr("Updating…"))
+        elif unavailable and text and day is not None:
             text = self.tr("Map: {date} — Unavailable").format(date=day.isoformat())
         self._map_label.setText(text or unavailable)
         self._map_label.setToolTip(text or unavailable)
