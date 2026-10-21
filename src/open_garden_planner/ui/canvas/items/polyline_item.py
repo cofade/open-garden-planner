@@ -15,16 +15,20 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from open_garden_planner.core.item_look import adopt_pen, copy_visual_style
+from open_garden_planner.core.item_look import (
+    adopt_pen,
+    apply_line_look,
+    copy_visual_style,
+    line_look_for_preset,
+)
 from open_garden_planner.core.object_types import (
     ObjectType,
     PathFenceStyle,
-    get_path_fence_style_info,
     get_style,
 )
 
 from .garden_item import GardenItemMixin
-from .path_style_paint import STYLES_PAINTED, PathStylePaint
+from .path_style_paint import STYLES_PAINTED, PathStylePaint, style_paint_reach
 from .resize_handle import PolylineVertexEditMixin, RotationHandleMixin
 
 
@@ -112,11 +116,18 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
     @path_fence_style.setter
     def path_fence_style(self, value: PathFenceStyle) -> None:
         """Set the path/fence style preset and update visuals."""
-        self._path_fence_style = value
+        if value == self._path_fence_style:
+            return
         if hasattr(self, 'prepareGeometryChange'):
             self.prepareGeometryChange()
+        self._path_fence_style = value
         if hasattr(self, 'update'):
             self.update()
+
+    def setPen(self, pen: QPen) -> None:
+        """Notify while the old pen still determines our extra styled bounds."""
+        self.prepareGeometryChange()
+        super().setPen(pen)
 
     def apply_style_preset(self) -> None:
         """Apply visual properties from the current style preset.
@@ -125,18 +136,14 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         """
         if self._path_fence_style == PathFenceStyle.NONE:
             return
-        info = get_path_fence_style_info(self._path_fence_style)
-        pen = self.pen()
-        pen.setColor(info.stroke_color)
-        pen.setWidthF(info.stroke_width)
-        adopt_pen(self, pen)  # the pen AND the stroke attributes (core.item_look)
+        apply_line_look(self, line_look_for_preset(self, self._path_fence_style))
 
     def _setup_styling(self) -> None:
         """Configure visual appearance based on object type and style preset.
 
-        The stroke is the one the item STATES (a type change and its undo set the
-        stroke attributes and call this), else the type's — as the filled shapes
-        do — and the line states the pen it ends up with. A line used to state no
+        Construction uses the stored stroke attributes, else the type defaults,
+        and the line states the pen it ends up with. Type and preset history use
+        ``apply_line_look`` to restore snapshots. A line used to state no
         stroke until it had been through a project file: undoing a width or dash
         edit, or a type change, on a freshly drawn line raised on the ``None``.
         """
@@ -200,6 +207,10 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         # Extra margin for styled rendering (wider than stroke)
         style_margin = self.pen().widthF() / 2.0 + 2.0
         base = base.adjusted(-style_margin, -style_margin, style_margin, style_margin)
+        if self._path_fence_style in STYLES_PAINTED:
+            reach = style_paint_reach(self.pen().widthF())
+            painted = self.path().controlPointRect().adjusted(-reach, -reach, reach, reach)
+            base = base.united(painted)
         m = self._shadow_margin()
         if m > 0:
             base = base.adjusted(-m, -m, m, m)

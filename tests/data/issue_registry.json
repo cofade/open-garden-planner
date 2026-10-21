@@ -834,6 +834,11 @@
     "state": "CLOSED",
     "title": "An offset copy of a rectangle, circle or ellipse does not keep its source's look"
   },
+  "471": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "A styled line (metal fence, chain link) is cut at its bounding rectangle on the live canvas and not in exports"
+  },
   "472": {
     "is_pr": false,
     "state": "CLOSED",
@@ -959,6 +964,21 @@
     "state": "MERGED",
     "title": "fix(#512-#516): mutation-verified gate pin, required coverage floor, and the widget-leak probe"
   },
+  "524": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Undoing a path/fence style-preset pick keeps the preset's pen"
+  },
+  "525": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Line type change: context menu and Properties panel disagree on a preset line, and the context-menu undo loses a re-stroked line's own pen"
+  },
+  "526": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Properties-panel type change gives a line square caps and bevelled joins until the plan is reopened"
+  },
   "532": {
     "is_pr": false,
     "state": "OPEN",
@@ -996,7 +1016,12 @@
   },
   "543": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "release.yml reads the bump label from the newest-created merged PR, not the merged one (#484 shipped as v1.30.14 despite 'minor')"
+  },
+  "545": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix: restore line appearance undo and contain styled paint"
   }
 }

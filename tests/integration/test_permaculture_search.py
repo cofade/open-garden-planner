@@ -4,9 +4,21 @@ import threading
 from concurrent.futures import Future
 from unittest.mock import MagicMock
 
+import pytest
+
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.services.plant_api.manager import PlantAPIManager
 from open_garden_planner.ui.dialogs.plant_search_dialog import PlantSearchDialog
+
+
+@pytest.fixture(autouse=True)
+def _isolate_custom_library(monkeypatch: pytest.MonkeyPatch) -> None:
+    """These bundled-catalog scenarios must not inherit another test's custom plants."""
+    library = MagicMock()
+    library.get_all_plants.return_value = []
+    library.search_plants.return_value = []
+    monkeypatch.setattr(
+        "open_garden_planner.services.plant_library.get_plant_library", lambda: library)
 
 
 def test_offline_first_explicit_online_and_filtered_fallback(qtbot, monkeypatch):

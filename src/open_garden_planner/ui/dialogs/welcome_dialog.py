@@ -5,6 +5,7 @@ from pathlib import Path
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont, QPixmap
 from PyQt6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QDialog,
     QFrame,
@@ -42,6 +43,9 @@ class WelcomeDialog(QDialog):
 
         self.setWindowTitle(self.tr("Welcome to Open Garden Planner"))
         self.setModal(True)
+        app = QApplication.instance()
+        if isinstance(app, QApplication) and not app.windowIcon().isNull():
+            self.setWindowIcon(app.windowIcon())
         self.setMinimumSize(600, 500)
         self.setMaximumSize(800, 700)
 

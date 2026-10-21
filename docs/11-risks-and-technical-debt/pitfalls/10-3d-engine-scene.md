@@ -84,4 +84,4 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 - **Status:** standing; narrative in [archive/14-plan-timeline.md](../archive/14-plan-timeline.md)
 - **Legacy:** none (new entry)
 
-Ten planting/removal boundary steps produced ten immediate snapshots through ItemVisibleHasChanged. CanvasScene scopes only derived timeline visibility announcements, restoring the scope in finally. The same probe produces zero immediate snapshots and the trailing clock update reaches the final date. See section 8.30 and ADR-062 for the current lifecycle contract.
+Ten planting/removal boundary steps produced ten immediate snapshots through ItemVisibleHasChanged. CanvasScene scopes only derived timeline visibility announcements, restoring the scope in finally. The same probe produces zero immediate snapshots and the trailing clock update reaches the final date. See section 8.31 and ADR-062 for the current lifecycle contract.

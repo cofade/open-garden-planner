@@ -58,6 +58,19 @@ from open_garden_planner.core.object_types import PathFenceStyle
 MIN_SPACING_CM: Final = 0.05
 MAX_SPACING_CM: Final = 1e7
 
+# Shared by canvas cache containment and ground tile admission (#471).
+_STYLE_MITRE_LIMIT: Final = float(QPen().miterLimit())
+
+
+def style_paint_reach(width_cm: float) -> float:
+    """Conservative cm beyond the centre-line box, including fixed decorations.
+
+    Metal bars reach 1.25 widths plus a 1.2 cm tip. Acute mitred joins can reach
+    Qt's default mitre limit in widths; 4 cm also covers fixed pens and bumps.
+    Raster consumers add their own pixel-spill allowance.
+    """
+    return max(1.5, _STYLE_MITRE_LIMIT) * width_cm + 4.0
+
 
 class WalkBudget:
     """What the clipped walks of ONE window — a ground tile — may still cost, all

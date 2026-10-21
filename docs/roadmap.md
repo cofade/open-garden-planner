@@ -3109,7 +3109,7 @@ release fix #543 are merged into the branch. One permanent adaptive Plan & Sun s
 duplicate date controls and optional simulation toolbar; solar/decorative shadows
 are automatic, Hours of Sun updates while enabled with an honest dated preview,
 and image/PDF exports wait for current results. Monthly scrubbing preserves the
-preferred day; the 21 June shortcut is removed. ADR-062 / FR-34 / §8.30 record the
+preferred day; the 21 June shortcut is removed. ADR-062 / FR-34 / §8.31 record the
 decision, with combined-controls and native Qt Quick 3D integration evidence. Owner
 acceptance and publication remain pending; F5 stays separate.
 
@@ -3136,3 +3136,16 @@ toolbar scene scans; offer explicit retry after an exposure failure; support rep
 of inverted legacy lifetime intervals; remove remaining unused timeline helpers;
 and distinguish temporary API render-layer visibility from semantic plan edits for
 concurrent exports. These are limitations, not evidence of completed work.
+
+### Line appearance and cache-containment follow-ups (#524, #525, #526, #471)
+
+Shipped on 2026-10-21 as v1.30.16 ([PR #545](https://github.com/cofade/open-garden-planner/pull/545))
+after owner acceptance on the built executable. Preset selection undo restores
+the exact previous stroke (#524). Both type-change controls apply the new type's
+defaults and clear the preset, restoring the original look on undo (#525).
+Round caps and joins survive history (#526). Styled-line bounds contain metal
+details and acute paved-path/stone-wall tips through the painter's shared reach (#471).
+The focused regressions cover all ten styles, real controls, history/persistence,
+panel lifetime, dirty state, cached transforms and ground output. Actual delivery
+gate totals are recorded in the PR; no release is claimed before owner acceptance.
+The timeline and Russian translation PRs remain separate.

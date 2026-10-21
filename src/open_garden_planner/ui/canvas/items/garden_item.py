@@ -1574,7 +1574,14 @@ class GardenItemMixin:
         multi-selections).
         """
         from open_garden_planner.core.commands import ChangePropertyCommand
+        from open_garden_planner.core.item_look import (
+            apply_line_look,
+            capture_line_look,
+            line_look_for_type,
+        )
         from open_garden_planner.core.object_types import get_style
+
+        from .polyline_item import PolylineItem
 
         scene = self.scene()  # type: ignore[attr-defined]
         if not scene:
@@ -1596,6 +1603,16 @@ class GardenItemMixin:
                 itm.update()
 
         for item in items:
+            if isinstance(item, PolylineItem):
+                if item.object_type == new_type:
+                    continue
+                before = capture_line_look(item)
+                after = line_look_for_type(new_type)  # type: ignore[arg-type]
+                apply_line_look(item, after)
+                cmd = ChangePropertyCommand(item, "type", before, after, apply_line_look)
+                if hasattr(scene, "_command_manager") and scene._command_manager:
+                    scene._command_manager.register_applied(cmd)
+                continue
             old_state = {
                 "object_type": item.object_type,
                 "fill_color": getattr(item, "fill_color", None),

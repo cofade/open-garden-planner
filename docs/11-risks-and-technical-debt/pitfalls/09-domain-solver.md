@@ -259,4 +259,4 @@ Held in [ADR: Addendum (#414 — one frost anchor per surface, and one date-wind
 - **Status:** standing; narrative in [archive/14-plan-timeline.md](../archive/14-plan-timeline.md)
 - **Legacy:** none (new entry)
 
-A collector-only growth fix left the sprite unchanged. Date visibility, cached paint invalidation, instance metadata and task windows share the documented timeline contract; the workflow tests assert rendered output, persistence and history. See section 8.30 and ADR-062 for the current lifecycle contract.
+A collector-only growth fix left the sprite unchanged. Date visibility, cached paint invalidation, instance metadata and task windows share the documented timeline contract; the workflow tests assert rendered output, persistence and history. See section 8.31 and ADR-062 for the current lifecycle contract.

@@ -86,7 +86,7 @@ Pre-defined object types for common property elements:
 | **Pond/Pool** | Polygon, depth | Filled polygon with water texture |
 | **Greenhouse** | Polygon, dimensions | Filled polygon with glass texture |
 
-- **FR-OBJ-01**: Each object type has appropriate default styling
+- **FR-OBJ-01**: Each object type has appropriate default styling. For polylines, changing type through Properties or the context menu applies the new type's defaults and clears the old preset. Undo restores the previous type, preset and exact stroke; lines retain round caps and joins. Preset selection undo restores the previous pen. Styled details remain fully visible through the canvas cache, consistent with uncached output (#524, #525, #526, #471; section 8.30).
 - **FR-OBJ-02**: Objects are first-class entities with editable metadata
 - **FR-OBJ-03**: Objects can have custom name/label displayed on canvas
 - **FR-OBJ-04**: Object metadata shown in properties panel when selected

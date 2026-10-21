@@ -345,4 +345,4 @@ dogfood harness found none of them.
 - **Status:** standing; narrative in [archive/14-plan-timeline.md](../archive/14-plan-timeline.md)
 - **Legacy:** none (new entry)
 
-Readiness completion masked Cancel, while a bridge timeout left stateful calls queued. An export operation now synchronizes abandonment with begin/render admission and queues lease cleanup on Qt. Already-started rendering returns its actual outcome. See section 8.30 and ADR-062 for the current lifecycle contract.
+Readiness completion masked Cancel, while a bridge timeout left stateful calls queued. An export operation now synchronizes abandonment with begin/render admission and queues lease cleanup on Qt. Already-started rendering returns its actual outcome. See section 8.31 and ADR-062 for the current lifecycle contract.

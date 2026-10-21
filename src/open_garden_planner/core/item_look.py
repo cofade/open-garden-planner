@@ -47,19 +47,31 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass, replace
 from typing import Any
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QBrush, QColor, QPen
 
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
-from open_garden_planner.core.object_types import StrokeStyle
+from open_garden_planner.core.object_types import (
+    ObjectType,
+    PathFenceStyle,
+    StrokeStyle,
+    get_path_fence_style_info,
+    get_style,
+)
 
 __all__ = [
     "MIN_STROKE_WIDTH",
+    "LineLook",
     "adopt_pen",
+    "apply_line_look",
+    "capture_line_look",
     "copy_visual_style",
     "fill_brush",
+    "line_look_for_preset",
+    "line_look_for_type",
     "paints_sprite",
     "restore_stored_look",
     "saved_stroke_colour",
@@ -71,6 +83,63 @@ __all__ = [
 #: The narrowest stroke the properties panel and the properties dialog can set
 #: (both spin boxes start here).
 MIN_STROKE_WIDTH = 0.5
+
+
+@dataclass(frozen=True)
+class LineLook:
+    """One command's value snapshot; Qt values are copied at capture and restore.
+
+    Presets select decoration geometry. Their defaults are applied when PICKED,
+    never when a captured look is restored (#524–#526).
+    """
+
+    object_type: ObjectType
+    preset: PathFenceStyle
+    pen: QPen
+    brush: QBrush
+    fill_color: QColor | None
+    fill_pattern: FillPattern | None
+
+
+def capture_line_look(item: Any) -> LineLook:
+    """Capture the live pen, including caps/joins/dashes, without shared Qt values."""
+    color = item.fill_color
+    return LineLook(item.object_type, item.path_fence_style, QPen(item.pen()), QBrush(item.brush()),
+                    QColor(color) if color is not None else None, item.fill_pattern)
+
+
+def line_look_for_type(object_type: ObjectType) -> LineLook:
+    """A real type change selects its defaults and removes the previous preset."""
+    style = get_style(object_type)
+    pen = QPen(style.stroke_color)
+    pen.setWidthF(style.stroke_width)
+    pen.setStyle(style.stroke_style.to_qt_pen_style())
+    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+    return LineLook(object_type, PathFenceStyle.NONE, pen, QBrush(QColor(0, 0, 0, 0)),
+                    QColor(style.fill_color), style.fill_pattern)
+
+
+def line_look_for_preset(item: Any, preset: PathFenceStyle) -> LineLook:
+    """Selecting NONE retains the stroke; another preset replaces color and width."""
+    state = capture_line_look(item)
+    pen = QPen(state.pen)
+    if preset is not PathFenceStyle.NONE:
+        style = get_path_fence_style_info(preset)
+        pen.setColor(style.stroke_color)
+        pen.setWidthF(style.stroke_width)
+    return replace(state, preset=preset, pen=pen)
+
+
+def apply_line_look(item: Any, state: LineLook) -> None:
+    """Restore exactly, without calling a preset or depending on a panel widget."""
+    item.object_type = state.object_type
+    item.path_fence_style = state.preset
+    item.fill_color = QColor(state.fill_color) if state.fill_color is not None else None
+    item.fill_pattern = state.fill_pattern
+    item.setBrush(QBrush(state.brush))
+    adopt_pen(item, QPen(state.pen))
+    item.update()
 
 # Serialized appearance attributes carried by GardenItemMixin. Copying these
 # keeps a copy's look after the next save; ``area_label_visible`` is copied
