@@ -518,6 +518,19 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         border-color: {colors['accent']};
     }}
 
+    QToolButton#PlanDateHiddenPlants {{
+        padding-right: 16px;
+    }}
+
+    QToolButton#PlanDateHiddenPlants::menu-indicator {{
+        image: url("{_dn_path}");
+        subcontrol-origin: padding;
+        subcontrol-position: center right;
+        right: 3px;
+        width: 8px;
+        height: 8px;
+    }}
+
     /* Text inputs */
     QLineEdit, QTextEdit, QPlainTextEdit {{
         background-color: {colors['input']};
@@ -546,7 +559,7 @@ def generate_stylesheet(mode: ThemeMode) -> str:
     }}
 
     /* Spin boxes */
-    QSpinBox, QDoubleSpinBox {{
+    QSpinBox, QDoubleSpinBox, QTimeEdit {{
         background-color: {colors['input']};
         color: {colors['text_primary']};
         border: 1px solid {colors['border']};
@@ -554,12 +567,12 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         padding: 5px 20px 5px 8px;
     }}
 
-    QSpinBox:focus, QDoubleSpinBox:focus {{
+    QSpinBox:focus, QDoubleSpinBox:focus, QTimeEdit:focus {{
         border: 2px solid {colors['border_focus']};
         padding: 4px 19px 4px 7px;
     }}
 
-    QSpinBox::up-button, QDoubleSpinBox::up-button {{
+    QSpinBox::up-button, QDoubleSpinBox::up-button, QTimeEdit::up-button {{
         subcontrol-origin: border;
         subcontrol-position: top right;
         width: 16px;
@@ -569,15 +582,15 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         background-color: {colors['button']};
     }}
 
-    QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover {{
+    QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover, QTimeEdit::up-button:hover {{
         background-color: {colors['button_hover']};
     }}
 
-    QSpinBox::up-button:pressed, QDoubleSpinBox::up-button:pressed {{
+    QSpinBox::up-button:pressed, QDoubleSpinBox::up-button:pressed, QTimeEdit::up-button:pressed {{
         background-color: {colors['button_pressed']};
     }}
 
-    QSpinBox::down-button, QDoubleSpinBox::down-button {{
+    QSpinBox::down-button, QDoubleSpinBox::down-button, QTimeEdit::down-button {{
         subcontrol-origin: border;
         subcontrol-position: bottom right;
         width: 16px;
@@ -586,21 +599,21 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         background-color: {colors['button']};
     }}
 
-    QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{
+    QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover, QTimeEdit::down-button:hover {{
         background-color: {colors['button_hover']};
     }}
 
-    QSpinBox::down-button:pressed, QDoubleSpinBox::down-button:pressed {{
+    QSpinBox::down-button:pressed, QDoubleSpinBox::down-button:pressed, QTimeEdit::down-button:pressed {{
         background-color: {colors['button_pressed']};
     }}
 
-    QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {{
+    QSpinBox::up-arrow, QDoubleSpinBox::up-arrow, QTimeEdit::up-arrow {{
         image: url("{_up_path}");
         width: 10px;
         height: 10px;
     }}
 
-    QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{
+    QSpinBox::down-arrow, QDoubleSpinBox::down-arrow, QTimeEdit::down-arrow {{
         image: url("{_dn_path}");
         width: 10px;
         height: 10px;
@@ -625,7 +638,9 @@ def generate_stylesheet(mode: ThemeMode) -> str:
     }}
 
     QDateEdit::down-arrow {{
-        border-color: {colors['text_primary']};
+        image: url("{_dn_path}");
+        width: 10px;
+        height: 10px;
     }}
 
     /* Calendar widget */

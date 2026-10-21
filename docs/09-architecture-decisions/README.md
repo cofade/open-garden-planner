@@ -6667,8 +6667,11 @@ requirement bucket remains FR-34.
 
 The owner chose one adaptive strip, monthly steps preserving the calendar day,
 current local time at startup, a dated old-map preview during refresh, and exports
-that wait for current exposure. The 21 June shortcut is removed. Past/Today/Future
-replaces the duplicated date text. Complete control groups wrap at narrow widths;
+that wait for current exposure. The 21 June shortcut is removed. Past/Future
+replaces the duplicated date text; on today the Today action already supplies that
+context. A current map uses the calendar's date rather than repeating it, and empty
+map status takes no space. Complete control groups centre vertically within each
+row and wrap at narrow widths;
 the calendar's width derives from font metrics. Page steps remain twelve months.
 Within a continuous month drag a preferred 31st survives February; direct calendar
 edits establish a new preferred day. Today preserves time and daily animation keeps

@@ -80,18 +80,28 @@ class _GroupFlow(QLayout):
 
     def _arrange(self, rect: QRect, apply: bool) -> tuple[int, int]:
         left, top, right, bottom = self.getContentsMargins()
-        x, y, row_height = rect.x() + left, rect.y() + top, 0
-        rows = 1
+        x, y = rect.x() + left, rect.y() + top
+        rows: list[list[tuple[QLayoutItem, QSize]]] = [[]]
         for item in self._items:
+            if item.isEmpty():
+                continue
             size = item.sizeHint()
             if x > rect.x() + left and x + size.width() > rect.right() - right + 1:
-                x, y, row_height = rect.x() + left, y + row_height + 4, 0
-                rows += 1
-            if apply:
-                item.setGeometry(QRect(x, y, size.width(), size.height()))
+                rows.append([])
+                x = rect.x() + left
+            rows[-1].append((item, size))
             x += size.width() + self.spacing()
-            row_height = max(row_height, size.height())
-        return y + row_height + bottom - rect.y(), rows
+        for row in rows:
+            row_height = max((size.height() for _, size in row), default=0)
+            x = rect.x() + left
+            for item, size in row:
+                if apply:
+                    # Give each group's box the full row height. Its QHBoxLayout
+                    # centres sliders, fields and buttons on one shared axis.
+                    item.setGeometry(QRect(x, y, size.width(), row_height))
+                x += size.width() + self.spacing()
+            y += row_height + 4
+        return y - 4 + bottom - rect.y(), len(rows)
 
 
 class SunSimToolbar(QToolBar):
@@ -119,6 +129,7 @@ class SunSimToolbar(QToolBar):
         self._requesting_month = False
         self._preferred_day = 1
         self._exposure_hint = ""
+        self._map_status: tuple[date | None, bool, str] = (None, False, "")
         self._content = QWidget(self)
         self._content.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self._flow = _GroupFlow(self._content)
@@ -135,8 +146,6 @@ class SunSimToolbar(QToolBar):
         self._today_button = self._button(self.tr("Today"), group)
         self._today_button.clicked.connect(lambda: self.date_requested.emit(date.today()))
         self._state_label = QLabel(self)
-        self._state_label.setMinimumWidth(max(self.fontMetrics().horizontalAdvance(text)
-                                              for text in (self.tr("Past"), self.tr("Today"), self.tr("Future"))))
         self._state_label.setToolTip(self.tr("The plan date controls plant presence, growth and sunlight."))
         group.addWidget(self._state_label)
 
@@ -167,10 +176,11 @@ class SunSimToolbar(QToolBar):
         self._heatmap_button = self._button(self.tr("Hours of Sun"), group, checkable=True)
         self._map_label = QLabel(self)
         self._map_label.setWordWrap(True)
-        self._map_label.setFixedWidth(220)
+        self._map_label.hide()
         group.addWidget(self._map_label)
         group = self._group()
         self._hidden_button = self._button("", group)
+        self._hidden_button.setObjectName("PlanDateHiddenPlants")
         self._hidden_menu = QMenu(self._hidden_button)
         self._hidden_button.setMenu(self._hidden_menu)
         self._hidden_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
@@ -197,7 +207,7 @@ class SunSimToolbar(QToolBar):
         group = QHBoxLayout(widget)
         group.setContentsMargins(0, 0, 0, 0)
         group.setSpacing(5)
-        group.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
+        group.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         self._flow.addWidget(widget)
         return group
 
@@ -346,14 +356,20 @@ class SunSimToolbar(QToolBar):
         self._preferred_day = self._date_edit.date().day()
 
     def set_map_status(self, day: date | None, updating: bool, unavailable: str = "") -> None:
-        text = self.tr("Map: {date}").format(date=day.isoformat()) if day else ""
+        self._map_status = (day, updating, unavailable)
+        # A current map already shares the calendar's date. Only an older preview
+        # needs its own date; pending/failure states always remain visible.
+        text = (self.tr("Map: {date}").format(date=day.isoformat())
+                if day and day != self._date_edit.date().toPyDate() else "")
         if updating:
             text = (self.tr("Map: {date} — Updating…").format(date=day.isoformat())
-                    if day else self.tr("Updating…"))
-        elif unavailable and day:
+                    if text else self.tr("Updating…"))
+        elif unavailable and text:
             text = self.tr("Map: {date} — Unavailable").format(date=day.isoformat())
         self._map_label.setText(text or unavailable)
         self._map_label.setToolTip(text or unavailable)
+        self._map_label.setFixedWidth(min(220, self._map_label.fontMetrics().horizontalAdvance(text or unavailable) + 2))
+        self._map_label.setVisible(bool(text or unavailable))
         self._flow.invalidate()
         self.updateGeometry()
         self._reflow()
@@ -397,12 +413,13 @@ class SunSimToolbar(QToolBar):
         self._month_slider.setValue(month_number(day))
         self._month_slider.blockSignals(False)
         self._state_label.setText(self.tr("Past") if day < date.today() else
-                                  self.tr("Future") if day > date.today() else self.tr("Today"))
+                                  self.tr("Future") if day > date.today() else "")
+        self._state_label.setVisible(day != date.today())
         self._today_button.setEnabled(day != date.today())
         count = sum(not self._scene.is_present(p) for p in plants)
         self._hidden_button.setText(self.tr("{count} hidden").format(count=count))
         self._hidden_button.setEnabled(count > 0)
-        self._reflow()
+        self.set_map_status(*self._map_status)
 
     def _populate_hidden(self) -> None:
         self._hidden_menu.clear()

@@ -234,3 +234,11 @@ Held in [debug-verbose: Case study: live capture harness saw "capture did not co
 - **Legacy:** none (new entry)
 
 German control groups missed the 800-pixel content width by two pixels and wrapped into three rows while English passed. A fixed narrow width still failed under Linux fonts. The flow now measures its actual row count and compacts sliders as needed; activating group layouts and updating geometry avoids QWidgetItem hints from the preceding pass. Wider-font regressions and native captures cover font variation and 100/150 percent DPI. See section 8.30 and ADR-062 for the current lifecycle contract.
+
+Owner review found that containment also missed vertical alignment, redundant
+labels and empty reserved space: the capture harness had never applied the app's
+theme. Measure row heights before positioning groups, let their layouts centre
+children, and exercise the production theme in both light and dark. Empty status
+labels must hide and current results must share the primary date presentation.
+Pinned by `tests/integration/test_plan_sun_controls.py::test_themed_strip_centres_controls_and_uses_status_space_only_when_needed`
+for both themes, all supported locales and wide/narrow windows.

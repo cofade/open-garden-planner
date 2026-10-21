@@ -3112,3 +3112,10 @@ and image/PDF exports wait for current results. Monthly scrubbing preserves the
 preferred day; the 21 June shortcut is removed. ADR-062 / FR-34 / §8.30 record the
 decision, with combined-controls and native Qt Quick 3D integration evidence. Owner
 acceptance and publication remain pending; F5 stays separate.
+
+Owner visual follow-up (21 October): the initial layout checks omitted the app's
+theme and proved containment only. The themed strip now centres whole rows, styles
+the time field consistently with the calendar, supplies visible calendar/menu
+arrows, shows Today once and repeats a date only for an older map preview. Empty
+map labels no longer reserve space before the hidden-plants menu. The integration
+workflow checks both themes and all supported locales; owner acceptance is pending.

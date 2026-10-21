@@ -6698,8 +6698,16 @@ reference day, independently of the displayed simulation date.
 SunSimToolbar is the sole toolbar instance for date/time. Atomic groups wrap rather
 than disappear into overflow; date width is derived from font metrics. Slider
 lengths compact only when the flow's measured groups need it to fit two rows;
-group geometry is refreshed before measuring, including on wider platform fonts. Past/Today/
-Future gives context without repeating the date. The former PlanTimelineToolbar is
+group geometry is refreshed before measuring, including on wider platform fonts.
+Each row is measured before placement so all group layouts share the row's height
+and centre their controls vertically. Date/time fields use the same themed sizing.
+Past/Future gives context without repeating the date; the Today action itself
+indicates today, so there is no second Today label. Map status consumes space only
+while needed: a completed current map shares the calendar's date, an updating map
+for that date says Updating, and an older preview retains its actual date. The
+hidden-plants menu follows the visible map controls without an empty reserved slot.
+Themed renders in both themes and all three locales test alignment as well as fit.
+The former PlanTimelineToolbar is
 removed and restored hidden toolbar state is healed. Solar and decorative shadows
 are automatic; Hours of Sun and daily animation remain opt-in session state.
 

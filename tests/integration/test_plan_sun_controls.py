@@ -6,7 +6,7 @@ from threading import Event, get_ident
 
 import numpy as np
 import pytest
-from PyQt6.QtCore import QDate, QTime, QTimer
+from PyQt6.QtCore import QDate, QPoint, QTime, QTimer
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QApplication, QDateEdit, QProgressDialog, QToolBar
 from PyQt6.sip import isdeleted
@@ -97,7 +97,74 @@ def test_month_day_clamping_time_edit_animation_and_today(win):
     bar._today_button.click()
     assert win._sim_clock.plan_date == date.today()
     assert win._sim_clock.time_of_day == time(15, 27)
-    assert bar._state_label.text() == "Today"
+    assert bar._state_label.isHidden()
+
+
+@pytest.mark.parametrize("theme", ["dark", "light"])
+@pytest.mark.parametrize("width", [1284, 800])
+@pytest.mark.parametrize("language", ["en", "de", "es"])
+def test_themed_strip_centres_controls_and_uses_status_space_only_when_needed(qtbot, theme, width, language):
+    from open_garden_planner.core.i18n import load_translator
+    from open_garden_planner.ui.theme import ThemeMode, apply_theme, is_dark_theme
+
+    app = QApplication.instance()
+    original_stylesheet = app.styleSheet()
+    original_theme = ThemeMode.DARK if is_dark_theme() else ThemeMode.LIGHT
+    try:
+        load_translator(app, language)
+        apply_theme(app, ThemeMode(theme))
+        get_settings().show_welcome_on_startup = False
+        win = GardenPlannerApp()
+        qtbot.addWidget(win)
+        win._sim_clock.set_date(date.today())
+        win.resize(width, 800)
+        win.show()
+        qtbot.wait(60)
+        bar = win._sun_toolbar
+        assert bar._state_label.isHidden()  # Today is already the directly accessible action.
+        assert bar._date_edit.height() == bar._time_edit.height()
+        assert bar._map_label.isHidden()
+        for group_index in range(bar._flow.count()):
+            group = bar._flow.itemAt(group_index).widget()
+            # Check immediate controls, excluding nested line edits/spin buttons.
+            controls = [group.layout().itemAt(i).widget() for i in range(group.layout().count())]
+            centres = [child.mapTo(bar, child.rect().center()).y() for child in controls if child.isVisible()]
+            assert max(centres) - min(centres) <= 1
+        month_centre = bar._month_slider.mapTo(bar, bar._month_slider.rect().center()).y()
+        time_centre = bar._slider.mapTo(bar, bar._slider.rect().center()).y()
+        if width == 1284:
+            assert abs(month_centre - time_centre) <= 1
+
+        bar.set_map_status(date.today(), False)
+        qtbot.wait(20)
+        assert bar._map_label.isHidden()  # A current map shares the sole calendar's date.
+        heat_right = bar._heatmap_button.mapTo(bar, QPoint(bar._heatmap_button.width(), 0)).x()
+        hidden_left = bar._hidden_button.mapTo(bar, QPoint()).x()
+        assert 0 <= hidden_left - heat_right <= bar._flow.spacing() + 1
+
+        bar.set_map_status(date.today(), True)
+        assert bar._map_label.text() == bar.tr("Updating…")
+
+        old_day = date(2025, 6, 21)
+        bar.set_map_status(old_day, True)
+        qtbot.wait(20)
+        assert bar._map_label.isVisible()
+        assert old_day.isoformat() in bar._map_label.text() and bar.tr("Updating…") in bar._map_label.text()
+        # A retained result's status tuple can stay unchanged while the selected
+        # date moves. The presentation must still follow the sole calendar.
+        bar.set_datetime_local(datetime.combine(old_day, time(12)))
+        assert bar._map_label.text() == bar.tr("Updating…")
+        bar.set_map_status(old_day, False, "failure")
+        assert bar._map_label.text() == "failure"
+        bar.set_map_status(None, False)
+        qtbot.wait(20)
+        assert bar._map_label.isHidden()
+        win._sim_clock.set_date(old_day)
+        assert bar._state_label.isVisible() and bar._state_label.text() == bar.tr("Past")
+    finally:
+        load_translator(app, "en")
+        apply_theme(app, original_theme)
+        app.setStyleSheet(original_stylesheet)
 
 
 @pytest.mark.parametrize("width", [1600, 1000, 800])
@@ -111,7 +178,9 @@ def test_groups_wrap_without_clipping_and_calendar_fits(win, qtbot, width):
     assert all(bar._content.rect().contains(group.geometry()) for group in groups)
     assert bar._date_edit.width() >= bar._date_edit.fontMetrics().horizontalAdvance("2000-00-00") + 40
     rows = {group.y() for group in groups}
-    assert len(rows) == (1 if width == 1600 else 2)
+    assert 1 <= len(rows) <= 2
+    if width == 1600:
+        assert len(rows) == 1
 
 
 @pytest.mark.parametrize("language", ["de", "es"])
