@@ -4859,7 +4859,14 @@ class GardenPlannerApp(QMainWindow):
                                      ("tab_plan", "view3d", "compare_overlay"), strict=True):
             self._set_action_icon(action, icon_name)
         self._set_action_icon(self._workspace.reset_view_action, "zoom_fit")
+        self._set_action_icon(self._workspace.walk_action, "walk")
         self._view_menu.insertMenu(self._preview_action, workspace_menu)
+        # The workspace lives inside the Garden Plan tab, but the View menu is
+        # global (#539): its mode actions select the plan tab first, so Alt+1/2/3
+        # show the 3D view instead of switching a hidden workspace.
+        for _mode_action in self._workspace.mode_actions():
+            _mode_action.triggered.connect(
+                lambda _checked=False: self._tab_widget.setCurrentIndex(0))
 
         # ── Find & Replace panel (US-11.24) ──────────────────────────────────
         from open_garden_planner.ui.panels.find_replace_panel import FindReplacePanel
@@ -6617,9 +6624,14 @@ class GardenPlannerApp(QMainWindow):
 
         From Plan mode it switches to Split — the plan stays on screen and the 3D
         view appears beside it, where the old viewer window used to open. In 3D or
-        Split mode the 3D view is already showing and nothing changes."""
+        Split mode the 3D view is already showing and nothing changes. The
+        workspace lives in the Garden Plan tab (#539): select it first, so the
+        entry shows the 3D view from any dashboard tab instead of switching a
+        hidden workspace.
+        """
         from open_garden_planner.ui.view3d.workspace import WorkspaceMode
 
+        self._tab_widget.setCurrentIndex(0)
         if self._workspace.mode is WorkspaceMode.PLAN:
             self._workspace.set_mode(WorkspaceMode.SPLIT)
 

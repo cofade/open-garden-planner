@@ -341,6 +341,12 @@ class TestClassify:
     def test_the_sleeping_monitor_warning_is_the_environment(self) -> None:
         assert classify("warning", MONITOR, "qt.qpa.screen") == "environment"
 
+    def test_the_stale_dpr_warning_is_the_environment(self) -> None:
+        """#537: a transient Windows QPA race seen once in ~20 gate runs — a warning
+        about the frame's device-pixel-ratio cache, not about the frame."""
+        text = "The cached device pixel ratio value was stale on window expose."
+        assert classify("warning", text, "") == "environment"
+
     def test_the_environment_list_is_exact_not_a_category_pass(self) -> None:
         """An allow-list that is wider than what was measured is a hole: another message
         of that category, the same text from another category, and an ERROR in that

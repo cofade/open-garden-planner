@@ -219,9 +219,37 @@ def test_the_3d_view_action_shows_the_3d_pane_and_reaches_no_window(app3d, qtbot
                 if isinstance(node, ast.Attribute) and node.attr == "_on_open_3d_view"]
 
 
+def test_the_3d_view_action_and_alt_modes_select_the_plan_tab_first(app3d, qtbot) -> None:
+    """#539: View → "3D View" and Alt+1/2/3 do nothing visible from any dashboard
+    tab but Garden Plan unless the main window selects that tab first — the
+    workspace lives inside it. Firing from the Calendar tab must land on the plan
+    tab with the 3D pane visible."""
+    window, engines = app3d
+    workspace = window._workspace
+    window._tab_widget.setCurrentIndex(1)  # Planting Calendar
+    assert window._tab_widget.currentIndex() == 1
+    window._view3d_action.trigger()
+    assert window._tab_widget.currentIndex() == 0, "the plan tab is selected first"
+    assert workspace.mode is SPLIT
+    assert workspace.pane is not None and workspace.pane.isVisible()
+    first_pass(workspace, qtbot)
+
+    workspace.set_mode(PLAN)
+    window._tab_widget.setCurrentIndex(2)  # Seed Inventory
+    split_action = workspace.mode_actions()[2]  # Alt+3
+    split_action.trigger()
+    assert window._tab_widget.currentIndex() == 0, "Alt+3 also selects the plan tab"
+    assert workspace.mode is SPLIT and workspace.pane.isVisible()
+
+
 def test_plan_mode_is_todays_layout(app3d) -> None:
     window, engines = app3d
     workspace = window._workspace
+    # #537: the retired walk.svg is the Walk button's icon (not an orphan).
+    assert not workspace.walk_action.icon().isNull()
+    from open_garden_planner.ui.icons import available_icons
+
+    assert "walk" in available_icons()
     assert window._main_splitter.widget(0) is workspace
     assert window._main_splitter.widget(1) is window.sidebar
     assert workspace.mode is PLAN and workspace.view3d_state is View3DState.NOT_STARTED
@@ -269,10 +297,18 @@ def test_the_keyboard_shortcuts_dialog_lists_the_workspace_and_its_3d_keys(app3d
     labels += [group.title() for group in dialog.findChildren(QGroupBox)]
     for action in window._workspace.mode_actions():
         assert action.shortcut().toString() in labels, action.text()
-    for expected in ("3D View", "Home", "Reset 3D View", "Pan the 3D view", "Orbit the 3D view",
+    for expected in ("3D View", "Reset 3D View", "Pan the 3D view", "Orbit the 3D view",
                      "Page Up / Page Down", "Select the object under the pointer",
                      "Walk Mode (3D)", "W A S D / Arrow Keys", "Leave walk mode"):
         assert expected in labels, expected
+    # #541: the Home key is shown in the OS-native spelling (German keyboards
+    # label the key "Pos1"), never as a hardcoded English literal.
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtGui import QKeySequence
+
+    native_home = QKeySequence(Qt.Key.Key_Home).toString(
+        QKeySequence.SequenceFormat.NativeText)
+    assert native_home in labels, native_home
 
 
 def test_using_3d_writes_nothing_into_the_plan_file(app3d, qtbot, tmp_path: Path) -> None:

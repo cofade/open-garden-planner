@@ -1336,6 +1336,8 @@ class Workspace(QWidget):
         self._walk_button.setDefaultAction(self._walk_action)
         self._walk_button.setAutoRaise(True)
         self._walk_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._walk_button.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         # The eye height is the Walk button's menu (the arrow beside it). A box of its own
         # beside the button made the strip's row 574 px wide — wider than a 455 px pane,
         # whose notices were then cut — and, hidden while not walking, it had to keep its

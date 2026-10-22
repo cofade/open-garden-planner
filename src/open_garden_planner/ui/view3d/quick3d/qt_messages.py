@@ -82,6 +82,10 @@ _ENVIRONMENT: Final[tuple[tuple[str, re.Pattern[str]], ...]] = (
     # with the display asleep (the L1.2 dev box, 2026-10-11) that fails on every run:
     #   qt.qpa.screen: "Unable to open monitor interface to \\.\DISPLAY1:" "Unknown error 0xe0000225."
     ("qt.qpa.screen", re.compile(r'^"?Unable to open monitor interface to ')),
+    # A stale device-pixel-ratio cache on window expose, seen once in ~20 runs of
+    # the workspace gate (scenario date_playback, 5120x1440 desktop, 2026-10-19;
+    # #537): a transient Windows QPA race, not a statement about the frame.
+    ("", re.compile(r"cached device pixel ratio value was stale on window expose")),
 )
 
 _KEEP: Final = 100  # per class: enough to read, bounded for a long session

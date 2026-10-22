@@ -710,9 +710,13 @@ class Scene3DController(QObject):
 
     def _regrow_if_the_date_moved(self) -> None:
         """The trailing regrowth of a date that kept changing: only if the plan date is
-        not the one the last records pass read (an edit's pass may have read it)."""
-        self._regrown_at = time.monotonic()
+        not the one the last records pass read (an edit's pass may have read it).
+
+        Stamps the regrowth time only when a regrowth is actually owed (#542): a
+        no-op trailing check must not defer the next single deliberate date pick.
+        """
         if self._clock.plan_date != self._pass_date:
+            self._regrown_at = time.monotonic()
             self.mark_dirty()
 
     def _on_instant_changed(self, _change: SimChange) -> None:

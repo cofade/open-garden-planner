@@ -803,11 +803,16 @@ def _until_idle(rig: Rig) -> None:
 
 
 def test_a_date_held_down_regrows_at_once_and_once_more_on_its_last_day(
-        canvas: CanvasView, qtbot) -> None:
+        canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
     """DATE PLAYBACK (L1.9, #531): the first change of a date regrows at once; changes
     within ``DATE_REGROW_MIN_MS`` after it only move the light, and ONE trailing
-    regrowth shows the last day — never the day before it. Deterministic: the steps
-    of each burst arrive inside one turn of the event loop."""
+    regrowth shows the last day — never the day before it.
+
+    Deterministic (#542): the interval is held wide open (60 s) so every
+    follow-up step defers whatever the runner's load is, and the trailing
+    regrowth is fired by hand instead of waiting out a wall-clock timer.
+    """
+    monkeypatch.setattr(sync_controller, "DATE_REGROW_MIN_MS", 60_000)
     rig = Rig(canvas, qtbot, location=dict(BERLIN))
     apple = _dated_apple(canvas)
     rig.controller.set_active(True)
@@ -817,11 +822,16 @@ def test_a_date_held_down_regrows_at_once_and_once_more_on_its_last_day(
 
     rig.clock.set_date(date(2027, 3, 1))                # the first step: a regrowth at once
     rig.qtbot.waitUntil(lambda: _regrowths(rig, str(apple.item_id)) == 1, timeout=5000)
+    qtbot.waitUntil(lambda: rig.controller.idle, timeout=5000)
     for day in range(2, 29):                              # the key repeats: 27 more steps
         rig.clock.set_date(date(2027, 3, day))
         QApplication.processEvents()                      # each step's light-only pass
     assert rig.controller.date_deferrals == 27
     assert rig.controller.light_count >= light + 1, "the light follows the steps"
+    assert rig.controller._date_timer.isActive(), "the trailing regrowth is booked"
+    # The wall-clock timer would fire a minute from now: run its slot by hand.
+    rig.controller._date_timer.stop()
+    rig.controller._regrow_if_the_date_moved()
     _until_idle(rig)
     assert _regrowths(rig, str(apple.item_id)) == 2, "the first day and the last one"
     assert rig.controller.snapshot_count == snapshots + 2
@@ -847,6 +857,30 @@ def test_a_trailing_regrowth_that_finds_its_day_already_shown_takes_no_snapshot(
     assert rig.controller.snapshot_count == snapshots + 1
     assert _regrowths(rig, str(apple.item_id)) == 1
     assert rig.controller._pass_date == date(2027, 2, 28)
+
+
+def test_a_noop_trailing_check_stamps_nothing_so_the_next_pick_applies_at_once(
+        canvas: CanvasView, qtbot) -> None:
+    """#542: the trailing check stamped ``_regrown_at`` even when it found nothing
+    to regrow — so a single deliberate date pick made within the interval after
+    it was deferred instead of applied at once. Only an actual regrowth may
+    stamp the time."""
+    rig = Rig(canvas, qtbot)
+    _dated_apple(canvas)
+    rig.controller.set_active(True)
+    _until_idle(rig)
+    rig.controller._pass_date = rig.clock.plan_date
+    rig.controller._regrown_at = 1000.0
+    rig.controller._records_dirty = False
+
+    rig.controller._regrow_if_the_date_moved()
+    assert rig.controller._regrown_at == 1000.0, "a no-op check stamps nothing"
+    assert rig.controller._records_dirty is False
+
+    rig.clock.set_date(date(2027, 6, 15))
+    rig.controller._regrow_if_the_date_moved()
+    assert rig.controller._regrown_at != 1000.0, "a real trailing regrowth stamps"
+    assert rig.controller._records_dirty is True
 
 
 def test_a_date_that_changes_while_3d_is_hidden_is_one_catch_up_and_no_timer(

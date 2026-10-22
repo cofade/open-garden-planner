@@ -6664,6 +6664,17 @@ the code and a second QML scene to keep compiling — the Beauty Board and the r
 measure the product itself); deleting the drift guards with the spike (the values they pin are
 the L0 measurements the look was accepted on).
 
+### ADR-060 addendum: L1 follow-ups #537, #539, #541, #542
+
+**Status**: Accepted for implementation; owner acceptance pending.
+
+Four small follow-ups from the L1.9/L1.10 review, shipped together:
+
+- **#537 - L1.10 leftovers.** The OGP_QUICK3D switch is gone from the tree: the workspace gate no longer passes it to the child and its render-tier docstring no longer names it (tests/integration/test_view3d_workspace.py keeps the guard that nothing reads it). The orphaned walk.svg becomes the Walk action icon (the main window assigns it, so theme switches replay it; the pane button shows text beside the icon). The stale-DPR Qt warning seen once in about 20 gate runs ('cached device pixel ratio value was stale on window expose', 5120x1440 desktop) is filed as machine environment in qt_messages._ENVIRONMENT - the gate stays strict and will fail on any other new warning.
+- **#539 - the main window owns show the 3D view.** The workspace lives in the Garden Plan tab, but View -> '3D View', the Workspace submenu and Alt+1/2/3 are global. _on_show_3d_view selects the plan tab first, then switches to Split; each workspace mode action additionally selects the plan tab, so Alt+1/2/3 from any dashboard tab land on the plan tab with the 3D pane visible. Pinned by an integration test that fires both from the Calendar tab.
+- **#541 - Home is native, not a literal.** The shortcuts dialog shows QKeySequence(Qt.Key.Key_Home).toString(NativeText) ('Pos1' on German keyboards) instead of the hardcoded English 'Home'. No .ts entry: the native name is already localized by Qt.
+- **#542 - the trailing check stamps only a real regrowth.** _regrow_if_the_date_moved used to stamp _regrown_at even when the date had not moved, deferring the next single pick. It now stamps only when it calls mark_dirty(). The wall-clock 'deterministic' test drives a 60 s interval and fires the trailing slot by hand, plus a regression that a no-op trailing check moves neither the stamp nor the dirty flag.
+
 ### ADR-059 addendum: line history restores values; cache bounds contain paint (#524–#526, #471)
 
 The owner selected one type-change rule for both UI surfaces: use the new type's
