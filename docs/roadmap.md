@@ -3189,4 +3189,4 @@ the eight-second smoke (124), and self-test (0), including an RTX 4070 / Direct3
 11 frame. Independent 3D review found all 53 board frames pixel-identical to
 master and all truth gates passing. Senior review found no P0/P1 and independently
 passed seven native latest-fix cases; its sole EOF-whitespace nit is removed.
-Protected merge still requires successful checks on the final pushed head.
+Protected merge succeeded on 22 October 2026; shipped as v1.30.18.
