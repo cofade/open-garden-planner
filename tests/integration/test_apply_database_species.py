@@ -22,8 +22,11 @@ from PyQt6.QtCore import QRectF
 from PyQt6.QtGui import QImage, QPainter
 from PyQt6.QtWidgets import QGraphicsItem
 
+from open_garden_planner.app.application import GardenPlannerApp
+from open_garden_planner.app.settings import get_settings
 from open_garden_planner.core import plant_renderer
 from open_garden_planner.core.object_types import ObjectType
+from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.services.bundled_species_db import (
     lookup_species,
     merge_calendar_data,
@@ -33,6 +36,47 @@ from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 from open_garden_planner.ui.panels.plant_database_panel import PlantDatabasePanel
 from open_garden_planner.ui.plant_species_assignment import apply_species_to_item
+
+
+def test_undo_species_assignment_clears_the_whole_profile_and_redo_restores_it(qtbot, monkeypatch) -> None:
+    """PR #556 manual pass: undo cleared the form but left the prior oak header."""
+    get_settings().show_welcome_on_startup = False
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    monkeypatch.setattr(win, "_confirm_discard_changes", lambda: True)
+    plant = CircleItem(100.0, 100.0, 80.0, object_type=ObjectType.TREE)
+    win.canvas_scene.addItem(plant)
+    plant.setSelected(True)
+    panel = win.plant_database_panel
+    data = PlantSpeciesData(common_name="Turkey oak", scientific_name="Quercus cerris",
+                            data_source="trefle", description="Native to southern Europe")
+    apply_species_to_item(plant, data.to_dict(), confirm=lambda: True)
+    qtbot.waitUntil(lambda: "Turkey oak" in panel._profile_name.text())
+    assert not panel._profile_header.isHidden()
+    assert panel._profile_links.text()
+    assert panel._profile_source.text()
+    assert not panel._license_label.isHidden()
+
+    win.canvas_view.command_manager.undo()
+    qtbot.waitUntil(lambda: panel._current_plant_data is None)
+    assert plant.plant_species == ""
+    assert panel._current_plant_item is plant  # Create Custom must still target this plant.
+    assert panel._profile_header.isHidden()
+    for label in (panel._profile_name, panel._profile_scientific, panel._profile_description,
+                  panel._profile_source, panel._profile_links, panel._profile_thumbnail):
+        assert label.text() == ""
+    assert panel._profile_thumbnail.pixmap().isNull()
+    assert panel._license_label.isHidden() and panel._license_label.text() == ""
+
+    win.canvas_view.command_manager.redo()
+    qtbot.waitUntil(lambda: "Turkey oak" in panel._profile_name.text())
+    assert not panel._profile_header.isHidden()
+    assert not panel._license_label.isHidden()
+
+    win.canvas_scene.clearSelection()
+    assert panel._profile_header.isHidden()
+    assert panel._profile_name.text() == panel._profile_links.text() == ""
+    assert panel._license_label.isHidden() and panel._license_label.text() == ""
 
 # Tomato: max_spread_cm == 90 → footprint radius 45 cm (diameter == max_spread).
 _SPECIES_NAME = "Solanum lycopersicum"

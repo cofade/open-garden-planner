@@ -221,7 +221,7 @@ wrappers over **one** backend:
 | Wrapper | Owns | Keys |
 |---------|------|------|
 | `app/settings.py` — `AppSettings` | user preferences: recent files, theme, language, auto-save interval, snap toggles, frost thresholds, Agent API port/token/write-toggle, API keys, last-used fillet/chamfer values | flat, grouped by domain (`canvas/`, `appearance/`, `agent_api/`, …) |
-| `app/ui_state.py` — `UiStateStore` | UI-only state: window geometry, `QMainWindow` state (toolbar layout), main splitter sizes | `UiState/` |
+| `app/ui_state.py` — `UiStateStore` | UI-only state: window geometry, main splitter sizes; the retained `QMainWindow` layout blob is not replayed by the fixed-layout main window (ADR-062 addendum) | `UiState/` |
 
 Per-panel collapse/expand state is deliberately **not** persisted — the sidebar
 accordion starts fully collapsed every session (US-226, ADR-030, §8.17.7).
@@ -6783,6 +6783,13 @@ checks use date-present bed members; task soil warnings use presence on their ex
 reference day, independently of the displayed simulation date.
 
 
+Plant Details treats the form and profile identity as one presentation. Removing
+species metadata through undo or selection refresh clears the header labels,
+thumbnail, external links, source tooltip and licence line. Redo repopulates them;
+the species-free selected item remains the Create Custom target. Pinned through
+the real command-stack refresh by
+`tests/integration/test_apply_database_species.py::test_undo_species_assignment_clears_the_whole_profile_and_redo_restores_it`.
+
 ### 8.31.1 Permanent controls and live-map/export lifecycle
 
 SunSimToolbar is the sole toolbar instance for date/time. Atomic groups wrap rather
@@ -6798,7 +6805,15 @@ for that date says Updating, and an older preview retains its actual date. The
 hidden-plants menu follows the visible map controls without an empty reserved slot.
 Themed renders in both themes and all three locales test alignment as well as fit.
 The former PlanTimelineToolbar is
-removed and restored hidden toolbar state is healed. Solar and decorative shadows
+removed. The main window restores bounds and splitter preferences, retaining its
+application-defined toolbar rows instead of replaying saved toolbar topology.
+A legacy state can otherwise put Plan & Sun beside the drawing tools: measured
+at a 1707-pixel window, the strip shrank to 259 pixels and stretched its neighbors
+to 137 pixels tall. Startup now retains the dedicated full-width row. The legacy
+blob stays untouched; generic UiStateStore callers can still restore layout state.
+The restart regression saves a shared row with the strip first or last, then checks
+full width, separation and containment across two subsequent launches.
+Solar and decorative shadows
 are automatic; Hours of Sun and daily animation remain opt-in session state.
 
 Never confuse an enabled map with a finished map: LiveSunMap tracks the requested

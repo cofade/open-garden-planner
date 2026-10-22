@@ -1,5 +1,22 @@
 # 6. Runtime View
 
+## Fixed toolbar startup (PR #556 manual acceptance, ADR-062)
+
+```mermaid
+sequenceDiagram
+    participant A as Application
+    participant S as UiStateStore
+    participant W as Main window
+    A->>W: Build drawing toolbars and dedicated Plan & Sun row
+    A->>S: restore_geometry(restore_window_state=False)
+    S->>W: Restore window bounds; retain application toolbar topology
+    A->>S: Restore main splitter proportions
+    A->>W: Apply permanent/feature toolbar visibility
+```
+
+Legacy toolbar layout bytes remain in settings for compatibility. They cannot
+replace the fixed rows or squeeze Plan & Sun beside the drawing tools.
+
 ## Live sun evaluation and document replacement (ADR-056 / ADR-062)
 
 ```mermaid
@@ -81,6 +98,12 @@ empty/locked-item behavior. Handle release registers the existing single edit
 command; selection toggles do not create history entries.
 
 ## 6.2 Save/Load Flow
+
+Species assignment uses one command for metadata, footprint and sprite identity.
+On undo/redo, the existing stack-change refresh updates Plant Details from the
+current item. Removing the last species record clears and hides the profile name,
+thumbnail, links, attribution and source tooltip along with the form; redo restores
+them. The selected plant remains available to Create Custom when it has no species.
 
 ### Save
 

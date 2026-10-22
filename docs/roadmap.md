@@ -3151,3 +3151,26 @@ each is small, measured and pinned.
 Docs: FR-EDIT-15, FR-EDIT-16, FR-PLANT-21, FR-PLANT-ART-05, PF-DOM-26, PF-DOM-27, PF-UI-24, PF-UI-25, PF-TST-24, the ADR-061 pitfall catalogue and the `CLAUDE.md` / `AGENTS.md` pickup note.
 
 PR #556 senior-review follow-up: Shift+press on an interactive handle keeps Qt mouse delivery before selection transparency. The handle registry is shared with the view's dropped-grab recovery; real resize/rotation drags over a selectable background are pinned at 0, 37 and 143 degrees, including single-step undo. The later #528 review reproduced the original same-module false positive: function indexing and both call-graph closures now preserve lexical ownership, with both class orders and the real ground-bake AST pinned. The manager-free panel regression now actually omits the command manager. See the ADR-058 #528 addendum and §8.10.4.
+
+PR #556 owner manual pass: a legacy saved toolbar row compressed Plan & Sun to
+259 pixels in a 1707-pixel window and stretched the neighboring drawing tools.
+Startup now restores bounds/splitters while retaining the fixed toolbar topology
+(ADR-062 addendum; two-position restart regression). Undoing a species assignment
+also clears the profile header, image, links and attribution, rather than leaving
+Turkey oak above an empty form; redo restores the whole profile. The melon checklist
+now draws/selects a Vegetable before database assignment. The 40 m 3D check names
+**Oak (Quercus robur) — Bundled** explicitly: the owner's Turkey oak had no height,
+so its neutral marker followed the current contract, and the owner confirmed the
+bundled oak renders. Category-based estimated heights are tracked separately in #557.
+
+
+Additional PR #556 manual-pass finding: Material and Drainage retained their
+pre-undo values while focused although metadata, 3D and derived feedback restored
+correctly. The shared Properties refresh guard now protects active text input only;
+committed dropdown, checkbox and color choices refresh without reselection. Other
+controls using that path include fill/stroke style, label/grid/frost toggles and
+text bold/italic. The owner completed manual acceptance on 22 October 2026 and
+authorized protected finalization and release. The final gate battery and fresh
+review cover these source fixes before merge. Category-based unknown-height
+estimates (#557), maximum-width geometry propagation (#558), and command coverage
+for existing Plant Details species/instance fields (#559) remain separate work.

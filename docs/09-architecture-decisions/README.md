@@ -6836,3 +6836,25 @@ day in the viewing range; the reveal action reports that limitation. Exposure
 failure retry, per-tick scene scans, duplicate lifetime refresh and temporary
 render-layer changes during concurrent exports remain maintenance follow-ups.
 The review record and validation detail belong to PR #533.
+
+### ADR-062 addendum: fixed toolbar topology survives legacy state (PR #556)
+
+The owner manual pass reproduced a legacy saved layout with SunSimToolbar in the
+same row as the drawing tools: at 1707 pixels wide it received 259 pixels, while
+every neighbor stretched to 137 pixels tall. Making the strip visible did not
+restore its dedicated row. A native capture using an isolated copy of the owner's
+state reproduced the screenshot.
+
+The main window now calls `UiStateStore.restore_geometry` with
+`restore_window_state=False`. Window bounds and splitter proportions still restore;
+the non-movable toolbar topology remains the application's initial two-row layout.
+The generic store keeps layout replay as its default and preserves existing blobs.
+No settings reset, project-format change or new user-visible option is introduced.
+Replaying then relocating the adaptive toolbar before first show was rejected after
+a reproducible native abort; bypassing obsolete topology avoids that path entirely.
+
+Pinned by `test_restored_shared_row_cannot_squeeze_the_permanent_plan_strip` (strip
+first/last in a shared row, two subsequent launches) and
+`test_fixed_layout_can_restore_bounds_without_replaying_toolbar_state` (both policies).
+Native Windows layout checks and captures use actual platform fonts; an offscreen
+run with missing font discovery cannot establish the application's visual acceptance.

@@ -308,7 +308,7 @@ class PropertiesPanel(QWidget):
         """
         # Since #206 a pure property edit on the *same* selection no longer
         # tears down the form (it takes the in-place refresh path below, which
-        # skips the focused widget), so this focus guard is now a defensive
+        # skips a focused text editor), so this focus guard is now a defensive
         # backstop rather than the primary mechanism: it still protects the rare
         # case where the selection genuinely *changed* to a different item while
         # a panel field holds focus, where a full rebuild would delete the
@@ -441,11 +441,15 @@ class PropertiesPanel(QWidget):
     def _refresh_widget(self, widget: QWidget, setter: Callable[[], object]) -> None:
         """Push a fresh model value into ``widget`` via ``setter`` in place.
 
-        Skips a focused widget so a refresh never stomps an active edit, and
-        blocks the widget's signals while writing so the value push cannot
-        register a command (#206).
+        Protects focused text editors so a refresh never stomps an active edit.
+        A checkbox, non-editable combo or color button has already committed
+        its choice: retaining focus must not keep its pre-undo value on screen.
+        Block signals while writing so the value push cannot register a command.
         """
-        if self._is_focused(widget):
+        edits_text = isinstance(widget, (QLineEdit, QAbstractSpinBox, QTextEdit)) or (
+            isinstance(widget, QComboBox) and widget.isEditable()
+        )
+        if edits_text and self._is_focused(widget):
             return
         widget.blockSignals(True)
         try:

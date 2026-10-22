@@ -25,7 +25,7 @@ from types import TracebackType
 from typing import Any
 
 import pytest
-from PyQt6.QtCore import QMessageLogContext, QtMsgType, qInstallMessageHandler
+from PyQt6.QtCore import QMessageLogContext, Qt, QtMsgType, qInstallMessageHandler
 from PyQt6.QtWidgets import QMainWindow, QToolBar
 
 from open_garden_planner.app.application import GardenPlannerApp
@@ -251,6 +251,49 @@ class TestToolbarVisibilityIsOwnedByTheApp:
             second._soil_overlay_action.isChecked()
             == second.soil_overlay_toolbar.isVisible()
         )
+
+    @pytest.mark.parametrize("position", ["first", "last"])
+    def test_restored_shared_row_cannot_squeeze_the_permanent_plan_strip(
+        self, qtbot: Any, position: str,
+    ) -> None:
+        """A legacy saved layout must not wrap Plan & Sun beside the tools."""
+        first = GardenPlannerApp()
+        qtbot.addWidget(first)
+        first.resize(1707, 850)
+        first.show()
+        first.removeToolBar(first._sun_toolbar)
+        if position == "first":
+            first.insertToolBar(first.main_toolbar, first._sun_toolbar)
+        else:
+            first.addToolBar(Qt.ToolBarArea.TopToolBarArea, first._sun_toolbar)
+        first._sun_toolbar.show()
+        qtbot.wait(50)
+        assert not first.toolBarBreak(first._sun_toolbar), "fixture must save a shared row"
+        first._ui_state.save_geometry(first)
+
+        second = GardenPlannerApp()
+        qtbot.addWidget(second)
+        second.show()
+        qtbot.wait(50)
+        assert second._geometry_restored, "the legacy layout must actually be restored"
+        bar = second._sun_toolbar
+        assert second.toolBarBreak(bar), "Plan & Sun needs its own row after restore"
+        assert bar.width() == second.width()
+        for toolbar in (second.main_toolbar, second.constraint_toolbar, second.category_toolbar):
+            assert toolbar.geometry().bottom() < bar.y()
+        for index in range(bar._flow.count()):
+            group = bar._flow.itemAt(index).widget()
+            assert bar._content.rect().contains(group.geometry())
+
+        # Persist the healed layout and verify a further launch stays healed.
+        second._ui_state.save_geometry(second)
+        third = GardenPlannerApp()
+        qtbot.addWidget(third)
+        third.show()
+        qtbot.wait(50)
+        assert third._geometry_restored
+        assert third.toolBarBreak(third._sun_toolbar)
+        assert third._sun_toolbar.width() == third.width()
 
 
 class TestPreviewModeDoesNotStrandTheNextLaunch:

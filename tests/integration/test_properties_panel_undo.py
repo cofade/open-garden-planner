@@ -19,7 +19,9 @@ and undo puts the old value back.
 from __future__ import annotations
 
 import pytest
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
@@ -27,6 +29,7 @@ from PyQt6.QtWidgets import (
     QSpinBox,
 )
 
+from open_garden_planner.app.application import GardenPlannerApp
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -166,6 +169,66 @@ def test_the_container_edits_are_one_undo_step_each(
     assert manager.undo_depth == steps + 1, "the soil volume edit is one undo step"
     manager.undo()
     assert "container_soil_volume_l" not in container.metadata
+
+
+@pytest.mark.parametrize("field_name", ["Material:", "Drainage:"])
+def test_focused_container_choice_tracks_global_undo_and_redo(
+    qtbot, monkeypatch, field_name: str,
+) -> None:
+    """The actual app must refresh committed choices without a re-selection.
+
+    Keep real Qt focus on the edited control throughout history changes; a
+    mock focus widget would miss a rebuild that destroys or moves focus.
+    """
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    monkeypatch.setattr(win, "_confirm_discard_changes", lambda: True)
+    win.show()
+    win.activateWindow()
+    win._sidebar_controller.set_selection_pinned("properties", True)
+
+    container = _container(win.canvas_view)
+    container.metadata.update(container_material="terracotta", container_drainage=True)
+    container.setSelected(True)
+    panel = win.properties_panel
+    control = _field(panel, field_name)
+    assert isinstance(control, (QComboBox, QCheckBox))
+    qtbot.waitUntil(control.isVisible)
+    control.setFocus(Qt.FocusReason.OtherFocusReason)
+    qtbot.waitUntil(lambda: QApplication.focusWidget() is control)
+    manager = win.canvas_view.command_manager
+    steps = manager.undo_depth
+
+    if isinstance(control, QComboBox):
+        key, original, changed = "container_material", "terracotta", "metal"
+        control.setCurrentIndex(control.findData(changed))
+        displayed = control.currentData
+    else:
+        key, original, changed = "container_drainage", True, False
+        qtbot.keyClick(control, Qt.Key.Key_Space)
+        displayed = control.isChecked
+
+    assert container.metadata[key] == changed
+    assert displayed() == changed
+    assert manager.undo_depth == steps + 1
+
+    manager.undo()
+    assert container.metadata[key] == original
+    qtbot.waitUntil(lambda: displayed() == original)
+    assert QApplication.focusWidget() is control
+    assert _field(panel, field_name) is control
+    assert win.canvas_scene.selectedItems() == [container]
+    assert manager.undo_depth == steps
+    assert manager.redo_depth == 1, "refreshing the control must not create a new edit"
+
+    manager.redo()
+    assert container.metadata[key] == changed
+    qtbot.waitUntil(lambda: displayed() == changed)
+    assert QApplication.focusWidget() is control
+    assert _field(panel, field_name) is control
+    assert win.canvas_scene.selectedItems() == [container]
+    assert manager.undo_depth == steps + 1
+    assert manager.redo_depth == 0
 
 
 def test_an_edit_announces_the_plan_change_the_3d_view_follows(

@@ -33,13 +33,20 @@ class UiStateStore:
         self._settings.setValue(f"{self.GROUP}/geometry", window.saveGeometry())
         self._settings.setValue(f"{self.GROUP}/window_state", window.saveState())
 
-    def restore_geometry(self, window: QMainWindow) -> bool:
+    def restore_geometry(
+        self, window: QMainWindow, *, restore_window_state: bool = True,
+    ) -> bool:
+        """Restore bounds, optionally replaying toolbar/dock topology.
+
+        A window with an application-owned fixed toolbar layout restores only
+        its bounds. Old layout blobs remain untouched for compatibility.
+        """
         geom = self._settings.value(f"{self.GROUP}/geometry")
         if geom is None:
             return False
         window.restoreGeometry(geom)
         state = self._settings.value(f"{self.GROUP}/window_state")
-        if state is not None:
+        if restore_window_state and state is not None:
             window.restoreState(state)
         return True
 

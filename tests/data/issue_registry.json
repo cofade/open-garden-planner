@@ -1058,5 +1058,20 @@
     "is_pr": true,
     "state": "OPEN",
     "title": "fix: the 2D canvas defect batch (#522, #530, #445, #446, #528)"
+  },
+  "557": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: use category-based visual heights for plants with unknown height"
+  },
+  "558": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Plant Details: editing maximum width does not update the 2D or 3D diameter"
+  },
+  "559": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Plant Details: species and instance field edits bypass undo history"
   }
 }

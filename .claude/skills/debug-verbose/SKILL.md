@@ -3725,3 +3725,65 @@ test_duplicate_methods_keep_both_call_graph_closures_scoped,
 test_nested_helpers_with_the_same_name_do_not_share_a_clock, and
 test_the_original_ground_bake_module_accepts_its_timed_helper_inline in
 tests/unit/test_perf_marker_guard.py. Temporary probes are absent from committed code.
+
+
+## Case study: an old toolbar row swallowed the permanent date strip (PR #556 manual pass)
+
+**Symptom.** Plan & Sun was clipped at the left while the drawing toolbar grew tall.
+**Wrong theory.** Passing fresh-layout tests and proving unrelated layout failures
+pre-existing had been treated as sufficient visual acceptance. They never restored
+the owner's legacy shared row.
+**Evidence.** A native instrumented startup using an isolated copy of saved UI state
+reproduced the owner's screenshot: `[TOOLBAR] SunSimToolbar (0, 25, 259, 137) break False`
+at window width 1707. The restore hook included traceback.format_stack(). Restoring
+an independent row produced width 1707 and normal drawing-toolbar height 40.
+**Root cause/fix.** QMainWindow state replays toolbar topology, not just visibility.
+The immutable toolbar rows now remain application-owned: restore window bounds and
+splitter proportions with restore_window_state=False. Preserve existing settings blobs.
+A replay-then-rehome attempt aborted natively before the restored window's first show;
+the adopted fix never replays the obsolete topology. Both legacy positions failed first.
+**Lesson.** Test upgrades from persisted UI state and inspect the real themed app.
+The fresh-state layout and the existence of a toolbar do not prove its usable width.
+Pins: test_restored_shared_row_cannot_squeeze_the_permanent_plan_strip in
+tests/integration/test_toolbar_state_persistence.py and
+test_fixed_layout_can_restore_bounds_without_replaying_toolbar_state in
+tests/unit/test_ui_state.py. Temporary probes remain outside committed source.
+
+## Case study: undo cleared species data but kept its profile identity (PR #556 manual pass)
+
+**Symptom.** Ctrl+Z restored the generic tree and cleared the form, while Turkey oak,
+its image, links and attribution remained above it.
+**Wrong theory.** Sprite/metadata undo tests were assumed to cover the whole sidebar.
+**Evidence.** An isolated tagged probe printed `[PROFILE-UNDO] removed None
+headerHidden False name Turkey oak (Quercus cerris) licenseHidden False`. A real-window
+assignment/undo regression failed on the visible profile header before the fix.
+**Root cause/fix.** _show_no_metadata and _hide_details only hid form rows. A shared
+_clear_profile_header now clears/hides the profile identity, thumbnail, licence line
+and source tooltip in both paths. Keep the selected species-free item for Create Custom.
+**Lesson.** A panel's empty-state transition must clear every representation of its
+identity, not just the editable form. Undo/redo coverage checks the header too.
+Pinned by test_undo_species_assignment_clears_the_whole_profile_and_redo_restores_it
+in tests/integration/test_apply_database_species.py. No diagnostic prints remain.
+
+
+## Case study: a committed control kept focus and escaped undo refresh (PR #556 manual pass)
+
+**Symptom.** Undo restored a container's terracotta appearance and watering hint,
+but the focused Material combo still displayed Metal. Drainage's checkmark did
+the same until deselection/reselection.
+**Wrong theory.** The command or 3D material update was at fault. Both had already
+restored the correct value; the two panel representations disagreed.
+**Evidence.** The isolated tagged refresh probe printed `[MATERIAL-UNDO] refresh
+focused=True shown=metal stored=terracotta`, then the same stale value after undo.
+The unexpected skipped refresh included traceback.format_stack().
+**Root cause/fix.** _refresh_widget skipped every focused widget to protect typing.
+Closed dropdowns, checkboxes and color buttons have no uncommitted text to protect.
+Only focused text/spin editors and editable combos now retain that protection;
+committed controls refresh under blocked signals while keeping focus.
+**Lesson.** Keyboard focus is not proof of an edit in progress. The canonical guard
+also covers label/grid/frost/style choices, text bold/italic and color buttons.
+The owner completed the manual pass before finalization resumed. Regression coverage
+for focused Material/Drainage undo and redo belongs in
+`tests/integration/test_properties_panel_undo.py`; active text editing retains its
+existing protection. Species/instance writes outside the command stack are separate
+#559, rather than a refresh-only defect.
