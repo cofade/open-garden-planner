@@ -3581,3 +3581,209 @@ all exact assertions. All five cases pass with the global library deliberately
 primed. The particular earlier CI writer remains unconfirmed. **Lesson.** Isolate
 the inputs a scenario assumes; never relax the result count or reset a production
 singleton to hide test contamination. Temporary tracing remains outside source.
+
+## Case study: a substring match is not a name match - the resolver that drew a melon as an eggplant (#446)
+
+**Symptom.** A plant assigned "Melon" was drawn with the eggplant's sprite; a
+scientific name ("Petroselinum crispum") was drawn as a rose; a plant whose name
+merely CONTAINED another plant's name ("peach_tree") was drawn as a pea; a
+string of blanks was drawn as a rose.
+
+**Evidence.** The rule asked whether a key was CONTAINED in the name, or the name
+in the key. "melon" is inside "solanum melongena"; "rose" is inside
+"petroselinum crispum"; the empty string is inside every key. The golden of
+1,562 answers made it visible: the melon, the rose and the pea were all in it.
+
+**Wrong theory.** "The lookup needs a better alias table" - and "match the whole
+name only". Both were MEASURED before anything was written. Whole-name-only
+changes 266 of the 1,562 answers over 110 distinct names, and most of those
+changes are REGRESSIONS: "Quercus robur", "Broad Bean", "Sweet Corn" and "Winter
+Squash" have no exact key and fall back to a generic category sprite. An alias
+table fixes three cases exactly and adds a hand-maintained table that can rot.
+
+**Cause/fix.** A name is matched as a whole name or alias, in three steps: the
+whole name; else a key whose every word is a word of the name ("Broad Bean" ->
+bean); else a key that holds every word of the name ("Solanum" -> tomato). A name
+no sprite knows takes the plant's category sprite. Measured after: 74 answers
+change over 37 names, and of the bundled species' 118 names exactly ONE changes -
+the melon. The rule is ONE rule, shared by the 2D renderer and the 3D plant
+builder, so both views change together.
+
+**Lesson.** Before changing a rule that decides what a user SEES, measure the
+rule you are about to replace against the whole corpus, and count the regressions
+as carefully as the fixes. The issue's own expected behaviour was measured and
+rejected - and the three cases that survive the shipped fix ("Lemon Balm", "Bean
+(Bush)", "Sweet Potato") are pinned in the test, so nobody discovers them later as
+a surprise.
+
+## Case study: the record is not the name - a species assigned that stayed a shrub (#445)
+
+**Symptom.** Assigning "Oak" from the plant database gave the plant the oak's
+calendar data and the oak's size, and left it drawn as a generic tree - in the
+plan and in the 3D view alike.
+
+**Evidence.** The assignment wrote `metadata["plant_species"]` (the RECORD). The
+sprite resolver reads the item's own species STRING (`item.plant_species`), and
+the 3D plant builder resolves from the same string. The item's string was
+untouched, so the plant kept the sprite it was drawn with.
+
+**Wrong theory.** "The resolver should look at the record" - and "the resolver
+should look at the DATA's common name". The second is a trap: a gallery
+"Pumpkin" carries the DATA of "Winter Squash" while its own name is "pumpkin",
+so resolving from the data's name draws a different plant than the plan shows.
+
+**Cause/fix.** The assignment writes the item's string as well - the name of the
+species ASSIGNED (the record's common name, or its scientific name when the
+common name names no sprite) - inside the same `ApplySpeciesCommand`, so the
+record, the spacing override, the footprint radius and the string revert
+together in one undo step. The string is the plant's own name; the record's data
+is the species' data, and the two may still differ.
+
+**Lesson.** When a model has two places for a fact, find out which one the
+READER reads before you write to either. The record was written and the data was
+right, and the plant still looked wrong - because the name the pixels come from
+was a third thing, and nobody asked who reads it.
+
+## Case study: a locked item is not selectable, and `itemAt` answers the locked one (#522)
+
+**Symptom.** Shift+clicking an item on a locked layer REPLACED the selection
+instead of toggling it: the item behind was selected and the other one was
+deselected.
+
+**Evidence.** The select tool asked `scene.itemAt(pos)`, which answers the
+TOPMOST item - and a locked layer takes the selectable flag away from its items
+(`CanvasScene` clears `ItemIsSelectable`), so the topmost item was one the tool
+could not select. The tool gave up and handed the click to Qt, whose own toggle
+key is Ctrl: a Shift+click had become a plain click.
+
+**Wrong theory.** "Qt's Shift handling is wrong" and "the layer lock should
+remove the item from the hit test". The second would change what a plain click
+does; the first is Qt's documented behaviour. The 3D selection bridge, measured
+against the same scenarios, already toggled what the click reached - the two
+views disagreed, and the canvas was the one with the defect.
+
+**Cause/fix.** The tool asks for the first SELECTABLE item under the cursor
+(`QGraphicsScene.items(pos)` is in descending stacking order), so Shift+click
+toggles what lies behind the locked item - the canvas's own rule. With nothing
+selectable beneath, the click goes through as before, so a locked item with
+nothing behind it still clears the selection and the two views still agree.
+
+**Lesson.** `itemAt` answers the topmost item, not the topmost SELECTABLE one.
+When a flag decides what an item can do, the hit test has to ask for the item
+the user can act on - and the measurement harness that already compares two
+implementations is where the difference shows up.
+
+
+## Case study: selection transparency swallowed editing handles (PR #556, #522)
+
+**Symptom.** Shift+press on a selected rectangle's resize or rotation handle
+selected the object behind it and never began the drag.
+
+**Wrong theory.** Every non-selectable hit was treated as a passive overlay.
+No alternate runtime explanation was accepted before the viewport probe.
+
+**Evidence.** The independent reviewer recorded `[REVIEW-HANDLE]` with the
+resize handle as the topmost hit, the background as the new target and
+`grabber NoneType`. The identical probe with master's select handler grabbed
+both resize and rotation handles. Six fail-first viewport cases reproduced
+that missing grab at 0, 37 and 143 degrees.
+
+**Root cause/fix.** The select tool consumed Shift before Qt could deliver the
+press to the non-selectable handle. Delegate editing-handle presses to Qt first;
+share `DRAG_HANDLE_TYPES` with the view's existing dropped-grab recovery. The
+regression checks mouse grab, geometry mutation and one-step undo for both
+handle types over a selectable background.
+
+**Lesson.** Selection eligibility and input ownership are separate contracts.
+A locked object can be transparent to selection while an editing handle must
+keep its press. `QTest.mouseMove` was also measured to reset the global keyboard
+modifiers after a Shift-modified press; these tests prove starting the drag,
+not continuous Shift snapping. Temporary traces are absent from production.
+Pinned by `test_shift_drag_handle_does_not_select_the_item_behind`.
+
+
+## Case study: class-scoped attributes still shared a bare-name call graph (#528, PR #556)
+
+**Symptom.** The perf-marker guard still flagged the ordinary ground-bake edit
+session when its timed helper was restored to the same module.
+**Wrong theory.** Class-scoped attribute identities were assumed to resolve the
+method collision. The initial regression separated modules and asserted equality,
+so it never reached the original false positive.
+**Evidence.** An isolated instrumented AST probe printed `[PERF-528] clock closure:
+['bake', 'test_session']` and `verdict: [('test_session', False)]` for an ordinary
+baker and a tile-count bound. The unexpected sensitivity trace included
+traceback.format_stack(). Both same-module class orders and the real ground-bake
+AST replay failed first.
+**Root cause/fix.** The function index and both propagation closures used bare names,
+while attributes had qualified identities. One cached lexical index now retains class
+and enclosing-function ownership throughout; unresolved receivers do not borrow another
+class's method. The real G3 duration stays detected and the ordinary session stays unmarked.
+**Lesson.** Reproduce the original module placement and assertion shape. A documented
+limitation does not satisfy an issue whose acceptance requires that limitation removed.
+Pins: test_same_module_bakers_keep_their_own_clock_sensitivity,
+test_duplicate_methods_keep_both_call_graph_closures_scoped,
+test_nested_helpers_with_the_same_name_do_not_share_a_clock, and
+test_the_original_ground_bake_module_accepts_its_timed_helper_inline in
+tests/unit/test_perf_marker_guard.py. Temporary probes are absent from committed code.
+
+
+## Case study: an old toolbar row swallowed the permanent date strip (PR #556 manual pass)
+
+**Symptom.** Plan & Sun was clipped at the left while the drawing toolbar grew tall.
+**Wrong theory.** Passing fresh-layout tests and proving unrelated layout failures
+pre-existing had been treated as sufficient visual acceptance. They never restored
+the owner's legacy shared row.
+**Evidence.** A native instrumented startup using an isolated copy of saved UI state
+reproduced the owner's screenshot: `[TOOLBAR] SunSimToolbar (0, 25, 259, 137) break False`
+at window width 1707. The restore hook included traceback.format_stack(). Restoring
+an independent row produced width 1707 and normal drawing-toolbar height 40.
+**Root cause/fix.** QMainWindow state replays toolbar topology, not just visibility.
+The immutable toolbar rows now remain application-owned: restore window bounds and
+splitter proportions with restore_window_state=False. Preserve existing settings blobs.
+A replay-then-rehome attempt aborted natively before the restored window's first show;
+the adopted fix never replays the obsolete topology. Both legacy positions failed first.
+**Lesson.** Test upgrades from persisted UI state and inspect the real themed app.
+The fresh-state layout and the existence of a toolbar do not prove its usable width.
+Pins: test_restored_shared_row_cannot_squeeze_the_permanent_plan_strip in
+tests/integration/test_toolbar_state_persistence.py and
+test_fixed_layout_can_restore_bounds_without_replaying_toolbar_state in
+tests/unit/test_ui_state.py. Temporary probes remain outside committed source.
+
+## Case study: undo cleared species data but kept its profile identity (PR #556 manual pass)
+
+**Symptom.** Ctrl+Z restored the generic tree and cleared the form, while Turkey oak,
+its image, links and attribution remained above it.
+**Wrong theory.** Sprite/metadata undo tests were assumed to cover the whole sidebar.
+**Evidence.** An isolated tagged probe printed `[PROFILE-UNDO] removed None
+headerHidden False name Turkey oak (Quercus cerris) licenseHidden False`. A real-window
+assignment/undo regression failed on the visible profile header before the fix.
+**Root cause/fix.** _show_no_metadata and _hide_details only hid form rows. A shared
+_clear_profile_header now clears/hides the profile identity, thumbnail, licence line
+and source tooltip in both paths. Keep the selected species-free item for Create Custom.
+**Lesson.** A panel's empty-state transition must clear every representation of its
+identity, not just the editable form. Undo/redo coverage checks the header too.
+Pinned by test_undo_species_assignment_clears_the_whole_profile_and_redo_restores_it
+in tests/integration/test_apply_database_species.py. No diagnostic prints remain.
+
+
+## Case study: a committed control kept focus and escaped undo refresh (PR #556 manual pass)
+
+**Symptom.** Undo restored a container's terracotta appearance and watering hint,
+but the focused Material combo still displayed Metal. Drainage's checkmark did
+the same until deselection/reselection.
+**Wrong theory.** The command or 3D material update was at fault. Both had already
+restored the correct value; the two panel representations disagreed.
+**Evidence.** The isolated tagged refresh probe printed `[MATERIAL-UNDO] refresh
+focused=True shown=metal stored=terracotta`, then the same stale value after undo.
+The unexpected skipped refresh included traceback.format_stack().
+**Root cause/fix.** _refresh_widget skipped every focused widget to protect typing.
+Closed dropdowns, checkboxes and color buttons have no uncommitted text to protect.
+Only focused text/spin editors and editable combos now retain that protection;
+committed controls refresh under blocked signals while keeping focus.
+**Lesson.** Keyboard focus is not proof of an edit in progress. The canonical guard
+also covers label/grid/frost/style choices, text bold/italic and color buttons.
+The owner completed the manual pass before finalization resumed. Regression coverage
+for focused Material/Drainage undo and redo belongs in
+`tests/integration/test_properties_panel_undo.py`; active text editing retains its
+existing protection. Species/instance writes outside the command stack are separate
+#559, rather than a refresh-only defect.

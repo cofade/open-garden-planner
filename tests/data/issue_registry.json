@@ -794,6 +794,16 @@
     "state": "CLOSED",
     "title": "Offset, chamfer and fillet copies keep the source's brush but not its fill_color / fill_pattern: the copy loses its colour and pattern on save"
   },
+  "445": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "A species assigned from the plant database does not change the plant's 2D sprite"
+  },
+  "446": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Plant sprite lookup matches by substring: \"Lemon Balm\" is drawn as a lemon tree, \"Melon\" as an eggplant, \"Bean (Bush)\" as a climbing bean, \"Sweet Potato\" as a potato, a blank species as a rose"
+  },
   "448": {
     "is_pr": false,
     "state": "CLOSED",
@@ -964,6 +974,11 @@
     "state": "MERGED",
     "title": "fix(#512-#516): mutation-verified gate pin, required coverage floor, and the widget-leak probe"
   },
+  "522": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Canvas: Shift+click through an item on a locked layer replaces the selection instead of toggling"
+  },
   "524": {
     "is_pr": false,
     "state": "CLOSED",
@@ -978,6 +993,16 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Properties-panel type change gives a line square caps and bevelled joins until the plan is reopened"
+  },
+  "528": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "perf-marker guard misses a median kept in an attribute and flags a test that times nothing"
+  },
+  "530": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Seven Properties-panel edits (grid, soil depth, container material/drainage/height, soil volume) are not undoable and do not mark the plan modified"
   },
   "532": {
     "is_pr": false,
@@ -1028,5 +1053,30 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix: restore line appearance undo and contain styled paint"
+  },
+  "556": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "fix: the 2D canvas defect batch (#522, #530, #445, #446, #528)"
+  },
+  "557": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: use category-based visual heights for plants with unknown height"
+  },
+  "558": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Plant Details: editing maximum width does not update the 2D or 3D diameter"
+  },
+  "559": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Plant Details: species and instance field edits bypass undo history"
+  },
+  "560": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Properties and Plant Details: focused text/numeric editors suppress history refresh"
   }
 }

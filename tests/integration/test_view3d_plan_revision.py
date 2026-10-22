@@ -641,16 +641,20 @@ def test_a_containers_height_and_material_typed_into_the_properties_panel_reach_
     live.assert_3d_is_the_plan()
 
 
-def test_the_other_direct_writes_of_the_properties_panel_announce_themselves_too(
+def test_the_seven_property_edits_of_the_properties_panel_announce_themselves_too(
         app3d, qtbot) -> None:
-    """Seven handlers of the Properties panel write into the item without a command
-    (a follow-up issue: not undoable). Every one of them moves the plan revision."""
+    """Seven handlers of the Properties panel edit an item. Every one of them
+    moves the plan revision - and every one of them is an undoable command now
+    (#530: they wrote into the item directly, so they were neither undoable nor
+    a mark of a modified plan)."""
     live = Live(app3d, qtbot)
     _add_the_pot(live)
     panel = live.window.properties_panel
     source = Path(type(panel).__module__.replace(".", "/"))
     text = (REPO / "src" / source.with_suffix(".py")).read_text(encoding="utf-8")
-    assert text.count("self._announce_direct_edit(item)") == 7
+    assert text.count("self._commit_edit(item, cmd)") == 7
+    # the helper they go through is the one that announces the edit
+    assert text.count("self._announce_edit(item)") == 1
     # … and through the real widgets, for the two forms that have them
     from PyQt6.QtWidgets import QCheckBox, QDoubleSpinBox
 

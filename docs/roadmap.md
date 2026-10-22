@@ -3133,3 +3133,60 @@ The focused regressions cover all ten styles, real controls, history/persistence
 panel lifetime, dirty state, cached transforms and ground output. Actual delivery
 gate totals are recorded in the PR; no release is claimed before owner acceptance.
 The timeline and Russian translation PRs remain separate.
+
+### 2D canvas defect batch (#522, #530, #445, #446, #528)
+
+Five shipped defects on `master`, taken together because they share one theme -
+the 2D canvas, the panel that edits it and the tools that read it - and because
+each is small, measured and pinned.
+
+| # | What was wrong | What shipped |
+|---|----------------|--------------|
+| #446 | The sprite resolver matched a species name by **substring**, so a melon was drawn as an eggplant ("melon" is inside "solanum melongena"), a scientific name as a rose ("Petroselinum crispum" contains "rose"), a plant whose name merely CONTAINS another plant's name as that other plant ("peach_tree" as a pea) and a blank species as a rose (the empty string is inside every key). | The name is matched as a **whole name or alias**: the whole name, else a key whose every word is a word of the name ("Broad Bean" -> bean), else a key that holds every word of the name ("Solanum" -> tomato); a name no sprite knows falls back to the plant's category sprite. Measured: 74 of the golden's 1,562 answers change over 37 names, and of the bundled species' 118 names exactly ONE changes - the melon. **What it does not fix:** "Lemon Balm", "Bean (Bush)" and "Sweet Potato" still take a fruit or vegetable sprite, because their names contain a whole word that is another plant's name; a curated alias table would be needed, and was declined. The rule the issue proposed (whole-name only) was measured first and **rejected**: it changes 266 answers over 110 names, and most of those are regressions ("Quercus robur", "Broad Bean", "Sweet Corn" would fall back to a generic sprite). |
+| #445 | Assigning a species from the database wrote only the record, and the sprite resolver reads the item's own species **string** - so the plant kept the sprite it was drawn with, in 2D and in 3D alike (a tomato that still looked like a shrub). | The assignment writes that string too (the record's common name, else its scientific name), inside the same `ApplySpeciesCommand`: the record, the footprint, the spacing override and the string revert together in one undo step. |
+| #522 | Shift+click on an item on a **locked** layer fell through to a plain click, so it **replaced** the selection instead of toggling it (`itemAt` answers the topmost item, and a locked item is not selectable). | The select tool asks for the first **selectable** item under the cursor, so Shift+click toggles what lies behind the locked item - the canvas's own rule. The 3D selection bridge already did this: the one measured difference between the two views is gone. |
+| #530 | Seven Properties-panel edits (a bed's grid on/off and grid spacing, its soil depth; a container's material, drainage, height and soil volume) wrote into the item directly: neither undoable nor a mark of a modified plan - Ctrl+Z undid the container's **creation** instead of its height, and closing the app asked nothing and lost the edit. | Each is one `ChangePropertyCommand`, like the panel's name, height, fill and stroke edits, and each still announces itself to the 3D view (the plan revision moves and the item repaints). A value that was never set is restored as **absent** again, not as `None`. |
+| #528 | The perf-marker guard could not see a measurement that travels in an **attribute** - the ground bake's G3 gate was marked `perf` by hand because its stopwatch lives in `ground_bake_support.TimedBaker` - and it flagged a test that times nothing when a method of the same bare name elsewhere holds a stopwatch. | The guard follows the carrier into the local support modules, scoped to the class that owns the attribute, so one class's stopwatch never taints another's; a value that is only **counted** (`len(timestamps)`) is not a duration. G3 is now one of its 40 candidates and its marker is required, not a habit. |
+
+Docs: FR-EDIT-15, FR-EDIT-16, FR-PLANT-21, FR-PLANT-ART-05, PF-DOM-26, PF-DOM-27, PF-UI-24, PF-UI-25, PF-TST-24, the ADR-061 pitfall catalogue and the `CLAUDE.md` / `AGENTS.md` pickup note.
+
+PR #556 senior-review follow-up: Shift+press on an interactive handle keeps Qt mouse delivery before selection transparency. The handle registry is shared with the view's dropped-grab recovery; real resize/rotation drags over a selectable background are pinned at 0, 37 and 143 degrees, including single-step undo. The later #528 review reproduced the original same-module false positive: function indexing and both call-graph closures now preserve lexical ownership, with both class orders and the real ground-bake AST pinned. The manager-free panel regression now actually omits the command manager. See the ADR-058 #528 addendum and §8.10.4.
+
+PR #556 owner manual pass: a legacy saved toolbar row compressed Plan & Sun to
+259 pixels in a 1707-pixel window and stretched the neighboring drawing tools.
+Startup now restores bounds/splitters while retaining the fixed toolbar topology
+(ADR-062 addendum; two-position restart regression). Undoing a species assignment
+also clears the profile header, image, links and attribution, rather than leaving
+Turkey oak above an empty form; redo restores the whole profile. The melon checklist
+now draws/selects a Vegetable before database assignment. The 40 m 3D check names
+**Oak (Quercus robur) — Bundled** explicitly: the owner's Turkey oak had no height,
+so its neutral marker followed the current contract, and the owner confirmed the
+bundled oak renders. Category-based estimated heights are tracked separately in #557.
+
+
+Additional PR #556 manual-pass finding: Material and Drainage retained their
+pre-undo values while focused although metadata, 3D and derived feedback restored
+correctly. The shared Properties refresh guard now protects active text input only;
+committed dropdown, checkbox and color choices refresh without reselection. Other
+controls using that path include fill/stroke style, label/grid/frost toggles and
+text bold/italic. The owner completed manual acceptance on 22 October 2026 and
+authorized protected finalization and release. The final gate battery and fresh
+review cover these source fixes before merge. Category-based unknown-height
+estimates (#557), maximum-width geometry propagation (#558), and command coverage
+for existing Plant Details species/instance fields (#559) remain separate work.
+The broader text/numeric focus guards require history-aware handling (#560);
+the committed-choice refresh fix does not remove active-edit protection.
+
+Finalization evidence (22 October 2026): the final default Windows/offscreen
+suite recorded 17,058 passed, 234 skipped and 11 Plan & Sun font/layout assertion
+failures; the documentation index mismatch from the preceding run is fixed.
+Native Windows validation passed all 99 affected checks, including every one of
+the 51 Plan & Sun cases. The quiet timing suite passed 98 tests with 10 skips.
+Lint, high-severity security, secrets, type-baseline, translations, lock/export,
+context/citation/wiki, sprite golden and all 97 mutation-pattern checks passed.
+The frozen Python 3.11.9 bundle passed inventory attribution for 72 distributions,
+the eight-second smoke (124), and self-test (0), including an RTX 4070 / Direct3D
+11 frame. Independent 3D review found all 53 board frames pixel-identical to
+master and all truth gates passing. Senior review found no P0/P1 and independently
+passed seven native latest-fix cases; its sole EOF-whitespace nit is removed.
+Protected merge still requires successful checks on the final pushed head.

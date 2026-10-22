@@ -54,10 +54,29 @@ class SelectTool(BaseTool):
         if item is not None:
             # Handle Shift+click for multi-select toggle
             shift_held = event.modifiers() & Qt.KeyboardModifier.ShiftModifier
-            is_selectable = item.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
-            if shift_held and is_selectable:
-                item.setSelected(not item.isSelected())
-                return True  # We handled it
+            if shift_held:
+                from open_garden_planner.ui.canvas.items.resize_handle import DRAG_HANDLE_TYPES
+
+                # Editing controls need the press even though they are not
+                # selectable. Let Qt establish their grab before the view's
+                # drag recovery handles later moves (#522 review regression).
+                if isinstance(item, DRAG_HANDLE_TYPES):
+                    return False
+                # Shift+click picks the SELECTABLE item under the cursor: the
+                # topmost one, or - when the topmost is not selectable (an item
+                # on a locked layer, a badge, a label) - the first selectable one
+                # beneath it. Without the see-through, a Shift+click on a locked
+                # item fell through to a normal click and REPLACED the selection
+                # instead of toggling it (#522).
+                target = self._selectable_under(scene_pos)
+                if target is not None:
+                    target.setSelected(not target.isSelected())
+                    return True
+                # Nothing selectable under the cursor: the click goes through as
+                # it did before, so a locked item with nothing behind it clears
+                # the selection - the canvas's own rule, and the one the 3D
+                # selection bridge copies.
+                return False
             # Normal click - let QGraphicsView handle it
             return False
 
@@ -70,6 +89,23 @@ class SelectTool(BaseTool):
             self._view.scene().clearSelection()
 
         return False  # Still let view process for proper event handling
+
+    def _selectable_under(self, scene_pos: QPointF) -> QGraphicsItem | None:
+        """The SELECTABLE item under the cursor, or None.
+
+        The topmost item at the point, unless it is not selectable - an item on
+        a locked layer, a badge, a label - in which case the first selectable
+        one beneath it. ``QGraphicsScene.items`` returns the items at a point in
+        descending stacking order, so the first selectable one is the one the
+        user means.
+        """
+        scene = self._view.scene()
+        if scene is None:
+            return None
+        for candidate in scene.items(scene_pos):
+            if candidate.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsSelectable:
+                return candidate
+        return None
 
     def mouse_move(self, _event: QMouseEvent, scene_pos: QPointF) -> bool:
         """Handle mouse move - update box selection rubber band."""

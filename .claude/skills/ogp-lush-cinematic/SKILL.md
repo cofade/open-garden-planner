@@ -56,8 +56,9 @@ flower 316). Judge them as v0:
   (`core/plant_art/recipes.py`, resolved by `core/plant_art/resolve.py` — the 2D rule, on the 2D
   renderer's own inputs: the item's type, its own species string as it is, its category). A plant
   whose 3D shape or green contradicts its sprite is a finding; a plant whose *sprite* is odd
-  (Lemon Balm drawn as a lemon tree; a plant given a species from the plant database that still
-  shows its old sprite) is a 2D finding that 3D reproduces faithfully.
+  (Lemon Balm drawn as a lemon tree) is a 2D finding that 3D reproduces faithfully. A plant
+  given a species from the plant database now shows THAT species' sprite (#445) - a plant that
+  still shows its old one is the 2D defect, not a 3D one.
 - **No fruit, no flowers, no flower heads, by decision** — the season gates need the plan's frost
   dates, which a record does not carry (Package L3). Their absence against the L0 board is not a
   regression. Crowns are never bare.

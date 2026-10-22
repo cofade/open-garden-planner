@@ -778,6 +778,8 @@ class _FakePlant:
         self.metadata: dict = {}
         self.spacing_radius_cm: float | None = None
         self.radius = radius
+        # The item's own species string (a plant item has one; #445 writes it).
+        self.plant_species: str = ""
 
     def set_radius_centered(self, new_radius: float) -> None:
         self.radius = new_radius
@@ -792,7 +794,8 @@ class TestApplySpeciesCommand:
         item = _FakePlant()
         new = {"scientific_name": "Solanum lycopersicum", "max_spread_cm": 90.0}
 
-        cmd = ApplySpeciesCommand(item, None, new, None, 45.0)
+        cmd = ApplySpeciesCommand(item, None, new, None, 45.0,
+                               old_species_name="", new_species_name="Tomato")
         cmd.execute()
         assert item.metadata["plant_species"]["scientific_name"] == "Solanum lycopersicum"
         assert item.spacing_radius_cm == 45.0
@@ -810,7 +813,8 @@ class TestApplySpeciesCommand:
         item.spacing_radius_cm = 10.0
         new = {"scientific_name": "New species", "max_spread_cm": 90.0}
 
-        cmd = ApplySpeciesCommand(item, old, new, 10.0, None)
+        cmd = ApplySpeciesCommand(item, old, new, 10.0, None,
+                               old_species_name="", new_species_name="New")
         cmd.execute()
         assert item.metadata["plant_species"]["scientific_name"] == "New species"
         assert item.spacing_radius_cm is None
@@ -823,7 +827,8 @@ class TestApplySpeciesCommand:
         old = {"scientific_name": "Old", "max_spread_cm": 20.0}
         item = _FakePlant()
         item.metadata["plant_species"] = old
-        cmd = ApplySpeciesCommand(item, old, {"scientific_name": "New"}, None, None)
+        cmd = ApplySpeciesCommand(item, old, {"scientific_name": "New"}, None, None,
+                               old_species_name="", new_species_name="New")
         cmd.execute()
         # Mutating the live dict must not corrupt the captured undo state.
         item.metadata["plant_species"]["scientific_name"] = "Mutated"
@@ -837,7 +842,8 @@ class TestApplySpeciesCommand:
         new = {"scientific_name": "Solanum lycopersicum", "max_spread_cm": 90.0}
 
         # max_spread 90 → footprint radius 45.
-        cmd = ApplySpeciesCommand(item, None, new, None, None, 20.0, 45.0)
+        cmd = ApplySpeciesCommand(item, None, new, None, None, 20.0, 45.0,
+                               old_species_name="", new_species_name="Tomato")
         cmd.execute()
         assert item.radius == 45.0
 
@@ -848,10 +854,35 @@ class TestApplySpeciesCommand:
         self, qtbot  # noqa: ARG002
     ) -> None:
         item = _FakePlant(radius=20.0)
-        cmd = ApplySpeciesCommand(item, None, {"scientific_name": "X"}, None, None)
+        cmd = ApplySpeciesCommand(item, None, {"scientific_name": "X"}, None, None,
+                               old_species_name="", new_species_name="X")
         cmd.execute()
         assert item.radius == 20.0  # no resize requested
 
     def test_description_localizable(self, qtbot) -> None:  # noqa: ARG002
-        cmd = ApplySpeciesCommand(_FakePlant(), None, {}, None, None)
+        cmd = ApplySpeciesCommand(_FakePlant(), None, {}, None, None,
+                               old_species_name="", new_species_name="X")
         assert cmd.description == "Apply species data"
+
+    def test_the_species_string_is_written_and_restored(self, qtbot) -> None:  # noqa: ARG002
+        """#445: the item's own species STRING is what the sprite resolver reads,
+        so the assignment writes it - and the undo puts the old one back."""
+        item = _FakePlant()
+        item.plant_species = "pumpkin"
+        cmd = ApplySpeciesCommand(item, None, {"common_name": "Winter Squash"},
+                                  None, None, None, None,
+                                  old_species_name="pumpkin",
+                                  new_species_name="Winter Squash")
+        cmd.execute()
+        assert item.plant_species == "Winter Squash"
+
+        cmd.undo()
+        assert item.plant_species == "pumpkin"
+
+    def test_a_command_without_names_cannot_be_built(self, qtbot) -> None:  # noqa: ARG002
+        """The names are REQUIRED: a command that carries a species but no name
+        would assign the data and leave the plant drawn as it was - the very
+        defect #445 is about."""
+        item = _FakePlant()
+        with pytest.raises(TypeError):
+            ApplySpeciesCommand(item, None, {"common_name": "X"}, None, None)

@@ -1,5 +1,22 @@
 # 6. Runtime View
 
+## Fixed toolbar startup (PR #556 manual acceptance, ADR-062)
+
+```mermaid
+sequenceDiagram
+    participant A as Application
+    participant S as UiStateStore
+    participant W as Main window
+    A->>W: Build drawing toolbars and dedicated Plan & Sun row
+    A->>S: restore_geometry(restore_window_state=False)
+    S->>W: Restore window bounds; retain application toolbar topology
+    A->>S: Restore main splitter proportions
+    A->>W: Apply permanent/feature toolbar visibility
+```
+
+Legacy toolbar layout bytes remain in settings for compatibility. They cannot
+replace the fixed rows or squeeze Plan & Sun beside the drawing tools.
+
 ## Live sun evaluation and document replacement (ADR-056 / ADR-062)
 
 ```mermaid
@@ -57,7 +74,36 @@ flowchart TD
     C --> C1 --> C2 --> C3 --> C4 --> C5 --> C6
 ```
 
+### 6.1.1 Shift selection and editing handles (#522)
+
+```mermaid
+sequenceDiagram
+    participant V as CanvasView
+    participant T as SelectTool
+    participant Q as Qt scene / handle
+    V->>T: Left press with Shift and raw scene position
+    alt Topmost hit is an interactive drag handle
+        T-->>V: Unhandled
+        V->>Q: Deliver press normally
+        Q-->>V: Handle grabs mouse
+        V->>V: Track handle for dropped-grab recovery
+    else Topmost hit is a canvas object or passive overlay
+        T->>T: Find first selectable item under cursor
+        T->>Q: Toggle selection if a target exists
+    end
+```
+
+With no selectable target the tool returns unhandled and Qt applies its normal
+empty/locked-item behavior. Handle release registers the existing single edit
+command; selection toggles do not create history entries.
+
 ## 6.2 Save/Load Flow
+
+Species assignment uses one command for metadata, footprint and sprite identity.
+On undo/redo, the existing stack-change refresh updates Plant Details from the
+current item. Removing the last species record clears and hides the profile name,
+thumbnail, links, attribution and source tooltip along with the form; redo restores
+them. The selected plant remains available to Create Custom when it has no species.
 
 ### Save
 

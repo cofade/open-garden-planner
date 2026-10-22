@@ -338,30 +338,31 @@ def test_a_species_assigned_from_the_database_is_built_as_the_canvas_draws_it(
     garden: Garden,
 ) -> None:
     """Assigning a species from the plant database (``ApplySpeciesCommand``) writes
-    the item's species DATA and leaves its species STRING alone. The canvas
-    resolves its sprite from the string, so it keeps drawing the tree's default
-    sprite — and 3D builds that same sprite's recipe (ruling R14: the record
-    carries the item's own string, and the builder resolves from it). The data
-    still decides the size: the oak's 40 m. Whether the 2D sprite should follow
-    an assigned species is a question for 2D, not a difference between the views
-    any more (it was one: 3D built the oak — pinned as a known gap in the first
-    version of this test)."""
+    the item's species DATA *and* its species STRING (#445). The canvas resolves
+    its sprite from the string, so the plant is drawn with the oak's sprite -
+    and 3D builds that same sprite's recipe (ruling R14: the record carries the
+    item's own string, and the builder resolves from it). The data still decides
+    the size: the oak's 40 m.
+
+    It used to write only the data, and the plant kept the tree's default
+    sprite in both views - 2D and 3D agreed, but on the wrong plant."""
     unknown, item_id = garden.plants["unknown"], garden.item_id("unknown")
     oak = lookup_species("oak")
     assert oak is not None
     apply_species_to_item(unknown, merge_calendar_data(dict(oak)))   # the app's own path
-    assert unknown.plant_species == "" and unknown.metadata["plant_species"]["common_name"] == "Oak"
+    assert unknown.plant_species == "Oak"
+    assert unknown.metadata["plant_species"]["common_name"] == "Oak"
     _changes, _calls, records = garden.tick(JUNE_2026)
     record = records[item_id]
     assert record.height_cm == 4000.0                          # the data gives a height now
     assert record.params[PARAM_SPECIES_NAME] == "Oak"          # ... and a name, for labels
-    assert PARAM_SPRITE_SPECIES not in record.params           # the item's own string is empty
+    assert record.params[PARAM_SPRITE_SPECIES] == "Oak"        # the item's own string
     drawn = plant_renderer._resolve_svg_path(
         unknown.object_type, unknown.plant_species, unknown.plant_category)
     sprite = plant_sprite(record)
     assert drawn is not None and sprite is not None
-    assert (drawn.parent.name, drawn.stem) == ("categories", "round_deciduous")   # 2D
-    assert (sprite.group, sprite.name) == ("categories", "round_deciduous")       # 3D: the same
+    assert (drawn.parent.name, drawn.stem) == ("species", "oak")   # 2D
+    assert (sprite.group, sprite.name) == ("species", "oak")       # 3D: the same
 
 
 def _drag_data(entry: GalleryItem) -> str:
@@ -432,10 +433,12 @@ def test_every_species_string_is_built_as_the_sprite_the_canvas_draws(canvas: Ca
              for n, text in enumerate(strings)]
     assert [item.plant_species for item in items] == strings        # set as dropped, untouched
     assert _drawn_and_built(canvas, items) == []
-    # ... and the canvas does draw a string of blanks as a rose (the quirk 3D now shares)
+    # ... and a string of blanks is no species at all: it takes the category's
+    # sprite (#446 - the old substring rule answered the rose for it)
     blanks = items[strings.index("   ")]
     drawn = plant_renderer._resolve_svg_path(blanks.object_type, blanks.plant_species, None)
-    assert drawn is not None and (drawn.parent.name, drawn.stem) == ("species", "rose")
+    assert drawn is not None and (drawn.parent.name, drawn.stem) == (
+        "categories", "round_deciduous")
 
 
 # ── the story's measuring script, run as documented, outside pytest ───────────

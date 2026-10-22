@@ -11,12 +11,28 @@ a private function of ``core/plant_renderer`` (a Qt module). Since Phase 17 L1.7
   sprite the canvas shows. A species the canvas draws with a category sprite
   gets the category's recipe in 3D too.
 
-The rule is the 2D rule, extracted — not improved. Its partial match has quirks
-("Lemon Balm" takes the lemon tree's sprite, a whitespace-only species the
-rose's); they are pinned, because changing them changes what users see in 2D.
-``tests/fixtures/plant_art/sprite_resolution_golden.json`` holds 1,562 answers of
-the resolver as it was before the extraction; ``tests/unit/test_plant_art.py``
-holds this module to them.
+The rule was the 2D rule, extracted. It has since been made correct (#446): the
+extracted rule matched a species name by SUBSTRING, so a melon was drawn as an
+eggplant ("melon" is inside "solanum melongena"), a scientific name as a rose
+("Petroselinum crispum" contains "rose"), a plant whose name merely CONTAINS
+another plant's name as that other plant ("peach_tree" as a pea), and a
+whitespace-only species as a rose (the empty string is inside every key).
+
+The name is now matched as a WHOLE name or alias, and a name no sprite knows
+falls back to the plant's category sprite. **Three of the issue's examples
+survive that fix** - "Lemon Balm", "Bean (Bush)" and "Sweet Potato" still take
+a fruit or vegetable sprite, because their names contain a whole word that is
+another plant's name ("lemon", "bean", "potato"). Fixing those needs a curated
+alias table, which the owner declined; the residue is pinned in
+``tests/unit/test_plant_art.py``, so that a later change to the rule has to say
+so.
+
+``tests/fixtures/plant_art/sprite_resolution_golden.json`` holds 1,562 answers
+of the resolver — the golden is regenerated from the rule, and
+``scripts/make_sprite_resolution_golden.py`` keeps a statement-for-statement
+copy of it as the fixture's provenance (and of the rule it replaced, as
+``legacy_resolve``); ``tests/unit/test_plant_art.py`` holds this module to
+both.
 
 Kinds and categories are plain NAMES here (``"TREE"``, ``"ROUND_DECIDUOUS"``):
 ``core.object_types`` imports Qt, and a 3D record carries names anyway.
@@ -24,7 +40,8 @@ Kinds and categories are plain NAMES here (``"TREE"``, ``"ROUND_DECIDUOUS"``):
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import re
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Final, TypeAlias
 
@@ -316,6 +333,77 @@ SPECIES_SPRITES: Final[dict[str, str]] = {
 Available: TypeAlias = Callable[[SpriteRef], bool]
 
 
+def _normalise(name: str) -> str:
+    """A species name folded to the form the tables are keyed by: lower case,
+    blanks collapsed, and ``-`` and ``_`` read as the blank they stand for.
+
+    The tables spell a name in words ("apple tree"), the gallery and the
+    database spell the same name in a file stem ("apple_tree") or with a
+    hyphen ("apple-tree"). All three are one name.
+    """
+    return re.sub(r"[\s\-_]+", " ", name.lower()).strip()
+
+
+#: Every species key, normalised, to the sprite it names. The first key wins
+#: when two keys normalise to the same string.
+_NORMALISED_SPECIES: Final[dict[str, str]] = {}
+
+#: Every species key as (its words, its length, the sprite it names), in table
+#: order. The table's order is the tie-break of the last matching rule.
+_SPECIES_WORDS: Final[list[tuple[frozenset[str], int, str]]] = []
+
+for _key, _stem in SPECIES_SPRITES.items():
+    _normalised = _normalise(_key)
+    _NORMALISED_SPECIES.setdefault(_normalised, _stem)
+    _SPECIES_WORDS.append((frozenset(_normalised.split()), len(_normalised), _stem))
+
+
+def species_candidates(species: str) -> list[str]:
+    """The sprite stems a species name can mean, best first.
+
+    Three rules, in order (#446):
+
+    1. **The whole name.** The name, normalised, is a key of the table.
+    2. **The name contains a key.** Every word of a key is a word of the name
+       — "Broad Bean" names the bean, "Winter Squash" the squash. The key with
+       the most words wins, so "prunus persica" beats "prunus".
+    3. **A key contains the name.** Every word of the name is a word of the key
+       — "Solanum" names the tomato. The key with the fewest extra words wins;
+       a tie keeps the table's order.
+
+    A name that matches none of them is no species the sprites know, and the
+    caller falls back to the plant's category sprite.
+
+    The length tie-break in rule 2 is a real one: two one-word keys inside one
+    name ("lavender rose") are both one word, and the longer key wins.
+    """
+    if not species:
+        return []
+    wanted = _normalise(species)
+    if not wanted:
+        return []
+    found: list[str] = []
+    exact = _NORMALISED_SPECIES.get(wanted)
+    if exact is not None:
+        found.append(exact)
+    words = frozenset(wanted.split())
+    contained = sorted(
+        ((len(key_words), length, index, stem)
+         for index, (key_words, length, stem) in enumerate(_SPECIES_WORDS)
+         if key_words <= words),
+        key=lambda row: (-row[0], -row[1], row[2]),
+    )
+    found.extend(row[3] for row in contained)
+    supersets = sorted(
+        ((len(key_words) - len(words), index, stem)
+         for index, (key_words, _length, stem) in enumerate(_SPECIES_WORDS)
+         if words <= key_words),
+        key=lambda row: (row[0], row[1]),
+    )
+    found.extend(row[2] for row in supersets)
+    return list(dict.fromkeys(found))
+
+
 def has_recipe(sprite: SpriteRef) -> bool:
     """True when the recipe tables know this sprite (what 3D asks)."""
     return sprite.name in (SPECIES if sprite.group == GROUP_SPECIES else CATEGORIES)
@@ -335,11 +423,10 @@ def resolve_sprite(
 ) -> SpriteRef | None:
     """The sprite of a plant, or None when ``kind`` is not a plant type.
 
-    Priority, exactly as the 2D renderer has always resolved it:
+    Priority:
 
-    1. the species sprite — ``species`` lower-cased and stripped, as an exact key
-       of ``SPECIES_SPRITES``, else the FIRST key that contains it or is
-       contained in it;
+    1. the species sprite — the name matched as a whole name, then as a name
+       that contains a key, then as a name a key contains (``species_candidates``);
     2. the sprite of ``category`` (a ``PlantCategory`` name);
     3. the sprite of the kind's default category.
 
@@ -355,16 +442,9 @@ def resolve_sprite(
         sprite = SpriteRef(group, name)
         return sprite if available is None or available(sprite) else None
 
-    if species:
-        wanted = species.lower().strip()
-        exact = SPECIES_SPRITES.get(wanted)
-        if exact is not None and (found := usable(GROUP_SPECIES, exact)) is not None:
+    for stem in species_candidates(species):
+        if (found := usable(GROUP_SPECIES, stem)) is not None:
             return found
-        for key, name in SPECIES_SPRITES.items():
-            if (key in wanted or wanted in key) and (
-                found := usable(GROUP_SPECIES, name)
-            ) is not None:
-                return found
     for category_name in (category, default):
         if category_name is None:
             continue
@@ -381,3 +461,32 @@ def resolve_recipe(
     what the 3D plant builder asks. None when ``kind`` is not a plant type."""
     sprite = resolve_sprite(kind, species, category, available=has_recipe)
     return None if sprite is None else (sprite, recipe_for(sprite))
+
+
+def names_a_species_sprite(kind: str, name: str, category: str | None = None) -> bool:
+    """True when ``name`` names a sprite of its own (not the category's)."""
+    sprite = resolve_sprite(kind, name, category)
+    return sprite is not None and sprite.group == GROUP_SPECIES
+
+
+def species_name_for_record(
+    record: Mapping[str, object], kind: str, category: str | None = None
+) -> str:
+    """The name a plant should carry for a species record, so that the sprite
+    resolver draws the species the record names (#445).
+
+    The record's common name when a sprite answers to it, else its scientific
+    name when one does, else the common name itself — a name the sprites do
+    not know is still the plant's name; it simply draws its category's sprite.
+
+    The name is what the item CARRIES, not what the record happens to call the
+    plant: the item's own species string is what the 2D renderer and the 3D
+    plant builder both resolve from, so a name that only lives in the record's
+    data can never change what the plant looks like.
+    """
+    common = str(record.get("common_name") or "").strip()
+    scientific = str(record.get("scientific_name") or "").strip()
+    for name in (common, scientific):
+        if name and names_a_species_sprite(kind, name, category):
+            return name
+    return common or scientific

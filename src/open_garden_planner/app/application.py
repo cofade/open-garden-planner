@@ -2751,6 +2751,10 @@ class GardenPlannerApp(QMainWindow):
                 None,
                 getattr(item, "spacing_radius_cm", None),
                 getattr(item, "spacing_radius_cm", None),
+                None,
+                None,
+                old_species_name=getattr(item, "plant_species", "") or "",  # the name it had
+                new_species_name="",                     # ... and the name it has now
             )
             self.canvas_view.command_manager.execute(cmd)
             self._agent_refresh_soil_mismatches()
@@ -6384,7 +6388,12 @@ class GardenPlannerApp(QMainWindow):
         deliberately NOT restored — the sidebar accordion always starts fully
         collapsed every session (US-226, ADR-030).
         """
-        self._geometry_restored = self._ui_state.restore_geometry(self)
+        # These toolbars are not movable: their topology belongs to the app.
+        # Replaying a pre-F4 row can squeeze the permanent Plan & Sun strip
+        # beside the tools. Keep window geometry and splitter preferences,
+        # while retaining the toolbar rows built by _setup_central_widget.
+        self._geometry_restored = self._ui_state.restore_geometry(
+            self, restore_window_state=False)
         self._ui_state.restore_splitter("main", self._main_splitter)
         self._enforce_toolbar_visibility()
 

@@ -1078,7 +1078,7 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 - **Two keys, never aliased**: `object_height_cm` (above-ground height, shadows/3D) vs `container_height_cm` (soil fill, drives volume) — a tall pot on legs can be 90 cm tall with a 30 cm fill. The resolver arbitrates; nothing else reads both. **Known simplification (review-flagged, revisit in US-E3/#258)**: with no explicit override the fill height *stands in* for a container's above-ground height (there is no separate source in this slice), so an on-legs pot under-shadows until the user sets a height — marked in a code comment at the fallback.
 - **Additive metadata, NO FILE_VERSION bump** (stays "1.4"): the serializer round-trips `item.metadata` wholesale, old apps ignore unknown keys (precedent: the `container_*` keys). Graceful degrade both directions is pinned by `tests/integration/test_height_property.py`.
 - **Qt-free by name-matching**: `core/object_types.py` imports PyQt6 (translated labels), so the resolver matches object types by enum **name** (`"FENCE"`) instead of importing the enum — same spirit as `plant_sizing`/`container_model`'s metadata-only duck-typing. The name sets (`DEFAULT_HEIGHTS_CM` keys, container/plant name sets) are pinned against the real enum by unit tests, so a rename breaks a test rather than silently orphaning a default.
-- **Undoable UI**: the properties-panel "Object height:" spin displays the *resolved effective* height (0 = "Auto" clears the override — the exact semantics of the existing spacing-radius field) and commits via `ChangePropertyCommand(apply_func=…)` — one undo step (#209). The container section's direct-metadata mutation remains documented debt, not a precedent.
+- **Undoable UI**: the properties-panel "Object height:" spin displays the *resolved effective* height (0 = "Auto" clears the override — the exact semantics of the existing spacing-radius field) and commits via `ChangePropertyCommand(apply_func=…)` — one undo step (#209). The container section's direct-metadata mutation was documented debt, not a precedent; it is paid now (#530 - each of those edits is one `ChangePropertyCommand`).
 
 **Consequences**: US-E3 consumes `solar_position()` + `effective_height_cm()` without new plumbing; US-E5/E6's extrusion uses the same resolver, so 2D shadows and 3D heights can never disagree. `height_source()` gives the UI (and future diagnostics) provenance for free.
 
@@ -3681,6 +3681,24 @@ the per-layer and per-file tables, the widget-leak measurement and the correctio
 issue #509's stated facts. The CI `Test` job uploads its `--durations=0` report as the
 `test-durations-linux` artifact.
 
+### ADR-058 addendum: scoped timing functions and attribute carriers (#528, PR #556)
+
+The guard follows duration attributes into local support modules. Attribute ownership
+alone did not fix the original same-module collision: the first implementation still
+indexed functions and propagated calls by bare name. A tagged AST probe printed
+`clock closure: ['bake', 'test_session']` for a test that called only the ordinary baker
+and asserted a tile-count bound. A separate-module equality assertion could not expose it.
+
+Both closures now use a cached lexical index whose keys preserve the class and enclosing
+functions within each module. Calls resolve through lexical names, `self`/`cls`, explicit
+classes and locally constructed or annotated instances; unresolved receivers never fall
+back to another class's method name. Imported helper functions, dynamic receivers, instance
+aliases and inherited methods remain outside this static analysis. Attribute ownership
+retains its module/class/attribute identity. Regressions cover both class orders, duplicate
+test/helper names, both call-graph closures and the real ground-bake AST with `TimedBaker`
+restored inline. The G3 marker remains required; ordinary session count bounds stay on the
+parallel runner. No application runtime, dependency or file-format change.
+
 ### ADR-058 addendum: the coverage floor blocks, and the perf pin is mutation-verified (#512–#516, 19 October 2026)
 
 **Decision 1 — a coverage-floor regression blocks a merge (#514).** `Coverage` joins the
@@ -4478,19 +4496,20 @@ with the sprite on the plan about its shape or its green, and no test would noti
    bytes) before and after. The one palette that was a literal
    in the drawing code, the hedge's, became data too (`HEDGE_PALETTE`).
 2. **The resolution is one function: `core/plant_art/resolve.py::resolve_sprite(kind, species,
-   category, available=…)`** — the 2D rule extracted, quirks included, with the sprite maps it
-   reads. `plant_renderer._resolve_svg_path` calls it and asks "does the SVG exist?"; the 3D
+   category, available=…)`** — the 2D rule extracted, with the sprite maps it reads.
+   `plant_renderer._resolve_svg_path` calls it and asks "does the SVG exist?"; the 3D
    builder calls it and asks "do the tables hold a recipe?" (the two sets are the same 123 names,
-   pinned). It is held to a golden of 1,562 answers recorded from the unchanged resolver in the
-   commit before the extraction — and, with sprite files missing, to that resolver itself, kept
-   statement for statement in the golden's generator
-   (`scripts/make_sprite_resolution_golden.py`). A species the canvas draws with a category
-   sprite gets the category's recipe in 3D.
+   pinned). It is held to a golden of 1,562 answers — **regenerated from the rule when the rule
+   changed** (#446, below) — and, with sprite files missing, to a statement-for-statement copy of
+   the rule in the golden's generator (`scripts/make_sprite_resolution_golden.py`), which also
+   keeps the rule it replaced as `legacy_resolve` for the before/after. A species the canvas
+   draws with a category sprite gets the category's recipe in 3D.
    **Both callers hand it the same inputs** (orchestrator ruling R14): the item's type, its plant
    category and the item's OWN species string exactly as it is. The record carries that string
    for this purpose as `params["sprite_species"]` (`PARAM_SPRITE_SPECIES`: `item.plant_species`,
-   not stripped, not replaced by species data; absent when empty). `species_name` and
-   `species_key` stay in the record and describe the species DATA.
+   not stripped; absent when empty). `species_name` and `species_key` stay in the record and
+   describe the species DATA. **A species assigned from the plant database writes the item's
+   string** (#445, below), so the assigned species is the one both views draw and build.
 3. **One builder for the plant kinds, one silhouette per archetype**
    (`core/scene3d/builders/plants.py`, registered for `plant_art.PLANT_KINDS` — the table
    `plant_renderer.is_plant_type` answers from). Every archetype of the tables has a builder; a
@@ -4575,6 +4594,8 @@ with the sprite on the plan about its shape or its green, and no test would noti
   second rule: "Lemon Balm" takes the lemon tree's sprite in 2D (`"lemon" in "lemon balm"`),
   "Melon" the eggplant's, and a 3D view that knew better would show a different plant than the
   plan. Fixing the 2D rule changes sprites users see and is its own issue.
+  *(Superseded by #446 — see "the species name is a whole name, and the assignment writes it" below:
+  the rule was fixed in ONE place, and it is the same rule the 3D builder asks.)*
 - **Scaling the farthest vertex onto the canopy circle** instead of fitting the bounding box. The
   box then spans as little as 72 % of the canopy diameter (measured, feathery), outside the ± 10 %
   spread gate. Bounding-box fit plus regular outlines keeps both — and the fit's last step
@@ -4637,6 +4658,9 @@ with the sprite on the plan about its shape or its green, and no test would noti
   recorded as a known gap between the views in the first version (3D built the new species); it
   is now one behaviour, and a 2D question: should the sprite follow an assigned species?
   Follow-up issue material, with the partial-match quirks below — not a 3D matter.
+  *(Superseded by #445 — see "the species name is a whole name, and the assignment writes it" below:
+  the assignment now writes the item's string, so the sprite DOES follow the assigned species, in
+  both views.)*
 - **One 2D input is NOT followed: the item's fill colour.** The canvas lays it over a plant's
   sprite at 60 / 255 opacity; 3D foliage is the recipe's palette alone, so a recoloured plant
   differs in hue between the views and a recolour changes nothing in 3D. The hue gate's
@@ -4645,6 +4669,8 @@ with the sprite on the plan about its shape or its green, and no test would noti
   a trunk and a crown 90 cm tall — because that is the sprite the plan shows; "Melon" takes the
   eggplant's recipe, "Bean (Bush)" a climber's, a string of blanks the rose's. Twelve of the 118
   bundled species have no sprite of their own and take their item type's category.
+  *(Superseded by #446 — the melon and a string of blanks no longer take those sprites; "Lemon Balm"
+  and "Bean (Bush)" still do, and that residue is pinned in the unit test.)*
 - **Many plants are placeholders until someone says how tall they are.** A category plant from
   the gallery ("Round Deciduous", "Palm" …) has no species data and so no height: the 2D shadow
   model casts none for it either. A typed height, a measured one or a species turns the marker
@@ -4714,6 +4740,77 @@ with the sprite on the plan about its shape or its green, and no test would noti
   any more, so that safety net was exercised by nothing; the fit-report test now asserts it. The
   run before the review, 45 mutants, had found the placeholder's round rim unpinned the same
   way.)
+
+### ADR-059 addendum: the species name is a whole name, and the assignment writes it (#446, #445)
+
+**Context.** The "plant art v0" addendum above extracted the 2D sprite rule as it stood, quirks
+included, and the alternative it rejected there was explicit: "a better resolver for 3D - keyed on
+`species_key`, without the partial match ... Fixing the 2D rule changes sprites users see and is
+its own issue." That issue is #446, and it is now decided. The rule matched a species name by
+asking whether a key was CONTAINED in the name, or the name in the key - which is not a name
+match: "Melon" took the eggplant's sprite ("melon" is inside "solanum melongena"),
+"Petroselinum crispum" took the rose's, "peach_tree" took the pea's, and a string of blanks
+took the rose's (the empty string is inside every key). A second, quieter half of the same
+defect sat next door (#445): a species assigned from the plant database wrote the RECORD
+(`metadata["plant_species"]`) and not the item's own species STRING, and the string is what the
+resolver reads - so a plant assigned "Oak" kept the generic tree sprite in 2D and was built as a
+tree in 3D.
+
+**Decision.**
+
+1. **A species name is matched as a whole name or alias, in three steps**: the whole name; else a
+   key whose every word is a word of the name ("Broad Bean" -> bean, "Winter Squash" -> squash);
+   else a key that holds every word of the name ("Solanum" -> tomato). A name no sprite knows
+   falls back to the plant's CATEGORY sprite. The whole-name-only rule the issue proposed was
+   MEASURED first and rejected: it changes 266 of the golden's 1,562 answers over 110 distinct
+   names, and most of those are regressions - "Quercus robur", "Broad Bean", "Sweet Corn" have no
+   exact key and would fall back to a generic sprite. The rule that shipped changes 74 answers
+   over 37 names, and of the bundled species' 118 names exactly ONE changes - the melon, which
+   was drawn as an eggplant. The rule stays ONE rule, shared by the 2D renderer and the 3D plant
+   builder, and the golden is regenerated from it; the rule it replaced is kept as
+   `legacy_resolve` in the golden's generator, which prints the before and after
+   (`--legacy-diff`).
+2. **What the fix does not do, stated here rather than left to be discovered**: "Lemon Balm",
+   "Bean (Bush)" and "Sweet Potato" still take a fruit or vegetable sprite, because their names
+   contain a whole word that is another plant's name ("lemon", "bean", "potato"). A curated
+   alias table would fix them; the owner declined it, and the residue is pinned in
+   `tests/unit/test_plant_art.py` so that a later change to the rule has to say so.
+3. **An assignment writes the item's species STRING**, so the plant is drawn - and built - with
+   the species it was assigned. The string is the plant's own name: the gallery writes it when the
+   plant is created, and an assignment replaces it with the name of the species assigned (the
+   record's common name, or its scientific name when the common name names no sprite). The
+   record's DATA and the string can still differ - a gallery "Pumpkin" carries the data of "Winter
+   Squash" while its own string is "pumpkin" - which is exactly why the resolver reads the string
+   and never the record's name. The string is written inside the same `ApplySpeciesCommand`, so
+   the record, the spacing override, the footprint radius and the string revert together in one
+   undo step.
+
+**Alternatives rejected.**
+
+- **Whole-name-only** (the issue's own proposal): measured above - 266 answers over 110 names, and
+  most of those regressions. A rule that is right for "Melon" and wrong for "Quercus robur" is not
+  a rule.
+- **A curated alias table** for the residue ("lemon balm" -> herb, "bean (bush)" -> vegetable):
+  it fixes the last three cases exactly, at the price of a hand-maintained table that can rot and
+  a second place where a name has to be taught. The owner declined it; the residue is pinned
+  instead.
+- **Resolving the sprite from the record's data name** (never writing the string): the item's
+  string and the record's name are different things - a gallery "Pumpkin" carries the data of
+  "Winter Squash" - so the record's name would draw the wrong plant, and the 2D/3D contract of
+  "the item's own string, exactly as it is" would be lost.
+
+**Consequences.** The 2D and the 3D view answer the same question the same way, and a species
+assigned from the database is the species the plan shows - in the plan and in the 3D view alike.
+The golden is no longer an independent oracle (it is regenerated from the rule), so the rule is
+held by the mutation script instead: `scripts/mutation_check_plant_art.py` breaks one rule at a
+time, and four new mutants pin the three matching steps and the normalisation of the name.
+
+**Evidence.** `tests/unit/test_plant_art.py::TestTheNameIsMatchedAsAWholeName` (the rule and the
+residue), `tests/integration/test_apply_database_species.py::test_the_assigned_species_is_the_sprite_the_plant_is_drawn_with`
+(the assignment, through the real panel), `tests/integration/test_scene3d_plants.py::test_a_species_assigned_from_the_database_is_built_as_the_canvas_draws_it`
+(2D and 3D agree), `scripts/make_sprite_resolution_golden.py --legacy-diff` (the before and
+after), FR-PLANT-ART-05, FR-PLANT-21, PF-DOM-26, PF-DOM-27.
+
 
 ### What the second review found (same story, the fix round's own claims)
 
@@ -6739,3 +6836,25 @@ day in the viewing range; the reveal action reports that limitation. Exposure
 failure retry, per-tick scene scans, duplicate lifetime refresh and temporary
 render-layer changes during concurrent exports remain maintenance follow-ups.
 The review record and validation detail belong to PR #533.
+
+### ADR-062 addendum: fixed toolbar topology survives legacy state (PR #556)
+
+The owner manual pass reproduced a legacy saved layout with SunSimToolbar in the
+same row as the drawing tools: at 1707 pixels wide it received 259 pixels, while
+every neighbor stretched to 137 pixels tall. Making the strip visible did not
+restore its dedicated row. A native capture using an isolated copy of the owner's
+state reproduced the screenshot.
+
+The main window now calls `UiStateStore.restore_geometry` with
+`restore_window_state=False`. Window bounds and splitter proportions still restore;
+the non-movable toolbar topology remains the application's initial two-row layout.
+The generic store keeps layout replay as its default and preserves existing blobs.
+No settings reset, project-format change or new user-visible option is introduced.
+Replaying then relocating the adaptive toolbar before first show was rejected after
+a reproducible native abort; bypassing obsolete topology avoids that path entirely.
+
+Pinned by `test_restored_shared_row_cannot_squeeze_the_permanent_plan_strip` (strip
+first/last in a shared row, two subsequent launches) and
+`test_fixed_layout_can_restore_bounds_without_replaying_toolbar_state` (both policies).
+Native Windows layout checks and captures use actual platform fonts; an offscreen
+run with missing font discovery cannot establish the application's visual acceptance.

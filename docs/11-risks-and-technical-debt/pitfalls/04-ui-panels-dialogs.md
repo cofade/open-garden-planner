@@ -144,11 +144,22 @@ Held in [ADR: ADR-017: Bed-Specific Features Built Centrally on `GardenItemMixin
 
 ### PF-UI-13
 
-- **Rule:** `PropertiesPanel` rebuilds its form only when the selection's structural identity changes; otherwise registered refreshers push model values into the live widgets, skipping the focused one.
+- **Rule:** `PropertiesPanel` rebuilds its form only when the selection's structural identity changes; otherwise registered refreshers push model values into the live widgets. Focused text editors retain edit protection; committed checkbox/dropdown/color choices must refresh on undo/redo even while focused.
 - **Pinned by:** `tests/integration/test_properties_panel_incremental.py`; `tests/ui/test_properties_panel.py::TestFocusPreservation`
 - **Source:** #200, #206, #210, #222, #225
 - **Status:** standing
 - **Legacy:** b1faaa9 README L360
+
+PR #556 manual acceptance found a second focus trap: a non-editable Material
+combo and Drainage checkbox kept focus after committing, so the shared refresher
+skipped them even though undo had restored metadata and the 3D representation.
+Only text/spin editors and editable combos retain the per-widget edit guard;
+committed choices refresh with signals blocked. Pinned by
+`tests/integration/test_properties_panel_undo.py::test_focused_container_choice_tracks_global_undo_and_redo`
+for both controls through the real app's queued history wiring, with native focus
+and unchanged selection/widget identity. Both cases failed against the previous
+refresh method. The broader numeric/text focus guards still require separate
+history-aware handling (#560); direct Plant Details writes without commands are #559.
 
 - **Properties panel updates incrementally — rebuild only on a genuine selection/structure change** (issue #206, supersedes the #200 focus-guard workaround): `PropertiesPanel.set_selected_items` used to rebuild the entire form (`_clear_form()` → `removeRow` everything → recreate) on *every* call, and it is called for *any* command via `command_executed`/`can_undo_changed`/`can_redo_changed` ([application.py](../../../src/open_garden_planner/app/application.py) wires all three to a deferred `_update_properties_panel`). Live-editing fields that fire on every keystroke — the **Name** `QLineEdit` and **Text Content** `QTextEdit` — therefore tore down the form *while the user typed in them*, destroying the focused widget and dropping focus + caret after every character ("the plant name field loses focus after each keystroke", #200). The #200 fix was a focus guard (skip the rebuild while a panel editor holds focus), but that guard accreted whitelisted widget types and traded a stale view under focus. **#206 fixes the root cause:** `set_selected_items` now computes a structural **identity** (`_compute_identity`: item id + class + `object_type` + the bed's `child_item_ids` / a plant's `parent_bed_id`, which drive *which* fields and read-only summary rows exist, **plus** `_relationship_summary_key` — the rendered *text* of the Parent Bed / Contained Plants rows. Those rows show a **related** item's name; the id set alone does not catch a rename/undo of that related item while the current item stays selected, which would leave the summary stale on the refresh path since no refresher covers a variable-row summary list. `id(item)` is load-bearing: it is correct only because commands mutate the selected item in place and reuse the same object across undo/redo — a command that swaps the object for the same selection must add a discriminator). When the identity is unchanged — a pure scalar property edit, a canvas drag/resize, or undo/redo on the same item — it keeps the widgets alive and pushes fresh model values into them via the registered field **refreshers** (`_register_refresh` appends a closure next to each widget's creation; `_refresh_field_values` runs them all). Each refresher **skips a focused widget** (`_is_focused`) and writes under `blockSignals` so a value push never registers a command or stomps an active edit. The form is rebuilt only on an identity change (different/multi/empty selection, type change, reparent). The old focus guard at the top of `set_selected_items` is **kept as a defensive backstop** for the rare "selection genuinely changed while a field holds focus" rebuild — it is no longer load-bearing for the common case, so new live-editing fields no longer have to be whitelisted in it. **A naive "skip the rebuild when the selection is unchanged" was rejected** because it would leave Position/Size/colour showing stale values after a canvas drag or undo/redo; the refresh path is what keeps them correct. Lesson: any new editable field added to this panel must register a refresher (`_register_refresh(widget, lambda: widget.set…(read_model()))`) so its value stays in sync without a rebuild; any new field whose presence depends on a model relationship must be folded into `_compute_identity` so that relationship change forces a rebuild. **A combo whose *item list* (not just its selected index) is backed by mutable external state must repopulate that list in its refresher, not merely re-index** (#222 senior-review P1): the **Layer** combo reads `scene.layers`, and a re-index-only refresher left a renamed layer showing its old name / omitted a newly-added layer on the refresh path — its refresher now `clear()`s + re-`_populate_layer_combo()`s under `blockSignals` (`_refresh_layer_combo`). Object-type/style/pattern combos are enum-backed (fixed list) so a re-index is sufficient there. Regression tests: `tests/integration/test_properties_panel_incremental.py` (no-rebuild-on-same-selection, value refresh after move/resize/undo/redo, rebuild on selection change, refresher skips focused widget, **read-only summary rows stay fresh on a related-item rename/undo**, **Layer combo repopulates on a layer rename/add**) and `tests/ui/test_properties_panel.py::TestFocusPreservation`. The unguarded sibling `plant_database_panel.set_selected_items` (which already uses persistent widgets) got a matching defensive `_holds_field_focus()` backstop: it skips the value re-push when called for the already-displayed item while one of its own fields holds focus.
 
@@ -196,13 +207,20 @@ Held in [ADR: ADR-017: Bed-Specific Features Built Centrally on `GardenItemMixin
 
 ### PF-UI-18
 
-- **Rule:** Core toolbars are never user-hideable: `createPopupMenu()` returns `None`, and `_enforce_toolbar_visibility()` re-asserts the toolbar visibility invariant after every `restoreState()`.
+- **Rule:** Core toolbars are never user-hideable: `createPopupMenu()` returns `None`; startup retains application-defined toolbar rows and enforces permanent/feature visibility.
 - **Pinned by:** `tests/integration/test_toolbar_state_persistence.py::TestToolbarVisibilityIsOwnedByTheApp`
 - **Source:** #283, #286
 - **Status:** standing
 - **Legacy:** b1faaa9 README L383
 
 - **A toolbar carrying essential tools must not be user-hideable — `QMainWindow`'s free context menu is a trap with no way back** (#283 manual test): `QMainWindow` supplies a right-click menu with a checkbox per toolbar, for free, whether or not the app wants it. Since ADR-018 the `CategoryToolbar` *is* the object gallery, so one stray click removed **every** placement tool at once; the layout is saved on exit, so it stayed gone across restarts; and the only route back was that same menu, which a user who has just lost their toolbars has no reason to go looking for. Surfaced in #283's own manual test, reported as "all the drawing tools are gone" — the fix's regression test had happily proved that hiding *persists*, which is the behaviour, not the requirement. Fix: `GardenPlannerApp.createPopupMenu()` returns `None`, and `_enforce_toolbar_visibility()` re-asserts the invariant after every `restoreState()` — three core toolbars on, two feature toolbars off. The two halves are load-bearing together: enforcement without suppression leaves the trap open, and **suppression without enforcement is worse than the bug** — a user whose saved state already hides a core toolbar could never recover it, because those three have no View-menu toggle of their own. (The two feature toolbars are not in that position: each has a checkable View-menu action driving `setVisible`, so a stale-visible one can be dismissed in two clicks — measured, after an earlier draft of this entry claimed otherwise. Their defect is the action/toolbar/overlay desync of #286, not unrecoverability.) **The context menu is not even the likeliest trigger:** preview mode (F11) hides the main toolbar and `closeEvent` persists whatever is on screen, so quitting straight out of preview reopened the app with no drawing tools at all, no right-click involved. Measured as pre-existing — it fires with the `setObjectName` lines reverted too — and healed by the same enforcement, which is why the invariant must be *asserted* rather than merely made unreachable through one menu. Closes #286 as a side effect (soil-overlay toolbar returning visible with its action unchecked). Lesson: before persisting a piece of UI state, ask whether the user can get back out of every state you are about to make durable.
+
+PR #556 manual acceptance also exposed stale topology: restoring a legacy
+shared row squeezed Plan & Sun to 259 pixels and made the drawing toolbars 137
+pixels tall in a 1707-pixel window. The fixed-layout main window now restores
+bounds and splitters without replaying the toolbar layout blob (ADR-062 addendum).
+The blob remains intact; generic UiStateStore callers keep their default replay.
+Pinned by `tests/integration/test_toolbar_state_persistence.py::TestToolbarVisibilityIsOwnedByTheApp::test_restored_shared_row_cannot_squeeze_the_permanent_plan_strip`.
 
 ### PF-UI-19
 
@@ -263,3 +281,60 @@ A read-only line edit does not stop QDateEdit's wheel handling. The old removal
 sentinel advanced to 1901 and made an undated plant absent at every supported date.
 Ignore those gestures and constrain new calendar choices without rewriting stored
 legacy values.
+
+### PF-UI-24
+
+- **Rule:** Every property the Properties panel edits is one undoable command; a direct write into the item is neither undoable nor a mark of a modified plan.
+- **Pinned by:** `tests/integration/test_properties_panel_undo.py::test_the_grid_edits_of_a_bed_are_one_undo_step_each`; `tests/integration/test_properties_panel_undo.py::test_the_soil_depth_of_a_bed_is_one_undo_step`; `tests/integration/test_properties_panel_undo.py::test_the_container_edits_are_one_undo_step_each`
+- **Source:** #530
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Seven handlers wrote into the item DIRECTLY: a bed's grid on/off and grid
+spacing, a bed's soil depth, and a container's material, drainage, height and
+soil volume. A direct write is no command, so the undo stack never heard of it:
+Ctrl+Z undid the container's CREATION instead of its height, the plan was not
+marked modified, and closing the app asked nothing and lost the edit.
+
+The panel's own docstring had called this "documented debt" - and it was also
+the reason the 3D view needed a second announcement (`note_plan_changed`),
+because a command announces itself and a write does not. An edit now goes
+through `ChangePropertyCommand` like the panel's name, height, fill and stroke
+edits, and the announcement stays.
+
+Two details worth keeping: a value that was never set is restored as ABSENT
+again, not as `None` (the model's defaults answer for an absent key, not for a
+key holding `None`), and the property name is a LITERAL at the command call,
+because it is the undo label and it is what the i18n gate reads.
+
+
+### PF-UI-25
+
+- **Rule:** A Shift+click on a canvas object toggles the first selectable item under the cursor; interactive handles retain Qt mouse delivery.
+- **Pinned by:** `tests/integration/test_view3d_selection_bridge.py::test_shift_through_a_locked_item_toggles_what_is_behind_it`; `tests/integration/test_selection_and_resize.py::test_shift_drag_handle_does_not_select_the_item_behind`
+- **Source:** #522
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+A locked layer takes the selectable flag away from its items - that is all it
+takes, and the items are still drawn and still hit. The select tool asked
+`itemAt`, which answers the TOPMOST item, so a Shift+click on a locked item
+found an item that cannot be selected, gave up and handed the click to Qt -
+whose own toggle key is Ctrl. The Shift+click was therefore a PLAIN click on
+what was behind it, and it REPLACED the selection instead of toggling it.
+
+The tool now asks for the first SELECTABLE item under the cursor, so
+Shift+click toggles what lies behind the locked item - the canvas's own rule.
+With nothing selectable beneath, the click goes through as before, so a locked
+item with nothing behind it still clears the selection. The 3D selection bridge
+already did this, and the one measured difference between the two views is
+gone.
+
+PR #556's review caught the distinction between a passive overlay and a drag
+handle: both lack `ItemIsSelectable`, but a handle must receive its press.
+Looking through a resize or rotation handle selected a background object and
+prevented the grab. `SelectTool` now delegates handle presses to Qt before
+looking for a selection target. `DRAG_HANDLE_TYPES` in `resize_handle.py` is
+shared with the view's dropped-grab recovery, keeping all six handle types on
+the same event path. Real viewport drags cover resize and rotation at three
+angles, including two non-axis-aligned rotations, with one undo step.

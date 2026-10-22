@@ -3429,3 +3429,10 @@ class CurveEditMixin:
         command = SetCurveGeometryCommand(self, old, new)  # type: ignore[arg-type]
         # Geometry is already applied by the live drag — register without re-exec.
         command_manager.register_applied(command)
+
+
+# Selection dispatch and the view's dropped-grab recovery must recognise the
+# same editing controls. These are interactive even though not selectable.
+DRAG_HANDLE_TYPES = (
+    ResizeHandle, RotationHandle, VertexHandle, RectCornerHandle, MidpointHandle, CurveControlHandle,
+)

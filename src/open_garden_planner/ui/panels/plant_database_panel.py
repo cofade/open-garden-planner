@@ -1398,6 +1398,7 @@ class PlantDatabasePanel(QWidget):
         self._current_plant_data = None
         self._current_plant_item = None
         self._update_favorite_button()
+        self._clear_profile_header()
         self.no_selection_label.setText(self.tr("Select a plant to view details"))
         self.no_selection_label.setVisible(True)
 
@@ -1419,7 +1420,20 @@ class PlantDatabasePanel(QWidget):
                         if widget:
                             widget.setVisible(False)
 
-        # Clear the info tooltip
+    def _clear_profile_header(self) -> None:
+        """Remove species identity and attribution when no species is displayed."""
+        for label in (
+            self._profile_name, self._profile_scientific, self._profile_description,
+            self._profile_source, self._profile_links, self._profile_thumbnail,
+        ):
+            label.clear()
+        self._profile_header.hide()
+        if hasattr(self, "_license_label"):
+            self._license_label.clear()
+            self._license_label.hide()
+        self._favorite_btn.setToolTip("")
+
+        # The collapsible panel's source hint belongs to the same identity.
         parent_widget = self.parent()
         while parent_widget:
             if hasattr(parent_widget, "set_info_tooltip"):
@@ -1433,6 +1447,7 @@ class PlantDatabasePanel(QWidget):
         # self._current_plant_item is set by set_selected_items
         self._current_plant_data = None
         self._update_favorite_button()
+        self._clear_profile_header()
         self.no_selection_label.setText(
             self.tr(
                 "No species data.\n\n"

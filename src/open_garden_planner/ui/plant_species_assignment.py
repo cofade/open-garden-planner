@@ -26,11 +26,25 @@ from PyQt6.QtCore import QCoreApplication
 from PyQt6.QtWidgets import QGraphicsItem, QMessageBox, QWidget
 
 from open_garden_planner.core.commands import ApplySpeciesCommand
+from open_garden_planner.core.plant_art.resolve import species_name_for_record
 from open_garden_planner.core.plant_sizing import db_spacing_radius_cm
 
 # Spacing radii within this many cm are treated as equal (avoids prompting on
 # float round-trip noise).
 _SPACING_EPSILON_CM = 1e-6
+
+
+def _plant_kind(plant_item: QGraphicsItem) -> str:
+    """The item's plant kind as the resolver names it ("TREE", "SHRUB",
+    "PERENNIAL") - empty for an item that is not a plant."""
+    object_type = getattr(plant_item, "object_type", None)
+    return object_type.name if object_type is not None else ""
+
+
+def _plant_category_name(plant_item: QGraphicsItem) -> str | None:
+    """The item's plant category as the resolver names it, or None."""
+    category = getattr(plant_item, "plant_category", None)
+    return category.name if category is not None else None
 
 
 def _tr(text: str) -> str:
@@ -140,14 +154,16 @@ def apply_species_to_item(
             for the prompt to fire; when None a conflicting override is preserved.
 
     The drawn footprint is resized so its diameter equals the species'
-    ``max_spread_cm`` — silently in the common case (no conflicting manual
+    ``max_spread_cm`` - silently in the common case (no conflicting manual
     spacing override). Only a manual override that disagrees with the database
     triggers the prompt: "apply" clears the override and resizes the footprint;
     "keep" preserves both the override and the placed size. Either way
-    ``metadata['plant_species']`` is updated. The neighbour-collision *overlap*
-    indicator is recomputed separately by the main window's
-    ``_update_spacing_overlaps`` on the resulting ``scene.changed`` — it is not
-    re-flagged here.
+    ``metadata['plant_species']`` is updated, and so is the item's own species
+    STRING - the name the sprite resolver reads, so that the plant is drawn
+    with the species' sprite and not with the one it happened to be drawn with
+    (#445). The neighbour-collision *overlap* indicator is recomputed
+    separately by the main window's ``_update_spacing_overlaps`` on the
+    resulting ``scene.changed`` - it is not re-flagged here.
     """
     old_species = None
     existing = plant_item.metadata.get("plant_species")  # type: ignore[attr-defined]
@@ -156,6 +172,16 @@ def apply_species_to_item(
 
     old_override = getattr(plant_item, "spacing_radius_cm", None)
     old_radius = getattr(plant_item, "radius", None)
+
+    # The item's own species STRING is what the sprite resolver reads (#445).
+    # The assignment has to write it, or the plant keeps the sprite it was
+    # drawn with - in 2D and in 3D alike - while carrying the new species' data.
+    old_name = getattr(plant_item, "plant_species", "") or ""
+    new_name = species_name_for_record(
+        species_dict,
+        _plant_kind(plant_item),
+        _plant_category_name(plant_item),
+    )
 
     # Footprint radius / spacing radius the database would yield. The drawn
     # circle's diameter should equal max_spread_cm, so both derive from
@@ -193,6 +219,8 @@ def apply_species_to_item(
         new_override,
         old_radius,
         new_radius,
+        old_species_name=old_name,
+        new_species_name=new_name,
     )
 
     scene = plant_item.scene()

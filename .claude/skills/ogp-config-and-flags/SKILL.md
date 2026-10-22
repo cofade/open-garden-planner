@@ -164,7 +164,7 @@ colliding with §1. All production.
 | Key | Saved / restored |
 |---|---|
 | `UiState/geometry` | `QMainWindow.saveGeometry()` |
-| `UiState/window_state` | `QMainWindow.saveState()` (docks/toolbars) |
+| `UiState/window_state` | Saved layout blob retained for compatibility; GardenPlannerApp restores bounds/splitters without replaying toolbar topology (ADR-062 / PR #556). Generic UiStateStore callers still restore it by default. |
 | `UiState/splitter_<name>` | per-named `QSplitter.saveState()` |
 
 **Deliberately NOT persisted (ADR-030 / issue #226):** per-panel

@@ -221,7 +221,7 @@ wrappers over **one** backend:
 | Wrapper | Owns | Keys |
 |---------|------|------|
 | `app/settings.py` — `AppSettings` | user preferences: recent files, theme, language, auto-save interval, snap toggles, frost thresholds, Agent API port/token/write-toggle, API keys, last-used fillet/chamfer values | flat, grouped by domain (`canvas/`, `appearance/`, `agent_api/`, …) |
-| `app/ui_state.py` — `UiStateStore` | UI-only state: window geometry, `QMainWindow` state (toolbar layout), main splitter sizes | `UiState/` |
+| `app/ui_state.py` — `UiStateStore` | UI-only state: window geometry, main splitter sizes; the retained `QMainWindow` layout blob is not replayed by the fixed-layout main window (ADR-062 addendum) | `UiState/` |
 
 Per-panel collapse/expand state is deliberately **not** persisted — the sidebar
 accordion starts fully collapsed every session (US-226, ADR-030, §8.17.7).
@@ -435,6 +435,17 @@ it:
   path, and a 2D pan step costs the same with the view beside it (×1.04).
 - The floating mode switch of the workspace follows §8.9.1 to §8.9.3 — but it is parented to the
   WORKSPACE and floats over the canvas only; in 3D mode it moves into the pane's strip.
+
+### 8.9.10 Selection transparency preserves interactive handles (#522)
+
+`SelectTool` lets Qt deliver presses on `DRAG_HANDLE_TYPES` before applying its
+Shift selection toggle. A locked item, badge or label can be transparent to
+selection; a resize, rotation, vertex, corner, midpoint or curve-control handle
+must receive the press so Qt establishes the mouse grab. The handle tuple lives
+in `ui/canvas/items/resize_handle.py` and is shared with `CanvasView`'s dropped-grab
+recovery. `test_shift_drag_handle_does_not_select_the_item_behind` drives viewport
+press, move and release above a selectable background and checks the grab,
+geometry change and single-step undo at 0, 37 and 143 degrees.
 
 ## 8.10 Integration Test Policy
 
@@ -842,6 +853,17 @@ a measured duration against a bound without the marker. **12 of the 14 assert a 
 the other two are marked for scenario consistency**, which is the one thing the guard is
 documented not to check — it proves a marker is *required* where it fires, not that every
 marker present is needed.
+
+Issue #528 extends this to durations stored in class attributes, including local
+support modules. Both call-graph closures use lexical function identities (class
+and enclosing functions within the module), so `GroundBaker.bake` cannot inherit
+`TimedBaker.bake`'s stopwatch. Regression tests keep both classes in the same
+module in both definition orders, check the real ground-bake AST with its helper
+restored inline, and preserve the ordinary session's non-timing ordering assertions.
+The scan at PR #556 finds 40 duration candidates with no missing markers. Static
+call resolution does not follow dynamic receivers, instance aliases, inherited
+methods or imported helper functions; support-module attribute carriers are a
+separate supported path.
 
 **Small targeted runs are slower than they were.** Worker start-up dominates when there
 is nothing to distribute: one 11-test file measured 2.85 s serially against 5.48 s under
@@ -1735,11 +1757,11 @@ tier: `tests/integration/test_scene3d_ground_render.py`):
   11.58 ms. So does its render-tier twin, whose median is taken in the driver process
   (`test_scene3d_ground_render.py::test_one_small_edit_re_bakes_within_the_time_budget`; the
   rest of that test stays in the render tier — review 3, P2-1). G3's stopwatch is an ATTRIBUTE of
-  `tests/integration/ground_bake_support.py::TimedBaker`, which the perf-marker guard
-  (`tests/unit/test_perf_marker_guard.py`) does not follow, so the marker is set by hand — and the
-  class lives in the support module because the guard keys a module's functions by their bare
-  name: in the test module, a stopwatch in a method called `bake` made every test that calls ANY
-  baker's `bake` a "timing test" (both halves of that are #528). Everything else is counted.
+  `tests/integration/ground_bake_support.py::TimedBaker`. Issue #528 makes the perf-marker
+  guard (`tests/unit/test_perf_marker_guard.py`) follow that carrier and require the marker.
+  The class originally moved to the support module to avoid the guard's bare-name collision;
+  lexical function identities now keep timed and ordinary `bake` methods distinct even
+  within one module. Everything else is counted.
 - **A fix kept over another branch's mechanism is pinned by putting that branch's code back.**
   Where `master` fixed a defect this story had fixed too, `master`'s mechanism won the merge; for
   every fix the story KEPT, a scratch check put the integration branch's code back at that place
@@ -3674,21 +3696,28 @@ package by name; it produced the same bytes and needed Qt for the first time.)
 | `resolve.py` | `SPECIES_SPRITES`, `CATEGORY_SPRITES`, `DEFAULT_CATEGORY`, `PLANT_KINDS`; `resolve_sprite(kind, species, category, available=…)`, `resolve_recipe`, `recipe_for` | `core/plant_renderer`; the 3D plant builder |
 
 **One rule decides a plant's sprite.** `resolve_sprite` is the 2D resolution,
-extracted: the species sprite (the species string lower-cased and stripped, as
-an exact key, else the first key that contains it or is contained in it), else
-the sprite of the plant's category, else the sprite of its object type's
-default category. `available` says whether a candidate exists — the renderer
+corrected in #446: the species sprite (the species string normalised - lower
+cased, blanks collapsed, `-` and `_` read as blanks - and matched as a WHOLE
+name or alias: the name itself, else a key whose every word is a word of the
+name, else a key that holds every word of the name), else the sprite of the
+plant's category, else the sprite of its object type's default category. `available` says whether a candidate exists — the renderer
 passes "the SVG file exists", the 3D builder "the tables hold a recipe"; a
 candidate that does not exist is skipped and the next rule applies. Kinds and
 categories are plain names (`"TREE"`, `"PALM"`): `core/object_types` imports Qt.
 
-The rule was extracted, not improved. Its partial match has quirks — "Lemon
-Balm" takes the lemon tree's sprite, "Melon" the eggplant's, a whitespace-only
-species the rose's — and they are pinned
-(`tests/fixtures/plant_art/sprite_resolution_golden.json`, 1,562 answers of the
-resolver as it was before the extraction), because changing them changes what
-users see on the plan. What the 3D view builds for a plant is the recipe of the
-sprite the plan shows; if the sprite is wrong, fix the rule here, once.
+The rule was extracted, not improved - and then it WAS improved (#446): the
+substring match is gone, and a name is matched as a whole name or alias. A
+whitespace-only species is no species (it takes its category's sprite), "Melon"
+is no longer the eggplant's, and "Petroselinum crispum" is the parsley's. What
+survives is pinned in `tests/unit/test_plant_art.py`: "Lemon Balm", "Bean
+(Bush)" and "Sweet Potato" still take a fruit or vegetable sprite, because their
+names contain a whole word that is another plant's name - a curated alias table
+would fix them and was declined. The golden
+(`tests/fixtures/plant_art/sprite_resolution_golden.json`, 1,562 answers) is
+regenerated from the rule, and the rule it replaced is kept as `legacy_resolve`
+in the golden's generator. Changing the rule changes what users see on the plan.
+What the 3D view builds for a plant is the recipe of the sprite the plan shows;
+if the sprite is wrong, fix the rule here, once.
 
 **The same rule on the same inputs.** One rule is half of it; the 2D renderer
 and the 3D builder must also hand it the same three things: the item's type, the
@@ -3697,14 +3726,18 @@ and not the species data's name) and its plant category. The record carries
 that string as `params["sprite_species"]` for this purpose alone. The first
 version of the builder resolved from `species_name`, which prefers the species
 DATA's common name — and a gallery Pumpkin, whose bundled data is named "Winter
-Squash", was drawn as a pumpkin and built as a squash (PF-L3D-01).
+Squash", was drawn as a pumpkin and built as a squash (PF-L3D-01). A species
+ASSIGNED from the plant database writes the item's string (#445), so the
+assigned species is the one both views draw and build.
 
 **The golden has a generator.** `scripts/make_sprite_resolution_golden.py` keeps
-the resolver as it stood before the extraction, statement for statement, with
-the question list; `--check` regenerates the 1,562 rows, and `--differential`
-holds the extracted rule AND the renderer (with `Path.exists` patched) against
-it with sprite files missing — each of the 123 in turn, random sets, all
-species, all categories: 481,096 comparisons, none different. With every file
+the rule statement for statement, with the question list; `--check` regenerates
+the 1,562 rows, and `--differential` holds the production rule AND the renderer
+(with `Path.exists` patched) against that copy with sprite files missing — each
+of the 123 in turn, random sets, all species, all categories: 481,096
+comparisons, none different. The rule #446 REPLACED is kept there as
+`legacy_resolve`, and `--legacy-diff` prints what the change did to every case
+(74 answers over 37 names). With every file
 shipped, nothing else ever asks whether a file exists: dropping the renderer's
 `available=` survived 3,048 tests until the missing-file cases were written.
 
@@ -5983,11 +6016,10 @@ record ──plant_sprite()──▶ SpriteRef ──recipe_for()──▶ recip
 hands it: the kind, `params["sprite_species"]` — the item's OWN species string, as it is, blanks
 and all — and `params["plant_category"]`. Not `species_name`: that is the species data's common
 name where the item has data, and the two differ (a gallery "pumpkin" carries the data of "Winter
-Squash"; a species assigned from the plant database leaves the item's string as it was). The 2D
-quirks are therefore 3D's too: Lemon Balm takes the lemon tree's recipe, a string of blanks the
-rose's, and a plant given a species from the database keeps its old shape with the new species'
-size. Whether the 2D sprite should follow an assigned species is a 2D question; the two views
-no longer answer it differently.
+Squash" while its own string is "pumpkin"). A species ASSIGNED from the plant database replaces
+the item's string with the name of the species assigned (#445), so the plant is drawn and built
+with that species. The 2D rules are therefore 3D's too: "Lemon Balm" takes the lemon tree's
+recipe, a string of blanks takes the category's, and the melon is no longer the eggplant's.
 
 **One thing 2D draws and 3D does not: the item's fill colour.** The canvas paints a plant's
 sprite and then lays the item's FILL COLOUR over its ink at 60 / 255 opacity
@@ -6751,6 +6783,13 @@ checks use date-present bed members; task soil warnings use presence on their ex
 reference day, independently of the displayed simulation date.
 
 
+Plant Details treats the form and profile identity as one presentation. Removing
+species metadata through undo or selection refresh clears the header labels,
+thumbnail, external links, source tooltip and licence line. Redo repopulates them;
+the species-free selected item remains the Create Custom target. Pinned through
+the real command-stack refresh by
+`tests/integration/test_apply_database_species.py::test_undo_species_assignment_clears_the_whole_profile_and_redo_restores_it`.
+
 ### 8.31.1 Permanent controls and live-map/export lifecycle
 
 SunSimToolbar is the sole toolbar instance for date/time. Atomic groups wrap rather
@@ -6766,7 +6805,15 @@ for that date says Updating, and an older preview retains its actual date. The
 hidden-plants menu follows the visible map controls without an empty reserved slot.
 Themed renders in both themes and all three locales test alignment as well as fit.
 The former PlanTimelineToolbar is
-removed and restored hidden toolbar state is healed. Solar and decorative shadows
+removed. The main window restores bounds and splitter preferences, retaining its
+application-defined toolbar rows instead of replaying saved toolbar topology.
+A legacy state can otherwise put Plan & Sun beside the drawing tools: measured
+at a 1707-pixel window, the strip shrank to 259 pixels and stretched its neighbors
+to 137 pixels tall. Startup now retains the dedicated full-width row. The legacy
+blob stays untouched; generic UiStateStore callers can still restore layout state.
+The restart regression saves a shared row with the strip first or last, then checks
+full width, separation and containment across two subsequent launches.
+Solar and decorative shadows
 are automatic; Hours of Sun and daily animation remain opt-in session state.
 
 Never confuse an enabled map with a finished map: LiveSunMap tracks the requested

@@ -260,3 +260,61 @@ Held in [ADR: Addendum (#414 — one frost anchor per surface, and one date-wind
 - **Legacy:** none (new entry)
 
 A collector-only growth fix left the sprite unchanged. Date visibility, cached paint invalidation, instance metadata and task windows share the documented timeline contract; the workflow tests assert rendered output, persistence and history. See section 8.31 and ADR-062 for the current lifecycle contract.
+
+### PF-DOM-26
+
+- **Rule:** A species name is matched as a whole name or alias - never as a substring - and the resolver that does it is the one rule the 2D renderer and the 3D plant builder share.
+- **Pinned by:** `tests/unit/test_plant_art.py::TestTheNameIsMatchedAsAWholeName`; `tests/unit/test_plant_art.py::TestResolution`
+- **Source:** #446
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The rule used to ask whether a key was CONTAINED in the name, or the name in the
+key. That is not a name match: "Melon" took the eggplant's ("melon" is inside
+"solanum melongena"), "Petroselinum crispum" took the rose's ("rose" is inside
+it), "peach_tree" took the pea's, and a string of blanks took the rose's (the
+empty string is inside every key).
+
+**Three of the issue's own examples survive the fix**, and the rule says so:
+"Lemon Balm", "Bean (Bush)" and "Sweet Potato" still take a fruit or vegetable
+sprite, because their names contain a whole word that is another plant's name
+("lemon", "bean", "potato"). A curated alias table would fix them; the owner
+declined it, and the residue is pinned in `tests/unit/test_plant_art.py`, so a
+later change to the rule has to say so.
+
+The fix is NOT whole-name-only: measured, that changes 266 of the golden's 1,562
+answers over 110 distinct names, and most of those changes are regressions -
+"Quercus robur", "Broad Bean", "Sweet Corn" and "Winter Squash" have no exact
+key and would fall back to a generic category sprite. The name is now matched
+in three steps - the whole name, then a key whose every word is a word of the
+name ("Broad Bean" -> bean), then a key that holds every word of the name
+("Solanum" -> tomato) - and a name no sprite knows falls back to the category's.
+
+Measured, not asserted: 74 answers change over 37 names, and of the bundled
+species' 118 names exactly ONE changes - the melon, which was drawn as an
+eggplant. The rule lives in `core/plant_art/resolve.py`, Qt-free and shared, so
+2D and 3D change together; the golden's generator keeps the rule it replaced as
+`legacy_resolve`, and `--legacy-diff` prints the before and after.
+
+
+### PF-DOM-27
+
+- **Rule:** A species assignment writes the item's own species string, because that string - not the record's data - is what the sprite resolver reads.
+- **Pinned by:** `tests/integration/test_apply_database_species.py::test_the_assigned_species_is_the_sprite_the_plant_is_drawn_with`; `tests/integration/test_scene3d_plants.py::test_a_species_assigned_from_the_database_is_built_as_the_canvas_draws_it`
+- **Source:** #445
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The item carries a species STRING (`item.plant_species`, saved in the `.ogp`)
+and the assignment wrote only the record (`metadata['plant_species']`). The
+sprite resolver reads the string, so a plant assigned "Oak" kept the generic
+tree sprite in 2D and was built as a tree in 3D - the data said oak, the plant
+was a shrub.
+
+The string is the plant's own name, and an assignment REPLACES it with the
+name of the species assigned - the record's common name, or its scientific name
+when the common name names no sprite. The string and the record's data can still
+differ: a gallery "Pumpkin" carries the data of "Winter Squash" (the bundled
+lookup matches by alias) while its own string is "pumpkin". That is exactly why
+the resolver reads the string and never the record's name, and why both views
+ask the ONE rule.
