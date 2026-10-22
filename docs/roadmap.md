@@ -3174,3 +3174,5 @@ authorized protected finalization and release. The final gate battery and fresh
 review cover these source fixes before merge. Category-based unknown-height
 estimates (#557), maximum-width geometry propagation (#558), and command coverage
 for existing Plant Details species/instance fields (#559) remain separate work.
+The broader text/numeric focus guards require history-aware handling (#560);
+the committed-choice refresh fix does not remove active-edit protection.
