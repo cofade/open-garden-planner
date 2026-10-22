@@ -881,6 +881,8 @@ def test_a_noop_trailing_check_stamps_nothing_so_the_next_pick_applies_at_once(
     rig.controller._regrow_if_the_date_moved()
     assert rig.controller._regrown_at != 1000.0, "a real trailing regrowth stamps"
     assert rig.controller._records_dirty is True
+    rig.settle()  # leave the rig idle for the next test, not relying on teardown
+    assert rig.controller.idle
 
 
 def test_a_date_that_changes_while_3d_is_hidden_is_one_catch_up_and_no_timer(

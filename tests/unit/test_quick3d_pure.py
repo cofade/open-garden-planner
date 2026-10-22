@@ -346,6 +346,10 @@ class TestClassify:
         about the frame's device-pixel-ratio cache, not about the frame."""
         text = "The cached device pixel ratio value was stale on window expose."
         assert classify("warning", text, "") == "environment"
+        assert classify("warning", text, "qt.qpa.window") == "warning", \
+            "the allow-list is exact: another category stays a warning"
+        assert classify("critical", text, "") == "error", \
+            "a critical DPR report stays an error"
 
     def test_the_environment_list_is_exact_not_a_category_pass(self) -> None:
         """An allow-list that is wider than what was measured is a hole: another message

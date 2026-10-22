@@ -4862,8 +4862,12 @@ class GardenPlannerApp(QMainWindow):
         self._set_action_icon(self._workspace.walk_action, "walk")
         self._view_menu.insertMenu(self._preview_action, workspace_menu)
         # The workspace lives inside the Garden Plan tab, but the View menu is
-        # global (#539): its mode actions select the plan tab first, so Alt+1/2/3
-        # show the 3D view instead of switching a hidden workspace.
+        # global (#539): its mode actions select the plan tab, so Alt+1/2/3 show
+        # the 3D view instead of switching a hidden workspace. This slot runs
+        # after the workspace's own set_mode connection (safe either way: the end
+        # state is tab 0 in the requested mode, and a first engine build that
+        # starts while hidden pauses and catches up on show by design). The
+        # lambda intentionally captures nothing — the tab switch is unconditional.
         for _mode_action in self._workspace.mode_actions():
             _mode_action.triggered.connect(
                 lambda _checked=False: self._tab_widget.setCurrentIndex(0))

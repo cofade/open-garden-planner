@@ -224,6 +224,9 @@ def test_the_3d_view_action_and_alt_modes_select_the_plan_tab_first(app3d, qtbot
     tab but Garden Plan unless the main window selects that tab first — the
     workspace lives inside it. Firing from the Calendar tab must land on the plan
     tab with the 3D pane visible."""
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtTest import QTest
+
     window, engines = app3d
     workspace = window._workspace
     window._tab_widget.setCurrentIndex(1)  # Planting Calendar
@@ -236,8 +239,9 @@ def test_the_3d_view_action_and_alt_modes_select_the_plan_tab_first(app3d, qtbot
 
     workspace.set_mode(PLAN)
     window._tab_widget.setCurrentIndex(2)  # Seed Inventory
-    split_action = workspace.mode_actions()[2]  # Alt+3
-    split_action.trigger()
+    # A real keypress, not trigger(): the load-bearing claim is that the Alt+3
+    # shortcut dispatches while the workspace's own tab is hidden.
+    QTest.keyClick(window, Qt.Key.Key_3, Qt.KeyboardModifier.AltModifier)
     assert window._tab_widget.currentIndex() == 0, "Alt+3 also selects the plan tab"
     assert workspace.mode is SPLIT and workspace.pane.isVisible()
 
@@ -309,6 +313,13 @@ def test_the_keyboard_shortcuts_dialog_lists_the_workspace_and_its_3d_keys(app3d
     native_home = QKeySequence(Qt.Key.Key_Home).toString(
         QKeySequence.SequenceFormat.NativeText)
     assert native_home in labels, native_home
+    import ast as _ast
+
+    tree = _ast.parse((REPO / "src" / "open_garden_planner" / "ui" / "dialogs"
+                       / "shortcuts_dialog.py").read_text(encoding="utf-8"))
+    assert not [node for node in _ast.walk(tree)
+                if isinstance(node, _ast.Constant) and node.value == "Home"], \
+        "no hardcoded English key name remains in the dialog"
 
 
 def test_using_3d_writes_nothing_into_the_plan_file(app3d, qtbot, tmp_path: Path) -> None:
