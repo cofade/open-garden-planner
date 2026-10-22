@@ -854,6 +854,17 @@ the other two are marked for scenario consistency**, which is the one thing the 
 documented not to check — it proves a marker is *required* where it fires, not that every
 marker present is needed.
 
+Issue #528 extends this to durations stored in class attributes, including local
+support modules. Both call-graph closures use lexical function identities (class
+and enclosing functions within the module), so `GroundBaker.bake` cannot inherit
+`TimedBaker.bake`'s stopwatch. Regression tests keep both classes in the same
+module in both definition orders, check the real ground-bake AST with its helper
+restored inline, and preserve the ordinary session's non-timing ordering assertions.
+The scan at PR #556 finds 40 duration candidates with no missing markers. Static
+call resolution does not follow dynamic receivers, instance aliases, inherited
+methods or imported helper functions; support-module attribute carriers are a
+separate supported path.
+
 **Small targeted runs are slower than they were.** Worker start-up dominates when there
 is nothing to distribute: one 11-test file measured 2.85 s serially against 5.48 s under
 `-n auto`. Pass **`-n 0`** for a single file or a handful of tests. The asymmetry is
@@ -1746,11 +1757,11 @@ tier: `tests/integration/test_scene3d_ground_render.py`):
   11.58 ms. So does its render-tier twin, whose median is taken in the driver process
   (`test_scene3d_ground_render.py::test_one_small_edit_re_bakes_within_the_time_budget`; the
   rest of that test stays in the render tier — review 3, P2-1). G3's stopwatch is an ATTRIBUTE of
-  `tests/integration/ground_bake_support.py::TimedBaker`, which the perf-marker guard
-  (`tests/unit/test_perf_marker_guard.py`) does not follow, so the marker is set by hand — and the
-  class lives in the support module because the guard keys a module's functions by their bare
-  name: in the test module, a stopwatch in a method called `bake` made every test that calls ANY
-  baker's `bake` a "timing test" (both halves of that are #528). Everything else is counted.
+  `tests/integration/ground_bake_support.py::TimedBaker`. Issue #528 makes the perf-marker
+  guard (`tests/unit/test_perf_marker_guard.py`) follow that carrier and require the marker.
+  The class originally moved to the support module to avoid the guard's bare-name collision;
+  lexical function identities now keep timed and ordinary `bake` methods distinct even
+  within one module. Everything else is counted.
 - **A fix kept over another branch's mechanism is pinned by putting that branch's code back.**
   Where `master` fixed a defect this story had fixed too, `master`'s mechanism won the merge; for
   every fix the story KEPT, a scratch check put the integration branch's code back at that place

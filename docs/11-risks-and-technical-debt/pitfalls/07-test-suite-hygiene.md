@@ -309,7 +309,7 @@ Held in [debug-verbose: Case study: regenerated wood texture fails the seam gate
 ### PF-TST-24
 
 - **Rule:** A measurement that travels in an attribute is a wall-clock assertion too: the perf-marker guard follows the carrier into the local support modules, scoped to the class that owns it, and a value that is only counted is not a duration.
-- **Pinned by:** `tests/unit/test_perf_marker_guard.py::test_a_measurement_that_travels_in_an_attribute_is_seen`; `tests/unit/test_perf_marker_guard.py::test_a_test_that_times_nothing_is_not_seen`
+- **Pinned by:** `tests/unit/test_perf_marker_guard.py::test_a_measurement_that_travels_in_an_attribute_is_seen`; `tests/unit/test_perf_marker_guard.py::test_same_module_bakers_keep_their_own_clock_sensitivity`; `tests/unit/test_perf_marker_guard.py::test_the_original_ground_bake_module_accepts_its_timed_helper_inline`
 - **Source:** #528
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -324,11 +324,12 @@ for exactly that reason.
 The carrier is now followed: an attribute is timed when a clock-reading method
 of its class fills it, and the guard looks into the local support modules a test
 file imports. The attribute is scoped to its class, so one class's stopwatch
-never taints another class's attribute of the same name - that is the half of
-the bare-name collision that reaches this guard. Clock sensitivity still uses
-the module's bare-name function index, so a later untimed method with the same
-name can hide a timed writer; class-scoped attribute identities do not remove
-that separate limitation.
+never taints another class's attribute of the same name. Function identities
+also retain their class and enclosing functions through both call-graph
+closures: a later untimed method cannot replace a timed writer, and calling
+`GroundBaker.bake` cannot inherit `TimedBaker.bake`'s stopwatch. Same-module
+regressions in both class orders pin the distinction; an AST replay restores
+the real timed helper inline while retaining the ordinary session's count bounds.
 
 A value that is only COUNTED is not a duration: `len(timestamps)` is how the
 gates that count repaints and passes are written, and they are meant to hold on

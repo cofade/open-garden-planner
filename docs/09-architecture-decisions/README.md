@@ -3681,6 +3681,24 @@ the per-layer and per-file tables, the widget-leak measurement and the correctio
 issue #509's stated facts. The CI `Test` job uploads its `--durations=0` report as the
 `test-durations-linux` artifact.
 
+### ADR-058 addendum: scoped timing functions and attribute carriers (#528, PR #556)
+
+The guard follows duration attributes into local support modules. Attribute ownership
+alone did not fix the original same-module collision: the first implementation still
+indexed functions and propagated calls by bare name. A tagged AST probe printed
+`clock closure: ['bake', 'test_session']` for a test that called only the ordinary baker
+and asserted a tile-count bound. A separate-module equality assertion could not expose it.
+
+Both closures now use a cached lexical index whose keys preserve the class and enclosing
+functions within each module. Calls resolve through lexical names, `self`/`cls`, explicit
+classes and locally constructed or annotated instances; unresolved receivers never fall
+back to another class's method name. Imported helper functions, dynamic receivers, instance
+aliases and inherited methods remain outside this static analysis. Attribute ownership
+retains its module/class/attribute identity. Regressions cover both class orders, duplicate
+test/helper names, both call-graph closures and the real ground-bake AST with `TimedBaker`
+restored inline. The G3 marker remains required; ordinary session count bounds stay on the
+parallel runner. No application runtime, dependency or file-format change.
+
 ### ADR-058 addendum: the coverage floor blocks, and the perf pin is mutation-verified (#512–#516, 19 October 2026)
 
 **Decision 1 — a coverage-floor regression blocks a merge (#514).** `Coverage` joins the

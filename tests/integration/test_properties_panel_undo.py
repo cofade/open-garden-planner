@@ -27,7 +27,6 @@ from PyQt6.QtWidgets import (
     QSpinBox,
 )
 
-from open_garden_planner.core.commands import CommandManager
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -226,8 +225,7 @@ def test_the_panel_without_a_command_manager_still_edits(
 ) -> None:
     """A panel with no command manager (a detached item, a test) still applies
     the edit - it just cannot undo it."""
-    manager = CommandManager()
-    panel = PropertiesPanel(command_manager=manager)
+    panel = PropertiesPanel()
     qtbot.addWidget(panel)
     container = CircleItem(0.0, 0.0, 60.0, object_type=ObjectType.CONTAINER_ROUND)
     panel.set_selected_items([container])
