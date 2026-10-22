@@ -778,6 +778,8 @@ class _FakePlant:
         self.metadata: dict = {}
         self.spacing_radius_cm: float | None = None
         self.radius = radius
+        # The item's own species string (a plant item has one; #445 writes it).
+        self.plant_species: str = ""
 
     def set_radius_centered(self, new_radius: float) -> None:
         self.radius = new_radius
@@ -855,3 +857,34 @@ class TestApplySpeciesCommand:
     def test_description_localizable(self, qtbot) -> None:  # noqa: ARG002
         cmd = ApplySpeciesCommand(_FakePlant(), None, {}, None, None)
         assert cmd.description == "Apply species data"
+
+    def test_the_species_string_is_written_and_restored(self, qtbot) -> None:  # noqa: ARG002
+        """#445: the item's own species STRING is what the sprite resolver reads,
+        so the assignment writes it - and the undo puts the old one back."""
+        item = _FakePlant()
+        item.plant_species = "pumpkin"
+        cmd = ApplySpeciesCommand(item, None, {"common_name": "Winter Squash"},
+                                  None, None, None, None, "pumpkin", "Winter Squash")
+        cmd.execute()
+        assert item.plant_species == "Winter Squash"
+
+        cmd.undo()
+        assert item.plant_species == "pumpkin"
+
+    def test_a_command_without_names_leaves_the_string_alone(self, qtbot) -> None:  # noqa: ARG002
+        """The default is "this command carries no name": the plant keeps the one
+        it has, and an undo does not wipe it."""
+        item = _FakePlant()
+        item.plant_species = "pumpkin"
+        cmd = ApplySpeciesCommand(item, None, {"common_name": "Winter Squash"}, None, None)
+        cmd.execute()
+        assert item.plant_species == "pumpkin"
+        cmd.undo()
+        assert item.plant_species == "pumpkin"
+
+    def test_half_a_name_pair_is_refused(self, qtbot) -> None:  # noqa: ARG002
+        """One end of the pair alone would set the name and not restore it."""
+        item = _FakePlant()
+        with pytest.raises(ValueError):
+            ApplySpeciesCommand(item, None, {"common_name": "X"}, None, None,
+                                None, None, "pumpkin", None)

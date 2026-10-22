@@ -617,8 +617,8 @@ class ApplySpeciesCommand(Command):
         new_spacing_override: float | None,
         old_radius: float | None = None,
         new_radius: float | None = None,
-        old_species_name: str = "",
-        new_species_name: str = "",
+        old_species_name: str | None = None,
+        new_species_name: str | None = None,
     ) -> None:
         """Initialize the apply-species command.
 
@@ -634,9 +634,16 @@ class ApplySpeciesCommand(Command):
             new_radius: Footprint radius (cm) after applying, or None to leave
                 the footprint untouched.
             old_species_name: The item's own species STRING before the
-                assignment — what the sprite resolver reads (#445).
-            new_species_name: The species string after the assignment.
+                assignment — what the sprite resolver reads (#445) — and
+                new_species_name the string after it. **Both or neither:**
+                None means the command does not touch the string at all, and a
+                pair that would set one end but not the other is refused
+                rather than wiping the plant's name on undo.
         """
+        if (old_species_name is None) != (new_species_name is None):
+            raise ValueError(
+                "the species string is restored as a pair: pass both names or neither"
+            )
         self._item = item
         # Defensive copies so later mutations of the source dicts can't alias
         # the undo state.
@@ -659,7 +666,7 @@ class ApplySpeciesCommand(Command):
         species: dict[str, Any] | None,
         spacing_override: float | None,
         radius: float | None,
-        species_name: str = "",
+        species_name: str | None = None,
     ) -> None:
         # ``metadata`` is a read-only property returning the item's live dict, so
         # mutate it in place (a plant item always has one; a non-plant item would
@@ -673,12 +680,15 @@ class ApplySpeciesCommand(Command):
         # the assignment has to write it too (#445): without it the plant keeps
         # the sprite it was drawn with, in 2D and in 3D alike. The setter
         # triggers prepareGeometryChange()/update(); set it last so the
-        # spacing circle repaints with the new metadata in place.
-        if hasattr(self._item, "plant_species"):
-            # setattr, not an assignment: the setter is what repaints the item,
-            # and the item may be any QGraphicsItem (a non-plant has no such
-            # attribute, and must not grow one).
-            setattr(self._item, "plant_species", species_name)
+        # spacing circle repaints with the new metadata in place. None means
+        # "this command does not carry a name" - the plant keeps the one it
+        # has, and an undo does not wipe it.
+        if species_name is not None and hasattr(self._item, "plant_species"):
+            # The assignment, not setattr: mypy narrows the item after the
+            # hasattr above, so the setter is reached without an ignore, and the
+            # setter is what repaints the item. A non-plant has no such
+            # attribute, and must not grow one.
+            self._item.plant_species = species_name
         self._item.spacing_radius_cm = spacing_override  # type: ignore[attr-defined]
         # Resize the drawn footprint so it reflects the species' real size
         # (no-op when radius is None or unchanged).

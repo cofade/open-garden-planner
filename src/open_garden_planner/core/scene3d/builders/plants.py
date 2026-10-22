@@ -1841,13 +1841,14 @@ def plant_sprite(record: Record) -> SpriteRef | None:
 
     The 2D rule (``plant_art.resolve_sprite``) on EXACTLY the 2D renderer's
     inputs: the item's type, its own species string as it is (the record's
-    ``sprite_species`` — raw: a string of blanks picks the rose's sprite in 2D,
-    and so it does here) and its plant category. Not ``species_name``: that is
-    the species DATA's common name where the item has data, and the two differ
-    — a "Pumpkin" from the gallery has the data of "Winter Squash", and a
-    species assigned from the plant database leaves the item's string as it
-    was. What 2D draws is what 3D builds; whether 2D should draw the assigned
-    species is a 2D question (ADR-059 addendum "plant art v0", ruling R14).
+    ``sprite_species`` — raw, and blank for a string of blanks, which takes the
+    plant's category sprite in 2D and so it does here) and its plant category.
+    Not ``species_name``: that is the species DATA's common name where the item
+    has data, and the two differ — a "Pumpkin" from the gallery carries the
+    data of "Winter Squash" while its own string is "pumpkin". A species
+    ASSIGNED from the plant database writes the item's string (#445), so the
+    assigned species is the one both views draw and build (ADR-059 addendum
+    "plant art v0", ruling R14, as amended by the #446 addendum).
     """
     if record.kind not in PLANT_KINDS:
         return None

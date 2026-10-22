@@ -474,7 +474,7 @@ class PropertiesPanel(QWidget):
           shadow, sees it too (``plant_database_panel``'s rule, §11.4).
 
         The undo stack is told by the command that carries the edit
-        (``_commit_property_edit``), not by this.
+        (``_commit_edit``), not by this.
         """
         item.update()
         note_plan_changed(item.scene())

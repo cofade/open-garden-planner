@@ -3581,3 +3581,94 @@ all exact assertions. All five cases pass with the global library deliberately
 primed. The particular earlier CI writer remains unconfirmed. **Lesson.** Isolate
 the inputs a scenario assumes; never relax the result count or reset a production
 singleton to hide test contamination. Temporary tracing remains outside source.
+
+## Case study: a substring match is not a name match - the resolver that drew a melon as an eggplant (#446)
+
+**Symptom.** A plant assigned "Melon" was drawn with the eggplant's sprite; a
+scientific name ("Petroselinum crispum") was drawn as a rose; a plant whose name
+merely CONTAINED another plant's name ("peach_tree") was drawn as a pea; a
+string of blanks was drawn as a rose.
+
+**Evidence.** The rule asked whether a key was CONTAINED in the name, or the name
+in the key. "melon" is inside "solanum melongena"; "rose" is inside
+"petroselinum crispum"; the empty string is inside every key. The golden of
+1,562 answers made it visible: the melon, the rose and the pea were all in it.
+
+**Wrong theory.** "The lookup needs a better alias table" - and "match the whole
+name only". Both were MEASURED before anything was written. Whole-name-only
+changes 266 of the 1,562 answers over 110 distinct names, and most of those
+changes are REGRESSIONS: "Quercus robur", "Broad Bean", "Sweet Corn" and "Winter
+Squash" have no exact key and fall back to a generic category sprite. An alias
+table fixes three cases exactly and adds a hand-maintained table that can rot.
+
+**Cause/fix.** A name is matched as a whole name or alias, in three steps: the
+whole name; else a key whose every word is a word of the name ("Broad Bean" ->
+bean); else a key that holds every word of the name ("Solanum" -> tomato). A name
+no sprite knows takes the plant's category sprite. Measured after: 74 answers
+change over 37 names, and of the bundled species' 118 names exactly ONE changes -
+the melon. The rule is ONE rule, shared by the 2D renderer and the 3D plant
+builder, so both views change together.
+
+**Lesson.** Before changing a rule that decides what a user SEES, measure the
+rule you are about to replace against the whole corpus, and count the regressions
+as carefully as the fixes. The issue's own expected behaviour was measured and
+rejected - and the three cases that survive the shipped fix ("Lemon Balm", "Bean
+(Bush)", "Sweet Potato") are pinned in the test, so nobody discovers them later as
+a surprise.
+
+## Case study: the record is not the name - a species assigned that stayed a shrub (#445)
+
+**Symptom.** Assigning "Oak" from the plant database gave the plant the oak's
+calendar data and the oak's size, and left it drawn as a generic tree - in the
+plan and in the 3D view alike.
+
+**Evidence.** The assignment wrote `metadata["plant_species"]` (the RECORD). The
+sprite resolver reads the item's own species STRING (`item.plant_species`), and
+the 3D plant builder resolves from the same string. The item's string was
+untouched, so the plant kept the sprite it was drawn with.
+
+**Wrong theory.** "The resolver should look at the record" - and "the resolver
+should look at the DATA's common name". The second is a trap: a gallery
+"Pumpkin" carries the DATA of "Winter Squash" while its own name is "pumpkin",
+so resolving from the data's name draws a different plant than the plan shows.
+
+**Cause/fix.** The assignment writes the item's string as well - the name of the
+species ASSIGNED (the record's common name, or its scientific name when the
+common name names no sprite) - inside the same `ApplySpeciesCommand`, so the
+record, the spacing override, the footprint radius and the string revert
+together in one undo step. The string is the plant's own name; the record's data
+is the species' data, and the two may still differ.
+
+**Lesson.** When a model has two places for a fact, find out which one the
+READER reads before you write to either. The record was written and the data was
+right, and the plant still looked wrong - because the name the pixels come from
+was a third thing, and nobody asked who reads it.
+
+## Case study: a locked item is not selectable, and `itemAt` answers the locked one (#522)
+
+**Symptom.** Shift+clicking an item on a locked layer REPLACED the selection
+instead of toggling it: the item behind was selected and the other one was
+deselected.
+
+**Evidence.** The select tool asked `scene.itemAt(pos)`, which answers the
+TOPMOST item - and a locked layer takes the selectable flag away from its items
+(`CanvasScene` clears `ItemIsSelectable`), so the topmost item was one the tool
+could not select. The tool gave up and handed the click to Qt, whose own toggle
+key is Ctrl: a Shift+click had become a plain click.
+
+**Wrong theory.** "Qt's Shift handling is wrong" and "the layer lock should
+remove the item from the hit test". The second would change what a plain click
+does; the first is Qt's documented behaviour. The 3D selection bridge, measured
+against the same scenarios, already toggled what the click reached - the two
+views disagreed, and the canvas was the one with the defect.
+
+**Cause/fix.** The tool asks for the first SELECTABLE item under the cursor
+(`QGraphicsScene.items(pos)` is in descending stacking order), so Shift+click
+toggles what lies behind the locked item - the canvas's own rule. With nothing
+selectable beneath, the click goes through as before, so a locked item with
+nothing behind it still clears the selection and the two views still agree.
+
+**Lesson.** `itemAt` answers the topmost item, not the topmost SELECTABLE one.
+When a flag decides what an item can do, the hit test has to ask for the item
+the user can act on - and the measurement harness that already compares two
+implementations is where the difference shows up.

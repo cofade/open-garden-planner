@@ -184,6 +184,29 @@ def test_an_edit_announces_the_plan_change_the_3d_view_follows(
     assert canvas.scene().plan_revision > before, "the plan revision moved"
 
 
+def test_an_edit_marks_the_plan_modified(
+    canvas: CanvasView, panel: PropertiesPanel
+) -> None:
+    """The other half of the defect: a direct write marked nothing, so the app
+    asked nothing when it closed and the edit was lost.
+
+    The plan's dirty flag hangs off the command stack's ``stack_changed`` signal
+    (``app/application.py`` wires it to ``ProjectManager.mark_dirty``), so that
+    signal firing once per edit is what marks the plan."""
+    container = _container(canvas)
+    panel.set_selected_items([container])
+    height = _field(panel, "Height:")
+    assert isinstance(height, QSpinBox)
+
+    announced: list[int] = []
+    canvas.command_manager.stack_changed.connect(
+        lambda: announced.append(len(announced)))
+
+    height.setValue(70)
+
+    assert announced, "the edit did not announce itself to the plan"
+
+
 def test_an_unchanged_value_commits_nothing(
     canvas: CanvasView, panel: PropertiesPanel
 ) -> None:

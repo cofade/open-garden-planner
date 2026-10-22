@@ -132,6 +132,11 @@ def _support_modules(path: Path) -> dict[str, ast.Module]:
     the module that owns the class - and that module is often a support
     module beside the test, not the test file itself (#528). The guard has to
     see it, or the wall-clock assertion that reads the attribute is invisible.
+
+    Only the ``from tests.<...> import ...`` form is resolved: a plain
+    ``import <name>`` of a module under ``tests/``, or a dotted name that does
+    not start with ``tests.``, is not followed. No file in the suite uses
+    either form today - checked - so the gap is a stated limit, not a hole.
     """
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     found: dict[str, ast.Module] = {}

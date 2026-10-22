@@ -4478,19 +4478,20 @@ with the sprite on the plan about its shape or its green, and no test would noti
    bytes) before and after. The one palette that was a literal
    in the drawing code, the hedge's, became data too (`HEDGE_PALETTE`).
 2. **The resolution is one function: `core/plant_art/resolve.py::resolve_sprite(kind, species,
-   category, available=…)`** — the 2D rule extracted, quirks included, with the sprite maps it
-   reads. `plant_renderer._resolve_svg_path` calls it and asks "does the SVG exist?"; the 3D
+   category, available=…)`** — the 2D rule extracted, with the sprite maps it reads.
+   `plant_renderer._resolve_svg_path` calls it and asks "does the SVG exist?"; the 3D
    builder calls it and asks "do the tables hold a recipe?" (the two sets are the same 123 names,
-   pinned). It is held to a golden of 1,562 answers recorded from the unchanged resolver in the
-   commit before the extraction — and, with sprite files missing, to that resolver itself, kept
-   statement for statement in the golden's generator
-   (`scripts/make_sprite_resolution_golden.py`). A species the canvas draws with a category
-   sprite gets the category's recipe in 3D.
+   pinned). It is held to a golden of 1,562 answers — **regenerated from the rule when the rule
+   changed** (#446, below) — and, with sprite files missing, to a statement-for-statement copy of
+   the rule in the golden's generator (`scripts/make_sprite_resolution_golden.py`), which also
+   keeps the rule it replaced as `legacy_resolve` for the before/after. A species the canvas
+   draws with a category sprite gets the category's recipe in 3D.
    **Both callers hand it the same inputs** (orchestrator ruling R14): the item's type, its plant
    category and the item's OWN species string exactly as it is. The record carries that string
    for this purpose as `params["sprite_species"]` (`PARAM_SPRITE_SPECIES`: `item.plant_species`,
-   not stripped, not replaced by species data; absent when empty). `species_name` and
-   `species_key` stay in the record and describe the species DATA.
+   not stripped; absent when empty). `species_name` and `species_key` stay in the record and
+   describe the species DATA. **A species assigned from the plant database writes the item's
+   string** (#445, below), so the assigned species is the one both views draw and build.
 3. **One builder for the plant kinds, one silhouette per archetype**
    (`core/scene3d/builders/plants.py`, registered for `plant_art.PLANT_KINDS` — the table
    `plant_renderer.is_plant_type` answers from). Every archetype of the tables has a builder; a
@@ -4714,6 +4715,77 @@ with the sprite on the plan about its shape or its green, and no test would noti
   any more, so that safety net was exercised by nothing; the fit-report test now asserts it. The
   run before the review, 45 mutants, had found the placeholder's round rim unpinned the same
   way.)
+
+### ADR-059 addendum: the species name is a whole name, and the assignment writes it (#446, #445)
+
+**Context.** The "plant art v0" addendum above extracted the 2D sprite rule as it stood, quirks
+included, and the alternative it rejected there was explicit: "a better resolver for 3D - keyed on
+`species_key`, without the partial match ... Fixing the 2D rule changes sprites users see and is
+its own issue." That issue is #446, and it is now decided. The rule matched a species name by
+asking whether a key was CONTAINED in the name, or the name in the key - which is not a name
+match: "Melon" took the eggplant's sprite ("melon" is inside "solanum melongena"),
+"Petroselinum crispum" took the rose's, "peach_tree" took the pea's, and a string of blanks
+took the rose's (the empty string is inside every key). A second, quieter half of the same
+defect sat next door (#445): a species assigned from the plant database wrote the RECORD
+(`metadata["plant_species"]`) and not the item's own species STRING, and the string is what the
+resolver reads - so a plant assigned "Oak" kept the generic tree sprite in 2D and was built as a
+tree in 3D.
+
+**Decision.**
+
+1. **A species name is matched as a whole name or alias, in three steps**: the whole name; else a
+   key whose every word is a word of the name ("Broad Bean" -> bean, "Winter Squash" -> squash);
+   else a key that holds every word of the name ("Solanum" -> tomato). A name no sprite knows
+   falls back to the plant's CATEGORY sprite. The whole-name-only rule the issue proposed was
+   MEASURED first and rejected: it changes 266 of the golden's 1,562 answers over 110 distinct
+   names, and most of those are regressions - "Quercus robur", "Broad Bean", "Sweet Corn" have no
+   exact key and would fall back to a generic sprite. The rule that shipped changes 74 answers
+   over 37 names, and of the bundled species' 118 names exactly ONE changes - the melon, which
+   was drawn as an eggplant. The rule stays ONE rule, shared by the 2D renderer and the 3D plant
+   builder, and the golden is regenerated from it; the rule it replaced is kept as
+   `legacy_resolve` in the golden's generator, which prints the before and after
+   (`--legacy-diff`).
+2. **What the fix does not do, stated here rather than left to be discovered**: "Lemon Balm",
+   "Bean (Bush)" and "Sweet Potato" still take a fruit or vegetable sprite, because their names
+   contain a whole word that is another plant's name ("lemon", "bean", "potato"). A curated
+   alias table would fix them; the owner declined it, and the residue is pinned in
+   `tests/unit/test_plant_art.py` so that a later change to the rule has to say so.
+3. **An assignment writes the item's species STRING**, so the plant is drawn - and built - with
+   the species it was assigned. The string is the plant's own name: the gallery writes it when the
+   plant is created, and an assignment replaces it with the name of the species assigned (the
+   record's common name, or its scientific name when the common name names no sprite). The
+   record's DATA and the string can still differ - a gallery "Pumpkin" carries the data of "Winter
+   Squash" while its own string is "pumpkin" - which is exactly why the resolver reads the string
+   and never the record's name. The string is written inside the same `ApplySpeciesCommand`, so
+   the record, the spacing override, the footprint radius and the string revert together in one
+   undo step.
+
+**Alternatives rejected.**
+
+- **Whole-name-only** (the issue's own proposal): measured above - 266 answers over 110 names, and
+  most of those regressions. A rule that is right for "Melon" and wrong for "Quercus robur" is not
+  a rule.
+- **A curated alias table** for the residue ("lemon balm" -> herb, "bean (bush)" -> vegetable):
+  it fixes the last three cases exactly, at the price of a hand-maintained table that can rot and
+  a second place where a name has to be taught. The owner declined it; the residue is pinned
+  instead.
+- **Resolving the sprite from the record's data name** (never writing the string): the item's
+  string and the record's name are different things - a gallery "Pumpkin" carries the data of
+  "Winter Squash" - so the record's name would draw the wrong plant, and the 2D/3D contract of
+  "the item's own string, exactly as it is" would be lost.
+
+**Consequences.** The 2D and the 3D view answer the same question the same way, and a species
+assigned from the database is the species the plan shows - in the plan and in the 3D view alike.
+The golden is no longer an independent oracle (it is regenerated from the rule), so the rule is
+held by the mutation script instead: `scripts/mutation_check_plant_art.py` breaks one rule at a
+time, and four new mutants pin the three matching steps and the normalisation of the name.
+
+**Evidence.** `tests/unit/test_plant_art.py::TestTheNameIsMatchedAsAWholeName` (the rule and the
+residue), `tests/integration/test_apply_database_species.py::test_the_assigned_species_is_the_sprite_the_plant_is_drawn_with`
+(the assignment, through the real panel), `tests/integration/test_scene3d_plants.py::test_a_species_assigned_from_the_database_is_built_as_the_canvas_draws_it`
+(2D and 3D agree), `scripts/make_sprite_resolution_golden.py --legacy-diff` (the before and
+after), FR-PLANT-ART-05, FR-PLANT-21, PF-DOM-26, PF-DOM-27.
+
 
 ### What the second review found (same story, the fix round's own claims)
 

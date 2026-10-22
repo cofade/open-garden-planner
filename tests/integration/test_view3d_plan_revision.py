@@ -652,7 +652,7 @@ def test_the_seven_property_edits_of_the_properties_panel_announce_themselves_to
     panel = live.window.properties_panel
     source = Path(type(panel).__module__.replace(".", "/"))
     text = (REPO / "src" / source.with_suffix(".py")).read_text(encoding="utf-8")
-    assert text.count("self._commit_property_edit(") == 7
+    assert text.count("self._commit_edit(item, cmd)") == 7
     # the helper they go through is the one that announces the edit
     assert text.count("self._announce_edit(item)") == 1
     # … and through the real widgets, for the two forms that have them

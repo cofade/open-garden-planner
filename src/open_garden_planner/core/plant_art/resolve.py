@@ -12,18 +12,27 @@ a private function of ``core/plant_renderer`` (a Qt module). Since Phase 17 L1.7
   gets the category's recipe in 3D too.
 
 The rule was the 2D rule, extracted. It has since been made correct (#446): the
-extracted rule matched a species name by SUBSTRING, so a herb was drawn as a
-tree ("Lemon Balm" took the lemon tree's sprite), a melon as an eggplant
-("melon" is inside "solanum melongena"), a sweet potato as a potato, and a
-whitespace-only species as a rose (the empty string is inside every key). The
-rule now matches a name as a WHOLE name or alias, and falls back to the
-plant's category sprite when the name is no species the sprites know.
+extracted rule matched a species name by SUBSTRING, so a melon was drawn as an
+eggplant ("melon" is inside "solanum melongena"), a scientific name as a rose
+("Petroselinum crispum" contains "rose"), a plant whose name merely CONTAINS
+another plant's name as that other plant ("peach_tree" as a pea), and a
+whitespace-only species as a rose (the empty string is inside every key).
+
+The name is now matched as a WHOLE name or alias, and a name no sprite knows
+falls back to the plant's category sprite. **Three of the issue's examples
+survive that fix** - "Lemon Balm", "Bean (Bush)" and "Sweet Potato" still take
+a fruit or vegetable sprite, because their names contain a whole word that is
+another plant's name ("lemon", "bean", "potato"). Fixing those needs a curated
+alias table, which the owner declined; the residue is pinned in
+``tests/unit/test_plant_art.py``, so that a later change to the rule has to say
+so.
 
 ``tests/fixtures/plant_art/sprite_resolution_golden.json`` holds 1,562 answers
 of the resolver — the golden is regenerated from the rule, and
 ``scripts/make_sprite_resolution_golden.py`` keeps a statement-for-statement
-copy of it as the fixture's provenance; ``tests/unit/test_plant_art.py`` holds
-this module to both.
+copy of it as the fixture's provenance (and of the rule it replaced, as
+``legacy_resolve``); ``tests/unit/test_plant_art.py`` holds this module to
+both.
 
 Kinds and categories are plain NAMES here (``"TREE"``, ``"ROUND_DECIDUOUS"``):
 ``core.object_types`` imports Qt, and a 3D record carries names anyway.

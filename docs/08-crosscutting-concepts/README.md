@@ -3692,12 +3692,14 @@ sprite the plan shows; if the sprite is wrong, fix the rule here, once.
 
 **The same rule on the same inputs.** One rule is half of it; the 2D renderer
 and the 3D builder must also hand it the same three things: the item's type, the
-item's OWN species string exactly as it is (`item.plant_species` — not stripped,
+item's OWN species string exactly as it is (`item.plant_species` - not stripped,
 and not the species data's name) and its plant category. The record carries
 that string as `params["sprite_species"]` for this purpose alone. The first
 version of the builder resolved from `species_name`, which prefers the species
-DATA's common name — and a gallery Pumpkin, whose bundled data is named "Winter
-Squash", was drawn as a pumpkin and built as a squash (PF-L3D-01).
+DATA's common name - and a gallery Pumpkin, whose bundled data is named "Winter
+Squash", was drawn as a pumpkin and built as a squash (PF-L3D-01). A species
+ASSIGNED from the plant database writes the item's string (#445), so the
+assigned species is the one both views draw and build.
 
 **The golden has a generator.** `scripts/make_sprite_resolution_golden.py` keeps
 the resolver as it stood before the extraction, statement for statement, with
@@ -5980,14 +5982,13 @@ record ──plant_sprite()──▶ SpriteRef ──recipe_for()──▶ recip
 | anything else — not a plant kind, or a plant record without a usable radius | `default_builder` (the prism, or nothing) |
 
 **3D builds what 2D draws.** `plant_sprite` hands the shared rule exactly what the 2D renderer
-hands it: the kind, `params["sprite_species"]` — the item's OWN species string, as it is, blanks
-and all — and `params["plant_category"]`. Not `species_name`: that is the species data's common
+hands it: the kind, `params["sprite_species"]` - the item's OWN species string, as it is, blanks
+and all - and `params["plant_category"]`. Not `species_name`: that is the species data's common
 name where the item has data, and the two differ (a gallery "pumpkin" carries the data of "Winter
-Squash"; a species assigned from the plant database leaves the item's string as it was). The 2D
-quirks are therefore 3D's too: Lemon Balm takes the lemon tree's recipe, a string of blanks the
-rose's, and a plant given a species from the database keeps its old shape with the new species'
-size. Whether the 2D sprite should follow an assigned species is a 2D question; the two views
-no longer answer it differently.
+Squash" while its own string is "pumpkin"). A species ASSIGNED from the plant database replaces
+the item's string with the name of the species assigned (#445), so the plant is drawn and built
+with that species. The 2D rules are therefore 3D's too: "Lemon Balm" takes the lemon tree's
+recipe, a string of blanks takes the category's, and the melon is no longer the eggplant's.
 
 **One thing 2D draws and 3D does not: the item's fill colour.** The canvas paints a plant's
 sprite and then lays the item's FILL COLOUR over its ink at 60 / 255 opacity

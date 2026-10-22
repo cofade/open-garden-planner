@@ -270,10 +270,17 @@ A collector-only growth fix left the sprite unchanged. Date visibility, cached p
 - **Legacy:** none (new entry)
 
 The rule used to ask whether a key was CONTAINED in the name, or the name in the
-key. That is not a name match: "Lemon Balm" took the lemon tree's sprite (a herb
-drawn as a tree), "Melon" took the eggplant's ("melon" is inside "solanum
-melongena"), "Sweet Potato" took the potato's, and a string of blanks took the
-rose's (the empty string is inside every key).
+key. That is not a name match: "Melon" took the eggplant's ("melon" is inside
+"solanum melongena"), "Petroselinum crispum" took the rose's ("rose" is inside
+it), "peach_tree" took the pea's, and a string of blanks took the rose's (the
+empty string is inside every key).
+
+**Three of the issue's own examples survive the fix**, and the rule says so:
+"Lemon Balm", "Bean (Bush)" and "Sweet Potato" still take a fruit or vegetable
+sprite, because their names contain a whole word that is another plant's name
+("lemon", "bean", "potato"). A curated alias table would fix them; the owner
+declined it, and the residue is pinned in `tests/unit/test_plant_art.py`, so a
+later change to the rule has to say so.
 
 The fix is NOT whole-name-only: measured, that changes 266 of the golden's 1,562
 answers over 110 distinct names, and most of those changes are regressions -
@@ -304,8 +311,10 @@ sprite resolver reads the string, so a plant assigned "Oak" kept the generic
 tree sprite in 2D and was built as a tree in 3D - the data said oak, the plant
 was a shrub.
 
-The name the item carries is its own, and the record's name is not: a gallery
-"Pumpkin" carries the name "pumpkin" and the record's common name "Winter
-Squash" (the bundled lookup matches by alias). Resolving a look from the
-record's name alone would therefore be wrong - which is why the assignment
-writes the string and lets the ONE resolver answer for both views.
+The string is the plant's own name, and an assignment REPLACES it with the
+name of the species assigned - the record's common name, or its scientific name
+when the common name names no sprite. The string and the record's data can still
+differ: a gallery "Pumpkin" carries the data of "Winter Squash" (the bundled
+lookup matches by alias) while its own string is "pumpkin". That is exactly why
+the resolver reads the string and never the record's name, and why both views
+ask the ONE rule.
