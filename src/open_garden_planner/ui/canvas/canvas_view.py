@@ -115,10 +115,7 @@ from open_garden_planner.services.soil_service import (
 )
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene, GuideLine
 from open_garden_planner.ui.canvas.items.resize_handle import (
-    CurveControlHandle,
-    MidpointHandle,
-    RectCornerHandle,
-    ResizeHandle,
+    DRAG_HANDLE_TYPES,
     RotationHandle,
     VertexHandle,
 )
@@ -2112,7 +2109,7 @@ class CanvasView(QGraphicsView):
         # between event dispatches, so we re-establish it ourselves in mouseMoveEvent.
         if event.button() == Qt.MouseButton.LeftButton:
             grabber = self.scene().mouseGrabberItem()
-            if isinstance(grabber, (ResizeHandle, RotationHandle, VertexHandle, RectCornerHandle, MidpointHandle, CurveControlHandle)):
+            if isinstance(grabber, DRAG_HANDLE_TYPES):
                 self._active_drag_handle = grabber
                 # Block rotation for items that have an inter-object PARALLEL or
                 # PERPENDICULAR constraint — rotating would violate the constraint.

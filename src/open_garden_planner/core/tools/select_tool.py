@@ -55,6 +55,13 @@ class SelectTool(BaseTool):
             # Handle Shift+click for multi-select toggle
             shift_held = event.modifiers() & Qt.KeyboardModifier.ShiftModifier
             if shift_held:
+                from open_garden_planner.ui.canvas.items.resize_handle import DRAG_HANDLE_TYPES
+
+                # Editing controls need the press even though they are not
+                # selectable. Let Qt establish their grab before the view's
+                # drag recovery handles later moves (#522 review regression).
+                if isinstance(item, DRAG_HANDLE_TYPES):
+                    return False
                 # Shift+click picks the SELECTABLE item under the cursor: the
                 # topmost one, or - when the topmost is not selectable (an item
                 # on a locked layer, a badge, a label) - the first selectable one

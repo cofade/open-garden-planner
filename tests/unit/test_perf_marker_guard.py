@@ -39,9 +39,10 @@ is a real hole, verified, not a caveat about a hypothetical:
   resolve last-definition-wins. `test_agent_api_writes.py` has 37 `body` definitions, so
   the collision is real in this suite; it is currently harmless because no timing helper
   shares a name with a test elsewhere in a module, and that is a latent landmine, not a
-  safety property. The measurement that travels in an ATTRIBUTE is scoped to its class
-  (`TimedBaker.milliseconds` is not `GroundBaker.milliseconds`), so that half of the
-  collision does not reach this guard.
+  safety property. Attribute identities are scoped to their class
+  (`TimedBaker.milliseconds` is not `GroundBaker.milliseconds`), but their clock
+  sensitivity still uses the same bare-name function index and can be hidden by
+  a later method of the same name in another class.
 - **It is one-directional.** It proves a marker is *required* where it fires, not that
   every marker present is needed. Two tests in `test_nfr_budgets.py` are marked because
   they build the same scenario on the quiet runner, not because they assert a duration.

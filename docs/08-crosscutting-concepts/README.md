@@ -436,6 +436,17 @@ it:
 - The floating mode switch of the workspace follows §8.9.1 to §8.9.3 — but it is parented to the
   WORKSPACE and floats over the canvas only; in 3D mode it moves into the pane's strip.
 
+### 8.9.10 Selection transparency preserves interactive handles (#522)
+
+`SelectTool` lets Qt deliver presses on `DRAG_HANDLE_TYPES` before applying its
+Shift selection toggle. A locked item, badge or label can be transparent to
+selection; a resize, rotation, vertex, corner, midpoint or curve-control handle
+must receive the press so Qt establishes the mouse grab. The handle tuple lives
+in `ui/canvas/items/resize_handle.py` and is shared with `CanvasView`'s dropped-grab
+recovery. `test_shift_drag_handle_does_not_select_the_item_behind` drives viewport
+press, move and release above a selectable background and checks the grab,
+geometry change and single-step undo at 0, 37 and 143 degrees.
+
 ## 8.10 Integration Test Policy
 
 **Worker responsiveness.** Control an in-flight interval instead of counting timer

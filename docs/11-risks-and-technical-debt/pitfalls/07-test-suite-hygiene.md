@@ -325,7 +325,10 @@ The carrier is now followed: an attribute is timed when a clock-reading method
 of its class fills it, and the guard looks into the local support modules a test
 file imports. The attribute is scoped to its class, so one class's stopwatch
 never taints another class's attribute of the same name - that is the half of
-the bare-name collision that reaches this guard.
+the bare-name collision that reaches this guard. Clock sensitivity still uses
+the module's bare-name function index, so a later untimed method with the same
+name can hide a timed writer; class-scoped attribute identities do not remove
+that separate limitation.
 
 A value that is only COUNTED is not a duration: `len(timestamps)` is how the
 gates that count repaints and passes are written, and they are meant to hold on

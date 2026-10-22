@@ -18,13 +18,18 @@ Workflow per test:
 from unittest.mock import MagicMock
 
 import pytest
-from PyQt6.QtCore import QPointF, Qt
+from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QMouseEvent
+from PyQt6.QtTest import QTest
 
 from open_garden_planner.core.tools import ToolType
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items import RectangleItem
-from open_garden_planner.ui.canvas.items.resize_handle import HandlePosition
+from open_garden_planner.ui.canvas.items.resize_handle import (
+    HandlePosition,
+    ResizeHandle,
+    RotationHandle,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -97,6 +102,56 @@ class TestSelection:
         item_a.setSelected(True)
         assert item_a.isSelected()
         assert not item_b.isSelected()
+
+
+@pytest.mark.parametrize("angle", [0.0, 37.0, 143.0])
+@pytest.mark.parametrize("handle_type", [ResizeHandle, RotationHandle])
+def test_shift_drag_handle_does_not_select_the_item_behind(
+    canvas: CanvasView, qtbot, angle: float, handle_type: type,
+) -> None:
+    """#522: see through locked objects, but deliver handle presses to Qt."""
+    canvas.resize(1000, 800)
+    canvas.set_active_tool(ToolType.SELECT)
+    background = RectangleItem(600, 600, 1200, 1200)
+    foreground = RectangleItem(1000, 1000, 400, 300)
+    canvas.scene().addItem(background)
+    canvas.scene().addItem(foreground)
+    foreground._apply_rotation(angle)
+    foreground.setSelected(True)
+    canvas.show()
+    qtbot.waitExposed(canvas)
+    canvas.centerOn(foreground.mapToScene(foreground.rect().center()))
+    handle = next(
+        child for child in foreground.childItems()
+        if isinstance(child, handle_type)
+        and canvas.scene().itemAt(child.scenePos(), canvas.transform()) is child
+    )
+    start = canvas.mapFromScene(handle.scenePos())
+    before_rect = QRectF(foreground.rect())
+    before_pos = QPointF(foreground.pos())
+    before_angle = foreground.rotation()
+    undo_count = len(canvas.command_manager._undo_stack)
+    modifiers = Qt.KeyboardModifier.ShiftModifier
+    QTest.mousePress(canvas.viewport(), Qt.MouseButton.LeftButton, modifiers, start)
+    try:
+        assert canvas.scene().mouseGrabberItem() is handle
+        assert canvas._active_drag_handle is handle
+        assert not background.isSelected()
+        target = canvas.mapFromScene(handle.scenePos() + QPointF(80, 65))
+        QTest.mouseMove(canvas.viewport(), target)
+    finally:
+        QTest.mouseRelease(canvas.viewport(), Qt.MouseButton.LeftButton, modifiers, start)
+    assert foreground.isSelected()
+    assert not background.isSelected()
+    if handle_type is RotationHandle:
+        assert foreground.rotation() != pytest.approx(before_angle)
+    else:
+        assert foreground.rect() != before_rect
+    assert len(canvas.command_manager._undo_stack) == undo_count + 1
+    canvas.command_manager.undo()
+    assert foreground.rect() == before_rect
+    assert foreground.pos() == before_pos
+    assert foreground.rotation() == pytest.approx(before_angle)
 
 
 # ---------------------------------------------------------------------------

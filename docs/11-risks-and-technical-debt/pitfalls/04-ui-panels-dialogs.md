@@ -292,8 +292,8 @@ because it is the undo label and it is what the i18n gate reads.
 
 ### PF-UI-25
 
-- **Rule:** A Shift+click picks the first SELECTABLE item under the cursor, not the topmost one: `itemAt` answers a locked item, which is not selectable.
-- **Pinned by:** `tests/integration/test_view3d_selection_bridge.py::test_shift_through_a_locked_item_toggles_what_is_behind_it`
+- **Rule:** A Shift+click on a canvas object toggles the first selectable item under the cursor; interactive handles retain Qt mouse delivery.
+- **Pinned by:** `tests/integration/test_view3d_selection_bridge.py::test_shift_through_a_locked_item_toggles_what_is_behind_it`; `tests/integration/test_selection_and_resize.py::test_shift_drag_handle_does_not_select_the_item_behind`
 - **Source:** #522
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -311,3 +311,12 @@ With nothing selectable beneath, the click goes through as before, so a locked
 item with nothing behind it still clears the selection. The 3D selection bridge
 already did this, and the one measured difference between the two views is
 gone.
+
+PR #556's review caught the distinction between a passive overlay and a drag
+handle: both lack `ItemIsSelectable`, but a handle must receive its press.
+Looking through a resize or rotation handle selected a background object and
+prevented the grab. `SelectTool` now delegates handle presses to Qt before
+looking for a selection target. `DRAG_HANDLE_TYPES` in `resize_handle.py` is
+shared with the view's dropped-grab recovery, keeping all six handle types on
+the same event path. Real viewport drags cover resize and rotation at three
+angles, including two non-axis-aligned rotations, with one undo step.

@@ -308,7 +308,7 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | PF-UI-22 | Measure translated control-group size hints at narrow widths and high DPI before accepting adaptive toolbar packing. | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-22) |  |
 | PF-UI-23 | Calendar-only lifetime selectors ignore wheel edits and bound new choices to the shared clock range while preserving legacy metadata. | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-23) |  |
 | PF-UI-24 | Every property the Properties panel edits is one undoable command; a direct write into the item is neither undoable nor a mark of a modified plan. | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-24) |  |
-| PF-UI-25 | A Shift+click picks the first SELECTABLE item under the cursor, not the topmost one: `itemAt` answers a locked item, which is not selectable. | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-25) |  |
+| PF-UI-25 | A Shift+click on a canvas object toggles the first selectable item under the cursor; interactive handles retain Qt mouse delivery. | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-25) |  |
 | PF-E3D-10 | Derived lifetime visibility must preserve the existing throttled 3D clock path while real plan edits still announce revisions. | standing | [10](pitfalls/10-3d-engine-scene.md#pf-e3d-10) |  |
 
 ### Redirect of legacy numbered IDs
