@@ -91,19 +91,70 @@ def _call_name(node: ast.AST) -> str | None:
     return None
 
 
+#: The functions and the class owners of a tree, cached by the tree's
+#: identity. Both walk the whole tree, and the guard asks for them once per
+#: FUNCTION - which made the scan quadratic, and the CI runner (eight workers,
+#: a loaded machine) ran out of the test's 180 s budget.
+_FUNCTIONS: dict[
+    int, tuple[ast.Module, dict[str, ast.FunctionDef | ast.AsyncFunctionDef]]
+] = {}
+_CLASS_OWNERS: dict[int, tuple[ast.Module, dict[str, str | None]]] = {}
+
+
 def _functions(tree: ast.Module) -> dict[str, ast.FunctionDef | ast.AsyncFunctionDef]:
-    return {
+    """The tree's functions, by name (the last of a duplicate name wins)."""
+    cached = _FUNCTIONS.get(id(tree))
+    if cached is not None and cached[0] is tree:
+        return cached[1]
+    functions = {
         node.name: node
         for node in ast.walk(tree)
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
     }
+    _FUNCTIONS[id(tree)] = (tree, functions)
+    return functions
+
+
+def _class_owners(tree: ast.Module) -> dict[str, str | None]:
+    """Function name -> the class it is a method of (None for a module-level
+    one). A name that two classes share resolves to None: the guard would
+    rather not guess."""
+    cached = _CLASS_OWNERS.get(id(tree))
+    if cached is not None and cached[0] is tree:
+        return cached[1]
+    owners: dict[str, str | None] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef):
+            continue
+        for member in node.body:
+            if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                owners[member.name] = None if member.name in owners else node.name
+    _CLASS_OWNERS[id(tree)] = (tree, owners)
+    return owners
+
+
+#: The call names of a function, cached by the function's identity. The
+#: clock closure asks the same question of the same function once per
+#: iteration of its fixed point, and walking the function's AST each time was
+#: the scan's largest cost.
+_CALL_NAMES: dict[int, tuple[ast.AST, frozenset[str]]] = {}
+
+
+def _call_names(func: ast.AST) -> frozenset[str]:
+    """The bare names this function calls."""
+    cached = _CALL_NAMES.get(id(func))
+    if cached is not None and cached[0] is func:
+        return cached[1]
+    names = frozenset(
+        name for node in ast.walk(func) if isinstance(node, ast.Call)
+        for name in (_call_name(node),) if name is not None
+    )
+    _CALL_NAMES[id(func)] = (func, names)
+    return names
 
 
 def _calls_any(func: ast.AST, names: Collection[str]) -> bool:
-    return any(
-        isinstance(node, ast.Call) and _call_name(node) in names
-        for node in ast.walk(func)
-    )
+    return not _call_names(func).isdisjoint(names)
 
 
 #: The calls that put a value INTO a container. A measurement that travels in
@@ -138,7 +189,7 @@ def _support_modules(path: Path) -> dict[str, ast.Module]:
     not start with ``tests.``, is not followed. No file in the suite uses
     either form today - checked - so the gap is a stated limit, not a hole.
     """
-    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    tree = _parsed(path)
     found: dict[str, ast.Module] = {}
     for node in ast.walk(tree):
         if not isinstance(node, ast.ImportFrom) or not node.module:
@@ -146,9 +197,56 @@ def _support_modules(path: Path) -> dict[str, ast.Module]:
         support_path = _module_path(node.module)
         if support_path is None or support_path == path:
             continue
-        found[_module_key(support_path)] = ast.parse(
-            support_path.read_text(encoding="utf-8"), filename=str(support_path))
+        found[_module_key(support_path)] = _parsed(support_path)
     return found
+
+
+#: The parsed file, by path. The guard reads the same support modules from
+#: every test file that imports them, and a big one (the 3D snapshot tests) is
+#: imported by several - parsing it once per importer cost the CI runner more
+#: than the whole guard's budget.
+_PARSED: dict[Path, ast.Module] = {}
+
+
+def _parsed(path: Path) -> ast.Module:
+    """The file's AST, parsed once per process."""
+    tree = _PARSED.get(path)
+    if tree is None:
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        _PARSED[path] = tree
+    return tree
+
+
+#: The timed attributes of one module, by module key. The attributes belong to
+#: the module that owns the class, so they are computed per MODULE and the
+#: per-test-file answer is their union - not a recomputation per importer.
+_TIMED_BY_MODULE: dict[str, frozenset[tuple[str, str, str]]] = {}
+
+
+def _timed_attributes_of(key: str, tree: ast.Module) -> frozenset[tuple[str, str, str]]:
+    """The (module, class, attribute) triples this module's classes carry."""
+    cached = _TIMED_BY_MODULE.get(key)
+    if cached is not None:
+        return cached
+    timed = _timed_attributes_in(key, tree)
+    _TIMED_BY_MODULE[key] = timed
+    return timed
+
+
+def _timed_attributes_in(key: str, tree: ast.Module) -> frozenset[tuple[str, str, str]]:
+    timed: set[tuple[str, str, str]] = set()
+    clock_reading = _reads_a_clock(tree)
+    for class_node in ast.walk(tree):
+        if not isinstance(class_node, ast.ClassDef):
+            continue
+        for method in class_node.body:
+            if not isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if method.name not in clock_reading:
+                continue
+            for attr in _attributes_written_with_a_clock(method, clock_reading):
+                timed.add((key, class_node.name, attr))
+    return frozenset(timed)
 
 
 def _class_modules(trees: Mapping[str, ast.Module]) -> dict[str, str]:
@@ -209,50 +307,8 @@ def _timed_attributes(trees: Mapping[str, ast.Module]) -> set[tuple[str, str, st
     """
     timed: set[tuple[str, str, str]] = set()
     for key, tree in trees.items():
-        clock_reading = _reads_a_clock(tree)
-        for class_node in ast.walk(tree):
-            if not isinstance(class_node, ast.ClassDef):
-                continue
-            for method in class_node.body:
-                if not isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    continue
-                if method.name not in clock_reading:
-                    continue
-                for attr in _attributes_written_with_a_clock(method, clock_reading):
-                    timed.add((key, class_node.name, attr))
+        timed |= _timed_attributes_of(key, tree)
     return timed
-
-
-def _local_classes(func: ast.AST) -> dict[str, str]:
-    """The local names of a function that hold an instance of a class:
-    ``baker = TimedBaker()`` -> ``{"baker": "TimedBaker"}``."""
-    found: dict[str, str] = {}
-    for node in ast.walk(func):
-        if not isinstance(node, ast.Assign) or len(node.targets) != 1:
-            continue
-        target, value = node.targets[0], node.value
-        if not (isinstance(target, ast.Name) and isinstance(value, ast.Call)
-                and isinstance(value.func, ast.Name)):
-            continue
-        found[target.id] = value.func.id
-    return found
-
-
-def _counted_attributes(func: ast.AST) -> set[int]:
-    """The attributes whose value is only COUNTED: the argument of ``len()``.
-
-    A list of timestamps that a test only counts is not a duration - the gates
-    that count repaints and passes are meant to hold on any machine under any
-    load, and they run beside the workers (ADR-058). Counting is not asserting
-    a time.
-    """
-    counted: set[int] = set()
-    for node in ast.walk(func):
-        if isinstance(node, ast.Call) and _call_name(node) == "len" and len(node.args) == 1:
-            for inner in ast.walk(node.args[0]):
-                if isinstance(inner, ast.Attribute):
-                    counted.add(id(inner))
-    return counted
 
 
 def _reads_a_timed_attribute(
@@ -262,26 +318,44 @@ def _reads_a_timed_attribute(
     timed_attributes: Collection[tuple[str, str, str]],
     class_modules: Mapping[str, str],
 ) -> bool:
-    """True when the function reads an attribute that carries a measurement."""
+    """True when the function reads an attribute that carries a measurement.
+
+    ONE walk of the function answers all three questions it needs - the local
+    classes, the attributes that are only counted, and the attribute reads
+    themselves - because the guard reads every test file in the suite, and three
+    walks per function added up on the CI runner.
+    """
     if not timed_attributes:
         return False
-    local = _local_classes(func)
-    counted = _counted_attributes(func)
+    local: dict[str, str] = {}
+    counted: set[int] = set()
+    reads: list[tuple[str | None, str, int]] = []
     for node in ast.walk(func):
-        if not isinstance(node, ast.Attribute) or id(node) in counted:
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            target, value = node.targets[0], node.value
+            if isinstance(target, ast.Name) and isinstance(value, ast.Call) \
+                    and isinstance(value.func, ast.Name):
+                local[target.id] = value.func.id
+        if isinstance(node, ast.Call) and _call_name(node) == "len" and len(node.args) == 1:
+            for inner in ast.walk(node.args[0]):
+                if isinstance(inner, ast.Attribute):
+                    counted.add(id(inner))
+        if isinstance(node, ast.Attribute):
+            owner = node.value
+            if isinstance(owner, ast.Name) and owner.id == "self":
+                reads.append((class_name, node.attr, id(node)))
+            elif isinstance(owner, ast.Name) and owner.id in local:
+                reads.append((local[owner.id], node.attr, id(node)))
+    for owner_class, attr, node_id in reads:
+        if node_id in counted:
+            continue                       # only counted, not a duration
+        if owner_class is None:
             continue
-        owner = node.value
-        if isinstance(owner, ast.Name) and owner.id == "self":
-            if class_name is None:
-                continue
-            if (module_key, class_name, node.attr) in timed_attributes:
-                return True
-        elif isinstance(owner, ast.Name) and owner.id in local:
-            class_of = class_modules.get(local[owner.id])
-            if class_of is None:
-                continue
-            if (class_of, local[owner.id], node.attr) in timed_attributes:
-                return True
+        module_of = module_key if owner_class == class_name else class_modules.get(owner_class)
+        if module_of is None:
+            continue
+        if (module_of, owner_class, attr) in timed_attributes:
+            return True
     return False
 
 
@@ -365,20 +439,6 @@ def _sensitive_names(
         name for name in timed if _orders_a_value_against_a_bound(_functions(tree)[name])
     }
     return _closure(sensitive, tree)
-
-
-def _class_owners(tree: ast.Module) -> dict[str, str | None]:
-    """Function name -> the class it is a method of (None for a module-level
-    one). A name that two classes share resolves to None: the guard would
-    rather not guess."""
-    owners: dict[str, str | None] = {}
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.ClassDef):
-            continue
-        for member in node.body:
-            if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                owners[member.name] = None if member.name in owners else node.name
-    return owners
 
 
 def _marker_names(node: ast.AST) -> set[str]:
