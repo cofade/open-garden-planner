@@ -330,6 +330,29 @@ item with nothing behind it still clears the selection. The 3D selection bridge
 already did this, and the one measured difference between the two views is
 gone.
 
+### PF-UI-26
+
+- **Rule:** A bundled overlay that prioritises the database over the plan silently discards form edits; spin gestures coalesce into the pending command and history refreshes outrank focus guards.
+- **Pinned by:** `tests/integration/test_plant_package_558_559_560_552_557.py::test_species_field_edit_is_one_undo_step`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_spin_drag_coalesces_into_one_undo_step`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_history_refresh_updates_focused_widget`
+- **Source:** #559, #560
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Three Plant Details findings from one audit. First, `merge_calendar_data`
+prioritises the bundled DB over the plan dict for every calendar field -
+including `family` and `nutrient_demand`, which are also form fields. A user
+edit to either was merged back to the bundled value and the undo no-op guard
+then correctly reported no change: the edit was silently lost. On the edit
+path the committed widget values now win for those two fields; the overlay
+still fills the rest. Second, routing `valueChanged` straight into a command
+is one undo entry per spin tick, while deferring to `editingFinished` kills
+the live shadow reaction a P0 regression pins (`test_plant_growth_wiring`):
+consecutive ticks of one spin drag merge into the pending command instead, so
+the canvas reacts live and the gesture stays one undo step. Third, the #206
+focus guard that protects mid-typing edits also suppressed history-driven
+refreshes, so undo/redo left a focused form stale: the panel now consumes a
+`stack_changed`-set flag that outranks the guard for exactly one refresh.
+
 PR #556's review caught the distinction between a passive overlay and a drag
 handle: both lack `ItemIsSelectable`, but a handle must receive its press.
 Looking through a resize or rotation handle selected a background object and

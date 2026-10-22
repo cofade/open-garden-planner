@@ -1877,14 +1877,41 @@ def _plant_of(record: Record) -> tuple[SpriteRef, float] | None:
 
 def plant_archetype(record: Record) -> str | None:
     """What ``build_plant`` builds for a record: an archetype name, ``PLACEHOLDER``
-    for a plant without a height, None for a record it does not build as a plant
+    for a plant without a height and without an illustrative fallback (#557),
+    None for a record it does not build as a plant
     (not a plant kind, or no canopy circle: that one gets ``default_builder``)."""
     plant = _plant_of(record)
     if plant is None:
         return None
     if record.height_cm is None:
+        try:
+            from open_garden_planner.core.plant_height_estimate import (
+                ESTIMATED_HEIGHT_PARAM,
+            )
+
+            _est = record.params.get(ESTIMATED_HEIGHT_PARAM)
+            if isinstance(_est, (int, float)) and not isinstance(_est, bool) and float(_est) > 0:
+                return str(recipe_for(plant[0])["a"])
+        except Exception:
+            pass
         return PLACEHOLDER
     return str(recipe_for(plant[0])["a"])
+
+
+def _estimated_fallback_cm(record: Record) -> float | None:
+    """Illustrative fallback height for a height-less plant record (#557)."""
+    try:
+        from open_garden_planner.core.plant_height_estimate import (
+            ESTIMATED_HEIGHT_PARAM,
+        )
+
+        _est = record.params.get(ESTIMATED_HEIGHT_PARAM)
+        if isinstance(_est, bool) or not isinstance(_est, (int, float)):
+            return None
+        _est = float(_est)
+        return _est if _est > 0.0 else None
+    except Exception:
+        return None
 
 
 def build_plant(record: Record) -> tuple[MeshPart, ...]:
@@ -1892,7 +1919,9 @@ def build_plant(record: Record) -> tuple[MeshPart, ...]:
 
     - a plant with a height: its recipe's silhouette, fitted to ``height_cm`` and
       the canopy radius ``params["radius_cm"]``, seeded from ``params["seed"]``;
-    - a plant without a height: ``placeholder_parts``;
+    - a plant without a height but with an illustrative category fallback
+      (``estimated_height_cm``, #557): the same silhouette at the fallback;
+    - a plant without a height and without a fallback: ``placeholder_parts``;
     - anything else (not a plant kind, or no canopy circle): ``default_builder``.
 
     A record cannot hold a length beyond ``MAX_LENGTH_CM``; a height or canopy
@@ -1906,11 +1935,22 @@ def build_plant(record: Record) -> tuple[MeshPart, ...]:
     if plant is None:
         return default_builder(record)
     sprite, radius = plant
-    if record.height_cm is None:
-        return placeholder_parts(radius)
+    height = record.height_cm
+    if height is None:
+        # Unknown height (#557): render the matching plant form at the
+        # illustrative category fallback carried on the transient record.
+        # The plan itself keeps height None; analytical sun/shade outputs
+        # keep treating it as unknown.
+        height = _estimated_fallback_cm(record)
+        if height is None:
+            return placeholder_parts(radius)
+        from open_garden_planner.core.scene3d.record import MAX_LENGTH_CM
+
+        if height > MAX_LENGTH_CM or radius > MAX_LENGTH_CM:
+            return placeholder_parts(radius)
     seed = record.params.get(PARAM_SEED)
     return build_silhouette(recipe_for(sprite), item_seed(str(seed) if seed is not None else "", "plant"),
-                            record.height_cm, radius)
+                            height, radius)
 
 
 def register(registry: BuilderRegistry) -> None:

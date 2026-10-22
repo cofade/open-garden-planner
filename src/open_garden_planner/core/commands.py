@@ -6,7 +6,7 @@ executed, undone, and redone.
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from contextlib import AbstractContextManager, nullcontext
+from contextlib import AbstractContextManager, nullcontext, suppress
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
@@ -61,6 +61,7 @@ class CommandManager(QObject):
     can_redo_changed = pyqtSignal(bool)
     command_executed = pyqtSignal(str)
     stack_changed = pyqtSignal()
+    history_navigated = pyqtSignal()
 
     def __init__(self, parent: QObject | None = None) -> None:
         """Initialize the command manager."""
@@ -120,6 +121,7 @@ class CommandManager(QObject):
         self.can_undo_changed.emit(len(self._undo_stack) > 0)
         self.can_redo_changed.emit(True)
         self.stack_changed.emit()
+        self.history_navigated.emit()  # an explicit history transition (#560)
 
     def redo(self) -> None:
         """Redo the last undone command."""
@@ -139,6 +141,7 @@ class CommandManager(QObject):
         self.can_undo_changed.emit(True)
         self.can_redo_changed.emit(len(self._redo_stack) > 0)
         self.stack_changed.emit()
+        self.history_navigated.emit()  # redo is a history transition too (#560)
 
     def clear(self) -> None:
         """Clear all undo/redo history."""
@@ -173,6 +176,15 @@ class CommandManager(QObject):
         if self._undo_stack:
             return self._undo_stack[-1].description
         return None
+
+    def peek_undo(self) -> Command | None:
+        """Return the top of the undo stack without removing it (#559).
+
+        Panels use this to coalesce a numeric/spin gesture: consecutive
+        ``valueChanged`` steps of one spin drag merge into the pending command
+        instead of one undo entry per tick. Returns None when empty.
+        """
+        return self._undo_stack[-1] if self._undo_stack else None
 
     @property
     def redo_description(self) -> str | None:
@@ -786,6 +798,131 @@ class RotateItemCommand(Command):
     def undo(self) -> None:
         """Restore the old rotation."""
         self._apply_func(self._item, self._old_angle)
+
+
+class PlantSpeciesEditCommand(Command):
+    """One committed Plant Details species edit as a single undo step (#559).
+
+    Captures the ``metadata['plant_species']`` dict, the user's
+    ``spacing_radius_cm`` override, and the drawn footprint radius so a
+    species-field edit — including a Max Spread change that resizes the
+    footprint (#558) — undoes/redoes together. Library writes
+    (``update_plant``/``add_plant``) are explicitly NOT part of undo: they
+    are shared-library side effects, documented in the panel.
+    """
+
+    def __init__(
+        self,
+        item: QGraphicsItem,
+        old_species: dict[str, Any] | None,
+        new_species: dict[str, Any] | None,
+        old_radius: float | None = None,
+        new_radius: float | None = None,
+        old_spacing_override: float | None = None,
+        new_spacing_override: float | None = None,
+    ) -> None:
+        self._item = item
+        self._old_species = dict(old_species) if old_species is not None else None
+        self._new_species = dict(new_species) if new_species is not None else None
+        self._old_radius = old_radius
+        self._new_radius = new_radius
+        self._old_spacing_override = old_spacing_override
+        self._new_spacing_override = new_spacing_override
+
+    @property
+    def description(self) -> str:
+        """Human-readable description."""
+        return QCoreApplication.translate("Commands", "Edit plant details")
+
+    def _apply(
+        self,
+        species: dict[str, Any] | None,
+        radius: float | None,
+        spacing_override: float | None,
+    ) -> None:
+        metadata = self._item.metadata  # type: ignore[attr-defined]
+        if species is None:
+            metadata.pop("plant_species", None)
+        else:
+            metadata["plant_species"] = dict(species)
+        if hasattr(self._item, "spacing_radius_cm"):
+            self._item.spacing_radius_cm = spacing_override  # type: ignore[attr-defined]
+        if radius is not None and hasattr(self._item, "set_radius_centered"):
+            try:
+                self._item.set_radius_centered(radius)  # type: ignore[attr-defined]
+            except Exception:
+                # The metadata still records the new max_spread while the
+                # footprint stays old: loud, not silent, so the divergence
+                # can be found (P2-2). Undo replays through the same call.
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    "PlantSpeciesEditCommand: set_radius_centered(%r) failed; "
+                    "footprint unchanged",
+                    radius,
+                )
+        with suppress(Exception):
+            if hasattr(self._item, "update"):
+                self._item.update()  # type: ignore[attr-defined]
+
+    def execute(self) -> None:
+        """Apply the new species dict + footprint radius."""
+        self._apply(self._new_species, self._new_radius, self._new_spacing_override)
+
+    def undo(self) -> None:
+        """Restore the old species dict + footprint radius."""
+        self._apply(self._old_species, self._old_radius, self._old_spacing_override)
+
+
+class PlantInstanceEditCommand(Command):
+    """One committed Plant Details instance edit as a single undo step (#559).
+
+    Captures the ``metadata['plant_instance']`` dict. Geometry-affecting keys
+    (``current_spread_cm``, ``current_height_cm``, ``planting_date``) trigger
+    ``prepareGeometryChange`` before the write so the scene index does not
+    keep the old rect.
+    """
+
+    _GEOMETRY_KEYS = frozenset(
+        {"current_spread_cm", "current_height_cm", "planting_date"}
+    )
+
+    def __init__(
+        self,
+        item: QGraphicsItem,
+        old_instance: dict[str, Any],
+        new_instance: dict[str, Any],
+    ) -> None:
+        self._item = item
+        self._old_instance = dict(old_instance)
+        self._new_instance = dict(new_instance)
+
+    @property
+    def description(self) -> str:
+        """Human-readable description."""
+        return QCoreApplication.translate("Commands", "Edit plant details")
+
+    def _apply(self, instance: dict[str, Any]) -> None:
+        metadata = self._item.metadata  # type: ignore[attr-defined]
+        try:
+            if hasattr(self._item, "prepareGeometryChange"):
+                self._item.prepareGeometryChange()  # type: ignore[attr-defined]
+        except Exception:
+            pass
+        metadata["plant_instance"] = dict(instance)
+        try:
+            if hasattr(self._item, "update"):
+                self._item.update()  # type: ignore[attr-defined]
+        except Exception:
+            pass
+
+    def execute(self) -> None:
+        """Apply the new instance dict."""
+        self._apply(self._new_instance)
+
+    def undo(self) -> None:
+        """Restore the old instance dict."""
+        self._apply(self._old_instance)
 
 
 class MoveVertexCommand(Command):

@@ -305,8 +305,12 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
                     _("EllipseItem", "Array Along Path...")
                 )
 
+        menu.addSeparator()
+        lock_action = self.build_lock_context_menu(menu)
         action = menu.exec(event.screenPos())
 
+        if self.dispatch_lock_action(action, lock_action):
+            return
         # Dispatch bed-specific actions via the shared mixin handler.
         if self.dispatch_bed_action(action, bed_actions):
             return

@@ -1,5 +1,6 @@
 """Properties panel for live editing of selected objects."""
 
+import contextlib
 from collections.abc import Callable
 from typing import Any
 
@@ -181,6 +182,11 @@ class PropertiesPanel(QWidget):
         self._command_manager = command_manager
         self._current_items: list[QGraphicsItem] = []
         self._updating = False  # Prevent feedback loops
+        # True after an undo/redo (stack_changed): the next refresh is an
+        # explicit history transition and must update even a focused editor
+        # (#560). Ordinary notifications keep protecting uncommitted typing.
+        self._history_pending = False
+        self._history_refresh = False
         # Identity of the currently built form. set_selected_items rebuilds only
         # when this changes; an unchanged selection takes the in-place value
         # refresh path instead of tearing down and recreating every widget (#206).
@@ -201,7 +207,41 @@ class PropertiesPanel(QWidget):
         Args:
             command_manager: The command manager to use
         """
+        try:
+            if self._command_manager is not None:
+                with contextlib.suppress(Exception):
+                    self._command_manager.history_navigated.disconnect(
+                        self._on_history_changed
+                    )
+        except Exception:
+            pass
         self._command_manager = command_manager
+        if command_manager is not None:
+            with contextlib.suppress(Exception):
+                command_manager.history_navigated.connect(self._on_history_changed)
+
+    def _on_history_changed(self) -> None:
+        """Mark the next refresh as history-driven (#560).
+
+        Connected to ``history_navigated`` (undo/redo only), never to the
+        every-commit ``stack_changed`` — an own commit must not masquerade as
+        a history transition and clobber the focused editor.
+        """
+        self._history_pending = True
+        # Badges are derived state: re-derive them for the whole scene so an
+        # undone/redone lock shows correctly even on unselected items (#552).
+        # Cheap (a constraint-graph query per item) and idempotent.
+        with contextlib.suppress(Exception):
+            scene = None
+            for _it in self._current_items:
+                scene = _it.scene() if hasattr(_it, "scene") else None
+                if scene is not None:
+                    break
+            if scene is not None:
+                for _it in scene.items():
+                    _refresh = getattr(_it, "refresh_lock_badge", None)
+                    if callable(_refresh):
+                        _refresh()
 
     def _setup_ui(self) -> None:
         """Set up the UI components."""
@@ -318,8 +358,21 @@ class PropertiesPanel(QWidget):
         # briefly shows the previous item until the next trigger — keeping focus
         # is worth it; do NOT remove the guard to "fix" it.
         fw = QApplication.focusWidget()
+        history = self._history_pending
+        self._history_pending = False
+        # Keep the FIXED padlock truthful across undo/redo and reloads: the
+        # badge is derived state, so re-derive it whenever the selection (or
+        # history) is re-presented (#552). Cheap and idempotent.
+        for _it in items:
+            try:
+                _refresh = getattr(_it, "refresh_lock_badge", None)
+                if callable(_refresh):
+                    _refresh()
+            except Exception:
+                pass
         if (
-            fw is not None
+            not history
+            and fw is not None
             and isinstance(fw, (QAbstractSpinBox, QLineEdit, QTextEdit))
             and self.isAncestorOf(fw)
         ):
@@ -343,7 +396,11 @@ class PropertiesPanel(QWidget):
         new_identity = self._compute_identity(items)
         if new_identity == self._current_identity and self._field_refreshers:
             self._current_items = items
-            self._refresh_field_values()
+            self._history_refresh = bool(history)
+            try:
+                self._refresh_field_values()
+            finally:
+                self._history_refresh = False
             return
 
         self._current_identity = new_identity
@@ -449,7 +506,7 @@ class PropertiesPanel(QWidget):
         edits_text = isinstance(widget, (QLineEdit, QAbstractSpinBox, QTextEdit)) or (
             isinstance(widget, QComboBox) and widget.isEditable()
         )
-        if edits_text and self._is_focused(widget):
+        if edits_text and self._is_focused(widget) and not self._history_refresh:
             return
         widget.blockSignals(True)
         try:
@@ -2227,6 +2284,51 @@ class PropertiesPanel(QWidget):
         from PyQt6.QtCore import QPointF
 
         from open_garden_planner.core.commands import AlignItemsCommand, MoveItemsCommand
+        from open_garden_planner.ui.canvas.items.resize_handle import (
+            _is_item_fixed as _panel_is_item_fixed,
+        )
+
+        # FIXED constraint (#552): a pinned object cannot be moved by the panel.
+        # The constraint solver path below only handles *propagated* moves; for a
+        # FIXED item the propagation set is empty and it fell through to a plain
+        # MoveItemsCommand. Refuse, restore the pinned values, and explain why.
+        try:
+            if _panel_is_item_fixed(item):
+                msg = QCoreApplication.translate(
+                    "PropertiesPanel",
+                    "Locked in place: unlock to move (Fix in place constraint).",
+                )
+                scene = item.scene()
+                if scene is not None:
+                    for view in scene.views():
+                        window = view.window()
+                        status_bar = getattr(window, "statusBar", None)
+                        if callable(status_bar):
+                            try:
+                                status_bar().showMessage(msg, 4000)
+                                break
+                            except Exception:
+                                continue
+                # Restore the pinned values without emitting a new command.
+                # Bypass the focus guard: the user is necessarily focused on
+                # the spin they just edited, and the refresher would refuse to
+                # touch it, leaving the refused value visible (P1-2).
+                self._history_refresh = True
+                try:
+                    self._refresh_field_values()
+                finally:
+                    self._history_refresh = False
+                with contextlib.suppress(Exception):
+                    pinned = item.mapToScene(item.boundingRect().topLeft())
+                    x_spin.blockSignals(True)
+                    x_spin.setValue(pinned.x())
+                    x_spin.blockSignals(False)
+                    y_spin.blockSignals(True)
+                    y_spin.setValue(pinned.y())
+                    y_spin.blockSignals(False)
+                return
+        except Exception:
+            pass
 
         # Get new position from spin boxes
         # View transform already flips Y, so scene coords = CAD coords (no conversion)

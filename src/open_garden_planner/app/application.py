@@ -5210,6 +5210,10 @@ class GardenPlannerApp(QMainWindow):
 
         # 6. Plant Details Panel (collapsible) - only shown when a plant is selected
         self.plant_database_panel = PlantDatabasePanel()
+        with contextlib.suppress(Exception):
+            self.plant_database_panel.set_command_manager(
+                self.canvas_view.command_manager
+            )
         self.plant_database_panel.search_button.clicked.connect(self._on_search_plant_database)
         self.plant_details_collapsible = CollapsiblePanel(self.tr("Plant Details"), self.plant_database_panel, expanded=True)
         sidebar_layout.addWidget(self.plant_details_collapsible)

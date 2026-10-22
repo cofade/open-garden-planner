@@ -1044,6 +1044,24 @@ def _record_of(item: Any, object_type: Any, item_id: str, at_date: date | None,
     height = effective_height_cm(object_type, metadata, at_date=at_date)
     if height is not None and height <= 0.0:
         height = None  # no height. One that is no usable number — 1e300, 1e-300 — is the Record's to refuse.
+    if height is None and kind in ("TREE", "SHRUB", "PERENNIAL"):
+        # Illustrative fallback for unknown height (#557): the plan keeps
+        # height None (unknown stays unknown); the transient record carries
+        # the estimate separately so the builder can render the plant form.
+        try:
+            from open_garden_planner.core.plant_height_estimate import (
+                ESTIMATED_HEIGHT_PARAM,
+                estimated_height_cm,
+            )
+
+            _cat = getattr(item, "plant_category", None)
+            _est = estimated_height_cm(
+                kind, _cat.name if _cat is not None else None
+            )
+            if _est is not None and _est > 0:
+                params[ESTIMATED_HEIGHT_PARAM] = float(_est)
+        except Exception:
+            pass
     paint: Paint | None = None
     as_drawn: Ring = ()  # a polygon AS DRAWN, where the regions are not it (Record.outline)
     if kind not in _NEVER_ON_THE_GROUND:

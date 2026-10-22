@@ -165,6 +165,17 @@ pinned anchors are not a solved system. The fresh eight-mutant sample and its te
 selection are recorded in `audits/2026-10/audit-2026-10-a5-evidence.md`; historical mutmut counts
 are not a current full-suite measurement.
 
+**Addendum (2026-10-23, issue #552 — FIXED closes the panel path).** The canvas
+drag, arrange and vertex paths honoured FIXED; the Properties panel X/Y fields
+did not (an empty propagation set fell through to a plain `MoveItemsCommand`,
+a data-integrity defect: the moved position is what a save writes). The panel
+now refuses the edit when `_is_item_fixed`, restores the pinned values and
+explains why. Lock/Unlock lives in the item right-click menu, backed by the
+existing `AddConstraintCommand` / `RemoveConstraintCommand` with
+`AnchorType.CENTER` (no second lock state, no new persisted field), and a
+`ItemIgnoresTransformations` padlock badge re-derived on every selection
+presentation so it stays truthful across undo/redo and reloads.
+
 ## ADR-014: Bundled `plant_species.json` is single source of truth for species + calendar
 
 **Status**: Accepted (Phase 12 — issue #170)
@@ -5732,6 +5743,28 @@ fixed the same defect, `master`'s mechanism wins:**
 Validation: `tests/integration/test_scene3d_ground_wiring.py` (12 tests), the workspace's suites
 with the baker in (two of their assertions said "a bare plan rectangle" and say "tiles" now),
 `tests/unit/test_quick3d_selftest.py`, the render tier (GPU and WARP).
+
+### Addendum (2026-10-23, issues #557/#558 — illustrative category heights, width propagation)
+
+- **Estimated heights (#557)** are a deliberate product-policy change to the
+  unknown-height contract: a plant with no usable height renders the matching
+  plant form at a documented illustrative category fallback
+  (`core/plant_height_estimate.py`: tree 400, shrub 150, perennial 60,
+  vegetable 50 cm; category group first, then kind) instead of the pale
+  marker. The plan keeps height unknown — nothing is written to species data,
+  measurements or the saved file; the transient record carries
+  `estimated_height_cm`, viewing 3D adds no undo step, and the info card shows
+  "{height} (estimated)". The estimate drives decorative 3D geometry (and its
+  shadow) only; the analytical 2D sun/shade model keeps treating the height as
+  unknown (`effective_height_cm` still returns `None`). Known and measured
+  heights keep their exact geometry; setting a real height replaces the
+  estimate. Pinned by `tests/integration/test_plant_package_558_559_560_552_557.py`.
+- **Maximum-width propagation (#558)** rides the same builder/record path:
+  editing Max Spread on a species-sized plant resizes the 2D footprint and the
+  3D canopy spread together (center and rotation pivot preserved,
+  `set_radius_centered`), as one undo step with the metadata edit. Explicit
+  spacing overrides, measured spreads and custom footprints win; a cleared
+  maximum preserves geometry.
 
 ## ADR-060: The 3D workspace — Plan / 3D / Split in the main window, one kept engine host (Phase 17, L1.3)
 

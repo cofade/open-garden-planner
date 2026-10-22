@@ -951,8 +951,12 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
                 )
 
         # Execute menu and handle result
+        menu.addSeparator()
+        lock_action = self.build_lock_context_menu(menu)
         action = menu.exec(event.screenPos())
 
+        if self.dispatch_lock_action(action, lock_action):
+            return
         # Dispatch bed-specific actions via the shared mixin handler.
         if self.dispatch_bed_action(action, bed_actions):
             return
