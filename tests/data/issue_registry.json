@@ -1053,5 +1053,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix: restore line appearance undo and contain styled paint"
+  },
+  "556": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "fix: the 2D canvas defect batch (#522, #530, #445, #446, #528)"
   }
 }
