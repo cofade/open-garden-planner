@@ -452,7 +452,10 @@ class Workspace(QWidget):
         self._mode_actions[WorkspaceMode.PLAN].setChecked(True)
         self._reset_action = QAction(self.tr("&Reset 3D View"), self)
         self._reset_action.setStatusTip(self.tr("Show the whole garden in the 3D view again"))
-        self._reset_action.setToolTip(self.tr("Show the whole garden again (Home)"))
+        _home = QKeySequence(Qt.Key.Key_Home).toString(
+            QKeySequence.SequenceFormat.NativeText)
+        self._reset_action.setToolTip(
+            self.tr("Show the whole garden again ({key})").format(key=_home))
         self._reset_action.triggered.connect(lambda _checked=False: self.reset_view())
         self._reset_action.setEnabled(False)
 
