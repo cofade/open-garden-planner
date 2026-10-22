@@ -118,7 +118,12 @@ def _reference_candidates(species: str, species_files: Mapping[str, str]) -> lis
     return list(dict.fromkeys(found))
 
 
-_INDEX_CACHE: dict[int, tuple[dict[str, str], tuple[tuple[frozenset[str], int, str], ...]]] = {}
+#: The built index per map, keyed by the map's id. The map is KEPT in the
+#: value: an id-keyed cache that does not keep its key alive can hand back
+#: another map's index when the first is collected.
+_INDEX_CACHE: dict[
+    int, tuple[dict[str, str], tuple[tuple[frozenset[str], int, str], ...], Mapping[str, str]]
+] = {}
 
 
 def _normalised_index(
@@ -128,7 +133,7 @@ def _normalised_index(
     per map: the differential asks this hundreds of thousands of times."""
     cached = _INDEX_CACHE.get(id(species_files))
     if cached is not None:
-        return cached
+        return cached[0], cached[1]
     normalised: dict[str, str] = {}
     words: list[tuple[frozenset[str], int, str]] = []
     for key, stem in species_files.items():
@@ -136,7 +141,7 @@ def _normalised_index(
         normalised.setdefault(folded, stem)
         words.append((frozenset(folded.split()), len(folded), stem))
     built = (normalised, tuple(words))
-    _INDEX_CACHE[id(species_files)] = built
+    _INDEX_CACHE[id(species_files)] = (normalised, built[1], species_files)
     return built
 
 

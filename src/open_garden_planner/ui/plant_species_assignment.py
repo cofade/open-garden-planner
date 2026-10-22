@@ -219,8 +219,8 @@ def apply_species_to_item(
         new_override,
         old_radius,
         new_radius,
-        old_name,
-        new_name,
+        old_species_name=old_name,
+        new_species_name=new_name,
     )
 
     scene = plant_item.scene()

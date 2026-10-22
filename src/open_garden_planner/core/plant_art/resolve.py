@@ -369,10 +369,13 @@ def species_candidates(species: str) -> list[str]:
        the most words wins, so "prunus persica" beats "prunus".
     3. **A key contains the name.** Every word of the name is a word of the key
        — "Solanum" names the tomato. The key with the fewest extra words wins;
-      a tie keeps the table's order.
+       a tie keeps the table's order.
 
     A name that matches none of them is no species the sprites know, and the
     caller falls back to the plant's category sprite.
+
+    The length tie-break in rule 2 is a real one: two one-word keys inside one
+    name ("lavender rose") are both one word, and the longer key wins.
     """
     if not species:
         return []

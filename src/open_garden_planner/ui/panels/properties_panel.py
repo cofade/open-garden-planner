@@ -469,7 +469,11 @@ class PropertiesPanel(QWidget):
         things, for the two kinds of follower:
 
         - the scene's plan revision moves (``CanvasScene.note_plan_changed``, ADR-060
-          decision 5) — what follows the PLAN, the 3D view, is told at once;
+          decision 5) — what follows the PLAN, the 3D view, is told at once. A
+          command moves it by itself (the scene connects ``stack_changed`` to
+          the nudge), so this is the second nudge for a command and the only
+          one for a panel with no command manager; listeners coalesce, so it
+          costs nothing.
         - the item is repainted — what follows the scene's REPAINTS, the sun's
           shadow, sees it too (``plant_database_panel``'s rule, §11.4).
 
@@ -1284,8 +1288,8 @@ class PropertiesPanel(QWidget):
 
         Containers (pots, wall planters) measure their fill by height in litres
         and carry a material + drainage that drive a watering hint. Values live
-        in ``metadata`` (additive, like bed ``soil_depth_cm``); edits mutate the
-        item directly, mirroring :meth:`_add_soil_depth_properties`.
+        in ``metadata`` (additive, like bed ``soil_depth_cm``); each edit is one
+        undoable command, like :meth:`_add_soil_depth_properties` (#530).
         """
         from open_garden_planner.core import container_model as cm
         from open_garden_planner.core.object_types import is_container_type
@@ -1487,8 +1491,8 @@ class PropertiesPanel(QWidget):
         per-type default. Setting a value stores an explicit override;
         setting 0 clears it (back to automatic) — the same semantics as the
         spacing-radius field above. Edits go through ``ChangePropertyCommand``
-        (one undo step, #209); the container section's direct metadata writes
-        are documented debt, not the pattern.
+        (one undo step, #209); the container section's edits are the same shape
+        now (#530), so there is no direct metadata write left in this panel.
         """
         from open_garden_planner.core import object_height as oh
 

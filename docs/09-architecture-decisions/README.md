@@ -1078,7 +1078,7 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 - **Two keys, never aliased**: `object_height_cm` (above-ground height, shadows/3D) vs `container_height_cm` (soil fill, drives volume) — a tall pot on legs can be 90 cm tall with a 30 cm fill. The resolver arbitrates; nothing else reads both. **Known simplification (review-flagged, revisit in US-E3/#258)**: with no explicit override the fill height *stands in* for a container's above-ground height (there is no separate source in this slice), so an on-legs pot under-shadows until the user sets a height — marked in a code comment at the fallback.
 - **Additive metadata, NO FILE_VERSION bump** (stays "1.4"): the serializer round-trips `item.metadata` wholesale, old apps ignore unknown keys (precedent: the `container_*` keys). Graceful degrade both directions is pinned by `tests/integration/test_height_property.py`.
 - **Qt-free by name-matching**: `core/object_types.py` imports PyQt6 (translated labels), so the resolver matches object types by enum **name** (`"FENCE"`) instead of importing the enum — same spirit as `plant_sizing`/`container_model`'s metadata-only duck-typing. The name sets (`DEFAULT_HEIGHTS_CM` keys, container/plant name sets) are pinned against the real enum by unit tests, so a rename breaks a test rather than silently orphaning a default.
-- **Undoable UI**: the properties-panel "Object height:" spin displays the *resolved effective* height (0 = "Auto" clears the override — the exact semantics of the existing spacing-radius field) and commits via `ChangePropertyCommand(apply_func=…)` — one undo step (#209). The container section's direct-metadata mutation remains documented debt, not a precedent.
+- **Undoable UI**: the properties-panel "Object height:" spin displays the *resolved effective* height (0 = "Auto" clears the override — the exact semantics of the existing spacing-radius field) and commits via `ChangePropertyCommand(apply_func=…)` — one undo step (#209). The container section's direct-metadata mutation was documented debt, not a precedent; it is paid now (#530 - each of those edits is one `ChangePropertyCommand`).
 
 **Consequences**: US-E3 consumes `solar_position()` + `effective_height_cm()` without new plumbing; US-E5/E6's extrusion uses the same resolver, so 2D shadows and 3D heights can never disagree. `height_source()` gives the UI (and future diagnostics) provenance for free.
 
@@ -4576,6 +4576,8 @@ with the sprite on the plan about its shape or its green, and no test would noti
   second rule: "Lemon Balm" takes the lemon tree's sprite in 2D (`"lemon" in "lemon balm"`),
   "Melon" the eggplant's, and a 3D view that knew better would show a different plant than the
   plan. Fixing the 2D rule changes sprites users see and is its own issue.
+  *(Superseded by #446 — see "the species name is a whole name, and the assignment writes it" below:
+  the rule was fixed in ONE place, and it is the same rule the 3D builder asks.)*
 - **Scaling the farthest vertex onto the canopy circle** instead of fitting the bounding box. The
   box then spans as little as 72 % of the canopy diameter (measured, feathery), outside the ± 10 %
   spread gate. Bounding-box fit plus regular outlines keeps both — and the fit's last step
@@ -4638,6 +4640,9 @@ with the sprite on the plan about its shape or its green, and no test would noti
   recorded as a known gap between the views in the first version (3D built the new species); it
   is now one behaviour, and a 2D question: should the sprite follow an assigned species?
   Follow-up issue material, with the partial-match quirks below — not a 3D matter.
+  *(Superseded by #445 — see "the species name is a whole name, and the assignment writes it" below:
+  the assignment now writes the item's string, so the sprite DOES follow the assigned species, in
+  both views.)*
 - **One 2D input is NOT followed: the item's fill colour.** The canvas lays it over a plant's
   sprite at 60 / 255 opacity; 3D foliage is the recipe's palette alone, so a recoloured plant
   differs in hue between the views and a recolour changes nothing in 3D. The hue gate's
@@ -4646,6 +4651,8 @@ with the sprite on the plan about its shape or its green, and no test would noti
   a trunk and a crown 90 cm tall — because that is the sprite the plan shows; "Melon" takes the
   eggplant's recipe, "Bean (Bush)" a climber's, a string of blanks the rose's. Twelve of the 118
   bundled species have no sprite of their own and take their item type's category.
+  *(Superseded by #446 — the melon and a string of blanks no longer take those sprites; "Lemon Balm"
+  and "Bean (Bush)" still do, and that residue is pinned in the unit test.)*
 - **Many plants are placeholders until someone says how tall they are.** A category plant from
   the gallery ("Round Deciduous", "Palm" …) has no species data and so no height: the 2D shadow
   model casts none for it either. A typed height, a measured one or a species turns the marker

@@ -461,7 +461,27 @@ def test_a_species_without_a_sprite_keeps_the_plant_s_own_name(
 def test_the_scientific_name_is_used_when_the_common_one_has_no_sprite(
     canvas: CanvasView, panel: PlantDatabasePanel, generic_plant: CircleItem, monkeypatch
 ) -> None:
-    """The common name first, the scientific name when a sprite answers to it."""
+    """The fallback: a common name no sprite answers to falls back to the
+    scientific name, when one does.
+
+    "Brussels Sprouts" is a bundled record whose common name names no sprite and
+    whose scientific name ("Brassica oleracea var. gemmifera") does - so the
+    assignment writes the scientific name and the plant is drawn with the
+    broccoli's sprite."""
+    _fail_prompt(panel, monkeypatch)
+    panel._apply_species_to_item(generic_plant, {"common_name": "Brussels Sprouts",
+                                                  "scientific_name":
+                                                      "Brassica oleracea var. gemmifera"})
+
+    assert generic_plant.plant_species == "Brassica oleracea var. gemmifera"
+    assert _drawn_sprite(generic_plant) == ("species", "broccoli")
+
+
+def test_the_common_name_wins_when_it_names_a_sprite(
+    canvas: CanvasView, panel: PlantDatabasePanel, generic_plant: CircleItem, monkeypatch
+) -> None:
+    """The other branch: a common name that DOES name a sprite is used, and the
+    scientific name is not ("Winter Squash" names the squash)."""
     _fail_prompt(panel, monkeypatch)
     panel._apply_species_to_item(generic_plant, {"common_name": "Winter Squash",
                                                   "scientific_name": "Cucurbita maxima"})
