@@ -3176,3 +3176,17 @@ estimates (#557), maximum-width geometry propagation (#558), and command coverag
 for existing Plant Details species/instance fields (#559) remain separate work.
 The broader text/numeric focus guards require history-aware handling (#560);
 the committed-choice refresh fix does not remove active-edit protection.
+
+Finalization evidence (22 October 2026): the final default Windows/offscreen
+suite recorded 17,058 passed, 234 skipped and 11 Plan & Sun font/layout assertion
+failures; the documentation index mismatch from the preceding run is fixed.
+Native Windows validation passed all 99 affected checks, including every one of
+the 51 Plan & Sun cases. The quiet timing suite passed 98 tests with 10 skips.
+Lint, high-severity security, secrets, type-baseline, translations, lock/export,
+context/citation/wiki, sprite golden and all 97 mutation-pattern checks passed.
+The frozen Python 3.11.9 bundle passed inventory attribution for 72 distributions,
+the eight-second smoke (124), and self-test (0), including an RTX 4070 / Direct3D
+11 frame. Independent 3D review found all 53 board frames pixel-identical to
+master and all truth gates passing. Senior review found no P0/P1 and independently
+passed seven native latest-fix cases; its sole EOF-whitespace nit is removed.
+Protected merge still requires successful checks on the final pushed head.

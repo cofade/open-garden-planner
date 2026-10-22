@@ -532,4 +532,3 @@ def test_the_common_name_wins_when_it_names_a_sprite(
 
     assert generic_plant.plant_species == "Winter Squash"
     assert _drawn_sprite(generic_plant) == ("species", "squash")
-
