@@ -50,6 +50,7 @@ for the current version. The [canonical roadmap](https://github.com/cofade/open-
 owns phase status. [Open issues](https://github.com/cofade/open-garden-planner/issues) own the work list.
 
 The line-appearance follow-ups (#524, #525, #526, #471) shipped in [v1.30.16](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.16) via [PR #545](https://github.com/cofade/open-garden-planner/pull/545) after owner acceptance: exact preset/type undo, consistent round line corners, and complete styled-line canvas bounds; see the [implementation contract](https://github.com/cofade/open-garden-planner/blob/master/docs/08-crosscutting-concepts/README.md#830-line-appearance-snapshots-and-paint-containment-524-525-526-471).
+The 2D canvas defect batch (#522, #530, #445, #446, #528) shipped in [v1.30.18](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.18) via [PR #556](https://github.com/cofade/open-garden-planner/pull/556) after owner acceptance: whole-word species sprite matching, species assignment sync, selection transparency through locked layers, undoable Properties-panel bed/container edits, and class-scoped perf guard analysis; see the [implementation contract](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md#2d-canvas-defect-batch-522-530-445-446-528).
 
 ## Community
 
