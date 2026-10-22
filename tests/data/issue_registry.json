@@ -1073,5 +1073,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Plant Details: species and instance field edits bypass undo history"
+  },
+  "560": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Properties and Plant Details: focused text/numeric editors suppress history refresh"
   }
 }
