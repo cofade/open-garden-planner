@@ -318,7 +318,9 @@ class PlantDatabasePanel(QWidget):
         focused = QApplication.focusWidget()
         if focused is not None and self.isAncestorOf(focused):
             parent = focused.parentWidget()
-            if isinstance(focused, QLineEdit) and not isinstance(parent, QAbstractSpinBox):
+            if isinstance(focused, QAbstractSpinBox):
+                focused.interpretText()
+            elif isinstance(focused, QLineEdit) and not isinstance(parent, QAbstractSpinBox):
                 focused.editingFinished.emit()
             elif isinstance(parent, QAbstractSpinBox):
                 parent.interpretText()
@@ -967,6 +969,9 @@ class PlantDatabasePanel(QWidget):
             return
         if self._in_commit:
             return
+        signature = self._species_form_signature()
+        if signature == getattr(self, "_committed_species_form", None):
+            return
 
         # Update the PlantSpeciesData object
         self._current_plant_data.common_name = self.common_edit.text().strip() or ""
@@ -1118,6 +1123,30 @@ class PlantDatabasePanel(QWidget):
                             window._project_manager.mark_dirty()
                     if hasattr(view, "refresh_soil_mismatches"):
                         view.refresh_soil_mismatches()
+            self._committed_species_form = signature
+
+    def _species_form_signature(self) -> tuple:
+        """Read only editable values, before library identity conversion."""
+        widgets = (
+            self.common_edit, self.scientific_edit, self.family_edit,
+            self.cycle_combo, self.flower_type_combo, self.pollination_combo,
+            self.sun_combo, self.water_combo, self.max_height_spin, self.max_spread_spin,
+            self.hardiness_min_spin, self.hardiness_max_spin, self.edible_checkbox,
+            self.edible_parts_edit, self.ph_min_spin, self.ph_max_spin,
+            self.n_demand_combo, self.p_demand_combo, self.k_demand_combo,
+            self.nutrient_demand_combo,
+        )
+        values: list[Any] = []
+        for widget in widgets:
+            if isinstance(widget, QComboBox):
+                values.append(widget.currentData())
+            elif isinstance(widget, QDoubleSpinBox):
+                values.append(widget.value())
+            elif isinstance(widget, QCheckBox):
+                values.append(widget.isChecked())
+            else:
+                values.append(widget.text())
+        return tuple(values)
 
     def _species_resize_radii(
         self,
@@ -1688,6 +1717,10 @@ class PlantDatabasePanel(QWidget):
         focused = QApplication.focusWidget()
         if focused is None or not self.isAncestorOf(focused):
             return None
+        if isinstance(focused, QDoubleSpinBox):
+            focused = focused.lineEdit()
+            if focused is None:
+                return None
         if isinstance(focused, QLineEdit):
             text, cursor = focused.text(), focused.cursorPosition()
             start, selected = focused.selectionStart(), focused.selectedText()
@@ -1708,11 +1741,17 @@ class PlantDatabasePanel(QWidget):
             return restore_line
         if isinstance(focused, QPlainTextEdit):
             text, text_cursor = focused.toPlainText(), focused.textCursor()
+            position, anchor = text_cursor.position(), text_cursor.anchor()
+            scroll = focused.verticalScrollBar().value()
 
             def restore_notes() -> None:
                 with QSignalBlocker(focused):
                     focused.setPlainText(text)
-                    focused.setTextCursor(text_cursor)
+                    restored_cursor = focused.textCursor()
+                    restored_cursor.setPosition(anchor)
+                    restored_cursor.setPosition(position, restored_cursor.MoveMode.KeepAnchor)
+                    focused.setTextCursor(restored_cursor)
+                    focused.verticalScrollBar().setValue(scroll)
 
             return restore_notes
         return None
@@ -2057,6 +2096,7 @@ class PlantDatabasePanel(QWidget):
 
         # === PROFILE HEADER (US-G2, issue #317) ===
         self._update_profile_header(plant_data)
+        self._committed_species_form = self._species_form_signature()
 
     def _update_profile_header(self, plant_data: PlantSpeciesData) -> None:
         """Update the profile header with plant data (US-G2, issue #317).

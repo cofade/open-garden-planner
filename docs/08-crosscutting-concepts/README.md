@@ -6865,6 +6865,8 @@ Plant Details species and instance edits use independent deep snapshots in
 retain live feedback and merge through the command's merge_from method; the same
 widget's editingFinished ends that gesture. Re-entering it starts a new undo step.
 Shared custom-library writes are intentionally separate from document undo.
+An editable-form signature rejects unchanged input before any online-to-custom
+conversion or library write, so focus-only flushes cannot create phantom edits.
 
 CommandManager emits before_history_navigation before selecting an undo/redo entry,
 including an initially empty stack. Panels flush staged text there. The completed
@@ -6873,6 +6875,9 @@ a command. ProjectManager.before_save and application document dirty guards flus
 the same editors, so a Save or Close within the notes debounce captures the input.
 Ordinary same-selection updates protect the active editor's text/caret while other
 fields refresh. Structural changes retain the existing focus/teardown safeguards.
+Focus can be reported as the spinbox or its inner editor; both are interpreted
+before save and protected during ordinary refresh. Notes retain numeric cursor
+and selection offsets across document replacement.
 
 PositionLockMixin is shared by GardenItemMixin and CurveEditMixin. Object menus use
 the same Add/RemoveConstraintCommand actions and existing FIXED state. Scene

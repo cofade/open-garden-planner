@@ -591,7 +591,9 @@ class PropertiesPanel(QWidget):
         focused = QApplication.focusWidget()
         if focused is not None and self.isAncestorOf(focused):
             parent = focused.parentWidget()
-            if isinstance(parent, QAbstractSpinBox):
+            if isinstance(focused, QAbstractSpinBox):
+                focused.interpretText()
+            elif isinstance(parent, QAbstractSpinBox):
                 parent.interpretText()
         self._flush_pending_text_commits()
 

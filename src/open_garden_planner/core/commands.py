@@ -840,8 +840,8 @@ class PlantSpeciesEditCommand(Command):
         new_spacing_override: float | None = None,
     ) -> None:
         self._item = item
-        self._old_species = dict(old_species) if old_species is not None else None
-        self._new_species = dict(new_species) if new_species is not None else None
+        self._old_species = deepcopy(old_species)
+        self._new_species = deepcopy(new_species)
         self._old_radius = old_radius
         self._new_radius = new_radius
         self._old_spacing_override = old_spacing_override

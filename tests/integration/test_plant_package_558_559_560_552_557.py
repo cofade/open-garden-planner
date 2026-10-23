@@ -599,3 +599,112 @@ def test_constraint_tool_path_derives_badge_without_selection(canvas):
     canvas._execute_constraint_with_solve(cmd)
     assert not rect.isSelected()
     assert rect._lock_badge_item.isVisible()
+
+
+def test_direct_spin_focus_preserves_partial_input_on_ordinary_refresh(qtbot, canvas, plant_panel):
+    item = _tree(canvas)
+    plant_panel.set_selected_items([item])
+    plant_panel.show()
+    plant_panel.activateWindow()
+    spin = plant_panel.max_height_spin
+    spin.setFocus()
+    qtbot.waitUntil(spin.hasFocus)
+    spin.lineEdit().setText("-")
+    partial = spin.lineEdit().text()
+    item.metadata["plant_species"]["max_spread_cm"] = 190
+    plant_panel.set_selected_items([item])
+    assert spin.lineEdit().text() == partial
+    assert plant_panel.max_spread_spin.value() == 190
+
+
+@pytest.mark.parametrize("panel_name,spin_name", [("plant_database_panel", "max_height_spin"), ("properties_panel", None)])
+def test_save_interprets_directly_focused_numeric_editor(qtbot, monkeypatch, tmp_path, panel_name, spin_name):
+    from PyQt6.QtWidgets import QApplication
+
+    from tests.integration.test_view3d_workspace import build_app3d
+
+    window, _ = build_app3d(qtbot, monkeypatch, tmp_path)
+    item = _tree(window.canvas_view)
+    item.setSelected(True)
+    window._update_plant_database_panel()
+    panel = getattr(window, panel_name)
+    panel.set_selected_items([item])
+    panel.show()
+    window.show()
+    window.activateWindow()
+    spin = getattr(panel, spin_name) if spin_name else next(s for s in panel.findChildren(QDoubleSpinBox) if s.maximum() >= 777)
+    spin.setKeyboardTracking(False)
+    spin.setFocus()
+    qtbot.waitUntil(lambda: QApplication.focusWidget() is spin)
+    spin.lineEdit().setText("777")
+    assert spin.value() != 777
+    window._flush_pending_panel_edits()
+    assert spin.value() == 777
+
+
+def test_notes_cursor_survives_unrelated_refresh(qtbot, canvas, plant_panel):
+    item = _tree(canvas)
+    plant_panel.set_selected_items([item])
+    plant_panel.show()
+    plant_panel.activateWindow()
+    edit = plant_panel.notes_edit
+    edit.setFocus()
+    qtbot.waitUntil(edit.hasFocus)
+    edit.setPlainText("some uncommitted notes")
+    cursor = edit.textCursor()
+    cursor.setPosition(8)
+    edit.setTextCursor(cursor)
+    item.metadata["plant_species"]["max_height_cm"] = 800
+    plant_panel.set_selected_items([item])
+    assert edit.toPlainText() == "some uncommitted notes"
+    assert edit.textCursor().position() == 8
+
+
+def test_unchanged_online_species_focus_never_converts_or_blocks_history(qtbot, canvas, plant_panel, monkeypatch, tmp_path):
+    from copy import deepcopy
+    from unittest.mock import Mock
+
+    from open_garden_planner.core.project import ProjectManager
+
+    item = _tree(canvas)
+    item.metadata["plant_species"].update(data_source="trefle", source_id="online-1")
+    before = deepcopy(item.metadata["plant_species"])
+    library = Mock()
+    monkeypatch.setattr("open_garden_planner.ui.panels.plant_database_panel.get_plant_library", lambda: library)
+    plant_panel.set_selected_items([item])
+    plant_panel.show()
+    plant_panel.activateWindow()
+    plant_panel.family_edit.setFocus()
+    qtbot.waitUntil(plant_panel.family_edit.hasFocus)
+    _lock(item)
+    canvas.command_manager.undo()
+    plant_panel.set_selected_items([item])
+    assert not item.is_position_locked()
+    assert canvas.command_manager.redo_depth == 1
+    canvas.command_manager.redo()
+    plant_panel.set_selected_items([item])
+    assert item.is_position_locked()
+    pm = ProjectManager()
+    pm.before_save.connect(plant_panel.flush_pending_edits)
+    pm.save(canvas.scene(), tmp_path / "online.ogp")
+    assert item.metadata["plant_species"] == before
+    library.add_plant.assert_not_called()
+    library.update_plant.assert_not_called()
+
+
+def test_species_command_has_independent_nested_snapshots(canvas):
+    from open_garden_planner.core.commands import PlantSpeciesEditCommand
+
+    item = _tree(canvas)
+    old = {"raw_data": {"source": "old"}}
+    new = {"raw_data": {"source": "new"}}
+    cmd = PlantSpeciesEditCommand(item, old, new)
+    old["raw_data"]["source"] = "mutated"
+    new["raw_data"]["source"] = "mutated"
+    cmd.execute()
+    assert item.metadata["plant_species"]["raw_data"]["source"] == "new"
+    item.metadata["plant_species"]["raw_data"]["source"] = "also mutated"
+    cmd.undo()
+    assert item.metadata["plant_species"]["raw_data"]["source"] == "old"
+    cmd.execute()
+    assert item.metadata["plant_species"]["raw_data"]["source"] == "new"
