@@ -311,6 +311,7 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | PF-UI-24 | Every property the Properties panel edits is one undoable command; a direct write into the item is neither undoable nor a mark of a modified plan. | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-24) |  |
 | PF-UI-25 | A Shift+click on a canvas object toggles the first selectable item under the cursor; interactive handles retain Qt mouse delivery. | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-25) |  |
 | PF-UI-26 | Chronological field stepping must enable cross-field steps and emit one full naive wall reading across a carry. | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-26) |  |
+| PF-UI-27 | Tall settings forms scroll instead of compressing controls. | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-27) |  |
 | PF-E3D-10 | Derived lifetime visibility must preserve the existing throttled 3D clock path while real plan edits still announce revisions. | standing | [10](pitfalls/10-3d-engine-scene.md#pf-e3d-10) |  |
 
 ### Redirect of legacy numbered IDs

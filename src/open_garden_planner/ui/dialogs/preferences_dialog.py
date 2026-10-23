@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -77,8 +78,20 @@ class PreferencesDialog(QDialog):
         self._load_settings()
 
     def _setup_ui(self) -> None:
-        layout = QVBoxLayout(self)
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setSpacing(16)
+
+        # Keep the form's natural minimum height when the screen is shorter.
+        # Save/Cancel stay outside the viewport, as in the onboarding dialog.
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        content = QWidget()
+        layout = QVBoxLayout(content)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(16)
+        scroll.setWidget(content)
+        outer_layout.addWidget(scroll, 1)
 
         # Info label
         info_label = QLabel(
@@ -364,7 +377,7 @@ class PreferencesDialog(QDialog):
         save_btn.clicked.connect(self._save_and_accept)
         btn_layout.addWidget(save_btn)
 
-        layout.addLayout(btn_layout)
+        outer_layout.addLayout(btn_layout)
 
     def _load_settings(self) -> None:
         from open_garden_planner.app.settings import get_settings

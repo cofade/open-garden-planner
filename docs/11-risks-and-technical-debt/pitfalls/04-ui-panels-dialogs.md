@@ -354,3 +354,18 @@ path. Mirror the whole result with signals blocked before publishing it to
 SimClock, so midnight cannot briefly appear on the old date. Group layouts
 reparent the editors; find their toolbar ancestor rather than assuming their
 immediate parent is the toolbar. Do not retain a Python parent/child cycle.
+
+
+### PF-UI-27
+
+- **Rule:** A tall settings form scrolls at its natural minimum height; shrinking the top-level dialog must not compress its controls.
+- **Pinned by:** `tests/integration/test_preferences_layout.py::test_preferences_controls_scroll_without_compression`
+- **Source:** Owner Preferences clipping report, 2026-10-23
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+At 550 × 800 px with the dark theme, the old Preferences form needed a minimum
+height of 1137 px, but the explicit 400 px dialog minimum allowed the layout to
+squeeze line edits to 8–14 px and some Agent API controls to zero. A larger initial
+window alone cannot accommodate short screens or larger fonts. Reuse QScrollArea
+with a resizable content widget and keep Save/Cancel outside the viewport.

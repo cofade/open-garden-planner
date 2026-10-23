@@ -447,6 +447,17 @@ recovery. `test_shift_drag_handle_does_not_select_the_item_behind` drives viewpo
 press, move and release above a selectable background and checks the grab,
 geometry change and single-step undo at 0, 37 and 143 degrees.
 
+### 8.9.11 Preferences on short screens
+
+Preferences uses the existing scrollable-dialog pattern: a resizable `QScrollArea`
+contains the complete settings form, while Save and Cancel remain in the outer
+layout. The content retains its layout minimum height; a short viewport scrolls
+instead of compressing individual controls below their minimum size hints.
+Keyboard focus traversal reveals off-screen controls through Qt. The regression
+in `tests/integration/test_preferences_layout.py` checks themed forms at 400 and
+800 px heights with 10 and 14 pt fonts, then saves and cancels an edit after
+reaching the last setting. No settings keys or persistence behavior change.
+
 ## 8.10 Integration Test Policy
 
 **Worker responsiveness.** Control an in-flight interval instead of counting timer

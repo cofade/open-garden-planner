@@ -3852,3 +3852,23 @@ plant presence and sun state atomically. Pins: tests/integration/test_plan_sun_s
 and test_minute_rollover_updates_presence_sun_and_3d_once in
  tests/integration/test_timeline_quick3d.py. All temporary probes stayed outside
 committed production code.
+
+
+## Case study: Preferences squeezed fields below their minimum height
+
+**Symptom.** Edit → Preferences showed clipped input text and near-invisible
+Agent API controls on a short screen.
+**Wrong theory.** Increasing the initial window height would suffice; it cannot
+address a screen shorter than the form or larger fonts.
+**Evidence.** An isolated dark-theme probe reproduced the screenshot at 550 × 800:
+`[PREF-SIZE] dialog 550 800 hint 1205 minimum 1137`; line edits measured 8–14 px
+and several controls zero height. The regression failed first at 0 versus 31 px.
+**Root cause/fix.** Every group shared the top-level vertical layout, whose
+explicit 400 px dialog minimum allowed compression without a scrolling fallback.
+Reuse the onboarding/shortcuts pattern: resizable QScrollArea content, with
+Save/Cancel outside. The same probe then measured 31 px input fields and a
+405 px scroll range. No settings or security behavior changes.
+**Lesson.** Assert rendered control geometry under the actual stylesheet, then
+exercise focus scrolling, Save and Cancel. A dialog that opens is not proof its
+fields remain usable. Pins: tests/integration/test_preferences_layout.py, PF-UI-27.
+Temporary probes stayed outside production.
