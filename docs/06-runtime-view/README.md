@@ -608,6 +608,21 @@ error before the preference and window steps.
 
 ## Viewing a plan at another date (US-F4)
 
+Global View -> 3D View selects the Garden Plan tab before showing Split from
+Plan mode (#539). Workspace actions also return to Garden Plan and select their
+requested mode: Alt+1 Plan, Alt+2 3D, Alt+3 Split. Existing 3D/Split views keep
+their mode and camera. Walk's action owns its theme-aware icon (#537); Reset
+and the shortcuts dialog obtain the Home key label from Qt's active translator
+(#541).
+
+The 3D controller receives the same date_changed signal as the 2D timeline.
+If the date-regrowth interval has elapsed, it marks records dirty immediately;
+otherwise it books one trailing timer. The trailing slot compares the current
+date with the last snapshot date and stamps the throttle only when another
+snapshot is owed (#542). A no-op preserves the earlier timestamp, so it cannot
+defer a subsequent deliberate date pick. Instant changes still relight on every
+step. See section 8.29.9 and ADR-060's L1 follow-up addendum.
+
 ```mermaid
 sequenceDiagram
     participant Timeline

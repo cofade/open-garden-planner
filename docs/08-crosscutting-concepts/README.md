@@ -6531,6 +6531,11 @@ date field (about 30 steps a second) regrew all of them on every step. `Scene3DC
 `DATE_REGROW_MIN_MS` (500) has passed since the last regrowth for a date, and otherwise books ONE
 trailing regrowth for the end of the interval, which runs only if the clock's date is not the
 one the last records pass read. The light follows every step (a light-only pass, no snapshot).
+The trailing check stamps the throttle only when it marks records dirty (#542).
+A no-op retains the prior timestamp. Controller integration tests use an explicit
+module-scoped clock at three origins, consume a manually fired timer before its
+slot, and assert admission through the real date signal plus the resulting snapshot
+(PF-TST-25); pytest-qt waits and pipeline performance measurements keep real time.
 Hidden, a date is a flag (no timer). Measured below: 1.5 to 1.6 regrowth passes a second while
 the date steps.
 

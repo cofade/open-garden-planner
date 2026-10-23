@@ -342,14 +342,17 @@ class TestClassify:
         assert classify("warning", MONITOR, "qt.qpa.screen") == "environment"
 
     def test_the_stale_dpr_warning_is_the_environment(self) -> None:
-        """#537: a transient Windows QPA race seen once in ~20 gate runs — a warning
-        about the frame's device-pixel-ratio cache, not about the frame."""
+        """#537: Qt corrects the stale cache before delivering the expose event."""
         text = "The cached device pixel ratio value was stale on window expose."
         assert classify("warning", text, "") == "environment"
         assert classify("warning", text, "qt.qpa.window") == "warning", \
             "the allow-list is exact: another category stays a warning"
         assert classify("critical", text, "") == "error", \
             "a critical DPR report stays an error"
+        assert classify("warning", text + "  Please file a QTBUG which explains how to reproduce.",
+                        "") == "environment"
+        assert classify("warning", text + " Another warning.", "") == "warning"
+        assert classify("warning", "Another warning: " + text, "") == "warning"
 
     def test_the_environment_list_is_exact_not_a_category_pass(self) -> None:
         """An allow-list that is wider than what was measured is a hole: another message

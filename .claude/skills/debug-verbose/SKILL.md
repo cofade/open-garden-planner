@@ -7,6 +7,40 @@ argument: "Optional: short description of the bug or area to instrument"
 
 # Verbose Debug Instrumentation
 
+## Case study: throttle regression depends on machine uptime (#542, PR #565)
+
+**Symptom.** CI Test and Coverage failed the new no-op regression's idle assertion;
+the workstation passed it.
+**Wrong theory.** A fixed 1000-second stamp and 70-ms settle were assumed independent
+of the host. No product scheduling change was justified by that failure.
+**Evidence.** External tagged instrumentation and caller stacks showed
+`[565-TRACE] _on_date_changed ... regrown_at=1000.0 date_timer=True` at controlled
+monotonic 900 seconds. The same test passed with the host above 74000 seconds.
+Calling the trailing slot manually retained the booked timer. Replaying the old
+unconditional no-op stamp failed all three replacement clock-origin cases.
+**Root cause.** The test put its timestamp in the future on a young VM. The product
+correctly booked a long delay; a direct slot call does not consume a QTimer.
+The original product bug was distinct: a no-op trailing check advanced the throttle
+stamp even though the last snapshot already covered that date.
+**Fix.** Stamp only when regrowth is owed. Replace only the controller's clock
+binding, preserve real Qt waits/performance clocks, and assert that the next real
+date signal books no timer and completes the expected snapshot. Stop a manually
+consumed timer before firing its slot. Temporary probes stay outside production.
+**Lesson.** A fixed timestamp is not a controlled clock; assert the user-triggered
+path and all timers that participate in idle. See PF-TST-25.
+
+## Case study: global 3D actions changed a hidden workspace (#539, PR #565)
+
+**Symptom.** View -> 3D View changed nothing visible from Calendar.
+**Wrong theory.** Setting Split alone was treated as making its pane visible.
+**Evidence.** The integration workflow triggers the global action from Calendar,
+then a real Alt+3 from Seed Inventory, and asserts the current tab and pane.
+The workspace is a child of Garden Plan; changing its mode cannot select that tab.
+**Root cause.** Global navigation only changed local workspace state.
+**Fix.** The main window selects Garden Plan for the show action and global mode
+actions. Alt+1 still requests Plan; Alt+2/3 request 3D/Split.
+**Lesson.** Assert the containing tab as well as the child mode for global navigation.
+
 ## Case study: deferred PDF progress still force-shows (#315)
 
 **Symptom.** A second progress dialog covers the operable readiness Cancel button.

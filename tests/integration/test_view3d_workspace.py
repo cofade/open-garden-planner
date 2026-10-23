@@ -219,11 +219,13 @@ def test_the_3d_view_action_shows_the_3d_pane_and_reaches_no_window(app3d, qtbot
                 if isinstance(node, ast.Attribute) and node.attr == "_on_open_3d_view"]
 
 
-def test_the_3d_view_action_and_alt_modes_select_the_plan_tab_first(app3d, qtbot) -> None:
+@pytest.mark.parametrize("mode_key, expected_mode", [(1, PLAN), (2, VIEW3D), (3, SPLIT)])
+def test_the_3d_view_action_and_alt_modes_select_the_plan_tab_first(
+        app3d, qtbot, mode_key: int, expected_mode: WorkspaceMode) -> None:
     """#539: View → "3D View" and Alt+1/2/3 do nothing visible from any dashboard
     tab but Garden Plan unless the main window selects that tab first — the
     workspace lives inside it. Firing from the Calendar tab must land on the plan
-    tab with the 3D pane visible."""
+    tab in the requested mode."""
     from PyQt6.QtCore import Qt
     from PyQt6.QtTest import QTest
 
@@ -239,11 +241,12 @@ def test_the_3d_view_action_and_alt_modes_select_the_plan_tab_first(app3d, qtbot
 
     workspace.set_mode(PLAN)
     window._tab_widget.setCurrentIndex(2)  # Seed Inventory
-    # A real keypress, not trigger(): the load-bearing claim is that the Alt+3
+    # A real keypress, not trigger(): the load-bearing claim is that Alt+1/2/3
     # shortcut dispatches while the workspace's own tab is hidden.
-    QTest.keyClick(window, Qt.Key.Key_3, Qt.KeyboardModifier.AltModifier)
-    assert window._tab_widget.currentIndex() == 0, "Alt+3 also selects the plan tab"
-    assert workspace.mode is SPLIT and workspace.pane.isVisible()
+    QTest.keyClick(window, getattr(Qt.Key, f"Key_{mode_key}"), Qt.KeyboardModifier.AltModifier)
+    assert window._tab_widget.currentIndex() == 0, f"Alt+{mode_key} selects the plan tab"
+    assert workspace.mode is expected_mode
+    assert workspace.pane.isVisible() is (expected_mode is not PLAN)
 
 
 def test_plan_mode_is_todays_layout(app3d) -> None:
@@ -320,6 +323,30 @@ def test_the_keyboard_shortcuts_dialog_lists_the_workspace_and_its_3d_keys(app3d
     assert not [node for node in _ast.walk(tree)
                 if isinstance(node, _ast.Constant) and node.value == "Home"], \
         "no hardcoded English key name remains in the dialog"
+
+
+@pytest.mark.parametrize("language, home_key", [("en", "Home"), ("de", "Pos1"), ("es", "Inicio")])
+def test_reset_key_text_uses_the_loaded_locale_in_dialog_and_tooltip(
+        qapp, qtbot, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        language: str, home_key: str) -> None:
+    from PyQt6.QtWidgets import QLabel
+
+    from open_garden_planner.core.i18n import load_translator
+    from open_garden_planner.ui.dialogs.shortcuts_dialog import ShortcutsDialog
+
+    assert load_translator(qapp, language)
+    try:
+        window, _engines = build_app3d(qtbot, monkeypatch, tmp_path)
+        dialog = ShortcutsDialog(window)
+        qtbot.addWidget(dialog)
+        assert home_key in [label.text() for label in dialog.findChildren(QLabel)]
+        tooltip = window._workspace.reset_view_action.toolTip()
+        assert f"({home_key})" in tooltip
+        assert "{key}" not in tooltip
+        if language != "en":
+            assert "Home" not in tooltip
+    finally:
+        load_translator(qapp, "en")
 
 
 def test_using_3d_writes_nothing_into_the_plan_file(app3d, qtbot, tmp_path: Path) -> None:

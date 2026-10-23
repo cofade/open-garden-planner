@@ -796,7 +796,7 @@
   },
   "445": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A species assigned from the plant database does not change the plant's 2D sprite"
   },
   "446": {
@@ -976,7 +976,7 @@
   },
   "522": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Canvas: Shift+click through an item on a locked layer replaces the selection instead of toggling"
   },
   "524": {
@@ -996,12 +996,12 @@
   },
   "528": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "perf-marker guard misses a median kept in an attribute and flags a test that times nothing"
   },
   "530": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Seven Properties-panel edits (grid, soil depth, container material/drainage/height, soil volume) are not undoable and do not mark the plan modified"
   },
   "532": {
@@ -1029,6 +1029,11 @@
     "state": "OPEN",
     "title": "Render tier: one slow first frame errors all of test_quick3d_render.py (wait_ready no-progress cutoff)"
   },
+  "537": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L1.10 leftovers: dead OGP_QUICK3D in the workspace gate, unused walk.svg, a stale-DPR Qt warning"
+  },
   "539": {
     "is_pr": false,
     "state": "OPEN",
@@ -1038,6 +1043,11 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "CI never runs the default 3D workspace on a real host; local WARP failures in the workspace/selection/default render files"
+  },
+  "541": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Keyboard Shortcuts: untranslated key name 'Home' in the 3D View group"
   },
   "542": {
     "is_pr": false,
@@ -1056,7 +1066,7 @@
   },
   "556": {
     "is_pr": true,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "fix: the 2D canvas defect batch (#522, #530, #445, #446, #528)"
   },
   "557": {
@@ -1078,5 +1088,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Properties and Plant Details: focused text/numeric editors suppress history refresh"
+  },
+  "565": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "fix(#537,#539,#541,#542): L1 follow-ups - workspace leftovers, 3D view from any tab, native Home, throttle"
   }
 }
