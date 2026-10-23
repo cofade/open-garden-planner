@@ -16,6 +16,15 @@ view shows of that item:
 - and, when the 3D view shows NO model of it, why — in the words the "Not Shown in
   3D" list uses for the same reason (handed in: ``problem``).
 
+v1 (Phase 17 L2.3, #386) adds, each read from its ONE home (``card_facts``): where
+the height comes from at the plan date (``object_height.height_source_at`` — grown,
+measured, the species' maximum, set on the object …), how far along its growth a
+plant is (``growth_model.growth_share``), the hours of sun the Hours-of-Sun run
+measured for it (the heatmap controller's published per-plant minutes, with their
+band), and its sowing and harvest windows in the plan's year
+(``task_generator.calendar_windows`` on the plan's last spring frost — the task
+list's own arithmetic).
+
 One action: "Show in Plan".
 
 THE CARD NEVER RESIZES THE 3D VIEW. It lives in ``View3DCardSlot``, a strip of ONE
@@ -54,10 +63,22 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.core.frost_dates import parse_frost
+from open_garden_planner.core.growth_model import growth_share
 from open_garden_planner.core.measurements import format_area, format_length
+from open_garden_planner.core.object_height import (
+    SOURCE_CONTAINER,
+    SOURCE_CURRENT,
+    SOURCE_CUSTOM,
+    SOURCE_DEFAULT,
+    SOURCE_GROWN,
+    SOURCE_SPECIES,
+    height_source_at,
+)
 from open_garden_planner.core.object_types import ObjectType, get_translated_display_name
 from open_garden_planner.core.plain_text import clip_line
 from open_garden_planner.core.plant_art import PLANT_KINDS
+from open_garden_planner.core.plant_height_estimate import ESTIMATED_HEIGHT_PARAM
 from open_garden_planner.core.scene3d import (
     PARAM_RADIUS_CM,
     SHAPE_CIRCLE,
@@ -66,11 +87,83 @@ from open_garden_planner.core.scene3d import (
     SHAPE_RECTANGLE,
     Record,
 )
+from open_garden_planner.services.sun_mismatch_service import band_of
+from open_garden_planner.services.task_generator import calendar_windows
+from open_garden_planner.ui.sun_exposure_text import sun_requirement_label
 
 #: A scientific name is clipped like any name, but may be a little longer.
 _SPECIES_MAX_CHARS: Final = 120
-#: Lines of facts the card has room for below its title (the slot's height).
-BODY_LINES: Final = 3
+#: Lines of facts the card has room for below its title (the slot's height). Five
+#: since v1 (L2.3): the source of the height, the growth, the sun and the windows.
+BODY_LINES: Final = 5
+#: The height's source when no height is known and an illustrative one is drawn (#557).
+SOURCE_ESTIMATED: Final = "estimated"
+#: The windows the card names (``task_generator._CALENDAR_TASK_DEFS`` types).
+CARD_WINDOWS: Final = ("indoor_sow", "direct_sow", "harvest")
+#: A species' week offset beyond this many weeks from the frost is no offset (a plan
+#: file is untrusted: a crafted species must not reach ``timedelta``'s limits).
+_MAX_OFFSET_WEEKS: Final = 520
+
+
+@dataclass(frozen=True, slots=True)
+class CardFacts:
+    """The facts v1 adds (module docstring), as plain data.
+
+    ``height_basis``: a ``core.object_height`` ``SOURCE_*``, ``SOURCE_ESTIMATED``, or
+    None (no height). ``growth``: the growth share 0..1, None where the plant does
+    not grow on the timeline. ``sun``: ``(minutes, day)`` the Hours-of-Sun run
+    measured for the item, None when no current run measured it. ``windows``:
+    ``(task_type, start, end)`` in the plan's year, ``CARD_WINDOWS`` only.
+    """
+
+    height_basis: str | None = None
+    growth: float | None = None
+    sun: tuple[float, date] | None = None
+    windows: tuple[tuple[str, date, date], ...] = ()
+
+
+def _offset(value: object) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        return None
+    weeks = int(value)
+    return weeks if abs(weeks) <= _MAX_OFFSET_WEEKS else None
+
+
+def _is_plant(item: Any, record: Record | None) -> bool:
+    if record is not None:
+        return record.kind in PLANT_KINDS
+    return getattr(getattr(item, "object_type", None), "name", "") in PLANT_KINDS
+
+
+def card_facts(item: Any, record: Record | None, plan_date: date | None,
+               location: Mapping[str, Any] | None,
+               sun: tuple[float, date] | None = None) -> CardFacts:
+    """Gather ``CardFacts`` for one item (module docstring). Engine-free and Qt-free in
+    what it reads: the item's type and metadata, its applied record, the plan date,
+    the garden's location (its frost dates) and the sun handed in."""
+    object_type = getattr(item, "object_type", None)
+    metadata = getattr(item, "metadata", None)
+    metadata = metadata if isinstance(metadata, dict) else None
+    basis: str | None = None
+    if record is not None:
+        if record.height_cm is not None:
+            basis = height_source_at(object_type, metadata, plan_date)
+        elif isinstance(record.params.get(ESTIMATED_HEIGHT_PARAM), (int, float)):
+            basis = SOURCE_ESTIMATED
+    if not _is_plant(item, record):
+        return CardFacts(basis, None, sun, ())
+    name = getattr(object_type, "name", "")
+    growth = growth_share(metadata, plan_date, name) if plan_date is not None else None
+    windows: tuple[tuple[str, date, date], ...] = ()
+    species = (metadata or {}).get("plant_species")
+    frosts = (location or {}).get("frost_dates") if isinstance(location, Mapping) else None
+    frost = frosts.get("last_spring_frost") if isinstance(frosts, Mapping) else None
+    if plan_date is not None and isinstance(species, Mapping) and isinstance(frost, str):
+        last_frost = parse_frost(frost, plan_date.year)
+        if last_frost is not None:
+            windows = tuple(window for window in calendar_windows(
+                lambda field: _offset(species.get(field)), last_frost) if window[0] in CARD_WINDOWS)
+    return CardFacts(basis, growth, sun, windows)
 #: Between two facts of the paragraph.
 FACT_SEPARATOR: Final = "  \u00b7  "
 _MARGINS: Final = (8, 6, 8, 6)
@@ -96,6 +189,17 @@ class CardSubject:
     problem: str = ""
     parent_name: str = ""
     plan_date: date | None = None
+    #: v1's facts (L2.3); None: none could be read.
+    facts: CardFacts | None = None
+
+
+def _short_date(day: date) -> str:
+    return QLocale().toString(QDate(day.year, day.month, day.day), QLocale.FormatType.ShortFormat)
+
+
+def _day_month(day: date) -> str:
+    """A window's end: day and month, in the locale's words ("12 Mar", "12. März")."""
+    return QLocale().toString(QDate(day.year, day.month, day.day), "d MMM")
 
 
 def _span(ring: Sequence[Sequence[float]]) -> tuple[float, float]:
@@ -221,21 +325,36 @@ class View3DInfoCard(QFrame):
         rows: list[tuple[str, str]] = [(self.tr("Type:"), kind)]
         is_plant = record is not None and record.kind in PLANT_KINDS or (
             record is None and getattr(getattr(item, "object_type", None), "name", "") in PLANT_KINDS)
+        facts = subject.facts if subject.facts is not None else CardFacts()
         if is_plant:
             rows += self._species_rows(item)
         if record is not None:
             if is_plant:
-                rows += self._plant_rows(record)
+                rows += self._plant_rows(record, facts)
             else:
-                rows += self._built_rows(record)
+                rows += self._built_rows(record, facts)
         if subject.parent_name:
             rows.append((self.tr("Bed:"), clip_line(subject.parent_name)))
         if record is not None and subject.plan_date is not None and is_plant:
-            day = subject.plan_date
-            rows.append((self.tr("Sizes on:"), QLocale().toString(
-                QDate(day.year, day.month, day.day), QLocale.FormatType.ShortFormat)))
+            rows.append((self.tr("Sizes on:"), _short_date(subject.plan_date)))
+        rows += self._fact_rows(facts)
         self._set_body(rows, self._model_note(subject))
         self.show()
+
+    def _fact_rows(self, facts: CardFacts) -> list[tuple[str, str]]:
+        """v1's facts that are not about the height (L2.3)."""
+        rows: list[tuple[str, str]] = []
+        if facts.sun is not None:
+            minutes, day = facts.sun
+            rows.append((self.tr("Sun:"), self.tr("{hours} h on {date} — {band}").format(
+                hours=QLocale().toString(minutes / 60.0, "f", 1), date=_short_date(day),
+                band=sun_requirement_label(band_of(minutes).value))))
+        labels = {"indoor_sow": self.tr("Sow indoors:"), "direct_sow": self.tr("Sow outdoors:"),
+                  "harvest": self.tr("Harvest:")}
+        for kind, start, end in facts.windows:
+            rows.append((labels[kind], self.tr("{start} – {end}").format(
+                start=_day_month(start), end=_day_month(end))))
+        return rows
 
     def _kind_text(self, item: Any, record: Record | None) -> str:
         object_type = getattr(item, "object_type", None)
@@ -265,39 +384,44 @@ class View3DInfoCard(QFrame):
             rows.append((self.tr("Scientific name:"), clip_line(scientific, _SPECIES_MAX_CHARS)))
         return rows
 
-    def _height_row(self, record: Record) -> tuple[str, str]:
+    def _height_row(self, record: Record, facts: CardFacts | None = None) -> tuple[str, str]:
         if record.height_cm is None:
-            try:
-                from open_garden_planner.core.plant_height_estimate import (
-                    ESTIMATED_HEIGHT_PARAM,
-                )
-
-                _est = record.params.get(ESTIMATED_HEIGHT_PARAM)
-                if (
-                    isinstance(_est, (int, float))
-                    and not isinstance(_est, bool)
-                    and float(_est) > 0
-                ):
-                    return (
-                        self.tr("Height:"),
-                        self.tr("{height} (estimated)").format(
-                            height=format_length(float(_est))
-                        ),
-                    )
-            except Exception:
-                pass
+            estimate = record.params.get(ESTIMATED_HEIGHT_PARAM)
+            if (isinstance(estimate, (int, float)) and not isinstance(estimate, bool)
+                    and math.isfinite(estimate) and float(estimate) > 0):
+                return (self.tr("Height:"), self.tr("{height} (estimated)").format(
+                    height=format_length(float(estimate))))
             return (self.tr("Height:"), self.tr("not known"))
-        return (self.tr("Height:"), format_length(record.height_cm))
+        height = format_length(record.height_cm)
+        source = self._source_text(facts.height_basis if facts is not None else None)
+        if source:
+            height = self.tr("{height} ({source})").format(height=height, source=source)
+        return (self.tr("Height:"), height)
 
-    def _plant_rows(self, record: Record) -> list[tuple[str, str]]:
-        rows = [self._height_row(record)]
+    def _source_text(self, basis: str | None) -> str:
+        """Where a height comes from, in the user's words (L2.3)."""
+        texts = {
+            SOURCE_GROWN: self.tr("grown to the plan date"),
+            SOURCE_CURRENT: self.tr("as measured"),
+            SOURCE_SPECIES: self.tr("species maximum"),
+            SOURCE_CUSTOM: self.tr("set on the object"),
+            SOURCE_CONTAINER: self.tr("fill height"),
+            SOURCE_DEFAULT: self.tr("usual for the type"),
+        }
+        return texts.get(basis or "", "")
+
+    def _plant_rows(self, record: Record, facts: CardFacts | None = None) -> list[tuple[str, str]]:
+        rows = [self._height_row(record, facts)]
         radius = record.params.get(PARAM_RADIUS_CM)
         if isinstance(radius, (int, float)) and not isinstance(radius, bool) and radius > 0.0:
             rows.append((self.tr("Canopy diameter:"), format_length(2.0 * float(radius))))
+        if facts is not None and facts.growth is not None:
+            rows.append((self.tr("Growth:"), self.tr("{percent} % of the way to full size").format(
+                percent=QLocale().toString(round(100.0 * facts.growth)))))
         return rows
 
-    def _built_rows(self, record: Record) -> list[tuple[str, str]]:
-        rows = [self._height_row(record)]
+    def _built_rows(self, record: Record, facts: CardFacts | None = None) -> list[tuple[str, str]]:
+        rows = [self._height_row(record, facts)]
         radius = record.params.get(PARAM_RADIUS_CM)
         if record.shape == SHAPE_CIRCLE and isinstance(radius, (int, float)):
             rows.append((self.tr("Diameter:"), format_length(2.0 * float(radius))))

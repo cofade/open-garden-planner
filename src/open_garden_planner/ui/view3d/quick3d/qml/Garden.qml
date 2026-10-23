@@ -199,7 +199,7 @@ Item {
                 "yaw": p.eulerRotation.y,
                 "r": p.tint.r, "g": p.tint.g, "b": p.tint.b,
                 "casts": p.castsShadows, "geometry": p.geometry !== null,
-                "visible": p.visible
+                "visible": p.visible, "fade": p.fade
             })
         }
         return out
@@ -292,12 +292,42 @@ Item {
         return true
     }
 
+    // ---- analysis (Phase 17 L2, #386; Quick3DHost.set_overlay / set_roofs_hidden) ----
+    // Two Models for the life of the scene, like the selection ring: Python loads a
+    // mesh into each one's geometry and switches it on and off; no analysis change
+    // creates or destroys a Model.
+    //  - "drape": the 2D sun analysis on the ground (core/scene3d/drape.py) - blended,
+    //    it writes no depth: what stands on the ground still hides it;
+    //  - "lines": the sun path, the compass and the probe's pin (core/scene3d/sun_path.py).
+    property bool drapeVisible: false
+    property bool linesVisible: false
+    // Cutaway (L2.4): every roof part is hidden - one switch, no Model touched
+    property bool roofsHidden: false
+
+    function overlayModel(layer) {
+        return layer === "drape" ? drapeOverlay : layer === "lines" ? linesOverlay : null
+    }
+
+    function setOverlayGeometry(layer, geometry) {
+        var model = overlayModel(layer)
+        if (!model)
+            return false
+        model.geometry = geometry
+        return true
+    }
+
     // ---- one Component per material kind: a Model with its OWN material instance ----
     // albedo = vertex colour x tint (linear) for every kind. `tint` is the sRGB colour
     // the principled materials take; `tintLinear` the same in linear light for the
     // custom shaders (computed in Python with the exact sRGB curve). `retired` marks a
     // Model that was destroyed and waits for its deferred delete: `visible` stays free
     // for a story that hides a Model on purpose.
+    //
+    // `fade` (L2.4, X-ray): 1 draws the part as it is; below 1 the part is drawn that
+    // opaque, blended, and cannot be picked - a click meets what is behind it. Python
+    // writes it for the occluders of the selection (Quick3DHost.set_faded_items). A
+    // custom material blends only while it fades: an opaque crown stays in the opaque
+    // pass, sorted and depth-written like any solid.
     Component {
         id: vcPart
         Model {
@@ -307,13 +337,15 @@ Item {
             property color tint: "#ffffff"
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
+            property real fade: 1.0        // X-ray (L2.4)
             receivesShadows: true
-            pickable: true
+            pickable: fade >= 1.0
             materials: PrincipledMaterial {
                 vertexColorsEnabled: true
                 baseColor: tint
                 roughness: 0.78
                 specularAmount: 0.35
+                opacity: fade
             }
         }
     }
@@ -326,14 +358,18 @@ Item {
             property color tint: "#ffffff"
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
+            property real fade: 1.0        // X-ray (L2.4)
             receivesShadows: true
-            pickable: true
+            pickable: fade >= 1.0
+            // Cutaway (L2.4): a binding, so a roof built while it is on is born hidden
+            visible: !root.roofsHidden
             // roof tiles and shingles (ogp-lush-cinematic 4: roughness 0.70-0.85)
             materials: PrincipledMaterial {
                 vertexColorsEnabled: true
                 baseColor: tint
                 roughness: 0.80
                 specularAmount: 0.15
+                opacity: fade
             }
         }
     }
@@ -346,15 +382,16 @@ Item {
             property color tint: "#ffffff"
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
+            property real fade: 1.0        // X-ray (L2.4)
             receivesShadows: true
-            pickable: true
+            pickable: fade >= 1.0
             materials: PrincipledMaterial {
                 vertexColorsEnabled: true
                 baseColor: tint
                 roughness: 0.04
                 metalness: 0.0
                 specularAmount: 1.0
-                opacity: 0.28
+                opacity: 0.28 * fade
                 alphaMode: PrincipledMaterial.Blend
                 cullMode: Material.NoCulling
                 depthDrawMode: Material.NeverDepthDraw
@@ -370,8 +407,9 @@ Item {
             property color tint: "#ffffff"
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
+            property real fade: 1.0        // X-ray (L2.4)
             receivesShadows: true
-            pickable: true
+            pickable: fade >= 1.0
             // a custom shader keeps the water's hue in every mood; see water.frag for why
             // this is not a PrincipledMaterial (measured in the spike: lavender at golden hour)
             materials: CustomMaterial {
@@ -381,6 +419,12 @@ Item {
                 // a crisp sun glint: 0.3 blew it over the pond, 0.05 still clipped ~23 %
                 // of the visible pond at morning (spike, creator round 2)
                 property real uRough: 0.02
+                property real uOpacity: fade
+                sourceBlend: uOpacity < 1.0 ? CustomMaterial.SrcAlpha : CustomMaterial.NoBlend
+                destinationBlend: uOpacity < 1.0 ? CustomMaterial.OneMinusSrcAlpha : CustomMaterial.NoBlend
+                // keep the frame's alpha (the drape's rule: else the window's white shows through)
+                sourceAlphaBlend: uOpacity < 1.0 ? CustomMaterial.Zero : CustomMaterial.NoBlend
+                destinationAlphaBlend: uOpacity < 1.0 ? CustomMaterial.One : CustomMaterial.NoBlend
                 shadingMode: CustomMaterial.Shaded
                 fragmentShader: "water.frag"
             }
@@ -430,12 +474,19 @@ Item {
             property color tint: "#ffffff"
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
+            property real fade: 1.0        // X-ray (L2.4)
             receivesShadows: true
-            pickable: true
+            pickable: fade >= 1.0
             materials: CustomMaterial {
                 property vector3d uTint: tintLinear
                 property real uTime: root.windTime
                 property real uWind: root.windStrength * 0.35
+                property real uOpacity: fade
+                sourceBlend: uOpacity < 1.0 ? CustomMaterial.SrcAlpha : CustomMaterial.NoBlend
+                destinationBlend: uOpacity < 1.0 ? CustomMaterial.OneMinusSrcAlpha : CustomMaterial.NoBlend
+                // keep the frame's alpha (the drape's rule: else the window's white shows through)
+                sourceAlphaBlend: uOpacity < 1.0 ? CustomMaterial.Zero : CustomMaterial.NoBlend
+                destinationAlphaBlend: uOpacity < 1.0 ? CustomMaterial.One : CustomMaterial.NoBlend
                 shadingMode: CustomMaterial.Shaded
                 cullMode: Material.NoCulling
                 vertexShader: "foliage.vert"
@@ -452,12 +503,19 @@ Item {
             property color tint: "#ffffff"
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
+            property real fade: 1.0        // X-ray (L2.4)
             receivesShadows: true
-            pickable: true
+            pickable: fade >= 1.0
             materials: CustomMaterial {
                 property vector3d uTint: tintLinear
                 property real uTime: root.windTime
                 property real uWind: root.windStrength
+                property real uOpacity: fade
+                sourceBlend: uOpacity < 1.0 ? CustomMaterial.SrcAlpha : CustomMaterial.NoBlend
+                destinationBlend: uOpacity < 1.0 ? CustomMaterial.OneMinusSrcAlpha : CustomMaterial.NoBlend
+                // keep the frame's alpha (the drape's rule: else the window's white shows through)
+                sourceAlphaBlend: uOpacity < 1.0 ? CustomMaterial.Zero : CustomMaterial.NoBlend
+                destinationAlphaBlend: uOpacity < 1.0 ? CustomMaterial.One : CustomMaterial.NoBlend
                 shadingMode: CustomMaterial.Shaded
                 cullMode: Material.NoCulling
                 vertexShader: "grass.vert"
@@ -661,6 +719,47 @@ Item {
                 cullMode: Material.NoCulling
                 vertexShader: "ring.vert"
                 fragmentShader: "ring.frag"
+            }
+        }
+
+        // The analysis overlays (L2, #386): unlit vertex colour - the 2D maps' own
+        // colours, in linear light - no shadows, never picked (a click on a drape meets
+        // the ground or the item under it). Not children of `parts`: listParts() and
+        // the sink's teardown never see them.
+        Model {
+            id: drapeOverlay
+            visible: root.drapeVisible && geometry !== null
+            pickable: false
+            castsShadows: false
+            receivesShadows: false
+            materials: CustomMaterial {
+                shadingMode: CustomMaterial.Unshaded
+                cullMode: Material.NoCulling
+                // translucent like the canvas's overlays, and it writes no depth: a
+                // drape above the ground must not hide what stands on it
+                depthDrawMode: Material.NeverDepthDraw
+                sourceBlend: CustomMaterial.SrcAlpha
+                destinationBlend: CustomMaterial.OneMinusSrcAlpha
+                // the frame's ALPHA is left as it is (1): blended with the colour factors it
+                // became 1 - a(1 - a), and the view's texture let the window's white through -
+                // measured: black at a = 0.5 read 64 grey levels too bright over the meadow
+                sourceAlphaBlend: CustomMaterial.Zero
+                destinationAlphaBlend: CustomMaterial.One
+                vertexShader: "overlay.vert"
+                fragmentShader: "overlay.frag"
+            }
+        }
+        Model {
+            id: linesOverlay
+            visible: root.linesVisible && geometry !== null
+            pickable: false
+            castsShadows: false
+            receivesShadows: false
+            materials: CustomMaterial {
+                shadingMode: CustomMaterial.Unshaded
+                cullMode: Material.NoCulling
+                vertexShader: "overlay.vert"
+                fragmentShader: "overlay.frag"
             }
         }
     }

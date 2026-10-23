@@ -616,7 +616,9 @@ def test_the_card_shows_the_records_height_at_two_plan_dates(bench: SelectionBen
         bench.settle(120)
         record = bench.workspace.controller.sync.records[str(apple.item_id)]
         assert record.height_cm is not None
-        assert card.value("Height:") == format_length(record.height_cm)
+        # v1 (L2.3): the height names its source — grown from the measured size
+        assert card.value("Height:") == f"{format_length(record.height_cm)} (grown to the plan date)"
+        assert card.value("Growth:") is not None
         assert card.value("Canopy diameter:") == format_length(2.0 * float(record.params["radius_cm"]))
         assert str(day.year)[-2:] in (card.value("Sizes on:") or "")
         seen.append(record.height_cm)
@@ -665,7 +667,7 @@ def test_an_item_without_a_3d_model_shows_its_reason_in_the_lists_own_words(
     bad.setSelected(True)
     bench.commands.stack_changed.emit()
     bench.settle()
-    assert card.note() == "" and card.value("Height:") == "80.0 cm"
+    assert card.note() == "" and card.value("Height:") == "80.0 cm (set on the object)"
 
 
 def test_a_plant_on_a_bed_names_its_bed(bench: SelectionBench) -> None:

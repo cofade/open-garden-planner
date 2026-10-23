@@ -150,8 +150,10 @@ def test_every_part_component_is_a_pickable_model_with_the_tint_properties() -> 
     for block in blocks:
         name = block.split()[0]
         for needed in ("property string itemId", "property int partIndex", "property string kind",
-                       "property color tint", "property vector3d tintLinear", "pickable: true",
-                       "receivesShadows: true", "property bool retired: false"):
+                       "property color tint", "property vector3d tintLinear",
+                       "receivesShadows: true", "property bool retired: false",
+                       # L2.4 (X-ray): pickable unless it fades as an occluder of the selection
+                       "property real fade: 1.0", "pickable: fade >= 1.0"):
             assert needed in block, (name, needed)
     # a custom shader takes the LINEAR tint as a uniform — read from the scene, which
     # is the one place that says which kinds have a shader of their own
@@ -194,7 +196,8 @@ def test_shaders_named_by_the_scene_ship_beside_it_and_none_is_orphaned() -> Non
     named = set(re.findall(r'(?:vertexShader|fragmentShader):\s*"([^"]+)"', _scene()))
     shipped = {path.name for path in QML_DIR.iterdir() if path.suffix in (".frag", ".vert")}
     assert named == shipped == {"foliage.vert", "foliage.frag", "grass.vert", "water.frag",
-                                "ring.vert", "ring.frag"}   # the selection ring: L1.8
+                                "ring.vert", "ring.frag",           # the selection ring: L1.8
+                                "overlay.vert", "overlay.frag"}     # the analysis overlays: L2
     assert {path.name for path in QML_DIR.iterdir()} == shipped | {"Garden.qml"}
 
 

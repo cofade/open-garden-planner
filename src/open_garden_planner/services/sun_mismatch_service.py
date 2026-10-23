@@ -23,6 +23,21 @@ TOLERANCE_HOURS = 1.0
 MEASUREMENT_METHOD = "ground_cell_centre_excluding_self"
 
 
+def band_of(minutes: float) -> SunRequirement:
+    """The horticultural band a spot with ``minutes`` of direct sun falls in — the
+    requirement whose ``SUN_BANDS`` range holds it (glossary §12.1: < 2 h full shade,
+    2–4 h partial shade, 4–6 h partial sun, ≥ 6 h full sun). The 3D ground probe's
+    band (Phase 17 L2.1, #386). ``ValueError`` for a value that is no duration."""
+    if (not isinstance(minutes, (int, float)) or isinstance(minutes, bool)
+            or not math.isfinite(minutes) or minutes < 0):
+        raise ValueError(f"minutes of sun must be a finite non-negative number, got {minutes!r}")
+    hours = minutes / 60
+    for requirement, (lower, upper) in SUN_BANDS.items():
+        if (lower is None or hours >= lower) and (upper is None or hours < upper):
+            return requirement
+    return SunRequirement.FULL_SUN  # unreachable: the bands tile [0, inf)
+
+
 @dataclass(frozen=True)
 class SunEvaluation:
     item_id: str

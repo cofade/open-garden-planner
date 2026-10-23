@@ -1125,3 +1125,53 @@ OGP_RENDER3D=1 QSG_RHI_PREFER_SOFTWARE_RENDERER=1 venv/Scripts/python.exe -m pyt
 is handed over in logical pixels; pinned on the stand-in host only); the ring under L1.4's
 looks and post effects; the pick's cost on the large bench plan; walk mode in a frozen exe;
 the whole render file on OpenGL (one row runs there: the ring's depth); pointer capture.
+
+## 16. Analyze in 3D on the engine (L2)
+
+Concept: docs §8.29.10; decisions: ADR-063; lesson: PF-L3D-06. What the ENGINE taught
+(RTX 4070, Direct3D 11; WARP and OpenGL on the same machine, 2026-10-24):
+
+- **A blended CustomMaterial blends ALPHA too — keep it.** `sourceBlend: SrcAlpha` /
+  `destinationBlend: OneMinusSrcAlpha` alone leave the frame's alpha at 1 − a(1 − a) and
+  the View3D's texture lets the window's white through: black at a = 0.5 read 64 grey
+  levels too bright, the drape brightened the meadow. `sourceAlphaBlend: Zero` /
+  `destinationAlphaBlend: One` keep it at 1 (black at 0.5 = half the ground, exactly).
+  PrincipledMaterial's own blending (glass) needs nothing.
+- **An overlay is a Model of the scene, re-loaded in place.** The drape and the lines
+  each live in ONE Model declared in `Garden.qml` with a `ReloadableGeometry` — the
+  selection ring's pattern; a sun step, a sweep step or a probe creates and destroys
+  nothing (`ReloadableGeometry.created` moves once per layer and host). Their shaders
+  (`overlay.vert` / `overlay.frag`) compile only when an overlay is SHOWN: the frozen
+  `--selftest` shows a drape patch and a lines patch for that reason.
+- **An Unshaded material with a custom vertex shader passes vertex colour through a
+  VARYING** (`vColor = COLOR`, as `foliage.vert`): the lines' magenta came through
+  exactly — (171, 9, 90) for the pin's linear colour in the truth view.
+- **Fading a part: a property per Model, not `Node.opacity`.** Each part Model has
+  `fade` (1 = as it is); a PrincipledMaterial takes it as `opacity` (blended below 1), a
+  CustomMaterial as `uOpacity` in `BASE_COLOR.a` with blend factors bound to
+  `uOpacity < 1` — opaque crowns stay in the opaque pass. A faded wall (vc) and a faded
+  crown (foliage) read the same pixel over the ground: (101, 69, 11) from (255, 5, 4)
+  at 0.22. `pickable: fade >= 1.0` — a faded occluder is clicked through.
+- **A binding hides a kind of part for every Model, born later included.**
+  `visible: !root.roofsHidden` on the roof Component: no iteration over Models, and a
+  roof built while Cutaway is on is born hidden (`tests/ui/test_view3d_analysis_host.py`).
+- **The drape lies 1.5 cm above the ground** (tiles at 0, meadow at −1): a 24-bit depth
+  buffer at a 5 cm near plane resolves about 0.3 cm at 50 m and 1.2 cm at 100 m.
+
+Running the story's tiers:
+
+```bash
+# default tier (no GPU)
+venv/Scripts/python.exe -m pytest tests/unit/test_scene3d_drape.py tests/unit/test_scene3d_sun_path.py \
+    tests/unit/test_scene3d_xray.py tests/ui/test_view3d_analysis_host.py tests/integration/test_view3d_analysis.py
+# render tier, on the GPU, on WARP and on OpenGL (about 15 s each)
+OGP_RENDER3D=1 venv/Scripts/python.exe -m pytest tests/integration/test_view3d_analysis_render.py -n 0
+OGP_RENDER3D=1 QSG_RHI_PREFER_SOFTWARE_RENDERER=1 venv/Scripts/python.exe -m pytest \
+    tests/integration/test_view3d_analysis_render.py -n 0
+OGP_RENDER3D=1 QSG_RHI_BACKEND=opengl venv/Scripts/python.exe -m pytest \
+    tests/integration/test_view3d_analysis_render.py -n 0
+```
+
+**Not measured (L2):** the overlays' cost per frame on the large bench plan; the X-ray's
+GUI-thread cost on a large selection of a dense plan (bounded to 16 selected items and
+box-culled, not timed); the drape under the looks' post effects at grazing angles.

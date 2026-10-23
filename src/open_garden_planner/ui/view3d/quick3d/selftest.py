@@ -19,6 +19,11 @@ the artifact it runs in: can THIS build render the garden? It
    lawn, painted into twelve ground tiles over as many passes (a budget of 0 —
    at least one tile a pass), uploaded as textures — and the judge finds the
    lawn's colour where the lawn lies.
+5. shows the two analysis overlays of L2 (#386) — a patch of the 2D shadow drape
+   (``core.scene3d.drape.shadow_drape``, the product's own builder) and a patch on
+   the lines overlay — so ``overlay.vert`` / ``overlay.frag`` are compiled from the
+   bundle too: the drape must darken the ground towards the canvas's shadow blue,
+   the lines patch must be its unlit colour.
 
 A QML error, a shader that does not compile, a frame that fails the judge or an
 exception fails the self-test. So does a hang: a watchdog dumps every thread's
@@ -57,7 +62,11 @@ from open_garden_planner.core.scene3d import (
     Transform,
     prism_mesh,
 )
+from open_garden_planner.core.scene3d.color import srgb8_to_linear
+from open_garden_planner.core.scene3d.drape import shadow_drape
+from open_garden_planner.core.scene3d.mesh import Mesh
 from open_garden_planner.core.scene3d.selection import RING_WIDTH_PX
+from open_garden_planner.core.scene3d.sun_path import COMPASS_LIFT_CM, PIN_RGBA
 
 from .runlog import RenderLog, watchdog
 from .shots import TopDownShot, top_down_pixel
@@ -125,6 +134,13 @@ _SWATCHES: Final = {kind: _at(-150.0 + 75.0 * index, -105.0, _SWATCH_SIDE, _SWAT
 
 #: The footprint the selection ring runs round.
 RING_REGION: Final = _SWATCHES[SELECTED[0]]
+#: The analysis overlays' patches (L2): in the east, clear of the box's shadow. Measured
+#: 2026-10-24 (RTX 4070 and WARP alike): lit ground rgb(25, 73, 11), the drape over it
+#: rgb(16, 44, 12) — luma 0.61 of the ground's, blue/green 0.27 against 0.15 — and the
+#: lines patch rgb(171, 9, 90), the pin's colour in linear light. A drape that brightened
+#: the ground (its blend let the window's white through: rgb(79, 107, 75)) fails.
+DRAPE_PATCH: Final = _at(165.0, 0.0, 40.0, 40.0)
+LINES_PATCH: Final = _at(165.0, 80.0, 30.0, 30.0)
 
 #: Where the judge looks. Each patch lies well inside what it samples; the shadow
 #: patch is inside the analytic 2D shadow of the box for ``SUN`` and outside the
@@ -134,6 +150,8 @@ REGIONS: Final[dict[str, Region]] = {
     "lit ground": _at(-150.0, 60.0, 40.0, 60.0),
     "shadow": _at(60.0, 85.0, 15.0, 15.0),
     "lawn": _at(-150.0, 125.0, 30.0, 14.0),
+    "drape": Region(DRAPE_PATCH.east_cm, DRAPE_PATCH.north_cm, 20.0, 20.0),
+    "lines": Region(LINES_PATCH.east_cm, LINES_PATCH.north_cm, 14.0, 14.0),
     **{kind: Region(region.east_cm, region.north_cm, 20.0, 20.0)
        for kind, region in _SWATCHES.items()},
 }
@@ -169,6 +187,25 @@ def records() -> dict[str, Record]:
         scene[kind] = _item(kind, region, 30.0, SWATCH_TINT, kind)
     scene["lawn"] = _lawn()
     return scene
+
+
+def _corners(region: Region) -> list[tuple[float, float]]:
+    half_w, half_d = region.width_cm / 2.0, region.depth_cm / 2.0
+    return [(region.east_cm - half_w, region.north_cm - half_d),
+            (region.east_cm + half_w, region.north_cm - half_d),
+            (region.east_cm + half_w, region.north_cm + half_d),
+            (region.east_cm - half_w, region.north_cm + half_d)]
+
+
+def overlays() -> dict[str, Mesh]:
+    """The analysis overlays the self-test shows (module docstring, point 5): the drape
+    through the product's builder, the lines as one flat patch in the pin's colour."""
+    corners = _corners(LINES_PATCH)
+    lines = Mesh.from_arrays(
+        [(x, y, COMPASS_LIFT_CM) for x, y in corners], [(0.0, 0.0, 1.0)] * 4,
+        [srgb8_to_linear(PIN_RGBA)] * 4, [(0.0, 0.0)] * 4, [(0, 1, 2), (0, 2, 3)])
+    return {"drape": shadow_drape([_corners(DRAPE_PATCH)], GROUND.width_cm, GROUND.depth_cm),
+            "lines": lines}
 
 
 def _builder(record: Record) -> tuple[MeshPart, ...]:
@@ -265,6 +302,14 @@ def judge_frame(rgba: NDArray[np.uint8], device_pixel_ratio: float = 1.0) -> lis
     lawn = _mean(rgba, REGIONS["lawn"], device_pixel_ratio)
     if not (lawn[2] > 40 and lawn[2] > 1.5 * lawn[0] and lawn[2] > 1.5 * lawn[1]):
         problems.append(f"the baked ground does not show the lawn: {_shown(lawn)}")
+    drape = _mean(rgba, REGIONS["drape"], device_pixel_ratio)
+    if not (_luma(drape) < 0.85 * _luma(lit)
+            and drape[2] / max(drape[1], 1.0) > lit[2] / max(lit[1], 1.0) + 0.06):
+        problems.append(f"the shadow drape did not darken the ground towards its blue: "
+                        f"{_shown(drape)} vs the lit ground {_shown(lit)}")
+    lines = _mean(rgba, REGIONS["lines"], device_pixel_ratio)
+    if not (lines[0] > 1.5 * lines[1] and lines[2] > 1.5 * lines[1] and lines[0] > 60):
+        problems.append(f"the lines overlay did not draw in its colour: {_shown(lines)}")
     share = _ring_share(rgba, device_pixel_ratio)
     if share < RING_SHARE:
         problems.append(f"the selection ring did not draw round the {SELECTED[0]} swatch: "
@@ -340,7 +385,7 @@ def _render(log: RenderLog, qml_dir: Path | None) -> Rendered:
     baker = GroundBaker(budget_s=0.0, tile_px=GROUND_TILE_PX)
     frame = render_records(records(), shot=SHOT, sun=SUN, ground=GROUND, size=SIZE,
                            registry=registry(), qml_dir=qml_dir, log=log, graphics_info=True,
-                           ground_baker=baker, selected=SELECTED)
+                           ground_baker=baker, selected=SELECTED, overlays=overlays())
     return Rendered(frame.rgba(), frame.device_pixel_ratio, frame.graphics_api, frame.adapter,
                     frame.open_ms, dict(frame.qt.get("counts", {})),
                     tuple(f"{item_id}: {error}" for item_id, error in frame.build_failures.items()),

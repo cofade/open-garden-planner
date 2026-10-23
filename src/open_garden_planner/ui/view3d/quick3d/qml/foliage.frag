@@ -1,9 +1,11 @@
 // Leaves and blades (ported from the L0 spike; shared by foliage.vert and
-// grass.vert). albedo = vertex colour x the part's tint, both linear.
+// grass.vert). albedo = vertex colour x the part's tint, both linear. The alpha is
+// uOpacity: 1, unless the part fades as an occluder of the selection (L2.4, X-ray) -
+// and only then does the material blend (Garden.qml), so 1 is opaque either way.
 VARYING vec4 vColor;
 void MAIN()
 {
-    BASE_COLOR = vec4(vColor.rgb * uTint, 1.0);
+    BASE_COLOR = vec4(vColor.rgb * uTint, uOpacity);
     ROUGHNESS = 0.82;
     METALNESS = 0.0;
     SPECULAR_AMOUNT = 0.25;

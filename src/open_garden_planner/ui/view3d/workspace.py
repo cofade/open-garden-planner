@@ -78,12 +78,14 @@ import time
 from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any, Final, Protocol
 
-from PyQt6.QtCore import QEvent, QObject, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QEvent, QObject, QPoint, QRect, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction, QActionGroup, QHideEvent, QKeySequence, QShowEvent
 from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QLayout,
+    QLayoutItem,
     QMenu,
     QPushButton,
     QSizePolicy,
@@ -106,6 +108,8 @@ if TYPE_CHECKING:
     from open_garden_planner.core.scene3d.walk import WalkWorld
     from open_garden_planner.core.sim_clock import SimClock
 
+    from .analysis_controller import AnalysisController, ProbeResult
+    from .growth_jump import GrowthJump
     from .info_card import CardSubject, View3DCardSlot, View3DInfoCard
     from .look_controller import LookController
     from .orbit_input import OrbitInput
@@ -134,6 +138,10 @@ RELEASE_IDLE_S: Final = 0.5
 #: quiet (an animated date) must not keep hundreds of megabytes waiting for quiet.
 #: One release costs 2 to 10 ms and the next frame as much again (measured).
 RELEASE_NOW_RETIRED: Final = 512
+#: Cutaway's X-ray (L2.4) is recomputed this long after the camera, the selection or
+#: the records last changed — never per frame of a moving camera (a few to tens of ms
+#: of ray tests on the GUI thread).
+XRAY_DELAY_MS: Final = 150
 #: Where the floating mode switch sits over the canvas: clear of the rulers' corner.
 _FLOAT_OFFSET: Final = 28
 _SPLITTER_KEY: Final = "workspace"
@@ -249,6 +257,72 @@ class ModeSwitch(QFrame):
         self.adjustSize()
 
 
+class _WrapRow(QLayout):
+    """The strip's row of controls: left to right, and onto a second line only when the
+    pane is too narrow for one (L2). In German a Split pane of a 1366 px window had 7 px
+    left beside "Reset 3D View" and "Walk" — L2's Analyze button would have cut the
+    notices below (the test of every notice in a 1366 px window found it; the eye-height
+    box of L1.8 had once done the same). A wrapping row asks for the widest control's
+    width, never for the sum: no control is ever narrower than its text, and the pane
+    is never wider than the window gives it."""
+
+    def __init__(self, parent: QWidget | None = None, spacing: int = 6) -> None:
+        super().__init__(parent)
+        self._items: list[QLayoutItem] = []
+        self.setContentsMargins(0, 0, 0, 0)
+        self.setSpacing(spacing)
+
+    def addItem(self, item: QLayoutItem | None) -> None:  # noqa: N802 - Qt's name
+        if item is not None:
+            self._items.append(item)
+
+    def count(self) -> int:
+        return len(self._items)
+
+    def itemAt(self, index: int) -> QLayoutItem | None:  # noqa: N802 - Qt's name
+        return self._items[index] if 0 <= index < len(self._items) else None
+
+    def takeAt(self, index: int) -> QLayoutItem | None:  # noqa: N802 - Qt's name
+        return self._items.pop(index) if 0 <= index < len(self._items) else None
+
+    def expandingDirections(self) -> Qt.Orientation:  # noqa: N802 - Qt's name
+        return Qt.Orientation(0)
+
+    def hasHeightForWidth(self) -> bool:  # noqa: N802 - Qt's name
+        return True
+
+    def heightForWidth(self, width: int) -> int:  # noqa: N802 - Qt's name
+        return self._arrange(QRect(0, 0, width, 0), apply=False)
+
+    def sizeHint(self) -> QSize:  # noqa: N802 - Qt's name
+        shown = [item.sizeHint() for item in self._items if not item.isEmpty()]
+        width = sum(size.width() for size in shown) + self.spacing() * max(len(shown) - 1, 0)
+        return QSize(width, max((size.height() for size in shown), default=0))
+
+    def minimumSize(self) -> QSize:  # noqa: N802 - Qt's name
+        shown = [item.sizeHint() for item in self._items if not item.isEmpty()]
+        return QSize(max((size.width() for size in shown), default=0),
+                     max((size.height() for size in shown), default=0))
+
+    def setGeometry(self, rect: QRect) -> None:  # noqa: N802 - Qt's name
+        super().setGeometry(rect)
+        self._arrange(rect, apply=True)
+
+    def _arrange(self, rect: QRect, *, apply: bool) -> int:
+        x, y, line = rect.x(), rect.y(), 0
+        for item in self._items:
+            if item.isEmpty():
+                continue
+            size = item.sizeHint()
+            if x > rect.x() and x + size.width() > rect.x() + rect.width():
+                x, y, line = rect.x(), y + line + self.spacing(), 0
+            if apply:
+                item.setGeometry(QRect(QPoint(x, y), size))
+            x += size.width() + self.spacing()
+            line = max(line, size.height())
+        return y + line - rect.y()
+
+
 class _Pane3D(QWidget):
     """The 3D side: a strip of controls and notices above the view — or, when there
     is no view, a message in its place. Says when it is shown and hidden.
@@ -276,9 +350,7 @@ class _Pane3D(QWidget):
         rows.setContentsMargins(4, 2, 4, 2)
         rows.setSpacing(2)
         controls = QWidget(self.strip)
-        self.strip_layout = QHBoxLayout(controls)
-        self.strip_layout.setContentsMargins(0, 0, 0, 0)
-        self.strip_layout.setSpacing(6)
+        self.strip_layout = _WrapRow(controls)  # wraps only in a narrow pane (L2)
         rows.addWidget(controls)
         self.notices = QWidget(self.strip)
         self.notice_layout = QVBoxLayout(self.notices)
@@ -399,6 +471,7 @@ class Workspace(QWidget):
 
         self._build_actions()
         self._init_selection_and_walk()  # L1.8: its state and the Walk action
+        self._init_analysis()            # L2: the Analyze menu's actions and its state
         # on the widget itself too: the shortcuts work whichever button row is shown
         self.addActions(self.mode_actions())
         self._floating = ModeSwitch(self.mode_actions(), self)
@@ -648,7 +721,7 @@ class Workspace(QWidget):
         self._reset_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         strip.addWidget(self._reset_button)
         self._build_walk_controls(pane)  # L1.8: the Walk toggle and the eye height
-        strip.addStretch(1)
+        self._build_analysis_controls(pane)  # L2: the Analyze menu
         # the notices, one per line; every sentence wraps (class docstring of the pane)
         notices = pane.notice_layout
         status = QLabel("", pane.notices)
@@ -683,6 +756,7 @@ class Workspace(QWidget):
         self._compat_button.clicked.connect(self._on_compat_button)
         self._compat_button.hide()
         notices.addWidget(self._compat_button, 0, Qt.AlignmentFlag.AlignLeft)
+        self._build_legend(pane)  # L2: the sun path's legend, a line of the notices
         pane.message_button.clicked.connect(self._on_message_button)
         pane.showing_changed.connect(self._on_pane_showing)
         pane.strip.setVisible(self._chrome_visible)
@@ -762,6 +836,7 @@ class Workspace(QWidget):
         orbit.moved.connect(self._start_camera)
         orbit.reset_requested.connect(self.reset_view)
         self._wire_selection(host, orbit, controller)  # L1.8: the click, the ring, the card
+        self._wire_analysis(host, orbit, controller)   # L2: drapes, sun path, probe, jumps
         controller.applied.connect(self._on_applied)
         controller.problems_changed.connect(self._update_problems)
         controller.document_shown.connect(self._on_document_shown)
@@ -786,8 +861,11 @@ class Workspace(QWidget):
 
     def _on_pane_showing(self, _shown: bool = False) -> None:
         showing = self._pane_is_showing()
+        viewing = showing and not self._wipe_shown()  # the wipe stands in the view's place
         if self._look is not None:
-            self._look.set_showing(showing)  # wind and frame sampling: only while shown
+            self._look.set_showing(viewing)  # wind and frame sampling: only while shown
+        if self._analysis is not None:
+            self._analysis.set_active(showing)  # L2: overlays sent only while shown
         controller = self._controller
         if controller is None or self._host is None:
             self._health_timer.stop()
@@ -914,20 +992,26 @@ class Workspace(QWidget):
                 _LOG.debug("3D workspace: no view size for the aspect", exc_info=True)
         return 16.0 / 9.0
 
+    def _camera_now(self) -> tuple[Any, Any, float]:
+        """``(eye, target, fov)`` the view is shown from: the walker's eye while walking
+        (L1.8; the orbit pose rests), else the orbit pose."""
+        walk = self._walk
+        if walk is not None and walk.active:
+            eye, target, fov = walk.camera()
+            return eye, target, fov
+        pose = self._camera.pose
+        return pose.eye, pose.target_scene, FOV_DEG
+
     def _apply_camera(self) -> None:
         host = self._host
         if host is None:
             return
-        walk = self._walk
-        if walk is not None and walk.active:
-            eye, target, fov = walk.camera()  # L1.8: the walker's eye; the orbit pose rests
-        else:
-            pose = self._camera.pose
-            eye, target, fov = pose.eye, pose.target_scene, FOV_DEG
+        eye, target, fov = self._camera_now()
         try:
             host.set_camera(eye, target, fov)
         except Exception:  # noqa: BLE001 - the health poll reports a host that died
             _LOG.debug("3D workspace: the camera could not be set", exc_info=True)
+        self._schedule_xray()  # L2.4: the occluders follow the camera once it rests
 
     def _start_camera(self) -> None:
         if self._camera.moving and self._pane_is_showing() and not self._camera_timer.isActive():
@@ -968,6 +1052,7 @@ class Workspace(QWidget):
         if controller is None:
             return
         self.set_walking(False)  # L1.8: the walker's world is gone with the document
+        self._analysis_document_changed()  # L2: the probe, the sweep, the jump, the wipe
         controller.document_changed()
         # … and so is what was selected. NOT read from the scene: the old items are
         # still in it (and still selected) when the signal comes. The new document
@@ -981,6 +1066,9 @@ class Workspace(QWidget):
     def location_changed(self, *_arguments: object) -> None:
         if self._controller is not None:
             self._controller.refresh_sun()
+        if self._analysis is not None:
+            self._analysis.location_changed()  # L2: the sun path is the place's
+            self._update_legend()
 
     def _on_applied(self, report: TickReport) -> None:
         # A pass went through: the build is over, and so is a failed update. What the
@@ -1241,6 +1329,7 @@ class Workspace(QWidget):
 
     def _stop_engine(self) -> None:
         self._unwire_selection()  # L1.8: walk mode ends, the canvas is let go
+        self._unwire_analysis()   # L2: its timers and its sources
         self._camera_timer.stop()
         self._health_timer.stop()
         self._drop_held_build()
@@ -1442,6 +1531,7 @@ class Workspace(QWidget):
             return
         controller.set_selection(ids)
         self._refresh_card()
+        self._schedule_xray()  # L2.4: what hides the new selection
 
     def _on_picked(self, hit: object, modifiers: object) -> None:
         """A click in the 3D view picked ``hit`` (None: the ground, the sky) with
@@ -1509,7 +1599,8 @@ class Workspace(QWidget):
             slot.show_subject(subject)
 
     def _selection_hint(self) -> str:
-        """What stands in the card's place while it shows no item."""
+        """What stands in the card's place while it shows no item — the ground probe's
+        reading when there is one (L2.1)."""
         scene = self._scene
         try:
             count = len(scene.selectedItems()) if scene is not None else 0
@@ -1517,6 +1608,9 @@ class Workspace(QWidget):
             count = 0
         if count > 1:
             return self.tr("{count} objects selected.").format(count=count)
+        probe = self._probe_text()
+        if probe:
+            return probe
         return self.tr("Click an object to see what the 3D view shows of it.")
 
     def _card_subject(self) -> CardSubject | None:
@@ -1550,10 +1644,31 @@ class Workspace(QWidget):
         else:
             has_model = not problem and self._has_model(item_id)
         parent_id = record.parent_id if record is not None else None
+        plan_date = clock.plan_date if clock is not None else None
         return CardSubject(item, record, has_model, problem,
                            str(getattr(self._find_item(parent_id), "name", "") or "")
                            if parent_id else "",
-                           clock.plan_date if clock is not None else None)
+                           plan_date, self._card_facts(item, record, plan_date))
+
+    def _card_facts(self, item: Any, record: Any, plan_date: Any) -> Any:
+        """The info card v1's facts (L2.3), each from its one home — the height's source
+        at the plan date, the growth share, the sun the heatmap measured for the item,
+        the sowing and harvest windows of the plan's year (``info_card.card_facts``)."""
+        from .info_card import card_facts
+
+        heatmap = self._sun_heatmap
+        sun: tuple[float, Any] | None = None
+        if heatmap is not None and getattr(heatmap, "exposure_reason", "") == "ready":
+            minutes = dict(getattr(heatmap, "receiver_minutes", {}) or {}).get(
+                str(getattr(item, "item_id", "")))
+            day = getattr(heatmap, "computed_day", None)
+            if isinstance(minutes, (int, float)) and day is not None:
+                sun = (float(minutes), day)
+        try:
+            return card_facts(item, record, plan_date, self._location(), sun)
+        except Exception as error:  # noqa: BLE001 - a fact the card cannot read is left out
+            _log_failure("3D info card: the plant facts could not be read", error)
+            return None
 
     def _has_model(self, item_id: str) -> bool:
         """True when the engine holds at least one mesh for the item (asked of the
@@ -1657,18 +1772,23 @@ class Workspace(QWidget):
         the ENGINE holds for them — what blocks is what is drawn (``core/scene3d/walk``),
         and nothing is built a second time (a record whose build failed has no parts:
         its footprint blocks)."""
-        from open_garden_planner.core.scene3d.mesh import MeshPart
-        from open_garden_planner.core.scene3d.record import Record
         from open_garden_planner.core.scene3d.walk import build_world
 
         controller = self._controller
         assert controller is not None
         bounds = controller.plan_bounds()
-        # the sink's own books (``Quick3DSink.item`` / ``RecordingSink.item``) — asked as
-        # ``_has_model`` asks them: not every EngineSink keeps them
-        held = getattr(controller.sync.sink, "item", None)
+        return build_world(controller.sync.records, bounds.max_east, bounds.max_north,
+                           parts_of=self._held_parts())
 
-        def held_parts(record: Record) -> tuple[MeshPart, ...]:
+    def _held_parts(self) -> Callable[[Any], tuple[Any, ...]]:
+        """The mesh parts the ENGINE holds for a record (the sink's own books —
+        ``Quick3DSink.item`` / ``RecordingSink.item``, asked as ``_has_model`` asks them:
+        not every EngineSink keeps them). Walk mode's world and the X-ray read the same;
+        nothing is built a second time."""
+        controller = self._controller
+        held = getattr(controller.sync.sink, "item", None) if controller is not None else None
+
+        def parts_of(record: Any) -> tuple[Any, ...]:
             if not callable(held):
                 return ()
             try:
@@ -1676,6 +1796,450 @@ class Workspace(QWidget):
             except KeyError:
                 return ()
 
-        return build_world(controller.sync.records, bounds.max_east, bounds.max_north,
-                           parts_of=held_parts)
+        return parts_of
+
+    # ── analyze in 3D (L2, #386) ─────────────────────────────────────────────
+    #
+    # ONE "Analyze" menu in the strip: what lies on the ground (nothing, the 2D shadows,
+    # the hours of sun), the sun path and compass, the day sweep, Cutaway, and the
+    # growth jumps. ``AnalysisController`` (engine-free) does the work; this section
+    # wires it: the click on the ground that probes, the camera and the selection that
+    # the X-ray follows, the growth jump and its before/after wipe, the legend. The
+    # sources — the 2D shadow overlay, the heatmap and the shared Hours-of-Sun switch —
+    # come from the app (``connect_analysis``).
+
+    def _init_analysis(self) -> None:
+        from .analysis_modes import JUMP_YEARS, DrapeMode
+
+        self._analysis: AnalysisController | None = None
+        self._jump: GrowthJump | None = None
+        self._shadow_source: Any = None
+        self._sun_heatmap: Any = None
+        self._request_sun_hours: Callable[[bool], None] | None = None
+        self._wipe: Any = None
+        self._legend_row: QWidget | None = None
+        # the X-ray waits for a resting camera: restarted by every camera change
+        self._xray_timer = QTimer(self)
+        self._xray_timer.setSingleShot(True)
+        self._xray_timer.setInterval(XRAY_DELAY_MS)
+        self._xray_timer.timeout.connect(self._run_xray)
+        self._drape_group = QActionGroup(self)
+        self._drape_group.setExclusive(True)
+        self._drape_actions: dict[DrapeMode, QAction] = {}
+        for mode, text, tip in (
+            (DrapeMode.NONE, self.tr("Nothing on the Ground"),
+             self.tr("Show the garden in 3D without an analysis on the ground")),
+            (DrapeMode.SHADOWS, self.tr("2D Shadows on the Ground"),
+             self.tr("Lay the plan's 2D shadows on the 3D ground: the sun study's own answer")),
+            (DrapeMode.SUN_HOURS, self.tr("Hours of Sun on the Ground"),
+             self.tr("Lay the hours-of-sun map on the 3D ground; click the ground to read it")),
+        ):
+            action = QAction(text, self)
+            action.setCheckable(True)
+            action.setStatusTip(tip)
+            action.triggered.connect(lambda _checked=False, m=mode: self.set_drape_mode(m))
+            self._drape_group.addAction(action)
+            self._drape_actions[mode] = action
+        self._drape_actions[DrapeMode.NONE].setChecked(True)
+        self._sun_path_action = QAction(self.tr("Sun Path and Compass"), self)
+        self._sun_path_action.setCheckable(True)
+        self._sun_path_action.setStatusTip(self.tr(
+            "Show where the sun goes today, at both solstices and at the equinox, and a compass"))
+        self._sun_path_action.triggered.connect(
+            lambda checked=False: self.set_sun_path_visible(bool(checked)))
+        self._sweep_action = QAction(self.tr("Sweep the Day"), self)
+        self._sweep_action.setCheckable(True)
+        self._sweep_action.setStatusTip(self.tr(
+            "Play the plan date from sunrise to sunset and watch the hours of sun add up"))
+        self._sweep_action.triggered.connect(lambda checked=False: self.set_sweeping(bool(checked)))
+        self._cutaway_action = QAction(self.tr("Cutaway"), self)
+        self._cutaway_action.setCheckable(True)
+        self._cutaway_action.setStatusTip(self.tr(
+            "Take the roofs off and let what stands in front of the selection fade"))
+        self._cutaway_action.triggered.connect(lambda checked=False: self.set_cutaway(bool(checked)))
+        texts = {1: self.tr("+1 Year"), 3: self.tr("+3 Years"), 10: self.tr("+10 Years")}
+        self._jump_actions: dict[int, QAction] = {}
+        for years in JUMP_YEARS:
+            action = QAction(texts[years], self)
+            action.setStatusTip(self.tr("Move the plan date forward and compare before and after"))
+            action.triggered.connect(lambda _checked=False, y=years: self.jump_years(y))
+            self._jump_actions[years] = action
+        self._back_action = QAction(self.tr("Back to the Starting Date"), self)
+        self._back_action.triggered.connect(lambda _checked=False: self.growth_back())
+        for action in self._analysis_actions():
+            action.setEnabled(False)
+
+    def _analysis_actions(self) -> list[QAction]:
+        return [*self._drape_actions.values(), self._sun_path_action, self._sweep_action,
+                self._cutaway_action, *self._jump_actions.values(), self._back_action]
+
+    @property
+    def analysis(self) -> AnalysisController | None:
+        """The analysis of the running engine (None before 3D was first opened)."""
+        return self._analysis
+
+    @property
+    def growth(self) -> GrowthJump | None:
+        return self._jump
+
+    @property
+    def drape_actions(self) -> dict[Any, QAction]:
+        return dict(self._drape_actions)
+
+    @property
+    def sun_path_action(self) -> QAction:
+        return self._sun_path_action
+
+    @property
+    def sweep_action(self) -> QAction:
+        return self._sweep_action
+
+    @property
+    def cutaway_action(self) -> QAction:
+        return self._cutaway_action
+
+    @property
+    def jump_actions(self) -> dict[int, QAction]:
+        return dict(self._jump_actions)
+
+    @property
+    def back_action(self) -> QAction:
+        return self._back_action
+
+    @property
+    def wipe(self) -> Any:
+        """The before/after wipe (None until the 3D pane was first built)."""
+        return self._wipe
+
+    def connect_analysis(self, shadows: Any = None, heatmap: Any = None,
+                         request_sun_hours: Callable[[bool], None] | None = None) -> None:
+        """The 2D analysis the 3D view lays on its ground (L2): the shadow overlay's
+        controller, the heatmap's controller and the shared Hours-of-Sun switch (the
+        toolbar's). Kept for every engine this workspace builds."""
+        self._shadow_source, self._sun_heatmap = shadows, heatmap
+        self._request_sun_hours = request_sun_hours
+        if self._analysis is not None:
+            self._analysis.connect_sources(shadows, heatmap, request_sun_hours)
+
+    def _build_analysis_controls(self, pane: _Pane3D) -> None:
+        from .wipe import BeforeAfterWipe
+
+        self._analyze_button = QToolButton(pane.strip)
+        self._analyze_button.setText(self.tr("Analyze"))
+        self._analyze_button.setToolTip(self.tr(
+            "Sun and shade on the ground, the sun path, a day sweep, Cutaway and growth"))
+        self._analyze_button.setAutoRaise(True)
+        self._analyze_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._analyze_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        menu = QMenu(self._analyze_button)
+        menu.addSection(self.tr("On the ground"))
+        menu.addActions(list(self._drape_actions.values()))
+        menu.addSeparator()
+        menu.addAction(self._sun_path_action)
+        menu.addAction(self._sweep_action)
+        menu.addAction(self._cutaway_action)
+        menu.addSection(self.tr("Growth"))
+        menu.addActions(list(self._jump_actions.values()))
+        menu.addAction(self._back_action)
+        self._analyze_button.setMenu(menu)
+        pane.strip_layout.addWidget(self._analyze_button)
+        # the before/after of a growth jump stands in the view's place (a page of the body)
+        self._wipe = BeforeAfterWipe(pane.body)
+        self._wipe.closed.connect(self.close_wipe)
+        pane.body.addWidget(self._wipe)
+
+    def _build_legend(self, pane: _Pane3D) -> None:
+        from open_garden_planner.core.scene3d.sun_path import ARC_KINDS, ARC_RGBA
+
+        row = QWidget(pane.notices)
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+        names = {"today": self.tr("Plan date"), "june_solstice": self.tr("21 June"),
+                 "december_solstice": self.tr("21 December"), "march_equinox": self.tr("20 March")}
+        self._legend_swatches: list[QWidget] = []
+        for kind in ARC_KINDS:
+            swatch = QFrame(row)  # a bar of the arc's colour (no text: not a label)
+            swatch.setFixedSize(16, 4)
+            red, green, blue, _alpha = ARC_RGBA[kind]
+            swatch.setStyleSheet(f"background-color: rgb({red}, {green}, {blue});")
+            layout.addWidget(swatch, 0, Qt.AlignmentFlag.AlignVCenter)
+            label = QLabel(names[kind], row)
+            label.setTextFormat(Qt.TextFormat.PlainText)
+            layout.addWidget(label)
+            layout.addSpacing(6)
+            self._legend_swatches.extend((swatch, label))
+        self._legend_note = QLabel(self.tr("Set a garden location to draw the sun path."), row)
+        self._legend_note.setTextFormat(Qt.TextFormat.PlainText)
+        self._legend_note.setWordWrap(True)
+        layout.addWidget(self._legend_note, 1)
+        layout.addStretch(1)
+        row.hide()
+        pane.notice_layout.addWidget(row)
+        self._legend_row = row
+
+    def legend_text(self) -> str:
+        """What the legend says ("" while it is hidden) — the tests' read."""
+        row = self._legend_row
+        if row is None or row.isHidden():
+            return ""
+        if not self._legend_note.isHidden():
+            return self._legend_note.text()
+        return " ".join(widget.text() for widget in self._legend_swatches
+                        if isinstance(widget, QLabel) and widget.text())
+
+    def _update_legend(self) -> None:
+        row, analysis = self._legend_row, self._analysis
+        if row is None:
+            return
+        shown = analysis is not None and analysis.sun_path_visible and self._chrome_visible
+        if shown and analysis is not None:
+            located = analysis.has_location()
+            for widget in self._legend_swatches:
+                widget.setVisible(located)
+            self._legend_note.setVisible(not located)
+        row.setVisible(shown)
+        self._refresh_notices()
+
+    def _wire_analysis(self, host: EngineHost, orbit: OrbitInput,
+                       controller: Scene3DController) -> None:
+        from .analysis_controller import AnalysisController
+        from .compass_glyphs import cardinal_glyphs
+        from .growth_jump import GrowthJump
+
+        clock = self._clock
+        assert clock is not None
+        analysis = AnalysisController(host, clock, self._location, controller.plan_size,
+                                      glyphs=cardinal_glyphs, parent=self)
+        analysis.connect_sources(self._shadow_source, self._sun_heatmap, self._request_sun_hours)
+        analysis.changed.connect(self._sync_analysis_actions)
+        analysis.probe_changed.connect(self._refresh_card)
+        orbit.ground_clicked.connect(self._on_ground_clicked)
+        jump = GrowthJump(clock, host, self)
+        jump.wipe_ready.connect(self._show_wipe)
+        jump.changed.connect(self._sync_analysis_actions)
+        controller.applied.connect(self._on_applied_for_analysis)
+        self._analysis, self._jump = analysis, jump
+        for action in self._analysis_actions():
+            action.setEnabled(True)
+        self._sync_analysis_actions()
+
+    def _unwire_analysis(self) -> None:
+        self.close_wipe()
+        self._xray_timer.stop()
+        analysis, self._analysis = self._analysis, None
+        if analysis is not None:
+            analysis.shutdown()
+            analysis.deleteLater()
+        jump, self._jump = self._jump, None
+        if jump is not None:
+            jump.forget()
+            jump.deleteLater()
+        for action in self._analysis_actions():
+            action.setEnabled(False)
+        self._update_legend()
+
+    def _analysis_document_changed(self) -> None:
+        self.close_wipe()
+        if self._analysis is not None:
+            self._analysis.document_changed()
+        if self._jump is not None:
+            self._jump.forget()
+
+    def _sync_analysis_actions(self) -> None:
+        """The menu shows the analysis's state — also when it changed by itself (the
+        sweep ended at sunset, a growth jump was made, the map arrived)."""
+        analysis, jump = self._analysis, self._jump
+        if analysis is not None:
+            self._drape_actions[analysis.drape_mode].setChecked(True)
+            self._sun_path_action.setChecked(analysis.sun_path_visible)
+            self._sweep_action.setChecked(analysis.sweeping)
+            self._cutaway_action.setChecked(analysis.cutaway)
+        origin = jump.origin if jump is not None else None
+        self._back_action.setEnabled(origin is not None)
+        self._back_action.setText(
+            self.tr("Back to {date}").format(date=_locale_date(origin)) if origin is not None
+            else self.tr("Back to the Starting Date"))
+        self._update_legend()
+        self._refresh_card()
+
+    def set_drape_mode(self, mode: Any) -> None:
+        """What lies on the 3D ground (``DrapeMode``)."""
+        if self._analysis is not None:
+            self._analysis.set_drape_mode(mode)
+        self._sync_analysis_actions()
+
+    def set_sun_path_visible(self, visible: bool) -> None:
+        if self._analysis is not None:
+            self._analysis.set_sun_path_visible(visible)
+        self._sync_analysis_actions()
+
+    def set_sweeping(self, on: bool) -> bool:
+        """Start (or stop) the day sweep; False when there is no day to sweep — the
+        strip says why."""
+        analysis = self._analysis
+        started = False
+        if analysis is not None:
+            if on:
+                started = analysis.start_sweep()
+                if not started:
+                    self._say(_NOTICE_SYNC, self.tr(
+                        "There is no daylight to sweep on this date here, or the garden has "
+                        "no location."))
+            else:
+                analysis.stop_sweep()
+        self._sync_analysis_actions()
+        return started
+
+    def set_cutaway(self, on: bool) -> None:
+        if self._analysis is not None:
+            self._analysis.set_cutaway(on)
+        self._sync_analysis_actions()
+        self._run_xray()
+
+    def jump_years(self, years: int) -> None:
+        """Move the plan date ``years`` forward; the before/after follows (L2.3). From an
+        open comparison its after-picture is the new before (the view is not shown, so
+        it could give no frame)."""
+        if self._jump is None:
+            return
+        before = self._wipe.after_image() if self._wipe_shown() else None
+        self.close_wipe()
+        self._jump.jump(years, before)
+
+    def growth_back(self) -> None:
+        if self._jump is None:
+            return
+        self.close_wipe()
+        self._jump.back()
+
+    def _on_applied_for_analysis(self, report: TickReport) -> None:
+        if report.snapshot:
+            self._schedule_xray()
+        jump, controller = self._jump, self._controller
+        if jump is not None and controller is not None:
+            jump.on_applied(report.snapshot, controller.pass_date)
+
+    # … the probe
+
+    def _ground_point(self, x: float, y: float) -> tuple[float, float] | None:
+        """Where the view ray through ``(x, y)`` meets the ground (scene E, N), or None
+        when it looks above the horizon."""
+        from open_garden_planner.core.scene3d.pick_oracle import perspective_ray
+
+        host = self._host
+        if host is None:
+            return None
+        eye, target, fov = self._camera_now()
+        try:
+            ray = perspective_ray(eye, target, fov, host.view_size(), x, y)
+        except (ValueError, ZeroDivisionError):
+            return None
+        down = ray.direction[2]
+        if down >= -1e-9:
+            return None
+        reach = -ray.origin[2] / down
+        return (ray.origin[0] + reach * ray.direction[0], ray.origin[1] + reach * ray.direction[1])
+
+    def _on_ground_clicked(self, x: float, y: float) -> None:
+        """A click that met no item: with the hours of sun on the ground, it probes."""
+        from .analysis_modes import DrapeMode
+
+        analysis = self._analysis
+        if analysis is None or analysis.drape_mode is not DrapeMode.SUN_HOURS:
+            return
+        point = self._ground_point(x, y)
+        if point is not None:
+            analysis.probe(*point)
+        self._refresh_card()
+
+    def _probe_text(self) -> str:
+        """The probe's reading for the card's place ("" for no probe)."""
+        from open_garden_planner.core.measurements import format_length
+        from open_garden_planner.ui.sun_exposure_text import sun_requirement_label
+
+        from .analysis_modes import DrapeMode
+
+        analysis = self._analysis
+        if analysis is None:
+            return ""
+        probe: ProbeResult | None = analysis.probe_result
+        if probe is None:
+            if analysis.drape_mode is DrapeMode.SUN_HOURS:
+                return self.tr("Click the ground to read its hours of sun.")
+            return ""
+        if probe.reason == "outside":
+            return self.tr("That spot lies outside the hours-of-sun map.")
+        if probe.reason != "ok" or probe.minutes is None or probe.band is None:
+            return self.tr("The hours of sun are not computed yet for this plan date.")
+        return self.tr("Ground at {east} east, {north} north: {hours} h of direct sun on "
+                       "{date} — {band}.").format(
+            east=format_length(probe.east_cm), north=format_length(probe.north_cm),
+            hours=_locale_number(probe.minutes / 60.0), date=_locale_date(probe.day),
+            band=sun_requirement_label(probe.band.value))
+
+    # … the X-ray
+
+    def _schedule_xray(self) -> None:
+        analysis = getattr(self, "_analysis", None)
+        if analysis is not None and analysis.cutaway:
+            self._xray_timer.start()
+
+    def _run_xray(self) -> None:
+        from .selection_bridge import selected_record_ids
+
+        analysis, controller, scene = self._analysis, self._controller, self._scene
+        if analysis is None or controller is None or scene is None:
+            return
+        try:
+            selected = selected_record_ids(scene)
+        except RuntimeError:  # the scene is being torn down
+            return
+        eye, _target, _fov = self._camera_now()
+        parts_of = self._held_parts()
+        analysis.update_xray(eye, selected, controller.apply_count,
+                             lambda: (controller.sync.records, parts_of))
+
+    # … the before/after wipe
+
+    def _wipe_shown(self) -> bool:
+        pane, wipe = self._pane, getattr(self, "_wipe", None)
+        return pane is not None and wipe is not None and pane.body.currentWidget() is wipe
+
+    def _show_wipe(self, before: Any, after: Any, from_day: Any, to_day: Any) -> None:
+        pane, wipe = self._pane, self._wipe
+        if pane is None or wipe is None or pane.engine_widget is None:
+            return
+        wipe.show_pair(before, after,
+                       self.tr("Before: {date}").format(date=_locale_date(from_day)),
+                       self.tr("After: {date}").format(date=_locale_date(to_day)))
+        pane.body.setCurrentWidget(wipe)
+        wipe.setFocus(Qt.FocusReason.OtherFocusReason)
+        self._on_pane_showing()
+
+    def close_wipe(self) -> None:
+        """Back to the 3D view (the wipe's "Back to 3D View", Escape, a new jump)."""
+        pane = self._pane
+        if not self._wipe_shown() or pane is None:
+            return
+        if pane.engine_widget is not None:
+            pane.body.setCurrentWidget(pane.engine_widget)
+        else:
+            pane.body.setCurrentWidget(pane.message_page)
+        self._on_pane_showing()
+
+
+def _locale_date(day: Any) -> str:
+    """A date in the locale's short format ("" for none)."""
+    from PyQt6.QtCore import QDate, QLocale
+
+    if day is None:
+        return ""
+    return QLocale().toString(QDate(day.year, day.month, day.day), QLocale.FormatType.ShortFormat)
+
+
+def _locale_number(value: float) -> str:
+    from PyQt6.QtCore import QLocale
+
+    return QLocale().toString(float(value), "f", 1)
 

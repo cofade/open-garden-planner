@@ -21,7 +21,7 @@ from __future__ import annotations
 import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta, tzinfo
 from typing import NamedTuple
 
 import numpy as np
@@ -34,6 +34,7 @@ from .shadow_geometry import (
     compute_grouped_shadows,
     compute_scene_shadows,
 )
+from .sim_clock import SimInstant
 from .solar import solar_position
 
 #: Daylight sampling step. 15 min × ≤64 daylight samples covers the perf
@@ -142,10 +143,91 @@ class SunReceiver:
 
 @dataclass(frozen=True)
 class SunExposureResult:
-    """Ground heatmap plus sparse ground exposure excluding each receiver itself."""
+    """Ground heatmap plus sparse ground exposure excluding each receiver itself.
+
+    ``samples`` / ``sample_shade`` (Phase 17 L2.2, #386): every daylight sample's
+    instant and its shade mask — ``np.packbits`` of the rasterised mask along the
+    columns, shape ``(len(samples), rows, ceil(cols / 8))``, True = shaded — so
+    that a day sweep can show the map filling up sample by sample
+    (``SunHoursMap.minutes_until``) without a second computation. Kept while the
+    masks fit ``MAX_SAMPLE_SHADE_BYTES``; beyond it ``sample_shade`` is None and
+    the map is only ever shown whole.
+    """
 
     minutes: np.ndarray
     receiver_minutes: tuple[tuple[str, float], ...]
+    samples: tuple[datetime, ...] = ()
+    sample_shade: np.ndarray | None = None
+
+
+#: The per-sample shade masks of one day are kept up to this size (bytes): 1 bit a
+#: cell a sample — a 10 cm map of a 30 x 20 m garden over 64 samples is 480 kB, and
+#: this bound is a map of eight million cells.
+MAX_SAMPLE_SHADE_BYTES = 64 * 1024 * 1024
+
+
+@dataclass(frozen=True, eq=False)
+class SunHoursMap:
+    """A finished hours-of-sun map as plain data — what the canvas shows (L2.1, #386).
+
+    The heatmap controller's public ``result()``: the day, the grid (row 0 = SOUTH),
+    the minutes of direct sun per cell, the day's full daylight (the ramp's top),
+    the sampling step and, when they were kept, the per-sample shade masks
+    (``SunExposureResult``). Consumers read it; nobody recomputes it.
+    """
+
+    day: date
+    grid: HeatmapGrid
+    minutes: np.ndarray
+    daylight_minutes: float
+    step_minutes: int = SAMPLE_STEP_MINUTES
+    samples: tuple[datetime, ...] = ()
+    sample_shade: np.ndarray | None = None
+
+    def minutes_at(self, x_cm: float, y_cm: float) -> float | None:
+        """The minutes of the cell a scene point lies in — the cell the canvas draws
+        there — or None outside the grid (and for a point that is not finite)."""
+        if not (math.isfinite(x_cm) and math.isfinite(y_cm)):
+            return None
+        row, col = self.grid.cell_at(x_cm, y_cm)
+        if not (0 <= row < self.grid.rows and 0 <= col < self.grid.cols):
+            return None
+        return float(self.minutes[row, col])
+
+    @property
+    def progressive(self) -> bool:
+        """True when the per-sample masks were kept: ``minutes_through`` can answer."""
+        return self.sample_shade is not None and len(self.samples) == len(self.sample_shade)
+
+    def sample_minutes_of_day(self, tz: tzinfo | None) -> tuple[int, ...]:
+        """Each sample's wall minute of the day in ``tz`` (the clock's zone).
+
+        The map samples a UTC civil day (``daylight_samples``) — one whole diurnal arc,
+        but, far from Greenwich, not the LOCAL day: in Sydney it runs from 10:00 one
+        day to 10:00 the next. A day sweep goes through the local day, so it takes
+        the samples by their time of day, not by their instant: at local sunset every
+        daylight sample is in, and the sweep ends on the whole map."""
+        return tuple(SimInstant.from_datetime(sample, tz).minute_of_day for sample in self.samples)
+
+    def sample_sunlit(self, index: int) -> np.ndarray:
+        """Sample ``index``'s sunlit cells, ``(rows, cols)`` bool (True = in the sun)."""
+        if self.sample_shade is None:
+            raise ValueError("this map kept no per-sample masks")
+        shaded = np.unpackbits(self.sample_shade[index], axis=1, count=self.grid.cols)
+        return shaded == 0
+
+    def minutes_through(self, minute_of_day: int, tz: tzinfo | None) -> np.ndarray | None:
+        """The minutes of direct sun each cell collected from the morning up to the wall
+        time ``minute_of_day`` in ``tz`` (inclusive) — the map half-way through a day
+        sweep. None when the masks were not kept. Through the last minute of the day it
+        equals ``minutes`` (pinned)."""
+        if not self.progressive:
+            return None
+        total = np.zeros((self.grid.rows, self.grid.cols), dtype=np.float32)
+        for index, minute in enumerate(self.sample_minutes_of_day(tz)):
+            if minute <= minute_of_day:
+                total += np.where(self.sample_sunlit(index), float(self.step_minutes), 0.0)
+        return total
 
 
 def points_in_polygons(polygons: Sequence[Sequence[tuple[float, float]]], points: np.ndarray) -> np.ndarray:
@@ -313,6 +395,9 @@ def _aggregate_day(
             spared.setdefault(receiver.stands_on, []).append(index)
     exposure = np.zeros(len(valid), dtype=np.float32)
     total = len(samples)
+    packed_cols = (grid.cols + 7) // 8
+    keep_masks = total * grid.rows * packed_cols <= MAX_SAMPLE_SHADE_BYTES
+    masks = np.zeros((total, grid.rows, packed_cols), dtype=np.uint8) if keep_masks else None
     for index, sample in enumerate(samples):
         if should_cancel is not None and should_cancel():
             return None
@@ -331,6 +416,8 @@ def _aggregate_day(
         if polygons:
             shaded = rasterize(polygons, grid)
             minutes += np.where(shaded, 0.0, float(step_minutes))
+            if masks is not None:
+                masks[index] = np.packbits(np.asarray(shaded, dtype=bool), axis=1)
         else:
             minutes += float(step_minutes)
         if len(valid):
@@ -349,5 +436,6 @@ def _aggregate_day(
     if should_cancel is not None and should_cancel():
         return None
     return SunExposureResult(minutes, tuple((receiver.item_id, float(value))
-                                           for receiver, value in zip(valid, exposure, strict=True)))
+                                           for receiver, value in zip(valid, exposure, strict=True)),
+                             tuple(sample.dt_utc for sample in samples), masks)
 

@@ -94,6 +94,9 @@ class OrbitInput(QObject):
     #: A click picked (module docstring): the host's hit — ``PickHit``, or None for the
     #: ground and the sky — and the click's ``Qt.KeyboardModifier``s.
     picked = pyqtSignal(object, object)
+    #: … and when it hit no item, where it was (logical pixels of the view) — after
+    #: ``picked``: the ground probe of L2.1 (#386) reads the ground there.
+    ground_clicked = pyqtSignal(float, float)
 
     def __init__(self, camera: OrbitCamera, viewport_height: Callable[[], float],
                  parent: QObject | None = None) -> None:
@@ -162,6 +165,8 @@ class OrbitInput(QObject):
                        log_text(type(error).__name__), log_text(error))
             return
         self.picked.emit(hit, event.modifiers())
+        if hit is None:
+            self.ground_clicked.emit(float(at.x()), float(at.y()))
 
     # ── gestures ─────────────────────────────────────────────────────────────
 

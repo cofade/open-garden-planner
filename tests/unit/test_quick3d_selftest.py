@@ -35,6 +35,8 @@ SWATCH = (150, 12, 6)
 GLASS = (60, 60, 14)
 LAWN = (12, 30, 150)
 RING = (0, 48, 173)          # the canvas's selection blue in linear light (the truth view)
+DRAPE = (16, 44, 12)         # the 2D shadow drape over the meadow (L2; measured, GPU and WARP)
+LINES = (171, 9, 90)         # the lines overlay's patch: the pin's colour, linear
 
 
 def _paint(frame: np.ndarray, region: selftest.Region, colour: tuple[int, int, int],
@@ -64,6 +66,8 @@ def _good_frame(scale: float = 1.0) -> np.ndarray:
         _paint(frame, selftest.REGIONS[kind], GLASS if kind == "glass" else SWATCH, scale, grow_cm=4.0)
     _paint(frame, selftest.REGIONS["box"], BOX, scale, grow_cm=10.0)
     _paint(frame, selftest.REGIONS["lawn"], LAWN, scale, grow_cm=6.0)
+    _paint(frame, selftest.REGIONS["drape"], DRAPE, scale, grow_cm=6.0)
+    _paint(frame, selftest.REGIONS["lines"], LINES, scale, grow_cm=4.0)
     return frame
 
 
@@ -85,8 +89,8 @@ class TestJudge:
         frame = _good_frame()
         frame[..., :3] = (207, 226, 242)  # the bare sky colour: nothing was drawn
         problems = selftest.judge_frame(frame)
-        # ground, box, shadow, each swatch, the lawn, the ring
-        assert len(problems) == 5 + len(selftest.SWATCH_KINDS)
+        # ground, box, shadow, each swatch, the lawn, the drape, the lines, the ring
+        assert len(problems) == 7 + len(selftest.SWATCH_KINDS)
         assert problems[0].startswith("the ground is not lit meadow")
         assert problems[1].startswith("the box is not there")
 
@@ -97,8 +101,34 @@ class TestJudge:
         assert problems[0].startswith("the box is not there")       # the ground itself is fine
         assert problems[1].startswith("the shadow is missing")
         assert problems[-1].startswith("the selection ring did not draw round the roof swatch")
-        assert len(problems) == 4 + len(selftest.SWATCH_KINDS)  # … the lawn and the ring
+        # … the lawn, the drape, the lines and the ring
+        assert len(problems) == 6 + len(selftest.SWATCH_KINDS)
         assert any(p.startswith("the baked ground does not show the lawn") for p in problems)
+
+    def test_a_drape_that_brightens_the_ground_fails(self) -> None:
+        """L2: the blend that let the window's white through the frame's alpha — measured
+        on the engine as rgb(79, 107, 75) over a meadow of rgb(25, 73, 11)."""
+        frame = _good_frame()
+        _paint(frame, selftest.REGIONS["drape"], (79, 107, 75), 1.0, grow_cm=6.0)
+        problems = selftest.judge_frame(frame)
+        assert len(problems) == 1 and problems[0].startswith("the shadow drape did not darken")
+
+    def test_a_missing_overlay_fails(self) -> None:
+        frame = _good_frame()
+        _paint(frame, selftest.REGIONS["lines"], GROUND, 1.0, grow_cm=4.0)
+        problems = selftest.judge_frame(frame)
+        assert len(problems) == 1 and problems[0].startswith("the lines overlay did not draw")
+
+    def test_the_overlay_patches_lie_clear_of_the_box_and_its_shadow(self) -> None:
+        from open_garden_planner.core.shadow_geometry import shadow_polygon
+
+        shadow = shadow_polygon(selftest._ring(100.0, 100.0), 100.0, selftest.SUN.elevation_deg,
+                                selftest.SUN.azimuth_deg)
+        reach = max(x for polygon in shadow for x, _y in polygon) + selftest._BOX.east_cm
+        for patch in (selftest.DRAPE_PATCH, selftest.LINES_PATCH):
+            assert patch.east_cm - patch.width_cm / 2 > reach
+            assert patch.north_cm - patch.depth_cm / 2 > 0.0
+            assert patch.north_cm + patch.depth_cm / 2 < selftest.GROUND.depth_cm
 
     def test_a_ring_that_did_not_draw_fails(self) -> None:
         """The ring's shader failed, or nothing was selected: every material is there,

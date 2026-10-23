@@ -21,7 +21,7 @@
 | **14** | **v1.24.5 – v1.24.12** | **✅ Complete** ([epic #255](https://github.com/cofade/open-garden-planner/issues/255); no v2.0 bump — see the Phase 14 section) | **3D Visualization & Sun/Shade** |
 | **15** | **v1.25.0 – v1.27.0** | **✅ Complete** (Packages 1–3; epic [#284](https://github.com/cofade/open-garden-planner/issues/284)) | **Visual Refresh** |
 | 16 | — | Future | Platform & Community |
-| 17 | — | In progress (L0 ✅ **GO** — ADR-048, 2026-10-05; L1 ✅ v1.29.10 + v1.30.14, L2 next; epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) | Living Garden 3D |
+| 17 | — | In progress (L0 ✅ **GO** — ADR-048, 2026-10-05; L1 ✅ v1.29.10 + v1.30.14, L2 🔄 in review; epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) | Living Garden 3D |
 
 ---
 
@@ -2723,12 +2723,20 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | ------ | ------- | ----------- | ----- |
 | ✅ | L0 | **Proof of Beauty** — ADR-048 criteria committed before measuring; deterministic bench plans; dormant `--spike-q3d` renderer with sky, soft shadows, procedural trees/plants/roofs/fences; measurements M1–M12 in the container and the frozen Windows exe; Beauty Board; agents + skills. **GO 2026-10-05 (owner GPU run in ADR-048 entry 19); evidence tooling deleted.** | [#384](https://github.com/cofade/open-garden-planner/issues/384) |
 | ✅ | L1 | **New engine, new light** — sim clock, scene contract v2, engine package, Plan/3D/Split workspace without camera resets, sky + presets, ground bake, built world v0, plant v0, selection sync + walk collision, default flip, Qt 3D removal. **L1.0 ✅ sim clock shipped v1.29.10 ([PR #429](https://github.com/cofade/open-garden-planner/pull/429)); L1.1–L1.10 ✅ shipped v1.30.14 ([PR #484](https://github.com/cofade/open-garden-planner/pull/484))** — see below | [#385](https://github.com/cofade/open-garden-planner/issues/385) |
-| 📋 | L2 | **Analyze in 3D** — shadow and sun-hours drapes, sun path + day sweep, info card + growth jump, cutaway | [#386](https://github.com/cofade/open-garden-planner/issues/386) |
+| 🔄 | L2 | **Analyze in 3D** — shadow and sun-hours drapes + ground probe, sun path + compass + day sweep, info card v1 + growth jump with before/after, Cutaway / X-ray. **Implemented on `feature/386-l2-analyze-in-3d` (ADR-063, FR-3D-ANALYZE-01 … 08); owner acceptance pending** — see below | [#386](https://github.com/cofade/open-garden-planner/issues/386) |
 | 📋 | L3 | **Plant Forge** — procedural species models from the sprite recipes, LODs, phenology | [#387](https://github.com/cofade/open-garden-planner/issues/387) |
 | 📋 | L4 | **Built world complete** — roof styles, paths, glass, 24 object builders, water and lawn | [#388](https://github.com/cofade/open-garden-planner/issues/388) |
 | 📋 | L5 | **Living garden** — year/day playback, weather, particles, wind (needs [#315](https://github.com/cofade/open-garden-planner/issues/315)) | [#389](https://github.com/cofade/open-garden-planner/issues/389) |
 | 📋 | L6 | **Director's cut** — photo mode, camera tours, `render_3d_view` MCP tool | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
 | 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
+
+### L2 acceptance highlights — Analyze in 3D (#386, ADR-063) — **owner acceptance pending**
+
+- **L2.1 drapes + sun probe.** The 3D ground shows the plan's own 2D analysis: the shadow overlay's polygons (`SunShadowController.drape_polygons()` / `shadows_changed`) or the heatmap's map (`SunHeatmapController.result()` / `computed`, the plain-data `SunHoursMap`), row 0 = south, in the canvas's ramp. Choosing the hours of sun switches the shared Hours of Sun on. A click on the ground reads the map's cell and its band and pins it. Each drape is ONE mesh in ONE Model for the scene's life — no Model or texture per change (#531, #532). Found on the engine: a blended custom material must keep the frame's alpha, or the drape brightens the ground with the window's white (PF-L3D-06).
+- **L2.2 sun path + day sweep.** Arcs of the plan date, 21 June, 21 December and 20 March, each one local day from `core.solar`, cut at the horizon; the gate holds — every noon point IS `solar_position` at the day's highest sun. A compass rose with translated letters as geometry. The day sweep runs the shared clock from sunrise to sunset and fills the drape from the map's own per-sample masks (taken by local time of day: the map samples a UTC day), then gives the time back.
+- **L2.3 info card v1 + growth jump.** The card names the height's source at the plan date, the growth share, the measured sun and band, and the sowing / harvest windows (`task_generator.calendar_windows`, now the generator's own formula). +1 / +3 / +10 years move the shared date (29 February → 1 March) and show a before/after wipe built from exactly two pictures; Back returns. Plant labels (optional) are left for L3.
+- **L2.4 Cutaway / X-ray.** Roofs off by one scene property; the items between the eye and the selection fade (Qt-free segment casts over the meshes the engine holds, the pick oracle's own triangle test), unpickable while faded.
+- **Tests:** the §8.10 workflow `tests/integration/test_view3d_analysis.py` (real shadow overlay and heatmap worker beside the workspace), four new unit files, the QML scene without a GPU, the render tier on GPU / WARP / OpenGL, the frozen `--selftest` (both overlay shaders compiled and judged).
 
 ### L1.0 acceptance highlights — one sim clock (#385, ADR-053) — **shipped v1.29.10, [PR #429](https://github.com/cofade/open-garden-planner/pull/429)**
 

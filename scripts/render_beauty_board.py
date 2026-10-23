@@ -393,6 +393,125 @@ class Board:
                          clipped_pct=row["clipped_pct"], failures=len(row["build_failures"]))
                 self.write()
 
+    def analysis(self, shots: list[BoardShot], presets: list[str]) -> None:
+        """Analyze in 3D (L2, #386): each shot again with the 2D sun analysis on the
+        ground, with the sun path and compass, and in Cutaway — every overlay built by
+        the product's own functions from the plan's own 2D analysis (the shadow
+        overlay's caster walk and union, the heatmap's day run and its ramp), so the
+        board shows what the app shows. Each row records what was drawn."""
+        from open_garden_planner.core.heatmap_render import build_sun_lut
+        from open_garden_planner.core.scene3d import Mesh
+        from open_garden_planner.core.scene3d.builders import production_registry
+        from open_garden_planner.core.scene3d.drape import shadow_drape, sun_hours_drape
+        from open_garden_planner.core.scene3d.sun_path import (
+            ARC_KINDS,
+            SunPoint,
+            compass_mesh,
+            day_arc,
+            dome_radius,
+            hour_marks,
+            key_days,
+            probe_pin_mesh,
+            sun_path_mesh,
+        )
+        from open_garden_planner.core.scene3d.xray import occluders, xray_scene
+        from open_garden_planner.core.shade_aggregation import (
+            GRID_CELL_CM,
+            SAMPLE_STEP_MINUTES,
+            HeatmapGrid,
+            compute_sun_exposure,
+            daylight_samples,
+        )
+        from open_garden_planner.core.shadow_geometry import compute_scene_shadows
+        from open_garden_planner.ui.canvas.sun_heatmap import rasterize_polygons_qimage
+        from open_garden_planner.ui.canvas.sun_shadow_controller import (
+            collect_identified_casters,
+            collect_shadow_casters,
+        )
+        from open_garden_planner.ui.view3d.compass_glyphs import cardinal_glyphs
+        from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
+
+        registry = production_registry()
+        rows: list[dict[str, Any]] = []
+        self.metrics["analysis"] = rows
+        center, radius = (self.width / 2.0, self.depth / 2.0), dome_radius(self.width, self.depth)
+        compass = compass_mesh(center, radius, cardinal_glyphs())
+        lut = build_sun_lut()
+        for preset in presets:
+            for shot in shots:
+                at = plan_day(shot.when_utc)
+                records = self.records_for(at)
+                sun = self.sun_at(shot.when_utc)
+                look = look_for(sun, preset)
+                view = PerspectiveShot(shot.eye, shot.target, shot.fov_deg)
+                polygons = compute_scene_shadows(collect_shadow_casters(self.scene, at),
+                                                 sun.elevation_deg, sun.azimuth_deg)
+                if not sun.is_up:  # the canvas shades the whole garden at night
+                    polygons = [[(0.0, 0.0), (self.width, 0.0), (self.width, self.depth),
+                                 (0.0, self.depth)]]
+                variants: list[tuple[str, dict[str, Any]]] = [
+                    ("shadows", {"overlays": {"drape": shadow_drape(polygons, self.width, self.depth)}})]
+                if self.location is not None:
+                    lat, lon = float(self.location["latitude"]), float(self.location["longitude"])
+                    grid = HeatmapGrid.for_rect(0.0, 0.0, self.width, self.depth, GRID_CELL_CM)
+                    result = compute_sun_exposure(collect_identified_casters(self.scene, at), (), lat,
+                                                  lon, at, grid, rasterize_polygons_qimage)
+                    daylight = float(len(daylight_samples(lat, lon, at)) * SAMPLE_STEP_MINUTES)
+                    drape = sun_hours_drape(result.minutes, grid, daylight, lut)
+                    variants.append(("sunhours", {"overlays": {
+                        "drape": drape, "lines": probe_pin_mesh(shot.target[:2], radius)}}))
+                    days = key_days(at)
+                    arcs = [day_arc(lat, lon, days[kind], None, kind) for kind in ARC_KINDS]
+                    path = sun_path_mesh(arcs, center, radius, hour_marks=hour_marks(arcs[0], None),
+                                         sun=SunPoint(shot.when_utc, sun.elevation_deg, sun.azimuth_deg))
+                    variants.append(("sunpath", {"overlays": {"lines": Mesh.merge([compass, path])}}))
+                beds = [record for record in records.values() if "BED" in record.kind]
+                if beds:
+                    chosen = min(beds, key=lambda r: (r.transform.east_cm - center[0]) ** 2
+                                 + (r.transform.north_cm - center[1]) ** 2)
+                    world = xray_scene(records, lambda r: registry.builder_for(r.kind)(r))
+                    faded = occluders(world, shot.eye, {chosen.item_id})
+                    variants.append(("cutaway", {"roofs_hidden": True, "faded": faded,
+                                                 "selected": (chosen.item_id,)}))
+                for variant, options in variants:
+                    rgb, _frame, info = self.analysis_frame(
+                        f"{shot.name}_{preset}_{variant}", records, view, sun, look, registry, options)
+                    row = {"shot": shot.name, "preset": preset, "variant": variant,
+                           "sun_elev": round(sun.elevation_deg, 2), "sun_az": round(sun.azimuth_deg, 2),
+                           "sun_date": at.isoformat(), **info, **probes.frame_stats(rgb)}
+                    if variant == "cutaway":
+                        row["faded"] = sorted(options["faded"])
+                    rows.append(row)
+                    self.log("analysis", name=shot.name, preset=preset, variant=variant,
+                             ms=row["open_ms"], luma=row["mean_luma"])
+                    self.write()
+
+    def analysis_frame(self, name: str, records: dict[str, Record], shot: Any, sun: SunState,
+                       look: LookSpec, registry: Any, options: dict[str, Any]
+                       ) -> tuple[np.ndarray, Any, dict[str, Any]]:
+        """``frame`` with the analysis options of ``render_records`` (overlays, roofs,
+        fades, the selection ring)."""
+        from open_garden_planner.ui.view3d.quick3d.offscreen import RenderError, render_records
+
+        try:
+            frame = render_records(
+                records, shot=shot, sun=sun, ground=self.plan_ground(), size=self.size,
+                registry=registry, look=look, qml_dir=self.args.qml_dir, log=self.log,
+                graphics_info=True, sky_light=not self.software, prefer_software=self.software,
+                overlays=options.get("overlays"), roofs_hidden=bool(options.get("roofs_hidden")),
+                faded=options.get("faded", ()), selected=options.get("selected", ()))
+        except RenderError as error:
+            self._count(dict(error.qt))
+            self.write()
+            raise
+        self._count(dict(frame.qt))
+        path = self.out / f"{name}.png"
+        if not frame.image.save(str(path)):
+            raise RuntimeError(f"could not write {path.name}")
+        rgb = frame.rgba()[..., :3].astype(np.float64)
+        return rgb, frame, {"file": path.name, "open_ms": round(frame.open_ms, 1),
+                            "qt": dict(frame.qt.get("counts", {}))}
+
     def mood_strip(self, shots: list[BoardShot], presets: list[str]) -> None:
         """ONE camera and ONE date through the day's moods (gate G3): the hero camera,
         the plan as it stands on the day of the ``noon`` shot, lit by the suns of the
@@ -846,6 +965,8 @@ def _parse(argv: list[str]) -> argparse.Namespace:
                         help="load Garden.qml and its shaders from this folder (positive controls)")
     parser.add_argument("--watchdog-s", type=float, default=1800.0,
                         help="dump all stacks to board.log and exit 1 after this long (0 = off)")
+    parser.add_argument("--analysis", action="store_true",
+                        help="each shot again with the 2D drapes, the sun path and Cutaway (L2)")
     parser.add_argument("--list", action="store_true", help="print the shots and render nothing")
     return parser.parse_args(argv)   # a typo is an error, never another experiment
 
@@ -890,6 +1011,8 @@ def run(args: argparse.Namespace, out: Path, log: Any, metrics: dict[str, Any]) 
                   f"{look.mood.exposure:.3f}  key {look.mood.sun_color}")
         return board
     board.shoot(shots, presets)
+    if args.analysis:
+        board.analysis(shots, presets)
     if args.moods:
         board.mood_strip(default_shots(board.width, board.depth), presets)
     if args.iou:

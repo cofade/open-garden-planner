@@ -29,6 +29,7 @@ from scripts.translations_es.objects_gallery import TRANSLATIONS as T_OG
 from scripts.translations_es.panels import TRANSLATIONS as T_PANELS
 from scripts.translations_es.view3d import TRANSLATIONS as T_VIEW3D
 from scripts.translations_f4 import ES as T_F4
+from scripts.translations_l2 import ES as T_L2
 
 if sys.stdout is not None and hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -46,7 +47,7 @@ TS_FILE = (
 def get_spanish_translations() -> dict[str, dict[str, str]]:
     """Assemble modular Spanish translations into a unified dictionary."""
     assembled: dict[str, dict[str, str]] = {}
-    for module_trans in (T_CS, T_OG, T_CT, T_PANELS, T_DIALOGS, T_APP, T_VIEW3D, T_F4):
+    for module_trans in (T_CS, T_OG, T_CT, T_PANELS, T_DIALOGS, T_APP, T_VIEW3D, T_F4, T_L2):
         for ctx, mapping in module_trans.items():
             assembled.setdefault(ctx, {}).update(mapping)
     return assembled

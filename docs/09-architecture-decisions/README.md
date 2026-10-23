@@ -6959,3 +6959,134 @@ or document edits, and is covered by the adaptive toolbar's native layout tests.
 
 Pinned by test_sun_location_hint_opens_existing_dialog_and_recovers_map and the
 located/unlocated locale/theme/width matrix in test_plan_sun_controls.py.
+
+## ADR-063: Analyze in 3D — the 2D analysis on the 3D ground, sun path, info card v1, growth jump, Cutaway (Phase 17 L2, #386)
+
+**Status:** Accepted for implementation; owner acceptance pending.
+
+### Context
+
+ADR-048 (the scope note of criterion 8) settled that the engine's shadow maps are
+illustrative and the analysis stays with the 2D model, "draped onto the 3D ground".
+L2 makes the 3D view a place to READ the sun: the two 2D maps on its ground, a ground
+probe, the sun's path, a day sweep, a richer info card, jumps of the plan date with a
+before/after, and a cutaway that sees the selection. Every piece meets an engine rule
+that L1 measured: a destroyed Model leaves 15–20 kB behind for good (#531), every cache
+release leaks half the same-size textures (#532), a re-pointed `Texture` draws white,
+QML carries no text, a readback from the live view is a frame that is never presented
+(ADR-060 decision 17), and the 3D strip of a 1366 px window has no pixel to spare.
+
+### Decision
+
+1. **The 2D analysis is the source; nothing computes a shadow or a sun hour a second
+   time.** The shadow drape lays `SunShadowController.drape_polygons()` — the polygons
+   the canvas overlay paints (the union, the whole canvas at night) — announced by a
+   new `shadows_changed` signal, cut at the plan rectangle as the canvas cuts them
+   (`shadow_geometry.clip_to_rect`) and triangulated (`polygon.triangulate_region`;
+   a region the triangulator refuses is laid as a 5 cm raster, never lost). The
+   hours-of-sun drape lays `SunHeatmapController.result()` — a new plain-data
+   `SunHoursMap` — announced by a new `computed` signal, in the canvas's own ramp
+   (`build_sun_lut`), one vertex per cell centre plus a clamped edge (the canvas's
+   smooth scaling), row 0 = SOUTH as everywhere. Choosing it switches the SHARED
+   Hours of Sun on (`LiveSunMap.set_enabled`: the toolbar follows); leaving it leaves
+   the 2D map alone.
+2. **Overlays are meshes in Models that live as long as the scene** — one for the drape
+   (blended, no depth write), one for the lines (sun path, compass, probe pin) —
+   re-loaded in place (`ReloadableGeometry`, the selection ring's pattern) through ONE
+   host call, `Quick3DHost.set_overlay(layer, buffers)`. No analysis change creates or
+   destroys a Model or a texture. A texture drape was rejected for exactly that: the
+   day sweep and the sun ball change the overlays several times a second. The
+   overlays are not items: the sink's `clear()` leaves them (like the sky); the
+   controller says what they show. `EngineSink` keeps its eleven methods.
+3. **Blending keeps the frame's alpha.** A blended custom material uses
+   `sourceAlphaBlend: Zero` / `destinationAlphaBlend: One`. Measured on the first
+   build: with the colour factors applied to alpha too, the frame's alpha became
+   1 − a(1 − a) and the view's texture let the window's white through — black at
+   a = 0.5 read 64 grey levels too BRIGHT, the shadow drape brightened the meadow
+   (rgb(79, 107, 75) over rgb(25, 73, 11)). Pinned by the self-test's judge and the
+   render tier (PF-L3D-06).
+4. **The sun path is drawn from `core.solar` and nothing chosen.** Four arcs — the plan
+   date, 21 June, 21 December, 20 March of the plan's year — each one LOCAL day of the
+   clock's zone (`SimInstant`), cut where the sun crosses the horizon, with solar noon
+   found to the second and inserted; ONE mapping to the dome (`sun_path.dome_point`,
+   radius 0.55 × the plan's diagonal). The gate: the noon point IS `solar_position` at
+   its instant and the day's highest sun (brute force at 20 s). The compass rose lies
+   on the ground at the dome's rim; its four letters are TRANSLATED (context
+   `Compass`) and handed to the core as glyph outlines from the application font
+   (`ui/view3d/compass_glyphs.py`) — text drawn as geometry, not as a texture.
+5. **The day sweep moves the ONE clock and fills the map from its own samples.** The
+   clock's time of day runs from sunrise to sunset of the plan date (10 min every
+   100 ms) and is given back at the end. The heatmap now keeps every daylight sample's
+   shade mask (`np.packbits`, up to 64 MB), so the drape shows the minutes collected
+   up to the current time — samples taken by their LOCAL time of day, because the map
+   samples a UTC civil day (Sydney's runs 10:00 → 10:00): at sunset the sweep ends on
+   the whole map, everywhere. No second heatmap run.
+6. **The ground probe reads the shown map.** A click that picks nothing (the existing
+   pick, `OrbitInput.ground_clicked`) while the hours of sun lie on the ground meets
+   the ground where the view ray through it does (`pick_oracle.perspective_ray`); the
+   card's place below the view says the minutes of that cell
+   (`SunHoursMap.minutes_at`) and their band (`sun_mismatch_service.band_of`, the
+   glossary's bands), and a pin marks the spot. The reading follows a new map.
+7. **The info card v1's facts each come from their one home**: the height's source at
+   the plan date (`object_height.height_source_at`, new `SOURCE_GROWN`), the growth
+   share (`growth_model.growth_share`, only where the plant grows on the timeline),
+   the sun the Hours-of-Sun run published for the plant, and the sowing / harvest
+   windows of the plan's year (`task_generator.calendar_windows` — extracted from
+   `generate_calendar_tasks`, which now calls it: one frost-relative formula). Five
+   lines of facts (was three); a species' week offset beyond 520 weeks is ignored
+   (plan files are untrusted).
+8. **A growth jump is a date change of the ONE clock, and its before/after takes two
+   frames — the user's action, like the click.** +1 / +3 / +10 years (29 February →
+   1 March, the frost dates' rule of ADR-049; the clock's range bounds it); "Back"
+   returns to the date before the first jump. The before-picture is taken in the jump,
+   the after-picture in the pipeline's first pass that read the new date (the
+   `applied` slot, where readbacks already belong); both through
+   `growth_jump._grab`, the second sanctioned frame-taker after the click (a source
+   scan pins both, and that `_grab` is reached from `jump` and `on_applied` only).
+   The wipe (`ui/view3d/wipe.py`) replaces the view in its pane — nothing is drawn
+   over the native window — and gives it back on "Back to 3D View" or Escape.
+9. **Cutaway = roofs off + X-ray, with no Model touched.** Roofs: one scene property
+   (`roofsHidden`) every roof part binds, so a roof built while it is on is born
+   hidden. X-ray: `core/scene3d/xray.py` casts segments from the eye to nine points of
+   each selected item's box (at most 16 items) through the meshes the ENGINE holds,
+   box-culled, with the pick oracle's own triangle test (`pick_oracle.cast_segment`,
+   no second ray code); the items met fade (`set_faded_items`: a `fade` property per
+   part Model, opacity 0.22, not pickable — a click meets what is behind). Custom
+   materials blend only while they fade. Recomputed 150 ms after the camera, the
+   selection or the records last changed — never per frame.
+10. **One "Analyze" menu in the strip, and the strip's control row wraps.** In German
+    a Split pane of a 1366 px window had 7 px beside "Reset 3D View" and "Walk"; the
+    row is now a wrapping layout (`_WrapRow`) that asks for its widest control, not
+    the sum. The sun path's legend is a line of the notices.
+
+### Alternatives rejected
+
+- **Painting the drapes into the ground tiles.** Every sun step would re-bake tiles:
+  new Models and textures per step, the two leaks (#531, #532) at animation rate, and
+  the analysis lit by the engine's own (illustrative) shadows.
+- **A texture per drape update.** Same leaks; an attached `QQuick3DTextureData`
+  cannot be updated in place.
+- **Engine shadows as the 3D answer.** ADR-048 criterion 8's scope note: they differ
+  from the 2D model by design (gable roofs, porous fences, crowns on trunks).
+- **A second heatmap run for the sweep, or sampling the sweep by instant.** The first
+  costs seconds per date; the second, at the end of the local day, misses the morning
+  of every garden whose local day is far from the UTC day.
+- **A split screen of two live engine views for before/after.** Two hosts, two
+  graphics devices, and every Model twice; two readbacks of one host cost a few ms.
+
+### Consequences
+
+No new dependency, persisted key or `FILE_VERSION` change; `.ogp` files are untouched.
+`EngineSink` is unchanged; `Quick3DHost` gains `set_overlay`, `set_roofs_hidden`,
+`set_faded_items`; `Garden.qml` two overlay Models, a `fade` per part, `roofsHidden`
+and the alpha rule; `overlay.vert` / `overlay.frag` ship beside it and are compiled by
+`--selftest` (it now draws a drape patch and a lines patch and judges their colours).
+The shade masks add one bit per cell and sample to a heatmap result.
+
+**Pinned by:** `tests/unit/test_scene3d_drape.py`, `test_scene3d_sun_path.py` (the noon
+gate), `test_scene3d_xray.py`, `test_plant_card_facts.py`, `test_quick3d_selftest.py`;
+`tests/ui/test_view3d_analysis_host.py` (one Model per overlay, roofs, fades, in the
+real QML scene); `tests/integration/test_view3d_analysis.py` (§8.10 — the workflow with
+the real 2D analysis beside the workspace); `tests/integration/test_view3d_analysis_render.py`
+(the render tier: the drape darkens, row 0 south, north up, fades and the cutaway, on
+the GPU, WARP and OpenGL); the frame-taker scan in `test_view3d_workspace_widget.py`.

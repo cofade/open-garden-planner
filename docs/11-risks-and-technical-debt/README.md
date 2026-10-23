@@ -313,6 +313,7 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | PF-UI-26 | Chronological field stepping must enable cross-field steps and emit one full naive wall reading across a carry. | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-26) |  |
 | PF-UI-27 | A bundled overlay that prioritises the database over the plan silently discards form edits; spin gestures coalesce into the pending command and history refreshes outrank focus guards. | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-27) |  |
 | PF-E3D-10 | Derived lifetime visibility must preserve the existing throttled 3D clock path while real plan edits still announce revisions. | standing | [10](pitfalls/10-3d-engine-scene.md#pf-e3d-10) |  |
+| PF-L3D-06 | A blended custom material must keep the frame's alpha (`sourceAlphaBlend: Zero`, `destinationAlphaBlend: One`): with the colour factors on alpha too, a translucent overlay brightens the view by `a(1 − a)` of the window's white instead of darkening it. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-06) |  |
 
 ### Redirect of legacy numbered IDs
 

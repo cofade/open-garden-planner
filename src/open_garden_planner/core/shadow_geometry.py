@@ -202,6 +202,26 @@ def union_shadows(polygons: Iterable[Sequence[Point]]) -> list[Polygon]:
     return [_from_int(p) for p in _union_int(int_paths)]
 
 
+def clip_to_rect(
+    polygons: Iterable[Sequence[Point]], width_cm: float, depth_cm: float
+) -> list[Polygon]:
+    """Shadow polygons cut at the rectangle (0, 0) — (width, depth): what the canvas
+    shows of its overlay, which it clips to the canvas (Phase 17 L2.1: the 3D drape
+    lays exactly that on the ground). Even-odd, like the overlay paints them (a
+    union's holes stay sunny); outers come out CCW, holes CW. Nothing for an empty
+    rectangle or no polygons."""
+    paths = [_to_int(polygon) for polygon in polygons if len(polygon) >= 3]
+    if not paths or width_cm <= 0 or depth_cm <= 0:
+        return []
+    w, d = round(width_cm * CLIPPER_SCALE), round(depth_cm * CLIPPER_SCALE)
+    clipper = pyclipper.Pyclipper()
+    clipper.AddPaths(paths, pyclipper.PT_SUBJECT, True)
+    clipper.AddPath([(0, 0), (w, 0), (w, d), (0, d)], pyclipper.PT_CLIP, True)
+    result = clipper.Execute(pyclipper.CT_INTERSECTION, pyclipper.PFT_EVENODD,
+                             pyclipper.PFT_NONZERO)
+    return [_from_int(path) for path in result]
+
+
 class GroupedCaster(NamedTuple):
     """All solid footprints of ONE owner with its height and its base — the caster
     shape of ``compute_grouped_shadows``. ``base_cm`` as in ``ShadowCaster``."""

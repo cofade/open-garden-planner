@@ -144,6 +144,8 @@ SOURCE_CURRENT = "current"
 SOURCE_SPECIES = "species"
 SOURCE_DEFAULT = "default"
 SOURCE_NONE = "none"
+#: ``height_source_at`` only: the height was GROWN for the date (``growth_model``).
+SOURCE_GROWN = "grown"
 
 
 def _type_name(object_type: Any) -> str:
@@ -333,6 +335,24 @@ def height_source(object_type: Any, metadata: dict[str, Any] | None) -> str:
     if name in DEFAULT_HEIGHTS_CM:
         return SOURCE_DEFAULT
     return SOURCE_NONE
+
+
+def height_source_at(object_type: Any, metadata: dict[str, Any] | None,
+                     at_date: date | None) -> str:
+    """``height_source`` for the height ``effective_height_cm(..., at_date)`` gives:
+    the same precedence, with ``SOURCE_GROWN`` where that height is a plant's
+    date-projected growth (Phase 17 L2.3, the 3D info card's "height with its
+    source"). Without a date it IS ``height_source``."""
+    if explicit_height_cm(metadata) is not None:
+        return SOURCE_CUSTOM
+    name = _type_name(object_type)
+    if name in _CONTAINER_TYPE_NAMES:
+        return SOURCE_CONTAINER
+    species_dict = (metadata or {}).get("plant_species")
+    if (at_date is not None and isinstance(species_dict, dict)
+            and grown_height_cm(species_dict, metadata, at_date, name) is not None):
+        return SOURCE_GROWN
+    return height_source(object_type, metadata)
 
 
 # Open structures (Package 3a, #308): no DEFAULT height — the shadow model
