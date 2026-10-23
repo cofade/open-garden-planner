@@ -338,3 +338,19 @@ looking for a selection target. `DRAG_HANDLE_TYPES` in `resize_handle.py` is
 shared with the view's dropped-grab recovery, keeping all six handle types on
 the same event path. Real viewport drags cover resize and rotation at three
 angles, including two non-axis-aligned rotations, with one undo step.
+
+### PF-UI-26
+
+- **Rule:** Chronological field stepping must enable cross-field steps and emit one full naive wall reading across a carry.
+- **Pinned by:** `tests/integration/test_plan_sun_stepping.py::test_arrow_steps_carry_and_borrow_the_complete_wall_reading`; `tests/integration/test_plan_sun_stepping.py::test_time_spin_button_carries_the_date_and_emits_one_clock_change`; `tests/integration/test_timeline_quick3d.py::test_minute_rollover_updates_presence_sun_and_3d_once`
+- **Source:** PR #565, ADR-062
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Qt disables stepping at the selected section's boundary. Wrapping loops within
+that section: October 31 becomes October 1, not November 1. Override both
+stepBy and stepEnabled and route the native date/time editors through one toolbar
+path. Mirror the whole result with signals blocked before publishing it to
+SimClock, so midnight cannot briefly appear on the old date. Group layouts
+reparent the editors; find their toolbar ancestor rather than assuming their
+immediate parent is the toolbar. Do not retain a Python parent/child cycle.

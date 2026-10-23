@@ -6531,6 +6531,11 @@ date field (about 30 steps a second) regrew all of them on every step. `Scene3DC
 `DATE_REGROW_MIN_MS` (500) has passed since the last regrowth for a date, and otherwise books ONE
 trailing regrowth for the end of the interval, which runs only if the clock's date is not the
 one the last records pass read. The light follows every step (a light-only pass, no snapshot).
+The trailing check stamps the throttle only when it marks records dirty (#542).
+A no-op retains the prior timestamp. Controller integration tests use an explicit
+module-scoped clock at three origins, consume a manually fired timer before its
+slot, and assert admission through the real date signal plus the resulting snapshot
+(PF-TST-25); pytest-qt waits and pipeline performance measurements keep real time.
 Hidden, a date is a flag (no timer). Measured below: 1.5 to 1.6 regrowth passes a second while
 the date steps.
 
@@ -6791,6 +6796,17 @@ the real command-stack refresh by
 `tests/integration/test_apply_database_species.py::test_undo_species_assignment_clears_the_whole_profile_and_redo_restores_it`.
 
 ### 8.31.1 Permanent controls and live-map/export lifecycle
+
+The date/time editors use native QDateEdit/QTimeEdit subclasses so their styling,
+typing and calendar popup remain native. Both delegate stepBy/stepEnabled to one
+SunSimToolbar wall-reading path (FR-TIMELINE-06, PR #565): day/month/year arithmetic
+carries across calendar boundaries; minute/hour arithmetic uses bounded civil
+minutes, never timezone-aware elapsed seconds. The whole target date/time is
+mirrored with widget signals blocked before emitting one datetime_changed value.
+There is no transient midnight on the old date. Month/year steps preserve the
+preferred day; direct calendar choices/typing and day steps establish a new one.
+Daily animation and the time-of-day slider retain their selected-day behavior.
+See PF-UI-26 and ADR-062's chronological-stepping addendum.
 
 SunSimToolbar is the sole toolbar instance for date/time. Atomic groups wrap rather
 than disappear into overflow; date width is derived from font metrics. Slider

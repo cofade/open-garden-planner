@@ -7,11 +7,13 @@ required here; the creator's production renders exercise the same records.
 from __future__ import annotations
 
 import time
-from datetime import date
+from datetime import date, datetime
 
 import numpy as np
 import pytest
-from PyQt6.QtCore import QDate
+from PyQt6.QtCore import QDate, Qt
+from PyQt6.QtTest import QTest
+from PyQt6.QtWidgets import QDateTimeEdit
 
 from open_garden_planner.core.commands import SetLayerPropertyCommand
 from open_garden_planner.core.object_height import effective_height_cm
@@ -107,6 +109,30 @@ def test_shared_date_removes_future_and_removed_plants_and_regrows_the_survivor(
 
     _set_day(window, qtbot, date(2025, 6, 1))
     _assert_present_geometry(window, engines, plants, {"Apple", "Hazel"})
+
+
+def test_minute_rollover_updates_presence_sun_and_3d_once(timeline3d, qtbot):
+    window, engines, plants = timeline3d
+    window._sim_clock.set_datetime(datetime(2026, 4, 30, 23, 59))
+    wait_for_pipeline(window._workspace, qtbot)
+    _assert_present_geometry(window, engines, plants, {"Apple", "Hazel"})
+    controller = window._workspace.controller
+    snapshots = controller.snapshot_count
+    revision = window.canvas_scene.plan_revision
+    history = window.canvas_view.command_manager._undo_stack[:]
+    edit = window._sun_toolbar._time_edit
+    edit.setCurrentSection(QDateTimeEdit.Section.MinuteSection)
+    QTest.keyClick(edit, Qt.Key.Key_Up)
+    wait_for_pipeline(window._workspace, qtbot)
+    assert window._sim_clock.wall == datetime(2026, 5, 1)
+    assert window._sun_toolbar.current_wall_datetime() == window._sim_clock.wall
+    _assert_present_geometry(window, engines, plants, {"Apple", "Hazel", "Lettuce"})
+    assert controller.snapshot_count == snapshots + 1
+    assert engines.sink.sun == SunState.from_solar_position(
+        solar_position(BERLIN["latitude"], BERLIN["longitude"], window._sim_clock.utc))
+    assert window.canvas_scene.plan_revision == revision
+    assert window.canvas_view.command_manager._undo_stack == history
+    assert engines.host.frames_taken == []
 
 
 def test_date_burst_keeps_quick3d_regrowth_throttled_and_shows_its_last_day(timeline3d, qtbot):

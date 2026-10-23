@@ -7,6 +7,44 @@ argument: "Optional: short description of the bug or area to instrument"
 
 # Verbose Debug Instrumentation
 
+## Case study: throttle regression depends on machine uptime (#542, PR #565)
+
+**Symptom.** CI Test and Coverage failed the new no-op regression's idle assertion;
+the workstation passed it.
+**Wrong theory.** A fixed 1000-second stamp and 70-ms settle were assumed independent
+of the host. No product scheduling change was justified by that failure.
+**Evidence.** External tagged instrumentation and caller stacks showed
+`[565-TRACE] _on_date_changed ... regrown_at=1000.0 date_timer=True` at controlled
+monotonic 900 seconds. The same test passed with the host above 74000 seconds.
+Calling the trailing slot manually retained the booked timer. Replaying the old
+unconditional no-op stamp failed all three replacement clock-origin cases.
+**Root cause.** The test put its timestamp in the future on a young VM. The product
+correctly booked a long delay; a direct slot call does not consume a QTimer.
+The original product bug was distinct: a no-op trailing check advanced the throttle
+stamp even though the last snapshot already covered that date.
+**Fix.** Stamp only when regrowth is owed. Replace only the controller's clock
+binding, preserve real Qt waits/performance clocks, and assert that the next real
+date signal books no timer and completes the expected snapshot. Stop a manually
+consumed timer before firing its slot. Temporary probes stay outside production.
+**Lesson.** A fixed timestamp is not a controlled clock; assert the user-triggered
+path and all timers that participate in idle. See PF-TST-25.
+Second review also found that Qt's real 500-ms timer could expire during the
+held-burst event loop despite a fixed monotonic clock. That test now records the
+requested product delay, postpones physical delivery beyond its test timeout,
+and manually consumes the real timer at the controlled clock boundary.
+
+## Case study: global 3D actions changed a hidden workspace (#539, PR #565)
+
+**Symptom.** View -> 3D View changed nothing visible from Calendar.
+**Wrong theory.** Setting Split alone was treated as making its pane visible.
+**Evidence.** The integration workflow triggers the global action from Calendar,
+then a real Alt+3 from Seed Inventory, and asserts the current tab and pane.
+The workspace is a child of Garden Plan; changing its mode cannot select that tab.
+**Root cause.** Global navigation only changed local workspace state.
+**Fix.** The main window selects Garden Plan for the show action and global mode
+actions. Alt+1 still requests Plan; Alt+2/3 request 3D/Split.
+**Lesson.** Assert the containing tab as well as the child mode for global navigation.
+
 ## Case study: deferred PDF progress still force-shows (#315)
 
 **Symptom.** A second progress dialog covers the operable readiness Cancel button.
@@ -3787,3 +3825,30 @@ for focused Material/Drainage undo and redo belongs in
 `tests/integration/test_properties_panel_undo.py`; active text editing retains its
 existing protection. Species/instance writes outside the command stack are separate
 #559, rather than a refresh-only defect.
+
+## Case study: field limits stopped chronological date/time stepping (PR #565 manual pass)
+
+**Symptom.** Holding Up stopped at 31 October, December, minute 59 or hour 23.
+**Wrong theories.** Native wrapping might carry into the next unit; the toolbar
+might be the editor's immediate parent; one synthetic repeat event might mean one
+native step. Each was tested and rejected before adoption.
+**Evidence.** The native spy printed `[565-STEP] DaySection flags=StepDownEnabled`
+at 31 October: Qt disabled Up before calling stepBy. With setWrapping(True), the
+same key produced 1 October, and minute 59 became minute 0 in the same hour.
+The owner-chain probe printed `[565-OWNER] _PlanDateEdit ['QWidget', 'QWidget',
+'SunSimToolbar', 'GardenPlannerApp'] flags=StepNone`. A repeat probe including
+traceback.format_stack() showed Qt's first auto-repeat calling stepBy twice;
+Qt 6.11's qabstractspinbox.cpp keyPressEvent confirms that native cadence.
+**Root cause/fix.** Independent native fields neither enable nor carry steps across
+larger-unit boundaries. Thin date/time subclasses override stepBy and stepEnabled,
+find their toolbar through the actual widget ancestors, and delegate to one naive
+wall-reading step. Block widget signals while mirroring date/time, then emit one
+complete reading. Month/year steps retain the preferred day; minute/hour arithmetic
+is civil and saturates only at the supported absolute date limits.
+**Lesson.** Field wrapping is not calendar arithmetic. Validate actual native event
+entry points, direction availability, retained section and every delivered reading;
+do not impose an invented OS repeat cadence. Midnight must update the shared clock,
+plant presence and sun state atomically. Pins: tests/integration/test_plan_sun_stepping.py
+and test_minute_rollover_updates_presence_sun_and_3d_once in
+ tests/integration/test_timeline_quick3d.py. All temporary probes stayed outside
+committed production code.

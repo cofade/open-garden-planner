@@ -231,6 +231,7 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | PF-TST-22 | A test never creates, stages or deletes files in the git working tree; it works in a throwaway `git init` repository under `tmp_path`, which stays safe under any scheduler and any interruption. | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-22) |  |
 | PF-TST-23 | Asking the OS for a free port and closing the socket is not a reservation, so one shared helper retries only the port-in-use failures and re-raises every other `RuntimeError` at once. | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-23) |  |
 | PF-TST-24 | A measurement that travels in an attribute is a wall-clock assertion too: the perf-marker guard follows the carrier into the local support modules, scoped to the class that owns it, and a value that is only counted is not a duration. | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-24) |  |
+| PF-TST-25 | A deterministic throttle test owns its clock origin and consumes any booked timer before manually invoking its slot. | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-25) |  |
 | PF-API-01 | A CLI's success output is sanitised like its failure output before a label shows it, removing every ANSI escape, not only SGR, and the box glyphs that survive escape removal. | standing | [08](pitfalls/08-agent-api-security.md#pf-api-01) |  |
 | PF-API-02 | A capability probe is tri-state, and an indeterminate answer never selects the more dangerous option: only a definitive absence of the flag may choose the legacy argv that fails silently. | standing | [08](pitfalls/08-agent-api-security.md#pf-api-02) |  |
 | PF-API-03 | An empty or effectively empty config file is recognised before parsing, under the strict policy too, while one byte of junk still fails closed, because empty and unparseable are different failures. | standing | [08](pitfalls/08-agent-api-security.md#pf-api-03) |  |
@@ -309,6 +310,7 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | PF-UI-23 | Calendar-only lifetime selectors ignore wheel edits and bound new choices to the shared clock range while preserving legacy metadata. | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-23) |  |
 | PF-UI-24 | Every property the Properties panel edits is one undoable command; a direct write into the item is neither undoable nor a mark of a modified plan. | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-24) |  |
 | PF-UI-25 | A Shift+click on a canvas object toggles the first selectable item under the cursor; interactive handles retain Qt mouse delivery. | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-25) |  |
+| PF-UI-26 | Chronological field stepping must enable cross-field steps and emit one full naive wall reading across a carry. | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-26) |  |
 | PF-E3D-10 | Derived lifetime visibility must preserve the existing throttled 3D clock path while real plan edits still announce revisions. | standing | [10](pitfalls/10-3d-engine-scene.md#pf-e3d-10) |  |
 
 ### Redirect of legacy numbered IDs

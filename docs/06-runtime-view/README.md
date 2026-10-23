@@ -608,6 +608,31 @@ error before the preference and window steps.
 
 ## Viewing a plan at another date (US-F4)
 
+Stepping a Plan & Sun calendar/time section first commits any pending editor text,
+then computes a complete naive wall reading through SunSimToolbar's shared path
+(PR #565). Day/month/year and hour/minute steps carry or borrow across larger units;
+month/year steps retain the preferred day through short months. The toolbar mirrors
+both editors and its slider with signals blocked, then emits datetime_changed once.
+SimClock therefore receives the new date and time together. A minute crossing
+midnight delivers one date_changed and one instant_changed; existing presence,
+sunlight and 3D subscriptions consume the same state. Viewing does not alter plan
+revision or history. Only the clock's absolute range stops navigation.
+
+Global View -> 3D View selects the Garden Plan tab before showing Split from
+Plan mode (#539). Workspace actions also return to Garden Plan and select their
+requested mode: Alt+1 Plan, Alt+2 3D, Alt+3 Split. Existing 3D/Split views keep
+their mode and camera. Walk's action owns its theme-aware icon (#537); Reset
+and the shortcuts dialog obtain the Home key label from Qt's active translator
+(#541).
+
+The 3D controller receives the same date_changed signal as the 2D timeline.
+If the date-regrowth interval has elapsed, it marks records dirty immediately;
+otherwise it books one trailing timer. The trailing slot compares the current
+date with the last snapshot date and stamps the throttle only when another
+snapshot is owed (#542). A no-op preserves the earlier timestamp, so it cannot
+defer a subsequent deliberate date pick. Instant changes still relight on every
+step. See section 8.29.9 and ADR-060's L1 follow-up addendum.
+
 ```mermaid
 sequenceDiagram
     participant Timeline

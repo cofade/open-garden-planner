@@ -1,7 +1,7 @@
 """The 3D workspace in the REAL app on a real graphics device (Phase 17 L1.3, ADR-060).
 
 Render tier (``OGP_RENDER3D=1``). Every test here starts the app's own ``main()`` in
-a child process — ``workspace_gate_child.py``, with ``OGP_QUICK3D=1``, on a bench
+a child process — ``workspace_gate_child.py`` — on a bench
 plan, on a settings store that is never the developer's (proven in the default
 tier: ``test_workspace_gate.py``) — lets a scenario run INSIDE it, and judges what
 the process reported. Nothing of Qt Quick is ever shown in this process.

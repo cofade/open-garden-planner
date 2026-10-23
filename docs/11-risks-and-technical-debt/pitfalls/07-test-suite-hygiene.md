@@ -335,3 +335,24 @@ A value that is only COUNTED is not a duration: `len(timestamps)` is how the
 gates that count repaints and passes are written, and they are meant to hold on
 any machine under any load and to run beside the workers (ADR-058). Counting
 them as durations would have dragged them onto the quiet runner.
+
+### PF-TST-25
+
+- **Rule:** A deterministic throttle test owns its clock origin and consumes any booked timer before manually invoking its slot.
+- **Pinned by:** `tests/integration/test_view3d_sync_controller.py::test_a_noop_trailing_check_stamps_nothing_so_the_next_pick_applies_at_once`; `tests/integration/test_view3d_sync_controller.py::test_a_date_held_down_regrows_at_once_and_once_more_on_its_last_day`
+- **Source:** #542, PR #565
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+A constant 1000-second last-regrowth stamp was in the future on a young CI
+runner. The date signal booked a long timer; invoking its slot manually left
+the timer active, so a 70-ms wait did not make the controller idle. Tagged
+instrumentation reproduced the failure at monotonic 900 seconds and passed
+with the workstation's clock above 74000 seconds. Replace only the controller's
+time binding, preserve real Qt waits and perf_counter, and verify the real date
+signal admits the next pick without a timer. Three clock origins pin that path,
+completed snapshots and a genuine trailing pass; all reject the old no-op stamp.
+Qt's timer has its own clock: the held-burst test records the requested 500-ms
+delay but postpones physical delivery beyond the test timeout, then consumes it
+at the controlled clock boundary. Fixing monotonic alone does not stop Qt from
+delivering a timeout in a slow processEvents loop.

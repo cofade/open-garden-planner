@@ -8,7 +8,9 @@ from typing import Any
 
 from PyQt6.QtCore import QDate, QRect, QSize, Qt, QTime, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
+    QAbstractSpinBox,
     QDateEdit,
+    QDateTimeEdit,
     QHBoxLayout,
     QLabel,
     QLayout,
@@ -31,6 +33,55 @@ from open_garden_planner.ui.icons import get_icon
 _ANIMATE_INTERVAL_MS = 200
 _ANIMATE_STEP_MINUTES = 10
 
+
+def _editor_owner(edit: QDateTimeEdit) -> SunSimToolbar | None:
+    # Group layouts reparent the editors into two intermediate widgets.
+    owner = edit.parentWidget()
+    while owner is not None and not isinstance(owner, SunSimToolbar):
+        owner = owner.parentWidget()
+    return owner
+
+
+def _step_editor(edit: QDateTimeEdit, steps: int) -> None:
+    """Native keys, wheel and spin buttons share the toolbar's wall-time step."""
+    if edit.isReadOnly():
+        return
+    owner = _editor_owner(edit)
+    assert owner is not None
+    section = edit.currentSection()
+    edit.interpretText()
+    owner._step_datetime(section, steps)
+    edit.setSelectedSection(section)
+
+
+def _editor_steps(edit: QDateTimeEdit) -> QAbstractSpinBox.StepEnabledFlag:
+    flags = QAbstractSpinBox.StepEnabledFlag.StepNone
+    owner = _editor_owner(edit)
+    # Qt queries the virtual while constructing an editor, before both fields exist.
+    if edit.isReadOnly() or owner is None or not owner._controls_ready:
+        return flags
+    wall = owner.current_wall_datetime()
+    if owner._stepped_datetime(edit.currentSection(), 1) > wall:
+        flags |= QAbstractSpinBox.StepEnabledFlag.StepUpEnabled
+    if owner._stepped_datetime(edit.currentSection(), -1) < wall:
+        flags |= QAbstractSpinBox.StepEnabledFlag.StepDownEnabled
+    return flags
+
+
+class _PlanDateEdit(QDateEdit):
+    def stepBy(self, steps: int) -> None:
+        _step_editor(self, steps)
+
+    def stepEnabled(self) -> QAbstractSpinBox.StepEnabledFlag:
+        return _editor_steps(self)
+
+
+class _PlanTimeEdit(QTimeEdit):
+    def stepBy(self, steps: int) -> None:
+        _step_editor(self, steps)
+
+    def stepEnabled(self) -> QAbstractSpinBox.StepEnabledFlag:
+        return _editor_steps(self)
 
 
 class _GroupFlow(QLayout):
@@ -127,6 +178,7 @@ class SunSimToolbar(QToolBar):
         self.setWindowTitle(self.tr("Plan & Sun"))
         self.setMovable(False)
         self._scene = scene
+        self._controls_ready = False
         self._requesting_month = False
         self._preferred_day = 1
         self._exposure_hint = ""
@@ -137,7 +189,7 @@ class SunSimToolbar(QToolBar):
         self.addWidget(self._content)
 
         group = self._group()
-        self._date_edit = QDateEdit(self)
+        self._date_edit = _PlanDateEdit(self)
         self._date_edit.setCalendarPopup(True)
         self._date_edit.setDisplayFormat("yyyy-MM-dd")
         self._date_edit.setDateRange(QDate(MIN_PLAN_DATE.year, 1, 1), QDate(MAX_PLAN_DATE.year, 12, 31))
@@ -159,7 +211,7 @@ class SunSimToolbar(QToolBar):
         group.addWidget(self._month_slider)
 
         group = self._group()
-        self._time_edit = QTimeEdit(self)
+        self._time_edit = _PlanTimeEdit(self)
         self._time_edit.setDisplayFormat("HH:mm")
         self._time_edit.setToolTip(self.tr("Time of day"))
         self._time_edit.setMinimumWidth(self._time_edit.fontMetrics().horizontalAdvance("00:00") + 40)
@@ -202,6 +254,7 @@ class SunSimToolbar(QToolBar):
             scene.timeline_changed.connect(self.refresh)
         self.set_datetime_local(datetime.now().replace(second=0, microsecond=0))
         self.refresh_theme_icons()
+        self._controls_ready = True
 
     def _group(self) -> QHBoxLayout:
         widget = QWidget(self._content)
@@ -331,6 +384,46 @@ class SunSimToolbar(QToolBar):
                                        + ("\n" + text if text else ""))
 
     # ── internals ──────────────────────────────────────────────
+
+    def _stepped_datetime(self, section: QDateTimeEdit.Section, steps: int) -> datetime:
+        """Step a naive civil reading; only the clock's absolute range saturates."""
+        wall = self.current_wall_datetime()
+        if not steps:
+            return wall
+        if section in (QDateTimeEdit.Section.HourSection, QDateTimeEdit.Section.MinuteSection):
+            origin = datetime(MIN_PLAN_DATE.year, MIN_PLAN_DATE.month, MIN_PLAN_DATE.day)
+            minute = ((wall.date() - MIN_PLAN_DATE).days * 1440 + wall.hour * 60 + wall.minute)
+            minute += steps * (60 if section == QDateTimeEdit.Section.HourSection else 1)
+            last = ((MAX_PLAN_DATE - MIN_PLAN_DATE).days + 1) * 1440 - 1
+            return origin + timedelta(minutes=max(0, min(last, minute)))
+        day = self._date_edit.date()
+        if section == QDateTimeEdit.Section.DaySection:
+            day = day.addDays(steps)
+        elif section in (QDateTimeEdit.Section.MonthSection, QDateTimeEdit.Section.YearSection):
+            day = QDate(day.year(), day.month(), 1)
+            day = (day.addMonths(steps) if section == QDateTimeEdit.Section.MonthSection
+                   else day.addYears(steps))
+            if day.isValid():
+                day = day.addDays(min(self._preferred_day, day.daysInMonth()) - 1)
+        else:
+            return wall
+        if not day.isValid():
+            day = self._date_edit.maximumDate() if steps > 0 else self._date_edit.minimumDate()
+        day = max(self._date_edit.minimumDate(), min(self._date_edit.maximumDate(), day))
+        return datetime.combine(day.toPyDate(), wall.time())
+
+    def _step_datetime(self, section: QDateTimeEdit.Section, steps: int) -> None:
+        target = self._stepped_datetime(section, steps)
+        if target == self.current_wall_datetime():
+            return
+        previous = self._requesting_month
+        self._requesting_month = section in (
+            QDateTimeEdit.Section.MonthSection, QDateTimeEdit.Section.YearSection)
+        try:
+            self.set_datetime_local(target)
+            self.datetime_changed.emit(target)
+        finally:
+            self._requesting_month = previous
 
     def _update_time_label(self) -> None:
         minutes = self._slider.value()
