@@ -43,6 +43,18 @@ remains open for a separately reviewed backend/lock update. The CI `Dependencies
 recorded as `--ignore-vuln PYSEC-2026-3447`; a new advisory fails the job. Both platforms
 run it because pip-audit evaluates markers for the running interpreter.
 
+**Update 2026-10-24.** The job did its work: it failed `master` (run of 2026-10-23, commit
+`50324280`) on [GHSA-xmj3-9gf7-h52w](https://github.com/advisories/GHSA-xmj3-9gf7-h52w)
+(low: a Windows path escape through `namespace_packages.txt` during a legacy wheel
+installation, setuptools < 84.1.0), and a local re-run then found six `filelock` 4.2.0
+advisories (fixed in 4.2.1; `filelock` is only in the dev extra, through
+`pip-audit` → `cachecontrol[filecache]`). The build group now pins setuptools **84.1.0**
+(the first patched version) and the lock carries filelock 4.2.4; `pip-audit` over the
+locked export reports no known vulnerability. 84.1.0 also contains the 83.0.0 fix for
+GHSA-h35f-9h28-mq5c, so the `PYSEC-2026-3447` waiver above no longer matches anything in
+the lock; it is left in place here and its removal (CI line, governance test, the docs
+that cite it) is a follow-up, so this change stays a lock update.
+
 Automated dependency PRs remain unavailable: Dependabot's uv ecosystem image ships uv
 **0.12.19** (`uv/Dockerfile` in dependabot-core, read 2026-10-13) while this project pins
 `uv ==0.12.23`, and a `required-version` mismatch makes the updater exit before doing any
