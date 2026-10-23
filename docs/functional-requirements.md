@@ -710,7 +710,7 @@ Acceptance (L1.9): `tests/integration/test_view3d_workspace.py` (no switch is re
   held arrows, wheel and spin buttons. Calendar month/year steps retain the preferred
   day through shorter months and leap years. Each step publishes one complete naive
   wall reading to SimClock; only its absolute supported range saturates navigation.
-- **FR-TIMELINE-07:** Without garden coordinates, Plan & Sun shows a location hint
+- **FR-TIMELINE-07**: Without garden coordinates, Plan & Sun shows a location hint
   beside Hours of Sun that opens the existing Set Garden Location dialog. It remains
   visible until coordinates are set, including after cancellation and document
   replacement. Configuring coordinates automatically resumes an enabled sun map.

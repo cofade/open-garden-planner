@@ -3193,7 +3193,7 @@ master and all truth gates passing. Senior review found no P0/P1 and independent
 passed seven native latest-fix cases; its sole EOF-whitespace nit is removed.
 Protected merge succeeded on 22 October 2026; shipped as v1.30.18.
 
-### Plant Details follow-ups (#552, #557–#560) — PR #566, owner acceptance pending
+### Plant Details follow-ups (#552, #557–#560) — shipped as v1.30.20, PR #566
 
 | Issue | Implemented behavior |
 |---|---|
@@ -3206,12 +3206,19 @@ Protected merge succeeded on 22 October 2026; shipped as v1.30.18.
 Implementation evidence: `tests/integration/test_plant_package_558_559_560_552_557.py`
 and `tests/integration/test_plant_dimensions_records.py`; ADR-004/013/059,
 crosscutting section 8.32 and PF-UI-27. Independent review and current gate results
-are recorded in PR #566. These issues remain open until protected merge.
+are recorded in PR #566. Protected merge and release completed on 23 October 2026;
+all five issues are closed after owner executable acceptance.
 
 Owner acceptance confirmed plant history/save, widths, estimated heights, locales
 and lock behavior. The manual follow-up removes the second painted path padlock.
 The reported static sun was a plan without a location; setting coordinates restored
 2D/3D shadows and Hours of Sun. A persistent location link beside Hours of Sun now
 opens the existing location dialog and clears automatically after configuration
-(FR-TIMELINE-07). These two follow-up UI changes await owner acceptance.
+(FR-TIMELINE-07). The owner confirmed both follow-ups on the executable and
+authorized release. All 23 feature CI checks passed. Native Windows checks passed
+162 tests; serial performance passed 98 with 10 skips. The full local offscreen
+suite passed 17,166 with 234 skips and 24 font/layout failures covered by native
+Windows and green Linux CI (#562). Independent senior/3D review and frozen smoke
+and self-test passed. The published installer checksum and source-bound build
+provenance attestation were independently verified against the release merge SHA.
 
