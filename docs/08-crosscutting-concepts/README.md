@@ -6797,6 +6797,17 @@ the real command-stack refresh by
 
 ### 8.31.1 Permanent controls and live-map/export lifecycle
 
+The date/time editors use native QDateEdit/QTimeEdit subclasses so their styling,
+typing and calendar popup remain native. Both delegate stepBy/stepEnabled to one
+SunSimToolbar wall-reading path (FR-TIMELINE-06, PR #565): day/month/year arithmetic
+carries across calendar boundaries; minute/hour arithmetic uses bounded civil
+minutes, never timezone-aware elapsed seconds. The whole target date/time is
+mirrored with widget signals blocked before emitting one datetime_changed value.
+There is no transient midnight on the old date. Month/year steps preserve the
+preferred day; direct calendar choices/typing and day steps establish a new one.
+Daily animation and the time-of-day slider retain their selected-day behavior.
+See PF-UI-26 and ADR-062's chronological-stepping addendum.
+
 SunSimToolbar is the sole toolbar instance for date/time. Atomic groups wrap rather
 than disappear into overflow; date width is derived from font metrics. Slider
 lengths compact only when the flow's measured groups need it to fit two rows;

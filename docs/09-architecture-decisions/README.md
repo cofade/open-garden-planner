@@ -6731,8 +6731,6 @@ At b1faaa9 the chapter README was 3,432 lines and 532 KB. Its §11.4 ("Known Dev
 
 ## ADR-062: Plant lifetimes on the shared plan date (US-F4, #315)
 
-**Status:** Accepted for implementation; owner acceptance pending.
-
 ### Context
 
 Season Manager copies a whole plan into a separate yearly file. Multi-year designs
@@ -6869,3 +6867,28 @@ first/last in a shared row, two subsequent launches) and
 `test_fixed_layout_can_restore_bounds_without_replaying_toolbar_state` (both policies).
 Native Windows layout checks and captures use actual platform fonts; an offscreen
 run with missing font discovery cannot establish the application's visual acceptance.
+
+### ADR-062 addendum: chronological editor stepping (owner acceptance follow-up, PR #565)
+
+**Context:** The owner found that holding an arrow stopped at the selected field's
+boundary: 31 October, December, minute 59 and hour 23. Native stepEnabled disabled
+that direction. Instrumented setWrapping(True) was rejected: it produced 31 October
+to 1 October and 10:59 to 10:00, without carrying into the larger unit.
+
+**Decision:** Keep native date/time editor subclasses and their appearance, text
+editing and popup. Override both step entry and availability; both editors delegate
+to one toolbar wall-reading path. Calendar arithmetic handles leap years and short
+months, retaining the preferred day for month/year stepping. Civil minute indices
+carry hours/minutes across midnight without timezone conversion or DST normalization.
+Only the existing 1971-01-01 through 2999-12-31 range saturates a step. Mirror widgets
+with their signals blocked, then emit one complete naive reading through the existing
+SimClock writer; no intermediate old-date/new-time reading is published.
+
+**Consequences:** Sliders/daily animation retain their existing selected-day policy.
+No new clock, persistent setting, undo command, file-format change or dependency.
+Pins: tests/integration/test_plan_sun_stepping.py (arrows/repeat, wheel/buttons,
+leap/preferred days, range and atomic signals), and
+tests/integration/test_timeline_quick3d.py::test_minute_rollover_updates_presence_sun_and_3d_once
+(real midnight keypress, presence/builders/light, unchanged plan revision/history).
+
+**Status:** Accepted for implementation; owner acceptance pending.

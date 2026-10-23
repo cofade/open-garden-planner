@@ -13404,7 +13404,7 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation type="vanished">21 de junio</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="173" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="225" />
             <source>Animate</source>
             <translation>Animar</translation>
         </message>
@@ -13413,7 +13413,7 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation type="vanished">Animar el recorrido solar a lo largo del día</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="174" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="226" />
             <source>Animate the sun across the selected day</source>
             <translation>Animar el recorrido del sol durante el día seleccionado</translation>
         </message>
@@ -13430,67 +13430,67 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation type="vanished">Fecha:</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="330" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="383" />
             <source>Full-day hours of sun; updates automatically while enabled</source>
             <translation>Horas de sol del día completo; se actualiza automáticamente mientras está activado</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="417" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="510" />
             <source>Future</source>
             <translation>Futuro</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="177" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="229" />
             <source>Hours of Sun</source>
             <translation>Horas de sol</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="363" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="456" />
             <source>Map: {date}</source>
             <translation>Mapa: {date}</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="369" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="462" />
             <source>Map: {date} — Unavailable</source>
             <translation>Mapa: {date} — No disponible</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="366" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="459" />
             <source>Map: {date} — Updating…</source>
             <translation>Mapa: {date} — Actualizando…</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="154" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="206" />
             <source>Months</source>
             <translation>Meses</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="416" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="509" />
             <source>Past</source>
             <translation>Pasado</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="127" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="178" />
             <source>Plan &amp; Sun</source>
             <translation>Plano y sol</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="145" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="197" />
             <source>Plan date: plant presence, growth and sunlight</source>
             <translation>Fecha del plano: presencia de plantas, crecimiento y luz solar</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="455" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="548" />
             <source>Plant date unavailable</source>
             <translation>Fecha de planta no disponible</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="188" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="240" />
             <source>Plants hidden by the plan date</source>
             <translation>Plantas ocultas por la fecha del plano</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="158" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="210" />
             <source>Scrub by month; Page Up/Down jumps one year</source>
             <translation>Recorrer por meses; Re Pág/Av Pág salta un año</translation>
         </message>
@@ -13503,28 +13503,28 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation type="vanished">Simulación de sol y sombra</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="150" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="202" />
             <source>The plan date controls plant presence, growth and sunlight.</source>
             <translation>La fecha del plano controla la presencia de plantas, el crecimiento y la luz solar.</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="456" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="549" />
             <source>This plant is not present within the supported plan dates ({min} to {max}). Its stored dates have been preserved.</source>
             <translation>Esta planta no está presente dentro de las fechas admitidas del plano ({min} a {max}). Se han conservado sus fechas guardadas.</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="164" />
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="171" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="216" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="223" />
             <source>Time of day</source>
             <translation>Hora del día</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="147" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="199" />
             <source>Today</source>
             <translation>Hoy</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="367" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="460" />
             <source>Updating…</source>
             <translation>Actualizando…</translation>
         </message>
@@ -13533,12 +13533,12 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation type="vanished">Usar el 21 de junio del año de simulación como fecha de referencia</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="421" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="514" />
             <source>{count} hidden</source>
             <translation>{count} ocultas</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="435" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="528" />
             <source>{name} — planted: {planted}; removed: {removed}</source>
             <translation>{name} — plantada: {planted}; retirada: {removed}</translation>
         </message>

@@ -701,3 +701,8 @@ Acceptance (L1.9): `tests/integration/test_view3d_workspace.py` (no switch is re
 - **FR-TIMELINE-05:** Viewing dates never deletes plant data or changes yearly Season
   Manager copies. Generated plant tasks stop after removal, with surviving instances
   retaining a species schedule; manual tasks and succession dates remain independent.
+- **FR-TIMELINE-06**: Plan & Sun date/time editor steps carry and borrow through
+  month/year, hour/day and minute/hour boundaries in both directions, including
+  held arrows, wheel and spin buttons. Calendar month/year steps retain the preferred
+  day through shorter months and leap years. Each step publishes one complete naive
+  wall reading to SimClock; only its absolute supported range saturates navigation.

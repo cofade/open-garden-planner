@@ -3095,6 +3095,14 @@ colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see PF-CAN
 
 ### US-F4 plan timeline (#315) — complete, v1.30.17, PR #533
 
+Owner acceptance follow-up in draft [PR #565](https://github.com/cofade/open-garden-planner/pull/565):
+date/time editor stepping carries and borrows across calendar and clock boundaries,
+including held arrows, wheel/buttons and preferred-day handling. One complete naive
+reading updates the shared clock; the midnight workflow pins 2D presence, 3D geometry
+and sunlight with no plan edit. Initial boundary regressions failed before the fix;
+FR-TIMELINE-06, ADR-062 addendum, runtime view, section 8.31.1 and PF-UI-26 record it.
+The new stepping behavior awaits owner acceptance; the original PR #565 checks passed.
+
 ADR-062 and FR-34 define a month scrubber/Today on the existing SimClock, undoable
 plant removal dates, half-open presence, date-present data diagnostics and current-state
 exports/API annotations. The 2D sprite now shares the growth date; fresh creation

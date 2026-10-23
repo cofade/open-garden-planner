@@ -608,6 +608,16 @@ error before the preference and window steps.
 
 ## Viewing a plan at another date (US-F4)
 
+Stepping a Plan & Sun calendar/time section first commits any pending editor text,
+then computes a complete naive wall reading through SunSimToolbar's shared path
+(PR #565). Day/month/year and hour/minute steps carry or borrow across larger units;
+month/year steps retain the preferred day through short months. The toolbar mirrors
+both editors and its slider with signals blocked, then emits datetime_changed once.
+SimClock therefore receives the new date and time together. A minute crossing
+midnight delivers one date_changed and one instant_changed; existing presence,
+sunlight and 3D subscriptions consume the same state. Viewing does not alter plan
+revision or history. Only the clock's absolute range stops navigation.
+
 Global View -> 3D View selects the Garden Plan tab before showing Split from
 Plan mode (#539). Workspace actions also return to Garden Plan and select their
 requested mode: Alt+1 Plan, Alt+2 3D, Alt+3 Split. Existing 3D/Split views keep
