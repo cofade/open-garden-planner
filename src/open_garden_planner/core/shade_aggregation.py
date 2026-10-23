@@ -214,7 +214,8 @@ class SunHoursMap:
         if self.sample_shade is None:
             raise ValueError("this map kept no per-sample masks")
         shaded = np.unpackbits(self.sample_shade[index], axis=1, count=self.grid.cols)
-        return shaded == 0
+        sunlit: np.ndarray = shaded == 0
+        return sunlit
 
     def minutes_through(self, minute_of_day: int, tz: tzinfo | None) -> np.ndarray | None:
         """The minutes of direct sun each cell collected from the morning up to the wall

@@ -27,6 +27,7 @@ Urgency is *not* stored on a :class:`Task`; it is recomputed at render time via
 from __future__ import annotations
 
 import datetime
+import functools
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -246,7 +247,7 @@ def generate_calendar_tasks(state: PlanState) -> list[Task]:
         if state.actionable_only and removed is not None and state.today >= removed:
             continue
         for task_type, start, end in calendar_windows(
-                lambda attr, row=row: getattr(row, attr), last_frost):
+                functools.partial(getattr, row), last_frost):
             if removed is not None:
                 if start >= removed:
                     continue

@@ -41,7 +41,8 @@ def glyph_outlines(text: str, font: QFont | None = None) -> list[Ring]:
     rings: list[Ring] = []
     for polygon in path.toSubpathPolygons():
         points: Ring = []
-        for point in polygon:
+        for index in range(polygon.count()):
+            point = polygon.at(index)
             here = (float(point.x()), -float(point.y()))  # y DOWN in the font, up in the plan
             if not points or here != points[-1]:
                 points.append(here)

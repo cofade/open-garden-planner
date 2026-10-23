@@ -79,7 +79,15 @@ from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any, Final, Protocol
 
 from PyQt6.QtCore import QEvent, QObject, QPoint, QRect, QSize, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QAction, QActionGroup, QHideEvent, QKeySequence, QShowEvent
+from PyQt6.QtGui import (
+    QAction,
+    QActionGroup,
+    QColor,
+    QHideEvent,
+    QKeySequence,
+    QPalette,
+    QShowEvent,
+)
 from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -197,6 +205,10 @@ class EngineHost(Protocol):
     def set_sky(self, sky: Any) -> None: ...
     def set_wind_running(self, running: bool) -> None: ...
     def rest_wind(self) -> None: ...
+    # the analysis (L2): ``analysis_controller.AnalysisHost``
+    def set_overlay(self, layer: str, mesh: Any) -> None: ...
+    def set_roofs_hidden(self, hidden: bool) -> None: ...
+    def set_faded_items(self, item_ids: frozenset[str], opacity: float = ...) -> None: ...
 
 
 #: ``factory(prefer_software) -> (host, sink)`` — builds the engine. THE TEST SEAM.
@@ -1962,7 +1974,10 @@ class Workspace(QWidget):
             swatch = QFrame(row)  # a bar of the arc's colour (no text: not a label)
             swatch.setFixedSize(16, 4)
             red, green, blue, _alpha = ARC_RGBA[kind]
-            swatch.setStyleSheet(f"background-color: rgb({red}, {green}, {blue});")
+            palette = swatch.palette()  # the arc's own colour: data, not a theme token
+            palette.setColor(QPalette.ColorRole.Window, QColor(red, green, blue))
+            swatch.setPalette(palette)
+            swatch.setAutoFillBackground(True)
             layout.addWidget(swatch, 0, Qt.AlignmentFlag.AlignVCenter)
             label = QLabel(names[kind], row)
             label.setTextFormat(Qt.TextFormat.PlainText)

@@ -114,10 +114,10 @@ def shadow_drape(polygons: Sequence[Polygon], width_cm: float, depth_cm: float,
     if not clipped:
         return Mesh.empty()
     try:
-        regions = group_rings([tuple(map(tuple, ring)) for ring in clipped])
+        regions = group_rings([_as_ring(ring) for ring in clipped])
     except (ValueError, RegionTooLargeError):
         # rings that do not nest as outers and holes: every outer ring alone, raster-cut
-        regions = tuple((tuple(map(tuple, ring)), ()) for ring in clipped
+        regions = tuple((_as_ring(ring), ()) for ring in clipped
                         if _signed_area(ring) > 0.0)
     positions: list[_F64] = []
     triangles: list[NDArray[np.int64]] = []
@@ -146,6 +146,10 @@ def shadow_drape(polygons: Sequence[Polygon], width_cm: float, depth_cm: float,
                             np.concatenate(triangles))
 
 
+def _as_ring(ring: Sequence[Sequence[float]]) -> tuple[tuple[float, float], ...]:
+    return tuple((float(x), float(y)) for x, y in ring)
+
+
 def _signed_area(ring: Sequence[Sequence[float]]) -> float:
     xy = np.asarray(ring, dtype=np.float64).reshape(-1, 2)
     return 0.5 * float(np.dot(xy[:, 0], np.roll(xy[:, 1], -1)) - np.dot(xy[:, 1], np.roll(xy[:, 0], -1)))
@@ -159,7 +163,8 @@ def _block_mean(values: NDArray[np.float64], factor: int) -> NDArray[np.float64]
     padded = np.full((out_rows * factor, out_cols * factor), np.nan)
     padded[:rows, :cols] = values
     blocks = padded.reshape(out_rows, factor, out_cols, factor)
-    return np.nanmean(blocks, axis=(1, 3))
+    means: NDArray[np.float64] = np.nanmean(blocks, axis=(1, 3))
+    return means
 
 
 def drape_factor(grid: HeatmapGrid, max_vertices: int = MAX_DRAPE_VERTICES) -> int:

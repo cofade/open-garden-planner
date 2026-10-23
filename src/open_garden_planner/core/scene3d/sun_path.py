@@ -49,7 +49,14 @@ from ..sim_clock import SimInstant
 from ..solar import solar_position
 from .color import Rgba, srgb8_to_linear
 from .mesh import Mesh
-from .polygon import RegionTooLargeError, group_rings, point_in_ring, ring_area, triangulate_region
+from .polygon import (
+    Region,
+    RegionTooLargeError,
+    group_rings,
+    point_in_ring,
+    ring_area,
+    triangulate_region,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -262,8 +269,8 @@ def _tube(builder: _Builder, points: _F64, radius: float, rgba: Rgba) -> None:
     path turns towards the vertical: an arc rises straight up at the equator)."""
     if len(points) < 2:
         return
-    tangents = np.gradient(points, axis=0)
-    tangents = np.array([_unit(t) for t in tangents])
+    gradient: _F64 = np.asarray(np.gradient(points, axis=0), dtype=np.float64)
+    tangents = np.array([_unit(t) for t in gradient])
     reference = np.array([0.0, 0.0, 1.0]) if abs(tangents[0][2]) < 0.9 else np.array([1.0, 0.0, 0.0])
     normal = _unit(np.cross(tangents[0], reference))
     angles = np.linspace(0.0, 2.0 * math.pi, _TUBE_SIDES, endpoint=False)
@@ -372,7 +379,7 @@ def _bar(center: tuple[float, float], bearing: float, inner: float, outer: float
                      c + out * outer + across * half_width, c + out * outer - across * half_width])
 
 
-def _oriented_regions(rings: Sequence[GlyphRing]) -> tuple:
+def _oriented_regions(rings: Sequence[GlyphRing]) -> tuple[Region, ...]:
     """Glyph outlines as regions: a ring inside an even number of other rings is an
     outer ring (made counter-clockwise), inside an odd number a hole (clockwise) —
     whatever winding the font gave them."""

@@ -219,7 +219,7 @@ def cast_all(scene: PickScene, ray: Ray) -> tuple[RayHit, ...]:
     return _cast(scene, ray, every_item=True)
 
 
-def cast_segment(scene: PickScene, origin: Sequence[float], end: Sequence[float], *,
+def cast_segment(scene: PickScene, origin: Sequence[float] | _F64, end: Sequence[float] | _F64, *,
                  rows: NDArray[np.int64] | None = None) -> tuple[RayHit, ...]:
     """Every item the SEGMENT from ``origin`` to ``end`` passes through before it
     reaches ``end`` — nearest first, one hit per item (L2.4's X-ray, ``xray.py``).
