@@ -364,9 +364,8 @@ selection. PositionLockMixin shares the action across shape/path/curve/text menu
 LockBadgeItem is a dedicated export-hidden type. The real-widget regressions in
 the package integration file cover these boundaries; the detailed tagged trace
 and debugging history live in the paired debug-verbose skill case study.
-The dimension layer's former FIXED marker must be suppressed for objects using
-that shared badge: a path otherwise shows two locks, and the scene-painted one
-is inverted by the canvas Y flip. Construction items retain their own marker.
+Suppress dimension-layer FIXED markers for shared-badge objects; otherwise paths
+show two locks, one inverted by the Y flip. Keep construction markers.
 
 ### PF-UI-26
 
