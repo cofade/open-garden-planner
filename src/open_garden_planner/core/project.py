@@ -2033,6 +2033,13 @@ class ProjectManager(QObject):
         # Load constraints if present
         if parsed_constraints is not None and hasattr(scene, "constraint_graph"):
             scene.constraint_graph = parsed_constraints
+            # The FIXED-lock padlock badge is derived from the graph: re-derive
+            # it for every loaded item so a saved lock is visible without
+            # selecting each item first (#552).
+            for loaded_item in deserialized_items:
+                refresh_badge = getattr(loaded_item, "refresh_lock_badge", None)
+                if refresh_badge is not None:
+                    refresh_badge()
 
         # Load guide lines if present
         if hasattr(scene, "set_guide_lines"):

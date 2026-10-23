@@ -333,7 +333,7 @@ gone.
 ### PF-UI-26
 
 - **Rule:** A bundled overlay that prioritises the database over the plan silently discards form edits; spin gestures coalesce into the pending command and history refreshes outrank focus guards.
-- **Pinned by:** `tests/integration/test_plant_package_558_559_560_552_557.py::test_species_field_edit_is_one_undo_step`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_spin_drag_coalesces_into_one_undo_step`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_history_refresh_updates_focused_widget`
+- **Pinned by:** `tests/integration/test_plant_package_558_559_560_552_557.py::test_species_field_edit_is_one_undo_step`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_spin_drag_coalesces_into_one_undo_step`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_undo_refreshes_focused_widget_but_ordinary_notification_does_not`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_properties_panel_is_wired_to_history_by_its_constructor`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_undo_drops_pending_notes_without_pushing_a_command`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_different_spinboxes_never_coalesce_into_one_undo_step`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_locked_item_badge_is_derived_on_load_and_hidden_in_export`
 - **Source:** #559, #560
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -351,7 +351,21 @@ consecutive ticks of one spin drag merge into the pending command instead, so
 the canvas reacts live and the gesture stays one undo step. Third, the #206
 focus guard that protects mid-typing edits also suppressed history-driven
 refreshes, so undo/redo left a focused form stale: the panel now consumes a
-`stack_changed`-set flag that outranks the guard for exactly one refresh.
+`history_navigated`-set flag (emitted by undo/redo only, never by an own
+commit) that outranks the guard for exactly one refresh.
+
+The senior review of PR #566 found four traps in that same work. (1) A signal
+wired only inside `set_command_manager()` is dead when the application passes the
+manager to the constructor and never calls the setter - `PropertiesPanel`'s
+history refresh did nothing in production while tests that set the private flag
+by hand stayed green; wire at construction and drive tests through a real
+`undo()`. (2) A history refresh must never commit: flushing a debounced notes
+edit inside it pushes a new command right after an undo and wipes the redo stack,
+so a pending uncommitted edit is dropped instead. (3) Spin-drag coalescing must be
+keyed to the originating widget, or two different spinboxes edited with a pause
+fuse into one undo step. (4) A derived badge (the FIXED padlock) must be derived
+on load and be a dedicated type that export hides, or a saved lock shows only
+after selection and the glyph is baked into PNG/SVG/PDF output.
 
 PR #556's review caught the distinction between a passive overlay and a drag
 handle: both lack `ItemIsSelectable`, but a handle must receive its press.

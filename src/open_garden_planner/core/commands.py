@@ -846,10 +846,10 @@ class PlantSpeciesEditCommand(Command):
         else:
             metadata["plant_species"] = dict(species)
         if hasattr(self._item, "spacing_radius_cm"):
-            self._item.spacing_radius_cm = spacing_override  # type: ignore[attr-defined]
+            self._item.spacing_radius_cm = spacing_override
         if radius is not None and hasattr(self._item, "set_radius_centered"):
             try:
-                self._item.set_radius_centered(radius)  # type: ignore[attr-defined]
+                self._item.set_radius_centered(radius)
             except Exception:
                 # The metadata still records the new max_spread while the
                 # footprint stays old: loud, not silent, so the divergence
@@ -863,7 +863,7 @@ class PlantSpeciesEditCommand(Command):
                 )
         with suppress(Exception):
             if hasattr(self._item, "update"):
-                self._item.update()  # type: ignore[attr-defined]
+                self._item.update()
 
     def execute(self) -> None:
         """Apply the new species dict + footprint radius."""
@@ -906,13 +906,13 @@ class PlantInstanceEditCommand(Command):
         metadata = self._item.metadata  # type: ignore[attr-defined]
         try:
             if hasattr(self._item, "prepareGeometryChange"):
-                self._item.prepareGeometryChange()  # type: ignore[attr-defined]
+                self._item.prepareGeometryChange()
         except Exception:
             pass
         metadata["plant_instance"] = dict(instance)
         try:
             if hasattr(self._item, "update"):
-                self._item.update()  # type: ignore[attr-defined]
+                self._item.update()
         except Exception:
             pass
 

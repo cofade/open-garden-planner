@@ -51,6 +51,14 @@ class BedMenuActions:
     plan_succession: QAction | None = None
 
 
+class LockBadgeItem(QGraphicsSimpleTextItem):
+    """Padlock badge shown on an item carrying a FIXED constraint (#552).
+
+    A dedicated type so overlay-hiding code (export) can recognise it and keep
+    the glyph out of PNG / SVG / PDF output.
+    """
+
+
 class SuccessionBadgeItem(QGraphicsItem):
     """Multi-line succession-plan badge that renders upright on the Y-flipped canvas.
 
@@ -881,21 +889,19 @@ class GardenItemMixin:
                         with contextlib.suppress(Exception):
                             badge.setVisible(False)
                         badge.setParentItem(None)
-                    self._lock_badge_item = None  # type: ignore[attr-defined]
+                    self._lock_badge_item = None
                     if hasattr(self, "update"):
                         self.update()
                 return
             if badge is None:
-                from PyQt6.QtWidgets import QGraphicsSimpleTextItem
-
-                badge = QGraphicsSimpleTextItem("🔒", self)  # type: ignore[arg-type]
+                badge = LockBadgeItem("🔒", self)  # type: ignore[call-overload]
                 with contextlib.suppress(Exception):
                     badge.setFlag(
                         QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
                     )
                 with contextlib.suppress(Exception):
                     badge.setZValue(60)
-                self._lock_badge_item = badge  # type: ignore[attr-defined]
+                self._lock_badge_item = badge
             with contextlib.suppress(Exception):
                 rect = self.boundingRect()  # type: ignore[attr-defined]
                 badge.setPos(rect.topLeft())
@@ -927,7 +933,8 @@ class GardenItemMixin:
                         locked_layer = bool(scene.is_layer_locked(layer_id))
                     except Exception:
                         locked_layer = False
-                action.setEnabled(not locked_layer)
+                if action is not None:
+                    action.setEnabled(not locked_layer)
             except Exception:
                 pass
             return action
@@ -981,7 +988,7 @@ class GardenItemMixin:
                     anchor_type=AnchorType.CENTER,
                     anchor_index=0,
                 )
-                cmd = AddConstraintCommand(
+                add_cmd = AddConstraintCommand(
                     graph=scene.constraint_graph,
                     anchor_a=anchor,
                     anchor_b=anchor,
@@ -992,11 +999,11 @@ class GardenItemMixin:
                 )
                 if view is not None and hasattr(view, "_execute_constraint_with_solve"):
                     try:
-                        view._execute_constraint_with_solve(cmd)  # type: ignore[attr-defined]
+                        view._execute_constraint_with_solve(add_cmd)
                     except Exception:
-                        manager.execute(cmd) if manager is not None else cmd.execute()
+                        manager.execute(add_cmd) if manager is not None else add_cmd.execute()
                 else:
-                    manager.execute(cmd) if manager is not None else cmd.execute()
+                    manager.execute(add_cmd) if manager is not None else add_cmd.execute()
             import contextlib
 
             with contextlib.suppress(Exception):

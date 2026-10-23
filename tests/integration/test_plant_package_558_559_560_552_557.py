@@ -202,7 +202,30 @@ def test_noop_edit_adds_no_history(
 # ── #560 ────────────────────────────────────────────────────────────────
 
 
-def test_history_refresh_updates_focused_widget(
+def _lock(rect: RectangleItem) -> None:
+    from PyQt6.QtWidgets import QMenu
+
+    menu = QMenu()
+    action = rect.build_lock_context_menu(menu)
+    assert rect.dispatch_lock_action(action, action) is True
+
+
+def test_properties_panel_is_wired_to_history_by_its_constructor(
+    canvas: CanvasView, props: PropertiesPanel
+) -> None:
+    """The app builds the panel with command_manager= and never calls
+    set_command_manager(): the history signal must still reach it (#560)."""
+    rect = RectangleItem(100.0, 100.0, 400.0, 300.0, object_type=ObjectType.RAISED_BED)
+    canvas.scene().addItem(rect)
+    _lock(rect)
+    assert props._history_pending is False  # an own commit is not history
+    canvas.command_manager.undo()
+    assert props._history_pending is True
+    props.set_selected_items([rect])
+    assert props._history_pending is False
+
+
+def test_undo_refreshes_focused_widget_but_ordinary_notification_does_not(
     canvas: CanvasView, props: PropertiesPanel, monkeypatch
 ) -> None:
     rect = RectangleItem(100.0, 100.0, 400.0, 300.0, object_type=ObjectType.RAISED_BED)
@@ -213,30 +236,101 @@ def test_history_refresh_updates_focused_widget(
     spin = QDoubleSpinBox()
     spin.setValue(1.0)
     props._register_refresh(spin, lambda: spin.setValue(7.0))
-
     monkeypatch.setattr(props, "_is_focused", lambda _w: True)
-    props._refresh_field_values()
-    assert spin.value() == 1.0  # ordinary notification protects the edit
 
-    props._history_refresh = True
-    props._refresh_field_values()
-    props._history_refresh = False
-    assert spin.value() == 7.0  # history transition wins
+    props.set_selected_items([rect])  # ordinary notification
+    assert spin.value() == 1.0  # uncommitted typing is protected
+
+    _lock(rect)
+    canvas.command_manager.undo()  # real undo -> real history_navigated
+    props.set_selected_items([rect])
+    assert spin.value() == 7.0  # history transition wins over the focus guard
 
 
-def test_plant_panel_history_bypasses_focus_guard(
-    canvas: CanvasView, plant_panel: PlantDatabasePanel, monkeypatch
+def test_plant_panel_gets_history_signal_from_real_undo(
+    canvas: CanvasView, plant_panel: PlantDatabasePanel
 ) -> None:
     item = _tree(canvas)
     plant_panel.set_selected_items([item])
-    monkeypatch.setattr(plant_panel, "_holds_field_focus", lambda: True)
-    # Ordinary stray signal: panel stays put.
-    plant_panel.set_selected_items([item])
-    # History transition: same call refreshes instead of returning early.
-    plant_panel._history_pending = True
+    plant_panel.family_edit.setText("Testaceae")
+    plant_panel._on_field_changed()
+    assert plant_panel._history_pending is False
+    canvas.command_manager.undo()
+    assert plant_panel._history_pending is True
     plant_panel.set_selected_items([item])
     assert plant_panel._history_pending is False
-    assert plant_panel._current_plant_item is item
+
+
+def test_undo_drops_pending_notes_without_pushing_a_command(
+    canvas: CanvasView, plant_panel: PlantDatabasePanel
+) -> None:
+    """Undo must never push a new command: that would wipe the redo stack."""
+    item = _tree(canvas)
+    manager = canvas.command_manager
+    plant_panel.set_selected_items([item])
+    plant_panel.family_edit.setText("Testaceae")
+    plant_panel._on_field_changed()
+    plant_panel.notes_edit.setPlainText("typed, not yet committed")
+    assert plant_panel._notes_has_pending is True
+
+    manager.undo()
+    plant_panel.set_selected_items([item])
+
+    assert manager.can_redo is True  # redo stack survived
+    assert manager.redo_depth == 1
+    assert plant_panel._notes_has_pending is False
+    assert "notes" not in (item.metadata.get("plant_instance") or {}) or not (
+        item.metadata["plant_instance"].get("notes")
+    )
+
+
+def test_different_spinboxes_never_coalesce_into_one_undo_step(
+    canvas: CanvasView, plant_panel: PlantDatabasePanel
+) -> None:
+    item = _tree(canvas, radius=80.0)
+    manager = canvas.command_manager
+    plant_panel.set_selected_items([item])
+    steps = manager.undo_depth
+
+    plant_panel.max_spread_spin.setValue(200.0)
+    plant_panel.ph_min_spin.setValue(5.5)
+
+    assert manager.undo_depth == steps + 2
+
+
+def test_locked_item_badge_is_derived_on_load_and_hidden_in_export(
+    canvas: CanvasView,
+) -> None:
+    import tempfile
+    from pathlib import Path
+
+    from open_garden_planner.core.project import ProjectManager
+    from open_garden_planner.services.export_service import ExportService
+    from open_garden_planner.ui.canvas.items.garden_item import LockBadgeItem
+
+    rect = RectangleItem(100.0, 100.0, 400.0, 300.0, object_type=ObjectType.RAISED_BED)
+    canvas.scene().addItem(rect)
+    _lock(rect)
+    pm = ProjectManager()
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "lock.ogp"
+        pm.save(canvas.scene(), path)
+        pm.load(canvas.scene(), path)
+    loaded = next(
+        it
+        for it in canvas.scene().items()
+        if getattr(it, "item_id", None) == rect.item_id
+    )
+    # No selection happened: the badge must already be there.
+    assert getattr(loaded, "_lock_badge_item", None) is not None
+
+    hidden, _selected = ExportService._hide_overlay_items(canvas.scene())
+    try:
+        assert any(isinstance(h, LockBadgeItem) for h in hidden)
+        assert not loaded._lock_badge_item.isVisible()
+    finally:
+        ExportService._restore_overlay_items(hidden, [])
+    assert loaded._lock_badge_item.isVisible()
 
 
 # ── #558 ────────────────────────────────────────────────────────────────

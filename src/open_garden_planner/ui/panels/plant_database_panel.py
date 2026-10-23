@@ -3,7 +3,7 @@
 import contextlib
 from collections.abc import Callable
 from datetime import date
-from typing import cast
+from typing import Any, cast
 
 from PyQt6.QtCore import QDate, QSignalBlocker, Qt, pyqtSignal
 from PyQt6.QtGui import QShowEvent, QWheelEvent
@@ -271,7 +271,9 @@ class PlantDatabasePanel(QWidget):
         # Coalescing handle (#559): consecutive valueChanged ticks of one spin
         # drag merge into this pending command instead of one undo entry per
         # tick. Cleared on selection change, history, or a non-spin commit.
-        self._last_spin_cmd = None
+        self._last_spin_cmd: Any = None
+        # Spinbox that produced the pending command: only that widget may coalesce.
+        self._last_spin_widget: Any = None
         from PyQt6.QtCore import QTimer as _QTimer
 
         self._notes_timer = _QTimer(self)
@@ -285,7 +287,7 @@ class PlantDatabasePanel(QWidget):
 
         self._setup_ui()
 
-    def set_command_manager(self, command_manager) -> None:
+    def set_command_manager(self, command_manager: Any) -> None:
         """Attach the shared undo stack; previous stack signals are detached."""
         try:
             if self._command_manager is not None:
@@ -309,6 +311,7 @@ class PlantDatabasePanel(QWidget):
         """
         self._history_pending = True
         self._last_spin_cmd = None
+        self._last_spin_widget = None
 
     def _setup_ui(self) -> None:
         """Set up the UI components."""
@@ -878,7 +881,7 @@ class PlantDatabasePanel(QWidget):
         except Exception:
             return False
 
-    def _push_or_merge_species_cmd(self, cmd) -> bool:
+    def _push_or_merge_species_cmd(self, cmd: Any) -> bool:
         """Execute ``cmd`` or merge it into a pending spin gesture.
 
         Returns True when merged (no new history entry).
@@ -895,6 +898,7 @@ class PlantDatabasePanel(QWidget):
             and getattr(pending, "_cmd_kind", None) == "species"
             and mgr.peek_undo() is pending
             and getattr(pending, "_item", None) is cmd._item
+            and self._last_spin_widget is self.sender()
         ):
             pending._new_species = cmd._new_species
             pending._new_radius = cmd._new_radius
@@ -909,10 +913,12 @@ class PlantDatabasePanel(QWidget):
         mgr.execute(cmd)
         from PyQt6.QtWidgets import QAbstractSpinBox as _Spin  # noqa: PLC0415
 
-        self._last_spin_cmd = cmd if isinstance(self.sender(), _Spin) else None
+        spin_sender = self.sender() if isinstance(self.sender(), _Spin) else None
+        self._last_spin_cmd = cmd if spin_sender is not None else None
+        self._last_spin_widget = spin_sender
         return False
 
-    def _push_or_merge_instance_cmd(self, cmd) -> bool:
+    def _push_or_merge_instance_cmd(self, cmd: Any) -> bool:
         """Execute ``cmd`` or merge it into a pending spin gesture."""
         mgr = self._command_manager
         if mgr is None:
@@ -926,6 +932,7 @@ class PlantDatabasePanel(QWidget):
             and getattr(pending, "_cmd_kind", None) == "instance"
             and mgr.peek_undo() is pending
             and getattr(pending, "_item", None) is cmd._item
+            and self._last_spin_widget is self.sender()
         ):
             pending._new_instance = cmd._new_instance
             pending._apply(pending._new_instance)
@@ -934,7 +941,9 @@ class PlantDatabasePanel(QWidget):
         mgr.execute(cmd)
         from PyQt6.QtWidgets import QAbstractSpinBox as _Spin  # noqa: PLC0415
 
-        self._last_spin_cmd = cmd if isinstance(self.sender(), _Spin) else None
+        spin_sender = self.sender() if isinstance(self.sender(), _Spin) else None
+        self._last_spin_cmd = cmd if spin_sender is not None else None
+        self._last_spin_widget = spin_sender
         return False
 
     def _on_field_changed(self) -> None:
@@ -1057,7 +1066,7 @@ class PlantDatabasePanel(QWidget):
                 self._current_plant_item, old_species, new_species
             )
             try:
-                old_spacing = self._current_plant_item.spacing_radius_cm
+                old_spacing = cast(Any, self._current_plant_item).spacing_radius_cm
             except Exception:
                 old_spacing = None
             cmd = PlantSpeciesEditCommand(
@@ -1096,7 +1105,10 @@ class PlantDatabasePanel(QWidget):
                         view.refresh_soil_mismatches()
 
     def _species_resize_radii(
-        self, item, old_species: dict | None, new_species: dict
+        self,
+        item: Any,
+        old_species: dict[str, Any] | None,
+        new_species: dict[str, Any],
     ) -> tuple[float | None, float | None]:
         """Compute (old_radius, new_radius) for a species-dict edit (#558).
 
@@ -1280,7 +1292,8 @@ class PlantDatabasePanel(QWidget):
         self._pending_notes_value = None
         if not self._current_plant_item:
             return
-        current = (self._current_plant_item.metadata.get("plant_instance", {}) or {}).get("notes")
+        plant_meta = cast(Any, self._current_plant_item).metadata
+        current = (plant_meta.get("plant_instance", {}) or {}).get("notes")
         if value == current:
             return
         self._update_instance_metadata("notes", value)
@@ -1448,8 +1461,9 @@ class PlantDatabasePanel(QWidget):
 
         # metadata is a read-only property backed by a dict that always exists,
         # so there's nothing to initialize here.
-        old_instance = self._current_plant_item.metadata.get("plant_instance", {}) or {}
-        old_instance = dict(old_instance)
+        old_instance = dict(
+            cast(Any, self._current_plant_item).metadata.get("plant_instance", {}) or {}
+        )
         new_instance = dict(old_instance)
         if value is None or value == "":
             new_instance.pop(key, None)
@@ -1558,6 +1572,7 @@ class PlantDatabasePanel(QWidget):
             with contextlib.suppress(Exception):
                 self._flush_pending_notes()
             self._last_spin_cmd = None
+            self._last_spin_widget = None
         # Consume a history transition first (#560): it outranks both the
         # trait-only fast path and the focus guard below.
         history = self._history_pending
@@ -1592,11 +1607,16 @@ class PlantDatabasePanel(QWidget):
             and not history
         ):
             return
-        # History transitions (#560) refresh even a focused editor, but never
-        # lose a coalesced notes edit: flush it first as its own undo step.
+        # History transitions (#560) refresh even a focused editor; an
+        # uncommitted notes edit is dropped (see below), not committed.
         if history:
+            # Discard, never flush: committing here would push a NEW command
+            # right after an undo/redo and wipe the redo stack. The refresh
+            # below repaints the notes box from the model.
             with contextlib.suppress(Exception):
-                self._flush_pending_notes()
+                self._notes_timer.stop()
+            self._notes_has_pending = False
+            self._pending_notes_value = None
 
         # Check if exactly one plant item is selected
         if len(items) != 1:

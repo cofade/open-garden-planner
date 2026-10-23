@@ -200,6 +200,11 @@ class PropertiesPanel(QWidget):
         # edit is not destroyed with its widget and lost from undo (#210).
         self._pending_text_commits: list[Callable[[], None]] = []
         self._setup_ui()
+        # Wire history_navigated at construction: the application hands the
+        # manager to the constructor and never calls set_command_manager(), so
+        # connecting only there left the #560 history refresh dead in production.
+        if command_manager is not None:
+            command_manager.history_navigated.connect(self._on_history_changed)
 
     def set_command_manager(self, command_manager: CommandManager) -> None:
         """Set the command manager for undo support.
