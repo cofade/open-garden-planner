@@ -347,25 +347,19 @@ angles, including two non-axis-aligned rotations, with one undo step.
 - **Status:** standing
 - **Legacy:** none (new entry)
 
-The bundled calendar overlay outranks plan fields, so form edits to family and
-nutrient demand must explicitly win on the edit path. Numeric valueChanged ticks
-retain live shadow feedback and merge through the command; editingFinished ends
-the gesture. Widget identity alone merges separate visits to the same control.
+Form edits must outrank the bundled calendar overlay. Merge numeric ticks only
+until editingFinished; widget identity must not merge separate visits.
 
-Connect history signals at construction as well as manager replacement. Flush
-active edits through before_history_navigation before choosing the stack entry;
-never commit in a post-undo refresh, which erases redo. Retain commit callbacks
-until form teardown, and flush before save or document dirty guards: a notes
-debounce alone loses an immediate Save/Close. Ordinary refresh protects only the
-active editor while updating unrelated fields.
+Wire history on construction and manager replacement. Flush staged edits before
+history entry selection, save and document guards. Post-undo commits erase redo;
+notes debounce alone loses immediate Save/Close. Retain commit callbacks until
+teardown. Ordinary refresh protects only the active editor.
 
-FIXED badges derive from scene constraint refresh and load, independently of
-selection. PositionLockMixin shares the action across shape/path/curve/text menus;
-LockBadgeItem is a dedicated export-hidden type. The real-widget regressions in
-the package integration file cover these boundaries; the detailed tagged trace
-and debugging history live in the paired debug-verbose skill case study.
-Suppress dimension-layer FIXED markers for shared-badge objects; otherwise paths
-show two locks, one inverted by the Y flip. Keep construction markers.
+Derive FIXED badges during scene refresh/load without selection. Shared
+PositionLockMixin actions and export-hidden LockBadgeItem cover all object menus.
+Suppress dimension-layer markers for those objects: paths otherwise show two locks,
+one inverted by the Y flip. Retain construction markers. Trace: paired debug-verbose
+case studies.
 
 ### PF-UI-26
 
