@@ -1,9 +1,9 @@
 """Open Garden Planner - Precision garden planning for passionate gardeners."""
 
-# ⚠ MUST be updated after every PR merge (see CLAUDE.md step 10).
+# ⚠ MUST be updated after every PR merge (see CLAUDE.md step 11).
 # The installed .exe always uses _version.py written by build_installer.py,
 # so this value only matters when running from source (dev mode).
 # Run: git fetch --tags && git describe --tags --abbrev=0
 # then set this to the new tag (without the leading "v").
-__version__ = "1.30.18"
+__version__ = "1.30.19"
 __author__ = "cofade"

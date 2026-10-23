@@ -204,6 +204,7 @@ class PropertiesPanel(QWidget):
         # manager to the constructor and never calls set_command_manager(), so
         # connecting only there left the #560 history refresh dead in production.
         if command_manager is not None:
+            command_manager.before_history_navigation.connect(self.flush_pending_edits)
             command_manager.history_navigated.connect(self._on_history_changed)
 
     def set_command_manager(self, command_manager: CommandManager) -> None:
@@ -214,6 +215,7 @@ class PropertiesPanel(QWidget):
         """
         try:
             if self._command_manager is not None:
+                self._command_manager.before_history_navigation.disconnect(self.flush_pending_edits)
                 with contextlib.suppress(Exception):
                     self._command_manager.history_navigated.disconnect(
                         self._on_history_changed
@@ -222,6 +224,7 @@ class PropertiesPanel(QWidget):
             pass
         self._command_manager = command_manager
         if command_manager is not None:
+            command_manager.before_history_navigation.connect(self.flush_pending_edits)
             with contextlib.suppress(Exception):
                 command_manager.history_navigated.connect(self._on_history_changed)
 
@@ -233,20 +236,6 @@ class PropertiesPanel(QWidget):
         a history transition and clobber the focused editor.
         """
         self._history_pending = True
-        # Badges are derived state: re-derive them for the whole scene so an
-        # undone/redone lock shows correctly even on unselected items (#552).
-        # Cheap (a constraint-graph query per item) and idempotent.
-        with contextlib.suppress(Exception):
-            scene = None
-            for _it in self._current_items:
-                scene = _it.scene() if hasattr(_it, "scene") else None
-                if scene is not None:
-                    break
-            if scene is not None:
-                for _it in scene.items():
-                    _refresh = getattr(_it, "refresh_lock_badge", None)
-                    if callable(_refresh):
-                        _refresh()
 
     def _setup_ui(self) -> None:
         """Set up the UI components."""
@@ -310,6 +299,7 @@ class PropertiesPanel(QWidget):
         destroyed here, and the rebuild re-registers fresh ones (#206).
         """
         self._field_refreshers = []
+        self._pending_text_commits = []
         while self._form_layout.rowCount() > 0:
             self._form_layout.removeRow(0)
 
@@ -363,6 +353,8 @@ class PropertiesPanel(QWidget):
         # briefly shows the previous item until the next trigger — keeping focus
         # is worth it; do NOT remove the guard to "fix" it.
         fw = QApplication.focusWidget()
+        new_identity = self._compute_identity(items)
+        same_form = new_identity == self._current_identity and bool(self._field_refreshers)
         history = self._history_pending
         self._history_pending = False
         # Keep the FIXED padlock truthful across undo/redo and reloads: the
@@ -380,6 +372,7 @@ class PropertiesPanel(QWidget):
             and fw is not None
             and isinstance(fw, (QAbstractSpinBox, QLineEdit, QTextEdit))
             and self.isAncestorOf(fw)
+            and not same_form
         ):
             return
 
@@ -387,7 +380,8 @@ class PropertiesPanel(QWidget):
         # rebuild deletes the field and its debounce timer synchronously, so an
         # un-flushed edit would be applied to the model but never recorded as a
         # command (lost from undo history). The fields are still alive here.
-        self._flush_pending_text_commits()
+        if not history and not same_form:
+            self._flush_pending_text_commits()
 
         # Incremental update (#206): when the selection set and form structure
         # are unchanged (a pure scalar property edit, a canvas drag/resize, or
@@ -398,7 +392,6 @@ class PropertiesPanel(QWidget):
         # The refresh path applies only when refreshers exist (a single editable
         # item). Multi-selection and GroupItem register none, so they harmlessly
         # fall through to a (cheap, no editable fields) rebuild on every signal.
-        new_identity = self._compute_identity(items)
         if new_identity == self._current_identity and self._field_refreshers:
             self._current_items = items
             self._history_refresh = bool(history)
@@ -584,16 +577,23 @@ class PropertiesPanel(QWidget):
             self._updating = False
 
     def _flush_pending_text_commits(self) -> None:
-        """Commit any pending debounced free-text edits, then clear the queue.
+        """Commit active free-text edits; retain callbacks until form teardown.
 
         Each commit is idempotent (no-op when the value is unchanged) and stops
         its own debounce timer, so this is safe to call on every rebuild. New
         fields re-register their callbacks as they are built. See #210.
         """
-        pending = self._pending_text_commits
-        self._pending_text_commits = []
-        for commit in pending:
+        for commit in tuple(self._pending_text_commits):
             commit()
+
+    def flush_pending_edits(self) -> None:
+        """Commit active input before persistence or history navigation."""
+        focused = QApplication.focusWidget()
+        if focused is not None and self.isAncestorOf(focused):
+            parent = focused.parentWidget()
+            if isinstance(parent, QAbstractSpinBox):
+                parent.interpretText()
+        self._flush_pending_text_commits()
 
     def _show_single_item(self, item: QGraphicsItem) -> None:
         """Show properties for a single selected item.

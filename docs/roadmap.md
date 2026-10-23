@@ -25,7 +25,6 @@
 
 ---
 
-
 ## CI and release hardening package (#404, #401, #402, #399)
 
 **Complete, 2026-10-09; released as v1.29.6 via [PR #422](https://github.com/cofade/open-garden-planner/pull/422).** No application behavior change.
@@ -2761,7 +2760,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 - **One story each:** L1.1 scene contract v2 (`core/scene3d/`); L1.2 the engine package (`ui/view3d/quick3d/`, CI `Render 3D` on Windows WARP and Linux); L1.3 the workspace (lazy engine, crash marker and software fallback); L1.4 looks and sky (presets with Automatic, twilight, wind, reduced motion); L1.5 the ground bake (the plan's flat surfaces painted onto the ground, matching 2D pixel for pixel); L1.6 the built world; L1.7 plant silhouettes (`core/plant_art/`); L1.8 selection sync, the info card and walk collision; L1.9 the default flip with throttled date playback (§8.29.9 holds the FR-SUN-06 / 07 / 08 parity table and the measured budgets); L1.10 the removal.
 - **Fixed on the way:** defects of the released app #438, #439, #441, #467, #468, #469, #478, #479, #523, #527; the test suite and developer scripts writing into the developer's real profile, #442; and two found in the new view before it shipped, #476 (a Qt Quick 3D texture trap) and #529 (picket moiré at Low).
 - **Owner acceptance, 2026-10-19:** the 36-step manual checklist passed, and the seven decisions put at the pull request were all kept as built — the twilight fade, the noon horizon's lime band, 4× MSAA at Low, the flat sky in compatibility mode, `master`'s rule for a loaded sprite's stated stroke, the new view's cost over the old window (no lighter default preset), and the default shipped with Qt 6.11's ground-texture leak #532 open (ADR-060 addendum D5).
-- **Known limitations, filed:** #531 and #532, and the `priority: high` follow-ups #534–#542 (wind memory, the look on a software-only adapter, a render-test flake, removal leftovers, a local build's contents, "3D View" from tabs other than Garden Plan, CI coverage of the default workspace, an untranslated shortcut name, the date-playback throttle).
+- **Known limitations, filed:** #531 and #532, and the `priority: high` follow-ups #534–#536, #538 and #540 (wind memory, the look on a software-only adapter, a render-test flake, a local build’s contents, CI coverage of the default workspace). Follow-ups #537/#539/#541/#542 shipped on 2026-10-23 as v1.30.19 ([PR #565](https://github.com/cofade/open-garden-planner/pull/565)) after owner acceptance: workspace cleanup/Walk icon, navigation from other tabs, native Reset key text, and no-op throttle stamps. Controlled-clock regressions replace the uptime-dependent test; all three reject the old stamp. Docs updated: ADR-060 addendum, runtime view, §8.29.9, PF-TST-25, both context files and debug-verbose libraries.
 - **Docs:** ADR-059 and ADR-060 with their addenda, ADR-048's closing addendum, §8.29, §8.10.5–8.10.13, PF-L3D-01 to PF-L3D-05 and PF-E3D-01 to PF-E3D-09, FR-SUN-06 / 07 / 08, FR-SUN-11, FR-33, the FR-3D-* requirements and the glossary's scene terms (Scene record, Scene diff, Engine sink, …).
 
 ---
@@ -2806,7 +2805,6 @@ up."* while the task was open. See ADR-029 (addendum) and ADR-049.
 ### Package F1/F2 delivery notes (v1.30.0, PR #433)
 
 F1 (#312) and F2 (#313) shipped together in [v1.30.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.0) via [PR #433](https://github.com/cofade/open-garden-planner/pull/433) after automated gates, independent review and all 13 owner frozen-app checks passed on 11 October 2026. F1 adds saved traits, complete offline filtering/background online fallback and semantic layer assignment. F2 adds immutable guild snapshots, template authoring, preflighted one-step insertion/membership, cosmetic badges and general diagnostics. The template editor and general Diagnostics panel are agreed scope additions. F3 (#314) shipped with heatmap document-lifecycle fix #428 in v1.30.1 via PR #436; F4 (#315) shipped in v1.30.17 via PR #533; F5 (#316) remains separate. ADR-054/055 and FR-32 record the contracts; mandatory workflows include `test_permaculture_layer.py`, `test_guilds.py` and `test_permaculture_manual_regressions.py`. Wiki pages are rendered from these approved repository sources under ADR-051.
-
 
 ### Package F3 acceptance highlights (v1.30.1, PR #436)
 
@@ -2994,7 +2992,6 @@ Epic #392 remains open; other audit bundles and #485 remain separate.
 - **#448 (Test environment flakiness)**: Decorated `test_type_cli_missing_mypy_is_an_error_not_a_clean_result` with skipif for non-3.11 interpreters matching `test_type_cli_generate_check_regress_and_reduce`. Added multi-round retry and local load tolerance to `tests/perf/test_nfr_budgets.py` while keeping CI budgets strict.
 - **Shortcut overload resolution**: Dedicated `Ctrl+F` to global search focus in `CategoryToolbar` and reassigned Find & Replace to `Ctrl+H` in `GardenPlannerApp`, eliminating ambiguous shortcut overload warnings with whole-window duplicate shortcut assertion gate.
 
-
 ### 2D canvas follow-up: a paint bound, one look rule and a line budget (#470, #472, #473, #502)
 
 **Complete, 2026-10-17; released as [v1.30.8](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.8) via [PR #501](https://github.com/cofade/open-garden-planner/pull/501) after owner acceptance.**
@@ -3095,13 +3092,19 @@ colour that *is* `GENERIC_RECTANGLE`'s default, so it could not fail; see PF-CAN
 
 ### US-F4 plan timeline (#315) — complete, v1.30.17, PR #533
 
+Owner acceptance follow-up shipped on 2026-10-23 as v1.30.19 ([PR #565](https://github.com/cofade/open-garden-planner/pull/565)) after owner acceptance:
+date/time editor stepping carries and borrows across calendar and clock boundaries,
+including held arrows, wheel/buttons and preferred-day handling. One complete naive
+reading updates the shared clock; the midnight workflow pins 2D presence, 3D geometry
+and sunlight with no plan edit. Initial boundary regressions failed before the fix;
+FR-TIMELINE-06, ADR-062 addendum, runtime view, section 8.31.1 and PF-UI-26 record it.
+
 ADR-062 and FR-34 define a month scrubber/Today on the existing SimClock, undoable
 plant removal dates, half-open presence, date-present data diagnostics and current-state
 exports/API annotations. The 2D sprite now shares the growth date; fresh creation
 uses that date too. Season Manager remains a whole-plan yearly copy. Integration
 workflows include real controls, exact boundaries, history, round-trip and rendered
 growth/export checks. F5 (#316) remains a separate story. Validation evidence and owner acceptance are recorded in PR #533.
-
 
 F4 owner-planned integration follow-up (20 October 2026, PR #533): master through v1.30.15 and
 release fix #543 are merged into the branch. One permanent adaptive Plan & Sun strip replaces the
@@ -3163,7 +3166,6 @@ now draws/selects a Vegetable before database assignment. The 40 m 3D check name
 so its neutral marker followed the current contract, and the owner confirmed the
 bundled oak renders. Category-based estimated heights are tracked separately in #557.
 
-
 Additional PR #556 manual-pass finding: Material and Drainage retained their
 pre-undo values while focused although metadata, 3D and derived feedback restored
 correctly. The shared Properties refresh guard now protects active text input only;
@@ -3190,3 +3192,19 @@ the eight-second smoke (124), and self-test (0), including an RTX 4070 / Direct3
 master and all truth gates passing. Senior review found no P0/P1 and independently
 passed seven native latest-fix cases; its sole EOF-whitespace nit is removed.
 Protected merge succeeded on 22 October 2026; shipped as v1.30.18.
+
+### Plant Details follow-ups (#552, #557–#560) — PR #566, owner acceptance pending
+
+| Issue | Implemented behavior |
+|---|---|
+| #552 | FIXED rejects panel X/Y writes; undoable Lock/Unlock across object menus; upright, export-hidden badges follow constraint history and load. |
+| #559 | Species and instance edits use independent command snapshots. Spin ticks coalesce within editingFinished boundaries; staged text flushes before save, document guards and history navigation. Shared-library writes remain separate from plan undo. |
+| #560 | History refreshes committed values even with editor focus; ordinary same-selection refreshes protect active input and update unrelated fields. |
+| #558 | Species-derived Max Spread updates centered 2D/3D dimensions; measured and legacy measured dimensions, spacing overrides and custom footprints retain precedence. A cleared width retains geometry. |
+| #557 | Labelled illustrative 3D heights: tree 400 cm, shrub 150 cm, perennial 60 cm, vegetable 50 cm. Authoritative height remains unknown, including analytical 2D sun/shade. |
+
+Implementation evidence: `tests/integration/test_plant_package_558_559_560_552_557.py`
+and `tests/integration/test_plant_dimensions_records.py`; ADR-004/013/059,
+crosscutting section 8.32 and PF-UI-27. Independent review and current gate results
+are recorded in PR #566. These issues remain open until protected merge.
+

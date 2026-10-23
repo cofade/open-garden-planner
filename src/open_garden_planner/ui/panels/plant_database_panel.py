@@ -2,6 +2,7 @@
 
 import contextlib
 from collections.abc import Callable
+from copy import deepcopy
 from datetime import date
 from typing import Any, cast
 
@@ -286,11 +287,14 @@ class PlantDatabasePanel(QWidget):
         self._list_store.changed.connect(self._update_favorite_button)
 
         self._setup_ui()
+        for spin in self.findChildren(QDoubleSpinBox):
+            spin.editingFinished.connect(self._end_spin_gesture)
 
     def set_command_manager(self, command_manager: Any) -> None:
         """Attach the shared undo stack; previous stack signals are detached."""
         try:
             if self._command_manager is not None:
+                self._command_manager.before_history_navigation.disconnect(self.flush_pending_edits)
                 with contextlib.suppress(Exception):
                     self._command_manager.history_navigated.disconnect(
                         self._on_history_changed
@@ -299,8 +303,27 @@ class PlantDatabasePanel(QWidget):
             pass
         self._command_manager = command_manager
         if command_manager is not None:
+            command_manager.before_history_navigation.connect(self.flush_pending_edits)
             with contextlib.suppress(Exception):
                 command_manager.history_navigated.connect(self._on_history_changed)
+
+    def _end_spin_gesture(self) -> None:
+        self._last_spin_cmd = None
+        self._last_spin_widget = None
+
+    def flush_pending_edits(self) -> None:
+        """Commit active input before save, navigation or document replacement."""
+        if self._in_commit:
+            return
+        focused = QApplication.focusWidget()
+        if focused is not None and self.isAncestorOf(focused):
+            parent = focused.parentWidget()
+            if isinstance(focused, QLineEdit) and not isinstance(parent, QAbstractSpinBox):
+                focused.editingFinished.emit()
+            elif isinstance(parent, QAbstractSpinBox):
+                parent.interpretText()
+        self._flush_pending_notes()
+        self._end_spin_gesture()
 
     def _on_history_changed(self) -> None:
         """Mark the next refresh as history-driven (#560).
@@ -900,14 +923,7 @@ class PlantDatabasePanel(QWidget):
             and getattr(pending, "_item", None) is cmd._item
             and self._last_spin_widget is self.sender()
         ):
-            pending._new_species = cmd._new_species
-            pending._new_radius = cmd._new_radius
-            pending._new_spacing_override = cmd._new_spacing_override
-            pending._apply(
-                pending._new_species,
-                pending._new_radius,
-                pending._new_spacing_override,
-            )
+            pending.merge_from(cmd)
             note_plan_changed(cmd._item.scene())
             return True
         mgr.execute(cmd)
@@ -934,8 +950,7 @@ class PlantDatabasePanel(QWidget):
             and getattr(pending, "_item", None) is cmd._item
             and self._last_spin_widget is self.sender()
         ):
-            pending._new_instance = cmd._new_instance
-            pending._apply(pending._new_instance)
+            pending.merge_from(cmd)
             note_plan_changed(cmd._item.scene())
             return True
         mgr.execute(cmd)
@@ -1146,7 +1161,7 @@ class PlantDatabasePanel(QWidget):
             pass
         try:
             instance = getattr(item, "metadata", {}).get("plant_instance", {}) or {}
-            if instance.get("current_spread_cm") is not None:
+            if instance.get("current_spread_cm") is not None or instance.get("current_diameter_cm") is not None:
                 return None, None
         except Exception:
             pass
@@ -1597,16 +1612,13 @@ class PlantDatabasePanel(QWidget):
                     for field in ("permaculture_layer", "functions"):
                         before.pop(field, None)
                         after.pop(field, None)
-                    if before == after and not history:
+                    if (before == after and not history and
+                            getattr(self, "_shown_instance", None) == getattr(items[0], "metadata", {}).get("plant_instance", {})):
                         self._current_plant_data = data
                         return
-        if (
-            len(items) == 1
-            and items[0] is self._current_plant_item
-            and self._holds_field_focus()
-            and not history
-        ):
-            return
+        restore_editor = self._capture_active_editor() if (
+            len(items) == 1 and items[0] is self._current_plant_item and not history
+        ) else None
         # History transitions (#560) refresh even a focused editor; an
         # uncommitted notes edit is dropped (see below), not committed.
         if history:
@@ -1653,6 +1665,7 @@ class PlantDatabasePanel(QWidget):
         # commands: guard the whole push (P1-4). Every push path blocks its
         # own signals today, but a guard that never guards is worse than none.
         self._in_commit = True
+        self._preserve_custom_editor = restore_editor is not None
         try:
             if isinstance(species_data, dict):
                 plant_data = PlantSpeciesData.from_dict(species_data)
@@ -1661,10 +1674,48 @@ class PlantDatabasePanel(QWidget):
                 self._show_plant_data(species_data, item)
             else:
                 self._show_no_metadata()
+            self._shown_instance = deepcopy(item.metadata.get("plant_instance", {}))
         except Exception:
             self._show_no_metadata()
         finally:
+            if restore_editor is not None:
+                restore_editor()
+            self._preserve_custom_editor = False
             self._in_commit = False
+
+    def _capture_active_editor(self) -> Callable[[], None] | None:
+        """Protect only the active input while unrelated model fields refresh."""
+        focused = QApplication.focusWidget()
+        if focused is None or not self.isAncestorOf(focused):
+            return None
+        if isinstance(focused, QLineEdit):
+            text, cursor = focused.text(), focused.cursorPosition()
+            start, selected = focused.selectionStart(), focused.selectedText()
+            parent = focused.parentWidget()
+            spin = parent if isinstance(parent, QDoubleSpinBox) else None
+            value = spin.value() if spin is not None else 0.0
+
+            def restore_line() -> None:
+                if spin is not None:
+                    with QSignalBlocker(spin):
+                        spin.setValue(value)
+                with QSignalBlocker(focused):
+                    focused.setText(text)
+                    focused.setCursorPosition(cursor)
+                    if start >= 0:
+                        focused.setSelection(start, len(selected))
+
+            return restore_line
+        if isinstance(focused, QPlainTextEdit):
+            text, text_cursor = focused.toPlainText(), focused.textCursor()
+
+            def restore_notes() -> None:
+                with QSignalBlocker(focused):
+                    focused.setPlainText(text)
+                    focused.setTextCursor(text_cursor)
+
+            return restore_notes
+        return None
 
     def _holds_field_focus(self) -> bool:
         """True when one of this panel's editable input widgets currently has focus."""
@@ -1958,16 +2009,15 @@ class PlantDatabasePanel(QWidget):
 
         # === CUSTOM FIELDS ===
 
-        # Clear existing custom field rows
-        while self.custom_fields_layout.count() > 1:  # Keep the Add button
-            item = self.custom_fields_layout.takeAt(0)
-            if item and item.widget():
-                item.widget().deleteLater()
-
-        # Load custom fields from instance data
-        custom_fields = instance_data.get("custom_fields", {})
-        if custom_fields:
-            for key, value in custom_fields.items():
+        # Keep an active custom-field editor alive during ordinary refreshes.
+        focused = QApplication.focusWidget()
+        preserve_custom = getattr(self, "_preserve_custom_editor", False) and focused is not None and self.custom_fields_widget.isAncestorOf(focused)
+        if not preserve_custom:
+            while self.custom_fields_layout.count() > 1:  # Keep the Add button
+                custom_row = self.custom_fields_layout.takeAt(0)
+                if custom_row and custom_row.widget():
+                    custom_row.widget().deleteLater()
+            for key, value in instance_data.get("custom_fields", {}).items():
                 self._add_custom_field_row(key, str(value) if value else "")
 
         # === SEED PACKET LINK (US-9.6) ===

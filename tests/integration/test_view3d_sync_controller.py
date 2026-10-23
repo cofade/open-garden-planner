@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime, time, timedelta
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -803,25 +804,50 @@ def _until_idle(rig: Rig) -> None:
 
 
 def test_a_date_held_down_regrows_at_once_and_once_more_on_its_last_day(
-        canvas: CanvasView, qtbot) -> None:
+        canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
     """DATE PLAYBACK (L1.9, #531): the first change of a date regrows at once; changes
     within ``DATE_REGROW_MIN_MS`` after it only move the light, and ONE trailing
-    regrowth shows the last day — never the day before it. Deterministic: the steps
-    of each burst arrive inside one turn of the event loop."""
+    regrowth shows the last day — never the day before it.
+
+    Deterministic (#542): the controller's monotonic clock stays fixed so every
+    follow-up step defers whatever the runner's load is. Fire the trailing
+    regrowth by hand instead of waiting out a wall-clock timer.
+    """
+    now = [10.0]
+    monkeypatch.setattr(sync_controller, "time", SimpleNamespace(
+        monotonic=lambda: now[0], perf_counter=sync_controller.time.perf_counter))
     rig = Rig(canvas, qtbot, location=dict(BERLIN))
     apple = _dated_apple(canvas)
     rig.controller.set_active(True)
     _until_idle(rig)
     rig.reports.clear()
     light, snapshots = rig.controller.light_count, rig.controller.snapshot_count
+    # Qt owns a different clock from monotonic. Keep its real timer alive but
+    # prevent delivery during a slow processEvents loop (the test timeout is
+    # 180 s); record the product's requested delay before postponing delivery.
+    requested_delays: list[int] = []
+    start_timer = rig.controller._date_timer.start
+
+    def book_trailing(interval_ms: int) -> None:
+        requested_delays.append(interval_ms)
+        start_timer(2_147_483_647)
+
+    monkeypatch.setattr(rig.controller._date_timer, "start", book_trailing)
 
     rig.clock.set_date(date(2027, 3, 1))                # the first step: a regrowth at once
     rig.qtbot.waitUntil(lambda: _regrowths(rig, str(apple.item_id)) == 1, timeout=5000)
+    qtbot.waitUntil(lambda: rig.controller.idle, timeout=5000)
     for day in range(2, 29):                              # the key repeats: 27 more steps
         rig.clock.set_date(date(2027, 3, day))
         QApplication.processEvents()                      # each step's light-only pass
     assert rig.controller.date_deferrals == 27
+    assert requested_delays == [sync_controller.DATE_REGROW_MIN_MS]
     assert rig.controller.light_count >= light + 1, "the light follows the steps"
+    assert rig.controller._date_timer.isActive(), "the trailing regrowth is booked"
+    # Consume the booked timer as Qt would, at the controlled interval boundary.
+    rig.controller._date_timer.stop()
+    now[0] += sync_controller.DATE_REGROW_MIN_MS / 1000.0
+    rig.controller._regrow_if_the_date_moved()
     _until_idle(rig)
     assert _regrowths(rig, str(apple.item_id)) == 2, "the first day and the last one"
     assert rig.controller.snapshot_count == snapshots + 2
@@ -847,6 +873,55 @@ def test_a_trailing_regrowth_that_finds_its_day_already_shown_takes_no_snapshot(
     assert rig.controller.snapshot_count == snapshots + 1
     assert _regrowths(rig, str(apple.item_id)) == 1
     assert rig.controller._pass_date == date(2027, 2, 28)
+
+
+@pytest.mark.parametrize("clock_origin", [10.0, 1000.0, 100_000.0])
+def test_a_noop_trailing_check_stamps_nothing_so_the_next_pick_applies_at_once(
+        canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch, clock_origin: float) -> None:
+    """#542: the trailing check stamped ``_regrown_at`` even when it found nothing
+    to regrow — so a single deliberate date pick made within the interval after
+    it was deferred instead of applied at once. Only an actual regrowth may
+    stamp the time."""
+    now = [clock_origin]
+    # Replace only the controller's module binding: pytest-qt's real-time waits
+    # and the pipeline's performance measurements must retain their real clocks.
+    monkeypatch.setattr(sync_controller, "time", SimpleNamespace(
+        monotonic=lambda: now[0], perf_counter=sync_controller.time.perf_counter))
+    rig = Rig(canvas, qtbot)
+    apple = _dated_apple(canvas)
+    rig.controller.set_active(True)
+    _until_idle(rig)
+    rig.controller._regrown_at = clock_origin - 1.0
+    previous_stamp = rig.controller._regrown_at
+    snapshots = rig.controller.snapshot_count
+    rig.reports.clear()
+
+    rig.controller._regrow_if_the_date_moved()
+    assert rig.controller._regrown_at == previous_stamp, "a no-op check stamps nothing"
+    assert rig.controller._records_dirty is False
+
+    # The public date signal must admit the next deliberate pick immediately.
+    rig.clock.set_date(date(2027, 6, 15))
+    assert rig.controller._regrown_at == now[0]
+    assert rig.controller.date_deferrals == 0
+    assert not rig.controller._date_timer.isActive()
+    assert rig.controller._records_dirty is True
+    _until_idle(rig)
+    assert rig.controller.snapshot_count == snapshots + 1
+    assert _regrowths(rig, str(apple.item_id)) == 1
+    assert rig.controller._pass_date == date(2027, 6, 15)
+
+    # A genuine trailing regrowth still stamps and applies the final day.
+    rig.clock.set_date(date(2027, 6, 16))
+    assert rig.controller._date_timer.isActive()
+    rig.controller._date_timer.stop()
+    now[0] += sync_controller.DATE_REGROW_MIN_MS / 1000.0
+    rig.controller._regrow_if_the_date_moved()
+    assert rig.controller._regrown_at == now[0], "a real trailing regrowth stamps"
+    _until_idle(rig)
+    assert rig.controller.snapshot_count == snapshots + 2
+    assert _regrowths(rig, str(apple.item_id)) == 2
+    assert rig.controller._pass_date == date(2027, 6, 16)
 
 
 def test_a_date_that_changes_while_3d_is_hidden_is_one_catch_up_and_no_timer(

@@ -6009,7 +6009,8 @@ record ──plant_sprite()──▶ SpriteRef ──recipe_for()──▶ recip
 | Record | Built |
 |---|---|
 | a plant kind, a canopy radius, a height | the silhouette of its recipe's archetype |
-| a plant kind, a canopy radius, `height_cm is None` | the placeholder (below) |
+| a plant kind, a canopy radius, `height_cm is None`, usable `params["estimated_height_cm"]` | the same recipe silhouette at its illustrative category height (#557) |
+| a plant kind, a canopy radius, `height_cm is None`, no usable fallback | the placeholder (below) |
 | anything else — not a plant kind, or a plant record without a usable radius | `default_builder` (the prism, or nothing) |
 
 **3D builds what 2D draws.** `plant_sprite` hands the shared rule exactly what the 2D renderer
@@ -6331,38 +6332,34 @@ flat ground cover are the two shapes that repeat by nature; the hedge is cut by 
 ways for that reason. The gate (twelve ids a recipe): no pair above 0.985, 95 % of an
 archetype's pairs below 0.97, at most 3 % above 0.97.
 
-**The placeholder.** A plant the plan gives no height is not guessed. `placeholder_parts(radius)`
-is one part named `placeholder`: a smooth spherical cap over the canopy circle (48 sides),
-`min(0.12 × diameter, 25 cm)` high, in one neutral tone (the 2D white × 0.5 in linear light,
-sRGB 170 / 167 / 158), material `vc`, `casts_shadow=False` — the 2D shadow model gives such a
-plant no shadow either. It reads nothing but the radius: two ids, any species or category, give
-the same dome. It cannot be taken for a plant: no leaves, no trunk, a third of the saturation of
-the palest real foliage, never taller than 25 cm.
+**Unknown height and the placeholder (#557).** `core/plant_height_estimate.py` is the
+canonical illustrative table: tree categories 400 cm, shrub/climber categories 150 cm,
+flowers/perennials/ornamental grasses/ground cover 60 cm, vegetables/herbs 50 cm. A known
+category wins over the item kind; otherwise TREE/SHRUB/PERENNIAL use 400/150/60 cm. The snapshot
+adds estimates only for those plant kinds. Existing explicit, measured/current, growth-projected and species
+heights retain their precedence in `effective_height_cm` and suppress the fallback.
 
-What the marker SAYS is exactly "no source of the plan gives this plant a height" (`height_cm is
-None`: no typed height, no measurement, no species size) — and nothing else. A typed height that
-is infinite or beyond `MAX_LENGTH_CM` (10 km; a hand-edited plan) gives the plant no record at
-all: it is left out and reported as `out_of_range` (§8.29.1), not shown as a marker — until the
-scene contract's second fix round an infinite height silently became `height_cm=None`, a marker
-saying "no height" about a plant that had one. A typed height that is no positive number (0, a
-negative, NaN, text) is no typed height, for 3D as for the 2D shadow, and the next source
-decides. Pinned by
-`tests/integration/test_scene3d_plants.py::test_the_placeholder_means_the_plan_gives_no_height_and_nothing_else`.
-The builder holds at the edge of what a record can carry: all thirteen archetypes build an exact,
-valid plant at 1e6 × 0.01 cm and at 0.0001 × 1e6 cm (proportion steps +378 and −472; a scratch
-probe, not a test).
+The snapshot retains `height_cm=None` and adds `params["estimated_height_cm"]` transiently.
+The existing sprite recipe, palette and builder supply the plant form at that estimate; the
+info card marks its height as estimated. This changes decorative 3D geometry and its shadows
+only: analytical 2D shadows and Hours of Sun still see an unknown height and exclude that
+caster. Merely viewing 3D writes no species/instance height, saved value or undo command.
+Category/gallery/tool plants and sparse online species therefore show their plant form;
+a known species such as bundled Oak retains its recorded 4,000 cm height.
 
-Who gets it — more plants than one would guess, and the owner should know before the first
-board:
+`placeholder_parts(radius)` remains the defensive fallback for a height-less record without a
+usable category estimate: one part named `placeholder`, a smooth spherical cap over the canopy
+circle (48 sides), `min(0.12 × diameter, 25 cm)` high, in the neutral 2D white × 0.5 linear
+(sRGB 170 / 167 / 158), material `vc`, `casts_shadow=False`. It reads only the radius.
+A height outside the record contract remains an `out_of_range` snapshot refusal, not an
+estimate or marker. The former universal no-guessed-height marker policy is superseded by
+issue #557; estimates remain explicitly non-authoritative.
 
-- every **category** plant from the gallery (all 14: "Round Deciduous", "Palm", "Vegetable" …)
-  and every plant drawn with a plant tool: no species data, so no height, until someone types
-  one, measures the plant or assigns a species;
-- a plant whose species string names one of the **twelve sprites that have no bundled species
-  record** — squash, turnip, arugula, chard, okra, tarragon, lemongrass, marjoram, bay laurel,
-  stevia, sorrel, lovage. It has its own sprite on the plan and a grey disc in 3D. (The gallery
-  offers none of the twelve — all 86 gallery species have a record and a height — so such a
-  plant comes from a plant list, an older plan, an agent or a typed species.)
+Regression coverage: `tests/integration/test_plant_package_558_559_560_552_557.py` and
+`tests/integration/test_scene3d_plants.py`; the independent 3D evidence uses real assignment,
+the production registry and engine, representative categories in two moods, and a matching
+base-commit board. Exact mesh dimensions are judged against the resolved known height or
+separate estimate and the existing canopy, never against altered garden data.
 
 **Adding an archetype** (a new `a=` in the tables): write `_name(p: _Plan) -> (wood | None,
 foliage)` from the primitives (`_lobes`, `_leaves`, `_ribbons`, `_fronds`, `_revolve`); place its
@@ -6531,6 +6528,11 @@ date field (about 30 steps a second) regrew all of them on every step. `Scene3DC
 `DATE_REGROW_MIN_MS` (500) has passed since the last regrowth for a date, and otherwise books ONE
 trailing regrowth for the end of the interval, which runs only if the clock's date is not the
 one the last records pass read. The light follows every step (a light-only pass, no snapshot).
+The trailing check stamps the throttle only when it marks records dirty (#542).
+A no-op retains the prior timestamp. Controller integration tests use an explicit
+module-scoped clock at three origins, consume a manually fired timer before its
+slot, and assert admission through the real date signal plus the resulting snapshot
+(PF-TST-25); pytest-qt waits and pipeline performance measurements keep real time.
 Hidden, a date is a flag (no timer). Measured below: 1.5 to 1.6 regrowth passes a second while
 the date steps.
 
@@ -6792,6 +6794,17 @@ the real command-stack refresh by
 
 ### 8.31.1 Permanent controls and live-map/export lifecycle
 
+The date/time editors use native QDateEdit/QTimeEdit subclasses so their styling,
+typing and calendar popup remain native. Both delegate stepBy/stepEnabled to one
+SunSimToolbar wall-reading path (FR-TIMELINE-06, PR #565): day/month/year arithmetic
+carries across calendar boundaries; minute/hour arithmetic uses bounded civil
+minutes, never timezone-aware elapsed seconds. The whole target date/time is
+mirrored with widget signals blocked before emitting one datetime_changed value.
+There is no transient midnight on the old date. Month/year steps preserve the
+preferred day; direct calendar choices/typing and day steps establish a new one.
+Daily animation and the time-of-day slider retain their selected-day behavior.
+See PF-UI-26 and ADR-062's chronological-stepping addendum.
+
 SunSimToolbar is the sole toolbar instance for date/time. Atomic groups wrap rather
 than disappear into overflow; date width is derived from font metrics. Slider
 lengths compact only when the flow's measured groups need it to fit two rows;
@@ -6844,3 +6857,31 @@ API export operations own their pause lease across queued calls. A lock coordina
 abandonment with begin and render admission; late calls refuse and queued cleanup
 releases an acquired lease exactly once. Already-started rendering returns its actual
 outcome. GUI cancellation wins even if readiness completed in the same event turn.
+
+## 8.32 Panel edit boundaries and position locks (#552, #558–#560)
+
+Plant Details species and instance edits use independent deep snapshots in
+`PlantSpeciesEditCommand` / `PlantInstanceEditCommand`. Numeric valueChanged ticks
+retain live feedback and merge through the command's merge_from method; the same
+widget's editingFinished ends that gesture. Re-entering it starts a new undo step.
+Shared custom-library writes are intentionally separate from document undo.
+
+CommandManager emits before_history_navigation before selecting an undo/redo entry,
+including an initially empty stack. Panels flush staged text there. The completed
+history_navigated signal forces an in-place model refresh; that refresh never writes
+a command. ProjectManager.before_save and application document dirty guards flush
+the same editors, so a Save or Close within the notes debounce captures the input.
+Ordinary same-selection updates protect the active editor's text/caret while other
+fields refresh. Structural changes retain the existing focus/teardown safeguards.
+
+PositionLockMixin is shared by GardenItemMixin and CurveEditMixin. Object menus use
+the same Add/RemoveConstraintCommand actions and existing FIXED state. Scene
+dimension refresh derives all badges; loading derives them after restoring the graph.
+No panel selection is required. LockBadgeItem is hidden by visual exports.
+
+The real-widget regressions in test_plant_package_558_559_560_552_557.py exercise
+save-before-debounce, pending Name undo/redo, separate spin gestures, focused
+unrelated-field refresh, all menu families, and unselected/tool-created locks.
+test_plant_dimensions_records.py covers assignment, exact/estimated records,
+rotated width edits, overrides, growth and repeated save/load.
+

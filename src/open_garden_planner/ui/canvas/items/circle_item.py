@@ -175,6 +175,7 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         y = center_y - radius
         diameter = radius * 2
         QGraphicsEllipseItem.__init__(self, x, y, diameter, diameter)
+        self.setTransformOriginPoint(self.rect().center())
 
         self._center = QPointF(center_x, center_y)
         self._radius = radius

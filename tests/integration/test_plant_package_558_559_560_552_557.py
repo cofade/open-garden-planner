@@ -261,10 +261,10 @@ def test_plant_panel_gets_history_signal_from_real_undo(
     assert plant_panel._history_pending is False
 
 
-def test_undo_drops_pending_notes_without_pushing_a_command(
+def test_undo_commits_pending_notes_before_navigating(
     canvas: CanvasView, plant_panel: PlantDatabasePanel
 ) -> None:
-    """Undo must never push a new command: that would wipe the redo stack."""
+    """The active edit commits before undo; a refresh never erases redo."""
     item = _tree(canvas)
     manager = canvas.command_manager
     plant_panel.set_selected_items([item])
@@ -343,7 +343,6 @@ def test_max_spread_edit_resizes_footprint_centered(
     manager = canvas.command_manager
     plant_panel.set_selected_items([item])
     center_before = item.mapToScene(item.rect().center())
-    origin_before = item.transformOriginPoint()
 
     plant_panel.max_spread_spin.setValue(200.0)
     plant_panel._on_field_changed()
@@ -354,7 +353,6 @@ def test_max_spread_edit_resizes_footprint_centered(
     assert center_after.x() == pytest.approx(center_before.x())
     assert center_after.y() == pytest.approx(center_before.y())
     assert item.transformOriginPoint() == item.rect().center()
-    assert origin_before == item.rect().center() or True
 
     manager.undo()
     assert item.radius == pytest.approx(80.0)
@@ -445,3 +443,159 @@ def test_unknown_height_builds_plant_form_not_placeholder() -> None:
 
     rec_none = Record(**{**base, "params": Params({"radius_cm": 80.0, "seed": "s", "sprite_species": "Oak", "plant_category": "ROUND_DECIDUOUS"})})  # type: ignore[arg-type]
     assert plant_archetype(rec_none) == PLACEHOLDER
+
+
+@pytest.mark.parametrize("field", ["max_spread_spin", "current_height_spin"])
+def test_separate_numeric_gestures_have_separate_undo_steps(canvas, plant_panel, field):
+    item = _tree(canvas)
+    plant_panel.set_selected_items([item])
+    spin = getattr(plant_panel, field)
+    spin.setValue(200)
+    spin.editingFinished.emit()
+    spin.setValue(300)
+    spin.editingFinished.emit()
+    assert canvas.command_manager.undo_depth == 2
+    canvas.command_manager.undo()
+    plant_panel.set_selected_items([item])
+    assert spin.value() == 200
+
+
+def test_pending_properties_name_is_the_next_undoable_edit(canvas, props):
+    from PyQt6.QtWidgets import QLineEdit
+
+    rect = RectangleItem(100, 100, 400, 300)
+    rect.name = "before"
+    canvas.scene().addItem(rect)
+    _lock(rect)
+    props.set_selected_items([rect])
+    edit = next(e for e in props.findChildren(QLineEdit) if hasattr(e, "_ogp_name_start"))
+    edit.setText("pending")
+    canvas.command_manager.undo()
+    props.set_selected_items([rect])
+    assert rect.name == "before"
+    assert rect.is_position_locked()
+    assert canvas.command_manager.redo_depth == 1
+    canvas.command_manager.redo()
+    props.set_selected_items([rect])
+    assert rect.name == edit.text() == "pending"
+
+
+def test_unselected_padlock_follows_constraint_history(canvas, props):
+    rect = RectangleItem(100, 100, 400, 300)
+    canvas.scene().addItem(rect)
+    _lock(rect)
+    props.set_selected_items([])
+    canvas.command_manager.undo()
+    assert not rect.is_position_locked()
+    assert getattr(rect, "_lock_badge_item", None) is None
+    canvas.command_manager.redo()
+    assert rect.is_position_locked()
+    assert rect._lock_badge_item.isVisible()
+
+
+@pytest.mark.parametrize("action", ["save", "discard_check"])
+def test_immediate_save_and_close_guard_include_pending_notes(qtbot, monkeypatch, tmp_path, action):
+    from PyQt6.QtWidgets import QMessageBox
+
+    from tests.integration.test_view3d_workspace import build_app3d
+
+    window, _ = build_app3d(qtbot, monkeypatch, tmp_path)
+    item = _tree(window.canvas_view)
+    window.plant_database_panel.set_selected_items([item])
+    window._project_manager.mark_clean()
+    window.plant_database_panel.notes_edit.setPlainText("save me immediately")
+    if action == "save":
+        path = tmp_path / "pending.ogp"
+        window._project_manager.save(window.canvas_scene, path)
+        import json
+
+        assert "save me immediately" in json.dumps(json.loads(path.read_text(encoding="utf-8")))
+    else:
+        prompts = []
+        monkeypatch.setattr(QMessageBox, "question", lambda *a: prompts.append(a) or QMessageBox.StandardButton.Cancel)
+        assert window._confirm_discard_changes() is False
+        assert len(prompts) == 1
+
+
+def test_properties_refreshes_other_fields_while_name_has_focus(qtbot, canvas, props):
+    from PyQt6.QtWidgets import QLineEdit
+
+    rect = RectangleItem(100, 100, 400, 300)
+    canvas.scene().addItem(rect)
+    props.set_selected_items([rect])
+    props.show()
+    props.activateWindow()
+    edit = next(e for e in props.findChildren(QLineEdit) if hasattr(e, "_ogp_name_start"))
+    edit.setFocus()
+    qtbot.waitUntil(edit.hasFocus)
+    edit.setText("still typing")
+    probes = []
+    other = QDoubleSpinBox(props)
+    props._register_refresh(other, lambda: probes.append(True))
+    props.set_selected_items([rect])
+    assert probes
+    assert edit.text() == "still typing"
+
+
+def test_plant_refreshes_other_fields_while_family_has_focus(qtbot, canvas, plant_panel):
+    item = _tree(canvas)
+    plant_panel.set_selected_items([item])
+    plant_panel.show()
+    plant_panel.activateWindow()
+    edit = plant_panel.family_edit
+    edit.setFocus()
+    qtbot.waitUntil(edit.hasFocus)
+    edit.setText("still typing")
+    item.metadata["plant_species"]["max_height_cm"] = 900
+    plant_panel.set_selected_items([item])
+    assert plant_panel.max_height_spin.value() == 900
+    assert edit.text() == "still typing"
+
+
+@pytest.mark.parametrize("kind", ["line", "arc", "bezier", "text"])
+def test_every_object_menu_exposes_undoable_position_lock(canvas, monkeypatch, kind):
+    from types import SimpleNamespace
+
+    from PyQt6.QtCore import QPoint, QPointF
+    from PyQt6.QtWidgets import QMenu
+
+    from open_garden_planner.ui.canvas.items.arc_item import ArcItem
+    from open_garden_planner.ui.canvas.items.bezier_item import BezierItem
+    from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
+    from open_garden_planner.ui.canvas.items.text_item import TextItem
+
+    points = [QPointF(100, 100), QPointF(200, 200)]
+    item = {
+        "line": lambda: PolylineItem(points),
+        "arc": lambda: ArcItem(QPointF(200, 200), 100, 0, 90),
+        "bezier": lambda: BezierItem(points, points, points),
+        "text": lambda: TextItem(100, 100, "hello"),
+    }[kind]()
+    canvas.scene().addItem(item)
+    def choose_lock(menu, _pos):
+        return next(action for action in menu.actions() if action.text() == "Lock position")
+
+    monkeypatch.setattr(QMenu, "exec", choose_lock)
+    item.contextMenuEvent(SimpleNamespace(screenPos=lambda: QPoint()))
+    assert item.is_position_locked()
+    assert item._lock_badge_item.isVisible()
+    canvas.command_manager.undo()
+    assert not item.is_position_locked()
+    assert item._lock_badge_item is None
+    canvas.command_manager.redo()
+    assert item.is_position_locked()
+
+
+def test_constraint_tool_path_derives_badge_without_selection(canvas):
+    from open_garden_planner.core.commands import AddConstraintCommand
+    from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+    from open_garden_planner.core.measure_snapper import AnchorType
+
+    rect = RectangleItem(100, 100, 400, 300)
+    canvas.scene().addItem(rect)
+    anchor = AnchorRef(rect.item_id, AnchorType.CENTER, 0)
+    cmd = AddConstraintCommand(canvas.scene().constraint_graph, anchor, anchor, 0,
+                               ConstraintType.FIXED, target_x=100, target_y=100)
+    canvas._execute_constraint_with_solve(cmd)
+    assert not rect.isSelected()
+    assert rect._lock_badge_item.isVisible()

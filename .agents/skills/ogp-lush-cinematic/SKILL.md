@@ -21,7 +21,7 @@ OGP is a planning tool. A beautiful render that misstates the plan is a **P0**, 
 
 | Gate | Rule | How it is measured |
 |---|---|---|
-| Height | mesh top = resolved height (`effective_height_cm(at_date)`) ±3 % | bounding box; `fit_to` enforces it for every plant archetype |
+| Height | known height: mesh top = resolved height (`effective_height_cm(at_date)`) ±3 %; unknown plant height: top = the separately labelled illustrative category estimate (#557), never a recorded dimension | bounding box; `fit_to` enforces it for every plant archetype; estimate table = `core/plant_height_estimate.py`, analytical height stays unknown |
 | Spread | widest crown span = 2D canopy diameter ±10 % | bounding box vs `plant_canopy_radius_cm` (`ui/canvas/footprints.py`; a record's `params["radius_cm"]`) |
 | Base | a plant that is linked to AND stands inside a raised bed / container stands on its soil, not inside the box | base = `ui/canvas/footprints.item_base_cm`: a bed's effective height − 2 cm (the assumed soil drop: the plan holds no fill for a bed); a container's effective height itself (it IS its soil fill height — no lip is invented); 0 when the plant is not linked, or its centre is outside the parent's shape — its stable geometric centre (`footprints.standing_point`), never the centre of its paint-dependent `boundingRect()`: a warning badge must not move a plant off its soil. Known limits, pinned by tests: a bed drawn around an existing plant links nothing (the plant is drawn inside the box), a climber on a trellis in a raised bed stays at 0, a pot on a raised bed stands on the ground (ADR-037 addendum "base stacking") |
 | Sun | light direction comes only from `core/solar` (never a "nice-looking" angle) | light = −sun vector (ADR-037 pin) |
@@ -64,13 +64,19 @@ flower 316). Judge them as v0:
   regression. Crowns are never bare.
 - One bark for every species (the 2D BARK texture's mean, `#5d432d`), no species crown forms, no
   support under a climber. Species-accurate plants are Package L3.
-- **The placeholder**: a plant without a height — every category plant from the gallery and
-  every tool-drawn plant until someone types or measures one, and any plant whose species string
-  names one of the twelve sprites without a bundled species record (squash, turnip, arugula,
-  chard, okra, tarragon, lemongrass, marjoram, bay laurel, stevia, sorrel, lovage) — is a low,
-  smooth, neutral grey dome over its canopy circle
-  (the 2D white × 0.5 linear, sRGB 170 / 167 / 158), at most 25 cm high, casting no shadow. It is a truth statement ("the plan does not know"), not
-  an unfinished asset — review whether it reads as a marker, never ask for a guessed tree.
+- **Unknown height (#557):** the production snapshot keeps `height_cm=None` and carries
+  `params["estimated_height_cm"]` separately. `core/plant_height_estimate.py` owns the
+  illustrative category table: trees **400 cm**, shrubs/climbers **150 cm**,
+  flowers/perennials/grasses/ground cover **60 cm**, vegetables/herbs **50 cm**.
+  Category takes precedence over the item kind. The existing sprite recipe supplies the
+  matching form and palette at that estimated height; known species, measured/current and
+  explicit heights retain their existing precedence and suppress the estimate. The info card
+  labels estimates. They drive decorative 3D geometry **and its shadows**, while analytical
+  2D shadows and Hours of Sun continue to see an unknown height and exclude that caster.
+  Viewing 3D must preserve species/instance metadata, saved objects and undo depth.
+  `placeholder_parts` remains a low neutral dome, at most 25 cm, without a shadow, only for a
+  height-less record with no usable fallback. The former rule requiring a grey marker for
+  every unknown-height gallery/tool plant is superseded by issue #557.
 - What the builder GUARANTEES (by construction — the last steps of its fit; tested on hostile
   input to the fit itself): top = height and widest span = canopy diameter exactly, base on the
   ground, and no FOLIAGE vertex further than 1.09 canopy radii from the axis (`REACH_MAX`; the
@@ -100,9 +106,10 @@ flower 316). Judge them as v0:
   silhouette in the unit box is 0.99–1.00 the one before (another id: 0.71–0.92); the visible
   steps on a slow scrub are single leaves turning to stay inside the canopy circle (0.94) and a
   conifer gaining a whorl (0.87: the stack is re-divided). Judge those two on a board.
-- Not yet seen through the production engine. The author looked through a numpy rasteriser and
-  the dormant spike's renderer only (scratch) — enough to find a floating cushion and bald crown
-  tops, not enough to judge the look. The Beauty Board decides.
+- The #557 proof exercises representative tree, shrub, perennial and vegetable estimates through
+  real species assignment → snapshot → production registry → Qt Quick 3D in noon and golden
+  hour, with a matching base-commit board. Its review evidence is scoped to dimension fallback
+  and spread propagation; it does not replace the full archetype Beauty Board.
 
 ## 3. Light rigs per mood (*spike* values, `look_for` / `sun_light` / `sun_state` of the spike's `runner.py`, frozen in `tests/data/l0_spike_reference.json`)
 

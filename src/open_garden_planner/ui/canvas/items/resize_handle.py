@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
     QMenu,
 )
 
-from .garden_item import note_plan_changed
+from .garden_item import PositionLockMixin, note_plan_changed
 
 if TYPE_CHECKING:
     from PyQt6.QtWidgets import QGraphicsItem as ParentItem
@@ -3300,7 +3300,7 @@ class CurveControlHandle(QGraphicsRectItem):
             super().mouseReleaseEvent(event)
 
 
-class CurveEditMixin:
+class CurveEditMixin(PositionLockMixin):
     """Selection-driven control-handle editing for Bezier / Arc items.
 
     Unlike the polygon/polyline ``*VertexEditMixin`` (double-click, insert/delete

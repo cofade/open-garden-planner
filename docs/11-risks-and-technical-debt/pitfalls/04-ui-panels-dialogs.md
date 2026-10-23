@@ -330,43 +330,6 @@ item with nothing behind it still clears the selection. The 3D selection bridge
 already did this, and the one measured difference between the two views is
 gone.
 
-### PF-UI-26
-
-- **Rule:** A bundled overlay that prioritises the database over the plan silently discards form edits; spin gestures coalesce into the pending command and history refreshes outrank focus guards.
-- **Pinned by:** `tests/integration/test_plant_package_558_559_560_552_557.py::test_species_field_edit_is_one_undo_step`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_spin_drag_coalesces_into_one_undo_step`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_undo_refreshes_focused_widget_but_ordinary_notification_does_not`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_properties_panel_is_wired_to_history_by_its_constructor`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_undo_drops_pending_notes_without_pushing_a_command`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_different_spinboxes_never_coalesce_into_one_undo_step`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_locked_item_badge_is_derived_on_load_and_hidden_in_export`
-- **Source:** #559, #560
-- **Status:** standing
-- **Legacy:** none (new entry)
-
-Three Plant Details findings from one audit. First, `merge_calendar_data`
-prioritises the bundled DB over the plan dict for every calendar field -
-including `family` and `nutrient_demand`, which are also form fields. A user
-edit to either was merged back to the bundled value and the undo no-op guard
-then correctly reported no change: the edit was silently lost. On the edit
-path the committed widget values now win for those two fields; the overlay
-still fills the rest. Second, routing `valueChanged` straight into a command
-is one undo entry per spin tick, while deferring to `editingFinished` kills
-the live shadow reaction a P0 regression pins (`test_plant_growth_wiring`):
-consecutive ticks of one spin drag merge into the pending command instead, so
-the canvas reacts live and the gesture stays one undo step. Third, the #206
-focus guard that protects mid-typing edits also suppressed history-driven
-refreshes, so undo/redo left a focused form stale: the panel now consumes a
-`history_navigated`-set flag (emitted by undo/redo only, never by an own
-commit) that outranks the guard for exactly one refresh.
-
-The senior review of PR #566 found four traps in that same work. (1) A signal
-wired only inside `set_command_manager()` is dead when the application passes the
-manager to the constructor and never calls the setter - `PropertiesPanel`'s
-history refresh did nothing in production while tests that set the private flag
-by hand stayed green; wire at construction and drive tests through a real
-`undo()`. (2) A history refresh must never commit: flushing a debounced notes
-edit inside it pushes a new command right after an undo and wipes the redo stack,
-so a pending uncommitted edit is dropped instead. (3) Spin-drag coalescing must be
-keyed to the originating widget, or two different spinboxes edited with a pause
-fuse into one undo step. (4) A derived badge (the FIXED padlock) must be derived
-on load and be a dedicated type that export hides, or a saved lock shows only
-after selection and the glyph is baked into PNG/SVG/PDF output.
-
 PR #556's review caught the distinction between a passive overlay and a drag
 handle: both lack `ItemIsSelectable`, but a handle must receive its press.
 Looking through a resize or rotation handle selected a background object and
@@ -375,3 +338,45 @@ looking for a selection target. `DRAG_HANDLE_TYPES` in `resize_handle.py` is
 shared with the view's dropped-grab recovery, keeping all six handle types on
 the same event path. Real viewport drags cover resize and rotation at three
 angles, including two non-axis-aligned rotations, with one undo step.
+
+### PF-UI-27
+
+- **Rule:** A bundled overlay that prioritises the database over the plan silently discards form edits; spin gestures coalesce into the pending command and history refreshes outrank focus guards.
+- **Pinned by:** `tests/integration/test_plant_package_558_559_560_552_557.py::test_species_field_edit_is_one_undo_step`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_spin_drag_coalesces_into_one_undo_step`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_undo_refreshes_focused_widget_but_ordinary_notification_does_not`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_properties_panel_is_wired_to_history_by_its_constructor`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_undo_commits_pending_notes_before_navigating`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_different_spinboxes_never_coalesce_into_one_undo_step`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_locked_item_badge_is_derived_on_load_and_hidden_in_export`
+- **Source:** #559, #560
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The bundled calendar overlay outranks plan fields, so form edits to family and
+nutrient demand must explicitly win on the edit path. Numeric valueChanged ticks
+retain live shadow feedback and merge through the command; editingFinished ends
+the gesture. Widget identity alone merges separate visits to the same control.
+
+Connect history signals at construction as well as manager replacement. Flush
+active edits through before_history_navigation before choosing the stack entry;
+never commit in a post-undo refresh, which erases redo. Retain commit callbacks
+until form teardown, and flush before save or document dirty guards: a notes
+debounce alone loses an immediate Save/Close. Ordinary refresh protects only the
+active editor while updating unrelated fields.
+
+FIXED badges derive from scene constraint refresh and load, independently of
+selection. PositionLockMixin shares the action across shape/path/curve/text menus;
+LockBadgeItem is a dedicated export-hidden type. The real-widget regressions in
+the package integration file cover these boundaries; the detailed tagged trace
+and debugging history live in the paired debug-verbose skill case study.
+
+### PF-UI-26
+
+- **Rule:** Chronological field stepping must enable cross-field steps and emit one full naive wall reading across a carry.
+- **Pinned by:** `tests/integration/test_plan_sun_stepping.py::test_arrow_steps_carry_and_borrow_the_complete_wall_reading`; `tests/integration/test_plan_sun_stepping.py::test_time_spin_button_carries_the_date_and_emits_one_clock_change`; `tests/integration/test_timeline_quick3d.py::test_minute_rollover_updates_presence_sun_and_3d_once`
+- **Source:** PR #565, ADR-062
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Qt disables stepping at the selected section's boundary. Wrapping loops within
+that section: October 31 becomes October 1, not November 1. Override both
+stepBy and stepEnabled and route the native date/time editors through one toolbar
+path. Mirror the whole result with signals blocked before publishing it to
+SimClock, so midnight cannot briefly appear on the old date. Group layouts
+reparent the editors; find their toolbar ancestor rather than assuming their
+immediate parent is the toolbar. Do not retain a Python parent/child cycle.

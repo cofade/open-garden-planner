@@ -1,5 +1,33 @@
 # 6. Runtime View
 
+## Committed panel edits, persistence and history (PR #566)
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant P as Properties / Plant Details
+    participant H as CommandManager
+    participant S as ProjectManager
+    U->>P: Edit numeric or text field
+    P->>H: Execute snapshot command / coalesce numeric tick
+    U->>H: Undo or Redo
+    H->>P: before_history_navigation
+    P->>H: Commit active text and end numeric gesture
+    H->>H: Select and apply current history entry
+    H->>P: history_navigated
+    P->>P: Refresh model values without committing
+    U->>S: Save
+    S->>P: before_save
+    P->>H: Flush active editors
+    S->>S: Serialize committed plan and atomically persist
+```
+
+The GUI discard guard and Agent API new/open dirty guards flush the same editors
+before checking dirty state. A typing pause or selection change also commits notes;
+opening 3D never commits estimated dimensions. `CanvasScene.update_dimension_lines`
+derives position-lock badges from FIXED constraints independently of panel selection.
+Pins: the two package integration files named in section 8.32.
+
 ## Fixed toolbar startup (PR #556 manual acceptance, ADR-062)
 
 ```mermaid
@@ -607,6 +635,31 @@ and constructs the main window. An ownership/permission failure exits with a vis
 error before the preference and window steps.
 
 ## Viewing a plan at another date (US-F4)
+
+Stepping a Plan & Sun calendar/time section first commits any pending editor text,
+then computes a complete naive wall reading through SunSimToolbar's shared path
+(PR #565). Day/month/year and hour/minute steps carry or borrow across larger units;
+month/year steps retain the preferred day through short months. The toolbar mirrors
+both editors and its slider with signals blocked, then emits datetime_changed once.
+SimClock therefore receives the new date and time together. A minute crossing
+midnight delivers one date_changed and one instant_changed; existing presence,
+sunlight and 3D subscriptions consume the same state. Viewing does not alter plan
+revision or history. Only the clock's absolute range stops navigation.
+
+Global View -> 3D View selects the Garden Plan tab before showing Split from
+Plan mode (#539). Workspace actions also return to Garden Plan and select their
+requested mode: Alt+1 Plan, Alt+2 3D, Alt+3 Split. Existing 3D/Split views keep
+their mode and camera. Walk's action owns its theme-aware icon (#537); Reset
+and the shortcuts dialog obtain the Home key label from Qt's active translator
+(#541).
+
+The 3D controller receives the same date_changed signal as the 2D timeline.
+If the date-regrowth interval has elapsed, it marks records dirty immediately;
+otherwise it books one trailing timer. The trailing slot compares the current
+date with the last snapshot date and stamps the throttle only when another
+snapshot is owed (#542). A no-op preserves the earlier timestamp, so it cannot
+defer a subsequent deliberate date pick. Instant changes still relight on every
+step. See section 8.29.9 and ADR-060's L1 follow-up addendum.
 
 ```mermaid
 sequenceDiagram

@@ -1,6 +1,7 @@
 """Keyboard shortcuts reference dialog."""
 
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QKeySequence
 from PyQt6.QtWidgets import (
     QDialog,
     QGroupBox,
@@ -119,7 +120,12 @@ class ShortcutsDialog(QDialog):
             (self._localize_shortcut("Alt+") + self.tr("Arrow Keys"),
              self.tr("Orbit the 3D view")),
             (self.tr("Page Up / Page Down"), self.tr("Zoom")),
-            ("Home", self.tr("Reset 3D View")),
+            (
+                QKeySequence(Qt.Key.Key_Home).toString(
+                    QKeySequence.SequenceFormat.NativeText
+                ),
+                self.tr("Reset 3D View"),
+            ),
             (self.tr("Click"), self.tr("Select the object under the pointer")),
         ])
         container_layout.addWidget(view3d_group)

@@ -44,7 +44,7 @@ TRANSLATIONS = {
         "Show the garden in 3D": "Mostrar el jardín en 3D",
         "Show the plan and the 3D view side by side": "Mostrar el plano y la vista 3D lado a lado",
         "Show the plan only": "Mostrar solo el plano",
-        "Show the whole garden again (Home)": "Volver a mostrar todo el jardín (Inicio)",
+        "Show the whole garden again ({key})": "Volver a mostrar todo el jardín ({key})",
         "Show the whole garden in the 3D view again": "Volver a mostrar todo el jardín en la vista 3D",
         "Show List": "Mostrar lista",
         "Show which objects are missing from the 3D view": "Mostrar qué objetos faltan en la vista 3D",

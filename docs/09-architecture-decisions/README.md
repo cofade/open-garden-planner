@@ -57,6 +57,23 @@ or a claim that finite hostile outlines have bounded rendering costs.
 **Rationale**: Industry standard pattern. Qt provides QUndoStack. Clean separation of actions from UI.
 **Consequences**: Every new editing operation requires a corresponding Command class. More code but predictable behavior.
 
+### Addendum (2026-10-23, #559/#560 — panel commit boundaries)
+
+The application uses its existing CommandManager, rather than QUndoStack. Species
+and instance edits store deep snapshots; command merge_from applies subsequent
+ticks of the same numeric gesture. editingFinished closes that gesture.
+before_history_navigation flushes active editors before choosing a stack entry;
+history_navigated only refreshes. This replaces discarding staged notes after undo
+and prevents post-undo commands from erasing redo. An active edit is the first edit
+undone. ProjectManager.before_save and document dirty guards share the flush path.
+Callbacks remain registered until form teardown, so repeated save/undo cycles work.
+Ordinary refresh protects each focused editor instead of skipping the whole form.
+
+Plan undo restores the item's species/instance identity and dependent geometry;
+shared custom-library updates are intentionally not rolled back. No dependency,
+new persisted lock flag or file-format change. See section 8.32 and the package
+integration tests.
+
 ## ADR-005: Fixed Sidebar (Not Dockable)
 
 **Status**: Accepted
@@ -173,8 +190,9 @@ now refuses the edit when `_is_item_fixed`, restores the pinned values and
 explains why. Lock/Unlock lives in the item right-click menu, backed by the
 existing `AddConstraintCommand` / `RemoveConstraintCommand` with
 `AnchorType.CENTER` (no second lock state, no new persisted field), and a
-`ItemIgnoresTransformations` padlock badge re-derived on every selection
-presentation so it stays truthful across undo/redo and reloads.
+`ItemIgnoresTransformations` padlock badge re-derived by the scene constraint
+refresh and after load, including unselected objects. PositionLockMixin shares
+this behavior across shapes, paths, curves and text.
 
 ## ADR-014: Bundled `plant_species.json` is single source of truth for species + calendar
 
@@ -6697,6 +6715,17 @@ the code and a second QML scene to keep compiling — the Beauty Board and the r
 measure the product itself); deleting the drift guards with the spike (the values they pin are
 the L0 measurements the look was accepted on).
 
+### ADR-060 addendum: L1 follow-ups #537, #539, #541, #542
+
+**Status**: Accepted for implementation; owner acceptance pending.
+
+Four small follow-ups from the L1.9/L1.10 review, shipped together:
+
+- **#537 - L1.10 leftovers.** The workspace gate no longer passes the retired OGP_QUICK3D switch to its child or names it in the render-tier docstring; the no-reader guard stays. The main window assigns walk.svg to the Walk action so theme switches replay it; the pane button shows text beside the icon. The exact stale-DPR warning is classified as environment, with and without Qt's QTBUG-report suffix. [Qt 6.11.0 processExposeEvent()](https://github.com/qt/qtbase/blob/v6.11.0/src/gui/kernel/qguiapplication.cpp#L3222) corrects the cache before warning and delivering expose; the missing earlier notification's cause remains unproven. Other text/categories and critical reports retain their severity, pinned by tests/unit/test_quick3d_pure.py::TestClassify.
+- **#539 - the main window owns show the 3D view.** View -> '3D View' selects Garden Plan first, then switches Plan to Split; existing 3D/Split modes remain. Global Workspace actions also select Garden Plan: Alt+1 shows Plan, Alt+2 shows 3D, Alt+3 shows Split. The integration workflow fires the action from Calendar and real Alt+1/2/3 keys from Seed Inventory.
+- **#541 - Home uses Qt's native key translation.** The shortcuts dialog and Reset tooltip obtain the key name through QKeySequence(Qt.Key.Key_Home).toString(NativeText). German Qt translations supply 'Pos1'; the tooltip's surrounding text and {key} placeholder are compiled in all three app catalogs.
+- **#542 - the trailing check stamps only a real regrowth.** _regrow_if_the_date_moved stamps _regrown_at only when it calls mark_dirty(). Deterministic controller tests replace only that module's clock, preserving real event-loop waits and performance measurements. Three clock origins pin no-op timestamp preservation, immediate admission through the next date_changed signal, and the real trailing pass. Replaying the old unconditional stamp fails all three cases. A constant 1000-second stamp previously booked a long timer on a young CI VM; a fixed 70-ms wait never proved idle. See PF-TST-25 and the runtime view. No file-format or dependency change.
+
 ### ADR-059 addendum: line history restores values; cache bounds contain paint (#524–#526, #471)
 
 The owner selected one type-change rule for both UI surfaces: use the new type's
@@ -6752,8 +6781,6 @@ At b1faaa9 the chapter README was 3,432 lines and 532 KB. Its §11.4 ("Known Dev
 - Code: no runtime file moved. Of the Python lines changed since b1faaa9, all are comments or docstrings except two fixture path constants, `AUDIT_PLAN` in `tests/integration/test_item_style_in_step.py` and `BENCHMARK_PLAN` in `tests/perf/test_nfr_budgets.py`.
 
 ## ADR-062: Plant lifetimes on the shared plan date (US-F4, #315)
-
-**Status:** Accepted for implementation; owner acceptance pending.
 
 ### Context
 
@@ -6891,3 +6918,28 @@ first/last in a shared row, two subsequent launches) and
 `test_fixed_layout_can_restore_bounds_without_replaying_toolbar_state` (both policies).
 Native Windows layout checks and captures use actual platform fonts; an offscreen
 run with missing font discovery cannot establish the application's visual acceptance.
+
+### ADR-062 addendum: chronological editor stepping (owner acceptance follow-up, PR #565)
+
+**Context:** The owner found that holding an arrow stopped at the selected field's
+boundary: 31 October, December, minute 59 and hour 23. Native stepEnabled disabled
+that direction. Instrumented setWrapping(True) was rejected: it produced 31 October
+to 1 October and 10:59 to 10:00, without carrying into the larger unit.
+
+**Decision:** Keep native date/time editor subclasses and their appearance, text
+editing and popup. Override both step entry and availability; both editors delegate
+to one toolbar wall-reading path. Calendar arithmetic handles leap years and short
+months, retaining the preferred day for month/year stepping. Civil minute indices
+carry hours/minutes across midnight without timezone conversion or DST normalization.
+Only the existing 1971-01-01 through 2999-12-31 range saturates a step. Mirror widgets
+with their signals blocked, then emit one complete naive reading through the existing
+SimClock writer; no intermediate old-date/new-time reading is published.
+
+**Consequences:** Sliders/daily animation retain their existing selected-day policy.
+No new clock, persistent setting, undo command, file-format change or dependency.
+Pins: tests/integration/test_plan_sun_stepping.py (arrows/repeat, wheel/buttons,
+leap/preferred days, range and atomic signals), and
+tests/integration/test_timeline_quick3d.py::test_minute_rollover_updates_presence_sun_and_3d_once
+(real midnight keypress, presence/builders/light, unchanged plan revision/history).
+
+**Status:** Accepted for implementation; owner acceptance pending.

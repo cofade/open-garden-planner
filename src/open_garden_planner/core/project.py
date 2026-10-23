@@ -247,6 +247,7 @@ class ProjectManager(QObject):
 
     project_changed = pyqtSignal(object)  # str path or None
     dirty_changed = pyqtSignal(bool)
+    before_save = pyqtSignal()
     location_changed = pyqtSignal(object)  # dict or None
     task_completions_changed = pyqtSignal(object)  # set[str]
     seed_inventory_changed = pyqtSignal(object)    # list[SeedPacket]
@@ -871,6 +872,7 @@ class ProjectManager(QObject):
             scene: The scene containing objects to save
             file_path: Path to save to
         """
+        self.before_save.emit()
         data = self._build_project_data(scene, sync_journal=True)
         file_path = file_path.with_suffix(".ogp")
 

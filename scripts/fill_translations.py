@@ -3194,7 +3194,7 @@ _L13_WORKSPACE_TRANSLATIONS: dict[str, dict[str, str]] = {
         "&Reset 3D View": "3D-Ansicht &zurücksetzen",
         "Show the whole garden in the 3D view again":
             "Wieder den ganzen Garten in der 3D-Ansicht zeigen",
-        "Show the whole garden again (Home)": "Wieder den ganzen Garten zeigen (Pos1)",
+        "Show the whole garden again ({key})": "Wieder den ganzen Garten zeigen ({key})",
         "&Workspace": "&Arbeitsbereich",
         "Show which objects are missing from the 3D view":
             "Zeigen, welche Objekte in der 3D-Ansicht fehlen",

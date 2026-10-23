@@ -297,7 +297,178 @@ def handle_item_change(
     announce_plan_change(item, change, value)
 
 
-class GardenItemMixin:
+class PositionLockMixin:
+    """Shared FIXED constraint actions and derived badge for every canvas item."""
+
+    # ── FIXED constraint lock (issue #552) ──────────────────────────
+
+    def is_position_locked(self) -> bool:
+        """Return True when this item carries a FIXED constraint."""
+        try:
+            from open_garden_planner.ui.canvas.items.resize_handle import (
+                _is_item_fixed,
+            )
+
+            return bool(_is_item_fixed(self))  # type: ignore[arg-type]
+        except Exception:
+            return False
+
+    def refresh_lock_badge(self) -> None:
+        """Show or hide the padlock badge for a FIXED constraint.
+
+        The badge is a child ``QGraphicsSimpleTextItem`` with
+        ``ItemIgnoresTransformations`` so it stays upright in the Y-flipped
+        canvas frame. Positioned at the item's top-left in scene coordinates.
+        """
+        try:
+            import contextlib
+
+            from PyQt6.QtWidgets import QGraphicsItem
+
+            locked = self.is_position_locked()
+            badge = getattr(self, "_lock_badge_item", None)
+            if not locked:
+                if badge is not None:
+                    with contextlib.suppress(Exception):
+                        # Detach the child (no scene.removeItem: it was never
+                        # added to the scene, only parented). The dropped
+                        # reference is then garbage-collected; hiding alone
+                        # would leak one badge child per lock cycle (P2-3).
+                        with contextlib.suppress(Exception):
+                            badge.setVisible(False)
+                        scene = badge.scene()
+                        if scene is not None:
+                            scene.removeItem(badge)
+                        badge.setParentItem(None)
+                    self._lock_badge_item = None
+                    if hasattr(self, "update"):
+                        self.update()
+                return
+            if badge is None:
+                badge = LockBadgeItem("🔒", self)  # type: ignore[call-overload]
+                with contextlib.suppress(Exception):
+                    badge.setFlag(
+                        QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
+                    )
+                with contextlib.suppress(Exception):
+                    badge.setZValue(60)
+                self._lock_badge_item = badge
+            with contextlib.suppress(Exception):
+                rect = self.boundingRect()  # type: ignore[attr-defined]
+                badge.setPos(rect.topLeft())
+            with contextlib.suppress(Exception):
+                badge.setVisible(True)
+                if hasattr(self, "update"):
+                    self.update()
+        except Exception:
+            pass
+
+    def build_lock_context_menu(self, menu: "QMenu") -> Any:
+        """Add Lock/Unlock position entry; returns the created action or None."""
+        try:
+            from PyQt6.QtWidgets import QGraphicsItem as _QGI
+
+            locked = self.is_position_locked()
+            label = (
+                QCoreApplication.translate("GardenItem", "Unlock position")
+                if locked
+                else QCoreApplication.translate("GardenItem", "Lock position")
+            )
+            action = menu.addAction(label)
+            try:
+                scene = self.scene() if isinstance(self, _QGI) else None
+                locked_layer = False
+                if scene is not None and hasattr(scene, "is_layer_locked"):
+                    try:
+                        layer_id = getattr(self, "layer_id", None)
+                        locked_layer = bool(scene.is_layer_locked(layer_id))
+                    except Exception:
+                        locked_layer = False
+                if action is not None:
+                    action.setEnabled(not locked_layer)
+            except Exception:
+                pass
+            return action
+        except Exception:
+            return None
+
+    def dispatch_lock_action(self, action: Any, lock_action: Any) -> bool:
+        """Execute the Lock/Unlock menu action via undoable constraint commands."""
+        if action is None or lock_action is None or action is not lock_action:
+            return False
+        try:
+            scene = getattr(self, "scene", lambda: None)()
+            if scene is None or not hasattr(scene, "constraint_graph"):
+                return False
+            views = scene.views()
+            view = views[0] if views else None
+            manager = getattr(view, "command_manager", None) if view else None
+            if manager is None:
+                manager = getattr(scene, "command_manager", None)
+            from open_garden_planner.core.commands import (
+                AddConstraintCommand,
+                RemoveConstraintCommand,
+            )
+            from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+            from open_garden_planner.core.measure_snapper import AnchorType
+
+            item_id = getattr(self, "item_id", None)
+            if item_id is None:
+                return False
+            if self.is_position_locked():
+                graph = scene.constraint_graph
+                target = None
+                for c in graph.constraints.values():
+                    if (
+                        c.constraint_type == ConstraintType.FIXED
+                        and c.anchor_a.item_id == item_id
+                    ):
+                        target = c
+                        break
+                if target is None:
+                    return True
+                cmd = RemoveConstraintCommand(graph, target)
+                manager.execute(cmd) if manager is not None else cmd.execute()
+            else:
+                try:
+                    pos = self.pos()  # type: ignore[attr-defined]
+                except Exception:
+                    pos = None
+                anchor = AnchorRef(
+                    item_id=item_id,
+                    anchor_type=AnchorType.CENTER,
+                    anchor_index=0,
+                )
+                add_cmd = AddConstraintCommand(
+                    graph=scene.constraint_graph,
+                    anchor_a=anchor,
+                    anchor_b=anchor,
+                    target_distance=0.0,
+                    constraint_type=ConstraintType.FIXED,
+                    target_x=float(pos.x()) if pos is not None else None,
+                    target_y=float(pos.y()) if pos is not None else None,
+                )
+                if view is not None and hasattr(view, "_execute_constraint_with_solve"):
+                    try:
+                        view._execute_constraint_with_solve(add_cmd)
+                    except Exception:
+                        manager.execute(add_cmd) if manager is not None else add_cmd.execute()
+                else:
+                    manager.execute(add_cmd) if manager is not None else add_cmd.execute()
+            import contextlib
+
+            with contextlib.suppress(Exception):
+                self.refresh_lock_badge()
+            # No manual selectionChanged.emit: the lock/unlock command moves
+            # the undo stack, whose stack_changed already drives the deferred
+            # panel refresh (application.py). Hand-firing a Qt-owned signal
+            # would bypass that discipline.
+            return True
+        except Exception:
+            return False
+
+
+class GardenItemMixin(PositionLockMixin):
     """Mixin providing common functionality for garden items.
 
     Provides:
@@ -851,170 +1022,6 @@ class GardenItemMixin:
         from open_garden_planner.core.plant_sizing import sizing_for_item
 
         return sizing_for_item(self).effective_spacing_radius_cm
-
-    # ── FIXED constraint lock (issue #552) ──────────────────────────
-
-    def is_position_locked(self) -> bool:
-        """Return True when this item carries a FIXED constraint."""
-        try:
-            from open_garden_planner.ui.canvas.items.resize_handle import (
-                _is_item_fixed,
-            )
-
-            return bool(_is_item_fixed(self))  # type: ignore[arg-type]
-        except Exception:
-            return False
-
-    def refresh_lock_badge(self) -> None:
-        """Show or hide the padlock badge for a FIXED constraint.
-
-        The badge is a child ``QGraphicsSimpleTextItem`` with
-        ``ItemIgnoresTransformations`` so it stays upright in the Y-flipped
-        canvas frame. Positioned at the item's top-left in scene coordinates.
-        """
-        try:
-            import contextlib
-
-            from PyQt6.QtWidgets import QGraphicsItem
-
-            locked = self.is_position_locked()
-            badge = getattr(self, "_lock_badge_item", None)
-            if not locked:
-                if badge is not None:
-                    with contextlib.suppress(Exception):
-                        # Detach the child (no scene.removeItem: it was never
-                        # added to the scene, only parented). The dropped
-                        # reference is then garbage-collected; hiding alone
-                        # would leak one badge child per lock cycle (P2-3).
-                        with contextlib.suppress(Exception):
-                            badge.setVisible(False)
-                        badge.setParentItem(None)
-                    self._lock_badge_item = None
-                    if hasattr(self, "update"):
-                        self.update()
-                return
-            if badge is None:
-                badge = LockBadgeItem("🔒", self)  # type: ignore[call-overload]
-                with contextlib.suppress(Exception):
-                    badge.setFlag(
-                        QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
-                    )
-                with contextlib.suppress(Exception):
-                    badge.setZValue(60)
-                self._lock_badge_item = badge
-            with contextlib.suppress(Exception):
-                rect = self.boundingRect()  # type: ignore[attr-defined]
-                badge.setPos(rect.topLeft())
-            with contextlib.suppress(Exception):
-                badge.setVisible(True)
-                if hasattr(self, "update"):
-                    self.update()
-        except Exception:
-            pass
-
-    def build_lock_context_menu(self, menu: "QMenu") -> Any:
-        """Add Lock/Unlock position entry; returns the created action or None."""
-        try:
-            from PyQt6.QtWidgets import QGraphicsItem as _QGI
-
-            locked = self.is_position_locked()
-            label = (
-                QCoreApplication.translate("GardenItem", "Unlock position")
-                if locked
-                else QCoreApplication.translate("GardenItem", "Lock position")
-            )
-            action = menu.addAction(label)
-            try:
-                scene = self.scene() if isinstance(self, _QGI) else None
-                locked_layer = False
-                if scene is not None and hasattr(scene, "is_layer_locked"):
-                    try:
-                        layer_id = getattr(self, "layer_id", None)
-                        locked_layer = bool(scene.is_layer_locked(layer_id))
-                    except Exception:
-                        locked_layer = False
-                if action is not None:
-                    action.setEnabled(not locked_layer)
-            except Exception:
-                pass
-            return action
-        except Exception:
-            return None
-
-    def dispatch_lock_action(self, action: Any, lock_action: Any) -> bool:
-        """Execute the Lock/Unlock menu action via undoable constraint commands."""
-        if action is None or lock_action is None or action is not lock_action:
-            return False
-        try:
-            scene = getattr(self, "scene", lambda: None)()
-            if scene is None or not hasattr(scene, "constraint_graph"):
-                return False
-            views = scene.views()
-            view = views[0] if views else None
-            manager = getattr(view, "command_manager", None) if view else None
-            if manager is None:
-                manager = getattr(scene, "command_manager", None)
-            from open_garden_planner.core.commands import (
-                AddConstraintCommand,
-                RemoveConstraintCommand,
-            )
-            from open_garden_planner.core.constraints import AnchorRef, ConstraintType
-            from open_garden_planner.core.measure_snapper import AnchorType
-
-            item_id = getattr(self, "item_id", None)
-            if item_id is None:
-                return False
-            if self.is_position_locked():
-                graph = scene.constraint_graph
-                target = None
-                for c in graph.constraints.values():
-                    if (
-                        c.constraint_type == ConstraintType.FIXED
-                        and c.anchor_a.item_id == item_id
-                    ):
-                        target = c
-                        break
-                if target is None:
-                    return True
-                cmd = RemoveConstraintCommand(graph, target)
-                manager.execute(cmd) if manager is not None else cmd.execute()
-            else:
-                try:
-                    pos = self.pos()  # type: ignore[attr-defined]
-                except Exception:
-                    pos = None
-                anchor = AnchorRef(
-                    item_id=item_id,
-                    anchor_type=AnchorType.CENTER,
-                    anchor_index=0,
-                )
-                add_cmd = AddConstraintCommand(
-                    graph=scene.constraint_graph,
-                    anchor_a=anchor,
-                    anchor_b=anchor,
-                    target_distance=0.0,
-                    constraint_type=ConstraintType.FIXED,
-                    target_x=float(pos.x()) if pos is not None else None,
-                    target_y=float(pos.y()) if pos is not None else None,
-                )
-                if view is not None and hasattr(view, "_execute_constraint_with_solve"):
-                    try:
-                        view._execute_constraint_with_solve(add_cmd)
-                    except Exception:
-                        manager.execute(add_cmd) if manager is not None else add_cmd.execute()
-                else:
-                    manager.execute(add_cmd) if manager is not None else add_cmd.execute()
-            import contextlib
-
-            with contextlib.suppress(Exception):
-                self.refresh_lock_badge()
-            # No manual selectionChanged.emit: the lock/unlock command moves
-            # the undo stack, whose stack_changed already drives the deferred
-            # panel refresh (application.py). Hand-firing a Qt-owned signal
-            # would bypass that discipline.
-            return True
-        except Exception:
-            return False
 
     # ── Grid overlay properties ──────────────────────────────────
 

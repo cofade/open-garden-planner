@@ -82,6 +82,15 @@ _ENVIRONMENT: Final[tuple[tuple[str, re.Pattern[str]], ...]] = (
     # with the display asleep (the L1.2 dev box, 2026-10-11) that fails on every run:
     #   qt.qpa.screen: "Unable to open monitor interface to \\.\DISPLAY1:" "Unknown error 0xe0000225."
     ("qt.qpa.screen", re.compile(r'^"?Unable to open monitor interface to ')),
+    # A stale device-pixel-ratio cache on window expose, seen once in ~20 runs of
+    # the workspace gate (scenario date_playback, 5120x1440 desktop, 2026-10-19;
+    # #537). Qt 6.11.0 qguiapplication.cpp, processExposeEvent(), corrects the
+    # cached DPR via updateDevicePixelRatio() BEFORE warning and sending expose.
+    # The cause of the missing earlier notification is unproven; the correction
+    # path, rather than a guessed platform race, justifies this exact exemption.
+    ("", re.compile(
+        r"^The cached device pixel ratio value was stale on window expose\."
+        r"(?:\s+Please file a QTBUG which explains how to reproduce\.)?$")),
 )
 
 _KEEP: Final = 100  # per class: enough to read, bounded for a long session
