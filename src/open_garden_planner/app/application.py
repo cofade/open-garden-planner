@@ -4804,6 +4804,10 @@ class GardenPlannerApp(QMainWindow):
         self._sun_toolbar.set_datetime_local(self._sim_clock.wall)
         self._sun_toolbar.datetime_changed.connect(self._on_sun_sim_datetime)
         self._sun_toolbar.date_requested.connect(self._sim_clock.set_date)
+        self._sun_toolbar.location_requested.connect(self._on_set_location)
+        location = self._project_manager.location or {}
+        self._sun_toolbar.set_location_available(
+            location.get("latitude") is not None and location.get("longitude") is not None)
         # The sim instant is deliberately NOT persisted: the clock starts at the
         # current date/time on every app start, so a fresh simulation always
         # reflects today (FR-SUN-04).
@@ -6632,6 +6636,9 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_location_changed_for_sun(self, _location: object) -> None:
         """Location edits re-solve the sun position immediately (no debounce)."""
+        location = self._project_manager.location or {}
+        self._sun_toolbar.set_location_available(
+            location.get("latitude") is not None and location.get("longitude") is not None)
         self._sun_controller.recompute_now()
 
     # ── 3D view (US-E6) ──────────────────────────────────────────

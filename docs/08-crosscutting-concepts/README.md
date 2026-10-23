@@ -6883,10 +6883,20 @@ PositionLockMixin is shared by GardenItemMixin and CurveEditMixin. Object menus 
 the same Add/RemoveConstraintCommand actions and existing FIXED state. Scene
 dimension refresh derives all badges; loading derives them after restoring the graph.
 No panel selection is required. LockBadgeItem is hidden by visual exports.
+DimensionLineManager suppresses its older center marker for PositionLockMixin
+objects, so paths have exactly one upright badge; construction-only markers remain.
 
 The real-widget regressions in test_plant_package_558_559_560_552_557.py exercise
 save-before-debounce, pending Name undo/redo, separate spin gestures, focused
 unrelated-field refresh, all menu families, and unselected/tool-created locks.
 test_plant_dimensions_records.py covers assignment, exact/estimated records,
 rotated width edits, overrides, growth and repeated save/load.
+
+The Plan & Sun bar shows an actionable location prerequisite beside Hours of Sun
+when either coordinate is missing, including before solar controls are used.
+It opens the existing File → Set Garden Location dialog. Project location changes
+and document replacement refresh it immediately; valid zero coordinates count as
+configured. The hint replaces the generic map-unavailable label while coordinates
+are absent. Saving a location lets an already enabled live map recover through its
+existing scheduler. Date navigation remains available without a location.
 

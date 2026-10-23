@@ -3208,3 +3208,10 @@ and `tests/integration/test_plant_dimensions_records.py`; ADR-004/013/059,
 crosscutting section 8.32 and PF-UI-27. Independent review and current gate results
 are recorded in PR #566. These issues remain open until protected merge.
 
+Owner acceptance confirmed plant history/save, widths, estimated heights, locales
+and lock behavior. The manual follow-up removes the second painted path padlock.
+The reported static sun was a plan without a location; setting coordinates restored
+2D/3D shadows and Hours of Sun. A persistent location link beside Hours of Sun now
+opens the existing location dialog and clears automatically after configuration
+(FR-TIMELINE-07). These two follow-up UI changes await owner acceptance.
+

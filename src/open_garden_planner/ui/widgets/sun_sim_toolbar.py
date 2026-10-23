@@ -171,6 +171,7 @@ class SunSimToolbar(QToolBar):
     #: Heatmap button unchecked — the app should hide the heatmap.
     heatmap_cleared = pyqtSignal()
     date_requested = pyqtSignal(object)
+    location_requested = pyqtSignal()
 
     def __init__(self, parent: QWidget | None = None, *, scene: Any = None) -> None:
         super().__init__("", parent)
@@ -183,6 +184,7 @@ class SunSimToolbar(QToolBar):
         self._preferred_day = 1
         self._exposure_hint = ""
         self._map_status: tuple[date | None, bool, str] = (None, False, "")
+        self._location_available = True
         self._content = QWidget(self)
         self._content.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self._flow = _GroupFlow(self._content)
@@ -227,6 +229,15 @@ class SunSimToolbar(QToolBar):
 
         group = self._group()
         self._heatmap_button = self._button(self.tr("Hours of Sun"), group, checkable=True)
+        self._location_button = self._button(self.tr("Set location for sunlight…"), group)
+        self._location_button.setAutoRaise(True)
+        font = self._location_button.font()
+        font.setUnderline(True)
+        self._location_button.setFont(font)
+        self._location_button.setToolTip(self.tr(
+            "Sun shadows and Hours of Sun need a garden location. Opens File → Set Garden Location…"))
+        self._location_button.clicked.connect(self.location_requested)
+        self._location_button.hide()
         self._map_label = QLabel(self)
         self._map_label.setWordWrap(True)
         self._map_label.hide()
@@ -463,10 +474,16 @@ class SunSimToolbar(QToolBar):
         self._map_label.setText(text or unavailable)
         self._map_label.setToolTip(text or unavailable)
         self._map_label.setFixedWidth(min(220, self._map_label.fontMetrics().horizontalAdvance(text or unavailable) + 2))
-        self._map_label.setVisible(bool(text or unavailable))
+        self._map_label.setVisible(self._location_available and bool(text or unavailable))
         self._flow.invalidate()
         self.updateGeometry()
         self._reflow()
+
+    def set_location_available(self, available: bool) -> None:
+        """Keep the location prerequisite beside the sun controls until configured."""
+        self._location_available = available
+        self._location_button.setVisible(not available)
+        self.set_map_status(*self._map_status)
 
     def _on_animate_toggled(self, checked: bool) -> None:
         self._update_animate_icon()

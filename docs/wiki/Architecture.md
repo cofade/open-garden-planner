@@ -59,3 +59,8 @@ Hours of Sun map refreshes after exposure inputs change; time-only animation doe
 not recalculate a full day. Visual exports wait for a current map. See
 [the timeline and export contracts](https://github.com/cofade/open-garden-planner/blob/master/docs/08-crosscutting-concepts/README.md#831-plan-date-visibility-and-lifetime-us-f4-adr-062)
 and ADR-062 in the architecture decision register.
+
+The PR #566 follow-up adds an actionable location prerequisite beside Hours of
+Sun when coordinates are missing, opening the existing location dialog. It also
+unifies position-lock badges across object menus. These follow-ups await owner
+acceptance; see [the current implementation contract](https://github.com/cofade/open-garden-planner/blob/master/docs/08-crosscutting-concepts/README.md#832-panel-edit-boundaries-and-position-locks-552-558560).

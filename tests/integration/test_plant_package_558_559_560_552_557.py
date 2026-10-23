@@ -552,7 +552,7 @@ def test_plant_refreshes_other_fields_while_family_has_focus(qtbot, canvas, plan
     assert edit.text() == "still typing"
 
 
-@pytest.mark.parametrize("kind", ["line", "arc", "bezier", "text"])
+@pytest.mark.parametrize("kind", ["rectangle", "circle", "line", "path", "arc", "bezier", "text"])
 def test_every_object_menu_exposes_undoable_position_lock(canvas, monkeypatch, kind):
     from types import SimpleNamespace
 
@@ -566,7 +566,10 @@ def test_every_object_menu_exposes_undoable_position_lock(canvas, monkeypatch, k
 
     points = [QPointF(100, 100), QPointF(200, 200)]
     item = {
+        "rectangle": lambda: RectangleItem(100, 100, 200, 200),
+        "circle": lambda: CircleItem(100, 100, 100),
         "line": lambda: PolylineItem(points),
+        "path": lambda: PolylineItem(points, ObjectType.PATH),
         "arc": lambda: ArcItem(QPointF(200, 200), 100, 0, 90),
         "bezier": lambda: BezierItem(points, points, points),
         "text": lambda: TextItem(100, 100, "hello"),
@@ -579,11 +582,17 @@ def test_every_object_menu_exposes_undoable_position_lock(canvas, monkeypatch, k
     item.contextMenuEvent(SimpleNamespace(screenPos=lambda: QPoint()))
     assert item.is_position_locked()
     assert item._lock_badge_item.isVisible()
+    # The former dimension-layer padlock must not accompany the shared badge.
+    canvas.scene().update_dimension_lines()
+    assert not canvas.scene().dimension_line_manager._groups
     canvas.command_manager.undo()
     assert not item.is_position_locked()
     assert item._lock_badge_item is None
     canvas.command_manager.redo()
     assert item.is_position_locked()
+    canvas.scene().update_dimension_lines()
+    assert item._lock_badge_item.isVisible()
+    assert not canvas.scene().dimension_line_manager._groups
 
 
 def test_constraint_tool_path_derives_badge_without_selection(canvas):

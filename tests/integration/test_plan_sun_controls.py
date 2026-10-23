@@ -325,7 +325,8 @@ def win(qtbot, monkeypatch):
     qtbot.addWidget(app)
     monkeypatch.setattr(app, "_confirm_discard_changes", lambda: True)
     app._sim_clock.set_datetime(datetime(2026, 6, 21, 12))
-    app._project_manager._location = dict(BERLIN)
+    app._project_manager.set_location(dict(BERLIN))
+    app._project_manager.mark_clean()
     app.canvas_scene.resize_canvas(500, 500)
     yield app
 
@@ -367,12 +368,54 @@ def test_one_permanent_strip_and_defaults_ignore_obsolete_setting(qtbot):
     assert not app._sun_toolbar.isHidden()
     assert app._sun_controller.enabled and app.canvas_scene._shadows_enabled
     assert not app._sun_toolbar.animation_active
+    assert not app._sun_toolbar._location_button.isHidden()
     assert not app._live_sun_map.enabled
     assert len(app._sun_toolbar.findChildren(QDateEdit)) == 1
     names = [bar.objectName() for bar in app.findChildren(QToolBar)]
     assert names.count("SunSimToolbar") == 1 and "PlanTimelineToolbar" not in names
     assert not hasattr(app, "_sun_sim_action") and not hasattr(app, "_shadows_action")
     assert not hasattr(app._sun_toolbar, "_june_button")
+
+
+@pytest.mark.parametrize("accepted", [False, True])
+def test_sun_location_hint_opens_existing_dialog_and_recovers_map(win, qtbot, jobs, monkeypatch, accepted):
+    from PyQt6.QtWidgets import QDialog
+
+    from open_garden_planner.ui.dialogs.location_dialog import LocationDialog
+
+    project, bar = win._project_manager, win._sun_toolbar
+    project.set_location(None)
+    project.mark_clean()
+    assert not bar._location_button.isHidden()  # visible before Hours of Sun is enabled
+    bar._heatmap_button.click()
+    qtbot.waitUntil(lambda: win._live_sun_map._failed is not None)
+    assert bar._map_label.isHidden()  # the actionable explanation replaces "unavailable"
+    opened = []
+
+    def choose_location(dialog):
+        opened.append(dialog)
+        assert dialog.windowTitle() == "Set Garden Location"
+        dialog._lat_spin.setValue(0)  # zero is a valid coordinate, not missing
+        dialog._lon_spin.setValue(0)
+        return QDialog.DialogCode.Accepted if accepted else QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(LocationDialog, "exec", choose_location)
+    bar._location_button.click()
+    assert len(opened) == 1
+    if not accepted:
+        assert project.location is None and not project.is_dirty
+        assert not bar._location_button.isHidden()
+        assert not jobs
+        return
+    assert project.location["latitude"] == project.location["longitude"] == 0
+    assert bar._location_button.isHidden()
+    qtbot.waitUntil(lambda: len(jobs) == 1)
+    complete(win, qtbot, jobs)
+    assert win._live_sun_map.is_current()
+    assert bar._map_label.isHidden()
+    # Document replacement must show the prerequisite again, without toggling the toolbar.
+    project.new_project()
+    assert not bar._location_button.isHidden()
 
 
 def test_month_day_clamping_time_edit_animation_and_today(win):
@@ -400,7 +443,8 @@ def test_month_day_clamping_time_edit_animation_and_today(win):
 @pytest.mark.parametrize("theme", ["dark", "light"])
 @pytest.mark.parametrize("width", [1284, 800])
 @pytest.mark.parametrize("language", ["en", "de", "es"])
-def test_themed_strip_centres_controls_and_uses_status_space_only_when_needed(qtbot, theme, width, language):
+@pytest.mark.parametrize("located", [True, False])
+def test_themed_strip_centres_controls_and_uses_status_space_only_when_needed(qtbot, theme, width, language, located):
     from open_garden_planner.core.i18n import load_translator
     from open_garden_planner.ui.theme import ThemeMode, apply_theme, is_dark_theme
 
@@ -413,6 +457,9 @@ def test_themed_strip_centres_controls_and_uses_status_space_only_when_needed(qt
         get_settings().show_welcome_on_startup = False
         win = GardenPlannerApp()
         qtbot.addWidget(win)
+        if located:
+            win._project_manager.set_location(BERLIN)
+            win._project_manager.mark_clean()
         win._sim_clock.set_date(date.today())
         win.resize(width, 800)
         win.show()
@@ -431,6 +478,15 @@ def test_themed_strip_centres_controls_and_uses_status_space_only_when_needed(qt
         time_centre = bar._slider.mapTo(bar, bar._slider.rect().center()).y()
         if width == 1284:
             assert abs(month_centre - time_centre) <= 1
+
+        assert bar._location_button.isVisible() == (not located)
+        if not located:
+            assert bar._location_button.text() == bar.tr("Set location for sunlight…")
+            assert bar._content.rect().contains(bar._location_button.parentWidget().geometry())
+            assert len({bar._flow.itemAt(i).widget().y() for i in range(bar._flow.count())}) <= 2
+            bar.set_map_status(None, False, "unavailable")
+            assert bar._map_label.isHidden() and bar._location_button.isVisible()
+            return
 
         bar.set_map_status(date.today(), False)
         qtbot.wait(20)

@@ -6943,3 +6943,19 @@ tests/integration/test_timeline_quick3d.py::test_minute_rollover_updates_presenc
 (real midnight keypress, presence/builders/light, unchanged plan revision/history).
 
 **Status:** Accepted for implementation; owner acceptance pending.
+
+### ADR-062 addendum: actionable location prerequisite (PR #566 manual pass)
+
+The owner confirmed that configuring the missing location restored 2D shadows,
+Hours of Sun and animated 3D lighting. The prior status-bar explanation was too
+remote from those controls. Plan & Sun now displays a persistent translated link
+beside Hours of Sun while either coordinate is missing, replacing the generic
+map-unavailable label. The link emits a UI request to the existing location-dialog
+handler; it does not guess coordinates or change the clock. Cancel preserves the
+hint and plan. Location changes, including New/Open, refresh the hint; saving valid
+coordinates lets the existing live-map scheduler recover. Zero coordinates are
+valid. Unlike time-varying night text, this prerequisite changes only on location
+or document edits, and is covered by the adaptive toolbar's native layout tests.
+
+Pinned by test_sun_location_hint_opens_existing_dialog_and_recovers_map and the
+located/unlocated locale/theme/width matrix in test_plan_sun_controls.py.
