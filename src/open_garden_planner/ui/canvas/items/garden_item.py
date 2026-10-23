@@ -330,10 +330,8 @@ class PositionLockMixin:
             if not locked:
                 if badge is not None:
                     with contextlib.suppress(Exception):
-                        # Detach the child (no scene.removeItem: it was never
-                        # added to the scene, only parented). The dropped
-                        # reference is then garbage-collected; hiding alone
-                        # would leak one badge child per lock cycle (P2-3).
+                        # Remove scene ownership before detaching the child;
+                        # hiding alone retains one badge per lock cycle.
                         with contextlib.suppress(Exception):
                             badge.setVisible(False)
                         scene = badge.scene()

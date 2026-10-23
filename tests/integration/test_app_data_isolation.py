@@ -331,7 +331,10 @@ class TestNothingReachesTheRealDirectory:
         species = PlantSpeciesData(scientific_name="Juglans regia", common_name="Walnut")
         tree.metadata["plant_species"] = species.to_dict()
         panel.set_selected_items([tree])
-        panel._on_field_changed()  # … saves a custom plant through the real PlantLibrary
+        # A real edit still writes through PlantLibrary; unchanged focus no
+        # longer converts an online/bundled record into a custom entry (#559).
+        panel.family_edit.setText("Juglandaceae")
+        panel.family_edit.editingFinished.emit()
 
         store = plant_lists.get_plant_list_store()
         assert store.toggle_favorite(species) is True
