@@ -52,6 +52,13 @@ owns phase status. [Open issues](https://github.com/cofade/open-garden-planner/i
 The line-appearance follow-ups (#524, #525, #526, #471) shipped in [v1.30.16](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.16) via [PR #545](https://github.com/cofade/open-garden-planner/pull/545) after owner acceptance: exact preset/type undo, consistent round line corners, and complete styled-line canvas bounds; see the [implementation contract](https://github.com/cofade/open-garden-planner/blob/master/docs/08-crosscutting-concepts/README.md#830-line-appearance-snapshots-and-paint-containment-524-525-526-471).
 The 2D canvas defect batch (#522, #530, #445, #446, #528) shipped in [v1.30.18](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.18) via [PR #556](https://github.com/cofade/open-garden-planner/pull/556) after owner acceptance: whole-word species sprite matching, species assignment sync, selection transparency through locked layers, undoable Properties-panel bed/container edits, and class-scoped perf guard analysis; see the [implementation contract](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md#2d-canvas-defect-batch-522-530-445-446-528).
 
+Plant Details follow-ups (#552, #557–#560) shipped in
+[v1.30.20](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.20) via
+[PR #566](https://github.com/cofade/open-garden-planner/pull/566) after owner
+executable acceptance: undoable plant edits, centered species-width updates,
+consistent position-lock badges, labelled illustrative 3D height estimates and a
+location link beside Hours of Sun. See the [canonical delivery record](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md#plant-details-follow-ups-552-557560--shipped-as-v13020-pr-566).
+
 ## Community
 
 - [Discussions](https://github.com/cofade/open-garden-planner/discussions): public questions and ideas.
