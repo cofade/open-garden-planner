@@ -304,7 +304,10 @@ class BezierItem(CurveEditMixin, QGraphicsPathItem):
         _ = QCoreApplication.translate
         menu = QMenu()
         delete_action = menu.addAction(_("BezierItem", "Delete Bezier"))
+        lock_action = self.build_lock_context_menu(menu)
         action = menu.exec(event.screenPos())
+        if self.dispatch_lock_action(action, lock_action):
+            return
         if action == delete_action and self.scene():
             self.scene().removeItem(self)
 

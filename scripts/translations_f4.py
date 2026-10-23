@@ -33,6 +33,8 @@ ES = {
 }
 
 DE["SunSimToolbar"] = {
+    "Set location for sunlight…": "Standort für Sonnenlicht festlegen…",
+    "Sun shadows and Hours of Sun need a garden location. Opens File → Set Garden Location…": "Schatten und Sonnenstunden benötigen einen Gartenstandort. Öffnet Datei → Gartenstandort festlegen…",
     "Plan & Sun": "Plan & Sonne",
     "Plan date: plant presence, growth and sunlight": "Plandatum: Pflanzenbestand, Wachstum und Sonnenlicht",
     "Today": "Heute", "Past": "Vergangenheit", "Future": "Zukunft", "Months": "Monate",
@@ -49,6 +51,8 @@ DE["SunSimToolbar"] = {
     "This plant is not present within the supported plan dates ({min} to {max}). Its stored dates have been preserved.": "Diese Pflanze ist innerhalb der unterstützten Plandaten ({min} bis {max}) nicht vorhanden. Ihre gespeicherten Daten wurden beibehalten.",
 }
 ES["SunSimToolbar"] = {
+    "Set location for sunlight…": "Establecer ubicación para la luz solar…",
+    "Sun shadows and Hours of Sun need a garden location. Opens File → Set Garden Location…": "Las sombras y las horas de sol necesitan una ubicación del jardín. Abre Archivo → Establecer ubicación del jardín…",
     "Plan & Sun": "Plano y sol",
     "Plan date: plant presence, growth and sunlight": "Fecha del plano: presencia de plantas, crecimiento y luz solar",
     "Today": "Hoy", "Past": "Pasado", "Future": "Futuro", "Months": "Meses",

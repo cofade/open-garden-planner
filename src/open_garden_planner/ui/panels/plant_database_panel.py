@@ -1,8 +1,10 @@
 """Plant database panel for displaying plant species metadata."""
 
+import contextlib
 from collections.abc import Callable
+from copy import deepcopy
 from datetime import date
-from typing import cast
+from typing import Any, cast
 
 from PyQt6.QtCore import QDate, QSignalBlocker, Qt, pyqtSignal
 from PyQt6.QtGui import QShowEvent, QWheelEvent
@@ -255,12 +257,86 @@ class PlantDatabasePanel(QWidget):
         super().__init__(parent)
         self._current_plant_data: PlantSpeciesData | None = None
         self._current_plant_item: QGraphicsItem | None = None
+        self._command_manager = None
+        # True while applying model values to widgets or building a command:
+        # widget signals fired here must not create a nested command.
+        self._in_commit = False
+        # True after an undo/redo (stack_changed): the next set_selected_items
+        # must refresh even a focused editor (#560). Ordinary notifications
+        # keep protecting uncommitted typing.
+        self._history_pending = False
+        # Debounced notes commit: textChanged fires per keystroke, but undo
+        # carries one committed edit (#559). The timer coalesces a typing run.
+        self._pending_notes_value: str | None = None
+        self._notes_has_pending = False
+        # Coalescing handle (#559): consecutive valueChanged ticks of one spin
+        # drag merge into this pending command instead of one undo entry per
+        # tick. Cleared on selection change, history, or a non-spin commit.
+        self._last_spin_cmd: Any = None
+        # Spinbox that produced the pending command: only that widget may coalesce.
+        self._last_spin_widget: Any = None
+        from PyQt6.QtCore import QTimer as _QTimer
+
+        self._notes_timer = _QTimer(self)
+        self._notes_timer.setSingleShot(True)
+        self._notes_timer.setInterval(800)
+        self._notes_timer.timeout.connect(self._flush_pending_notes)
 
         from open_garden_planner.models.plant_lists import get_plant_list_store  # noqa: PLC0415
         self._list_store = get_plant_list_store()
         self._list_store.changed.connect(self._update_favorite_button)
 
         self._setup_ui()
+        for spin in self.findChildren(QDoubleSpinBox):
+            spin.editingFinished.connect(self._end_spin_gesture)
+
+    def set_command_manager(self, command_manager: Any) -> None:
+        """Attach the shared undo stack; previous stack signals are detached."""
+        try:
+            if self._command_manager is not None:
+                self._command_manager.before_history_navigation.disconnect(self.flush_pending_edits)
+                with contextlib.suppress(Exception):
+                    self._command_manager.history_navigated.disconnect(
+                        self._on_history_changed
+                    )
+        except Exception:
+            pass
+        self._command_manager = command_manager
+        if command_manager is not None:
+            command_manager.before_history_navigation.connect(self.flush_pending_edits)
+            with contextlib.suppress(Exception):
+                command_manager.history_navigated.connect(self._on_history_changed)
+
+    def _end_spin_gesture(self) -> None:
+        self._last_spin_cmd = None
+        self._last_spin_widget = None
+
+    def flush_pending_edits(self) -> None:
+        """Commit active input before save, navigation or document replacement."""
+        if self._in_commit:
+            return
+        focused = QApplication.focusWidget()
+        if focused is not None and self.isAncestorOf(focused):
+            parent = focused.parentWidget()
+            if isinstance(focused, QAbstractSpinBox):
+                focused.interpretText()
+            elif isinstance(focused, QLineEdit) and not isinstance(parent, QAbstractSpinBox):
+                focused.editingFinished.emit()
+            elif isinstance(parent, QAbstractSpinBox):
+                parent.interpretText()
+        self._flush_pending_notes()
+        self._end_spin_gesture()
+
+    def _on_history_changed(self) -> None:
+        """Mark the next refresh as history-driven (#560).
+
+        Connected to ``history_navigated`` (undo/redo only), never to the
+        every-commit ``stack_changed`` — an own commit must not masquerade as
+        a history transition and clobber the focused editor.
+        """
+        self._history_pending = True
+        self._last_spin_cmd = None
+        self._last_spin_widget = None
 
     def _setup_ui(self) -> None:
         """Set up the UI components."""
@@ -820,9 +896,81 @@ class PlantDatabasePanel(QWidget):
             combo.setCurrentIndex(0)  # Fall back to "—"
         combo.blockSignals(False)
 
+    def _is_spin_gesture(self) -> bool:
+        """True when the current commit comes from a spinbox tick (#559)."""
+        try:
+            from PyQt6.QtWidgets import QAbstractSpinBox as _Spin
+
+            sender = self.sender()
+            return isinstance(sender, _Spin)
+        except Exception:
+            return False
+
+    def _push_or_merge_species_cmd(self, cmd: Any) -> bool:
+        """Execute ``cmd`` or merge it into a pending spin gesture.
+
+        Returns True when merged (no new history entry).
+        """
+        mgr = self._command_manager
+        if mgr is None:
+            cmd.execute()
+            return False
+        cmd._cmd_kind = "species"
+        pending = self._last_spin_cmd
+        if (
+            self._is_spin_gesture()
+            and pending is not None
+            and getattr(pending, "_cmd_kind", None) == "species"
+            and mgr.peek_undo() is pending
+            and getattr(pending, "_item", None) is cmd._item
+            and self._last_spin_widget is self.sender()
+        ):
+            pending.merge_from(cmd)
+            note_plan_changed(cmd._item.scene())
+            return True
+        mgr.execute(cmd)
+        from PyQt6.QtWidgets import QAbstractSpinBox as _Spin  # noqa: PLC0415
+
+        spin_sender = self.sender() if isinstance(self.sender(), _Spin) else None
+        self._last_spin_cmd = cmd if spin_sender is not None else None
+        self._last_spin_widget = spin_sender
+        return False
+
+    def _push_or_merge_instance_cmd(self, cmd: Any) -> bool:
+        """Execute ``cmd`` or merge it into a pending spin gesture."""
+        mgr = self._command_manager
+        if mgr is None:
+            cmd.execute()
+            return False
+        cmd._cmd_kind = "instance"
+        pending = self._last_spin_cmd
+        if (
+            self._is_spin_gesture()
+            and pending is not None
+            and getattr(pending, "_cmd_kind", None) == "instance"
+            and mgr.peek_undo() is pending
+            and getattr(pending, "_item", None) is cmd._item
+            and self._last_spin_widget is self.sender()
+        ):
+            pending.merge_from(cmd)
+            note_plan_changed(cmd._item.scene())
+            return True
+        mgr.execute(cmd)
+        from PyQt6.QtWidgets import QAbstractSpinBox as _Spin  # noqa: PLC0415
+
+        spin_sender = self.sender() if isinstance(self.sender(), _Spin) else None
+        self._last_spin_cmd = cmd if spin_sender is not None else None
+        self._last_spin_widget = spin_sender
+        return False
+
     def _on_field_changed(self) -> None:
-        """Handle field value changes - update plant metadata."""
+        """Handle field value changes - one committed edit, one undo step (#559)."""
         if not self._current_plant_item or not self._current_plant_data:
+            return
+        if self._in_commit:
+            return
+        signature = self._species_form_signature()
+        if signature == getattr(self, "_committed_species_form", None):
             return
 
         # Update the PlantSpeciesData object
@@ -899,6 +1047,8 @@ class PlantDatabasePanel(QWidget):
         # nothing to initialize — the old `metadata = {}` write here would have
         # raised AttributeError on an item with empty metadata.)
         if hasattr(self._current_plant_item, "metadata"):
+            from open_garden_planner.core.commands import PlantSpeciesEditCommand
+
             library = get_plant_library()
 
             if self._current_plant_data.data_source == "custom":
@@ -911,23 +1061,56 @@ class PlantDatabasePanel(QWidget):
                 self._current_plant_data.data_source = "custom"
                 plant_id = library.add_plant(self._current_plant_data)
                 self._current_plant_data.source_id = plant_id
+            # Library writes above are shared-library side effects and are
+            # explicitly NOT part of undo (#559): undo restores the item's
+            # metadata + footprint, never the library entry.
 
-            # Save updated data to item metadata (merge local calendar DB data).
-            # Live field edits are intentionally NOT wrapped in a command (that
-            # would create one undo entry per keystroke — see #210); species
-            # *assignment* goes through _apply_species_to_item instead.
-            self._current_plant_item.metadata["plant_species"] = merge_calendar_data(
-                self._current_plant_data.to_dict()
+            # Save updated data to item metadata (merge local calendar DB data)
+            # as ONE undoable command (#559), with footprint resize (#558).
+            old_species = self._current_plant_item.metadata.get("plant_species")
+            old_species = dict(old_species) if isinstance(old_species, dict) else None
+            edited = self._current_plant_data.to_dict()
+            new_species = merge_calendar_data(edited)
+            # The bundled overlay must not silently discard what was just
+            # edited: ``merge_calendar_data`` prioritises the bundled DB, and
+            # ``family``/``nutrient_demand`` are both calendar fields AND form
+            # fields. On this edit path the committed widget values win; the
+            # overlay still fills every other calendar field (#559).
+            for _key in ("family", "nutrient_demand"):
+                new_species[_key] = edited.get(_key)
+            if old_species is not None and old_species == new_species:
+                # Check geometry-only change (max_spread edit that leaves the
+                # dict equal cannot happen: max_spread is IN the dict).
+                return
+            old_radius, new_radius = self._species_resize_radii(
+                self._current_plant_item, old_species, new_species
             )
+            try:
+                old_spacing = cast(Any, self._current_plant_item).spacing_radius_cm
+            except Exception:
+                old_spacing = None
+            cmd = PlantSpeciesEditCommand(
+                self._current_plant_item,
+                old_species,
+                new_species,
+                old_radius=old_radius,
+                new_radius=new_radius,
+                old_spacing_override=old_spacing,
+                new_spacing_override=old_spacing,
+            )
+            if self._command_manager is not None:
+                self._push_or_merge_species_cmd(cmd)
+            else:
+                cmd.execute()
 
             # Repaint so the spacing circle reflects a live max_spread edit.
             if hasattr(self._current_plant_item, "prepareGeometryChange"):
                 self._current_plant_item.prepareGeometryChange()
             if hasattr(self._current_plant_item, "update"):
                 self._current_plant_item.update()
-            # The 3D view follows the PLAN, not its repaints: a species field (max
-            # height, max spread, …) goes round the undo stack, so it announces itself
-            # with the one nudge (CanvasScene.note_plan_changed, ADR-060 decision 5).
+            # The 3D view follows the PLAN, not its repaints: the command moves
+            # the plan revision via stack_changed; this nudge covers the
+            # no-manager fallback and coalesces otherwise (ADR-060 decision 5).
             note_plan_changed(self._current_plant_item.scene())
 
             # Mark project as dirty + refresh soil-mismatch borders (US-12.10d)
@@ -940,6 +1123,101 @@ class PlantDatabasePanel(QWidget):
                             window._project_manager.mark_dirty()
                     if hasattr(view, "refresh_soil_mismatches"):
                         view.refresh_soil_mismatches()
+            self._committed_species_form = signature
+
+    def _species_form_signature(self) -> tuple:
+        """Read only editable values, before library identity conversion."""
+        widgets = (
+            self.common_edit, self.scientific_edit, self.family_edit,
+            self.cycle_combo, self.flower_type_combo, self.pollination_combo,
+            self.sun_combo, self.water_combo, self.max_height_spin, self.max_spread_spin,
+            self.hardiness_min_spin, self.hardiness_max_spin, self.edible_checkbox,
+            self.edible_parts_edit, self.ph_min_spin, self.ph_max_spin,
+            self.n_demand_combo, self.p_demand_combo, self.k_demand_combo,
+            self.nutrient_demand_combo,
+        )
+        values: list[Any] = []
+        for widget in widgets:
+            if isinstance(widget, QComboBox):
+                values.append(widget.currentData())
+            elif isinstance(widget, QDoubleSpinBox):
+                values.append(widget.value())
+            elif isinstance(widget, QCheckBox):
+                values.append(widget.isChecked())
+            else:
+                values.append(widget.text())
+        return tuple(values)
+
+    def _species_resize_radii(
+        self,
+        item: Any,
+        old_species: dict[str, Any] | None,
+        new_species: dict[str, Any],
+    ) -> tuple[float | None, float | None]:
+        """Compute (old_radius, new_radius) for a species-dict edit (#558).
+
+        Precedence: an explicit spacing override, an explicit current/measured
+        spread, or a custom footprint (drawn radius != old species size) wins
+        and the edit resizes nothing. A cleared max_spread preserves geometry
+        rather than collapsing it. Otherwise the footprint diameter follows
+        max_spread_cm, preserving center + rotation pivot via
+        set_radius_centered.
+
+        When the old species has no max_spread there is no species size to
+        conflict with, so the edit adopts the new size even if the drawn
+        radius was hand-placed (undoable, and documented here rather than
+        silently kept).
+        """
+        try:
+            old_max = (old_species or {}).get("max_spread_cm")
+            new_max = new_species.get("max_spread_cm")
+        except Exception:
+            return None, None
+        if new_max == old_max:
+            return None, None
+        if new_max is None:
+            return None, None
+        try:
+            new_max_f = float(new_max)
+        except Exception:
+            return None, None
+        if not new_max_f > 0:
+            return None, None
+        try:
+            if getattr(item, "spacing_radius_cm", None) is not None:
+                return None, None
+        except Exception:
+            pass
+        try:
+            instance = getattr(item, "metadata", {}).get("plant_instance", {}) or {}
+            if instance.get("current_spread_cm") is not None or instance.get("current_diameter_cm") is not None:
+                return None, None
+        except Exception:
+            pass
+        get_radius = getattr(item, "radius", None)
+        current_r: float | None = None
+        try:
+            current_r = float(get_radius()) if callable(get_radius) else None
+        except Exception:
+            current_r = None
+        if current_r is None:
+            get_r = getattr(item, "_radius", None)
+            try:
+                current_r = float(get_r) if isinstance(get_r, (int, float)) else None
+            except Exception:
+                current_r = None
+        if current_r is None or not hasattr(item, "set_radius_centered"):
+            return None, None
+        if old_max is not None:
+            try:
+                if abs(current_r - float(old_max) / 2.0) > 1.0:
+                    return None, None
+            except Exception:
+                return None, None
+        new_radius = new_max_f / 2.0
+        if abs(new_radius - current_r) < 1e-6:
+            return None, None
+        return current_r, new_radius
 
     def _on_instance_field_changed(self) -> None:
         """Handle variety field change."""
@@ -1037,10 +1315,32 @@ class PlantDatabasePanel(QWidget):
         self._update_instance_metadata("current_spread_cm", val if val > 0 else None)
 
     def _on_notes_changed(self) -> None:
-        """Handle notes change."""
+        """Stage a notes edit; the debounce timer commits one undo step (#559)."""
+        if not self._current_plant_item or self._in_commit:
+            return
+        try:
+            self._pending_notes_value = self.notes_edit.toPlainText() or None
+            self._notes_has_pending = True
+            self._notes_timer.start()
+        except Exception:
+            pass
+
+    def _flush_pending_notes(self) -> None:
+        """Commit a staged notes edit as one undoable step, if changed."""
+        with contextlib.suppress(Exception):
+            self._notes_timer.stop()
+        if not self._notes_has_pending:
+            return
+        self._notes_has_pending = False
+        value = self._pending_notes_value
+        self._pending_notes_value = None
         if not self._current_plant_item:
             return
-        self._update_instance_metadata("notes", self.notes_edit.toPlainText() or None)
+        plant_meta = cast(Any, self._current_plant_item).metadata
+        current = (plant_meta.get("plant_instance", {}) or {}).get("notes")
+        if value == current:
+            return
+        self._update_instance_metadata("notes", value)
 
     def _populate_seed_packet_combo(
         self, plant_data: PlantSpeciesData, instance_data: dict
@@ -1192,7 +1492,7 @@ class PlantDatabasePanel(QWidget):
         self._update_instance_metadata("custom_fields", custom_fields if custom_fields else None)
 
     def _update_instance_metadata(self, key: str, value) -> None:
-        """Update plant instance metadata and mark project dirty.
+        """Update plant instance metadata as one undoable step (#559).
 
         Args:
             key: The metadata key to update
@@ -1200,46 +1500,41 @@ class PlantDatabasePanel(QWidget):
         """
         if not self._current_plant_item:
             return
+        if self._in_commit:
+            return
 
         # metadata is a read-only property backed by a dict that always exists,
         # so there's nothing to initialize here.
-        # Get or create plant_instance dict
-        if "plant_instance" not in self._current_plant_item.metadata:
-            self._current_plant_item.metadata["plant_instance"] = {}
-
-        # boundingRect() only actually changes for the rare case of a
-        # current measurement exceeding the species max (the common shrink
-        # case is floored to stay byte-identical -- see
-        # CircleItem.boundingRect()), but any of these three keys can trigger
-        # that case: current_spread_cm and current_height_cm directly (a
-        # measured height implies a spread via
-        # growth_model._derive_from_other when spread is unset), and
-        # planting_date because more elapsed time means more growth even
-        # with no other field touched (issue #299 review -- an earlier cut
-        # gated this on `key == "current_spread_cm"` alone and missed the
-        # other two). Scoped rather than unconditional so it doesn't fire on
-        # every Notes/variety/custom-field keystroke, which cannot affect
-        # geometry. Must be called BEFORE the value changes, or Qt's scene
-        # index keeps the old rect and leaves a paint ghost.
-        if key in ("current_spread_cm", "current_height_cm", "planting_date"):
-            self._current_plant_item.prepareGeometryChange()
-
-        # Update value
+        old_instance = dict(
+            cast(Any, self._current_plant_item).metadata.get("plant_instance", {}) or {}
+        )
+        new_instance = dict(old_instance)
         if value is None or value == "":
-            self._current_plant_item.metadata["plant_instance"].pop(key, None)
+            new_instance.pop(key, None)
         else:
-            self._current_plant_item.metadata["plant_instance"][key] = value
+            new_instance[key] = value
+        if new_instance == old_instance:
+            return  # A no-op adds no history entry.
+
+        from open_garden_planner.core.commands import PlantInstanceEditCommand
+
+        cmd = PlantInstanceEditCommand(
+            self._current_plant_item, old_instance, new_instance
+        )
+        if self._command_manager is not None:
+            self._push_or_merge_instance_cmd(cmd)
+        else:
+            cmd.execute()
 
         # A metadata-only write repaints nothing, so QGraphicsScene.changed
-        # never fires; and because this edit bypasses the command manager,
-        # stack_changed does not fire either. Derived overlays subscribe to
-        # exactly those two, so without this nudge the sun/shade shadow keeps
-        # showing the OLD size after the user edits Current height/spread
-        # (US-E8 reads both straight off this dict). See §11.4.
+        # never fires; the command moves the plan revision via stack_changed
+        # (and this nudge covers the no-manager fallback). Derived overlays
+        # subscribe to exactly those two, so without this the sun/shade shadow
+        # keeps showing the OLD size after the user edits Current
+        # height/spread (US-E8 reads both straight off this dict). See §11.4.
         self._current_plant_item.update()
         # … and what follows the PLAN rather than its repaints (the 3D view) is
-        # told directly: the one nudge for a write that goes round the undo stack
-        # (CanvasScene.note_plan_changed, ADR-060 decision 5).
+        # told directly for the fallback path (ADR-060 decision 5).
         note_plan_changed(self._current_plant_item.scene())
 
         # Mark project as dirty
@@ -1311,6 +1606,21 @@ class PlantDatabasePanel(QWidget):
         Args:
             items: List of selected graphics items
         """
+        # A genuine selection change must not drop a coalesced notes edit for
+        # the previous item: flush it as its own undo step before switching.
+        # Same-item notifications (mid-typing) must NOT flush here.
+        if (
+            self._current_plant_item is not None
+            and (len(items) != 1 or items[0] is not self._current_plant_item)
+        ):
+            with contextlib.suppress(Exception):
+                self._flush_pending_notes()
+            self._last_spin_cmd = None
+            self._last_spin_widget = None
+        # Consume a history transition first (#560): it outranks both the
+        # trait-only fast path and the focus guard below.
+        history = self._history_pending
+        self._history_pending = False
         # Defensive backstop (#206): this panel reuses persistent widgets and
         # re-pushes values via _show_plant_data on every call. If it is called
         # for the *same* item that is already displayed while one of its own
@@ -1331,15 +1641,23 @@ class PlantDatabasePanel(QWidget):
                     for field in ("permaculture_layer", "functions"):
                         before.pop(field, None)
                         after.pop(field, None)
-                    if before == after:
+                    if (before == after and not history and
+                            getattr(self, "_shown_instance", None) == getattr(items[0], "metadata", {}).get("plant_instance", {})):
                         self._current_plant_data = data
                         return
-        if (
-            len(items) == 1
-            and items[0] is self._current_plant_item
-            and self._holds_field_focus()
-        ):
-            return
+        restore_editor = self._capture_active_editor() if (
+            len(items) == 1 and items[0] is self._current_plant_item and not history
+        ) else None
+        # History transitions (#560) refresh even a focused editor; an
+        # uncommitted notes edit is dropped (see below), not committed.
+        if history:
+            # Discard, never flush: committing here would push a NEW command
+            # right after an undo/redo and wipe the redo stack. The refresh
+            # below repaints the notes box from the model.
+            with contextlib.suppress(Exception):
+                self._notes_timer.stop()
+            self._notes_has_pending = False
+            self._pending_notes_value = None
 
         # Check if exactly one plant item is selected
         if len(items) != 1:
@@ -1372,7 +1690,11 @@ class PlantDatabasePanel(QWidget):
             self._show_no_metadata()
             return
 
-        # Deserialize and display
+        # Deserialize and display. Programmatic pushes must not create nested
+        # commands: guard the whole push (P1-4). Every push path blocks its
+        # own signals today, but a guard that never guards is worse than none.
+        self._in_commit = True
+        self._preserve_custom_editor = restore_editor is not None
         try:
             if isinstance(species_data, dict):
                 plant_data = PlantSpeciesData.from_dict(species_data)
@@ -1381,8 +1703,58 @@ class PlantDatabasePanel(QWidget):
                 self._show_plant_data(species_data, item)
             else:
                 self._show_no_metadata()
+            self._shown_instance = deepcopy(item.metadata.get("plant_instance", {}))
         except Exception:
             self._show_no_metadata()
+        finally:
+            if restore_editor is not None:
+                restore_editor()
+            self._preserve_custom_editor = False
+            self._in_commit = False
+
+    def _capture_active_editor(self) -> Callable[[], None] | None:
+        """Protect only the active input while unrelated model fields refresh."""
+        focused = QApplication.focusWidget()
+        if focused is None or not self.isAncestorOf(focused):
+            return None
+        if isinstance(focused, QDoubleSpinBox):
+            focused = focused.lineEdit()
+            if focused is None:
+                return None
+        if isinstance(focused, QLineEdit):
+            text, cursor = focused.text(), focused.cursorPosition()
+            start, selected = focused.selectionStart(), focused.selectedText()
+            parent = focused.parentWidget()
+            spin = parent if isinstance(parent, QDoubleSpinBox) else None
+            value = spin.value() if spin is not None else 0.0
+
+            def restore_line() -> None:
+                if spin is not None:
+                    with QSignalBlocker(spin):
+                        spin.setValue(value)
+                with QSignalBlocker(focused):
+                    focused.setText(text)
+                    focused.setCursorPosition(cursor)
+                    if start >= 0:
+                        focused.setSelection(start, len(selected))
+
+            return restore_line
+        if isinstance(focused, QPlainTextEdit):
+            text, text_cursor = focused.toPlainText(), focused.textCursor()
+            position, anchor = text_cursor.position(), text_cursor.anchor()
+            scroll = focused.verticalScrollBar().value()
+
+            def restore_notes() -> None:
+                with QSignalBlocker(focused):
+                    focused.setPlainText(text)
+                    restored_cursor = focused.textCursor()
+                    restored_cursor.setPosition(anchor)
+                    restored_cursor.setPosition(position, restored_cursor.MoveMode.KeepAnchor)
+                    focused.setTextCursor(restored_cursor)
+                    focused.verticalScrollBar().setValue(scroll)
+
+            return restore_notes
+        return None
 
     def _holds_field_focus(self) -> bool:
         """True when one of this panel's editable input widgets currently has focus."""
@@ -1676,16 +2048,15 @@ class PlantDatabasePanel(QWidget):
 
         # === CUSTOM FIELDS ===
 
-        # Clear existing custom field rows
-        while self.custom_fields_layout.count() > 1:  # Keep the Add button
-            item = self.custom_fields_layout.takeAt(0)
-            if item and item.widget():
-                item.widget().deleteLater()
-
-        # Load custom fields from instance data
-        custom_fields = instance_data.get("custom_fields", {})
-        if custom_fields:
-            for key, value in custom_fields.items():
+        # Keep an active custom-field editor alive during ordinary refreshes.
+        focused = QApplication.focusWidget()
+        preserve_custom = getattr(self, "_preserve_custom_editor", False) and focused is not None and self.custom_fields_widget.isAncestorOf(focused)
+        if not preserve_custom:
+            while self.custom_fields_layout.count() > 1:  # Keep the Add button
+                custom_row = self.custom_fields_layout.takeAt(0)
+                if custom_row and custom_row.widget():
+                    custom_row.widget().deleteLater()
+            for key, value in instance_data.get("custom_fields", {}).items():
                 self._add_custom_field_row(key, str(value) if value else "")
 
         # === SEED PACKET LINK (US-9.6) ===
@@ -1697,7 +2068,7 @@ class PlantDatabasePanel(QWidget):
             source=plant_source_label(plant_data.data_source)
         )
         if plant_data.source_id:
-            source_text += f" (ID: {plant_data.source_id})"
+            source_text += self.tr(" (ID: {id})").format(id=plant_data.source_id)
 
         # Find the CollapsiblePanel parent and set the info tooltip
         parent_widget = self.parent()
@@ -1725,6 +2096,7 @@ class PlantDatabasePanel(QWidget):
 
         # === PROFILE HEADER (US-G2, issue #317) ===
         self._update_profile_header(plant_data)
+        self._committed_species_form = self._species_form_signature()
 
     def _update_profile_header(self, plant_data: PlantSpeciesData) -> None:
         """Update the profile header with plant data (US-G2, issue #317).

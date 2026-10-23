@@ -7,6 +7,39 @@ argument: "Optional: short description of the bug or area to instrument"
 
 # Verbose Debug Instrumentation
 
+## Case study: panel commit boundaries erased redo or lost notes (PR #566, 2026-10-23)
+
+**Symptom.** Immediate Save/Close omitted notes; pending Properties Name erased
+redo after Undo; revisiting a spinbox merged two completed edits; unselected
+lock badges survived unlock. Ordinary focused updates froze unrelated fields.
+**Wrong theories.** A timer/selection flush was assumed to cover persistence;
+widget identity was assumed to define a numeric gesture. No other theory was
+adopted before reproducing the boundaries.
+**Evidence.** Eight real-widget regressions failed first. External tagged
+instrumentation printed `[566-EDIT] _on_name_commit` with traceback.format_stack
+through set_selected_items -> _flush_pending_text_commits after undo. Spin depth
+was 1 instead of 2; a clean document's discard check returned True after notes.
+**Root cause.** Commit timing depended on incidental refresh/selection, and badge
+derivation depended on a selected Properties item rather than the constraint scene.
+**Fix.** Flush before history selection, save and dirty guards; never during the
+post-navigation refresh. End numeric gestures on editingFinished, refresh unrelated
+fields in place and derive every lock badge from scene constraint refresh. The
+regressions also cover all object-menu families and real tool-created locks.
+Further dimension tests caught the legacy current_diameter_cm alias and the
+initially uncentered circle pivot after reload; both now preserve the width contract.
+**Lesson.** Test editor boundaries and scene state without selection. A green
+private-handler test does not establish save, focus, or history behavior. The
+temporary profile probe and its stack output remain outside production.
+
+The next review exposed two actual focus boundaries: Qt can report the spinbox
+itself instead of its inner line editor, and an old QTextCursor changes when its
+document is replaced. Normalize both focus shapes and preserve numeric cursor
+offsets. An unchanged online species must also return before library conversion:
+otherwise a focus flush creates a custom entry and Undo repeatedly undoes that
+phantom edit. Compare editable form values before changing species identity.
+Real focused-spin, notes-caret, online no-op and nested-snapshot regressions pin
+these paths in the same package integration file.
+
 ## Case study: throttle regression depends on machine uptime (#542, PR #565)
 
 **Symptom.** CI Test and Coverage failed the new no-op regression's idle assertion;
@@ -780,7 +813,7 @@ Three brand-new fields were declared on the dataclass (US-12.10d) but never adde
 
 **Key signal**: visually, the closing segment looked like a *single hairline*, while the other edges were a clean 4 px stroke. That's the signature of stroking a thin-band shape: the outline gets a 4 px stroke but the band itself is < 4 px wide.
 
-**Root cause**: Qt's `QGraphicsPolygonItem.shape()` (bypassed at `ui/canvas/items/garden_item.py:1123` `drawPolygon`) does **not** return the polygon's outline. It returns the *stroke envelope* — a closed band path that's the polygon outline expanded by the pen width, intended for hit-testing (so clicking near the edge counts as a hit). Stroking that band's outline produces the observed double-line effect, with the addPolygon-induced open seam reduced to a thin closing line.
+**Root cause**: Qt's `QGraphicsPolygonItem.shape()` (bypassed at `ui/canvas/items/garden_item.py:1290` `drawPolygon`) does **not** return the polygon's outline. It returns the *stroke envelope* — a closed band path that's the polygon outline expanded by the pen width, intended for hit-testing (so clicking near the edge counts as a hit). Stroking that band's outline produces the observed double-line effect, with the addPolygon-induced open seam reduced to a thin closing line.
 
 **Fix**: When the item has a `polygon()` method (i.e. it *is* a `QGraphicsPolygonItem`), bypass `shape()` entirely and use `painter.drawPolygon(self.polygon())`. That uses the raw vertex list and produces a uniform stroke on every edge with proper miter joins. Rect / circle / ellipse keep the `drawPath(self.shape())` fallback because their `shape()` *does* return a closed outline.
 
@@ -3852,3 +3885,28 @@ plant presence and sun state atomically. Pins: tests/integration/test_plan_sun_s
 and test_minute_rollover_updates_presence_sun_and_3d_once in
  tests/integration/test_timeline_quick3d.py. All temporary probes stayed outside
 committed production code.
+
+## Case study: duplicate path lock and missing-location solar preview (PR #566 manual pass)
+
+**Symptom.** A locked path had an upright end badge and an inverted small lock at
+its center. A separate plan had no 2D shadows, an unavailable map and static 3D
+shadows while the clock animated.
+**Wrong theories.** One badge might be painting twice; the clock-to-light animation
+might have regressed. Instrumentation tested both before changing solar behavior.
+**Evidence.** A sys.setprofile probe logged `[566-MARKER] groups=1 legacy_parts=2
+shared_badge=True`; traceback.format_stack at _build_fixed_marker showed
+CanvasScene.update_dimension_lines -> DimensionLineManager.update_all. The solar
+probe logged `[566-SUN] clock=10:00 -> 13:00 2d_state=no_location
+shadow_changed=False 3d_sun_changed=False`. With Berlin coordinates, 2D became
+active and both shadows changed. The owner confirmed setting the location solved
+all solar symptoms. Probes were temporary and did not alter the user's plan.
+**Root cause/fix.** The dimension layer still painted its former FIXED marker on
+paths alongside the new shared badge. Suppress that renderer for PositionLockMixin
+objects; retain construction-item markers. Solar behavior was correct, but its
+location prerequisite was only explained away from the controls. Add a persistent
+translated link beside Hours of Sun that opens the existing location dialog.
+**Lesson.** Audit all old renderers when centralizing an indicator. Explain a
+missing prerequisite where its dependent controls live. Pin the path regression
+before fixing it, and test cancel, zero coordinates, enabled-map recovery and
+new-document reset. Native locale/theme/width cases cover hint layout as well as
+normal map status. No solar math or animation policy changed.

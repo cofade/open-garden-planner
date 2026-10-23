@@ -632,8 +632,13 @@ def test_a_plant_without_a_known_height_says_so_on_the_card(bench: SelectionBenc
     bench.settle()
     record = bench.workspace.controller.sync.records[str(herb.item_id)]
     card = bench.workspace.info_card
-    assert record.height_cm is None and card.value("Height:") == "not known"
-    assert card.note() == "", "it HAS a model: the neutral placeholder dome"
+    from open_garden_planner.core.plant_height_estimate import ESTIMATED_HEIGHT_PARAM
+
+    assert record.height_cm is None
+    est = record.params.get(ESTIMATED_HEIGHT_PARAM)
+    assert est is not None
+    assert card.value("Height:") == f"{format_length(est)} (estimated)"
+    assert card.note() == "", "it HAS a model: the estimated plant form"
 
 
 def test_an_item_without_a_3d_model_shows_its_reason_in_the_lists_own_words(

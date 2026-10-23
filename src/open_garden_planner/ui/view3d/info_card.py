@@ -267,6 +267,25 @@ class View3DInfoCard(QFrame):
 
     def _height_row(self, record: Record) -> tuple[str, str]:
         if record.height_cm is None:
+            try:
+                from open_garden_planner.core.plant_height_estimate import (
+                    ESTIMATED_HEIGHT_PARAM,
+                )
+
+                _est = record.params.get(ESTIMATED_HEIGHT_PARAM)
+                if (
+                    isinstance(_est, (int, float))
+                    and not isinstance(_est, bool)
+                    and float(_est) > 0
+                ):
+                    return (
+                        self.tr("Height:"),
+                        self.tr("{height} (estimated)").format(
+                            height=format_length(float(_est))
+                        ),
+                    )
+            except Exception:
+                pass
             return (self.tr("Height:"), self.tr("not known"))
         return (self.tr("Height:"), format_length(record.height_cm))
 

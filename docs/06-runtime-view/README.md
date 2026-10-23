@@ -1,5 +1,33 @@
 # 6. Runtime View
 
+## Committed panel edits, persistence and history (PR #566)
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant P as Properties / Plant Details
+    participant H as CommandManager
+    participant S as ProjectManager
+    U->>P: Edit numeric or text field
+    P->>H: Execute snapshot command / coalesce numeric tick
+    U->>H: Undo or Redo
+    H->>P: before_history_navigation
+    P->>H: Commit active text and end numeric gesture
+    H->>H: Select and apply current history entry
+    H->>P: history_navigated
+    P->>P: Refresh model values without committing
+    U->>S: Save
+    S->>P: before_save
+    P->>H: Flush active editors
+    S->>S: Serialize committed plan and atomically persist
+```
+
+The GUI discard guard and Agent API new/open dirty guards flush the same editors
+before checking dirty state. A typing pause or selection change also commits notes;
+opening 3D never commits estimated dimensions. `CanvasScene.update_dimension_lines`
+derives position-lock badges from FIXED constraints independently of panel selection.
+Pins: the two package integration files named in section 8.32.
+
 ## Fixed toolbar startup (PR #556 manual acceptance, ADR-062)
 
 ```mermaid

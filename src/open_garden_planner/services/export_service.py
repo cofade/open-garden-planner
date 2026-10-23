@@ -67,6 +67,9 @@ class ExportService:
             (hidden_items, previously_selected_items) — the second list is so
             the selection state can be restored after the render.
         """
+        from open_garden_planner.ui.canvas.items.garden_item import (  # noqa: PLC0415
+            LockBadgeItem,
+        )
         from open_garden_planner.ui.canvas.items.resize_handle import (  # noqa: PLC0415
             MidpointHandle,
             RectCornerHandle,
@@ -85,6 +88,7 @@ class ExportService:
             RectCornerHandle,
             VertexHandle,
             SoilBadgeItem,
+            LockBadgeItem,
         )
         hidden: list[object] = []
         for item in scene.items():

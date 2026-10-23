@@ -247,6 +247,7 @@ class ProjectManager(QObject):
 
     project_changed = pyqtSignal(object)  # str path or None
     dirty_changed = pyqtSignal(bool)
+    before_save = pyqtSignal()
     location_changed = pyqtSignal(object)  # dict or None
     task_completions_changed = pyqtSignal(object)  # set[str]
     seed_inventory_changed = pyqtSignal(object)    # list[SeedPacket]
@@ -871,6 +872,7 @@ class ProjectManager(QObject):
             scene: The scene containing objects to save
             file_path: Path to save to
         """
+        self.before_save.emit()
         data = self._build_project_data(scene, sync_journal=True)
         file_path = file_path.with_suffix(".ogp")
 
@@ -2033,6 +2035,13 @@ class ProjectManager(QObject):
         # Load constraints if present
         if parsed_constraints is not None and hasattr(scene, "constraint_graph"):
             scene.constraint_graph = parsed_constraints
+            # The FIXED-lock padlock badge is derived from the graph: re-derive
+            # it for every loaded item so a saved lock is visible without
+            # selecting each item first (#552).
+            for loaded_item in deserialized_items:
+                refresh_badge = getattr(loaded_item, "refresh_lock_badge", None)
+                if refresh_badge is not None:
+                    refresh_badge()
 
         # Load guide lines if present
         if hasattr(scene, "set_guide_lines"):

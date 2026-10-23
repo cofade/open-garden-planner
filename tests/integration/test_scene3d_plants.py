@@ -36,6 +36,7 @@ from open_garden_planner.core import plant_renderer
 from open_garden_planner.core.commands import MoveItemsCommand
 from open_garden_planner.core.object_height import METADATA_KEY, effective_height_cm
 from open_garden_planner.core.plant_art import SPECIES_SPRITES, SpriteRef
+from open_garden_planner.core.plant_height_estimate import ESTIMATED_HEIGHT_PARAM
 from open_garden_planner.core.scene3d import (
     MAX_LENGTH_CM,
     PARAM_SPECIES_NAME,
@@ -48,9 +49,7 @@ from open_garden_planner.core.scene3d import (
 )
 from open_garden_planner.core.scene3d.builders.plants import (
     PART_FOLIAGE,
-    PART_PLACEHOLDER,
     PART_WOOD,
-    PLACEHOLDER,
     TRIANGLE_BUDGET,
     plant_archetype,
     plant_sprite,
@@ -183,10 +182,15 @@ class Garden:
             assert (drawn.parent.name, drawn.stem) == (sprite.group, sprite.name), label
             names = {part.name for part in held.parts}
             if label == "unknown":
-                assert height is None and plant_archetype(record) == PLACEHOLDER
-                assert names == {PART_PLACEHOLDER}
-                assert not held.parts[0].casts_shadow and not record.casts_shadow
-                assert high[2] <= 25.0                        # a marker, never a guessed tree
+                # #557: no height anywhere, but the plan still knows the
+                # canopy — the tree renders at the illustrative TREE fallback
+                # (labelled estimated) instead of the former low marker.
+                assert height is None
+                assert record.params.get(ESTIMATED_HEIGHT_PARAM) == pytest.approx(400.0)
+                assert plant_archetype(record) == "canopy"
+                assert names == {PART_WOOD, PART_FOLIAGE}
+                assert all(part.casts_shadow for part in held.parts)
+                assert high[2] == pytest.approx(400.0, rel=1e-5)
                 continue
             archetype = GALLERY[label][1]
             assert plant_archetype(record) == archetype, label
@@ -255,11 +259,15 @@ def test_moving_a_plant_re_poses_it_and_builds_nothing(garden: Garden) -> None:
 
 def test_a_typed_height_turns_the_placeholder_into_a_tree_and_back(garden: Garden) -> None:
     """The tree drawn with the tool has no species and no measurement: the plan
-    knows its canopy, not its height. 3D shows the marker — until a height is
-    typed into the Properties panel's field (``object_height_cm``)."""
-    garden.tick(JUNE_2026)
+    knows its canopy, not its height. 3D shows the illustrative estimated TREE
+    form (#557) — until a height is typed into the Properties panel's field
+    (``object_height_cm``), and back again when it is cleared."""
+    _, _, records = garden.tick(JUNE_2026)
     unknown, item_id = garden.plants["unknown"], garden.item_id("unknown")
-    assert [part.name for part in garden.sink.item(item_id).parts] == [PART_PLACEHOLDER]
+    assert {part.name for part in garden.sink.item(item_id).parts} == {PART_WOOD, PART_FOLIAGE}
+    assert plant_archetype(records[item_id]) == "canopy"   # estimated TREE form
+    assert records[item_id].height_cm is None
+    assert records[item_id].params.get(ESTIMATED_HEIGHT_PARAM) == pytest.approx(400.0)
 
     unknown.metadata[METADATA_KEY] = 650.0
     changes, calls, records = garden.tick(JUNE_2026)
@@ -274,13 +282,16 @@ def test_a_typed_height_turns_the_placeholder_into_a_tree_and_back(garden: Garde
     del unknown.metadata[METADATA_KEY]
     changes, calls, records = garden.tick(JUNE_2026)
     assert calls == [BEGIN, ("replace_geometry", item_id), COMMIT]
-    assert [part.name for part in garden.sink.item(item_id).parts] == [PART_PLACEHOLDER]
+    assert {part.name for part in garden.sink.item(item_id).parts} == {PART_WOOD, PART_FOLIAGE}
     assert records[item_id].height_cm is None
+    assert plant_archetype(records[item_id]) == "canopy"   # back to the estimated form
 
 
 def test_the_placeholder_means_the_plan_gives_no_height_and_nothing_else(garden: Garden) -> None:
-    """What ``height_cm is None`` — and so the marker — says: NO source of the plan
-    gives this plant a height. It does not say "a height the pipeline could not use":
+    """What ``height_cm is None`` says: NO source of the plan gives this plant a
+    height (#557: the pipeline then renders the estimated category form, and
+    the neutral marker remains for plants with no resolvable sprite or no
+    canopy circle). It does not say "a height the pipeline could not use":
 
     - a typed height that is infinite or beyond 10 km (``MAX_LENGTH_CM``; a
       hand-edited plan) gives the plant NO record: it is left out and reported
@@ -290,7 +301,7 @@ def test_the_placeholder_means_the_plan_gives_no_height_and_nothing_else(garden:
     - a typed height that is no positive number (0, negative, NaN, text, a bool)
       is no typed height at all — ``core.object_height`` reads it so for the 2D
       shadow too — and the next source decides: none for a drawn tree (the
-      marker), the species' size for a species plant.
+      estimated form), the species' size for a species plant.
     """
     garden.tick(JUNE_2026)
     unknown, unknown_id = garden.plants["unknown"], garden.item_id("unknown")
@@ -326,11 +337,11 @@ def test_the_placeholder_means_the_plan_gives_no_height_and_nothing_else(garden:
         records = snapshot_records(garden.scene, JUNE_2026, skipped=skipped)
         assert not skipped, nothing
         assert records[unknown_id].height_cm is None, nothing   # the plan gives it no height
-        assert plant_archetype(records[unknown_id]) == PLACEHOLDER
+        assert plant_archetype(records[unknown_id]) == "canopy", nothing  # estimated form, not the marker
         assert records[apple_id].height_cm == grown_apple       # its measured, dated size decides
         assert plant_archetype(records[apple_id]) == "canopy"
         garden.sync.apply(records)
-        assert [part.name for part in garden.sink.item(unknown_id).parts] == [PART_PLACEHOLDER]
+        assert {part.name for part in garden.sink.item(unknown_id).parts} == {PART_WOOD, PART_FOLIAGE}
     del unknown.metadata[METADATA_KEY], apple.metadata[METADATA_KEY]
 
 

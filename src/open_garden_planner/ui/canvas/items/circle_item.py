@@ -175,6 +175,7 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         y = center_y - radius
         diameter = radius * 2
         QGraphicsEllipseItem.__init__(self, x, y, diameter, diameter)
+        self.setTransformOriginPoint(self.rect().center())
 
         self._center = QPointF(center_x, center_y)
         self._radius = radius
@@ -951,8 +952,12 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
                 )
 
         # Execute menu and handle result
+        menu.addSeparator()
+        lock_action = self.build_lock_context_menu(menu)
         action = menu.exec(event.screenPos())
 
+        if self.dispatch_lock_action(action, lock_action):
+            return
         # Dispatch bed-specific actions via the shared mixin handler.
         if self.dispatch_bed_action(action, bed_actions):
             return

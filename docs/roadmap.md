@@ -3192,3 +3192,26 @@ the eight-second smoke (124), and self-test (0), including an RTX 4070 / Direct3
 master and all truth gates passing. Senior review found no P0/P1 and independently
 passed seven native latest-fix cases; its sole EOF-whitespace nit is removed.
 Protected merge succeeded on 22 October 2026; shipped as v1.30.18.
+
+### Plant Details follow-ups (#552, #557–#560) — PR #566, owner acceptance pending
+
+| Issue | Implemented behavior |
+|---|---|
+| #552 | FIXED rejects panel X/Y writes; undoable Lock/Unlock across object menus; upright, export-hidden badges follow constraint history and load. |
+| #559 | Species and instance edits use independent command snapshots. Spin ticks coalesce within editingFinished boundaries; staged text flushes before save, document guards and history navigation. Shared-library writes remain separate from plan undo. |
+| #560 | History refreshes committed values even with editor focus; ordinary same-selection refreshes protect active input and update unrelated fields. |
+| #558 | Species-derived Max Spread updates centered 2D/3D dimensions; measured and legacy measured dimensions, spacing overrides and custom footprints retain precedence. A cleared width retains geometry. |
+| #557 | Labelled illustrative 3D heights: tree 400 cm, shrub 150 cm, perennial 60 cm, vegetable 50 cm. Authoritative height remains unknown, including analytical 2D sun/shade. |
+
+Implementation evidence: `tests/integration/test_plant_package_558_559_560_552_557.py`
+and `tests/integration/test_plant_dimensions_records.py`; ADR-004/013/059,
+crosscutting section 8.32 and PF-UI-27. Independent review and current gate results
+are recorded in PR #566. These issues remain open until protected merge.
+
+Owner acceptance confirmed plant history/save, widths, estimated heights, locales
+and lock behavior. The manual follow-up removes the second painted path padlock.
+The reported static sun was a plan without a location; setting coordinates restored
+2D/3D shadows and Hours of Sun. A persistent location link beside Hours of Sun now
+opens the existing location dialog and clears automatically after configuration
+(FR-TIMELINE-07). These two follow-up UI changes await owner acceptance.
+

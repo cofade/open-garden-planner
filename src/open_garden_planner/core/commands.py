@@ -6,7 +6,8 @@ executed, undone, and redone.
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from contextlib import AbstractContextManager, nullcontext
+from contextlib import AbstractContextManager, nullcontext, suppress
+from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
@@ -61,12 +62,26 @@ class CommandManager(QObject):
     can_redo_changed = pyqtSignal(bool)
     command_executed = pyqtSignal(str)
     stack_changed = pyqtSignal()
+    before_history_navigation = pyqtSignal()
+    history_navigated = pyqtSignal()
 
     def __init__(self, parent: QObject | None = None) -> None:
         """Initialize the command manager."""
         super().__init__(parent)
         self._undo_stack: list[Command] = []
         self._redo_stack: list[Command] = []
+        self._preparing_history = False
+
+    def _prepare_history(self) -> bool:
+        """Commit active editors before selecting a history entry (#560)."""
+        if self._preparing_history:
+            return False
+        self._preparing_history = True
+        try:
+            self.before_history_navigation.emit()
+        finally:
+            self._preparing_history = False
+        return True
 
     def execute(self, command: Command) -> None:
         """Execute a command and add it to the undo stack.
@@ -110,6 +125,8 @@ class CommandManager(QObject):
 
     def undo(self) -> None:
         """Undo the last command."""
+        if not self._prepare_history():
+            return
         if not self._undo_stack:
             return
 
@@ -120,9 +137,12 @@ class CommandManager(QObject):
         self.can_undo_changed.emit(len(self._undo_stack) > 0)
         self.can_redo_changed.emit(True)
         self.stack_changed.emit()
+        self.history_navigated.emit()  # an explicit history transition (#560)
 
     def redo(self) -> None:
         """Redo the last undone command."""
+        if not self._prepare_history():
+            return
         if not self._redo_stack:
             return
 
@@ -139,6 +159,7 @@ class CommandManager(QObject):
         self.can_undo_changed.emit(True)
         self.can_redo_changed.emit(len(self._redo_stack) > 0)
         self.stack_changed.emit()
+        self.history_navigated.emit()  # redo is a history transition too (#560)
 
     def clear(self) -> None:
         """Clear all undo/redo history."""
@@ -173,6 +194,15 @@ class CommandManager(QObject):
         if self._undo_stack:
             return self._undo_stack[-1].description
         return None
+
+    def peek_undo(self) -> Command | None:
+        """Return the top of the undo stack without removing it (#559).
+
+        Panels use this to coalesce a numeric/spin gesture: consecutive
+        ``valueChanged`` steps of one spin drag merge into the pending command
+        instead of one undo entry per tick. Returns None when empty.
+        """
+        return self._undo_stack[-1] if self._undo_stack else None
 
     @property
     def redo_description(self) -> str | None:
@@ -644,8 +674,8 @@ class ApplySpeciesCommand(Command):
         self._item = item
         # Defensive copies so later mutations of the source dicts can't alias
         # the undo state.
-        self._old_species = dict(old_species) if old_species is not None else None
-        self._new_species = dict(new_species) if new_species is not None else None
+        self._old_species = deepcopy(old_species)
+        self._new_species = deepcopy(new_species)
         self._old_spacing_override = old_spacing_override
         self._new_spacing_override = new_spacing_override
         self._old_radius = old_radius
@@ -786,6 +816,135 @@ class RotateItemCommand(Command):
     def undo(self) -> None:
         """Restore the old rotation."""
         self._apply_func(self._item, self._old_angle)
+
+
+class PlantSpeciesEditCommand(Command):
+    """One committed Plant Details species edit as a single undo step (#559).
+
+    Captures the ``metadata['plant_species']`` dict, the user's
+    ``spacing_radius_cm`` override, and the drawn footprint radius so a
+    species-field edit — including a Max Spread change that resizes the
+    footprint (#558) — undoes/redoes together. Library writes
+    (``update_plant``/``add_plant``) are explicitly NOT part of undo: they
+    are shared-library side effects, documented in the panel.
+    """
+
+    def __init__(
+        self,
+        item: QGraphicsItem,
+        old_species: dict[str, Any] | None,
+        new_species: dict[str, Any] | None,
+        old_radius: float | None = None,
+        new_radius: float | None = None,
+        old_spacing_override: float | None = None,
+        new_spacing_override: float | None = None,
+    ) -> None:
+        self._item = item
+        self._old_species = deepcopy(old_species)
+        self._new_species = deepcopy(new_species)
+        self._old_radius = old_radius
+        self._new_radius = new_radius
+        self._old_spacing_override = old_spacing_override
+        self._new_spacing_override = new_spacing_override
+
+    @property
+    def description(self) -> str:
+        """Human-readable description."""
+        return QCoreApplication.translate("Commands", "Edit plant details")
+
+    def _apply(
+        self,
+        species: dict[str, Any] | None,
+        radius: float | None,
+        spacing_override: float | None,
+    ) -> None:
+        if radius is not None:
+            self._item.set_radius_centered(radius)  # type: ignore[attr-defined]
+        metadata = self._item.metadata  # type: ignore[attr-defined]
+        if species is None:
+            metadata.pop("plant_species", None)
+        else:
+            metadata["plant_species"] = deepcopy(species)
+        if hasattr(self._item, "spacing_radius_cm"):
+            self._item.spacing_radius_cm = spacing_override
+        with suppress(Exception):
+            if hasattr(self._item, "update"):
+                self._item.update()
+
+    def execute(self) -> None:
+        """Apply the new species dict + footprint radius."""
+        self._apply(self._new_species, self._new_radius, self._new_spacing_override)
+
+    def undo(self) -> None:
+        """Restore the old species dict + footprint radius."""
+        self._apply(self._old_species, self._old_radius, self._old_spacing_override)
+
+    def merge_from(self, edit: "PlantSpeciesEditCommand") -> None:
+        """Apply the next tick while preserving this gesture's original snapshot."""
+        if edit._item is not self._item:
+            raise ValueError("Cannot merge edits to different plants")
+        edit.execute()
+        self._new_species = deepcopy(edit._new_species)
+        self._new_radius = edit._new_radius
+        self._new_spacing_override = edit._new_spacing_override
+
+
+class PlantInstanceEditCommand(Command):
+    """One committed Plant Details instance edit as a single undo step (#559).
+
+    Captures the ``metadata['plant_instance']`` dict. Geometry-affecting keys
+    (``current_spread_cm``, ``current_height_cm``, ``planting_date``) trigger
+    ``prepareGeometryChange`` before the write so the scene index does not
+    keep the old rect.
+    """
+
+    _GEOMETRY_KEYS = frozenset(
+        {"current_spread_cm", "current_height_cm", "planting_date"}
+    )
+
+    def __init__(
+        self,
+        item: QGraphicsItem,
+        old_instance: dict[str, Any],
+        new_instance: dict[str, Any],
+    ) -> None:
+        self._item = item
+        self._old_instance = deepcopy(old_instance)
+        self._new_instance = deepcopy(new_instance)
+
+    @property
+    def description(self) -> str:
+        """Human-readable description."""
+        return QCoreApplication.translate("Commands", "Edit plant details")
+
+    def _apply(self, instance: dict[str, Any]) -> None:
+        metadata = self._item.metadata  # type: ignore[attr-defined]
+        try:
+            if hasattr(self._item, "prepareGeometryChange"):
+                self._item.prepareGeometryChange()
+        except Exception:
+            pass
+        metadata["plant_instance"] = deepcopy(instance)
+        try:
+            if hasattr(self._item, "update"):
+                self._item.update()
+        except Exception:
+            pass
+
+    def execute(self) -> None:
+        """Apply the new instance dict."""
+        self._apply(self._new_instance)
+
+    def undo(self) -> None:
+        """Restore the old instance dict."""
+        self._apply(self._old_instance)
+
+    def merge_from(self, edit: "PlantInstanceEditCommand") -> None:
+        """Apply a tick without replacing the gesture's original snapshot."""
+        if edit._item is not self._item:
+            raise ValueError("Cannot merge edits to different plants")
+        edit.execute()
+        self._new_instance = deepcopy(edit._new_instance)
 
 
 class MoveVertexCommand(Command):

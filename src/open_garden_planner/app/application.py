@@ -377,6 +377,7 @@ class GardenPlannerApp(QMainWindow):
         """
         from open_garden_planner.agent_api.exports import validate_new_plan
 
+        self._flush_pending_panel_edits()
         if self._project_manager.is_dirty and not force:
             raise ValueError(
                 "The open plan has unsaved changes. Re-run with force=true to "
@@ -425,6 +426,7 @@ class GardenPlannerApp(QMainWindow):
         """
         from open_garden_planner.agent_api.exports import validate_open_plan
 
+        self._flush_pending_panel_edits()
         if self._project_manager.is_dirty and not force:
             raise ValueError(
                 "The open plan has unsaved changes. Re-run with force=true to "
@@ -4802,6 +4804,10 @@ class GardenPlannerApp(QMainWindow):
         self._sun_toolbar.set_datetime_local(self._sim_clock.wall)
         self._sun_toolbar.datetime_changed.connect(self._on_sun_sim_datetime)
         self._sun_toolbar.date_requested.connect(self._sim_clock.set_date)
+        self._sun_toolbar.location_requested.connect(self._on_set_location)
+        location = self._project_manager.location or {}
+        self._sun_toolbar.set_location_available(
+            location.get("latitude") is not None and location.get("longitude") is not None)
         # The sim instant is deliberately NOT persisted: the clock starts at the
         # current date/time on every app start, so a fresh simulation always
         # reflects today (FR-SUN-04).
@@ -5221,6 +5227,11 @@ class GardenPlannerApp(QMainWindow):
 
         # 6. Plant Details Panel (collapsible) - only shown when a plant is selected
         self.plant_database_panel = PlantDatabasePanel()
+        self._project_manager.before_save.connect(self._flush_pending_panel_edits)
+        with contextlib.suppress(Exception):
+            self.plant_database_panel.set_command_manager(
+                self.canvas_view.command_manager
+            )
         self.plant_database_panel.search_button.clicked.connect(self._on_search_plant_database)
         self.plant_details_collapsible = CollapsiblePanel(self.tr("Plant Details"), self.plant_database_panel, expanded=True)
         sidebar_layout.addWidget(self.plant_details_collapsible)
@@ -6323,12 +6334,18 @@ class GardenPlannerApp(QMainWindow):
                 self.tr("Failed to export PDF report:\n{error}").format(error=e),
             )
 
+    def _flush_pending_panel_edits(self) -> None:
+        """Capture active editors before persistence or a document boundary."""
+        self.properties_panel.flush_pending_edits()
+        self.plant_database_panel.flush_pending_edits()
+
     def _confirm_discard_changes(self) -> bool:
         """Ask user to save if there are unsaved changes.
 
         Returns:
             True if it's OK to proceed (saved or discarded), False to cancel.
         """
+        self._flush_pending_panel_edits()
         if not self._project_manager.is_dirty:
             return True
 
@@ -6619,6 +6636,9 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_location_changed_for_sun(self, _location: object) -> None:
         """Location edits re-solve the sun position immediately (no debounce)."""
+        location = self._project_manager.location or {}
+        self._sun_toolbar.set_location_available(
+            location.get("latitude") is not None and location.get("longitude") is not None)
         self._sun_controller.recompute_now()
 
     # ── 3D view (US-E6) ──────────────────────────────────────────

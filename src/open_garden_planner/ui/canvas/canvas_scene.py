@@ -394,7 +394,12 @@ class CanvasScene(QGraphicsScene):
 
     def update_dimension_lines(self) -> None:
         """Rebuild all dimension line visuals from the constraint graph."""
+        from open_garden_planner.ui.canvas.items.garden_item import PositionLockMixin
+
         self._dimension_line_manager.update_all()
+        for item in self.items():
+            if isinstance(item, PositionLockMixin):
+                item.refresh_lock_badge()
 
     def project_vertex_drag(
         self,

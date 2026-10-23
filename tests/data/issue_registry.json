@@ -1031,12 +1031,12 @@
   },
   "537": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "L1.10 leftovers: dead OGP_QUICK3D in the workspace gate, unused walk.svg, a stale-DPR Qt warning"
   },
   "539": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D View and Alt+1/2/3 do nothing visible from any tab other than Garden Plan"
   },
   "540": {
@@ -1046,12 +1046,12 @@
   },
   "541": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Keyboard Shortcuts: untranslated key name 'Home' in the 3D View group"
   },
   "542": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Date-playback throttle: wall-clock-dependent test and a no-op trailing check that defers the next date pick"
   },
   "543": {
@@ -1063,6 +1063,11 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix: restore line appearance undo and contain styled paint"
+  },
+  "552": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "The FIXED constraint (US-7.21) is bypassed by the Properties panel X/Y fields"
   },
   "556": {
     "is_pr": true,
@@ -1091,7 +1096,12 @@
   },
   "565": {
     "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(#537,#539,#541,#542): 3D follow-ups and chronological date/time stepping"
+  },
+  "566": {
+    "is_pr": true,
     "state": "OPEN",
-    "title": "fix(#537,#539,#541,#542): L1 follow-ups - workspace leftovers, 3D view from any tab, native Home, throttle"
+    "title": "fix(#552,#557,#558,#559,#560): plant details undo, lock guard, estimated heights"
   }
 }

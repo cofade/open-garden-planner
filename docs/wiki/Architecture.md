@@ -16,7 +16,7 @@ Its detailed architecture follows [arc42](https://arc42.org/).
 | Solar and 3D | Qt-free solar, shadow, growth, and 3D scene calculations (`core/scene3d/`); the 3D view is the Plan / 3D / Split workspace of the main window on Qt Quick 3D (Phase 17 L1, ADR-048 / ADR-059 / ADR-060), with the engine confined to one package. |
 
 Since v1.30.14 (Phase 17 L1) the 3D view is the Qt Quick 3D workspace beside the plan; it follows every edit and casts shadow-map shadows checked against the 2D shadows. The Qt 3D viewer window it replaces is removed. Flat ground remains a current limitation.
-The 2D analytic shadow and sun-hours calculations are separate from the 3D renderer's lighting.
+The 2D analytic shadow and sun-hours calculations are separate from the 3D renderer's lighting. Unknown plant heights can use labelled illustrative category heights in 3D; analytical heights remain unknown. Panel edit and history boundaries are documented in the runtime view and crosscutting section 8.32.
 
 ## Detailed documentation
 
@@ -59,3 +59,8 @@ Hours of Sun map refreshes after exposure inputs change; time-only animation doe
 not recalculate a full day. Visual exports wait for a current map. See
 [the timeline and export contracts](https://github.com/cofade/open-garden-planner/blob/master/docs/08-crosscutting-concepts/README.md#831-plan-date-visibility-and-lifetime-us-f4-adr-062)
 and ADR-062 in the architecture decision register.
+
+The PR #566 follow-up adds an actionable location prerequisite beside Hours of
+Sun when coordinates are missing, opening the existing location dialog. It also
+unifies position-lock badges across object menus. These follow-ups await owner
+acceptance; see [the current implementation contract](https://github.com/cofade/open-garden-planner/blob/master/docs/08-crosscutting-concepts/README.md#832-panel-edit-boundaries-and-position-locks-552-558560).

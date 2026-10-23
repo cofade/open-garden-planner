@@ -57,6 +57,23 @@ or a claim that finite hostile outlines have bounded rendering costs.
 **Rationale**: Industry standard pattern. Qt provides QUndoStack. Clean separation of actions from UI.
 **Consequences**: Every new editing operation requires a corresponding Command class. More code but predictable behavior.
 
+### Addendum (2026-10-23, #559/#560 — panel commit boundaries)
+
+The application uses its existing CommandManager, rather than QUndoStack. Species
+and instance edits store deep snapshots; command merge_from applies subsequent
+ticks of the same numeric gesture. editingFinished closes that gesture.
+before_history_navigation flushes active editors before choosing a stack entry;
+history_navigated only refreshes. This replaces discarding staged notes after undo
+and prevents post-undo commands from erasing redo. An active edit is the first edit
+undone. ProjectManager.before_save and document dirty guards share the flush path.
+Callbacks remain registered until form teardown, so repeated save/undo cycles work.
+Ordinary refresh protects each focused editor instead of skipping the whole form.
+
+Plan undo restores the item's species/instance identity and dependent geometry;
+shared custom-library updates are intentionally not rolled back. No dependency,
+new persisted lock flag or file-format change. See section 8.32 and the package
+integration tests.
+
 ## ADR-005: Fixed Sidebar (Not Dockable)
 
 **Status**: Accepted
@@ -164,6 +181,18 @@ Newton call must evaluate residuals before reporting convergence; incompatible
 pinned anchors are not a solved system. The fresh eight-mutant sample and its test
 selection are recorded in `audits/2026-10/audit-2026-10-a5-evidence.md`; historical mutmut counts
 are not a current full-suite measurement.
+
+**Addendum (2026-10-23, issue #552 — FIXED closes the panel path).** The canvas
+drag, arrange and vertex paths honoured FIXED; the Properties panel X/Y fields
+did not (an empty propagation set fell through to a plain `MoveItemsCommand`,
+a data-integrity defect: the moved position is what a save writes). The panel
+now refuses the edit when `_is_item_fixed`, restores the pinned values and
+explains why. Lock/Unlock lives in the item right-click menu, backed by the
+existing `AddConstraintCommand` / `RemoveConstraintCommand` with
+`AnchorType.CENTER` (no second lock state, no new persisted field), and a
+`ItemIgnoresTransformations` padlock badge re-derived by the scene constraint
+refresh and after load, including unselected objects. PositionLockMixin shares
+this behavior across shapes, paths, curves and text.
 
 ## ADR-014: Bundled `plant_species.json` is single source of truth for species + calendar
 
@@ -5733,6 +5762,28 @@ Validation: `tests/integration/test_scene3d_ground_wiring.py` (12 tests), the wo
 with the baker in (two of their assertions said "a bare plan rectangle" and say "tiles" now),
 `tests/unit/test_quick3d_selftest.py`, the render tier (GPU and WARP).
 
+### Addendum (2026-10-23, issues #557/#558 — illustrative category heights, width propagation)
+
+- **Estimated heights (#557)** are a deliberate product-policy change to the
+  unknown-height contract: a plant with no usable height renders the matching
+  plant form at a documented illustrative category fallback
+  (`core/plant_height_estimate.py`: tree 400, shrub 150, perennial 60,
+  vegetable 50 cm; category group first, then kind) instead of the pale
+  marker. The plan keeps height unknown — nothing is written to species data,
+  measurements or the saved file; the transient record carries
+  `estimated_height_cm`, viewing 3D adds no undo step, and the info card shows
+  "{height} (estimated)". The estimate drives decorative 3D geometry (and its
+  shadow) only; the analytical 2D sun/shade model keeps treating the height as
+  unknown (`effective_height_cm` still returns `None`). Known and measured
+  heights keep their exact geometry; setting a real height replaces the
+  estimate. Pinned by `tests/integration/test_plant_package_558_559_560_552_557.py`.
+- **Maximum-width propagation (#558)** rides the same builder/record path:
+  editing Max Spread on a species-sized plant resizes the 2D footprint and the
+  3D canopy spread together (center and rotation pivot preserved,
+  `set_radius_centered`), as one undo step with the metadata edit. Explicit
+  spacing overrides, measured spreads and custom footprints win; a cleared
+  maximum preserves geometry.
+
 ## ADR-060: The 3D workspace — Plan / 3D / Split in the main window, one kept engine host (Phase 17, L1.3)
 
 **Status**: Accepted (2026-10-12, #385 story L1.3, epic #383). Behind the internal switch
@@ -6892,3 +6943,19 @@ tests/integration/test_timeline_quick3d.py::test_minute_rollover_updates_presenc
 (real midnight keypress, presence/builders/light, unchanged plan revision/history).
 
 **Status:** Accepted for implementation; owner acceptance pending.
+
+### ADR-062 addendum: actionable location prerequisite (PR #566 manual pass)
+
+The owner confirmed that configuring the missing location restored 2D shadows,
+Hours of Sun and animated 3D lighting. The prior status-bar explanation was too
+remote from those controls. Plan & Sun now displays a persistent translated link
+beside Hours of Sun while either coordinate is missing, replacing the generic
+map-unavailable label. The link emits a UI request to the existing location-dialog
+handler; it does not guess coordinates or change the clock. Cancel preserves the
+hint and plan. Location changes, including New/Open, refresh the hint; saving valid
+coordinates lets the existing live-map scheduler recover. Zero coordinates are
+valid. Unlike time-varying night text, this prerequisite changes only on location
+or document edits, and is covered by the adaptive toolbar's native layout tests.
+
+Pinned by test_sun_location_hint_opens_existing_dialog_and_recovers_map and the
+located/unlocated locale/theme/width matrix in test_plan_sun_controls.py.

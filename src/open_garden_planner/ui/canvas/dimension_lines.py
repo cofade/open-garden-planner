@@ -26,6 +26,7 @@ from open_garden_planner.core.constraints import (
 )
 from open_garden_planner.core.measure_snapper import AnchorType, get_anchor_points
 from open_garden_planner.ui.canvas.items import GardenItemMixin
+from open_garden_planner.ui.canvas.items.garden_item import PositionLockMixin
 
 # Colors
 COLOR_SATISFIED = QColor(0, 120, 200)  # Blue
@@ -164,8 +165,11 @@ class DimensionLineManager:
         if not constraint.visible or not self._visible:
             return
 
-        # FIXED constraint — single-anchor visual (padlock badge at item center)
+        # PositionLockMixin owns the upright badge on ordinary objects. Retain
+        # the dimension marker only for construction items without that badge.
         if constraint.constraint_type == ConstraintType.FIXED:
+            if isinstance(self._find_item_by_id(constraint.anchor_a.item_id), PositionLockMixin):
+                return
             pos_a = self._resolve_anchor_position(
                 constraint.anchor_a.item_id,
                 constraint.anchor_a.anchor_type,

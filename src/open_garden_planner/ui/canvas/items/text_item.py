@@ -243,7 +243,10 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
         menu.addSeparator()
         delete_action = menu.addAction(_("TextItem", "Delete"))
 
+        lock_action = self.build_lock_context_menu(menu)
         chosen = menu.exec(event.screenPos())
+        if self.dispatch_lock_action(chosen, lock_action):
+            return
         if chosen == edit_action:
             self.start_editing()
         elif chosen == delete_action:

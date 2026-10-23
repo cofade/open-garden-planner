@@ -475,7 +475,10 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
             array_along_path_action = menu.addAction(_("PolylineItem", "Array Along Path..."))
 
         # Execute menu and handle result
+        lock_action = self.build_lock_context_menu(menu)
         action = menu.exec(event.screenPos())
+        if self.dispatch_lock_action(action, lock_action):
+            return
 
         if action == edit_vertices_action and edit_vertices_action is not None:
             # Enter vertex edit mode and switch to Select tool

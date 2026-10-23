@@ -255,8 +255,8 @@ MUTANTS: tuple[Mutant, ...] = (
         ("lean, low_side = d.uf(0.0, 0.12), d.uf(0.0, _TAU)", "lean, low_side = 0.0 * d.uf(0.0, 0.12), d.uf(0.0, _TAU)"),
     ), UNIT),
     one("the builder reads the transform", PLANTS,
-        "                            record.height_cm, radius)",
-        "                            record.height_cm, radius + record.transform.base_cm)", UNIT),
+        "                            height, radius)",
+        "                            height, radius + record.transform.base_cm)", UNIT),
     # ── archetypes, colours, conventions ─────────────────────────────────────
     one("an unknown archetype becomes a mound", PLANTS,
         '    if archetype not in ARCHETYPE_BUILDERS:\n'
@@ -286,10 +286,10 @@ MUTANTS: tuple[Mutant, ...] = (
         'return (MeshPart(mesh, "vc", casts_shadow=False, name=PART_PLACEHOLDER),)',
         'return (MeshPart(mesh, "vc", casts_shadow=True, name=PART_PLACEHOLDER),)', UNIT),
     Mutant("no height: a guessed 3 m plant", PLANTS, (
-        ("    if record.height_cm is None:\n        return placeholder_parts(radius)\n"
-         "    seed = record.params.get(PARAM_SEED)", "    seed = record.params.get(PARAM_SEED)"),
-        ("                            record.height_cm, radius)",
-         "                            record.height_cm or 300.0, radius)")), UNIT),
+        ("        height = _estimated_fallback_cm(record)\n        if height is None:\n            return placeholder_parts(radius)",
+         "        height = _estimated_fallback_cm(record) or 300.0\n        if height is None:\n            return placeholder_parts(radius)"),
+        ("                            height, radius)",
+         "                            height or 300.0, radius)")), UNIT),
     one("the placeholder is 40 % of the diameter high", PLANTS,
         "PLACEHOLDER_HEIGHT_FRACTION: Final = 0.12\nPLACEHOLDER_MAX_HEIGHT_CM: Final = 25.0",
         "PLACEHOLDER_HEIGHT_FRACTION: Final = 0.40\nPLACEHOLDER_MAX_HEIGHT_CM: Final = 2500.0", PIPE),
@@ -299,10 +299,8 @@ MUTANTS: tuple[Mutant, ...] = (
     one("the placeholder has 8 sides", PLANTS,
         "_PLACEHOLDER_SIDES: Final = 48", "_PLACEHOLDER_SIDES: Final = 8", UNIT),
     one("plant_archetype answers for a plant without a canopy circle (review P2-6)", PLANTS,
-        "    plant = _plant_of(record)\n    if plant is None:\n        return None\n"
-        "    if record.height_cm is None:\n        return PLACEHOLDER\n",
-        "    sprite = plant_sprite(record)\n    if sprite is None:\n        return None\n"
-        "    plant = (sprite, 1.0)\n    if record.height_cm is None:\n        return PLACEHOLDER\n", UNIT),
+        "    plant = _plant_of(record)\n    if plant is None:\n        return None\n    if record.height_cm is None:\n        try:",
+        "    sprite = plant_sprite(record)\n    if sprite is None:\n        return None\n    plant = (sprite, 1.0)\n    if record.height_cm is None:\n        try:", UNIT),
     # ── the sizes a plant is built at (review round 3) ───────────────────────
     one("a size beyond what a record can hold is built (a mesh of NaNs)", PLANTS,
         "    if not (MIN_SIZE_CM <= height_cm <= MAX_LENGTH_CM and MIN_SIZE_CM <= radius_cm <= MAX_LENGTH_CM):",

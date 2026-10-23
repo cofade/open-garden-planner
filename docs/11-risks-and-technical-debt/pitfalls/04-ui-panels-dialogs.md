@@ -339,6 +339,28 @@ shared with the view's dropped-grab recovery, keeping all six handle types on
 the same event path. Real viewport drags cover resize and rotation at three
 angles, including two non-axis-aligned rotations, with one undo step.
 
+### PF-UI-27
+
+- **Rule:** A bundled overlay that prioritises the database over the plan silently discards form edits; spin gestures coalesce into the pending command and history refreshes outrank focus guards.
+- **Pinned by:** `tests/integration/test_plant_package_558_559_560_552_557.py::test_species_field_edit_is_one_undo_step`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_spin_drag_coalesces_into_one_undo_step`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_undo_refreshes_focused_widget_but_ordinary_notification_does_not`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_properties_panel_is_wired_to_history_by_its_constructor`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_undo_commits_pending_notes_before_navigating`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_different_spinboxes_never_coalesce_into_one_undo_step`; `tests/integration/test_plant_package_558_559_560_552_557.py::test_locked_item_badge_is_derived_on_load_and_hidden_in_export`
+- **Source:** #559, #560
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Form edits must outrank the bundled calendar overlay. Merge numeric ticks only
+until editingFinished; widget identity must not merge separate visits.
+
+Wire history on construction and manager replacement. Flush staged edits before
+history entry selection, save and document guards. Post-undo commits erase redo;
+notes debounce alone loses immediate Save/Close. Retain commit callbacks until
+teardown. Ordinary refresh protects only the active editor.
+
+Derive FIXED badges during scene refresh/load without selection. Shared
+PositionLockMixin actions and export-hidden LockBadgeItem cover all object menus.
+Suppress dimension-layer markers for those objects: paths otherwise show two locks,
+one inverted by the Y flip. Retain construction markers. Trace: paired debug-verbose
+case studies.
+
 ### PF-UI-26
 
 - **Rule:** Chronological field stepping must enable cross-field steps and emit one full naive wall reading across a carry.
