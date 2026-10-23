@@ -352,3 +352,7 @@ with the workstation's clock above 74000 seconds. Replace only the controller's
 time binding, preserve real Qt waits and perf_counter, and verify the real date
 signal admits the next pick without a timer. Three clock origins pin that path,
 completed snapshots and a genuine trailing pass; all reject the old no-op stamp.
+Qt's timer has its own clock: the held-burst test records the requested 500-ms
+delay but postpones physical delivery beyond the test timeout, then consumes it
+at the controlled clock boundary. Fixing monotonic alone does not stop Qt from
+delivering a timeout in a slow processEvents loop.

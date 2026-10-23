@@ -822,6 +822,17 @@ def test_a_date_held_down_regrows_at_once_and_once_more_on_its_last_day(
     _until_idle(rig)
     rig.reports.clear()
     light, snapshots = rig.controller.light_count, rig.controller.snapshot_count
+    # Qt owns a different clock from monotonic. Keep its real timer alive but
+    # prevent delivery during a slow processEvents loop (the test timeout is
+    # 180 s); record the product's requested delay before postponing delivery.
+    requested_delays: list[int] = []
+    start_timer = rig.controller._date_timer.start
+
+    def book_trailing(interval_ms: int) -> None:
+        requested_delays.append(interval_ms)
+        start_timer(2_147_483_647)
+
+    monkeypatch.setattr(rig.controller._date_timer, "start", book_trailing)
 
     rig.clock.set_date(date(2027, 3, 1))                # the first step: a regrowth at once
     rig.qtbot.waitUntil(lambda: _regrowths(rig, str(apple.item_id)) == 1, timeout=5000)
@@ -830,6 +841,7 @@ def test_a_date_held_down_regrows_at_once_and_once_more_on_its_last_day(
         rig.clock.set_date(date(2027, 3, day))
         QApplication.processEvents()                      # each step's light-only pass
     assert rig.controller.date_deferrals == 27
+    assert requested_delays == [sync_controller.DATE_REGROW_MIN_MS]
     assert rig.controller.light_count >= light + 1, "the light follows the steps"
     assert rig.controller._date_timer.isActive(), "the trailing regrowth is booked"
     # Consume the booked timer as Qt would, at the controlled interval boundary.

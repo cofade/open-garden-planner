@@ -28,6 +28,10 @@ date signal books no timer and completes the expected snapshot. Stop a manually
 consumed timer before firing its slot. Temporary probes stay outside production.
 **Lesson.** A fixed timestamp is not a controlled clock; assert the user-triggered
 path and all timers that participate in idle. See PF-TST-25.
+Second review also found that Qt's real 500-ms timer could expire during the
+held-burst event loop despite a fixed monotonic clock. That test now records the
+requested product delay, postpones physical delivery beyond its test timeout,
+and manually consumes the real timer at the controlled clock boundary.
 
 ## Case study: global 3D actions changed a hidden workspace (#539, PR #565)
 
