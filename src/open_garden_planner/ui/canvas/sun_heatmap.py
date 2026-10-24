@@ -72,9 +72,10 @@ from open_garden_planner.core.shadow_geometry import Polygon
 
 from .sun_exposure_snapshot import ExposureSnapshot, collect_exposure_snapshot
 
-#: Above the background image (−1000) and the shadow overlay (−500), below
-#: every layer item (≥ 0). Contour lines and their hour labels sit just above
-#: the fill, still behind user content.
+#: Above the background image (−1000), what lies on the ground (a lawn, a path, a
+#: generic shape: ``canvas_scene.GROUND_Z_RANGE``) and the shadow overlay (−500),
+#: below every other layer item (≥ 0): the map lies ON the ground. Contour lines and
+#: their hour labels sit just above the fill, still behind what stands on it.
 _HEATMAP_Z = -450.0
 _CONTOUR_Z = -449.0
 _LABEL_Z = -448.0
@@ -517,7 +518,8 @@ class SunHeatmapController(QObject):
 
         Runtime-only ``QGraphicsPathItem`` / ``QGraphicsSimpleTextItem`` — not
         ``GardenItemMixin``, so ``project._serialize_item_core`` drops them, and
-        their negative z keeps them behind user content.
+        their negative z keeps them behind what stands on the ground (above what
+        lies on it, ``canvas_scene.GROUND_Z_RANGE``).
         """
         self._clear_contours()
         # Contour on a softened copy so the hour lines are smooth curves, not

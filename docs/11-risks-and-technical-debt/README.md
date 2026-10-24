@@ -147,6 +147,7 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | PF-CAN-19 | A textured fill is recoloured as a luminance map so a pale colour reads, the loader restores the stored look attributes, and round-trip tests compare rendered pixels in a non-default colour. | standing | [01](pitfalls/01-canvas-geometry.md#pf-can-19) | 11.4.10 |
 | PF-CAN-20 | A canvas texture may be softened but never replaced by a flat fill at any zoom, and the negative pin must sample the item's own `shape()` interior, since a mask on background reads as texture. | standing | [01](pitfalls/01-canvas-geometry.md#pf-can-20) | 11.4.11 |
 | PF-CAN-21 | Every writer that sets an item's style attributes or its live pen and brush sets both through `core/item_look.py`, so `style_gaps(item)` stays empty for every item that does not paint a sprite. | standing | [01](pitfalls/01-canvas-geometry.md#pf-can-21) | 11.4.17 |
+| PF-CAN-22 | The sun study's 2D overlays lie on whatever lies on the ground (`lies_on_ground`, drawn in `GROUND_Z_RANGE` by `_refresh_layer_z`) and under what stands on it. | standing | [01](pitfalls/01-canvas-geometry.md#pf-can-22) |  |
 | PF-DOM-26 | A species name is matched as a whole name or alias - never as a substring - and the resolver that does it is the one rule the 2D renderer and the 3D plant builder share. | standing | [09](pitfalls/09-domain-solver.md#pf-dom-26) |  |
 | PF-LIF-01 | A teardown that stops a thread must confirm the thread is dead and escalate loudly when it is not; a bounded join that expires and only logs leaves a live thread to crash an unrelated test. | standing | [02](pitfalls/02-lifecycle-threads.md#pf-lif-01) |  |
 | PF-LIF-02 | A Qt dialog never joins a network worker synchronously in `closeEvent()`; it cancels cooperatively, closes on the worker's terminal signal, and logs worker tracebacks only after scrubbing. | standing | [02](pitfalls/02-lifecycle-threads.md#pf-lif-02) |  |
@@ -326,6 +327,7 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | PF-L3D-06 | A blended custom material must keep the frame's alpha (`sourceAlphaBlend: Zero`, `destinationAlphaBlend: One`): with the colour factors on alpha too, a translucent overlay brightens the view by `a(1 − a)` of the window's white instead of darkening it. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-06) |  |
 | PF-L3D-07 | An unlit overlay passes through the mood's exposure, so a 3D shadow drape multiplies the frame and an overlay colour is divided by the exposure. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-07) |  |
 | PF-L3D-08 | A hidden or blended Model drops out of the shadow map, so a part that must keep casting while it fades or is cut is an opaque screen door (a fragment discard) that collapses in the AO depth pass. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-08) |  |
+| PF-L3D-09 | The 3D drape follows the shared Hours of Sun both ways, also when 3D opens with it on. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-09) |  |
 
 ### Redirect of legacy numbered IDs
 

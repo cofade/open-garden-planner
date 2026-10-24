@@ -50,7 +50,7 @@ from open_garden_planner.core.commands import (
 )
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.item_look import adopt_pen
-from open_garden_planner.core.object_height import METADATA_KEY, effective_height_cm
+from open_garden_planner.core.object_height import METADATA_KEY, effective_height_cm, lies_on_ground
 from open_garden_planner.core.object_types import ObjectType, PathFenceStyle
 from open_garden_planner.core.scene3d import (
     SHAPES,
@@ -181,9 +181,13 @@ class Stage:
         self.scene: CanvasScene = view.scene()  # type: ignore[assignment]
         self.commands = view.command_manager
         self.shape = shape
-        self.bystander = RectangleItem(2000.0, 1500.0, 100.0, 100.0,
-                                       object_type=ObjectType.RAISED_BED)
         self.item = FACTORIES[shape]()
+        # a bystander in the item's own z band: a ground item (the pond) lies under
+        # every solid whatever its rank (manual pass of PR #584, GROUND_Z_RANGE)
+        ground = lies_on_ground(self.item.object_type, self.item.metadata)
+        self.bystander = RectangleItem(2000.0, 1500.0, 100.0, 100.0,
+                                       object_type=ObjectType.LAWN if ground
+                                       else ObjectType.RAISED_BED)
         for item, label in ((self.bystander, "rectangle"), (self.item, shape)):
             item.layer_id = self.scene.active_layer.id  # what every drawing tool does
             self.commands.execute(CreateItemCommand(self.scene, item, label))

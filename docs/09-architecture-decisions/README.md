@@ -1419,6 +1419,26 @@ translated startup error using the system locale and exits before the main windo
 
 **Consequences**: New `core/stacking.py` (Qt-free), `ui/canvas/arrange.py` (the seam), `ArrangeItemsCommand` in `core/commands.py`; the old `ensure_z_above_parent` helper and its three dead call sites are deleted, its three live call sites replaced by a refresh. `MoveToLayerCommand`, `SetParentBedCommand`, `GroupCommand`/`UngroupCommand`, and `DeleteItemsCommand.undo` all gained refresh calls where an item becomes top-level or re-links without going through `addItem`. Agent API: `list_objects`/`objects_in_region`/`get_object` now document a bottom→top stacking order (previously accidental top-first); `get_diagnostics` is explicitly **not** in that order. Clipboard copy/duplicate now sort by stacking order and carry `layer_id` (previously pasted items were layer-less — a pre-existing gap fixed as a side effect, §11.4). No `FILE_VERSION` change; old files load and re-save correctly under the new order regardless of whether they carry a `stack_order` key. Tests: `tests/unit/test_stacking.py` (the Qt-free algorithm), `tests/integration/test_stacking_roundtrip.py` (the save/load inversion regression + old-file compatibility), `tests/integration/test_arrange_z_order.py` (every mode, undo/redo, bed block, plant clamp, cross-layer), `tests/integration/test_arrange_context_menu.py`/`test_arrange_menu_actions.py`/`test_arrange_properties_panel.py` (the three GUI surfaces), `tests/integration/test_agent_api_writes.py`/`test_agent_api_default_on.py` (the write tool), `tests/unit/test_agent_api_queries.py` (`stack_index`). Cross-refs: FR-31, §8.25, §11.4.
 
+### ADR-043 addendum: what lies on the ground lies under the sun study (manual pass of PR #584, 2026-10-24)
+
+**Context.** The owner drew a lawn and switched the 2D shadows and Hours of Sun on: both overlays were hidden under the lawn ("objects of height = 0 like grass"). Since US-E3/E4 the shadow overlay (`-500`) and the heatmap (`-450`) sat below every layer item, so anything drawn over the ground, however flat, covered the analysis that is ABOUT the ground. No single overlay z can fix it: the layer bands interleave a lawn in one layer with a tree in another.
+
+**Decision.**
+1. **What lies on the ground is the 3D view's rule.** `core.object_height.lies_on_ground(type, metadata)`: no plant, no `effective_height_cm`, and not one of `NOT_ON_GROUND_TYPE_NAMES` — text, callouts and journal pins (annotations: the 3D snapshot gives them no outline) and a house's ridge line. So a lawn, a path, a terrace, an in-ground bed, a generic shape and an object the plan gives no height (a parasol) lie on the ground — exactly what the 3D view paints into its ground (a non-plant without a solid). A height (set by hand, or a type default) makes it a solid. Pinned by `tests/unit/test_object_height.py::TestLiesOnGround` (every `ObjectType`) and `test_sun_overlays_on_ground.py::test_the_annotations_left_out_cover_no_ground_by_the_3d_rule`.
+2. **Ground items get their own band below the overlays.** `_refresh_layer_z` stays the one z writer; for a ground item it writes `ground_z(z)` — a strictly increasing map of the layer-band value into `GROUND_Z_RANGE = (-990, -510)` — so ground items keep their order among themselves (layer, then rank) for any number of layers, above the background image and below both overlays. §8.25.2 and §8.25.6.
+3. **Ranks are untouched.** The arrange algebra, the clamp and the save format do not change: a ground item brought to the front is the front-most ground item of its layer, drawn under the layer's other items. The agent's `stack_index` and `list_objects` order are "as displayed" and therefore list ground items first; the tool descriptions say so.
+4. **Commands restack what they reclassified.** `CanvasScene._restack_ground_changes` runs on every `stack_changed` (execute, undo, redo) and refreshes only the layers whose items' band disagrees with `lies_on_ground` — the height field and a type change both commit through commands.
+
+**Rejected alternatives.**
+
+| Option | Why not |
+|--------|---------|
+| Move the overlays above every layer item, clipped to the footprints of the objects with a height | Annotations (text, callouts, dimension labels in the layer bands) would sink under a translucent overlay; the clip is a second copy of the caster model |
+| One overlay per layer | Two overlay items per layer to keep in sync with the controllers' single results, for the same ordering a z band gives |
+| Only the garden's surface types (lawn, path, terrace, driveway, pond, in-ground bed) | The first cut. The ground bake's own edit-session test then overlapped a mulch-patterned generic rectangle with a terrace: the generic shape stayed above the overlays and would hide a shadow — the reported defect — while the 3D view paints it into its ground. A second list of "flat things" beside the 3D rule drifts; a generic shape placed above a plant as a highlight now lies under it (a height or a text label is the way to mark one) |
+
+**Consequences.** Saved files list ground items first (the serializer writes display order; ranks are saved per item, so older versions reload the same ranks; the committed bench and edge-case fixtures were regenerated — a pure reorder). A ground item's own label and badges are children and lie under the overlays with it. Pinned by `tests/integration/test_sun_overlays_on_ground.py` (export-pipeline pixels: a shadow and the heatmap change the lawn and leave the shed alone; the band follows a height, a type change, undo, layers and a reload).
+
 ## ADR-044: Build Provenance Attestation for Release Artifacts (issue #356)
 
 **Status**: Accepted (2026-09-15)
@@ -7177,3 +7197,17 @@ screen-door tests, `test_quick3d_qml.py` (blends, screen doors), the self-test (
 faded cubes — built part, crown, grass, pond: every screen-door shader compiled from
 the bundle), and `test_view3d_analysis.py`
 with the real `LiveSunMap`.
+
+**Owner manual pass (2026-10-24).** With Hours of Sun switched on in the toolbar the
+canvas showed its map and the 3D ground nothing: the drape followed the shared switch
+going OFF (round 1) but never going ON, so it lay on the ground only when chosen in
+the Analyze menu. The real app on the real engine was reproduced first (the owner's
+ultra preset, a 50 × 30 m plan at 45° N, Animate running): chosen in the menu the
+drape loads and draws on screen in every order tried — the data path and the engine
+were sound. Decision 1 now reads: the hours-of-sun drape comes AND goes with the
+shared Hours of Sun — switched on (the toolbar), it replaces what lay on the 3D ground,
+also the 2D shadows; a 3D view opened while it is on shows it at once. Pinned by
+`test_view3d_analysis.py::test_the_toolbar_switching_hours_of_sun_on_lays_the_3d_drape`
+and `::test_3d_opened_with_hours_of_sun_already_on_shows_it_on_the_ground` (both fail
+without the change). The same pass found the 2D overlays hidden under lawns: ADR-043's
+addendum "what lies on the ground lies under the sun study".

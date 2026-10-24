@@ -414,7 +414,11 @@ def build_server(
 
         Objects are listed bottom→top in stacking order (layer order first,
         then position within the layer) — the same order ObjectRef.stack_index
-        is computed from. (get_diagnostics is NOT in this order.)
+        is computed from. Objects that lie on the ground (no plant, no
+        height, not a text/callout/journal pin: a lawn, path, terrace,
+        in-ground bed, generic shape) come first, layer by layer: they are
+        drawn under every other object and under the sun study's shadows.
+        (get_diagnostics is NOT in this order.)
 
         Args:
             type: Optional filter — an ObjectType name ('TREE', 'RAISED_BED'), a
@@ -2002,6 +2006,13 @@ def build_server(
             of its layer; 'bring_forward'/'send_backward' step it past the
             single nearest object in its layer whose bounding box OVERLAPS it
             (a non-overlapping neighbour is skipped entirely).
+
+            An object that lies on the ground (no plant, no height, not a
+            text/callout/journal pin: a lawn, path, terrace, in-ground bed,
+            generic shape) is always drawn below the other objects, so
+            arranging it reorders it among those only, and no other object is
+            ever drawn below one; the returned stack_index says where it is
+            drawn.
 
             A bed/container carries its contained plants along as one block
             (their relative order among themselves is kept), and a plant can

@@ -587,6 +587,44 @@ def test_the_toolbar_switching_hours_of_sun_off_takes_the_3d_drape_with_it(bench
     assert bench.host.overlays["drape"] is None
 
 
+def test_the_toolbar_switching_hours_of_sun_on_lays_the_3d_drape(bench) -> None:
+    """Manual pass of PR #584: with Hours of Sun switched on in the toolbar the canvas
+    showed its map and the 3D ground showed nothing — the drape followed the shared
+    switch going off, never going on. Now it follows both ways, also over the 2D
+    shadows the owner had on from step 1, and after an off and on again."""
+    bench.shed(900.0, 700.0, height=250.0)
+    bench.clock.set_time_of_day(time(9, 30))
+    bench.open3d()
+    workspace = bench.workspace
+    workspace.set_drape_mode(DrapeMode.SHADOWS)
+    assert bench.host.overlays["shade"] is not None
+    bench.toolbar.heatmap_requested.emit()   # the user switches the toolbar's Hours of Sun on
+    bench.wait_for_map()
+    assert workspace.analysis.drape_mode is DrapeMode.SUN_HOURS
+    assert workspace.drape_actions[DrapeMode.SUN_HOURS].isChecked()
+    assert bench.host.overlays["drape"] is not None and bench.host.overlays["shade"] is None
+    bench.toolbar.heatmap_cleared.emit()
+    bench.settle(20)
+    assert workspace.analysis.drape_mode is DrapeMode.NONE
+    assert bench.host.overlays["drape"] is None
+    bench.toolbar.heatmap_requested.emit()
+    bench.wait_for_map()
+    assert workspace.analysis.drape_mode is DrapeMode.SUN_HOURS
+    assert bench.host.overlays["drape"] is not None
+
+
+def test_3d_opened_with_hours_of_sun_already_on_shows_it_on_the_ground(bench) -> None:
+    """The same rule when 3D is opened after the toolbar switched Hours of Sun on: the
+    first engine of the workspace lays the map as soon as its pane shows."""
+    bench.toolbar.heatmap_requested.emit()
+    bench.wait_for_map()
+    bench.open3d()
+    workspace = bench.workspace
+    assert workspace.analysis.drape_mode is DrapeMode.SUN_HOURS
+    assert workspace.drape_actions[DrapeMode.SUN_HOURS].isChecked()
+    assert bench.host.overlays["drape"] is not None
+
+
 def test_an_edit_withdraws_the_probes_reading_until_the_new_map_is_ready(bench) -> None:
     """ADR-056: a stale map stays shown as a dated preview, but measures nothing. The
     probe read the preview after an edit and reported its old minutes as a measurement

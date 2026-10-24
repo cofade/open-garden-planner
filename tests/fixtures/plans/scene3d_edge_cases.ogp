@@ -1,7 +1,7 @@
 {
   "version": "1.4",
   "metadata": {
-    "modified": "2026-10-12T07:06:20.050066+00:00"
+    "modified": "2026-10-24T09:29:23.873263+00:00"
   },
   "canvas": {
     "width": 4000.0,
@@ -19,6 +19,23 @@
     }
   ],
   "objects": [
+    {
+      "type": "ellipse",
+      "item_id": "e25ac5f0-fa37-4061-a6c8-495cd7e006fd",
+      "center_x": 2000.0,
+      "center_y": 2250.0,
+      "semi_x": 300.0,
+      "semi_y": 150.0,
+      "object_type": "POND_POOL",
+      "name": "Pond",
+      "fill_color": "#ff40a4df",
+      "stroke_color": "#ff191970",
+      "stroke_width": 2.0,
+      "fill_pattern": "WATER",
+      "stroke_style": "SOLID",
+      "rotation_angle": 40.0,
+      "stack_order": 3072
+    },
     {
       "type": "polygon",
       "item_id": "1bbed90a-bd4f-42e1-ab89-afd7fbe1c0b1",
@@ -73,23 +90,6 @@
       "stroke_color": "#ff644826",
       "stroke_width": 2.0,
       "stack_order": 2048
-    },
-    {
-      "type": "ellipse",
-      "item_id": "e25ac5f0-fa37-4061-a6c8-495cd7e006fd",
-      "center_x": 2000.0,
-      "center_y": 2250.0,
-      "semi_x": 300.0,
-      "semi_y": 150.0,
-      "object_type": "POND_POOL",
-      "name": "Pond",
-      "fill_color": "#ff40a4df",
-      "stroke_color": "#ff191970",
-      "stroke_width": 2.0,
-      "fill_pattern": "WATER",
-      "stroke_style": "SOLID",
-      "rotation_angle": 40.0,
-      "stack_order": 3072
     },
     {
       "type": "polyline",

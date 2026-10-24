@@ -16,7 +16,7 @@ from __future__ import annotations
 from PyQt6.QtCore import QPointF
 
 from open_garden_planner.core.object_types import ObjectType
-from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+from open_garden_planner.ui.canvas.canvas_scene import GROUND_Z_RANGE, CanvasScene
 from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, RectangleItem
 
 
@@ -112,8 +112,10 @@ class TestPlantAboveBedAfterLink:
     def test_unrelated_item_in_same_layer_is_unaffected(self, qtbot) -> None:
         scene, bed, plant = _make_scene_with_bed_and_plant(qtbot)
         layer_id = scene.active_layer.id
+        # a solid: what has no height (a lawn) now lies under every plant whatever its
+        # rank (manual pass of PR #584, GROUND_Z_RANGE) — the clamp question needs one
         lawn = RectangleItem(
-            0, 500, 200, 100, object_type=ObjectType.LAWN, layer_id=layer_id
+            0, 500, 200, 100, object_type=ObjectType.TABLE_RECTANGULAR, layer_id=layer_id
         )
         scene.addItem(lawn)
 
@@ -124,8 +126,11 @@ class TestPlantAboveBedAfterLink:
         # (the last item added, so it lands on top of both).
         assert plant.zValue() > bed.zValue()
         assert lawn.zValue() > plant.zValue()
-        # And every z-value stays strictly inside the layer's band.
+        # And every z-value stays strictly inside the layer's band — the in-ground
+        # bed (no height) inside the ground band below the sun overlays instead
+        # (manual pass of PR #584).
         layer = scene.get_layer_by_id(layer_id)
         assert layer is not None
-        for z in (bed.zValue(), plant.zValue(), lawn.zValue()):
+        for z in (plant.zValue(), lawn.zValue()):
             assert layer.z_order * 100 <= z < layer.z_order * 100 + 100
+        assert GROUND_Z_RANGE[0] < bed.zValue() < GROUND_Z_RANGE[1]

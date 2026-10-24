@@ -66,7 +66,9 @@ STATE_NO_LOCATION = "no_location"
 STATE_NIGHT = "night"
 STATE_ACTIVE = "active"
 
-# Above the background image (-1000), below every layer item (>= 0).
+# Above the background image (-1000) and what lies on the ground (a lawn, a path, a
+# generic shape: ``canvas_scene.GROUND_Z_RANGE``), below every other layer item
+# (>= 0): a shadow lies ON the ground, under what casts it.
 _OVERLAY_Z = -500.0
 
 # Semi-transparent cool grey-blue — reads as shade over any ground color.

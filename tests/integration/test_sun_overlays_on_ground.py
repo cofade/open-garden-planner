@@ -1,0 +1,286 @@
+"""The 2D sun study lies ON what lies on the ground (manual pass of PR #584).
+
+The owner drew a lawn and switched the shadows and Hours of Sun on: both were hidden
+under the lawn, because the two overlays sat below every layer item. A surface with
+no height of its own and no annotation — a lawn, a terrace, a path, an in-ground
+bed, a generic shape (``core.object_height.lies_on_ground``, the 3D view's ground
+rule) — is now drawn in a band below the overlays (``canvas_scene.GROUND_Z_RANGE``),
+and everything else stays above them.
+
+The pixels are the export pipeline's (``render_scene_region``): a shadow and the
+heatmap must change the lawn's pixels and leave the shed that casts them alone. The
+band follows the item: a height set on a lawn lifts it out, its undo puts it back, a
+type change moves it, and ground items keep their order among themselves.
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, date, datetime
+from pathlib import Path
+
+import numpy as np
+import pytest
+from PyQt6.QtCore import QPointF, QRectF, Qt
+from PyQt6.QtGui import QImage, QPainter
+
+from open_garden_planner.core import ProjectManager
+from open_garden_planner.core.commands import ChangePropertyCommand, CreateItemCommand
+from open_garden_planner.core.object_height import METADATA_KEY
+from open_garden_planner.core.object_types import ObjectType
+from open_garden_planner.models.layer import Layer
+from open_garden_planner.services.scene_rendering import render_scene_region
+from open_garden_planner.ui.canvas.canvas_scene import GROUND_Z_RANGE, CanvasScene, ground_z
+from open_garden_planner.ui.canvas.canvas_view import CanvasView
+from open_garden_planner.ui.canvas.items.journal_pin_item import JournalPinItem
+from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
+from open_garden_planner.ui.canvas.items.text_item import TextItem
+from open_garden_planner.ui.canvas.sun_heatmap import SunHeatmapController
+from open_garden_planner.ui.canvas.sun_shadow_controller import SunShadowController
+
+BERLIN = {"latitude": 52.52, "longitude": 13.405}
+#: The shadow points north (+0.40, +0.92) at Berlin's June noon (test_shadow_overlay.py).
+JUNE_NOON_UTC = datetime(2026, 6, 21, 12, 0, tzinfo=UTC)
+REGION = QRectF(0, 0, 500, 500)
+PX_PER_CM = 1.0
+#: The shed: 60 x 60 cm at (200, 100), 200 cm tall — its noon shadow reaches ~120 cm north.
+SHED = (200.0, 100.0, 60.0, 60.0)
+IN_ITS_SHADOW = (235.0, 200.0)   # on the lawn, north of the shed
+ON_THE_SHED = (230.0, 130.0)     # the shed's own roof
+IN_THE_SUN = (100.0, 400.0)      # lawn far from the shed
+
+
+@pytest.fixture
+def view(qtbot) -> CanvasView:
+    scene = CanvasScene(500.0, 500.0)
+    canvas = CanvasView(scene)
+    qtbot.addWidget(canvas)
+    return canvas
+
+
+def _add(view: CanvasView, item) -> None:
+    view.command_manager.execute(CreateItemCommand(view.scene(), item, "add"))
+
+
+def _lawn(view: CanvasView, layer=None) -> RectangleItem:
+    scene = view.scene()
+    lawn = RectangleItem(0, 0, 500, 500, object_type=ObjectType.LAWN,
+                         layer_id=(layer or scene.active_layer).id)
+    _add(view, lawn)
+    return lawn
+
+
+def _shed(view: CanvasView) -> RectangleItem:
+    scene = view.scene()
+    shed = RectangleItem(*SHED, object_type=ObjectType.TOOL_SHED, layer_id=scene.active_layer.id)
+    shed.metadata[METADATA_KEY] = 200.0
+    _add(view, shed)
+    return shed
+
+
+def _render(scene: CanvasScene) -> np.ndarray:
+    width, height = round(REGION.width() * PX_PER_CM), round(REGION.height() * PX_PER_CM)
+    image = QImage(width, height, QImage.Format.Format_ARGB32)
+    image.fill(Qt.GlobalColor.white)
+    painter = QPainter(image)
+    try:
+        render_scene_region(scene, painter, QRectF(0, 0, width, height), REGION, y_flip=True)
+    finally:
+        painter.end()
+    image = image.convertToFormat(QImage.Format.Format_RGB888)
+    data = np.frombuffer(image.constBits().asstring(image.sizeInBytes()), dtype=np.uint8)
+    return data.reshape(height, image.bytesPerLine())[:, : width * 3].reshape(height, width, 3)
+
+
+def _patch(rgb: np.ndarray, at: tuple[float, float], half: int = 6) -> np.ndarray:
+    """The mean colour of a small square around a scene point (the §8.19 pixel formula)."""
+    x = round((at[0] - REGION.x()) * PX_PER_CM)
+    y = round(rgb.shape[0] - (at[1] - REGION.y()) * PX_PER_CM)
+    return rgb[y - half: y + half, x - half: x + half].reshape(-1, 3).astype(float).mean(axis=0)
+
+
+def _in_ground_band(item) -> bool:
+    low, high = GROUND_Z_RANGE
+    return low < item.zValue() < high
+
+
+class TestTheShadowLiesOnTheLawn:
+    def test_a_shadow_darkens_the_lawn_and_leaves_the_shed_alone(self, view) -> None:
+        scene = view.scene()
+        _shed(view)
+        _lawn(view)   # drawn AFTER the shed: by insertion it would cover it
+        controller = SunShadowController(scene, lambda: BERLIN)
+        before = _render(scene)
+        controller.set_enabled(True)
+        controller.set_sim_datetime(JUNE_NOON_UTC)
+        after = _render(scene)
+        shaded = _patch(before, IN_ITS_SHADOW) - _patch(after, IN_ITS_SHADOW)
+        assert shaded.sum() > 60.0, f"the shadow is not on the lawn ({shaded})"
+        assert np.abs(_patch(before, IN_THE_SUN) - _patch(after, IN_THE_SUN)).max() < 1.0
+        roof = np.abs(_patch(before, ON_THE_SHED) - _patch(after, ON_THE_SHED))
+        assert roof.max() < 1.0, "the shed stands above its own shadow"
+
+    def test_the_hours_of_sun_lie_on_the_lawn_too(self, view, qtbot) -> None:
+        scene = view.scene()
+        _shed(view)
+        _lawn(view)
+        heatmap = SunHeatmapController(scene, lambda: BERLIN)
+        try:
+            assert heatmap.run_for_day(date(2026, 6, 21))
+            qtbot.waitUntil(lambda: heatmap.result() is not None and not heatmap.result_pending,
+                            timeout=60000)
+            shown = _render(scene)
+            heatmap._overlay.setVisible(False)
+            for line in heatmap._contour_items:
+                line.setVisible(False)
+            hidden = _render(scene)
+            # measured: 41.8 summed over RGB at that spot (in shade around noon only: a
+            # pale cell); 0.0 while the lawn covered the map
+            assert np.abs(_patch(shown, IN_ITS_SHADOW) - _patch(hidden, IN_ITS_SHADOW)).sum() > 10.0
+            roof = np.abs(_patch(shown, ON_THE_SHED, 3) - _patch(hidden, ON_THE_SHED, 3))
+            assert roof.max() < 1.0, "the shed stands above the map"
+        finally:
+            heatmap.shutdown()
+
+
+class TestGroundZ:
+    @pytest.mark.parametrize("layer_z", [-150.0, 0.0, 0.5, 50.0, 99.9, 100.0, 1e4, 1e9])
+    def test_every_layer_z_lands_inside_the_band(self, layer_z: float) -> None:
+        low, high = GROUND_Z_RANGE
+        assert low < ground_z(layer_z) < high
+
+    def test_the_order_is_kept_within_and_across_layers(self) -> None:
+        values = [base + 100.0 * (i + 1) / 41 for base in (0.0, 100.0, 1100.0, 1e5)
+                  for i in range(40)]
+        moved = [ground_z(value) for value in values]
+        assert all(a < b for a, b in zip(moved, moved[1:], strict=False))
+
+
+class TestTheGroundBand:
+    def test_ground_surfaces_lie_below_the_overlays_and_everything_else_above(self, view) -> None:
+        scene = view.scene()
+        shed = _shed(view)
+        lawn = _lawn(view)
+        path = PolygonItem([QPointF(x, y) for x, y in ((10, 10), (60, 10), (60, 400), (10, 400))],
+                           object_type=ObjectType.PATH, layer_id=scene.active_layer.id)
+        _add(view, path)
+        bed = RectangleItem(300, 300, 100, 100, object_type=ObjectType.GARDEN_BED,
+                            layer_id=scene.active_layer.id)
+        _add(view, bed)
+        zone = RectangleItem(400, 50, 60, 60, object_type=ObjectType.GENERIC_RECTANGLE,
+                             layer_id=scene.active_layer.id)
+        _add(view, zone)
+        parasol = RectangleItem(420, 300, 40, 40, object_type=ObjectType.PARASOL,
+                                layer_id=scene.active_layer.id)
+        _add(view, parasol)   # no height in the plan: flat in 3D, casts nothing in 2D
+        note = TextItem(50, 50, "note", layer_id=scene.active_layer.id)
+        _add(view, note)
+        pin = JournalPinItem(80, 80, "note-1", layer_id=scene.active_layer.id)
+        _add(view, pin)
+        for item in (lawn, path, bed, zone, parasol):
+            assert _in_ground_band(item), item.object_type
+        assert lawn.zValue() < path.zValue() < bed.zValue() < zone.zValue() < parasol.zValue(),             "their order among themselves stays"
+        for item in (shed, note, pin):
+            assert item.zValue() >= 0.0, item
+        assert GROUND_Z_RANGE[0] > -1000.0, "above the background image"
+        assert GROUND_Z_RANGE[1] < -500.0, "below the shadow overlay (-500) and the map (-450)"
+
+    def test_the_annotations_left_out_cover_no_ground_by_the_3d_rule(self, view) -> None:
+        """``NOT_ON_GROUND_TYPE_NAMES`` names what has no height and still is no ground:
+        the 3D snapshot gives a text and a journal pin no outline either
+        (``footprints.item_outline``), so the 2D band and the 3D ground agree."""
+        from open_garden_planner.ui.canvas.footprints import item_outline
+
+        scene = view.scene()
+        note = TextItem(50, 50, "note", layer_id=scene.active_layer.id)
+        pin = JournalPinItem(80, 80, "note-1", layer_id=scene.active_layer.id)
+        for item in (note, pin):
+            _add(view, item)
+            assert item_outline(item) is None, item.object_type
+
+    def test_the_layer_order_holds_among_ground_surfaces_across_layers(self, view) -> None:
+        scene = view.scene()
+        upper = Layer(name="Upper", z_order=1)
+        scene.add_layer(upper)
+        terrace = RectangleItem(0, 0, 200, 200, object_type=ObjectType.TERRACE_PATIO,
+                                layer_id=upper.id)
+        _add(view, terrace)
+        lawn = _lawn(view, layer=scene.layers[0])
+        assert scene.layers[0].z_order < upper.z_order
+        assert _in_ground_band(lawn) and _in_ground_band(terrace)
+        assert lawn.zValue() < terrace.zValue()
+
+    def test_a_height_lifts_a_lawn_out_of_the_band_and_undo_puts_it_back(self, view) -> None:
+        lawn = _lawn(view)
+
+        def set_height(item, value) -> None:
+            if value is None:
+                item.metadata.pop(METADATA_KEY, None)
+            else:
+                item.metadata[METADATA_KEY] = value
+
+        view.command_manager.execute(
+            ChangePropertyCommand(lawn, "object height", None, 30.0, apply_func=set_height))
+        assert lawn.zValue() >= 0.0, "a lawn with a height is a solid"
+        view.command_manager.undo()
+        assert _in_ground_band(lawn)
+        view.command_manager.redo()
+        assert lawn.zValue() >= 0.0
+
+    def test_a_type_change_moves_an_item_in_and_out_of_the_band(self, view) -> None:
+        scene = view.scene()
+        shape = RectangleItem(0, 0, 200, 200, object_type=ObjectType.TOOL_SHED,
+                              layer_id=scene.active_layer.id)
+        _add(view, shape)
+        assert shape.zValue() >= 0.0
+
+        def set_type(item, value) -> None:
+            item.object_type = value
+
+        view.command_manager.execute(ChangePropertyCommand(
+            shape, "object type", ObjectType.TOOL_SHED, ObjectType.LAWN,
+            apply_func=set_type))
+        assert _in_ground_band(shape)
+        view.command_manager.undo()
+        assert shape.zValue() >= 0.0
+
+    def test_the_properties_panels_type_change_moves_it_and_undo_moves_it_back(
+            self, view, qtbot) -> None:
+        """The user's path: the Properties panel's type combo (shapes and lines both
+        commit with ``register_applied``) — a lawn made a shed rises above the overlays,
+        a path made a fence too; undo puts each back under them."""
+        from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
+        from open_garden_planner.ui.panels.properties_panel import PropertiesPanel
+
+        scene = view.scene()
+        panel = PropertiesPanel(command_manager=view.command_manager)
+        qtbot.addWidget(panel)
+        lawn = PolygonItem([QPointF(x, y) for x, y in ((0, 0), (300, 0), (300, 300), (0, 300))],
+                           object_type=ObjectType.LAWN, layer_id=scene.active_layer.id)
+        path = PolylineItem([QPointF(10, 400), QPointF(400, 400)], object_type=ObjectType.PATH,
+                            layer_id=scene.active_layer.id)
+        for item in (lawn, path):
+            _add(view, item)
+            assert _in_ground_band(item), item.object_type
+        panel._on_property_changed(lawn, "object_type", ObjectType.GARAGE_SHED)
+        panel._on_property_changed(path, "object_type", ObjectType.FENCE)
+        assert lawn.zValue() >= 0.0 and path.zValue() >= 0.0
+        view.command_manager.undo()
+        view.command_manager.undo()
+        assert lawn.object_type is ObjectType.LAWN and path.object_type is ObjectType.PATH
+        assert _in_ground_band(lawn) and _in_ground_band(path)
+
+    def test_a_saved_lawn_reopens_in_the_band(self, view, tmp_path: Path) -> None:
+        scene = view.scene()
+        _shed(view)
+        _lawn(view)
+        manager = ProjectManager()
+        path = tmp_path / "ground.ogp"
+        manager.save(scene, path)
+        manager.load(scene, path)
+        lawns = [item for item in scene.items()
+                 if getattr(item, "object_type", None) is ObjectType.LAWN]
+        sheds = [item for item in scene.items()
+                 if getattr(item, "object_type", None) is ObjectType.TOOL_SHED]
+        assert len(lawns) == 1 and _in_ground_band(lawns[0])
+        assert len(sheds) == 1 and sheds[0].zValue() >= 0.0

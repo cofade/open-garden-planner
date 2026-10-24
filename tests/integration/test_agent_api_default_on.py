@@ -1722,8 +1722,8 @@ def test_arrange_bed_send_to_back_keeps_plant_block_and_is_one_undo_step(
     try:
         scene = win.canvas_scene
         layer_id = scene.active_layer.id
-        other = RectangleItem(
-            50, 50, 100, 100, object_type=ObjectType.PATH, layer_id=layer_id
+        other = RectangleItem(  # a solid: what has no height lies under every solid
+            50, 50, 100, 100, object_type=ObjectType.TABLE_RECTANGULAR, layer_id=layer_id
         )
         bed = RectangleItem(
             500, 500, 400, 300, object_type=ObjectType.RAISED_BED, layer_id=layer_id
@@ -1908,8 +1908,8 @@ def test_arrange_object_stack_index_matches_read_side_with_arc_and_pin_present(
         layer_id = scene.active_layer.id
 
         # Bottom to top by add order: shape, bed(+2 plants as a block), pin, arc.
-        shape = RectangleItem(
-            400, 400, 100, 100, object_type=ObjectType.PATH, layer_id=layer_id
+        shape = RectangleItem(  # a solid: what has no height lies under every solid
+            400, 400, 100, 100, object_type=ObjectType.TABLE_RECTANGULAR, layer_id=layer_id
         )
         scene.addItem(shape)
 

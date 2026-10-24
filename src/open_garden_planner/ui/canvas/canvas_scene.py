@@ -32,10 +32,32 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core import stacking
+from open_garden_planner.core.object_height import lies_on_ground
 from open_garden_planner.core.object_types import is_plant_type
 from open_garden_planner.core.plan_timeline import plant_present
 from open_garden_planner.core.sim_clock import SimClock
 from open_garden_planner.models.layer import Layer, create_default_layers
+
+#: The z band of what lies on the ground (``object_height.lies_on_ground``: no plant,
+#: no height, no annotation — a lawn, a path, a generic shape): above the background image
+#: (-1000), below the sun study's shadow overlay (-500) and hours-of-sun map (-450),
+#: so a shadow and the map lie ON them as on the ground. Every other layer item keeps
+#: its layer's band ``[z_order * 100, z_order * 100 + 100)`` above the overlays. Until
+#: the manual pass of PR #584 a lawn sat in its layer's band and hid both overlays.
+GROUND_Z_RANGE: tuple[float, float] = (-990.0, -510.0)
+
+
+def ground_z(layer_z: float) -> float:
+    """A layer-band z moved into ``GROUND_Z_RANGE``, its order kept: strictly
+    increasing, so ground items stay stacked among themselves as their layers and
+    ranks say — across any number of layers (the map is bounded for every input)."""
+    low, high = GROUND_Z_RANGE
+    middle, half = (low + high) / 2.0, (high - low) / 2.0
+    return middle + half * layer_z / (abs(layer_z) + 1000.0)
+
+
+def _on_ground(item: QGraphicsItem) -> bool:
+    return lies_on_ground(getattr(item, "object_type", None), getattr(item, "metadata", None))
 
 
 @dataclass
@@ -542,9 +564,12 @@ class CanvasScene(QGraphicsScene):
             return
         if previous is not None:
             with contextlib.suppress(RuntimeError, TypeError):
+                previous.stack_changed.disconnect(self._restack_ground_changes)
+            with contextlib.suppress(RuntimeError, TypeError):
                 previous.stack_changed.disconnect(self.note_plan_changed)
         self._command_manager = command_manager
         if command_manager is not None:
+            command_manager.stack_changed.connect(self._restack_ground_changes)
             command_manager.stack_changed.connect(self.note_plan_changed)
 
     @property
@@ -1066,6 +1091,10 @@ class CanvasScene(QGraphicsScene):
         ``layer_id=None`` is the pseudo-layer of items without a layer; its
         band is base 0 (where such items always rendered). An id that no
         longer resolves to a layer is left untouched.
+
+        An item that lies on the ground (``lies_on_ground``) takes that value
+        moved into ``GROUND_Z_RANGE`` (``ground_z``): under the sun study's
+        overlays, in the same order among the ground items of every layer.
         """
         if layer_id is None:
             base = 0
@@ -1079,11 +1108,29 @@ class CanvasScene(QGraphicsScene):
         if n == 0:
             return
         for i, item in enumerate(order):
-            item.setZValue(base + 100 * (i + 1) / (n + 1))
+            z = base + 100 * (i + 1) / (n + 1)
+            item.setZValue(ground_z(z) if _on_ground(item) else z)
 
     def _update_items_z_order(self) -> None:
         """Refresh the derived z-value of every item in every layer."""
         for layer_id in self._stacking_layer_ids():
+            self._refresh_layer_z(layer_id)
+
+    def _restack_ground_changes(self) -> None:
+        """A command may have made an item a ground item or a solid (a height
+        set or cleared, a type changed): restack each layer whose items' bands no
+        longer say what they are. Runs after every executed, undone or redone
+        command (``set_command_manager``); O(items), and it restacks nothing on a
+        command that changed no such thing."""
+        low, high = GROUND_Z_RANGE
+        stale = {
+            getattr(item, "layer_id", None)
+            for item in self.items()
+            if item.parentItem() is None
+            and stacking.supports_stacking(item)
+            and (low < item.zValue() < high) != _on_ground(item)
+        }
+        for layer_id in stale:
             self._refresh_layer_z(layer_id)
 
     def get_layer_by_id(self, layer_id: UUID) -> Layer | None:

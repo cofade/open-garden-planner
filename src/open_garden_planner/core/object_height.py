@@ -113,6 +113,14 @@ _SOIL_PARENT_TYPE_NAMES = frozenset(
     {"GARDEN_BED", "RAISED_BED", "CONTAINER", "CONTAINER_ROUND", "WALL_PLANTER"}
 )
 
+#: The types without a height that still cover no ground: annotations (text, a
+#: callout, a journal pin: ``footprints.item_outline`` gives them no outline) and a
+#: house's ridge line (part of its roof). Every other object without a height lies on
+#: the ground (``lies_on_ground``) — the rule the 3D view paints its ground by.
+NOT_ON_GROUND_TYPE_NAMES = frozenset(
+    {"GENERIC_TEXT", "GENERIC_CALLOUT", "GARDEN_JOURNAL_PIN", "ROOF_RIDGE"}
+)
+
 #: The soil of a BED lies this far below its rim. A modelling ASSUMPTION, not a
 #: datum of the plan: a bed has a height (its rim) and nothing says how full it
 #: is. ONE constant for the 3D bed meshes, the height a plant stands at and the
@@ -360,6 +368,24 @@ def height_source_at(object_type: Any, metadata: dict[str, Any] | None,
 # is offered so a user can opt a specific swing/pergola/hammock into the sun
 # study by hand. Without a default or an explicit value they cast nothing.
 _HEIGHT_FIELD_TYPES: frozenset[str] = frozenset({"SWING", "PERGOLA", "HAMMOCK"})
+
+
+def lies_on_ground(object_type: Any, metadata: dict[str, Any] | None) -> bool:
+    """Does this object lie ON the ground — no plant, no height of its own, and not an
+    annotation (``NOT_ON_GROUND_TYPE_NAMES``)? A lawn, a path, a terrace, an in-ground
+    bed, a generic shape, and an object the plan gives no height (a parasol): what the
+    3D view paints into its ground (``ui/view3d/snapshot``: a non-plant without a solid).
+
+    The 2D canvas draws such an object UNDER the sun study's overlays, so a shadow and
+    the hours-of-sun map lie on it as they lie on the ground (manual pass of PR #584;
+    ``ui/canvas/canvas_scene.GROUND_Z_RANGE``). A height — set by hand, or the type's
+    own — makes it a solid that stands on the ground instead.
+    """
+    if object_type is None:
+        return False
+    name = _type_name(object_type)
+    return (name not in _PLANT_TYPE_NAMES and name not in NOT_ON_GROUND_TYPE_NAMES
+            and effective_height_cm(object_type, metadata) is None)
 
 
 def has_height_semantics(object_type: Any, metadata: dict[str, Any] | None) -> bool:

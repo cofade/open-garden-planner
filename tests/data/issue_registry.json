@@ -806,7 +806,7 @@
   },
   "446": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Plant sprite lookup matches by substring: \"Lemon Balm\" is drawn as a lemon tree, \"Melon\" as an eggplant, \"Bean (Bush)\" as a climbing bean, \"Sweet Potato\" as a potato, a blank species as a rose"
   },
   "448": {
@@ -1128,5 +1128,10 @@
     "is_pr": true,
     "state": "OPEN",
     "title": "fix(#571,#572): setuptools 84.1.0 and filelock 4.2.4 unblock the required Dependencies checks; end the dead waiver"
+  },
+  "584": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "feat(#386): Phase 17 L2 — Analyze in 3D"
   }
 }

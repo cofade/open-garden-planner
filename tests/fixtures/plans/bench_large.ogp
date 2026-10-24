@@ -1,7 +1,7 @@
 {
   "version": "1.4",
   "metadata": {
-    "modified": "2026-10-10T22:26:52.937903+00:00"
+    "modified": "2026-10-24T09:29:23.044756+00:00"
   },
   "canvas": {
     "width": 5000.0,
@@ -48,6 +48,762 @@
       "fill_pattern": "GRASS",
       "stroke_style": "SOLID",
       "stack_order": 1024
+    },
+    {
+      "type": "polyline",
+      "item_id": "a114c1ad-0b0e-4ac7-ae1c-5b1a1e86aaf5",
+      "points": [
+        {
+          "x": 360.0,
+          "y": 240.0
+        },
+        {
+          "x": 1000.0,
+          "y": 240.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 19456
+    },
+    {
+      "type": "polyline",
+      "item_id": "3f262a2e-2931-4322-af79-bc1bd1087ab7",
+      "points": [
+        {
+          "x": 1060.0,
+          "y": 240.0
+        },
+        {
+          "x": 1700.0,
+          "y": 240.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 31744
+    },
+    {
+      "type": "polyline",
+      "item_id": "bd2b1af3-0104-42a9-b46e-2c7644761eef",
+      "points": [
+        {
+          "x": 1760.0,
+          "y": 240.0
+        },
+        {
+          "x": 2400.0,
+          "y": 240.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 44032
+    },
+    {
+      "type": "polyline",
+      "item_id": "7d743377-3ea5-43f2-abad-58c21f6aaca4",
+      "points": [
+        {
+          "x": 2460.0,
+          "y": 240.0
+        },
+        {
+          "x": 3100.0,
+          "y": 240.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 56320
+    },
+    {
+      "type": "polyline",
+      "item_id": "8b49750b-9b30-460b-b0fa-10100dc61af4",
+      "points": [
+        {
+          "x": 3160.0,
+          "y": 240.0
+        },
+        {
+          "x": 3800.0,
+          "y": 240.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 68608
+    },
+    {
+      "type": "polyline",
+      "item_id": "62cd9f47-5ac3-46b9-862d-3dca9077acad",
+      "points": [
+        {
+          "x": 3860.0,
+          "y": 240.0
+        },
+        {
+          "x": 4500.0,
+          "y": 240.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 80896
+    },
+    {
+      "type": "polyline",
+      "item_id": "68f20553-1786-4b41-ab9c-cab67838219b",
+      "points": [
+        {
+          "x": 360.0,
+          "y": 690.0
+        },
+        {
+          "x": 1000.0,
+          "y": 690.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 93184
+    },
+    {
+      "type": "polyline",
+      "item_id": "42da30af-309c-4020-a206-868d813f0a25",
+      "points": [
+        {
+          "x": 1060.0,
+          "y": 690.0
+        },
+        {
+          "x": 1700.0,
+          "y": 690.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 105472
+    },
+    {
+      "type": "polyline",
+      "item_id": "19a73daf-5998-425a-b29e-d8ff3afcf11b",
+      "points": [
+        {
+          "x": 1760.0,
+          "y": 690.0
+        },
+        {
+          "x": 2400.0,
+          "y": 690.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 117760
+    },
+    {
+      "type": "polyline",
+      "item_id": "7367e46d-801e-41d0-9b56-37835dfa0e6f",
+      "points": [
+        {
+          "x": 2460.0,
+          "y": 690.0
+        },
+        {
+          "x": 3100.0,
+          "y": 690.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 130048
+    },
+    {
+      "type": "polyline",
+      "item_id": "4c194e42-bf53-46d8-95af-40ce73e7cd12",
+      "points": [
+        {
+          "x": 3160.0,
+          "y": 690.0
+        },
+        {
+          "x": 3800.0,
+          "y": 690.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 142336
+    },
+    {
+      "type": "polyline",
+      "item_id": "30916067-45d3-4af2-bea5-ea09e25b0751",
+      "points": [
+        {
+          "x": 3860.0,
+          "y": 690.0
+        },
+        {
+          "x": 4500.0,
+          "y": 690.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 154624
+    },
+    {
+      "type": "polyline",
+      "item_id": "ce62f3d1-bfb1-4da0-9fb7-100fee06c1f5",
+      "points": [
+        {
+          "x": 360.0,
+          "y": 1140.0
+        },
+        {
+          "x": 1000.0,
+          "y": 1140.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 166912
+    },
+    {
+      "type": "polyline",
+      "item_id": "6655e686-942b-4a39-93e2-5ddd37a02005",
+      "points": [
+        {
+          "x": 1060.0,
+          "y": 1140.0
+        },
+        {
+          "x": 1700.0,
+          "y": 1140.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 179200
+    },
+    {
+      "type": "polyline",
+      "item_id": "30336311-005f-4d09-a1f7-a20b9a600c29",
+      "points": [
+        {
+          "x": 1760.0,
+          "y": 1140.0
+        },
+        {
+          "x": 2400.0,
+          "y": 1140.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 191488
+    },
+    {
+      "type": "polyline",
+      "item_id": "b5a9e46e-d738-4ced-81a4-5be62963cb68",
+      "points": [
+        {
+          "x": 2460.0,
+          "y": 1140.0
+        },
+        {
+          "x": 3100.0,
+          "y": 1140.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 203776
+    },
+    {
+      "type": "polyline",
+      "item_id": "e2726c96-dd74-4d70-bcba-3bdf65ef2d47",
+      "points": [
+        {
+          "x": 3160.0,
+          "y": 1140.0
+        },
+        {
+          "x": 3800.0,
+          "y": 1140.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 216064
+    },
+    {
+      "type": "polyline",
+      "item_id": "3c88d45e-d9ce-4c30-bc28-932a1bc777af",
+      "points": [
+        {
+          "x": 3860.0,
+          "y": 1140.0
+        },
+        {
+          "x": 4500.0,
+          "y": 1140.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 228352
+    },
+    {
+      "type": "polyline",
+      "item_id": "501a17b2-34e3-479f-adbc-d139e64a3561",
+      "points": [
+        {
+          "x": 360.0,
+          "y": 1590.0
+        },
+        {
+          "x": 1000.0,
+          "y": 1590.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 240640
+    },
+    {
+      "type": "polyline",
+      "item_id": "ff3f61d7-a40c-4dd5-ad3e-a5c50247dd67",
+      "points": [
+        {
+          "x": 1060.0,
+          "y": 1590.0
+        },
+        {
+          "x": 1700.0,
+          "y": 1590.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 252928
+    },
+    {
+      "type": "polyline",
+      "item_id": "329374f5-7e00-4249-9cee-b73201d73d9f",
+      "points": [
+        {
+          "x": 1760.0,
+          "y": 1590.0
+        },
+        {
+          "x": 2400.0,
+          "y": 1590.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 265216
+    },
+    {
+      "type": "polyline",
+      "item_id": "1e38e99b-7458-4ae4-aeb9-e4a5fd7febdb",
+      "points": [
+        {
+          "x": 2460.0,
+          "y": 1590.0
+        },
+        {
+          "x": 3100.0,
+          "y": 1590.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 277504
+    },
+    {
+      "type": "polyline",
+      "item_id": "a12702fe-95a1-421a-a84c-3aabbf3d9a4b",
+      "points": [
+        {
+          "x": 3160.0,
+          "y": 1590.0
+        },
+        {
+          "x": 3800.0,
+          "y": 1590.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 289792
+    },
+    {
+      "type": "polyline",
+      "item_id": "ee208e45-e968-4874-917a-697500d578ca",
+      "points": [
+        {
+          "x": 3860.0,
+          "y": 1590.0
+        },
+        {
+          "x": 4500.0,
+          "y": 1590.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 302080
+    },
+    {
+      "type": "circle",
+      "item_id": "53e54c38-5eb7-4a64-97c0-ad11b192e7dd",
+      "center_x": 2123.675808884854,
+      "center_y": 2134.593167231423,
+      "radius": 30,
+      "object_type": "RAIN_BARREL",
+      "name": "Barrel",
+      "fill_color": "#ff3c643c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 415744
+    },
+    {
+      "type": "circle",
+      "item_id": "c3ccaa55-84fd-45be-83a8-f96da274bf4a",
+      "center_x": 2354.6489741598393,
+      "center_y": 2099.734306028211,
+      "radius": 30,
+      "object_type": "RAIN_BARREL",
+      "name": "Barrel",
+      "fill_color": "#ff3c643c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 416768
+    },
+    {
+      "type": "circle",
+      "item_id": "ba8c3100-c760-492c-bb0c-7049519e5669",
+      "center_x": 3536.7684694990603,
+      "center_y": 2078.469592416892,
+      "radius": 30,
+      "object_type": "RAIN_BARREL",
+      "name": "Barrel",
+      "fill_color": "#ff3c643c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 417792
+    },
+    {
+      "type": "circle",
+      "item_id": "d710ba7c-8295-4158-b37b-5fe320a0bff2",
+      "center_x": 2112.6821485614746,
+      "center_y": 2098.150255783491,
+      "radius": 30,
+      "object_type": "RAIN_BARREL",
+      "name": "Barrel",
+      "fill_color": "#ff3c643c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 418816
+    },
+    {
+      "type": "circle",
+      "item_id": "a0bed558-1742-49f1-8d91-36003633288e",
+      "center_x": 3442.589006656311,
+      "center_y": 2050.4049052451023,
+      "radius": 30,
+      "object_type": "RAIN_BARREL",
+      "name": "Barrel",
+      "fill_color": "#ff3c643c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 419840
+    },
+    {
+      "type": "circle",
+      "item_id": "b0295b30-b6f5-4ae5-b3cd-3eb5913c570f",
+      "center_x": 3767.4023600693345,
+      "center_y": 2123.680639405138,
+      "radius": 30,
+      "object_type": "RAIN_BARREL",
+      "name": "Barrel",
+      "fill_color": "#ff3c643c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 420864
+    },
+    {
+      "type": "circle",
+      "item_id": "ae594f16-f36e-4a4e-b824-8cfd0525ca2e",
+      "center_x": 2563.5090676170676,
+      "center_y": 2058.3999317804137,
+      "radius": 30,
+      "object_type": "RAIN_BARREL",
+      "name": "Barrel",
+      "fill_color": "#ff3c643c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 421888
+    },
+    {
+      "type": "circle",
+      "item_id": "02a95224-dd74-4f6c-992b-25ff76a0a0a9",
+      "center_x": 2537.2745993471317,
+      "center_y": 2142.5451507725056,
+      "radius": 30,
+      "object_type": "RAIN_BARREL",
+      "name": "Barrel",
+      "fill_color": "#ff3c643c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 422912
+    },
+    {
+      "type": "circle",
+      "item_id": "2c4a0a1b-8589-4bf5-9712-9013694cb548",
+      "center_x": 2601.5821718926204,
+      "center_y": 2075.676107767337,
+      "radius": 30,
+      "object_type": "RAIN_BARREL",
+      "name": "Barrel",
+      "fill_color": "#ff3c643c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 423936
+    },
+    {
+      "type": "circle",
+      "item_id": "00986203-3e65-41d6-a4ab-d10ff5929e5e",
+      "center_x": 2183.0882967703856,
+      "center_y": 2084.184330304541,
+      "radius": 30,
+      "object_type": "RAIN_BARREL",
+      "name": "Barrel",
+      "fill_color": "#ff3c643c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 424960
+    },
+    {
+      "type": "circle",
+      "item_id": "0e033ab6-9976-41a4-85ad-217e6ce174a8",
+      "center_x": 2651.160433500841,
+      "center_y": 2107.3488047310216,
+      "radius": 30,
+      "object_type": "RAIN_BARREL",
+      "name": "Barrel",
+      "fill_color": "#ff3c643c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 425984
+    },
+    {
+      "type": "circle",
+      "item_id": "4d805977-cdae-4ded-a4a2-a3aa783af491",
+      "center_x": 3451.4690332008777,
+      "center_y": 2158.5499445895,
+      "radius": 30,
+      "object_type": "RAIN_BARREL",
+      "name": "Barrel",
+      "fill_color": "#ff3c643c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 427008
+    },
+    {
+      "type": "circle",
+      "item_id": "ba4526c9-5d95-4f09-b5d1-0c75ae356353",
+      "center_x": 2748.864471706891,
+      "center_y": 2071.866289281088,
+      "radius": 30,
+      "object_type": "RAIN_BARREL",
+      "name": "Barrel",
+      "fill_color": "#ff3c643c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 428032
+    },
+    {
+      "type": "circle",
+      "item_id": "1b684525-d20e-4ff7-9f34-dd7f019be140",
+      "center_x": 2961.293055777659,
+      "center_y": 2138.5716505305386,
+      "radius": 30,
+      "object_type": "RAIN_BARREL",
+      "name": "Barrel",
+      "fill_color": "#ff3c643c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 429056
+    },
+    {
+      "type": "circle",
+      "item_id": "d2f49496-971b-4f52-94a4-eabe0f02665d",
+      "center_x": 2145.2108007837573,
+      "center_y": 2044.525767261322,
+      "radius": 30,
+      "object_type": "RAIN_BARREL",
+      "name": "Barrel",
+      "fill_color": "#ff3c643c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 430080
+    },
+    {
+      "type": "circle",
+      "item_id": "d8646a49-d358-4e37-9f97-95f0cbd63b6d",
+      "center_x": 3666.5904546922065,
+      "center_y": 2078.5996603922845,
+      "radius": 30,
+      "object_type": "RAIN_BARREL",
+      "name": "Barrel",
+      "fill_color": "#ff3c643c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 431104
+    },
+    {
+      "type": "circle",
+      "item_id": "8aeec4b8-582f-4768-aa6b-79233a8fae51",
+      "center_x": 2271.013645411506,
+      "center_y": 2093.5280373796923,
+      "radius": 30,
+      "object_type": "RAIN_BARREL",
+      "name": "Barrel",
+      "fill_color": "#ff3c643c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 432128
+    },
+    {
+      "type": "circle",
+      "item_id": "278b4c85-3eb5-4d5d-a762-7570dfb3f50e",
+      "center_x": 2566.9974129710026,
+      "center_y": 2158.104155868965,
+      "radius": 30,
+      "object_type": "RAIN_BARREL",
+      "name": "Barrel",
+      "fill_color": "#ff3c643c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 433152
+    },
+    {
+      "type": "circle",
+      "item_id": "058b7d96-ccef-49bc-988b-a2fcf25cf14a",
+      "center_x": 3434.3092255532792,
+      "center_y": 2127.9012292373395,
+      "radius": 30,
+      "object_type": "RAIN_BARREL",
+      "name": "Barrel",
+      "fill_color": "#ff3c643c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 434176
+    },
+    {
+      "type": "circle",
+      "item_id": "0cdb0f0a-389b-4889-b1ae-50dd39e1bbaf",
+      "center_x": 2972.855460824258,
+      "center_y": 2072.189946891582,
+      "radius": 30,
+      "object_type": "RAIN_BARREL",
+      "name": "Barrel",
+      "fill_color": "#ff3c643c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 435200
     },
     {
       "type": "polygon",
@@ -885,25 +1641,6 @@
       "stack_order": 18432
     },
     {
-      "type": "polyline",
-      "item_id": "a114c1ad-0b0e-4ac7-ae1c-5b1a1e86aaf5",
-      "points": [
-        {
-          "x": 360.0,
-          "y": 240.0
-        },
-        {
-          "x": 1000.0,
-          "y": 240.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 19456
-    },
-    {
       "type": "rectangle",
       "item_id": "1a32ec81-6fa0-4efa-b22c-b06c20eac901",
       "x": 1100.0,
@@ -1602,25 +2339,6 @@
       "stack_order": 30720
     },
     {
-      "type": "polyline",
-      "item_id": "3f262a2e-2931-4322-af79-bc1bd1087ab7",
-      "points": [
-        {
-          "x": 1060.0,
-          "y": 240.0
-        },
-        {
-          "x": 1700.0,
-          "y": 240.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 31744
-    },
-    {
       "type": "rectangle",
       "item_id": "beb67fb9-e19b-403c-875a-9e4c8465ae64",
       "x": 1800.0,
@@ -2317,25 +3035,6 @@
       "plant_species": "basil",
       "parent_bed_id": "beb67fb9-e19b-403c-875a-9e4c8465ae64",
       "stack_order": 43008
-    },
-    {
-      "type": "polyline",
-      "item_id": "bd2b1af3-0104-42a9-b46e-2c7644761eef",
-      "points": [
-        {
-          "x": 1760.0,
-          "y": 240.0
-        },
-        {
-          "x": 2400.0,
-          "y": 240.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 44032
     },
     {
       "type": "rectangle",
@@ -3039,25 +3738,6 @@
       "stack_order": 55296
     },
     {
-      "type": "polyline",
-      "item_id": "7d743377-3ea5-43f2-abad-58c21f6aaca4",
-      "points": [
-        {
-          "x": 2460.0,
-          "y": 240.0
-        },
-        {
-          "x": 3100.0,
-          "y": 240.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 56320
-    },
-    {
       "type": "rectangle",
       "item_id": "51cb1ccc-bceb-4157-b331-ff2aa0229e20",
       "x": 3200.0,
@@ -3759,25 +4439,6 @@
       "stack_order": 67584
     },
     {
-      "type": "polyline",
-      "item_id": "8b49750b-9b30-460b-b0fa-10100dc61af4",
-      "points": [
-        {
-          "x": 3160.0,
-          "y": 240.0
-        },
-        {
-          "x": 3800.0,
-          "y": 240.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 68608
-    },
-    {
       "type": "rectangle",
       "item_id": "7a2e5d4e-f826-4cbb-b433-34a7bc350a68",
       "x": 3900.0,
@@ -4472,25 +5133,6 @@
       "stack_order": 79872
     },
     {
-      "type": "polyline",
-      "item_id": "62cd9f47-5ac3-46b9-862d-3dca9077acad",
-      "points": [
-        {
-          "x": 3860.0,
-          "y": 240.0
-        },
-        {
-          "x": 4500.0,
-          "y": 240.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 80896
-    },
-    {
       "type": "rectangle",
       "item_id": "699a6bb4-b3fc-4648-9a94-5906635a2520",
       "x": 400.0,
@@ -5182,25 +5824,6 @@
       "plant_species": "celery",
       "parent_bed_id": "699a6bb4-b3fc-4648-9a94-5906635a2520",
       "stack_order": 92160
-    },
-    {
-      "type": "polyline",
-      "item_id": "68f20553-1786-4b41-ab9c-cab67838219b",
-      "points": [
-        {
-          "x": 360.0,
-          "y": 690.0
-        },
-        {
-          "x": 1000.0,
-          "y": 690.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 93184
     },
     {
       "type": "rectangle",
@@ -5897,25 +6520,6 @@
       "stack_order": 104448
     },
     {
-      "type": "polyline",
-      "item_id": "42da30af-309c-4020-a206-868d813f0a25",
-      "points": [
-        {
-          "x": 1060.0,
-          "y": 690.0
-        },
-        {
-          "x": 1700.0,
-          "y": 690.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 105472
-    },
-    {
       "type": "rectangle",
       "item_id": "61a42583-28ef-4782-9c60-1364771f5aac",
       "x": 1800.0,
@@ -6603,25 +7207,6 @@
       "plant_species": "endive",
       "parent_bed_id": "61a42583-28ef-4782-9c60-1364771f5aac",
       "stack_order": 116736
-    },
-    {
-      "type": "polyline",
-      "item_id": "19a73daf-5998-425a-b29e-d8ff3afcf11b",
-      "points": [
-        {
-          "x": 1760.0,
-          "y": 690.0
-        },
-        {
-          "x": 2400.0,
-          "y": 690.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 117760
     },
     {
       "type": "rectangle",
@@ -7314,25 +7899,6 @@
       "plant_species": "tomato",
       "parent_bed_id": "1f89826e-e335-4f50-8e27-00aef0370ad4",
       "stack_order": 129024
-    },
-    {
-      "type": "polyline",
-      "item_id": "7367e46d-801e-41d0-9b56-37835dfa0e6f",
-      "points": [
-        {
-          "x": 2460.0,
-          "y": 690.0
-        },
-        {
-          "x": 3100.0,
-          "y": 690.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 130048
     },
     {
       "type": "rectangle",
@@ -8033,25 +8599,6 @@
       "stack_order": 141312
     },
     {
-      "type": "polyline",
-      "item_id": "4c194e42-bf53-46d8-95af-40ce73e7cd12",
-      "points": [
-        {
-          "x": 3160.0,
-          "y": 690.0
-        },
-        {
-          "x": 3800.0,
-          "y": 690.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 142336
-    },
-    {
       "type": "rectangle",
       "item_id": "14c1e77c-7092-4dd1-971c-0cd2265fb1c8",
       "x": 3900.0,
@@ -8747,25 +9294,6 @@
       "stack_order": 153600
     },
     {
-      "type": "polyline",
-      "item_id": "30916067-45d3-4af2-bea5-ea09e25b0751",
-      "points": [
-        {
-          "x": 3860.0,
-          "y": 690.0
-        },
-        {
-          "x": 4500.0,
-          "y": 690.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 154624
-    },
-    {
       "type": "rectangle",
       "item_id": "2702055d-508c-42c8-ba6c-81d81b69e55d",
       "x": 400.0,
@@ -9455,25 +9983,6 @@
       "stack_order": 165888
     },
     {
-      "type": "polyline",
-      "item_id": "ce62f3d1-bfb1-4da0-9fb7-100fee06c1f5",
-      "points": [
-        {
-          "x": 360.0,
-          "y": 1140.0
-        },
-        {
-          "x": 1000.0,
-          "y": 1140.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 166912
-    },
-    {
       "type": "rectangle",
       "item_id": "520e19d8-0f8e-4ada-bf88-ec2a78a76a48",
       "x": 1100.0,
@@ -10161,25 +10670,6 @@
       "plant_species": "onion",
       "parent_bed_id": "520e19d8-0f8e-4ada-bf88-ec2a78a76a48",
       "stack_order": 178176
-    },
-    {
-      "type": "polyline",
-      "item_id": "6655e686-942b-4a39-93e2-5ddd37a02005",
-      "points": [
-        {
-          "x": 1060.0,
-          "y": 1140.0
-        },
-        {
-          "x": 1700.0,
-          "y": 1140.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 179200
     },
     {
       "type": "rectangle",
@@ -10875,25 +11365,6 @@
       "plant_species": "bean (bush)",
       "parent_bed_id": "b4181153-98c9-48b3-82fd-0b464edf5bb1",
       "stack_order": 190464
-    },
-    {
-      "type": "polyline",
-      "item_id": "30336311-005f-4d09-a1f7-a20b9a600c29",
-      "points": [
-        {
-          "x": 1760.0,
-          "y": 1140.0
-        },
-        {
-          "x": 2400.0,
-          "y": 1140.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 191488
     },
     {
       "type": "rectangle",
@@ -11595,25 +12066,6 @@
       "stack_order": 202752
     },
     {
-      "type": "polyline",
-      "item_id": "b5a9e46e-d738-4ced-81a4-5be62963cb68",
-      "points": [
-        {
-          "x": 2460.0,
-          "y": 1140.0
-        },
-        {
-          "x": 3100.0,
-          "y": 1140.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 203776
-    },
-    {
       "type": "rectangle",
       "item_id": "b87413f6-7163-411c-8695-3dadb9baebde",
       "x": 3200.0,
@@ -12313,25 +12765,6 @@
       "stack_order": 215040
     },
     {
-      "type": "polyline",
-      "item_id": "e2726c96-dd74-4d70-bcba-3bdf65ef2d47",
-      "points": [
-        {
-          "x": 3160.0,
-          "y": 1140.0
-        },
-        {
-          "x": 3800.0,
-          "y": 1140.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 216064
-    },
-    {
       "type": "rectangle",
       "item_id": "5fa6395c-8d2d-47f7-8dc2-62e55f82b53c",
       "x": 3900.0,
@@ -13027,25 +13460,6 @@
       "stack_order": 227328
     },
     {
-      "type": "polyline",
-      "item_id": "3c88d45e-d9ce-4c30-bc28-932a1bc777af",
-      "points": [
-        {
-          "x": 3860.0,
-          "y": 1140.0
-        },
-        {
-          "x": 4500.0,
-          "y": 1140.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 228352
-    },
-    {
       "type": "rectangle",
       "item_id": "fbf6f9c6-1604-4e8b-aa73-530fca17de38",
       "x": 400.0,
@@ -13739,25 +14153,6 @@
       "plant_species": "spinach",
       "parent_bed_id": "fbf6f9c6-1604-4e8b-aa73-530fca17de38",
       "stack_order": 239616
-    },
-    {
-      "type": "polyline",
-      "item_id": "501a17b2-34e3-479f-adbc-d139e64a3561",
-      "points": [
-        {
-          "x": 360.0,
-          "y": 1590.0
-        },
-        {
-          "x": 1000.0,
-          "y": 1590.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 240640
     },
     {
       "type": "rectangle",
@@ -14458,25 +14853,6 @@
       "stack_order": 251904
     },
     {
-      "type": "polyline",
-      "item_id": "ff3f61d7-a40c-4dd5-ad3e-a5c50247dd67",
-      "points": [
-        {
-          "x": 1060.0,
-          "y": 1590.0
-        },
-        {
-          "x": 1700.0,
-          "y": 1590.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 252928
-    },
-    {
       "type": "rectangle",
       "item_id": "70a59a35-522a-429f-9b9d-3afad8ddfef7",
       "x": 1800.0,
@@ -15173,25 +15549,6 @@
       "plant_species": "basil",
       "parent_bed_id": "70a59a35-522a-429f-9b9d-3afad8ddfef7",
       "stack_order": 264192
-    },
-    {
-      "type": "polyline",
-      "item_id": "329374f5-7e00-4249-9cee-b73201d73d9f",
-      "points": [
-        {
-          "x": 1760.0,
-          "y": 1590.0
-        },
-        {
-          "x": 2400.0,
-          "y": 1590.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 265216
     },
     {
       "type": "rectangle",
@@ -15895,25 +16252,6 @@
       "stack_order": 276480
     },
     {
-      "type": "polyline",
-      "item_id": "1e38e99b-7458-4ae4-aeb9-e4a5fd7febdb",
-      "points": [
-        {
-          "x": 2460.0,
-          "y": 1590.0
-        },
-        {
-          "x": 3100.0,
-          "y": 1590.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 277504
-    },
-    {
       "type": "rectangle",
       "item_id": "e6657f46-979e-4d83-becf-a485df5e3575",
       "x": 3200.0,
@@ -16615,25 +16953,6 @@
       "stack_order": 288768
     },
     {
-      "type": "polyline",
-      "item_id": "a12702fe-95a1-421a-a84c-3aabbf3d9a4b",
-      "points": [
-        {
-          "x": 3160.0,
-          "y": 1590.0
-        },
-        {
-          "x": 3800.0,
-          "y": 1590.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 289792
-    },
-    {
       "type": "rectangle",
       "item_id": "eff8c999-3208-4bcb-a3ed-1bdd663f56f7",
       "x": 3900.0,
@@ -17326,25 +17645,6 @@
       "plant_species": "garlic",
       "parent_bed_id": "eff8c999-3208-4bcb-a3ed-1bdd663f56f7",
       "stack_order": 301056
-    },
-    {
-      "type": "polyline",
-      "item_id": "ee208e45-e968-4874-917a-697500d578ca",
-      "points": [
-        {
-          "x": 3860.0,
-          "y": 1590.0
-        },
-        {
-          "x": 4500.0,
-          "y": 1590.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 302080
     },
     {
       "type": "circle",
@@ -22065,306 +22365,6 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "stack_order": 414720
-    },
-    {
-      "type": "circle",
-      "item_id": "53e54c38-5eb7-4a64-97c0-ad11b192e7dd",
-      "center_x": 2123.675808884854,
-      "center_y": 2134.593167231423,
-      "radius": 30,
-      "object_type": "RAIN_BARREL",
-      "name": "Barrel",
-      "fill_color": "#ff3c643c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "stack_order": 415744
-    },
-    {
-      "type": "circle",
-      "item_id": "c3ccaa55-84fd-45be-83a8-f96da274bf4a",
-      "center_x": 2354.6489741598393,
-      "center_y": 2099.734306028211,
-      "radius": 30,
-      "object_type": "RAIN_BARREL",
-      "name": "Barrel",
-      "fill_color": "#ff3c643c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "stack_order": 416768
-    },
-    {
-      "type": "circle",
-      "item_id": "ba8c3100-c760-492c-bb0c-7049519e5669",
-      "center_x": 3536.7684694990603,
-      "center_y": 2078.469592416892,
-      "radius": 30,
-      "object_type": "RAIN_BARREL",
-      "name": "Barrel",
-      "fill_color": "#ff3c643c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "stack_order": 417792
-    },
-    {
-      "type": "circle",
-      "item_id": "d710ba7c-8295-4158-b37b-5fe320a0bff2",
-      "center_x": 2112.6821485614746,
-      "center_y": 2098.150255783491,
-      "radius": 30,
-      "object_type": "RAIN_BARREL",
-      "name": "Barrel",
-      "fill_color": "#ff3c643c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "stack_order": 418816
-    },
-    {
-      "type": "circle",
-      "item_id": "a0bed558-1742-49f1-8d91-36003633288e",
-      "center_x": 3442.589006656311,
-      "center_y": 2050.4049052451023,
-      "radius": 30,
-      "object_type": "RAIN_BARREL",
-      "name": "Barrel",
-      "fill_color": "#ff3c643c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "stack_order": 419840
-    },
-    {
-      "type": "circle",
-      "item_id": "b0295b30-b6f5-4ae5-b3cd-3eb5913c570f",
-      "center_x": 3767.4023600693345,
-      "center_y": 2123.680639405138,
-      "radius": 30,
-      "object_type": "RAIN_BARREL",
-      "name": "Barrel",
-      "fill_color": "#ff3c643c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "stack_order": 420864
-    },
-    {
-      "type": "circle",
-      "item_id": "ae594f16-f36e-4a4e-b824-8cfd0525ca2e",
-      "center_x": 2563.5090676170676,
-      "center_y": 2058.3999317804137,
-      "radius": 30,
-      "object_type": "RAIN_BARREL",
-      "name": "Barrel",
-      "fill_color": "#ff3c643c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "stack_order": 421888
-    },
-    {
-      "type": "circle",
-      "item_id": "02a95224-dd74-4f6c-992b-25ff76a0a0a9",
-      "center_x": 2537.2745993471317,
-      "center_y": 2142.5451507725056,
-      "radius": 30,
-      "object_type": "RAIN_BARREL",
-      "name": "Barrel",
-      "fill_color": "#ff3c643c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "stack_order": 422912
-    },
-    {
-      "type": "circle",
-      "item_id": "2c4a0a1b-8589-4bf5-9712-9013694cb548",
-      "center_x": 2601.5821718926204,
-      "center_y": 2075.676107767337,
-      "radius": 30,
-      "object_type": "RAIN_BARREL",
-      "name": "Barrel",
-      "fill_color": "#ff3c643c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "stack_order": 423936
-    },
-    {
-      "type": "circle",
-      "item_id": "00986203-3e65-41d6-a4ab-d10ff5929e5e",
-      "center_x": 2183.0882967703856,
-      "center_y": 2084.184330304541,
-      "radius": 30,
-      "object_type": "RAIN_BARREL",
-      "name": "Barrel",
-      "fill_color": "#ff3c643c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "stack_order": 424960
-    },
-    {
-      "type": "circle",
-      "item_id": "0e033ab6-9976-41a4-85ad-217e6ce174a8",
-      "center_x": 2651.160433500841,
-      "center_y": 2107.3488047310216,
-      "radius": 30,
-      "object_type": "RAIN_BARREL",
-      "name": "Barrel",
-      "fill_color": "#ff3c643c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "stack_order": 425984
-    },
-    {
-      "type": "circle",
-      "item_id": "4d805977-cdae-4ded-a4a2-a3aa783af491",
-      "center_x": 3451.4690332008777,
-      "center_y": 2158.5499445895,
-      "radius": 30,
-      "object_type": "RAIN_BARREL",
-      "name": "Barrel",
-      "fill_color": "#ff3c643c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "stack_order": 427008
-    },
-    {
-      "type": "circle",
-      "item_id": "ba4526c9-5d95-4f09-b5d1-0c75ae356353",
-      "center_x": 2748.864471706891,
-      "center_y": 2071.866289281088,
-      "radius": 30,
-      "object_type": "RAIN_BARREL",
-      "name": "Barrel",
-      "fill_color": "#ff3c643c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "stack_order": 428032
-    },
-    {
-      "type": "circle",
-      "item_id": "1b684525-d20e-4ff7-9f34-dd7f019be140",
-      "center_x": 2961.293055777659,
-      "center_y": 2138.5716505305386,
-      "radius": 30,
-      "object_type": "RAIN_BARREL",
-      "name": "Barrel",
-      "fill_color": "#ff3c643c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "stack_order": 429056
-    },
-    {
-      "type": "circle",
-      "item_id": "d2f49496-971b-4f52-94a4-eabe0f02665d",
-      "center_x": 2145.2108007837573,
-      "center_y": 2044.525767261322,
-      "radius": 30,
-      "object_type": "RAIN_BARREL",
-      "name": "Barrel",
-      "fill_color": "#ff3c643c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "stack_order": 430080
-    },
-    {
-      "type": "circle",
-      "item_id": "d8646a49-d358-4e37-9f97-95f0cbd63b6d",
-      "center_x": 3666.5904546922065,
-      "center_y": 2078.5996603922845,
-      "radius": 30,
-      "object_type": "RAIN_BARREL",
-      "name": "Barrel",
-      "fill_color": "#ff3c643c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "stack_order": 431104
-    },
-    {
-      "type": "circle",
-      "item_id": "8aeec4b8-582f-4768-aa6b-79233a8fae51",
-      "center_x": 2271.013645411506,
-      "center_y": 2093.5280373796923,
-      "radius": 30,
-      "object_type": "RAIN_BARREL",
-      "name": "Barrel",
-      "fill_color": "#ff3c643c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "stack_order": 432128
-    },
-    {
-      "type": "circle",
-      "item_id": "278b4c85-3eb5-4d5d-a762-7570dfb3f50e",
-      "center_x": 2566.9974129710026,
-      "center_y": 2158.104155868965,
-      "radius": 30,
-      "object_type": "RAIN_BARREL",
-      "name": "Barrel",
-      "fill_color": "#ff3c643c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "stack_order": 433152
-    },
-    {
-      "type": "circle",
-      "item_id": "058b7d96-ccef-49bc-988b-a2fcf25cf14a",
-      "center_x": 3434.3092255532792,
-      "center_y": 2127.9012292373395,
-      "radius": 30,
-      "object_type": "RAIN_BARREL",
-      "name": "Barrel",
-      "fill_color": "#ff3c643c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "stack_order": 434176
-    },
-    {
-      "type": "circle",
-      "item_id": "0cdb0f0a-389b-4889-b1ae-50dd39e1bbaf",
-      "center_x": 2972.855460824258,
-      "center_y": 2072.189946891582,
-      "radius": 30,
-      "object_type": "RAIN_BARREL",
-      "name": "Barrel",
-      "fill_color": "#ff3c643c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "stack_order": 435200
     }
   ],
   "location": {

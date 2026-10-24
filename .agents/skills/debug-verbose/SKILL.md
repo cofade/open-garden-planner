@@ -7,6 +7,35 @@ argument: "Optional: short description of the bug or area to instrument"
 
 # Verbose Debug Instrumentation
 
+## Case study: Hours of Sun on in the toolbar, nothing on the 3D ground; shadows under a lawn (PR #584 manual pass)
+
+**Symptom.** The owner's screenshot: toolbar Hours of Sun on, the canvas showing its
+map, the 3D ground showing nothing. Separately, the 2D shadows and the map were hidden
+under a lawn ("objects of height = 0 like grass").
+**Wrong theories.** None adopted. Candidates measured before any change: the ultra
+preset (SSR, 8x MSAA), a 151k-vertex drape on a 50 x 30 m plan, Animate running, the
+drape grabbed but never presented, depth fighting with the lawn's ground tile.
+**Evidence.** An external probe drove the real `GardenPlannerApp` on the real engine at
+the owner's settings, printing `[386-DRAPE]` from monkeypatched controller methods:
+`_drape_mesh shown=(2031-03-24, 300, 500) -> (151604, 'verts')`, `root drapeVisible
+True`, and a desktop capture of the presented frame equal to `host.grab()`, both
+showing the drape, in every order (menu first, 2D Shadows first, toolbar first). The
+pipeline was sound, so the screenshot's state had to be "Nothing on the Ground" with
+the toolbar on — reachable only from the toolbar side. For 2D: overlays fixed at z -500
+/ -450, "below every layer item".
+**Root cause.** The 3D drape followed the shared switch going off, never going on. The
+2D overlays sat under every layer item, so anything flat drawn over the ground hid them.
+**Fix.** The drape follows both edges, and a 3D view opened with Hours of Sun on lays
+it (PF-L3D-09). What lies on the ground (no plant, no height, not an annotation: the 3D
+view's own ground rule) takes a z band below the overlays, order kept, restacked after
+each command (PF-CAN-22, ADR-043 addendum). The first 2D rule listed six surface types;
+the ground bake's edit-session test failed on a mulch-patterned generic rectangle,
+which would have kept hiding a shadow. All probe code stayed in the scratchpad.
+**Lesson.** When a report contradicts a green suite, reproduce the user's exact state
+on the real artifact first; a sound pipeline turns the question into "which state
+shows this", and the answer named the missing edge. Define "flat" once, by the other
+view's rule, not by a second list.
+
 ## Case study: panel commit boundaries erased redo or lost notes (PR #566, 2026-10-23)
 
 **Symptom.** Immediate Save/Close omitted notes; pending Properties Name erased
@@ -870,9 +899,9 @@ Three brand-new fields were declared on the dataclass (US-12.10d) but never adde
 
 **Key signal**: in the live session, both bed and plant had `zValue() == 0`. The plant was on top. After load, both still had `zValue() == 0` — but the bed was on top. So the *tie-break* between same-z items had flipped between sessions.
 
-**Root cause**: `ui/canvas/canvas_scene.py:355` `_refresh_layer_z` set every item's z to `layer.z_order * 100` (since revised by #338/ADR-043 into a per-item ranked z within that band — §8.25). Items in the same layer get *the same z*. Qt's `QGraphicsScene` then tie-breaks by item insertion order. The live session inserts bed first, then plant — plant on top. The post-load reconstruction inserts items in scene-traversal order from the saved JSON, which is reversed by serialization, putting the plant first and the bed on top.
+**Root cause**: `ui/canvas/canvas_scene.py:1085` `_refresh_layer_z` set every item's z to `layer.z_order * 100` (since revised by #338/ADR-043 into a per-item ranked z within that band — §8.25). Items in the same layer get *the same z*. Qt's `QGraphicsScene` then tie-breaks by item insertion order. The live session inserts bed first, then plant — plant on top. The post-load reconstruction inserts items in scene-traversal order from the saved JSON, which is reversed by serialization, putting the plant first and the bed on top.
 
-**Fix**: Add a third pass in `_update_items_z_order` (mirroring the existing ROOF_RIDGE special case, now `ui/canvas/canvas_scene.py:925` `ROOF_RIDGE` inside `_stack_entries` since #338/ADR-043's rewrite — §8.25) that walks every item with `_parent_bed_id` set and bumps its z to `parent.zValue() + 1`. Now plants always have a strictly higher z than their bed, regardless of insertion order.
+**Fix**: Add a third pass in `_update_items_z_order` (mirroring the existing ROOF_RIDGE special case, now `ui/canvas/canvas_scene.py:1045` `ROOF_RIDGE` inside `_stack_entries` since #338/ADR-043's rewrite — §8.25) that walks every item with `_parent_bed_id` set and bumps its z to `parent.zValue() + 1`. Now plants always have a strictly higher z than their bed, regardless of insertion order.
 
 **Lesson**: Identical zValues are a footgun across save/load boundaries because `QGraphicsScene` tie-breaks by *insertion order*, which is **not stable** between live mutation order and JSON-load order. Whenever a parent-child draw relationship matters, encode it explicitly via `parent.zValue() + 1` — never rely on "I inserted them in the right order, it'll just work". Pattern: anywhere `_update_items_z_order` touches multiple item categories, add an explicit ordering pass per parent-child relationship.
 

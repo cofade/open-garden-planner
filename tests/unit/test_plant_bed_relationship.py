@@ -12,6 +12,7 @@ from open_garden_planner.core.commands import (
     MoveItemsCommand,
     SetParentBedCommand,
 )
+from open_garden_planner.core.object_height import METADATA_KEY
 from open_garden_planner.core.object_types import ObjectType, is_bed_type
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.items import (
@@ -346,6 +347,9 @@ class TestSetParentBedCommand:
         layer_id = scene.active_layer.id
         bed = _make_bed()
         bed.layer_id = layer_id
+        # an edged bed (a height): an in-ground bed without one lies on the ground,
+        # drawn under every plant whatever its rank (manual pass of PR #584)
+        bed.metadata[METADATA_KEY] = 20.0
         plant = _make_plant()
         plant.layer_id = layer_id
         # Plant added first -> ranked (and rendered) below the bed before
