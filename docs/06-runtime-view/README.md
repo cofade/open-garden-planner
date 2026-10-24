@@ -571,12 +571,13 @@ flowchart LR
     AC -- "SUN_HOURS: sun_hours_drape" --> DR["set_overlay('drape')<br/>blends over it"]
     AC -- "probe: minutes_at + band<br/>(only while is_current())" --> CARD["the card's place<br/>below the view"]
     LS -. "on (toolbar) / off (toolbar, document replaced)" .-> AC
-    AC -. "on: drape → Hours of Sun on the Ground<br/>off: → Nothing on the Ground;<br/>menu follows" .-> MENU["Analyze menu"]
+    AC -. "on: drape → Hours of Sun on the Ground<br/>off: → what lay there before;<br/>menu follows" .-> MENU["Analyze menu"]
 ```
 
 The 3D drape follows the shared Hours of Sun both ways (owner manual pass of PR
-#584): switched on in the toolbar it replaces what lay on the 3D ground, and a 3D view
-opened while it is on lays it as soon as the pane shows (`connect_sources`).
+#584): switched on in the toolbar it replaces what lay on the 3D ground, switched off
+what lay there before comes back, and a 3D view opened while it is on lays it as soon
+as the pane shows (`connect_sources`).
 
 **The day sweep** (the user's "Sweep the Day"):
 

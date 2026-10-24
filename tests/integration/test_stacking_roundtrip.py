@@ -400,6 +400,9 @@ class TestDeleteUndoRestoresPlantAboveBed:
             object_type=ObjectType.GARDEN_BED,
             layer_id=layer_id,
         )
+        # edged (a height): an in-ground bed lies in the ground band under every plant,
+        # so the clamp would not be what these tests pin (PR #584 manual pass review)
+        bed.metadata["object_height_cm"] = 20.0
         scene.addItem(plant)
         scene.addItem(bed)
         assert plant.stack_order is not None and bed.stack_order is not None

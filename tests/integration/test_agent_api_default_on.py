@@ -1961,6 +1961,9 @@ def test_arrange_object_stack_index_matches_read_side_with_arc_and_pin_present(
         # position -- proving P0's ranking fix reaches the read side too.
         arc_detail = queries.get_object(snapshot, str(arc.item_id))
         assert arc_detail is not None
+        # rank order IS drawing order here because the layer holds no ground surface:
+        # those are drawn first whatever their rank (canvas_scene.GROUND_Z_RANGE), and
+        # stack_index follows the drawing (PR #584 manual pass)
         live_order = scene._normalized_layer_order(layer_id)
         assert arc_detail.stack_index == live_order.index(arc)
 

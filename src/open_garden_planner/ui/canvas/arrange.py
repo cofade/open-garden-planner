@@ -96,6 +96,8 @@ def build_arrange_command(
     for item in eligible:
         by_layer.setdefault(item.layer_id, []).append(item)  # type: ignore[attr-defined]
 
+    from open_garden_planner.ui.canvas.canvas_scene import on_ground
+
     new_orders: dict[UUID, list[QGraphicsItem]] = {}
     outcome = ArrangeOutcome.NOTHING_SELECTED  # sentinel: "not set yet"
     for layer_id, layer_items in by_layer.items():
@@ -103,23 +105,37 @@ def build_arrange_command(
         # entries below and normalize_order's parent/child pass (#338 review
         # round 4: this used to walk the layer three times over).
         candidates = scene._layer_top_level_items(layer_id)  # type: ignore[attr-defined]
-        entries = scene._stack_entries(layer_id, candidates)  # type: ignore[attr-defined]
-        items_by_id = {
-            scene._stack_identity(item): item  # type: ignore[attr-defined]
-            for item in candidates
-        }
         selected_ids = {scene._stack_identity(item) for item in layer_items}  # type: ignore[attr-defined]
-
-        new_order, layer_outcome = stacking.arrange(entries, selected_ids, mode)
-        if new_order is None:
-            # Every eligible item is present in `entries` (they came from
-            # this same layer), so `layer_outcome` here is never
-            # NOTHING_SELECTED — the sentinel check below only ever fires
-            # once, for the first affected layer.
-            if outcome is ArrangeOutcome.NOTHING_SELECTED:
-                outcome = layer_outcome
-            continue
-        new_orders[layer_id] = [items_by_id[entry.item_id] for entry in new_order]
+        # The ground surfaces are drawn in their own band under the sun overlays
+        # (canvas_scene.GROUND_Z_RANGE), so a rank orders an item only among its own
+        # band: each band of the selection is arranged alone and the layer is
+        # renumbered ground first, so ranks and drawing agree. Over the whole layer a
+        # lawn stepped "forward" past a table and nothing visible moved (review of
+        # the owner's manual pass of PR #584).
+        spliced: list[QGraphicsItem] = []
+        layer_changed = False
+        for band in (True, False):
+            band_items = [item for item in candidates if on_ground(item) is band]
+            entries = scene._stack_entries(layer_id, band_items)  # type: ignore[attr-defined]
+            items_by_id = {
+                scene._stack_identity(item): item  # type: ignore[attr-defined]
+                for item in band_items
+            }
+            band_selected = selected_ids & items_by_id.keys()
+            new_order = None
+            if band_selected:
+                new_order, band_outcome = stacking.arrange(entries, band_selected, mode)
+                if new_order is None and outcome is ArrangeOutcome.NOTHING_SELECTED:
+                    # the first affected band's reason (at front/back, nothing to
+                    # step past) is the one reported
+                    outcome = band_outcome
+            if new_order is None:
+                new_order = stacking.normalize_order(entries)
+            else:
+                layer_changed = True
+            spliced.extend(items_by_id[entry.item_id] for entry in new_order)
+        if layer_changed:
+            new_orders[layer_id] = spliced
 
     if not new_orders:
         return None, outcome

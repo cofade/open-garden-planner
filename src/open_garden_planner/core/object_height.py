@@ -113,12 +113,14 @@ _SOIL_PARENT_TYPE_NAMES = frozenset(
     {"GARDEN_BED", "RAISED_BED", "CONTAINER", "CONTAINER_ROUND", "WALL_PLANTER"}
 )
 
-#: The types without a height that still cover no ground: annotations (text, a
-#: callout, a journal pin: ``footprints.item_outline`` gives them no outline) and a
-#: house's ridge line (part of its roof). Every other object without a height lies on
-#: the ground (``lies_on_ground``) — the rule the 3D view paints its ground by.
-NOT_ON_GROUND_TYPE_NAMES = frozenset(
-    {"GENERIC_TEXT", "GENERIC_CALLOUT", "GARDEN_JOURNAL_PIN", "ROOF_RIDGE"}
+#: The garden's surfaces: with no height of their own they ARE the ground the 2D sun
+#: study's shadows and hours of sun lie on (``lies_on_ground``). Not here: an object
+#: that stands up but has no height in the plan (a cold frame, a rain barrel, a
+#: parasol: it would sink under every solid, with no Height field to lift it back —
+#: senior review of the owner's manual pass), a generic shape (often a zone or a
+#: highlight placed by layer: an owner question), and annotations.
+GROUND_SURFACE_TYPE_NAMES = frozenset(
+    {"LAWN", "PATH", "TERRACE_PATIO", "DRIVEWAY", "POND_POOL", "GARDEN_BED"}
 )
 
 #: The soil of a BED lies this far below its rim. A modelling ASSUMPTION, not a
@@ -371,20 +373,15 @@ _HEIGHT_FIELD_TYPES: frozenset[str] = frozenset({"SWING", "PERGOLA", "HAMMOCK"})
 
 
 def lies_on_ground(object_type: Any, metadata: dict[str, Any] | None) -> bool:
-    """Does this object lie ON the ground — no plant, no height of its own, and not an
-    annotation (``NOT_ON_GROUND_TYPE_NAMES``)? A lawn, a path, a terrace, an in-ground
-    bed, a generic shape, and an object the plan gives no height (a parasol): what the
-    3D view paints into its ground (``ui/view3d/snapshot``: a non-plant without a solid).
+    """Is this object a surface of the ground — a lawn, a path, a terrace, a driveway,
+    a pond or an in-ground bed (``GROUND_SURFACE_TYPE_NAMES``) with no height of its own?
 
-    The 2D canvas draws such an object UNDER the sun study's overlays, so a shadow and
+    The 2D canvas draws such a surface UNDER the sun study's overlays, so a shadow and
     the hours-of-sun map lie on it as they lie on the ground (manual pass of PR #584;
-    ``ui/canvas/canvas_scene.GROUND_Z_RANGE``). A height — set by hand, or the type's
-    own — makes it a solid that stands on the ground instead.
+    ``ui/canvas/canvas_scene.GROUND_Z_RANGE``). A height — only stored metadata can
+    give these types one — makes it a solid that stands on the ground instead.
     """
-    if object_type is None:
-        return False
-    name = _type_name(object_type)
-    return (name not in _PLANT_TYPE_NAMES and name not in NOT_ON_GROUND_TYPE_NAMES
+    return (_type_name(object_type) in GROUND_SURFACE_TYPE_NAMES
             and effective_height_cm(object_type, metadata) is None)
 
 

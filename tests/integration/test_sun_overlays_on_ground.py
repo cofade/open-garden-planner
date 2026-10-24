@@ -1,16 +1,17 @@
-"""The 2D sun study lies ON what lies on the ground (manual pass of PR #584).
+"""The 2D sun study lies ON the ground surfaces (manual pass of PR #584).
 
 The owner drew a lawn and switched the shadows and Hours of Sun on: both were hidden
 under the lawn, because the two overlays sat below every layer item. A surface with
-no height of its own and no annotation — a lawn, a terrace, a path, an in-ground
-bed, a generic shape (``core.object_height.lies_on_ground``, the 3D view's ground
-rule) — is now drawn in a band below the overlays (``canvas_scene.GROUND_Z_RANGE``),
-and everything else stays above them.
+no height of its own — a lawn, a terrace, a driveway, a pond, a path, an in-ground
+bed (``core.object_height.lies_on_ground``), and a group made only of those — is now
+drawn in a band below the overlays (``canvas_scene.GROUND_Z_RANGE``), and everything
+else stays above them: solids, plants, objects without a height (a cold frame),
+generic shapes, annotations. Arrange works inside each band (``arrange.py``).
 
 The pixels are the export pipeline's (``render_scene_region``): a shadow and the
 heatmap must change the lawn's pixels and leave the shed that casts them alone. The
 band follows the item: a height set on a lawn lifts it out, its undo puts it back, a
-type change moves it, and ground items keep their order among themselves.
+type change moves it, and ground surfaces keep their order among themselves.
 """
 
 from __future__ import annotations
@@ -172,31 +173,47 @@ class TestTheGroundBand:
         _add(view, zone)
         parasol = RectangleItem(420, 300, 40, 40, object_type=ObjectType.PARASOL,
                                 layer_id=scene.active_layer.id)
-        _add(view, parasol)   # no height in the plan: flat in 3D, casts nothing in 2D
+        _add(view, parasol)   # no height in the plan, yet it stands up
+        cold_frame = RectangleItem(320, 320, 40, 40, object_type=ObjectType.COLD_FRAME,
+                                   layer_id=scene.active_layer.id)
+        _add(view, cold_frame)   # stands on the bed without a height: never under it
         note = TextItem(50, 50, "note", layer_id=scene.active_layer.id)
         _add(view, note)
         pin = JournalPinItem(80, 80, "note-1", layer_id=scene.active_layer.id)
         _add(view, pin)
-        for item in (lawn, path, bed, zone, parasol):
+        for item in (lawn, path, bed):
             assert _in_ground_band(item), item.object_type
-        assert lawn.zValue() < path.zValue() < bed.zValue() < zone.zValue() < parasol.zValue(),             "their order among themselves stays"
-        for item in (shed, note, pin):
-            assert item.zValue() >= 0.0, item
+        assert lawn.zValue() < path.zValue() < bed.zValue(), "their order among themselves stays"
+        for item in (shed, note, pin, zone, parasol, cold_frame):
+            assert item.zValue() >= 0.0, item.object_type
         assert GROUND_Z_RANGE[0] > -1000.0, "above the background image"
         assert GROUND_Z_RANGE[1] < -500.0, "below the shadow overlay (-500) and the map (-450)"
 
-    def test_the_annotations_left_out_cover_no_ground_by_the_3d_rule(self, view) -> None:
-        """``NOT_ON_GROUND_TYPE_NAMES`` names what has no height and still is no ground:
-        the 3D snapshot gives a text and a journal pin no outline either
-        (``footprints.item_outline``), so the 2D band and the 3D ground agree."""
-        from open_garden_planner.ui.canvas.footprints import item_outline
+    def test_a_group_of_ground_surfaces_lies_on_the_ground_and_a_mixed_one_does_not(
+            self, view) -> None:
+        """Both reviews of the manual pass: a group is drawn in ONE slot — a grouped
+        lawn left in its layer's band hid the overlays and lay over a path ranked above
+        the group. A group of surfaces only takes the band; a mixed one stays."""
+        from open_garden_planner.core.commands import GroupCommand
 
         scene = view.scene()
-        note = TextItem(50, 50, "note", layer_id=scene.active_layer.id)
-        pin = JournalPinItem(80, 80, "note-1", layer_id=scene.active_layer.id)
-        for item in (note, pin):
-            _add(view, item)
-            assert item_outline(item) is None, item.object_type
+        lawn = _lawn(view)
+        terrace = RectangleItem(50, 50, 100, 100, object_type=ObjectType.TERRACE_PATIO,
+                                layer_id=scene.active_layer.id)
+        _add(view, terrace)
+        view.command_manager.execute(GroupCommand(scene, [lawn, terrace]))
+        group = lawn.parentItem()
+        assert group is not None and _in_ground_band(group)
+        path = PolygonItem([QPointF(x, y) for x, y in ((0, 0), (40, 0), (40, 400), (0, 400))],
+                           object_type=ObjectType.PATH, layer_id=scene.active_layer.id)
+        _add(view, path)
+        assert group.zValue() < path.zValue() < -500.0, "the path ranked above lies above it"
+        view.command_manager.undo()   # the path
+        view.command_manager.undo()   # the group
+        assert lawn.parentItem() is None and _in_ground_band(lawn) and _in_ground_band(terrace)
+        shed = _shed(view)
+        view.command_manager.execute(GroupCommand(scene, [lawn, shed]))
+        assert lawn.parentItem() is not None and lawn.parentItem().zValue() >= 0.0
 
     def test_the_layer_order_holds_among_ground_surfaces_across_layers(self, view) -> None:
         scene = view.scene()
@@ -270,6 +287,73 @@ class TestTheGroundBand:
         assert lawn.object_type is ObjectType.LAWN and path.object_type is ObjectType.PATH
         assert _in_ground_band(lawn) and _in_ground_band(path)
 
+    def test_an_announced_write_without_a_command_restacks_a_turn_later(self, view, qtbot) -> None:
+        """A height written into metadata by a panel or an agent without a command
+        announces the change (``note_plan_changed``): the band follows a turn later."""
+        lawn = _lawn(view)
+        lawn.metadata[METADATA_KEY] = 30.0
+        view.scene().note_plan_changed()
+        qtbot.waitUntil(lambda: lawn.zValue() >= 0.0, timeout=2000)
+
+
+class TestArrangeStaysInItsBand:
+    """Senior review of the manual pass: Arrange ranked over the whole layer, so a
+    lawn stepped "forward" past a table and nothing visible moved. Each band of the
+    selection is now arranged alone, and the layer renumbered ground first."""
+
+    @staticmethod
+    def _three(view):
+        scene = view.scene()
+        lower = _lawn(view)
+        table = RectangleItem(100, 100, 200, 200, object_type=ObjectType.TABLE_RECTANGULAR,
+                              layer_id=scene.active_layer.id)
+        _add(view, table)
+        upper = PolygonItem([QPointF(x, y) for x, y in ((50, 50), (350, 50), (350, 350), (50, 350))],
+                            object_type=ObjectType.TERRACE_PATIO, layer_id=scene.active_layer.id)
+        _add(view, upper)
+        return scene, lower, table, upper
+
+    def test_bring_forward_steps_past_the_next_ground_surface_not_a_solid(self, view) -> None:
+        from open_garden_planner.core.stacking import ArrangeMode, ArrangeOutcome
+        from open_garden_planner.ui.canvas.arrange import build_arrange_command
+
+        scene, lower, table, upper = self._three(view)
+        assert lower.zValue() < upper.zValue() < table.zValue()
+        command, outcome = build_arrange_command(scene, [lower], ArrangeMode.BRING_FORWARD)
+        assert outcome is ArrangeOutcome.CHANGED and command is not None
+        view.command_manager.execute(command)
+        assert upper.zValue() < lower.zValue() < table.zValue(), "a visible step, among surfaces"
+        assert lower.stack_order < table.stack_order and upper.stack_order < table.stack_order, \
+            "ranks agree with the drawing: ground first"
+        view.command_manager.undo()
+        assert lower.zValue() < upper.zValue()
+
+    def test_at_the_edge_of_its_band_it_refuses_and_records_nothing(self, view) -> None:
+        from open_garden_planner.core.stacking import ArrangeMode, ArrangeOutcome
+        from open_garden_planner.ui.canvas.arrange import build_arrange_command
+
+        scene, lower, table, upper = self._three(view)
+        command, outcome = build_arrange_command(scene, [upper], ArrangeMode.BRING_TO_FRONT)
+        assert command is None and outcome is ArrangeOutcome.ALREADY_AT_FRONT
+        command, outcome = build_arrange_command(scene, [table], ArrangeMode.SEND_TO_BACK)
+        assert command is None and outcome is ArrangeOutcome.ALREADY_AT_BACK
+
+    def test_a_mixed_selection_arranges_each_band_in_one_step(self, view) -> None:
+        from open_garden_planner.core.stacking import ArrangeMode, ArrangeOutcome
+        from open_garden_planner.ui.canvas.arrange import build_arrange_command
+
+        scene, lower, table, upper = self._three(view)
+        shed = _shed(view)
+        assert table.zValue() < shed.zValue()
+        command, outcome = build_arrange_command(scene, [lower, table], ArrangeMode.BRING_TO_FRONT)
+        assert outcome is ArrangeOutcome.CHANGED
+        depth = len(view.command_manager._undo_stack)
+        view.command_manager.execute(command)
+        assert len(view.command_manager._undo_stack) == depth + 1
+        assert upper.zValue() < lower.zValue() < shed.zValue() < table.zValue()
+
+
+class TestTheBandOnReload:
     def test_a_saved_lawn_reopens_in_the_band(self, view, tmp_path: Path) -> None:
         scene = view.scene()
         _shed(view)

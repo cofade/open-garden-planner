@@ -3971,16 +3971,15 @@ the bands would need a second special-cased offset for one legacy edge case. `_u
 callers — it just now loops every layer (plus the `None` pseudo-layer) and
 calls `_refresh_layer_z` on each, instead of a single flat pass.
 
-**What lies on the ground takes the same value moved below the sun study's
-overlays** (manual pass of PR #584). An item that is no plant, has no height of
-its own and is no annotation (`core.object_height.lies_on_ground`: a lawn, a path,
-a terrace, an in-ground bed, a generic shape, a parasol the plan gives no height —
-what the 3D view paints into its ground) gets `ground_z(z)` instead of `z`: a strictly increasing map of every real number
+**Ground surfaces take the same value moved below the sun study's overlays**
+(manual pass of PR #584). A lawn, path, terrace, driveway, pond or in-ground bed
+with no height of its own (`core.object_height.lies_on_ground`), or a group made
+only of those (`canvas_scene.on_ground`), gets `ground_z(z)` instead of `z`: a strictly increasing map of every real number
 into `GROUND_Z_RANGE = (-990, -510)` (`canvas_scene.py`). So a shadow (`-500`)
-and the hours-of-sun map (`-450`) lie ON the ground items, under everything
-that stands on them, and the ground items keep their order among themselves —
-by layer, then by rank — however many layers there are. Ranks are untouched: a
-ground item brought to the front is the front-most GROUND item of its
+and the hours-of-sun map (`-450`) lie ON the ground surfaces, under everything
+that stands on them, and the ground surfaces keep their order among themselves —
+by layer, then by rank — however many layers there are. Arrange works inside a band (8.25.5): a
+ground surface brought to the front is the front-most GROUND surface of its
 layer, still drawn under the layer's other items (the agent's `stack_index`, "as
 displayed", says so). Before, both overlays sat under every layer item and a
 lawn hid them.
@@ -4044,12 +4043,13 @@ in between — since the refresh runs on many paths unrelated to an explicit
 arrange (layer visibility toggle, opacity preview, any command's unrelated
 cleanup). Only the four writers in 8.25.1 ever touch `stack_order`.
 
-**A command can move an item between the bands** — a height set on a lawn
-makes it a solid, a type change makes a rectangle a lawn. After every executed,
-undone or redone command (`stack_changed`, wired in `set_command_manager`),
-`CanvasScene._restack_ground_changes` refreshes each layer holding an item whose
-band no longer matches `lies_on_ground`; a command that changed no such thing
-restacks nothing.
+**A write can move an item between the bands** — a type change makes a shed a
+lawn, a group of lawns is made or broken, an agent writes a height into a lawn's
+metadata. `CanvasScene._restack_ground_changes` refreshes each layer holding an item
+whose band no longer matches `on_ground`: at once after every executed, undone or
+redone command (`stack_changed`, wired in `set_command_manager`), and a turn after
+any announced change (`plan_changed`, coalesced by a zero-interval timer). It costs
+about 1 ms on 500 items and restacks nothing when nothing moved between the bands.
 
 Beyond `addItem`'s automatic refresh, an **explicit** refresh is needed
 wherever an item becomes top-level or gets re-linked to a parent without
@@ -4093,6 +4093,12 @@ happened. The four callers:
 4. `GardenPlannerApp._do_agent_arrange_object` — the Agent API's
    `arrange_object` tool (§8.19).
 
+**Arrange works inside a band** (manual pass of PR #584). Ranks order an item
+only among its own band (8.25.2), so `build_arrange_command` arranges each band of a
+layer's selection alone — `core.stacking.arrange` over that band's entries — and
+hands the command the layer renumbered ground surfaces first. A recorded step is
+always visible; at the edge of its band an item reports "already at front/back".
+
 No caller ever builds `ArrangeItemsCommand` directly, or duplicates
 `build_arrange_command`'s layer-grouping logic. If you find yourself reaching
 for a second implementation, use this seam instead.
@@ -4105,10 +4111,10 @@ Every fixed-z overlay in the app, low to high, alongside the per-layer band
 | Band | z value(s) | What lives there |
 |------|-----------|-------------------|
 | Background image | `-1000` | `BackgroundImageItem` (satellite/reference photo) |
-| **Ground items** | `(-990, -510)` (open interval, `GROUND_Z_RANGE`) | Document items that `lies_on_ground` (no plant, no height, not an annotation: a lawn, path, terrace, in-ground bed, generic shape …), their layer z mapped by `ground_z` (8.25.2) — under the two sun overlays |
+| **Ground surfaces** | `(-990, -510)` (open interval, `GROUND_Z_RANGE`) | Document items that are `on_ground` (a lawn, path, terrace, driveway, pond or in-ground bed with no height, or a group of only those), their layer z mapped by `ground_z` (8.25.2) — under the two sun overlays |
 | Sun & shade shadow overlay | `-500` | `sun_shadow_controller.py`'s shadow-union overlay (US-E3) |
 | Hours-of-sun heatmap | `-450` (fill), `-449` (contour lines), `-448` (contour labels) | `sun_heatmap.py` overlay (US-E4) |
-| Construction geometry | `-10` | `ConstructionItem` — always below every regular item |
+| Construction geometry | `-10` | `ConstructionItem` — below every regular item except the ground surfaces, which it draws over (before the ground band it hid under a lawn) |
 | **Per-layer document items** | `layer.z_order * 100 + (0, 100)` (open interval) | Every ordinary document item, per-object stacking order within its layer (8.25.2) — this is the band #338 subdivides |
 | Dimension/constraint lines | `900` (line/witness), `901` (label/handle, `DIMENSION_LINE_Z + 1`) | `dimension_lines.py` |
 | Tool overlay highlights | `999` (corner-edit/trim highlight), `1000` (measure-tool line, on-top ellipse), `1003` (constraint-tool selected marker) | `core/tools/*` in-progress-gesture previews |

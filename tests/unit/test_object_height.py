@@ -136,38 +136,33 @@ class TestDefaultTable:
 
 
 class TestLiesOnGround:
-    """Manual pass of PR #584: what has no height lies UNDER the 2D sun study's
-    overlays (``canvas_scene.GROUND_Z_RANGE``) — the 3D view's ground rule."""
+    """Manual pass of PR #584: a garden surface with no height lies UNDER the 2D sun
+    study's overlays (``canvas_scene.GROUND_Z_RANGE``)."""
 
-    def test_the_excluded_names_are_real_types(self) -> None:
-        from open_garden_planner.core.object_height import NOT_ON_GROUND_TYPE_NAMES
+    def test_the_surface_names_are_real_types_without_a_default_height(self) -> None:
+        from open_garden_planner.core.object_height import GROUND_SURFACE_TYPE_NAMES
         from open_garden_planner.core.object_types import ObjectType
 
         enum_names = {member.name for member in ObjectType}
-        assert NOT_ON_GROUND_TYPE_NAMES.issubset(enum_names)
+        assert GROUND_SURFACE_TYPE_NAMES.issubset(enum_names)
+        for name in GROUND_SURFACE_TYPE_NAMES:
+            assert effective_height_cm(name, {}) is None, name
 
-    def test_every_type_without_a_height_lies_on_the_ground_but_plants_and_notes(self) -> None:
-        from open_garden_planner.core.object_height import (
-            _PLANT_TYPE_NAMES,
-            NOT_ON_GROUND_TYPE_NAMES,
-            lies_on_ground,
-        )
-        from open_garden_planner.core.object_types import ObjectType
+    def test_a_surface_without_a_height_lies_on_the_ground(self) -> None:
+        from open_garden_planner.core.object_height import GROUND_SURFACE_TYPE_NAMES, lies_on_ground
 
-        for member in ObjectType:
-            expected = (member.name not in _PLANT_TYPE_NAMES
-                        and member.name not in NOT_ON_GROUND_TYPE_NAMES
-                        and effective_height_cm(member, {}) is None)
-            assert lies_on_ground(member, {}) is expected, member.name
-            assert lies_on_ground(member, None) is expected, member.name
-        for name in ("LAWN", "PATH", "TERRACE_PATIO", "GARDEN_BED", "GENERIC_RECTANGLE", "PARASOL"):
+        for name in GROUND_SURFACE_TYPE_NAMES:
             assert lies_on_ground(name, {}), name
+            assert lies_on_ground(name, None), name
             assert not lies_on_ground(name, {METADATA_KEY: 30.0}), f"{name} with a height is a solid"
 
     @pytest.mark.parametrize("name", ["TOOL_SHED", "RAISED_BED", "TREE", "PERENNIAL", "SHRUB",
-                                      "GENERIC_TEXT", "GENERIC_CALLOUT", "GARDEN_JOURNAL_PIN",
-                                      "ROOF_RIDGE"])
-    def test_solids_plants_and_notes_do_not(self, name: str) -> None:
+                                      "COLD_FRAME", "RAIN_BARREL", "PLANTER_POT", "PARASOL",
+                                      "GENERIC_RECTANGLE", "GENERIC_POLYGON", "GENERIC_TEXT",
+                                      "GENERIC_CALLOUT", "GARDEN_JOURNAL_PIN", "ROOF_RIDGE"])
+    def test_solids_standing_objects_shapes_and_notes_do_not(self, name: str) -> None:
+        """Senior review of the manual pass: a cold frame without a height sank under
+        the raised bed it stood on — standing objects and generic shapes stay put."""
         from open_garden_planner.core.object_height import lies_on_ground
 
         assert not lies_on_ground(name, {})

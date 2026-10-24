@@ -17,8 +17,8 @@ here computes a shadow or a sun hour:
   (``core.scene3d.drape.sun_hours_drape``, the canvas's own ramp). Choosing it
   switches the shared Hours of Sun on (``SunHoursSource``, the toolbar's toggle
   follows), and the drape comes and goes with the shared Hours of Sun — switched on
-  in the toolbar it replaces what lay on the ground, switched off it goes: one owner
-  of the state; choosing another drape leaves the 2D map alone.
+  in the toolbar it replaces what lay on the ground, switched off that comes back: one
+  owner of the state; choosing another drape leaves the 2D map alone.
 - **Probe** — a click on the ground (the workspace turns the click into a ground
   point) reads the shown map's cell (``SunHoursMap.minutes_at``) and its band
   (``sun_mismatch_service.band_of``); a pin marks the spot.
@@ -171,6 +171,8 @@ class AnalysisController(QObject):
         self._glyphs = glyphs
         self._active = False
         self._drape_mode = DrapeMode.NONE
+        #: What lay on the ground before the hours of sun did — back when they go off.
+        self._drape_before_sun_hours = DrapeMode.NONE
         self._sun_path = False
         self._cutaway = False
         self._shadows: Any = None
@@ -316,6 +318,8 @@ class AnalysisController(QObject):
             source.set_enabled(True)
         if mode is self._drape_mode:
             return
+        if mode is DrapeMode.SUN_HOURS:
+            self._drape_before_sun_hours = self._drape_mode
         self._drape_mode = mode
         if mode is not DrapeMode.SUN_HOURS:
             self.stop_sweep()
@@ -586,14 +590,16 @@ class AnalysisController(QObject):
 
     def _on_sun_hours_switched(self, enabled: bool) -> None:
         """The shared Hours of Sun went on or off (the toolbar, a document replace):
-        its drape comes or goes with it — on, it replaces whatever lay on the ground —
-        and the menu follows (``changed``). It used to follow only "off": with Hours of
+        its drape comes or goes with it — on, it replaces whatever lay on the ground,
+        off, that comes back — and the menu follows (``changed``). It used to follow only "off": with Hours of
         Sun switched on in the toolbar the canvas showed the map and the 3D ground
         nothing (manual pass of PR #584)."""
         if enabled and self._drape_mode is not DrapeMode.SUN_HOURS:
             self.set_drape_mode(DrapeMode.SUN_HOURS)
         elif not enabled and self._drape_mode is DrapeMode.SUN_HOURS:
-            self.set_drape_mode(DrapeMode.NONE)
+            # what lay on the ground before comes back (2D Shadows, or nothing): the
+            # toolbar's on and off are a pair (3D review of the owner's manual pass)
+            self.set_drape_mode(self._drape_before_sun_hours)
 
     def _on_exposure(self) -> None:
         """The heatmap's measurements were withdrawn or published: the probe reads

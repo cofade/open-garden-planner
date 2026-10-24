@@ -19,6 +19,7 @@ from PyQt6.QtCore import (
     QPointF,
     QRectF,
     Qt,
+    QTimer,
     pyqtSignal,
 )
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPen
@@ -38,8 +39,8 @@ from open_garden_planner.core.plan_timeline import plant_present
 from open_garden_planner.core.sim_clock import SimClock
 from open_garden_planner.models.layer import Layer, create_default_layers
 
-#: The z band of what lies on the ground (``object_height.lies_on_ground``: no plant,
-#: no height, no annotation — a lawn, a path, a generic shape): above the background image
+#: The z band of the ground surfaces (``object_height.lies_on_ground``: a lawn, a
+#: path, a terrace, an in-ground bed with no height): above the background image
 #: (-1000), below the sun study's shadow overlay (-500) and hours-of-sun map (-450),
 #: so a shadow and the map lie ON them as on the ground. Every other layer item keeps
 #: its layer's band ``[z_order * 100, z_order * 100 + 100)`` above the overlays. Until
@@ -49,14 +50,22 @@ GROUND_Z_RANGE: tuple[float, float] = (-990.0, -510.0)
 
 def ground_z(layer_z: float) -> float:
     """A layer-band z moved into ``GROUND_Z_RANGE``, its order kept: strictly
-    increasing, so ground items stay stacked among themselves as their layers and
+    increasing, so ground surfaces stay stacked among themselves as their layers and
     ranks say — across any number of layers (the map is bounded for every input)."""
     low, high = GROUND_Z_RANGE
     middle, half = (low + high) / 2.0, (high - low) / 2.0
     return middle + half * layer_z / (abs(layer_z) + 1000.0)
 
 
-def _on_ground(item: QGraphicsItem) -> bool:
+def on_ground(item: QGraphicsItem) -> bool:
+    """Whether ``item`` is drawn in ``GROUND_Z_RANGE``: a ground surface
+    (``object_height.lies_on_ground``), or a group whose every member is one — a
+    group is drawn in ONE slot, so a grouped lawn left in its layer's band hid the
+    sun overlays and lay over a path ranked above the group (review of the owner's
+    manual pass). A group that mixes surfaces and solids stays in its layer's band."""
+    if isinstance(item, QGraphicsItemGroup):
+        members = [child for child in item.childItems() if stacking.supports_stacking(child)]
+        return bool(members) and all(on_ground(child) for child in members)
     return lies_on_ground(getattr(item, "object_type", None), getattr(item, "metadata", None))
 
 
@@ -177,6 +186,13 @@ class CanvasScene(QGraphicsScene):
         # The plan revision (class docstring). A layer change is plan content.
         self._plan_revision = 0
         self.layers_changed.connect(self.note_plan_changed)
+        # a write announced without a command (an agent, a panel writing metadata) can
+        # make an item a ground surface or a solid: restack once per event-loop turn
+        self._ground_restack = QTimer(self)
+        self._ground_restack.setSingleShot(True)
+        self._ground_restack.setInterval(0)
+        self._ground_restack.timeout.connect(self._restack_ground_changes)
+        self.plan_changed.connect(self._ground_restack.start)
 
         # Constraint graph for distance constraints
         from open_garden_planner.core.constraints import ConstraintGraph
@@ -1092,9 +1108,9 @@ class CanvasScene(QGraphicsScene):
         band is base 0 (where such items always rendered). An id that no
         longer resolves to a layer is left untouched.
 
-        An item that lies on the ground (``lies_on_ground``) takes that value
-        moved into ``GROUND_Z_RANGE`` (``ground_z``): under the sun study's
-        overlays, in the same order among the ground items of every layer.
+        A ground surface (``on_ground``) takes that value moved into
+        ``GROUND_Z_RANGE`` (``ground_z``): under the sun study's overlays, in
+        the same order among the ground surfaces of every layer.
         """
         if layer_id is None:
             base = 0
@@ -1109,7 +1125,7 @@ class CanvasScene(QGraphicsScene):
             return
         for i, item in enumerate(order):
             z = base + 100 * (i + 1) / (n + 1)
-            item.setZValue(ground_z(z) if _on_ground(item) else z)
+            item.setZValue(ground_z(z) if on_ground(item) else z)
 
     def _update_items_z_order(self) -> None:
         """Refresh the derived z-value of every item in every layer."""
@@ -1117,18 +1133,19 @@ class CanvasScene(QGraphicsScene):
             self._refresh_layer_z(layer_id)
 
     def _restack_ground_changes(self) -> None:
-        """A command may have made an item a ground item or a solid (a height
-        set or cleared, a type changed): restack each layer whose items' bands no
-        longer say what they are. Runs after every executed, undone or redone
-        command (``set_command_manager``); O(items), and it restacks nothing on a
-        command that changed no such thing."""
+        """A write may have made an item a ground surface or a solid (a height set
+        or cleared, a type changed, a group made or broken): restack each layer whose
+        items' bands no longer say what they are. Runs at once after every executed,
+        undone or redone command (``set_command_manager``) and a turn after any
+        announced change of the plan (``plan_changed``); O(items) — about 1 ms on 500
+        items — and it restacks nothing when nothing moved between the bands."""
         low, high = GROUND_Z_RANGE
         stale = {
             getattr(item, "layer_id", None)
             for item in self.items()
             if item.parentItem() is None
             and stacking.supports_stacking(item)
-            and (low < item.zValue() < high) != _on_ground(item)
+            and (low < item.zValue() < high) != on_ground(item)
         }
         for layer_id in stale:
             self._refresh_layer_z(layer_id)

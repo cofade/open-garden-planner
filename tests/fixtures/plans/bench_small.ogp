@@ -1,7 +1,7 @@
 {
   "version": "1.4",
   "metadata": {
-    "modified": "2026-10-24T09:29:20.222515+00:00"
+    "modified": "2026-10-24T10:33:59.805840+00:00"
   },
   "canvas": {
     "width": 2400.0,
@@ -296,36 +296,6 @@
         "d365cbfa-c4be-4c08-b1b3-d91fbd4b9929"
       ],
       "stack_order": 33792
-    },
-    {
-      "type": "circle",
-      "item_id": "5062e6fd-0b81-4bf8-a165-3dfc1f25d9f0",
-      "center_x": 760.0,
-      "center_y": 560.0,
-      "radius": 55,
-      "object_type": "FIRE_PIT",
-      "name": "Fire pit",
-      "fill_color": "#ff8c6446",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "stack_order": 95232
-    },
-    {
-      "type": "circle",
-      "item_id": "16096a3c-f758-4320-9480-4239928ee349",
-      "center_x": 1650.0,
-      "center_y": 1185.0,
-      "radius": 30,
-      "object_type": "RAIN_BARREL",
-      "name": "Rain barrel",
-      "fill_color": "#ff3c643c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "stack_order": 101376
     },
     {
       "type": "polygon",
@@ -4488,6 +4458,21 @@
       "stack_order": 94208
     },
     {
+      "type": "circle",
+      "item_id": "5062e6fd-0b81-4bf8-a165-3dfc1f25d9f0",
+      "center_x": 760.0,
+      "center_y": 560.0,
+      "radius": 55,
+      "object_type": "FIRE_PIT",
+      "name": "Fire pit",
+      "fill_color": "#ff8c6446",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 95232
+    },
+    {
       "type": "rectangle",
       "item_id": "f396620d-1fc7-40a1-96fa-dae3b2fb088c",
       "x": 1080.0,
@@ -4564,6 +4549,21 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "stack_order": 100352
+    },
+    {
+      "type": "circle",
+      "item_id": "16096a3c-f758-4320-9480-4239928ee349",
+      "center_x": 1650.0,
+      "center_y": 1185.0,
+      "radius": 30,
+      "object_type": "RAIN_BARREL",
+      "name": "Rain barrel",
+      "fill_color": "#ff3c643c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 101376
     }
   ],
   "location": {

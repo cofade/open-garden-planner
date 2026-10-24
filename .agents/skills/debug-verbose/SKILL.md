@@ -25,16 +25,19 @@ the toolbar on — reachable only from the toolbar side. For 2D: overlays fixed 
 / -450, "below every layer item".
 **Root cause.** The 3D drape followed the shared switch going off, never going on. The
 2D overlays sat under every layer item, so anything flat drawn over the ground hid them.
-**Fix.** The drape follows both edges, and a 3D view opened with Hours of Sun on lays
-it (PF-L3D-09). What lies on the ground (no plant, no height, not an annotation: the 3D
-view's own ground rule) takes a z band below the overlays, order kept, restacked after
-each command (PF-CAN-22, ADR-043 addendum). The first 2D rule listed six surface types;
-the ground bake's edit-session test failed on a mulch-patterned generic rectangle,
-which would have kept hiding a shadow. All probe code stayed in the scratchpad.
+**Fix.** The drape follows both edges (off brings back what lay there before), and a
+3D view opened with Hours of Sun on lays it (PF-L3D-09). The garden's ground surfaces
+(a lawn, path, terrace, driveway, pond, in-ground bed without a height, and groups of
+only those) take a z band below the overlays, order kept (PF-CAN-22). Review of the
+first version found three more defects. Widening the rule to "everything without a
+height" sank a cold frame under its raised bed. Arrange still ranked over the whole
+layer, so a step could change nothing visible. Grouped lawns stayed above the
+overlays. Arrange now works inside a band, and a group of only surfaces takes the band.
+All probe code stayed in the scratchpad.
 **Lesson.** When a report contradicts a green suite, reproduce the user's exact state
-on the real artifact first; a sound pipeline turns the question into "which state
-shows this", and the answer named the missing edge. Define "flat" once, by the other
-view's rule, not by a second list.
+on the real artifact first. A sound pipeline turns the question into "which state
+shows this", and here the answer named the missing edge. When one property gets two
+orders (rank and drawing), check every surface that acts on one and shows the other.
 
 ## Case study: panel commit boundaries erased redo or lost notes (PR #566, 2026-10-23)
 

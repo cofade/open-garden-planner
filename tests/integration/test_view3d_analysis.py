@@ -605,12 +605,19 @@ def test_the_toolbar_switching_hours_of_sun_on_lays_the_3d_drape(bench) -> None:
     assert bench.host.overlays["drape"] is not None and bench.host.overlays["shade"] is None
     bench.toolbar.heatmap_cleared.emit()
     bench.settle(20)
-    assert workspace.analysis.drape_mode is DrapeMode.NONE
-    assert bench.host.overlays["drape"] is None
+    # off: what lay on the ground before comes back (3D review of the manual pass)
+    assert workspace.analysis.drape_mode is DrapeMode.SHADOWS
+    assert workspace.drape_actions[DrapeMode.SHADOWS].isChecked()
+    assert bench.host.overlays["drape"] is None and bench.host.overlays["shade"] is not None
+    workspace.set_drape_mode(DrapeMode.NONE)
     bench.toolbar.heatmap_requested.emit()
     bench.wait_for_map()
     assert workspace.analysis.drape_mode is DrapeMode.SUN_HOURS
     assert bench.host.overlays["drape"] is not None
+    bench.toolbar.heatmap_cleared.emit()
+    bench.settle(20)
+    assert workspace.analysis.drape_mode is DrapeMode.NONE
+    assert bench.host.overlays["drape"] is None and bench.host.overlays["shade"] is None
 
 
 def test_3d_opened_with_hours_of_sun_already_on_shows_it_on_the_ground(bench) -> None:

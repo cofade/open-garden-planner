@@ -182,7 +182,7 @@ class Stage:
         self.commands = view.command_manager
         self.shape = shape
         self.item = FACTORIES[shape]()
-        # a bystander in the item's own z band: a ground item (the pond) lies under
+        # a bystander in the item's own z band: a ground surface (the pond) lies under
         # every solid whatever its rank (manual pass of PR #584, GROUND_Z_RANGE)
         ground = lies_on_ground(self.item.object_type, self.item.metadata)
         self.bystander = RectangleItem(2000.0, 1500.0, 100.0, 100.0,

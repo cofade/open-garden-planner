@@ -412,13 +412,13 @@ def build_server(
     ) -> list[dict[str, Any]] | list[ObjectRef]:
         """List the plan's top-level objects, newest filters applied.
 
-        Objects are listed bottom→top in stacking order (layer order first,
-        then position within the layer) — the same order ObjectRef.stack_index
-        is computed from. Objects that lie on the ground (no plant, no
-        height, not a text/callout/journal pin: a lawn, path, terrace,
-        in-ground bed, generic shape) come first, layer by layer: they are
-        drawn under every other object and under the sun study's shadows.
-        (get_diagnostics is NOT in this order.)
+        Objects are listed bottom→top as drawn — the same order
+        ObjectRef.stack_index is computed from: first the ground surfaces
+        without a height (lawns, paths, terraces, driveways, ponds, in-ground
+        beds) of every layer, then everything else; each part in layer order,
+        then position within the layer. The ground surfaces lie under every
+        other object and under the sun study's shadows. (get_diagnostics is
+        NOT in this order.)
 
         Args:
             type: Optional filter — an ObjectType name ('TREE', 'RAISED_BED'), a
@@ -2007,12 +2007,12 @@ def build_server(
             single nearest object in its layer whose bounding box OVERLAPS it
             (a non-overlapping neighbour is skipped entirely).
 
-            An object that lies on the ground (no plant, no height, not a
-            text/callout/journal pin: a lawn, path, terrace, in-ground bed,
-            generic shape) is always drawn below the other objects, so
-            arranging it reorders it among those only, and no other object is
-            ever drawn below one; the returned stack_index says where it is
-            drawn.
+            A ground surface without a height (a lawn, path, terrace,
+            driveway, pond or in-ground bed) is always drawn below the other
+            objects, so it is arranged among the ground surfaces of its layer
+            only, and any other object among the rest only: at the edge of its
+            group an object is "already at front/back". The returned
+            stack_index says where it is drawn.
 
             A bed/container carries its contained plants along as one block
             (their relative order among themselves is kept), and a plant can
