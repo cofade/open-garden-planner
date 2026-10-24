@@ -442,6 +442,18 @@ class CanvasScene(QGraphicsScene):
                     item.setZValue(provisional)
                     self._provisional_z[layer_id] = provisional
 
+    def removeItem(self, item: QGraphicsItem) -> None:
+        """Drop the layer's provisional-z seed before removing *item*.
+
+        The cached seed is the derivation's top for the layer. After a removal
+        that top is stale: a later append would take a value above the one a
+        derivation would give it (invisible, but a full re-derivation would
+        then shift the layer). Popping the seed costs O(1) and makes the next
+        append derive that layer once (#450 review round 2).
+        """
+        self._provisional_z.pop(getattr(item, "layer_id", None), None)
+        super().removeItem(item)
+
     def _needs_synchronous_z_refresh(self, item: QGraphicsItem) -> bool:
         """Whether adding *item* can re-order items already in its layer.
 

@@ -36,7 +36,10 @@ PROJECT_DISTRIBUTION = "open-garden-planner"
 DEFAULT_LOCK = Path(__file__).resolve().parents[1] / "pylock.toml"
 
 #: Tools a developer environment may carry without them being part of the
-#: application's locked set. They do not contribute runtime DLLs to the bundle.
+#: application's locked set. They are skipped only when the lock does not pin
+#: them: ``pip``, ``setuptools`` and ``wheel`` ARE locked here (the build group),
+#: and their versions reach ``dist/build-evidence.json``, so a stale one is a
+#: real mismatch — exactly the advisory case that failed CI in #571.
 BUILD_TOOL_ALLOWLIST = frozenset({"pip", "setuptools", "wheel", "uv"})
 
 
@@ -97,9 +100,11 @@ def environment_problems(
 ) -> list[EnvironmentProblem]:
     """Installed distributions the lock omits or pins at another version.
 
-    The project itself and the packaging tools in
-    :data:`BUILD_TOOL_ALLOWLIST` are ignored. ``installed`` exists for tests;
-    production reads :func:`importlib.metadata.distributions`.
+    The project itself is ignored, and so is a packaging tool in
+    :data:`BUILD_TOOL_ALLOWLIST` only while the lock does not pin it (``uv``
+    today; ``pip``/``setuptools``/``wheel`` are pinned and checked). ``installed``
+    exists for tests; production reads
+    :func:`importlib.metadata.distributions`.
     """
     locked = locked_distributions(lock_path)
     found: dict[str, str] = {}
@@ -108,7 +113,9 @@ def environment_problems(
         if not raw_name:
             continue
         name = canonicalize(raw_name)
-        if name == canonicalize(PROJECT_DISTRIBUTION) or name in BUILD_TOOL_ALLOWLIST:
+        if name == canonicalize(PROJECT_DISTRIBUTION) or (
+            name in BUILD_TOOL_ALLOWLIST and name not in locked
+        ):
             continue
         found[name] = distribution.version
     problems: list[EnvironmentProblem] = []

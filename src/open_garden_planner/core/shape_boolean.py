@@ -129,6 +129,11 @@ def boolean_union_many(paths: list[QPainterPath]) -> QPolygonF | None:
     the result is one contour rather than separate subpaths whose flattening
     draws a connector (a diagonal across corner-touching rectangles) and whose
     self-touch defeats the polygon item's fill rule.
+
+    This is the raw geometry: it does not apply the UI policy (refuse a hole, a
+    result above ``MAX_POLYGON_VERTICES``, or a cross-layer selection). A caller
+    that creates an item must use ``union_outline_many`` and those checks, as
+    ``CanvasView.boolean_operation`` does.
     """
     union = union_outline_many(paths)
     return None if union is None else union[1]

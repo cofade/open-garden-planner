@@ -203,6 +203,30 @@ def test_a_union_that_would_enclosing_a_hole_is_refused(qtbot, monkeypatch) -> N
     assert view.command_manager.undo_depth == 0
 
 
+def test_a_selection_spanning_layers_is_refused(qtbot, monkeypatch) -> None:
+    """One result, one layer: refuse rather than pick an arbitrary subject's."""
+    from open_garden_planner.models.layer import Layer
+
+    scene, view = _view(qtbot)
+    other = Layer(name="Other", z_order=2)
+    scene.add_layer(other)
+    first = RectangleItem(0, 0, 100, 100)
+    second = RectangleItem(50, 0, 100, 100)
+    _add(scene, first, second)
+    second.layer_id = other.id
+
+    monkeypatch.setattr(
+        QMessageBox,
+        "question",
+        lambda *_args: pytest.fail("a cross-layer selection must be refused"),
+    )
+    view.boolean_operation("union")
+
+    assert all(item.scene() is scene for item in (first, second))
+    assert not _polygons(scene)
+    assert view.command_manager.undo_depth == 0
+
+
 def test_a_result_over_the_polygon_vertex_cap_is_refused(qtbot, monkeypatch) -> None:
     """A saved polygon above the loader's cap would vanish on reopen (#550).
 

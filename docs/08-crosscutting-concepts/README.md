@@ -4057,10 +4057,11 @@ derivation would assign it — so it is never re-derived; one derivation per
 layer serves a whole add loop. Any item that can re-order existing items — a
 pre-ranked re-add, a child, a bed with children, a linked plant, a roof ridge,
 or a ground surface (which sorts into its own band, §8.25.2) — runs
-`_refresh_layer_z` synchronously instead. Every derivation writes the
-per-layer provisional cache and the rank cache; a rank writer (arrange, move to
-layer, group/ungroup, relink) or a layer reorder invalidates both, so the next
-add reseeds from the real top rather than resurrecting a stale value. There is
+`_refresh_layer_z` synchronously instead. Every derivation reseeds the per-layer
+provisional cache; a full `_update_items_z_order` clears both it and the rank
+cache, and a rank writer (arrange, move to layer, group/ungroup, relink) or a
+layer reorder runs that sweep, so the next add reseeds from the real top rather
+than resurrecting a stale value. There is
 no deferred pass and no command-boundary flush: what `addItem` writes is final,
 which is why 2 000 single adds (and 2 000 single-item commands) cost one
 derivation, not 2 000 (the pre-#450 loop took 45 s).
@@ -4086,7 +4087,7 @@ Without this, a bulk add would trigger one O(layer-size) refresh **per item**
 — O(n²) for a paste of n items into a large layer. Measured: a 50-item paste
 into a 2000-object plan went from 316 ms to 91 ms. The same quadratic shape
 applied to a loop of single `addItem` calls (2 000 items: 45 s, issue #450;
-measured about 0.1 s after the deferred derivation, without changing any rank).
+measured about 0.1 s with the fixed-grid derivation, without changing any rank).
 
 **The refresh itself never writes a rank — ever.** This was a real draft
 design, caught in review before it shipped (see the rejected alternative in

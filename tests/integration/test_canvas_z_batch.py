@@ -71,6 +71,33 @@ def test_a_command_that_adds_one_solid_derives_once_and_leaves_a_final_z(
     assert all(0.0 <= value < 100.0 for value in values)
     assert view.command_manager.undo_depth == len(items)
 
+    # The claim the fixed grid rests on: what addItem wrote IS the derivation's
+    # value, so a later derivation must not move a single z.
+    scene._update_items_z_order()
+    assert [item.zValue() for item in items] == values
+
+
+def test_an_append_after_a_removal_matches_the_derivation(qtbot) -> None:
+    """A removal invalidates the provisional seed, or the next append drifts.
+
+    The seed is the layer's top; after a removal it would be stale and the next
+    append would take a value above the derivation's, which a later full
+    derivation then shifts (an invisible repaint, caught in review round 2).
+    """
+    scene = CanvasScene(5000, 3000)
+    items = [RectangleItem(index, 0, 1, 1) for index in range(5)]
+    for item in items:
+        scene.addItem(item)
+    for item in items[-2:]:
+        scene.removeItem(item)
+
+    newest = RectangleItem(10, 0, 1, 1)
+    scene.addItem(newest)
+    values = [item.zValue() for item in (*items[:3], newest)]
+
+    scene._update_items_z_order()
+    assert [item.zValue() for item in (*items[:3], newest)] == values
+
 
 def test_a_bed_with_existing_plants_still_refreshes_synchronously(qtbot) -> None:
     from open_garden_planner.core.object_types import ObjectType

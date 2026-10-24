@@ -260,6 +260,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Created {dir} offset of {dist:.1f} cm": "{dir}-Versatz von {dist:.1f} cm erstellt",
         "Distance in cm": "Abstand in cm",
         # #550: boolean union over a selection.
+        "All shapes must be on the same layer": "Alle Formen m?ssen auf derselben Ebene liegen",
         "Select at least two shapes (intersection and subtraction need exactly two)": (
             "Mindestens zwei Formen auswählen "
             "(Schnittmenge und Subtraktion benötigen genau zwei)"

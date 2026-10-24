@@ -5286,6 +5286,20 @@ class CanvasView(QGraphicsView):
             )
             return
 
+        # A union produces ONE item, so every subject must already agree on the
+        # layer it will live on. Picking one arbitrarily (Qt does not define
+        # selectedItems() order) would move objects across layers unannounced.
+        layer_ids = {
+            getattr(item, "layer_id", None)
+            for item in selected
+            if isinstance(item, GardenItemMixin)
+        }
+        if len(layer_ids) > 1:
+            self.set_status_message(
+                self.tr("All shapes must be on the same layer")
+            )
+            return
+
         # Refuse before anything is mutated. A linked subject would lose its
         # botanical identity, a constrained one would silently break the
         # relation, and a sprite's picture cannot survive flattening to a

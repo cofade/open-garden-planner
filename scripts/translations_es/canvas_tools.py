@@ -144,6 +144,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'Select exactly one item to create a grid array': 'Seleccione exactamente un elemento para crear una matriz en cuadrícula',
         'Select exactly one item to create a linear array': 'Seleccione exactamente un elemento para crear una matriz lineal',
         'Select exactly two shapes for boolean operation': 'Seleccione exactamente dos formas para la operación booleana',
+        'All shapes must be on the same layer': 'Todas las formas deben estar en la misma capa',
         'Select at least two shapes (intersection and subtraction need exactly two)': 'Seleccione al menos dos formas (la intersección y la resta necesitan exactamente dos)',
         'Select one item and one polyline path for array along path': 'Seleccione un elemento y una polilínea para la matriz a lo largo de trayectoria',
         'Shapes must overlap for boolean operations': 'Las formas deben superponerse para las operaciones booleanas',

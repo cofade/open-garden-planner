@@ -6846,7 +6846,7 @@ At b1faaa9 the chapter README was 3,432 lines and 532 KB. Its §11.4 ("Known Dev
 newline-normalised, `test_pitfall_catalogue.py::test_size_budgets_hold`) and filed #588: the
 next index row in any area would fail the gate. The non-3D hardening package then needed
 three new PF rows (PF-CAN-23, PF-CAN-24, PF-CI-13) plus PF-UI-28 and the `04b` area-table
-row — 1,815 bytes, taking the index to 81,812. Under that pressure the rules had already
+row — 1,665 bytes, taking the index to 81,662. Under that pressure the rules had already
 been cut once in PR #584, and a review called that the wrong feedback loop — a byte count
 that shapes the wording of a rule makes the rule incomplete.
 
@@ -6854,8 +6854,8 @@ that shapes the wording of a rule makes the rule incomplete.
 stated reason, shorten the index format), this raises the chapter-README budget to 96,000
 bytes. The index inherently grows by one row per lesson — a permanent addition, not a leak
 — and the budget's job is to force the structural split before the file becomes unwieldy,
-not to compress what each lesson says. 96,000 leaves about 14 KB, roughly nine more entries
-at the observed 1.5 KB per package, so the next package does not reopen the question. The
+not to compress what each lesson says. 96,000 leaves 14,338 bytes, about eight more packages
+at the observed 1,665 bytes each, so the next package does not reopen the question. The
 area files keep their 64 KB budgets; `04-ui-panels-dialogs.md` (63,440) is the next one to
 split. The test's comment says the budget is a maintenance trigger, not a target.
 

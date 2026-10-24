@@ -90,6 +90,34 @@ def test_project_and_packaging_tools_are_not_noise(lock_path) -> None:
     assert found == []
 
 
+def test_a_locked_build_tool_at_another_version_is_a_mismatch(tmp_path) -> None:
+    """An allowlisted tool the lock PINS is checked (#571's stale setuptools).
+
+    Skipping every allowlisted name made ``--strict`` print "matches" for a
+    setuptools 82.0.0 against a lock pinning 84.1.0 — the exact advisory that
+    failed CI. Only a tool the lock does not list (``uv``) may be skipped.
+    """
+    path = tmp_path / "pylock.toml"
+    path.write_text(
+        "packages = [\n"
+        '  { name = "setuptools", version = "84.1.0" },\n'
+        '  { name = "wheel", version = "0.48.0" },\n'
+        "]\n",
+        encoding="utf-8",
+    )
+    found = build_environment.environment_problems(
+        path,
+        installed=[
+            FakeDistribution("setuptools", "82.0.0"),
+            FakeDistribution("wheel", "0.48.0"),
+            FakeDistribution("uv", "0.12.23"),
+        ],
+    )
+    assert [(p.name, p.installed, p.expected) for p in found] == [
+        ("setuptools", "82.0.0", "84.1.0")
+    ]
+
+
 def test_a_missing_lock_is_a_warning_not_a_crash(tmp_path, capsys) -> None:
     reported = build_environment.warn_if_unpinned(tmp_path / "absent.toml")
     assert reported == []
