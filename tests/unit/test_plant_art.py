@@ -128,7 +128,7 @@ MODULES = sorted(PACKAGE.rglob("*.py"))
 
 
 def test_the_scan_covers_the_package() -> None:
-    assert {p.name for p in MODULES} >= {"__init__.py", "recipes.py", "resolve.py"}
+    assert {p.name for p in MODULES} >= {"__init__.py", "recipes.py", "resolve.py", "traits3d.py"}
 
 
 @pytest.mark.parametrize("path", MODULES, ids=lambda p: p.relative_to(PACKAGE).as_posix())
@@ -642,5 +642,149 @@ class TestTheNameIsMatchedAsAWholeName:
                 assert (path.parent.name, path.stem) == (sprite.group, sprite.name), name
             species_sprites += resolved[0].group == "species"
         assert species_sprites == 105  # the other 13 take their item type's category
+
+
+class TestTraits3D:
+    """L3.0 (#387): ``core/plant_art/traits3d.py`` provides crown shape, branching,
+    leaf shape/length, deciduous flag, illustrative bloom months, fruit months from
+    harvest windows, and autumn palette for every recipe."""
+
+    def test_every_recipe_has_3d_traits(self) -> None:
+        from open_garden_planner.core.plant_art.traits3d import (
+            CATEGORY_TRAITS,
+            SPECIES_TRAITS,
+            resolve_traits,
+            traits_for,
+        )
+
+        assert set(SPECIES_TRAITS) == set(recipes.SPECIES)
+        assert set(CATEGORY_TRAITS) == set(recipes.CATEGORIES)
+        for stem in recipes.SPECIES:
+            ref = SpriteRef("species", stem)
+            assert traits_for(ref) is SPECIES_TRAITS[stem]
+        for stem in recipes.CATEGORIES:
+            ref = SpriteRef("categories", stem)
+            assert traits_for(ref) is CATEGORY_TRAITS[stem]
+        with pytest.raises(KeyError):
+            traits_for(SpriteRef("other", "apple_tree"))
+        assert resolve_traits("HOUSE", "Apple Tree", None) is None
+        assert resolve_traits("TREE", "Apple Tree", None) is SPECIES_TRAITS["apple_tree"]
+
+    def test_crown_branching_and_leaf_bounds(self) -> None:
+        from open_garden_planner.core.object_art.materials import MATERIALS
+        from open_garden_planner.core.plant_art.traits3d import (
+            BARK_BIRCH,
+            BARK_COLORS,
+            CATEGORY_TRAITS,
+            CROWN_SHAPES,
+            LEAF_SHAPES,
+            SPECIES_TRAITS,
+            WHITE_BARK_SHADE,
+        )
+
+        material_hexes = {
+            tone_hex
+            for tones in MATERIALS.values()
+            for tone_hex in tones.values()
+        }
+        flower_hexes = {c for triad in recipes.FLOWERS.values() for c in triad}
+        palette_hexes = {c for pal in recipes.PALETTES.values() for c in pal.values()}
+        allowed_2d_hexes = material_hexes | flower_hexes | palette_hexes
+        assert allowed_2d_hexes >= BARK_COLORS
+
+        all_traits = [*SPECIES_TRAITS.values(), *CATEGORY_TRAITS.values()]
+        assert len(all_traits) == 123
+        for t in all_traits:
+            assert t.crown.shape in CROWN_SHAPES, t.sprite
+            assert 0.0 <= t.crown.trunk_share <= 0.78, t.sprite
+            assert -0.60 <= t.crown.taper <= 0.85, t.sprite
+            assert -0.25 <= t.crown.droop <= 0.85, t.sprite
+            assert 0.55 <= t.crown.aspect_xy <= 1.15, t.sprite
+
+            assert 0 <= t.branching.attractors <= 600, t.sprite
+            assert 2.0 <= t.branching.pipe_exponent <= 3.0, t.sprite
+            assert 0.005 <= t.branching.trunk_base_ratio <= 0.05, t.sprite
+            assert t.branching.bark_color in BARK_COLORS, t.sprite
+            assert 0.5 <= t.branching.bark_shade <= 1.0, t.sprite
+
+            assert t.leaf.shape in LEAF_SHAPES, t.sprite
+            assert t.leaf.length_cm > 0.0, t.sprite
+            assert 0.15 <= t.leaf.width_ratio <= 0.85, t.sprite
+            raw_recipe = recipe_for(t.sprite)
+            assert t.leaf.leaf_scale == float(raw_recipe.get("leaf_scale", 1.0)), t.sprite
+            assert t.leaf.frilly is bool(raw_recipe.get("frilly", False)), t.sprite
+            assert t.leaf.narrow is bool(raw_recipe.get("narrow", False)), t.sprite
+
+        birch = SPECIES_TRAITS["birch"]
+        assert birch.branching.bark_color == BARK_BIRCH == "#e8e4d8"
+        assert birch.branching.bark_shade == WHITE_BARK_SHADE == 0.7
+
+    def test_deciduous_and_evergreen_classification_and_autumn_palettes(self) -> None:
+        from open_garden_planner.core.plant_art.traits3d import CATEGORY_TRAITS, SPECIES_TRAITS
+
+        for deciduous_stem in (
+            "apple_tree", "pear_tree", "plum_tree", "peach_tree", "cherry_tree",
+            "fig_tree", "walnut_tree", "oak", "maple", "birch", "willow", "magnolia",
+            "forsythia", "lilac", "viburnum", "blueberry", "rose", "hydrangea",
+            "wisteria", "clematis",
+        ):
+            t = SPECIES_TRAITS[deciduous_stem]
+            assert t.deciduous is True and t.evergreen is False, deciduous_stem
+            assert t.autumn_palette in ("autumn", "redleaf", "yellow"), deciduous_stem
+
+        for evergreen_stem in (
+            "pine", "spruce", "juniper", "olive_tree", "lemon_tree", "orange_tree",
+            "boxwood", "holly", "camellia", "rhododendron", "bay_laurel",
+            "rosemary", "lavender", "thyme", "sage",
+        ):
+            t = SPECIES_TRAITS[evergreen_stem]
+            assert t.deciduous is False and t.evergreen is True, evergreen_stem
+            assert t.autumn_palette == t.palette, evergreen_stem
+
+        assert CATEGORY_TRAITS["round_deciduous"].deciduous is True
+        assert CATEGORY_TRAITS["conifer"].evergreen is True
+        assert CATEGORY_TRAITS["palm"].evergreen is True
+        assert CATEGORY_TRAITS["hedge_section"].evergreen is True
+
+        for t in [*SPECIES_TRAITS.values(), *CATEGORY_TRAITS.values()]:
+            assert t.autumn_palette in recipes.PALETTES, t.sprite
+
+    def test_bloom_and_fruit_months_from_harvest_windows(self) -> None:
+        import datetime
+
+        from open_garden_planner.core.plant_art.traits3d import (
+            CATEGORY_TRAITS,
+            HARVEST_WINDOWS_WEEKS,
+            SPECIES_TRAITS,
+            fruit_months_from_harvest_window,
+        )
+
+        assert fruit_months_from_harvest_window(None, 10) == ()
+        assert fruit_months_from_harvest_window(10, None) == ()
+        # Tomato: weeks 10..20 after Apr 25 -> July, August, September
+        assert fruit_months_from_harvest_window(10, 20, datetime.date(2026, 4, 25)) == (7, 8, 9)
+        assert SPECIES_TRAITS["tomato"].fruit_months == (7, 8, 9)
+        assert SPECIES_TRAITS["tomato"].harvest_weeks == (10, 20)
+        # Radish: weeks 3..5 after Apr 25 -> May
+        assert SPECIES_TRAITS["radish"].fruit_months == (5,)
+        # Multi-year offset folding (e.g. asparagus weeks 104..108 -> 0..4 weeks after frost)
+        folded = fruit_months_from_harvest_window(104, 108, datetime.date(2026, 4, 25))
+        assert folded == (4, 5)
+
+        for t in [*SPECIES_TRAITS.values(), *CATEGORY_TRAITS.values()]:
+            raw = recipe_for(t.sprite)
+            for m in t.bloom_months:
+                assert 1 <= m <= 12, t.sprite
+            assert list(t.bloom_months) == sorted(set(t.bloom_months)), t.sprite
+            for m in t.fruit_months:
+                assert 1 <= m <= 12, t.sprite
+            assert list(t.fruit_months) == sorted(set(t.fruit_months)), t.sprite
+            if any(k in raw for k in ("flowers", "clusters", "puffs", "umbels")):
+                assert len(t.bloom_months) >= 1, f"{t.sprite} has floral feature but no bloom_months"
+                assert t.blossom_spec in recipes.FLOWERS, t.sprite
+            if any(k in raw for k in ("fruit", "fruit2", "pods", "bulb")):
+                assert len(t.fruit_months) >= 1, f"{t.sprite} has fruit/pod/bulb feature but no fruit_months"
+        assert set(HARVEST_WINDOWS_WEEKS) <= set(SPECIES_TRAITS)
+
 
 
