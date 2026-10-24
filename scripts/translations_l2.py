@@ -74,6 +74,8 @@ DE = {
             "Diese Stelle liegt außerhalb der Sonnenstunden-Karte.",
         "The hours of sun are not computed yet for this plan date.":
             "Die Sonnenstunden sind für dieses Plandatum noch nicht berechnet.",
+        "The hours of sun are being updated for the changed plan.":
+            "Die Sonnenstunden werden für den geänderten Plan aktualisiert.",
         "There is no daylight to sweep on this date here, or the garden has no location.":
             "An diesem Datum gibt es hier kein Tageslicht zum Abspielen, oder der Garten hat "
             "keinen Standort.",
@@ -153,6 +155,8 @@ ES = {
             "Ese punto está fuera del mapa de horas de sol.",
         "The hours of sun are not computed yet for this plan date.":
             "Las horas de sol aún no están calculadas para esta fecha del plano.",
+        "The hours of sun are being updated for the changed plan.":
+            "Las horas de sol se están actualizando para el plano modificado.",
         "There is no daylight to sweep on this date here, or the garden has no location.":
             "No hay luz del día que recorrer en esta fecha aquí, o el jardín no tiene ubicación.",
     },

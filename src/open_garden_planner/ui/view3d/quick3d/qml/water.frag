@@ -20,10 +20,24 @@ float waterLuma(vec3 c)
     return dot(c, vec3(0.2126, 0.7152, 0.0722));
 }
 
+// The screen door of a faded part (L2.4): the same 4 x 4 ordered dither as screen.frag
+float screenDoor2(vec2 a)
+{
+    a = floor(a);
+    return fract(dot(a, vec2(0.5, a.y * 0.75)));
+}
+
+float screenDoor(vec2 a)
+{
+    return screenDoor2(0.5 * a) * 0.25 + screenDoor2(a);
+}
+
 void MAIN()
 {
-    // linear; the alpha fades an occluder of the selection (L2.4), else it is 1
-    BASE_COLOR = vec4(VAR_COLOR.rgb * uTint, uOpacity);
+    // an occluder of the selection (L2.4) is a screen door, else the pond is whole
+    if (uOpacity < 1.0 && screenDoor(FRAGCOORD.xy) >= uOpacity)
+        discard;
+    BASE_COLOR = vec4(VAR_COLOR.rgb * uTint, 1.0);   // linear
     ROUGHNESS = uRough;
     METALNESS = 0.0;
     SPECULAR_AMOUNT = 0.5;

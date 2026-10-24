@@ -241,6 +241,39 @@ EDGE_BACK_CM, EDGE_EYE_CM, EDGE_BAND_CM, EDGE_HALF_WIDTH_CM, EDGE_INSET_CM = (
 # ── the run ──────────────────────────────────────────────────────────────────
 
 
+#: The kinds a plant record has (the Cutaway row may select a plant).
+_PLANT_KINDS: frozenset[str] = frozenset({"TREE", "SHRUB", "PERENNIAL", "VEGETABLE", "HERB",
+                                          "FLOWER", "GRASS", "GROUND_COVER", "CLIMBER"})
+
+
+def _open_ground(world: Any, shot: Any, records: dict[str, Record], cast_segment: Any
+                 ) -> tuple[float, float]:
+    """A lawn point near the shot's target that the camera sees: no item covers it and
+    the view of it passes through nothing (the probe's pin must be in the frame)."""
+    from open_garden_planner.core.scene3d.frame import pose_ring
+    from open_garden_planner.core.shade_aggregation import points_in_polygons
+
+    tx, ty = float(shot.target[0]), float(shot.target[1])
+    tries = sorted(((tx + dx, ty + dy) for dx in range(-600, 601, 50)
+                    for dy in range(-600, 601, 50)),
+                   key=lambda p: (p[0] - tx) ** 2 + (p[1] - ty) ** 2)
+    points = np.asarray(tries, dtype=np.float64)
+    covered = np.zeros(len(points), dtype=bool)
+    for record in records.values():   # one ring at a time: even-odd must not cancel overlaps
+        for outer, _holes in record.regions:
+            covered |= points_in_polygons([pose_ring(record.transform, outer)], points)
+    for index, point in enumerate(tries):
+        if not covered[index] and not cast_segment(world.pick, shot.eye, (point[0], point[1], 30.0)):
+            return point
+    return (tx, ty)
+
+
+def _pin_pixels(rgb: np.ndarray) -> int:
+    """Pixels in the probe pin's magenta (it reads about (247, 58, 207) on screen)."""
+    red, green, blue = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    return int(((red > 170) & (blue > 140) & (green < 120)).sum())
+
+
 class Board:
     """One run: the plan, the engine, the output directory."""
 
@@ -403,6 +436,7 @@ class Board:
         from open_garden_planner.core.scene3d import Mesh
         from open_garden_planner.core.scene3d.builders import production_registry
         from open_garden_planner.core.scene3d.drape import shadow_drape, sun_hours_drape
+        from open_garden_planner.core.scene3d.pick_oracle import cast_segment
         from open_garden_planner.core.scene3d.sun_path import (
             ARC_KINDS,
             SunPoint,
@@ -450,7 +484,8 @@ class Board:
                     polygons = [[(0.0, 0.0), (self.width, 0.0), (self.width, self.depth),
                                  (0.0, self.depth)]]
                 variants: list[tuple[str, dict[str, Any]]] = [
-                    ("shadows", {"overlays": {"drape": shadow_drape(polygons, self.width, self.depth)}})]
+                    ("shadows", {"overlays": {"shade": shadow_drape(polygons, self.width, self.depth)}})]
+                world = xray_scene(records, lambda r: registry.builder_for(r.kind)(r))
                 if self.location is not None:
                     lat, lon = float(self.location["latitude"]), float(self.location["longitude"])
                     grid = HeatmapGrid.for_rect(0.0, 0.0, self.width, self.depth, GRID_CELL_CM)
@@ -458,21 +493,28 @@ class Board:
                                                   lon, at, grid, rasterize_polygons_qimage)
                     daylight = float(len(daylight_samples(lat, lon, at)) * SAMPLE_STEP_MINUTES)
                     drape = sun_hours_drape(result.minutes, grid, daylight, lut)
+                    pin = _open_ground(world, shot, records, cast_segment)
                     variants.append(("sunhours", {"overlays": {
-                        "drape": drape, "lines": probe_pin_mesh(shot.target[:2], radius)}}))
+                        "drape": drape, "lines": probe_pin_mesh(pin, radius)}, "pin": pin}))
                     days = key_days(at)
                     arcs = [day_arc(lat, lon, days[kind], None, kind) for kind in ARC_KINDS]
                     path = sun_path_mesh(arcs, center, radius, hour_marks=hour_marks(arcs[0], None),
                                          sun=SunPoint(shot.when_utc, sun.elevation_deg, sun.azimuth_deg))
                     variants.append(("sunpath", {"overlays": {"lines": Mesh.merge([compass, path])}}))
-                beds = [record for record in records.values() if "BED" in record.kind]
-                if beds:
-                    chosen = min(beds, key=lambda r: (r.transform.east_cm - center[0]) ** 2
-                                 + (r.transform.north_cm - center[1]) ** 2)
-                    world = xray_scene(records, lambda r: registry.builder_for(r.kind)(r))
-                    faded = occluders(world, shot.eye, {chosen.item_id})
+                # Cutaway selects what the view of it passes through most: a row that
+                # fades nothing proves nothing (3D review of #386)
+                candidates = sorted(record.item_id for record in records.values()
+                                    if "BED" in record.kind or record.kind in _PLANT_KINDS)
+                looked = [(len(occluders(world, shot.eye, {item_id})), item_id)
+                          for item_id in candidates]
+                if looked:
+                    count, chosen_id = max(looked)
+                    if not count:
+                        raise RuntimeError(f"{shot.name}: Cutaway would fade nothing for any "
+                                           f"of {len(candidates)} beds and plants")
+                    faded = occluders(world, shot.eye, {chosen_id})
                     variants.append(("cutaway", {"roofs_hidden": True, "faded": faded,
-                                                 "selected": (chosen.item_id,)}))
+                                                 "selected": (chosen_id,)}))
                 for variant, options in variants:
                     rgb, _frame, info = self.analysis_frame(
                         f"{shot.name}_{preset}_{variant}", records, view, sun, look, registry, options)
@@ -481,6 +523,13 @@ class Board:
                            "sun_date": at.isoformat(), **info, **probes.frame_stats(rgb)}
                     if variant == "cutaway":
                         row["faded"] = sorted(options["faded"])
+                        row["selected"] = list(options["selected"])
+                    if variant == "sunhours":
+                        row["pin"] = [round(v, 1) for v in options["pin"]]
+                        row["pin_px"] = _pin_pixels(rgb)
+                        if row["pin_px"] < 50:
+                            raise RuntimeError(f"{shot.name}: the probe pin shows in "
+                                               f"{row['pin_px']} pixels only")
                     rows.append(row)
                     self.log("analysis", name=shot.name, preset=preset, variant=variant,
                              ms=row["open_ms"], luma=row["mean_luma"])

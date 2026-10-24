@@ -58,9 +58,10 @@ def drape(size: float = 200.0) -> Any:
 
 
 class TestOverlays:
-    @pytest.mark.parametrize(("layer", "visible"), [("drape", "drapeVisible"),
+    @pytest.mark.parametrize(("layer", "visible"), [("shade", "shadeVisible"),
+                                                     ("drape", "drapeVisible"),
                                                      ("lines", "linesVisible")])
-    def test_a_new_host_has_both_overlay_models_and_shows_neither(self, host, layer: str,
+    def test_a_new_host_has_every_overlay_model_and_shows_none(self, host, layer: str,
                                                                   visible: str) -> None:
         model = overlay_model(host, layer)
         assert host.scene_property(visible) is False
@@ -110,28 +111,36 @@ def _house_parts() -> tuple[MeshPart, ...]:
             MeshPart(mesh.translated(0.0, 0.0, 100.0), ROOF_KIND, name="roof"))
 
 
-def _visible_kinds(host: Any) -> dict[tuple[str, str], bool]:
-    return {(part.item_id, part.kind): part.visible for part in host.engine_parts()}
+def _drawn(host: Any) -> dict[tuple[str, str], float]:
+    """What share of its pixels each part's active material draws (1: its look)."""
+    return {(part.item_id, part.kind): part.drawn for part in host.engine_parts()}
 
 
 class TestCutaway:
-    def test_roofs_go_and_come_back_and_walls_stay(self, host) -> None:
+    def test_roofs_are_cut_and_come_back_and_walls_stay(self, host) -> None:
+        """A cut roof draws none of its pixels but stays a visible, shadow-casting Model
+        (a hidden roof took its shadow off the lawn: 3D review of #386)."""
         sink = Quick3DSink(host)
         sink.begin()
         sink.add("house", _house_parts(), Transform(), Material("HOUSE"))
         sink.commit()
         host.set_roofs_hidden(True)
-        assert _visible_kinds(host) == {("house", "vc"): True, ("house", ROOF_KIND): False}
+        assert _drawn(host) == {("house", "vc"): 1.0, ("house", ROOF_KIND): 0.0}
+        roof = next(p for p in host.engine_parts() if p.kind == ROOF_KIND)
+        assert roof.visible and roof.casts_shadow
+        models = {p.kind: p.model for p in host._parts}  # noqa: SLF001
+        assert models[ROOF_KIND].property("pickable") is False   # a click goes inside
         host.set_roofs_hidden(False)
-        assert _visible_kinds(host) == {("house", "vc"): True, ("house", ROOF_KIND): True}
+        assert _drawn(host) == {("house", "vc"): 1.0, ("house", ROOF_KIND): 1.0}
+        assert models[ROOF_KIND].property("pickable") is True
 
-    def test_a_roof_built_while_cutaway_is_on_is_born_hidden(self, host) -> None:
+    def test_a_roof_built_while_cutaway_is_on_is_born_cut(self, host) -> None:
         host.set_roofs_hidden(True)
         sink = Quick3DSink(host)
         sink.begin()
         sink.add("house", _house_parts(), Transform(), Material("HOUSE"))
         sink.commit()
-        assert _visible_kinds(host)[("house", ROOF_KIND)] is False
+        assert _drawn(host)[("house", ROOF_KIND)] == 0.0
 
 
 class TestXray:
@@ -152,6 +161,10 @@ class TestXray:
         assert fades == {("wall", "vc"): pytest.approx(XRAY_OPACITY),
                          ("wall", "foliage"): pytest.approx(XRAY_OPACITY),
                          ("shed", "vc"): 1.0, ("shed", "foliage"): 1.0}
+        # the faded parts are screen doors of that share (screen.frag / foliage.frag)
+        assert _drawn(host) == {("wall", "vc"): pytest.approx(XRAY_OPACITY),
+                                ("wall", "foliage"): pytest.approx(XRAY_OPACITY),
+                                ("shed", "vc"): 1.0, ("shed", "foliage"): 1.0}
         host.set_faded_items(set(), XRAY_OPACITY)
         assert all(p.fade == 1.0 for p in host.engine_parts())
 

@@ -6713,7 +6713,8 @@ remain for whoever touches this area:
 
 ### 8.29.10 Analyze in 3D — the 2D analysis on the ground, sun path, card v1, growth jump, Cutaway (L2)
 
-Decisions: ADR-063. Requirements: FR-3D-ANALYZE-01 … 08. Lesson: PF-L3D-06.
+Decisions: ADR-063 (and its review addendum). Requirements: FR-3D-ANALYZE-01 … 08.
+Lessons: PF-L3D-06, PF-L3D-07, PF-L3D-08.
 
 **The rule: the 2D analysis is the truth, and the 3D view lays it on its ground.** The
 engine's shadow maps stay illustrative (ADR-048, criterion 8's scope note). Nothing
@@ -6721,7 +6722,8 @@ of L2 computes a shadow or a sun hour a second time:
 
 ```
 SunShadowController ──shadows_changed / drape_polygons()──┐
-SunHeatmapController ──computed(SunHoursMap) / result()───┤
+SunHeatmapController ──computed(SunHoursMap) / result() / exposure_changed──┤
+LiveSunMap ──enabled_changed / set_enabled / is_current()──┤
 SimClock ──instant_changed / date_changed─────────────────┤
                                                           ▼
                       ui/view3d/analysis_controller.py  (engine-free; one per engine)
@@ -6730,10 +6732,12 @@ SimClock ──instant_changed / date_changed───────────�
                         core/scene3d/xray.py       xray_scene · occluders (pick_oracle.cast_segment)
                                                           │ engine_buffers (the one frame mapping)
                                                           ▼
-                      Quick3DHost.set_overlay("drape" | "lines") · set_roofs_hidden · set_faded_items
+                      Quick3DHost.set_overlay("shade" | "drape" | "lines") · set_roofs_hidden · set_faded_items
                                                           │
-                      Garden.qml: drapeOverlay · linesOverlay (one Model each, for the scene's life)
-                                  every part Model: fade (X-ray) · roof parts: visible = !roofsHidden
+                      Garden.qml: shadeOverlay (multiplies) · drapeOverlay · linesOverlay
+                                  (one Model each, for the scene's life)
+                                  every part Model: fade → a screen door (screen.frag)
+                                  roof parts: cut → a screen door with nothing left; walls: no culling
 ```
 
 **Modules.**
@@ -6742,7 +6746,7 @@ SimClock ──instant_changed / date_changed───────────�
 |---|---|
 | `core/scene3d/drape.py` | The shadow drape (the overlay's polygons cut at the plan, triangulated; a 5 cm raster for a region the triangulator refuses) and the hours-of-sun drape (one vertex per cell centre plus a clamped edge, the canvas's ramp in linear light, block-averaged beyond 262,144 vertices). Scene frame, 1.5 cm above the ground. |
 | `core/scene3d/sun_path.py` | One LOCAL day of the sun per arc (the clock's zone), cut at the horizon, solar noon found and inserted; `dome_point` — the one mapping to the dome; tubes, hour beads, the sun ball; the compass rose (ring, ticks, north arrow, letters from outlines); the probe pin. |
-| `core/scene3d/xray.py` | `ROOF_KIND`; the items a segment from the eye to nine points of each selected item's box passes through (box-culled, the pick oracle's triangle test). |
+| `core/scene3d/xray.py` | `ROOF_KIND`; the items a segment from the eye to nine points of each selected item's box passes through (box-culled, the pick oracle's triangle test) — a flat item's points lie on its posed footprint (`flat_targets`); roof parts are no occluders (Cutaway cuts them). |
 | `core/shade_aggregation.py` | `SunHoursMap` (a shown map as plain data: `minutes_at`, `minutes_through`), and per-sample shade masks kept with every run (packed bits, up to 64 MB). |
 | `ui/view3d/analysis_controller.py` | The drape mode, the sun path, the probe, the day sweep, Cutaway — paused while the pane is hidden, failures contained. |
 | `ui/view3d/analysis_modes.py` | `DrapeMode`, `JUMP_YEARS` — importable at start-up without an engine module (gate G1). |
@@ -6756,22 +6760,39 @@ SimClock ──instant_changed / date_changed───────────�
   as the selection ring since L1.8): a drape, a sun step or a probe creates and
   destroys no Model and no texture (#531, #532). They are not items: the sink's
   `clear()` leaves them; the controller re-sends them when the pane shows again.
-- *A blended custom material keeps the frame's alpha* — `sourceAlphaBlend: Zero`,
-  `destinationAlphaBlend: One` — or the view's texture lets the window's white through
-  (PF-L3D-06). The drape blends always; foliage, grass and water only while they fade.
+- *The overlays' blends.* The 2D shadows MULTIPLY the frame (the `"shade"` layer,
+  `DstColor` / `Zero`, a linear multiplier): a shadow darkens in every mood (PF-L3D-07).
+  The hours-of-sun map blends over; a blended custom material keeps the frame's alpha —
+  `sourceAlphaBlend: Zero`, `destinationAlphaBlend: One` — or the view's texture lets
+  the window's white through (PF-L3D-06). Every overlay but the shade divides its colour
+  by the exposure (`overlay.frag`), and the arcs are built in pre-compensated colours
+  (`ARC_ENGINE_RGBA`; the legend shows `ARC_RGBA`).
+- *A faded or cut part is a screen door* (`screen.frag`; foliage, grass and water in
+  their own shaders): an ordered dither discards all but its share of the pixels, so it
+  stays opaque, keeps casting its shadow and needs no sorting (PF-L3D-08). No part
+  blends or hides for X-ray or Cutaway; the principled look stays the material while
+  nothing fades.
 - *The drape is lifted 1.5 cm* (the meadow lies at −1, the tiles at 0): clear of the
   ground's depth from every distance the orbit camera frames a garden at, and below
   everything that stands on the ground.
 - *The sweep's map* is the shown map's own samples taken by their local time of day
   (`SunHoursMap.sample_minutes_of_day`), summed incrementally as the sweep passes them
   — the map samples a UTC civil day; at sunset it is the whole map in every zone.
-- *The probe* meets the ground where the view ray through the click does
+- *The probe* meets the drape's plane where the view ray through the click does
   (`pick_oracle.perspective_ray`, the camera the view is shown from — the walker's in
-  walk mode); it reads `SunHoursMap.minutes_at` and `band_of`. It needs no frame of
+  walk mode); it reads `SunHoursMap.minutes_at` and `band_of` — only while the shared
+  Hours of Sun says the map is current (`is_current()`; a dated preview of a changed
+  plan reads `"updating"`, ADR-056). It needs no frame of
   its own: it rides the click's one pick (`OrbitInput.ground_clicked`).
 - *X-ray* runs `XRAY_DELAY_MS` (150) after the camera, the selection or the records
   last changed, over the meshes the sink holds (`Workspace._held_parts`, shared with
   walk mode's world). A faded part is not pickable.
+- *The hours-of-sun state has one owner*, `LiveSunMap`: the 3D drape follows its
+  `enabled_changed` (off → "Nothing on the Ground", the menu follows) and choosing the
+  drape switches it on.
+- *The sweep gives the time back on every exit* — the end of the day, a stop, the
+  engine going, a date change (a turn later: the clock refuses a write from its own
+  notification) — except when the user set a time during it: theirs stays.
 - *Growth jump*: the before-picture in `jump`, the after-picture in the first
   `applied` pass whose `Scene3DController.pass_date` is the new date — two frames per
   jump, the only frames besides the click's pick (the frame-taker scan in

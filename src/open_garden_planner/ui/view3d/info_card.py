@@ -122,11 +122,13 @@ class CardFacts:
     windows: tuple[tuple[str, date, date], ...] = ()
 
 
-def _offset(value: object) -> int | None:
+def _offset(value: object) -> float | None:
+    """A week offset as the task generator takes it — unchanged, a fraction included
+    (it once truncated, so card and task list could name different days: senior review
+    of #386) — or None for what is no finite number within ``_MAX_OFFSET_WEEKS``."""
     if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
         return None
-    weeks = int(value)
-    return weeks if abs(weeks) <= _MAX_OFFSET_WEEKS else None
+    return value if abs(value) <= _MAX_OFFSET_WEEKS else None
 
 
 def _is_plant(item: Any, record: Record | None) -> bool:
@@ -198,7 +200,7 @@ def _short_date(day: date) -> str:
 
 
 def _day_month(day: date) -> str:
-    """A window's end: day and month, in the locale's words ("12 Mar", "12. März")."""
+    """A window's end: day and month, in the locale's words ("12 Mar", "12 März": Qt's "d MMM")."""
     return QLocale().toString(QDate(day.year, day.month, day.day), "d MMM")
 
 

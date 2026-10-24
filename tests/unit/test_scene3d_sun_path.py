@@ -18,12 +18,15 @@ import pytest
 
 from open_garden_planner.core.scene3d.color import srgb8_to_linear
 from open_garden_planner.core.scene3d.sun_path import (
+    ARC_ENGINE_RGBA,
     ARC_KINDS,
     ARC_RGBA,
     CARDINAL_BEARINGS,
     COMPASS_LIFT_CM,
     LETTER_SHARE,
     NORTH_RGBA,
+    TODAY_TUBE_FACTOR,
+    TUBE_SHARE,
     DayArc,
     SunPoint,
     compass_mesh,
@@ -162,9 +165,39 @@ class TestTheMeshes:
         mesh = sun_path_mesh(self.arcs(), CENTER, RADIUS)
         mesh.validate()
         colours = {tuple(np.round(c, 5)) for c in mesh.colors}
-        for kind in ARC_KINDS:
-            assert tuple(np.round(np.asarray(srgb8_to_linear(ARC_RGBA[kind]), np.float32), 5)) in colours
+        for kind in ARC_KINDS:   # built in the engine's pre-compensated colours
+            assert tuple(np.round(np.asarray(srgb8_to_linear(ARC_ENGINE_RGBA[kind]), np.float32), 5)) in colours
         assert mesh.positions[:, 2].min() >= -RADIUS * 0.01  # a tube's radius below the rim at most
+
+    def test_the_engine_colours_keep_the_legends_hue_family(self) -> None:
+        """The legend shows ``ARC_RGBA``; the tubes are built in ``ARC_ENGINE_RGBA``,
+        tuned so the tone curve brings them back to the legend's hue (measured within
+        2.7 degrees in five moods). Each stays within 10 degrees of its legend colour."""
+        import colorsys
+
+        assert set(ARC_ENGINE_RGBA) == set(ARC_RGBA) == set(ARC_KINDS)
+        for kind in ARC_KINDS:
+            legend = colorsys.rgb_to_hsv(*(v / 255.0 for v in ARC_RGBA[kind][:3]))[0] * 360.0
+            engine = colorsys.rgb_to_hsv(*(v / 255.0 for v in ARC_ENGINE_RGBA[kind][:3]))[0] * 360.0
+            assert abs((engine - legend + 180.0) % 360.0 - 180.0) <= 10.0, kind
+
+    def test_the_plan_dates_arc_is_drawn_last_and_thicker(self) -> None:
+        """On a key day the plan date's arc lies exactly on its twin (21 June) and was
+        hidden under it: it is built last and ``TODAY_TUBE_FACTOR`` thicker."""
+        arcs = self.arcs()
+        today = srgb8_to_linear(ARC_ENGINE_RGBA["today"])
+        mesh = sun_path_mesh(arcs, CENTER, RADIUS)
+        mine = np.all(np.isclose(mesh.colors, np.asarray(today, np.float32)), axis=1)
+        last = np.flatnonzero(mine)
+        others = np.flatnonzero(~mine)
+        assert last.min() > others.max()   # every plan-date vertex after every other one
+        only = sun_path_mesh([arcs[0]], CENTER, RADIUS)
+        # the tube's ring radius: distance of a ring vertex from its arc point
+        from open_garden_planner.core.scene3d.sun_path import dome_point
+        noon = arcs[0].noon
+        axis = np.asarray(dome_point(CENTER, RADIUS, noon.elevation_deg, noon.azimuth_deg))
+        reach = np.linalg.norm(only.positions - axis, axis=1).min()
+        assert reach == pytest.approx(TUBE_SHARE * RADIUS * TODAY_TUBE_FACTOR, rel=0.05)
 
     def test_the_sun_ball_is_drawn_only_while_the_sun_is_up(self) -> None:
         arcs = self.arcs()

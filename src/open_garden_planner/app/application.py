@@ -4861,7 +4861,7 @@ class GardenPlannerApp(QMainWindow):
         # shadow overlay's polygons and the heatmap's map, never a second computation —
         # and "Hours of Sun on the Ground" switches the shared Hours of Sun on.
         self._workspace.connect_analysis(self._sun_controller, self._sun_heatmap,
-                                         self._live_sun_map.set_enabled)
+                                         self._live_sun_map)
         workspace_menu = self._workspace.create_menu(self._view_menu)
         # every menu action carries an icon (#310) — the workspace's too, now that it is
         # in every window (L1.9); its own buttons keep their words (ToolButtonTextOnly)

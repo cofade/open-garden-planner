@@ -23,7 +23,7 @@ from open_garden_planner.core.scene3d.color import srgb8_to_linear
 from open_garden_planner.core.scene3d.drape import (
     DRAPE_LIFT_CM,
     FALLBACK_STEP_CM,
-    SHADOW_RGBA,
+    SHADE_MULTIPLIER,
     drape_factor,
     shadow_drape,
     sun_hours_drape,
@@ -138,8 +138,9 @@ class TestShadowDrape:
         mesh = shadow_drape([square(100.0, 100.0, 200.0)], 1000.0, 800.0)
         assert area(mesh) == pytest.approx(200.0 * 200.0, rel=1e-6)
         assert np.all(mesh.positions[:, 2] == pytest.approx(DRAPE_LIFT_CM))
-        np.testing.assert_allclose(mesh.colors, np.tile(linear(SHADOW_RGBA), (mesh.vertex_count, 1)),
-                                   atol=1e-6)
+        # the vertex colour is the shade layer's MULTIPLIER, linear, opaque
+        np.testing.assert_allclose(mesh.colors, np.tile((*SHADE_MULTIPLIER, 1.0), (mesh.vertex_count, 1)),
+                                   atol=1e-12)
         mesh.validate()
 
     def test_a_shadow_is_cut_at_the_plan_edge_as_the_canvas_cuts_it(self) -> None:
@@ -175,12 +176,36 @@ class TestShadowDrape:
         assert abs(area(mesh) - exact) <= (4 * 400.0 + 4 * 200.0) * FALLBACK_STEP_CM
         mesh.validate()
 
+    def test_rings_that_do_not_group_keep_their_holes_sunny(self, monkeypatch) -> None:
+        """Senior review of #386: when the rings could not be grouped into outers and
+        holes, every outer was laid alone and a sunny island inside a shadow union was
+        filled with shade. The whole set is now one even-odd raster."""
+        def refuse(*_args, **_kwargs):
+            raise ValueError("refused")
 
-def test_the_shadow_colour_is_the_canvas_overlays() -> None:
+        monkeypatch.setattr(drape_module, "group_rings", refuse)
+        outer = square(0.0, 0.0, 400.0)
+        hole = list(reversed(square(100.0, 100.0, 200.0)))
+        mesh = shadow_drape([outer, hole], 1000.0, 800.0)
+        exact = 400.0 ** 2 - 200.0 ** 2
+        assert abs(area(mesh) - exact) <= (4 * 400.0 + 4 * 200.0) * FALLBACK_STEP_CM
+        centre = mesh.positions[:, :2]
+        inside_hole = ((centre[:, 0] > 110) & (centre[:, 0] < 290)
+                       & (centre[:, 1] > 110) & (centre[:, 1] < 290))
+        assert not inside_hole.any()   # no drape vertex inside the sunny island
+        mesh.validate()
+
+
+def test_the_shade_only_darkens_and_is_tinted_like_the_canvas_shadow() -> None:
+    """3D review of #386: the shade MULTIPLIES the frame, so each channel is below 1 (a
+    shadow never brightens), and the channels keep the order of the canvas overlay's
+    shadow colour — blue kept most, then green, red least."""
     from open_garden_planner.ui.canvas.sun_shadow_controller import _SHADOW_COLOR
 
+    red, green, blue = SHADE_MULTIPLIER
+    assert 0.0 < red < green < blue < 1.0
     canvas = _SHADOW_COLOR
-    assert (canvas.red(), canvas.green(), canvas.blue(), canvas.alpha()) == SHADOW_RGBA
+    assert canvas.red() < canvas.green() < canvas.blue()
 
 
 # ── the probe ────────────────────────────────────────────────────────────────

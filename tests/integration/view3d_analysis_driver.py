@@ -76,7 +76,7 @@ def main(out: Path) -> int:
     bare = frame("bare", {})
     result["ground"] = mean(bare, 200.0, 300.0, 40.0)
     square = [(100.0, 250.0), (300.0, 250.0), (300.0, 350.0), (100.0, 350.0)]
-    shadowed = frame("shadow_drape", {}, overlays={"drape": shadow_drape([square], width, depth)})
+    shadowed = frame("shadow_drape", {}, overlays={"shade": shadow_drape([square], width, depth)})
     result["shadow_drape"] = mean(shadowed, 200.0, 300.0, 30.0)
     grid = HeatmapGrid(0.0, 0.0, 50.0, cols=16, rows=12)
     minutes = np.zeros((12, 16))
@@ -101,6 +101,9 @@ def main(out: Path) -> int:
     for name, east in (("wall", 250.0), ("crown", 550.0)):
         result[f"{name}_solid"] = mean(solid, east, 300.0, 30.0)
         result[f"{name}_faded"] = mean(faded, east, 300.0, 30.0)
+        # the sun at 60 degrees from the south: each box's shadow runs 115 cm north of it
+        result[f"{name}_shadow_solid"] = mean(solid, east, 410.0, 12.0)
+        result[f"{name}_shadow_faded"] = mean(faded, east, 410.0, 12.0)
 
     # ── Cutaway: the roof goes, the walls stay ───────────────────────────────
     houses = {"roof": box("roof", 250.0, 300.0, 120.0, 150.0, "roof"),
@@ -110,6 +113,40 @@ def main(out: Path) -> int:
     for name, east in (("roof", 250.0), ("walls", 550.0)):
         result[f"{name}_shown"] = mean(roofed, east, 300.0, 30.0)
         result[f"{name}_cut"] = mean(cut, east, 300.0, 30.0)
+        result[f"{name}_shadow_shown"] = mean(roofed, east, 390.0, 12.0)   # 87 cm north
+        result[f"{name}_shadow_cut"] = mean(cut, east, 390.0, 12.0)
+
+    # -- the shade in perspective, through each mood's exposure and tone curve: it
+    #    darkens what it covers in every mood - the lit lawn and the engine's own
+    #    shadow alike - and never brightens a pixel (3D review of #386: over-blended,
+    #    it brightened the night garden by up to 44 grey levels) --
+    from open_garden_planner.core.scene3d.look import look_for
+    from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
+
+    view = PerspectiveShot(eye=(400.0, -500.0, 600.0), target=(400.0, 300.0, 0.0), fov_deg=50.0)
+    post = {"post": box("post", 650.0, 200.0, 80.0, 300.0, "vc", (200, 190, 170, 255))}
+    patch = shadow_drape([[(100.0, 150.0), (700.0, 150.0), (700.0, 450.0), (100.0, 450.0)]],
+                         width, depth)
+    moods = {"noon": SunState(elevation_deg=60.0, azimuth_deg=180.0),
+             "golden": SunState(elevation_deg=6.0, azimuth_deg=260.0),
+             "night": SunState(elevation_deg=-12.0, azimuth_deg=320.0)}
+
+    def luma(rgb: np.ndarray) -> np.ndarray:
+        return 0.2126 * rgb[..., 0] + 0.7152 * rgb[..., 1] + 0.0722 * rgb[..., 2]
+
+    for mood, mood_sun in moods.items():
+        look = look_for(mood_sun, "high")
+        shown = {}
+        for tag, overlays in (("bare", None), ("shade", {"shade": patch})):
+            rendered = render_records(post, shot=view, sun=mood_sun, ground=ground, size=size,
+                                      registry=selftest.registry(), look=look, overlays=overlays)
+            rendered.image.save(str(out / f"mood_{mood}_{tag}.png"))
+            result["qt_errors"] = int(result["qt_errors"]) + int(
+                rendered.qt.get("counts", {}).get("error", 0))
+            shown[tag] = rendered.rgba()[..., :3].astype(np.float64)
+        change = luma(shown["shade"]) - luma(shown["bare"])
+        result[f"mood_{mood}"] = {"brightest": float(change.max()), "darkest": float(change.min()),
+                                  "darkened": int((change < -2.0).sum())}
 
     (out / "result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     return 0

@@ -7093,3 +7093,74 @@ real QML scene); `tests/integration/test_view3d_analysis.py` (§8.10 — the wor
 the real 2D analysis beside the workspace); `tests/integration/test_view3d_analysis_render.py`
 (the render tier: the drape darkens, row 0 south, north up, fades and the cutaway, on
 the GPU, WARP and OpenGL); the frame-taker scan in `test_view3d_workspace_widget.py`.
+
+#### Addendum: review round 1 (2026-10-24) — what the 3D and the senior review changed
+
+The `ogp-3d-reviewer` rejected the first build (one P0, four P1s) with every truth gate
+green (drape IoU against the canvas 0.993–0.999, row 0 south, noon = `solar_position`,
+the L1 frames bit-identical); the `senior-reviewer` found three P1s at the boundary to
+the 2D Hours of Sun. Decisions 2, 3, 6 and 9 change as follows.
+
+- **The 2D shadows MULTIPLY the frame (decision 2/3).** A third overlay Model, the
+  `"shade"` layer (`sourceBlend: DstColor`, `destinationBlend: Zero`, the alpha rule
+  kept), carries the shadow drape; its vertex colour is a linear multiplier,
+  `drape.SHADE_MULTIPLIER` (0.60, 0.62, 0.95: every channel below 1, ordered like the
+  canvas's shadow colour). Over-blended, the canvas colour was unlit and went through
+  the mood's exposure: at night (exposure 2.4) the "shadow" turned the garden LIGHTER
+  (+17.6 / +24.1 luma, up to +43.7), and at golden hour it was a −4 luma wash.
+  Measured on D3D11, the lit lawn under the shade now reads 0.83 of its luma at noon,
+  0.76 at golden hour, 0.74 at sunset, 0.78 on a December noon and 0.76 at night, the
+  engine's own shadow under it 0.71–0.84; the render tier asserts that no pixel under
+  it brightens in three moods (PF-L3D-07). The hours-of-sun map stays blended over.
+- **Overlay colours divide by the exposure (decision 2).** `overlay.frag` writes
+  `vColor.rgb / uExposure` (1 for the shade, 1 in the top-down truth view), and the
+  arcs are BUILT in pre-compensated colours (`sun_path.ARC_ENGINE_RGBA`) while the
+  legend keeps `ARC_RGBA`: the filmic curve bent the legend colours by up to +14° /
+  −11° by day and washed them to near white at night. Re-measured: within 2.7° of the
+  legend's hue in five moods. The plan date's arc is drawn last and 1.5 × thicker (it
+  lay hidden under its twin on a key day); the compass letters are 0.12 of the dome's
+  radius (0.065 left E and W 6 px high).
+- **X-ray and Cutaway draw screen doors, not blends or hidden Models (decision 9).** A
+  blended or hidden part drops out of the shadow map: Cutaway took the house's shadow
+  off the lawn and X-ray a faded tree's 30 m shadow. A faded built part now switches
+  to a screen-door material (`screen.frag`: a 4 × 4 ordered dither keeps `uOpacity` of
+  its pixels and discards the rest; foliage, grass and water dither in their own
+  shaders), and a cut roof is the same screen door with nothing left. Both stay opaque
+  casters — measured top-down: ground outside the footprints unchanged (max 0.0 for
+  the faded trees, about 10 edge pixels for the cut roofs). The principled look stays
+  the material while nothing fades, so the L1 frames do not change. The walls drop
+  back-face culling while Cutaway is on (the roofless house read as one wall and a free
+  gable); a cut roof is not pickable (a click goes inside). The stipple, its 25 % share
+  and whether a selected bed's own plants should fade are owner questions.
+- **X-ray sees flat items, and a cut roof is no occluder.** An item the engine holds no
+  mesh for (a bed without a height, a lawn, a path) is looked at on its posed
+  footprint, 5 cm above its base (`xray.flat_targets`); the board's Cutaway row selected
+  such a bed and faded nothing in all 14 rows. Roof parts are left out of the X-ray
+  scene: X-ray runs only in Cutaway.
+- **One owner of the hours-of-sun state (decisions 1 and 6).** `LiveSunMap` gained
+  `enabled_changed`; the analysis takes the live map itself as its `SunHoursSource`.
+  When the shared Hours of Sun goes off (the toolbar, a document replace) the 3D drape
+  falls back to "Nothing on the Ground" and the menu follows; choosing the hours-of-sun
+  drape always switches it on. Before, a document replace left the 3D menu on the
+  drape with the 2D side off and the probe saying "not computed yet" for good.
+- **The probe measures only a current map (decision 6).** While the shown map is a
+  dated preview of a changed plan (ADR-056) the probe reads `"updating"` and says so;
+  it re-reads on `exposure_changed`. It meets the drape's plane (1.5 cm), not z = 0 — at
+  a walk-mode grazing angle that is 19 cm, two cells. Leaving the hours of sun takes
+  the pin along.
+- **Every exit of the sweep gives the time back; a jump owes only its own comparison
+  (decisions 5 and 8).** A time the user sets during a sweep ends it and stays; a date
+  change ends it and gives the time back a turn later (the clock refuses a write from
+  its own notification, ADR-053); the engine going (`shutdown`) gives it back. While a
+  sweep runs, the hours-of-sun drape is built with at most 65,536 vertices (62 ms per
+  step at a 50 × 50 m garden on the GUI thread at full size). A jump stops a sweep
+  before its before-picture; a jump whose date the user moves away from owes no
+  comparison. The controller dispatches only `HOST_CALLS` (no frame-taking call can
+  slip past the frame-taker scan by name).
+
+Also: the shadow drape's fallback for rings that do not group rasters the whole set
+even-odd (a sunny island stayed shaded); the card takes week offsets as the task
+generator does (it truncated them). Pinned by the render tier's new mood, shadow and
+screen-door tests, `test_quick3d_qml.py` (blends, screen doors), the self-test (a
+faded cube: `screen.frag` compiled from the bundle), and `test_view3d_analysis.py`
+with the real `LiveSunMap`.

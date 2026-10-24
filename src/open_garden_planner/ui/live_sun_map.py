@@ -6,7 +6,7 @@ import contextlib
 from concurrent.futures import Future, InvalidStateError
 from typing import Any
 
-from PyQt6.QtCore import QObject, QTimer
+from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 
 from open_garden_planner.ui.canvas.sun_exposure_snapshot import (
     ExposureSnapshot,
@@ -17,6 +17,11 @@ from open_garden_planner.ui.sim_clock_subscription import connect_qobject
 
 class LiveSunMap(QObject):
     """Retain a dated preview, but publish measurements only for current inputs."""
+
+    #: The shared Hours of Sun was switched on (True) or off (False) — by the toolbar,
+    #: a caller of ``set_enabled`` or a document replace. The 3D view's hours-of-sun
+    #: drape follows it (L2, #386): one owner of the state, so the two cannot disagree.
+    enabled_changed = pyqtSignal(bool)
 
     def __init__(self, scene: Any, clock: Any, project: Any, heatmap: Any,
                  toolbar: Any, commands: Any, parent: QObject | None = None) -> None:
@@ -49,6 +54,7 @@ class LiveSunMap(QObject):
         return collect_exposure_snapshot(self.scene, self.project.location, self.clock.plan_date)
 
     def set_enabled(self, enabled: bool) -> None:
+        changed = enabled != self.enabled
         self.enabled = enabled
         self._failed = None
         self.toolbar.set_heatmap_active(enabled)
@@ -60,6 +66,8 @@ class LiveSunMap(QObject):
         else:
             self.schedule()
         self._reflect()
+        if changed:
+            self.enabled_changed.emit(enabled)
 
     def schedule(self, *_args: Any) -> None:
         if self._closed or not self.enabled:
@@ -177,11 +185,13 @@ class LiveSunMap(QObject):
         self._timer.stop()
         self._desired = self._failed = None
         self._inputs_dirty = False
-        self.enabled = False
+        was_enabled, self.enabled = self.enabled, False
         self._fail_waiters(RuntimeError(self.tr("The garden document was replaced during export.")))
         self.heatmap.clear()
         self.toolbar.set_heatmap_active(False)
         self._reflect()
+        if was_enabled:
+            self.enabled_changed.emit(False)
 
     def shutdown(self) -> None:
         if self._closed:

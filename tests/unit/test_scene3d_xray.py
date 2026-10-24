@@ -13,11 +13,15 @@ import numpy as np
 import pytest
 
 from open_garden_planner.core.scene3d import Material, Params, Record, Transform, default_builder
+from open_garden_planner.core.scene3d.mesh import MeshPart
 from open_garden_planner.core.scene3d.pick_oracle import Ray, cast_all, cast_segment, pick_scene
 from open_garden_planner.core.scene3d.xray import (
+    FLAT_TARGET_LIFT_CM,
+    MAX_FLAT_TARGETS,
     MAX_XRAY_ITEMS,
     ROOF_KIND,
     SAMPLE_SHRINK,
+    flat_targets,
     occluders,
     target_points,
     xray_scene,
@@ -78,6 +82,50 @@ class TestOccluders:
         world = scene(box("shed", 0.0, 1000.0, 400.0, 200.0, 220.0),
                       box("wall", -150.0, 0.0, 150.0, 30.0, 400.0))
         assert occluders(world, EYE, {"shed"}) == {"wall"}
+
+    def test_a_flat_bed_is_looked_at_on_its_footprint(self) -> None:
+        """3D review of #386: an item the engine holds no mesh for (a bed without a
+        height is drawn into the ground) faded nothing — Cutaway proved nothing for a
+        selected bed. It is looked at on its posed footprint, just above its ground."""
+        bed = Record(item_id="bed", kind="GARDEN_BED", shape="rectangle",
+                     footprints=(rect(300.0, 120.0),), transform=Transform(0.0, 1000.0, 30.0, 0.0),
+                     material=Material("GARDEN_BED"), height_cm=None, params=Params({"seed": "bed"}))
+        world = scene(bed, box("wall", 0.0, 0.0, 600.0, 30.0, 400.0))
+        assert world.index("bed") is None and "bed" in world.flat
+        points = target_points(world, "bed")
+        assert len(points) == 1 + 4                      # the centre and the four corners
+        assert all(z == pytest.approx(FLAT_TARGET_LIFT_CM) for _x, _y, z in points)
+        assert points[0][:2] == pytest.approx((0.0, 1000.0))
+        assert occluders(world, EYE, {"bed"}) == {"wall"}
+
+    def test_a_flat_items_targets_are_bounded_and_posed(self) -> None:
+        ring = tuple((100.0 * np.cos(a), 100.0 * np.sin(a))
+                     for a in np.linspace(0.0, 2.0 * np.pi, 40, endpoint=False))
+        lawn = Record(item_id="lawn", kind="LAWN", shape="polygon", footprints=(ring,),
+                      transform=Transform(500.0, 200.0, 90.0, 12.0), material=Material("LAWN"),
+                      height_cm=None, params=Params({"seed": "lawn"}))
+        points = flat_targets(lawn)
+        assert 2 <= len(points) <= 1 + MAX_FLAT_TARGETS
+        assert all(z == pytest.approx(12.0 + FLAT_TARGET_LIFT_CM) for _x, _y, z in points)
+        assert all(np.hypot(x - 500.0, y - 200.0) <= 100.0 * (1.0 - SAMPLE_SHRINK) + 1e-6
+                   for x, y, _z in points)
+
+    def test_a_cut_roof_is_no_occluder(self) -> None:
+        """Senior review of #386: Cutaway cuts every roof while X-ray runs, so the view
+        through a roof passes through nothing — the slab fades as a wall, not as a roof."""
+        slab = box("canopy", 0.0, 0.0, 600.0, 30.0, 400.0)
+        shed = box("shed", 0.0, 1000.0, 200.0, 200.0, 220.0)
+
+        def as_kind(kind: str):
+            def parts(record: Record):
+                return tuple(MeshPart(part.mesh, kind if record.item_id == "canopy" else
+                                      part.material_kind, part.casts_shadow, part.tinted, part.name)
+                             for part in default_builder(record))
+            return parts
+
+        records = {"canopy": slab, "shed": shed}
+        assert occluders(xray_scene(records, as_kind("vc")), EYE, {"shed"}) == {"canopy"}
+        assert occluders(xray_scene(records, as_kind(ROOF_KIND)), EYE, {"shed"}) == frozenset()
 
     def test_at_most_max_items_are_looked_through(self) -> None:
         sheds = [box(f"s{index:02d}", index * 300.0, 1000.0, 100.0, 100.0, 200.0)

@@ -66,13 +66,29 @@ _F64: TypeAlias = NDArray[np.float64]
 
 #: The arcs, in the order they are drawn and listed in the strip's legend.
 ARC_KINDS: Final = ("today", "june_solstice", "december_solstice", "march_equinox")
-#: Each arc's colour, sRGB (unshaded: the colour on screen, through the tone curve).
+#: Each arc's colour as the strip's LEGEND shows it, sRGB.
 ARC_RGBA: Final[Mapping[str, Rgba]] = {
     "today": (255, 196, 64, 255),
     "june_solstice": (232, 106, 64, 255),
     "december_solstice": (90, 150, 230, 255),
     "march_equinox": (120, 200, 120, 255),
 }
+#: The colour each arc's tube is BUILT with, sRGB: the legend's colour pre-compensated
+#: for the engine's filmic curve, which bends a saturated colour's hue on its way to the
+#: screen (the legend's own colours read +9 to +14 degrees off for the plan date, -8 to
+#: -11 for 21 December). With the overlay's exposure division (``overlay.frag``) these
+#: land within 2.5 degrees of the legend's hue at noon, golden hour, sunset, a December
+#: noon and night alike (3D review of #386; re-measured 2026-10-24 on D3D11: +2.4 / +2.7 /
+#: -2.4 / +0.1 degrees for the plan date / 21 June / 21 December / 20 March).
+ARC_ENGINE_RGBA: Final[Mapping[str, Rgba]] = {
+    "today": (232, 150, 40, 255),
+    "june_solstice": (220, 90, 56, 255),
+    "december_solstice": (80, 130, 230, 255),
+    "march_equinox": (120, 200, 120, 255),
+}
+#: The plan date's arc is this much thicker than the others and drawn last: on a key
+#: day it lies exactly on its twin (21 June is the June solstice) and was hidden under it.
+TODAY_TUBE_FACTOR: Final = 1.5
 COMPASS_RGBA: Final[Rgba] = (236, 234, 224, 255)
 NORTH_RGBA: Final[Rgba] = (214, 62, 52, 255)
 SUN_RGBA: Final[Rgba] = (255, 222, 120, 255)
@@ -92,7 +108,7 @@ RIM_SHARE: Final = 0.004
 TICK_SHARE: Final = 0.035
 CARDINAL_TICK_SHARE: Final = 0.08
 ARROW_SHARE: Final = 0.07
-LETTER_SHARE: Final = 0.065
+LETTER_SHARE: Final = 0.12   # 0.065 left E and W about 6 px high from the default camera
 #: How far above the ground the compass lies (cm) — the drape's lift and a hair more.
 COMPASS_LIFT_CM: Final = 2.0
 #: The compass's letters by bearing: N, E, S, W.
@@ -336,16 +352,17 @@ def sun_path_mesh(arcs: Sequence[DayArc], center: tuple[float, float], radius_cm
     ``sun`` when it is above the horizon (module docstring). Scene frame."""
     builder = _Builder.new()
     tube = TUBE_SHARE * radius_cm
-    for arc in arcs:
-        rgba = ARC_RGBA.get(arc.kind, ARC_RGBA["today"])
+    for arc in sorted(arcs, key=lambda arc: arc.kind == "today"):  # the plan date's last
+        rgba = ARC_ENGINE_RGBA.get(arc.kind, ARC_ENGINE_RGBA["today"])
+        width = tube * (TODAY_TUBE_FACTOR if arc.kind == "today" else 1.0)
         for segment in arc.segments:
             points = np.asarray([dome_point(center, radius_cm, p.elevation_deg, p.azimuth_deg)
                                  for p in segment], dtype=np.float64)
-            _tube(builder, points, tube, rgba)
+            _tube(builder, points, width, rgba)
     for mark in hour_marks:
         if mark.elevation_deg > 0.0:
             _ball(builder, dome_point(center, radius_cm, mark.elevation_deg, mark.azimuth_deg),
-                  BEAD_SHARE * radius_cm, ARC_RGBA["today"], rows=4, columns=6)
+                  BEAD_SHARE * radius_cm, ARC_ENGINE_RGBA["today"], rows=4, columns=6)
     if sun is not None and sun.elevation_deg > 0.0:
         _ball(builder, dome_point(center, radius_cm, sun.elevation_deg, sun.azimuth_deg),
               SUN_SHARE * radius_cm, SUN_RGBA)

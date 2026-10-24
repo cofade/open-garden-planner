@@ -31,6 +31,7 @@ from PyQt6.QtGui import QImage
 
 from open_garden_planner.core.plain_text import log_text
 from open_garden_planner.core.sim_clock import MAX_PLAN_DATE, MIN_PLAN_DATE, SimClock
+from open_garden_planner.ui.sim_clock_subscription import connect_qobject
 
 from .analysis_controller import add_years
 from .analysis_modes import JUMP_YEARS
@@ -58,6 +59,14 @@ class GrowthJump(QObject):
         self._pending: tuple[QImage, date, date] | None = None
         #: Frames taken (an instrument: two per jump with a comparison, never more).
         self.frames_taken = 0
+        connect_qobject(clock.date_changed, self._on_date)
+
+    def _on_date(self, day: date) -> None:
+        """The date moved off a jump's target before its after-picture was taken (the
+        user moved it): that comparison is no longer owed — returning to the target
+        later must not bring a stale before/after up (senior review of #386)."""
+        if self._pending is not None and day != self._pending[2]:
+            self._pending = None
 
     @property
     def origin(self) -> date | None:

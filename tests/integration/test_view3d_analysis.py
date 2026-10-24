@@ -7,11 +7,12 @@ host that records the overlays, the Cutaway switch, the fades and every frame it
 asked for. Each test follows a user's path through the Analyze menu and holds the
 3D side to the 2D side's own answer:
 
-- L2.1: the shadow drape IS the canvas overlay's polygons, cut at the plan; the
-  hours-of-sun drape IS the heatmap's map in the canvas's ramp; choosing it switches
-  the shared Hours of Sun on; a click on the ground reads the map's cell there — the
-  point found by the view ray, checked against the camera's own target — with its
-  band, and pins it.
+- L2.1: the shadow drape IS the canvas overlay's polygons, cut at the plan, on the
+  shade layer; the hours-of-sun drape IS the heatmap's map in the canvas's ramp;
+  choosing it switches the shared Hours of Sun (the REAL ``LiveSunMap``) on, and the
+  drape goes when that goes off; a click on the ground reads the map's cell there —
+  the point found by the view ray, checked against the camera's own target — with
+  its band, and pins it; an edit withdraws the reading until the new map is ready.
 - L2.2: the sun path's arcs are ``core.solar``'s (noon point included), the legend
   names them, and the day sweep runs sunrise → sunset with the drape filling up to
   the whole map and the clock given back.
@@ -34,7 +35,7 @@ from typing import Any
 
 import numpy as np
 import pytest
-from PyQt6.QtCore import QEvent, QPointF, Qt
+from PyQt6.QtCore import QEvent, QObject, QPointF, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QImage, QKeyEvent, QMouseEvent
 
 from open_garden_planner.core.commands import CreateItemCommand
@@ -44,7 +45,7 @@ from open_garden_planner.core.object_height import METADATA_KEY
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.scene3d import engine_buffers
 from open_garden_planner.core.scene3d.camera import FOV_DEG
-from open_garden_planner.core.scene3d.drape import sun_hours_drape
+from open_garden_planner.core.scene3d.drape import DRAPE_LIFT_CM, sun_hours_drape
 from open_garden_planner.core.scene3d.pick_oracle import perspective_ray
 from open_garden_planner.core.scene3d.sun_path import ARC_KINDS, dome_point
 from open_garden_planner.core.scene3d.xray import XRAY_OPACITY
@@ -58,6 +59,7 @@ from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 from open_garden_planner.ui.canvas.sun_heatmap import SunHeatmapController
 from open_garden_planner.ui.canvas.sun_shadow_controller import SunShadowController
+from open_garden_planner.ui.live_sun_map import LiveSunMap
 from open_garden_planner.ui.sun_exposure_text import sun_requirement_label
 from open_garden_planner.ui.view3d.analysis_modes import DrapeMode
 from open_garden_planner.ui.view3d.workspace import XRAY_DELAY_MS, WorkspaceMode
@@ -91,16 +93,55 @@ class GrabHost(FakeHost):
         return None  # the ground: no item there
 
 
+class SunToolbar(QObject):
+    """The sun toolbar as ``LiveSunMap`` sees it: its two requests and what it shows."""
+
+    heatmap_requested = pyqtSignal()
+    heatmap_cleared = pyqtSignal()
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.active: list[bool] = []
+
+    def set_heatmap_active(self, active: bool) -> None:
+        self.active.append(active)
+
+    def set_heatmap_busy(self, _busy: bool) -> None:
+        pass
+
+    def set_map_status(self, *_status: object) -> None:
+        pass
+
+
+class Project(QObject):
+    """The project as ``LiveSunMap`` sees it: the location and its signal."""
+
+    location_changed = pyqtSignal()
+
+    def __init__(self, bench: Bench) -> None:
+        super().__init__()
+        self._bench = bench
+
+    @property
+    def location(self) -> Any:
+        return self._bench.location
+
+
 class AnalysisBench(Bench):
-    """The bench with a garden location and the real 2D analysis wired in."""
+    """The bench with a garden location and the real 2D analysis wired in — the real
+    ``LiveSunMap`` included (the shared Hours of Sun: a stand-in for it hid that the 3D
+    drape outlived its switch, and that the probe read a withdrawn map — senior review
+    of #386)."""
 
     def __init__(self, view: CanvasView, qtbot: Any, folder: Path) -> None:
         super().__init__(view, qtbot, folder, location=dict(BERLIN))
         self.shadows = SunShadowController(self.scene, lambda: self.location, clock=self.clock)
         self.shadows.set_enabled(True)
         self.heatmap = SunHeatmapController(self.scene, lambda: self.location)
-        self.requests: list[bool] = []
-        self.workspace.connect_analysis(self.shadows, self.heatmap, self._request_sun_hours)
+        self.toolbar, self.project = SunToolbar(), Project(self)
+        self.live = LiveSunMap(self.scene, self.clock, self.project, self.heatmap, self.toolbar,
+                               self.commands)
+        self.workspace.connect_analysis(self.shadows, self.heatmap, self.live)
 
     def _factory(self, prefer_software: bool) -> Any:
         from open_garden_planner.core.scene3d import RecordingSink
@@ -111,21 +152,14 @@ class AnalysisBench(Bench):
         self.sinks.append(sink)
         return host, sink
 
-    def _request_sun_hours(self, on: bool) -> None:
-        """What the app's ``LiveSunMap.set_enabled`` does, in short: compute the map."""
-        self.requests.append(on)
-        if on:
-            self.heatmap.run_for_day(self.clock.plan_date)
-        else:
-            self.heatmap.clear()
-
     def open3d(self) -> None:
         self.workspace.set_mode(SPLIT)
         self.settle()
 
     def wait_for_map(self) -> Any:
         self.qtbot.waitUntil(lambda: self.heatmap.result() is not None
-                             and not self.heatmap.result_pending, timeout=60000)
+                             and not self.heatmap.result_pending and self.live.is_current(),
+                             timeout=60000)
         self.settle(20)
         return self.heatmap.result()
 
@@ -163,6 +197,7 @@ def small_canvas(qtbot) -> CanvasView:
 def bench(small_canvas: CanvasView, qtbot, tmp_path: Path) -> AnalysisBench:
     made = AnalysisBench(small_canvas, qtbot, tmp_path)
     yield made
+    made.live.shutdown()
     made.heatmap.shutdown()
 
 
@@ -201,7 +236,7 @@ def test_the_shadow_drape_is_the_2d_overlays_own_polygons_cut_at_the_plan(bench)
     workspace, host = bench.workspace, bench.host
     workspace.set_drape_mode(DrapeMode.SHADOWS)
     assert workspace.drape_actions[DrapeMode.SHADOWS].isChecked()
-    drape = host.overlays["drape"]
+    drape = host.overlays["shade"]   # the layer that MULTIPLIES the frame (PF-L3D-06)
     assert drape is not None
     expected = clip_to_rect(bench.shadows.drape_polygons(), WIDTH, DEPTH)
     assert expected, "the canvas paints a shadow"
@@ -211,12 +246,13 @@ def test_the_shadow_drape_is_the_2d_overlays_own_polygons_cut_at_the_plan(bench)
     bench.clock.set_time_of_day(time(16, 0))
     assert len(host.overlay_calls) > loads
     moved = clip_to_rect(bench.shadows.drape_polygons(), WIDTH, DEPTH)
-    assert ground_area(host.overlays["drape"]) == pytest.approx(polygons_area(moved), rel=1e-4)
+    assert ground_area(host.overlays["shade"]) == pytest.approx(polygons_area(moved), rel=1e-4)
     # night: the canvas shades the whole garden, and so does the drape
     bench.clock.set_time_of_day(time(23, 30))
-    assert ground_area(host.overlays["drape"]) == pytest.approx(WIDTH * DEPTH, rel=1e-6)
+    assert ground_area(host.overlays["shade"]) == pytest.approx(WIDTH * DEPTH, rel=1e-6)
     workspace.set_drape_mode(DrapeMode.NONE)
-    assert host.overlays["drape"] is None
+    assert host.overlays["shade"] is None
+    assert host.overlays.get("drape") is None   # the hours-of-sun layer never showed
 
 
 def test_the_hours_of_sun_drape_switches_hours_of_sun_on_and_lays_the_canvas_map(bench) -> None:
@@ -224,7 +260,8 @@ def test_the_hours_of_sun_drape_switches_hours_of_sun_on_and_lays_the_canvas_map
     bench.open3d()
     workspace, host = bench.workspace, bench.host
     workspace.set_drape_mode(DrapeMode.SUN_HOURS)
-    assert bench.requests == [True], "the shared Hours of Sun was switched on"
+    assert bench.live.enabled and bench.toolbar.active[-1] is True, \
+        "the shared Hours of Sun was switched on (the toolbar follows)"
     shown = bench.wait_for_map()
     expected = engine_buffers(sun_hours_drape(shown.minutes, shown.grid, shown.daylight_minutes, LUT))
     drape = host.overlays["drape"]
@@ -254,34 +291,41 @@ def test_a_click_on_the_ground_reads_the_map_there_and_pins_it(bench) -> None:
     bench.click_view(width / 2.0, height / 2.0)
     assert host.frames_taken == [*frames, "pick"], "the click's one pick, nothing else"
     probe = workspace.analysis.probe_result
+    # where that ray meets the DRAPE's plane (DRAPE_LIFT_CM above the ground): the spot
+    # whose colour the user clicked — a hair short of the target on the ground
+    eye, aim = workspace.camera.pose.eye, workspace.camera.pose.target_scene
+    share = (DRAPE_LIFT_CM - eye[2]) / (aim[2] - eye[2])
+    on_drape = (eye[0] + share * (aim[0] - eye[0]), eye[1] + share * (aim[1] - eye[1]))
+    assert (probe.east_cm, probe.north_cm) == pytest.approx(on_drape, abs=1e-6)
     target = workspace.camera.pose.target
-    assert (probe.east_cm, probe.north_cm) == pytest.approx(target, abs=1e-6)
-    assert probe.reason == "ok" and probe.minutes == shown.minutes_at(*target)
+    assert np.hypot(probe.east_cm - target[0], probe.north_cm - target[1]) < 5.0
+    assert probe.reason == "ok" and probe.minutes == shown.minutes_at(probe.east_cm, probe.north_cm)
     assert probe.band is band_of(probe.minutes) and probe.day == shown.day
     assert sun_requirement_label(probe.band.value) in slot.hint()
     assert host.overlays["lines"] is not None, "the pin"
     # an off-centre click: the point is where the view ray meets the ground
     eye, aim = workspace.camera.pose.eye, workspace.camera.pose.target_scene
     ray = perspective_ray(eye, aim, FOV_DEG, host.size, 150.0, 320.0)
-    reach = -ray.origin[2] / ray.direction[2]
+    reach = (DRAPE_LIFT_CM - ray.origin[2]) / ray.direction[2]
     expected = (ray.origin[0] + reach * ray.direction[0], ray.origin[1] + reach * ray.direction[1])
     bench.click_view(150.0, 320.0)
     probe = workspace.analysis.probe_result
     assert (probe.east_cm, probe.north_cm) == pytest.approx(expected, abs=1e-6)
-    # with the shadows on the ground, a ground click only clears the selection
+    # leaving the hours of sun takes the pin and its reading along (senior review of
+    # #386); with the shadows on the ground, a ground click only clears the selection
     workspace.set_drape_mode(DrapeMode.SHADOWS)
-    before = workspace.analysis.probe_result
+    assert workspace.analysis.probe_result is None and "sun" not in slot.hint()
     bench.click_view(300.0, 300.0)
-    assert workspace.analysis.probe_result == before
+    assert workspace.analysis.probe_result is None
 
 
 def test_without_a_map_or_outside_it_the_probe_says_so(bench) -> None:
     bench.open3d()
     workspace = bench.workspace
     workspace.set_drape_mode(DrapeMode.SUN_HOURS)
-    # the map is being computed: its result is queued to this thread, so a click in the
-    # same turn of the event loop always finds no map yet
-    assert bench.heatmap.result_pending and bench.heatmap.result() is None
+    # the shared Hours of Sun is on, its map not computed yet (LiveSunMap waits for the
+    # plan to settle first): a click in the same turn of the event loop finds no map
+    assert bench.live.enabled and bench.heatmap.result() is None
     width, height = bench.host.size
     bench.click_view(width / 2.0, height / 2.0)
     slot = workspace.info_card.parentWidget()
@@ -498,7 +542,7 @@ def test_nothing_is_sent_while_the_pane_is_hidden_and_all_of_it_when_it_shows(be
     assert len(host.overlay_calls) == calls, "hidden: flags only"
     workspace.set_mode(SPLIT)
     bench.settle()
-    assert host.overlays["lines"] is not None and "drape" in host.overlays
+    assert host.overlays["lines"] is not None and "shade" in host.overlays
     assert len(host.overlay_calls) >= calls + 2
 
 
@@ -515,4 +559,145 @@ def test_a_new_document_drops_the_probe_and_the_jump(bench) -> None:
     bench.settle(150)
     assert workspace.analysis.probe_result is None
     assert not workspace.back_action.isEnabled()
-    assert workspace.drape_actions[DrapeMode.SUN_HOURS].isChecked(), "the user's choice stays"
+    # the shared Hours of Sun goes off for a new plan (LiveSunMap.reset_document), and its
+    # drape goes with it: the menu and the toolbar say the same (senior review of #386)
+    assert not bench.live.enabled
+    assert workspace.analysis.drape_mode is DrapeMode.NONE
+    assert workspace.drape_actions[DrapeMode.NONE].isChecked()
+    assert bench.host.overlays["drape"] is None
+    # choosing it again switches the shared Hours of Sun back on
+    workspace.drape_actions[DrapeMode.SUN_HOURS].trigger()
+    assert bench.live.enabled and workspace.analysis.drape_mode is DrapeMode.SUN_HOURS
+
+
+def test_the_toolbar_switching_hours_of_sun_off_takes_the_3d_drape_with_it(bench) -> None:
+    bench.shed(900.0, 700.0, height=250.0)
+    bench.open3d()
+    workspace = bench.workspace
+    workspace.set_drape_mode(DrapeMode.SUN_HOURS)
+    bench.wait_for_map()
+    assert bench.host.overlays["drape"] is not None
+    bench.toolbar.heatmap_cleared.emit()   # the user switches the toolbar's Hours of Sun off
+    bench.settle(20)
+    assert not bench.live.enabled
+    assert workspace.analysis.drape_mode is DrapeMode.NONE
+    assert workspace.drape_actions[DrapeMode.NONE].isChecked()
+    assert bench.host.overlays["drape"] is None
+
+
+def test_an_edit_withdraws_the_probes_reading_until_the_new_map_is_ready(bench) -> None:
+    """ADR-056: a stale map stays shown as a dated preview, but measures nothing. The
+    probe read the preview after an edit and reported its old minutes as a measurement
+    (senior review of #386)."""
+    bench.shed(900.0, 700.0, height=250.0)
+    bench.open3d()
+    workspace = bench.workspace
+    workspace.set_drape_mode(DrapeMode.SUN_HOURS)
+    bench.wait_for_map()
+    first = workspace.analysis.probe(1000.0, 1000.0)
+    assert first.reason == "ok"
+    bench.shed(950.0, 1050.0, height=600.0)   # a tall shed right beside the probed spot
+    assert workspace.analysis.probe_result.reason == "updating"
+    assert workspace._probe_text() == workspace.tr(  # noqa: SLF001
+        "The hours of sun are being updated for the changed plan.")
+    bench.wait_for_map()
+    again = workspace.analysis.probe_result
+    assert again.reason == "ok" and again.minutes is not None
+    assert again.minutes == bench.heatmap.result().minutes_at(1000.0, 1000.0)
+
+
+def test_analysing_never_dirties_the_plan_nor_touches_its_history(bench) -> None:
+    """FR-3D-ANALYZE-02/06/07: the probe, the sweep, a growth jump and Cutaway look at
+    the plan; none of them is an edit."""
+    house = bench.shed(1200.0, 900.0, height=500.0, kind=ObjectType.HOUSE)
+    bench.open3d()
+    workspace = bench.workspace
+    workspace.set_drape_mode(DrapeMode.SUN_HOURS)
+    bench.wait_for_map()
+    commands = bench.commands
+    history = commands.can_undo
+    stack = list(commands._undo_stack)  # noqa: SLF001
+    workspace.analysis.probe(500.0, 500.0)
+    assert workspace.set_sweeping(True)
+    bench.settle(250)
+    workspace.set_sweeping(False)
+    workspace.jump_actions[1].trigger()
+    bench.settle(150)
+    workspace.back_action.trigger()
+    workspace.set_cutaway(True)
+    bench.scene.clearSelection()
+    house.setSelected(True)
+    bench.settle(XRAY_DELAY_MS + 100)
+    workspace.set_cutaway(False)
+    assert list(commands._undo_stack) == stack  # noqa: SLF001
+    assert commands.can_undo == history
+
+
+# ── review round 1: the sweep's and the jump's exits (senior review of #386) ──
+
+
+def test_a_time_the_user_sets_during_a_sweep_ends_it_and_stays(bench) -> None:
+    bench.open3d()
+    workspace = bench.workspace
+    workspace.set_drape_mode(DrapeMode.SUN_HOURS)
+    bench.wait_for_map()
+    assert workspace.set_sweeping(True)
+    bench.settle(150)
+    bench.clock.set_time_of_day(time(15, 45))   # the user's own time
+    assert not workspace.analysis.sweeping
+    assert bench.clock.time_of_day == time(15, 45), "theirs stays: no give-back over it"
+
+
+def test_a_date_change_ends_the_sweep_and_gives_the_time_back(bench) -> None:
+    bench.open3d()
+    workspace = bench.workspace
+    workspace.set_drape_mode(DrapeMode.SUN_HOURS)
+    bench.wait_for_map()
+    before = bench.clock.time_of_day
+    assert workspace.set_sweeping(True)
+    bench.settle(150)
+    bench.clock.set_date(date(2026, 7, 2))
+    assert not workspace.analysis.sweeping
+    bench.settle(20)   # a turn later: the clock takes no write from its own notification
+    assert bench.clock.time_of_day == before
+
+
+def test_the_engine_going_mid_sweep_gives_the_time_back(bench) -> None:
+    bench.open3d()
+    workspace = bench.workspace
+    workspace.set_drape_mode(DrapeMode.SUN_HOURS)
+    bench.wait_for_map()
+    before = bench.clock.time_of_day
+    analysis = workspace.analysis
+    assert workspace.set_sweeping(True)
+    bench.settle(150)
+    analysis.shutdown()
+    assert not analysis.sweeping and bench.clock.time_of_day == before
+
+
+def test_a_jump_stops_a_sweep_before_its_before_picture(bench) -> None:
+    bench.open3d()
+    workspace = bench.workspace
+    workspace.set_drape_mode(DrapeMode.SUN_HOURS)
+    bench.wait_for_map()
+    assert workspace.set_sweeping(True)
+    bench.settle(150)
+    workspace.jump_actions[1].trigger()
+    assert not workspace.analysis.sweeping
+
+
+def test_a_jump_the_user_moves_away_from_owes_no_comparison(bench) -> None:
+    bench.open3d()
+    workspace = bench.workspace
+    start = bench.clock.plan_date
+    workspace.jump_actions[1].trigger()   # the before is taken, the after is owed
+    assert workspace.growth.pending
+    bench.clock.set_date(start + (date(2027, 1, 1) - date(2026, 12, 1)))   # moved off it
+    assert not workspace.growth.pending
+
+
+def test_the_analysis_dispatches_no_frame_taking_host_call() -> None:
+    from open_garden_planner.ui.view3d.analysis_controller import HOST_CALLS
+
+    assert {"set_overlay", "set_roofs_hidden", "set_faded_items"} == HOST_CALLS
+    assert "grab" not in HOST_CALLS and "pick" not in HOST_CALLS

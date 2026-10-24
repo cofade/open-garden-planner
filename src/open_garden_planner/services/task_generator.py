@@ -216,7 +216,7 @@ def make_calendar_task_id(species_key: str, task_type: str, year: int) -> str:
 # ── Generators ───────────────────────────────────────────────────────────────
 
 def calendar_windows(
-    offset_of: Callable[[str], int | None], last_frost: datetime.date,
+    offset_of: Callable[[str], float | None], last_frost: datetime.date,
 ) -> list[tuple[str, datetime.date, datetime.date]]:
     """``(task_type, start, end)`` of every calendar window a species defines, for one
     last-frost date — THE frost-relative window arithmetic (``generate_calendar_tasks``

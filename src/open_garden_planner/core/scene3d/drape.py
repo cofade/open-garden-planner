@@ -9,9 +9,14 @@ and a crown on a trunk cast differently by design); what a gardener reads off th
 - ``shadow_drape`` — the shadow overlay of the canvas: the very polygons
   ``SunShadowController`` paints (``drape_polygons()``: the union of every
   caster's shadow at the sim instant, the whole canvas at night), cut at the plan
-  rectangle as the canvas cuts them, triangulated, in the canvas's shadow colour
-  (``SHADOW_RGBA``, a mirror of ``sun_shadow_controller._SHADOW_COLOR`` pinned by
-  a test). Nothing is computed a second time.
+  rectangle as the canvas cuts them, triangulated. Its vertex colour is a linear
+  MULTIPLIER (``SHADE_MULTIPLIER``) the engine's ``"shade"`` layer multiplies the
+  frame with: darker in every mood and tinted the way the canvas's shadow colour is
+  (blue over green over red — ``sun_shadow_controller._SHADOW_COLOR``, pinned by a
+  test). A colour BLENDED over the 3D ground cannot do that: an unlit overlay goes
+  through the mood's exposure, and at night (exposure 2.4) the canvas's shadow
+  colour turned the garden lighter (3D review of #386, PF-L3D-06). Nothing is
+  computed a second time.
 - ``sun_hours_drape`` — the hours-of-sun map: the heatmap's minutes grid
   (``core.shade_aggregation.SunHoursMap``) as a vertex-coloured mesh, one vertex
   per cell centre plus a clamped edge — what the canvas's ``SmoothTransformation``
@@ -41,7 +46,7 @@ from numpy.typing import NDArray
 
 from ..shade_aggregation import HeatmapGrid, points_in_polygons
 from ..shadow_geometry import clip_to_rect
-from .color import Rgba, srgb8_to_linear
+from .color import srgb8_to_linear
 from .mesh import Mesh
 from .polygon import RegionTooLargeError, group_rings, triangulate_region
 
@@ -52,8 +57,14 @@ _log = logging.getLogger(__name__)
 #: buffer resolves about 0.3 cm at 50 m and 1.2 cm at 100 m, so 1.5 cm keeps the drape
 #: off the ground's depth from every distance the orbit camera frames a garden at.
 DRAPE_LIFT_CM: Final = 1.5
-#: The canvas's shadow colour, sRGB with alpha (``sun_shadow_controller._SHADOW_COLOR``).
-SHADOW_RGBA: Final[Rgba] = (30, 41, 66, 110)
+#: What the shade layer multiplies the frame under a shadow with, linear RGB: below 1
+#: in every channel (a shadow only darkens) and ordered like the canvas's shadow
+#: colour (30, 41, 66) - blue kept most, red least. Measured 2026-10-24 (D3D11, the
+#: board's hero camera, the High look): the lit lawn under it reads 0.83 of its luma at
+#: noon, 0.76 at golden hour, 0.74 at sunset, 0.78 on a December noon and 0.76 at night;
+#: over the engine's own shadow 0.71-0.84. The over-blended canvas colour read
+#: +17.6 / +24.1 luma at night (lighter) and -4.1 at golden hour.
+SHADE_MULTIPLIER: Final[tuple[float, float, float]] = (0.60, 0.62, 0.95)
 #: At most this many vertices in a sun-hours drape. Beyond it the map is averaged over
 #: square blocks of cells for the drape alone (the probe reads the full map): a 10 cm
 #: map of a 51 x 51 m garden still fits, and the mesh stays below 13 MB.
@@ -71,12 +82,11 @@ def _up_normals(count: int) -> NDArray[np.float64]:
     return normals
 
 
-def _raster_region(outer: Polygon, holes: Sequence[Polygon],
-                   step_cm: float) -> tuple[_F64, NDArray[np.int64]]:
-    """A region as row runs of a ``step_cm`` raster: one quad per run of covered cell
-    centres. Exact to the step — the fallback for a region the triangulator refuses."""
-    rings = [outer, *holes]
-    xy = np.asarray(outer, dtype=np.float64)
+def _raster_rings(rings: Sequence[Polygon], step_cm: float) -> tuple[_F64, NDArray[np.int64]]:
+    """Rings as row runs of a ``step_cm`` raster, even-odd (a hole stays sunny, however
+    the rings lie): one quad per run of covered cell centres. Exact to the step — the
+    fallback for what the triangulator refuses."""
+    xy = np.concatenate([np.asarray(ring, dtype=np.float64).reshape(-1, 2) for ring in rings])
     low, high = xy.min(axis=0), xy.max(axis=0)
     cols = max(1, math.ceil((high[0] - low[0]) / step_cm))
     rows = max(1, math.ceil((high[1] - low[1]) / step_cm))
@@ -102,7 +112,7 @@ def _raster_region(outer: Polygon, holes: Sequence[Polygon],
 
 
 def shadow_drape(polygons: Sequence[Polygon], width_cm: float, depth_cm: float,
-                 rgba: Rgba = SHADOW_RGBA) -> Mesh:
+                 multiplier: tuple[float, float, float] = SHADE_MULTIPLIER) -> Mesh:
     """The shadow overlay's polygons as one flat mesh on the plan (module docstring).
 
     Every region is triangulated exactly (``polygon.triangulate_region``); one the
@@ -113,23 +123,28 @@ def shadow_drape(polygons: Sequence[Polygon], width_cm: float, depth_cm: float,
     clipped = clip_to_rect(polygons, width_cm, depth_cm)
     if not clipped:
         return Mesh.empty()
+    rings = [_as_ring(ring) for ring in clipped]
+    pieces: list[tuple[_F64, NDArray[np.int64]]] = []
     try:
-        regions = group_rings([_as_ring(ring) for ring in clipped])
-    except (ValueError, RegionTooLargeError):
-        # rings that do not nest as outers and holes: every outer ring alone, raster-cut
-        regions = tuple((_as_ring(ring), ()) for ring in clipped
-                        if _signed_area(ring) > 0.0)
-    positions: list[_F64] = []
-    triangles: list[NDArray[np.int64]] = []
-    count = 0
+        regions = group_rings(rings)
+    except (ValueError, RegionTooLargeError) as error:
+        # rings that do not nest as outers and holes: the whole set as ONE even-odd
+        # raster, so a sunny island inside a shadow stays sunny
+        _log.debug("3D drape: the shadow rings were raster-cut whole (%s)", type(error).__name__)
+        regions = ()
+        pieces.append(_raster_rings(rings, FALLBACK_STEP_CM))
     for outer, holes in regions:
         try:
             points, tris = triangulate_region(outer, holes)
-            xy = np.asarray(points, dtype=np.float64).reshape(-1, 2)
-            indices = np.asarray(tris, dtype=np.int64).reshape(-1, 3)
+            pieces.append((np.asarray(points, dtype=np.float64).reshape(-1, 2),
+                           np.asarray(tris, dtype=np.int64).reshape(-1, 3)))
         except (ValueError, RegionTooLargeError) as error:
             _log.debug("3D drape: a shadow region was raster-cut (%s)", type(error).__name__)
-            xy, indices = _raster_region(outer, holes, FALLBACK_STEP_CM)
+            pieces.append(_raster_rings([outer, *holes], FALLBACK_STEP_CM))
+    positions: list[_F64] = []
+    triangles: list[NDArray[np.int64]] = []
+    count = 0
+    for xy, indices in pieces:
         if not len(indices):
             continue
         positions.append(xy)
@@ -141,7 +156,7 @@ def shadow_drape(polygons: Sequence[Polygon], width_cm: float, depth_cm: float,
     full = np.zeros((count, 3))
     full[:, :2] = xy
     full[:, 2] = DRAPE_LIFT_CM
-    colors = np.tile(np.asarray(srgb8_to_linear(rgba), dtype=np.float64), (count, 1))
+    colors = np.tile(np.asarray((*multiplier, 1.0), dtype=np.float64), (count, 1))
     return Mesh.from_arrays(full, _up_normals(count), colors, np.zeros((count, 2)),
                             np.concatenate(triangles))
 
@@ -149,10 +164,6 @@ def shadow_drape(polygons: Sequence[Polygon], width_cm: float, depth_cm: float,
 def _as_ring(ring: Sequence[Sequence[float]]) -> tuple[tuple[float, float], ...]:
     return tuple((float(x), float(y)) for x, y in ring)
 
-
-def _signed_area(ring: Sequence[Sequence[float]]) -> float:
-    xy = np.asarray(ring, dtype=np.float64).reshape(-1, 2)
-    return 0.5 * float(np.dot(xy[:, 0], np.roll(xy[:, 1], -1)) - np.dot(xy[:, 1], np.roll(xy[:, 0], -1)))
 
 
 def _block_mean(values: NDArray[np.float64], factor: int) -> NDArray[np.float64]:

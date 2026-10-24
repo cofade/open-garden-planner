@@ -186,7 +186,10 @@ _LONGEST_WAIT_S: Final = 86_400.0
 #: bounds are this much wider than its mesh on every side (L1.8).
 RING_BOUNDS_MARGIN_CM: Final = 500.0
 #: The analysis overlays of L2 (#386) — layer → the scene property that shows it.
-OVERLAY_LAYERS: Final = {"drape": "drapeVisible", "lines": "linesVisible"}
+#: ``"shade"`` multiplies the frame under it (the 2D shadows), ``"drape"`` blends over
+#: it (the hours-of-sun map), ``"lines"`` is opaque (``Garden.qml``).
+OVERLAY_LAYERS: Final = {"shade": "shadeVisible", "drape": "drapeVisible",
+                         "lines": "linesVisible"}
 #: Qt sizes a render target as ``qRound(logical × ratio)`` per side: the RIGHT frame is
 #: at most half a device pixel off ``logical × ratio``. The rest is the float error of
 #: that product (3000 × 1.1 is not exact; a neighbour's frame is at least 0.1 px further).
@@ -250,6 +253,9 @@ class EnginePart:
     visible: bool
     #: 1.0, or how opaque the part is drawn while it fades as an occluder (L2.4)
     fade: float = 1.0
+    #: The share of its pixels the part's ACTIVE material draws: 1 for its look, the
+    #: screen door's opacity while it fades, 0 for a roof Cutaway cuts (L2.4)
+    drawn: float = 1.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -725,9 +731,10 @@ class Quick3DHost:
     overlay_loads = 0
 
     def set_overlay(self, layer: str, mesh: EngineBuffers | None) -> None:
-        """Show ``mesh`` (engine frame) as the analysis overlay ``layer`` — ``"drape"``
-        (the 2D sun analysis on the ground) or ``"lines"`` (the sun path, the compass,
-        the probe's pin) — or hide it (None).
+        """Show ``mesh`` (engine frame) as the analysis overlay ``layer`` — ``"shade"``
+        (the 2D shadows on the ground: its vertex colour MULTIPLIES the frame),
+        ``"drape"`` (the hours-of-sun map, blended over) or ``"lines"`` (the sun path,
+        the compass, the probe's pin) — or hide it (None).
 
         Like the selection ring: ``Garden.qml`` declares ONE Model per layer for the
         life of the scene, and this loads new vertex data into the one geometry that
@@ -1189,7 +1196,7 @@ class Quick3DHost:
             yaw_deg=float(row["yaw"]),
             tint_rgb=(round(row["r"] * 255.0), round(row["g"] * 255.0), round(row["b"] * 255.0)),
             casts_shadow=bool(row["casts"]), has_geometry=bool(row["geometry"]),
-            visible=bool(row["visible"]), fade=float(row["fade"]),
+            visible=bool(row["visible"]), fade=float(row["fade"]), drawn=float(row["drawn"]),
         ) for row in rows]
 
     def scene_property(self, name: str) -> Any:

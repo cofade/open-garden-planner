@@ -35,7 +35,7 @@ SWATCH = (150, 12, 6)
 GLASS = (60, 60, 14)
 LAWN = (12, 30, 150)
 RING = (0, 48, 173)          # the canvas's selection blue in linear light (the truth view)
-DRAPE = (16, 44, 12)         # the 2D shadow drape over the meadow (L2; measured, GPU and WARP)
+SHADE = (15, 45, 10)         # the 2D shadow drape on the shade layer (L2; measured, GPU and WARP)
 LINES = (171, 9, 90)         # the lines overlay's patch: the pin's colour, linear
 
 
@@ -49,6 +49,19 @@ def _paint(frame: np.ndarray, region: selftest.Region, colour: tuple[int, int, i
     right, bottom = top_down_pixel(region.east_cm + half_w, region.north_cm - half_h, selftest.SHOT,
                                    (width, height), scale)
     frame[round(top):round(bottom), round(left):round(right), :3] = colour
+
+
+def _paint_screen(frame: np.ndarray, region: selftest.Region, colour: tuple[int, int, int],
+                  scale: float, grow_cm: float = 0.0) -> None:
+    """A screen door of ``colour`` over ``region``: every second pixel of every second row
+    (a quarter, as the 4 x 4 dither keeps at the X-ray opacity)."""
+    height, width = frame.shape[:2]
+    half_w, half_h = region.width_cm / 2 + grow_cm, region.depth_cm / 2 + grow_cm
+    left, top = top_down_pixel(region.east_cm - half_w, region.north_cm + half_h, selftest.SHOT,
+                               (width, height), scale)
+    right, bottom = top_down_pixel(region.east_cm + half_w, region.north_cm - half_h, selftest.SHOT,
+                                   (width, height), scale)
+    frame[round(top):round(bottom):2, round(left):round(right):2, :3] = colour
 
 
 def _good_frame(scale: float = 1.0) -> np.ndarray:
@@ -66,8 +79,9 @@ def _good_frame(scale: float = 1.0) -> np.ndarray:
         _paint(frame, selftest.REGIONS[kind], GLASS if kind == "glass" else SWATCH, scale, grow_cm=4.0)
     _paint(frame, selftest.REGIONS["box"], BOX, scale, grow_cm=10.0)
     _paint(frame, selftest.REGIONS["lawn"], LAWN, scale, grow_cm=6.0)
-    _paint(frame, selftest.REGIONS["drape"], DRAPE, scale, grow_cm=6.0)
+    _paint(frame, selftest.REGIONS["shade"], SHADE, scale, grow_cm=6.0)
     _paint(frame, selftest.REGIONS["lines"], LINES, scale, grow_cm=4.0)
+    _paint_screen(frame, selftest.REGIONS["screen"], BOX, scale, grow_cm=4.0)
     return frame
 
 
@@ -89,8 +103,9 @@ class TestJudge:
         frame = _good_frame()
         frame[..., :3] = (207, 226, 242)  # the bare sky colour: nothing was drawn
         problems = selftest.judge_frame(frame)
-        # ground, box, shadow, each swatch, the lawn, the drape, the lines, the ring
-        assert len(problems) == 7 + len(selftest.SWATCH_KINDS)
+        # ground, box, shadow, each swatch, the lawn, the shade, the screen door, the
+        # lines, the ring
+        assert len(problems) == 8 + len(selftest.SWATCH_KINDS)
         assert problems[0].startswith("the ground is not lit meadow")
         assert problems[1].startswith("the box is not there")
 
@@ -101,17 +116,27 @@ class TestJudge:
         assert problems[0].startswith("the box is not there")       # the ground itself is fine
         assert problems[1].startswith("the shadow is missing")
         assert problems[-1].startswith("the selection ring did not draw round the roof swatch")
-        # … the lawn, the drape, the lines and the ring
-        assert len(problems) == 6 + len(selftest.SWATCH_KINDS)
+        # … the lawn, the shade, the screen door, the lines and the ring
+        assert len(problems) == 7 + len(selftest.SWATCH_KINDS)
         assert any(p.startswith("the baked ground does not show the lawn") for p in problems)
 
     def test_a_drape_that_brightens_the_ground_fails(self) -> None:
         """L2: the blend that let the window's white through the frame's alpha — measured
         on the engine as rgb(79, 107, 75) over a meadow of rgb(25, 73, 11)."""
         frame = _good_frame()
-        _paint(frame, selftest.REGIONS["drape"], (79, 107, 75), 1.0, grow_cm=6.0)
+        _paint(frame, selftest.REGIONS["shade"], (79, 107, 75), 1.0, grow_cm=6.0)
         problems = selftest.judge_frame(frame)
         assert len(problems) == 1 and problems[0].startswith("the shadow drape did not darken")
+
+    @pytest.mark.parametrize("drawn", ["whole", "not at all"])
+    def test_a_faded_cube_that_is_no_screen_door_fails(self, drawn: str) -> None:
+        """L2.4: the X-ray occluder is a screen door — a cube drawn whole (the shader's
+        discard did not run) or not at all (it discarded everything) fails."""
+        frame = _good_frame()
+        _paint(frame, selftest.REGIONS["screen"], BOX if drawn == "whole" else GROUND, 1.0,
+               grow_cm=4.0)
+        problems = selftest.judge_frame(frame)
+        assert len(problems) == 1 and problems[0].startswith("the faded cube is not a screen door")
 
     def test_a_missing_overlay_fails(self) -> None:
         frame = _good_frame()
@@ -125,7 +150,7 @@ class TestJudge:
         shadow = shadow_polygon(selftest._ring(100.0, 100.0), 100.0, selftest.SUN.elevation_deg,
                                 selftest.SUN.azimuth_deg)
         reach = max(x for polygon in shadow for x, _y in polygon) + selftest._BOX.east_cm
-        for patch in (selftest.DRAPE_PATCH, selftest.LINES_PATCH):
+        for patch in (selftest.DRAPE_PATCH, selftest.LINES_PATCH, selftest.FADED_PATCH):
             assert patch.east_cm - patch.width_cm / 2 > reach
             assert patch.north_cm - patch.depth_cm / 2 > 0.0
             assert patch.north_cm + patch.depth_cm / 2 < selftest.GROUND.depth_cm
@@ -220,7 +245,10 @@ class TestScene:
         sync = SceneSync(Quick3DSink(engine), selftest.registry(), validate=True)
         sync.apply(selftest.records())
         assert {part.spec.kind for part in engine.parts} == MATERIAL_KINDS
-        assert sync.failures == {} and len(engine.parts) == len(MATERIAL_KINDS)
+        # one part per kind, and one more vc cube: the X-ray occluder (screen.frag, L2.4)
+        assert sync.failures == {} and len(engine.parts) == len(MATERIAL_KINDS) + 1
+        assert selftest.FADED == ("screen",) and selftest.records()["screen"].params[
+            "material_kind"] == "vc"
 
     def test_every_region_lies_inside_the_frame(self) -> None:
         width, height = selftest.SIZE

@@ -1827,7 +1827,7 @@ class Workspace(QWidget):
         self._jump: GrowthJump | None = None
         self._shadow_source: Any = None
         self._sun_heatmap: Any = None
-        self._request_sun_hours: Callable[[bool], None] | None = None
+        self._sun_hours: Any = None   # the shared Hours of Sun (``LiveSunMap``)
         self._wipe: Any = None
         self._legend_row: QWidget | None = None
         # the X-ray waits for a resting camera: restarted by every camera change
@@ -1924,14 +1924,15 @@ class Workspace(QWidget):
         return self._wipe
 
     def connect_analysis(self, shadows: Any = None, heatmap: Any = None,
-                         request_sun_hours: Callable[[bool], None] | None = None) -> None:
+                         sun_hours: Any = None) -> None:
         """The 2D analysis the 3D view lays on its ground (L2): the shadow overlay's
-        controller, the heatmap's controller and the shared Hours-of-Sun switch (the
-        toolbar's). Kept for every engine this workspace builds."""
+        controller, the heatmap's controller and the shared Hours of Sun
+        (``ui.live_sun_map.LiveSunMap``: its switch, its signal, whether its map is
+        current). Kept for every engine this workspace builds."""
         self._shadow_source, self._sun_heatmap = shadows, heatmap
-        self._request_sun_hours = request_sun_hours
+        self._sun_hours = sun_hours
         if self._analysis is not None:
-            self._analysis.connect_sources(shadows, heatmap, request_sun_hours)
+            self._analysis.connect_sources(shadows, heatmap, sun_hours)
 
     def _build_analysis_controls(self, pane: _Pane3D) -> None:
         from .wipe import BeforeAfterWipe
@@ -2026,7 +2027,7 @@ class Workspace(QWidget):
         assert clock is not None
         analysis = AnalysisController(host, clock, self._location, controller.plan_size,
                                       glyphs=cardinal_glyphs, parent=self)
-        analysis.connect_sources(self._shadow_source, self._sun_heatmap, self._request_sun_hours)
+        analysis.connect_sources(self._shadow_source, self._sun_heatmap, self._sun_hours)
         analysis.changed.connect(self._sync_analysis_actions)
         analysis.probe_changed.connect(self._refresh_card)
         orbit.ground_clicked.connect(self._on_ground_clicked)
@@ -2118,6 +2119,8 @@ class Workspace(QWidget):
         it could give no frame)."""
         if self._jump is None:
             return
+        if self._analysis is not None:
+            self._analysis.stop_sweep()   # the before-picture shows the whole day's map
         before = self._wipe.after_image() if self._wipe_shown() else None
         self.close_wipe()
         self._jump.jump(years, before)
@@ -2140,6 +2143,7 @@ class Workspace(QWidget):
     def _ground_point(self, x: float, y: float) -> tuple[float, float] | None:
         """Where the view ray through ``(x, y)`` meets the ground (scene E, N), or None
         when it looks above the horizon."""
+        from open_garden_planner.core.scene3d.drape import DRAPE_LIFT_CM
         from open_garden_planner.core.scene3d.pick_oracle import perspective_ray
 
         host = self._host
@@ -2153,7 +2157,9 @@ class Workspace(QWidget):
         down = ray.direction[2]
         if down >= -1e-9:
             return None
-        reach = -ray.origin[2] / down
+        # the drape's plane, not z = 0: at a walk-mode grazing angle of 4.6 degrees the
+        # 1.5 cm lift is 19 cm — two map cells (senior review of #386)
+        reach = (DRAPE_LIFT_CM - ray.origin[2]) / down
         return (ray.origin[0] + reach * ray.direction[0], ray.origin[1] + reach * ray.direction[1])
 
     def _on_ground_clicked(self, x: float, y: float) -> None:
@@ -2185,6 +2191,8 @@ class Workspace(QWidget):
             return ""
         if probe.reason == "outside":
             return self.tr("That spot lies outside the hours-of-sun map.")
+        if probe.reason == "updating":
+            return self.tr("The hours of sun are being updated for the changed plan.")
         if probe.reason != "ok" or probe.minutes is None or probe.band is None:
             return self.tr("The hours of sun are not computed yet for this plan date.")
         return self.tr("Ground at {east} east, {north} north: {hours} h of direct sun on "

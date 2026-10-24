@@ -1,7 +1,7 @@
 """Analyze in 3D — drapes, sun path, ground probe, day sweep, Cutaway (Phase 17 L2, #386).
 
-Engine-free (no Qt Quick import): it drives the host through four calls —
-``set_overlay`` (the drape, the lines), ``set_roofs_hidden`` and ``set_faded_items``
+Engine-free (no Qt Quick import): it drives the host through three calls —
+``set_overlay`` (the shade or the drape, the lines), ``set_roofs_hidden`` and ``set_faded_items``
 (``AnalysisHost``) — and the workspace's tests hand it a stand-in. One per 3D
 engine; the workspace builds it with the engine and owns it.
 
@@ -10,12 +10,14 @@ here computes a shadow or a sun hour:
 
 - **Shadows drape** — ``SunShadowController.drape_polygons()``, the polygons the
   canvas overlay paints, laid on the ground when ``shadows_changed`` says they
-  changed (``core.scene3d.drape.shadow_drape``).
+  changed (``core.scene3d.drape.shadow_drape``) — on the ``"shade"`` layer, which
+  MULTIPLIES the frame, so a shadow darkens in every mood.
 - **Hours-of-sun drape** — ``SunHeatmapController.result()``, the map the canvas
   shows, laid on the ground when ``computed`` publishes it
   (``core.scene3d.drape.sun_hours_drape``, the canvas's own ramp). Choosing it
-  switches the shared Hours of Sun on (``request_sun_hours``: the toolbar's toggle
-  follows); choosing another drape leaves the 2D map alone.
+  switches the shared Hours of Sun on (``SunHoursSource``, the toolbar's toggle
+  follows), and the drape goes when the shared Hours of Sun goes off — one owner of
+  the state; choosing another drape leaves the 2D map alone.
 - **Probe** — a click on the ground (the workspace turns the click into a ground
   point) reads the shown map's cell (``SunHoursMap.minutes_at``) and its band
   (``sun_mismatch_service.band_of``); a pin marks the spot.
@@ -84,6 +86,13 @@ _LOG: Final = logging.getLogger(__name__)
 #: a 16-hour midsummer day in about ten seconds.
 SWEEP_STEP_MINUTES: Final = 10
 SWEEP_INTERVAL_MS: Final = 100
+#: While a sweep runs, the hours-of-sun drape is built with at most this many vertices
+#: (a step rebuilds it every ``SWEEP_INTERVAL_MS`` on the GUI thread: 62 ms for a
+#: 50 x 50 m garden at the full ``MAX_DRAPE_VERTICES`` — senior review of #386).
+SWEEP_MAX_VERTICES: Final = 65_536
+#: The host calls the controller makes — and the only ones ``_host_call`` dispatches:
+#: a frame-taking call (``grab``) must never slip past the frame-taker scan by name.
+HOST_CALLS: Final = frozenset({"set_overlay", "set_roofs_hidden", "set_faded_items"})
 _LUT: Final = build_sun_lut()
 
 
@@ -93,6 +102,18 @@ class AnalysisHost(Protocol):
     def set_overlay(self, layer: str, mesh: EngineBuffers | None) -> None: ...
     def set_roofs_hidden(self, hidden: bool) -> None: ...
     def set_faded_items(self, item_ids: frozenset[str], opacity: float = ...) -> None: ...
+
+
+class SunHoursSource(Protocol):
+    """The shared Hours of Sun (``ui.live_sun_map.LiveSunMap``) — ONE owner of the
+    state: its switch, the signal of the switch, and whether the map it shows is
+    current (a dated preview may stand while the plan changed: no measurement then)."""
+
+    enabled: bool
+    enabled_changed: Any
+
+    def set_enabled(self, enabled: bool) -> None: ...
+    def is_current(self) -> bool: ...
 
 
 LocationProvider = Callable[[], "Mapping[str, Any] | None"]
@@ -105,8 +126,10 @@ class ProbeResult:
     """What a click on the ground found (module docstring).
 
     ``reason``: ``"ok"`` (``minutes`` and ``band`` are set), ``"no_map"`` (no
-    hours-of-sun map is shown), ``"outside"`` (the point is outside the map's grid).
-    ``day``: the map's day when there is a map.
+    hours-of-sun map is shown), ``"updating"`` (the shown map is a dated preview of a
+    plan that has changed since: its measurements are withdrawn until the new map is
+    ready — ADR-056), ``"outside"`` (the point is outside the map's grid). ``day``: the
+    map's day when there is a map.
     """
 
     east_cm: float
@@ -150,7 +173,7 @@ class AnalysisController(QObject):
         self._cutaway = False
         self._shadows: Any = None
         self._heatmap: Any = None
-        self._request_sun_hours: Callable[[bool], None] | None = None
+        self._sun_hours: SunHoursSource | None = None
         self._probe: ProbeResult | None = None
         self._probe_point: tuple[float, float] | None = None
         # the lines' cached parts: the arcs (by their inputs), the compass (by size)
@@ -166,6 +189,8 @@ class AnalysisController(QObject):
         self._sweep_end = 0
         self._sweep_minute = 0
         self._sweep_return: time | None = None
+        #: True while the sweep writes the clock: any other write ends the sweep
+        self._sweep_writing = False
         self._swept_map: SunHoursMap | None = None
         self._swept_order: list[int] = []
         self._swept_minutes: list[int] = []
@@ -175,6 +200,8 @@ class AnalysisController(QObject):
         self._xray_revision: object = None
         self._xray_scene: XrayScene | None = None
         self._faded: frozenset[str] = frozenset()
+        #: The overlay layer the drape was last loaded into (None: neither shows).
+        self._drape_layer: str | None = None
         #: Failures already logged at WARNING, by what failed (one line per kind).
         self._logged: set[str] = set()
         #: Instruments (tests): overlay loads sent, sweep steps taken.
@@ -186,28 +213,38 @@ class AnalysisController(QObject):
     # ── wiring ───────────────────────────────────────────────────────────────
 
     def connect_sources(self, shadows: Any = None, heatmap: Any = None,
-                        request_sun_hours: Callable[[bool], None] | None = None) -> None:
+                        sun_hours: SunHoursSource | None = None) -> None:
         """The 2D analysis this lays on the ground: the shadow controller (its
         ``drape_polygons()`` / ``shadows_changed``), the heatmap controller (its
-        ``result()`` / ``computed``) and the switch of the shared Hours of Sun."""
-        self._shadows, self._heatmap = shadows, heatmap
-        self._request_sun_hours = request_sun_hours
-        if shadows is not None:
-            shadows.shadows_changed.connect(self._on_shadows)
-        if heatmap is not None:
-            heatmap.computed.connect(self._on_computed)
+        ``result()`` / ``computed`` / ``exposure_changed``) and the shared Hours of Sun
+        (``SunHoursSource``), whose switch the hours-of-sun drape follows."""
+        self._shadows, self._heatmap, self._sun_hours = shadows, heatmap, sun_hours
+        for source, signal, slot in self._source_slots():
+            getattr(source, signal).connect(slot)
+
+    def _source_slots(self) -> list[tuple[Any, str, Callable[..., None]]]:
+        slots: list[tuple[Any, str, Callable[..., None]]] = []
+        if self._shadows is not None:
+            slots.append((self._shadows, "shadows_changed", self._on_shadows))
+        if self._heatmap is not None:
+            slots.append((self._heatmap, "computed", self._on_computed))
+            if hasattr(self._heatmap, "exposure_changed"):
+                slots.append((self._heatmap, "exposure_changed", self._on_exposure))
+        if self._sun_hours is not None:
+            slots.append((self._sun_hours, "enabled_changed", self._on_sun_hours_switched))
+        return slots
 
     def shutdown(self) -> None:
-        """Stop for good (the engine goes): no timer, no source signal reaches this."""
-        self._sweep.stop()
-        for source, signal, slot in ((self._shadows, "shadows_changed", self._on_shadows),
-                                     (self._heatmap, "computed", self._on_computed)):
-            if source is not None:
-                try:
-                    getattr(source, signal).disconnect(slot)
-                except (RuntimeError, TypeError):
-                    _LOG.debug("3D analysis: %s was already disconnected", signal)
-        self._shadows = self._heatmap = None
+        """Stop for good (the engine goes): a sweep gives the time back, then no timer
+        and no source signal reaches this."""
+        self.stop_sweep()
+        self._active = False
+        for source, signal, slot in self._source_slots():
+            try:
+                getattr(source, signal).disconnect(slot)
+            except (RuntimeError, TypeError):
+                _LOG.debug("3D analysis: %s was already disconnected", signal)
+        self._shadows = self._heatmap = self._sun_hours = None
 
     # ── reads ────────────────────────────────────────────────────────────────
 
@@ -252,16 +289,23 @@ class AnalysisController(QObject):
         self._refresh_drape()
         self._refresh_lines()
         self._host_call("set_roofs_hidden", self._cutaway)
+        if not self._cutaway:
+            self._faded = frozenset()   # Cutaway went off while hidden: nothing fades
         self._host_call("set_faded_items", self._faded, XRAY_OPACITY)
 
     def set_drape_mode(self, mode: DrapeMode) -> None:
+        # the shared Hours of Sun decides: choosing its drape always switches it on (the
+        # toolbar follows), also when the drape was already chosen and the 2D side has
+        # switched off since - a document replace, the toolbar (senior review of #386)
+        source = self._sun_hours
+        if mode is DrapeMode.SUN_HOURS and source is not None and not source.enabled:
+            source.set_enabled(True)
         if mode is self._drape_mode:
             return
         self._drape_mode = mode
         if mode is not DrapeMode.SUN_HOURS:
             self.stop_sweep()
-        if mode is DrapeMode.SUN_HOURS and self._request_sun_hours is not None:
-            self._request_sun_hours(True)  # the shared Hours of Sun: the toolbar follows
+            self.clear_probe()   # the pin and its reading belong to the hours of sun
         self._refresh_drape()
         self.changed.emit()
 
@@ -320,6 +364,9 @@ class AnalysisController(QObject):
         shown = self._shown_map()
         if shown is None:
             return ProbeResult(east, north, "no_map")
+        if not self._map_is_current():
+            # a dated preview of a changed plan: shown, never measured (ADR-056)
+            return ProbeResult(east, north, "updating", day=shown.day)
         minutes = shown.minutes_at(east, north)
         if minutes is None:
             return ProbeResult(east, north, "outside", day=shown.day)
@@ -329,6 +376,16 @@ class AnalysisController(QObject):
         if result != self._probe:
             self._probe = result
             self.probe_changed.emit()
+
+    def _map_is_current(self) -> bool:
+        """Whether the shown map measures the plan as it is now (the shared Hours of
+        Sun says; without one, the heatmap's own reason)."""
+        try:
+            if self._sun_hours is not None:
+                return bool(self._sun_hours.is_current())
+            return getattr(self._heatmap, "exposure_reason", "ready") == "ready"
+        except RuntimeError:  # torn down
+            return False
 
     def _shown_map(self) -> SunHoursMap | None:
         heatmap = self._heatmap
@@ -378,12 +435,14 @@ class AnalysisController(QObject):
         self.changed.emit()
         return True
 
-    def stop_sweep(self) -> None:
+    def stop_sweep(self, *, give_back: bool = True) -> None:
+        """End the sweep: the clock goes back to the time it had (``give_back``; not
+        when the user set a time of their own during it — theirs stays)."""
         if not self._sweep.isActive():
             return
         self._sweep.stop()
         back, self._sweep_return = self._sweep_return, None
-        if back is not None:
+        if back is not None and give_back:
             self._clock.set_time_of_day(back)
         self._refresh_drape()  # the whole map again
         self.changed.emit()
@@ -396,7 +455,11 @@ class AnalysisController(QObject):
         self._write_time(self._sweep_minute)
 
     def _write_time(self, minute: int) -> None:
-        self._clock.set_time_of_day(time(minute // 60, minute % 60))
+        self._sweep_writing = True
+        try:
+            self._clock.set_time_of_day(time(minute // 60, minute % 60))
+        finally:
+            self._sweep_writing = False
 
     def _reset_swept(self) -> None:
         self._swept_map = None
@@ -468,6 +531,9 @@ class AnalysisController(QObject):
         self.changed.emit()
 
     def _on_instant(self, _change: SimChange) -> None:
+        if self._sweep.isActive() and not self._sweep_writing:
+            # the user (or another writer) set a time: theirs stays, the sweep ends
+            self.stop_sweep(give_back=False)
         if self._sweep.isActive() and self._drape_mode is DrapeMode.SUN_HOURS:
             self._refresh_drape()
         if self._sun_path:
@@ -475,8 +541,34 @@ class AnalysisController(QObject):
 
     def _on_date(self, _day: date) -> None:
         self._reset_swept()
+        if self._sweep.isActive():
+            # another day has other hours of daylight: the sweep of this one ends. The
+            # time goes back a turn later — the clock refuses a write from inside its
+            # own notification (ADR-053)
+            self._sweep.stop()
+            QTimer.singleShot(0, self._give_time_back)
         if self._sun_path:
             self._refresh_lines()
+
+    def _give_time_back(self) -> None:
+        back, self._sweep_return = self._sweep_return, None
+        if back is None or self._sweep.isActive():
+            return
+        self._clock.set_time_of_day(back)
+        self._refresh_drape()  # the whole map again
+        self.changed.emit()
+
+    def _on_sun_hours_switched(self, enabled: bool) -> None:
+        """The shared Hours of Sun went off (the toolbar, a document replace): its
+        drape goes with it, and the menu follows (``changed``)."""
+        if not enabled and self._drape_mode is DrapeMode.SUN_HOURS:
+            self.set_drape_mode(DrapeMode.NONE)
+
+    def _on_exposure(self) -> None:
+        """The heatmap's measurements were withdrawn or published: the probe reads
+        again (an edit withdraws them at once, the new map brings them back)."""
+        if self._probe_point is not None:
+            self._set_probe(self._measure(*self._probe_point))
 
     def _refresh_drape(self) -> None:
         if not self._active:
@@ -487,7 +579,14 @@ class AnalysisController(QObject):
             self._warn("drape", error)
             mesh = None
         buffers = engine_buffers(mesh) if mesh is not None and mesh.vertex_count else None
-        if self._host_call("set_overlay", "drape", buffers):
+        # the 2D shadows MULTIPLY the frame (the "shade" layer: darker in every mood); the
+        # hours-of-sun map blends over it ("drape"). Switching empties the other layer.
+        layer = "shade" if self._drape_mode is DrapeMode.SHADOWS else "drape"
+        if self._drape_layer not in (None, layer) and self._host_call(
+                "set_overlay", self._drape_layer, None):
+            self._drape_layer = None
+        if self._host_call("set_overlay", layer, buffers):
+            self._drape_layer = layer if buffers is not None else self._drape_layer
             self.drape_loads += 1
 
     def _drape_mesh(self) -> Mesh | None:
@@ -502,7 +601,9 @@ class AnalysisController(QObject):
             minutes = shown.minutes
             if self._sweep.isActive():
                 swept = self._swept(shown, self._clock.instant.minute_of_day)
-                minutes = swept if swept is not None else minutes
+                if swept is not None:
+                    return sun_hours_drape(swept, shown.grid, shown.daylight_minutes, _LUT,
+                                           max_vertices=SWEEP_MAX_VERTICES)
             return sun_hours_drape(minutes, shown.grid, shown.daylight_minutes, _LUT)
         return None
 
@@ -556,7 +657,10 @@ class AnalysisController(QObject):
         return self._arcs
 
     def _host_call(self, name: str, *arguments: object) -> bool:
-        """Call the host, contained: an engine that fails here is logged, never raised."""
+        """Call the host, contained: an engine that fails here is logged, never raised.
+        Only ``HOST_CALLS`` are dispatched (a programming error otherwise)."""
+        if name not in HOST_CALLS:
+            raise ValueError(f"the analysis makes no host call {name!r}")
         if not self._active:
             return False
         try:

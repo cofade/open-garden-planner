@@ -11,7 +11,11 @@ Qt-free: standard library and numpy. Two switches of one "Cutaway" mode:
   selection pass through?" from the camera's eye to sample points of each
   selected item — the centre and the corners of its bounding box, drawn in by
   ``SAMPLE_SHRINK`` so that a corner is a point OF the item and not of the air
-  beside it. A segment is tested against every item's bounding box first and
+  beside it. An item the engine holds no mesh for — a bed without a height, a
+  lawn, a path: drawn into the ground — is looked at on its posed footprint,
+  ``FLAT_TARGET_LIFT_CM`` above its ground plane: the centre and up to
+  ``MAX_FLAT_TARGETS`` ring vertices drawn in by ``SAMPLE_SHRINK`` (without them
+  Cutaway faded nothing for a selected bed — 3D review of #386). A segment is tested against every item's bounding box first and
   against the triangles of the boxes it meets only (``pick_oracle.cast_segment``,
   the pick oracle's own Möller–Trumbore — not a second ray test). The engine then
   draws those items at ``XRAY_OPACITY``.
@@ -30,6 +34,8 @@ from typing import Final, TypeAlias
 import numpy as np
 from numpy.typing import NDArray
 
+from .frame import pose_ring
+from .mesh import MeshPart
 from .pick_oracle import PartsOf, PickScene, cast_segment, pick_scene
 from .record import Record
 
@@ -46,17 +52,23 @@ SAMPLE_SHRINK: Final = 0.15
 #: At most this many selected items are looked through (a select-all of a large plan
 #: would cast thousands of segments on the GUI thread for a picture nobody can read).
 MAX_XRAY_ITEMS: Final = 16
+#: A flat item (no mesh) is looked at this high above its ground plane, cm.
+FLAT_TARGET_LIFT_CM: Final = 5.0
+#: At most this many ring vertices of a flat item's footprint are sample points.
+MAX_FLAT_TARGETS: Final = 8
 
 
 @dataclass(frozen=True, slots=True, eq=False)
 class XrayScene:
     """The pick scene of the records and each item's box: ``low`` / ``high``, one row
-    per entry of ``pick.item_ids``, and the rows of its triangles in ``pick``."""
+    per entry of ``pick.item_ids``, and the rows of its triangles in ``pick``;
+    ``flat``: the sample points of each record the engine holds no mesh for."""
 
     pick: PickScene
     low: _F64
     high: _F64
     rows: tuple[NDArray[np.int64], ...]
+    flat: Mapping[str, tuple[Vector, ...]]
 
     def index(self, item_id: str) -> int | None:
         try:
@@ -66,8 +78,15 @@ class XrayScene:
 
 
 def xray_scene(records: Mapping[str, Record], parts_of: PartsOf) -> XrayScene:
-    """The X-ray scene of ``records``, built from ``parts_of`` (module docstring)."""
-    pick = pick_scene(records, parts_of)
+    """The X-ray scene of ``records``, built from ``parts_of`` (module docstring).
+
+    Roof parts (``ROOF_KIND``) are left out: X-ray runs only in Cutaway, which cuts
+    every roof, so a view through a cut roof passes through nothing — or a plant in a
+    greenhouse would fade the whole building (senior review of #386)."""
+    def uncut(record: Record) -> Sequence[MeshPart]:
+        return tuple(part for part in parts_of(record) if part.material_kind != ROOF_KIND)
+
+    pick = pick_scene(records, uncut)
     count = len(pick.item_ids)
     low = np.zeros((count, 3))
     high = np.zeros((count, 3))
@@ -85,7 +104,28 @@ def xray_scene(records: Mapping[str, Record], parts_of: PartsOf) -> XrayScene:
             rows.append(mine)
             low[index] = tri_low[mine].min(axis=0)
             high[index] = tri_high[mine].max(axis=0)
-    return XrayScene(pick, low, high, tuple(rows))
+    held = set(pick.item_ids)
+    flat = {item_id: points for item_id, record in records.items()
+            if item_id not in held and (points := flat_targets(record))}
+    return XrayScene(pick, low, high, tuple(rows), flat)
+
+
+def flat_targets(record: Record) -> tuple[Vector, ...]:
+    """The sample points of an item drawn into the ground (module docstring): per
+    footprint ring its vertex centre and up to ``MAX_FLAT_TARGETS`` of its vertices,
+    drawn in by ``SAMPLE_SHRINK``, posed, ``FLAT_TARGET_LIFT_CM`` above its base."""
+    lift = record.transform.base_cm + FLAT_TARGET_LIFT_CM
+    points: list[Vector] = []
+    for outer, _holes in record.regions:
+        ring = np.asarray(outer, dtype=np.float64).reshape(-1, 2)
+        if not len(ring):
+            continue
+        center = ring.mean(axis=0)
+        step = max(1, -(-len(ring) // MAX_FLAT_TARGETS))
+        local = [center, *(vertex + (center - vertex) * SAMPLE_SHRINK for vertex in ring[::step])]
+        for x, y in pose_ring(record.transform, ((float(p[0]), float(p[1])) for p in local)):
+            points.append((x, y, lift))
+    return tuple(points)
 
 
 def target_points(scene: XrayScene, item_id: str) -> tuple[Vector, ...]:
@@ -93,7 +133,7 @@ def target_points(scene: XrayScene, item_id: str) -> tuple[Vector, ...]:
     an item the scene does not hold."""
     index = scene.index(item_id)
     if index is None:
-        return ()
+        return tuple(scene.flat.get(item_id, ()))
     low, high = scene.low[index], scene.high[index]
     center = (low + high) / 2.0
     near_low = low + (center - low) * SAMPLE_SHRINK
@@ -131,7 +171,8 @@ def occluders(scene: XrayScene, eye: Sequence[float], selected: Collection[str])
     (module docstring): every item met by a segment from the eye to one of their
     sample points before it gets there, the selected items themselves excepted. At
     most ``MAX_XRAY_ITEMS`` selected items (in sorted order) are looked through."""
-    wanted = sorted(item_id for item_id in set(selected) if scene.index(item_id) is not None)
+    wanted = sorted(item_id for item_id in set(selected)
+                    if scene.index(item_id) is not None or item_id in scene.flat)
     if not wanted or not scene.pick.triangle_count:
         return frozenset()
     origin = np.asarray(eye, dtype=np.float64)
