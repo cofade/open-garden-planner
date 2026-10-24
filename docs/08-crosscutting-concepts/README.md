@@ -3993,7 +3993,9 @@ rank:
 - A plant (`_parent_bed_id`) always renders immediately above its parent bed,
   **only when that bed is itself present in the same layer's list** — a bed
   in a different layer is ignored, and the plant sorts as an ordinary
-  top-level entry by its own rank.
+  top-level entry by its own rank. Since the ground band (8.25.2) the list is
+  one BAND of the layer: a plant on an in-ground bed is above it by the band and
+  sorts by its own rank among the layer's other items.
 - A `ROOF_RIDGE` always renders immediately above its owner polygon, under
   the identical same-layer-only condition.
 
@@ -4043,13 +4045,12 @@ in between — since the refresh runs on many paths unrelated to an explicit
 arrange (layer visibility toggle, opacity preview, any command's unrelated
 cleanup). Only the four writers in 8.25.1 ever touch `stack_order`.
 
-**A write can move an item between the bands** — a type change makes a shed a
-lawn, a group of lawns is made or broken, an agent writes a height into a lawn's
-metadata. `CanvasScene._restack_ground_changes` refreshes each layer holding an item
-whose band no longer matches `on_ground`: at once after every executed, undone or
-redone command (`stack_changed`, wired in `set_command_manager`), and a turn after
-any announced change (`plan_changed`, coalesced by a zero-interval timer). It costs
-about 1 ms on 500 items and restacks nothing when nothing moved between the bands.
+**A command can move an item between the bands** — a type change makes a shed a
+lawn, a group of lawns is made or broken. `CanvasScene._restack_ground_changes`
+refreshes each layer holding an item whose band no longer matches `on_ground`, after
+every executed, undone or redone command (`stack_changed`, wired in
+`set_command_manager`). It costs about 1 ms on 500 items and restacks nothing when
+nothing moved between the bands.
 
 Beyond `addItem`'s automatic refresh, an **explicit** refresh is needed
 wherever an item becomes top-level or gets re-linked to a parent without
@@ -4094,10 +4095,13 @@ happened. The four callers:
    `arrange_object` tool (§8.19).
 
 **Arrange works inside a band** (manual pass of PR #584). Ranks order an item
-only among its own band (8.25.2), so `build_arrange_command` arranges each band of a
-layer's selection alone — `core.stacking.arrange` over that band's entries — and
-hands the command the layer renumbered ground surfaces first. A recorded step is
-always visible; at the edge of its band an item reports "already at front/back".
+only among its own band (8.25.2). `CanvasScene._band_entries` is the ONE split of a
+layer into its bands, ground surfaces first: `_normalized_layer_order` (the drawing)
+normalizes each band alone, and `build_arrange_command` arranges each band of a
+layer's selection on the same split — `core.stacking.arrange` over that band's
+entries — and hands the command the layer renumbered ground surfaces first. A
+recorded step is always visible; at the edge of its band an item reports "already at
+front/back".
 
 No caller ever builds `ArrangeItemsCommand` directly, or duplicates
 `build_arrange_command`'s layer-grouping logic. If you find yourself reaching

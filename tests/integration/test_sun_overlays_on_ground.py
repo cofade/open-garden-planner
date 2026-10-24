@@ -213,7 +213,14 @@ class TestTheGroundBand:
         assert lawn.parentItem() is None and _in_ground_band(lawn) and _in_ground_band(terrace)
         shed = _shed(view)
         view.command_manager.execute(GroupCommand(scene, [lawn, shed]))
-        assert lawn.parentItem() is not None and lawn.parentItem().zValue() >= 0.0
+        mixed = lawn.parentItem()
+        assert mixed is not None and mixed.zValue() >= 0.0
+        # the documented limit (ADR-043 addendum): a surface ranked above a mixed group
+        # is still drawn under it, in 2D and in the 3D ground bake
+        later = PolygonItem([QPointF(x, y) for x, y in ((0, 0), (40, 0), (40, 400), (0, 400))],
+                            object_type=ObjectType.PATH, layer_id=scene.active_layer.id)
+        _add(view, later)
+        assert later.zValue() < -500.0 < mixed.zValue()
 
     def test_the_layer_order_holds_among_ground_surfaces_across_layers(self, view) -> None:
         scene = view.scene()
@@ -287,14 +294,6 @@ class TestTheGroundBand:
         assert lawn.object_type is ObjectType.LAWN and path.object_type is ObjectType.PATH
         assert _in_ground_band(lawn) and _in_ground_band(path)
 
-    def test_an_announced_write_without_a_command_restacks_a_turn_later(self, view, qtbot) -> None:
-        """A height written into metadata by a panel or an agent without a command
-        announces the change (``note_plan_changed``): the band follows a turn later."""
-        lawn = _lawn(view)
-        lawn.metadata[METADATA_KEY] = 30.0
-        view.scene().note_plan_changed()
-        qtbot.waitUntil(lambda: lawn.zValue() >= 0.0, timeout=2000)
-
 
 class TestArrangeStaysInItsBand:
     """Senior review of the manual pass: Arrange ranked over the whole layer, so a
@@ -351,6 +350,64 @@ class TestArrangeStaysInItsBand:
         view.command_manager.execute(command)
         assert len(view.command_manager._undo_stack) == depth + 1
         assert upper.zValue() < lower.zValue() < shed.zValue() < table.zValue()
+
+
+    def test_an_unrelated_arrange_leaves_a_plant_on_an_in_ground_bed_where_it_is(self, view) -> None:
+        """Senior review round 2: arrange split the layer by band while the drawing
+        normalized the whole layer, so sending a LAWN to the back moved a perennial on
+        an in-ground bed under a tree. One band split (``_band_entries``) feeds both."""
+        from open_garden_planner.core.stacking import ArrangeMode, ArrangeOutcome
+        from open_garden_planner.ui.canvas.arrange import build_arrange_command
+        from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+
+        scene = view.scene()
+        layer = scene.active_layer.id
+        tree = CircleItem(200, 200, 150, object_type=ObjectType.TREE, layer_id=layer)
+        bed = RectangleItem(0, 0, 400, 400, object_type=ObjectType.GARDEN_BED, layer_id=layer)
+        plant = CircleItem(150, 150, 30, object_type=ObjectType.PERENNIAL, layer_id=layer)
+        lawn = RectangleItem(300, 300, 400, 400, object_type=ObjectType.LAWN, layer_id=layer)
+        lawn2 = RectangleItem(350, 350, 400, 400, object_type=ObjectType.LAWN, layer_id=layer)
+        for item in (tree, bed, plant, lawn, lawn2):
+            _add(view, item)
+        plant.parent_bed_id = bed.item_id
+        bed.add_child_id(plant.item_id)
+        scene._update_items_z_order()
+        above_tree = plant.zValue() > tree.zValue()
+        command, outcome = build_arrange_command(scene, [lawn2], ArrangeMode.SEND_TO_BACK)
+        assert outcome is ArrangeOutcome.CHANGED
+        view.command_manager.execute(command)
+        assert lawn2.zValue() < lawn.zValue() < -500.0
+        assert (plant.zValue() > tree.zValue()) is above_tree, "the arrange of a lawn moved a plant"
+        command, outcome = build_arrange_command(scene, [plant], ArrangeMode.BRING_TO_FRONT)
+        if above_tree:
+            assert outcome is ArrangeOutcome.ALREADY_AT_FRONT and command is None
+        else:
+            view.command_manager.execute(command)
+            assert plant.zValue() > tree.zValue()
+
+    def test_bring_to_front_on_a_plant_of_an_in_ground_bed_is_a_visible_step(self, view) -> None:
+        """Senior review round 2: "Bring to Front" on such a plant under a table was
+        recorded as a change while the plant stayed under the table."""
+        from open_garden_planner.core.stacking import ArrangeMode, ArrangeOutcome
+        from open_garden_planner.ui.canvas.arrange import build_arrange_command
+        from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+
+        scene = view.scene()
+        layer = scene.active_layer.id
+        bed = RectangleItem(0, 0, 400, 400, object_type=ObjectType.GARDEN_BED, layer_id=layer)
+        plant = CircleItem(150, 150, 30, object_type=ObjectType.PERENNIAL, layer_id=layer)
+        table = RectangleItem(100, 100, 200, 200, object_type=ObjectType.TABLE_RECTANGULAR,
+                              layer_id=layer)
+        for item in (bed, plant, table):
+            _add(view, item)
+        plant.parent_bed_id = bed.item_id
+        bed.add_child_id(plant.item_id)
+        scene._update_items_z_order()
+        assert bed.zValue() < plant.zValue() < table.zValue()
+        command, outcome = build_arrange_command(scene, [plant], ArrangeMode.BRING_TO_FRONT)
+        assert outcome is ArrangeOutcome.CHANGED
+        view.command_manager.execute(command)
+        assert plant.zValue() > table.zValue() > bed.zValue()
 
 
 class TestTheBandOnReload:

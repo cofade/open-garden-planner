@@ -96,8 +96,6 @@ def build_arrange_command(
     for item in eligible:
         by_layer.setdefault(item.layer_id, []).append(item)  # type: ignore[attr-defined]
 
-    from open_garden_planner.ui.canvas.canvas_scene import on_ground
-
     new_orders: dict[UUID, list[QGraphicsItem]] = {}
     outcome = ArrangeOutcome.NOTHING_SELECTED  # sentinel: "not set yet"
     for layer_id, layer_items in by_layer.items():
@@ -108,15 +106,14 @@ def build_arrange_command(
         selected_ids = {scene._stack_identity(item) for item in layer_items}  # type: ignore[attr-defined]
         # The ground surfaces are drawn in their own band under the sun overlays
         # (canvas_scene.GROUND_Z_RANGE), so a rank orders an item only among its own
-        # band: each band of the selection is arranged alone and the layer is
+        # band: each band of the selection is arranged alone — on the scene's own
+        # band split, the one the drawing is normalized from — and the layer is
         # renumbered ground first, so ranks and drawing agree. Over the whole layer a
         # lawn stepped "forward" past a table and nothing visible moved (review of
         # the owner's manual pass of PR #584).
         spliced: list[QGraphicsItem] = []
         layer_changed = False
-        for band in (True, False):
-            band_items = [item for item in candidates if on_ground(item) is band]
-            entries = scene._stack_entries(layer_id, band_items)  # type: ignore[attr-defined]
+        for band_items, entries in scene._band_entries(layer_id, candidates):  # type: ignore[attr-defined]
             items_by_id = {
                 scene._stack_identity(item): item  # type: ignore[attr-defined]
                 for item in band_items
