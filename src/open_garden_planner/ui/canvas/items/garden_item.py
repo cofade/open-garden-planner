@@ -187,9 +187,10 @@ def is_interactive_paint(item: object, widget: QWidget | None) -> bool:
     those stay full detail, while the cached canvas degrades.
 
     The predicate classifies *which paint is this*; it never decides how much
-    detail to draw. It serves one caller, the #472 polygon paint bound. There is
-    no general level-of-detail pass any more: the #409 low-zoom flat fill was
-    removed in #503, measured to buy nothing.
+    detail to draw. It serves the #472 polygon paint bound and the #450
+    styled-path viewport clip. There is no general level-of-detail pass any
+    more: the #409 low-zoom flat fill was removed in #503, measured to buy
+    nothing.
 
     The ``widget is not None`` half stays as robustness for a cache-disabled item
     painted by a real widget; ``TestIsInteractivePaint`` pins both halves. The

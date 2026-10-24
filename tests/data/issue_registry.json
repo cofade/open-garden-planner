@@ -611,7 +611,7 @@
   },
   "386": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "L2 \"Analyze in 3D\": shadow and sun-hours drapes, sun path, info card, growth jump, cutaway (Phase 17)"
   },
   "387": {
@@ -818,6 +818,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Duplicate requirement id in the docs: FR-AGENT-27 is used twice in docs/functional-requirements.md"
+  },
+  "450": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "The 2D canvas has two unbounded costs a large or crafted plan can hit: path-style painting along the whole line and a z-order refresh per added item"
   },
   "453": {
     "is_pr": false,
@@ -1044,6 +1049,11 @@
     "state": "CLOSED",
     "title": "L1.10 leftovers: dead OGP_QUICK3D in the workspace gate, unused walk.svg, a stale-DPR Qt warning"
   },
+  "538": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Local frozen build bundles packages the lock no longer pins (Qt 3D DLLs after L1.10)"
+  },
   "539": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1073,6 +1083,16 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix: restore line appearance undo and contain styled paint"
+  },
+  "550": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Boolean operations accept exactly two shapes, refuse touching ones, and cannot use an ellipse at all"
+  },
+  "551": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Vertex editing a dense polygon creates four scene items per vertex - 1,000+ items for a 255-vertex shape"
   },
   "552": {
     "is_pr": false,
@@ -1104,6 +1124,11 @@
     "state": "CLOSED",
     "title": "Properties and Plant Details: focused text/numeric editors suppress history refresh"
   },
+  "562": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Windows offscreen Plan & Sun layout checks depend on font discovery and test order"
+  },
   "565": {
     "is_pr": true,
     "state": "MERGED",
@@ -1114,14 +1139,19 @@
     "state": "MERGED",
     "title": "fix(#552,#557,#558,#559,#560): plant details undo, lock guard, estimated heights"
   },
-  "571": {
+  "569": {
     "is_pr": false,
     "state": "OPEN",
+    "title": "Preferences dialog compresses controls below their minimum height on short screens"
+  },
+  "571": {
+    "is_pr": false,
+    "state": "CLOSED",
     "title": "CI: required Dependencies checks fail on master (setuptools GHSA-xmj3-9gf7-h52w, filelock 4.2.0)"
   },
   "572": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Remove the stale pip-audit waiver PYSEC-2026-3447 (setuptools is past 83.0.0)"
   },
   "573": {
@@ -1131,12 +1161,17 @@
   },
   "575": {
     "is_pr": true,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "fix(#571,#572): setuptools 84.1.0 and filelock 4.2.4 unblock the required Dependencies checks; end the dead waiver"
   },
   "584": {
     "is_pr": true,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "feat(#386): Phase 17 L2 — Analyze in 3D"
+  },
+  "592": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Every command refreshes every scene item: a one-item-per-command loop is still quadratic (lock badges + ground band)"
   }
 }

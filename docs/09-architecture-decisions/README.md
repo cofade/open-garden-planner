@@ -1439,6 +1439,42 @@ translated startup error using the system locale and exits before the main windo
 
 **Consequences.** Saved files list ground surfaces first (the serializer writes display order; ranks are saved per item, so older versions reload the same ranks; the committed bench and edge-case fixtures were regenerated — a pure reorder). A ground surface's own label, badges and selection handles are children and lie under the overlays with it, and under any solid that overlaps them (the overlays take no clicks; a handle under a solid cannot be grabbed). Construction lines (`-10`) now draw over ground surfaces instead of hiding under them. A mixed group (a lawn grouped with a bench) keeps its lawn above the overlays, and is drawn over any top-level ground surface ranked above it — in 2D and in the 3D ground bake. The 3D ground bake follows the scene order, so a generic shape or a height-less standing object ranked under a surface now paints over it on the 3D ground as well (the two views agree). A plant on an in-ground bed sorts by its own rank among the layer's other items instead of next to its bed: a plan saved by an earlier build without being reloaded since can show such a plant under a tree it was drawn over (plans an earlier build loaded and re-saved carry clamp-ordered ranks and do not change), and giving that bed a height moves the plant back next to it. Pinned by `tests/integration/test_sun_overlays_on_ground.py` (export-pipeline pixels: a shadow and the heatmap change the lawn and leave the shed alone; the band follows a height, a type change, undo, layers and a reload).
 
+### ADR-043 addendum: one z derivation per layer, never one per add (#450, 2026-10-24)
+
+**Context.** A loop of 2 000 single `CanvasScene.addItem` calls took 45 s because each add
+re-derived z for its whole layer, and the same O(n) derivation sat behind every command
+that added an item. The issue's acceptance is "adding n items costs time in proportion to
+n, whoever adds them".
+
+**Decision.** The four rank writers do not change, and the derivation stays the only z
+writer; what changes is how often it runs. An appended independent solid is given the
+derivation's own next value on a **fixed** `Z_POSITION_SCALE` grid inside its layer band
+(the divisor is a constant, not `n + 1`, which is what makes an append's value final). Any
+item that can re-order items already in the layer — a pre-ranked re-add, a child, a bed
+with children, a linked plant, a roof ridge, or a ground surface, which sorts into its own
+band — re-derives synchronously. There is no deferred pass and no command-boundary flush:
+what `addItem` writes is final, so a loop of any length, direct or one item per command,
+costs **one** derivation per layer. Every derivation reseeds the per-layer provisional
+cache with the top of its band-space order — a layer-band value, never the highest
+`zValue` — because since the ground band (PR #584) a ground surface's z lives in
+`GROUND_Z_RANGE`, and seeding from it would put the next added solids below the background.
+A rank writer or a layer reorder invalidates the rank and provisional caches.
+
+**Measurements (dev box, 2026-10-24).** 2 000 direct `addItem` calls: 45 s before, about
+0.1 s after, one `_refresh_layer_z` call, also with 1 000–1 500 items already in the
+layer. 1 000 one-item `CreateItemCommand` executions: 13.09 s before this addendum's final
+shape, 3.18 s after (2 000: 12.1 s), still one derivation for the whole loop; the residual is
+*not* z work — it is the per-command UI refresh that already existed (`update_dimension_lines`
+refreshing every item's lock badge, about 1.8 s of 3.1 s, and PR #584's O(items)
+`_restack_ground_changes`, about 1.0 s), each O(n) per command. A per-command loop is
+therefore still quadratic, but no longer because of the stacking derivation; the follow-up
+is tracked in #592.
+
+**Pins.** `tests/integration/test_canvas_z_batch.py` holds the call count (one for 2 000
+adds, one for 200 commands), ordering, uniqueness, band membership, the layer-reorder case,
+the parent-bed synchronous case, and `test_a_ground_surface_takes_its_band_at_once_and_seeds_from_it`
+for the merge with the ground band.
+
 ## ADR-044: Build Provenance Attestation for Release Artifacts (issue #356)
 
 **Status**: Accepted (2026-09-15)
@@ -3149,7 +3185,8 @@ dependency-update path a documented home:
    when hosted uv reaches the pin.
 7. **One dependency source of truth.** `requirements.txt` / `requirements-dev.txt` were
    deleted (AUD-052); they listed 2 of 15 runtime dependencies and still carried
-   `PyQt6>=6.6.0`, the exact spec behind #277. Installation is `uv sync --locked` from
+   `PyQt6>=6.6.0`, the exact spec behind #277. Installation is
+   `UV_PROJECT_ENVIRONMENT=venv uv sync --locked --all-extras --group build` from
    `pyproject.toml` + `uv.lock` + `pylock.toml`, and a test keeps the files deleted and
    unreferenced.
 
@@ -6786,7 +6823,7 @@ At b1faaa9 the chapter README was 3,432 lines and 532 KB. Its §11.4 ("Known Dev
 4. **Canonical home.** A fact already held in substance in an ADR addendum, a §8 section or a skill is not repeated. An entry becomes a pointer only when its home section holds the entry's issue numbers, the test files and functions its body names, and at least half of its distinctive identifiers. Of 44 candidates, 17 passed and are pointers; 27 failed and were restored verbatim. `audits/2026-10/dedupe-2026-10.md` records every entry's origin and decision.
 5. **Rules and pins** were decided per entry from each verbatim body, in five passes by area, and then validated mechanically: every pinned file exists and defines the named test, and no placeholder remains. 68 entries carry pins (a Pinned by field that starts with a backticked test path); 112 give the reason they have none.
 6. **Frozen snapshot.** `audits/2026-10/audit-2026-10.md` keeps its text (SHA-256 `8f9ea849…c27`, identical to its copy at b1faaa9). Its family moves with it, per the ADR-047 addendum.
-7. **Gates.** `tests/unit/test_pitfall_catalogue.py` (16 tests) checks that index rows and entries agree (ID, rule, status, legacy and anchor); that every heading in an area file is an entry heading; that every Status is one of the four forms; that no placeholder remains; that every pin names a real test under `tests/`; that every pointer's home holds its issue numbers and pins; that every archive link resolves; that the redirect table matches the Legacy fields; that every PF citation resolves; that no legacy numbered citation survives outside the archive and the legacy columns; and the size budgets. The budgets are 64 KB per area file and 80 KB for the chapter README. The area budget is raised from the 48 KB first set, because the UI area holds 22 entries with their full rules and measures 52 KB; the README budget is raised because each index row now carries a full rule (73 KB measured).
+7. **Gates.** `tests/unit/test_pitfall_catalogue.py` (16 tests) checks that index rows and entries agree (ID, rule, status, legacy and anchor); that every heading in an area file is an entry heading; that every Status is one of the four forms; that no placeholder remains; that every pin names a real test under `tests/`; that every pointer's home holds its issue numbers and pins; that every archive link resolves; that the redirect table matches the Legacy fields; that every PF citation resolves; that no legacy numbered citation survives outside the archive and the legacy columns; and the size budgets. The budgets are 64 KB per area file and 80 KB for the chapter README (96 KB since the 2026-10-24 addendum below). The area budget is raised from the 48 KB first set, because the UI area holds 22 entries with their full rules and measures 52 KB; the README budget is raised because each index row now carries a full rule (73 KB measured).
 8. **Citations.** 117 numbered citations in the files outside the chapter became PF citations. A diary-level citation names every standing rule of its diary, so one citation may name up to three entries. Where a citation relies on a sub-lesson that has no entry of its own, it names the entry and the item of the archived narrative, for example `PF-E3D-07, item 1 of archive/05-l1-3-workspace.md`.
 
 ### Consequences
@@ -6802,6 +6839,29 @@ At b1faaa9 the chapter README was 3,432 lines and 532 KB. Its §11.4 ("Known Dev
 - Dedupe: `audits/2026-10/dedupe-2026-10.md` lists all 180 entries with their origin line at b1faaa9, their kind and their decision.
 - Gates: `tests/unit/test_pitfall_catalogue.py` (16 tests, passing), with `test_no_qt3d_left`, `test_quick3d_packaging`, `test_dependency_governance` and `test_skill_citations` (89 passing), `scripts/check_skill_citations.py`, `scripts/check_agent_context.py` and `scripts/sync_wiki.py --check` passing.
 - Code: no runtime file moved. Of the Python lines changed since b1faaa9, all are comments or docstrings except two fixture path constants, `AUDIT_PLAN` in `tests/integration/test_item_style_in_step.py` and `BENCHMARK_PLAN` in `tests/perf/test_nfr_budgets.py`.
+
+### ADR-061 addendum: the index budget is raised, not met by shortening rules (#588, 2026-10-24)
+
+**Context.** PR #584 brought the §11.4 index to 79,997 of its 80,000-byte budget (measured
+newline-normalised, `test_pitfall_catalogue.py::test_size_budgets_hold`) and filed #588: the
+next index row in any area would fail the gate. The non-3D hardening package then needed
+three new PF rows (PF-CAN-23, PF-CAN-24, PF-CI-13) plus PF-UI-28 and the `04b` area-table
+row — 1,665 bytes, taking the index to 81,662. Under that pressure the rules had already
+been cut once in PR #584, and a review called that the wrong feedback loop — a byte count
+that shapes the wording of a rule makes the rule incomplete.
+
+**Decision.** Of #588's three options (split the index per area, raise the budget with a
+stated reason, shorten the index format), this raises the chapter-README budget to 96,000
+bytes. The index inherently grows by one row per lesson — a permanent addition, not a leak
+— and the budget's job is to force the structural split before the file becomes unwieldy,
+not to compress what each lesson says. 96,000 leaves 14,338 bytes, about eight more packages
+at the observed 1,665 bytes each, so the next package does not reopen the question. The
+area files keep their 64 KB budgets; `04-ui-panels-dialogs.md` (63,440) is the next one to
+split. The test's comment says the budget is a maintenance trigger, not a target.
+
+**Consequences.** #588 stays open for the structural decision (a per-area index or a shorter
+row format), which this addendum does not make; the raise is the option it lists and buys
+the time to take it deliberately. No entry, rule or pin changed to fit.
 
 ## ADR-062: Plant lifetimes on the shared plan date (US-F4, #315)
 

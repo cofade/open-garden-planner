@@ -259,6 +259,37 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "CanvasView": {
         "Created {dir} offset of {dist:.1f} cm": "{dir}-Versatz von {dist:.1f} cm erstellt",
         "Distance in cm": "Abstand in cm",
+        # #550: boolean union over a selection.
+        "All shapes must be on the same layer": "Alle Formen m?ssen auf derselben Ebene liegen",
+        "Select at least two shapes (intersection and subtraction need exactly two)": (
+            "Mindestens zwei Formen auswählen "
+            "(Schnittmenge und Subtraktion benötigen genau zwei)"
+        ),
+        "Boolean operations refuse plants, linked objects, constraints, and locked layers": (
+            "Bool'sche Operationen lehnen Pflanzen, verknüpfte Objekte, "
+            "Randbedingungen und gesperrte Ebenen ab"
+        ),
+        "The shapes contain different data; keep them separate or make their data consistent": (
+            "Die Formen enthalten unterschiedliche Daten; getrennt lassen oder "
+            "die Daten angleichen"
+        ),
+        "Boolean operations require closed shapes (polygon, rectangle, circle, or ellipse)": (
+            "Bool'sche Operationen erfordern geschlossene Formen "
+            "(Polygon, Rechteck, Kreis oder Ellipse)"
+        ),
+        "Shapes must touch or overlap": "Formen müssen sich berühren oder überlappen",
+        "Shapes must overlap for this operation": (
+            "Für diese Operation müssen sich die Formen überlappen"
+        ),
+        "The merged outline would contain a hole; keep the shapes separate": (
+            "Die zusammengeführte Kontur würde ein Loch enthalten; "
+            "die Formen getrennt lassen"
+        ),
+        "The result would have {count} vertices; the plan supports at most {limit}. "
+        "Keep the shapes separate.": (
+            "Das Ergebnis hätte {count} Knoten; der Plan unterstützt höchstens "
+            "{limit}. Die Formen getrennt lassen."
+        ),
         "House": "Haus",
         "Garage/Shed": "Garage/Schuppen",
         "Terrace/Patio": "Terrasse/Patio",

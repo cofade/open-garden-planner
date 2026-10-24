@@ -1691,7 +1691,11 @@ class UngroupCommand(Command):
 
 
 class BooleanShapeCommand(Command):
-    """Apply a boolean operation (union/intersect/subtract) on two shapes."""
+    """Replace every source shape by one result in a single undo step.
+
+    The original two-shape constructor stays valid; a union over a larger
+    selection passes the rest as ``additional_items`` (#550).
+    """
 
     def __init__(
         self,
@@ -1700,10 +1704,11 @@ class BooleanShapeCommand(Command):
         item_b: QGraphicsItem,
         result_item: QGraphicsItem,
         operation: str,
+        *,
+        additional_items: list[QGraphicsItem] | None = None,
     ) -> None:
         self._scene = scene
-        self._item_a = item_a
-        self._item_b = item_b
+        self._original_items = [item_a, item_b, *(additional_items or [])]
         self._result_item = result_item
         self._operation = operation
 
@@ -1714,20 +1719,19 @@ class BooleanShapeCommand(Command):
         )
 
     def execute(self) -> None:
-        if self._item_a.scene() is not None:
-            self._scene.removeItem(self._item_a)
-        if self._item_b.scene() is not None:
-            self._scene.removeItem(self._item_b)
+        for item in self._original_items:
+            if item.scene() is self._scene:
+                self._scene.removeItem(item)
         if self._result_item.scene() is None:
             self._scene.addItem(self._result_item)
 
     def undo(self) -> None:
         if self._result_item.scene() is not None:
             self._scene.removeItem(self._result_item)
-        if self._item_a.scene() is None:
-            self._scene.addItem(self._item_a)
-        if self._item_b.scene() is None:
-            self._scene.addItem(self._item_b)
+        with _bulk_add_scope(self._scene):
+            for item in self._original_items:
+                if item.scene() is None:
+                    self._scene.addItem(item)
 
 
 class ArrayAlongPathCommand(Command):

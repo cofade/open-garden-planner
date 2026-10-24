@@ -2738,6 +2738,24 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 - **L2.4 Cutaway / X-ray.** Roofs off by one scene property; the items between the eye and the selection fade (Qt-free segment casts over the meshes the engine holds, the pick oracle's own triangle test), unpickable while faded.
 - **Tests:** the §8.10 workflow `tests/integration/test_view3d_analysis.py` (real shadow overlay and heatmap worker beside the workspace), four new unit files, the QML scene without a GPU, the render tier on GPU / WARP / OpenGL, the frozen `--selftest` (both overlay shaders compiled and judged).
 - **Owner acceptance (2026-10-24), two manual passes.** Pass 1 found the 3D hours-of-sun drape not following the toolbar switch going on, and the 2D shadows and heatmap hidden under lawns (ground surfaces now lie in `GROUND_Z_RANGE` under the overlays; PF-L3D-09, PF-CAN-22, FR-STACK-09). Pass 2 replaced the strip's separate Past/Future label with the Today button saying Past or Future in place at one width (ADR-062 addendum, PF-TST-26), and found the startup Welcome dialog switched off in the owner's real settings by a review probe, not by the code (PF-TST-27; the startup path is now pinned by `tests/integration/test_startup_welcome.py`; guard follow-up #587). Every checklist step was then confirmed and release authorized. Every CI job passed on the merged head (12 jobs, 23 check runs); the frozen smoke and `--selftest` passed; senior review ended with no P0/P1. The required `Dependencies` checks were unblocked by #575 (v1.30.21), merged first. Open owner questions (X-ray look, fading plants in a selected bed, flat vs tinted sun map, floor inside buildings, near half of the arcs #578, generic shapes under the sun study; the other five tracked in #589) keep the shipped behaviour until decided. Follow-ups: #573, #574, #576–#583, #586–#589; the sync's own process gap is #590.
+### Parallel non-3D hardening (2026-10-24, draft PR)
+
+Built beside L2 without touching the 3D/sun/sim-clock stack: a styled line's walk
+is clipped to the visible viewport and budgeted (#450), `addItem` gives an appended
+solid the derivation's own next fixed-grid z so one derivation serves a whole loop
+(and a one-item-per-command loop), dense vertex-edit overlays are sampled in device
+pixels (#551), boolean union accepts a contact-connected selection of any size and
+ellipses and refuses a result above the plan's polygon vertex cap (#550),
+Preferences scrolls its form and opens at content height (#569), and a local build
+compares the venv with `pylock.toml` (#538). #446 was closed with evidence: the
+whole-name/alias rule shipped in v1.30.18, and the three whole-word residues are the
+alias-table case the owner declined. Contributed content: @Sevoiger's personal-fork
+implementation informed #550/#551; #569 was reported by @jbuijgers (fork branch
+`fix/preferences-dialog-height`). §8.25 (one derivation per layer), §8.9 (shared
+path clip), ADR-043 and ADR-061 addenda, FR-EDIT-19, FR-UI-14; the residual
+per-command UI refresh is #592.
+The local full suite still carries the 24 pre-existing Windows-offscreen Plan &
+Sun layout failures tracked by #562; native Windows passes them.
 
 ### L1.0 acceptance highlights — one sim clock (#385, ADR-053) — **shipped v1.29.10, [PR #429](https://github.com/cofade/open-garden-planner/pull/429)**
 

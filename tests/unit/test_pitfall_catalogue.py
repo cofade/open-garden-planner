@@ -22,7 +22,10 @@ PITFALLS = DOC / "pitfalls"
 ARCHIVE = DOC / "archive"
 
 #: The chapter README (the index carries one full rule per entry) must stay small enough to scan.
-README_MAX_BYTES = 80_000
+#: A maintenance trigger, not a target: the index grows one row per lesson, so the
+#: budget is raised when the next package's rows no longer fit rather than met by
+#: shortening rules (ADR-061 addendum "the index budget is raised", #588).
+README_MAX_BYTES = 96_000
 #: Area files. The UI area holds the most entries (22, with their full rules); a file over this is split by sub-area.
 PITFALL_MAX_BYTES = 64_000
 

@@ -62,11 +62,26 @@ def find_nsis() -> Path | None:
     return None
 
 
+def _check_build_environment() -> None:
+    """Warn when the venv holds a distribution the lock does not pin (#538).
+
+    The spec repeats this check so a direct ``pyinstaller installer/ogp.spec``
+    run in the Quick Reference is covered too.
+    """
+    try:
+        from build_environment import warn_if_unpinned
+    except ImportError:  # imported as `installer.build_installer` from the repo root
+        from installer.build_environment import warn_if_unpinned
+
+    warn_if_unpinned(ROOT / "pylock.toml")
+
+
 def run_pyinstaller() -> None:
     """Run PyInstaller to create the standalone bundle."""
     print("=" * 60)
     print("Step 1: Building with PyInstaller")
     print("=" * 60)
+    _check_build_environment()
 
     spec_file = INSTALLER_DIR / "ogp.spec"
     if not spec_file.exists():

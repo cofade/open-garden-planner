@@ -7,8 +7,11 @@ from PyQt6.QtCore import QEvent, QPointF, QRectF, Qt
 from PyQt6.QtGui import QMouseEvent
 from PyQt6.QtWidgets import QApplication, QWidget
 
+from open_garden_planner.core.object_types import ObjectType, PathFenceStyle
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
+from open_garden_planner.ui.canvas.items.path_style_paint import PathStylePaint
+from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 from open_garden_planner.ui.widgets.minimap_widget import (
     _OVERLAY_Z_MIN,
     MARGIN,
@@ -438,3 +441,96 @@ class TestMinimapIdleQuiescence:
         qtbot.wait(300)  # type: ignore[attr-defined]
         assert renders["n"] >= 1
         assert minimap._thumbnail is not None
+
+
+def test_minimap_render_keeps_a_styled_path_s_full_detail(
+    minimap: MinimapWidget, canvas_pair: tuple[CanvasView, CanvasScene], monkeypatch
+) -> None:
+    """A scene.render must not inherit the live view's #450 viewport clip."""
+    view, scene = canvas_pair
+    path = PolylineItem(
+        [QPointF(0, 0), QPointF(2000, 0)],
+        object_type=ObjectType.PATH,
+        path_fence_style=PathFenceStyle.GRAVEL_PATH,
+    )
+    scene.addItem(path)
+    view._zoom_factor = 1.0
+    view._apply_transform()
+    view.centerOn(QPointF(100, 0))
+
+    yielded = []
+    original = PathStylePaint._walk_indexed
+
+    def counting(self, spacing):
+        for element in original(self, spacing):
+            yielded.append(element)
+            yield element
+
+    monkeypatch.setattr(PathStylePaint, "_walk_indexed", counting)
+    minimap._do_update()
+
+    # The live viewport shows only 800 of the path's 2000 cm (about 200 of its
+    # 4 cm-spaced elements). The minimap must still paint the whole path.
+    assert len(yielded) > 400
+
+
+def test_a_19_km_path_is_capped_in_the_minimap(
+    minimap: MinimapWidget, canvas_pair: tuple[CanvasView, CanvasScene], monkeypatch
+) -> None:
+    """A thumbnail must not walk a 475 001-element line every 100 ms."""
+    view, scene = canvas_pair
+    path = PolylineItem(
+        [QPointF(0, 0), QPointF(1_900_000, 0)],
+        object_type=ObjectType.PATH,
+        path_fence_style=PathFenceStyle.GRAVEL_PATH,
+    )
+    scene.addItem(path)
+    view._zoom_factor = 1.0
+    view._apply_transform()
+    view.centerOn(QPointF(100, 0))
+
+    yielded = []
+    original = PathStylePaint._walk_indexed
+
+    def counting(self, spacing):
+        for element in original(self, spacing):
+            yielded.append(element)
+            yield element
+
+    monkeypatch.setattr(PathStylePaint, "_walk_indexed", counting)
+    minimap._do_update()
+
+    assert 0 < len(yielded) < 10_000
+
+
+def test_each_capped_path_gets_its_own_budget(
+    minimap: MinimapWidget, canvas_pair: tuple[CanvasView, CanvasScene], monkeypatch
+) -> None:
+    view, scene = canvas_pair
+    for y in (0, 1000):
+        scene.addItem(
+            PolylineItem(
+                [QPointF(0, y), QPointF(1_900_000, y)],
+                object_type=ObjectType.PATH,
+                path_fence_style=PathFenceStyle.GRAVEL_PATH,
+            )
+        )
+    view._zoom_factor = 1.0
+    view._apply_transform()
+    view.centerOn(QPointF(100, 0))
+
+    per_path: dict[float, int] = {}
+    original = PathStylePaint._walk_indexed
+
+    def counting(self, spacing):
+        key = self._points[0].y()
+        for element in original(self, spacing):
+            per_path[key] = per_path.get(key, 0) + 1
+            yield element
+
+    monkeypatch.setattr(PathStylePaint, "_walk_indexed", counting)
+    minimap._do_update()
+
+    assert set(per_path) == {0.0, 1000.0}
+    assert all(count > 0 for count in per_path.values())
+    assert sum(per_path.values()) <= 2 * 4096

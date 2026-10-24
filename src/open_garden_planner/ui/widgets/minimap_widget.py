@@ -237,7 +237,16 @@ class MinimapWidget(QWidget):
             ]
             painter = QPainter(pixmap)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            self._canvas_scene.render(painter, QRectF(0, 0, w, h), canvas_rect)
+            # A scene.render is not a viewport paint: disable item caches, or a
+            # cached styled path reports the whole item as its exposed rect and
+            # #450's viewport clip would paint only the main view's slice.
+            from open_garden_planner.services.scene_rendering import _uncached_items
+            from open_garden_planner.ui.canvas.items.path_style_paint import (
+                temporary_walk_cap,
+            )
+
+            with _uncached_items(self._canvas_scene), temporary_walk_cap():
+                self._canvas_scene.render(painter, QRectF(0, 0, w, h), canvas_rect)
             painter.end()
         finally:
             self._restore_overlay_items(hidden)
