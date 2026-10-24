@@ -568,7 +568,7 @@ def test_translated_controls_fit_two_rows_at_narrow_width(qtbot, language, font_
             (group.width(), group.sizeHint().width(), group.y()) for group in groups]
         assert all(bar._content.rect().contains(group.geometry()) for group in groups)
         # the reflow's own criterion, not only the layout's slack beyond it
-        assert bar._flow.rows_for_width(max(1, bar.width() - 12)) <= 2, bar._month_slider.width()
+        assert bar._flow.rows_for_width(bar.flow_width()) <= 2, bar._month_slider.width()
         win.resize(1650, 800)
         qtbot.wait(50)
         assert len({group.y() for group in groups}) == 1
@@ -651,9 +651,14 @@ def test_today_button_width_holds_with_fractional_font_metrics(qtbot, language):
     Unhinted fonts at fractional sizes give fractional advances on a real font engine;
     the offscreen platform's box engine has only whole ones, so a run there proves
     little - run with QT_QPA_PLATFORM=minimal:enable_fonts for real fonts, headless."""
+    from PyQt6.QtGui import QFontMetrics
+
     from open_garden_planner.core.i18n import load_translator
     from open_garden_planner.ui.widgets.sun_sim_toolbar import SunSimToolbar
 
+    box = QFontMetrics(QFont("Verdana", 9))
+    if box.horizontalAdvance("i") == box.horizontalAdvance("W"):
+        pytest.skip("box font engine (offscreen on Windows): every advance is whole, nothing to measure")
     app = QApplication.instance()
     try:
         assert load_translator(app, language)

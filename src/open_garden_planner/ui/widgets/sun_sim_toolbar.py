@@ -33,9 +33,8 @@ from open_garden_planner.ui.icons import get_icon
 _ANIMATE_INTERVAL_MS = 200
 _ANIMATE_STEP_MINUTES = 10
 #: The shortest the two sliders get while the strip makes room to stay within two
-#: rows. Once the Today button made room for "Vergangenheit" (PR #584), the strip's own
-#: row estimate (``_reflow``) for German at 10 pt in an 800-px strip still read three
-#: rows at the former 90 px; it reads two at 80.
+#: rows: German at 10 pt in an 800-px strip needs 80 px (measured with real fonts),
+#: and 10 px more leaves room for a platform font that runs wider.
 _MIN_SLIDER_WIDTH = 70
 
 
@@ -328,9 +327,13 @@ class SunSimToolbar(QToolBar):
         super().resizeEvent(event)
         self._reflow()
 
+    def flow_width(self) -> int:
+        """The width the reflow fits the control groups into."""
+        return max(1, self.width() - 12)
+
     def _reflow(self) -> None:
         slider_width = 140 if self.width() < 1100 else 180
-        available = max(1, self.width() - 12)
+        available = self.flow_width()
         while True:
             for slider in (self._month_slider, self._slider):
                 slider.setFixedWidth(slider_width)

@@ -6973,8 +6973,8 @@ The Today button says Past or Future in its own place while the plan date is
 elsewhere, at one width for all three texts (`_TodayButton.sizeHint`, each text
 measured as `QToolButton` measures it), so no control after it moves while the date
 does; a click goes back to today (ADR-062 addendum "Past/Future in the Today
-button": a separate label pushed the month slider under the dragging pointer). The
-sliders shrink to 70 px at most (`_MIN_SLIDER_WIDTH`) to keep the strip within two rows. Map status consumes space only
+button": a separate label pushed the month slider under the dragging pointer). To keep
+the strip within two rows the sliders shrink, but no narrower than 70 px (`_MIN_SLIDER_WIDTH`). Map status consumes space only
 while needed: a completed current map shares the calendar's date, an updating map
 for that date says Updating, and an older preview retains its actual date. The
 hidden-plants menu follows the visible map controls without an empty reserved slot.

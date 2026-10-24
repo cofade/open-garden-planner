@@ -6998,8 +6998,9 @@ style's padding and puts it around the widest of the three texts in the active
 language. Each text is measured as `QToolButton::sizeHint` measures it
 (`fontMetrics().size(Qt::TextShowMnemonic, …)`, a bounding rectangle rounded up).
 The first version used `horizontalAdvance`, which rounds to the nearest pixel. With
-fractional font metrics (125 % scaling, unhinted fonts) the width then still moved
-by 1 px, in 378 of 480 font/size/language combinations measured with real fonts.
+fractional font metrics the width then still moved by 1 px: in 378 of 480
+font/size/language combinations at 125 % scaling (hinted Windows fonts), and in 342
+of 432 with unhinted fonts at 100 %.
 One letter's width is added as the buffer the owner asked for. The width follows a
 font or theme change, because it is a size hint and not a fixed pixel value. A
 language change takes effect on restart, as for every string in the app. The
@@ -7009,9 +7010,12 @@ The cost is a wider Today group on today. With real Verdana 9 pt (Windows font
 engine) the button goes from 59 to 123 px in German and from 45 to 78 px in
 Spanish. With the theme, German at 10 pt in an 800-px strip then needed a third
 row by the strip's own row estimate, with the sliders at their former 90-px floor;
-80 px brings it back to two. The floor is now 70 px (`_MIN_SLIDER_WIDTH`). The
-reflow only shrinks the sliders when the strip needs it, so wider windows are
-unchanged. (The first draft of this addendum quoted 48 and 108 px. Those were the
+80 px brings it back to two. The floor is now 70 px (`_MIN_SLIDER_WIDTH`): the
+measured need plus 10 px for a platform font that runs wider. The reflow only
+shrinks the sliders when the strip needs it, so wider windows are unchanged. At such
+widths the month slider was never month-precise by mouse (its range spans at least
+132 months: about 0.55 px a month at 90 px, 0.4 at 70); its keys and the wheel step
+by month. (The first draft of this addendum quoted 48 and 108 px. Those were the
 offscreen platform's box font, not Verdana: PF-TST-26.)
 
 Pinned by test_today_button_says_past_or_future_in_place_and_nothing_after_it_moves
