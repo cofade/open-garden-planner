@@ -459,7 +459,8 @@ def run_selftest(log_path: Path | None = None, *, watchdog_s: float | None = WAT
                 say(True, f"Qt Quick 3D frame {width}x{height} on {where} in "
                           f"{rendered.open_ms:.0f} ms (Garden.qml, {len(SWATCH_KINDS) + 1} materials, "
                           f"a baked ground of {rendered.ground_tiles} tiles in "
-                          f"{rendered.ground_tiles_painted} tile paints, the selection ring)")
+                          f"{rendered.ground_tiles_painted} tile paints, the selection ring, "
+                          f"the drape and the lines overlays)")
         except Exception as exc:  # noqa: BLE001 - a QML or shader error arrives here
             say(False, f"Qt Quick 3D render -> {type(exc).__name__}: {exc}")
     ok = all(line.startswith("  OK  ") for line in lines)
