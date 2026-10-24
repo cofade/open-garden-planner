@@ -487,7 +487,8 @@ The runbook for acting on the monthly issue:
 code change — PF-CI-12): do NOT run the full `uv lock --upgrade` under that pressure, it
 moves every package. Move only what the advisory names: an exact pin where the project pins
 the package (the build group), then `uv lock --upgrade-package <name>` per package,
-re-export `pylock.toml` with ADR-050's command, `python scripts/check_dependency_lock.py`,
+re-export `pylock.toml` with `uv export` and exactly the arguments of
+`scripts/check_dependency_lock.py`'s `EXPORT_ARGS`, `python scripts/check_dependency_lock.py`,
 the CI `pip-audit` command over the export, and the frozen build (the bundle's inventory,
 smoke and `--selftest`) when the package is in the bundle. #571 is the worked example
 (setuptools 82.0.0 → 84.1.0, filelock 4.2.0 → 4.2.4, nothing else moved). Such a PR is a

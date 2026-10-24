@@ -2002,7 +2002,8 @@ later added six `filelock` 4.2.0 advisories (fixed in 4.2.1; dev extra only, thr
 `pip-audit` → `cachecontrol[filecache]`). Mitigation: the build group pins setuptools
 **84.1.0** and a targeted `uv lock --upgrade-package setuptools --upgrade-package filelock`
 moved only those two packages (filelock to 4.2.4); the frozen bundle's inventory, SBOM,
-smoke and `--selftest` were re-verified on the locked 3.11 builder. 84.1.0 also contains
+smoke and `--selftest` were re-verified in a local review build on the locked Python 3.11.9
+environment (the PR's `frozen-selftest.yml` run repeats it on CI). 84.1.0 also contains
 the 83.0.0 fix for GHSA-h35f-9h28-mq5c, so the one former waiver, `PYSEC-2026-3447`, ended
 with it (a waiver that matches nothing would hide a widened advisory unreviewed). Lesson:
 PF-CI-12.

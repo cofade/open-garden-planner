@@ -236,7 +236,11 @@ has not been rewritten. Per finding:
   the Windows-only `pywin32` is only visible to the Windows leg); the one recorded exception
   is the setuptools advisory `PYSEC-2026-3447` for unused macOS sdist publishing,
   justified in §11.2 and reserved for a
-  separately reviewed update.
+  separately reviewed update. *Update 2026-10-24:* that update is #571 — setuptools 84.1.0
+  (for GHSA-xmj3-9gf7-h52w, which had turned the required `Dependencies` checks red) and
+  filelock 4.2.4, by a targeted `uv lock --upgrade-package` — and the waiver ended with it
+  (#572, PF-CI-12): CI waives no advisory now. AUD-054's remaining acceptance ("fix
+  applicable advisories in a separately reviewed dependency PR") is met.
 - **AUD-050** — hosted uv is verified at 0.12.19 against this project's `==0.12.23` pin, so
   automation is not available; `dependency-review.yml` is the monthly, report-only manual
   fallback, and the runbook plus the Qt/`mcp` cap drift guard live in §7.4 and
