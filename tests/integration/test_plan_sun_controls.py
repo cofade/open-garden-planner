@@ -477,7 +477,11 @@ def test_themed_strip_centres_controls_and_uses_status_space_only_when_needed(qt
         month_centre = bar._month_slider.mapTo(bar, bar._month_slider.rect().center()).y()
         time_centre = bar._slider.mapTo(bar, bar._slider.rect().center()).y()
         if width == 1284:
-            assert abs(month_centre - time_centre) <= 1
+            # the measured groups, so a CI failure says how far the row is over
+            assert abs(month_centre - time_centre) <= 1, (
+                [bar._flow.itemAt(i).widget().sizeHint().width() for i in range(bar._flow.count())],
+                bar.flow_width(), bar._today_button.width(), bar.font().family(),
+                bar.font().pointSizeF(), bar.logicalDpiX())
 
         assert bar._location_button.isVisible() == (not located)
         if not located:
