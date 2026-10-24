@@ -7639,7 +7639,7 @@ Por favor, guarde su proyecto en una ubicación permanente.</translation>
         <message>
             <location filename="../../ui/live_sun_map.py" line="110" />
             <location filename="../../ui/live_sun_map.py" line="123" />
-            <location filename="../../ui/live_sun_map.py" line="146" />
+            <location filename="../../ui/live_sun_map.py" line="152" />
             <source>Hours of Sun could not be computed.</source>
             <translation>No se pudieron calcular las horas de sol.</translation>
         </message>
@@ -7654,28 +7654,28 @@ Por favor, guarde su proyecto en una ubicación permanente.</translation>
             <translation>Establezca la ubicación del jardín antes de calcular las horas de sol.</translation>
         </message>
         <message>
-            <location filename="../../ui/live_sun_map.py" line="177" />
+            <location filename="../../ui/live_sun_map.py" line="183" />
             <source>Sun map unavailable</source>
             <translation>Mapa solar no disponible</translation>
         </message>
         <message>
-            <location filename="../../ui/live_sun_map.py" line="152" />
+            <location filename="../../ui/live_sun_map.py" line="158" />
             <source>Sun-map settings changed during export. Please retry.</source>
             <translation>La configuración del mapa solar cambió durante la exportación. Vuelva a intentarlo.</translation>
         </message>
         <message>
-            <location filename="../../ui/live_sun_map.py" line="155" />
+            <location filename="../../ui/live_sun_map.py" line="161" />
             <source>The garden changed during export. Please retry.</source>
             <translation>El jardín cambió durante la exportación. Vuelva a intentarlo.</translation>
         </message>
         <message>
-            <location filename="../../ui/live_sun_map.py" line="189" />
+            <location filename="../../ui/live_sun_map.py" line="195" />
             <source>The garden document was replaced during export.</source>
             <translation>El documento del jardín se reemplazó durante la exportación.</translation>
         </message>
         <message>
-            <location filename="../../ui/live_sun_map.py" line="137" />
-            <location filename="../../ui/live_sun_map.py" line="201" />
+            <location filename="../../ui/live_sun_map.py" line="143" />
+            <location filename="../../ui/live_sun_map.py" line="207" />
             <source>The garden is closing.</source>
             <translation>El jardín se está cerrando.</translation>
         </message>
@@ -14607,7 +14607,7 @@ Detalles: {error}</translation>
             <translation>Adulto</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="2238" />
+            <location filename="../../ui/view3d/workspace.py" line="2250" />
             <source>After: {date}</source>
             <translation>Después: {date}</translation>
         </message>
@@ -14618,17 +14618,17 @@ Detalles: {error}</translation>
         </message>
         <message>
             <location filename="../../ui/view3d/workspace.py" line="1879" />
-            <location filename="../../ui/view3d/workspace.py" line="2078" />
+            <location filename="../../ui/view3d/workspace.py" line="2088" />
             <source>Back to the Starting Date</source>
             <translation>Volver a la fecha de partida</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="2077" />
+            <location filename="../../ui/view3d/workspace.py" line="2087" />
             <source>Back to {date}</source>
             <translation>Volver al {date}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="2237" />
+            <location filename="../../ui/view3d/workspace.py" line="2249" />
             <source>Before: {date}</source>
             <translation>Antes: {date}</translation>
         </message>
@@ -14648,7 +14648,7 @@ Detalles: {error}</translation>
             <translation>Haga clic en un objeto para ver lo que la vista 3D muestra de él.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="2190" />
+            <location filename="../../ui/view3d/workspace.py" line="2200" />
             <source>Click the ground to read its hours of sun.</source>
             <translation>Haga clic en el suelo para leer sus horas de sol.</translation>
         </message>
@@ -14673,7 +14673,7 @@ Detalles: {error}</translation>
             <translation>Altura de los ojos durante el paseo</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="2198" />
+            <location filename="../../ui/view3d/workspace.py" line="2210" />
             <source>Ground at {east} east, {north} north: {hours} h of direct sun on {date} — {band}.</source>
             <translation>Suelo en {east} este, {north} norte: {hours} h de sol directo el {date} — {band}.</translation>
         </message>
@@ -14728,7 +14728,7 @@ Detalles: {error}</translation>
             <translation>Reproducir la fecha del plano desde el amanecer hasta el atardecer y ver cómo se suman las horas de sol</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1988" />
+            <location filename="../../ui/view3d/workspace.py" line="1991" />
             <source>Set a garden location to draw the sun path.</source>
             <translation>Defina la ubicación del jardín para dibujar la trayectoria solar.</translation>
         </message>
@@ -14807,7 +14807,7 @@ Detalles: {error}</translation>
             <translation>Quitar los tejados y desvanecer lo que está delante de la selección</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="2193" />
+            <location filename="../../ui/view3d/workspace.py" line="2203" />
             <source>That spot lies outside the hours-of-sun map.</source>
             <translation>Ese punto está fuera del mapa de horas de sol.</translation>
         </message>
@@ -14836,14 +14836,19 @@ Detalles: {error}</translation>
             <translation>La vista 3D informó de un problema. Los detalles están en el archivo de registro.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="2195" />
+            <location filename="../../ui/view3d/workspace.py" line="2205" />
             <source>The hours of sun are being updated for the changed plan.</source>
             <translation>Las horas de sol se están actualizando para el plano modificado.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="2197" />
+            <location filename="../../ui/view3d/workspace.py" line="2209" />
             <source>The hours of sun are not computed yet for this plan date.</source>
             <translation>Las horas de sol aún no están calculadas para esta fecha del plano.</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/workspace.py" line="2207" />
+            <source>The hours of sun could not be computed for the changed plan.</source>
+            <translation>No se pudieron calcular las horas de sol para el plano modificado.</translation>
         </message>
         <message>
             <location filename="../../ui/view3d/workspace.py" line="1311" />
@@ -14851,7 +14856,7 @@ Detalles: {error}</translation>
             <translation>No se pudo cambiar la configuración. Los detalles están en el archivo de registro.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="2102" />
+            <location filename="../../ui/view3d/workspace.py" line="2112" />
             <source>There is no daylight to sweep on this date here, or the garden has no location.</source>
             <translation>No hay luz del día que recorrer en esta fecha aquí, o el jardín no tiene ubicación.</translation>
         </message>
@@ -14899,6 +14904,11 @@ Detalles: {error}</translation>
             <location filename="../../ui/view3d/workspace.py" line="1622" />
             <source>{count} objects selected.</source>
             <translation>{count} objetos seleccionados.</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/workspace.py" line="2025" />
+            <source>{day} — same path as the plan date</source>
+            <translation>{day} — mismo recorrido que la fecha del plano</translation>
         </message>
         <message>
             <location filename="../../ui/view3d/workspace.py" line="533" />

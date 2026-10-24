@@ -148,6 +148,44 @@ def main(out: Path) -> int:
         result[f"mood_{mood}"] = {"brightest": float(change.max()), "darkest": float(change.min()),
                                   "darkened": int((change < -2.0).sum())}
 
+    # -- Cutaway and X-ray at Medium (ambient occlusion on), in perspective: the depth
+    #    pass that fills AO's depth texture does not run the screen door's discard, so a
+    #    cut roof left a ghost of itself and a faded part its whole silhouette, until
+    #    screen-door parts collapse in that pass (3D review round 2 of #386). What a part
+    #    adds through AO is (its frame with AO - without) minus the same for an empty
+    #    frame; it is measured where the AO-off frames agree (not on the kept shadow nor
+    #    on the drawn stipple), and a part that is not in the depth texture adds nothing --
+    import dataclasses
+
+    ao_sun = SunState(elevation_deg=55.0, azimuth_deg=180.0)
+    ao_view = PerspectiveShot(eye=(400.0, -250.0, 300.0), target=(400.0, 300.0, 40.0), fov_deg=50.0)
+    medium = look_for(ao_sun, "medium")
+    no_ao = dataclasses.replace(medium, preset=dataclasses.replace(medium.preset,
+                                                                    ambient_occlusion=False))
+
+    def ao_pair(name: str, records: dict, **options: object) -> dict[str, np.ndarray]:
+        shown = {}
+        for tag, look in (("ao", medium), ("no_ao", no_ao)):
+            rendered = render_records(records, shot=ao_view, sun=ao_sun, ground=ground, size=size,
+                                      registry=selftest.registry(), look=look, **options)
+            rendered.image.save(str(out / f"ao_{name}_{tag}.png"))
+            result["qt_errors"] = int(result["qt_errors"]) + int(
+                rendered.qt.get("counts", {}).get("error", 0))
+            shown[tag] = luma(rendered.rgba()[..., :3].astype(np.float64))
+        return shown
+
+    empty = ao_pair("empty", {}, roofs_hidden=True)
+    ao_cases = {"cut_roof": ({"roof": box("roof", 400.0, 300.0, 160.0, 150.0, "roof")},
+                             {"roofs_hidden": True}),
+                "faded_box": ({"wall": box("wall", 400.0, 300.0, 160.0, 150.0, "vc")},
+                              {"faded": {"wall"}, "roofs_hidden": True})}
+    for name, (records, options) in ao_cases.items():
+        shown = ao_pair(name, records, **options)
+        same = np.abs(shown["no_ao"] - empty["no_ao"]) <= 1.0
+        added = np.abs((shown["ao"] - shown["no_ao"]) - (empty["ao"] - empty["no_ao"]))[same]
+        result[f"ao_{name}"] = {"compared": int(same.sum()), "max": float(added.max()),
+                                "over_3": int((added > 3.0).sum())}
+
     (out / "result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     return 0
 

@@ -76,6 +76,9 @@ DE = {
             "Die Sonnenstunden sind für dieses Plandatum noch nicht berechnet.",
         "The hours of sun are being updated for the changed plan.":
             "Die Sonnenstunden werden für den geänderten Plan aktualisiert.",
+        "The hours of sun could not be computed for the changed plan.":
+            "Die Sonnenstunden konnten für den geänderten Plan nicht berechnet werden.",
+        "{day} — same path as the plan date": "{day} — gleiche Bahn wie am Plandatum",
         "There is no daylight to sweep on this date here, or the garden has no location.":
             "An diesem Datum gibt es hier kein Tageslicht zum Abspielen, oder der Garten hat "
             "keinen Standort.",
@@ -157,6 +160,9 @@ ES = {
             "Las horas de sol aún no están calculadas para esta fecha del plano.",
         "The hours of sun are being updated for the changed plan.":
             "Las horas de sol se están actualizando para el plano modificado.",
+        "The hours of sun could not be computed for the changed plan.":
+            "No se pudieron calcular las horas de sol para el plano modificado.",
+        "{day} — same path as the plan date": "{day} — mismo recorrido que la fecha del plano",
         "There is no daylight to sweep on this date here, or the garden has no location.":
             "No hay luz del día que recorrer en esta fecha aquí, o el jardín no tiene ubicación.",
     },

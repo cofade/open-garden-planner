@@ -125,6 +125,12 @@ class LiveSunMap(QObject):
             self._timer.start(0)  # the canceled worker has finally released ownership
         self._reflect()
 
+    @property
+    def unavailable(self) -> bool:
+        """Switched on, and the map for the current inputs could not be computed (the
+        toolbar says "Sun map unavailable")."""
+        return self.enabled and self._failed is not None
+
     def is_current(self) -> bool:
         return (self.enabled and self.heatmap.exposure_reason == "ready"
                 and not self._inputs_dirty and self.heatmap.displayed_snapshot == self._desired)
@@ -174,7 +180,7 @@ class LiveSunMap(QObject):
         with contextlib.suppress(RuntimeError):
             shown = self.heatmap.displayed_snapshot
             updating = self.enabled and not self.is_current() and self._failed is None
-            unavailable = self.tr("Sun map unavailable") if self.enabled and self._failed is not None else ""
+            unavailable = self.tr("Sun map unavailable") if self.unavailable else ""
             status = (shown.day if shown else None, updating, unavailable)
             if status != self._status:
                 self._status = status

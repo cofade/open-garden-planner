@@ -7798,7 +7798,7 @@ Please save your project to a permanent location.</translation>
         <message>
             <location filename="../../ui/live_sun_map.py" line="110" />
             <location filename="../../ui/live_sun_map.py" line="123" />
-            <location filename="../../ui/live_sun_map.py" line="146" />
+            <location filename="../../ui/live_sun_map.py" line="152" />
             <source>Hours of Sun could not be computed.</source>
             <translation>Hours of Sun could not be computed.</translation>
         </message>
@@ -7813,28 +7813,28 @@ Please save your project to a permanent location.</translation>
             <translation>Set a garden location before computing Hours of Sun.</translation>
         </message>
         <message>
-            <location filename="../../ui/live_sun_map.py" line="177" />
+            <location filename="../../ui/live_sun_map.py" line="183" />
             <source>Sun map unavailable</source>
             <translation>Sun map unavailable</translation>
         </message>
         <message>
-            <location filename="../../ui/live_sun_map.py" line="152" />
+            <location filename="../../ui/live_sun_map.py" line="158" />
             <source>Sun-map settings changed during export. Please retry.</source>
             <translation>Sun-map settings changed during export. Please retry.</translation>
         </message>
         <message>
-            <location filename="../../ui/live_sun_map.py" line="155" />
+            <location filename="../../ui/live_sun_map.py" line="161" />
             <source>The garden changed during export. Please retry.</source>
             <translation>The garden changed during export. Please retry.</translation>
         </message>
         <message>
-            <location filename="../../ui/live_sun_map.py" line="189" />
+            <location filename="../../ui/live_sun_map.py" line="195" />
             <source>The garden document was replaced during export.</source>
             <translation>The garden document was replaced during export.</translation>
         </message>
         <message>
-            <location filename="../../ui/live_sun_map.py" line="137" />
-            <location filename="../../ui/live_sun_map.py" line="201" />
+            <location filename="../../ui/live_sun_map.py" line="143" />
+            <location filename="../../ui/live_sun_map.py" line="207" />
             <source>The garden is closing.</source>
             <translation>The garden is closing.</translation>
         </message>
@@ -14830,7 +14830,7 @@ Details: {error}</translation>
             <translation>Adult</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="2238" />
+            <location filename="../../ui/view3d/workspace.py" line="2250" />
             <source>After: {date}</source>
             <translation>After: {date}</translation>
         </message>
@@ -14841,17 +14841,17 @@ Details: {error}</translation>
         </message>
         <message>
             <location filename="../../ui/view3d/workspace.py" line="1879" />
-            <location filename="../../ui/view3d/workspace.py" line="2078" />
+            <location filename="../../ui/view3d/workspace.py" line="2088" />
             <source>Back to the Starting Date</source>
             <translation>Back to the Starting Date</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="2077" />
+            <location filename="../../ui/view3d/workspace.py" line="2087" />
             <source>Back to {date}</source>
             <translation>Back to {date}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="2237" />
+            <location filename="../../ui/view3d/workspace.py" line="2249" />
             <source>Before: {date}</source>
             <translation>Before: {date}</translation>
         </message>
@@ -14871,7 +14871,7 @@ Details: {error}</translation>
             <translation>Click an object to see what the 3D view shows of it.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="2190" />
+            <location filename="../../ui/view3d/workspace.py" line="2200" />
             <source>Click the ground to read its hours of sun.</source>
             <translation>Click the ground to read its hours of sun.</translation>
         </message>
@@ -14896,7 +14896,7 @@ Details: {error}</translation>
             <translation>Eye height while walking</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="2198" />
+            <location filename="../../ui/view3d/workspace.py" line="2210" />
             <source>Ground at {east} east, {north} north: {hours} h of direct sun on {date} — {band}.</source>
             <translation>Ground at {east} east, {north} north: {hours} h of direct sun on {date} — {band}.</translation>
         </message>
@@ -14951,7 +14951,7 @@ Details: {error}</translation>
             <translation>Play the plan date from sunrise to sunset and watch the hours of sun add up</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1988" />
+            <location filename="../../ui/view3d/workspace.py" line="1991" />
             <source>Set a garden location to draw the sun path.</source>
             <translation>Set a garden location to draw the sun path.</translation>
         </message>
@@ -15030,7 +15030,7 @@ Details: {error}</translation>
             <translation>Take the roofs off and let what stands in front of the selection fade</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="2193" />
+            <location filename="../../ui/view3d/workspace.py" line="2203" />
             <source>That spot lies outside the hours-of-sun map.</source>
             <translation>That spot lies outside the hours-of-sun map.</translation>
         </message>
@@ -15059,14 +15059,19 @@ Details: {error}</translation>
             <translation>The 3D view reported a problem. Details are in the log file.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="2195" />
+            <location filename="../../ui/view3d/workspace.py" line="2205" />
             <source>The hours of sun are being updated for the changed plan.</source>
             <translation>The hours of sun are being updated for the changed plan.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="2197" />
+            <location filename="../../ui/view3d/workspace.py" line="2209" />
             <source>The hours of sun are not computed yet for this plan date.</source>
             <translation>The hours of sun are not computed yet for this plan date.</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/workspace.py" line="2207" />
+            <source>The hours of sun could not be computed for the changed plan.</source>
+            <translation>The hours of sun could not be computed for the changed plan.</translation>
         </message>
         <message>
             <location filename="../../ui/view3d/workspace.py" line="1311" />
@@ -15074,7 +15079,7 @@ Details: {error}</translation>
             <translation>The setting could not be changed. Details are in the log file.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="2102" />
+            <location filename="../../ui/view3d/workspace.py" line="2112" />
             <source>There is no daylight to sweep on this date here, or the garden has no location.</source>
             <translation>There is no daylight to sweep on this date here, or the garden has no location.</translation>
         </message>
@@ -15122,6 +15127,11 @@ Details: {error}</translation>
             <location filename="../../ui/view3d/workspace.py" line="1622" />
             <source>{count} objects selected.</source>
             <translation>{count} objects selected.</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/workspace.py" line="2025" />
+            <source>{day} — same path as the plan date</source>
+            <translation>{day} — same path as the plan date</translation>
         </message>
         <message>
             <location filename="../../ui/view3d/workspace.py" line="533" />

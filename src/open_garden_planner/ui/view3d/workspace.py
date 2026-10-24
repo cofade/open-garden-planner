@@ -75,7 +75,7 @@ from __future__ import annotations
 import enum
 import logging
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Final, Protocol
 
 from PyQt6.QtCore import QEvent, QObject, QPoint, QRect, QSize, Qt, QTimer, pyqtSignal
@@ -1971,6 +1971,8 @@ class Workspace(QWidget):
         names = {"today": self.tr("Plan date"), "june_solstice": self.tr("21 June"),
                  "december_solstice": self.tr("21 December"), "march_equinox": self.tr("20 March")}
         self._legend_swatches: list[QWidget] = []
+        self._legend_names = names
+        self._legend_labels: dict[str, QLabel] = {}
         for kind in ARC_KINDS:
             swatch = QFrame(row)  # a bar of the arc's colour (no text: not a label)
             swatch.setFixedSize(16, 4)
@@ -1985,6 +1987,7 @@ class Workspace(QWidget):
             layout.addWidget(label)
             layout.addSpacing(6)
             self._legend_swatches.extend((swatch, label))
+            self._legend_labels[kind] = label
         self._legend_note = QLabel(self.tr("Set a garden location to draw the sun path."), row)
         self._legend_note.setTextFormat(Qt.TextFormat.PlainText)
         self._legend_note.setWordWrap(True)
@@ -2014,6 +2017,13 @@ class Workspace(QWidget):
             for widget in self._legend_swatches:
                 widget.setVisible(located)
             self._legend_note.setVisible(not located)
+            twins = _twin_arcs(analysis.arcs())
+            for kind, label in self._legend_labels.items():
+                name = self._legend_names[kind]
+                # within days of a key day the plan date's (thicker) arc covers its twin:
+                # the legend says so instead of promising an arc nobody can see
+                label.setText(self.tr("{day} — same path as the plan date").format(day=name)
+                              if kind in twins else name)
         row.setVisible(shown)
         self._refresh_notices()
 
@@ -2193,6 +2203,8 @@ class Workspace(QWidget):
             return self.tr("That spot lies outside the hours-of-sun map.")
         if probe.reason == "updating":
             return self.tr("The hours of sun are being updated for the changed plan.")
+        if probe.reason == "unavailable":
+            return self.tr("The hours of sun could not be computed for the changed plan.")
         if probe.reason != "ok" or probe.minutes is None or probe.band is None:
             return self.tr("The hours of sun are not computed yet for this plan date.")
         return self.tr("Ground at {east} east, {north} north: {hours} h of direct sun on "
@@ -2250,6 +2262,20 @@ class Workspace(QWidget):
         else:
             pane.body.setCurrentWidget(pane.message_page)
         self._on_pane_showing()
+
+
+#: Two arcs whose noons lie this close (degrees of elevation) draw as one.
+TWIN_ARC_DEG: Final = 0.5
+
+
+def _twin_arcs(arcs: Sequence[Any]) -> frozenset[str]:
+    """The key days whose arc the plan date's arc covers: their solar noon within
+    ``TWIN_ARC_DEG`` of the plan date's (3D review round 2 of #386)."""
+    today = next((arc for arc in arcs if arc.kind == "today"), None)
+    if today is None or today.noon is None:
+        return frozenset()
+    return frozenset(arc.kind for arc in arcs if arc.kind != "today" and arc.noon is not None
+                     and abs(arc.noon.elevation_deg - today.noon.elevation_deg) <= TWIN_ARC_DEG)
 
 
 def _locale_date(day: Any) -> str:

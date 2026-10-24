@@ -7160,7 +7160,19 @@ the 2D Hours of Sun. Decisions 2, 3, 6 and 9 change as follows.
 
 Also: the shadow drape's fallback for rings that do not group rasters the whole set
 even-odd (a sunny island stayed shaded); the card takes week offsets as the task
-generator does (it truncated them). Pinned by the render tier's new mood, shadow and
+generator does (it truncated them).
+
+**Round 2 (both reviews).** The depth pass that fills ambient occlusion's depth texture
+does not run the screen door's discard: from the Medium preset (the AUTO start) a cut
+roof left a ghost of itself and a faded occluder its silhouette as AO. Every
+screen-door material collapses in that pass (`#if QSSG_ENABLE_DEPTH_PASS` in
+`screen.vert`, `foliage_door.vert`, `grass_door.vert`); the shadow pass keeps the part
+(measured: AO adds at most 1.5 luma for a cut roof or a faded box, up to 26 without;
+`NeverDepthDraw` instead lost the shadow and kept the ghost). Foliage, grass and water
+switch to screen-door copies of their shaders as the built parts do, so the look
+shaders are master's to the byte and carry no discard while nothing fades. The probe
+says "could not be computed" after a failed run (`LiveSunMap.unavailable`), and the
+legend names a key day whose arc the plan date's arc covers (noons within 0.5°). Pinned by the render tier's new mood, shadow and
 screen-door tests, `test_quick3d_qml.py` (blends, screen doors), the self-test (a
 faded cube: `screen.frag` compiled from the bundle), and `test_view3d_analysis.py`
 with the real `LiveSunMap`.

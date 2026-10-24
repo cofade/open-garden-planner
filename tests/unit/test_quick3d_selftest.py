@@ -81,7 +81,8 @@ def _good_frame(scale: float = 1.0) -> np.ndarray:
     _paint(frame, selftest.REGIONS["lawn"], LAWN, scale, grow_cm=6.0)
     _paint(frame, selftest.REGIONS["shade"], SHADE, scale, grow_cm=6.0)
     _paint(frame, selftest.REGIONS["lines"], LINES, scale, grow_cm=4.0)
-    _paint_screen(frame, selftest.REGIONS["screen"], BOX, scale, grow_cm=4.0)
+    for item_id in selftest.FADED:
+        _paint_screen(frame, selftest.REGIONS[item_id], BOX, scale, grow_cm=4.0)
     return frame
 
 
@@ -103,9 +104,9 @@ class TestJudge:
         frame = _good_frame()
         frame[..., :3] = (207, 226, 242)  # the bare sky colour: nothing was drawn
         problems = selftest.judge_frame(frame)
-        # ground, box, shadow, each swatch, the lawn, the shade, the screen door, the
+        # ground, box, shadow, each swatch, the lawn, the shade, each screen door, the
         # lines, the ring
-        assert len(problems) == 8 + len(selftest.SWATCH_KINDS)
+        assert len(problems) == 7 + len(selftest.FADED) + len(selftest.SWATCH_KINDS)
         assert problems[0].startswith("the ground is not lit meadow")
         assert problems[1].startswith("the box is not there")
 
@@ -116,8 +117,8 @@ class TestJudge:
         assert problems[0].startswith("the box is not there")       # the ground itself is fine
         assert problems[1].startswith("the shadow is missing")
         assert problems[-1].startswith("the selection ring did not draw round the roof swatch")
-        # … the lawn, the shade, the screen door, the lines and the ring
-        assert len(problems) == 7 + len(selftest.SWATCH_KINDS)
+        # … the lawn, the shade, each screen door, the lines and the ring
+        assert len(problems) == 6 + len(selftest.FADED) + len(selftest.SWATCH_KINDS)
         assert any(p.startswith("the baked ground does not show the lawn") for p in problems)
 
     def test_a_drape_that_brightens_the_ground_fails(self) -> None:
@@ -136,7 +137,7 @@ class TestJudge:
         _paint(frame, selftest.REGIONS["screen"], BOX if drawn == "whole" else GROUND, 1.0,
                grow_cm=4.0)
         problems = selftest.judge_frame(frame)
-        assert len(problems) == 1 and problems[0].startswith("the faded cube is not a screen door")
+        assert len(problems) == 1 and problems[0].startswith("the faded vc cube is not a screen door")
 
     def test_a_missing_overlay_fails(self) -> None:
         frame = _good_frame()
@@ -150,7 +151,8 @@ class TestJudge:
         shadow = shadow_polygon(selftest._ring(100.0, 100.0), 100.0, selftest.SUN.elevation_deg,
                                 selftest.SUN.azimuth_deg)
         reach = max(x for polygon in shadow for x, _y in polygon) + selftest._BOX.east_cm
-        for patch in (selftest.DRAPE_PATCH, selftest.LINES_PATCH, selftest.FADED_PATCH):
+        for patch in (selftest.DRAPE_PATCH, selftest.LINES_PATCH, selftest.FADED_PATCH,
+                      selftest.FADED_FOLIAGE_PATCH, selftest.FADED_WATER_PATCH):
             assert patch.east_cm - patch.width_cm / 2 > reach
             assert patch.north_cm - patch.depth_cm / 2 > 0.0
             assert patch.north_cm + patch.depth_cm / 2 < selftest.GROUND.depth_cm
@@ -245,10 +247,10 @@ class TestScene:
         sync = SceneSync(Quick3DSink(engine), selftest.registry(), validate=True)
         sync.apply(selftest.records())
         assert {part.spec.kind for part in engine.parts} == MATERIAL_KINDS
-        # one part per kind, and one more vc cube: the X-ray occluder (screen.frag, L2.4)
-        assert sync.failures == {} and len(engine.parts) == len(MATERIAL_KINDS) + 1
-        assert selftest.FADED == ("screen",) and selftest.records()["screen"].params[
-            "material_kind"] == "vc"
+        # one part per kind, and one faded cube per screen-door shader (L2.4)
+        assert sync.failures == {} and len(engine.parts) == len(MATERIAL_KINDS) + 3
+        assert {selftest.records()[item_id].params["material_kind"] for item_id in
+                selftest.FADED} == {"vc", "foliage", "water"}
 
     def test_every_region_lies_inside_the_frame(self) -> None:
         width, height = selftest.SIZE

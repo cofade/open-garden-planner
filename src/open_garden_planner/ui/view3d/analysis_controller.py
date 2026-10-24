@@ -128,7 +128,8 @@ class ProbeResult:
     ``reason``: ``"ok"`` (``minutes`` and ``band`` are set), ``"no_map"`` (no
     hours-of-sun map is shown), ``"updating"`` (the shown map is a dated preview of a
     plan that has changed since: its measurements are withdrawn until the new map is
-    ready — ADR-056), ``"outside"`` (the point is outside the map's grid). ``day``: the
+    ready — ADR-056), ``"unavailable"`` (that new map could not be computed),
+    ``"outside"`` (the point is outside the map's grid). ``day``: the
     map's day when there is a map.
     """
 
@@ -236,8 +237,13 @@ class AnalysisController(QObject):
 
     def shutdown(self) -> None:
         """Stop for good (the engine goes): a sweep gives the time back, then no timer
-        and no source signal reaches this."""
-        self.stop_sweep()
+        and no source signal reaches this. Contained: the engine's teardown goes on even
+        when a clock listener fails on the give-back."""
+        try:
+            self.stop_sweep()
+        except Exception as error:  # noqa: BLE001 - the host must still be closed
+            self._sweep.stop()
+            self._warn("sweep", error)
         self._active = False
         for source, signal, slot in self._source_slots():
             try:
@@ -365,8 +371,10 @@ class AnalysisController(QObject):
         if shown is None:
             return ProbeResult(east, north, "no_map")
         if not self._map_is_current():
-            # a dated preview of a changed plan: shown, never measured (ADR-056)
-            return ProbeResult(east, north, "updating", day=shown.day)
+            # a dated preview of a changed plan: shown, never measured (ADR-056); when the
+            # new map could not be computed, the reading says so instead of "updating"
+            reason = "unavailable" if self._map_failed() else "updating"
+            return ProbeResult(east, north, reason, day=shown.day)
         minutes = shown.minutes_at(east, north)
         if minutes is None:
             return ProbeResult(east, north, "outside", day=shown.day)
@@ -384,6 +392,13 @@ class AnalysisController(QObject):
             if self._sun_hours is not None:
                 return bool(self._sun_hours.is_current())
             return getattr(self._heatmap, "exposure_reason", "ready") == "ready"
+        except RuntimeError:  # torn down
+            return False
+
+    def _map_failed(self) -> bool:
+        """Whether the shared Hours of Sun says its map could not be computed."""
+        try:
+            return bool(getattr(self._sun_hours, "unavailable", False))
         except RuntimeError:  # torn down
             return False
 
@@ -549,10 +564,13 @@ class AnalysisController(QObject):
             QTimer.singleShot(0, self._give_time_back)
         if self._sun_path:
             self._refresh_lines()
+            self.changed.emit()   # the legend says which arcs the plan date's arc covers
 
     def _give_time_back(self) -> None:
+        if self._sweep.isActive():   # a new sweep began in between: the time is its own
+            return
         back, self._sweep_return = self._sweep_return, None
-        if back is None or self._sweep.isActive():
+        if back is None:
             return
         self._clock.set_time_of_day(back)
         self._refresh_drape()  # the whole map again

@@ -118,3 +118,15 @@ def test_cutaway_keeps_the_roofs_shadow(measured: dict) -> None:
     shown, cut = measured["roof_shadow_shown"], measured["roof_shadow_cut"]
     assert luma(shown) < 0.75 * luma(measured["ground"]), "the probe lies in the roof's shadow"
     assert cut == pytest.approx(shown, abs=1.5)
+
+
+@pytest.mark.parametrize("name", ["cut_roof", "faded_box"])
+def test_a_screen_door_part_leaves_no_ao_ghost_at_medium(measured: dict, name: str) -> None:
+    """3D review round 2 of #386: the depth pass that fills ambient occlusion's depth
+    texture does not run the screen door's discard — a cut roof left a ghost of itself
+    and a faded part its whole silhouette, from the Medium preset (the AUTO start) up.
+    Screen-door parts collapse in that pass, so they add nothing through AO. Measured:
+    at most 1.5 luma with the collapse, up to 26 luma on ~3,000-4,000 px without it."""
+    added = measured[f"ao_{name}"]
+    assert added["compared"] > 50_000, "most of the frame is compared"
+    assert added["over_3"] == 0 and added["max"] <= 3.0

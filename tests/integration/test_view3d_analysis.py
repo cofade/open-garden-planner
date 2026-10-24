@@ -347,7 +347,9 @@ def test_the_sun_path_and_compass_come_from_core_solar(bench) -> None:
     assert workspace.sun_path_action.isChecked()
     lines = host.overlays["lines"]
     assert lines is not None
-    assert workspace.legend_text() == "Plan date 21 June 21 December 20 March"
+    # the plan date IS 21 June: its arc covers that one, and the legend says so
+    assert workspace.legend_text() == ("Plan date 21 June — same path as the plan date "
+                                       "21 December 20 March")
     arcs = workspace.analysis.arcs()
     assert tuple(arc.kind for arc in arcs) == ARC_KINDS
     lat, lon = BERLIN["latitude"], BERLIN["longitude"]
@@ -606,9 +608,10 @@ def test_an_edit_withdraws_the_probes_reading_until_the_new_map_is_ready(bench) 
     assert again.minutes == bench.heatmap.result().minutes_at(1000.0, 1000.0)
 
 
-def test_analysing_never_dirties_the_plan_nor_touches_its_history(bench) -> None:
+def test_analysing_never_touches_the_plans_history(bench) -> None:
     """FR-3D-ANALYZE-02/06/07: the probe, the sweep, a growth jump and Cutaway look at
-    the plan; none of them is an edit."""
+    the plan; none of them is an edit — the undo stack is untouched (the plan's dirty
+    flag follows the undo stack's ``stack_changed``; none of them marks it otherwise)."""
     house = bench.shed(1200.0, 900.0, height=500.0, kind=ObjectType.HOUSE)
     bench.open3d()
     workspace = bench.workspace
@@ -701,3 +704,54 @@ def test_the_analysis_dispatches_no_frame_taking_host_call() -> None:
 
     assert {"set_overlay", "set_roofs_hidden", "set_faded_items"} == HOST_CALLS
     assert "grab" not in HOST_CALLS and "pick" not in HOST_CALLS
+
+
+def test_a_map_that_could_not_be_computed_is_said_so_not_updating(bench) -> None:
+    """Senior review round 2 of #386: after a failed run the probe said "being updated"
+    for good while the toolbar said "Sun map unavailable"."""
+    bench.shed(900.0, 700.0, height=250.0)
+    bench.open3d()
+    workspace = bench.workspace
+    workspace.set_drape_mode(DrapeMode.SUN_HOURS)
+    bench.wait_for_map()
+    workspace.analysis.probe(1000.0, 1000.0)
+    bench.live._failed = bench.live._snapshot()  # noqa: SLF001 - the run for these inputs failed
+    bench.live._inputs_dirty = True  # noqa: SLF001
+    bench.heatmap.exposure_changed.emit()
+    assert bench.live.unavailable and not bench.live.is_current()
+    assert workspace.analysis.probe_result.reason == "unavailable"
+    assert workspace._probe_text() == workspace.tr(  # noqa: SLF001
+        "The hours of sun could not be computed for the changed plan.")
+
+
+def test_a_sweep_started_before_the_give_back_keeps_its_own_return_time(bench) -> None:
+    bench.open3d()
+    workspace = bench.workspace
+    workspace.set_drape_mode(DrapeMode.SUN_HOURS)
+    bench.wait_for_map()
+    bench.clock.set_time_of_day(time(11, 15))
+    assert workspace.set_sweeping(True)
+    bench.settle(150)
+    bench.clock.set_date(date(2026, 7, 2))      # ends it; the give-back is a turn later
+    bench.clock.set_time_of_day(time(9, 0))
+    assert workspace.set_sweeping(True)          # a new sweep in the same turn
+    bench.settle(20)
+    assert workspace.analysis.sweeping, "the late give-back left the new sweep alone"
+    workspace.set_sweeping(False)
+    assert bench.clock.time_of_day == time(9, 0), "the new sweep gives ITS time back"
+
+
+
+def test_the_legend_names_a_key_arc_the_plan_dates_arc_covers(bench) -> None:
+    """3D review round 2 of #386: within days of a solstice the plan date's thicker arc
+    covers its twin — the legend says so instead of promising four arcs."""
+    bench.open3d()
+    workspace = bench.workspace
+    bench.clock.set_date(date(2026, 6, 23))
+    workspace.set_sun_path_visible(True)
+    bench.settle()
+    assert "21 June — same path as the plan date" in workspace.legend_text()
+    bench.clock.set_date(date(2026, 8, 15))
+    bench.settle()
+    text = workspace.legend_text()
+    assert "same path" not in text and "21 June" in text

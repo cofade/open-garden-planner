@@ -325,7 +325,7 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | PF-E3D-10 | Derived lifetime visibility must preserve the existing throttled 3D clock path while real plan edits still announce revisions. | standing | [10](pitfalls/10-3d-engine-scene.md#pf-e3d-10) |  |
 | PF-L3D-06 | A blended custom material must keep the frame's alpha (`sourceAlphaBlend: Zero`, `destinationAlphaBlend: One`): with the colour factors on alpha too, a translucent overlay brightens the view by `a(1 − a)` of the window's white instead of darkening it. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-06) |  |
 | PF-L3D-07 | An unlit overlay passes through the mood's exposure, so a 3D shadow drape multiplies the frame and an overlay colour is divided by the exposure. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-07) |  |
-| PF-L3D-08 | A hidden or blended Model drops out of the shadow map, so a part that must keep casting while it fades or is cut is an opaque screen door (a fragment discard). | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-08) |  |
+| PF-L3D-08 | A hidden or blended Model drops out of the shadow map, so a part that must keep casting while it fades or is cut is an opaque screen door (a fragment discard) that collapses in the AO depth pass. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-08) |  |
 
 ### Redirect of legacy numbered IDs
 

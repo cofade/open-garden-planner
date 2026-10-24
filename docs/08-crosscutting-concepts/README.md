@@ -6767,11 +6767,13 @@ SimClock ──instant_changed / date_changed───────────�
   the window's white through (PF-L3D-06). Every overlay but the shade divides its colour
   by the exposure (`overlay.frag`), and the arcs are built in pre-compensated colours
   (`ARC_ENGINE_RGBA`; the legend shows `ARC_RGBA`).
-- *A faded or cut part is a screen door* (`screen.frag`; foliage, grass and water in
-  their own shaders): an ordered dither discards all but its share of the pixels, so it
-  stays opaque, keeps casting its shadow and needs no sorting (PF-L3D-08). No part
-  blends or hides for X-ray or Cutaway; the principled look stays the material while
-  nothing fades.
+- *A faded or cut part is a screen door* (`screen.frag`; `foliage_door.frag`,
+  `water_door.frag` — copies of the look shaders with the discard): an ordered dither
+  discards all but its share of the pixels, so it stays opaque, keeps casting its shadow
+  and needs no sorting, and it collapses in the depth pass ambient occlusion reads
+  (`#if QSSG_ENABLE_DEPTH_PASS`), which does not run the discard (PF-L3D-08). No part
+  blends or hides for X-ray or Cutaway; the look materials stay master's while nothing
+  fades.
 - *The drape is lifted 1.5 cm* (the meadow lies at −1, the tiles at 0): clear of the
   ground's depth from every distance the orbit camera frames a garden at, and below
   everything that stands on the ground.

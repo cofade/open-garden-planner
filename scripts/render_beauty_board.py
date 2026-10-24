@@ -524,6 +524,9 @@ class Board:
                     if variant == "cutaway":
                         row["faded"] = sorted(options["faded"])
                         row["selected"] = list(options["selected"])
+                        # the screen doors' stipple is not sharpening: leave the gate's
+                        # signal out of these rows (3D review round 2 of #386)
+                        row["isolated_dark_px"] = None
                     if variant == "sunhours":
                         row["pin"] = [round(v, 1) for v in options["pin"]]
                         row["pin_px"] = _pin_pixels(rgb)

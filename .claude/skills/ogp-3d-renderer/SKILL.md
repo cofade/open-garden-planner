@@ -1146,6 +1146,12 @@ the same machine, 2026-10-24):
   `screenDoor(FRAGCOORD.xy) >= uOpacity`, a 4 × 4 Bayer dither) keeps the part an opaque
   caster; measured unchanged ground outside the footprints on D3D11 (GPU, WARP) and
   OpenGL. `FRAGCOORD` works in a custom material's fragment shader on all three.
+  **Measured limit:** the DEPTH pass (the depth texture SSAO reads, Medium preset and
+  up) does not run the discard either — a cut roof left a ghost of itself. Collapse the
+  part there: `#if QSSG_ENABLE_DEPTH_PASS` / `VERTEX = vec3(0.0)` (or `POSITION =
+  vec4(0.0)` after a custom POSITION) — the shadow pass does not define the macro, so
+  the shadow stays (all three backends). `depthDrawMode: NeverDepthDraw` is NOT the
+  tool: it dropped the part from the shadow pass and kept the AO ghost.
 - **A Model can switch materials by binding** — `materials: fade < 1.0 ? [screen] : [look]`
   with both declared inside the Model: the look material stays bit-identical while
   nothing fades (the L1 frames did not move).

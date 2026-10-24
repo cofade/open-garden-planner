@@ -335,9 +335,10 @@ Item {
     // Model that was destroyed and waits for its deferred delete: `visible` stays free
     // for a story that hides a Model on purpose.
     //
-    // `fade` (L2.4, X-ray): 1 draws the part as it is; below 1 the part is a SCREEN
-    // DOOR of that share of its pixels (screen.frag; the custom kinds dither in their
-    // own shaders) and cannot be picked - a click meets what is behind it. Python
+    // `fade` (L2.4, X-ray): 1 draws the part as it is; below 1 the part switches to a
+    // SCREEN DOOR of that share of its pixels (screen.frag; foliage_door.frag and
+    // water_door.frag for the custom kinds - copies of their look shaders with the
+    // discard added) and cannot be picked - a click meets what is behind it. Python
     // writes it for the occluders of the selection (Quick3DHost.set_faded_items). A
     // screen door is opaque: the part keeps casting its shadow and sorts like a solid
     // (a blended part dropped out of the shadow map: 3D review of #386). The look
@@ -372,6 +373,7 @@ Item {
                 property real uSpecular: 0.35
                 shadingMode: CustomMaterial.Shaded
                 cullMode: root.roofsHidden ? Material.NoCulling : Material.BackFaceCulling
+                vertexShader: "screen.vert"
                 fragmentShader: "screen.frag"
             }
         }
@@ -406,6 +408,7 @@ Item {
                 property real uRough: 0.80
                 property real uSpecular: 0.15
                 shadingMode: CustomMaterial.Shaded
+                vertexShader: "screen.vert"
                 fragmentShader: "screen.frag"
             }
         }
@@ -449,16 +452,28 @@ Item {
             pickable: fade >= 1.0
             // a custom shader keeps the water's hue in every mood; see water.frag for why
             // this is not a PrincipledMaterial (measured in the spike: lavender at golden hour)
-            materials: CustomMaterial {
+            materials: fade < 1.0 ? [waterDoor] : [waterLook]
+            CustomMaterial {
+                id: waterLook
                 property vector3d uTint: tintLinear
                 property real uBody: 0.5      // = the principled diffuse's (1 - specularAmount)
                 property real uReflect: 0.15
                 // a crisp sun glint: 0.3 blew it over the pond, 0.05 still clipped ~23 %
                 // of the visible pond at morning (spike, creator round 2)
                 property real uRough: 0.02
-                property real uOpacity: fade   // < 1: a screen door (X-ray), still opaque
                 shadingMode: CustomMaterial.Shaded
                 fragmentShader: "water.frag"
+            }
+            CustomMaterial {   // the same water as a screen door (X-ray, L2.4)
+                id: waterDoor
+                property vector3d uTint: tintLinear
+                property real uBody: 0.5
+                property real uReflect: 0.15
+                property real uRough: 0.02
+                property real uOpacity: fade
+                shadingMode: CustomMaterial.Shaded
+                vertexShader: "screen.vert"
+                fragmentShader: "water_door.frag"
             }
         }
     }
@@ -509,15 +524,27 @@ Item {
             property real fade: 1.0        // X-ray (L2.4)
             receivesShadows: true
             pickable: fade >= 1.0
-            materials: CustomMaterial {
+            materials: fade < 1.0 ? [foliageDoor] : [foliageLook]
+            CustomMaterial {
+                id: foliageLook
                 property vector3d uTint: tintLinear
                 property real uTime: root.windTime
                 property real uWind: root.windStrength * 0.35
-                property real uOpacity: fade   // < 1: a screen door (X-ray), still opaque
                 shadingMode: CustomMaterial.Shaded
                 cullMode: Material.NoCulling
                 vertexShader: "foliage.vert"
                 fragmentShader: "foliage.frag"
+            }
+            CustomMaterial {   // the same leaves as a screen door (X-ray, L2.4)
+                id: foliageDoor
+                property vector3d uTint: tintLinear
+                property real uTime: root.windTime
+                property real uWind: root.windStrength * 0.35
+                property real uOpacity: fade
+                shadingMode: CustomMaterial.Shaded
+                cullMode: Material.NoCulling
+                vertexShader: "foliage_door.vert"
+                fragmentShader: "foliage_door.frag"
             }
         }
     }
@@ -533,15 +560,27 @@ Item {
             property real fade: 1.0        // X-ray (L2.4)
             receivesShadows: true
             pickable: fade >= 1.0
-            materials: CustomMaterial {
+            materials: fade < 1.0 ? [grassDoor] : [grassLook]
+            CustomMaterial {
+                id: grassLook
                 property vector3d uTint: tintLinear
                 property real uTime: root.windTime
                 property real uWind: root.windStrength
-                property real uOpacity: fade   // < 1: a screen door (X-ray), still opaque
                 shadingMode: CustomMaterial.Shaded
                 cullMode: Material.NoCulling
                 vertexShader: "grass.vert"
                 fragmentShader: "foliage.frag"
+            }
+            CustomMaterial {   // the same blades as a screen door (X-ray, L2.4)
+                id: grassDoor
+                property vector3d uTint: tintLinear
+                property real uTime: root.windTime
+                property real uWind: root.windStrength
+                property real uOpacity: fade
+                shadingMode: CustomMaterial.Shaded
+                cullMode: Material.NoCulling
+                vertexShader: "grass_door.vert"
+                fragmentShader: "foliage_door.frag"
             }
         }
     }
