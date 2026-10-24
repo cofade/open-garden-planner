@@ -19,6 +19,7 @@ from PyQt6.QtCore import (
     QPointF,
     QRectF,
     Qt,
+    QTimer,
     pyqtSignal,
 )
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPen
@@ -176,9 +177,21 @@ class CanvasScene(QGraphicsScene):
         # Suspends the per-add z-refresh during bulk inserts (issue #338)
         # -- see suspend_z_refresh().
         self._suspend_z_refresh = False
-        # Per-layer "next unused rank" cache, valid only while
-        # _suspend_z_refresh is True -- see _next_stack_order().
+        # Per-layer "next unused rank" cache. It covers one bulk scope or one
+        # event-loop turn; _flush_deferred_z_refresh() clears it.
         self._next_rank_cache: dict[UUID | None, int] = {}
+
+        # #450: a sequence of single addItem() calls used to sort every layer
+        # once per item. The first add of a layer in an event-loop turn runs the
+        # derivation once; later appended items get a strictly increasing
+        # provisional z above it, and one deferred derivation restores the
+        # exact values after the turn.
+        self._deferred_z_refresh_layers: set[UUID | None] = set()
+        self._provisional_z: dict[UUID | None, float] = {}
+        self._z_refresh_timer = QTimer(self)
+        self._z_refresh_timer.setSingleShot(True)
+        self._z_refresh_timer.setInterval(0)
+        self._z_refresh_timer.timeout.connect(self._flush_deferred_z_refresh)
 
     def _update_scene_rect(self) -> None:
         """Update the scene rect with padding for panning."""
@@ -334,37 +347,137 @@ class CanvasScene(QGraphicsScene):
         # predicate instead (issue #338 review round 2, P0) so every ranked
         # item type is assigned a rank and refreshed the same way.
         if stacking.supports_stacking(item):
-            if item.stack_order is None:
-                item.stack_order = self._next_stack_order(item.layer_id)
-            elif self._suspend_z_refresh:
-                # Keep _next_stack_order's per-layer rank cache honest even
-                # for an item that already had a rank when it's (re-)added
-                # mid-scope (e.g. DeleteItemsCommand.undo restoring several
-                # items, one of which already outranks the cache's current
-                # "next" value) -- otherwise a later UNranked add in the same
-                # suspended scope could be assigned a lower rank than this
-                # one and sort out of order (review round 2, P2).
-                #
-                # Seeding an empty cache entry from just this item's own rank
-                # (as an earlier revision did) is wrong when OTHER items still
-                # in the layer -- untouched so far this scope -- already carry
-                # a higher rank than this one: e.g. a layer holding ranks
-                # 1024/2048/3072, only the 1024 item removed and re-added in
-                # this scope, then an unranked add would seed the cache to
-                # 1024 and hand out 2048, colliding with the untouched item
-                # that already has that rank (issue #338 review round 3,
-                # P1-1). Seed from the real per-layer max instead so a later
-                # unranked add in this scope always lands above every rank
-                # visible in the layer, not just the ones re-added so far.
-                cached = self._next_rank_cache.get(item.layer_id)
+            layer_id = getattr(item, "layer_id", None)
+            had_rank = getattr(item, "stack_order", None) is not None
+            if not had_rank:
+                item.stack_order = self._next_stack_order(layer_id)  # type: ignore[attr-defined]
+            # Keep _next_stack_order's per-layer rank cache honest even for an
+            # item that already had a rank when it's (re-)added (e.g.
+            # DeleteItemsCommand.undo restoring several items, one of which
+            # already outranks the cache's current "next" value) -- otherwise a
+            # later UNranked add could be assigned a lower rank than this one
+            # and sort out of order (review round 2, P2).
+            #
+            # Seeding an empty cache entry from just this item's own rank (as
+            # an earlier revision did) is wrong when OTHER items still in the
+            # layer -- untouched -- already carry a higher rank than this one:
+            # e.g. a layer holding ranks 1024/2048/3072, only the 1024 item
+            # removed and re-added, then an unranked add would seed the cache
+            # to 1024 and hand out 2048, colliding with the untouched item
+            # that already has that rank (issue #338 review round 3, P1-1).
+            # Seed from the real per-layer max instead.
+            rank = getattr(item, "stack_order", None)
+            if rank is not None:
+                cached = self._next_rank_cache.get(layer_id)
                 base = (
-                    self._max_existing_rank(item.layer_id)
+                    self._max_existing_rank(layer_id)
                     if cached is None
                     else cached
                 )
-                self._next_rank_cache[item.layer_id] = max(base, item.stack_order)
+                self._next_rank_cache[layer_id] = max(base, rank)
             if not self._suspend_z_refresh:
-                self._refresh_layer_z(item.layer_id)
+                # A pre-ranked or relationship-bearing item can change the
+                # order of items already in the layer (a bed lifts its
+                # children, a roof ridge sits above its owner), so it keeps
+                # the synchronous derivation. A newly appended independent
+                # item cannot, and gets the band top until the one deferred
+                # refresh (#450).
+                if (
+                    had_rank
+                    or self._needs_synchronous_z_refresh(item)
+                    or layer_id not in self._provisional_z
+                ):
+                    self._refresh_layer_z(layer_id)
+                    self._provisional_z[layer_id] = self._layer_max_z(layer_id)
+                else:
+                    band_base = self._layer_band_base(layer_id)
+                    step = 100.0 / stacking.Z_POSITION_SCALE
+                    provisional = self._provisional_z[layer_id] + step
+                    if band_base is not None and provisional > band_base + 100.0 - step:
+                        # The fixed scale supports ~16.7 million ranked items;
+                        # beyond that a derivation is the only safe answer.
+                        self._refresh_layer_z(layer_id)
+                        provisional = self._layer_max_z(layer_id) + step
+                        if band_base is not None:
+                            provisional = min(
+                                provisional, band_base + 100.0 - step
+                            )
+                    item.setZValue(provisional)
+                    self._provisional_z[layer_id] = provisional
+                    self._schedule_z_refresh(layer_id)
+
+    def _needs_synchronous_z_refresh(self, item: QGraphicsItem) -> bool:
+        """Whether adding *item* can re-order items already in its layer.
+
+        A plant linked to a bed, a bed with children, a roof ridge and its
+        owner, and any child item are all clamped by
+        :func:`core.stacking.normalize_order`; their arrival changes ranks
+        that already exist. A plain independent shape only appends.
+        """
+        if item.parentItem() is not None:
+            return True
+        if getattr(item, "parent_bed_id", None) is not None:
+            return True
+        if getattr(item, "has_children", False):
+            return True
+        object_type = getattr(item, "object_type", None)
+        if getattr(object_type, "name", "") == "ROOF_RIDGE":
+            return True
+        metadata = getattr(item, "metadata", None)
+        return bool(isinstance(metadata, dict) and "ridge_item_id" in metadata)
+
+    def _layer_band_base(self, layer_id: UUID | None) -> float | None:
+        """The bottom of *layer_id*'s z band, or None when the layer is unknown."""
+        if layer_id is None:
+            return 0.0
+        layer = self.get_layer_by_id(layer_id)
+        if layer is None:
+            return None
+        return float(layer.z_order * 100)
+
+    def _layer_max_z(self, layer_id: UUID | None) -> float:
+        """Highest derived z of a ranked top-level item in *layer_id*, else the band base."""
+        values = [
+            item.zValue()
+            for item in self.items()
+            if item.parentItem() is None
+            and stacking.supports_stacking(item)
+            and getattr(item, "layer_id", None) == layer_id
+        ]
+        if values:
+            return max(values)
+        base = self._layer_band_base(layer_id)
+        return base if base is not None else 0.0
+
+    def _schedule_z_refresh(self, layer_id: UUID | None) -> None:
+        """Coalesce the pure z derivation into one run after this event-loop turn."""
+        self._deferred_z_refresh_layers.add(layer_id)
+        if not self._z_refresh_timer.isActive():
+            self._z_refresh_timer.start()
+
+    def _flush_deferred_z_refresh(self) -> None:
+        """Run the one deferred derivation for every layer touched this turn."""
+        self._z_refresh_timer.stop()
+        pending = self._deferred_z_refresh_layers
+        self._deferred_z_refresh_layers = set()
+        self._next_rank_cache = {}
+        self._provisional_z = {}
+        for layer_id in pending:
+            self._refresh_layer_z(layer_id)
+
+    def flush_z_refresh(self) -> None:
+        """Apply any pending deferred z derivation now, and drop rank caches.
+
+        Tests, export paths and any caller that needs *final* z values before
+        the event loop runs can call this; normal canvas painting does not.
+        The rank cache is invalidated even when nothing was pending, because a
+        command may have moved ranks without leaving a deferred refresh behind.
+        """
+        if self._deferred_z_refresh_layers or self._z_refresh_timer.isActive():
+            self._flush_deferred_z_refresh()
+        else:
+            self._next_rank_cache = {}
+            self._provisional_z = {}
 
     # Constraint dimension line management
 
@@ -844,30 +957,26 @@ class CanvasScene(QGraphicsScene):
         """Smallest never-used rank above every existing top-level item in
         *layer_id* (issue #338). Returns ``STACK_STEP`` for an empty layer.
 
-        While a bulk add is suspended (:meth:`suspend_z_refresh`), the
-        per-layer "next rank" is cached in ``self._next_rank_cache`` instead
-        of re-walking ``self.items()`` (:meth:`_max_existing_rank`) on every
-        single unranked add: that O(n) walk per item made loading N
+        The per-layer "next rank" is cached in ``self._next_rank_cache``
+        instead of re-walking ``self.items()`` (:meth:`_max_existing_rank`)
+        on every single unranked add: that O(n) walk per item made loading N
         legacy (no ``stack_order`` key) objects from an old file O(n^2)
-        (review round 2, P2 performance finding). The cache is seeded once
-        per layer from one O(n) walk on first use, then just bumped by
-        ``STACK_STEP`` on every further call for that layer; it is reset at
-        the start of every new (non-nested) suspended scope in
-        :meth:`suspend_z_refresh`. :meth:`addItem` also keeps the cache
-        honest against an item that already had a rank when it's re-added
-        mid-scope (e.g. ``DeleteItemsCommand.undo``) — see the comment
-        there — so ranked and unranked adds can interleave within one
-        suspended scope without a later unranked item getting assigned a
-        lower rank than an already-ranked one added earlier in the same
-        scope.
+        (review round 2, P2 performance finding) and made a loop of 2 000
+        ``addItem`` calls quadratic (#450). The cache is seeded once per layer
+        from one O(n) walk on first use, then bumped by ``STACK_STEP`` on
+        every further call; it is cleared when the deferred refresh runs and
+        at the start of every new (non-nested) suspended scope.
+        :meth:`addItem` also keeps the cache honest against an item that
+        already had a rank when it's re-added (e.g. ``DeleteItemsCommand.undo``)
+        — see the comment there — so ranked and unranked adds can interleave
+        without a later unranked item getting assigned a lower rank than an
+        already-ranked item added earlier.
         """
-        if self._suspend_z_refresh:
-            cached = self._next_rank_cache.get(layer_id)
-            base = cached if cached is not None else self._max_existing_rank(layer_id)
-            next_rank = base + stacking.STACK_STEP
-            self._next_rank_cache[layer_id] = next_rank
-            return next_rank
-        return self._max_existing_rank(layer_id) + stacking.STACK_STEP
+        cached = self._next_rank_cache.get(layer_id)
+        base = cached if cached is not None else self._max_existing_rank(layer_id)
+        next_rank = base + stacking.STACK_STEP
+        self._next_rank_cache[layer_id] = next_rank
+        return next_rank
 
     @contextmanager
     def suspend_z_refresh(self, *, renumber: bool = False) -> Iterator[None]:
@@ -901,9 +1010,13 @@ class CanvasScene(QGraphicsScene):
         already_suspended = self._suspend_z_refresh
         self._suspend_z_refresh = True
         if not already_suspended:
-            # Fresh (non-nested) scope: start the per-layer rank cache over
-            # -- see _next_stack_order().
+            # Fresh (non-nested) scope: the one refresh on exit covers every
+            # layer, so a pending deferred refresh (and the per-layer rank
+            # cache -- see _next_stack_order()) starts over.
+            self._z_refresh_timer.stop()
+            self._deferred_z_refresh_layers.clear()
             self._next_rank_cache = {}
+            self._provisional_z = {}
         try:
             yield
         finally:
@@ -917,6 +1030,10 @@ class CanvasScene(QGraphicsScene):
         ``finally`` block.
         """
         self._suspend_z_refresh = False
+        self._z_refresh_timer.stop()
+        self._deferred_z_refresh_layers.clear()
+        self._next_rank_cache = {}
+        self._provisional_z = {}
         if renumber:
             for layer_id in self._stacking_layer_ids():
                 order = self._normalized_layer_order(layer_id)
@@ -1076,13 +1193,23 @@ class CanvasScene(QGraphicsScene):
             base = layer.z_order * 100
         order = self._normalized_layer_order(layer_id)
         n = len(order)
+        self._provisional_z.pop(layer_id, None)
         if n == 0:
             return
         for i, item in enumerate(order):
-            item.setZValue(base + 100 * (i + 1) / (n + 1))
+            position = min(i + 1, stacking.Z_POSITION_SCALE - 1)
+            item.setZValue(base + 100 * position / stacking.Z_POSITION_SCALE)
 
     def _update_items_z_order(self) -> None:
-        """Refresh the derived z-value of every item in every layer."""
+        """Refresh the derived z-value of every item in every layer.
+
+        A full re-derivation also invalidates the per-layer rank cache and any
+        provisional values: a rank writer (arrange, move-to-layer, group/
+        ungroup, relink) may have moved items above what the cache recorded, so
+        the next ``addItem`` must seed from the real layer maximum again (#450).
+        """
+        self._next_rank_cache = {}
+        self._provisional_z = {}
         for layer_id in self._stacking_layer_ids():
             self._refresh_layer_z(layer_id)
 
@@ -1325,6 +1452,12 @@ class CanvasScene(QGraphicsScene):
         self._calibration_points.clear()
         self._calibration_image = None
         self._calibration_mode = False
+        # #450: no deferred callback may run against the items this call is
+        # about to destroy.
+        self._z_refresh_timer.stop()
+        self._deferred_z_refresh_layers.clear()
+        self._next_rank_cache = {}
+        self._provisional_z = {}
         super().clear()
         self.timeline_changed.emit()  # readers must see the empty, completed document
 

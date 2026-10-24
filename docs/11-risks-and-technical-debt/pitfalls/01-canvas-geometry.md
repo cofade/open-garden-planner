@@ -199,3 +199,19 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 - **Source:** #441, #453, #470, #501, #502, #503, #523, #524, #525, #526, #527
 - **Status:** standing; narrative in [archive/07-l1-5-ground-bake.md](../archive/07-l1-5-ground-bake.md#2d-defects-the-bake-found)
 - **Legacy:** b1faaa9 README L2537 (legacy 11.4.17)
+
+### PF-CAN-22
+
+- **Rule:** A cached paint's `option.exposedRect` is the item's WHOLE rect, not the visible part. A styled line intersects it with the view's visible scene rect, in item coordinates, and passes that clip plus a `WalkBudget` to the one `PathStylePaint` walk; an export or minimap render disables caches first and keeps full detail.
+- **Pinned by:** `tests/integration/test_path_style_paint_bound.py`; `tests/unit/test_minimap_widget.py`
+- **Source:** #450
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+### PF-CAN-23
+
+- **Rule:** Stacking z is still derived only from ranks, but the derivation may be deferred to the end of the event-loop turn. A provisional z must be strictly increasing and inside the layer band, an item that can re-order existing items (parent bed, children, roof ridge, pre-ranked re-add) keeps the synchronous derivation, and every command flushes pending z before it records history.
+- **Pinned by:** `tests/integration/test_canvas_z_batch.py`; `tests/unit/test_plant_bed_zorder.py`; `tests/integration/test_arrange_z_order.py`
+- **Source:** #450
+- **Status:** standing
+- **Legacy:** none (new entry)

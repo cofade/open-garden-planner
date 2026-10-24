@@ -83,12 +83,30 @@ class CommandManager(QObject):
             self._preparing_history = False
         return True
 
+    def _flush_pending_z(self) -> None:
+        """Let a command that added items settle the scene's deferred z (#450).
+
+        Commands execute in one event-loop turn; the canvas batches direct
+        ``addItem`` calls across a turn. A command must leave a final derivation
+        behind, or the later timer would be a second visible change and undo
+        would restore a provisional z. Parentless managers in tests have no
+        scene and nothing to flush.
+        """
+        parent = self.parent()
+        scene = getattr(parent, "scene", None)
+        if not callable(scene):
+            return
+        flush = getattr(scene(), "flush_z_refresh", None)
+        if callable(flush):
+            flush()
+
     def execute(self, command: Command) -> None:
         """Execute a command and add it to the undo stack.
 
         Clears the redo stack since we've branched off.
         """
         command.execute()
+        self._flush_pending_z()
         self._undo_stack.append(command)
 
         # Clear redo stack on new command
@@ -113,6 +131,7 @@ class CommandManager(QObject):
         every "already applied" call site in sync with :meth:`execute`; do NOT
         hand-roll ``_undo_stack.append`` + signal emits at call sites (issue #209).
         """
+        self._flush_pending_z()
         self._undo_stack.append(command)
         had_redo = len(self._redo_stack) > 0
         self._redo_stack.clear()
@@ -132,6 +151,7 @@ class CommandManager(QObject):
 
         command = self._undo_stack.pop()
         command.undo()
+        self._flush_pending_z()
         self._redo_stack.append(command)
 
         self.can_undo_changed.emit(len(self._undo_stack) > 0)
@@ -154,6 +174,7 @@ class CommandManager(QObject):
             # it was undone. Keep it redoable when execution is refused.
             self._redo_stack.append(command)
             raise
+        self._flush_pending_z()
         self._undo_stack.append(command)
 
         self.can_undo_changed.emit(True)
@@ -1691,7 +1712,11 @@ class UngroupCommand(Command):
 
 
 class BooleanShapeCommand(Command):
-    """Apply a boolean operation (union/intersect/subtract) on two shapes."""
+    """Replace every source shape by one result in a single undo step.
+
+    The original two-shape constructor stays valid; a union over a larger
+    selection passes the rest as ``additional_items`` (#550).
+    """
 
     def __init__(
         self,
@@ -1700,10 +1725,11 @@ class BooleanShapeCommand(Command):
         item_b: QGraphicsItem,
         result_item: QGraphicsItem,
         operation: str,
+        *,
+        additional_items: list[QGraphicsItem] | None = None,
     ) -> None:
         self._scene = scene
-        self._item_a = item_a
-        self._item_b = item_b
+        self._original_items = [item_a, item_b, *(additional_items or [])]
         self._result_item = result_item
         self._operation = operation
 
@@ -1714,20 +1740,19 @@ class BooleanShapeCommand(Command):
         )
 
     def execute(self) -> None:
-        if self._item_a.scene() is not None:
-            self._scene.removeItem(self._item_a)
-        if self._item_b.scene() is not None:
-            self._scene.removeItem(self._item_b)
+        for item in self._original_items:
+            if item.scene() is self._scene:
+                self._scene.removeItem(item)
         if self._result_item.scene() is None:
             self._scene.addItem(self._result_item)
 
     def undo(self) -> None:
         if self._result_item.scene() is not None:
             self._scene.removeItem(self._result_item)
-        if self._item_a.scene() is None:
-            self._scene.addItem(self._item_a)
-        if self._item_b.scene() is None:
-            self._scene.addItem(self._item_b)
+        with _bulk_add_scope(self._scene):
+            for item in self._original_items:
+                if item.scene() is None:
+                    self._scene.addItem(item)
 
 
 class ArrayAlongPathCommand(Command):

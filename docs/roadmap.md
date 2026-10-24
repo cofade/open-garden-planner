@@ -2730,6 +2730,21 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | 📋 | L6 | **Director's cut** — photo mode, camera tours, `render_3d_view` MCP tool | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
 | 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
 
+### Parallel non-3D hardening (2026-10-24, draft PR)
+
+Built beside L2 without touching the 3D/sun/sim-clock stack: a styled line's walk
+is clipped to the visible viewport and budgeted (#450), `addItem` batches its z
+derivation across an event-loop turn with commands flushing it and the four rank
+writers unchanged, dense vertex-edit overlays are sampled in device pixels
+(#551), boolean union accepts a contact-connected selection of any size and
+ellipses (#550), Preferences scrolls its form and opens at content height (#569),
+and a local build compares the venv with `pylock.toml` (#538). #446 was closed
+with evidence: the whole-name/alias rule shipped in v1.30.18, and the three
+whole-word residues are the alias-table case the owner declined. §8.25 (deferred
+derivation), §8.9 (shared path clip), ADR-043 addendum, FR-EDIT-19, FR-UI-14.
+The local full suite still carries the 24 pre-existing Windows-offscreen Plan &
+Sun layout failures tracked by #562; native Windows passes them.
+
 ### L1.0 acceptance highlights — one sim clock (#385, ADR-053) — **shipped v1.29.10, [PR #429](https://github.com/cofade/open-garden-planner/pull/429)**
 
 - **One moment for the whole app.** `core/sim_clock.SimClock` (Qt-free) is owned by `GardenPlannerApp`. The sun toolbar is a view of it (it writes edits and mirrors the clock back silently). The shadow overlay reads it (`utc` for the sun, `plan_date` for growth), and the heatmap request and the 3D view read it too. It is not persisted, and every session starts at "now" (FR-SUN-04).

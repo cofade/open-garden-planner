@@ -29,10 +29,15 @@ venv/Scripts/python.exe -m ruff check src/
 # Security scan
 venv/Scripts/python.exe -m bandit -r src/ --severity-level high
 
-# Build & verify exe (before every merge) — BOTH checks
+# Build & verify exe (before every merge) — BOTH checks.
+# Sync the lock first: removing a pin does not uninstall a package, and
+# PyInstaller can still bundle it (#538).
+$env:UV_PROJECT_ENVIRONMENT='venv'  # PowerShell (Git Bash: UV_PROJECT_ENVIRONMENT=venv)
+uv sync --locked --python 3.11 --all-extras --group build --no-install-project
+venv/Scripts/python.exe -m installer.build_environment --strict
 venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
-timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe
-# Exit code 124 (killed by timeout) = success
+powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanner.exe" -PassThru; Start-Sleep -Seconds 8; if ($p.HasExited) { exit $p.ExitCode } else { Stop-Process -Id $p.Id; exit 124 }'
+# Exit code 124 (killed after 8 s) = success
 powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanner.exe" -ArgumentList "--selftest" -Wait -PassThru; exit $p.ExitCode'
 # Exit code 0 = the Agent API server binds, the A1 checks pass, AND the
 # Qt Quick 3D engine renders one hidden frame from the bundle's own QML and
@@ -239,6 +244,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 ## Where to Pick Up After Restart
 
+- **Non-3D hardening batch #450/#551/#550/#569/#538 is in a draft PR (2026-10-24).** Path-style paint now clips to the visible viewport and budgets its walk (#450); `addItem` batches its z derivation after the turn, every command flushes it, and the four rank writers are unchanged. Dense vertex-edit overlays are sampled by device pixels (#551); `BooleanShapeCommand` generalizes to a source list, union accepts contact/N shapes/ellipses (#550); Preferences scrolls its form and opens at content height (#569); local builds compare the venv with `pylock.toml` (#538). #446 was closed with evidence (whole-name/alias rule shipped in v1.30.18; the three whole-word residues need the alias table the owner declined). The local full suite still records the 24 pre-existing Windows-offscreen Plan & Sun layout failures of #562; native Windows passes them. See ADR-043 addendum, §8.25, §8.9, FR-EDIT-19, FR-UI-14, PF-CAN-22/23, PF-UI-28, PF-CI-12.
 - **Plant Details follow-ups #552/#557/#558/#559/#560 shipped on 2026-10-23 as v1.30.20 ([PR #566](https://github.com/cofade/open-garden-planner/pull/566)) after owner executable acceptance.** Snapshot commands cover species/instance edits; gestures and staged text respect history/save boundaries. Species spread updates centered 2D/3D dimensions while explicit overrides win. Lock menus and one upright export-hidden badge cover ordinary objects. Unknown heights use labelled illustrative 3D estimates without changing analytical heights. Plan & Sun links to Set Garden Location when coordinates are missing. See ADR-004/013/059/062, FR-TIMELINE-07 and PF-UI-27.
 
 - **L1 follow-ups #537/#539/#541/#542 and Plan & Sun editor stepping shipped on 2026-10-23 as v1.30.19 ([PR #565](https://github.com/cofade/open-garden-planner/pull/565)) after owner acceptance:** Global workspace actions select Garden Plan; Walk has a theme-aware icon; Reset key text uses Qt translations; no-op date checks preserve the throttle timestamp. Plan & Sun editor stepping carries and borrows across month/year, hour/day and minute/hour boundaries; native date/time subclasses share one complete naive wall-reading path, preserve preferred days and stop only at SimClock's absolute limits. Arrows/repeat, wheel/buttons, leap years, range and midnight 2D/3D/sun consistency are pinned (FR-TIMELINE-06, ADR-062 addendum, PF-UI-26). Review replaced an uptime-dependent regression with controlled clocks and real date-signal/snapshot assertions (PF-TST-25). ADR-060 addendum and runtime view own the behavior. The exact stale-DPR warning is exempt because Qt corrects its cache before expose; its original cause remains unproven. No render-look change.

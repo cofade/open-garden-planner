@@ -44,6 +44,16 @@ python installer/build_installer.py --skip-nsis
 python installer/build_installer.py --skip-pyinstaller
 ```
 
+**Sync the lock before a local build.** Removing a pin from `uv.lock` does not uninstall
+the package, and PyInstaller's hooks can collect a stale package's files even when the
+application never imports it (the retired 3D wheels survived L1.10 exactly this way, #538).
+`UV_PROJECT_ENVIRONMENT=venv uv sync --locked --all-extras --group build` is the supported
+starting point (PowerShell: run `$env:UV_PROJECT_ENVIRONMENT='venv'` first), and
+`python -m installer.build_environment` compares the venv with `pylock.toml`;
+`--strict` turns the comparison into a failing gate. Both `installer/ogp.spec` (which
+covers a direct `python -m PyInstaller installer/ogp.spec` run) and
+`installer/build_installer.py` print the same warning.
+
 Without `--version`, the build takes the version from `pyproject.toml`; CI passes the
 release-computed version explicitly. Between the PyInstaller step and the NSIS step the
 build writes `dist/THIRD_PARTY_NOTICES.md` and `dist/ogp-sbom.cdx.json` from the bundle's
@@ -76,6 +86,7 @@ build.
 | `installer/ogp.spec` | PyInstaller spec file (entry point, resources, excludes, icon; bundles the runtime distributions' `.dist-info` metadata for the inventory) |
 | `installer/ogp_installer.nsi` | NSIS installer script (wizard, registry, file association) |
 | `installer/build_installer.py` | Build orchestration script (PyInstaller → distribution inventory → NSIS) |
+| `installer/build_environment.py` | Compares the build venv with `pylock.toml` and warns (or fails under `--strict`) about distributions the lock no longer pins (#538) |
 | `installer/runtime_closure.py` | The one runtime-closure resolver used by both the spec and the inventory generator |
 | `installer/frozen_inventory.py` | Attributes actual Analysis inputs to installed/vendored RECORD owners and bundles their metadata/license evidence |
 | `installer/ogp_app.ico` | Application icon (multi-size: 16–256px) |
@@ -397,7 +408,7 @@ seven Qt 3D plugins, the Qt 3D and `QtQuick/Scene2D` QML modules, the spike's QM
 wheels' metadata (652,687,676 → 639,202,072 bytes, both built in one clean environment synced from each
 tree's lock, Python 3.11.9; ADR-048's closing addendum has the table). Nothing arrived; the SBOM
 lost exactly the two components. **A development venv keeps an uninstalled pin's wheel:** after
-pulling a change that drops a dependency, re-sync it (`uv sync --locked …`) before building, or
+pulling a change that drops a dependency, re-sync it (`UV_PROJECT_ENVIRONMENT=venv uv sync --locked --all-extras --group build`) before building, or
 the local bundle still carries what the old wheel installed (PF-E3D-09).
 
 ### Release Workflow (`release.yml`)

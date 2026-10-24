@@ -142,9 +142,18 @@ venv/Scripts/python.exe scripts/check_translations.py
 ## Building the frozen exe (PyInstaller)
 
 ```bash
-# Windows — prerequisite: pip install pyinstaller (not in [dev])
+# Windows — sync the lock first; a removed pin is not uninstalled (#538).
+# Keep --all-extras --group build: a plain sync uninstalls PyInstaller/pytest.
+# UV_PROJECT_ENVIRONMENT targets the venv this recipe builds from (uv defaults to .venv).
+UV_PROJECT_ENVIRONMENT=venv uv sync --locked --python 3.11 --all-extras --group build --no-install-project
+venv/Scripts/python.exe -m installer.build_environment --strict
 venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
 ```
+
+`build_environment` compares the venv with `pylock.toml`; `ogp.spec` repeats the
+warning for a direct PyInstaller run, and `build_installer.py` before either.
+A stale runtime wheel can contribute DLLs even when the app never imports it, so
+`--strict` is the local gate form.
 
 Expected outcome: bundle at **`dist/OpenGardenPlanner/`** (~611 MiB in the local v1.29.6 build measured 2026-10-09; not a fixed limit)
 containing `OpenGardenPlanner.exe`. Intermediate files in `build/`.
@@ -268,7 +277,7 @@ makes it a merge gate rather than a post-mortem.
 | PyQt6-WebEngine pin | `PyQt6-WebEngine>=6.10.0,<6.11` in `pyproject.toml` | Pinned below 6.11 (satellite map picker uses QWebEngineView); do not bump casually |
 | mcp major pin | `mcp>=1.23,<2.0` | mcp v2 renames `FastMCP` → `MCPServer` (pyproject comment); `structured_output=False` behavior verified against mcp 1.28.1 |
 | Any new dependency | Re-run the exe build + `timeout 8` smoke **and `--selftest`** BEFORE merge | Frozen imports diverge from dev imports, and the smoke alone cannot see a subsystem that died silently (#291, #277) — see the `--selftest` section above (AGENTS.md Quick Reference) |
-| A dependency REMOVED from the lock | Re-sync the venv (`uv sync --locked …`, the from-scratch checklist) before building locally | Removing a pin does not uninstall its wheel; PyInstaller's Qt hooks collect the QML modules (and the DLLs their plugins need) of every Qt wheel installed. Measured in Phase 17 L1.10: a dev-venv build after dropping the old 3D view's runtime wheel still carried its eleven DLLs and its QML module; a locked-env build did not (ADR-048 closing addendum, PF-E3D-09) |
+| A dependency REMOVED from the lock | Re-sync the venv (`UV_PROJECT_ENVIRONMENT=venv uv sync --locked --all-extras --group build`, the from-scratch checklist) before building locally | Removing a pin does not uninstall its wheel; PyInstaller's Qt hooks collect the QML modules (and the DLLs their plugins need) of every Qt wheel installed. Measured in Phase 17 L1.10: a dev-venv build after dropping the old 3D view's runtime wheel still carried its eleven DLLs and its QML module; a locked-env build did not (ADR-048 closing addendum, PF-E3D-09) |
 | WebEngine import order | `PyQt6.QtWebEngineCore/Widgets/WebChannel` are explicit hiddenimports; the import must run before `QApplication` is created (handled in `main.py`) | Spec comment |
 
 ## Building the NSIS installer

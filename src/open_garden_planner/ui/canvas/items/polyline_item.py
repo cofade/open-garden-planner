@@ -27,9 +27,25 @@ from open_garden_planner.core.object_types import (
     get_style,
 )
 
-from .garden_item import GardenItemMixin
-from .path_style_paint import STYLES_PAINTED, PathStylePaint, style_paint_reach
+from .garden_item import GardenItemMixin, is_interactive_paint
+from .path_style_paint import (
+    STYLES_PAINTED,
+    PathStylePaint,
+    WalkBudget,
+    current_render_walk_cap,
+    style_paint_reach,
+)
 from .resize_handle import PolylineVertexEditMixin, RotationHandleMixin
+
+#: The most elements ONE interactive paint of a styled line may generate. A
+#: viewport at 100 % zoom holds far fewer (a 1200 x 800 cm window at the
+#: smallest preset spacing is about 40 000), so ordinary plans are never
+#: truncated; a 19 km line stopped generating its 475 001 elements outside the
+#: window (#450). The ground bake has its own per-tile budget in
+#: ``path_style_paint``.
+CANVAS_PATH_ELEMENTS = 65_536
+CANVAS_PATH_STEPS = 65_536
+CANVAS_PATH_DASHES = 131_072
 
 
 class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin, QGraphicsPathItem):
@@ -238,10 +254,91 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         # was: nothing is built for it.
         style = self._path_fence_style
         if style in STYLES_PAINTED:
-            PathStylePaint(self._points, self.pen(), self.path()).paint(painter, style)
+            clip = self._canvas_paint_clip(option, widget)
+            budget = WalkBudget(
+                CANVAS_PATH_ELEMENTS,
+                CANVAS_PATH_STEPS,
+                CANVAS_PATH_DASHES,
+            )
+            if clip is None:
+                clip = self._render_walk_clip()
+                if clip is not None:
+                    budget = current_render_walk_cap() or budget
+            if clip is None:
+                path_paint = PathStylePaint(self._points, self.pen(), self.path())
+            else:
+                path_paint = PathStylePaint(
+                    self._points,
+                    self.pen(),
+                    self.path(),
+                    clip=clip,
+                    budget=budget,
+                )
+            path_paint.paint(painter, style)
             self._paint_selection(painter, option)
         else:
             super().paint(painter, option, widget)
+
+    def _render_walk_clip(self) -> tuple[float, float, float, float] | None:
+        """A whole-item clip when a caller has capped a small-surface render.
+
+        ``scene.render`` for a thumbnail has no viewport to intersect with, so
+        the clip is the item's whole bounding rect; the cap is what bounds the
+        work. Returns None for an ordinary export, which paints every element.
+        """
+        if current_render_walk_cap() is None:
+            return None
+        rect = self.boundingRect()
+        reach = style_paint_reach(self.pen().widthF())
+        return (
+            rect.left() - reach,
+            rect.top() - reach,
+            rect.right() + reach,
+            rect.bottom() + reach,
+        )
+
+    def _canvas_paint_clip(
+        self,
+        option: QStyleOptionGraphicsItem,
+        widget: QWidget | None,
+    ) -> tuple[float, float, float, float] | None:
+        """The part of this line a live paint can expose, in item coordinates.
+
+        ``option.exposedRect`` is exact for an uncached paint, but Qt hands a
+        cached paint the item's whole bounding rect (and a 19 km line has a
+        19 km one). Intersect it with what the view actually shows, then grow
+        by the style's decoration reach so a stone at the edge is not clipped
+        away. An export/report/agent render disables caches first and keeps full
+        detail — this returns None for it (#450).
+
+        A clip and a budget travel together: the walk is clipped to what is
+        visible, and the budget is what stops a path that zigzags through the
+        whole viewport from costing an unbounded amount.
+        """
+        if not is_interactive_paint(self, widget):
+            return None
+        exposed = option.exposedRect
+        if not exposed.isValid() or exposed.isEmpty():
+            return None
+        clip = QRectF(exposed)
+        scene = self.scene()
+        if scene is not None and scene.views():
+            view = scene.views()[0]
+            viewport = view.viewport()
+            if viewport is not None:
+                visible = view.mapToScene(viewport.rect()).boundingRect()
+                item_visible = self.mapFromScene(visible).boundingRect()
+                if item_visible.isValid() and not item_visible.isEmpty():
+                    clip = clip.intersected(item_visible)
+        if not clip.isValid() or clip.isEmpty():
+            return None
+        reach = style_paint_reach(self.pen().widthF())
+        return (
+            clip.left() - reach,
+            clip.top() - reach,
+            clip.right() + reach,
+            clip.bottom() + reach,
+        )
 
     def _paint_shadow(self, painter: QPainter) -> None:
         """Paint drop shadow for the polyline."""
