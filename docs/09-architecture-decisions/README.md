@@ -6740,7 +6740,7 @@ the L0 measurements the look was accepted on).
 
 ### ADR-060 addendum: L1 follow-ups #537, #539, #541, #542
 
-**Status**: Accepted for implementation; owner acceptance pending.
+**Status**: Accepted; owner acceptance confirmed, shipped in [v1.30.19](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.19) via [PR #565](https://github.com/cofade/open-garden-planner/pull/565).
 
 Four small follow-ups from the L1.9/L1.10 review, shipped together:
 
@@ -6965,7 +6965,7 @@ leap/preferred days, range and atomic signals), and
 tests/integration/test_timeline_quick3d.py::test_minute_rollover_updates_presence_sun_and_3d_once
 (real midnight keypress, presence/builders/light, unchanged plan revision/history).
 
-**Status:** Accepted for implementation; owner acceptance pending.
+**Status:** Accepted; owner acceptance confirmed, shipped in [v1.30.19](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.19) via [PR #565](https://github.com/cofade/open-garden-planner/pull/565).
 
 ### ADR-062 addendum: actionable location prerequisite (PR #566 manual pass)
 
@@ -7029,7 +7029,7 @@ for real fonts on the dev box.
 
 ## ADR-063: Analyze in 3D — the 2D analysis on the 3D ground, sun path, info card v1, growth jump, Cutaway (Phase 17 L2, #386)
 
-**Status:** Accepted for implementation; owner acceptance pending.
+**Status:** Accepted; owner acceptance confirmed on 24 October 2026 (two manual passes), shipped in [v1.31.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.31.0) via [PR #584](https://github.com/cofade/open-garden-planner/pull/584).
 
 ### Context
 

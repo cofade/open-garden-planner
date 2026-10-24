@@ -13,7 +13,7 @@ Its detailed architecture follows [arc42](https://arc42.org/).
 | Garden models and services | Plant data, companion planting, crop rotation, succession, soil, weather, tasks, harvest, and journal records. |
 | Export services | Shared PNG, SVG, PDF, DXF, CSV, and shopping-list output used by GUI and Agent API surfaces. |
 | Agent API | Embedded loopback MCP server with main-thread dispatch. Reads and exports remain open locally. Editing requires explicit enablement and a token. |
-| Solar and 3D | Qt-free solar, shadow, growth, and 3D scene calculations (`core/scene3d/`); the 3D view is the Plan / 3D / Split workspace of the main window on Qt Quick 3D (Phase 17 L1, ADR-048 / ADR-059 / ADR-060), with the engine confined to one package. |
+| Solar and 3D | Qt-free solar, shadow, growth, and 3D scene calculations (`core/scene3d/`); the 3D view is the Plan / 3D / Split workspace of the main window on Qt Quick 3D (Phase 17 L1/L2, ADR-048 / ADR-059 / ADR-060 / ADR-063), with the engine confined to one package. |
 
 Since v1.30.14 (Phase 17 L1) the 3D view is the Qt Quick 3D workspace beside the plan; it follows every edit and casts shadow-map shadows checked against the 2D shadows. The Qt 3D viewer window it replaces is removed. Flat ground remains a current limitation. Since v1.31.0 (Phase 17 L2, ADR-063) its Analyze menu shows the 2D side's own shadow polygons and hours-of-sun map on the 3D ground; it never computes a second analysis.
 The 2D analytic shadow and sun-hours calculations are separate from the 3D renderer's lighting. Unknown plant heights can use labelled illustrative category heights in 3D; analytical heights remain unknown. Panel edit and history boundaries are documented in the runtime view and crosscutting section 8.32.
