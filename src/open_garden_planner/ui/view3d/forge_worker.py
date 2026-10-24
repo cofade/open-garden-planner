@@ -21,6 +21,7 @@ from ...core.plant_art import PLANT_KINDS
 from ...core.plant_forge import (
     DEFAULT_FORGE_CACHE,
     ForgeCache,
+    enrich_climber_records,
     forge_record,
     select_lod,
     validate_lod,
@@ -144,7 +145,8 @@ class ForgeWorker:
         if force_lod is not None:
             self._force_lod = validate_lod(force_lod)
 
-        plant_records = {r.item_id: r for r in records if r.kind in PLANT_KINDS}
+        enriched = enrich_climber_records(records)
+        plant_records = {r.item_id: r for r in enriched if r.kind in PLANT_KINDS}
 
         # Prune removed items
         for stale_id in list(self._latest_records):

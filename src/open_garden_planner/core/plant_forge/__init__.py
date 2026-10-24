@@ -38,6 +38,18 @@ from ..scene3d.builders.plants import (
 )
 from .assemble import PART_ACCENTS, PART_FOLIAGE, PART_WOOD, fit_forged_parts, silhouette_iou
 from .cache import DEFAULT_FORGE_CACHE, CacheKey, ForgeCache, make_cache_key
+from .climbers import (
+    CLIMBER_SUPPORT_MAX_DISTANCE_CM,
+    PARAM_CLIMBER_SUPPORT,
+    SUPPORT_BEAN_POLES,
+    SUPPORT_FENCE,
+    SUPPORT_KINDS,
+    SUPPORT_PERGOLA,
+    SUPPORT_TRELLIS,
+    build_forged_climber,
+    enrich_climber_records,
+    resolve_climber_support,
+)
 from .foliage import RawGeo, concat_geo, empty_geo, micro_leaves, palette_leaf_colors
 from .herbaceous import (
     GOLDEN_ANGLE,
@@ -76,10 +88,12 @@ from .woody import (
 )
 
 
-def _support_signature(support: Mapping[str, Any] | None) -> str:
+def _support_signature(support: Mapping[str, Any] | tuple[Any, ...] | None) -> str:
     if not support:
         return ""
-    return json.dumps(dict(support), sort_keys=True, separators=(",", ":"))
+    if isinstance(support, Mapping):
+        return json.dumps(dict(support), sort_keys=True, separators=(",", ":"))
+    return json.dumps(list(support), separators=(",", ":"))
 
 
 def forge_plant(
@@ -128,7 +142,8 @@ def forge_plant(
             return build_forged_ground(traits, h, r, seed, lod=lod)
         if traits.archetype == "flower":
             return build_forged_flower(traits, h, r, seed, lod=lod)
-        # Archetypes scheduled for L3.4 fall back to the fast v0 silhouette until forged
+        if traits.archetype == "climber":
+            return build_forged_climber(traits, h, r, seed, lod=lod, support=support)
         return build_silhouette(recipe_for(sprite), int(seed), h, r)
 
     if cache is None:
@@ -213,7 +228,16 @@ def forge_record(
     raw_seed = record.params.get(PARAM_SEED)
     seed = item_seed(str(raw_seed) if raw_seed is not None else "", "plant")
     support = record.params.get("climber_support")
-    support_map = support if isinstance(support, Mapping) else None
+    if isinstance(support, Mapping):
+        support_map: Mapping[str, Any] | None = support
+    elif isinstance(support, tuple) and len(support) >= 2:
+        support_map = {
+            "kind": str(support[0]),
+            "azimuth_deg": float(support[1]),
+            "distance_cm": float(support[2]) if len(support) >= 3 else 0.0,
+        }
+    else:
+        support_map = None
     return forge_plant(
         sprite,
         float(height),
@@ -226,6 +250,7 @@ def forge_record(
 
 
 __all__ = [
+    "CLIMBER_SUPPORT_MAX_DISTANCE_CM",
     "CacheKey",
     "DEFAULT_FORGE_CACHE",
     "ForgeCache",
@@ -240,13 +265,20 @@ __all__ = [
     "LOD2_TRIANGLE_BUDGET",
     "LOD_LEVELS",
     "LOD_TRIANGLE_BUDGETS",
+    "PARAM_CLIMBER_SUPPORT",
     "PART_ACCENTS",
     "PART_FOLIAGE",
     "PART_WOOD",
     "RawGeo",
+    "SUPPORT_BEAN_POLES",
+    "SUPPORT_FENCE",
+    "SUPPORT_KINDS",
+    "SUPPORT_PERGOLA",
+    "SUPPORT_TRELLIS",
     "Skeleton",
     "bark_linear_rgba",
     "build_forged_allium",
+    "build_forged_climber",
     "build_forged_conifer",
     "build_forged_feathery",
     "build_forged_flower",
@@ -262,6 +294,7 @@ __all__ = [
     "concat_geo",
     "cylinder_geo",
     "empty_geo",
+    "enrich_climber_records",
     "fit_forged_parts",
     "forge_plant",
     "forge_record",
@@ -273,6 +306,7 @@ __all__ = [
     "make_cache_key",
     "micro_leaves",
     "palette_leaf_colors",
+    "resolve_climber_support",
     "select_lod",
     "silhouette_iou",
     "triangle_budget_for_lod",
